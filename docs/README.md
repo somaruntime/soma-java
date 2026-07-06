@@ -1,15 +1,13 @@
 # soma_java 正式设计文档索引
 
-本目录保存 Java-only SOMA 原型的正式设计文档。
+本目录保存 Java-only SOMA 原型的根级正式设计文档。根级文档负责项目边界、跨模块架构、跨模块 API 契约、验证门禁和文档治理；模块内部事实应进入对应模块的 `docs/`。
 
 ## 当前正式设计文档
 
 - [架构设计](architecture.md)
-- [Java annotation schema 契约](annotation-schema-contract.md)
-- [Java runtime core 契约](java-runtime-core-contract.md)
-- [Java codegen 契约](codegen-contract.md)
 - [Row Pipeline API 契约](row-pipeline-api-contract.md)
 - [V1 验证门禁](validation-gates.md)
+- [文档治理规则](documentation-governance.md)
 
 ## 模块文档入口
 

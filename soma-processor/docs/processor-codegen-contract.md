@@ -56,7 +56,8 @@ addBatch(batch)
 replaceAll(batch)
 clear()
 count()
-fetchFirst()
+findFirst()
+firstOrThrow()
 fetchAll()
 rows()
 filter(predicate)
@@ -89,7 +90,7 @@ Keyed table 和 dense table 必须分开：
 - dense table 不暴露 stable key；
 - dense table 用于 packed scan、row-index iteration、矩阵/数组型 runtime state 和 solver workspace；
 - dense row index 只对 terminal execution 的 table state 有效；
-- `fetchFirst` / `fetchAll` materialize DTO detached copy，不暴露 live row pointer。
+- `findFirst` / `firstOrThrow` / `fetchAll` materialize DTO detached copy，不暴露 live row pointer。
 
 ## 5. Batch API
 

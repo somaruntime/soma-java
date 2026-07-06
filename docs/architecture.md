@@ -126,7 +126,7 @@ Java annotation DTO class 同时是 schema source 和 materialized DTO contract�
 - processor 输出 normalized schema model、schema hash 和 generated Java source；
 - runtime table 使用 generated storage class 和 `soma-runtime-core` primitive structures；
 - hot loop 不创建 schema source class instance；
-- `fetch(key)` / `fetchFirst()` / `fetchAll()` materialize DTO detached copy，不是 live row proxy；
+- `fetch(key)` / `findFirst()` / `firstOrThrow()` / `fetchAll()` materialize DTO detached copy，不是 live row proxy；
 - ColumnView 是 live readonly view，必须有 owner holding 和 lifecycle rule。
 
 ## 7. Generated API 用户模型

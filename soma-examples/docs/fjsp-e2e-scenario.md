@@ -44,7 +44,7 @@ request DTO or protobuf adapter
 - dense table；
 - table-level index；
 - table-level order；
-- lazy generated view；
+- Row Pipeline lazy terminal；
 - ColumnView。
 
 ## 4. Dispatch flow
@@ -77,7 +77,7 @@ request DTO or protobuf adapter
 - `containsKey(key)`；
 - generated order access；
 - generated optional presence predicate；
-- lazy view `take` / `fetchFirst`；
+- Row Pipeline `findFirst()` / `firstOrThrow()`；
 - dense table workspace `replaceAll(batch)`；
 - `mutate(key).field(...).commit()`；
 - `delete(key)` if scenario includes deletion；
@@ -130,7 +130,7 @@ G5 examples report 应记录：
 - Java 8 smoke command；
 - request boundary -> loader -> generated tables -> solver core -> exporter -> response boundary 完整路径；
 - ordered access evidence；
-- lazy terminal evidence；
+- Row Pipeline lazy terminal evidence；
 - ColumnView evidence；
 - stale/released/view_pinned evidence；
 - runtime stats evidence；

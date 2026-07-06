@@ -994,9 +994,9 @@ public final class PendingDamageRow {
 | 连续仿真 | `Tank`、`Valve` | `FlowCoefficient` | `StateVectorRow`、`TraceSampleRow` | `PendingEventRow` | state vector / event queue 是 dense runtime data |
 | Game | `Player`、`GameUnit` | `AbilityCost` | `MapTileRow` | `MoveCandidateRow`、`PendingDamageRow` | SOMA 可承载 game hot state，但不是 ECS / engine |
 
-## 8. 对 annotation contract 的反向约束
+## 8. 对正式契约的覆盖说明
 
-四个示例反向确认 `soma_java` V1 annotation contract 的几个边界是必要的：
+四个示例覆盖并验证 `soma_java` V1 annotation contract 的几个边界。示例文档不拥有 annotation contract；如果示例与正式契约冲突，以 `soma-annotations/docs/annotation-schema-contract.md` 为准。
 
 - `@SomaField` 比 `@SomaColumn` 更符合 Java DTO schema source；column 是 runtime flatten 之后的物理概念；
 - `@SomaKey` 必须是 table direct field 的 logical identity，value key 足以表达 composite key；

@@ -1,10 +1,10 @@
 # soma_java
 
-`soma_java` 是 SOMA Java-only 方向的原型项目。当前目标是先建立 Java annotation schema + Java columnar runtime 的设计和工程骨架，不写实现代码。
+`soma_java` 是 SOMA Java-only 方向的原型项目。当前目标是先建立 Java annotation schema + Java columnar runtime 的正式设计文档、工程骨架和验证门禁。
 
 ## 当前状态
 
-本仓库目前只初始化项目骨架、Maven reactor、文档目录和 Git。后续实现前应先完成正式设计文档。
+本仓库目前只初始化项目骨架、Maven reactor、文档目录和 Git。正式设计入口见 [docs/README.md](docs/README.md)；模块内部事实以各模块 `docs/` 为准。
 
 ## 模块
 

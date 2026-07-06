@@ -287,7 +287,7 @@ Runtime benchmark smoke 至少观察：
 - batch import with reserve；
 - batch import without enough capacity；
 - ordered access lazy rebuild；
-- dense table replaceAll + ordered fetchFirst；
+- dense table replaceAll + ordered `findFirst` / `firstOrThrow`；
 - ColumnView acquire/read/release。
 
 Benchmark smoke 只证明工具链和场景可运行；性能优势声明必须另有 baseline、规模、环境、重复次数和统计口径。

@@ -12,7 +12,7 @@
 Java annotation schema
   -> Java 8 annotation processor
   -> normalized schema model / schema hash
-  -> generated Table / Batch / Record / View / ColumnView
+  -> generated Table / Batch / Row Pipeline / DTO materialization / ColumnView
   -> Java columnar runtime kernel
   -> examples / benchmark / gate evidence
 ```
@@ -38,7 +38,7 @@ Java annotation schema
 
 文档、报告和代码注释默认使用中文。API 名称、类型名、包名、Maven 坐标、文件路径、命令和机器可读文本可以保留英文。
 
-Formal design facts live under `docs/`. Temporary drafts live under `docs/temp/`. Formal reports live under `reports/`. Temporary reports live under `reports/temp/`.
+Root-level formal design facts live under `docs/`. Module-owned formal design facts live under `<module>/docs/`. Temporary drafts live under `docs/temp/` or `<module>/docs/temp/`. Formal reports live under `reports/` or `<module>/reports/`. Temporary reports live under `reports/temp/` or `<module>/reports/temp/`.
 
 ## Git Governance
 

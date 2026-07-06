@@ -140,7 +140,7 @@ Benchmark smoke 不等于性能优势声明。任何“更快”“更省内存�
 - batch import with reserve；
 - batch import without enough capacity；
 - ordered access lazy rebuild；
-- dense scratch replace + ordered fetchFirst；
+- dense scratch replace + ordered `findFirst` / `firstOrThrow`；
 - ColumnView acquire/read/release。
 
 ## 10. Release claim boundary
