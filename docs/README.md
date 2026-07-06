@@ -5,6 +5,7 @@
 ## 当前正式设计文档
 
 - [架构设计](architecture.md)
+- [领域术语表](domain-glossary.md)
 - [Row Pipeline API 契约](row-pipeline-api-contract.md)
 - [V1 验证门禁](validation-gates.md)
 - [文档治理规则](documentation-governance.md)

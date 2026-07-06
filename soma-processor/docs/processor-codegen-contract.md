@@ -102,7 +102,7 @@ Generated batch 是 construction/import boundary。
 - batch 可以估算 row count；
 - table `addBatch` 可根据 batch size reserve；
 - child table import 使用 unattached child batch，但 lookup data 不应默认建成 child table；
-- batch 不承担 key uniqueness 的最终事实，table import 时仍需 runtime sidecar validation。
+- batch 不承担 key uniqueness 的最终事实，table import 时仍需 runtime `KeySpace` / `AccessStructures` validation。
 
 ## 6. DTO materialization API
 

@@ -35,11 +35,12 @@ V1 当前事实源归属：
 | 事实类型 | 正式位置 |
 |---|---|
 | 项目边界、模块结构、依赖方向、release claim 边界 | `docs/architecture.md` |
+| 跨模块领域术语、public/runtime/internal 词汇边界 | `docs/domain-glossary.md` |
 | Row Pipeline / generated Soma API 用户模型 | `docs/row-pipeline-api-contract.md` |
 | V1 gate、evidence、package smoke、benchmark smoke 边界 | `docs/validation-gates.md` |
 | Java annotation schema、annotation 语义、类型系统、schema hash | `soma-annotations/docs/annotation-schema-contract.md` |
 | annotation processing、validation、normalized model、codegen | `soma-processor/docs/processor-codegen-contract.md` |
-| Java columnar runtime kernel、sidecar、lifecycle、runtime errors | `soma-runtime-core/docs/runtime-core-contract.md` |
+| Java columnar runtime kernel、`TableStore` 组合模型、lifecycle、runtime errors | `soma-runtime-core/docs/runtime-core-contract.md` |
 | examples 场景和 E2E smoke 边界 | `soma-examples/docs/` |
 | testkit helper 契约 | 待设计 |
 | benchmark runner / evidence schema | 待设计 |
@@ -83,3 +84,17 @@ V1 当前事实源归属：
 - release claim 是否允许引用该报告。
 
 Benchmark smoke 只能证明工具链和场景可运行。任何性能优势声明都必须有 baseline、规模、环境、重复次数、统计口径和可复现命令。
+
+## 7. 命名与抽象原则
+
+核心抽象必须先获得清晰、正向、边界明确的名称，再进入正式实现或契约文档。命名不是表面修饰，而是抽象是否成立的审查手段。
+
+如果一个核心抽象只能通过“非 X”“无 X”“类似 X 但不是 X”来解释，或者需要用某个内部数据结构代表整个对象，应先重新审查抽象边界，不应急于落地实现。
+
+命名审查至少检查：
+
+- 名称是否说明该抽象拥有的职责；
+- 名称是否避免把实现细节误提升为产品概念；
+- 名称是否与 public/generated API、schema annotation 和 runtime internal 术语边界一致；
+- 名称是否能自然区分 logical identity、physical slot、traversal order 和 access sidecar；
+- 名称是否能承载 V1 已定能力，而不是暗示缩水版实现。

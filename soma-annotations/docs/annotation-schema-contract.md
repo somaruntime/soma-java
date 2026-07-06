@@ -13,7 +13,7 @@ Java annotation schema 取代 `.soma` text IDL，作为 `soma_java` V1 的唯一
 - schema source：annotation processor 从 package、DTO class、field 和 annotation 中生成 normalized schema model；
 - materialized DTO contract：runtime `fetch(key)`、snapshot 或 export 直接返回 DTO 对象。
 
-SOMA runtime 的热路径存储不以 DTO object graph 为基础，而以 columnar storage、presence bitmap、index/order sidecar 和 child table storage 为基础。DTO 是用户侧 schema source 与 materialized DTO object，不是 runtime hot layout 本身，也不是 live row proxy。V1 不引入独立 `Record` public API，也不提供 `fetchDto()`；用户侧保持 `fetch(key)` 返回 DTO 的简单模型。
+SOMA runtime 的热路径存储不以 DTO object graph 为基础，而以 `ColumnStore`、presence bitmap、`KeySpace`、`AccessStructures` 和 child table storage 为基础。DTO 是用户侧 schema source 与 materialized DTO object，不是 runtime hot layout 本身，也不是 live row proxy。V1 不引入独立 `Record` public API，也不提供 `fetchDto()`；用户侧保持 `fetch(key)` 返回 DTO 的简单模型。
 
 SOMA 在本项目中的定义是运行时高性能数据容器。它主要覆盖三类长生命周期 runtime state：
 
@@ -200,7 +200,7 @@ Keyed table 有 stable logical key。
 - keyed table 必须有且只有一个 logical key；
 - key 可以是 scalar、semantic scalar、enum 或 value；
 - 复合业务身份通过 value key 表达；
-- primary key index 是 keyed table 的基础 sidecar；
+- primary key lookup 是 keyed table 的基础能力；runtime internal 由 `KeySpace` 承载，不作为普通 secondary index sidecar 暴露给 schema/API；
 - key equality 由 normalized key leaf path 和 storage type 决定。
 
 ### 6.2 Dense table

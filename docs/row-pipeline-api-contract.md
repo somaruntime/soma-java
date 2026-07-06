@@ -43,6 +43,8 @@ V1 用户面对的是同一个 generated table facade，但 API 应按职责分�
 - 需要单列热路径时优先使用 Column Pipeline；需要 explicit acquire/release、view pinned 语义或底层循环时再使用 ColumnView；
 - `@SomaIndex` / `@SomaOrder` 生成的是 Row Pipeline source method，不引入独立 query DSL。
 
+Runtime internal 可把默认 scan、index source、order source 和 dynamic sorted source 理解为不同 `AccessPath`。`AccessPath` 只决定 terminal 开始时的初始 row sequence，不改变 public Row Pipeline API，也不暴露 sidecar handle。
+
 ## 3. 用户模型
 
 每张 generated table 本身就是默认 Row Pipeline source：
@@ -165,7 +167,7 @@ Dense table 的 row-index direct API 主要解决定位语义；如果是在热�
 
 ## 6. Source methods
 
-Source method 只决定 terminal 开始时的初始 row id 序列，不改变后续 pipeline API。
+Source method 只决定 terminal 开始时的初始 row sequence，不改变后续 pipeline API。Runtime internal 可以将 source method 映射为 `AccessPath`，由 `AccessPath` 产生本次 terminal 的 `RowSequence`。
 
 默认 source：
 
@@ -190,7 +192,7 @@ particles.findByCell(cellId)
 operations.findByJobSequence(jobId, sequenceNo)
 ```
 
-语义：使用 maintained index / unique sidecar 生成候选 row id 序列。后续仍可继续 `filter`、`sorted`、`limit`、`forEach`、`update` 或 `remove`。
+语义：使用 maintained index / unique sidecar 生成候选 `RowSequence`。后续仍可继续 `filter`、`sorted`、`limit`、`forEach`、`update` 或 `remove`。
 
 命名规则：`@SomaIndex(name = "by_cell", ...)` 推荐生成 `findByCell(...)`；如果 index selector 是 `cellId`，也可以生成更完整的 `findByCellId(...)`，最终命名由 generated API name collision rule 和 golden case 固化。
 
@@ -204,7 +206,7 @@ operations.byDispatchOrder()
 processingTimes.byOperationSpt(operationKey)
 ```
 
-语义：使用 maintained order sidecar 生成有序 row id 序列。Grouped order source 可以由 `@SomaOrder` 的 selector prefix 生成。
+语义：使用 maintained order sidecar 生成有序 `RowSequence`。Grouped order source 可以由 `@SomaOrder` 的 selector prefix 生成。
 
 Source method 是性能入口，不是能力边界。没有 index/order source 时，用户仍然可以从 table 默认 source 开始 scan、filter 和 dynamic sort。
 
@@ -227,7 +229,7 @@ particles.findByCell(cellId)
     .update(p -> p.setVisible(true));
 ```
 
-`sorted(comparator)` 表示 dynamic sort。它不移动真实 column storage，推荐实现为 row-id permutation 或 top-k row-id buffer。它不等同于 `@SomaOrder` maintained order sidecar。
+`sorted(comparator)` 表示 dynamic sort。它不移动真实 column storage，推荐实现为 row-index permutation 或 top-k row-index buffer。它不等同于 `@SomaOrder` maintained order sidecar。
 
 排序规则：
 
@@ -260,7 +262,7 @@ rowIndexes()
 - `findFirst()` materialize 第一个 matching DTO，返回 `Optional<DTO>`；
 - `firstOrThrow()` materialize 第一个 matching DTO，空结果时抛 typed runtime error；
 - `fetchAll()` materialize DTO list，用于 API boundary、export、debug 或测试；
-- `rowIndexes()` 返回本次 pipeline 的 current packed row index / row id 列表，适合 dense table、底层调试或和 ColumnView 配合；row index 不是 stable business identity。
+- `rowIndexes()` 返回本次 pipeline 的 current packed row index 列表，适合 dense table、底层调试或和 ColumnView 配合；row index 不是 stable business identity。
 
 命名规则：
 
@@ -286,7 +288,7 @@ RemoveResult remove()
 - `RemoveResult` 至少记录 scanned rows、matched rows、removed rows 和 compaction / sidecar maintenance cost hint；
 - `matched rows` 表示进入 terminal action 的 row 数量；`changed rows` 表示至少一个 field 实际发生值变化的 row 数量；
 - 修改 index/order selector 字段时，runtime 可以延迟到 terminal end 统一维护 sidecar；
-- mutation terminal 执行期间，candidate row id 序列按 terminal 开始时的 current state 和 source/intermediate plan 确定，不因本次 terminal 内部 update 重新进入 filter、sort、index 或 order source。
+- mutation terminal 执行期间，candidate `RowSequence` 按 terminal 开始时的 current state 和 source/intermediate plan 确定，不因本次 terminal 内部 update 重新进入 filter、sort、index 或 order source。
 
 ## 9. Key Pipeline and Column Pipeline
 
@@ -382,7 +384,7 @@ V1 可以声明 Row Pipeline 具备以下性能基础：
 - primitive field getter / setter 直接访问 column storage；
 - table 默认 source 对 dense table 和 packed keyed table 是连续 row scan；
 - generated index/order source 直接使用 maintained sidecar；
-- dynamic `sorted` 使用 row-id buffer，不重排 column storage；
+- dynamic `sorted` 使用 row-index buffer，不重排 column storage；
 - `update` terminal 可以批量维护 dirty index/order sidecar；
 - generated row cursor 和 callback path 应避免 reflection、boxing 和 per-row lambda adapter allocation。
 
@@ -576,7 +578,7 @@ Processor / codegen 至少需要保证：
 
 Runtime core 至少需要支持：
 
-- row id iteration over packed storage；
+- row index iteration over packed storage；
 - dense table row-index direct access and diagnostics；
 - cursor binding / rebinding；
 - primitive column getter / setter；
@@ -584,8 +586,8 @@ Runtime core 至少需要支持：
 - one-shot pipeline consumed state；
 - update terminal sidecar maintenance；
 - structural mutation conflict detection；
-- mutation terminal candidate row id stability；
-- deterministic dynamic row-id sorting buffer；
+- mutation terminal candidate `RowSequence` stability；
+- deterministic dynamic row-index sorting buffer；
 - released table / stale access / view pinned error；
 - key pipeline and column pipeline traversal；
 - `UpdateResult` / `RemoveResult` stats collection；
@@ -605,6 +607,6 @@ V1 Row Pipeline 不做：
 - thread-safe table traversal；
 - cross-table mutation transaction；
 - user-visible row pointer or row proxy object graph；
-- public custom `RowSource` extension API。
+- public custom `AccessPath` extension API。
 
-未来如果需要用户自定义高性能查找或排序入口，可以在不改变 Row Pipeline 用户模型的前提下引入受控的 custom row selection API。但 V1 只保留 runtime 内部 `RowSource` 抽象，不把 row pointer、sidecar handle 或任意 row id provider 暴露为 public contract。
+未来如果需要用户自定义高性能查找或排序入口，可以在不改变 Row Pipeline 用户模型的前提下引入受控的 custom row selection API。但 V1 只保留 runtime 内部 `AccessPath` 抽象，不把 row pointer、sidecar handle 或任意 row sequence provider 暴露为 public contract。

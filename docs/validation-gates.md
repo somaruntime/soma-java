@@ -22,7 +22,7 @@ V1 readiness 不能由单元测试通过、示例能跑或本机 demo 成功单�
 | G0 | Java-only scope freeze | architecture、non-goals、module owner、release claim boundary 已进入正式文档 |
 | G1 | annotation schema gate | annotation cases、type cases、single logical key cases、schema hash cases、breaking change diagnostics |
 | G2 | processor/codegen gate | validation tests、normalized model golden、schema hash golden、deterministic generated output、diagnostic golden cases |
-| G3 | runtime core gate | primitive column、optional bitmap、sparse set、key/index/unique/order sidecar、row move、batch import/export、DTO materialization、Row Pipeline、ColumnView、runtime stats tests |
+| G3 | runtime core gate | `TableStore`、`RowSpace`、`KeySpace`、`ColumnStore`、optional bitmap、`AccessStructures`、`AccessPath`、row move、batch import/export、DTO materialization、Row Pipeline、ColumnView、lifecycle/runtime stats tests |
 | G4 | generated API/package gate | Java 8 generated API compile/run、table-first API smoke、package smoke、schema hash metadata check、runtime compatibility check |
 | G5 | examples/benchmark gate | Java 8 FJSP-style E2E smoke、ordered source、Row Pipeline terminal、stale/released/view_pinned 可观察、benchmark smoke JSONL |
 | G6 | release readiness gate | release notes、install instructions、artifact checksums、known limitations、gate report 汇总、回滚/撤回策略 |

@@ -12,15 +12,50 @@ Runtime core 的目标：
 
 ```text
 schema-known long-lived runtime state
-+ keyed / dense table storage
++ TableStore composition model
 + packed primitive/object columns
 + optional bitmap
 + batch boundary
-+ access sidecar
++ access structures / access paths
 + predictable materialization
 ```
 
-## 2. Column storage
+## 2. Runtime internal table model
+
+Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime internal storage。Public/generated API 仍只暴露 keyed table 和 dense table 两类 table kind；runtime internal 不使用 `Sparse Table` / `Unkeyed Sparse Table` 作为顶层抽象。
+
+```text
+XxxTable
+  -> XxxTableStore
+       -> TableLayout
+       -> RowSpace
+            -> KeySpace        // keyed table only
+       -> ColumnStore
+       -> AccessStructures
+       -> AccessPath
+       -> MutationCoordinator
+       -> LifecycleState
+```
+
+核心职责：
+
+| 组件 | 职责 |
+|---|---|
+| `TableStore` | 一张 generated table 的 runtime internal aggregate owner |
+| `TableLayout` | schema hash、field layout、column binding、selector metadata |
+| `RowSpace` | row membership、`RowSlot` 分配、packed slot 有效性规则 |
+| `KeySpace` | keyed table 才有的 `RowKey -> RowSlot` 身份定位结构 |
+| `ColumnStore` | primitive/object columns、presence bitmap、capacity 和 slot-level payload |
+| `AccessStructures` | secondary index、unique index、order sidecar 等被维护的访问结构 |
+| `AccessPath` | default scan、index source、order source 等 Row Pipeline source 的内部执行入口 |
+| `MutationCoordinator` | batch、replaceAll、delete、row move、sidecar dirty/rebuild、epoch 协调 |
+| `LifecycleState` | epoch、active view、released、stats、typed lifecycle errors |
+
+Public keyed table 映射为 `TableStore + RowSpace + KeySpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。
+
+Public dense table 映射为 `TableStore + RowSpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。Dense table 没有 `KeySpace`，但仍保留 ColumnView、Row Pipeline、DTO materialization、secondary index/order、lifecycle 和 typed errors。
+
+## 3. ColumnStore
 
 每个 generated table instance 使用 packed row storage：
 
@@ -30,7 +65,7 @@ schema-known long-lived runtime state
 - optional field 使用 presence bitmap 加 payload column 或 handle column；
 - string V1 baseline 使用 `String[]` payload column，后续可引入 string pool；
 - table-typed field 使用 child table handle/reference column；
-- row index 是当前 packed storage 内的位置，不是 stable business identity。
+- `RowSlot` 是当前 packed storage 内的位置，不是 stable business identity。Public dense table direct API 中的 row index 映射到当前 `RowSlot`。
 
 V1 runtime core 至少提供：
 
@@ -47,14 +82,14 @@ V1 runtime core 至少提供：
 
 Column implementation 是 internal API，generated public API 不暴露 column mutation primitive。
 
-## 3. Table kind storage
+## 4. Public table kind mapping
 
-Runtime core 只承载两类 table：keyed table 和 dense table。
+Runtime core 必须支持 public/generated API 的两类 table：keyed table 和 dense table。二者共享 `TableStore` 组合模型，区别在于是否存在 `KeySpace`。
 
 Keyed table：
 
 - 有 stable logical key；
-- 必须维护 primary key index sidecar；
+- 必须维护 `KeySpace`，用于 `RowKey -> RowSlot`；
 - 支持 duplicate key detection、`fetch(key)`、`containsKey(key)`、`mutate(key)` 和 `delete(key)`；
 - 适合 entity state、lookup table 和唯一性约束。
 
@@ -68,7 +103,7 @@ Dense table：
 
 Runtime core 不把短生命周期 Java 临时对象作为优化目标。dense workspace 的价值在于复用 column capacity、批量刷新和 sidecar access，而不是替代普通局部对象。
 
-## 4. Optional bitmap
+## 5. Optional bitmap
 
 Optional presence 使用 `long[]` word bitmap：
 
@@ -87,21 +122,26 @@ row_index -> words[row_index / 64] bit (row_index % 64)
 - runtime 维护 `presentCount` 或等价 metadata；
 - generated predicate 支持 all-present、all-absent、mixed chunk scan。
 
-## 5. Key and hash index
+## 6. KeySpace and primary key lookup
 
-Keyed table 必须有 primary key index sidecar。
+Keyed table 必须有 `KeySpace`。Primary key lookup 属于 table identity / row 定位，不作为普通 secondary index sidecar 处理。
 
 查找语义：
 
 ```text
-key leaf values -> normalized hash -> bucket -> full key equality -> row index
+RowKey leaf values -> KeySpace -> RowSlot
 ```
 
-V1 自研 primitive hash index：
+V1 至少支持以下 `KeySpace` 实现材料：
 
-- int key -> row；
-- long key -> row；
-- generated composite key -> row；
+- `SparseIntKeySpace`：bounded int id，使用 sparse-set-style `dense[] + sparse[]`；
+- `HashKeySpace`：int / long / generated composite key，使用 hash-based key lookup。
+
+`HashKeySpace` 至少支持：
+
+- int key -> `RowSlot`；
+- long key -> `RowSlot`；
+- generated composite key -> `RowSlot`；
 - open addressing；
 - not-found sentinel；
 - duplicate key detection；
@@ -111,9 +151,9 @@ V1 自研 primitive hash index：
 
 Hash value、bucket layout 和 probing strategy 是 internal implementation detail，不进入 generated public API、DTO 或 schema hash。
 
-## 6. Sparse set
+## 7. SparseIntKeySpace / sparse set material
 
-V1 提供 self-owned sparse set，用于 bounded int id 或 dense membership 场景：
+V1 提供 self-owned sparse-set-style material，用于 `SparseIntKeySpace` 或 bounded int id membership 场景：
 
 ```text
 dense[]
@@ -122,7 +162,7 @@ size
 contains(id) = sparse[id] < size && dense[sparse[id]] == id
 ```
 
-Sparse set 负责：
+该结构负责：
 
 - add；
 - remove；
@@ -132,15 +172,17 @@ Sparse set 负责：
 - capacity growth；
 - deterministic iteration order as stored in dense array。
 
-Sparse set 是 runtime internal structure，不作为 public generated collection 暴露。
+Sparse Set 是 runtime internal implementation material，不是 table 本体，不作为 public generated collection 暴露。
 
-## 7. Secondary index and unique index
+## 8. AccessStructures: secondary index / unique index
 
-V1 index sidecar 分为：
+V1 `AccessStructures` 至少承载：
 
-- primary key index；
 - secondary non-unique index；
-- secondary unique index。
+- secondary unique index；
+- order sidecar。
+
+Primary key lookup 由 `KeySpace` 承载，不列为普通 secondary index。
 
 规则：
 
@@ -152,7 +194,7 @@ V1 index sidecar 分为：
 
 V1 可先实现 primary key 和 order，secondary index/unique 按 gate 优先级逐步补齐，但正式 release claim 只能引用已验证能力。
 
-## 8. Order sidecar
+## 9. AccessStructures: order sidecar
 
 `order` 是 table-level ordered access contract，不改变 packed storage physical row order。
 
@@ -172,7 +214,20 @@ orderDirty = boolean
 - order sidecar 不进入 DTO、ColumnView 或 public API；
 - ordered access 返回 key buffer、row index buffer 或 materialized DTO。
 
-## 9. Batch boundary
+## 10. AccessPath
+
+`AccessPath` 是 Row Pipeline source 的内部执行入口。它只决定 terminal 开始时的初始 `RowSequence`，不改变 table storage 本体。
+
+V1 至少需要：
+
+- default scan path：遍历当前 packed rows；
+- index path：从 maintained secondary index / unique index 产生候选 rows；
+- order path：从 maintained order sidecar 产生 ordered rows；
+- dynamic sorted path：基于本次 pipeline comparator 生成临时 row permutation。
+
+`AccessPath` 不进入 public API。Generated `findByXxx(...)`、`byXxx(...)` 和默认 table source 是 public/generated API 表达；runtime internal 可映射到对应 `AccessPath`。
+
+## 11. Batch boundary
 
 `reserve`、`addBatch` 和 `replaceAll` 是 V1 性能边界。
 
@@ -185,7 +240,7 @@ orderDirty = boolean
 - per-row append 不是默认 import 路径；
 - allocation failure 或 memory limit exceeded 必须映射为可区分错误。
 
-## 10. DTO materialization / buffer / ColumnView
+## 12. DTO materialization / buffer / ColumnView
 
 Runtime 必须区分：
 
@@ -199,7 +254,7 @@ Runtime 必须区分：
 
 ColumnView 必须强持有 owner table 或 storage owner。close/release 后继续读取必须返回 released_view 类错误。
 
-## 11. Epoch and lifecycle
+## 13. Epoch and lifecycle
 
 Runtime table 至少维护：
 
@@ -217,7 +272,7 @@ Runtime table 至少维护：
 - released view 和 stale view 是不同错误；
 - destroy/clear 必须避免 use-after-release 语义。
 
-## 12. Mutation 分类
+## 14. Mutation 分类
 
 Mutation 分为：
 
@@ -228,7 +283,7 @@ Mutation 分为：
 
 如果实现无法证明 mutation 不影响 ColumnView 所依赖的 storage，应按 structural mutation 处理。
 
-## 13. Runtime errors
+## 15. Runtime errors
 
 Runtime errors 至少区分：
 
@@ -247,7 +302,7 @@ Runtime errors 至少区分：
 
 这些错误不能压缩成 generic runtime exception，否则用户无法判断 schema、生命周期、资源还是调用顺序问题。
 
-## 14. Memory reporting
+## 16. Memory reporting
 
 Java-only V1 不使用 native memory tracker。它使用 heap memory estimate / runtime stats：
 
@@ -261,7 +316,7 @@ Java-only V1 不使用 native memory tracker。它使用 heap memory estimate / 
 
 该估算用于 diagnostics、benchmark smoke 和 package smoke，不等同于 JVM 精确 heap profiler。
 
-## 15. Concurrency boundary
+## 17. Concurrency boundary
 
 V1 runtime table 默认是 synchronous single-owner object。
 
@@ -275,7 +330,7 @@ V1 runtime table 默认是 synchronous single-owner object。
 
 跨线程共享 table 或 ColumnView 时，上层 application model 必须自行保证 ownership、synchronization 和 lifecycle。
 
-## 16. Performance evidence boundary
+## 18. Performance evidence boundary
 
 Runtime benchmark smoke 至少观察：
 

@@ -21,7 +21,7 @@ Java annotation schema
 
 - `soma-annotations` owns public schema annotation API.
 - `soma-processor` owns annotation processing, validation, normalized schema model, schema hash, and code generation.
-- `soma-runtime-core` owns Java columnar runtime kernel, primitive columns, bitmap, sparse set, indexes, order sidecar, lifecycle, and runtime errors.
+- `soma-runtime-core` owns Java columnar runtime kernel, `TableStore` composition model, primitive columns, bitmap, `KeySpace`, `AccessStructures`, `AccessPath`, lifecycle, and runtime errors.
 - `soma-testkit` owns compile/golden/runtime invariant test helpers.
 - `soma-examples` owns Java 8 usage examples and end-to-end smoke scenarios.
 - `soma-benchmarks` owns benchmark scenarios and evidence collection.
@@ -31,6 +31,8 @@ Java annotation schema
 - Java annotation schema is schema source only; it must not become runtime row storage.
 - Generated runtime must be table-first and columnar, not `List<DTO>` hot-loop storage.
 - Public/generated APIs must not expose runtime sidecars, hash buckets, bitmap words, allocator policy, or internal row pointers.
+- Core abstractions must have clear, positive names before they enter implementation or formal contracts; if a name only works as "non-X", "unkeyed-X", or by elevating one internal data structure to the whole concept, revisit the abstraction boundary first.
+- Runtime internal table design follows the `TableStore` composition model: `RowSpace`, `KeySpace`, `ColumnStore`, `AccessStructures`, `AccessPath`, `MutationCoordinator`, and `LifecycleState`; public API terminology remains keyed table / dense table.
 - No third-party dependencies should be added before an explicit design decision.
 - Keep Java 8 compatibility unless a formal design document changes the baseline.
 

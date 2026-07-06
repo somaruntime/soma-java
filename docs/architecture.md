@@ -42,7 +42,7 @@ V1 的北极星是：
 ```text
 Java 8 用户用 annotation class 定义运行时状态 schema，
 annotation processor 生成 table-first Java API，
-底层由 Java primitive column、bitmap、index sidecar 和 order sidecar 承载 hot runtime state，
+底层由 `TableStore` 组合模型、Java primitive column、bitmap、`KeySpace`、`AccessStructures` 和 `AccessPath` 承载 hot runtime state，
 并把 table 明确收敛为 keyed table 与 dense table 两类。
 ```
 
@@ -67,6 +67,28 @@ V1 table 只分为两类：
 
 Child table 是 parent-owned ownership shape，不是第三种 table kind。它只适合 parent row 拥有 child table 生命周期的场景；FJSP 中的 operation-machine processing time 应建成独立 keyed lookup table，不应作为 `Operation` 的 child table。
 
+Public table kind 不等同于 runtime internal 继承层级。Runtime 内部按 `TableStore` 组合模型实现 table：
+
+```text
+XxxTable
+  -> XxxTableStore
+       -> TableLayout
+       -> RowSpace
+            -> KeySpace        // keyed table only
+       -> ColumnStore
+       -> AccessStructures
+       -> AccessPath
+       -> MutationCoordinator
+       -> LifecycleState
+```
+
+映射关系：
+
+- public keyed table：`TableStore + RowSpace + KeySpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`；
+- public dense table：`TableStore + RowSpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`，没有 `KeySpace`，但不是缩水版 table。
+
+Sparse Set 只作为 `SparseIntKeySpace` 等 runtime internal 结构的实现材料，不是 table 本体，也不改变 public/generated API 术语。
+
 ## 4. 模块结构
 
 ```text
@@ -83,7 +105,7 @@ soma_java/
 |---|---|
 | `soma-annotations` | public schema annotation API |
 | `soma-processor` | annotation processing、validation、normalized schema model、schema hash、codegen |
-| `soma-runtime-core` | Java columnar runtime kernel、primitive columns、bitmap、sparse set、indexes、order sidecar、lifecycle、runtime errors |
+| `soma-runtime-core` | Java columnar runtime kernel、`TableStore` 组合模型、primitive columns、bitmap、key space、access structures、order sidecar、lifecycle、runtime errors |
 | `soma-testkit` | compile/golden/runtime invariant test helpers |
 | `soma-examples` | Java 8 examples and end-to-end smoke scenarios |
 | `soma-benchmarks` | benchmark scenarios and structured evidence output |
@@ -166,7 +188,7 @@ V1 不提供 ORM query DSL、arbitrary join planner、parallel stream 或 `java.
 
 V1 baseline 是 Java 8。
 
-V1 在正式设计完成前不引入第三方依赖。底层 primitive column、bitmap、sparse set、hash index、order sidecar 和 benchmark harness 先由本项目自有实现承载。
+V1 在正式设计完成前不引入第三方依赖。底层 `ColumnStore`、bitmap、`SparseIntKeySpace`、`HashKeySpace`、`AccessStructures`、`AccessPath` 和 benchmark harness 先由本项目自有实现承载。
 
 后续如果引入第三方库，必须先有正式设计决策，说明：
 
