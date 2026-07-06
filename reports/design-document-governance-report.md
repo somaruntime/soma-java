@@ -42,7 +42,7 @@ Owner：根项目协调层
 
 根 `docs/` 保留跨模块事实：
 
-- `docs/architecture.md`；
+- `docs/architecture-design.md`；此前治理时的旧架构文档已在后续架构设计治理中合并并删除；
 - `docs/row-pipeline-api-contract.md`；
 - `docs/validation-gates.md`；
 - `docs/documentation-governance.md`；
@@ -80,7 +80,7 @@ Owner：根项目协调层
 
 - `AGENTS.md` 中 generated pipeline 从 `Table / Batch / Record / View / ColumnView` 改为 `Table / Batch / Row Pipeline / DTO materialization / ColumnView`；
 - `AGENTS.md` 中文档事实源规则扩展为根 `docs/` 和模块 `<module>/docs/`；
-- `docs/architecture.md` 中 DTO materialization 入口从 `fetchFirst()` 同步为 `findFirst()` / `firstOrThrow()`；
+- 当时的旧架构文档中 DTO materialization 入口从 `fetchFirst()` 同步为 `findFirst()` / `firstOrThrow()`；该文档后续已合并到 `docs/architecture-design.md`；
 - `soma-processor/docs/processor-codegen-contract.md` 中 common API 和 materialization 说明同步为 `findFirst()` / `firstOrThrow()`；
 - `soma-runtime-core/docs/runtime-core-contract.md` 中 benchmark smoke 场景同步为 ordered `findFirst` / `firstOrThrow`；
 - `docs/validation-gates.md` 中 benchmark smoke 场景同步为 ordered `findFirst` / `firstOrThrow`；

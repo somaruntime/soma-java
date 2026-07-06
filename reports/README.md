@@ -5,3 +5,4 @@
 ## 当前正式报告
 
 - [设计文档治理报告](design-document-governance-report.md)
+- [架构设计审核报告](architecture-design-review-report.md)

@@ -2,9 +2,11 @@
 
 本目录保存 Java-only SOMA 原型的根级正式设计文档。根级文档负责项目边界、跨模块架构、跨模块 API 契约、验证门禁和文档治理；模块内部事实应进入对应模块的 `docs/`。
 
+项目级架构设计的唯一事实源是 `architecture-design.md`。其他文档需要表达架构事实时，应引用它，不应重新定义第二套架构。
+
 ## 当前正式设计文档
 
-- [架构设计](architecture.md)
+- [架构设计](architecture-design.md)
 - [领域术语表](domain-glossary.md)
 - [SOMA 实现方案设计](implementation-strategy.md)
 - [Row Pipeline API 契约](row-pipeline-api-contract.md)

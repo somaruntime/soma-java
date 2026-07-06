@@ -10,13 +10,14 @@ Owner：根项目协调层
 
 本文不替代 owner 契约文档：
 
+- 项目级架构以 `docs/architecture-design.md` 为准；
 - schema annotation 以 `soma-annotations/docs/annotation-schema-contract.md` 为准；
 - processor/codegen 以 `soma-processor/docs/processor-codegen-contract.md` 为准；
 - runtime core 以 `soma-runtime-core/docs/runtime-core-contract.md` 为准；
 - Row Pipeline API 以 `docs/row-pipeline-api-contract.md` 为准；
 - release gate 和 evidence 以 `docs/validation-gates.md` 为准。
 
-如果本文与 owner 文档冲突，应先修正 owner 文档或回到设计决策，不允许用实现方案绕过正式契约。
+如果本文与项目级架构或 owner 文档冲突，应先修正事实源文档或回到设计决策，不允许用实现方案绕过正式契约。
 
 ## 2. 推荐方案
 

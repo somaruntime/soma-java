@@ -19,7 +19,7 @@ V1 readiness 不能由单元测试通过、示例能跑或本机 demo 成功单�
 
 | Gate | 名称 | 必需证据 |
 |---|---|---|
-| G0 | Java-only scope freeze | architecture、non-goals、module owner、release claim boundary 已进入正式文档 |
+| G0 | Java-only scope freeze | `architecture-design.md`、non-goals、module owner、release claim boundary 已进入正式文档 |
 | G1 | annotation schema gate | annotation cases、type cases、single logical key cases、schema hash cases、breaking change diagnostics |
 | G2 | processor/codegen gate | validation tests、normalized model golden、schema hash golden、deterministic generated output、diagnostic golden cases |
 | G3 | runtime core gate | `TableStore`、`RowSpace`、`KeySpace`、`ColumnStore`、optional bitmap、`AccessStructures`、`AccessPath`、row move、batch import/export、DTO materialization、Row Pipeline、ColumnView、lifecycle/runtime stats tests |
