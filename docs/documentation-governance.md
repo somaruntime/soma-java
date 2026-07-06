@@ -36,6 +36,7 @@ V1 当前事实源归属：
 |---|---|
 | 项目边界、模块结构、依赖方向、release claim 边界 | `docs/architecture.md` |
 | 跨模块领域术语、public/runtime/internal 词汇边界 | `docs/domain-glossary.md` |
+| 跨模块实现方案、推荐落地路线、实现阶段不缩水约束 | `docs/implementation-strategy.md` |
 | Row Pipeline / generated Soma API 用户模型 | `docs/row-pipeline-api-contract.md` |
 | V1 gate、evidence、package smoke、benchmark smoke 边界 | `docs/validation-gates.md` |
 | Java annotation schema、annotation 语义、类型系统、schema hash | `soma-annotations/docs/annotation-schema-contract.md` |
