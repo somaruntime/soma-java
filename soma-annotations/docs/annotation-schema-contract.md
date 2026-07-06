@@ -213,7 +213,7 @@ Dense table 没有 stable logical key。
 - row-index iteration；
 - matrix / array-like runtime state；
 - 批量替换或重建的数据平面；
-- solver workspace，例如 `ReadyOperationScratch`、`CandidateScoreScratch`。
+- solver workspace，例如 `ReadyOperationRow`、`CandidateScoreRow` 这类 dense workspace row。
 
 Dense table 可以是长生命周期 runtime state，也可以作为长生命周期 table 实例中的 scratch workspace。它不适合表达需要 stable identity、跨轮次 `fetch(key)` 或唯一性约束的数据。
 
@@ -360,7 +360,18 @@ Literal parsing 规则：
 - order selector 必须通过 `@SomaSort` 声明，`direction` 缺省为 `ASC`；
 - 同一 table 内 index、unique、order 名称不能冲突。
 
-Grouped ordered access 使用 selector prefix 表达。例如 `ProcessingTime.byOperationSpt(operationKey)` 这类访问，应把 operation key leaf 作为 order 前缀，再把 SPT 排序字段放在后面：
+Grouped index/order source 使用 selector prefix 表达。Selector prefix 是 normalized selector 的连续前缀 leaf 序列；它可以对应一个 scalar field，也可以正好对应一个 `@SomaValue` field 的全部 leaf。Processor 可以基于这种前缀生成自然的 grouped source method，并返回同一套 Row Pipeline。
+
+例如 `ProcessingTime.findByOperation(operationKey)` 使用 `@SomaIndex` 的完整 selector，它正好对应 `operationMachineKey.operationKey` 的全部 leaf：
+
+```java
+@SomaIndex(name = "by_operation", fields = {
+    "operationMachineKey.operationKey.jobId.value",
+    "operationMachineKey.operationKey.operationId.value"
+})
+```
+
+例如 `ProcessingTime.byOperationSpt(operationKey)` 使用 `@SomaOrder` 的 leading selector prefix，把 operation key leaf 放在前面，再把 SPT 排序字段放在后面：
 
 ```java
 @SomaOrder(name = "by_operation_spt", by = {
@@ -371,7 +382,7 @@ Grouped ordered access 使用 selector prefix 表达。例如 `ProcessingTime.by
 })
 ```
 
-Processor 可以基于 selector prefix 生成自然的 grouped access source method，并返回同一套 Row Pipeline。V1 支持 Java lambda 作为 row-level `filter` / `update` callback，但不引入 arbitrary join planner，也不承诺 lambda predicate 自动下推到 index。Selector diagnostics 必须指出出错 path、失败的 path segment、候选字段列表、是否因 optional/string/table leaf 被拒绝，以及对应 Java element location。
+Grouped source 是 generated API convenience，不改变 schema kind，也不引入 query DSL。V1 支持 Java lambda 作为 row-level `filter` / `update` callback，但不引入 arbitrary join planner，也不承诺 lambda predicate 自动下推到 index。Selector diagnostics 必须指出出错 path、失败的 path segment、候选字段列表、是否因 optional/string/table leaf 被拒绝，以及对应 Java element location。
 
 ## 11. 建模最佳实践
 
@@ -391,7 +402,7 @@ FJSP 中，`ProcessingTime` 和 `SetupTime` 是 keyed lookup table，不应嵌�
 
 ## 12. 完整示例
 
-下面示例展示 Java-only FJSP runtime state 的推荐建模。它刻意不把 candidate machines 建成 `Operation` 的 child table，而是使用 `ProcessingTime` keyed lookup table 和 `CandidateScoreScratch` dense table。
+下面示例展示 Java-only FJSP runtime state 的推荐建模。它刻意不把 candidate machines 建成 `Operation` 的 child table，而是使用 `ProcessingTime` keyed lookup table 和 `CandidateScoreRow` dense table workspace。
 
 代码块是 schema source 的合并展示；真实 Java 项目中 `package-info.java`、enum、value class 和 table DTO class 应按 Java 文件规则拆分。
 
@@ -608,7 +619,7 @@ public final class SetupTime {
     @SomaSort("operationKey.jobId.value"),
     @SomaSort("operationKey.operationId.value")
 })
-public final class ReadyOperationScratch {
+public final class ReadyOperationRow {
     @SomaField
     public OperationKey operationKey;
 
@@ -628,7 +639,7 @@ public final class ReadyOperationScratch {
     @SomaSort("projectedEndMinute"),
     @SomaSort("operationMachineKey.machineId.value")
 })
-public final class CandidateScoreScratch {
+public final class CandidateScoreRow {
     @SomaField
     public OperationMachineKey operationMachineKey;
 
@@ -653,7 +664,7 @@ public final class CandidateScoreScratch {
 
 - `Job`、`Operation`、`Machine` 是 keyed entity state table；
 - `ProcessingTime`、`SetupTime` 是 keyed lookup table；
-- `ReadyOperationScratch`、`CandidateScoreScratch` 是 dense table，没有 stable key；
+- `ReadyOperationRow`、`CandidateScoreRow` 是 dense table workspace 的 schema DTO，没有 stable key；
 - `OperationMachineKey`、`SetupTimeKey` 等是 `@SomaValue`，在 table 中递归 flatten；
 - `assignedMachine` 是 cross-table reference value，不是 `Machine` object reference；
 - `MachineState` 是 Java enum，被 SOMA field 引用后自动进入 schema；

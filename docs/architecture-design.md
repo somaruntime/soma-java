@@ -392,7 +392,7 @@ V1 正确性信心来自：
 - differential oracle：测试可使用简单 `List/Map DTO` reference model 做 oracle，但 reference model 不进入 runtime 实现；
 - gate reports：G1-G6 记录命令、artifact、结果、known limitations 和 release claim 边界。
 
-后续应补 `runtime-correctness-model.md`，专门定义 invariants、状态机和 oracle 口径。
+Runtime correctness 细化以 `docs/runtime-correctness-model.md` 为准。
 
 ## 17. 性能信心来源
 
@@ -411,7 +411,7 @@ V1 性能设计的基础不是泛泛声明“columnar”，而是明确 hot path
 - dynamic sort 使用 row permutation，不移动真实 column storage；
 - benchmark smoke 只证明场景可运行；性能优势声明必须另有 baseline、规模、环境、重复次数和统计口径。
 
-后续应补 `runtime-performance-model.md`，专门定义复杂度、allocation、sidecar rebuild 策略和 benchmark claim 边界。
+Runtime performance 细化以 `docs/runtime-performance-model.md` 为准。
 
 ## 18. Evidence 架构
 
@@ -507,8 +507,8 @@ V1 不应声明：
 本文只定义项目级架构。下游设计文档应在本文约束下继续细化：
 
 - `docs/implementation-strategy.md`：推荐实现方案、落地路线、不推荐方案和实施阶段不缩水约束；
-- `docs/runtime-correctness-model.md`：待补，定义 runtime invariants、mutation state machine、differential oracle；
-- `docs/runtime-performance-model.md`：待补，定义 hot path、复杂度、allocation、sidecar rebuild 和 benchmark claim；
+- `docs/runtime-correctness-model.md`：定义 runtime invariants、mutation state machine、differential oracle；
+- `docs/runtime-performance-model.md`：定义 hot path、复杂度、allocation、sidecar rebuild 和 benchmark claim；
 - `soma-testkit/docs/`：待补，定义 compile/golden/runtime invariant helper contract；
 - `soma-benchmarks/docs/`：待补，定义 runner、JSONL evidence schema 和 baseline claim 口径。
 

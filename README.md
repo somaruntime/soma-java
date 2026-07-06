@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-本仓库目前只初始化项目骨架、Maven reactor、文档目录和 Git。正式设计入口见 [docs/README.md](docs/README.md)；模块内部事实以各模块 `docs/` 为准。
+本仓库已初步固化 Java-only SOMA V1 的正式设计文档体系、Maven reactor、文档目录和 Git 基线；当前仍处于设计阶段，尚未进入实现阶段。正式设计入口见 [docs/README.md](docs/README.md)；模块内部事实以各模块 `docs/` 为准。
 
 ## 模块
 

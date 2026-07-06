@@ -44,8 +44,8 @@ Owner：根项目协调层
 | 依赖方向 | runtime-core 是否避免依赖 processor / annotation element | 通过 |
 | Public/internal 边界 | generated API 是否避免暴露 sidecar、bitmap word、row pointer 等 internal | 通过 |
 | V1 不缩水 | key/index/unique/order、Row Pipeline、ColumnView、DTO、typed errors、schema hash、gate evidence 是否保留 | 通过 |
-| 正确性基础 | 是否定义 correctness 信心来源和后续 correctness model 入口 | 通过，但 runtime correctness model 仍待补 |
-| 性能基础 | 是否定义 hot path / allocation / benchmark claim 边界和后续 performance model 入口 | 通过，但 runtime performance model 仍待补 |
+| 正确性基础 | 是否定义 correctness 信心来源和后续 correctness model 入口 | 通过；后续已补 `docs/runtime-correctness-model.md` |
+| 性能基础 | 是否定义 hot path / allocation / benchmark claim 边界和后续 performance model 入口 | 通过；后续已补 `docs/runtime-performance-model.md` |
 | Evidence 架构 | G0-G6、reports、smoke、release claim 边界是否闭环 | 通过 |
 
 ## 4. Findings
@@ -73,7 +73,7 @@ Owner：根项目协调层
 - 改为“项目级架构或 owner 文档”；
 - 明确实现方案不能绕过架构事实源或模块 owner 契约。
 
-### F3: 已记录 - correctness / performance 仍是后续设计缺口
+### F3: 已收口 - correctness / performance 后续设计已补齐
 
 严重度：中
 
@@ -81,9 +81,9 @@ Owner：根项目协调层
 
 处理：
 
-- 在 `architecture-design.md` 中保留 `runtime-correctness-model.md` 和 `runtime-performance-model.md` 作为待补下游设计；
-- 本缺口不阻塞 `architecture-design.md` 成为项目级架构事实源；
-- 在进入实现阶段前，应优先补齐 correctness model，再补 performance model。
+- 已新增 `docs/runtime-correctness-model.md`，定义 runtime invariants、状态机、typed errors、differential oracle 和 gate mapping；
+- 已新增 `docs/runtime-performance-model.md`，定义 hot path、复杂度、allocation、sidecar rebuild、benchmark evidence level 和 claim 边界；
+- `architecture-design.md` 已从“待补”更新为引用这两份正式下游设计文档。
 
 ### F4: 已记录 - testkit / benchmark owner 契约仍待补
 
@@ -105,17 +105,15 @@ Owner：根项目协调层
 - 它把复杂问题拆成了 schema、normalization、codegen、generated API、runtime store、execution、boundary、evidence 等可审查单元；
 - 它没有降低 V1 目标，没有把 dense table 写成缩水版 table，也没有把 primary key lookup 混同为普通 secondary index；
 - 它没有用 implementation strategy 覆盖 annotation/API/runtime owner 契约；
-- 它明确承认 correctness、performance、testkit、benchmark 仍需后续设计，而不是在架构文档中假装已经解决。
+- 它明确承认 testkit、benchmark 仍需后续 owner 设计；correctness 和 performance 已由正式下游设计文档补齐。
 
 ## 6. 遗留工作
 
 建议后续按顺序补齐：
 
-1. `docs/runtime-correctness-model.md`；
-2. `docs/runtime-performance-model.md`；
-3. `soma-testkit/docs/testkit-contract.md` 或等价正式契约；
-4. `soma-benchmarks/docs/benchmark-evidence-contract.md` 或等价正式契约；
-5. G0 scope freeze report。
+1. `soma-testkit/docs/testkit-contract.md` 或等价正式契约；
+2. `soma-benchmarks/docs/benchmark-evidence-contract.md` 或等价正式契约；
+3. G0 scope freeze report。
 
 ## 7. 验证记录
 

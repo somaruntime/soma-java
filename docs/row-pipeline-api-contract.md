@@ -190,11 +190,14 @@ Index source：
 ```java
 particles.findByCell(cellId)
 operations.findByJobSequence(jobId, sequenceNo)
+processingTimes.findByOperation(operationKey)
 ```
 
 语义：使用 maintained index / unique sidecar 生成候选 `RowSequence`。后续仍可继续 `filter`、`sorted`、`limit`、`forEach`、`update` 或 `remove`。
 
 命名规则：`@SomaIndex(name = "by_cell", ...)` 推荐生成 `findByCell(...)`；如果 index selector 是 `cellId`，也可以生成更完整的 `findByCellId(...)`，最终命名由 generated API name collision rule 和 golden case 固化。
+
+Grouped index source 可以由 normalized selector 的完整 leaf set 生成。如果 selector leaf 正好对应一个 value field，例如 `operationMachineKey.operationKey` 的所有 leaf，则 generated source method 应使用 value type 参数，例如 `findByOperation(OperationKey operationKey)`；否则使用 normalized leaf 参数顺序。
 
 Unique index source 在 V1 仍返回 Row Pipeline，最多包含 0/1 row。是否额外生成 `findOneByXxx(...)` 或 `fetchByXxx(...)` 这类 direct convenience API，属于后续易用性优化，不作为 V1 核心要求。
 
@@ -207,6 +210,8 @@ processingTimes.byOperationSpt(operationKey)
 ```
 
 语义：使用 maintained order sidecar 生成有序 `RowSequence`。Grouped order source 可以由 `@SomaOrder` 的 selector prefix 生成。
+
+Grouped order source 使用 order leading selector prefix 过滤同一 ordered sidecar 的逻辑分组。例如 `byOperationSpt(OperationKey operationKey)` 表示先限定 `operationMachineKey.operationKey`，再按 `processingMinutes`、`machineId` 的后续 selector 顺序产生 `RowSequence`。它不是 join、不是 lambda 下推，也不暴露 order sidecar handle。
 
 Source method 是性能入口，不是能力边界。没有 index/order source 时，用户仍然可以从 table 默认 source 开始 scan、filter 和 dynamic sort。
 

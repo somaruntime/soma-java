@@ -10,6 +10,8 @@
 - [领域术语表](domain-glossary.md)
 - [SOMA 实现方案设计](implementation-strategy.md)
 - [Row Pipeline API 契约](row-pipeline-api-contract.md)
+- [Runtime correctness model](runtime-correctness-model.md)
+- [Runtime performance model](runtime-performance-model.md)
 - [V1 验证门禁](validation-gates.md)
 - [文档治理规则](documentation-governance.md)
 

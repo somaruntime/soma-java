@@ -143,6 +143,46 @@ Row Pipeline callback 参数是 generated row cursor / mutable row cursor，不�
 
 V1 支持 arbitrary Java lambda 作为 row-level filter/update callback，但不承诺 lambda predicate 自动下推到 index。需要 index/order 加速时，用户应从 generated source method 进入同一套 Rows pipeline。V1 不生成 `java.util.stream.Stream` bridge、parallel stream、join planner 或 ORM query DSL。
 
+### 7.1 Grouped index/order source
+
+V1 codegen 必须把 normalized selector 转换成稳定的 generated source method。Grouped source 是 generated API convenience，不是新的 schema kind，也不暴露 runtime sidecar。
+
+规则：
+
+- `@SomaIndex` / `@SomaUnique` 的 source method 默认命名为 `findByXxx(...)`，返回该 table 的 generated `XxxRows`；
+- `@SomaOrder` 的 source method 默认命名为 `byXxx(...)`，返回同一 generated `XxxRows`；
+- grouped source 的参数来自 normalized selector prefix；
+- 如果 selector prefix 正好覆盖一个 scalar/value field path 的全部 leaf，generated method 使用该 scalar/value type 作为参数；
+- 如果 selector prefix 不能映射为一个 scalar/value field path，generated method 使用 normalized leaf 参数顺序；
+- generated method name、参数名、参数顺序和 overload 冲突必须由 golden 固化；
+- 命名冲突或 ambiguous overload 必须在 processor validation 阶段失败，不能生成不可编译代码；
+- grouped source 只选择 terminal 初始 `RowSequence`，后续仍使用同一套 `filter` / `sorted` / `limit` / terminal API。
+
+FJSP canonical golden expectation：
+
+```java
+ProcessingTimeRows findByOperation(OperationKey operationKey);
+ProcessingTimeRows byOperationSpt();
+ProcessingTimeRows byOperationSpt(OperationKey operationKey);
+```
+
+对应 schema：
+
+```java
+@SomaIndex(name = "by_operation", fields = {
+    "operationMachineKey.operationKey.jobId.value",
+    "operationMachineKey.operationKey.operationId.value"
+})
+@SomaOrder(name = "by_operation_spt", by = {
+    @SomaSort("operationMachineKey.operationKey.jobId.value"),
+    @SomaSort("operationMachineKey.operationKey.operationId.value"),
+    @SomaSort("processingMinutes"),
+    @SomaSort("operationMachineKey.machineId.value")
+})
+```
+
+`findByOperation(operationKey)` 使用完整 index selector；`byOperationSpt(operationKey)` 使用 order leading selector prefix；`byOperationSpt()` 保留全表 ordered source。三者都返回 `ProcessingTimeRows`，不返回 DTO list、Java Stream 或 runtime sidecar。
+
 ## 8. Mutator API
 
 Generated mutator 用于 existing row mutation。
@@ -227,6 +267,8 @@ V1 golden cases 至少覆盖：
 - string field；
 - value key；
 - index/unique/order；
+- grouped index source, for example `findByOperation(OperationKey operationKey)`；
+- grouped order source, for example `byOperationSpt()` and `byOperationSpt(OperationKey operationKey)`；
 - invalid selector；
 - duplicate key declaration；
 - generated mutator without key setter；

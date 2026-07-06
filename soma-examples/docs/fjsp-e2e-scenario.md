@@ -35,8 +35,8 @@ request DTO or protobuf adapter
 - `Machine` keyed table；
 - `ProcessingTime` keyed lookup table；
 - `SetupTime` keyed lookup table；
-- `ReadyOperationScratch` dense table workspace；
-- `CandidateScoreScratch` dense table workspace；
+- `ReadyOperationRow` dense table workspace（table name: `ready_operation_rows`）；
+- `CandidateScoreRow` dense table workspace（table name: `candidate_score_rows`）；
 - enum；
 - value key；
 - nested value；
@@ -54,7 +54,7 @@ request DTO or protobuf adapter
 1. 从 request boundary 导入 jobs、operations、machines、processing times 和 setup times；
 2. batch import 初始化 generated tables；
 3. 使用 FCFS order 找到 ready operation；
-4. 为 ready operation 生成 candidate machine score；
+4. 通过 `ProcessingTime.findByOperation(operationKey)` 为 ready operation 生成 candidate machine score；
 5. 使用 SPT order 选择最小 processing time candidate；
 6. mutation 写回 operation assignment；
 7. 更新 machine availability；
@@ -64,9 +64,20 @@ request DTO or protobuf adapter
 
 算法正确性不是 SOMA 的完整 APS 承诺。该示例只用于证明 runtime state API 能支撑典型调度 hot loop。
 
-`ReadyOperationScratch` 和 `CandidateScoreScratch` 是 dense table workspace：它们可以在一次 solve 生命周期内长期持有，并通过 `replaceAll(batch)` 反复刷新。它们不是短生命周期 Java 临时对象管理器，也不改变 SOMA table 只有 keyed table / dense table 两类的原则。
+`ReadyOperationRow` 和 `CandidateScoreRow` 是 dense table workspace 的 schema DTO；对应 table name 分别是 `ready_operation_rows` 和 `candidate_score_rows`。它们可以在一次 solve 生命周期内长期持有，并通过 `replaceAll(batch)` 反复刷新。它们不是短生命周期 Java 临时对象管理器，也不改变 SOMA table 只有 keyed table / dense table 两类的原则。
 
-## 5. API usage points
+## 5. Lookup missing semantics
+
+FJSP example 必须明确区分 runtime missing key 与业务不可行：
+
+- `ProcessingTime` 表示 operation-machine pair 是否可加工。通过 `findByOperation(operationKey)` 生成候选时，某台机器没有对应 `ProcessingTime` row 表示该机器不是候选；如果某个 ready operation 没有任何 candidate row，solver core 将其解释为当前无可行机器，而不是 SOMA runtime error。
+- 如果 loader 或 solver core 已经确定某个 `OperationMachineKey` 必须存在，再调用 `processingTimes.fetch(operationMachineKey)` 或 `firstOrThrow()` 时缺失，应作为 typed missing key / empty required result 错误暴露。
+- `SetupTime` 在 V1 canonical FJSP 中是 required setup matrix lookup。除第一道工序或机器没有 `lastSetupFamily` 且业务规则定义 setup 为 `0` 的情况外，缺失 `SetupTime` row 表示输入或模型不完整，应通过 typed missing key / required lookup error 暴露。
+- 如果未来示例要表达 sparse setup matrix，例如缺失 setup 表示不可行或默认 `0`，必须先修改本契约，不能由 runtime 自行猜测。
+
+SOMA runtime 只提供 `find(...)` / `containsKey(...)` / empty Row Pipeline / typed missing error 等基础语义。候选不可行、输入不完整、默认 setup 等业务解释属于 loader 或 solver core。
+
+## 6. API usage points
 
 示例必须覆盖以下 generated API 使用点：
 
@@ -74,8 +85,11 @@ request DTO or protobuf adapter
 - `reserve(size)`；
 - `addBatch(batch)`；
 - keyed `fetch(key)`；
+- keyed `find(key)` or empty Row Pipeline for optional lookup；
 - `containsKey(key)`；
+- generated grouped index access, for example `findByOperation(operationKey)`；
 - generated order access；
+- generated grouped order access, for example `byOperationSpt(operationKey)`；
 - generated optional presence predicate；
 - Row Pipeline `findFirst()` / `firstOrThrow()`；
 - dense table workspace `replaceAll(batch)`；
@@ -84,11 +98,13 @@ request DTO or protobuf adapter
 - typed `ColumnView` read；
 - DTO materialization for export。
 
-## 6. Error and lifecycle evidence
+## 7. Error and lifecycle evidence
 
 Examples smoke 至少证明：
 
 - duplicate key 可观察；
+- required lookup missing key / empty required result 可观察；
+- optional lookup empty result 不被误报为 runtime failure；
 - invalid selector 在 compile/processor 阶段失败；
 - schema hash metadata 可读取；
 - stale view 可观察；
@@ -98,7 +114,7 @@ Examples smoke 至少证明：
 
 如果某项属于 runtime unit gate 而不适合 E2E smoke，应在 G5 report 中引用对应 G3/G4 evidence，不能静默省略。
 
-## 7. Benchmark smoke boundary
+## 8. Benchmark smoke boundary
 
 Examples 可以作为 benchmark smoke 的基础，但 benchmark smoke 只能证明：
 
@@ -108,7 +124,7 @@ Examples 可以作为 benchmark smoke 的基础，但 benchmark smoke 只能证�
 
 Benchmark smoke 不能单独支撑“更快”“更省内存”或“生产级大规模 hot path”声明。
 
-## 8. Non-goals
+## 9. Non-goals
 
 FJSP example V1 不做：
 
@@ -121,7 +137,7 @@ FJSP example V1 不做：
 - persistence format；
 - UI / service integration。
 
-## 9. G5 report
+## 10. G5 report
 
 G5 examples report 应记录：
 
@@ -130,6 +146,8 @@ G5 examples report 应记录：
 - Java 8 smoke command；
 - request boundary -> loader -> generated tables -> solver core -> exporter -> response boundary 完整路径；
 - ordered access evidence；
+- grouped index/order source evidence；
+- required lookup missing error 与 optional lookup empty result evidence；
 - Row Pipeline lazy terminal evidence；
 - ColumnView evidence；
 - stale/released/view_pinned evidence；
