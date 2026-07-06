@@ -1,0 +1,17 @@
+# Maven / Java build output
+target/
+*.class
+
+# IDE state
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# OS files
+.DS_Store
+
+# Local temp
+*.log
+.tmp/
