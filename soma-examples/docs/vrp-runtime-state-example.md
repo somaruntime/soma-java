@@ -161,6 +161,10 @@ public final class Route {
     public long totalDurationSeconds;
 
     @SomaField
+    @SomaDefault("0")
+    public long routeVersion;
+
+    @SomaField
     @SomaDefault("false")
     public boolean closed;
 }
@@ -257,3 +261,19 @@ public final class InsertionCandidateRow {
 - `RouteVisitRow` 是 dense route sequence，不承诺 `position` 是 stable key；
 - `UnassignedCustomerRow` 和 `InsertionCandidateRow` 是 dense workspace，通过 order access 支撑构造解选择；
 - 上层 VRP constructor 负责容量、时间窗、候选生成和路线关闭策略。
+
+Source-of-truth 口径：
+
+- `RouteVisitRow.position` 是 route 当前访问顺序的事实源；
+- `Customer.state` 和 `Customer.assignedRoute` 表达 customer 是否已经分配到某条 route；
+- `Customer.assignedPosition` 如果保留，只是诊断 / snapshot 字段，不应作为 route sequence 的权威事实；
+- `UnassignedCustomerRow` 是由 `Customer.state == UNASSIGNED` 派生出的 hot workspace / frontier view，constructor 必须在分配或跳过 customer 时同步删除或重建；
+- `Route.routeVersion` 是 route sequence mutation epoch，每次 route visit segment rewrite 后递增；当前 dense workspace 默认每轮重建 candidate，通常不需要跨轮 stale candidate 校验，但如果某个实现保留候选行跨轮复用，必须把 route version 纳入校验。
+
+`TravelCost` 在 canonical 示例中是 required lookup：构造 candidate 时访问到缺失 `LocationPairKey` 表示输入矩阵不完整，应暴露 typed missing key / required lookup error。若业务要把缺失 arc 表达为不可行候选或 fallback distance，必须由 VRP constructor 显式选择并写入场景契约，SOMA runtime 不猜测业务语义。
+
+`InsertionCandidateRow.by_best_delta` 只服务当前 dense workspace 的 selection order。它不是全局策略排序承诺，也不表示 maintained order 与 dynamic `sorted(comparator)` 性能等价；是否保留该 order、改用 dynamic sort，或升级为 keyed insertion frontier，需要通过 benchmark 比较。
+
+`rewriteRouteVisitsForInsertion(...)` 不是零成本 helper。一次插入至少会读取当前 route visits，构造插入后的 sequence，重写 position / arrival / departure / loadAfterVisit，并在保留 `Customer.assignedPosition` 时同步刷新受影响 customer 的诊断 snapshot。现有 V1 示例只承诺 whole-table rebuild 或 route-local rebuild 的业务边界，不承诺 route segment rewrite public API。
+
+VRP constructor 拥有跨 table 一致性。`Customer`、`Route`、`RouteVisitRow`、`UnassignedCustomerRow`、`InsertionCandidateRow` 的提交序列没有 SOMA runtime transaction；中间失败时，constructor 必须停止构造、回滚外部 snapshot，或重建 derived workspace / candidate rows。

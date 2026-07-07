@@ -7,6 +7,7 @@
 ## 1. 目标
 
 本文记录 FJSP 构造解场景下，使用 SOMA 保存运行中候选 frontier 的一版临时方案。
+该方案只对 FJSP 这类候选有稳定 `(MachineId, OperationKey)` 身份、需要跨轮次保留并按 machine / operation 局部清理的场景成立，不应被推广为所有候选集合的默认建模方式。
 
 核心方向：
 
@@ -406,13 +407,22 @@ void commitAssignment(MachineCandidate chosen) {
 }
 ```
 
-`releaseNextOperations(...)` 由 solver/application loop 负责，它应根据 job precedence、material readiness 和业务规则决定下一批 operation 是否 release。
+`commitAssignment(...)` 是 solver-level sequence，不是 SOMA transaction。推荐提交顺序是先写 assignment 和 machine availability，再删除 selected operation 的全部 candidate，最后 release 后续 operation；如果任一步失败，solver loop 必须停止本轮、回滚外部 snapshot，或重建 `MachineCandidate` frontier，不能假设 runtime 会跨 table 自动补偿。
+
+`releaseNextOperations(...)` 由 solver/application loop 负责。它不应退化为全表扫描，而应至少依赖以下事实源之一：
+
+- `Operation.by_job_sequence(jobId, nextSequenceNo)`；
+- `Job.nextSequenceNo` 或等价 job progress state；
+- material / predecessor readiness 的明确索引或业务队列。
+
+被 release 的 operation 再通过 `processingTimes.findByOperation(operationKey)` 增量加入 `MachineCandidate` frontier。
 
 ## 5. 审核结论
 
 ### 5.1 通过项
 
 - `MachineCandidateTable` 是 keyed frontier，不是每轮临时 `replaceAll` workspace；
+- 该 frontier 模式只适用于 FJSP 这类有稳定或 epoch 内稳定 candidate identity 的场景，不是 SOMA 示例的通用默认；
 - `active` 字段已移除，候选存在即有效，失效通过 `remove()` 表达；
 - schema 只固化 `by_machine` 和 `by_operation` 两个稳定访问路径；
 - dispatch rule 保持在 solver 策略层，通过 `sorted(comparator)` 表达；
@@ -423,7 +433,7 @@ void commitAssignment(MachineCandidate chosen) {
 ### 5.2 风险和坏味道
 
 - 如果单台 machine frontier 很大，`sorted(comparator)` 会成为热点；届时需要 benchmark 后再考虑 top-k buffer 或稳定 schema order；
-- `setupTimes.fetch(setupKey)` 缺失必须有明确业务语义：typed error、默认 0，或候选不可行，不能由 runtime 猜测；
+- `setupTimes.fetch(setupKey)` 缺失必须有明确业务语义：canonical FJSP 建议作为 required lookup error；若业务希望默认 0 或候选不可行，必须在场景契约中显式改写，不能由 runtime 猜测；
 - dispatch loop 连续修改 `operations`、`machines`、`machineCandidates`，SOMA V1 不提供跨 table transaction，一致性由 solver/application loop 保证；
 - `releaseNextOperations(...)` 不能退化成全表扫描，应依赖 job sequence、material dependency 或其他 lookup/index；
 - `indicatorReady` 只是本轮 machine dispatch 的计算状态，不能被误用成长期业务状态；
@@ -434,7 +444,8 @@ void commitAssignment(MachineCandidate chosen) {
 该蓝图适合作为后续 FJSP 示例或 benchmark 场景的候选方向。正式化前需要补充：
 
 - generated API 命名 golden；
-- `SetupTime` 缺失语义；
+- 非 canonical `SetupTime` 缺失语义变体，例如默认 0 或缺失表示不可行，必须另行修改场景契约；
 - `releaseNextOperations(...)` 的依赖索引设计；
-- dynamic sort 与 maintained order source 的 benchmark lane；
+- dynamic sort、top-k 内部优化和 maintained order source 的 benchmark lane；
+- frontier add/update/remove、setup lookup、machine order sidecar rebuild、DTO export 与 dense workspace rebuild 对照 lane；
 - cross-table commit 失败时的 solver-level error handling。

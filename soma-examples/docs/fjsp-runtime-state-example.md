@@ -356,9 +356,11 @@ public final class MachineCandidate {
 
 算法正确性不是 SOMA 的完整 APS 承诺。该示例只用于证明 runtime state API 能支撑典型调度 hot loop。
 
-SOMA V1 只保证单张 table mutation 后的 table 内部不变量。`Operation` assignment、`Machine` availability 更新、`MachineCandidate` frontier 删除、`Job` 和 `Material` 推进等跨 table 提交序列，不具备 runtime transaction 语义；其一致性、提交顺序、失败处理和补偿策略由 solver loop 拥有。
+`releaseNextOperations(...)` 应依赖 `Operation.by_job_sequence(jobId, nextSequenceNo)`、`Job.nextSequenceNo` 或 material / predecessor readiness 的明确索引或业务队列，不能退化为全表扫描。operation release 后，再通过 `ProcessingTime.findByOperation(operationKey)` 增量加入 `MachineCandidate` frontier。
 
-`MachineCandidate` 是 keyed runtime frontier。候选 row 存在表示该 `(MachineId, OperationKey)` 组合仍处于可选 frontier；operation 被选中后，solver loop 应通过 `findByOperation(operationKey).remove()` 删除所有相关候选，而不是保留长期 `active` 标志。Dispatch rule 属于 solver 策略，示例不在 `MachineCandidate` schema 上声明 `byMachineDispatchRule` 这类 order。
+SOMA V1 只保证单张 table mutation 后的 table 内部不变量。`Operation` assignment、`Machine` availability 更新、`MachineCandidate` frontier 删除、`Job` 和 `Material` 推进等跨 table 提交序列，不具备 runtime transaction 语义；其一致性、提交顺序、失败处理和补偿策略由 solver loop 拥有。任一步失败时，solver loop 应停止本轮、回滚外部 snapshot，或重建 `MachineCandidate` frontier，不能假设 SOMA runtime 自动补偿。
+
+`MachineCandidate` 是 keyed runtime frontier。候选 row 存在表示该 `(MachineId, OperationKey)` 组合仍处于可选 frontier；operation 被选中后，solver loop 应通过 `findByOperation(operationKey).remove()` 删除所有相关候选，而不是保留长期 `active` 标志。`indicatorReady` 只是当前 machine snapshot / 当前 dispatch 轮次下的 indicator 计算状态，不能作为长期业务状态或候选有效性事实。Dispatch rule 属于 solver 策略，示例不在 `MachineCandidate` schema 上声明 `byMachineDispatchRule` 这类 order。
 
 ## 7. Lookup missing semantics
 

@@ -45,11 +45,11 @@ Owner：`soma-examples`
 
 ## 4. 四类示例的覆盖矩阵
 
-| 示例 | Keyed entity state | Keyed lookup data | Dense long-lived state | Dense workspace | 主要证明点 |
+| 示例 | Keyed entity state | Keyed lookup data | Dense long-lived state | Dense workspace / export buffer | 主要证明点 |
 |---|---|---|---|---|---|
 | FJSP | `Job`、`Operation`、`Material`、`Machine`、`MachineCandidate` | `ProcessingTime`、`SetupTime` | 无 | 无 | runtime frontier 是 keyed table，不是每轮 dense workspace |
 | VRP | `Customer`、`Vehicle`、`Route` | `TravelCost` | `RouteVisitRow` | `UnassignedCustomerRow`、`InsertionCandidateRow` | route sequence 是 packed rows，不是 stable key rows |
-| 连续仿真 | `Tank`、`Valve` | `FlowCoefficient` | `StateVectorRow`、`TraceSampleRow` | `PendingEventRow` | state vector / event queue 是 dense runtime data |
+| 连续仿真 | `Tank`、`Valve` | `FlowCoefficient` | `StateVectorRow` | `PendingEventRow`、`TraceSampleRow` | state vector 是 hot numeric state，trace 是 export / diagnostic buffer |
 | Game | `Player`、`GameUnit` | `AbilityCost` | `MapTileRow` | `MoveCandidateRow`、`PendingDamageRow` | SOMA 可承载 game hot state，但不是 ECS / engine |
 
 ## 5. 对正式契约的覆盖说明

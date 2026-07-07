@@ -45,6 +45,12 @@ public enum SimEventKind {
     SENSOR_SAMPLE
 }
 
+public enum SimVariableKind {
+    LEVEL_LITERS,
+    TEMPERATURE_CELSIUS,
+    VALVE_OPENING_RATIO
+}
+
 @SomaValue
 public final class TankId {
     @SomaField
@@ -144,6 +150,9 @@ public final class StateVectorRow {
     public long entityId;
 
     @SomaField
+    public SimVariableKind variableKind;
+
+    @SomaField
     public double value;
 
     @SomaField
@@ -195,6 +204,9 @@ public final class TraceSampleRow {
     public long entityId;
 
     @SomaField
+    public SimVariableKind variableKind;
+
+    @SomaField
     public double value;
 }
 ```
@@ -207,3 +219,19 @@ public final class TraceSampleRow {
 - `PendingEventRow` 是 dense event queue workspace，通过 `by_event_time` 取下一批事件；
 - `TraceSampleRow` 是 dense trace buffer / export buffer；
 - simulator OOP 层负责数值积分、事件应用和采样策略，SOMA 不拥有仿真算法。
+
+Source-of-truth 口径：
+
+- canonical 示例选择 `StateVectorRow` 作为数值状态事实源；
+- `StateVectorRow.entityKind + entityId + variableKind` 定义 vector slot 对应的业务变量，`vectorIndex` 仍只是当前 dense layout 位置，不是 stable key；
+- `Tank.levelLiters`、`Tank.temperatureCelsius`、`Valve.openingRatio` 只作为 boundary cache / DTO / export snapshot；数值积分、事件应用和 derivative 计算应写入 `StateVectorRow`；
+- simulator 只能在 step boundary、export boundary 或 diagnostic snapshot 同步这些 cache 字段；同步失败时，应停止 step、回滚外部 snapshot，或丢弃 cache 并从 `StateVectorRow` 重建；
+- 如果某个项目选择 `Tank` / `Valve` 为事实源，则 `StateVectorRow` 必须降级为派生 workspace，不能和本示例的 long-lived dense source-of-truth 口径混用。
+
+`PendingEventRow.by_event_time` 是稳定 ordered access path，用于按 `(eventTimeMillis, sequenceNo)` 消费 due events；它不是 heap、priority queue、prefix range-pop 或自动 range remove。典型实现应先遍历 due events 应用事件，再用单独 terminal 删除或 compact due rows，并把 queue size、due ratio、remove/compact 和 order sidecar dirty/rebuild 纳入 benchmark。
+
+`TraceSampleRow` 是 trace / export buffer，不反向成为仿真状态事实源。`by_time_entity` 只应在 export / diagnostic terminal 支付 lazy rebuild 成本，不应进入每 step state-vector hot path 的性能 claim。
+
+`ColumnView` 只用于明确的 hot path primitive scan。示例默认采用读 view 关闭后再写入的两阶段模式；在 active ColumnView 下进行同 table structural mutation 应被视为 `view_pinned` 风险，除非 runtime contract 明确允许某类固定宽度非结构性更新。
+
+`FlowCoefficient.fetch(valveMaterialKey)` 的缺失在 canonical 示例中表示 required lookup missing / 输入不完整。若 derivative inner loop 每 step 每 valve 都需要 coefficient，simulator 应考虑在 step 前预投影到 valve-local dense row 或 state vector adjacent column；SOMA 不自动 join 或自动 preprojection。
