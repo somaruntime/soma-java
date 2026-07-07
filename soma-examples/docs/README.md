@@ -4,8 +4,15 @@
 
 ## 当前正式设计文档
 
-- [Runtime state schema 典型示例](runtime-state-schema-examples.md)
-- [FJSP E2E 场景契约](fjsp-e2e-scenario.md)
+- [Runtime state schema 典型示例](runtime-state-schema-examples.md)：总览入口、通用建模规则和覆盖矩阵。
+- [FJSP runtime state 示例与 E2E 场景契约](fjsp-runtime-state-example.md)：FJSP schema、`MachineCandidate` frontier、dispatch flow 和 G5 E2E 契约。
+- [VRP 构造解 runtime state 示例](vrp-runtime-state-example.md)：VRP 构造解 runtime state schema。
+- [连续仿真 runtime state 示例](simulation-runtime-state-example.md)：time-step simulation runtime state schema。
+- [Game runtime state 示例](game-runtime-state-example.md)：game loop runtime state schema。
+
+## 历史入口
+
+- [FJSP E2E 场景契约](fjsp-e2e-scenario.md)：已合并到 FJSP 独立场景文档，仅保留迁移说明。
 
 ## 职责边界
 

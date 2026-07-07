@@ -37,7 +37,7 @@ XxxTable
 
 单张 table 必须维护自己的 storage、identity、sidecar、lifecycle 和 typed error 语义。V1 不提供跨 table transaction。FJSP 中 `Operation` assignment、`Machine` availability 与 `MachineCandidate` frontier 删除/刷新等连续 mutation 属于 solver/application loop 的一致性责任，不是 SOMA runtime atomicity 承诺。
 
-换言之，SOMA runtime 保证每一次单表 mutation 完成后该 table 内部不变量成立；跨 `OperationStateTable`、`MachineStateTable`、`MachineCandidateTable`、`JobStateTable`、`MaterialStateTable` 的 commit 顺序、失败处理、补偿策略和可观测 artifact 必须由 solver loop 明确拥有。
+换言之，SOMA runtime 保证每一次单表 mutation 完成后该 table 内部不变量成立；跨 `Operation`、`Machine`、`MachineCandidate`、`Job`、`Material` 的 commit 顺序、失败处理、补偿策略和可观测 artifact 必须由 solver loop 明确拥有。
 
 ## 3. Core invariants
 
