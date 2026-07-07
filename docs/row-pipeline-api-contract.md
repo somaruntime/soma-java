@@ -206,12 +206,12 @@ Order source：
 ```java
 particles.byRenderOrder()
 operations.byDispatchOrder()
-processingTimes.byOperationSpt(operationKey)
+routeVisits.byRoutePosition(routeId)
 ```
 
 语义：使用 maintained order sidecar 生成有序 `RowSequence`。Grouped order source 可以由 `@SomaOrder` 的 selector prefix 生成。
 
-Grouped order source 使用 order leading selector prefix 过滤同一 ordered sidecar 的逻辑分组。例如 `byOperationSpt(OperationKey operationKey)` 表示先限定 `operationMachineKey.operationKey`，再按 `processingMinutes`、`machineId` 的后续 selector 顺序产生 `RowSequence`。它不是 join、不是 lambda 下推，也不暴露 order sidecar handle。
+Grouped order source 使用 order leading selector prefix 过滤同一 ordered sidecar 的逻辑分组。例如 `byRoutePosition(RouteId routeId)` 表示先限定 `routeId`，再按 `position` 的后续 selector 顺序产生 `RowSequence`。它不是 join、不是 lambda 下推，也不暴露 order sidecar handle。
 
 Source method 是性能入口，不是能力边界。没有 index/order source 时，用户仍然可以从 table 默认 source 开始 scan、filter 和 dynamic sort。
 
@@ -489,18 +489,28 @@ particles.findByCell(cellId)
     .forEach(p -> renderer.draw(p.x(), p.y()));
 ```
 
-FJSP ready operation update：
+FJSP candidate indicator update：
 
 ```java
-UpdateResult result = operations.byDispatchOrder()
-    .filter(o -> o.endMinuteAbsent())
-    .limit(1)
-    .update(o -> {
-        o.setAssignedMachine(machineId);
-        o.setStartMinute(startMinute);
-        o.setProcessingMinutes(processingMinutes);
-        o.setEndMinute(endMinute);
+UpdateResult result = machineCandidates.findByMachine(machineId)
+    .update(c -> {
+        long setup = setupTimes.fetch(setupKey(machineId, lastFamily, c.targetSetupFamily()))
+            .setupMinutes;
+        long effectiveReady = Math.max(c.baseReadyMinute(), machineReadyMinute);
+
+        c.setSetupMinutes(setup);
+        c.setEffectiveReadyMinute(effectiveReady);
+        c.setFcfsValue(effectiveReady);
+        c.setSptValue(setup + c.processingMinutes());
+        c.setIndicatorReady(true);
     });
+```
+
+FJSP selected operation frontier cleanup：
+
+```java
+RemoveResult result = machineCandidates.findByOperation(operationKey)
+    .remove();
 ```
 
 Dense table boundary row-index access：

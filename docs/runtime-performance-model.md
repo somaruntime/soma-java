@@ -60,10 +60,11 @@ V1 benchmark 和 stats 不应只给一个总耗时。至少拆分以下 lane：
 |---|---|---|
 | import / construction | initial `addBatch`、workspace `replaceAll` | reserve、growth、column write、bitmap write、key insert、sidecar dirty/update |
 | primary key lookup | `fetch(key)`、`containsKey(key)`、`mutate(key)` | hash/sparse lookup、collision、composite key equality、missing key |
-| secondary index source | `findByOperation(operationKey)` | candidate generation、row list/chain traversal、dirty rebuild |
-| order source | `byOperationSpt(operationKey)`、`bySpt()` | order sidecar rebuild、grouped prefix seek/filter、ordered traversal |
+| secondary index source | `findByOperation(operationKey)`、`findByMachine(machineId)` | candidate generation、row list/chain traversal、dirty rebuild |
+| order source | `byAvailableTime()`、`byRoutePosition(routeId)` | order sidecar rebuild、grouped prefix seek/filter、ordered traversal |
 | Row Pipeline terminal | `count`、`findFirst`、`fetchAll`、`update`、`remove` | scanned/matched/materialized/changed/removed rows |
-| dense workspace refresh | `ReadyOperationRow.replaceAll(batch)` | capacity reuse/growth、full column rewrite、sidecar dirty、ordered terminal |
+| runtime frontier maintenance | `MachineCandidate.addBatch`、indicator `update`、candidate `remove` | key insert、index update/dirty、changed rows、removed rows、compaction |
+| dense workspace refresh | `InsertionCandidateRow.replaceAll(batch)` | capacity reuse/growth、full column rewrite、sidecar dirty、ordered terminal |
 | ColumnView / column pipeline | primitive column scan | acquire/read/release、active view、view errors |
 | DTO export | `fetchAll()`、response export | DTO allocation、field copy、list allocation |
 
@@ -112,7 +113,7 @@ FJSP 中：
 
 - `OperationTable.fetch(operationKey)` 压测 composite key primary lookup；
 - `ProcessingTimeTable.fetch(operationMachineKey)` 压测 composite lookup key；
-- `ProcessingTimeTable.findByOperation(operationKey)` 压测 secondary grouped index source，不属于 primary lookup。
+- `ProcessingTimeTable.findByOperation(operationKey)` 和 `MachineCandidateTable.findByMachine(machineId)` 压测 secondary grouped index source，不属于 primary lookup。
 
 ## 7. Secondary index and order source
 
@@ -132,6 +133,7 @@ FJSP 示例：
 
 ```java
 processingTimes.findByOperation(operationKey)
+machineCandidates.findByMachine(machineId)
 ```
 
 该 source 的性能 lane 应记录 candidate rows `G`，而不是只记录最终 chosen candidate。
@@ -143,7 +145,7 @@ Order sidecar 是 row permutation，不改变 physical column storage。
 设计目标：
 
 - `byXxx()` 返回 full ordered source；
-- grouped order source 可使用 leading selector prefix，例如 `byOperationSpt(operationKey)`；
+- grouped order source 可使用 leading selector prefix，例如 `byRoutePosition(routeId)`；
 - insert/delete/replaceAll/selector update 后 order sidecar eager maintain 或 dirty；
 - terminal 使用 dirty order sidecar 前 lazy rebuild；
 - lazy rebuild 成本必须进入 stats/benchmark，不能被 `findFirst()` 掩盖成近似 O(1)。
@@ -151,11 +153,10 @@ Order sidecar 是 row permutation，不改变 physical column storage。
 FJSP 示例：
 
 ```java
-processingTimes.byOperationSpt(operationKey).firstOrThrow()
-candidateScoreRows.bySpt().firstOrThrow()
+machines.byAvailableTime().firstOrThrow()
 ```
 
-`byOperationSpt(operationKey)` 的成本至少包含 grouped prefix selection、ordered row traversal 和可能的 sidecar rebuild。若 codegen 退化为 full scan + filter + dynamic sort，benchmark claim 必须按该路径解释，不能仍声明 maintained order source 性能。
+`byAvailableTime()` 的成本至少包含 ordered row traversal 和可能的 sidecar rebuild。若 codegen 退化为 full scan + dynamic sort，benchmark claim 必须按该路径解释，不能仍声明 maintained order source 性能。
 
 ## 8. Row Pipeline terminal
 
@@ -194,10 +195,12 @@ Dense workspace 是 V1 性能模型的重要场景。它没有 `KeySpace`，但�
 TableStore + RowSpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState
 ```
 
-FJSP dense workspace：
+Dense workspace 示例：
 
-- `ReadyOperationRow` / `ready_operation_rows`；
-- `CandidateScoreRow` / `candidate_score_rows`。
+- VRP `InsertionCandidateRow` / `insertion_candidate_rows`；
+- game `MoveCandidateRow` / `move_candidate_rows`。
+
+FJSP canonical scenario 不再用 dense workspace 表达候选集；它使用 `MachineCandidate` keyed runtime frontier。若某个项目仍采用 FJSP dense workspace 变体，必须作为另一条 scenario/lane 记录，不能混入 canonical frontier 结论。
 
 性能要求：
 
@@ -324,10 +327,12 @@ Baseline 必须同语义比较。
 |---|---|---|
 | initial table import | import / construction | 不证明 lookup 或 traversal 优势 |
 | `ProcessingTime.fetch(operationMachineKey)` | primary key lookup | 与 composite key baseline 比较 |
-| `ProcessingTime.findByOperation(operationKey)` | secondary index source | 观察 candidate generation and traversal |
-| `ProcessingTime.byOperationSpt(operationKey)` | grouped order source | 必须包含 lazy rebuild / prefix selection |
-| `ReadyOperationRow.replaceAll(batch)` | dense workspace refresh | 观察 capacity reuse、column rewrite、sidecar dirty |
-| `CandidateScoreRow.bySpt().firstOrThrow()` | ordered dense terminal | 不把 lazy rebuild 隐藏为 terminal O(1) |
+| `ProcessingTime.findByOperation(operationKey)` | secondary index source | 观察 operation release 的 feasible machine candidate generation |
+| `MachineCandidate.addBatch(batch)` | runtime frontier maintenance | 观察 key insert、by_machine/by_operation index maintenance |
+| `Machine.byAvailableTime().firstOrThrow()` | order source | 必须包含 lazy rebuild / ordered traversal |
+| `MachineCandidate.findByMachine(machineId).update(...)` | Row Pipeline update terminal | 观察 indicator changed rows 和 sidecar dirty/update stats |
+| `MachineCandidate.findByMachine(machineId).sorted(comparator).firstOrThrow()` | dynamic sort terminal | 不能宣称等价于 maintained `@SomaOrder` |
+| `MachineCandidate.findByOperation(operationKey).remove()` | Row Pipeline remove terminal | 观察 removed rows、compaction、index cleanup |
 | assignment `update` / `mutate` | Row Pipeline / mutator | 观察 changed rows and sidecar dirty |
 | `xxxColumn()` scan | ColumnView | 不与 DTO export 混淆 |
 | response `fetchAll()` | DTO export | 只证明 materialization/export boundary |

@@ -38,6 +38,7 @@ Owner：根项目协调层
 | DTO | schema source class，同时也是 detached materialized boundary object | 不是 hot-loop live row object，不是 runtime row proxy |
 | Row Pipeline | generated table 上的 row traversal / filter / update / terminal API | 不等同于 `Stream<DTO>`；callback 使用 generated row cursor |
 | ColumnView | 对 runtime column storage 的 live readonly view | 有 lifecycle / owner holding / stale-view 规则 |
+| runtime frontier | solver/application 在运行中增量维护的候选集合 | 是用户 schema 建模场景；若有 stable key，应建成 keyed table，不是 runtime internal cache 或 sidecar |
 
 ## 4. Runtime Internal 术语
 
@@ -81,6 +82,8 @@ XxxTable
 | primary key lookup | `KeySpace` 维护的 `RowKey -> RowSlot` 身份定位 | 不作为普通 secondary index 解释 |
 | secondary index | `AccessStructures` 维护的非主键访问结构 | 由 generated source method 进入 Row Pipeline |
 | order sidecar | `AccessStructures` 维护的 ordered row permutation | 不改变 `ColumnStore` 的 physical row order |
+
+FJSP 中的 `MachineCandidate` 是 runtime frontier 的典型例子：row 存在表示候选有效，`(MachineId, OperationKey)` 是 stable logical identity；被选中的 operation 应通过 `findByOperation(operationKey).remove()` 删除全部相关候选，而不是用 `active` 字段长期保留失效 row。
 
 ## 6. 不推荐术语
 

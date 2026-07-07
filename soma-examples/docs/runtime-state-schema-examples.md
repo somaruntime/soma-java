@@ -39,14 +39,16 @@ Owner：`soma-examples`
 FJSP 示例表达 `FCFS + SPT` 一类构造解过程中的 runtime state：
 
 ```text
-jobs / operations / machines / processing times / setup times
-  -> ready operation workspace
-  -> candidate machine score workspace
-  -> assignment mutation
+jobs / operations / materials / machines / processing times / setup times
+  -> operation release
+  -> machine_candidates keyed runtime frontier
+  -> per-machine indicator update
+  -> dynamic sorted dispatch
+  -> assignment mutation / frontier cleanup
   -> DTO export
 ```
 
-不表达完整 APS、CP-SAT、局部搜索、重排优化或多目标优化。`ProcessingTime` 和 `SetupTime` 是 keyed lookup table，不嵌入 `Operation` 生命周期；`ReadyOperationRow` 与 `CandidateScoreRow` 是 dense workspace，可在 solve 生命周期内长期持有并反复 `replaceAll(batch)`。
+不表达完整 APS、CP-SAT、局部搜索、重排优化或多目标优化。`ProcessingTime` 和 `SetupTime` 是 keyed lookup table，不嵌入 `Operation` 生命周期；`MachineCandidate` 是 keyed runtime frontier，用于保存 operation release 后可加工的 `(MachineId, OperationKey)` 候选。它不是每轮临时 `replaceAll(batch)` workspace，也不在 schema 中固化 dispatch rule order。
 
 ### 3.2 Schema source 示例
 
@@ -88,6 +90,12 @@ public final class OperationId {
 
 @SomaValue
 public final class MachineId {
+    @SomaField
+    public long value;
+}
+
+@SomaValue
+public final class MaterialId {
     @SomaField
     public long value;
 }
@@ -168,12 +176,6 @@ public final class Job {
     "operationKey.jobId.value",
     "sequenceNo"
 })
-@SomaOrder(name = "by_dispatch_order", by = {
-    @SomaSort("inputOrder"),
-    @SomaSort("sequenceNo"),
-    @SomaSort("operationKey.jobId.value"),
-    @SomaSort("operationKey.operationId.value")
-})
 public final class Operation {
     @SomaKey
     public OperationKey operationKey;
@@ -183,6 +185,15 @@ public final class Operation {
 
     @SomaField
     public int sequenceNo;
+
+    @SomaField
+    public long releaseMinute;
+
+    @SomaField
+    public long jobReadyMinute;
+
+    @SomaField
+    public long materialReadyMinute;
 
     @SomaField
     public SetupFamilyId setupFamily;
@@ -206,9 +217,19 @@ public final class Operation {
     public Long endMinute;
 }
 
+@SomaTable(name = "materials", defaultCapacity = 4096)
+public final class Material {
+    @SomaKey
+    public MaterialId materialId;
+
+    @SomaField
+    public long readyMinute;
+}
+
 @SomaTable(name = "machines", defaultCapacity = 128)
 @SomaIndex(name = "by_state", fields = {"state"})
-@SomaOrder(name = "by_machine_id", by = {
+@SomaOrder(name = "by_available_time", by = {
+    @SomaSort("availableFromMinute"),
     @SomaSort("machineId.value")
 })
 public final class Machine {
@@ -232,12 +253,6 @@ public final class Machine {
     "operationMachineKey.operationKey.jobId.value",
     "operationMachineKey.operationKey.operationId.value"
 })
-@SomaOrder(name = "by_operation_spt", by = {
-    @SomaSort("operationMachineKey.operationKey.jobId.value"),
-    @SomaSort("operationMachineKey.operationKey.operationId.value"),
-    @SomaSort("processingMinutes"),
-    @SomaSort("operationMachineKey.machineId.value")
-})
 public final class ProcessingTime {
     @SomaKey
     public OperationMachineKey operationMachineKey;
@@ -259,61 +274,62 @@ public final class SetupTime {
     public long setupMinutes;
 }
 
-@SomaTable(name = "ready_operation_rows", defaultCapacity = 1024)
-@SomaOrder(name = "by_fcfs", by = {
-    @SomaSort("inputOrder"),
-    @SomaSort("sequenceNo"),
-    @SomaSort("operationKey.jobId.value"),
-    @SomaSort("operationKey.operationId.value")
+@SomaTable(name = "machine_candidates", defaultCapacity = 8192)
+@SomaIndex(name = "by_machine", fields = {
+    "candidateKey.machineId.value"
 })
-public final class ReadyOperationRow {
-    @SomaField
-    public OperationKey operationKey;
-
-    @SomaField
-    public long inputOrder;
-
-    @SomaField
-    public int sequenceNo;
-
-    @SomaField
-    public long predecessorEndMinute;
-}
-
-@SomaTable(name = "candidate_score_rows", defaultCapacity = 256)
-@SomaOrder(name = "by_spt", by = {
-    @SomaSort("processingMinutes"),
-    @SomaSort("projectedEndMinute"),
-    @SomaSort("operationMachineKey.machineId.value")
+@SomaIndex(name = "by_operation", fields = {
+    "candidateKey.operationKey.jobId.value",
+    "candidateKey.operationKey.operationId.value"
 })
-public final class CandidateScoreRow {
-    @SomaField
-    public OperationMachineKey operationMachineKey;
+public final class MachineCandidate {
+    @SomaKey
+    public OperationMachineKey candidateKey;
 
     @SomaField
-    public long setupStartMinute;
+    public SetupFamilyId targetSetupFamily;
 
     @SomaField
-    public long setupMinutes;
+    public long operationReleaseMinute;
 
     @SomaField
-    public long startMinute;
+    public long jobReadyMinute;
+
+    @SomaField
+    public long materialReadyMinute;
+
+    @SomaField
+    public long baseReadyMinute;
 
     @SomaField
     public long processingMinutes;
 
     @SomaField
-    public long projectedEndMinute;
+    public long setupMinutes;
+
+    @SomaField
+    public long effectiveReadyMinute;
+
+    @SomaField
+    public long fcfsValue;
+
+    @SomaField
+    public long sptValue;
+
+    @SomaField
+    public boolean indicatorReady;
 }
 ```
 
 ### 3.3 使用方式
 
-- `Job`、`Operation`、`Machine` 是 keyed entity state；
+- `Job`、`Operation`、`Material`、`Machine` 是 keyed entity state；
 - `ProcessingTime`、`SetupTime` 是 keyed lookup data；
-- `ReadyOperationRow`、`CandidateScoreRow` 是 dense workspace；
+- `MachineCandidate` 是 keyed runtime frontier，primary key 是包含 `MachineId` 与 `OperationKey` 的组合；
+- `MachineCandidate.by_machine` 支撑当前 machine dispatch，`MachineCandidate.by_operation` 支撑 operation 被选中后的候选清理；
+- `MachineCandidate` 不声明 dispatch order，FCFS、SPT 和 setup 相关 indicator 由 solver loop 在 dispatch 前更新，再通过 Row Pipeline `sorted(comparator)` 动态排序；
 - `assignedMachine` 是 cross-table key reference，`OperationTable.fetch(key)` materialize `Operation` DTO；
-- 上层 dispatch loop 决定 FCFS、SPT 和 mutation 顺序，SOMA 不拥有调度策略。
+- 上层 dispatch loop 决定 operation release、indicator 计算、FCFS + SPT 排序和跨 table mutation 顺序，SOMA 不拥有调度策略。
 
 ## 4. VRP 构造解 runtime state
 
@@ -989,7 +1005,7 @@ public final class PendingDamageRow {
 
 | 示例 | Keyed entity state | Keyed lookup data | Dense long-lived state | Dense workspace | 主要证明点 |
 |---|---|---|---|---|---|
-| FJSP | `Job`、`Operation`、`Machine` | `ProcessingTime`、`SetupTime` | 无 | `ReadyOperationRow`、`CandidateScoreRow` | operation-machine lookup 不嵌入 operation 生命周期 |
+| FJSP | `Job`、`Operation`、`Material`、`Machine`、`MachineCandidate` | `ProcessingTime`、`SetupTime` | 无 | 无 | runtime frontier 是 keyed table，不是每轮 dense workspace |
 | VRP | `Customer`、`Vehicle`、`Route` | `TravelCost` | `RouteVisitRow` | `UnassignedCustomerRow`、`InsertionCandidateRow` | route sequence 是 packed rows，不是 stable key rows |
 | 连续仿真 | `Tank`、`Valve` | `FlowCoefficient` | `StateVectorRow`、`TraceSampleRow` | `PendingEventRow` | state vector / event queue 是 dense runtime data |
 | Game | `Player`、`GameUnit` | `AbilityCost` | `MapTileRow` | `MoveCandidateRow`、`PendingDamageRow` | SOMA 可承载 game hot state，但不是 ECS / engine |

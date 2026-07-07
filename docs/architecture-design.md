@@ -36,7 +36,8 @@ OOP application    = workflow orchestration / algorithm strategy
 
 1. entity state，例如 `Job`、`Operation`、`Machine`、`Material`；
 2. frequently queried static / imported data，例如 operation-machine processing time、city-to-city distance matrix；
-3. packed row-index data，例如矩阵行、数组型 runtime state、dense solver workspace。
+3. derived runtime frontier，例如 FJSP 中 operation release 后可加工的 `(MachineId, OperationKey)` 候选集合；
+4. packed row-index data，例如矩阵行、数组型 runtime state、dense solver workspace。
 
 短生命周期 Java 临时对象不是 SOMA 的核心 scope。SOMA 可以提供 dense table 作为可复用 workspace，但不把普通局部变量、一次性 DTO 或对象池管理作为产品目标。
 
@@ -220,6 +221,8 @@ V1 table 只分为两类：
 | dense table | 无 stable logical key | packed scan、row-index iteration、批量替换、矩阵/数组型 runtime state、solver workspace |
 
 `entity`、`lookup`、`matrix`、`workspace` 是建模场景，不是 schema kind。V1 不引入 `@SomaTableRole`。是否 keyed 只由是否声明 `@SomaKey` 决定。
+
+`runtime frontier` 也是建模场景，不是第三种 table kind。若 frontier row 有稳定 logical identity、需要跨 dispatch 轮次保留、需要按 key 删除或按 secondary index 查找，应建模为 keyed table。例如 FJSP 中的 `MachineCandidate` 以 `(MachineId, OperationKey)` 作为 primary key，按 `MachineId` 支撑当前 machine dispatch，按 `OperationKey` 支撑某个 operation 被选中后的候选清理。
 
 Child table 是 parent-owned ownership shape，不是第三种 table kind。它只适合 parent row 拥有 child table 生命周期的场景；FJSP 中的 operation-machine processing time 应建成独立 keyed lookup table，不应作为 `Operation` 的 child table。
 

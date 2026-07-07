@@ -35,7 +35,9 @@ XxxTable
        -> LifecycleState
 ```
 
-单张 table 必须维护自己的 storage、identity、sidecar、lifecycle 和 typed error 语义。V1 不提供跨 table transaction。FJSP 中 `Operation` assignment 与 `Machine` availability 的连续 mutation 属于 solver/application loop 的一致性责任，不是 SOMA runtime atomicity 承诺。
+单张 table 必须维护自己的 storage、identity、sidecar、lifecycle 和 typed error 语义。V1 不提供跨 table transaction。FJSP 中 `Operation` assignment、`Machine` availability 与 `MachineCandidate` frontier 删除/刷新等连续 mutation 属于 solver/application loop 的一致性责任，不是 SOMA runtime atomicity 承诺。
+
+换言之，SOMA runtime 保证每一次单表 mutation 完成后该 table 内部不变量成立；跨 `OperationStateTable`、`MachineStateTable`、`MachineCandidateTable`、`JobStateTable`、`MaterialStateTable` 的 commit 顺序、失败处理、补偿策略和可观测 artifact 必须由 solver loop 明确拥有。
 
 ## 3. Core invariants
 
@@ -271,13 +273,15 @@ G3 runtime tests 应提供 invariant checker，至少检查：
 
 FJSP scenario 覆盖真实 vertical slice：
 
-- `Job`、`Operation`、`Machine` keyed entity state；
+- `Job`、`Operation`、`Material`、`Machine` keyed entity state；
 - `ProcessingTime`、`SetupTime` keyed lookup table；
-- `ReadyOperationRow`、`CandidateScoreRow` dense workspace；
-- `findByOperation(operationKey)` grouped index source；
-- `byOperationSpt(operationKey)` grouped order source；
-- `replaceAll(batch)` dense workspace refresh；
-- assignment mutation 和 machine availability mutation；
+- `MachineCandidate` keyed runtime frontier；
+- `ProcessingTime.findByOperation(operationKey)` release-time grouped index source；
+- `Machine.byAvailableTime()` order source；
+- `MachineCandidate.findByMachine(machineId).update(...)` indicator refresh；
+- `MachineCandidate.findByMachine(machineId).sorted(comparator).firstOrThrow()` dynamic dispatch selection；
+- `MachineCandidate.findByOperation(operationKey).remove()` frontier cleanup；
+- assignment mutation、machine availability mutation 和 material/job ready state 推进；
 - DTO export boundary。
 
 FJSP oracle 证明 example path 可观察，不替代 G3 runtime invariant。
@@ -287,7 +291,8 @@ FJSP oracle 证明 example path 可观察，不替代 G3 runtime invariant。
 FJSP canonical scenario 采用以下业务口径：
 
 - `ProcessingTime` 缺失某个 operation-machine pair，表示该机器不是该 operation 的候选；
-- `findByOperation(operationKey)` 返回 empty rows，表示当前 ready operation 没有可行候选机器，由 solver core 解释；
+- `ProcessingTime.findByOperation(operationKey)` 返回 empty rows，表示当前 released operation 没有可行候选机器，由 solver core 解释；
+- `MachineCandidate` row 存在表示该 `(MachineId, OperationKey)` 仍在 runtime frontier 中；row 缺失不等同于 runtime error，可能表示未 release、已分配或业务不可行；
 - `fetch(operationMachineKey)` 或 `firstOrThrow()` 用于 required lookup，缺失时必须返回 typed missing / empty required result；
 - `SetupTime` 在 canonical FJSP 中是 required setup matrix lookup；除业务规则明确 setup 为 `0` 的首工序/无 last setup family case 外，缺失 row 表示输入或模型不完整；
 - runtime 不解释“不可行”或“输入不完整”，只提供 empty result 与 typed missing error。
@@ -300,7 +305,7 @@ FJSP canonical scenario 采用以下业务口径：
 | G2 | normalized model golden；schema hash golden；generated table/batch/row/mutator/ColumnView/grouped source golden |
 | G3 | component invariant；cross-component invariant；batch/import/replaceAll；duplicate/missing key；row move；sidecar dirty/rebuild；ColumnView stale/released/view_pinned |
 | G4 | Java 8 generated API/package smoke；schema hash/runtime compatibility metadata |
-| G5 | FJSP E2E observable path；ordered/grouped source；Row Pipeline terminal；ColumnView；typed lifecycle errors |
+| G5 | FJSP frontier E2E observable path；index/order source；dynamic sort；Row Pipeline update/remove terminal；ColumnView；typed lifecycle errors |
 | G6 | release readiness report only引用 G1-G5 正式 evidence，不直接把 scenario review 当 runtime correctness evidence |
 
 ## 9. Non-goals

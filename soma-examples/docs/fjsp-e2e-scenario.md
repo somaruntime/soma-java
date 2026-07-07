@@ -32,16 +32,15 @@ request DTO or protobuf adapter
 
 - `Operation` keyed table；
 - `Job` keyed table；
+- `Material` keyed table；
 - `Machine` keyed table；
+- `MachineCandidate` keyed runtime frontier table；
 - `ProcessingTime` keyed lookup table；
 - `SetupTime` keyed lookup table；
-- `ReadyOperationRow` dense table workspace（table name: `ready_operation_rows`）；
-- `CandidateScoreRow` dense table workspace（table name: `candidate_score_rows`）；
 - enum；
 - value key；
 - nested value；
 - optional field；
-- dense table；
 - table-level index；
 - table-level order；
 - Row Pipeline lazy terminal；
@@ -51,26 +50,31 @@ request DTO or protobuf adapter
 
 默认示例算法：
 
-1. 从 request boundary 导入 jobs、operations、machines、processing times 和 setup times；
+1. 从 request boundary 导入 jobs、operations、materials、machines、processing times 和 setup times；
 2. batch import 初始化 generated tables；
-3. 使用 FCFS order 找到 ready operation；
-4. 通过 `ProcessingTime.findByOperation(operationKey)` 为 ready operation 生成 candidate machine score；
-5. 使用 SPT order 选择最小 processing time candidate；
-6. mutation 写回 operation assignment；
-7. 更新 machine availability；
-8. 重复直到无 ready operation 或全部 operation assigned；
-9. fetch/materialize DTOs；
-10. export response boundary。
+3. 当 operation release 时，通过 `ProcessingTime.findByOperation(operationKey)` 为可加工 machine 生成 `MachineCandidate` rows；
+4. 每轮从 `Machine.byAvailableTime().firstOrThrow()` 选择下一个可用 machine；
+5. 对 `MachineCandidate.findByMachine(machineId)` 的候选更新 setup、effective ready time、FCFS value 和 SPT value；
+6. 对同一 machine 的候选执行 `sorted(dispatchRuleComparator).firstOrThrow()`，选择下一个 operation；
+7. mutation 写回 operation assignment；
+8. 更新 machine availability 和 last setup family；
+9. 使用 `MachineCandidate.findByOperation(operationKey).remove()` 删除该 operation 的全部候选；
+10. release 后续 operation，并重复直到全部 operation assigned；
+11. fetch/materialize DTOs；
+12. export response boundary。
 
 算法正确性不是 SOMA 的完整 APS 承诺。该示例只用于证明 runtime state API 能支撑典型调度 hot loop。
 
-`ReadyOperationRow` 和 `CandidateScoreRow` 是 dense table workspace 的 schema DTO；对应 table name 分别是 `ready_operation_rows` 和 `candidate_score_rows`。它们可以在一次 solve 生命周期内长期持有，并通过 `replaceAll(batch)` 反复刷新。它们不是短生命周期 Java 临时对象管理器，也不改变 SOMA table 只有 keyed table / dense table 两类的原则。
+SOMA V1 只保证单张 table mutation 后的 table 内部不变量。`OperationStateTable` assignment、`MachineStateTable` availability 更新、`MachineCandidateTable` frontier 删除、`JobStateTable` 和 `MaterialStateTable` 推进等跨 table 提交序列，不具备 runtime transaction 语义；其一致性、提交顺序、失败处理和补偿策略由 solver loop 拥有。
+
+`MachineCandidate` 是 keyed runtime frontier。候选 row 存在表示该 `(MachineId, OperationKey)` 组合仍处于可选 frontier；operation 被选中后，solver loop 应通过 `findByOperation(operationKey).remove()` 删除所有相关候选，而不是保留长期 `active` 标志。Dispatch rule 属于 solver 策略，示例不在 `MachineCandidate` schema 上声明 `byMachineDispatchRule` 这类 order。
 
 ## 5. Lookup missing semantics
 
 FJSP example 必须明确区分 runtime missing key 与业务不可行：
 
-- `ProcessingTime` 表示 operation-machine pair 是否可加工。通过 `findByOperation(operationKey)` 生成候选时，某台机器没有对应 `ProcessingTime` row 表示该机器不是候选；如果某个 ready operation 没有任何 candidate row，solver core 将其解释为当前无可行机器，而不是 SOMA runtime error。
+- `ProcessingTime` 表示 operation-machine pair 是否可加工。通过 `findByOperation(operationKey)` 生成候选时，某台机器没有对应 `ProcessingTime` row 表示该机器不是候选；如果某个 released operation 没有任何 candidate row，solver core 将其解释为当前无可行机器，而不是 SOMA runtime error。
+- `MachineCandidate` 表示已经 release 且仍未被分配的候选 frontier。某个 operation 不在 frontier 中，可能表示它尚未 release、已经被分配、或因业务规则暂不可行；具体解释由 solver core 拥有。
 - 如果 loader 或 solver core 已经确定某个 `OperationMachineKey` 必须存在，再调用 `processingTimes.fetch(operationMachineKey)` 或 `firstOrThrow()` 时缺失，应作为 typed missing key / empty required result 错误暴露。
 - `SetupTime` 在 V1 canonical FJSP 中是 required setup matrix lookup。除第一道工序或机器没有 `lastSetupFamily` 且业务规则定义 setup 为 `0` 的情况外，缺失 `SetupTime` row 表示输入或模型不完整，应通过 typed missing key / required lookup error 暴露。
 - 如果未来示例要表达 sparse setup matrix，例如缺失 setup 表示不可行或默认 `0`，必须先修改本契约，不能由 runtime 自行猜测。
@@ -88,13 +92,15 @@ SOMA runtime 只提供 `find(...)` / `containsKey(...)` / empty Row Pipeline / t
 - keyed `find(key)` or empty Row Pipeline for optional lookup；
 - `containsKey(key)`；
 - generated grouped index access, for example `findByOperation(operationKey)`；
+- generated machine frontier index access, for example `findByMachine(machineId)`；
 - generated order access；
-- generated grouped order access, for example `byOperationSpt(operationKey)`；
 - generated optional presence predicate；
 - Row Pipeline `findFirst()` / `firstOrThrow()`；
-- dense table workspace `replaceAll(batch)`；
+- Row Pipeline `sorted(comparator)` dynamic sort；
 - `mutate(key).field(...).commit()`；
-- `delete(key)` if scenario includes deletion；
+- Row Pipeline `update(updater)` for indicator refresh；
+- Row Pipeline `remove()` for selected operation candidate cleanup；
+- `delete(key)` if scenario includes single-key deletion；
 - typed `ColumnView` read；
 - DTO materialization for export。
 

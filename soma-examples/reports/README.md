@@ -4,4 +4,4 @@
 
 ## 当前正式报告
 
-- [FJSP canonical scenario review](fjsp-canonical-scenario-review.md)
+- [FJSP frontier canonical scenario review](fjsp-canonical-scenario-review.md)

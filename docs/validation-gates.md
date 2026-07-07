@@ -24,7 +24,7 @@ V1 readiness 不能由单元测试通过、示例能跑或本机 demo 成功单�
 | G2 | processor/codegen gate | validation tests、normalized model golden、schema hash golden、deterministic generated output、diagnostic golden cases |
 | G3 | runtime core gate | `TableStore`、`RowSpace`、`KeySpace`、`ColumnStore`、optional bitmap、`AccessStructures`、`AccessPath`、row move、batch import/export、DTO materialization、Row Pipeline、ColumnView、lifecycle/runtime stats tests |
 | G4 | generated API/package gate | Java 8 generated API compile/run、table-first API smoke、package smoke、schema hash metadata check、runtime compatibility check |
-| G5 | examples/benchmark gate | Java 8 FJSP-style E2E smoke、ordered source、Row Pipeline terminal、stale/released/view_pinned 可观察、benchmark smoke JSONL |
+| G5 | examples/benchmark gate | Java 8 FJSP frontier E2E smoke、index/order source、dynamic sort、Row Pipeline update/remove terminal、stale/released/view_pinned 可观察、benchmark smoke JSONL |
 | G6 | release readiness gate | release notes、install instructions、artifact checksums、known limitations、gate report 汇总、回滚/撤回策略 |
 
 V1 不设置 ABI gate、Python gate 或 native package gate。
@@ -140,6 +140,7 @@ Benchmark smoke 不等于性能优势声明。任何“更快”“更省内存�
 - batch import with reserve；
 - batch import without enough capacity；
 - ordered access lazy rebuild；
+- keyed runtime frontier add/update/remove + dynamic `firstOrThrow`；
 - dense scratch replace + ordered `findFirst` / `firstOrThrow`；
 - ColumnView acquire/read/release。
 

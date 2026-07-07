@@ -13,6 +13,7 @@
 - benchmark runner 的输入参数、输出 JSONL schema、环境信息字段和失败语义尚未形成正式契约；
 - benchmark smoke 与性能 claim 的分界已有根级门禁约束，但模块级场景目录、规模、重复次数和报告字段尚未形成正式契约；
 - Row Pipeline、ColumnView / primitive loop、DTO materialization / Java Stream 三类路径的对比证据口径尚未形成正式契约。
+- FJSP `MachineCandidate` runtime frontier 的 addBatch、indicator update、dynamic sort、remove cleanup 与旧 dense workspace `replaceAll` 变体之间尚未形成独立 diagnostic lane，后续不能用单个 FJSP 总耗时替代分项证据。
 
 这些缺口会影响 G5 benchmark smoke 和未来性能声明，但不阻塞当前文档归位治理。
 

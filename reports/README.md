@@ -6,3 +6,4 @@
 
 - [设计文档治理报告](design-document-governance-report.md)
 - [架构设计审核报告](architecture-design-review-report.md)
+- [FJSP MachineCandidate frontier 文档治理专题报告](fjsp-frontier-document-governance-report.md)

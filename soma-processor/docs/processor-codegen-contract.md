@@ -162,8 +162,9 @@ FJSP canonical golden expectation：
 
 ```java
 ProcessingTimeRows findByOperation(OperationKey operationKey);
-ProcessingTimeRows byOperationSpt();
-ProcessingTimeRows byOperationSpt(OperationKey operationKey);
+MachineCandidateRows findByMachine(MachineId machineId);
+MachineCandidateRows findByOperation(OperationKey operationKey);
+MachineRows byAvailableTime();
 ```
 
 对应 schema：
@@ -173,15 +174,29 @@ ProcessingTimeRows byOperationSpt(OperationKey operationKey);
     "operationMachineKey.operationKey.jobId.value",
     "operationMachineKey.operationKey.operationId.value"
 })
-@SomaOrder(name = "by_operation_spt", by = {
-    @SomaSort("operationMachineKey.operationKey.jobId.value"),
-    @SomaSort("operationMachineKey.operationKey.operationId.value"),
-    @SomaSort("processingMinutes"),
-    @SomaSort("operationMachineKey.machineId.value")
+```
+
+```java
+@SomaTable(name = "machine_candidates", defaultCapacity = 8192)
+@SomaIndex(name = "by_machine", fields = {
+    "candidateKey.machineId.value"
+})
+@SomaIndex(name = "by_operation", fields = {
+    "candidateKey.operationKey.jobId.value",
+    "candidateKey.operationKey.operationId.value"
 })
 ```
 
-`findByOperation(operationKey)` 使用完整 index selector；`byOperationSpt(operationKey)` 使用 order leading selector prefix；`byOperationSpt()` 保留全表 ordered source。三者都返回 `ProcessingTimeRows`，不返回 DTO list、Java Stream 或 runtime sidecar。
+```java
+@SomaOrder(name = "by_available_time", by = {
+    @SomaSort("availableFromMinute"),
+    @SomaSort("machineId.value")
+})
+```
+
+`ProcessingTime.findByOperation(operationKey)` 使用完整 index selector；`MachineCandidate.findByMachine(machineId)` 和 `MachineCandidate.findByOperation(operationKey)` 使用 frontier 的 secondary index selector；`Machine.byAvailableTime()` 使用 maintained order source。它们都返回对应 table 的 generated `XxxRows`，不返回 DTO list、Java Stream 或 runtime sidecar。
+
+Grouped order source 仍是 V1 codegen 能力，但不作为 FJSP dispatch rule 的 schema 固化方式。可用 VRP `RouteVisit.byRoutePosition(routeId)` 一类场景作为 golden case。
 
 ## 8. Mutator API
 
@@ -268,7 +283,8 @@ V1 golden cases 至少覆盖：
 - value key；
 - index/unique/order；
 - grouped index source, for example `findByOperation(OperationKey operationKey)`；
-- grouped order source, for example `byOperationSpt()` and `byOperationSpt(OperationKey operationKey)`；
+- frontier grouped index source, for example `findByMachine(MachineId machineId)` and `findByOperation(OperationKey operationKey)` on `MachineCandidate`；
+- grouped order source, for example `byRoutePosition(RouteId routeId)`；
 - invalid selector；
 - duplicate key declaration；
 - generated mutator without key setter；
