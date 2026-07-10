@@ -5,16 +5,18 @@ Gate：G0 Java-only scope freeze
 唯一 Owner：root
 执行日期：2026-07-10
 执行人：Codex，在用户明确授权的完整 V1 Goal 下
-输入 commit：`03f04a1e043e08bc4b5ede3f296b19897bff730e`
+输入 commit：`4e69988294896038933e395312959a1dc2ca6670`
 输入 artifact version：`0.1.0-SNAPSHOT`
 输出 artifact：`reports/java-v1-g0-scope-freeze-report.md`
 输入事实源：[正式设计文档索引](../docs/README.md) 与各 module `docs/README.md`
 
 ## 1. Outcome
 
-Commit `03f04a1` 的 Java-only SOMA V1 scope 已满足 [G0 required evidence](../docs/validation-gates.md)：项目边界、模块 Owner、架构、schema/API/runtime contract、correctness/performance/security、build/version/release、non-goals、实施顺序、capability ledger、V1.0 RC 完成边界和 release claim boundary 均已进入正式 Owner 文档，且没有临时文档充当事实源。
+Commit `4e69988` 的 Java-only SOMA V1 scope 已满足 [G0 required evidence](../docs/validation-gates.md)：项目边界、模块 Owner、架构、schema/API/runtime contract、correctness/performance/security、build/version/release、non-goals、实施顺序、capability ledger、V1.0 RC 完成边界和 release claim boundary 均已进入正式 Owner 文档，且没有临时文档充当事实源。
 
 相对于上一次 G0 输入 commit `5a27642`，本次重新执行还纳入了项目所有者确认的发布身份与验证边界：组织/发布主体 HGTECH、产品品牌 SOMA、`com.hgtech.soma`、`soma-*` artifact、Apache-2.0 推荐方向、历史排除身份零扩散，以及“本机实现验证不能外推为 G6 support matrix”。这些变化强化发布治理，没有删除或降级任何 V1 capability。
+
+相对于 G0 输入 commit `03f04a1`，项目所有者进一步选择 `@SomaTable` public detached carrier 方案：top-level public class、无 checked exception 的 public no-arg construction、public mutable schema fields、caller-owned 可修改但不自动 write-back，且 javac plugin 只 lower `@SomaValue`。Annotation、materialization、compiler、processing、codegen、compatibility 与 testkit Owner 已同步；该决定关闭 implementation hard stop，没有改变 Capability Ledger、Gate 或 release scope。
 
 G0 结论：`passed`。
 
@@ -110,6 +112,7 @@ uname -srm
 | Unique Owner | 通过；32/32 正式文档有唯一 Owner |
 | Module boundary | 通过；六模块责任和依赖方向已正式化 |
 | Schema/API/runtime contract | 通过；annotation、processing/codegen、generated API、TableStore/lifecycle/plan/errors/performance 均有 Owner |
+| Schema carrier construction | 通过；`@SomaTable` public carrier/no-arg/mutable-field、materializer direct construction 和 processor fail-closed 已正式化 |
 | Correctness/performance/security | 通过；模型、实现纪律、evidence obligation 和 claim boundary 已正式化 |
 | Build/version/release | 通过；JDK 8、Wrapper/reactor、artifact、compatibility、G6 blocker 和 rollback 已正式化 |
 | Release identity | 通过；HGTECH/SOMA、`com.hgtech.soma`、`soma-*`、Apache-2.0 方向和历史身份零扩散边界已正式化 |
@@ -163,7 +166,7 @@ V1-RELEASE-EVIDENCE
 
 Compiler feasibility spike 只证明 `V1-COMPILER-LOWERING` 的最小机制可行，不改变其 `not-started` implementation 状态，也不能替代 G2/G4 evidence。
 
-相对上一次 G0 evidence，23 项 capability 状态均保持 `not-started -> not-started`。本次只更新正式 release/validation governance 与 G0 证据身份，没有把设计、spike、空 reactor build 或本机 smoke 转换为 capability implementation evidence。
+相对上一次 G0 evidence，23 项 capability 状态均保持 `not-started -> not-started`。本次只更新正式 release/validation/carrier governance 与 G0 证据身份，没有把设计、spike、空 reactor build 或本机 smoke 转换为 capability implementation evidence。
 
 ### 5.3 Scope lock identity
 
@@ -204,9 +207,10 @@ Scope check 要求原则十五、防缩水协议、non-regression Gate、Agent/P
 
 允许声明：
 
-- commit `03f04a1` 的 Java-only SOMA V1 scope 已完成 G0 freeze；
+- commit `4e69988` 的 Java-only SOMA V1 scope 已完成 G0 freeze；
 - 23 项 V1 capability、Owner chain、Phase/Gate 和禁止替代已被正式 ledger 和 scope check 固化；
 - V1.0 RC 是完整功能 checkpoint；HGTECH/SOMA 发布身份和本机 validation/G6 support-matrix 边界已冻结；
+- `@SomaTable` public detached carrier construction contract 已关闭设计阻塞；
 - 项目可以按唯一完整 V1 目标进入 Phase 0；
 - Phase 不能被改写成 `v0.x`、MVP、Lite、Basic 或独立完成目标。
 
