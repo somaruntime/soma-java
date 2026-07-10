@@ -1,15 +1,13 @@
 # soma-annotations 正式设计文档
 
-本目录保存 `soma-annotations` 的正式设计文档。
+本目录只保存 `soma-annotations` 拥有的 public schema annotation 事实。
 
-## 当前正式设计文档
+## 正式设计文档
 
-- [Java annotation schema 契约](annotation-schema-contract.md)
+| 文档 | Owner | 单一职责 |
+|---|---|---|
+| [Java annotation schema 契约](annotation-schema-contract.md) | `soma-annotations` | annotation、类型系统、field role、optional/default、key/index/order 和 child declaration |
 
-## 职责边界
+Processing、normalized schema、hash、diagnostics 和 code generation 属于 [soma-processor](../../soma-processor/docs/README.md)。
 
-`soma-annotations` 只拥有用户可见 schema annotation API。annotation 语义、类型系统、normalized schema model 和 schema hash 口径以本目录契约为准；runtime storage、Row Pipeline 执行和 benchmark 证据不在本模块定义。
-
-## 临时设计目录
-
-临时设计草案只能放在 `docs/temp/`。草案被接受后，必须把稳定事实迁移进本目录正式设计文档。
+临时专题进入 `docs/temp/`，不得成为正式事实源。

@@ -1,22 +1,18 @@
 # soma-benchmarks 正式设计文档
 
-本目录保存 `soma-benchmarks` 的正式设计文档。
+本目录保存 benchmark 方法与具体 runtime-state lanes 的正式设计事实，不保存 benchmark 结果。
 
-## 当前正式设计文档
+## 正式设计文档
 
-当前尚无正式契约文档。
+| 文档 | Owner | 单一职责 |
+|---|---|---|
+| [Benchmark evidence 契约](benchmark-evidence-contract.md) | `soma-benchmarks` | evidence level、度量、artifact、claim 和设计反推条件 |
+| [Runtime-state benchmark 契约](runtime-state-benchmark-contract.md) | `soma-benchmarks` | component shape、FJSP、VRP、Simulation、Game、child/materialization lanes |
 
-## 待决策设计缺口
+## 实现期缺口
 
-本次治理只确认缺口，不替代设计：
+Runner CLI、exact JSONL schema、scale/seed preset、warmup/repetition 默认值和报告模板将在 runner 实现专题中固化。它们属于 benchmark implementation/runtime plan，不改变上述 evidence 和 scenario contract。
 
-- benchmark runner 的输入参数、输出 JSONL schema、环境信息字段和失败语义尚未形成正式契约；
-- benchmark smoke 与性能 claim 的分界已有根级门禁约束，但模块级场景目录、规模、重复次数和报告字段尚未形成正式契约；
-- Row Pipeline、ColumnView / primitive loop、DTO materialization / Java Stream 三类路径的对比证据口径尚未形成正式契约。
-- FJSP `MachineCandidate` runtime frontier 的 addBatch、indicator update、dynamic sort、remove cleanup 与旧 dense workspace `replaceAll` 变体之间尚未形成独立 diagnostic lane，后续不能用单个 FJSP 总耗时替代分项证据。
+当前文档只定义可测问题，不代表已有 claim-grade benchmark 结果。
 
-这些缺口会影响 G5 benchmark smoke 和未来性能声明，但不阻塞当前文档归位治理。
-
-## 临时设计目录
-
-临时设计草案只能放在 `docs/temp/`。草案被接受后，必须把稳定事实迁移进本目录正式设计文档。
+临时专题进入 `docs/temp/`，不得成为正式事实源。

@@ -1,6 +1,6 @@
 # 设计文档治理报告
 
-状态：正式治理报告
+状态：历史正式治理报告；当前结论见 [SomaTable 设计文档治理收尾报告](2026-07-10-soma-table-design-governance-closeout-report.md)
 日期：2026-07-06
 Owner：根项目协调层
 

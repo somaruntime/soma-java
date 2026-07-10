@@ -1,322 +1,281 @@
-# Runtime correctness model
+# Runtime 正确性模型
 
 状态：正式设计文档
-日期：2026-07-06
 Owner：根项目协调层
+事实范围：runtime 跨组件不变量、状态机、失败原子性、correctness oracle 和 gate 映射
+非事实范围：runtime class/API、具体数据结构算法、场景业务规则和性能结论
+最后审查日期：2026-07-10
 
 ## 1. 目标
 
-本文定义 `soma_java` V1 runtime correctness model。它把项目级架构中的 `TableStore` 组合模型落成可审查、可测试、可进入 gate evidence 的不变量、状态机、错误语义和 oracle 口径。
+本文把 [SomaTable 设计宪法](soma-table-design-constitution.md) 转换为可测试的 runtime correctness model。它定义实现返回控制权时必须成立的事实，不规定内部类名或算法。
 
-本文不替代 owner 契约：
-
-- 项目级架构以 `docs/architecture-design.md` 为准；
-- runtime component contract 以 `soma-runtime-core/docs/runtime-core-contract.md` 为准；
-- generated API / Row Pipeline 以 `docs/row-pipeline-api-contract.md` 为准；
-- processor/codegen golden 以 `soma-processor/docs/processor-codegen-contract.md` 为准；
-- gate evidence 以 `docs/validation-gates.md` 为准。
-
-本文只定义 correctness 要求，不定义性能 claim。性能与 benchmark 口径见 `docs/runtime-performance-model.md`。
+组件职责由 [TableStore 契约](../soma-runtime-core/docs/table-store-contract.md) 和 [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 落地。
 
 ## 2. Correctness boundary
 
-V1 correctness 的基本单位是一张 generated table instance：
+正确性分为三层：
 
-```text
-XxxTable
-  -> XxxTableStore
-       -> TableLayout
-       -> RowSpace
-            -> KeySpace        // keyed table only
-       -> ColumnStore
-       -> AccessStructures
-       -> AccessPath
-       -> MutationCoordinator
-       -> LifecycleState
-```
+| 层级 | 一致性单元 | Owner |
+|---|---|---|
+| Table-local | 单个 TableStore 的 rows、columns、keys、sidecars、epoch | runtime-core |
+| Ownership aggregate | root table 与全部 owned child subtree | runtime-core |
+| Cross-root business consistency | 多个独立 root tables 的 operation sequence | application/solver |
 
-单张 table 必须维护自己的 storage、identity、sidecar、lifecycle 和 typed error 语义。V1 不提供跨 table transaction。FJSP 中 `Operation` assignment、`Machine` availability 与 `MachineCandidate` frontier 删除/刷新等连续 mutation 属于 solver/application loop 的一致性责任，不是 SOMA runtime atomicity 承诺。
-
-换言之，SOMA runtime 保证每一次单表 mutation 完成后该 table 内部不变量成立；跨 `Operation`、`Machine`、`MachineCandidate`、`Job`、`Material` 的 commit 顺序、失败处理、补偿策略和可观测 artifact 必须由 solver loop 明确拥有。
+SOMA V1 不把跨 root table transaction 纳入 runtime correctness。Application 必须决定 mutation ordering、validation、compensation 和 failure handling。
 
 ## 3. Core invariants
 
-### 3.1 RowSpace invariants
+### 3.1 RowSpace
 
-`RowSpace` 拥有 row membership 和当前有效 `RowSlot`。
+稳定状态下：
 
-不变量：
+- `0 <= size <= capacity`；
+- live rows 恰好占据 `[0, size)`；
+- 不保留 persistent tombstone；
+- 每个 column 的 addressable capacity 与 RowSpace 对齐；
+- swap-remove/batch compact 后 moved row 的所有 columns、keys、sidecars 和 child handles 同步修复；
+- structural mutation 提升对应 epoch；
+- released store 不再拥有 live rows。
 
-- 每个 live row 有且只有一个 valid `RowSlot`；
-- `RowSlot` 是当前 packed storage 中的位置，不是 stable business identity；
-- dense table public row index 映射到当前 `RowSlot`，structural mutation 后旧 row index 可能失效；
-- delete、swap-remove、row move、clear、replaceAll 后，所有依赖 slot 的组件必须同步维护或标记 dirty；
-- `RowSpace` 不持有 field payload，不拥有 key/index/order policy。
+### 3.2 KeySpace
 
-### 3.2 KeySpace invariants
+Keyed table 必须满足：
 
-`KeySpace` 只存在于 keyed table，维护 primary identity：
+- 每个 live logical key 恰好定位一个 live row；
+- 每个 live row 恰好有一个 key；
+- duplicate insert 在 visible mutation 前失败；
+- missing lookup 不返回 stale slot；
+- remove/compaction 后 key-to-slot 映射正确；
+- key equality/hash 与 normalized key semantics 一致。
 
-```text
-RowKey leaf values -> KeySpace -> RowSlot
-```
+Dense table 没有 KeySpace；row index 不得进入 logical key contract。
 
-不变量：
+### 3.3 Floating identity/access
 
-- 每个 live key 精确映射到一个 valid `RowSlot`；
-- duplicate key 必须在 public mutation 成功前被拒绝；
-- missing key 必须返回可区分 typed error 或 empty result，取决于 API；
-- delete、row move、replaceAll、clear 后 `KeySpace` 不得指向 deleted/stale slot；
-- primary key lookup 不作为普通 secondary index sidecar 处理；
-- key field 不生成 mutable setter，identity change 必须通过 delete + insert 表达。
+参与 key/index/unique/order 的 floating leaf：
 
-### 3.3 ColumnStore and bitmap invariants
+- 必须 finite；
+- 写入、lookup 和 selector boundary canonicalize `-0.0` 为 `+0.0`；
+- equality、hash、matching 和 order 使用同一 canonical value；
+- invalid value 在 visible state 改变前失败。
 
-`ColumnStore` 持有 table leaf payload。
+普通 payload 的 NaN/infinity/negative-zero 语义由 annotation contract 定义，不能用 NaN 表达 absence。
 
-不变量：
+### 3.4 ColumnStore 与 presence
 
-- 每个 leaf column length 与 current row capacity / row length 策略一致；
-- live row 的 required field payload 必须可读；
-- optional field 使用 presence bitmap + payload column；
-- optional bit `1` 表示 present，bit `0` 表示 absent；
-- optional payload、bitmap、`presentCount` 或等价 metadata 必须一致；
-- absent value getter 必须返回 typed absent error，不能静默返回 Java primitive default；
-- setter 必须设置 presence bit 并写入 payload；
-- clear 必须清除 presence bit，后续 value getter 按 absent 处理；
-- DTO materialization 时 absent optional materialize 为 `null`。
+- 每个 live row 的 required field 可读且类型正确；
+- optional presence bitmap 是 absence 的唯一事实；
+- absent primitive payload 不可经 public value getter 伪装为 zero；
+- present count 与 bitmap 一致；
+- clear/remove/release 后 dead reference 不继续保持 GC reachability；
+- child handle column 只保存有效 owned handle 或合法 absent/empty state。
 
-### 3.4 AccessStructures invariants
+### 3.5 AccessStructures
 
-`AccessStructures` 是从 `RowSpace` + `ColumnStore` 派生出的访问结构。
+Index、unique、order 和 stats 是派生结构：
 
-不变量：
+- 状态必须是 clean/current 或明确 dirty；
+- read path 只能使用与当前 base facts 一致的结构；
+- dirty structure 在使用前正确 rebuild；
+- unique selector 对 live facts 保持唯一；
+- rebuild failure 不把部分结构发布为 current；
+- sidecar 不能成为业务事实源。
 
-- secondary index、unique index、order sidecar 不持有 primary identity；
-- selector field mutation、insert、delete、row move、replaceAll、clear 后，sidecar 必须 eager maintain 或标记 dirty；
-- dirty sidecar 在被 `AccessPath` 用作 source 前必须 rebuild；
-- unique index duplicate 必须返回可区分 typed error；
-- order sidecar 是 row permutation，不改变 physical column storage order；
-- sidecar handle、hash bucket、order array 不进入 public/generated API。
+### 3.6 AccessPath 与 terminal
 
-### 3.5 AccessPath invariants
+- AccessPath 只产生当前 terminal 的 candidate sequence；
+- candidate row 必须属于 terminal 开始时的有效 source domain；
+- filter/skip/limit/sorted/short-circuit 顺序符合 API；
+- mutation terminal 不因自身 field update 重新进入 source/filter/sort；
+- dynamic permutation 绑定对应 epoch；
+- callback 不获得 internal row pointer/sidecar handle。
 
-`AccessPath` 只决定 Row Pipeline terminal 开始时的初始 `RowSequence`。
+### 3.7 Ownership aggregate
 
-不变量：
+- 每个 child instance 恰好一个 owning parent row/field slot；
+- no sharing、no reparent、no orphan、no dangling handle；
+- runtime ownership graph 无环；
+- required child 始终 logical present；
+- optional absent、present-empty、present-nonempty 可区分；
+- delete/clear/unset/replacement/release 按契约 cascade；
+- replacement 失败时旧 subtree 保持不变。
 
-- default scan path 遍历当前 packed rows；
-- index path 从 maintained secondary/unique sidecar 产生候选 rows；
-- order path 从 maintained order sidecar 产生 ordered rows；
-- dynamic sorted path 产生本次 terminal 的临时 row permutation；
-- `AccessPath` 不改变 storage 本体；
-- generated `findByXxx(...)` / `byXxx(...)` 返回同一套 Row Pipeline，不暴露 sidecar。
+### 3.8 Materialization
 
-### 3.6 DTO and buffer invariants
+- 只沿 ownership edge 递归；
+- returned graph 完全 detached；
+- required/optional collection shape 正确；
+- budget 覆盖整个 invocation；
+- counters 和 path deterministic；
+- 任一失败不返回 partial result、不修改 Table。
 
-DTO 是 detached materialized copy。
+详细语义由 [Materialization 契约](materialization-contract.md) 拥有。
 
-不变量：
+## 4. 状态机
 
-- `fetch(key)`、`fetchAt(rowIndex)`、`findFirst()`、`firstOrThrow()`、`fetchAll()` 返回 detached DTO；
-- 修改 DTO 不写回 table；
-- table 后续 mutation 不改变已返回 DTO；
-- Row cursor 只在 callback 调用期间有效，不允许逃逸；
-- `RowIndexBuffer` 只对生成时 table epoch 有效；
-- `KeyBuffer` 持有 stable materialized key values。
-
-## 4. State machines
-
-### 4.1 TableStore lifecycle
-
-```text
-created/open
-  -> traversing          // terminal running
-  -> mutating            // public mutation running
-  -> open
-  -> released
-```
-
-规则：
-
-- released table 的读写必须返回 table released 类 typed error；
-- release 后 active ColumnView 的读取应返回 released view 或 table released 语义，具体错误优先级必须由 runtime-core 固化；
-- V1 table 是 synchronous single-owner object，不承诺 cross-thread concurrent read/write safety；
-- nested structural mutation 必须被拒绝，而不是形成 undefined behavior。
-
-### 4.2 Public mutation state machine
+### 4.1 Table lifecycle
 
 ```text
-precheck lifecycle / active view / schema compatibility
-  -> prepare capacity and row sequence
-  -> apply RowSpace / ColumnStore / KeySpace changes
-  -> maintain or dirty AccessStructures
-  -> bump epoch and stats
-  -> success
+CREATING
+  -> ACTIVE
+  -> RELEASED
+
+CREATING failure -> no published Table
+RELEASED -> no transition back
 ```
 
-Expected typed runtime errors 应尽量在 visible state 改变前被发现。对于 duplicate key、missing key、view pinned、table released、schema/runtime mismatch、invalid row index、invalid selector 等 expected error，public mutation 必须保持 table externally unchanged，并且不提升 `storeEpoch`。
+只有 ACTIVE 接受正常访问。Release 对 ownership aggregate 级联并使已有 borrowed access 进入 released/stale error path。
 
-对于 arbitrary Java callback exception，V1 不承诺跨已处理 rows 的 rollback。已经通过 mutable cursor 完成的 row update 可以保留，但 table internal invariants 必须保持一致；sidecar 必须被同步维护或标记 dirty；异常应传播给调用方。若 runtime 无法保持内部一致性，必须进入 internal invariant violation error path，不能继续静默服务。
-
-Allocation failure 或 memory limit exceeded 必须返回可区分 typed error。结构性 mutation 应采用 staging、pre-allocation、rollback 或等价机制，避免 public table 暴露半写入状态。
-
-### 4.3 Row Pipeline lifecycle
+### 4.2 Public mutation
 
 ```text
-lazy plan
-  -> terminal running
-  -> consumed
+PRECHECK
+  -> PREPARE
+  -> APPLY_BASE_FACTS
+  -> MAINTAIN_OR_DIRTY_DERIVED
+  -> COMMIT_EPOCH
+  -> SUCCESS
 ```
 
-规则：
+Expected error 应在 APPLY 前发生。Prepare 后的 allocation/validation failure 不改变 visible facts。Internal failure 若无法恢复到合法状态，必须作为 invariant violation 暴露，不能伪装为普通 invalid input。
 
-- intermediate operation 只记录 traversal plan，不扫描 table、不复制 row、不 acquire ColumnView；
-- terminal 基于执行时 table current state；
-- terminal 开始前固定本次 candidate `RowSequence` 或 traversal plan；
-- mutation terminal 内 update selector/filter/order 字段，不允许同一 row 因重新进入 source/filter/sort 而重复执行；
-- consumed pipeline 再执行 terminal 必须返回 typed runtime error；
-- callback 中不允许对同一 table 调用 structural mutation API；
-- callback 可以读取其他 table；修改其他 table 由 application 保证不会形成 mutation cycle。
-
-Terminal traversal freeze 不是 snapshot isolation。它只保证本次 terminal 的 candidate rows 不因同一次 terminal 内的 mutation 被重复纳入或漏掉。
-
-### 4.4 ColumnView lifecycle
+### 4.3 Row Pipeline
 
 ```text
-not acquired
-  -> live(viewEpoch)
-  -> released
+NEW -> EXECUTING -> CONSUMED
+              \-> FAILED_CONSUMED
 ```
 
-规则：
+Pipeline one-shot。Cursor 只在 callback active window 有效。Nested same-table structural mutation、reentrant terminal 和 cross-thread use 非法。
 
-- acquire 增加 active view count，并记录 `viewEpoch`；
-- release/close idempotent；
-- release 后读取返回 released_view；
-- `viewEpoch != storeEpoch` 返回 stale_view；
-- table structural mutation 遇到 active view 返回 view_pinned，除非实现能证明 storage address / length / layout 不变；
-- ColumnView 强持有 owner table 或 storage owner，避免 use-after-release 语义；
-- ColumnView 不承诺 snapshot isolation。
-
-### 4.5 Sidecar lifecycle
+### 4.4 ColumnView
 
 ```text
-clean
-  -> dirty
-  -> rebuilding
-  -> clean
+ACQUIRED -> ACTIVE -> CLOSED
+                  \-> INVALIDATED_BY_RELEASE
 ```
 
-规则：
+Active view 阻止冲突 structural mutation；mutation 必须在修改前返回 `view_pinned`。Closed/released view 后续读取返回 typed error。
 
-- insert/delete/replaceAll/clear/row move 可以让 sidecar dirty；
-- 修改 selector 字段可以让对应 index/order sidecar dirty；
-- terminal 使用 dirty sidecar 前必须 rebuild；
-- rebuild 应基于当前 `RowSpace` 和 `ColumnStore`；
-- rebuild 后 sidecar 不得包含 deleted row 或 stale slot；
-- stats 应能记录 dirty/rebuild 事件或等价 maintenance cost hint。
+### 4.5 Sidecar
 
-## 5. Error taxonomy
+```text
+CLEAN_CURRENT
+  -> DIRTY
+  -> REBUILDING
+  -> CLEAN_CURRENT
 
-V1 correctness 要求 runtime errors 至少区分：
+REBUILDING failure -> DIRTY
+```
 
-| Error | 典型触发 | Correctness expectation |
-|---|---|---|
-| duplicate key | batch import / insert duplicate key | table unchanged for expected duplicate error |
-| missing key | `fetch(key)` / required lookup missing | no generic exception |
-| empty required result | `firstOrThrow()` on empty pipeline | no DTO materialization |
-| absent optional value | optional value getter on absent field | no primitive default fallback |
-| invalid selector | invalid generated/runtime selector | processor/runtime typed diagnostic |
-| stale view | ColumnView epoch mismatch | view remains released/invalid for read path |
-| view pinned | structural mutation with active view | mutation rejected or delayed before visible state change |
-| released view | read after view release | distinct from stale view |
-| table released | access after table release | no use-after-release semantics |
-| pipeline consumed | terminal called twice | no repeated traversal |
-| nested structural mutation | callback calls same-table structural mutation | mutation rejected |
-| allocation failure | reserve/addBatch/replaceAll cannot allocate | no half-written public table |
-| memory limit exceeded | configured limit exceeded | no hidden partial success |
-| internal invariant violation | impossible state detected | fail fast; do not continue silently |
+只有完整 rebuild 成功后才发布新结构。
 
-## 6. Differential oracle
+### 4.6 Child slot
 
-Correctness evidence 应使用分层 oracle，而不是只依赖 FJSP E2E。
+Required child：
 
-### 6.1 Reference model
+```text
+LOGICAL_EMPTY_UNALLOCATED <-> PRESENT_ALLOCATED
+clear -> logical empty
+parent release -> released
+```
 
-测试可以使用简单 reference model：
+Optional child：
 
-- keyed table：`Map<Key, DTO>`；
-- dense table：`List<DTO>`；
-- index source：对 reference rows 现场 filter；
-- unique source：filter 后断言 0/1；
-- order source：对 reference rows 现场 sort；
-- dynamic sort：对 candidate rows 现场 sort；
-- DTO materialization：copy reference DTO。
+```text
+ABSENT -> PRESENT_EMPTY/PRESENT_NONEMPTY
+clear  -> PRESENT_EMPTY
+unset  -> ABSENT + cascade release
+replace -> atomic handle switch
+```
 
-Reference model 只用于 tests/oracle，不进入 runtime 实现，不改变 V1 不是 `List<DTO>` / `Map<Key, DTO>` hot storage 的架构事实。
+## 5. 失败原子性
 
-### 6.2 Component invariant checker
+### 5.1 Table-local
 
-G3 runtime tests 应提供 invariant checker，至少检查：
+Insert、batch、update、remove、replaceAll 和 sidecar rebuild 必须在返回时满足：
 
-- live row count、capacity、valid slot；
-- all leaf column length / row length；
-- optional bitmap、payload、present count；
-- `KeySpace` key set 与 live keyed rows；
-- secondary index / unique index candidate set；
-- order sidecar permutation；
-- table epoch、active view count、released flag；
-- runtime stats 的基本单调性或事件记录。
+- success：base facts、derived structures/dirty state 和 epoch 一致；
+- expected failure：调用前 visible facts 保持不变；
+- release：整个 owner scope 进入 terminal state；
+- invariant violation：明确报告，不能继续假装合法。
 
-### 6.3 FJSP oracle
+### 5.2 Ownership aggregate
 
-FJSP scenario 覆盖真实 vertical slice：
+Child replacement/import 应先完整构造和校验新 subtree，成功后切换 handle 并释放旧 subtree。任何 descendant failure 都不能产生 orphan、shared child 或 partial switch。
 
-- `Job`、`Operation`、`Material`、`Machine` keyed entity state；
-- `ProcessingTime`、`SetupTime` keyed lookup table；
-- `MachineCandidate` keyed runtime frontier；
-- `ProcessingTime.findByOperation(operationKey)` release-time grouped index source；
-- `Machine.byAvailableTime()` order source；
-- `MachineCandidate.findByMachine(machineId).update(...)` indicator refresh；
-- `MachineCandidate.findByMachine(machineId).sorted(comparator).firstOrThrow()` dynamic dispatch selection；
-- `MachineCandidate.findByOperation(operationKey).remove()` frontier cleanup；
-- assignment mutation、machine availability mutation 和 material/job ready state 推进；
-- DTO export boundary。
+### 5.3 Cross-root
 
-FJSP oracle 证明 example path 可观察，不替代 G3 runtime invariant。
+SOMA 不承诺多表 all-or-nothing。Application 可以采用 validate-first、ordered commit、idempotent retry、compensation 或重建，但这些是 solver/application contract。
 
-## 7. FJSP lookup semantics
+## 6. Error classification
 
-FJSP canonical scenario 采用以下业务口径：
+Correctness 至少区分：
 
-- `ProcessingTime` 缺失某个 operation-machine pair，表示该机器不是该 operation 的候选；
-- `ProcessingTime.findByOperation(operationKey)` 返回 empty rows，表示当前 released operation 没有可行候选机器，由 solver core 解释；
-- `MachineCandidate` row 存在表示该 `(MachineId, OperationKey)` 仍在 runtime frontier 中；row 缺失不等同于 runtime error，可能表示未 release、已分配或业务不可行；
-- `fetch(operationMachineKey)` 或 `firstOrThrow()` 用于 required lookup，缺失时必须返回 typed missing / empty required result；
-- `SetupTime` 在 canonical FJSP 中是 required setup matrix lookup；除业务规则明确 setup 为 `0` 的首工序/无 last setup family case 外，缺失 row 表示输入或模型不完整；
-- runtime 不解释“不可行”或“输入不完整”，只提供 empty result 与 typed missing error。
+- schema/processor diagnostic；
+- invalid input/value；
+- duplicate/missing key；
+- absent optional；
+- invalid row index；
+- stale/released/view pinned；
+- pipeline consumed/reentrant；
+- materialization budget/path；
+- schema/runtime compatibility；
+- allocation/resource；
+- internal invariant violation。
 
-## 8. Gate mapping
+具体 runtime error code 和 payload 由 [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 拥有。
 
-| Gate | Correctness responsibility |
+## 7. Differential oracle
+
+Runtime 实现必须有一个非 columnar reference oracle，按同一 logical semantics 建模：
+
+- keyed/dense rows；
+- optional presence；
+- key/index/unique/order expected result；
+- mutation/compaction；
+- child ownership state；
+- materialized object graph；
+- lifecycle/errors。
+
+Oracle 只用于测试，不进入 production dependency。
+
+对相同 operation trace，比较：
+
+- logical rows/fields/presence；
+- key/index/order query result；
+- update/remove result；
+- child ownership graph；
+- error category/path；
+- materialized graph。
+
+## 8. Invariant evidence
+
+Runtime invariant helper 分两层：
+
+| Helper | 检查 |
 |---|---|
-| G1 | annotation/type/key/index/order/optional validation；invalid selector compile failure |
-| G2 | normalized model golden；schema hash golden；generated table/batch/row/mutator/ColumnView/grouped source golden |
-| G3 | component invariant；cross-component invariant；batch/import/replaceAll；duplicate/missing key；row move；sidecar dirty/rebuild；ColumnView stale/released/view_pinned |
-| G4 | Java 8 generated API/package smoke；schema hash/runtime compatibility metadata |
-| G5 | FJSP frontier E2E observable path；index/order source；dynamic sort；Row Pipeline update/remove terminal；ColumnView；typed lifecycle errors |
-| G6 | release readiness report only引用 G1-G5 正式 evidence，不直接把 scenario review 当 runtime correctness evidence |
+| table-local | packed rows、column length、bitmap、key mapping、sidecar、epoch |
+| aggregate | child owner、cycle/orphan/dangling、cascade、replacement、pin/release |
 
-## 9. Non-goals
+Testkit 还必须提供 schema-aware materialization comparator。具体 helper contract 由 [soma-testkit 契约](../soma-testkit/docs/testkit-contract.md) 拥有。
 
-V1 correctness model 不承诺：
+Scenario-specific oracle，例如 FJSP dispatch/frontier，进入对应 [examples scenario](../soma-examples/docs/README.md)，不进入通用 runtime model。
 
-- cross-table transaction；
-- snapshot isolation；
-- thread-safe table；
-- rollback for arbitrary user callback exception；
-- arbitrary join consistency；
-- schema migration correctness；
-- Java Stream compatibility；
-- production concurrency semantics。
+## 9. Gate mapping
+
+| Evidence | Gate |
+|---|---|
+| schema compile/diagnostic/hash | G1 |
+| generated API/golden/package | G2 |
+| table-local/aggregate differential and lifecycle | G3 |
+| assembled package smoke | G4 |
+| examples scenario oracle and benchmark smoke | G5 |
+| complete evidence review | G6 |
+
+Gate 的正式状态和报告路径由 [V1 验证门禁](validation-gates.md) 拥有。
+
+## 10. 非目标
+
+本文不提供 formal proof、linearizability、concurrent consistency、cross-table transaction、persistence recovery、业务 feasibility 或性能结论。

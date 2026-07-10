@@ -1,8 +1,10 @@
 # 连续仿真 runtime state 示例
 
 状态：正式设计文档
-日期：2026-07-07
 Owner：`soma-examples`
+事实范围：连续仿真 data role、Access Pattern Card、schema 和使用边界
+非事实范围：ODE/numerical solver、public contract 和性能 claim
+最后审查日期：2026-07-10
 
 ## 1. 文档定位
 
@@ -21,6 +23,16 @@ tank and valve entity state
 ```
 
 不表达 ODE solver 实现、数值积分策略、并行仿真调度或事件业务规则。SOMA 只承载可被 simulator hot loop 反复读取、扫描和更新的状态容器。
+
+### 2.1 Access Pattern Card
+
+| Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
+|---|---|---|---|
+| `StateVectorRow` | stable vector slots × step count；记录 variable-kind distribution | repeated full/partition primitive scan + non-structural update | Row/Column path 与 primitive-array baseline；touched bytes 和 steady-state allocation/op 分开 |
+| pending events | queue size、due ratio、optional payload density | ordered prefix consume、append、batch remove/compact | clean/dirty order、rebuild storm、compaction scratch 和 bitmap path 分开 |
+| trace/coefficient | sample rate × variables；valve/material combinations | trace batch append/export；coefficient point lookup/preprojection | trace export/materialization 与 integration hot loop 分开；lookup load/collision/reuse 单独记录 |
+
+Fixture/benchmark 必须补充 vector working set、scan/update ratio、event due ratio、trace sampling ratio、JIT warmup/forks、summary/diagnostic stats mode 和 final export frequency；这些值不进入 Schema/hash。
 
 ## 3. Schema source 示例
 
@@ -52,30 +64,30 @@ public enum SimVariableKind {
 }
 
 @SomaValue
-public final class TankId {
+public class TankId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class ValveId {
+public class ValveId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class MaterialId {
+public class MaterialId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class ValveMaterialKey {
+public class ValveMaterialKey {
     @SomaField
-    public ValveId valveId;
+    ValveId valveId;
 
     @SomaField
-    public MaterialId materialId;
+    MaterialId materialId;
 }
 
 @SomaTable(name = "tanks", defaultCapacity = 256)
@@ -183,6 +195,7 @@ public final class PendingEventRow {
     @SomaField
     public long targetId;
 
+    @SomaField
     @SomaOptional
     public Double numericPayload;
 }

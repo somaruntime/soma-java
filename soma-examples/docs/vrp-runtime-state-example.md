@@ -1,8 +1,10 @@
 # VRP 构造解 runtime state 示例
 
 状态：正式设计文档
-日期：2026-07-07
 Owner：`soma-examples`
+事实范围：VRP 构造解 data role、Access Pattern Card、schema 和使用边界
+非事实范围：完整 VRP solver、public contract 和性能 claim
+最后审查日期：2026-07-10
 
 ## 1. 文档定位
 
@@ -15,12 +17,22 @@ VRP 示例表达 greedy insertion / cheapest insertion 构造解过程中的 run
 ```text
 vehicles / customers / travel cost lookup
   -> unassigned customer workspace
-  -> route visit dense rows
+  -> per-route visit dense children
   -> insertion candidate workspace
   -> route/customer mutation
 ```
 
-不表达局部搜索、Tabu、LNS、列生成、CP-SAT 或最优性证明。路线访问序列使用 dense table 表达，因为插入位置会频繁变化，`position` 是当前 route sequence 的位置，不是 stable business identity。
+不表达局部搜索、Tabu、LNS、列生成、CP-SAT 或最优性证明。每条 `Route` 独占一个 `List<RouteVisitRow>` dense child，因为插入位置会频繁变化，`position` 是当前 route sequence 的位置，不是 stable business identity。Flat root-level `RouteVisitRow(routeId, position, ...)` 只作为相同语义的 benchmark baseline。
+
+### 2.1 Access Pattern Card
+
+| Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
+|---|---|---|---|
+| `Route.visits` child | route count × empty/typical/high visits | parent-key child scan、route-local rewrite/replace | child instance/small-array overhead 与 flat grouped baseline 同时计量 |
+| insertion workspace | unassigned customers × considered routes × positions | per-round `replaceAll`、dynamic/maintained order、first | builder、column rewrite、sort scratch、order rebuild 和 capacity reuse 分开 |
+| travel/unassigned state | location pairs、remaining customers | repeated point lookup、ordered remove/rebuild | KeySpace load/collision、selector selectivity、compaction 和 preprojection amortization 分开 |
+
+Fixture/benchmark 必须补充 route/global scan ratio、hot columns、touched bytes、mutation/read ratio、optional/child density、JIT warmup/forks、stats mode 和 export frequency；这些值不进入 Schema/hash。
 
 ## 3. Schema source 示例
 
@@ -32,6 +44,8 @@ vehicles / customers / travel cost lookup
 )
 package com.example.vrp.state;
 
+import java.util.List;
+
 public enum CustomerState {
     UNASSIGNED,
     ASSIGNED,
@@ -39,36 +53,36 @@ public enum CustomerState {
 }
 
 @SomaValue
-public final class CustomerId {
+public class CustomerId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class VehicleId {
+public class VehicleId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class RouteId {
+public class RouteId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class LocationId {
+public class LocationId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class LocationPairKey {
+public class LocationPairKey {
     @SomaField
-    public LocationId fromLocation;
+    LocationId fromLocation;
 
     @SomaField
-    public LocationId toLocation;
+    LocationId toLocation;
 }
 
 @SomaTable(name = "customers", defaultCapacity = 4096)
@@ -104,12 +118,15 @@ public final class Customer {
     @SomaDefault("UNASSIGNED")
     public CustomerState state;
 
+    @SomaField
     @SomaOptional
     public RouteId assignedRoute;
 
+    @SomaField
     @SomaOptional
     public Integer assignedPosition;
 
+    @SomaField
     @SomaOptional
     public Long arrivalMinute;
 }
@@ -167,6 +184,9 @@ public final class Route {
     @SomaField
     @SomaDefault("false")
     public boolean closed;
+
+    @SomaChild(initialCapacity = 32)
+    public List<RouteVisitRow> visits;
 }
 
 @SomaTable(name = "travel_costs", defaultCapacity = 65536)
@@ -181,15 +201,11 @@ public final class TravelCost {
     public long travelSeconds;
 }
 
-@SomaTable(name = "route_visit_rows", defaultCapacity = 8192)
-@SomaOrder(name = "by_route_position", by = {
-    @SomaSort("routeId.value"),
+@SomaTable(name = "route_visit_rows", defaultCapacity = 32)
+@SomaOrder(name = "by_position", by = {
     @SomaSort("position")
 })
 public final class RouteVisitRow {
-    @SomaField
-    public RouteId routeId;
-
     @SomaField
     public int position;
 
@@ -258,13 +274,13 @@ public final class InsertionCandidateRow {
 
 - `Customer`、`Vehicle`、`Route` 是 keyed entity state；
 - `TravelCost` 是 keyed lookup table，用于 `LocationPairKey -> distance/travel time`；
-- `RouteVisitRow` 是 dense route sequence，不承诺 `position` 是 stable key；
+- `Route.visits` 是 parent-owned dense route sequence，不承诺 child row 的 `position` 是 stable key；
 - `UnassignedCustomerRow` 和 `InsertionCandidateRow` 是 dense workspace，通过 order access 支撑构造解选择；
 - 上层 VRP constructor 负责容量、时间窗、候选生成和路线关闭策略。
 
 Source-of-truth 口径：
 
-- `RouteVisitRow.position` 是 route 当前访问顺序的事实源；
+- `Route.visits` 中 `RouteVisitRow.position` 是该 route 当前访问顺序的事实源；parent ownership 已确定归属，因此 child row 不重复保存 `routeId`；
 - `Customer.state` 和 `Customer.assignedRoute` 表达 customer 是否已经分配到某条 route；
 - `Customer.assignedPosition` 如果保留，只是诊断 / snapshot 字段，不应作为 route sequence 的权威事实；
 - `UnassignedCustomerRow` 是由 `Customer.state == UNASSIGNED` 派生出的 hot workspace / frontier view，constructor 必须在分配或跳过 customer 时同步删除或重建；
@@ -274,6 +290,8 @@ Source-of-truth 口径：
 
 `InsertionCandidateRow.by_best_delta` 只服务当前 dense workspace 的 selection order。它不是全局策略排序承诺，也不表示 maintained order 与 dynamic `sorted(comparator)` 性能等价；是否保留该 order、改用 dynamic sort，或升级为 keyed insertion frontier，需要通过 benchmark 比较。
 
-`rewriteRouteVisitsForInsertion(...)` 不是零成本 helper。一次插入至少会读取当前 route visits，构造插入后的 sequence，重写 position / arrival / departure / loadAfterVisit，并在保留 `Customer.assignedPosition` 时同步刷新受影响 customer 的诊断 snapshot。现有 V1 示例只承诺 whole-table rebuild 或 route-local rebuild 的业务边界，不承诺 route segment rewrite public API。
+`rewriteRouteVisitsForInsertion(...)` 不是零成本 helper。一次插入至少会读取当前 route child，构造插入后的 sequence，重写 position / arrival / departure / loadAfterVisit，并在保留 `Customer.assignedPosition` 时同步刷新受影响 customer 的诊断 snapshot。V1 使用 `routes.visits(routeId)` 定位 live child facade；child 内容 replacement 必须 staged/validated 后原子切换，失败时旧 child 保持不变。该示例不承诺零拷贝 route segment rewrite public API。
 
-VRP constructor 拥有跨 table 一致性。`Customer`、`Route`、`RouteVisitRow`、`UnassignedCustomerRow`、`InsertionCandidateRow` 的提交序列没有 SOMA runtime transaction；中间失败时，constructor 必须停止构造、回滚外部 snapshot，或重建 derived workspace / candidate rows。
+VRP constructor 拥有跨 table 一致性。`Customer`、`Route` 及其 visits child、`UnassignedCustomerRow`、`InsertionCandidateRow` 的提交序列没有 SOMA runtime transaction；中间失败时，constructor 必须停止构造、回滚外部 snapshot，或重建 derived workspace / candidate rows。
+
+`routes.fetch(routeId)` 会递归 materialize detached `Route + List<RouteVisitRow>`；hot-loop 局部扫描应优先使用 `routes.visits(routeId)`，避免为访问 live child 而构造完整 object/List graph。

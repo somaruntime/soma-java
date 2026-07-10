@@ -1,24 +1,14 @@
-# Java runtime core 契约
+# TableStore 契约
 
 状态：正式设计文档
-日期：2026-07-06
 Owner：`soma-runtime-core`
+事实范围：TableStore composition、RowSpace、ColumnStore、presence、KeySpace、AccessStructures、AccessPath、Batch 和 storage-facing buffers
+非事实范围：ownership/lifecycle/errors、public API、schema semantics 和性能参数
+最后审查日期：2026-07-10
 
 ## 1. 目标
 
-`soma-runtime-core` 提供无第三方依赖的 Java columnar runtime kernel。它不解析 annotation，不生成 Java source，也不拥有用户 schema 语义。
-
-Runtime core 的目标：
-
-```text
-schema-known long-lived runtime state
-+ TableStore composition model
-+ packed primitive/object columns
-+ optional bitmap
-+ batch boundary
-+ access structures / access paths
-+ predictable materialization
-```
+`soma-runtime-core` 提供 annotation-agnostic Java columnar storage kernel。本文拥有 runtime storage components 及其组合边界；public Table/API 由根级契约拥有，lifecycle/errors 由 [Runtime lifecycle 契约](runtime-lifecycle-contract.md) 拥有，hot-path discipline 由 [Runtime 性能实现契约](runtime-performance-implementation-contract.md) 拥有。
 
 ## 2. Runtime internal table model
 
@@ -53,7 +43,7 @@ XxxTable
 
 Public keyed table 映射为 `TableStore + RowSpace + KeySpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。
 
-Public dense table 映射为 `TableStore + RowSpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。Dense table 没有 `KeySpace`，但仍保留 ColumnView、Row Pipeline、DTO materialization、secondary index/order、lifecycle 和 typed errors。
+Public dense table 映射为 `TableStore + RowSpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。Dense table 没有 `KeySpace`，但仍保留 ColumnView、Row Pipeline、Materialized Object、secondary index/order、lifecycle 和 typed errors。
 
 ## 3. ColumnStore
 
@@ -64,8 +54,10 @@ Public dense table 映射为 `TableStore + RowSpace + ColumnStore + AccessStruct
 - value field 按 leaf expansion 展开为 columns；
 - optional field 使用 presence bitmap 加 payload column 或 handle column；
 - string V1 baseline 使用 `String[]` payload column，后续可引入 string pool；
-- table-typed field 使用 child table handle/reference column；
+- `@SomaChild List`/`Map` field 使用 `ChildTableHandle` locator column，不存储 Java Collection 或 public/live object reference；
 - `RowSlot` 是当前 packed storage 内的位置，不是 stable business identity。Public dense table direct API 中的 row index 映射到当前 `RowSlot`。
+
+每个公开可用的 stable table state 中，live `RowSlot` 必须形成 `[0, size)` packed range；terminal 内 temporary removal marks 可以存在，但成功返回后不得留下长期 tombstone/hole。Single/batch delete 的具体 swap-remove/compact algorithm 属于 implementation，结果必须恢复 packed invariant，并同步维护或 dirty 所有 locator/sidecar。
 
 V1 runtime core 至少提供：
 
@@ -81,6 +73,10 @@ V1 runtime core 至少提供：
 - clear while reusing capacity。
 
 Column implementation 是 internal API，generated public API 不暴露 column mutation primitive。
+
+### 3.1 Child handle storage material
+
+`@SomaChild List/Map` field 在 parent column 中保存 opaque `ChildTableHandle` locator，不保存 Java Collection 或 live public object。Handle 的 owner validation、forest invariant、cascade 和 release 属于 [Runtime lifecycle 契约](runtime-lifecycle-contract.md)。
 
 ## 4. Public table kind mapping
 
@@ -118,7 +114,7 @@ row_index -> words[row_index / 64] bit (row_index % 64)
 - word count 覆盖 table size；
 - 最后一个 word 的 unused bits 被忽略；
 - payload column length 与 table row length 对齐；
-- bitmap 不进入 DTO shape；
+- bitmap 不进入 materialized shape；
 - runtime 维护 `presentCount` 或等价 metadata；
 - generated predicate 支持 all-present、all-absent、mixed chunk scan。
 
@@ -149,7 +145,20 @@ V1 至少支持以下 `KeySpace` 实现材料：
 - rehash；
 - collision full equality。
 
-Hash value、bucket layout 和 probing strategy 是 internal implementation detail，不进入 generated public API、DTO 或 schema hash。
+Hash value、bucket layout 和 probing strategy 是 internal implementation detail，不进入 generated public API、Materialized Object 或 schema hash。
+
+### 6.1 Floating identity/access canonicalization
+
+Runtime core 必须提供 generated binding 可复用的 floating validation/canonicalization primitive：
+
+- ordinary payload column 接受 Java `NaN`、positive/negative infinity 和 negative zero；
+- key/index/unique/order floating leaf 写入或查询前必须 finite；
+- strict leaf negative zero canonicalize 为 positive zero；
+- key equality/hash、secondary matching、unique detection 和 order comparator 使用相同 canonical value；
+- invalid value 在 visible mutation 前返回 typed invalid-value error，并携带 field/selector/materialization path；
+- ordinary payload 不承诺保留不同 NaN payload bit pattern。
+
+Runtime 不根据 column type 自行猜测 strict role；generated adapter 从 normalized schema model 传入明确 role/binding。
 
 ## 7. SparseIntKeySpace / sparse set material
 
@@ -211,8 +220,8 @@ orderDirty = boolean
 - 修改参与 order 的字段后标记 dirty 或 eager update；
 - terminal operation 前 lazy rebuild；
 - generated comparator 基于 normalized selector 和 direction；
-- order sidecar 不进入 DTO、ColumnView 或 public API；
-- ordered access 返回 key buffer、row index buffer 或 materialized DTO。
+- order sidecar 不进入 Materialized Object、ColumnView 或 public API；
+- ordered access 返回 key buffer、row index buffer 或 materialized schema object/list。
 
 ## 10. AccessPath
 
@@ -240,109 +249,37 @@ V1 至少需要：
 - per-row append 不是默认 import 路径；
 - allocation failure 或 memory limit exceeded 必须映射为可区分错误。
 
-## 12. DTO materialization / buffer / ColumnView
+## 12. Materialization / buffer / ColumnView
 
 Runtime 必须区分：
 
 | 类型 | 持有 live storage | mutation 后语义 |
 |---|---|---|
-| ViewPlan | 否 | terminal operation 基于执行时 table 状态 |
-| DTO | 否 | detached materialized copy，不反映后续 mutation |
+| Pipeline plan | 否 | terminal operation 基于执行时 table 状态 |
+| Materialized schema object / `List` / `Map` | 否 | detached complete copy，不反映后续 mutation |
 | KeyBuffer | 否 | stable materialized key values |
 | RowIndexBuffer | 否 | 只对生成时 table epoch 有效 |
 | ColumnView | 是 | live readonly view，structural mutation 返回 view_pinned |
+| ChildTableHandle | 是，internal | 绑定 ownership/lifecycle，不进入 public result |
 
-ColumnView 必须强持有 owner table 或 storage owner。close/release 后继续读取必须返回 released_view 类错误。
+### 12.1 Materialization support
 
-## 13. Epoch and lifecycle
+Generated materializer 读取 storage-facing row/column/child traversal primitive；runtime 不构造 schema-specific object shape。Recursive counters、path、budget 和 all-or-nothing lifecycle 由 [Runtime lifecycle 契约](runtime-lifecycle-contract.md) 与根级 [Materialization 契约](../../docs/materialization-contract.md) 共同约束。
 
-Runtime table 至少维护：
+### 12.2 ColumnView boundary
 
-- `storeEpoch`；
-- active view count；
-- released flag；
-- optional memory estimate stats。
+ColumnView 必须强持有 owner table 或 storage owner。close/release 后继续读取必须返回 released_view 类错误。ColumnView 不进入 Materialized Object；detached object graph 可以超过 Table/ownership aggregate 生命周期存在。
 
-规则：
+## 13. Storage invariants
 
-- structural mutation 成功后提升 `storeEpoch`；
-- ColumnView acquire 记录 `viewEpoch`；
-- `viewEpoch != storeEpoch` 映射为 stale view；
-- structural mutation 遇到 active ColumnView 时返回 view_pinned，除非实现能证明 storage address/length/layout 不变；
-- released view 和 stale view 是不同错误；
-- destroy/clear 必须避免 use-after-release 语义。
+Stable public state 必须满足根级 [Runtime 正确性模型](../../docs/runtime-correctness-model.md)：
 
-## 14. Mutation 分类
+- live rows packed in `[0,size)`；
+- columns/presence/key mapping aligned；
+- key/index/order locator 在 row move 后 current 或明确 dirty；
+- dead reference 不保持无意义 GC reachability；
+- runtime internal handle/buffer 不进入 public result。
 
-Mutation 分为：
+## 14. 非目标
 
-| 类别 | 示例 | active view 存活时 |
-|---|---|---|
-| non-structural | 修改现有非 key fixed-width leaf，且不改变 storage length/layout | 可以允许 |
-| structural | reserve、append batch、replaceAll、delete、row move、string storage relocation、child table replacement、index/order rebuild with exposed view risk | 返回 view_pinned 或延后 |
-
-如果实现无法证明 mutation 不影响 ColumnView 所依赖的 storage，应按 structural mutation 处理。
-
-## 15. Runtime errors
-
-Runtime errors 至少区分：
-
-- duplicate key；
-- missing key；
-- invalid selector；
-- field not found；
-- dtype mismatch；
-- stale view；
-- view pinned；
-- released view；
-- table released；
-- allocation failure；
-- memory limit exceeded；
-- internal invariant violation。
-
-这些错误不能压缩成 generic runtime exception，否则用户无法判断 schema、生命周期、资源还是调用顺序问题。
-
-## 16. Memory reporting
-
-Java-only V1 不使用 native memory tracker。它使用 heap memory estimate / runtime stats：
-
-- current estimated bytes；
-- high water mark；
-- table count；
-- active view count；
-- column capacity；
-- row count；
-- last allocation failure reason。
-
-该估算用于 diagnostics、benchmark smoke 和 package smoke，不等同于 JVM 精确 heap profiler。
-
-## 17. Concurrency boundary
-
-V1 runtime table 默认是 synchronous single-owner object。
-
-不承诺：
-
-- cross-thread concurrent read/write safety；
-- internal lock strategy；
-- transaction；
-- actor/scheduler；
-- parallel scan/sort。
-
-跨线程共享 table 或 ColumnView 时，上层 application model 必须自行保证 ownership、synchronization 和 lifecycle。
-
-## 18. Performance evidence boundary
-
-Runtime benchmark smoke 至少观察：
-
-- optional all-present scan；
-- optional all-absent scan；
-- optional mixed bitmap chunk scan；
-- key lookup normal case；
-- key lookup hash collision case；
-- batch import with reserve；
-- batch import without enough capacity；
-- ordered access lazy rebuild；
-- dense table replaceAll + ordered `findFirst` / `firstOrThrow`；
-- ColumnView acquire/read/release。
-
-Benchmark smoke 只证明工具链和场景可运行；性能优势声明必须另有 baseline、规模、环境、重复次数和统计口径。
+本文不规定 public generated method、ownership state machine、concurrency、error payload、growth/hash/index concrete algorithm、serialization 或 persistence。

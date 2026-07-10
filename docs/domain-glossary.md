@@ -1,62 +1,159 @@
 # soma_java 领域术语表
 
 状态：正式设计文档
-日期：2026-07-06
 Owner：根项目协调层
+事实范围：跨模块 canonical 术语、限定词和“不等同于”边界
+非事实范围：API behavior、schema validation、runtime lifecycle 和性能结论
+最后审查日期：2026-07-10
 
-## 1. 目标
+## 1. 目标与权威边界
 
-本文维护 `soma_java` 跨模块沟通时使用的核心领域术语，避免 public API、schema annotation、processor、runtime internal 和 evidence 语境混用。
+本文维护 `soma_java` 跨模块沟通使用的 canonical 领域术语，避免 schema annotation、generated API、runtime internal、application adapter 和 evidence 语境混用。
 
-术语表不替代各 owner 文档的契约定义。某个术语涉及具体行为时，以对应 owner 文档为准：
+本文只拥有术语名称、层级和“不等同于”边界。具体行为以对应 owner contract 为准：
 
-- public schema annotation 以 `soma-annotations/docs/annotation-schema-contract.md` 为准；
-- generated API / Row Pipeline 以 `docs/row-pipeline-api-contract.md` 为准；
-- runtime internal 以 `soma-runtime-core/docs/runtime-core-contract.md` 为准；
-- release gate / evidence 以 `docs/validation-gates.md` 为准。
+- 跨模块永久原则：[SomaTable 设计宪法](soma-table-design-constitution.md)；
+- 项目边界和架构分层：[项目架构设计](architecture-design.md)；
+- schema annotation：[annotation schema 契约](../soma-annotations/docs/annotation-schema-contract.md)；
+- normalization/hash/diagnostics：[schema processing 契约](../soma-processor/docs/schema-processing-contract.md)；
+- generated API：[Generated Table API 契约](generated-table-api-contract.md)；
+- materialization：[Materialization 契约](materialization-contract.md)；
+- runtime storage/lifecycle：[soma-runtime-core](../soma-runtime-core/docs/README.md)；
+- correctness/performance/evidence：对应 [正式设计索引](README.md) 中登记的 Owner。
 
-## 2. 命名原则
+## 2. 命名与限定规则
 
 核心抽象必须有清晰、正向、边界明确的名称。若一个抽象只能通过“非 X”“无 X”“类似 X 但不是 X”解释，或需要用某个内部数据结构代表整个对象，应先审查抽象边界。
 
-命名必须区分：
+文档中的术语应使用足够限定词：
 
-- public/generated API 术语；
-- schema annotation 术语；
-- processor/codegen 术语；
-- runtime internal 术语；
-- benchmark / release evidence 术语。
+| 易混词 | 必须使用的限定 |
+|---|---|
+| owner | document owner、parent ownership、active owner thread |
+| fact source | design fact source、runtime fact source |
+| index | row index、secondary index、order position；child locator 使用 `ChildTableHandle` |
+| graph | schema ownership dependency graph、runtime ownership instance forest |
+| materialized object | detached schema object、`List<R>` 或 `Map<K, R>`；不再使用 generated `XxxRecord` 第二类型 |
+| view | 仅用于仍连接 live storage 的 ColumnView 等 borrowed view |
+| DTO | 使用 external DTO；不得用 DTO 指代 SOMA schema-backed materialization |
 
-## 3. Public / Generated API 术语
+代码类型、annotation、错误码和 metadata key 使用反引号；领域分类使用 lowercase English，例如 keyed table、dense table、runtime frontier。
 
-| 术语 | 定义 | 边界 |
+## 3. Schema 与 generated public 术语
+
+| 正式术语 | 层级 / Owner | 定义 | 不等同于 |
+|---|---|---|---|
+| Schema-backed row class | schema / materialization | 标注 `@SomaTable` 的用户 class；定义 row fields/kind/ownership/access metadata，并直接作为 detached single-row materialization type | live runtime row、`TableStore`、external DTO |
+| `@SomaValue` / Value | schema / compile-time | compiler-defined immutable inline value；annotated fields 逻辑上 `public final`，递归 flatten 为 leaf columns，并具有 canonical value equality/hash | mutable DTO、table row、cross-table object reference |
+| `SomaTable` | cross-module domain | live runtime table 的领域抽象 | `@SomaTable` annotation、`TableStore`、Java Collection |
+| generated `XxxTable` | generated API | 用户访问 SomaTable 的 public/generated facade | runtime internal store、child handle |
+| keyed table | schema/generated API | 声明 stable logical key 的 table kind；schema/whole-table materialization logical container 是 `Map<K, R>` | runtime Java Map storage、entity role、secondary index |
+| dense table | schema/generated API | 不声明 stable logical key 的 table kind；schema/whole-table materialization logical container 是 `List<R>` | runtime Java List storage、缩水版 table |
+| `@SomaChild` | schema field | 声明 parent-owned child slot 与 per-field initial-capacity runtime-plan override；`List<R>` 推导 dense child，`Map<K,R>` 推导 keyed child | 新的 table kind、live child object attachment |
+| `Batch` | generated API | detached construction/import boundary，可携带 nested child batch data | runtime fact source、serialization protocol、live child table |
+| Row Pipeline | generated API | generated table 上的 row traversal/filter/sort/update/remove/materializing terminal API；多行结果 materialize 为 `List<R>` | `Stream<live row>`、query DSL、parallel pipeline |
+| Row Cursor | generated API | callback-scoped borrowed row accessor；read callback 使用 readonly cursor，update callback 使用 mutable cursor | Materialized Object、可保存 row proxy |
+| Column Pipeline | generated API | 单列 typed traversal path，避免 schema-object materialization | ColumnView lifecycle、object Stream |
+| ColumnView | generated/runtime API | 对 live column storage 的 readonly borrowed view | detached copy、Materialized Object |
+| Materialized Object | schema/generated boundary | SomaTable 当前事实的 detached、完整、caller-owned schema object/`List`/`Map`；修改后不自动写回 | runtime fact source、live view、`@SomaValue`、持久化格式 |
+| `MaterializationBudget` | generated/runtime API | 每次 object/collection materialization 的 deterministic resource budget | schema constraint、wall-clock timeout、JVM heap limit |
+
+## 4. Application data role、Table kind 与 modeling role
+
+`application data role` 回答“这部分数据在一次 SOMA 计算中承担什么职责”。它与 table kind、ownership 和 modeling role 正交，不是新的 Schema kind，不需要 annotation，也不进入 schema hash。
+
+| Application data role | 定义 | 边界 |
 |---|---|---|
-| `Table` / generated `XxxTable` | 用户面对的 generated table-first API facade | 不暴露 runtime sidecar、bitmap word、row pointer、allocator policy |
-| keyed table | 声明了 stable logical key 的 public table kind | schema/API 层术语；runtime 内部由 `TableStore + RowSpace + KeySpace + ColumnStore + ...` 承载 |
-| dense table | 没有 stable logical key 的 public table kind | 不是缩水版 table；runtime 内部仍有 `ColumnStore`、`AccessStructures`、`AccessPath`、lifecycle 等能力 |
-| `Batch` | 批量导入、追加或替换的数据边界 | 不是 runtime row storage 本体 |
-| DTO | schema source class，同时也是 detached materialized boundary object | 不是 hot-loop live row object，不是 runtime row proxy |
-| Row Pipeline | generated table 上的 row traversal / filter / update / terminal API | 不等同于 `Stream<DTO>`；callback 使用 generated row cursor |
-| ColumnView | 对 runtime column storage 的 live readonly view | 有 lifecycle / owner holding / stale-view 规则 |
-| runtime frontier | solver/application 在运行中增量维护的候选集合 | 是用户 schema 建模场景；若有 stable key，应建成 keyed table，不是 runtime internal cache 或 sidecar |
+| input facts | 从 external DTO、API、文件或其他结构导入的原始问题事实；成功 import 后由对应 SomaTable 持有 | 通常 read-only/read-mostly；不是历史 input object |
+| working state | 算法执行过程中维护的 entity state、runtime frontier、event queue、workspace 或 derived cache | 必须继续标明 authoritative、rebuildable 或 derived，不能用“中间状态”掩盖事实权威性 |
+| result facts | 算法产生的决策、状态终值、轨迹或其他业务结果 | 可以独立建表，也可以由现有 authoritative state 直接导出；不得复制同一事实 |
 
-## 4. Runtime Internal 术语
+三类 data role 默认按不同生命周期、可变性、访问模式和 compatibility owner 分开。因 hot-loop locality 或一致性需要在同一 table 中 co-locate 时，文档必须按 field group 标明 primary role 和唯一事实源。Data role 只指导 application modeling；SOMA 不阻止混合，也不自动创建 input/result table。
 
-| 术语 | 定义 | 边界 |
+Table kind 只回答“是否有 stable logical key”；modeling role 回答“这张表在业务和 hot loop 中做什么”。两者不得混为新的 schema kind。
+
+| Modeling role | 定义 | 常见 table kind | 边界 |
+|---|---|---|---|
+| entity state | 长生命周期实体运行时状态 | keyed | entity 不是第三种 kind |
+| lookup table | 频繁按 key 或 packed row 读取的导入/静态事实 | keyed 或 dense | 由 identity 与访问模式决定 |
+| runtime frontier | application/solver 增量维护、跨轮保留并支持局部失效的候选集合 | 通常 keyed | 不是所有 candidate set 的默认答案 |
+| dense workspace | 当前轮次/selected entity/局部算法使用、主要以 replace/scan/order 访问的 workspace | dense | 不要求跨轮 identity 或按 key 局部删除 |
+| matrix/array-like state | 以连续 row index、packed scan 或整行访问为主的数据 | dense | row index 不是业务身份 |
+| child table | parent-owned ownership role | keyed 或 dense | ownership role 与 table kind 正交 |
+
+FJSP `MachineCandidate` 是 runtime frontier 的典型例子：`(MachineId, OperationKey)` 在 frontier 有效期内是 logical identity，并需要按 machine/operation 局部查找和删除。
+
+Runtime frontier 不等于所有 candidate set。若候选只在当前轮次、当前 selected entity 或当前 workspace 内有效，没有跨轮保留和按 key 局部失效需求，应优先建模为 dense workspace，例如 VRP `InsertionCandidateRow` 或 Game selected-unit `MoveCandidateRow`。`epoch-scoped identity` 只有在该 table instance 有效期内稳定且确实需要 keyed lookup/局部失效时，才支持 keyed frontier 建模；存在可描述 identity 本身不自动推出 keyed table。
+
+## 5. Ownership 术语
+
+| 正式术语 | 层级 / Owner | 定义 | 边界 |
+|---|---|---|---|
+| root table | runtime ownership | 没有 owning parent row/field slot 的 table instance | independent root 之间无 SOMA transaction |
+| parent table | schema/runtime ownership | 声明或持有 `List`/`Map` child field 的 table role | 不是新的 table kind |
+| parent row/field slot | runtime ownership | child instance 的唯一直接 ownership attachment point | 一个 slot 不共享 live child instance |
+| child table | schema/runtime ownership | storage 独立、ownership 从属的 SomaTable | 不是 inline Value，不 flatten 到 parent columns |
+| child table field | schema | `@SomaChild List<R>` 或 `@SomaChild Map<K,R>`，建立 parent-to-child ownership edge | 非 owning cross-table key reference、live Java Collection storage |
+| ownership edge | schema/runtime | child table field 建立的有向 owning relation | 普通 scalar/value key relation |
+| schema ownership dependency graph | processor | table declarations 之间的 type-level ownership graph，必须无环 | runtime instance graph |
+| runtime ownership instance forest | runtime | table instances 的有向 ownership forest，每个 child instance 恰有一个 owner | arbitrary object graph、共享 DAG |
+| SomaTable ownership aggregate | cross-module/runtime | 一个 root table instance 及递归 owned child instances，共同形成 runtime fact/lifecycle/materialization 边界 | 单个 `TableStore`、independent-root transaction |
+| `ChildTableHandle` | runtime internal | parent row/field slot 中定位 child instance 的 opaque locator | row index、secondary index、业务 key、public reference |
+| reparent | forbidden lifecycle operation | 将 live child instance 从原 owner attach 到另一个 parent | 用 detached child Batch 构造新 subtree |
+| cross-table key reference | schema/application | 通过 scalar/enum/semantic scalar/Value key 表达 non-owning relation | table-typed ownership、自动 join/materialization |
+
+Schema 中同一个 child table type 可以被多个 parent declarations 复用；runtime 中同一个 child instance 不能被多个 parent row 共享。这两个层级不得混淆。
+
+## 6. Materialization 与 boundary semantics
+
+| Boundary kind | 代表对象 | 是否连接 live storage | 生命周期/写回语义 |
+|---|---|---:|---|
+| owned runtime fact | SomaTable ownership aggregate | 是 | 只能通过 generated mutation boundary 修改 |
+| detached construction | Batch/nested child Batch | 否 | import 前不是真实 table fact |
+| detached observation | schema object/`List`/`Map` | 否 | 可超过 Table 生命周期；caller-owned，可修改但无自动 write-back |
+| external adapter object | input/output external DTO | 否 | 由 application/API/wire/persistence owner 定义；只通过显式 mapper 与 Batch 或 Materialized Object 交换数据 |
+| callback borrow | Row Cursor | 是 | callback 返回后失效，不得逃逸 |
+| scoped borrow | ColumnView | 是 | 受 owner、epoch、close/release、view_pinned 约束 |
+| internal locator | `RowSlot`/`ChildTableHandle`/sidecar position | 是 | 不公开、不序列化、不进入业务身份 |
+
+Recursive materialization 只沿 ownership edge，把 parent row 可达的全部 child subtree 转换成完整 schema object graph；dense child 写入 `List`，keyed child 写入 `Map`；普通 key reference 不触发 lookup、join 或 graph expansion。
+
+Required empty child materialize 为 non-null empty `List`/`Map`；optional absent 使用 `null`，optional present-empty 使用 non-null empty collection。任一层失败都不返回 partial object graph，也不修改 SomaTable。
+
+`@SomaTable` row 不生成 semantic structural `equals()` / `hashCode()`；`List`/`Map` 保留 Java Collection contract，immutable `@SomaValue` 保留 canonical value equality/hash。完整 graph 内容比较使用 testkit 显式 recursive comparator。
+
+`external DTO` 是 application/API/wire/persistence boundary 拥有的 consumer-specific data carrier，可以按外部契约进行 projection、aggregation、rename、flatten 或 versioning；其 shape 不要求与 SOMA schema class 一致。
+
+输入方向由上层把 input/request DTO 显式校验并映射成 Batch，再 import 到 SomaTable；输出方向先从 SomaTable materialize 完整 schema object graph，再由上层显式映射成 output/response DTO。Materialized Object 和 external DTO 都 detached，但不是同一 canonical 类型、不共享兼容性契约，也不会自动同步。
+
+## 7. Runtime fact 分类
+
+| 分类 | 示例 | 是否为 runtime fact source |
+|---|---|---:|
+| authoritative runtime fact | logical rows、field values、presence、ownership relation | 是 |
+| derived access structure | KeySpace locator、secondary/unique index、order sidecar、row permutation | 否 |
+| live diagnostics | stats、high-water、allocation estimate、dirty/rebuild count | 否 |
+| materialized observation | schema object、detached `List`/`Map`、export/response DTO、debug output | 否 |
+| borrowed access | Row Cursor、ColumnView | 否，直接观察 live fact |
+| external fact | input/request DTO、database、file、protobuf、API request/response | 不属于 SOMA runtime truth |
+
+`design fact source` 指拥有某项正式设计契约的文档；`runtime fact source` 指成功 import 后拥有运行时数据事实的 SomaTable ownership aggregate。禁止省略限定词后混用。
+
+## 8. Runtime internal 术语
+
+| 正式术语 | 定义 | 边界 |
 |---|---|---|
-| `TableStore` / generated `XxxTableStore` | 一张 generated table 的 runtime internal aggregate owner | 组合 row、column、access、mutation、lifecycle；不是 public API |
-| `TableLayout` | schema hash、field layout、column binding、selector metadata | 不持有实际 row 数据 |
-| `RowSpace` | row membership、`RowSlot` 分配、packed slot 有效性规则 | 不持有 field payload，不代表 secondary index 或 order |
-| `KeySpace` | keyed table 才有的 `RowKey -> RowSlot` 身份定位结构 | primary key lookup 属于身份空间，不按普通 secondary index 处理 |
-| `SparseIntKeySpace` | bounded int id 的 sparse-set-style `KeySpace` 实现 | Sparse Set 只是实现材料，不是 table 本体 |
-| `HashKeySpace` | long key、composite key 或 general key 的 hash-based `KeySpace` 实现 | hash bucket / probing 是 internal detail |
-| `ColumnStore` | primitive/object columns、presence bitmap、capacity 和 slot-level payload | 不拥有 key、secondary index、order 或 mutation policy |
-| `AccessStructures` | 被维护的 secondary index、unique index、order sidecar 等访问结构 | 不包含 primary key identity 本身 |
-| `AccessPath` | default scan、index source、order source 等 Row Pipeline source 的内部执行入口 | 负责产生 `RowSequence`，不拥有 payload storage |
-| `MutationCoordinator` | batch、replaceAll、delete、row move、sidecar dirty/rebuild、epoch 协调 | 避免 `ColumnStore` / `RowSpace` 各自隐藏跨组件副作用 |
-| `LifecycleState` | epoch、active view、released、stats、typed lifecycle errors | 不定义 schema，也不持有 field payload |
-
-Runtime internal 的核心模型：
+| `TableStore` / generated `XxxTableStore` | 单张 generated table instance 的 runtime internal storage composition root | 不等于跨 child 的 ownership aggregate，不是 public API |
+| `TableLayout` | schema hash、field layout、column binding、selector/runtime-plan metadata | 不持有实际 row payload |
+| `RowSpace` | row membership、`RowSlot` 分配、packed slot 有效性 | 不持有 field payload/key/index policy |
+| `KeySpace` | keyed table 的 `RowKey -> RowSlot` identity locator | primary key lookup，不是 secondary index |
+| `SparseIntKeySpace` | bounded int id 的 sparse-set-style `KeySpace` implementation | Sparse Set 只是实现材料 |
+| `HashKeySpace` | int/long/composite key 的 hash-based `KeySpace` implementation | bucket/probing 是 internal detail |
+| `ColumnStore` | primitive/object columns、presence bitmap、capacity、slot payload、child handle column | 不拥有 key/access/mutation policy |
+| `AccessStructures` | maintained secondary index、unique index、order sidecar | derived，不拥有 authoritative facts |
+| `AccessPath` | scan/index/order/dynamic sort source 的 internal execution entry | 产生 `RowSequence`，不拥有 payload |
+| `MutationCoordinator` | batch、replaceAll、delete、row move、child replacement、sidecar/epoch 协调 | 防止 subcomponent 隐藏跨组件副作用 |
+| `LifecycleState` | epoch、active borrow、released、stats、typed lifecycle errors | 不定义 schema、不持有 field payload |
 
 ```text
 XxxTable
@@ -71,34 +168,64 @@ XxxTable
        -> LifecycleState
 ```
 
-## 5. Row / Access 术语
+## 9. Row 与 access 术语
 
-| 术语 | 定义 | 边界 |
+| 正式术语 | 定义 | 边界 |
 |---|---|---|
-| `RowKey` | stable logical identity | 仅 keyed table 有；structural mutation 后仍代表业务身份 |
-| `RowSlot` | 当前 packed column storage 中的物理位置 | structural mutation / row move 后可能变化 |
-| row index | public dense table direct API 中暴露的当前位置概念 | 不是 stable business identity；讨论 runtime internal 时优先使用 `RowSlot` |
-| `RowSequence` | 某次 Row Pipeline terminal 使用的 row slot 序列 | 可来自 scan、index source、order source 或 dynamic sort |
-| primary key lookup | `KeySpace` 维护的 `RowKey -> RowSlot` 身份定位 | 不作为普通 secondary index 解释 |
-| secondary index | `AccessStructures` 维护的非主键访问结构 | 由 generated source method 进入 Row Pipeline |
-| order sidecar | `AccessStructures` 维护的 ordered row permutation | 不改变 `ColumnStore` 的 physical row order |
+| `RowKey` | stable logical identity | 仅 keyed table 有；identity change 使用 delete + insert |
+| row index | dense table public direct API 的当前 packed position | 非 stable identity，structural mutation 后可能失效 |
+| `RowSlot` | runtime packed column storage 的当前 physical slot | runtime internal，row move 后可能变化 |
+| `RowSequence` | 某次 Row Pipeline terminal 使用的 row-slot sequence | 可来自 scan/index/order/dynamic sort |
+| primary key lookup | `KeySpace` 的 `RowKey -> RowSlot` identity lookup | 不作为普通 secondary index |
+| secondary index | `AccessStructures` 维护的 non-primary access structure | 不保证 physical continuity |
+| unique index | `AccessStructures` 维护的 secondary uniqueness structure | 不等于 primary key identity |
+| order sidecar | maintained ordered row permutation | 不改变 `ColumnStore` physical row order |
+| dynamic sort | 单次 terminal 临时构造 row permutation | 不等于 maintained `@SomaOrder` |
 
-FJSP 中的 `MachineCandidate` 是 runtime frontier 的典型例子：row 存在表示候选有效，`(MachineId, OperationKey)` 是 stable logical identity；被选中的 operation 应通过 `findByOperation(operationKey).remove()` 删除全部相关候选，而不是用 `active` 字段长期保留失效 row。
+## 10. Value state 与浮点术语
 
-## 6. 不推荐术语
+必须区分 required value、optional absent、schema default、zero value、empty string、invalid value、exceptional floating value、missing key 和 empty result。禁止用 `0`、`-1`、`NaN` 或空字符串作为 absence sentinel。
 
-| 不推荐术语 | 原因 |
+| 术语 | 定义 |
 |---|---|
-| Sparse Table | 容易把 Sparse Set 误提升为 table 本体 |
-| Unkeyed Sparse Table | 否定式命名，不能正向表达 dense table 的 runtime 组合能力 |
-| Data Table | 过于宽泛，容易暗示只有数据列、没有 key/index/order/lifecycle |
-| TableCore | 不如 `TableStore` 明确表达 runtime ownership 和 lifecycle |
+| ordinary floating payload | 不参与 key/index/unique/order 的 float/double leaf，可保存 Java IEEE-754 exceptional values |
+| strict identity/access floating leaf | 参与 key/index/unique/order 的 floating leaf，必须 finite，并把 `-0.0` canonicalize 为 `+0.0` |
+| canonical floating value | default/write/query boundary 完成 finite validation 和 zero normalization 后，用于 equality/hash/order 的值 |
+| business numeric constraint | 非负、范围、业务单位等 loader/application-owned 规则，不由 SOMA 自动推断 |
 
-## 7. V1 不缩水约束
+## 11. Metadata、compatibility 与 execution 术语
 
-内部命名调整不得改变 V1 public contract：
+| 正式术语 | 定义 | 是否进入 schema hash |
+|---|---|---:|
+| schema version label | 人工可读版本标签 | 是，按 normalized schema contract |
+| exact schema hash | normalized logical schema 的精确 compatibility identity | 自身即结果 |
+| processor/runtime compatibility version | generated code 与 runtime protocol identity | 否 |
+| Access Pattern Card | scenario/runtime-plan 输入；记录 rows、hot columns、access/mutation mix、selectivity、optional/child density、working set、allocation/export frequency | 否 |
+| runtime performance shape | packed/primitive/fused/allocation-bounded hot-loop 结构及其可验证 evidence | 否 |
+| runtime plan | capacity、growth、KeySpace/index/order strategy、storage/allocation/scratch hint、stats mode、MaterializationBudget default、estimator version 等执行计划 | 否 |
+| runtime plan hash | effective runtime plan identity | 否 |
+| runtime stats | live diagnostics，不是 schema fact | 否 |
+| synchronous single-owner execution | 同一 ownership aggregate 任一时刻仅一个 active owner thread 顺序访问 | 不适用 |
+| quiescent point | 无运行中 terminal/mutation/materialization，且无 active Cursor/Pipeline/ColumnView 的顺序移交点 | 不适用 |
 
-- public table kind 仍是 keyed table 和 dense table；
-- Java annotation schema / generated API 术语不因 runtime internal 命名改变而变化；
-- dense table 不是缩水版 table；
-- runtime internal 必须保留 key/index/unique/order、Row Pipeline、ColumnView、DTO detached materialization、typed runtime errors、schema hash/runtime compatibility 和 gate evidence 的 V1 目标。
+并发能力、quiescent handoff 和 cross-table consistency 的行为以 [SomaTable 设计宪法](soma-table-design-constitution.md) 与 [Runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 为准；本表只固定术语。
+
+## 12. 不推荐或受限术语
+
+| 术语 | 规则 / 原因 |
+|---|---|
+| TypeA / TypeB | 只允许作为讨论阶段占位名；正式使用 keyed table / dense table |
+| Sparse Table / Unkeyed Sparse Table | 把 Sparse Set implementation 误提升为 table kind，且是否定式命名 |
+| Data Table | 过于宽泛，掩盖 key/access/lifecycle/ownership |
+| TableCore | 使用 `TableStore` 表达单表 internal composition root |
+| DTO（指 SOMA materialization result） | SOMA result 使用 Materialized Object；external DTO 只用于 application/API/wire/persistence adapter |
+| View（指 detached result） | View 保留给 live borrowed storage semantics |
+| Value Object（指 table materialization） | 与 immutable `@SomaValue` 的 value semantics 混淆 |
+| snapshot（指 materialized object） | detached materialization 不承诺 snapshot isolation；使用 detached observation |
+| child table index | 使用 `ChildTableHandle`；避免与 row index/secondary index 混淆 |
+| child table reference | public schema 使用 ownership edge；runtime internal 使用 handle，cross-table relation 使用 key reference |
+| owner / ownership graph（无前缀） | 必须说明 document/parent/thread 或 schema/runtime 层级 |
+
+## 13. V1 术语不变量
+
+术语调整不得改变 `docs/soma-table-design-constitution.md`、`docs/architecture-design.md` 和 `docs/validation-gates.md` 已拥有的 V1 能力与证据边界。尤其不得通过改名删除 immutable `@SomaValue`、List/dense 与 Map/keyed mapping、parent-owned child table、KeySpace/index/unique/order、Row Pipeline、ColumnView、recursive Materialized Object、typed errors、schema/runtime compatibility 或 gate evidence；也不得把 application data role 误提升为新的 Schema kind/annotation，或借分层复制 authoritative fact。

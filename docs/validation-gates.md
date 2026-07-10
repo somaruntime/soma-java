@@ -1,8 +1,10 @@
 # soma_java V1 验证门禁
 
 状态：正式设计文档
-日期：2026-07-06
 Owner：根项目协调层
+事实范围：V1 readiness gates、required evidence、report path、blocking 和 release claim
+非事实范围：owner contract 语义、具体测试实现和性能结果
+最后审查日期：2026-07-10
 
 ## 1. 门禁原则
 
@@ -19,12 +21,12 @@ V1 readiness 不能由单元测试通过、示例能跑或本机 demo 成功单�
 
 | Gate | 名称 | 必需证据 |
 |---|---|---|
-| G0 | Java-only scope freeze | `architecture-design.md`、`runtime-correctness-model.md`、`runtime-performance-model.md`、non-goals、module owner、release claim boundary 已进入正式文档 |
-| G1 | annotation schema gate | annotation cases、type cases、single logical key cases、schema hash cases、breaking change diagnostics |
-| G2 | processor/codegen gate | validation tests、normalized model golden、schema hash golden、deterministic generated output、diagnostic golden cases |
-| G3 | runtime core gate | `TableStore`、`RowSpace`、`KeySpace`、`ColumnStore`、optional bitmap、`AccessStructures`、`AccessPath`、row move、batch import/export、DTO materialization、Row Pipeline、ColumnView、lifecycle/runtime stats tests |
-| G4 | generated API/package gate | Java 8 generated API compile/run、table-first API smoke、package smoke、schema hash metadata check、runtime compatibility check |
-| G5 | examples/benchmark gate | Java 8 FJSP frontier E2E smoke、index/order source、dynamic sort、Row Pipeline update/remove terminal、stale/released/view_pinned 可观察、benchmark smoke JSONL |
+| G0 | Java-only scope freeze | SomaTable 宪法、architecture、glossary、correctness、performance model、runtime performance implementation contract、non-goals、module owner、release claim boundary 已进入正式文档且无临时事实源 |
+| G1 | annotation schema gate | schema-backed table class、immutable `@SomaValue`、List/Map child mapping、type/value-state、floating strict-access、ownership graph/cycle、key/access/default、schema hash、breaking diagnostics |
+| G2 | processor/codegen gate | `@SomaValue` effective-type golden、normalized/hash golden、deterministic generated Table/materializer/List-Map child API/budget overload、primitive static binding、Cursor reuse/fused-no-boxing hot-loop shape、diagnostic golden |
+| G3 | runtime core gate | table-local + ownership-aggregate invariants、packed `[0,size)`、primitive columns/sidecars、steady-state allocation shape、KeySpace domain/load/collision、compaction/capacity/scratch、sidecar rebuild/stats overhead、child handle/cascade/replacement/pin、MaterializationBudget、Row Pipeline、ColumnView、typed errors |
+| G4 | generated API/package gate | Java 8 transformer+generated API compile/run、recursive schema-object/List/Map child/budget smoke、schema/runtime/runtime-plan metadata、package smoke |
+| G5 | examples/benchmark gate | Java 8 FJSP frontier E2E、Access Pattern Card、kernel shape、child-locality/deep-materialization lane、index/order/dynamic sort/update/remove、stale/released/view_pinned/budget error、benchmark JSONL |
 | G6 | release readiness gate | release notes、install instructions、artifact checksums、known limitations、gate report 汇总、回滚/撤回策略 |
 
 V1 不设置 ABI gate、Python gate 或 native package gate。
@@ -58,17 +60,17 @@ Gate 状态只允许：
 
 ## 5. Gate owner and report paths
 
-| Gate | Owner | Evidence report |
-|---|---|---|
-| G0 | root | `reports/java-v1-g0-scope-freeze-report.md` |
-| G1 | `soma-annotations` / `soma-processor` | `soma-annotations/reports/java-v1-g1-annotation-schema-report.md` |
-| G2 | `soma-processor` | `soma-processor/reports/java-v1-g2-processor-codegen-report.md` |
-| G3 | `soma-runtime-core` | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` |
-| G4 | root / `soma-examples` | `reports/java-v1-g4-package-smoke-report.md` |
-| G5 | `soma-examples` / `soma-benchmarks` | `soma-examples/reports/java-v1-g5-examples-report.md` and `soma-benchmarks/reports/java-v1-benchmark-smoke-report.md` |
-| G6 | root | `reports/java-v1-g6-release-readiness-report.md` |
+| Gate | 唯一 Owner | Evidence contributors | Evidence report |
+|---|---|---|---|
+| G0 | root | all design owners | `reports/java-v1-g0-scope-freeze-report.md` |
+| G1 | `soma-processor` | `soma-annotations`、`soma-testkit` | `soma-processor/reports/java-v1-g1-schema-processing-report.md` |
+| G2 | `soma-processor` | `soma-testkit` | `soma-processor/reports/java-v1-g2-code-generation-report.md` |
+| G3 | `soma-runtime-core` | `soma-testkit` | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` |
+| G4 | root | `soma-processor`、`soma-examples` | `reports/java-v1-g4-package-smoke-report.md` |
+| G5 | root | `soma-examples`、`soma-benchmarks` | `soma-examples/reports/java-v1-g5-examples-report.md` and `soma-benchmarks/reports/java-v1-benchmark-smoke-report.md` |
+| G6 | root | all gate owners | `reports/java-v1-g6-release-readiness-report.md` |
 
-Reports are evidence, not design fact sources. Durable technical facts must live in `docs/*.md` owned by the relevant module or root document.
+Report 是 evidence，不是设计事实源。可持续技术事实必须进入对应 root/module owner 的 `docs/*.md`。
 
 ## 6. Blocking rules
 
@@ -79,8 +81,11 @@ Reports are evidence, not design fact sources. Durable technical facts must live
 - package smoke 只通过 IDE classpath 或 loose generated source；
 - schema hash metadata 未生成或不可验证；
 - generated API 与 runtime compatibility 未在初始化阶段校验；
-- duplicate key、invalid selector、stale access、released view、view pinned、memory limit exceeded 等错误路径不可观察；
+- 旧 `XxxRecord`/`ChildRecords` 分离 contract、schema object live-storage 误解或旧临时宪法仍被当作正式事实源；
+- duplicate key、invalid floating access、ownership cycle、stale/released/view pinned、materialization budget/allocation 等错误路径不可观察；
 - benchmark smoke 被写成性能优势声明；
+- generated/runtime hot path 存在 per-row Cursor/boxing/intermediate Collection、persistent tombstone、generic metadata field dispatch 或不可观察的 rebuild storm；
+- G3 只有 correctness test，没有 packed/primitive/allocation/fusion/capacity/sidecar/stats performance-shape evidence；
 - known limitation 与公开 release claim 冲突；
 - public/generated API 暴露 runtime sidecar、bitmap word、hash bucket 或 third-party internal type；
 - Java 8 target 失效。
@@ -94,7 +99,11 @@ V1 至少覆盖：
 - schema hash mismatch；
 - generated/runtime compatibility mismatch；
 - invalid enum/value/table declaration；
+- invalid/mutable `@SomaValue` lowering；
+- invalid List/Map child kind or map-key mismatch；
 - invalid key/index/unique/order selector；
+- direct/indirect child ownership cycle；
+- non-finite floating identity/access default/write/query；
 - duplicate key；
 - missing key；
 - key mutation 被拒绝或不生成 key setter；
@@ -103,6 +112,9 @@ V1 至少覆盖：
 - view pinned；
 - allocation failure；
 - memory limit exceeded；
+- materialization budget exceeded；
+- dangling/wrong-owner/released child path；
+- child replacement construction failure with old subtree preserved；
 - table released / use-after-release 被安全拒绝。
 
 ## 8. Package smoke
@@ -111,11 +123,14 @@ V1 package smoke 使用 Maven artifact 或 reactor equivalent。
 
 Smoke 必须验证：
 
-- annotation processor 可被用户 schema project 触发；
+- supported source transformation / annotation processor 可被用户 schema project 触发；
+- `@SomaValue` implicit final/public-final/construction/equality/hash 对 user source 与 generated companions 一致可见；
 - generated source 编译通过；
 - generated table 创建成功；
 - batch import、fetch、order source、Row Pipeline filter/update terminal、ColumnView 可执行；
-- schema hash 和 runtime compatibility metadata 可读取；
+- schema-class single-row、whole-table List/Map、Row Pipeline List materialization 与 required/optional child API 可执行；
+- default/explicit MaterializationBudget overload 与 typed budget error 可执行；
+- schema hash、runtime compatibility、runtime plan/budget metadata 可读取；
 - runtime stats 可读取；
 - Java 8 target 生效；
 - no third-party runtime dependency。
@@ -142,7 +157,15 @@ Benchmark smoke 不等于性能优势声明。任何“更快”“更省内存�
 - ordered access lazy rebuild；
 - keyed runtime frontier add/update/remove + dynamic `firstOrThrow`；
 - dense scratch replace + ordered `findFirst` / `firstOrThrow`；
-- ColumnView acquire/read/release。
+- ColumnView acquire/read/release；
+- parent-local child scan versus flat baseline smoke；
+- recursive schema-object/List/Map success and per-dimension budget-boundary smoke；
+- packed primitive scan versus handwritten primitive-array smoke；
+- fused Row Pipeline/Cursor reuse/no-per-row-allocation smoke；
+- SparseInt domain guard、HashKeySpace load/collision/rehash smoke；
+- single/batch compaction and capacity/scratch reuse smoke；
+- clean/dirty/rebuild-storm sidecar smoke；
+- summary-only versus diagnostic stats overhead smoke。
 
 ## 10. Release claim boundary
 
@@ -151,7 +174,7 @@ V1 可以声明：
 - Java annotation schema + generated Java table-first API；
 - Java columnar runtime kernel；
 - explicit key/index/unique/order access；
-- batch import/export、DTO materialization、Row Pipeline、ColumnView 和 runtime stats；
+- batch import/export、compiler-defined immutable `@SomaValue`、List/dense 与 Map/keyed mapping、recursive Materialized Object、parent-owned child table、Row Pipeline、ColumnView 和 runtime stats；
 - Java 8 package smoke 和 examples smoke。
 
 V1 不应声明：

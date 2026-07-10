@@ -1,10 +1,7 @@
 # soma-annotations
 
-用户可见的 schema annotation API。
+Public Java schema annotation 模块。
 
-当前模块只初始化骨架，不包含 Java 源码。
+正式设计：[soma-annotations/docs/README.md](docs/README.md)
 
-## 文档
-
-- [正式设计文档](docs/README.md)
-- [正式报告](reports/README.md)
+模块 README 只负责导航，不拥有 annotation 语义。

@@ -1,15 +1,14 @@
 # soma-processor 正式设计文档
 
-本目录保存 `soma-processor` 的正式设计文档。
+本目录保存 `soma-processor` 的 compile-time processing 与 code generation 事实。
 
-## 当前正式设计文档
+## 正式设计文档
 
-- [Processor / codegen 契约](processor-codegen-contract.md)
+| 文档 | Owner | 单一职责 |
+|---|---|---|
+| [Schema processing 契约](schema-processing-contract.md) | `soma-processor` | validation、normalized schema、exact hash、compatibility 和 diagnostics |
+| [Code generation 契约](code-generation-contract.md) | `soma-processor` | generated artifacts、static binding、deterministic output、golden/package smoke |
 
-## 职责边界
+Public annotation semantics 属于 [soma-annotations](../../soma-annotations/docs/README.md)；Generated Table 用户语义属于根级 [API 契约](../../docs/generated-table-api-contract.md)。
 
-`soma-processor` 拥有 annotation processing、validation、normalized schema model、schema hash 和 codegen。它可以依赖 `soma-annotations`，但 generated public API 不得暴露 processor internal model。
-
-## 临时设计目录
-
-临时设计草案只能放在 `docs/temp/`。草案被接受后，必须把稳定事实迁移进本目录正式设计文档。
+临时专题进入 `docs/temp/`，不得成为正式事实源。

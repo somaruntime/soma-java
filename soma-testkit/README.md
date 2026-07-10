@@ -1,10 +1,7 @@
 # soma-testkit
 
-processor、generated code 和 runtime invariant 的测试辅助工具。
+Compile/golden/runtime invariant/evidence helper 模块。
 
-当前模块只初始化骨架，不包含 Java 源码。
+正式设计：[soma-testkit/docs/README.md](docs/README.md)
 
-## 文档
-
-- [正式设计文档](docs/README.md)
-- [正式报告](reports/README.md)
+模块 README 只负责导航，不拥有被测试模块的产品事实。

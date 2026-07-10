@@ -1,27 +1,18 @@
 # Java annotation schema 契约
 
 状态：正式设计文档
-日期：2026-07-06
-Owner：`soma-annotations` / `soma-processor`
+Owner：`soma-annotations`
+事实范围：public schema annotation、类型系统、field role、optional/default、key/index/unique/order 和 child declaration
+非事实范围：normalization、schema hash、diagnostics、generated API、runtime storage 和示例场景
+最后审查日期：2026-07-10
 
 ## 1. 目标
 
-本文定义 Java annotation schema 的用户模型、annotation 语义、类型系统、normalized schema model 和 schema hash 口径。
+Java annotation schema 是 `soma_java` V1 的唯一 schema source。本文只定义用户在 Java source 中声明什么、声明具有什么 logical meaning。
 
-Java annotation schema 取代 `.soma` text IDL，作为 `soma_java` V1 的唯一 schema source。Java DTO 同时承担两层契约：
+`@SomaTable` class 定义 row schema，并作为 detached single-row materialization carrier；它不兼任 live runtime storage。`@SomaValue` 定义 compiler-supported immutable inline value。Generated API 和 materialization 的跨模块语义分别由 [Generated Table API 契约](../../docs/generated-table-api-contract.md) 与 [Materialization 契约](../../docs/materialization-contract.md) 拥有。
 
-- schema source：annotation processor 从 package、DTO class、field 和 annotation 中生成 normalized schema model；
-- materialized DTO contract：runtime `fetch(key)`、snapshot 或 export 直接返回 DTO 对象。
-
-SOMA runtime 的热路径存储不以 DTO object graph 为基础，而以 `ColumnStore`、presence bitmap、`KeySpace`、`AccessStructures` 和 child table storage 为基础。DTO 是用户侧 schema source 与 materialized DTO object，不是 runtime hot layout 本身，也不是 live row proxy。V1 不引入独立 `Record` public API，也不提供 `fetchDto()`；用户侧保持 `fetch(key)` 返回 DTO 的简单模型。
-
-SOMA 在本项目中的定义是运行时高性能数据容器。它主要覆盖三类长生命周期 runtime state：
-
-1. 表达实体状态，例如 `Job`、`Operation`、`Machine`、`Material`；
-2. 表达需要频繁查询的静态或导入后只读数据，例如 `Machine-Operation` processing time、TSP city-to-city distance matrix；
-3. 表达没有 stable key、以连续 row index / packed storage 为主要访问方式的数据，例如某个城市到其他城市的距离 row table、矩阵行、数组型 runtime state。
-
-短生命周期 Java 临时对象不是 SOMA 的核心 scope。SOMA 可以提供 dense table 作为 solver workspace，但其价值来自可复用的 columnar runtime state、批量替换、packed scan 和 ordered/indexed access，而不是替代普通局部变量或一次性对象分配。
+Processing、normalized schema、exact hash 和 diagnostics 由 [schema processing 契约](../../soma-processor/docs/schema-processing-contract.md) 拥有。
 
 ## 2. Schema declaration
 
@@ -31,19 +22,20 @@ V1 schema declaration 至少包含以下概念：
 |---|---|---|
 | schema | `package-info.java` + `@SomaSchema` | schema identity、generated package、version policy |
 | enum | Java `enum` referenced by SOMA field | fixed enum member set and ordinal storage metadata |
-| value | `final class` + `@SomaValue` | inline value object, expanded into leaf columns |
-| table | `final class` + `@SomaTable` | keyed or dense runtime data container |
+| value | class + `@SomaValue` | compiler-defined immutable inline value，expanded into leaf columns |
+| table row | class + `@SomaTable` | keyed/dense SomaTable 的 row schema 与 detached materialization carrier |
 | field | `@SomaField` | required field, optional logical name / semantic scalar metadata |
 | key | `@SomaKey` | single logical primary key field, optional logical name / semantic scalar metadata |
-| optional | `@SomaOptional` | presence bitmap + payload column, materialized as nullable DTO field |
+| child | `@SomaChild` + `List<R>` / `Map<K,R>` | parent-owned dense/keyed child table field + optional per-field initial capacity |
+| optional | `@SomaOptional` | field modifier；presence bitmap + payload/handle column，materialized as `null` absence |
 | default | `@SomaDefault` | deterministic schema default for required field |
-| ignore | `@SomaIgnore` | explicitly excluded DTO helper field |
+| ignore | `@SomaIgnore` | explicitly excluded declaration helper field |
 | index | `@SomaIndex` / `@SomaIndexes` | secondary non-unique access |
 | unique | `@SomaUnique` / `@SomaUniques` | secondary unique access |
 | order | `@SomaOrder` / `@SomaOrders` | table-scoped ordered access |
 | sort | `@SomaSort` | one ordered selector item, direction defaults to ASC |
 
-V1 要求 schema source 显式表达 SOMA 语义。普通 Java field、getter、setter、Lombok 约定、bean naming 或 Java 字段初始化表达式不能自动成为 schema fact。
+V1 要求 schema source 显式表达 SOMA 语义。普通 Java field、getter、setter、bean naming 或 Java 字段初始化表达式不能自动成为 schema fact。`@SomaValue` 的 implicit final/public/construction/equality/hash 属于 SOMA compiler semantics，不是普通 Java modifier 推断，也不依赖用户同时标注 Lombok annotation。
 
 用户侧 annotation 使用 `field` 语义，不使用 `column` 命名。`column` 是 value flatten 之后的 runtime 物理概念，不作为 V1 public annotation 名称。
 
@@ -52,7 +44,7 @@ V1 要求 schema source 显式表达 SOMA 语义。普通 Java field、getter、
 V1 annotation API 同时追求表达能力和易用性。规则：
 
 - `@SomaTable.name` 缺省时使用 Java class simple name 作为 logical table name；需要稳定 snake case、plural name 或跨 Java 重命名保持 schema name 时，显式填写 `name`；
-- `@SomaField.name`、`@SomaKey.name`、`@SomaOptional.name` 缺省时使用 Java field name 作为 logical field name；显式 `name` 用于 schema logical name override；
+- `@SomaField.name`、`@SomaKey.name`、`@SomaChild.name` 缺省时使用 Java field name 作为 logical field name；显式 `name` 用于 schema logical name override；`@SomaOptional` 只表达 presence modifier，不另行拥有 logical name；
 - selector path 使用 logical field name；如果字段设置了 `name` override，selector 必须使用 override 后的 logical path；
 - generated Java API 方法名默认从 Java field name 派生，不因为 schema logical name override 破坏 Java 侧可读性；
 - `@SomaSort.value` 是 `field` 的 shorthand，`direction` 默认 `ASC`；
@@ -111,6 +103,7 @@ V1 annotation API 的 target / retention 基线：
 | `@SomaTable` | `TYPE` | `SOURCE` |
 | `@SomaField` | `FIELD` | `SOURCE` |
 | `@SomaKey` | `FIELD` | `SOURCE` |
+| `@SomaChild` | `FIELD` | `SOURCE` |
 | `@SomaOptional` | `FIELD` | `SOURCE` |
 | `@SomaDefault` | `FIELD` | `SOURCE` |
 | `@SomaIgnore` | `FIELD` | `SOURCE` |
@@ -119,9 +112,9 @@ V1 annotation API 的 target / retention 基线：
 | `@SomaOrder` / `@SomaOrders` | `TYPE` | `SOURCE` |
 | `@SomaSort` | `ANNOTATION_TYPE` | `SOURCE` |
 
-V1 runtime 不通过 reflection 解释 schema。annotation retention 使用 `SOURCE`，processor 负责生成 normalized schema model、metadata 和 Java source。
+V1 runtime 不通过 reflection 解释 schema。annotation retention 使用 `SOURCE`，compile-time processor 负责 `@SomaValue` semantic lowering、normalized schema model、metadata 和 generated Java source。具体实现可以采用 supported compiler source transformation + ordinary generated companions，但不得把 transformation 推迟到 runtime。
 
-Java enum 不需要额外 enum annotation。被 `@SomaField`、`@SomaKey` 或 `@SomaOptional` 引用的 Java enum 自动纳入 schema；enum member order 使用 source declaration order。
+Java enum 不需要额外 enum annotation。被 `@SomaField` 或 `@SomaKey` 引用的 Java enum 自动纳入 schema；enum member order 使用 source declaration order。
 
 ## 3. 类型系统
 
@@ -134,7 +127,10 @@ V1 类型分为：
 - Java enum；
 - `String`；
 - schema value；
-- schema table typed field。
+- dense child field：`List<R>`；
+- keyed child field：`Map<K,R>`。
+
+`List`/`Map` 只允许作为 `@SomaTable` class 的 direct `@SomaChild` field，不允许进入 `@SomaValue`。Schema source 必须使用 exact `java.util.List` / `java.util.Map` parameterized type；raw collection、wildcard、nested collection、null element、null map key/value 不属于合法 V1 schema。
 
 Java-only V1 不提供 unsigned primitive。业务上的非负数，例如 minute、count、input order、distance，可以使用 `int` 或 `long` 表达；非负约束由 loader、application validation 或后续 validation annotation 承担。V1 不引入 `@SomaRange`，也不把 unsigned range 作为 runtime storage type。
 
@@ -146,38 +142,75 @@ Semantic scalar storage：
 | time | `long` nanoseconds since midnight |
 | date_time | `long` UTC epoch milliseconds |
 
-V1 不从 Java type name 猜测 semantic scalar。semantic scalar 必须由 annotation metadata 显式声明。`@SomaField`、`@SomaKey` 和 `@SomaOptional` 都支持 `semantic = SomaSemantic.NONE | DATE | TIME | DATE_TIME`，缺省为 `NONE`。
+V1 不从 Java type name 猜测 semantic scalar。semantic scalar 必须由 annotation metadata 显式声明。`@SomaField` 和 `@SomaKey` 支持 `semantic = SomaSemantic.NONE | DATE | TIME | DATE_TIME`，缺省为 `NONE`；optional semantic scalar 仍在 `@SomaField` 上声明 semantic，并叠加 marker `@SomaOptional`。
 
 `String` 在 Java runtime 中可以使用 object reference column 存储，但 schema 层仍只表达 `String` 语义，不暴露 JVM address 或 object identity。
 
-## 4. DTO field membership
+因为 `@SomaTable` class 直接作为 detached row materialization type，optional primitive 必须在 Java schema source 使用 boxed type（`Boolean`、`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`）。Runtime 仍使用 primitive column + presence bitmap；boxed type 只服务 schema/materialization absence shape。Required primitive 继续使用 Java primitive。
 
-V1 采用 explicit field membership：
+### 3.1 Floating value domain
 
-- `@SomaTable` / `@SomaValue` 中的 instance field 必须显式标注 `@SomaField`、`@SomaKey`、`@SomaOptional` 或 `@SomaIgnore`；
+V1 采用 ordinary-payload/strict-access 分层策略：
+
+- 不参与 key/index/unique/order 的 `float` / `double` leaf 允许 Java IEEE-754 `NaN`、positive/negative infinity 和 negative zero；
+- `NaN` 不表示 optional absence，absence 只由 presence bitmap 表达；
+- 参与 `@SomaKey` 或 `@SomaIndex` / `@SomaUnique` / `@SomaOrder` selector 的 floating leaf 必须 finite；
+- strict access leaf 的 negative zero 在 schema default、Batch/import、Mutator、lookup 和 generated source parameter boundary canonicalize 为 positive zero；
+- equality、hash、index matching 和 order comparator 使用同一 canonical value；
+- V1 不提供 per-field floating-policy annotation。
+
+Processor 从 normalized field role 判断 floating leaf 是否 strict。Shared `@SomaValue` 可以在普通 field 中保留 ordinary semantics，也可以在 outer key/selector path 下获得 strict semantics；不能只根据 Value declaration 自身猜测。
+
+这套全局策略不作为 per-schema 可配 metadata；策略版本由 processor/runtime compatibility identity 管理。具体 field role、selector path 和 default normalized result 仍进入 normalized schema model/schema hash。
+
+## 4. Schema-backed class field membership
+
+V1 采用 explicit field membership 与 orthogonal field modifier：
+
+- `@SomaTable` 中的 instance field 必须显式标注一个 primary role：`@SomaField`、`@SomaKey`、`@SomaChild` 或 `@SomaIgnore`；
+- `@SomaValue` 中的 instance field 必须显式标注 `@SomaField` 或 `@SomaIgnore`；
 - `static` field 不属于 schema；
 - `transient` field 不自动成为 schema field，建议显式标注 `@SomaIgnore`；
 - unannotated instance field 是 processor error；
-- `@SomaField`、`@SomaKey`、`@SomaOptional` 互斥；
+- `@SomaField`、`@SomaKey`、`@SomaChild`、`@SomaIgnore` 互斥；
+- `@SomaOptional` 是 modifier，只能叠加在 `@SomaField` 或 `@SomaChild`；key/value leaf 不允许 optional；
 - `@SomaDefault` 是附加 metadata，只能叠加在允许 default 的 field annotation 上；
-- DTO materialization 要求 DTO class 有 processor 可访问的 no-arg constructor，且 schema field 可由 generated code 写入；否则 processor 必须报错。
+- `@SomaTable` class 必须保持 processor 可构造的 carrier shape；具体 no-arg/canonical construction lowering 由 codegen contract 与 golden 固定，不允许 runtime reflection；
+- 用户可以修改 detached `@SomaTable` object，但该修改不会写回 SomaTable。
 
-这样可以避免 DTO helper/cache/debug 字段被误纳入 schema，也避免用户以为某个 Java 字段参与 SOMA 存储但 processor 静默忽略。
+这样可以避免 declaration helper/cache/debug 字段被误纳入 schema，也避免用户以为某个 Java 字段参与 SOMA 存储但 processor 静默忽略。
 
 ## 5. Value
 
-`@SomaValue` 是 schema-owned inline value，不拥有 table identity，也不是 runtime row boundary。
+`@SomaValue` 是 SOMA compiler-defined immutable inline value，不拥有 table identity，也不是 runtime row boundary。其目标类似 Lombok `@Value` 的 semantic bundle，但 SOMA public shape 默认直接暴露 `public final` fields，而不是要求用户重复写 modifiers 或依赖 getter。
+
+推荐 source shape：
+
+```java
+@SomaValue
+public class MachineId {
+    @SomaField
+    long value;
+}
+```
+
+Compile-time effective shape 等价于：class final、annotated field `public final`、canonical all-fields construction、canonical `equals()` / `hashCode()` 和 deterministic `toString()`。这些成员由 SOMA compiler/processor lowering 提供，不要求用户手写，也不依赖 runtime reflection。
 
 规则：
 
 - value 可以包含 scalar、semantic scalar、enum、string 或 nested value；
 - value 内部字段必须显式标注 `@SomaField` 或 `@SomaIgnore`；
-- value 内部不允许 `@SomaKey`、`@SomaOptional`、`@SomaIndex`、`@SomaUnique` 或 `@SomaOrder`；
-- value 内部不允许字段类型为 `@SomaTable`；
+- `@SomaField` instance field 逻辑上 `public final`；显式 `public final` 可以作为冗余兼容写法，但 canonical example 不要求；
+- value class 逻辑上 final，不允许 inheritance、non-final escape hatch、setter 或 mutable alias；
+- value 内部不允许 `@SomaKey`、`@SomaChild`、`@SomaOptional`、`@SomaIndex`、`@SomaUnique` 或 `@SomaOrder`；
+- value 内部不允许字段类型为 `@SomaTable`、`List`、`Map`、array 或其他 mutable container；
 - value 作为 table field 时按 leaf expansion 展开为 columns；
 - value 被 `@SomaKey` 使用时，其 leaf fields 共同构成 composite key；
 - value leaf order 进入 normalized schema model 和 schema hash；
-- value equality 基于 normalized leaf values。
+- value construction parameter order、equality/hash 和 `toString()` field order 基于 normalized leaf order；
+- user-defined `equals()` / `hashCode()` 不得改变 SOMA canonical value semantics；V1 processor 应拒绝冲突实现或以 generated effective shape 覆盖，具体 diagnostic 由 processor contract 固定。
+
+`@SomaValue` 的 floating leaf 使用确定性的 Java wrapper bit semantics：所有 NaN 表示归一到同一 equality/hash，negative zero 与 positive zero 可区分。若该 leaf 通过 outer key 或 index/unique/order selector 进入 identity/access role，则 generated boundary 必须进一步要求 finite 并把 negative zero canonicalize 为 positive zero。
 
 `@SomaValue` 不表达 cross-table object reference。跨表关系应使用 `MachineId`、`OperationKey` 这类 value/key 表达，然后由 generated table API 做 lookup。
 
@@ -192,7 +225,7 @@ Keyed table 有 stable logical key。
 适用场景：
 
 - entity state，例如 `Job`、`Operation`、`Machine`、`Material`；
-- lookup table，例如 `ProcessingTime`、`SetupTime`、city pair distance lookup；
+- lookup table，例如 `SetupTime`、city pair distance lookup，或确实需要跨 parent 独立 pair identity 的 capability lookup；
 - 需要唯一性约束、`containsKey(key)`、`fetch(key)`、`mutate(key)` 或 `delete(key)` 的 runtime data。
 
 规则：
@@ -223,22 +256,35 @@ Dense table 可以是长生命周期 runtime state，也可以作为长生命周
 - dense row index 只是当前 packed storage 的位置，不是 stable business identity；
 - dense table 可以声明 `@SomaOrder`，用于按当前 storage state 生成 ordered access；
 - dense table 可以使用 `replaceAll(batch)` 批量刷新，同时复用 capacity；
-- dense table 可以 materialize DTO，但不暴露 stable key API。
+- dense table 单行 materialize 为 schema class，whole-table `materialize()` 返回 `List<R>`，但不暴露 stable key API。
 
-### 6.3 Child table ownership
+### 6.3 Child table ownership and List/Map mapping
 
-Table-typed field 是 ownership 关系，不是第三种 table kind。
+`@SomaChild List<R>` / `@SomaChild Map<K,R>` 是 ownership 关系，不是第三种 table kind。Schema/materialization 层固定映射：
+
+```text
+List<R>   <=> dense child SomaTable<R>
+Map<K, R> <=> keyed child SomaTable<K, R>
+```
 
 规则：
 
-- table 可以包含 `@SomaField`、`@SomaKey`、`@SomaOptional`、`@SomaIgnore`、`@SomaIndex`、`@SomaUnique`、`@SomaOrder` 和 table-typed field；
-- `@SomaField` / `@SomaOptional` 标注的 value typed field 会 flatten；
-- `@SomaField` 标注的 table typed field 表示 parent row owns child table instance；
-- child table storage 不允许被多个 parent row 共享；
+- table 可以包含 `@SomaField`、`@SomaKey`、`@SomaChild`、`@SomaOptional` modifier、`@SomaIgnore`、`@SomaIndex`、`@SomaUnique` 和 `@SomaOrder`；
+- `@SomaField` 标注的 value typed field 会 flatten；
+- `@SomaChild List<R>` 要求 `R` 是没有 `@SomaKey` 的 `@SomaTable` class；
+- `@SomaChild Map<K,R>` 要求 `R` 是有且只有一个 logical key 的 `@SomaTable` class，且 `K` 精确等于该 key field type；
+- `@SomaChild` field 表示 parent row owns child table instance；
+- child table instance 的 ownership 属于 enclosing parent SomaTable aggregate，并且只 attach 到一个 parent row/field slot；
+- live child instance 不允许被多个 parent row 共享，也不允许 reparent；
+- public/generated mutation boundary 不接受任意 live child facade 或 Java `List`/`Map` 作为 live attachment；只接受 detached child Batch/subtree construction data；
 - child table 的 key/index/unique/order 只作用于该 child table instance；
 - cross-table reference 不使用 table typed field，而使用 scalar、enum、semantic scalar 或 value key。
 
-Operation 内嵌 candidate machine list 这类结构在 FJSP hot path 中不应默认建成 child table。静态 processing time 更适合归一化为 `ProcessingTime` keyed lookup table；运行中的可调度候选更适合归一化为 `MachineCandidate` keyed runtime frontier。前者是 operation-machine 复合身份下的可查询输入事实，后者是 solver loop 增量维护的运行时候选状态，都不应混入 `Operation` row 的生命周期。
+Schema table-ownership dependency graph 必须无环。Processor 必须拒绝直接或间接 ownership cycle，并报告完整 declaration path；同一个 child table type 可以被不同 parent declaration 复用，这不表示 runtime instance 可以共享。
+
+`@SomaChild` field 只建立 ownership edge。Runtime parent column 保存 internal `ChildTableHandle`，不保存 Java Collection，也不 flatten child columns；handle 不是 schema field value、业务 key 或可序列化 contract。
+
+FJSP candidate-machine input 如果生命周期完全属于 operation、主要访问模式是按 operation 连续遍历，则推荐 `@SomaChild List<CandidateMachine>` dense child；如果需要独立 `(operation,machine)` identity、按 machine 反向查询、跨 operation 生命周期或独立 mutation，则推荐 root keyed lookup table。运行中的可调度候选仍应独立建模为 `MachineCandidate` frontier，不能与 immutable candidate-machine input 混成同一事实。
 
 ### 6.4 Default capacity
 
@@ -261,6 +307,25 @@ public final class Operation {
 - root table 创建时可作为默认初始容量；
 - child table instance 第一次创建时可作为默认初始容量；
 - child table 必须 lazy allocation，不得因为 parent table capacity 而 eager 创建所有 child storage。
+
+`@SomaChild(initialCapacity = n)` 可以为某个 parent field slot family 覆盖 child type 的默认初始容量。它同样是 runtime-plan hint，不进入 logical schema hash；field override 优先于 child table type `defaultCapacity`。每个 parent row 都可能拥有独立 child instance，因此 child initial capacity 必须按单个 parent 的典型 child row count 设置，不能沿用 root-table 总行数规模。
+
+### 6.5 Schema-backed materialization projection
+
+每个 `@SomaTable` class 自身就是 detached single-row public shape，不再生成独立 `XxxRecord`：
+
+- scalar/enum/string/semantic scalar field 映射回同一个 schema field；
+- `@SomaValue` field 映射为对应 immutable value，不暴露 flattened column detail；
+- required dense child field 映射为 non-null `List<R>`，logical empty child 映射为空 list；
+- required keyed child field 映射为 non-null `Map<K,R>`，logical empty child 映射为空 map；
+- optional child absent 映射为 `null`，present-empty 映射为 non-null empty `List`/`Map`；
+- optional scalar/value absent 映射为 `null`；optional primitive schema source 必须使用 boxed type；
+- ordinary scalar/value key reference 保持 key value，不自动展开 referenced table；
+- `ChildTableHandle`、presence bitmap、RowSlot、sidecar 和 runtime stats 不进入 materialized shape；
+- materialized schema object/collection 是 caller-owned detached copy，可以被调用方修改，但无 dirty tracking 或 automatic write-back；
+- `@SomaTable` class 不生成 structural equality/hash；`List`/`Map` 使用 Java Collection contract，`@SomaValue` 使用 canonical value equality/hash。
+
+Materialization shape 是 schema public contract。改变 field type/optional/ownership、List/Map kind、child projection 或 generated return type 是 breaking change；Materialized Object 不是 wire/persistence format，不提供 schema migration。
 
 ## 7. Key
 
@@ -286,14 +351,17 @@ public final class Operation {
 
 规则：
 
-- optional 可作用于 boxed scalar、semantic scalar wrapper、enum、string、value 和 table field；
-- optional scalar 在 DTO 中使用 boxed type，例如 `Long`、`Integer`、`Double`、`Boolean`，absent materialize 为 `null`；
-- runtime 仍使用 presence bitmap 加 primitive payload column 或 handle column，不因 boxed DTO 字段改变 hot layout；
+- optional 是叠加在 `@SomaField` 或 `@SomaChild` 上的 marker；
+- optional 可作用于 boxed scalar、semantic scalar wrapper、enum、string、value 和 child collection field；
+- optional primitive schema field 使用 boxed type，例如 `Long`、`Integer`、`Double`、`Boolean`，absent materialize 为 `null`；
+- runtime 仍使用 presence bitmap 加 primitive payload column 或 handle column，不因 boxed schema field 改变 hot layout；
 - absent 不等于 Java primitive default；
 - generated API 可以暴露 presence predicate / `OrThrow` / `OrDefault` convenience method，但用户不直接维护 bitmap；
 - `@SomaOptional` 不允许叠加 `@SomaDefault`。
 
-如果 `@SomaOptional` 作用于 table typed field，absent 表示该 child table field 没有绑定 child table instance。普通 child table field 的逻辑默认是 empty child table，并由 runtime lazy allocation。
+如果 `@SomaOptional` 作用于 `@SomaChild` field，absent 表示该 parent row/field slot 没有绑定 child instance，materialized field 为 `null`。Optional present-empty 与 absent 是不同 schema state：`child().clear()` 保持 present-empty，只有 `unsetChild()` 或等价 generated API 才进入 absent 并 cascade release 原 subtree。
+
+普通 required child field 始终逻辑存在；尚未分配 storage 时是 logical empty child table，并由 runtime lazy allocation。Required child `clear()` 后仍然 present-empty，不能进入 absent。
 
 ## 9. Default
 
@@ -332,7 +400,7 @@ Literal parsing 规则：
 | Field type | Default literal |
 |---|---|
 | integer | 十进制字面量 |
-| floating point | 十进制或 SOMA 规定的有限浮点字面量 |
+| floating point | 十进制、`NaN`、`Infinity`、`-Infinity` 或 `-0.0`；是否允许由 normalized field role 决定 |
 | boolean | `true` / `false` |
 | enum | enum member name |
 | String | annotation string value |
@@ -341,6 +409,13 @@ Literal parsing 规则：
 | table | 不支持 default |
 
 `@SomaValue` 内部 leaf field 可以声明 `@SomaDefault`。该 default 是 value 类型本身的语义默认值，会影响所有使用该 value 的 table field。只在某一张 table 中成立的默认值，不应放入共享 value 类型。任何被 `@SomaKey` 引用的 value path 都不得依赖 value leaf default。
+
+Floating default normalization：
+
+- ordinary payload 可以使用上述 exceptional literal；canonical schema JSON 使用固定 token，不使用 locale/JDK-dependent formatter；
+- strict identity/access leaf 拒绝 `NaN` 和 positive/negative infinity；
+- strict leaf 的 `-0.0` default normalized result 为 `0.0`；
+- invalid floating default 在 processor 阶段失败，不得延后到 runtime create。
 
 ## 10. Index / unique / order
 
@@ -354,6 +429,7 @@ Literal parsing 规则：
 - selector 可以引用 value leaf path；
 - selector 不可穿透 child table；
 - selector 只能引用 required 且不含 string、table 或 optional leaf 的 field path；
+- selector 引用 floating leaf 时，该 leaf 获得 strict access semantics：default/import/mutation/source argument 必须 finite，negative zero canonicalize 为 positive zero；
 - index 是 secondary non-unique access；
 - unique 是 secondary unique access；
 - order 是 table-scoped ordered access，不表示 physical row reorder；
@@ -362,7 +438,7 @@ Literal parsing 规则：
 
 Grouped index/order source 使用 selector prefix 表达。Selector prefix 是 normalized selector 的连续前缀 leaf 序列；它可以对应一个 scalar field，也可以正好对应一个 `@SomaValue` field 的全部 leaf。Processor 可以基于这种前缀生成自然的 grouped source method，并返回同一套 Row Pipeline。
 
-例如 `ProcessingTime.findByOperation(operationKey)` 使用 `@SomaIndex` 的完整 selector，它正好对应 `operationMachineKey.operationKey` 的全部 leaf：
+例如某个采用 flat pair lookup 的场景中，`OperationMachineCapability.findByOperation(operationKey)` 使用 `@SomaIndex` 的完整 selector，它正好对应 `operationMachineKey.operationKey` 的全部 leaf：
 
 ```java
 @SomaIndex(name = "by_operation", fields = {
@@ -371,7 +447,7 @@ Grouped index/order source 使用 selector prefix 表达。Selector prefix 是 n
 })
 ```
 
-例如 `RouteVisit.byRoutePosition(routeId)` 使用 `@SomaOrder` 的 leading selector prefix，把 route key leaf 放在前面，再把 route 内位置排序字段放在后面：
+例如 flat root-level visit baseline 中，`RouteVisit.byRoutePosition(routeId)` 使用 `@SomaOrder` 的 leading selector prefix，把 route key leaf 放在前面，再把 route 内位置排序字段放在后面：
 
 ```java
 @SomaOrder(name = "by_route_position", by = {
@@ -382,451 +458,18 @@ Grouped index/order source 使用 selector prefix 表达。Selector prefix 是 n
 
 Grouped source 是 generated API convenience，不改变 schema kind，也不引入 query DSL。V1 支持 Java lambda 作为 row-level `filter` / `update` callback，但不引入 arbitrary join planner，也不承诺 lambda predicate 自动下推到 index。Selector diagnostics 必须指出出错 path、失败的 path segment、候选字段列表、是否因 optional/string/table leaf 被拒绝，以及对应 Java element location。
 
-## 11. 建模最佳实践
+## 11. 建模与示例边界
 
-V1 不引入 table role annotation。`entity state`、`lookup data`、`matrix/array state` 和 `workspace` 是建模场景，不是新的 schema kind。
+Entity、lookup、frontier、workspace、matrix、input/working/result 是 application modeling role，不是新的 annotation 或 Table kind。Canonical modeling rules 和完整 Java 8 场景进入 [soma-examples](../../soma-examples/docs/README.md)，本契约不复制长篇业务示例。
 
-推荐建模：
+## 12. 与相邻 Owner 的关系
 
-| 场景 | 推荐 table kind | 说明 |
-|---|---|---|
-| 实体状态 | keyed table | 有 stable logical key，支持 `fetch(key)` 和 mutation |
-| 频繁查询的静态数据 | keyed table 或 dense table | 有自然唯一 key 时用 keyed lookup；以 packed scan / matrix row 为主时用 dense table |
-| runtime frontier | keyed table | 有稳定候选身份、跨轮次保留、需要按 key 删除或按 index 查找时使用 |
-| 连续 row index / packed storage 数据 | dense table | row index 是当前 storage 位置，不是业务身份 |
-| solver workspace | dense table | 可长期持有并反复 `replaceAll(batch)`，不等同于短生命周期 Java 临时对象 |
-| parent-owned 局部集合 | child table | 只在 parent row owns child table 且不共享生命周期时使用 |
+- Processor 读取本文声明并产生 normalized schema、hash、diagnostics 和 generated artifacts；
+- Generated public API 必须满足根级 API/materialization 契约；
+- Runtime-core 不解析 annotation；
+- Access Pattern Card、capacity/growth strategy 和 benchmark scale 不是 logical schema；
+- `defaultCapacity` / `@SomaChild.initialCapacity` 是 declaration 中的 runtime-plan hint，不进入 logical schema hash。
 
-FJSP 中，`ProcessingTime` 和 `SetupTime` 是 keyed lookup table，`MachineCandidate` 是 keyed runtime frontier，它们都不应嵌入 `Operation`。TSP 中，如果 `cityA, cityB -> distance` 是频繁按 pair 查询的事实，可以建 keyed lookup table；如果算法主要按当前 city 的一整行距离做 packed scan，则可以建 dense distance row table。
+## 13. 非目标
 
-## 12. 完整示例
-
-下面示例展示 Java-only FJSP runtime state 的推荐建模。它刻意不把 candidate machines 建成 `Operation` 的 child table，也不把候选集当作每轮临时 dense workspace，而是使用 `ProcessingTime` keyed lookup table 和 `MachineCandidate` keyed runtime frontier。
-
-代码块是 schema source 的合并展示；真实 Java 项目中 `package-info.java`、enum、value class 和 table DTO class 应按 Java 文件规则拆分。
-
-```java
-@SomaSchema(
-    name = "fjsp_runtime_state",
-    generatedPackage = "com.example.fjsp.state.generated",
-    version = "1"
-)
-package com.example.fjsp.state;
-
-public enum MachineState {
-    READY,
-    DOWN
-}
-
-@SomaValue
-public final class JobId {
-    @SomaField
-    public long value;
-}
-
-@SomaValue
-public final class OperationId {
-    @SomaField
-    public long value;
-}
-
-@SomaValue
-public final class MachineId {
-    @SomaField
-    public long value;
-}
-
-@SomaValue
-public final class MaterialId {
-    @SomaField
-    public long value;
-}
-
-@SomaValue
-public final class SetupFamilyId {
-    @SomaField
-    public long value;
-}
-
-@SomaValue
-public final class OperationKey {
-    @SomaField
-    public JobId jobId;
-
-    @SomaField
-    public OperationId operationId;
-}
-
-@SomaValue
-public final class OperationMachineKey {
-    @SomaField
-    public OperationKey operationKey;
-
-    @SomaField
-    public MachineId machineId;
-}
-
-@SomaValue
-public final class SetupFamilyPair {
-    @SomaField
-    public SetupFamilyId fromFamily;
-
-    @SomaField
-    public SetupFamilyId toFamily;
-}
-
-@SomaValue
-public final class SetupTimeKey {
-    @SomaField
-    public MachineId machineId;
-
-    @SomaField
-    public SetupFamilyPair familyPair;
-}
-
-@SomaTable(name = "jobs", defaultCapacity = 1024)
-@SomaOrder(name = "by_dispatch_order", by = {
-    @SomaSort("inputOrder"),
-    @SomaSort("jobId.value")
-})
-@SomaOrder(name = "by_due_minute", by = {
-    @SomaSort("dueMinute"),
-    @SomaSort("inputOrder"),
-    @SomaSort("jobId.value")
-})
-public final class Job {
-    @SomaKey
-    public JobId jobId;
-
-    @SomaField
-    public long inputOrder;
-
-    @SomaField
-    public long dueMinute;
-
-    @SomaField
-    public int operationCount;
-
-    @SomaField
-    @SomaDefault("0")
-    public int nextSequenceNo;
-
-    @SomaOptional
-    public Long completedMinute;
-
-    @SomaOptional
-    public Long tardinessMinutes;
-}
-
-@SomaTable(name = "operations", defaultCapacity = 4096)
-@SomaIndex(name = "by_job_sequence", fields = {
-    "operationKey.jobId.value",
-    "sequenceNo"
-})
-public final class Operation {
-    @SomaKey
-    public OperationKey operationKey;
-
-    @SomaField
-    public long inputOrder;
-
-    @SomaField
-    public int sequenceNo;
-
-    @SomaField
-    public long releaseMinute;
-
-    @SomaField
-    public long jobReadyMinute;
-
-    @SomaField
-    public long materialReadyMinute;
-
-    @SomaField
-    public SetupFamilyId setupFamily;
-
-    @SomaOptional
-    public MachineId assignedMachine;
-
-    @SomaOptional
-    public Long setupStartMinute;
-
-    @SomaOptional
-    public Long setupMinutes;
-
-    @SomaOptional
-    public Long startMinute;
-
-    @SomaOptional
-    public Long processingMinutes;
-
-    @SomaOptional
-    public Long endMinute;
-}
-
-@SomaTable(name = "materials", defaultCapacity = 4096)
-public final class Material {
-    @SomaKey
-    public MaterialId materialId;
-
-    @SomaField
-    public long readyMinute;
-}
-
-@SomaTable(name = "machines", defaultCapacity = 128)
-@SomaIndex(name = "by_state", fields = {"state"})
-@SomaOrder(name = "by_available_time", by = {
-    @SomaSort("availableFromMinute"),
-    @SomaSort("machineId.value")
-})
-public final class Machine {
-    @SomaKey
-    public MachineId machineId;
-
-    @SomaField
-    @SomaDefault("READY")
-    public MachineState state;
-
-    @SomaField
-    @SomaDefault("0")
-    public long availableFromMinute;
-
-    @SomaOptional
-    public SetupFamilyId lastSetupFamily;
-}
-
-@SomaTable(name = "processing_times", defaultCapacity = 8192)
-@SomaIndex(name = "by_operation", fields = {
-    "operationMachineKey.operationKey.jobId.value",
-    "operationMachineKey.operationKey.operationId.value"
-})
-public final class ProcessingTime {
-    @SomaKey
-    public OperationMachineKey operationMachineKey;
-
-    @SomaField
-    public long processingMinutes;
-}
-
-@SomaTable(name = "setup_times", defaultCapacity = 1024)
-@SomaIndex(name = "by_machine_to_family", fields = {
-    "setupTimeKey.machineId.value",
-    "setupTimeKey.familyPair.toFamily.value"
-})
-public final class SetupTime {
-    @SomaKey
-    public SetupTimeKey setupTimeKey;
-
-    @SomaField
-    public long setupMinutes;
-}
-
-@SomaTable(name = "machine_candidates", defaultCapacity = 8192)
-@SomaIndex(name = "by_machine", fields = {
-    "candidateKey.machineId.value"
-})
-@SomaIndex(name = "by_operation", fields = {
-    "candidateKey.operationKey.jobId.value",
-    "candidateKey.operationKey.operationId.value"
-})
-public final class MachineCandidate {
-    @SomaKey
-    public OperationMachineKey candidateKey;
-
-    @SomaField
-    public SetupFamilyId targetSetupFamily;
-
-    @SomaField
-    public long operationReleaseMinute;
-
-    @SomaField
-    public long jobReadyMinute;
-
-    @SomaField
-    public long materialReadyMinute;
-
-    @SomaField
-    public long baseReadyMinute;
-
-    @SomaField
-    public long processingMinutes;
-
-    @SomaField
-    public long setupMinutes;
-
-    @SomaField
-    public long effectiveReadyMinute;
-
-    @SomaField
-    public long fcfsValue;
-
-    @SomaField
-    public long sptValue;
-
-    @SomaField
-    public boolean indicatorReady;
-}
-```
-
-示例中的语义：
-
-- `Job`、`Operation`、`Machine` 是 keyed entity state table；
-- `ProcessingTime`、`SetupTime` 是 keyed lookup table；
-- `Material` 是 keyed runtime state table，用于表达物料 ready time；
-- `MachineCandidate` 是 keyed runtime frontier，row 存在即表示候选有效，没有 `active` 字段；
-- `OperationMachineKey`、`SetupTimeKey` 等是 `@SomaValue`，在 table 中递归 flatten；
-- `assignedMachine` 是 cross-table reference value，不是 `Machine` object reference；
-- `MachineState` 是 Java enum，被 SOMA field 引用后自动进入 schema；
-- `@SomaDefault` 影响 new row 的默认写入值，并进入 `schema_hash`；
-- `defaultCapacity` 只影响 allocation hint，不进入 `schema_hash`。
-
-## 13. Declaration order
-
-V1 normalized schema model 必须稳定。
-
-V1 baseline：
-
-- Java enum member order 使用 source declaration order；
-- table/value field order 使用 annotation processor 从 javac element model 读取到的 source declaration order；
-- field position 隐式来自 source declaration order；
-- V1 不要求用户显式声明 `position`；
-- index/unique/order declaration order 使用 annotation array order 或 repeated annotation 的 source order；
-- processor golden tests 必须证明同一 source 在同一 Java 8 toolchain 下 canonical output 稳定；
-- runtime 不得依赖 reflection order。
-
-如果后续需要跨 compiler 的更强稳定性，可以引入 explicit `position`，但它不是 V1 默认要求。
-
-## 14. Normalized schema model
-
-Normalized schema model 至少包含：
-
-- schema version；
-- schema name from `@SomaSchema`；
-- generated target：`java8-columnar`；
-- generated package；
-- enum declaration list and member order；
-- value declaration list and leaf expansion；
-- table declaration list；
-- table kind：`keyed` or `dense`；
-- field / optional list；
-- key declaration；
-- schema default declaration；
-- index / unique / order declaration；
-- selector normalized path；
-- resolved storage type；
-- layout order；
-- semantic scalar storage metadata；
-- string storage policy；
-- optional storage policy；
-- table-typed field ownership metadata；
-- generated public API names；
-- canonical serialization input；
-- schema hash。
-
-Normalized schema model 不包含：
-
-- local filesystem path；
-- timestamp；
-- random id；
-- generated output directory；
-- formatter details；
-- runtime benchmark result；
-- `defaultCapacity`；
-- runtime allocation plan。
-
-Runtime plan 可以包含：
-
-- `schema_hash`；
-- `defaultCapacity`；
-- storage hint；
-- allocation strategy；
-- runtime plan hash。
-
-## 15. Canonical schema hash
-
-V1 使用 exact schema hash 作为 compatibility boundary。
-
-```text
-schema_hash = lowercase_hex(SHA-256("soma-java:v1:schema\n" + canonical_normalized_schema_model))
-```
-
-Canonical form：
-
-- UTF-8 JSON；
-- object key 按 Unicode code point 升序排列；
-- array 顺序保留 schema 语义顺序；
-- string 使用 JSON 标准转义；
-- integer 使用十进制文本；
-- boolean 使用 `true` / `false`；
-- 不输出 null 字段；
-- 缺省语义必须归一化为显式字段。
-
-Generated code、runtime metadata、testkit 和 reports 必须引用同一个 schema hash。
-
-## 16. Breaking change
-
-V1 中以下变化均视为 breaking change：
-
-- 修改 `@SomaSchema.name`；
-- 重命名 enum、value、table；
-- 重命名或重排 enum member；
-- 重命名 key、field、optional、index、unique、order；
-- keyed table 与 dense table 之间切换；
-- 修改字段类型；
-- 修改 semantic scalar storage；
-- 修改 key 类型、key leaf structure 或 equality 语义；
-- 修改 selector、order direction 或 access name；
-- 删除字段；
-- 新增改变 layout 的字段；
-- 修改 optional / required 语义；
-- 修改 default literal 或 default 解析结果；
-- 修改 value structure；
-- 修改 string storage policy；
-- 修改 table-typed field ownership；
-- 修改 generated public API name or return type。
-
-V1 默认不承诺 additive compatibility。新增字段也会改变 layout、DTO shape、generated API 和 schema hash。
-
-以下变化不属于 logical schema breaking change，但可能改变 runtime behavior 或性能，应进入 runtime plan evidence：
-
-- 修改 `defaultCapacity`；
-- 修改 storage hint；
-- 修改 allocation strategy；
-- 修改 benchmark-only metadata。
-
-## 17. Diagnostics
-
-Processor diagnostics 至少区分：
-
-- missing or duplicate `@SomaSchema`；
-- invalid schema name；
-- invalid generated package；
-- duplicate schema name；
-- unresolved type；
-- invalid field type；
-- unannotated instance field；
-- mutually exclusive field annotations；
-- multiple key declarations；
-- optional key；
-- key used inside value；
-- default used on key；
-- default used on key value leaf path；
-- default used on optional；
-- default used on table-typed child field；
-- invalid default literal；
-- invalid defaultCapacity；
-- invalid index selector；
-- invalid unique selector；
-- invalid order selector；
-- invalid order direction；
-- selector path through child table；
-- selector path uses Java field name after logical name override；
-- duplicate generated access name；
-- value contains table field；
-- value contains key/index/unique/order declaration；
-- unsupported Java language feature；
-- optional primitive field cannot represent absent in DTO；
-- unsupported unsigned type expectation；
-- schema hash generation failure。
-
-Diagnostics golden comparison 以 diagnostic code、severity、element location、related symbol 和是否阻止 codegen 为稳定字段。message 文本允许优化，但不能改变机器可读 code 语义。
+本文不定义 processor internal model、canonical JSON/hash 算法、Java source transformation、runtime layout、TableStore lifecycle、benchmark 结论或 application business validation。

@@ -1,10 +1,9 @@
 # soma-examples
 
-Java 8 示例和端到端 smoke 场景。
+Java 8 formal usage scenarios 与 E2E smoke 模块。
 
-当前模块只初始化骨架，不包含 Java 源码。
+正式设计：[soma-examples/docs/README.md](docs/README.md)
 
-## 文档
+正式报告：[soma-examples/reports/README.md](reports/README.md)
 
-- [正式设计文档](docs/README.md)
-- [正式报告](reports/README.md)
+模块 README 只负责导航。

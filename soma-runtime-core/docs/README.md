@@ -1,15 +1,15 @@
 # soma-runtime-core 正式设计文档
 
-本目录保存 `soma-runtime-core` 的正式设计文档。
+本目录保存 annotation-agnostic Java runtime kernel 的正式设计事实。
 
-## 当前正式设计文档
+## 正式设计文档
 
-- [Runtime core 契约](runtime-core-contract.md)
+| 文档 | Owner | 单一职责 |
+|---|---|---|
+| [TableStore 契约](table-store-contract.md) | `soma-runtime-core` | storage components、KeySpace、AccessStructures、AccessPath 和 Batch |
+| [Runtime lifecycle 契约](runtime-lifecycle-contract.md) | `soma-runtime-core` | ownership、mutation、epoch/view、errors、concurrency 和 release |
+| [Runtime 性能实现契约](runtime-performance-implementation-contract.md) | `soma-runtime-core` | packed/primitive/fused/allocation-bounded kernel discipline |
 
-## 职责边界
+Runtime-core 不解析 annotation、不生成 Java source，也不拥有 public Schema/API semantics。
 
-`soma-runtime-core` 拥有 Java columnar runtime kernel、`TableStore` 组合模型、primitive columns、bitmap、`KeySpace`、`AccessStructures`、`AccessPath`、lifecycle 和 runtime errors。它不解析 annotation，不生成 Java source，也不拥有用户 schema 语义。
-
-## 临时设计目录
-
-临时设计草案只能放在 `docs/temp/`。草案被接受后，必须把稳定事实迁移进本目录正式设计文档。
+临时专题进入 `docs/temp/`，不得成为正式事实源。

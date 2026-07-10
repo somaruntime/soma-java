@@ -1,29 +1,37 @@
 # soma_java 正式设计文档索引
 
-本目录保存 Java-only SOMA 原型的根级正式设计文档。根级文档负责项目边界、跨模块架构、跨模块 API 契约、验证门禁和文档治理；模块内部事实应进入对应模块的 `docs/`。
+本目录是 Java-only SOMA 根级正式设计事实入口。模块内部事实进入对应模块的 `docs/`；README、AGENTS、guides、reports 和 `docs/temp/` 都不是设计事实源。
 
-项目级架构设计的唯一事实源是 `architecture-design.md`。其他文档需要表达架构事实时，应引用它，不应重新定义第二套架构。
+## 根级正式设计文档
 
-## 当前正式设计文档
+| 文档 | 唯一 Owner | 单一职责 |
+|---|---|---|
+| [文档治理规则](documentation-governance.md) | 根项目协调层 | 文档分类、Owner、生命周期和质量门禁 |
+| [领域术语表](domain-glossary.md) | 根项目协调层 | canonical 术语及“不等同于”边界 |
+| [SomaTable 设计宪法](soma-table-design-constitution.md) | 根项目协调层 | 总心智模型和跨模块永久原则 |
+| [项目架构设计](architecture-design.md) | 根项目协调层 | 系统边界、模块、依赖方向和数据流 |
+| [Generated Table API 契约](generated-table-api-contract.md) | 根项目协调层 | Direct API、Row/Key/Column Pipeline、Mutator、ColumnView 用户语义 |
+| [Materialization 契约](materialization-contract.md) | 根项目协调层 | detached object、递归 child、collection shape 和 budget |
+| [Runtime 正确性模型](runtime-correctness-model.md) | 根项目协调层 | runtime 不变量、状态机、失败原子性和 oracle |
+| [Runtime 性能模型](runtime-performance-model.md) | 根项目协调层 | access pattern、复杂度、allocation 和 claim 边界 |
+| [实现策略](implementation-strategy.md) | 根项目协调层 | 实现架构、垂直切片顺序和防缩水出口 |
+| [V1 验证门禁](validation-gates.md) | 根项目协调层 | readiness gate、evidence 和 release claim |
 
-- [架构设计](architecture-design.md)
-- [领域术语表](domain-glossary.md)
-- [SOMA 实现方案设计](implementation-strategy.md)
-- [Row Pipeline API 契约](row-pipeline-api-contract.md)
-- [Runtime correctness model](runtime-correctness-model.md)
-- [Runtime performance model](runtime-performance-model.md)
-- [V1 验证门禁](validation-gates.md)
-- [文档治理规则](documentation-governance.md)
+## 模块正式设计入口
 
-## 模块文档入口
+| 模块 | 正式设计入口 | 事实范围 |
+|---|---|---|
+| `soma-annotations` | [docs](../soma-annotations/docs/README.md) | public schema annotation |
+| `soma-processor` | [docs](../soma-processor/docs/README.md) | processing、normalization、hash、diagnostics、code generation |
+| `soma-runtime-core` | [docs](../soma-runtime-core/docs/README.md) | TableStore、lifecycle、errors、runtime performance implementation |
+| `soma-testkit` | [docs](../soma-testkit/docs/README.md) | compile/golden/invariant/evidence helper contract |
+| `soma-examples` | [docs](../soma-examples/docs/README.md) | formal usage scenarios and Access Pattern Cards |
+| `soma-benchmarks` | [docs](../soma-benchmarks/docs/README.md) | evidence methodology and runtime-state benchmark lanes |
 
-- [soma-annotations 文档](../soma-annotations/docs/README.md)
-- [soma-processor 文档](../soma-processor/docs/README.md)
-- [soma-runtime-core 文档](../soma-runtime-core/docs/README.md)
-- [soma-testkit 文档](../soma-testkit/docs/README.md)
-- [soma-examples 文档](../soma-examples/docs/README.md)
-- [soma-benchmarks 文档](../soma-benchmarks/docs/README.md)
+## 非正式设计入口
 
-## 临时设计目录
+- 长期研究蓝图与临时专题位于 [docs/temp](temp/)；
+- 正式审查、验证和 release evidence 位于 [reports](../reports/README.md)；
+- 用户和开发者指南未来按需进入 `guides/`，不进入 `reports/`。
 
-临时设计草案只能放在 `docs/temp/`。草案被接受后，必须把稳定事实迁移进正式设计文档。正式 release claim 不得引用 `docs/temp/`。
+正式实现、gate 或 release claim 不得把 README、guides、reports 或临时蓝图当作设计事实源。

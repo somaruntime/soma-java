@@ -1,47 +1,49 @@
 # soma_java Agent Guide
 
-`soma_java` 是 SOMA Java-only 方向的原型仓库，用于探索 Java annotation schema + Java columnar runtime。
+`soma_java` 是 Java 8 annotation schema + Java columnar runtime 原型仓库。当前仍处于设计阶段。
+
+## 必读入口
+
+- 所有正式设计事实从 [docs/README.md](docs/README.md) 进入；
+- 文档分类、Owner 和生命周期遵守 [docs/documentation-governance.md](docs/documentation-governance.md)；
+- 模块内部修改前阅读对应 `<module>/docs/README.md`；
+- README、AGENTS、guides、reports 和 `docs/temp/` 都不是设计事实源。
 
 ## Project Boundary
 
-本仓库当前只承载 Java 8 使用场景，不承诺 Python、C ABI、native runtime 或跨语言 FFI。
+- 只承载 Java 8 使用场景；
+- 不承诺 Python、C ABI、native runtime 或跨语言 FFI；
+- 不在正式设计决策前增加第三方依赖；
+- 实现不得把 schema object、DTO、Java Collection graph 或 metadata interpreter 变成 runtime hot storage/path。
 
-当前设计方向：
-
-```text
-Java annotation schema
-  -> Java 8 annotation processor
-  -> normalized schema model / schema hash
-  -> generated Table / Batch / Row Pipeline / DTO materialization / ColumnView
-  -> Java columnar runtime kernel
-  -> examples / benchmark / gate evidence
-```
+以上是 Agent 操作护栏；完整语义仍以正式 owner 文档为准。
 
 ## Module Ownership
 
-- `soma-annotations` owns public schema annotation API.
-- `soma-processor` owns annotation processing, validation, normalized schema model, schema hash, and code generation.
-- `soma-runtime-core` owns Java columnar runtime kernel, `TableStore` composition model, primitive columns, bitmap, `KeySpace`, `AccessStructures`, `AccessPath`, lifecycle, and runtime errors.
-- `soma-testkit` owns compile/golden/runtime invariant test helpers.
-- `soma-examples` owns Java 8 usage examples and end-to-end smoke scenarios.
-- `soma-benchmarks` owns benchmark scenarios and evidence collection.
+- `soma-annotations`：public schema annotation；
+- `soma-processor`：processing、normalization/hash、diagnostics、code generation；
+- `soma-runtime-core`：TableStore、lifecycle/errors、runtime 性能实现；
+- `soma-testkit`：compile/golden/invariant/evidence helpers；
+- `soma-examples`：formal Java 8 scenarios 和 Access Pattern Cards；
+- `soma-benchmarks`：benchmark evidence 与 runtime-state lanes。
 
-## Design Rules
+跨模块 public semantics 由根级正式契约拥有；模块只能拥有自己的实现义务，不使用联合 Owner。
 
-- Java annotation schema is schema source only; it must not become runtime row storage.
-- Generated runtime must be table-first and columnar, not `List<DTO>` hot-loop storage.
-- Public/generated APIs must not expose runtime sidecars, hash buckets, bitmap words, allocator policy, or internal row pointers.
-- Core abstractions must have clear, positive names before they enter implementation or formal contracts; if a name only works as "non-X", "unkeyed-X", or by elevating one internal data structure to the whole concept, revisit the abstraction boundary first.
-- Runtime internal table design follows the `TableStore` composition model: `RowSpace`, `KeySpace`, `ColumnStore`, `AccessStructures`, `AccessPath`, `MutationCoordinator`, and `LifecycleState`; public API terminology remains keyed table / dense table.
-- No third-party dependencies should be added before an explicit design decision.
-- Keep Java 8 compatibility unless a formal design document changes the baseline.
+## Documentation Workflow
 
-## Documentation Governance
+- 文档、报告和代码注释默认使用中文；
+- 正式设计进入 `docs/` 或 `<module>/docs/`；
+- 普通临时设计在固化后迁入 Owner 并删除；
+- 四份长期研究蓝图保留在 `docs/temp/`，但不能被实现/gate 当作事实源；
+- 用户/开发者指南未来进入 `guides/`，不进入 `reports/`；
+- 报告只记录审查、验证、benchmark 和 release evidence；
+- 修改后运行 `./scripts/check-docs.sh`、`git diff --check` 和适当 Maven validation。
 
-文档、报告和代码注释默认使用中文。API 名称、类型名、包名、Maven 坐标、文件路径、命令和机器可读文本可以保留英文。
+## File and Git Rules
 
-Root-level formal design facts live under `docs/`. Module-owned formal design facts live under `<module>/docs/`. Temporary drafts live under `docs/temp/` or `<module>/docs/temp/`. Formal reports live under `reports/` or `<module>/reports/`. Temporary reports live under `reports/temp/` or `<module>/reports/temp/`.
-
-## Git Governance
-
-长期分支只使用 `main`、`develop`、`release`。常规设计和实现工作在 `develop`。不要创建 `codex/`、`feature/`、`bugfix/` 或其他临时长期分支。
+- 使用 `rg` / `rg --files` 搜索；
+- 保留用户现有未提交修改，不覆盖无关内容；
+- 本地文件编辑使用 `apply_patch`；
+- Java 保持 Java 8；
+- 长期分支只使用 `main`、`develop`、`release`；常规工作在 `develop`；
+- 未经用户要求不创建其他长期分支，不执行 destructive Git 操作。

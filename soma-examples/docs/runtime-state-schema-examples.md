@@ -1,8 +1,10 @@
 # Runtime state schema 典型示例
 
 状态：正式设计文档
-日期：2026-07-07
 Owner：`soma-examples`
+事实范围：runtime-state scenario 通用建模规则、索引和覆盖矩阵
+非事实范围：具体场景 schema、public contract 和 benchmark result
+最后审查日期：2026-07-10
 
 ## 1. 目标
 
@@ -15,23 +17,28 @@ Owner：`soma-examples`
 3. 连续仿真过程；
 4. game runtime state。
 
-这些示例只表达构造、仿真或 game loop 运行期间的高性能 runtime data container，不表达 optimization search、策略选择、规则调度或 UI / service 集成。上层 OOP 负责 workflow orchestration、algorithm strategy、domain rule 和 solver / simulator / game loop；SOMA 负责 schema-defined hot layout、key/index/order access、packed dense state 和 DTO materialization。
+这些示例只表达构造、仿真或 game loop 运行期间的高性能 runtime data container，不表达 optimization search、策略选择、规则调度或 UI / service 集成。上层 OOP 负责 workflow orchestration、algorithm strategy、domain rule 和 solver / simulator / game loop；SOMA 负责 schema-defined hot layout、key/index/order access、packed dense state 和 detached materialized object。
 
-代码块保存在各场景文档中。真实 Java 项目中，`package-info.java`、enum、`@SomaValue` 和 `@SomaTable` DTO class 应按 Java 文件规则拆分。
+代码块保存在各场景文档中。真实 Java 项目中，`package-info.java`、enum、`@SomaValue` 和 `@SomaTable` schema-backed row class 应按 Java 文件规则拆分。`@SomaTable` class 本身就是 detached single-row materialization shape；processor 不再生成 public `XxxRecord` 第二类型。
 
 ## 2. 通用建模规则
 
 四个示例共同遵守以下规则：
 
-- DTO class 同时是 schema source 和 materialized DTO contract；keyed table 的 `fetch(key)` 返回 DTO detached copy，不引入 `fetchDto()`；
+- 在选择 keyed/dense、root/child 和 access path 前，先把 table 或明确 field group 分类为 input facts、working state 或 result facts，并标明 authoritative/rebuildable/derived；
+- 每个正式场景为核心 table/phase 提供 Access Pattern Card，记录 rows、hot columns、access/mutation mix、selectivity、optional/child density、working set 和 allocation/export frequency；该 card 属于 scenario/runtime plan，不进入 Schema/hash；
+- 不同 data role 默认按生命周期、可变性和访问模式分开；因 hot-loop locality 或单行一致性合并时必须说明理由和唯一事实源，不能为了输出方便复制一份 result shadow table；
+- `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但它不是 runtime row storage；keyed table 的 `fetch(key)` 直接返回该 schema class 的 detached object；
+- Java logical schema/materialization 中 `List<R>` 表示 dense table，`Map<K, R>` 表示 keyed table；runtime 内部仍使用独立 columnar `TableStore`，不把 Java collection 作为 live storage；
 - table 只分为 keyed table 与 dense table；`entity`、`lookup`、`workspace`、`matrix`、`event queue` 是建模场景，不是 annotation role；
 - 有 stable logical key 且需要 `fetch(key)` / `containsKey(key)` / uniqueness 的 runtime data 建模为 keyed table；
 - 没有 stable key、以 packed scan、row-index iteration、批量替换或矩阵行访问为主的数据建模为 dense table；
 - 频繁查询的静态或导入后只读数据，如果有自然唯一 key，优先建成 keyed lookup table；
-- `@SomaValue` 表达 inline value / composite key，会 flatten 到 table leaf columns；`@SomaValue` 内部不允许 table typed field；
+- `@SomaValue` 表达 compiler-defined immutable inline value / composite key；字段默认具有 `public final` 语义，并获得 canonical construction、value equality/hash 与 `toString()`；flatten 后成为 table leaf columns，内部不允许 child table field；
 - cross-table reference 使用 scalar、enum、semantic scalar 或 value key，例如 `MachineId`、`CustomerId`、`UnitId`，不保存另一个 root table object；
-- child table 只用于 parent row owns child table instance 的生命周期关系，四个示例默认不使用 child table；
-- optional scalar DTO 字段使用 boxed type，例如 `Long`、`Integer`、`Double`、`Boolean`，absent materialize 为 `null`；
+- child table 只用于 parent row owns child table instance 的生命周期关系；FJSP 的 operation candidate machines 与 VRP 的 route visits 使用 dense child，连续仿真和 game 示例没有为了展示功能而强行引入 child；
+- required child materialize 为非 `null` 的 `List` / `Map`，空 child 为 empty collection；optional child absent 为 `null`，present-empty 仍为非 `null` empty collection；
+- optional field 由 `@SomaField` 或 `@SomaChild` 加 `@SomaOptional` 表达；optional primitive schema type 必须使用 boxed type，例如 `Long`、`Integer`、`Double`、`Boolean`，absent materialize 为 `null`；
 - `defaultCapacity` 只是 allocation hint，不进入 logical `schema_hash`。
 
 ## 3. 场景索引
@@ -45,23 +52,23 @@ Owner：`soma-examples`
 
 ## 4. 四类示例的覆盖矩阵
 
-| 示例 | Keyed entity state | Keyed lookup data | Dense long-lived state | Dense workspace / export buffer | 主要证明点 |
-|---|---|---|---|---|---|
-| FJSP | `Job`、`Operation`、`Material`、`Machine`、`MachineCandidate` | `ProcessingTime`、`SetupTime` | 无 | 无 | runtime frontier 是 keyed table，不是每轮 dense workspace |
-| VRP | `Customer`、`Vehicle`、`Route` | `TravelCost` | `RouteVisitRow` | `UnassignedCustomerRow`、`InsertionCandidateRow` | route sequence 是 packed rows，不是 stable key rows |
-| 连续仿真 | `Tank`、`Valve` | `FlowCoefficient` | `StateVectorRow` | `PendingEventRow`、`TraceSampleRow` | state vector 是 hot numeric state，trace 是 export / diagnostic buffer |
-| Game | `Player`、`GameUnit` | `AbilityCost` | `MapTileRow` | `MoveCandidateRow`、`PendingDamageRow` | SOMA 可承载 game hot state，但不是 ECS / engine |
+| 示例 | Input facts | Working state | Result facts / export | 主要证明点 |
+|---|---|---|---|---|
+| FJSP | `OperationDefinition.candidateMachines` dense child、`SetupTime` | machine/job/operation progress、`MachineCandidate` | `OperationAssignment` | input、working state、result 分离；runtime frontier 是 keyed table |
+| VRP | `TravelCost`、customer/vehicle static fields | route/customer state、per-route `Route.visits` dense child、unassigned/candidate workspace | route plan 与 customer assignment facts | route sequence 是 parent-owned packed rows，不是 stable key rows |
+| 连续仿真 | topology、`FlowCoefficient`、initial conditions | `StateVectorRow`、`PendingEventRow` | `TraceSampleRow` / final-state export | state vector 是 hot numeric state，trace 不反向成为状态事实源 |
+| Game | terrain/ability/static entity definition | unit/player state、occupancy cache、move/damage workspace | battle outcome / snapshot projection | SOMA 可承载 game hot state，但不是 ECS / engine |
 
 ## 5. 对正式契约的覆盖说明
 
 四个示例覆盖并验证 `soma_java` V1 annotation contract 的几个边界。示例文档不拥有 annotation contract；如果示例与正式契约冲突，以 `soma-annotations/docs/annotation-schema-contract.md` 为准。
 
-- `@SomaField` 比 `@SomaColumn` 更符合 Java DTO schema source；column 是 runtime flatten 之后的物理概念；
+- `@SomaField` 比 `@SomaColumn` 更符合 Java logical schema；column 是 runtime flatten 之后的物理概念；
 - `@SomaKey` 必须是 table direct field 的 logical identity，value key 足以表达 composite key；
 - 不需要 `@SomaEnum`，Java enum 被 SOMA field 引用后自动纳入 schema；
 - 不需要 `@SomaTableRole`，四个示例中的角色都能由 keyed / dense table 与命名文档说明表达；
 - `@SomaOrder` 的多个声明应理解为 named ordered access path，不是 table physical order；
-- optional scalar DTO 字段必须使用 boxed type，否则无法表达 absent materialized DTO；
+- optional scalar schema 字段必须使用 boxed type，否则 detached schema object 无法表达 absent；
 - semantic scalar 只在确实需要时间语义时显式声明，例如连续仿真的 `DATE_TIME`。
 
 ## 6. Non-goals

@@ -1,21 +1,13 @@
 # soma-testkit 正式设计文档
 
-本目录保存 `soma-testkit` 的正式设计文档。
+本目录保存可重复 compile/golden/runtime assertion helper 的正式设计事实。
 
-## 当前正式设计文档
+## 正式设计文档
 
-当前尚无正式契约文档。
+| 文档 | Owner | 单一职责 |
+|---|---|---|
+| [soma-testkit 契约](testkit-contract.md) | `soma-testkit` | compile/golden/invariant/materialization/performance-shape helper 语义 |
 
-## 待决策设计缺口
+Concrete Java package、helper method、fixture/golden layout 和 structured serialization 在实现阶段固化，但不得削弱本契约。
 
-本次治理只确认缺口，不替代设计：
-
-- compile test helper 的输入、输出、诊断断言和 Java 8 toolchain 约束尚未形成正式契约；
-- golden output helper 的比较口径、允许忽略的非语义 whitespace、文件组织和更新流程尚未形成正式契约；
-- runtime invariant helper 的覆盖边界、与 `soma-runtime-core` 单元测试的分工尚未形成正式契约。
-
-这些缺口会影响 G1/G2/G3 的可审计性，但不阻塞当前文档归位治理。
-
-## 临时设计目录
-
-临时设计草案只能放在 `docs/temp/`。草案被接受后，必须把稳定事实迁移进本目录正式设计文档。
+临时专题进入 `docs/temp/`，不得成为正式事实源。

@@ -1,8 +1,12 @@
 # FJSP MachineCandidate frontier 临时蓝图
 
-状态：临时蓝图
-日期：2026-07-07
-适用范围：`soma_java` Java-only V1 设计讨论
+状态：长期研究蓝图
+正式事实源：否
+已固化内容：[FJSP schema 示例](../../soma-examples/docs/fjsp-runtime-state-example.md)、[FJSP E2E 场景](../../soma-examples/docs/fjsp-e2e-scenario.md)、[Runtime-state benchmark 契约](../../soma-benchmarks/docs/runtime-state-benchmark-contract.md)
+仍在研究：frontier lifecycle、indicator/update 粒度和 claim-grade evidence
+最后审查日期：2026-07-10
+
+对齐基线：[设计宪法](../soma-table-design-constitution.md)、[Generated Table API](../generated-table-api-contract.md)、[Runtime 性能模型](../runtime-performance-model.md)
 
 ## 1. 目标
 
@@ -18,9 +22,46 @@
 - 某个 operation 被选中后，从 `MachineCandidateTable` 删除该 operation 相关的全部候选；
 - SOMA 保存 hot runtime state，solver/application loop 拥有调度策略和跨 table 一致性。
 
-## 2. 设计原则
+本蓝图中的 `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但不表示 live runtime storage。`fetch(...)`、`findFirst()`、`firstOrThrow()` 直接返回对应 schema class；Row Pipeline callback 参数仍是 callback-scoped Row Cursor。`@SomaValue` 由 compiler 提供 immutable/public-final-field/value-equality 语义。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化。
 
-### 2.1 Frontier 不是每轮临时 workspace
+## 2. Application data role 与设计原则
+
+### 2.1 数据职责审核
+
+本场景先按 application data role 分类，再选择 keyed/dense、index/order 和访问路径：
+
+| Data role | Table / field group | 权威性与生命周期 | 设计判断 |
+|---|---|---|---|
+| input facts | `OperationDefinition.candidateMachines` dense child、`SetupTime` | import 后 authoritative、read-only/read-mostly | candidate-machine rows 由 operation 独占并按 operation 连续遍历；与运行状态和结果分开 |
+| working state | `MachineState`、`OperationRuntimeState`、`MaterialState`、job progress | solve 期间 authoritative mutable state | 只保存算法下一步真正依赖的状态，不混入 external DTO shape |
+| working state | `MachineCandidate` | authoritative current-frontier state，但可由 input + progress/state 重建 | candidate copy/indicator 必须有明确 invalidation/rebuild 规则 |
+| result facts | `OperationAssignment` | 每个 operation 最多一条 authoritative assignment | 独立于 operation definition/runtime state；absence 表示尚未产生 assignment |
+
+原草案的 `OperationState` 同时保存 `sequenceNo/releaseTime/setupFamily` 输入、`jobReadyTime/materialReadyTime` 工作状态以及 `assignedMachine/startTime/endTime` 结果，职责过多。本蓝图采用拆分后的推荐方向：
+
+```text
+OperationDefinition       // input facts
+OperationRuntimeState     // working state
+OperationAssignment       // result facts
+```
+
+这不是 SOMA 强制的 schema 形式，而是本场景的默认建模选择。若后续 benchmark 证明 definition + state 的跨表读取是主要瓶颈，可以把被每次 release/dispatch 共同读取的只读 leaf 受控预投影到 frontier row；不得重新维护第二份 authoritative assignment。`OperationAssignment` 只有在 assignment 是独立 identity/lifecycle/result access path 时才成立，本蓝图正好满足这一条件。
+
+### 2.2 Access Pattern Card
+
+以下 card 是场景/runtime-plan 输入，不是 Schema fact；具体 rows、working-set bytes 和比例必须由 benchmark scale/fixture 提供，不能从 `defaultCapacity` 推断。
+
+| Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
+|---|---|---|---|---|
+| `OperationDefinition.candidateMachines` | operation count × per-operation candidate-machine count；必须记录 empty/typical/high child cardinality | `machineId`、`processingTime` | operation release 时 parent-key locate + child packed scan；input import 后只读 | live child facade 应 object-free；parent `fetch` deep materialization 只作 reference/export 对照 |
+| `MachineCandidate` frontier | current released-unscheduled machine-operation pairs | candidate key、setup family、ready/setup/FCFS/SPT indicators | release batch append；按 machine grouped update/sort；按 operation grouped remove | by_machine/by_operation selectivity、dynamic-sort scratch、compaction 和 sidecar dirty/rebuild 分开计量 |
+| `MachineState` | machine count | `nextAvailableTime`、`lastSetupFamily` | repeated ordered first + one-row mutate | mutation/read ratio 决定 order eager/lazy policy；必须观察 rebuild-storm pattern |
+| `OperationRuntimeState` / `OperationAssignment` | operation count / assigned operation count | ready fields / result times | point lookup + result insert | split lookup 与 co-located baseline 比较；不得复制 authoritative assignment |
+| `SetupTime` | machine/setup-family combinations | key leaves、`setupTime` | dispatch indicator phase random point lookup | 记录 load factor、collision、reuse；comparator 内禁止 lookup |
+
+全场景还必须记录 touched columns/bytes、frontier group size、selector cardinality、mutation/read ratio、steady-state allocation/op、stats mode 和 boundary export frequency。
+
+### 2.3 Frontier 不是每轮临时 workspace
 
 不推荐每轮执行：
 
@@ -34,14 +75,14 @@ candidateRows.replaceAll(buildCandidatesFor(machineId, now));
 
 ```text
 operation release
-  -> processing_times.findByOperation(operationKey)
+  -> OperationDefinition.candidateMachines dense child scan
   -> add (machineId, operationKey) candidates
   -> dispatch 时按 machine 局部计算 indicator
   -> dynamic sort 选择候选
   -> remove candidates for selected operation
 ```
 
-### 2.2 Schema 只固化稳定访问路径
+### 2.4 Schema 只固化稳定访问路径
 
 `MachineCandidateTable` 必须支持：
 
@@ -50,7 +91,7 @@ operation release
 
 不强制在 schema 中声明 dispatch rule order。`FCFS + SPT`、`SPT + setup`、`EDD`、`CR` 或加权规则都属于 solver 策略，不是 table 的永久事实。
 
-### 2.3 Indicator 可以小颗粒度计算
+### 2.5 Indicator 可以小颗粒度计算
 
 Indicator 字段可以分阶段计算：
 
@@ -78,6 +119,7 @@ operation release
 package com.example.fjsp.state;
 
 import com.hgtech.soma.annotation.SomaField;
+import com.hgtech.soma.annotation.SomaChild;
 import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
@@ -86,65 +128,66 @@ import com.hgtech.soma.annotation.SomaSchema;
 import com.hgtech.soma.annotation.SomaSort;
 import com.hgtech.soma.annotation.SomaTable;
 import com.hgtech.soma.annotation.SomaValue;
+import java.util.List;
 
 @SomaValue
-public final class JobId {
+public class JobId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class OperationId {
+public class OperationId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class MachineId {
+public class MachineId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class MaterialId {
+public class MaterialId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class SetupFamilyId {
+public class SetupFamilyId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class OperationKey {
+public class OperationKey {
     @SomaField
-    public JobId jobId;
+    JobId jobId;
 
     @SomaField
-    public OperationId operationId;
+    OperationId operationId;
 }
 
 @SomaValue
-public final class OperationMachineKey {
+public class OperationMachineKey {
     @SomaField
-    public MachineId machineId;
+    MachineId machineId;
 
     @SomaField
-    public OperationKey operationKey;
+    OperationKey operationKey;
 }
 
 @SomaValue
-public final class SetupTimeKey {
+public class SetupTimeKey {
     @SomaField
-    public MachineId machineId;
+    MachineId machineId;
 
     @SomaField
-    public SetupFamilyId fromFamily;
+    SetupFamilyId fromFamily;
 
     @SomaField
-    public SetupFamilyId toFamily;
+    SetupFamilyId toFamily;
 }
 
 @SomaTable(name = "machines", defaultCapacity = 128)
@@ -159,16 +202,26 @@ public final class MachineState {
     @SomaField
     public long nextAvailableTime;
 
+    @SomaField
     @SomaOptional
     public SetupFamilyId lastSetupFamily;
 }
 
-@SomaTable(name = "operations", defaultCapacity = 4096)
+@SomaTable(name = "candidate_machine_definitions", defaultCapacity = 8)
+public final class CandidateMachineDefinition {
+    @SomaField
+    public MachineId machineId;
+
+    @SomaField
+    public long processingTime;
+}
+
+@SomaTable(name = "operation_definitions", defaultCapacity = 4096)
 @SomaIndex(name = "by_job_sequence", fields = {
     "operationKey.jobId.value",
     "sequenceNo"
 })
-public final class OperationState {
+public final class OperationDefinition {
     @SomaKey
     public OperationKey operationKey;
 
@@ -179,22 +232,40 @@ public final class OperationState {
     public long releaseTime;
 
     @SomaField
+    public SetupFamilyId setupFamily;
+
+    @SomaChild(initialCapacity = 8)
+    public List<CandidateMachineDefinition> candidateMachines;
+}
+
+@SomaTable(name = "operation_runtime_states", defaultCapacity = 4096)
+public final class OperationRuntimeState {
+    @SomaKey
+    public OperationKey operationKey;
+
+    @SomaField
     public long jobReadyTime;
 
     @SomaField
     public long materialReadyTime;
+}
+
+@SomaTable(name = "operation_assignments", defaultCapacity = 4096)
+public final class OperationAssignment {
+    @SomaKey
+    public OperationKey operationKey;
 
     @SomaField
-    public SetupFamilyId setupFamily;
-
-    @SomaOptional
     public MachineId assignedMachine;
 
-    @SomaOptional
-    public Long startTime;
+    @SomaField
+    public long setupStartTime;
 
-    @SomaOptional
-    public Long endTime;
+    @SomaField
+    public long startTime;
+
+    @SomaField
+    public long endTime;
 }
 
 @SomaTable(name = "materials", defaultCapacity = 4096)
@@ -204,19 +275,6 @@ public final class MaterialState {
 
     @SomaField
     public long readyTime;
-}
-
-@SomaTable(name = "processing_times", defaultCapacity = 8192)
-@SomaIndex(name = "by_operation", fields = {
-    "operationMachineKey.operationKey.jobId.value",
-    "operationMachineKey.operationKey.operationId.value"
-})
-public final class ProcessingTime {
-    @SomaKey
-    public OperationMachineKey operationMachineKey;
-
-    @SomaField
-    public long processingTime;
 }
 
 @SomaTable(name = "setup_times", defaultCapacity = 2048)
@@ -284,33 +342,36 @@ public final class MachineCandidate {
 
 ```java
 void releaseOperation(OperationKey operationKey) {
-    OperationState operation = operations.fetch(operationKey);
+    OperationDefinition definition = operationDefinitions.fetch(operationKey);
+    OperationRuntimeState runtime = operationRuntimeStates.fetch(operationKey);
     long baseReadyTime = max3(
-        operation.releaseTime,
-        operation.jobReadyTime,
-        operation.materialReadyTime
+        definition.releaseTime,
+        runtime.jobReadyTime,
+        runtime.materialReadyTime
     );
 
     CandidateBatch batch = machineCandidates.newBatch();
 
-    processingTimes.findByOperation(operationKey)
-        .forEach(pt -> {
-            OperationMachineKey key = pt.operationMachineKey();
+    for (CandidateMachineDefinition candidate : definition.candidateMachines) {
+        OperationMachineKey key = new OperationMachineKey(
+            candidate.machineId,
+            operationKey
+        );
 
-            batch.add()
-                .setCandidateKey(key)
-                .setTargetSetupFamily(operation.setupFamily)
-                .setOperationReleaseTime(operation.releaseTime)
-                .setJobReadyTime(operation.jobReadyTime)
-                .setMaterialReadyTime(operation.materialReadyTime)
-                .setBaseReadyTime(baseReadyTime)
-                .setProcessingTime(pt.processingTime())
-                .setSetupTime(0L)
-                .setEffectiveReadyTime(0L)
-                .setFcfsValue(0L)
-                .setSptValue(0L)
-                .setIndicatorReady(false);
-        });
+        batch.add()
+            .setCandidateKey(key)
+            .setTargetSetupFamily(definition.setupFamily)
+            .setOperationReleaseTime(definition.releaseTime)
+            .setJobReadyTime(runtime.jobReadyTime)
+            .setMaterialReadyTime(runtime.materialReadyTime)
+            .setBaseReadyTime(baseReadyTime)
+            .setProcessingTime(candidate.processingTime)
+            .setSetupTime(0L)
+            .setEffectiveReadyTime(0L)
+            .setFcfsValue(0L)
+            .setSptValue(0L)
+            .setIndicatorReady(false);
+    }
 
     machineCandidates.addBatch(batch);
 }
@@ -325,7 +386,9 @@ while (scheduledCount < totalOperationCount) {
     MachineState machine = machines.byAvailableTime().firstOrThrow();
     MachineId machineId = machine.machineId;
     long machineReady = machine.nextAvailableTime;
-    SetupFamilyId lastFamily = machine.lastSetupFamilyOr(DEFAULT_SETUP_FAMILY);
+    SetupFamilyId lastFamily = machine.lastSetupFamily != null
+        ? machine.lastSetupFamily
+        : DEFAULT_SETUP_FAMILY;
 
     machineCandidates.findByMachine(machineId)
         .update(c -> {
@@ -382,23 +445,26 @@ while (scheduledCount < totalOperationCount) {
 
 ```java
 void commitAssignment(MachineCandidate chosen) {
-    OperationMachineKey chosenKey = chosen.candidateKey();
-    MachineId machineId = chosenKey.machineId();
-    OperationKey operationKey = chosenKey.operationKey();
+    OperationMachineKey chosenKey = chosen.candidateKey;
+    MachineId machineId = chosenKey.machineId;
+    OperationKey operationKey = chosenKey.operationKey;
 
-    long setupStart = chosen.effectiveReadyTime();
-    long start = setupStart + chosen.setupTime();
-    long end = start + chosen.processingTime();
+    long setupStart = chosen.effectiveReadyTime;
+    long start = setupStart + chosen.setupTime;
+    long end = start + chosen.processingTime;
 
-    operations.mutate(operationKey)
+    OperationAssignmentBatch assignmentBatch = operationAssignments.newBatch();
+    assignmentBatch.add()
+        .setOperationKey(operationKey)
         .setAssignedMachine(machineId)
+        .setSetupStartTime(setupStart)
         .setStartTime(start)
-        .setEndTime(end)
-        .commit();
+        .setEndTime(end);
+    operationAssignments.addBatch(assignmentBatch);
 
     machines.mutate(machineId)
         .setNextAvailableTime(end)
-        .setLastSetupFamily(chosen.targetSetupFamily())
+        .setLastSetupFamily(chosen.targetSetupFamily)
         .commit();
 
     machineCandidates.findByOperation(operationKey).remove();
@@ -407,15 +473,17 @@ void commitAssignment(MachineCandidate chosen) {
 }
 ```
 
-`commitAssignment(...)` 是 solver-level sequence，不是 SOMA transaction。推荐提交顺序是先写 assignment 和 machine availability，再删除 selected operation 的全部 candidate，最后 release 后续 operation；如果任一步失败，solver loop 必须停止本轮、回滚外部 snapshot，或重建 `MachineCandidate` frontier，不能假设 runtime 会跨 table 自动补偿。
+上面的 `fetch()` / `firstOrThrow()` 各自 materialize detached schema object；`OperationDefinition` 还会递归构造 candidate-machine `List`。它们是可读性优先的 reference path，不代表零分配 hot path；benchmark 必须单独记录 schema object/List allocation、dynamic-sort row-index buffer 和后续 external DTO mapping。`@SomaTable` row 不生成 structural equality/hash，候选身份比较继续使用 immutable `@SomaValue` equality。
+
+`OperationAssignment` 是结果事实的唯一 owner；`OperationDefinition` 和 `OperationRuntimeState` 不再保存 assignment shadow fields。`commitAssignment(...)` 是 solver-level sequence，不是 SOMA transaction。推荐提交顺序是先新增 assignment 和更新 machine availability，再删除 selected operation 的全部 candidate，最后 release 后续 operation；如果任一步失败，solver loop 必须停止本轮、回滚外部 snapshot，或根据 assignment/result fact 重建 `MachineCandidate` frontier，不能假设 runtime 会跨 table 自动补偿。
 
 `releaseNextOperations(...)` 由 solver/application loop 负责。它不应退化为全表扫描，而应至少依赖以下事实源之一：
 
-- `Operation.by_job_sequence(jobId, nextSequenceNo)`；
-- `Job.nextSequenceNo` 或等价 job progress state；
+- `OperationDefinition.by_job_sequence(jobId, nextSequenceNo)`；
+- 独立 `JobProgress.nextSequenceNo` 或等价 job progress state；
 - material / predecessor readiness 的明确索引或业务队列。
 
-被 release 的 operation 再通过 `processingTimes.findByOperation(operationKey)` 增量加入 `MachineCandidate` frontier。
+被 release 的 operation 再通过 `OperationDefinition.candidateMachines` dense child 增量加入 `MachineCandidate` frontier。若后续 benchmark 证明 deep materialization allocation 成为热点，应改用 generated live child facade 按 parent key 遍历同一 child storage，而不是恢复 flat shadow fact。
 
 ## 5. 审核结论
 
@@ -428,16 +496,20 @@ void commitAssignment(MachineCandidate chosen) {
 - dispatch rule 保持在 solver 策略层，通过 `sorted(comparator)` 表达；
 - setup time 在 dispatch 开始时基于 `MachineState.lastSetupFamily` 快照计算；
 - comparator 只读取 candidate row 字段，不做 cross-table lookup；
-- operation 被选中后，使用 `findByOperation(operationKey).remove()` 删除所有相关候选。
+- operation 被选中后，使用 `findByOperation(operationKey).remove()` 删除所有相关候选；
+- input definition、working state 和 result assignment 已分开，assignment 不再与 operation runtime state 双写。
+- candidate-machine input 使用 parent-owned dense child `List`，保持 per-operation ownership 与 packed locality；runtime frontier 仍是独立 keyed table，不与 input child 混合。
 
 ### 5.2 风险和坏味道
 
 - 如果单台 machine frontier 很大，`sorted(comparator)` 会成为热点；届时需要 benchmark 后再考虑 top-k buffer 或稳定 schema order；
 - `setupTimes.fetch(setupKey)` 缺失必须有明确业务语义：canonical FJSP 建议作为 required lookup error；若业务希望默认 0 或候选不可行，必须在场景契约中显式改写，不能由 runtime 猜测；
-- dispatch loop 连续修改 `operations`、`machines`、`machineCandidates`，SOMA V1 不提供跨 table transaction，一致性由 solver/application loop 保证；
+- dispatch loop 连续修改 `operationAssignments`、`machines`、`machineCandidates`，SOMA V1 不提供跨 table transaction，一致性由 solver/application loop 保证；
 - `releaseNextOperations(...)` 不能退化成全表扫描，应依赖 job sequence、material dependency 或其他 lookup/index；
 - `indicatorReady` 只是本轮 machine dispatch 的计算状态，不能被误用成长期业务状态；
-- 动态排序不是 maintained `@SomaOrder`，不能宣称与 order sidecar 性能等价。
+- 动态排序不是 maintained `@SomaOrder`，不能宣称与 order sidecar 性能等价；
+- `MachineCandidate` 同时需要按 machine dispatch 和按 operation cleanup，不属于任一 parent row 的独占生命周期，因此不应改成 `MachineState` 或 `OperationRuntimeState` 的 child table。
+- `CandidateMachineDefinition.defaultCapacity` / `@SomaChild.initialCapacity` 是 per-child-instance hint，必须按单个 operation 的典型候选机器数设置；不能使用 root 总行数规模。
 
 ## 6. 当前建议
 
@@ -447,5 +519,9 @@ void commitAssignment(MachineCandidate chosen) {
 - 非 canonical `SetupTime` 缺失语义变体，例如默认 0 或缺失表示不可行，必须另行修改场景契约；
 - `releaseNextOperations(...)` 的依赖索引设计；
 - dynamic sort、top-k 内部优化和 maintained order source 的 benchmark lane；
-- frontier add/update/remove、setup lookup、machine order sidecar rebuild、DTO export 与 dense workspace rebuild 对照 lane；
-- cross-table commit 失败时的 solver-level error handling。
+- candidate-machine dense child scan 与 flat composite-key/index baseline；
+- frontier add/update/remove、setup lookup、machine order sidecar rebuild、Materialized Object export、external DTO adapter 与 dense workspace rebuild 对照 lane；
+- export/fetchAll 使用 runtime plan 默认或显式 `MaterializationBudget`，并与 hot-loop Row Pipeline 成本分开统计；
+- cross-table commit 失败时的 solver-level error handling；
+- `OperationDefinition + OperationRuntimeState` 分表 lookup 与旧 co-located row 的 benchmark；若需要 preprojection，只复制 hot derived leaf，不复制 authoritative assignment；
+- result export 以 `OperationAssignment` 为权威结果事实，必要时由 exporter 显式读取 definition/lookup facts 组装 external DTO。

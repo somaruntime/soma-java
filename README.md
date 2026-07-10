@@ -1,26 +1,27 @@
 # soma_java
 
-`soma_java` 是 SOMA Java-only 方向的原型项目。当前目标是先建立 Java annotation schema + Java columnar runtime 的正式设计文档、工程骨架和验证门禁。
+`soma_java` 是 SOMA Java-only 原型项目，目标是以 Java annotation schema、compile-time generation 和 Java columnar runtime 支撑高性能进程内 runtime state。
 
 ## 当前状态
 
-本仓库已初步固化 Java-only SOMA V1 的正式设计文档体系、Maven reactor、文档目录和 Git 基线；当前仍处于设计阶段，尚未进入实现阶段。正式设计入口见 [docs/README.md](docs/README.md)；模块内部事实以各模块 `docs/` 为准。
+项目仍处于正式设计阶段，尚未进入 Java 功能实现。当前设计事实从 [正式设计文档索引](docs/README.md) 进入；模块内部事实以各模块 `docs/` 为准。
 
 ## 模块
 
-| Module | 责任 |
+| Module | 设计入口 |
 |---|---|
-| `soma-annotations` | schema annotation API |
-| `soma-processor` | annotation processor、schema validation、normalized model、schema hash、codegen |
-| `soma-runtime-core` | Java columnar runtime kernel |
-| `soma-testkit` | compile/golden/runtime invariant test helpers |
-| `soma-examples` | Java 8 examples and E2E smoke scenarios |
-| `soma-benchmarks` | benchmark scenarios and evidence output |
+| `soma-annotations` | [docs](soma-annotations/docs/README.md) |
+| `soma-processor` | [docs](soma-processor/docs/README.md) |
+| `soma-runtime-core` | [docs](soma-runtime-core/docs/README.md) |
+| `soma-testkit` | [docs](soma-testkit/docs/README.md) |
+| `soma-examples` | [docs](soma-examples/docs/README.md) |
+| `soma-benchmarks` | [docs](soma-benchmarks/docs/README.md) |
 
-## 非目标
+## 其他入口
 
-- 不实现 native runtime；
-- 不实现 C ABI / FFI；
-- 不承诺 Python binding；
-- 不把 Java DTO 对象图作为 runtime storage；
-- 不在设计收口前添加第三方依赖。
+- [文档治理规则](docs/documentation-governance.md)
+- [正式报告](reports/README.md)
+- 未来用户/开发者指南按需进入 `guides/`
+- 文档检查：`./scripts/check-docs.sh`
+
+README 只负责导航，不是设计事实源。

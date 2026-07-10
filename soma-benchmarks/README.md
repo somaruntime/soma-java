@@ -1,10 +1,7 @@
 # soma-benchmarks
 
-benchmark 场景和证据输出。
+Benchmark evidence methodology、runtime-state lanes 与未来 runner 模块。
 
-当前模块只初始化骨架，不包含 Java 源码。
+正式设计：[soma-benchmarks/docs/README.md](docs/README.md)
 
-## 文档
-
-- [正式设计文档](docs/README.md)
-- [正式报告](reports/README.md)
+模块 README 只负责导航，不包含性能结论。

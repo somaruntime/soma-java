@@ -1,9 +1,17 @@
 # soma_java 报告索引
 
-本目录保存正式验证报告、审查报告、benchmark 报告和 release evidence。
+`reports/` 保存带时间点的正式审查、验证、benchmark 和 release evidence。报告不是设计事实源；当前设计必须回到 [docs](../docs/README.md)。
 
-## 当前正式报告
+## 当前报告
 
-- [设计文档治理报告](design-document-governance-report.md)
-- [架构设计审核报告](architecture-design-review-report.md)
-- [FJSP MachineCandidate frontier 文档治理专题报告](fjsp-frontier-document-governance-report.md)
+- [2026-07-10 文档体系重构收尾报告](2026-07-10-documentation-system-refactor-report.md)
+
+## 历史归档
+
+- [2026-07-10 四个蓝图设计审查](archive/2026-07-10-four-blueprints-design-review-report.md)
+- [2026-07-10 SomaTable 设计治理收尾](archive/2026-07-10-soma-table-design-governance-closeout-report.md)
+- [2026-07-07 FJSP frontier 文档治理](archive/2026-07-07-fjsp-frontier-document-governance-report.md)
+- [2026-07-06 架构设计审查](archive/2026-07-06-architecture-design-review-report.md)
+- [2026-07-06 设计文档治理](archive/2026-07-06-design-document-governance-report.md)
+
+历史报告记录当时的输入、结论和缺口；其中旧文件名与旧 Owner 路径不代表当前文档结构。

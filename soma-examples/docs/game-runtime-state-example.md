@@ -1,8 +1,10 @@
 # Game runtime state 示例
 
 状态：正式设计文档
-日期：2026-07-07
 Owner：`soma-examples`
+事实范围：Game runtime data role、Access Pattern Card、schema 和使用边界
+非事实范围：game rules/ECS/pathfinding、public contract 和性能 claim
+最后审查日期：2026-07-10
 
 ## 1. 文档定位
 
@@ -16,10 +18,20 @@ Game 示例表达 grid tactics / turn-based game loop 的 runtime state：
 players / units / map tiles / ability cost lookup
   -> visibility or move candidate dense rows
   -> pending damage dense rows
-  -> unit mutation and DTO export
+  -> unit mutation and detached schema object / boundary DTO export
 ```
 
-SOMA 不是 ECS framework，不拥有 system scheduling、rendering、input、network replication 或 game rules。它只承载 game loop 中需要高频扫描、排序、按 key mutation 或 DTO materialization 的 runtime state。
+SOMA 不是 ECS framework，不拥有 system scheduling、rendering、input、network replication 或 game rules。它只承载 game loop 中需要高频扫描、排序、按 key mutation 或 detached schema object 构造的 runtime state；外部 DTO 只属于 adapter 边界。
+
+### 2.1 Access Pattern Card
+
+| Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
+|---|---|---|---|
+| unit/player state | live units/players | ordered next-unit、point/grouped access、field mutate | selector selectivity、order rebuild、Cursor path 与 materialized fetch 分开 |
+| map/occupancy | map cells、optional occupancy density | visibility/pathing scan、coordinate access、move 后 cache update/rebuild | paired working set、coordinate variants 和 occupancy consistency 分开 |
+| move/damage workspaces | selected-unit candidates、current damage rows | `replaceAll`、dynamic/maintained order、target point mutate、clear/compact | builder、sort/compaction scratch、capacity reuse、allocation/op 和 stats mode 分开 |
+
+Fixture/benchmark 必须补充 map working-set bytes、selected-unit/all-units scope、damage target reuse、KeySpace load/collision、JIT warmup/forks 和 snapshot/export frequency；这些值不进入 Schema/hash。
 
 ## 3. Schema source 示例
 
@@ -52,39 +64,39 @@ public enum AbilityId {
 }
 
 @SomaValue
-public final class PlayerId {
+public class PlayerId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class UnitId {
+public class UnitId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class UnitClassId {
+public class UnitClassId {
     @SomaField
-    public long value;
+    long value;
 }
 
 @SomaValue
-public final class GridPosition {
+public class GridPosition {
     @SomaField
-    public int x;
+    int x;
 
     @SomaField
-    public int y;
+    int y;
 }
 
 @SomaValue
-public final class UnitAbilityKey {
+public class UnitAbilityKey {
     @SomaField
-    public UnitClassId unitClassId;
+    UnitClassId unitClassId;
 
     @SomaField
-    public AbilityId abilityId;
+    AbilityId abilityId;
 }
 
 @SomaTable(name = "players", defaultCapacity = 16)
@@ -133,6 +145,7 @@ public final class GameUnit {
     @SomaDefault("READY")
     public UnitState state;
 
+    @SomaField
     @SomaOptional
     public UnitId targetUnit;
 }
@@ -170,6 +183,7 @@ public final class MapTileRow {
     @SomaField
     public boolean blocksSight;
 
+    @SomaField
     @SomaOptional
     public UnitId occupantUnit;
 }
