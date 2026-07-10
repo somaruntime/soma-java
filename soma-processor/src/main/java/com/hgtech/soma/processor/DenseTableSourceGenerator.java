@@ -225,7 +225,10 @@ final class DenseTableSourceGenerator {
             out.append(" }\n")
                     .append("  ").append(field.primitive).append(" ").append(field.javaName)
                     .append("Value(int row) { return ")
-                    .append(field.publicValue(field.javaName + "Values[row]")).append("; }\n");
+                    .append(field.publicValue(field.javaName + "Values[row]")).append("; }\n")
+                    .append("  ").append(field.storagePrimitive).append(" ").append(field.javaName)
+                    .append("StorageValue(int row) { return ").append(field.javaName)
+                    .append("Values[row]; }\n");
             if (field.optional) {
                 out.append("  private void set").append(c).append("Absent(int row) { ")
                         .append(field.javaName).append("Values[row] = ").append(field.zero()).append("; setPresent(")
@@ -488,7 +491,8 @@ final class DenseTableSourceGenerator {
         }
         out.append("  private void copyBatch(").append(table.name("Batch")).append(" batch,int source,int target,int count){for(int i=0;i<count;i++){int s=source+i,t=target+i;\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.javaName).append("Column.set(t,").append(field.storageValue("batch." + field.javaName + "Value(s)", "batch.import")).append(");\n");
+            out.append("    ").append(field.javaName).append("Column.set(t,batch.")
+                    .append(field.javaName).append("StorageValue(s));\n");
             if (field.optional) out.append("    if(batch.").append(field.javaName).append("Present(s))").append(field.javaName).append("Presence.setPresent(t);else ").append(field.javaName).append("Presence.clearPresent(t);\n");
         }
         out.append("  }}\n  private void clearColumns(int from,int to){\n");
@@ -502,23 +506,33 @@ final class DenseTableSourceGenerator {
             out.append("  private void validateAppendKeys(").append(table.name("Batch")).append(" batch){")
                     .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
                     .append("(batch.size());for(int row=0;row<batch.size();row++){")
-                    .append(key.primitive).append(" key=batch.").append(key.javaName)
-                    .append("Value(row);").append(key.keySpaceValueType()).append(" keySlot=")
-                    .append(key.keySpaceValue("key", "addBatch"))
-                    .append(";if(keySpace.contains(keySlot)||staged.contains(keySlot))throw RuntimeFailures.duplicateKey(TABLE,key,\"addBatch\");staged.put(keySlot,row);}}\n")
+                    .append(key.valueBacked() ? key.storagePrimitive : key.primitive).append(" key=batch.")
+                    .append(key.javaName).append(key.valueBacked() ? "StorageValue(row);" : "Value(row);")
+                    .append(key.keySpaceValueType()).append(" keySlot=")
+                    .append(key.valueBacked() ? key.keySpaceValueFromStorage("key", "addBatch") : key.keySpaceValue("key", "addBatch"))
+                    .append(";if(keySpace.contains(keySlot)||staged.contains(keySlot))throw ")
+                    .append(key.valueBacked() ? "RuntimeFailures.duplicateValueKey(TABLE," + q(key.logicalName) + ",\"addBatch\")" : "RuntimeFailures.duplicateKey(TABLE,key,\"addBatch\")")
+                    .append(";staged.put(keySlot,row);}}\n")
                     .append("  private void validateReplacementKeys(").append(table.name("Batch")).append(" batch){")
                     .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
                     .append("(batch.size());for(int row=0;row<batch.size();row++){")
-                    .append(key.primitive).append(" key=batch.").append(key.javaName)
-                    .append("Value(row);").append(key.keySpaceValueType()).append(" keySlot=")
-                    .append(key.keySpaceValue("key", "replaceAll"))
-                    .append(";if(staged.contains(keySlot))throw RuntimeFailures.duplicateKey(TABLE,key,\"replaceAll\");staged.put(keySlot,row);}}\n")
+                    .append(key.valueBacked() ? key.storagePrimitive : key.primitive).append(" key=batch.")
+                    .append(key.javaName).append(key.valueBacked() ? "StorageValue(row);" : "Value(row);")
+                    .append(key.keySpaceValueType()).append(" keySlot=")
+                    .append(key.valueBacked() ? key.keySpaceValueFromStorage("key", "replaceAll") : key.keySpaceValue("key", "replaceAll"))
+                    .append(";if(staged.contains(keySlot))throw ")
+                    .append(key.valueBacked() ? "RuntimeFailures.duplicateValueKey(TABLE," + q(key.logicalName) + ",\"replaceAll\")" : "RuntimeFailures.duplicateKey(TABLE,key,\"replaceAll\")")
+                    .append(";staged.put(keySlot,row);}}\n")
                     .append("  private void installBatchKeys(").append(table.name("Batch")).append(" batch,int start,int count){for(int row=0;row<count;row++)keySpace.put(")
-                    .append(key.keySpaceValue("batch." + key.javaName + "Value(row)", "addBatch"))
+                    .append(key.valueBacked()
+                            ? key.keySpaceValueFromStorage("batch." + key.javaName + "StorageValue(row)", "addBatch")
+                            : key.keySpaceValue("batch." + key.javaName + "Value(row)", "addBatch"))
                     .append(",start+row);}\n")
                     .append("  private int keyRow(").append(key.primitive).append(" key,String operation){int row=keySpace.rowOf(")
                     .append(key.keySpaceValueExpression("key", "operation"))
-                    .append(");if(row<0)throw RuntimeFailures.missingKey(TABLE,key,operation);return row;}\n\n");
+                    .append(");if(row<0)throw ")
+                    .append(key.valueBacked() ? "RuntimeFailures.missingValueKey(TABLE," + q(key.logicalName) + ",operation)" : "RuntimeFailures.missingKey(TABLE,key,operation)")
+                    .append(";return row;}\n\n");
         }
         out.append("\n")
                 .append("  public ").append(table.carrierType).append(" fetchAt(int rowIndex){return fetchAt(rowIndex,runtimePlan().defaultMaterializationBudget());}\n")
@@ -570,6 +584,9 @@ final class DenseTableSourceGenerator {
                 .append("  public UpdateResult update(").append(table.name("Rows")).append(".Updater updater){return rows().update(updater);}\n")
                 .append("  public RemoveResult remove(){return rows().remove();}\n");
         for (FieldSpec field : table.fields) {
+            if (field.valueBacked()) {
+                continue;
+            }
             String presence = field.optional ? field.javaName + "Presence" : "null";
             out.append("  public ").append(field.columnPipelineType()).append(' ')
                     .append(field.javaName).append("Values(){return ")
@@ -675,7 +692,9 @@ final class DenseTableSourceGenerator {
         if (table.keyed()) {
             FieldSpec key = table.keyField();
             out.append("    for(int row=0;row<previous;row++)if(removeMarks[row])keySpace.remove(")
-                    .append(key.keySpaceValue(key.javaName + "Value(row)", "rows.remove"))
+                    .append(key.valueBacked()
+                            ? key.keySpaceValueFromStorage(key.javaName + "Column.get(row)", "rows.remove")
+                            : key.keySpaceValue(key.javaName + "Value(row)", "rows.remove"))
                     .append(");\n");
         }
         out.append("int write=0;long compacted=0L;for(int read=0;read<previous;read++){if(removeMarks[read])continue;if(write!=read){\n");
@@ -691,7 +710,9 @@ final class DenseTableSourceGenerator {
         if (table.keyed()) {
             FieldSpec key = table.keyField();
             out.append("    keySpace.updateRow(")
-                    .append(key.keySpaceValue(key.javaName + "Value(read)", "rows.remove"))
+                    .append(key.valueBacked()
+                            ? key.keySpaceValueFromStorage(key.javaName + "Column.get(read)", "rows.remove")
+                            : key.keySpaceValue(key.javaName + "Value(read)", "rows.remove"))
                     .append(",write);\n");
         }
         out.append("    compacted++;}write++;}clearColumns(write,previous);state.commitStructuralRemove(previous,write,operation);return state.removeResult(scanned,count,count,compacted,0L,0L);}\n");
@@ -787,12 +808,15 @@ final class DenseTableSourceGenerator {
         final String storagePrimitive;
         final String columnType;
         final String enumType;
+        final String valueType;
+        final String valueLeafJavaName;
         final boolean optional;
         final boolean key;
 
         FieldSpec(String javaName, String logicalName, String primitive,
                   String boxed, String storagePrimitive, String columnType,
-                  String enumType, boolean optional, boolean key) {
+                  String enumType, String valueType, String valueLeafJavaName,
+                  boolean optional, boolean key) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.primitive = primitive;
@@ -800,6 +824,8 @@ final class DenseTableSourceGenerator {
             this.storagePrimitive = storagePrimitive;
             this.columnType = columnType;
             this.enumType = enumType;
+            this.valueType = valueType;
+            this.valueLeafJavaName = valueLeafJavaName;
             this.optional = optional;
             this.key = key;
         }
@@ -826,13 +852,17 @@ final class DenseTableSourceGenerator {
         }
 
         String boxValue(String expression) {
-            if (enumType != null) {
+            if (enumType != null || valueType != null) {
                 return expression;
             }
             return boxed + ".valueOf(" + expression + ")";
         }
 
         String storageValue(String expression, String operation) {
+            if (valueType != null) {
+                return "RuntimeFailures.requiredValue(TABLE," + q(logicalName) + ","
+                        + expression + "," + q(operation) + ")." + valueLeafJavaName;
+            }
             if (enumType != null) {
                 return "RuntimeFailures.requiredEnumValue(TABLE," + q(logicalName) + ","
                         + expression + "," + q(operation) + ").ordinal()";
@@ -849,6 +879,9 @@ final class DenseTableSourceGenerator {
         }
 
         String publicValue(String expression) {
+            if (valueType != null) {
+                return "new " + valueType + "(" + expression + ")";
+            }
             return enumType == null ? expression : enumConstantsName() + "[" + expression + "]";
         }
 
@@ -857,7 +890,7 @@ final class DenseTableSourceGenerator {
         }
 
         String keySpaceType() {
-            if ("long".equals(primitive) || "double".equals(primitive)) {
+            if ("long".equals(storagePrimitive) || "double".equals(storagePrimitive)) {
                 return "HashLongKeySpace";
             }
             return "HashIntKeySpace";
@@ -868,26 +901,44 @@ final class DenseTableSourceGenerator {
         }
 
         String keySpaceValueExpression(String expression, String operationExpression) {
+            if (valueType != null) {
+                return keySpaceValueFromStorageExpression(
+                        "RuntimeFailures.requiredValue(TABLE," + q(logicalName) + ","
+                                + expression + "," + operationExpression + ")." + valueLeafJavaName,
+                        operationExpression);
+            }
+            return keySpaceValueFromStorageExpression(expression, operationExpression);
+        }
+
+        String keySpaceValueFromStorage(String expression, String operation) {
+            return keySpaceValueFromStorageExpression(expression, q(operation));
+        }
+
+        String keySpaceValueFromStorageExpression(String expression, String operationExpression) {
             if (enumType != null) {
                 return "RuntimeFailures.requiredEnumValue(TABLE," + q(logicalName) + ","
                         + expression + "," + operationExpression + ").ordinal()";
             }
-            if ("boolean".equals(primitive)) {
+            if ("boolean".equals(storagePrimitive)) {
                 return "(" + expression + "?1:0)";
             }
-            if ("byte".equals(primitive) || "short".equals(primitive)
-                    || "int".equals(primitive) || "long".equals(primitive)) {
+            if ("byte".equals(storagePrimitive) || "short".equals(storagePrimitive)
+                    || "int".equals(storagePrimitive) || "long".equals(storagePrimitive)) {
                 return expression;
             }
-            if ("float".equals(primitive)) {
+            if ("float".equals(storagePrimitive)) {
                 return "KeyCanonicalization.strictFloatKeyBits(TABLE,"
                         + q(logicalName) + "," + expression + "," + operationExpression + ")";
             }
-            if ("double".equals(primitive)) {
+            if ("double".equals(storagePrimitive)) {
                 return "KeyCanonicalization.strictDoubleKeyBits(TABLE,"
                         + q(logicalName) + "," + expression + "," + operationExpression + ")";
             }
             throw new IllegalStateException("unsupported primitive key: " + primitive);
+        }
+
+        boolean valueBacked() {
+            return valueType != null;
         }
 
         String keySpaceValueType() {

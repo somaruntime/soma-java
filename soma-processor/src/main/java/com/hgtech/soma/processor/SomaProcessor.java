@@ -143,11 +143,13 @@ public final class SomaProcessor extends AbstractProcessor {
         }
 
         Map<String, SchemaModel> schemas = new TreeMap<String, SchemaModel>();
+        Map<String, ValueModel> validatedValues = new LinkedHashMap<String, ValueModel>();
         for (TypeElement value : values.values()) {
             ValueModel model = validateValue(value);
             if (model == null) {
                 continue;
             }
+            validatedValues.put(model.javaType, model);
             PackageElement packageElement = processingEnv.getElementUtils().getPackageOf(value);
             String packageName = packageElement.getQualifiedName().toString();
             PackageElement declaredSchema = schemaPackages.get(packageName);
@@ -168,7 +170,7 @@ public final class SomaProcessor extends AbstractProcessor {
         }
 
         for (TypeElement table : tables.values()) {
-            TableModel model = validateTable(table);
+            TableModel model = validateTable(table, validatedValues);
             if (model == null) {
                 continue;
             }
@@ -211,7 +213,7 @@ public final class SomaProcessor extends AbstractProcessor {
         }
     }
 
-    private TableModel validateTable(TypeElement type) {
+    private TableModel validateTable(TypeElement type, Map<String, ValueModel> validatedValues) {
         boolean valid = true;
         Set<Modifier> modifiers = type.getModifiers();
         if (type.getKind() != ElementKind.CLASS
@@ -306,7 +308,8 @@ public final class SomaProcessor extends AbstractProcessor {
                 valid = false;
             }
 
-            TableFieldType tableType = tableFieldType(field.asType(), optional != null);
+            TableFieldType tableType = tableFieldType(
+                    field.asType(), optional != null, key, validatedValues);
             if (tableType == null) {
                 error(field, "SOMA-TABLE-005",
                         "current table binding supports required primitive/enum fields "
@@ -410,7 +413,11 @@ public final class SomaProcessor extends AbstractProcessor {
         return false;
     }
 
-    private TableFieldType tableFieldType(TypeMirror mirror, boolean optional) {
+    private TableFieldType tableFieldType(
+            TypeMirror mirror,
+            boolean optional,
+            boolean key,
+            Map<String, ValueModel> validatedValues) {
         if (!optional && mirror.getKind().isPrimitive()) {
             return TableFieldType.forKind(mirror.getKind());
         }
@@ -424,6 +431,10 @@ public final class SomaProcessor extends AbstractProcessor {
         TypeElement type = (TypeElement) element;
         if (!optional && type.getKind() == ElementKind.ENUM) {
             return TableFieldType.forEnum(type, enumModel(type));
+        }
+        if (!optional && key && type.getAnnotation(SomaValue.class) != null) {
+            ValueModel value = validatedValues.get(type.getQualifiedName().toString());
+            return value == null ? null : TableFieldType.forSingleLeafValue(value);
         }
         if (!optional) {
             return null;
@@ -1116,8 +1127,11 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append('{');
             json.append("\"javaName\":").append(quote(javaName)).append(',');
             json.append("\"leaves\":[{");
-            json.append("\"leafPath\":").append(quote(logicalName)).append(',');
-            json.append("\"semantic\":").append(quote(semantic)).append(',');
+            String leafPath = type.valueJavaType == null ? logicalName
+                    : logicalName + "." + type.valueLeafLogicalName;
+            String leafSemantic = type.valueJavaType == null ? semantic : type.valueLeafSemantic;
+            json.append("\"leafPath\":").append(quote(leafPath)).append(',');
+            json.append("\"semantic\":").append(quote(leafSemantic)).append(',');
             json.append("\"storageType\":").append(quote(type.storagePrimitiveName));
             json.append("}],");
             json.append("\"logicalName\":").append(quote(logicalName)).append(',');
@@ -1133,7 +1147,8 @@ public final class SomaProcessor extends AbstractProcessor {
             return new DenseTableSourceGenerator.FieldSpec(
                     javaName, logicalName, type.publicType,
                     type.boxedName, type.storagePrimitiveName, type.columnType,
-                    type.enumJavaType, optional, key);
+                    type.enumJavaType, type.valueJavaType, type.valueLeafJavaName,
+                    optional, key);
         }
     }
 
@@ -1147,6 +1162,10 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String columnType;
         private final String enumJavaType;
         private final EnumModel enumModel;
+        private final String valueJavaType;
+        private final String valueLeafJavaName;
+        private final String valueLeafLogicalName;
+        private final String valueLeafSemantic;
 
         private TableFieldType(
                 TypeKind primitiveKind,
@@ -1157,7 +1176,11 @@ public final class SomaProcessor extends AbstractProcessor {
                 String storagePrimitiveName,
                 String columnType,
                 String enumJavaType,
-                EnumModel enumModel) {
+                EnumModel enumModel,
+                String valueJavaType,
+                String valueLeafJavaName,
+                String valueLeafLogicalName,
+                String valueLeafSemantic) {
             this.primitiveKind = primitiveKind;
             this.logicalType = logicalType;
             this.publicType = publicType;
@@ -1167,6 +1190,10 @@ public final class SomaProcessor extends AbstractProcessor {
             this.columnType = columnType;
             this.enumJavaType = enumJavaType;
             this.enumModel = enumModel;
+            this.valueJavaType = valueJavaType;
+            this.valueLeafJavaName = valueLeafJavaName;
+            this.valueLeafLogicalName = valueLeafLogicalName;
+            this.valueLeafSemantic = valueLeafSemantic;
         }
 
         private static TableFieldType forKind(TypeKind kind) {
@@ -1197,14 +1224,51 @@ public final class SomaProcessor extends AbstractProcessor {
             String javaType = type.getQualifiedName().toString();
             return new TableFieldType(
                     null, "enum:" + javaType, javaType, javaType, javaType,
-                    "int", "IntColumn", javaType, enumModel);
+                    "int", "IntColumn", javaType, enumModel,
+                    null, null, null, null);
+        }
+
+        private static TableFieldType forSingleLeafValue(ValueModel value) {
+            if (value.fields.size() != 1) {
+                return null;
+            }
+            FieldModel leaf = value.fields.get(0);
+            TableFieldType storage = primitiveType(leaf.type.text);
+            if (storage == null) {
+                return null;
+            }
+            return new TableFieldType(
+                    storage.primitiveKind,
+                    "value:" + value.javaType,
+                    value.javaType,
+                    value.javaType,
+                    value.javaType,
+                    storage.storagePrimitiveName,
+                    storage.columnType,
+                    null,
+                    null,
+                    value.javaType,
+                    leaf.javaName,
+                    leaf.logicalName,
+                    leaf.semantic);
+        }
+
+        private static TableFieldType primitiveType(String text) {
+            if ("boolean".equals(text)) return forKind(TypeKind.BOOLEAN);
+            if ("byte".equals(text)) return forKind(TypeKind.BYTE);
+            if ("short".equals(text)) return forKind(TypeKind.SHORT);
+            if ("int".equals(text)) return forKind(TypeKind.INT);
+            if ("long".equals(text)) return forKind(TypeKind.LONG);
+            if ("float".equals(text)) return forKind(TypeKind.FLOAT);
+            if ("double".equals(text)) return forKind(TypeKind.DOUBLE);
+            return null;
         }
 
         private static TableFieldType type(TypeKind kind, String primitive,
                                            String boxed, String column) {
             return new TableFieldType(
                     kind, primitive, primitive, boxed, primitive, primitive,
-                    column, null, null);
+                    column, null, null, null, null, null, null);
         }
     }
 }

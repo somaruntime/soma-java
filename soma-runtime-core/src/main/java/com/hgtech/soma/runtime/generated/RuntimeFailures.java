@@ -111,6 +111,18 @@ public final class RuntimeFailures {
                 table, context("key", key.name()), null);
     }
 
+    public static SomaRuntimeException duplicateValueKey(
+            String table, String keyField, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", keyField), null);
+    }
+
+    public static SomaRuntimeException missingValueKey(
+            String table, String keyField, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", keyField), null);
+    }
+
     public static SomaRuntimeException invalidFloatingAccessValue(
             String table, String field, String valueClass, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_floating_access_value", operation,
@@ -124,6 +136,13 @@ public final class RuntimeFailures {
 
     public static <E extends Enum<E>> E requiredEnumValue(
             String table, String field, E value, String operation) {
+        if (value == null) {
+            throw invalidNullValue(table, field, operation);
+        }
+        return value;
+    }
+
+    public static <T> T requiredValue(String table, String field, T value, String operation) {
         if (value == null) {
             throw invalidNullValue(table, field, operation);
         }

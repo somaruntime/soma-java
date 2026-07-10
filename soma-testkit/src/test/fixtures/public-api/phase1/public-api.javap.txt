@@ -248,9 +248,12 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, double, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, java.lang.Enum<?>, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, java.lang.Enum<?>, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateValueKey(java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingValueKey(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidFloatingAccessValue(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
   public static <E extends java.lang.Enum<E>> E requiredEnumValue(java.lang.String, java.lang.String, E, java.lang.String);
+  public static <T> T requiredValue(java.lang.String, java.lang.String, T, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException releasedView(java.lang.String, java.lang.String);

@@ -12,6 +12,7 @@ fi
 
 fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-keyed
 enum_fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-enum-keyed
+value_fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-value-keyed
 invalid_source=$root_dir/soma-testkit/src/test/fixtures/invalid-keyed-int-slice
 expected=$fixture_source/expected
 local_repository=$root_dir/soma-testkit/target/phase0-m2/repository
@@ -21,8 +22,10 @@ fixture=$evidence_dir/consumer
 repeat_fixture=$evidence_dir/repeat-consumer
 enum_fixture=$evidence_dir/enum-consumer
 enum_repeat_fixture=$evidence_dir/enum-repeat-consumer
+value_fixture=$evidence_dir/value-consumer
+value_repeat_fixture=$evidence_dir/value-repeat-consumer
 invalid_fixture=$evidence_dir/invalid-consumer
-mkdir -p "$fixture" "$repeat_fixture" "$enum_fixture" "$enum_repeat_fixture" "$invalid_fixture"
+mkdir -p "$fixture" "$repeat_fixture" "$enum_fixture" "$enum_repeat_fixture" "$value_fixture" "$value_repeat_fixture" "$invalid_fixture"
 cp "$fixture_source/pom.xml" "$fixture/pom.xml"
 cp -R "$fixture_source/src" "$fixture/src"
 cp "$fixture_source/pom.xml" "$repeat_fixture/pom.xml"
@@ -31,6 +34,10 @@ cp "$enum_fixture_source/pom.xml" "$enum_fixture/pom.xml"
 cp -R "$enum_fixture_source/src" "$enum_fixture/src"
 cp "$enum_fixture_source/pom.xml" "$enum_repeat_fixture/pom.xml"
 cp -R "$enum_fixture_source/src" "$enum_repeat_fixture/src"
+cp "$value_fixture_source/pom.xml" "$value_fixture/pom.xml"
+cp -R "$value_fixture_source/src" "$value_fixture/src"
+cp "$value_fixture_source/pom.xml" "$value_repeat_fixture/pom.xml"
+cp -R "$value_fixture_source/src" "$value_repeat_fixture/src"
 cp "$invalid_source/pom.xml" "$invalid_fixture/pom.xml"
 cp -R "$invalid_source/src" "$invalid_fixture/src"
 
@@ -57,6 +64,15 @@ MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritim
   -Dmaven.repo.local="$local_repository" \
   -f "$enum_repeat_fixture/pom.xml" clean package
 
+./mvnw -B -ntp \
+  -Dmaven.repo.local="$local_repository" \
+  -f "$value_fixture/pom.xml" clean package
+
+MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
+  ./mvnw -B -ntp \
+  -Dmaven.repo.local="$local_repository" \
+  -f "$value_repeat_fixture/pom.xml" clean package
+
 diff -r "$fixture/target/generated-sources/annotations" \
   "$repeat_fixture/target/generated-sources/annotations"
 
@@ -74,6 +90,10 @@ cmp "$enum_fixture/target/classes/META-INF/soma/com.example.soma.enumkeyed.schem
   "$enum_repeat_fixture/target/classes/META-INF/soma/com.example.soma.enumkeyed.schema.sha256"
 diff -r "$enum_fixture/target/generated-sources/annotations" \
   "$enum_repeat_fixture/target/generated-sources/annotations"
+diff -r "$value_fixture/target/generated-sources/annotations" \
+  "$value_repeat_fixture/target/generated-sources/annotations"
+cmp "$value_fixture/target/classes/META-INF/soma/com.example.soma.valuekeyed.schema.json" \
+  "$value_repeat_fixture/target/classes/META-INF/soma/com.example.soma.valuekeyed.schema.json"
 
 for class_name in \
   KeyedParticleTable KeyedParticleMutator KeyedParticleMutableRow KeyedParticleKeys \
@@ -130,6 +150,17 @@ for semantic in DATE TIME DATE_TIME; do
     exit 1
   fi
 done
+
+value_table_source=$value_fixture/target/generated-sources/annotations/com/example/soma/valuekeyed/generated/ValueKeyedMachineTable.java
+"$JAVA_HOME/bin/javap" -classpath "$value_fixture/target/classes" -public \
+  com.example.soma.valuekeyed.generated.ValueKeyedMachineTable >"$evidence_dir/ValueKeyedMachineTable.javap.txt"
+if ! grep -F ' fetch(com.example.soma.valuekeyed.MachineId);' \
+  "$evidence_dir/ValueKeyedMachineTable.javap.txt" >/dev/null \
+  || ! grep -q 'HashLongKeySpace keySpace' "$value_table_source" \
+  || ! grep -F 'idColumn.set(t,batch.idStorageValue(s));' "$value_table_source" >/dev/null; then
+  printf '%s\n' 'generated-keyed-phase2-check: value key direct/primitive binding missing' >&2
+  exit 1
+fi
 
 mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutator.java
 mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutableRow.java
@@ -198,6 +229,10 @@ fi
 "$JAVA_HOME/bin/java" \
   -cp "$enum_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
   com.example.soma.enumkeyed.EnumKeyedConsumer
+
+"$JAVA_HOME/bin/java" \
+  -cp "$value_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  com.example.soma.valuekeyed.ValueKeyedConsumer
 
 "$JAVA_HOME/bin/java" -version
 "$JAVA_HOME/bin/javac" -version
