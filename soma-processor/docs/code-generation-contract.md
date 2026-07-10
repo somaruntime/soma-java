@@ -40,6 +40,8 @@ Processor 至少提供两类 compile-time output。
 - generated `MaterializationBudget` overload binding；
 - generated internal storage adapter。
 
+首个 dense slice 固化 `<CarrierSimpleName>` + `Table` / `Batch` / `Rows` / `Row` / `MutableRow` / `Mutator` 的 type naming；`Rows` 内嵌 public SAM `Predicate`、`Consumer`、`Updater`，避免在 generated package 扩散无必要 top-level callback 名称。Schema-specific storage binding 保持 package-private，public facade 不暴露 runtime protocol。
+
 不生成 public `XxxRecord` / `ChildRecords` 第二类型。`@SomaValue` 由 [Compiler integration 契约](compiler-integration-contract.md) 定义的 javac 8 parse-phase plugin lowering；JSR 269 processor 只消费 lowered effective model并生成 companions。Package smoke 必须证明用户源码、processor 和 generated companions 看到同一个 effective type；runtime 不得承担 annotation interpretation。
 
 Generated hot path 还必须满足：
@@ -59,6 +61,8 @@ Generated source 依赖：
 - `soma-runtime-core`；
 - JDK 8；
 - 不依赖 third-party collection library。
+
+Processor artifact 继续只依赖 annotations，不增加 runtime-core compile dependency；emitter 使用正式 FQN 生成对 `com.hgtech.soma.runtime` handwritten API和 `com.hgtech.soma.runtime.generated` protocol 的 source binding。Runtime protocol identity固定为 `soma-generated-runtime-v1`，runtime compatibility为 `soma-runtime-java8-v1`。Generated code在 create boundary一次性验证/bind schema、protocol、compiler、runtime、plan、estimator与 concrete typed columns；hot loop不做 reflection、field-name/Map lookup、dtype switch或 metadata interpretation。
 
 Compiler plugin/processor 是 build-only dependency，不进入 generated runtime dependency graph。IDE code insight、其他 javac family 和 ECJ support 不能由 generated-source compile success 推导。
 
@@ -86,6 +90,10 @@ Generated batch 是 construction/import boundary。
 - table `addBatch` 可根据 batch size reserve；
 - child table import 使用 detached/unattached child batch；batch 不接受 live ChildTable facade/handle，lookup data 也不应默认建成 child table；
 - batch 不承担 key uniqueness 的最终事实，table import 时仍需 runtime `KeySpace` / `AccessStructures` validation。
+
+Dense baseline 始终生成 `add(R detachedRow)` 与 wide-safe `addValues(Writer)`/assignment-aware `RowBuilder`；当 field-expanded JVM parameter slots连同 receiver不超过255时，额外生成 direct `addValues(...)`，按 normalized field order展开 required primitive与 optional `(present, primitivePayload)`，作为 typical solver schema 的无 boxing import path。Batch 自身使用 primitive arrays + presence words，`addBatch`/`replaceAll` 复制调用开始时的 facts，调用后 Batch 可继续修改、clear和复用。不得用 `List<R>`、DTO array或 live row proxy实现 Batch。
+
+Required reference/value 在 `add(R)`/future typed overload中必须 non-null；optional carrier null表示 absent。Missing/invalid input在 Batch size改变前失败。Capacity growth先 stage全部 columns/bitmap再 publish，raw OOME按 runtime error Owner原样传播。
 
 ## 5. Materialization and child binding
 
@@ -261,6 +269,8 @@ Generated output 必须包含：
 - schema name；
 - generated package；
 - table metadata。
+
+Phase 1 generated metadata 固定携带：`generatedProtocol=soma-generated-runtime-v1`、`runtimeCompatibility=soma-runtime-java8-v1`、`runtimePlanProtocol=soma-runtime-plan-v1`、`denseAlgorithm=dense-soa-v1`、`allocationEstimator=soma-materialization-estimator-v1` 和 compiler lowering identity `soma-value-javac8-v1`。
 
 Schema hash mismatch 必须在 table/create or generated metadata verification 阶段失败，不能延迟到 hot path。
 

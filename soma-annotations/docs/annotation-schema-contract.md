@@ -96,10 +96,15 @@ String identity grammar：
 
 - annotation string 使用 source 中的 exact value，不执行 `trim`、case folding、Unicode normalization 或 locale-sensitive conversion；
 - `@SomaSchema.name` 必须匹配 ASCII `[A-Za-z][A-Za-z0-9_]*`，长度不超过 128 UTF-16 code units；
+- effective `@SomaTable` logical name 必须匹配同一 ASCII grammar，长度不超过 128 UTF-16 code units；explicit 空字符串只表示先派生 Java class simple name，派生结果仍必须通过相同 grammar；同一 schema 内 effective name 必须唯一；
 - `@SomaSchema.generatedPackage` 必须是 `SourceVersion.RELEASE_8` 下的合法 dotted Java name，长度不超过 255 UTF-16 code units；
 - `@SomaSchema.version` 长度为 1..128，不允许 ISO control character 或首尾 Unicode whitespace/space character；
-- explicit `@SomaField.name` 必须是非 keyword Java identifier，长度不超过 128 UTF-16 code units；空字符串只表示使用 Java field name；
+- explicit field-role logical name 必须是非 keyword Java identifier，长度不超过 128 UTF-16 code units；空字符串只表示使用 Java field name；
 - 不满足 grammar 的输入以 structured diagnostic fail closed，不以静默清洗后的值参与 schema hash。
+
+V1 exact public shape：`@SomaTable` 包含 `String name() default ""` 与 `int defaultCapacity() default -1`；marker `@SomaOptional` 不含 element。
+
+`defaultCapacity = -1` 是稳定的“未指定”sentinel，由 generated default runtime plan 选择 versioned safe baseline；positive value 是显式 hint。`0` 和小于 `-1` 的值非法。Sentinel 只影响 runtime plan input，不进入 logical schema hash。
 
 ### 2.3 Annotation target and retention
 
@@ -185,6 +190,7 @@ V1 采用 explicit field membership 与 orthogonal field modifier：
 - `@SomaOptional` 是 modifier，只能叠加在 `@SomaField` 或 `@SomaChild`；key/value leaf 不允许 optional；
 - `@SomaDefault` 是附加 metadata，只能叠加在允许 default 的 field annotation 上；
 - `@SomaTable` class 必须是 top-level、public、非 abstract、可实例化的普通 Java detached carrier；member/local/anonymous class 不属于 V1 table declaration；javac plugin 不对它执行 source lowering；
+- `@SomaTable` class 不允许 type parameter；V1 generated table/static binding 不接受 generic row carrier；
 - 每个 `@SomaField`、`@SomaKey` 或 `@SomaChild` schema field 必须是 public mutable instance field，不能是 `final`；generated materializer 必须能从 configured generated package 直接赋值；
 - `@SomaTable` class 必须保留不声明 checked exception 的 public no-arg constructor；public class 在没有显式 constructor 时获得的 implicit public no-arg constructor 合法；用户可以声明其他 constructor，但不能移除该 construction path；
 - Java field initializer 和 constructor body 是普通 Java 行为，不构成 schema default，也不进入 normalized schema/hash；materializer 在构造后显式写入每个 schema field；
@@ -314,7 +320,7 @@ public final class Operation {
 `defaultCapacity` 语义：
 
 - 只允许出现在 `@SomaTable`；
-- 必须大于 `0`；
+- `-1` 表示未指定，由 generated/runtime plan baseline 决定 effective capacity；显式值必须大于 `0`，`0` 或小于 `-1` 非法；
 - 表示 initial row capacity hint，不是 max row count；
 - 不进入 logical `schema_hash`；
 - 可以进入 generated runtime plan、allocation plan 或 `runtimePlanHash`；
@@ -370,6 +376,8 @@ Materialization shape 是 schema public contract。改变 field type/optional/ow
 - optional primitive schema field 使用 boxed type，例如 `Long`、`Integer`、`Double`、`Boolean`，absent materialize 为 `null`；
 - runtime 仍使用 presence bitmap 加 primitive payload column 或 handle column，不因 boxed schema field 改变 hot layout；
 - absent 不等于 Java primitive default；
+- required `String`、enum 和 `@SomaValue` field 一律 non-null；Batch/import/Mutator 的 null 在 visible mutation 前返回 structured `invalid_null_value`；
+- optional reference/value field 的 materialized carrier 或 `Batch.add(row)` 中 `null` 表示 absent；generated mutable cursor/mutator 的 `setXxx(null)` 非法，caller 必须使用 `clearXxx()`，从而不把 null 同时解释为 value 和 control operation；
 - generated API 可以暴露 presence predicate / `OrThrow` / `OrDefault` convenience method，但用户不直接维护 bitmap；
 - `@SomaOptional` 不允许叠加 `@SomaDefault`。
 

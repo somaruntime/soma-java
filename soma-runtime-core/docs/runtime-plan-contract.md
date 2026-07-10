@@ -34,6 +34,54 @@ generated schema metadata
 
 每个 root table/ownership aggregate 在 create 时绑定一个 immutable effective plan。不同 instance 可以使用不同 plan，但同一 instance 创建后不能在 hot path 中隐式切换。
 
+首个 dense runtime slice 固化 handwritten Java boundary：`com.hgtech.soma.runtime.RuntimePlan`、`TablePlan`、`StatsMode` 和 `MaterializationBudget`。Generated `XxxTable.defaultRuntimePlan()` 返回完整 immutable plan，`create(RuntimePlan)` 在分配任何 column 前验证并绑定；builder 只用于 create 前构造，runtime 不保存 mutable builder。
+
+Stable public shape：
+
+```text
+enum StatsMode { SUMMARY, DIAGNOSTIC }
+RuntimePlan.builder(String schemaHash, String runtimeCompatibility,
+    String generatedProtocol, String planProtocol, String allocationEstimator)
+RuntimePlan.toBuilder() -> RuntimePlan.Builder
+RuntimePlan.schemaHash/runtimeCompatibility/generatedProtocol/planProtocol/
+    allocationEstimator/runtimePlanHash -> String
+RuntimePlan.defaultMaterializationBudget -> MaterializationBudget
+RuntimePlan.statsMode -> StatsMode
+RuntimePlan.requireTable(String logicalName) -> TablePlan
+RuntimePlan.tables -> immutable List<TablePlan> in logical-name order
+RuntimePlan.Builder.defaultMaterializationBudget(MaterializationBudget) -> Builder
+RuntimePlan.Builder.statsMode(StatsMode) -> Builder
+RuntimePlan.Builder.addTable(TablePlan) -> Builder        // duplicate fails
+RuntimePlan.Builder.replaceTable(TablePlan) -> Builder    // missing fails
+RuntimePlan.Builder.build() -> RuntimePlan
+TablePlan.builder(String tableLogicalName, String algorithm)
+TablePlan.toBuilder() -> TablePlan.Builder
+TablePlan.tableLogicalName/algorithm -> String
+TablePlan.initialCapacity/growthNumerator/growthDenominator -> int
+TablePlan.maximumUpdateScratchBytes -> long
+TablePlan.Builder.initialCapacity(int)/growthRatio(int,int)/
+    maximumUpdateScratchBytes(long) -> Builder
+TablePlan.Builder.build() -> TablePlan
+```
+
+All parameters/getters are non-null. `requireTable` unknown name返回 `invalid_runtime_plan`；`tables()` 不返回 mutable internal map。Initial capacity > 0；growth numerator > denominator >= 1；maximum update scratch > 0。Schema-specific unknown/missing/inapplicable table在 generated `create` validation fail。
+
+V1 初始 identity/baseline：
+
+| Item | Identity/value |
+|---|---|
+| runtime compatibility | `soma-runtime-java8-v1` |
+| generated runtime protocol | `soma-generated-runtime-v1` |
+| plan protocol | `soma-runtime-plan-v1` |
+| dense algorithm | `dense-soa-v1` |
+| materialization estimator | `soma-materialization-estimator-v1` |
+| unspecified dense initial capacity | `16` rows |
+| dense growth ratio | `3/2` with overflow-safe minimum-required clamp |
+| maximum update scratch | `268435456` bytes（256 MiB，checked preflight，可显式覆盖） |
+| default stats mode | `summary` |
+
+这些是 versioned effective plan facts，不是性能优势或永久调优结论。改变 baseline 必须产生新的 plan hash/evidence；改变不兼容 protocol/algorithm semantics 必须提升对应 identity。
+
 ## 3. TablePlan dimensions
 
 每个 table plan 可以包含：
@@ -147,6 +195,10 @@ Canonical plan 必须：
 - 区分 absent/inapplicable 与 explicit value；
 - 记录 protocol/algorithm/estimator identity。
 
+首个 canonical effective plan 使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。Root keys 固定为 `allocationEstimator`、`defaultMaterializationBudget`、`generatedProtocol`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`。Dense table entry 固定为 `algorithm`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`maximumUpdateScratchBytes`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
+
+`MaterializationBudget.identity()` 使用同一 canonical budget object与前缀 `soma-java:v1:materialization-budget\n` 的 lowercase SHA-256。Per-call override因此有稳定 identity但不改变 `runtimePlanHash`。
+
 Runtime plan hash 用于 diagnostics/reproducibility/compatibility，不是 security signature，不进入 schema hash。
 
 ## 11. Mutability and lifecycle
@@ -191,4 +243,4 @@ Default parameter性能只能由 benchmark evidence 校准；contract test 只�
 
 ## 14. 非目标
 
-本文不固定 growth factor、load factor、probe strategy、scratch bytes、pool threshold、exact class/builder method、config file syntax、environment mapping 或 production tuning value。
+除本文已固化的首个 Java construction boundary、dense growth与 update-scratch baseline 外，本文不固定 future KeySpace/sidecar threshold、probe strategy、sort/compaction scratch、pool threshold、config file syntax、environment mapping 或 production tuning value。

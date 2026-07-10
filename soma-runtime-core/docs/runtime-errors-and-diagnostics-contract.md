@@ -29,6 +29,12 @@ cause (when applicable)
 
 Error object/context 是 immutable snapshot，不暴露 mutable runtime state、RowSlot、bucket、bitmap 或 child handle。
 
+首个 runtime slice 固化 handwritten envelope 为 `com.hgtech.soma.runtime.SomaRuntimeException` 与 `SomaErrorCategory { INVALID_INPUT, LOOKUP, CONFLICT, LIFECYCLE, COMPATIBILITY, RESOURCE, CALLBACK, INTERNAL }`。Exception exact getters：`SomaErrorCategory category()`、non-null `String code()`、non-null `String operation()`、non-null `String path()`、non-null immutable `SortedMap<String,String> context()` 和标准 nullable `Throwable getCause()`；无 path 使用 empty string。Constructor private；public static `create(SomaErrorCategory,String code,String operation,String path,Map<String,String> context,Throwable cause)` 是唯一 construction boundary并重复执行 null/bounds/safe-copy validation，供 protocol与application adapter在确需合成同 envelope时使用。`getMessage()` 只是 bounded safe rendering，caller 不解析它。Context按 key排序，单 value最多256、总 rendered context最多4096，超出以固定 marker截断；runtime不调用任意 payload/user `toString()`。
+
+Generated code 通过 `com.hgtech.soma.runtime.generated.RuntimeFailures` 的 typed factory 构造 envelope；factory 是 generated-runtime protocol，不进入 generated facade public signature。Generated code 不自行拼接 unbounded context/message，也不直接写 stdout/stderr/logger。
+
+Phase 1 factory surface返回 `SomaRuntimeException`：`invalidRowIndex(table,index,size,epoch,operation)`、`optionalAbsent(table,field,operation)`、`invalidNullValue(table,field,operation)`、`missingRequiredField(table,field,operation)`、`tableReleased(table,operation)`、`pipelineConsumed(table,operation)`、`mutationConsumed(table,operation)`、`staleMutator(table,capturedEpoch,currentEpoch)`、`reentrantAccess(table,activeOperation,requestedOperation)`、`callbackFailed(table,operation,stage,cause)`、`memoryLimitExceeded(table,operation,limit,proposed)`、`compatibilityMismatch(code,expected,actual,path)`、`invalidRuntimePlan(path,reason)`、`internalInvariant(invariantId,table,operation)`。String/path由generated logical metadata提供，不接受 arbitrary payload formatter。
+
 ## 3. Categories
 
 | Category | 含义 | 默认 recoverability |
@@ -55,6 +61,8 @@ V1 code namespace 至少包含：
 | `missing_key` | lookup | table、operation、safe key descriptor |
 | `optional_absent` | lookup | table、field/path |
 | `invalid_row_index` | invalid_input | table、index、current size/epoch |
+| `missing_required_field` | invalid_input | table、field/path、operation |
+| `invalid_null_value` | invalid_input | table、field/path、operation |
 | `invalid_floating_access_value` | invalid_input | field/selector leaf、value class |
 | `invalid_selector` | invalid_input | table、selector/path |
 | `field_not_found` | invalid_input | table、field/path |
@@ -66,6 +74,8 @@ V1 code namespace 至少包含：
 | `table_released` | lifecycle | table/aggregate |
 | `view_pinned` | conflict | blocked operation、pinned path/count |
 | `pipeline_consumed` | lifecycle | pipeline/source/terminal |
+| `mutation_consumed` | lifecycle | table、mutation kind、operation |
+| `stale_mutator` | lifecycle | table、captured/current structural epoch |
 | `reentrant_access` | lifecycle | active/current operation |
 | `schema_hash_mismatch` | compatibility | expected/actual hash |
 | `runtime_compatibility_mismatch` | compatibility | generated/runtime version |
@@ -110,6 +120,8 @@ Message prose 可以优化或本地化，但 code/category/context key 变化按
 - `internal` 表示 invariant 已无法信任，当前 aggregate 必须进入 terminal/fail-fast path，不能继续提供 normal access；
 - JVM fatal error（例如 `VirtualMachineError`）不被包装成普通 recoverable SOMA error。
 
+`allocation_failure` 只表示 runtime 能在不捕获 JVM fatal error 的情况下识别的可控 allocator/provider/staging failure，例如显式 memory provider 拒绝、deterministic preflight 后的受控 allocation adapter failure或 test-injected allocator failure。`OutOfMemoryError` 是 `VirtualMachineError`，必须原样传播，不包装为 `allocation_failure`。Capacity/column growth 必须先 stage 后 publish，因此 raw OOME 发生时旧 live facts、size、capacity identity和 epoch仍保持合法；但 runtime不承诺 JVM 在 OOME 后可继续可靠工作。
+
 ## 7. Callback failure
 
 Application callback exception：
@@ -152,6 +164,10 @@ Snapshot 必须 immutable、self-consistent，并记录：
 - counter units；
 - whether detail is sampled/estimated/exact。
 
+首个 dense slice 固化 `OperationOutcome { NONE, SUCCESS, FAILED }` 与 immutable `com.hgtech.soma.runtime.TableStats`，由 generated `XxxTable.statsSnapshot()` 返回。Exact getters：`String schemaHash()`、`runtimeCompatibility()`、`runtimePlanHash()`、`lastOperation()`、`lastErrorCode()`；`StatsMode statsMode()`；`int rows()`、`capacity()`、`activeViews()`；`long structuralEpoch()`、`growthCount()`、`updateScratchCurrentBytes()`、`updateScratchHighWaterBytes()`、`lastScanned()`、`lastMatched()`、`lastChanged()`；`boolean released()`；`OperationOutcome lastOutcome()`。String均 non-null；无 last operation/error使用 empty string。后续 key/sidecar/child/materialization stats additive增加，不重命名或改变单位。
+
+Success terminal记录实际 scanned/matched/committed changed。Callback/runtime failure记录 attempted scanned/matched、`lastChanged=0`、outcome FAILED与 stable error code；expected validation在 traversal前失败时 scanned/matched/changed均为零。`statsSnapshot()`、`runtimePlan()`、`isReleased()` 是 release后的只读 diagnostic exception：仍可调用以观察 terminal state；所有 data/pipeline/mutation/materialization access继续返回 `table_released`。
+
 ## 10. Summary and diagnostic mode
 
 Summary mode 至少提供：
@@ -178,7 +194,9 @@ Diagnostic mode 可以增加 histogram、phase timing、per-sidecar/probe detail
 - reset 是 explicit boundary operation，不在 read 时隐式发生；
 - reset 不改变 table facts、epoch 或 runtime plan hash。
 
-具体 Java method/class name 在 generated API vertical slice 固化，但上述语义必须先进入 tests。
+Generated table 提供显式 `resetStats()`；Phase 1 只把 lastOperation/lastErrorCode清空、lastOutcome设 NONE、lastScanned/lastMatched/lastChanged归零。它不清零 rows/capacity/epoch/released/activeViews、lifetime `growthCount`、current scratch或scratch high-water。
+
+新增 stats Java method/class 必须先进入本 Owner 与 generated/public manifest，不能只由实现输出决定。
 
 ## 12. Estimated memory
 
@@ -189,7 +207,7 @@ Estimated bytes：
 - 不宣称等于 JVM object layout/profiler；
 - child aggregate 避免 double count；
 - estimator version 进入 runtime plan/diagnostic identity；
-- estimate failure 与 actual JVM allocation failure 使用不同 code。
+- estimate/budget、可控 allocation provider failure 与 raw JVM fatal allocation error保持不同语义；后者不映射为 recoverable code。
 
 ## 13. Evidence
 

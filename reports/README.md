@@ -4,6 +4,7 @@
 
 ## 当前报告
 
+- [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [Java V1 Phase 0 compiler/build checkpoint](java-v1-phase-0-compiler-build-report.md)
 - [Java V1 Phase 0 schema carrier construction 设计缺口](java-v1-phase-0-schema-carrier-design-gap.md)
 - [Java-only SOMA V1 G0 scope freeze](java-v1-g0-scope-freeze-report.md)

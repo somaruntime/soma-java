@@ -84,6 +84,7 @@ assertNoUnexpectedDiagnostics()
 - incremental evidence 必须实际触发 source/schema fact 变化并验证 regeneration、stable resource ownership 和恢复后与 clean golden 一致；无 source change 的 `Nothing to compile` 不能单独充当 incremental evidence；
 - external Maven consumer 不继承 root parent/reactor classpath。
 - public API manifest 从实际 annotation/processor JAR 重建 classification 与 `javap -public` golden，区分 handwritten/build-provider/internal surface。
+- table-accepting slice 还必须分别重建 handwritten runtime API、generated-runtime protocol 与 schema-specific generated public API manifest，并验证 generated public signature 不泄漏 protocol/internal type；
 
 ## 4. Golden contract
 
@@ -105,6 +106,8 @@ Golden comparison 可以忽略 owner contract 明确列出的 non-semantic white
 - floating validation/canonicalization binding；
 - static primitive column/selector binding、Cursor reuse/fused terminal shape、no boxed row index/intermediate collection contract；
 - schema/runtime compatibility metadata。
+
+首个 dense golden 固定 `@SomaTable`/`@SomaOptional` metadata、table canonical JSON/hash、generated Table/Batch/Rows/Row/MutableRow/Mutator、Batch carrier/primitive overload、create/default/effective RuntimePlan、materialization budget overload、UpdateResult 和 structured error/stat shape。Generated source必须来自 processor output，禁止手写 facade后再复制为 golden。
 
 Golden update 必须由对应 owner contract change 驱动，不能因为 diff 不方便而自动接受。
 

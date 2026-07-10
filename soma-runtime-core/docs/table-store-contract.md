@@ -14,6 +14,64 @@ Owner：`soma-runtime-core`
 
 Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime internal storage。Public/generated API 仍只暴露 keyed table 和 dense table 两类 table kind；runtime internal 不使用 `Sparse Table` / `Unkeyed Sparse Table` 作为顶层抽象。
 
+Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
+
+首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`PresenceBitmap` 和 `MaterializationTracker`。Concrete primitive column提供 typed get/set/bulk-copy；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
+
+Exact Phase 1 protocol matrix（全部位于 `com.hgtech.soma.runtime.generated`）：
+
+```text
+GeneratedMetadata(String schemaHash, String generatedTarget, String compilerIdentity,
+  String generatedProtocol, String runtimeCompatibility, String planProtocol,
+  String algorithm, String allocationEstimator)
+GeneratedMetadata.schemaHash/generatedTarget/compilerIdentity/generatedProtocol/
+  runtimeCompatibility/planProtocol/algorithm/allocationEstimator -> non-null String
+RuntimeCompatibility.verify(GeneratedMetadata, RuntimePlan, String tableLogicalName) -> TablePlan
+
+GeneratedColumn.stageCapacity(int) -> Object
+GeneratedColumn.commitCapacity(Object) -> void
+GeneratedColumn.clearRange(int fromInclusive, int toExclusive) -> void
+ColumnGroup(int initialCapacity, GeneratedColumn... columns)
+ColumnGroup.capacity() -> int
+ColumnGroup.ensureCapacity(int required, int growthNumerator, int growthDenominator) -> boolean
+
+PrimitiveColumn() / PresenceBitmap() public no-arg construction
+PrimitiveColumn.get(int) -> exact primitive
+PrimitiveColumn.set(int, exact primitive) -> void
+PrimitiveColumn.copyFrom(same concrete type, int source, int target, int length) -> void
+PresenceBitmap.isPresent(int)/setPresent(int)/clearPresent(int)
+PresenceBitmap.copyFrom(PresenceBitmap, int source, int target, int length)
+PresenceBitmap.presentCount() -> int
+
+DenseTableState(String tableLogicalName, RuntimePlan, TablePlan, ColumnGroup)
+DenseTableState.size/capacity -> int; structuralEpoch -> long; isReleased -> boolean
+DenseTableState.runtimePlan -> RuntimePlan
+DenseTableState.checkActive(String operation) -> void
+DenseTableState.checkRowIndex(int rowIndex, String operation) -> int
+DenseTableState.beginOperation(String operation) -> void
+DenseTableState.endOperationSuccess(String operation, long scanned, long matched, long changed) -> void
+DenseTableState.endOperationFailure(String operation, long scanned, long matched, String errorCode) -> void
+DenseTableState.prepareAppend(int count) -> int startRow
+DenseTableState.commitAppend(int expectedStartRow, int count) -> void
+DenseTableState.prepareReplace(int newSize) -> int previousSize
+DenseTableState.commitReplace(int expectedPreviousSize, int newSize) -> void
+DenseTableState.prepareClear() -> int previousSize
+DenseTableState.prepareRelease() -> int previousSize
+DenseTableState.commitClear(int expectedPreviousSize) -> void
+DenseTableState.commitRelease(int expectedPreviousSize) -> void
+DenseTableState.updateScratch(long currentBytes, long highWaterBytes) -> void
+DenseTableState.updateResult(long scanned, long matched, long changed,
+  long sidecarMaintained, long sidecarRebuilt) -> UpdateResult
+DenseTableState.statsSnapshot() -> TableStats; resetStats() -> void
+
+MaterializationTracker(MaterializationBudget, String rootPath)
+MaterializationTracker.addTableInstances/addRows/addLeafValues/addEstimatedBytes(long) -> void
+MaterializationTracker.budgetIdentity() -> String
+MaterializationTracker.estimatedBytes/rows/leafValues/tableInstances -> long
+```
+
+`GeneratedColumn` 的 `Object` 只承载 staged primitive array并由 `ColumnGroup` 在 growth boundary内部回传给同一 concrete column；generated source/hot loop不读取或 cast该 Object。`ensureCapacity` 返回是否实际增长。Prepare方法完成active/reentrant/range/overflow/capacity preflight但不改变size/epoch；generated typed copy/clear成功后调用匹配的commit。Mismatch进入internal invariant failure。新增protocol方法可以additive，现有方法不能靠 generated code migration重命名。
+
 ```text
 XxxTable
   -> XxxTableStore
@@ -73,6 +131,8 @@ V1 runtime core 至少提供：
 - clear while reusing capacity。
 
 Column implementation 是 internal API，generated public API 不暴露 column mutation primitive。
+
+Capacity growth 使用 group staging：所有 leaf columns、presence words与 RowSpace所需新 arrays先成功分配/复制，再一次 publish新 capacity。任一 validation、controlled allocation failure或 raw OOME发生在 publish 前时，旧 arrays、size、capacity与epoch保持一致；不能逐 column直接替换后再尝试补救。Generated binding在 terminal/bulk boundary解析 concrete typed columns，hot loop不使用 generic `getField(columnId)`/boxed dispatch。
 
 ### 3.1 Child handle storage material
 
@@ -247,7 +307,7 @@ V1 至少需要：
 - replaceAll 尽量复用 capacity，是 dense table 刷新矩阵行、packed data 和 solver workspace 的主要边界；
 - index 和 order sidecar 在 batch boundary 统一更新或标记 dirty；
 - per-row append 不是默认 import 路径；
-- allocation failure 或 memory limit exceeded 必须映射为可区分错误。
+- deterministic memory limit 和可控 allocator/provider failure 必须映射为可区分错误；raw `OutOfMemoryError` 原样传播，capacity/column staging 保证 publish 前旧 stable state 仍满足 invariant。
 
 ## 12. Materialization / buffer / ColumnView
 

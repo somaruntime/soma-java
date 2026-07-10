@@ -18,6 +18,7 @@ Owner：根项目协调层
 |---|---|---|
 | handwritten public API | annotations、runtime public types、public error/stats/config types | artifact public contract |
 | generated public API | generated Table/Batch/Rows/Mutator/ColumnView/materializer | processor-owned reproducible public contract |
+| generated-runtime protocol | `com.hgtech.soma.runtime.generated` 中供 generated source 静态绑定的 runtime classes/methods | processor/runtime pairing contract；不是 handwritten application API 或 application SPI |
 | schema declaration | annotation parameters、field roles、selectors、defaults、ownership | logical schema contract |
 | materialized shape | schema row、List/Map child、optional/null shape | boundary data contract |
 | compiler integration | plugin name、processor discovery、supported compiler identity | build-time consumer contract |
@@ -26,6 +27,8 @@ Owner：根项目协调层
 | evidence format | gate/benchmark structured artifact | evidence contract，不是 runtime API |
 
 类型位于 artifact 中并不自动意味着 public。Public surface 必须由正式 owner contract 和发布时的 API manifest 同时确认；internal/package-private/test hook 不因可反射访问而获得兼容性承诺。
+
+Generated-runtime protocol 必须跨任意 consumer generated package 可见，因此其 bytecode 可以是 `public`；但 application 不实现、不继承、不直接调用。Generated facade 的 public signature 不能泄漏该 protocol。Protocol 通过独立 manifest 与 runtime compatibility identity 管理，变化必须保持 processor/runtime pairing 或提升 compatibility identity，不能伪装成无承诺 internal refactor。
 
 ## 3. Version identities
 
@@ -43,6 +46,8 @@ SOMA 使用多个正交 identity，不能用一个版本号替代全部语义：
 | estimator version | materialization allocation estimate 使用哪套模型 |
 
 Schema version label 不能替代 exact hash；artifact version 不能替代 runtime compatibility；runtime plan hash 不进入 logical schema hash。
+
+首个 dense runtime slice 固化：generated protocol identity `soma-generated-runtime-v1`、runtime compatibility identity `soma-runtime-java8-v1`、runtime plan protocol `soma-runtime-plan-v1`、dense algorithm identity `dense-soa-v1`、materialization estimator `soma-materialization-estimator-v1`。这些 identity 必须进入 generated metadata、create mismatch fixture 和相应 manifest；字符串不包含组织名，也不改变 HGTECH/SOMA identity boundary。
 
 ## 4. Initialization compatibility check
 
@@ -149,6 +154,14 @@ Generated table 创建 runtime storage 前必须验证：
 | internal implementation | `com.hgtech.soma.processor.internal.CompilerProtocol` / `CompilerProtocol.Session`、javac AST/lowering helper、processor normalized model；即使跨 package 技术约束要求某个 type/member 在 bytecode 中为 `public`，也不进入 consumer compatibility manifest |
 
 当前 manifest/golden 位于 `soma-testkit/src/test/fixtures/public-api/phase0`，由 `scripts/check-public-api.sh` 从实际 JAR 逐项重建并比较。新增或改变 public/protected surface 必须先更新唯一 Owner，再显式审查 manifest diff；不能由 javap 可见性自动升级为 public contract。
+
+首个 dense runtime slice 增加三份相互独立的 manifest：
+
+- handwritten runtime API：`com.hgtech.soma.runtime` 中正式 plan/budget/error/stats/result types；
+- generated-runtime protocol：`com.hgtech.soma.runtime.generated`，只允许 committed protocol list；
+- schema-specific generated public API：由 fixture generated source/JAR 重建，锁定 Table/Batch/Rows/Row/MutableRow/Mutator 及 nested callback shape。
+
+`com.hgtech.soma.runtime.internal`、test hook、schema-specific package-private storage binding均排除。Manifest check 必须同时证明 generated public signature 不引用 `.runtime.generated` 或 `.runtime.internal`。
 
 ## 10. Deprecation and removal
 

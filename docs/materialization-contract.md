@@ -122,6 +122,8 @@ Materialization 不提供 cancellation/timeout partial result。Application 需�
 
 每次 deep materialization 必须使用一个覆盖整个 invocation 的确定性 budget。`fetchAll` 不能按 top-level row 重置。
 
+Handwritten public type `com.hgtech.soma.runtime.MaterializationBudget` 固定：static `defaults()` / `builder()`，instance `toBuilder()`；getter `int maximumOwnershipDepth()`、其余四维 `long maximumTableInstances()` / `maximumRows()` / `maximumLeafValues()` / `maximumEstimatedAllocationBytes()`，以及 non-null `String identity()`。Nested `Builder` 提供同名 setter（depth收 `int`、其余收 `long`）并返回 Builder，`build()` 返回 immutable budget。Limit 必须 non-negative；zero表示该维度不允许任何 consumption，negative/overflow或不兼容 protocol在 materialization 前 fail closed。
+
 永久维度至少包括：
 
 | Dimension | 含义 |
@@ -134,6 +136,17 @@ Materialization 不提供 cancellation/timeout partial result。Application 需�
 
 V1 不默认使用 wall-clock timeout，因为相同事实不应因机器速度不同得到不同结果。Elapsed time 只进入 diagnostics。
 
+V1 estimator `soma-materialization-estimator-v1` 使用与真实 JVM object layout 解耦的 fixed accounting model，所有 arithmetic overflow-safe并向 8-byte boundary 向上取整：
+
+- schema carrier object：`16 + 8 * declared schema field count` bytes；
+- `ArrayList` object：24 bytes；backing reference array：`16 + 8 * capacity` bytes；
+- keyed `Map`/entry、child collection 与 generated key accounting 在对应 child/key slice 接受前必须 additive 固化，未固化时 processor fail closed而不是输出 partial estimate；
+- materialized optional primitive wrapper：每个 present value 16 bytes；
+- reused immutable String/enum/value payload 本身不重复计 retained bytes；本次新建的 value object必须由后续 value-materializer rule显式计入；
+- estimator 只用于 deterministic guard/diagnostics，不声称等于 profiler/JVM heap bytes。
+
+Dense root `materialize()` 在创建任何公开 carrier 前先计 whole-result `ArrayList` 与 backing capacity；每行在构造前计 carrier、present optional wrapper 和 leaf count。`fetchAt` 不计 list，只计单 carrier及其 present leaves/wrappers。
+
 超限返回 typed `materialization_budget_exceeded`，至少包含：
 
 - exceeded dimension；
@@ -142,7 +155,7 @@ V1 不默认使用 wall-clock timeout，因为相同事实不应因机器速度�
 - effective budget identity；
 - ownership/materialization path。
 
-Allocation failure 与 budget exceeded 是不同 error。
+可控 allocation provider failure 与 budget exceeded 是不同 error；raw `OutOfMemoryError`/`VirtualMachineError` 原样传播，不包装为 recoverable SOMA error。无论哪种路径，Table facts/epoch 不因 materialization 改变。
 
 ## 9. V1 初始 runtime plan
 

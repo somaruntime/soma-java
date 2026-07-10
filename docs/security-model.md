@@ -101,7 +101,7 @@ Runtime internal handle、RowSlot、bucket、bitmap、sidecar 和 allocator deta
 - runtime plan domain/load/capacity/scratch limit；
 - collision/probe/rehash/rebuild/high-water stats；
 - all-or-nothing publish；
-- 明确 resource error，而不是 OOM 后静默损坏。
+- 对可预估/可控 resource failure 返回明确 resource error；raw `OutOfMemoryError` 作为 JVM fatal error 原样传播，但 group staging 必须避免 partial publish，绝不能捕获后继续伪装成功或静默损坏。
 
 SOMA V1 不提供 wall-clock timeout、preemption 或 callback sandbox。Application 对不可信 callback、总进程 heap、CPU budget 和任务超时负责。
 

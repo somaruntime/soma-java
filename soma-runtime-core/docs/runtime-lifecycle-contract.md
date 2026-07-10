@@ -44,7 +44,7 @@ Required logical-empty dense/keyed child materialize 为 empty `List`/`Map`；op
 
 Allocation estimate 使用 runtime-plan-versioned fixed accounting model，只估算本次新分配 schema object/List/Map/entry/wrapper；不读取实时 JVM heap，也不把共享 immutable payload object memory重复计入。Estimator version 与 default budget 进入 runtime plan identity，不进入 schema hash；per-call override 不改变 table runtime plan identity。
 
-超限返回 `materialization_budget_exceeded`，包含 dimension、configured limit、current/proposed count or estimate、effective budget identity 和 path。实际 JVM allocation failure 使用独立 `allocation_failure`。V1 不实现 wall-clock materialization timeout；elapsed time 仅记录 diagnostics。
+超限返回 `materialization_budget_exceeded`，包含 dimension、configured limit、current/proposed count or estimate、effective budget identity 和 path。可控 allocator/provider failure 使用独立 `allocation_failure`；raw `OutOfMemoryError`/`VirtualMachineError` 按 error Owner 原样传播，不能包装成 recoverable error。V1 不实现 wall-clock materialization timeout；elapsed time 仅记录 diagnostics。
 
 ## 4. Epoch and lifecycle
 

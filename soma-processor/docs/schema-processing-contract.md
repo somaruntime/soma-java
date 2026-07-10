@@ -61,7 +61,7 @@ Normalized schema model 至少包含：
 - generated package；
 - enum declaration list and member order；
 - value declaration list、implicit immutable effective shape and leaf expansion；
-- table class list and schema-backed materialization shape；
+- table class list、schema-backed materialization shape 与 derived generated public names；
 - table kind：`keyed` or `dense`；
 - field / child / optional-modifier list；
 - key declaration；
@@ -74,7 +74,7 @@ Normalized schema model 至少包含：
 - string storage policy；
 - optional storage policy；
 - `List`/`Map` child kind、row/key type and ownership metadata；
-- generated public API names；
+- generated public API names（进入 generated metadata/manifest，不进入 logical schema canonical JSON/hash）；
 - canonical serialization input；
 - schema hash。
 
@@ -134,6 +134,18 @@ V1 canonical declaration graph 的稳定顺序与引用规则：
 - nested value field 使用 `value:<fully-qualified-type>` 引用 canonical value declaration；processor 在输出前解析同 schema declaration graph、拒绝 unresolved reference/cycle，因此完整 leaf expansion 可由 ordered graph 唯一递归导出，不在 JSON 中重复一份可能漂移的 leaf list；
 - 已被当前 implementation 接受的 declaration，其 canonical JSON/hash 即进入 non-regression golden；后续 Phase 只能添加此前被 fail-closed 拒绝的 V1 breadth，不能让相同 source/toolchain 的既有 canonical JSON/hash 因内部重构而变化；
 - 尚未完整 normalization 的合法 V1 declaration 可以在 capability `in-progress` 时以稳定 diagnostic 拒绝，但不得生成缺失 enum member、value graph、role、selector 或其他 hash fact 的 partial resource。
+
+首个 table-accepting slice 同时固定 table canonical representation；这不是临时 Phase 1 JSON：
+
+- `tables` 按 table fully-qualified Java type 排序；table object key 按 canonical object-key 规则输出 `fields`、`javaType`、`kind`、`logicalName`、`materializedType`；
+- `fields` 保留 source declaration order。Field object 固定包含 `javaName`、`leaves`、`logicalName`、`materializedType`、`optional`、`role`、`type`；后续 default/child/key 等已定义 V1 breadth只在该 object additive 增加正式 fact；
+- primitive/simple field 的 `leaves` 含一个 object：`leafPath`、`semantic`、`storageType`；value field 后续按 normalized leaf order完整展开，不能只记录 outer value token；
+- required primitive `type/materializedType/storageType` 使用 Java primitive token；optional boxed primitive 的 logical `type/storageType` 仍使用对应 primitive token，`materializedType` 使用完整 boxed Java FQN，并以 `optional:true` 表达 presence；
+- Phase 1 dense table 使用 `kind:"dense"`、`role:"field"`，`materializedType` 是 source carrier FQN；不生成未实现 key/index/child 的空语义替代；
+- generated names 是从 source Java type、generated package和 processor naming protocol导出的 compatibility metadata，固定记录到 generated metadata/source golden与 generated API manifest，不进入 logical schema JSON/hash；naming protocol变化提升 processor/runtime pairing identity并触发 generated compatibility review，但不能无 logical schema change地改写 schema hash；
+- effective table logical name 在同一 schema 唯一；source Java field name和 effective logical field name 在单 table 内各自唯一；
+- `defaultCapacity`、growth、stats、budget、algorithm 和其他 runtime-plan hint 完全排除在 canonical table/schema JSON 之外；它们只进入 generated default plan 与 runtime plan hash；
+- 相同 source/toolchain 的既有 value-only schema JSON保持 byte-identical；首次接受 table source 后，其 exact table JSON/hash进入 non-regression golden。
 
 Generated code、runtime metadata、testkit 和 reports 必须引用同一个 schema hash。
 
@@ -246,6 +258,20 @@ Diagnostics golden comparison 以 diagnostic code、severity、element location�
 | `SOMA-SCHEMA-004` | schema version label invalid |
 | `SOMA-SCHEMA-005` | schema logical name duplicate |
 | `SOMA-OUTPUT-001` | deterministic compiler-managed artifact emission failed |
+
+Table/codegen family additive 分配：
+
+| Code | Stable category |
+|---|---|
+| `SOMA-TABLE-001` | table declaration/carrier shape invalid |
+| `SOMA-TABLE-002` | table logical name invalid/duplicate |
+| `SOMA-TABLE-003` | field membership/role/modifier invalid |
+| `SOMA-TABLE-004` | field logical name invalid/duplicate |
+| `SOMA-TABLE-005` | table field type/optional materialized type unsupported |
+| `SOMA-TABLE-006` | public no-arg construction or public mutable field shape invalid |
+| `SOMA-TABLE-007` | default capacity/runtime-plan hint invalid |
+| `SOMA-GEN-001` | generated public name/signature collision |
+| `SOMA-GEN-002` | deterministic generated source emission failed |
 
 ## 8. 与 code generation 的边界
 
