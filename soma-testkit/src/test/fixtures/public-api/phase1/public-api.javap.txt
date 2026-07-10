@@ -50,6 +50,9 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public long structuralEpoch();
   public boolean isReleased();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public long acquireView(java.lang.String);
+  public void releaseView();
+  public void checkView(long, int, java.lang.String);
   public void checkActive(java.lang.String);
   public int checkRowIndex(int, java.lang.String);
   public void beginOperation(java.lang.String);
@@ -183,6 +186,9 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException releasedView(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException staleView(java.lang.String, long, long, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException viewPinned(java.lang.String, java.lang.String, int);
   public static com.hgtech.soma.runtime.SomaRuntimeException pipelineConsumed(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException mutationConsumed(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException staleMutator(java.lang.String, long, long);
@@ -245,6 +251,105 @@ public interface com.hgtech.soma.annotation.SomaTable extends java.lang.annotati
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaValue
 Compiled from "SomaValue.java"
 public interface com.hgtech.soma.annotation.SomaValue extends java.lang.annotation.Annotation {
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnPipeline
+Compiled from "BooleanColumnPipeline.java"
+public final class com.hgtech.soma.runtime.BooleanColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.BooleanColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.BooleanColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public void forEachBoolean(com.hgtech.soma.runtime.BooleanConsumer);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnView
+Compiled from "BooleanColumnView.java"
+public final class com.hgtech.soma.runtime.BooleanColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.BooleanColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.BooleanColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public boolean isPresent(int);
+  public boolean getBoolean(int);
+  public void close();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanConsumer
+Compiled from "BooleanConsumer.java"
+public interface com.hgtech.soma.runtime.BooleanConsumer {
+  public abstract void accept(boolean);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnPipeline
+Compiled from "ByteColumnPipeline.java"
+public final class com.hgtech.soma.runtime.ByteColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.ByteColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ByteColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public void forEachByte(com.hgtech.soma.runtime.ByteConsumer);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnView
+Compiled from "ByteColumnView.java"
+public final class com.hgtech.soma.runtime.ByteColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.ByteColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ByteColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public boolean isPresent(int);
+  public byte getByte(int);
+  public void close();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteConsumer
+Compiled from "ByteConsumer.java"
+public interface com.hgtech.soma.runtime.ByteConsumer {
+  public abstract void accept(byte);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnPipeline
+Compiled from "DoubleColumnPipeline.java"
+public final class com.hgtech.soma.runtime.DoubleColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.DoubleColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.DoubleColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public void forEachDouble(java.util.function.DoubleConsumer);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnView
+Compiled from "DoubleColumnView.java"
+public final class com.hgtech.soma.runtime.DoubleColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.DoubleColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.DoubleColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public boolean isPresent(int);
+  public double getDouble(int);
+  public void close();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnPipeline
+Compiled from "FloatColumnPipeline.java"
+public final class com.hgtech.soma.runtime.FloatColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.FloatColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.FloatColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public void forEachFloat(com.hgtech.soma.runtime.FloatConsumer);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnView
+Compiled from "FloatColumnView.java"
+public final class com.hgtech.soma.runtime.FloatColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.FloatColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.FloatColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public boolean isPresent(int);
+  public float getFloat(int);
+  public void close();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatConsumer
+Compiled from "FloatConsumer.java"
+public interface com.hgtech.soma.runtime.FloatConsumer {
+  public abstract void accept(float);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.IntColumnPipeline
+Compiled from "IntColumnPipeline.java"
+public final class com.hgtech.soma.runtime.IntColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.IntColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public void forEachInt(java.util.function.IntConsumer);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.IntColumnView
+Compiled from "IntColumnView.java"
+public final class com.hgtech.soma.runtime.IntColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.IntColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public boolean isPresent(int);
+  public int getInt(int);
+  public void close();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.LongColumnPipeline
+Compiled from "LongColumnPipeline.java"
+public final class com.hgtech.soma.runtime.LongColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.LongColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.LongColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public void forEachLong(java.util.function.LongConsumer);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.LongColumnView
+Compiled from "LongColumnView.java"
+public final class com.hgtech.soma.runtime.LongColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.LongColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.LongColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public boolean isPresent(int);
+  public long getLong(int);
+  public void close();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.MaterializationBudget
 Compiled from "MaterializationBudget.java"
@@ -313,6 +418,25 @@ public final class com.hgtech.soma.runtime.RuntimePlan$Builder {
   public com.hgtech.soma.runtime.RuntimePlan$Builder addTable(com.hgtech.soma.runtime.TablePlan);
   public com.hgtech.soma.runtime.RuntimePlan$Builder replaceTable(com.hgtech.soma.runtime.TablePlan);
   public com.hgtech.soma.runtime.RuntimePlan build();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnPipeline
+Compiled from "ShortColumnPipeline.java"
+public final class com.hgtech.soma.runtime.ShortColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.ShortColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ShortColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public void forEachShort(com.hgtech.soma.runtime.ShortConsumer);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnView
+Compiled from "ShortColumnView.java"
+public final class com.hgtech.soma.runtime.ShortColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.ShortColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ShortColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
+  public boolean isPresent(int);
+  public short getShort(int);
+  public void close();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortConsumer
+Compiled from "ShortConsumer.java"
+public interface com.hgtech.soma.runtime.ShortConsumer {
+  public abstract void accept(short);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaErrorCategory
 Compiled from "SomaErrorCategory.java"

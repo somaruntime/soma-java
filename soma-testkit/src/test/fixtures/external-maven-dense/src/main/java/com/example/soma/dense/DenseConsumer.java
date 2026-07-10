@@ -7,12 +7,24 @@ import com.example.soma.dense.generated.ParticleRows;
 import com.example.soma.dense.generated.ParticleTable;
 import com.example.soma.dense.generated.PrimitiveSampleBatch;
 import com.example.soma.dense.generated.PrimitiveSampleTable;
+import com.hgtech.soma.runtime.BooleanColumnView;
+import com.hgtech.soma.runtime.BooleanConsumer;
+import com.hgtech.soma.runtime.ByteColumnView;
+import com.hgtech.soma.runtime.ByteConsumer;
+import com.hgtech.soma.runtime.DoubleColumnView;
+import com.hgtech.soma.runtime.FloatColumnView;
+import com.hgtech.soma.runtime.FloatConsumer;
+import com.hgtech.soma.runtime.IntColumnView;
+import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.ShortColumnView;
+import com.hgtech.soma.runtime.ShortConsumer;
 import com.hgtech.soma.runtime.UpdateResult;
 
 import java.util.List;
+import java.util.function.LongConsumer;
 
 public final class DenseConsumer {
     private DenseConsumer() {
@@ -163,6 +175,53 @@ public final class DenseConsumer {
                 "update counters");
         require(table.fetchAt(2).energy == null, "update optional clear");
 
+        final long[] tickSum = new long[] {0L};
+        table.ticksValues().forEachLong(new LongConsumer() {
+            @Override
+            public void accept(long value) {
+                tickSum[0] += value;
+            }
+        });
+        require(tickSum[0] == 101L, "required long column pipeline");
+        final int[] energySum = new int[] {0};
+        table.energyValues().forEachInt(value -> energySum[0] += value);
+        require(energySum[0] == 8, "optional pipeline visits only present values");
+        expectCode("reentrant_access", new Action() {
+            @Override
+            public void run() {
+                table.xValues().forEachFloat(new FloatConsumer() {
+                    @Override
+                    public void accept(float value) {
+                        table.clear();
+                    }
+                });
+            }
+        });
+        require(table.size() == 4, "column pipeline callback cannot structurally mutate");
+
+        FloatColumnView xView = table.xColumn();
+        try {
+            require(xView.isPresent(1) && xView.getFloat(1) == 3.5f,
+                    "typed float column view");
+            table.mutateAt(0).setTicks(12L).commit();
+            require(table.fetchAt(0).ticks == 12L && xView.getFloat(1) == 3.5f,
+                    "non-structural mutation remains valid under a view");
+            expectCode("view_pinned", new Action() {
+                @Override
+                public void run() {
+                    table.clear();
+                }
+            });
+        } finally {
+            xView.close();
+        }
+        expectCode("released_view", new Action() {
+            @Override
+            public void run() {
+                xView.getFloat(0);
+            }
+        });
+
         List<Particle> materialized = table.materialize();
         require(materialized.size() == 4, "whole-table materialization");
         materialized.get(0).x = -100.0f;
@@ -227,9 +286,17 @@ public final class DenseConsumer {
         table.addBatch(batch);
         table.clear();
         require(table.size() == 0, "clear");
+        IntColumnView releasedView = table.idColumn();
         table.release();
         table.release();
         require(table.isReleased() && table.statsSnapshot().released(), "release terminal state");
+        expectCode("table_released", new Action() {
+            @Override
+            public void run() {
+                releasedView.getInt(0);
+            }
+        });
+        releasedView.close();
         expectCode("table_released", new Action() {
             @Override
             public void run() {
@@ -265,6 +332,87 @@ public final class DenseConsumer {
                         && Float.valueOf(11.0f).equals(row.optionalFloat)
                         && row.optionalDouble == null,
                 "optional primitive presence bindings");
+        final boolean[] booleanValue = new boolean[] {false};
+        table.requiredBooleanValues().forEachBoolean(new BooleanConsumer() {
+            @Override
+            public void accept(boolean value) {
+                booleanValue[0] = value;
+            }
+        });
+        final byte[] byteValue = new byte[] {0};
+        table.requiredByteValues().forEachByte(new ByteConsumer() {
+            @Override
+            public void accept(byte value) {
+                byteValue[0] = value;
+            }
+        });
+        final short[] shortValue = new short[] {0};
+        table.requiredShortValues().forEachShort(new ShortConsumer() {
+            @Override
+            public void accept(short value) {
+                shortValue[0] = value;
+            }
+        });
+        final int[] intValue = new int[] {0};
+        table.requiredIntValues().forEachInt(value -> intValue[0] = value);
+        final long[] longValue = new long[] {0L};
+        table.requiredLongValues().forEachLong(new LongConsumer() {
+            @Override
+            public void accept(long value) {
+                longValue[0] = value;
+            }
+        });
+        final float[] floatValue = new float[] {0.0f};
+        table.requiredFloatValues().forEachFloat(new FloatConsumer() {
+            @Override
+            public void accept(float value) {
+                floatValue[0] = value;
+            }
+        });
+        final double[] doubleValue = new double[] {0.0d};
+        table.requiredDoubleValues().forEachDouble(value -> doubleValue[0] = value);
+        require(booleanValue[0] && byteValue[0] == 1 && shortValue[0] == 2
+                        && intValue[0] == 3 && longValue[0] == 4L
+                        && floatValue[0] == 5.0f && doubleValue[0] == 6.0d,
+                "all required primitive column pipelines");
+        final int[] optionalDoubleCallbacks = new int[] {0};
+        table.optionalDoubleValues().forEachDouble(value -> optionalDoubleCallbacks[0]++);
+        require(optionalDoubleCallbacks[0] == 0, "absent optional pipeline has no payload callback");
+        BooleanColumnView booleanView = table.requiredBooleanColumn();
+        ByteColumnView byteView = table.requiredByteColumn();
+        ShortColumnView shortView = table.requiredShortColumn();
+        IntColumnView intView = table.requiredIntColumn();
+        LongColumnView longView = table.requiredLongColumn();
+        FloatColumnView floatView = table.requiredFloatColumn();
+        DoubleColumnView doubleView = table.requiredDoubleColumn();
+        try {
+            require(booleanView.isPresent(0) && booleanView.getBoolean(0)
+                            && byteView.getByte(0) == 1 && shortView.getShort(0) == 2
+                            && intView.getInt(0) == 3 && longView.getLong(0) == 4L
+                            && floatView.getFloat(0) == 5.0f
+                            && doubleView.getDouble(0) == 6.0d,
+                    "all primitive column views");
+        } finally {
+            booleanView.close();
+            byteView.close();
+            shortView.close();
+            intView.close();
+            longView.close();
+            floatView.close();
+            doubleView.close();
+        }
+        DoubleColumnView absentOptionalView = table.optionalDoubleColumn();
+        try {
+            require(!absentOptionalView.isPresent(0), "optional view presence");
+            expectCode("optional_absent", new Action() {
+                @Override
+                public void run() {
+                    absentOptionalView.getDouble(0);
+                }
+            });
+        } finally {
+            absentOptionalView.close();
+        }
         table.release();
     }
 

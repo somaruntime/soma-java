@@ -24,6 +24,7 @@ public final class RuntimeCorePhase1Check {
         testCompatibilityBoundary();
         testDenseColumnsLifecycleAndStats();
         testStructuralRemoveStateTransition();
+        testViewLifecycleState();
         testPresenceBitmapAgainstOracle();
         testMaterializationBudget();
         testBoundedFailureEnvelope();
@@ -203,6 +204,43 @@ public final class RuntimeCorePhase1Check {
         } catch (IllegalArgumentException expected) {
             // expected
         }
+    }
+
+    private static void testViewLifecycleState() {
+        IntColumn value = new IntColumn();
+        ColumnGroup columns = new ColumnGroup(2, value);
+        RuntimePlan plan = defaultPlan();
+        final DenseTableState state = new DenseTableState(
+                "Order", plan, plan.requireTable("Order"), columns);
+        int start = state.prepareAppend(1);
+        state.commitAppend(start, 1);
+        final long capturedEpoch = state.acquireView("value.column");
+        assertEquals(1, state.statsSnapshot().activeViews(), "acquired view count");
+        expectCode("view_pinned", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                state.prepareAppend(1);
+            }
+        });
+        state.releaseView();
+        start = state.prepareAppend(1);
+        state.commitAppend(start, 1);
+        expectCode("stale_view", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                state.checkView(capturedEpoch, 0, "value.column.get");
+            }
+        });
+        state.acquireView("value.column");
+        int releasedSize = state.prepareRelease();
+        state.commitRelease(releasedSize);
+        assertEquals(0, state.statsSnapshot().activeViews(), "release invalidates view count");
+        expectCode("table_released", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                state.checkView(state.structuralEpoch(), 0, "value.column.get");
+            }
+        });
     }
 
     private static void testMaterializationBudget() {

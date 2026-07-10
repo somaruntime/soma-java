@@ -19,6 +19,7 @@ public final class DenseTableState {
     private int size;
     private long structuralEpoch;
     private boolean released;
+    private int activeViews;
     private boolean operationActive;
     private String activeOperation = "";
     private long growthCount;
@@ -51,6 +52,30 @@ public final class DenseTableState {
     public long structuralEpoch() { return structuralEpoch; }
     public boolean isReleased() { return released; }
     public RuntimePlan runtimePlan() { return runtimePlan; }
+
+    public long acquireView(String operation) {
+        checkActive(operation);
+        if (operationActive) {
+            throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
+        }
+        activeViews++;
+        return structuralEpoch;
+    }
+
+    public void releaseView() {
+        if (activeViews > 0) {
+            activeViews--;
+        }
+    }
+
+    public void checkView(long capturedEpoch, int rowIndex, String operation) {
+        checkActive(operation);
+        if (capturedEpoch != structuralEpoch) {
+            throw RuntimeFailures.staleView(
+                    tableLogicalName, capturedEpoch, structuralEpoch, operation);
+        }
+        checkRowIndex(rowIndex, operation);
+    }
 
     public void checkActive(String operation) {
         if (released) {
@@ -163,7 +188,7 @@ public final class DenseTableState {
         if (expectedPreviousSize > 0) {
             structuralEpoch++;
         }
-        record("clear", OperationOutcome.SUCCESS, "", expectedPreviousSize, 0L,
+        record("clear", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
     }
 
@@ -204,8 +229,9 @@ public final class DenseTableState {
         }
         size = 0;
         released = true;
+        activeViews = 0;
         structuralEpoch++;
-        record("release", OperationOutcome.SUCCESS, "", expectedPreviousSize, 0L,
+        record("release", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
     }
 
@@ -252,7 +278,7 @@ public final class DenseTableState {
                 capacity(),
                 structuralEpoch,
                 released,
-                0,
+                activeViews,
                 growthCount,
                 updateScratchCurrentBytes,
                 updateScratchHighWaterBytes,
@@ -277,6 +303,9 @@ public final class DenseTableState {
         checkActive(operation);
         if (operationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
+        }
+        if (activeViews > 0) {
+            throw RuntimeFailures.viewPinned(tableLogicalName, operation, activeViews);
         }
     }
 

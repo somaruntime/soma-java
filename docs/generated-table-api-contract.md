@@ -174,6 +174,24 @@ public final class RemoveResult {
 
 Field-derived signature rules：required primitive getter返回 primitive；optional primitive生成 `boolean xxxPresent()`、`boolean xxxAbsent()`、primitive `xxx()`、primitive `xxxOr(primitive defaultValue)`；mutable row用 `void setXxx(primitive)` / `void clearXxx()`，Mutator用返回 `XxxMutator` 的同名方法。Batch `RowBuilder` setter返回 `void`并用 assignment state区分 unset；`addValues(Writer)`在 callback成功且required assignments/default validation完成后才增加 size。
 
+### 2.2 Phase 1 exact Column API matrix
+
+每个已支持 primitive leaf `field` 都生成 `public com.hgtech.soma.runtime.BooleanColumnPipeline fieldValues()` 和 `public com.hgtech.soma.runtime.BooleanColumnView fieldColumn()`（Byte / Short / Int / Long / Float / Double 同理）；返回类型固定在 handwritten runtime package，不暴露 concrete column/bitmap/storage binding。
+
+Pipeline 的唯一 Phase 1 terminal 是对应 primitive callback traversal：
+
+```java
+public final class BooleanColumnPipeline { public void forEachBoolean(BooleanConsumer c); } public final class ByteColumnPipeline { public void forEachByte(ByteConsumer c); }
+public final class ShortColumnPipeline { public void forEachShort(ShortConsumer c); } public final class IntColumnPipeline { public void forEachInt(java.util.function.IntConsumer c); }
+public final class LongColumnPipeline { public void forEachLong(java.util.function.LongConsumer c); } public final class FloatColumnPipeline { public void forEachFloat(FloatConsumer c); } public final class DoubleColumnPipeline { public void forEachDouble(java.util.function.DoubleConsumer c); }
+```
+
+`BooleanConsumer`、`ByteConsumer`、`ShortConsumer`、`FloatConsumer` 是 `com.hgtech.soma.runtime` 的 primitive SAM，方法均为 `void accept(primitive value)`；它们不是 boxed `Consumer<T>` 替代品。Pipeline 在 terminal boundary 锁定当前 packed size，按 row-index ascending scan，不 materialize、不 acquire ColumnView、不创建 per-row callback/cursor/object；callback 返回前同 table 的任何 access/mutation 都受 reentrant lifecycle check 约束。required field 对每个 row调用一次；optional field 只对 present logical value 调用一次，absent payload 不进入 callback且不被解释为 primitive zero。`TableStats` 的该 terminal `scanned` 是扫描 rows，`matched` 是实际 callback value 数。
+
+ColumnView 的 exact scalar shape 是 `public final class com.hgtech.soma.runtime.FloatColumnView implements AutoCloseable { public boolean isPresent(int rowIndex); public float getFloat(int rowIndex); public void close(); }`。
+
+其他 primitive type使用相同模式（`getBoolean`、`getByte`、`getShort`、`getInt`、`getLong`、`getDouble`）。`isPresent` 先完成 view closed/table released/epoch/row-index validation；只有合法 live row 的 required column 才返回 `true`。optional absent 的 `getXxx` 返回 `optional_absent`，不返回 payload/zero。构造只由 generated facade 执行；用户只经 `fieldColumn()` acquire。close 幂等；close 后 access 是 `released_view`，final table release 后仍未 close 的 view access 是 `table_released`，captured epoch与 store epoch不同时是 `stale_view`。该 API 从首个 dense facade 固化，keyed/child/access breadth 只可 additive binding，不能迁移既有类型或方法名。
+
 Direct all-field `addValues(fieldValues...)` 按 normalized field order展开 required primitive和每个 optional `(boolean present, primitive payload)`；只有其 JVM parameter slot count连同 instance receiver不超过 255 时才生成。更宽 schema仍拥有最终 `Writer/RowBuilder` primitive入口，不生成不可加载方法，也不退化为 DTO/List storage。`present=false` 时 payload不验证并 canonicalize为 primitive zero；它不是 logical value。
 
 ## 3. API 层级
@@ -384,6 +402,8 @@ operations.startMinuteValues().forEachInt(value -> ...);
 - Java 8 没有对应 callback 时，可以生成 SOMA typed functional interface；
 - column pipeline 不允许 structural mutation；
 - 它不等同于 borrowed ColumnView。
+
+上述 exact matrix 还固定 optional column 的 traversal semantics：普通 `forEachXxx` 只遍历 present logical values；需要 row-index/presence 全貌时使用 `XxxColumnView.isPresent(rowIndex)` 与 `getXxx(rowIndex)`。这避免把 absent 编码为 callback payload或 box成 `Optional`，同时保留 live positional access。
 
 ColumnView 使用 explicit acquire/release：
 

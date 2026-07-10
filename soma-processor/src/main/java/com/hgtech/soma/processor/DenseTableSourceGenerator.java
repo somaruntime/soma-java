@@ -454,8 +454,20 @@ final class DenseTableSourceGenerator {
                 .append("  public java.util.List<").append(table.carrierType).append("> fetchAll(){return rows().fetchAll();}\n")
                 .append("  public int[] rowIndexes(){return rows().rowIndexes();}\n")
                 .append("  public UpdateResult update(").append(table.name("Rows")).append(".Updater updater){return rows().update(updater);}\n")
-                .append("  public RemoveResult remove(){return rows().remove();}\n")
-                .append("  public TableStats statsSnapshot(){return state.statsSnapshot();}\n  public void resetStats(){state.resetStats();}\n\n")
+                .append("  public RemoveResult remove(){return rows().remove();}\n");
+        for (FieldSpec field : table.fields) {
+            String type = cap(field.primitive);
+            String presence = field.optional ? field.javaName + "Presence" : "null";
+            out.append("  public ").append(type).append("ColumnPipeline ")
+                    .append(field.javaName).append("Values(){return new ").append(type)
+                    .append("ColumnPipeline(state,").append(field.javaName).append("Column,")
+                    .append(presence).append(",TABLE,").append(q(field.logicalName)).append(");}\n")
+                    .append("  public ").append(type).append("ColumnView ")
+                    .append(field.javaName).append("Column(){return new ").append(type)
+                    .append("ColumnView(state,").append(field.javaName).append("Column,")
+                    .append(presence).append(",TABLE,").append(q(field.logicalName)).append(");}\n");
+        }
+        out.append("  public TableStats statsSnapshot(){return state.statsSnapshot();}\n  public void resetStats(){state.resetStats();}\n\n")
                 .append("  void begin(String operation){state.beginOperation(operation);}\n  void endSuccess(String operation,long scanned,long matched,long changed){state.endOperationSuccess(operation,scanned,matched,changed);}\n  void endFailure(String operation,long scanned,long matched,String code){state.endOperationFailure(operation,scanned,matched,code);}\n  UpdateResult updateResult(long scanned,long matched,long changed){return state.updateResult(scanned,matched,changed,0L,0L);}\n")
                 .append("  int[] preparePipelineScratch(){int required=size();if(pipelineScratch.length<required)pipelineScratch=Arrays.copyOf(pipelineScratch,required);return pipelineScratch;}\n")
                 .append("  int[] prepareSortScratch(int required){if(sortScratch.length<required)sortScratch=Arrays.copyOf(sortScratch,required);return sortScratch;}\n")

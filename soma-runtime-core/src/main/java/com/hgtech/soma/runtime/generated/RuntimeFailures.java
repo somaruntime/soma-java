@@ -43,6 +43,23 @@ public final class RuntimeFailures {
         return create(SomaErrorCategory.LIFECYCLE, "table_released", operation, table, empty(), null);
     }
 
+    public static SomaRuntimeException releasedView(String table, String operation) {
+        return create(SomaErrorCategory.LIFECYCLE, "released_view", operation, table, empty(), null);
+    }
+
+    public static SomaRuntimeException staleView(
+            String table, long capturedEpoch, long currentEpoch, String operation) {
+        Map<String, String> context = context("capturedEpoch", capturedEpoch);
+        context.put("currentEpoch", Long.toString(currentEpoch));
+        return create(SomaErrorCategory.LIFECYCLE, "stale_view", operation, table, context, null);
+    }
+
+    public static SomaRuntimeException viewPinned(
+            String table, String operation, int activeViews) {
+        return create(SomaErrorCategory.CONFLICT, "view_pinned", operation, table,
+                context("activeViews", activeViews), null);
+    }
+
     public static SomaRuntimeException pipelineConsumed(String table, String operation) {
         return create(SomaErrorCategory.LIFECYCLE, "pipeline_consumed", operation, table, empty(), null);
     }
