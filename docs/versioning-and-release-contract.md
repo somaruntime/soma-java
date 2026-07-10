@@ -2,8 +2,8 @@
 
 状态：正式设计文档
 Owner：根项目协调层
-事实范围：artifact version policy、release artifact、publishing prerequisites、open-source readiness、rollback/withdrawal 和 release evidence
-非事实范围：public API 具体兼容语义、build graph、license 选择、漏洞联系人、release 执行结果和业务 roadmap
+事实范围：artifact version policy、V1.0 RC 完成边界、发布身份、license 方向、release artifact、publishing prerequisites、open-source readiness、rollback/withdrawal 和 release evidence
+非事实范围：public API 具体兼容语义、build graph、license 法律解释、漏洞联系人、release 执行结果和业务 roadmap
 最后审查日期：2026-07-10
 
 ## 1. 目标
@@ -17,12 +17,44 @@ Owner：根项目协调层
 - version 为 `0.1.0-SNAPSHOT`；
 - 没有 public release artifact；
 - 没有配置 SCM remote/publishing endpoint；
-- license、maintainer/contact、namespace ownership 尚未形成可发布证据；
+- 项目所有者已确认 HGTECH / SOMA 发布身份基线，并推荐 Apache License 2.0；
+- `LICENSE`、POM license metadata、maintainer/contact、namespace ownership、signing/provenance 尚未形成完整可发布证据；
 - G1-G6 未通过。
 
 因此当前内容可以支撑 implementation，但不能被描述为已开源发布、Maven Central ready 或 production ready。
 
-## 3. Version policy
+## 3. V1.0 RC 与发布身份
+
+### 3.1 V1.0 RC 完成边界
+
+`V1.0 RC` 是完整功能候选，不是 `v0.x`、MVP、Lite、Basic 或缩小 capability 的预发布版本。RC development 完成至少要求：
+
+- [实现策略 capability ledger](implementation-strategy.md#83-v1-capability-ledger) 中所有 V1 功能 capability 已按正式语义落地，没有被删除、降级或移入后续版本；
+- G0-G5 required evidence 已通过，覆盖 correctness、compiler/processor、runtime、generated API、external consumer、formal examples 和 benchmark path；
+- 当前实现是最终 V1 架构，不依赖 public/generated consumer migration、核心事实迁移或 canonical hot-path rewrite 才能达到正式 V1；
+- G6-only license artifact、support matrix、SCM/contact、signing/provenance 等未完成项继续保持 `not-started` 或 `blocked`，仍属于同一个 V1 release 总目标。
+
+V1.0 RC 以实现正确性为当前验收中心，不设置 throughput、latency、memory ratio 或相对 baseline 提升等硬性数值门槛。该决定不豁免 packed/primitive/fused/allocation-bounded 性能形态、benchmark smoke、结构化结果和禁止无证据性能声明等既有义务。RC 完成后可以启动独立性能治理专题，再基于可复现 evidence 决定是否增加数值目标。
+
+功能 RC 完成不等于 public RC/release sign-off。G6 未通过时不得公开分发、发布 artifact、打不可变 release tag，或声明正式支持矩阵和 production readiness；也不得为了让 G6 通过而删除其 required evidence。
+
+### 3.2 发布身份原则
+
+V1 发布身份固定为：
+
+| 维度 | 决定 |
+|---|---|
+| 组织与发布主体 | HGTECH |
+| 产品品牌 | SOMA |
+| Maven `groupId` / Java package root | `com.hgtech.soma` |
+| 发布 artifact | `soma-annotations`、`soma-processor`、`soma-runtime-core`；其他 artifact 遵守本文 release set |
+| License 方向 | 推荐 Apache License 2.0；正式 public RC/release 前必须由 `LICENSE`、POM metadata 和 G6 evidence 完整落地 |
+
+HGTECH 只用于真实组织归属、repository ownership、POM organization/developer、SCM、publishing、copyright/NOTICE 和 provenance 等发布边界。SOMA 是产品品牌；annotation、generated API、runtime type、method、error code、schema concept 和用户文档中的产品公共概念不得使用组织名替代或前缀化 SOMA 语义。
+
+此前由项目所有者明确排除的历史组织/品牌标识保持全仓库零出现：不得进入 repository content、Maven metadata、Java package/type、public/generated API、diagnostic、文档品牌、SCM、publishing 或 provenance；scope check 使用禁用 token 执行零命中验证。新增其他组织/品牌身份属于正式 release-identity change，必须由项目所有者批准并先修改本文。
+
+### 3.3 Version policy
 
 Artifact version 使用 SemVer shape：
 
@@ -71,11 +103,11 @@ V1 release set：
 - dependency/license/security scan；
 - public API/compatibility/release guide。
 
-这些文件是 community/operational policy，不是 SOMA semantic design owner。联系人、license 和组织身份未由用户/项目所有者决定时，禁止生成 placeholder 或替项目作法律承诺；G6 保持 blocked。
+这些文件是 community/operational policy，不是 SOMA semantic design owner。Apache License 2.0 是项目所有者确认的推荐方向，但在标准 `LICENSE`、一致的 POM metadata 和必要审查/evidence 实际完成前，license G6 item 仍为 `not-started` 或 `blocked`。联系人、SCM、security channel、签名和发布主体证明未确定时，禁止生成 placeholder 或替项目作法律承诺。
 
 ## 6. Namespace and metadata
 
-当前 Maven coordinates 使用 `com.hgtech.soma`。Public publishing 前必须证明该 namespace 可由发布主体控制，并补齐：
+当前 Maven coordinates 使用 `com.hgtech.soma`，发布主体为 HGTECH，产品品牌为 SOMA。Public publishing 前必须证明该 namespace 可由 HGTECH 控制，并补齐：
 
 - project URL；
 - SCM connection/tag URL；
@@ -187,4 +219,4 @@ Waiver 必须在 G6 report 中包含 owner、理由、影响、期限和移除�
 
 ## 13. 非目标
 
-本文不定义商业支持、SLA、长期支持周期、自动发布凭证、Maven Central account、license 具体选择或组织人员名单。
+本文不定义商业支持、SLA、长期支持周期、自动发布凭证、Maven Central account、license 法律意见或组织人员名单。

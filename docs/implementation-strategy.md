@@ -253,6 +253,8 @@ Phase 0 只证明 compiler/build foundation，不生成虚假的 G2/G4 feature-c
 
 本项目只有一个产品实施目标：完成 Java-only SOMA V1，并满足 G0-G6。Phase 0 至 Phase 6 只表示实现顺序和验证 checkpoint，不是独立产品版本、release、Codex goal 或兼容性层级。
 
+`V1.0 RC` 是完整功能 checkpoint：所有 V1 功能 capability 和 G0-G5 evidence 必须落地，不是缩小版产品。G6-only license artifact、support matrix、SCM/contact、signing/provenance 可以在功能 RC 时保持 `not-started` 或 `blocked`，但仍属于同一个 V1 release 总目标；G6 未通过时，总 release Goal 不得标记 complete，也不得公开分发或声明正式支持矩阵。
+
 实施过程中禁止：
 
 - 把 Phase 改写为 `v0.1`、`v0.2`、MVP、Lite、Basic 或其他缩水目标；

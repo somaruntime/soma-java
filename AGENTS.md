@@ -18,6 +18,14 @@
 
 以上是 Agent 操作护栏；完整语义仍以正式 owner 文档为准。
 
+## Release Identity and Validation Baseline
+
+- 发布身份以 [Versioning 与 release 契约](docs/versioning-and-release-contract.md) 为唯一事实源：组织与发布主体为 HGTECH，产品品牌为 SOMA，Maven `groupId` / Java package root 为 `com.hgtech.soma`，正式 artifact 名保持 `soma-*`；
+- HGTECH 只能进入真实组织归属、SCM、POM/publishing/provenance 等发布边界，不得成为 annotation、generated API、runtime type、error、schema 或其他 SOMA 产品公共概念的命名前缀；历史排除身份遵守正式 Owner 的零扩散规则；
+- Apache License 2.0 是 V1 推荐方向；正式 `LICENSE`、POM metadata 和 G6 evidence 未完成前，不得声明 public RC/release readiness；
+- V1 实施先使用本机完整 JDK 8 javac、Maven Wrapper 和当前 OS/architecture；每次 validation 记录实际 JDK vendor/version/build、OS、architecture 和命令，本机通过不得外推为正式支持矩阵；
+- G6 support matrix 未确定或未验证时只能保持 `not-started` 或 `blocked`，不得标记完成、从 V1 删除或用单机 smoke 替代。
+
 ## V1 Scope Preservation
 
 - Java-only SOMA V1 是唯一产品实施目标；`Phase 0` 至 `Phase 6` 只是 [实现顺序和验证 checkpoint](docs/implementation-strategy.md)，不是 `v0.x`、MVP、Lite、Basic、独立 release 或替代目标；

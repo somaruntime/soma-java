@@ -27,8 +27,19 @@ require_once docs/implementation-strategy.md '### 8.2 单调收敛原则'
 require_once docs/implementation-strategy.md '### 8.3 V1 capability ledger'
 require_once docs/implementation-strategy.md '### 8.5 Scope change hard stop'
 require_once docs/validation-gates.md '### 4.1 V1 scope non-regression'
+require_once docs/validation-gates.md '### 4.2 实施验证环境与支持矩阵边界'
+require_once docs/versioning-and-release-contract.md '### 3.1 V1.0 RC 完成边界'
+require_once docs/versioning-and-release-contract.md '### 3.2 发布身份原则'
+require_once docs/build-and-dependency-contract.md '### 2.1 实施验证基线'
 require_once AGENTS.md '## V1 Scope Preservation'
 require_once .github/pull_request_template.md '## V1 防缩水'
+require_once pom.xml '<name>HGTECH</name>'
+
+excluded_identity=$(printf '%s%s' 'hg' 'cyber')
+excluded_identity_files=$(rg -l -i "$excluded_identity" --glob '!target/**' --glob '!.git/**' . 2>/dev/null | sort || true)
+if [ -n "$excluded_identity_files" ]; then
+  fail 'the excluded historical identity must not appear anywhere in the repository'
+fi
 
 capability_ids='
 V1-ANNOTATION-SCHEMA

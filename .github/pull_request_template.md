@@ -8,6 +8,7 @@
 - [ ] 已说明 public/generated/schema/runtime-plan/error/release 兼容性影响
 - [ ] 未把 README、report、guide 或 `docs/temp/` 当作事实源
 - [ ] 未引入未决第三方 dependency 或跨模块反向依赖
+- [ ] HGTECH 只用于组织/发布 metadata，SOMA public/generated/schema/runtime 概念未被组织名侵入；coordinates/artifact identity 未经批准不变
 
 ## V1 防缩水
 
@@ -29,6 +30,8 @@
 - [ ] `./mvnw -B -ntp verify`
 - [ ] `git diff --check`
 - [ ] 已列出本次 surface 所需的 compile/golden/invariant/consumer/benchmark 证据
+- [ ] 已记录实际 JDK vendor/version/build、Maven Wrapper/Maven version（适用时）、OS、architecture 和完整命令；未把本机结果外推为 support matrix
+- [ ] 未因 RC 暂无硬性性能数值门槛而跳过 performance-shape 或 benchmark-path evidence
 
 ## 风险与遗留
 

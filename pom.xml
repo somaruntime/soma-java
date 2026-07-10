@@ -9,6 +9,9 @@
 
   <name>SOMA Java Parent</name>
   <description>Java annotation schema and Java columnar runtime prototype for SOMA.</description>
+  <organization>
+    <name>HGTECH</name>
+  </organization>
 
   <modules>
     <module>soma-annotations</module>

@@ -1,6 +1,6 @@
 # Contributing to soma_java
 
-感谢关注 SOMA Java。项目目前处于 pre-implementation、pre-public-release 阶段；设计事实已经形成正式 Owner 体系，但 public license、maintainer/contact 和外部贡献许可尚未最终确定。因此，外部贡献在开始前应先与 repository owner 协调，不能假设提交即自动获得合并或发布许可。
+感谢关注 SOMA Java。项目目前处于 pre-implementation、pre-public-release 阶段；设计事实已经形成正式 Owner 体系，发布主体为 HGTECH、产品品牌为 SOMA，并推荐 Apache License 2.0。正式 `LICENSE`、一致的 POM metadata、maintainer/contact 和外部贡献许可尚未完成 G6 evidence，因此外部贡献在开始前仍应先与 repository owner 协调，不能假设提交即自动获得合并或发布许可。
 
 ## 1. 先读事实源
 
@@ -21,7 +21,9 @@ Maven 由 repository wrapper 固定，不要求预装相同 Maven 版本：
 ./mvnw -B -ntp verify
 ```
 
-V1 compiler integration 只把正式支持矩阵中的 javac 8 当作 authority。使用新 JDK 的 `--release 8` 不等于 supported javac 8 build。
+V1 compiler integration 只把 full JDK 8 javac 当作 compiler authority；public RC/release 只声明正式 G6 matrix 中有证据的组合。使用新 JDK 的 `--release 8` 不等于 supported javac 8 build。
+
+实施阶段先以当前开发机的完整 JDK 8 javac、Maven Wrapper 和当前 OS/architecture 为验证基线。每次 validation 必须记录实际 JDK vendor/version/build、OS、architecture 和执行命令；本机通过不能外推为正式跨平台支持，G6 support matrix 形成前对应状态保持 `not-started` 或 `blocked`。
 
 ## 3. Change workflow
 
@@ -75,4 +77,4 @@ Repository 长期分支只使用 `main`、`develop`、`release`。常规设计�
 
 ## 8. Community policy status
 
-在项目所有者确认 license、SCM、maintainer、support 和 private security contact 后，仓库才会补齐 `LICENSE`、`CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md`、CODEOWNERS 和公开 issue policy。缺失这些文件意味着项目尚未完成 public-release readiness，不应使用 placeholder 绕过。
+项目所有者已经确认 HGTECH / SOMA 身份基线并推荐 Apache License 2.0；仓库仍需在 public RC/release sign-off 前补齐标准 `LICENSE`、一致 POM metadata、SCM、maintainer、support、private security contact、`CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md`、CODEOWNERS 和公开 issue policy。缺失这些文件意味着项目尚未完成 public-release readiness，不应使用 placeholder 绕过。

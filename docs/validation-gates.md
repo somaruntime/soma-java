@@ -51,6 +51,7 @@ Gate 状态只允许：
 - commit hash 或 artifact version；
 - 输入 artifact 和输出 artifact；
 - 实际执行命令或人工审查步骤；
+- 实际 JDK vendor/version/build、Maven Wrapper/Maven version（适用时）、OS 和 architecture；
 - 通过项、失败项、豁免项；
 - 产物路径、checksum 或等价可验证标识；
 - known limitations；
@@ -71,6 +72,12 @@ Gate 状态只允许：
 - 如果需要 public migration、核心事实迁移或主执行路径重写，状态必须是 `blocked`，不能通过 phase closeout。
 
 Phase-local success 不能隐式 waive、删除或移出未涉及的 V1 capability。`waived` 只对本 Gate 明确列出的 evidence item 生效，必须包含唯一 Owner 和用户/项目决策者 sign-off；Codex、单个 implementation PR 或临时报告无权自行豁免产品 capability。
+
+### 4.2 实施验证环境与支持矩阵边界
+
+V1 implementation validation 先使用当前开发机的完整 JDK 8 javac、Maven Wrapper 和当前 OS/architecture。每次 validation 必须记录实际 JDK vendor/version/build、OS、architecture 和完整命令；使用 Maven 时同时记录 Wrapper distribution/Maven version。
+
+本机 validation 只证明对应 commit/artifact 在该次记录环境中通过，不能外推为跨 vendor/minor、OS 或 architecture 支持。正式 support matrix 仍是 G6 required evidence；在 public RC/release sign-off 前未确定、未执行或证据不完整时，对应状态必须是 `not-started` 或 `blocked`，不得标记 `passed`、不得从 V1 删除，也不得由“理论兼容”或单机 smoke 替代。
 
 ## 5. Gate owner and report paths
 
@@ -109,6 +116,7 @@ Report 是 evidence，不是设计事实源。可持续技术事实必须进入�
 - known limitation 与公开 release claim 冲突；
 - public/generated API 暴露 runtime sidecar、bitmap word、hash bucket 或 third-party internal type；
 - Java 8 target 失效。
+- 本机 validation 被外推为未验证 JDK vendor/minor、OS 或 architecture 的正式支持结论；
 - public release 缺少 license、namespace ownership、SCM/contact、安全报告渠道或 external consumer；
 - released artifact 可变、不可复现或缺少 checksum/source/javadoc/provenance。
 
@@ -168,6 +176,8 @@ Benchmark smoke 只证明：
 - release artifact 能完成基本性能路径。
 
 Benchmark smoke 不等于性能优势声明。任何“更快”“更省内存”“适合生产大规模 hot path”的声明，都必须有 baseline、数据规模、机器环境、重复次数、统计口径和可复现命令。
+
+V1.0 RC 以正确性为当前验收中心，不设置绝对 throughput、latency、memory ratio 或相对提升硬指标。这不取消 G2/G3 的 primitive static binding、packed/primitive/allocation/fusion 等 performance-shape evidence，也不取消 G5 benchmark runner、场景和结构化 JSONL 的 required evidence。
 
 最小 benchmark smoke 场景：
 

@@ -32,6 +32,20 @@ full JDK 8
 
 在 wrapper 尚未引入的 commit 上可以使用受控 Maven 版本，但从第一个 Java implementation commit 起，CI、贡献说明和 package report 必须使用 wrapper。JRE-only、IDE-only 或未记录的本机 Maven 不构成 release evidence。
 
+### 2.1 实施验证基线
+
+V1 实施阶段先使用当前开发机的完整 JDK 8 javac、repository Maven Wrapper 和当前 OS/architecture 完成功能实现、correctness、external consumer 和 benchmark 开发。该环境是 implementation validation baseline，不是正式 support matrix，也不产生其他 vendor/minor、OS 或 architecture 的支持承诺。
+
+每次正式 validation、phase/checkpoint closeout 和 gate report 必须记录：
+
+- 实际 JDK vendor、version 和 build；
+- Maven Wrapper distribution/version；未执行 Maven 时明确记为 not applicable；
+- OS 和 architecture；
+- 完整执行命令；
+- 结果只覆盖该次实际环境，不外推为未验证组合的支持结论。
+
+Machine-local `JAVA_HOME`、Homebrew path、Maven cache 或其他绝对路径可以出现在 evidence report 的环境记录中，但不得进入 distributable build、generated artifact、schema hash 或正式支持承诺。正式 JDK vendor/minor、runtime JVM、OS 和 architecture matrix 仍由 G6 report 拥有；在 public RC/release sign-off 前未形成并验证时，其状态必须保持 `not-started` 或 `blocked`。
+
 ## 3. Module dependency graph
 
 允许的 production/build dependency：
@@ -134,7 +148,7 @@ Root parent 统一拥有：
 
 Module POM 不重复版本，不覆盖 toolchain，除非 module owner contract 有明确理由。Plugin version upgrade 是 build-governance change，必须运行 reactor、consumer 和相关 golden。
 
-V1 compiler adapter 只支持正式 matrix 中的 full JDK 8 javac。JDK 9+、ECJ 或其他 compiler 不得仅因为 `source=8` 就被视为支持。
+V1 compiler adapter 只以 full JDK 8 javac 为 compiler authority。实施阶段只声明记录过的本机环境验证通过；public RC/release 只支持正式 G6 matrix 中有证据的 full JDK 8 javac/runtime 组合。JDK 9+、ECJ 或其他 compiler 不得仅因为 `source=8` 就被视为支持。
 
 ## 8. Reproducible artifacts
 
@@ -196,6 +210,8 @@ Build-governance change 至少运行：
 ./mvnw -B -ntp verify        # implementation exists after
 git diff --check
 ```
+
+Validation closeout 同时记录第 2.1 节要求的 JDK、Wrapper/Maven、OS、architecture 和命令；仅列出 `Java 8` 或“本机通过”不构成充分 evidence。
 
 Compiler/processor change 额外运行 external consumer、clean/incremental compare 和 unsupported compiler negative fixture。
 
