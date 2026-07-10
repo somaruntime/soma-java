@@ -16,9 +16,9 @@ Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime 
 
 Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
 
-首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace`、`HashIntKeySpace` 和 `HashLongKeySpace`。Concrete primitive column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
+首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`ObjectColumn<T>`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。Concrete column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
 
-Exact current protocol matrix（Phase 1 + P2-A，全部位于 `com.hgtech.soma.runtime.generated`）：
+Exact current protocol matrix（Phase 1 + Phase 2，全部位于 `com.hgtech.soma.runtime.generated`）：
 
 ```text
 GeneratedMetadata(String schemaHash, String generatedTarget, String compilerIdentity,
@@ -39,6 +39,8 @@ PrimitiveColumn() / PresenceBitmap() public no-arg construction
 PrimitiveColumn.get(int) -> exact primitive
 PrimitiveColumn.set(int, exact primitive) -> void
 PrimitiveColumn.copyFrom(same concrete type, int source, int target, int length) -> void
+ObjectColumn<T>.get(int) -> T; set(int, T) -> void
+ObjectColumn<T>.copyFrom(ObjectColumn<T>, int source, int target, int length) -> void
 PresenceBitmap.isPresent(int)/setPresent(int)/clearPresent(int)
 PresenceBitmap.copyFrom(PresenceBitmap, int source, int target, int length)
 PresenceBitmap.presentCount() -> int
@@ -70,6 +72,12 @@ HashIntKeySpace(int expectedSize); size()/contains(int)/rowOf(int)
 HashIntKeySpace.put(int key, int rowSlot)/remove(int key)/updateRow(int key, int rowSlot)/clear() -> void
 HashLongKeySpace(int expectedSize); size()/contains(long)/rowOf(long)
 HashLongKeySpace.put(long key, int rowSlot)/remove(long key)/updateRow(long key, int rowSlot)/clear() -> void
+HashCompositeKeySpace(int expectedSize); size()/ensureInsertCapacity() -> int/void
+HashCompositeKeySpace.firstSlot(long hash)/nextSlot(int slot) -> int
+HashCompositeKeySpace.isEmpty/isLive(int slot) -> boolean
+HashCompositeKeySpace.hashAt(int slot) -> long; rowAt(int slot) -> int
+HashCompositeKeySpace.putAt(int slot, long hash, int rowSlot) -> void
+HashCompositeKeySpace.removeAt(int slot)/updateRowAt(int slot, int rowSlot)/clear() -> void
 KeyCanonicalization.strictFloatKeyBits(String table, String field, float value, String operation) -> int
 KeyCanonicalization.strictDoubleKeyBits(String table, String field, double value, String operation) -> long
 KeyCanonicalization.strictFloatStorage/strictDoubleStorage(...) -> canonical float/double

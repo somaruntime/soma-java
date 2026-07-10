@@ -434,7 +434,8 @@ public final class SomaProcessor extends AbstractProcessor {
         }
         if (!optional && key && type.getAnnotation(SomaValue.class) != null) {
             ValueModel value = validatedValues.get(type.getQualifiedName().toString());
-            return value == null ? null : TableFieldType.forSingleLeafValue(value);
+            return value == null ? null
+                    : TableFieldType.forFlattenedValue(value, validatedValues);
         }
         if (!optional) {
             return null;
@@ -1126,14 +1127,20 @@ public final class SomaProcessor extends AbstractProcessor {
         private void appendJson(StringBuilder json) {
             json.append('{');
             json.append("\"javaName\":").append(quote(javaName)).append(',');
-            json.append("\"leaves\":[{");
-            String leafPath = type.valueJavaType == null ? logicalName
-                    : logicalName + "." + type.valueLeafLogicalName;
-            String leafSemantic = type.valueJavaType == null ? semantic : type.valueLeafSemantic;
-            json.append("\"leafPath\":").append(quote(leafPath)).append(',');
-            json.append("\"semantic\":").append(quote(leafSemantic)).append(',');
-            json.append("\"storageType\":").append(quote(type.storagePrimitiveName));
-            json.append("}],");
+            json.append("\"leaves\":[");
+            if (type.valueJavaType == null) {
+                appendLeafJson(json, logicalName, semantic, type.storagePrimitiveName);
+            } else {
+                for (int i = 0; i < type.valueLeaves.size(); i++) {
+                    if (i > 0) {
+                        json.append(',');
+                    }
+                    ValueLeafType leaf = type.valueLeaves.get(i);
+                    appendLeafJson(json, logicalName + "." + leaf.logicalName,
+                            leaf.semantic, leaf.storagePrimitiveName);
+                }
+            }
+            json.append("],");
             json.append("\"logicalName\":").append(quote(logicalName)).append(',');
             json.append("\"materializedType\":")
                     .append(quote(optional ? type.boxedName : type.materializedType)).append(',');
@@ -1144,11 +1151,28 @@ public final class SomaProcessor extends AbstractProcessor {
         }
 
         private DenseTableSourceGenerator.FieldSpec toGeneratorSpec() {
+            List<DenseTableSourceGenerator.ValueLeafSpec> leaves =
+                    new ArrayList<DenseTableSourceGenerator.ValueLeafSpec>();
+            for (ValueLeafType leaf : type.valueLeaves) {
+                leaves.add(new DenseTableSourceGenerator.ValueLeafSpec(
+                        leaf.javaName, leaf.storageName, leaf.logicalName, leaf.semantic,
+                        leaf.publicPrimitiveName, leaf.storagePrimitiveName,
+                        leaf.columnType, leaf.enumJavaType));
+            }
             return new DenseTableSourceGenerator.FieldSpec(
                     javaName, logicalName, type.publicType,
                     type.boxedName, type.storagePrimitiveName, type.columnType,
                     type.enumJavaType, type.valueJavaType, type.valueLeafJavaName,
-                    optional, key);
+                    type.valueConstructionTemplate, leaves, optional, key);
+        }
+
+        private static void appendLeafJson(
+                StringBuilder json, String path, String semantic, String storageType) {
+            json.append('{');
+            json.append("\"leafPath\":").append(quote(path)).append(',');
+            json.append("\"semantic\":").append(quote(semantic)).append(',');
+            json.append("\"storageType\":").append(quote(storageType));
+            json.append('}');
         }
     }
 
@@ -1166,6 +1190,8 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String valueLeafJavaName;
         private final String valueLeafLogicalName;
         private final String valueLeafSemantic;
+        private final String valueConstructionTemplate;
+        private final List<ValueLeafType> valueLeaves;
 
         private TableFieldType(
                 TypeKind primitiveKind,
@@ -1180,7 +1206,9 @@ public final class SomaProcessor extends AbstractProcessor {
                 String valueJavaType,
                 String valueLeafJavaName,
                 String valueLeafLogicalName,
-                String valueLeafSemantic) {
+                String valueLeafSemantic,
+                String valueConstructionTemplate,
+                List<ValueLeafType> valueLeaves) {
             this.primitiveKind = primitiveKind;
             this.logicalType = logicalType;
             this.publicType = publicType;
@@ -1194,6 +1222,8 @@ public final class SomaProcessor extends AbstractProcessor {
             this.valueLeafJavaName = valueLeafJavaName;
             this.valueLeafLogicalName = valueLeafLogicalName;
             this.valueLeafSemantic = valueLeafSemantic;
+            this.valueConstructionTemplate = valueConstructionTemplate;
+            this.valueLeaves = valueLeaves;
         }
 
         private static TableFieldType forKind(TypeKind kind) {
@@ -1225,32 +1255,106 @@ public final class SomaProcessor extends AbstractProcessor {
             return new TableFieldType(
                     null, "enum:" + javaType, javaType, javaType, javaType,
                     "int", "IntColumn", javaType, enumModel,
-                    null, null, null, null);
+                    null, null, null, null, null,
+                    new ArrayList<ValueLeafType>());
         }
 
-        private static TableFieldType forSingleLeafValue(ValueModel value) {
-            if (value.fields.size() != 1) {
+        private static TableFieldType forFlattenedValue(
+                ValueModel value, Map<String, ValueModel> values) {
+            if (value.fields.isEmpty()) {
                 return null;
             }
-            FieldModel leaf = value.fields.get(0);
-            TableFieldType storage = primitiveType(leaf.type.text);
-            if (storage == null) {
-                return null;
-            }
+            List<ValueLeafType> leaves = new ArrayList<ValueLeafType>();
+            String construction = flattenValue(
+                    value, values, "", "", "", leaves, new HashSet<String>());
+            if (construction == null || leaves.isEmpty()) return null;
+            ValueLeafType first = leaves.get(0);
             return new TableFieldType(
-                    storage.primitiveKind,
+                    primitiveKind(first.storagePrimitiveName),
                     "value:" + value.javaType,
                     value.javaType,
                     value.javaType,
                     value.javaType,
-                    storage.storagePrimitiveName,
-                    storage.columnType,
+                    first.storagePrimitiveName,
+                    first.columnType,
                     null,
                     null,
                     value.javaType,
-                    leaf.javaName,
-                    leaf.logicalName,
-                    leaf.semantic);
+                    first.javaName,
+                    first.logicalName,
+                    first.semantic,
+                    construction,
+                    leaves);
+        }
+
+        private static String flattenValue(
+                ValueModel value,
+                Map<String, ValueModel> values,
+                String javaPrefix,
+                String logicalPrefix,
+                String storagePrefix,
+                List<ValueLeafType> leaves,
+                Set<String> visiting) {
+            if (!visiting.add(value.javaType)) return null;
+            StringBuilder result = new StringBuilder("new ")
+                    .append(value.javaType).append('(');
+            for (int index = 0; index < value.fields.size(); index++) {
+                if (index > 0) result.append(',');
+                FieldModel field = value.fields.get(index);
+                String javaPath = javaPrefix + field.javaName;
+                String logicalPath = logicalPrefix + field.logicalName;
+                String storageName = storagePrefix + (storagePrefix.isEmpty()
+                        ? field.javaName : capitalize(field.javaName));
+                if (field.type.valueReference != null) {
+                    ValueModel nested = values.get(field.type.valueReference);
+                    if (nested == null) return null;
+                    String nestedExpression = flattenValue(
+                            nested, values, javaPath + ".", logicalPath + ".",
+                            storageName, leaves, visiting);
+                    if (nestedExpression == null) return null;
+                    result.append(nestedExpression);
+                } else {
+                    ValueLeafType leaf = valueLeaf(
+                            field, javaPath, logicalPath, storageName);
+                    if (leaf == null) return null;
+                    int leafIndex = leaves.size();
+                    leaves.add(leaf);
+                    result.append("@{").append(leafIndex).append("}@");
+                }
+            }
+            visiting.remove(value.javaType);
+            return result.append(')').toString();
+        }
+
+        private static ValueLeafType valueLeaf(
+                FieldModel field, String javaPath, String logicalPath,
+                String storageName) {
+            TableFieldType primitive = primitiveType(field.type.text);
+            if (primitive != null) {
+                return new ValueLeafType(javaPath, storageName, logicalPath,
+                        field.semantic, primitive.publicType,
+                        primitive.storagePrimitiveName, primitive.columnType, null);
+            }
+            if ("string".equals(field.type.text)) {
+                return new ValueLeafType(javaPath, storageName, logicalPath,
+                        field.semantic, "java.lang.String", "java.lang.String",
+                        "ObjectColumn<java.lang.String>", null);
+            }
+            if (field.type.enumModel != null) {
+                String enumType = field.type.enumModel.javaType;
+                return new ValueLeafType(javaPath, storageName, logicalPath,
+                        field.semantic, enumType, "int", "IntColumn", enumType);
+            }
+            return null;
+        }
+
+        private static TypeKind primitiveKind(String storageType) {
+            TableFieldType primitive = primitiveType(storageType);
+            return primitive == null ? null : primitive.primitiveKind;
+        }
+
+        private static String capitalize(String value) {
+            return Character.toUpperCase(value.charAt(0)) + value.substring(1);
         }
 
         private static TableFieldType primitiveType(String text) {
@@ -1268,7 +1372,34 @@ public final class SomaProcessor extends AbstractProcessor {
                                            String boxed, String column) {
             return new TableFieldType(
                     kind, primitive, primitive, boxed, primitive, primitive,
-                    column, null, null, null, null, null, null);
+                    column, null, null, null, null, null, null,
+                    null,
+                    new ArrayList<ValueLeafType>());
+        }
+    }
+
+    private static final class ValueLeafType {
+        private final String javaName;
+        private final String storageName;
+        private final String logicalName;
+        private final String semantic;
+        private final String publicPrimitiveName;
+        private final String storagePrimitiveName;
+        private final String columnType;
+        private final String enumJavaType;
+
+        private ValueLeafType(
+                String javaName, String storageName, String logicalName, String semantic,
+                String publicPrimitiveName, String storagePrimitiveName,
+                String columnType, String enumJavaType) {
+            this.javaName = javaName;
+            this.storageName = storageName;
+            this.logicalName = logicalName;
+            this.semantic = semantic;
+            this.publicPrimitiveName = publicPrimitiveName;
+            this.storagePrimitiveName = storagePrimitiveName;
+            this.columnType = columnType;
+            this.enumJavaType = enumJavaType;
         }
     }
 }

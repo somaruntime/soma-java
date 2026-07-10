@@ -13,6 +13,7 @@ fi
 fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-keyed
 enum_fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-enum-keyed
 value_fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-value-keyed
+composite_fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-composite-value-keyed
 invalid_source=$root_dir/soma-testkit/src/test/fixtures/invalid-keyed-int-slice
 expected=$fixture_source/expected
 local_repository=$root_dir/soma-testkit/target/phase0-m2/repository
@@ -24,8 +25,10 @@ enum_fixture=$evidence_dir/enum-consumer
 enum_repeat_fixture=$evidence_dir/enum-repeat-consumer
 value_fixture=$evidence_dir/value-consumer
 value_repeat_fixture=$evidence_dir/value-repeat-consumer
+composite_fixture=$evidence_dir/composite-consumer
+composite_repeat_fixture=$evidence_dir/composite-repeat-consumer
 invalid_fixture=$evidence_dir/invalid-consumer
-mkdir -p "$fixture" "$repeat_fixture" "$enum_fixture" "$enum_repeat_fixture" "$value_fixture" "$value_repeat_fixture" "$invalid_fixture"
+mkdir -p "$fixture" "$repeat_fixture" "$enum_fixture" "$enum_repeat_fixture" "$value_fixture" "$value_repeat_fixture" "$composite_fixture" "$composite_repeat_fixture" "$invalid_fixture"
 cp "$fixture_source/pom.xml" "$fixture/pom.xml"
 cp -R "$fixture_source/src" "$fixture/src"
 cp "$fixture_source/pom.xml" "$repeat_fixture/pom.xml"
@@ -38,6 +41,10 @@ cp "$value_fixture_source/pom.xml" "$value_fixture/pom.xml"
 cp -R "$value_fixture_source/src" "$value_fixture/src"
 cp "$value_fixture_source/pom.xml" "$value_repeat_fixture/pom.xml"
 cp -R "$value_fixture_source/src" "$value_repeat_fixture/src"
+cp "$composite_fixture_source/pom.xml" "$composite_fixture/pom.xml"
+cp -R "$composite_fixture_source/src" "$composite_fixture/src"
+cp "$composite_fixture_source/pom.xml" "$composite_repeat_fixture/pom.xml"
+cp -R "$composite_fixture_source/src" "$composite_repeat_fixture/src"
 cp "$invalid_source/pom.xml" "$invalid_fixture/pom.xml"
 cp -R "$invalid_source/src" "$invalid_fixture/src"
 
@@ -73,6 +80,15 @@ MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritim
   -Dmaven.repo.local="$local_repository" \
   -f "$value_repeat_fixture/pom.xml" clean package
 
+./mvnw -B -ntp \
+  -Dmaven.repo.local="$local_repository" \
+  -f "$composite_fixture/pom.xml" clean package
+
+MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
+  ./mvnw -B -ntp \
+  -Dmaven.repo.local="$local_repository" \
+  -f "$composite_repeat_fixture/pom.xml" clean package
+
 diff -r "$fixture/target/generated-sources/annotations" \
   "$repeat_fixture/target/generated-sources/annotations"
 
@@ -94,6 +110,12 @@ diff -r "$value_fixture/target/generated-sources/annotations" \
   "$value_repeat_fixture/target/generated-sources/annotations"
 cmp "$value_fixture/target/classes/META-INF/soma/com.example.soma.valuekeyed.schema.json" \
   "$value_repeat_fixture/target/classes/META-INF/soma/com.example.soma.valuekeyed.schema.json"
+diff -r "$composite_fixture/target/generated-sources/annotations" \
+  "$composite_repeat_fixture/target/generated-sources/annotations"
+cmp "$composite_fixture/target/classes/META-INF/soma/com.example.soma.compositekeyed.schema.json" \
+  "$composite_repeat_fixture/target/classes/META-INF/soma/com.example.soma.compositekeyed.schema.json"
+cmp "$composite_fixture/target/classes/META-INF/soma/com.example.soma.compositekeyed.schema.sha256" \
+  "$composite_repeat_fixture/target/classes/META-INF/soma/com.example.soma.compositekeyed.schema.sha256"
 
 for class_name in \
   KeyedParticleTable KeyedParticleMutator KeyedParticleMutableRow KeyedParticleKeys \
@@ -162,6 +184,26 @@ if ! grep -F ' fetch(com.example.soma.valuekeyed.MachineId);' \
   exit 1
 fi
 
+composite_table_source=$composite_fixture/target/generated-sources/annotations/com/example/soma/compositekeyed/generated/OperationStateTable.java
+composite_batch_source=$composite_fixture/target/generated-sources/annotations/com/example/soma/compositekeyed/generated/OperationStateBatch.java
+"$JAVA_HOME/bin/javap" -classpath "$composite_fixture/target/classes" -public \
+  com.example.soma.compositekeyed.generated.OperationStateTable >"$evidence_dir/OperationStateTable.javap.txt"
+if ! grep -F ' fetch(com.example.soma.compositekeyed.OperationKey);' \
+  "$evidence_dir/OperationStateTable.javap.txt" >/dev/null \
+  || ! grep -q 'HashCompositeKeySpace keySpace' "$composite_table_source" \
+  || ! grep -q 'ObjectColumn<java.lang.String>' "$composite_table_source" \
+  || ! grep -q 'compositeBatchTableEquals' "$composite_table_source" \
+  || ! grep -q 'new com.example.soma.compositekeyed.Coordinate' "$composite_table_source"; then
+  printf '%s\n' 'generated-keyed-phase2-check: composite value key static binding missing' >&2
+  exit 1
+fi
+if grep -E 'HashMap|Object\[\].*key|new (Tuple|OperationKey)\(' "$composite_table_source" \
+  | grep -v 'keyValue(int row)' >/dev/null \
+  || grep -E 'OperationKey\[|List<.*OperationKey' "$composite_batch_source" >/dev/null; then
+  printf '%s\n' 'generated-keyed-phase2-check: composite hot path uses object key storage or transient tuple' >&2
+  exit 1
+fi
+
 mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutator.java
 mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutableRow.java
 long_mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleMutator.java
@@ -190,6 +232,12 @@ if grep -E 'setId|clearId|setUpdateId|updateId' \
 fi
 if ! grep -q 'HashIntKeySpace keySpace' "$table_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: primitive keyspace binding missing' >&2
+  exit 1
+fi
+if ! grep -F 'HashIntKeySpace staged=stageAppendKeys(batch);int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;' "$table_source" >/dev/null \
+  || ! grep -F 'HashCompositeKeySpace staged=stageAppendKeys(batch);int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;' "$composite_table_source" >/dev/null \
+  || ! grep -F 'HashCompositeKeySpace staged=stageReplacementKeys(batch);int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);' "$composite_table_source" >/dev/null; then
+  printf '%s\n' 'generated-keyed-phase2-check: keyspace must be fully staged before live column publication' >&2
   exit 1
 fi
 if ! grep -q 'HashLongKeySpace keySpace' "$long_table_source"; then
@@ -233,6 +281,10 @@ fi
 "$JAVA_HOME/bin/java" \
   -cp "$value_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
   com.example.soma.valuekeyed.ValueKeyedConsumer
+
+"$JAVA_HOME/bin/java" \
+  -cp "$composite_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  com.example.soma.compositekeyed.CompositeValueKeyedConsumer
 
 "$JAVA_HOME/bin/java" -version
 "$JAVA_HOME/bin/javac" -version

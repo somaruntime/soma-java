@@ -93,8 +93,15 @@ final class DenseTableSourceGenerator {
                 .append("  private static final String TABLE = ").append(q(table.logicalName)).append(";\n")
                 .append("  private int size;\n  private int capacity;\n");
         for (FieldSpec field : table.fields) {
-            out.append("  private ").append(field.storagePrimitive).append("[] ")
-                    .append(field.javaName).append("Values;\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    out.append("  private ").append(leaf.storagePrimitive).append("[] ")
+                            .append(leaf.physicalName(field)).append("Values;\n");
+                }
+            } else {
+                out.append("  private ").append(field.storagePrimitive).append("[] ")
+                        .append(field.javaName).append("Values;\n");
+            }
             if (field.optional) {
                 out.append("  private long[] ").append(field.javaName).append("Presence;\n");
             }
@@ -105,6 +112,15 @@ final class DenseTableSourceGenerator {
                         .append(field.enumConstantsName()).append('=')
                         .append(field.enumType).append(".values();\n");
             }
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    if (leaf.enumType != null) {
+                        out.append("  private static final ").append(leaf.enumType).append("[] ")
+                                .append(leaf.enumConstantsName(field)).append('=')
+                                .append(leaf.enumType).append(".values();\n");
+                    }
+                }
+            }
         }
         out.append("\n  public ").append(batch).append("() { this(")
                 .append(table.defaultCapacity).append("); }\n")
@@ -112,8 +128,15 @@ final class DenseTableSourceGenerator {
                 .append("    if (initialCapacity < 0) throw new IllegalArgumentException(\"initialCapacity must be non-negative\");\n")
                 .append("    capacity = initialCapacity;\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.javaName).append("Values = new ")
-                    .append(field.storagePrimitive).append("[initialCapacity];\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    out.append("    ").append(leaf.physicalName(field)).append("Values = new ")
+                            .append(leaf.storagePrimitive).append("[initialCapacity];\n");
+                }
+            } else {
+                out.append("    ").append(field.javaName).append("Values = new ")
+                        .append(field.storagePrimitive).append("[initialCapacity];\n");
+            }
             if (field.optional) {
                 out.append("    ").append(field.javaName)
                         .append("Presence = new long[(initialCapacity + 63) >>> 6];\n");
@@ -181,10 +204,18 @@ final class DenseTableSourceGenerator {
             out.append("    size++;\n    return this;\n  }\n\n");
         }
 
-        out.append("  public void clear() { size = 0;\n");
+        out.append("  public void clear() { int previous = size; size = 0;\n");
         for (FieldSpec field : table.fields) {
             if (field.optional) {
                 out.append("    Arrays.fill(").append(field.javaName).append("Presence, 0L);\n");
+            }
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    if ("java.lang.String".equals(leaf.storagePrimitive)) {
+                        out.append("    Arrays.fill(").append(leaf.physicalName(field))
+                                .append("Values, 0, previous, null);\n");
+                    }
+                }
             }
         }
         out.append("  }\n\n  private void ensureOne() {\n")
@@ -196,9 +227,18 @@ final class DenseTableSourceGenerator {
                 .append("    if (grown > Integer.MAX_VALUE) grown = Integer.MAX_VALUE;\n")
                 .append("    int next = (int) grown;\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.storagePrimitive).append("[] new")
-                    .append(cap(field.javaName)).append("Values = Arrays.copyOf(")
-                    .append(field.javaName).append("Values, next);\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    String physical = leaf.physicalName(field);
+                    out.append("    ").append(leaf.storagePrimitive).append("[] new")
+                            .append(cap(physical)).append("Values = Arrays.copyOf(")
+                            .append(physical).append("Values, next);\n");
+                }
+            } else {
+                out.append("    ").append(field.storagePrimitive).append("[] new")
+                        .append(cap(field.javaName)).append("Values = Arrays.copyOf(")
+                        .append(field.javaName).append("Values, next);\n");
+            }
             if (field.optional) {
                 out.append("    long[] new").append(cap(field.javaName))
                         .append("Presence = Arrays.copyOf(").append(field.javaName)
@@ -206,8 +246,16 @@ final class DenseTableSourceGenerator {
             }
         }
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.javaName).append("Values = new")
-                    .append(cap(field.javaName)).append("Values;\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    String physical = leaf.physicalName(field);
+                    out.append("    ").append(physical).append("Values = new")
+                            .append(cap(physical)).append("Values;\n");
+                }
+            } else {
+                out.append("    ").append(field.javaName).append("Values = new")
+                        .append(cap(field.javaName)).append("Values;\n");
+            }
             if (field.optional) {
                 out.append("    ").append(field.javaName).append("Presence = new")
                         .append(cap(field.javaName)).append("Presence;\n");
@@ -216,19 +264,43 @@ final class DenseTableSourceGenerator {
         out.append("    capacity = next;\n  }\n\n");
         for (FieldSpec field : table.fields) {
             String c = cap(field.javaName);
-            out.append("  private void set").append(c).append("(int row, ")
-                    .append(field.primitive).append(" value) { ").append(field.javaName)
-                    .append("Values[row] = ").append(field.storageValue("value", "batch.write")).append(";");
+            if (field.compositeValueKey()) {
+                out.append("  private void set").append(c).append("(int row, ")
+                        .append(field.primitive).append(" value) { ")
+                        .append(field.primitive).append(" required=RuntimeFailures.requiredValue(TABLE,")
+                        .append(q(field.logicalName)).append(",value,\"batch.write\");");
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    out.append(leaf.physicalName(field)).append("Values[row]=")
+                            .append(leaf.storageValue(field, "required." + leaf.javaName, "batch.write"))
+                            .append(';');
+                }
+            } else {
+                out.append("  private void set").append(c).append("(int row, ")
+                        .append(field.primitive).append(" value) { ").append(field.javaName)
+                        .append("Values[row] = ").append(field.storageValue("value", "batch.write")).append(";");
+            }
             if (field.optional) {
                 out.append(" setPresent(").append(field.javaName).append("Presence, row, true);");
             }
-            out.append(" }\n")
-                    .append("  ").append(field.primitive).append(" ").append(field.javaName)
-                    .append("Value(int row) { return ")
-                    .append(field.publicValue(field.javaName + "Values[row]")).append("; }\n")
-                    .append("  ").append(field.storagePrimitive).append(" ").append(field.javaName)
-                    .append("StorageValue(int row) { return ").append(field.javaName)
-                    .append("Values[row]; }\n");
+            out.append(" }\n");
+            if (field.compositeValueKey()) {
+                out.append("  ").append(field.primitive).append(" ").append(field.javaName)
+                        .append("Value(int row) { return ")
+                        .append(compositeValueExpression(field, "row", true))
+                        .append("; }\n");
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    out.append("  ").append(leaf.storagePrimitive).append(' ')
+                            .append(leaf.physicalName(field)).append("StorageValue(int row) { return ")
+                            .append(leaf.physicalName(field)).append("Values[row]; }\n");
+                }
+            } else {
+                out.append("  ").append(field.primitive).append(" ").append(field.javaName)
+                        .append("Value(int row) { return ")
+                        .append(field.publicValue(field.javaName + "Values[row]")).append("; }\n")
+                        .append("  ").append(field.storagePrimitive).append(" ").append(field.javaName)
+                        .append("StorageValue(int row) { return ").append(field.javaName)
+                        .append("Values[row]; }\n");
+            }
             if (field.optional) {
                 out.append("  private void set").append(c).append("Absent(int row) { ")
                         .append(field.javaName).append("Values[row] = ").append(field.zero()).append("; setPresent(")
@@ -439,14 +511,32 @@ final class DenseTableSourceGenerator {
                         .append(field.enumConstantsName()).append('=')
                         .append(field.enumType).append(".values();\n");
             }
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    if (leaf.enumType != null) {
+                        out.append("  private static final ").append(leaf.enumType).append("[] ")
+                                .append(leaf.enumConstantsName(field)).append('=')
+                                .append(leaf.enumType).append(".values();\n");
+                    }
+                }
+            }
         }
         for (FieldSpec field : table.fields) {
-            out.append("  private final ").append(field.columnType).append(' ').append(field.javaName)
-                    .append("Column=new ").append(field.columnType).append("();\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    String physical = leaf.physicalName(field);
+                    out.append("  private final ").append(leaf.columnType).append(' ')
+                            .append(physical).append("Column=new ")
+                            .append(leaf.columnType).append("();\n");
+                }
+            } else {
+                out.append("  private final ").append(field.columnType).append(' ').append(field.javaName)
+                        .append("Column=new ").append(field.columnType).append("();\n");
+            }
             if (field.optional) out.append("  private final PresenceBitmap ").append(field.javaName).append("Presence=new PresenceBitmap();\n");
         }
         if (table.keyed()) {
-            out.append("  private final ").append(table.keyField().keySpaceType())
+            out.append("  private ").append(table.keyField().keySpaceType())
                     .append(" keySpace;\n");
         }
         out.append("  private final DenseTableState state;\n")
@@ -462,7 +552,13 @@ final class DenseTableSourceGenerator {
         out.append("\n  private ").append(name).append("(RuntimePlan plan,TablePlan tablePlan){\n")
                 .append("    ColumnGroup columns=new ColumnGroup(tablePlan.initialCapacity()");
         for (FieldSpec field : table.fields) {
-            out.append(',').append(field.javaName).append("Column");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    out.append(',').append(leaf.physicalName(field)).append("Column");
+                }
+            } else {
+                out.append(',').append(field.javaName).append("Column");
+            }
             if (field.optional) out.append(',').append(field.javaName).append("Presence");
         }
         out.append(");\n    state=new DenseTableState(TABLE,plan,tablePlan,columns);\n");
@@ -479,8 +575,11 @@ final class DenseTableSourceGenerator {
                 .append(table.defaultCapacity).append(").growthRatio(3,2).maximumUpdateScratchBytes(268435456L).build()).build();}\n")
                 .append("  public RuntimePlan runtimePlan(){return state.runtimePlan();}\n  public int size(){return state.size();}\n  public int capacity(){return state.capacity();}\n  public long structuralEpoch(){return state.structuralEpoch();}\n  public boolean isReleased(){return state.isReleased();}\n\n");
         if (table.keyed()) {
-            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");state.prepareAppend(0);validateAppendKeys(batch);int count=batch.size();int start=state.prepareAppend(count);copyBatch(batch,0,start,count);installBatchKeys(batch,start,count);state.commitAppend(start,count);}\n")
-                    .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");state.prepareReplace(0);validateReplacementKeys(batch);int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);keySpace.clear();installBatchKeys(batch,0,count);state.commitReplace(previous,count);}\n")
+            String keySpaceType = table.keyField().keySpaceType();
+            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;")
+                    .append(keySpaceType).append(" staged=stageAppendKeys(batch);int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;}\n")
+                    .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");state.prepareReplace(0);")
+                    .append(keySpaceType).append(" staged=stageReplacementKeys(batch);int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);state.commitReplace(previous,count);keySpace=staged;}\n")
                     .append("  public void clear(){int previous=state.prepareClear();clearColumns(0,previous);keySpace.clear();state.commitClear(previous);}\n")
                     .append("  public void release(){int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);keySpace.clear();state.commitRelease(previous);}}\n\n");
         } else {
@@ -491,48 +590,69 @@ final class DenseTableSourceGenerator {
         }
         out.append("  private void copyBatch(").append(table.name("Batch")).append(" batch,int source,int target,int count){for(int i=0;i<count;i++){int s=source+i,t=target+i;\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.javaName).append("Column.set(t,batch.")
-                    .append(field.javaName).append("StorageValue(s));\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    String physical = leaf.physicalName(field);
+                    out.append("    ").append(physical).append("Column.set(t,batch.")
+                            .append(physical).append("StorageValue(s));\n");
+                }
+            } else {
+                out.append("    ").append(field.javaName).append("Column.set(t,batch.")
+                        .append(field.javaName).append("StorageValue(s));\n");
+            }
             if (field.optional) out.append("    if(batch.").append(field.javaName).append("Present(s))").append(field.javaName).append("Presence.setPresent(t);else ").append(field.javaName).append("Presence.clearPresent(t);\n");
         }
         out.append("  }}\n  private void clearColumns(int from,int to){\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.javaName).append("Column.clearRange(from,to);\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    out.append("    ").append(leaf.physicalName(field))
+                            .append("Column.clearRange(from,to);\n");
+                }
+            } else {
+                out.append("    ").append(field.javaName).append("Column.clearRange(from,to);\n");
+            }
             if (field.optional) out.append("    ").append(field.javaName).append("Presence.clearRange(from,to);\n");
         }
         out.append("  }\n\n");
         if (table.keyed()) {
             FieldSpec key = table.keyField();
-            out.append("  private void validateAppendKeys(").append(table.name("Batch")).append(" batch){")
-                    .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
-                    .append("(batch.size());for(int row=0;row<batch.size();row++){")
-                    .append(key.valueBacked() ? key.storagePrimitive : key.primitive).append(" key=batch.")
-                    .append(key.javaName).append(key.valueBacked() ? "StorageValue(row);" : "Value(row);")
-                    .append(key.keySpaceValueType()).append(" keySlot=")
-                    .append(key.valueBacked() ? key.keySpaceValueFromStorage("key", "addBatch") : key.keySpaceValue("key", "addBatch"))
-                    .append(";if(keySpace.contains(keySlot)||staged.contains(keySlot))throw ")
-                    .append(key.valueBacked() ? "RuntimeFailures.duplicateValueKey(TABLE," + q(key.logicalName) + ",\"addBatch\")" : "RuntimeFailures.duplicateKey(TABLE,key,\"addBatch\")")
-                    .append(";staged.put(keySlot,row);}}\n")
-                    .append("  private void validateReplacementKeys(").append(table.name("Batch")).append(" batch){")
-                    .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
-                    .append("(batch.size());for(int row=0;row<batch.size();row++){")
-                    .append(key.valueBacked() ? key.storagePrimitive : key.primitive).append(" key=batch.")
-                    .append(key.javaName).append(key.valueBacked() ? "StorageValue(row);" : "Value(row);")
-                    .append(key.keySpaceValueType()).append(" keySlot=")
-                    .append(key.valueBacked() ? key.keySpaceValueFromStorage("key", "replaceAll") : key.keySpaceValue("key", "replaceAll"))
-                    .append(";if(staged.contains(keySlot))throw ")
-                    .append(key.valueBacked() ? "RuntimeFailures.duplicateValueKey(TABLE," + q(key.logicalName) + ",\"replaceAll\")" : "RuntimeFailures.duplicateKey(TABLE,key,\"replaceAll\")")
-                    .append(";staged.put(keySlot,row);}}\n")
-                    .append("  private void installBatchKeys(").append(table.name("Batch")).append(" batch,int start,int count){for(int row=0;row<count;row++)keySpace.put(")
-                    .append(key.valueBacked()
-                            ? key.keySpaceValueFromStorage("batch." + key.javaName + "StorageValue(row)", "addBatch")
-                            : key.keySpaceValue("batch." + key.javaName + "Value(row)", "addBatch"))
-                    .append(",start+row);}\n")
-                    .append("  private int keyRow(").append(key.primitive).append(" key,String operation){int row=keySpace.rowOf(")
-                    .append(key.keySpaceValueExpression("key", "operation"))
-                    .append(");if(row<0)throw ")
-                    .append(key.valueBacked() ? "RuntimeFailures.missingValueKey(TABLE," + q(key.logicalName) + ",operation)" : "RuntimeFailures.missingKey(TABLE,key,operation)")
-                    .append(";return row;}\n\n");
+            out.append("  private int appendKeyCapacity(int batchSize){long total=(long)size()+(long)batchSize;if(total>Integer.MAX_VALUE)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"addBatch\",Integer.MAX_VALUE,total);return(int)total;}\n");
+            if (key.compositeValueKey()) {
+                appendCompositeKeyRuntime(out, table, key);
+            } else {
+                out.append("  private ").append(key.keySpaceType()).append(" stageAppendKeys(")
+                        .append(table.name("Batch")).append(" batch){")
+                        .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
+                        .append("(appendKeyCapacity(batch.size()));for(int row=0;row<size();row++)staged.put(")
+                        .append(key.valueBacked()
+                                ? key.keySpaceValueFromStorage(key.javaName + "Column.get(row)", "addBatch")
+                                : key.keySpaceValue(key.javaName + "Value(row)", "addBatch"))
+                        .append(",row);for(int row=0;row<batch.size();row++){")
+                        .append(key.valueBacked() ? key.storagePrimitive : key.primitive).append(" key=batch.")
+                        .append(key.javaName).append(key.valueBacked() ? "StorageValue(row);" : "Value(row);")
+                        .append(key.keySpaceValueType()).append(" keySlot=")
+                        .append(key.valueBacked() ? key.keySpaceValueFromStorage("key", "addBatch") : key.keySpaceValue("key", "addBatch"))
+                        .append(";if(staged.contains(keySlot))throw ")
+                        .append(key.valueBacked() ? "RuntimeFailures.duplicateValueKey(TABLE," + q(key.logicalName) + ",\"addBatch\")" : "RuntimeFailures.duplicateKey(TABLE,key,\"addBatch\")")
+                        .append(";staged.put(keySlot,size()+row);}return staged;}\n")
+                        .append("  private ").append(key.keySpaceType()).append(" stageReplacementKeys(")
+                        .append(table.name("Batch")).append(" batch){")
+                        .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
+                        .append("(batch.size());for(int row=0;row<batch.size();row++){")
+                        .append(key.valueBacked() ? key.storagePrimitive : key.primitive).append(" key=batch.")
+                        .append(key.javaName).append(key.valueBacked() ? "StorageValue(row);" : "Value(row);")
+                        .append(key.keySpaceValueType()).append(" keySlot=")
+                        .append(key.valueBacked() ? key.keySpaceValueFromStorage("key", "replaceAll") : key.keySpaceValue("key", "replaceAll"))
+                        .append(";if(staged.contains(keySlot))throw ")
+                        .append(key.valueBacked() ? "RuntimeFailures.duplicateValueKey(TABLE," + q(key.logicalName) + ",\"replaceAll\")" : "RuntimeFailures.duplicateKey(TABLE,key,\"replaceAll\")")
+                        .append(";staged.put(keySlot,row);}return staged;}\n")
+                        .append("  private int keyRow(").append(key.primitive).append(" key,String operation){int row=keySpace.rowOf(")
+                        .append(key.keySpaceValueExpression("key", "operation"))
+                        .append(");if(row<0)throw ")
+                        .append(key.valueBacked() ? "RuntimeFailures.missingValueKey(TABLE," + q(key.logicalName) + ",operation)" : "RuntimeFailures.missingKey(TABLE,key,operation)")
+                        .append(";return row;}\n\n");
+            }
         }
         out.append("\n")
                 .append("  public ").append(table.carrierType).append(" fetchAt(int rowIndex){return fetchAt(rowIndex,runtimePlan().defaultMaterializationBudget());}\n")
@@ -542,6 +662,8 @@ final class DenseTableSourceGenerator {
                 .append("  private void accountRow(MaterializationTracker tracker,int row){long leaves=0L,bytes=").append(16L + 8L * table.fields.size()).append("L;\n");
         for (FieldSpec field : table.fields) {
             if (field.optional) out.append("    if(").append(field.javaName).append("Present(row)){leaves++;bytes+=16L;}\n");
+            else if (field.compositeValueKey()) out.append("    leaves+=")
+                    .append(field.valueLeaves.size()).append("L;bytes+=16L;\n");
             else out.append("    leaves++;\n");
         }
         out.append("    tracker.addLeafValues(leaves);tracker.addEstimatedBytes(bytes);}\n")
@@ -556,16 +678,25 @@ final class DenseTableSourceGenerator {
         out.append("    return value;}\n\n");
         if (table.keyed()) {
             FieldSpec key = table.keyField();
-            out.append("  public boolean containsKey(").append(key.primitive).append(" key){state.checkActive(\"containsKey\");return keySpace.contains(")
-                    .append(key.keySpaceValue("key", "containsKey"))
-                    .append(");}\n")
-                    .append("  public java.util.Optional<").append(table.carrierType).append("> find(").append(key.primitive).append(" key){state.checkActive(\"find\");int row=keySpace.rowOf(")
-                    .append(key.keySpaceValue("key", "find"))
-                    .append(");return row<0?java.util.Optional.<").append(table.carrierType).append(">empty():java.util.Optional.of(fetchAt(row));}\n")
-                    .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key){return fetchAt(keyRow(key,\"fetch\"));}\n")
-                    .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
-                    .append("  public void delete(").append(key.primitive).append(" key){state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch();selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(Error failure){state.endOperationFailure(\"delete\",scanned,0L,\"callback_failed\");throw failure;}}\n")
-                    .append("  public ").append(table.name("Keys")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("Keys")).append("(this);}\n");
+            if (key.compositeValueKey()) {
+                out.append("  public boolean containsKey(").append(key.primitive).append(" key){state.checkActive(\"containsKey\");return compositeLookup(key,\"containsKey\")>=0;}\n")
+                        .append("  public java.util.Optional<").append(table.carrierType).append("> find(").append(key.primitive).append(" key){state.checkActive(\"find\");int row=compositeLookup(key,\"find\");return row<0?java.util.Optional.<").append(table.carrierType).append(">empty():java.util.Optional.of(fetchAt(row));}\n")
+                        .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key){return fetchAt(keyRow(key,\"fetch\"));}\n")
+                        .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
+                        .append("  public void delete(").append(key.primitive).append(" key){state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch();selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(Error failure){state.endOperationFailure(\"delete\",scanned,0L,\"callback_failed\");throw failure;}}\n")
+                        .append("  public ").append(table.name("Keys")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("Keys")).append("(this);}\n");
+            } else {
+                out.append("  public boolean containsKey(").append(key.primitive).append(" key){state.checkActive(\"containsKey\");return keySpace.contains(")
+                        .append(key.keySpaceValue("key", "containsKey"))
+                        .append(");}\n")
+                        .append("  public java.util.Optional<").append(table.carrierType).append("> find(").append(key.primitive).append(" key){state.checkActive(\"find\");int row=keySpace.rowOf(")
+                        .append(key.keySpaceValue("key", "find"))
+                        .append(");return row<0?java.util.Optional.<").append(table.carrierType).append(">empty():java.util.Optional.of(fetchAt(row));}\n")
+                        .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key){return fetchAt(keyRow(key,\"fetch\"));}\n")
+                        .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
+                        .append("  public void delete(").append(key.primitive).append(" key){state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch();selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(Error failure){state.endOperationFailure(\"delete\",scanned,0L,\"callback_failed\");throw failure;}}\n")
+                        .append("  public ").append(table.name("Keys")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("Keys")).append("(this);}\n");
+            }
         }
         out.append("  public ").append(table.name("Mutator")).append(" mutateAt(int rowIndex){int row=state.checkRowIndex(rowIndex,\"mutateAt\");return new ").append(table.name("Mutator")).append("(this,row,structuralEpoch());}\n")
                 .append("  public ").append(table.name("Rows")).append(" rows(){state.checkActive(\"rows\");return new ").append(table.name("Rows")).append("(this);}\n")
@@ -608,11 +739,172 @@ final class DenseTableSourceGenerator {
         return out.append("}\n").toString();
     }
 
+    private void appendCompositeKeyRuntime(
+            StringBuilder out, TableSpec table, FieldSpec key) {
+        String batch = table.name("Batch");
+        String duplicateAppend = "RuntimeFailures.duplicateValueKey(TABLE,"
+                + q(key.logicalName) + ",\"addBatch\")";
+        String duplicateReplace = "RuntimeFailures.duplicateValueKey(TABLE,"
+                + q(key.logicalName) + ",\"replaceAll\")";
+
+        out.append("  private HashCompositeKeySpace stageAppendKeys(").append(batch)
+                .append(" batch){HashCompositeKeySpace staged=new HashCompositeKeySpace(appendKeyCapacity(batch.size()));for(int row=0;row<size();row++){staged.ensureInsertCapacity();long hash=");
+        appendCompositeColumnHash(out, key, "row", "\"addBatch\"");
+        out.append(";staged.putAt(compositeInsertionSlot(staged,hash),hash,row);}for(int row=0;row<batch.size();row++){staged.ensureInsertCapacity();long hash=");
+        appendCompositeBatchHash(out, key, "batch", "row", "\"addBatch\"");
+        out.append(";if(compositeAppendSlot(staged,hash,batch,row,\"addBatch\")>=0)throw ")
+                .append(duplicateAppend)
+                .append(";staged.putAt(compositeInsertionSlot(staged,hash),hash,size()+row);}return staged;}\n");
+
+        out.append("  private HashCompositeKeySpace stageReplacementKeys(").append(batch)
+                .append(" batch){HashCompositeKeySpace staged=new HashCompositeKeySpace(batch.size());for(int row=0;row<batch.size();row++){staged.ensureInsertCapacity();long hash=");
+        appendCompositeBatchHash(out, key, "batch", "row", "\"replaceAll\"");
+        out.append(";if(compositeBatchSlot(staged,hash,batch,row,\"replaceAll\")>=0)throw ")
+                .append(duplicateReplace)
+                .append(";staged.putAt(compositeInsertionSlot(staged,hash),hash,row);}return staged;}\n");
+
+        out.append("  private int compositeInsertionSlot(HashCompositeKeySpace space,long hash){int slot=space.firstSlot(hash),deleted=-1;while(!space.isEmpty(slot)){if(!space.isLive(slot)&&deleted<0)deleted=slot;slot=space.nextSlot(slot);}return deleted>=0?deleted:slot;}\n")
+                .append("  private int compositeAppendSlot(HashCompositeKeySpace space,long hash,").append(batch)
+                .append(" batch,int batchRow,String operation){int slot=space.firstSlot(hash);while(!space.isEmpty(slot)){if(space.isLive(slot)&&space.hashAt(slot)==hash){int row=space.rowAt(slot);if(row<size()?compositeBatchTableEquals(batch,batchRow,row,operation):compositeBatchEquals(batch,batchRow,row-size(),operation))return slot;}slot=space.nextSlot(slot);}return -1;}\n")
+                .append("  private int compositeBatchSlot(HashCompositeKeySpace space,long hash,").append(batch)
+                .append(" batch,int batchRow,String operation){int slot=space.firstSlot(hash);while(!space.isEmpty(slot)){if(space.isLive(slot)&&space.hashAt(slot)==hash&&compositeBatchEquals(batch,batchRow,space.rowAt(slot),operation))return slot;slot=space.nextSlot(slot);}return -1;}\n")
+                .append("  private int compositeStoredSlot(int row,String operation){long hash=");
+        appendCompositeColumnHash(out, key, "row", "operation");
+        out.append(";int slot=keySpace.firstSlot(hash);while(!keySpace.isEmpty(slot)){if(keySpace.isLive(slot)&&keySpace.hashAt(slot)==hash&&compositeStoredEquals(row,keySpace.rowAt(slot),operation))return slot;slot=keySpace.nextSlot(slot);}return -1;}\n")
+                .append("  private int compositeLookup(").append(key.primitive)
+                .append(" key,String operation){").append(key.primitive)
+                .append(" required=RuntimeFailures.requiredValue(TABLE,")
+                .append(q(key.logicalName)).append(",key,operation);long hash=");
+        appendCompositeValueHash(out, key, "required", "operation");
+        out.append(";int slot=keySpace.firstSlot(hash);while(!keySpace.isEmpty(slot)){if(keySpace.isLive(slot)&&keySpace.hashAt(slot)==hash&&compositeValueEquals(required,keySpace.rowAt(slot),operation))return keySpace.rowAt(slot);slot=keySpace.nextSlot(slot);}return -1;}\n")
+                .append("  private int keyRow(").append(key.primitive)
+                .append(" key,String operation){int row=compositeLookup(key,operation);if(row<0)throw RuntimeFailures.missingValueKey(TABLE,")
+                .append(q(key.logicalName)).append(",operation);return row;}\n");
+
+        out.append("  private long compositeHash(");
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append(',');
+            ValueLeafSpec leaf = key.valueLeaves.get(i);
+            out.append(leaf.storagePrimitive).append(" leaf").append(i);
+        }
+        out.append(",String operation){long hash=0xcbf29ce484222325L;");
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            ValueLeafSpec leaf = key.valueLeaves.get(i);
+            out.append("hash^=").append(leaf.hashBits(key, "leaf" + i, "operation"))
+                    .append(";hash*=0x100000001b3L;");
+        }
+        out.append("return hash;}\n");
+
+        out.append("  private boolean compositeBatchTableEquals(").append(batch)
+                .append(" batch,int batchRow,int tableRow,String operation){return ");
+        appendCompositeBatchTableEquality(out, key, "batch", "batchRow", "tableRow", "operation");
+        out.append(";}\n  private boolean compositeBatchEquals(").append(batch)
+                .append(" batch,int left,int right,String operation){return ");
+        appendCompositeBatchEquality(out, key, "batch", "left", "right", "operation");
+        out.append(";}\n  private boolean compositeStoredEquals(int left,int right,String operation){return ");
+        appendCompositeStoredEquality(out, key, "left", "right", "operation");
+        out.append(";}\n  private boolean compositeValueEquals(").append(key.primitive)
+                .append(" value,int row,String operation){return ");
+        appendCompositeValueEquality(out, key, "value", "row", "operation");
+        out.append(";}\n\n");
+    }
+
+    private static void appendCompositeBatchHash(
+            StringBuilder out, FieldSpec key, String batch, String row, String operation) {
+        out.append("compositeHash(");
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append(',');
+            out.append(batch).append('.').append(key.valueLeaves.get(i).physicalName(key))
+                    .append("StorageValue(").append(row).append(')');
+        }
+        out.append(',').append(operation).append(')');
+    }
+
+    private static void appendCompositeColumnHash(
+            StringBuilder out, FieldSpec key, String row, String operation) {
+        out.append("compositeHash(");
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append(',');
+            out.append(key.valueLeaves.get(i).physicalName(key)).append("Column.get(")
+                    .append(row).append(')');
+        }
+        out.append(',').append(operation).append(')');
+    }
+
+    private static void appendCompositeValueHash(
+            StringBuilder out, FieldSpec key, String value, String operation) {
+        out.append("compositeHash(");
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append(',');
+            ValueLeafSpec leaf = key.valueLeaves.get(i);
+            out.append(leaf.keyInputStorage(key,
+                    value + "." + leaf.javaName, operation));
+        }
+        out.append(',').append(operation).append(')');
+    }
+
+    private static void appendCompositeBatchTableEquality(
+            StringBuilder out, FieldSpec key, String batch, String batchRow,
+            String tableRow, String operation) {
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append("&&");
+            ValueLeafSpec leaf = key.valueLeaves.get(i);
+            String left = batch + "." + leaf.physicalName(key)
+                    + "StorageValue(" + batchRow + ")";
+            String right = leaf.physicalName(key) + "Column.get(" + tableRow + ")";
+            out.append(leaf.keyEqual(key, left, right, operation));
+        }
+    }
+
+    private static void appendCompositeBatchEquality(
+            StringBuilder out, FieldSpec key, String batch, String leftRow,
+            String rightRow, String operation) {
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append("&&");
+            ValueLeafSpec leaf = key.valueLeaves.get(i);
+            String left = batch + "." + leaf.physicalName(key)
+                    + "StorageValue(" + leftRow + ")";
+            String right = batch + "." + leaf.physicalName(key)
+                    + "StorageValue(" + rightRow + ")";
+            out.append(leaf.keyEqual(key, left, right, operation));
+        }
+    }
+
+    private static void appendCompositeStoredEquality(
+            StringBuilder out, FieldSpec key, String leftRow,
+            String rightRow, String operation) {
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append("&&");
+            ValueLeafSpec leaf = key.valueLeaves.get(i);
+            String column = leaf.physicalName(key) + "Column.get(";
+            out.append(leaf.keyEqual(key, column + leftRow + ")",
+                    column + rightRow + ")", operation));
+        }
+    }
+
+    private static void appendCompositeValueEquality(
+            StringBuilder out, FieldSpec key, String value, String row, String operation) {
+        for (int i = 0; i < key.valueLeaves.size(); i++) {
+            if (i > 0) out.append("&&");
+            ValueLeafSpec leaf = key.valueLeaves.get(i);
+            out.append(leaf.keyEqual(key,
+                    leaf.keyInputStorage(key, value + "." + leaf.javaName, operation),
+                    leaf.physicalName(key) + "Column.get(" + row + ")", operation));
+        }
+    }
+
     private void appendTableFieldAccess(StringBuilder out, TableSpec table) {
         for (FieldSpec field : table.fields) {
             String c = cap(field.javaName);
-            out.append("  ").append(field.primitive).append(' ').append(field.javaName).append("Value(int row){return ")
-                    .append(field.publicValue(field.javaName + "Column.get(row)")).append(";}\n");
+            if (field.compositeValueKey()) {
+                out.append("  ").append(field.primitive).append(' ').append(field.javaName)
+                        .append("Value(int row){return ")
+                        .append(compositeValueExpression(field, "row", false))
+                        .append(";}\n");
+            } else {
+                out.append("  ").append(field.primitive).append(' ').append(field.javaName).append("Value(int row){return ")
+                        .append(field.publicValue(field.javaName + "Column.get(row)")).append(";}\n");
+            }
             if (field.optional) out.append("  boolean ").append(field.javaName).append("Present(int row){return ").append(field.javaName).append("Presence.isPresent(row);}\n");
             if (field.key) {
                 continue;
@@ -691,16 +983,28 @@ final class DenseTableSourceGenerator {
         out.append("  RemoveResult removeSelected(int[] selected,int count,long scanned,String operation){int previous=size();if(count<0||count>previous)throw RuntimeFailures.internalInvariant(\"remove_selection_count\",TABLE,operation);if(removeMarks.length<previous)removeMarks=Arrays.copyOf(removeMarks,previous);Arrays.fill(removeMarks,0,previous,false);for(int i=0;i<count;i++){int row=selected[i];if(row<0||row>=previous||removeMarks[row])throw RuntimeFailures.internalInvariant(\"remove_selection_identity\",TABLE,operation);removeMarks[row]=true;}");
         if (table.keyed()) {
             FieldSpec key = table.keyField();
-            out.append("    for(int row=0;row<previous;row++)if(removeMarks[row])keySpace.remove(")
-                    .append(key.valueBacked()
-                            ? key.keySpaceValueFromStorage(key.javaName + "Column.get(row)", "rows.remove")
-                            : key.keySpaceValue(key.javaName + "Value(row)", "rows.remove"))
-                    .append(");\n");
+            if (key.compositeValueKey()) {
+                out.append("    for(int row=0;row<previous;row++)if(removeMarks[row]){int slot=compositeStoredSlot(row,operation);if(slot<0)throw RuntimeFailures.internalInvariant(\"composite_key_missing\",TABLE,operation);keySpace.removeAt(slot);}\n");
+            } else {
+                out.append("    for(int row=0;row<previous;row++)if(removeMarks[row])keySpace.remove(")
+                        .append(key.valueBacked()
+                                ? key.keySpaceValueFromStorage(key.javaName + "Column.get(row)", "rows.remove")
+                                : key.keySpaceValue(key.javaName + "Value(row)", "rows.remove"))
+                        .append(");\n");
+            }
         }
         out.append("int write=0;long compacted=0L;for(int read=0;read<previous;read++){if(removeMarks[read])continue;if(write!=read){\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.javaName).append("Column.set(write,")
-                    .append(field.javaName).append("Column.get(read));\n");
+            if (field.compositeValueKey()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    String physical = leaf.physicalName(field);
+                    out.append("    ").append(physical).append("Column.set(write,")
+                            .append(physical).append("Column.get(read));\n");
+                }
+            } else {
+                out.append("    ").append(field.javaName).append("Column.set(write,")
+                        .append(field.javaName).append("Column.get(read));\n");
+            }
             if (field.optional) {
                 out.append("    if(").append(field.javaName).append("Presence.isPresent(read))")
                         .append(field.javaName).append("Presence.setPresent(write);else ")
@@ -709,11 +1013,15 @@ final class DenseTableSourceGenerator {
         }
         if (table.keyed()) {
             FieldSpec key = table.keyField();
-            out.append("    keySpace.updateRow(")
-                    .append(key.valueBacked()
-                            ? key.keySpaceValueFromStorage(key.javaName + "Column.get(read)", "rows.remove")
-                            : key.keySpaceValue(key.javaName + "Value(read)", "rows.remove"))
-                    .append(",write);\n");
+            if (key.compositeValueKey()) {
+                out.append("    int keySlot=compositeStoredSlot(read,operation);if(keySlot<0)throw RuntimeFailures.internalInvariant(\"composite_key_missing\",TABLE,operation);keySpace.updateRowAt(keySlot,write);\n");
+            } else {
+                out.append("    keySpace.updateRow(")
+                        .append(key.valueBacked()
+                                ? key.keySpaceValueFromStorage(key.javaName + "Column.get(read)", "rows.remove")
+                                : key.keySpaceValue(key.javaName + "Value(read)", "rows.remove"))
+                        .append(",write);\n");
+            }
         }
         out.append("    compacted++;}write++;}clearColumns(write,previous);state.commitStructuralRemove(previous,write,operation);return state.removeResult(scanned,count,count,compacted,0L,0L);}\n");
     }
@@ -729,6 +1037,19 @@ final class DenseTableSourceGenerator {
                 out.append(field.primitive).append(' ').append(field.javaName);
             }
         }
+    }
+
+    private static String compositeValueExpression(
+            FieldSpec field, String row, boolean batch) {
+        String result = field.valueConstructionTemplate;
+        for (int i = 0; i < field.valueLeaves.size(); i++) {
+            ValueLeafSpec leaf = field.valueLeaves.get(i);
+            String storage = batch
+                    ? leaf.physicalName(field) + "Values[" + row + "]"
+                    : leaf.physicalName(field) + "Column.get(" + row + ")";
+            result = result.replace("@{" + i + "}@", leaf.publicValue(field, storage));
+        }
+        return result;
     }
 
     private static String cap(String value) {
@@ -810,12 +1131,15 @@ final class DenseTableSourceGenerator {
         final String enumType;
         final String valueType;
         final String valueLeafJavaName;
+        final String valueConstructionTemplate;
+        final List<ValueLeafSpec> valueLeaves;
         final boolean optional;
         final boolean key;
 
         FieldSpec(String javaName, String logicalName, String primitive,
                   String boxed, String storagePrimitive, String columnType,
                   String enumType, String valueType, String valueLeafJavaName,
+                  String valueConstructionTemplate, List<ValueLeafSpec> valueLeaves,
                   boolean optional, boolean key) {
             this.javaName = javaName;
             this.logicalName = logicalName;
@@ -826,6 +1150,8 @@ final class DenseTableSourceGenerator {
             this.enumType = enumType;
             this.valueType = valueType;
             this.valueLeafJavaName = valueLeafJavaName;
+            this.valueConstructionTemplate = valueConstructionTemplate;
+            this.valueLeaves = new ArrayList<ValueLeafSpec>(valueLeaves);
             this.optional = optional;
             this.key = key;
         }
@@ -890,6 +1216,9 @@ final class DenseTableSourceGenerator {
         }
 
         String keySpaceType() {
+            if (compositeValueKey()) {
+                return "HashCompositeKeySpace";
+            }
             if ("long".equals(storagePrimitive) || "double".equals(storagePrimitive)) {
                 return "HashLongKeySpace";
             }
@@ -939,6 +1268,18 @@ final class DenseTableSourceGenerator {
 
         boolean valueBacked() {
             return valueType != null;
+        }
+
+        boolean compositeValueKey() {
+            if (!key || valueType == null || valueLeaves.isEmpty()) {
+                return false;
+            }
+            ValueLeafSpec first = valueLeaves.get(0);
+            String scalarTemplate = "new " + valueType + "(@{0}@)";
+            return valueLeaves.size() > 1
+                    || first.enumType != null
+                    || "java.lang.String".equals(first.storagePrimitive)
+                    || !scalarTemplate.equals(valueConstructionTemplate);
         }
 
         String keySpaceValueType() {
@@ -992,6 +1333,121 @@ final class DenseTableSourceGenerator {
             }
             return "new EnumColumnView<" + enumType + ">(state," + javaName + "Column,"
                     + presence + ",TABLE," + q(logicalName) + "," + enumConstantsName() + ")";
+        }
+    }
+
+    static final class ValueLeafSpec {
+        final String javaName;
+        final String storageName;
+        final String logicalName;
+        final String semantic;
+        final String primitive;
+        final String storagePrimitive;
+        final String columnType;
+        final String enumType;
+
+        ValueLeafSpec(
+                String javaName, String storageName, String logicalName, String semantic,
+                String primitive, String storagePrimitive, String columnType,
+                String enumType) {
+            this.javaName = javaName;
+            this.storageName = storageName;
+            this.logicalName = logicalName;
+            this.semantic = semantic;
+            this.primitive = primitive;
+            this.storagePrimitive = storagePrimitive;
+            this.columnType = columnType;
+            this.enumType = enumType;
+        }
+
+        String physicalName(FieldSpec owner) {
+            int index = owner.valueLeaves.indexOf(this);
+            if (index < 0) {
+                throw new IllegalStateException("value leaf is not owned by field");
+            }
+            return owner.javaName + "Leaf" + index;
+        }
+
+        String storageValue(
+                FieldSpec owner, String expression, String operation) {
+            if ("float".equals(storagePrimitive)) {
+                return "KeyCanonicalization.strictFloatStorage(TABLE,"
+                        + q(owner.logicalName + "." + logicalName) + ","
+                        + expression + "," + q(operation) + ")";
+            }
+            if ("double".equals(storagePrimitive)) {
+                return "KeyCanonicalization.strictDoubleStorage(TABLE,"
+                        + q(owner.logicalName + "." + logicalName) + ","
+                        + expression + "," + q(operation) + ")";
+            }
+            if (enumType != null) {
+                return "RuntimeFailures.requiredEnumValue(TABLE,"
+                        + q(owner.logicalName + "." + logicalName) + ","
+                        + expression + "," + q(operation) + ").ordinal()";
+            }
+            return expression;
+        }
+
+        String hashBits(FieldSpec owner, String expression, String operationExpression) {
+            if ("boolean".equals(storagePrimitive)) {
+                return "(" + expression + "?1L:0L)";
+            }
+            if ("byte".equals(storagePrimitive) || "short".equals(storagePrimitive)
+                    || "int".equals(storagePrimitive) || "long".equals(storagePrimitive)) {
+                return "(long)(" + expression + ")";
+            }
+            if ("float".equals(storagePrimitive)) {
+                return "(long)KeyCanonicalization.strictFloatKeyBits(TABLE,"
+                        + q(owner.logicalName + "." + logicalName) + ","
+                        + expression + "," + operationExpression + ")";
+            }
+            if ("double".equals(storagePrimitive)) {
+                return "KeyCanonicalization.strictDoubleKeyBits(TABLE,"
+                        + q(owner.logicalName + "." + logicalName) + ","
+                        + expression + "," + operationExpression + ")";
+            }
+            if ("java.lang.String".equals(storagePrimitive)) {
+                return "(long)(" + expression + ").hashCode()";
+            }
+            throw new IllegalStateException("unsupported composite key leaf: " + primitive);
+        }
+
+        String keyEqual(
+                FieldSpec owner, String left, String right, String operationExpression) {
+            if ("float".equals(storagePrimitive)) {
+                return hashBits(owner, left, operationExpression) + "=="
+                        + hashBits(owner, right, operationExpression);
+            }
+            if ("double".equals(storagePrimitive)) {
+                return hashBits(owner, left, operationExpression) + "=="
+                        + hashBits(owner, right, operationExpression);
+            }
+            if ("java.lang.String".equals(storagePrimitive)) {
+                return "(" + left + ").equals(" + right + ")";
+            }
+            return left + "==" + right;
+        }
+
+        String publicValue(FieldSpec owner, String storageExpression) {
+            if (enumType != null) {
+                return enumConstantsName(owner) + "[" + storageExpression + "]";
+            }
+            return storageExpression;
+        }
+
+        String keyInputStorage(
+                FieldSpec owner, String expression, String operationExpression) {
+            if (enumType != null) {
+                return "RuntimeFailures.requiredEnumValue(TABLE,"
+                        + q(owner.logicalName + "." + logicalName) + ","
+                        + expression + "," + operationExpression + ").ordinal()";
+            }
+            return expression;
+        }
+
+        String enumConstantsName(FieldSpec owner) {
+            return physicalName(owner).toUpperCase(java.util.Locale.ROOT)
+                    + "_ENUM_VALUES";
         }
     }
 }

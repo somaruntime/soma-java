@@ -17,6 +17,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.KeyCanonicalization
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.LongColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationTracker
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ObjectColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.PresenceBitmap
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeCompatibility
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeFailures

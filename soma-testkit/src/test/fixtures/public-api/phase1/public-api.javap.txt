@@ -201,6 +201,17 @@ public final class com.hgtech.soma.runtime.generated.MaterializationTracker {
   public long leafValues();
   public long estimatedBytes();
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ObjectColumn
+Compiled from "ObjectColumn.java"
+public final class com.hgtech.soma.runtime.generated.ObjectColumn<T> extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.ObjectColumn();
+  public T get(int);
+  public void set(int, T);
+  public void copyFrom(com.hgtech.soma.runtime.generated.ObjectColumn<T>, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.PresenceBitmap
 Compiled from "PresenceBitmap.java"
 public final class com.hgtech.soma.runtime.generated.PresenceBitmap extends com.hgtech.soma.runtime.generated.GeneratedColumn {
