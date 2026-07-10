@@ -15,7 +15,9 @@ Owner：根项目协调层
 - 跨模块永久原则：[SomaTable 设计宪法](soma-table-design-constitution.md)；
 - 项目边界和架构分层：[项目架构设计](architecture-design.md)；
 - schema annotation：[annotation schema 契约](../soma-annotations/docs/annotation-schema-contract.md)；
+- compiler lowering：[compiler integration 契约](../soma-processor/docs/compiler-integration-contract.md)；
 - normalization/hash/diagnostics：[schema processing 契约](../soma-processor/docs/schema-processing-contract.md)；
+- build/dependency 与 compatibility：[Build 契约](build-and-dependency-contract.md)和 [Public API 兼容性契约](public-api-compatibility-contract.md)；
 - generated API：[Generated Table API 契约](generated-table-api-contract.md)；
 - materialization：[Materialization 契约](materialization-contract.md)；
 - runtime storage/lifecycle：[soma-runtime-core](../soma-runtime-core/docs/README.md)；
@@ -199,12 +201,15 @@ XxxTable
 |---|---|---:|
 | schema version label | 人工可读版本标签 | 是，按 normalized schema contract |
 | exact schema hash | normalized logical schema 的精确 compatibility identity | 自身即结果 |
+| artifact version | 一组 published annotations/processor/runtime artifact 的 release identity | 否 |
+| compiler integration identity | transformer protocol、adapter、supported javac family 和 lowering semantics identity | 否 |
 | processor/runtime compatibility version | generated code 与 runtime protocol identity | 否 |
 | Access Pattern Card | scenario/runtime-plan 输入；记录 rows、hot columns、access/mutation mix、selectivity、optional/child density、working set、allocation/export frequency | 否 |
 | runtime performance shape | packed/primitive/fused/allocation-bounded hot-loop 结构及其可验证 evidence | 否 |
 | runtime plan | capacity、growth、KeySpace/index/order strategy、storage/allocation/scratch hint、stats mode、MaterializationBudget default、estimator version 等执行计划 | 否 |
 | runtime plan hash | effective runtime plan identity | 否 |
 | runtime stats | live diagnostics，不是 schema fact | 否 |
+| runtime error code | 不依赖 message parsing 的 stable machine-readable failure identity | 否 |
 | synchronous single-owner execution | 同一 ownership aggregate 任一时刻仅一个 active owner thread 顺序访问 | 不适用 |
 | quiescent point | 无运行中 terminal/mutation/materialization，且无 active Cursor/Pipeline/ColumnView 的顺序移交点 | 不适用 |
 

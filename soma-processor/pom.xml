@@ -10,5 +10,12 @@
 
   <artifactId>soma-processor</artifactId>
   <name>SOMA Java Processor</name>
-  <description>Java 8 annotation processor、schema validation、schema hash 和 codegen。</description>
+  <description>Java 8 javac integration、annotation processor、schema validation、schema hash 和 codegen。</description>
+
+  <dependencies>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-annotations</artifactId>
+    </dependency>
+  </dependencies>
 </project>

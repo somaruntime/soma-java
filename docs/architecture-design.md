@@ -23,7 +23,8 @@ SomaTable 永久语义以 [设计宪法](soma-table-design-constitution.md) 为�
 V1 面向 Java 8 进程内 runtime state：
 
 - schema source 使用 Java annotation；
-- compile time 生成类型安全 Table/Batch/API/materializer；
+- javac 8 parse-phase plugin 完成 `@SomaValue` effective-type lowering；
+- JSR 269 processor 生成类型安全 Table/Batch/API/materializer；
 - runtime 使用 Java columnar kernel；
 - examples、testkit 和 benchmarks 产生证据。
 
@@ -33,7 +34,7 @@ V1 不承诺 Python、C ABI、native runtime、跨语言 FFI、persistence、dis
 
 ```text
 Java annotation schema
-  -> compile-time schema processing
+  -> javac 8 source lowering + compile-time schema processing
   -> normalized schema model + exact schema hash
   -> generated Table / Batch / API / materializer / ColumnView
   -> annotation-agnostic Java TableStore kernel
@@ -55,7 +56,7 @@ Java annotation schema
 |---|---|---|
 | Application adapter | DTO/API/file 与 Batch/materialized object 映射、业务校验、跨表 orchestration | schema/runtime 内部规则 |
 | Public schema | annotation、field role、type、optional/default/access declaration | runtime storage |
-| Compile-time processing | validation、normalization、hash、diagnostics、codegen | live runtime facts |
+| Compile-time processing | javac integration、validation、normalization、hash、diagnostics、codegen | live runtime facts |
 | Generated API | schema-specific facade、cursor、mutator、materializer、column binding | generic metadata interpretation policy |
 | Runtime core | primitive storage、lookup/sidecar、mutation/lifecycle/error | annotation source 和业务约束 |
 | Evidence | compile/golden/invariant/example/benchmark/report | 产品契约 |
@@ -72,7 +73,7 @@ Java annotation schema
 
 ### 5.2 `soma-processor`
 
-拥有 compile-time processing、`@SomaValue` semantic lowering、validation、normalized schema、exact hash、diagnostics 和 code generation。
+拥有 javac 8 parse-phase integration、`@SomaValue` semantic lowering、JSR 269 processing、validation、normalized schema、exact hash、diagnostics 和 code generation。
 
 Generated code 实现根级公共 API 契约，但 processor internal model 不进入 public API。
 
@@ -138,7 +139,9 @@ soma-benchmarks
 
 ```text
 Java source + annotations
-  -> declaration collection
+  -> javac parse
+  -> @SomaValue lowering before symbol enter
+  -> declaration collection by JSR 269 processor
   -> semantic validation
   -> normalized schema
   -> canonical serialization
@@ -154,9 +157,11 @@ Build-time 必须满足：
 - normalization 和 hash 可复现；
 - generated output 只读取 validated normalized model；
 - diagnostics 使用稳定 machine-readable code；
-- source transformation/semantic lowering 的 compiler boundary 明确。
+- transformer 缺失或 compiler unsupported 时 fail closed；
+- source transformation/semantic lowering 的 compiler boundary 明确；
+- canonical V1 build 使用 full JDK 8 + Maven，不把 `--release 8` 等同于 javac 8 adapter support。
 
-具体规则由 [schema processing 契约](../soma-processor/docs/schema-processing-contract.md) 和 [code generation 契约](../soma-processor/docs/code-generation-contract.md) 拥有。
+具体规则由 [compiler integration 契约](../soma-processor/docs/compiler-integration-contract.md)、[schema processing 契约](../soma-processor/docs/schema-processing-contract.md) 和 [code generation 契约](../soma-processor/docs/code-generation-contract.md) 拥有。
 
 ## 8. Runtime 数据流
 
@@ -210,7 +215,7 @@ TableStore 由职责明确的组件组合：
 | MutationCoordinator | visible mutation、sidecar、epoch 和 pin 冲突协调 |
 | LifecycleState | active/released、view/cursor/pipeline 生命周期 |
 
-这些是 runtime internal，不进入 public/generated 用户术语。详细设计分别由 [TableStore 契约](../soma-runtime-core/docs/table-store-contract.md) 和 [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 拥有。
+这些是 runtime internal，不进入 public/generated 用户术语。详细设计分别由 [TableStore 契约](../soma-runtime-core/docs/table-store-contract.md)、[runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md)、[runtime plan 契约](../soma-runtime-core/docs/runtime-plan-contract.md) 和 [runtime errors/diagnostics 契约](../soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md) 拥有。
 
 ## 10. 公共边界
 
@@ -233,13 +238,14 @@ TableStore 由职责明确的组件组合：
 - arbitrary internal AccessPath extension；
 - processor normalized model implementation class。
 
-公共语义由 [Generated Table API 契约](generated-table-api-contract.md) 和 [Materialization 契约](materialization-contract.md) 拥有。
+公共语义由 [Generated Table API 契约](generated-table-api-contract.md) 和 [Materialization 契约](materialization-contract.md) 拥有；public/internal/compatibility boundary 由 [Public API 与兼容性契约](public-api-compatibility-contract.md) 拥有。
 
 ## 11. 正确性、性能与证据
 
 | 关注点 | 设计 Owner | 证据 Owner |
 |---|---|---|
 | Schema/compatibility | annotations + processor owner contracts | testkit compile/golden |
+| Compiler/build consumer | compiler integration + build/dependency contract | external consumer/package smoke |
 | Public API shape | root API contract + codegen contract | processor golden/package smoke |
 | Runtime correctness | correctness model + runtime lifecycle | runtime invariants/testkit |
 | Runtime performance shape | performance model + runtime implementation contract | testkit shape assertions/benchmarks |
@@ -276,21 +282,30 @@ Runtime plan 可以演进 capacity、hash strategy、index maintenance、scratch
 - runtime error/lifecycle；
 - release gate 和 claim。
 
+Build graph、artifact classification、public compatibility、security trust boundary 和 release lifecycle 分别由根级 owner contract 管理；module implementation 不得自行重新定义。
+
 ## 14. 下游正式文档
 
 - [文档治理规则](documentation-governance.md)
 - [领域术语表](domain-glossary.md)
+- [Build 与依赖契约](build-and-dependency-contract.md)
+- [Public API 与兼容性契约](public-api-compatibility-contract.md)
 - [Generated Table API 契约](generated-table-api-contract.md)
 - [Materialization 契约](materialization-contract.md)
 - [Runtime 正确性模型](runtime-correctness-model.md)
 - [Runtime 性能模型](runtime-performance-model.md)
+- [Security model](security-model.md)
 - [实现策略](implementation-strategy.md)
 - [V1 验证门禁](validation-gates.md)
+- [Versioning 与 release 契约](versioning-and-release-contract.md)
 - [annotation schema 契约](../soma-annotations/docs/annotation-schema-contract.md)
+- [compiler integration 契约](../soma-processor/docs/compiler-integration-contract.md)
 - [schema processing 契约](../soma-processor/docs/schema-processing-contract.md)
 - [code generation 契约](../soma-processor/docs/code-generation-contract.md)
 - [TableStore 契约](../soma-runtime-core/docs/table-store-contract.md)
 - [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md)
+- [runtime plan 契约](../soma-runtime-core/docs/runtime-plan-contract.md)
+- [runtime errors 与 diagnostics 契约](../soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md)
 - [runtime 性能实现契约](../soma-runtime-core/docs/runtime-performance-implementation-contract.md)
 
 ## 15. 非目标

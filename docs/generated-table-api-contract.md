@@ -10,6 +10,8 @@ Owner：根项目协调层
 
 本文定义 SOMA Java V1 generated table facade 的跨模块公共语义。Processor 必须生成符合本文的 API，runtime-core 必须执行符合本文的行为；二者都不是本文的联合 Owner。
 
+Public/internal compatibility 由 [Public API 与兼容性契约](public-api-compatibility-contract.md) 拥有；具体 runtime error code/context 和 callback failure mapping 由 [Runtime errors 与 diagnostics 契约](../soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md) 拥有。
+
 推荐心智模型：
 
 ```text
@@ -274,6 +276,8 @@ Detailed ownership/lifecycle 由 [runtime lifecycle 契约](../soma-runtime-core
 - V1 不提供 snapshot isolation、nested structural mutation 或 cross-table transaction；
 - released table、escaped/stale cursor、consumed pipeline、active view conflict 必须返回 typed error；
 - callback 和 pipeline 不得跨线程使用。
+
+Application callback 抛出异常时，non-mutating terminal 不修改 table；mutating terminal 必须保持 visible failure atomicity，并按 runtime error contract 保留 cause。实现如果无法满足，不能以“callback 是用户代码”为由发布 partial mutation 语义。
 
 ## 15. 性能语义边界
 

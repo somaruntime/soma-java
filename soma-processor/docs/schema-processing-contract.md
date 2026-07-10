@@ -16,7 +16,7 @@ Processing failure 不得产生可被 runtime 使用的 schema-specific artifact
 
 ```text
 annotated Java source + @SomaSchema package metadata
-  -> supported source transformation / effective type model
+  -> javac 8 parse-phase source transformation / effective type model
   -> declaration collection
   -> semantic validation
   -> normalized schema model
@@ -29,6 +29,7 @@ annotated Java source + @SomaSchema package metadata
 
 - declaration collection 不依赖 runtime reflection；
 - `@SomaValue` effective shape 在 normalization 前确定；
+- processor 必须验证 compiler/lowering identity，未 lowering 或 unsupported compiler 时 fail closed；
 - 所有 selector、logical name、ownership 和 type reference 在 codegen 前解析；
 - validation 失败时跳过对应 schema codegen；
 - code generation 只能读取 validated normalized model，不能重新解释 source element；
@@ -41,7 +42,7 @@ V1 normalized schema model 必须稳定。
 V1 baseline：
 
 - Java enum member order 使用 source declaration order；
-- table/value field order 使用 annotation processor 从 javac element model 读取到的 source declaration order；
+- table/value field order 使用 annotation processor 从 lowered javac element model 读取到的 source declaration order；
 - field position 隐式来自 source declaration order；
 - V1 不要求用户显式声明 `position`；
 - index/unique/order declaration order 使用 annotation array order 或 repeated annotation 的 source order；
@@ -225,10 +226,12 @@ Generated API 的用户语义由根级 [Generated Table API 契约](../../docs/g
 - declaration-order stability；
 - structured diagnostic golden；
 - processor/runtime compatibility mismatch cases；
-- Java 8 toolchain repeatability。
+- compiler/lowering identity mismatch cases；
+- canonical javac 8 toolchain repeatability；
+- unsupported JDK/compiler negative fixture。
 
 具体 helper 由 [soma-testkit 契约](../../soma-testkit/docs/testkit-contract.md) 拥有。
 
 ## 10. 非目标
 
-本文不规定 generated Java class/method body、runtime column/keyspace algorithm、runtime-plan concrete strategy、automatic schema migration 或 additive compatibility。
+本文不规定 compiler lowering mechanics、generated Java class/method body、runtime column/keyspace algorithm、runtime-plan concrete strategy、automatic schema migration 或 additive compatibility。Compiler mechanics 由 [Compiler integration 契约](compiler-integration-contract.md) 拥有。

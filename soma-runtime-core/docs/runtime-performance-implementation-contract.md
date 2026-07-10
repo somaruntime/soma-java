@@ -21,7 +21,7 @@ Implementation 必须消费：
 - public API/lifecycle/correctness contract；
 - versioned runtime plan。
 
-Storage、lifecycle 和 public API 分别由 [TableStore 契约](table-store-contract.md)、[Runtime lifecycle 契约](runtime-lifecycle-contract.md) 和 [Generated Table API 契约](../../docs/generated-table-api-contract.md) 拥有。
+Storage、lifecycle、runtime plan、errors/stats 和 public API 分别由 [TableStore 契约](table-store-contract.md)、[Runtime lifecycle 契约](runtime-lifecycle-contract.md)、[Runtime plan 契约](runtime-plan-contract.md)、[Runtime errors 与 diagnostics 契约](runtime-errors-and-diagnostics-contract.md) 和 [Generated Table API 契约](../../docs/generated-table-api-contract.md) 拥有。
 
 性能优化如果改变 schema、public behavior、determinism、ownership、lifecycle 或 error semantics，必须先修改对应 Owner，不能由 implementation 静默决定。
 

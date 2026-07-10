@@ -11,4 +11,24 @@
   <artifactId>soma-examples</artifactId>
   <name>SOMA Java Examples</name>
   <description>Java 8 示例和端到端 smoke 场景。</description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-annotations</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-runtime-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-processor</artifactId>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
 </project>

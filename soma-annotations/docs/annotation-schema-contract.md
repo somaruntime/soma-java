@@ -12,7 +12,7 @@ Java annotation schema 是 `soma_java` V1 的唯一 schema source。本文只定
 
 `@SomaTable` class 定义 row schema，并作为 detached single-row materialization carrier；它不兼任 live runtime storage。`@SomaValue` 定义 compiler-supported immutable inline value。Generated API 和 materialization 的跨模块语义分别由 [Generated Table API 契约](../../docs/generated-table-api-contract.md) 与 [Materialization 契约](../../docs/materialization-contract.md) 拥有。
 
-Processing、normalized schema、exact hash 和 diagnostics 由 [schema processing 契约](../../soma-processor/docs/schema-processing-contract.md) 拥有。
+Compiler lowering 由 [compiler integration 契约](../../soma-processor/docs/compiler-integration-contract.md) 拥有；processing、normalized schema、exact hash 和 diagnostics 由 [schema processing 契约](../../soma-processor/docs/schema-processing-contract.md) 拥有。
 
 ## 2. Schema declaration
 
@@ -112,7 +112,7 @@ V1 annotation API 的 target / retention 基线：
 | `@SomaOrder` / `@SomaOrders` | `TYPE` | `SOURCE` |
 | `@SomaSort` | `ANNOTATION_TYPE` | `SOURCE` |
 
-V1 runtime 不通过 reflection 解释 schema。annotation retention 使用 `SOURCE`，compile-time processor 负责 `@SomaValue` semantic lowering、normalized schema model、metadata 和 generated Java source。具体实现可以采用 supported compiler source transformation + ordinary generated companions，但不得把 transformation 推迟到 runtime。
+V1 runtime 不通过 reflection 解释 schema。annotation retention 使用 `SOURCE`，javac 8 parse-phase transformer 负责 `@SomaValue` effective-type lowering，JSR 269 processor 负责 normalized schema model、metadata 和 generated Java source。Transformer 缺失或 compiler unsupported 时必须 fail closed，不得把 transformation 推迟到 runtime或静默退化为 mutable class。
 
 Java enum 不需要额外 enum annotation。被 `@SomaField` 或 `@SomaKey` 引用的 Java enum 自动纳入 schema；enum member order 使用 source declaration order。
 

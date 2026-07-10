@@ -17,7 +17,7 @@ TableStore authoritative facts
   -> caller-owned detached graph
 ```
 
-本文是 materialization 跨模块语义的唯一 Owner。Annotation 只声明 shape，processor 生成 materializer，runtime-core 提供 storage traversal 和 budget accounting。
+本文是 materialization 跨模块语义的唯一 Owner。Annotation 只声明 shape，processor 生成 materializer，runtime-core 提供 storage traversal 和 budget accounting。Default budget 的 plan lifecycle 由 [Runtime plan 契约](../soma-runtime-core/docs/runtime-plan-contract.md) 拥有；typed exceed/allocation error envelope 由 [Runtime errors 与 diagnostics 契约](../soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md) 拥有。
 
 ## 2. Materialized Object
 

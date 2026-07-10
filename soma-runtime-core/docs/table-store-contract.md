@@ -8,7 +8,7 @@ Owner：`soma-runtime-core`
 
 ## 1. 目标
 
-`soma-runtime-core` 提供 annotation-agnostic Java columnar storage kernel。本文拥有 runtime storage components 及其组合边界；public Table/API 由根级契约拥有，lifecycle/errors 由 [Runtime lifecycle 契约](runtime-lifecycle-contract.md) 拥有，hot-path discipline 由 [Runtime 性能实现契约](runtime-performance-implementation-contract.md) 拥有。
+`soma-runtime-core` 提供 annotation-agnostic Java columnar storage kernel。本文拥有 runtime storage components 及其组合边界；public Table/API 由根级契约拥有，lifecycle 由 [Runtime lifecycle 契约](runtime-lifecycle-contract.md) 拥有，errors/stats 由 [Runtime errors 与 diagnostics 契约](runtime-errors-and-diagnostics-contract.md) 拥有，plan 由 [Runtime plan 契约](runtime-plan-contract.md) 拥有，hot-path discipline 由 [Runtime 性能实现契约](runtime-performance-implementation-contract.md) 拥有。
 
 ## 2. Runtime internal table model
 

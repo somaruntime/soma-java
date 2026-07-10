@@ -225,7 +225,7 @@ Correctness 至少区分：
 - allocation/resource；
 - internal invariant violation。
 
-具体 runtime error code 和 payload 由 [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 拥有。
+具体 runtime error code、category、context 和 stats/diagnostic boundary 由 [runtime errors 与 diagnostics 契约](../soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md) 拥有；lifecycle state transition 仍由 [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 拥有。
 
 ## 7. Differential oracle
 

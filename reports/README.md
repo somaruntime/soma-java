@@ -4,10 +4,12 @@
 
 ## 当前报告
 
-- [2026-07-10 文档体系重构收尾报告](2026-07-10-documentation-system-refactor-report.md)
+- [2026-07-10 Implementation-readiness 治理收尾](2026-07-10-implementation-readiness-governance-report.md)
+- [2026-07-10 Compiler integration feasibility](2026-07-10-compiler-integration-spike-report.md)
 
 ## 历史归档
 
+- [2026-07-10 文档体系重构收尾报告](archive/2026-07-10-documentation-system-refactor-report.md)
 - [2026-07-10 四个蓝图设计审查](archive/2026-07-10-four-blueprints-design-review-report.md)
 - [2026-07-10 SomaTable 设计治理收尾](archive/2026-07-10-soma-table-design-governance-closeout-report.md)
 - [2026-07-07 FJSP frontier 文档治理](archive/2026-07-07-fjsp-frontier-document-governance-report.md)

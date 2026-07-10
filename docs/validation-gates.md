@@ -21,13 +21,13 @@ V1 readiness 不能由单元测试通过、示例能跑或本机 demo 成功单�
 
 | Gate | 名称 | 必需证据 |
 |---|---|---|
-| G0 | Java-only scope freeze | SomaTable 宪法、architecture、glossary、correctness、performance model、runtime performance implementation contract、non-goals、module owner、release claim boundary 已进入正式文档且无临时事实源 |
+| G0 | Java-only scope freeze | SomaTable 宪法、architecture、glossary、build/dependency、public compatibility、security、correctness/performance、compiler integration、runtime plan/error/performance implementation、version/release、non-goals、module owner、release claim boundary 已进入正式文档且无临时事实源 |
 | G1 | annotation schema gate | schema-backed table class、immutable `@SomaValue`、List/Map child mapping、type/value-state、floating strict-access、ownership graph/cycle、key/access/default、schema hash、breaking diagnostics |
-| G2 | processor/codegen gate | `@SomaValue` effective-type golden、normalized/hash golden、deterministic generated Table/materializer/List-Map child API/budget overload、primitive static binding、Cursor reuse/fused-no-boxing hot-loop shape、diagnostic golden |
-| G3 | runtime core gate | table-local + ownership-aggregate invariants、packed `[0,size)`、primitive columns/sidecars、steady-state allocation shape、KeySpace domain/load/collision、compaction/capacity/scratch、sidecar rebuild/stats overhead、child handle/cascade/replacement/pin、MaterializationBudget、Row Pipeline、ColumnView、typed errors |
-| G4 | generated API/package gate | Java 8 transformer+generated API compile/run、recursive schema-object/List/Map child/budget smoke、schema/runtime/runtime-plan metadata、package smoke |
+| G2 | processor/codegen gate | javac 8 transformer activation/negative matrix、`@SomaValue` effective-type/classfile golden、normalized/hash golden、deterministic generated Table/materializer/List-Map child API/budget overload、primitive static binding、Cursor reuse/fused-no-boxing hot-loop shape、diagnostic golden |
+| G3 | runtime core gate | table-local + ownership-aggregate invariants、packed `[0,size)`、primitive columns/sidecars、steady-state allocation shape、KeySpace domain/load/collision、compaction/capacity/scratch、sidecar rebuild/stats overhead、child handle/cascade/replacement/pin、RuntimePlan/MaterializationBudget、Row Pipeline、ColumnView、structured errors/stats |
+| G4 | generated API/package gate | external Maven Java 8 consumer 激活 transformer+processor 并 compile/run、recursive schema-object/List/Map child/budget smoke、schema/compiler/runtime/runtime-plan metadata、package smoke |
 | G5 | examples/benchmark gate | Java 8 FJSP frontier E2E、Access Pattern Card、kernel shape、child-locality/deep-materialization lane、index/order/dynamic sort/update/remove、stale/released/view_pinned/budget error、benchmark JSONL |
-| G6 | release readiness gate | release notes、install instructions、artifact checksums、known limitations、gate report 汇总、回滚/撤回策略 |
+| G6 | release readiness gate | license/namespace/SCM/contact、community/security policy、release notes/install、source/javadoc/checksum/provenance、reproducibility、compatibility matrix、known limitations、gate report、回滚/撤回 |
 
 V1 不设置 ABI gate、Python gate 或 native package gate。
 
@@ -79,6 +79,7 @@ Report 是 evidence，不是设计事实源。可持续技术事实必须进入�
 - G0-G6 任一 required gate 为 `not-started` 或 `blocked`；
 - release claim 引用了未进入正式 `reports/` 的证据；
 - package smoke 只通过 IDE classpath 或 loose generated source；
+- transformer 缺失/unsupported compiler 时静默退化，或用 `--release 8` 冒充 javac 8 adapter support；
 - schema hash metadata 未生成或不可验证；
 - generated API 与 runtime compatibility 未在初始化阶段校验；
 - 旧 `XxxRecord`/`ChildRecords` 分离 contract、schema object live-storage 误解或旧临时宪法仍被当作正式事实源；
@@ -89,6 +90,8 @@ Report 是 evidence，不是设计事实源。可持续技术事实必须进入�
 - known limitation 与公开 release claim 冲突；
 - public/generated API 暴露 runtime sidecar、bitmap word、hash bucket 或 third-party internal type；
 - Java 8 target 失效。
+- public release 缺少 license、namespace ownership、SCM/contact、安全报告渠道或 external consumer；
+- released artifact 可变、不可复现或缺少 checksum/source/javadoc/provenance。
 
 ## 7. Error path coverage
 
@@ -96,6 +99,7 @@ V1 至少覆盖：
 
 - annotation schema validation error；
 - semantic validation error；
+- compiler transformer missing/unsupported/mismatch；
 - schema hash mismatch；
 - generated/runtime compatibility mismatch；
 - invalid enum/value/table declaration；
@@ -123,8 +127,9 @@ V1 package smoke 使用 Maven artifact 或 reactor equivalent。
 
 Smoke 必须验证：
 
-- supported source transformation / annotation processor 可被用户 schema project 触发；
+- 不继承 root parent 的 external Maven consumer 可以显式触发 supported transformer / annotation processor；
 - `@SomaValue` implicit final/public-final/construction/equality/hash 对 user source 与 generated companions 一致可见；
+- transformer 缺失和 unsupported compiler fail closed；
 - generated source 编译通过；
 - generated table 创建成功；
 - batch import、fetch、order source、Row Pipeline filter/update terminal、ColumnView 可执行；
@@ -132,7 +137,7 @@ Smoke 必须验证：
 - default/explicit MaterializationBudget overload 与 typed budget error 可执行；
 - schema hash、runtime compatibility、runtime plan/budget metadata 可读取；
 - runtime stats 可读取；
-- Java 8 target 生效；
+- full JDK 8 compiler/runtime 与 Java 8 target 生效；
 - no third-party runtime dependency。
 
 ## 9. Benchmark smoke
@@ -175,7 +180,7 @@ V1 可以声明：
 - Java columnar runtime kernel；
 - explicit key/index/unique/order access；
 - batch import/export、compiler-defined immutable `@SomaValue`、List/dense 与 Map/keyed mapping、recursive Materialized Object、parent-owned child table、Row Pipeline、ColumnView 和 runtime stats；
-- Java 8 package smoke 和 examples smoke。
+- 正式 release matrix 已证明的 Java 8 javac/runtime package smoke 和 examples smoke。
 
 V1 不应声明：
 

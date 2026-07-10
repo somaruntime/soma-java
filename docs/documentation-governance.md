@@ -23,6 +23,7 @@ Owner：根项目协调层
 | 长期指南 | `guides/` / `<module>/guides/` | 用户、开发者、贡献者的当前使用说明 | 否 |
 | README | 根目录、模块、docs/reports/guides 入口 | 状态摘要和导航 | 否 |
 | AGENTS | `AGENTS.md` | Agent 工作护栏和必读入口 | 否 |
+| 社区/操作政策 | `CONTRIBUTING.md`、`SECURITY.md`、`SUPPORT.md`、`CODE_OF_CONDUCT.md`、`.github/` | 贡献、安全报告、支持和协作流程 | 否 |
 | 正式报告 | `reports/` / `<module>/reports/` | 审查、验证、benchmark、release evidence | 否 |
 | 临时设计 | `docs/temp/` / `<module>/docs/temp/` | 未接受的专题草案和研究蓝图 | 否 |
 | 临时报告 | `reports/temp/` / `<module>/reports/temp/` | 尚未完成的报告工作稿 | 否 |
@@ -98,7 +99,7 @@ Owner：唯一 Owner
 
 文档标题默认使用中文；API、类型、模块、协议和机器可读名称保留英文。
 
-## 6. README、AGENTS 和 guides
+## 6. README、AGENTS、guides 和 community files
 
 README 只负责入口、状态摘要和导航。README 中的模块职责必须链接到正式 owner，不应扩写实现细节。
 
@@ -111,6 +112,8 @@ AGENTS 只负责：
 AGENTS 可以引用少量高风险护栏，但不能成为设计事实源。
 
 `guides/` 在出现真实用户流程、开发流程或贡献流程时按需创建。Guide 可以解释正式契约，但不得改变 API、默认值、错误、兼容性或性能声明。
+
+Community files 负责“如何协作、报告和获得支持”，不得定义 SOMA semantics。License、maintainer/contact、namespace/SCM 等需要项目所有者决策的事实不能用 placeholder 冒充完成；public publication readiness 以 [Versioning 与 release 契约](versioning-and-release-contract.md) 为准。
 
 ## 7. 临时设计生命周期
 
@@ -175,6 +178,7 @@ Report 是不可反向修改设计的证据快照。正式报告至少记录：
 - 没有 `迁移说明`、空 owner contract 或 orphan 文档；
 - fenced code block 配对，且无 trailing whitespace；
 - 根 README、AGENTS 和各模块 README 没有重新定义 owner 事实；
+- community/guide 文件没有重新定义 schema/API/runtime/release contract；
 - `git diff --check` 和 Maven reactor validate 通过。
 
 仓库级自动检查入口是 `./scripts/check-docs.sh`。

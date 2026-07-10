@@ -11,4 +11,23 @@
   <artifactId>soma-testkit</artifactId>
   <name>SOMA Java Testkit</name>
   <description>processor、generated code 和 runtime invariant 的测试辅助工具。</description>
+
+  <properties>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-annotations</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-processor</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-runtime-core</artifactId>
+    </dependency>
+  </dependencies>
 </project>

@@ -7,7 +7,9 @@
 | 文档 | Owner | 单一职责 |
 |---|---|---|
 | [TableStore 契约](table-store-contract.md) | `soma-runtime-core` | storage components、KeySpace、AccessStructures、AccessPath 和 Batch |
-| [Runtime lifecycle 契约](runtime-lifecycle-contract.md) | `soma-runtime-core` | ownership、mutation、epoch/view、errors、concurrency 和 release |
+| [Runtime lifecycle 契约](runtime-lifecycle-contract.md) | `soma-runtime-core` | ownership、mutation、epoch/view、concurrency 和 release |
+| [Runtime plan 契约](runtime-plan-contract.md) | `soma-runtime-core` | plan scope、configuration、validation、immutability、identity/hash 和 override |
+| [Runtime errors 与 diagnostics 契约](runtime-errors-and-diagnostics-contract.md) | `soma-runtime-core` | structured errors、stable code/context、callback failure、stats 和 logging boundary |
 | [Runtime 性能实现契约](runtime-performance-implementation-contract.md) | `soma-runtime-core` | packed/primitive/fused/allocation-bounded kernel discipline |
 
 Runtime-core 不解析 annotation、不生成 Java source，也不拥有 public Schema/API semantics。

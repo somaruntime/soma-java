@@ -2,7 +2,7 @@
 
 状态：正式设计文档
 Owner：`soma-runtime-core`
-事实范围：child ownership、materialization accounting、epoch/view/pipeline lifecycle、mutation coordination、runtime errors、concurrency 和 release
+事实范围：child ownership、materialization accounting、epoch/view/pipeline lifecycle、mutation coordination、concurrency 和 release
 非事实范围：public API naming、storage data structure、schema declaration 和 benchmark claim
 最后审查日期：2026-07-10
 
@@ -10,7 +10,7 @@ Owner：`soma-runtime-core`
 
 本文定义 TableStore ownership aggregate 在 create、access、mutation、materialization、clear 和 release 期间的合法状态与失败语义。
 
-Storage material 由 [TableStore 契约](table-store-contract.md) 拥有；公共行为由根级 [Generated Table API 契约](../../docs/generated-table-api-contract.md) 和 [Materialization 契约](../../docs/materialization-contract.md) 拥有；本文只拥有 runtime-core 的 lifecycle execution。
+Storage material 由 [TableStore 契约](table-store-contract.md) 拥有；errors/stats 由 [Runtime errors 与 diagnostics 契约](runtime-errors-and-diagnostics-contract.md) 拥有；公共行为由根级 [Generated Table API 契约](../../docs/generated-table-api-contract.md) 和 [Materialization 契约](../../docs/materialization-contract.md) 拥有；本文只拥有 runtime-core 的 lifecycle execution。
 
 ## 2. ChildTableHandle 与 ownership registry
 
@@ -92,52 +92,7 @@ Mutation 分为：
 
 Final `release()` 不等同于普通 structural mutation：它可以终止 aggregate 并级联 invalidate active views/facades；release 后所有访问必须稳定返回 released error。
 
-## 6. Runtime errors
-
-Runtime errors 至少区分：
-
-- duplicate key；
-- missing key；
-- invalid floating identity/access value；
-- invalid selector；
-- field not found；
-- dtype mismatch；
-- stale view；
-- view pinned；
-- released view；
-- table released；
-- allocation failure；
-- memory limit exceeded；
-- materialization budget exceeded；
-- dangling/wrong-owner child handle；
-- released child / ownership cycle invariant；
-- internal invariant violation。
-
-这些错误不能压缩成 generic runtime exception，否则用户无法判断 schema、生命周期、资源还是调用顺序问题。
-
-## 7. Runtime diagnostics
-
-Java-only V1 不使用 native memory tracker。它使用 heap memory estimate / runtime stats：
-
-- current estimated bytes；
-- high water mark；
-- table count；
-- active view count；
-- column capacity；
-- row count；
-- capacity growth/rehash count and last transient allocation estimate；
-- retained primitive scratch bytes/high water；
-- KeySpace capacity/load/probe/collision summary；
-- sidecar dirty/rebuild count/time/rows summary；
-- effective summary/diagnostic stats mode；
-- child table instance count；
-- last materialization table/row/leaf/depth/allocation estimate；
-- effective materialization budget and estimator version；
-- last allocation failure reason。
-
-该估算用于 diagnostics、benchmark smoke 和 package smoke，不等同于 JVM 精确 heap profiler。
-
-## 8. Concurrency boundary
+## 6. Concurrency boundary
 
 V1 runtime table/ownership aggregate 是 synchronous single-owner object。
 
@@ -153,16 +108,16 @@ V1 runtime table/ownership aggregate 是 synchronous single-owner object。
 
 V1 不提供 thread-handoff API。Application 如需跨线程顺序移交，必须在无 active terminal/mutation/materialization/Cursor/Pipeline/ColumnView 的 quiescent point 建立 happens-before，并保证只有新 owner thread 继续访问。Runtime 不协调、不加锁，也不提供共享访问承诺。
 
-## 9. Serialization and persistence boundary
+## 7. Serialization and persistence boundary
 
 Runtime core 不提供 Table/ownership aggregate state serialization、persistence format、database mapping、backup/restore、replay 或 schema migration。`TableStore`、RowSlot、row index、`ChildTableHandle`、Cursor 和 ColumnView 都不可序列化。
 
 Materialized Object 可以由上层映射成 protobuf/JSON/database DTO，但它本身不是稳定 wire/persistence format。Batch 是 detached construction/import boundary，不是反序列化协议。
 
-## 10. Correctness 与 performance
+## 8. Correctness 与 performance
 
-Lifecycle 必须满足 [Runtime 正确性模型](../../docs/runtime-correctness-model.md) 的 state/invariant/all-or-nothing 要求。Pin check、cascade、cleanup 和 stats 不能把 hot path 退化为 per-row allocation；性能实现遵守 [Runtime 性能实现契约](runtime-performance-implementation-contract.md)。
+Lifecycle 必须满足 [Runtime 正确性模型](../../docs/runtime-correctness-model.md) 的 state/invariant/all-or-nothing 要求。Pin check、cascade、cleanup 和 stats 不能把 hot path 退化为 per-row allocation；errors/stats 遵守 [Runtime errors 与 diagnostics 契约](runtime-errors-and-diagnostics-contract.md)，性能实现遵守 [Runtime 性能实现契约](runtime-performance-implementation-contract.md)。
 
-## 11. 非目标
+## 9. 非目标
 
 本文不提供 concurrent access、cross-table transaction、snapshot isolation、persistence、schema migration、external DTO synchronization 或 public attachment/reparent API。

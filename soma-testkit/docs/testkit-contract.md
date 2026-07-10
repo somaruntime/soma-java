@@ -14,6 +14,7 @@ Owner：`soma-testkit`
 
 - [SomaTable 设计宪法](../../docs/soma-table-design-constitution.md)；
 - [annotation schema 契约](../../soma-annotations/docs/annotation-schema-contract.md)；
+- [compiler integration 契约](../../soma-processor/docs/compiler-integration-contract.md)；
 - [schema processing 契约](../../soma-processor/docs/schema-processing-contract.md)；
 - [code generation 契约](../../soma-processor/docs/code-generation-contract.md)；
 - [Runtime 正确性模型](../../docs/runtime-correctness-model.md)；
@@ -48,7 +49,7 @@ Compile fixture 必须显式记录：
 
 - fixture id 和 source files；
 - Java source/target/release baseline 为 Java 8；
-- supported compiler/source-transformation identity；
+- supported javac 8 compiler/source-transformation identity；
 - processor artifact/version；
 - classpath/module artifacts；
 - expected success/failure；
@@ -75,7 +76,11 @@ assertNoUnexpectedDiagnostics()
 - invalid child ownership field；
 - non-finite floating default on key/index/unique/order leaf；
 - invalid selector/path/name collision；
-- Java 8 generated source compile。
+- Java 8 generated source compile；
+- transformer missing/unsupported compiler/mismatch negative fixture；
+- same-unit/cross-unit/classfile effective-type inspection；
+- clean/incremental output equivalence；
+- external Maven consumer 不继承 root parent/reactor classpath。
 
 ## 4. Golden contract
 

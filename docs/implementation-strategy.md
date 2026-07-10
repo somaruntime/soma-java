@@ -18,7 +18,8 @@ Owner：根项目协调层
 
 ```text
 annotation source
-  -> validated normalized schema
+  -> javac 8 parse-phase @SomaValue lowering
+  -> validated normalized schema by JSR 269 processor
   -> schema-specific generated binding
   -> small generic TableStore components
   -> primitive specialized hot path
@@ -56,6 +57,7 @@ Reject：`List<R>`、mutable DTO、schema object graph 或 Java Stream object ro
 负责：
 
 - annotation collection、validation、normalization、hash；
+- javac 8 plugin activation、effective-type lowering 和 compiler identity；
 - schema-specific Table/Batch/Cursor/Mutator/child/materializer；
 - static primitive column/selector binding；
 - public name/type/error adaptation；
@@ -130,6 +132,26 @@ schema fixture
 不能等所有功能结束后才发现 hot path 已经采用 object/boxing/metadata interpreter。
 
 ## 7. 实施阶段
+
+### Phase 0：Compiler/build vertical slice
+
+实现：
+
+- javac 8 parse-phase plugin skeleton；
+- `@SomaValue` class/field/constructor/equality/hash/toString lowering；
+- JSR 269 processor skeleton 和 effective-model validation；
+- root reactor、Maven Wrapper、CI 和 external consumer fixture；
+- supported/unsupported compiler fail-closed diagnostics；
+- public API/compatibility/build/security owner contract checks。
+
+出口：
+
+- direct javac 与 Maven external consumer 看到同一 effective type；
+- transformer 缺失、JDK 9+ adapter mismatch 和 conflicting source declaration 稳定失败；
+- compile/classfile/golden/clean-repeatability evidence；
+- build-only processor 不进入 application runtime graph。
+
+Phase 0 只证明 compiler/build foundation，不生成虚假的 G2/G4 feature-complete claim。
 
 ### Phase 1：Dense table 最小闭环
 
@@ -229,6 +251,7 @@ schema fixture
 
 | V1 capability | 首次进入 | 最终 gate |
 |---|---|---|
+| compiler lowering/build/consumer foundation | Phase 0 | G2/G4 |
 | dense/primitive/presence/Row Pipeline | Phase 1 | G3/G4 |
 | keyed/KeySpace/key API | Phase 2 | G2/G3 |
 | index/unique/order/dynamic sort | Phase 3 | G2/G3 |
@@ -256,6 +279,8 @@ schema fixture
 - lifecycle/error/materialization contract；
 - concurrency/persistence boundary；
 - V1 gate 或 release claim。
+
+Compiler support matrix、artifact dependency/publication、public compatibility、security boundary 和 release prerequisites 分别回到对应 root/module owner contract，不由某个 implementation PR 临时决定。
 
 ## 10. 验证原则
 

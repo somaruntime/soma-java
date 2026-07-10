@@ -40,7 +40,7 @@ Processor 至少提供两类 compile-time output。
 - generated `MaterializationBudget` overload binding；
 - generated internal storage adapter。
 
-不生成 public `XxxRecord` / `ChildRecords` 第二类型。具体 transformation mechanism 可以使用 javac-compatible AST lowering 或语义等价的 supported compiler integration，但 package smoke 必须证明用户源码、IDE/build toolchain 和 generated companions 看到同一个 effective type；runtime 不得承担 annotation interpretation。
+不生成 public `XxxRecord` / `ChildRecords` 第二类型。`@SomaValue` 由 [Compiler integration 契约](compiler-integration-contract.md) 定义的 javac 8 parse-phase plugin lowering；JSR 269 processor 只消费 lowered effective model并生成 companions。Package smoke 必须证明用户源码、processor 和 generated companions 看到同一个 effective type；runtime 不得承担 annotation interpretation。
 
 Generated hot path 还必须满足：
 
@@ -59,6 +59,8 @@ Generated source 依赖：
 - `soma-runtime-core`；
 - JDK 8；
 - 不依赖 third-party collection library。
+
+Compiler plugin/processor 是 build-only dependency，不进入 generated runtime dependency graph。IDE code insight、其他 javac family 和 ECJ support 不能由 generated-source compile success 推导。
 
 ## 3. Table API binding
 
@@ -269,7 +271,7 @@ Codegen output 必须可复现：
 - import order stable；
 - method order stable；
 - generated source formatter stable；
-- same source + same processor version + same Java 8 toolchain -> same generated source。
+- same source + same processor/lowering identity + same supported javac 8 toolchain -> same generated source。
 
 Golden output comparison 可以忽略明确声明的 non-semantic whitespace，但不能忽略 public API shape。
 
@@ -312,6 +314,7 @@ Package smoke 至少验证：
 
 - user schema source can compile with the supported transformer/annotation processor path；
 - `@SomaValue` effective modifiers、constructor 和 equality/hash 对 generated companions 与 user code 一致可见；
+- transformer 缺失、unsupported compiler 和 compiler identity mismatch fail closed；
 - `@SomaSchema` package metadata can be read by the processor；
 - generated source can compile under Java 8 target；
 - generated table can create runtime storage；
@@ -320,6 +323,8 @@ Package smoke 至少验证：
 - schema hash metadata exists；
 - runtime stats can be read；
 - no third-party runtime dependency is required。
+
+Package smoke 使用 canonical Maven external consumer；IDE editor/JPS experience 不在没有专用 adapter evidence 时冒充为 supported build claim。
 
 ## 14. 非目标
 
