@@ -136,6 +136,7 @@ public final class com.hgtech.soma.runtime.generated.LongColumn extends com.hgte
 Compiled from "MaterializationTracker.java"
 public final class com.hgtech.soma.runtime.generated.MaterializationTracker {
   public com.hgtech.soma.runtime.generated.MaterializationTracker(com.hgtech.soma.runtime.MaterializationBudget, java.lang.String);
+  public void checkOwnershipDepth(int);
   public void addTableInstances(long);
   public void addRows(long);
   public void addLeafValues(long);

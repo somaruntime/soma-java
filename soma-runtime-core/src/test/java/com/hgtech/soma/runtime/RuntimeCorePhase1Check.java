@@ -181,6 +181,7 @@ public final class RuntimeCorePhase1Check {
                 .maximumEstimatedAllocationBytes(32)
                 .build();
         MaterializationTracker tracker = new MaterializationTracker(budget, "root");
+        tracker.checkOwnershipDepth(0);
         tracker.addTableInstances(1);
         tracker.addRows(2);
         tracker.addLeafValues(4);
@@ -190,6 +191,15 @@ public final class RuntimeCorePhase1Check {
             @Override
             public void run() {
                 tracker.addRows(1);
+            }
+        });
+        final MaterializationTracker zeroDepth = new MaterializationTracker(
+                budget.toBuilder().maximumOwnershipDepth(0).build(), "root.child");
+        zeroDepth.checkOwnershipDepth(0);
+        expectCode("materialization_budget_exceeded", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                zeroDepth.checkOwnershipDepth(1);
             }
         });
     }

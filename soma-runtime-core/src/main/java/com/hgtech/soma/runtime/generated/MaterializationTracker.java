@@ -18,6 +18,22 @@ public final class MaterializationTracker {
         this.rootPath = Objects.requireNonNull(rootPath, "rootPath");
     }
 
+    public void checkOwnershipDepth(int depth) {
+        if (depth < 0) {
+            throw RuntimeFailures.internalInvariant(
+                    "negative_materialization_depth", rootPath, "materialize");
+        }
+        if (depth > budget.maximumOwnershipDepth()) {
+            throw RuntimeFailures.materializationBudgetExceeded(
+                    "maximumOwnershipDepth",
+                    budget.maximumOwnershipDepth(),
+                    depth == 0 ? 0L : depth - 1L,
+                    depth,
+                    budget.identity(),
+                    rootPath);
+        }
+    }
+
     public void addTableInstances(long count) {
         tableInstances = add("maximumTableInstances", tableInstances, count,
                 budget.maximumTableInstances());
