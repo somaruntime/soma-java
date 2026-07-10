@@ -31,6 +31,7 @@ public final class com.example.soma.dense.generated.ParticleTable {
   public java.util.List<com.example.soma.dense.Particle> fetchAll();
   public int[] rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.dense.generated.ParticleRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }

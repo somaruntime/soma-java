@@ -8,6 +8,7 @@ import com.example.soma.dense.generated.ParticleTable;
 import com.example.soma.dense.generated.PrimitiveSampleBatch;
 import com.example.soma.dense.generated.PrimitiveSampleTable;
 import com.hgtech.soma.runtime.MaterializationBudget;
+import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.UpdateResult;
 
@@ -176,6 +177,50 @@ public final class DenseConsumer {
                 table.materialize(tinyBudget);
             }
         });
+
+        final long epochBeforeFailedRemove = table.structuralEpoch();
+        expectCode("callback_failed", new Action() {
+            @Override
+            public void run() {
+                table.filter(new ParticleRows.Predicate() {
+                    @Override
+                    public boolean test(ParticleRow row) {
+                        if (row.id() == 3) {
+                            throw new IllegalStateException("expected remove predicate failure");
+                        }
+                        return row.id() >= 2;
+                    }
+                }).remove();
+            }
+        });
+        require(table.size() == 4 && table.fetchAt(2).id == 3
+                        && table.structuralEpoch() == epochBeforeFailedRemove,
+                "failed remove preserves visible table facts");
+
+        RemoveResult removed = table.filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.id() == 3;
+            }
+        }).remove();
+        require(removed.scanned() == 4L && removed.matched() == 1L
+                        && removed.removed() == 1L && removed.compacted() == 1L
+                        && removed.sidecarMaintained() == 0L && removed.sidecarRebuilt() == 0L,
+                "remove counters and dense sidecar accounting");
+        require(table.size() == 3 && table.fetchAt(2).id == 4,
+                "remove preserves packed survivor order");
+        final long epochBeforeEmptyRemove = table.structuralEpoch();
+        RemoveResult emptyRemove = table.filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return false;
+            }
+        }).remove();
+        require(emptyRemove.scanned() == 3L && emptyRemove.matched() == 0L
+                        && emptyRemove.removed() == 0L && emptyRemove.compacted() == 0L,
+                "empty remove counters");
+        require(table.structuralEpoch() == epochBeforeEmptyRemove,
+                "empty remove is non-structural");
 
         table.replaceAll(new ParticleBatch());
         require(table.size() == 0, "replaceAll empty");

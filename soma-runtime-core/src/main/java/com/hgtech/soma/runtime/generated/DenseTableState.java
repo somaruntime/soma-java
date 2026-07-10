@@ -1,6 +1,7 @@
 package com.hgtech.soma.runtime.generated;
 
 import com.hgtech.soma.runtime.OperationOutcome;
+import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.TableStats;
@@ -166,6 +167,19 @@ public final class DenseTableState {
                 expectedPreviousSize);
     }
 
+    public void commitStructuralRemove(
+            int expectedPreviousSize, int newSize, String operation) {
+        requireActiveOperation(operation);
+        if (expectedPreviousSize != size || newSize < 0 || newSize > size) {
+            throw RuntimeFailures.internalInvariant(
+                    "remove_commit_identity", tableLogicalName, operation);
+        }
+        size = newSize;
+        if (newSize != expectedPreviousSize) {
+            structuralEpoch++;
+        }
+    }
+
     public int prepareRelease() {
         if (released) {
             return -1;
@@ -215,6 +229,17 @@ public final class DenseTableState {
             long sidecarRebuilt) {
         return UpdateResult.create(
                 scanned, matched, changed, sidecarMaintained, sidecarRebuilt);
+    }
+
+    public RemoveResult removeResult(
+            long scanned,
+            long matched,
+            long removed,
+            long compacted,
+            long sidecarMaintained,
+            long sidecarRebuilt) {
+        return RemoveResult.create(scanned, matched, removed, compacted,
+                sidecarMaintained, sidecarRebuilt);
     }
 
     public TableStats statsSnapshot() {

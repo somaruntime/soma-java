@@ -61,10 +61,12 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void commitReplace(int, int);
   public int prepareClear();
   public void commitClear(int);
+  public void commitStructuralRemove(int, int, java.lang.String);
   public int prepareRelease();
   public void commitRelease(int);
   public void updateScratch(long, long);
   public com.hgtech.soma.runtime.UpdateResult updateResult(long, long, long, long, long);
+  public com.hgtech.soma.runtime.RemoveResult removeResult(long, long, long, long, long, long);
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }
@@ -275,6 +277,17 @@ public final class com.hgtech.soma.runtime.OperationOutcome extends java.lang.En
   public static final com.hgtech.soma.runtime.OperationOutcome FAILED;
   public static com.hgtech.soma.runtime.OperationOutcome[] values();
   public static com.hgtech.soma.runtime.OperationOutcome valueOf(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.RemoveResult
+Compiled from "RemoveResult.java"
+public final class com.hgtech.soma.runtime.RemoveResult {
+  public static com.hgtech.soma.runtime.RemoveResult create(long, long, long, long, long, long);
+  public long scanned();
+  public long matched();
+  public long removed();
+  public long compacted();
+  public long sidecarMaintained();
+  public long sidecarRebuilt();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.RuntimePlan
 Compiled from "RuntimePlan.java"

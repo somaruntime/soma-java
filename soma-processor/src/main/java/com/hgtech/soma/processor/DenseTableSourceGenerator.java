@@ -303,7 +303,8 @@ final class DenseTableSourceGenerator {
         String row = table.name("Row");
         String mutable = table.name("MutableRow");
         StringBuilder out = new StringBuilder(header());
-        out.append("import com.hgtech.soma.runtime.SomaRuntimeException;\n")
+        out.append("import com.hgtech.soma.runtime.RemoveResult;\n")
+                .append("import com.hgtech.soma.runtime.SomaRuntimeException;\n")
                 .append("import com.hgtech.soma.runtime.UpdateResult;\n")
                 .append("import com.hgtech.soma.runtime.generated.RuntimeFailures;\n")
                 .append("import java.util.Arrays;\nimport java.util.List;\nimport java.util.Optional;\n\n")
@@ -328,6 +329,7 @@ final class DenseTableSourceGenerator {
                 .append("  public List<").append(table.carrierType).append("> fetchAll(){start(\"rows.fetchAll\");try{Selection s=select(Integer.MAX_VALUE);List<").append(table.carrierType).append("> result=table.materializeRows(s.rows,s.length);table.endSuccess(\"rows.fetchAll\",s.scanned,s.length,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.fetchAll\",0L,0L,f.code());throw f;}}\n")
                 .append("  public int[] rowIndexes(){start(\"rows.rowIndexes\");try{Selection s=select(Integer.MAX_VALUE);int[] result=Arrays.copyOf(s.rows,s.length);table.endSuccess(\"rows.rowIndexes\",s.scanned,s.length,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.rowIndexes\",0L,0L,f.code());throw f;}}\n")
                 .append("  public UpdateResult update(Updater value){if(value==null)throw new NullPointerException(\"updater\");start(\"rows.update\");long reached=0L;Selection s=null;try{s=select(Integer.MAX_VALUE);table.prepareUpdateScratch(s.length);table.loadUpdateScratch(s.rows,s.length);MutableCursor c=new MutableCursor(table);for(int i=0;i<s.length;i++){reached++;c.open(i);try{value.update(c);}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"rows.update\",\"updater\",callback);}finally{c.close();}}long changed=table.publishUpdate(s.rows,s.length);table.endSuccess(\"rows.update\",s.scanned,s.length,changed);return table.updateResult(s.scanned,s.length,changed);}catch(SomaRuntimeException f){table.endFailure(\"rows.update\",s==null?0L:s.scanned,reached,f.code());throw f;}catch(Error f){table.endFailure(\"rows.update\",s==null?0L:s.scanned,reached,\"callback_failed\");throw f;}}\n\n")
+                .append("  public RemoveResult remove(){start(\"rows.remove\");Selection s=null;try{s=select(Integer.MAX_VALUE);RemoveResult result=table.removeSelected(s.rows,s.length,s.scanned);table.endSuccess(\"rows.remove\",s.scanned,s.length,s.length);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.remove\",s==null?0L:s.scanned,s==null?0L:s.length,f.code());throw f;}catch(Error f){table.endFailure(\"rows.remove\",s==null?0L:s.scanned,s==null?0L:s.length,\"callback_failed\");throw f;}}\n\n")
                 .append("  private Selection select(int maximum){int[] values=table.preparePipelineScratch();int firstSort=firstSort();long[] seen=new long[kinds.length];Cursor cursor=new Cursor(table);int length=0;long scanned=0L;for(int rowIndex=0;rowIndex<table.size()&&!limitReached(seen,0,firstSort);rowIndex++){scanned++;if(matches(rowIndex,cursor,seen,0,firstSort))values[length++]=rowIndex;if(firstSort==kinds.length&&length>=maximum)break;}for(int stage=firstSort;stage<kinds.length;stage++){if(kinds[stage]==SORT){stableSort(values,length,comparators[stage]);}else if(kinds[stage]==FILTER){int write=0;for(int i=0;i<length;i++)if(test(predicates[stage],cursor,values[i],\"rows.filter\"))values[write++]=values[i];length=write;}else if(kinds[stage]==SKIP){int remove=(int)Math.min((long)length,counts[stage]);System.arraycopy(values,remove,values,0,length-remove);length-=remove;}else{length=(int)Math.min((long)length,counts[stage]);}}if(length>maximum)length=maximum;return new Selection(values,length,scanned);}\n")
                 .append("  private int firstSort(){for(int i=0;i<kinds.length;i++)if(kinds[i]==SORT)return i;return kinds.length;}\n")
                 .append("  private boolean hasSort(){return firstSort()!=kinds.length;}\n")
@@ -383,7 +385,7 @@ final class DenseTableSourceGenerator {
             if (field.optional) out.append("  private final PresenceBitmap ").append(field.javaName).append("Presence=new PresenceBitmap();\n");
         }
         out.append("  private final DenseTableState state;\n")
-                .append("  private int[] candidateScratch=new int[0],pipelineScratch=new int[0],sortScratch=new int[0];private int updateCapacity;\n");
+                .append("  private int[] candidateScratch=new int[0],pipelineScratch=new int[0],sortScratch=new int[0];private boolean[] removeMarks=new boolean[0];private int updateCapacity;\n");
         for (FieldSpec field : table.fields) {
             out.append("  private ").append(field.primitive).append("[] update")
                     .append(cap(field.javaName)).append("=new ").append(field.primitive).append("[0];\n");
@@ -452,6 +454,7 @@ final class DenseTableSourceGenerator {
                 .append("  public java.util.List<").append(table.carrierType).append("> fetchAll(){return rows().fetchAll();}\n")
                 .append("  public int[] rowIndexes(){return rows().rowIndexes();}\n")
                 .append("  public UpdateResult update(").append(table.name("Rows")).append(".Updater updater){return rows().update(updater);}\n")
+                .append("  public RemoveResult remove(){return rows().remove();}\n")
                 .append("  public TableStats statsSnapshot(){return state.statsSnapshot();}\n  public void resetStats(){state.resetStats();}\n\n")
                 .append("  void begin(String operation){state.beginOperation(operation);}\n  void endSuccess(String operation,long scanned,long matched,long changed){state.endOperationSuccess(operation,scanned,matched,changed);}\n  void endFailure(String operation,long scanned,long matched,String code){state.endOperationFailure(operation,scanned,matched,code);}\n  UpdateResult updateResult(long scanned,long matched,long changed){return state.updateResult(scanned,matched,changed,0L,0L);}\n")
                 .append("  int[] preparePipelineScratch(){int required=size();if(pipelineScratch.length<required)pipelineScratch=Arrays.copyOf(pipelineScratch,required);return pipelineScratch;}\n")
@@ -461,6 +464,7 @@ final class DenseTableSourceGenerator {
         appendTableFieldAccess(out, table);
         appendMutatorCommit(out, table);
         appendUpdateScratch(out, table);
+        appendRemove(out, table);
         return out.append("}\n").toString();
     }
 
@@ -523,6 +527,20 @@ final class DenseTableSourceGenerator {
             if (field.optional) out.append("    if(update").append(c).append("Present[i])").append(field.javaName).append("Presence.setPresent(row);else ").append(field.javaName).append("Presence.clearPresent(row);\n");
         }
         out.append("    if(rowChanged)changed++;}return changed;}\n");
+    }
+
+    private void appendRemove(StringBuilder out, TableSpec table) {
+        out.append("  RemoveResult removeSelected(int[] selected,int count,long scanned){int previous=size();if(count<0||count>previous)throw RuntimeFailures.internalInvariant(\"remove_selection_count\",TABLE,\"rows.remove\");if(removeMarks.length<previous)removeMarks=Arrays.copyOf(removeMarks,previous);Arrays.fill(removeMarks,0,previous,false);for(int i=0;i<count;i++){int row=selected[i];if(row<0||row>=previous||removeMarks[row])throw RuntimeFailures.internalInvariant(\"remove_selection_identity\",TABLE,\"rows.remove\");removeMarks[row]=true;}int write=0;long compacted=0L;for(int read=0;read<previous;read++){if(removeMarks[read])continue;if(write!=read){\n");
+        for (FieldSpec field : table.fields) {
+            out.append("    ").append(field.javaName).append("Column.set(write,")
+                    .append(field.javaName).append("Column.get(read));\n");
+            if (field.optional) {
+                out.append("    if(").append(field.javaName).append("Presence.isPresent(read))")
+                        .append(field.javaName).append("Presence.setPresent(write);else ")
+                        .append(field.javaName).append("Presence.clearPresent(write);\n");
+            }
+        }
+        out.append("    compacted++;}write++;}clearColumns(write,previous);state.commitStructuralRemove(previous,write,\"rows.remove\");return state.removeResult(scanned,count,count,compacted,0L,0L);}\n");
     }
 
     private static void appendDirectParameters(StringBuilder out, TableSpec table) {

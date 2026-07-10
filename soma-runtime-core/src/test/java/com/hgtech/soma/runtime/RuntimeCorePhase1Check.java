@@ -23,6 +23,7 @@ public final class RuntimeCorePhase1Check {
         testPlanReplacementChangesIdentity();
         testCompatibilityBoundary();
         testDenseColumnsLifecycleAndStats();
+        testStructuralRemoveStateTransition();
         testPresenceBitmapAgainstOracle();
         testMaterializationBudget();
         testBoundedFailureEnvelope();
@@ -177,6 +178,30 @@ public final class RuntimeCorePhase1Check {
                 }
             }
             assertEquals(expectedCount, bitmap.presentCount(), "presence count");
+        }
+    }
+
+    private static void testStructuralRemoveStateTransition() {
+        IntColumn value = new IntColumn();
+        ColumnGroup columns = new ColumnGroup(4, value);
+        RuntimePlan plan = defaultPlan();
+        DenseTableState state = new DenseTableState(
+                "Order", plan, plan.requireTable("Order"), columns);
+        int start = state.prepareAppend(4);
+        state.commitAppend(start, 4);
+        long epoch = state.structuralEpoch();
+        state.beginOperation("rows.remove");
+        state.commitStructuralRemove(4, 2, "rows.remove");
+        state.endOperationSuccess("rows.remove", 4L, 2L, 2L);
+        assertEquals(2, state.size(), "remove size");
+        assertEquals(epoch + 1L, state.structuralEpoch(), "remove structural epoch");
+        RemoveResult result = state.removeResult(4L, 2L, 2L, 1L, 0L, 0L);
+        assertEquals(1L, result.compacted(), "remove compaction count");
+        try {
+            RemoveResult.create(1L, 1L, 0L, 0L, 0L, 0L);
+            throw new AssertionError("remove result must require removed == matched");
+        } catch (IllegalArgumentException expected) {
+            // expected
         }
     }
 

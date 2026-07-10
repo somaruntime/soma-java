@@ -102,6 +102,7 @@ public final class XxxTable {
     public List<Xxx> fetchAll();
     public int[] rowIndexes();
     public UpdateResult update(XxxRows.Updater updater);
+    public RemoveResult remove();
     public TableStats statsSnapshot();
     public void resetStats();
 }
@@ -142,6 +143,7 @@ public final class XxxRows {
     public List<Xxx> fetchAll();
     public int[] rowIndexes();
     public UpdateResult update(Updater updater);
+    public RemoveResult remove();
     public interface Predicate { boolean test(XxxRow row); }
     public interface Consumer { void accept(XxxRow row); }
     public interface Updater { void update(XxxMutableRow row); }
@@ -154,6 +156,17 @@ public final class UpdateResult {
     public long scanned();
     public long matched();
     public long changed();
+    public long sidecarMaintained();
+    public long sidecarRebuilt();
+}
+
+public final class RemoveResult {
+    public static RemoveResult create(long scanned, long matched, long removed,
+        long compacted, long sidecarMaintained, long sidecarRebuilt);
+    public long scanned();
+    public long matched();
+    public long removed();
+    public long compacted();
     public long sidecarMaintained();
     public long sidecarRebuilt();
 }
@@ -334,6 +347,8 @@ RemoveResult remove()
 `UpdateResult` 至少表达 scanned、matched、changed 和 sidecar maintenance；`RemoveResult` 至少表达 scanned、matched、removed、compaction 和 sidecar maintenance。它们不是性能证明，但必须支持 diagnostics 和 evidence。
 
 Phase 1 固化 `UpdateResult` 的稳定 public shape：immutable `long scanned()`、`long matched()`、`long changed()`、`long sidecarMaintained()` 和 `long sidecarRebuilt()`。Dense/no-sidecar slice 后两项为零但不能省略；后续 sidecar implementation 直接填充，不迁移 consumer。
+
+Phase 1 固化 `RemoveResult` 的稳定 public shape：immutable `long scanned()`、`long matched()`、`long removed()`、`long compacted()`、`long sidecarMaintained()`、`long sidecarRebuilt()`。成功 remove 必须满足 `removed == matched <= scanned`；`compacted` 是为恢复 packed `[0,size)` 而实际移动的 survivor row 数，可能大于本 terminal 的 `scanned`（例如先以 `limit(1)` 删除首 row），因此只要求 non-negative。Dense/no-sidecar 后两项为零。Failed terminal 不返回 result，旧 rows/epoch/sidecar facts保持不变。
 
 计数单位固定：`scanned` 是从 source实际拉取并进入 intermediate evaluation 的 candidate row数，因 limit/short-circuit未拉取的不计；`matched` 是依次通过 filter/skip/limit并到达 updater 的 row数；`changed` 是 publish时最终 staged logical field/presence与 terminal前不同的 distinct row数，同值 setter和先改后恢复不计；`sidecarMaintained` 是本 terminal至少执行一次 incremental maintenance的 distinct sidecar结构数；`sidecarRebuilt` 是完成 full rebuild并发布的 distinct sidecar结构数。一个 sidecar处理多个 row仍计一。Failed terminal不返回 `UpdateResult`，且 committed `changed` 为零；attempted scanned/matched进入 failed last-operation stats。
 

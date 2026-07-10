@@ -27,6 +27,7 @@ PUBLIC handwritten com.hgtech.soma.annotation.SomaValue
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.MaterializationBudget
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.MaterializationBudget$Builder
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.OperationOutcome
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.RemoveResult
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.RuntimePlan
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.RuntimePlan$Builder
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaErrorCategory
