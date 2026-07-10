@@ -1,16 +1,17 @@
 # Java V1 Phase 0 schema carrier construction 设计缺口
 
-状态：等待项目所有者决策
+状态：resolved
 记录日期：2026-07-10
 记录人：Codex
 输入 commit：`b3b2f05`
 性质：实施前 public-contract hard stop；本报告是审查证据，不是设计事实源
+项目所有者决策：2026-07-10 同意方案 A
 
 ## 1. 结论
 
 Phase 0 审查发现：正式设计尚未唯一确定 generated materializer 如何构造位于 schema package 的 `@SomaTable` detached row instance。该选择会改变 schema source 约束、compiler lowering、generated package 访问方式和 public compatibility，不能由实现代码私自决定。
 
-在项目所有者选择方案并先更新唯一正式 Owner 前，不实现依赖该构造机制的 `@SomaTable` processing、materializer 或 generated Table API。
+项目所有者已选择方案 A。本次 closeout 先同步 annotation、materialization、compiler、codegen、processing、compatibility 与 testkit 唯一正式 Owner；Owner validation 通过后解除相关 implementation hard stop。
 
 ## 2. 涉及 Capability 与 Owner
 
@@ -68,15 +69,15 @@ Phase 0 审查发现：正式设计尚未唯一确定 generated materializer 如
 
 ## 5. 推荐
 
-推荐方案 A。它最符合现有正式示例和“schema-specific generated facade + small runtime kernel”，保持 compiler plugin 专注 `@SomaValue` effective immutability，并给 materializer 一个无需 reflection、无需额外 bridge 的确定 construction path。
+采用方案 A。它最符合现有正式示例和“schema-specific generated facade + small runtime kernel”，保持 compiler plugin 专注 `@SomaValue` effective immutability，并给 materializer 一个无需 reflection、无需额外 bridge 的确定 construction path。
 
-如果确认方案 A，正式 Owner 更新至少需要固定：class/field/constructor accessibility、implicit no-arg 是否合法、额外 constructor 的保留条件、detached copy 可修改但不 write-back、field initializer 不构成 schema default，以及对应 fail-closed diagnostics/golden。
+正式 Owner 已固定：class/field/constructor accessibility、implicit no-arg 合法、额外 constructor 的保留条件、detached copy 可修改但不 write-back、field initializer 不构成 schema default，以及对应 fail-closed diagnostics/golden obligation。
 
 ## 6. V1 scope non-regression
 
-- Capability 状态：上述 Capability 均保持 `not-started`；本报告不构成 implementation evidence。
+- Capability 状态：上述 Capability 均保持 `not-started`；本报告与 Owner 更新只解除设计阻塞，不构成 implementation evidence。
 - G0：保持 `passed`；G1-G6 保持 `not-started`。
 - 未实现 breadth：23 项 V1 capability 全部仍保留原 Phase/Gate 和完整出口。
-- Owner/Gate/Ledger/release claim：未修改；等待项目所有者决定后先更新唯一 Owner。
+- Owner：已按项目所有者决定更新各自唯一正式 Owner；Gate/Ledger/release claim 未改变。
 - 临时 contract/hot path/migration：未引入。
-- 后续要求：只有选定并正式化 construction contract 后，相关实现才能作为 additive completion；未经决定直接编码会产生 public/generated migration 风险。
+- 后续要求：相关实现必须直接遵守已选定 construction contract，并通过 additive completion 收敛；不允许引入 alternative bridge/lowering temporary path。

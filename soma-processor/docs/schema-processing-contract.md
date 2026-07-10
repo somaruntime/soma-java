@@ -173,6 +173,9 @@ Processor diagnostics 至少区分：
 - duplicate schema name；
 - unresolved type；
 - invalid field type；
+- non-public、abstract 或不可实例化的 `@SomaTable` carrier；
+- `@SomaTable` 缺少 public no-arg constructor；
+- non-public、final 或其他不可由 generated materializer 赋值的 table schema field；
 - unannotated instance field；
 - mutually exclusive primary field annotations；
 - optional marker without `@SomaField` / `@SomaChild`；

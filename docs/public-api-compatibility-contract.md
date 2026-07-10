@@ -83,6 +83,7 @@ Generated table 创建 runtime storage 前必须验证：
 - normalized schema/hash input 改变；
 - generated public type/method/return shape 改变；
 - `@SomaValue` lowering、constructor、equality/hash 改变；
+- `@SomaTable` public carrier、public no-arg construction 或 public mutable schema-field requirement 改变；
 - Materialized Object/List/Map shape 或 absent/present-empty 区分改变；
 - key/index/unique/order equality、hash、order 或 floating canonicalization 改变；
 - error code/category、lifecycle、failure atomicity 改变；

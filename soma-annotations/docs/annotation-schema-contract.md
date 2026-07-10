@@ -175,8 +175,12 @@ V1 采用 explicit field membership 与 orthogonal field modifier：
 - `@SomaField`、`@SomaKey`、`@SomaChild`、`@SomaIgnore` 互斥；
 - `@SomaOptional` 是 modifier，只能叠加在 `@SomaField` 或 `@SomaChild`；key/value leaf 不允许 optional；
 - `@SomaDefault` 是附加 metadata，只能叠加在允许 default 的 field annotation 上；
-- `@SomaTable` class 必须保持 processor 可构造的 carrier shape；具体 no-arg/canonical construction lowering 由 codegen contract 与 golden 固定，不允许 runtime reflection；
-- 用户可以修改 detached `@SomaTable` object，但该修改不会写回 SomaTable。
+- `@SomaTable` class 必须是 public、非 abstract、可实例化的普通 Java detached carrier；javac plugin 不对它执行 source lowering；
+- 每个 `@SomaField`、`@SomaKey` 或 `@SomaChild` schema field 必须是 public mutable instance field，不能是 `final`；generated materializer 必须能从 configured generated package 直接赋值；
+- `@SomaTable` class 必须保留 public no-arg constructor；public class 在没有显式 constructor 时获得的 implicit public no-arg constructor 合法；用户可以声明其他 constructor，但不能移除 public no-arg construction path；
+- Java field initializer 和 constructor body 是普通 Java 行为，不构成 schema default，也不进入 normalized schema/hash；materializer 在构造后显式写入每个 schema field；
+- 用户可以修改 caller-owned detached `@SomaTable` object，但该修改不会写回 SomaTable；写入仍必须重新经过 Batch、Mutator 或 generated mutation API；
+- inaccessible class/field/constructor、abstract carrier 或缺少 public no-arg constructor 必须在 processor 阶段 fail closed，不允许 runtime reflection 或 schema-package access bridge 补救。
 
 这样可以避免 declaration helper/cache/debug 字段被误纳入 schema，也避免用户以为某个 Java 字段参与 SOMA 存储但 processor 静默忽略。
 

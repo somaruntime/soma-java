@@ -167,7 +167,7 @@ Application/table configuration 可以覆盖这些值。默认值必须由 deep-
 
 ## 11. Equality 与 hash
 
-V1 `@SomaTable` row 不生成 structural `equals/hashCode`，默认是 Object identity。它是 detached read-only data carrier，但不是 `@SomaValue`。
+V1 `@SomaTable` row 不生成 structural `equals/hashCode`，默认是 Object identity。它是 caller-owned、可修改的 detached data carrier，但不是 `@SomaValue`；修改 detached row 不会自动 write-back。
 
 - `@SomaValue` 和 generated key 使用 canonical value equality/hash；
 - `List` / `Map` 保留 Java Collection contract；

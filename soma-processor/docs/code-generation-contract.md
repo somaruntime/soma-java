@@ -94,6 +94,9 @@ Generated table 的 `find` / `fetch` / `fetchAt` 和 Row Pipeline 的 `findFirst
 ### 5.1 Materialized shape
 
 - materializer 构造 caller-owned schema class instance，不返回 live row proxy；
+- materializer 从 configured generated package 直接调用 schema class 的 public no-arg constructor，并显式写入每个 public mutable schema field；
+- processor 在生成前验证 public、非 abstract、public no-arg construction 与 public mutable field shape；不依赖 `@SomaTable` lowering、runtime reflection 或 schema-package access bridge；
+- constructor/field initializer 不提供 schema default；constructor 失败时不返回 partial object，Table 与 epoch 保持不变；
 - scalar/value field 复制当前 logical value，不暴露 flattened column detail；immutable value 可以安全共享或重新构造，具体 accounting 必须确定；
 - optional absent 映射为 schema field `null`；optional primitive source 使用 boxed type；
 - `@SomaChild List<R>` 递归 materialize dense child；`@SomaChild Map<K,R>` 递归 materialize keyed child；

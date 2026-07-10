@@ -31,6 +31,8 @@ javac 8 parse
 - runtime artifact 不包含或加载 compiler integration；
 - application 必须同时启用 transformer 和 processor，不能只启用其中一个。
 
+`@SomaTable` 不参与 source lowering。它使用 annotation schema contract 规定的 ordinary Java public carrier shape：public no-arg construction 与 public mutable schema fields。Processor 在 codegen 前验证该 shape；compiler plugin 不合成 table constructor、不提升 field visibility，也不生成 schema-package access bridge。
+
 不采用以下替代方案：
 
 - 用 `Filer` 重新生成与输入类同名的 source；
