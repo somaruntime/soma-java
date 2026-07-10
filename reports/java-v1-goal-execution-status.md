@@ -4,7 +4,7 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`8d64122`
+当前 repository baseline：`f013bc1`
 当前 checkpoint：P2-B keyed identity breadth / Key Pipeline
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
@@ -21,7 +21,8 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | P2-B-S1 long keyed binding | completed | commit `d6517a6`；`HashLongKeySpace`、primitive `long` direct/Key Pipeline、collision/rehash/compaction evidence；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B-S2 seven primitive keyed binding | completed | commit `da2db9e`；boolean/byte/short/float/double direct binding、strict floating canonicalization和external consumer evidence；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B-S3 enum + semantic keyed binding | completed | commit `8d64122`；required enum static ordinal binding、enum Pipeline/View、DATE/TIME/DATE_TIME primitive semantic key external consumer；是 P2-B additive completion，不关闭 Phase 2 |
-| P2-B keyed identity breadth / Key Pipeline | in-progress | value/composite key、完整 key diagnostics/property/shape evidence |
+| P2-B-4a scalar value key | completed | commit `f013bc1`；single-leaf immutable `@SomaValue` 直接绑定 primitive column/KeySpace，Batch/import 无 value allocation；是 P2-B additive completion，不关闭 Phase 2 |
+| P2-B keyed identity breadth / Key Pipeline | in-progress | multi-leaf/nested/string composite key、完整 key diagnostics/property/shape evidence |
 | Phase 3 access structures | pending | index/unique/order/grouped source/sidecar |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |
 | Phase 5 full breadth + G1-G4 | pending | annotation/processor/codegen/runtime/incremental/compatibility closeout |
@@ -36,7 +37,7 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 
 | 顺序 | 切片 | 最终出口 | 明确保留的后续 breadth |
 |---|---|---|---|
-| P2-B-4 | value/composite identity | `@SomaValue` 的 primitive leaf flatten、generated static equality/hash、无 transient tuple 的 lookup/compaction/Key Pipeline | 复杂 value 之外的 string/default、P3–P6 全部项 |
+| P2-B-4 | value/composite identity | `@SomaValue` 的 primitive leaf flatten、generated static equality/hash、无 transient tuple 的 lookup/compaction/Key Pipeline；4a 已完成 single primitive leaf | multi-leaf/nested/string value key、P3–P6 全部项 |
 | P3-A | selector normalization + access API | selector path、generated source name/argument contract、invalid selector diagnostics | maintained index/unique/order runtime sidecar |
 | P3-B | index / unique | static primitive leaf binding、duplicate conflict、row move and batch atomicity | order sidecar/grouped source |
 | P3-C | order / grouped source | dirty/rebuild sidecar、stable ordered Row Pipeline、grouped selector entry | child aggregate |
@@ -97,9 +98,9 @@ Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`�
 
 唯一 Owner：generated-table API contract；processor code-generation contract；runtime TableStore/lifecycle/errors/performance contracts；testkit contract分别拥有对应行为，不形成联合 Owner。
 
-Slice exit：以已固化的 seven primitive、semantic scalar和required enum direct API / `XxxKeys` 为 compatibility baseline，additive 完成 value/composite key binding和完整 property/shape evidence；不得以 boxed tuple/object transient lookup、temporary overload或 generated API migration 取代当前 binding。
+Slice exit：以已固化的 seven primitive、semantic scalar、required enum和single-leaf immutable value direct API / `XxxKeys` 为 compatibility baseline，additive 完成 multi-leaf/nested/string composite key binding和完整 property/shape evidence；不得以 boxed tuple/object transient lookup、temporary overload或 generated API migration 取代当前 binding。
 
-仍保留的 V1 breadth：value/composite key、string/optional enum/value/default、index/order sidecar、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
+仍保留的 V1 breadth：multi-leaf/nested/string composite key、string/optional enum/value/default、index/order sidecar、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
 
 禁止捷径：generic object pipeline、Stream/boxing/per-row cursor allocation、`List<Row>` live storage、temporary column API、以 fetch/materialize 替代 column path、用 snapshot/list 伪装 ColumnView、用 synthetic micro-test 代替 differential/bytecode/allocation evidence、绕过 active-view structural pin、逐 row live update后回滚、以本机通过冒充 Gate/RC。
 
@@ -144,6 +145,16 @@ V1 scope non-regression：P2-A/P2-B-S1/S2 只添加最终 `@SomaKey`/keyed facad
 实际 evidence：isolated external Maven enum/semantic consumer编译、运行并在默认与 Turkish locale/Pacific-Kiritimati timezone 下比较 generated source 和 schema/hash；验证 enum direct/key/Key Pipeline、column pipeline/view、null/duplicate、delete compaction repair，以及 DATE/TIME/DATE_TIME normalization/direct lookup。public runtime manifest固定 enum pipeline/view与typed error factory；`./scripts/check.sh` 全部通过。
 
 V1 scope non-regression：该切片只把正式已经定义的 required enum 和三种 semantic scalar key接入最终 static primitive/ordinal architecture；value/composite key、optional enum/value、string/default、AccessStructures、child、materialization、examples、benchmark和release evidence仍保持原 Phase/Gate。未引入 temporary public/generated contract、temporary hot path、migration或rewrite。
+
+### 4.7 已完成 P2-B-4a scalar immutable value key
+
+涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-MUTATION`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；全部继续保持 `in-progress`。
+
+实际交付：当前接受单个 primitive leaf 的 immutable `@SomaValue` 作为 `@SomaKey`。public/generated direct API 保持 value type；normalized table field 使用 `value:<FQN>`、完整 `key.leaf` path和primitive storage type。Batch、`copyBatch`、duplicate preflight、KeySpace install、remove 和 packed row move 直接传递 primitive storage accessor，不构造 value；只有 fetch/materialization、Row value getter和`Keys` explicit stable-value export构造 immutable value。null value key返回 typed `invalid_null_value`，value key conflict/missing 不泄露 payload。
+
+实际 evidence：isolated external Maven consumer覆盖 javac lowering、value direct lookup、key export、duplicate/missing、delete compaction repair；默认与 Turkish locale/Pacific-Kiritimati timezone generated source/schema repeatability、generated source no-value-allocation import shape、public manifest和相关 keyed check均通过。
+
+V1 scope non-regression：此切片不把单-leaf value冒充 composite completion。multi-leaf/nested value、string leaf、strict floating leaf、optional value及其 Column API/diagnostics仍在原 P2-B/P5；已固化 value public direct signature和primitive storage是后续 additive flatten的兼容基线，无 temporary contract/hot path/migration/rewrite。
 
 ### 4.2 P2-S1 primitive KeySpace foundation
 
