@@ -5,24 +5,20 @@ Gate：G0 Java-only scope freeze
 唯一 Owner：root
 执行日期：2026-07-10
 执行人：Codex，在用户明确授权的完整 V1 Goal 下
-输入 commit：`4e69988294896038933e395312959a1dc2ca6670`
+输入 commit：`23462527ba3fd350bd288c6d75273a98207ff4bf`
 输入 artifact version：`0.1.0-SNAPSHOT`
 输出 artifact：`reports/java-v1-g0-scope-freeze-report.md`
 输入事实源：[正式设计文档索引](../docs/README.md) 与各 module `docs/README.md`
 
 ## 1. Outcome
 
-Commit `4e69988` 的 Java-only SOMA V1 scope 已满足 [G0 required evidence](../docs/validation-gates.md)：项目边界、模块 Owner、架构、schema/API/runtime contract、correctness/performance/security、build/version/release、non-goals、实施顺序、capability ledger、V1.0 RC 完成边界和 release claim boundary 均已进入正式 Owner 文档，且没有临时文档充当事实源。
+Commit `2346252` 的 Java-only SOMA V1 scope 满足 [G0 required evidence](../docs/validation-gates.md)：项目边界、模块与唯一 Owner、schema/API/runtime contract、correctness/performance/security、build/version/release、non-goals、Capability Ledger、Phase 0-6 checkpoint 语义、V1.0 RC 完整性和 release claim boundary 均位于正式 Owner 文档，没有 `docs/temp/`、README、report 或实现代码反向拥有产品语义。
 
-相对于上一次 G0 输入 commit `5a27642`，本次重新执行还纳入了项目所有者确认的发布身份与验证边界：组织/发布主体 HGTECH、产品品牌 SOMA、`com.hgtech.soma`、`soma-*` artifact、Apache-2.0 推荐方向、历史排除身份零扩散，以及“本机实现验证不能外推为 G6 support matrix”。这些变化强化发布治理，没有删除或降级任何 V1 capability。
+自上一份 G0 evidence 后，Phase 0 在正式 Owner 中固化了 stable javac plugin/provider identity、不可伪造 activation handshake、canonical value effective shape、schema graph/hash/resource ownership、diagnostic code family、public/provider/internal manifest 和真实 Maven consumer graph。这些决策关闭 implementation 细节并强化 fail-closed/compatibility 边界；没有修改 SomaTable 宪法、Capability Ledger、最终 Gate 或 release scope。
 
-相对于 G0 输入 commit `03f04a1`，项目所有者进一步选择 `@SomaTable` public detached carrier 方案：top-level public class、无 checked exception 的 public no-arg construction、public mutable schema fields、caller-owned 可修改但不自动 write-back，且 javac plugin 只 lower `@SomaValue`。Annotation、materialization、compiler、processing、codegen、compatibility 与 testkit Owner 已同步；该决定关闭 implementation hard stop，没有改变 Capability Ledger、Gate 或 release scope。
+G0 结论保持 `passed`。该结论只冻结完整 V1 scope；Phase 0 compiler/build checkpoint 的通过不表示 G1-G6、V1.0 RC、package 或 release readiness。
 
-G0 结论：`passed`。
-
-该结论只冻结 V1 scope 并允许进入 Phase 0 implementation。它不表示任何 Java capability 已实现，不表示 G1-G6 通过，也不表示 package、benchmark、public release 或 production readiness。
-
-## 2. 输入范围
+## 2. Scope inventory
 
 ### 2.1 Root formal owners
 
@@ -52,91 +48,85 @@ G0 结论：`passed`。
 - `soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md`；
 - `soma-runtime-core/docs/runtime-performance-implementation-contract.md`；
 - `soma-testkit/docs/testkit-contract.md`；
-- `soma-examples/docs/runtime-state-schema-examples.md` 及场景 Owner 文档；
+- `soma-examples/docs/runtime-state-schema-examples.md` 及场景 Owner；
 - `soma-benchmarks/docs/benchmark-evidence-contract.md`；
 - `soma-benchmarks/docs/runtime-state-benchmark-contract.md`。
 
-共检查 32 份正式设计文档；32 份均声明唯一 `Owner` 并进入同级 `docs/README.md`。
+正式索引、Owner 与生命周期由 `docs/documentation-governance.md` 管理；普通报告和四份长期研究蓝图都不是设计事实源。
 
-## 3. 审查与验证步骤
+## 3. Frozen decisions
 
-执行：
+| G0 area | 冻结结论 |
+|---|---|
+| Product boundary | Java 8 annotation schema + Java columnar runtime；不承诺 Python、C ABI、native runtime 或 FFI |
+| Identity | 发布主体 HGTECH、产品 SOMA、`com.hgtech.soma`、`soma-*`；Apache-2.0 方向；历史排除身份零扩散 |
+| Ownership | 每项正式事实只有一个 Owner；root 管跨模块 contract，module 管实现义务 |
+| Carrier | `@SomaTable` 是 public top-level detached carrier、public no-arg、public mutable schema field；不自动 write-back |
+| Value compiler | full JDK 8 javac plugin `SomaValue` lower immutable `@SomaValue`；processor-only/unsupported compiler fail closed |
+| Runtime | packed/primitive/static binding/fused/no-per-row allocation；禁止 schema object、DTO/Collection graph、reflection/metadata interpreter 成为 live hot path |
+| Scope convergence | 唯一目标为完整 V1；Phase 0-6 只是 checkpoint，后续只允许 additive completion/internal refinement |
+| RC/release | V1.0 RC 必须是完整 V1 功能 + G0-G5；总 Goal 和正式 release 还要求 G6 |
+| Validation | 本机 full JDK 8/Maven/OS 只证明该环境；正式 support matrix 属于 G6 |
+
+## 4. Commands and environment
 
 ```text
 ./scripts/check.sh
   -> scope-check: ok
   -> doc-check: ok
-  -> 7/7 Maven reactor modules SUCCESS
+  -> Maven reactor 7/7 SUCCESS
+  -> public-api-check: ok
+  -> compiler-phase0-check: ok
+  -> external-consumer-check: ok
   -> project-check: ok
+
+SOMA_UNSUPPORTED_JAVAC=/opt/homebrew/opt/openjdk/bin/javac \
+  ./scripts/check-compiler-phase0.sh
+  -> javac 25.0.2 rejected with SOMA-COMP-002
+  -> full JDK 8 matrix: ok
 
 git diff --check
   -> passed
 
-sh -n scripts/check-v1-scope.sh scripts/check-docs.sh scripts/check.sh
-  -> passed
-
-sh scripts/check-v1-scope.sh
-  -> scope-check: ok
-
-/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home/bin/java -version
-JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./mvnw -version
+java -version
+./mvnw -version
 sw_vers
-uname -srm
-  -> validation environment captured
+uname -a
+shasum -a 256 docs/implementation-strategy.md docs/validation-gates.md \
+  AGENTS.md scripts/check-v1-scope.sh
+  -> scope identity captured
 ```
 
-实际验证环境：
+实际环境：
 
-- JDK：Azul Systems Zulu OpenJDK `1.8.0_492-b09`，Zulu `8.94.0.17`，64-Bit Server VM build `25.492-b09`；
-- Maven Wrapper：Wrapper `3.3.4`，Apache Maven `3.9.16`；
-- OS：macOS `26.5.2` build `25F84`，Darwin `25.5.0`；
-- architecture：`arm64` / Maven 报告 `aarch64`。
+- Azul Systems Zulu OpenJDK `1.8.0_492-b09`，Zulu `8.94.0.17`，VM build `25.492-b09`；
+- full JDK `javac 1.8.0_492`；
+- Apache Maven Wrapper distribution `3.9.16`，revision `2bdd9fddda4b155ebf8000e807eb73fd829a51d5`；
+- macOS `26.5.2` build `25F84`，Darwin `25.5.0`；
+- `arm64` / JVM-Maven `aarch64`。
 
-本次结果只表示上述环境和输入 commit 通过；正式 JDK vendor/minor、runtime JVM、OS 与 architecture support matrix 仍属于 G6 required evidence，当前不得由本机结果外推。
+本次结果不能外推为跨 vendor/minor、OS 或 architecture 支持；正式 support matrix 仍为 G6 `not-started`。
 
-附加人工审查：
+## 5. Scope lock identity
 
-- 对照 SomaTable 宪法原则十五与完整 V1 capability ledger；
-- 对照 Phase 0-6 首次进入、完整出口与 G0-G6；
-- 检查 implementation strategy、validation gates、Agent guard 和 PR checklist 的 stop/closeout 规则；
-- 检查正式文档没有引用 `docs/temp/` 作为事实源；
-- 检查四份长期研究蓝图均声明 `状态：长期研究蓝图` 和 `正式事实源：否`；
-- 检查普通实施蓝图声明 `正式事实源：否`，且 capability scope 仍由正式 implementation strategy 拥有；
-- 检查 module dependency direction、Java 8 toolchain 和 no-third-party runtime baseline 未变化。
-
-## 4. 通过项
-
-| G0 area | 结论 |
+| Artifact | SHA-256 |
 |---|---|
-| Java-only boundary | 通过；不包含 Python、C ABI、native runtime 或 FFI |
-| Unique Owner | 通过；32/32 正式文档有唯一 Owner |
-| Module boundary | 通过；六模块责任和依赖方向已正式化 |
-| Schema/API/runtime contract | 通过；annotation、processing/codegen、generated API、TableStore/lifecycle/plan/errors/performance 均有 Owner |
-| Schema carrier construction | 通过；`@SomaTable` public carrier/no-arg/mutable-field、materializer direct construction 和 processor fail-closed 已正式化 |
-| Correctness/performance/security | 通过；模型、实现纪律、evidence obligation 和 claim boundary 已正式化 |
-| Build/version/release | 通过；JDK 8、Wrapper/reactor、artifact、compatibility、G6 blocker 和 rollback 已正式化 |
-| Release identity | 通过；HGTECH/SOMA、`com.hgtech.soma`、`soma-*`、Apache-2.0 方向和历史身份零扩散边界已正式化 |
-| RC/support boundary | 通过；完整 V1 功能 + G0-G5 才构成功能 RC，本机 validation 不替代 G6 support matrix |
-| Implementation scope | 通过；唯一 V1 目标、Phase 语义和单调收敛原则已固化 |
-| Capability traceability | 通过；23 个 Capability ID 被 scope check 锁定 |
-| Gate/report path | 通过；G0-G6 Owner、路径、状态和 blocking rule 已固化 |
-| Temporary-source isolation | 通过；临时蓝图不拥有正式事实，也不作为 Gate 输入 |
-| Agent/PR enforcement | 通过；Agent hard stop、slice closeout 和 PR non-regression checklist 已固化 |
+| `docs/implementation-strategy.md` | `5dc5438808d7963375ce18b9833b7a57555fa549c3f0a87866c2f00264dd8334` |
+| `docs/validation-gates.md` | `a1f6f13659a1e75670b1cfe32d2e220f99344782ccde23dcc6ce5c6476576eaa` |
+| `AGENTS.md` | `2c0babfdae3c74a0e7cc842e4a50012ce8571d769d808d9be900c8bb79e23f72` |
+| `scripts/check-v1-scope.sh` | `28c40d061330e53ccb584dbba21d0cb58be0201b8306f67e3760b5df7c31be33` |
+| `docs/build-and-dependency-contract.md` | `6ece644db4dcdbd6b8184036265bb626fc267d15b440faa2695b9109f210f7c0` |
+| `docs/public-api-compatibility-contract.md` | `60bb99b07433a3ae6473ef936948311fb05165b09ba1527f394837642d293405` |
+| `soma-annotations/docs/annotation-schema-contract.md` | `599fb2de88f54e21f269b982303009d40fb4bd5bdd99a3522cc0a8502559988b` |
+| `soma-processor/docs/compiler-integration-contract.md` | `7a02d59962737e412b80d42a0e268773cc82856a04cfe8f23ec40fb6525828ef` |
+| `soma-processor/docs/schema-processing-contract.md` | `2f8d5065ea4a8a7614786a7e63238baba07d0851bce6571ce3935b2c6dae1a56` |
+| `soma-testkit/docs/testkit-contract.md` | `427e76b24c01407b98c564392a79855991d1ac63c6124ba8fa5ffdfcaab23479` |
 
-## 5. V1 scope non-regression
+Scope check 要求原则十五、防缩水协议、Agent/PR guard、non-regression Gate 和 23 个 Capability ID 均存在。任何 deliberate scope change 必须产生正式 Owner、Ledger、Gate 和 scope-lock diff，不能由实现或 report 静默改变。
 
-### 5.1 唯一目标和单调收敛
+## 6. Capability status
 
-- 唯一产品实施目标是完整 Java-only SOMA V1；
-- Phase 0 至 Phase 6 只是 implementation checkpoint，不是 `v0.x`、MVP、Lite、Basic 或独立产品目标；
-- 未进入当前 Phase 的 capability 仍保留在 V1，不能被移入未批准的新版本或 indefinite backlog；
-- 每个 Phase 必须是最终 V1 架构的有效子集；后续只能 additive completion 或 contract-preserving internal refinement；
-- public/generated consumer migration、核心事实迁移或 canonical hot-path rewrite 会阻塞 phase closeout；
-- implementation PR 不能为合理化 shortcut 而反向修改宪法、Owner、ledger、non-goal 或 Gate。
-
-### 5.2 Capability inventory
-
-以下 23 项 capability 均存在于正式 ledger，G0 只确认 scope 和 Owner chain；Java implementation 状态仍为 `not-started`：
+G0 冻结并保留以下 23 项 V1 Capability：
 
 ```text
 V1-ANNOTATION-SCHEMA
@@ -164,66 +154,56 @@ V1-SCENARIO-BENCHMARK
 V1-RELEASE-EVIDENCE
 ```
 
-Compiler feasibility spike 只证明 `V1-COMPILER-LOWERING` 的最小机制可行，不改变其 `not-started` implementation 状态，也不能替代 G2/G4 evidence。
+Phase 0 后，`V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`、`V1-SECURITY-INTEGRITY`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE` 为 `in-progress`；其余 15 项为 `not-started`。具体状态变化和 evidence 见 [Phase 0 report](java-v1-phase-0-compiler-build-report.md)。没有 Capability 被删除、waive、降为 optional 或移出 V1。
 
-相对上一次 G0 evidence，23 项 capability 状态均保持 `not-started -> not-started`。本次只更新正式 release/validation/carrier governance 与 G0 证据身份，没有把设计、spike、空 reactor build 或本机 smoke 转换为 capability implementation evidence。
+## 7. Gate status
 
-### 5.3 Scope lock identity
+| Gate | 状态 | 结论 |
+|---|---|---|
+| G0 | `passed` | 完整 V1 scope、Owner、Ledger、Gate、RC/release claim 已冻结 |
+| G1 | `not-started` | 完整 annotation schema required evidence 尚未落地 |
+| G2 | `not-started` | Phase 0 foundation 不等于完整 processor/codegen gate |
+| G3 | `not-started` | runtime core required evidence 尚未落地 |
+| G4 | `not-started` | 完整 generated API/package consumer 尚未落地 |
+| G5 | `not-started` | formal examples/benchmark evidence 尚未落地 |
+| G6 | `not-started` | License/release metadata、support matrix 和 readiness 尚未落地 |
 
-```text
-docs/implementation-strategy.md
-  sha256 5dc5438808d7963375ce18b9833b7a57555fa549c3f0a87866c2f00264dd8334
+## 8. V1 scope non-regression
 
-docs/validation-gates.md
-  sha256 a1f6f13659a1e75670b1cfe32d2e220f99344782ccde23dcc6ce5c6476576eaa
+- 相对上一份 G0 evidence，八项 Capability 从 `not-started` 进入 `in-progress`，其余 15 项保持 `not-started`；状态变化来自真实 Phase 0 evidence，不改变完整出口；
+- 未实现 breadth 仍保留在原 Phase 1-6 和 G1-G6，没有 `dropped`、`optional`、indefinite backlog 或新版本迁移；
+- SomaTable 宪法、implementation strategy/Capability Ledger、validation gates 和 version/release claim 没有变化；
+- Owner contract 的变化是 stable compiler identity、canonical semantics、diagnostic/API manifest 和 consumer graph 的 additive/fail-closed refinement，不降低目标；
+- 当前 public annotation、compiler handshake、canonical schema/hash 和 external build shape 是最终 V1 架构的有效子集；后续通过 additive completion 或 contract-preserving internal refinement 收敛；
+- 没有 temporary public/generated API、temporary canonical live storage/hot path、migration、rewrite 或 test-only bypass；
+- 当前实现不要求未来迁移公共契约、核心事实或 canonical main path，因此 G0/Phase 0 不因 non-regression 条件而 blocked。
 
-AGENTS.md
-  sha256 2c0babfdae3c74a0e7cc842e4a50012ce8571d769d808d9be900c8bb79e23f72
+## 9. Failures, waivers and limitations
 
-scripts/check-v1-scope.sh
-  sha256 28c40d061330e53ccb584dbba21d0cb58be0201b8306f67e3760b5df7c31be33
-```
+- G0 失败项：无；
+- G0 豁免项：无；
+- 隐式延期或移出 V1：无；
+- G1-G6 尚未开始，不能被 G0 或 Phase 0 evidence 替代；
+- runtime/generated API/examples/benchmark/release breadth 尚未实现；
+- remote CI、正式 License artifact、SCM/contact、signing/provenance、reproducible release 和 support matrix 尚无 evidence；
+- 当前本机 JDK 8 结果不是正式 support declaration。
 
-Scope check 要求原则十五、防缩水协议、non-regression Gate、Agent/PR guard 和每个 Capability ID 恰好存在一次。任何 deliberate scope change 必须同时产生正式 Owner、ledger、Gate 和 scope-lock diff，不能静默删除 capability。
-
-## 6. 失败项与豁免
-
-- 失败项：无；
-- 豁免项：无；
-- 隐式延期：无；
-- 移出 V1 的 capability：无。
-
-## 7. Known limitations
-
-- 仓库仍没有 Java functionality source；
-- G1-G6 全部为 `not-started`；
-- real processor/generated/runtime external consumer 尚不存在；
-- GitHub-hosted CI 尚未在 remote repository 执行；
-- benchmark/performance claim 尚无实现证据；
-- Apache-2.0 仍只是已确认的推荐方向；正式 `LICENSE`、POM license metadata、namespace ownership、SCM/contact、publishing/signing/provenance 和 support matrix 继续阻塞 G6，但不阻塞 Phase 0；
-- 当前 Maven reactor SUCCESS 只证明 build skeleton 和 governance checks，不证明 product behavior。
-
-## 8. 允许引用的结论
+## 10. Release claim boundary
 
 允许声明：
 
-- commit `4e69988` 的 Java-only SOMA V1 scope 已完成 G0 freeze；
-- 23 项 V1 capability、Owner chain、Phase/Gate 和禁止替代已被正式 ledger 和 scope check 固化；
-- V1.0 RC 是完整功能 checkpoint；HGTECH/SOMA 发布身份和本机 validation/G6 support-matrix 边界已冻结；
-- `@SomaTable` public detached carrier construction contract 已关闭设计阻塞；
-- 项目可以按唯一完整 V1 目标进入 Phase 0；
-- Phase 不能被改写成 `v0.x`、MVP、Lite、Basic 或独立完成目标。
+- commit `2346252` 的完整 Java-only SOMA V1 scope 已通过 G0 freeze；
+- 23 项 Capability、唯一 Owner、Phase/Gate 和禁止替代继续被正式 Ledger 与 scope check 固化；
+- Phase 0 compiler/build checkpoint 已通过，但相关 Capability 仍为 `in-progress`；
+- V1.0 RC 必须覆盖全部 V1 功能和 G0-G5，正式 release/总 Goal 还必须通过 G6。
 
 不允许声明：
 
-- annotation/compiler/processor/runtime/generated API 已实现；
 - G1-G6 任一 Gate 已通过；
-- package、examples 或 benchmark 可运行；
-- public release、Maven Central、production 或性能 ready；
-- 临时蓝图、feasibility spike 或本机 reactor build 已证明产品 capability。
+- 完整 annotation/compiler/processor/runtime/generated API 已实现；
+- V1.0 RC、package、benchmark、public release、production、性能或跨平台支持 ready；
+- 本机 smoke、Phase 0 fixture 或 Maven `0.1.0-SNAPSHOT` 定义了缩小产品目标。
 
-## 9. 下一入口
+## 11. 下一入口
 
-正式实施入口是 [Phase 0 compiler/build vertical slice](../docs/implementation-strategy.md#phase-0compilerbuild-vertical-slice)。当前 Codex Goal 只有一个：“完成完整 Java-only SOMA V1.0，并通过 G0-G6”；Phase 0-6 只作为 plan checkpoint，不能独立完成总 Goal。
-
-Phase 0 将从 `V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-EVIDENCE-TOOLING` 和 `V1-CONSUMER-PACKAGE` 的最终架构子集开始。任何确实缺失的 public/schema/runtime 语义必须回到唯一 Owner 决策，不能由实现捷径补写。
+Phase 0 已作为同一 Goal 下的 checkpoint 关闭。下一入口是 Phase 1 dense table 最小闭环；它必须继续完整 V1 的 primitive/packed/static-binding/fused 架构，并同步产出 correctness 与 performance-shape evidence。总 Goal 继续保持 active，直到 G0-G6 全部通过。
