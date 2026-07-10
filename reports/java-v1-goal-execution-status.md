@@ -4,7 +4,7 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`c067dac`
+当前 repository baseline：`bcf0966`
 当前 checkpoint：Phase 1 dense table完整闭环
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
@@ -14,7 +14,7 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | Checkpoint | 状态 | Exit/evidence |
 |---|---|---|
 | Phase 0 compiler/build foundation | completed | commits `2346252`、`c5fbfbf`；Phase 0 report |
-| Phase 1 dense table闭环 | in-progress | runtime protocol `13179d2`、depth budget `2b2b643`、processor/generated facade `c067dac`；继续补齐dense access/terminal/shape evidence |
+| Phase 1 dense table闭环 | in-progress | runtime protocol `13179d2`、depth budget `2b2b643`、processor/generated facade `c067dac`、dense read terminals `bcf0966`；继续补齐remove/Column path/shape evidence |
 | Phase 2 keyed identity | pending | SparseInt/Hash KeySpace、Key Pipeline |
 | Phase 3 access structures | pending | index/unique/order/grouped source/sidecar |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |
@@ -98,7 +98,7 @@ Slice exit：
 
 禁止捷径：手写 facade冒充 generated、processor依赖 runtime-core、generic metadata/dtype interpreter、Object/DTO/List<Row> live storage、optional sentinel、Stream/boxing/per-row Cursor、callback直写 live columns、temporary API/protocol/storage、test-only compatibility bypass、本机 smoke冒充 Gate/RC/release。
 
-实际 evidence：annotation/table valid-invalid compile、canonical JSON/hash golden、generated source跨locale/timezone repeatability、generated javap golden、runtime/protocol manifest、packed/presence randomized invariant、Batch/replace/clear/fetch/mutate/update/materialization/error/lifecycle、callback failure atomicity、isolated external Maven consumer与artifact runtime graph。Dense differential、Column path、cursor/bytecode/allocation shape继续由当前 slice生成。
+实际 evidence：annotation/table valid-invalid compile、canonical JSON/hash golden、generated source跨locale/timezone repeatability、generated javap golden、runtime/protocol manifest、packed/presence randomized invariant、Batch/replace/clear/fetch/mutate/update/materialization/error/lifecycle、callback failure atomicity、stable primitive-index sorted、short-circuit any/none、find/required/fetchAll/rowIndexes、isolated external Maven consumer与artifact runtime graph。Dense differential、remove、Column path、cursor/bytecode/allocation shape继续由当前 slice生成。
 
 ## 5. Recovery protocol
 
@@ -122,7 +122,7 @@ Slice exit：
 
 ## 7. Latest validation record
 
-- commit/artifact：`c067dac`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifact `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`；
+- commit/artifact：`bcf0966`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifact `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`；
 - 完整命令：`JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./scripts/check.sh`；
 - JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
 - Maven Wrapper：Apache Maven `3.9.16`；
