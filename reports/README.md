@@ -4,6 +4,7 @@
 
 ## 当前报告
 
+- [Java-only SOMA V1 G0 scope freeze](java-v1-g0-scope-freeze-report.md)
 - [2026-07-10 Implementation-readiness 治理收尾](2026-07-10-implementation-readiness-governance-report.md)
 - [2026-07-10 Compiler integration feasibility](2026-07-10-compiler-integration-spike-report.md)
 
