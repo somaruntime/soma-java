@@ -114,6 +114,8 @@ Count、predicate、update/remove、key traversal、non-materializing column ter
 - temporary allocations 可以由 JVM 回收，但不能注册为 live runtime state；
 - error 必须包含 ownership/materialization path。
 
+`@SomaTable` public no-arg constructor 不允许声明 checked exception。Constructor 或 field initializer 抛出的 `RuntimeException` 属于 application carrier code failure，原异常直接传播，不伪装成 SOMA internal/typed runtime error；`Error` 同样不包装。无论哪种情况，caller 都不得获得 partial graph，Table 与 epoch 保持不变。
+
 Materialization 不提供 cancellation/timeout partial result。Application 需要取消时，应在调用边界外控制是否发起。
 
 ## 8. MaterializationBudget

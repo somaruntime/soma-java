@@ -73,6 +73,8 @@ Phase 0 审查发现：正式设计尚未唯一确定 generated materializer 如
 
 正式 Owner 已固定：class/field/constructor accessibility、implicit no-arg 合法、额外 constructor 的保留条件、detached copy 可修改但不 write-back、field initializer 不构成 schema default，以及对应 fail-closed diagnostics/golden obligation。
 
+独立只读审查补充发现并已收口两个边界：V1 table carrier 只允许 top-level class，排除需要 enclosing instance 的 non-static member；public no-arg constructor 不得声明 checked exception。Constructor/initializer 抛出的 unchecked application exception 由 Materialization Owner 定义为原样传播并保持 no-partial/Table-unchanged，不由 codegen 自行发明 typed error。
+
 ## 6. V1 scope non-regression
 
 - Capability 状态：上述 Capability 均保持 `not-started`；本报告与 Owner 更新只解除设计阻塞，不构成 implementation evidence。

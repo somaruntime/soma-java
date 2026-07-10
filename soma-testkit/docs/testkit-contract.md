@@ -70,7 +70,7 @@ assertNoUnexpectedDiagnostics()
 必须覆盖：
 
 - invalid schema-backed table class；
-- `@SomaTable` non-public/abstract、missing public no-arg constructor、non-public/final schema field；
+- `@SomaTable` member/local/non-public/abstract、missing or checked-throwing public no-arg constructor、non-public/final schema field；
 - invalid/mutable `@SomaValue` effective shape；
 - raw/wildcard/List-keyed/Map-dense/key-mismatched child field；
 - direct/indirect ownership cycle；
