@@ -58,6 +58,20 @@ Gate 状态只允许：
 
 缺少 report 的 gate 等同于 `not-started`。
 
+### 4.1 V1 scope non-regression
+
+每个 phase、checkpoint 和 gate report 必须包含独立的 `V1 scope non-regression` 审计：
+
+- 引用 [实现策略 capability ledger](implementation-strategy.md#83-v1-capability-ledger) 中受影响的 Capability ID；
+- 记录每项 capability 的前后状态和对应 evidence；
+- 列出当前未实现的 V1 breadth，并确认它们仍保留原完整出口和最终 Gate；
+- 证明当前产物是 V1 架构的有效子集，后续通过 additive completion 或 contract-preserving internal refinement 收敛；
+- 证明没有 temporary public/generated API、temporary canonical live storage/hot path 或 test-only bypass 被当作正式 capability；
+- 记录宪法、Owner contract、capability ledger、Gate 和 release claim 是否变化；
+- 如果需要 public migration、核心事实迁移或主执行路径重写，状态必须是 `blocked`，不能通过 phase closeout。
+
+Phase-local success 不能隐式 waive、删除或移出未涉及的 V1 capability。`waived` 只对本 Gate 明确列出的 evidence item 生效，必须包含唯一 Owner 和用户/项目决策者 sign-off；Codex、单个 implementation PR 或临时报告无权自行豁免产品 capability。
+
 ## 5. Gate owner and report paths
 
 | Gate | 唯一 Owner | Evidence contributors | Evidence report |
@@ -77,6 +91,11 @@ Report 是 evidence，不是设计事实源。可持续技术事实必须进入�
 以下情况必须阻塞 V1 release：
 
 - G0-G6 任一 required gate 为 `not-started` 或 `blocked`；
+- phase/gate report 缺少 `V1 scope non-regression` 审计，或 capability 状态无法回溯到正式 ledger；
+- Phase 被改写成 `v0.x`、MVP、Lite、Basic 等替代产品目标，或未实现 capability 被移入无批准的新版本/indefinite backlog；
+- 当前实现需要未来迁移 public/generated consumer、核心事实或 canonical hot path 才能达到正式 V1；
+- stub、fake、test-only bypass、temporary API 或 temporary storage 被当作 capability/Gate evidence；
+- implementation PR 为合理化既有 shortcut 而反向修改宪法、Owner contract、capability ledger、non-goal 或 Gate；
 - release claim 引用了未进入正式 `reports/` 的证据；
 - package smoke 只通过 IDE classpath 或 loose generated source；
 - transformer 缺失/unsupported compiler 时静默退化，或用 `--release 8` 冒充 javac 8 adapter support；

@@ -18,6 +18,19 @@
 
 以上是 Agent 操作护栏；完整语义仍以正式 owner 文档为准。
 
+## V1 Scope Preservation
+
+- Java-only SOMA V1 是唯一产品实施目标；`Phase 0` 至 `Phase 6` 只是 [实现顺序和验证 checkpoint](docs/implementation-strategy.md)，不是 `v0.x`、MVP、Lite、Basic、独立 release 或替代目标；
+- 实施任务开始前必须阅读 [SomaTable 设计宪法](docs/soma-table-design-constitution.md)、[实现策略](docs/implementation-strategy.md)、[V1 验证门禁](docs/validation-gates.md) 和对应 module owner docs；
+- 用户启动 Codex Goal 时，只建立“完成完整 SOMA Java V1 并满足 G0-G6”的总 Goal；Phase 只能是 plan/checkpoint，总 Goal 不得因单个 Phase 完成而标记 complete；
+- 编辑代码前必须列出本次涉及的 Capability ID、唯一 Owner、slice 出口、故意未实现的 V1 breadth、禁止捷径和计划 evidence；
+- 允许当前 Phase 尚未实现后续 breadth，但已实现部分必须是最终 V1 架构的有效子集；不得用临时 public/generated API、`List<Row>`/DTO live storage、reflection/metadata interpreter、Java Stream hot path、share/reparent child、generic error 或 test-only bypass 代替正式语义；
+- 未实现 capability 只能保持 `not-started`、`in-progress`、`implemented-unverified`、`evidenced` 或 `blocked`；不得自行标记 `dropped`、`optional`、无目标阶段的 `deferred`，也不得移入未批准的新版本；
+- 如果后续达到 V1 需要迁移 consumer、核心事实、public/generated contract 或 canonical hot path，当前 slice 必须停止，不能以“以后重构”为理由继续；
+- 修改宪法、capability ledger、正式 Owner、public/schema/runtime semantics、最终 Gate 或 release claim 前必须停止并请求用户明确决定；批准后先修改唯一 Owner，再实施代码；
+- 实施 closeout 必须包含 `V1 scope non-regression`：Capability 状态变化、实际 evidence、未实现项的原 Phase/Gate、Owner/Gate 是否变化，以及后续是 additive completion/internal refinement 还是 migration/rewrite；后者不得 closeout；
+- 不得为合理化已经写出的 shortcut 而反向修改正式目标、non-goal、Owner 文档或 Gate。
+
 ## Module Ownership
 
 - `soma-annotations`：public schema annotation；

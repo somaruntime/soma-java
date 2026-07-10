@@ -93,4 +93,6 @@ if [ "$failed" -ne 0 ]; then
   exit 1
 fi
 
+sh ./scripts/check-v1-scope.sh
+
 printf '%s\n' 'doc-check: ok'
