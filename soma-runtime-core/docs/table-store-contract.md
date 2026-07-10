@@ -220,6 +220,8 @@ V1 至少支持以下 `KeySpace` 实现材料：
 - rehash；
 - collision full equality。
 
+`HashCompositeKeySpace` 只保存 primitive `long hash`、probe state 和 packed `RowSlot`；它不接受 value object、`Object[]`、lambda comparator 或 reflection metadata。generated table 在同 hash candidate 上静态展开 normalized leaf equality，只有 full equality 才视为同一 identity；hash collision 继续 probe，不能被当作 duplicate/missing。Batch preflight 使用同一 raw probe substrate 和 batch leaf equality，确保 duplicate failure 在 visible mutation 前发生。remove/compaction 先按 row leaf 找回完整 identity slot，再 tombstone/remove 或更新 surviving `RowSlot`；rehash 只重排 raw hash/slot，不改变 leaf facts。
+
 Hash value、bucket layout 和 probing strategy 是 internal implementation detail，不进入 generated public API、Materialized Object 或 schema hash。
 
 ### 6.1 Floating identity/access canonicalization

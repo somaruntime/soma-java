@@ -10,6 +10,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DoubleColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.FloatColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedMetadata
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashCompositeKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashLongKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn

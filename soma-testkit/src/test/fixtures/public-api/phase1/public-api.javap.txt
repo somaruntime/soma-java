@@ -115,6 +115,23 @@ public final class com.hgtech.soma.runtime.generated.GeneratedMetadata {
   public java.lang.String algorithm();
   public java.lang.String allocationEstimator();
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashCompositeKeySpace
+Compiled from "HashCompositeKeySpace.java"
+public final class com.hgtech.soma.runtime.generated.HashCompositeKeySpace {
+  public com.hgtech.soma.runtime.generated.HashCompositeKeySpace(int);
+  public int size();
+  public void ensureInsertCapacity();
+  public int firstSlot(long);
+  public int nextSlot(int);
+  public boolean isEmpty(int);
+  public boolean isLive(int);
+  public long hashAt(int);
+  public int rowAt(int);
+  public void putAt(int, long, int);
+  public void removeAt(int);
+  public void updateRowAt(int, int);
+  public void clear();
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
 Compiled from "HashIntKeySpace.java"
 public final class com.hgtech.soma.runtime.generated.HashIntKeySpace {
