@@ -1,5 +1,6 @@
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaIgnore;
+import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
 import com.hgtech.soma.annotation.SomaSchema;
 import com.hgtech.soma.annotation.SomaSemantic;
@@ -22,6 +23,7 @@ public final class AnnotationContractConsumer {
         assertAnnotation(SomaValue.class, ElementType.TYPE);
         assertAnnotation(SomaField.class, ElementType.FIELD);
         assertAnnotation(SomaIgnore.class, ElementType.FIELD);
+        assertAnnotation(SomaKey.class, ElementType.FIELD);
         assertAnnotation(SomaOptional.class, ElementType.FIELD);
         assertAnnotation(SomaTable.class, ElementType.TYPE);
 
@@ -36,6 +38,11 @@ public final class AnnotationContractConsumer {
         require(SomaSemantic.NONE.equals(
                 SomaField.class.getMethod("semantic").getDefaultValue()),
                 "SomaField.semantic default");
+        require("".equals(SomaKey.class.getMethod("name").getDefaultValue()),
+                "SomaKey.name default");
+        require(SomaSemantic.NONE.equals(
+                SomaKey.class.getMethod("semantic").getDefaultValue()),
+                "SomaKey.semantic default");
         require(SomaSchema.class.getMethod("name").getDefaultValue() == null,
                 "SomaSchema.name must be required");
         require(SomaSchema.class.getMethod("generatedPackage").getDefaultValue() == null,

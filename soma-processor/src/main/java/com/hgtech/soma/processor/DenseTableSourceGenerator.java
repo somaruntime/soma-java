@@ -27,6 +27,9 @@ final class DenseTableSourceGenerator {
         write(table.name("Batch"), batchSource(table), table.origin);
         write(table.name("Mutator"), mutatorSource(table), table.origin);
         write(table.name("Rows"), rowsSource(table), table.origin);
+        if (table.keyed()) {
+            write(table.name("Keys"), keysSource(table), table.origin);
+        }
         write(table.name("Table"), tableSource(table), table.origin);
     }
 
@@ -68,6 +71,9 @@ final class DenseTableSourceGenerator {
         out.append("public interface ").append(table.name("MutableRow"))
                 .append(" extends ").append(table.name("Row")).append(" {\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             out.append("  void set").append(cap(field.javaName)).append('(')
                     .append(field.primitive).append(" value);\n");
             if (field.optional) {
@@ -264,6 +270,9 @@ final class DenseTableSourceGenerator {
                 .append("  private final ").append(table.name("Table")).append(" table;\n")
                 .append("  private final int rowIndex;\n  private final long epoch;\n  private boolean consumed;\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             out.append("  private ").append(field.primitive).append(' ')
                     .append(field.javaName).append("Value;\n");
             if (field.optional) out.append("  private boolean ").append(field.javaName).append("Present;\n");
@@ -271,12 +280,18 @@ final class DenseTableSourceGenerator {
         out.append("\n  ").append(name).append('(').append(table.name("Table"))
                 .append(" table, int rowIndex, long epoch) {\n    this.table = table; this.rowIndex = rowIndex; this.epoch = epoch;\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             out.append("    this.").append(field.javaName).append("Value = table.")
                     .append(field.javaName).append("Value(rowIndex);\n");
             if (field.optional) out.append("    this.").append(field.javaName).append("Present = table.").append(field.javaName).append("Present(rowIndex);\n");
         }
         out.append("  }\n\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             String c = cap(field.javaName);
             out.append("  public ").append(name).append(" set").append(c).append('(')
                     .append(field.primitive).append(" value) { check(); ")
@@ -296,6 +311,26 @@ final class DenseTableSourceGenerator {
         return out.append("\n  public void commit() { check(); consumed = true; table.commitMutator(rowIndex, epoch, this); }\n")
                 .append("  private void check() { if (consumed) throw RuntimeFailures.mutationConsumed(")
                 .append(q(table.logicalName)).append(", \"mutator\"); }\n}\n").toString();
+    }
+
+    private String keysSource(TableSpec table) {
+        FieldSpec key = table.keyField();
+        String name = table.name("Keys");
+        String tableName = table.name("Table");
+        StringBuilder out = new StringBuilder(header());
+        out.append("import com.hgtech.soma.runtime.SomaRuntimeException;\n")
+                .append("import com.hgtech.soma.runtime.generated.RuntimeFailures;\n")
+                .append("import java.util.ArrayList;\nimport java.util.List;\nimport java.util.Optional;\n")
+                .append("import java.util.function.Consumer;\n\n")
+                .append("public final class ").append(name).append(" {\n")
+                .append("  private final ").append(tableName).append(" table;\n")
+                .append("  ").append(name).append('(').append(tableName).append(" table){this.table=table;}\n")
+                .append("  public void forEach(Consumer<").append(key.boxed).append("> consumer){if(consumer==null)throw new NullPointerException(\"consumer\");table.begin(\"keys.forEach\");long scanned=0L;try{int size=table.size();for(int row=0;row<size;row++){scanned++;try{consumer.accept(").append(key.boxValue("table." + key.javaName + "Value(row)")).append(");}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"keys.forEach\",\"consumer\",callback);}}table.endSuccess(\"keys.forEach\",scanned,scanned,0L);}catch(SomaRuntimeException failure){table.endFailure(\"keys.forEach\",scanned,scanned,failure.code());throw failure;}catch(Error failure){table.endFailure(\"keys.forEach\",scanned,scanned,\"callback_failed\");throw failure;}}\n")
+                .append("  public List<").append(key.boxed).append("> fetchAll(){table.begin(\"keys.fetchAll\");long scanned=0L;try{int size=table.size();List<").append(key.boxed).append("> result=new ArrayList<").append(key.boxed).append(">(size);for(int row=0;row<size;row++){scanned++;result.add(").append(key.boxValue("table." + key.javaName + "Value(row)")).append(");}table.endSuccess(\"keys.fetchAll\",scanned,scanned,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.fetchAll\",scanned,scanned,failure.code());throw failure;}catch(Error failure){table.endFailure(\"keys.fetchAll\",scanned,scanned,\"callback_failed\");throw failure;}}\n")
+                .append("  public Optional<").append(key.boxed).append("> findFirst(){table.begin(\"keys.findFirst\");try{if(table.size()==0){table.endSuccess(\"keys.findFirst\",0L,0L,0L);return Optional.empty();}").append(key.boxed).append(" result=").append(key.boxValue("table." + key.javaName + "Value(0)")).append(";table.endSuccess(\"keys.findFirst\",1L,1L,0L);return Optional.of(result);}catch(SomaRuntimeException failure){table.endFailure(\"keys.findFirst\",0L,0L,failure.code());throw failure;}catch(Error failure){table.endFailure(\"keys.findFirst\",0L,0L,\"callback_failed\");throw failure;}}\n")
+                .append("  public ").append(key.boxed).append(" firstOrThrow(){table.begin(\"keys.firstOrThrow\");try{if(table.size()==0)throw RuntimeFailures.emptyResult(").append(q(table.logicalName)).append(",\"keys.firstOrThrow\");").append(key.boxed).append(" result=").append(key.boxValue("table." + key.javaName + "Value(0)")).append(";table.endSuccess(\"keys.firstOrThrow\",1L,1L,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.firstOrThrow\",0L,0L,failure.code());throw failure;}catch(Error failure){table.endFailure(\"keys.firstOrThrow\",0L,0L,\"callback_failed\");throw failure;}}\n")
+                .append("}\n");
+        return out.toString();
     }
 
     private String rowsSource(TableSpec table) {
@@ -328,8 +363,8 @@ final class DenseTableSourceGenerator {
                 .append("  public ").append(table.carrierType).append(" firstOrThrow(){start(\"rows.firstOrThrow\");try{Selection s=select(1);if(s.length==0)throw RuntimeFailures.emptyResult(").append(q(table.logicalName)).append(",\"rows.firstOrThrow\");").append(table.carrierType).append(" result=table.materializeRow(s.rows[0]);table.endSuccess(\"rows.firstOrThrow\",s.scanned,1L,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.firstOrThrow\",0L,0L,f.code());throw f;}}\n")
                 .append("  public List<").append(table.carrierType).append("> fetchAll(){start(\"rows.fetchAll\");try{Selection s=select(Integer.MAX_VALUE);List<").append(table.carrierType).append("> result=table.materializeRows(s.rows,s.length);table.endSuccess(\"rows.fetchAll\",s.scanned,s.length,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.fetchAll\",0L,0L,f.code());throw f;}}\n")
                 .append("  public int[] rowIndexes(){start(\"rows.rowIndexes\");try{Selection s=select(Integer.MAX_VALUE);int[] result=Arrays.copyOf(s.rows,s.length);table.endSuccess(\"rows.rowIndexes\",s.scanned,s.length,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.rowIndexes\",0L,0L,f.code());throw f;}}\n")
-                .append("  public UpdateResult update(Updater value){if(value==null)throw new NullPointerException(\"updater\");start(\"rows.update\");long reached=0L;Selection s=null;try{s=select(Integer.MAX_VALUE);table.prepareUpdateScratch(s.length);table.loadUpdateScratch(s.rows,s.length);MutableCursor c=new MutableCursor(table);for(int i=0;i<s.length;i++){reached++;c.open(i);try{value.update(c);}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"rows.update\",\"updater\",callback);}finally{c.close();}}long changed=table.publishUpdate(s.rows,s.length);table.endSuccess(\"rows.update\",s.scanned,s.length,changed);return table.updateResult(s.scanned,s.length,changed);}catch(SomaRuntimeException f){table.endFailure(\"rows.update\",s==null?0L:s.scanned,reached,f.code());throw f;}catch(Error f){table.endFailure(\"rows.update\",s==null?0L:s.scanned,reached,\"callback_failed\");throw f;}}\n\n")
-                .append("  public RemoveResult remove(){start(\"rows.remove\");Selection s=null;try{s=select(Integer.MAX_VALUE);RemoveResult result=table.removeSelected(s.rows,s.length,s.scanned);table.endSuccess(\"rows.remove\",s.scanned,s.length,s.length);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.remove\",s==null?0L:s.scanned,s==null?0L:s.length,f.code());throw f;}catch(Error f){table.endFailure(\"rows.remove\",s==null?0L:s.scanned,s==null?0L:s.length,\"callback_failed\");throw f;}}\n\n")
+                .append("  public UpdateResult update(Updater value){if(value==null)throw new NullPointerException(\"updater\");start(\"rows.update\");long reached=0L;Selection s=null;try{s=select(Integer.MAX_VALUE);table.prepareUpdateScratch(s.length);table.loadUpdateScratch(s.rows,s.length);MutableCursor c=new MutableCursor(table);for(int i=0;i<s.length;i++){reached++;c.open(i,s.rows[i]);try{value.update(c);}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"rows.update\",\"updater\",callback);}finally{c.close();}}long changed=table.publishUpdate(s.rows,s.length);table.endSuccess(\"rows.update\",s.scanned,s.length,changed);return table.updateResult(s.scanned,s.length,changed);}catch(SomaRuntimeException f){table.endFailure(\"rows.update\",s==null?0L:s.scanned,reached,f.code());throw f;}catch(Error f){table.endFailure(\"rows.update\",s==null?0L:s.scanned,reached,\"callback_failed\");throw f;}}\n\n")
+                .append("  public RemoveResult remove(){start(\"rows.remove\");Selection s=null;try{s=select(Integer.MAX_VALUE);RemoveResult result=table.removeSelected(s.rows,s.length,s.scanned,\"rows.remove\");table.endSuccess(\"rows.remove\",s.scanned,s.length,s.length);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.remove\",s==null?0L:s.scanned,s==null?0L:s.length,f.code());throw f;}catch(Error f){table.endFailure(\"rows.remove\",s==null?0L:s.scanned,s==null?0L:s.length,\"callback_failed\");throw f;}}\n\n")
                 .append("  private Selection select(int maximum){int[] values=table.preparePipelineScratch();int firstSort=firstSort();long[] seen=new long[kinds.length];Cursor cursor=new Cursor(table);int length=0;long scanned=0L;for(int rowIndex=0;rowIndex<table.size()&&!limitReached(seen,0,firstSort);rowIndex++){scanned++;if(matches(rowIndex,cursor,seen,0,firstSort))values[length++]=rowIndex;if(firstSort==kinds.length&&length>=maximum)break;}for(int stage=firstSort;stage<kinds.length;stage++){if(kinds[stage]==SORT){stableSort(values,length,comparators[stage]);}else if(kinds[stage]==FILTER){int write=0;for(int i=0;i<length;i++)if(test(predicates[stage],cursor,values[i],\"rows.filter\"))values[write++]=values[i];length=write;}else if(kinds[stage]==SKIP){int remove=(int)Math.min((long)length,counts[stage]);System.arraycopy(values,remove,values,0,length-remove);length-=remove;}else{length=(int)Math.min((long)length,counts[stage]);}}if(length>maximum)length=maximum;return new Selection(values,length,scanned);}\n")
                 .append("  private int firstSort(){for(int i=0;i<kinds.length;i++)if(kinds[i]==SORT)return i;return kinds.length;}\n")
                 .append("  private boolean hasSort(){return firstSort()!=kinds.length;}\n")
@@ -343,9 +378,12 @@ final class DenseTableSourceGenerator {
                 .append("  private static final class Selection{final int[] rows;final int length;final long scanned;Selection(int[] rows,int length,long scanned){this.rows=rows;this.length=length;this.scanned=scanned;}}\n")
                 .append("  private static final class Cursor implements ").append(row).append(" {\n    protected final ").append(table.name("Table")).append(" table;protected int row;protected boolean active;Cursor(").append(table.name("Table")).append(" table){this.table=table;}void open(int row){this.row=row;active=true;}void close(){active=false;}void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_row_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
         appendCursorMethods(out, table, false);
-        out.append("  }\n\n  private static final class MutableCursor implements ").append(mutable).append(" {\n    private final ").append(table.name("Table")).append(" table; private int scratch; private boolean active; MutableCursor(").append(table.name("Table")).append(" table){this.table=table;} void open(int scratch){this.scratch=scratch;active=true;} void close(){active=false;} void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_mutable_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
+        out.append("  }\n\n  private static final class MutableCursor implements ").append(mutable).append(" {\n    private final ").append(table.name("Table")).append(" table; private int scratch,row; private boolean active; MutableCursor(").append(table.name("Table")).append(" table){this.table=table;} void open(int scratch,int row){this.scratch=scratch;this.row=row;active=true;} void close(){active=false;} void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_mutable_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
         appendCursorMethods(out, table, true);
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             out.append("    public void set").append(cap(field.javaName)).append('(').append(field.primitive).append(" value){valid();table.setUpdate").append(cap(field.javaName)).append("(scratch,value);}\n");
             if (field.optional) out.append("    public void clear").append(cap(field.javaName)).append("(){valid();table.clearUpdate").append(cap(field.javaName)).append("(scratch);}\n");
         }
@@ -354,9 +392,13 @@ final class DenseTableSourceGenerator {
 
     private void appendCursorMethods(StringBuilder out, TableSpec table, boolean scratch) {
         for (FieldSpec field : table.fields) {
-            String index = scratch ? "scratch" : "row";
-            String value = scratch ? "update" + cap(field.javaName) + "Value(" + index + ")" : field.javaName + "Value(" + index + ")";
-            String present = scratch ? "update" + cap(field.javaName) + "Present(" + index + ")" : field.javaName + "Present(" + index + ")";
+            String index = scratch && !field.key ? "scratch" : "row";
+            String value = scratch && !field.key
+                    ? "update" + cap(field.javaName) + "Value(" + index + ")"
+                    : field.javaName + "Value(" + index + ")";
+            String present = scratch && !field.key
+                    ? "update" + cap(field.javaName) + "Present(" + index + ")"
+                    : field.javaName + "Present(" + index + ")";
             if (field.optional) {
                 out.append("    public boolean ").append(field.javaName).append("Present(){valid();return table.").append(present).append(";}\n")
                         .append("    public boolean ").append(field.javaName).append("Absent(){return !").append(field.javaName).append("Present();}\n")
@@ -384,9 +426,15 @@ final class DenseTableSourceGenerator {
                     .append("Column=new ").append(field.columnType).append("();\n");
             if (field.optional) out.append("  private final PresenceBitmap ").append(field.javaName).append("Presence=new PresenceBitmap();\n");
         }
+        if (table.keyed()) {
+            out.append("  private final HashIntKeySpace keySpace;\n");
+        }
         out.append("  private final DenseTableState state;\n")
                 .append("  private int[] candidateScratch=new int[0],pipelineScratch=new int[0],sortScratch=new int[0];private boolean[] removeMarks=new boolean[0];private int updateCapacity;\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             out.append("  private ").append(field.primitive).append("[] update")
                     .append(cap(field.javaName)).append("=new ").append(field.primitive).append("[0];\n");
             if (field.optional) out.append("  private boolean[] update").append(cap(field.javaName)).append("Present=new boolean[0];\n");
@@ -397,19 +445,30 @@ final class DenseTableSourceGenerator {
             out.append(',').append(field.javaName).append("Column");
             if (field.optional) out.append(',').append(field.javaName).append("Presence");
         }
-        out.append(");\n    state=new DenseTableState(TABLE,plan,tablePlan,columns);\n  }\n\n")
+        out.append(");\n    state=new DenseTableState(TABLE,plan,tablePlan,columns);\n");
+        if (table.keyed()) {
+            out.append("    keySpace=new HashIntKeySpace(tablePlan.initialCapacity());\n");
+        }
+        out.append("  }\n\n")
                 .append("  public static ").append(name).append(" create(){return create(defaultRuntimePlan());}\n")
                 .append("  public static ").append(name).append(" create(RuntimePlan plan){if(plan==null)throw new NullPointerException(\"plan\");TablePlan tablePlan=RuntimeCompatibility.verify(METADATA,plan,TABLE);return new ").append(name).append("(plan,tablePlan);}\n")
                 .append("  public static RuntimePlan defaultRuntimePlan(){return DEFAULT_RUNTIME_PLAN;}\n")
                 .append("  private static RuntimePlan createDefaultRuntimePlan(){return RuntimePlan.builder(")
                 .append(q(schemaHash)).append(",RuntimeCompatibility.RUNTIME_COMPATIBILITY,RuntimeCompatibility.GENERATED_PROTOCOL,RuntimeCompatibility.PLAN_PROTOCOL,RuntimeCompatibility.ALLOCATION_ESTIMATOR).addTable(TablePlan.builder(TABLE,RuntimeCompatibility.DENSE_ALGORITHM).initialCapacity(")
                 .append(table.defaultCapacity).append(").growthRatio(3,2).maximumUpdateScratchBytes(268435456L).build()).build();}\n")
-                .append("  public RuntimePlan runtimePlan(){return state.runtimePlan();}\n  public int size(){return state.size();}\n  public int capacity(){return state.capacity();}\n  public long structuralEpoch(){return state.structuralEpoch();}\n  public boolean isReleased(){return state.isReleased();}\n\n")
-                .append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");int count=batch.size();int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);}\n")
-                .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);state.commitReplace(previous,count);}\n")
-                .append("  public void clear(){int previous=state.prepareClear();clearColumns(0,previous);state.commitClear(previous);}\n")
-                .append("  public void release(){int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);state.commitRelease(previous);}}\n\n")
-                .append("  private void copyBatch(").append(table.name("Batch")).append(" batch,int source,int target,int count){for(int i=0;i<count;i++){int s=source+i,t=target+i;\n");
+                .append("  public RuntimePlan runtimePlan(){return state.runtimePlan();}\n  public int size(){return state.size();}\n  public int capacity(){return state.capacity();}\n  public long structuralEpoch(){return state.structuralEpoch();}\n  public boolean isReleased(){return state.isReleased();}\n\n");
+        if (table.keyed()) {
+            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");state.prepareAppend(0);validateAppendKeys(batch);int count=batch.size();int start=state.prepareAppend(count);copyBatch(batch,0,start,count);installBatchKeys(batch,start,count);state.commitAppend(start,count);}\n")
+                    .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");state.prepareReplace(0);validateReplacementKeys(batch);int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);keySpace.clear();installBatchKeys(batch,0,count);state.commitReplace(previous,count);}\n")
+                    .append("  public void clear(){int previous=state.prepareClear();clearColumns(0,previous);keySpace.clear();state.commitClear(previous);}\n")
+                    .append("  public void release(){int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);keySpace.clear();state.commitRelease(previous);}}\n\n");
+        } else {
+            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");int count=batch.size();int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);}\n")
+                    .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);state.commitReplace(previous,count);}\n")
+                    .append("  public void clear(){int previous=state.prepareClear();clearColumns(0,previous);state.commitClear(previous);}\n")
+                    .append("  public void release(){int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);state.commitRelease(previous);}}\n\n");
+        }
+        out.append("  private void copyBatch(").append(table.name("Batch")).append(" batch,int source,int target,int count){for(int i=0;i<count;i++){int s=source+i,t=target+i;\n");
         for (FieldSpec field : table.fields) {
             out.append("    ").append(field.javaName).append("Column.set(t,").append(field.storageValue("batch." + field.javaName + "Value(s)")).append(");\n");
             if (field.optional) out.append("    if(batch.").append(field.javaName).append("Present(s))").append(field.javaName).append("Presence.setPresent(t);else ").append(field.javaName).append("Presence.clearPresent(t);\n");
@@ -419,7 +478,15 @@ final class DenseTableSourceGenerator {
             out.append("    ").append(field.javaName).append("Column.clearRange(from,to);\n");
             if (field.optional) out.append("    ").append(field.javaName).append("Presence.clearRange(from,to);\n");
         }
-        out.append("  }\n\n")
+        out.append("  }\n\n");
+        if (table.keyed()) {
+            FieldSpec key = table.keyField();
+            out.append("  private void validateAppendKeys(").append(table.name("Batch")).append(" batch){HashIntKeySpace staged=new HashIntKeySpace(batch.size());for(int row=0;row<batch.size();row++){int key=batch.").append(key.javaName).append("Value(row);if(keySpace.contains(key)||staged.contains(key))throw RuntimeFailures.duplicateKey(TABLE,key,\"addBatch\");staged.put(key,row);}}\n")
+                    .append("  private void validateReplacementKeys(").append(table.name("Batch")).append(" batch){HashIntKeySpace staged=new HashIntKeySpace(batch.size());for(int row=0;row<batch.size();row++){int key=batch.").append(key.javaName).append("Value(row);if(staged.contains(key))throw RuntimeFailures.duplicateKey(TABLE,key,\"replaceAll\");staged.put(key,row);}}\n")
+                    .append("  private void installBatchKeys(").append(table.name("Batch")).append(" batch,int start,int count){for(int row=0;row<count;row++)keySpace.put(batch.").append(key.javaName).append("Value(row),start+row);}\n")
+                    .append("  private int keyRow(int key,String operation){int row=keySpace.rowOf(key);if(row<0)throw RuntimeFailures.missingKey(TABLE,key,operation);return row;}\n\n");
+        }
+        out.append("\n")
                 .append("  public ").append(table.carrierType).append(" fetchAt(int rowIndex){return fetchAt(rowIndex,runtimePlan().defaultMaterializationBudget());}\n")
                 .append("  public ").append(table.carrierType).append(" fetchAt(int rowIndex,MaterializationBudget budget){int row=state.checkRowIndex(rowIndex,\"fetchAt\");if(budget==null)throw new NullPointerException(\"budget\");MaterializationTracker tracker=new MaterializationTracker(budget,TABLE);tracker.checkOwnershipDepth(0);tracker.addTableInstances(1L);tracker.addRows(1L);accountRow(tracker,row);return carrier(row);}\n")
                 .append("  public List<").append(table.carrierType).append("> materialize(){return materialize(runtimePlan().defaultMaterializationBudget());}\n")
@@ -438,8 +505,17 @@ final class DenseTableSourceGenerator {
                         .append(":null;\n");
             } else out.append("    value.").append(field.javaName).append('=').append(field.javaName).append("Value(row);\n");
         }
-        out.append("    return value;}\n\n")
-                .append("  public ").append(table.name("Mutator")).append(" mutateAt(int rowIndex){int row=state.checkRowIndex(rowIndex,\"mutateAt\");return new ").append(table.name("Mutator")).append("(this,row,structuralEpoch());}\n")
+        out.append("    return value;}\n\n");
+        if (table.keyed()) {
+            FieldSpec key = table.keyField();
+            out.append("  public boolean containsKey(int key){state.checkActive(\"containsKey\");return keySpace.contains(key);}\n")
+                    .append("  public java.util.Optional<").append(table.carrierType).append("> find(int key){state.checkActive(\"find\");int row=keySpace.rowOf(key);return row<0?java.util.Optional.<").append(table.carrierType).append(">empty():java.util.Optional.of(fetchAt(row));}\n")
+                    .append("  public ").append(table.carrierType).append(" fetch(int key){return fetchAt(keyRow(key,\"fetch\"));}\n")
+                    .append("  public ").append(table.name("Mutator")).append(" mutate(int key){return mutateAt(keyRow(key,\"mutate\"));}\n")
+                    .append("  public void delete(int key){state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch();selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(Error failure){state.endOperationFailure(\"delete\",scanned,0L,\"callback_failed\");throw failure;}}\n")
+                    .append("  public ").append(table.name("Keys")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("Keys")).append("(this);}\n");
+        }
+        out.append("  public ").append(table.name("Mutator")).append(" mutateAt(int rowIndex){int row=state.checkRowIndex(rowIndex,\"mutateAt\");return new ").append(table.name("Mutator")).append("(this,row,structuralEpoch());}\n")
                 .append("  public ").append(table.name("Rows")).append(" rows(){state.checkActive(\"rows\");return new ").append(table.name("Rows")).append("(this);}\n")
                 .append("  public ").append(table.name("Rows")).append(" filter(").append(table.name("Rows")).append(".Predicate predicate){return rows().filter(predicate);}\n")
                 .append("  public ").append(table.name("Rows")).append(" skip(long count){return rows().skip(count);}\n")
@@ -486,6 +562,9 @@ final class DenseTableSourceGenerator {
             out.append("  ").append(field.primitive).append(' ').append(field.javaName).append("Value(int row){return ")
                     .append(field.publicValue(field.javaName + "Column.get(row)")).append(";}\n");
             if (field.optional) out.append("  boolean ").append(field.javaName).append("Present(int row){return ").append(field.javaName).append("Presence.isPresent(row);}\n");
+            if (field.key) {
+                continue;
+            }
             out.append("  ").append(field.primitive).append(" update").append(c).append("Value(int row){return update").append(c).append("[row];}\n")
                     .append("  void setUpdate").append(c).append("(int row,").append(field.primitive).append(" value){update").append(c).append("[row]=value;");
             if (field.optional) out.append("update").append(c).append("Present[row]=true;");
@@ -497,6 +576,9 @@ final class DenseTableSourceGenerator {
     private void appendMutatorCommit(StringBuilder out, TableSpec table) {
         out.append("  void commitMutator(int row,long epoch,").append(table.name("Mutator")).append(" mutation){state.checkRowIndex(row,\"mutator.commit\");if(epoch!=structuralEpoch())throw RuntimeFailures.staleMutator(TABLE,epoch,structuralEpoch());state.beginOperation(\"mutator.commit\");boolean changed=false;\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             String c = cap(field.javaName);
             String newValue = "mutation." + field.javaName + "Value()";
             String different = field.different(field.javaName + "Value(row)", newValue);
@@ -512,11 +594,17 @@ final class DenseTableSourceGenerator {
         out.append("  int[] prepareCandidateScratch(){int required=size();long bytes=4L*(long)required+updateBytes(updateCapacity);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);if(candidateScratch.length<required)candidateScratch=Arrays.copyOf(candidateScratch,required);state.updateScratch(4L*(long)candidateScratch.length+updateBytes(updateCapacity),4L*(long)candidateScratch.length+updateBytes(updateCapacity));return candidateScratch;}\n")
                 .append("  void prepareUpdateScratch(int required){if(required<=updateCapacity)return;long bytes=4L*(long)candidateScratch.length+updateBytes(required);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             String c = cap(field.javaName);
             out.append("    ").append(field.primitive).append("[] new").append(c).append("=Arrays.copyOf(update").append(c).append(",required);\n");
             if (field.optional) out.append("    boolean[] new").append(c).append("Present=Arrays.copyOf(update").append(c).append("Present,required);\n");
         }
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             String c = cap(field.javaName);
             out.append("    update").append(c).append("=new").append(c).append(";\n");
             if (field.optional) out.append("    update").append(c).append("Present=new").append(c).append("Present;\n");
@@ -525,12 +613,18 @@ final class DenseTableSourceGenerator {
                 .append("  private long updateBytes(int capacity){return (long)capacity*").append(table.updateWidth()).append("L;}\n")
                 .append("  void loadUpdateScratch(int[] rows,int count){for(int i=0;i<count;i++){int row=rows[i];\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             String c = cap(field.javaName);
             out.append("    update").append(c).append("[i]=").append(field.javaName).append("Value(row);\n");
             if (field.optional) out.append("    update").append(c).append("Present[i]=").append(field.javaName).append("Present(row);\n");
         }
         out.append("  }}\n  long publishUpdate(int[] rows,int count){long changed=0L;for(int i=0;i<count;i++){int row=rows[i];boolean rowChanged=false;\n");
         for (FieldSpec field : table.fields) {
+            if (field.key) {
+                continue;
+            }
             String c = cap(field.javaName);
             String different = field.different(field.javaName + "Value(row)", "update" + c + "[i]");
             if (field.optional) different = field.javaName + "Present(row)!=update" + c + "Present[i]||(" + field.javaName + "Present(row)&&" + different + ")";
@@ -542,7 +636,13 @@ final class DenseTableSourceGenerator {
     }
 
     private void appendRemove(StringBuilder out, TableSpec table) {
-        out.append("  RemoveResult removeSelected(int[] selected,int count,long scanned){int previous=size();if(count<0||count>previous)throw RuntimeFailures.internalInvariant(\"remove_selection_count\",TABLE,\"rows.remove\");if(removeMarks.length<previous)removeMarks=Arrays.copyOf(removeMarks,previous);Arrays.fill(removeMarks,0,previous,false);for(int i=0;i<count;i++){int row=selected[i];if(row<0||row>=previous||removeMarks[row])throw RuntimeFailures.internalInvariant(\"remove_selection_identity\",TABLE,\"rows.remove\");removeMarks[row]=true;}int write=0;long compacted=0L;for(int read=0;read<previous;read++){if(removeMarks[read])continue;if(write!=read){\n");
+        out.append("  RemoveResult removeSelected(int[] selected,int count,long scanned,String operation){int previous=size();if(count<0||count>previous)throw RuntimeFailures.internalInvariant(\"remove_selection_count\",TABLE,operation);if(removeMarks.length<previous)removeMarks=Arrays.copyOf(removeMarks,previous);Arrays.fill(removeMarks,0,previous,false);for(int i=0;i<count;i++){int row=selected[i];if(row<0||row>=previous||removeMarks[row])throw RuntimeFailures.internalInvariant(\"remove_selection_identity\",TABLE,operation);removeMarks[row]=true;}");
+        if (table.keyed()) {
+            FieldSpec key = table.keyField();
+            out.append("    for(int row=0;row<previous;row++)if(removeMarks[row])keySpace.remove(")
+                    .append(key.javaName).append("Value(row));\n");
+        }
+        out.append("int write=0;long compacted=0L;for(int read=0;read<previous;read++){if(removeMarks[read])continue;if(write!=read){\n");
         for (FieldSpec field : table.fields) {
             out.append("    ").append(field.javaName).append("Column.set(write,")
                     .append(field.javaName).append("Column.get(read));\n");
@@ -552,7 +652,12 @@ final class DenseTableSourceGenerator {
                         .append(field.javaName).append("Presence.clearPresent(write);\n");
             }
         }
-        out.append("    compacted++;}write++;}clearColumns(write,previous);state.commitStructuralRemove(previous,write,\"rows.remove\");return state.removeResult(scanned,count,count,compacted,0L,0L);}\n");
+        if (table.keyed()) {
+            FieldSpec key = table.keyField();
+            out.append("    keySpace.updateRow(").append(key.javaName)
+                    .append("Value(read),write);\n");
+        }
+        out.append("    compacted++;}write++;}clearColumns(write,previous);state.commitStructuralRemove(previous,write,operation);return state.removeResult(scanned,count,count,compacted,0L,0L);}\n");
     }
 
     private static void appendDirectParameters(StringBuilder out, TableSpec table) {
@@ -602,6 +707,17 @@ final class DenseTableSourceGenerator {
 
         String name(String suffix) { return carrierSimpleName + suffix; }
 
+        boolean keyed() { return keyField() != null; }
+
+        FieldSpec keyField() {
+            for (FieldSpec field : fields) {
+                if (field.key) {
+                    return field;
+                }
+            }
+            return null;
+        }
+
         int directSlots() {
             int slots = 1;
             for (FieldSpec field : fields) {
@@ -614,6 +730,9 @@ final class DenseTableSourceGenerator {
         int updateWidth() {
             int result = 0;
             for (FieldSpec field : fields) {
+                if (field.key) {
+                    continue;
+                }
                 result += field.bytes();
                 if (field.optional) result++;
             }
@@ -628,15 +747,17 @@ final class DenseTableSourceGenerator {
         final String boxed;
         final String columnType;
         final boolean optional;
+        final boolean key;
 
         FieldSpec(String javaName, String logicalName, String primitive,
-                  String boxed, String columnType, boolean optional) {
+                  String boxed, String columnType, boolean optional, boolean key) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.primitive = primitive;
             this.boxed = boxed;
             this.columnType = columnType;
             this.optional = optional;
+            this.key = key;
         }
 
         String zero() {

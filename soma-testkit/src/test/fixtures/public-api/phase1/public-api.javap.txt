@@ -195,6 +195,8 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidRowIndex(java.lang.String, int, int, long, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException optionalAbsent(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException emptyResult(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, int, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, int, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);
@@ -243,6 +245,12 @@ public interface com.hgtech.soma.annotation.SomaField extends java.lang.annotati
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaIgnore
 Compiled from "SomaIgnore.java"
 public interface com.hgtech.soma.annotation.SomaIgnore extends java.lang.annotation.Annotation {
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaKey
+Compiled from "SomaKey.java"
+public interface com.hgtech.soma.annotation.SomaKey extends java.lang.annotation.Annotation {
+  public abstract java.lang.String name();
+  public abstract com.hgtech.soma.annotation.SomaSemantic semantic();
 }
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaOptional
 Compiled from "SomaOptional.java"

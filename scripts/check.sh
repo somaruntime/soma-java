@@ -11,6 +11,7 @@ cd "$root_dir"
 ./scripts/check-compiler-phase0.sh
 ./scripts/check-runtime-core-phase1.sh
 ./scripts/check-keyspace-phase2.sh
+./scripts/check-generated-keyed-phase2.sh
 ./scripts/check-table-diagnostics-phase1.sh
 ./scripts/check-generated-dense-phase1.sh
 ./scripts/check-external-consumer.sh

@@ -18,8 +18,12 @@ public final class HashIntKeySpace {
         if (expectedSize < 0) {
             throw new IllegalArgumentException("expectedSize must be non-negative");
         }
+        long required = Math.max(4L, 2L * (long) expectedSize);
         int capacity = 4;
-        while (capacity < expectedSize * 2) {
+        while (capacity < required) {
+            if (capacity > (1 << 29)) {
+                throw new IllegalArgumentException("expectedSize is too large");
+            }
             capacity <<= 1;
         }
         keys = new int[capacity];
@@ -58,9 +62,6 @@ public final class HashIntKeySpace {
         }
         states[slot] = DELETED;
         size--;
-        if (size * 4 < used && states.length > 4) {
-            rehash(states.length);
-        }
     }
 
     public void updateRow(int key, int rowSlot) {
@@ -79,6 +80,9 @@ public final class HashIntKeySpace {
 
     private void ensureInsertCapacity() {
         if ((used + 1) * 2 >= states.length) {
+            if (states.length > (1 << 29)) {
+                throw new IllegalStateException("key space capacity exhausted");
+            }
             rehash(states.length << 1);
         }
     }

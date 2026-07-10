@@ -4,7 +4,7 @@
 Owner：`soma-runtime-core`
 事实范围：runtime exception envelope、stable error code/category/context、callback failure、stats snapshot/reset 和 logging side-effect boundary
 非事实范围：schema compile diagnostics、public generated method naming、lifecycle state transition、runtime algorithm 和 application logging policy
-最后审查日期：2026-07-10
+最后审查日期：2026-07-11
 
 ## 1. 目标
 
@@ -33,7 +33,7 @@ Error object/context 是 immutable snapshot，不暴露 mutable runtime state、
 
 Generated code 通过 `com.hgtech.soma.runtime.generated.RuntimeFailures` 的 typed factory 构造 envelope；factory 是 generated-runtime protocol，不进入 generated facade public signature。Generated code 不自行拼接 unbounded context/message，也不直接写 stdout/stderr/logger。
 
-Phase 1 factory surface返回 `SomaRuntimeException`：`invalidRowIndex(table,index,size,epoch,operation)`、`optionalAbsent(table,field,operation)`、`invalidNullValue(table,field,operation)`、`missingRequiredField(table,field,operation)`、`tableReleased(table,operation)`、`releasedView(table,operation)`、`staleView(table,capturedEpoch,currentEpoch,operation)`、`viewPinned(table,operation,activeViews)`、`pipelineConsumed(table,operation)`、`mutationConsumed(table,operation)`、`staleMutator(table,capturedEpoch,currentEpoch)`、`reentrantAccess(table,activeOperation,requestedOperation)`、`callbackFailed(table,operation,stage,cause)`、`memoryLimitExceeded(table,operation,limit,proposed)`、`compatibilityMismatch(code,expected,actual,path)`、`invalidRuntimePlan(path,reason)`、`internalInvariant(invariantId,table,operation)`。String/path由generated logical metadata提供，不接受 arbitrary payload formatter。
+Phase 1 factory surface返回 `SomaRuntimeException`：`invalidRowIndex(table,index,size,epoch,operation)`、`optionalAbsent(table,field,operation)`、`invalidNullValue(table,field,operation)`、`missingRequiredField(table,field,operation)`、`tableReleased(table,operation)`、`releasedView(table,operation)`、`staleView(table,capturedEpoch,currentEpoch,operation)`、`viewPinned(table,operation,activeViews)`、`pipelineConsumed(table,operation)`、`mutationConsumed(table,operation)`、`staleMutator(table,capturedEpoch,currentEpoch)`、`reentrantAccess(table,activeOperation,requestedOperation)`、`callbackFailed(table,operation,stage,cause)`、`memoryLimitExceeded(table,operation,limit,proposed)`、`compatibilityMismatch(code,expected,actual,path)`、`invalidRuntimePlan(path,reason)`、`internalInvariant(invariantId,table,operation)`。Phase 2 的 typed key factory 增加 `duplicateKey(table,intKey,operation)` 与 `missingKey(table,intKey,operation)`；int key 是 bounded safe descriptor，后续 string/composite key factory仍必须遵守本 Owner 的 escaping/redaction 规则。String/path由generated logical metadata提供，不接受 arbitrary payload formatter。
 
 ## 3. Categories
 

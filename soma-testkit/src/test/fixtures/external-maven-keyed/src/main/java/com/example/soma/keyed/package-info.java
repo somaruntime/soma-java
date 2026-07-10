@@ -1,0 +1,7 @@
+@SomaSchema(
+        name = "keyed_particle",
+        generatedPackage = "com.example.soma.keyed.generated",
+        version = "1")
+package com.example.soma.keyed;
+
+import com.hgtech.soma.annotation.SomaSchema;

@@ -4,7 +4,7 @@
 Owner：`soma-runtime-core`
 事实范围：TableStore composition、RowSpace、ColumnStore、presence、KeySpace、AccessStructures、AccessPath、Batch 和 storage-facing buffers
 非事实范围：ownership/lifecycle/errors、public API、schema semantics 和性能参数
-最后审查日期：2026-07-10
+最后审查日期：2026-07-11
 
 ## 1. 目标
 
@@ -18,7 +18,7 @@ Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma
 
 首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace` 和 `HashIntKeySpace`。Concrete primitive column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
 
-Exact Phase 1 protocol matrix（全部位于 `com.hgtech.soma.runtime.generated`）：
+Exact current protocol matrix（Phase 1 + P2-A，全部位于 `com.hgtech.soma.runtime.generated`）：
 
 ```text
 GeneratedMetadata(String schemaHash, String generatedTarget, String compilerIdentity,
@@ -74,6 +74,8 @@ MaterializationTracker.addTableInstances/addRows/addLeafValues/addEstimatedBytes
 MaterializationTracker.budgetIdentity() -> String
 MaterializationTracker.estimatedBytes/rows/leafValues/tableInstances -> long
 ```
+
+`HashIntKeySpace.remove` 只写 tombstone，不在 remove/packed compaction 内触发 rehash/allocation；generated keyed delete 先移除 deleted key，再在同一 structural commit 前逐 survivor 调用 `updateRow` 修复移动后的 slot。rehash 只能发生在后续 insert/growth boundary，不能留下对已提交 row 的 stale locator。
 
 `GeneratedColumn` 的 `Object` 只承载 staged primitive array并由 `ColumnGroup` 在 growth boundary内部回传给同一 concrete column；generated source/hot loop不读取或 cast该 Object。`ensureCapacity` 返回是否实际增长。Prepare方法完成active/reentrant/range/overflow/capacity preflight但不改变size/epoch；generated typed copy/clear成功后调用匹配的commit。Mismatch进入internal invariant failure。新增protocol方法可以additive，现有方法不能靠 generated code migration重命名。
 

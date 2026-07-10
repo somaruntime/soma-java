@@ -4,7 +4,7 @@
 Owner：根项目协调层
 事实范围：Generated keyed/dense Table、Direct API、Row/Key/Column Pipeline、Mutator、child facade 和 ColumnView 的用户语义
 非事实范围：schema annotation、code generation 过程、TableStore 数据结构、deep materialization 细节和性能实现算法
-最后审查日期：2026-07-10
+最后审查日期：2026-07-11
 
 ## 1. 目标
 
@@ -234,6 +234,8 @@ operations.delete(key);
 - `delete(key)` 是 structural mutation；
 - 修改 identity 只能 delete + insert。
 
+Generated direct parameter 使用 `@SomaKey` 的 materialized key type；primitive scalar 保持 primitive parameter，value key 保持对应 immutable `@SomaValue`。当前 `int` key binding 的 exact public shape 是 `boolean containsKey(int)`、`Optional<R> find(int)`、`R fetch(int)`、`XxxMutator mutate(int)`、`void delete(int)` 和 `XxxKeys keys()`；后续 key breadth 只能按同一规则 additive binding，不能把已生成的 primitive direct API 迁移为 boxed/tuple lookup。
+
 ### 4.2 Dense table
 
 ```java
@@ -386,6 +388,8 @@ OperationKey required = operations.keys().firstOrThrow();
 ```
 
 Key callback 获得 stable value object，允许保存。未来若提供 no-allocation key cursor，必须使用不同 API 名称，不能改变现有 value semantics。
+
+`XxxKeys` 是显式 key export/materialization boundary：primitive scalar key 在此处以对应 boxed value object 返回或回调；它不是 row/column hot compute path，不能用此例外把 boxing 引入 Direct、Row Pipeline、Column Pipeline、ColumnView 或 KeySpace lookup。
 
 Table-level `forEach` 遍历 row cursor；key traversal 必须显式 `keys()`。
 

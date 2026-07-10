@@ -1,0 +1,7 @@
+Compiled from "KeyedParticleKeys.java"
+public final class com.example.soma.keyed.generated.KeyedParticleKeys {
+  public void forEach(java.util.function.Consumer<java.lang.Integer>);
+  public java.util.List<java.lang.Integer> fetchAll();
+  public java.util.Optional<java.lang.Integer> findFirst();
+  public java.lang.Integer firstOrThrow();
+}

@@ -2,6 +2,7 @@ package com.hgtech.soma.processor;
 
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaIgnore;
+import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
 import com.hgtech.soma.annotation.SomaSchema;
 import com.hgtech.soma.annotation.SomaSemantic;
@@ -57,6 +58,7 @@ import java.util.TreeMap;
         "com.hgtech.soma.annotation.SomaSchema",
         "com.hgtech.soma.annotation.SomaValue",
         "com.hgtech.soma.annotation.SomaTable",
+        "com.hgtech.soma.annotation.SomaKey",
         "com.hgtech.soma.annotation.SomaOptional"
 })
 public final class SomaProcessor extends AbstractProcessor {
@@ -250,19 +252,22 @@ public final class SomaProcessor extends AbstractProcessor {
             }
             VariableElement field = (VariableElement) enclosed;
             SomaField fieldAnnotation = field.getAnnotation(SomaField.class);
+            SomaKey keyAnnotation = field.getAnnotation(SomaKey.class);
             SomaIgnore ignore = field.getAnnotation(SomaIgnore.class);
             SomaOptional optional = field.getAnnotation(SomaOptional.class);
             if (field.getModifiers().contains(Modifier.STATIC)) {
-                if (fieldAnnotation != null || ignore != null || optional != null) {
+                if (fieldAnnotation != null || keyAnnotation != null || ignore != null || optional != null) {
                     error(field, "SOMA-TABLE-003",
                             "static field cannot declare SOMA table annotations");
                     valid = false;
                 }
                 continue;
             }
-            if (fieldAnnotation != null && ignore != null) {
+            int primaryRoles = (fieldAnnotation == null ? 0 : 1)
+                    + (keyAnnotation == null ? 0 : 1) + (ignore == null ? 0 : 1);
+            if (primaryRoles > 1) {
                 error(field, "SOMA-TABLE-003",
-                        "field cannot be both @SomaField and @SomaIgnore");
+                        "@SomaField, @SomaKey and @SomaIgnore are mutually exclusive");
                 valid = false;
                 continue;
             }
@@ -274,9 +279,9 @@ public final class SomaProcessor extends AbstractProcessor {
                 }
                 continue;
             }
-            if (fieldAnnotation == null) {
+            if (fieldAnnotation == null && keyAnnotation == null) {
                 error(field, "SOMA-TABLE-003",
-                        "table instance field must declare @SomaField or @SomaIgnore");
+                        "table instance field must declare @SomaField, @SomaKey or @SomaIgnore");
                 valid = false;
                 continue;
             }
@@ -287,8 +292,11 @@ public final class SomaProcessor extends AbstractProcessor {
                 valid = false;
             }
 
-            String fieldLogicalName = fieldAnnotation.name().isEmpty()
-                    ? field.getSimpleName().toString() : fieldAnnotation.name();
+            boolean key = keyAnnotation != null;
+            String annotationName = key ? keyAnnotation.name() : fieldAnnotation.name();
+            SomaSemantic annotationSemantic = key ? keyAnnotation.semantic() : fieldAnnotation.semantic();
+            String fieldLogicalName = annotationName.isEmpty()
+                    ? field.getSimpleName().toString() : annotationName;
             if (fieldLogicalName.length() > 128
                     || !SourceVersion.isIdentifier(fieldLogicalName)
                     || SourceVersion.isKeyword(fieldLogicalName)
@@ -306,9 +314,15 @@ public final class SomaProcessor extends AbstractProcessor {
                 valid = false;
                 continue;
             }
-            if (!validTableSemantic(fieldAnnotation.semantic(), primitive.primitiveKind)) {
+            if (key && (optional != null || primitive.primitiveKind != TypeKind.INT)) {
+                error(field, "SOMA-TABLE-008",
+                        "current keyed table slice requires a required int @SomaKey: "
+                                + field.asType());
+                valid = false;
+            }
+            if (!validTableSemantic(annotationSemantic, primitive.primitiveKind)) {
                 error(field, "SOMA-TABLE-005",
-                        "semantic " + fieldAnnotation.semantic()
+                        "semantic " + annotationSemantic
                                 + " is incompatible with " + field.asType());
                 valid = false;
             }
@@ -323,10 +337,20 @@ public final class SomaProcessor extends AbstractProcessor {
             }
             fields.add(new TableFieldModel(
                     field.getSimpleName().toString(), fieldLogicalName,
-                    fieldAnnotation.semantic().name(), primitive, optional != null));
+                    annotationSemantic.name(), primitive, optional != null, key));
         }
         if (fields.isEmpty()) {
             error(type, "SOMA-TABLE-001", "@SomaTable requires at least one schema field");
+            valid = false;
+        }
+        int keyCount = 0;
+        for (TableFieldModel field : fields) {
+            if (field.key) {
+                keyCount++;
+            }
+        }
+        if (keyCount > 1) {
+            error(type, "SOMA-TABLE-008", "@SomaTable permits exactly one @SomaKey field");
             valid = false;
         }
         return valid ? new TableModel(type, type.getQualifiedName().toString(),
@@ -1030,7 +1054,7 @@ public final class SomaProcessor extends AbstractProcessor {
             }
             json.append("],");
             json.append("\"javaType\":").append(quote(javaType)).append(',');
-            json.append("\"kind\":\"dense\",");
+            json.append("\"kind\":").append(hasKey() ? "\"keyed\"" : "\"dense\"").append(',');
             json.append("\"logicalName\":").append(quote(logicalName)).append(',');
             json.append("\"materializedType\":").append(quote(javaType));
             json.append('}');
@@ -1046,6 +1070,15 @@ public final class SomaProcessor extends AbstractProcessor {
                     origin, javaType, simpleName, logicalName,
                     defaultCapacity < 0 ? 16 : defaultCapacity, result);
         }
+
+        private boolean hasKey() {
+            for (TableFieldModel field : fields) {
+                if (field.key) {
+                    return true;
+                }
+            }
+            return false;
+        }
     }
 
     private static final class TableFieldModel {
@@ -1054,14 +1087,16 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String semantic;
         private final PrimitiveTableType type;
         private final boolean optional;
+        private final boolean key;
 
         private TableFieldModel(String javaName, String logicalName, String semantic,
-                                PrimitiveTableType type, boolean optional) {
+                                PrimitiveTableType type, boolean optional, boolean key) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.semantic = semantic;
             this.type = type;
             this.optional = optional;
+            this.key = key;
         }
 
         private void appendJson(StringBuilder json) {
@@ -1076,7 +1111,7 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append("\"materializedType\":")
                     .append(quote(optional ? type.boxedName : type.primitiveName)).append(',');
             json.append("\"optional\":").append(optional).append(',');
-            json.append("\"role\":\"field\",");
+            json.append("\"role\":").append(key ? "\"key\"" : "\"field\"").append(',');
             json.append("\"type\":").append(quote(type.primitiveName));
             json.append('}');
         }
@@ -1084,7 +1119,7 @@ public final class SomaProcessor extends AbstractProcessor {
         private DenseTableSourceGenerator.FieldSpec toGeneratorSpec() {
             return new DenseTableSourceGenerator.FieldSpec(
                     javaName, logicalName, type.primitiveName,
-                    type.boxedName, type.columnType, optional);
+                    type.boxedName, type.columnType, optional, key);
         }
     }
 

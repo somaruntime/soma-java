@@ -21,6 +21,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ShortColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.SparseIntKeySpace
 PUBLIC handwritten com.hgtech.soma.annotation.SomaField
 PUBLIC handwritten com.hgtech.soma.annotation.SomaIgnore
+PUBLIC handwritten com.hgtech.soma.annotation.SomaKey
 PUBLIC handwritten com.hgtech.soma.annotation.SomaOptional
 PUBLIC handwritten com.hgtech.soma.annotation.SomaSchema
 PUBLIC handwritten com.hgtech.soma.annotation.SomaSemantic
