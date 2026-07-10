@@ -4,8 +4,8 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`e9976d0`
-当前 checkpoint：Phase 2 keyed identity / Key Pipeline
+当前 repository baseline：`c8480a6`
+当前 checkpoint：P2-B keyed identity breadth / Key Pipeline
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
 
@@ -17,7 +17,8 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | Phase 1A dense Row Pipeline / mutation terminal | completed | runtime protocol `13179d2`、depth budget `2b2b643`、processor/generated facade `c067dac`、dense read terminals `bcf0966`、dense remove `ca64774`；这是最终 V1 API 的已验证子集，不是版本或 capability closeout |
 | Phase 1B Column Pipeline / ColumnView / borrow lifecycle | completed | commit `10a6107`；seven primitive typed Pipeline/View、optional presence、view pin/close/release/stale runtime state、public/generated/consumer evidence；这是最终 V1 API 的已验证子集，不是 capability closeout |
 | Phase 1C dense shape/differential evidence | completed | commits `5ddaee3`、`e0d5b16`；randomized detached oracle、Column Pipeline allocation-scaling check、generated source/bytecode anti-pattern check；Phase 1 完成但完整 V1 Goal继续 active |
-| Phase 2 keyed identity | in-progress | SparseInt/Hash KeySpace、generated key API / Key Pipeline、identity error and consumer evidence |
+| P2-A int keyed identity vertical slice | completed | commit `c8480a6`；`@SomaKey int`、`HashIntKeySpace`、generated direct/Key Pipeline、typed key errors、external consumer 和 shape evidence；这是最终架构的有效子集，不是 Phase 2 或 V1 closeout |
+| P2-B keyed identity breadth / Key Pipeline | in-progress | long/semantic/enum/value/composite key、canonical floating、complete key diagnostics/property/shape evidence |
 | Phase 3 access structures | pending | index/unique/order/grouped source/sidecar |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |
 | Phase 5 full breadth + G1-G4 | pending | annotation/processor/codegen/runtime/incremental/compatibility closeout |
@@ -28,7 +29,7 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 
 ## 2. Capability status
 
-当前 17 项 Capability 为 `in-progress`，没有任何一项因垂直切片而被错误标记 completed。Phase 0 已进入的八项保持 `in-progress`：
+当前 19 项 Capability 为 `in-progress`，没有任何一项因垂直切片而被错误标记 completed。Phase 0 已进入的八项保持 `in-progress`：
 
 - `V1-ANNOTATION-SCHEMA`；
 - `V1-COMPILER-LOWERING`；
@@ -39,12 +40,13 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 - `V1-EVIDENCE-TOOLING`；
 - `V1-CONSUMER-PACKAGE`。
 
-Phase 1 已把以下九项从 `not-started` 推进为 `in-progress`：
+Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`：
 
 - `V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-MUTATION`；
 - `V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`。
+- `V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`。
 
-其余六项仍为 `not-started`，并全部保留原完整出口：`V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`、`V1-ACCESS-STRUCTURES`、`V1-CHILD-OWNERSHIP`、`V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE`。
+其余四项仍为 `not-started`，并全部保留原完整出口：`V1-ACCESS-STRUCTURES`、`V1-CHILD-OWNERSHIP`、`V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE`。
 
 ## 3. Gate status
 
@@ -68,19 +70,31 @@ Phase 1 已把以下九项从 `not-started` 推进为 `in-progress`：
 
 已完成 vertical slice：P1-S4 dense shape evidence。external consumer 以 fixed-seed randomized `ArrayList` detached oracle交叉验证 update/remove/packed stable survivor order/sorted result；JDK 8 per-thread allocation counter验证 warmup 后同 terminal 的 allocation 不随 32→512 rows线性增长；generated source/bytecode evidence拒绝 Stream、boxing factory、Iterator、object/boxed row-index array和 loop-local Cursor。以上均是本机结构证据，不构成性能优越或跨平台 claim。
 
-当前 vertical slice：Phase 2 keyed identity / Key Pipeline。
+当前 vertical slice：P2-B keyed identity breadth / Key Pipeline。
 
 涉及 Capability：`V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-MUTATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`；其他 Capability 状态不回退。
 
 唯一 Owner：generated-table API contract；processor code-generation contract；runtime TableStore/lifecycle/errors/performance contracts；testkit contract分别拥有对应行为，不形成联合 Owner。
 
-Slice exit：实现 generated key type、dense/sparse identity locator、`containsKey/find/fetch/mutate/delete/keys` API、typed missing/duplicate/stale errors，并用 primitive-key collision/domain/rehash and external Maven evidence验证最终 key path。
+Slice exit：以 P2-A 已固化的 `@SomaKey int` / primitive direct API / `XxxKeys` 为 compatibility baseline，additive 完成长、semantic、enum、value/composite、canonical floating key binding和完整 property/shape evidence；不得以 boxed tuple/object transient lookup、temporary overload或 generated API migration 取代当前 binding。
 
 仍保留的 V1 breadth：value/string/enum/default、key/index/order sidecar、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
 
 禁止捷径：generic object pipeline、Stream/boxing/per-row cursor allocation、`List<Row>` live storage、temporary column API、以 fetch/materialize 替代 column path、用 snapshot/list 伪装 ColumnView、用 synthetic micro-test 代替 differential/bytecode/allocation evidence、绕过 active-view structural pin、逐 row live update后回滚、以本机通过冒充 Gate/RC。
 
-计划 evidence：key differential/property oracle、generated/public javap、primitive locator/collision/domain evidence、external Maven consumer、`./scripts/check.sh`。
+计划 evidence：各 key domain differential/property oracle、generated/public javap、primitive locator/collision/domain/rehash evidence、external Maven consumer、`./scripts/check.sh`。
+
+### 4.3 已完成 P2-A int keyed identity vertical slice
+
+涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-MUTATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；均保持 `in-progress`。
+
+唯一 Owner：annotation schema contract拥有 `@SomaKey`；schema processing/code generation contract拥有 normalized key role、schema hash 和 generated binding；Generated Table API contract拥有 direct/Key Pipeline signature；TableStore、errors和lifecycle Owner 分别拥有 KeySpace、failure和structural commit；testkit拥有 fixture/golden/evidence。没有联合 Owner。
+
+实际交付：`@SomaKey` 保持 source-only public annotation；processor 将 table kind/field role归一化为 `keyed`/`key`，且对尚未支持的 key breadth fail-closed；generated keyed table以 `HashIntKeySpace` 绑定 packed primitive `int` key column，提供 `containsKey/find/fetch/mutate/delete/keys`。key identity 不进入 Mutator、MutableRow 或 Row Pipeline update setter；delete 与 Rows.remove 共用单次稳定 compaction，并在 commit 前删除 dead mapping、修复 survivor RowSlot。Key Pipeline 是稳定值 export boundary，primitive direct/row/column hot path仍无 boxing。
+
+实际 evidence：5000-step deterministic primitive KeySpace oracle；external Maven keyed consumer覆盖 add/find/fetch/mutate、duplicate/missing、direct delete与Rows.remove后的slot repair；unsupported long/multiple key declarations稳定以 `SOMA-TABLE-008` fail closed；generated source/bytecode/public javap/schema-hash golden、Turkish locale/Pacific-Kiritimati repeatability、key mutation surface negative assertion和完整 `check.sh`。本机证明不外推 support matrix。
+
+V1 scope non-regression：本切片只添加最终 `@SomaKey`/keyed facade/primitive KeySpace binding；long/semantic/enum/value/composite、canonical floating、secondary access structures、child/materialization、scenario/benchmark/release breadth仍保留在原 P2-B 或后续工作包。无 temporary public/generated contract、temporary hot path、migration、rewrite或 `List<Row>`/DTO/metadata interpreter runtime path。
 
 ### 4.2 P2-S1 primitive KeySpace foundation
 
@@ -135,16 +149,17 @@ Slice exit：
 - 唯一 Goal、23 项 Capability、G0-G6、RC完整性与release boundary未变化；
 - Phase 0状态和证据未回退；
 - Phase 1 新增了真实 annotations/runtime/processor/generated facade、primitive/presence storage、atomic update、materialization、public/schema golden和external consumer evidence；Capability只推进到 `in-progress`；
-- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` / remove，P1-S3 固化 typed Column Pipeline/View和borrow lifecycle，不引入未来迁移契约；
+- P2-A 新增最终 `@SomaKey int`、packed primitive KeySpace binding、direct/Key Pipeline、no-key-setter contract和compaction repair；Capability只推进到 `in-progress`；
+- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` / remove，P1-S3 固化 typed Column Pipeline/View和borrow lifecycle，P2-A 固化 primitive direct key API，不引入未来迁移契约；
 - 尚未引入temporary public/generated API、temporary hot path、migration或rewrite。
 
 ## 7. Latest validation record
 
-- commit/artifact：`10a6107`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifact `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`；
-- 完整命令：`JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./scripts/check-runtime-core-phase1.sh`、`./scripts/check-public-api.sh`、`./scripts/check-generated-dense-phase1.sh`、`./scripts/check-table-diagnostics-phase1.sh`、`git diff --check`、`./scripts/check.sh`；
+- commit/artifact：`c8480a6`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifacts `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-keyed-consumer-1.0.0-SNAPSHOT.jar`；
+- 完整命令：`JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-keyspace-phase2.sh`、`./scripts/check-public-api.sh`、`./scripts/check-docs.sh`、`git diff --check`、`./scripts/check.sh`；
 - JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
 - Maven Wrapper：Apache Maven `3.9.16`；
 - OS/architecture：macOS `26.5.2`、`aarch64`；
-- 结果：runtime lifecycle state（view pin/release/stale）、all seven primitive Pipeline/View public API、optional present-only traversal、ColumnView close/final release、non-structural mutation under view、reentrant structural callback rejection、public API manifest、table diagnostics、generated dense source/schema/hash、generated public javap、isolated external Maven consumer以及完整 `check.sh`（scope/docs/reactor/Phase 0/external value consumer）全部通过；generated dense source/schema/hash在默认环境与 Turkish locale/Pacific-Kiritimati timezone byte-identical；
+- 结果：已有 dense evidence保持通过；新增 `@SomaKey int` normalization/hash、primitive Hash KeySpace、generated direct/Key Pipeline、no-key-setter public golden、typed duplicate/missing error、direct delete/Rows.remove slot repair、invalid keyed breadth fail-closed、isolated external Maven keyed consumer、默认与 Turkish locale/Pacific-Kiritimati timezone byte-identical generation，以及完整 `check.sh`（scope/docs/reactor/public/Phase 0/Phase 1/Phase 2/external consumer）全部通过；
 - 跳过：unsupported-javac negative lane（未设置 `SOMA_UNSUPPORTED_JAVAC`）；
 - known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；G1-G6仍未关闭。
