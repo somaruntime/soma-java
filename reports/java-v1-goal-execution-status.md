@@ -4,7 +4,7 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`d6517a6`
+当前 repository baseline：`da2db9e`
 当前 checkpoint：P2-B keyed identity breadth / Key Pipeline
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
@@ -19,7 +19,8 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | Phase 1C dense shape/differential evidence | completed | commits `5ddaee3`、`e0d5b16`；randomized detached oracle、Column Pipeline allocation-scaling check、generated source/bytecode anti-pattern check；Phase 1 完成但完整 V1 Goal继续 active |
 | P2-A int keyed identity vertical slice | completed | commit `c8480a6`；`@SomaKey int`、`HashIntKeySpace`、generated direct/Key Pipeline、typed key errors、external consumer 和 shape evidence；这是最终架构的有效子集，不是 Phase 2 或 V1 closeout |
 | P2-B-S1 long keyed binding | completed | commit `d6517a6`；`HashLongKeySpace`、primitive `long` direct/Key Pipeline、collision/rehash/compaction evidence；是 P2-B additive completion，不关闭 Phase 2 |
-| P2-B keyed identity breadth / Key Pipeline | in-progress | long/semantic/enum/value/composite key、canonical floating、complete key diagnostics/property/shape evidence |
+| P2-B-S2 seven primitive keyed binding | completed | commit `da2db9e`；boolean/byte/short/float/double direct binding、strict floating canonicalization和external consumer evidence；是 P2-B additive completion，不关闭 Phase 2 |
+| P2-B keyed identity breadth / Key Pipeline | in-progress | semantic/enum/value/composite key、complete key diagnostics/property/shape evidence |
 | Phase 3 access structures | pending | index/unique/order/grouped source/sidecar |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |
 | Phase 5 full breadth + G1-G4 | pending | annotation/processor/codegen/runtime/incremental/compatibility closeout |
@@ -77,7 +78,7 @@ Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`�
 
 唯一 Owner：generated-table API contract；processor code-generation contract；runtime TableStore/lifecycle/errors/performance contracts；testkit contract分别拥有对应行为，不形成联合 Owner。
 
-Slice exit：以已固化的 `@SomaKey int` / `long` primitive direct API / `XxxKeys` 为 compatibility baseline，additive 完成 semantic、enum、value/composite、canonical floating key binding和完整 property/shape evidence；不得以 boxed tuple/object transient lookup、temporary overload或 generated API migration 取代当前 binding。
+Slice exit：以已固化的 seven primitive direct API / `XxxKeys` 为 compatibility baseline，additive 完成 semantic、enum、value/composite key binding和完整 property/shape evidence；不得以 boxed tuple/object transient lookup、temporary overload或 generated API migration 取代当前 binding。
 
 仍保留的 V1 breadth：value/string/enum/default、key/index/order sidecar、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
 
@@ -95,7 +96,7 @@ Slice exit：以已固化的 `@SomaKey int` / `long` primitive direct API / `Xxx
 
 实际 evidence：5000-step deterministic primitive KeySpace oracle；external Maven keyed consumer覆盖 add/find/fetch/mutate、duplicate/missing、direct delete与Rows.remove后的slot repair；unsupported long/multiple key declarations稳定以 `SOMA-TABLE-008` fail closed；generated source/bytecode/public javap/schema-hash golden、Turkish locale/Pacific-Kiritimati repeatability、key mutation surface negative assertion和完整 `check.sh`。本机证明不外推 support matrix。
 
-V1 scope non-regression：P2-A/P2-B-S1 只添加最终 `@SomaKey`/keyed facade/int-long primitive KeySpace binding；semantic/enum/value/composite、canonical floating、secondary access structures、child/materialization、scenario/benchmark/release breadth仍保留在原 P2-B 或后续工作包。无 temporary public/generated contract、temporary hot path、migration、rewrite或 `List<Row>`/DTO/metadata interpreter runtime path。
+V1 scope non-regression：P2-A/P2-B-S1/S2 只添加最终 `@SomaKey`/keyed facade/seven primitive KeySpace binding；semantic/enum/value/composite、secondary access structures、child/materialization、scenario/benchmark/release breadth仍保留在原 P2-B 或后续工作包。无 temporary public/generated contract、temporary hot path、migration、rewrite或 `List<Row>`/DTO/metadata interpreter runtime path。
 
 ### 4.4 已完成 P2-B-S1 long keyed binding
 
@@ -103,7 +104,15 @@ V1 scope non-regression：P2-A/P2-B-S1 只添加最终 `@SomaKey`/keyed facade/i
 
 实际交付：以与 `int` 相同的 final generated facade shape增加 `long` direct key parameter；`HashLongKeySpace` 保持 long full equality、primitive probe、tombstone-only remove和 row-slot update。generated key binding根据 normalized primitive key type静态选择 `HashIntKeySpace` 或 `HashLongKeySpace`，没有 generic `Object` key path或 key truncation。int/long `duplicateKey`、`missingKey` overload保持相同 stable code/category/context contract。
 
-实际 evidence：5000-step deterministic long KeySpace oracle；external Maven consumer覆盖高位/negative `long` lookup、mutate、stable Key Pipeline export及delete compaction repair；schema/hash/public javap/source-shape/repeatability和完整 `check.sh` 通过。仍未实现的 enum/value/composite/semantic/canonical floating breadth仍属于 P2-B，未删除、未降级、未标记 optional。
+实际 evidence：5000-step deterministic long KeySpace oracle；external Maven consumer覆盖高位/negative `long` lookup、mutate、stable Key Pipeline export及delete compaction repair；schema/hash/public javap/source-shape/repeatability和完整 `check.sh` 通过。仍未实现的 enum/value/composite/semantic breadth仍属于 P2-B，未删除、未降级、未标记 optional。
+
+### 4.5 已完成 P2-B-S2 seven primitive keyed binding
+
+涉及 Capability：`V1-KEYED-IDENTITY`、`V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-MUTATION`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING` 和 `V1-CONSUMER-PACKAGE`；全部继续保持 `in-progress`。
+
+实际交付：seven primitive全部保留 primitive direct key parameter。boolean/byte/short/int/float静态绑定 `HashIntKeySpace`，long/double静态绑定 `HashLongKeySpace`；float/double在 Batch/import、lookup和compaction repair用 generated-runtime `KeyCanonicalization` 拒绝 NaN/infinity、canonicalize `-0.0`并使用 canonical bits。Key Pipeline 的 boxing仍只发生在显式 stable-value export boundary。
+
+实际 evidence：external Maven consumer覆盖 boolean/byte/short direct lookup，float/double negative-zero canonicalization、duplicate和non-finite typed failure；generated signature/key-setter negative/source shape/schema hash/repeatability、runtime public manifest以及完整 `check.sh` 通过。enum/value/composite和semantic breadth仍属于 P2-B，未删除、未降级、未标记 optional。
 
 ### 4.2 P2-S1 primitive KeySpace foundation
 
@@ -158,17 +167,17 @@ Slice exit：
 - 唯一 Goal、23 项 Capability、G0-G6、RC完整性与release boundary未变化；
 - Phase 0状态和证据未回退；
 - Phase 1 新增了真实 annotations/runtime/processor/generated facade、primitive/presence storage、atomic update、materialization、public/schema golden和external consumer evidence；Capability只推进到 `in-progress`；
-- P2-A/P2-B-S1 新增最终 `@SomaKey int`/`long`、packed primitive KeySpace binding、direct/Key Pipeline、no-key-setter contract和compaction repair；Capability只推进到 `in-progress`；
-- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` / remove，P1-S3 固化 typed Column Pipeline/View和borrow lifecycle，P2-A/P2-B-S1 固化 primitive direct key API，不引入未来迁移契约；
+- P2-A/P2-B-S1/S2 新增最终 seven primitive `@SomaKey`、packed primitive KeySpace binding、direct/Key Pipeline、no-key-setter contract和compaction repair；Capability只推进到 `in-progress`；
+- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` / remove，P1-S3 固化 typed Column Pipeline/View和borrow lifecycle，P2-A/P2-B-S1/S2 固化 primitive direct key API和floating canonicalization，不引入未来迁移契约；
 - 尚未引入temporary public/generated API、temporary hot path、migration或rewrite。
 
 ## 7. Latest validation record
 
-- commit/artifact：`d6517a6`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifacts `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-keyed-consumer-1.0.0-SNAPSHOT.jar`；
+- commit/artifact：`da2db9e`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifacts `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-keyed-consumer-1.0.0-SNAPSHOT.jar`；
 - 完整命令：`JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-keyspace-phase2.sh`、`./scripts/check-public-api.sh`、`./scripts/check-docs.sh`、`git diff --check`、`./scripts/check.sh`；
 - JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
 - Maven Wrapper：Apache Maven `3.9.16`；
 - OS/architecture：macOS `26.5.2`、`aarch64`；
-- 结果：已有 dense evidence保持通过；新增 `@SomaKey int`/`long` normalization/hash、primitive Hash KeySpace、generated direct/Key Pipeline、no-key-setter public golden、typed duplicate/missing error、direct delete/Rows.remove slot repair、invalid keyed breadth fail-closed、isolated external Maven keyed consumer、默认与 Turkish locale/Pacific-Kiritimati timezone byte-identical generation，以及完整 `check.sh`（scope/docs/reactor/public/Phase 0/Phase 1/Phase 2/external consumer）全部通过；
+- 结果：已有 dense evidence保持通过；新增 seven primitive `@SomaKey` normalization/hash、primitive Hash KeySpace、generated direct/Key Pipeline、strict floating canonicalization、no-key-setter public golden、typed duplicate/missing/non-finite error、direct delete/Rows.remove slot repair、invalid keyed breadth fail-closed、isolated external Maven keyed consumer、默认与 Turkish locale/Pacific-Kiritimati timezone byte-identical generation，以及完整 `check.sh`（scope/docs/reactor/public/Phase 0/Phase 1/Phase 2/external consumer）全部通过；
 - 跳过：unsupported-javac negative lane（未设置 `SOMA_UNSUPPORTED_JAVAC`）；
 - known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；G1-G6仍未关闭。
