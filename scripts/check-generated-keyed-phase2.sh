@@ -61,6 +61,26 @@ for class_name in \
   cmp "$expected/$class_name.javap.txt" "$evidence_dir/$class_name.javap.txt"
 done
 
+check_primitive_table() {
+  class_name=$1
+  key_type=$2
+  output=$evidence_dir/$class_name.javap.txt
+  "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
+    "com.example.soma.keyed.generated.$class_name" > "$output"
+  if ! grep -F " fetch($key_type);" "$output" >/dev/null \
+      || ! grep -F " containsKey($key_type);" "$output" >/dev/null \
+      || ! grep -F " delete($key_type);" "$output" >/dev/null; then
+    printf '%s\n' "generated-keyed-phase2-check: primitive direct key signature missing for $class_name" >&2
+    exit 1
+  fi
+}
+
+check_primitive_table BooleanKeyedTable boolean
+check_primitive_table ByteKeyedTable byte
+check_primitive_table ShortKeyedTable short
+check_primitive_table FloatKeyedTable float
+check_primitive_table DoubleKeyedTable double
+
 mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutator.java
 mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutableRow.java
 long_mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleMutator.java
@@ -73,12 +93,36 @@ if grep -E 'setId|clearId|setUpdateId|updateId' \
   printf '%s\n' 'generated-keyed-phase2-check: key mutation surface leaked' >&2
   exit 1
 fi
+if grep -E 'setId|clearId|setUpdateId|updateId' \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/BooleanKeyedMutator.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/BooleanKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ByteKeyedMutator.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ByteKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ShortKeyedMutator.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ShortKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/FloatKeyedMutator.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/FloatKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/DoubleKeyedMutator.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/DoubleKeyedMutableRow.java"; then
+  printf '%s\n' 'generated-keyed-phase2-check: primitive key mutation surface leaked' >&2
+  exit 1
+fi
 if ! grep -q 'HashIntKeySpace keySpace' "$table_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: primitive keyspace binding missing' >&2
   exit 1
 fi
 if ! grep -q 'HashLongKeySpace keySpace' "$long_table_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: primitive long keyspace binding missing' >&2
+  exit 1
+fi
+if ! grep -q 'KeyCanonicalization.strictFloat' \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/FloatKeyedTable.java"; then
+  printf '%s\n' 'generated-keyed-phase2-check: strict float key binding missing' >&2
+  exit 1
+fi
+if ! grep -q 'KeyCanonicalization.strictDouble' \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/DoubleKeyedTable.java"; then
+  printf '%s\n' 'generated-keyed-phase2-check: strict double key binding missing' >&2
   exit 1
 fi
 if grep -E 'java\.util\.stream|Object\[|Integer\[|java\.util\.Iterator|new (ArrayList|LinkedList)' "$rows_source"; then

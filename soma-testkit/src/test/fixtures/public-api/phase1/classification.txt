@@ -13,6 +13,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedMetadata
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashLongKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.KeyCanonicalization
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.LongColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationTracker
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.PresenceBitmap

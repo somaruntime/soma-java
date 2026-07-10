@@ -7,6 +7,16 @@ import com.example.soma.keyed.generated.KeyedParticleRows;
 import com.example.soma.keyed.generated.KeyedParticleTable;
 import com.example.soma.keyed.generated.LongKeyedParticleBatch;
 import com.example.soma.keyed.generated.LongKeyedParticleTable;
+import com.example.soma.keyed.generated.BooleanKeyedBatch;
+import com.example.soma.keyed.generated.BooleanKeyedTable;
+import com.example.soma.keyed.generated.ByteKeyedBatch;
+import com.example.soma.keyed.generated.ByteKeyedTable;
+import com.example.soma.keyed.generated.DoubleKeyedBatch;
+import com.example.soma.keyed.generated.DoubleKeyedTable;
+import com.example.soma.keyed.generated.FloatKeyedBatch;
+import com.example.soma.keyed.generated.FloatKeyedTable;
+import com.example.soma.keyed.generated.ShortKeyedBatch;
+import com.example.soma.keyed.generated.ShortKeyedTable;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
 import java.util.List;
@@ -87,6 +97,7 @@ public final class KeyedConsumer {
             }
         });
         testLongKeyBinding();
+        testAdditionalPrimitiveKeyBindings();
         System.out.println("keyed-consumer: ok");
     }
 
@@ -106,6 +117,61 @@ public final class KeyedConsumer {
                 "long key pipeline value export");
         table.delete(firstId);
         require(table.fetch(secondId).energy == 20L, "long key compaction repair");
+    }
+
+    private static void testAdditionalPrimitiveKeyBindings() {
+        BooleanKeyedBatch booleanBatch = new BooleanKeyedBatch();
+        booleanBatch.addValues(true, 1);
+        BooleanKeyedTable booleanTable = BooleanKeyedTable.create();
+        booleanTable.addBatch(booleanBatch);
+        require(booleanTable.fetch(true).payload == 1, "boolean key binding");
+
+        ByteKeyedBatch byteBatch = new ByteKeyedBatch();
+        byteBatch.addValues((byte) -7, 2);
+        ByteKeyedTable byteTable = ByteKeyedTable.create();
+        byteTable.addBatch(byteBatch);
+        require(byteTable.fetch((byte) -7).payload == 2, "byte key binding");
+
+        ShortKeyedBatch shortBatch = new ShortKeyedBatch();
+        shortBatch.addValues((short) 30001, 3);
+        ShortKeyedTable shortTable = ShortKeyedTable.create();
+        shortTable.addBatch(shortBatch);
+        require(shortTable.fetch((short) 30001).payload == 3, "short key binding");
+
+        FloatKeyedBatch floatBatch = new FloatKeyedBatch();
+        floatBatch.addValues(-0.0f, 4);
+        FloatKeyedTable floatTable = FloatKeyedTable.create();
+        floatTable.addBatch(floatBatch);
+        require(Float.floatToIntBits(floatTable.fetch(0.0f).id) == Float.floatToIntBits(0.0f),
+                "float negative zero canonicalization");
+        expectCode("duplicate_key", new Action() {
+            @Override
+            public void run() {
+                FloatKeyedBatch duplicate = new FloatKeyedBatch();
+                duplicate.addValues(0.0f, 5);
+                floatTable.addBatch(duplicate);
+            }
+        });
+        expectCode("invalid_floating_access_value", new Action() {
+            @Override
+            public void run() {
+                new FloatKeyedBatch().addValues(Float.NaN, 6);
+            }
+        });
+
+        DoubleKeyedBatch doubleBatch = new DoubleKeyedBatch();
+        doubleBatch.addValues(-0.0d, 7);
+        DoubleKeyedTable doubleTable = DoubleKeyedTable.create();
+        doubleTable.addBatch(doubleBatch);
+        require(Double.doubleToLongBits(doubleTable.fetch(0.0d).id)
+                        == Double.doubleToLongBits(0.0d),
+                "double negative zero canonicalization");
+        expectCode("invalid_floating_access_value", new Action() {
+            @Override
+            public void run() {
+                doubleTable.containsKey(Double.POSITIVE_INFINITY);
+            }
+        });
     }
 
     private static void expectCode(String code, Action action) {

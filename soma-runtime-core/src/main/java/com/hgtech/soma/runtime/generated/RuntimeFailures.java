@@ -49,6 +49,62 @@ public final class RuntimeFailures {
                 table, context("key", key), null);
     }
 
+    public static SomaRuntimeException duplicateKey(String table, boolean key, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException missingKey(String table, boolean key, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException duplicateKey(String table, byte key, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException missingKey(String table, byte key, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException duplicateKey(String table, short key, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException missingKey(String table, short key, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException duplicateKey(String table, float key, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException missingKey(String table, float key, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException duplicateKey(String table, double key, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException missingKey(String table, double key, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException invalidFloatingAccessValue(
+            String table, String field, String valueClass, String operation) {
+        return create(SomaErrorCategory.INVALID_INPUT, "invalid_floating_access_value", operation,
+                table + "." + field, context("valueClass", valueClass), null);
+    }
+
     public static SomaRuntimeException invalidNullValue(String table, String field, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_null_value", operation,
                 table + "." + field, empty(), null);

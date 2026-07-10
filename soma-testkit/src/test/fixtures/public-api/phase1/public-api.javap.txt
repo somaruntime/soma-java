@@ -150,6 +150,14 @@ public final class com.hgtech.soma.runtime.generated.IntColumn extends com.hgtec
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.KeyCanonicalization
+Compiled from "KeyCanonicalization.java"
+public final class com.hgtech.soma.runtime.generated.KeyCanonicalization {
+  public static int strictFloatKeyBits(java.lang.String, java.lang.String, float, java.lang.String);
+  public static long strictDoubleKeyBits(java.lang.String, java.lang.String, double, java.lang.String);
+  public static float strictFloatStorage(java.lang.String, java.lang.String, float, java.lang.String);
+  public static double strictDoubleStorage(java.lang.String, java.lang.String, double, java.lang.String);
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.LongColumn
 Compiled from "LongColumn.java"
 public final class com.hgtech.soma.runtime.generated.LongColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
@@ -211,6 +219,17 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, int, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, long, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, long, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, boolean, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, boolean, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, byte, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, byte, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, short, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, short, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, float, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, float, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, double, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, double, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException invalidFloatingAccessValue(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);

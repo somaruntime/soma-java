@@ -234,7 +234,7 @@ operations.delete(key);
 - `delete(key)` 是 structural mutation；
 - 修改 identity 只能 delete + insert。
 
-Generated direct parameter 使用 `@SomaKey` 的 materialized key type；primitive scalar 保持 primitive parameter，value key 保持对应 immutable `@SomaValue`。当前 primitive key binding 的 exact public shape 是 `boolean containsKey(K)`、`Optional<R> find(K)`、`R fetch(K)`、`XxxMutator mutate(K)`、`void delete(K)` 和 `XxxKeys keys()`，其中已落地的 `K` 为 `int` 与 `long`；后续 key breadth 只能按同一规则 additive binding，不能把已生成的 primitive direct API 迁移为 boxed/tuple lookup。
+Generated direct parameter 使用 `@SomaKey` 的 materialized key type；primitive scalar 保持 primitive parameter，value key 保持对应 immutable `@SomaValue`。当前 primitive key binding 的 exact public shape 是 `boolean containsKey(K)`、`Optional<R> find(K)`、`R fetch(K)`、`XxxMutator mutate(K)`、`void delete(K)` 和 `XxxKeys keys()`，其中已落地的 `K` 为全部 seven primitive；后续 key breadth 只能按同一规则 additive binding，不能把已生成的 primitive direct API 迁移为 boxed/tuple lookup。
 
 ### 4.2 Dense table
 

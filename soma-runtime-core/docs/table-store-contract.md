@@ -16,7 +16,7 @@ Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime 
 
 Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
 
-首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace`、`HashIntKeySpace` 和 `HashLongKeySpace`。Concrete primitive column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
+首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace`、`HashIntKeySpace` 和 `HashLongKeySpace`。Concrete primitive column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
 
 Exact current protocol matrix（Phase 1 + P2-A，全部位于 `com.hgtech.soma.runtime.generated`）：
 
@@ -70,6 +70,9 @@ HashIntKeySpace(int expectedSize); size()/contains(int)/rowOf(int)
 HashIntKeySpace.put(int key, int rowSlot)/remove(int key)/updateRow(int key, int rowSlot)/clear() -> void
 HashLongKeySpace(int expectedSize); size()/contains(long)/rowOf(long)
 HashLongKeySpace.put(long key, int rowSlot)/remove(long key)/updateRow(long key, int rowSlot)/clear() -> void
+KeyCanonicalization.strictFloatKeyBits(String table, String field, float value, String operation) -> int
+KeyCanonicalization.strictDoubleKeyBits(String table, String field, double value, String operation) -> long
+KeyCanonicalization.strictFloatStorage/strictDoubleStorage(...) -> canonical float/double
 
 MaterializationTracker(MaterializationBudget, String rootPath)
 MaterializationTracker.addTableInstances/addRows/addLeafValues/addEstimatedBytes(long) -> void
@@ -78,6 +81,8 @@ MaterializationTracker.estimatedBytes/rows/leafValues/tableInstances -> long
 ```
 
 `HashIntKeySpace` / `HashLongKeySpace` 的 `remove` 只写 tombstone，不在 remove/packed compaction 内触发 rehash/allocation；generated keyed delete 先移除 deleted key，再在同一 structural commit 前逐 survivor 调用 `updateRow` 修复移动后的 slot。rehash 只能发生在后续 insert/growth boundary，不能留下对已提交 row 的 stale locator。
+
+`boolean`、`byte`、`short`、`int` 和 `float` key 静态绑定 `HashIntKeySpace`；`long`、`double` key 静态绑定 `HashLongKeySpace`。floating key 在 Batch/import、lookup和compaction repair均先经 `KeyCanonicalization` 拒绝 non-finite、把 `-0.0` canonicalize为 `+0.0` 并使用 canonical bits；不在 hot lookup 创建 boxed key、tuple或metadata interpreter。
 
 `GeneratedColumn` 的 `Object` 只承载 staged primitive array并由 `ColumnGroup` 在 growth boundary内部回传给同一 concrete column；generated source/hot loop不读取或 cast该 Object。`ensureCapacity` 返回是否实际增长。Prepare方法完成active/reentrant/range/overflow/capacity preflight但不改变size/epoch；generated typed copy/clear成功后调用匹配的commit。Mismatch进入internal invariant failure。新增protocol方法可以additive，现有方法不能靠 generated code migration重命名。
 
