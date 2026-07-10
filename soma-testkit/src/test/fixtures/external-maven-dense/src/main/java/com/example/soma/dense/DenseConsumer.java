@@ -24,6 +24,7 @@ import com.hgtech.soma.runtime.ShortConsumer;
 import com.hgtech.soma.runtime.UpdateResult;
 
 import java.util.List;
+import java.util.Random;
 import java.util.function.LongConsumer;
 
 public final class DenseConsumer {
@@ -32,6 +33,7 @@ public final class DenseConsumer {
 
     public static void main(String[] args) {
         testAllPrimitiveAndPresenceBindings();
+        testDenseDifferentialOracle();
 
         ParticleBatch batch = new ParticleBatch(2);
         batch.addValues(1, 10L, 1.5f, true, 7);
@@ -414,6 +416,101 @@ public final class DenseConsumer {
             absentOptionalView.close();
         }
         table.release();
+    }
+
+    private static void testDenseDifferentialOracle() {
+        Random random = new Random(731942L);
+        for (int seed = 0; seed < 12; seed++) {
+            ParticleBatch batch = new ParticleBatch();
+            List<Particle> oracle = new java.util.ArrayList<Particle>();
+            int rows = 20 + random.nextInt(25);
+            for (int row = 0; row < rows; row++) {
+                Particle value = new Particle();
+                value.id = row;
+                value.ticks = random.nextInt(1000);
+                value.x = random.nextFloat() * 100.0f;
+                value.energy = random.nextBoolean() ? Integer.valueOf(random.nextInt(100)) : null;
+                batch.add(value);
+                oracle.add(copy(value));
+            }
+            ParticleTable table = ParticleTable.create();
+            table.addBatch(batch);
+            for (int round = 0; round < 5; round++) {
+                final int updateDivisor = 2 + random.nextInt(4);
+                final int updateRemainder = random.nextInt(updateDivisor);
+                table.filter(new ParticleRows.Predicate() {
+                    @Override
+                    public boolean test(ParticleRow row) {
+                        return row.id() % updateDivisor == updateRemainder;
+                    }
+                }).update(new ParticleRows.Updater() {
+                    @Override
+                    public void update(ParticleMutableRow row) {
+                        row.setX(row.x() + 0.25f);
+                        if ((row.id() & 1) == 0) {
+                            row.clearEnergy();
+                        }
+                    }
+                });
+                for (Particle value : oracle) {
+                    if (value.id % updateDivisor == updateRemainder) {
+                        value.x += 0.25f;
+                        if ((value.id & 1) == 0) {
+                            value.energy = null;
+                        }
+                    }
+                }
+                final int removeDivisor = 2 + random.nextInt(4);
+                final int removeRemainder = random.nextInt(removeDivisor);
+                table.filter(new ParticleRows.Predicate() {
+                    @Override
+                    public boolean test(ParticleRow row) {
+                        return row.id() % removeDivisor == removeRemainder;
+                    }
+                }).remove();
+                for (int index = oracle.size() - 1; index >= 0; index--) {
+                    if (oracle.get(index).id % removeDivisor == removeRemainder) {
+                        oracle.remove(index);
+                    }
+                }
+                assertParticles(oracle, table.materialize(), "differential dense facts");
+                List<Particle> descending = table.sorted(new ParticleRows.Comparator() {
+                    @Override
+                    public int compare(ParticleRow left, ParticleRow right) {
+                        return right.id() - left.id();
+                    }
+                }).fetchAll();
+                List<Particle> expectedDescending = new java.util.ArrayList<Particle>(oracle);
+                java.util.Collections.sort(expectedDescending, new java.util.Comparator<Particle>() {
+                    @Override
+                    public int compare(Particle left, Particle right) {
+                        return right.id - left.id;
+                    }
+                });
+                assertParticles(expectedDescending, descending, "differential sorted facts");
+            }
+            table.release();
+        }
+    }
+
+    private static Particle copy(Particle source) {
+        Particle result = new Particle();
+        result.id = source.id;
+        result.ticks = source.ticks;
+        result.x = source.x;
+        result.energy = source.energy;
+        return result;
+    }
+
+    private static void assertParticles(List<Particle> expected, List<Particle> actual, String message) {
+        require(expected.size() == actual.size(), message + " size");
+        for (int index = 0; index < expected.size(); index++) {
+            Particle left = expected.get(index);
+            Particle right = actual.get(index);
+            require(left.id == right.id && left.ticks == right.ticks && left.x == right.x
+                            && (left.energy == null ? right.energy == null : left.energy.equals(right.energy)),
+                    message + " row=" + index);
+        }
     }
 
     private static void expectCode(String code, Action action) {
