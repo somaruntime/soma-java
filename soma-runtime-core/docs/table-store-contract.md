@@ -16,7 +16,7 @@ Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime 
 
 Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
 
-首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`PresenceBitmap` 和 `MaterializationTracker`。Concrete primitive column提供 typed get/set/bulk-copy；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
+首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace` 和 `HashIntKeySpace`。Concrete primitive column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
 
 Exact Phase 1 protocol matrix（全部位于 `com.hgtech.soma.runtime.generated`）：
 
@@ -63,6 +63,11 @@ DenseTableState.updateScratch(long currentBytes, long highWaterBytes) -> void
 DenseTableState.updateResult(long scanned, long matched, long changed,
   long sidecarMaintained, long sidecarRebuilt) -> UpdateResult
 DenseTableState.statsSnapshot() -> TableStats; resetStats() -> void
+
+SparseIntKeySpace(int maximumKey); size()/contains(int)/rowOf(int)
+SparseIntKeySpace.put(int key, int rowSlot)/removeAt(int rowSlot)/clear() -> void
+HashIntKeySpace(int expectedSize); size()/contains(int)/rowOf(int)
+HashIntKeySpace.put(int key, int rowSlot)/remove(int key)/updateRow(int key, int rowSlot)/clear() -> void
 
 MaterializationTracker(MaterializationBudget, String rootPath)
 MaterializationTracker.addTableInstances/addRows/addLeafValues/addEstimatedBytes(long) -> void

@@ -10,6 +10,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DoubleColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.FloatColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedMetadata
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.LongColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationTracker
@@ -17,6 +18,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.PresenceBitmap
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeCompatibility
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeFailures
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ShortColumn
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.SparseIntKeySpace
 PUBLIC handwritten com.hgtech.soma.annotation.SomaField
 PUBLIC handwritten com.hgtech.soma.annotation.SomaIgnore
 PUBLIC handwritten com.hgtech.soma.annotation.SomaOptional

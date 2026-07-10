@@ -115,6 +115,18 @@ public final class com.hgtech.soma.runtime.generated.GeneratedMetadata {
   public java.lang.String algorithm();
   public java.lang.String allocationEstimator();
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
+Compiled from "HashIntKeySpace.java"
+public final class com.hgtech.soma.runtime.generated.HashIntKeySpace {
+  public com.hgtech.soma.runtime.generated.HashIntKeySpace(int);
+  public int size();
+  public boolean contains(int);
+  public int rowOf(int);
+  public void put(int, int);
+  public void remove(int);
+  public void updateRow(int, int);
+  public void clear();
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
 Compiled from "IntColumn.java"
 public final class com.hgtech.soma.runtime.generated.IntColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
@@ -210,6 +222,17 @@ public final class com.hgtech.soma.runtime.generated.ShortColumn extends com.hgt
   public java.lang.Object stageCapacity(int);
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.SparseIntKeySpace
+Compiled from "SparseIntKeySpace.java"
+public final class com.hgtech.soma.runtime.generated.SparseIntKeySpace {
+  public com.hgtech.soma.runtime.generated.SparseIntKeySpace(int);
+  public int size();
+  public boolean contains(int);
+  public int rowOf(int);
+  public void put(int, int);
+  public void removeAt(int);
+  public void clear();
 }
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaField
 Compiled from "SomaField.java"
