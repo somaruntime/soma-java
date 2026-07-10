@@ -53,7 +53,9 @@ cmp "$expected/com.example.soma.keyed.schema.sha256" "$fixture/target/classes/$s
 cmp "$fixture/target/classes/$schema" "$repeat_fixture/target/classes/$schema"
 cmp "$fixture/target/classes/$schema_hash" "$repeat_fixture/target/classes/$schema_hash"
 
-for class_name in KeyedParticleTable KeyedParticleMutator KeyedParticleMutableRow KeyedParticleKeys; do
+for class_name in \
+  KeyedParticleTable KeyedParticleMutator KeyedParticleMutableRow KeyedParticleKeys \
+  LongKeyedParticleTable LongKeyedParticleMutator LongKeyedParticleKeys; do
   "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
     "com.example.soma.keyed.generated.$class_name" > "$evidence_dir/$class_name.javap.txt"
   cmp "$expected/$class_name.javap.txt" "$evidence_dir/$class_name.javap.txt"
@@ -61,14 +63,22 @@ done
 
 mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutator.java
 mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutableRow.java
+long_mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleMutator.java
+long_mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleMutableRow.java
 table_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleTable.java
+long_table_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleTable.java
 rows_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleRows.java
-if grep -E 'setId|clearId|setUpdateId|updateId' "$mutator_source" "$mutable_source"; then
+if grep -E 'setId|clearId|setUpdateId|updateId' \
+  "$mutator_source" "$mutable_source" "$long_mutator_source" "$long_mutable_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: key mutation surface leaked' >&2
   exit 1
 fi
 if ! grep -q 'HashIntKeySpace keySpace' "$table_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: primitive keyspace binding missing' >&2
+  exit 1
+fi
+if ! grep -q 'HashLongKeySpace keySpace' "$long_table_source"; then
+  printf '%s\n' 'generated-keyed-phase2-check: primitive long keyspace binding missing' >&2
   exit 1
 fi
 if grep -E 'java\.util\.stream|Object\[|Integer\[|java\.util\.Iterator|new (ArrayList|LinkedList)' "$rows_source"; then

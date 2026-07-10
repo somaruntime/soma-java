@@ -1,6 +1,7 @@
 package com.hgtech.soma.runtime;
 
 import com.hgtech.soma.runtime.generated.HashIntKeySpace;
+import com.hgtech.soma.runtime.generated.HashLongKeySpace;
 import com.hgtech.soma.runtime.generated.SparseIntKeySpace;
 
 import java.util.ArrayList;
@@ -17,6 +18,7 @@ public final class KeySpacePhase2Check {
     public static void main(String[] args) {
         testSparseIntPackedSlots();
         testHashIntRandomized();
+        testHashLongRandomized();
         System.out.println("keyspace-phase2-test: ok");
     }
 
@@ -63,6 +65,35 @@ public final class KeySpacePhase2Check {
             for (Map.Entry<Integer, Integer> entry : oracle.entrySet()) {
                 assertEquals(entry.getValue().intValue(), keys.rowOf(entry.getKey().intValue()),
                         "hash lookup");
+            }
+        }
+    }
+
+    private static void testHashLongRandomized() {
+        HashLongKeySpace keys = new HashLongKeySpace(0);
+        Map<Long, Integer> oracle = new HashMap<Long, Integer>();
+        Random random = new Random(731991L);
+        for (int step = 0; step < 5000; step++) {
+            long key = ((long) (random.nextInt(512) - 256) << 32)
+                    ^ (long) (random.nextInt(512) - 256);
+            Long boxedKey = Long.valueOf(key);
+            int operation = random.nextInt(3);
+            if (operation == 0 && !oracle.containsKey(boxedKey)) {
+                int row = random.nextInt(4096);
+                keys.put(key, row);
+                oracle.put(boxedKey, Integer.valueOf(row));
+            } else if (operation == 1 && oracle.containsKey(boxedKey)) {
+                keys.remove(key);
+                oracle.remove(boxedKey);
+            } else if (oracle.containsKey(boxedKey)) {
+                int row = random.nextInt(4096);
+                keys.updateRow(key, row);
+                oracle.put(boxedKey, Integer.valueOf(row));
+            }
+            assertEquals(oracle.size(), keys.size(), "long hash size");
+            for (Map.Entry<Long, Integer> entry : oracle.entrySet()) {
+                assertEquals(entry.getValue().intValue(), keys.rowOf(entry.getKey().longValue()),
+                        "long hash lookup");
             }
         }
     }

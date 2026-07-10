@@ -127,6 +127,18 @@ public final class com.hgtech.soma.runtime.generated.HashIntKeySpace {
   public void updateRow(int, int);
   public void clear();
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashLongKeySpace
+Compiled from "HashLongKeySpace.java"
+public final class com.hgtech.soma.runtime.generated.HashLongKeySpace {
+  public com.hgtech.soma.runtime.generated.HashLongKeySpace(int);
+  public int size();
+  public boolean contains(long);
+  public int rowOf(long);
+  public void put(long, int);
+  public void remove(long);
+  public void updateRow(long, int);
+  public void clear();
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
 Compiled from "IntColumn.java"
 public final class com.hgtech.soma.runtime.generated.IntColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
@@ -197,6 +209,8 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException emptyResult(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, int, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, int, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, long, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, long, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);

@@ -5,6 +5,8 @@ import com.example.soma.keyed.generated.KeyedParticleKeys;
 import com.example.soma.keyed.generated.KeyedParticleRow;
 import com.example.soma.keyed.generated.KeyedParticleRows;
 import com.example.soma.keyed.generated.KeyedParticleTable;
+import com.example.soma.keyed.generated.LongKeyedParticleBatch;
+import com.example.soma.keyed.generated.LongKeyedParticleTable;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
 import java.util.List;
@@ -84,7 +86,26 @@ public final class KeyedConsumer {
                 table.delete(1);
             }
         });
+        testLongKeyBinding();
         System.out.println("keyed-consumer: ok");
+    }
+
+    private static void testLongKeyBinding() {
+        final long firstId = 0x100000003L;
+        final long secondId = -0x200000007L;
+        LongKeyedParticleBatch batch = new LongKeyedParticleBatch();
+        batch.addValues(firstId, 10L);
+        batch.addValues(secondId, 20L);
+        LongKeyedParticleTable table = LongKeyedParticleTable.create();
+        table.addBatch(batch);
+        require(table.containsKey(firstId) && table.fetch(secondId).energy == 20L,
+                "long key direct binding");
+        table.mutate(firstId).setEnergy(11L).commit();
+        require(table.fetch(firstId).energy == 11L, "long key mutator");
+        require(table.keys().fetchAll().get(1).longValue() == secondId,
+                "long key pipeline value export");
+        table.delete(firstId);
+        require(table.fetch(secondId).energy == 20L, "long key compaction repair");
     }
 
     private static void expectCode(String code, Action action) {

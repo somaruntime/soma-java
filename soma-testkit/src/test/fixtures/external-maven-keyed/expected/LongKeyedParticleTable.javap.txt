@@ -1,0 +1,47 @@
+Compiled from "LongKeyedParticleTable.java"
+public final class com.example.soma.keyed.generated.LongKeyedParticleTable {
+  public static com.example.soma.keyed.generated.LongKeyedParticleTable create();
+  public static com.example.soma.keyed.generated.LongKeyedParticleTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void addBatch(com.example.soma.keyed.generated.LongKeyedParticleBatch);
+  public void replaceAll(com.example.soma.keyed.generated.LongKeyedParticleBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.keyed.LongKeyedParticle fetchAt(int);
+  public com.example.soma.keyed.LongKeyedParticle fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.keyed.LongKeyedParticle> materialize();
+  public java.util.List<com.example.soma.keyed.LongKeyedParticle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean containsKey(long);
+  public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> find(long);
+  public com.example.soma.keyed.LongKeyedParticle fetch(long);
+  public com.example.soma.keyed.generated.LongKeyedParticleMutator mutate(long);
+  public void delete(long);
+  public com.example.soma.keyed.generated.LongKeyedParticleKeys keys();
+  public com.example.soma.keyed.generated.LongKeyedParticleMutator mutateAt(int);
+  public com.example.soma.keyed.generated.LongKeyedParticleRows rows();
+  public com.example.soma.keyed.generated.LongKeyedParticleRows filter(com.example.soma.keyed.generated.LongKeyedParticleRows$Predicate);
+  public com.example.soma.keyed.generated.LongKeyedParticleRows skip(long);
+  public com.example.soma.keyed.generated.LongKeyedParticleRows limit(long);
+  public com.example.soma.keyed.generated.LongKeyedParticleRows sorted(com.example.soma.keyed.generated.LongKeyedParticleRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.keyed.generated.LongKeyedParticleRows$Predicate);
+  public boolean noneMatch(com.example.soma.keyed.generated.LongKeyedParticleRows$Predicate);
+  public void forEach(com.example.soma.keyed.generated.LongKeyedParticleRows$Consumer);
+  public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> findFirst();
+  public com.example.soma.keyed.LongKeyedParticle firstOrThrow();
+  public java.util.List<com.example.soma.keyed.LongKeyedParticle> fetchAll();
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.keyed.generated.LongKeyedParticleRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+  public com.hgtech.soma.runtime.LongColumnPipeline idValues();
+  public com.hgtech.soma.runtime.LongColumnView idColumn();
+  public com.hgtech.soma.runtime.LongColumnPipeline energyValues();
+  public com.hgtech.soma.runtime.LongColumnView energyColumn();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}

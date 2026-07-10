@@ -314,9 +314,11 @@ public final class SomaProcessor extends AbstractProcessor {
                 valid = false;
                 continue;
             }
-            if (key && (optional != null || primitive.primitiveKind != TypeKind.INT)) {
+            if (key && (optional != null
+                    || (primitive.primitiveKind != TypeKind.INT
+                    && primitive.primitiveKind != TypeKind.LONG))) {
                 error(field, "SOMA-TABLE-008",
-                        "current keyed table slice requires a required int @SomaKey: "
+                        "current keyed table slice requires a required int or long @SomaKey: "
                                 + field.asType());
                 valid = false;
             }

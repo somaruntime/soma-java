@@ -39,6 +39,16 @@ public final class RuntimeFailures {
                 table, context("key", key), null);
     }
 
+    public static SomaRuntimeException duplicateKey(String table, long key, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", key), null);
+    }
+
+    public static SomaRuntimeException missingKey(String table, long key, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", key), null);
+    }
+
     public static SomaRuntimeException invalidNullValue(String table, String field, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_null_value", operation,
                 table + "." + field, empty(), null);

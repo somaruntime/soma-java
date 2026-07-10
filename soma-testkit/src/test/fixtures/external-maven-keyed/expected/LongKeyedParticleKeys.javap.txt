@@ -1,0 +1,7 @@
+Compiled from "LongKeyedParticleKeys.java"
+public final class com.example.soma.keyed.generated.LongKeyedParticleKeys {
+  public void forEach(java.util.function.Consumer<java.lang.Long>);
+  public java.util.List<java.lang.Long> fetchAll();
+  public java.util.Optional<java.lang.Long> findFirst();
+  public java.lang.Long firstOrThrow();
+}

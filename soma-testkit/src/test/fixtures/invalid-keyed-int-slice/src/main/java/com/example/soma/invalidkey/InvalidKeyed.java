@@ -6,7 +6,7 @@ import com.hgtech.soma.annotation.SomaTable;
 
 @SomaTable
 public final class InvalidKeyed {
-    @SomaKey public long unsupportedLongKey;
+    @SomaKey public boolean unsupportedBooleanKey;
     @SomaKey public int duplicateIntKey;
     @SomaField public int payload;
 

@@ -427,7 +427,8 @@ final class DenseTableSourceGenerator {
             if (field.optional) out.append("  private final PresenceBitmap ").append(field.javaName).append("Presence=new PresenceBitmap();\n");
         }
         if (table.keyed()) {
-            out.append("  private final HashIntKeySpace keySpace;\n");
+            out.append("  private final ").append(table.keyField().keySpaceType())
+                    .append(" keySpace;\n");
         }
         out.append("  private final DenseTableState state;\n")
                 .append("  private int[] candidateScratch=new int[0],pipelineScratch=new int[0],sortScratch=new int[0];private boolean[] removeMarks=new boolean[0];private int updateCapacity;\n");
@@ -447,7 +448,8 @@ final class DenseTableSourceGenerator {
         }
         out.append(");\n    state=new DenseTableState(TABLE,plan,tablePlan,columns);\n");
         if (table.keyed()) {
-            out.append("    keySpace=new HashIntKeySpace(tablePlan.initialCapacity());\n");
+            out.append("    keySpace=new ").append(table.keyField().keySpaceType())
+                    .append("(tablePlan.initialCapacity());\n");
         }
         out.append("  }\n\n")
                 .append("  public static ").append(name).append(" create(){return create(defaultRuntimePlan());}\n")
@@ -481,10 +483,18 @@ final class DenseTableSourceGenerator {
         out.append("  }\n\n");
         if (table.keyed()) {
             FieldSpec key = table.keyField();
-            out.append("  private void validateAppendKeys(").append(table.name("Batch")).append(" batch){HashIntKeySpace staged=new HashIntKeySpace(batch.size());for(int row=0;row<batch.size();row++){int key=batch.").append(key.javaName).append("Value(row);if(keySpace.contains(key)||staged.contains(key))throw RuntimeFailures.duplicateKey(TABLE,key,\"addBatch\");staged.put(key,row);}}\n")
-                    .append("  private void validateReplacementKeys(").append(table.name("Batch")).append(" batch){HashIntKeySpace staged=new HashIntKeySpace(batch.size());for(int row=0;row<batch.size();row++){int key=batch.").append(key.javaName).append("Value(row);if(staged.contains(key))throw RuntimeFailures.duplicateKey(TABLE,key,\"replaceAll\");staged.put(key,row);}}\n")
+            out.append("  private void validateAppendKeys(").append(table.name("Batch")).append(" batch){")
+                    .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
+                    .append("(batch.size());for(int row=0;row<batch.size();row++){")
+                    .append(key.primitive).append(" key=batch.").append(key.javaName)
+                    .append("Value(row);if(keySpace.contains(key)||staged.contains(key))throw RuntimeFailures.duplicateKey(TABLE,key,\"addBatch\");staged.put(key,row);}}\n")
+                    .append("  private void validateReplacementKeys(").append(table.name("Batch")).append(" batch){")
+                    .append(key.keySpaceType()).append(" staged=new ").append(key.keySpaceType())
+                    .append("(batch.size());for(int row=0;row<batch.size();row++){")
+                    .append(key.primitive).append(" key=batch.").append(key.javaName)
+                    .append("Value(row);if(staged.contains(key))throw RuntimeFailures.duplicateKey(TABLE,key,\"replaceAll\");staged.put(key,row);}}\n")
                     .append("  private void installBatchKeys(").append(table.name("Batch")).append(" batch,int start,int count){for(int row=0;row<count;row++)keySpace.put(batch.").append(key.javaName).append("Value(row),start+row);}\n")
-                    .append("  private int keyRow(int key,String operation){int row=keySpace.rowOf(key);if(row<0)throw RuntimeFailures.missingKey(TABLE,key,operation);return row;}\n\n");
+                    .append("  private int keyRow(").append(key.primitive).append(" key,String operation){int row=keySpace.rowOf(key);if(row<0)throw RuntimeFailures.missingKey(TABLE,key,operation);return row;}\n\n");
         }
         out.append("\n")
                 .append("  public ").append(table.carrierType).append(" fetchAt(int rowIndex){return fetchAt(rowIndex,runtimePlan().defaultMaterializationBudget());}\n")
@@ -508,11 +518,11 @@ final class DenseTableSourceGenerator {
         out.append("    return value;}\n\n");
         if (table.keyed()) {
             FieldSpec key = table.keyField();
-            out.append("  public boolean containsKey(int key){state.checkActive(\"containsKey\");return keySpace.contains(key);}\n")
-                    .append("  public java.util.Optional<").append(table.carrierType).append("> find(int key){state.checkActive(\"find\");int row=keySpace.rowOf(key);return row<0?java.util.Optional.<").append(table.carrierType).append(">empty():java.util.Optional.of(fetchAt(row));}\n")
-                    .append("  public ").append(table.carrierType).append(" fetch(int key){return fetchAt(keyRow(key,\"fetch\"));}\n")
-                    .append("  public ").append(table.name("Mutator")).append(" mutate(int key){return mutateAt(keyRow(key,\"mutate\"));}\n")
-                    .append("  public void delete(int key){state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch();selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(Error failure){state.endOperationFailure(\"delete\",scanned,0L,\"callback_failed\");throw failure;}}\n")
+            out.append("  public boolean containsKey(").append(key.primitive).append(" key){state.checkActive(\"containsKey\");return keySpace.contains(key);}\n")
+                    .append("  public java.util.Optional<").append(table.carrierType).append("> find(").append(key.primitive).append(" key){state.checkActive(\"find\");int row=keySpace.rowOf(key);return row<0?java.util.Optional.<").append(table.carrierType).append(">empty():java.util.Optional.of(fetchAt(row));}\n")
+                    .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key){return fetchAt(keyRow(key,\"fetch\"));}\n")
+                    .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
+                    .append("  public void delete(").append(key.primitive).append(" key){state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch();selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(Error failure){state.endOperationFailure(\"delete\",scanned,0L,\"callback_failed\");throw failure;}}\n")
                     .append("  public ").append(table.name("Keys")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("Keys")).append("(this);}\n");
         }
         out.append("  public ").append(table.name("Mutator")).append(" mutateAt(int rowIndex){int row=state.checkRowIndex(rowIndex,\"mutateAt\");return new ").append(table.name("Mutator")).append("(this,row,structuralEpoch());}\n")
@@ -786,6 +796,16 @@ final class DenseTableSourceGenerator {
 
         String storageValue(String expression) { return expression; }
         String publicValue(String expression) { return expression; }
+
+        String keySpaceType() {
+            if ("int".equals(primitive)) {
+                return "HashIntKeySpace";
+            }
+            if ("long".equals(primitive)) {
+                return "HashLongKeySpace";
+            }
+            throw new IllegalStateException("unsupported primitive key: " + primitive);
+        }
 
         String different(String left, String right) {
             if ("float".equals(primitive)) {
