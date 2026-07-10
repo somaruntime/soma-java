@@ -4,8 +4,8 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`f013bc1`
-当前 checkpoint：P2-B keyed identity breadth / Key Pipeline
+当前 repository baseline：`af8ba51`
+当前 checkpoint：Phase 3 access structures / selector normalization
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
 
@@ -22,8 +22,8 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | P2-B-S2 seven primitive keyed binding | completed | commit `da2db9e`；boolean/byte/short/float/double direct binding、strict floating canonicalization和external consumer evidence；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B-S3 enum + semantic keyed binding | completed | commit `8d64122`；required enum static ordinal binding、enum Pipeline/View、DATE/TIME/DATE_TIME primitive semantic key external consumer；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B-4a scalar value key | completed | commit `f013bc1`；single-leaf immutable `@SomaValue` 直接绑定 primitive column/KeySpace，Batch/import 无 value allocation；是 P2-B additive completion，不关闭 Phase 2 |
-| P2-B keyed identity breadth / Key Pipeline | in-progress | multi-leaf/nested/string composite key、完整 key diagnostics/property/shape evidence |
-| Phase 3 access structures | pending | index/unique/order/grouped source/sidecar |
+| P2-B keyed identity breadth / Key Pipeline | completed | commit `af8ba51`；flat/nested primitive、String、enum value leaves递归 flatten，generated full equality/hash、collision/compaction、staged atomic import、external consumer和完整 `check.sh` evidence；Capability仍待 Phase 5/G2/G3 closeout |
+| Phase 3 access structures | in-progress | selector normalization、index/unique/order/grouped source/sidecar |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |
 | Phase 5 full breadth + G1-G4 | pending | annotation/processor/codegen/runtime/incremental/compatibility closeout |
 | Phase 6 examples/benchmark/release + G5-G6 | pending | formal scenarios、Access Pattern Cards、JSONL benchmark、package、License/SCM/contact/provenance/reproducibility/support matrix |
@@ -37,7 +37,7 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 
 | 顺序 | 切片 | 最终出口 | 明确保留的后续 breadth |
 |---|---|---|---|
-| P2-B-4 | value/composite identity | `@SomaValue` 的 primitive leaf flatten、generated static equality/hash、无 transient tuple 的 lookup/compaction/Key Pipeline；4a 已完成 single primitive leaf | multi-leaf/nested/string value key、P3–P6 全部项 |
+| P2-B-4 | value/composite identity | completed：single/multi/nested primitive、String、enum value leaf flatten、generated static equality/hash、无 transient tuple lookup/compaction/Key Pipeline和staged atomic import | P3–P6 全部项 |
 | P3-A | selector normalization + access API | selector path、generated source name/argument contract、invalid selector diagnostics | maintained index/unique/order runtime sidecar |
 | P3-B | index / unique | static primitive leaf binding、duplicate conflict、row move and batch atomicity | order sidecar/grouped source |
 | P3-C | order / grouped source | dirty/rebuild sidecar、stable ordered Row Pipeline、grouped selector entry | child aggregate |
@@ -92,19 +92,19 @@ Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`�
 
 已完成 vertical slice：P1-S4 dense shape evidence。external consumer 以 fixed-seed randomized `ArrayList` detached oracle交叉验证 update/remove/packed stable survivor order/sorted result；JDK 8 per-thread allocation counter验证 warmup 后同 terminal 的 allocation 不随 32→512 rows线性增长；generated source/bytecode evidence拒绝 Stream、boxing factory、Iterator、object/boxed row-index array和 loop-local Cursor。以上均是本机结构证据，不构成性能优越或跨平台 claim。
 
-当前 vertical slice：P2-B keyed identity breadth / Key Pipeline。
+当前 vertical slice：P3-A selector normalization + access source API。
 
-涉及 Capability：`V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-MUTATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`；其他 Capability 状态不回退。
+涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-ACCESS-STRUCTURES`、`V1-ROW-PIPELINE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；其他 Capability 状态不回退。
 
-唯一 Owner：generated-table API contract；processor code-generation contract；runtime TableStore/lifecycle/errors/performance contracts；testkit contract分别拥有对应行为，不形成联合 Owner。
+唯一 Owner：annotation schema contract拥有 selector declaration；schema processing/code generation contract拥有 normalization、path/name resolution和static binding；Generated Table API contract拥有 typed source signature；TableStore/errors/performance Owner分别拥有 AccessStructure material、failure和hot-path shape；testkit拥有 compile/golden/runtime evidence，不形成联合 Owner。
 
-Slice exit：以已固化的 seven primitive、semantic scalar、required enum和single-leaf immutable value direct API / `XxxKeys` 为 compatibility baseline，additive 完成 multi-leaf/nested/string composite key binding和完整 property/shape evidence；不得以 boxed tuple/object transient lookup、temporary overload或 generated API migration 取代当前 binding。
+Slice exit：完整收集并规范化 index/unique/order selector path，解析 value leaf与grouped selector参数，生成最终 typed source命名/signature，并对invalid path、重复name、API collision给出稳定diagnostic；runtime sidecar留给P3-B/P3-C additive接入，不生成temporary scan API。
 
-仍保留的 V1 breadth：multi-leaf/nested/string composite key、string/optional enum/value/default、index/order sidecar、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
+仍保留的 V1 breadth：index/unique/order runtime sidecar、string/optional enum/value/default、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
 
 禁止捷径：generic object pipeline、Stream/boxing/per-row cursor allocation、`List<Row>` live storage、temporary column API、以 fetch/materialize 替代 column path、用 snapshot/list 伪装 ColumnView、用 synthetic micro-test 代替 differential/bytecode/allocation evidence、绕过 active-view structural pin、逐 row live update后回滚、以本机通过冒充 Gate/RC。
 
-计划 evidence：各 key domain differential/property oracle、generated/public javap、primitive locator/collision/domain/rehash evidence、external Maven consumer、`./scripts/check.sh`。
+计划 evidence：selector normalized/schema hash golden、valid/invalid compile matrix、generated/public javap、external Maven consumer、source shape、`./scripts/check.sh`。
 
 ### 4.3 已完成 P2-A int keyed identity vertical slice
 
@@ -155,6 +155,18 @@ V1 scope non-regression：该切片只把正式已经定义的 required enum 和
 实际 evidence：isolated external Maven consumer覆盖 javac lowering、value direct lookup、key export、duplicate/missing、delete compaction repair；默认与 Turkish locale/Pacific-Kiritimati timezone generated source/schema repeatability、generated source no-value-allocation import shape、public manifest和相关 keyed check均通过。
 
 V1 scope non-regression：此切片不把单-leaf value冒充 composite completion。multi-leaf/nested value、string leaf、strict floating leaf、optional value及其 Column API/diagnostics仍在原 P2-B/P5；已固化 value public direct signature和primitive storage是后续 additive flatten的兼容基线，无 temporary contract/hot path/migration/rewrite。
+
+### 4.8 已完成 Phase 2 keyed identity breadth
+
+涉及 Capability：`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-MUTATION`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；Capability继续保持 `in-progress`，等待Phase 5与G2/G3总体验证后关闭。
+
+实际交付：processor递归展开flat/nested `@SomaValue` key的primitive、String和enum leaves，canonical table schema完整记录normalized leaf path/order/storage type。Generated Batch/Table使用独立primitive/`ObjectColumn<String>` leaf columns；strict float/double在写入和查询边界拒绝non-finite并canonicalize negative zero；enum只保存ordinal并使用class-init cached members。`HashCompositeKeySpace`只保存raw hash/probe state/RowSlot，generated source在同hash candidate上静态展开全部leaf equality，String hash collision继续probe，不把hash相等冒充identity相等。
+
+Import原子性：primitive、enum、scalar value和composite value keyed table统一在触碰live columns前构造完整staged KeySpace；duplicate、hash、rehash和allocation failure都发生在publication前。copy/structural commit成功后只做不可失败的KeySpace引用发布，不留下partial key。delete/remove先定位full identity slot，再在stable packed compaction中修复survivor RowSlot；String dead reference由Batch clear和`ObjectColumn.clearRange`清除。
+
+实际 evidence：独立 external Maven composite consumer覆盖direct contains/fetch、duplicate/missing、Key Pipeline重建、nested value、String、enum、strict float/double、`"Aa"`/`"BB"` String hash collision full equality、delete/compaction repair；默认与Turkish locale/Pacific/Kiritimati timezone generated source/schema/hash一致。source-shape拒绝value/tuple/object key live storage并固定staged-before-copy顺序；primitive/enum/scalar value历史consumer、KeySpace randomized oracle、public manifest、完整 `./scripts/check.sh`全部通过。独立shadow review发现并促成staged atomic import修复，复核后无correctness阻断。
+
+V1 scope non-regression：Phase 2完成不关闭总Goal，也不把`V1-KEYED-IDENTITY`提前标记evidenced；P3 access structures、P4 child、P5 field/diagnostic/compatibility breadth、P6 scenario/benchmark/release evidence仍在原Phase/Gate。公开direct/Key Pipeline signature保持最终value type；无temporary tuple/API/storage、consumer migration或canonical hot-path rewrite。后续允许在不改变契约的前提下优化addBatch staged KeySpace内部算法；当前每次append构造combined staged KeySpace的O(existing+batch)成本必须进入P6 benchmark evidence，不能据此作性能优越claim。
 
 ### 4.2 P2-S1 primitive KeySpace foundation
 
@@ -210,16 +222,17 @@ Slice exit：
 - Phase 0状态和证据未回退；
 - Phase 1 新增了真实 annotations/runtime/processor/generated facade、primitive/presence storage、atomic update、materialization、public/schema golden和external consumer evidence；Capability只推进到 `in-progress`；
 - P2-A/P2-B-S1/S2/S3 新增最终 seven primitive、semantic scalar和required enum `@SomaKey`、packed primitive/ordinal KeySpace binding、direct/Key Pipeline、no-key-setter contract、enum Column Pipeline/View和compaction repair；Capability只推进到 `in-progress`；
-- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` / remove，P1-S3 固化 typed Column Pipeline/View和borrow lifecycle，P2-A/P2-B-S1/S2/S3 固化 primitive/enum direct key API、floating canonicalization和ordinal binding，不引入未来迁移契约；
+- P2-B-4完成flat/nested primitive、String、enum value key的recursive leaf binding、raw-hash/full-equality composite probe、staged atomic import、Key Pipeline与collision/compaction evidence；Capability仍只保持`in-progress`；
+- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` / remove，P1-S3 固化 typed Column Pipeline/View和borrow lifecycle，Phase 2固化primitive/enum/value/composite direct key API、floating canonicalization、ordinal/reference leaf binding与full equality，不引入未来迁移契约；
 - 尚未引入temporary public/generated API、temporary hot path、migration或rewrite。
 
 ## 7. Latest validation record
 
-- commit/artifact：`8d64122`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifacts `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-keyed-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-enum-keyed-consumer-1.0.0-SNAPSHOT.jar`；
+- commit/artifact：`af8ba51`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifacts `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-keyed-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-enum-keyed-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-value-keyed-consumer-1.0.0-SNAPSHOT.jar`、`external-maven-composite-value-keyed-consumer-1.0.0-SNAPSHOT.jar`；
 - 完整命令：`JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-keyspace-phase2.sh`、`./scripts/check-public-api.sh`、`./scripts/check-docs.sh`、`git diff --check`、`./scripts/check.sh`；
 - JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
 - Maven Wrapper：Apache Maven `3.9.16`；
 - OS/architecture：macOS `26.5.2`、`aarch64`；
-- 结果：已有 dense evidence保持通过；新增 seven primitive、DATE/TIME/DATE_TIME 和required enum `@SomaKey` normalization/hash、primitive/ordinal Hash KeySpace、generated direct/Key Pipeline/enum Column Pipeline/View、strict floating canonicalization、no-key-setter public golden、typed duplicate/missing/null/non-finite error、direct delete/Rows.remove slot repair、invalid keyed breadth fail-closed、isolated external Maven keyed/enum-semantic consumer、默认与 Turkish locale/Pacific-Kiritimati timezone byte-identical generation，以及完整 `check.sh`（scope/docs/reactor/public/Phase 0/Phase 1/Phase 2/external consumer）全部通过；
+- 结果：已有 dense/primitive/enum/scalar value evidence保持通过；新增flat/nested primitive、String、enum composite value key normalization/hash、static leaf columns、raw hash/full equality、strict floating、String collision、staged atomic import、Key Pipeline、delete/Rows.remove slot repair、isolated external Maven composite consumer、默认与Turkish locale/Pacific-Kiritimati timezone byte-identical generation，以及完整 `check.sh`（scope/docs/reactor/public/Phase 0/Phase 1/Phase 2/external consumer）全部通过；
 - 跳过：unsupported-javac negative lane（未设置 `SOMA_UNSUPPORTED_JAVAC`）；
-- known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；G1-G6仍未关闭。
+- known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；unsupported-javac negative lane未执行；addBatch staged KeySpace当前为O(existing+batch)，待P6 benchmark量化和internal refinement；G1-G6仍未关闭。
