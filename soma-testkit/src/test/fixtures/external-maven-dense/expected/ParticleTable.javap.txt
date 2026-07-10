@@ -21,8 +21,15 @@ public final class com.example.soma.dense.generated.ParticleTable {
   public com.example.soma.dense.generated.ParticleRows filter(com.example.soma.dense.generated.ParticleRows$Predicate);
   public com.example.soma.dense.generated.ParticleRows skip(long);
   public com.example.soma.dense.generated.ParticleRows limit(long);
+  public com.example.soma.dense.generated.ParticleRows sorted(com.example.soma.dense.generated.ParticleRows$Comparator);
   public long count();
+  public boolean anyMatch(com.example.soma.dense.generated.ParticleRows$Predicate);
+  public boolean noneMatch(com.example.soma.dense.generated.ParticleRows$Predicate);
   public void forEach(com.example.soma.dense.generated.ParticleRows$Consumer);
+  public java.util.Optional<com.example.soma.dense.Particle> findFirst();
+  public com.example.soma.dense.Particle firstOrThrow();
+  public java.util.List<com.example.soma.dense.Particle> fetchAll();
+  public int[] rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.dense.generated.ParticleRows$Updater);
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();

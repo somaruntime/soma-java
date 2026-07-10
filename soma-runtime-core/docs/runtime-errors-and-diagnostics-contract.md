@@ -59,6 +59,7 @@ V1 code namespace 至少包含：
 | `duplicate_key` | conflict | table、operation、safe key descriptor |
 | `unique_constraint_violation` | conflict | table、selector、conflicting row/key descriptor |
 | `missing_key` | lookup | table、operation、safe key descriptor |
+| `empty_result` | lookup | table/source、terminal operation |
 | `optional_absent` | lookup | table、field/path |
 | `invalid_row_index` | invalid_input | table、index、current size/epoch |
 | `missing_required_field` | invalid_input | table、field/path、operation |

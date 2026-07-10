@@ -24,6 +24,11 @@ public final class RuntimeFailures {
                 table + "." + field, empty(), null);
     }
 
+    public static SomaRuntimeException emptyResult(String table, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "empty_result", operation,
+                table, empty(), null);
+    }
+
     public static SomaRuntimeException invalidNullValue(String table, String field, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_null_value", operation,
                 table + "." + field, empty(), null);

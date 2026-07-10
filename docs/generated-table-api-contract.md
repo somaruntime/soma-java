@@ -92,8 +92,15 @@ public final class XxxTable {
     public XxxRows filter(XxxRows.Predicate predicate);
     public XxxRows skip(long count);
     public XxxRows limit(long count);
+    public XxxRows sorted(XxxRows.Comparator comparator);
     public long count();
+    public boolean anyMatch(XxxRows.Predicate predicate);
+    public boolean noneMatch(XxxRows.Predicate predicate);
     public void forEach(XxxRows.Consumer consumer);
+    public Optional<Xxx> findFirst();
+    public Xxx firstOrThrow();
+    public List<Xxx> fetchAll();
+    public int[] rowIndexes();
     public UpdateResult update(XxxRows.Updater updater);
     public TableStats statsSnapshot();
     public void resetStats();
@@ -125,12 +132,20 @@ public final class XxxRows {
     public XxxRows filter(Predicate predicate);
     public XxxRows skip(long count);
     public XxxRows limit(long count);
+    public XxxRows sorted(Comparator comparator);
     public long count();
+    public boolean anyMatch(Predicate predicate);
+    public boolean noneMatch(Predicate predicate);
     public void forEach(Consumer consumer);
+    public Optional<Xxx> findFirst();
+    public Xxx firstOrThrow();
+    public List<Xxx> fetchAll();
+    public int[] rowIndexes();
     public UpdateResult update(Updater updater);
     public interface Predicate { boolean test(XxxRow row); }
     public interface Consumer { void accept(XxxRow row); }
     public interface Updater { void update(XxxMutableRow row); }
+    public interface Comparator { int compare(XxxRow left, XxxRow right); }
 }
 
 public final class UpdateResult {
@@ -295,7 +310,9 @@ rowIndexes()
 - `firstOrThrow` 在 empty result 时抛 typed error；
 - `fetchAll` 按 pipeline row sequence 返回 `List<R>`；
 - `rowIndexes` 返回 epoch-sensitive packed indexes，不是业务 identity；
+- V1 exact `rowIndexes()` 返回 primitive `int[]` detached buffer；不返回 boxed `List<Integer>`、live view或可跨 structural epoch解释的 identity；
 - `findXxx` 表示 optional result，required-result 使用 `fetchXxx` 或 `firstOrThrow`；
+- `firstOrThrow` 空结果使用 lookup category `empty_result`，context包含table/source和terminal operation；
 - 不引入 `fetchFirst`，避免与 `fetch(key)` / `fetchAt` 混淆。
 
 Materializing terminal 的递归和 budget 由 [Materialization 契约](materialization-contract.md) 定义。

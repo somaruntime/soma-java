@@ -26,6 +26,13 @@ public final class RuntimeCorePhase1Check {
         testPresenceBitmapAgainstOracle();
         testMaterializationBudget();
         testBoundedFailureEnvelope();
+        expectCode("empty_result", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                throw com.hgtech.soma.runtime.generated.RuntimeFailures.emptyResult(
+                        "Order", "rows.firstOrThrow");
+            }
+        });
         System.out.println("runtime-core-phase1-test: ok");
     }
 

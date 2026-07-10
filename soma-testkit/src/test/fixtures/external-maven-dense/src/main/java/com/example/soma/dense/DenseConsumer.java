@@ -74,6 +74,53 @@ public final class DenseConsumer {
             }
         });
 
+        require(table.anyMatch(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.id() == 4;
+            }
+        }), "anyMatch");
+        require(table.noneMatch(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.id() > 4;
+            }
+        }), "noneMatch");
+        require(table.filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.id() == 3;
+            }
+        }).findFirst().get().id == 3, "findFirst detached result");
+        expectCode("empty_result", new Action() {
+            @Override
+            public void run() {
+                table.filter(new ParticleRows.Predicate() {
+                    @Override
+                    public boolean test(ParticleRow row) {
+                        return false;
+                    }
+                }).firstOrThrow();
+            }
+        });
+        List<Particle> descending = table.sorted(new ParticleRows.Comparator() {
+            @Override
+            public int compare(ParticleRow left, ParticleRow right) {
+                return right.id() - left.id();
+            }
+        }).fetchAll();
+        require(descending.size() == 4 && descending.get(0).id == 4
+                        && descending.get(3).id == 1,
+                "stable primitive-index sorted fetchAll");
+        int[] indexes = table.filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.id() >= 3;
+            }
+        }).rowIndexes();
+        require(indexes.length == 2 && indexes[0] == 2 && indexes[1] == 3,
+                "primitive rowIndexes");
+
         final float beforeTwo = table.fetchAt(1).x;
         final float beforeThree = table.fetchAt(2).x;
         expectCode("callback_failed", new Action() {
