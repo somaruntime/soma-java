@@ -2,8 +2,10 @@ package com.hgtech.soma.processor;
 
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaIgnore;
+import com.hgtech.soma.annotation.SomaOptional;
 import com.hgtech.soma.annotation.SomaSchema;
 import com.hgtech.soma.annotation.SomaSemantic;
+import com.hgtech.soma.annotation.SomaTable;
 import com.hgtech.soma.annotation.SomaValue;
 import com.hgtech.soma.processor.internal.CompilerProtocol;
 
@@ -27,6 +29,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
@@ -52,7 +55,9 @@ import java.util.TreeMap;
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
 @SupportedAnnotationTypes({
         "com.hgtech.soma.annotation.SomaSchema",
-        "com.hgtech.soma.annotation.SomaValue"
+        "com.hgtech.soma.annotation.SomaValue",
+        "com.hgtech.soma.annotation.SomaTable",
+        "com.hgtech.soma.annotation.SomaOptional"
 })
 public final class SomaProcessor extends AbstractProcessor {
     private static final char[] LOWER_HEX = "0123456789abcdef".toCharArray();
@@ -60,6 +65,7 @@ public final class SomaProcessor extends AbstractProcessor {
     private static final String SCHEMA_HASH_PREFIX = "soma-java:v1:schema\n";
 
     private final Map<String, TypeElement> values = new LinkedHashMap<String, TypeElement>();
+    private final Map<String, TypeElement> tables = new LinkedHashMap<String, TypeElement>();
     private final Map<String, PackageElement> schemaPackages =
             new LinkedHashMap<String, PackageElement>();
     private boolean finished;
@@ -108,6 +114,12 @@ public final class SomaProcessor extends AbstractProcessor {
                 values.put(type.getQualifiedName().toString(), type);
             }
         }
+        for (Element element : roundEnvironment.getElementsAnnotatedWith(SomaTable.class)) {
+            if (element instanceof TypeElement) {
+                TypeElement type = (TypeElement) element;
+                tables.put(type.getQualifiedName().toString(), type);
+            }
+        }
         for (Element element : roundEnvironment.getElementsAnnotatedWith(SomaSchema.class)) {
             if (element instanceof PackageElement) {
                 PackageElement packageElement = (PackageElement) element;
@@ -115,7 +127,8 @@ public final class SomaProcessor extends AbstractProcessor {
             }
         }
 
-        if (roundEnvironment.processingOver() && !finished) {
+        if (!roundEnvironment.processingOver() && !finished
+                && (!values.isEmpty() || !tables.isEmpty())) {
             finished = true;
             finishProcessing();
         }
@@ -152,6 +165,38 @@ public final class SomaProcessor extends AbstractProcessor {
             schema.addValue(model);
         }
 
+        for (TypeElement table : tables.values()) {
+            TableModel model = validateTable(table);
+            if (model == null) {
+                continue;
+            }
+            PackageElement packageElement = processingEnv.getElementUtils().getPackageOf(table);
+            String packageName = packageElement.getQualifiedName().toString();
+            PackageElement declaredSchema = schemaPackages.get(packageName);
+            if (declaredSchema == null) {
+                error(table, "SOMA-SCHEMA-001",
+                        "package must declare @SomaSchema in package-info.java");
+                continue;
+            }
+            SchemaModel schema = schemas.get(packageName);
+            if (schema == null) {
+                schema = validateSchema(declaredSchema);
+                if (schema == null) {
+                    continue;
+                }
+                schemas.put(packageName, schema);
+            }
+            TableModel duplicate = schema.tableByLogicalName(model.logicalName);
+            if (duplicate != null) {
+                error(duplicate.origin, "SOMA-TABLE-002",
+                        "duplicate table logical name: " + model.logicalName);
+                error(model.origin, "SOMA-TABLE-002",
+                        "duplicate table logical name: " + model.logicalName);
+            } else {
+                schema.addTable(model);
+            }
+        }
+
         validateSchemaNames(schemas);
         for (SchemaModel schema : schemas.values()) {
             validateValueGraph(schema);
@@ -160,8 +205,208 @@ public final class SomaProcessor extends AbstractProcessor {
             return;
         }
         for (SchemaModel schema : schemas.values()) {
-            writeSchemaResources(schema);
+            writeSchemaArtifacts(schema);
         }
+    }
+
+    private TableModel validateTable(TypeElement type) {
+        boolean valid = true;
+        Set<Modifier> modifiers = type.getModifiers();
+        if (type.getKind() != ElementKind.CLASS
+                || type.getNestingKind() != NestingKind.TOP_LEVEL
+                || !modifiers.contains(Modifier.PUBLIC)
+                || modifiers.contains(Modifier.ABSTRACT)
+                || !type.getTypeParameters().isEmpty()) {
+            error(type, "SOMA-TABLE-001",
+                    "@SomaTable must be a public non-abstract non-generic top-level class");
+            valid = false;
+        }
+
+        SomaTable annotation = type.getAnnotation(SomaTable.class);
+        String logicalName = annotation.name().isEmpty()
+                ? type.getSimpleName().toString() : annotation.name();
+        if (logicalName.length() > 128
+                || !logicalName.matches("[A-Za-z][A-Za-z0-9_]*")) {
+            error(type, "SOMA-TABLE-002", "invalid table logical name: " + logicalName);
+            valid = false;
+        }
+        int defaultCapacity = annotation.defaultCapacity();
+        if (defaultCapacity == 0 || defaultCapacity < -1) {
+            error(type, "SOMA-TABLE-007", "invalid defaultCapacity: " + defaultCapacity);
+            valid = false;
+        }
+        if (!hasPublicNoArgConstructor(type)) {
+            error(type, "SOMA-TABLE-006",
+                    "table carrier requires a public no-arg constructor without checked exceptions");
+            valid = false;
+        }
+
+        List<TableFieldModel> fields = new ArrayList<TableFieldModel>();
+        Set<String> logicalNames = new LinkedHashSet<String>();
+        Set<String> generatedAccessNames = new LinkedHashSet<String>();
+        for (Element enclosed : type.getEnclosedElements()) {
+            if (enclosed.getKind() != ElementKind.FIELD) {
+                continue;
+            }
+            VariableElement field = (VariableElement) enclosed;
+            SomaField fieldAnnotation = field.getAnnotation(SomaField.class);
+            SomaIgnore ignore = field.getAnnotation(SomaIgnore.class);
+            SomaOptional optional = field.getAnnotation(SomaOptional.class);
+            if (field.getModifiers().contains(Modifier.STATIC)) {
+                if (fieldAnnotation != null || ignore != null || optional != null) {
+                    error(field, "SOMA-TABLE-003",
+                            "static field cannot declare SOMA table annotations");
+                    valid = false;
+                }
+                continue;
+            }
+            if (fieldAnnotation != null && ignore != null) {
+                error(field, "SOMA-TABLE-003",
+                        "field cannot be both @SomaField and @SomaIgnore");
+                valid = false;
+                continue;
+            }
+            if (ignore != null) {
+                if (optional != null) {
+                    error(field, "SOMA-TABLE-003",
+                            "@SomaOptional requires @SomaField");
+                    valid = false;
+                }
+                continue;
+            }
+            if (fieldAnnotation == null) {
+                error(field, "SOMA-TABLE-003",
+                        "table instance field must declare @SomaField or @SomaIgnore");
+                valid = false;
+                continue;
+            }
+            if (!field.getModifiers().contains(Modifier.PUBLIC)
+                    || field.getModifiers().contains(Modifier.FINAL)) {
+                error(field, "SOMA-TABLE-006",
+                        "table schema field must be public and mutable");
+                valid = false;
+            }
+
+            String fieldLogicalName = fieldAnnotation.name().isEmpty()
+                    ? field.getSimpleName().toString() : fieldAnnotation.name();
+            if (fieldLogicalName.length() > 128
+                    || !SourceVersion.isIdentifier(fieldLogicalName)
+                    || SourceVersion.isKeyword(fieldLogicalName)
+                    || !logicalNames.add(fieldLogicalName)) {
+                error(field, "SOMA-TABLE-004",
+                        "invalid or duplicate logical field name: " + fieldLogicalName);
+                valid = false;
+            }
+
+            PrimitiveTableType primitive = tablePrimitiveType(field.asType(), optional != null);
+            if (primitive == null) {
+                error(field, "SOMA-TABLE-005",
+                        "Phase 1 table field must be a required primitive or optional boxed primitive: "
+                                + field.asType());
+                valid = false;
+                continue;
+            }
+            if (!validTableSemantic(fieldAnnotation.semantic(), primitive.primitiveKind)) {
+                error(field, "SOMA-TABLE-005",
+                        "semantic " + fieldAnnotation.semantic()
+                                + " is incompatible with " + field.asType());
+                valid = false;
+            }
+            if (!registerGeneratedAccessNames(
+                    generatedAccessNames,
+                    field.getSimpleName().toString(),
+                    optional != null)) {
+                error(field, "SOMA-GEN-001",
+                        "generated access name collision for field: "
+                                + field.getSimpleName());
+                valid = false;
+            }
+            fields.add(new TableFieldModel(
+                    field.getSimpleName().toString(), fieldLogicalName,
+                    fieldAnnotation.semantic().name(), primitive, optional != null));
+        }
+        if (fields.isEmpty()) {
+            error(type, "SOMA-TABLE-001", "@SomaTable requires at least one schema field");
+            valid = false;
+        }
+        return valid ? new TableModel(type, type.getQualifiedName().toString(),
+                type.getSimpleName().toString(), logicalName, defaultCapacity, fields) : null;
+    }
+
+    private boolean registerGeneratedAccessNames(
+            Set<String> names, String javaName, boolean optional) {
+        String capitalized = Character.toUpperCase(javaName.charAt(0))
+                + javaName.substring(1);
+        List<String> derived = new ArrayList<String>();
+        derived.add(javaName);
+        derived.add("set" + capitalized);
+        if (optional) {
+            derived.add(javaName + "Present");
+            derived.add(javaName + "Absent");
+            derived.add(javaName + "Or");
+            derived.add("clear" + capitalized);
+        }
+        boolean unique = true;
+        for (String name : derived) {
+            if (!names.add(name)) {
+                unique = false;
+            }
+        }
+        return unique;
+    }
+
+    private boolean hasPublicNoArgConstructor(TypeElement type) {
+        Types types = processingEnv.getTypeUtils();
+        TypeMirror runtimeException = processingEnv.getElementUtils()
+                .getTypeElement("java.lang.RuntimeException").asType();
+        TypeMirror errorType = processingEnv.getElementUtils()
+                .getTypeElement("java.lang.Error").asType();
+        for (Element enclosed : type.getEnclosedElements()) {
+            if (enclosed.getKind() != ElementKind.CONSTRUCTOR) {
+                continue;
+            }
+            ExecutableElement constructor = (ExecutableElement) enclosed;
+            if (!constructor.getModifiers().contains(Modifier.PUBLIC)
+                    || !constructor.getParameters().isEmpty()) {
+                continue;
+            }
+            boolean checked = false;
+            for (TypeMirror thrown : constructor.getThrownTypes()) {
+                if (!types.isSubtype(thrown, runtimeException)
+                        && !types.isSubtype(thrown, errorType)) {
+                    checked = true;
+                    break;
+                }
+            }
+            if (!checked) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private PrimitiveTableType tablePrimitiveType(TypeMirror mirror, boolean optional) {
+        if (!optional && mirror.getKind().isPrimitive()) {
+            return PrimitiveTableType.forKind(mirror.getKind());
+        }
+        if (!optional || mirror.getKind() != TypeKind.DECLARED) {
+            return null;
+        }
+        Element element = ((DeclaredType) mirror).asElement();
+        if (!(element instanceof TypeElement)) {
+            return null;
+        }
+        return PrimitiveTableType.forBoxed(((TypeElement) element).getQualifiedName().toString());
+    }
+
+    private boolean validTableSemantic(SomaSemantic semantic, TypeKind primitiveKind) {
+        if (semantic == SomaSemantic.NONE) {
+            return true;
+        }
+        if (semantic == SomaSemantic.DATE) {
+            return primitiveKind == TypeKind.INT;
+        }
+        return primitiveKind == TypeKind.LONG;
     }
 
     private void validateSchemaNames(Map<String, SchemaModel> schemas) {
@@ -466,16 +711,21 @@ public final class SomaProcessor extends AbstractProcessor {
         return mirror.getKind() == TypeKind.LONG;
     }
 
-    private void writeSchemaResources(SchemaModel schema) {
+    private void writeSchemaArtifacts(SchemaModel schema) {
         String json = schema.toCanonicalJson();
         String hash = sha256(SCHEMA_HASH_PREFIX + json);
         String basePath = "META-INF/soma/" + schema.sourcePackage;
         try {
             writeResource(basePath + ".schema.json", json + "\n", schema.origin);
             writeResource(basePath + ".schema.sha256", hash + "\n", schema.origin);
+            DenseTableSourceGenerator generator = new DenseTableSourceGenerator(
+                    processingEnv.getFiler(), schema.generatedPackage, hash);
+            for (TableModel table : schema.tables.values()) {
+                generator.generate(table.toGeneratorSpec());
+            }
         } catch (IOException exception) {
             error(schema.origin, "SOMA-OUTPUT-001",
-                    "failed to write deterministic schema resources: "
+                    "failed to write deterministic schema artifacts: "
                             + exception.getClass().getSimpleName());
         }
     }
@@ -573,6 +823,7 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String version;
         private final Map<String, EnumModel> enums = new TreeMap<String, EnumModel>();
         private final Map<String, ValueModel> values = new TreeMap<String, ValueModel>();
+        private final Map<String, TableModel> tables = new TreeMap<String, TableModel>();
 
         private SchemaModel(
                 PackageElement origin,
@@ -596,6 +847,19 @@ public final class SomaProcessor extends AbstractProcessor {
             }
         }
 
+        private void addTable(TableModel table) {
+            tables.put(table.javaType, table);
+        }
+
+        private TableModel tableByLogicalName(String logicalName) {
+            for (TableModel table : tables.values()) {
+                if (table.logicalName.equals(logicalName)) {
+                    return table;
+                }
+            }
+            return null;
+        }
+
         private String toCanonicalJson() {
             StringBuilder json = new StringBuilder();
             json.append('{');
@@ -614,7 +878,16 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append("\"schemaName\":").append(quote(name)).append(',');
             json.append("\"schemaPackage\":").append(quote(sourcePackage)).append(',');
             json.append("\"schemaVersion\":").append(quote(version)).append(',');
-            json.append("\"tables\":[],");
+            json.append("\"tables\":[");
+            int tableIndex = 0;
+            for (TableModel table : tables.values()) {
+                if (tableIndex > 0) {
+                    json.append(',');
+                }
+                table.appendJson(json);
+                tableIndex++;
+            }
+            json.append("],");
             json.append("\"values\":[");
             int valueIndex = 0;
             for (ValueModel value : values.values()) {
@@ -724,6 +997,138 @@ public final class SomaProcessor extends AbstractProcessor {
             this.text = text;
             this.enumModel = enumModel;
             this.valueReference = valueReference;
+        }
+    }
+
+    private static final class TableModel {
+        private final TypeElement origin;
+        private final String javaType;
+        private final String simpleName;
+        private final String logicalName;
+        private final int defaultCapacity;
+        private final List<TableFieldModel> fields;
+
+        private TableModel(TypeElement origin, String javaType, String simpleName,
+                           String logicalName, int defaultCapacity,
+                           List<TableFieldModel> fields) {
+            this.origin = origin;
+            this.javaType = javaType;
+            this.simpleName = simpleName;
+            this.logicalName = logicalName;
+            this.defaultCapacity = defaultCapacity;
+            this.fields = fields;
+        }
+
+        private void appendJson(StringBuilder json) {
+            json.append('{');
+            json.append("\"fields\":[");
+            for (int i = 0; i < fields.size(); i++) {
+                if (i > 0) {
+                    json.append(',');
+                }
+                fields.get(i).appendJson(json);
+            }
+            json.append("],");
+            json.append("\"javaType\":").append(quote(javaType)).append(',');
+            json.append("\"kind\":\"dense\",");
+            json.append("\"logicalName\":").append(quote(logicalName)).append(',');
+            json.append("\"materializedType\":").append(quote(javaType));
+            json.append('}');
+        }
+
+        private DenseTableSourceGenerator.TableSpec toGeneratorSpec() {
+            List<DenseTableSourceGenerator.FieldSpec> result =
+                    new ArrayList<DenseTableSourceGenerator.FieldSpec>();
+            for (TableFieldModel field : fields) {
+                result.add(field.toGeneratorSpec());
+            }
+            return new DenseTableSourceGenerator.TableSpec(
+                    origin, javaType, simpleName, logicalName,
+                    defaultCapacity < 0 ? 16 : defaultCapacity, result);
+        }
+    }
+
+    private static final class TableFieldModel {
+        private final String javaName;
+        private final String logicalName;
+        private final String semantic;
+        private final PrimitiveTableType type;
+        private final boolean optional;
+
+        private TableFieldModel(String javaName, String logicalName, String semantic,
+                                PrimitiveTableType type, boolean optional) {
+            this.javaName = javaName;
+            this.logicalName = logicalName;
+            this.semantic = semantic;
+            this.type = type;
+            this.optional = optional;
+        }
+
+        private void appendJson(StringBuilder json) {
+            json.append('{');
+            json.append("\"javaName\":").append(quote(javaName)).append(',');
+            json.append("\"leaves\":[{");
+            json.append("\"leafPath\":").append(quote(logicalName)).append(',');
+            json.append("\"semantic\":").append(quote(semantic)).append(',');
+            json.append("\"storageType\":").append(quote(type.primitiveName));
+            json.append("}],");
+            json.append("\"logicalName\":").append(quote(logicalName)).append(',');
+            json.append("\"materializedType\":")
+                    .append(quote(optional ? type.boxedName : type.primitiveName)).append(',');
+            json.append("\"optional\":").append(optional).append(',');
+            json.append("\"role\":\"field\",");
+            json.append("\"type\":").append(quote(type.primitiveName));
+            json.append('}');
+        }
+
+        private DenseTableSourceGenerator.FieldSpec toGeneratorSpec() {
+            return new DenseTableSourceGenerator.FieldSpec(
+                    javaName, logicalName, type.primitiveName,
+                    type.boxedName, type.columnType, optional);
+        }
+    }
+
+    private static final class PrimitiveTableType {
+        private final TypeKind primitiveKind;
+        private final String primitiveName;
+        private final String boxedName;
+        private final String columnType;
+
+        private PrimitiveTableType(TypeKind primitiveKind, String primitiveName,
+                                   String boxedName, String columnType) {
+            this.primitiveKind = primitiveKind;
+            this.primitiveName = primitiveName;
+            this.boxedName = boxedName;
+            this.columnType = columnType;
+        }
+
+        private static PrimitiveTableType forKind(TypeKind kind) {
+            switch (kind) {
+                case BOOLEAN: return type(kind, "boolean", "java.lang.Boolean", "BooleanColumn");
+                case BYTE: return type(kind, "byte", "java.lang.Byte", "ByteColumn");
+                case SHORT: return type(kind, "short", "java.lang.Short", "ShortColumn");
+                case INT: return type(kind, "int", "java.lang.Integer", "IntColumn");
+                case LONG: return type(kind, "long", "java.lang.Long", "LongColumn");
+                case FLOAT: return type(kind, "float", "java.lang.Float", "FloatColumn");
+                case DOUBLE: return type(kind, "double", "java.lang.Double", "DoubleColumn");
+                default: return null;
+            }
+        }
+
+        private static PrimitiveTableType forBoxed(String javaType) {
+            if ("java.lang.Boolean".equals(javaType)) return forKind(TypeKind.BOOLEAN);
+            if ("java.lang.Byte".equals(javaType)) return forKind(TypeKind.BYTE);
+            if ("java.lang.Short".equals(javaType)) return forKind(TypeKind.SHORT);
+            if ("java.lang.Integer".equals(javaType)) return forKind(TypeKind.INT);
+            if ("java.lang.Long".equals(javaType)) return forKind(TypeKind.LONG);
+            if ("java.lang.Float".equals(javaType)) return forKind(TypeKind.FLOAT);
+            if ("java.lang.Double".equals(javaType)) return forKind(TypeKind.DOUBLE);
+            return null;
+        }
+
+        private static PrimitiveTableType type(TypeKind kind, String primitive,
+                                                String boxed, String column) {
+            return new PrimitiveTableType(kind, primitive, boxed, column);
         }
     }
 }

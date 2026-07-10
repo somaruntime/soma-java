@@ -10,6 +10,8 @@ cd "$root_dir"
 ./scripts/check-public-api.sh
 ./scripts/check-compiler-phase0.sh
 ./scripts/check-runtime-core-phase1.sh
+./scripts/check-table-diagnostics-phase1.sh
+./scripts/check-generated-dense-phase1.sh
 ./scripts/check-external-consumer.sh
 git diff --check
 

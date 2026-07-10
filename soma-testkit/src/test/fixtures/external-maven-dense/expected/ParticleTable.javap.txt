@@ -1,0 +1,29 @@
+Compiled from "ParticleTable.java"
+public final class com.example.soma.dense.generated.ParticleTable {
+  public static com.example.soma.dense.generated.ParticleTable create();
+  public static com.example.soma.dense.generated.ParticleTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void addBatch(com.example.soma.dense.generated.ParticleBatch);
+  public void replaceAll(com.example.soma.dense.generated.ParticleBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.dense.Particle fetchAt(int);
+  public com.example.soma.dense.Particle fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.dense.Particle> materialize();
+  public java.util.List<com.example.soma.dense.Particle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.dense.generated.ParticleMutator mutateAt(int);
+  public com.example.soma.dense.generated.ParticleRows rows();
+  public com.example.soma.dense.generated.ParticleRows filter(com.example.soma.dense.generated.ParticleRows$Predicate);
+  public com.example.soma.dense.generated.ParticleRows skip(long);
+  public com.example.soma.dense.generated.ParticleRows limit(long);
+  public long count();
+  public void forEach(com.example.soma.dense.generated.ParticleRows$Consumer);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.dense.generated.ParticleRows$Updater);
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}
