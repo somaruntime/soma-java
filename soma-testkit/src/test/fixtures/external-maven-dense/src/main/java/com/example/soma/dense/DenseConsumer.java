@@ -14,6 +14,7 @@ import com.hgtech.soma.runtime.ByteConsumer;
 import com.hgtech.soma.runtime.DoubleColumnView;
 import com.hgtech.soma.runtime.FloatColumnView;
 import com.hgtech.soma.runtime.FloatConsumer;
+import com.hgtech.soma.runtime.FloatColumnPipeline;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
@@ -25,6 +26,7 @@ import com.hgtech.soma.runtime.UpdateResult;
 
 import java.util.List;
 import java.util.Random;
+import java.lang.management.ManagementFactory;
 import java.util.function.LongConsumer;
 
 public final class DenseConsumer {
@@ -34,6 +36,7 @@ public final class DenseConsumer {
     public static void main(String[] args) {
         testAllPrimitiveAndPresenceBindings();
         testDenseDifferentialOracle();
+        testColumnPipelineAllocationShape();
 
         ParticleBatch batch = new ParticleBatch(2);
         batch.addValues(1, 10L, 1.5f, true, 7);
@@ -491,6 +494,62 @@ public final class DenseConsumer {
             }
             table.release();
         }
+    }
+
+    private static void testColumnPipelineAllocationShape() {
+        final FloatConsumer sink = new FloatConsumer() {
+            @Override
+            public void accept(float value) {
+                if (value == Float.MIN_VALUE) {
+                    throw new AssertionError("unreachable");
+                }
+            }
+        };
+        ParticleTable small = allocationTable(32);
+        ParticleTable large = allocationTable(512);
+        FloatColumnPipeline smallPipeline = small.xValues();
+        FloatColumnPipeline largePipeline = large.xValues();
+        for (int round = 0; round < 1000; round++) {
+            smallPipeline.forEachFloat(sink);
+            largePipeline.forEachFloat(sink);
+        }
+        java.lang.management.ThreadMXBean management = ManagementFactory.getThreadMXBean();
+        require(management instanceof com.sun.management.ThreadMXBean,
+                "JDK must expose per-thread allocation counter for shape evidence");
+        com.sun.management.ThreadMXBean allocation = (com.sun.management.ThreadMXBean) management;
+        if (!allocation.isThreadAllocatedMemoryEnabled()) {
+            allocation.setThreadAllocatedMemoryEnabled(true);
+        }
+        long threadId = Thread.currentThread().getId();
+        long smallBytes = allocatedBytes(allocation, threadId, smallPipeline, sink);
+        long largeBytes = allocatedBytes(allocation, threadId, largePipeline, sink);
+        require(largeBytes <= smallBytes + 16384L,
+                "column pipeline allocation must not scale with rows small="
+                        + smallBytes + " large=" + largeBytes);
+        small.release();
+        large.release();
+    }
+
+    private static ParticleTable allocationTable(int rows) {
+        ParticleBatch batch = new ParticleBatch(rows);
+        for (int index = 0; index < rows; index++) {
+            batch.addValues(index, index, (float) index, false, 0);
+        }
+        ParticleTable table = ParticleTable.create();
+        table.addBatch(batch);
+        return table;
+    }
+
+    private static long allocatedBytes(
+            com.sun.management.ThreadMXBean allocation,
+            long threadId,
+            FloatColumnPipeline pipeline,
+            FloatConsumer sink) {
+        long before = allocation.getThreadAllocatedBytes(threadId);
+        for (int round = 0; round < 300; round++) {
+            pipeline.forEachFloat(sink);
+        }
+        return allocation.getThreadAllocatedBytes(threadId) - before;
     }
 
     private static Particle copy(Particle source) {

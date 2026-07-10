@@ -54,8 +54,19 @@ cmp "$fixture/target/classes/$schema_hash" "$repeat_fixture/target/classes/$sche
   com.example.soma.dense.generated.ParticleTable > "$evidence_dir/ParticleTable.javap.txt"
 "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
   com.example.soma.dense.generated.ParticleBatch > "$evidence_dir/ParticleBatch.javap.txt"
+"$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -c \
+  com.example.soma.dense.generated.ParticleRows > "$evidence_dir/ParticleRows.bytecode.txt"
 cmp "$expected/ParticleTable.javap.txt" "$evidence_dir/ParticleTable.javap.txt"
 cmp "$expected/ParticleBatch.javap.txt" "$evidence_dir/ParticleBatch.javap.txt"
+rows_source=$fixture/target/generated-sources/annotations/com/example/soma/dense/generated/ParticleRows.java
+if grep -E 'java\.util\.stream|Object\[|Integer\[|new (ArrayList|LinkedList)|for\([^)]*\).*new (Cursor|MutableCursor)' "$rows_source"; then
+  printf '%s\n' 'generated-dense-phase1-check: forbidden row hot-path source shape' >&2
+  exit 1
+fi
+if grep -E 'java/util/stream|java/lang/(Boolean|Byte|Short|Integer|Long|Float|Double)\.valueOf|java/util/Iterator' "$evidence_dir/ParticleRows.bytecode.txt"; then
+  printf '%s\n' 'generated-dense-phase1-check: forbidden row hot-path bytecode shape' >&2
+  exit 1
+fi
 "$JAVA_HOME/bin/java" \
   -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
   com.example.soma.dense.DenseConsumer
