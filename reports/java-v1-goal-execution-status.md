@@ -4,7 +4,7 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`e0d5b16`
+当前 repository baseline：`e9976d0`
 当前 checkpoint：Phase 2 keyed identity / Key Pipeline
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
@@ -81,6 +81,16 @@ Slice exit：实现 generated key type、dense/sparse identity locator、`contai
 禁止捷径：generic object pipeline、Stream/boxing/per-row cursor allocation、`List<Row>` live storage、temporary column API、以 fetch/materialize 替代 column path、用 snapshot/list 伪装 ColumnView、用 synthetic micro-test 代替 differential/bytecode/allocation evidence、绕过 active-view structural pin、逐 row live update后回滚、以本机通过冒充 Gate/RC。
 
 计划 evidence：key differential/property oracle、generated/public javap、primitive locator/collision/domain evidence、external Maven consumer、`./scripts/check.sh`。
+
+### 4.2 P2-S1 primitive KeySpace foundation
+
+涉及 Capability：`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`；仍未把任何 Capability 标记 completed。
+
+唯一 Owner：TableStore 契约拥有 key-to-RowSlot storage material；generated API/annotation/processor/runtime errors 各自保持其既有唯一职责。
+
+实际交付：`SparseIntKeySpace` 使用 bounded non-negative sparse-set `key -> packed RowSlot` 映射，支持 stable compaction `removeAt`；`HashIntKeySpace` 使用 primitive open addressing、full int equality、tombstone/rehash、row-slot update。二者均不使用 `HashMap<Key,Integer>` 或 boxed runtime lookup path。
+
+实际 evidence：5000 step fixed-seed `HashIntKeySpace` 对照 oracle、sparse stable compaction invariant、public manifest、JDK 8 `check-keyspace-phase2.sh`、docs/scope/diff checks。尚未实现 breadth：`@SomaKey` annotation/processor lowering、generated keyed facade/KeyPipeline、long/composite key binding、duplicate/missing generated errors、external keyed consumer；它们仍属于同一 Phase 2，不能因 foundation passing而被删除或延后出 V1。
 
 ### 4.1 已完成 P1-S1 记录
 
