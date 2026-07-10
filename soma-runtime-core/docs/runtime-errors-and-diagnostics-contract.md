@@ -166,6 +166,8 @@ Snapshot 必须 immutable、self-consistent，并记录：
 
 首个 dense slice 固化 `OperationOutcome { NONE, SUCCESS, FAILED }` 与 immutable `com.hgtech.soma.runtime.TableStats`，由 generated `XxxTable.statsSnapshot()` 返回。Exact getters：`String schemaHash()`、`runtimeCompatibility()`、`runtimePlanHash()`、`lastOperation()`、`lastErrorCode()`；`StatsMode statsMode()`；`int rows()`、`capacity()`、`activeViews()`；`long structuralEpoch()`、`growthCount()`、`updateScratchCurrentBytes()`、`updateScratchHighWaterBytes()`、`lastScanned()`、`lastMatched()`、`lastChanged()`；`boolean released()`；`OperationOutcome lastOutcome()`。String均 non-null；无 last operation/error使用 empty string。后续 key/sidecar/child/materialization stats additive增加，不重命名或改变单位。
 
+`TableStats` constructor private；public static `create(...)` 按上述 getter顺序接收全部 identity/state/last-operation字段并返回 validated immutable snapshot，供 generated-runtime protocol构造。`UpdateResult` 同样使用 private constructor + public static `create(scanned,matched,changed,sidecarMaintained,sidecarRebuilt)`；negative或不满足 `changed <= matched <= scanned` 的输入 fail fast。
+
 Success terminal记录实际 scanned/matched/committed changed。Callback/runtime failure记录 attempted scanned/matched、`lastChanged=0`、outcome FAILED与 stable error code；expected validation在 traversal前失败时 scanned/matched/changed均为零。`statsSnapshot()`、`runtimePlan()`、`isReleased()` 是 release后的只读 diagnostic exception：仍可调用以观察 terminal state；所有 data/pipeline/mutation/materialization access继续返回 `table_released`。
 
 ## 10. Summary and diagnostic mode

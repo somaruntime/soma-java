@@ -12,8 +12,9 @@ fi
 
 annotations_jar=soma-annotations/target/soma-annotations-0.1.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.1.0-SNAPSHOT.jar
-expected=soma-testkit/src/test/fixtures/public-api/phase0
-for artifact in "$annotations_jar" "$processor_jar"; do
+runtime_jar=soma-runtime-core/target/soma-runtime-core-0.1.0-SNAPSHOT.jar
+expected=soma-testkit/src/test/fixtures/public-api/phase1
+for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' "public-api-check: missing artifact $artifact" >&2
     exit 1
@@ -21,7 +22,7 @@ for artifact in "$annotations_jar" "$processor_jar"; do
 done
 
 mkdir -p target
-evidence_dir=$(mktemp -d "$root_dir/target/phase0-public-api.XXXXXX")
+evidence_dir=$(mktemp -d "$root_dir/target/phase1-public-api.XXXXXX")
 actual_classification=$evidence_dir/classification.txt
 actual_javap=$evidence_dir/public-api.javap.txt
 
@@ -35,6 +36,12 @@ classify_type() {
     com.hgtech.soma.processor.javac8.SomaJavacPlugin)
       printf '%s\n' "PUBLIC build-provider $type"
       ;;
+    com.hgtech.soma.runtime.generated.*)
+      printf '%s\n' "PUBLIC generated-runtime $type"
+      ;;
+    com.hgtech.soma.runtime.*)
+      printf '%s\n' "PUBLIC handwritten-runtime $type"
+      ;;
     com.hgtech.soma.processor.internal.*)
       printf '%s\n' "INTERNAL implementation $type"
       ;;
@@ -44,7 +51,7 @@ classify_type() {
   esac
 }
 
-for artifact in "$annotations_jar" "$processor_jar"; do
+for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
   "$JAVA_HOME/bin/jar" tf "$artifact" | sed -n '/\.class$/p' | while IFS= read -r entry; do
     type=$(printf '%s' "$entry" | sed 's#/#.#g; s#\.class$##')
     declaration=$(
@@ -65,6 +72,9 @@ while read -r classification role type; do
     case "$type" in
       com.hgtech.soma.annotation.*)
         artifact=$annotations_jar
+        ;;
+      com.hgtech.soma.runtime.*)
+        artifact=$runtime_jar
         ;;
       *)
         artifact=$processor_jar

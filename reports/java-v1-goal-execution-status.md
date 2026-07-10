@@ -4,8 +4,8 @@
 更新日期：2026-07-10
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`c5fbfbf0a7d4a2e4a83a327b15b0476ac411fbcb`
-当前 checkpoint：Phase 1-A exact dense contract closure
+当前 repository baseline：`b78997c`
+当前 checkpoint：Phase 1 dense table complete implementation
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
 
@@ -14,11 +14,7 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | Checkpoint | 状态 | Exit/evidence |
 |---|---|---|
 | Phase 0 compiler/build foundation | completed | commits `2346252`、`c5fbfbf`；Phase 0 report |
-| Phase 1-A exact dense contract | in-progress | 当前 Owner diff；完成后独立 commit |
-| Phase 1-B runtime API/protocol | pending | primitive columns、presence、packed state、budget/plan/error/stats |
-| Phase 1-C annotation/processing/codegen | pending | SomaTable/SomaOptional、table JSON/hash、dense generator |
-| Phase 1-D generated dense consumer | pending | Table/Batch/Rows/Mutator、atomic update、materialization |
-| Phase 1-E breadth/evidence closeout | pending | all primitive/presence、column access、invariant/differential/allocation shape |
+| Phase 1 dense table闭环 | in-progress | exact contract `b78997c`；当前直接实施runtime、processor/generated facade与完整evidence |
 | Phase 2 keyed identity | pending | SparseInt/Hash KeySpace、Key Pipeline |
 | Phase 3 access structures | pending | index/unique/order/grouped source/sidecar |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |

@@ -1,0 +1,386 @@
+## PUBLIC build-provider com.hgtech.soma.processor.SomaProcessor
+Compiled from "SomaProcessor.java"
+public final class com.hgtech.soma.processor.SomaProcessor extends javax.annotation.processing.AbstractProcessor {
+  public com.hgtech.soma.processor.SomaProcessor();
+  public synchronized void init(javax.annotation.processing.ProcessingEnvironment);
+  public boolean process(java.util.Set<? extends javax.lang.model.element.TypeElement>, javax.annotation.processing.RoundEnvironment);
+}
+## PUBLIC build-provider com.hgtech.soma.processor.javac8.SomaJavacPlugin
+Compiled from "SomaJavacPlugin.java"
+public final class com.hgtech.soma.processor.javac8.SomaJavacPlugin implements com.sun.source.util.Plugin {
+  public com.hgtech.soma.processor.javac8.SomaJavacPlugin();
+  public java.lang.String getName();
+  public void init(com.sun.source.util.JavacTask, java.lang.String...);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.BooleanColumn
+Compiled from "BooleanColumn.java"
+public final class com.hgtech.soma.runtime.generated.BooleanColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.BooleanColumn();
+  public boolean get(int);
+  public void set(int, boolean);
+  public void copyFrom(com.hgtech.soma.runtime.generated.BooleanColumn, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ByteColumn
+Compiled from "ByteColumn.java"
+public final class com.hgtech.soma.runtime.generated.ByteColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.ByteColumn();
+  public byte get(int);
+  public void set(int, byte);
+  public void copyFrom(com.hgtech.soma.runtime.generated.ByteColumn, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ColumnGroup
+Compiled from "ColumnGroup.java"
+public final class com.hgtech.soma.runtime.generated.ColumnGroup {
+  public com.hgtech.soma.runtime.generated.ColumnGroup(int, com.hgtech.soma.runtime.generated.GeneratedColumn...);
+  public int capacity();
+  public boolean ensureCapacity(int, int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DenseTableState
+Compiled from "DenseTableState.java"
+public final class com.hgtech.soma.runtime.generated.DenseTableState {
+  public com.hgtech.soma.runtime.generated.DenseTableState(java.lang.String, com.hgtech.soma.runtime.RuntimePlan, com.hgtech.soma.runtime.TablePlan, com.hgtech.soma.runtime.generated.ColumnGroup);
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public void checkActive(java.lang.String);
+  public int checkRowIndex(int, java.lang.String);
+  public void beginOperation(java.lang.String);
+  public void endOperationSuccess(java.lang.String, long, long, long);
+  public void endOperationFailure(java.lang.String, long, long, java.lang.String);
+  public int prepareAppend(int);
+  public void commitAppend(int, int);
+  public int prepareReplace(int);
+  public void commitReplace(int, int);
+  public int prepareClear();
+  public void commitClear(int);
+  public int prepareRelease();
+  public void commitRelease(int);
+  public void updateScratch(long, long);
+  public com.hgtech.soma.runtime.UpdateResult updateResult(long, long, long, long, long);
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DoubleColumn
+Compiled from "DoubleColumn.java"
+public final class com.hgtech.soma.runtime.generated.DoubleColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.DoubleColumn();
+  public double get(int);
+  public void set(int, double);
+  public void copyFrom(com.hgtech.soma.runtime.generated.DoubleColumn, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.FloatColumn
+Compiled from "FloatColumn.java"
+public final class com.hgtech.soma.runtime.generated.FloatColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.FloatColumn();
+  public float get(int);
+  public void set(int, float);
+  public void copyFrom(com.hgtech.soma.runtime.generated.FloatColumn, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedColumn
+Compiled from "GeneratedColumn.java"
+public abstract class com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public abstract java.lang.Object stageCapacity(int);
+  public abstract void commitCapacity(java.lang.Object);
+  public abstract void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedMetadata
+Compiled from "GeneratedMetadata.java"
+public final class com.hgtech.soma.runtime.generated.GeneratedMetadata {
+  public com.hgtech.soma.runtime.generated.GeneratedMetadata(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public java.lang.String schemaHash();
+  public java.lang.String generatedTarget();
+  public java.lang.String compilerIdentity();
+  public java.lang.String generatedProtocol();
+  public java.lang.String runtimeCompatibility();
+  public java.lang.String planProtocol();
+  public java.lang.String algorithm();
+  public java.lang.String allocationEstimator();
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
+Compiled from "IntColumn.java"
+public final class com.hgtech.soma.runtime.generated.IntColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.IntColumn();
+  public int get(int);
+  public void set(int, int);
+  public void copyFrom(com.hgtech.soma.runtime.generated.IntColumn, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.LongColumn
+Compiled from "LongColumn.java"
+public final class com.hgtech.soma.runtime.generated.LongColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.LongColumn();
+  public long get(int);
+  public void set(int, long);
+  public void copyFrom(com.hgtech.soma.runtime.generated.LongColumn, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationTracker
+Compiled from "MaterializationTracker.java"
+public final class com.hgtech.soma.runtime.generated.MaterializationTracker {
+  public com.hgtech.soma.runtime.generated.MaterializationTracker(com.hgtech.soma.runtime.MaterializationBudget, java.lang.String);
+  public void addTableInstances(long);
+  public void addRows(long);
+  public void addLeafValues(long);
+  public void addEstimatedBytes(long);
+  public java.lang.String budgetIdentity();
+  public long tableInstances();
+  public long rows();
+  public long leafValues();
+  public long estimatedBytes();
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.PresenceBitmap
+Compiled from "PresenceBitmap.java"
+public final class com.hgtech.soma.runtime.generated.PresenceBitmap extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.PresenceBitmap();
+  public boolean isPresent(int);
+  public void setPresent(int);
+  public void clearPresent(int);
+  public void copyFrom(com.hgtech.soma.runtime.generated.PresenceBitmap, int, int, int);
+  public int presentCount();
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeCompatibility
+Compiled from "RuntimeCompatibility.java"
+public final class com.hgtech.soma.runtime.generated.RuntimeCompatibility {
+  public static final java.lang.String GENERATED_TARGET;
+  public static final java.lang.String COMPILER_IDENTITY;
+  public static final java.lang.String GENERATED_PROTOCOL;
+  public static final java.lang.String RUNTIME_COMPATIBILITY;
+  public static final java.lang.String PLAN_PROTOCOL;
+  public static final java.lang.String DENSE_ALGORITHM;
+  public static final java.lang.String ALLOCATION_ESTIMATOR;
+  public static com.hgtech.soma.runtime.TablePlan verify(com.hgtech.soma.runtime.generated.GeneratedMetadata, com.hgtech.soma.runtime.RuntimePlan, java.lang.String);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeFailures
+Compiled from "RuntimeFailures.java"
+public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
+  public static com.hgtech.soma.runtime.SomaRuntimeException invalidRowIndex(java.lang.String, int, int, long, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException optionalAbsent(java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException pipelineConsumed(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException mutationConsumed(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException staleMutator(java.lang.String, long, long);
+  public static com.hgtech.soma.runtime.SomaRuntimeException reentrantAccess(java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException callbackFailed(java.lang.String, java.lang.String, java.lang.String, java.lang.Throwable);
+  public static com.hgtech.soma.runtime.SomaRuntimeException memoryLimitExceeded(java.lang.String, java.lang.String, long, long);
+  public static com.hgtech.soma.runtime.SomaRuntimeException materializationBudgetExceeded(java.lang.String, long, long, long, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException compatibilityMismatch(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException invalidRuntimePlan(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException internalInvariant(java.lang.String, java.lang.String, java.lang.String);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ShortColumn
+Compiled from "ShortColumn.java"
+public final class com.hgtech.soma.runtime.generated.ShortColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
+  public com.hgtech.soma.runtime.generated.ShortColumn();
+  public short get(int);
+  public void set(int, short);
+  public void copyFrom(com.hgtech.soma.runtime.generated.ShortColumn, int, int, int);
+  public java.lang.Object stageCapacity(int);
+  public void commitCapacity(java.lang.Object);
+  public void clearRange(int, int);
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaField
+Compiled from "SomaField.java"
+public interface com.hgtech.soma.annotation.SomaField extends java.lang.annotation.Annotation {
+  public abstract java.lang.String name();
+  public abstract com.hgtech.soma.annotation.SomaSemantic semantic();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaIgnore
+Compiled from "SomaIgnore.java"
+public interface com.hgtech.soma.annotation.SomaIgnore extends java.lang.annotation.Annotation {
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaOptional
+Compiled from "SomaOptional.java"
+public interface com.hgtech.soma.annotation.SomaOptional extends java.lang.annotation.Annotation {
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaSchema
+Compiled from "SomaSchema.java"
+public interface com.hgtech.soma.annotation.SomaSchema extends java.lang.annotation.Annotation {
+  public abstract java.lang.String name();
+  public abstract java.lang.String generatedPackage();
+  public abstract java.lang.String version();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaSemantic
+Compiled from "SomaSemantic.java"
+public final class com.hgtech.soma.annotation.SomaSemantic extends java.lang.Enum<com.hgtech.soma.annotation.SomaSemantic> {
+  public static final com.hgtech.soma.annotation.SomaSemantic NONE;
+  public static final com.hgtech.soma.annotation.SomaSemantic DATE;
+  public static final com.hgtech.soma.annotation.SomaSemantic TIME;
+  public static final com.hgtech.soma.annotation.SomaSemantic DATE_TIME;
+  public static com.hgtech.soma.annotation.SomaSemantic[] values();
+  public static com.hgtech.soma.annotation.SomaSemantic valueOf(java.lang.String);
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaTable
+Compiled from "SomaTable.java"
+public interface com.hgtech.soma.annotation.SomaTable extends java.lang.annotation.Annotation {
+  public abstract java.lang.String name();
+  public abstract int defaultCapacity();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaValue
+Compiled from "SomaValue.java"
+public interface com.hgtech.soma.annotation.SomaValue extends java.lang.annotation.Annotation {
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.MaterializationBudget
+Compiled from "MaterializationBudget.java"
+public final class com.hgtech.soma.runtime.MaterializationBudget {
+  public static com.hgtech.soma.runtime.MaterializationBudget defaults();
+  public static com.hgtech.soma.runtime.MaterializationBudget$Builder builder();
+  public com.hgtech.soma.runtime.MaterializationBudget$Builder toBuilder();
+  public int maximumOwnershipDepth();
+  public long maximumTableInstances();
+  public long maximumRows();
+  public long maximumLeafValues();
+  public long maximumEstimatedAllocationBytes();
+  public java.lang.String identity();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.MaterializationBudget$Builder
+Compiled from "MaterializationBudget.java"
+public final class com.hgtech.soma.runtime.MaterializationBudget$Builder {
+  public com.hgtech.soma.runtime.MaterializationBudget$Builder maximumOwnershipDepth(int);
+  public com.hgtech.soma.runtime.MaterializationBudget$Builder maximumTableInstances(long);
+  public com.hgtech.soma.runtime.MaterializationBudget$Builder maximumRows(long);
+  public com.hgtech.soma.runtime.MaterializationBudget$Builder maximumLeafValues(long);
+  public com.hgtech.soma.runtime.MaterializationBudget$Builder maximumEstimatedAllocationBytes(long);
+  public com.hgtech.soma.runtime.MaterializationBudget build();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.OperationOutcome
+Compiled from "OperationOutcome.java"
+public final class com.hgtech.soma.runtime.OperationOutcome extends java.lang.Enum<com.hgtech.soma.runtime.OperationOutcome> {
+  public static final com.hgtech.soma.runtime.OperationOutcome NONE;
+  public static final com.hgtech.soma.runtime.OperationOutcome SUCCESS;
+  public static final com.hgtech.soma.runtime.OperationOutcome FAILED;
+  public static com.hgtech.soma.runtime.OperationOutcome[] values();
+  public static com.hgtech.soma.runtime.OperationOutcome valueOf(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.RuntimePlan
+Compiled from "RuntimePlan.java"
+public final class com.hgtech.soma.runtime.RuntimePlan {
+  public static com.hgtech.soma.runtime.RuntimePlan$Builder builder(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder toBuilder();
+  public java.lang.String schemaHash();
+  public java.lang.String runtimeCompatibility();
+  public java.lang.String generatedProtocol();
+  public java.lang.String planProtocol();
+  public java.lang.String allocationEstimator();
+  public java.lang.String runtimePlanHash();
+  public com.hgtech.soma.runtime.MaterializationBudget defaultMaterializationBudget();
+  public com.hgtech.soma.runtime.StatsMode statsMode();
+  public java.util.List<com.hgtech.soma.runtime.TablePlan> tables();
+  public com.hgtech.soma.runtime.TablePlan requireTable(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.RuntimePlan$Builder
+Compiled from "RuntimePlan.java"
+public final class com.hgtech.soma.runtime.RuntimePlan$Builder {
+  public com.hgtech.soma.runtime.RuntimePlan$Builder defaultMaterializationBudget(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder statsMode(com.hgtech.soma.runtime.StatsMode);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder addTable(com.hgtech.soma.runtime.TablePlan);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder replaceTable(com.hgtech.soma.runtime.TablePlan);
+  public com.hgtech.soma.runtime.RuntimePlan build();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaErrorCategory
+Compiled from "SomaErrorCategory.java"
+public final class com.hgtech.soma.runtime.SomaErrorCategory extends java.lang.Enum<com.hgtech.soma.runtime.SomaErrorCategory> {
+  public static final com.hgtech.soma.runtime.SomaErrorCategory INVALID_INPUT;
+  public static final com.hgtech.soma.runtime.SomaErrorCategory LOOKUP;
+  public static final com.hgtech.soma.runtime.SomaErrorCategory CONFLICT;
+  public static final com.hgtech.soma.runtime.SomaErrorCategory LIFECYCLE;
+  public static final com.hgtech.soma.runtime.SomaErrorCategory COMPATIBILITY;
+  public static final com.hgtech.soma.runtime.SomaErrorCategory RESOURCE;
+  public static final com.hgtech.soma.runtime.SomaErrorCategory CALLBACK;
+  public static final com.hgtech.soma.runtime.SomaErrorCategory INTERNAL;
+  public static com.hgtech.soma.runtime.SomaErrorCategory[] values();
+  public static com.hgtech.soma.runtime.SomaErrorCategory valueOf(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaRuntimeException
+Compiled from "SomaRuntimeException.java"
+public final class com.hgtech.soma.runtime.SomaRuntimeException extends java.lang.RuntimeException {
+  public static com.hgtech.soma.runtime.SomaRuntimeException create(com.hgtech.soma.runtime.SomaErrorCategory, java.lang.String, java.lang.String, java.lang.String, java.util.Map<java.lang.String, java.lang.String>, java.lang.Throwable);
+  public com.hgtech.soma.runtime.SomaErrorCategory category();
+  public java.lang.String code();
+  public java.lang.String operation();
+  public java.lang.String path();
+  public java.util.SortedMap<java.lang.String, java.lang.String> context();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.StatsMode
+Compiled from "StatsMode.java"
+public final class com.hgtech.soma.runtime.StatsMode extends java.lang.Enum<com.hgtech.soma.runtime.StatsMode> {
+  public static final com.hgtech.soma.runtime.StatsMode SUMMARY;
+  public static final com.hgtech.soma.runtime.StatsMode DIAGNOSTIC;
+  public static com.hgtech.soma.runtime.StatsMode[] values();
+  public static com.hgtech.soma.runtime.StatsMode valueOf(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.TablePlan
+Compiled from "TablePlan.java"
+public final class com.hgtech.soma.runtime.TablePlan {
+  public static com.hgtech.soma.runtime.TablePlan$Builder builder(java.lang.String, java.lang.String);
+  public com.hgtech.soma.runtime.TablePlan$Builder toBuilder();
+  public java.lang.String tableLogicalName();
+  public java.lang.String algorithm();
+  public int initialCapacity();
+  public int growthNumerator();
+  public int growthDenominator();
+  public long maximumUpdateScratchBytes();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.TablePlan$Builder
+Compiled from "TablePlan.java"
+public final class com.hgtech.soma.runtime.TablePlan$Builder {
+  public com.hgtech.soma.runtime.TablePlan$Builder initialCapacity(int);
+  public com.hgtech.soma.runtime.TablePlan$Builder growthRatio(int, int);
+  public com.hgtech.soma.runtime.TablePlan$Builder maximumUpdateScratchBytes(long);
+  public com.hgtech.soma.runtime.TablePlan build();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.TableStats
+Compiled from "TableStats.java"
+public final class com.hgtech.soma.runtime.TableStats {
+  public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
+  public java.lang.String schemaHash();
+  public java.lang.String runtimeCompatibility();
+  public java.lang.String runtimePlanHash();
+  public com.hgtech.soma.runtime.StatsMode statsMode();
+  public int rows();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean released();
+  public int activeViews();
+  public long growthCount();
+  public long updateScratchCurrentBytes();
+  public long updateScratchHighWaterBytes();
+  public java.lang.String lastOperation();
+  public com.hgtech.soma.runtime.OperationOutcome lastOutcome();
+  public java.lang.String lastErrorCode();
+  public long lastScanned();
+  public long lastMatched();
+  public long lastChanged();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.UpdateResult
+Compiled from "UpdateResult.java"
+public final class com.hgtech.soma.runtime.UpdateResult {
+  public static com.hgtech.soma.runtime.UpdateResult create(long, long, long, long, long);
+  public long scanned();
+  public long matched();
+  public long changed();
+  public long sidecarMaintained();
+  public long sidecarRebuilt();
+}

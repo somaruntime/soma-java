@@ -134,6 +134,8 @@ public final class XxxRows {
 }
 
 public final class UpdateResult {
+    public static UpdateResult create(long scanned, long matched, long changed,
+        long sidecarMaintained, long sidecarRebuilt);
     public long scanned();
     public long matched();
     public long changed();

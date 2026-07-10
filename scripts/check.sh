@@ -9,6 +9,7 @@ cd "$root_dir"
 ./mvnw -B -ntp verify
 ./scripts/check-public-api.sh
 ./scripts/check-compiler-phase0.sh
+./scripts/check-runtime-core-phase1.sh
 ./scripts/check-external-consumer.sh
 git diff --check
 
