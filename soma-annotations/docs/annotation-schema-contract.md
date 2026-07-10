@@ -92,6 +92,15 @@ import com.hgtech.soma.annotation.SomaSchema;
 - 同一 compilation unit 中属于同一 schema 的 `@SomaValue` / `@SomaTable` / enum 必须可归入一个明确 schema package；
 - V1 不支持一个 Java package 中声明多个独立 SOMA schema。
 
+String identity grammar：
+
+- annotation string 使用 source 中的 exact value，不执行 `trim`、case folding、Unicode normalization 或 locale-sensitive conversion；
+- `@SomaSchema.name` 必须匹配 ASCII `[A-Za-z][A-Za-z0-9_]*`，长度不超过 128 UTF-16 code units；
+- `@SomaSchema.generatedPackage` 必须是 `SourceVersion.RELEASE_8` 下的合法 dotted Java name，长度不超过 255 UTF-16 code units；
+- `@SomaSchema.version` 长度为 1..128，不允许 ISO control character 或首尾 Unicode whitespace/space character；
+- explicit `@SomaField.name` 必须是非 keyword Java identifier，长度不超过 128 UTF-16 code units；空字符串只表示使用 Java field name；
+- 不满足 grammar 的输入以 structured diagnostic fail closed，不以静默清洗后的值参与 schema hash。
+
 ### 2.3 Annotation target and retention
 
 V1 annotation API 的 target / retention 基线：
@@ -168,7 +177,7 @@ Processor 从 normalized field role 判断 floating leaf 是否 strict。Shared 
 V1 采用 explicit field membership 与 orthogonal field modifier：
 
 - `@SomaTable` 中的 instance field 必须显式标注一个 primary role：`@SomaField`、`@SomaKey`、`@SomaChild` 或 `@SomaIgnore`；
-- `@SomaValue` 中的 instance field 必须显式标注 `@SomaField` 或 `@SomaIgnore`；
+- `@SomaValue` 中的每个 instance field 都必须是 `@SomaField` schema state；non-static `@SomaIgnore` field 会引入不参与 canonical equality/hash 的隐藏 instance state，因此 V1 明确拒绝；
 - `static` field 不属于 schema；
 - `transient` field 不自动成为 schema field，建议显式标注 `@SomaIgnore`；
 - unannotated instance field 是 processor error；
@@ -203,7 +212,7 @@ Compile-time effective shape 等价于：class final、annotated field `public f
 规则：
 
 - value 可以包含 scalar、semantic scalar、enum、string 或 nested value；
-- value 内部字段必须显式标注 `@SomaField` 或 `@SomaIgnore`；
+- value 内部每个 instance field 必须显式标注 `@SomaField`；`@SomaIgnore` 只服务允许 detached helper state 的 table carrier，不允许绕过 value immutability；
 - `@SomaField` instance field 逻辑上 `public final`；显式 `public final` 可以作为冗余兼容写法，但 canonical example 不要求；
 - value class 逻辑上 final，不允许 inheritance、non-final escape hatch、setter 或 mutable alias；
 - value 内部不允许 `@SomaKey`、`@SomaChild`、`@SomaOptional`、`@SomaIndex`、`@SomaUnique` 或 `@SomaOrder`；
@@ -212,6 +221,7 @@ Compile-time effective shape 等价于：class final、annotated field `public f
 - value 被 `@SomaKey` 使用时，其 leaf fields 共同构成 composite key；
 - value leaf order 进入 normalized schema model 和 schema hash；
 - value construction parameter order、equality/hash 和 `toString()` field order 基于 normalized leaf order；
+- value 不支持 optional field；canonical constructor 对 String、enum、nested value reference 执行 non-null 检查，并以 Java field name 作为 `NullPointerException` message；
 - user-defined `equals()` / `hashCode()` 不得改变 SOMA canonical value semantics；V1 processor 应拒绝冲突实现或以 generated effective shape 覆盖，具体 diagnostic 由 processor contract 固定。
 
 `@SomaValue` 的 floating leaf 使用确定性的 Java wrapper bit semantics：所有 NaN 表示归一到同一 equality/hash，negative zero 与 positive zero 可区分。若该 leaf 通过 outer key 或 index/unique/order selector 进入 identity/access role，则 generated boundary 必须进一步要求 finite 并把 negative zero canonicalize 为 positive zero。

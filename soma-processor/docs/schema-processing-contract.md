@@ -126,6 +126,15 @@ Canonical form：
 - 不输出 null 字段；
 - 缺省语义必须归一化为显式字段。
 
+V1 canonical declaration graph 的稳定顺序与引用规则：
+
+- schema root object 同时记录 source `schemaPackage`；schema resource 使用 `META-INF/soma/<schemaPackage>.schema.json` 与 `.schema.sha256`，从而 schema logical name/version/generated package 的 incremental 修改覆盖同一 package-owned artifact；
+- enum/value declaration array 按 fully-qualified Java type 排序；value field 和 enum member 保留 source declaration order；
+- enum entry 必须记录 fully-qualified Java type、logical simple name 和完整 member order，不能只记录 enum FQN；
+- nested value field 使用 `value:<fully-qualified-type>` 引用 canonical value declaration；processor 在输出前解析同 schema declaration graph、拒绝 unresolved reference/cycle，因此完整 leaf expansion 可由 ordered graph 唯一递归导出，不在 JSON 中重复一份可能漂移的 leaf list；
+- 已被当前 implementation 接受的 declaration，其 canonical JSON/hash 即进入 non-regression golden；后续 Phase 只能添加此前被 fail-closed 拒绝的 V1 breadth，不能让相同 source/toolchain 的既有 canonical JSON/hash 因内部重构而变化；
+- 尚未完整 normalization 的合法 V1 declaration 可以在 capability `in-progress` 时以稳定 diagnostic 拒绝，但不得生成缺失 enum member、value graph、role、selector 或其他 hash fact 的 partial resource。
+
 Generated code、runtime metadata、testkit 和 reports 必须引用同一个 schema hash。
 
 ## 6. Compatibility 与 breaking change
@@ -212,6 +221,31 @@ Processor diagnostics 至少区分：
 - schema hash generation failure。
 
 Diagnostics golden comparison 以 diagnostic code、severity、element location、related symbol 和是否阻止 codegen 为稳定字段。message 文本允许优化，但不能改变机器可读 code 语义。
+
+首个 compiler/build slice 固化以下 code family；后续 breadth 在对应 family additive 分配，不复用已有 code 表达不同失败：
+
+| Code | Stable category |
+|---|---|
+| `SOMA-COMP-001` | processor 未看到 required javac plugin activation |
+| `SOMA-COMP-002` | compiler/JDK/processing environment unsupported |
+| `SOMA-COMP-003` | compiler lowering identity mismatch |
+| `SOMA-COMP-004` | processor element model 缺少 canonical lowered shape |
+| `SOMA-COMP-005` | plugin 未看到 required processor activation |
+| `SOMA-COMP-006` | parse-phase annotation identity 未使用无歧义 FQN/single-type import |
+| `SOMA-VALUE-001` | value declaration/effective class or field shape invalid |
+| `SOMA-VALUE-002` | source member 与 canonical generated member 冲突 |
+| `SOMA-VALUE-003` | value field role、static annotation 或 hidden ignored state invalid |
+| `SOMA-VALUE-004` | value logical field name invalid/duplicate |
+| `SOMA-VALUE-005` | value field type unsupported/unresolved |
+| `SOMA-VALUE-006` | semantic scalar 与 storage type 不兼容 |
+| `SOMA-VALUE-007` | nested value declaration cycle |
+| `SOMA-VALUE-008` | nested value reference 不属于同一 schema compilation graph |
+| `SOMA-SCHEMA-001` | package schema declaration missing |
+| `SOMA-SCHEMA-002` | schema logical name invalid |
+| `SOMA-SCHEMA-003` | generated package invalid |
+| `SOMA-SCHEMA-004` | schema version label invalid |
+| `SOMA-SCHEMA-005` | schema logical name duplicate |
+| `SOMA-OUTPUT-001` | deterministic compiler-managed artifact emission failed |
 
 ## 8. 与 code generation 的边界
 

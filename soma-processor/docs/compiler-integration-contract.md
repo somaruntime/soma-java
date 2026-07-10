@@ -52,6 +52,8 @@ Transformer 对合法 `@SomaValue` declaration 产生以下 effective shape：
 - deterministic `toString()`；
 - 不生成 setter 或 mutable escape hatch。
 
+V1 canonical value members 按 normalized/source field order 生成：constructor 对 reference field 以 Java field name 执行 `Objects.requireNonNull`；`equals` 要求相同 runtime class，并按 leaf/value 语义比较；`hashCode` 从 `1` 开始按 `31 * result + fieldHash` 累积，primitive field hash 与对应 Java wrapper 语义一致，enum 使用 schema member order 对应的 `ordinal()`，String/nested value 使用其 canonical hash；`toString` 使用 `SimpleName{fieldName=value, ...}`。Floating field 继续遵守 annotation schema contract 的 canonical bit semantics。改变这些规则属于 lowering compatibility change。
+
 Lowering 必须在 symbol enter 前完成，使以下参与者看到同一类型：
 
 - 同一 compilation unit 中的用户代码；
@@ -108,19 +110,36 @@ Maven/javac build 是 V1 compilation authority。
 
 ## 6. Maven activation contract
 
+V1 首个 javac 8 adapter 的稳定标识：
+
+| Surface | Identifier |
+|---|---|
+| javac plugin name | `SomaValue` |
+| plugin provider | `com.hgtech.soma.processor.javac8.SomaJavacPlugin` |
+| annotation processor | `com.hgtech.soma.processor.SomaProcessor` |
+| public annotation package | `com.hgtech.soma.annotation` |
+
+以上名称进入 external-consumer fixture 和 compatibility evidence；修改按 build/public compatibility change 审查。
+
+Transformer 与 processor 使用同一次 full JDK 8 javac `Context` 中不可由命令行伪造的 `Context.Key<Session>` 对象身份完成双向 activation handshake。Plugin 必须在 lowering 前登记 `soma-value-javac8-v1`，processor 必须验证该 identity 并登记 `soma-processor-v1`；plugin 在进入 analyze/generate 前验证 processor identity。`Options`/`-XD` string、SOURCE annotation、用户可声明 member、classpath presence 或 service discovery 本身都不能充当 activation authority。
+
 Consumer build 至少提供：
 
 - `soma-annotations` compile dependency；
 - `soma-runtime-core` runtime/compile dependency；
 - `soma-processor` build-only dependency；
 - processor artifact 位于 javac plugin discovery path；
-- `-Xplugin:<stable-soma-plugin-name>`；
+- `-Xplugin:SomaValue`；
 - processor path/discovery；
 - Java 8 source/target 和 UTF-8。
 
-Stable plugin name、processor class name 和最终 Maven snippet 必须由 first external-consumer fixture/golden 固化。实现前文档可以使用 symbolic name，但 G4 之前必须替换为真实 artifact/class/plugin identifiers。
+Stable plugin name、processor class name 和 Maven snippet 由 first external-consumer fixture/golden 持续验证，不得只依赖偶然 service discovery。
 
 Processor artifact 不得成为 application runtime transitive dependency。Compiler internal packages 不得从 generated/public API 泄漏。
+
+Unsupported compiler 必须由 plugin 自身立即以 `SOMA-COMP-002` 阻止 compilation；不能依赖 processor 稍后报错，也不能在 `-proc:none` 时只打印 warning 后继续生成 mutable class。Supported javac 8 中只启用 plugin 或只启用 processor同样 fail closed。
+
+Parse-phase annotation identity 必须无歧义绑定到本契约指定的 `com.hgtech.soma.annotation` FQN。`@SomaValue`、`@SomaField` 和 `@SomaIgnore` 在 transformer 参与的 source 中必须使用 fully-qualified annotation name 或 explicit single-type import；wildcard import 无法在 Enter 前排除 current-package 同名 type，因此以 `SOMA-COMP-006` fail closed。只按 simple name 或字符串后缀匹配会错误修改第三方同名 annotation，属于 compiler integrity failure。
 
 ## 7. Processing rounds and incremental build
 

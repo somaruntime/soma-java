@@ -1,0 +1,13 @@
+Compiled from "OperationKey.java"
+public final class com.example.phase0.OperationKey {
+  public final com.example.phase0.MachineId machineId;
+  public final int sequence;
+  public final double score;
+  public final java.lang.String label;
+  public final com.example.phase0.OperationState state;
+  static final java.lang.String DEBUG_KIND;
+  public com.example.phase0.OperationKey(com.example.phase0.MachineId, int, double, java.lang.String, com.example.phase0.OperationState);
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public java.lang.String toString();
+}

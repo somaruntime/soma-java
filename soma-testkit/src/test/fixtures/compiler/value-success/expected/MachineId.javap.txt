@@ -1,0 +1,9 @@
+Compiled from "MachineId.java"
+public final class com.example.phase0.MachineId {
+  public final long value;
+  public static com.example.phase0.MachineId of(long);
+  public com.example.phase0.MachineId(long);
+  public boolean equals(java.lang.Object);
+  public int hashCode();
+  public java.lang.String toString();
+}

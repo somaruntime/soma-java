@@ -81,7 +81,9 @@ assertNoUnexpectedDiagnostics()
 - transformer missing/unsupported compiler/mismatch negative fixture；
 - same-unit/cross-unit/classfile effective-type inspection；
 - clean/incremental output equivalence；
+- incremental evidence 必须实际触发 source/schema fact 变化并验证 regeneration、stable resource ownership 和恢复后与 clean golden 一致；无 source change 的 `Nothing to compile` 不能单独充当 incremental evidence；
 - external Maven consumer 不继承 root parent/reactor classpath。
+- public API manifest 从实际 annotation/processor JAR 重建 classification 与 `javap -public` golden，区分 handwritten/build-provider/internal surface。
 
 ## 4. Golden contract
 

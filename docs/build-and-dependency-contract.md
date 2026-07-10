@@ -112,14 +112,16 @@ Consumer build 必须显式激活 SOMA transformer，不能依赖偶然 classpat
     <source>1.8</source>
     <target>1.8</target>
     <compilerArgs>
-      <arg>-Xplugin:&lt;stable-soma-plugin-name&gt;</arg>
+      <arg>-Xplugin:SomaValue</arg>
     </compilerArgs>
     <!-- soma-processor also appears on annotationProcessorPaths -->
   </configuration>
 </plugin>
 ```
 
-Symbolic identifier 在实现时由 compiler integration golden 替换。G4 前必须有一个不继承 root parent、不依赖 reactor 隐式 classpath 的 external Maven fixture，证明 published-shape artifacts 可独立消费。
+Plugin provider 和 processor FQN 以 compiler integration contract 为准。G4 前必须有一个不继承 root parent、不依赖 reactor 隐式 classpath 的 external Maven fixture，证明 published-shape artifacts 可独立消费。
+
+External-consumer evidence 必须从同一次验证安装的 artifacts 构造 Maven runtime dependency graph，至少证明 `soma-runtime-core` 在 runtime graph、`soma-processor` 不在 runtime graph。手工只执行 `java -cp target/classes` 可以补充证明 generated class 无隐藏 linkage，但不能替代 Maven scope evidence。验证应使用隔离的 local repository，避免把旧 snapshot 或用户全局 Maven state 当作当前 artifact。
 
 ## 6. Dependency policy
 
@@ -149,6 +151,8 @@ Root parent 统一拥有：
 Module POM 不重复版本，不覆盖 toolchain，除非 module owner contract 有明确理由。Plugin version upgrade 是 build-governance change，必须运行 reactor、consumer 和相关 golden。
 
 V1 compiler adapter 只以 full JDK 8 javac 为 compiler authority。实施阶段只声明记录过的本机环境验证通过；public RC/release 只支持正式 G6 matrix 中有证据的 full JDK 8 javac/runtime 组合。JDK 9+、ECJ 或其他 compiler 不得仅因为 `source=8` 就被视为支持。
+
+`soma-processor` 自举编译使用 forked full-JDK javac，并在 JDK 8-only Maven profile 中把 `${java.home}/../lib/tools.jar` 作为 system-scoped build input。该 JDK artifact 不进入 published POM 的跨 JDK dependency claim、不进入 generated/application runtime graph，也不能被第三方 `jdk.tools` substitute 替代。Processor 自身编译关闭 annotation processing，避免尚未构建的 service provider 自加载。
 
 ## 8. Reproducible artifacts
 
