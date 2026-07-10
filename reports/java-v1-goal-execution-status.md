@@ -4,8 +4,8 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`bcf0966`
-当前 checkpoint：Phase 1 dense table完整闭环
+当前 repository baseline：`ca64774`
+当前 checkpoint：Phase 1B typed Column Pipeline / ColumnView / borrow lifecycle
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
 
@@ -14,7 +14,9 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | Checkpoint | 状态 | Exit/evidence |
 |---|---|---|
 | Phase 0 compiler/build foundation | completed | commits `2346252`、`c5fbfbf`；Phase 0 report |
-| Phase 1 dense table闭环 | in-progress | runtime protocol `13179d2`、depth budget `2b2b643`、processor/generated facade `c067dac`、dense read terminals `bcf0966`；继续补齐remove/Column path/shape evidence |
+| Phase 1A dense Row Pipeline / mutation terminal | completed | runtime protocol `13179d2`、depth budget `2b2b643`、processor/generated facade `c067dac`、dense read terminals `bcf0966`、dense remove `ca64774`；这是最终 V1 API 的已验证子集，不是版本或 capability closeout |
+| Phase 1B Column Pipeline / ColumnView / borrow lifecycle | in-progress | typed primitive column traversal、view pin/stale/release、generated/public/consumer evidence |
+| Phase 1C dense shape/differential evidence | pending | primitive differential oracle、cursor reuse/fusion、bytecode/allocation-shape evidence；完成后才关闭 Phase 1 checkpoint |
 | Phase 2 keyed identity | pending | SparseInt/Hash KeySpace、Key Pipeline |
 | Phase 3 access structures | pending | index/unique/order/grouped source/sidecar |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |
@@ -60,19 +62,21 @@ Phase 1 已把以下九项从 `not-started` 推进为 `in-progress`：
 
 已完成 vertical slice：P1-S1 generated dense primitive/presence kernel（commits `13179d2`、`2b2b643`、`c067dac`）。它不是产品版本，也不代表 Phase 1 或任一 Capability 完整完成。
 
-当前 vertical slice：Phase 1 dense access/terminal/shape completeness。
+已完成 vertical slice：P1-S2 dense `remove` terminal。它以 reusable primitive row-index selection 和 reusable boolean mark scratch 选择 rows，稳定原地压缩全部 primitive/presence columns，成功后只在 row set改变时一次性提升 structural epoch；不留下 tombstone/hole，也不以 materialization/List/DTO 中转。它同时固化了最终 `RemoveResult` public shape、Rows/Table convenience API、external Maven consumer/API golden 和 callback failure no-partial-state evidence。
+
+当前 vertical slice：Phase 1B typed Column Pipeline / ColumnView / borrow lifecycle。
 
 涉及 Capability：`V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-MUTATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`；其他 Capability 状态不回退。
 
 唯一 Owner：generated-table API contract；processor code-generation contract；runtime TableStore/lifecycle/errors/performance contracts；testkit contract分别拥有对应行为，不形成联合 Owner。
 
-Slice exit：补齐 dense primitive 的全部 V1 Row read/mutation terminals、stable sorted semantics、remove/compaction、typed Column Pipeline/ColumnView、borrow lifecycle、dense differential oracle、cursor reuse/fusion/bytecode/allocation-shape evidence，并保持已经接受的 public/generated API additive。
+Slice exit：生成最终 typed primitive Column Pipeline 与 readonly ColumnView；落实 acquire/close、view_pinned、released_view、stale_view 和 final release invalidation；确保 primitive traversal 无 per-row allocation、保持已接受 public/generated API additive，并提供 runtime/protocol/API golden 与 external consumer lifecycle evidence。
 
-仍保留的 V1 breadth：value/string/enum/default、key/index/order sidecar、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
+仍保留的 V1 breadth：dense differential/bytecode/allocation-shape、value/string/enum/default、key/index/order sidecar、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
 
-禁止捷径：generic object pipeline、Stream/boxing/per-row cursor allocation、`List<Row>` live storage、temporary column API、以 fetch/materialize 替代 column path、逐 row live update后回滚、以本机通过冒充 Gate/RC。
+禁止捷径：generic object pipeline、Stream/boxing/per-row cursor allocation、`List<Row>` live storage、temporary column API、以 fetch/materialize 替代 column path、用 snapshot/list 伪装 ColumnView、绕过 active-view structural pin、逐 row live update后回滚、以本机通过冒充 Gate/RC。
 
-计划 evidence：generated javap/source golden、pipeline differential/one-shot/error cases、remove compaction、ColumnView lifecycle/epoch/release、primitive column oracle、allocation/bytecode shape、external Maven consumer、`./scripts/check.sh`。
+计划 evidence：generated javap/source golden、ColumnView lifecycle/epoch/release、primitive Column Pipeline oracle、allocation/bytecode shape、external Maven consumer、`./scripts/check.sh`。
 
 ### 4.1 已完成 P1-S1 记录
 
@@ -117,16 +121,16 @@ Slice exit：
 - 唯一 Goal、23 项 Capability、G0-G6、RC完整性与release boundary未变化；
 - Phase 0状态和证据未回退；
 - Phase 1 新增了真实 annotations/runtime/processor/generated facade、primitive/presence storage、atomic update、materialization、public/schema golden和external consumer evidence；Capability只推进到 `in-progress`；
-- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；
+- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` 和 remove API，不引入未来迁移契约；
 - 尚未引入temporary public/generated API、temporary hot path、migration或rewrite。
 
 ## 7. Latest validation record
 
-- commit/artifact：`bcf0966`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifact `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`；
-- 完整命令：`JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./scripts/check.sh`；
+- commit/artifact：`ca64774`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifact `external-maven-dense-consumer-1.0.0-SNAPSHOT.jar`；
+- 完整命令：`JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home ./scripts/check-runtime-core-phase1.sh`、`./scripts/check-public-api.sh`、`./scripts/check-generated-dense-phase1.sh`、`./scripts/check-table-diagnostics-phase1.sh`、`git diff --check`、`./scripts/check.sh`；
 - JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
 - Maven Wrapper：Apache Maven `3.9.16`；
 - OS/architecture：macOS `26.5.2`、`aarch64`；
-- 结果：reactor verify、public API、Phase 0 compiler、runtime-core、table diagnostics、generated dense external consumer、value external consumer、docs/scope/diff checks全部通过；generated dense source/schema/hash在默认环境与 Turkish locale/Pacific-Kiritimati timezone byte-identical；
+- 结果：runtime-core remove state/result invariant、public API manifest、table diagnostics、generated dense source/schema/hash、generated public javap、isolated external Maven consumer（包含 callback failure atomicity、stable compaction、empty remove epoch invariant）以及完整 `check.sh`（scope/docs/reactor/Phase 0/external value consumer）全部通过；generated dense source/schema/hash在默认环境与 Turkish locale/Pacific-Kiritimati timezone byte-identical；
 - 跳过：unsupported-javac negative lane（未设置 `SOMA_UNSUPPORTED_JAVAC`）；
 - known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；G1-G6仍未关闭。
