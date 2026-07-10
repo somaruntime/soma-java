@@ -93,10 +93,17 @@ final class DenseTableSourceGenerator {
                 .append("  private static final String TABLE = ").append(q(table.logicalName)).append(";\n")
                 .append("  private int size;\n  private int capacity;\n");
         for (FieldSpec field : table.fields) {
-            out.append("  private ").append(field.primitive).append("[] ")
+            out.append("  private ").append(field.storagePrimitive).append("[] ")
                     .append(field.javaName).append("Values;\n");
             if (field.optional) {
                 out.append("  private long[] ").append(field.javaName).append("Presence;\n");
+            }
+        }
+        for (FieldSpec field : table.fields) {
+            if (field.enumType != null) {
+                out.append("  private static final ").append(field.enumType).append("[] ")
+                        .append(field.enumConstantsName()).append('=')
+                        .append(field.enumType).append(".values();\n");
             }
         }
         out.append("\n  public ").append(batch).append("() { this(")
@@ -106,7 +113,7 @@ final class DenseTableSourceGenerator {
                 .append("    capacity = initialCapacity;\n");
         for (FieldSpec field : table.fields) {
             out.append("    ").append(field.javaName).append("Values = new ")
-                    .append(field.primitive).append("[initialCapacity];\n");
+                    .append(field.storagePrimitive).append("[initialCapacity];\n");
             if (field.optional) {
                 out.append("    ").append(field.javaName)
                         .append("Presence = new long[(initialCapacity + 63) >>> 6];\n");
@@ -189,7 +196,7 @@ final class DenseTableSourceGenerator {
                 .append("    if (grown > Integer.MAX_VALUE) grown = Integer.MAX_VALUE;\n")
                 .append("    int next = (int) grown;\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.primitive).append("[] new")
+            out.append("    ").append(field.storagePrimitive).append("[] new")
                     .append(cap(field.javaName)).append("Values = Arrays.copyOf(")
                     .append(field.javaName).append("Values, next);\n");
             if (field.optional) {
@@ -211,13 +218,14 @@ final class DenseTableSourceGenerator {
             String c = cap(field.javaName);
             out.append("  private void set").append(c).append("(int row, ")
                     .append(field.primitive).append(" value) { ").append(field.javaName)
-                    .append("Values[row] = ").append(field.batchStorageValue("value")).append(";");
+                    .append("Values[row] = ").append(field.storageValue("value", "batch.write")).append(";");
             if (field.optional) {
                 out.append(" setPresent(").append(field.javaName).append("Presence, row, true);");
             }
             out.append(" }\n")
                     .append("  ").append(field.primitive).append(" ").append(field.javaName)
-                    .append("Value(int row) { return ").append(field.javaName).append("Values[row]; }\n");
+                    .append("Value(int row) { return ")
+                    .append(field.publicValue(field.javaName + "Values[row]")).append("; }\n");
             if (field.optional) {
                 out.append("  private void set").append(c).append("Absent(int row) { ")
                         .append(field.javaName).append("Values[row] = ").append(field.zero()).append("; setPresent(")
@@ -423,6 +431,13 @@ final class DenseTableSourceGenerator {
                 .append(q(schemaHash)).append(",RuntimeCompatibility.GENERATED_TARGET,RuntimeCompatibility.COMPILER_IDENTITY,RuntimeCompatibility.GENERATED_PROTOCOL,RuntimeCompatibility.RUNTIME_COMPATIBILITY,RuntimeCompatibility.PLAN_PROTOCOL,RuntimeCompatibility.DENSE_ALGORITHM,RuntimeCompatibility.ALLOCATION_ESTIMATOR);\n")
                 .append("  private static final RuntimePlan DEFAULT_RUNTIME_PLAN=createDefaultRuntimePlan();\n");
         for (FieldSpec field : table.fields) {
+            if (field.enumType != null) {
+                out.append("  private static final ").append(field.enumType).append("[] ")
+                        .append(field.enumConstantsName()).append('=')
+                        .append(field.enumType).append(".values();\n");
+            }
+        }
+        for (FieldSpec field : table.fields) {
             out.append("  private final ").append(field.columnType).append(' ').append(field.javaName)
                     .append("Column=new ").append(field.columnType).append("();\n");
             if (field.optional) out.append("  private final PresenceBitmap ").append(field.javaName).append("Presence=new PresenceBitmap();\n");
@@ -473,7 +488,7 @@ final class DenseTableSourceGenerator {
         }
         out.append("  private void copyBatch(").append(table.name("Batch")).append(" batch,int source,int target,int count){for(int i=0;i<count;i++){int s=source+i,t=target+i;\n");
         for (FieldSpec field : table.fields) {
-            out.append("    ").append(field.javaName).append("Column.set(t,").append(field.storageValue("batch." + field.javaName + "Value(s)")).append(");\n");
+            out.append("    ").append(field.javaName).append("Column.set(t,").append(field.storageValue("batch." + field.javaName + "Value(s)", "batch.import")).append(");\n");
             if (field.optional) out.append("    if(batch.").append(field.javaName).append("Present(s))").append(field.javaName).append("Presence.setPresent(t);else ").append(field.javaName).append("Presence.clearPresent(t);\n");
         }
         out.append("  }}\n  private void clearColumns(int from,int to){\n");
@@ -555,16 +570,13 @@ final class DenseTableSourceGenerator {
                 .append("  public UpdateResult update(").append(table.name("Rows")).append(".Updater updater){return rows().update(updater);}\n")
                 .append("  public RemoveResult remove(){return rows().remove();}\n");
         for (FieldSpec field : table.fields) {
-            String type = cap(field.primitive);
             String presence = field.optional ? field.javaName + "Presence" : "null";
-            out.append("  public ").append(type).append("ColumnPipeline ")
-                    .append(field.javaName).append("Values(){return new ").append(type)
-                    .append("ColumnPipeline(state,").append(field.javaName).append("Column,")
-                    .append(presence).append(",TABLE,").append(q(field.logicalName)).append(");}\n")
-                    .append("  public ").append(type).append("ColumnView ")
-                    .append(field.javaName).append("Column(){return new ").append(type)
-                    .append("ColumnView(state,").append(field.javaName).append("Column,")
-                    .append(presence).append(",TABLE,").append(q(field.logicalName)).append(");}\n");
+            out.append("  public ").append(field.columnPipelineType()).append(' ')
+                    .append(field.javaName).append("Values(){return ")
+                    .append(field.columnPipelineConstruction(presence)).append(";}\n")
+                    .append("  public ").append(field.columnViewType()).append(' ')
+                    .append(field.javaName).append("Column(){return ")
+                    .append(field.columnViewConstruction(presence)).append(";}\n");
         }
         out.append("  public TableStats statsSnapshot(){return state.statsSnapshot();}\n  public void resetStats(){state.resetStats();}\n\n")
                 .append("  void begin(String operation){state.beginOperation(operation);}\n  void endSuccess(String operation,long scanned,long matched,long changed){state.endOperationSuccess(operation,scanned,matched,changed);}\n  void endFailure(String operation,long scanned,long matched,String code){state.endOperationFailure(operation,scanned,matched,code);}\n  UpdateResult updateResult(long scanned,long matched,long changed){return state.updateResult(scanned,matched,changed,0L,0L);}\n")
@@ -607,7 +619,7 @@ final class DenseTableSourceGenerator {
             String different = field.different(field.javaName + "Value(row)", newValue);
             if (field.optional) different = field.javaName + "Present(row)!=mutation." + field.javaName + "Present()||(" + field.javaName + "Present(row)&&" + different + ")";
             out.append("    if(").append(different).append(")changed=true;\n")
-                    .append("    ").append(field.javaName).append("Column.set(row,").append(field.storageValue(newValue)).append(");\n");
+                    .append("    ").append(field.javaName).append("Column.set(row,").append(field.storageValue(newValue, "mutator.commit")).append(");\n");
             if (field.optional) out.append("    if(mutation.").append(field.javaName).append("Present())").append(field.javaName).append("Presence.setPresent(row);else ").append(field.javaName).append("Presence.clearPresent(row);\n");
         }
         out.append("    state.endOperationSuccess(\"mutator.commit\",1L,1L,changed?1L:0L);}\n");
@@ -652,7 +664,7 @@ final class DenseTableSourceGenerator {
             String different = field.different(field.javaName + "Value(row)", "update" + c + "[i]");
             if (field.optional) different = field.javaName + "Present(row)!=update" + c + "Present[i]||(" + field.javaName + "Present(row)&&" + different + ")";
             out.append("    if(").append(different).append(")rowChanged=true;\n")
-                    .append("    ").append(field.javaName).append("Column.set(row,").append(field.storageValue("update" + c + "[i]")).append(");\n");
+                    .append("    ").append(field.javaName).append("Column.set(row,").append(field.storageValue("update" + c + "[i]", "rows.update")).append(");\n");
             if (field.optional) out.append("    if(update").append(c).append("Present[i])").append(field.javaName).append("Presence.setPresent(row);else ").append(field.javaName).append("Presence.clearPresent(row);\n");
         }
         out.append("    if(rowChanged)changed++;}return changed;}\n");
@@ -768,19 +780,26 @@ final class DenseTableSourceGenerator {
     static final class FieldSpec {
         final String javaName;
         final String logicalName;
+        /** public/generated Java type；primitive 保持 primitive，enum 保持 FQN。 */
         final String primitive;
         final String boxed;
+        /** packed physical column 的 primitive type。 */
+        final String storagePrimitive;
         final String columnType;
+        final String enumType;
         final boolean optional;
         final boolean key;
 
         FieldSpec(String javaName, String logicalName, String primitive,
-                  String boxed, String columnType, boolean optional, boolean key) {
+                  String boxed, String storagePrimitive, String columnType,
+                  String enumType, boolean optional, boolean key) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.primitive = primitive;
             this.boxed = boxed;
+            this.storagePrimitive = storagePrimitive;
             this.columnType = columnType;
+            this.enumType = enumType;
             this.optional = optional;
             this.key = key;
         }
@@ -792,6 +811,7 @@ final class DenseTableSourceGenerator {
             if ("long".equals(primitive)) return "0L";
             if ("float".equals(primitive)) return "0.0f";
             if ("double".equals(primitive)) return "0.0d";
+            if (enumType != null) return "null";
             return "0";
         }
 
@@ -806,25 +826,34 @@ final class DenseTableSourceGenerator {
         }
 
         String boxValue(String expression) {
+            if (enumType != null) {
+                return expression;
+            }
             return boxed + ".valueOf(" + expression + ")";
         }
 
-        String storageValue(String expression) { return expression; }
-        String publicValue(String expression) { return expression; }
-
-        String batchStorageValue(String expression) {
-            if (!key) {
-                return expression;
+        String storageValue(String expression, String operation) {
+            if (enumType != null) {
+                return "RuntimeFailures.requiredEnumValue(TABLE," + q(logicalName) + ","
+                        + expression + "," + q(operation) + ").ordinal()";
             }
             if ("float".equals(primitive)) {
-                return "KeyCanonicalization.strictFloatStorage(TABLE,"
-                        + q(logicalName) + "," + expression + ",\"batch.write\")";
+                return key ? "KeyCanonicalization.strictFloatStorage(TABLE,"
+                        + q(logicalName) + "," + expression + "," + q(operation) + ")" : expression;
             }
             if ("double".equals(primitive)) {
-                return "KeyCanonicalization.strictDoubleStorage(TABLE,"
-                        + q(logicalName) + "," + expression + ",\"batch.write\")";
+                return key ? "KeyCanonicalization.strictDoubleStorage(TABLE,"
+                        + q(logicalName) + "," + expression + "," + q(operation) + ")" : expression;
             }
             return expression;
+        }
+
+        String publicValue(String expression) {
+            return enumType == null ? expression : enumConstantsName() + "[" + expression + "]";
+        }
+
+        String enumConstantsName() {
+            return javaName.toUpperCase(java.util.Locale.ROOT) + "_ENUM_VALUES";
         }
 
         String keySpaceType() {
@@ -839,6 +868,10 @@ final class DenseTableSourceGenerator {
         }
 
         String keySpaceValueExpression(String expression, String operationExpression) {
+            if (enumType != null) {
+                return "RuntimeFailures.requiredEnumValue(TABLE," + q(logicalName) + ","
+                        + expression + "," + operationExpression + ").ordinal()";
+            }
             if ("boolean".equals(primitive)) {
                 return "(" + expression + "?1:0)";
             }
@@ -874,10 +907,40 @@ final class DenseTableSourceGenerator {
         int jvmSlots() { return "long".equals(primitive) || "double".equals(primitive) ? 2 : 1; }
 
         int bytes() {
-            if ("boolean".equals(primitive) || "byte".equals(primitive)) return 1;
-            if ("short".equals(primitive)) return 2;
-            if ("int".equals(primitive) || "float".equals(primitive)) return 4;
+            if ("boolean".equals(storagePrimitive) || "byte".equals(storagePrimitive)) return 1;
+            if ("short".equals(storagePrimitive)) return 2;
+            if ("int".equals(storagePrimitive) || "float".equals(storagePrimitive)) return 4;
             return 8;
+        }
+
+        String columnPipelineType() {
+            return enumType == null ? cap(primitive) + "ColumnPipeline"
+                    : "EnumColumnPipeline<" + enumType + ">";
+        }
+
+        String columnViewType() {
+            return enumType == null ? cap(primitive) + "ColumnView"
+                    : "EnumColumnView<" + enumType + ">";
+        }
+
+        String columnPipelineConstruction(String presence) {
+            if (enumType == null) {
+                String type = cap(primitive) + "ColumnPipeline";
+                return "new " + type + "(state," + javaName + "Column," + presence
+                        + ",TABLE," + q(logicalName) + ")";
+            }
+            return "new EnumColumnPipeline<" + enumType + ">(state," + javaName + "Column,"
+                    + presence + ",TABLE," + q(logicalName) + "," + enumConstantsName() + ")";
+        }
+
+        String columnViewConstruction(String presence) {
+            if (enumType == null) {
+                String type = cap(primitive) + "ColumnView";
+                return "new " + type + "(state," + javaName + "Column," + presence
+                        + ",TABLE," + q(logicalName) + ")";
+            }
+            return "new EnumColumnView<" + enumType + ">(state," + javaName + "Column,"
+                    + presence + ",TABLE," + q(logicalName) + "," + enumConstantsName() + ")";
         }
     }
 }

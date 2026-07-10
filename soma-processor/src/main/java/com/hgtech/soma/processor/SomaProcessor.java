@@ -306,21 +306,22 @@ public final class SomaProcessor extends AbstractProcessor {
                 valid = false;
             }
 
-            PrimitiveTableType primitive = tablePrimitiveType(field.asType(), optional != null);
-            if (primitive == null) {
+            TableFieldType tableType = tableFieldType(field.asType(), optional != null);
+            if (tableType == null) {
                 error(field, "SOMA-TABLE-005",
-                        "Phase 1 table field must be a required primitive or optional boxed primitive: "
+                        "current table binding supports required primitive/enum fields "
+                                + "and optional boxed primitives: "
                                 + field.asType());
                 valid = false;
                 continue;
             }
             if (key && optional != null) {
                 error(field, "SOMA-TABLE-008",
-                        "current keyed table slice requires a required primitive @SomaKey: "
+                        "current keyed table slice requires a required scalar or enum @SomaKey: "
                                 + field.asType());
                 valid = false;
             }
-            if (!validTableSemantic(annotationSemantic, primitive.primitiveKind)) {
+            if (!validTableSemantic(annotationSemantic, tableType.primitiveKind)) {
                 error(field, "SOMA-TABLE-005",
                         "semantic " + annotationSemantic
                                 + " is incompatible with " + field.asType());
@@ -337,7 +338,7 @@ public final class SomaProcessor extends AbstractProcessor {
             }
             fields.add(new TableFieldModel(
                     field.getSimpleName().toString(), fieldLogicalName,
-                    annotationSemantic.name(), primitive, optional != null, key));
+                    annotationSemantic.name(), tableType, optional != null, key));
         }
         if (fields.isEmpty()) {
             error(type, "SOMA-TABLE-001", "@SomaTable requires at least one schema field");
@@ -409,18 +410,25 @@ public final class SomaProcessor extends AbstractProcessor {
         return false;
     }
 
-    private PrimitiveTableType tablePrimitiveType(TypeMirror mirror, boolean optional) {
+    private TableFieldType tableFieldType(TypeMirror mirror, boolean optional) {
         if (!optional && mirror.getKind().isPrimitive()) {
-            return PrimitiveTableType.forKind(mirror.getKind());
+            return TableFieldType.forKind(mirror.getKind());
         }
-        if (!optional || mirror.getKind() != TypeKind.DECLARED) {
+        if (mirror.getKind() != TypeKind.DECLARED) {
             return null;
         }
         Element element = ((DeclaredType) mirror).asElement();
         if (!(element instanceof TypeElement)) {
             return null;
         }
-        return PrimitiveTableType.forBoxed(((TypeElement) element).getQualifiedName().toString());
+        TypeElement type = (TypeElement) element;
+        if (!optional && type.getKind() == ElementKind.ENUM) {
+            return TableFieldType.forEnum(type, enumModel(type));
+        }
+        if (!optional) {
+            return null;
+        }
+        return TableFieldType.forBoxed(type.getQualifiedName().toString());
     }
 
     private boolean validTableSemantic(SomaSemantic semantic, TypeKind primitiveKind) {
@@ -873,6 +881,11 @@ public final class SomaProcessor extends AbstractProcessor {
 
         private void addTable(TableModel table) {
             tables.put(table.javaType, table);
+            for (TableFieldModel field : table.fields) {
+                if (field.type.enumModel != null) {
+                    enums.put(field.type.enumModel.javaType, field.type.enumModel);
+                }
+            }
         }
 
         private TableModel tableByLogicalName(String logicalName) {
@@ -1085,12 +1098,12 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String javaName;
         private final String logicalName;
         private final String semantic;
-        private final PrimitiveTableType type;
+        private final TableFieldType type;
         private final boolean optional;
         private final boolean key;
 
         private TableFieldModel(String javaName, String logicalName, String semantic,
-                                PrimitiveTableType type, boolean optional, boolean key) {
+                                TableFieldType type, boolean optional, boolean key) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.semantic = semantic;
@@ -1105,39 +1118,58 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append("\"leaves\":[{");
             json.append("\"leafPath\":").append(quote(logicalName)).append(',');
             json.append("\"semantic\":").append(quote(semantic)).append(',');
-            json.append("\"storageType\":").append(quote(type.primitiveName));
+            json.append("\"storageType\":").append(quote(type.storagePrimitiveName));
             json.append("}],");
             json.append("\"logicalName\":").append(quote(logicalName)).append(',');
             json.append("\"materializedType\":")
-                    .append(quote(optional ? type.boxedName : type.primitiveName)).append(',');
+                    .append(quote(optional ? type.boxedName : type.materializedType)).append(',');
             json.append("\"optional\":").append(optional).append(',');
             json.append("\"role\":").append(key ? "\"key\"" : "\"field\"").append(',');
-            json.append("\"type\":").append(quote(type.primitiveName));
+            json.append("\"type\":").append(quote(type.logicalType));
             json.append('}');
         }
 
         private DenseTableSourceGenerator.FieldSpec toGeneratorSpec() {
             return new DenseTableSourceGenerator.FieldSpec(
-                    javaName, logicalName, type.primitiveName,
-                    type.boxedName, type.columnType, optional, key);
+                    javaName, logicalName, type.publicType,
+                    type.boxedName, type.storagePrimitiveName, type.columnType,
+                    type.enumJavaType, optional, key);
         }
     }
 
-    private static final class PrimitiveTableType {
+    private static final class TableFieldType {
         private final TypeKind primitiveKind;
-        private final String primitiveName;
+        private final String logicalType;
+        private final String publicType;
         private final String boxedName;
+        private final String materializedType;
+        private final String storagePrimitiveName;
         private final String columnType;
+        private final String enumJavaType;
+        private final EnumModel enumModel;
 
-        private PrimitiveTableType(TypeKind primitiveKind, String primitiveName,
-                                   String boxedName, String columnType) {
+        private TableFieldType(
+                TypeKind primitiveKind,
+                String logicalType,
+                String publicType,
+                String boxedName,
+                String materializedType,
+                String storagePrimitiveName,
+                String columnType,
+                String enumJavaType,
+                EnumModel enumModel) {
             this.primitiveKind = primitiveKind;
-            this.primitiveName = primitiveName;
+            this.logicalType = logicalType;
+            this.publicType = publicType;
             this.boxedName = boxedName;
+            this.materializedType = materializedType;
+            this.storagePrimitiveName = storagePrimitiveName;
             this.columnType = columnType;
+            this.enumJavaType = enumJavaType;
+            this.enumModel = enumModel;
         }
 
-        private static PrimitiveTableType forKind(TypeKind kind) {
+        private static TableFieldType forKind(TypeKind kind) {
             switch (kind) {
                 case BOOLEAN: return type(kind, "boolean", "java.lang.Boolean", "BooleanColumn");
                 case BYTE: return type(kind, "byte", "java.lang.Byte", "ByteColumn");
@@ -1150,7 +1182,7 @@ public final class SomaProcessor extends AbstractProcessor {
             }
         }
 
-        private static PrimitiveTableType forBoxed(String javaType) {
+        private static TableFieldType forBoxed(String javaType) {
             if ("java.lang.Boolean".equals(javaType)) return forKind(TypeKind.BOOLEAN);
             if ("java.lang.Byte".equals(javaType)) return forKind(TypeKind.BYTE);
             if ("java.lang.Short".equals(javaType)) return forKind(TypeKind.SHORT);
@@ -1161,9 +1193,18 @@ public final class SomaProcessor extends AbstractProcessor {
             return null;
         }
 
-        private static PrimitiveTableType type(TypeKind kind, String primitive,
-                                                String boxed, String column) {
-            return new PrimitiveTableType(kind, primitive, boxed, column);
+        private static TableFieldType forEnum(TypeElement type, EnumModel enumModel) {
+            String javaType = type.getQualifiedName().toString();
+            return new TableFieldType(
+                    null, "enum:" + javaType, javaType, javaType, javaType,
+                    "int", "IntColumn", javaType, enumModel);
+        }
+
+        private static TableFieldType type(TypeKind kind, String primitive,
+                                           String boxed, String column) {
+            return new TableFieldType(
+                    kind, primitive, primitive, boxed, primitive, primitive,
+                    column, null, null);
         }
     }
 }

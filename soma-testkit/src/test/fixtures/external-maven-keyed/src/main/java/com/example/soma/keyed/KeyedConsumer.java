@@ -173,7 +173,6 @@ public final class KeyedConsumer {
             }
         });
     }
-
     private static void expectCode(String code, Action action) {
         try {
             action.run();

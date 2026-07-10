@@ -205,12 +205,13 @@ RowKey leaf values -> KeySpace -> RowSlot
 V1 至少支持以下 `KeySpace` 实现材料：
 
 - `SparseIntKeySpace`：bounded int id，使用 sparse-set-style `dense[] + sparse[]`；
-- `HashKeySpace`：int / long / generated composite key，使用 hash-based key lookup。
+- `HashKeySpace`：int / long / enum ordinal / generated composite key，使用 hash-based key lookup。
 
 `HashKeySpace` 至少支持：
 
 - int key -> `RowSlot`；
 - long key -> `RowSlot`；
+- enum key -> exact enum direct API、static cached member array 和 packed `int ordinal -> RowSlot`；
 - generated composite key -> `RowSlot`；
 - open addressing；
 - not-found sentinel；

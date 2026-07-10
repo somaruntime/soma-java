@@ -18,7 +18,7 @@ Public/internal compatibility 由 [Public API 与兼容性契约](public-api-com
 Table Direct API   = 精确 key/row-index boundary access
 Row Pipeline       = columnar row traversal + controlled mutation
 Key Pipeline       = stable key value traversal
-Column Pipeline    = primitive single-column traversal
+Column Pipeline    = primitive 或静态绑定 enum single-column traversal
 ColumnView         = explicitly borrowed live column access
 Materialization    = detached boundary, defined separately
 ```
@@ -176,7 +176,7 @@ Field-derived signature rules：required primitive getter返回 primitive；opti
 
 ### 2.2 Phase 1 exact Column API matrix
 
-每个已支持 primitive leaf `field` 都生成 `public com.hgtech.soma.runtime.BooleanColumnPipeline fieldValues()` 和 `public com.hgtech.soma.runtime.BooleanColumnView fieldColumn()`（Byte / Short / Int / Long / Float / Double 同理）；返回类型固定在 handwritten runtime package，不暴露 concrete column/bitmap/storage binding。
+每个已支持 primitive leaf `field` 都生成 `public com.hgtech.soma.runtime.BooleanColumnPipeline fieldValues()` 和 `public com.hgtech.soma.runtime.BooleanColumnView fieldColumn()`（Byte / Short / Int / Long / Float / Double 同理）；已落地 enum leaf 生成 `EnumColumnPipeline<E> fieldValues()` 与 `EnumColumnView<E> fieldColumn()`。返回类型固定在 handwritten runtime package，不暴露 concrete column/bitmap/storage binding。
 
 Pipeline 的唯一 Phase 1 terminal 是对应 primitive callback traversal：
 
@@ -187,6 +187,8 @@ public final class LongColumnPipeline { public void forEachLong(java.util.functi
 ```
 
 `BooleanConsumer`、`ByteConsumer`、`ShortConsumer`、`FloatConsumer` 是 `com.hgtech.soma.runtime` 的 primitive SAM，方法均为 `void accept(primitive value)`；它们不是 boxed `Consumer<T>` 替代品。Pipeline 在 terminal boundary 锁定当前 packed size，按 row-index ascending scan，不 materialize、不 acquire ColumnView、不创建 per-row callback/cursor/object；callback 返回前同 table 的任何 access/mutation 都受 reentrant lifecycle check 约束。required field 对每个 row调用一次；optional field 只对 present logical value 调用一次，absent payload 不进入 callback且不被解释为 primitive zero。`TableStats` 的该 terminal `scanned` 是扫描 rows，`matched` 是实际 callback value 数。
+
+enum pipeline 使用 `void forEach(Consumer<? super E>)`；其 `E` 来自 generated facade 在 class initialization 时一次性缓存的 enum member array，canonical storage 仍是 packed `int ordinal`。每 row 仅以 ordinal 下标读取该静态 array，不调用 `Enum.values()`、不分配 wrapper，也不退化为 `Object` column。enum view 的读取方法是 `E get(int rowIndex)`，并继承相同的 borrow、presence 与 lifecycle 规则。
 
 ColumnView 的 exact scalar shape 是 `public final class com.hgtech.soma.runtime.FloatColumnView implements AutoCloseable { public boolean isPresent(int rowIndex); public float getFloat(int rowIndex); public void close(); }`。
 
@@ -234,7 +236,7 @@ operations.delete(key);
 - `delete(key)` 是 structural mutation；
 - 修改 identity 只能 delete + insert。
 
-Generated direct parameter 使用 `@SomaKey` 的 materialized key type；primitive scalar 保持 primitive parameter，value key 保持对应 immutable `@SomaValue`。当前 primitive key binding 的 exact public shape 是 `boolean containsKey(K)`、`Optional<R> find(K)`、`R fetch(K)`、`XxxMutator mutate(K)`、`void delete(K)` 和 `XxxKeys keys()`，其中已落地的 `K` 为全部 seven primitive；后续 key breadth 只能按同一规则 additive binding，不能把已生成的 primitive direct API 迁移为 boxed/tuple lookup。
+Generated direct parameter 使用 `@SomaKey` 的 materialized key type；primitive scalar 保持 primitive parameter，enum 保持其 exact enum type，value key 保持对应 immutable `@SomaValue`。当前 primitive/enum key binding 的 exact public shape 是 `boolean containsKey(K)`、`Optional<R> find(K)`、`R fetch(K)`、`XxxMutator mutate(K)`、`void delete(K)` 和 `XxxKeys keys()`，其中已落地的 `K` 为全部 seven primitive 和 required enum；后续 value/composite breadth 只能按同一规则 additive binding，不能把已生成的 primitive direct API 迁移为 boxed/tuple lookup。
 
 ### 4.2 Dense table
 

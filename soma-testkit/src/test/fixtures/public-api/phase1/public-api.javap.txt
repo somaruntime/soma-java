@@ -229,8 +229,11 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, float, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, double, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, double, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, java.lang.Enum<?>, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, java.lang.Enum<?>, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidFloatingAccessValue(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
+  public static <E extends java.lang.Enum<E>> E requiredEnumValue(java.lang.String, java.lang.String, E, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException releasedView(java.lang.String, java.lang.String);
@@ -366,6 +369,20 @@ public final class com.hgtech.soma.runtime.DoubleColumnView extends com.hgtech.s
   public com.hgtech.soma.runtime.DoubleColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.DoubleColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public double getDouble(int);
+  public void close();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnPipeline
+Compiled from "EnumColumnPipeline.java"
+public final class com.hgtech.soma.runtime.EnumColumnPipeline<E extends java.lang.Enum<E>> extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+  public com.hgtech.soma.runtime.EnumColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String, E[]);
+  public void forEach(java.util.function.Consumer<? super E>);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnView
+Compiled from "EnumColumnView.java"
+public final class com.hgtech.soma.runtime.EnumColumnView<E extends java.lang.Enum<E>> extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
+  public com.hgtech.soma.runtime.EnumColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String, E[]);
+  public boolean isPresent(int);
+  public E get(int);
   public void close();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnPipeline

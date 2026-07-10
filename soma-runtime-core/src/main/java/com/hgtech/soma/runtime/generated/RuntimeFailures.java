@@ -99,6 +99,18 @@ public final class RuntimeFailures {
                 table, context("key", key), null);
     }
 
+    /** enum identity 使用声明成员名，绝不调用调用方可覆盖的 toString()。 */
+    public static SomaRuntimeException duplicateKey(String table, Enum<?> key, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "duplicate_key", operation,
+                table, context("key", key.name()), null);
+    }
+
+    /** enum identity 使用声明成员名，绝不调用调用方可覆盖的 toString()。 */
+    public static SomaRuntimeException missingKey(String table, Enum<?> key, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "missing_key", operation,
+                table, context("key", key.name()), null);
+    }
+
     public static SomaRuntimeException invalidFloatingAccessValue(
             String table, String field, String valueClass, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_floating_access_value", operation,
@@ -108,6 +120,14 @@ public final class RuntimeFailures {
     public static SomaRuntimeException invalidNullValue(String table, String field, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_null_value", operation,
                 table + "." + field, empty(), null);
+    }
+
+    public static <E extends Enum<E>> E requiredEnumValue(
+            String table, String field, E value, String operation) {
+        if (value == null) {
+            throw invalidNullValue(table, field, operation);
+        }
+        return value;
     }
 
     public static SomaRuntimeException missingRequiredField(String table, String field, String operation) {

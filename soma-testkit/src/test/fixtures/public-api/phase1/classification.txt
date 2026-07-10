@@ -37,6 +37,8 @@ PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnView
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteConsumer
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnPipeline
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnView
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnPipeline
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnView
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnPipeline
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnView
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatConsumer
