@@ -8,6 +8,8 @@
 - [Java V1 Phase 0 compiler/build checkpoint](java-v1-phase-0-compiler-build-report.md)
 - [Java V1 Phase 0 schema carrier construction 设计缺口](java-v1-phase-0-schema-carrier-design-gap.md)
 - [Java-only SOMA V1 G0 scope freeze](java-v1-g0-scope-freeze-report.md)
+- [Java-only SOMA V1 G4 generated API/package gate](java-v1-g4-package-smoke-report.md)
+- [Java-only SOMA V1 Phase 5 full breadth closeout](java-v1-phase-5-full-breadth-report.md)
 - [2026-07-10 Implementation-readiness 治理收尾](2026-07-10-implementation-readiness-governance-report.md)
 - [2026-07-10 Compiler integration feasibility](2026-07-10-compiler-integration-spike-report.md)
 

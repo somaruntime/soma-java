@@ -4,8 +4,8 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`d9ad752`
-当前 checkpoint：Phase 5 full capability breadth 与 G1–G4 closeout（连续实施中；阶段末集中验证/修复/报告/提交）
+当前 repository baseline：`060a6df`
+当前 checkpoint：Phase 6 formal scenarios、benchmark evidence 与 G5–G6 closeout（连续实施中；阶段末集中验证/修复/报告/提交）
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
 
@@ -23,10 +23,10 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | P2-B-S3 enum + semantic keyed binding | completed | commit `8d64122`；required enum static ordinal binding、enum Pipeline/View、DATE/TIME/DATE_TIME primitive semantic key external consumer；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B-4a scalar value key | completed | commit `f013bc1`；single-leaf immutable `@SomaValue` 直接绑定 primitive column/KeySpace，Batch/import 无 value allocation；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B keyed identity breadth / Key Pipeline | completed | commit `af8ba51`；flat/nested primitive、String、enum value leaves递归 flatten，generated full equality/hash、collision/compaction、staged atomic import、external consumer和完整 `check.sh` evidence；Capability仍待 Phase 5/G2/G3 closeout |
-| Phase 3 access structures | completed | commit `3292e7a`；selector/index/unique/order、primitive sidecar、mutation/lifecycle/stats、external oracle与shape evidence；见 Phase 3 report，Capability仍保持 `in-progress` |
-| Phase 4 child ownership | completed | commits `aaed474`、`d9ad752`；owned forest、recursive materialization/budget/stats、testkit oracle、exact generated manifest、external consumer与完整回归；见 Phase 4 report，Capability仍保持 `in-progress` |
-| Phase 5 full breadth + G1-G4 | in-progress | annotation/processor/codegen/runtime/incremental/compatibility closeout |
-| Phase 6 examples/benchmark/release + G5-G6 | pending | formal scenarios、Access Pattern Cards、JSONL benchmark、package、License/SCM/contact/provenance/reproducibility/support matrix |
+| Phase 3 access structures | completed | commit `3292e7a`；selector/index/unique/order、primitive sidecar、mutation/lifecycle/stats、external oracle与shape evidence；最终由 Phase 5/G1–G4 closeout统一推进 Capability 为 `evidenced` |
+| Phase 4 child ownership | completed | commits `aaed474`、`d9ad752`、`9547afb`；owned forest、recursive materialization/budget/stats、testkit oracle、exact generated manifest、external consumer与完整回归；最终由 Phase 5/G1–G4 closeout统一推进 Capability 为 `evidenced` |
+| Phase 5 full breadth + G1-G4 | completed | implementation commit `060a6df`；21项非Phase 6-only Capability均为`evidenced`；G1–G4 passed；见G1–G4与Phase 5 reports |
+| Phase 6 examples/benchmark/release + G5-G6 | in-progress | formal scenarios、Access Pattern Cards、JSONL benchmark、package、License/SCM/contact/provenance/reproducibility/support matrix |
 | Final total audit | pending | 23 Capability + G0-G6；仅此时 Goal completed |
 
 Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不改变唯一 Goal 的 active 状态，直到 G0-G6 全部通过。
@@ -42,42 +42,32 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 | P3 closeout | 集中验证与修复 | completed：compile/diagnostic/schema/public/generated/runtime/external consumer/oracle/shape/check.sh evidence、V1 non-regression、commit `3292e7a` 与 Phase 3 report | P4–P6 全部项 |
 | P4-A | child handle ownership | completed：List/Map exact child API、generation handle/identity registry、forest/share/reparent/cascade/replacement lifecycle | P5–P6 全部项 |
 | P4-B | recursive materialization | completed：two-pass shared budget/path/stats、overflow/cycle/allocation failure atomicity、detached graph oracle | P5–P6 全部项 |
-| P5-A | field/codegen breadth | string、value field、optional enum/value、defaults、direct/Writer final shape | incremental/diagnostic and compatibility closeout |
-| P5-B | compiler/processor closeout | invalid matrix、incremental/schema hash/public-generated compatibility evidence | examples/benchmark/release evidence |
+| P5-A | field/codegen breadth | completed：String/value/optional enum-value/defaults、direct/Writer与runtime shape；commit `060a6df` | P6 全部项 |
+| P5-B | compiler/processor closeout | completed：invalid matrix、incremental/schema hash/public-generated compatibility、G1–G4 reports | P6 全部项 |
 | P6-A | formal scenarios | Java 8 examples、Access Pattern Cards、external package use | benchmark/release evidence |
 | P6-B | benchmark evidence | canonical hot lanes、runner、structured JSONL and allocation/bytecode evidence | package/release evidence |
 | P6-C | G6 release evidence | package/license/SCM/contact/provenance/reproducibility/support matrix reports | final G0-G6 audit |
 
 ## 2. Capability status
 
-当前 21 项 Capability 为 `in-progress`，没有任何一项因垂直切片而被错误标记 completed。Phase 0 已进入的八项保持 `in-progress`：
+Phase 5 与 G1–G4 联合 closeout 后，以下21项 Capability均由`in-progress`推进为`evidenced`：
 
-- `V1-ANNOTATION-SCHEMA`；
-- `V1-COMPILER-LOWERING`；
-- `V1-PROCESSING-MODEL`；
-- `V1-SCHEMA-HASH`；
-- `V1-PUBLIC-COMPATIBILITY`；
-- `V1-SECURITY-INTEGRITY`；
-- `V1-EVIDENCE-TOOLING`；
-- `V1-CONSUMER-PACKAGE`。
+- `V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`；
+- `V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`、`V1-ACCESS-STRUCTURES`、`V1-MUTATION`；
+- `V1-CHILD-OWNERSHIP`、`V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`、`V1-SECURITY-INTEGRITY`；
+- `V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`。
 
-Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`：
-
-- `V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-MUTATION`；
-- `V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`。
-- `V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`。
-
-`V1-ACCESS-STRUCTURES` 已由 Phase 3、`V1-CHILD-OWNERSHIP` 已由 Phase 4 从 `not-started` 推进为 `in-progress`。其余两项仍为 `not-started`，并全部保留原完整出口：`V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE`。
+`V1-SCENARIO-BENCHMARK`已随Phase 6进入`in-progress`；`V1-RELEASE-EVIDENCE`仍为`not-started`，将在同一Phase 6的G6切片进入实施。两项都保留正式Ledger中的完整出口，没有被删除、optional化或移入其他版本。
 
 ## 3. Gate status
 
 | Gate | 状态 |
 |---|---|
 | G0 | passed |
-| G1 | not-started |
-| G2 | not-started |
-| G3 | not-started |
-| G4 | not-started |
+| G1 | passed |
+| G2 | passed |
+| G3 | passed |
+| G4 | passed |
 | G5 | not-started |
 | G6 | not-started |
 
@@ -95,19 +85,21 @@ Phase 3 access structures 已完成集中 validation/fix/独立复核并形成 c
 
 Phase 4 parent-owned child 与 recursive materialization 已完成集中 validation/fix/独立复核并形成 commits `aaed474`、`d9ad752` 与 `reports/java-v1-phase-4-child-materialization-report.md`。`V1-CHILD-OWNERSHIP` 仍保持 `in-progress`，等待 Phase 5/G2/G3 总体验证，不把 checkpoint 冒充 Capability closeout。
 
-当前 checkpoint：Phase 5 full capability breadth 与 G1–G4 closeout连续实施。按加速策略，field/default breadth、processor/codegen diagnostics/incremental hardening、public/generated compatibility、fusion/allocation shape和Gate evidence不拆成等待确认；实现主体连续完成后统一集中测试和修复。
+Phase 5已由commit `060a6df`及G1–G4/Phase 5 reports完成集中验证和关闭；前21项Capability均为`evidenced`，没有temporary contract、future migration或canonical hot-path rewrite。
 
-涉及 Capability：除仍由 Phase 6 首次进入的 `V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE` 外的全部 21 项 `in-progress` Capability；任何状态只能推进为有正式 Gate evidence支撑的 `evidenced`，不能回退或删除。
+当前 checkpoint：Phase 6 formal scenarios、benchmark evidence与release readiness连续实施。按加速策略，先一次性完成场景/runner/release artifact主体，再在阶段末集中执行G5/G6测试、修复、报告和最终审计。
 
-唯一 Owner：各 annotation/schema/compiler/generated API/materialization/TableStore/lifecycle/errors/plan/performance/security/testkit/build/public compatibility Owner继续只拥有其正式职责；Phase 5不建立联合 Owner，也不把 evidence helper变成产品语义 Owner。
+涉及 Capability：`V1-SCENARIO-BENCHMARK`（`not-started` → `in-progress`）与`V1-RELEASE-EVIDENCE`（当前`not-started`，在G6切片进入`in-progress`）；前21项`evidenced` Capability作为不可回退的consumer/runtime foundation。
 
-Phase exit：Capability Ledger中前21项 capability的V1 breadth全部实现并由G1–G4 evidence关闭；annotation/processor/compiler/generated/runtime contracts、diagnostic/incremental/public compatibility、fusion/allocation shape与external consumer不存在缺口或temporary path；到V1无需迁移public/generated API、核心事实或canonical hot path。
+唯一 Owner：`soma-examples`拥有formal scenarios和Access Pattern Cards；`soma-benchmarks`拥有benchmark lanes/runner artifact；root build/version/security/validation Owners拥有package、License、SCM/contact、provenance、support matrix和release sign-off。Phase 6不建立联合Owner。
 
-仍保留的 V1 breadth：formal examples/Access Pattern Cards、benchmark JSONL、package、License/SCM/contact/provenance/reproducibility/support matrix，全部仍在原 Phase 6/G5–G6；Phase 5内部未实现项继续保留在当前 checkpoint，不能移出 V1。
+Phase exit：四个formal Java 8 scenarios与FJSP E2E可运行；全部required benchmark smoke lanes产出结构化JSONL；G5 passed；License/release metadata、community/security、source/javadoc/checksum/provenance、reproducibility、compatibility/support matrix、known limitations、rollback/withdrawal均有可核验证据并使G6 passed；23项Capability全部`evidenced`且无需迁移public/generated API、核心事实或canonical hot path。
 
-禁止捷径：缩小 field/default/diagnostic/incremental breadth、temporary public/generated facade、metadata/reflection interpreter、List/DTO live storage、Stream/boxing/per-row allocation hot path、test-only bypass、只用已有 happy-path fixture冒充 full Gate、为通过 Gate反改 Owner/Ledger/claim。
+仍保留的V1 breadth：在Phase 6完成前，上述任何examples/benchmark/G6 evidence均不得删除、缩水或延后到RC之后；RC必须包含完整V1 scope与G0–G5 evidence，总Goal仅在G0–G6全部通过后完成。
 
-计划 evidence：完整 valid/invalid compile matrix、canonical schema/hash/incremental repeatability、exact public/generated API、runtime invariant/differential/failure/lifecycle、fusion/bytecode/allocation shape、external Maven consumer、G1–G4 reports与阶段末`./scripts/check.sh`。
+禁止捷径：场景stub/demo、test-only generated facade、只跑happy-path、只输出空JSONL、把micro smoke写成性能优势、用本机结果外推support matrix、placeholder联系/安全渠道、缺失License/source/javadoc/checksum/provenance、SNAPSHOT冒充immutable release、为发布反改Owner/Ledger/Gate/claim。
+
+计划evidence：四场景compile/run与Access Pattern Card、FJSP request→loader→generated tables→solver→export、错误/lifecycle/stats、required benchmark lane JSONL/schema validation、package/external consumer/source/javadoc/checksum、dependency/license/security scan、reproducibility双构建、支持矩阵与G5/G6 reports、阶段末`./scripts/check.sh`。
 
 ### 4.3 已完成 P2-A int keyed identity vertical slice
 
@@ -226,16 +218,16 @@ Slice exit：
 - Phase 1 新增了真实 annotations/runtime/processor/generated facade、primitive/presence storage、atomic update、materialization、public/schema golden和external consumer evidence；Capability只推进到 `in-progress`；
 - P2-A/P2-B-S1/S2/S3 新增最终 seven primitive、semantic scalar和required enum `@SomaKey`、packed primitive/ordinal KeySpace binding、direct/Key Pipeline、no-key-setter contract、enum Column Pipeline/View和compaction repair；Capability只推进到 `in-progress`；
 - P2-B-4完成flat/nested primitive、String、enum value key的recursive leaf binding、raw-hash/full-equality composite probe、staged atomic import、Key Pipeline与collision/compaction evidence；Capability仍只保持`in-progress`；
-- 当前方案是最终 V1架构的有效子集，后续必须additive completion或contract-preserving internal refinement；P1-S2 固化 `RemoveResult` / remove，P1-S3 固化 typed Column Pipeline/View和borrow lifecycle，Phase 2固化primitive/enum/value/composite direct key API、floating canonicalization、ordinal/reference leaf binding与full equality，不引入未来迁移契约；
+- Phase 5已将前21项Capability统一关闭为`evidenced`；当前方案是最终V1架构的有效子集，Phase 6必须additive completion或contract-preserving internal refinement，不允许回退既有public/generated/runtime契约；
 - 尚未引入temporary public/generated API、temporary hot path、migration或rewrite。
 
 ## 7. Latest validation record
 
-- commit/artifact：`d9ad752`（Phase 4主体 `aaed474`）；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor`、`soma-testkit` `0.1.0-SNAPSHOT`；external artifact `external-maven-child-phase4-consumer-1.0.0-SNAPSHOT.jar`，以及 Phase 0–3 external artifacts；
-- 完整命令：`./scripts/check-child-phase4.sh`、`./scripts/check-runtime-core-phase1.sh`、`./scripts/check-testkit-phase4.sh`、`./scripts/check-table-diagnostics-phase1.sh`、`./scripts/check-public-api.sh`、`./scripts/check-generated-dense-phase1.sh`、`./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-access-phase3.sh`、`git diff --check`、`./scripts/check.sh`；
+- commit/artifact：`060a6df`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor`、`soma-testkit` `0.1.0-SNAPSHOT`；external artifact `external-maven-breadth-phase5-consumer-1.0.0-SNAPSHOT.jar`及Phase 0–4 external artifacts；
+- 完整命令：`./scripts/check-value-modifiers-phase5.sh`、`./scripts/check-defaults-phase5.sh`、`./scripts/check-breadth-phase5.sh`、`./scripts/check-public-api.sh`、`./scripts/check-compiler-phase0.sh`、`./scripts/check-runtime-core-phase1.sh`、`./scripts/check-keyspace-phase2.sh`、`./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-access-phase3.sh`、`./scripts/check-child-phase4.sh`、`./scripts/check-testkit-phase4.sh`、`./scripts/check-table-diagnostics-phase1.sh`、`./scripts/check-generated-dense-phase1.sh`、`./scripts/check-external-consumer.sh`、`./mvnw -B -ntp verify`、`git diff --check`、`./scripts/check.sh`；
 - JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
 - Maven Wrapper：Apache Maven `3.9.16`；
 - OS/architecture：macOS `26.5.2`、`aarch64`；
-- 结果：Phase 0–3 evidence保持通过；Phase 4 owned child forest、cascade/replacement/compaction/pin、recursive List/Map materialization、五维budget/overflow/cycle/allocation/carrier failure atomicity、exact estimator、45-type generated manifest、schema/hash、testkit comparator、external consumer和完整 `check.sh` 全部通过；
+- 结果：Phase 0–4 regression、Phase 5 defaults/value modifiers/full breadth、processor/codegen/runtime/public API、external consumer、incremental/locale repeat、19-type generated manifest、Java 8 major 52和完整`check.sh`全部通过，最终输出`project-check: ok`；完整breadth evidence为`target/phase5-breadth.K7CTTu`，最后targeted rerun为`target/phase5-breadth.YJbpHd`；
 - 跳过：unsupported-javac negative lane（未设置 `SOMA_UNSUPPORTED_JAVAC`）；
-- known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；unsupported-javac negative lane未执行；G1-G6仍未关闭，Phase 5–6仍属于同一V1 Goal。
+- known limitation：该结果只表示上述本机环境通过，不能外推正式support matrix；unsupported-javac negative lane未执行；G5/G6尚未关闭，Phase 6仍属于同一V1 Goal，不能声明RC或release ready。
