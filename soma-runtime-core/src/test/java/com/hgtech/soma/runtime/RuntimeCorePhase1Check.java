@@ -1,6 +1,7 @@
 package com.hgtech.soma.runtime;
 
 import com.hgtech.soma.runtime.generated.ColumnGroup;
+import com.hgtech.soma.runtime.generated.ChildOwnershipRegistry;
 import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.GeneratedMetadata;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
@@ -10,6 +11,7 @@ import com.hgtech.soma.runtime.generated.MaterializationTracker;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
 import com.hgtech.soma.runtime.generated.RowPermutationSidecar;
+import com.hgtech.soma.runtime.generated.OwnedChildTable;
 
 import java.util.Locale;
 import java.util.Random;
@@ -23,6 +25,8 @@ public final class RuntimeCorePhase1Check {
     public static void main(String[] args) {
         testCanonicalIdentityIsLocaleIndependent();
         testPlanReplacementChangesIdentity();
+        testChildPlanIdentity();
+        testChildOwnershipRegistry();
         testCompatibilityBoundary();
         testDenseColumnsLifecycleAndStats();
         testStructuralRemoveStateTransition();
@@ -67,6 +71,169 @@ public final class RuntimeCorePhase1Check {
         assertFalse(original.runtimePlanHash().equals(changed.runtimePlanHash()),
                 "effective plan changes must change runtimePlanHash");
         assertEquals(64, changed.requireTable("Order").initialCapacity(), "replacement must be effective");
+    }
+
+    private static void testChildPlanIdentity() {
+        final ChildPlan lines = ChildPlan.create("Order", "lines", "Line", 4);
+        RuntimePlan base = RuntimePlan.builder(
+                "schema-v1",
+                RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                RuntimeCompatibility.GENERATED_PROTOCOL,
+                RuntimeCompatibility.PLAN_PROTOCOL,
+                RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(defaultTablePlan())
+                .addTable(TablePlan.builder("Line", RuntimeCompatibility.DENSE_ALGORITHM)
+                        .initialCapacity(8).growthRatio(3, 2)
+                        .maximumUpdateScratchBytes(1024L).build())
+                .addChild(lines)
+                .build();
+        assertEquals(4, base.requireChild("Order", "lines").initialCapacity(),
+                "child plan capacity");
+        assertEquals("{\"childField\":\"lines\",\"childTable\":\"Line\","
+                        + "\"initialCapacity\":4,\"ownerTable\":\"Order\"}",
+                lines.toCanonicalJson(), "child plan canonical key order");
+        assertFalse(ChildPlan.identity("a", "b\u0000c")
+                        .equals(ChildPlan.identity("a\u0000b", "c")),
+                "child-plan composite identity must be collision-free");
+        RuntimePlan changed = base.toBuilder().replaceChild(
+                ChildPlan.create("Order", "lines", "Line", 6)).build();
+        assertFalse(base.runtimePlanHash().equals(changed.runtimePlanHash()),
+                "child plan change must change runtimePlanHash");
+        assertEquals(1, changed.children().size(), "child plan list");
+
+        expectCode("invalid_runtime_plan", new ThrowingRunnable() {
+            @Override public void run() {
+                base.toBuilder().addChild(lines);
+            }
+        });
+        expectCode("invalid_runtime_plan", new ThrowingRunnable() {
+            @Override public void run() {
+                RuntimePlan.builder(
+                        "schema-v1",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                        .addTable(defaultTablePlan())
+                        .addChild(ChildPlan.create("Order", "lines", "Missing", 4))
+                        .build();
+            }
+        });
+        expectCode("invalid_runtime_plan", new ThrowingRunnable() {
+            @Override public void run() {
+                base.requireChild("Order", "missing");
+            }
+        });
+        try {
+            ChildPlan.create("", "lines", "Line", 4);
+            throw new AssertionError("empty child-plan owner must fail");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+        try {
+            ChildPlan.create("Order", "lines", "Line", 0);
+            throw new AssertionError("non-positive child capacity must fail");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+        try {
+            base.children().add(lines);
+            throw new AssertionError("child plan list must be immutable");
+        } catch (UnsupportedOperationException expected) {
+            // expected
+        }
+    }
+
+    private static void testChildOwnershipRegistry() {
+        ChildOwnershipRegistry registry = new ChildOwnershipRegistry();
+        long owner = registry.newOwnerToken();
+        final boolean[] released = new boolean[1];
+        OwnedChildTable lifecycle = new OwnedChildTable() {
+            @Override public boolean hasPinnedSubtree() { return false; }
+            @Override public void releaseOwnedSubtree(boolean aggregateRelease) {
+                released[0] = true;
+            }
+            @Override public long subtreeChildInstanceCount() { return 0L; }
+            @Override public long subtreeDescendantRowCount() { return 2L; }
+        };
+        Object child = new Object();
+        long handle = registry.stage(owner, "lines", "Order.lines", child, lifecycle);
+        registry.publish(handle, owner, "lines");
+        assertTrue(registry.resolve(handle, owner, "lines", "test") == child,
+                "child registry resolve");
+        assertEquals(2L, registry.descendantRowCount(handle, owner, "lines"),
+                "child registry rows");
+        expectCode("child_wrong_owner", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.resolve(handle, owner + 1L, "lines", "test");
+            }
+        });
+        expectCode("child_wrong_owner", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.resolve(handle, owner, "otherLines", "test");
+            }
+        });
+        expectCode("ownership_cycle", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.stage(registry.newOwnerToken(), "otherLines",
+                        "Other.lines", child, lifecycle);
+            }
+        });
+
+        registry.beginMaterialization("materialize");
+        expectCode("reentrant_access", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.preflightMutation("child.replace");
+            }
+        });
+        expectCode("reentrant_access", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.beginMaterialization("materialize.nested");
+            }
+        });
+        registry.endMaterialization();
+        registry.preflightMutation("child.replace");
+        expectCode("internal_invariant_violation", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.endMaterialization();
+            }
+        });
+
+        registry.release(handle, owner, "lines", "test", false);
+        assertTrue(released[0], "child release callback");
+        expectCode("child_released", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.resolve(handle, owner, "lines", "test");
+            }
+        });
+        long replacement = registry.stage(owner, "lines", "Order.lines", child, lifecycle);
+        registry.publish(replacement, owner, "lines");
+        assertFalse(handle == replacement, "reused child slot must advance generation");
+        expectCode("child_dangling", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.resolve(handle, owner, "lines", "test");
+            }
+        });
+
+        final int entryCount = 48;
+        long[] owners = new long[entryCount];
+        long[] handles = new long[entryCount];
+        Object[] children = new Object[entryCount];
+        for (int i = 0; i < entryCount; i++) {
+            owners[i] = registry.newOwnerToken();
+            children[i] = new Object();
+            handles[i] = registry.stage(owners[i], "items", "Root.items",
+                    children[i], lifecycle);
+            registry.publish(handles[i], owners[i], "items");
+        }
+        for (int i = 0; i < entryCount; i++) {
+            assertTrue(registry.resolve(handles[i], owners[i], "items", "test")
+                            == children[i],
+                    "registry growth preserves entry " + i);
+        }
+        for (int i = 0; i < entryCount; i++) {
+            registry.release(handles[i], owners[i], "items", "test", true);
+        }
     }
 
     private static void testCompatibilityBoundary() {
@@ -326,6 +493,29 @@ public final class RuntimeCorePhase1Check {
                 zeroDepth.checkOwnershipDepth(1);
             }
         });
+        final MaterializationTracker overflow = new MaterializationTracker(
+                MaterializationBudget.builder()
+                        .maximumOwnershipDepth(Integer.MAX_VALUE)
+                        .maximumTableInstances(Long.MAX_VALUE)
+                        .maximumRows(Long.MAX_VALUE)
+                        .maximumLeafValues(Long.MAX_VALUE)
+                        .maximumEstimatedAllocationBytes(Long.MAX_VALUE)
+                        .build(), "root");
+        overflow.addRows(1L);
+        expectCode("materialization_budget_exceeded", new ThrowingRunnable() {
+            @Override public void run() { overflow.addRows(Long.MAX_VALUE); }
+        });
+        Object root = new Object();
+        Object child = new Object();
+        tracker.enterOwnership(root, "root");
+        tracker.enterOwnership(child, "root.child");
+        expectCode("ownership_cycle", new ThrowingRunnable() {
+            @Override public void run() {
+                tracker.enterOwnership(root, "root.child.root");
+            }
+        });
+        tracker.exitOwnership(child, "root.child");
+        tracker.exitOwnership(root, "root");
     }
 
     private static void testBoundedFailureEnvelope() {

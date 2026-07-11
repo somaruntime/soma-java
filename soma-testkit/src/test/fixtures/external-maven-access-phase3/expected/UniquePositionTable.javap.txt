@@ -14,11 +14,13 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public void release();
   public com.example.soma.access.UniquePosition fetchAt(int);
   public com.example.soma.access.UniquePosition fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.access.UniquePosition> materialize();
-  public java.util.List<com.example.soma.access.UniquePosition> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<java.lang.Integer, com.example.soma.access.UniquePosition> materialize();
+  public java.util.Map<java.lang.Integer, com.example.soma.access.UniquePosition> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(int);
   public java.util.Optional<com.example.soma.access.UniquePosition> find(int);
+  public java.util.Optional<com.example.soma.access.UniquePosition> find(int, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.UniquePosition fetch(int);
+  public com.example.soma.access.UniquePosition fetch(int, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.generated.UniquePositionMutator mutate(int);
   public void delete(int);
   public com.example.soma.access.generated.UniquePositionKeys keys();
@@ -33,8 +35,11 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public boolean noneMatch(com.example.soma.access.generated.UniquePositionRows$Predicate);
   public void forEach(com.example.soma.access.generated.UniquePositionRows$Consumer);
   public java.util.Optional<com.example.soma.access.UniquePosition> findFirst();
+  public java.util.Optional<com.example.soma.access.UniquePosition> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.UniquePosition firstOrThrow();
+  public com.example.soma.access.UniquePosition firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.access.UniquePosition> fetchAll();
+  public java.util.List<com.example.soma.access.UniquePosition> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.UniquePositionRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();

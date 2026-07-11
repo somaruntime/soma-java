@@ -16,7 +16,7 @@ Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime 
 
 Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
 
-首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`ObjectColumn<T>`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。Concrete column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
+首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`ObjectColumn<T>`、`PresenceBitmap`、`MaterializationTracker`、`MaterializationAllocation`、`ChildOwnershipRegistry`、`OwnedChildTable`、`SparseIntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。`MaterializationAllocation` 是 materialization boundary 的scoped controlled allocation admission protocol，不进入row/storage hot path。Concrete column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
 
 Exact current protocol matrix（Phase 1 + Phase 2 + Phase 3 access structures，全部位于 `com.hgtech.soma.runtime.generated`）：
 
@@ -53,6 +53,9 @@ DenseTableState.sidecarRebuildCount -> long
 DenseTableState.checkActive(String operation) -> void
 DenseTableState.checkRowIndex(int rowIndex, String operation) -> int
 DenseTableState.beginOperation(String operation) -> void
+DenseTableState.beginMaterialization/beginOperationMaterialization(String operation) -> void
+DenseTableState.preflightStructuralOperation(String operation) -> void
+DenseTableState.endMaterializationSuccess/endMaterializationFailure(MaterializationTracker) -> void
 DenseTableState.endOperationSuccess(String operation, long scanned, long matched, long changed) -> void
 DenseTableState.endOperationFailure(String operation, long scanned, long matched, String errorCode) -> void
 DenseTableState.abortOperation(String operation) -> void
@@ -61,16 +64,21 @@ DenseTableState.commitAppend(int expectedStartRow, int count) -> void
 DenseTableState.prepareReplace(int newSize) -> int previousSize
 DenseTableState.commitReplace(int expectedPreviousSize, int newSize) -> void
 DenseTableState.prepareClear() -> int previousSize
+DenseTableState.prepareChildChange/commitChildChange(String operation) -> void
 DenseTableState.prepareRelease() -> int previousSize
 DenseTableState.commitClear(int expectedPreviousSize) -> void
 DenseTableState.commitRelease(int expectedPreviousSize) -> void
+DenseTableState.markOwned(String path)/rejectOwnedRelease(String operation) -> void
+DenseTableState.isOwned/hasPinnedBorrow -> boolean
+DenseTableState.commitOwnedRelease(boolean aggregateRelease) -> void
 DenseTableState.updateScratch(long currentBytes, long highWaterBytes) -> void
 DenseTableState.sidecarsDirtied(long distinctSidecars) -> void
 DenseTableState.sidecarRebuilt(long rows) -> void
 DenseTableState.sidecarScratch(long currentBytes, long highWaterBytes) -> void
 DenseTableState.updateResult(long scanned, long matched, long changed,
   long sidecarMaintained, long sidecarRebuilt) -> UpdateResult
-DenseTableState.statsSnapshot() -> TableStats; resetStats() -> void
+DenseTableState.statsSnapshot() / statsSnapshot(long childInstances, long descendantRows)
+  -> TableStats; resetStats() -> void
 
 SparseIntKeySpace(int maximumKey); size()/contains(int)/rowOf(int)
 SparseIntKeySpace.put(int key, int rowSlot)/removeAt(int rowSlot)/clear() -> void
@@ -97,8 +105,26 @@ KeyCanonicalization.strictFloatStorage/strictDoubleStorage(...) -> canonical flo
 
 MaterializationTracker(MaterializationBudget, String rootPath)
 MaterializationTracker.addTableInstances/addRows/addLeafValues/addEstimatedBytes(long) -> void
+MaterializationTracker.checkOwnershipDepth(int, String path) -> void
+MaterializationTracker.addTableInstances/addRows/addLeafValues/addEstimatedBytes(
+  long, String path) -> void
+MaterializationTracker.addListAllocation(int, String path) -> void
+MaterializationTracker.addMapAllocation(int, boolean boxedPrimitiveKeys, String path) -> void
+MaterializationTracker.addOptionalAllocation(boolean present, String path) -> void
 MaterializationTracker.budgetIdentity() -> String
-MaterializationTracker.estimatedBytes/rows/leafValues/tableInstances -> long
+MaterializationTracker.estimatedBytes/rows/leafValues/tableInstances -> long;
+  maximumDepth -> int
+MaterializationTracker.enterOwnership/exitOwnership(Object identity, String path) -> void
+MaterializationAllocation.installForCurrentThread(Provider) -> Scope
+MaterializationAllocation.preflight(String phase, long estimatedBytes, String path) -> void
+MaterializationAllocation.Provider.allow(String phase, long estimatedBytes, String path)
+  -> boolean
+MaterializationAllocation.Scope.close() -> void
+ChildOwnershipRegistry.beginMaterialization/endMaterialization/preflightMutation/
+  newOwnerToken/stage/publish/discardStaged/resolve/preflightPinned/release/
+  childInstanceCount/descendantRowCount/hasPinned
+OwnedChildTable.hasPinnedSubtree/releaseOwnedSubtree/subtreeChildInstanceCount/
+  subtreeDescendantRowCount
 ```
 
 `HashIntKeySpace` / `HashLongKeySpace` 的 `remove` 只写 tombstone，不在 remove/packed compaction 内触发 rehash/allocation；generated keyed delete 先移除 deleted key，再在同一 structural commit 前逐 survivor 调用 `updateRow` 修复移动后的 slot。rehash 只能发生在后续 insert/growth boundary，不能留下对已提交 row 的 stale locator。

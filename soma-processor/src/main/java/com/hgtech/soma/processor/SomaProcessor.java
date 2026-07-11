@@ -1,6 +1,7 @@
 package com.hgtech.soma.processor;
 
 import com.hgtech.soma.annotation.SomaField;
+import com.hgtech.soma.annotation.SomaChild;
 import com.hgtech.soma.annotation.SomaIgnore;
 import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaIndexes;
@@ -35,6 +36,7 @@ import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
@@ -65,6 +67,7 @@ import java.util.TreeMap;
         "com.hgtech.soma.annotation.SomaSchema",
         "com.hgtech.soma.annotation.SomaValue",
         "com.hgtech.soma.annotation.SomaTable",
+        "com.hgtech.soma.annotation.SomaChild",
         "com.hgtech.soma.annotation.SomaKey",
         "com.hgtech.soma.annotation.SomaOptional",
         "com.hgtech.soma.annotation.SomaIndex",
@@ -124,6 +127,7 @@ public final class SomaProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
+        validateChildPlacement(roundEnvironment.getElementsAnnotatedWith(SomaChild.class));
         validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaIndex.class));
         validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaIndexes.class));
         validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaUnique.class));
@@ -155,6 +159,19 @@ public final class SomaProcessor extends AbstractProcessor {
             finishProcessing();
         }
         return false;
+    }
+
+    private void validateChildPlacement(Set<? extends Element> elements) {
+        for (Element element : elements) {
+            Element owner = element.getEnclosingElement();
+            if (element.getKind() == ElementKind.FIELD
+                    && owner != null
+                    && owner.getAnnotation(SomaTable.class) != null) {
+                continue;
+            }
+            error(element, "SOMA-TABLE-010",
+                    "@SomaChild is only valid on direct @SomaTable fields");
+        }
     }
 
     private void validateSelectorPlacement(Set<? extends Element> elements) {
@@ -233,6 +250,7 @@ public final class SomaProcessor extends AbstractProcessor {
         validateSchemaNames(schemas);
         for (SchemaModel schema : schemas.values()) {
             validateValueGraph(schema);
+            validateOwnershipGraph(schema);
         }
         if (hasErrors) {
             return;
@@ -283,10 +301,12 @@ public final class SomaProcessor extends AbstractProcessor {
             VariableElement field = (VariableElement) enclosed;
             SomaField fieldAnnotation = field.getAnnotation(SomaField.class);
             SomaKey keyAnnotation = field.getAnnotation(SomaKey.class);
+            SomaChild childAnnotation = field.getAnnotation(SomaChild.class);
             SomaIgnore ignore = field.getAnnotation(SomaIgnore.class);
             SomaOptional optional = field.getAnnotation(SomaOptional.class);
             if (field.getModifiers().contains(Modifier.STATIC)) {
-                if (fieldAnnotation != null || keyAnnotation != null || ignore != null || optional != null) {
+                if (fieldAnnotation != null || keyAnnotation != null || childAnnotation != null
+                        || ignore != null || optional != null) {
                     error(field, "SOMA-TABLE-003",
                             "static field cannot declare SOMA table annotations");
                     valid = false;
@@ -294,10 +314,12 @@ public final class SomaProcessor extends AbstractProcessor {
                 continue;
             }
             int primaryRoles = (fieldAnnotation == null ? 0 : 1)
-                    + (keyAnnotation == null ? 0 : 1) + (ignore == null ? 0 : 1);
+                    + (keyAnnotation == null ? 0 : 1)
+                    + (childAnnotation == null ? 0 : 1)
+                    + (ignore == null ? 0 : 1);
             if (primaryRoles > 1) {
                 error(field, "SOMA-TABLE-003",
-                        "@SomaField, @SomaKey and @SomaIgnore are mutually exclusive");
+                        "@SomaField, @SomaKey, @SomaChild and @SomaIgnore are mutually exclusive");
                 valid = false;
                 continue;
             }
@@ -309,9 +331,9 @@ public final class SomaProcessor extends AbstractProcessor {
                 }
                 continue;
             }
-            if (fieldAnnotation == null && keyAnnotation == null) {
+            if (fieldAnnotation == null && keyAnnotation == null && childAnnotation == null) {
                 error(field, "SOMA-TABLE-003",
-                        "table instance field must declare @SomaField, @SomaKey or @SomaIgnore");
+                        "table instance field must declare @SomaField, @SomaKey, @SomaChild or @SomaIgnore");
                 valid = false;
                 continue;
             }
@@ -323,8 +345,11 @@ public final class SomaProcessor extends AbstractProcessor {
             }
 
             boolean key = keyAnnotation != null;
-            String annotationName = key ? keyAnnotation.name() : fieldAnnotation.name();
-            SomaSemantic annotationSemantic = key ? keyAnnotation.semantic() : fieldAnnotation.semantic();
+            boolean child = childAnnotation != null;
+            String annotationName = key ? keyAnnotation.name()
+                    : child ? childAnnotation.name() : fieldAnnotation.name();
+            SomaSemantic annotationSemantic = child ? SomaSemantic.NONE
+                    : key ? keyAnnotation.semantic() : fieldAnnotation.semantic();
             String fieldLogicalName = annotationName.isEmpty()
                     ? field.getSimpleName().toString() : annotationName;
             if (fieldLogicalName.length() > 128
@@ -336,9 +361,30 @@ public final class SomaProcessor extends AbstractProcessor {
                 valid = false;
             }
 
-            TableFieldType tableType = tableFieldType(
+            ChildFieldType childType = child
+                    ? childFieldType(type, field, childAnnotation) : null;
+            TableFieldType tableType = child ? null : tableFieldType(
                     field.asType(), optional != null, key, validatedValues);
+            if (child && childType == null) {
+                valid = false;
+                continue;
+            }
             if (tableType == null) {
+                if (child) {
+                    fields.add(new TableFieldModel(
+                            field.getSimpleName().toString(), fieldLogicalName,
+                            SomaSemantic.NONE.name(), null, childType,
+                            optional != null, false));
+                    if (!registerGeneratedChildAccessNames(
+                            generatedAccessNames, field.getSimpleName().toString(),
+                            optional != null)) {
+                        error(field, "SOMA-GEN-001",
+                                "generated child access name collision for field: "
+                                        + field.getSimpleName());
+                        valid = false;
+                    }
+                    continue;
+                }
                 error(field, "SOMA-TABLE-005",
                         "table binding supports required primitive/enum/value fields "
                                 + "and optional boxed primitives: "
@@ -369,7 +415,7 @@ public final class SomaProcessor extends AbstractProcessor {
             }
             fields.add(new TableFieldModel(
                     field.getSimpleName().toString(), fieldLogicalName,
-                    annotationSemantic.name(), tableType, optional != null, key));
+                    annotationSemantic.name(), tableType, null, optional != null, key));
         }
         if (fields.isEmpty()) {
             error(type, "SOMA-TABLE-001", "@SomaTable requires at least one schema field");
@@ -475,6 +521,7 @@ public final class SomaProcessor extends AbstractProcessor {
     private SelectorLeafModel resolveSelectorLeaf(
             List<TableFieldModel> fields, String path, String direction) {
         for (TableFieldModel field : fields) {
+            if (field.child != null) continue;
             if (field.optional) continue;
             if (field.type.valueJavaType == null) {
                 if (field.logicalName.equals(path)
@@ -501,6 +548,7 @@ public final class SomaProcessor extends AbstractProcessor {
             List<TableFieldModel> fields, String path) {
         List<String> candidates = new ArrayList<String>();
         for (TableFieldModel field : fields) {
+            if (field.child != null) continue;
             candidates.add(field.logicalName);
             if (field.logicalName.equals(path) && field.optional) {
                 return "selector path is optional and cannot be indexed: " + path;
@@ -542,6 +590,122 @@ public final class SomaProcessor extends AbstractProcessor {
             }
         }
         return unique;
+    }
+
+    private boolean registerGeneratedChildAccessNames(
+            Set<String> names, String javaName, boolean optional) {
+        String capitalized = Character.toUpperCase(javaName.charAt(0))
+                + javaName.substring(1);
+        List<String> derived = new ArrayList<String>();
+        derived.add(javaName);
+        derived.add("replace" + capitalized);
+        if (optional) {
+            derived.add(javaName + "Present");
+            derived.add(javaName + "OrThrow");
+            derived.add("ensure" + capitalized);
+            derived.add("unset" + capitalized);
+        }
+        boolean unique = true;
+        for (String name : derived) {
+            if (!names.add(name)) unique = false;
+        }
+        return unique;
+    }
+
+    private ChildFieldType childFieldType(
+            TypeElement owner,
+            VariableElement field,
+            SomaChild annotation) {
+        int initialCapacity = annotation.initialCapacity();
+        if (initialCapacity == 0 || initialCapacity < -1) {
+            error(field, "SOMA-TABLE-007",
+                    "invalid child initialCapacity: " + initialCapacity);
+            return null;
+        }
+        TypeMirror mirror = field.asType();
+        if (mirror.getKind() != TypeKind.DECLARED) {
+            error(field, "SOMA-TABLE-010",
+                    "child field must be exact java.util.List<R> or java.util.Map<K,R>");
+            return null;
+        }
+        DeclaredType declared = (DeclaredType) mirror;
+        Element rawElement = declared.asElement();
+        if (!(rawElement instanceof TypeElement)) return invalidChild(field, "invalid child container");
+        String raw = ((TypeElement) rawElement).getQualifiedName().toString();
+        List<? extends TypeMirror> arguments = declared.getTypeArguments();
+        boolean list = "java.util.List".equals(raw);
+        boolean map = "java.util.Map".equals(raw);
+        if ((!list && !map) || arguments.size() != (list ? 1 : 2)) {
+            return invalidChild(field,
+                    "child field must be exact parameterized java.util.List or java.util.Map");
+        }
+        TypeMirror rowMirror = arguments.get(list ? 0 : 1);
+        if (rowMirror.getKind() != TypeKind.DECLARED
+                || !((DeclaredType) rowMirror).getTypeArguments().isEmpty()) {
+            return invalidChild(field, "child row type must be a non-generic @SomaTable class");
+        }
+        Element rowElement = ((DeclaredType) rowMirror).asElement();
+        if (!(rowElement instanceof TypeElement)
+                || rowElement.getAnnotation(SomaTable.class) == null) {
+            return invalidChild(field, "child row type must declare @SomaTable");
+        }
+        TypeElement rowType = (TypeElement) rowElement;
+        String ownerPackage = processingEnv.getElementUtils().getPackageOf(owner)
+                .getQualifiedName().toString();
+        String rowPackage = processingEnv.getElementUtils().getPackageOf(rowType)
+                .getQualifiedName().toString();
+        if (!ownerPackage.equals(rowPackage)) {
+            return invalidChild(field, "child ownership must remain in one @SomaSchema package");
+        }
+        List<VariableElement> keys = new ArrayList<VariableElement>();
+        for (Element enclosed : rowType.getEnclosedElements()) {
+            if (enclosed.getKind() == ElementKind.FIELD
+                    && enclosed.getAnnotation(SomaKey.class) != null) {
+                keys.add((VariableElement) enclosed);
+            }
+        }
+        if (list && !keys.isEmpty()) {
+            return invalidChild(field, "List child row must be dense and declare no @SomaKey");
+        }
+        String keyMaterializedType = null;
+        String keyJavaName = null;
+        if (map) {
+            if (keys.size() != 1) {
+                return invalidChild(field, "Map child row must declare exactly one @SomaKey");
+            }
+            TypeMirror expected = materializedKeyType(keys.get(0).asType());
+            if (expected == null || !processingEnv.getTypeUtils().isSameType(
+                    arguments.get(0), expected)) {
+                return invalidChild(field,
+                        "Map key type must equal child materialized key type");
+            }
+            keyMaterializedType = expected.toString();
+            keyJavaName = keys.get(0).getSimpleName().toString();
+        }
+        SomaTable childTable = rowType.getAnnotation(SomaTable.class);
+        String childLogicalName = childTable.name().isEmpty()
+                ? rowType.getSimpleName().toString() : childTable.name();
+        return new ChildFieldType(
+                list ? "list" : "map",
+                rowType.getQualifiedName().toString(),
+                rowType.getSimpleName().toString(),
+                childLogicalName,
+                keyMaterializedType,
+                keyJavaName,
+                mirror.toString(),
+                initialCapacity);
+    }
+
+    private TypeMirror materializedKeyType(TypeMirror key) {
+        if (key.getKind().isPrimitive()) {
+            return processingEnv.getTypeUtils().boxedClass((PrimitiveType) key).asType();
+        }
+        return key.getKind() == TypeKind.DECLARED ? key : null;
+    }
+
+    private ChildFieldType invalidChild(VariableElement field, String message) {
+        error(field, "SOMA-TABLE-010", message + ": " + field.asType());
+        return null;
     }
 
     private boolean hasPublicNoArgConstructor(TypeElement type) {
@@ -663,6 +827,55 @@ public final class SomaProcessor extends AbstractProcessor {
         }
         visiting.remove(value.javaType);
         visited.add(value.javaType);
+    }
+
+    private void validateOwnershipGraph(SchemaModel schema) {
+        Set<String> visited = new HashSet<String>();
+        Set<String> visiting = new LinkedHashSet<String>();
+        List<String> path = new ArrayList<String>();
+        for (TableModel table : schema.tables.values()) {
+            validateOwnershipGraph(schema, table, visiting, visited, path);
+        }
+    }
+
+    private void validateOwnershipGraph(
+            SchemaModel schema,
+            TableModel table,
+            Set<String> visiting,
+            Set<String> visited,
+            List<String> path) {
+        if (visited.contains(table.javaType)) return;
+        if (!visiting.add(table.javaType)) {
+            path.add(table.logicalName);
+            error(table.origin, "SOMA-TABLE-011",
+                    "cyclic child ownership declaration: " + path);
+            path.remove(path.size() - 1);
+            return;
+        }
+        path.add(table.logicalName);
+        for (TableFieldModel field : table.fields) {
+            if (field.child == null) continue;
+            TableModel child = schema.tables.get(field.child.rowJavaType);
+            if (child == null) {
+                error(table.origin, "SOMA-TABLE-010",
+                        "child table must belong to the same schema compilation: "
+                                + field.child.rowJavaType);
+                continue;
+            }
+            path.add(field.logicalName);
+            if (visiting.contains(child.javaType)) {
+                List<String> cycle = new ArrayList<String>(path);
+                cycle.add(child.logicalName);
+                error(table.origin, "SOMA-TABLE-011",
+                        "cyclic child ownership declaration: " + cycle);
+            } else {
+                validateOwnershipGraph(schema, child, visiting, visited, path);
+            }
+            path.remove(path.size() - 1);
+        }
+        path.remove(path.size() - 1);
+        visiting.remove(table.javaType);
+        visited.add(table.javaType);
     }
 
     private SchemaModel validateSchema(PackageElement packageElement) {
@@ -930,8 +1143,14 @@ public final class SomaProcessor extends AbstractProcessor {
         try {
             writeResource(basePath + ".schema.json", json + "\n", schema.origin);
             writeResource(basePath + ".schema.sha256", hash + "\n", schema.origin);
+            List<DenseTableSourceGenerator.TableSpec> generatedTables =
+                    new ArrayList<DenseTableSourceGenerator.TableSpec>();
+            for (TableModel table : schema.tables.values()) {
+                generatedTables.add(table.toGeneratorSpec());
+            }
             DenseTableSourceGenerator generator = new DenseTableSourceGenerator(
-                    processingEnv.getFiler(), schema.generatedPackage, hash);
+                    processingEnv.getFiler(), schema.generatedPackage, hash,
+                    generatedTables);
             for (TableModel table : schema.tables.values()) {
                 generator.generate(table.toGeneratorSpec());
             }
@@ -1062,7 +1281,7 @@ public final class SomaProcessor extends AbstractProcessor {
         private void addTable(TableModel table) {
             tables.put(table.javaType, table);
             for (TableFieldModel field : table.fields) {
-                if (field.type.enumModel != null) {
+                if (field.type != null && field.type.enumModel != null) {
                     enums.put(field.type.enumModel.javaType, field.type.enumModel);
                 }
             }
@@ -1267,8 +1486,11 @@ public final class SomaProcessor extends AbstractProcessor {
         private DenseTableSourceGenerator.TableSpec toGeneratorSpec() {
             List<DenseTableSourceGenerator.FieldSpec> result =
                     new ArrayList<DenseTableSourceGenerator.FieldSpec>();
+            List<DenseTableSourceGenerator.ChildSpec> childResult =
+                    new ArrayList<DenseTableSourceGenerator.ChildSpec>();
             for (TableFieldModel field : fields) {
-                result.add(field.toGeneratorSpec());
+                if (field.child == null) result.add(field.toGeneratorSpec());
+                else childResult.add(field.toGeneratorChildSpec());
             }
             List<DenseTableSourceGenerator.SelectorSpec> generatedSelectors =
                     new ArrayList<DenseTableSourceGenerator.SelectorSpec>();
@@ -1278,7 +1500,7 @@ public final class SomaProcessor extends AbstractProcessor {
             return new DenseTableSourceGenerator.TableSpec(
                     origin, javaType, simpleName, logicalName,
                     defaultCapacity < 0 ? 16 : defaultCapacity,
-                    result, generatedSelectors);
+                    result, childResult, generatedSelectors);
         }
 
         private boolean hasKey() {
@@ -1373,24 +1595,41 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String logicalName;
         private final String semantic;
         private final TableFieldType type;
+        private final ChildFieldType child;
         private final boolean optional;
         private final boolean key;
 
         private TableFieldModel(String javaName, String logicalName, String semantic,
-                                TableFieldType type, boolean optional, boolean key) {
+                                TableFieldType type, ChildFieldType child,
+                                boolean optional, boolean key) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.semantic = semantic;
             this.type = type;
+            this.child = child;
             this.optional = optional;
             this.key = key;
         }
 
         private void appendJson(StringBuilder json) {
             json.append('{');
+            if (child != null) {
+                json.append("\"child\":{")
+                        .append("\"container\":").append(quote(child.container));
+                if (child.keyMaterializedType != null) {
+                    json.append(',').append("\"keyMaterializedType\":")
+                            .append(quote(child.keyMaterializedType));
+                }
+                json.append(',').append("\"rowJavaType\":")
+                        .append(quote(child.rowJavaType)).append(',')
+                        .append("\"tableLogicalName\":")
+                        .append(quote(child.tableLogicalName)).append("},");
+            }
             json.append("\"javaName\":").append(quote(javaName)).append(',');
             json.append("\"leaves\":[");
-            if (type.valueJavaType == null) {
+            if (child != null) {
+                // ownership fields never flatten into parent storage leaves
+            } else if (type.valueJavaType == null) {
                 appendLeafJson(json, logicalName, semantic, type.storagePrimitiveName);
             } else {
                 for (int i = 0; i < type.valueLeaves.size(); i++) {
@@ -1405,10 +1644,12 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append("],");
             json.append("\"logicalName\":").append(quote(logicalName)).append(',');
             json.append("\"materializedType\":")
-                    .append(quote(optional ? type.boxedName : type.materializedType)).append(',');
+                    .append(quote(child != null ? child.materializedType
+                            : optional ? type.boxedName : type.materializedType)).append(',');
             json.append("\"optional\":").append(optional).append(',');
-            json.append("\"role\":").append(key ? "\"key\"" : "\"field\"").append(',');
-            json.append("\"type\":").append(quote(type.logicalType));
+            json.append("\"role\":").append(child != null ? "\"child\""
+                    : key ? "\"key\"" : "\"field\"").append(',');
+            json.append("\"type\":").append(quote(child != null ? "child" : type.logicalType));
             json.append('}');
         }
 
@@ -1426,13 +1667,21 @@ public final class SomaProcessor extends AbstractProcessor {
             for (ValueGroupType group : type.valueGroups) {
                 groups.add(new DenseTableSourceGenerator.ValueGroupSpec(
                         group.javaPath, group.logicalPath, group.javaType,
-                        group.firstLeaf, group.leafCount));
+                        group.firstLeaf, group.leafCount, group.directFieldCount));
             }
             return new DenseTableSourceGenerator.FieldSpec(
                     javaName, logicalName, type.publicType,
                     type.boxedName, type.storagePrimitiveName, type.columnType,
                     type.enumJavaType, type.valueJavaType, type.valueLeafJavaName,
                     type.valueConstructionTemplate, leaves, groups, optional, key);
+        }
+
+        private DenseTableSourceGenerator.ChildSpec toGeneratorChildSpec() {
+            return new DenseTableSourceGenerator.ChildSpec(
+                    javaName, logicalName, child.container, child.rowJavaType,
+                    child.rowSimpleName, child.tableLogicalName,
+                    child.keyMaterializedType, child.keyJavaName, child.materializedType,
+                    child.initialCapacity, optional);
         }
 
         private static void appendLeafJson(
@@ -1442,6 +1691,36 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append("\"semantic\":").append(quote(semantic)).append(',');
             json.append("\"storageType\":").append(quote(storageType));
             json.append('}');
+        }
+    }
+
+    private static final class ChildFieldType {
+        private final String container;
+        private final String rowJavaType;
+        private final String rowSimpleName;
+        private final String tableLogicalName;
+        private final String keyMaterializedType;
+        private final String keyJavaName;
+        private final String materializedType;
+        private final int initialCapacity;
+
+        private ChildFieldType(
+                String container,
+                String rowJavaType,
+                String rowSimpleName,
+                String tableLogicalName,
+                String keyMaterializedType,
+                String keyJavaName,
+                String materializedType,
+                int initialCapacity) {
+            this.container = container;
+            this.rowJavaType = rowJavaType;
+            this.rowSimpleName = rowSimpleName;
+            this.tableLogicalName = tableLogicalName;
+            this.keyMaterializedType = keyMaterializedType;
+            this.keyJavaName = keyJavaName;
+            this.materializedType = materializedType;
+            this.initialCapacity = initialCapacity;
         }
     }
 
@@ -1603,7 +1882,8 @@ public final class SomaProcessor extends AbstractProcessor {
             String groupLogicalPath = logicalPrefix.isEmpty()
                     ? "" : logicalPrefix.substring(0, logicalPrefix.length() - 1);
             groups.add(new ValueGroupType(groupJavaPath, groupLogicalPath,
-                    value.javaType, firstLeaf, leaves.size() - firstLeaf));
+                    value.javaType, firstLeaf, leaves.size() - firstLeaf,
+                    value.fields.size()));
             return result.append(')').toString();
         }
 
@@ -1690,15 +1970,17 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String javaType;
         private final int firstLeaf;
         private final int leafCount;
+        private final int directFieldCount;
 
         private ValueGroupType(
                 String javaPath, String logicalPath, String javaType,
-                int firstLeaf, int leafCount) {
+                int firstLeaf, int leafCount, int directFieldCount) {
             this.javaPath = javaPath;
             this.logicalPath = logicalPath;
             this.javaType = javaType;
             this.firstLeaf = firstLeaf;
             this.leafCount = leafCount;
+            this.directFieldCount = directFieldCount;
         }
     }
 }

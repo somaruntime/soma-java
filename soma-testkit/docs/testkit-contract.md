@@ -153,6 +153,8 @@ Internal invariant hooks 只能作为 test-scoped runtime-core surface。Generat
 
 Comparator 是测试 assertion，不进入 application/runtime artifact，也不把 Materialized Object 变成 Value Object。
 
+V1 concrete helper 为 `com.hgtech.soma.testkit.MaterializedGraphComparator`：调用方以 `Adapter<T>` 显式描述 schema/value/child traversal；`compareFirst(T,T,Adapter<T>)` 返回首个 mismatch，`compareAll(...)` 收集全部 mismatch，`Context.field/index/key` 构造稳定 path，`Context.scalar/floating/row/list/map` 提供上述 exact comparison primitive。Helper 不使用 reflection/metadata interpreter，也不调用 row `equals()`；`soma-testkit` 仍是 internal evidence artifact，默认不发布。
+
 ## 7. Materialization budget assertions
 
 Testkit 至少支持以下 deterministic cases：

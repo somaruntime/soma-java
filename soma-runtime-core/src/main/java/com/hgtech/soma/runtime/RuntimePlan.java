@@ -20,6 +20,8 @@ public final class RuntimePlan {
     private final StatsMode statsMode;
     private final TreeMap<String, TablePlan> tablesByName;
     private final List<TablePlan> tables;
+    private final TreeMap<String, ChildPlan> childrenByIdentity;
+    private final List<ChildPlan> children;
     private final String runtimePlanHash;
 
     private RuntimePlan(Builder builder) {
@@ -33,6 +35,9 @@ public final class RuntimePlan {
         tablesByName = new TreeMap<String, TablePlan>(builder.tables);
         tables = Collections.unmodifiableList(
                 new ArrayList<TablePlan>(tablesByName.values()));
+        childrenByIdentity = new TreeMap<String, ChildPlan>(builder.children);
+        children = Collections.unmodifiableList(
+                new ArrayList<ChildPlan>(childrenByIdentity.values()));
         runtimePlanHash = CanonicalSupport.sha256(HASH_PREFIX, toCanonicalJson());
     }
 
@@ -54,6 +59,9 @@ public final class RuntimePlan {
         for (TablePlan table : tables) {
             builder.addTable(table);
         }
+        for (ChildPlan child : children) {
+            builder.addChild(child);
+        }
         return builder;
     }
 
@@ -66,6 +74,7 @@ public final class RuntimePlan {
     public MaterializationBudget defaultMaterializationBudget() { return defaultMaterializationBudget; }
     public StatsMode statsMode() { return statsMode; }
     public List<TablePlan> tables() { return tables; }
+    public List<ChildPlan> children() { return children; }
 
     public TablePlan requireTable(String logicalName) {
         String required = CanonicalSupport.required(logicalName, "logicalName");
@@ -76,10 +85,28 @@ public final class RuntimePlan {
         return table;
     }
 
+    public ChildPlan requireChild(String ownerTable, String childField) {
+        String owner = CanonicalSupport.required(ownerTable, "ownerTable");
+        String field = CanonicalSupport.required(childField, "childField");
+        ChildPlan child = childrenByIdentity.get(ChildPlan.identity(owner, field));
+        if (child == null) {
+            throw invalidPlan("children." + owner + "." + field, "unknown child field");
+        }
+        return child;
+    }
+
     private String toCanonicalJson() {
         StringBuilder json = new StringBuilder();
         json.append('{');
         json.append("\"allocationEstimator\":").append(CanonicalSupport.quote(allocationEstimator)).append(',');
+        if (!children.isEmpty()) {
+            json.append("\"children\":[");
+            for (int i = 0; i < children.size(); i++) {
+                if (i > 0) json.append(',');
+                json.append(children.get(i).toCanonicalJson());
+            }
+            json.append("],");
+        }
         json.append("\"defaultMaterializationBudget\":")
                 .append(defaultMaterializationBudget.toCanonicalJson()).append(',');
         json.append("\"generatedProtocol\":").append(CanonicalSupport.quote(generatedProtocol)).append(',');
@@ -114,6 +141,7 @@ public final class RuntimePlan {
         private MaterializationBudget defaultMaterializationBudget = MaterializationBudget.defaults();
         private StatsMode statsMode = StatsMode.SUMMARY;
         private final TreeMap<String, TablePlan> tables = new TreeMap<String, TablePlan>();
+        private final TreeMap<String, ChildPlan> children = new TreeMap<String, ChildPlan>();
 
         private Builder(
                 String schemaHash,
@@ -163,9 +191,38 @@ public final class RuntimePlan {
             return this;
         }
 
+        public Builder addChild(ChildPlan value) {
+            ChildPlan child = requiredChild(value);
+            if (children.containsKey(child.identity())) {
+                throw invalidPlan("children." + child.ownerTable() + "." + child.childField(),
+                        "duplicate child field");
+            }
+            children.put(child.identity(), child);
+            return this;
+        }
+
+        public Builder replaceChild(ChildPlan value) {
+            ChildPlan child = requiredChild(value);
+            if (!children.containsKey(child.identity())) {
+                throw invalidPlan("children." + child.ownerTable() + "." + child.childField(),
+                        "missing child field");
+            }
+            children.put(child.identity(), child);
+            return this;
+        }
+
         public RuntimePlan build() {
             if (tables.isEmpty()) {
                 throw invalidPlan("tables", "at least one table is required");
+            }
+            for (ChildPlan child : children.values()) {
+                if (!tables.containsKey(child.ownerTable())) {
+                    throw invalidPlan("children." + child.ownerTable(), "unknown owner table");
+                }
+                if (!tables.containsKey(child.childTable())) {
+                    throw invalidPlan("children." + child.ownerTable() + "." + child.childField(),
+                            "unknown child table");
+                }
             }
             return new RuntimePlan(this);
         }
@@ -174,6 +231,11 @@ public final class RuntimePlan {
             if (value == null) {
                 throw new NullPointerException("table");
             }
+            return value;
+        }
+
+        private ChildPlan requiredChild(ChildPlan value) {
+            if (value == null) throw new NullPointerException("child");
             return value;
         }
     }

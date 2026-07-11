@@ -34,6 +34,24 @@ public final class com.hgtech.soma.runtime.generated.ByteColumn extends com.hgte
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ChildOwnershipRegistry
+Compiled from "ChildOwnershipRegistry.java"
+public final class com.hgtech.soma.runtime.generated.ChildOwnershipRegistry {
+  public com.hgtech.soma.runtime.generated.ChildOwnershipRegistry();
+  public void beginMaterialization(java.lang.String);
+  public void endMaterialization();
+  public void preflightMutation(java.lang.String);
+  public long newOwnerToken();
+  public long stage(long, java.lang.String, java.lang.String, java.lang.Object, com.hgtech.soma.runtime.generated.OwnedChildTable);
+  public void publish(long, long, java.lang.String);
+  public void discardStaged(long, long, java.lang.String);
+  public java.lang.Object resolve(long, long, java.lang.String, java.lang.String);
+  public void preflightPinned(long, long, java.lang.String, java.lang.String);
+  public void release(long, long, java.lang.String, java.lang.String, boolean);
+  public long childInstanceCount(long, long, java.lang.String);
+  public long descendantRowCount(long, long, java.lang.String);
+  public boolean hasPinned(long, long, java.lang.String, java.lang.String);
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ColumnGroup
 Compiled from "ColumnGroup.java"
 public final class com.hgtech.soma.runtime.generated.ColumnGroup {
@@ -49,6 +67,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public boolean hasPinnedBorrow();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public long sidecarRebuildCount();
   public long acquireView(java.lang.String);
@@ -57,6 +76,11 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void checkActive(java.lang.String);
   public int checkRowIndex(int, java.lang.String);
   public void beginOperation(java.lang.String);
+  public void beginMaterialization(java.lang.String);
+  public void beginOperationMaterialization(java.lang.String);
+  public void preflightStructuralOperation(java.lang.String);
+  public void endMaterializationSuccess(com.hgtech.soma.runtime.generated.MaterializationTracker);
+  public void endMaterializationFailure(com.hgtech.soma.runtime.generated.MaterializationTracker);
   public void endOperationSuccess(java.lang.String, long, long, long);
   public void endOperationFailure(java.lang.String, long, long, java.lang.String);
   public void abortOperation(java.lang.String);
@@ -65,10 +89,16 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public int prepareReplace(int);
   public void commitReplace(int, int);
   public int prepareClear();
+  public void prepareChildChange(java.lang.String);
+  public void commitChildChange(java.lang.String);
   public void commitClear(int);
   public void commitStructuralRemove(int, int, java.lang.String);
   public int prepareRelease();
   public void commitRelease(int);
+  public void markOwned(java.lang.String);
+  public boolean isOwned();
+  public void rejectOwnedRelease(java.lang.String);
+  public void commitOwnedRelease(boolean);
   public void updateScratch(long, long);
   public void sidecarsDirtied(long);
   public void sidecarRebuilt(long);
@@ -76,6 +106,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public com.hgtech.soma.runtime.UpdateResult updateResult(long, long, long, long, long);
   public com.hgtech.soma.runtime.RemoveResult removeResult(long, long, long, long, long, long);
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot(long, long);
   public void resetStats();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DoubleColumn
@@ -192,20 +223,47 @@ public final class com.hgtech.soma.runtime.generated.LongColumn extends com.hgte
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationAllocation
+Compiled from "MaterializationAllocation.java"
+public final class com.hgtech.soma.runtime.generated.MaterializationAllocation {
+  public static com.hgtech.soma.runtime.generated.MaterializationAllocation$Scope installForCurrentThread(com.hgtech.soma.runtime.generated.MaterializationAllocation$Provider);
+  public static void preflight(java.lang.String, long, java.lang.String);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationAllocation$Provider
+Compiled from "MaterializationAllocation.java"
+public interface com.hgtech.soma.runtime.generated.MaterializationAllocation$Provider {
+  public abstract boolean allow(java.lang.String, long, java.lang.String);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationAllocation$Scope
+Compiled from "MaterializationAllocation.java"
+public final class com.hgtech.soma.runtime.generated.MaterializationAllocation$Scope implements java.lang.AutoCloseable {
+  public void close();
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationTracker
 Compiled from "MaterializationTracker.java"
 public final class com.hgtech.soma.runtime.generated.MaterializationTracker {
   public com.hgtech.soma.runtime.generated.MaterializationTracker(com.hgtech.soma.runtime.MaterializationBudget, java.lang.String);
   public void checkOwnershipDepth(int);
+  public void checkOwnershipDepth(int, java.lang.String);
   public void addTableInstances(long);
+  public void addTableInstances(long, java.lang.String);
   public void addRows(long);
+  public void addRows(long, java.lang.String);
   public void addLeafValues(long);
+  public void addLeafValues(long, java.lang.String);
   public void addEstimatedBytes(long);
+  public void addEstimatedBytes(long, java.lang.String);
+  public void addListAllocation(int, java.lang.String);
+  public void addOptionalAllocation(boolean, java.lang.String);
+  public void addMapAllocation(int, boolean, java.lang.String);
+  public void enterOwnership(java.lang.Object, java.lang.String);
+  public void exitOwnership(java.lang.Object, java.lang.String);
   public java.lang.String budgetIdentity();
   public long tableInstances();
   public long rows();
   public long leafValues();
   public long estimatedBytes();
+  public int maximumDepth();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ObjectColumn
 Compiled from "ObjectColumn.java"
@@ -217,6 +275,14 @@ public final class com.hgtech.soma.runtime.generated.ObjectColumn<T> extends com
   public java.lang.Object stageCapacity(int);
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.OwnedChildTable
+Compiled from "OwnedChildTable.java"
+public interface com.hgtech.soma.runtime.generated.OwnedChildTable {
+  public abstract boolean hasPinnedSubtree();
+  public abstract void releaseOwnedSubtree(boolean);
+  public abstract long subtreeChildInstanceCount();
+  public abstract long subtreeDescendantRowCount();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.PresenceBitmap
 Compiled from "PresenceBitmap.java"
@@ -305,6 +371,13 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException callbackFailed(java.lang.String, java.lang.String, java.lang.String, java.lang.Throwable);
   public static com.hgtech.soma.runtime.SomaRuntimeException memoryLimitExceeded(java.lang.String, java.lang.String, long, long);
   public static com.hgtech.soma.runtime.SomaRuntimeException materializationBudgetExceeded(java.lang.String, long, long, long, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException allocationFailure(java.lang.String, long, java.lang.String, java.lang.RuntimeException);
+  public static com.hgtech.soma.runtime.SomaRuntimeException childWrongOwner(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException childDangling(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException childReleased(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException ownedChildRelease(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException childKeyMismatch(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException ownershipCycle(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException compatibilityMismatch(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidRuntimePlan(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException internalInvariant(java.lang.String, java.lang.String, java.lang.String);
@@ -330,6 +403,12 @@ public final class com.hgtech.soma.runtime.generated.SparseIntKeySpace {
   public void put(int, int);
   public void removeAt(int);
   public void clear();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaChild
+Compiled from "SomaChild.java"
+public interface com.hgtech.soma.annotation.SomaChild extends java.lang.annotation.Annotation {
+  public abstract java.lang.String name();
+  public abstract int initialCapacity();
 }
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaDirection
 Compiled from "SomaDirection.java"
@@ -466,6 +545,15 @@ Compiled from "ByteConsumer.java"
 public interface com.hgtech.soma.runtime.ByteConsumer {
   public abstract void accept(byte);
 }
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ChildPlan
+Compiled from "ChildPlan.java"
+public final class com.hgtech.soma.runtime.ChildPlan {
+  public static com.hgtech.soma.runtime.ChildPlan create(java.lang.String, java.lang.String, java.lang.String, int);
+  public java.lang.String ownerTable();
+  public java.lang.String childField();
+  public java.lang.String childTable();
+  public int initialCapacity();
+}
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnPipeline
 Compiled from "DoubleColumnPipeline.java"
 public final class com.hgtech.soma.runtime.DoubleColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
@@ -598,7 +686,9 @@ public final class com.hgtech.soma.runtime.RuntimePlan {
   public com.hgtech.soma.runtime.MaterializationBudget defaultMaterializationBudget();
   public com.hgtech.soma.runtime.StatsMode statsMode();
   public java.util.List<com.hgtech.soma.runtime.TablePlan> tables();
+  public java.util.List<com.hgtech.soma.runtime.ChildPlan> children();
   public com.hgtech.soma.runtime.TablePlan requireTable(java.lang.String);
+  public com.hgtech.soma.runtime.ChildPlan requireChild(java.lang.String, java.lang.String);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.RuntimePlan$Builder
 Compiled from "RuntimePlan.java"
@@ -607,6 +697,8 @@ public final class com.hgtech.soma.runtime.RuntimePlan$Builder {
   public com.hgtech.soma.runtime.RuntimePlan$Builder statsMode(com.hgtech.soma.runtime.StatsMode);
   public com.hgtech.soma.runtime.RuntimePlan$Builder addTable(com.hgtech.soma.runtime.TablePlan);
   public com.hgtech.soma.runtime.RuntimePlan$Builder replaceTable(com.hgtech.soma.runtime.TablePlan);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder addChild(com.hgtech.soma.runtime.ChildPlan);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder replaceChild(com.hgtech.soma.runtime.ChildPlan);
   public com.hgtech.soma.runtime.RuntimePlan build();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnPipeline
@@ -692,6 +784,7 @@ public final class com.hgtech.soma.runtime.TableStats {
   public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
   public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
   public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, long, long, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
+  public static com.hgtech.soma.runtime.TableStats withPhase4(com.hgtech.soma.runtime.TableStats, long, long, long, long, java.lang.String, int, long, long, long, long);
   public java.lang.String schemaHash();
   public java.lang.String runtimeCompatibility();
   public java.lang.String runtimePlanHash();
@@ -715,6 +808,16 @@ public final class com.hgtech.soma.runtime.TableStats {
   public long lastScanned();
   public long lastMatched();
   public long lastChanged();
+  public long childInstanceCount();
+  public long descendantRowCount();
+  public long materializationInvocationCount();
+  public long materializationFailureCount();
+  public java.lang.String lastMaterializationBudgetIdentity();
+  public int lastMaterializationMaximumOwnershipDepth();
+  public long lastMaterializationTableInstances();
+  public long lastMaterializationRows();
+  public long lastMaterializationLeafValues();
+  public long lastMaterializationEstimatedAllocationBytes();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.UpdateResult
 Compiled from "UpdateResult.java"

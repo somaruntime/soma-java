@@ -236,6 +236,46 @@ public final class RuntimeFailures {
                 "materialize", path, context, null);
     }
 
+    public static SomaRuntimeException allocationFailure(
+            String phase, long requestedEstimate, String path, RuntimeException cause) {
+        Map<String, String> context = context("phase", phase);
+        context.put("requestedEstimate", Long.toString(requestedEstimate));
+        context.put("causeType", cause == null
+                ? "provider_rejected" : cause.getClass().getName());
+        return create(SomaErrorCategory.RESOURCE, "allocation_failure",
+                "materialize", path, context, cause);
+    }
+
+    public static SomaRuntimeException childWrongOwner(String path, String operation) {
+        return create(SomaErrorCategory.INTERNAL, "child_wrong_owner", operation,
+                path, empty(), null);
+    }
+
+    public static SomaRuntimeException childDangling(String path, String operation) {
+        return create(SomaErrorCategory.INTERNAL, "child_dangling", operation,
+                path, empty(), null);
+    }
+
+    public static SomaRuntimeException childReleased(String path, String operation) {
+        return create(SomaErrorCategory.LIFECYCLE, "child_released", operation,
+                path, empty(), null);
+    }
+
+    public static SomaRuntimeException ownedChildRelease(String path, String operation) {
+        return create(SomaErrorCategory.LIFECYCLE, "owned_child_release", operation,
+                path, empty(), null);
+    }
+
+    public static SomaRuntimeException childKeyMismatch(String path, String operation) {
+        return create(SomaErrorCategory.INVALID_INPUT, "child_key_mismatch", operation,
+                path, empty(), null);
+    }
+
+    public static SomaRuntimeException ownershipCycle(String path, String operation) {
+        return create(SomaErrorCategory.INTERNAL, "ownership_cycle", operation,
+                path, empty(), null);
+    }
+
     public static SomaRuntimeException compatibilityMismatch(
             String code, String expected, String actual, String path) {
         Map<String, String> context = context("expected", expected);

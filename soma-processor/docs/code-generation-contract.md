@@ -144,7 +144,11 @@ replaceChildren(parentKey, childBatch)
 unsetChildren(parentKey)
 ```
 
-`children(parentKey).clear()` / `childrenOrThrow(parentKey).clear()` 表示 present-empty；`unsetChildren(parentKey)` 才表示 absent 并 cascade release。Dense parent 使用 row-index locator 的等价 overload。不得生成同时表达 clear-content 和 unset-ownership 的模糊 `clearChildren()`。
+V1 exact binding 中，`children` / `childrenOrThrow` / `ensureChildren` 返回 child schema 对应的 generated `ChildTable` exact type；`replaceChildren` 接受对应 generated `ChildBatch` 并返回 `void`。Required child 生成 `children(locator)` 与 `replaceChildren(locator, ChildBatch)`；optional child生成上表全部方法。Keyed parent locator使用parent key exact public type，dense parent locator使用`int rowIndex`。同一generated `ChildTable`既可由`create()`成为root aggregate，也可由parent以package-private factory创建为owned facade；owned instance直接调用public `release()`必须以`owned_child_release` fail closed，ownership只能由parent delete/clear/unset/replacement或root aggregate release终止。
+
+Parent `Batch.add(R)` 是正式 detached subtree construction input：required child field必须non-null，optional null表示absent；generated Batch在调用期间把carrier中的`List<R>` / `Map<K,R>`递归复制为对应generated child Batch，不持有caller collection。`Map<K,R>` entry key必须与row logical key相等。Writer/direct Batch boundary对child field接受generated child Batch，不接受live child table/facade；传入Batch必须深拷贝，防止caller后续修改改变已staged事实。Parent publication前从detached child Batch stage完整subtree；任何validation/allocation failure保持parent facts与old subtree不变。
+
+`children(parentKey).clear()` / `childrenOrThrow(parentKey).clear()` 表示 present-empty；`unsetChildren(parentKey)` 才表示 absent 并 cascade release。Dense parent 使用 row-index locator 的等价 overload。不得生成同时表达 clear-content 和 unset-ownership 的模糊 `clearChildren()`。Child facade捕获internal stable owner token/field/generation，不捕获dense row index；parent packed row move不改变其logical ownership，unset/replacement/delete会使旧facade稳定返回`child_released`。
 
 Generated API 不接受 arbitrary live child table object，也不把 materialized `List`/`Map` attach 为 live storage，不暴露 child handle/reparent operation。Parent import/replacement 使用 detached child Batch，runtime 完成 stage/validate/handle switch/cascade release。
 

@@ -4,6 +4,7 @@ PUBLIC build-provider com.hgtech.soma.processor.SomaProcessor
 PUBLIC build-provider com.hgtech.soma.processor.javac8.SomaJavacPlugin
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.BooleanColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ByteColumn
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ChildOwnershipRegistry
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ColumnGroup
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DenseTableState
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DoubleColumn
@@ -16,14 +17,19 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashLongKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.KeyCanonicalization
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.LongColumn
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationAllocation
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationAllocation$Provider
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationAllocation$Scope
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationTracker
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ObjectColumn
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.OwnedChildTable
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.PresenceBitmap
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RowPermutationSidecar
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeCompatibility
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeFailures
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ShortColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.SparseIntKeySpace
+PUBLIC handwritten com.hgtech.soma.annotation.SomaChild
 PUBLIC handwritten com.hgtech.soma.annotation.SomaDirection
 PUBLIC handwritten com.hgtech.soma.annotation.SomaField
 PUBLIC handwritten com.hgtech.soma.annotation.SomaIgnore
@@ -46,6 +52,7 @@ PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanConsumer
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnPipeline
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnView
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteConsumer
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.ChildPlan
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnPipeline
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnView
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnPipeline

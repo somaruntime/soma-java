@@ -27,8 +27,11 @@ public final class com.example.soma.access.generated.AccessRecordTable {
   public boolean noneMatch(com.example.soma.access.generated.AccessRecordRows$Predicate);
   public void forEach(com.example.soma.access.generated.AccessRecordRows$Consumer);
   public java.util.Optional<com.example.soma.access.AccessRecord> findFirst();
+  public java.util.Optional<com.example.soma.access.AccessRecord> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.AccessRecord firstOrThrow();
+  public com.example.soma.access.AccessRecord firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.access.AccessRecord> fetchAll();
+  public java.util.List<com.example.soma.access.AccessRecord> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.AccessRecordRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();

@@ -25,6 +25,16 @@ public final class TableStats {
     private final long lastScanned;
     private final long lastMatched;
     private final long lastChanged;
+    private final long childInstanceCount;
+    private final long descendantRowCount;
+    private final long materializationInvocationCount;
+    private final long materializationFailureCount;
+    private final String lastMaterializationBudgetIdentity;
+    private final int lastMaterializationMaximumOwnershipDepth;
+    private final long lastMaterializationTableInstances;
+    private final long lastMaterializationRows;
+    private final long lastMaterializationLeafValues;
+    private final long lastMaterializationEstimatedAllocationBytes;
 
     private TableStats(
             String schemaHash,
@@ -49,7 +59,17 @@ public final class TableStats {
             String lastErrorCode,
             long lastScanned,
             long lastMatched,
-            long lastChanged) {
+            long lastChanged,
+            long childInstanceCount,
+            long descendantRowCount,
+            long materializationInvocationCount,
+            long materializationFailureCount,
+            String lastMaterializationBudgetIdentity,
+            int lastMaterializationMaximumOwnershipDepth,
+            long lastMaterializationTableInstances,
+            long lastMaterializationRows,
+            long lastMaterializationLeafValues,
+            long lastMaterializationEstimatedAllocationBytes) {
         this.schemaHash = schemaHash;
         this.runtimeCompatibility = runtimeCompatibility;
         this.runtimePlanHash = runtimePlanHash;
@@ -73,6 +93,16 @@ public final class TableStats {
         this.lastScanned = lastScanned;
         this.lastMatched = lastMatched;
         this.lastChanged = lastChanged;
+        this.childInstanceCount = childInstanceCount;
+        this.descendantRowCount = descendantRowCount;
+        this.materializationInvocationCount = materializationInvocationCount;
+        this.materializationFailureCount = materializationFailureCount;
+        this.lastMaterializationBudgetIdentity = lastMaterializationBudgetIdentity;
+        this.lastMaterializationMaximumOwnershipDepth = lastMaterializationMaximumOwnershipDepth;
+        this.lastMaterializationTableInstances = lastMaterializationTableInstances;
+        this.lastMaterializationRows = lastMaterializationRows;
+        this.lastMaterializationLeafValues = lastMaterializationLeafValues;
+        this.lastMaterializationEstimatedAllocationBytes = lastMaterializationEstimatedAllocationBytes;
     }
 
     public static TableStats create(
@@ -180,7 +210,49 @@ public final class TableStats {
                 sidecarDirtyCount, sidecarRebuildCount, sidecarRebuildRows,
                 sidecarScratchCurrentBytes, sidecarScratchHighWaterBytes,
                 lastOperation, lastOutcome, lastErrorCode,
-                lastScanned, lastMatched, lastChanged);
+                lastScanned, lastMatched, lastChanged,
+                0L, 0L, 0L, 0L, "", 0, 0L, 0L, 0L, 0L);
+    }
+
+    public static TableStats withPhase4(
+            TableStats base,
+            long childInstanceCount,
+            long descendantRowCount,
+            long materializationInvocationCount,
+            long materializationFailureCount,
+            String lastMaterializationBudgetIdentity,
+            int lastMaterializationMaximumOwnershipDepth,
+            long lastMaterializationTableInstances,
+            long lastMaterializationRows,
+            long lastMaterializationLeafValues,
+            long lastMaterializationEstimatedAllocationBytes) {
+        if (base == null) throw new NullPointerException("base");
+        if (lastMaterializationBudgetIdentity == null) {
+            throw new NullPointerException("lastMaterializationBudgetIdentity");
+        }
+        if (childInstanceCount < 0L || descendantRowCount < 0L
+                || materializationInvocationCount < 0L || materializationFailureCount < 0L
+                || materializationFailureCount > materializationInvocationCount
+                || lastMaterializationMaximumOwnershipDepth < 0
+                || lastMaterializationTableInstances < 0L || lastMaterializationRows < 0L
+                || lastMaterializationLeafValues < 0L
+                || lastMaterializationEstimatedAllocationBytes < 0L) {
+            throw new IllegalArgumentException("invalid phase4 table stats");
+        }
+        return new TableStats(base.schemaHash, base.runtimeCompatibility,
+                base.runtimePlanHash, base.statsMode, base.rows, base.capacity,
+                base.structuralEpoch, base.released, base.activeViews, base.growthCount,
+                base.updateScratchCurrentBytes, base.updateScratchHighWaterBytes,
+                base.sidecarDirtyCount, base.sidecarRebuildCount, base.sidecarRebuildRows,
+                base.sidecarScratchCurrentBytes, base.sidecarScratchHighWaterBytes,
+                base.lastOperation, base.lastOutcome, base.lastErrorCode,
+                base.lastScanned, base.lastMatched, base.lastChanged,
+                childInstanceCount, descendantRowCount,
+                materializationInvocationCount, materializationFailureCount,
+                lastMaterializationBudgetIdentity,
+                lastMaterializationMaximumOwnershipDepth,
+                lastMaterializationTableInstances, lastMaterializationRows,
+                lastMaterializationLeafValues, lastMaterializationEstimatedAllocationBytes);
     }
 
     public String schemaHash() { return schemaHash; }
@@ -206,4 +278,18 @@ public final class TableStats {
     public long lastScanned() { return lastScanned; }
     public long lastMatched() { return lastMatched; }
     public long lastChanged() { return lastChanged; }
+    public long childInstanceCount() { return childInstanceCount; }
+    public long descendantRowCount() { return descendantRowCount; }
+    public long materializationInvocationCount() { return materializationInvocationCount; }
+    public long materializationFailureCount() { return materializationFailureCount; }
+    public String lastMaterializationBudgetIdentity() { return lastMaterializationBudgetIdentity; }
+    public int lastMaterializationMaximumOwnershipDepth() {
+        return lastMaterializationMaximumOwnershipDepth;
+    }
+    public long lastMaterializationTableInstances() { return lastMaterializationTableInstances; }
+    public long lastMaterializationRows() { return lastMaterializationRows; }
+    public long lastMaterializationLeafValues() { return lastMaterializationLeafValues; }
+    public long lastMaterializationEstimatedAllocationBytes() {
+        return lastMaterializationEstimatedAllocationBytes;
+    }
 }

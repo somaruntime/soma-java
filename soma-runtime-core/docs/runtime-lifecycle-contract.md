@@ -23,6 +23,8 @@ Runtime core 必须为 `@SomaChild` field 提供 schema-agnostic child ownership
 - public/generated API 不得导出 handle、attach existing child 或 reparent；
 - handle registry 必须能检测 dangling handle、wrong-owner handle、released child 和 runtime ownership cycle，并进入 internal invariant violation path。
 
+V1 concrete locator material使用aggregate-local primitive `long` owner token与primitive `long` handle id；parent packed columns不保存Java Collection、facade或registry entry object。Registry使用primitive/Object平行数组，不使用`ArrayList<Entry>`/`Map`作为canonical ownership storage。Facade捕获owner token/field/generation语义，不把dense row index当stable identity；packed row move只搬运token/handle columns，unset/replacement/delete retire old handle，旧facade不会静默指向新subtree。
+
 Schema type-level cycle 由 processor 拒绝；runtime cycle detection 只用于防御 corrupted/impossible state，不是动态 object-graph feature。
 
 ## 3. Recursive materialization tracker

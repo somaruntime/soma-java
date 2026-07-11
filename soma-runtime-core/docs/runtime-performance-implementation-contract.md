@@ -237,6 +237,7 @@ Parent-owned child 的性能收益和成本必须同时建模：
 - required logical-empty child 不 eager allocate storage；
 - optional absent 不创建 child instance；
 - `@SomaChild.initialCapacity` 按单个 parent 的 child cardinality 设置；
+- parent live storage只保存primitive owner token/handle/generation与optional bitmap；ownership registry使用平行primitive/Object arrays，不得以Java Collection/Entry object graph作为canonical child locator storage；
 - child-local hot traversal 使用 live child facade/Row Pipeline，不通过 parent deep materialization；
 - child pool/slab/segmented backing 可以作为 internal optimization，但不得改变 exclusive ownership、independent table semantics、lifecycle、handle validity 或 materialization result。
 

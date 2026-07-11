@@ -3,8 +3,10 @@ package com.example.soma.compositekeyed;
 import com.example.soma.compositekeyed.generated.OperationStateBatch;
 import com.example.soma.compositekeyed.generated.OperationStateTable;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.TableStats;
 
 import java.util.List;
+import java.util.Map;
 
 public final class CompositeValueKeyedConsumer {
     private CompositeValueKeyedConsumer() {
@@ -49,6 +51,25 @@ public final class CompositeValueKeyedConsumer {
         require("Aa".hashCode() == "BB".hashCode(), "fixture requires a String hash collision");
         require(table.fetch(collisionA).payload == 400, "full equality collision A");
         require(table.fetch(collisionB).payload == 500, "full equality collision B");
+
+        table.resetStats();
+        Map<OperationKey, OperationState> materialized = table.materialize();
+        require(materialized.size() == 5, "composite materialize size");
+        for (Map.Entry<OperationKey, OperationState> entry : materialized.entrySet()) {
+            require(entry.getKey() == entry.getValue().key,
+                    "Map key and carrier key share one value object");
+        }
+        TableStats materializationStats = table.statsSnapshot();
+        require(materializationStats.lastMaterializationMaximumOwnershipDepth() == 0,
+                "composite materialization depth");
+        require(materializationStats.lastMaterializationTableInstances() == 1L,
+                "composite table instances");
+        require(materializationStats.lastMaterializationRows() == 5L,
+                "composite rows");
+        require(materializationStats.lastMaterializationLeafValues() == 35L,
+                "composite leaves");
+        require(materializationStats.lastMaterializationEstimatedAllocationBytes() == 952L,
+                "nested value allocation estimator");
 
         expectCode("duplicate_key", new Action() {
             @Override

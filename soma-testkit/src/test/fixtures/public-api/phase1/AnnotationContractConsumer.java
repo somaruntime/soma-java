@@ -1,4 +1,5 @@
 import com.hgtech.soma.annotation.SomaField;
+import com.hgtech.soma.annotation.SomaChild;
 import com.hgtech.soma.annotation.SomaIgnore;
 import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaIndexes;
@@ -31,6 +32,7 @@ public final class AnnotationContractConsumer {
         assertAnnotation(SomaSchema.class, ElementType.PACKAGE);
         assertAnnotation(SomaValue.class, ElementType.TYPE);
         assertAnnotation(SomaField.class, ElementType.FIELD);
+        assertAnnotation(SomaChild.class, ElementType.FIELD);
         assertAnnotation(SomaIgnore.class, ElementType.FIELD);
         assertAnnotation(SomaKey.class, ElementType.FIELD);
         assertAnnotation(SomaOptional.class, ElementType.FIELD);
@@ -63,6 +65,11 @@ public final class AnnotationContractConsumer {
         require(Integer.valueOf(-1).equals(
                 SomaTable.class.getMethod("defaultCapacity").getDefaultValue()),
                 "SomaTable.defaultCapacity default");
+        require("".equals(SomaChild.class.getMethod("name").getDefaultValue()),
+                "SomaChild.name default");
+        require(Integer.valueOf(-1).equals(
+                SomaChild.class.getMethod("initialCapacity").getDefaultValue()),
+                "SomaChild.initialCapacity default");
 
         require("".equals(SomaField.class.getMethod("name").getDefaultValue()),
                 "SomaField.name default");

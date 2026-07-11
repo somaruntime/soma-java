@@ -452,7 +452,8 @@ Public API 不接受任意 live child table 对象 attachment。Generated child 
 - parent delete/clear/release 级联 child subtree；
 - replacement 必须先构造并验证新 subtree，再切换 handle；失败时旧 subtree 不变。
 
-Detailed ownership/lifecycle 由 [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 拥有。
+V1 exact shape：required field `f` 生成 `ChildTable f(P parentKey)` 或 dense parent 的 `ChildTable f(int rowIndex)`，以及 `void replaceF(P/int, ChildBatch)`；optional field additive生成 `boolean fPresent(P/int)`、`ChildTable fOrThrow(P/int)`、`ChildTable ensureF(P/int)`、`void replaceF(P/int, ChildBatch)`、`void unsetF(P/int)`。`ChildTable` 是child schema对应的exact generated table type；owned instance直接调用其root aggregate `release()`返回`owned_child_release`，不能绕过parent ownership。Old facade在unset/replacement/delete后返回`child_released`，root aggregate release后返回`table_released`。
+Parent `Batch.add(R)` 在调用期间把carrier的List/Map递归snapshot为generated child Batch；Map entry key必须等于row logical key。Writer/direct Batch child setter只接受detached child Batch并深拷贝，不接受live facade/handle。Dense whole materialize返回`List<R>`，keyed whole materialize返回`Map<MK,R>`；Row Pipeline无论table kind仍返回sequence `List<R>`。所有materializing API同时提供default budget和explicit `MaterializationBudget` overload。Detailed ownership/lifecycle 由 [runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md) 拥有。
 
 ## 14. Pipeline 与 mutation 生命周期
 

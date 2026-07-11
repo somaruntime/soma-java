@@ -198,7 +198,7 @@ if ! grep -F ' fetch(com.example.soma.compositekeyed.OperationKey);' \
   exit 1
 fi
 if grep -E 'HashMap|Object\[\].*key|new (Tuple|OperationKey)\(' "$composite_table_source" \
-  | grep -v 'keyValue(int row)' >/dev/null \
+  | grep -v -e 'keyValue(int row)' -e 'materializeOwnedMap' >/dev/null \
   || grep -E 'OperationKey\[|List<.*OperationKey' "$composite_batch_source" >/dev/null; then
   printf '%s\n' 'generated-keyed-phase2-check: composite hot path uses object key storage or transient tuple' >&2
   exit 1

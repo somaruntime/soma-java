@@ -142,6 +142,7 @@ V1 canonical declaration graph 的稳定顺序与引用规则：
 - primitive/simple field 的 `leaves` 含一个 object：`leafPath`、`semantic`、`storageType`；value field 后续按 normalized leaf order完整展开，不能只记录 outer value token；
 - required primitive `type/materializedType/storageType` 使用 Java primitive token；optional boxed primitive 的 logical `type/storageType` 仍使用对应 primitive token，`materializedType` 使用完整 boxed Java FQN，并以 `optional:true` 表达 presence；
 - Phase 1 dense table 使用 `kind:"dense"`、`role:"field"`，`materializedType` 是 source carrier FQN；不生成未实现 key/index/child 的空语义替代；
+- child field使用`role:"child"`、`type:"child"`、empty `leaves`，并additive包含`child` object：固定`container`、`rowJavaType`、`tableLogicalName`，Map再含`keyMaterializedType`；top-level `materializedType`是完整List/Map type，`optional`保留三态presence；`@SomaChild.initialCapacity`只进入ChildPlan/runtimePlanHash，不进入logical JSON/hash；
 - generated names 是从 source Java type、generated package和 processor naming protocol导出的 compatibility metadata，固定记录到 generated metadata/source golden与 generated API manifest，不进入 logical schema JSON/hash；naming protocol变化提升 processor/runtime pairing identity并触发 generated compatibility review，但不能无 logical schema change地改写 schema hash；
 - effective table logical name 在同一 schema 唯一；source Java field name和 effective logical field name 在单 table 内各自唯一；
 - `defaultCapacity`、growth、stats、budget、algorithm 和其他 runtime-plan hint 完全排除在 canonical table/schema JSON 之外；它们只进入 generated default plan 与 runtime plan hash；
@@ -222,6 +223,7 @@ Processor diagnostics 至少区分：
 - `List` child row declares key；
 - `Map` child row missing/multiple key；
 - `Map<K,R>` key type mismatch；
+- cross-schema child ownership；
 - mutable/invalid `@SomaValue` effective shape or conflicting value equality/hash；
 - selector path uses Java field name after logical name override；
 - duplicate generated access name；
@@ -272,6 +274,8 @@ Table/codegen family additive 分配：
 | `SOMA-TABLE-007` | default capacity/runtime-plan hint invalid |
 | `SOMA-TABLE-008` | table key cardinality/type/requiredness invalid |
 | `SOMA-TABLE-009` | index/unique/order name、selector leaf、direction 或 access binding invalid |
+| `SOMA-TABLE-010` | child container/row/key/modifier/ownership declaration invalid |
+| `SOMA-TABLE-011` | direct/indirect child ownership cycle |
 | `SOMA-GEN-001` | generated public name/signature collision |
 | `SOMA-GEN-002` | deterministic generated source emission failed |
 

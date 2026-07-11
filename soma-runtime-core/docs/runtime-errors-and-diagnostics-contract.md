@@ -88,11 +88,15 @@ V1 code namespace 至少包含：
 | `child_wrong_owner` | internal | ownership path、owner identities，不暴露 raw handle |
 | `child_dangling` | internal | ownership path |
 | `child_released` | lifecycle | ownership path |
+| `owned_child_release` | lifecycle | child ownership path、requested operation |
+| `child_key_mismatch` | invalid_input | child field path，不渲染arbitrary key payload |
 | `ownership_cycle` | internal | ownership path |
 | `callback_failed` | callback | operation、callback stage、cause |
 | `internal_invariant_violation` | internal | invariant id、table/path、operation |
 
 Code 使用 lowercase snake_case，发布后不能复用为不同语义。新增 code 必须进入 owner contract、API/error tests 和 compatibility review。
+
+Phase 4 generated-runtime factory additive 固化 `materializationBudgetExceeded(...)`、`allocationFailure(...)`、`childWrongOwner(...)`、`childDangling(...)`、`childReleased(...)`、`ownedChildRelease(...)`、`childKeyMismatch(...)` 与 `ownershipCycle(...)`；ownership factory 只接收 logical path/field 和 operation，不渲染 raw handle、owner token 或 arbitrary child payload。`allocationFailure` 只包装受控 provider 的false/recoverable `RuntimeException`；`Error`/`VirtualMachineError` 不捕获。
 
 ## 5. Context rules
 
@@ -167,13 +171,15 @@ Snapshot 必须 immutable、self-consistent，并记录：
 
 首个 dense slice 固化 `OperationOutcome { NONE, SUCCESS, FAILED }` 与 immutable `com.hgtech.soma.runtime.TableStats`，由 generated `XxxTable.statsSnapshot()` 返回。Exact getters：`String schemaHash()`、`runtimeCompatibility()`、`runtimePlanHash()`、`lastOperation()`、`lastErrorCode()`；`StatsMode statsMode()`；`int rows()`、`capacity()`、`activeViews()`；`long structuralEpoch()`、`growthCount()`、`updateScratchCurrentBytes()`、`updateScratchHighWaterBytes()`、`lastScanned()`、`lastMatched()`、`lastChanged()`；`boolean released()`；`OperationOutcome lastOutcome()`。String均 non-null；无 last operation/error使用 empty string。后续 key/sidecar/child/materialization stats additive增加，不重命名或改变单位。
 
+Phase 4 additive exact getters：`long childInstanceCount()`、`descendantRowCount()`、`materializationInvocationCount()`、`materializationFailureCount()`、`lastMaterializationTableInstances()`、`lastMaterializationRows()`、`lastMaterializationLeafValues()`、`lastMaterializationEstimatedAllocationBytes()`；`int lastMaterializationMaximumOwnershipDepth()`；`String lastMaterializationBudgetIdentity()`。前两项是snapshot scope内当前subtree facts，不由`resetStats()`清零；root snapshot聚合整个ownership aggregate，owned child snapshot以该child subtree为scope且不double count。Invocation/failure累计和last-materialization字段由`resetStats()`清零/空串；reset不修改live child、epoch、capacity或plan，active operation/materialization期间仍以`reentrant_access` fail closed。
+
 Phase 3 additive 固化 `long sidecarDirtyCount()`、`sidecarRebuildCount()` 和 `sidecarRebuildRows()`。`sidecarDirtyCount` 只累计 clean/current -> dirty 的 distinct sidecar transition；已经 dirty 时重复 mutation 不重复累计。`sidecarRebuildCount` 每次 detached staged permutation 成功 publish 后加一，`sidecarRebuildRows` 累计该次 full rebuild 覆盖的 live row 数；failed rebuild 不累计。`resetStats()` 同时清零这三个 lifetime-since-reset counter，不改变 sidecar clean/dirty/current facts。
 
 Phase 3 同时 additive 固化 `long sidecarScratchCurrentBytes()` 与 `sidecarScratchHighWaterBytes()`。Current 是全部 selector sidecar 当前 retained permutation + merge scratch primitive arrays；high-water 还覆盖 rebuild growth 时 old/new arrays 瞬时共存的 checked peak。`clear` 保留 current，`release` 将 current 归零；high-water 是 instance lifetime resource fact，不因 `resetStats()` 丢失。
 
 `resetStats()` 是 table operation boundary，不允许从 active Row Pipeline callback/terminal 内重入；否则返回 `reentrant_access`（若发生在 callback 中，由 callback boundary包装为 `callback_failed`），且任何 counter都不得被部分清零。
 
-`TableStats` constructor private；public static `create(...)` 按上述 getter顺序接收全部 identity/state/last-operation字段并返回 validated immutable snapshot，供 generated-runtime protocol构造。`UpdateResult` 同样使用 private constructor + public static `create(scanned,matched,changed,sidecarMaintained,sidecarRebuilt)`；negative或不满足 `changed <= matched <= scanned` 的输入 fail fast。
+`TableStats` constructor private；public static `create(...)` 按上述 getter顺序接收既有 identity/state/last-operation字段并返回 validated immutable snapshot；Phase 4 additive `withPhase4(TableStats base, ...)` 只允许 generated-runtime protocol在同一瞬时 base snapshot 上补入 child/materialization facts并重复验证 non-negative/identity，不接受 mutable runtime state。`UpdateResult` 同样使用 private constructor + public static `create(scanned,matched,changed,sidecarMaintained,sidecarRebuilt)`；negative或不满足 `changed <= matched <= scanned` 的输入 fail fast。
 
 Success terminal记录实际 scanned/matched/committed changed。Callback/runtime failure记录 attempted scanned/matched、`lastChanged=0`、outcome FAILED与 stable error code；expected validation在 traversal前失败时 scanned/matched/changed均为零。`statsSnapshot()`、`runtimePlan()`、`isReleased()` 是 release后的只读 diagnostic exception：仍可调用以观察 terminal state；所有 data/pipeline/mutation/materialization access继续返回 `table_released`。
 

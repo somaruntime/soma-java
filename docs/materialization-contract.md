@@ -140,12 +140,17 @@ V1 estimator `soma-materialization-estimator-v1` 使用与真实 JVM object layo
 
 - schema carrier object：`16 + 8 * declared schema field count` bytes；
 - `ArrayList` object：24 bytes；backing reference array：`16 + 8 * capacity` bytes；
-- keyed `Map`/entry、child collection 与 generated key accounting 在对应 child/key slice 接受前必须 additive 固化，未固化时 processor fail closed而不是输出 partial estimate；
+- keyed whole table/child 使用 `HashMap` accounting：map object 48 bytes；non-empty table reference array为 `align8(16 + 8 * bucketCapacity)` bytes；每个live entry 32 bytes；`bucketCapacity`为满足 `ceil(rows / 0.75)` 的最小2次幂且最小16，empty map不计table array；
+- dense child collection沿用`ArrayList` accounting；child collection没有额外wrapper，只计其List/Map本身与reachable rows；
+- primitive/semantic primitive keyed Map每个新建boxed key计16 bytes；String/enum key复用logical value不重复计payload retained bytes；generated新建`@SomaValue`对象按`align8(16 + 8 * direct value field count)`计费，nested value逐对象递归计，carrier field与Map key共享同一新建value时只计一次；
+- `find` / `findFirst` 的present `Optional` result计16 bytes，empty singleton计0；
 - materialized optional primitive wrapper：每个 present value 16 bytes；
 - reused immutable String/enum/value payload 本身不重复计 retained bytes；本次新建的 value object必须由后续 value-materializer rule显式计入；
 - estimator 只用于 deterministic guard/diagnostics，不声称等于 profiler/JVM heap bytes。
 
 Dense root `materialize()` 在创建任何公开 carrier 前先计 whole-result `ArrayList` 与 backing capacity；每行在构造前计 carrier、present optional wrapper 和 leaf count。`fetchAt` 不计 list，只计单 carrier及其 present leaves/wrappers。
+
+Keyed root/child在创建任何公开carrier前先计whole-result `HashMap`、table array、entries与需要新建的primitive boxed keys。Recursive materialization先完成整个ownership invocation的handle/path验证与全部counter/accounting，再构造任何公开schema object/List/Map；任一descendant失败都不会向caller暴露partial result。
 
 超限返回 typed `materialization_budget_exceeded`，至少包含：
 

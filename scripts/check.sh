@@ -13,6 +13,8 @@ cd "$root_dir"
 ./scripts/check-keyspace-phase2.sh
 ./scripts/check-generated-keyed-phase2.sh
 ./scripts/check-access-phase3.sh
+./scripts/check-child-phase4.sh
+./scripts/check-testkit-phase4.sh
 ./scripts/check-table-diagnostics-phase1.sh
 ./scripts/check-generated-dense-phase1.sh
 ./scripts/check-external-consumer.sh

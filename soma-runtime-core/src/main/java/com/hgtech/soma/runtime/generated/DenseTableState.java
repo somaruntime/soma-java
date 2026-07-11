@@ -19,6 +19,8 @@ public final class DenseTableState {
     private int size;
     private long structuralEpoch;
     private boolean released;
+    private boolean childReleased;
+    private String ownershipPath = "";
     private int activeViews;
     private boolean operationActive;
     private String activeOperation = "";
@@ -36,6 +38,15 @@ public final class DenseTableState {
     private long lastScanned;
     private long lastMatched;
     private long lastChanged;
+    private boolean materializationActive;
+    private long materializationInvocationCount;
+    private long materializationFailureCount;
+    private String lastMaterializationBudgetIdentity = "";
+    private int lastMaterializationMaximumOwnershipDepth;
+    private long lastMaterializationTableInstances;
+    private long lastMaterializationRows;
+    private long lastMaterializationLeafValues;
+    private long lastMaterializationEstimatedAllocationBytes;
 
     public DenseTableState(
             String tableLogicalName,
@@ -56,6 +67,9 @@ public final class DenseTableState {
     public int capacity() { return columns.capacity(); }
     public long structuralEpoch() { return structuralEpoch; }
     public boolean isReleased() { return released; }
+    public boolean hasPinnedBorrow() {
+        return activeViews > 0 || operationActive || materializationActive;
+    }
     public RuntimePlan runtimePlan() { return runtimePlan; }
     public long sidecarRebuildCount() { return sidecarRebuildCount; }
 
@@ -84,6 +98,9 @@ public final class DenseTableState {
     }
 
     public void checkActive(String operation) {
+        if (childReleased) {
+            throw RuntimeFailures.childReleased(ownershipPath, operation);
+        }
         if (released) {
             throw RuntimeFailures.tableReleased(tableLogicalName, operation);
         }
@@ -100,11 +117,85 @@ public final class DenseTableState {
 
     public void beginOperation(String operation) {
         checkActive(operation);
-        if (operationActive) {
+        if (operationActive || materializationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
         }
         operationActive = true;
         activeOperation = operation;
+    }
+
+    public void beginMaterialization(String operation) {
+        checkActive(operation);
+        if (operationActive || materializationActive) {
+            throw RuntimeFailures.reentrantAccess(
+                    tableLogicalName,
+                    materializationActive ? "materialize" : activeOperation,
+                    operation);
+        }
+        recordMaterializationInvocation(operation);
+        materializationActive = true;
+    }
+
+    /** Starts materialization owned by the currently active row-pipeline operation. */
+    public void beginOperationMaterialization(String operation) {
+        checkActive(operation);
+        requireActiveOperation(operation);
+        if (materializationActive) {
+            throw RuntimeFailures.reentrantAccess(tableLogicalName, "materialize", operation);
+        }
+        recordMaterializationInvocation(operation);
+        materializationActive = true;
+    }
+
+    /** Structural publish inside an active mutating terminal still observes ColumnView pins. */
+    public void preflightStructuralOperation(String operation) {
+        checkActive(operation);
+        requireActiveOperation(operation);
+        if (materializationActive) {
+            throw RuntimeFailures.reentrantAccess(tableLogicalName, "materialize", operation);
+        }
+        if (activeViews > 0) {
+            throw RuntimeFailures.viewPinned(tableLogicalName, operation, activeViews);
+        }
+    }
+
+    public void endMaterializationSuccess(MaterializationTracker tracker) {
+        completeMaterialization(tracker, false);
+    }
+
+    public void endMaterializationFailure(MaterializationTracker tracker) {
+        completeMaterialization(tracker, true);
+    }
+
+    private void completeMaterialization(MaterializationTracker tracker, boolean failed) {
+        if (!materializationActive) {
+            throw RuntimeFailures.internalInvariant(
+                    "materialization_guard", tableLogicalName, "materialize");
+        }
+        materializationActive = false;
+        if (failed) {
+            if (materializationFailureCount == Long.MAX_VALUE) {
+                throw RuntimeFailures.internalInvariant(
+                        "materialization_failure_overflow", tableLogicalName, "materialize");
+            }
+            materializationFailureCount++;
+        }
+        if (tracker != null) {
+            lastMaterializationBudgetIdentity = tracker.budgetIdentity();
+            lastMaterializationMaximumOwnershipDepth = tracker.maximumDepth();
+            lastMaterializationTableInstances = tracker.tableInstances();
+            lastMaterializationRows = tracker.rows();
+            lastMaterializationLeafValues = tracker.leafValues();
+            lastMaterializationEstimatedAllocationBytes = tracker.estimatedBytes();
+        }
+    }
+
+    private void recordMaterializationInvocation(String operation) {
+        if (materializationInvocationCount == Long.MAX_VALUE) {
+            throw RuntimeFailures.internalInvariant(
+                    "materialization_invocation_overflow", tableLogicalName, operation);
+        }
+        materializationInvocationCount++;
     }
 
     public void endOperationSuccess(
@@ -192,6 +283,16 @@ public final class DenseTableState {
         return size;
     }
 
+    public void prepareChildChange(String operation) {
+        requireStructural(operation);
+    }
+
+    public void commitChildChange(String operation) {
+        checkActive(operation);
+        structuralEpoch++;
+        record(operation, OperationOutcome.SUCCESS, "", 1L, 1L, 1L);
+    }
+
     public void commitClear(int expectedPreviousSize) {
         if (expectedPreviousSize != size) {
             throw RuntimeFailures.internalInvariant(
@@ -222,7 +323,7 @@ public final class DenseTableState {
         if (released) {
             return -1;
         }
-        if (operationActive) {
+        if (operationActive || materializationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, "release");
         }
         return size;
@@ -246,6 +347,34 @@ public final class DenseTableState {
         structuralEpoch++;
         record("release", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
+    }
+
+    public void markOwned(String path) {
+        if (released || childReleased || !ownershipPath.isEmpty()) {
+            throw RuntimeFailures.internalInvariant(
+                    "owned_table_identity", tableLogicalName, "child.create");
+        }
+        ownershipPath = Objects.requireNonNull(path, "path");
+    }
+
+    public boolean isOwned() { return !ownershipPath.isEmpty(); }
+
+    public void rejectOwnedRelease(String operation) {
+        if (isOwned()) {
+            throw RuntimeFailures.ownedChildRelease(ownershipPath, operation);
+        }
+    }
+
+    public void commitOwnedRelease(boolean aggregateRelease) {
+        if (released) return;
+        int previous = size;
+        size = 0;
+        released = true;
+        childReleased = !aggregateRelease;
+        activeViews = 0;
+        structuralEpoch++;
+        record("ownership.release", OperationOutcome.SUCCESS, "",
+                previous, previous, previous);
     }
 
     public void updateScratch(long currentBytes, long highWaterBytes) {
@@ -338,10 +467,23 @@ public final class DenseTableState {
                 lastChanged);
     }
 
+    public TableStats statsSnapshot(long childInstances, long descendantRows) {
+        return TableStats.withPhase4(statsSnapshot(), childInstances, descendantRows,
+                materializationInvocationCount, materializationFailureCount,
+                lastMaterializationBudgetIdentity,
+                lastMaterializationMaximumOwnershipDepth,
+                lastMaterializationTableInstances,
+                lastMaterializationRows,
+                lastMaterializationLeafValues,
+                lastMaterializationEstimatedAllocationBytes);
+    }
+
     public void resetStats() {
-        if (operationActive) {
+        if (operationActive || materializationActive) {
             throw RuntimeFailures.reentrantAccess(
-                    tableLogicalName, activeOperation, "resetStats");
+                    tableLogicalName,
+                    materializationActive ? "materialize" : activeOperation,
+                    "resetStats");
         }
         lastOperation = "";
         lastOutcome = OperationOutcome.NONE;
@@ -352,11 +494,19 @@ public final class DenseTableState {
         sidecarDirtyCount = 0L;
         sidecarRebuildCount = 0L;
         sidecarRebuildRows = 0L;
+        materializationInvocationCount = 0L;
+        materializationFailureCount = 0L;
+        lastMaterializationBudgetIdentity = "";
+        lastMaterializationMaximumOwnershipDepth = 0;
+        lastMaterializationTableInstances = 0L;
+        lastMaterializationRows = 0L;
+        lastMaterializationLeafValues = 0L;
+        lastMaterializationEstimatedAllocationBytes = 0L;
     }
 
     private void requireStructural(String operation) {
         checkActive(operation);
-        if (operationActive) {
+        if (operationActive || materializationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
         }
         if (activeViews > 0) {

@@ -49,10 +49,14 @@ RuntimePlan.defaultMaterializationBudget -> MaterializationBudget
 RuntimePlan.statsMode -> StatsMode
 RuntimePlan.requireTable(String logicalName) -> TablePlan
 RuntimePlan.tables -> immutable List<TablePlan> in logical-name order
+RuntimePlan.requireChild(String ownerTable, String childField) -> ChildPlan
+RuntimePlan.children -> immutable List<ChildPlan> in owner-table/field order
 RuntimePlan.Builder.defaultMaterializationBudget(MaterializationBudget) -> Builder
 RuntimePlan.Builder.statsMode(StatsMode) -> Builder
 RuntimePlan.Builder.addTable(TablePlan) -> Builder        // duplicate fails
 RuntimePlan.Builder.replaceTable(TablePlan) -> Builder    // missing fails
+RuntimePlan.Builder.addChild(ChildPlan) -> Builder        // duplicate fails
+RuntimePlan.Builder.replaceChild(ChildPlan) -> Builder    // missing fails
 RuntimePlan.Builder.build() -> RuntimePlan
 TablePlan.builder(String tableLogicalName, String algorithm)
 TablePlan.toBuilder() -> TablePlan.Builder
@@ -65,6 +69,10 @@ TablePlan.Builder.initialCapacity(int)/growthRatio(int,int)/
     maximumUpdateScratchBytes(long)/accessStrategy(String)/
     sidecarMaintenancePolicy(String)/maximumSidecarScratchBytes(long) -> Builder
 TablePlan.Builder.build() -> TablePlan
+ChildPlan.create(String ownerTable, String childField,
+    String childTable, int initialCapacity) -> ChildPlan
+ChildPlan.ownerTable/childField/childTable -> String
+ChildPlan.initialCapacity -> int
 ```
 
 All parameters/getters are non-null. `requireTable` unknown name返回 `invalid_runtime_plan`；`tables()` 不返回 mutable internal map。Initial capacity > 0；growth numerator > denominator >= 1；maximum update scratch > 0；maximum sidecar scratch >= 0。Generated `create` 对 selector table要求已支持的 access/policy identity和 positive sidecar bound，对 no-selector table要求 `none/none/0`。Schema-specific unknown/missing/inapplicable table在 generated `create` validation fail。
@@ -128,6 +136,8 @@ Parent-owned child table 使用同一个 aggregate plan 中对应 child table id
 - optional absent child 不创建 instance；
 - child instance 不能附带来自另一 aggregate 的 arbitrary plan/handle；
 - replacement subtree 使用 parent aggregate 的 effective plan stage/validate。
+
+每条normalized ownership edge另有immutable effective `ChildPlan`，identity为`owner table logical name + child field logical name`。它记录child table logical name和resolved positive initial capacity；annotation/source中的`-1`在generated default plan构造前解析为child `TablePlan.initialCapacity`，不进入effective plan。Application override只接受positive capacity。`ChildPlan`按owner table/field排序进入runtime plan hash，允许同一child type被多个parent field用不同capacity复用；child algorithm/sidecar等其余策略仍由child `TablePlan`拥有。
 
 未来如允许 child-instance override，必须先定义 identity、ownership、replacement 和 reproducibility 影响；V1 不提供 ad-hoc live child override。
 
@@ -201,7 +211,7 @@ Canonical plan 必须：
 - 区分 absent/inapplicable 与 explicit value；
 - 记录 protocol/algorithm/estimator identity。
 
-首个 canonical effective plan 使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。Root keys 固定为 `allocationEstimator`、`defaultMaterializationBudget`、`generatedProtocol`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`。Dense table entry 固定为 `algorithm`、`accessStrategy`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`maximumUpdateScratchBytes`、`maximumSidecarScratchBytes`、`sidecarMaintenancePolicy`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
+首个 canonical effective plan 使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。无ownership edge时Root keys保持`allocationEstimator`、`defaultMaterializationBudget`、`generatedProtocol`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`；有child时additive包含`children` array。Child entry固定键为`childField`、`childTable`、`initialCapacity`、`ownerTable`，按owner/field排序。Dense table entry固定为 `algorithm`、`accessStrategy`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`maximumUpdateScratchBytes`、`maximumSidecarScratchBytes`、`sidecarMaintenancePolicy`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
 
 `MaterializationBudget.identity()` 使用同一 canonical budget object与前缀 `soma-java:v1:materialization-budget\n` 的 lowercase SHA-256。Per-call override因此有稳定 identity但不改变 `runtimePlanHash`。
 

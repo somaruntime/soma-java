@@ -14,11 +14,13 @@ public final class com.example.soma.keyed.generated.LongKeyedParticleTable {
   public void release();
   public com.example.soma.keyed.LongKeyedParticle fetchAt(int);
   public com.example.soma.keyed.LongKeyedParticle fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.keyed.LongKeyedParticle> materialize();
-  public java.util.List<com.example.soma.keyed.LongKeyedParticle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<java.lang.Long, com.example.soma.keyed.LongKeyedParticle> materialize();
+  public java.util.Map<java.lang.Long, com.example.soma.keyed.LongKeyedParticle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(long);
   public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> find(long);
+  public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> find(long, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.LongKeyedParticle fetch(long);
+  public com.example.soma.keyed.LongKeyedParticle fetch(long, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.generated.LongKeyedParticleMutator mutate(long);
   public void delete(long);
   public com.example.soma.keyed.generated.LongKeyedParticleKeys keys();
@@ -33,8 +35,11 @@ public final class com.example.soma.keyed.generated.LongKeyedParticleTable {
   public boolean noneMatch(com.example.soma.keyed.generated.LongKeyedParticleRows$Predicate);
   public void forEach(com.example.soma.keyed.generated.LongKeyedParticleRows$Consumer);
   public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> findFirst();
+  public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.LongKeyedParticle firstOrThrow();
+  public com.example.soma.keyed.LongKeyedParticle firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.keyed.LongKeyedParticle> fetchAll();
+  public java.util.List<com.example.soma.keyed.LongKeyedParticle> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.keyed.generated.LongKeyedParticleRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();

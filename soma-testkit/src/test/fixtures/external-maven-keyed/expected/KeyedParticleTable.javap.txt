@@ -14,11 +14,13 @@ public final class com.example.soma.keyed.generated.KeyedParticleTable {
   public void release();
   public com.example.soma.keyed.KeyedParticle fetchAt(int);
   public com.example.soma.keyed.KeyedParticle fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.keyed.KeyedParticle> materialize();
-  public java.util.List<com.example.soma.keyed.KeyedParticle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<java.lang.Integer, com.example.soma.keyed.KeyedParticle> materialize();
+  public java.util.Map<java.lang.Integer, com.example.soma.keyed.KeyedParticle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(int);
   public java.util.Optional<com.example.soma.keyed.KeyedParticle> find(int);
+  public java.util.Optional<com.example.soma.keyed.KeyedParticle> find(int, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.KeyedParticle fetch(int);
+  public com.example.soma.keyed.KeyedParticle fetch(int, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.generated.KeyedParticleMutator mutate(int);
   public void delete(int);
   public com.example.soma.keyed.generated.KeyedParticleKeys keys();
@@ -33,8 +35,11 @@ public final class com.example.soma.keyed.generated.KeyedParticleTable {
   public boolean noneMatch(com.example.soma.keyed.generated.KeyedParticleRows$Predicate);
   public void forEach(com.example.soma.keyed.generated.KeyedParticleRows$Consumer);
   public java.util.Optional<com.example.soma.keyed.KeyedParticle> findFirst();
+  public java.util.Optional<com.example.soma.keyed.KeyedParticle> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.KeyedParticle firstOrThrow();
+  public com.example.soma.keyed.KeyedParticle firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.keyed.KeyedParticle> fetchAll();
+  public java.util.List<com.example.soma.keyed.KeyedParticle> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.keyed.generated.KeyedParticleRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();

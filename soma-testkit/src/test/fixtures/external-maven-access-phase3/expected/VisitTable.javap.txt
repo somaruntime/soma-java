@@ -14,11 +14,13 @@ public final class com.example.soma.access.generated.VisitTable {
   public void release();
   public com.example.soma.access.Visit fetchAt(int);
   public com.example.soma.access.Visit fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.access.Visit> materialize();
-  public java.util.List<com.example.soma.access.Visit> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<com.example.soma.access.RoutePositionKey, com.example.soma.access.Visit> materialize();
+  public java.util.Map<com.example.soma.access.RoutePositionKey, com.example.soma.access.Visit> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(com.example.soma.access.RoutePositionKey);
   public java.util.Optional<com.example.soma.access.Visit> find(com.example.soma.access.RoutePositionKey);
+  public java.util.Optional<com.example.soma.access.Visit> find(com.example.soma.access.RoutePositionKey, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.Visit fetch(com.example.soma.access.RoutePositionKey);
+  public com.example.soma.access.Visit fetch(com.example.soma.access.RoutePositionKey, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.generated.VisitMutator mutate(com.example.soma.access.RoutePositionKey);
   public void delete(com.example.soma.access.RoutePositionKey);
   public com.example.soma.access.generated.VisitKeys keys();
@@ -33,8 +35,11 @@ public final class com.example.soma.access.generated.VisitTable {
   public boolean noneMatch(com.example.soma.access.generated.VisitRows$Predicate);
   public void forEach(com.example.soma.access.generated.VisitRows$Consumer);
   public java.util.Optional<com.example.soma.access.Visit> findFirst();
+  public java.util.Optional<com.example.soma.access.Visit> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.Visit firstOrThrow();
+  public com.example.soma.access.Visit firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.access.Visit> fetchAll();
+  public java.util.List<com.example.soma.access.Visit> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.VisitRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();

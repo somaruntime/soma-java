@@ -102,9 +102,9 @@ String identity grammar：
 - explicit field-role logical name 必须是非 keyword Java identifier，长度不超过 128 UTF-16 code units；空字符串只表示使用 Java field name；
 - 不满足 grammar 的输入以 structured diagnostic fail closed，不以静默清洗后的值参与 schema hash。
 
-V1 exact public shape：`@SomaTable` 包含 `String name() default ""` 与 `int defaultCapacity() default -1`；marker `@SomaOptional` 不含 element。
+V1 exact public shape：`@SomaTable` 包含 `String name() default ""` 与 `int defaultCapacity() default -1`；`@SomaChild` 包含 `String name() default ""` 与 `int initialCapacity() default -1`；marker `@SomaOptional` 不含 element。
 
-`defaultCapacity = -1` 是稳定的“未指定”sentinel，由 generated default runtime plan 选择 versioned safe baseline；positive value 是显式 hint。`0` 和小于 `-1` 的值非法。Sentinel 只影响 runtime plan input，不进入 logical schema hash。
+`defaultCapacity = -1` 是稳定的“未指定”sentinel，由 generated default runtime plan 选择 versioned safe baseline；positive value 是显式 hint。`0` 和小于 `-1` 的值非法。Sentinel 只影响 runtime plan input，不进入 logical schema hash。`@SomaChild.initialCapacity` 使用相同的 `-1` sentinel 与正数约束：`-1` 表示继承 child table effective initial capacity，显式值必须大于 `0`；它进入 generated effective child plan/runtime plan hash，不进入 logical schema hash。
 
 ### 2.3 Annotation target and retention
 
@@ -292,7 +292,7 @@ Map<K, R> <=> keyed child SomaTable<K, R>
 - table 可以包含 `@SomaField`、`@SomaKey`、`@SomaChild`、`@SomaOptional` modifier、`@SomaIgnore`、`@SomaIndex`、`@SomaUnique` 和 `@SomaOrder`；
 - `@SomaField` 标注的 value typed field 会 flatten；
 - `@SomaChild List<R>` 要求 `R` 是没有 `@SomaKey` 的 `@SomaTable` class；
-- `@SomaChild Map<K,R>` 要求 `R` 是有且只有一个 logical key 的 `@SomaTable` class，且 `K` 精确等于该 key field type；
+- `@SomaChild Map<K,R>` 要求 `R` 是有且只有一个 logical key 的 `@SomaTable` class，且 `K` 精确等于该 key 的 materialized Java type；primitive/semantic primitive key 使用对应 boxed type，enum、String 与 value key 保持 exact reference type；
 - `@SomaChild` field 表示 parent row owns child table instance；
 - child table instance 的 ownership 属于 enclosing parent SomaTable aggregate，并且只 attach 到一个 parent row/field slot；
 - live child instance 不允许被多个 parent row 共享，也不允许 reparent；
@@ -301,6 +301,8 @@ Map<K, R> <=> keyed child SomaTable<K, R>
 - cross-table reference 不使用 table typed field，而使用 scalar、enum、semantic scalar 或 value key。
 
 Schema table-ownership dependency graph 必须无环。Processor 必须拒绝直接或间接 ownership cycle，并报告完整 declaration path；同一个 child table type 可以被不同 parent declaration 复用，这不表示 runtime instance 可以共享。
+
+V1 ownership edge必须位于同一个`@SomaSchema` package/aggregate内。跨schema relation使用scalar/enum/semantic/value key reference；V1不把两个独立schema hash/runtime plan隐式合并为一个ownership aggregate。
 
 `@SomaChild` field 只建立 ownership edge。Runtime parent column 保存 internal `ChildTableHandle`，不保存 Java Collection，也不 flatten child columns；handle 不是 schema field value、业务 key 或可序列化 contract。
 
