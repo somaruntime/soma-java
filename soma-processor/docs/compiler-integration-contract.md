@@ -144,7 +144,9 @@ Parse-phase annotation identity 必须无歧义绑定到本契约指定的 `com.
 ## 7. Processing rounds and incremental build
 
 - lowering 对每个 parsed declaration 最多执行一次；
-- processor round 必须检测 duplicate collection，不重复生成 artifact；
+- V1 canonical schema input 是本次 javac invocation 的 initial source declarations；processor在首个non-final round收集该完整输入、建立compilation-wide immutable plan，并在同一non-final round写出generated companion，使同一compilation unit和其他initial source能够在attribution阶段绑定generated API；
+- 标准JSR 269没有“最后一个non-final round”通知，也没有transactional Filer；等到`processingOver()`再生成会使initial source consumer无法绑定generated type。由另一个annotation processor在后续round新生成的`@SomaSchema`、`@SomaValue`或`@SomaTable`不属于V1 supported input，以`SOMA-COMP-007` fail closed，不能静默遗漏、追加到已经写出的schema或退化为last-round emission；
+- processor round 必须检测duplicate collection，不重复生成artifact；首轮emission后的重复元素不报错，任何新SOMA declaration必须触发上述late-declaration失败；
 - generated source 只读取 validated normalized model；
 - schema dependency change 必须使受影响的 generated artifact 重新生成；
 - deleted/renamed schema 不得留下可被 package smoke 误用的 stale generated source；
@@ -152,6 +154,8 @@ Parse-phase annotation identity 必须无歧义绑定到本契约指定的 `com.
 - incremental build 只有在 clean 与 incremental 输出逐文件等价后才能成为 supported claim。
 
 V1 不把 IDE incremental compiler 的非标准 round behavior 当作 canonical processing model。
+
+这是V1 compiler boundary，不删除schema capability：所有手写Java 8 schema和consumer仍支持单次clean compilation。若未来正式场景要求“其他processor生成SOMA schema”，必须先引入可证明的多阶段build/transactional artifact协议并重新审查consumer attribution、失败清理和determinism，不能解除`SOMA-COMP-007`后直接复用当前single-invocation路径。
 
 ## 8. Determinism and compatibility identity
 

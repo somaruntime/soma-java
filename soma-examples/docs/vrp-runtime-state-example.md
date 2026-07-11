@@ -292,6 +292,12 @@ Source-of-truth 口径：
 
 `rewriteRouteVisitsForInsertion(...)` 不是零成本 helper。一次插入至少会读取当前 route child，构造插入后的 sequence，重写 position / arrival / departure / loadAfterVisit，并在保留 `Customer.assignedPosition` 时同步刷新受影响 customer 的诊断 snapshot。V1 使用 `routes.visits(routeId)` 定位 live child facade；child 内容 replacement 必须 staged/validated 后原子切换，失败时旧 child 保持不变。该示例不承诺零拷贝 route segment rewrite public API。
 
+正式 smoke 的 `route-rewrite` 证据必须从已有2行的非空 route sequence 插入1个
+customer并形成3行结果，同时证明插入点之后的原 row 从position 1移动到position 2、
+arrival/departure/loadAfterVisit同步重写、`routeVersion`递增以及Customer诊断位置同步；
+empty -> single-row initialization不能命名为route insertion/rewrite evidence。选择与局部验证
+使用generated row locator和Value leaf ColumnView；递归`Route + List`只在export boundary执行。
+
 VRP constructor 拥有跨 table 一致性。`Customer`、`Route` 及其 visits child、`UnassignedCustomerRow`、`InsertionCandidateRow` 的提交序列没有 SOMA runtime transaction；中间失败时，constructor 必须停止构造、回滚外部 snapshot，或重建 derived workspace / candidate rows。
 
 `routes.fetch(routeId)` 会递归 materialize detached `Route + List<RouteVisitRow>`；hot-loop 局部扫描应优先使用 `routes.visits(routeId)`，避免为访问 live child 而构造完整 object/List graph。

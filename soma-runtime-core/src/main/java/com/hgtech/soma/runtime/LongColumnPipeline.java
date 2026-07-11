@@ -8,7 +8,7 @@ import java.util.function.LongConsumer;
 
 public final class LongColumnPipeline extends AbstractColumnPipeline {
     private final LongColumn column;
-    public LongColumnPipeline(DenseTableState state, LongColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
+    LongColumnPipeline(DenseTableState state, LongColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
     public void forEachLong(LongConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {

@@ -34,6 +34,16 @@ grep -F 'access-pattern-card scenario=fjsp' "$scenario_output" >/dev/null
 grep -F 'access-pattern-card scenario=vrp' "$scenario_output" >/dev/null
 grep -F 'access-pattern-card scenario=simulation' "$scenario_output" >/dev/null
 grep -F 'access-pattern-card scenario=game' "$scenario_output" >/dev/null
+for scenario in fjsp vrp simulation game; do
+  apc_line=$(grep -F "access-pattern-card scenario=$scenario " "$scenario_output")
+  printf '%s\n' "$apc_line" | grep -E ' rows=[1-9][0-9]* ' >/dev/null
+  printf '%s\n' "$apc_line" | grep -E ' hotColumns=[^ ]+' >/dev/null
+  printf '%s\n' "$apc_line" | grep -E ' hotLeafBytesPerRow=[1-9][0-9]* ' >/dev/null
+  printf '%s\n' "$apc_line" | grep -E ' workingSetHotLeafBytes=[1-9][0-9]* ' >/dev/null
+  printf '%s\n' "$apc_line" | grep -E ' reads=[1-9][0-9]* mutations=[1-9][0-9]* ' >/dev/null
+  printf '%s\n' "$apc_line" | grep -F 'observation=deterministic-fixture-accounting' >/dev/null
+done
+grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'visits=3' >/dev/null
 grep -F 'soma-examples-scenarios: ok' "$scenario_output" >/dev/null
 grep '^lane=' "$scenario_output" >"$evidence_dir/lane-markers.txt"
 cmp "$expected/expected-lane-markers.txt" "$evidence_dir/lane-markers.txt"
@@ -117,6 +127,18 @@ if grep -F 'byGridPosition().fetchAll()' \
   printf '%s\n' 'examples-phase6-check: Game uses positional whole-table materialization' >&2
   exit 1
 fi
+if grep -E 'row\.(position|customerId|machineId|candidateKey)\(\)' \
+    soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java \
+    soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java \
+    soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java \
+    >/dev/null; then
+  printf '%s\n' 'examples-phase6-check: Value object reconstruction leaked into canonical hot scan' >&2
+  exit 1
+fi
+grep -F 'identity tie-break must survive packed compaction' \
+  soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java >/dev/null
+grep -F 'non-empty insertion rewrites the shifted route segment' \
+  soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java >/dev/null
 grep -F '<artifactId>soma-processor</artifactId>' soma-examples/pom.xml >/dev/null
 grep -A2 -F '<artifactId>soma-processor</artifactId>' soma-examples/pom.xml |
   grep -F '<scope>provided</scope>' >/dev/null

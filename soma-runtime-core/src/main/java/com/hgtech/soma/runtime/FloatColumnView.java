@@ -6,7 +6,7 @@ import com.hgtech.soma.runtime.generated.PresenceBitmap;
 
 public final class FloatColumnView extends AbstractColumnView implements AutoCloseable {
     private final FloatColumn column;
-    public FloatColumnView(DenseTableState state, FloatColumn column, PresenceBitmap presence, String table, String field) {
+    FloatColumnView(DenseTableState state, FloatColumn column, PresenceBitmap presence, String table, String field) {
         super(state, column, presence, table, field); this.column = column;
     }
     public boolean isPresent(int rowIndex) { return present(checkedRow(rowIndex, "isPresent")); }

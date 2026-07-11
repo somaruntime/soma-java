@@ -262,7 +262,9 @@ Generated names 必须避免冲突：
 - child presence/ensure/replace/unset method name；
 - mutator method name。
 
-Registry还必须覆盖同一compilation中所有generated top-level FQN、schema-level helper FQN、`java.lang.Object` inherited/final method、同generated package的existing source/class以及所有overload的erased signature。Processor必须先为全部schema建立immutable symbol/admission plan和完整source text，校验成功后才开始任何Filer write；generated-generated/generated-existing冲突使用`SOMA-GEN-001`，通过preflight后仍发生的单个source emission失败使用`SOMA-GEN-002`。
+Registry还必须覆盖同一initial-source compilation plan中所有generated top-level FQN、schema-level helper FQN、`java.lang.Object` inherited/final method、同generated package的existing source/class以及所有overload的erased signature。Processor必须先为initial collection中的全部schema建立immutable symbol/admission plan和完整source text，校验成功后才开始任何product artifact Filer write；generated-generated/generated-existing冲突使用`SOMA-GEN-001`，通过preflight后仍发生的单个source emission失败使用`SOMA-GEN-002`。后续processor round新出现的SOMA declaration遵守compiler integration Owner的`SOMA-COMP-007`边界，不能追加或覆盖该plan。
+
+每个generated Java source首行携带exact deterministic ownership marker `// SOMA-GENERATED: soma-processor-v1`。Non-clean recompilation的FQN预检只允许重写`SOURCE_OUTPUT`中带该exact marker的SOMA旧产物；普通initial source、classpath class、缺失/伪造位置的同名type仍按generated-existing collision拒绝。Marker不包含路径、时间、locale或schema内容，不改变public API；clean与non-clean输出必须逐文件相同。
 
 命名冲突必须在 processor validation 阶段失败，不能生成不可编译代码。
 
@@ -306,7 +308,7 @@ V1 processor在任何Filer write前执行以下checked admission；limit本身�
 - 单table normalized physical storage leaf不超过256；
 - 单schema table不超过256；
 - 单generated Java source UTF-16 length不超过1,048,576；
-- 单schema全部generated Java source UTF-16 length合计不超过33,554,432；
+- 单schema全部generated Java source UTF-16 length合计不超过67,108,864；该值必须容纳256个最小合法table的当前V1 canonical output，不能让`schema-tables=256`边界被更小的aggregate budget隐式吞掉；
 - `@SomaValue` canonical all-fields constructor连同instance receiver的JVM parameter slots不超过255；
 - direct Batch `addValues`只有连同receiver的slots `<=255` 时生成，等于255合法；更宽table仍使用Writer路径。
 

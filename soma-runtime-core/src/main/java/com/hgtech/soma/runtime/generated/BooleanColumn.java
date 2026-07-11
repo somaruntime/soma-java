@@ -46,4 +46,8 @@ public final class BooleanColumn extends GeneratedColumn {
         requireRange(fromInclusive, toExclusive, values.length);
         Arrays.fill(values, fromInclusive, toExclusive, false);
     }
+
+    @Override long estimatedBytes(int capacity) { requireCapacity(capacity); return capacity; }
+    @Override long retainedBytes() { return values.length; }
+    @Override void releaseStorage() { values = new boolean[0]; }
 }

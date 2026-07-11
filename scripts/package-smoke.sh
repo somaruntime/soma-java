@@ -24,6 +24,10 @@ if [ -z "$version" ]; then
   printf '%s\n' 'Unable to read reactor version.' >&2
   exit 1
 fi
+dependency_plugin_version=$(sed -n \
+  's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
+  pom.xml | sed -n '1p')
+dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version
 
 dirty=false
 if [ -n "$(git status --porcelain)" ]; then
@@ -161,7 +165,7 @@ validate_artifact_set "$second_dir" second
 diff -u "$first_dir/checksums.sha256" "$second_dir/checksums.sha256" > "$work_dir/reproducibility.diff"
 
 ./mvnw -B -ntp -Dmaven.repo.local="$work_dir/repository-second" \
-  -pl soma-annotations,soma-processor,soma-runtime-core dependency:tree \
+  -pl soma-annotations,soma-processor,soma-runtime-core "$dependency_plugin":tree \
   -Dscope=runtime > "$work_dir/runtime-dependency-tree.txt"
 
 mkdir -p "$root_dir/target"

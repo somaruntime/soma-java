@@ -46,4 +46,8 @@ public final class IntColumn extends GeneratedColumn {
         requireRange(fromInclusive, toExclusive, values.length);
         Arrays.fill(values, fromInclusive, toExclusive, 0);
     }
+
+    @Override long estimatedBytes(int capacity) { requireCapacity(capacity); return 4L * capacity; }
+    @Override long retainedBytes() { return 4L * values.length; }
+    @Override void releaseStorage() { values = new int[0]; }
 }

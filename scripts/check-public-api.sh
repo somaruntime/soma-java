@@ -39,6 +39,9 @@ classify_type() {
     com.hgtech.soma.runtime.generated.*)
       printf '%s\n' "PUBLIC generated-runtime $type"
       ;;
+    com.hgtech.soma.runtime.GeneratedColumnAccess)
+      printf '%s\n' "PUBLIC generated-construction-protocol $type"
+      ;;
     com.hgtech.soma.runtime.*)
       printf '%s\n' "PUBLIC handwritten-runtime $type"
       ;;
@@ -86,6 +89,32 @@ while read -r classification role type; do
 done <"$actual_classification"
 
 cmp "$expected/public-api.javap.txt" "$actual_javap"
+
+if grep -F 'com.hgtech.soma.runtime.generated.StorageBudget' \
+  "$actual_classification" "$actual_javap" >/dev/null; then
+  printf '%s\n' 'public-api-check: internal storage budget leaked into protocol' >&2
+  exit 1
+fi
+bridge_javap=$evidence_dir/generated-column-access.javap.txt
+"$JAVA_HOME/bin/javap" -classpath "$runtime_jar" -public \
+  com.hgtech.soma.runtime.GeneratedColumnAccess >"$bridge_javap"
+if grep -F 'com.hgtech.soma.runtime.generated.' "$bridge_javap" >/dev/null; then
+  printf '%s\n' 'public-api-check: generated construction bridge leaked runtime binding type' >&2
+  exit 1
+fi
+if grep -E '^  public com\.hgtech\.soma\.runtime\.(Boolean|Byte|Short|Int|Long|Float|Double|Enum)Column(Pipeline|View)\(' \
+  "$actual_javap" >/dev/null; then
+  printf '%s\n' 'public-api-check: direct Column Pipeline/View constructor leaked' >&2
+  exit 1
+fi
+generated_column_javap=$evidence_dir/generated-column.javap.txt
+"$JAVA_HOME/bin/javap" -classpath "$runtime_jar" -public \
+  com.hgtech.soma.runtime.generated.GeneratedColumn >"$generated_column_javap"
+if grep -E '^  public abstract (long (estimatedBytes|retainedBytes)|void releaseStorage)' \
+  "$generated_column_javap" >/dev/null; then
+  printf '%s\n' 'public-api-check: internal column accounting leaked' >&2
+  exit 1
+fi
 
 annotation_contract_classes=$evidence_dir/annotation-contract
 mkdir -p "$annotation_contract_classes"

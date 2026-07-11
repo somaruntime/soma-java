@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "soma-benchmark-smoke-v2",
+  "$id": "soma-benchmark-smoke-v3",
   "title": "SOMA Java benchmark smoke JSONL record",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "soma-benchmark-smoke-v2"
+      "const": "soma-benchmark-smoke-v3"
     },
     "scenario": {
       "type": "string",
@@ -71,7 +71,7 @@
     },
     "artifactVersion": {
       "type": "string",
-      "const": "soma-java-benchmark-runner-v2"
+      "const": "soma-java-benchmark-runner-v3"
     },
     "javaVersion": {
       "type": "string",
@@ -280,13 +280,18 @@
         "duplicates": {
           "type": "integer",
           "minimum": 0
+        },
+        "materializations": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
         "operations",
         "lookups",
         "missing",
-        "duplicates"
+        "duplicates",
+        "materializations"
       ]
     },
     "accessPatternCard": {
@@ -366,6 +371,80 @@
         "phaseBoundary"
       ]
     },
+    "observationKinds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allocation": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"type": "string", "const": "not-observed"},
+            "method": {"type": "string", "const": "no-jvm-allocation-profiler"},
+            "scope": {"type": "string", "minLength": 1}
+          },
+          "required": ["kind", "method", "scope"]
+        },
+        "materialization": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"type": "string", "const": "measured"},
+            "method": {"type": "string", "const": "soma-workload-counter-v1"},
+            "scope": {"type": "string", "minLength": 1}
+          },
+          "required": ["kind", "method", "scope"]
+        },
+        "reads": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"type": "string", "const": "measured"},
+            "method": {"type": "string", "const": "soma-workload-counter-v1"},
+            "scope": {"type": "string", "minLength": 1}
+          },
+          "required": ["kind", "method", "scope"]
+        },
+        "mutations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"type": "string", "const": "measured"},
+            "method": {"type": "string", "const": "soma-workload-counter-v1"},
+            "scope": {"type": "string", "minLength": 1}
+          },
+          "required": ["kind", "method", "scope"]
+        },
+        "touchedBytes": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"type": "string", "const": "deterministic-estimate"},
+            "method": {"type": "string", "const": "soma-touched-bytes-estimator-v1"},
+            "scope": {"type": "string", "minLength": 1}
+          },
+          "required": ["kind", "method", "scope"]
+        },
+        "workingSet": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "kind": {"type": "string", "const": "deterministic-estimate"},
+            "method": {"type": "string", "const": "soma-working-set-estimator-v1"},
+            "scope": {"type": "string", "minLength": 1}
+          },
+          "required": ["kind", "method", "scope"]
+        }
+      },
+      "required": [
+        "allocation",
+        "materialization",
+        "reads",
+        "mutations",
+        "touchedBytes",
+        "workingSet"
+      ]
+    },
     "touchedBytesEstimate": {
       "type": "integer",
       "minimum": 0
@@ -380,11 +459,10 @@
       "properties": {
         "method": {
           "type": "string",
-          "const": "deterministic-accounting"
+          "const": "not-observed"
         },
         "estimatedBytes": {
-          "type": "number",
-          "minimum": 0
+          "type": "null"
         }
       },
       "required": [
@@ -393,8 +471,7 @@
       ]
     },
     "allocatedBytes": {
-      "type": "integer",
-      "minimum": 0
+      "type": "null"
     },
     "gcStats": {
       "type": "object",
@@ -1071,6 +1148,39 @@
           "properties": {
             "implementation": {
               "type": "string",
+              "const": "generated-row-materializer"
+            },
+            "invocations": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "estimatedBytes": {
+              "type": ["integer", "null"],
+              "minimum": 0
+            },
+            "observationKind": {
+              "type": "string",
+              "const": "measured"
+            }
+          },
+          "required": [
+            "implementation",
+            "invocations",
+            "rows",
+            "estimatedBytes",
+            "observationKind"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
               "const": "generated-recursive-materializer"
             },
             "rootMapEntries": {
@@ -1387,7 +1497,7 @@
       "properties": {
         "method": {
           "type": "string",
-          "const": "deterministic-accounting"
+          "const": "soma-smoke-owned-estimate-v1"
         },
         "bytes": {
           "type": "integer",
@@ -1471,6 +1581,7 @@
     "candidateCounts",
     "operationCounts",
     "accessPatternCard",
+    "observationKinds",
     "touchedBytesEstimate",
     "workingSetEstimate",
     "allocationPerOperation",

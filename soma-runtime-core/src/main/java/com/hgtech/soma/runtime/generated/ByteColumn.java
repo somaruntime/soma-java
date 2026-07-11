@@ -46,4 +46,8 @@ public final class ByteColumn extends GeneratedColumn {
         requireRange(fromInclusive, toExclusive, values.length);
         Arrays.fill(values, fromInclusive, toExclusive, (byte) 0);
     }
+
+    @Override long estimatedBytes(int capacity) { requireCapacity(capacity); return capacity; }
+    @Override long retainedBytes() { return values.length; }
+    @Override void releaseStorage() { values = new byte[0]; }
 }

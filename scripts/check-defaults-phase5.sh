@@ -35,10 +35,15 @@ fi
 
 grep -F '[SOMA-TABLE-005] @SomaDefault is allowed only on required @SomaField' "$log" >/dev/null
 grep -F '[SOMA-TABLE-005] @SomaDefault does not support an outer value field' "$log" >/dev/null
-grep -F '[SOMA-TABLE-005] invalid schema default for state: UNKNOWN' "$log" >/dev/null
-grep -F '[SOMA-TABLE-005] invalid schema default for score: NaN' "$log" >/dev/null
+grep -F '[SOMA-TABLE-005] invalid schema default for state; literalLength=7' "$log" >/dev/null
+grep -F '[SOMA-TABLE-005] invalid schema default for score; literalLength=3' "$log" >/dev/null
 grep -F '[SOMA-TABLE-005] non-finite value default on strict selector path: value.x' "$log" >/dev/null
 grep -F '[SOMA-TABLE-008] value key path cannot depend on @SomaDefault' "$log" >/dev/null
+if grep -F 'state: UNKNOWN' "$log" >/dev/null \
+    || grep -F 'score: NaN' "$log" >/dev/null; then
+  printf '%s\n' 'defaults-phase5-check: invalid literal leaked into diagnostic' >&2
+  exit 1
+fi
 
 if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' "$log" >/dev/null; then
   printf '%s\n' 'defaults-phase5-check: diagnostic leaked internal stack' >&2

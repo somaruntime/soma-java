@@ -251,6 +251,7 @@ Diagnostics golden comparison 以 diagnostic code、severity、element location�
 | `SOMA-COMP-004` | processor element model 缺少 canonical lowered shape |
 | `SOMA-COMP-005` | plugin 未看到 required processor activation |
 | `SOMA-COMP-006` | parse-phase annotation identity 未使用无歧义 FQN/single-type import |
+| `SOMA-COMP-007` | 另一个annotation processor在initial collection之后生成SOMA schema declaration；V1 single-invocation model fail closed |
 | `SOMA-VALUE-001` | value declaration/effective class or field shape invalid |
 | `SOMA-VALUE-002` | source member 与 canonical generated member 冲突 |
 | `SOMA-VALUE-003` | value field role、static annotation 或 hidden ignored state invalid |

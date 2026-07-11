@@ -55,4 +55,8 @@ public final class ObjectColumn<T> extends GeneratedColumn {
         requireRange(fromInclusive, toExclusive, values.length);
         Arrays.fill(values, fromInclusive, toExclusive, null);
     }
+
+    @Override long estimatedBytes(int capacity) { requireCapacity(capacity); return 8L * capacity; }
+    @Override long retainedBytes() { return 8L * values.length; }
+    @Override void releaseStorage() { values = new Object[0]; }
 }

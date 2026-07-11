@@ -16,6 +16,10 @@ if [ "$java_specification" != '1.8' ]; then
   printf '%s\n' "breadth-phase5-check: expected Java 8, got $java_specification" >&2
   exit 1
 fi
+dependency_plugin_version=$(sed -n \
+  's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
+  pom.xml | sed -n '1p')
+dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version
 
 fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-breadth-phase5
 expected=$fixture_source/expected
@@ -130,6 +134,7 @@ while IFS= read -r type; do
   "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
     "com.example.soma.breadth.generated.$type"
 done <"$types_file" >"$generated_javap"
+cmp "$expected/generated-public.javap.txt" "$generated_javap"
 if grep -E 'com\.hgtech\.soma\.runtime\.generated|DenseTableState|ChildOwnershipRegistry|OwnedChildTable|Handle' \
   "$generated_javap" >/dev/null; then
   printf '%s\n' 'breadth-phase5-check: internal runtime protocol leaked into generated public API' >&2
@@ -171,14 +176,14 @@ dependency_tree=$evidence_dir/dependency-tree.txt
 runtime_tree=$evidence_dir/runtime-dependency-tree.txt
 runtime_classpath_file=$evidence_dir/runtime-classpath.txt
 ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
-  -f "$fixture/pom.xml" org.apache.maven.plugins:maven-dependency-plugin:3.8.1:tree \
+  -f "$fixture/pom.xml" "$dependency_plugin":tree \
   -DoutputFile="$dependency_tree"
 ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
-  -f "$fixture/pom.xml" org.apache.maven.plugins:maven-dependency-plugin:3.8.1:tree \
+  -f "$fixture/pom.xml" "$dependency_plugin":tree \
   -Dscope=runtime \
   -DoutputFile="$runtime_tree"
 ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
-  -f "$fixture/pom.xml" org.apache.maven.plugins:maven-dependency-plugin:3.8.1:build-classpath \
+  -f "$fixture/pom.xml" "$dependency_plugin":build-classpath \
   -DincludeScope=runtime \
   -Dmdep.outputFile="$runtime_classpath_file"
 grep -F 'com.hgtech.soma:soma-annotations:' "$dependency_tree" >/dev/null

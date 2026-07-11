@@ -8,7 +8,7 @@ import java.util.function.DoubleConsumer;
 
 public final class DoubleColumnPipeline extends AbstractColumnPipeline {
     private final DoubleColumn column;
-    public DoubleColumnPipeline(DenseTableState state, DoubleColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
+    DoubleColumnPipeline(DenseTableState state, DoubleColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
     public void forEachDouble(DoubleConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {

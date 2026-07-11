@@ -17,6 +17,11 @@ if [ "$java_specification" != '1.8' ]; then
   exit 1
 fi
 
+dependency_plugin_version=$(sed -n \
+  's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
+  pom.xml | sed -n '1p')
+dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version
+
 fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-value
 expected=$fixture_source/expected
 mkdir -p target
@@ -97,7 +102,7 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
 ./mvnw -B -ntp \
   -Dmaven.repo.local="$local_repository" \
   -f "$fixture/pom.xml" \
-  dependency:build-classpath \
+  "$dependency_plugin":build-classpath \
   -DincludeScope=runtime \
   -Dmdep.outputFile="$runtime_classpath_file"
 grep -F '/soma-runtime-core/' "$runtime_classpath_file" >/dev/null

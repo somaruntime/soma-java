@@ -18,6 +18,8 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public java.util.Map<java.lang.Integer, com.example.soma.access.UniquePosition> materialize();
   public java.util.Map<java.lang.Integer, com.example.soma.access.UniquePosition> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(int);
+  public int findRowIndex(int);
+  public int rowIndexOf(int);
   public java.util.Optional<com.example.soma.access.UniquePosition> find(int);
   public java.util.Optional<com.example.soma.access.UniquePosition> find(int, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.UniquePosition fetch(int);
@@ -47,6 +49,10 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public com.example.soma.access.generated.UniquePositionRows findByPositionKey(com.example.soma.access.RoutePositionKey);
   public com.hgtech.soma.runtime.IntColumnPipeline idValues();
   public com.hgtech.soma.runtime.IntColumnView idColumn();
+  public com.hgtech.soma.runtime.LongColumnPipeline positionKeyRouteIdValues();
+  public com.hgtech.soma.runtime.LongColumnView positionKeyRouteIdValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline positionKeyPositionValues();
+  public com.hgtech.soma.runtime.IntColumnView positionKeyPositionValueColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }

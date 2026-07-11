@@ -8,7 +8,7 @@ import java.util.function.IntConsumer;
 
 public final class IntColumnPipeline extends AbstractColumnPipeline {
     private final IntColumn column;
-    public IntColumnPipeline(DenseTableState state, IntColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
+    IntColumnPipeline(DenseTableState state, IntColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
     public void forEachInt(IntConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {

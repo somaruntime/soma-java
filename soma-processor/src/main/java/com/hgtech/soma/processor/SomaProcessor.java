@@ -43,15 +43,18 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
+import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -59,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 
 /**
  * SOMA Java 8 schema collector、validator、normalizer 与 schema hash processor。
@@ -81,6 +85,10 @@ import java.util.TreeMap;
 })
 public final class SomaProcessor extends AbstractProcessor {
     private static final char[] LOWER_HEX = "0123456789abcdef".toCharArray();
+    private static final char[] UPPER_HEX = "0123456789ABCDEF".toCharArray();
+    private static final int MAXIMUM_DEFAULT_LITERAL_LENGTH = 4096;
+    private static final Pattern DECIMAL_FLOATING_LITERAL = Pattern.compile(
+            "[+-]?(?:(?:[0-9]+(?:\\.[0-9]*)?)|(?:\\.[0-9]+))(?:[eE][+-]?[0-9]+)?");
     private static final String GENERATED_TARGET = "java8-columnar";
     private static final String SCHEMA_HASH_PREFIX = "soma-java:v1:schema\n";
 
@@ -89,6 +97,7 @@ public final class SomaProcessor extends AbstractProcessor {
     private final Map<String, PackageElement> schemaPackages =
             new LinkedHashMap<String, PackageElement>();
     private final Set<Element> invalidSelectorOwners = new HashSet<Element>();
+    private boolean initialCollectionClosed;
     private boolean finished;
     private boolean hasErrors;
     private boolean activationValid;
@@ -122,13 +131,14 @@ public final class SomaProcessor extends AbstractProcessor {
         }
         compilerSession.activateProcessor(CompilerProtocol.PROCESSOR_IDENTITY);
         activationValid = true;
-        for (String diagnostic : compilerSession.getPluginDiagnostics()) {
-            errorRaw(diagnostic);
+        if (!compilerSession.getPluginDiagnostics().isEmpty()) {
+            hasErrors = true;
         }
     }
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
+        if (roundEnvironment.errorRaised()) hasErrors = true;
         validateChildPlacement(roundEnvironment.getElementsAnnotatedWith(SomaChild.class));
         validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaIndex.class));
         validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaIndexes.class));
@@ -139,28 +149,42 @@ public final class SomaProcessor extends AbstractProcessor {
         for (Element element : roundEnvironment.getElementsAnnotatedWith(SomaValue.class)) {
             if (element instanceof TypeElement) {
                 TypeElement type = (TypeElement) element;
+                boolean firstSeen = !values.containsKey(type.getQualifiedName().toString());
+                if (initialCollectionClosed && firstSeen) lateDeclaration(type);
                 values.put(type.getQualifiedName().toString(), type);
             }
         }
         for (Element element : roundEnvironment.getElementsAnnotatedWith(SomaTable.class)) {
             if (element instanceof TypeElement) {
                 TypeElement type = (TypeElement) element;
+                boolean firstSeen = !tables.containsKey(type.getQualifiedName().toString());
+                if (initialCollectionClosed && firstSeen) lateDeclaration(type);
                 tables.put(type.getQualifiedName().toString(), type);
             }
         }
         for (Element element : roundEnvironment.getElementsAnnotatedWith(SomaSchema.class)) {
             if (element instanceof PackageElement) {
                 PackageElement packageElement = (PackageElement) element;
+                boolean firstSeen = !schemaPackages.containsKey(
+                        packageElement.getQualifiedName().toString());
+                if (initialCollectionClosed && firstSeen) lateDeclaration(packageElement);
                 schemaPackages.put(packageElement.getQualifiedName().toString(), packageElement);
             }
         }
 
-        if (!roundEnvironment.processingOver() && !finished
-                && (!values.isEmpty() || !tables.isEmpty())) {
-            finished = true;
-            finishProcessing();
+        if (!roundEnvironment.processingOver() && !initialCollectionClosed) {
+            initialCollectionClosed = true;
+            if (!finished && (!values.isEmpty() || !tables.isEmpty())) {
+                finished = true;
+                finishProcessing();
+            }
         }
         return false;
+    }
+
+    private void lateDeclaration(Element element) {
+        error(element, "SOMA-COMP-007",
+                "SOMA schema declaration was generated after the initial source round");
     }
 
     private void validateChildPlacement(Set<? extends Element> elements) {
@@ -191,13 +215,11 @@ public final class SomaProcessor extends AbstractProcessor {
         }
 
         Map<String, SchemaModel> schemas = new TreeMap<String, SchemaModel>();
-        Map<String, ValueModel> validatedValues = new LinkedHashMap<String, ValueModel>();
         for (TypeElement value : values.values()) {
             ValueModel model = validateValue(value);
             if (model == null) {
                 continue;
             }
-            validatedValues.put(model.javaType, model);
             PackageElement packageElement = processingEnv.getElementUtils().getPackageOf(value);
             String packageName = packageElement.getQualifiedName().toString();
             PackageElement declaredSchema = schemaPackages.get(packageName);
@@ -217,11 +239,12 @@ public final class SomaProcessor extends AbstractProcessor {
             schema.addValue(model);
         }
 
+        for (SchemaModel schema : schemas.values()) {
+            validateValueGraph(schema);
+        }
+        if (hasErrors) return;
+
         for (TypeElement table : tables.values()) {
-            TableModel model = validateTable(table, validatedValues);
-            if (model == null) {
-                continue;
-            }
             PackageElement packageElement = processingEnv.getElementUtils().getPackageOf(table);
             String packageName = packageElement.getQualifiedName().toString();
             PackageElement declaredSchema = schemaPackages.get(packageName);
@@ -238,6 +261,10 @@ public final class SomaProcessor extends AbstractProcessor {
                 }
                 schemas.put(packageName, schema);
             }
+            TableModel model = validateTable(table, schema.values);
+            if (model == null) {
+                continue;
+            }
             TableModel duplicate = schema.tableByLogicalName(model.logicalName);
             if (duplicate != null) {
                 error(duplicate.origin, "SOMA-TABLE-002",
@@ -251,15 +278,14 @@ public final class SomaProcessor extends AbstractProcessor {
 
         validateSchemaNames(schemas);
         for (SchemaModel schema : schemas.values()) {
-            validateValueGraph(schema);
             validateOwnershipGraph(schema);
         }
         if (hasErrors) {
             return;
         }
-        for (SchemaModel schema : schemas.values()) {
-            writeSchemaArtifacts(schema);
-        }
+        List<SchemaArtifactPlan> compilationPlan = buildCompilationPlan(schemas);
+        if (hasErrors) return;
+        emitCompilationPlan(compilationPlan);
     }
 
     private TableModel validateTable(TypeElement type, Map<String, ValueModel> validatedValues) {
@@ -295,8 +321,10 @@ public final class SomaProcessor extends AbstractProcessor {
 
         List<TableFieldModel> fields = new ArrayList<TableFieldModel>();
         Set<String> logicalNames = new LinkedHashSet<String>();
-        Set<String> generatedAccessNames = new LinkedHashSet<String>();
         Set<String> strictSelectorPaths = selectorPaths(type);
+        Map<String, Integer> flattenedLeafCounts = new LinkedHashMap<String, Integer>();
+        int physicalLeafCount = 0;
+        boolean physicalLeafLimitReported = false;
         for (Element enclosed : type.getEnclosedElements()) {
             if (enclosed.getKind() != ElementKind.FIELD) {
                 continue;
@@ -373,6 +401,34 @@ public final class SomaProcessor extends AbstractProcessor {
 
             ChildFieldType childType = child
                     ? childFieldType(type, field, childAnnotation) : null;
+            TypeElement declaredValueType = child ? null : somaValueType(field.asType());
+            if (declaredValueType != null && !validatedValues.containsKey(
+                    declaredValueType.getQualifiedName().toString())) {
+                error(field, "SOMA-VALUE-008",
+                        "table value reference must belong to the same schema compilation graph: "
+                                + declaredValueType.getQualifiedName());
+                valid = false;
+                continue;
+            }
+            int fieldLeafCount = child ? 0 : declaredValueType == null ? 1
+                    : flattenedValueLeafCount(
+                            declaredValueType.getQualifiedName().toString(),
+                            validatedValues, flattenedLeafCounts,
+                            new HashSet<String>());
+            physicalLeafCount = saturatingAdd(
+                    physicalLeafCount, fieldLeafCount,
+                    CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES + 1);
+            if (physicalLeafCount > CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES
+                    && !physicalLeafLimitReported) {
+                codegenAdmissionError(field, "table-physical-leaves",
+                        CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES, physicalLeafCount,
+                        type.getQualifiedName().toString());
+                physicalLeafLimitReported = true;
+                valid = false;
+            }
+            if (physicalLeafCount > CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES) {
+                continue;
+            }
             TableFieldType tableType = child ? null : tableFieldType(
                     field.asType(), optional != null, key, validatedValues);
             if (child && childType == null) {
@@ -382,17 +438,9 @@ public final class SomaProcessor extends AbstractProcessor {
             if (tableType == null) {
                 if (child) {
                     fields.add(new TableFieldModel(
-                            field.getSimpleName().toString(), fieldLogicalName,
+                            field, field.getSimpleName().toString(), fieldLogicalName,
                             SomaSemantic.NONE.name(), null, childType,
                             optional != null, false, null));
-                    if (!registerGeneratedChildAccessNames(
-                            generatedAccessNames, field.getSimpleName().toString(),
-                            optional != null)) {
-                        error(field, "SOMA-GEN-001",
-                                "generated child access name collision for field: "
-                                        + field.getSimpleName());
-                        valid = false;
-                    }
                     continue;
                 }
                 error(field, "SOMA-TABLE-005",
@@ -400,6 +448,13 @@ public final class SomaProcessor extends AbstractProcessor {
                                 + field.asType());
                 valid = false;
                 continue;
+            }
+            if (tableType.valueJavaType != null
+                    && !valueBelongsToTableSchema(type, tableType.valueJavaType)) {
+                error(field, "SOMA-VALUE-008",
+                        "table value reference must belong to the same schema compilation: "
+                                + tableType.valueJavaType);
+                valid = false;
             }
             if (key && optional != null) {
                 error(field, "SOMA-TABLE-008",
@@ -421,19 +476,15 @@ public final class SomaProcessor extends AbstractProcessor {
                             new HashSet<String>())) {
                 valid = false;
             }
-            if (!validTableSemantic(annotationSemantic, tableType.primitiveKind)) {
+            if (tableType.valueJavaType != null
+                    && annotationSemantic != SomaSemantic.NONE) {
+                error(field, "SOMA-TABLE-005",
+                        "outer value field semantic must be NONE; declare semantic on scalar leaves");
+                valid = false;
+            } else if (!validTableSemantic(annotationSemantic, tableType.primitiveKind)) {
                 error(field, "SOMA-TABLE-005",
                         "semantic " + annotationSemantic
                                 + " is incompatible with " + field.asType());
-                valid = false;
-            }
-            if (!registerGeneratedAccessNames(
-                    generatedAccessNames,
-                    field.getSimpleName().toString(),
-                    optional != null)) {
-                error(field, "SOMA-GEN-001",
-                        "generated access name collision for field: "
-                                + field.getSimpleName());
                 valid = false;
             }
             DefaultModel defaultValue = null;
@@ -444,7 +495,7 @@ public final class SomaProcessor extends AbstractProcessor {
                 if (defaultValue == null) valid = false;
             }
             fields.add(new TableFieldModel(
-                    field.getSimpleName().toString(), fieldLogicalName,
+                    field, field.getSimpleName().toString(), fieldLogicalName,
                     annotationSemantic.name(), tableType, null, optional != null, key,
                     defaultValue));
         }
@@ -467,17 +518,387 @@ public final class SomaProcessor extends AbstractProcessor {
             valid = false;
             selectors = new ArrayList<SelectorModel>();
         }
-        for (SelectorModel selector : selectors) {
-            if (!generatedAccessNames.add(selector.generatedMethodName())) {
-                error(type, "SOMA-GEN-001",
-                        "generated selector access name collision: "
-                                + selector.generatedMethodName());
-                valid = false;
+        TableModel result = new TableModel(type, type.getQualifiedName().toString(),
+                type.getSimpleName().toString(), logicalName, defaultCapacity,
+                fields, selectors);
+        if (!validateGeneratedSignatures(result)) valid = false;
+        return valid ? result : null;
+    }
+
+    private int flattenedValueLeafCount(
+            String valueJavaType,
+            Map<String, ValueModel> values,
+            Map<String, Integer> knownCounts,
+            Set<String> visiting) {
+        Integer known = knownCounts.get(valueJavaType);
+        if (known != null) return known.intValue();
+        if (!visiting.add(valueJavaType)) {
+            return CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES + 1;
+        }
+        ValueModel value = values.get(valueJavaType);
+        if (value == null) return CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES + 1;
+        int count = 0;
+        for (FieldModel field : value.fields) {
+            int fieldCount = field.type.valueReference == null ? 1
+                    : flattenedValueLeafCount(
+                            field.type.valueReference, values, knownCounts, visiting);
+            count = saturatingAdd(count, fieldCount,
+                    CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES + 1);
+            if (count > CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES) break;
+        }
+        visiting.remove(valueJavaType);
+        knownCounts.put(valueJavaType, Integer.valueOf(count));
+        return count;
+    }
+
+    private int saturatingAdd(int left, int right, int maximum) {
+        if (left >= maximum || right >= maximum || left > maximum - right) {
+            return maximum;
+        }
+        return left + right;
+    }
+
+    private boolean validateGeneratedSignatures(TableModel model) {
+        DenseTableSourceGenerator.TableSpec table = model.toGeneratorSpec();
+        Map<String, Element> signatures = new LinkedHashMap<String, Element>();
+        Map<String, Element> fields = new LinkedHashMap<String, Element>();
+        boolean valid = true;
+
+        String rowScope = model.javaType + "#row-family";
+        valid &= generatedSignature(signatures, rowScope, "getClass", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "hashCode", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "toString", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "clone", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "finalize", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "notify", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "notifyAll", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "wait", model.origin);
+        valid &= generatedSignature(signatures, rowScope, "wait", model.origin, "long");
+        valid &= generatedSignature(
+                signatures, rowScope, "wait", model.origin, "long", "int");
+
+        Map<String, TableFieldModel> origins = new LinkedHashMap<String, TableFieldModel>();
+        for (TableFieldModel field : model.fields) origins.put(field.javaName, field);
+        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+            TableFieldModel source = origins.get(field.javaName);
+            valid &= generatedSignature(
+                    signatures, rowScope, field.javaName, source.origin);
+            if (field.optional) {
+                valid &= generatedSignature(
+                        signatures, rowScope, field.javaName + "Present", source.origin);
+                valid &= generatedSignature(
+                        signatures, rowScope, field.javaName + "Absent", source.origin);
+                valid &= generatedSignature(signatures, rowScope,
+                        field.javaName + "Or", source.origin, field.primitive);
+            }
+            if (field.valueBacked()) {
+                for (DenseTableSourceGenerator.ValueLeafSpec leaf : field.valueLeaves) {
+                    valid &= generatedSignature(
+                            signatures, rowScope, leaf.stem(field), source.origin);
+                }
+            }
+            if (!field.key) {
+                valid &= generatedSignature(signatures, rowScope,
+                        "set" + capitalize(field.javaName), source.origin, field.primitive);
+                if (field.valueBacked()) {
+                    for (DenseTableSourceGenerator.ValueLeafSpec leaf : field.valueLeaves) {
+                        valid &= generatedSignature(signatures, rowScope,
+                                "set" + capitalize(leaf.stem(field)),
+                                source.origin, leaf.primitive);
+                    }
+                }
+                if (field.optional) {
+                    valid &= generatedSignature(signatures, rowScope,
+                            "clear" + capitalize(field.javaName), source.origin);
+                }
             }
         }
-        return valid ? new TableModel(type, type.getQualifiedName().toString(),
-                type.getSimpleName().toString(), logicalName, defaultCapacity,
-                fields, selectors) : null;
+
+        String builderScope = model.javaType + "#batch-row-builder";
+        String mutatorScope = model.javaType + "#mutator";
+        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+            TableFieldModel source = origins.get(field.javaName);
+            String capitalized = capitalize(field.javaName);
+            valid &= generatedSignature(signatures, builderScope,
+                    "set" + capitalized, source.origin, field.primitive);
+            if (field.optional) {
+                valid &= generatedSignature(signatures, builderScope,
+                        "clear" + capitalized, source.origin);
+            }
+            if (!field.key) {
+                valid &= generatedSignature(signatures, mutatorScope,
+                        "set" + capitalized, source.origin, field.primitive);
+                if (field.optional) {
+                    valid &= generatedSignature(signatures, mutatorScope,
+                            "clear" + capitalized, source.origin);
+                }
+            }
+        }
+        valid &= generatedSignature(signatures, mutatorScope, "commit", model.origin);
+        for (DenseTableSourceGenerator.ChildSpec child : table.children) {
+            TableFieldModel source = origins.get(child.javaName);
+            valid &= generatedSignature(signatures, builderScope,
+                    "set" + capitalize(child.javaName), source.origin, child.batchType());
+            if (child.optional) {
+                valid &= generatedSignature(signatures, builderScope,
+                        "clear" + capitalize(child.javaName), source.origin);
+            }
+        }
+
+        String tableScope = model.javaType + "#table";
+        valid &= registerFixedTableSignatures(signatures, tableScope, table, model.origin);
+        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+            TableFieldModel source = origins.get(field.javaName);
+            if (field.supportsColumnAccess()) {
+                valid &= generatedSignature(signatures, tableScope,
+                        field.javaName + "Values", source.origin);
+                valid &= generatedSignature(signatures, tableScope,
+                        field.javaName + "Column", source.origin);
+            }
+            if (field.valueBacked()) {
+                for (DenseTableSourceGenerator.ValueLeafSpec leaf : field.valueLeaves) {
+                    if (!leaf.supportsColumnAccess()) continue;
+                    valid &= generatedSignature(signatures, tableScope,
+                            leaf.stem(field) + "s", source.origin);
+                    valid &= generatedSignature(signatures, tableScope,
+                            leaf.stem(field) + "Column", source.origin);
+                }
+            }
+        }
+        String locatorType = table.keyed() ? table.keyField().primitive : "int";
+        for (DenseTableSourceGenerator.ChildSpec child : table.children) {
+            TableFieldModel source = origins.get(child.javaName);
+            String capitalized = capitalize(child.javaName);
+            if (child.optional) {
+                valid &= generatedSignature(signatures, tableScope,
+                        child.javaName + "Present", source.origin, locatorType);
+                valid &= generatedSignature(signatures, tableScope,
+                        child.javaName + "OrThrow", source.origin, locatorType);
+                valid &= generatedSignature(signatures, tableScope,
+                        "ensure" + capitalized, source.origin, locatorType);
+                valid &= generatedSignature(signatures, tableScope,
+                        "unset" + capitalized, source.origin, locatorType);
+            } else {
+                valid &= generatedSignature(signatures, tableScope,
+                        child.javaName, source.origin, locatorType);
+            }
+            valid &= generatedSignature(signatures, tableScope,
+                    "replace" + capitalized, source.origin,
+                    locatorType, child.batchType());
+        }
+        for (int i = 0; i < model.selectors.size(); i++) {
+            SelectorModel selector = model.selectors.get(i);
+            DenseTableSourceGenerator.SelectorSpec generated = table.selectors.get(i);
+            List<String> parameters =
+                    DenseTableSourceGenerator.selectorPublicParameterTypes(table, generated);
+            if ("order".equals(selector.kind) && !parameters.isEmpty()) {
+                valid &= generatedSignature(signatures, tableScope,
+                        selector.generatedMethodName(), model.origin);
+            }
+            valid &= generatedSignature(signatures, tableScope,
+                    selector.generatedMethodName(), model.origin,
+                    parameters.toArray(new String[parameters.size()]));
+        }
+
+        String batchFieldScope = model.javaType + "#batch-fields";
+        String tableFieldScope = model.javaType + "#table-fields";
+        if (!table.children.isEmpty()) {
+            valid &= generatedField(fields, tableFieldScope,
+                    "ownerTokenColumn", model.origin);
+        }
+        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+            TableFieldModel source = origins.get(field.javaName);
+            if (field.flattenedValueStorage()) {
+                for (int i = 0; i < field.valueLeaves.size(); i++) {
+                    DenseTableSourceGenerator.ValueLeafSpec leaf = field.valueLeaves.get(i);
+                    String physical = field.javaName + "Leaf" + i;
+                    valid &= generatedField(fields, batchFieldScope,
+                            physical + "Values", source.origin);
+                    valid &= generatedField(fields, tableFieldScope,
+                            physical + "Column", source.origin);
+                    if (leaf.enumType != null) {
+                        valid &= generatedField(fields, batchFieldScope,
+                                physical.toUpperCase(java.util.Locale.ROOT)
+                                        + "_ENUM_VALUES", source.origin);
+                        valid &= generatedField(fields, tableFieldScope,
+                                physical.toUpperCase(java.util.Locale.ROOT)
+                                        + "_ENUM_VALUES", source.origin);
+                    }
+                }
+            } else {
+                valid &= generatedField(fields, batchFieldScope,
+                        field.javaName + "Values", source.origin);
+                valid &= generatedField(fields, tableFieldScope,
+                        field.javaName + "Column", source.origin);
+                if (field.enumType != null) {
+                    valid &= generatedField(fields, batchFieldScope,
+                            field.javaName.toUpperCase(java.util.Locale.ROOT)
+                                    + "_ENUM_VALUES", source.origin);
+                    valid &= generatedField(fields, tableFieldScope,
+                            field.javaName.toUpperCase(java.util.Locale.ROOT)
+                                    + "_ENUM_VALUES", source.origin);
+                }
+            }
+            if (field.optional) {
+                valid &= generatedField(fields, batchFieldScope,
+                        field.javaName + "Presence", source.origin);
+                valid &= generatedField(fields, tableFieldScope,
+                        field.javaName + "Presence", source.origin);
+            }
+        }
+        for (DenseTableSourceGenerator.ChildSpec child : table.children) {
+            TableFieldModel source = origins.get(child.javaName);
+            valid &= generatedField(fields, batchFieldScope,
+                    child.javaName + "Values", source.origin);
+            valid &= generatedField(fields, batchFieldScope,
+                    child.javaName + "Present", source.origin);
+            valid &= generatedField(fields, tableFieldScope,
+                    child.javaName + "HandleColumn", source.origin);
+            if (child.optional) {
+                valid &= generatedField(fields, tableFieldScope,
+                        child.javaName + "ChildPresence", source.origin);
+            }
+        }
+        return valid;
+    }
+
+    private boolean registerFixedTableSignatures(
+            Map<String, Element> signatures,
+            String scope,
+            DenseTableSourceGenerator.TableSpec table,
+            Element origin) {
+        boolean valid = true;
+        valid &= generatedSignature(signatures, scope, "create", origin);
+        valid &= generatedSignature(signatures, scope, "create", origin,
+                "com.hgtech.soma.runtime.RuntimePlan");
+        valid &= generatedSignature(signatures, scope, "defaultRuntimePlan", origin);
+        valid &= generatedSignature(signatures, scope, "runtimePlan", origin);
+        valid &= generatedSignature(signatures, scope, "size", origin);
+        valid &= generatedSignature(signatures, scope, "capacity", origin);
+        valid &= generatedSignature(signatures, scope, "structuralEpoch", origin);
+        valid &= generatedSignature(signatures, scope, "isReleased", origin);
+        valid &= generatedSignature(signatures, scope, "reserve", origin, "int");
+        valid &= generatedSignature(signatures, scope, "addBatch", origin,
+                table.name("Batch"));
+        valid &= generatedSignature(signatures, scope, "replaceAll", origin,
+                table.name("Batch"));
+        valid &= generatedSignature(signatures, scope, "clear", origin);
+        valid &= generatedSignature(signatures, scope, "release", origin);
+        valid &= generatedSignature(signatures, scope, "mutateAt", origin, "int");
+        valid &= generatedSignature(signatures, scope, "rows", origin);
+        valid &= generatedSignature(signatures, scope, "filter", origin,
+                table.name("Rows") + ".Predicate");
+        valid &= generatedSignature(signatures, scope, "skip", origin, "long");
+        valid &= generatedSignature(signatures, scope, "limit", origin, "long");
+        valid &= generatedSignature(signatures, scope, "sorted", origin,
+                table.name("Rows") + ".Comparator");
+        valid &= generatedSignature(signatures, scope, "count", origin);
+        valid &= generatedSignature(signatures, scope, "anyMatch", origin,
+                table.name("Rows") + ".Predicate");
+        valid &= generatedSignature(signatures, scope, "noneMatch", origin,
+                table.name("Rows") + ".Predicate");
+        valid &= generatedSignature(signatures, scope, "forEach", origin,
+                table.name("Rows") + ".Consumer");
+        valid &= generatedSignature(signatures, scope, "findFirst", origin);
+        valid &= generatedSignature(signatures, scope, "findFirst", origin,
+                "com.hgtech.soma.runtime.MaterializationBudget");
+        valid &= generatedSignature(signatures, scope, "firstOrThrow", origin);
+        valid &= generatedSignature(signatures, scope, "firstOrThrow", origin,
+                "com.hgtech.soma.runtime.MaterializationBudget");
+        valid &= generatedSignature(signatures, scope, "fetchAll", origin);
+        valid &= generatedSignature(signatures, scope, "fetchAll", origin,
+                "com.hgtech.soma.runtime.MaterializationBudget");
+        valid &= generatedSignature(signatures, scope, "rowIndexes", origin);
+        valid &= generatedSignature(signatures, scope, "update", origin,
+                table.name("Rows") + ".Updater");
+        valid &= generatedSignature(signatures, scope, "remove", origin);
+        valid &= generatedSignature(signatures, scope, "statsSnapshot", origin);
+        valid &= generatedSignature(signatures, scope, "resetStats", origin);
+        if (table.keyed()) {
+            DenseTableSourceGenerator.FieldSpec key = table.keyField();
+            valid &= generatedSignature(signatures, scope, "containsKey", origin,
+                    key.primitive);
+            valid &= generatedSignature(signatures, scope, "findRowIndex", origin,
+                    key.primitive);
+            valid &= generatedSignature(signatures, scope, "rowIndexOf", origin,
+                    key.primitive);
+            valid &= generatedSignature(signatures, scope, "find", origin,
+                    key.primitive);
+            valid &= generatedSignature(signatures, scope, "find", origin,
+                    key.primitive, "com.hgtech.soma.runtime.MaterializationBudget");
+            valid &= generatedSignature(signatures, scope, "fetch", origin,
+                    key.primitive);
+            valid &= generatedSignature(signatures, scope, "fetch", origin,
+                    key.primitive, "com.hgtech.soma.runtime.MaterializationBudget");
+            valid &= generatedSignature(signatures, scope, "mutate", origin,
+                    key.primitive);
+            valid &= generatedSignature(signatures, scope, "delete", origin,
+                    key.primitive);
+            valid &= generatedSignature(signatures, scope, "keys", origin);
+            if (key.valueBacked()) {
+                List<String> leafTypes = new ArrayList<String>();
+                for (DenseTableSourceGenerator.ValueLeafSpec leaf : key.valueLeaves) {
+                    leafTypes.add(leaf.primitive);
+                }
+                valid &= generatedSignature(signatures, scope, "findRowIndex", origin,
+                        leafTypes.toArray(new String[leafTypes.size()]));
+                valid &= generatedSignature(signatures, scope, "rowIndexOf", origin,
+                        leafTypes.toArray(new String[leafTypes.size()]));
+            }
+        }
+        return valid;
+    }
+
+    private boolean generatedSignature(
+            Map<String, Element> signatures,
+            String scope,
+            String name,
+            Element origin,
+            String... parameterTypes) {
+        StringBuilder key = new StringBuilder(scope).append('#').append(name).append('(');
+        for (int i = 0; i < parameterTypes.length; i++) {
+            if (i > 0) key.append(',');
+            key.append(erasedType(parameterTypes[i]));
+        }
+        key.append(')');
+        Element previous = signatures.put(key.toString(), origin);
+        if (previous == null) return true;
+        error(previous, "SOMA-GEN-001", "generated method signature collision: " + key);
+        if (previous != origin) {
+            error(origin, "SOMA-GEN-001", "generated method signature collision: " + key);
+        }
+        return false;
+    }
+
+    private boolean generatedField(
+            Map<String, Element> fields,
+            String scope,
+            String name,
+            Element origin) {
+        String key = scope + '#' + name;
+        Element previous = fields.put(key, origin);
+        if (previous == null) return true;
+        error(previous, "SOMA-GEN-001", "generated storage symbol collision: " + key);
+        if (previous != origin) {
+            error(origin, "SOMA-GEN-001", "generated storage symbol collision: " + key);
+        }
+        return false;
+    }
+
+    private String erasedType(String type) {
+        StringBuilder result = new StringBuilder(type.length());
+        int genericDepth = 0;
+        for (int i = 0; i < type.length(); i++) {
+            char value = type.charAt(i);
+            if (value == '<') {
+                genericDepth++;
+            } else if (value == '>') {
+                genericDepth--;
+            } else if (genericDepth == 0 && !Character.isWhitespace(value)) {
+                result.append(value);
+            }
+        }
+        return result.toString();
     }
 
     private List<SelectorModel> validateSelectors(
@@ -615,46 +1036,16 @@ public final class SomaProcessor extends AbstractProcessor {
                 + "; candidates=" + candidates;
     }
 
-    private boolean registerGeneratedAccessNames(
-            Set<String> names, String javaName, boolean optional) {
-        String capitalized = Character.toUpperCase(javaName.charAt(0))
-                + javaName.substring(1);
-        List<String> derived = new ArrayList<String>();
-        derived.add(javaName);
-        derived.add("set" + capitalized);
-        if (optional) {
-            derived.add(javaName + "Present");
-            derived.add(javaName + "Absent");
-            derived.add(javaName + "Or");
-            derived.add("clear" + capitalized);
-        }
-        boolean unique = true;
-        for (String name : derived) {
-            if (!names.add(name)) {
-                unique = false;
-            }
-        }
-        return unique;
+    private String capitalize(String value) {
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
     }
 
-    private boolean registerGeneratedChildAccessNames(
-            Set<String> names, String javaName, boolean optional) {
-        String capitalized = Character.toUpperCase(javaName.charAt(0))
-                + javaName.substring(1);
-        List<String> derived = new ArrayList<String>();
-        derived.add(javaName);
-        derived.add("replace" + capitalized);
-        if (optional) {
-            derived.add(javaName + "Present");
-            derived.add(javaName + "OrThrow");
-            derived.add("ensure" + capitalized);
-            derived.add("unset" + capitalized);
-        }
-        boolean unique = true;
-        for (String name : derived) {
-            if (!names.add(name)) unique = false;
-        }
-        return unique;
+    private TypeElement somaValueType(TypeMirror mirror) {
+        if (mirror.getKind() != TypeKind.DECLARED) return null;
+        Element element = ((DeclaredType) mirror).asElement();
+        if (!(element instanceof TypeElement)) return null;
+        TypeElement type = (TypeElement) element;
+        return type.getAnnotation(SomaValue.class) == null ? null : type;
     }
 
     private ChildFieldType childFieldType(
@@ -816,6 +1207,14 @@ public final class SomaProcessor extends AbstractProcessor {
         return TableFieldType.forBoxed(type.getQualifiedName().toString());
     }
 
+    private boolean valueBelongsToTableSchema(TypeElement table, String valueJavaType) {
+        TypeElement value = processingEnv.getElementUtils().getTypeElement(valueJavaType);
+        return value != null && processingEnv.getElementUtils().getPackageOf(table)
+                .getQualifiedName().contentEquals(
+                        processingEnv.getElementUtils().getPackageOf(value)
+                                .getQualifiedName());
+    }
+
     private DefaultModel normalizeTableDefault(
             VariableElement field,
             TableFieldType type,
@@ -828,6 +1227,7 @@ public final class SomaProcessor extends AbstractProcessor {
             return null;
         }
         try {
+            requireDefaultLiteral(literal);
             if ("java.lang.String".equals(type.storagePrimitiveName)) {
                 return new DefaultModel(literal, literal, quote(literal));
             }
@@ -842,7 +1242,8 @@ public final class SomaProcessor extends AbstractProcessor {
                     literal, type.primitiveKind, semantic, strictFloating);
         } catch (RuntimeException invalid) {
             error(field, "SOMA-TABLE-005",
-                    "invalid schema default for " + field.getSimpleName() + ": " + literal);
+                    "invalid schema default for " + field.getSimpleName()
+                            + "; literalLength=" + literal.length());
             return null;
         }
     }
@@ -853,6 +1254,7 @@ public final class SomaProcessor extends AbstractProcessor {
             SomaSemantic semantic,
             String literal) {
         try {
+            requireDefaultLiteral(literal);
             if (type.valueReference != null) {
                 throw new IllegalArgumentException("nested value is not a leaf");
             }
@@ -872,7 +1274,8 @@ public final class SomaProcessor extends AbstractProcessor {
                     literal, primitive.primitiveKind, semantic, false);
         } catch (RuntimeException invalid) {
             error(field, "SOMA-VALUE-005",
-                    "invalid value leaf default for " + field.getSimpleName() + ": " + literal);
+                    "invalid value leaf default for " + field.getSimpleName()
+                            + "; literalLength=" + literal.length());
             return null;
         }
     }
@@ -979,14 +1382,34 @@ public final class SomaProcessor extends AbstractProcessor {
         if ("NaN".equals(literal)) return Float.NaN;
         if ("Infinity".equals(literal)) return Float.POSITIVE_INFINITY;
         if ("-Infinity".equals(literal)) return Float.NEGATIVE_INFINITY;
-        return Float.parseFloat(literal);
+        if (!DECIMAL_FLOATING_LITERAL.matcher(literal).matches()) {
+            throw new IllegalArgumentException("invalid decimal float literal");
+        }
+        float value = Float.parseFloat(literal);
+        if (Float.isNaN(value) || Float.isInfinite(value)) {
+            throw new IllegalArgumentException("non-finite decimal float literal");
+        }
+        return value;
     }
 
     private double parseDoubleDefault(String literal) {
         if ("NaN".equals(literal)) return Double.NaN;
         if ("Infinity".equals(literal)) return Double.POSITIVE_INFINITY;
         if ("-Infinity".equals(literal)) return Double.NEGATIVE_INFINITY;
-        return Double.parseDouble(literal);
+        if (!DECIMAL_FLOATING_LITERAL.matcher(literal).matches()) {
+            throw new IllegalArgumentException("invalid decimal double literal");
+        }
+        double value = Double.parseDouble(literal);
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            throw new IllegalArgumentException("non-finite decimal double literal");
+        }
+        return value;
+    }
+
+    private static void requireDefaultLiteral(String literal) {
+        if (literal == null || literal.length() > MAXIMUM_DEFAULT_LITERAL_LENGTH) {
+            throw new IllegalArgumentException("default literal length exceeds limit");
+        }
     }
 
     private boolean validTableSemantic(SomaSemantic semantic, TypeKind primitiveKind) {
@@ -1073,7 +1496,17 @@ public final class SomaProcessor extends AbstractProcessor {
         Set<String> visiting = new HashSet<String>();
         Set<String> visited = new HashSet<String>();
         for (ValueModel value : schema.values.values()) {
-            validateValueGraph(schema, value, visiting, visited);
+            validateValueGraph(schema, value, visiting, visited, 1);
+        }
+        if (hasErrors) return;
+        Map<String, Integer> depthByValue = new LinkedHashMap<String, Integer>();
+        for (ValueModel value : schema.values.values()) {
+            int depth = maximumValueDepth(
+                    schema, value, depthByValue, new HashSet<String>());
+            if (depth > CodegenLimits.MAXIMUM_VALUE_DEPTH) {
+                codegenAdmissionError(value.origin, "value-depth",
+                        CodegenLimits.MAXIMUM_VALUE_DEPTH, depth, value.javaType);
+            }
         }
     }
 
@@ -1081,12 +1514,18 @@ public final class SomaProcessor extends AbstractProcessor {
             SchemaModel schema,
             ValueModel value,
             Set<String> visiting,
-            Set<String> visited) {
+            Set<String> visited,
+            int depth) {
+        if (depth > CodegenLimits.MAXIMUM_VALUE_DEPTH) {
+            codegenAdmissionError(value.origin, "value-depth",
+                    CodegenLimits.MAXIMUM_VALUE_DEPTH, depth, value.javaType);
+            return;
+        }
         if (visited.contains(value.javaType)) {
             return;
         }
         if (!visiting.add(value.javaType)) {
-            error(schema.origin, "SOMA-VALUE-007",
+            error(value.origin, "SOMA-VALUE-007",
                     "cyclic nested value declaration: " + value.javaType);
             return;
         }
@@ -1096,15 +1535,41 @@ public final class SomaProcessor extends AbstractProcessor {
             }
             ValueModel referenced = schema.values.get(field.type.valueReference);
             if (referenced == null) {
-                error(schema.origin, "SOMA-VALUE-008",
+                error(field.origin, "SOMA-VALUE-008",
                         "nested value must belong to the same schema compilation: "
                                 + field.type.valueReference);
                 continue;
             }
-            validateValueGraph(schema, referenced, visiting, visited);
+            validateValueGraph(schema, referenced, visiting, visited, depth + 1);
         }
         visiting.remove(value.javaType);
         visited.add(value.javaType);
+    }
+
+    private int maximumValueDepth(
+            SchemaModel schema,
+            ValueModel value,
+            Map<String, Integer> depthByValue,
+            Set<String> visiting) {
+        Integer known = depthByValue.get(value.javaType);
+        if (known != null) return known.intValue();
+        if (!visiting.add(value.javaType)) return 1;
+        int depth = 1;
+        for (FieldModel field : value.fields) {
+            if (field.type.valueReference == null) continue;
+            ValueModel referenced = schema.values.get(field.type.valueReference);
+            if (referenced != null) {
+                if (visiting.size() >= CodegenLimits.MAXIMUM_VALUE_DEPTH) {
+                    depth = CodegenLimits.MAXIMUM_VALUE_DEPTH + 1;
+                    break;
+                }
+                depth = Math.max(depth, 1 + maximumValueDepth(
+                        schema, referenced, depthByValue, visiting));
+            }
+        }
+        visiting.remove(value.javaType);
+        depthByValue.put(value.javaType, Integer.valueOf(depth));
+        return depth;
     }
 
     private void validateOwnershipGraph(SchemaModel schema) {
@@ -1290,12 +1755,23 @@ public final class SomaProcessor extends AbstractProcessor {
                             fieldAnnotation.semantic(), defaultAnnotation.value());
             if (defaultAnnotation != null && defaultValue == null) valid = false;
             fields.add(new FieldModel(
-                    field.getSimpleName().toString(), logicalName,
+                    field, field.getSimpleName().toString(), logicalName,
                     fieldAnnotation.semantic().name(), normalizedType, defaultValue));
         }
 
         if (fields.isEmpty()) {
             error(type, "SOMA-VALUE-001", "@SomaValue requires at least one schema field");
+            valid = false;
+        }
+        int constructorSlots = 1;
+        for (FieldModel field : fields) {
+            TypeKind kind = field.origin.asType().getKind();
+            constructorSlots += kind == TypeKind.LONG || kind == TypeKind.DOUBLE ? 2 : 1;
+        }
+        if (constructorSlots > CodegenLimits.MAXIMUM_JVM_PARAMETER_SLOTS) {
+            codegenAdmissionError(type, "value-constructor-slots",
+                    CodegenLimits.MAXIMUM_JVM_PARAMETER_SLOTS, constructorSlots,
+                    type.getQualifiedName().toString());
             valid = false;
         }
         if (!hasCanonicalConstructor(type, fields)
@@ -1307,7 +1783,8 @@ public final class SomaProcessor extends AbstractProcessor {
             valid = false;
         }
         return valid ? new ValueModel(
-                type.getQualifiedName().toString(), type.getSimpleName().toString(), fields) : null;
+                type, type.getQualifiedName().toString(),
+                type.getSimpleName().toString(), fields) : null;
     }
 
     private boolean hasCanonicalConstructor(TypeElement type, List<FieldModel> fields) {
@@ -1431,28 +1908,189 @@ public final class SomaProcessor extends AbstractProcessor {
         return mirror.getKind() == TypeKind.LONG;
     }
 
-    private void writeSchemaArtifacts(SchemaModel schema) {
-        String json = schema.toCanonicalJson();
-        String hash = sha256(SCHEMA_HASH_PREFIX + json);
-        String basePath = "META-INF/soma/" + schema.sourcePackage;
-        try {
-            writeResource(basePath + ".schema.json", json + "\n", schema.origin);
-            writeResource(basePath + ".schema.sha256", hash + "\n", schema.origin);
-            List<DenseTableSourceGenerator.TableSpec> generatedTables =
+    private List<SchemaArtifactPlan> buildCompilationPlan(
+            Map<String, SchemaModel> schemas) {
+        List<SchemaArtifactPlan> result = new ArrayList<SchemaArtifactPlan>();
+        Map<String, Element> generatedTypes = new TreeMap<String, Element>();
+        Map<String, List<DenseTableSourceGenerator.TableSpec>> specsBySchema =
+                new TreeMap<String, List<DenseTableSourceGenerator.TableSpec>>();
+        for (SchemaModel schema : schemas.values()) {
+            if (schema.tables.size() > CodegenLimits.MAXIMUM_SCHEMA_TABLES) {
+                codegenAdmissionError(schema.origin, "schema-tables",
+                        CodegenLimits.MAXIMUM_SCHEMA_TABLES, schema.tables.size(),
+                        schema.sourcePackage);
+            }
+            List<DenseTableSourceGenerator.TableSpec> tableSpecs =
                     new ArrayList<DenseTableSourceGenerator.TableSpec>();
             for (TableModel table : schema.tables.values()) {
-                generatedTables.add(table.toGeneratorSpec());
+                int leafCount = normalizedPhysicalLeafCount(table);
+                if (leafCount > CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES) {
+                    codegenAdmissionError(table.origin, "table-physical-leaves",
+                            CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES,
+                            leafCount, table.javaType);
+                }
+                DenseTableSourceGenerator.TableSpec tableSpec = table.toGeneratorSpec();
+                tableSpecs.add(tableSpec);
+                for (String generatedName : generatedTypeNames(tableSpec)) {
+                    String qualifiedName = schema.generatedPackage + "." + generatedName;
+                    Element previous = generatedTypes.put(qualifiedName, table.origin);
+                    if (previous != null) {
+                        error(previous, "SOMA-GEN-001",
+                                "generated top-level type collision: " + qualifiedName);
+                        error(table.origin, "SOMA-GEN-001",
+                                "generated top-level type collision: " + qualifiedName);
+                    } else if (processingEnv.getElementUtils().getTypeElement(
+                            qualifiedName) != null
+                            && !isOwnedGeneratedSource(qualifiedName)) {
+                        error(table.origin, "SOMA-GEN-001",
+                                "generated top-level type conflicts with existing type: "
+                                        + qualifiedName);
+                    }
+                }
             }
+            specsBySchema.put(schema.sourcePackage,
+                    Collections.unmodifiableList(tableSpecs));
+        }
+        if (hasErrors) return Collections.emptyList();
+
+        for (SchemaModel schema : schemas.values()) {
+            String json = schema.toCanonicalJson();
+            String hash = sha256(SCHEMA_HASH_PREFIX + json);
+            List<DenseTableSourceGenerator.TableSpec> tableSpecs =
+                    specsBySchema.get(schema.sourcePackage);
             DenseTableSourceGenerator generator = new DenseTableSourceGenerator(
-                    processingEnv.getFiler(), schema.generatedPackage, hash,
-                    generatedTables);
-            for (TableModel table : schema.tables.values()) {
-                generator.generate(table.toGeneratorSpec());
+                    schema.generatedPackage, hash, tableSpecs);
+            List<GeneratedSourceOutput> sources =
+                    new ArrayList<GeneratedSourceOutput>();
+            long totalLength = 0L;
+            for (DenseTableSourceGenerator.TableSpec tableSpec : tableSpecs) {
+                List<GeneratedSourceOutput> rendered;
+                try {
+                    rendered = generator.render(tableSpec);
+                } catch (SourceLimitExceeded exceeded) {
+                    codegenAdmissionError(tableSpec.origin, "generated-source-utf16",
+                            CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH, exceeded.proposed,
+                            tableSpec.carrierType);
+                    return Collections.emptyList();
+                }
+                for (GeneratedSourceOutput source : rendered) {
+                    int length = source.source.length();
+                    if (length > CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH) {
+                        codegenAdmissionError(source.origin, "generated-source-utf16",
+                                CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH, length,
+                                source.qualifiedName);
+                    }
+                    totalLength += length;
+                    sources.add(source);
+                }
+                if (hasErrors) return Collections.emptyList();
             }
-        } catch (IOException exception) {
-            error(schema.origin, "SOMA-OUTPUT-001",
-                    "failed to write deterministic schema artifacts: "
-                            + exception.getClass().getSimpleName());
+            if (totalLength > CodegenLimits.MAXIMUM_SCHEMA_GENERATED_SOURCE_LENGTH) {
+                codegenAdmissionError(schema.origin, "schema-generated-source-utf16",
+                        CodegenLimits.MAXIMUM_SCHEMA_GENERATED_SOURCE_LENGTH, totalLength,
+                        schema.sourcePackage);
+            }
+            result.add(new SchemaArtifactPlan(
+                    schema.origin,
+                    "META-INF/soma/" + schema.sourcePackage,
+                    json + "\n",
+                    hash + "\n",
+                    sources));
+        }
+        return Collections.unmodifiableList(result);
+    }
+
+    private boolean isOwnedGeneratedSource(String qualifiedName) {
+        int separator = qualifiedName.lastIndexOf('.');
+        String packageName = separator < 0 ? "" : qualifiedName.substring(0, separator);
+        String simpleName = separator < 0 ? qualifiedName
+                : qualifiedName.substring(separator + 1);
+        InputStream input = null;
+        try {
+            FileObject resource = processingEnv.getFiler().getResource(
+                    StandardLocation.SOURCE_OUTPUT, packageName, simpleName + ".java");
+            input = resource.openInputStream();
+            byte[] prefix = new byte[64];
+            int length = input.read(prefix);
+            return length > 0 && new String(prefix, 0, length, StandardCharsets.UTF_8)
+                    .startsWith("// SOMA-GENERATED: soma-processor-v1\n");
+        } catch (IOException missingOrUnreadable) {
+            return false;
+        } finally {
+            if (input != null) {
+                try {
+                    input.close();
+                } catch (IOException ignored) {
+                    // A failed close does not turn an untrusted source into an owned artifact.
+                }
+            }
+        }
+    }
+
+    private List<String> generatedTypeNames(
+            DenseTableSourceGenerator.TableSpec table) {
+        List<String> result = new ArrayList<String>();
+        result.add(table.name("Row"));
+        result.add(table.name("MutableRow"));
+        result.add(table.name("Batch"));
+        result.add(table.name("Mutator"));
+        result.add(table.name("Rows"));
+        if (table.keyed()) result.add(table.name("Keys"));
+        result.add(table.name("Table"));
+        return result;
+    }
+
+    private int normalizedPhysicalLeafCount(TableModel table) {
+        int count = 0;
+        for (TableFieldModel field : table.fields) {
+            if (field.type != null && field.type.valueJavaType != null) {
+                count += field.type.valueLeaves.size();
+            } else if (field.child == null) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private void codegenAdmissionError(
+            Element origin,
+            String dimension,
+            long limit,
+            long proposed,
+            String symbol) {
+        error(origin, "SOMA-GEN-003",
+                "codegen admission exceeded: dimension=" + dimension
+                        + " limit=" + limit
+                        + " proposed=" + proposed
+                        + " symbol=" + symbol);
+    }
+
+    private void emitCompilationPlan(List<SchemaArtifactPlan> plans) {
+        for (SchemaArtifactPlan plan : plans) {
+            try {
+                writeResource(plan.basePath + ".schema.json",
+                        plan.schemaJson, plan.origin);
+                writeResource(plan.basePath + ".schema.sha256",
+                        plan.schemaHash, plan.origin);
+            } catch (IOException exception) {
+                error(plan.origin, "SOMA-OUTPUT-001",
+                        "failed to write deterministic schema artifacts: "
+                                + exception.getClass().getSimpleName());
+                return;
+            }
+        }
+        for (SchemaArtifactPlan plan : plans) {
+            for (GeneratedSourceOutput source : plan.sources) {
+                try {
+                    writeSource(source);
+                } catch (IOException exception) {
+                    error(source.origin, "SOMA-GEN-002",
+                            "failed to emit deterministic generated source: "
+                                    + source.qualifiedName + "; cause="
+                                    + exception.getClass().getSimpleName());
+                    return;
+                }
+            }
         }
     }
 
@@ -1462,6 +2100,19 @@ public final class SomaProcessor extends AbstractProcessor {
         Writer writer = new OutputStreamWriter(resource.openOutputStream(), StandardCharsets.UTF_8);
         try {
             writer.write(content);
+        } finally {
+            writer.close();
+        }
+    }
+
+    private void writeSource(GeneratedSourceOutput source)
+            throws IOException {
+        JavaFileObject file = processingEnv.getFiler().createSourceFile(
+                source.qualifiedName, source.origin);
+        Writer writer = new OutputStreamWriter(
+                file.openOutputStream(), StandardCharsets.UTF_8);
+        try {
+            writer.write(source.source);
         } finally {
             writer.close();
         }
@@ -1527,7 +2178,13 @@ public final class SomaProcessor extends AbstractProcessor {
                     result.append("\\t");
                     break;
                 default:
-                    if (character < 0x20) {
+                    if (Character.isSurrogate(character)) {
+                        result.append("\\u");
+                        result.append(UPPER_HEX[(character >>> 12) & 0x0f]);
+                        result.append(UPPER_HEX[(character >>> 8) & 0x0f]);
+                        result.append(UPPER_HEX[(character >>> 4) & 0x0f]);
+                        result.append(UPPER_HEX[character & 0x0f]);
+                    } else if (character < 0x20) {
                         result.append("\\u");
                         result.append(LOWER_HEX[(character >>> 12) & 0x0f]);
                         result.append(LOWER_HEX[(character >>> 8) & 0x0f]);
@@ -1539,6 +2196,28 @@ public final class SomaProcessor extends AbstractProcessor {
             }
         }
         return result.append('"').toString();
+    }
+
+    private static final class SchemaArtifactPlan {
+        private final PackageElement origin;
+        private final String basePath;
+        private final String schemaJson;
+        private final String schemaHash;
+        private final List<GeneratedSourceOutput> sources;
+
+        private SchemaArtifactPlan(
+                PackageElement origin,
+                String basePath,
+                String schemaJson,
+                String schemaHash,
+                List<GeneratedSourceOutput> sources) {
+            this.origin = origin;
+            this.basePath = basePath;
+            this.schemaJson = schemaJson;
+            this.schemaHash = schemaHash;
+            this.sources = Collections.unmodifiableList(
+                    new ArrayList<GeneratedSourceOutput>(sources));
+        }
     }
 
     private static final class SchemaModel {
@@ -1659,11 +2338,17 @@ public final class SomaProcessor extends AbstractProcessor {
     }
 
     private static final class ValueModel {
+        private final TypeElement origin;
         private final String javaType;
         private final String logicalName;
         private final List<FieldModel> fields;
 
-        private ValueModel(String javaType, String logicalName, List<FieldModel> fields) {
+        private ValueModel(
+                TypeElement origin,
+                String javaType,
+                String logicalName,
+                List<FieldModel> fields) {
+            this.origin = origin;
             this.javaType = javaType;
             this.logicalName = logicalName;
             this.fields = fields;
@@ -1692,6 +2377,7 @@ public final class SomaProcessor extends AbstractProcessor {
     }
 
     private static final class FieldModel {
+        private final VariableElement origin;
         private final String javaName;
         private final String logicalName;
         private final String semantic;
@@ -1699,11 +2385,13 @@ public final class SomaProcessor extends AbstractProcessor {
         private final DefaultModel defaultValue;
 
         private FieldModel(
+                VariableElement origin,
                 String javaName,
                 String logicalName,
                 String semantic,
                 NormalizedType type,
                 DefaultModel defaultValue) {
+            this.origin = origin;
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.semantic = semantic;
@@ -1911,6 +2599,7 @@ public final class SomaProcessor extends AbstractProcessor {
     }
 
     private static final class TableFieldModel {
+        private final VariableElement origin;
         private final String javaName;
         private final String logicalName;
         private final String semantic;
@@ -1920,10 +2609,12 @@ public final class SomaProcessor extends AbstractProcessor {
         private final boolean key;
         private DefaultModel defaultValue;
 
-        private TableFieldModel(String javaName, String logicalName, String semantic,
+        private TableFieldModel(VariableElement origin,
+                                String javaName, String logicalName, String semantic,
                                 TableFieldType type, ChildFieldType child,
                                 boolean optional, boolean key,
                                 DefaultModel defaultValue) {
+            this.origin = origin;
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.semantic = semantic;

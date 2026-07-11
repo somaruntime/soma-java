@@ -18,6 +18,8 @@ import com.example.soma.keyed.generated.FloatKeyedTable;
 import com.example.soma.keyed.generated.ShortKeyedBatch;
 import com.example.soma.keyed.generated.ShortKeyedTable;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.RuntimePlan;
+import com.hgtech.soma.runtime.TablePlan;
 
 import java.util.List;
 import java.util.Optional;
@@ -98,6 +100,8 @@ public final class KeyedConsumer {
         });
         testLongKeyBinding();
         testAdditionalPrimitiveKeyBindings();
+        testSparseIntGeneratedBinding();
+        testRepeatedSmallBatchDoesNotRebuildEveryAppend();
         System.out.println("keyed-consumer: ok");
     }
 
@@ -172,6 +176,85 @@ public final class KeyedConsumer {
                 doubleTable.containsKey(Double.POSITIVE_INFINITY);
             }
         });
+    }
+
+    private static void testSparseIntGeneratedBinding() {
+        RuntimePlan base = KeyedParticleTable.defaultRuntimePlan();
+        TablePlan sparseTable = base.requireTable("KeyedParticle").toBuilder()
+                .keySpaceStrategy("sparse-int-v1")
+                .maximumSparseKey(31L)
+                .maximumTableStorageBytes(184L)
+                .maximumBulkScratchBytes(144L)
+                .build();
+        RuntimePlan sparsePlan = base.toBuilder()
+                .maximumAggregateStorageBytes(5576L)
+                .replaceTable(sparseTable)
+                .build();
+        KeyedParticleTable sparse = KeyedParticleTable.create(sparsePlan);
+        KeyedParticleBatch batch = new KeyedParticleBatch();
+        batch.addValues(0, 10, false, 0);
+        batch.addValues(31, 20, true, 7);
+        sparse.addBatch(batch);
+        require(sparse.fetch(0).energy == 10 && sparse.fetch(31).priority == 7,
+                "generated sparse endpoints");
+        require(!sparse.containsKey(-1) && sparse.findRowIndex(32) == -1,
+                "generated sparse out-of-domain lookup is missing");
+        expectCode("missing_key", new Action() {
+            @Override public void run() { sparse.rowIndexOf(32); }
+        });
+        expectCode("invalid_key_domain", new Action() {
+            @Override public void run() {
+                KeyedParticleBatch outside = new KeyedParticleBatch();
+                outside.addValues(32, 99, false, 0);
+                sparse.addBatch(outside);
+            }
+        });
+        require(sparse.size() == 2 && sparse.fetch(31).energy == 20,
+                "sparse domain rejection preserves facts");
+        sparse.delete(0);
+        require(sparse.rowIndexOf(31) == 0,
+                "sparse delete repairs packed row slot");
+        require("sparse-int-v1".equals(sparse.statsSnapshot().keySpaceImplementation()),
+                "sparse strategy is explicit and observable");
+        sparse.release();
+        require(sparse.statsSnapshot().capacity() == 0
+                        && sparse.statsSnapshot().keySpaceCapacity() == 0,
+                "sparse release drops table and key storage");
+
+        RuntimePlan tableLimitFailure = base.toBuilder()
+                .replaceTable(sparseTable.toBuilder()
+                        .maximumTableStorageBytes(175L).build())
+                .build();
+        expectCode("memory_limit_exceeded", new Action() {
+            @Override public void run() { KeyedParticleTable.create(tableLimitFailure); }
+        });
+        RuntimePlan bulkLimitFailure = base.toBuilder()
+                .replaceTable(sparseTable.toBuilder()
+                        .maximumBulkScratchBytes(143L).build())
+                .build();
+        expectCode("memory_limit_exceeded", new Action() {
+            @Override public void run() { KeyedParticleTable.create(bulkLimitFailure); }
+        });
+        RuntimePlan aggregateLimitFailure = base.toBuilder()
+                .maximumAggregateStorageBytes(5503L)
+                .replaceTable(sparseTable)
+                .build();
+        expectCode("memory_limit_exceeded", new Action() {
+            @Override public void run() { KeyedParticleTable.create(aggregateLimitFailure); }
+        });
+    }
+
+    private static void testRepeatedSmallBatchDoesNotRebuildEveryAppend() {
+        KeyedParticleTable table = KeyedParticleTable.create();
+        for (int id = 0; id < 64; id++) {
+            KeyedParticleBatch one = new KeyedParticleBatch(1);
+            one.addValues(id, id, false, 0);
+            table.addBatch(one);
+        }
+        require(table.size() == 64 && table.fetch(63).energy == 63,
+                "repeated small keyed append preserves facts");
+        require(table.statsSnapshot().keySpaceRehashCount() < 16L,
+                "small batches only rebuild at geometric capacity boundaries");
     }
     private static void expectCode(String code, Action action) {
         try {

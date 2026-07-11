@@ -9,7 +9,7 @@ public final class EnumColumnView<E extends Enum<E>> extends AbstractColumnView 
     private final IntColumn column;
     private final E[] members;
 
-    public EnumColumnView(
+    EnumColumnView(
             DenseTableState state,
             IntColumn column,
             PresenceBitmap presence,

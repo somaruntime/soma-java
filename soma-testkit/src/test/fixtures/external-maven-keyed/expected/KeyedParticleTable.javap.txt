@@ -18,6 +18,8 @@ public final class com.example.soma.keyed.generated.KeyedParticleTable {
   public java.util.Map<java.lang.Integer, com.example.soma.keyed.KeyedParticle> materialize();
   public java.util.Map<java.lang.Integer, com.example.soma.keyed.KeyedParticle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(int);
+  public int findRowIndex(int);
+  public int rowIndexOf(int);
   public java.util.Optional<com.example.soma.keyed.KeyedParticle> find(int);
   public java.util.Optional<com.example.soma.keyed.KeyedParticle> find(int, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.KeyedParticle fetch(int);

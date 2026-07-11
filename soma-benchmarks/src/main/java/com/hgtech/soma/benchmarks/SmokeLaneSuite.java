@@ -1,6 +1,6 @@
 package com.hgtech.soma.benchmarks;
-import com.hgtech.soma.runtime.IntColumnPipeline;
 import com.hgtech.soma.runtime.IntColumnView;
+import com.hgtech.soma.runtime.GeneratedColumnAccess;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
@@ -103,6 +103,7 @@ final class SmokeLaneSuite {
             if (aggregate == null || aggregate.measurementNanos <= 0L) {
                 throw new IllegalStateException("lane produced no measurement: " + lane);
             }
+            aggregate = finish(aggregate, phaseKey(lane));
             records.add(BenchmarkModel.record(environment, config, aggregate));
         }
         return records;
@@ -137,7 +138,7 @@ final class SmokeLaneSuite {
         long setup = elapsed(setupStart);
         final long[] sum = {0L};
         long measureStart = System.nanoTime();
-        new IntColumnPipeline(table.state, table.values, table.presence,
+        GeneratedColumnAccess.intPipeline(table.state, table.values, table.presence,
                 "BenchmarkRows", "value").forEachInt(new IntConsumer() {
             @Override public void accept(int value) { sum[0] += value; }
         });
@@ -169,7 +170,7 @@ final class SmokeLaneSuite {
         long setup = elapsed(setupStart);
         final long[] soma = {0L};
         long somaStart = System.nanoTime();
-        new IntColumnPipeline(table.state, table.values, null,
+        GeneratedColumnAccess.intPipeline(table.state, table.values, null,
                 "BenchmarkRows", "value").forEachInt(new IntConsumer() {
             @Override public void accept(int value) { soma[0] += value; }
         });
@@ -227,6 +228,8 @@ final class SmokeLaneSuite {
         result.missing = 1L;
         result.scanned = 2L;
         result.matched = 2L;
+        result.materializationInvocations = 3L;
+        result.materialized = 2L;
         result.keySpaceStats = BenchmarkModel.object("implementation", "generated-hash-composite-v1",
                 "fullEqualityDistinguished", Boolean.TRUE,
                 "collisionConstructed", Boolean.valueOf(collision),
@@ -286,6 +289,8 @@ final class SmokeLaneSuite {
         result.matched = updated.matched() + 1L;
         result.changed = count + updated.changed();
         result.removed = removed;
+        result.materializationInvocations = 1L;
+        result.materialized = 1L;
         result.keySpaceStats = BenchmarkModel.object("implementation", "generated-machine-candidate-frontier",
                 "added", Integer.valueOf(count), "updated", Long.valueOf(updated.changed()),
                 "dynamicFirst", 1L, "removed", Long.valueOf(removed),
@@ -333,6 +338,8 @@ final class SmokeLaneSuite {
         result.scanned = count * (replaceAndBothTerminals ? 3L : 2L);
         result.matched = 2L;
         result.changed = count;
+        result.materializationInvocations = replaceAndBothTerminals ? 4L : 3L;
+        result.materialized = result.materializationInvocations;
         result.sidecarStats = BenchmarkModel.object("implementation", "generated-insertion-workspace",
                 "replaceRows", Integer.valueOf(count),
                 "maintainedFirstOrThrow", 1L, "dynamicFindFirst", 1L,
@@ -381,7 +388,7 @@ final class SmokeLaneSuite {
         result.scanned = updated.scanned();
         result.matched = updated.matched();
         result.changed = updated.changed();
-        result.allocatedBytes = 0L;
+        result.estimatedAllocationBytes = stats.operationScratchHighWaterBytes();
         result.selectorStats = BenchmarkModel.object("implementation", "generated-row-pipeline",
                 "filterStages", 1L, "limitStages", 1L, "updateTerminal", 1L,
                 "matched", Long.valueOf(updated.matched()),
@@ -486,7 +493,7 @@ final class SmokeLaneSuite {
         result.scanned = config.rows;
         result.matched = config.rows;
         result.changed = config.rows;
-        result.allocatedBytes = 4L * batch.length;
+        result.estimatedAllocationBytes = 4L * batch.length;
         result.touchedBytes = 8L * batch.length;
         result.workingSetBytes = 4L * table.state.capacity() + 4L * batch.length;
         result.selectorStats = BenchmarkModel.object("reserved", Boolean.valueOf(reserve),
@@ -591,7 +598,7 @@ final class SmokeLaneSuite {
         result.removed = config.rows - write;
         result.changed = config.rows - write;
         result.operations = 3L;
-        result.allocatedBytes = 4L * scratch.length;
+        result.estimatedAllocationBytes = 4L * scratch.length;
         result.touchedBytes = 8L * config.rows;
         result.workingSetBytes = 4L * table.state.capacity() + 4L * scratch.length;
         result.sidecarStats = BenchmarkModel.object("compactedRows", Long.valueOf(result.removed),
@@ -614,8 +621,8 @@ final class SmokeLaneSuite {
         KernelTable table = new KernelTable(config.rows, "mixed-0-63-64", StatsMode.SUMMARY, true);
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
-        IntColumnView view = new IntColumnView(table.state, table.values, table.presence,
-                "BenchmarkRows", "value");
+        IntColumnView view = GeneratedColumnAccess.intView(
+                table.state, table.values, table.presence, "BenchmarkRows", "value");
         long checksum = 0L;
         int reads = 0;
         for (int row = 0; row < config.rows; row++) {
@@ -760,8 +767,10 @@ final class SmokeLaneSuite {
         result.scanned = 4L;
         result.matched = 4L;
         result.materialized = 4L;
-        result.allocatedBytes = stats.lastMaterializationEstimatedAllocationBytes();
-        result.workingSetBytes = result.allocatedBytes;
+        result.materializationInvocations = 1L;
+        result.estimatedAllocationBytes = stats.lastMaterializationEstimatedAllocationBytes();
+        result.workingSetBytes = result.estimatedAllocationBytes;
+        result.allocationEstimatorVersion = "soma-materialization-estimator-v1";
         result.materializationPath = "operation_definitions[].candidateMachines";
         result.materializationStats = BenchmarkModel.object("implementation", "generated-recursive-materializer",
                 "rootMapEntries", Integer.valueOf(materialized.size()),
@@ -864,6 +873,10 @@ final class SmokeLaneSuite {
         result.operations = dimensions.length * 2L + 3L;
         result.scanned = result.operations;
         result.matched = result.operations;
+        result.materializationInvocations = 13L;
+        result.materialized = 28L;
+        result.estimatedAllocationBytes = observed[4];
+        result.allocationEstimatorVersion = "soma-materialization-estimator-v1";
         result.materializationBudgetDimension = "all-five-dimensions-plus-allocation-admission";
         result.materializationPath = "operation_definitions[].candidateMachines";
         result.materializationStats = BenchmarkModel.object("implementation", "generated-recursive-materializer",
@@ -926,6 +939,21 @@ final class SmokeLaneSuite {
     }
 
     private static LaneObservation finish(LaneObservation result, String phase) {
+        long reads = Math.max(result.explicitReads, result.scanned + result.lookups);
+        long mutations = Math.max(result.explicitMutations, result.changed + result.removed);
+        result.mutationReadRatio = BenchmarkModel.object(
+                "mutations", Long.valueOf(mutations), "reads", Long.valueOf(reads));
+        if (result.materializationInvocations > 0L
+                && (Boolean.FALSE.equals(result.materializationStats.get("applicable"))
+                || "generated-row-materializer".equals(
+                        result.materializationStats.get("implementation")))) {
+            result.materializationStats = BenchmarkModel.object(
+                    "implementation", "generated-row-materializer",
+                    "invocations", Long.valueOf(result.materializationInvocations),
+                    "rows", Long.valueOf(result.materialized),
+                    "estimatedBytes", null,
+                    "observationKind", "measured");
+        }
         result.workloadId = workloadId(result.lane);
         result.workloadEvidence = BenchmarkModel.object(
                 "executed", Boolean.TRUE,
@@ -936,7 +964,7 @@ final class SmokeLaneSuite {
                 "phase", phase);
         result.accessPatternCard = BenchmarkModel.object(
                 "rowsCardinality", Long.valueOf(result.rows),
-                "hotColumns", Arrays.asList("identity", "value"),
+                "hotColumns", hotColumns(result.lane),
                 "accessSource", phase,
                 "readMutationMix", result.mutationReadRatio,
                 "selectivity", result.scanned == 0L ? 0.0d
@@ -944,17 +972,57 @@ final class SmokeLaneSuite {
                 "optionalDensity", result.optionalDensity,
                 "childDensity", result.lane.startsWith("child_locality") ? "one-parent-local" : "not-applicable",
                 "workingSetBytes", Long.valueOf(result.workingSetBytes),
-                "allocationExport", result.lane.contains("materialization")
-                        ? "explicit-boundary" : "non-materializing-or-explicitly-accounted",
+                "allocationExport", result.materializationInvocations > 0L
+                        ? "explicit-materialization-boundary" : "no-materialization-in-workload",
                 "phaseBoundary", phase);
         return result;
+    }
+
+    private static List<String> hotColumns(String lane) {
+        if (lane.startsWith("kernel.optional_")) return Arrays.asList("value", "presence");
+        if (lane.equals("kernel.packed_scan")) return Arrays.asList("value");
+        if (lane.equals("generated.pipeline_fusion")) {
+            return Arrays.asList("vectorIndex", "value", "derivative");
+        }
+        if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) {
+            return Arrays.asList("key", "rowIndex", "hashSlot");
+        }
+        if (lane.equals("kernel.key_lookup_normal")
+                || lane.equals("kernel.key_lookup_collision")) {
+            return Arrays.asList("locationPair.from.value", "locationPair.to.value",
+                    "distanceMeters");
+        }
+        if (lane.startsWith("kernel.batch_import")) return Arrays.asList("value");
+        if (lane.equals("generated.keyed_frontier")) {
+            return Arrays.asList("candidateKey.machineId.value",
+                    "candidateKey.operationKey.operationId.value", "indicatorReady",
+                    "effectiveReadyMinute");
+        }
+        if (lane.equals("generated.ordered_access_lazy_rebuild")
+                || lane.equals("generated.dense_scratch_replace_order")) {
+            return Arrays.asList("deltaDistanceMeters", "customerId.value");
+        }
+        if (lane.equals("kernel.column_view")) return Arrays.asList("value", "presence");
+        if (lane.equals("child_locality.parent_scan_vs_flat")) {
+            return Arrays.asList("parentId", "value");
+        }
+        if (lane.equals("generated.materialization_recursive_success")
+                || lane.equals("materialization.budget_boundary")) {
+            return Arrays.asList("operationKey", "candidateMachines");
+        }
+        if (lane.equals("kernel.compaction_capacity_reuse")) return Arrays.asList("value");
+        if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) {
+            return Arrays.asList("rowIndex", "orderKey");
+        }
+        if (lane.equals("kernel.stats_mode_overhead")) return Arrays.asList("value");
+        throw new IllegalArgumentException("missing Access Pattern Card hot columns for " + lane);
     }
 
     static String workloadId(String lane) {
         if (!REQUIRED_LANES.contains(lane)) {
             throw new IllegalArgumentException("unknown benchmark workload lane: " + lane);
         }
-        return "soma-g5-smoke:" + lane + ":v2";
+        return "soma-g5-smoke:" + lane + ":v3";
     }
 
     static void validateWorkloadEvidence(String lane, Map<String, Object> evidence) {
@@ -988,7 +1056,9 @@ final class SmokeLaneSuite {
         validateAccessPatternCard(nested(record, "accessPatternCard"));
         validateDefaultMap(nested(record, "externalDtoStats"), "externalDtoStats");
         boolean sidecar = false, keySpace = false, selector = false;
-        boolean materialization = false, budget = false, columnView = false;
+        boolean materialization = number(nested(record, "operationCounts"),
+                "materializations") > 0L;
+        boolean specializedMaterialization = false, budget = false, columnView = false;
 
         if (lane.startsWith("kernel.optional_")) {
             selector = true;
@@ -1103,6 +1173,7 @@ final class SmokeLaneSuite {
             requireStringValue(stats, "flatAccess", "flat-scan-filter");
         } else if (lane.equals("generated.materialization_recursive_success")) {
             materialization = true;
+            specializedMaterialization = true;
             budget = true;
             Map<String, Object> stats = nested(record, "materializationStats");
             requireExactKeys(stats, new String[] {"implementation", "rootMapEntries",
@@ -1119,6 +1190,7 @@ final class SmokeLaneSuite {
             require(number(stats, "partialResults") == 0L, "materialization partial result");
         } else if (lane.equals("materialization.budget_boundary")) {
             materialization = true;
+            specializedMaterialization = true;
             budget = true;
             Map<String, Object> stats = nested(record, "materializationStats");
             requireExactKeys(stats, new String[] {"implementation", "boundarySuccesses",
@@ -1170,7 +1242,11 @@ final class SmokeLaneSuite {
         validateDefaultIfUnused(record, "sidecarStats", sidecar);
         validateDefaultIfUnused(record, "keySpaceStats", keySpace);
         validateDefaultIfUnused(record, "selectorStats", selector);
-        validateDefaultIfUnused(record, "materializationStats", materialization);
+        if (!materialization) {
+            validateDefaultMap(nested(record, "materializationStats"), "materializationStats");
+        } else if (!specializedMaterialization) {
+            validateGenericMaterialization(nested(record, "materializationStats"), record);
+        }
         if (budget) validateBudget(nested(record, "effectiveMaterializationBudget"));
         else validateDefaultMap(nested(record, "effectiveMaterializationBudget"),
                 "effectiveMaterializationBudget");
@@ -1209,6 +1285,26 @@ final class SmokeLaneSuite {
         requireIntegerFields(values, new String[] {"maximumOwnershipDepth",
                 "maximumTableInstances", "maximumRows", "maximumLeafValues",
                 "maximumEstimatedAllocationBytes"});
+    }
+
+    private static void validateGenericMaterialization(Map<String, Object> values,
+                                                       Map<String, Object> record) {
+        requireExactKeys(values, new String[] {"implementation", "invocations", "rows",
+                "estimatedBytes", "observationKind"});
+        requireStringValue(values, "implementation", "generated-row-materializer");
+        requireStringValue(values, "observationKind", "measured");
+        requireIntegerFields(values, new String[] {"invocations", "rows"});
+        if (values.get("estimatedBytes") != null) {
+            requireIntegerFields(values, new String[] {"estimatedBytes"});
+        }
+        long expectedInvocations = number(nested(record, "operationCounts"),
+                "materializations");
+        long expectedRows = number(nested(record, "rowCounts"), "materialized");
+        if (number(values, "invocations") != expectedInvocations
+                || number(values, "rows") != expectedRows
+                || expectedInvocations <= 0L || expectedRows <= 0L) {
+            throw new IllegalArgumentException("generic materialization counters contradict root facts");
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1389,6 +1485,7 @@ final class SmokeLaneSuite {
         target.changed += source.changed;
         target.removed += source.removed;
         target.materialized += source.materialized;
+        target.materializationInvocations += source.materializationInvocations;
         target.candidates += source.candidates;
         target.selected += source.selected;
         target.operations += source.operations;
@@ -1396,7 +1493,7 @@ final class SmokeLaneSuite {
         target.missing += source.missing;
         target.duplicates += source.duplicates;
         target.touchedBytes += source.touchedBytes;
-        target.allocatedBytes += source.allocatedBytes;
+        target.estimatedAllocationBytes += source.estimatedAllocationBytes;
         target.workingSetBytes = Math.max(target.workingSetBytes, source.workingSetBytes);
     }
 
@@ -1475,8 +1572,10 @@ final class SmokeLaneSuite {
                             RuntimeCompatibility.PLAN_PROTOCOL,
                             RuntimeCompatibility.ALLOCATION_ESTIMATOR)
                     .statsMode(statsMode).addTable(tablePlan).build();
+            ChildOwnershipRegistry ownership = new ChildOwnershipRegistry();
             state = new DenseTableState("BenchmarkRows", plan, tablePlan,
-                    new ColumnGroup(4, values, presence));
+                    new ColumnGroup("BenchmarkRows", tablePlan, ownership,
+                            4, values, presence));
             if (reserve && rows > 0) state.reserve(rows);
             if (rows > 0) {
                 int start = state.prepareAppend(rows);

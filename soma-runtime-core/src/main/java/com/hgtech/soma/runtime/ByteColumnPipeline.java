@@ -6,7 +6,7 @@ import com.hgtech.soma.runtime.generated.PresenceBitmap;
 
 public final class ByteColumnPipeline extends AbstractColumnPipeline {
     private final ByteColumn column;
-    public ByteColumnPipeline(DenseTableState state, ByteColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
+    ByteColumnPipeline(DenseTableState state, ByteColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
     public void forEachByte(ByteConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {

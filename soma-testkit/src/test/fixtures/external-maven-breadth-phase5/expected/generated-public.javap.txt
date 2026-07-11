@@ -1,0 +1,449 @@
+## FullRowBatch
+Compiled from "FullRowBatch.java"
+public final class com.example.soma.breadth.generated.FullRowBatch {
+  public com.example.soma.breadth.generated.FullRowBatch();
+  public com.example.soma.breadth.generated.FullRowBatch(int);
+  public int size();
+  public int capacity();
+  public boolean isEmpty();
+  public com.example.soma.breadth.generated.FullRowBatch add(com.example.soma.breadth.FullRow);
+  public com.example.soma.breadth.generated.FullRowBatch addValues(com.example.soma.breadth.generated.FullRowBatch$Writer);
+  public com.example.soma.breadth.generated.FullRowBatch addValues(boolean, byte, short, int, long, float, double, float, java.lang.String, com.example.soma.breadth.State, int, long, long, java.lang.String, boolean, java.lang.String, boolean, com.example.soma.breadth.State, com.example.soma.breadth.Point, boolean, com.example.soma.breadth.Point, com.example.soma.breadth.LeafDefaults, com.example.soma.breadth.ScalarValue, boolean, com.example.soma.breadth.ScalarValue);
+  public void clear();
+}
+## FullRowMutableRow
+Compiled from "FullRowMutableRow.java"
+public interface com.example.soma.breadth.generated.FullRowMutableRow extends com.example.soma.breadth.generated.FullRowRow {
+  public abstract void setActive(boolean);
+  public abstract void setSmall(byte);
+  public abstract void setMedium(short);
+  public abstract void setPriority(int);
+  public abstract void setTotal(long);
+  public abstract void setPayload(float);
+  public abstract void setRatio(double);
+  public abstract void setScore(float);
+  public abstract void setLabel(java.lang.String);
+  public abstract void setState(com.example.soma.breadth.State);
+  public abstract void setDay(int);
+  public abstract void setTime(long);
+  public abstract void setInstant(long);
+  public abstract void setName(java.lang.String);
+  public abstract void setNote(java.lang.String);
+  public abstract void clearNote();
+  public abstract void setOptionalState(com.example.soma.breadth.State);
+  public abstract void clearOptionalState();
+  public abstract void setPoint(com.example.soma.breadth.Point);
+  public abstract void setPointXValue(int);
+  public abstract void setPointYValue(int);
+  public abstract void setOptionalPoint(com.example.soma.breadth.Point);
+  public abstract void setOptionalPointXValue(int);
+  public abstract void setOptionalPointYValue(int);
+  public abstract void clearOptionalPoint();
+  public abstract void setLeafDefaults(com.example.soma.breadth.LeafDefaults);
+  public abstract void setLeafDefaultsCountValue(int);
+  public abstract void setLeafDefaultsLabelValue(java.lang.String);
+  public abstract void setScalar(com.example.soma.breadth.ScalarValue);
+  public abstract void setScalarValue(int);
+  public abstract void setOptionalScalar(com.example.soma.breadth.ScalarValue);
+  public abstract void setOptionalScalarValue(int);
+  public abstract void clearOptionalScalar();
+}
+## FullRowMutator
+Compiled from "FullRowMutator.java"
+public final class com.example.soma.breadth.generated.FullRowMutator {
+  public com.example.soma.breadth.generated.FullRowMutator setActive(boolean);
+  public com.example.soma.breadth.generated.FullRowMutator setSmall(byte);
+  public com.example.soma.breadth.generated.FullRowMutator setMedium(short);
+  public com.example.soma.breadth.generated.FullRowMutator setPriority(int);
+  public com.example.soma.breadth.generated.FullRowMutator setTotal(long);
+  public com.example.soma.breadth.generated.FullRowMutator setPayload(float);
+  public com.example.soma.breadth.generated.FullRowMutator setRatio(double);
+  public com.example.soma.breadth.generated.FullRowMutator setScore(float);
+  public com.example.soma.breadth.generated.FullRowMutator setLabel(java.lang.String);
+  public com.example.soma.breadth.generated.FullRowMutator setState(com.example.soma.breadth.State);
+  public com.example.soma.breadth.generated.FullRowMutator setDay(int);
+  public com.example.soma.breadth.generated.FullRowMutator setTime(long);
+  public com.example.soma.breadth.generated.FullRowMutator setInstant(long);
+  public com.example.soma.breadth.generated.FullRowMutator setName(java.lang.String);
+  public com.example.soma.breadth.generated.FullRowMutator setNote(java.lang.String);
+  public com.example.soma.breadth.generated.FullRowMutator clearNote();
+  public com.example.soma.breadth.generated.FullRowMutator setOptionalState(com.example.soma.breadth.State);
+  public com.example.soma.breadth.generated.FullRowMutator clearOptionalState();
+  public com.example.soma.breadth.generated.FullRowMutator setPoint(com.example.soma.breadth.Point);
+  public com.example.soma.breadth.generated.FullRowMutator setOptionalPoint(com.example.soma.breadth.Point);
+  public com.example.soma.breadth.generated.FullRowMutator clearOptionalPoint();
+  public com.example.soma.breadth.generated.FullRowMutator setLeafDefaults(com.example.soma.breadth.LeafDefaults);
+  public com.example.soma.breadth.generated.FullRowMutator setScalar(com.example.soma.breadth.ScalarValue);
+  public com.example.soma.breadth.generated.FullRowMutator setOptionalScalar(com.example.soma.breadth.ScalarValue);
+  public com.example.soma.breadth.generated.FullRowMutator clearOptionalScalar();
+  public void commit();
+}
+## FullRowRow
+Compiled from "FullRowRow.java"
+public interface com.example.soma.breadth.generated.FullRowRow {
+  public abstract boolean active();
+  public abstract byte small();
+  public abstract short medium();
+  public abstract int priority();
+  public abstract long total();
+  public abstract float payload();
+  public abstract double ratio();
+  public abstract float score();
+  public abstract java.lang.String label();
+  public abstract com.example.soma.breadth.State state();
+  public abstract int day();
+  public abstract long time();
+  public abstract long instant();
+  public abstract java.lang.String name();
+  public abstract boolean notePresent();
+  public abstract boolean noteAbsent();
+  public abstract java.lang.String note();
+  public abstract java.lang.String noteOr(java.lang.String);
+  public abstract boolean optionalStatePresent();
+  public abstract boolean optionalStateAbsent();
+  public abstract com.example.soma.breadth.State optionalState();
+  public abstract com.example.soma.breadth.State optionalStateOr(com.example.soma.breadth.State);
+  public abstract com.example.soma.breadth.Point point();
+  public abstract int pointXValue();
+  public abstract int pointYValue();
+  public abstract boolean optionalPointPresent();
+  public abstract boolean optionalPointAbsent();
+  public abstract com.example.soma.breadth.Point optionalPoint();
+  public abstract int optionalPointXValue();
+  public abstract int optionalPointYValue();
+  public abstract com.example.soma.breadth.Point optionalPointOr(com.example.soma.breadth.Point);
+  public abstract com.example.soma.breadth.LeafDefaults leafDefaults();
+  public abstract int leafDefaultsCountValue();
+  public abstract java.lang.String leafDefaultsLabelValue();
+  public abstract com.example.soma.breadth.ScalarValue scalar();
+  public abstract int scalarValue();
+  public abstract boolean optionalScalarPresent();
+  public abstract boolean optionalScalarAbsent();
+  public abstract com.example.soma.breadth.ScalarValue optionalScalar();
+  public abstract int optionalScalarValue();
+  public abstract com.example.soma.breadth.ScalarValue optionalScalarOr(com.example.soma.breadth.ScalarValue);
+}
+## FullRowRows
+Compiled from "FullRowRows.java"
+public final class com.example.soma.breadth.generated.FullRowRows {
+  public com.example.soma.breadth.generated.FullRowRows filter(com.example.soma.breadth.generated.FullRowRows$Predicate);
+  public com.example.soma.breadth.generated.FullRowRows skip(long);
+  public com.example.soma.breadth.generated.FullRowRows limit(long);
+  public com.example.soma.breadth.generated.FullRowRows sorted(com.example.soma.breadth.generated.FullRowRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.FullRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.FullRowRows$Predicate);
+  public void forEach(com.example.soma.breadth.generated.FullRowRows$Consumer);
+  public java.util.Optional<com.example.soma.breadth.FullRow> findFirst();
+  public java.util.Optional<com.example.soma.breadth.FullRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.FullRow firstOrThrow();
+  public com.example.soma.breadth.FullRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.FullRow> fetchAll();
+  public java.util.List<com.example.soma.breadth.FullRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.FullRowRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+}
+## FullRowTable
+Compiled from "FullRowTable.java"
+public final class com.example.soma.breadth.generated.FullRowTable {
+  public static com.example.soma.breadth.generated.FullRowTable create();
+  public static com.example.soma.breadth.generated.FullRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void reserve(int);
+  public void addBatch(com.example.soma.breadth.generated.FullRowBatch);
+  public void replaceAll(com.example.soma.breadth.generated.FullRowBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.breadth.FullRow fetchAt(int);
+  public com.example.soma.breadth.FullRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.FullRow> materialize();
+  public java.util.List<com.example.soma.breadth.FullRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.generated.FullRowMutator mutateAt(int);
+  public com.example.soma.breadth.generated.FullRowRows rows();
+  public com.example.soma.breadth.generated.FullRowRows filter(com.example.soma.breadth.generated.FullRowRows$Predicate);
+  public com.example.soma.breadth.generated.FullRowRows skip(long);
+  public com.example.soma.breadth.generated.FullRowRows limit(long);
+  public com.example.soma.breadth.generated.FullRowRows sorted(com.example.soma.breadth.generated.FullRowRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.FullRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.FullRowRows$Predicate);
+  public void forEach(com.example.soma.breadth.generated.FullRowRows$Consumer);
+  public java.util.Optional<com.example.soma.breadth.FullRow> findFirst();
+  public java.util.Optional<com.example.soma.breadth.FullRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.FullRow firstOrThrow();
+  public com.example.soma.breadth.FullRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.FullRow> fetchAll();
+  public java.util.List<com.example.soma.breadth.FullRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.FullRowRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+  public com.example.soma.breadth.generated.FullRowRows byScore();
+  public com.hgtech.soma.runtime.BooleanColumnPipeline activeValues();
+  public com.hgtech.soma.runtime.BooleanColumnView activeColumn();
+  public com.hgtech.soma.runtime.ByteColumnPipeline smallValues();
+  public com.hgtech.soma.runtime.ByteColumnView smallColumn();
+  public com.hgtech.soma.runtime.ShortColumnPipeline mediumValues();
+  public com.hgtech.soma.runtime.ShortColumnView mediumColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline priorityValues();
+  public com.hgtech.soma.runtime.IntColumnView priorityColumn();
+  public com.hgtech.soma.runtime.LongColumnPipeline totalValues();
+  public com.hgtech.soma.runtime.LongColumnView totalColumn();
+  public com.hgtech.soma.runtime.FloatColumnPipeline payloadValues();
+  public com.hgtech.soma.runtime.FloatColumnView payloadColumn();
+  public com.hgtech.soma.runtime.DoubleColumnPipeline ratioValues();
+  public com.hgtech.soma.runtime.DoubleColumnView ratioColumn();
+  public com.hgtech.soma.runtime.FloatColumnPipeline scoreValues();
+  public com.hgtech.soma.runtime.FloatColumnView scoreColumn();
+  public com.hgtech.soma.runtime.EnumColumnPipeline<com.example.soma.breadth.State> stateValues();
+  public com.hgtech.soma.runtime.EnumColumnView<com.example.soma.breadth.State> stateColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline dayValues();
+  public com.hgtech.soma.runtime.IntColumnView dayColumn();
+  public com.hgtech.soma.runtime.LongColumnPipeline timeValues();
+  public com.hgtech.soma.runtime.LongColumnView timeColumn();
+  public com.hgtech.soma.runtime.LongColumnPipeline instantValues();
+  public com.hgtech.soma.runtime.LongColumnView instantColumn();
+  public com.hgtech.soma.runtime.EnumColumnPipeline<com.example.soma.breadth.State> optionalStateValues();
+  public com.hgtech.soma.runtime.EnumColumnView<com.example.soma.breadth.State> optionalStateColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline pointXValues();
+  public com.hgtech.soma.runtime.IntColumnView pointXValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline pointYValues();
+  public com.hgtech.soma.runtime.IntColumnView pointYValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline optionalPointXValues();
+  public com.hgtech.soma.runtime.IntColumnView optionalPointXValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline optionalPointYValues();
+  public com.hgtech.soma.runtime.IntColumnView optionalPointYValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline leafDefaultsCountValues();
+  public com.hgtech.soma.runtime.IntColumnView leafDefaultsCountValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline scalarValues();
+  public com.hgtech.soma.runtime.IntColumnView scalarValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline optionalScalarValues();
+  public com.hgtech.soma.runtime.IntColumnView optionalScalarValueColumn();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}
+## StringKeyRowBatch
+Compiled from "StringKeyRowBatch.java"
+public final class com.example.soma.breadth.generated.StringKeyRowBatch {
+  public com.example.soma.breadth.generated.StringKeyRowBatch();
+  public com.example.soma.breadth.generated.StringKeyRowBatch(int);
+  public int size();
+  public int capacity();
+  public boolean isEmpty();
+  public com.example.soma.breadth.generated.StringKeyRowBatch add(com.example.soma.breadth.StringKeyRow);
+  public com.example.soma.breadth.generated.StringKeyRowBatch addValues(com.example.soma.breadth.generated.StringKeyRowBatch$Writer);
+  public com.example.soma.breadth.generated.StringKeyRowBatch addValues(java.lang.String, int, boolean, java.lang.String);
+  public void clear();
+}
+## StringKeyRowKeys
+Compiled from "StringKeyRowKeys.java"
+public final class com.example.soma.breadth.generated.StringKeyRowKeys {
+  public void forEach(java.util.function.Consumer<java.lang.String>);
+  public java.util.List<java.lang.String> fetchAll();
+  public java.util.List<java.lang.String> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<java.lang.String> findFirst();
+  public java.util.Optional<java.lang.String> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.lang.String firstOrThrow();
+  public java.lang.String firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+}
+## StringKeyRowMutableRow
+Compiled from "StringKeyRowMutableRow.java"
+public interface com.example.soma.breadth.generated.StringKeyRowMutableRow extends com.example.soma.breadth.generated.StringKeyRowRow {
+  public abstract void setValue(int);
+  public abstract void setNote(java.lang.String);
+  public abstract void clearNote();
+}
+## StringKeyRowMutator
+Compiled from "StringKeyRowMutator.java"
+public final class com.example.soma.breadth.generated.StringKeyRowMutator {
+  public com.example.soma.breadth.generated.StringKeyRowMutator setValue(int);
+  public com.example.soma.breadth.generated.StringKeyRowMutator setNote(java.lang.String);
+  public com.example.soma.breadth.generated.StringKeyRowMutator clearNote();
+  public void commit();
+}
+## StringKeyRowRow
+Compiled from "StringKeyRowRow.java"
+public interface com.example.soma.breadth.generated.StringKeyRowRow {
+  public abstract java.lang.String id();
+  public abstract int value();
+  public abstract boolean notePresent();
+  public abstract boolean noteAbsent();
+  public abstract java.lang.String note();
+  public abstract java.lang.String noteOr(java.lang.String);
+}
+## StringKeyRowRows
+Compiled from "StringKeyRowRows.java"
+public final class com.example.soma.breadth.generated.StringKeyRowRows {
+  public com.example.soma.breadth.generated.StringKeyRowRows filter(com.example.soma.breadth.generated.StringKeyRowRows$Predicate);
+  public com.example.soma.breadth.generated.StringKeyRowRows skip(long);
+  public com.example.soma.breadth.generated.StringKeyRowRows limit(long);
+  public com.example.soma.breadth.generated.StringKeyRowRows sorted(com.example.soma.breadth.generated.StringKeyRowRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.StringKeyRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.StringKeyRowRows$Predicate);
+  public void forEach(com.example.soma.breadth.generated.StringKeyRowRows$Consumer);
+  public java.util.Optional<com.example.soma.breadth.StringKeyRow> findFirst();
+  public java.util.Optional<com.example.soma.breadth.StringKeyRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringKeyRow firstOrThrow();
+  public com.example.soma.breadth.StringKeyRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll();
+  public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringKeyRowRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+}
+## StringKeyRowTable
+Compiled from "StringKeyRowTable.java"
+public final class com.example.soma.breadth.generated.StringKeyRowTable {
+  public static com.example.soma.breadth.generated.StringKeyRowTable create();
+  public static com.example.soma.breadth.generated.StringKeyRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void reserve(int);
+  public void addBatch(com.example.soma.breadth.generated.StringKeyRowBatch);
+  public void replaceAll(com.example.soma.breadth.generated.StringKeyRowBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.breadth.StringKeyRow fetchAt(int);
+  public com.example.soma.breadth.StringKeyRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<java.lang.String, com.example.soma.breadth.StringKeyRow> materialize();
+  public java.util.Map<java.lang.String, com.example.soma.breadth.StringKeyRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean containsKey(java.lang.String);
+  public int findRowIndex(java.lang.String);
+  public int rowIndexOf(java.lang.String);
+  public java.util.Optional<com.example.soma.breadth.StringKeyRow> find(java.lang.String);
+  public java.util.Optional<com.example.soma.breadth.StringKeyRow> find(java.lang.String, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringKeyRow fetch(java.lang.String);
+  public com.example.soma.breadth.StringKeyRow fetch(java.lang.String, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.generated.StringKeyRowMutator mutate(java.lang.String);
+  public void delete(java.lang.String);
+  public com.example.soma.breadth.generated.StringKeyRowKeys keys();
+  public com.example.soma.breadth.generated.StringKeyRowMutator mutateAt(int);
+  public com.example.soma.breadth.generated.StringKeyRowRows rows();
+  public com.example.soma.breadth.generated.StringKeyRowRows filter(com.example.soma.breadth.generated.StringKeyRowRows$Predicate);
+  public com.example.soma.breadth.generated.StringKeyRowRows skip(long);
+  public com.example.soma.breadth.generated.StringKeyRowRows limit(long);
+  public com.example.soma.breadth.generated.StringKeyRowRows sorted(com.example.soma.breadth.generated.StringKeyRowRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.StringKeyRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.StringKeyRowRows$Predicate);
+  public void forEach(com.example.soma.breadth.generated.StringKeyRowRows$Consumer);
+  public java.util.Optional<com.example.soma.breadth.StringKeyRow> findFirst();
+  public java.util.Optional<com.example.soma.breadth.StringKeyRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringKeyRow firstOrThrow();
+  public com.example.soma.breadth.StringKeyRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll();
+  public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringKeyRowRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+  public com.hgtech.soma.runtime.IntColumnPipeline valueValues();
+  public com.hgtech.soma.runtime.IntColumnView valueColumn();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}
+## StringParentBatch
+Compiled from "StringParentBatch.java"
+public final class com.example.soma.breadth.generated.StringParentBatch {
+  public com.example.soma.breadth.generated.StringParentBatch();
+  public com.example.soma.breadth.generated.StringParentBatch(int);
+  public int size();
+  public int capacity();
+  public boolean isEmpty();
+  public com.example.soma.breadth.generated.StringParentBatch add(com.example.soma.breadth.StringParent);
+  public com.example.soma.breadth.generated.StringParentBatch addValues(com.example.soma.breadth.generated.StringParentBatch$Writer);
+  public com.example.soma.breadth.generated.StringParentBatch addValues(int, com.example.soma.breadth.generated.StringKeyRowBatch);
+  public void clear();
+}
+## StringParentMutableRow
+Compiled from "StringParentMutableRow.java"
+public interface com.example.soma.breadth.generated.StringParentMutableRow extends com.example.soma.breadth.generated.StringParentRow {
+  public abstract void setId(int);
+}
+## StringParentMutator
+Compiled from "StringParentMutator.java"
+public final class com.example.soma.breadth.generated.StringParentMutator {
+  public com.example.soma.breadth.generated.StringParentMutator setId(int);
+  public void commit();
+}
+## StringParentRow
+Compiled from "StringParentRow.java"
+public interface com.example.soma.breadth.generated.StringParentRow {
+  public abstract int id();
+}
+## StringParentRows
+Compiled from "StringParentRows.java"
+public final class com.example.soma.breadth.generated.StringParentRows {
+  public com.example.soma.breadth.generated.StringParentRows filter(com.example.soma.breadth.generated.StringParentRows$Predicate);
+  public com.example.soma.breadth.generated.StringParentRows skip(long);
+  public com.example.soma.breadth.generated.StringParentRows limit(long);
+  public com.example.soma.breadth.generated.StringParentRows sorted(com.example.soma.breadth.generated.StringParentRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.StringParentRows$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.StringParentRows$Predicate);
+  public void forEach(com.example.soma.breadth.generated.StringParentRows$Consumer);
+  public java.util.Optional<com.example.soma.breadth.StringParent> findFirst();
+  public java.util.Optional<com.example.soma.breadth.StringParent> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringParent firstOrThrow();
+  public com.example.soma.breadth.StringParent firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringParent> fetchAll();
+  public java.util.List<com.example.soma.breadth.StringParent> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringParentRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+}
+## StringParentTable
+Compiled from "StringParentTable.java"
+public final class com.example.soma.breadth.generated.StringParentTable {
+  public static com.example.soma.breadth.generated.StringParentTable create();
+  public static com.example.soma.breadth.generated.StringParentTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void reserve(int);
+  public void addBatch(com.example.soma.breadth.generated.StringParentBatch);
+  public void replaceAll(com.example.soma.breadth.generated.StringParentBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.breadth.generated.StringKeyRowTable children(int);
+  public void replaceChildren(int, com.example.soma.breadth.generated.StringKeyRowBatch);
+  public com.example.soma.breadth.StringParent fetchAt(int);
+  public com.example.soma.breadth.StringParent fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringParent> materialize();
+  public java.util.List<com.example.soma.breadth.StringParent> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.generated.StringParentMutator mutateAt(int);
+  public com.example.soma.breadth.generated.StringParentRows rows();
+  public com.example.soma.breadth.generated.StringParentRows filter(com.example.soma.breadth.generated.StringParentRows$Predicate);
+  public com.example.soma.breadth.generated.StringParentRows skip(long);
+  public com.example.soma.breadth.generated.StringParentRows limit(long);
+  public com.example.soma.breadth.generated.StringParentRows sorted(com.example.soma.breadth.generated.StringParentRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.StringParentRows$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.StringParentRows$Predicate);
+  public void forEach(com.example.soma.breadth.generated.StringParentRows$Consumer);
+  public java.util.Optional<com.example.soma.breadth.StringParent> findFirst();
+  public java.util.Optional<com.example.soma.breadth.StringParent> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringParent firstOrThrow();
+  public com.example.soma.breadth.StringParent firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringParent> fetchAll();
+  public java.util.List<com.example.soma.breadth.StringParent> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringParentRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+  public com.hgtech.soma.runtime.IntColumnPipeline idValues();
+  public com.hgtech.soma.runtime.IntColumnView idColumn();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}

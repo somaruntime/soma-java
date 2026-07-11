@@ -9,6 +9,10 @@ public final class TablePlan {
     private final int growthDenominator;
     private final long maximumUpdateScratchBytes;
     private final long maximumOperationScratchBytes;
+    private final long maximumBulkScratchBytes;
+    private final long maximumTableStorageBytes;
+    private final String keySpaceStrategy;
+    private final long maximumSparseKey;
     private final String accessStrategy;
     private final String sidecarMaintenancePolicy;
     private final long maximumSidecarScratchBytes;
@@ -21,6 +25,10 @@ public final class TablePlan {
         growthDenominator = builder.growthDenominator;
         maximumUpdateScratchBytes = builder.maximumUpdateScratchBytes;
         maximumOperationScratchBytes = builder.maximumOperationScratchBytes;
+        maximumBulkScratchBytes = builder.maximumBulkScratchBytes;
+        maximumTableStorageBytes = builder.maximumTableStorageBytes;
+        keySpaceStrategy = builder.keySpaceStrategy;
+        maximumSparseKey = builder.maximumSparseKey;
         accessStrategy = builder.accessStrategy;
         sidecarMaintenancePolicy = builder.sidecarMaintenancePolicy;
         maximumSidecarScratchBytes = builder.maximumSidecarScratchBytes;
@@ -36,6 +44,10 @@ public final class TablePlan {
                 .growthRatio(growthNumerator, growthDenominator)
                 .maximumUpdateScratchBytes(maximumUpdateScratchBytes)
                 .maximumOperationScratchBytes(maximumOperationScratchBytes)
+                .maximumBulkScratchBytes(maximumBulkScratchBytes)
+                .maximumTableStorageBytes(maximumTableStorageBytes)
+                .keySpaceStrategy(keySpaceStrategy)
+                .maximumSparseKey(maximumSparseKey)
                 .accessStrategy(accessStrategy)
                 .sidecarMaintenancePolicy(sidecarMaintenancePolicy)
                 .maximumSidecarScratchBytes(maximumSidecarScratchBytes);
@@ -48,6 +60,10 @@ public final class TablePlan {
     public int growthDenominator() { return growthDenominator; }
     public long maximumUpdateScratchBytes() { return maximumUpdateScratchBytes; }
     public long maximumOperationScratchBytes() { return maximumOperationScratchBytes; }
+    public long maximumBulkScratchBytes() { return maximumBulkScratchBytes; }
+    public long maximumTableStorageBytes() { return maximumTableStorageBytes; }
+    public String keySpaceStrategy() { return keySpaceStrategy; }
+    public long maximumSparseKey() { return maximumSparseKey; }
     public String accessStrategy() { return accessStrategy; }
     public String sidecarMaintenancePolicy() { return sidecarMaintenancePolicy; }
     public long maximumSidecarScratchBytes() { return maximumSidecarScratchBytes; }
@@ -58,8 +74,12 @@ public final class TablePlan {
                 + ",\"growthDenominator\":" + growthDenominator
                 + ",\"growthNumerator\":" + growthNumerator
                 + ",\"initialCapacity\":" + initialCapacity
+                + ",\"keySpaceStrategy\":" + CanonicalSupport.quote(keySpaceStrategy)
+                + ",\"maximumBulkScratchBytes\":" + maximumBulkScratchBytes
                 + ",\"maximumOperationScratchBytes\":" + maximumOperationScratchBytes
                 + ",\"maximumSidecarScratchBytes\":" + maximumSidecarScratchBytes
+                + ",\"maximumSparseKey\":" + maximumSparseKey
+                + ",\"maximumTableStorageBytes\":" + maximumTableStorageBytes
                 + ",\"maximumUpdateScratchBytes\":" + maximumUpdateScratchBytes
                 + ",\"sidecarMaintenancePolicy\":"
                 + CanonicalSupport.quote(sidecarMaintenancePolicy)
@@ -74,6 +94,10 @@ public final class TablePlan {
         private int growthDenominator = 2;
         private long maximumUpdateScratchBytes = 256L * 1024L * 1024L;
         private long maximumOperationScratchBytes = 256L * 1024L * 1024L;
+        private long maximumBulkScratchBytes = 256L * 1024L * 1024L;
+        private long maximumTableStorageBytes = 256L * 1024L * 1024L;
+        private String keySpaceStrategy = "none";
+        private long maximumSparseKey = -1L;
         private String accessStrategy = "none";
         private String sidecarMaintenancePolicy = "none";
         private long maximumSidecarScratchBytes;
@@ -114,6 +138,38 @@ public final class TablePlan {
                         "maximumOperationScratchBytes must be positive");
             }
             maximumOperationScratchBytes = value;
+            return this;
+        }
+
+        public Builder maximumBulkScratchBytes(long value) {
+            if (value <= 0L) {
+                throw new IllegalArgumentException(
+                        "maximumBulkScratchBytes must be positive");
+            }
+            maximumBulkScratchBytes = value;
+            return this;
+        }
+
+        public Builder maximumTableStorageBytes(long value) {
+            if (value <= 0L) {
+                throw new IllegalArgumentException(
+                        "maximumTableStorageBytes must be positive");
+            }
+            maximumTableStorageBytes = value;
+            return this;
+        }
+
+        public Builder keySpaceStrategy(String value) {
+            keySpaceStrategy = CanonicalSupport.required(value, "keySpaceStrategy");
+            return this;
+        }
+
+        public Builder maximumSparseKey(long value) {
+            if (value < -1L || value >= Integer.MAX_VALUE) {
+                throw new IllegalArgumentException(
+                        "maximumSparseKey must be -1 or array-representable int");
+            }
+            maximumSparseKey = value;
             return this;
         }
 

@@ -21,8 +21,8 @@ import java.util.Set;
 
 /** Benchmark runner内部的exact JSONL model与无第三方JSON codec。 */
 final class BenchmarkModel {
-    static final String SCHEMA_VERSION = "soma-benchmark-smoke-v2";
-    static final String ARTIFACT_VERSION = "soma-java-benchmark-runner-v2";
+    static final String SCHEMA_VERSION = "soma-benchmark-smoke-v3";
+    static final String ARTIFACT_VERSION = "soma-java-benchmark-runner-v3";
 
     static final List<String> FIELDS = Collections.unmodifiableList(Arrays.asList(
             "schemaVersion", "scenario", "lane", "workloadId", "workloadEvidence",
@@ -31,7 +31,8 @@ final class BenchmarkModel {
             "architecture", "cpu", "memory", "scale", "seed", "warmupIterations",
             "forks", "measurementIterations", "baselineId", "phaseTimings",
             "throughput", "latency", "rowCounts", "candidateCounts",
-            "operationCounts", "accessPatternCard", "touchedBytesEstimate",
+            "operationCounts", "accessPatternCard", "observationKinds",
+            "touchedBytesEstimate",
             "workingSetEstimate", "allocationPerOperation", "allocatedBytes",
             "gcStats", "sidecarStats", "keySpaceStats", "selectorStats",
             "optionalDensity", "mutationReadRatio", "statsMode",
@@ -110,13 +111,27 @@ final class BenchmarkModel {
         values.put("operationCounts", object("operations", Long.valueOf(observation.operations),
                 "lookups", Long.valueOf(observation.lookups),
                 "missing", Long.valueOf(observation.missing),
-                "duplicates", Long.valueOf(observation.duplicates)));
+                "duplicates", Long.valueOf(observation.duplicates),
+                "materializations", Long.valueOf(observation.materializationInvocations)));
         values.put("accessPatternCard", observation.accessPatternCard);
+        values.put("observationKinds", object(
+                "allocation", observationKind("not-observed",
+                        "no-jvm-allocation-profiler", "actual JVM heap allocation"),
+                "materialization", observationKind("measured",
+                        "soma-workload-counter-v1", "published schema objects/collections"),
+                "reads", observationKind("measured",
+                        "soma-workload-counter-v1", "executed scan/lookup facts"),
+                "mutations", observationKind("measured",
+                        "soma-workload-counter-v1", "executed changed/removed facts"),
+                "touchedBytes", observationKind("deterministic-estimate",
+                        "soma-touched-bytes-estimator-v1", "declared hot columns and bitmap words"),
+                "workingSet", observationKind("deterministic-estimate",
+                        "soma-working-set-estimator-v1", "runtime-owned retained arrays/scratch")));
         values.put("touchedBytesEstimate", Long.valueOf(observation.touchedBytes));
         values.put("workingSetEstimate", Long.valueOf(observation.workingSetBytes));
-        values.put("allocationPerOperation", object("method", "deterministic-accounting",
-                "estimatedBytes", Double.valueOf((double) observation.allocatedBytes / operations)));
-        values.put("allocatedBytes", Long.valueOf(observation.allocatedBytes));
+        values.put("allocationPerOperation", object("method", "not-observed",
+                "estimatedBytes", null));
+        values.put("allocatedBytes", null);
         values.put("gcStats", object("method", "not-observed-in-smoke",
                 "count", null, "timeMillis", null));
         values.put("sidecarStats", observation.sidecarStats);
@@ -129,11 +144,11 @@ final class BenchmarkModel {
         values.put("effectiveMaterializationBudget", observation.effectiveMaterializationBudget);
         values.put("materializationBudgetDimension", observation.materializationBudgetDimension);
         values.put("materializationPath", observation.materializationPath);
-        values.put("allocationEstimatorVersion", "soma-materialization-estimator-v1");
+        values.put("allocationEstimatorVersion", observation.allocationEstimatorVersion);
         values.put("externalDtoStats", observation.externalDtoStats);
         values.put("columnViewStats", observation.columnViewStats);
-        values.put("allocationEstimate", object("method", "deterministic-accounting",
-                "bytes", Long.valueOf(observation.allocatedBytes),
+        values.put("allocationEstimate", object("method", "soma-smoke-owned-estimate-v1",
+                "bytes", Long.valueOf(observation.estimatedAllocationBytes),
                 "exactJvmHeap", Boolean.FALSE));
         values.put("hardwareCounterStats", object("method", "unavailable",
                 "cacheMisses", null, "branchMisses", null));
@@ -143,6 +158,11 @@ final class BenchmarkModel {
         BenchmarkRecord record = new BenchmarkRecord(values);
         validateRecord(values);
         return record;
+    }
+
+    private static Map<String, Object> observationKind(
+            String kind, String method, String scope) {
+        return object("kind", kind, "method", method, "scope", scope);
     }
 
     static void write(File target, List<BenchmarkRecord> records) throws IOException {
@@ -264,6 +284,7 @@ final class BenchmarkModel {
         requireMap(record, "candidateCounts");
         requireMap(record, "operationCounts");
         requireNonEmptyMap(record, "accessPatternCard");
+        requireNonEmptyMap(record, "observationKinds");
         requireMap(record, "allocationPerOperation");
         requireNonEmptyMap(record, "gcStats");
         requireNonEmptyMap(record, "sidecarStats");
@@ -288,7 +309,9 @@ final class BenchmarkModel {
         requireNonNegativeNumber(record, "measurementIterations");
         requireNonNegativeNumber(record, "touchedBytesEstimate");
         requireNonNegativeNumber(record, "workingSetEstimate");
-        requireNonNegativeNumber(record, "allocatedBytes");
+        if (record.get("allocatedBytes") != null) {
+            throw new IllegalArgumentException("allocatedBytes must be null when allocation is not observed");
+        }
         requireExactMap(record, "scale", new String[] {"preset", "rows", "operations"});
         requireExactMap(record, "phaseTimings",
                 new String[] {"setupNanos", "measurementNanos", "exportNanos"});
@@ -299,7 +322,11 @@ final class BenchmarkModel {
                 new String[] {"source", "scanned", "matched", "changed", "removed", "materialized"});
         requireExactMap(record, "candidateCounts", new String[] {"source", "selected"});
         requireExactMap(record, "operationCounts",
-                new String[] {"operations", "lookups", "missing", "duplicates"});
+                new String[] {"operations", "lookups", "missing", "duplicates",
+                        "materializations"});
+        requireExactMap(record, "observationKinds",
+                new String[] {"allocation", "materialization", "reads", "mutations",
+                        "touchedBytes", "workingSet"});
         requireExactMap(record, "mutationReadRatio", new String[] {"mutations", "reads"});
         requireExactMap(record, "allocationPerOperation", new String[] {"method", "estimatedBytes"});
         requireExactMap(record, "allocationEstimate", new String[] {"method", "bytes", "exactJvmHeap"});
@@ -327,7 +354,8 @@ final class BenchmarkModel {
                 new String[] {"source", "scanned", "matched", "changed", "removed", "materialized"});
         requireNestedIntegers(record, "candidateCounts", new String[] {"source", "selected"});
         requireNestedIntegers(record, "operationCounts",
-                new String[] {"operations", "lookups", "missing", "duplicates"});
+                new String[] {"operations", "lookups", "missing", "duplicates",
+                        "materializations"});
         requireNestedIntegers(record, "mutationReadRatio", new String[] {"mutations", "reads"});
         requirePositiveInteger(record, "forks");
         requirePositiveInteger(record, "measurementIterations");
@@ -341,8 +369,9 @@ final class BenchmarkModel {
         }
         requireStringItems(record, "jvmArgs", false);
         requireStringItems(record, "knownLimitations", true);
-        requireNestedConst(record, "allocationPerOperation", "method", "deterministic-accounting");
-        requireNestedConst(record, "allocationEstimate", "method", "deterministic-accounting");
+        requireNestedConst(record, "allocationPerOperation", "method", "not-observed");
+        requireNestedConst(record, "allocationPerOperation", "estimatedBytes", null);
+        requireNestedConst(record, "allocationEstimate", "method", "soma-smoke-owned-estimate-v1");
         requireNestedConst(record, "allocationEstimate", "exactJvmHeap", Boolean.FALSE);
         requireNestedConst(record, "gcStats", "method", "not-observed-in-smoke");
         requireNestedConst(record, "gcStats", "count", null);
@@ -350,7 +379,79 @@ final class BenchmarkModel {
         requireNestedConst(record, "hardwareCounterStats", "method", "unavailable");
         requireNestedConst(record, "hardwareCounterStats", "cacheMisses", null);
         requireNestedConst(record, "hardwareCounterStats", "branchMisses", null);
-        requireNestedNonNegativeNumber(record, "allocationPerOperation", "estimatedBytes");
+        validateObservationKinds(record);
+        validateObservationSemantics(record);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void validateObservationKinds(Map<String, Object> record) {
+        Map<String, Object> kinds = (Map<String, Object>) record.get("observationKinds");
+        requireObservation(kinds, "allocation", "not-observed", "no-jvm-allocation-profiler");
+        requireObservation(kinds, "materialization", "measured", "soma-workload-counter-v1");
+        requireObservation(kinds, "reads", "measured", "soma-workload-counter-v1");
+        requireObservation(kinds, "mutations", "measured", "soma-workload-counter-v1");
+        requireObservation(kinds, "touchedBytes", "deterministic-estimate",
+                "soma-touched-bytes-estimator-v1");
+        requireObservation(kinds, "workingSet", "deterministic-estimate",
+                "soma-working-set-estimator-v1");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void requireObservation(Map<String, Object> kinds, String field,
+                                           String kind, String method) {
+        Object value = kinds.get(field);
+        if (!(value instanceof Map)) {
+            throw new IllegalArgumentException("observationKinds." + field + " must be object");
+        }
+        Map<String, Object> observation = (Map<String, Object>) value;
+        if (!new ArrayList<String>(observation.keySet()).equals(
+                Arrays.asList("kind", "method", "scope"))) {
+            throw new IllegalArgumentException("observationKinds." + field
+                    + " exact fields mismatch");
+        }
+        if (!kind.equals(observation.get("kind")) || !method.equals(observation.get("method"))) {
+            throw new IllegalArgumentException("observationKinds." + field + " identity mismatch");
+        }
+        Object scope = observation.get("scope");
+        if (!(scope instanceof String) || ((String) scope).isEmpty()) {
+            throw new IllegalArgumentException("observationKinds." + field + ".scope required");
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void validateObservationSemantics(Map<String, Object> record) {
+        Map<String, Object> rows = (Map<String, Object>) record.get("rowCounts");
+        Map<String, Object> operations = (Map<String, Object>) record.get("operationCounts");
+        Map<String, Object> ratio = (Map<String, Object>) record.get("mutationReadRatio");
+        long scanned = ((Number) rows.get("scanned")).longValue();
+        long changed = ((Number) rows.get("changed")).longValue();
+        long removed = ((Number) rows.get("removed")).longValue();
+        long materialized = ((Number) rows.get("materialized")).longValue();
+        long lookups = ((Number) operations.get("lookups")).longValue();
+        long materializations = ((Number) operations.get("materializations")).longValue();
+        long reads = ((Number) ratio.get("reads")).longValue();
+        long mutations = ((Number) ratio.get("mutations")).longValue();
+        if ((scanned > 0L || lookups > 0L) && reads == 0L) {
+            throw new IllegalArgumentException("read workload cannot report zero reads");
+        }
+        if ((changed > 0L || removed > 0L) && mutations == 0L) {
+            throw new IllegalArgumentException("mutation workload cannot report zero mutations");
+        }
+        if ((materializations == 0L) != (materialized == 0L)) {
+            throw new IllegalArgumentException(
+                    "materialization invocations and published rows contradict");
+        }
+        Map<String, Object> materializationStats =
+                (Map<String, Object>) record.get("materializationStats");
+        if (materializations > 0L && Boolean.FALSE.equals(materializationStats.get("applicable"))) {
+            throw new IllegalArgumentException("executed materialization cannot be not-applicable");
+        }
+        Map<String, Object> card = (Map<String, Object>) record.get("accessPatternCard");
+        String expectedExport = materializations > 0L
+                ? "explicit-materialization-boundary" : "no-materialization-in-workload";
+        if (!expectedExport.equals(card.get("allocationExport"))) {
+            throw new IllegalArgumentException("accessPatternCard allocationExport contradiction");
+        }
     }
 
     private static String string(Map<String, Object> record, String field) {
@@ -756,6 +857,7 @@ final class LaneObservation {
     long changed;
     long removed;
     long materialized;
+    long materializationInvocations;
     long candidates;
     long selected;
     long operations = 1L;
@@ -764,7 +866,10 @@ final class LaneObservation {
     long duplicates;
     long touchedBytes;
     long workingSetBytes;
-    long allocatedBytes;
+    long estimatedAllocationBytes;
+    long explicitReads;
+    long explicitMutations;
+    String allocationEstimatorVersion = "soma-smoke-owned-estimate-v1";
     Map<String, Object> accessPatternCard = BenchmarkModel.object("applicable", Boolean.FALSE,
             "reason", "populated-at-finish");
     Map<String, Object> sidecarStats = BenchmarkModel.object("applicable", Boolean.FALSE,

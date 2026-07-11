@@ -18,6 +18,8 @@ public final class RuntimePlan {
     private final String allocationEstimator;
     private final MaterializationBudget defaultMaterializationBudget;
     private final StatsMode statsMode;
+    private final long maximumAggregateStorageBytes;
+    private final long maximumOwnershipTableInstances;
     private final TreeMap<String, TablePlan> tablesByName;
     private final List<TablePlan> tables;
     private final TreeMap<String, ChildPlan> childrenByIdentity;
@@ -32,6 +34,8 @@ public final class RuntimePlan {
         allocationEstimator = builder.allocationEstimator;
         defaultMaterializationBudget = builder.defaultMaterializationBudget;
         statsMode = builder.statsMode;
+        maximumAggregateStorageBytes = builder.maximumAggregateStorageBytes;
+        maximumOwnershipTableInstances = builder.maximumOwnershipTableInstances;
         tablesByName = new TreeMap<String, TablePlan>(builder.tables);
         tables = Collections.unmodifiableList(
                 new ArrayList<TablePlan>(tablesByName.values()));
@@ -55,7 +59,9 @@ public final class RuntimePlan {
         Builder builder = new Builder(schemaHash, runtimeCompatibility, generatedProtocol,
                 planProtocol, allocationEstimator)
                 .defaultMaterializationBudget(defaultMaterializationBudget)
-                .statsMode(statsMode);
+                .statsMode(statsMode)
+                .maximumAggregateStorageBytes(maximumAggregateStorageBytes)
+                .maximumOwnershipTableInstances(maximumOwnershipTableInstances);
         for (TablePlan table : tables) {
             builder.addTable(table);
         }
@@ -73,6 +79,8 @@ public final class RuntimePlan {
     public String runtimePlanHash() { return runtimePlanHash; }
     public MaterializationBudget defaultMaterializationBudget() { return defaultMaterializationBudget; }
     public StatsMode statsMode() { return statsMode; }
+    public long maximumAggregateStorageBytes() { return maximumAggregateStorageBytes; }
+    public long maximumOwnershipTableInstances() { return maximumOwnershipTableInstances; }
     public List<TablePlan> tables() { return tables; }
     public List<ChildPlan> children() { return children; }
 
@@ -95,7 +103,7 @@ public final class RuntimePlan {
         return child;
     }
 
-    private String toCanonicalJson() {
+    String toCanonicalJson() {
         StringBuilder json = new StringBuilder();
         json.append('{');
         json.append("\"allocationEstimator\":").append(CanonicalSupport.quote(allocationEstimator)).append(',');
@@ -110,6 +118,10 @@ public final class RuntimePlan {
         json.append("\"defaultMaterializationBudget\":")
                 .append(defaultMaterializationBudget.toCanonicalJson()).append(',');
         json.append("\"generatedProtocol\":").append(CanonicalSupport.quote(generatedProtocol)).append(',');
+        json.append("\"maximumAggregateStorageBytes\":")
+                .append(maximumAggregateStorageBytes).append(',');
+        json.append("\"maximumOwnershipTableInstances\":")
+                .append(maximumOwnershipTableInstances).append(',');
         json.append("\"planProtocol\":").append(CanonicalSupport.quote(planProtocol)).append(',');
         json.append("\"runtimeCompatibility\":").append(CanonicalSupport.quote(runtimeCompatibility)).append(',');
         json.append("\"schemaHash\":").append(CanonicalSupport.quote(schemaHash)).append(',');
@@ -140,6 +152,8 @@ public final class RuntimePlan {
         private final String allocationEstimator;
         private MaterializationBudget defaultMaterializationBudget = MaterializationBudget.defaults();
         private StatsMode statsMode = StatsMode.SUMMARY;
+        private long maximumAggregateStorageBytes = 1024L * 1024L * 1024L;
+        private long maximumOwnershipTableInstances = 65536L;
         private final TreeMap<String, TablePlan> tables = new TreeMap<String, TablePlan>();
         private final TreeMap<String, ChildPlan> children = new TreeMap<String, ChildPlan>();
 
@@ -170,6 +184,24 @@ public final class RuntimePlan {
                 throw new NullPointerException("statsMode");
             }
             statsMode = value;
+            return this;
+        }
+
+        public Builder maximumAggregateStorageBytes(long value) {
+            if (value <= 0L) {
+                throw new IllegalArgumentException(
+                        "maximumAggregateStorageBytes must be positive");
+            }
+            maximumAggregateStorageBytes = value;
+            return this;
+        }
+
+        public Builder maximumOwnershipTableInstances(long value) {
+            if (value <= 0L) {
+                throw new IllegalArgumentException(
+                        "maximumOwnershipTableInstances must be positive");
+            }
+            maximumOwnershipTableInstances = value;
             return this;
         }
 

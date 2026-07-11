@@ -175,6 +175,8 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public java.util.Map<java.lang.Double, com.example.soma.child.DoubleKeyedChildRow> materialize();
   public java.util.Map<java.lang.Double, com.example.soma.child.DoubleKeyedChildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(double);
+  public int findRowIndex(double);
+  public int rowIndexOf(double);
   public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> find(double);
   public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> find(double, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.child.DoubleKeyedChildRow fetch(double);
@@ -291,6 +293,8 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public java.util.Map<java.lang.Float, com.example.soma.child.FloatKeyedChildRow> materialize();
   public java.util.Map<java.lang.Float, com.example.soma.child.FloatKeyedChildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(float);
+  public int findRowIndex(float);
+  public int rowIndexOf(float);
   public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> find(float);
   public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> find(float, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.child.FloatKeyedChildRow fetch(float);
@@ -601,6 +605,8 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public java.util.Map<java.lang.Integer, com.example.soma.child.KeyedChildRow> materialize();
   public java.util.Map<java.lang.Integer, com.example.soma.child.KeyedChildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(int);
+  public int findRowIndex(int);
+  public int rowIndexOf(int);
   public java.util.Optional<com.example.soma.child.KeyedChildRow> find(int);
   public java.util.Optional<com.example.soma.child.KeyedChildRow> find(int, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.child.KeyedChildRow fetch(int);

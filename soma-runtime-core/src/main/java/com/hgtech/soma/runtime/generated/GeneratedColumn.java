@@ -14,6 +14,12 @@ public abstract class GeneratedColumn {
 
     public abstract void clearRange(int fromInclusive, int toExclusive);
 
+    abstract long estimatedBytes(int capacity);
+
+    abstract long retainedBytes();
+
+    abstract void releaseStorage();
+
     static void requireCapacity(int capacity) {
         if (capacity < 0) {
             throw new IllegalArgumentException("capacity must be non-negative");

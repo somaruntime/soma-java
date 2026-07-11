@@ -30,6 +30,10 @@ if [ -z "$version" ]; then
   printf '%s\n' 'security-release-scan: unable to read reactor version' >&2
   exit 1
 fi
+dependency_plugin_version=$(sed -n \
+  's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
+  pom.xml | sed -n '1p')
+dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version
 
 scanner=${OSV_SCANNER:-}
 if [ -z "$scanner" ] || [ ! -x "$scanner" ]; then
@@ -117,9 +121,9 @@ diff -u "$evidence_dir/expected-sbom-components.sorted.tsv" \
   "$evidence_dir/sbom-components.tsv" > "$evidence_dir/sbom-components.diff"
 
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-annotations,soma-processor,soma-runtime-core dependency:tree \
+  -pl soma-annotations,soma-processor,soma-runtime-core "$dependency_plugin":tree \
   -Dscope=runtime >"$evidence_dir/runtime-dependency-tree.txt"
-./mvnw -B -ntp -Dmaven.repo.local="$repository" dependency:resolve-plugins \
+./mvnw -B -ntp -Dmaven.repo.local="$repository" "$dependency_plugin":resolve-plugins \
   >"$evidence_dir/build-plugin-inventory.txt"
 
 if rg -n '<dependency>' soma-annotations/pom.xml soma-runtime-core/pom.xml >/dev/null; then

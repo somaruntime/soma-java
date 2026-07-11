@@ -85,9 +85,6 @@ public final class SomaJavacPlugin implements Plugin {
                     processorChecked = true;
                     String processorIdentity = compilerSession.getProcessorIdentity();
                     if (!CompilerProtocol.PROCESSOR_IDENTITY.equals(processorIdentity)) {
-                        for (String diagnostic : compilerSession.getPluginDiagnostics()) {
-                            log.printRawLines(Log.WriterKind.ERROR, diagnostic);
-                        }
                         String message =
                                 "[SOMA-COMP-005] SomaValue plugin requires active processor "
                                         + CompilerProtocol.PROCESSOR_IDENTITY;
@@ -228,6 +225,18 @@ public final class SomaJavacPlugin implements Plugin {
             }
 
             List<JCVariableDecl> fieldList = fields.toList();
+            int constructorSlots = 1;
+            for (JCVariableDecl field : fieldList) {
+                TypeTag tag = primitiveTag(field);
+                constructorSlots += tag == TypeTag.LONG || tag == TypeTag.DOUBLE ? 2 : 1;
+            }
+            if (constructorSlots > 255) {
+                fail(classDecl.pos, "SOMA-GEN-003",
+                        "codegen admission exceeded: dimension=value-constructor-slots"
+                                + " limit=255 proposed=" + constructorSlots
+                                + " symbol=" + classDecl.name);
+                valid = false;
+            }
             for (JCTree definition : classDecl.defs) {
                 if (definition instanceof JCMethodDecl) {
                     JCMethodDecl method = (JCMethodDecl) definition;
@@ -519,6 +528,7 @@ public final class SomaJavacPlugin implements Plugin {
         private void fail(int position, String code, String message) {
             String diagnostic = "[" + code + "] " + message;
             compilerSession.reportPluginDiagnostic(diagnostic);
+            log.error(Math.max(0, position), "proc.messager", diagnostic);
         }
     }
 }

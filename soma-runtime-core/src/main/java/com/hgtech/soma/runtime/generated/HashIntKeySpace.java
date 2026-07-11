@@ -3,7 +3,7 @@ package com.hgtech.soma.runtime.generated;
 import java.util.Arrays;
 
 /** Primitive open-addressed int key to packed RowSlot mapping. */
-public final class HashIntKeySpace {
+public final class HashIntKeySpace implements IntKeySpace {
     private static final int MAX_CAPACITY = 1 << 30;
     private static final byte EMPTY = 0;
     private static final byte LIVE = 1;
@@ -22,14 +22,7 @@ public final class HashIntKeySpace {
         if (expectedSize < 0) {
             throw new IllegalArgumentException("expectedSize must be non-negative");
         }
-        long required = Math.max(4L, 2L * (long) expectedSize);
-        int capacity = 4;
-        while (capacity < required) {
-            if (capacity >= MAX_CAPACITY) {
-                throw new IllegalArgumentException("expectedSize is too large");
-            }
-            capacity <<= 1;
-        }
+        int capacity = capacityFor(expectedSize);
         keys = new int[capacity];
         rows = new int[capacity];
         states = new byte[capacity];
@@ -37,7 +30,13 @@ public final class HashIntKeySpace {
 
     public int size() { return size; }
 
+    @Override
+    public String implementation() { return "hash-int-v1"; }
+
     public int capacity() { return states.length; }
+
+    @Override
+    public long retainedBytes() { return 9L * (long) states.length; }
 
     /** LIVE + DELETED buckets retained by the current probe table. */
     public int used() { return used; }
@@ -72,6 +71,27 @@ public final class HashIntKeySpace {
     public int rowOf(int key) {
         int slot = locate(key);
         return slot < 0 ? -1 : rows[slot];
+    }
+
+    @Override
+    public void requireInsertKey(int key, String table, String keyField, String operation) {
+    }
+
+    @Override
+    public long retainedBytesAfterEnsureAdditional(int additional) {
+        return 9L * (long) targetCapacity(additional);
+    }
+
+    @Override
+    public long allocationBytesDuringEnsureAdditional(int additional) {
+        return requiresRehash(additional)
+                ? retainedBytesAfterEnsureAdditional(additional) : 0L;
+    }
+
+    @Override
+    public void ensureAdditionalCapacity(int additional) {
+        int target = targetCapacity(additional);
+        if (requiresRehash(additional)) rehash(target);
     }
 
     public void put(int key, int rowSlot) {
@@ -112,12 +132,63 @@ public final class HashIntKeySpace {
         used = 0;
     }
 
+    @Override
+    public void releaseStorage() {
+        keys = new int[0];
+        rows = new int[0];
+        states = new byte[0];
+        size = 0;
+        used = 0;
+    }
+
     private void ensureInsertCapacity() {
         if (2L * ((long) used + 1L) >= (long) states.length) {
             if (states.length >= MAX_CAPACITY) {
                 throw new IllegalStateException("key space capacity exhausted");
             }
             rehash(states.length << 1);
+        }
+    }
+
+    private boolean requiresRehash(int additional) {
+        requireAdditional(additional);
+        return 2L * ((long) used + (long) additional) >= (long) states.length;
+    }
+
+    private int targetCapacity(int additional) {
+        requireAdditional(additional);
+        long requiredSize = (long) size + (long) additional;
+        if (requiredSize > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("key space capacity exhausted");
+        }
+        int target = states.length;
+        while (2L * requiredSize >= (long) target) {
+            if (target >= MAX_CAPACITY) {
+                throw new IllegalArgumentException("key space capacity exhausted");
+            }
+            target <<= 1;
+        }
+        return target;
+    }
+
+    private static int capacityFor(int expectedSize) {
+        if (expectedSize < 0) {
+            throw new IllegalArgumentException("expectedSize must be non-negative");
+        }
+        long required = Math.max(4L, 2L * (long) expectedSize + 1L);
+        int capacity = 4;
+        while ((long) capacity < required) {
+            if (capacity >= MAX_CAPACITY) {
+                throw new IllegalArgumentException("expectedSize is too large");
+            }
+            capacity <<= 1;
+        }
+        return capacity;
+    }
+
+    private static void requireAdditional(int additional) {
+        if (additional < 0) {
+            throw new IllegalArgumentException("additional must be non-negative");
         }
     }
 

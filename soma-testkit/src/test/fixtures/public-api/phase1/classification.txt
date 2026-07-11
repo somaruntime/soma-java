@@ -2,6 +2,7 @@ INTERNAL implementation com.hgtech.soma.processor.internal.CompilerProtocol
 INTERNAL implementation com.hgtech.soma.processor.internal.CompilerProtocol$Session
 PUBLIC build-provider com.hgtech.soma.processor.SomaProcessor
 PUBLIC build-provider com.hgtech.soma.processor.javac8.SomaJavacPlugin
+PUBLIC generated-construction-protocol com.hgtech.soma.runtime.GeneratedColumnAccess
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.BooleanColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ByteColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ChildOwnershipRegistry
@@ -15,6 +16,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashCompositeKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashLongKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.KeyCanonicalization
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.LongColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.MaterializationAllocation

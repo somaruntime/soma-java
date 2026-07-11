@@ -46,4 +46,8 @@ public final class ShortColumn extends GeneratedColumn {
         requireRange(fromInclusive, toExclusive, values.length);
         Arrays.fill(values, fromInclusive, toExclusive, (short) 0);
     }
+
+    @Override long estimatedBytes(int capacity) { requireCapacity(capacity); return 2L * capacity; }
+    @Override long retainedBytes() { return 2L * values.length; }
+    @Override void releaseStorage() { values = new short[0]; }
 }

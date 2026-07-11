@@ -138,6 +138,16 @@ public final class RuntimeFailures {
                 table + "." + field, context("valueClass", valueClass), null);
     }
 
+    public static SomaRuntimeException invalidKeyDomain(
+            String table, String keyField, String strategy, long maximumKey,
+            String operation) {
+        Map<String, String> context = context("keyField", keyField);
+        context.put("strategy", strategy);
+        context.put("maximumKey", Long.toString(maximumKey));
+        return create(SomaErrorCategory.INVALID_INPUT, "invalid_key_domain", operation,
+                table + "." + keyField, context, null);
+    }
+
     public static SomaRuntimeException invalidNullValue(String table, String field, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_null_value", operation,
                 table + "." + field, empty(), null);

@@ -54,6 +54,12 @@ public final class RowPermutationSidecar {
         return 4L * ((long) rows.length + (long) scratch.length);
     }
 
+    public long retainedBytesAfterRebuild(int required) {
+        if (required < 0) throw new IllegalArgumentException("required must be non-negative");
+        return 4L * ((long) Math.max(rows.length, required)
+                + (long) Math.max(scratch.length, required));
+    }
+
     /** Peak bytes while growing detached permutation and merge scratch for one rebuild. */
     public long rebuildPeakBytes(int required) {
         if (required < 0) {

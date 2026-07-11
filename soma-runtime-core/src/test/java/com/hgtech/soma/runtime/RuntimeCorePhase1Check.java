@@ -4,6 +4,7 @@ import com.hgtech.soma.runtime.generated.ColumnGroup;
 import com.hgtech.soma.runtime.generated.ChildOwnershipRegistry;
 import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.GeneratedMetadata;
+import com.hgtech.soma.runtime.generated.GeneratedColumn;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.runtime.generated.IntColumn;
 import com.hgtech.soma.runtime.generated.LongColumn;
@@ -26,8 +27,10 @@ public final class RuntimeCorePhase1Check {
     public static void main(String[] args) {
         testCanonicalIdentityIsLocaleIndependent();
         testPlanReplacementChangesIdentity();
+        testResourcePlanCanonicalIdentity();
         testChildPlanIdentity();
         testChildOwnershipRegistry();
+        testRetryableCascadeAndRegistryRelease();
         testCompatibilityBoundary();
         testDenseColumnsLifecycleAndStats();
         testStructuralRemoveStateTransition();
@@ -73,6 +76,53 @@ public final class RuntimeCorePhase1Check {
         assertFalse(original.runtimePlanHash().equals(changed.runtimePlanHash()),
                 "effective plan changes must change runtimePlanHash");
         assertEquals(64, changed.requireTable("Order").initialCapacity(), "replacement must be effective");
+    }
+
+    private static void testResourcePlanCanonicalIdentity() {
+        TablePlan table = TablePlan.builder("Order", RuntimeCompatibility.DENSE_ALGORITHM)
+                .initialCapacity(4)
+                .growthRatio(5, 4)
+                .maximumUpdateScratchBytes(11L)
+                .maximumOperationScratchBytes(12L)
+                .maximumBulkScratchBytes(13L)
+                .maximumTableStorageBytes(14L)
+                .keySpaceStrategy(RuntimeCompatibility.SPARSE_INT_KEY_SPACE)
+                .maximumSparseKey(15L)
+                .build();
+        assertEquals("{\"algorithm\":\"dense-soa-v1\",\"accessStrategy\":\"none\","
+                        + "\"growthDenominator\":4,\"growthNumerator\":5,"
+                        + "\"initialCapacity\":4,\"keySpaceStrategy\":\"sparse-int-v1\","
+                        + "\"maximumBulkScratchBytes\":13,"
+                        + "\"maximumOperationScratchBytes\":12,"
+                        + "\"maximumSidecarScratchBytes\":0,\"maximumSparseKey\":15,"
+                        + "\"maximumTableStorageBytes\":14,"
+                        + "\"maximumUpdateScratchBytes\":11,"
+                        + "\"sidecarMaintenancePolicy\":\"none\",\"table\":\"Order\"}",
+                table.toCanonicalJson(), "table resource plan canonical order");
+        RuntimePlan plan = RuntimePlan.builder(
+                        "schema-v1",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .maximumAggregateStorageBytes(16L)
+                .maximumOwnershipTableInstances(17L)
+                .addTable(table)
+                .build();
+        assertEquals("{\"allocationEstimator\":\"soma-materialization-estimator-v1\","
+                        + "\"defaultMaterializationBudget\":{"
+                        + "\"maximumEstimatedAllocationBytes\":268435456,"
+                        + "\"maximumLeafValues\":50000000,"
+                        + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
+                        + "\"maximumTableInstances\":100000},"
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v2\","
+                        + "\"maximumAggregateStorageBytes\":16,"
+                        + "\"maximumOwnershipTableInstances\":17,"
+                        + "\"planProtocol\":\"soma-runtime-plan-v2\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v2\","
+                        + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
+                        + "\"tables\":[" + table.toCanonicalJson() + "]}",
+                plan.toCanonicalJson(), "runtime resource plan canonical order");
     }
 
     private static void testChildPlanIdentity() {
@@ -236,6 +286,70 @@ public final class RuntimeCorePhase1Check {
         for (int i = 0; i < entryCount; i++) {
             registry.release(handles[i], owners[i], "items", "test", true);
         }
+        registry.release(replacement, owner, "lines", "test", true);
+        registry.releaseStorage();
+    }
+
+    private static void testRetryableCascadeAndRegistryRelease() {
+        final ChildOwnershipRegistry registry = new ChildOwnershipRegistry(8192L, 8L);
+        final int[] firstCalls = {0};
+        final int[] secondCalls = {0};
+        final boolean[] rejectSecondOnce = {true};
+        OwnedChildTable firstLifecycle = lifecycle(firstCalls, null);
+        OwnedChildTable secondLifecycle = lifecycle(secondCalls, rejectSecondOnce);
+        long firstOwner = registry.newOwnerToken();
+        long secondOwner = registry.newOwnerToken();
+        Object first = new Object();
+        Object second = new Object();
+        long firstHandle = registry.stage(
+                firstOwner, "items", "Root.items", first, firstLifecycle);
+        long secondHandle = registry.stage(
+                secondOwner, "items", "Root.items", second, secondLifecycle);
+        registry.publish(firstHandle, firstOwner, "items");
+        registry.publish(secondHandle, secondOwner, "items");
+
+        registry.beginCascade(2L, 16L, "Root", "clear");
+        registry.collectCascade(firstHandle, firstOwner, "items", true, "clear");
+        registry.collectCascade(secondHandle, secondOwner, "items", true, "clear");
+        try {
+            registry.commitCascade(false, "clear");
+            throw new AssertionError("controlled cascade release failure must propagate");
+        } catch (IllegalStateException expected) {
+            // Both registry entries must remain LIVE even though the first idempotent callback ran.
+        }
+        assertTrue(registry.resolve(firstHandle, firstOwner, "items", "test") == first,
+                "failed cascade keeps first slot live");
+        assertTrue(registry.resolve(secondHandle, secondOwner, "items", "test") == second,
+                "failed cascade keeps second slot live");
+
+        rejectSecondOnce[0] = false;
+        registry.beginCascade(2L, 16L, "Root", "clear");
+        registry.collectCascade(firstHandle, firstOwner, "items", true, "clear");
+        registry.collectCascade(secondHandle, secondOwner, "items", true, "clear");
+        registry.commitCascade(false, "clear");
+        assertEquals(2, firstCalls[0], "retry repeats idempotent completed descendant");
+        assertEquals(2, secondCalls[0], "retry completes previously failed descendant");
+        expectCode("child_released", new ThrowingRunnable() {
+            @Override public void run() {
+                registry.resolve(firstHandle, firstOwner, "items", "test");
+            }
+        });
+        registry.releaseStorage();
+    }
+
+    private static OwnedChildTable lifecycle(
+            final int[] calls, final boolean[] rejectOnce) {
+        return new OwnedChildTable() {
+            @Override public boolean hasPinnedSubtree() { return false; }
+            @Override public void releaseOwnedSubtree(boolean aggregateRelease) {
+                calls[0]++;
+                if (rejectOnce != null && rejectOnce[0]) {
+                    throw new IllegalStateException("controlled release failure");
+                }
+            }
+            @Override public long subtreeChildInstanceCount() { return 0L; }
+            @Override public long subtreeDescendantRowCount() { return 0L; }
+        };
     }
 
     private static void testCompatibilityBoundary() {
@@ -258,13 +372,41 @@ public final class RuntimeCorePhase1Check {
                 RuntimeCompatibility.verify(metadata("schema-v1"), mismatch, "Order");
             }
         });
+        final GeneratedMetadata legacyGenerated = new GeneratedMetadata(
+                "schema-v1",
+                RuntimeCompatibility.GENERATED_TARGET,
+                RuntimeCompatibility.COMPILER_IDENTITY,
+                "soma-generated-runtime-v1",
+                "soma-runtime-java8-v1",
+                "soma-runtime-plan-v1",
+                RuntimeCompatibility.DENSE_ALGORITHM,
+                RuntimeCompatibility.ALLOCATION_ESTIMATOR);
+        expectCode("runtime_compatibility_mismatch", new ThrowingRunnable() {
+            @Override public void run() {
+                RuntimeCompatibility.verify(legacyGenerated, plan, "Order");
+            }
+        });
+        final GeneratedMetadata legacyPlan = new GeneratedMetadata(
+                "schema-v1",
+                RuntimeCompatibility.GENERATED_TARGET,
+                RuntimeCompatibility.COMPILER_IDENTITY,
+                RuntimeCompatibility.GENERATED_PROTOCOL,
+                RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                "soma-runtime-plan-v1",
+                RuntimeCompatibility.DENSE_ALGORITHM,
+                RuntimeCompatibility.ALLOCATION_ESTIMATOR);
+        expectCode("runtime_plan_mismatch", new ThrowingRunnable() {
+            @Override public void run() {
+                RuntimeCompatibility.verify(legacyPlan, plan, "Order");
+            }
+        });
     }
 
     private static void testDenseColumnsLifecycleAndStats() {
         IntColumn quantity = new IntColumn();
         LongColumn timestamp = new LongColumn();
         PresenceBitmap optional = new PresenceBitmap();
-        ColumnGroup columns = new ColumnGroup(2, quantity, timestamp, optional);
+        ColumnGroup columns = newColumnGroup(2, quantity, timestamp, optional);
         RuntimePlan plan = defaultPlan();
         DenseTableState state = new DenseTableState(
                 "Order", plan, plan.requireTable("Order"), columns);
@@ -377,7 +519,7 @@ public final class RuntimeCorePhase1Check {
         final int size = 66;
         IntColumn values = new IntColumn();
         PresenceBitmap presence = new PresenceBitmap();
-        ColumnGroup columns = new ColumnGroup(2, values, presence);
+        ColumnGroup columns = newColumnGroup(2, values, presence);
         RuntimePlan plan = defaultPlan();
         DenseTableState state = new DenseTableState(
                 "Order", plan, plan.requireTable("Order"), columns);
@@ -476,7 +618,7 @@ public final class RuntimeCorePhase1Check {
         assertTrue(scratch != sidecar.scratch(3), "release drops retained scratch");
 
         IntColumn value = new IntColumn();
-        ColumnGroup columns = new ColumnGroup(2, value);
+        ColumnGroup columns = newColumnGroup(2, value);
         RuntimePlan plan = accessPlan();
         DenseTableState state = new DenseTableState(
                 "Order", plan, plan.requireTable("Order"), columns);
@@ -499,7 +641,7 @@ public final class RuntimeCorePhase1Check {
 
     private static void testStructuralRemoveStateTransition() {
         IntColumn value = new IntColumn();
-        ColumnGroup columns = new ColumnGroup(4, value);
+        ColumnGroup columns = newColumnGroup(4, value);
         RuntimePlan plan = defaultPlan();
         DenseTableState state = new DenseTableState(
                 "Order", plan, plan.requireTable("Order"), columns);
@@ -523,7 +665,7 @@ public final class RuntimeCorePhase1Check {
 
     private static void testViewLifecycleState() {
         IntColumn value = new IntColumn();
-        ColumnGroup columns = new ColumnGroup(2, value);
+        ColumnGroup columns = newColumnGroup(2, value);
         RuntimePlan plan = defaultPlan();
         final DenseTableState state = new DenseTableState(
                 "Order", plan, plan.requireTable("Order"), columns);
@@ -645,6 +787,14 @@ public final class RuntimeCorePhase1Check {
 
     private static TablePlan defaultTablePlan() {
         return TablePlan.builder("Order", RuntimeCompatibility.DENSE_ALGORITHM).build();
+    }
+
+    private static ColumnGroup newColumnGroup(
+            int initialCapacity, GeneratedColumn... columns) {
+        return new ColumnGroup(
+                "Order", defaultTablePlan(),
+                new ChildOwnershipRegistry(1024L * 1024L * 1024L, 65536L),
+                initialCapacity, columns);
     }
 
     private static RuntimePlan accessPlan() {

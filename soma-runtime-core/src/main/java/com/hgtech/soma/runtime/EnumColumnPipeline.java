@@ -11,7 +11,7 @@ public final class EnumColumnPipeline<E extends Enum<E>> extends AbstractColumnP
     private final IntColumn column;
     private final E[] members;
 
-    public EnumColumnPipeline(
+    EnumColumnPipeline(
             DenseTableState state,
             IntColumn column,
             PresenceBitmap presence,

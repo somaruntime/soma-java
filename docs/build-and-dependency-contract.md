@@ -145,6 +145,10 @@ Root parent 统一拥有：
 - encoding；
 - internal artifact version；
 - compiler/test/jar/source/javadoc/enforcer plugin version；
+- dependency inspection plugin version；任何`tree`、`build-classpath`、`resolve-plugins`
+  invocation使用root property绑定的exact
+  `org.apache.maven.plugins:maven-dependency-plugin:<version>:<goal>`坐标，不能依赖
+  Maven prefix解析或调用方本机plugin cache；
 - reproducible build timestamp policy；
 - CI/wrapper Maven version。
 

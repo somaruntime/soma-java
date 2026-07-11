@@ -6,7 +6,7 @@ import com.hgtech.soma.runtime.generated.ShortColumn;
 
 public final class ShortColumnPipeline extends AbstractColumnPipeline {
     private final ShortColumn column;
-    public ShortColumnPipeline(DenseTableState state, ShortColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
+    ShortColumnPipeline(DenseTableState state, ShortColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
     public void forEachShort(ShortConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {

@@ -14,7 +14,10 @@ import com.example.soma.access.generated.UniquePositionTable;
 import com.example.soma.access.generated.BooleanDoubleAccessBatch;
 import com.example.soma.access.generated.BooleanDoubleAccessTable;
 import com.example.soma.access.generated.MutatorAtomicAccessBatch;
+import com.example.soma.access.generated.MutatorAtomicAccessMutator;
 import com.example.soma.access.generated.MutatorAtomicAccessTable;
+import com.hgtech.soma.runtime.IntColumnView;
+import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.OperationOutcome;
 import com.hgtech.soma.runtime.RemoveResult;
@@ -54,6 +57,20 @@ public final class AccessConsumer {
         atomicBatch.addValues(1, AccessState.READY);
         MutatorAtomicAccessTable atomicTable = MutatorAtomicAccessTable.create();
         atomicTable.addBatch(atomicBatch);
+        MutatorAtomicAccessMutator firstMutation = atomicTable.mutateAt(0);
+        MutatorAtomicAccessMutator secondMutation = atomicTable.mutateAt(0);
+        firstMutation.setId(2).commit();
+        secondMutation.setState(AccessState.RUNNING).commit();
+        require(atomicTable.fetchAt(0).id == 2
+                        && atomicTable.fetchAt(0).state == AccessState.RUNNING,
+                "overlapping mutators do not roll back untouched fields");
+        MutatorAtomicAccessMutator firstSameField = atomicTable.mutateAt(0);
+        MutatorAtomicAccessMutator secondSameField = atomicTable.mutateAt(0);
+        firstSameField.setId(3).commit();
+        secondSameField.setId(4).commit();
+        require(atomicTable.fetchAt(0).id == 4,
+                "same-field overlapping mutators follow commit order");
+        atomicTable.mutateAt(0).setId(1).setState(AccessState.READY).commit();
         expectCode("invalid_null_value",
                 () -> atomicTable.mutateAt(0).setId(2).setState(null).commit());
         require(atomicTable.fetchAt(0).id == 1
@@ -81,6 +98,17 @@ public final class AccessConsumer {
 
         AccessRecordTable table = AccessRecordTable.create();
         table.addBatch(batch);
+        long topOneScratchBefore = table.statsSnapshot().operationScratchCurrentBytes();
+        final int[] topOneComparisons = {0};
+        AccessRecord stableTopOne = table.rows().sorted((left, right) -> {
+            topOneComparisons[0]++;
+            return 0;
+        }).firstOrThrow();
+        require(stableTopOne.code == 10 && topOneComparisons[0] == table.size() - 1,
+                "stable arg-min keeps first-on-equal with linear comparisons");
+        require(table.statsSnapshot().operationScratchCurrentBytes()
+                        == Math.max(4L, topOneScratchBefore),
+                "stable top-one does not allocate full sort scratch");
         require(table.findByState(2).count() == 3L, "non-unique index exact source");
         require(table.findByGroup(1).count() == 3L, "repeated index container");
         require(table.findByCode(20).firstOrThrow().score == 10, "unique source");
@@ -154,10 +182,20 @@ public final class AccessConsumer {
         resultBatch.addValues(101, 1, 1, 1).addValues(102, 1, 1, 2);
         resultTable.addBatch(resultBatch);
         resultTable.findByState(1).count();
-        expectCode("callback_failed", () -> resultTable.findByState(1).update(row -> {
+        expectCode("reentrant_access", () -> resultTable.findByState(1).update(row -> {
             row.setScore(99);
             resultTable.resetStats();
         }));
+        expectCode("reentrant_access",
+                () -> resultTable.forEach(row -> resultTable.size()));
+        expectCode("reentrant_access",
+                () -> resultTable.scoreValues().forEachInt(value -> resultTable.size()));
+        expectCode("reentrant_access", () -> resultTable.sorted((left, right) -> {
+            resultTable.runtimePlan();
+            return 0;
+        }).count());
+        AccessRecordTable callbackPeer = AccessRecordTable.create();
+        resultTable.forEach(row -> callbackPeer.size());
         require(resultTable.findByCode(101).firstOrThrow().score == 1
                         && resultTable.findByCode(102).firstOrThrow().score == 2,
                 "stats reset cannot invalidate operation-local result accounting");
@@ -216,6 +254,22 @@ public final class AccessConsumer {
                 .addValues(new RoutePositionKey(routeOne, 1), 11);
         VisitTable visitTable = VisitTable.create();
         visitTable.addBatch(visits);
+        require(visitTable.findRowIndex(routeOne.value, 1) >= 0
+                        && visitTable.findRowIndex(routeOne.value, 99) == -1,
+                "flattened composite key locator avoids key carrier materialization");
+        int visitRow = visitTable.rowIndexOf(routeOne.value, 1);
+        try (LongColumnView routeIds = visitTable.keyRouteIdValueColumn();
+             IntColumnView positions = visitTable.keyPositionValueColumn()) {
+            require(routeIds.getLong(visitRow) == routeOne.value
+                            && positions.getInt(visitRow) == 1,
+                    "flattened value key leaf columns expose packed facts");
+        }
+        final long[] visitedRouteIds = new long[1];
+        visitTable.forEach(row -> visitedRouteIds[0] += row.keyRouteIdValue());
+        require(visitedRouteIds[0] == 4L,
+                "flattened value leaf row getter avoids reconstructing the key object");
+        expectCode("reentrant_access",
+                () -> visitTable.keys().forEach(key -> visitTable.size()));
         require(visitTable.findByRoute(routeOne).count() == 2L,
                 "nested value grouped index parameter");
         require(visitTable.byRoutePosition(routeOne).firstOrThrow().payload == 11,
@@ -243,6 +297,7 @@ public final class AccessConsumer {
         invalidFloating.addValues(3, Float.NaN);
         expectCode("invalid_floating_access_value", () -> floating.addBatch(invalidFloating));
         require(floating.size() == 2, "invalid floating add is atomic");
+
         expectCode("invalid_floating_access_value",
                 () -> floating.findByMetric(Float.POSITIVE_INFINITY).count());
         expectCode("invalid_floating_access_value",

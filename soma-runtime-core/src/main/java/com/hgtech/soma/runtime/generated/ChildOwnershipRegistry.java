@@ -9,6 +9,11 @@ public final class ChildOwnershipRegistry {
     private static final byte LIVE = 1;
     private static final byte RELEASED = 2;
     private static final int IDENTITY_TOMBSTONE = -1;
+    private static final int MAX_CASCADE_DEPTH = 256;
+
+    private final StorageBudget storageBudget;
+    private long retainedBytes;
+    private boolean storageReleased;
 
     private long[] ownerTokens = new long[16];
     private String[] fields = new String[16];
@@ -20,6 +25,12 @@ public final class ChildOwnershipRegistry {
     private int[] freeNext = new int[16];
     private Object[] identityChildren = new Object[32];
     private int[] identitySlots = new int[32];
+    private long[] cascadeHandles = new long[0];
+    private int[] cascadeStarts = new int[MAX_CASCADE_DEPTH];
+    private int[] cascadeCounts = new int[MAX_CASCADE_DEPTH];
+    private String[] cascadeOperations = new String[MAX_CASCADE_DEPTH];
+    private int cascadeUsed;
+    private int cascadeDepth;
     private int identitySize;
     private int identityUsed;
     private int nextSlot = 1; // slot 0 / handle 0 are never live
@@ -27,6 +38,56 @@ public final class ChildOwnershipRegistry {
     private long nextOwnerToken = 1L;
     private boolean materializationActive;
     private String materializationOperation = "";
+
+    public ChildOwnershipRegistry() {
+        this(1024L * 1024L * 1024L, 65536L);
+    }
+
+    public ChildOwnershipRegistry(long maximumBytes, long maximumTableInstances) {
+        storageBudget = new StorageBudget(maximumBytes, maximumTableInstances);
+        retainedBytes = estimatedRetainedBytes(
+                ownerTokens.length, identitySlots.length, cascadeHandles.length);
+        storageBudget.reserveBytes(retainedBytes, "ownership", "ownership.create");
+    }
+
+    StorageBudget storageBudgetInternal() { return storageBudget; }
+
+    public void releaseStorage() {
+        if (storageReleased) return;
+        if (cascadeDepth != 0) {
+            throw RuntimeFailures.internalInvariant(
+                    "cascade_release_scope", "ownership", "release");
+        }
+        if (identitySize != 0 || storageBudget.currentTableInstances() != 0L
+                || storageBudget.transientBytes() != 0L
+                || storageBudget.currentBytes() != retainedBytes) {
+            throw RuntimeFailures.internalInvariant(
+                    "aggregate_release_drain", "ownership", "release");
+        }
+        ownerTokens = new long[0];
+        fields = new String[0];
+        paths = new String[0];
+        children = new Object[0];
+        lifecycles = new OwnedChildTable[0];
+        states = new byte[0];
+        generations = new int[0];
+        freeNext = new int[0];
+        identityChildren = new Object[0];
+        identitySlots = new int[0];
+        cascadeHandles = new long[0];
+        cascadeStarts = new int[0];
+        cascadeCounts = new int[0];
+        cascadeOperations = new String[0];
+        cascadeUsed = 0;
+        cascadeDepth = 0;
+        identitySize = 0;
+        identityUsed = 0;
+        nextSlot = 0;
+        freeHead = -1;
+        storageBudget.releaseBytes(retainedBytes, "ownership", "release");
+        retainedBytes = 0L;
+        storageReleased = true;
+    }
 
     /** Starts one aggregate-wide two-pass materialization guard. */
     public void beginMaterialization(String operation) {
@@ -120,9 +181,9 @@ public final class ChildOwnershipRegistry {
 
     public void discardStaged(long handle, long ownerToken, String field) {
         int index = staged(handle, ownerToken, field, "child.discard");
-        states[index] = RELEASED;
         OwnedChildTable lifecycle = lifecycles[index];
         lifecycle.releaseOwnedSubtree(false);
+        states[index] = RELEASED;
         free(index);
     }
 
@@ -157,10 +218,101 @@ public final class ChildOwnershipRegistry {
         if (states[index] == RELEASED) return;
         validateOwner(index, ownerToken, field, operation);
         if (states[index] != LIVE) throw RuntimeFailures.childDangling(paths[index], operation);
-        states[index] = RELEASED;
         OwnedChildTable lifecycle = lifecycles[index];
         lifecycle.releaseOwnedSubtree(aggregateRelease);
+        states[index] = RELEASED;
         free(index);
+    }
+
+    /**
+     * Starts a reusable primitive cascade collection. Expected failures leave every registry
+     * slot LIVE so the caller can retry after the external condition is corrected.
+     */
+    public void beginCascade(
+            long expectedHandles,
+            long maximumBulkScratchBytes,
+            String table,
+            String operation) {
+        if (cascadeDepth >= cascadeStarts.length) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    table, operation, maximumBulkScratchBytes, Long.MAX_VALUE);
+        }
+        if (expectedHandles < 0L || expectedHandles > Integer.MAX_VALUE) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    table, operation, maximumBulkScratchBytes, Long.MAX_VALUE);
+        }
+        long requiredBytes = checkedMultiply(expectedHandles, 8L);
+        if (requiredBytes > maximumBulkScratchBytes) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    table, operation, maximumBulkScratchBytes, requiredBytes);
+        }
+        long totalRequired = (long) cascadeUsed + expectedHandles;
+        if (totalRequired > Integer.MAX_VALUE) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    table, operation, maximumBulkScratchBytes, Long.MAX_VALUE);
+        }
+        ensureCascadeCapacity((int) totalRequired, table, operation);
+        cascadeStarts[cascadeDepth] = cascadeUsed;
+        cascadeCounts[cascadeDepth] = 0;
+        cascadeOperations[cascadeDepth] = Objects.requireNonNull(operation, "operation");
+        cascadeDepth++;
+    }
+
+    public void collectCascade(
+            long handle,
+            long ownerToken,
+            String field,
+            boolean requireUnpinned,
+            String operation) {
+        requireCascade(operation);
+        if (handle == 0L) return;
+        int index = live(handle, ownerToken, field, operation);
+        if (requireUnpinned && lifecycles[index].hasPinnedSubtree()) {
+            throw RuntimeFailures.viewPinned(paths[index], operation, 1);
+        }
+        int frame = cascadeDepth - 1;
+        if (cascadeUsed >= cascadeHandles.length) {
+            throw RuntimeFailures.internalInvariant(
+                    "cascade_collection_capacity", paths[index], operation);
+        }
+        cascadeHandles[cascadeUsed++] = handle;
+        cascadeCounts[frame]++;
+    }
+
+    public void commitCascade(boolean aggregateRelease, String operation) {
+        requireCascade(operation);
+        int frame = cascadeDepth - 1;
+        int start = cascadeStarts[frame];
+        int count = cascadeCounts[frame];
+        try {
+            // External lifecycle callbacks run while every registry slot is still LIVE.
+            for (int i = 0; i < count; i++) {
+                int index = index(cascadeHandles[start + i], operation);
+                if (states[index] != LIVE) {
+                    throw RuntimeFailures.childDangling(paths[index], operation);
+                }
+                lifecycles[index].releaseOwnedSubtree(aggregateRelease);
+            }
+            // Publishing RELEASED/free is non-callback and cannot fail on expected input.
+            for (int i = 0; i < count; i++) {
+                int index = index(cascadeHandles[start + i], operation);
+                states[index] = RELEASED;
+                free(index);
+            }
+        } finally {
+            finishCascade();
+        }
+    }
+
+    public void cancelCascade(String operation) {
+        requireCascade(operation);
+        finishCascade();
+    }
+
+    long retainedBytes() { return retainedBytes; }
+    long cascadeScratchBytes() {
+        return 8L * (long) cascadeHandles.length
+                + 16L * (long) cascadeStarts.length;
     }
 
     public long childInstanceCount(long handle, long ownerToken, String field) {
@@ -252,16 +404,40 @@ public final class ChildOwnershipRegistry {
             }
             next = identitySlots.length << 1;
         }
-        Object[] stagedChildren = new Object[next];
-        int[] stagedSlots = new int[next];
-        for (int i = 0; i < identitySlots.length; i++) {
-            if (identitySlots[i] <= 0) continue;
-            insertIdentity(stagedChildren, stagedSlots,
-                    identityChildren[i], identitySlots[i]);
+        long nextBytes = estimatedRetainedBytes(
+                ownerTokens.length, next, cascadeHandles.length);
+        long delta = nextBytes - retainedBytes;
+        storageBudget.reserveBytes(delta, "ownership", "child.stage");
+        long transientBytes = 12L * (long) identitySlots.length;
+        boolean transientReserved = false;
+        try {
+            storageBudget.reserveTransientBytes(
+                    transientBytes, "ownership", "child.stage");
+            transientReserved = true;
+            Object[] stagedChildren = new Object[next];
+            int[] stagedSlots = new int[next];
+            for (int i = 0; i < identitySlots.length; i++) {
+                if (identitySlots[i] <= 0) continue;
+                insertIdentity(stagedChildren, stagedSlots,
+                        identityChildren[i], identitySlots[i]);
+            }
+            identityChildren = stagedChildren;
+            identitySlots = stagedSlots;
+            identityUsed = identitySize;
+            retainedBytes = nextBytes;
+        } catch (RuntimeException failure) {
+            if (transientReserved) storageBudget.releaseTransientBytes(
+                    transientBytes, "ownership", "child.stage");
+            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            throw failure;
+        } catch (Error failure) {
+            if (transientReserved) storageBudget.releaseTransientBytes(
+                    transientBytes, "ownership", "child.stage");
+            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            throw failure;
         }
-        identityChildren = stagedChildren;
-        identitySlots = stagedSlots;
-        identityUsed = identitySize;
+        storageBudget.releaseTransientBytes(
+                transientBytes, "ownership", "child.stage");
     }
 
     private void insertIdentity(Object child, int slot) {
@@ -336,22 +512,115 @@ public final class ChildOwnershipRegistry {
             }
             next = grown;
         }
-        long[] stagedOwnerTokens = Arrays.copyOf(ownerTokens, next);
-        String[] stagedFields = Arrays.copyOf(fields, next);
-        String[] stagedPaths = Arrays.copyOf(paths, next);
-        Object[] stagedChildren = Arrays.copyOf(children, next);
-        OwnedChildTable[] stagedLifecycles = Arrays.copyOf(lifecycles, next);
-        byte[] stagedStates = Arrays.copyOf(states, next);
-        int[] stagedGenerations = Arrays.copyOf(generations, next);
-        int[] stagedFreeNext = Arrays.copyOf(freeNext, next);
-        ownerTokens = stagedOwnerTokens;
-        fields = stagedFields;
-        paths = stagedPaths;
-        children = stagedChildren;
-        lifecycles = stagedLifecycles;
-        states = stagedStates;
-        generations = stagedGenerations;
-        freeNext = stagedFreeNext;
+        long nextBytes = estimatedRetainedBytes(
+                next, identitySlots.length, cascadeHandles.length);
+        long delta = nextBytes - retainedBytes;
+        storageBudget.reserveBytes(delta, "ownership", "child.stage");
+        long transientBytes = 53L * (long) ownerTokens.length;
+        boolean transientReserved = false;
+        try {
+            storageBudget.reserveTransientBytes(
+                    transientBytes, "ownership", "child.stage");
+            transientReserved = true;
+            long[] stagedOwnerTokens = Arrays.copyOf(ownerTokens, next);
+            String[] stagedFields = Arrays.copyOf(fields, next);
+            String[] stagedPaths = Arrays.copyOf(paths, next);
+            Object[] stagedChildren = Arrays.copyOf(children, next);
+            OwnedChildTable[] stagedLifecycles = Arrays.copyOf(lifecycles, next);
+            byte[] stagedStates = Arrays.copyOf(states, next);
+            int[] stagedGenerations = Arrays.copyOf(generations, next);
+            int[] stagedFreeNext = Arrays.copyOf(freeNext, next);
+            ownerTokens = stagedOwnerTokens;
+            fields = stagedFields;
+            paths = stagedPaths;
+            children = stagedChildren;
+            lifecycles = stagedLifecycles;
+            states = stagedStates;
+            generations = stagedGenerations;
+            freeNext = stagedFreeNext;
+            retainedBytes = nextBytes;
+        } catch (RuntimeException failure) {
+            if (transientReserved) storageBudget.releaseTransientBytes(
+                    transientBytes, "ownership", "child.stage");
+            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            throw failure;
+        } catch (Error failure) {
+            if (transientReserved) storageBudget.releaseTransientBytes(
+                    transientBytes, "ownership", "child.stage");
+            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            throw failure;
+        }
+        storageBudget.releaseTransientBytes(
+                transientBytes, "ownership", "child.stage");
+    }
+
+    private void ensureCascadeCapacity(int required, String table, String operation) {
+        if (required <= cascadeHandles.length) return;
+        int next = cascadeHandles.length == 0 ? 4 : cascadeHandles.length;
+        while (next < required) {
+            int grown = next + (next >>> 1);
+            if (grown <= next || grown < 0) {
+                next = required;
+                break;
+            }
+            next = grown;
+        }
+        long nextBytes = estimatedRetainedBytes(
+                ownerTokens.length, identitySlots.length, next);
+        long delta = nextBytes - retainedBytes;
+        long oldArrayBytes = 8L * (long) cascadeHandles.length;
+        storageBudget.reserveBytes(delta, table, operation);
+        boolean transientReserved = false;
+        try {
+            storageBudget.reserveTransientBytes(oldArrayBytes, table, operation);
+            transientReserved = true;
+            cascadeHandles = Arrays.copyOf(cascadeHandles, next);
+            retainedBytes = nextBytes;
+        } catch (RuntimeException failure) {
+            if (transientReserved) {
+                storageBudget.releaseTransientBytes(oldArrayBytes, table, operation);
+            }
+            storageBudget.releaseBytes(delta, table, operation);
+            throw failure;
+        } catch (Error failure) {
+            if (transientReserved) {
+                storageBudget.releaseTransientBytes(oldArrayBytes, table, operation);
+            }
+            storageBudget.releaseBytes(delta, table, operation);
+            throw failure;
+        }
+        storageBudget.releaseTransientBytes(oldArrayBytes, table, operation);
+    }
+
+    private void requireCascade(String operation) {
+        if (cascadeDepth <= 0
+                || !cascadeOperations[cascadeDepth - 1].equals(operation)) {
+            throw RuntimeFailures.internalInvariant(
+                    "cascade_scope", "ownership", operation);
+        }
+    }
+
+    private void finishCascade() {
+        int frame = cascadeDepth - 1;
+        int start = cascadeStarts[frame];
+        Arrays.fill(cascadeHandles, start, cascadeUsed, 0L);
+        cascadeUsed = start;
+        cascadeStarts[frame] = 0;
+        cascadeCounts[frame] = 0;
+        cascadeOperations[frame] = null;
+        cascadeDepth--;
+    }
+
+    private static long estimatedRetainedBytes(
+            int slotCapacity, int identityCapacity, int cascadeCapacity) {
+        return 53L * (long) slotCapacity + 12L * (long) identityCapacity
+                + 8L * (long) cascadeCapacity
+                + 16L * (long) MAX_CASCADE_DEPTH;
+    }
+
+    private static long checkedMultiply(long left, long right) {
+        return left < 0L || right < 0L || left > Long.MAX_VALUE / right
+                ? Long.MAX_VALUE : left * right;
     }
 
     private static void requireOwner(long ownerToken, String path, String operation) {

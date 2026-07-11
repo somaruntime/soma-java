@@ -79,6 +79,17 @@ for file in $formal_docs; do
   fi
 done
 
+expected_temp_docs=$(printf '%s\n' \
+  fjsp-machine-candidate-frontier-blueprint.md \
+  game-runtime-frontier-blueprint.md \
+  simulation-runtime-state-blueprint.md \
+  vrp-runtime-frontier-blueprint.md)
+actual_temp_docs=$(find docs/temp -maxdepth 1 -type f -name '*.md' -exec basename {} \; |
+  LC_ALL=C sort)
+if [ "$actual_temp_docs" != "$expected_temp_docs" ]; then
+  fail 'docs/temp must contain exactly the four approved long-lived research blueprints'
+fi
+
 for file in docs/temp/*blueprint.md; do
   [ -f "$file" ] || continue
   if ! grep -q '^状态：长期研究蓝图$' "$file"; then

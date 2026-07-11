@@ -24,6 +24,8 @@ public final class DenseTableState {
     private int activeViews;
     private boolean operationActive;
     private String activeOperation = "";
+    private boolean callbackActive;
+    private String activeCallback = "";
     private long growthCount;
     private long updateScratchCurrentBytes;
     private long updateScratchHighWaterBytes;
@@ -34,6 +36,9 @@ public final class DenseTableState {
     private long sidecarScratchHighWaterBytes;
     private long operationScratchCurrentBytes;
     private long operationScratchHighWaterBytes;
+    private long bulkScratchCurrentBytes;
+    private long bulkScratchHighWaterBytes;
+    private long keySpaceCurrentBytes;
     private String lastOperation = "";
     private OperationOutcome lastOutcome = OperationOutcome.NONE;
     private String lastErrorCode = "";
@@ -70,7 +75,7 @@ public final class DenseTableState {
     public long structuralEpoch() { return structuralEpoch; }
     public boolean isReleased() { return released; }
     public boolean hasPinnedBorrow() {
-        return activeViews > 0 || operationActive || materializationActive;
+        return activeViews > 0 || operationActive || materializationActive || callbackActive;
     }
     public RuntimePlan runtimePlan() { return runtimePlan; }
     public long sidecarRebuildCount() { return sidecarRebuildCount; }
@@ -106,6 +111,40 @@ public final class DenseTableState {
         if (released) {
             throw RuntimeFailures.tableReleased(tableLogicalName, operation);
         }
+        checkCallbackAccess(operation);
+    }
+
+    public void checkCallbackAccess(String operation) {
+        if (callbackActive) {
+            throw RuntimeFailures.reentrantAccess(
+                    tableLogicalName,
+                    activeCallback.isEmpty() ? activeOperation : activeCallback,
+                    operation);
+        }
+    }
+
+    public void beginCallback(String callback) {
+        if (childReleased) {
+            throw RuntimeFailures.childReleased(ownershipPath, callback);
+        }
+        if (released) {
+            throw RuntimeFailures.tableReleased(tableLogicalName, callback);
+        }
+        if (callbackActive) {
+            throw RuntimeFailures.reentrantAccess(
+                    tableLogicalName, activeCallback, callback);
+        }
+        callbackActive = true;
+        activeCallback = callback;
+    }
+
+    public void endCallback(String callback) {
+        if (!callbackActive || !activeCallback.equals(callback)) {
+            throw RuntimeFailures.internalInvariant(
+                    "callback_scope", tableLogicalName, callback);
+        }
+        callbackActive = false;
+        activeCallback = "";
     }
 
     public int checkRowIndex(int rowIndex, String operation) {
@@ -121,6 +160,11 @@ public final class DenseTableState {
         requireStructural("reserve");
         if (expectedCapacity < 0) {
             throw new IllegalArgumentException("expectedCapacity must be non-negative");
+        }
+        boolean willGrow = Math.max(size, expectedCapacity) > columns.capacity();
+        if (willGrow) {
+            requireGrowthAvailable("reserve");
+            requireStructuralEpochAvailable("reserve");
         }
         boolean changed = columns.ensureCapacity(
                 Math.max(size, expectedCapacity),
@@ -251,6 +295,8 @@ public final class DenseTableState {
                     "negative_append_count", tableLogicalName, "addBatch");
         }
         int required = checkedSize(size, count, "addBatch");
+        preflightAppendStorage(count, keySpaceCurrentBytes, "addBatch");
+        if (required > columns.capacity()) requireGrowthAvailable("addBatch");
         if (columns.ensureCapacity(
                 required, tablePlan.growthNumerator(), tablePlan.growthDenominator())) {
             incrementGrowth("addBatch");
@@ -263,10 +309,12 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "append_commit_identity", tableLogicalName, "addBatch");
         }
-        size = checkedSize(size, count, "addBatch");
+        int committedSize = checkedSize(size, count, "addBatch");
         if (count > 0) {
+            requireStructuralEpochAvailable("addBatch");
             incrementStructuralEpoch("addBatch");
         }
+        size = committedSize;
         record("addBatch", OperationOutcome.SUCCESS, "", count, count, count);
     }
 
@@ -276,6 +324,7 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "negative_replace_size", tableLogicalName, "replaceAll");
         }
+        if (newSize > columns.capacity()) requireGrowthAvailable("replaceAll");
         if (columns.ensureCapacity(
                 newSize, tablePlan.growthNumerator(), tablePlan.growthDenominator())) {
             incrementGrowth("replaceAll");
@@ -288,10 +337,11 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "replace_commit_identity", tableLogicalName, "replaceAll");
         }
-        size = newSize;
         if (expectedPreviousSize != 0 || newSize != 0) {
+            requireStructuralEpochAvailable("replaceAll");
             incrementStructuralEpoch("replaceAll");
         }
+        size = newSize;
         record("replaceAll", OperationOutcome.SUCCESS, "", newSize, newSize, newSize);
     }
 
@@ -306,6 +356,7 @@ public final class DenseTableState {
 
     public void commitChildChange(String operation) {
         checkActive(operation);
+        requireStructuralEpochAvailable(operation);
         incrementStructuralEpoch(operation);
         record(operation, OperationOutcome.SUCCESS, "", 1L, 1L, 1L);
     }
@@ -315,10 +366,11 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "clear_commit_identity", tableLogicalName, "clear");
         }
-        size = 0;
         if (expectedPreviousSize > 0) {
+            requireStructuralEpochAvailable("clear");
             incrementStructuralEpoch("clear");
         }
+        size = 0;
         record("clear", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
     }
@@ -330,10 +382,11 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "remove_commit_identity", tableLogicalName, operation);
         }
-        size = newSize;
         if (newSize != expectedPreviousSize) {
+            requireStructuralEpochAvailable(operation);
             incrementStructuralEpoch(operation);
         }
+        size = newSize;
     }
 
     public int prepareRelease() {
@@ -358,10 +411,18 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "release_commit_identity", tableLogicalName, "release");
         }
+        requireNoTransientStorage("release");
+        requireStructuralEpochAvailable("release");
         size = 0;
+        columns.replaceExternalRetainedBytes(externalStorageBytes(), 0L, "release");
+        updateScratchCurrentBytes = 0L;
+        sidecarScratchCurrentBytes = 0L;
+        operationScratchCurrentBytes = 0L;
+        keySpaceCurrentBytes = 0L;
+        columns.releaseStorage();
+        incrementStructuralEpoch("release");
         released = true;
         activeViews = 0;
-        incrementStructuralEpoch("release");
         record("release", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
     }
@@ -384,12 +445,21 @@ public final class DenseTableState {
 
     public void commitOwnedRelease(boolean aggregateRelease) {
         if (released) return;
+        requireNoTransientStorage("ownership.release");
+        requireStructuralEpochAvailable("ownership.release");
         int previous = size;
         size = 0;
+        columns.replaceExternalRetainedBytes(
+                externalStorageBytes(), 0L, "ownership.release");
+        updateScratchCurrentBytes = 0L;
+        sidecarScratchCurrentBytes = 0L;
+        operationScratchCurrentBytes = 0L;
+        keySpaceCurrentBytes = 0L;
+        columns.releaseStorage();
+        incrementStructuralEpoch("ownership.release");
         released = true;
         childReleased = !aggregateRelease;
         activeViews = 0;
-        incrementStructuralEpoch("ownership.release");
         record("ownership.release", OperationOutcome.SUCCESS, "",
                 previous, previous, previous);
     }
@@ -400,6 +470,7 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "update_scratch_accounting", tableLogicalName, "update");
         }
+        replaceExternalStorage(updateScratchCurrentBytes, currentBytes, "update.scratch");
         updateScratchCurrentBytes = currentBytes;
         if (highWaterBytes > updateScratchHighWaterBytes) {
             updateScratchHighWaterBytes = highWaterBytes;
@@ -430,6 +501,7 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "sidecar_scratch_accounting", tableLogicalName, "sidecar.rebuild");
         }
+        replaceExternalStorage(sidecarScratchCurrentBytes, currentBytes, "sidecar.scratch");
         sidecarScratchCurrentBytes = currentBytes;
         if (highWaterBytes > sidecarScratchHighWaterBytes) {
             sidecarScratchHighWaterBytes = highWaterBytes;
@@ -442,9 +514,165 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "operation_scratch_accounting", tableLogicalName, "operation.scratch");
         }
+        replaceExternalStorage(operationScratchCurrentBytes, currentBytes, "operation.scratch");
         operationScratchCurrentBytes = currentBytes;
         if (currentBytes > operationScratchHighWaterBytes) {
             operationScratchHighWaterBytes = currentBytes;
+        }
+    }
+
+    public void preflightUpdateScratch(long proposed, String operation) {
+        preflightExternalStorage(updateScratchCurrentBytes, proposed, operation);
+    }
+
+    public void preflightOperationScratch(long proposed, String operation) {
+        preflightExternalStorage(operationScratchCurrentBytes, proposed, operation);
+    }
+
+    public void preflightSidecarScratch(
+            long proposedCurrent, long transientPeak, String operation) {
+        if (transientPeak < 0L || transientPeak > tablePlan.maximumBulkScratchBytes()) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    tableLogicalName, operation,
+                    tablePlan.maximumBulkScratchBytes(), transientPeak);
+        }
+        preflightExternalStorage(sidecarScratchCurrentBytes, proposedCurrent, operation);
+    }
+
+    public void preflightKeySpaceStorage(long proposed, String operation) {
+        if (proposed > tablePlan.maximumBulkScratchBytes()) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    tableLogicalName, operation,
+                    tablePlan.maximumBulkScratchBytes(), proposed);
+        }
+        preflightExternalStorage(keySpaceCurrentBytes, proposed, operation);
+    }
+
+    public void preflightAppendStorage(
+            int count, long proposedKeySpaceBytes, String operation) {
+        if (count < 0 || proposedKeySpaceBytes < 0L) {
+            throw RuntimeFailures.internalInvariant(
+                    "append_storage_preflight", tableLogicalName, operation);
+        }
+        int required = checkedSize(size, count, operation);
+        long proposedExternal = replacePart(
+                externalStorageBytes(), keySpaceCurrentBytes,
+                proposedKeySpaceBytes, operation);
+        columns.preflightCapacity(
+                required,
+                tablePlan.growthNumerator(),
+                tablePlan.growthDenominator(),
+                proposedExternal,
+                operation);
+    }
+
+    public void preflightReplaceStorage(
+            int newSize, long proposedKeySpaceBytes, String operation) {
+        if (newSize < 0 || proposedKeySpaceBytes < 0L) {
+            throw RuntimeFailures.internalInvariant(
+                    "replace_storage_preflight", tableLogicalName, operation);
+        }
+        long proposedExternal = replacePart(
+                externalStorageBytes(), keySpaceCurrentBytes,
+                proposedKeySpaceBytes, operation);
+        columns.preflightCapacity(
+                newSize,
+                tablePlan.growthNumerator(),
+                tablePlan.growthDenominator(),
+                proposedExternal,
+                operation);
+    }
+
+    /** Reserves one operation's detached batch/key/cascade staging peak. */
+    public void reserveBulkScratch(long bytes, String operation) {
+        if (bytes < 0L || Long.MAX_VALUE - bulkScratchCurrentBytes < bytes) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    tableLogicalName, operation,
+                    tablePlan.maximumBulkScratchBytes(), Long.MAX_VALUE);
+        }
+        long proposed = bulkScratchCurrentBytes + bytes;
+        if (proposed > tablePlan.maximumBulkScratchBytes()) {
+            throw RuntimeFailures.memoryLimitExceeded(
+                    tableLogicalName, operation,
+                    tablePlan.maximumBulkScratchBytes(), proposed);
+        }
+        columns.reserveTransientBytes(bytes, operation);
+        bulkScratchCurrentBytes = proposed;
+        if (proposed > bulkScratchHighWaterBytes) {
+            bulkScratchHighWaterBytes = proposed;
+        }
+    }
+
+    public void releaseBulkScratch(long bytes, String operation) {
+        if (bytes < 0L || bytes > bulkScratchCurrentBytes) {
+            throw RuntimeFailures.internalInvariant(
+                    "bulk_scratch_accounting", tableLogicalName, operation);
+        }
+        columns.releaseTransientBytes(bytes, operation);
+        bulkScratchCurrentBytes -= bytes;
+    }
+
+    public void commitKeySpaceStorage(long previous, long proposed, String operation) {
+        if (previous != keySpaceCurrentBytes) {
+            throw RuntimeFailures.internalInvariant(
+                    "key_space_storage_accounting", tableLogicalName, operation);
+        }
+        replaceExternalStorage(previous, proposed, operation);
+        keySpaceCurrentBytes = proposed;
+    }
+
+    /** Rolls back a generated constructor after this state acquired table quota. */
+    public void abortConstruction() {
+        if (released || size != 0 || bulkScratchCurrentBytes != 0L) {
+            throw RuntimeFailures.internalInvariant(
+                    "table_construction_rollback", tableLogicalName, "table.create");
+        }
+        columns.replaceExternalRetainedBytes(
+                externalStorageBytes(), 0L, "table.create.rollback");
+        keySpaceCurrentBytes = 0L;
+        updateScratchCurrentBytes = 0L;
+        sidecarScratchCurrentBytes = 0L;
+        operationScratchCurrentBytes = 0L;
+        columns.releaseStorage();
+        released = true;
+    }
+
+    private void preflightExternalStorage(long previousPart, long proposedPart, String operation) {
+        long previous = externalStorageBytes();
+        long proposed = replacePart(previous, previousPart, proposedPart, operation);
+        columns.preflightExternalRetainedBytes(proposed, operation);
+    }
+
+    private void replaceExternalStorage(long previousPart, long proposedPart, String operation) {
+        long previous = externalStorageBytes();
+        long proposed = replacePart(previous, previousPart, proposedPart, operation);
+        columns.replaceExternalRetainedBytes(previous, proposed, operation);
+    }
+
+    private long externalStorageBytes() {
+        long total = checkedStorageAdd(updateScratchCurrentBytes, sidecarScratchCurrentBytes);
+        total = checkedStorageAdd(total, operationScratchCurrentBytes);
+        return checkedStorageAdd(total, keySpaceCurrentBytes);
+    }
+
+    private long replacePart(
+            long total, long previousPart, long proposedPart, String operation) {
+        if (previousPart < 0L || proposedPart < 0L || previousPart > total) {
+            throw RuntimeFailures.internalInvariant(
+                    "table_storage_accounting", tableLogicalName, operation);
+        }
+        return checkedStorageAdd(total - previousPart, proposedPart);
+    }
+
+    private static long checkedStorageAdd(long left, long right) {
+        return left < 0L || right < 0L || Long.MAX_VALUE - left < right
+                ? Long.MAX_VALUE : left + right;
+    }
+
+    private void requireNoTransientStorage(String operation) {
+        if (bulkScratchCurrentBytes != 0L) {
+            throw RuntimeFailures.internalInvariant(
+                    "bulk_scratch_release", tableLogicalName, operation);
         }
     }
 
@@ -589,6 +817,20 @@ public final class DenseTableState {
                     "structural_epoch_overflow", tableLogicalName, operation);
         }
         structuralEpoch++;
+    }
+
+    private void requireStructuralEpochAvailable(String operation) {
+        if (structuralEpoch == Long.MAX_VALUE) {
+            throw RuntimeFailures.internalInvariant(
+                    "structural_epoch_overflow", tableLogicalName, operation);
+        }
+    }
+
+    private void requireGrowthAvailable(String operation) {
+        if (growthCount == Long.MAX_VALUE) {
+            throw RuntimeFailures.internalInvariant(
+                    "growth_count_overflow", tableLogicalName, operation);
+        }
     }
 
     private void incrementGrowth(String operation) {

@@ -153,7 +153,7 @@ Generated table 创建 runtime storage 前必须验证：
 | build-time provider contract | `com.hgtech.soma.processor.SomaProcessor`、`com.hgtech.soma.processor.javac8.SomaJavacPlugin`，以及正式 compiler contract 中的 plugin/processor identity；provider class 的 public 可见性服务 javac/ServiceLoader，不表示 application 应手工调用其 lifecycle method |
 | internal implementation | `com.hgtech.soma.processor.internal.CompilerProtocol` / `CompilerProtocol.Session`、javac AST/lowering helper、processor normalized model；即使跨 package 技术约束要求某个 type/member 在 bytecode 中为 `public`，也不进入 consumer compatibility manifest |
 
-当前 manifest/golden 位于 `soma-testkit/src/test/fixtures/public-api/phase0`，由 `scripts/check-public-api.sh` 从实际 JAR 逐项重建并比较。新增或改变 public/protected surface 必须先更新唯一 Owner，再显式审查 manifest diff；不能由 javap 可见性自动升级为 public contract。
+当前 manifest/golden 位于 `soma-testkit/src/test/fixtures/public-api/phase1`，由 `scripts/check-public-api.sh` 从实际 JAR逐项重建并比较。新增或改变public/protected surface必须先更新唯一Owner，再显式审查manifest diff；不能由javap可见性自动升级为public contract。
 
 首个 dense runtime slice 增加三份相互独立的 manifest：
 

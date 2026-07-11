@@ -49,7 +49,12 @@ registry_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtim
 grep -F 'LongColumn ownerTokenColumn' "$parent_source" >/dev/null
 grep -F 'LongColumn childrenHandleColumn' "$parent_source" >/dev/null
 grep -F 'ChildOwnershipRegistry ownership' "$parent_source" >/dev/null
-grep -F 'retireSelection' "$parent_source" >/dev/null
+grep -F 'ownership.beginCascade' "$parent_source" >/dev/null
+grep -F 'ownership.collectCascade' "$parent_source" >/dev/null
+grep -F 'ownership.cancelCascade' "$parent_source" >/dev/null
+grep -F 'ownership.commitCascade' "$parent_source" >/dev/null
+grep -F 'beginRetireRows(0,previous,"clear",true);releaseRetired(false,"clear");clearColumns(0,previous);clearSelectorSidecars();state.commitClear(previous)' "$parent_source" >/dev/null
+grep -F 'beginRetireSelection(selected,count,operation,true);releaseRetired(false,operation);int write=0' "$parent_source" >/dev/null
 grep -F 'accountOwnedAll' "$child_source" >/dev/null
 if grep -E 'ObjectColumn<.*Table|List<.*>Column|Map<.*>Column' \
   "$parent_source" "$child_source" >/dev/null; then

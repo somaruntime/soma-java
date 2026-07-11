@@ -26,7 +26,10 @@ abstract class AbstractColumnPipeline {
         this.operation = field + ".values";
     }
 
-    protected final void begin() { state.beginOperation(operation); }
+    protected final void begin() {
+        state.beginOperation(operation);
+        state.beginCallback(operation + ".consumer");
+    }
     protected final int size() { return state.size(); }
     protected final int traversalLane(int limit) {
         if (presence == null) {
@@ -65,9 +68,11 @@ abstract class AbstractColumnPipeline {
         return bits;
     }
     protected final void success(long scanned, long matched) {
+        state.endCallback(operation + ".consumer");
         state.endOperationSuccess(operation, scanned, matched, 0L);
     }
     protected final void failure(long scanned, long matched, String errorCode) {
+        state.endCallback(operation + ".consumer");
         state.endOperationFailure(operation, scanned, matched, errorCode);
     }
     protected final SomaRuntimeException callbackFailed(RuntimeException cause) {

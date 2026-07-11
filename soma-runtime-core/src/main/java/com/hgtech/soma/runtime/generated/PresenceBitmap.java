@@ -103,6 +103,20 @@ public final class PresenceBitmap extends GeneratedColumn {
         }
     }
 
+    @Override
+    long estimatedBytes(int capacity) {
+        requireCapacity(capacity);
+        return 8L * (((long) capacity + 63L) >>> 6);
+    }
+
+    @Override long retainedBytes() { return 8L * words.length; }
+
+    @Override
+    void releaseStorage() {
+        words = new long[0];
+        presentCount = 0;
+    }
+
     private void copyForward(PresenceBitmap source, int sourceIndex,
                              int targetIndex, int length) {
         int copied = 0;

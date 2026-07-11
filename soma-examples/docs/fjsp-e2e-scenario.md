@@ -40,6 +40,14 @@ SOMA 保证每次 table-local mutation 和 ownership aggregate 的正确性；�
 11. fetch/materialize detached schema objects；
 12. export response boundary。
 
+`dispatchRuleComparator` 的稳定顺序固定为：`effectiveReadyMinute`、`fcfsValue`、
+`sptValue`，随后按 candidate identity 的 `jobId.value`、`operationId.value`、
+`machineId.value` 升序完成最终 tie-break。前三项完全相等时不得依赖当前 packed row、
+插入顺序或 compaction 后的物理位置；正式 smoke 必须构造等值候选并在删除/compaction
+后复核同一 identity 仍被选中。Canonical dispatch hot path 使用 generated leaf getter、
+row locator 与 typed ColumnView 读取选中事实，只有 assignment/export 等明确边界才构造
+detached schema object；不得为每个比较或候选扫描重建完整 Value/object chain。
+
 算法正确性不是 SOMA 的完整 APS 承诺。该示例只用于证明 runtime state API 能支撑典型调度 hot loop。
 
 `releaseNextOperations(...)` 应依赖 `OperationDefinition.by_job_sequence(jobId, nextSequenceNo)`、`JobRuntimeState.nextSequenceNo` 或 material / predecessor readiness 的明确索引或业务队列，不能退化为全表扫描。operation release 后，再局部遍历该 definition 独占的 `candidateMachines` child，增量加入 `MachineCandidate` frontier。

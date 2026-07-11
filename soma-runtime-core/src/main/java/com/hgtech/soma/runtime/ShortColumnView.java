@@ -6,7 +6,7 @@ import com.hgtech.soma.runtime.generated.ShortColumn;
 
 public final class ShortColumnView extends AbstractColumnView implements AutoCloseable {
     private final ShortColumn column;
-    public ShortColumnView(DenseTableState state, ShortColumn column, PresenceBitmap presence, String table, String field) {
+    ShortColumnView(DenseTableState state, ShortColumn column, PresenceBitmap presence, String table, String field) {
         super(state, column, presence, table, field); this.column = column;
     }
     public boolean isPresent(int rowIndex) { return present(checkedRow(rowIndex, "isPresent")); }

@@ -90,7 +90,7 @@ public final class FjspScenario {
             require(definitions.fetch(first).candidateMachines.size() == 2,
                     "keyed fetch recursively materializes the owned candidate List");
 
-            Machine selectedMachine = machines.byAvailableTime().firstOrThrow();
+            MachineSelection selectedMachine = selectMachine(machines);
             require(selectedMachine.machineId.equals(machineA),
                     "maintained machine order chooses the earliest machine");
             require(machines.rows().filter(row -> row.lastSetupFamilyAbsent()).count() == 1L,
@@ -150,8 +150,10 @@ public final class FjspScenario {
                             && stats.sidecarRebuildCount() > 0L
                             && stats.keySpaceCapacity() > 0,
                     "schema/runtime plan and runtime stats are observable");
+            verifyStableTieBreakAfterCompaction(machineA, familyA);
             return new ScenarioResult(exported.size(), frontier.runtimePlan().schemaHash(),
-                    stats.sidecarRebuildCount());
+                    stats.sidecarRebuildCount(), 3, 105,
+                    (long) frontier.capacity() * 105L, 8L, 9L, exported.size());
         } finally {
             frontier.release();
             setupTimes.release();
@@ -173,19 +175,32 @@ public final class FjspScenario {
         final ReleaseFacts[] facts = new ReleaseFacts[1];
         definitions.findByJobSequence(key.jobId, sequenceNo).forEach(row -> {
             if (row.operationKey().equals(key)) {
-                facts[0] = new ReleaseFacts(row.releaseMinute(), row.setupFamily());
+                facts[0] = new ReleaseFacts(row.releaseMinute(),
+                        new SetupFamilyId(row.setupFamilyValue()));
             }
         });
         require(facts[0] != null, "indexed operation release facts");
-        OperationRuntimeState runtime = states.fetch(key);
+        int stateRow = states.rowIndexOf(key.jobId.value, key.operationId.value);
+        long jobReady;
+        long materialReady;
+        LongColumnView jobReadyColumn = states.jobReadyMinuteColumn();
+        LongColumnView materialReadyColumn = states.materialReadyMinuteColumn();
+        try {
+            jobReady = jobReadyColumn.getLong(stateRow);
+            materialReady = materialReadyColumn.getLong(stateRow);
+        } finally {
+            materialReadyColumn.close();
+            jobReadyColumn.close();
+        }
         CandidateMachineDefinitionTable candidates = definitions.candidateMachines(key);
         MachineCandidateBatch batch = new MachineCandidateBatch(candidates.size());
         candidates.forEach(candidate -> {
             long baseReady = maximum(facts[0].releaseMinute,
-                    maximum(runtime.jobReadyMinute, runtime.materialReadyMinute));
-            batch.addValues(new OperationMachineKey(key, candidate.machineId()),
+                    maximum(jobReady, materialReady));
+            batch.addValues(new OperationMachineKey(key,
+                            new MachineId(candidate.machineIdValue())),
                     facts[0].setupFamily, facts[0].releaseMinute,
-                    runtime.jobReadyMinute, runtime.materialReadyMinute, baseReady,
+                    jobReady, materialReady, baseReady,
                     candidate.processingMinutes(), 0L, baseReady, facts[0].releaseMinute,
                     candidate.processingMinutes(), false);
         });
@@ -197,13 +212,17 @@ public final class FjspScenario {
                                            SetupTimeTable setupTimes,
                                            MachineCandidateTable frontier,
                                            OperationAssignmentTable assignments) {
-        Machine selectedMachine = machines.byAvailableTime().firstOrThrow();
-        UpdateResult refreshed = frontier.findByMachine(selectedMachine.machineId)
-                .update(row -> {
-                    long setup = selectedMachine.lastSetupFamily == null ? 0L
-                            : setupTimes.fetch(new SetupTimeKey(selectedMachine.machineId,
-                                    new SetupFamilyPair(selectedMachine.lastSetupFamily,
-                                            row.targetSetupFamily()))).setupMinutes;
+        MachineSelection selectedMachine = selectMachine(machines);
+        LongColumnView setupMinutesColumn = setupTimes.setupMinutesColumn();
+        UpdateResult refreshed;
+        try {
+            refreshed = frontier.findByMachine(selectedMachine.machineId)
+                    .update(row -> {
+                    long setup = !selectedMachine.lastSetupFamilyPresent ? 0L
+                            : setupMinutesColumn.getLong(setupTimes.rowIndexOf(
+                                    selectedMachine.machineId.value,
+                                    selectedMachine.lastSetupFamily.value,
+                                    row.targetSetupFamilyValue()));
                     long ready = maximum(selectedMachine.availableFromMinute,
                             row.baseReadyMinute());
                     row.setSetupMinutes(setup);
@@ -212,11 +231,16 @@ public final class FjspScenario {
                     row.setSptValue(row.processingMinutes());
                     row.setIndicatorReady(true);
                 });
+        } finally {
+            setupMinutesColumn.close();
+        }
         require(refreshed.changed() > 0L, "grouped indicator update");
-        MachineCandidate chosen = frontier.findByMachine(selectedMachine.machineId)
+        int[] chosenRows = frontier.findByMachine(selectedMachine.machineId)
                 .filter(row -> row.indicatorReady())
-                .sorted(dispatchComparator()).firstOrThrow();
-        require(chosen.candidateKey.operationKey.equals(expectedOperation),
+                .sorted(dispatchComparator()).limit(1).rowIndexes();
+        require(chosenRows.length == 1, "dispatch requires one selected candidate");
+        CandidateSelection chosen = readCandidate(frontier, chosenRows[0]);
+        require(chosen.operationKey.equals(expectedOperation),
                 "dispatch selects the released operation");
         long setupStart = maximum(selectedMachine.availableFromMinute,
                 chosen.baseReadyMinute);
@@ -241,8 +265,99 @@ public final class FjspScenario {
             if (byReady != 0) return byReady;
             int byFcfs = Long.compare(left.fcfsValue(), right.fcfsValue());
             if (byFcfs != 0) return byFcfs;
-            return Long.compare(left.sptValue(), right.sptValue());
+            int bySpt = Long.compare(left.sptValue(), right.sptValue());
+            if (bySpt != 0) return bySpt;
+            int byJob = Long.compare(left.candidateKeyOperationKeyJobIdValue(),
+                    right.candidateKeyOperationKeyJobIdValue());
+            if (byJob != 0) return byJob;
+            int byOperation = Long.compare(left.candidateKeyOperationKeyOperationIdValue(),
+                    right.candidateKeyOperationKeyOperationIdValue());
+            if (byOperation != 0) return byOperation;
+            return Long.compare(left.candidateKeyMachineIdValue(),
+                    right.candidateKeyMachineIdValue());
         };
+    }
+
+    private static MachineSelection selectMachine(MachineTable machines) {
+        int[] rows = machines.byAvailableTime().limit(1).rowIndexes();
+        require(rows.length == 1, "machine order requires one row");
+        int row = rows[0];
+        LongColumnView machineId = machines.machineIdValueColumn();
+        LongColumnView available = machines.availableFromMinuteColumn();
+        LongColumnView lastSetup = machines.lastSetupFamilyValueColumn();
+        try {
+            boolean present = lastSetup.isPresent(row);
+            return new MachineSelection(new MachineId(machineId.getLong(row)),
+                    available.getLong(row), present,
+                    present ? new SetupFamilyId(lastSetup.getLong(row)) : null);
+        } finally {
+            lastSetup.close();
+            available.close();
+            machineId.close();
+        }
+    }
+
+    private static CandidateSelection readCandidate(
+            MachineCandidateTable frontier, int row) {
+        LongColumnView jobId = frontier.candidateKeyOperationKeyJobIdValueColumn();
+        LongColumnView operationId =
+                frontier.candidateKeyOperationKeyOperationIdValueColumn();
+        LongColumnView targetSetup = frontier.targetSetupFamilyValueColumn();
+        LongColumnView baseReady = frontier.baseReadyMinuteColumn();
+        LongColumnView processing = frontier.processingMinutesColumn();
+        LongColumnView setup = frontier.setupMinutesColumn();
+        try {
+            return new CandidateSelection(
+                    new OperationKey(new JobId(jobId.getLong(row)),
+                            new OperationId(operationId.getLong(row))),
+                    new SetupFamilyId(targetSetup.getLong(row)),
+                    baseReady.getLong(row), processing.getLong(row), setup.getLong(row));
+        } finally {
+            setup.close();
+            processing.close();
+            baseReady.close();
+            targetSetup.close();
+            operationId.close();
+            jobId.close();
+        }
+    }
+
+    private static void verifyStableTieBreakAfterCompaction(
+            MachineId machine, SetupFamilyId family) {
+        JobId job = new JobId(77L);
+        OperationKey first = new OperationKey(job, new OperationId(1L));
+        OperationKey removed = new OperationKey(job, new OperationId(2L));
+        OperationKey last = new OperationKey(job, new OperationId(3L));
+        MachineCandidateTable table = MachineCandidateTable.create();
+        try {
+            MachineCandidateBatch batch = new MachineCandidateBatch(3);
+            addTieCandidate(batch, last, machine, family);
+            addTieCandidate(batch, removed, machine, family);
+            addTieCandidate(batch, first, machine, family);
+            table.addBatch(batch);
+            table.delete(new OperationMachineKey(removed, machine));
+            int[] selected = table.findByMachine(machine).filter(row -> row.indicatorReady())
+                    .sorted(dispatchComparator()).limit(1).rowIndexes();
+            require(selected.length == 1, "tie-break fixture selection");
+            LongColumnView operationId =
+                    table.candidateKeyOperationKeyOperationIdValueColumn();
+            try {
+                require(operationId.getLong(selected[0]) == 1L,
+                        "identity tie-break must survive packed compaction");
+            } finally {
+                operationId.close();
+            }
+        } finally {
+            table.release();
+        }
+    }
+
+    private static void addTieCandidate(MachineCandidateBatch batch,
+                                        OperationKey operation,
+                                        MachineId machine,
+                                        SetupFamilyId family) {
+        batch.addValues(new OperationMachineKey(operation, machine), family,
+                5L, 0L, 0L, 5L, 3L, 0L, 5L, 5L, 3L, true);
     }
 
     private static long maximum(long left, long right) {
@@ -283,14 +398,63 @@ public final class FjspScenario {
         }
     }
 
+    private static final class MachineSelection {
+        final MachineId machineId;
+        final long availableFromMinute;
+        final boolean lastSetupFamilyPresent;
+        final SetupFamilyId lastSetupFamily;
+
+        MachineSelection(MachineId machineId, long availableFromMinute,
+                         boolean lastSetupFamilyPresent,
+                         SetupFamilyId lastSetupFamily) {
+            this.machineId = machineId;
+            this.availableFromMinute = availableFromMinute;
+            this.lastSetupFamilyPresent = lastSetupFamilyPresent;
+            this.lastSetupFamily = lastSetupFamily;
+        }
+    }
+
+    private static final class CandidateSelection {
+        final OperationKey operationKey;
+        final SetupFamilyId targetSetupFamily;
+        final long baseReadyMinute;
+        final long processingMinutes;
+        final long setupMinutes;
+
+        CandidateSelection(OperationKey operationKey, SetupFamilyId targetSetupFamily,
+                           long baseReadyMinute, long processingMinutes,
+                           long setupMinutes) {
+            this.operationKey = operationKey;
+            this.targetSetupFamily = targetSetupFamily;
+            this.baseReadyMinute = baseReadyMinute;
+            this.processingMinutes = processingMinutes;
+            this.setupMinutes = setupMinutes;
+        }
+    }
+
     public static final class ScenarioResult {
         public final int assignments;
         public final String schemaHash;
         public final long sidecarRebuilds;
-        ScenarioResult(int assignments, String schemaHash, long sidecarRebuilds) {
+        public final int apcRows;
+        public final int hotLeafBytesPerRow;
+        public final long hotLeafWorkingSetBytes;
+        public final long reads;
+        public final long mutations;
+        public final int exports;
+        ScenarioResult(int assignments, String schemaHash, long sidecarRebuilds,
+                       int apcRows, int hotLeafBytesPerRow,
+                       long hotLeafWorkingSetBytes, long reads, long mutations,
+                       int exports) {
             this.assignments = assignments;
             this.schemaHash = schemaHash;
             this.sidecarRebuilds = sidecarRebuilds;
+            this.apcRows = apcRows;
+            this.hotLeafBytesPerRow = hotLeafBytesPerRow;
+            this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;
+            this.reads = reads;
+            this.mutations = mutations;
+            this.exports = exports;
         }
     }
 }

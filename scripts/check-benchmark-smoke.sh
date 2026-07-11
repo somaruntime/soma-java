@@ -23,7 +23,7 @@ evidence_dir=$(mktemp -d "$root_dir/target/benchmark-smoke.XXXXXX")
 commit=$(git rev-parse HEAD)
 cpu_identity=$(uname -m)
 
-./mvnw -B -ntp -pl soma-benchmarks -am test-compile
+./mvnw -B -ntp -pl soma-benchmarks -am clean test-compile
 
 classpath="soma-benchmarks/target/classes:soma-benchmarks/target/test-classes:soma-runtime-core/target/classes:soma-examples/target/classes"
 artifact=$evidence_dir/benchmark-smoke.jsonl
@@ -63,8 +63,8 @@ if grep -F '"claimAllowed":true' "$artifact" >/dev/null \
   exit 1
 fi
 for expected in \
-  '"schemaVersion":"soma-benchmark-smoke-v2"' \
-  '"artifactVersion":"soma-java-benchmark-runner-v2"' \
+  '"schemaVersion":"soma-benchmark-smoke-v3"' \
+  '"artifactVersion":"soma-java-benchmark-runner-v3"' \
   '"scale":{"preset":"smoke","rows":128' \
   '"seed":1397706049' \
   '"warmupIterations":1' \
@@ -77,8 +77,29 @@ for expected in \
   fi
 done
 
+if grep -v -F '"allocatedBytes":null' "$artifact" >/dev/null \
+    || grep -v -F '"allocationPerOperation":{"method":"not-observed","estimatedBytes":null}' \
+      "$artifact" >/dev/null \
+    || grep -v -F '"observationKinds":' "$artifact" >/dev/null; then
+  printf '%s\n' 'benchmark-smoke-check: v3 observation semantics missing' >&2
+  exit 1
+fi
+
+if "$JAVA_HOME/bin/java" -cp "$classpath" \
+    com.hgtech.soma.benchmarks.BenchmarkSmokeRunner --forks 2 \
+    >"$evidence_dir/invalid-forks.log" 2>&1; then
+  printf '%s\n' 'benchmark-smoke-check: multi-fork smoke unexpectedly accepted' >&2
+  exit 1
+fi
+if "$JAVA_HOME/bin/java" -cp "$classpath" \
+    com.hgtech.soma.benchmarks.BenchmarkSmokeRunner --unknown value \
+    >"$evidence_dir/invalid-option.log" 2>&1; then
+  printf '%s\n' 'benchmark-smoke-check: unknown CLI option unexpectedly accepted' >&2
+  exit 1
+fi
+
 shasum -a 256 "$artifact" \
-  soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v2.json \
+  soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v3.json \
   >"$evidence_dir/checksums.sha256"
 find soma-benchmarks/src -type f | LC_ALL=C sort >"$evidence_dir/implementation-files.txt"
 printf '%s\n' \
@@ -92,8 +113,8 @@ while IFS= read -r implementation_file; do
 done <"$evidence_dir/implementation-files.txt" \
   >"$evidence_dir/implementation-checksums.sha256"
 
-cmp soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v2.json \
-  soma-benchmarks/target/classes/META-INF/soma/benchmark-smoke-schema-v2.json
+cmp soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v3.json \
+  soma-benchmarks/target/classes/META-INF/soma/benchmark-smoke-schema-v3.json
 
 for class_name in BenchmarkSmokeRunner BenchmarkArtifactValidator; do
   major=$($JAVA_HOME/bin/javap -classpath soma-benchmarks/target/classes -verbose \

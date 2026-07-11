@@ -12,6 +12,26 @@ public final class com.hgtech.soma.processor.javac8.SomaJavacPlugin implements c
   public java.lang.String getName();
   public void init(com.sun.source.util.JavacTask, java.lang.String...);
 }
+## PUBLIC generated-construction-protocol com.hgtech.soma.runtime.GeneratedColumnAccess
+Compiled from "GeneratedColumnAccess.java"
+public final class com.hgtech.soma.runtime.GeneratedColumnAccess {
+  public static com.hgtech.soma.runtime.BooleanColumnPipeline booleanPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ByteColumnPipeline bytePipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ShortColumnPipeline shortPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.IntColumnPipeline intPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.LongColumnPipeline longPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.FloatColumnPipeline floatPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.DoubleColumnPipeline doublePipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnPipeline<E> enumPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, E[]);
+  public static com.hgtech.soma.runtime.BooleanColumnView booleanView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ByteColumnView byteView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ShortColumnView shortView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.IntColumnView intView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.LongColumnView longView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.FloatColumnView floatView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.DoubleColumnView doubleView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
+  public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnView<E> enumView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, E[]);
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.BooleanColumn
 Compiled from "BooleanColumn.java"
 public final class com.hgtech.soma.runtime.generated.BooleanColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
@@ -38,6 +58,8 @@ public final class com.hgtech.soma.runtime.generated.ByteColumn extends com.hgte
 Compiled from "ChildOwnershipRegistry.java"
 public final class com.hgtech.soma.runtime.generated.ChildOwnershipRegistry {
   public com.hgtech.soma.runtime.generated.ChildOwnershipRegistry();
+  public com.hgtech.soma.runtime.generated.ChildOwnershipRegistry(long, long);
+  public void releaseStorage();
   public void beginMaterialization(java.lang.String);
   public void endMaterialization();
   public void preflightMutation(java.lang.String);
@@ -48,6 +70,10 @@ public final class com.hgtech.soma.runtime.generated.ChildOwnershipRegistry {
   public java.lang.Object resolve(long, long, java.lang.String, java.lang.String);
   public void preflightPinned(long, long, java.lang.String, java.lang.String);
   public void release(long, long, java.lang.String, java.lang.String, boolean);
+  public void beginCascade(long, long, java.lang.String, java.lang.String);
+  public void collectCascade(long, long, java.lang.String, boolean, java.lang.String);
+  public void commitCascade(boolean, java.lang.String);
+  public void cancelCascade(java.lang.String);
   public long childInstanceCount(long, long, java.lang.String);
   public long descendantRowCount(long, long, java.lang.String);
   public boolean hasPinned(long, long, java.lang.String, java.lang.String);
@@ -55,7 +81,7 @@ public final class com.hgtech.soma.runtime.generated.ChildOwnershipRegistry {
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ColumnGroup
 Compiled from "ColumnGroup.java"
 public final class com.hgtech.soma.runtime.generated.ColumnGroup {
-  public com.hgtech.soma.runtime.generated.ColumnGroup(int, com.hgtech.soma.runtime.generated.GeneratedColumn...);
+  public com.hgtech.soma.runtime.generated.ColumnGroup(java.lang.String, com.hgtech.soma.runtime.TablePlan, com.hgtech.soma.runtime.generated.ChildOwnershipRegistry, int, com.hgtech.soma.runtime.generated.GeneratedColumn...);
   public int capacity();
   public boolean ensureCapacity(int, int, int);
 }
@@ -74,6 +100,9 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void releaseView();
   public void checkView(long, int, java.lang.String);
   public void checkActive(java.lang.String);
+  public void checkCallbackAccess(java.lang.String);
+  public void beginCallback(java.lang.String);
+  public void endCallback(java.lang.String);
   public int checkRowIndex(int, java.lang.String);
   public void reserve(int);
   public void beginOperation(java.lang.String);
@@ -105,6 +134,16 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void sidecarRebuilt(long);
   public void sidecarScratch(long, long);
   public void operationScratch(long);
+  public void preflightUpdateScratch(long, java.lang.String);
+  public void preflightOperationScratch(long, java.lang.String);
+  public void preflightSidecarScratch(long, long, java.lang.String);
+  public void preflightKeySpaceStorage(long, java.lang.String);
+  public void preflightAppendStorage(int, long, java.lang.String);
+  public void preflightReplaceStorage(int, long, java.lang.String);
+  public void reserveBulkScratch(long, java.lang.String);
+  public void releaseBulkScratch(long, java.lang.String);
+  public void commitKeySpaceStorage(long, long, java.lang.String);
+  public void abortConstruction();
   public com.hgtech.soma.runtime.UpdateResult updateResult(long, long, long, long, long);
   public com.hgtech.soma.runtime.RemoveResult removeResult(long, long, long, long, long, long);
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
@@ -160,6 +199,7 @@ public final class com.hgtech.soma.runtime.generated.HashCompositeKeySpace {
   public static long estimatedPeakBytes(int);
   public int size();
   public int capacity();
+  public long retainedBytes();
   public int used();
   public long probeCount();
   public long collisionCount();
@@ -167,6 +207,9 @@ public final class com.hgtech.soma.runtime.generated.HashCompositeKeySpace {
   public void resetMetrics();
   public void addMetrics(long, long, long);
   public void ensureInsertCapacity();
+  public long retainedBytesAfterEnsureAdditional(int);
+  public long allocationBytesDuringEnsureAdditional(int);
+  public void ensureAdditionalCapacity(int);
   public int firstSlot(long);
   public int nextSlot(int);
   public boolean isEmpty(int);
@@ -177,13 +220,16 @@ public final class com.hgtech.soma.runtime.generated.HashCompositeKeySpace {
   public void removeAt(int);
   public void updateRowAt(int, int);
   public void clear();
+  public void releaseStorage();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
 Compiled from "HashIntKeySpace.java"
-public final class com.hgtech.soma.runtime.generated.HashIntKeySpace {
+public final class com.hgtech.soma.runtime.generated.HashIntKeySpace implements com.hgtech.soma.runtime.generated.IntKeySpace {
   public com.hgtech.soma.runtime.generated.HashIntKeySpace(int);
   public int size();
+  public java.lang.String implementation();
   public int capacity();
+  public long retainedBytes();
   public int used();
   public long probeCount();
   public long collisionCount();
@@ -192,10 +238,15 @@ public final class com.hgtech.soma.runtime.generated.HashIntKeySpace {
   public void addMetrics(long, long, long);
   public boolean contains(int);
   public int rowOf(int);
+  public void requireInsertKey(int, java.lang.String, java.lang.String, java.lang.String);
+  public long retainedBytesAfterEnsureAdditional(int);
+  public long allocationBytesDuringEnsureAdditional(int);
+  public void ensureAdditionalCapacity(int);
   public void put(int, int);
   public void remove(int);
   public void updateRow(int, int);
   public void clear();
+  public void releaseStorage();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashLongKeySpace
 Compiled from "HashLongKeySpace.java"
@@ -203,6 +254,7 @@ public final class com.hgtech.soma.runtime.generated.HashLongKeySpace {
   public com.hgtech.soma.runtime.generated.HashLongKeySpace(int);
   public int size();
   public int capacity();
+  public long retainedBytes();
   public int used();
   public long probeCount();
   public long collisionCount();
@@ -211,10 +263,14 @@ public final class com.hgtech.soma.runtime.generated.HashLongKeySpace {
   public void addMetrics(long, long, long);
   public boolean contains(long);
   public int rowOf(long);
+  public long retainedBytesAfterEnsureAdditional(int);
+  public long allocationBytesDuringEnsureAdditional(int);
+  public void ensureAdditionalCapacity(int);
   public void put(long, int);
   public void remove(long);
   public void updateRow(long, int);
   public void clear();
+  public void releaseStorage();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntColumn
 Compiled from "IntColumn.java"
@@ -226,6 +282,31 @@ public final class com.hgtech.soma.runtime.generated.IntColumn extends com.hgtec
   public java.lang.Object stageCapacity(int);
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntKeySpace
+Compiled from "IntKeySpace.java"
+public interface com.hgtech.soma.runtime.generated.IntKeySpace {
+  public abstract java.lang.String implementation();
+  public abstract int size();
+  public abstract int capacity();
+  public abstract int used();
+  public abstract long probeCount();
+  public abstract long collisionCount();
+  public abstract long rehashCount();
+  public abstract long retainedBytes();
+  public abstract void resetMetrics();
+  public abstract void addMetrics(long, long, long);
+  public abstract boolean contains(int);
+  public abstract int rowOf(int);
+  public abstract void requireInsertKey(int, java.lang.String, java.lang.String, java.lang.String);
+  public abstract long retainedBytesAfterEnsureAdditional(int);
+  public abstract long allocationBytesDuringEnsureAdditional(int);
+  public abstract void ensureAdditionalCapacity(int);
+  public abstract void put(int, int);
+  public abstract void remove(int);
+  public abstract void updateRow(int, int);
+  public abstract void clear();
+  public abstract void releaseStorage();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.KeyCanonicalization
 Compiled from "KeyCanonicalization.java"
@@ -331,6 +412,7 @@ public final class com.hgtech.soma.runtime.generated.RowPermutationSidecar {
   public int[] stage(int);
   public int[] scratch(int);
   public long retainedBytes();
+  public long retainedBytesAfterRebuild(int);
   public long rebuildPeakBytes(int);
   public void commit(int[], int);
   public void markDirty();
@@ -347,12 +429,21 @@ public final class com.hgtech.soma.runtime.generated.RuntimeCompatibility {
   public static final java.lang.String PLAN_PROTOCOL;
   public static final java.lang.String DENSE_ALGORITHM;
   public static final java.lang.String NO_ACCESS_STRATEGY;
+  public static final java.lang.String NO_KEY_SPACE;
+  public static final java.lang.String HASH_INT_KEY_SPACE;
+  public static final java.lang.String HASH_LONG_KEY_SPACE;
+  public static final java.lang.String HASH_COMPOSITE_KEY_SPACE;
+  public static final java.lang.String SPARSE_INT_KEY_SPACE;
   public static final java.lang.String PRIMITIVE_SORTED_PERMUTATION;
   public static final java.lang.String NO_SIDECAR_MAINTENANCE;
   public static final java.lang.String DIRTY_LAZY_REBUILD;
   public static final java.lang.String ALLOCATION_ESTIMATOR;
   public static com.hgtech.soma.runtime.TablePlan verify(com.hgtech.soma.runtime.generated.GeneratedMetadata, com.hgtech.soma.runtime.RuntimePlan, java.lang.String);
   public static com.hgtech.soma.runtime.TablePlan verifyAccess(com.hgtech.soma.runtime.TablePlan, boolean);
+  public static com.hgtech.soma.runtime.TablePlan verifyKeySpace(com.hgtech.soma.runtime.TablePlan, java.lang.String, boolean);
+  public static com.hgtech.soma.runtime.generated.IntKeySpace createIntKeySpace(com.hgtech.soma.runtime.TablePlan, int);
+  public static long estimatedKeySpaceBytes(com.hgtech.soma.runtime.TablePlan, java.lang.String, boolean, int);
+  public static long estimatedHashKeySpaceBytes(java.lang.String, int);
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeFailures
 Compiled from "RuntimeFailures.java"
@@ -380,6 +471,7 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException uniqueConstraintViolation(java.lang.String, java.lang.String, int, int, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingValueKey(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidFloatingAccessValue(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException invalidKeyDomain(java.lang.String, java.lang.String, java.lang.String, long, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
   public static <E extends java.lang.Enum<E>> E requiredEnumValue(java.lang.String, java.lang.String, E, java.lang.String);
   public static <T> T requiredValue(java.lang.String, java.lang.String, T, java.lang.String);
@@ -419,17 +511,33 @@ public final class com.hgtech.soma.runtime.generated.ShortColumn extends com.hgt
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.SparseIntKeySpace
 Compiled from "SparseIntKeySpace.java"
-public final class com.hgtech.soma.runtime.generated.SparseIntKeySpace {
+public final class com.hgtech.soma.runtime.generated.SparseIntKeySpace implements com.hgtech.soma.runtime.generated.IntKeySpace {
   public com.hgtech.soma.runtime.generated.SparseIntKeySpace(int);
   public int size();
+  public java.lang.String implementation();
+  public int capacity();
+  public int used();
+  public long probeCount();
+  public long collisionCount();
+  public long rehashCount();
+  public long retainedBytes();
+  public void resetMetrics();
+  public void addMetrics(long, long, long);
   public int maximumKey();
   public int sparseCapacity();
   public int denseCapacity();
   public boolean contains(int);
   public int rowOf(int);
+  public void requireInsertKey(int, java.lang.String, java.lang.String, java.lang.String);
+  public long retainedBytesAfterEnsureAdditional(int);
+  public long allocationBytesDuringEnsureAdditional(int);
+  public void ensureAdditionalCapacity(int);
   public void put(int, int);
   public void removeAt(int);
+  public void remove(int);
+  public void updateRow(int, int);
   public void clear();
+  public void releaseStorage();
 }
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaChild
 Compiled from "SomaChild.java"
@@ -542,13 +650,11 @@ public interface com.hgtech.soma.annotation.SomaValue extends java.lang.annotati
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnPipeline
 Compiled from "BooleanColumnPipeline.java"
 public final class com.hgtech.soma.runtime.BooleanColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.BooleanColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.BooleanColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public void forEachBoolean(com.hgtech.soma.runtime.BooleanConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnView
 Compiled from "BooleanColumnView.java"
 public final class com.hgtech.soma.runtime.BooleanColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.BooleanColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.BooleanColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public boolean getBoolean(int);
   public void close();
@@ -561,13 +667,11 @@ public interface com.hgtech.soma.runtime.BooleanConsumer {
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnPipeline
 Compiled from "ByteColumnPipeline.java"
 public final class com.hgtech.soma.runtime.ByteColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.ByteColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ByteColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public void forEachByte(com.hgtech.soma.runtime.ByteConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnView
 Compiled from "ByteColumnView.java"
 public final class com.hgtech.soma.runtime.ByteColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.ByteColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ByteColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public byte getByte(int);
   public void close();
@@ -589,13 +693,11 @@ public final class com.hgtech.soma.runtime.ChildPlan {
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnPipeline
 Compiled from "DoubleColumnPipeline.java"
 public final class com.hgtech.soma.runtime.DoubleColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.DoubleColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.DoubleColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public void forEachDouble(java.util.function.DoubleConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnView
 Compiled from "DoubleColumnView.java"
 public final class com.hgtech.soma.runtime.DoubleColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.DoubleColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.DoubleColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public double getDouble(int);
   public void close();
@@ -603,13 +705,11 @@ public final class com.hgtech.soma.runtime.DoubleColumnView extends com.hgtech.s
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnPipeline
 Compiled from "EnumColumnPipeline.java"
 public final class com.hgtech.soma.runtime.EnumColumnPipeline<E extends java.lang.Enum<E>> extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.EnumColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String, E[]);
   public void forEach(java.util.function.Consumer<? super E>);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnView
 Compiled from "EnumColumnView.java"
 public final class com.hgtech.soma.runtime.EnumColumnView<E extends java.lang.Enum<E>> extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.EnumColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String, E[]);
   public boolean isPresent(int);
   public E get(int);
   public void close();
@@ -617,13 +717,11 @@ public final class com.hgtech.soma.runtime.EnumColumnView<E extends java.lang.En
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnPipeline
 Compiled from "FloatColumnPipeline.java"
 public final class com.hgtech.soma.runtime.FloatColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.FloatColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.FloatColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public void forEachFloat(com.hgtech.soma.runtime.FloatConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnView
 Compiled from "FloatColumnView.java"
 public final class com.hgtech.soma.runtime.FloatColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.FloatColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.FloatColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public float getFloat(int);
   public void close();
@@ -636,13 +734,11 @@ public interface com.hgtech.soma.runtime.FloatConsumer {
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.IntColumnPipeline
 Compiled from "IntColumnPipeline.java"
 public final class com.hgtech.soma.runtime.IntColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.IntColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public void forEachInt(java.util.function.IntConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.IntColumnView
 Compiled from "IntColumnView.java"
 public final class com.hgtech.soma.runtime.IntColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.IntColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.IntColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public int getInt(int);
   public void close();
@@ -650,13 +746,11 @@ public final class com.hgtech.soma.runtime.IntColumnView extends com.hgtech.soma
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.LongColumnPipeline
 Compiled from "LongColumnPipeline.java"
 public final class com.hgtech.soma.runtime.LongColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.LongColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.LongColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public void forEachLong(java.util.function.LongConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.LongColumnView
 Compiled from "LongColumnView.java"
 public final class com.hgtech.soma.runtime.LongColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.LongColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.LongColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public long getLong(int);
   public void close();
@@ -717,6 +811,8 @@ public final class com.hgtech.soma.runtime.RuntimePlan {
   public java.lang.String runtimePlanHash();
   public com.hgtech.soma.runtime.MaterializationBudget defaultMaterializationBudget();
   public com.hgtech.soma.runtime.StatsMode statsMode();
+  public long maximumAggregateStorageBytes();
+  public long maximumOwnershipTableInstances();
   public java.util.List<com.hgtech.soma.runtime.TablePlan> tables();
   public java.util.List<com.hgtech.soma.runtime.ChildPlan> children();
   public com.hgtech.soma.runtime.TablePlan requireTable(java.lang.String);
@@ -727,6 +823,8 @@ Compiled from "RuntimePlan.java"
 public final class com.hgtech.soma.runtime.RuntimePlan$Builder {
   public com.hgtech.soma.runtime.RuntimePlan$Builder defaultMaterializationBudget(com.hgtech.soma.runtime.MaterializationBudget);
   public com.hgtech.soma.runtime.RuntimePlan$Builder statsMode(com.hgtech.soma.runtime.StatsMode);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder maximumAggregateStorageBytes(long);
+  public com.hgtech.soma.runtime.RuntimePlan$Builder maximumOwnershipTableInstances(long);
   public com.hgtech.soma.runtime.RuntimePlan$Builder addTable(com.hgtech.soma.runtime.TablePlan);
   public com.hgtech.soma.runtime.RuntimePlan$Builder replaceTable(com.hgtech.soma.runtime.TablePlan);
   public com.hgtech.soma.runtime.RuntimePlan$Builder addChild(com.hgtech.soma.runtime.ChildPlan);
@@ -736,13 +834,11 @@ public final class com.hgtech.soma.runtime.RuntimePlan$Builder {
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnPipeline
 Compiled from "ShortColumnPipeline.java"
 public final class com.hgtech.soma.runtime.ShortColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
-  public com.hgtech.soma.runtime.ShortColumnPipeline(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ShortColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public void forEachShort(com.hgtech.soma.runtime.ShortConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnView
 Compiled from "ShortColumnView.java"
 public final class com.hgtech.soma.runtime.ShortColumnView extends com.hgtech.soma.runtime.AbstractColumnView implements java.lang.AutoCloseable {
-  public com.hgtech.soma.runtime.ShortColumnView(com.hgtech.soma.runtime.generated.DenseTableState, com.hgtech.soma.runtime.generated.ShortColumn, com.hgtech.soma.runtime.generated.PresenceBitmap, java.lang.String, java.lang.String);
   public boolean isPresent(int);
   public short getShort(int);
   public void close();
@@ -796,6 +892,10 @@ public final class com.hgtech.soma.runtime.TablePlan {
   public int growthDenominator();
   public long maximumUpdateScratchBytes();
   public long maximumOperationScratchBytes();
+  public long maximumBulkScratchBytes();
+  public long maximumTableStorageBytes();
+  public java.lang.String keySpaceStrategy();
+  public long maximumSparseKey();
   public java.lang.String accessStrategy();
   public java.lang.String sidecarMaintenancePolicy();
   public long maximumSidecarScratchBytes();
@@ -807,6 +907,10 @@ public final class com.hgtech.soma.runtime.TablePlan$Builder {
   public com.hgtech.soma.runtime.TablePlan$Builder growthRatio(int, int);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumUpdateScratchBytes(long);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumOperationScratchBytes(long);
+  public com.hgtech.soma.runtime.TablePlan$Builder maximumBulkScratchBytes(long);
+  public com.hgtech.soma.runtime.TablePlan$Builder maximumTableStorageBytes(long);
+  public com.hgtech.soma.runtime.TablePlan$Builder keySpaceStrategy(java.lang.String);
+  public com.hgtech.soma.runtime.TablePlan$Builder maximumSparseKey(long);
   public com.hgtech.soma.runtime.TablePlan$Builder accessStrategy(java.lang.String);
   public com.hgtech.soma.runtime.TablePlan$Builder sidecarMaintenancePolicy(java.lang.String);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumSidecarScratchBytes(long);

@@ -12,6 +12,9 @@ import com.hgtech.soma.examples.game.generated.PendingDamageRowBatch;
 import com.hgtech.soma.examples.game.generated.PendingDamageRowTable;
 import com.hgtech.soma.examples.game.generated.PlayerBatch;
 import com.hgtech.soma.examples.game.generated.PlayerTable;
+import com.hgtech.soma.runtime.EnumColumnView;
+import com.hgtech.soma.runtime.IntColumnView;
+import com.hgtech.soma.runtime.LongColumnView;
 
 /** Unit.position为事实源、occupancy为可重建cache的正式game-loop场景。 */
 public final class GameScenario {
@@ -49,49 +52,132 @@ public final class GameScenario {
                     .addValues(new GridPosition(2, 0), TerrainType.PLAIN,
                             1, false, true, target));
 
-            GameUnit next = units.byTurnOrder().firstOrThrow();
-            require(next.unitId.equals(actor) && units.findByPlayer(player).count() == 1L,
+            int[] nextRows = units.byTurnOrder().limit(1).rowIndexes();
+            LongColumnView unitIds = units.unitIdValueColumn();
+            try {
+                require(nextRows.length == 1 && unitIds.getLong(nextRows[0]) == actor.value
+                                && units.findByPlayer(player).count() == 1L,
                     "ordered and grouped unit access");
-            int moveCost = costs.fetch(new UnitAbilityKey(soldier, AbilityId.MOVE))
-                    .actionPointCost;
+            } finally {
+                unitIds.close();
+            }
+            int moveCostRow = costs.rowIndexOf(soldier.value, AbilityId.MOVE);
+            IntColumnView actionPointCosts = costs.actionPointCostColumn();
+            int moveCost;
+            try {
+                moveCost = actionPointCosts.getInt(moveCostRow);
+            } finally {
+                actionPointCosts.close();
+            }
             moves.replaceAll(new MoveCandidateRowBatch(2)
                     .addValues(actor, destination, moveCost + 1, 2)
                     .addValues(actor, new GridPosition(0, 1), moveCost + 3, 1));
-            MoveCandidateRow selected = moves.byTotalCost().firstOrThrow();
-            require(selected.position.equals(destination),
+            int[] selectedRows = moves.byTotalCost().limit(1).rowIndexes();
+            require(selectedRows.length == 1, "move order requires one candidate");
+            int selectedRow = selectedRows[0];
+            IntColumnView moveX = moves.positionXValueColumn();
+            IntColumnView moveY = moves.positionYValueColumn();
+            IntColumnView remainingPoints = moves.remainingActionPointsColumn();
+            GridPosition selectedPosition;
+            int selectedActionPoints;
+            try {
+                selectedPosition = new GridPosition(
+                        moveX.getInt(selectedRow), moveY.getInt(selectedRow));
+                selectedActionPoints = remainingPoints.getInt(selectedRow);
+            } finally {
+                remainingPoints.close();
+                moveY.close();
+                moveX.close();
+            }
+            require(selectedPosition.equals(destination),
                     "selected-unit workspace chooses the maintained minimum cost");
 
-            units.mutate(actor).setPosition(selected.position)
-                    .setActionPoints(selected.remainingActionPoints)
+            units.mutate(actor).setPosition(selectedPosition)
+                    .setActionPoints(selectedActionPoints)
                     .setState(UnitState.MOVED).commit();
             // Unit.position先提交，occupancy cache随后同步；失败时由game loop重建cache。
             map.update(row -> {
-                if (row.position().equals(origin)) row.clearOccupantUnit();
-                if (row.position().equals(destination)) row.setOccupantUnit(actor);
+                if (row.positionXValue() == origin.x && row.positionYValue() == origin.y) {
+                    row.clearOccupantUnit();
+                }
+                if (row.positionXValue() == destination.x
+                        && row.positionYValue() == destination.y) {
+                    row.setOccupantUnit(actor);
+                }
             });
-            require(units.fetch(actor).position.equals(destination),
-                    "unit position remains authoritative");
-            require(map.filter(row -> row.position().equals(destination)
+            int actorRow = units.rowIndexOf(actor.value);
+            IntColumnView unitX = units.positionXValueColumn();
+            IntColumnView unitY = units.positionYValueColumn();
+            try {
+                require(unitX.getInt(actorRow) == destination.x
+                                && unitY.getInt(actorRow) == destination.y,
+                        "unit position remains authoritative");
+            } finally {
+                unitY.close();
+                unitX.close();
+            }
+            require(map.filter(row -> row.positionXValue() == destination.x
+                            && row.positionYValue() == destination.y
                             && row.occupantUnitPresent()
-                            && row.occupantUnit().equals(actor)).count() == 1L,
+                            && row.occupantUnitValue() == actor.value).count() == 1L,
                     "occupancy cache follows the authoritative move");
 
+            int attackCostRow = costs.rowIndexOf(soldier.value, AbilityId.ATTACK);
+            IntColumnView baseDamage = costs.baseDamageColumn();
+            int attackDamage;
+            try {
+                attackDamage = baseDamage.getInt(attackCostRow);
+            } finally {
+                baseDamage.close();
+            }
             damage.addBatch(new PendingDamageRowBatch(1)
-                    .addValues(1L, actor, target, costs.fetch(
-                            new UnitAbilityKey(soldier, AbilityId.ATTACK)).baseDamage));
-            PendingDamageRow pending = damage.byResolutionOrder().firstOrThrow();
-            GameUnit before = units.fetch(pending.targetUnit);
-            int remaining = before.hp - pending.damage;
-            units.mutate(pending.targetUnit).setHp(remaining)
-                    .setState(remaining <= 0 ? UnitState.DEAD : before.state).commit();
+                    .addValues(1L, actor, target, attackDamage));
+            int[] pendingRows = damage.byResolutionOrder().limit(1).rowIndexes();
+            require(pendingRows.length == 1, "damage order requires one event");
+            int pendingRow = pendingRows[0];
+            LongColumnView damageTargets = damage.targetUnitValueColumn();
+            IntColumnView damageValues = damage.damageColumn();
+            UnitId pendingTarget;
+            int pendingDamage;
+            try {
+                pendingTarget = new UnitId(damageTargets.getLong(pendingRow));
+                pendingDamage = damageValues.getInt(pendingRow);
+            } finally {
+                damageValues.close();
+                damageTargets.close();
+            }
+            int targetRow = units.rowIndexOf(pendingTarget.value);
+            IntColumnView hitPoints = units.hpColumn();
+            EnumColumnView<UnitState> states = units.stateColumn();
+            int remaining;
+            UnitState beforeState;
+            try {
+                remaining = hitPoints.getInt(targetRow) - pendingDamage;
+                beforeState = states.get(targetRow);
+            } finally {
+                states.close();
+                hitPoints.close();
+            }
+            units.mutate(pendingTarget).setHp(remaining)
+                    .setState(remaining <= 0 ? UnitState.DEAD : beforeState).commit();
             players.mutate(player).setScore(3L).commit();
             damage.clear();
-            require(units.fetch(target).hp == 5 && damage.size() == 0
-                            && players.fetch(player).score == 3L,
-                    "pending damage is a phase buffer, not history storage");
+            IntColumnView finalHp = units.hpColumn();
+            LongColumnView scores = players.scoreColumn();
+            try {
+                require(finalHp.getInt(units.rowIndexOf(target.value)) == 5
+                                && damage.size() == 0
+                                && scores.getLong(players.rowIndexOf(player.value)) == 3L,
+                        "pending damage is a phase buffer, not history storage");
+            } finally {
+                scores.close();
+                finalHp.close();
+            }
 
-            return new ScenarioResult(units.materialize().size(),
-                    units.runtimePlan().schemaHash(), units.statsSnapshot().sidecarDirtyCount());
+            int exportedUnits = units.materialize().size();
+            return new ScenarioResult(exportedUnits,
+                    units.runtimePlan().schemaHash(), units.statsSnapshot().sidecarDirtyCount(),
+                    8, 57, (long) units.capacity() * 57L, 12L, 6L, exportedUnits);
         } finally {
             damage.release();
             moves.release();
@@ -110,10 +196,25 @@ public final class GameScenario {
         public final int units;
         public final String schemaHash;
         public final long sidecarDirtyCount;
-        ScenarioResult(int units, String schemaHash, long sidecarDirtyCount) {
+        public final int apcRows;
+        public final int hotLeafBytesPerRow;
+        public final long hotLeafWorkingSetBytes;
+        public final long reads;
+        public final long mutations;
+        public final int exports;
+        ScenarioResult(int units, String schemaHash, long sidecarDirtyCount,
+                       int apcRows, int hotLeafBytesPerRow,
+                       long hotLeafWorkingSetBytes, long reads, long mutations,
+                       int exports) {
             this.units = units;
             this.schemaHash = schemaHash;
             this.sidecarDirtyCount = sidecarDirtyCount;
+            this.apcRows = apcRows;
+            this.hotLeafBytesPerRow = hotLeafBytesPerRow;
+            this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;
+            this.reads = reads;
+            this.mutations = mutations;
+            this.exports = exports;
         }
     }
 }

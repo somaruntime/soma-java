@@ -37,19 +37,14 @@ public final class HashCompositeKeySpace {
     /** Conservative exact-shape peak for constructor arrays plus a possible final insert rehash. */
     public static long estimatedPeakBytes(int expectedSize) {
         int capacity = capacityFor(expectedSize);
-        boolean finalInsertRehash = expectedSize > 0
-                && 2L * (long) expectedSize >= (long) capacity;
-        long capacityUnits = finalInsertRehash
-                ? 3L * (long) capacity : (long) capacity;
-        long arrayHeaders = finalInsertRehash ? 96L : 48L;
-        return 13L * capacityUnits + arrayHeaders;
+        return 13L * (long) capacity + 48L;
     }
 
     private static int capacityFor(int expectedSize) {
         if (expectedSize < 0) {
             throw new IllegalArgumentException("expectedSize must be non-negative");
         }
-        long required = Math.max(4L, 2L * (long) expectedSize);
+        long required = Math.max(4L, 2L * (long) expectedSize + 1L);
         int capacity = 4;
         while (capacity < required) {
             if (capacity >= MAX_CAPACITY) {
@@ -67,6 +62,8 @@ public final class HashCompositeKeySpace {
     public int capacity() {
         return states.length;
     }
+
+    public long retainedBytes() { return 13L * (long) states.length; }
 
     /** LIVE + DELETED buckets retained by the current probe table. */
     public int used() {
@@ -112,6 +109,20 @@ public final class HashCompositeKeySpace {
             }
             rehash(states.length << 1);
         }
+    }
+
+    public long retainedBytesAfterEnsureAdditional(int additional) {
+        return 13L * (long) targetCapacity(additional);
+    }
+
+    public long allocationBytesDuringEnsureAdditional(int additional) {
+        return requiresRehash(additional)
+                ? retainedBytesAfterEnsureAdditional(additional) : 0L;
+    }
+
+    public void ensureAdditionalCapacity(int additional) {
+        int target = targetCapacity(additional);
+        if (requiresRehash(additional)) rehash(target);
     }
 
     public int firstSlot(long hash) {
@@ -182,6 +193,14 @@ public final class HashCompositeKeySpace {
         used = 0;
     }
 
+    public void releaseStorage() {
+        hashes = new long[0];
+        rows = new int[0];
+        states = new byte[0];
+        size = 0;
+        used = 0;
+    }
+
     private byte state(int slot) {
         if (slot < 0 || slot >= states.length) {
             throw new IllegalArgumentException("slot out of range");
@@ -192,6 +211,33 @@ public final class HashCompositeKeySpace {
     private void requireLive(int slot) {
         if (!isLive(slot)) {
             throw new IllegalArgumentException("slot is not live");
+        }
+    }
+
+    private boolean requiresRehash(int additional) {
+        requireAdditional(additional);
+        return 2L * ((long) used + (long) additional) >= (long) states.length;
+    }
+
+    private int targetCapacity(int additional) {
+        requireAdditional(additional);
+        long requiredSize = (long) size + (long) additional;
+        if (requiredSize > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("key space capacity exhausted");
+        }
+        int target = states.length;
+        while (2L * requiredSize >= (long) target) {
+            if (target >= MAX_CAPACITY) {
+                throw new IllegalArgumentException("key space capacity exhausted");
+            }
+            target <<= 1;
+        }
+        return target;
+    }
+
+    private static void requireAdditional(int additional) {
+        if (additional < 0) {
+            throw new IllegalArgumentException("additional must be non-negative");
         }
     }
 

@@ -18,6 +18,8 @@ public final class com.example.soma.access.generated.VisitTable {
   public java.util.Map<com.example.soma.access.RoutePositionKey, com.example.soma.access.Visit> materialize();
   public java.util.Map<com.example.soma.access.RoutePositionKey, com.example.soma.access.Visit> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(com.example.soma.access.RoutePositionKey);
+  public int findRowIndex(com.example.soma.access.RoutePositionKey);
+  public int rowIndexOf(com.example.soma.access.RoutePositionKey);
   public java.util.Optional<com.example.soma.access.Visit> find(com.example.soma.access.RoutePositionKey);
   public java.util.Optional<com.example.soma.access.Visit> find(com.example.soma.access.RoutePositionKey, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.access.Visit fetch(com.example.soma.access.RoutePositionKey);
@@ -25,6 +27,8 @@ public final class com.example.soma.access.generated.VisitTable {
   public com.example.soma.access.generated.VisitMutator mutate(com.example.soma.access.RoutePositionKey);
   public void delete(com.example.soma.access.RoutePositionKey);
   public com.example.soma.access.generated.VisitKeys keys();
+  public int findRowIndex(long, int);
+  public int rowIndexOf(long, int);
   public com.example.soma.access.generated.VisitMutator mutateAt(int);
   public com.example.soma.access.generated.VisitRows rows();
   public com.example.soma.access.generated.VisitRows filter(com.example.soma.access.generated.VisitRows$Predicate);
@@ -47,6 +51,10 @@ public final class com.example.soma.access.generated.VisitTable {
   public com.example.soma.access.generated.VisitRows findByRoute(com.example.soma.access.RouteId);
   public com.example.soma.access.generated.VisitRows byRoutePosition();
   public com.example.soma.access.generated.VisitRows byRoutePosition(com.example.soma.access.RouteId);
+  public com.hgtech.soma.runtime.LongColumnPipeline keyRouteIdValues();
+  public com.hgtech.soma.runtime.LongColumnView keyRouteIdValueColumn();
+  public com.hgtech.soma.runtime.IntColumnPipeline keyPositionValues();
+  public com.hgtech.soma.runtime.IntColumnView keyPositionValueColumn();
   public com.hgtech.soma.runtime.IntColumnPipeline payloadValues();
   public com.hgtech.soma.runtime.IntColumnView payloadColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();

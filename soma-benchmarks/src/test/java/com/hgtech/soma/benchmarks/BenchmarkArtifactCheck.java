@@ -43,7 +43,7 @@ public final class BenchmarkArtifactCheck {
 
         File wrongWorkload = new File(directory, "invalid-workload-id.jsonl");
         rewrite(valid, wrongWorkload,
-                "soma-g5-smoke:kernel.optional_all_present:v2", "wrong-workload", -1);
+                "soma-g5-smoke:kernel.optional_all_present:v3", "wrong-workload", -1);
         expectInvalid(wrongWorkload, "wrong workload id");
 
         File emptyEvidence = new File(directory, "invalid-empty-workload-evidence.jsonl");
@@ -91,7 +91,36 @@ public final class BenchmarkArtifactCheck {
         expectInvalid(arbitraryMaterialization,
                 "arbitrary non-empty materialization evidence");
 
-        System.out.println("benchmark-artifact-negative-paths: 12");
+        File zeroReads = new File(directory, "invalid-zero-reads.jsonl");
+        rewriteObjectField(valid, zeroReads, "kernel.optional_all_present",
+                "mutationReadRatio", "{\"mutations\":0,\"reads\":0}");
+        expectInvalid(zeroReads, "scan with zero reads");
+
+        File zeroMutations = new File(directory, "invalid-zero-mutations.jsonl");
+        rewriteObjectField(valid, zeroMutations, "generated.pipeline_fusion",
+                "mutationReadRatio", "{\"mutations\":0,\"reads\":65}");
+        expectInvalid(zeroMutations, "changed rows with zero mutations");
+
+        File missingMaterialization = new File(directory,
+                "invalid-materialization-not-applicable.jsonl");
+        rewriteObjectField(valid, missingMaterialization, "kernel.key_lookup_normal",
+                "materializationStats",
+                "{\"applicable\":false,\"reason\":\"wrong\"}");
+        expectInvalid(missingMaterialization, "executed materialization marked not-applicable");
+
+        File allocatedWithoutObservation = new File(directory,
+                "invalid-allocated-without-observation.jsonl");
+        rewrite(valid, allocatedWithoutObservation,
+                "\"allocatedBytes\":null", "\"allocatedBytes\":0", -1);
+        expectInvalid(allocatedWithoutObservation, "unobserved allocation numeric zero");
+
+        File wrongObservationKind = new File(directory,
+                "invalid-observation-kind.jsonl");
+        rewrite(valid, wrongObservationKind,
+                "\"kind\":\"not-observed\"", "\"kind\":\"measured\"", -1);
+        expectInvalid(wrongObservationKind, "wrong allocation observation kind");
+
+        System.out.println("benchmark-artifact-negative-paths: 17");
         System.out.println("benchmark-artifact-check: ok");
     }
 

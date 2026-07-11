@@ -6,7 +6,7 @@ import com.hgtech.soma.runtime.generated.PresenceBitmap;
 
 public final class FloatColumnPipeline extends AbstractColumnPipeline {
     private final FloatColumn column;
-    public FloatColumnPipeline(DenseTableState state, FloatColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
+    FloatColumnPipeline(DenseTableState state, FloatColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
     public void forEachFloat(FloatConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {

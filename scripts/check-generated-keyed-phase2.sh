@@ -230,15 +230,19 @@ if grep -E 'setId|clearId|setUpdateId|updateId' \
   printf '%s\n' 'generated-keyed-phase2-check: primitive key mutation surface leaked' >&2
   exit 1
 fi
-if ! grep -q 'HashIntKeySpace keySpace' "$table_source"; then
-  printf '%s\n' 'generated-keyed-phase2-check: primitive keyspace binding missing' >&2
+if ! grep -q 'IntKeySpace keySpace' "$table_source" \
+  || ! grep -q 'HashIntKeySpace staged=newAppendValidationKeySpace' "$table_source"; then
+  printf '%s\n' 'generated-keyed-phase2-check: planned int keyspace protocol binding missing' >&2
   exit 1
 fi
-metric_carry='staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());'
-if ! grep -F "HashIntKeySpace staged=stageAppendKeys(batch);${metric_carry}int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;" "$table_source" >/dev/null \
-  || ! grep -F "HashCompositeKeySpace staged=stageAppendKeys(batch);${metric_carry}int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;" "$composite_table_source" >/dev/null \
-  || ! grep -F "HashCompositeKeySpace staged=stageReplacementKeys(batch);${metric_carry}int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);" "$composite_table_source" >/dev/null; then
-  printf '%s\n' 'generated-keyed-phase2-check: keyspace must be fully staged before live column publication' >&2
+if grep -F 'stageAppendKeys' "$table_source" "$composite_table_source" >/dev/null \
+  || ! grep -F 'validateAppendKeys(batch);ensureAppendKeyCapacity(count,"addBatch");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;state.commitAppend(start,count)' "$table_source" >/dev/null \
+  || ! grep -F 'validateAppendKeys(batch);ensureAppendKeyCapacity(count,"addBatch");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;state.commitAppend(start,count)' "$composite_table_source" >/dev/null \
+  || ! grep -F 'if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count)' "$table_source" >/dev/null \
+  || ! grep -F 'if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count)' "$composite_table_source" >/dev/null \
+  || ! grep -F 'stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),"replaceAll");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count)' "$composite_table_source" >/dev/null \
+  || ! grep -F 'state.commitReplace(previous,count);publishKeySpace(staged,"replaceAll");staged=null' "$composite_table_source" >/dev/null; then
+  printf '%s\n' 'generated-keyed-phase2-check: incremental append/replacement atomicity shape missing' >&2
   exit 1
 fi
 if ! grep -q 'HashLongKeySpace keySpace' "$long_table_source"; then

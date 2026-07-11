@@ -16,7 +16,7 @@ Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime 
 
 Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
 
-首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`ObjectColumn<T>`、`PresenceBitmap`、`MaterializationTracker`、`MaterializationAllocation`、`ChildOwnershipRegistry`、`OwnedChildTable`、`SparseIntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。`MaterializationAllocation` 是 materialization boundary 的scoped controlled allocation admission protocol，不进入row/storage hot path。Concrete column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
+当前v2 protocol type set固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation与KeySpace exact factory/estimator）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats/resource coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`ObjectColumn<T>`、`PresenceBitmap`、`MaterializationTracker`、`MaterializationAllocation`、`ChildOwnershipRegistry`、`OwnedChildTable`、`IntKeySpace`、`SparseIntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。`MaterializationAllocation` 是 materialization boundary 的scoped controlled allocation admission protocol，不进入row/storage hot path。`StorageBudget`、column retained-byte accounting和cascade scratch counters是runtime package-private实现，不是generated/public protocol；不能只为test或golden将其公开。Concrete column/key space提供typed lookup/update；generic staging只发生在growth boundary，hot loop由generated code持有concrete/static protocol。exact public/protected protocol methods进入独立manifest，此后不得删除、改变语义或在不提升runtime compatibility identity时产生incompatible signature change。
 
 Exact current protocol matrix（Phase 1 + Phase 2 + Phase 3 access structures，全部位于 `com.hgtech.soma.runtime.generated`）：
 
@@ -28,13 +28,18 @@ GeneratedMetadata.schemaHash/generatedTarget/compilerIdentity/generatedProtocol/
   runtimeCompatibility/planProtocol/algorithm/allocationEstimator -> non-null String
 RuntimeCompatibility.verify(GeneratedMetadata, RuntimePlan, String tableLogicalName) -> TablePlan
 RuntimeCompatibility.verifyAccess(TablePlan, boolean hasSelectors) -> TablePlan
+RuntimeCompatibility.createIntKeySpace(TablePlan, int expectedSize) -> IntKeySpace
+RuntimeCompatibility.estimatedKeySpaceBytes(TablePlan, String implementation,
+  boolean intKey, int expectedSize) -> long
+RuntimeCompatibility.estimatedHashKeySpaceBytes(String implementation, int expectedSize) -> long
 
 GeneratedColumn.stageCapacity(int) -> Object
 GeneratedColumn.commitCapacity(Object) -> void
 GeneratedColumn.clearRange(int fromInclusive, int toExclusive) -> void
-ColumnGroup(int initialCapacity, GeneratedColumn... columns)
-ColumnGroup.capacity() -> int
-ColumnGroup.ensureCapacity(int required, int growthNumerator, int growthDenominator) -> boolean
+ColumnGroup(String table, TablePlan, ChildOwnershipRegistry, int initialCapacity,
+  GeneratedColumn... columns)
+ColumnGroup capacity/resource-accounting methods -> package-private DenseTableState implementation
+GeneratedColumn estimated/retained/release accounting methods -> package-private ColumnGroup implementation
 
 PrimitiveColumn() / PresenceBitmap() public no-arg construction
 PrimitiveColumn.get(int) -> exact primitive
@@ -60,6 +65,12 @@ DenseTableState.endOperationSuccess(String operation, long scanned, long matched
 DenseTableState.endOperationFailure(String operation, long scanned, long matched, String errorCode) -> void
 DenseTableState.abortOperation(String operation) -> void
 DenseTableState.prepareAppend(int count) -> int startRow
+DenseTableState.preflightAppendStorage(int count, long proposedKeySpaceBytes, String operation)
+DenseTableState.preflightReplaceStorage(int count, long proposedKeySpaceBytes, String operation)
+DenseTableState.preflightKeySpaceStorage(long proposed, String operation)
+DenseTableState.reserveBulkScratch/releaseBulkScratch(long bytes, String operation)
+DenseTableState.commitKeySpaceStorage(long previous, long proposed, String operation)
+DenseTableState.abortConstruction() -> void
 DenseTableState.commitAppend(int expectedStartRow, int count) -> void
 DenseTableState.prepareReplace(int newSize) -> int previousSize
 DenseTableState.commitReplace(int expectedPreviousSize, int newSize) -> void
@@ -81,6 +92,10 @@ DenseTableState.updateResult(long scanned, long matched, long changed,
 DenseTableState.statsSnapshot() / statsSnapshot(long childInstances, long descendantRows)
   -> TableStats; resetStats() -> void
 
+IntKeySpace.implementation/size/capacity/used/contains/rowOf/requireInsertKey/
+  retainedBytes/retainedBytesAfterEnsureAdditional/allocationBytesDuringEnsureAdditional/
+  ensureAdditionalCapacity/put/remove/removeAt/updateRow/clear/releaseStorage/
+  probeCount/collisionCount/rehashCount/addMetrics/resetMetrics
 SparseIntKeySpace(int maximumKey); size()/contains(int)/rowOf(int)
 SparseIntKeySpace.put(int key, int rowSlot)/removeAt(int rowSlot)/clear() -> void
 SparseIntKeySpace.maximumKey()/sparseCapacity()/denseCapacity() -> int
@@ -100,11 +115,15 @@ HashIntKeySpace / HashLongKeySpace / HashCompositeKeySpace
   .probeCount()/collisionCount()/rehashCount() -> long
   .addMetrics(long probes, long collisions, long rehashes) -> void
   .resetMetrics() -> void
+HashIntKeySpace / HashLongKeySpace / HashCompositeKeySpace
+  .retainedBytes()/retainedBytesAfterEnsureAdditional(int)/
+  allocationBytesDuringEnsureAdditional(int)/ensureAdditionalCapacity(int)/releaseStorage()
 PresenceBitmap.wordAt(int wordIndex) -> long
 RowPermutationSidecar(); isDirty() -> boolean; size()/rowAt(int) -> int
 RowPermutationSidecar.stage(int required) -> int[]
 RowPermutationSidecar.scratch(int required) -> int[]
-RowPermutationSidecar.retainedBytes()/rebuildPeakBytes(int required) -> long
+RowPermutationSidecar.retainedBytes()/retainedBytesAfterRebuild(int required)/
+  rebuildPeakBytes(int required) -> long
 RowPermutationSidecar.commit(int[] staged, int committedSize) -> void
 RowPermutationSidecar.markDirty()/clear()/release() -> void
 KeyCanonicalization.strictFloatKeyBits(String table, String field, float value, String operation) -> int
@@ -130,6 +149,7 @@ MaterializationAllocation.Provider.allow(String phase, long estimatedBytes, Stri
 MaterializationAllocation.Scope.close() -> void
 ChildOwnershipRegistry.beginMaterialization/endMaterialization/preflightMutation/
   newOwnerToken/stage/publish/discardStaged/resolve/preflightPinned/release/
+  beginCascade/collectCascade/commitCascade/cancelCascade/releaseStorage/
   childInstanceCount/descendantRowCount/hasPinned
 OwnedChildTable.hasPinnedSubtree/releaseOwnedSubtree/subtreeChildInstanceCount/
   subtreeDescendantRowCount

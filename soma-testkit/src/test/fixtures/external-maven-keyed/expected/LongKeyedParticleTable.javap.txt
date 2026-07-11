@@ -18,6 +18,8 @@ public final class com.example.soma.keyed.generated.LongKeyedParticleTable {
   public java.util.Map<java.lang.Long, com.example.soma.keyed.LongKeyedParticle> materialize();
   public java.util.Map<java.lang.Long, com.example.soma.keyed.LongKeyedParticle> materialize(com.hgtech.soma.runtime.MaterializationBudget);
   public boolean containsKey(long);
+  public int findRowIndex(long);
+  public int rowIndexOf(long);
   public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> find(long);
   public java.util.Optional<com.example.soma.keyed.LongKeyedParticle> find(long, com.hgtech.soma.runtime.MaterializationBudget);
   public com.example.soma.keyed.LongKeyedParticle fetch(long);

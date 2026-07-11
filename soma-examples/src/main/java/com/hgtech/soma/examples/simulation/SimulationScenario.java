@@ -61,8 +61,18 @@ public final class SimulationScenario {
                     .addValues(1000L, 1L, SimEventKind.VALVE_SETPOINT,
                             SimEntityKind.VALVE, 1L, true, 0.75d));
 
-            PendingEventRow due = events.byEventTime().firstOrThrow();
-            require(due.numericPayload != null && due.numericPayload == 0.75d,
+            int[] dueRows = events.byEventTime().limit(1).rowIndexes();
+            require(dueRows.length == 1, "event order requires one due event");
+            DoubleColumnView payloads = events.numericPayloadColumn();
+            double duePayload;
+            try {
+                require(payloads.isPresent(dueRows[0]),
+                        "ordered event preserves optional payload presence");
+                duePayload = payloads.getDouble(dueRows[0]);
+            } finally {
+                payloads.close();
+            }
+            require(duePayload == 0.75d,
                     "ordered event source preserves optional payload presence");
 
             DoubleColumnView values = state.valueColumn();
@@ -73,32 +83,56 @@ public final class SimulationScenario {
                 values.close();
             }
 
-            double coefficient = coefficients.fetch(coefficientKey).coefficient;
+            int coefficientRow = coefficients.rowIndexOf(
+                    coefficientKey.valveId.value, coefficientKey.materialId.value);
+            DoubleColumnView coefficientValues = coefficients.coefficientColumn();
+            double coefficient;
+            try {
+                coefficient = coefficientValues.getDouble(coefficientRow);
+            } finally {
+                coefficientValues.close();
+            }
             UpdateResult stepped = state.update(row -> {
                 if (row.variableKind() == SimVariableKind.LEVEL_LITERS) {
                     row.setDerivative(-4.0d * coefficient);
                     row.setValue(row.value() + row.derivative());
                 } else if (row.variableKind() == SimVariableKind.VALVE_OPENING_RATIO) {
-                    row.setValue(due.numericPayload.doubleValue());
+                    row.setValue(duePayload);
                 }
             });
-            require(stepped.changed() == 2L && state.fetchAt(0).value == 98.0d,
+            DoubleColumnView updatedValues = state.valueColumn();
+            double level;
+            double opening;
+            try {
+                level = updatedValues.getDouble(0);
+                opening = updatedValues.getDouble(2);
+            } finally {
+                updatedValues.close();
+            }
+            require(stepped.changed() == 2L && level == 98.0d,
                     "state-vector update publishes numerical facts without DTO live storage");
             // entity表只在step/export边界同步cache，StateVector仍是数值事实源。
-            tanks.mutate(sourceTank).setLevelLiters(state.fetchAt(0).value)
+            tanks.mutate(sourceTank).setLevelLiters(level)
                     .setLastUpdateMillis(1000L).commit();
-            valves.mutate(new ValveId(1L)).setOpeningRatio(state.fetchAt(2).value).commit();
-            require(tanks.fetch(sourceTank).levelLiters == 98.0d
-                            && valves.fetch(new ValveId(1L)).openingRatio == 0.75d,
-                    "entity boundary caches are synchronized from StateVector");
+            valves.mutate(new ValveId(1L)).setOpeningRatio(opening).commit();
+            DoubleColumnView tankLevels = tanks.levelLitersColumn();
+            DoubleColumnView valveOpenings = valves.openingRatioColumn();
+            try {
+                require(tankLevels.getDouble(tanks.rowIndexOf(sourceTank.value)) == 98.0d
+                                && valveOpenings.getDouble(valves.rowIndexOf(1L)) == 0.75d,
+                        "entity boundary caches are synchronized from StateVector");
+            } finally {
+                valveOpenings.close();
+                tankLevels.close();
+            }
             events.filter(row -> row.eventTimeMillis() <= 1000L).remove();
             require(events.size() == 1, "due event is separately compacted after application");
 
             trace.addBatch(new TraceSampleRowBatch(2)
                     .addValues(1000L, SimEntityKind.TANK, 10L,
-                            SimVariableKind.LEVEL_LITERS, state.fetchAt(0).value)
+                            SimVariableKind.LEVEL_LITERS, level)
                     .addValues(1000L, SimEntityKind.VALVE, 1L,
-                            SimVariableKind.VALVE_OPENING_RATIO, state.fetchAt(2).value));
+                            SimVariableKind.VALVE_OPENING_RATIO, opening));
             List<TraceSampleRow> exported = trace.byTimeEntity().fetchAll();
             require(exported.size() == 2 && exported.get(0).value == 98.0d,
                     "trace is a detached export buffer, not the state fact source");
@@ -106,7 +140,8 @@ public final class SimulationScenario {
                     new ValveId(2L), new MaterialId(9L))));
 
             return new ScenarioResult(exported.size(), state.runtimePlan().schemaHash(),
-                    state.statsSnapshot().lastChanged());
+                    state.statsSnapshot().lastChanged(), 3, 44,
+                    (long) state.capacity() * 44L, 7L, 7L, exported.size());
         } finally {
             trace.release();
             events.release();
@@ -136,10 +171,25 @@ public final class SimulationScenario {
         public final int traceSamples;
         public final String schemaHash;
         public final long changedRows;
-        ScenarioResult(int traceSamples, String schemaHash, long changedRows) {
+        public final int apcRows;
+        public final int hotLeafBytesPerRow;
+        public final long hotLeafWorkingSetBytes;
+        public final long reads;
+        public final long mutations;
+        public final int exports;
+        ScenarioResult(int traceSamples, String schemaHash, long changedRows,
+                       int apcRows, int hotLeafBytesPerRow,
+                       long hotLeafWorkingSetBytes, long reads, long mutations,
+                       int exports) {
             this.traceSamples = traceSamples;
             this.schemaHash = schemaHash;
             this.changedRows = changedRows;
+            this.apcRows = apcRows;
+            this.hotLeafBytesPerRow = hotLeafBytesPerRow;
+            this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;
+            this.reads = reads;
+            this.mutations = mutations;
+            this.exports = exports;
         }
     }
 }
