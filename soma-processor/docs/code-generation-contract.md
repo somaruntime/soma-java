@@ -179,6 +179,8 @@ V1 支持 arbitrary Java lambda 作为 row-level filter/update callback，但不
 
 Row Pipeline source/terminal generation 不得为每个 candidate row 创建 Cursor、Iterator、Optional、boxed row index 或 stage result。Pipeline/callback object 可以在 construction/call boundary 产生；steady-state non-materializing terminal 的 allocation target 是 zero per row。Materializing terminal 的 schema object/List/Map allocation必须继续与 traversal stats 分开。
 
+Flattened Value leaf binding遵守根级 Generated API Owner 的stem算法。Row cursor直接绑定physical leaf column；primitive/enum leaf同时绑定handwritten Column Pipeline/View；完整Value getter是显式detached reconstruction。Value key还生成materialized key与flattened leaf两组`findRowIndex/rowIndexOf` overload，二者必须复用同一canonical hash/full-equality实现，不能构造transient tuple。
+
 ### 6.1 Grouped index/order source
 
 V1 codegen 必须把 normalized selector 转换成稳定的 generated source method。Grouped source 是 generated API convenience，不是新的 schema kind，也不暴露 runtime sidecar。
@@ -260,6 +262,8 @@ Generated names 必须避免冲突：
 - child presence/ensure/replace/unset method name；
 - mutator method name。
 
+Registry还必须覆盖同一compilation中所有generated top-level FQN、schema-level helper FQN、`java.lang.Object` inherited/final method、同generated package的existing source/class以及所有overload的erased signature。Processor必须先为全部schema建立immutable symbol/admission plan和完整source text，校验成功后才开始任何Filer write；generated-generated/generated-existing冲突使用`SOMA-GEN-001`，通过preflight后仍发生的单个source emission失败使用`SOMA-GEN-002`。
+
 命名冲突必须在 processor validation 阶段失败，不能生成不可编译代码。
 
 ## 10. Schema hash and metadata
@@ -276,7 +280,7 @@ Generated output 必须包含：
 - generated package；
 - table metadata。
 
-Phase 1 generated metadata 固定携带：`generatedProtocol=soma-generated-runtime-v1`、`runtimeCompatibility=soma-runtime-java8-v1`、`runtimePlanProtocol=soma-runtime-plan-v1`、`denseAlgorithm=dense-soa-v1`、`allocationEstimator=soma-materialization-estimator-v1` 和 compiler lowering identity `soma-value-javac8-v1`。
+本轮V1 governance后的generated metadata固定携带：`generatedProtocol=soma-generated-runtime-v2`、`runtimeCompatibility=soma-runtime-java8-v2`、`runtimePlanProtocol=soma-runtime-plan-v2`、`denseAlgorithm=dense-soa-v1`、`allocationEstimator=soma-materialization-estimator-v1`和compiler lowering identity`soma-value-javac8-v1`。v2增加Value leaf/row-index协议、callback scope、column construction bridge、resource/key-plan维度；旧generated/runtime组合必须在create时失败，consumer需重新生成并编译。
 
 Schema hash mismatch 必须在 table/create or generated metadata verification 阶段失败，不能延迟到 hot path。
 
@@ -293,6 +297,20 @@ Codegen output 必须可复现：
 - same source + same processor/lowering identity + same supported javac 8 toolchain -> same generated source。
 
 Golden output comparison 可以忽略明确声明的 non-semantic whitespace，但不能忽略 public API shape。
+
+### 11.1 Deterministic codegen admission
+
+V1 processor在任何Filer write前执行以下checked admission；limit本身是compiler resource policy，不进入logical schema hash，但processor identity/evidence必须记录：
+
+- nested Value深度不超过32（root Value计1）；
+- 单table normalized physical storage leaf不超过256；
+- 单schema table不超过256；
+- 单generated Java source UTF-16 length不超过1,048,576；
+- 单schema全部generated Java source UTF-16 length合计不超过33,554,432；
+- `@SomaValue` canonical all-fields constructor连同instance receiver的JVM parameter slots不超过255；
+- direct Batch `addValues`只有连同receiver的slots `<=255` 时生成，等于255合法；更宽table仍使用Writer路径。
+
+超过上述边界以`SOMA-GEN-003`报告dimension、limit和proposed，不回显整个schema/source；limit与limit+1、deep/wide Value、many table/selector、surrogate和slot边界必须有adversarial fixture。该边界不得通过拆成临时public carrier、反射、metadata interpreter或自动截断字段绕过。
 
 ## 12. Golden cases
 

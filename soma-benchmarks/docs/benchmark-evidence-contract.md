@@ -74,6 +74,10 @@ Runtime-state benchmark 继续使用三层证据：
 - hardware cache/branch counters when available；缺失时记录 profiler/tool limitation；
 - status、失败原因和 known limitations。
 
+Cost字段不得使用primitive默认零代表“未观测”。每个allocation/materialization/read/mutation/touched-bytes/working-set事实同时携带observation kind：`measured`、`deterministic-estimate`或`not-observed`。只有当前workload和method足以证明exact zero时才能写数值0；`not-observed`的数值字段必须省略/为JSON null并在known limitation说明。`deterministic-estimate`必须给出versioned estimator和scope，例如只统计runtime-owned schema object/List/Map，不得命名为JVM heap allocation。
+
+Validator必须做跨字段语义校验，而不只做JSON shape：workload执行`fetch/find/firstOrThrow/fetchAll/materialize`时materialization invocation/rows不能声明not-applicable或零；lookup/scan发生时reads和touched bytes不能伪装为零；mutation发生时mutation count不能为零；`allocationExport`必须由actual observation推导。任何矛盾fixture必须fail closed。
+
 以下成本不得隐藏在一个总耗时里：
 
 - `replaceAll(buildXxx())` 背后的 cross-table lookup、builder 构造、column rewrite、sidecar dirty/rebuild；
@@ -147,7 +151,7 @@ benchmark 不可以得出以下结论：
 
 ## 8. Runner artifact 字段
 
-V1 smoke runner exact schema identity是`soma-benchmark-smoke-v2`，checked-in schema位于`META-INF/soma/benchmark-smoke-schema-v2.json`。JSONL一行一个lane record，root禁止unknown field；`workloadId`固定绑定required lane，`workloadEvidence`使用exact nested contract并记录lane-specific proof。独立validator必须重新parse落盘artifact，递归验证root与nested required/type/range/const、required-lane manifest、唯一lane、lane-specific evidence、non-empty maps、non-empty known limitations及`claimAllowed=false`；empty map、wrong workload/proof、zero metric、wrong nested type必须fail closed，不能只验证in-memory builder。
+整改后的V1 smoke runner exact schema identity是`soma-benchmark-smoke-v3`，checked-in schema位于`META-INF/soma/benchmark-smoke-schema-v3.json`。JSONL一行一个lane record，root禁止unknown field；`workloadId`固定绑定required lane，`workloadEvidence`使用exact nested contract并记录lane-specific proof。独立validator必须重新parse落盘artifact，递归验证root与nested required/type/range/const、required-lane manifest、唯一lane、lane-specific evidence、non-empty maps、non-empty known limitations及`claimAllowed=false`；empty map、wrong workload/proof、zero metric、wrong nested type及跨字段语义矛盾必须fail closed，不能只验证in-memory builder。
 
 Runner CLI固定支持`--output`、`--commit`、`--scale`、`--rows`、`--seed`、`--warmup`、`--forks`和`--measurements`；unknown/missing/invalid option fail closed。V1 smoke只允许single process fork，script preset为128 rows、固定seed、1次warmup和2次measurement；这些是可重复smoke配置，不是production性能参数或claim-grade默认值。
 

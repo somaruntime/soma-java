@@ -163,6 +163,10 @@ Generated table 创建 runtime storage 前必须验证：
 
 `com.hgtech.soma.runtime.internal`、test hook、schema-specific package-private storage binding均排除。Manifest check 必须同时证明 generated public signature 不引用 `.runtime.generated` 或 `.runtime.internal`。
 
+Java 8跨package generated construction使用一个明确例外：handwritten public type `com.hgtech.soma.runtime.GeneratedColumnAccess` 是generated-only construction bridge。其public static factory签名只接受`Object`/String/enum member array并返回handwritten Column Pipeline/View；方法内部对`.runtime.generated` binding做exact type validation。所有具体Column Pipeline/View constructor改为package-private，application contract仍只允许经generated `fieldValues()/fieldColumn()`获取实例。该bridge进入handwritten manifest并标记`generated construction protocol`，不是application手工构造入口；schema-specific generated public signature仍不得引用`.runtime.generated`。
+
+本轮新增Value leaf/row-index generated API、callback/resource协议和RuntimePlan canonical dimensions，需要processor/runtime成对升级并重新生成。Identity提升为`soma-generated-runtime-v2`、`soma-runtime-java8-v2`、`soma-runtime-plan-v2`；v1与v2不能静默混用。完整迁移仍在V1内完成，不建立V2产品目标或v0.x替代release。
+
 ## 10. Deprecation and removal
 
 `1.x+` public removal 至少经过：

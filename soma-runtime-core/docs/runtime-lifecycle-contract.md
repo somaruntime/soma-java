@@ -66,6 +66,8 @@ Runtime table 至少维护：
 - released view 和 stale view 是不同错误；
 - destroy/clear 必须避免 use-after-release 语义。
 
+Application callback是同table的独占scoped execution：runtime在调用predicate/comparator/consumer/updater/column/key consumer或Batch Writer前建立callback depth=1，finally清除。Callback只能使用当前传入Cursor/MutableCursor/RowBuilder；同一table的任何外部facade access（包括`size`、key lookup、pipeline创建、view acquire、mutator和structural operation）返回`reentrant_access`，另一table合法。Nested callback不能绕过该scope。SOMA lifecycle error原样传播，普通application exception才映射`callback_failed`。
+
 ### 4.1 Ownership aggregate lifecycle
 
 Child operations 使用以下状态/级联规则：
@@ -79,7 +81,11 @@ Child operations 使用以下状态/级联规则：
 
 Replacement 必须 stage and validate complete new subtree，成功后 atomically switch parent handle，再通过幂等、非分配 cleanup release old subtree。Expected construction/validation failure 保持 old handle/subtree unchanged；不得产生 orphan、dangling handle 或 partial replacement。
 
+Cascade遵守descendants-first two-phase publish：先用ownership registry持有的reusable primitive scratch收集affected slot/token并完成全部descendant release；只有全部成功后才清除parent handle、把registry slot发布为released/free并提交parent structural state。Expected failure不得把slot提前置为terminal；caller修复外部受控failure后可重试。Steady-state cascade不得按row×child field创建`long[]`/List/object scratch；scratch增长受owning table `maximumBulkScratchBytes`和aggregate storage admission约束。
+
 Delete/clear/unset/replacement 必须检查整个 affected subtree 的 active ColumnView/pinned borrow。任意 descendant pinned 时，在 visible state 改变前返回 `view_pinned`。Final aggregate `release()` 是 terminal lifecycle operation，可以把 existing child facade/view 统一置为 released；后续读取返回 released error，而不是继续访问 detached storage。
+
+Final root/owned release必须把所有current retained runtime storage归零：column/presence arrays、KeySpace buckets/domain/dense map、selector/update/operation/cascade scratch和ownership registry arrays都release或替换为空数组，并向aggregate storage budget归还quota。`TableStats.capacity()`及各current-bytes在released snapshot中为0，high-water/cumulative counters保留。旧ColumnView即使仍被application引用，也只能观察`table_released/child_released`，不能借由column对象继续保留原大数组。Release不承诺JVM立即GC，但runtime自身不再强持有上述storage。
 
 ## 5. Mutation 分类
 

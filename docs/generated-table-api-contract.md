@@ -195,7 +195,7 @@ ColumnView 的 exact scalar shape 是 `public final class com.hgtech.soma.runtim
 
 其他 primitive type使用相同模式（`getBoolean`、`getByte`、`getShort`、`getInt`、`getLong`、`getDouble`）。`isPresent` 先完成 view closed/table released/epoch/row-index validation；只有合法 live row 的 required column 才返回 `true`。optional absent 的 `getXxx` 返回 `optional_absent`，不返回 payload/zero。构造只由 generated facade 执行；用户只经 `fieldColumn()` acquire。close 幂等；close 后 access 是 `released_view`，final table release 后仍未 close 的 view access 是 `table_released`，captured epoch与 store epoch不同时是 `stale_view`。该 API 从首个 dense facade 固化，keyed/child/access breadth 只可 additive binding，不能迁移既有类型或方法名。
 
-Direct all-field `addValues(fieldValues...)` 按 normalized field order展开 required primitive和每个 optional `(boolean present, primitive payload)`；只有其 JVM parameter slot count连同 instance receiver不超过 255 时才生成。更宽 schema仍拥有最终 `Writer/RowBuilder` primitive入口，不生成不可加载方法，也不退化为 DTO/List storage。`present=false` 时 payload不验证并 canonicalize为 primitive zero；它不是 logical value。
+Direct all-field `addValues(fieldValues...)` 按 normalized field order展开 required primitive和每个 optional `(boolean present, primitive payload)`；只有其 JVM parameter slot count连同 instance receiver不超过 255 时才生成。更宽 schema仍拥有最终 `Writer/RowBuilder` primitive入口，不生成不可加载方法，也不退化为 DTO/List storage。`present=false` 时 payload不验证并 canonicalize为 primitive zero；它不是 logical value。Flattened Value leaf API：`@SomaValue` table field仍递归flatten；完整`field()`/`setField(Value)`保留为显式materialization。每个leaf stem固定为`outerField + Cap(nestedField)... + Value`，如`candidateKeyOperationKeyJobIdValue`；`XxxRow.stem()`直接读primitive/enum/String packed leaf，required non-key Value生成`XxxMutableRow.setStem`，optional Value仅在staged present时允许leaf setter，key leaf无setter；primitive/enum leaf生成`stemValues()/stemColumn()`并共享outer presence。所有派生名进入全compilation symbol registry，冲突以`SOMA-GEN-001`阻止emission；golden必须证明leaf hot path无Value constructor、boxing、reflection或metadata interpretation，完整Value getter的对象成本则进入stats/benchmark。
 
 ## 3. API 层级
 
@@ -232,12 +232,12 @@ operations.delete(key);
 
 - `find(key)` 返回 `Optional<R>`，missing 时为空；
 - `fetch(key)` 返回 detached `R`，missing 时抛 typed `missing_key`；
-- `containsKey(key)` 是 canonical existence API；
+- `containsKey(key)` 是 canonical existence API；`findRowIndex(key)` 返回当前 packed row index，missing 返回 `-1`；`rowIndexOf(key)` missing 时抛 `missing_key`；两者均不 materialize carrier；
 - `mutate(key)` 精确修改非 key fields；
 - `delete(key)` 是 structural mutation；
 - 修改 identity 只能 delete + insert。
 
-Generated direct parameter 使用 `@SomaKey` 的 materialized key type；primitive scalar 保持 primitive parameter，enum 保持其 exact enum type，value key 保持对应 immutable `@SomaValue`。当前 primitive/enum key binding 的 exact public shape 是 `boolean containsKey(K)`、`Optional<R> find(K)`、`R fetch(K)`、`XxxMutator mutate(K)`、`void delete(K)` 和 `XxxKeys keys()`，其中已落地的 `K` 为全部 seven primitive 和 required enum；后续 value/composite breadth 只能按同一规则 additive binding，不能把已生成的 primitive direct API 迁移为 boxed/tuple lookup。
+Generated direct parameter 使用 `@SomaKey` 的 materialized key type；primitive scalar 保持 primitive parameter，enum 保持其 exact enum type，value key 保持对应 immutable `@SomaValue`。当前 primitive/enum key binding 的 exact public shape 是 `boolean containsKey(K)`、`Optional<R> find(K)`、`R fetch(K)`、`XxxMutator mutate(K)`、`void delete(K)` 和 `XxxKeys keys()`，其中已落地的 `K` 为全部 seven primitive 和 required enum；后续 value/composite breadth 只能按同一规则 additive binding，不能把已生成的 primitive direct API 迁移为 boxed/tuple lookup。`findRowIndex/rowIndexOf` 同时提供 materialized key overload；Value key还按normalized flattened leaf order生成exact primitive/enum/String overload，以同一required/null、floating strict、hash/full-equality规则完成无carrier lookup。其index是structural-epoch-sensitive packed location，只能在无structural mutation窗口配合ColumnView使用，不能保存为业务identity。
 
 ### 4.2 Dense table
 
@@ -266,7 +266,7 @@ Batch 是 detached columnar construction buffer，不是 schema-object list：
 - `add(row)` 把 carrier 当前 field value（包括 primitive zero）视为显式输入；required reference/value null一律 `invalid_null_value`。Direct all-field `addValues(...)` 的参数全部显式。只有 `addValues(Writer)` 的 RowBuilder assignment state能表达 missing；callback结束时未赋 required field且无 default返回 `missing_required_field`，显式 null setter仍返回 `invalid_null_value`；绝不从 carrier zero/null猜测“用户忘记赋值”。Required `@SomaValue` field只有在全部递归leaf均有schema default时，RowBuilder missing assignment才静态构造完整canonical value；partial leaf-default coverage不能产生partial value或临时builder语义；
 - Batch 在 `addBatch` / `replaceAll` 后不 consumed，table 复制调用开始时的 Batch facts；Batch 可继续修改、`clear()` 和复用，且不与 table 共享 live arrays；
 - empty `addBatch` 是 no-op；`replaceAll(empty)` 产生合法 empty table，并只在 visible facts 实际改变时提升 structural epoch；
-- Batch validation/growth failure 保持 Batch 原 size/facts；table import failure 保持 table 原 facts；
+- Batch validation/growth failure 保持 Batch 原 size/facts；table import failure 保持 table 原 facts；Batch append失败可以保留已经成功发布的capacity增长，但`[size, capacity)`中本次失败写入的reference、Value/String或child payload必须在传播失败前清零，logical size/presence/facts不变且不能形成隐性对象保留；
 - `Writer`/RowBuilder callback failure包装为 `callback_failed` 且 Batch不变；RowBuilder只对一次 callback有效，为保证 escaped builder不在后续 append中重新变成有效，每次 Writer invocation使用独立 callback-scoped builder。该 allocation属于显式 Batch construction lane；常见合法宽度使用 direct all-field overload避免该 wrapper；
 - Batch 不持有 Table、RuntimePlan、ColumnView、Cursor 或 child handle。
 
@@ -466,9 +466,8 @@ Parent `Batch.add(R)` 在调用期间把carrier的List/Map递归snapshot为gener
 - released table、escaped/stale cursor、consumed pipeline、active view conflict 必须返回 typed error；
 - callback 和 pipeline 不得跨线程使用。
 
-`mutateAt`/keyed `mutate` 返回 one-shot Mutator。Mutator 捕获 structural epoch；`commit()` 后再次 set/clear/commit 返回 `mutation_consumed`，commit 前发生 structural change 返回 `stale_mutator`。Setter 只写 staged values，`commit()` 成功时一次 publish；callback/pipeline mutable cursor 采用同一 staging原则。
-
-Application callback 抛出异常时，non-mutating terminal 不修改 table；mutating terminal 必须保持 visible failure atomicity，并按 runtime error contract 保留 cause。实现如果无法满足，不能以“callback 是用户代码”为由发布 partial mutation 语义。
+`mutateAt`/keyed `mutate` 返回 one-shot Mutator。Mutator 捕获 structural epoch；`commit()` 后再次 set/clear/commit 返回 `mutation_consumed`，commit 前发生 structural change 返回 `stale_mutator`。Setter 只写 staged values，`commit()` 成功时一次 publish；callback/pipeline mutable cursor 采用同一 staging原则。Mutator为每个非key field维护touched state；commit只校验/发布显式set/clear字段，未触及字段使用live current facts且不回写旧snapshot；同epoch不同字段的overlap提交不得互相撤销，同字段按single-owner commit顺序最后成功提交生效。
+Application callback抛出异常时，non-mutating terminal不修改table；mutating terminal保持visible failure atomicity并保留cause。Predicate/comparator/consumer/updater、Column/Key consumer和Batch Writer期间owning table进入callback scope；callback只使用传入cursor/builder，同table任何外部facade读写返回`reentrant_access`，另一table合法；已有`SomaRuntimeException`原样传播，普通application `RuntimeException`才包装`callback_failed`。
 
 ## 15. 性能语义边界
 

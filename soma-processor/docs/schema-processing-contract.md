@@ -126,12 +126,15 @@ Canonical form：
 - 不输出 null 字段；
 - 缺省语义必须归一化为显式字段。
 
+Canonical JSON必须对 Java UTF-16 input lossless且无替换字符歧义：控制字符、引号和反斜杠按 JSON转义；任一 surrogate code unit统一输出为大写四位 `\uXXXX`。合法 supplementary code point因此输出一对 surrogate escape；孤立 high/low surrogate也保持其 exact code unit，不得在 UTF-8编码时退化为 replacement character。相同 canonical text才允许产生相同 hash。
+
 V1 canonical declaration graph 的稳定顺序与引用规则：
 
 - schema root object 同时记录 source `schemaPackage`；schema resource 使用 `META-INF/soma/<schemaPackage>.schema.json` 与 `.schema.sha256`，从而 schema logical name/version/generated package 的 incremental 修改覆盖同一 package-owned artifact；
 - enum/value declaration array 按 fully-qualified Java type 排序；value field 和 enum member 保留 source declaration order；
 - enum entry 必须记录 fully-qualified Java type、logical simple name 和完整 member order，不能只记录 enum FQN；
 - nested value field 使用 `value:<fully-qualified-type>` 引用 canonical value declaration；processor 在输出前解析同 schema declaration graph、拒绝 unresolved reference/cycle，因此完整 leaf expansion 可由 ordered graph 唯一递归导出，不在 JSON 中重复一份可能漂移的 leaf list；
+- V1 Value closure是schema-local：table field、key、selector path和nested Value引用的每个 `@SomaValue` 都必须属于owning `@SomaSchema` 的package/compilation graph，并进入该schema `values` closure；跨schema引用使用 `SOMA-VALUE-008` 在hash/codegen前拒绝，不能从全局processor round临时借用另一个schema的Value定义；
 - 已被当前 implementation 接受的 declaration，其 canonical JSON/hash 即进入 non-regression golden；后续 Phase 只能添加此前被 fail-closed 拒绝的 V1 breadth，不能让相同 source/toolchain 的既有 canonical JSON/hash 因内部重构而变化；
 - 尚未完整 normalization 的合法 V1 declaration 可以在 capability `in-progress` 时以稳定 diagnostic 拒绝，但不得生成缺失 enum member、value graph、role、selector 或其他 hash fact 的 partial resource。
 
@@ -147,6 +150,8 @@ V1 canonical declaration graph 的稳定顺序与引用规则：
 - effective table logical name 在同一 schema 唯一；source Java field name和 effective logical field name 在单 table 内各自唯一；
 - `defaultCapacity`、growth、stats、budget、algorithm 和其他 runtime-plan hint 完全排除在 canonical table/schema JSON 之外；它们只进入 generated default plan 与 runtime plan hash；
 - 相同 source/toolchain 的既有 value-only schema JSON保持 byte-identical；首次接受 table source 后，其 exact table JSON/hash进入 non-regression golden。
+
+Value-typed table field外层 `@SomaField.semantic` 只允许 `NONE`，semantic只能声明在实际scalar leaf上；否则未进入leaf/hash的outer semantic以 `SOMA-TABLE-005` 拒绝。Default literal最长为4096个Java UTF-16 code unit；超过上限只报告type/path/length，不回显完整literal。float/double finite default只接受无前后空白的十进制Java数值子集（可含sign、小数点、十进制exponent）；`NaN`、`Infinity`、`-Infinity` 只按exact token处理，hex、type suffix和whitespace不属于V1 annotation default grammar。
 
 Generated code、runtime metadata、testkit 和 reports 必须引用同一个 schema hash。
 
@@ -278,6 +283,7 @@ Table/codegen family additive 分配：
 | `SOMA-TABLE-011` | direct/indirect child ownership cycle |
 | `SOMA-GEN-001` | generated public name/signature collision |
 | `SOMA-GEN-002` | deterministic generated source emission failed |
+| `SOMA-GEN-003` | deterministic generated resource/admission limit exceeded |
 
 ## 8. 与 code generation 的边界
 

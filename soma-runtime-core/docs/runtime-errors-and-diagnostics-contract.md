@@ -65,6 +65,7 @@ V1 code namespace 至少包含：
 | `missing_required_field` | invalid_input | table、field/path、operation |
 | `invalid_null_value` | invalid_input | table、field/path、operation |
 | `invalid_floating_access_value` | invalid_input | field/selector leaf、value class |
+| `invalid_key_domain` | invalid_input | table/key field、strategy、configured domain，不渲染raw key payload |
 | `invalid_selector` | invalid_input | table、selector/path |
 | `field_not_found` | invalid_input | table、field/path |
 | `dtype_mismatch` | invalid_input | path、expected、actual |
