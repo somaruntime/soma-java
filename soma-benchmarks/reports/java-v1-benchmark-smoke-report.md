@@ -6,7 +6,7 @@
 Capability：`V1-SCENARIO-BENCHMARK`
 Runner artifact：`soma-java-benchmark-runner-v2`
 JSONL schema：`soma-benchmark-smoke-v2`
-验证基线 commit：`a991a5121e0106b448628b51e0402b365cfa86f6` + 本报告所列 benchmark worktree checksums
+implementation commit：`2597c81895ea024867b2c8bb2eafab175e6cea5c`
 
 本报告只证明 G5 §9 的 benchmark runner、20 条最小 integrated smoke workload、结构化 JSONL 与 strict validator 在记录环境通过。所有 record 固定 `level=smoke`、`claimAllowed=false`；不支持 throughput、latency、memory 或相对性能优势声明。
 

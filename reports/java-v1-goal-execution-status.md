@@ -1,10 +1,10 @@
 # Java-only SOMA V1 Goal execution status
 
-状态：blocked（G6真实发布事实与当前平台Git写授权阻塞；不能完成 Goal）
+状态：blocked（G6真实发布事实不足；不能完成 Goal）
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前已提交 baseline：`a991a51`；Phase 6实现已暂存，但本地commit因Codex平台Git写授权额度阻塞
+当前实现 baseline：`2597c81 feat: complete phase 6 functional rc`
 
 本文件是中断恢复和进度审计入口，不是设计事实源。正式语义仍由 `docs/README.md` 及各模块 Owner 文档拥有。
 

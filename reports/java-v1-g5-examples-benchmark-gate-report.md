@@ -27,7 +27,7 @@ Benchmark exact manifest 为 G5 §9 的 20 条 minimum integrated workload。每
 
 ## 3. Validation record
 
-验证对象：已提交baseline `a991a51` + 已暂存Phase 6 implementation worktree；当前Codex平台Git写授权额度阻止本地commit，因此报告绑定artifact/checksum，后续commit不得改变已验证内容。输入artifact为四个formal schema、正式Owner和20-lane manifest；输出artifact为generated examples JAR/classes、scenario transcript与benchmark JSONL/schema/checksum。
+验证对象：Phase 6 implementation commit `2597c81895ea024867b2c8bb2eafab175e6cea5c`。输入artifact为四个formal schema、正式Owner和20-lane manifest；输出artifact为generated examples JAR/classes、scenario transcript与benchmark JSONL/schema/checksum。
 
 命令：
 

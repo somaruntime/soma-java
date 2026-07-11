@@ -11,7 +11,7 @@ Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（G6未通过�
 
 ## 1. 验证对象与artifact
 
-- repository父基线：`a991a51 reports: close phase 5 gates`；examples实现当前已暂存并等待本地Phase 6提交；
+- implementation commit：`2597c81895ea024867b2c8bb2eafab175e6cea5c feat: complete phase 6 functional rc`；
 - artifact：`com.hgtech.soma:soma-examples:0.1.0-SNAPSHOT`；
 - 最终Zulu全量artifact SHA-256：`4e93860210d7614780f311b14be7293547ad954ba8eb2cd1024cd0c5efe63334`；该checksum只绑定本次SNAPSHOT validation artifact，不是G6 immutable release provenance；
 - 可重放入口：`scripts/check-examples-phase6.sh`；
