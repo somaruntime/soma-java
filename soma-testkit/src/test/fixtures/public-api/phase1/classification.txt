@@ -30,6 +30,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeFailures
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ShortColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.SparseIntKeySpace
 PUBLIC handwritten com.hgtech.soma.annotation.SomaChild
+PUBLIC handwritten com.hgtech.soma.annotation.SomaDefault
 PUBLIC handwritten com.hgtech.soma.annotation.SomaDirection
 PUBLIC handwritten com.hgtech.soma.annotation.SomaField
 PUBLIC handwritten com.hgtech.soma.annotation.SomaIgnore

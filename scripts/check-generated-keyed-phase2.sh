@@ -234,9 +234,10 @@ if ! grep -q 'HashIntKeySpace keySpace' "$table_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: primitive keyspace binding missing' >&2
   exit 1
 fi
-if ! grep -F 'HashIntKeySpace staged=stageAppendKeys(batch);int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;' "$table_source" >/dev/null \
-  || ! grep -F 'HashCompositeKeySpace staged=stageAppendKeys(batch);int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;' "$composite_table_source" >/dev/null \
-  || ! grep -F 'HashCompositeKeySpace staged=stageReplacementKeys(batch);int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);' "$composite_table_source" >/dev/null; then
+metric_carry='staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());'
+if ! grep -F "HashIntKeySpace staged=stageAppendKeys(batch);${metric_carry}int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;" "$table_source" >/dev/null \
+  || ! grep -F "HashCompositeKeySpace staged=stageAppendKeys(batch);${metric_carry}int start=state.prepareAppend(count);copyBatch(batch,0,start,count);state.commitAppend(start,count);keySpace=staged;" "$composite_table_source" >/dev/null \
+  || ! grep -F "HashCompositeKeySpace staged=stageReplacementKeys(batch);${metric_carry}int count=batch.size();int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);" "$composite_table_source" >/dev/null; then
   printf '%s\n' 'generated-keyed-phase2-check: keyspace must be fully staged before live column publication' >&2
   exit 1
 fi

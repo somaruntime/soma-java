@@ -209,7 +209,8 @@ Grouped source 必须由 processor golden 覆盖至少以下形状：
 
 Processor 根据 normalized field role 为 key/index/unique/order 中的 floating leaf 生成统一 validation/canonicalization binding：
 
-- schema default 编译期拒绝 NaN/infinity，negative zero normalized 为 positive zero；
+- strict schema default 编译期拒绝 NaN/infinity，negative zero normalized 为 positive zero；
+- selector穿过`@SomaValue`时，对应value leaf default同样按outer strict path在processor阶段拒绝non-finite；全递归leaf default覆盖的required value由RowBuilder直接生成canonical constructor expression，partial coverage不生成临时partial value；
 - Batch/import 和 Mutator 写入前检查 finite/canonical zero；
 - key lookup 与 generated index/unique/order source 参数使用同一 canonicalization；
 - equality/hash/index matching/order comparator 绑定同一 canonical value；

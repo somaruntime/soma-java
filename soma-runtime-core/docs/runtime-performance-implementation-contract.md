@@ -152,6 +152,8 @@ AccessPath
 - rehash/growth 必须在 visible mutation 前完成或具备 rollback-safe staging；
 - collision count、probe count、rehash count/capacity 必须在低干扰 stats 或 diagnostic mode 可观察。
 
+V1 concrete hash implementations在rehash时必须先用local primitive arrays完成全部live identity重插与计数校验，再一次发布arrays、used与metrics；allocation、重插、counter overflow或identity校验失败均保留旧映射。`capacity`是当前bucket array长度，`used`是LIVE+DELETED bucket数，probe/collision/rehash是since-reset checked counters；generated append/replace采用staged KeySpace时先通过checked `addMetrics(...)`继承旧instance累计，再与新staging工作量一起发布；`resetMetrics()`只清零这三项累计，不改变locator、tombstone或capacity。
+
 Primitive key path 不得以 `HashMap<Key, Integer>` 作为 canonical runtime implementation。String/object selector path 可以保留 reference，但必须有单独 memory/indirection evidence。
 
 ## 8. Secondary index and order sidecar

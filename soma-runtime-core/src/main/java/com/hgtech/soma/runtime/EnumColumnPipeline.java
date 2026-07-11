@@ -34,12 +34,28 @@ public final class EnumColumnPipeline<E extends Enum<E>> extends AbstractColumnP
         long matched = 0L;
         begin();
         try {
-            for (int row = 0, limit = size(); row < limit; row++) {
-                scanned++;
-                if (visit(row)) {
+            int limit = size();
+            int lane = traversalLane(limit);
+            if (lane == TRAVERSE_ALL) {
+                for (int row = 0; row < limit; row++) {
+                    scanned++;
                     matched++;
                     consumer.accept(members[column.get(row)]);
                 }
+            } else if (lane == TRAVERSE_MIXED) {
+                for (int word = 0, count = presenceWordCount(limit); word < count; word++) {
+                    long bits = presenceWord(word, limit);
+                    while (bits != 0L) {
+                        int row = (word << 6) + Long.numberOfTrailingZeros(bits);
+                        scanned = row + 1L;
+                        matched++;
+                        consumer.accept(members[column.get(row)]);
+                        bits &= bits - 1L;
+                    }
+                }
+                scanned = limit;
+            } else {
+                scanned = limit;
             }
             success(scanned, matched);
         } catch (SomaRuntimeException failure) {

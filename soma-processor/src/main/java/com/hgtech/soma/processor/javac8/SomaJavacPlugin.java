@@ -43,6 +43,9 @@ public final class SomaJavacPlugin implements Plugin {
     private static final String SOMA_VALUE = "com.hgtech.soma.annotation.SomaValue";
     private static final String SOMA_FIELD = "com.hgtech.soma.annotation.SomaField";
     private static final String SOMA_IGNORE = "com.hgtech.soma.annotation.SomaIgnore";
+    private static final String SOMA_KEY = "com.hgtech.soma.annotation.SomaKey";
+    private static final String SOMA_CHILD = "com.hgtech.soma.annotation.SomaChild";
+    private static final String SOMA_OPTIONAL = "com.hgtech.soma.annotation.SomaOptional";
 
     @Override
     public String getName() {
@@ -185,6 +188,13 @@ public final class SomaJavacPlugin implements Plugin {
             for (JCTree definition : classDecl.defs) {
                 if (definition instanceof JCVariableDecl) {
                     JCVariableDecl field = (JCVariableDecl) definition;
+                    String forbiddenModifier = forbiddenValueModifier(
+                            unit, field.mods.annotations);
+                    if (forbiddenModifier != null) {
+                        fail(field.pos, "SOMA-VALUE-003",
+                                "@SomaValue field cannot declare " + forbiddenModifier);
+                        valid = false;
+                    }
                     if ((field.mods.flags & Flags.STATIC) != 0L) {
                         continue;
                     }
@@ -249,6 +259,20 @@ public final class SomaJavacPlugin implements Plugin {
             generated.append(makeHashCode(classDecl, fieldList));
             generated.append(makeToString(classDecl, fieldList));
             classDecl.defs = classDecl.defs.appendList(generated.toList());
+        }
+
+        private String forbiddenValueModifier(
+                JCCompilationUnit unit, List<JCAnnotation> annotations) {
+            if (hasAnnotation(unit, annotations, SOMA_KEY)) {
+                return "@SomaKey";
+            }
+            if (hasAnnotation(unit, annotations, SOMA_CHILD)) {
+                return "@SomaChild";
+            }
+            if (hasAnnotation(unit, annotations, SOMA_OPTIONAL)) {
+                return "@SomaOptional";
+            }
+            return null;
         }
 
         private boolean conflictsWithGeneratedMember(JCMethodDecl method, List<JCVariableDecl> fields) {

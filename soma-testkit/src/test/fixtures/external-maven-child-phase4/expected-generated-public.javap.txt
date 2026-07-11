@@ -59,6 +59,7 @@ public final class com.example.soma.child.generated.ChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.child.generated.ChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.ChildRowBatch);
   public void clear();
@@ -109,8 +110,11 @@ Compiled from "DoubleKeyedChildRowKeys.java"
 public final class com.example.soma.child.generated.DoubleKeyedChildRowKeys {
   public void forEach(java.util.function.Consumer<java.lang.Double>);
   public java.util.List<java.lang.Double> fetchAll();
+  public java.util.List<java.lang.Double> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Optional<java.lang.Double> findFirst();
+  public java.util.Optional<java.lang.Double> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public java.lang.Double firstOrThrow();
+  public java.lang.Double firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
 }
 ## DoubleKeyedChildRowMutableRow
 Compiled from "DoubleKeyedChildRowMutableRow.java"
@@ -161,6 +165,7 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.child.generated.DoubleKeyedChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.DoubleKeyedChildRowBatch);
   public void clear();
@@ -221,8 +226,11 @@ Compiled from "FloatKeyedChildRowKeys.java"
 public final class com.example.soma.child.generated.FloatKeyedChildRowKeys {
   public void forEach(java.util.function.Consumer<java.lang.Float>);
   public java.util.List<java.lang.Float> fetchAll();
+  public java.util.List<java.lang.Float> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Optional<java.lang.Float> findFirst();
+  public java.util.Optional<java.lang.Float> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public java.lang.Float firstOrThrow();
+  public java.lang.Float firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
 }
 ## FloatKeyedChildRowMutableRow
 Compiled from "FloatKeyedChildRowMutableRow.java"
@@ -273,6 +281,7 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.child.generated.FloatKeyedChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.FloatKeyedChildRowBatch);
   public void clear();
@@ -376,6 +385,7 @@ public final class com.example.soma.child.generated.FloatingParentRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.child.generated.FloatingParentRowBatch);
   public void replaceAll(com.example.soma.child.generated.FloatingParentRowBatch);
   public void clear();
@@ -473,6 +483,7 @@ public final class com.example.soma.child.generated.GrandchildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.child.generated.GrandchildRowBatch);
   public void replaceAll(com.example.soma.child.generated.GrandchildRowBatch);
   public void clear();
@@ -523,8 +534,11 @@ Compiled from "KeyedChildRowKeys.java"
 public final class com.example.soma.child.generated.KeyedChildRowKeys {
   public void forEach(java.util.function.Consumer<java.lang.Integer>);
   public java.util.List<java.lang.Integer> fetchAll();
+  public java.util.List<java.lang.Integer> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Optional<java.lang.Integer> findFirst();
+  public java.util.Optional<java.lang.Integer> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
   public java.lang.Integer firstOrThrow();
+  public java.lang.Integer firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
 }
 ## KeyedChildRowMutableRow
 Compiled from "KeyedChildRowMutableRow.java"
@@ -575,6 +589,7 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.child.generated.KeyedChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.KeyedChildRowBatch);
   public void clear();
@@ -680,6 +695,7 @@ public final class com.example.soma.child.generated.ParentRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.child.generated.ParentRowBatch);
   public void replaceAll(com.example.soma.child.generated.ParentRowBatch);
   public void clear();

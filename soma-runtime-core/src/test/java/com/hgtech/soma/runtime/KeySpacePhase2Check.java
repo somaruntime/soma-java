@@ -21,11 +21,16 @@ public final class KeySpacePhase2Check {
         testHashIntRandomized();
         testHashLongRandomized();
         testHashCompositeProbeRandomized();
+        testRehashAfterDeletedSlots();
+        testCapacityOverflowGuards();
         System.out.println("keyspace-phase2-test: ok");
     }
 
     private static void testSparseIntPackedSlots() {
         SparseIntKeySpace keys = new SparseIntKeySpace(127);
+        assertEquals(127, keys.maximumKey(), "sparse maximum key");
+        assertEquals(128, keys.sparseCapacity(), "sparse domain capacity");
+        assertEquals(0, keys.denseCapacity(), "sparse initial dense capacity");
         List<Integer> oracle = new ArrayList<Integer>();
         for (int key = 0; key < 96; key += 3) {
             keys.put(key, oracle.size());
@@ -42,6 +47,9 @@ public final class KeySpacePhase2Check {
         }
         assertEquals(-1, keys.rowOf(-1), "negative sparse missing");
         assertEquals(-1, keys.rowOf(128), "overflow sparse missing");
+        if (keys.denseCapacity() < keys.size()) {
+            throw new AssertionError("sparse dense capacity is below live size");
+        }
     }
 
     private static void testHashIntRandomized() {
@@ -145,6 +153,163 @@ public final class KeySpacePhase2Check {
         }
     }
 
+    private static void testRehashAfterDeletedSlots() {
+        HashIntKeySpace intKeys = new HashIntKeySpace(0);
+        HashLongKeySpace longKeys = new HashLongKeySpace(0);
+        for (int key = 0; key < 256; key++) {
+            intKeys.put(key, key + 1000);
+            longKeys.put(((long) key << 32) | (long) key, key + 2000);
+        }
+        for (int key = 0; key < 256; key += 2) {
+            intKeys.remove(key);
+            longKeys.remove(((long) key << 32) | (long) key);
+        }
+        assertEquals(128, intKeys.size(), "int live buckets after delete");
+        assertEquals(256, intKeys.used(), "int used retains tombstones");
+        assertEquals(128, longKeys.size(), "long live buckets after delete");
+        assertEquals(256, longKeys.used(), "long used retains tombstones");
+        for (int key = 256; key < 768; key++) {
+            intKeys.put(key, key + 1000);
+            longKeys.put(((long) key << 32) | (long) key, key + 2000);
+        }
+        assertEquals(640, intKeys.size(), "int rehash removes deleted slots");
+        assertEquals(640, longKeys.size(), "long rehash removes deleted slots");
+        for (int key = 1; key < 256; key += 2) {
+            assertEquals(key + 1000, intKeys.rowOf(key), "int rehash preserves old live key");
+            assertEquals(key + 2000,
+                    longKeys.rowOf(((long) key << 32) | (long) key),
+                    "long rehash preserves old live key");
+        }
+        for (int key = 256; key < 768; key++) {
+            assertEquals(key + 1000, intKeys.rowOf(key), "int rehash preserves new key");
+            assertEquals(key + 2000,
+                    longKeys.rowOf(((long) key << 32) | (long) key),
+                    "long rehash preserves new key");
+        }
+        assertHashMetrics(intKeys.capacity(), intKeys.probeCount(),
+                intKeys.collisionCount(), intKeys.rehashCount(), "int");
+        assertHashMetrics(longKeys.capacity(), longKeys.probeCount(),
+                longKeys.collisionCount(), longKeys.rehashCount(), "long");
+        int intCapacity = intKeys.capacity();
+        int longCapacity = longKeys.capacity();
+        intKeys.resetMetrics();
+        longKeys.resetMetrics();
+        assertEquals(0L, intKeys.probeCount(), "int probe reset");
+        assertEquals(0L, intKeys.collisionCount(), "int collision reset");
+        assertEquals(0L, intKeys.rehashCount(), "int rehash reset");
+        assertEquals(intCapacity, intKeys.capacity(), "int reset preserves capacity");
+        assertEquals(0L, longKeys.probeCount(), "long probe reset");
+        assertEquals(0L, longKeys.collisionCount(), "long collision reset");
+        assertEquals(0L, longKeys.rehashCount(), "long rehash reset");
+        assertEquals(longCapacity, longKeys.capacity(), "long reset preserves capacity");
+        intKeys.addMetrics(3L, 2L, 1L);
+        assertEquals(3L, intKeys.probeCount(), "int carried probes");
+        assertEquals(2L, intKeys.collisionCount(), "int carried collisions");
+        assertEquals(1L, intKeys.rehashCount(), "int carried rehashes");
+        assertIllegalArgument(new Runnable() {
+            @Override public void run() { intKeys.addMetrics(1L, 2L, 0L); }
+        }, "invalid carried metrics");
+        assertEquals(3L, intKeys.probeCount(), "invalid metric carry is atomic");
+        intKeys.resetMetrics();
+
+        HashCompositeKeySpace compositeKeys = new HashCompositeKeySpace(0);
+        Map<Integer, Long> compositeHashes = new HashMap<Integer, Long>();
+        for (int row = 0; row < 256; row++) {
+            long hash = (long) (row & 7);
+            compositeKeys.ensureInsertCapacity();
+            int slot = hashOnlyInsertionSlot(compositeKeys, hash);
+            compositeKeys.putAt(slot, hash, row);
+            compositeHashes.put(Integer.valueOf(row), Long.valueOf(hash));
+        }
+        for (int row = 0; row < 256; row += 2) {
+            int slot = findHashAndRowSlot(compositeKeys,
+                    compositeHashes.get(Integer.valueOf(row)).longValue(), row);
+            compositeKeys.removeAt(slot);
+            compositeHashes.remove(Integer.valueOf(row));
+        }
+        assertEquals(128, compositeKeys.size(), "composite live buckets after delete");
+        assertEquals(256, compositeKeys.used(), "composite used retains tombstones");
+        for (int row = 256; row < 768; row++) {
+            long hash = (long) (row & 7);
+            compositeKeys.ensureInsertCapacity();
+            int slot = hashOnlyInsertionSlot(compositeKeys, hash);
+            compositeKeys.putAt(slot, hash, row);
+            compositeHashes.put(Integer.valueOf(row), Long.valueOf(hash));
+        }
+        assertEquals(640, compositeKeys.size(), "composite rehash removes deleted slots");
+        for (Map.Entry<Integer, Long> entry : compositeHashes.entrySet()) {
+            int slot = findHashAndRowSlot(compositeKeys,
+                    entry.getValue().longValue(), entry.getKey().intValue());
+            if (slot < 0) {
+                throw new AssertionError("composite rehash lost row " + entry.getKey());
+            }
+        }
+        assertHashMetrics(compositeKeys.capacity(), compositeKeys.probeCount(),
+                compositeKeys.collisionCount(), compositeKeys.rehashCount(), "composite");
+        int compositeCapacity = compositeKeys.capacity();
+        compositeKeys.resetMetrics();
+        assertEquals(0L, compositeKeys.probeCount(), "composite probe reset");
+        assertEquals(0L, compositeKeys.collisionCount(), "composite collision reset");
+        assertEquals(0L, compositeKeys.rehashCount(), "composite rehash reset");
+        assertEquals(compositeCapacity, compositeKeys.capacity(),
+                "composite reset preserves capacity");
+    }
+
+    private static void testCapacityOverflowGuards() {
+        final int impossibleExpectedSize = (1 << 29) + 1;
+        assertIllegalArgument(new Runnable() {
+            @Override public void run() {
+                new HashIntKeySpace(impossibleExpectedSize);
+            }
+        }, "int expected size overflow");
+        assertIllegalArgument(new Runnable() {
+            @Override public void run() {
+                new HashLongKeySpace(impossibleExpectedSize);
+            }
+        }, "long expected size overflow");
+        assertIllegalArgument(new Runnable() {
+            @Override public void run() {
+                new HashCompositeKeySpace(impossibleExpectedSize);
+            }
+        }, "composite expected size overflow");
+        assertIllegalArgument(new Runnable() {
+            @Override public void run() {
+                HashCompositeKeySpace.estimatedPeakBytes(impossibleExpectedSize);
+            }
+        }, "composite estimator expected size overflow");
+        assertIllegalArgument(new Runnable() {
+            @Override public void run() {
+                new SparseIntKeySpace(Integer.MAX_VALUE);
+            }
+        }, "sparse domain array overflow");
+    }
+
+    private static int hashOnlyInsertionSlot(HashCompositeKeySpace keys, long hash) {
+        int deleted = -1;
+        for (int slot = keys.firstSlot(hash); !keys.isEmpty(slot); slot = keys.nextSlot(slot)) {
+            if (!keys.isLive(slot) && deleted < 0) {
+                deleted = slot;
+            }
+        }
+        if (deleted >= 0) {
+            return deleted;
+        }
+        for (int slot = keys.firstSlot(hash); ; slot = keys.nextSlot(slot)) {
+            if (keys.isEmpty(slot)) {
+                return slot;
+            }
+        }
+    }
+
+    private static int findHashAndRowSlot(HashCompositeKeySpace keys, long hash, int row) {
+        for (int slot = keys.firstSlot(hash); !keys.isEmpty(slot); slot = keys.nextSlot(slot)) {
+            if (keys.isLive(slot) && keys.hashAt(slot) == hash && keys.rowAt(slot) == row) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+
     private static int findSlot(
             HashCompositeKeySpace keys, long hash, String key, Map<Integer, String> byRow) {
         for (int slot = keys.firstSlot(hash); !keys.isEmpty(slot); slot = keys.nextSlot(slot)) {
@@ -180,7 +345,32 @@ public final class KeySpacePhase2Check {
         return (long) (key.hashCode() & 3);
     }
 
+    private static void assertHashMetrics(
+            int capacity, long probes, long collisions, long rehashes, String kind) {
+        if (capacity <= 4 || probes <= 0L || collisions <= 0L || rehashes <= 0L
+                || collisions > probes) {
+            throw new AssertionError(kind + " hash metrics are inconsistent: capacity="
+                    + capacity + " probes=" + probes + " collisions=" + collisions
+                    + " rehashes=" + rehashes);
+        }
+    }
+
+    private static void assertIllegalArgument(Runnable action, String message) {
+        try {
+            action.run();
+            throw new AssertionError(message + " must fail");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
     private static void assertEquals(int expected, int actual, String message) {
+        if (expected != actual) {
+            throw new AssertionError(message + " expected=" + expected + " actual=" + actual);
+        }
+    }
+
+    private static void assertEquals(long expected, long actual, String message) {
         if (expected != actual) {
             throw new AssertionError(message + " expected=" + expected + " actual=" + actual);
         }

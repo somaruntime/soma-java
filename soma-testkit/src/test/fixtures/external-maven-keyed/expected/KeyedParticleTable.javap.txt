@@ -8,6 +8,7 @@ public final class com.example.soma.keyed.generated.KeyedParticleTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.keyed.generated.KeyedParticleBatch);
   public void replaceAll(com.example.soma.keyed.generated.KeyedParticleBatch);
   public void clear();

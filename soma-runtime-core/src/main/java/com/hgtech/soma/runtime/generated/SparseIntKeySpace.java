@@ -10,8 +10,9 @@ public final class SparseIntKeySpace {
     private int size;
 
     public SparseIntKeySpace(int maximumKey) {
-        if (maximumKey < 0) {
-            throw new IllegalArgumentException("maximumKey must be non-negative");
+        if (maximumKey < 0 || maximumKey == Integer.MAX_VALUE) {
+            throw new IllegalArgumentException(
+                    "maximumKey must be non-negative and array-representable");
         }
         this.maximumKey = maximumKey;
         this.slotByKey = new int[maximumKey + 1];
@@ -19,6 +20,12 @@ public final class SparseIntKeySpace {
     }
 
     public int size() { return size; }
+
+    public int maximumKey() { return maximumKey; }
+
+    public int sparseCapacity() { return slotByKey.length; }
+
+    public int denseCapacity() { return keyBySlot.length; }
 
     public boolean contains(int key) { return rowOf(key) >= 0; }
 
@@ -70,7 +77,12 @@ public final class SparseIntKeySpace {
 
     private void ensureSlotCapacity(int required) {
         if (required > keyBySlot.length) {
-            int next = Math.max(required, Math.max(4, keyBySlot.length * 2));
+            long doubled = Math.max(4L, 2L * (long) keyBySlot.length);
+            long candidate = Math.max((long) required, doubled);
+            if (candidate > Integer.MAX_VALUE - 8L) {
+                throw new IllegalStateException("sparse key space capacity exhausted");
+            }
+            int next = (int) candidate;
             keyBySlot = Arrays.copyOf(keyBySlot, next);
         }
     }

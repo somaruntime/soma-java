@@ -75,6 +75,7 @@ DenseTableState.updateScratch(long currentBytes, long highWaterBytes) -> void
 DenseTableState.sidecarsDirtied(long distinctSidecars) -> void
 DenseTableState.sidecarRebuilt(long rows) -> void
 DenseTableState.sidecarScratch(long currentBytes, long highWaterBytes) -> void
+DenseTableState.reserve(int expectedCapacity) / operationScratch(long currentBytes) -> void
 DenseTableState.updateResult(long scanned, long matched, long changed,
   long sidecarMaintained, long sidecarRebuilt) -> UpdateResult
 DenseTableState.statsSnapshot() / statsSnapshot(long childInstances, long descendantRows)
@@ -82,6 +83,7 @@ DenseTableState.statsSnapshot() / statsSnapshot(long childInstances, long descen
 
 SparseIntKeySpace(int maximumKey); size()/contains(int)/rowOf(int)
 SparseIntKeySpace.put(int key, int rowSlot)/removeAt(int rowSlot)/clear() -> void
+SparseIntKeySpace.maximumKey()/sparseCapacity()/denseCapacity() -> int
 HashIntKeySpace(int expectedSize); size()/contains(int)/rowOf(int)
 HashIntKeySpace.put(int key, int rowSlot)/remove(int key)/updateRow(int key, int rowSlot)/clear() -> void
 HashLongKeySpace(int expectedSize); size()/contains(long)/rowOf(long)
@@ -93,6 +95,12 @@ HashCompositeKeySpace.isEmpty/isLive(int slot) -> boolean
 HashCompositeKeySpace.hashAt(int slot) -> long; rowAt(int slot) -> int
 HashCompositeKeySpace.putAt(int slot, long hash, int rowSlot) -> void
 HashCompositeKeySpace.removeAt(int slot)/updateRowAt(int slot, int rowSlot)/clear() -> void
+HashIntKeySpace / HashLongKeySpace / HashCompositeKeySpace
+  .capacity()/used() -> int
+  .probeCount()/collisionCount()/rehashCount() -> long
+  .addMetrics(long probes, long collisions, long rehashes) -> void
+  .resetMetrics() -> void
+PresenceBitmap.wordAt(int wordIndex) -> long
 RowPermutationSidecar(); isDirty() -> boolean; size()/rowAt(int) -> int
 RowPermutationSidecar.stage(int required) -> int[]
 RowPermutationSidecar.scratch(int required) -> int[]

@@ -15,6 +15,9 @@ cd "$root_dir"
 ./scripts/check-access-phase3.sh
 ./scripts/check-child-phase4.sh
 ./scripts/check-testkit-phase4.sh
+./scripts/check-value-modifiers-phase5.sh
+./scripts/check-defaults-phase5.sh
+./scripts/check-breadth-phase5.sh
 ./scripts/check-table-diagnostics-phase1.sh
 ./scripts/check-generated-dense-phase1.sh
 ./scripts/check-external-consumer.sh

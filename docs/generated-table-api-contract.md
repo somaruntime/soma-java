@@ -53,7 +53,7 @@ XxxTable.create(RuntimePlan)
 XxxTable.defaultRuntimePlan()
 XxxTable.runtimePlan()
 XxxTable.statsSnapshot()
-XxxTable.resetStats()
+XxxTable.resetStats() / reserve(int expectedCapacity)
 new XxxBatch()
 new XxxBatch(initialCapacity)
 XxxBatch.add(Xxx detachedRow)
@@ -77,6 +77,7 @@ public final class XxxTable {
     public RuntimePlan runtimePlan();
     public int size();
     public int capacity();
+    public void reserve(int expectedCapacity);
     public long structuralEpoch();
     public boolean isReleased();
     public void addBatch(XxxBatch batch);
@@ -262,7 +263,7 @@ Batch 是 detached columnar construction buffer，不是 schema-object list：
 
 - `add(row)` 立即把 carrier facts复制进 Batch；后续修改 row 不改变 Batch；
 - `addValues(...)` 是 primitive/presence canonical bulk path，参数顺序由 normalized source field/leaf order 固化；optional reference/value convenience 输入的 `null` 表示 absent；
-- `add(row)` 把 carrier 当前 field value（包括 primitive zero）视为显式输入；required reference/value null一律 `invalid_null_value`。Direct all-field `addValues(...)` 的参数全部显式。只有 `addValues(Writer)` 的 RowBuilder assignment state能表达 missing；callback结束时未赋 required field且无 default返回 `missing_required_field`，显式 null setter仍返回 `invalid_null_value`；绝不从 carrier zero/null猜测“用户忘记赋值”；
+- `add(row)` 把 carrier 当前 field value（包括 primitive zero）视为显式输入；required reference/value null一律 `invalid_null_value`。Direct all-field `addValues(...)` 的参数全部显式。只有 `addValues(Writer)` 的 RowBuilder assignment state能表达 missing；callback结束时未赋 required field且无 default返回 `missing_required_field`，显式 null setter仍返回 `invalid_null_value`；绝不从 carrier zero/null猜测“用户忘记赋值”。Required `@SomaValue` field只有在全部递归leaf均有schema default时，RowBuilder missing assignment才静态构造完整canonical value；partial leaf-default coverage不能产生partial value或临时builder语义；
 - Batch 在 `addBatch` / `replaceAll` 后不 consumed，table 复制调用开始时的 Batch facts；Batch 可继续修改、`clear()` 和复用，且不与 table 共享 live arrays；
 - empty `addBatch` 是 no-op；`replaceAll(empty)` 产生合法 empty table，并只在 visible facts 实际改变时提升 structural epoch；
 - Batch validation/growth failure 保持 Batch 原 size/facts；table import failure 保持 table 原 facts；
@@ -496,5 +497,4 @@ table.filter(...).fetchAll().stream();
 ```
 
 ## 17. 非目标
-
 V1 不提供 parallel stream、automatic predicate pushdown、join planner、general collection DSL、snapshot isolation、thread-safe traversal、cross-table transaction、public row pointer 或 public custom AccessPath。

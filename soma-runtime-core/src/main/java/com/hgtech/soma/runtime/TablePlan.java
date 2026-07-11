@@ -8,6 +8,7 @@ public final class TablePlan {
     private final int growthNumerator;
     private final int growthDenominator;
     private final long maximumUpdateScratchBytes;
+    private final long maximumOperationScratchBytes;
     private final String accessStrategy;
     private final String sidecarMaintenancePolicy;
     private final long maximumSidecarScratchBytes;
@@ -19,6 +20,7 @@ public final class TablePlan {
         growthNumerator = builder.growthNumerator;
         growthDenominator = builder.growthDenominator;
         maximumUpdateScratchBytes = builder.maximumUpdateScratchBytes;
+        maximumOperationScratchBytes = builder.maximumOperationScratchBytes;
         accessStrategy = builder.accessStrategy;
         sidecarMaintenancePolicy = builder.sidecarMaintenancePolicy;
         maximumSidecarScratchBytes = builder.maximumSidecarScratchBytes;
@@ -33,6 +35,7 @@ public final class TablePlan {
                 .initialCapacity(initialCapacity)
                 .growthRatio(growthNumerator, growthDenominator)
                 .maximumUpdateScratchBytes(maximumUpdateScratchBytes)
+                .maximumOperationScratchBytes(maximumOperationScratchBytes)
                 .accessStrategy(accessStrategy)
                 .sidecarMaintenancePolicy(sidecarMaintenancePolicy)
                 .maximumSidecarScratchBytes(maximumSidecarScratchBytes);
@@ -44,6 +47,7 @@ public final class TablePlan {
     public int growthNumerator() { return growthNumerator; }
     public int growthDenominator() { return growthDenominator; }
     public long maximumUpdateScratchBytes() { return maximumUpdateScratchBytes; }
+    public long maximumOperationScratchBytes() { return maximumOperationScratchBytes; }
     public String accessStrategy() { return accessStrategy; }
     public String sidecarMaintenancePolicy() { return sidecarMaintenancePolicy; }
     public long maximumSidecarScratchBytes() { return maximumSidecarScratchBytes; }
@@ -54,8 +58,9 @@ public final class TablePlan {
                 + ",\"growthDenominator\":" + growthDenominator
                 + ",\"growthNumerator\":" + growthNumerator
                 + ",\"initialCapacity\":" + initialCapacity
-                + ",\"maximumUpdateScratchBytes\":" + maximumUpdateScratchBytes
+                + ",\"maximumOperationScratchBytes\":" + maximumOperationScratchBytes
                 + ",\"maximumSidecarScratchBytes\":" + maximumSidecarScratchBytes
+                + ",\"maximumUpdateScratchBytes\":" + maximumUpdateScratchBytes
                 + ",\"sidecarMaintenancePolicy\":"
                 + CanonicalSupport.quote(sidecarMaintenancePolicy)
                 + ",\"table\":" + CanonicalSupport.quote(tableLogicalName) + "}";
@@ -68,6 +73,7 @@ public final class TablePlan {
         private int growthNumerator = 3;
         private int growthDenominator = 2;
         private long maximumUpdateScratchBytes = 256L * 1024L * 1024L;
+        private long maximumOperationScratchBytes = 256L * 1024L * 1024L;
         private String accessStrategy = "none";
         private String sidecarMaintenancePolicy = "none";
         private long maximumSidecarScratchBytes;
@@ -99,6 +105,15 @@ public final class TablePlan {
                 throw new IllegalArgumentException("maximumUpdateScratchBytes must be positive");
             }
             maximumUpdateScratchBytes = value;
+            return this;
+        }
+
+        public Builder maximumOperationScratchBytes(long value) {
+            if (value <= 0L) {
+                throw new IllegalArgumentException(
+                        "maximumOperationScratchBytes must be positive");
+            }
+            maximumOperationScratchBytes = value;
             return this;
         }
 

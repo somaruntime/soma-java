@@ -10,6 +10,7 @@ import java.util.Arrays;
  * insert/remove/row-move。因此 hash collision 不能被误判为 identity equality。</p>
  */
 public final class HashCompositeKeySpace {
+    private static final int MAX_CAPACITY = 1 << 30;
     private static final byte EMPTY = 0;
     private static final byte LIVE = 1;
     private static final byte DELETED = 2;
@@ -19,6 +20,9 @@ public final class HashCompositeKeySpace {
     private byte[] states;
     private int size;
     private int used;
+    private long probeCount;
+    private long collisionCount;
+    private long rehashCount;
 
     public HashCompositeKeySpace(int expectedSize) {
         if (expectedSize < 0) {
@@ -48,7 +52,7 @@ public final class HashCompositeKeySpace {
         long required = Math.max(4L, 2L * (long) expectedSize);
         int capacity = 4;
         while (capacity < required) {
-            if (capacity > (1 << 29)) {
+            if (capacity >= MAX_CAPACITY) {
                 throw new IllegalArgumentException("expectedSize is too large");
             }
             capacity <<= 1;
@@ -60,10 +64,50 @@ public final class HashCompositeKeySpace {
         return size;
     }
 
+    public int capacity() {
+        return states.length;
+    }
+
+    /** LIVE + DELETED buckets retained by the current probe table. */
+    public int used() {
+        return used;
+    }
+
+    public long probeCount() {
+        return probeCount;
+    }
+
+    public long collisionCount() {
+        return collisionCount;
+    }
+
+    public long rehashCount() {
+        return rehashCount;
+    }
+
+    public void resetMetrics() {
+        probeCount = 0L;
+        collisionCount = 0L;
+        rehashCount = 0L;
+    }
+
+    /** Carries since-reset metrics across an atomic staged KeySpace replacement. */
+    public void addMetrics(long probes, long collisions, long rehashes) {
+        if (probes < 0L || collisions < 0L || collisions > probes || rehashes < 0L) {
+            throw new IllegalArgumentException("invalid key space metrics");
+        }
+        long nextProbes = checkedMetricAdd(probeCount, probes);
+        long nextCollisions = checkedMetricAdd(collisionCount, collisions);
+        long nextRehashes = checkedMetricAdd(rehashCount, rehashes);
+        probeCount = nextProbes;
+        collisionCount = nextCollisions;
+        rehashCount = nextRehashes;
+    }
+
     /** Must run before a generated insertion probe; it may move raw hash slots by rehashing. */
     public void ensureInsertCapacity() {
-        if ((used + 1) * 2 >= states.length) {
-            if (states.length > (1 << 29)) {
+        if (2L * ((long) used + 1L) >= (long) states.length) {
+            if (states.length >= MAX_CAPACITY) {
                 throw new IllegalStateException("key space capacity exhausted");
             }
             rehash(states.length << 1);
@@ -78,11 +122,14 @@ public final class HashCompositeKeySpace {
         if (slot < 0 || slot >= states.length) {
             throw new IllegalArgumentException("slot out of range");
         }
+        collisionCount = checkedMetricAdd(collisionCount, 1L);
         return (slot + 1) & (states.length - 1);
     }
 
     public boolean isEmpty(int slot) {
-        return state(slot) == EMPTY;
+        byte value = state(slot);
+        probeCount = checkedMetricAdd(probeCount, 1L);
+        return value == EMPTY;
     }
 
     public boolean isLive(int slot) {
@@ -152,33 +199,51 @@ public final class HashCompositeKeySpace {
         long[] oldHashes = hashes;
         int[] oldRows = rows;
         byte[] oldStates = states;
-        hashes = new long[capacity];
-        rows = new int[capacity];
-        states = new byte[capacity];
-        used = 0;
-        int previousSize = size;
-        size = 0;
+
+        long[] newHashes = new long[capacity];
+        int[] newRows = new int[capacity];
+        byte[] newStates = new byte[capacity];
+        int rebuiltSize = 0;
+        long rebuildProbes = 0L;
+        long rebuildCollisions = 0L;
         for (int index = 0; index < oldStates.length; index++) {
             if (oldStates[index] == LIVE) {
-                int slot = rawInsertionSlot(oldHashes[index]);
-                states[slot] = LIVE;
-                hashes[slot] = oldHashes[index];
-                rows[slot] = oldRows[index];
-                used++;
-                size++;
+                int mask = newStates.length - 1;
+                int slot = mix(oldHashes[index]) & mask;
+                rebuildProbes++;
+                while (newStates[slot] != EMPTY) {
+                    rebuildCollisions++;
+                    slot = (slot + 1) & mask;
+                    rebuildProbes++;
+                }
+                newStates[slot] = LIVE;
+                newHashes[slot] = oldHashes[index];
+                newRows[slot] = oldRows[index];
+                rebuiltSize++;
             }
         }
-        if (size != previousSize) {
+        if (rebuiltSize != size) {
             throw new IllegalStateException("rehash identity failure");
         }
+
+        long committedProbeCount = checkedMetricAdd(probeCount, rebuildProbes);
+        long committedCollisionCount = checkedMetricAdd(collisionCount, rebuildCollisions);
+        long committedRehashCount = checkedMetricAdd(rehashCount, 1L);
+
+        hashes = newHashes;
+        rows = newRows;
+        states = newStates;
+        used = rebuiltSize;
+        probeCount = committedProbeCount;
+        collisionCount = committedCollisionCount;
+        rehashCount = committedRehashCount;
     }
 
-    private int rawInsertionSlot(long hash) {
-        int slot = firstSlot(hash);
-        while (states[slot] != EMPTY) {
-            slot = nextSlot(slot);
+    private static long checkedMetricAdd(long current, long delta) {
+        if (delta < 0L || Long.MAX_VALUE - current < delta) {
+            throw new IllegalStateException("key space metric overflow");
         }
-        return slot;
+        return current + delta;
     }
 
     private static int mix(long value) {

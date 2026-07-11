@@ -16,6 +16,7 @@ import com.hgtech.soma.runtime.generated.OwnedChildTable;
 import java.util.Locale;
 import java.util.Random;
 import java.util.TreeMap;
+import java.util.function.IntConsumer;
 
 /** Phase 1 runtime-core correctness evidence，使用完整 JDK 8 直接执行。 */
 public final class RuntimeCorePhase1Check {
@@ -32,6 +33,7 @@ public final class RuntimeCorePhase1Check {
         testStructuralRemoveStateTransition();
         testViewLifecycleState();
         testPresenceBitmapAgainstOracle();
+        testOptionalColumnPipelinePresenceLanes();
         testMaterializationBudget();
         testSidecarProtocolAndStats();
         assertTrue(HashCompositeKeySpace.estimatedPeakBytes(1024)
@@ -354,6 +356,98 @@ public final class RuntimeCorePhase1Check {
             }
             assertEquals(expectedCount, bitmap.presentCount(), "presence count");
         }
+        assertEquals(bitmap.isPresent(64),
+                (bitmap.wordAt(1) & 1L) != 0L,
+                "word access matches row access");
+        try {
+            bitmap.wordAt(-1);
+            throw new AssertionError("negative presence word index must fail");
+        } catch (IndexOutOfBoundsException expected) {
+            // expected
+        }
+        try {
+            bitmap.wordAt(5);
+            throw new AssertionError("presence word index beyond capacity must fail");
+        } catch (IndexOutOfBoundsException expected) {
+            // expected
+        }
+    }
+
+    private static void testOptionalColumnPipelinePresenceLanes() {
+        final int size = 66;
+        IntColumn values = new IntColumn();
+        PresenceBitmap presence = new PresenceBitmap();
+        ColumnGroup columns = new ColumnGroup(2, values, presence);
+        RuntimePlan plan = defaultPlan();
+        DenseTableState state = new DenseTableState(
+                "Order", plan, plan.requireTable("Order"), columns);
+        int start = state.prepareAppend(size);
+        for (int row = 0; row < size; row++) {
+            values.set(row, row);
+        }
+        state.commitAppend(start, size);
+
+        IntColumnPipeline optional = new IntColumnPipeline(
+                state, values, presence, "Order", "quantity");
+        final long[] sum = {0L};
+        IntConsumer accumulator = new IntConsumer() {
+            @Override public void accept(int value) { sum[0] += value; }
+        };
+
+        optional.forEachInt(accumulator);
+        assertEquals(0L, sum[0], "all-absent lane skips payloads");
+        assertEquals(size, state.statsSnapshot().lastScanned(),
+                "all-absent lane scanned semantics");
+        assertEquals(0L, state.statsSnapshot().lastMatched(),
+                "all-absent lane matched semantics");
+
+        int[] selected = {0, 63, 64, 65};
+        for (int i = 0; i < selected.length; i++) {
+            presence.setPresent(selected[i]);
+        }
+        sum[0] = 0L;
+        optional.forEachInt(accumulator);
+        assertEquals(192L, sum[0], "mixed word lane visits 63/64 boundary rows");
+        assertEquals(size, state.statsSnapshot().lastScanned(),
+                "mixed word lane scanned semantics");
+        assertEquals(selected.length, state.statsSnapshot().lastMatched(),
+                "mixed word lane matched semantics");
+
+        for (int row = 0; row < size; row++) {
+            presence.setPresent(row);
+        }
+        sum[0] = 0L;
+        optional.forEachInt(accumulator);
+        assertEquals(2145L, sum[0], "all-present lane visits every payload");
+        assertEquals(size, state.statsSnapshot().lastMatched(),
+                "all-present lane matched semantics");
+
+        IntColumnPipeline required = new IntColumnPipeline(
+                state, values, null, "Order", "quantity");
+        sum[0] = 0L;
+        required.forEachInt(accumulator);
+        assertEquals(2145L, sum[0], "required lane visits every payload");
+
+        presence.clearRange(0, size);
+        presence.setPresent(0);
+        presence.setPresent(63);
+        expectCode("callback_failed", new ThrowingRunnable() {
+            @Override public void run() {
+                optional.forEachInt(new IntConsumer() {
+                    private int calls;
+                    @Override public void accept(int value) {
+                        calls++;
+                        if (calls == 2) {
+                            throw new IllegalStateException("stop");
+                        }
+                    }
+                });
+            }
+        });
+        assertEquals(64L, state.statsSnapshot().lastScanned(),
+                "mixed word callback failure scanned semantics");
+        assertEquals(2L, state.statsSnapshot().lastMatched(),
+                "mixed word callback failure matched semantics");
     }
 
     private static void testSidecarProtocolAndStats() {

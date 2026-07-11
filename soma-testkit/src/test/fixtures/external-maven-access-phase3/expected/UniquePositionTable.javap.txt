@@ -8,6 +8,7 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.access.generated.UniquePositionBatch);
   public void replaceAll(com.example.soma.access.generated.UniquePositionBatch);
   public void clear();

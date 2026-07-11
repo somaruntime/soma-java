@@ -8,6 +8,7 @@ public final class com.example.soma.dense.generated.ParticleTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public void reserve(int);
   public void addBatch(com.example.soma.dense.generated.ParticleBatch);
   public void replaceAll(com.example.soma.dense.generated.ParticleBatch);
   public void clear();

@@ -32,6 +32,8 @@ public final class DenseTableState {
     private long sidecarRebuildRows;
     private long sidecarScratchCurrentBytes;
     private long sidecarScratchHighWaterBytes;
+    private long operationScratchCurrentBytes;
+    private long operationScratchHighWaterBytes;
     private String lastOperation = "";
     private OperationOutcome lastOutcome = OperationOutcome.NONE;
     private String lastErrorCode = "";
@@ -113,6 +115,21 @@ public final class DenseTableState {
                     tableLogicalName, rowIndex, size, structuralEpoch, operation);
         }
         return rowIndex;
+    }
+
+    public void reserve(int expectedCapacity) {
+        requireStructural("reserve");
+        if (expectedCapacity < 0) {
+            throw new IllegalArgumentException("expectedCapacity must be non-negative");
+        }
+        boolean changed = columns.ensureCapacity(
+                Math.max(size, expectedCapacity),
+                tablePlan.growthNumerator(), tablePlan.growthDenominator());
+        if (changed) {
+            incrementGrowth("reserve");
+            incrementStructuralEpoch("reserve");
+        }
+        record("reserve", OperationOutcome.SUCCESS, "", 0L, 0L, 0L);
     }
 
     public void beginOperation(String operation) {
@@ -236,7 +253,7 @@ public final class DenseTableState {
         int required = checkedSize(size, count, "addBatch");
         if (columns.ensureCapacity(
                 required, tablePlan.growthNumerator(), tablePlan.growthDenominator())) {
-            growthCount++;
+            incrementGrowth("addBatch");
         }
         return size;
     }
@@ -248,7 +265,7 @@ public final class DenseTableState {
         }
         size = checkedSize(size, count, "addBatch");
         if (count > 0) {
-            structuralEpoch++;
+            incrementStructuralEpoch("addBatch");
         }
         record("addBatch", OperationOutcome.SUCCESS, "", count, count, count);
     }
@@ -261,7 +278,7 @@ public final class DenseTableState {
         }
         if (columns.ensureCapacity(
                 newSize, tablePlan.growthNumerator(), tablePlan.growthDenominator())) {
-            growthCount++;
+            incrementGrowth("replaceAll");
         }
         return size;
     }
@@ -273,7 +290,7 @@ public final class DenseTableState {
         }
         size = newSize;
         if (expectedPreviousSize != 0 || newSize != 0) {
-            structuralEpoch++;
+            incrementStructuralEpoch("replaceAll");
         }
         record("replaceAll", OperationOutcome.SUCCESS, "", newSize, newSize, newSize);
     }
@@ -289,7 +306,7 @@ public final class DenseTableState {
 
     public void commitChildChange(String operation) {
         checkActive(operation);
-        structuralEpoch++;
+        incrementStructuralEpoch(operation);
         record(operation, OperationOutcome.SUCCESS, "", 1L, 1L, 1L);
     }
 
@@ -300,7 +317,7 @@ public final class DenseTableState {
         }
         size = 0;
         if (expectedPreviousSize > 0) {
-            structuralEpoch++;
+            incrementStructuralEpoch("clear");
         }
         record("clear", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
@@ -315,7 +332,7 @@ public final class DenseTableState {
         }
         size = newSize;
         if (newSize != expectedPreviousSize) {
-            structuralEpoch++;
+            incrementStructuralEpoch(operation);
         }
     }
 
@@ -344,7 +361,7 @@ public final class DenseTableState {
         size = 0;
         released = true;
         activeViews = 0;
-        structuralEpoch++;
+        incrementStructuralEpoch("release");
         record("release", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
     }
@@ -372,7 +389,7 @@ public final class DenseTableState {
         released = true;
         childReleased = !aggregateRelease;
         activeViews = 0;
-        structuralEpoch++;
+        incrementStructuralEpoch("ownership.release");
         record("ownership.release", OperationOutcome.SUCCESS, "",
                 previous, previous, previous);
     }
@@ -419,6 +436,18 @@ public final class DenseTableState {
         }
     }
 
+    public void operationScratch(long currentBytes) {
+        if (currentBytes < 0L
+                || currentBytes > tablePlan.maximumOperationScratchBytes()) {
+            throw RuntimeFailures.internalInvariant(
+                    "operation_scratch_accounting", tableLogicalName, "operation.scratch");
+        }
+        operationScratchCurrentBytes = currentBytes;
+        if (currentBytes > operationScratchHighWaterBytes) {
+            operationScratchHighWaterBytes = currentBytes;
+        }
+    }
+
     public UpdateResult updateResult(
             long scanned,
             long matched,
@@ -441,7 +470,7 @@ public final class DenseTableState {
     }
 
     public TableStats statsSnapshot() {
-        return TableStats.create(
+        return TableStats.withPhase5OperationScratch(TableStats.create(
                 runtimePlan.schemaHash(),
                 runtimePlan.runtimeCompatibility(),
                 runtimePlan.runtimePlanHash(),
@@ -464,7 +493,8 @@ public final class DenseTableState {
                 lastErrorCode,
                 lastScanned,
                 lastMatched,
-                lastChanged);
+                lastChanged), operationScratchCurrentBytes,
+                operationScratchHighWaterBytes);
     }
 
     public TableStats statsSnapshot(long childInstances, long descendantRows) {
@@ -551,5 +581,21 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "invalid_operation_counts", tableLogicalName, activeOperation);
         }
+    }
+
+    private void incrementStructuralEpoch(String operation) {
+        if (structuralEpoch == Long.MAX_VALUE) {
+            throw RuntimeFailures.internalInvariant(
+                    "structural_epoch_overflow", tableLogicalName, operation);
+        }
+        structuralEpoch++;
+    }
+
+    private void incrementGrowth(String operation) {
+        if (growthCount == Long.MAX_VALUE) {
+            throw RuntimeFailures.internalInvariant(
+                    "growth_count_overflow", tableLogicalName, operation);
+        }
+        growthCount++;
     }
 }

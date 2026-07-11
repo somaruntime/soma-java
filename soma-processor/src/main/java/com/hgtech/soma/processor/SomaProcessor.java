@@ -2,6 +2,7 @@ package com.hgtech.soma.processor;
 
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaChild;
+import com.hgtech.soma.annotation.SomaDefault;
 import com.hgtech.soma.annotation.SomaIgnore;
 import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaIndexes;
@@ -68,6 +69,7 @@ import java.util.TreeMap;
         "com.hgtech.soma.annotation.SomaValue",
         "com.hgtech.soma.annotation.SomaTable",
         "com.hgtech.soma.annotation.SomaChild",
+        "com.hgtech.soma.annotation.SomaDefault",
         "com.hgtech.soma.annotation.SomaKey",
         "com.hgtech.soma.annotation.SomaOptional",
         "com.hgtech.soma.annotation.SomaIndex",
@@ -294,6 +296,7 @@ public final class SomaProcessor extends AbstractProcessor {
         List<TableFieldModel> fields = new ArrayList<TableFieldModel>();
         Set<String> logicalNames = new LinkedHashSet<String>();
         Set<String> generatedAccessNames = new LinkedHashSet<String>();
+        Set<String> strictSelectorPaths = selectorPaths(type);
         for (Element enclosed : type.getEnclosedElements()) {
             if (enclosed.getKind() != ElementKind.FIELD) {
                 continue;
@@ -304,9 +307,10 @@ public final class SomaProcessor extends AbstractProcessor {
             SomaChild childAnnotation = field.getAnnotation(SomaChild.class);
             SomaIgnore ignore = field.getAnnotation(SomaIgnore.class);
             SomaOptional optional = field.getAnnotation(SomaOptional.class);
+            SomaDefault defaultAnnotation = field.getAnnotation(SomaDefault.class);
             if (field.getModifiers().contains(Modifier.STATIC)) {
                 if (fieldAnnotation != null || keyAnnotation != null || childAnnotation != null
-                        || ignore != null || optional != null) {
+                        || ignore != null || optional != null || defaultAnnotation != null) {
                     error(field, "SOMA-TABLE-003",
                             "static field cannot declare SOMA table annotations");
                     valid = false;
@@ -324,9 +328,9 @@ public final class SomaProcessor extends AbstractProcessor {
                 continue;
             }
             if (ignore != null) {
-                if (optional != null) {
+                if (optional != null || defaultAnnotation != null) {
                     error(field, "SOMA-TABLE-003",
-                            "@SomaOptional requires @SomaField");
+                            "field modifier requires @SomaField");
                     valid = false;
                 }
                 continue;
@@ -346,6 +350,12 @@ public final class SomaProcessor extends AbstractProcessor {
 
             boolean key = keyAnnotation != null;
             boolean child = childAnnotation != null;
+            if (defaultAnnotation != null
+                    && (fieldAnnotation == null || optional != null)) {
+                error(field, "SOMA-TABLE-005",
+                        "@SomaDefault is allowed only on required @SomaField");
+                valid = false;
+            }
             String annotationName = key ? keyAnnotation.name()
                     : child ? childAnnotation.name() : fieldAnnotation.name();
             SomaSemantic annotationSemantic = child ? SomaSemantic.NONE
@@ -374,7 +384,7 @@ public final class SomaProcessor extends AbstractProcessor {
                     fields.add(new TableFieldModel(
                             field.getSimpleName().toString(), fieldLogicalName,
                             SomaSemantic.NONE.name(), null, childType,
-                            optional != null, false));
+                            optional != null, false, null));
                     if (!registerGeneratedChildAccessNames(
                             generatedAccessNames, field.getSimpleName().toString(),
                             optional != null)) {
@@ -386,8 +396,7 @@ public final class SomaProcessor extends AbstractProcessor {
                     continue;
                 }
                 error(field, "SOMA-TABLE-005",
-                        "table binding supports required primitive/enum/value fields "
-                                + "and optional boxed primitives: "
+                        "unsupported SOMA table field type or optional materialized shape: "
                                 + field.asType());
                 valid = false;
                 continue;
@@ -396,6 +405,20 @@ public final class SomaProcessor extends AbstractProcessor {
                 error(field, "SOMA-TABLE-008",
                         "current keyed table slice requires a required scalar or enum @SomaKey: "
                                 + field.asType());
+                valid = false;
+            }
+            if (key && tableType.valueJavaType != null
+                    && valueHasDefault(tableType.valueJavaType, validatedValues,
+                            new HashSet<String>())) {
+                error(field, "SOMA-TABLE-008",
+                        "value key path cannot depend on @SomaDefault");
+                valid = false;
+            }
+            if (tableType.valueJavaType != null
+                    && !validateStrictValueDefaults(
+                            field, fieldLogicalName, tableType.valueJavaType,
+                            validatedValues, strictSelectorPaths,
+                            new HashSet<String>())) {
                 valid = false;
             }
             if (!validTableSemantic(annotationSemantic, tableType.primitiveKind)) {
@@ -413,9 +436,17 @@ public final class SomaProcessor extends AbstractProcessor {
                                 + field.getSimpleName());
                 valid = false;
             }
+            DefaultModel defaultValue = null;
+            if (defaultAnnotation != null && fieldAnnotation != null && optional == null) {
+                defaultValue = normalizeTableDefault(
+                        field, tableType, annotationSemantic, defaultAnnotation.value(),
+                        strictSelectorPaths.contains(fieldLogicalName));
+                if (defaultValue == null) valid = false;
+            }
             fields.add(new TableFieldModel(
                     field.getSimpleName().toString(), fieldLogicalName,
-                    annotationSemantic.name(), tableType, null, optional != null, key));
+                    annotationSemantic.name(), tableType, null, optional != null, key,
+                    defaultValue));
         }
         if (fields.isEmpty()) {
             error(type, "SOMA-TABLE-001", "@SomaTable requires at least one schema field");
@@ -477,6 +508,20 @@ public final class SomaProcessor extends AbstractProcessor {
             if (selector == null) valid = false; else result.add(selector);
         }
         return valid ? result : null;
+    }
+
+    private Set<String> selectorPaths(TypeElement table) {
+        Set<String> result = new HashSet<String>();
+        for (SomaIndex index : table.getAnnotationsByType(SomaIndex.class)) {
+            for (String path : index.fields()) result.add(path);
+        }
+        for (SomaUnique unique : table.getAnnotationsByType(SomaUnique.class)) {
+            for (String path : unique.fields()) result.add(path);
+        }
+        for (SomaOrder order : table.getAnnotationsByType(SomaOrder.class)) {
+            for (SomaSort sort : order.by()) result.add(sort.value());
+        }
+        return result;
     }
 
     private SelectorModel selector(
@@ -754,10 +799,13 @@ public final class SomaProcessor extends AbstractProcessor {
             return null;
         }
         TypeElement type = (TypeElement) element;
-        if (!optional && type.getKind() == ElementKind.ENUM) {
+        if (type.getQualifiedName().contentEquals("java.lang.String")) {
+            return TableFieldType.forString();
+        }
+        if (type.getKind() == ElementKind.ENUM) {
             return TableFieldType.forEnum(type, enumModel(type));
         }
-        if (!optional && type.getAnnotation(SomaValue.class) != null) {
+        if (type.getAnnotation(SomaValue.class) != null) {
             ValueModel value = validatedValues.get(type.getQualifiedName().toString());
             return value == null ? null
                     : TableFieldType.forFlattenedValue(value, validatedValues);
@@ -768,6 +816,179 @@ public final class SomaProcessor extends AbstractProcessor {
         return TableFieldType.forBoxed(type.getQualifiedName().toString());
     }
 
+    private DefaultModel normalizeTableDefault(
+            VariableElement field,
+            TableFieldType type,
+            SomaSemantic semantic,
+            String literal,
+            boolean strictFloating) {
+        if (type.valueJavaType != null) {
+            error(field, "SOMA-TABLE-005",
+                    "@SomaDefault does not support an outer value field; declare leaf defaults on @SomaValue");
+            return null;
+        }
+        try {
+            if ("java.lang.String".equals(type.storagePrimitiveName)) {
+                return new DefaultModel(literal, literal, quote(literal));
+            }
+            if (type.enumModel != null) {
+                if (!type.enumModel.members.contains(literal)) {
+                    throw new IllegalArgumentException("unknown enum member");
+                }
+                return new DefaultModel(literal, literal,
+                        type.enumJavaType + "." + literal);
+            }
+            return normalizePrimitiveDefault(
+                    literal, type.primitiveKind, semantic, strictFloating);
+        } catch (RuntimeException invalid) {
+            error(field, "SOMA-TABLE-005",
+                    "invalid schema default for " + field.getSimpleName() + ": " + literal);
+            return null;
+        }
+    }
+
+    private DefaultModel normalizeValueDefault(
+            VariableElement field,
+            NormalizedType type,
+            SomaSemantic semantic,
+            String literal) {
+        try {
+            if (type.valueReference != null) {
+                throw new IllegalArgumentException("nested value is not a leaf");
+            }
+            if ("string".equals(type.text)) {
+                return new DefaultModel(literal, literal, quote(literal));
+            }
+            if (type.enumModel != null) {
+                if (!type.enumModel.members.contains(literal)) {
+                    throw new IllegalArgumentException("unknown enum member");
+                }
+                return new DefaultModel(literal, literal,
+                        type.enumModel.javaType + "." + literal);
+            }
+            TableFieldType primitive = TableFieldType.primitiveType(type.text);
+            if (primitive == null) throw new IllegalArgumentException("unsupported leaf");
+            return normalizePrimitiveDefault(
+                    literal, primitive.primitiveKind, semantic, false);
+        } catch (RuntimeException invalid) {
+            error(field, "SOMA-VALUE-005",
+                    "invalid value leaf default for " + field.getSimpleName() + ": " + literal);
+            return null;
+        }
+    }
+
+    private DefaultModel normalizePrimitiveDefault(
+            String literal,
+            TypeKind kind,
+            SomaSemantic semantic,
+            boolean strictFloating) {
+        if (semantic == SomaSemantic.DATE) {
+            long epochDay = java.time.LocalDate.parse(literal).toEpochDay();
+            if (epochDay < Integer.MIN_VALUE || epochDay > Integer.MAX_VALUE) {
+                throw new IllegalArgumentException("date outside int epoch-day range");
+            }
+            String value = Integer.toString((int) epochDay);
+            return new DefaultModel(literal, value, value);
+        }
+        if (semantic == SomaSemantic.TIME) {
+            String value = Long.toString(java.time.LocalTime.parse(literal).toNanoOfDay());
+            return new DefaultModel(literal, value, value + "L");
+        }
+        if (semantic == SomaSemantic.DATE_TIME) {
+            long epochMillis;
+            try {
+                epochMillis = java.time.Instant.parse(literal).toEpochMilli();
+            } catch (java.time.format.DateTimeParseException notInstant) {
+                epochMillis = java.time.OffsetDateTime.parse(literal).toInstant().toEpochMilli();
+            }
+            String value = Long.toString(epochMillis);
+            return new DefaultModel(literal, value, value + "L");
+        }
+        switch (kind) {
+            case BOOLEAN:
+                if (!"true".equals(literal) && !"false".equals(literal)) {
+                    throw new IllegalArgumentException("invalid boolean");
+                }
+                return new DefaultModel(literal, literal, literal);
+            case BYTE: {
+                long value = Long.parseLong(literal);
+                if (value < Byte.MIN_VALUE || value > Byte.MAX_VALUE) throw new NumberFormatException();
+                String normalized = Long.toString(value);
+                return new DefaultModel(literal, normalized, "(byte)" + normalized);
+            }
+            case SHORT: {
+                long value = Long.parseLong(literal);
+                if (value < Short.MIN_VALUE || value > Short.MAX_VALUE) throw new NumberFormatException();
+                String normalized = Long.toString(value);
+                return new DefaultModel(literal, normalized, "(short)" + normalized);
+            }
+            case INT: {
+                int value = Integer.parseInt(literal);
+                String normalized = Integer.toString(value);
+                return new DefaultModel(literal, normalized, normalized);
+            }
+            case LONG: {
+                long value = Long.parseLong(literal);
+                String normalized = Long.toString(value);
+                return new DefaultModel(literal, normalized, normalized + "L");
+            }
+            case FLOAT:
+                return normalizeFloatDefault(literal, strictFloating);
+            case DOUBLE:
+                return normalizeDoubleDefault(literal, strictFloating);
+            default:
+                throw new IllegalArgumentException("unsupported primitive default");
+        }
+    }
+
+    private DefaultModel normalizeFloatDefault(String literal, boolean strict) {
+        float value = parseFloatDefault(literal);
+        if (strict && (Float.isNaN(value) || Float.isInfinite(value))) {
+            throw new IllegalArgumentException("non-finite strict float");
+        }
+        if (strict && value == 0.0f) value = 0.0f;
+        String normalized = Float.isNaN(value) ? "NaN"
+                : value == Float.POSITIVE_INFINITY ? "Infinity"
+                : value == Float.NEGATIVE_INFINITY ? "-Infinity"
+                : Float.toString(value);
+        String expression = "NaN".equals(normalized) ? "Float.NaN"
+                : "Infinity".equals(normalized) ? "Float.POSITIVE_INFINITY"
+                : "-Infinity".equals(normalized) ? "Float.NEGATIVE_INFINITY"
+                : normalized + "f";
+        return new DefaultModel(literal, normalized, expression);
+    }
+
+    private DefaultModel normalizeDoubleDefault(String literal, boolean strict) {
+        double value = parseDoubleDefault(literal);
+        if (strict && (Double.isNaN(value) || Double.isInfinite(value))) {
+            throw new IllegalArgumentException("non-finite strict double");
+        }
+        if (strict && value == 0.0d) value = 0.0d;
+        String normalized = Double.isNaN(value) ? "NaN"
+                : value == Double.POSITIVE_INFINITY ? "Infinity"
+                : value == Double.NEGATIVE_INFINITY ? "-Infinity"
+                : Double.toString(value);
+        String expression = "NaN".equals(normalized) ? "Double.NaN"
+                : "Infinity".equals(normalized) ? "Double.POSITIVE_INFINITY"
+                : "-Infinity".equals(normalized) ? "Double.NEGATIVE_INFINITY"
+                : normalized + "d";
+        return new DefaultModel(literal, normalized, expression);
+    }
+
+    private float parseFloatDefault(String literal) {
+        if ("NaN".equals(literal)) return Float.NaN;
+        if ("Infinity".equals(literal)) return Float.POSITIVE_INFINITY;
+        if ("-Infinity".equals(literal)) return Float.NEGATIVE_INFINITY;
+        return Float.parseFloat(literal);
+    }
+
+    private double parseDoubleDefault(String literal) {
+        if ("NaN".equals(literal)) return Double.NaN;
+        if ("Infinity".equals(literal)) return Double.POSITIVE_INFINITY;
+        if ("-Infinity".equals(literal)) return Double.NEGATIVE_INFINITY;
+        return Double.parseDouble(literal);
+    }
+
     private boolean validTableSemantic(SomaSemantic semantic, TypeKind primitiveKind) {
         if (semantic == SomaSemantic.NONE) {
             return true;
@@ -776,6 +997,63 @@ public final class SomaProcessor extends AbstractProcessor {
             return primitiveKind == TypeKind.INT;
         }
         return primitiveKind == TypeKind.LONG;
+    }
+
+    private boolean valueHasDefault(
+            String javaType,
+            Map<String, ValueModel> values,
+            Set<String> visiting) {
+        if (!visiting.add(javaType)) return false;
+        ValueModel value = values.get(javaType);
+        if (value == null) return false;
+        for (FieldModel field : value.fields) {
+            if (field.defaultValue != null) return true;
+            if (field.type.valueReference != null
+                    && valueHasDefault(field.type.valueReference, values, visiting)) {
+                return true;
+            }
+        }
+        visiting.remove(javaType);
+        return false;
+    }
+
+    private boolean validateStrictValueDefaults(
+            VariableElement tableField,
+            String logicalPrefix,
+            String valueJavaType,
+            Map<String, ValueModel> values,
+            Set<String> strictSelectorPaths,
+            Set<String> visiting) {
+        if (!visiting.add(valueJavaType)) return true;
+        ValueModel value = values.get(valueJavaType);
+        if (value == null) return false;
+        boolean valid = true;
+        for (FieldModel leaf : value.fields) {
+            String path = logicalPrefix + "." + leaf.logicalName;
+            if (leaf.type.valueReference != null) {
+                if (!validateStrictValueDefaults(
+                        tableField, path, leaf.type.valueReference, values,
+                        strictSelectorPaths, visiting)) {
+                    valid = false;
+                }
+            } else if (leaf.defaultValue != null && strictSelectorPaths.contains(path)
+                    && ("float".equals(leaf.type.text)
+                    || "double".equals(leaf.type.text))) {
+                try {
+                    if ("float".equals(leaf.type.text)) {
+                        normalizeFloatDefault(leaf.defaultValue.literal, true);
+                    } else {
+                        normalizeDoubleDefault(leaf.defaultValue.literal, true);
+                    }
+                } catch (RuntimeException invalid) {
+                    error(tableField, "SOMA-TABLE-005",
+                            "non-finite value default on strict selector path: " + path);
+                    valid = false;
+                }
+            }
+        }
+        visiting.remove(valueJavaType);
+        return valid;
     }
 
     private void validateSchemaNames(Map<String, SchemaModel> schemas) {
@@ -938,12 +1216,25 @@ public final class SomaProcessor extends AbstractProcessor {
             VariableElement field = (VariableElement) enclosed;
             SomaField fieldAnnotation = field.getAnnotation(SomaField.class);
             SomaIgnore ignoreAnnotation = field.getAnnotation(SomaIgnore.class);
+            SomaKey keyAnnotation = field.getAnnotation(SomaKey.class);
+            SomaChild childAnnotation = field.getAnnotation(SomaChild.class);
+            SomaOptional optionalAnnotation = field.getAnnotation(SomaOptional.class);
+            SomaDefault defaultAnnotation = field.getAnnotation(SomaDefault.class);
             if (field.getModifiers().contains(Modifier.STATIC)) {
-                if (fieldAnnotation != null || ignoreAnnotation != null) {
+                if (fieldAnnotation != null || ignoreAnnotation != null
+                        || keyAnnotation != null || childAnnotation != null
+                        || optionalAnnotation != null || defaultAnnotation != null) {
                     error(field, "SOMA-VALUE-003",
                             "static field cannot declare SOMA field annotations");
                     valid = false;
                 }
+                continue;
+            }
+            if (keyAnnotation != null || childAnnotation != null
+                    || optionalAnnotation != null) {
+                error(field, "SOMA-VALUE-003",
+                        "@SomaValue field cannot declare key, child or optional modifiers");
+                valid = false;
                 continue;
             }
             if (fieldAnnotation != null && ignoreAnnotation != null) {
@@ -994,9 +1285,13 @@ public final class SomaProcessor extends AbstractProcessor {
                         "semantic " + fieldAnnotation.semantic() + " is incompatible with " + field.asType());
                 valid = false;
             }
+            DefaultModel defaultValue = defaultAnnotation == null ? null
+                    : normalizeValueDefault(field, normalizedType,
+                            fieldAnnotation.semantic(), defaultAnnotation.value());
+            if (defaultAnnotation != null && defaultValue == null) valid = false;
             fields.add(new FieldModel(
                     field.getSimpleName().toString(), logicalName,
-                    fieldAnnotation.semantic().name(), normalizedType));
+                    fieldAnnotation.semantic().name(), normalizedType, defaultValue));
         }
 
         if (fields.isEmpty()) {
@@ -1401,25 +1696,50 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String logicalName;
         private final String semantic;
         private final NormalizedType type;
+        private final DefaultModel defaultValue;
 
         private FieldModel(
                 String javaName,
                 String logicalName,
                 String semantic,
-                NormalizedType type) {
+                NormalizedType type,
+                DefaultModel defaultValue) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.semantic = semantic;
             this.type = type;
+            this.defaultValue = defaultValue;
         }
 
         private void appendJson(StringBuilder json) {
             json.append('{');
+            if (defaultValue != null) {
+                json.append("\"default\":");
+                defaultValue.appendJson(json);
+                json.append(',');
+            }
             json.append("\"javaName\":").append(quote(javaName)).append(',');
             json.append("\"logicalName\":").append(quote(logicalName)).append(',');
             json.append("\"semantic\":").append(quote(semantic)).append(',');
             json.append("\"type\":").append(quote(type.text));
             json.append('}');
+        }
+    }
+
+    private static final class DefaultModel {
+        private final String literal;
+        private final String normalized;
+        private final String javaExpression;
+
+        private DefaultModel(String literal, String normalized, String javaExpression) {
+            this.literal = literal;
+            this.normalized = normalized;
+            this.javaExpression = javaExpression;
+        }
+
+        private void appendJson(StringBuilder json) {
+            json.append('{').append("\"literal\":").append(quote(literal)).append(',')
+                    .append("\"normalized\":").append(quote(normalized)).append('}');
         }
     }
 
@@ -1598,10 +1918,12 @@ public final class SomaProcessor extends AbstractProcessor {
         private final ChildFieldType child;
         private final boolean optional;
         private final boolean key;
+        private DefaultModel defaultValue;
 
         private TableFieldModel(String javaName, String logicalName, String semantic,
                                 TableFieldType type, ChildFieldType child,
-                                boolean optional, boolean key) {
+                                boolean optional, boolean key,
+                                DefaultModel defaultValue) {
             this.javaName = javaName;
             this.logicalName = logicalName;
             this.semantic = semantic;
@@ -1609,6 +1931,7 @@ public final class SomaProcessor extends AbstractProcessor {
             this.child = child;
             this.optional = optional;
             this.key = key;
+            this.defaultValue = defaultValue;
         }
 
         private void appendJson(StringBuilder json) {
@@ -1624,6 +1947,11 @@ public final class SomaProcessor extends AbstractProcessor {
                         .append(quote(child.rowJavaType)).append(',')
                         .append("\"tableLogicalName\":")
                         .append(quote(child.tableLogicalName)).append("},");
+            }
+            if (defaultValue != null) {
+                json.append("\"default\":");
+                defaultValue.appendJson(json);
+                json.append(',');
             }
             json.append("\"javaName\":").append(quote(javaName)).append(',');
             json.append("\"leaves\":[");
@@ -1673,7 +2001,9 @@ public final class SomaProcessor extends AbstractProcessor {
                     javaName, logicalName, type.publicType,
                     type.boxedName, type.storagePrimitiveName, type.columnType,
                     type.enumJavaType, type.valueJavaType, type.valueLeafJavaName,
-                    type.valueConstructionTemplate, leaves, groups, optional, key);
+                    type.valueConstructionTemplate, leaves, groups, optional, key,
+                    defaultValue != null ? defaultValue.javaExpression
+                            : type.valueDefaultExpression);
         }
 
         private DenseTableSourceGenerator.ChildSpec toGeneratorChildSpec() {
@@ -1739,6 +2069,7 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String valueLeafLogicalName;
         private final String valueLeafSemantic;
         private final String valueConstructionTemplate;
+        private final String valueDefaultExpression;
         private final List<ValueLeafType> valueLeaves;
         private final List<ValueGroupType> valueGroups;
 
@@ -1757,6 +2088,7 @@ public final class SomaProcessor extends AbstractProcessor {
                 String valueLeafLogicalName,
                 String valueLeafSemantic,
                 String valueConstructionTemplate,
+                String valueDefaultExpression,
                 List<ValueLeafType> valueLeaves,
                 List<ValueGroupType> valueGroups) {
             this.primitiveKind = primitiveKind;
@@ -1773,6 +2105,7 @@ public final class SomaProcessor extends AbstractProcessor {
             this.valueLeafLogicalName = valueLeafLogicalName;
             this.valueLeafSemantic = valueLeafSemantic;
             this.valueConstructionTemplate = valueConstructionTemplate;
+            this.valueDefaultExpression = valueDefaultExpression;
             this.valueLeaves = valueLeaves;
             this.valueGroups = valueGroups;
         }
@@ -1801,12 +2134,21 @@ public final class SomaProcessor extends AbstractProcessor {
             return null;
         }
 
+        private static TableFieldType forString() {
+            return new TableFieldType(
+                    null, "string", "java.lang.String", "java.lang.String",
+                    "java.lang.String", "java.lang.String",
+                    "ObjectColumn<java.lang.String>", null, null,
+                    null, null, null, null, null, null,
+                    new ArrayList<ValueLeafType>(), new ArrayList<ValueGroupType>());
+        }
+
         private static TableFieldType forEnum(TypeElement type, EnumModel enumModel) {
             String javaType = type.getQualifiedName().toString();
             return new TableFieldType(
                     null, "enum:" + javaType, javaType, javaType, javaType,
                     "int", "IntColumn", javaType, enumModel,
-                    null, null, null, null, null,
+                    null, null, null, null, null, null,
                     new ArrayList<ValueLeafType>(), new ArrayList<ValueGroupType>());
         }
 
@@ -1820,6 +2162,8 @@ public final class SomaProcessor extends AbstractProcessor {
             String construction = flattenValue(
                     value, values, "", "", "", leaves, groups, new HashSet<String>());
             if (construction == null || leaves.isEmpty()) return null;
+            String defaultExpression = valueDefaultExpression(
+                    value, values, new HashSet<String>());
             ValueLeafType first = leaves.get(0);
             return new TableFieldType(
                     primitiveKind(first.storagePrimitiveName),
@@ -1836,7 +2180,33 @@ public final class SomaProcessor extends AbstractProcessor {
                     first.logicalName,
                     first.semantic,
                     construction,
+                    defaultExpression,
                     leaves, groups);
+        }
+
+        private static String valueDefaultExpression(
+                ValueModel value,
+                Map<String, ValueModel> values,
+                Set<String> visiting) {
+            if (!visiting.add(value.javaType)) return null;
+            StringBuilder expression = new StringBuilder("new ")
+                    .append(value.javaType).append('(');
+            for (int index = 0; index < value.fields.size(); index++) {
+                if (index > 0) expression.append(',');
+                FieldModel field = value.fields.get(index);
+                if (field.type.valueReference != null) {
+                    ValueModel nested = values.get(field.type.valueReference);
+                    if (nested == null) return null;
+                    String nestedDefault = valueDefaultExpression(nested, values, visiting);
+                    if (nestedDefault == null) return null;
+                    expression.append(nestedDefault);
+                } else {
+                    if (field.defaultValue == null) return null;
+                    expression.append(field.defaultValue.javaExpression);
+                }
+            }
+            visiting.remove(value.javaType);
+            return expression.append(')').toString();
         }
 
         private static String flattenValue(
@@ -1934,7 +2304,7 @@ public final class SomaProcessor extends AbstractProcessor {
             return new TableFieldType(
                     kind, primitive, primitive, boxed, primitive, primitive,
                     column, null, null, null, null, null, null,
-                    null,
+                    null, null,
                     new ArrayList<ValueLeafType>(), new ArrayList<ValueGroupType>());
         }
     }

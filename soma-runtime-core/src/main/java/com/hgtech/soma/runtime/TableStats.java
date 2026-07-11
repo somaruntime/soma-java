@@ -35,6 +35,14 @@ public final class TableStats {
     private final long lastMaterializationRows;
     private final long lastMaterializationLeafValues;
     private final long lastMaterializationEstimatedAllocationBytes;
+    private final long operationScratchCurrentBytes;
+    private final long operationScratchHighWaterBytes;
+    private final String keySpaceImplementation;
+    private final int keySpaceCapacity;
+    private final int keySpaceUsed;
+    private final long keySpaceProbeCount;
+    private final long keySpaceCollisionCount;
+    private final long keySpaceRehashCount;
 
     private TableStats(
             String schemaHash,
@@ -69,7 +77,15 @@ public final class TableStats {
             long lastMaterializationTableInstances,
             long lastMaterializationRows,
             long lastMaterializationLeafValues,
-            long lastMaterializationEstimatedAllocationBytes) {
+            long lastMaterializationEstimatedAllocationBytes,
+            long operationScratchCurrentBytes,
+            long operationScratchHighWaterBytes,
+            String keySpaceImplementation,
+            int keySpaceCapacity,
+            int keySpaceUsed,
+            long keySpaceProbeCount,
+            long keySpaceCollisionCount,
+            long keySpaceRehashCount) {
         this.schemaHash = schemaHash;
         this.runtimeCompatibility = runtimeCompatibility;
         this.runtimePlanHash = runtimePlanHash;
@@ -103,6 +119,14 @@ public final class TableStats {
         this.lastMaterializationRows = lastMaterializationRows;
         this.lastMaterializationLeafValues = lastMaterializationLeafValues;
         this.lastMaterializationEstimatedAllocationBytes = lastMaterializationEstimatedAllocationBytes;
+        this.operationScratchCurrentBytes = operationScratchCurrentBytes;
+        this.operationScratchHighWaterBytes = operationScratchHighWaterBytes;
+        this.keySpaceImplementation = keySpaceImplementation;
+        this.keySpaceCapacity = keySpaceCapacity;
+        this.keySpaceUsed = keySpaceUsed;
+        this.keySpaceProbeCount = keySpaceProbeCount;
+        this.keySpaceCollisionCount = keySpaceCollisionCount;
+        this.keySpaceRehashCount = keySpaceRehashCount;
     }
 
     public static TableStats create(
@@ -211,7 +235,8 @@ public final class TableStats {
                 sidecarScratchCurrentBytes, sidecarScratchHighWaterBytes,
                 lastOperation, lastOutcome, lastErrorCode,
                 lastScanned, lastMatched, lastChanged,
-                0L, 0L, 0L, 0L, "", 0, 0L, 0L, 0L, 0L);
+                0L, 0L, 0L, 0L, "", 0, 0L, 0L, 0L, 0L,
+                0L, 0L, "", 0, 0, 0L, 0L, 0L);
     }
 
     public static TableStats withPhase4(
@@ -252,7 +277,84 @@ public final class TableStats {
                 lastMaterializationBudgetIdentity,
                 lastMaterializationMaximumOwnershipDepth,
                 lastMaterializationTableInstances, lastMaterializationRows,
-                lastMaterializationLeafValues, lastMaterializationEstimatedAllocationBytes);
+                lastMaterializationLeafValues, lastMaterializationEstimatedAllocationBytes,
+                base.operationScratchCurrentBytes, base.operationScratchHighWaterBytes,
+                base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
+                base.keySpaceProbeCount, base.keySpaceCollisionCount,
+                base.keySpaceRehashCount);
+    }
+
+    public static TableStats withPhase5OperationScratch(
+            TableStats base,
+            long operationScratchCurrentBytes,
+            long operationScratchHighWaterBytes) {
+        if (base == null) throw new NullPointerException("base");
+        if (operationScratchCurrentBytes < 0L
+                || operationScratchHighWaterBytes < operationScratchCurrentBytes) {
+            throw new IllegalArgumentException("invalid operation scratch stats");
+        }
+        return new TableStats(base.schemaHash, base.runtimeCompatibility,
+                base.runtimePlanHash, base.statsMode, base.rows, base.capacity,
+                base.structuralEpoch, base.released, base.activeViews, base.growthCount,
+                base.updateScratchCurrentBytes, base.updateScratchHighWaterBytes,
+                base.sidecarDirtyCount, base.sidecarRebuildCount, base.sidecarRebuildRows,
+                base.sidecarScratchCurrentBytes, base.sidecarScratchHighWaterBytes,
+                base.lastOperation, base.lastOutcome, base.lastErrorCode,
+                base.lastScanned, base.lastMatched, base.lastChanged,
+                base.childInstanceCount, base.descendantRowCount,
+                base.materializationInvocationCount, base.materializationFailureCount,
+                base.lastMaterializationBudgetIdentity,
+                base.lastMaterializationMaximumOwnershipDepth,
+                base.lastMaterializationTableInstances, base.lastMaterializationRows,
+                base.lastMaterializationLeafValues,
+                base.lastMaterializationEstimatedAllocationBytes,
+                operationScratchCurrentBytes, operationScratchHighWaterBytes,
+                base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
+                base.keySpaceProbeCount, base.keySpaceCollisionCount,
+                base.keySpaceRehashCount);
+    }
+
+    public static TableStats withPhase5KeySpace(
+            TableStats base,
+            String keySpaceImplementation,
+            int keySpaceCapacity,
+            int keySpaceUsed,
+            long keySpaceProbeCount,
+            long keySpaceCollisionCount,
+            long keySpaceRehashCount) {
+        if (base == null) throw new NullPointerException("base");
+        if (keySpaceImplementation == null) {
+            throw new NullPointerException("keySpaceImplementation");
+        }
+        boolean absent = keySpaceImplementation.isEmpty();
+        if (keySpaceCapacity < 0 || keySpaceUsed < 0
+                || keySpaceUsed > keySpaceCapacity
+                || keySpaceProbeCount < 0L || keySpaceCollisionCount < 0L
+                || keySpaceCollisionCount > keySpaceProbeCount
+                || keySpaceRehashCount < 0L
+                || (absent && (keySpaceCapacity != 0 || keySpaceUsed != 0
+                || keySpaceProbeCount != 0L || keySpaceCollisionCount != 0L
+                || keySpaceRehashCount != 0L))) {
+            throw new IllegalArgumentException("invalid key space stats");
+        }
+        return new TableStats(base.schemaHash, base.runtimeCompatibility,
+                base.runtimePlanHash, base.statsMode, base.rows, base.capacity,
+                base.structuralEpoch, base.released, base.activeViews, base.growthCount,
+                base.updateScratchCurrentBytes, base.updateScratchHighWaterBytes,
+                base.sidecarDirtyCount, base.sidecarRebuildCount, base.sidecarRebuildRows,
+                base.sidecarScratchCurrentBytes, base.sidecarScratchHighWaterBytes,
+                base.lastOperation, base.lastOutcome, base.lastErrorCode,
+                base.lastScanned, base.lastMatched, base.lastChanged,
+                base.childInstanceCount, base.descendantRowCount,
+                base.materializationInvocationCount, base.materializationFailureCount,
+                base.lastMaterializationBudgetIdentity,
+                base.lastMaterializationMaximumOwnershipDepth,
+                base.lastMaterializationTableInstances, base.lastMaterializationRows,
+                base.lastMaterializationLeafValues,
+                base.lastMaterializationEstimatedAllocationBytes,
+                base.operationScratchCurrentBytes, base.operationScratchHighWaterBytes,
+                keySpaceImplementation, keySpaceCapacity, keySpaceUsed,
+                keySpaceProbeCount, keySpaceCollisionCount, keySpaceRehashCount);
     }
 
     public String schemaHash() { return schemaHash; }
@@ -292,4 +394,12 @@ public final class TableStats {
     public long lastMaterializationEstimatedAllocationBytes() {
         return lastMaterializationEstimatedAllocationBytes;
     }
+    public long operationScratchCurrentBytes() { return operationScratchCurrentBytes; }
+    public long operationScratchHighWaterBytes() { return operationScratchHighWaterBytes; }
+    public String keySpaceImplementation() { return keySpaceImplementation; }
+    public int keySpaceCapacity() { return keySpaceCapacity; }
+    public int keySpaceUsed() { return keySpaceUsed; }
+    public long keySpaceProbeCount() { return keySpaceProbeCount; }
+    public long keySpaceCollisionCount() { return keySpaceCollisionCount; }
+    public long keySpaceRehashCount() { return keySpaceRehashCount; }
 }

@@ -89,6 +89,7 @@ V1 初始 identity/baseline：
 | unspecified dense initial capacity | `16` rows |
 | dense growth ratio | `3/2` with overflow-safe minimum-required clamp |
 | maximum update scratch | `268435456` bytes（256 MiB，checked preflight，可显式覆盖） |
+| maximum row-operation scratch | `268435456` bytes（256 MiB，pipeline/sort/remove retained primitive arrays 的 checked aggregate ceiling） |
 | no-selector access policy | `none` / `none` / `0` sidecar bytes |
 | selector access policy | `primitive-sorted-permutation-v1` + `dirty-lazy-rebuild-v1` |
 | maximum sidecar scratch | selector table 默认 `268435456` bytes（含 retained arrays 与 rebuild growth peak） |
@@ -211,7 +212,7 @@ Canonical plan 必须：
 - 区分 absent/inapplicable 与 explicit value；
 - 记录 protocol/algorithm/estimator identity。
 
-首个 canonical effective plan 使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。无ownership edge时Root keys保持`allocationEstimator`、`defaultMaterializationBudget`、`generatedProtocol`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`；有child时additive包含`children` array。Child entry固定键为`childField`、`childTable`、`initialCapacity`、`ownerTable`，按owner/field排序。Dense table entry固定为 `algorithm`、`accessStrategy`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`maximumUpdateScratchBytes`、`maximumSidecarScratchBytes`、`sidecarMaintenancePolicy`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
+首个 canonical effective plan 使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。无ownership edge时Root keys保持`allocationEstimator`、`defaultMaterializationBudget`、`generatedProtocol`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`；有child时additive包含`children` array。Child entry固定键为`childField`、`childTable`、`initialCapacity`、`ownerTable`，按owner/field排序。Dense table entry固定为 `algorithm`、`accessStrategy`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`maximumOperationScratchBytes`、`maximumSidecarScratchBytes`、`maximumUpdateScratchBytes`、`sidecarMaintenancePolicy`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
 
 `MaterializationBudget.identity()` 使用同一 canonical budget object与前缀 `soma-java:v1:materialization-budget\n` 的 lowercase SHA-256。Per-call override因此有稳定 identity但不改变 `runtimePlanHash`。
 

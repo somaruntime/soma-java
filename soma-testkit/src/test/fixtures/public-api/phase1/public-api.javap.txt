@@ -75,6 +75,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void checkView(long, int, java.lang.String);
   public void checkActive(java.lang.String);
   public int checkRowIndex(int, java.lang.String);
+  public void reserve(int);
   public void beginOperation(java.lang.String);
   public void beginMaterialization(java.lang.String);
   public void beginOperationMaterialization(java.lang.String);
@@ -103,6 +104,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void sidecarsDirtied(long);
   public void sidecarRebuilt(long);
   public void sidecarScratch(long, long);
+  public void operationScratch(long);
   public com.hgtech.soma.runtime.UpdateResult updateResult(long, long, long, long, long);
   public com.hgtech.soma.runtime.RemoveResult removeResult(long, long, long, long, long, long);
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
@@ -157,6 +159,13 @@ public final class com.hgtech.soma.runtime.generated.HashCompositeKeySpace {
   public com.hgtech.soma.runtime.generated.HashCompositeKeySpace(int);
   public static long estimatedPeakBytes(int);
   public int size();
+  public int capacity();
+  public int used();
+  public long probeCount();
+  public long collisionCount();
+  public long rehashCount();
+  public void resetMetrics();
+  public void addMetrics(long, long, long);
   public void ensureInsertCapacity();
   public int firstSlot(long);
   public int nextSlot(int);
@@ -174,6 +183,13 @@ Compiled from "HashIntKeySpace.java"
 public final class com.hgtech.soma.runtime.generated.HashIntKeySpace {
   public com.hgtech.soma.runtime.generated.HashIntKeySpace(int);
   public int size();
+  public int capacity();
+  public int used();
+  public long probeCount();
+  public long collisionCount();
+  public long rehashCount();
+  public void resetMetrics();
+  public void addMetrics(long, long, long);
   public boolean contains(int);
   public int rowOf(int);
   public void put(int, int);
@@ -186,6 +202,13 @@ Compiled from "HashLongKeySpace.java"
 public final class com.hgtech.soma.runtime.generated.HashLongKeySpace {
   public com.hgtech.soma.runtime.generated.HashLongKeySpace(int);
   public int size();
+  public int capacity();
+  public int used();
+  public long probeCount();
+  public long collisionCount();
+  public long rehashCount();
+  public void resetMetrics();
+  public void addMetrics(long, long, long);
   public boolean contains(long);
   public int rowOf(long);
   public void put(long, int);
@@ -293,6 +316,7 @@ public final class com.hgtech.soma.runtime.generated.PresenceBitmap extends com.
   public void clearPresent(int);
   public void copyFrom(com.hgtech.soma.runtime.generated.PresenceBitmap, int, int, int);
   public int presentCount();
+  public long wordAt(int);
   public java.lang.Object stageCapacity(int);
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
@@ -398,6 +422,9 @@ Compiled from "SparseIntKeySpace.java"
 public final class com.hgtech.soma.runtime.generated.SparseIntKeySpace {
   public com.hgtech.soma.runtime.generated.SparseIntKeySpace(int);
   public int size();
+  public int maximumKey();
+  public int sparseCapacity();
+  public int denseCapacity();
   public boolean contains(int);
   public int rowOf(int);
   public void put(int, int);
@@ -409,6 +436,11 @@ Compiled from "SomaChild.java"
 public interface com.hgtech.soma.annotation.SomaChild extends java.lang.annotation.Annotation {
   public abstract java.lang.String name();
   public abstract int initialCapacity();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaDefault
+Compiled from "SomaDefault.java"
+public interface com.hgtech.soma.annotation.SomaDefault extends java.lang.annotation.Annotation {
+  public abstract java.lang.String value();
 }
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaDirection
 Compiled from "SomaDirection.java"
@@ -763,6 +795,7 @@ public final class com.hgtech.soma.runtime.TablePlan {
   public int growthNumerator();
   public int growthDenominator();
   public long maximumUpdateScratchBytes();
+  public long maximumOperationScratchBytes();
   public java.lang.String accessStrategy();
   public java.lang.String sidecarMaintenancePolicy();
   public long maximumSidecarScratchBytes();
@@ -773,6 +806,7 @@ public final class com.hgtech.soma.runtime.TablePlan$Builder {
   public com.hgtech.soma.runtime.TablePlan$Builder initialCapacity(int);
   public com.hgtech.soma.runtime.TablePlan$Builder growthRatio(int, int);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumUpdateScratchBytes(long);
+  public com.hgtech.soma.runtime.TablePlan$Builder maximumOperationScratchBytes(long);
   public com.hgtech.soma.runtime.TablePlan$Builder accessStrategy(java.lang.String);
   public com.hgtech.soma.runtime.TablePlan$Builder sidecarMaintenancePolicy(java.lang.String);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumSidecarScratchBytes(long);
@@ -785,6 +819,8 @@ public final class com.hgtech.soma.runtime.TableStats {
   public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
   public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, long, long, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
   public static com.hgtech.soma.runtime.TableStats withPhase4(com.hgtech.soma.runtime.TableStats, long, long, long, long, java.lang.String, int, long, long, long, long);
+  public static com.hgtech.soma.runtime.TableStats withPhase5OperationScratch(com.hgtech.soma.runtime.TableStats, long, long);
+  public static com.hgtech.soma.runtime.TableStats withPhase5KeySpace(com.hgtech.soma.runtime.TableStats, java.lang.String, int, int, long, long, long);
   public java.lang.String schemaHash();
   public java.lang.String runtimeCompatibility();
   public java.lang.String runtimePlanHash();
@@ -818,6 +854,14 @@ public final class com.hgtech.soma.runtime.TableStats {
   public long lastMaterializationRows();
   public long lastMaterializationLeafValues();
   public long lastMaterializationEstimatedAllocationBytes();
+  public long operationScratchCurrentBytes();
+  public long operationScratchHighWaterBytes();
+  public java.lang.String keySpaceImplementation();
+  public int keySpaceCapacity();
+  public int keySpaceUsed();
+  public long keySpaceProbeCount();
+  public long keySpaceCollisionCount();
+  public long keySpaceRehashCount();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.UpdateResult
 Compiled from "UpdateResult.java"

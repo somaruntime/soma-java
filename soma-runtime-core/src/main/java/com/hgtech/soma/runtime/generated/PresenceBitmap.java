@@ -57,6 +57,16 @@ public final class PresenceBitmap extends GeneratedColumn {
         return presentCount;
     }
 
+    /**
+     * 返回指定 packed word，供 runtime 的 optional-column word kernel 使用。
+     */
+    public long wordAt(int wordIndex) {
+        if (wordIndex < 0 || wordIndex >= words.length) {
+            throw new IndexOutOfBoundsException("invalid presence word index");
+        }
+        return words[wordIndex];
+    }
+
     @Override
     public Object stageCapacity(int newCapacity) {
         requireCapacity(newCapacity);

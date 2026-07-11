@@ -432,7 +432,7 @@ Literal parsing 规则：
 | value | V1 不支持整体 default，只支持 leaf default |
 | table | 不支持 default |
 
-`@SomaValue` 内部 leaf field 可以声明 `@SomaDefault`。该 default 是 value 类型本身的语义默认值，会影响所有使用该 value 的 table field。只在某一张 table 中成立的默认值，不应放入共享 value 类型。任何被 `@SomaKey` 引用的 value path 都不得依赖 value leaf default。
+`@SomaValue` 内部 leaf field 可以声明 `@SomaDefault`。该 default 是 value 类型本身的语义默认值，会影响所有使用该 value 的 table field。只在某一张 table 中成立的默认值，不应放入共享 value 类型。任何被 `@SomaKey` 引用的 value path 都不得依赖 value leaf default。Generated RowBuilder仍以整个value field为assignment boundary：只有一个required value的全部递归leaf都声明default时，outer value未赋值才能由processor静态生成完整canonical value；只覆盖部分leaf时outer value仍是missing required field，不能从Java zero/null或临时partial object猜测其余leaf。Direct `addValues`、carrier `add` 和Mutator传入的value始终是显式值，不重新套用leaf default。
 
 Floating default normalization：
 
