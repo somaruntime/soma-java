@@ -210,6 +210,10 @@ public final class DenseTableState {
 
     /** Structural publish inside an active mutating terminal still observes ColumnView pins. */
     public void preflightStructuralOperation(String operation) {
+        preflightStructuralOperation(operation, true);
+    }
+
+    public void preflightStructuralOperation(String operation, boolean structuralChange) {
         checkActive(operation);
         requireActiveOperation(operation);
         if (materializationActive) {
@@ -218,6 +222,7 @@ public final class DenseTableState {
         if (activeViews > 0) {
             throw RuntimeFailures.viewPinned(tableLogicalName, operation, activeViews);
         }
+        if (structuralChange) requireStructuralEpochAvailable(operation);
     }
 
     public void endMaterializationSuccess(MaterializationTracker tracker) {
@@ -294,6 +299,7 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "negative_append_count", tableLogicalName, "addBatch");
         }
+        if (count > 0) requireStructuralEpochAvailable("addBatch");
         int required = checkedSize(size, count, "addBatch");
         preflightAppendStorage(count, keySpaceCurrentBytes, "addBatch");
         if (required > columns.capacity()) requireGrowthAvailable("addBatch");
@@ -324,6 +330,7 @@ public final class DenseTableState {
             throw RuntimeFailures.internalInvariant(
                     "negative_replace_size", tableLogicalName, "replaceAll");
         }
+        if (size != 0 || newSize != 0) requireStructuralEpochAvailable("replaceAll");
         if (newSize > columns.capacity()) requireGrowthAvailable("replaceAll");
         if (columns.ensureCapacity(
                 newSize, tablePlan.growthNumerator(), tablePlan.growthDenominator())) {
@@ -347,11 +354,13 @@ public final class DenseTableState {
 
     public int prepareClear() {
         requireStructural("clear");
+        if (size > 0) requireStructuralEpochAvailable("clear");
         return size;
     }
 
     public void prepareChildChange(String operation) {
         requireStructural(operation);
+        requireStructuralEpochAvailable(operation);
     }
 
     public void commitChildChange(String operation) {
@@ -396,6 +405,8 @@ public final class DenseTableState {
         if (operationActive || materializationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, "release");
         }
+        requireNoTransientStorage("release");
+        requireStructuralEpochAvailable("release");
         return size;
     }
 
@@ -441,6 +452,16 @@ public final class DenseTableState {
         if (isOwned()) {
             throw RuntimeFailures.ownedChildRelease(ownershipPath, operation);
         }
+    }
+
+    /**
+     * Validates every failure-capable lifecycle condition before an owner publishes a
+     * child replacement or starts a recursive release commit.
+     */
+    public void preflightOwnedRelease(String operation) {
+        if (released) return;
+        requireNoTransientStorage(operation);
+        requireStructuralEpochAvailable(operation);
     }
 
     public void commitOwnedRelease(boolean aggregateRelease) {

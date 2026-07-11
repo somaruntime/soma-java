@@ -170,6 +170,22 @@ run_success() {
     >"$output/compile.log" 2>&1
 }
 
+run_full_success() {
+  name=$1
+  source_root=$2
+  output=$evidence_dir/$name
+  mkdir -p "$output/classes" "$output/generated"
+  "$JAVA_HOME/bin/javac" \
+    -encoding UTF-8 -source 8 -target 8 \
+    -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+    -processorpath "$processor_jar:$annotations_jar" \
+    -processor com.hgtech.soma.processor.SomaProcessor \
+    -Xplugin:SomaValue \
+    -s "$output/generated" -d "$output/classes" \
+    $(find "$source_root" -type f -name '*.java' | LC_ALL=C sort) \
+    >"$output/compile.log" 2>&1
+}
+
 assert_no_product_output() {
   name=$1
   output=$evidence_dir/$name
@@ -249,7 +265,10 @@ if grep -F 'public WideTable255Batch addValues(int f001' \
   printf '%s\n' 'codegen-admission-check: receiver+255-slot direct Batch overload was emitted' >&2
   exit 1
 fi
-run_success table256 "$table256"
+# Representative success boundary must survive full generated-source compile/load admission,
+# not merely processor-only generation.
+run_full_success table256 "$table256"
+test -f "$evidence_dir/table256/classes/com/example/admission/table256/generated/WideTable256Table.class"
 run_failure table257 "$table257" SOMA-GEN-003 table-physical-leaves
 
 many256=$sources/many256

@@ -24,6 +24,7 @@ import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.UpdateResult;
+import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 
 import java.util.List;
 
@@ -32,6 +33,7 @@ public final class AccessConsumer {
     }
 
     public static void main(String[] args) {
+        verifyUniqueBulkScratchBoundaries();
         expectCode("invalid_floating_access_value",
                 () -> FloatingAccessTable.create().findByMetric(Float.NaN).count());
         expectCode("invalid_null_value",
@@ -379,6 +381,64 @@ public final class AccessConsumer {
             throw new AssertionError("expected " + code);
         } catch (SomaRuntimeException failure) {
             require(code.equals(failure.code()), "expected " + code + " but got " + failure.code());
+        }
+    }
+
+    private static void verifyUniqueBulkScratchBoundaries() {
+        AccessRecordBatch two = new AccessRecordBatch()
+                .addValues(1, 1, 1, 1)
+                .addValues(2, 1, 1, 2);
+        long exact = HashCompositeKeySpace.estimatedPeakBytes(2);
+        AccessRecordTable exactTable = AccessRecordTable.create(accessPlanWithBulk(exact));
+        exactTable.addBatch(two);
+        require(exactTable.size() == 2, "unique append exact bulk limit");
+        exactTable.replaceAll(two);
+        require(exactTable.size() == 2, "unique replace exact bulk limit");
+        exactTable.release();
+
+        AccessRecordTable bounded = AccessRecordTable.create(accessPlanWithBulk(exact - 1L));
+        long appendEpoch = bounded.structuralEpoch();
+        int appendCapacity = bounded.capacity();
+        expectMemoryLimit(exact - 1L, exact, () -> bounded.addBatch(two));
+        require(bounded.size() == 0 && bounded.structuralEpoch() == appendEpoch
+                        && bounded.capacity() == appendCapacity,
+                "unique append bulk failure preserves facts/capacity/epoch");
+        AccessRecordBatch one = new AccessRecordBatch().addValues(3, 1, 1, 3);
+        bounded.addBatch(one);
+        require(bounded.size() == 1 && bounded.fetchAt(0).code == 3,
+                "unique append retry with admissible scratch");
+
+        long replaceEpoch = bounded.structuralEpoch();
+        int replaceCapacity = bounded.capacity();
+        expectMemoryLimit(exact - 1L, exact, () -> bounded.replaceAll(two));
+        require(bounded.size() == 1 && bounded.fetchAt(0).code == 3
+                        && bounded.structuralEpoch() == replaceEpoch
+                        && bounded.capacity() == replaceCapacity,
+                "unique replace bulk failure preserves facts/capacity/epoch");
+        bounded.replaceAll(new AccessRecordBatch().addValues(4, 1, 1, 4));
+        require(bounded.size() == 1 && bounded.fetchAt(0).code == 4,
+                "unique replace retry with admissible scratch");
+        bounded.release();
+    }
+
+    private static RuntimePlan accessPlanWithBulk(long maximumBulkScratchBytes) {
+        RuntimePlan base = AccessRecordTable.defaultRuntimePlan();
+        TablePlan table = base.requireTable("AccessRecord").toBuilder()
+                .maximumBulkScratchBytes(maximumBulkScratchBytes).build();
+        return base.toBuilder().replaceTable(table).build();
+    }
+
+    private static void expectMemoryLimit(long limit, long proposed, Action action) {
+        try {
+            action.run();
+            throw new AssertionError("expected memory_limit_exceeded");
+        } catch (SomaRuntimeException failure) {
+            require("memory_limit_exceeded".equals(failure.code()),
+                    "bulk limit code " + failure.code());
+            require(Long.toString(limit).equals(failure.context().get("limit"))
+                            && Long.toString(proposed).equals(
+                            failure.context().get("proposed")),
+                    "bulk limit/proposed context");
         }
     }
 

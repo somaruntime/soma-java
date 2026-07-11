@@ -28,7 +28,10 @@ public final class RuntimeCorePhase1Check {
         testCanonicalIdentityIsLocaleIndependent();
         testPlanReplacementChangesIdentity();
         testResourcePlanCanonicalIdentity();
+        testUnicodeCodePointOrderAndLosslessCanonicalText();
         testChildPlanIdentity();
+        testOwnershipRegistryInitialStorageBoundary();
+        testOwnershipStageGrowthIsAtomicAndRetryable();
         testChildOwnershipRegistry();
         testRetryableCascadeAndRegistryRelease();
         testCompatibilityBoundary();
@@ -196,12 +199,60 @@ public final class RuntimeCorePhase1Check {
         }
     }
 
+    private static void testUnicodeCodePointOrderAndLosslessCanonicalText() {
+        String bmp = "\uF900";
+        String supplementary = "\uD801\uDC00";
+        RuntimePlan ordered = RuntimePlan.builder(
+                        "unicode-order",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(TablePlan.builder(supplementary,
+                                RuntimeCompatibility.DENSE_ALGORITHM).build())
+                .addTable(TablePlan.builder(bmp,
+                                RuntimeCompatibility.DENSE_ALGORITHM).build())
+                .build();
+        String canonical = ordered.toCanonicalJson();
+        String supplementaryTable = "\"table\":\"" + '\\' + "uD801" + '\\'
+                + "uDC00\"";
+        assertTrue(canonical.indexOf("\"table\":\"" + bmp + "\"")
+                        < canonical.indexOf(supplementaryTable),
+                "runtime plan must order identities by Unicode code point");
+        assertEquals(ordered.runtimePlanHash(), ordered.toBuilder().build().runtimePlanHash(),
+                "supplementary runtime plan hash repeatability");
+
+        RuntimePlan isolatedHigh = unicodeNamedPlan("\uD800");
+        RuntimePlan isolatedOther = unicodeNamedPlan("\uD801");
+        assertTrue(isolatedHigh.toCanonicalJson().contains(String.valueOf('\\') + "uD800"),
+                "isolated high surrogate must be escaped losslessly");
+        assertTrue(isolatedOther.toCanonicalJson().contains(String.valueOf('\\') + "uD801"),
+                "distinct isolated surrogate must be escaped losslessly");
+        assertFalse(isolatedHigh.toCanonicalJson().equals(isolatedOther.toCanonicalJson()),
+                "isolated surrogate canonical text must not collide");
+        assertFalse(isolatedHigh.runtimePlanHash().equals(isolatedOther.runtimePlanHash()),
+                "isolated surrogate runtime plan hashes must not collide");
+    }
+
+    private static RuntimePlan unicodeNamedPlan(String tableName) {
+        return RuntimePlan.builder(
+                        "unicode-lossless",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(TablePlan.builder(tableName,
+                                RuntimeCompatibility.DENSE_ALGORITHM).build())
+                .build();
+    }
+
     private static void testChildOwnershipRegistry() {
         ChildOwnershipRegistry registry = new ChildOwnershipRegistry();
         long owner = registry.newOwnerToken();
         final boolean[] released = new boolean[1];
         OwnedChildTable lifecycle = new OwnedChildTable() {
             @Override public boolean hasPinnedSubtree() { return false; }
+            @Override public void preflightOwnedRelease(boolean aggregateRelease) { }
             @Override public void releaseOwnedSubtree(boolean aggregateRelease) {
                 released[0] = true;
             }
@@ -290,6 +341,68 @@ public final class RuntimeCorePhase1Check {
         registry.releaseStorage();
     }
 
+    private static void testOwnershipRegistryInitialStorageBoundary() {
+        final long exactInitialBytes = 53L * 16L + 12L * 32L + 16L * 256L;
+        ChildOwnershipRegistry exact = new ChildOwnershipRegistry(exactInitialBytes, 1L);
+        exact.releaseStorage();
+        try {
+            new ChildOwnershipRegistry(exactInitialBytes - 1L, 1L);
+            throw new AssertionError("ownership initial limit-1 must fail");
+        } catch (SomaRuntimeException failure) {
+            assertEquals("memory_limit_exceeded", failure.code(),
+                    "ownership initial storage code");
+            assertEquals(Long.toString(exactInitialBytes - 1L),
+                    failure.context().get("limit"), "ownership initial storage limit");
+            assertEquals(Long.toString(exactInitialBytes),
+                    failure.context().get("proposed"), "ownership initial storage proposed");
+        }
+    }
+
+    private static void testOwnershipStageGrowthIsAtomicAndRetryable() {
+        final long maximumPeakBeforeFirstSlotGrowth = 6599L;
+        ChildOwnershipRegistry registry = new ChildOwnershipRegistry(
+                maximumPeakBeforeFirstSlotGrowth, 100L);
+        OwnedChildTable lifecycle = new OwnedChildTable() {
+            @Override public boolean hasPinnedSubtree() { return false; }
+            @Override public void preflightOwnedRelease(boolean aggregateRelease) { }
+            @Override public void releaseOwnedSubtree(boolean aggregateRelease) { }
+            @Override public long subtreeChildInstanceCount() { return 0L; }
+            @Override public long subtreeDescendantRowCount() { return 0L; }
+        };
+        long[] owners = new long[15];
+        long[] handles = new long[15];
+        for (int index = 0; index < handles.length; index++) {
+            owners[index] = registry.newOwnerToken();
+            handles[index] = registry.stage(owners[index], "items", "Root.items",
+                    new Object(), lifecycle);
+            registry.publish(handles[index], owners[index], "items");
+        }
+        final long failedOwner = registry.newOwnerToken();
+        final Object failedChild = new Object();
+        try {
+            registry.stage(failedOwner, "items", "Root.items", failedChild, lifecycle);
+            throw new AssertionError("slot growth peak limit must fail");
+        } catch (SomaRuntimeException failure) {
+            assertEquals("memory_limit_exceeded", failure.code(),
+                    "slot growth memory code");
+            assertEquals(Long.toString(maximumPeakBeforeFirstSlotGrowth),
+                    failure.context().get("limit"), "slot growth limit");
+            assertEquals("6600", failure.context().get("proposed"),
+                    "slot growth combined retained/transient peak");
+        }
+        registry.release(handles[0], owners[0], "items", "test", false);
+        long retried = registry.stage(failedOwner, "items", "Root.items",
+                failedChild, lifecycle);
+        registry.publish(retried, failedOwner, "items");
+        assertTrue(registry.resolve(retried, failedOwner, "items", "test") == failedChild,
+                "failed stage must not retain identity and retry must reuse a free slot");
+        registry.release(retried, failedOwner, "items", "test", false);
+        for (int index = 1; index < handles.length; index++) {
+            registry.release(handles[index], owners[index], "items", "test", false);
+        }
+        registry.releaseStorage();
+    }
+
     private static void testRetryableCascadeAndRegistryRelease() {
         final ChildOwnershipRegistry registry = new ChildOwnershipRegistry(8192L, 8L);
         final int[] firstCalls = {0};
@@ -315,7 +428,7 @@ public final class RuntimeCorePhase1Check {
             registry.commitCascade(false, "clear");
             throw new AssertionError("controlled cascade release failure must propagate");
         } catch (IllegalStateException expected) {
-            // Both registry entries must remain LIVE even though the first idempotent callback ran.
+            // The recursive preflight must reject before either release callback runs.
         }
         assertTrue(registry.resolve(firstHandle, firstOwner, "items", "test") == first,
                 "failed cascade keeps first slot live");
@@ -327,8 +440,8 @@ public final class RuntimeCorePhase1Check {
         registry.collectCascade(firstHandle, firstOwner, "items", true, "clear");
         registry.collectCascade(secondHandle, secondOwner, "items", true, "clear");
         registry.commitCascade(false, "clear");
-        assertEquals(2, firstCalls[0], "retry repeats idempotent completed descendant");
-        assertEquals(2, secondCalls[0], "retry completes previously failed descendant");
+        assertEquals(1, firstCalls[0], "preflight failure prevents partial first release");
+        assertEquals(1, secondCalls[0], "retry releases second descendant once");
         expectCode("child_released", new ThrowingRunnable() {
             @Override public void run() {
                 registry.resolve(firstHandle, firstOwner, "items", "test");
@@ -341,11 +454,13 @@ public final class RuntimeCorePhase1Check {
             final int[] calls, final boolean[] rejectOnce) {
         return new OwnedChildTable() {
             @Override public boolean hasPinnedSubtree() { return false; }
-            @Override public void releaseOwnedSubtree(boolean aggregateRelease) {
-                calls[0]++;
+            @Override public void preflightOwnedRelease(boolean aggregateRelease) {
                 if (rejectOnce != null && rejectOnce[0]) {
                     throw new IllegalStateException("controlled release failure");
                 }
+            }
+            @Override public void releaseOwnedSubtree(boolean aggregateRelease) {
+                calls[0]++;
             }
             @Override public long subtreeChildInstanceCount() { return 0L; }
             @Override public long subtreeDescendantRowCount() { return 0L; }

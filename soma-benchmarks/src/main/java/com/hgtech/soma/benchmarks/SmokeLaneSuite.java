@@ -2,6 +2,7 @@ package com.hgtech.soma.benchmarks;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.GeneratedColumnAccess;
 import com.hgtech.soma.runtime.MaterializationBudget;
+import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.StatsMode;
@@ -57,6 +58,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.IntConsumer;
 
 /** G5与runtime-state contract的dependency-free真实smoke workloads。 */
@@ -181,7 +183,8 @@ final class SmokeLaneSuite {
         long baselineNanos = elapsed(baselineStart);
         require(soma[0] == primitive, "packed scan baseline mismatch");
         blackhole ^= primitive;
-        LaneObservation result = base(lane, setup, somaNanos + baselineNanos, config.rows);
+        LaneObservation result = base(lane, setup, somaNanos + baselineNanos,
+                2L * config.rows);
         result.baselineId = "handwritten-int-array-same-values-v1";
         result.scanned = config.rows * 2L;
         result.matched = config.rows * 2L;
@@ -209,14 +212,18 @@ final class SmokeLaneSuite {
         table.addBatch(new TravelCostBatch(2)
                 .addValues(first, 101L, 11L)
                 .addValues(second, 202L, 22L));
+        table.resetStats();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
         long firstDistance = table.fetch(first).distanceMeters;
+        TableStats firstStats = table.statsSnapshot();
         long secondDistance = table.fetch(second).distanceMeters;
+        TableStats secondStats = table.statsSnapshot();
         boolean missing = !table.find(new LocationPairKey(new LocationId(9L), new LocationId(9L)))
                 .isPresent();
+        TableStats missingStats = table.statsSnapshot();
         long measured = elapsed(measureStart);
-        TableStats stats = table.statsSnapshot();
+        TableStats stats = missingStats;
         require(firstDistance == 101L && secondDistance == 202L && missing,
                 "generated key lookup must use full equality");
         if (collision) require(stats.keySpaceCollisionCount() > 0L,
@@ -228,8 +235,14 @@ final class SmokeLaneSuite {
         result.missing = 1L;
         result.scanned = 2L;
         result.matched = 2L;
-        result.materializationInvocations = 3L;
+        result.materializationInvocations = stats.materializationInvocationCount();
         result.materialized = 2L;
+        result.estimatedAllocationBytes = firstStats.lastMaterializationEstimatedAllocationBytes()
+                + secondStats.lastMaterializationEstimatedAllocationBytes()
+                + missingStats.lastMaterializationEstimatedAllocationBytes();
+        result.materializationEstimatedAllocationBytes = result.estimatedAllocationBytes;
+        result.touchedBytes = 32L * result.lookups;
+        result.workingSetBytes = 32L * stats.capacity() + 13L * stats.keySpaceCapacity();
         result.keySpaceStats = BenchmarkModel.object("implementation", "generated-hash-composite-v1",
                 "fullEqualityDistinguished", Boolean.TRUE,
                 "collisionConstructed", Boolean.valueOf(collision),
@@ -261,9 +274,10 @@ final class SmokeLaneSuite {
                     index, 0L, 0L, index, index + 1L, 0L,
                     index, index, index + 1L, false);
         }
-        table.addBatch(batch);
         long setupNanos = elapsed(setupStart);
+        TableStats beforeMeasurement = table.statsSnapshot();
         long measureStart = System.nanoTime();
+        table.addBatch(batch);
         UpdateResult updated = table.findByMachine(machineA).update(row -> {
             row.setIndicatorReady(true);
             row.setEffectiveReadyMinute(row.baseReadyMinute() + 1L);
@@ -276,25 +290,76 @@ final class SmokeLaneSuite {
                         return Long.compare(left.effectiveReadyMinute(), right.effectiveReadyMinute());
                     }
                 }).firstOrThrow();
-        long removed = table.findByOperation(chosen.candidateKey.operationKey).remove().removed();
+        TableStats firstStats = table.statsSnapshot();
+        RemoveResult removedResult = table.findByOperation(chosen.candidateKey.operationKey).remove();
+        long removed = removedResult.removed();
         long measured = elapsed(measureStart);
         require(updated.changed() > 0L && removed == 1L && table.size() == count - 1,
                 "generated keyed frontier add/update/first/remove");
         TableStats stats = table.statsSnapshot();
         table.release();
         LaneObservation result = base(lane, setupNanos, measured, count);
-        result.operations = count + updated.matched() + 2L;
+        result.operations = 4L;
         result.lookups = 3L;
-        result.scanned = count + updated.scanned();
-        result.matched = updated.matched() + 1L;
+        result.scanned = count + updated.scanned() + firstStats.lastScanned()
+                + removedResult.scanned();
+        result.matched = updated.matched() + firstStats.lastMatched()
+                + removedResult.matched();
         result.changed = count + updated.changed();
         result.removed = removed;
         result.materializationInvocations = 1L;
         result.materialized = 1L;
+        long appendValidationKeySpaceAllocationBytes =
+                RuntimeCompatibility.estimatedHashKeySpaceBytes(
+                        RuntimeCompatibility.HASH_COMPOSITE_KEY_SPACE, count);
+        long appendValidationKeySpaceCapacity =
+                appendValidationKeySpaceAllocationBytes / 13L;
+        long mainKeySpaceGrowthAllocationBytes =
+                stats.keySpaceCapacity() > beforeMeasurement.keySpaceCapacity()
+                        ? Math.multiplyExact(13L, stats.keySpaceCapacity()) : 0L;
+        long keySpaceAllocationBytes = Math.addExact(
+                appendValidationKeySpaceAllocationBytes,
+                mainKeySpaceGrowthAllocationBytes);
+        long tableGrowthAllocationBytes =
+                stats.capacity() > beforeMeasurement.capacity()
+                        ? Math.multiplyExact(105L, stats.capacity()) : 0L;
+        long scratchAllocationBytes = positiveDelta(
+                stats.operationScratchCurrentBytes(),
+                beforeMeasurement.operationScratchCurrentBytes())
+                + positiveDelta(stats.updateScratchCurrentBytes(),
+                beforeMeasurement.updateScratchCurrentBytes())
+                + positiveDelta(stats.sidecarScratchCurrentBytes(),
+                beforeMeasurement.sidecarScratchCurrentBytes());
+        result.estimatedAllocationBytes = firstStats.lastMaterializationEstimatedAllocationBytes()
+                + tableGrowthAllocationBytes + keySpaceAllocationBytes
+                + scratchAllocationBytes;
+        result.materializationEstimatedAllocationBytes =
+                firstStats.lastMaterializationEstimatedAllocationBytes();
+        result.touchedBytes = 105L * (count + updated.scanned()
+                + firstStats.lastScanned() + removedResult.scanned() + 1L);
+        result.workingSetBytes = 105L * stats.capacity()
+                + 13L * stats.keySpaceCapacity()
+                + stats.operationScratchCurrentBytes()
+                + stats.updateScratchCurrentBytes()
+                + stats.sidecarScratchCurrentBytes();
         result.keySpaceStats = BenchmarkModel.object("implementation", "generated-machine-candidate-frontier",
                 "added", Integer.valueOf(count), "updated", Long.valueOf(updated.changed()),
                 "dynamicFirst", 1L, "removed", Long.valueOf(removed),
-                "keySpaceCapacity", Integer.valueOf(stats.keySpaceCapacity()));
+                "tableCapacityBeforeMeasurement", Integer.valueOf(beforeMeasurement.capacity()),
+                "tableCapacity", Integer.valueOf(stats.capacity()),
+                "keySpaceCapacityBeforeMeasurement",
+                Integer.valueOf(beforeMeasurement.keySpaceCapacity()),
+                "keySpaceCapacity", Integer.valueOf(stats.keySpaceCapacity()),
+                "appendValidationKeySpaceCapacity",
+                Long.valueOf(appendValidationKeySpaceCapacity),
+                "appendValidationKeySpaceAllocationBytes",
+                Long.valueOf(appendValidationKeySpaceAllocationBytes),
+                "mainKeySpaceGrowthAllocationBytes",
+                Long.valueOf(mainKeySpaceGrowthAllocationBytes),
+                "keySpaceAllocationBytes", Long.valueOf(keySpaceAllocationBytes),
+                "tableGrowthAllocationBytes", Long.valueOf(tableGrowthAllocationBytes),
+                "scratchAllocationBytes", Long.valueOf(scratchAllocationBytes),
+                "retainedScratchBytes", Long.valueOf(scratchAllocationBytes));
         result.sidecarStats = BenchmarkModel.object("rebuildCount",
                 Long.valueOf(stats.sidecarRebuildCount()), "dirtyCount",
                 Long.valueOf(stats.sidecarDirtyCount()));
@@ -312,21 +377,28 @@ final class SmokeLaneSuite {
         InsertionCandidateRowBatch first = insertionBatch(count, 1000L);
         table.replaceAll(first);
         table.byBestDelta().firstOrThrow();
+        InsertionCandidateRowBatch replacement = insertionBatch(count, 2000L);
+        table.resetStats();
+        TableStats beforeMeasurement = table.statsSnapshot();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
-        table.replaceAll(insertionBatch(count, 2000L));
+        table.replaceAll(replacement);
         InsertionCandidateRow maintained = table.byBestDelta().firstOrThrow();
+        TableStats maintainedStats = table.statsSnapshot();
         InsertionCandidateRow dynamic = table.rows().sorted(new InsertionCandidateRowRows.Comparator() {
             @Override public int compare(com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow left,
                                          com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow right) {
                 return Long.compare(left.deltaDistanceMeters(), right.deltaDistanceMeters());
             }
         }).findFirst().get();
+        TableStats dynamicStats = table.statsSnapshot();
+        TableStats secondDynamicStats = null;
         if (replaceAndBothTerminals) {
             require(table.rows().sorted((left, right) -> Long.compare(
                     left.deltaDistanceMeters(), right.deltaDistanceMeters()))
                     .firstOrThrow().customerId.equals(dynamic.customerId),
                     "dynamic firstOrThrow must agree with findFirst");
+            secondDynamicStats = table.statsSnapshot();
         }
         long measured = elapsed(measureStart);
         require(maintained.customerId.equals(dynamic.customerId),
@@ -334,18 +406,65 @@ final class SmokeLaneSuite {
         TableStats stats = table.statsSnapshot();
         table.release();
         LaneObservation result = base(lane, setup, measured, count);
-        result.operations = replaceAndBothTerminals ? count + 4L : count + 3L;
-        result.scanned = count * (replaceAndBothTerminals ? 3L : 2L);
-        result.matched = 2L;
+        result.operations = replaceAndBothTerminals ? 4L : 3L;
+        result.scanned = count + maintainedStats.lastScanned()
+                + dynamicStats.lastScanned()
+                + (secondDynamicStats == null ? 0L : secondDynamicStats.lastScanned());
+        result.matched = replaceAndBothTerminals ? 3L : 2L;
         result.changed = count;
-        result.materializationInvocations = replaceAndBothTerminals ? 4L : 3L;
+        result.materializationInvocations = replaceAndBothTerminals ? 3L : 2L;
         result.materialized = result.materializationInvocations;
+        long scratchAllocationBytes = positiveDelta(
+                stats.operationScratchCurrentBytes(),
+                beforeMeasurement.operationScratchCurrentBytes())
+                + positiveDelta(stats.updateScratchCurrentBytes(),
+                beforeMeasurement.updateScratchCurrentBytes())
+                + positiveDelta(stats.sidecarScratchCurrentBytes(),
+                beforeMeasurement.sidecarScratchCurrentBytes());
+        result.estimatedAllocationBytes = maintainedStats.lastMaterializationEstimatedAllocationBytes()
+                + dynamicStats.lastMaterializationEstimatedAllocationBytes()
+                + (secondDynamicStats == null ? 0L
+                : secondDynamicStats.lastMaterializationEstimatedAllocationBytes())
+                + scratchAllocationBytes;
+        result.materializationEstimatedAllocationBytes =
+                maintainedStats.lastMaterializationEstimatedAllocationBytes()
+                + dynamicStats.lastMaterializationEstimatedAllocationBytes()
+                + (secondDynamicStats == null ? 0L
+                : secondDynamicStats.lastMaterializationEstimatedAllocationBytes());
+        long replaceTouchedBytes = Math.multiplyExact(44L, count);
+        long maintainedOrderRebuildRows = maintainedStats.sidecarRebuildRows();
+        long maintainedOrderTouchedBytes = Math.multiplyExact(
+                32L, maintainedOrderRebuildRows);
+        long dynamicComparatorRows = dynamicStats.lastScanned()
+                + (secondDynamicStats == null ? 0L : secondDynamicStats.lastScanned());
+        long dynamicComparatorTouchedBytes = Math.multiplyExact(8L, dynamicComparatorRows);
+        long materializationTouchedBytes = Math.multiplyExact(44L, result.materialized);
+        result.touchedBytes = replaceTouchedBytes + maintainedOrderTouchedBytes
+                + dynamicComparatorTouchedBytes + materializationTouchedBytes;
+        result.workingSetBytes = 44L * stats.capacity()
+                + stats.operationScratchCurrentBytes()
+                + stats.updateScratchCurrentBytes()
+                + stats.sidecarScratchCurrentBytes();
         result.sidecarStats = BenchmarkModel.object("implementation", "generated-insertion-workspace",
                 "replaceRows", Integer.valueOf(count),
                 "maintainedFirstOrThrow", 1L, "dynamicFindFirst", 1L,
                 "dynamicFirstOrThrow", replaceAndBothTerminals ? 1L : 0L,
                 "dirtyCount", Long.valueOf(stats.sidecarDirtyCount()),
-                "rebuildCount", Long.valueOf(stats.sidecarRebuildCount()));
+                "rebuildCount", Long.valueOf(stats.sidecarRebuildCount()),
+                "replaceTouchedBytes", Long.valueOf(replaceTouchedBytes),
+                "maintainedOrderRebuildRows", Long.valueOf(maintainedOrderRebuildRows),
+                "maintainedOrderKeyWidthBytes", 32L,
+                "maintainedOrderTouchedBytes", Long.valueOf(maintainedOrderTouchedBytes),
+                "dynamicComparatorRows", Long.valueOf(dynamicComparatorRows),
+                "dynamicComparatorWidthBytes", 8L,
+                "dynamicComparatorTouchedBytes", Long.valueOf(dynamicComparatorTouchedBytes),
+                "materializedRowWidthBytes", 44L,
+                "materializationTouchedBytes", Long.valueOf(materializationTouchedBytes),
+                "tableCapacity", Integer.valueOf(stats.capacity()),
+                "scratchAllocationBytes", Long.valueOf(scratchAllocationBytes),
+                "retainedScratchBytes", Long.valueOf(
+                stats.operationScratchCurrentBytes() + stats.updateScratchCurrentBytes()
+                        + stats.sidecarScratchCurrentBytes()));
         result.limitations = BenchmarkModel.limitations(
                 "generated dense workspace performs replaceAll and maintained/dynamic ordered terminals",
                 "candidate construction is outside measured publication/terminal phase");
@@ -384,16 +503,23 @@ final class SmokeLaneSuite {
         TableStats stats = table.statsSnapshot();
         table.release();
         LaneObservation result = base(lane, setup, measured, count);
-        result.operations = updated.scanned() + updated.changed();
+        result.operations = 1L;
         result.scanned = updated.scanned();
         result.matched = updated.matched();
         result.changed = updated.changed();
-        result.estimatedAllocationBytes = stats.operationScratchHighWaterBytes();
+        result.estimatedAllocationBytes = stats.operationScratchCurrentBytes()
+                + stats.updateScratchCurrentBytes();
+        result.touchedBytes = 4L * updated.scanned() + 88L * updated.matched();
+        result.workingSetBytes = 44L * stats.capacity()
+                + stats.operationScratchCurrentBytes()
+                + stats.updateScratchCurrentBytes();
         result.selectorStats = BenchmarkModel.object("implementation", "generated-row-pipeline",
                 "filterStages", 1L, "limitStages", 1L, "updateTerminal", 1L,
                 "matched", Long.valueOf(updated.matched()),
                 "changed", Long.valueOf(updated.changed()),
+                "capacity", Integer.valueOf(stats.capacity()),
                 "operationScratchHighWaterBytes", Long.valueOf(stats.operationScratchHighWaterBytes()),
+                "updateScratchCurrentBytes", Long.valueOf(stats.updateScratchCurrentBytes()),
                 "perRowObjects", 0L);
         result.limitations = BenchmarkModel.limitations(
                 "generated Row Pipeline executes filter+limit+update as one terminal with reusable cursor/scratch",
@@ -442,16 +568,20 @@ final class SmokeLaneSuite {
                 "keyspace lookup/domain-guard semantics");
         blackhole ^= checksum;
         LaneObservation result = base(lane, setup, measured, count);
-        result.operations = count * 4L + count / 4L + 1L;
-        result.lookups = count * 3L + 1L;
-        result.missing = 1L;
+        result.operations = count * 6L + count / 4L + 4L;
+        result.lookups = count * 3L + 3L;
+        result.missing = 3L;
         result.changed = count * 3L + count / 4L;
         result.scanned = count * 3L;
         result.matched = count * 3L;
         result.touchedBytes = 24L * count;
-        result.workingSetBytes = 4L * sparse.sparseCapacity()
-                + 4L * sparse.denseCapacity() + 9L * hash.capacity()
-                + 17L * composite.capacity();
+        result.workingSetBytes = sparse.retainedBytes()
+                + hash.retainedBytes() + composite.retainedBytes()
+                + 4L * direct.length;
+        result.estimatedAllocationBytes = 4L * direct.length
+                + hashGrowthBytes(9L, hash.capacity())
+                + hashGrowthBytes(13L, composite.capacity())
+                + sparseDenseGrowthBytes(sparse.denseCapacity());
         result.keySpaceStats = BenchmarkModel.object(
                 "sparseMaximumKey", Integer.valueOf(sparse.maximumKey()),
                 "sparseCapacity", Integer.valueOf(sparse.sparseCapacity()),
@@ -481,6 +611,7 @@ final class SmokeLaneSuite {
         long setupStart = System.nanoTime();
         KernelTable table = new KernelTable(0, "required", StatsMode.SUMMARY, false);
         if (reserve) table.state.reserve(config.rows);
+        long growthBefore = table.state.statsSnapshot().growthCount();
         int[] batch = new int[config.rows];
         for (int row = 0; row < batch.length; row++) batch[row] = row;
         long setup = elapsed(setupStart);
@@ -493,12 +624,16 @@ final class SmokeLaneSuite {
         result.scanned = config.rows;
         result.matched = config.rows;
         result.changed = config.rows;
-        result.estimatedAllocationBytes = 4L * batch.length;
+        result.estimatedAllocationBytes = reserve ? 0L
+                : 4L * table.state.capacity()
+                + 8L * ((table.state.capacity() + 63L) >>> 6);
         result.touchedBytes = 8L * batch.length;
-        result.workingSetBytes = 4L * table.state.capacity() + 4L * batch.length;
+        result.workingSetBytes = 4L * table.state.capacity()
+                + 8L * ((table.state.capacity() + 63L) >>> 6)
+                + 4L * batch.length;
         result.selectorStats = BenchmarkModel.object("reserved", Boolean.valueOf(reserve),
                 "capacity", Integer.valueOf(table.state.capacity()),
-                "growthCount", Long.valueOf(stats.growthCount()));
+                "growthCount", Long.valueOf(stats.growthCount() - growthBefore));
         result.limitations = BenchmarkModel.limitations(
                 "smoke separates batch construction and table import but does not measure JVM allocation precisely",
                 "capacity is a local smoke scale, not a production sizing recommendation");
@@ -525,18 +660,25 @@ final class SmokeLaneSuite {
             table.state.sidecarScratch(sidecar.retainedBytes(), sidecar.rebuildPeakBytes(config.rows));
             rebuildNanos += elapsed(rebuildStart);
             checksum += sidecar.rowAt(config.rows / 2);
-            sidecar.markDirty();
-            table.state.sidecarsDirtied(1L);
+            if (rebuild + 1 < rebuilds) {
+                sidecar.markDirty();
+                table.state.sidecarsDirtied(1L);
+            }
         }
+        for (int row = 0; row < config.rows; row++) checksum += sidecar.rowAt(row);
+        sidecar.markDirty();
+        table.state.sidecarsDirtied(1L);
         long measured = elapsed(measureStart);
         blackhole ^= checksum;
         TableStats stats = table.state.statsSnapshot();
         LaneObservation result = base(lane, setup, measured, config.rows);
-        result.scanned = config.rows * rebuilds;
+        result.scanned = config.rows * (rebuilds + 1L);
         result.matched = result.scanned;
         result.operations = rebuilds + 1L;
-        result.touchedBytes = 8L * config.rows * rebuilds;
+        result.touchedBytes = 8L * config.rows * rebuilds + 4L * config.rows;
         result.workingSetBytes = sidecar.retainedBytes();
+        result.estimatedAllocationBytes = sidecar.rebuildPeakBytes(config.rows);
+        result.explicitMutations = rebuilds;
         result.sidecarStats = BenchmarkModel.object("dirtyCount", Long.valueOf(stats.sidecarDirtyCount()),
                 "rebuildCount", Long.valueOf(stats.sidecarRebuildCount()),
                 "rebuildRows", Long.valueOf(stats.sidecarRebuildRows()),
@@ -546,8 +688,6 @@ final class SmokeLaneSuite {
                 "cleanTraversalCount", 1L, "stormRebuilds", Integer.valueOf(rebuilds));
         result.selectorStats = BenchmarkModel.object("cardinality", Integer.valueOf(config.rows),
                 "selectivity", 1.0d, "dynamicSortBufferBytes", Long.valueOf(4L * config.rows));
-        result.mutationReadRatio = BenchmarkModel.object("mutations", Integer.valueOf(rebuilds),
-                "reads", 1L);
         result.statsMode = "diagnostic";
         result.limitations = BenchmarkModel.limitations(
                 "smoke records clean/dirty/rebuild-storm shape; timing is not a maintained-order claim",
@@ -598,7 +738,7 @@ final class SmokeLaneSuite {
         result.removed = config.rows - write;
         result.changed = config.rows - write;
         result.operations = 3L;
-        result.estimatedAllocationBytes = 4L * scratch.length;
+        result.estimatedAllocationBytes = 12L;
         result.touchedBytes = 8L * config.rows;
         result.workingSetBytes = 4L * table.state.capacity() + 4L * scratch.length;
         result.sidecarStats = BenchmarkModel.object("compactedRows", Long.valueOf(result.removed),
@@ -607,7 +747,8 @@ final class SmokeLaneSuite {
                 "operationScratchHighWaterBytes", Long.valueOf(stats.operationScratchHighWaterBytes()),
                 "singleRemoved", 1L, "batchCompacted", Long.valueOf(result.removed),
                 "clearReuseCapacityBefore", Integer.valueOf(retained),
-                "clearReuseCapacityAfter", Integer.valueOf(reuse.state.capacity()));
+                "clearReuseCapacityAfter", Integer.valueOf(reuse.state.capacity()),
+                "measurementArrayAllocationBytes", 12L);
         result.mutationReadRatio = BenchmarkModel.object("mutations", Long.valueOf(result.removed),
                 "reads", Long.valueOf(config.rows));
         result.limitations = BenchmarkModel.limitations(
@@ -619,6 +760,7 @@ final class SmokeLaneSuite {
     private static LaneObservation columnView(BenchmarkConfig config, String lane) {
         long setupStart = System.nanoTime();
         KernelTable table = new KernelTable(config.rows, "mixed-0-63-64", StatsMode.SUMMARY, true);
+        int capacityBeforeMeasurement = table.state.capacity();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
         IntColumnView view = GeneratedColumnAccess.intView(
@@ -644,10 +786,16 @@ final class SmokeLaneSuite {
         result.matched = reads;
         result.lookups = config.rows + reads;
         result.touchedBytes = 8L * ((config.rows + 63L) >>> 6) + 4L * reads;
-        result.workingSetBytes = 4L * table.state.capacity();
+        result.workingSetBytes = 4L * table.state.capacity()
+                + 8L * ((table.state.capacity() + 63L) >>> 6);
+        long reserveAllocationBytes = table.state.capacity() == capacityBeforeMeasurement ? 0L
+                : 4L * table.state.capacity()
+                + 8L * ((table.state.capacity() + 63L) >>> 6);
+        result.estimatedAllocationBytes = reserveAllocationBytes;
         result.columnViewStats = BenchmarkModel.object("acquired", 1L, "reads", Integer.valueOf(reads),
                 "released", 1L, "staleErrors", 0L, "releasedErrors", 1L,
-                "viewPinnedErrors", 1L);
+                "viewPinnedErrors", 1L,
+                "reserveAllocationBytes", Long.valueOf(reserveAllocationBytes));
         result.limitations = BenchmarkModel.limitations(
                 "smoke covers acquire/read/release and view_pinned/released_view paths",
                 "borrow scope timing is not a claim about ColumnView versus other access tiers");
@@ -667,10 +815,15 @@ final class SmokeLaneSuite {
         long diagnosticNanos = elapsed(diagnosticStart);
         require(first == second, "stats mode semantic mismatch");
         blackhole ^= first;
-        LaneObservation result = base(lane, setup, summaryNanos + diagnosticNanos, config.rows);
+        long processedRows = 2L * config.rows * config.rows;
+        LaneObservation result = base(lane, setup, summaryNanos + diagnosticNanos,
+                processedRows);
         result.operations = config.rows * 2L;
-        result.scanned = result.operations;
-        result.matched = result.operations;
+        result.scanned = processedRows;
+        result.matched = processedRows;
+        result.touchedBytes = 4L * processedRows;
+        result.workingSetBytes = 4L * summary.state.capacity()
+                + 4L * diagnostic.state.capacity();
         result.statsMode = "summary-vs-diagnostic";
         result.selectorStats = BenchmarkModel.object("summaryNanos", Long.valueOf(summaryNanos),
                 "diagnosticNanos", Long.valueOf(diagnosticNanos),
@@ -691,6 +844,7 @@ final class SmokeLaneSuite {
         final long owner = registry.newOwnerToken();
         OwnedChildTable owned = new OwnedChildTable() {
             @Override public boolean hasPinnedSubtree() { return child.state.hasPinnedBorrow(); }
+            @Override public void preflightOwnedRelease(boolean aggregateRelease) { }
             @Override public void releaseOwnedSubtree(boolean aggregateRelease) {
                 child.state.commitOwnedRelease(aggregateRelease);
             }
@@ -762,15 +916,18 @@ final class SmokeLaneSuite {
                 "generated recursive Map/schema-object/List materialization");
         TableStats stats = table.statsSnapshot();
         table.release();
-        LaneObservation result = base(lane, setup, measured, 6L);
+        LaneObservation result = base(lane, setup, measured,
+                stats.lastMaterializationRows());
         result.operations = 1L;
-        result.scanned = 4L;
-        result.matched = 4L;
-        result.materialized = 4L;
+        result.scanned = stats.lastMaterializationRows();
+        result.matched = stats.lastMaterializationRows();
+        result.materialized = stats.lastMaterializationRows();
         result.materializationInvocations = 1L;
         result.estimatedAllocationBytes = stats.lastMaterializationEstimatedAllocationBytes();
         result.workingSetBytes = result.estimatedAllocationBytes;
-        result.allocationEstimatorVersion = "soma-materialization-estimator-v1";
+        result.touchedBytes = 8L * stats.lastMaterializationLeafValues();
+        result.touchedBytesScope = "materialized leaf payload bytes traversed in measurement";
+        result.workingSetScope = "maximum successfully published detached materialization payload estimate";
         result.materializationPath = "operation_definitions[].candidateMachines";
         result.materializationStats = BenchmarkModel.object("implementation", "generated-recursive-materializer",
                 "rootMapEntries", Integer.valueOf(materialized.size()),
@@ -869,14 +1026,19 @@ final class SmokeLaneSuite {
                         && recovery.size() == 2 && table.size() == 2,
                 "generated materialization budget/allocation recovery");
         table.release();
-        LaneObservation result = base(lane, setup, measured, dimensions.length + 2L);
-        result.operations = dimensions.length * 2L + 3L;
-        result.scanned = result.operations;
-        result.matched = result.operations;
-        result.materializationInvocations = 13L;
-        result.materialized = 28L;
-        result.estimatedAllocationBytes = observed[4];
-        result.allocationEstimatorVersion = "soma-materialization-estimator-v1";
+        long successfulMaterializations = successes + 1L;
+        long publishedRows = observed[2] * successfulMaterializations;
+        LaneObservation result = base(lane, setup, measured, observed[2]);
+        result.operations = dimensions.length * 2L + 2L;
+        result.scanned = publishedRows;
+        result.matched = publishedRows;
+        result.materializationInvocations = result.operations;
+        result.materialized = publishedRows;
+        result.estimatedAllocationBytes = observed[4] * successfulMaterializations;
+        result.workingSetBytes = observed[4];
+        result.touchedBytes = 8L * observed[3] * result.operations;
+        result.touchedBytesScope = "materialization leaf payload attempts in measurement";
+        result.workingSetScope = "maximum successfully published detached materialization payload estimate";
         result.materializationBudgetDimension = "all-five-dimensions-plus-allocation-admission";
         result.materializationPath = "operation_definitions[].candidateMachines";
         result.materializationStats = BenchmarkModel.object("implementation", "generated-recursive-materializer",
@@ -951,7 +1113,9 @@ final class SmokeLaneSuite {
                     "implementation", "generated-row-materializer",
                     "invocations", Long.valueOf(result.materializationInvocations),
                     "rows", Long.valueOf(result.materialized),
-                    "estimatedBytes", null,
+                    "estimatedBytes", result.materializationEstimatedAllocationBytes == 0L
+                            ? null : Long.valueOf(
+                            result.materializationEstimatedAllocationBytes),
                     "observationKind", "measured");
         }
         result.workloadId = workloadId(result.lane);
@@ -982,25 +1146,28 @@ final class SmokeLaneSuite {
         if (lane.startsWith("kernel.optional_")) return Arrays.asList("value", "presence");
         if (lane.equals("kernel.packed_scan")) return Arrays.asList("value");
         if (lane.equals("generated.pipeline_fusion")) {
-            return Arrays.asList("vectorIndex", "value", "derivative");
+            return Arrays.asList("vectorIndex", "entityKind", "entityId", "variableKind",
+                    "value", "derivative", "scale");
         }
         if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) {
             return Arrays.asList("key", "rowIndex", "hashSlot");
         }
         if (lane.equals("kernel.key_lookup_normal")
                 || lane.equals("kernel.key_lookup_collision")) {
-            return Arrays.asList("locationPair.from.value", "locationPair.to.value",
-                    "distanceMeters");
+            return Arrays.asList("fromLocation.value", "toLocation.value",
+                    "distanceMeters", "travelSeconds");
         }
         if (lane.startsWith("kernel.batch_import")) return Arrays.asList("value");
         if (lane.equals("generated.keyed_frontier")) {
-            return Arrays.asList("candidateKey.machineId.value",
-                    "candidateKey.operationKey.operationId.value", "indicatorReady",
-                    "effectiveReadyMinute");
+            return Arrays.asList("candidateKey", "targetSetupFamily", "operationReleaseMinute",
+                    "jobReadyMinute", "materialReadyMinute", "baseReadyMinute",
+                    "processingMinutes", "setupMinutes", "effectiveReadyMinute",
+                    "fcfsValue", "sptValue", "indicatorReady");
         }
         if (lane.equals("generated.ordered_access_lazy_rebuild")
                 || lane.equals("generated.dense_scratch_replace_order")) {
-            return Arrays.asList("deltaDistanceMeters", "customerId.value");
+            return Arrays.asList("customerId.value", "routeId.value", "insertAfterPosition",
+                    "deltaDistanceMeters", "projectedArrivalMinute", "violationPenalty");
         }
         if (lane.equals("kernel.column_view")) return Arrays.asList("value", "presence");
         if (lane.equals("child_locality.parent_scan_vs_flat")) {
@@ -1053,34 +1220,82 @@ final class SmokeLaneSuite {
     }
 
     static void validateLaneRecord(String lane, Map<String, Object> record) {
-        validateAccessPatternCard(nested(record, "accessPatternCard"));
+        Map<String, Object> accessPatternCard = nested(record, "accessPatternCard");
+        validateAccessPatternCard(accessPatternCard);
+        if (!hotColumns(lane).equals(accessPatternCard.get("hotColumns"))) {
+            throw new IllegalArgumentException(
+                    "Access Pattern Card hot columns contradict lane schema: " + lane);
+        }
         validateDefaultMap(nested(record, "externalDtoStats"), "externalDtoStats");
+        Map<String, Object> rows = nested(record, "rowCounts");
+        Map<String, Object> operations = nested(record, "operationCounts");
+        Map<String, Object> candidates = nested(record, "candidateCounts");
+        Map<String, Object> allocation = nested(record, "allocationEstimate");
+        long iterations = number(record, "measurementIterations");
+        long scaleRows = number(nested(record, "scale"), "rows");
         boolean sidecar = false, keySpace = false, selector = false;
-        boolean materialization = number(nested(record, "operationCounts"),
-                "materializations") > 0L;
+        boolean materialization = number(operations, "materializations") > 0L;
         boolean specializedMaterialization = false, budget = false, columnView = false;
 
         if (lane.startsWith("kernel.optional_")) {
             selector = true;
-            requireExactIntegers(nested(record, "selectorStats"),
+            Map<String, Object> stats = nested(record, "selectorStats");
+            requireExactIntegers(stats,
                     new String[] {"bitmapWords", "present"});
+            require(number(stats, "present") == number(rows, "matched")
+                            && number(stats, "present") == number(candidates, "selected"),
+                    "optional present count contradicts root facts");
+            require(number(stats, "bitmapWords")
+                            == iterations * ((scaleRows + 63L) >>> 6),
+                    "optional bitmap words contradict measurement iterations");
+            require(number(record, "touchedBytesEstimate")
+                            == 4L * number(stats, "present")
+                            + 8L * number(stats, "bitmapWords"),
+                    "optional touched bytes contradict bitmap/present facts");
         } else if (lane.equals("kernel.packed_scan")) {
             selector = true;
-            requireExactIntegers(nested(record, "selectorStats"),
+            Map<String, Object> stats = nested(record, "selectorStats");
+            requireExactIntegers(stats,
                     new String[] {"somaNanos", "primitiveBaselineNanos"});
+            require(number(stats, "somaNanos") + number(stats, "primitiveBaselineNanos")
+                            == number(nested(record, "phaseTimings"), "measurementNanos"),
+                    "packed nested timings contradict measurement phase");
+            long processed = 2L * scaleRows * iterations;
+            require(number(operations, "operations") == 2L * iterations
+                            && number(rows, "source") == processed
+                            && number(rows, "scanned") == processed
+                            && number(rows, "matched") == processed,
+                    "packed counters contradict measured same-value scans");
         } else if (lane.equals("generated.pipeline_fusion")) {
             selector = true;
             Map<String, Object> stats = nested(record, "selectorStats");
             requireExactKeys(stats, new String[] {"implementation", "filterStages", "limitStages",
                     "updateTerminal", "matched", "changed",
-                    "operationScratchHighWaterBytes", "perRowObjects"});
+                    "capacity", "operationScratchHighWaterBytes",
+                    "updateScratchCurrentBytes", "perRowObjects"});
             requireStringValue(stats, "implementation", "generated-row-pipeline");
             requireIntegerFields(stats, new String[] {"filterStages", "limitStages",
                     "updateTerminal", "matched", "changed",
-                    "operationScratchHighWaterBytes", "perRowObjects"});
+                    "capacity", "operationScratchHighWaterBytes",
+                    "updateScratchCurrentBytes", "perRowObjects"});
             requirePositive(stats, "updateTerminal", lane);
             require(number(stats, "perRowObjects") == 0L,
                     "fusion lane per-row allocation shape");
+            require(number(stats, "updateTerminal") == iterations
+                            && number(stats, "matched") == number(rows, "matched")
+                            && number(stats, "changed") == number(rows, "changed")
+                            && number(operations, "operations") == iterations
+                            && number(record, "touchedBytesEstimate")
+                            == 4L * number(rows, "scanned")
+                            + 88L * number(rows, "matched")
+                            && number(record, "workingSetEstimate")
+                            == 44L * number(stats, "capacity")
+                            + number(stats, "operationScratchHighWaterBytes")
+                            + number(stats, "updateScratchCurrentBytes")
+                            && number(allocation, "bytes") == iterations
+                            * (number(stats, "operationScratchHighWaterBytes")
+                            + number(stats, "updateScratchCurrentBytes")),
+                    "fusion nested counters contradict root measurement facts");
         } else if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) {
             keySpace = true;
             Map<String, Object> stats = nested(record, "keySpaceStats");
@@ -1099,10 +1314,16 @@ final class SmokeLaneSuite {
                     "compositeCollisionCount", "compositeRehashCount",
                     "normalMissing", "duplicateAttempts"});
             requireRange(stats, "hashLoadFactor", 0.0d, 1.0d);
-            require(number(stats, "sparseOutOfDomainMisses") == 2L,
+            require(number(stats, "sparseOutOfDomainMisses") == 2L * iterations,
                     "SparseInt out-of-domain miss evidence");
-            require(number(stats, "sparseDomainGuardRejects") == 1L,
+            require(number(stats, "sparseDomainGuardRejects") == iterations,
                     "SparseInt domain guard reject evidence");
+            require(number(stats, "sparseOutOfDomainMisses")
+                            + number(stats, "normalMissing") == number(operations, "missing"),
+                    "KeySpace missing counters contradict root facts");
+            require(number(stats, "duplicateAttempts")
+                            == number(operations, "duplicates"),
+                    "KeySpace duplicate counters contradict root facts");
         } else if (lane.equals("kernel.key_lookup_normal")
                 || lane.equals("kernel.key_lookup_collision")) {
             keySpace = true;
@@ -1114,53 +1335,164 @@ final class SmokeLaneSuite {
             requireBoolean(stats, "collisionConstructed", lane.endsWith("collision"));
             requireIntegerFields(stats, new String[] {"collisionCount", "probeCount", "rehashCount"});
             if (lane.endsWith("collision")) requirePositive(stats, "collisionCount", lane);
+            require(number(operations, "operations") == 3L * iterations
+                            && number(operations, "lookups") == 3L * iterations
+                            && number(operations, "materializations") == 3L * iterations
+                            && number(rows, "scanned") == 2L * iterations
+                            && number(rows, "matched") == 2L * iterations
+                            && number(rows, "materialized") == 2L * iterations,
+                    "generated key lookup counters contradict measured terminals");
         } else if (lane.startsWith("kernel.batch_import")) {
             selector = true;
             Map<String, Object> stats = nested(record, "selectorStats");
             requireExactKeys(stats, new String[] {"reserved", "capacity", "growthCount"});
             requireBoolean(stats, "reserved", lane.endsWith("reserve"));
             requireIntegerFields(stats, new String[] {"capacity", "growthCount"});
+            require(number(rows, "source") == scaleRows * iterations
+                            && number(rows, "scanned") == number(rows, "source")
+                            && number(rows, "matched") == number(rows, "source")
+                            && number(rows, "changed") == number(rows, "source")
+                            && number(operations, "operations") == iterations
+                            && number(stats, "growthCount")
+                            == (lane.endsWith("reserve") ? 0L : iterations),
+                    "batch import counters contradict measurement window");
         } else if (lane.equals("generated.ordered_access_lazy_rebuild")
                 || lane.equals("generated.dense_scratch_replace_order")) {
             sidecar = true;
             Map<String, Object> stats = nested(record, "sidecarStats");
             requireExactKeys(stats, new String[] {"implementation", "replaceRows",
                     "maintainedFirstOrThrow", "dynamicFindFirst", "dynamicFirstOrThrow",
-                    "dirtyCount", "rebuildCount"});
+                    "dirtyCount", "rebuildCount", "replaceTouchedBytes",
+                    "maintainedOrderRebuildRows", "maintainedOrderKeyWidthBytes",
+                    "maintainedOrderTouchedBytes", "dynamicComparatorRows",
+                    "dynamicComparatorWidthBytes", "dynamicComparatorTouchedBytes",
+                    "materializedRowWidthBytes", "materializationTouchedBytes", "tableCapacity",
+                    "scratchAllocationBytes", "retainedScratchBytes"});
             requireStringValue(stats, "implementation", "generated-insertion-workspace");
             requireIntegerFields(stats, new String[] {"replaceRows", "maintainedFirstOrThrow",
-                    "dynamicFindFirst", "dynamicFirstOrThrow", "dirtyCount", "rebuildCount"});
+                    "dynamicFindFirst", "dynamicFirstOrThrow", "dirtyCount", "rebuildCount",
+                    "replaceTouchedBytes", "maintainedOrderRebuildRows",
+                    "maintainedOrderKeyWidthBytes", "maintainedOrderTouchedBytes",
+                    "dynamicComparatorRows", "dynamicComparatorWidthBytes",
+                    "dynamicComparatorTouchedBytes", "materializedRowWidthBytes",
+                    "materializationTouchedBytes", "tableCapacity", "scratchAllocationBytes",
+                    "retainedScratchBytes"});
             requirePositive(stats, "replaceRows", lane);
             requirePositive(stats, "maintainedFirstOrThrow", lane);
             requirePositive(stats, "dynamicFindFirst", lane);
             if (lane.equals("generated.dense_scratch_replace_order")) {
                 requirePositive(stats, "dynamicFirstOrThrow", lane);
             }
+            long terminals = number(stats, "maintainedFirstOrThrow")
+                    + number(stats, "dynamicFindFirst")
+                    + number(stats, "dynamicFirstOrThrow");
+            require(number(stats, "replaceRows") == number(rows, "changed")
+                            && terminals == number(operations, "materializations")
+                            && terminals == number(rows, "materialized")
+                            && number(operations, "operations") == iterations + terminals
+                            && number(stats, "dirtyCount") == iterations
+                            && number(stats, "rebuildCount") == iterations
+                            && number(stats, "replaceTouchedBytes")
+                            == 44L * number(stats, "replaceRows")
+                            && number(stats, "maintainedOrderKeyWidthBytes") == 32L
+                            && number(stats, "maintainedOrderTouchedBytes")
+                            == 32L * number(stats, "maintainedOrderRebuildRows")
+                            && number(stats, "dynamicComparatorWidthBytes") == 8L
+                            && number(stats, "dynamicComparatorTouchedBytes")
+                            == 8L * number(stats, "dynamicComparatorRows")
+                            && number(stats, "materializedRowWidthBytes") == 44L
+                            && number(stats, "materializationTouchedBytes")
+                            == 44L * number(rows, "materialized")
+                            && number(record, "touchedBytesEstimate")
+                            == number(stats, "replaceTouchedBytes")
+                            + number(stats, "maintainedOrderTouchedBytes")
+                            + number(stats, "dynamicComparatorTouchedBytes")
+                            + number(stats, "materializationTouchedBytes")
+                            && number(record, "workingSetEstimate")
+                            == 44L * number(stats, "tableCapacity")
+                            + number(stats, "retainedScratchBytes")
+                            && number(allocation, "bytes")
+                            == number(nested(record, "materializationStats"), "estimatedBytes")
+                            + number(stats, "scratchAllocationBytes"),
+                    "dense workspace counters include setup or contradict terminals");
         } else if (lane.equals("generated.keyed_frontier")) {
             sidecar = true;
             keySpace = true;
             Map<String, Object> keys = nested(record, "keySpaceStats");
             requireExactKeys(keys, new String[] {"implementation", "added", "updated",
-                    "dynamicFirst", "removed", "keySpaceCapacity"});
+                    "dynamicFirst", "removed", "tableCapacityBeforeMeasurement",
+                    "tableCapacity", "keySpaceCapacityBeforeMeasurement", "keySpaceCapacity",
+                    "appendValidationKeySpaceCapacity",
+                    "appendValidationKeySpaceAllocationBytes",
+                    "mainKeySpaceGrowthAllocationBytes", "keySpaceAllocationBytes",
+                    "tableGrowthAllocationBytes", "scratchAllocationBytes",
+                    "retainedScratchBytes"});
             requireStringValue(keys, "implementation", "generated-machine-candidate-frontier");
             requireIntegerFields(keys, new String[] {"added", "updated", "dynamicFirst",
-                    "removed", "keySpaceCapacity"});
+                    "removed", "tableCapacityBeforeMeasurement", "tableCapacity",
+                    "keySpaceCapacityBeforeMeasurement", "keySpaceCapacity",
+                    "appendValidationKeySpaceCapacity",
+                    "appendValidationKeySpaceAllocationBytes",
+                    "mainKeySpaceGrowthAllocationBytes", "keySpaceAllocationBytes",
+                    "tableGrowthAllocationBytes", "scratchAllocationBytes",
+                    "retainedScratchBytes"});
             requirePositive(keys, "added", lane);
             requirePositive(keys, "updated", lane);
             requirePositive(keys, "dynamicFirst", lane);
             requirePositive(keys, "removed", lane);
             requireExactIntegers(nested(record, "sidecarStats"),
                     new String[] {"rebuildCount", "dirtyCount"});
+            require(number(operations, "operations") == 4L * iterations
+                            && number(rows, "changed")
+                            == number(keys, "added") + number(keys, "updated")
+                            && number(rows, "removed") == number(keys, "removed")
+                            && number(rows, "materialized") == number(keys, "dynamicFirst")
+                            && number(operations, "materializations")
+                            == number(keys, "dynamicFirst")
+                            && number(nested(record, "sidecarStats"), "dirtyCount")
+                            == 2L * iterations
+                            && number(nested(record, "sidecarStats"), "rebuildCount")
+                            == 2L * iterations
+                            && number(record, "touchedBytesEstimate")
+                            == 105L * (number(rows, "scanned") + iterations)
+                            && number(record, "workingSetEstimate")
+                            == 105L * number(keys, "tableCapacity")
+                            + 13L * number(keys, "keySpaceCapacity")
+                            + number(keys, "retainedScratchBytes")
+                            && number(keys, "appendValidationKeySpaceAllocationBytes")
+                            == 13L * number(keys, "appendValidationKeySpaceCapacity")
+                            * iterations
+                            && number(keys, "mainKeySpaceGrowthAllocationBytes")
+                            == (number(keys, "keySpaceCapacity")
+                            > number(keys, "keySpaceCapacityBeforeMeasurement")
+                            ? 13L * number(keys, "keySpaceCapacity") * iterations : 0L)
+                            && number(keys, "keySpaceAllocationBytes")
+                            == number(keys, "appendValidationKeySpaceAllocationBytes")
+                            + number(keys, "mainKeySpaceGrowthAllocationBytes")
+                            && number(keys, "tableGrowthAllocationBytes")
+                            == (number(keys, "tableCapacity")
+                            > number(keys, "tableCapacityBeforeMeasurement")
+                            ? 105L * number(keys, "tableCapacity") * iterations : 0L)
+                            && number(allocation, "bytes")
+                            == number(nested(record, "materializationStats"), "estimatedBytes")
+                            + number(keys, "tableGrowthAllocationBytes")
+                            + number(keys, "keySpaceAllocationBytes")
+                            + number(keys, "scratchAllocationBytes"),
+                    "keyed frontier nested counters contradict measured lifecycle");
         } else if (lane.equals("kernel.column_view")) {
             columnView = true;
             Map<String, Object> stats = nested(record, "columnViewStats");
             requireExactIntegers(stats,
                     new String[] {"acquired", "reads", "released", "staleErrors",
-                            "releasedErrors", "viewPinnedErrors"});
-            require(number(stats, "acquired") == 1L && number(stats, "released") == 1L
+                            "releasedErrors", "viewPinnedErrors", "reserveAllocationBytes"});
+            require(number(stats, "acquired") == iterations
+                            && number(stats, "released") == iterations
                             && number(stats, "staleErrors") == 0L
-                            && number(stats, "releasedErrors") == 1L
-                            && number(stats, "viewPinnedErrors") == 1L,
+                            && number(stats, "releasedErrors") == iterations
+                            && number(stats, "viewPinnedErrors") == iterations
+                            && number(stats, "reads") == number(rows, "matched")
+                            && number(allocation, "bytes")
+                            == number(stats, "reserveAllocationBytes"),
                     "ColumnView exact lifecycle evidence");
         } else if (lane.equals("child_locality.parent_scan_vs_flat")) {
             selector = true;
@@ -1171,6 +1503,17 @@ final class SmokeLaneSuite {
             requireIntegerFields(stats, new String[] {"parentCount", "childRows", "childInstances",
                     "flatRows", "flatCandidateRows", "childScanNanos", "flatFilterNanos"});
             requireStringValue(stats, "flatAccess", "flat-scan-filter");
+            require(number(stats, "childRows") == number(rows, "source")
+                            && number(stats, "childRows") == number(candidates, "selected")
+                            && number(stats, "flatRows") == number(candidates, "source")
+                            && number(rows, "scanned") == number(stats, "childRows")
+                            + number(stats, "flatCandidateRows")
+                            && number(stats, "childScanNanos")
+                            + number(stats, "flatFilterNanos")
+                            == number(nested(record, "phaseTimings"), "measurementNanos")
+                            && number(stats, "parentCount") == 8L * iterations
+                            && number(stats, "childInstances") == iterations,
+                    "child locality nested evidence contradicts root facts");
         } else if (lane.equals("generated.materialization_recursive_success")) {
             materialization = true;
             specializedMaterialization = true;
@@ -1188,6 +1531,19 @@ final class SmokeLaneSuite {
             requirePositive(stats, "schemaObjects", lane);
             requirePositive(stats, "lists", lane);
             require(number(stats, "partialResults") == 0L, "materialization partial result");
+            require(number(operations, "operations") == iterations
+                            && number(operations, "materializations") == iterations
+                            && number(rows, "source") == number(stats, "rows")
+                            && number(rows, "scanned") == number(stats, "rows")
+                            && number(rows, "matched") == number(stats, "rows")
+                            && number(rows, "materialized") == number(stats, "rows")
+                            && number(stats, "schemaObjects") == number(stats, "rows")
+                            && number(stats, "estimatedBytes")
+                            == number(nested(record, "allocationEstimate"), "bytes")
+                            && number(stats, "rootMapEntries") == 2L * iterations
+                            && number(stats, "lists") == 2L * iterations
+                            && number(stats, "mapEntries") == 2L * iterations,
+                    "recursive materialization nested/root facts contradict");
         } else if (lane.equals("materialization.budget_boundary")) {
             materialization = true;
             specializedMaterialization = true;
@@ -1200,18 +1556,45 @@ final class SmokeLaneSuite {
             requireIntegerFields(stats, new String[] {"boundarySuccesses", "budgetFailures",
                     "allocationFailures", "recoverySuccesses", "partialResults",
                     "tableRowsAfterFailures", "failureCount"});
-            require(number(stats, "boundarySuccesses") == 5L, "five boundary successes");
-            require(number(stats, "budgetFailures") == 5L, "five boundary failures");
-            require(number(stats, "allocationFailures") == 1L, "allocation failure");
+            require(number(stats, "boundarySuccesses") == 5L * iterations,
+                    "five boundary successes per measurement");
+            require(number(stats, "budgetFailures") == 5L * iterations,
+                    "five boundary failures per measurement");
+            require(number(stats, "allocationFailures") == iterations,
+                    "one allocation failure per measurement");
+            require(number(stats, "recoverySuccesses") == iterations,
+                    "one recovery success per measurement");
             require(number(stats, "partialResults") == 0L, "no partial results");
+            require(number(stats, "failureCount") == 6L * iterations,
+                    "materialization failure count contradicts measured failures");
+            long invocations = number(stats, "boundarySuccesses")
+                    + number(stats, "budgetFailures")
+                    + number(stats, "allocationFailures")
+                    + number(stats, "recoverySuccesses");
+            long published = 4L * (number(stats, "boundarySuccesses")
+                    + number(stats, "recoverySuccesses"));
+            require(number(operations, "operations") == invocations
+                            && number(operations, "materializations") == invocations
+                            && number(rows, "materialized") == published
+                            && number(rows, "scanned") == published
+                            && number(rows, "matched") == published,
+                    "materialization budget root counters include setup or contradict outcomes");
             validateBoundaries(stats.get("boundaries"));
         } else if (lane.equals("kernel.compaction_capacity_reuse")) {
             sidecar = true;
-            requireExactIntegers(nested(record, "sidecarStats"),
+            Map<String, Object> stats = nested(record, "sidecarStats");
+            requireExactIntegers(stats,
                     new String[] {"compactedRows", "retainedCapacity",
                             "operationScratchCurrentBytes", "operationScratchHighWaterBytes",
                             "singleRemoved", "batchCompacted", "clearReuseCapacityBefore",
-                            "clearReuseCapacityAfter"});
+                            "clearReuseCapacityAfter", "measurementArrayAllocationBytes"});
+            require(number(stats, "compactedRows") == number(rows, "removed")
+                            && number(stats, "batchCompacted") == number(rows, "removed")
+                            && number(stats, "singleRemoved") == iterations
+                            && number(operations, "operations") == 3L * iterations
+                            && number(allocation, "bytes")
+                            == number(stats, "measurementArrayAllocationBytes"),
+                    "compaction nested counters contradict root measurement facts");
         } else if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) {
             sidecar = true;
             selector = true;
@@ -1220,8 +1603,19 @@ final class SmokeLaneSuite {
                             "rebuildNanos", "currentBytes", "highWaterBytes",
                             "cleanTraversalCount", "stormRebuilds"});
             Map<String, Object> sidecarStats = nested(record, "sidecarStats");
-            require(number(sidecarStats, "cleanTraversalCount") == 1L
-                            && number(sidecarStats, "stormRebuilds") >= 4L,
+            require(number(sidecarStats, "cleanTraversalCount") == iterations
+                            && number(sidecarStats, "stormRebuilds") == 4L * iterations
+                            && number(sidecarStats, "rebuildRows")
+                            + number(nested(record, "selectorStats"), "cardinality")
+                            * number(sidecarStats, "cleanTraversalCount")
+                            == number(rows, "scanned")
+                            && number(sidecarStats, "rebuildCount")
+                            == number(sidecarStats, "stormRebuilds")
+                            && number(operations, "operations")
+                            == number(sidecarStats, "cleanTraversalCount")
+                            + number(sidecarStats, "stormRebuilds")
+                            && number(allocation, "bytes")
+                            == iterations * number(sidecarStats, "highWaterBytes"),
                     "sidecar clean/rebuild-storm evidence");
             Map<String, Object> stats = nested(record, "selectorStats");
             requireExactKeys(stats, new String[] {"cardinality", "selectivity",
@@ -1235,6 +1629,16 @@ final class SmokeLaneSuite {
                     "summaryOperations", "diagnosticOperations", "rowsPerOperation"});
             requirePositive(stats, "summaryOperations", lane);
             requirePositive(stats, "diagnosticOperations", lane);
+            long instrumentedOperations = number(stats, "summaryOperations")
+                    + number(stats, "diagnosticOperations");
+            require(number(operations, "operations") == instrumentedOperations
+                            && number(rows, "scanned") == instrumentedOperations
+                            * number(stats, "rowsPerOperation")
+                            && number(rows, "source") == number(rows, "scanned")
+                            && number(stats, "summaryNanos")
+                            + number(stats, "diagnosticNanos")
+                            == number(nested(record, "phaseTimings"), "measurementNanos"),
+                    "stats overhead counters contradict integrated scans");
         } else {
             throw new IllegalArgumentException("missing lane evidence contract " + lane);
         }
@@ -1305,6 +1709,13 @@ final class SmokeLaneSuite {
                 || expectedInvocations <= 0L || expectedRows <= 0L) {
             throw new IllegalArgumentException("generic materialization counters contradict root facts");
         }
+        Object estimated = values.get("estimatedBytes");
+        if (estimated == null || ((Number) estimated).longValue() <= 0L
+                || ((Number) estimated).longValue()
+                > number(nested(record, "allocationEstimate"), "bytes")) {
+            throw new IllegalArgumentException(
+                    "generic materialization estimate exceeds measurement allocation estimate");
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -1312,6 +1723,7 @@ final class SmokeLaneSuite {
         if (!(value instanceof List) || ((List<?>) value).size() != 5) {
             throw new IllegalArgumentException("materialization boundaries must contain five entries");
         }
+        java.util.HashSet<String> dimensions = new java.util.HashSet<String>();
         for (Object item : (List<Object>) value) {
             if (!(item instanceof Map)) {
                 throw new IllegalArgumentException("materialization boundary must be object");
@@ -1324,6 +1736,10 @@ final class SmokeLaneSuite {
                     "current", "proposed"});
             requireNonEmptyString(boundary, "path", "boundary");
             requireBoolean(boundary, "successAtLimit", true);
+            String dimension = (String) boundary.get("dimension");
+            if (!dimensions.add(dimension)) {
+                throw new IllegalArgumentException("duplicate materialization boundary " + dimension);
+            }
             if (number(boundary, "successLimit")
                     != number(boundary, "failureLimit") + 1L
                     || number(boundary, "proposed")
@@ -1331,6 +1747,11 @@ final class SmokeLaneSuite {
                 throw new IllegalArgumentException(
                         "boundary must prove exact success and limit+1 failure");
             }
+        }
+        if (!dimensions.equals(new java.util.HashSet<String>(Arrays.asList(
+                "maximumOwnershipDepth", "maximumTableInstances", "maximumRows",
+                "maximumLeafValues", "maximumEstimatedAllocationBytes")))) {
+            throw new IllegalArgumentException("materialization boundary dimensions mismatch");
         }
     }
 
@@ -1476,25 +1897,218 @@ final class SmokeLaneSuite {
     }
 
     private static void merge(LaneObservation target, LaneObservation source) {
-        target.setupNanos += source.setupNanos;
-        target.measurementNanos += source.measurementNanos;
-        target.exportNanos += source.exportNanos;
-        target.rows += source.rows;
-        target.scanned += source.scanned;
-        target.matched += source.matched;
-        target.changed += source.changed;
-        target.removed += source.removed;
-        target.materialized += source.materialized;
-        target.materializationInvocations += source.materializationInvocations;
-        target.candidates += source.candidates;
-        target.selected += source.selected;
-        target.operations += source.operations;
-        target.lookups += source.lookups;
-        target.missing += source.missing;
-        target.duplicates += source.duplicates;
-        target.touchedBytes += source.touchedBytes;
-        target.estimatedAllocationBytes += source.estimatedAllocationBytes;
+        if (!target.lane.equals(source.lane)) {
+            throw new IllegalArgumentException("cannot merge different benchmark lanes");
+        }
+        sameAggregateInvariant(target.baselineId, source.baselineId, "baselineId");
+        sameAggregateInvariant(target.statsMode, source.statsMode, "statsMode");
+        sameAggregateInvariant(target.optionalDensity, source.optionalDensity, "optionalDensity");
+        sameAggregateInvariant(target.materializationBudgetDimension,
+                source.materializationBudgetDimension, "materializationBudgetDimension");
+        sameAggregateInvariant(target.materializationPath, source.materializationPath,
+                "materializationPath");
+        sameAggregateInvariant(target.allocationEstimatorVersion,
+                source.allocationEstimatorVersion, "allocationEstimatorVersion");
+        sameAggregateInvariant(target.touchedBytesScope, source.touchedBytesScope,
+                "touchedBytesScope");
+        sameAggregateInvariant(target.workingSetScope, source.workingSetScope,
+                "workingSetScope");
+        sameAggregateInvariant(target.effectiveMaterializationBudget,
+                source.effectiveMaterializationBudget, "effectiveMaterializationBudget");
+        sameAggregateInvariant(target.externalDtoStats, source.externalDtoStats,
+                "externalDtoStats");
+        sameAggregateInvariant(target.limitations, source.limitations, "knownLimitations");
+        target.setupNanos = add(target.setupNanos, source.setupNanos, "setupNanos");
+        target.measurementNanos = add(target.measurementNanos, source.measurementNanos,
+                "measurementNanos");
+        target.exportNanos = add(target.exportNanos, source.exportNanos, "exportNanos");
+        target.rows = add(target.rows, source.rows, "rows");
+        target.scanned = add(target.scanned, source.scanned, "scanned");
+        target.matched = add(target.matched, source.matched, "matched");
+        target.changed = add(target.changed, source.changed, "changed");
+        target.removed = add(target.removed, source.removed, "removed");
+        target.materialized = add(target.materialized, source.materialized, "materialized");
+        target.materializationInvocations = add(target.materializationInvocations,
+                source.materializationInvocations, "materializationInvocations");
+        target.candidates = add(target.candidates, source.candidates, "candidates");
+        target.selected = add(target.selected, source.selected, "selected");
+        target.operations = add(target.operations, source.operations, "operations");
+        target.lookups = add(target.lookups, source.lookups, "lookups");
+        target.missing = add(target.missing, source.missing, "missing");
+        target.duplicates = add(target.duplicates, source.duplicates, "duplicates");
+        target.touchedBytes = add(target.touchedBytes, source.touchedBytes, "touchedBytes");
+        target.estimatedAllocationBytes = add(target.estimatedAllocationBytes,
+                source.estimatedAllocationBytes, "estimatedAllocationBytes");
+        target.materializationEstimatedAllocationBytes = add(
+                target.materializationEstimatedAllocationBytes,
+                source.materializationEstimatedAllocationBytes,
+                "materializationEstimatedAllocationBytes");
+        target.explicitReads = add(target.explicitReads, source.explicitReads, "explicitReads");
+        target.explicitMutations = add(target.explicitMutations, source.explicitMutations,
+                "explicitMutations");
         target.workingSetBytes = Math.max(target.workingSetBytes, source.workingSetBytes);
+        mergeLaneEvidence(target, source);
+    }
+
+    private static void mergeLaneEvidence(LaneObservation target, LaneObservation source) {
+        String lane = target.lane;
+        if (lane.startsWith("kernel.optional_")) {
+            sum(target.selectorStats, source.selectorStats, "bitmapWords", "present");
+        } else if (lane.equals("kernel.packed_scan")) {
+            sum(target.selectorStats, source.selectorStats,
+                    "somaNanos", "primitiveBaselineNanos");
+        } else if (lane.equals("kernel.key_lookup_normal")
+                || lane.equals("kernel.key_lookup_collision")) {
+            same(target.keySpaceStats, source.keySpaceStats, "implementation",
+                    "fullEqualityDistinguished", "collisionConstructed");
+            sum(target.keySpaceStats, source.keySpaceStats,
+                    "collisionCount", "probeCount", "rehashCount");
+        } else if (lane.equals("generated.keyed_frontier")) {
+            same(target.keySpaceStats, source.keySpaceStats, "implementation",
+                    "tableCapacityBeforeMeasurement", "keySpaceCapacityBeforeMeasurement",
+                    "appendValidationKeySpaceCapacity");
+            sum(target.keySpaceStats, source.keySpaceStats,
+                    "added", "updated", "dynamicFirst", "removed",
+                    "appendValidationKeySpaceAllocationBytes",
+                    "mainKeySpaceGrowthAllocationBytes", "keySpaceAllocationBytes",
+                    "tableGrowthAllocationBytes", "scratchAllocationBytes");
+            maximum(target.keySpaceStats, source.keySpaceStats, "tableCapacity",
+                    "keySpaceCapacity", "retainedScratchBytes");
+            sum(target.sidecarStats, source.sidecarStats, "rebuildCount", "dirtyCount");
+        } else if (lane.equals("generated.ordered_access_lazy_rebuild")
+                || lane.equals("generated.dense_scratch_replace_order")) {
+            same(target.sidecarStats, source.sidecarStats, "implementation",
+                    "maintainedOrderKeyWidthBytes", "dynamicComparatorWidthBytes",
+                    "materializedRowWidthBytes");
+            sum(target.sidecarStats, source.sidecarStats, "replaceRows",
+                    "maintainedFirstOrThrow", "dynamicFindFirst", "dynamicFirstOrThrow",
+                    "dirtyCount", "rebuildCount", "replaceTouchedBytes",
+                    "maintainedOrderRebuildRows", "maintainedOrderTouchedBytes",
+                    "dynamicComparatorRows", "dynamicComparatorTouchedBytes",
+                    "materializationTouchedBytes", "scratchAllocationBytes");
+            maximum(target.sidecarStats, source.sidecarStats,
+                    "tableCapacity", "retainedScratchBytes");
+        } else if (lane.equals("generated.pipeline_fusion")) {
+            same(target.selectorStats, source.selectorStats,
+                    "implementation", "filterStages", "limitStages");
+            sum(target.selectorStats, source.selectorStats,
+                    "updateTerminal", "matched", "changed", "perRowObjects");
+            maximum(target.selectorStats, source.selectorStats,
+                    "capacity", "operationScratchHighWaterBytes", "updateScratchCurrentBytes");
+        } else if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) {
+            same(target.keySpaceStats, source.keySpaceStats,
+                    "sparseMaximumKey", "sparseCapacity", "sparseDenseCapacity",
+                    "hashCapacity", "hashUsed", "hashLoadFactor", "compositeCapacity");
+            sum(target.keySpaceStats, source.keySpaceStats,
+                    "sparseOutOfDomainMisses", "sparseDomainGuardRejects",
+                    "hashProbeCount", "hashCollisionCount", "hashRehashCount",
+                    "compositeProbeCount", "compositeCollisionCount",
+                    "compositeRehashCount", "normalMissing", "duplicateAttempts");
+        } else if (lane.startsWith("kernel.batch_import")) {
+            same(target.selectorStats, source.selectorStats, "reserved");
+            maximum(target.selectorStats, source.selectorStats, "capacity");
+            sum(target.selectorStats, source.selectorStats, "growthCount");
+        } else if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) {
+            sum(target.sidecarStats, source.sidecarStats, "dirtyCount", "rebuildCount",
+                    "rebuildRows", "rebuildNanos", "cleanTraversalCount", "stormRebuilds");
+            maximum(target.sidecarStats, source.sidecarStats,
+                    "currentBytes", "highWaterBytes");
+            same(target.selectorStats, source.selectorStats,
+                    "cardinality", "selectivity", "dynamicSortBufferBytes");
+        } else if (lane.equals("kernel.compaction_capacity_reuse")) {
+            sum(target.sidecarStats, source.sidecarStats,
+                    "compactedRows", "singleRemoved", "batchCompacted",
+                    "measurementArrayAllocationBytes");
+            maximum(target.sidecarStats, source.sidecarStats,
+                    "retainedCapacity", "operationScratchCurrentBytes",
+                    "operationScratchHighWaterBytes", "clearReuseCapacityBefore",
+                    "clearReuseCapacityAfter");
+        } else if (lane.equals("kernel.column_view")) {
+            sum(target.columnViewStats, source.columnViewStats, "acquired", "reads",
+                    "released", "staleErrors", "releasedErrors", "viewPinnedErrors",
+                    "reserveAllocationBytes");
+        } else if (lane.equals("kernel.stats_mode_overhead")) {
+            sum(target.selectorStats, source.selectorStats, "summaryNanos",
+                    "diagnosticNanos", "summaryOperations", "diagnosticOperations");
+            same(target.selectorStats, source.selectorStats, "rowsPerOperation");
+        } else if (lane.equals("child_locality.parent_scan_vs_flat")) {
+            same(target.selectorStats, source.selectorStats, "flatAccess");
+            sum(target.selectorStats, source.selectorStats, "parentCount", "childRows",
+                    "childInstances", "flatRows", "flatCandidateRows",
+                    "childScanNanos", "flatFilterNanos");
+        } else if (lane.equals("generated.materialization_recursive_success")) {
+            same(target.materializationStats, source.materializationStats, "implementation");
+            sum(target.materializationStats, source.materializationStats,
+                    "rootMapEntries", "schemaObjects", "lists", "mapEntries",
+                    "tableInstances", "rows", "leafValues", "estimatedBytes",
+                    "partialResults");
+            maximum(target.materializationStats, source.materializationStats, "maximumDepth");
+        } else if (lane.equals("materialization.budget_boundary")) {
+            same(target.materializationStats, source.materializationStats,
+                    "implementation", "tableRowsAfterFailures", "boundaries");
+            sum(target.materializationStats, source.materializationStats,
+                    "boundarySuccesses", "budgetFailures", "allocationFailures",
+                    "recoverySuccesses", "partialResults", "failureCount");
+        }
+    }
+
+    private static void sum(Map<String, Object> target, Map<String, Object> source,
+                            String... fields) {
+        for (String field : fields) {
+            target.put(field, Long.valueOf(add(number(target, field), number(source, field), field)));
+        }
+    }
+
+    private static void maximum(Map<String, Object> target, Map<String, Object> source,
+                                String... fields) {
+        for (String field : fields) {
+            target.put(field, Long.valueOf(Math.max(number(target, field), number(source, field))));
+        }
+    }
+
+    private static void same(Map<String, Object> target, Map<String, Object> source,
+                             String... fields) {
+        for (String field : fields) {
+            Object left = target.get(field);
+            Object right = source.get(field);
+            if (left == null ? right != null : !left.equals(right)) {
+                throw new IllegalStateException("measurement evidence changed across iterations: "
+                        + target + "." + field);
+            }
+        }
+    }
+
+    private static long add(long left, long right, String field) {
+        try {
+            return Math.addExact(left, right);
+        } catch (ArithmeticException overflow) {
+            throw new IllegalStateException("benchmark counter overflow: " + field, overflow);
+        }
+    }
+
+    private static void sameAggregateInvariant(Object left, Object right, String field) {
+        if (!Objects.equals(left, right)) {
+            throw new IllegalStateException("benchmark aggregate invariant changed: " + field);
+        }
+    }
+
+    private static long positiveDelta(long after, long before) {
+        if (after < before) {
+            throw new IllegalStateException("retained measurement storage decreased unexpectedly");
+        }
+        return after - before;
+    }
+
+    /** Arrays allocated by 4 -> 8 -> ... -> final open-addressing growth. */
+    private static long hashGrowthBytes(long bytesPerBucket, int finalCapacity) {
+        return finalCapacity <= 4 ? 0L
+                : Math.multiplyExact(bytesPerBucket, 2L * finalCapacity - 8L);
+    }
+
+    /** Dense arrays allocated by 0 -> 4 -> 8 -> ... -> final sparse-slot growth. */
+    private static long sparseDenseGrowthBytes(int finalCapacity) {
+        return finalCapacity == 0 ? 0L
+                : Math.multiplyExact(4L, 2L * finalCapacity - 4L);
     }
 
     private static long repeatedInstrumentedScans(KernelTable table, int repetitions) {
@@ -1546,7 +2160,7 @@ final class SmokeLaneSuite {
     }
 
     private static void require(boolean condition, String message) {
-        if (!condition) throw new AssertionError(message);
+        if (!condition) throw new IllegalArgumentException(message);
     }
 
     private interface Action { void run(); }

@@ -70,9 +70,12 @@ public final class com.hgtech.soma.runtime.generated.ChildOwnershipRegistry {
   public java.lang.Object resolve(long, long, java.lang.String, java.lang.String);
   public void preflightPinned(long, long, java.lang.String, java.lang.String);
   public void release(long, long, java.lang.String, java.lang.String, boolean);
+  public void preflightRelease(long, long, java.lang.String, java.lang.String, boolean);
+  public void releasePreflighted(long, long, java.lang.String, java.lang.String, boolean);
   public void beginCascade(long, long, java.lang.String, java.lang.String);
   public void collectCascade(long, long, java.lang.String, boolean, java.lang.String);
   public void commitCascade(boolean, java.lang.String);
+  public void preflightCascade(boolean, java.lang.String);
   public void cancelCascade(java.lang.String);
   public long childInstanceCount(long, long, java.lang.String);
   public long descendantRowCount(long, long, java.lang.String);
@@ -109,6 +112,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void beginMaterialization(java.lang.String);
   public void beginOperationMaterialization(java.lang.String);
   public void preflightStructuralOperation(java.lang.String);
+  public void preflightStructuralOperation(java.lang.String, boolean);
   public void endMaterializationSuccess(com.hgtech.soma.runtime.generated.MaterializationTracker);
   public void endMaterializationFailure(com.hgtech.soma.runtime.generated.MaterializationTracker);
   public void endOperationSuccess(java.lang.String, long, long, long);
@@ -128,6 +132,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void markOwned(java.lang.String);
   public boolean isOwned();
   public void rejectOwnedRelease(java.lang.String);
+  public void preflightOwnedRelease(java.lang.String);
   public void commitOwnedRelease(boolean);
   public void updateScratch(long, long);
   public void sidecarsDirtied(long);
@@ -384,6 +389,7 @@ public final class com.hgtech.soma.runtime.generated.ObjectColumn<T> extends com
 Compiled from "OwnedChildTable.java"
 public interface com.hgtech.soma.runtime.generated.OwnedChildTable {
   public abstract boolean hasPinnedSubtree();
+  public abstract void preflightOwnedRelease(boolean);
   public abstract void releaseOwnedSubtree(boolean);
   public abstract long subtreeChildInstanceCount();
   public abstract long subtreeDescendantRowCount();

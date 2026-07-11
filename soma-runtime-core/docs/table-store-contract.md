@@ -60,6 +60,7 @@ DenseTableState.checkRowIndex(int rowIndex, String operation) -> int
 DenseTableState.beginOperation(String operation) -> void
 DenseTableState.beginMaterialization/beginOperationMaterialization(String operation) -> void
 DenseTableState.preflightStructuralOperation(String operation) -> void
+DenseTableState.preflightStructuralOperation(String operation, boolean structuralChange) -> void；两种形式都检查active operation、materialization reentrancy和view pin，`structuralChange=true`时额外预检structural epoch可递增
 DenseTableState.endMaterializationSuccess/endMaterializationFailure(MaterializationTracker) -> void
 DenseTableState.endOperationSuccess(String operation, long scanned, long matched, long changed) -> void
 DenseTableState.endOperationFailure(String operation, long scanned, long matched, String errorCode) -> void
@@ -80,6 +81,7 @@ DenseTableState.prepareRelease() -> int previousSize
 DenseTableState.commitClear(int expectedPreviousSize) -> void
 DenseTableState.commitRelease(int expectedPreviousSize) -> void
 DenseTableState.markOwned(String path)/rejectOwnedRelease(String operation) -> void
+DenseTableState.preflightOwnedRelease(String operation) -> void
 DenseTableState.isOwned/hasPinnedBorrow -> boolean
 DenseTableState.commitOwnedRelease(boolean aggregateRelease) -> void
 DenseTableState.updateScratch(long currentBytes, long highWaterBytes) -> void
@@ -149,9 +151,10 @@ MaterializationAllocation.Provider.allow(String phase, long estimatedBytes, Stri
 MaterializationAllocation.Scope.close() -> void
 ChildOwnershipRegistry.beginMaterialization/endMaterialization/preflightMutation/
   newOwnerToken/stage/publish/discardStaged/resolve/preflightPinned/release/
-  beginCascade/collectCascade/commitCascade/cancelCascade/releaseStorage/
+  preflightRelease/releasePreflighted/beginCascade/collectCascade/preflightCascade/
+  commitCascade/cancelCascade/releaseStorage/
   childInstanceCount/descendantRowCount/hasPinned
-OwnedChildTable.hasPinnedSubtree/releaseOwnedSubtree/subtreeChildInstanceCount/
+OwnedChildTable.hasPinnedSubtree/preflightOwnedRelease/releaseOwnedSubtree/subtreeChildInstanceCount/
   subtreeDescendantRowCount
 ```
 

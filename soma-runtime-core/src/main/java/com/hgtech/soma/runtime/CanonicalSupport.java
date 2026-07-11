@@ -6,6 +6,7 @@ import java.security.NoSuchAlgorithmException;
 
 final class CanonicalSupport {
     private static final char[] HEX = "0123456789abcdef".toCharArray();
+    private static final char[] UPPER_HEX = "0123456789ABCDEF".toCharArray();
 
     private CanonicalSupport() {
     }
@@ -33,7 +34,13 @@ final class CanonicalSupport {
                 case '\r': result.append("\\r"); break;
                 case '\t': result.append("\\t"); break;
                 default:
-                    if (c < 0x20) {
+                    if (Character.isSurrogate(c)) {
+                        result.append("\\u")
+                                .append(UPPER_HEX[(c >>> 12) & 0xf])
+                                .append(UPPER_HEX[(c >>> 8) & 0xf])
+                                .append(UPPER_HEX[(c >>> 4) & 0xf])
+                                .append(UPPER_HEX[c & 0xf]);
+                    } else if (c < 0x20) {
                         result.append("\\u")
                                 .append(HEX[(c >>> 12) & 0xf])
                                 .append(HEX[(c >>> 8) & 0xf])

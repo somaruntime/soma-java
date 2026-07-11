@@ -140,8 +140,9 @@ public final class SimulationScenario {
                     new ValveId(2L), new MaterialId(9L))));
 
             return new ScenarioResult(exported.size(), state.runtimePlan().schemaHash(),
-                    state.statsSnapshot().lastChanged(), 3, 44,
-                    (long) state.capacity() * 44L, 7L, 7L, exported.size());
+                    state.statsSnapshot().lastChanged(), state.size(), 44,
+                    (long) state.capacity() * 44L,
+                    stepped.scanned() + exported.size(), stepped.changed(), exported.size());
         } finally {
             trace.release();
             events.release();
@@ -172,20 +173,20 @@ public final class SimulationScenario {
         public final String schemaHash;
         public final long changedRows;
         public final int apcRows;
-        public final int hotLeafBytesPerRow;
+        public final int aggregateHotLeafWidths;
         public final long hotLeafWorkingSetBytes;
         public final long reads;
         public final long mutations;
         public final int exports;
         ScenarioResult(int traceSamples, String schemaHash, long changedRows,
-                       int apcRows, int hotLeafBytesPerRow,
+                       int apcRows, int aggregateHotLeafWidths,
                        long hotLeafWorkingSetBytes, long reads, long mutations,
                        int exports) {
             this.traceSamples = traceSamples;
             this.schemaHash = schemaHash;
             this.changedRows = changedRows;
             this.apcRows = apcRows;
-            this.hotLeafBytesPerRow = hotLeafBytesPerRow;
+            this.aggregateHotLeafWidths = aggregateHotLeafWidths;
             this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;
             this.reads = reads;
             this.mutations = mutations;

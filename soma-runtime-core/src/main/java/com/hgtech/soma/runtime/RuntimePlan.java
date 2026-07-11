@@ -36,10 +36,12 @@ public final class RuntimePlan {
         statsMode = builder.statsMode;
         maximumAggregateStorageBytes = builder.maximumAggregateStorageBytes;
         maximumOwnershipTableInstances = builder.maximumOwnershipTableInstances;
-        tablesByName = new TreeMap<String, TablePlan>(builder.tables);
+        tablesByName = new TreeMap<String, TablePlan>(UnicodeCodePointOrder.INSTANCE);
+        tablesByName.putAll(builder.tables);
         tables = Collections.unmodifiableList(
                 new ArrayList<TablePlan>(tablesByName.values()));
-        childrenByIdentity = new TreeMap<String, ChildPlan>(builder.children);
+        childrenByIdentity = new TreeMap<String, ChildPlan>(UnicodeCodePointOrder.INSTANCE);
+        childrenByIdentity.putAll(builder.children);
         children = Collections.unmodifiableList(
                 new ArrayList<ChildPlan>(childrenByIdentity.values()));
         runtimePlanHash = CanonicalSupport.sha256(HASH_PREFIX, toCanonicalJson());
@@ -138,7 +140,8 @@ public final class RuntimePlan {
     }
 
     private static SomaRuntimeException invalidPlan(String path, String reason) {
-        Map<String, String> context = new TreeMap<String, String>();
+        Map<String, String> context = new TreeMap<String, String>(
+                UnicodeCodePointOrder.INSTANCE);
         context.put("reason", reason);
         return SomaRuntimeException.create(SomaErrorCategory.INVALID_INPUT,
                 "invalid_runtime_plan", "table.create", path, context, null);
@@ -154,8 +157,10 @@ public final class RuntimePlan {
         private StatsMode statsMode = StatsMode.SUMMARY;
         private long maximumAggregateStorageBytes = 1024L * 1024L * 1024L;
         private long maximumOwnershipTableInstances = 65536L;
-        private final TreeMap<String, TablePlan> tables = new TreeMap<String, TablePlan>();
-        private final TreeMap<String, ChildPlan> children = new TreeMap<String, ChildPlan>();
+        private final TreeMap<String, TablePlan> tables = new TreeMap<String, TablePlan>(
+                UnicodeCodePointOrder.INSTANCE);
+        private final TreeMap<String, ChildPlan> children = new TreeMap<String, ChildPlan>(
+                UnicodeCodePointOrder.INSTANCE);
 
         private Builder(
                 String schemaHash,

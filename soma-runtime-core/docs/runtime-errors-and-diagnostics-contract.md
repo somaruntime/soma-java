@@ -180,7 +180,7 @@ Phase 3 同时 additive 固化 `long sidecarScratchCurrentBytes()` 与 `sidecarS
 
 Phase 5 additive 固化 `long operationScratchCurrentBytes()` 与 `operationScratchHighWaterBytes()`，覆盖 Row Pipeline selection、dynamic sort 与 remove marks 的 table-local retained primitive arrays；current 是当前 retained aggregate，high-water 是 instance lifetime fact，均不因 `resetStats()` 清零。Keyed table同时通过 `String keySpaceImplementation()`、`int keySpaceCapacity()`、`keySpaceUsed()`、`long keySpaceProbeCount()`、`keySpaceCollisionCount()`、`keySpaceRehashCount()` 暴露 concrete KeySpace 的低干扰观测；dense table使用empty implementation与全零key指标。`resetStats()`清零KeySpace probe/collision/rehash累计，不改变capacity、used、live identity或tombstone facts。
 
-`resetStats()` 是 table operation boundary，不允许从 active Row Pipeline callback/terminal 内重入；否则返回 `reentrant_access`（若发生在 callback 中，由 callback boundary包装为 `callback_failed`），且任何 counter都不得被部分清零。
+`resetStats()` 是 table operation boundary，不允许从 active Row Pipeline callback/terminal 内重入；否则返回 `reentrant_access`。已有 `SomaRuntimeException` 由 callback boundary 原样传播，只有普通application `RuntimeException`才包装为 `callback_failed`；任何 counter都不得被部分清零。
 
 `TableStats` constructor private；public static `create(...)` 按上述 getter顺序接收既有 identity/state/last-operation字段并返回 validated immutable snapshot；Phase 4 additive `withPhase4(TableStats base, ...)` 补入 child/materialization facts，Phase 5 additive `withPhase5OperationScratch(...)` 与 `withPhase5KeySpace(...)` 分别补入 operation scratch 和 KeySpace snapshot；这些方法只允许 generated-runtime protocol在同一瞬时 base snapshot 上补入不可变、non-negative且自洽的事实，不接受 mutable runtime state。`UpdateResult` 同样使用 private constructor + public static `create(scanned,matched,changed,sidecarMaintained,sidecarRebuilt)`；negative或不满足 `changed <= matched <= scanned` 的输入 fail fast。
 

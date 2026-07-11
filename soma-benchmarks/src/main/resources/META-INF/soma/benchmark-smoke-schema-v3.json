@@ -563,6 +563,54 @@
             "rebuildCount": {
               "type": "integer",
               "minimum": 0
+            },
+            "replaceTouchedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maintainedOrderRebuildRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maintainedOrderKeyWidthBytes": {
+              "type": "integer",
+              "const": 32
+            },
+            "maintainedOrderTouchedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicComparatorRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicComparatorWidthBytes": {
+              "type": "integer",
+              "const": 8
+            },
+            "dynamicComparatorTouchedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "materializedRowWidthBytes": {
+              "type": "integer",
+              "const": 44
+            },
+            "materializationTouchedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "tableCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "scratchAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retainedScratchBytes": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [
@@ -572,7 +620,19 @@
             "dynamicFindFirst",
             "dynamicFirstOrThrow",
             "dirtyCount",
-            "rebuildCount"
+            "rebuildCount",
+            "replaceTouchedBytes",
+            "maintainedOrderRebuildRows",
+            "maintainedOrderKeyWidthBytes",
+            "maintainedOrderTouchedBytes",
+            "dynamicComparatorRows",
+            "dynamicComparatorWidthBytes",
+            "dynamicComparatorTouchedBytes",
+            "materializedRowWidthBytes",
+            "materializationTouchedBytes",
+            "tableCapacity",
+            "scratchAllocationBytes",
+            "retainedScratchBytes"
           ]
         },
         {
@@ -610,6 +670,10 @@
             "clearReuseCapacityAfter": {
               "type": "integer",
               "minimum": 0
+            },
+            "measurementArrayAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [
@@ -620,7 +684,8 @@
             "singleRemoved",
             "batchCompacted",
             "clearReuseCapacityBefore",
-            "clearReuseCapacityAfter"
+            "clearReuseCapacityAfter",
+            "measurementArrayAllocationBytes"
           ]
         },
         {
@@ -653,7 +718,7 @@
             },
             "cleanTraversalCount": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "stormRebuilds": {
               "type": "integer",
@@ -754,9 +819,49 @@
               "type": "integer",
               "minimum": 1
             },
+            "tableCapacityBeforeMeasurement": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "tableCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "keySpaceCapacityBeforeMeasurement": {
+              "type": "integer",
+              "minimum": 1
+            },
             "keySpaceCapacity": {
               "type": "integer",
               "minimum": 1
+            },
+            "appendValidationKeySpaceCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "appendValidationKeySpaceAllocationBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mainKeySpaceGrowthAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "keySpaceAllocationBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "tableGrowthAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "scratchAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retainedScratchBytes": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [
@@ -765,7 +870,17 @@
             "updated",
             "dynamicFirst",
             "removed",
-            "keySpaceCapacity"
+            "tableCapacityBeforeMeasurement",
+            "tableCapacity",
+            "keySpaceCapacityBeforeMeasurement",
+            "keySpaceCapacity",
+            "appendValidationKeySpaceCapacity",
+            "appendValidationKeySpaceAllocationBytes",
+            "mainKeySpaceGrowthAllocationBytes",
+            "keySpaceAllocationBytes",
+            "tableGrowthAllocationBytes",
+            "scratchAllocationBytes",
+            "retainedScratchBytes"
           ]
         },
         {
@@ -786,11 +901,11 @@
             },
             "sparseOutOfDomainMisses": {
               "type": "integer",
-              "const": 2
+              "minimum": 2
             },
             "sparseDomainGuardRejects": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "hashCapacity": {
               "type": "integer",
@@ -835,7 +950,7 @@
             },
             "normalMissing": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "duplicateAttempts": {
               "type": "integer",
@@ -948,7 +1063,15 @@
               "type": "integer",
               "minimum": 1
             },
+            "capacity": {
+              "type": "integer",
+              "minimum": 1
+            },
             "operationScratchHighWaterBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "updateScratchCurrentBytes": {
               "type": "integer",
               "minimum": 0
             },
@@ -964,7 +1087,9 @@
             "updateTerminal",
             "matched",
             "changed",
+            "capacity",
             "operationScratchHighWaterBytes",
+            "updateScratchCurrentBytes",
             "perRowObjects"
           ]
         },
@@ -1248,15 +1373,15 @@
             },
             "boundarySuccesses": {
               "type": "integer",
-              "const": 5
+              "minimum": 5
             },
             "budgetFailures": {
               "type": "integer",
-              "const": 5
+              "minimum": 5
             },
             "allocationFailures": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "recoverySuccesses": {
               "type": "integer",
@@ -1457,7 +1582,7 @@
           "properties": {
             "acquired": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "reads": {
               "type": "integer",
@@ -1465,7 +1590,7 @@
             },
             "released": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "staleErrors": {
               "type": "integer",
@@ -1473,11 +1598,15 @@
             },
             "releasedErrors": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
             },
             "viewPinnedErrors": {
               "type": "integer",
-              "const": 1
+              "minimum": 1
+            },
+            "reserveAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [
@@ -1486,7 +1615,8 @@
             "released",
             "staleErrors",
             "releasedErrors",
-            "viewPinnedErrors"
+            "viewPinnedErrors",
+            "reserveAllocationBytes"
           ]
         }
       ]
@@ -1497,7 +1627,7 @@
       "properties": {
         "method": {
           "type": "string",
-          "const": "soma-smoke-owned-estimate-v1"
+          "const": "soma-smoke-measurement-allocation-v2"
         },
         "bytes": {
           "type": "integer",

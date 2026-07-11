@@ -124,9 +124,9 @@ final class BenchmarkModel {
                 "mutations", observationKind("measured",
                         "soma-workload-counter-v1", "executed changed/removed facts"),
                 "touchedBytes", observationKind("deterministic-estimate",
-                        "soma-touched-bytes-estimator-v1", "declared hot columns and bitmap words"),
+                        "soma-touched-bytes-estimator-v1", observation.touchedBytesScope),
                 "workingSet", observationKind("deterministic-estimate",
-                        "soma-working-set-estimator-v1", "runtime-owned retained arrays/scratch")));
+                        "soma-working-set-estimator-v1", observation.workingSetScope)));
         values.put("touchedBytesEstimate", Long.valueOf(observation.touchedBytes));
         values.put("workingSetEstimate", Long.valueOf(observation.workingSetBytes));
         values.put("allocationPerOperation", object("method", "not-observed",
@@ -147,7 +147,7 @@ final class BenchmarkModel {
         values.put("allocationEstimatorVersion", observation.allocationEstimatorVersion);
         values.put("externalDtoStats", observation.externalDtoStats);
         values.put("columnViewStats", observation.columnViewStats);
-        values.put("allocationEstimate", object("method", "soma-smoke-owned-estimate-v1",
+        values.put("allocationEstimate", object("method", "soma-smoke-measurement-allocation-v2",
                 "bytes", Long.valueOf(observation.estimatedAllocationBytes),
                 "exactJvmHeap", Boolean.FALSE));
         values.put("hardwareCounterStats", object("method", "unavailable",
@@ -371,7 +371,8 @@ final class BenchmarkModel {
         requireStringItems(record, "knownLimitations", true);
         requireNestedConst(record, "allocationPerOperation", "method", "not-observed");
         requireNestedConst(record, "allocationPerOperation", "estimatedBytes", null);
-        requireNestedConst(record, "allocationEstimate", "method", "soma-smoke-owned-estimate-v1");
+        requireNestedConst(record, "allocationEstimate", "method",
+                "soma-smoke-measurement-allocation-v2");
         requireNestedConst(record, "allocationEstimate", "exactJvmHeap", Boolean.FALSE);
         requireNestedConst(record, "gcStats", "method", "not-observed-in-smoke");
         requireNestedConst(record, "gcStats", "count", null);
@@ -428,6 +429,7 @@ final class BenchmarkModel {
         long removed = ((Number) rows.get("removed")).longValue();
         long materialized = ((Number) rows.get("materialized")).longValue();
         long lookups = ((Number) operations.get("lookups")).longValue();
+        long operationCount = ((Number) operations.get("operations")).longValue();
         long materializations = ((Number) operations.get("materializations")).longValue();
         long reads = ((Number) ratio.get("reads")).longValue();
         long mutations = ((Number) ratio.get("mutations")).longValue();
@@ -446,11 +448,45 @@ final class BenchmarkModel {
         if (materializations > 0L && Boolean.FALSE.equals(materializationStats.get("applicable"))) {
             throw new IllegalArgumentException("executed materialization cannot be not-applicable");
         }
+        long touchedBytes = ((Number) record.get("touchedBytesEstimate")).longValue();
+        long workingSetBytes = ((Number) record.get("workingSetEstimate")).longValue();
+        if ((scanned > 0L || lookups > 0L || materializations > 0L)
+                && touchedBytes <= 0L) {
+            throw new IllegalArgumentException(
+                    "read/materialization workload cannot report zero touched bytes: "
+                            + record.get("lane"));
+        }
+        if (((Number) rows.get("source")).longValue() > 0L && workingSetBytes <= 0L) {
+            throw new IllegalArgumentException("executed workload cannot report zero working set: "
+                    + record.get("lane"));
+        }
+        Map<String, Object> allocationEstimate =
+                (Map<String, Object>) record.get("allocationEstimate");
+        if (materializations > 0L
+                && ((Number) allocationEstimate.get("bytes")).longValue() <= 0L) {
+            throw new IllegalArgumentException(
+                    "materialization workload cannot report false-zero allocation estimate: "
+                            + record.get("lane"));
+        }
         Map<String, Object> card = (Map<String, Object>) record.get("accessPatternCard");
         String expectedExport = materializations > 0L
                 ? "explicit-materialization-boundary" : "no-materialization-in-workload";
         if (!expectedExport.equals(card.get("allocationExport"))) {
             throw new IllegalArgumentException("accessPatternCard allocationExport contradiction");
+        }
+        Map<String, Object> scale = (Map<String, Object>) record.get("scale");
+        Map<String, Object> workload = (Map<String, Object>) record.get("workloadEvidence");
+        Map<String, Object> cardRatio = (Map<String, Object>) card.get("readMutationMix");
+        if (((Number) scale.get("operations")).longValue() != operationCount
+                || ((Number) workload.get("positiveCount")).longValue() != operationCount) {
+            throw new IllegalArgumentException("operation counters contradict scale/workload evidence");
+        }
+        if (((Number) card.get("rowsCardinality")).longValue()
+                        != ((Number) rows.get("source")).longValue()
+                || ((Number) card.get("workingSetBytes")).longValue() != workingSetBytes
+                || ((Number) cardRatio.get("reads")).longValue() != reads
+                || ((Number) cardRatio.get("mutations")).longValue() != mutations) {
+            throw new IllegalArgumentException("Access Pattern Card contradicts root facts");
         }
     }
 
@@ -497,7 +533,8 @@ final class BenchmarkModel {
     private static void requirePositiveNestedNumber(Map<String, Object> values,
                                                      String field, String nestedField) {
         Object value = ((Map<String, Object>) values.get(field)).get(nestedField);
-        if (!(value instanceof Number) || ((Number) value).doubleValue() <= 0.0d) {
+        if (!(value instanceof Number) || !finite((Number) value)
+                || ((Number) value).doubleValue() <= 0.0d) {
             throw new IllegalArgumentException(field + "." + nestedField + " must be positive");
         }
     }
@@ -507,7 +544,8 @@ final class BenchmarkModel {
         for (Map.Entry<String, Object> entry
                 : ((Map<String, Object>) values.get(field)).entrySet()) {
             Object value = entry.getValue();
-            if (!(value instanceof Number) || ((Number) value).doubleValue() < 0.0d) {
+            if (!(value instanceof Number) || !finite((Number) value)
+                    || ((Number) value).doubleValue() < 0.0d) {
                 throw new IllegalArgumentException(field + "." + entry.getKey()
                         + " must be non-negative number");
             }
@@ -547,7 +585,8 @@ final class BenchmarkModel {
     private static void requireNestedNonNegativeNumber(Map<String, Object> values,
                                                        String field, String nestedField) {
         Object value = ((Map<String, Object>) values.get(field)).get(nestedField);
-        if (!(value instanceof Number) || ((Number) value).doubleValue() < 0.0d) {
+        if (!(value instanceof Number) || !finite((Number) value)
+                || ((Number) value).doubleValue() < 0.0d) {
             throw new IllegalArgumentException(field + "." + nestedField
                     + " must be non-negative number");
         }
@@ -566,6 +605,11 @@ final class BenchmarkModel {
         }
     }
 
+    private static boolean finite(Number value) {
+        double number = value.doubleValue();
+        return !Double.isNaN(number) && !Double.isInfinite(number);
+    }
+
     @SuppressWarnings("unchecked")
     private static void requireStringItems(Map<String, Object> values, String field,
                                            boolean nonEmpty) {
@@ -580,7 +624,8 @@ final class BenchmarkModel {
 
     private static void requireNonNegativeNumber(Map<String, Object> values, String field) {
         Object value = values.get(field);
-        if (!(value instanceof Number) || ((Number) value).doubleValue() < 0.0d) {
+        if (!(value instanceof Number) || !finite((Number) value)
+                || ((Number) value).doubleValue() < 0.0d) {
             throw new IllegalArgumentException(field + " must be non-negative number");
         }
     }
@@ -759,8 +804,19 @@ final class BenchmarkModel {
 
             private Number number() {
                 int start = index;
-                if (take('-')) { }
-                digits();
+                take('-');
+                if (end()) throw error("digit required");
+                if (source.charAt(index) == '0') {
+                    index++;
+                    if (!end() && asciiDigit(source.charAt(index))) {
+                        throw error("leading zero in number");
+                    }
+                } else {
+                    if (source.charAt(index) < '1' || source.charAt(index) > '9') {
+                        throw error("digit required");
+                    }
+                    digits();
+                }
                 boolean decimal = false;
                 if (take('.')) { decimal = true; digits(); }
                 if (!end() && (source.charAt(index) == 'e' || source.charAt(index) == 'E')) {
@@ -768,7 +824,11 @@ final class BenchmarkModel {
                 }
                 String value = source.substring(start, index);
                 try {
-                    if (decimal) return Double.valueOf(value);
+                    if (decimal) {
+                        Double parsed = Double.valueOf(value);
+                        if (!finite(parsed)) throw error("non-finite number");
+                        return parsed;
+                    }
                     return Long.valueOf(value);
                 }
                 catch (NumberFormatException failure) { throw error("invalid number"); }
@@ -776,8 +836,12 @@ final class BenchmarkModel {
 
             private void digits() {
                 int start = index;
-                while (!end() && Character.isDigit(source.charAt(index))) index++;
+                while (!end() && asciiDigit(source.charAt(index))) index++;
                 if (start == index) throw error("digit required");
+            }
+
+            private boolean asciiDigit(char value) {
+                return value >= '0' && value <= '9';
             }
 
             private void literal(String value) {
@@ -867,9 +931,12 @@ final class LaneObservation {
     long touchedBytes;
     long workingSetBytes;
     long estimatedAllocationBytes;
+    long materializationEstimatedAllocationBytes;
     long explicitReads;
     long explicitMutations;
-    String allocationEstimatorVersion = "soma-smoke-owned-estimate-v1";
+    String allocationEstimatorVersion = "soma-smoke-measurement-allocation-v2";
+    String touchedBytesScope = "lane-declared primitive columns and bitmap words touched in measurement";
+    String workingSetScope = "runtime-owned retained primitive arrays and scratch used in measurement";
     Map<String, Object> accessPatternCard = BenchmarkModel.object("applicable", Boolean.FALSE,
             "reason", "populated-at-finish");
     Map<String, Object> sidecarStats = BenchmarkModel.object("applicable", Boolean.FALSE,

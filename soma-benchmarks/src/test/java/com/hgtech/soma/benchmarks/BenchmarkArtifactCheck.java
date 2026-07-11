@@ -22,7 +22,7 @@ public final class BenchmarkArtifactCheck {
             throw new IllegalStateException("cannot create " + directory);
         }
         BenchmarkConfig config = new BenchmarkConfig("artifact-check", "smoke-test",
-                65, 0x534f4d41L, 0, 1, 1);
+                65, 0x534f4d41L, 0, 1, 2);
         List<BenchmarkRecord> records = SmokeLaneSuite.run(config, new BenchmarkEnvironment());
         File valid = new File(directory, "valid.jsonl");
         BenchmarkModel.write(valid, records);
@@ -120,7 +120,127 @@ public final class BenchmarkArtifactCheck {
                 "\"kind\":\"not-observed\"", "\"kind\":\"measured\"", -1);
         expectInvalid(wrongObservationKind, "wrong allocation observation kind");
 
-        System.out.println("benchmark-artifact-negative-paths: 17");
+        File staleOptionalAggregate = new File(directory,
+                "invalid-stale-optional-aggregate.jsonl");
+        rewriteNestedScalarField(valid, staleOptionalAggregate,
+                "kernel.optional_all_present", "selectorStats", "present", "65");
+        expectInvalid(staleOptionalAggregate, "optional nested counter kept first iteration");
+
+        File staleRecursiveRows = new File(directory,
+                "invalid-stale-recursive-rows.jsonl");
+        rewriteNestedScalarField(valid, staleRecursiveRows,
+                "generated.materialization_recursive_success",
+                "materializationStats", "rows", "4");
+        expectInvalid(staleRecursiveRows, "recursive rows kept first iteration");
+
+        File staleRecursiveEstimate = new File(directory,
+                "invalid-stale-recursive-estimate.jsonl");
+        rewriteNestedScalarField(valid, staleRecursiveEstimate,
+                "generated.materialization_recursive_success",
+                "materializationStats", "estimatedBytes", "784");
+        expectInvalid(staleRecursiveEstimate, "recursive estimate kept first iteration");
+
+        File staleBudgetAggregate = new File(directory,
+                "invalid-stale-budget-aggregate.jsonl");
+        rewriteNestedScalarField(valid, staleBudgetAggregate,
+                "materialization.budget_boundary", "materializationStats",
+                "boundarySuccesses", "5");
+        expectInvalid(staleBudgetAggregate, "budget counters kept first iteration");
+
+        File staleColumnViewAggregate = new File(directory,
+                "invalid-stale-column-view-aggregate.jsonl");
+        rewriteNestedScalarField(valid, staleColumnViewAggregate,
+                "kernel.column_view", "columnViewStats", "acquired", "1");
+        expectInvalid(staleColumnViewAggregate, "ColumnView counters kept first iteration");
+
+        File staleDenseSidecar = new File(directory,
+                "invalid-stale-dense-sidecar.jsonl");
+        rewriteNestedScalarField(valid, staleDenseSidecar,
+                "generated.dense_scratch_replace_order", "sidecarStats", "dirtyCount", "1");
+        expectInvalid(staleDenseSidecar, "dense sidecar counter kept first iteration");
+
+        File staleFrontierSidecar = new File(directory,
+                "invalid-stale-frontier-sidecar.jsonl");
+        rewriteNestedScalarField(valid, staleFrontierSidecar,
+                "generated.keyed_frontier", "sidecarStats", "rebuildCount", "2");
+        expectInvalid(staleFrontierSidecar, "frontier sidecar counter kept first iteration");
+
+        File setupKeySpaceLeak = new File(directory,
+                "invalid-setup-keyspace-allocation.jsonl");
+        rewriteNestedScalarField(valid, setupKeySpaceLeak,
+                "generated.keyed_frontier", "keySpaceStats",
+                "keySpaceAllocationBytes", "851968");
+        expectInvalid(setupKeySpaceLeak,
+                "setup-retained main KeySpace counted as measurement allocation");
+
+        File staleAppendValidationAllocation = new File(directory,
+                "invalid-stale-append-validation-allocation.jsonl");
+        rewriteNestedScalarField(valid, staleAppendValidationAllocation,
+                "generated.keyed_frontier", "keySpaceStats",
+                "appendValidationKeySpaceAllocationBytes", "3328");
+        expectInvalid(staleAppendValidationAllocation,
+                "append-validation KeySpace allocation kept first iteration");
+
+        File wrongHotColumn = new File(directory, "invalid-hot-column.jsonl");
+        rewrite(valid, wrongHotColumn, "\"projectedArrivalMinute\"",
+                "\"deltaDurationSeconds\"", -1);
+        expectInvalid(wrongHotColumn, "Access Pattern Card uses a non-schema hot column");
+
+        File wrongMaintainedTouched = new File(directory,
+                "invalid-maintained-order-touched.jsonl");
+        rewriteNestedScalarField(valid, wrongMaintainedTouched,
+                "generated.dense_scratch_replace_order", "sidecarStats",
+                "maintainedOrderTouchedBytes", "1");
+        expectInvalid(wrongMaintainedTouched,
+                "maintained-order touched bytes omit the four-key projection");
+
+        File staleChildInstances = new File(directory,
+                "invalid-stale-child-instances.jsonl");
+        rewriteNestedScalarField(valid, staleChildInstances,
+                "child_locality.parent_scan_vs_flat", "selectorStats",
+                "childInstances", "1");
+        expectInvalid(staleChildInstances, "child instance counter kept first iteration");
+
+        File zeroTouched = new File(directory, "invalid-zero-touched.jsonl");
+        rewriteScalarField(valid, zeroTouched, "kernel.key_lookup_normal",
+                "touchedBytesEstimate", "0");
+        expectInvalid(zeroTouched, "lookup with false-zero touched bytes");
+
+        File zeroWorkingSet = new File(directory, "invalid-zero-working-set.jsonl");
+        rewriteScalarField(valid, zeroWorkingSet, "generated.pipeline_fusion",
+                "workingSetEstimate", "0");
+        expectInvalid(zeroWorkingSet, "executed workload with false-zero working set");
+
+        File zeroAllocationEstimate = new File(directory,
+                "invalid-zero-allocation-estimate.jsonl");
+        rewriteNestedScalarField(valid, zeroAllocationEstimate,
+                "kernel.key_lookup_normal", "allocationEstimate", "bytes", "0");
+        expectInvalid(zeroAllocationEstimate,
+                "materializing lookup with false-zero allocation estimate");
+
+        File duplicateBoundary = new File(directory,
+                "invalid-duplicate-boundary.jsonl");
+        rewrite(valid, duplicateBoundary,
+                "\"dimension\":\"maximumTableInstances\"",
+                "\"dimension\":\"maximumOwnershipDepth\"", -1);
+        expectInvalid(duplicateBoundary, "duplicate materialization boundary dimension");
+
+        File staleStatsRows = new File(directory, "invalid-stats-row-count.jsonl");
+        rewriteNestedScalarField(valid, staleStatsRows, "kernel.stats_mode_overhead",
+                "rowCounts", "scanned", "260");
+        expectInvalid(staleStatsRows, "stats scan rows omit rows-per-operation factor");
+
+        File leadingZero = new File(directory, "invalid-leading-zero.jsonl");
+        rewrite(valid, leadingZero, "\"warmupIterations\":0",
+                "\"warmupIterations\":01", -1);
+        expectInvalid(leadingZero, "JSON leading zero");
+
+        File exponentOverflow = new File(directory, "invalid-exponent-overflow.jsonl");
+        rewriteScalarField(valid, exponentOverflow, "kernel.optional_all_present",
+                "operationsPerSecond", "1e309");
+        expectInvalid(exponentOverflow, "non-finite exponent overflow");
+
+        System.out.println("benchmark-artifact-negative-paths: 36");
         System.out.println("benchmark-artifact-check: ok");
     }
 
@@ -132,6 +252,50 @@ public final class BenchmarkArtifactCheck {
     private static void rewriteScalarField(File source, File target, String lane,
                                            String field, String replacement) throws Exception {
         rewriteField(source, target, lane, field, replacement, false);
+    }
+
+    private static void rewriteNestedScalarField(File source, File target, String lane,
+                                                  String objectField, String field,
+                                                  String replacement) throws Exception {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(
+                new FileInputStream(source), StandardCharsets.UTF_8));
+        BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
+                new FileOutputStream(target), StandardCharsets.UTF_8));
+        try {
+            String line;
+            boolean changed = false;
+            while ((line = reader.readLine()) != null) {
+                if (!changed && line.contains("\"lane\":\"" + lane + "\"")) {
+                    String objectMarker = "\"" + objectField + "\":{";
+                    int objectStart = line.indexOf(objectMarker);
+                    if (objectStart < 0) throw new AssertionError("missing object " + objectField);
+                    int objectEnd = objectStart + objectMarker.length();
+                    int depth = 1;
+                    while (depth > 0) {
+                        char value = line.charAt(objectEnd++);
+                        if (value == '{') depth++;
+                        else if (value == '}') depth--;
+                    }
+                    String marker = "\"" + field + "\":";
+                    int start = line.indexOf(marker, objectStart);
+                    if (start < 0 || start >= objectEnd) {
+                        throw new AssertionError("missing nested field " + field);
+                    }
+                    int valueStart = start + marker.length();
+                    int valueEnd = valueStart;
+                    while (valueEnd < objectEnd && line.charAt(valueEnd) != ','
+                            && line.charAt(valueEnd) != '}') valueEnd++;
+                    line = line.substring(0, valueStart) + replacement
+                            + line.substring(valueEnd);
+                    changed = true;
+                }
+                writer.write(line);
+                writer.newLine();
+            }
+            if (!changed) throw new AssertionError("lane not found " + lane);
+        } finally {
+            try { reader.close(); } finally { writer.close(); }
+        }
     }
 
     private static void rewriteField(File source, File target, String lane, String field,

@@ -16,6 +16,7 @@ import com.hgtech.soma.runtime.UpdateResult;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.lang.reflect.Field;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ public final class BreadthConsumer {
 
     public static void main(String[] args) {
         verifyDefaultsAndReferenceFields();
+        verifyFailedUpdateDoesNotRetainReferences();
         verifyPresenceWordBoundaries();
         verifyStringKeyAndBudgets();
         verifyStringKeyedChild();
@@ -230,6 +232,58 @@ public final class BreadthConsumer {
         check(materialized.size() == 1 && materialized.get("child").value == 11,
                 "String keyed child materialization");
         parents.release();
+    }
+
+    private static void verifyFailedUpdateDoesNotRetainReferences() {
+        FullRowBatch batch = new FullRowBatch();
+        for (int index = 0; index < 2; index++) {
+            final int value = index;
+            batch.addValues(row -> {
+                row.setName("original-" + value);
+                row.setPoint(new Point(value, value + 1));
+                row.setScalar(new ScalarValue(value));
+            });
+        }
+        FullRowTable table = FullRowTable.create();
+        table.addBatch(batch);
+        final String sentinel = new String("failed-update-retained-reference-sentinel");
+        expectCode("callback_failed", () -> table.rows().update(row -> {
+            row.setName(sentinel);
+            throw new IllegalStateException("intentional update failure");
+        }), "failed update callback");
+        check("original-0".equals(table.fetchAt(0).name)
+                        && "original-1".equals(table.fetchAt(1).name),
+                "failed update must not publish detached references");
+        assertGeneratedTableDoesNotRetain(table, sentinel);
+        table.release();
+    }
+
+    private static void assertGeneratedTableDoesNotRetain(Object table, Object sentinel) {
+        try {
+            for (Field field : table.getClass().getDeclaredFields()) {
+                field.setAccessible(true);
+                Object value = field.get(table);
+                if (value instanceof String[]) {
+                    assertArrayDoesNotRetain((Object[]) value, sentinel, field.getName());
+                } else if (value != null
+                        && value.getClass().getName().equals(
+                        "com.hgtech.soma.runtime.generated.ObjectColumn")) {
+                    Field values = value.getClass().getDeclaredField("values");
+                    values.setAccessible(true);
+                    assertArrayDoesNotRetain((Object[]) values.get(value), sentinel,
+                            field.getName() + ".values");
+                }
+            }
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError("retained-reference oracle could not inspect storage", failure);
+        }
+    }
+
+    private static void assertArrayDoesNotRetain(
+            Object[] values, Object sentinel, String path) {
+        for (Object value : values) {
+            check(value != sentinel, "failed reference retained at " + path);
+        }
     }
 
     private static void expectCode(String code, Action action, String message) {

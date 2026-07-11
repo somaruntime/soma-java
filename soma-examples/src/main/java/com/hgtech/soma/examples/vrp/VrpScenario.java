@@ -17,6 +17,9 @@ import com.hgtech.soma.examples.vrp.generated.VehicleTable;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.UpdateResult;
+
+import java.util.List;
 
 /** Parent-owned route sequence 与 insertion workspace 的正式 VRP 场景。 */
 public final class VrpScenario {
@@ -152,10 +155,15 @@ public final class VrpScenario {
             expectCode("missing_key", () -> travel.fetch(
                     new LocationPairKey(firstLocation, secondLocation)));
 
+            UpdateResult apcUpdate = liveVisits.update(row ->
+                    row.setLoadAfterVisit(row.loadAfterVisit() + 1));
+            List<RouteVisitRow> apcExport = liveVisits.fetchAll();
+
             return new ScenarioResult(exported.visits.size(), routes.runtimePlan().schemaHash(),
-                    routes.statsSnapshot().childInstanceCount(), 3, 32,
-                    (long) liveVisits.capacity() * 32L, 5L, 9L,
-                    exported.visits.size());
+                    routes.statsSnapshot().childInstanceCount(), liveVisits.size(), 32,
+                    (long) liveVisits.capacity() * 32L,
+                    apcUpdate.scanned() + apcExport.size(), apcUpdate.changed(),
+                    apcExport.size());
         } finally {
             candidates.release();
             unassigned.release();
@@ -186,20 +194,20 @@ public final class VrpScenario {
         public final String schemaHash;
         public final long childInstances;
         public final int apcRows;
-        public final int hotLeafBytesPerRow;
+        public final int aggregateHotLeafWidths;
         public final long hotLeafWorkingSetBytes;
         public final long reads;
         public final long mutations;
         public final int exports;
         ScenarioResult(int visits, String schemaHash, long childInstances,
-                       int apcRows, int hotLeafBytesPerRow,
+                       int apcRows, int aggregateHotLeafWidths,
                        long hotLeafWorkingSetBytes, long reads, long mutations,
                        int exports) {
             this.visits = visits;
             this.schemaHash = schemaHash;
             this.childInstances = childInstances;
             this.apcRows = apcRows;
-            this.hotLeafBytesPerRow = hotLeafBytesPerRow;
+            this.aggregateHotLeafWidths = aggregateHotLeafWidths;
             this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;
             this.reads = reads;
             this.mutations = mutations;

@@ -34,6 +34,8 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Set;
 
+import javax.tools.JavaFileObject;
+
 /**
  * Full JDK 8 javac parse-phase adapter for {@code @SomaValue} lowering.
  */
@@ -88,8 +90,7 @@ public final class SomaJavacPlugin implements Plugin {
                         String message =
                                 "[SOMA-COMP-005] SomaValue plugin requires active processor "
                                         + CompilerProtocol.PROCESSOR_IDENTITY;
-                        log.printRawLines(Log.WriterKind.ERROR, message);
-                        log.rawError(0, message);
+                        lowerer.reportMissingProcessor(message);
                     }
                 }
             }
@@ -114,6 +115,8 @@ public final class SomaJavacPlugin implements Plugin {
         private final Set<JCClassDecl> processed = Collections.newSetFromMap(
                 new IdentityHashMap<JCClassDecl, Boolean>());
         private boolean somaValueSeen;
+        private JavaFileObject diagnosticSource;
+        private int diagnosticPosition = -1;
 
         private Lowerer(
                 TreeMaker maker,
@@ -142,6 +145,7 @@ public final class SomaJavacPlugin implements Plugin {
 
             if (hasAnnotation(unit, classDecl.mods.annotations, SOMA_VALUE)) {
                 somaValueSeen = true;
+                recordDiagnosticLocation(unit, classDecl.pos);
                 if (!topLevel) {
                     fail(classDecl.pos, "SOMA-VALUE-001",
                             "@SomaValue must be a top-level class");
@@ -166,6 +170,28 @@ public final class SomaJavacPlugin implements Plugin {
 
         private boolean hasFailure() {
             return !compilerSession.getPluginDiagnostics().isEmpty();
+        }
+
+        private void recordDiagnosticLocation(JCCompilationUnit unit, int position) {
+            if (unit.sourcefile == null) return;
+            String candidate = unit.sourcefile.getName();
+            String current = diagnosticSource == null ? null : diagnosticSource.getName();
+            if (current == null || candidate.compareTo(current) < 0
+                    || (candidate.equals(current) && position < diagnosticPosition)) {
+                diagnosticSource = unit.sourcefile;
+                diagnosticPosition = Math.max(0, position);
+            }
+        }
+
+        private void reportMissingProcessor(String message) {
+            compilerSession.reportPluginDiagnostic(message);
+            JavaFileObject previous = null;
+            if (diagnosticSource != null) previous = log.useSource(diagnosticSource);
+            try {
+                log.error(Math.max(0, diagnosticPosition), "proc.messager", message);
+            } finally {
+                if (diagnosticSource != null) log.useSource(previous);
+            }
         }
 
         private void lowerValue(JCCompilationUnit unit, JCClassDecl classDecl) {

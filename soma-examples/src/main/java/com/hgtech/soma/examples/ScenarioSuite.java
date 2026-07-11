@@ -25,49 +25,65 @@ public final class ScenarioSuite {
                         && !fjsp.schemaHash.equals(simulation.schemaHash)
                         && !fjsp.schemaHash.equals(game.schemaHash),
                 "scenario schema identities remain independent");
+        require(fjsp.aggregateHotLeafWidths == 64 && vrp.aggregateHotLeafWidths == 32
+                        && simulation.aggregateHotLeafWidths == 44
+                        && game.aggregateHotLeafWidths == 32,
+                "APC aggregate widths must match each declared per-table ledger");
         System.out.println("access-pattern-card scenario=fjsp "
                 + "paths=child-release,keyed-frontier,grouped-update,dynamic-sort,grouped-remove "
                 + "rows=" + fjsp.apcRows
-                + " hotColumns=candidateKey,effectiveReadyMinute,fcfsValue,sptValue,indicatorReady"
-                + " hotLeafBytesPerRow=" + fjsp.hotLeafBytesPerRow
+                + " hotColumns=operationKey,assignedMachine,setupStartMinute,setupMinutes,startMinute,processingMinutes,endMinute"
+                + " hotLeafWidthsByTable=operation_assignments:64"
+                + " aggregateHotLeafWidths=" + fjsp.aggregateHotLeafWidths
                 + " workingSetHotLeafBytes=" + fjsp.hotLeafWorkingSetBytes
+                + " workingSetFormula=assignments.capacity*64"
                 + " reads=" + fjsp.reads + " mutations=" + fjsp.mutations
                 + " exports=" + fjsp.exports
-                + " observation=deterministic-fixture-accounting "
+                + " evidenceScope=assignment-update-and-export"
+                + " observation=executed-result-accounting "
                 + "assignments=" + fjsp.assignments
                 + " sidecarRebuilds=" + fjsp.sidecarRebuilds);
         System.out.println("access-pattern-card scenario=vrp "
                 + "paths=route-child,travel-lookup,insertion-order,route-rewrite "
                 + "rows=" + vrp.apcRows
                 + " hotColumns=position,customerId,arrivalMinute,departureMinute,loadAfterVisit"
-                + " hotLeafBytesPerRow=" + vrp.hotLeafBytesPerRow
+                + " hotLeafWidthsByTable=route_visit_rows:32"
+                + " aggregateHotLeafWidths=" + vrp.aggregateHotLeafWidths
                 + " workingSetHotLeafBytes=" + vrp.hotLeafWorkingSetBytes
+                + " workingSetFormula=visits.capacity*32"
                 + " reads=" + vrp.reads + " mutations=" + vrp.mutations
                 + " exports=" + vrp.exports
                 + " childDensity=one-required-child-per-route"
-                + " observation=deterministic-fixture-accounting "
+                + " evidenceScope=visit-update-and-export"
+                + " observation=executed-result-accounting "
                 + "visits=" + vrp.visits + " childInstances=" + vrp.childInstances);
         System.out.println("access-pattern-card scenario=simulation "
                 + "paths=state-vector,event-order,event-remove,trace-export "
                 + "rows=" + simulation.apcRows
-                + " hotColumns=vectorIndex,variableKind,value,derivative,scale"
-                + " hotLeafBytesPerRow=" + simulation.hotLeafBytesPerRow
+                + " hotColumns=vectorIndex,entityKind,entityId,variableKind,value,derivative,scale"
+                + " hotLeafWidthsByTable=state_vector_rows:44"
+                + " aggregateHotLeafWidths=" + simulation.aggregateHotLeafWidths
                 + " workingSetHotLeafBytes=" + simulation.hotLeafWorkingSetBytes
+                + " workingSetFormula=state.capacity*44"
                 + " reads=" + simulation.reads + " mutations=" + simulation.mutations
                 + " exports=" + simulation.exports
-                + " observation=deterministic-fixture-accounting "
+                + " evidenceScope=state-update-and-trace-export"
+                + " observation=executed-result-accounting "
                 + "changedRows=" + simulation.changedRows
                 + " traceSamples=" + simulation.traceSamples);
         System.out.println("access-pattern-card scenario=game "
                 + "paths=unit-order,ability-lookup,move-workspace,occupancy-cache,damage-buffer "
                 + "rows=" + game.apcRows
                 + " hotColumns=unit.position,unit.actionPoints,map.occupantUnit,move.totalCost,damage.targetUnit"
-                + " hotLeafBytesPerRow=" + game.hotLeafBytesPerRow
+                + " hotLeafWidthsByTable=units:12,map:8,moves:4,damage:8"
+                + " aggregateHotLeafWidths=" + game.aggregateHotLeafWidths
                 + " workingSetHotLeafBytes=" + game.hotLeafWorkingSetBytes
+                + " workingSetFormula=units.capacity*12+map.capacity*8+moves.capacity*4+damage.capacity*8"
                 + " reads=" + game.reads + " mutations=" + game.mutations
                 + " exports=" + game.exports
                 + " selectedScope=single-actor"
-                + " observation=deterministic-fixture-accounting "
+                + " evidenceScope=occupancy-update-and-unit-export"
+                + " observation=executed-result-accounting "
                 + "units=" + game.units + " sidecarDirty=" + game.sidecarDirtyCount);
         System.out.println("lane=fjsp-errors duplicate_key=ok missing_key=ok "
                 + "optional_empty=ok empty_result=ok");

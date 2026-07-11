@@ -28,6 +28,9 @@ done
 
 fixture_root=soma-testkit/src/test/fixtures/compiler
 success_source=$fixture_root/value-success/src
+plugin_only_source=$fixture_root/plugin-only-location/src
+unicode_order_source=$fixture_root/unicode-order/src
+unicode_order_expected=$fixture_root/unicode-order/expected
 expected=$fixture_root/value-success/expected
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/phase0-compiler.XXXXXX")
@@ -37,6 +40,7 @@ missing=$evidence_dir/missing-plugin
 conflict=$evidence_dir/conflict
 mutation=$evidence_dir/mutation
 plugin_only=$evidence_dir/plugin-only
+plugin_only_repeat=$evidence_dir/plugin-only-repeat
 plugin_option_spoof=$evidence_dir/plugin-option-spoof
 ignored=$evidence_dir/ignored-state
 generic=$evidence_dir/generic-value
@@ -49,12 +53,14 @@ wildcard=$evidence_dir/wildcard-import
 local_value=$evidence_dir/local-value
 schema_version=$evidence_dir/schema-version
 field_name=$evidence_dir/field-name
+unicode_order=$evidence_dir/unicode-order
+unicode_order_repeat=$evidence_dir/unicode-order-repeat
 mkdir -p \
   "$run_a" "$run_b" "$missing" "$conflict" "$mutation" \
-  "$plugin_only" "$plugin_option_spoof" "$ignored" "$generic" \
+  "$plugin_only" "$plugin_only_repeat" "$plugin_option_spoof" "$ignored" "$generic" \
   "$spoof" "$spoof_only" "$cycle" \
   "$duplicate_schema" "$injection" "$wildcard" "$local_value" \
-  "$schema_version" "$field_name"
+  "$schema_version" "$field_name" "$unicode_order" "$unicode_order_repeat"
 
 compile_success() {
   output=$1
@@ -89,6 +95,34 @@ diff -r "$run_a" "$run_b"
 cmp "$expected/com.example.phase0.schema.json" "$run_a/$schema_json"
 cmp "$expected/com.example.phase0.schema.sha256" "$run_a/$schema_hash"
 
+compile_unicode_order() {
+  output=$1
+  shift
+  "$JAVA_HOME/bin/javac" \
+    "$@" \
+    -encoding UTF-8 \
+    -source 8 \
+    -target 8 \
+    -cp "$annotations_jar:$processor_jar" \
+    -processorpath "$processor_jar:$annotations_jar" \
+    -processor com.hgtech.soma.processor.SomaProcessor \
+    -Xplugin:SomaValue \
+    -d "$output" \
+    $(find "$unicode_order_source" -type f -name '*.java' | sort)
+}
+
+compile_unicode_order "$unicode_order"
+compile_unicode_order "$unicode_order_repeat" \
+  -J-Duser.language=tr -J-Duser.country=TR \
+  -J-Duser.timezone=Pacific/Kiritimati
+unicode_schema=META-INF/soma/com.example.unicode.schema.json
+unicode_hash=META-INF/soma/com.example.unicode.schema.sha256
+cmp "$unicode_order/$unicode_schema" "$unicode_order_repeat/$unicode_schema"
+cmp "$unicode_order/$unicode_hash" "$unicode_order_repeat/$unicode_hash"
+cmp "$unicode_order_expected/com.example.unicode.schema.sha256" \
+  "$unicode_order/$unicode_hash"
+"$JAVA_HOME/bin/java" -cp "$unicode_order" com.example.unicode.UnicodeOrderConsumer
+
 "$JAVA_HOME/bin/javap" -classpath "$run_a" -p com.example.phase0.MachineId \
   >"$evidence_dir/MachineId.javap.txt"
 "$JAVA_HOME/bin/javap" -classpath "$run_a" -p com.example.phase0.OperationKey \
@@ -113,16 +147,38 @@ fi
 grep -F '[SOMA-COMP-001]' "$evidence_dir/missing-plugin.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
+  -XDrawDiagnostics \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$annotations_jar:$processor_jar" \
   -proc:none -Xplugin:SomaValue \
   -d "$plugin_only" \
-  $(find "$success_source" -type f -name '*.java' | sort) \
+  $(find "$plugin_only_source" -type f -name '*.java' | sort) \
   >"$evidence_dir/plugin-only.log" 2>&1; then
   printf '%s\n' 'compiler-phase0-check: plugin-only fixture unexpectedly compiled' >&2
   exit 1
 fi
-grep -F '[SOMA-COMP-005]' "$evidence_dir/plugin-only.log" >/dev/null
+if "$JAVA_HOME/bin/javac" \
+  -J-Duser.language=tr -J-Duser.country=TR \
+  -J-Duser.timezone=Pacific/Kiritimati \
+  -XDrawDiagnostics \
+  -encoding UTF-8 -source 8 -target 8 \
+  -cp "$annotations_jar:$processor_jar" \
+  -proc:none -Xplugin:SomaValue \
+  -d "$plugin_only_repeat" \
+  $(find "$plugin_only_source" -type f -name '*.java' | sort) \
+  >"$evidence_dir/plugin-only-repeat.log" 2>&1; then
+  printf '%s\n' 'compiler-phase0-check: repeated plugin-only fixture unexpectedly compiled' >&2
+  exit 1
+fi
+cmp "$evidence_dir/plugin-only.log" "$evidence_dir/plugin-only-repeat.log"
+test "$(grep -c -F '[SOMA-COMP-005]' "$evidence_dir/plugin-only.log")" -eq 1
+grep -F 'PluginOnlyValue.java:7:8: compiler.err.proc.messager: [SOMA-COMP-005] SomaValue plugin requires active processor soma-processor-v1' \
+  "$evidence_dir/plugin-only.log" >/dev/null
+if find "$plugin_only" "$plugin_only_repeat" -type f \
+    \( -name '*.class' -o -path '*/META-INF/soma/*' \) | grep . >/dev/null; then
+  printf '%s\n' 'compiler-phase0-check: plugin-only failure emitted artifacts' >&2
+  exit 1
+fi
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \

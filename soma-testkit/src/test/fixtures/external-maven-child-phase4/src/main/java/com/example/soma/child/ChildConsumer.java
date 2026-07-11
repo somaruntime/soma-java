@@ -15,6 +15,7 @@ import com.example.soma.child.generated.FloatingParentRowTable;
 import com.hgtech.soma.runtime.ChildPlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.IntColumnView;
+import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
@@ -32,6 +33,8 @@ public final class ChildConsumer {
     public static void main(String[] args) {
         testSnapshotBoundaries();
         testFloatingChildKeys();
+        testOwnershipInstanceQuotaAndRetry();
+        testRecursiveReplacementPreflightAndRetry();
         final RuntimePlan defaultPlan = ParentRowTable.defaultRuntimePlan();
         final RuntimePlan extraTablePlan = defaultPlan.toBuilder()
                 .addTable(TablePlan.builder(
@@ -582,6 +585,118 @@ public final class ChildConsumer {
         check(Double.doubleToLongBits(result.doubleChildren.keySet().iterator().next()) == 0L,
                 "double child map positive zero");
         table.release();
+    }
+
+    private static void testOwnershipInstanceQuotaAndRetry() {
+        RuntimePlan base = ParentRowTable.defaultRuntimePlan();
+        RuntimePlan twoInstances = base.toBuilder()
+                .maximumOwnershipTableInstances(2L).build();
+        ParentRowTable table = ParentRowTable.create(twoInstances);
+        table.addBatch(new ParentRowBatch()
+                .add(emptyParent(301)).add(emptyParent(302)));
+        final ChildRowTable first = table.children(0);
+        long epoch = table.structuralEpoch();
+        long childInstances = table.statsSnapshot().childInstanceCount();
+        expectMemoryLimit(2L, 3L, new Action() {
+            public void run() { table.keyedChildren(1); }
+        });
+        check(table.size() == 2 && table.structuralEpoch() == epoch
+                        && table.statsSnapshot().childInstanceCount() == childInstances,
+                "instance quota failure preserves facts/epoch");
+        table.filter(new ParentRowRows.Predicate() {
+            public boolean test(com.example.soma.child.generated.ParentRowRow row) {
+                return row.id() == 301;
+            }
+        }).remove();
+        expectCode("child_released", new Action() {
+            public void run() { first.size(); }
+        });
+        check(table.keyedChildren(0).size() == 0,
+                "instance quota retry succeeds after subtree release");
+        table.release();
+
+        RuntimePlan fourInstances = base.toBuilder()
+                .maximumOwnershipTableInstances(4L).build();
+        ParentRowTable replacement = ParentRowTable.create(fourInstances);
+        replacement.addBatch(new ParentRowBatch().add(parentWithNestedKeyed(303, 5, 51, 501L)));
+        final KeyedChildRowTable old = replacement.keyedChildren(0);
+        KeyedChildRowBatch next = new KeyedChildRowBatch()
+                .add(keyedWithGrandchild(6, 61, 601L));
+        long replacementEpoch = replacement.structuralEpoch();
+        expectMemoryLimit(4L, 5L, new Action() {
+            public void run() { replacement.replaceKeyedChildren(0, next); }
+        });
+        check(replacement.structuralEpoch() == replacementEpoch
+                        && replacement.statsSnapshot().childInstanceCount() == 2L
+                        && old.fetch(5).value == 51
+                        && old.grandchildren(5).fetchAt(0).amount == 501L,
+                "mid-subtree quota failure discards staged subtree and preserves old");
+        old.clear();
+        replacement.replaceKeyedChildren(0, next);
+        expectCode("child_released", new Action() {
+            public void run() { old.size(); }
+        });
+        check(replacement.keyedChildren(0).fetch(6).value == 61
+                        && replacement.keyedChildren(0).grandchildren(6)
+                        .fetchAt(0).amount == 601L,
+                "mid-subtree replacement retry succeeds after old descendant release");
+        replacement.release();
+    }
+
+    private static void testRecursiveReplacementPreflightAndRetry() {
+        ParentRowTable table = ParentRowTable.create();
+        table.addBatch(new ParentRowBatch().add(parentWithNestedKeyed(401, 7, 71, 701L)));
+        final KeyedChildRowTable old = table.keyedChildren(0);
+        LongColumnView pinned = old.grandchildren(7).amountColumn();
+        KeyedChildRowBatch next = new KeyedChildRowBatch()
+                .add(keyedWithGrandchild(8, 81, 801L));
+        long epoch = table.structuralEpoch();
+        expectCode("view_pinned", new Action() {
+            public void run() { table.replaceKeyedChildren(0, next); }
+        });
+        check(table.structuralEpoch() == epoch
+                        && table.statsSnapshot().childInstanceCount() == 2L
+                        && old.fetch(7).value == 71
+                        && old.grandchildren(7).fetchAt(0).amount == 701L,
+                "recursive replacement preflight preserves old and discards staged subtree");
+        pinned.close();
+        table.replaceKeyedChildren(0, next);
+        expectCode("child_released", new Action() {
+            public void run() { old.size(); }
+        });
+        check(table.keyedChildren(0).fetch(8).value == 81,
+                "recursive replacement retry publishes new subtree");
+        table.release();
+    }
+
+    private static ParentRow parentWithNestedKeyed(
+            int parentId, int childId, int value, long amount) {
+        ParentRow parent = emptyParent(parentId);
+        parent.keyedChildren.put(Integer.valueOf(childId),
+                keyedWithGrandchild(childId, value, amount));
+        return parent;
+    }
+
+    private static KeyedChildRow keyedWithGrandchild(int id, int value, long amount) {
+        KeyedChildRow row = keyedChild(id, value);
+        GrandchildRow grandchild = new GrandchildRow();
+        grandchild.amount = amount;
+        row.grandchildren.add(grandchild);
+        return row;
+    }
+
+    private static void expectMemoryLimit(long limit, long proposed, Action action) {
+        try {
+            action.run();
+            throw new AssertionError("expected memory_limit_exceeded");
+        } catch (SomaRuntimeException failure) {
+            check("memory_limit_exceeded".equals(failure.code()),
+                    "instance limit code " + failure.code());
+            check(Long.toString(limit).equals(failure.context().get("limit"))
+                            && Long.toString(proposed).equals(
+                            failure.context().get("proposed")),
+                    "instance limit/proposed context");
+        }
     }
 
     private static void expectBudget(

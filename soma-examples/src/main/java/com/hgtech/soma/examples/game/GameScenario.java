@@ -15,6 +15,7 @@ import com.hgtech.soma.examples.game.generated.PlayerTable;
 import com.hgtech.soma.runtime.EnumColumnView;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
+import com.hgtech.soma.runtime.UpdateResult;
 
 /** Unit.position为事实源、occupancy为可重建cache的正式game-loop场景。 */
 public final class GameScenario {
@@ -96,7 +97,7 @@ public final class GameScenario {
                     .setActionPoints(selectedActionPoints)
                     .setState(UnitState.MOVED).commit();
             // Unit.position先提交，occupancy cache随后同步；失败时由game loop重建cache。
-            map.update(row -> {
+            UpdateResult occupancyUpdate = map.update(row -> {
                 if (row.positionXValue() == origin.x && row.positionYValue() == origin.y) {
                     row.clearOccupantUnit();
                 }
@@ -175,9 +176,16 @@ public final class GameScenario {
             }
 
             int exportedUnits = units.materialize().size();
+            long hotLeafWorkingSetBytes = (long) units.capacity() * 12L
+                    + (long) map.capacity() * 8L
+                    + (long) moves.capacity() * 4L
+                    + (long) damage.capacity() * 8L;
             return new ScenarioResult(exportedUnits,
                     units.runtimePlan().schemaHash(), units.statsSnapshot().sidecarDirtyCount(),
-                    8, 57, (long) units.capacity() * 57L, 12L, 6L, exportedUnits);
+                    units.size() + map.size() + moves.size() + damage.size(), 32,
+                    hotLeafWorkingSetBytes,
+                    occupancyUpdate.scanned() + exportedUnits,
+                    occupancyUpdate.changed(), exportedUnits);
         } finally {
             damage.release();
             moves.release();
@@ -197,20 +205,20 @@ public final class GameScenario {
         public final String schemaHash;
         public final long sidecarDirtyCount;
         public final int apcRows;
-        public final int hotLeafBytesPerRow;
+        public final int aggregateHotLeafWidths;
         public final long hotLeafWorkingSetBytes;
         public final long reads;
         public final long mutations;
         public final int exports;
         ScenarioResult(int units, String schemaHash, long sidecarDirtyCount,
-                       int apcRows, int hotLeafBytesPerRow,
+                       int apcRows, int aggregateHotLeafWidths,
                        long hotLeafWorkingSetBytes, long reads, long mutations,
                        int exports) {
             this.units = units;
             this.schemaHash = schemaHash;
             this.sidecarDirtyCount = sidecarDirtyCount;
             this.apcRows = apcRows;
-            this.hotLeafBytesPerRow = hotLeafBytesPerRow;
+            this.aggregateHotLeafWidths = aggregateHotLeafWidths;
             this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;
             this.reads = reads;
             this.mutations = mutations;

@@ -38,11 +38,27 @@ for scenario in fjsp vrp simulation game; do
   apc_line=$(grep -F "access-pattern-card scenario=$scenario " "$scenario_output")
   printf '%s\n' "$apc_line" | grep -E ' rows=[1-9][0-9]* ' >/dev/null
   printf '%s\n' "$apc_line" | grep -E ' hotColumns=[^ ]+' >/dev/null
-  printf '%s\n' "$apc_line" | grep -E ' hotLeafBytesPerRow=[1-9][0-9]* ' >/dev/null
+  printf '%s\n' "$apc_line" | grep -E ' hotLeafWidthsByTable=[^ ]+ ' >/dev/null
+  printf '%s\n' "$apc_line" | grep -E ' aggregateHotLeafWidths=[1-9][0-9]* ' >/dev/null
   printf '%s\n' "$apc_line" | grep -E ' workingSetHotLeafBytes=[1-9][0-9]* ' >/dev/null
   printf '%s\n' "$apc_line" | grep -E ' reads=[1-9][0-9]* mutations=[1-9][0-9]* ' >/dev/null
-  printf '%s\n' "$apc_line" | grep -F 'observation=deterministic-fixture-accounting' >/dev/null
+  printf '%s\n' "$apc_line" | grep -F 'observation=executed-result-accounting' >/dev/null
 done
+grep -F 'scenario=fjsp ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=64 ' >/dev/null
+grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=32 ' >/dev/null
+grep -F 'scenario=simulation ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=44 ' >/dev/null
+grep -F 'scenario=game ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=32 ' >/dev/null
+grep -F 'workingSetFormula=assignments.capacity*64' "$scenario_output" >/dev/null
+grep -F 'workingSetFormula=visits.capacity*32' "$scenario_output" >/dev/null
+grep -F 'workingSetFormula=state.capacity*44' "$scenario_output" >/dev/null
+grep -F 'workingSetFormula=units.capacity*12+map.capacity*8+moves.capacity*4+damage.capacity*8' \
+  "$scenario_output" >/dev/null
+
+fjsp_rows_source=$root_dir/soma-examples/target/generated-sources/annotations/com/hgtech/soma/examples/fjsp/generated/MachineCandidateRows.java
+grep -F 'Selection s=select(terminalMaximum())' "$fjsp_rows_source" >/dev/null
+grep -F 'private int terminalMaximum()' "$fjsp_rows_source" >/dev/null
+grep -F 'dynamic sorted limit(1) rowIndexes adds no full-sort scratch' \
+  "$root_dir/soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java" >/dev/null
 grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'visits=3' >/dev/null
 grep -F 'soma-examples-scenarios: ok' "$scenario_output" >/dev/null
 grep '^lane=' "$scenario_output" >"$evidence_dir/lane-markers.txt"

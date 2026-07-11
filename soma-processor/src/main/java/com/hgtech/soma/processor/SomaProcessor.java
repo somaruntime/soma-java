@@ -214,7 +214,8 @@ public final class SomaProcessor extends AbstractProcessor {
             return;
         }
 
-        Map<String, SchemaModel> schemas = new TreeMap<String, SchemaModel>();
+        Map<String, SchemaModel> schemas = new TreeMap<String, SchemaModel>(
+                UnicodeCodePointOrder.INSTANCE);
         for (TypeElement value : values.values()) {
             ValueModel model = validateValue(value);
             if (model == null) {
@@ -1480,7 +1481,8 @@ public final class SomaProcessor extends AbstractProcessor {
     }
 
     private void validateSchemaNames(Map<String, SchemaModel> schemas) {
-        Map<String, SchemaModel> byName = new TreeMap<String, SchemaModel>();
+        Map<String, SchemaModel> byName = new TreeMap<String, SchemaModel>(
+                UnicodeCodePointOrder.INSTANCE);
         for (SchemaModel schema : schemas.values()) {
             SchemaModel previous = byName.put(schema.name, schema);
             if (previous != null) {
@@ -1911,9 +1913,11 @@ public final class SomaProcessor extends AbstractProcessor {
     private List<SchemaArtifactPlan> buildCompilationPlan(
             Map<String, SchemaModel> schemas) {
         List<SchemaArtifactPlan> result = new ArrayList<SchemaArtifactPlan>();
-        Map<String, Element> generatedTypes = new TreeMap<String, Element>();
+        Map<String, Element> generatedTypes = new TreeMap<String, Element>(
+                UnicodeCodePointOrder.INSTANCE);
         Map<String, List<DenseTableSourceGenerator.TableSpec>> specsBySchema =
-                new TreeMap<String, List<DenseTableSourceGenerator.TableSpec>>();
+                new TreeMap<String, List<DenseTableSourceGenerator.TableSpec>>(
+                        UnicodeCodePointOrder.INSTANCE);
         for (SchemaModel schema : schemas.values()) {
             if (schema.tables.size() > CodegenLimits.MAXIMUM_SCHEMA_TABLES) {
                 codegenAdmissionError(schema.origin, "schema-tables",
@@ -2226,9 +2230,12 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String name;
         private final String generatedPackage;
         private final String version;
-        private final Map<String, EnumModel> enums = new TreeMap<String, EnumModel>();
-        private final Map<String, ValueModel> values = new TreeMap<String, ValueModel>();
-        private final Map<String, TableModel> tables = new TreeMap<String, TableModel>();
+        private final Map<String, EnumModel> enums = new TreeMap<String, EnumModel>(
+                UnicodeCodePointOrder.INSTANCE);
+        private final Map<String, ValueModel> values = new TreeMap<String, ValueModel>(
+                UnicodeCodePointOrder.INSTANCE);
+        private final Map<String, TableModel> tables = new TreeMap<String, TableModel>(
+                UnicodeCodePointOrder.INSTANCE);
 
         private SchemaModel(
                 PackageElement origin,

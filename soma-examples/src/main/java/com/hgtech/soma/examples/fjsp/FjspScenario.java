@@ -151,9 +151,13 @@ public final class FjspScenario {
                             && stats.keySpaceCapacity() > 0,
                     "schema/runtime plan and runtime stats are observable");
             verifyStableTieBreakAfterCompaction(machineA, familyA);
+            UpdateResult apcUpdate = assignments.update(row ->
+                    row.setEndMinute(row.endMinute() + 1L));
             return new ScenarioResult(exported.size(), frontier.runtimePlan().schemaHash(),
-                    stats.sidecarRebuildCount(), 3, 105,
-                    (long) frontier.capacity() * 105L, 8L, 9L, exported.size());
+                    stats.sidecarRebuildCount(), assignments.size(), 64,
+                    (long) assignments.capacity() * 64L,
+                    apcUpdate.scanned() + exported.size(), apcUpdate.changed(),
+                    exported.size());
         } finally {
             frontier.release();
             setupTimes.release();
@@ -336,6 +340,10 @@ public final class FjspScenario {
             addTieCandidate(batch, first, machine, family);
             table.addBatch(batch);
             table.delete(new OperationMachineKey(removed, machine));
+            TableStats compactedStats = table.statsSnapshot();
+            require(compactedStats.operationScratchCurrentBytes() == 7L
+                            && compactedStats.operationScratchHighWaterBytes() == 7L,
+                    "compaction fixture retains one-row selection and three remove marks");
             int[] selected = table.findByMachine(machine).filter(row -> row.indicatorReady())
                     .sorted(dispatchComparator()).limit(1).rowIndexes();
             require(selected.length == 1, "tie-break fixture selection");
@@ -347,6 +355,35 @@ public final class FjspScenario {
             } finally {
                 operationId.close();
             }
+            TableStats topOneStats = table.statsSnapshot();
+            require(topOneStats.operationScratchCurrentBytes()
+                            == compactedStats.operationScratchCurrentBytes()
+                            && topOneStats.operationScratchHighWaterBytes()
+                            == compactedStats.operationScratchHighWaterBytes(),
+                    "dynamic sorted limit(1) rowIndexes adds no full-sort scratch");
+            UpdateResult updated = table.findByMachine(machine)
+                    .filter(row -> row.indicatorReady())
+                    .sorted(dispatchComparator()).limit(1)
+                    .update(row -> row.setIndicatorReady(false));
+            require(updated.matched() == 1L && updated.changed() == 1L,
+                    "dynamic sorted limit(1) update affects one row");
+            TableStats updateStats = table.statsSnapshot();
+            require(updateStats.operationScratchCurrentBytes()
+                            == topOneStats.operationScratchCurrentBytes()
+                            && updateStats.operationScratchHighWaterBytes()
+                            == topOneStats.operationScratchHighWaterBytes(),
+                    "dynamic sorted limit(1) update adds no full-sort scratch");
+            RemoveResult removedResult = table.findByMachine(machine)
+                    .filter(row -> row.indicatorReady())
+                    .sorted(dispatchComparator()).limit(1).remove();
+            require(removedResult.matched() == 1L && removedResult.removed() == 1L,
+                    "dynamic sorted limit(1) remove affects one row");
+            TableStats removeStats = table.statsSnapshot();
+            require(removeStats.operationScratchCurrentBytes()
+                            == updateStats.operationScratchCurrentBytes()
+                            && removeStats.operationScratchHighWaterBytes()
+                            == updateStats.operationScratchHighWaterBytes(),
+                    "dynamic sorted limit(1) remove adds no full-sort scratch");
         } finally {
             table.release();
         }
@@ -437,20 +474,20 @@ public final class FjspScenario {
         public final String schemaHash;
         public final long sidecarRebuilds;
         public final int apcRows;
-        public final int hotLeafBytesPerRow;
+        public final int aggregateHotLeafWidths;
         public final long hotLeafWorkingSetBytes;
         public final long reads;
         public final long mutations;
         public final int exports;
         ScenarioResult(int assignments, String schemaHash, long sidecarRebuilds,
-                       int apcRows, int hotLeafBytesPerRow,
+                       int apcRows, int aggregateHotLeafWidths,
                        long hotLeafWorkingSetBytes, long reads, long mutations,
                        int exports) {
             this.assignments = assignments;
             this.schemaHash = schemaHash;
             this.sidecarRebuilds = sidecarRebuilds;
             this.apcRows = apcRows;
-            this.hotLeafBytesPerRow = hotLeafBytesPerRow;
+            this.aggregateHotLeafWidths = aggregateHotLeafWidths;
             this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;
             this.reads = reads;
             this.mutations = mutations;
