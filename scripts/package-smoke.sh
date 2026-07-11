@@ -143,6 +143,12 @@ EOF
 build_release_shape() {
   local_repository=$1
   build_log=$2
+  seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
+  mkdir -p "$local_repository"
+  if [ -d "$seed_repository" ]; then
+    # 只预热已校验的 plugin/dependency bytes；两次 clean build 仍写入彼此独占仓库。
+    cp -R "$seed_repository/." "$local_repository/"
+  fi
   if ! ./mvnw -B -ntp -Prelease-artifacts \
     -Dmaven.repo.local="$local_repository" \
     -pl soma-annotations,soma-processor,soma-runtime-core -am clean package \
