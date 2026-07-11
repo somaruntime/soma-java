@@ -1,3 +1,53 @@
+## ChildRowBatch
+Compiled from "ChildRowBatch.java"
+public final class com.example.soma.child.generated.ChildRowBatch {
+  public com.example.soma.child.generated.ChildRowBatch();
+  public com.example.soma.child.generated.ChildRowBatch(int);
+  public int size();
+  public int capacity();
+  public boolean isEmpty();
+  public com.example.soma.child.generated.ChildRowBatch add(com.example.soma.child.ChildRow);
+  public com.example.soma.child.generated.ChildRowBatch addValues(com.example.soma.child.generated.ChildRowBatch$Writer);
+  public com.example.soma.child.generated.ChildRowBatch addValues(int);
+  public void clear();
+}
+## ChildRowMutableRow
+Compiled from "ChildRowMutableRow.java"
+public interface com.example.soma.child.generated.ChildRowMutableRow extends com.example.soma.child.generated.ChildRowRow {
+  public abstract void setValue(int);
+}
+## ChildRowMutator
+Compiled from "ChildRowMutator.java"
+public final class com.example.soma.child.generated.ChildRowMutator {
+  public com.example.soma.child.generated.ChildRowMutator setValue(int);
+  public void commit();
+}
+## ChildRowRow
+Compiled from "ChildRowRow.java"
+public interface com.example.soma.child.generated.ChildRowRow {
+  public abstract int value();
+}
+## ChildRowRows
+Compiled from "ChildRowRows.java"
+public final class com.example.soma.child.generated.ChildRowRows {
+  public com.example.soma.child.generated.ChildRowRows filter(com.example.soma.child.generated.ChildRowRows$Predicate);
+  public com.example.soma.child.generated.ChildRowRows skip(long);
+  public com.example.soma.child.generated.ChildRowRows limit(long);
+  public com.example.soma.child.generated.ChildRowRows sorted(com.example.soma.child.generated.ChildRowRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.child.generated.ChildRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.child.generated.ChildRowRows$Predicate);
+  public void forEach(com.example.soma.child.generated.ChildRowRows$Consumer);
+  public java.util.Optional<com.example.soma.child.ChildRow> findFirst();
+  public java.util.Optional<com.example.soma.child.ChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ChildRow firstOrThrow();
+  public com.example.soma.child.ChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.ChildRow> fetchAll();
+  public java.util.List<com.example.soma.child.ChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ChildRowRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+}
 ## ChildRowTable
 Compiled from "ChildRowTable.java"
 public final class com.example.soma.child.generated.ChildRowTable {
@@ -41,38 +91,63 @@ public final class com.example.soma.child.generated.ChildRowTable {
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }
-## ChildRowBatch
-Compiled from "ChildRowBatch.java"
-public final class com.example.soma.child.generated.ChildRowBatch {
-  public com.example.soma.child.generated.ChildRowBatch();
-  public com.example.soma.child.generated.ChildRowBatch(int);
+## DoubleKeyedChildRowBatch
+Compiled from "DoubleKeyedChildRowBatch.java"
+public final class com.example.soma.child.generated.DoubleKeyedChildRowBatch {
+  public com.example.soma.child.generated.DoubleKeyedChildRowBatch();
+  public com.example.soma.child.generated.DoubleKeyedChildRowBatch(int);
   public int size();
   public int capacity();
   public boolean isEmpty();
-  public com.example.soma.child.generated.ChildRowBatch add(com.example.soma.child.ChildRow);
-  public com.example.soma.child.generated.ChildRowBatch addValues(com.example.soma.child.generated.ChildRowBatch$Writer);
-  public com.example.soma.child.generated.ChildRowBatch addValues(int);
+  public com.example.soma.child.generated.DoubleKeyedChildRowBatch add(com.example.soma.child.DoubleKeyedChildRow);
+  public com.example.soma.child.generated.DoubleKeyedChildRowBatch addValues(com.example.soma.child.generated.DoubleKeyedChildRowBatch$Writer);
+  public com.example.soma.child.generated.DoubleKeyedChildRowBatch addValues(double, int);
   public void clear();
 }
-## ChildRowRows
-Compiled from "ChildRowRows.java"
-public final class com.example.soma.child.generated.ChildRowRows {
-  public com.example.soma.child.generated.ChildRowRows filter(com.example.soma.child.generated.ChildRowRows$Predicate);
-  public com.example.soma.child.generated.ChildRowRows skip(long);
-  public com.example.soma.child.generated.ChildRowRows limit(long);
-  public com.example.soma.child.generated.ChildRowRows sorted(com.example.soma.child.generated.ChildRowRows$Comparator);
+## DoubleKeyedChildRowKeys
+Compiled from "DoubleKeyedChildRowKeys.java"
+public final class com.example.soma.child.generated.DoubleKeyedChildRowKeys {
+  public void forEach(java.util.function.Consumer<java.lang.Double>);
+  public java.util.List<java.lang.Double> fetchAll();
+  public java.util.Optional<java.lang.Double> findFirst();
+  public java.lang.Double firstOrThrow();
+}
+## DoubleKeyedChildRowMutableRow
+Compiled from "DoubleKeyedChildRowMutableRow.java"
+public interface com.example.soma.child.generated.DoubleKeyedChildRowMutableRow extends com.example.soma.child.generated.DoubleKeyedChildRowRow {
+  public abstract void setValue(int);
+}
+## DoubleKeyedChildRowMutator
+Compiled from "DoubleKeyedChildRowMutator.java"
+public final class com.example.soma.child.generated.DoubleKeyedChildRowMutator {
+  public com.example.soma.child.generated.DoubleKeyedChildRowMutator setValue(int);
+  public void commit();
+}
+## DoubleKeyedChildRowRow
+Compiled from "DoubleKeyedChildRowRow.java"
+public interface com.example.soma.child.generated.DoubleKeyedChildRowRow {
+  public abstract double id();
+  public abstract int value();
+}
+## DoubleKeyedChildRowRows
+Compiled from "DoubleKeyedChildRowRows.java"
+public final class com.example.soma.child.generated.DoubleKeyedChildRowRows {
+  public com.example.soma.child.generated.DoubleKeyedChildRowRows filter(com.example.soma.child.generated.DoubleKeyedChildRowRows$Predicate);
+  public com.example.soma.child.generated.DoubleKeyedChildRowRows skip(long);
+  public com.example.soma.child.generated.DoubleKeyedChildRowRows limit(long);
+  public com.example.soma.child.generated.DoubleKeyedChildRowRows sorted(com.example.soma.child.generated.DoubleKeyedChildRowRows$Comparator);
   public long count();
-  public boolean anyMatch(com.example.soma.child.generated.ChildRowRows$Predicate);
-  public boolean noneMatch(com.example.soma.child.generated.ChildRowRows$Predicate);
-  public void forEach(com.example.soma.child.generated.ChildRowRows$Consumer);
-  public java.util.Optional<com.example.soma.child.ChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.ChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.example.soma.child.ChildRow firstOrThrow();
-  public com.example.soma.child.ChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.child.ChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.ChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean anyMatch(com.example.soma.child.generated.DoubleKeyedChildRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.child.generated.DoubleKeyedChildRowRows$Predicate);
+  public void forEach(com.example.soma.child.generated.DoubleKeyedChildRowRows$Consumer);
+  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst();
+  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow();
+  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll();
+  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ChildRowRows$Updater);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.DoubleKeyedChildRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
 ## DoubleKeyedChildRowTable
@@ -128,38 +203,63 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }
-## DoubleKeyedChildRowBatch
-Compiled from "DoubleKeyedChildRowBatch.java"
-public final class com.example.soma.child.generated.DoubleKeyedChildRowBatch {
-  public com.example.soma.child.generated.DoubleKeyedChildRowBatch();
-  public com.example.soma.child.generated.DoubleKeyedChildRowBatch(int);
+## FloatKeyedChildRowBatch
+Compiled from "FloatKeyedChildRowBatch.java"
+public final class com.example.soma.child.generated.FloatKeyedChildRowBatch {
+  public com.example.soma.child.generated.FloatKeyedChildRowBatch();
+  public com.example.soma.child.generated.FloatKeyedChildRowBatch(int);
   public int size();
   public int capacity();
   public boolean isEmpty();
-  public com.example.soma.child.generated.DoubleKeyedChildRowBatch add(com.example.soma.child.DoubleKeyedChildRow);
-  public com.example.soma.child.generated.DoubleKeyedChildRowBatch addValues(com.example.soma.child.generated.DoubleKeyedChildRowBatch$Writer);
-  public com.example.soma.child.generated.DoubleKeyedChildRowBatch addValues(double, int);
+  public com.example.soma.child.generated.FloatKeyedChildRowBatch add(com.example.soma.child.FloatKeyedChildRow);
+  public com.example.soma.child.generated.FloatKeyedChildRowBatch addValues(com.example.soma.child.generated.FloatKeyedChildRowBatch$Writer);
+  public com.example.soma.child.generated.FloatKeyedChildRowBatch addValues(float, int);
   public void clear();
 }
-## DoubleKeyedChildRowRows
-Compiled from "DoubleKeyedChildRowRows.java"
-public final class com.example.soma.child.generated.DoubleKeyedChildRowRows {
-  public com.example.soma.child.generated.DoubleKeyedChildRowRows filter(com.example.soma.child.generated.DoubleKeyedChildRowRows$Predicate);
-  public com.example.soma.child.generated.DoubleKeyedChildRowRows skip(long);
-  public com.example.soma.child.generated.DoubleKeyedChildRowRows limit(long);
-  public com.example.soma.child.generated.DoubleKeyedChildRowRows sorted(com.example.soma.child.generated.DoubleKeyedChildRowRows$Comparator);
+## FloatKeyedChildRowKeys
+Compiled from "FloatKeyedChildRowKeys.java"
+public final class com.example.soma.child.generated.FloatKeyedChildRowKeys {
+  public void forEach(java.util.function.Consumer<java.lang.Float>);
+  public java.util.List<java.lang.Float> fetchAll();
+  public java.util.Optional<java.lang.Float> findFirst();
+  public java.lang.Float firstOrThrow();
+}
+## FloatKeyedChildRowMutableRow
+Compiled from "FloatKeyedChildRowMutableRow.java"
+public interface com.example.soma.child.generated.FloatKeyedChildRowMutableRow extends com.example.soma.child.generated.FloatKeyedChildRowRow {
+  public abstract void setValue(int);
+}
+## FloatKeyedChildRowMutator
+Compiled from "FloatKeyedChildRowMutator.java"
+public final class com.example.soma.child.generated.FloatKeyedChildRowMutator {
+  public com.example.soma.child.generated.FloatKeyedChildRowMutator setValue(int);
+  public void commit();
+}
+## FloatKeyedChildRowRow
+Compiled from "FloatKeyedChildRowRow.java"
+public interface com.example.soma.child.generated.FloatKeyedChildRowRow {
+  public abstract float id();
+  public abstract int value();
+}
+## FloatKeyedChildRowRows
+Compiled from "FloatKeyedChildRowRows.java"
+public final class com.example.soma.child.generated.FloatKeyedChildRowRows {
+  public com.example.soma.child.generated.FloatKeyedChildRowRows filter(com.example.soma.child.generated.FloatKeyedChildRowRows$Predicate);
+  public com.example.soma.child.generated.FloatKeyedChildRowRows skip(long);
+  public com.example.soma.child.generated.FloatKeyedChildRowRows limit(long);
+  public com.example.soma.child.generated.FloatKeyedChildRowRows sorted(com.example.soma.child.generated.FloatKeyedChildRowRows$Comparator);
   public long count();
-  public boolean anyMatch(com.example.soma.child.generated.DoubleKeyedChildRowRows$Predicate);
-  public boolean noneMatch(com.example.soma.child.generated.DoubleKeyedChildRowRows$Predicate);
-  public void forEach(com.example.soma.child.generated.DoubleKeyedChildRowRows$Consumer);
-  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow();
-  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean anyMatch(com.example.soma.child.generated.FloatKeyedChildRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.child.generated.FloatKeyedChildRowRows$Predicate);
+  public void forEach(com.example.soma.child.generated.FloatKeyedChildRowRows$Consumer);
+  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst();
+  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatKeyedChildRow firstOrThrow();
+  public com.example.soma.child.FloatKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll();
+  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.DoubleKeyedChildRowRows$Updater);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatKeyedChildRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
 ## FloatKeyedChildRowTable
@@ -215,38 +315,54 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }
-## FloatKeyedChildRowBatch
-Compiled from "FloatKeyedChildRowBatch.java"
-public final class com.example.soma.child.generated.FloatKeyedChildRowBatch {
-  public com.example.soma.child.generated.FloatKeyedChildRowBatch();
-  public com.example.soma.child.generated.FloatKeyedChildRowBatch(int);
+## FloatingParentRowBatch
+Compiled from "FloatingParentRowBatch.java"
+public final class com.example.soma.child.generated.FloatingParentRowBatch {
+  public com.example.soma.child.generated.FloatingParentRowBatch();
+  public com.example.soma.child.generated.FloatingParentRowBatch(int);
   public int size();
   public int capacity();
   public boolean isEmpty();
-  public com.example.soma.child.generated.FloatKeyedChildRowBatch add(com.example.soma.child.FloatKeyedChildRow);
-  public com.example.soma.child.generated.FloatKeyedChildRowBatch addValues(com.example.soma.child.generated.FloatKeyedChildRowBatch$Writer);
-  public com.example.soma.child.generated.FloatKeyedChildRowBatch addValues(float, int);
+  public com.example.soma.child.generated.FloatingParentRowBatch add(com.example.soma.child.FloatingParentRow);
+  public com.example.soma.child.generated.FloatingParentRowBatch addValues(com.example.soma.child.generated.FloatingParentRowBatch$Writer);
+  public com.example.soma.child.generated.FloatingParentRowBatch addValues(int, com.example.soma.child.generated.FloatKeyedChildRowBatch, com.example.soma.child.generated.DoubleKeyedChildRowBatch);
   public void clear();
 }
-## FloatKeyedChildRowRows
-Compiled from "FloatKeyedChildRowRows.java"
-public final class com.example.soma.child.generated.FloatKeyedChildRowRows {
-  public com.example.soma.child.generated.FloatKeyedChildRowRows filter(com.example.soma.child.generated.FloatKeyedChildRowRows$Predicate);
-  public com.example.soma.child.generated.FloatKeyedChildRowRows skip(long);
-  public com.example.soma.child.generated.FloatKeyedChildRowRows limit(long);
-  public com.example.soma.child.generated.FloatKeyedChildRowRows sorted(com.example.soma.child.generated.FloatKeyedChildRowRows$Comparator);
+## FloatingParentRowMutableRow
+Compiled from "FloatingParentRowMutableRow.java"
+public interface com.example.soma.child.generated.FloatingParentRowMutableRow extends com.example.soma.child.generated.FloatingParentRowRow {
+  public abstract void setId(int);
+}
+## FloatingParentRowMutator
+Compiled from "FloatingParentRowMutator.java"
+public final class com.example.soma.child.generated.FloatingParentRowMutator {
+  public com.example.soma.child.generated.FloatingParentRowMutator setId(int);
+  public void commit();
+}
+## FloatingParentRowRow
+Compiled from "FloatingParentRowRow.java"
+public interface com.example.soma.child.generated.FloatingParentRowRow {
+  public abstract int id();
+}
+## FloatingParentRowRows
+Compiled from "FloatingParentRowRows.java"
+public final class com.example.soma.child.generated.FloatingParentRowRows {
+  public com.example.soma.child.generated.FloatingParentRowRows filter(com.example.soma.child.generated.FloatingParentRowRows$Predicate);
+  public com.example.soma.child.generated.FloatingParentRowRows skip(long);
+  public com.example.soma.child.generated.FloatingParentRowRows limit(long);
+  public com.example.soma.child.generated.FloatingParentRowRows sorted(com.example.soma.child.generated.FloatingParentRowRows$Comparator);
   public long count();
-  public boolean anyMatch(com.example.soma.child.generated.FloatKeyedChildRowRows$Predicate);
-  public boolean noneMatch(com.example.soma.child.generated.FloatKeyedChildRowRows$Predicate);
-  public void forEach(com.example.soma.child.generated.FloatKeyedChildRowRows$Consumer);
-  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.example.soma.child.FloatKeyedChildRow firstOrThrow();
-  public com.example.soma.child.FloatKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean anyMatch(com.example.soma.child.generated.FloatingParentRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.child.generated.FloatingParentRowRows$Predicate);
+  public void forEach(com.example.soma.child.generated.FloatingParentRowRows$Consumer);
+  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst();
+  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatingParentRow firstOrThrow();
+  public com.example.soma.child.FloatingParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll();
+  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatKeyedChildRowRows$Updater);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatingParentRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
 ## FloatingParentRowTable
@@ -296,38 +412,54 @@ public final class com.example.soma.child.generated.FloatingParentRowTable {
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }
-## FloatingParentRowBatch
-Compiled from "FloatingParentRowBatch.java"
-public final class com.example.soma.child.generated.FloatingParentRowBatch {
-  public com.example.soma.child.generated.FloatingParentRowBatch();
-  public com.example.soma.child.generated.FloatingParentRowBatch(int);
+## GrandchildRowBatch
+Compiled from "GrandchildRowBatch.java"
+public final class com.example.soma.child.generated.GrandchildRowBatch {
+  public com.example.soma.child.generated.GrandchildRowBatch();
+  public com.example.soma.child.generated.GrandchildRowBatch(int);
   public int size();
   public int capacity();
   public boolean isEmpty();
-  public com.example.soma.child.generated.FloatingParentRowBatch add(com.example.soma.child.FloatingParentRow);
-  public com.example.soma.child.generated.FloatingParentRowBatch addValues(com.example.soma.child.generated.FloatingParentRowBatch$Writer);
-  public com.example.soma.child.generated.FloatingParentRowBatch addValues(int, com.example.soma.child.generated.FloatKeyedChildRowBatch, com.example.soma.child.generated.DoubleKeyedChildRowBatch);
+  public com.example.soma.child.generated.GrandchildRowBatch add(com.example.soma.child.GrandchildRow);
+  public com.example.soma.child.generated.GrandchildRowBatch addValues(com.example.soma.child.generated.GrandchildRowBatch$Writer);
+  public com.example.soma.child.generated.GrandchildRowBatch addValues(long);
   public void clear();
 }
-## FloatingParentRowRows
-Compiled from "FloatingParentRowRows.java"
-public final class com.example.soma.child.generated.FloatingParentRowRows {
-  public com.example.soma.child.generated.FloatingParentRowRows filter(com.example.soma.child.generated.FloatingParentRowRows$Predicate);
-  public com.example.soma.child.generated.FloatingParentRowRows skip(long);
-  public com.example.soma.child.generated.FloatingParentRowRows limit(long);
-  public com.example.soma.child.generated.FloatingParentRowRows sorted(com.example.soma.child.generated.FloatingParentRowRows$Comparator);
+## GrandchildRowMutableRow
+Compiled from "GrandchildRowMutableRow.java"
+public interface com.example.soma.child.generated.GrandchildRowMutableRow extends com.example.soma.child.generated.GrandchildRowRow {
+  public abstract void setAmount(long);
+}
+## GrandchildRowMutator
+Compiled from "GrandchildRowMutator.java"
+public final class com.example.soma.child.generated.GrandchildRowMutator {
+  public com.example.soma.child.generated.GrandchildRowMutator setAmount(long);
+  public void commit();
+}
+## GrandchildRowRow
+Compiled from "GrandchildRowRow.java"
+public interface com.example.soma.child.generated.GrandchildRowRow {
+  public abstract long amount();
+}
+## GrandchildRowRows
+Compiled from "GrandchildRowRows.java"
+public final class com.example.soma.child.generated.GrandchildRowRows {
+  public com.example.soma.child.generated.GrandchildRowRows filter(com.example.soma.child.generated.GrandchildRowRows$Predicate);
+  public com.example.soma.child.generated.GrandchildRowRows skip(long);
+  public com.example.soma.child.generated.GrandchildRowRows limit(long);
+  public com.example.soma.child.generated.GrandchildRowRows sorted(com.example.soma.child.generated.GrandchildRowRows$Comparator);
   public long count();
-  public boolean anyMatch(com.example.soma.child.generated.FloatingParentRowRows$Predicate);
-  public boolean noneMatch(com.example.soma.child.generated.FloatingParentRowRows$Predicate);
-  public void forEach(com.example.soma.child.generated.FloatingParentRowRows$Consumer);
-  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst();
-  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.example.soma.child.FloatingParentRow firstOrThrow();
-  public com.example.soma.child.FloatingParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll();
-  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean anyMatch(com.example.soma.child.generated.GrandchildRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.child.generated.GrandchildRowRows$Predicate);
+  public void forEach(com.example.soma.child.generated.GrandchildRowRows$Consumer);
+  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst();
+  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.GrandchildRow firstOrThrow();
+  public com.example.soma.child.GrandchildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll();
+  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatingParentRowRows$Updater);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.GrandchildRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
 ## GrandchildRowTable
@@ -373,38 +505,63 @@ public final class com.example.soma.child.generated.GrandchildRowTable {
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }
-## GrandchildRowBatch
-Compiled from "GrandchildRowBatch.java"
-public final class com.example.soma.child.generated.GrandchildRowBatch {
-  public com.example.soma.child.generated.GrandchildRowBatch();
-  public com.example.soma.child.generated.GrandchildRowBatch(int);
+## KeyedChildRowBatch
+Compiled from "KeyedChildRowBatch.java"
+public final class com.example.soma.child.generated.KeyedChildRowBatch {
+  public com.example.soma.child.generated.KeyedChildRowBatch();
+  public com.example.soma.child.generated.KeyedChildRowBatch(int);
   public int size();
   public int capacity();
   public boolean isEmpty();
-  public com.example.soma.child.generated.GrandchildRowBatch add(com.example.soma.child.GrandchildRow);
-  public com.example.soma.child.generated.GrandchildRowBatch addValues(com.example.soma.child.generated.GrandchildRowBatch$Writer);
-  public com.example.soma.child.generated.GrandchildRowBatch addValues(long);
+  public com.example.soma.child.generated.KeyedChildRowBatch add(com.example.soma.child.KeyedChildRow);
+  public com.example.soma.child.generated.KeyedChildRowBatch addValues(com.example.soma.child.generated.KeyedChildRowBatch$Writer);
+  public com.example.soma.child.generated.KeyedChildRowBatch addValues(int, int, com.example.soma.child.generated.GrandchildRowBatch);
   public void clear();
 }
-## GrandchildRowRows
-Compiled from "GrandchildRowRows.java"
-public final class com.example.soma.child.generated.GrandchildRowRows {
-  public com.example.soma.child.generated.GrandchildRowRows filter(com.example.soma.child.generated.GrandchildRowRows$Predicate);
-  public com.example.soma.child.generated.GrandchildRowRows skip(long);
-  public com.example.soma.child.generated.GrandchildRowRows limit(long);
-  public com.example.soma.child.generated.GrandchildRowRows sorted(com.example.soma.child.generated.GrandchildRowRows$Comparator);
+## KeyedChildRowKeys
+Compiled from "KeyedChildRowKeys.java"
+public final class com.example.soma.child.generated.KeyedChildRowKeys {
+  public void forEach(java.util.function.Consumer<java.lang.Integer>);
+  public java.util.List<java.lang.Integer> fetchAll();
+  public java.util.Optional<java.lang.Integer> findFirst();
+  public java.lang.Integer firstOrThrow();
+}
+## KeyedChildRowMutableRow
+Compiled from "KeyedChildRowMutableRow.java"
+public interface com.example.soma.child.generated.KeyedChildRowMutableRow extends com.example.soma.child.generated.KeyedChildRowRow {
+  public abstract void setValue(int);
+}
+## KeyedChildRowMutator
+Compiled from "KeyedChildRowMutator.java"
+public final class com.example.soma.child.generated.KeyedChildRowMutator {
+  public com.example.soma.child.generated.KeyedChildRowMutator setValue(int);
+  public void commit();
+}
+## KeyedChildRowRow
+Compiled from "KeyedChildRowRow.java"
+public interface com.example.soma.child.generated.KeyedChildRowRow {
+  public abstract int id();
+  public abstract int value();
+}
+## KeyedChildRowRows
+Compiled from "KeyedChildRowRows.java"
+public final class com.example.soma.child.generated.KeyedChildRowRows {
+  public com.example.soma.child.generated.KeyedChildRowRows filter(com.example.soma.child.generated.KeyedChildRowRows$Predicate);
+  public com.example.soma.child.generated.KeyedChildRowRows skip(long);
+  public com.example.soma.child.generated.KeyedChildRowRows limit(long);
+  public com.example.soma.child.generated.KeyedChildRowRows sorted(com.example.soma.child.generated.KeyedChildRowRows$Comparator);
   public long count();
-  public boolean anyMatch(com.example.soma.child.generated.GrandchildRowRows$Predicate);
-  public boolean noneMatch(com.example.soma.child.generated.GrandchildRowRows$Predicate);
-  public void forEach(com.example.soma.child.generated.GrandchildRowRows$Consumer);
-  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.example.soma.child.GrandchildRow firstOrThrow();
-  public com.example.soma.child.GrandchildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll();
-  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean anyMatch(com.example.soma.child.generated.KeyedChildRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.child.generated.KeyedChildRowRows$Predicate);
+  public void forEach(com.example.soma.child.generated.KeyedChildRowRows$Consumer);
+  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst();
+  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.KeyedChildRow firstOrThrow();
+  public com.example.soma.child.KeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll();
+  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.GrandchildRowRows$Updater);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.KeyedChildRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
 ## KeyedChildRowTable
@@ -462,38 +619,54 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
 }
-## KeyedChildRowBatch
-Compiled from "KeyedChildRowBatch.java"
-public final class com.example.soma.child.generated.KeyedChildRowBatch {
-  public com.example.soma.child.generated.KeyedChildRowBatch();
-  public com.example.soma.child.generated.KeyedChildRowBatch(int);
+## ParentRowBatch
+Compiled from "ParentRowBatch.java"
+public final class com.example.soma.child.generated.ParentRowBatch {
+  public com.example.soma.child.generated.ParentRowBatch();
+  public com.example.soma.child.generated.ParentRowBatch(int);
   public int size();
   public int capacity();
   public boolean isEmpty();
-  public com.example.soma.child.generated.KeyedChildRowBatch add(com.example.soma.child.KeyedChildRow);
-  public com.example.soma.child.generated.KeyedChildRowBatch addValues(com.example.soma.child.generated.KeyedChildRowBatch$Writer);
-  public com.example.soma.child.generated.KeyedChildRowBatch addValues(int, int, com.example.soma.child.generated.GrandchildRowBatch);
+  public com.example.soma.child.generated.ParentRowBatch add(com.example.soma.child.ParentRow);
+  public com.example.soma.child.generated.ParentRowBatch addValues(com.example.soma.child.generated.ParentRowBatch$Writer);
+  public com.example.soma.child.generated.ParentRowBatch addValues(int, com.example.soma.child.generated.ChildRowBatch, com.example.soma.child.generated.ChildRowBatch, com.example.soma.child.generated.KeyedChildRowBatch);
   public void clear();
 }
-## KeyedChildRowRows
-Compiled from "KeyedChildRowRows.java"
-public final class com.example.soma.child.generated.KeyedChildRowRows {
-  public com.example.soma.child.generated.KeyedChildRowRows filter(com.example.soma.child.generated.KeyedChildRowRows$Predicate);
-  public com.example.soma.child.generated.KeyedChildRowRows skip(long);
-  public com.example.soma.child.generated.KeyedChildRowRows limit(long);
-  public com.example.soma.child.generated.KeyedChildRowRows sorted(com.example.soma.child.generated.KeyedChildRowRows$Comparator);
+## ParentRowMutableRow
+Compiled from "ParentRowMutableRow.java"
+public interface com.example.soma.child.generated.ParentRowMutableRow extends com.example.soma.child.generated.ParentRowRow {
+  public abstract void setId(int);
+}
+## ParentRowMutator
+Compiled from "ParentRowMutator.java"
+public final class com.example.soma.child.generated.ParentRowMutator {
+  public com.example.soma.child.generated.ParentRowMutator setId(int);
+  public void commit();
+}
+## ParentRowRow
+Compiled from "ParentRowRow.java"
+public interface com.example.soma.child.generated.ParentRowRow {
+  public abstract int id();
+}
+## ParentRowRows
+Compiled from "ParentRowRows.java"
+public final class com.example.soma.child.generated.ParentRowRows {
+  public com.example.soma.child.generated.ParentRowRows filter(com.example.soma.child.generated.ParentRowRows$Predicate);
+  public com.example.soma.child.generated.ParentRowRows skip(long);
+  public com.example.soma.child.generated.ParentRowRows limit(long);
+  public com.example.soma.child.generated.ParentRowRows sorted(com.example.soma.child.generated.ParentRowRows$Comparator);
   public long count();
-  public boolean anyMatch(com.example.soma.child.generated.KeyedChildRowRows$Predicate);
-  public boolean noneMatch(com.example.soma.child.generated.KeyedChildRowRows$Predicate);
-  public void forEach(com.example.soma.child.generated.KeyedChildRowRows$Consumer);
-  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.example.soma.child.KeyedChildRow firstOrThrow();
-  public com.example.soma.child.KeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean anyMatch(com.example.soma.child.generated.ParentRowRows$Predicate);
+  public boolean noneMatch(com.example.soma.child.generated.ParentRowRows$Predicate);
+  public void forEach(com.example.soma.child.generated.ParentRowRows$Consumer);
+  public java.util.Optional<com.example.soma.child.ParentRow> findFirst();
+  public java.util.Optional<com.example.soma.child.ParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ParentRow firstOrThrow();
+  public com.example.soma.child.ParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.ParentRow> fetchAll();
+  public java.util.List<com.example.soma.child.ParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
   public int[] rowIndexes();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.KeyedChildRowRows$Updater);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ParentRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
 ## ParentRowTable
@@ -547,38 +720,4 @@ public final class com.example.soma.child.generated.ParentRowTable {
   public com.hgtech.soma.runtime.IntColumnView idColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-}
-## ParentRowBatch
-Compiled from "ParentRowBatch.java"
-public final class com.example.soma.child.generated.ParentRowBatch {
-  public com.example.soma.child.generated.ParentRowBatch();
-  public com.example.soma.child.generated.ParentRowBatch(int);
-  public int size();
-  public int capacity();
-  public boolean isEmpty();
-  public com.example.soma.child.generated.ParentRowBatch add(com.example.soma.child.ParentRow);
-  public com.example.soma.child.generated.ParentRowBatch addValues(com.example.soma.child.generated.ParentRowBatch$Writer);
-  public com.example.soma.child.generated.ParentRowBatch addValues(int, com.example.soma.child.generated.ChildRowBatch, com.example.soma.child.generated.ChildRowBatch, com.example.soma.child.generated.KeyedChildRowBatch);
-  public void clear();
-}
-## ParentRowRows
-Compiled from "ParentRowRows.java"
-public final class com.example.soma.child.generated.ParentRowRows {
-  public com.example.soma.child.generated.ParentRowRows filter(com.example.soma.child.generated.ParentRowRows$Predicate);
-  public com.example.soma.child.generated.ParentRowRows skip(long);
-  public com.example.soma.child.generated.ParentRowRows limit(long);
-  public com.example.soma.child.generated.ParentRowRows sorted(com.example.soma.child.generated.ParentRowRows$Comparator);
-  public long count();
-  public boolean anyMatch(com.example.soma.child.generated.ParentRowRows$Predicate);
-  public boolean noneMatch(com.example.soma.child.generated.ParentRowRows$Predicate);
-  public void forEach(com.example.soma.child.generated.ParentRowRows$Consumer);
-  public java.util.Optional<com.example.soma.child.ParentRow> findFirst();
-  public java.util.Optional<com.example.soma.child.ParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.example.soma.child.ParentRow firstOrThrow();
-  public com.example.soma.child.ParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
-  public java.util.List<com.example.soma.child.ParentRow> fetchAll();
-  public java.util.List<com.example.soma.child.ParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ParentRowRows$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
 }

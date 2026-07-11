@@ -22,6 +22,7 @@ import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.ShortColumnView;
 import com.hgtech.soma.runtime.ShortConsumer;
+import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
 
 import java.util.List;
@@ -229,6 +230,14 @@ public final class DenseConsumer {
 
         List<Particle> materialized = table.materialize();
         require(materialized.size() == 4, "whole-table materialization");
+        TableStats materializedStats = table.statsSnapshot();
+        require(materializedStats.lastMaterializationMaximumOwnershipDepth() == 0
+                        && materializedStats.lastMaterializationTableInstances() == 1L
+                        && materializedStats.lastMaterializationRows() == 4L
+                        && materializedStats.lastMaterializationLeafValues() == 13L
+                        && materializedStats.lastMaterializationEstimatedAllocationBytes()
+                        == 280L,
+                "exact optional primitive materialization estimator");
         materialized.get(0).x = -100.0f;
         require(table.fetchAt(0).x == 1.5f, "materialization detached boundary");
 

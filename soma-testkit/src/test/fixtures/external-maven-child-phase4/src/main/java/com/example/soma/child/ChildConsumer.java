@@ -90,6 +90,13 @@ public final class ChildConsumer {
         check(lazyMaterialized.children.isEmpty()
                         && lazyMaterialized.keyedChildren.isEmpty(),
                 "required empty materialization shape");
+        TableStats lazyStats = lazyTable.statsSnapshot();
+        check(lazyStats.lastMaterializationMaximumOwnershipDepth() == 1
+                        && lazyStats.lastMaterializationTableInstances() == 3L
+                        && lazyStats.lastMaterializationRows() == 1L
+                        && lazyStats.lastMaterializationLeafValues() == 1L
+                        && lazyStats.lastMaterializationEstimatedAllocationBytes() == 184L,
+                "required empty exact materialization estimator");
         check(lazyTable.children(0).capacity() == 2,
                 "child field initial capacity override");
         check(lazyTable.runtimePlan().requireChild("parent_rows", "children")
@@ -103,6 +110,21 @@ public final class ChildConsumer {
         check(lazyTable.statsSnapshot().childInstanceCount() == 2L,
                 "required facade allocation facts");
         lazyTable.release();
+
+        ParentRowTable optionalEmptyTable = ParentRowTable.create();
+        optionalEmptyTable.addBatch(new ParentRowBatch().add(emptyParent(97)));
+        optionalEmptyTable.ensureOptionalChildren(0);
+        check(optionalEmptyTable.materialize().get(0).optionalChildren.isEmpty(),
+                "optional present-empty detached shape");
+        TableStats optionalEmptyStats = optionalEmptyTable.statsSnapshot();
+        check(optionalEmptyStats.lastMaterializationMaximumOwnershipDepth() == 1
+                        && optionalEmptyStats.lastMaterializationTableInstances() == 4L
+                        && optionalEmptyStats.lastMaterializationRows() == 1L
+                        && optionalEmptyStats.lastMaterializationLeafValues() == 1L
+                        && optionalEmptyStats.lastMaterializationEstimatedAllocationBytes()
+                        == 224L,
+                "optional present-empty exact materialization estimator");
+        optionalEmptyTable.release();
         ChildRowTable children = table.children(0);
         check(children.size() == 1, "required child size");
         expectCode("owned_child_release", new Action() {
@@ -216,12 +238,14 @@ public final class ChildConsumer {
         ParentRowTable shared = ParentRowTable.create();
         shared.addBatch(new ParentRowBatch()
                 .add(emptyParent(101)).add(emptyParent(102)));
+        final long sharedEpoch = shared.structuralEpoch();
         final MaterializationBudget oneRow = MaterializationBudget.defaults().toBuilder()
                 .maximumRows(1L).build();
         expectCode("materialization_budget_exceeded", new Action() {
             public void run() { shared.fetchAll(oneRow); }
         });
-        check(shared.size() == 2, "fetchAll shared budget preserves rows");
+        check(shared.size() == 2 && shared.structuralEpoch() == sharedEpoch,
+                "fetchAll shared budget preserves facts and epoch");
         shared.release();
 
         MaterializationBudget customDefault = MaterializationBudget.defaults().toBuilder()
@@ -279,7 +303,55 @@ public final class ChildConsumer {
                         == childInvocationCount,
                 "two-pass guard preserves descendant stats");
 
+        final long carrierEpoch = table.structuralEpoch();
+        final int carrierParentSize = table.size();
+        final int carrierChildSize = materializationChild.size();
+        final RuntimeException carrierRuntime =
+                new IllegalStateException("expected carrier runtime failure");
+        long carrierFailures = table.statsSnapshot().materializationFailureCount();
+        ParentRow.constructionHook = new Runnable() {
+            public void run() { throw carrierRuntime; }
+        };
+        boolean caughtRuntime = false;
+        try {
+            table.materialize();
+        } catch (RuntimeException actual) {
+            caughtRuntime = true;
+            check(actual == carrierRuntime, "carrier RuntimeException identity");
+        } finally {
+            ParentRow.constructionHook = null;
+        }
+        check(caughtRuntime, "carrier RuntimeException propagated");
+        check(table.statsSnapshot().materializationFailureCount() == carrierFailures + 1L,
+                "carrier RuntimeException failure stats");
+        check(table.structuralEpoch() == carrierEpoch && table.size() == carrierParentSize
+                        && materializationChild.size() == carrierChildSize,
+                "carrier RuntimeException preserves facts and epoch");
+
+        final Error carrierError = new AssertionError("expected carrier error");
+        carrierFailures = table.statsSnapshot().materializationFailureCount();
+        ParentRow.constructionHook = new Runnable() {
+            public void run() { throw carrierError; }
+        };
+        boolean caughtError = false;
+        try {
+            table.materialize();
+        } catch (Error actual) {
+            caughtError = true;
+            check(actual == carrierError, "carrier Error identity");
+        } finally {
+            ParentRow.constructionHook = null;
+        }
+        check(caughtError, "carrier Error propagated");
+        check(table.statsSnapshot().materializationFailureCount() == carrierFailures + 1L,
+                "carrier Error failure stats");
+        check(table.structuralEpoch() == carrierEpoch && table.size() == carrierParentSize
+                        && materializationChild.size() == carrierChildSize,
+                "carrier Error preserves facts and epoch");
+
         final long allocationEpoch = table.structuralEpoch();
+        final long allocationFailures =
+                table.statsSnapshot().materializationFailureCount();
         MaterializationAllocation.Scope allocationScope =
                 MaterializationAllocation.installForCurrentThread(
                         new MaterializationAllocation.Provider() {
@@ -299,6 +371,9 @@ public final class ChildConsumer {
                 "allocation failure preserves epoch");
         check(table.size() == 1 && materializationChild.size() == 1,
                 "allocation failure preserves facts");
+        check(table.statsSnapshot().materializationFailureCount()
+                        == allocationFailures + 1L,
+                "allocation failure stats");
         check(table.materialize().size() == 1, "allocation scope recovery");
 
         KeyedChildRowTable keyedStats = table.keyedChildren(0);
@@ -307,15 +382,27 @@ public final class ChildConsumer {
         check(keyedStats.statsSnapshot().descendantRowCount() == 1L,
                 "owned child descendant scope");
         keyedStats.resetStats();
+        keyedStats.fetch(5);
+        long requiredRowBytes = keyedStats.statsSnapshot()
+                .lastMaterializationEstimatedAllocationBytes();
         check(keyedStats.find(5).isPresent(), "default find present");
+        check(keyedStats.statsSnapshot().lastMaterializationEstimatedAllocationBytes()
+                        == requiredRowBytes + 16L,
+                "present Optional exact allocation estimator");
         check(!keyedStats.find(404).isPresent(), "default find empty");
+        check(keyedStats.statsSnapshot().lastMaterializationTableInstances() == 1L
+                        && keyedStats.statsSnapshot().lastMaterializationRows() == 0L
+                        && keyedStats.statsSnapshot().lastMaterializationLeafValues() == 0L
+                        && keyedStats.statsSnapshot()
+                        .lastMaterializationEstimatedAllocationBytes() == 0L,
+                "empty Optional exact allocation estimator");
         check(keyedStats.find(5, MaterializationBudget.defaults()).isPresent(),
                 "explicit find present");
         keyedStats.fetch(5);
         keyedStats.fetch(5, MaterializationBudget.defaults());
         keyedStats.materialize();
         keyedStats.materialize(MaterializationBudget.defaults());
-        check(keyedStats.statsSnapshot().materializationInvocationCount() == 7L,
+        check(keyedStats.statsSnapshot().materializationInvocationCount() == 8L,
                 "find materialization stats");
 
         final GrandchildRowTable releasedGrandchild = keyedStats.grandchildren(5);
@@ -458,11 +545,18 @@ public final class ChildConsumer {
                 "direct keyed ChildBatch deep copy");
         directTable.release();
 
+        final ParentRowBatch mismatchBatch = new ParentRowBatch().add(emptyParent(204));
         final ParentRow mismatch = emptyParent(203);
         mismatch.keyedChildren.put(Integer.valueOf(6), keyedChild(5, 1));
         expectCode("child_key_mismatch", new Action() {
-            public void run() { new ParentRowBatch().add(mismatch); }
+            public void run() { mismatchBatch.add(mismatch); }
         });
+        check(mismatchBatch.size() == 1, "child key mismatch preserves Batch size");
+        ParentRowTable mismatchTable = ParentRowTable.create();
+        mismatchTable.addBatch(mismatchBatch);
+        check(mismatchTable.size() == 1 && mismatchTable.fetchAt(0).id == 204,
+                "child key mismatch preserves existing Batch snapshot");
+        mismatchTable.release();
     }
 
     private static void testFloatingChildKeys() {

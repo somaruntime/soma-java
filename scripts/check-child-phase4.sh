@@ -97,19 +97,16 @@ if grep -F ' copy();' "$evidence_dir/ParentRowBatch.javap.txt" >/dev/null; then
 fi
 
 phase4_javap=$evidence_dir/phase4-generated.javap.txt
-for type in \
-  ChildRowTable ChildRowBatch ChildRowRows \
-  DoubleKeyedChildRowTable DoubleKeyedChildRowBatch DoubleKeyedChildRowRows \
-  FloatKeyedChildRowTable FloatKeyedChildRowBatch FloatKeyedChildRowRows \
-  FloatingParentRowTable FloatingParentRowBatch FloatingParentRowRows \
-  GrandchildRowTable GrandchildRowBatch GrandchildRowRows \
-  KeyedChildRowTable KeyedChildRowBatch KeyedChildRowRows \
-  ParentRowTable ParentRowBatch ParentRowRows
-do
+generated_dir=$fixture/target/generated-sources/annotations/com/example/soma/child/generated
+types_file=$evidence_dir/phase4-generated-types.txt
+for source in "$generated_dir"/*.java; do
+  basename "$source" .java
+done | LC_ALL=C sort >"$types_file"
+while IFS= read -r type; do
   printf '## %s\n' "$type"
   "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
     "com.example.soma.child.generated.$type"
-done >"$phase4_javap"
+done <"$types_file" >"$phase4_javap"
 cmp "$source_fixture/expected-generated-public.javap.txt" "$phase4_javap"
 
 "$JAVA_HOME/bin/java" -version
