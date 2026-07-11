@@ -20,6 +20,7 @@
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-11 SOMA Java V1 专题治理收口](soma-java-v1-topical-governance-report.md)
 - [Java V1 Phase 0 compiler/build checkpoint](java-v1-phase-0-compiler-build-report.md)
 - [Java V1 Phase 0 schema carrier construction 设计缺口](java-v1-phase-0-schema-carrier-design-gap.md)
 - [Java V1 Phase 3 access structures](java-v1-phase-3-access-structures-report.md)

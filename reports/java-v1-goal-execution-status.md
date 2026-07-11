@@ -4,9 +4,11 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前实现 baseline：`2597c81 feat: complete phase 6 functional rc`
+当前实现 baseline：`aa7a466 fix: close SOMA Java V1 governance blockers`
 
 本文件是中断恢复和进度审计入口，不是设计事实源。正式语义仍由 `docs/README.md` 及各模块 Owner 文档拥有。
+
+2026-07-11专题治理已完成对完整功能V1的无缩水再审计：P0、V1 blocker和required P1均关闭，G0-G5在Zulu JDK 8完整`./scripts/check.sh`上fresh通过，独立reviewer最终PASS。完整findings、Capability矩阵、package重放边界与evidence见[`soma-java-v1-topical-governance-report.md`](soma-java-v1-topical-governance-report.md)。该专题不替代本文件的原Goal；G6仍blocked。
 
 ## 1. 当前总进度
 
@@ -47,6 +49,18 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 因此“完整 V1 功能范围 + G0–G5”的功能 RC 边界已满足；它不是可公开发布的 RC artifact。当前 artifact 仍是 `0.1.0-SNAPSHOT`，G6 未通过前不得公开分发或声明正式支持矩阵。
 
 ## 4. 集中验证记录
+
+### 4.1 2026-07-11 专题治理 fresh validation
+
+实现提交`aa7a466`上执行：
+
+```text
+JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home SOMA_UNSUPPORTED_JAVAC=/opt/homebrew/opt/openjdk/bin/javac ./scripts/check.sh
+```
+
+结果`project-check: ok`；20条benchmark lane各聚合2次measurement，36条serialized negative artifact均fail closed。最后一次现存benchmark目录为`target/benchmark-smoke.PJkPCM`。clean package mechanics在`2490406`已通过；`aa7a466`的fresh package重放在项目编译前因Maven Central TLS中断，当前实现内容由Maven verify和多组external Maven consumer覆盖，具体限制不作为G6证据并在专题报告§12披露。
+
+### 4.2 Phase 6 原集中验证记录
 
 完整命令：
 
