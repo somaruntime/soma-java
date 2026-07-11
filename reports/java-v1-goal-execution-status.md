@@ -4,8 +4,8 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`3292e7a`
-当前 checkpoint：Phase 4 parent-owned child 与 recursive materialization（连续实施中；阶段末集中验证/修复/报告/提交）
+当前 repository baseline：`d9ad752`
+当前 checkpoint：Phase 5 full capability breadth 与 G1–G4 closeout（连续实施中；阶段末集中验证/修复/报告/提交）
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
 
@@ -24,8 +24,8 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | P2-B-4a scalar value key | completed | commit `f013bc1`；single-leaf immutable `@SomaValue` 直接绑定 primitive column/KeySpace，Batch/import 无 value allocation；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B keyed identity breadth / Key Pipeline | completed | commit `af8ba51`；flat/nested primitive、String、enum value leaves递归 flatten，generated full equality/hash、collision/compaction、staged atomic import、external consumer和完整 `check.sh` evidence；Capability仍待 Phase 5/G2/G3 closeout |
 | Phase 3 access structures | completed | commit `3292e7a`；selector/index/unique/order、primitive sidecar、mutation/lifecycle/stats、external oracle与shape evidence；见 Phase 3 report，Capability仍保持 `in-progress` |
-| Phase 4 child ownership | in-progress | child forest/cascade/replacement/recursive materialization；阶段内部连续实施，结束后集中 validation/closeout |
-| Phase 5 full breadth + G1-G4 | pending | annotation/processor/codegen/runtime/incremental/compatibility closeout |
+| Phase 4 child ownership | completed | commits `aaed474`、`d9ad752`；owned forest、recursive materialization/budget/stats、testkit oracle、exact generated manifest、external consumer与完整回归；见 Phase 4 report，Capability仍保持 `in-progress` |
+| Phase 5 full breadth + G1-G4 | in-progress | annotation/processor/codegen/runtime/incremental/compatibility closeout |
 | Phase 6 examples/benchmark/release + G5-G6 | pending | formal scenarios、Access Pattern Cards、JSONL benchmark、package、License/SCM/contact/provenance/reproducibility/support matrix |
 | Final total audit | pending | 23 Capability + G0-G6；仅此时 Goal completed |
 
@@ -40,8 +40,8 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 | P2-B-4 | value/composite identity | completed：single/multi/nested primitive、String、enum value leaf flatten、generated static equality/hash、无 transient tuple lookup/compaction/Key Pipeline和staged atomic import | P3–P6 全部项 |
 | P3 implementation | access structures完整实施 | completed：selector normalization、typed/grouped source、index/unique/order primitive sidecar、strict access、mutation/row-move/lifecycle/stats | P4–P6 全部项 |
 | P3 closeout | 集中验证与修复 | completed：compile/diagnostic/schema/public/generated/runtime/external consumer/oracle/shape/check.sh evidence、V1 non-regression、commit `3292e7a` 与 Phase 3 report | P4–P6 全部项 |
-| P4-A | child handle ownership | List/Map child creation、forest/reparent/cascade/replacement lifecycle | recursive detached projection |
-| P4-B | recursive materialization | budget/path/all-or-nothing subtree projection | remaining field/default/processor breadth |
+| P4-A | child handle ownership | completed：List/Map exact child API、generation handle/identity registry、forest/share/reparent/cascade/replacement lifecycle | P5–P6 全部项 |
+| P4-B | recursive materialization | completed：two-pass shared budget/path/stats、overflow/cycle/allocation failure atomicity、detached graph oracle | P5–P6 全部项 |
 | P5-A | field/codegen breadth | string、value field、optional enum/value、defaults、direct/Writer final shape | incremental/diagnostic and compatibility closeout |
 | P5-B | compiler/processor closeout | invalid matrix、incremental/schema hash/public-generated compatibility evidence | examples/benchmark/release evidence |
 | P6-A | formal scenarios | Java 8 examples、Access Pattern Cards、external package use | benchmark/release evidence |
@@ -50,7 +50,7 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 
 ## 2. Capability status
 
-当前 20 项 Capability 为 `in-progress`，没有任何一项因垂直切片而被错误标记 completed。Phase 0 已进入的八项保持 `in-progress`：
+当前 21 项 Capability 为 `in-progress`，没有任何一项因垂直切片而被错误标记 completed。Phase 0 已进入的八项保持 `in-progress`：
 
 - `V1-ANNOTATION-SCHEMA`；
 - `V1-COMPILER-LOWERING`；
@@ -67,7 +67,7 @@ Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`�
 - `V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`。
 - `V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`。
 
-`V1-ACCESS-STRUCTURES` 已由 Phase 3 从 `not-started` 推进为 `in-progress`。其余三项仍为 `not-started`，并全部保留原完整出口：`V1-CHILD-OWNERSHIP`、`V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE`。
+`V1-ACCESS-STRUCTURES` 已由 Phase 3、`V1-CHILD-OWNERSHIP` 已由 Phase 4 从 `not-started` 推进为 `in-progress`。其余两项仍为 `not-started`，并全部保留原完整出口：`V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE`。
 
 ## 3. Gate status
 
@@ -93,19 +93,21 @@ Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`�
 
 Phase 3 access structures 已完成集中 validation/fix/独立复核并形成 commit `3292e7a` 与 `reports/java-v1-phase-3-access-structures-report.md`。`V1-ACCESS-STRUCTURES` 仍保持 `in-progress`，等待 Phase 5/G2/G3 总体验证，不把 checkpoint 冒充 Capability closeout。
 
-当前 checkpoint：Phase 4 parent-owned child 与 recursive materialization 连续实施。按加速策略，child handle/registry、required/optional facade、cascade/replacement、recursive materializer和budget/path不拆成等待确认；实现主体连续完成后统一集中测试和修复。
+Phase 4 parent-owned child 与 recursive materialization 已完成集中 validation/fix/独立复核并形成 commits `aaed474`、`d9ad752` 与 `reports/java-v1-phase-4-child-materialization-report.md`。`V1-CHILD-OWNERSHIP` 仍保持 `in-progress`，等待 Phase 5/G2/G3 总体验证，不把 checkpoint 冒充 Capability closeout。
 
-涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-CHILD-OWNERSHIP`、`V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；其他 Capability 状态不回退。
+当前 checkpoint：Phase 5 full capability breadth 与 G1–G4 closeout连续实施。按加速策略，field/default breadth、processor/codegen diagnostics/incremental hardening、public/generated compatibility、fusion/allocation shape和Gate evidence不拆成等待确认；实现主体连续完成后统一集中测试和修复。
 
-唯一 Owner：annotation schema contract拥有 `@SomaChild` declaration；schema processing/code generation contract拥有child validation、normalization和static binding；Generated Table API/materialization contract拥有typed child facade与detached recursive shape；TableStore/runtime lifecycle/errors/plan/performance Owner分别拥有opaque handle material、forest/cascade/replacement、failure/stats、budget identity和allocation-bounded traversal；testkit只拥有comparator/evidence。
+涉及 Capability：除仍由 Phase 6 首次进入的 `V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE` 外的全部 21 项 `in-progress` Capability；任何状态只能推进为有正式 Gate evidence支撑的 `evidenced`，不能回退或删除。
 
-Phase exit：List/Map child handle与ownership registry形成forest；required/optional child区分unallocated-empty、absent、present-empty和present-data；ensure/unset/replace/delete/clear/release级联满足pinned-subtree preflight与all-or-nothing；recursive materialization按List/Map shape共享deterministic depth/table/row/leaf/allocation budget/path；无share/reparent/orphan/cycle。
+唯一 Owner：各 annotation/schema/compiler/generated API/materialization/TableStore/lifecycle/errors/plan/performance/security/testkit/build/public compatibility Owner继续只拥有其正式职责；Phase 5不建立联合 Owner，也不把 evidence helper变成产品语义 Owner。
 
-仍保留的 V1 breadth：string/optional enum/value/default余量、processor/codegen full hardening、formal examples/Access Pattern Cards、benchmark JSONL、package、License/SCM/contact/provenance/reproducibility/support matrix，全部仍在原 Phase/Gate。
+Phase exit：Capability Ledger中前21项 capability的V1 breadth全部实现并由G1–G4 evidence关闭；annotation/processor/compiler/generated/runtime contracts、diagnostic/incremental/public compatibility、fusion/allocation shape与external consumer不存在缺口或temporary path；到V1无需迁移public/generated API、核心事实或canonical hot path。
 
-禁止捷径：Java Collection/public object作为live child storage、attach/reparent API、handle泄漏、optional sentinel猜测presence、partial subtree publication、失败后rollback式补救、materialization修改live state、lazy/live returned collection、无界递归、test-only ownership bypass、本机 smoke冒充Gate/RC。
+仍保留的 V1 breadth：formal examples/Access Pattern Cards、benchmark JSONL、package、License/SCM/contact/provenance/reproducibility/support matrix，全部仍在原 Phase 6/G5–G6；Phase 5内部未实现项继续保留在当前 checkpoint，不能移出 V1。
 
-计划 evidence：child declaration/invalid cycle compile matrix、normalized schema/hash和generated/public javap、registry/forest/cascade/replacement/pinned invariants、recursive materialization comparator与budget/path failure、external Maven consumer、source/allocation shape、阶段末`./scripts/check.sh`。
+禁止捷径：缩小 field/default/diagnostic/incremental breadth、temporary public/generated facade、metadata/reflection interpreter、List/DTO live storage、Stream/boxing/per-row allocation hot path、test-only bypass、只用已有 happy-path fixture冒充 full Gate、为通过 Gate反改 Owner/Ledger/claim。
+
+计划 evidence：完整 valid/invalid compile matrix、canonical schema/hash/incremental repeatability、exact public/generated API、runtime invariant/differential/failure/lifecycle、fusion/bytecode/allocation shape、external Maven consumer、G1–G4 reports与阶段末`./scripts/check.sh`。
 
 ### 4.3 已完成 P2-A int keyed identity vertical slice
 
@@ -229,11 +231,11 @@ Slice exit：
 
 ## 7. Latest validation record
 
-- commit/artifact：`3292e7a`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor` `0.1.0-SNAPSHOT`；external artifact `external-maven-access-consumer-1.0.0-SNAPSHOT.jar`，以及 Phase 1/2 external artifacts；
-- 完整命令：`./scripts/check-access-phase3.sh`、`./scripts/check-table-diagnostics-phase1.sh`、`./scripts/check-public-api.sh`、`./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-runtime-core-phase1.sh`、`./scripts/check-docs.sh`、`git diff --check`、`./scripts/check.sh`；
+- commit/artifact：`d9ad752`（Phase 4主体 `aaed474`）；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor`、`soma-testkit` `0.1.0-SNAPSHOT`；external artifact `external-maven-child-phase4-consumer-1.0.0-SNAPSHOT.jar`，以及 Phase 0–3 external artifacts；
+- 完整命令：`./scripts/check-child-phase4.sh`、`./scripts/check-runtime-core-phase1.sh`、`./scripts/check-testkit-phase4.sh`、`./scripts/check-table-diagnostics-phase1.sh`、`./scripts/check-public-api.sh`、`./scripts/check-generated-dense-phase1.sh`、`./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-access-phase3.sh`、`git diff --check`、`./scripts/check.sh`；
 - JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
 - Maven Wrapper：Apache Maven `3.9.16`；
 - OS/architecture：macOS `26.5.2`、`aarch64`；
-- 结果：Phase 0–2 evidence保持通过；Phase 3 selector/index/unique/order、primitive dirty/lazy sidecar、strict floating、mutation/operation atomicity、stats/lifecycle、external consumer、randomized oracle、allocation scaling、source/bytecode shape、compile/schema/hash/javap evidence和完整 `check.sh` 全部通过；
+- 结果：Phase 0–3 evidence保持通过；Phase 4 owned child forest、cascade/replacement/compaction/pin、recursive List/Map materialization、五维budget/overflow/cycle/allocation/carrier failure atomicity、exact estimator、45-type generated manifest、schema/hash、testkit comparator、external consumer和完整 `check.sh` 全部通过；
 - 跳过：unsupported-javac negative lane（未设置 `SOMA_UNSUPPORTED_JAVAC`）；
-- known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；unsupported-javac negative lane未执行；G1-G6仍未关闭，Phase 4–6仍属于同一V1 Goal。
+- known limitation：该结果只表示上述本机环境通过，不能外推正式 support matrix；unsupported-javac negative lane未执行；G1-G6仍未关闭，Phase 5–6仍属于同一V1 Goal。
