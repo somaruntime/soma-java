@@ -1,0 +1,15 @@
+com.hgtech.soma.examples.fjsp.generated.OperationDefinitionTable|public com.hgtech.soma.examples.fjsp.generated.CandidateMachineDefinitionTable candidateMachines(com.hgtech.soma.examples.fjsp.OperationKey);
+com.hgtech.soma.examples.fjsp.generated.OperationDefinitionTable|public com.hgtech.soma.examples.fjsp.generated.OperationDefinitionRows findByJobSequence(com.hgtech.soma.examples.fjsp.JobId, int);
+com.hgtech.soma.examples.fjsp.generated.MachineCandidateTable|public com.hgtech.soma.examples.fjsp.generated.MachineCandidateRows findByMachine(com.hgtech.soma.examples.fjsp.MachineId);
+com.hgtech.soma.examples.fjsp.generated.MachineCandidateTable|public com.hgtech.soma.examples.fjsp.generated.MachineCandidateRows findByOperation(com.hgtech.soma.examples.fjsp.OperationKey);
+com.hgtech.soma.examples.vrp.generated.VehicleTable|public com.hgtech.soma.examples.vrp.generated.VehicleRows byVehicleId();
+com.hgtech.soma.examples.vrp.generated.RouteTable|public com.hgtech.soma.examples.vrp.generated.RouteRows findByVehicle(com.hgtech.soma.examples.vrp.VehicleId);
+com.hgtech.soma.examples.vrp.generated.RouteTable|public com.hgtech.soma.examples.vrp.generated.RouteVisitRowTable visits(com.hgtech.soma.examples.vrp.RouteId);
+com.hgtech.soma.examples.vrp.generated.UnassignedCustomerRowTable|public com.hgtech.soma.examples.vrp.generated.UnassignedCustomerRowRows byDueThenInput();
+com.hgtech.soma.examples.simulation.generated.TankTable|public com.hgtech.soma.examples.simulation.generated.TankRows byTankId();
+com.hgtech.soma.examples.simulation.generated.ValveTable|public com.hgtech.soma.examples.simulation.generated.ValveRows findByFromTank(com.hgtech.soma.examples.simulation.TankId);
+com.hgtech.soma.examples.simulation.generated.ValveTable|public com.hgtech.soma.examples.simulation.generated.ValveRows findByToTank(com.hgtech.soma.examples.simulation.TankId);
+com.hgtech.soma.examples.game.generated.PlayerTable|public com.hgtech.soma.examples.game.generated.PlayerMutator mutate(com.hgtech.soma.examples.game.PlayerId);
+com.hgtech.soma.examples.game.generated.GameUnitTable|public com.hgtech.soma.examples.game.generated.GameUnitRows findByPlayer(com.hgtech.soma.examples.game.PlayerId);
+com.hgtech.soma.examples.game.generated.GameUnitTable|public com.hgtech.soma.examples.game.generated.GameUnitRows byTurnOrder();
+com.hgtech.soma.examples.game.generated.MapTileRowTable|public com.hgtech.soma.examples.game.generated.MapTileRowRows byGridPosition();

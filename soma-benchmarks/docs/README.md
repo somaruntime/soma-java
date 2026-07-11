@@ -9,10 +9,17 @@
 | [Benchmark evidence 契约](benchmark-evidence-contract.md) | `soma-benchmarks` | evidence level、度量、artifact、claim 和设计反推条件 |
 | [Runtime-state benchmark 契约](runtime-state-benchmark-contract.md) | `soma-benchmarks` | component shape、FJSP、VRP、Simulation、Game、child/materialization lanes |
 
-## 实现期缺口
+## Runner 实现入口
 
-Runner CLI、exact JSONL schema、scale/seed preset、warmup/repetition 默认值和报告模板将在 runner 实现专题中固化。它们属于 benchmark implementation/runtime plan，不改变上述 evidence 和 scenario contract。
+V1 smoke runner、exact JSONL schema、strict validator 和required-lane manifest已固化于：
 
-当前文档只定义可测问题，不代表已有 claim-grade benchmark 结果。
+- `BenchmarkSmokeRunner` / `BenchmarkArtifactValidator`；
+- `META-INF/soma/benchmark-smoke-schema-v2.json`；
+- `scripts/check-benchmark-smoke.sh`；
+- `soma-benchmarks/reports/java-v1-benchmark-smoke-report.md`。
+
+Smoke preset固定记录scale、seed、warmup、single fork、measurement iterations和环境，但不固定为claim-grade性能方法；CLI实现参数与schema兼容规则仍服从 [Benchmark evidence 契约](benchmark-evidence-contract.md)。
+
+当前文档与runner只定义/执行可测问题，不代表已有claim-grade benchmark结果。
 
 临时专题进入 `docs/temp/`，不得成为正式事实源。

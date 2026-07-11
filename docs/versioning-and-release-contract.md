@@ -4,7 +4,7 @@
 Owner：根项目协调层
 事实范围：artifact version policy、V1.0 RC 完成边界、发布身份、license 方向、release artifact、publishing prerequisites、open-source readiness、rollback/withdrawal 和 release evidence
 非事实范围：public API 具体兼容语义、build graph、license 法律解释、漏洞联系人、release 执行结果和业务 roadmap
-最后审查日期：2026-07-10
+最后审查日期：2026-07-11
 
 ## 1. 目标
 
@@ -18,10 +18,11 @@ Owner：根项目协调层
 - 没有 public release artifact；
 - 没有配置 SCM remote/publishing endpoint；
 - 项目所有者已确认 HGTECH / SOMA 发布身份基线，并推荐 Apache License 2.0；
-- `LICENSE`、POM license metadata、maintainer/contact、namespace ownership、signing/provenance 尚未形成完整可发布证据；
-- G1-G6 未通过。
+- 标准 Apache License 2.0 `LICENSE`、`NOTICE`、POM license metadata、source/javadoc package mechanics 已落地；
+- maintainer/contact、namespace ownership、SCM/publishing endpoint、signing/provenance 和 clean public history 尚未形成完整可发布证据；
+- G0-G5 已通过，G6 保持 `blocked`。
 
-因此当前内容可以支撑 implementation，但不能被描述为已开源发布、Maven Central ready 或 production ready。
+因此当前仓库已达到完整 V1 功能与 G0-G5 evidence 的功能 RC 边界，但当前 `0.1.0-SNAPSHOT` 不是 public RC artifact，不能被描述为已开源发布、Maven Central ready、release ready 或 production ready。
 
 ## 3. V1.0 RC 与发布身份
 
@@ -103,7 +104,7 @@ V1 release set：
 - dependency/license/security scan；
 - public API/compatibility/release guide。
 
-这些文件是 community/operational policy，不是 SOMA semantic design owner。Apache License 2.0 是项目所有者确认的推荐方向，但在标准 `LICENSE`、一致的 POM metadata 和必要审查/evidence 实际完成前，license G6 item 仍为 `not-started` 或 `blocked`。联系人、SCM、security channel、签名和发布主体证明未确定时，禁止生成 placeholder 或替项目作法律承诺。
+这些文件是 community/operational policy，不是 SOMA semantic design owner。标准 Apache License 2.0文本和一致POM metadata已经落地，但项目所有者的最终授权/copyright确认及G6审查仍须完成。联系人、SCM、security channel、签名和发布主体证明未确定时，禁止生成 placeholder 或替项目作法律承诺。
 
 ## 6. Namespace and metadata
 

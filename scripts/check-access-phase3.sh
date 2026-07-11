@@ -79,10 +79,10 @@ rows_source=$fixture/target/generated-sources/annotations/com/example/soma/acces
 grep -F 'RowPermutationSidecar selector' "$access_table" >/dev/null
 grep -F 'while(from<to)' "$access_table" >/dev/null
 grep -F 'HashCompositeKeySpace uniqueSpace' "$access_table" >/dev/null
-grep -F 'updatePositionKeyLeaf0' "$unique_table" >/dev/null
-grep -F 'private int[] updateState=' "$enum_table" >/dev/null
-grep -F 'private boolean[] updateActive=' "$boolean_double_table" >/dev/null
-grep -F 'private double[] updateMetric=' "$boolean_double_table" >/dev/null
+grep -F 'updateField1Leaf0' "$unique_table" >/dev/null
+grep -F 'private int[] updateField1=' "$enum_table" >/dev/null
+grep -F 'private boolean[] updateField1=' "$boolean_double_table" >/dev/null
+grep -F 'private double[] updateField2=' "$boolean_double_table" >/dev/null
 grep -F 'RowToMutator' "$boolean_double_table" >/dev/null
 if grep -E 'uniqueHash[0-9]+Mutator' "$access_table" "$unique_table" \
   "$boolean_double_table" >/dev/null; then

@@ -1,6 +1,6 @@
 # Contributing to soma_java
 
-感谢关注 SOMA Java。项目目前处于 pre-implementation、pre-public-release 阶段；设计事实已经形成正式 Owner 体系，发布主体为 HGTECH、产品品牌为 SOMA，并推荐 Apache License 2.0。正式 `LICENSE`、一致的 POM metadata、maintainer/contact 和外部贡献许可尚未完成 G6 evidence，因此外部贡献在开始前仍应先与 repository owner 协调，不能假设提交即自动获得合并或发布许可。
+感谢关注 SOMA Java。项目目前处于 V1 implementation/release-readiness 阶段，尚未公开发布；设计事实已经形成正式 Owner 体系，发布主体为 HGTECH、产品品牌为 SOMA。仓库已加入标准 Apache License 2.0文本和一致POM metadata，但maintainer/contact、SCM、namespace ownership、签名/provenance与最终G6 evidence尚未全部完成，因此外部贡献在开始前仍应先与repository owner协调，不能假设提交即自动获得合并或发布许可。
 
 ## 1. 先读事实源
 
@@ -77,4 +77,4 @@ Repository 长期分支只使用 `main`、`develop`、`release`。常规设计�
 
 ## 8. Community policy status
 
-项目所有者已经确认 HGTECH / SOMA 身份基线并推荐 Apache License 2.0；仓库仍需在 public RC/release sign-off 前补齐标准 `LICENSE`、一致 POM metadata、SCM、maintainer、support、private security contact、`CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md`、CODEOWNERS 和公开 issue policy。缺失这些文件意味着项目尚未完成 public-release readiness，不应使用 placeholder 绕过。
+项目所有者已经确认 HGTECH / SOMA 身份基线并推荐 Apache License 2.0；标准`LICENSE`与POM metadata已经落地。仓库仍需在public RC/release sign-off前补齐真实SCM、maintainer、support、private security contact、`CODE_OF_CONDUCT.md`、`SECURITY.md`、`SUPPORT.md`、CODEOWNERS和公开issue policy，并完成License授权、签名/provenance和namespace ownership证据。缺失这些真实边界意味着项目尚未完成public-release readiness，不应使用placeholder绕过。

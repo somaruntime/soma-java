@@ -9,6 +9,7 @@ cd "$root_dir"
 ./mvnw -B -ntp verify
 ./scripts/check-public-api.sh
 ./scripts/check-compiler-phase0.sh
+./scripts/check-internal-names-phase6.sh
 ./scripts/check-runtime-core-phase1.sh
 ./scripts/check-keyspace-phase2.sh
 ./scripts/check-generated-keyed-phase2.sh
@@ -21,6 +22,8 @@ cd "$root_dir"
 ./scripts/check-table-diagnostics-phase1.sh
 ./scripts/check-generated-dense-phase1.sh
 ./scripts/check-external-consumer.sh
+./scripts/check-examples-phase6.sh
+./scripts/check-benchmark-smoke.sh
 git diff --check
 
 printf '%s\n' 'project-check: ok'

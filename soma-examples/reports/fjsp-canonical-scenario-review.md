@@ -1,8 +1,10 @@
 # FJSP frontier canonical scenario review
 
-状态：正式审查报告
+状态：历史审查报告；已由`../docs/fjsp-e2e-scenario.md`和`java-v1-g5-examples-report.md`取代
 日期：2026-07-07
 Owner：`soma-examples`
+
+> 本文记录2026-07-07时间点的设计审查，其中旧schema形态与当时未完成项不是当前事实。当前场景语义只看FJSP正式Owner，当前验证结论只看G5 examples report。
 
 ## 1. 审查目标
 

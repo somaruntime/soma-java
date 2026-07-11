@@ -4,7 +4,7 @@
 Owner：`soma-benchmarks`
 事实范围：evidence level、通用度量边界、artifact、claim 和设计反推条件
 非事实范围：具体 runtime-state scenario lanes、API/schema/runtime contract 和性能结果
-最后审查日期：2026-07-10
+最后审查日期：2026-07-11
 
 ## 1. 目标
 
@@ -145,21 +145,31 @@ benchmark 不可以得出以下结论：
 - parallel scan / parallel sort；
 - native memory layout、C ABI、Python binding 或 FFI。
 
-## 8. Runner artifact 最小字段
+## 8. Runner artifact 字段
 
-后续 benchmark runner 可以继续细化 JSONL schema。runtime-state scenario benchmark 的 artifact 至少要能表达：
+V1 smoke runner exact schema identity是`soma-benchmark-smoke-v2`，checked-in schema位于`META-INF/soma/benchmark-smoke-schema-v2.json`。JSONL一行一个lane record，root禁止unknown field；`workloadId`固定绑定required lane，`workloadEvidence`使用exact nested contract并记录lane-specific proof。独立validator必须重新parse落盘artifact，递归验证root与nested required/type/range/const、required-lane manifest、唯一lane、lane-specific evidence、non-empty maps、non-empty known limitations及`claimAllowed=false`；empty map、wrong workload/proof、zero metric、wrong nested type必须fail closed，不能只验证in-memory builder。
+
+Runner CLI固定支持`--output`、`--commit`、`--scale`、`--rows`、`--seed`、`--warmup`、`--forks`和`--measurements`；unknown/missing/invalid option fail closed。V1 smoke只允许single process fork，script preset为128 rows、固定seed、1次warmup和2次measurement；这些是可重复smoke配置，不是production性能参数或claim-grade默认值。
+
+V1 smoke exact required manifest固定为G5 §9的20条最小integrated workload：3条optional density、packed primitive baseline、generated Row Pipeline fusion、SparseInt真实domain miss/reject guard与Hash KeySpace load/collision/rehash、generated normal/collision full-equality lookup、reserve/growth batch import、generated ordered lazy rebuild、generated keyed frontier lifecycle、generated dense replace/order terminals、ColumnView lifecycle、parent-local child versus flat、generated recursive materialization、generated五维实际用量limit成功/limit-1 typed failure及allocation/no-partial/recovery、compaction/capacity reuse、sidecar clean/dirty/rebuild storm、summary/diagnostic operation overhead。每个lane-specific nested object必须由checked-in JSON schema的exact object/oneOf contract与Java validator的lane binding共同校验required/type/range/const，任意非空object不能冒充evidence。`runtime-state-benchmark-contract.md`中的领域diagnostic lanes仍是可测问题目录，不得用同一个generic kernel换名冒充已执行，也不自动进入本exact smoke manifest。
+
+runtime-state scenario benchmark 的 artifact 必须表达：
 
 ```text
 schemaVersion
 scenario
 lane
+workloadId
+workloadEvidence
 level
 status
 commit
 artifactVersion
 javaVersion
+javaVendor
 jvmArgs
 os
+architecture
 cpu
 memory
 scale

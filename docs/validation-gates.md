@@ -88,7 +88,7 @@ V1 implementation validation 先使用当前开发机的完整 JDK 8 javac、Mav
 | G2 | `soma-processor` | `soma-testkit` | `soma-processor/reports/java-v1-g2-code-generation-report.md` |
 | G3 | `soma-runtime-core` | `soma-testkit` | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` |
 | G4 | root | `soma-processor`、`soma-examples` | `reports/java-v1-g4-package-smoke-report.md` |
-| G5 | root | `soma-examples`、`soma-benchmarks` | `soma-examples/reports/java-v1-g5-examples-report.md` and `soma-benchmarks/reports/java-v1-benchmark-smoke-report.md` |
+| G5 | root | `soma-examples`、`soma-benchmarks` | `reports/java-v1-g5-examples-benchmark-gate-report.md`；两个模块 report 是 contributor evidence |
 | G6 | root | all gate owners | `reports/java-v1-g6-release-readiness-report.md` |
 
 Report 是 evidence，不是设计事实源。可持续技术事实必须进入对应 root/module owner 的 `docs/*.md`。

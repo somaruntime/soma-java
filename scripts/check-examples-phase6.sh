@@ -1,0 +1,135 @@
+#!/bin/sh
+
+set -eu
+
+root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+cd "$root_dir"
+
+if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
+  printf '%s\n' 'examples-phase6-check: JAVA_HOME must point to a full JDK 8' >&2
+  exit 1
+fi
+
+java_specification=$($JAVA_HOME/bin/java -XshowSettings:properties -version 2>&1 |
+  sed -n 's/^[[:space:]]*java.specification.version = //p' | head -n 1)
+if [ "$java_specification" != '1.8' ]; then
+  printf '%s\n' "examples-phase6-check: expected Java 8, got $java_specification" >&2
+  exit 1
+fi
+
+./mvnw -B -ntp -pl soma-examples -am clean verify
+
+mkdir -p target
+evidence_dir=$(mktemp -d "$root_dir/target/phase6-examples.XXXXXX")
+
+classes=$root_dir/soma-examples/target/classes
+runtime_classes=$root_dir/soma-runtime-core/target/classes
+expected=$root_dir/soma-examples/src/test/fixtures/phase6
+scenario_output=$evidence_dir/scenario-output.txt
+"$JAVA_HOME/bin/java" -cp "$classes:$runtime_classes" \
+  com.hgtech.soma.examples.ScenarioSuite >"$scenario_output"
+cat "$scenario_output"
+
+grep -F 'access-pattern-card scenario=fjsp' "$scenario_output" >/dev/null
+grep -F 'access-pattern-card scenario=vrp' "$scenario_output" >/dev/null
+grep -F 'access-pattern-card scenario=simulation' "$scenario_output" >/dev/null
+grep -F 'access-pattern-card scenario=game' "$scenario_output" >/dev/null
+grep -F 'soma-examples-scenarios: ok' "$scenario_output" >/dev/null
+grep '^lane=' "$scenario_output" >"$evidence_dir/lane-markers.txt"
+cmp "$expected/expected-lane-markers.txt" "$evidence_dir/lane-markers.txt"
+
+for scenario_package in fjsp vrp simulation game; do
+  schema="$classes/META-INF/soma/com.hgtech.soma.examples.$scenario_package.schema.json"
+  schema_hash="$classes/META-INF/soma/com.hgtech.soma.examples.$scenario_package.schema.sha256"
+  test -s "$schema"
+  test -s "$schema_hash"
+  cmp "$expected/$(basename "$schema")" "$schema"
+  cmp "$expected/$(basename "$schema_hash")" "$schema_hash"
+  if ! grep -E '^[0-9a-f]{64}$' "$schema_hash" >/dev/null; then
+    printf '%s\n' "examples-phase6-check: invalid canonical schema hash: $scenario_package" >&2
+    exit 1
+  fi
+  shasum -a 256 "$schema" "$schema_hash" >>"$evidence_dir/schema-artifacts.sha256"
+done
+
+for generated_type in \
+  fjsp/generated/OperationDefinitionTable \
+  fjsp/generated/MachineTable \
+  fjsp/generated/MachineCandidateTable \
+  fjsp/generated/OperationAssignmentTable \
+  vrp/generated/RouteTable \
+  vrp/generated/InsertionCandidateRowTable \
+  simulation/generated/StateVectorRowTable \
+  simulation/generated/PendingEventRowTable \
+  game/generated/GameUnitTable \
+  game/generated/MapTileRowTable; do
+  test -s "$classes/com/hgtech/soma/examples/$generated_type.class"
+done
+
+generated_manifest=$evidence_dir/generated-types.txt
+find soma-examples/target/generated-sources/annotations/com/hgtech/soma/examples \
+  -type f -name '*.java' | sed 's#^.*/com/hgtech/soma/examples/##;s#\.java$##' |
+  LC_ALL=C sort >"$generated_manifest"
+generated_count=$(wc -l <"$generated_manifest" | tr -d ' ')
+cmp "$expected/expected-generated-types.txt" "$generated_manifest"
+
+public_javap=$evidence_dir/public-api-facts.txt
+while IFS='|' read -r binary_name public_fact; do
+  test -n "$binary_name"
+  test -n "$public_fact"
+  if ! "$JAVA_HOME/bin/javap" -classpath "$classes:$runtime_classes" -public \
+      "$binary_name" | grep -F "$public_fact" >>"$public_javap"; then
+    printf '%s\n' "examples-phase6-check: missing public API fact: $binary_name|$public_fact" >&2
+    exit 1
+  fi
+done <"$expected/expected-public-api-facts.txt"
+
+class_manifest=$evidence_dir/class-major.txt
+bad=0
+class_count=0
+for class_file in $(find "$classes/com/hgtech/soma/examples" -type f -name '*.class' |
+  LC_ALL=C sort); do
+  major=$(od -An -tx1 -j6 -N2 "$class_file" | tr -d ' ')
+  relative=${class_file#"$classes/"}
+  printf '%s %s\n' "$major" "$relative" >>"$class_manifest"
+  class_count=$((class_count + 1))
+  if [ "$major" != '0034' ]; then
+    bad=1
+  fi
+done
+if [ "$bad" -ne 0 ]; then
+  printf '%s\n' 'examples-phase6-check: non-Java-8 class detected' >&2
+  exit 1
+fi
+if grep -R -E 'java\.util\.stream|java\.lang\.reflect|Class\.forName' \
+    soma-examples/src/main/java >/dev/null; then
+  printf '%s\n' 'examples-phase6-check: reflective or Stream runtime path detected' >&2
+  exit 1
+fi
+if sed -n '/private static void release(/,/private static DispatchResult dispatch(/p' \
+    soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java |
+    grep -F 'definitions.fetch' >/dev/null; then
+  printf '%s\n' 'examples-phase6-check: FJSP release hot path materializes definition' >&2
+  exit 1
+fi
+if grep -F 'byGridPosition().fetchAll()' \
+    soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java >/dev/null; then
+  printf '%s\n' 'examples-phase6-check: Game uses positional whole-table materialization' >&2
+  exit 1
+fi
+grep -F '<artifactId>soma-processor</artifactId>' soma-examples/pom.xml >/dev/null
+grep -A2 -F '<artifactId>soma-processor</artifactId>' soma-examples/pom.xml |
+  grep -F '<scope>provided</scope>' >/dev/null
+
+shasum -a 256 soma-examples/target/soma-examples-0.1.0-SNAPSHOT.jar \
+  >"$evidence_dir/artifact.sha256"
+git diff --check
+
+"$JAVA_HOME/bin/java" -version
+"$JAVA_HOME/bin/javac" -version
+./mvnw -version
+uname -srm
+printf '%s\n' "examples-generated-types: $generated_count"
+printf '%s\n' "examples-class-major: 52 ($class_count classes)"
+printf '%s\n' "examples-phase6-evidence: $evidence_dir"
+printf '%s\n' 'examples-phase6-check: ok'

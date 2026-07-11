@@ -1,0 +1,1499 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "soma-benchmark-smoke-v2",
+  "title": "SOMA Java benchmark smoke JSONL record",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "soma-benchmark-smoke-v2"
+    },
+    "scenario": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lane": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workloadId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "workloadEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "executed": {
+          "type": "boolean",
+          "const": true
+        },
+        "proof": {
+          "type": "string",
+          "minLength": 1
+        },
+        "implementation": {
+          "type": "string",
+          "enum": [
+            "generated-api",
+            "runtime-kernel"
+          ]
+        },
+        "positiveCount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "phase": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "executed",
+        "proof",
+        "implementation",
+        "positiveCount",
+        "phase"
+      ]
+    },
+    "level": {
+      "type": "string",
+      "const": "smoke"
+    },
+    "status": {
+      "type": "string",
+      "const": "passed"
+    },
+    "commit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "artifactVersion": {
+      "type": "string",
+      "const": "soma-java-benchmark-runner-v2"
+    },
+    "javaVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "javaVendor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jvmArgs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "os": {
+      "type": "string",
+      "minLength": 1
+    },
+    "architecture": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cpu": {
+      "type": "string",
+      "minLength": 1
+    },
+    "memory": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "scale": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "preset": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rows": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "operations": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "preset",
+        "rows",
+        "operations"
+      ]
+    },
+    "seed": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "warmupIterations": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "forks": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "measurementIterations": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "baselineId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "phaseTimings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "setupNanos": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "measurementNanos": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "exportNanos": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "setupNanos",
+        "measurementNanos",
+        "exportNanos"
+      ]
+    },
+    "throughput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operationsPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "rowsPerSecond": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "operationsPerSecond",
+        "rowsPerSecond"
+      ]
+    },
+    "latency": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "nanosPerOperation": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "nanosPerRow": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      },
+      "required": [
+        "nanosPerOperation",
+        "nanosPerRow"
+      ]
+    },
+    "rowCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "scanned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "matched": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "changed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "removed": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "materialized": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source",
+        "scanned",
+        "matched",
+        "changed",
+        "removed",
+        "materialized"
+      ]
+    },
+    "candidateCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "source": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "selected": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "source",
+        "selected"
+      ]
+    },
+    "operationCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "operations": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lookups": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "duplicates": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "operations",
+        "lookups",
+        "missing",
+        "duplicates"
+      ]
+    },
+    "accessPatternCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "rowsCardinality": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "hotColumns": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "accessSource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "readMutationMix": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mutations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "reads": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "mutations",
+            "reads"
+          ]
+        },
+        "selectivity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "optionalDensity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "childDensity": {
+          "type": "string",
+          "minLength": 1
+        },
+        "workingSetBytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "allocationExport": {
+          "type": "string",
+          "minLength": 1
+        },
+        "phaseBoundary": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "rowsCardinality",
+        "hotColumns",
+        "accessSource",
+        "readMutationMix",
+        "selectivity",
+        "optionalDensity",
+        "childDensity",
+        "workingSetBytes",
+        "allocationExport",
+        "phaseBoundary"
+      ]
+    },
+    "touchedBytesEstimate": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "workingSetEstimate": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "allocationPerOperation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string",
+          "const": "deterministic-accounting"
+        },
+        "estimatedBytes": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "method",
+        "estimatedBytes"
+      ]
+    },
+    "allocatedBytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "gcStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string",
+          "const": "not-observed-in-smoke"
+        },
+        "count": {
+          "type": "null"
+        },
+        "timeMillis": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "method",
+        "count",
+        "timeMillis"
+      ]
+    },
+    "sidecarStats": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "applicable": {
+              "type": "boolean",
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "applicable",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "rebuildCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "dirtyCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "rebuildCount",
+            "dirtyCount"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-insertion-workspace"
+            },
+            "replaceRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maintainedFirstOrThrow": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicFindFirst": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicFirstOrThrow": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "dirtyCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rebuildCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "implementation",
+            "replaceRows",
+            "maintainedFirstOrThrow",
+            "dynamicFindFirst",
+            "dynamicFirstOrThrow",
+            "dirtyCount",
+            "rebuildCount"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "compactedRows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retainedCapacity": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "operationScratchCurrentBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "operationScratchHighWaterBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "singleRemoved": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "batchCompacted": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "clearReuseCapacityBefore": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "clearReuseCapacityAfter": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "compactedRows",
+            "retainedCapacity",
+            "operationScratchCurrentBytes",
+            "operationScratchHighWaterBytes",
+            "singleRemoved",
+            "batchCompacted",
+            "clearReuseCapacityBefore",
+            "clearReuseCapacityAfter"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "dirtyCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rebuildCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rebuildRows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rebuildNanos": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "currentBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "highWaterBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "cleanTraversalCount": {
+              "type": "integer",
+              "const": 1
+            },
+            "stormRebuilds": {
+              "type": "integer",
+              "minimum": 4
+            }
+          },
+          "required": [
+            "dirtyCount",
+            "rebuildCount",
+            "rebuildRows",
+            "rebuildNanos",
+            "currentBytes",
+            "highWaterBytes",
+            "cleanTraversalCount",
+            "stormRebuilds"
+          ]
+        }
+      ]
+    },
+    "keySpaceStats": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "applicable": {
+              "type": "boolean",
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "applicable",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-hash-composite-v1"
+            },
+            "fullEqualityDistinguished": {
+              "type": "boolean",
+              "const": true
+            },
+            "collisionConstructed": {
+              "type": "boolean"
+            },
+            "collisionCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "probeCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rehashCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "implementation",
+            "fullEqualityDistinguished",
+            "collisionConstructed",
+            "collisionCount",
+            "probeCount",
+            "rehashCount"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-machine-candidate-frontier"
+            },
+            "added": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "updated": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicFirst": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "removed": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "keySpaceCapacity": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "implementation",
+            "added",
+            "updated",
+            "dynamicFirst",
+            "removed",
+            "keySpaceCapacity"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sparseMaximumKey": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "sparseCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sparseDenseCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sparseOutOfDomainMisses": {
+              "type": "integer",
+              "const": 2
+            },
+            "sparseDomainGuardRejects": {
+              "type": "integer",
+              "const": 1
+            },
+            "hashCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "hashUsed": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hashLoadFactor": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "hashProbeCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hashCollisionCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "hashRehashCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "compositeCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "compositeProbeCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "compositeCollisionCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "compositeRehashCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "normalMissing": {
+              "type": "integer",
+              "const": 1
+            },
+            "duplicateAttempts": {
+              "type": "integer",
+              "const": 0
+            }
+          },
+          "required": [
+            "sparseMaximumKey",
+            "sparseCapacity",
+            "sparseDenseCapacity",
+            "sparseOutOfDomainMisses",
+            "sparseDomainGuardRejects",
+            "hashCapacity",
+            "hashUsed",
+            "hashLoadFactor",
+            "hashProbeCount",
+            "hashCollisionCount",
+            "hashRehashCount",
+            "compositeCapacity",
+            "compositeProbeCount",
+            "compositeCollisionCount",
+            "compositeRehashCount",
+            "normalMissing",
+            "duplicateAttempts"
+          ]
+        }
+      ]
+    },
+    "selectorStats": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "applicable": {
+              "type": "boolean",
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "applicable",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "bitmapWords": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "present": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "bitmapWords",
+            "present"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "somaNanos": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "primitiveBaselineNanos": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "somaNanos",
+            "primitiveBaselineNanos"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-row-pipeline"
+            },
+            "filterStages": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "limitStages": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "updateTerminal": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "matched": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "changed": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "operationScratchHighWaterBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "perRowObjects": {
+              "type": "integer",
+              "const": 0
+            }
+          },
+          "required": [
+            "implementation",
+            "filterStages",
+            "limitStages",
+            "updateTerminal",
+            "matched",
+            "changed",
+            "operationScratchHighWaterBytes",
+            "perRowObjects"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "reserved": {
+              "type": "boolean"
+            },
+            "capacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "growthCount": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "reserved",
+            "capacity",
+            "growthCount"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "parentCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "childRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "childInstances": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "flatRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "flatCandidateRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "flatAccess": {
+              "type": "string",
+              "const": "flat-scan-filter"
+            },
+            "childScanNanos": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "flatFilterNanos": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "parentCount",
+            "childRows",
+            "childInstances",
+            "flatRows",
+            "flatCandidateRows",
+            "flatAccess",
+            "childScanNanos",
+            "flatFilterNanos"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cardinality": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "selectivity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "dynamicSortBufferBytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "cardinality",
+            "selectivity",
+            "dynamicSortBufferBytes"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "summaryNanos": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "diagnosticNanos": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "summaryOperations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "diagnosticOperations": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rowsPerOperation": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "summaryNanos",
+            "diagnosticNanos",
+            "summaryOperations",
+            "diagnosticOperations",
+            "rowsPerOperation"
+          ]
+        }
+      ]
+    },
+    "optionalDensity": {
+      "type": "string"
+    },
+    "mutationReadRatio": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mutations": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reads": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "mutations",
+        "reads"
+      ]
+    },
+    "statsMode": {
+      "type": "string",
+      "minLength": 1
+    },
+    "materializationStats": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "applicable": {
+              "type": "boolean",
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "applicable",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-recursive-materializer"
+            },
+            "rootMapEntries": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "schemaObjects": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "lists": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mapEntries": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maximumDepth": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "tableInstances": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "rows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "leafValues": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "estimatedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "partialResults": {
+              "type": "integer",
+              "const": 0
+            }
+          },
+          "required": [
+            "implementation",
+            "rootMapEntries",
+            "schemaObjects",
+            "lists",
+            "mapEntries",
+            "maximumDepth",
+            "tableInstances",
+            "rows",
+            "leafValues",
+            "estimatedBytes",
+            "partialResults"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-recursive-materializer"
+            },
+            "boundarySuccesses": {
+              "type": "integer",
+              "const": 5
+            },
+            "budgetFailures": {
+              "type": "integer",
+              "const": 5
+            },
+            "allocationFailures": {
+              "type": "integer",
+              "const": 1
+            },
+            "recoverySuccesses": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "partialResults": {
+              "type": "integer",
+              "const": 0
+            },
+            "tableRowsAfterFailures": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "failureCount": {
+              "type": "integer",
+              "minimum": 6
+            },
+            "boundaries": {
+              "type": "array",
+              "minItems": 5,
+              "maxItems": 5,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "dimension": {
+                    "type": "string",
+                    "enum": [
+                      "maximumOwnershipDepth",
+                      "maximumTableInstances",
+                      "maximumRows",
+                      "maximumLeafValues",
+                      "maximumEstimatedAllocationBytes"
+                    ]
+                  },
+              "successLimit": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "failureLimit": {
+                "type": "integer",
+                "minimum": 0
+              },
+                  "current": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "proposed": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "path": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "successAtLimit": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "dimension",
+              "successLimit",
+              "failureLimit",
+                  "current",
+                  "proposed",
+                  "path",
+                  "successAtLimit"
+                ]
+              }
+            }
+          },
+          "required": [
+            "implementation",
+            "boundarySuccesses",
+            "budgetFailures",
+            "allocationFailures",
+            "recoverySuccesses",
+            "partialResults",
+            "tableRowsAfterFailures",
+            "failureCount",
+            "boundaries"
+          ]
+        }
+      ]
+    },
+    "effectiveMaterializationBudget": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "applicable": {
+              "type": "boolean",
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "applicable",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "identity": {
+              "type": "string",
+              "minLength": 1
+            },
+            "maximumOwnershipDepth": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximumTableInstances": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximumRows": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximumLeafValues": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maximumEstimatedAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "identity",
+            "maximumOwnershipDepth",
+            "maximumTableInstances",
+            "maximumRows",
+            "maximumLeafValues",
+            "maximumEstimatedAllocationBytes"
+          ]
+        }
+      ]
+    },
+    "materializationBudgetDimension": {
+      "type": "string"
+    },
+    "materializationPath": {
+      "type": "string"
+    },
+    "allocationEstimatorVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "externalDtoStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "applicable": {
+          "type": "boolean",
+          "const": false
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "applicable",
+        "reason"
+      ]
+    },
+    "columnViewStats": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "applicable": {
+              "type": "boolean",
+              "const": false
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "applicable",
+            "reason"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "acquired": {
+              "type": "integer",
+              "const": 1
+            },
+            "reads": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "released": {
+              "type": "integer",
+              "const": 1
+            },
+            "staleErrors": {
+              "type": "integer",
+              "const": 0
+            },
+            "releasedErrors": {
+              "type": "integer",
+              "const": 1
+            },
+            "viewPinnedErrors": {
+              "type": "integer",
+              "const": 1
+            }
+          },
+          "required": [
+            "acquired",
+            "reads",
+            "released",
+            "staleErrors",
+            "releasedErrors",
+            "viewPinnedErrors"
+          ]
+        }
+      ]
+    },
+    "allocationEstimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string",
+          "const": "deterministic-accounting"
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "exactJvmHeap": {
+          "type": "boolean",
+          "const": false
+        }
+      },
+      "required": [
+        "method",
+        "bytes",
+        "exactJvmHeap"
+      ]
+    },
+    "hardwareCounterStats": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "method": {
+          "type": "string",
+          "const": "unavailable"
+        },
+        "cacheMisses": {
+          "type": "null"
+        },
+        "branchMisses": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "method",
+        "cacheMisses",
+        "branchMisses"
+      ]
+    },
+    "knownLimitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "claimAllowed": {
+      "type": "boolean",
+      "const": false
+    },
+    "failureReason": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schemaVersion",
+    "scenario",
+    "lane",
+    "workloadId",
+    "workloadEvidence",
+    "level",
+    "status",
+    "commit",
+    "artifactVersion",
+    "javaVersion",
+    "javaVendor",
+    "jvmArgs",
+    "os",
+    "architecture",
+    "cpu",
+    "memory",
+    "scale",
+    "seed",
+    "warmupIterations",
+    "forks",
+    "measurementIterations",
+    "baselineId",
+    "phaseTimings",
+    "throughput",
+    "latency",
+    "rowCounts",
+    "candidateCounts",
+    "operationCounts",
+    "accessPatternCard",
+    "touchedBytesEstimate",
+    "workingSetEstimate",
+    "allocationPerOperation",
+    "allocatedBytes",
+    "gcStats",
+    "sidecarStats",
+    "keySpaceStats",
+    "selectorStats",
+    "optionalDensity",
+    "mutationReadRatio",
+    "statsMode",
+    "materializationStats",
+    "effectiveMaterializationBudget",
+    "materializationBudgetDimension",
+    "materializationPath",
+    "allocationEstimatorVersion",
+    "externalDtoStats",
+    "columnViewStats",
+    "allocationEstimate",
+    "hardwareCounterStats",
+    "knownLimitations",
+    "claimAllowed",
+    "failureReason"
+  ],
+  "x-soma-laneBinding": "SmokeLaneSuite.validateLaneRecord"
+}

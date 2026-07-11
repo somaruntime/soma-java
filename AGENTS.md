@@ -1,6 +1,6 @@
 # soma_java Agent Guide
 
-`soma_java` 是 Java 8 annotation schema + Java columnar runtime 原型仓库。当前仍处于设计阶段。
+`soma_java` 是 Java 8 annotation schema + Java columnar runtime 项目。当前处于完整 V1 implementation/release-evidence 阶段；实时 Gate 状态以报告索引为准。
 
 ## 必读入口
 

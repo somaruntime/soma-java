@@ -1,233 +1,76 @@
 # Java-only SOMA V1 Goal execution status
 
-状态：active
+状态：blocked（G6真实发布事实与当前平台Git写授权阻塞；不能完成 Goal）
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`060a6df`
-当前 checkpoint：Phase 6 formal scenarios、benchmark evidence 与 G5–G6 closeout（连续实施中；阶段末集中验证/修复/报告/提交）
+当前已提交 baseline：`a991a51`；Phase 6实现已暂存，但本地commit因Codex平台Git写授权额度阻塞
 
-本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
+本文件是中断恢复和进度审计入口，不是设计事实源。正式语义仍由 `docs/README.md` 及各模块 Owner 文档拥有。
 
-## 1. Checkpoint status
+## 1. 当前总进度
 
-| Checkpoint | 状态 | Exit/evidence |
+| 总体工作 | 状态 | 可核验出口 |
 |---|---|---|
-| Phase 0 compiler/build foundation | completed | commits `2346252`、`c5fbfbf`；Phase 0 report |
-| Phase 1A dense Row Pipeline / mutation terminal | completed | runtime protocol `13179d2`、depth budget `2b2b643`、processor/generated facade `c067dac`、dense read terminals `bcf0966`、dense remove `ca64774`；这是最终 V1 API 的已验证子集，不是版本或 capability closeout |
-| Phase 1B Column Pipeline / ColumnView / borrow lifecycle | completed | commit `10a6107`；seven primitive typed Pipeline/View、optional presence、view pin/close/release/stale runtime state、public/generated/consumer evidence；这是最终 V1 API 的已验证子集，不是 capability closeout |
-| Phase 1C dense shape/differential evidence | completed | commits `5ddaee3`、`e0d5b16`；randomized detached oracle、Column Pipeline allocation-scaling check、generated source/bytecode anti-pattern check；Phase 1 完成但完整 V1 Goal继续 active |
-| P2-A int keyed identity vertical slice | completed | commit `c8480a6`；`@SomaKey int`、`HashIntKeySpace`、generated direct/Key Pipeline、typed key errors、external consumer 和 shape evidence；这是最终架构的有效子集，不是 Phase 2 或 V1 closeout |
-| P2-B-S1 long keyed binding | completed | commit `d6517a6`；`HashLongKeySpace`、primitive `long` direct/Key Pipeline、collision/rehash/compaction evidence；是 P2-B additive completion，不关闭 Phase 2 |
-| P2-B-S2 seven primitive keyed binding | completed | commit `da2db9e`；boolean/byte/short/float/double direct binding、strict floating canonicalization和external consumer evidence；是 P2-B additive completion，不关闭 Phase 2 |
-| P2-B-S3 enum + semantic keyed binding | completed | commit `8d64122`；required enum static ordinal binding、enum Pipeline/View、DATE/TIME/DATE_TIME primitive semantic key external consumer；是 P2-B additive completion，不关闭 Phase 2 |
-| P2-B-4a scalar value key | completed | commit `f013bc1`；single-leaf immutable `@SomaValue` 直接绑定 primitive column/KeySpace，Batch/import 无 value allocation；是 P2-B additive completion，不关闭 Phase 2 |
-| P2-B keyed identity breadth / Key Pipeline | completed | commit `af8ba51`；flat/nested primitive、String、enum value leaves递归 flatten，generated full equality/hash、collision/compaction、staged atomic import、external consumer和完整 `check.sh` evidence；Capability仍待 Phase 5/G2/G3 closeout |
-| Phase 3 access structures | completed | commit `3292e7a`；selector/index/unique/order、primitive sidecar、mutation/lifecycle/stats、external oracle与shape evidence；最终由 Phase 5/G1–G4 closeout统一推进 Capability 为 `evidenced` |
-| Phase 4 child ownership | completed | commits `aaed474`、`d9ad752`、`9547afb`；owned forest、recursive materialization/budget/stats、testkit oracle、exact generated manifest、external consumer与完整回归；最终由 Phase 5/G1–G4 closeout统一推进 Capability 为 `evidenced` |
-| Phase 5 full breadth + G1-G4 | completed | implementation commit `060a6df`；21项非Phase 6-only Capability均为`evidenced`；G1–G4 passed；见G1–G4与Phase 5 reports |
-| Phase 6 examples/benchmark/release + G5-G6 | in-progress | formal scenarios、Access Pattern Cards、JSONL benchmark、package、License/SCM/contact/provenance/reproducibility/support matrix |
-| Final total audit | pending | 23 Capability + G0-G6；仅此时 Goal completed |
+| Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
+| Phase 6：四个正式场景、Access Pattern Cards、benchmark、release mechanics | implementation-complete | 70 个 scenario source、200 个 generated type、711 个 Java 8 class；20 条真实 integrated benchmark workload；License/POM/source/javadoc/package/security scripts |
+| 集中验证与修复 | passed | Zulu 与 Corretto 两套完整 JDK 8均得到`project-check: ok`；post-fix benchmark两vendor通过；package/security diagnostic通过 |
+| G5 examples/benchmark gate | passed | examples 与 benchmark contributor reports；root G5 closeout report |
+| G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
+| V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
 
-Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不改变唯一 Goal 的 active 状态，直到 G0-G6 全部通过。
+Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP、Lite、Basic 或缩水后的替代目标。
 
-### 1.1 优化后的持续交付路线
+## 2. Capability Ledger 状态
 
-下列是当前 Goal 下的细粒度执行顺序和每项最终出口，不是新的产品版本或范围裁剪。每个切片只能 additive completion 或 contract-preserving internal refinement。
-
-| 顺序 | 切片 | 最终出口 | 明确保留的后续 breadth |
-|---|---|---|---|
-| P2-B-4 | value/composite identity | completed：single/multi/nested primitive、String、enum value leaf flatten、generated static equality/hash、无 transient tuple lookup/compaction/Key Pipeline和staged atomic import | P3–P6 全部项 |
-| P3 implementation | access structures完整实施 | completed：selector normalization、typed/grouped source、index/unique/order primitive sidecar、strict access、mutation/row-move/lifecycle/stats | P4–P6 全部项 |
-| P3 closeout | 集中验证与修复 | completed：compile/diagnostic/schema/public/generated/runtime/external consumer/oracle/shape/check.sh evidence、V1 non-regression、commit `3292e7a` 与 Phase 3 report | P4–P6 全部项 |
-| P4-A | child handle ownership | completed：List/Map exact child API、generation handle/identity registry、forest/share/reparent/cascade/replacement lifecycle | P5–P6 全部项 |
-| P4-B | recursive materialization | completed：two-pass shared budget/path/stats、overflow/cycle/allocation failure atomicity、detached graph oracle | P5–P6 全部项 |
-| P5-A | field/codegen breadth | completed：String/value/optional enum-value/defaults、direct/Writer与runtime shape；commit `060a6df` | P6 全部项 |
-| P5-B | compiler/processor closeout | completed：invalid matrix、incremental/schema hash/public-generated compatibility、G1–G4 reports | P6 全部项 |
-| P6-A | formal scenarios | Java 8 examples、Access Pattern Cards、external package use | benchmark/release evidence |
-| P6-B | benchmark evidence | canonical hot lanes、runner、structured JSONL and allocation/bytecode evidence | package/release evidence |
-| P6-C | G6 release evidence | package/license/SCM/contact/provenance/reproducibility/support matrix reports | final G0-G6 audit |
-
-## 2. Capability status
-
-Phase 5 与 G1–G4 联合 closeout 后，以下21项 Capability均由`in-progress`推进为`evidenced`：
+22 项为 `evidenced`：
 
 - `V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`；
 - `V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`、`V1-ACCESS-STRUCTURES`、`V1-MUTATION`；
 - `V1-CHILD-OWNERSHIP`、`V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`、`V1-SECURITY-INTEGRITY`；
-- `V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`。
+- `V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`、`V1-SCENARIO-BENCHMARK`。
 
-`V1-SCENARIO-BENCHMARK`已随Phase 6进入`in-progress`；`V1-RELEASE-EVIDENCE`仍为`not-started`，将在同一Phase 6的G6切片进入实施。两项都保留正式Ledger中的完整出口，没有被删除、optional化或移入其他版本。
+`V1-RELEASE-EVIDENCE` 为 `blocked`：本地 package/reproducibility/SBOM/security/license mechanics 已实施，但真实组织发布边界和 clean immutable public provenance 未满足。该 Capability 仍完整保留在 V1，不是 optional、dropped 或 deferred。
 
-## 3. Gate status
+## 3. Gate 状态
 
-| Gate | 状态 |
-|---|---|
-| G0 | passed |
-| G1 | passed |
-| G2 | passed |
-| G3 | passed |
-| G4 | passed |
-| G5 | not-started |
-| G6 | not-started |
+| Gate | 状态 | 主要报告 |
+|---|---|---|
+| G0 | passed | `reports/java-v1-g0-scope-freeze-report.md` |
+| G1 | passed | `soma-processor/reports/java-v1-g1-schema-processing-report.md` |
+| G2 | passed | `soma-processor/reports/java-v1-g2-code-generation-report.md` |
+| G3 | passed | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` |
+| G4 | passed | `reports/java-v1-g4-package-smoke-report.md` |
+| G5 | passed | `reports/java-v1-g5-examples-benchmark-gate-report.md` |
+| G6 | blocked | `reports/java-v1-g6-release-readiness-report.md` |
 
-## 4. Current slice declaration
+因此“完整 V1 功能范围 + G0–G5”的功能 RC 边界已满足；它不是可公开发布的 RC artifact。当前 artifact 仍是 `0.1.0-SNAPSHOT`，G6 未通过前不得公开分发或声明正式支持矩阵。
 
-已完成 vertical slice：P1-S1 generated dense primitive/presence kernel（commits `13179d2`、`2b2b643`、`c067dac`）。它不是产品版本，也不代表 Phase 1 或任一 Capability 完整完成。
+## 4. 集中验证记录
 
-已完成 vertical slice：P1-S2 dense `remove` terminal。它以 reusable primitive row-index selection 和 reusable boolean mark scratch 选择 rows，稳定原地压缩全部 primitive/presence columns，成功后只在 row set改变时一次性提升 structural epoch；不留下 tombstone/hole，也不以 materialization/List/DTO 中转。它同时固化了最终 `RemoveResult` public shape、Rows/Table convenience API、external Maven consumer/API golden 和 callback failure no-partial-state evidence。
+完整命令：
 
-已完成 vertical slice：P1-S3 typed Column Pipeline / ColumnView。每个 supported primitive leaf 现在生成最终 `fieldValues()` / `fieldColumn()` facade；Pipeline 使用 primitive callback，optional 只遍历 present logical values；View 强持有 table、validated indexed read、explicit idempotent close，并通过 runtime active-view count 拒绝冲突 structural operation。final release 统一失效未关闭 view，non-structural mutator 在 active view 下仍可用。实现不引入 boxed/object traversal、Stream、snapshot/list view 或 temporary facade。
+```text
+./scripts/check.sh
+env JAVA_HOME=/tmp/corretto8-soma/Contents/Home PATH=/tmp/corretto8-soma/Contents/Home/bin:/usr/bin:/bin:/usr/sbin:/sbin ./scripts/check.sh
+```
 
-已完成 vertical slice：P1-S4 dense shape evidence。external consumer 以 fixed-seed randomized `ArrayList` detached oracle交叉验证 update/remove/packed stable survivor order/sorted result；JDK 8 per-thread allocation counter验证 warmup 后同 terminal 的 allocation 不随 32→512 rows线性增长；generated source/bytecode evidence拒绝 Stream、boxing factory、Iterator、object/boxed row-index array和 loop-local Cursor。以上均是本机结构证据，不构成性能优越或跨平台 claim。
+Zulu 环境：Azul Zulu OpenJDK `1.8.0_492-b09`、`javac 1.8.0_492`、Maven Wrapper `3.9.16`、macOS `26.5.2` / Darwin `25.5.0`、arm64/aarch64。最终结果`project-check: ok`。Phase 6 examples：`target/phase6-examples.Wt58xz`；post-fix benchmark：`target/benchmark-smoke.LY9fqL`。
 
-Phase 3 access structures 已完成集中 validation/fix/独立复核并形成 commit `3292e7a` 与 `reports/java-v1-phase-3-access-structures-report.md`。`V1-ACCESS-STRUCTURES` 仍保持 `in-progress`，等待 Phase 5/G2/G3 总体验证，不把 checkpoint 冒充 Capability closeout。
+Corretto 环境：Amazon Corretto `1.8.0_492-b09` / `8.492.09.2`、`javac 1.8.0_492`、Maven Wrapper `3.9.16`、macOS `26.5.2` / Darwin `25.5.0`、arm64/aarch64。完整结果`project-check: ok`；examples：`target/phase6-examples.BxKJHi`；post-fix focused benchmark：`target/benchmark-smoke.YL4tuu`，20+20 records、12 negative通过。
 
-Phase 4 parent-owned child 与 recursive materialization 已完成集中 validation/fix/独立复核并形成 commits `aaed474`、`d9ad752` 与 `reports/java-v1-phase-4-child-materialization-report.md`。`V1-CHILD-OWNERSHIP` 仍保持 `in-progress`，等待 Phase 5/G2/G3 总体验证，不把 checkpoint 冒充 Capability closeout。
+两次均验证 compiler fixtures、schema/hash、public/generated API、runtime invariants、external Maven consumer、四场景、错误/生命周期/stats、20 条 benchmark workload、JSONL strict validator、Java 8 class major 52 和 `git diff --check`。本机结果只证明上述环境，不外推为其他 OS/architecture/JDK vendor 的正式支持承诺。
 
-Phase 5已由commit `060a6df`及G1–G4/Phase 5 reports完成集中验证和关闭；前21项Capability均为`evidenced`，没有temporary contract、future migration或canonical hot-path rewrite。
+Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh` passed，evidence `target/package-smoke.f8IUL8`；`OSV_SCANNER=/tmp/osv-scanner-v2.3.8-darwin-arm64 ./scripts/security-release-scan.sh` passed，evidence `target/security-release-scan.3iyUxx`。两者明确dirty/unsigned，不替代G6。
 
-当前 checkpoint：Phase 6 formal scenarios、benchmark evidence与release readiness连续实施。按加速策略，先一次性完成场景/runner/release artifact主体，再在阶段末集中执行G5/G6测试、修复、报告和最终审计。
+## 5. V1 scope non-regression
 
-涉及 Capability：`V1-SCENARIO-BENCHMARK`（`not-started` → `in-progress`）与`V1-RELEASE-EVIDENCE`（当前`not-started`，在G6切片进入`in-progress`）；前21项`evidenced` Capability作为不可回退的consumer/runtime foundation。
+- Capability：21 项既有 `evidenced` 状态未回退；`V1-SCENARIO-BENCHMARK` 从 `in-progress` 进入 `evidenced`；`V1-RELEASE-EVIDENCE` 从 `not-started` 进入实施后因外部发布事实不足保持 `blocked`。
+- Owner、正式语义、Capability Ledger、Gate 定义和 release claim 没有为实现捷径而改变。
+- 四个场景使用 generated live facade 和正式 runtime path；benchmark 只记录真实执行的 20 条 minimum integrated workload，不把 generic kernel 换名冒充证据。
+- 后续只需要 release-boundary evidence completion 和 contract-preserving internal refinement；达到 V1 不需要迁移 public/generated API、核心事实、consumer 或 canonical hot path。
+- 未引入 temporary public/generated contract、temporary storage/hot path、test-only bypass、未来 migration 或 rewrite。
 
-唯一 Owner：`soma-examples`拥有formal scenarios和Access Pattern Cards；`soma-benchmarks`拥有benchmark lanes/runner artifact；root build/version/security/validation Owners拥有package、License、SCM/contact、provenance、support matrix和release sign-off。Phase 6不建立联合Owner。
+## 6. 当前唯一剩余工作
 
-Phase exit：四个formal Java 8 scenarios与FJSP E2E可运行；全部required benchmark smoke lanes产出结构化JSONL；G5 passed；License/release metadata、community/security、source/javadoc/checksum/provenance、reproducibility、compatibility/support matrix、known limitations、rollback/withdrawal均有可核验证据并使G6 passed；23项Capability全部`evidenced`且无需迁移public/generated API、核心事实或canonical hot path。
-
-仍保留的V1 breadth：在Phase 6完成前，上述任何examples/benchmark/G6 evidence均不得删除、缩水或延后到RC之后；RC必须包含完整V1 scope与G0–G5 evidence，总Goal仅在G0–G6全部通过后完成。
-
-禁止捷径：场景stub/demo、test-only generated facade、只跑happy-path、只输出空JSONL、把micro smoke写成性能优势、用本机结果外推support matrix、placeholder联系/安全渠道、缺失License/source/javadoc/checksum/provenance、SNAPSHOT冒充immutable release、为发布反改Owner/Ledger/Gate/claim。
-
-计划evidence：四场景compile/run与Access Pattern Card、FJSP request→loader→generated tables→solver→export、错误/lifecycle/stats、required benchmark lane JSONL/schema validation、package/external consumer/source/javadoc/checksum、dependency/license/security scan、reproducibility双构建、支持矩阵与G5/G6 reports、阶段末`./scripts/check.sh`。
-
-### 4.3 已完成 P2-A int keyed identity vertical slice
-
-涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-MUTATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；均保持 `in-progress`。
-
-唯一 Owner：annotation schema contract拥有 `@SomaKey`；schema processing/code generation contract拥有 normalized key role、schema hash 和 generated binding；Generated Table API contract拥有 direct/Key Pipeline signature；TableStore、errors和lifecycle Owner 分别拥有 KeySpace、failure和structural commit；testkit拥有 fixture/golden/evidence。没有联合 Owner。
-
-实际交付：`@SomaKey` 保持 source-only public annotation；processor 将 table kind/field role归一化为 `keyed`/`key`，且对尚未支持的 key breadth fail-closed；generated keyed table以 `HashIntKeySpace` 绑定 packed primitive `int` key column，提供 `containsKey/find/fetch/mutate/delete/keys`。key identity 不进入 Mutator、MutableRow 或 Row Pipeline update setter；delete 与 Rows.remove 共用单次稳定 compaction，并在 commit 前删除 dead mapping、修复 survivor RowSlot。Key Pipeline 是稳定值 export boundary，primitive direct/row/column hot path仍无 boxing。
-
-实际 evidence：5000-step deterministic primitive KeySpace oracle；external Maven keyed consumer覆盖 add/find/fetch/mutate、duplicate/missing、direct delete与Rows.remove后的slot repair；unsupported long/multiple key declarations稳定以 `SOMA-TABLE-008` fail closed；generated source/bytecode/public javap/schema-hash golden、Turkish locale/Pacific-Kiritimati repeatability、key mutation surface negative assertion和完整 `check.sh`。本机证明不外推 support matrix。
-
-V1 scope non-regression：P2-A/P2-B-S1/S2 只添加最终 `@SomaKey`/keyed facade/seven primitive KeySpace binding；semantic/enum/value/composite、secondary access structures、child/materialization、scenario/benchmark/release breadth仍保留在原 P2-B 或后续工作包。无 temporary public/generated contract、temporary hot path、migration、rewrite或 `List<Row>`/DTO/metadata interpreter runtime path。
-
-### 4.4 已完成 P2-B-S1 long keyed binding
-
-涉及 Capability：`V1-KEYED-IDENTITY`、`V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-MUTATION`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING` 和 `V1-CONSUMER-PACKAGE`；全部继续保持 `in-progress`。
-
-实际交付：以与 `int` 相同的 final generated facade shape增加 `long` direct key parameter；`HashLongKeySpace` 保持 long full equality、primitive probe、tombstone-only remove和 row-slot update。generated key binding根据 normalized primitive key type静态选择 `HashIntKeySpace` 或 `HashLongKeySpace`，没有 generic `Object` key path或 key truncation。int/long `duplicateKey`、`missingKey` overload保持相同 stable code/category/context contract。
-
-实际 evidence：5000-step deterministic long KeySpace oracle；external Maven consumer覆盖高位/negative `long` lookup、mutate、stable Key Pipeline export及delete compaction repair；schema/hash/public javap/source-shape/repeatability和完整 `check.sh` 通过。仍未实现的 enum/value/composite/semantic breadth仍属于 P2-B，未删除、未降级、未标记 optional。
-
-### 4.5 已完成 P2-B-S2 seven primitive keyed binding
-
-涉及 Capability：`V1-KEYED-IDENTITY`、`V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-MUTATION`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING` 和 `V1-CONSUMER-PACKAGE`；全部继续保持 `in-progress`。
-
-实际交付：seven primitive全部保留 primitive direct key parameter。boolean/byte/short/int/float静态绑定 `HashIntKeySpace`，long/double静态绑定 `HashLongKeySpace`；float/double在 Batch/import、lookup和compaction repair用 generated-runtime `KeyCanonicalization` 拒绝 NaN/infinity、canonicalize `-0.0`并使用 canonical bits。Key Pipeline 的 boxing仍只发生在显式 stable-value export boundary。
-
-实际 evidence：external Maven consumer覆盖 boolean/byte/short direct lookup，float/double negative-zero canonicalization、duplicate和non-finite typed failure；generated signature/key-setter negative/source shape/schema hash/repeatability、runtime public manifest以及完整 `check.sh` 通过。enum/semantic/value/composite breadth仍属于 P2-B，未删除、未降级、未标记 optional。
-
-### 4.6 已完成 P2-B-S3 enum + semantic keyed binding
-
-涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-COLUMN-ACCESS`、`V1-MUTATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；全部继续保持 `in-progress`。
-
-唯一 Owner：annotation schema contract 拥有 enum/semantic declaration；schema processing contract 拥有 enum member normalization、canonical JSON/hash；code-generation contract 拥有 generated static binding；Generated Table API contract 拥有 direct/key/column signatures；TableStore、runtime errors、lifecycle 和 performance Owner 分别拥有 ordinal storage、typed failure、borrow/structural state 和 hot-path shape；testkit 拥有 isolated consumer/evidence。没有联合 Owner。
-
-实际交付：required enum table field/key 使用 exact enum public type、`IntColumn` ordinal packed storage、`HashIntKeySpace`、class-initialization-only cached enum member array、`EnumColumnPipeline<E>` 和 `EnumColumnView<E>`。lookup、Batch/import、compaction repair 和 key export 不创建 transient key wrapper/tuple，不在 row loop 调用 `Enum.values()`，也不使用 object key storage。null enum 在 visible mutation 前返回 `invalid_null_value`；duplicate/missing enum key 使用 bounded `Enum.name()` descriptor。DATE、TIME、DATE_TIME key 保持原有 `int` / `long` primitive direct binding，并有独立 schema normalization/consumer evidence。
-
-实际 evidence：isolated external Maven enum/semantic consumer编译、运行并在默认与 Turkish locale/Pacific-Kiritimati timezone 下比较 generated source 和 schema/hash；验证 enum direct/key/Key Pipeline、column pipeline/view、null/duplicate、delete compaction repair，以及 DATE/TIME/DATE_TIME normalization/direct lookup。public runtime manifest固定 enum pipeline/view与typed error factory；`./scripts/check.sh` 全部通过。
-
-V1 scope non-regression：该切片只把正式已经定义的 required enum 和三种 semantic scalar key接入最终 static primitive/ordinal architecture；value/composite key、optional enum/value、string/default、AccessStructures、child、materialization、examples、benchmark和release evidence仍保持原 Phase/Gate。未引入 temporary public/generated contract、temporary hot path、migration或rewrite。
-
-### 4.7 已完成 P2-B-4a scalar immutable value key
-
-涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-MUTATION`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；全部继续保持 `in-progress`。
-
-实际交付：当前接受单个 primitive leaf 的 immutable `@SomaValue` 作为 `@SomaKey`。public/generated direct API 保持 value type；normalized table field 使用 `value:<FQN>`、完整 `key.leaf` path和primitive storage type。Batch、`copyBatch`、duplicate preflight、KeySpace install、remove 和 packed row move 直接传递 primitive storage accessor，不构造 value；只有 fetch/materialization、Row value getter和`Keys` explicit stable-value export构造 immutable value。null value key返回 typed `invalid_null_value`，value key conflict/missing 不泄露 payload。
-
-实际 evidence：isolated external Maven consumer覆盖 javac lowering、value direct lookup、key export、duplicate/missing、delete compaction repair；默认与 Turkish locale/Pacific-Kiritimati timezone generated source/schema repeatability、generated source no-value-allocation import shape、public manifest和相关 keyed check均通过。
-
-V1 scope non-regression：此切片不把单-leaf value冒充 composite completion。multi-leaf/nested value、string leaf、strict floating leaf、optional value及其 Column API/diagnostics仍在原 P2-B/P5；已固化 value public direct signature和primitive storage是后续 additive flatten的兼容基线，无 temporary contract/hot path/migration/rewrite。
-
-### 4.8 已完成 Phase 2 keyed identity breadth
-
-涉及 Capability：`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-MUTATION`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；Capability继续保持 `in-progress`，等待Phase 5与G2/G3总体验证后关闭。
-
-实际交付：processor递归展开flat/nested `@SomaValue` key的primitive、String和enum leaves，canonical table schema完整记录normalized leaf path/order/storage type。Generated Batch/Table使用独立primitive/`ObjectColumn<String>` leaf columns；strict float/double在写入和查询边界拒绝non-finite并canonicalize negative zero；enum只保存ordinal并使用class-init cached members。`HashCompositeKeySpace`只保存raw hash/probe state/RowSlot，generated source在同hash candidate上静态展开全部leaf equality，String hash collision继续probe，不把hash相等冒充identity相等。
-
-Import原子性：primitive、enum、scalar value和composite value keyed table统一在触碰live columns前构造完整staged KeySpace；duplicate、hash、rehash和allocation failure都发生在publication前。copy/structural commit成功后只做不可失败的KeySpace引用发布，不留下partial key。delete/remove先定位full identity slot，再在stable packed compaction中修复survivor RowSlot；String dead reference由Batch clear和`ObjectColumn.clearRange`清除。
-
-实际 evidence：独立 external Maven composite consumer覆盖direct contains/fetch、duplicate/missing、Key Pipeline重建、nested value、String、enum、strict float/double、`"Aa"`/`"BB"` String hash collision full equality、delete/compaction repair；默认与Turkish locale/Pacific/Kiritimati timezone generated source/schema/hash一致。source-shape拒绝value/tuple/object key live storage并固定staged-before-copy顺序；primitive/enum/scalar value历史consumer、KeySpace randomized oracle、public manifest、完整 `./scripts/check.sh`全部通过。独立shadow review发现并促成staged atomic import修复，复核后无correctness阻断。
-
-V1 scope non-regression：Phase 2完成不关闭总Goal，也不把`V1-KEYED-IDENTITY`提前标记evidenced；P3 access structures、P4 child、P5 field/diagnostic/compatibility breadth、P6 scenario/benchmark/release evidence仍在原Phase/Gate。公开direct/Key Pipeline signature保持最终value type；无temporary tuple/API/storage、consumer migration或canonical hot-path rewrite。后续允许在不改变契约的前提下优化addBatch staged KeySpace内部算法；当前每次append构造combined staged KeySpace的O(existing+batch)成本必须进入P6 benchmark evidence，不能据此作性能优越claim。
-
-### 4.2 P2-S1 primitive KeySpace foundation
-
-涉及 Capability：`V1-KEYED-IDENTITY`、`V1-DENSE-STORAGE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`；仍未把任何 Capability 标记 completed。
-
-唯一 Owner：TableStore 契约拥有 key-to-RowSlot storage material；generated API/annotation/processor/runtime errors 各自保持其既有唯一职责。
-
-实际交付：`SparseIntKeySpace` 使用 bounded non-negative sparse-set `key -> packed RowSlot` 映射，支持 stable compaction `removeAt`；`HashIntKeySpace` 使用 primitive open addressing、full int equality、tombstone/rehash、row-slot update。二者均不使用 `HashMap<Key,Integer>` 或 boxed runtime lookup path。
-
-实际 evidence：5000 step fixed-seed `HashIntKeySpace` 对照 oracle、sparse stable compaction invariant、public manifest、JDK 8 `check-keyspace-phase2.sh`、docs/scope/diff checks。尚未实现 breadth：`@SomaKey` annotation/processor lowering、generated keyed facade/KeyPipeline、long/composite key binding、duplicate/missing generated errors、external keyed consumer；它们仍属于同一 Phase 2，不能因 foundation passing而被删除或延后出 V1。
-
-### 4.1 已完成 P1-S1 记录
-
-涉及 Capability：
-
-- Phase 0 八项中的 annotation、processing、hash、public compatibility、security、evidence、consumer；compiler lowering保持既有 foundation；
-- `V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-MUTATION`、`V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`；
-- `V1-COLUMN-ACCESS` 在当前 Phase 1后续 vertical slice补齐，不能由 fetch/materialization替代。
-
-唯一 Owner 链：annotation schema、schema processing、code generation、generated API/materialization、public compatibility、TableStore/lifecycle/plan/errors/performance、security、testkit、build contract。每项行为仍由其中对应的一份唯一 Owner 拥有，不形成联合 Owner。
-
-Slice exit：
-
-- processor 真实生成最终命名的 dense Table/Batch/Rows/Row/MutableRow/Mutator；
-- primitive/presence columnar Batch、packed `[0,size)` table、addBatch/replaceAll/clear/release；
-- fetchAt/mutateAt、linear one-shot filter/skip/limit/count/forEach/update；
-- whole-terminal primitive staging与callback failure atomicity；
-- single-row/whole-dense detached materialization及default/explicit budget；
-- create-time schema/generated/runtime/plan/estimator compatibility validation；
-- structured errors/stats、generated/public/protocol manifests、external Maven consumer与shape evidence。
-
-仍保留的 V1 breadth：value/string/enum、complete defaults、Column Pipeline/View、all terminals/remove、key/index/order、child ownership、recursive materialization、full diagnostics/incremental、examples/benchmark/package/release/support matrix。全部七种 V1 signed/floating primitive加boolean及其optional boxed presence已由本 slice覆盖。
-
-禁止捷径：手写 facade冒充 generated、processor依赖 runtime-core、generic metadata/dtype interpreter、Object/DTO/List<Row> live storage、optional sentinel、Stream/boxing/per-row Cursor、callback直写 live columns、temporary API/protocol/storage、test-only compatibility bypass、本机 smoke冒充 Gate/RC/release。
-
-实际 evidence：annotation/table valid-invalid compile、canonical JSON/hash golden、generated source跨locale/timezone repeatability、generated javap golden、runtime/protocol manifest、packed/presence randomized invariant、Batch/replace/clear/fetch/mutate/update/materialization/error/lifecycle、callback failure atomicity、stable primitive-index sorted、short-circuit any/none、find/required/fetchAll/rowIndexes、isolated external Maven consumer与artifact runtime graph。Dense differential、remove、Column path、cursor/bytecode/allocation shape继续由当前 slice生成。
-
-## 5. Recovery protocol
-
-会话或上下文切换后按以下顺序恢复：
-
-1. 查询唯一 Codex Goal，必须仍为 active，除非 G0-G6 已全部通过；
-2. 读取本报告、Phase/Gate reports、`git status` 与最近 commits；
-3. 读取当前 checkpoint涉及的 formal Owners；
-4. 恢复最多一个 `in-progress` step，不从 Phase 0 重做；
-5. validation/commit/report后更新本报告并自动进入下一项。
-
-如果 UI 计划再次消失，以本报告和 repository facts恢复；不得因此建立新的缩小 Goal、重复已完成工作或丢失未实现 V1 breadth。
-
-## 6. V1 scope non-regression
-
-- 唯一 Goal、23 项 Capability、G0-G6、RC完整性与release boundary未变化；
-- Phase 0状态和证据未回退；
-- Phase 1 新增了真实 annotations/runtime/processor/generated facade、primitive/presence storage、atomic update、materialization、public/schema golden和external consumer evidence；Capability只推进到 `in-progress`；
-- P2-A/P2-B-S1/S2/S3 新增最终 seven primitive、semantic scalar和required enum `@SomaKey`、packed primitive/ordinal KeySpace binding、direct/Key Pipeline、no-key-setter contract、enum Column Pipeline/View和compaction repair；Capability只推进到 `in-progress`；
-- P2-B-4完成flat/nested primitive、String、enum value key的recursive leaf binding、raw-hash/full-equality composite probe、staged atomic import、Key Pipeline与collision/compaction evidence；Capability仍只保持`in-progress`；
-- Phase 5已将前21项Capability统一关闭为`evidenced`；当前方案是最终V1架构的有效子集，Phase 6必须additive completion或contract-preserving internal refinement，不允许回退既有public/generated/runtime契约；
-- 尚未引入temporary public/generated API、temporary hot path、migration或rewrite。
-
-## 7. Latest validation record
-
-- commit/artifact：`060a6df`；reactor artifacts `soma-annotations`、`soma-runtime-core`、`soma-processor`、`soma-testkit` `0.1.0-SNAPSHOT`；external artifact `external-maven-breadth-phase5-consumer-1.0.0-SNAPSHOT.jar`及Phase 0–4 external artifacts；
-- 完整命令：`./scripts/check-value-modifiers-phase5.sh`、`./scripts/check-defaults-phase5.sh`、`./scripts/check-breadth-phase5.sh`、`./scripts/check-public-api.sh`、`./scripts/check-compiler-phase0.sh`、`./scripts/check-runtime-core-phase1.sh`、`./scripts/check-keyspace-phase2.sh`、`./scripts/check-generated-keyed-phase2.sh`、`./scripts/check-access-phase3.sh`、`./scripts/check-child-phase4.sh`、`./scripts/check-testkit-phase4.sh`、`./scripts/check-table-diagnostics-phase1.sh`、`./scripts/check-generated-dense-phase1.sh`、`./scripts/check-external-consumer.sh`、`./mvnw -B -ntp verify`、`git diff --check`、`./scripts/check.sh`；
-- JDK：Azul Zulu OpenJDK `1.8.0_492-b09`，64-Bit Server VM build `25.492-b09`；
-- Maven Wrapper：Apache Maven `3.9.16`；
-- OS/architecture：macOS `26.5.2`、`aarch64`；
-- 结果：Phase 0–4 regression、Phase 5 defaults/value modifiers/full breadth、processor/codegen/runtime/public API、external consumer、incremental/locale repeat、19-type generated manifest、Java 8 major 52和完整`check.sh`全部通过，最终输出`project-check: ok`；完整breadth evidence为`target/phase5-breadth.K7CTTu`，最后targeted rerun为`target/phase5-breadth.YJbpHd`；
-- 跳过：unsupported-javac negative lane（未设置 `SOMA_UNSUPPORTED_JAVAC`）；
-- known limitation：该结果只表示上述本机环境通过，不能外推正式support matrix；unsupported-javac negative lane未执行；G5/G6尚未关闭，Phase 6仍属于同一V1 Goal，不能声明RC或release ready。
+G6 只能在以下真实事实补齐并在 clean immutable candidate 上重放后关闭：SCM/project/issue URL、真实 maintainer/support/private-security contact、namespace ownership、CODEOWNERS/community policy、Apache-2.0 最终授权确认、非禁用历史身份的公开 Git provenance、签名或 OIDC provenance、publishing endpoint/account，以及经批准的正式支持矩阵。未经明确发布授权不 push、tag 或 publish。

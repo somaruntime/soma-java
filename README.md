@@ -1,10 +1,10 @@
 # soma_java
 
-`soma_java` 是 SOMA Java-only 原型项目，目标是以 Java annotation schema、compile-time generation 和 Java columnar runtime 支撑高性能进程内 runtime state。
+`soma_java` 是 SOMA Java-only 项目，以 Java annotation schema、compile-time generation 和 Java columnar runtime 支撑高性能进程内 runtime state。
 
 ## 当前状态
 
-项目已经完成 implementation-readiness 文档与 build 治理，仍未进入 Java 功能实现，也未达到 public release readiness。当前设计事实从 [正式设计文档索引](docs/README.md) 进入；模块内部事实以各模块 `docs/` 为准。
+Java-only V1 的 annotation、compiler/processor、generated API、columnar runtime、formal scenarios 与 benchmark runner 已进入完整实施和门禁验证。仓库尚未达到 public release readiness；正式 G6 report通过前不得把本地artifact称为公开release。当前设计事实从 [正式设计文档索引](docs/README.md) 进入；模块内部事实以各模块 `docs/` 为准。
 
 ## 模块
 
@@ -22,9 +22,15 @@
 - [文档治理规则](docs/documentation-governance.md)
 - [Build 与依赖契约](docs/build-and-dependency-contract.md)
 - [贡献说明](CONTRIBUTING.md)
+- [Java 8安装与Maven consumer指南](guides/java-v1-install-and-consumer-guide.md)
+- [Apache License 2.0](LICENSE)
+- [Changelog](CHANGELOG.md)
 - [正式报告](reports/README.md)
 - 未来用户/开发者指南按需进入 `guides/`
 - 项目检查：`./scripts/check.sh`
+- examples验证：`./scripts/check-examples-phase6.sh`
+- benchmark smoke：`./scripts/check-benchmark-smoke.sh`
+- release package smoke：`./scripts/package-smoke.sh`
 - 单独 Maven reactor：`./mvnw -B -ntp verify`
 
 README 只负责导航，不是设计事实源。

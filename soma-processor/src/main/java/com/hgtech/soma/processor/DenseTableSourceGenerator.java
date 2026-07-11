@@ -664,24 +664,30 @@ final class DenseTableSourceGenerator {
         appendCursorMethods(out, table, false);
         out.append("  }\n\n  private static final class MutableCursor implements ").append(mutable).append(" {\n    private final ").append(table.name("Table")).append(" table; private int scratch,row; private boolean active; MutableCursor(").append(table.name("Table")).append(" table){this.table=table;} void open(int scratch,int row){this.scratch=scratch;this.row=row;active=true;} void close(){active=false;} void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_mutable_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
         appendCursorMethods(out, table, true);
-        for (FieldSpec field : table.fields) {
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
                 continue;
             }
-            out.append("    public void set").append(cap(field.javaName)).append('(').append(field.primitive).append(" value){valid();table.setUpdate").append(cap(field.javaName)).append("(scratch,value);}\n");
-            if (field.optional) out.append("    public void clear").append(cap(field.javaName)).append("(){valid();table.clearUpdate").append(cap(field.javaName)).append("(scratch);}\n");
+            out.append("    public void set").append(cap(field.javaName)).append('(')
+                    .append(field.primitive).append(" value){valid();table.")
+                    .append(setUpdateMethod(fieldIndex)).append("(scratch,value);}\n");
+            if (field.optional) out.append("    public void clear")
+                    .append(cap(field.javaName)).append("(){valid();table.")
+                    .append(clearUpdateMethod(fieldIndex)).append("(scratch);}\n");
         }
         return out.append("  }\n}\n").toString();
     }
 
     private void appendCursorMethods(StringBuilder out, TableSpec table, boolean scratch) {
-        for (FieldSpec field : table.fields) {
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             String index = scratch && !field.key ? "scratch" : "row";
             String value = scratch && !field.key
-                    ? "update" + cap(field.javaName) + "Value(" + index + ")"
+                    ? updateValueMethod(fieldIndex) + "(" + index + ")"
                     : field.javaName + "Value(" + index + ")";
             String present = scratch && !field.key
-                    ? "update" + cap(field.javaName) + "Present(" + index + ")"
+                    ? updatePresentMethod(fieldIndex) + "(" + index + ")"
                     : field.javaName + "Present(" + index + ")";
             if (field.optional) {
                 out.append("    public boolean ").append(field.javaName).append("Present(){valid();return table.").append(present).append(";}\n")
@@ -757,22 +763,26 @@ final class DenseTableSourceGenerator {
         out.append("  private final DenseTableState state;\n")
                 .append("  private final ChildOwnershipRegistry ownership;\n")
                 .append("  private final boolean owned;\n")
-                .append("  private int[] candidateScratch=new int[0],pipelineScratch=new int[0],sortScratch=new int[0];private boolean[] removeMarks=new boolean[0];private int updateCapacity;\n");
-        for (FieldSpec field : table.fields) {
+                .append("  private int[] candidateScratch=new int[0],pipelineScratch=new int[0],sortScratch=new int[0];private boolean[] removeMarks=new boolean[0];private int updateScratchCapacity;\n");
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
                 continue;
             }
             if (field.flattenedValueStorage()) {
-                for (ValueLeafSpec leaf : field.valueLeaves) {
+                for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
+                    ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
                     out.append("  private ").append(leaf.storagePrimitive)
-                            .append("[] update").append(cap(leaf.physicalName(field)))
+                            .append("[] ").append(updateScratch(fieldIndex, leafIndex))
                             .append("=new ").append(leaf.storagePrimitive).append("[0];\n");
                 }
             } else {
-                out.append("  private ").append(field.storagePrimitive).append("[] update")
-                        .append(cap(field.javaName)).append("=new ").append(field.storagePrimitive).append("[0];\n");
+                out.append("  private ").append(field.storagePrimitive).append("[] ")
+                        .append(updateScratch(fieldIndex)).append("=new ")
+                        .append(field.storagePrimitive).append("[0];\n");
             }
-            if (field.optional) out.append("  private boolean[] update").append(cap(field.javaName)).append("Present=new boolean[0];\n");
+            if (field.optional) out.append("  private boolean[] ")
+                    .append(updatePresenceScratch(fieldIndex)).append("=new boolean[0];\n");
         }
         out.append("\n  private ").append(name).append("(RuntimePlan plan,TablePlan tablePlan,ChildOwnershipRegistry ownership,boolean owned,String ownershipPath){\n")
                 .append("    this.ownership=ownership;this.owned=owned;\n")
@@ -1755,7 +1765,7 @@ final class DenseTableSourceGenerator {
                     leaf, binding.columnExpression(target), operation);
             String candidate = mutation != null
                     ? selectorMutatorValue(binding, leaf, mutation, operation)
-                    : selectorUpdateValue(binding, leaf, scratch, operation);
+                    : selectorUpdateValue(table, binding, leaf, scratch, operation);
             out.append('(').append(compareExpression(
                     leaf.storageType, live, candidate)).append(")!=0");
         }
@@ -1816,7 +1826,7 @@ final class DenseTableSourceGenerator {
                         .append("ChangedByUpdate(selected,selectedCount);if(unique")
                         .append(i).append("Changed)changedUniqueCount++;");
             }
-            out.append("if(changedUniqueCount==0)return;int[] lookup=prepareCandidateScratch();long retained=4L*(long)candidateScratch.length+updateBytes(updateCapacity);long unit=HashCompositeKeySpace.estimatedPeakBytes(size());long uniqueBytes=unit>Long.MAX_VALUE/(long)changedUniqueCount?Long.MAX_VALUE:unit*(long)changedUniqueCount;long required=uniqueBytes==Long.MAX_VALUE||retained>Long.MAX_VALUE-uniqueBytes?Long.MAX_VALUE:retained+uniqueBytes;long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(required>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,required);state.updateScratch(required,required);try{Arrays.fill(lookup,0,size(),-1);for(int index=0;index<selectedCount;index++)lookup[selected[index]]=index;");
+            out.append("if(changedUniqueCount==0)return;int[] lookup=prepareCandidateScratch();long retained=4L*(long)candidateScratch.length+updateBytes(updateScratchCapacity);long unit=HashCompositeKeySpace.estimatedPeakBytes(size());long uniqueBytes=unit>Long.MAX_VALUE/(long)changedUniqueCount?Long.MAX_VALUE:unit*(long)changedUniqueCount;long required=uniqueBytes==Long.MAX_VALUE||retained>Long.MAX_VALUE-uniqueBytes?Long.MAX_VALUE:retained+uniqueBytes;long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(required>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,required);state.updateScratch(required,required);try{Arrays.fill(lookup,0,size(),-1);for(int index=0;index<selectedCount;index++)lookup[selected[index]]=index;");
             for (int i = 0; i < table.selectors.size(); i++) {
                 if (!"unique".equals(table.selectors.get(i).kind)) continue;
                 out.append("if(unique").append(i).append("Changed)");
@@ -1853,7 +1863,7 @@ final class DenseTableSourceGenerator {
                     value = selectorMutatorValue(binding, leaf, "mutation", operation);
                 } else {
                     if (binding.field.key) continue;
-                    value = selectorUpdateValue(binding, leaf, row, operation);
+                    value = selectorUpdateValue(table, binding, leaf, row, operation);
                 }
                 out.append(value).append(';');
             }
@@ -1925,7 +1935,8 @@ final class DenseTableSourceGenerator {
         }
         if ("Update".equals(mode)) {
             if (binding.field.key) return live;
-            String updated = selectorUpdateValue(binding, leaf, "lookup[" + row + "]", operation);
+            String updated = selectorUpdateValue(
+                    table, binding, leaf, "lookup[" + row + "]", operation);
             return "(lookup[" + row + "]>=0?" + updated + ":" + live + ")";
         }
         throw new IllegalStateException("unsupported unique validation mode: " + mode);
@@ -1955,15 +1966,16 @@ final class DenseTableSourceGenerator {
     }
 
     private static String selectorUpdateValue(
-            SelectorBinding binding, SelectorLeafSpec leaf,
+            TableSpec table, SelectorBinding binding, SelectorLeafSpec leaf,
             String scratch, String operation) {
+        int fieldIndex = fieldIndex(table, binding.field);
         if (binding.valueLeaf != null && binding.field.flattenedValueStorage()) {
             return selectorStorageValue(leaf,
-                    "update" + cap(binding.valueLeaf.physicalName(binding.field))
+                    updateScratch(fieldIndex, leafIndex(binding.field, binding.valueLeaf))
                             + "[" + scratch + "]",
                     operation);
         }
-        String value = "update" + cap(binding.field.javaName) + "[" + scratch + "]";
+        String value = updateScratch(fieldIndex) + "[" + scratch + "]";
         if (binding.valueLeaf != null) value += "." + binding.valueLeaf.javaName;
         if (binding.valueLeaf != null) {
             value = binding.valueLeaf.storageValue(binding.field, value, operation);
@@ -2215,7 +2227,7 @@ final class DenseTableSourceGenerator {
             if (i > 0) result.append("||");
             ValueLeafSpec leaf = field.valueLeaves.get(i);
             String left = leaf.physicalName(field) + "Column.get(" + row + ")";
-            String right = "update" + cap(leaf.physicalName(field))
+            String right = updateScratch(fieldIndex(table, field), i)
                     + "[" + scratch + "]";
             SelectorLeafSpec accessLeaf = selectorLeaf(
                     table, field.logicalName + "." + leaf.logicalName);
@@ -2495,8 +2507,8 @@ final class DenseTableSourceGenerator {
     }
 
     private void appendTableFieldAccess(StringBuilder out, TableSpec table) {
-        for (FieldSpec field : table.fields) {
-            String c = cap(field.javaName);
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             if (field.flattenedValueStorage()) {
                 out.append("  ").append(field.primitive).append(' ').append(field.javaName)
                         .append("Value(int row){return ")
@@ -2511,43 +2523,51 @@ final class DenseTableSourceGenerator {
                 continue;
             }
             if (field.flattenedValueStorage()) {
-                out.append("  ").append(field.primitive).append(" update").append(c)
-                        .append("Value(int row){return ")
-                        .append(compositeUpdateValueExpression(field, "row")).append(";}\n")
-                        .append("  void setUpdate").append(c).append("(int row,")
+                out.append("  ").append(field.primitive).append(' ')
+                        .append(updateValueMethod(fieldIndex)).append("(int row){return ")
+                        .append(compositeUpdateValueExpression(fieldIndex, field, "row"))
+                        .append(";}\n")
+                        .append("  void ").append(setUpdateMethod(fieldIndex)).append("(int row,")
                         .append(field.primitive).append(" value){")
                         .append(field.primitive).append(" required=RuntimeFailures.requiredValue(TABLE,")
                         .append(q(field.logicalName)).append(",value,\"rows.update\");");
-                for (ValueLeafSpec leaf : field.valueLeaves) {
-                    out.append("update").append(cap(leaf.physicalName(field)))
+                for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
+                    ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
+                    out.append(updateScratch(fieldIndex, leafIndex))
                             .append("[row]=").append(leaf.storageValue(field,
                                     "required." + leaf.javaName, "rows.update"))
                             .append(';');
                 }
             } else {
-                out.append("  ").append(field.primitive).append(" update").append(c).append("Value(int row){return ")
-                        .append(field.publicValue("update" + c + "[row]")).append(";}\n")
-                        .append("  void setUpdate").append(c).append("(int row,").append(field.primitive)
-                        .append(" value){update").append(c).append("[row]=")
+                out.append("  ").append(field.primitive).append(' ')
+                        .append(updateValueMethod(fieldIndex)).append("(int row){return ")
+                        .append(field.publicValue(updateScratch(fieldIndex) + "[row]"))
+                        .append(";}\n")
+                        .append("  void ").append(setUpdateMethod(fieldIndex)).append("(int row,")
+                        .append(field.primitive)
+                        .append(" value){").append(updateScratch(fieldIndex)).append("[row]=")
                         .append(field.storageValue("value", "rows.update")).append(';');
             }
-            if (field.optional) out.append("update").append(c).append("Present[row]=true;");
+            if (field.optional) out.append(updatePresenceScratch(fieldIndex))
+                    .append("[row]=true;");
             out.append("}\n");
             if (field.optional) {
-                out.append("  boolean update").append(c)
-                        .append("Present(int row){return update").append(c)
-                        .append("Present[row];}\n  void clearUpdate").append(c)
+                out.append("  boolean ").append(updatePresentMethod(fieldIndex))
+                        .append("(int row){return ")
+                        .append(updatePresenceScratch(fieldIndex))
+                        .append("[row];}\n  void ").append(clearUpdateMethod(fieldIndex))
                         .append("(int row){");
                 if (field.flattenedValueStorage()) {
-                    for (ValueLeafSpec leaf : field.valueLeaves) {
-                        out.append("update").append(cap(leaf.physicalName(field)))
+                    for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
+                        ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
+                        out.append(updateScratch(fieldIndex, leafIndex))
                                 .append("[row]=").append(leaf.storageZero()).append(';');
                     }
                 } else {
-                    out.append("update").append(c).append("[row]=")
+                    out.append(updateScratch(fieldIndex)).append("[row]=")
                             .append(field.storageZero()).append(';');
                 }
-                out.append("update").append(c).append("Present[row]=false;}\n");
+                out.append(updatePresenceScratch(fieldIndex)).append("[row]=false;}\n");
             }
         }
     }
@@ -2654,59 +2674,69 @@ final class DenseTableSourceGenerator {
     }
 
     private void appendUpdateScratch(StringBuilder out, TableSpec table) {
-        out.append("  int[] prepareCandidateScratch(){int required=size();long bytes=4L*(long)required+updateBytes(updateCapacity);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);if(candidateScratch.length<required)candidateScratch=Arrays.copyOf(candidateScratch,required);state.updateScratch(4L*(long)candidateScratch.length+updateBytes(updateCapacity),4L*(long)candidateScratch.length+updateBytes(updateCapacity));return candidateScratch;}\n")
-                .append("  void prepareUpdateScratch(int required){if(required<=updateCapacity)return;long bytes=4L*(long)candidateScratch.length+updateBytes(required);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);\n");
-        for (FieldSpec field : table.fields) {
+        out.append("  int[] prepareCandidateScratch(){int required=size();long bytes=4L*(long)required+updateBytes(updateScratchCapacity);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);if(candidateScratch.length<required)candidateScratch=Arrays.copyOf(candidateScratch,required);state.updateScratch(4L*(long)candidateScratch.length+updateBytes(updateScratchCapacity),4L*(long)candidateScratch.length+updateBytes(updateScratchCapacity));return candidateScratch;}\n")
+                .append("  void prepareUpdateScratch(int required){if(required<=updateScratchCapacity)return;long bytes=4L*(long)candidateScratch.length+updateBytes(required);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);\n");
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
                 continue;
             }
-            String c = cap(field.javaName);
             if (field.flattenedValueStorage()) {
-                for (ValueLeafSpec leaf : field.valueLeaves) {
-                    String physical = cap(leaf.physicalName(field));
-                    out.append("    ").append(leaf.storagePrimitive).append("[] new")
-                            .append(physical).append("=Arrays.copyOf(update")
-                            .append(physical).append(",required);\n");
+                for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
+                    ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
+                    out.append("    ").append(leaf.storagePrimitive).append("[] newField")
+                            .append(fieldIndex).append("Leaf").append(leafIndex)
+                            .append("=Arrays.copyOf(").append(updateScratch(fieldIndex, leafIndex))
+                            .append(",required);\n");
                 }
             } else {
-                out.append("    ").append(field.storagePrimitive).append("[] new").append(c).append("=Arrays.copyOf(update").append(c).append(",required);\n");
+                out.append("    ").append(field.storagePrimitive).append("[] newField")
+                        .append(fieldIndex).append("=Arrays.copyOf(")
+                        .append(updateScratch(fieldIndex)).append(",required);\n");
             }
-            if (field.optional) out.append("    boolean[] new").append(c).append("Present=Arrays.copyOf(update").append(c).append("Present,required);\n");
+            if (field.optional) out.append("    boolean[] newField").append(fieldIndex)
+                    .append("Present=Arrays.copyOf(").append(updatePresenceScratch(fieldIndex))
+                    .append(",required);\n");
         }
-        for (FieldSpec field : table.fields) {
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
                 continue;
             }
-            String c = cap(field.javaName);
             if (field.flattenedValueStorage()) {
-                for (ValueLeafSpec leaf : field.valueLeaves) {
-                    String physical = cap(leaf.physicalName(field));
-                    out.append("    update").append(physical).append("=new")
-                            .append(physical).append(";\n");
+                for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
+                    out.append("    ").append(updateScratch(fieldIndex, leafIndex))
+                            .append("=newField").append(fieldIndex).append("Leaf")
+                            .append(leafIndex).append(";\n");
                 }
             } else {
-                out.append("    update").append(c).append("=new").append(c).append(";\n");
+                out.append("    ").append(updateScratch(fieldIndex)).append("=newField")
+                        .append(fieldIndex).append(";\n");
             }
-            if (field.optional) out.append("    update").append(c).append("Present=new").append(c).append("Present;\n");
+            if (field.optional) out.append("    ").append(updatePresenceScratch(fieldIndex))
+                    .append("=newField").append(fieldIndex).append("Present;\n");
         }
-        out.append("    updateCapacity=required;state.updateScratch(bytes,bytes);}\n")
-                .append("  private long updateBytes(int capacity){return (long)capacity*").append(table.updateWidth()).append("L;}\n")
+        out.append("    updateScratchCapacity=required;state.updateScratch(bytes,bytes);}\n")
+                .append("  private long updateBytes(int scratchLength){return (long)scratchLength*").append(table.updateWidth()).append("L;}\n")
                 .append("  void loadUpdateScratch(int[] rows,int count){for(int i=0;i<count;i++){int row=rows[i];\n");
-        for (FieldSpec field : table.fields) {
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
                 continue;
             }
-            String c = cap(field.javaName);
             if (field.flattenedValueStorage()) {
-                for (ValueLeafSpec leaf : field.valueLeaves) {
+                for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
+                    ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
                     String physical = leaf.physicalName(field);
-                    out.append("    update").append(cap(physical)).append("[i]=")
+                    out.append("    ").append(updateScratch(fieldIndex, leafIndex)).append("[i]=")
                             .append(physical).append("Column.get(row);\n");
                 }
             } else {
-                out.append("    update").append(c).append("[i]=").append(field.javaName).append("Column.get(row);\n");
+                out.append("    ").append(updateScratch(fieldIndex)).append("[i]=")
+                        .append(field.javaName).append("Column.get(row);\n");
             }
-            if (field.optional) out.append("    update").append(c).append("Present[i]=").append(field.javaName).append("Present(row);\n");
+            if (field.optional) out.append("    ").append(updatePresenceScratch(fieldIndex))
+                    .append("[i]=").append(field.javaName).append("Present(row);\n");
         }
         out.append("  }}\n  long publishUpdate(int[] rows,int count){validateSelectorUpdate(count);validateUniqueUpdate(rows,count);long changed=0L;");
         for (int i = 0; i < table.selectors.size(); i++) {
@@ -2714,30 +2744,33 @@ final class DenseTableSourceGenerator {
                     .append(i).append("ChangedByUpdate(rows,count);");
         }
         out.append("for(int i=0;i<count;i++){int row=rows[i];boolean rowChanged=false;\n");
-        for (FieldSpec field : table.fields) {
+        for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
                 continue;
             }
-            String c = cap(field.javaName);
             String different = field.flattenedValueStorage()
                     ? flattenedScratchDifferent(table, field, "row", "i", "rows.update")
                     : field.valueBacked()
                             ? scalarValueDifferent(table, field,
                                     field.javaName + "Column.get(row)",
-                                    "update" + c + "[i]", "rows.update")
+                                    updateScratch(fieldIndex) + "[i]", "rows.update")
                     : field.enumType != null
-                            ? field.javaName + "Column.get(row)!=update" + c + "[i]"
+                            ? field.javaName + "Column.get(row)!="
+                                    + updateScratch(fieldIndex) + "[i]"
                             : accessAwareDifferent(table, field, field.javaName + "Value(row)",
-                                    "update" + c + "[i]", "rows.update");
-            if (field.optional) different = field.javaName + "Present(row)!=update" + c
-                    + "Present[i]||(" + field.javaName + "Present(row)&&(" + different + "))";
+                                    updateScratch(fieldIndex) + "[i]", "rows.update");
+            if (field.optional) different = field.javaName + "Present(row)!="
+                    + updatePresenceScratch(fieldIndex) + "[i]||(" + field.javaName
+                    + "Present(row)&&(" + different + "))";
             out.append("    if(").append(different).append(")rowChanged=true;\n");
             if (field.optional) {
-                out.append("    if(update").append(c).append("Present[i]){");
+                out.append("    if(").append(updatePresenceScratch(fieldIndex)).append("[i]){");
             }
             if (field.flattenedValueStorage()) {
-                for (ValueLeafSpec leaf : field.valueLeaves) {
-                    String stored = "update" + cap(leaf.physicalName(field)) + "[i]";
+                for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
+                    ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
+                    String stored = updateScratch(fieldIndex, leafIndex) + "[i]";
                     SelectorLeafSpec accessLeaf = selectorLeaf(
                             table, field.logicalName + "." + leaf.logicalName);
                     if (accessLeaf != null) {
@@ -2748,8 +2781,8 @@ final class DenseTableSourceGenerator {
                 }
             } else {
                 String stored = field.enumType == null
-                        ? field.storageValue("update" + c + "[i]", "rows.update")
-                        : "update" + c + "[i]";
+                        ? field.storageValue(updateScratch(fieldIndex) + "[i]", "rows.update")
+                        : updateScratch(fieldIndex) + "[i]";
                 SelectorLeafSpec accessLeaf = selectorLeaf(table, field.logicalName);
                 if (accessLeaf != null) {
                     stored = canonicalAccessStorage(accessLeaf, stored, "rows.update");
@@ -2877,12 +2910,11 @@ final class DenseTableSourceGenerator {
     }
 
     private static String compositeUpdateValueExpression(
-            FieldSpec field, String row) {
+            int fieldIndex, FieldSpec field, String row) {
         String result = field.valueConstructionTemplate;
         for (int i = 0; i < field.valueLeaves.size(); i++) {
             ValueLeafSpec leaf = field.valueLeaves.get(i);
-            String storage = "update" + cap(leaf.physicalName(field))
-                    + "[" + row + "]";
+            String storage = updateScratch(fieldIndex, i) + "[" + row + "]";
             result = result.replace("@{" + i + "}@", leaf.publicValue(field, storage));
         }
         return result;
@@ -2890,6 +2922,49 @@ final class DenseTableSourceGenerator {
 
     private static String cap(String value) {
         return Character.toUpperCase(value.charAt(0)) + value.substring(1);
+    }
+
+    /** Internal update buffers use normalized numeric slots, never schema-derived identifiers. */
+    private static String updateScratch(int fieldIndex) {
+        return "updateField" + fieldIndex;
+    }
+
+    private static String updateScratch(int fieldIndex, int leafIndex) {
+        return "updateField" + fieldIndex + "Leaf" + leafIndex;
+    }
+
+    private static String updatePresenceScratch(int fieldIndex) {
+        return "updateField" + fieldIndex + "Present";
+    }
+
+    private static String updateValueMethod(int fieldIndex) {
+        return "updateField" + fieldIndex + "Value";
+    }
+
+    private static String setUpdateMethod(int fieldIndex) {
+        return "setUpdateField" + fieldIndex;
+    }
+
+    private static String updatePresentMethod(int fieldIndex) {
+        return "updateField" + fieldIndex + "IsPresent";
+    }
+
+    private static String clearUpdateMethod(int fieldIndex) {
+        return "clearUpdateField" + fieldIndex;
+    }
+
+    private static int fieldIndex(TableSpec table, FieldSpec field) {
+        for (int index = 0; index < table.fields.size(); index++) {
+            if (table.fields.get(index) == field) return index;
+        }
+        throw new IllegalStateException("field is not owned by table: " + field.javaName);
+    }
+
+    private static int leafIndex(FieldSpec field, ValueLeafSpec leaf) {
+        for (int index = 0; index < field.valueLeaves.size(); index++) {
+            if (field.valueLeaves.get(index) == leaf) return index;
+        }
+        throw new IllegalStateException("leaf is not owned by field: " + leaf.javaName);
     }
 
     private static String q(String value) {

@@ -29,7 +29,7 @@ SOMA 保证每次 table-local mutation 和 ownership aggregate 的正确性；�
 
 1. 从 request boundary 导入 jobs、operation definitions（含 candidate-machine child）、materials、machines 和 setup times；
 2. batch import 初始化 generated tables；
-3. 当 operation release 时，通过 `operationDefinitions.fetch(operationKey).candidateMachines` 为可加工 machine 生成 `MachineCandidate` rows；该 reference path 会递归 materialize detached child `List`；
+3. 当 operation release 时，通过 generated grouped/index row source读取definition scalar，并通过`operationDefinitions.candidateMachines(operationKey)` live child facade局部遍历可加工machine，生成`MachineCandidate` rows；release hot path不递归materialize detached parent + child `List`；
 4. 每轮从 `Machine.byAvailableTime().firstOrThrow()` 选择下一个可用 machine；
 5. 对 `MachineCandidate.findByMachine(machineId)` 的候选更新 setup、effective ready time、FCFS value 和 SPT value；
 6. 对同一 machine 的候选执行 `sorted(dispatchRuleComparator).firstOrThrow()`，选择下一个 operation；
@@ -82,6 +82,11 @@ SOMA runtime 只提供 `find(...)` / `containsKey(...)` / empty Row Pipeline / t
 - `delete(key)` if scenario includes single-key deletion；
 - typed `ColumnView` read；
 - schema object / `List` / `Map` materialization for export；外部 DTO 只在 adapter 边界构造。
+
+`operationDefinitions.fetch(operationKey)`递归materialize detached
+`OperationDefinition + List<CandidateMachineDefinition>`只用于明确的materialization/export
+evidence，不进入canonical operation-release hot path。release必须使用generated live child facade；
+这一约束与runtime-state Owner中的child-locality口径一致。
 
 ## 5. Error and lifecycle evidence
 
