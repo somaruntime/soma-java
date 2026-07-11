@@ -50,6 +50,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public long structuralEpoch();
   public boolean isReleased();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public long sidecarRebuildCount();
   public long acquireView(java.lang.String);
   public void releaseView();
   public void checkView(long, int, java.lang.String);
@@ -58,6 +59,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void beginOperation(java.lang.String);
   public void endOperationSuccess(java.lang.String, long, long, long);
   public void endOperationFailure(java.lang.String, long, long, java.lang.String);
+  public void abortOperation(java.lang.String);
   public int prepareAppend(int);
   public void commitAppend(int, int);
   public int prepareReplace(int);
@@ -68,6 +70,9 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public int prepareRelease();
   public void commitRelease(int);
   public void updateScratch(long, long);
+  public void sidecarsDirtied(long);
+  public void sidecarRebuilt(long);
+  public void sidecarScratch(long, long);
   public com.hgtech.soma.runtime.UpdateResult updateResult(long, long, long, long, long);
   public com.hgtech.soma.runtime.RemoveResult removeResult(long, long, long, long, long, long);
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
@@ -119,6 +124,7 @@ public final class com.hgtech.soma.runtime.generated.GeneratedMetadata {
 Compiled from "HashCompositeKeySpace.java"
 public final class com.hgtech.soma.runtime.generated.HashCompositeKeySpace {
   public com.hgtech.soma.runtime.generated.HashCompositeKeySpace(int);
+  public static long estimatedPeakBytes(int);
   public int size();
   public void ensureInsertCapacity();
   public int firstSlot(long);
@@ -225,6 +231,22 @@ public final class com.hgtech.soma.runtime.generated.PresenceBitmap extends com.
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RowPermutationSidecar
+Compiled from "RowPermutationSidecar.java"
+public final class com.hgtech.soma.runtime.generated.RowPermutationSidecar {
+  public com.hgtech.soma.runtime.generated.RowPermutationSidecar();
+  public boolean isDirty();
+  public int size();
+  public int rowAt(int);
+  public int[] stage(int);
+  public int[] scratch(int);
+  public long retainedBytes();
+  public long rebuildPeakBytes(int);
+  public void commit(int[], int);
+  public void markDirty();
+  public void clear();
+  public void release();
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeCompatibility
 Compiled from "RuntimeCompatibility.java"
 public final class com.hgtech.soma.runtime.generated.RuntimeCompatibility {
@@ -234,8 +256,13 @@ public final class com.hgtech.soma.runtime.generated.RuntimeCompatibility {
   public static final java.lang.String RUNTIME_COMPATIBILITY;
   public static final java.lang.String PLAN_PROTOCOL;
   public static final java.lang.String DENSE_ALGORITHM;
+  public static final java.lang.String NO_ACCESS_STRATEGY;
+  public static final java.lang.String PRIMITIVE_SORTED_PERMUTATION;
+  public static final java.lang.String NO_SIDECAR_MAINTENANCE;
+  public static final java.lang.String DIRTY_LAZY_REBUILD;
   public static final java.lang.String ALLOCATION_ESTIMATOR;
   public static com.hgtech.soma.runtime.TablePlan verify(com.hgtech.soma.runtime.generated.GeneratedMetadata, com.hgtech.soma.runtime.RuntimePlan, java.lang.String);
+  public static com.hgtech.soma.runtime.TablePlan verifyAccess(com.hgtech.soma.runtime.TablePlan, boolean);
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.RuntimeFailures
 Compiled from "RuntimeFailures.java"
@@ -260,6 +287,7 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException duplicateKey(java.lang.String, java.lang.Enum<?>, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingKey(java.lang.String, java.lang.Enum<?>, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException duplicateValueKey(java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException uniqueConstraintViolation(java.lang.String, java.lang.String, int, int, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException missingValueKey(java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidFloatingAccessValue(java.lang.String, java.lang.String, java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
@@ -303,6 +331,14 @@ public final class com.hgtech.soma.runtime.generated.SparseIntKeySpace {
   public void removeAt(int);
   public void clear();
 }
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaDirection
+Compiled from "SomaDirection.java"
+public final class com.hgtech.soma.annotation.SomaDirection extends java.lang.Enum<com.hgtech.soma.annotation.SomaDirection> {
+  public static final com.hgtech.soma.annotation.SomaDirection ASC;
+  public static final com.hgtech.soma.annotation.SomaDirection DESC;
+  public static com.hgtech.soma.annotation.SomaDirection[] values();
+  public static com.hgtech.soma.annotation.SomaDirection valueOf(java.lang.String);
+}
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaField
 Compiled from "SomaField.java"
 public interface com.hgtech.soma.annotation.SomaField extends java.lang.annotation.Annotation {
@@ -313,6 +349,18 @@ public interface com.hgtech.soma.annotation.SomaField extends java.lang.annotati
 Compiled from "SomaIgnore.java"
 public interface com.hgtech.soma.annotation.SomaIgnore extends java.lang.annotation.Annotation {
 }
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaIndex
+Compiled from "SomaIndex.java"
+public interface com.hgtech.soma.annotation.SomaIndex extends java.lang.annotation.Annotation {
+  public abstract java.lang.String value();
+  public abstract java.lang.String name();
+  public abstract java.lang.String[] fields();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaIndexes
+Compiled from "SomaIndexes.java"
+public interface com.hgtech.soma.annotation.SomaIndexes extends java.lang.annotation.Annotation {
+  public abstract com.hgtech.soma.annotation.SomaIndex[] value();
+}
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaKey
 Compiled from "SomaKey.java"
 public interface com.hgtech.soma.annotation.SomaKey extends java.lang.annotation.Annotation {
@@ -322,6 +370,18 @@ public interface com.hgtech.soma.annotation.SomaKey extends java.lang.annotation
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaOptional
 Compiled from "SomaOptional.java"
 public interface com.hgtech.soma.annotation.SomaOptional extends java.lang.annotation.Annotation {
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaOrder
+Compiled from "SomaOrder.java"
+public interface com.hgtech.soma.annotation.SomaOrder extends java.lang.annotation.Annotation {
+  public abstract java.lang.String value();
+  public abstract java.lang.String name();
+  public abstract com.hgtech.soma.annotation.SomaSort[] by();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaOrders
+Compiled from "SomaOrders.java"
+public interface com.hgtech.soma.annotation.SomaOrders extends java.lang.annotation.Annotation {
+  public abstract com.hgtech.soma.annotation.SomaOrder[] value();
 }
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaSchema
 Compiled from "SomaSchema.java"
@@ -340,11 +400,29 @@ public final class com.hgtech.soma.annotation.SomaSemantic extends java.lang.Enu
   public static com.hgtech.soma.annotation.SomaSemantic[] values();
   public static com.hgtech.soma.annotation.SomaSemantic valueOf(java.lang.String);
 }
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaSort
+Compiled from "SomaSort.java"
+public interface com.hgtech.soma.annotation.SomaSort extends java.lang.annotation.Annotation {
+  public abstract java.lang.String value();
+  public abstract com.hgtech.soma.annotation.SomaDirection direction();
+}
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaTable
 Compiled from "SomaTable.java"
 public interface com.hgtech.soma.annotation.SomaTable extends java.lang.annotation.Annotation {
   public abstract java.lang.String name();
   public abstract int defaultCapacity();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaUnique
+Compiled from "SomaUnique.java"
+public interface com.hgtech.soma.annotation.SomaUnique extends java.lang.annotation.Annotation {
+  public abstract java.lang.String value();
+  public abstract java.lang.String name();
+  public abstract java.lang.String[] fields();
+}
+## PUBLIC handwritten com.hgtech.soma.annotation.SomaUniques
+Compiled from "SomaUniques.java"
+public interface com.hgtech.soma.annotation.SomaUniques extends java.lang.annotation.Annotation {
+  public abstract com.hgtech.soma.annotation.SomaUnique[] value();
 }
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaValue
 Compiled from "SomaValue.java"
@@ -593,6 +671,9 @@ public final class com.hgtech.soma.runtime.TablePlan {
   public int growthNumerator();
   public int growthDenominator();
   public long maximumUpdateScratchBytes();
+  public java.lang.String accessStrategy();
+  public java.lang.String sidecarMaintenancePolicy();
+  public long maximumSidecarScratchBytes();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.TablePlan$Builder
 Compiled from "TablePlan.java"
@@ -600,12 +681,17 @@ public final class com.hgtech.soma.runtime.TablePlan$Builder {
   public com.hgtech.soma.runtime.TablePlan$Builder initialCapacity(int);
   public com.hgtech.soma.runtime.TablePlan$Builder growthRatio(int, int);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumUpdateScratchBytes(long);
+  public com.hgtech.soma.runtime.TablePlan$Builder accessStrategy(java.lang.String);
+  public com.hgtech.soma.runtime.TablePlan$Builder sidecarMaintenancePolicy(java.lang.String);
+  public com.hgtech.soma.runtime.TablePlan$Builder maximumSidecarScratchBytes(long);
   public com.hgtech.soma.runtime.TablePlan build();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.TableStats
 Compiled from "TableStats.java"
 public final class com.hgtech.soma.runtime.TableStats {
+  public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
   public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
+  public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, long, long, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
   public java.lang.String schemaHash();
   public java.lang.String runtimeCompatibility();
   public java.lang.String runtimePlanHash();
@@ -618,6 +704,11 @@ public final class com.hgtech.soma.runtime.TableStats {
   public long growthCount();
   public long updateScratchCurrentBytes();
   public long updateScratchHighWaterBytes();
+  public long sidecarDirtyCount();
+  public long sidecarRebuildCount();
+  public long sidecarRebuildRows();
+  public long sidecarScratchCurrentBytes();
+  public long sidecarScratchHighWaterBytes();
   public java.lang.String lastOperation();
   public com.hgtech.soma.runtime.OperationOutcome lastOutcome();
   public java.lang.String lastErrorCode();

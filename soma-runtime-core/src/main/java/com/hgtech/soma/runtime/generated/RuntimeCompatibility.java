@@ -11,6 +11,11 @@ public final class RuntimeCompatibility {
     public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v1";
     public static final String PLAN_PROTOCOL = "soma-runtime-plan-v1";
     public static final String DENSE_ALGORITHM = "dense-soa-v1";
+    public static final String NO_ACCESS_STRATEGY = "none";
+    public static final String PRIMITIVE_SORTED_PERMUTATION =
+            "primitive-sorted-permutation-v1";
+    public static final String NO_SIDECAR_MAINTENANCE = "none";
+    public static final String DIRTY_LAZY_REBUILD = "dirty-lazy-rebuild-v1";
     public static final String ALLOCATION_ESTIMATOR = "soma-materialization-estimator-v1";
 
     private RuntimeCompatibility() {
@@ -43,6 +48,25 @@ public final class RuntimeCompatibility {
         require("runtime_plan_mismatch", metadata.algorithm(), tablePlan.algorithm(),
                 tableLogicalName + ".algorithm");
         return tablePlan;
+    }
+
+    public static TablePlan verifyAccess(TablePlan plan, boolean hasSelectors) {
+        String expectedStrategy = hasSelectors
+                ? PRIMITIVE_SORTED_PERMUTATION : NO_ACCESS_STRATEGY;
+        String expectedMaintenance = hasSelectors
+                ? DIRTY_LAZY_REBUILD : NO_SIDECAR_MAINTENANCE;
+        require("runtime_plan_mismatch", expectedStrategy,
+                plan.accessStrategy(), plan.tableLogicalName() + ".accessStrategy");
+        require("runtime_plan_mismatch", expectedMaintenance,
+                plan.sidecarMaintenancePolicy(),
+                plan.tableLogicalName() + ".sidecarMaintenancePolicy");
+        if (hasSelectors != (plan.maximumSidecarScratchBytes() > 0L)) {
+            throw RuntimeFailures.compatibilityMismatch(
+                    "runtime_plan_mismatch", hasSelectors ? "positive" : "0",
+                    Long.toString(plan.maximumSidecarScratchBytes()),
+                    plan.tableLogicalName() + ".maximumSidecarScratchBytes");
+        }
+        return plan;
     }
 
     private static void require(String code, String expected, String actual, String path) {

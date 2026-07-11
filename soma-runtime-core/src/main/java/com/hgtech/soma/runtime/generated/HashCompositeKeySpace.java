@@ -24,6 +24,27 @@ public final class HashCompositeKeySpace {
         if (expectedSize < 0) {
             throw new IllegalArgumentException("expectedSize must be non-negative");
         }
+        int capacity = capacityFor(expectedSize);
+        hashes = new long[capacity];
+        rows = new int[capacity];
+        states = new byte[capacity];
+    }
+
+    /** Conservative exact-shape peak for constructor arrays plus a possible final insert rehash. */
+    public static long estimatedPeakBytes(int expectedSize) {
+        int capacity = capacityFor(expectedSize);
+        boolean finalInsertRehash = expectedSize > 0
+                && 2L * (long) expectedSize >= (long) capacity;
+        long capacityUnits = finalInsertRehash
+                ? 3L * (long) capacity : (long) capacity;
+        long arrayHeaders = finalInsertRehash ? 96L : 48L;
+        return 13L * capacityUnits + arrayHeaders;
+    }
+
+    private static int capacityFor(int expectedSize) {
+        if (expectedSize < 0) {
+            throw new IllegalArgumentException("expectedSize must be non-negative");
+        }
         long required = Math.max(4L, 2L * (long) expectedSize);
         int capacity = 4;
         while (capacity < required) {
@@ -32,9 +53,7 @@ public final class HashCompositeKeySpace {
             }
             capacity <<= 1;
         }
-        hashes = new long[capacity];
-        rows = new int[capacity];
-        states = new byte[capacity];
+        return capacity;
     }
 
     public int size() {

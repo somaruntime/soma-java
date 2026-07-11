@@ -182,7 +182,8 @@ V1 codegen 必须把 normalized selector 转换成稳定的 generated source met
 规则：
 
 - `@SomaIndex` / `@SomaUnique` 的 source method 默认命名为 `findByXxx(...)`，返回该 table 的 generated `XxxRows`；
-- `@SomaOrder` 的 source method 默认命名为 `byXxx(...)`，返回同一 generated `XxxRows`；
+- `@SomaIndex` / `@SomaUnique` 的 exact source 参数覆盖完整 normalized selector；
+- `@SomaOrder` 的 source method 默认命名为 `byXxx(...)`，无参 overload 遍历整个 maintained order；selector 至少有两个 leaf 时，另生成一个同名 grouped overload，其参数覆盖除最后一个排序 leaf 外的最长 leading prefix，用于稳定的 group-local ordered traversal；
 - grouped source 的参数来自 normalized selector prefix；
 - 如果 selector prefix 正好覆盖一个 scalar/value field path 的全部 leaf，generated method 使用该 scalar/value type 作为参数；
 - 如果 selector prefix 不能映射为一个 scalar/value field path，generated method 使用 normalized leaf 参数顺序；

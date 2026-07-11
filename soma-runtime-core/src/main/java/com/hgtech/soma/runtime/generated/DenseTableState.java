@@ -25,6 +25,11 @@ public final class DenseTableState {
     private long growthCount;
     private long updateScratchCurrentBytes;
     private long updateScratchHighWaterBytes;
+    private long sidecarDirtyCount;
+    private long sidecarRebuildCount;
+    private long sidecarRebuildRows;
+    private long sidecarScratchCurrentBytes;
+    private long sidecarScratchHighWaterBytes;
     private String lastOperation = "";
     private OperationOutcome lastOutcome = OperationOutcome.NONE;
     private String lastErrorCode = "";
@@ -52,6 +57,7 @@ public final class DenseTableState {
     public long structuralEpoch() { return structuralEpoch; }
     public boolean isReleased() { return released; }
     public RuntimePlan runtimePlan() { return runtimePlan; }
+    public long sidecarRebuildCount() { return sidecarRebuildCount; }
 
     public long acquireView(String operation) {
         checkActive(operation);
@@ -121,6 +127,13 @@ public final class DenseTableState {
         activeOperation = "";
         record(operation, OperationOutcome.FAILED,
                 Objects.requireNonNull(errorCode, "errorCode"), scanned, matched, 0L);
+    }
+
+    /** Clears the operation guard when application code or a JVM Error must propagate unchanged. */
+    public void abortOperation(String operation) {
+        requireActiveOperation(operation);
+        operationActive = false;
+        activeOperation = "";
     }
 
     public int prepareAppend(int count) {
@@ -247,6 +260,36 @@ public final class DenseTableState {
         }
     }
 
+    public void sidecarsDirtied(long count) {
+        if (count < 0L || Long.MAX_VALUE - sidecarDirtyCount < count) {
+            throw RuntimeFailures.internalInvariant(
+                    "sidecar_dirty_stats", tableLogicalName, "sidecar.dirty");
+        }
+        sidecarDirtyCount += count;
+    }
+
+    public void sidecarRebuilt(long rows) {
+        if (rows < 0L || sidecarRebuildCount == Long.MAX_VALUE
+                || Long.MAX_VALUE - sidecarRebuildRows < rows) {
+            throw RuntimeFailures.internalInvariant(
+                    "sidecar_rebuild_stats", tableLogicalName, "sidecar.rebuild");
+        }
+        sidecarRebuildCount++;
+        sidecarRebuildRows += rows;
+    }
+
+    public void sidecarScratch(long currentBytes, long highWaterBytes) {
+        if (currentBytes < 0L || highWaterBytes < currentBytes
+                || highWaterBytes > tablePlan.maximumSidecarScratchBytes()) {
+            throw RuntimeFailures.internalInvariant(
+                    "sidecar_scratch_accounting", tableLogicalName, "sidecar.rebuild");
+        }
+        sidecarScratchCurrentBytes = currentBytes;
+        if (highWaterBytes > sidecarScratchHighWaterBytes) {
+            sidecarScratchHighWaterBytes = highWaterBytes;
+        }
+    }
+
     public UpdateResult updateResult(
             long scanned,
             long matched,
@@ -282,6 +325,11 @@ public final class DenseTableState {
                 growthCount,
                 updateScratchCurrentBytes,
                 updateScratchHighWaterBytes,
+                sidecarDirtyCount,
+                sidecarRebuildCount,
+                sidecarRebuildRows,
+                sidecarScratchCurrentBytes,
+                sidecarScratchHighWaterBytes,
                 lastOperation,
                 lastOutcome,
                 lastErrorCode,
@@ -291,12 +339,19 @@ public final class DenseTableState {
     }
 
     public void resetStats() {
+        if (operationActive) {
+            throw RuntimeFailures.reentrantAccess(
+                    tableLogicalName, activeOperation, "resetStats");
+        }
         lastOperation = "";
         lastOutcome = OperationOutcome.NONE;
         lastErrorCode = "";
         lastScanned = 0L;
         lastMatched = 0L;
         lastChanged = 0L;
+        sidecarDirtyCount = 0L;
+        sidecarRebuildCount = 0L;
+        sidecarRebuildRows = 0L;
     }
 
     private void requireStructural(String operation) {

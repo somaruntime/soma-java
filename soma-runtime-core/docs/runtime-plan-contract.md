@@ -59,12 +59,15 @@ TablePlan.toBuilder() -> TablePlan.Builder
 TablePlan.tableLogicalName/algorithm -> String
 TablePlan.initialCapacity/growthNumerator/growthDenominator -> int
 TablePlan.maximumUpdateScratchBytes -> long
+TablePlan.accessStrategy/sidecarMaintenancePolicy -> String
+TablePlan.maximumSidecarScratchBytes -> long
 TablePlan.Builder.initialCapacity(int)/growthRatio(int,int)/
-    maximumUpdateScratchBytes(long) -> Builder
+    maximumUpdateScratchBytes(long)/accessStrategy(String)/
+    sidecarMaintenancePolicy(String)/maximumSidecarScratchBytes(long) -> Builder
 TablePlan.Builder.build() -> TablePlan
 ```
 
-All parameters/getters are non-null. `requireTable` unknown name返回 `invalid_runtime_plan`；`tables()` 不返回 mutable internal map。Initial capacity > 0；growth numerator > denominator >= 1；maximum update scratch > 0。Schema-specific unknown/missing/inapplicable table在 generated `create` validation fail。
+All parameters/getters are non-null. `requireTable` unknown name返回 `invalid_runtime_plan`；`tables()` 不返回 mutable internal map。Initial capacity > 0；growth numerator > denominator >= 1；maximum update scratch > 0；maximum sidecar scratch >= 0。Generated `create` 对 selector table要求已支持的 access/policy identity和 positive sidecar bound，对 no-selector table要求 `none/none/0`。Schema-specific unknown/missing/inapplicable table在 generated `create` validation fail。
 
 V1 初始 identity/baseline：
 
@@ -78,6 +81,9 @@ V1 初始 identity/baseline：
 | unspecified dense initial capacity | `16` rows |
 | dense growth ratio | `3/2` with overflow-safe minimum-required clamp |
 | maximum update scratch | `268435456` bytes（256 MiB，checked preflight，可显式覆盖） |
+| no-selector access policy | `none` / `none` / `0` sidecar bytes |
+| selector access policy | `primitive-sorted-permutation-v1` + `dirty-lazy-rebuild-v1` |
+| maximum sidecar scratch | selector table 默认 `268435456` bytes（含 retained arrays 与 rebuild growth peak） |
 | default stats mode | `summary` |
 
 这些是 versioned effective plan facts，不是性能优势或永久调优结论。改变 baseline 必须产生新的 plan hash/evidence；改变不兼容 protocol/algorithm semantics 必须提升对应 identity。
@@ -195,7 +201,7 @@ Canonical plan 必须：
 - 区分 absent/inapplicable 与 explicit value；
 - 记录 protocol/algorithm/estimator identity。
 
-首个 canonical effective plan 使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。Root keys 固定为 `allocationEstimator`、`defaultMaterializationBudget`、`generatedProtocol`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`。Dense table entry 固定为 `algorithm`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`maximumUpdateScratchBytes`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
+首个 canonical effective plan 使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。Root keys 固定为 `allocationEstimator`、`defaultMaterializationBudget`、`generatedProtocol`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`。Dense table entry 固定为 `algorithm`、`accessStrategy`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`maximumUpdateScratchBytes`、`maximumSidecarScratchBytes`、`sidecarMaintenancePolicy`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
 
 `MaterializationBudget.identity()` 使用同一 canonical budget object与前缀 `soma-java:v1:materialization-budget\n` 的 lowercase SHA-256。Per-call override因此有稳定 identity但不改变 `runtimePlanHash`。
 

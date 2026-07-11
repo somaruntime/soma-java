@@ -1,0 +1,48 @@
+Compiled from "VisitTable.java"
+public final class com.example.soma.access.generated.VisitTable {
+  public static com.example.soma.access.generated.VisitTable create();
+  public static com.example.soma.access.generated.VisitTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void addBatch(com.example.soma.access.generated.VisitBatch);
+  public void replaceAll(com.example.soma.access.generated.VisitBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.access.Visit fetchAt(int);
+  public com.example.soma.access.Visit fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.access.Visit> materialize();
+  public java.util.List<com.example.soma.access.Visit> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean containsKey(com.example.soma.access.RoutePositionKey);
+  public java.util.Optional<com.example.soma.access.Visit> find(com.example.soma.access.RoutePositionKey);
+  public com.example.soma.access.Visit fetch(com.example.soma.access.RoutePositionKey);
+  public com.example.soma.access.generated.VisitMutator mutate(com.example.soma.access.RoutePositionKey);
+  public void delete(com.example.soma.access.RoutePositionKey);
+  public com.example.soma.access.generated.VisitKeys keys();
+  public com.example.soma.access.generated.VisitMutator mutateAt(int);
+  public com.example.soma.access.generated.VisitRows rows();
+  public com.example.soma.access.generated.VisitRows filter(com.example.soma.access.generated.VisitRows$Predicate);
+  public com.example.soma.access.generated.VisitRows skip(long);
+  public com.example.soma.access.generated.VisitRows limit(long);
+  public com.example.soma.access.generated.VisitRows sorted(com.example.soma.access.generated.VisitRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.access.generated.VisitRows$Predicate);
+  public boolean noneMatch(com.example.soma.access.generated.VisitRows$Predicate);
+  public void forEach(com.example.soma.access.generated.VisitRows$Consumer);
+  public java.util.Optional<com.example.soma.access.Visit> findFirst();
+  public com.example.soma.access.Visit firstOrThrow();
+  public java.util.List<com.example.soma.access.Visit> fetchAll();
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.VisitRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+  public com.example.soma.access.generated.VisitRows findByRoute(com.example.soma.access.RouteId);
+  public com.example.soma.access.generated.VisitRows byRoutePosition();
+  public com.example.soma.access.generated.VisitRows byRoutePosition(com.example.soma.access.RouteId);
+  public com.hgtech.soma.runtime.IntColumnPipeline payloadValues();
+  public com.hgtech.soma.runtime.IntColumnView payloadColumn();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}

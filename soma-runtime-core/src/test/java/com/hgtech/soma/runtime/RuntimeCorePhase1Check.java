@@ -3,11 +3,13 @@ package com.hgtech.soma.runtime;
 import com.hgtech.soma.runtime.generated.ColumnGroup;
 import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.GeneratedMetadata;
+import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.runtime.generated.IntColumn;
 import com.hgtech.soma.runtime.generated.LongColumn;
 import com.hgtech.soma.runtime.generated.MaterializationTracker;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
+import com.hgtech.soma.runtime.generated.RowPermutationSidecar;
 
 import java.util.Locale;
 import java.util.Random;
@@ -27,6 +29,10 @@ public final class RuntimeCorePhase1Check {
         testViewLifecycleState();
         testPresenceBitmapAgainstOracle();
         testMaterializationBudget();
+        testSidecarProtocolAndStats();
+        assertTrue(HashCompositeKeySpace.estimatedPeakBytes(1024)
+                        > 40L * 1024L,
+                "composite hash peak estimator includes final rehash coexistence");
         testBoundedFailureEnvelope();
         expectCode("empty_result", new ThrowingRunnable() {
             @Override
@@ -67,6 +73,7 @@ public final class RuntimeCorePhase1Check {
         RuntimePlan plan = defaultPlan();
         TablePlan table = RuntimeCompatibility.verify(metadata("schema-v1"), plan, "Order");
         assertEquals("Order", table.tableLogicalName(), "verified table identity");
+        RuntimeCompatibility.verifyAccess(table, false);
 
         RuntimePlan mismatch = RuntimePlan.builder(
                 "schema-v2",
@@ -180,6 +187,53 @@ public final class RuntimeCorePhase1Check {
             }
             assertEquals(expectedCount, bitmap.presentCount(), "presence count");
         }
+    }
+
+    private static void testSidecarProtocolAndStats() {
+        RowPermutationSidecar sidecar = new RowPermutationSidecar();
+        assertTrue(sidecar.isDirty(), "new sidecar dirty");
+        int[] staged = sidecar.stage(3);
+        staged[0] = 2;
+        staged[1] = 0;
+        staged[2] = 1;
+        sidecar.commit(staged, 3);
+        assertFalse(sidecar.isDirty(), "committed sidecar current");
+        assertEquals(2, sidecar.rowAt(0), "sidecar permutation");
+        sidecar.markDirty();
+        assertTrue(sidecar.isDirty(), "sidecar dirty transition");
+        assertTrue(staged == sidecar.stage(2), "dirty rebuild reuses permutation high-water");
+        int[] scratch = sidecar.scratch(3);
+        assertTrue(scratch == sidecar.scratch(2), "sidecar sort scratch high-water reuse");
+        assertEquals(24L, sidecar.retainedBytes(), "sidecar retained primitive bytes");
+        assertEquals(24L, sidecar.rebuildPeakBytes(3), "same-size rebuild peak");
+        sidecar.clear();
+        assertEquals(0, sidecar.size(), "sidecar clear");
+        sidecar.markDirty();
+        assertTrue(staged == sidecar.stage(3), "clear retains sidecar capacity");
+        sidecar.release();
+        assertTrue(staged != sidecar.stage(3), "release drops retained permutation");
+        assertTrue(scratch != sidecar.scratch(3), "release drops retained scratch");
+
+        IntColumn value = new IntColumn();
+        ColumnGroup columns = new ColumnGroup(2, value);
+        RuntimePlan plan = accessPlan();
+        DenseTableState state = new DenseTableState(
+                "Order", plan, plan.requireTable("Order"), columns);
+        RuntimeCompatibility.verifyAccess(plan.requireTable("Order"), true);
+        state.sidecarScratch(24L, 48L);
+        state.sidecarsDirtied(2L);
+        state.sidecarRebuilt(7L);
+        TableStats stats = state.statsSnapshot();
+        assertEquals(2L, stats.sidecarDirtyCount(), "sidecar dirty stats");
+        assertEquals(1L, stats.sidecarRebuildCount(), "sidecar rebuild stats");
+        assertEquals(7L, stats.sidecarRebuildRows(), "sidecar rebuild row stats");
+        assertEquals(24L, stats.sidecarScratchCurrentBytes(),
+                "sidecar scratch current stats");
+        assertEquals(48L, stats.sidecarScratchHighWaterBytes(),
+                "sidecar scratch high-water stats");
+        state.resetStats();
+        assertEquals(0L, state.statsSnapshot().sidecarRebuildCount(),
+                "sidecar stats reset");
     }
 
     private static void testStructuralRemoveStateTransition() {
@@ -307,6 +361,21 @@ public final class RuntimeCorePhase1Check {
 
     private static TablePlan defaultTablePlan() {
         return TablePlan.builder("Order", RuntimeCompatibility.DENSE_ALGORITHM).build();
+    }
+
+    private static RuntimePlan accessPlan() {
+        return RuntimePlan.builder(
+                "schema-v1",
+                RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                RuntimeCompatibility.GENERATED_PROTOCOL,
+                RuntimeCompatibility.PLAN_PROTOCOL,
+                RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(TablePlan.builder("Order", RuntimeCompatibility.DENSE_ALGORITHM)
+                        .accessStrategy(RuntimeCompatibility.PRIMITIVE_SORTED_PERMUTATION)
+                        .sidecarMaintenancePolicy(RuntimeCompatibility.DIRTY_LAZY_REBUILD)
+                        .maximumSidecarScratchBytes(1024L)
+                        .build())
+                .build();
     }
 
     private static GeneratedMetadata metadata(String schemaHash) {

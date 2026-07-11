@@ -4,8 +4,8 @@
 更新日期：2026-07-11
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 repository baseline：`af8ba51`
-当前 checkpoint：Phase 3 access structures / selector normalization
+当前 repository baseline：`03b5bf8`
+当前 checkpoint：Phase 3 access structures（连续实施中；阶段末集中验证/修复/报告/提交）
 
 本文件是可恢复的执行状态与审计入口，不是设计事实源。产品语义仍只来自 `docs/README.md` 及各 module formal Owner；Capability/Gate 定义仍只来自 implementation strategy/validation gates。
 
@@ -23,7 +23,7 @@ Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 | P2-B-S3 enum + semantic keyed binding | completed | commit `8d64122`；required enum static ordinal binding、enum Pipeline/View、DATE/TIME/DATE_TIME primitive semantic key external consumer；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B-4a scalar value key | completed | commit `f013bc1`；single-leaf immutable `@SomaValue` 直接绑定 primitive column/KeySpace，Batch/import 无 value allocation；是 P2-B additive completion，不关闭 Phase 2 |
 | P2-B keyed identity breadth / Key Pipeline | completed | commit `af8ba51`；flat/nested primitive、String、enum value leaves递归 flatten，generated full equality/hash、collision/compaction、staged atomic import、external consumer和完整 `check.sh` evidence；Capability仍待 Phase 5/G2/G3 closeout |
-| Phase 3 access structures | in-progress | selector normalization、index/unique/order/grouped source/sidecar |
+| Phase 3 access structures | in-progress | annotation + selector normalization、generated typed/grouped source、primitive maintained index/unique/order sidecar、unique pre-publish validation、strict floating、dirty/rebuild stats已进入同一连续实施；待阶段末集中 validation/closeout |
 | Phase 4 child ownership | pending | child forest/cascade/replacement/recursive materialization |
 | Phase 5 full breadth + G1-G4 | pending | annotation/processor/codegen/runtime/incremental/compatibility closeout |
 | Phase 6 examples/benchmark/release + G5-G6 | pending | formal scenarios、Access Pattern Cards、JSONL benchmark、package、License/SCM/contact/provenance/reproducibility/support matrix |
@@ -38,9 +38,8 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 | 顺序 | 切片 | 最终出口 | 明确保留的后续 breadth |
 |---|---|---|---|
 | P2-B-4 | value/composite identity | completed：single/multi/nested primitive、String、enum value leaf flatten、generated static equality/hash、无 transient tuple lookup/compaction/Key Pipeline和staged atomic import | P3–P6 全部项 |
-| P3-A | selector normalization + access API | selector path、generated source name/argument contract、invalid selector diagnostics | maintained index/unique/order runtime sidecar |
-| P3-B | index / unique | static primitive leaf binding、duplicate conflict、row move and batch atomicity | order sidecar/grouped source |
-| P3-C | order / grouped source | dirty/rebuild sidecar、stable ordered Row Pipeline、grouped selector entry | child aggregate |
+| P3 implementation | access structures完整实施 | selector normalization、typed/grouped source、index/unique/order sidecar、strict access、mutation/row-move/lifecycle/stats | P4–P6 全部项；本阶段不拆成独立版本或等待点 |
+| P3 closeout | 集中验证与修复 | compile/diagnostic/schema/public/generated/runtime/external consumer/shape/check.sh evidence、V1 non-regression、提交 | P4–P6 全部项 |
 | P4-A | child handle ownership | List/Map child creation、forest/reparent/cascade/replacement lifecycle | recursive detached projection |
 | P4-B | recursive materialization | budget/path/all-or-nothing subtree projection | remaining field/default/processor breadth |
 | P5-A | field/codegen breadth | string、value field、optional enum/value、defaults、direct/Writer final shape | incremental/diagnostic and compatibility closeout |
@@ -51,7 +50,7 @@ Phase 0-6 不是版本、MVP 或独立 Goal。任何 checkpoint completed 都不
 
 ## 2. Capability status
 
-当前 19 项 Capability 为 `in-progress`，没有任何一项因垂直切片而被错误标记 completed。Phase 0 已进入的八项保持 `in-progress`：
+当前 20 项 Capability 为 `in-progress`，没有任何一项因垂直切片而被错误标记 completed。Phase 0 已进入的八项保持 `in-progress`：
 
 - `V1-ANNOTATION-SCHEMA`；
 - `V1-COMPILER-LOWERING`；
@@ -68,7 +67,7 @@ Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`�
 - `V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`。
 - `V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`。
 
-其余四项仍为 `not-started`，并全部保留原完整出口：`V1-ACCESS-STRUCTURES`、`V1-CHILD-OWNERSHIP`、`V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE`。
+`V1-ACCESS-STRUCTURES` 已由 Phase 3 从 `not-started` 推进为 `in-progress`。其余三项仍为 `not-started`，并全部保留原完整出口：`V1-CHILD-OWNERSHIP`、`V1-SCENARIO-BENCHMARK`、`V1-RELEASE-EVIDENCE`。
 
 ## 3. Gate status
 
@@ -92,15 +91,15 @@ Phase 1 与 P2-A 已把以下十一项从 `not-started` 推进为 `in-progress`�
 
 已完成 vertical slice：P1-S4 dense shape evidence。external consumer 以 fixed-seed randomized `ArrayList` detached oracle交叉验证 update/remove/packed stable survivor order/sorted result；JDK 8 per-thread allocation counter验证 warmup 后同 terminal 的 allocation 不随 32→512 rows线性增长；generated source/bytecode evidence拒绝 Stream、boxing factory、Iterator、object/boxed row-index array和 loop-local Cursor。以上均是本机结构证据，不构成性能优越或跨平台 claim。
 
-当前 vertical slice：P3-A selector normalization + access source API。
+当前 checkpoint：Phase 3 access structures 连续实施。按当前加速策略，P3 内不再在 selector/index/unique/order 子项之间设置等待确认；实现主体连续完成后，统一进入 Phase 3 closeout validation/fix/report/commit。
 
 涉及 Capability：`V1-ANNOTATION-SCHEMA`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-GENERATED-API`、`V1-ACCESS-STRUCTURES`、`V1-ROW-PIPELINE`、`V1-RUNTIME-ERRORS`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`；其他 Capability 状态不回退。
 
 唯一 Owner：annotation schema contract拥有 selector declaration；schema processing/code generation contract拥有 normalization、path/name resolution和static binding；Generated Table API contract拥有 typed source signature；TableStore/errors/performance Owner分别拥有 AccessStructure material、failure和hot-path shape；testkit拥有 compile/golden/runtime evidence，不形成联合 Owner。
 
-Slice exit：完整收集并规范化 index/unique/order selector path，解析 value leaf与grouped selector参数，生成最终 typed source命名/signature，并对invalid path、重复name、API collision给出稳定diagnostic；runtime sidecar留给P3-B/P3-C additive接入，不生成temporary scan API。
+Phase exit：完整收集并规范化 index/unique/order selector path，解析 scalar、enum、flat/nested value grouped参数，生成最终 typed source命名/signature；index/unique 使用 maintained primitive permutation + binary candidate range，order使用 maintained primitive permutation；unique在 visible mutation 前以 primitive hash staging验证；structural/field mutation按依赖精确dirty，terminal前atomic rebuild并记录dirty/rebuild stats；invalid path、重复name、API collision给出稳定diagnostic。不得生成temporary scan API。
 
-仍保留的 V1 breadth：index/unique/order runtime sidecar、string/optional enum/value/default、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate。
+仍保留的 V1 breadth：string/optional enum/value/default余量、child ownership、recursive materialization、formal examples/benchmark/package/release/support matrix，全部仍在原 Phase/Gate；Phase 3 closeout前不会把未验证 access breadth标记完成。
 
 禁止捷径：generic object pipeline、Stream/boxing/per-row cursor allocation、`List<Row>` live storage、temporary column API、以 fetch/materialize 替代 column path、用 snapshot/list 伪装 ColumnView、用 synthetic micro-test 代替 differential/bytecode/allocation evidence、绕过 active-view structural pin、逐 row live update后回滚、以本机通过冒充 Gate/RC。
 

@@ -1,0 +1,46 @@
+Compiled from "UniquePositionTable.java"
+public final class com.example.soma.access.generated.UniquePositionTable {
+  public static com.example.soma.access.generated.UniquePositionTable create();
+  public static com.example.soma.access.generated.UniquePositionTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void addBatch(com.example.soma.access.generated.UniquePositionBatch);
+  public void replaceAll(com.example.soma.access.generated.UniquePositionBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.access.UniquePosition fetchAt(int);
+  public com.example.soma.access.UniquePosition fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.access.UniquePosition> materialize();
+  public java.util.List<com.example.soma.access.UniquePosition> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public boolean containsKey(int);
+  public java.util.Optional<com.example.soma.access.UniquePosition> find(int);
+  public com.example.soma.access.UniquePosition fetch(int);
+  public com.example.soma.access.generated.UniquePositionMutator mutate(int);
+  public void delete(int);
+  public com.example.soma.access.generated.UniquePositionKeys keys();
+  public com.example.soma.access.generated.UniquePositionMutator mutateAt(int);
+  public com.example.soma.access.generated.UniquePositionRows rows();
+  public com.example.soma.access.generated.UniquePositionRows filter(com.example.soma.access.generated.UniquePositionRows$Predicate);
+  public com.example.soma.access.generated.UniquePositionRows skip(long);
+  public com.example.soma.access.generated.UniquePositionRows limit(long);
+  public com.example.soma.access.generated.UniquePositionRows sorted(com.example.soma.access.generated.UniquePositionRows$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.access.generated.UniquePositionRows$Predicate);
+  public boolean noneMatch(com.example.soma.access.generated.UniquePositionRows$Predicate);
+  public void forEach(com.example.soma.access.generated.UniquePositionRows$Consumer);
+  public java.util.Optional<com.example.soma.access.UniquePosition> findFirst();
+  public com.example.soma.access.UniquePosition firstOrThrow();
+  public java.util.List<com.example.soma.access.UniquePosition> fetchAll();
+  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.UniquePositionRows$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+  public com.example.soma.access.generated.UniquePositionRows findByPositionKey(com.example.soma.access.RoutePositionKey);
+  public com.hgtech.soma.runtime.IntColumnPipeline idValues();
+  public com.hgtech.soma.runtime.IntColumnView idColumn();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}

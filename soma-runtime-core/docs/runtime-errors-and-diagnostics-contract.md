@@ -167,6 +167,12 @@ Snapshot 必须 immutable、self-consistent，并记录：
 
 首个 dense slice 固化 `OperationOutcome { NONE, SUCCESS, FAILED }` 与 immutable `com.hgtech.soma.runtime.TableStats`，由 generated `XxxTable.statsSnapshot()` 返回。Exact getters：`String schemaHash()`、`runtimeCompatibility()`、`runtimePlanHash()`、`lastOperation()`、`lastErrorCode()`；`StatsMode statsMode()`；`int rows()`、`capacity()`、`activeViews()`；`long structuralEpoch()`、`growthCount()`、`updateScratchCurrentBytes()`、`updateScratchHighWaterBytes()`、`lastScanned()`、`lastMatched()`、`lastChanged()`；`boolean released()`；`OperationOutcome lastOutcome()`。String均 non-null；无 last operation/error使用 empty string。后续 key/sidecar/child/materialization stats additive增加，不重命名或改变单位。
 
+Phase 3 additive 固化 `long sidecarDirtyCount()`、`sidecarRebuildCount()` 和 `sidecarRebuildRows()`。`sidecarDirtyCount` 只累计 clean/current -> dirty 的 distinct sidecar transition；已经 dirty 时重复 mutation 不重复累计。`sidecarRebuildCount` 每次 detached staged permutation 成功 publish 后加一，`sidecarRebuildRows` 累计该次 full rebuild 覆盖的 live row 数；failed rebuild 不累计。`resetStats()` 同时清零这三个 lifetime-since-reset counter，不改变 sidecar clean/dirty/current facts。
+
+Phase 3 同时 additive 固化 `long sidecarScratchCurrentBytes()` 与 `sidecarScratchHighWaterBytes()`。Current 是全部 selector sidecar 当前 retained permutation + merge scratch primitive arrays；high-water 还覆盖 rebuild growth 时 old/new arrays 瞬时共存的 checked peak。`clear` 保留 current，`release` 将 current 归零；high-water 是 instance lifetime resource fact，不因 `resetStats()` 丢失。
+
+`resetStats()` 是 table operation boundary，不允许从 active Row Pipeline callback/terminal 内重入；否则返回 `reentrant_access`（若发生在 callback 中，由 callback boundary包装为 `callback_failed`），且任何 counter都不得被部分清零。
+
 `TableStats` constructor private；public static `create(...)` 按上述 getter顺序接收全部 identity/state/last-operation字段并返回 validated immutable snapshot，供 generated-runtime protocol构造。`UpdateResult` 同样使用 private constructor + public static `create(scanned,matched,changed,sidecarMaintained,sidecarRebuilt)`；negative或不满足 `changed <= matched <= scanned` 的输入 fail fast。
 
 Success terminal记录实际 scanned/matched/committed changed。Callback/runtime failure记录 attempted scanned/matched、`lastChanged=0`、outcome FAILED与 stable error code；expected validation在 traversal前失败时 scanned/matched/changed均为零。`statsSnapshot()`、`runtimePlan()`、`isReleased()` 是 release后的只读 diagnostic exception：仍可调用以观察 terminal state；所有 data/pipeline/mutation/materialization access继续返回 `table_released`。

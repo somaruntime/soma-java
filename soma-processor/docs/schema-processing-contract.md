@@ -270,6 +270,8 @@ Table/codegen family additive 分配：
 | `SOMA-TABLE-005` | table field type/optional materialized type unsupported |
 | `SOMA-TABLE-006` | public no-arg construction or public mutable field shape invalid |
 | `SOMA-TABLE-007` | default capacity/runtime-plan hint invalid |
+| `SOMA-TABLE-008` | table key cardinality/type/requiredness invalid |
+| `SOMA-TABLE-009` | index/unique/order name、selector leaf、direction 或 access binding invalid |
 | `SOMA-GEN-001` | generated public name/signature collision |
 | `SOMA-GEN-002` | deterministic generated source emission failed |
 

@@ -43,6 +43,17 @@ compile_failure table-optional-primitive SOMA-TABLE-005
 compile_failure table-checked-constructor SOMA-TABLE-006
 compile_failure table-capacity SOMA-TABLE-007
 compile_failure table-generated-collision SOMA-GEN-001
+compile_failure table-invalid-selector SOMA-TABLE-009
+compile_failure table-selector-placement SOMA-TABLE-009
+compile_failure table-selector-string SOMA-TABLE-009
+compile_failure table-selector-collision SOMA-GEN-001
+
+grep -F 'selector annotations are only valid on @SomaTable types' \
+  "$evidence_dir/table-selector-placement.log" >/dev/null
+grep -F 'selector path resolves to unsupported string leaf: label.value' \
+  "$evidence_dir/table-selector-string.log" >/dev/null
+grep -F 'selector path is optional and cannot be indexed: optionalValue' \
+  "$evidence_dir/table-invalid-selector.log" >/dev/null
 
 if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' \
   "$evidence_dir"/*.log >/dev/null; then

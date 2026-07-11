@@ -1,16 +1,25 @@
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaIgnore;
+import com.hgtech.soma.annotation.SomaIndex;
+import com.hgtech.soma.annotation.SomaIndexes;
 import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
+import com.hgtech.soma.annotation.SomaOrder;
+import com.hgtech.soma.annotation.SomaOrders;
 import com.hgtech.soma.annotation.SomaSchema;
 import com.hgtech.soma.annotation.SomaSemantic;
+import com.hgtech.soma.annotation.SomaSort;
 import com.hgtech.soma.annotation.SomaTable;
+import com.hgtech.soma.annotation.SomaUnique;
+import com.hgtech.soma.annotation.SomaUniques;
 import com.hgtech.soma.annotation.SomaValue;
+import com.hgtech.soma.annotation.SomaDirection;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Repeatable;
 import java.lang.annotation.Target;
 import java.util.Arrays;
 
@@ -26,6 +35,28 @@ public final class AnnotationContractConsumer {
         assertAnnotation(SomaKey.class, ElementType.FIELD);
         assertAnnotation(SomaOptional.class, ElementType.FIELD);
         assertAnnotation(SomaTable.class, ElementType.TYPE);
+        assertAnnotation(SomaIndex.class, ElementType.TYPE);
+        assertAnnotation(SomaIndexes.class, ElementType.TYPE);
+        assertAnnotation(SomaUnique.class, ElementType.TYPE);
+        assertAnnotation(SomaUniques.class, ElementType.TYPE);
+        assertAnnotation(SomaOrder.class, ElementType.TYPE);
+        assertAnnotation(SomaOrders.class, ElementType.TYPE);
+        assertAnnotation(SomaSort.class, ElementType.ANNOTATION_TYPE);
+
+        require(SomaIndex.class.getAnnotation(Repeatable.class).value() == SomaIndexes.class,
+                "SomaIndex repeatable container");
+        require(SomaUnique.class.getAnnotation(Repeatable.class).value() == SomaUniques.class,
+                "SomaUnique repeatable container");
+        require(SomaOrder.class.getAnnotation(Repeatable.class).value() == SomaOrders.class,
+                "SomaOrder repeatable container");
+        require("".equals(SomaIndex.class.getMethod("value").getDefaultValue())
+                        && "".equals(SomaIndex.class.getMethod("name").getDefaultValue()),
+                "SomaIndex aliases");
+        require(SomaIndex.class.getMethod("fields").getDefaultValue() == null,
+                "SomaIndex.fields required");
+        require(SomaDirection.ASC.equals(
+                SomaSort.class.getMethod("direction").getDefaultValue()),
+                "SomaSort.direction default");
 
         require("".equals(SomaTable.class.getMethod("name").getDefaultValue()),
                 "SomaTable.name default");

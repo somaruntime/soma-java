@@ -2,11 +2,18 @@ package com.hgtech.soma.processor;
 
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaIgnore;
+import com.hgtech.soma.annotation.SomaIndex;
+import com.hgtech.soma.annotation.SomaIndexes;
 import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
+import com.hgtech.soma.annotation.SomaOrder;
+import com.hgtech.soma.annotation.SomaOrders;
 import com.hgtech.soma.annotation.SomaSchema;
 import com.hgtech.soma.annotation.SomaSemantic;
+import com.hgtech.soma.annotation.SomaSort;
 import com.hgtech.soma.annotation.SomaTable;
+import com.hgtech.soma.annotation.SomaUnique;
+import com.hgtech.soma.annotation.SomaUniques;
 import com.hgtech.soma.annotation.SomaValue;
 import com.hgtech.soma.processor.internal.CompilerProtocol;
 
@@ -59,7 +66,13 @@ import java.util.TreeMap;
         "com.hgtech.soma.annotation.SomaValue",
         "com.hgtech.soma.annotation.SomaTable",
         "com.hgtech.soma.annotation.SomaKey",
-        "com.hgtech.soma.annotation.SomaOptional"
+        "com.hgtech.soma.annotation.SomaOptional",
+        "com.hgtech.soma.annotation.SomaIndex",
+        "com.hgtech.soma.annotation.SomaIndexes",
+        "com.hgtech.soma.annotation.SomaUnique",
+        "com.hgtech.soma.annotation.SomaUniques",
+        "com.hgtech.soma.annotation.SomaOrder",
+        "com.hgtech.soma.annotation.SomaOrders"
 })
 public final class SomaProcessor extends AbstractProcessor {
     private static final char[] LOWER_HEX = "0123456789abcdef".toCharArray();
@@ -70,6 +83,7 @@ public final class SomaProcessor extends AbstractProcessor {
     private final Map<String, TypeElement> tables = new LinkedHashMap<String, TypeElement>();
     private final Map<String, PackageElement> schemaPackages =
             new LinkedHashMap<String, PackageElement>();
+    private final Set<Element> invalidSelectorOwners = new HashSet<Element>();
     private boolean finished;
     private boolean hasErrors;
     private boolean activationValid;
@@ -110,6 +124,12 @@ public final class SomaProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnvironment) {
+        validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaIndex.class));
+        validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaIndexes.class));
+        validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaUnique.class));
+        validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaUniques.class));
+        validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaOrder.class));
+        validateSelectorPlacement(roundEnvironment.getElementsAnnotatedWith(SomaOrders.class));
         for (Element element : roundEnvironment.getElementsAnnotatedWith(SomaValue.class)) {
             if (element instanceof TypeElement) {
                 TypeElement type = (TypeElement) element;
@@ -135,6 +155,15 @@ public final class SomaProcessor extends AbstractProcessor {
             finishProcessing();
         }
         return false;
+    }
+
+    private void validateSelectorPlacement(Set<? extends Element> elements) {
+        for (Element element : elements) {
+            if (element.getAnnotation(SomaTable.class) != null
+                    || !invalidSelectorOwners.add(element)) continue;
+            error(element, "SOMA-TABLE-009",
+                    "selector annotations are only valid on @SomaTable types");
+        }
     }
 
     private void finishProcessing() {
@@ -225,7 +254,6 @@ public final class SomaProcessor extends AbstractProcessor {
                     "@SomaTable must be a public non-abstract non-generic top-level class");
             valid = false;
         }
-
         SomaTable annotation = type.getAnnotation(SomaTable.class);
         String logicalName = annotation.name().isEmpty()
                 ? type.getSimpleName().toString() : annotation.name();
@@ -312,7 +340,7 @@ public final class SomaProcessor extends AbstractProcessor {
                     field.asType(), optional != null, key, validatedValues);
             if (tableType == null) {
                 error(field, "SOMA-TABLE-005",
-                        "current table binding supports required primitive/enum fields "
+                        "table binding supports required primitive/enum/value fields "
                                 + "and optional boxed primitives: "
                                 + field.asType());
                 valid = false;
@@ -357,8 +385,141 @@ public final class SomaProcessor extends AbstractProcessor {
             error(type, "SOMA-TABLE-008", "@SomaTable permits exactly one @SomaKey field");
             valid = false;
         }
+        List<SelectorModel> selectors = validateSelectors(type, fields);
+        if (selectors == null) {
+            valid = false;
+            selectors = new ArrayList<SelectorModel>();
+        }
+        for (SelectorModel selector : selectors) {
+            if (!generatedAccessNames.add(selector.generatedMethodName())) {
+                error(type, "SOMA-GEN-001",
+                        "generated selector access name collision: "
+                                + selector.generatedMethodName());
+                valid = false;
+            }
+        }
         return valid ? new TableModel(type, type.getQualifiedName().toString(),
-                type.getSimpleName().toString(), logicalName, defaultCapacity, fields) : null;
+                type.getSimpleName().toString(), logicalName, defaultCapacity,
+                fields, selectors) : null;
+    }
+
+    private List<SelectorModel> validateSelectors(
+            TypeElement table, List<TableFieldModel> fields) {
+        List<SelectorModel> result = new ArrayList<SelectorModel>();
+        Set<String> names = new LinkedHashSet<String>();
+        boolean valid = true;
+        for (SomaIndex index : table.getAnnotationsByType(SomaIndex.class)) {
+            SelectorModel selector = selector(table, "index", index.value(),
+                    index.name(), index.fields(), null, fields, names);
+            if (selector == null) valid = false; else result.add(selector);
+        }
+        for (SomaUnique unique : table.getAnnotationsByType(SomaUnique.class)) {
+            SelectorModel selector = selector(table, "unique", unique.value(),
+                    unique.name(), unique.fields(), null, fields, names);
+            if (selector == null) valid = false; else result.add(selector);
+        }
+        for (SomaOrder order : table.getAnnotationsByType(SomaOrder.class)) {
+            SomaSort[] by = order.by();
+            String[] paths = new String[by.length];
+            String[] directions = new String[by.length];
+            for (int i = 0; i < by.length; i++) {
+                paths[i] = by[i].value();
+                directions[i] = by[i].direction().name();
+            }
+            SelectorModel selector = selector(table, "order", order.value(),
+                    order.name(), paths, directions, fields, names);
+            if (selector == null) valid = false; else result.add(selector);
+        }
+        return valid ? result : null;
+    }
+
+    private SelectorModel selector(
+            TypeElement table, String kind, String alias, String declaredName,
+            String[] paths, String[] directions, List<TableFieldModel> fields,
+            Set<String> names) {
+        String name = declaredName.isEmpty() ? alias : declaredName;
+        boolean valid = true;
+        if (!alias.isEmpty() && !declaredName.isEmpty() && !alias.equals(declaredName)) {
+            error(table, "SOMA-TABLE-009", "selector value/name alias mismatch");
+            valid = false;
+        }
+        if (name.isEmpty() || name.length() > 128
+                || !name.matches("[A-Za-z][A-Za-z0-9_]*") || !names.add(name)) {
+            error(table, "SOMA-TABLE-009",
+                    "invalid or duplicate selector name: " + name);
+            valid = false;
+        }
+        if (paths.length == 0) {
+            error(table, "SOMA-TABLE-009", "selector requires at least one leaf path: " + name);
+            valid = false;
+        }
+        List<SelectorLeafModel> leaves = new ArrayList<SelectorLeafModel>();
+        Set<String> seenPaths = new LinkedHashSet<String>();
+        for (int i = 0; i < paths.length; i++) {
+            String path = paths[i];
+            SelectorLeafModel leaf = resolveSelectorLeaf(fields, path,
+                    directions == null ? "ASC" : directions[i]);
+            if (leaf == null) {
+                error(table, "SOMA-TABLE-009", selectorLeafFailure(fields, path));
+                valid = false;
+            } else if (!seenPaths.add(path)) {
+                error(table, "SOMA-TABLE-009", "duplicate selector leaf path: " + path);
+                valid = false;
+            } else {
+                leaves.add(leaf);
+            }
+        }
+        return valid ? new SelectorModel(kind, name, leaves) : null;
+    }
+
+    private SelectorLeafModel resolveSelectorLeaf(
+            List<TableFieldModel> fields, String path, String direction) {
+        for (TableFieldModel field : fields) {
+            if (field.optional) continue;
+            if (field.type.valueJavaType == null) {
+                if (field.logicalName.equals(path)
+                        && !"java.lang.String".equals(field.type.storagePrimitiveName)) {
+                    return new SelectorLeafModel(path, direction,
+                            field.type.publicType, field.type.storagePrimitiveName,
+                            field.type.enumJavaType);
+                }
+                continue;
+            }
+            for (ValueLeafType leaf : field.type.valueLeaves) {
+                if ((field.logicalName + "." + leaf.logicalName).equals(path)
+                        && !"java.lang.String".equals(leaf.storagePrimitiveName)) {
+                    return new SelectorLeafModel(path, direction,
+                            leaf.publicPrimitiveName, leaf.storagePrimitiveName,
+                            leaf.enumJavaType);
+                }
+            }
+        }
+        return null;
+    }
+
+    private String selectorLeafFailure(
+            List<TableFieldModel> fields, String path) {
+        List<String> candidates = new ArrayList<String>();
+        for (TableFieldModel field : fields) {
+            candidates.add(field.logicalName);
+            if (field.logicalName.equals(path) && field.optional) {
+                return "selector path is optional and cannot be indexed: " + path;
+            }
+            if (field.logicalName.equals(path)
+                    && "java.lang.String".equals(field.type.storagePrimitiveName)) {
+                return "selector path resolves to unsupported string leaf: " + path;
+            }
+            for (ValueLeafType leaf : field.type.valueLeaves) {
+                String candidate = field.logicalName + "." + leaf.logicalName;
+                candidates.add(candidate);
+                if (candidate.equals(path)
+                        && "java.lang.String".equals(leaf.storagePrimitiveName)) {
+                    return "selector path resolves to unsupported string leaf: " + path;
+                }
+            }
+        }
+        return "invalid selector leaf path: " + path
+                + "; candidates=" + candidates;
     }
 
     private boolean registerGeneratedAccessNames(
@@ -432,7 +593,7 @@ public final class SomaProcessor extends AbstractProcessor {
         if (!optional && type.getKind() == ElementKind.ENUM) {
             return TableFieldType.forEnum(type, enumModel(type));
         }
-        if (!optional && key && type.getAnnotation(SomaValue.class) != null) {
+        if (!optional && type.getAnnotation(SomaValue.class) != null) {
             ValueModel value = validatedValues.get(type.getQualifiedName().toString());
             return value == null ? null
                     : TableFieldType.forFlattenedValue(value, validatedValues);
@@ -545,6 +706,13 @@ public final class SomaProcessor extends AbstractProcessor {
                 || !type.getTypeParameters().isEmpty()) {
             error(type, "SOMA-VALUE-001",
                     "lowered @SomaValue must be a public final non-generic top-level class");
+            valid = false;
+        }
+        if (type.getAnnotationsByType(SomaIndex.class).length != 0
+                || type.getAnnotationsByType(SomaUnique.class).length != 0
+                || type.getAnnotationsByType(SomaOrder.class).length != 0) {
+            error(type, "SOMA-VALUE-003",
+                    "@SomaValue cannot declare table access selectors");
             valid = false;
         }
 
@@ -1056,16 +1224,19 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String logicalName;
         private final int defaultCapacity;
         private final List<TableFieldModel> fields;
+        private final List<SelectorModel> selectors;
 
         private TableModel(TypeElement origin, String javaType, String simpleName,
                            String logicalName, int defaultCapacity,
-                           List<TableFieldModel> fields) {
+                           List<TableFieldModel> fields,
+                           List<SelectorModel> selectors) {
             this.origin = origin;
             this.javaType = javaType;
             this.simpleName = simpleName;
             this.logicalName = logicalName;
             this.defaultCapacity = defaultCapacity;
             this.fields = fields;
+            this.selectors = selectors;
         }
 
         private void appendJson(StringBuilder json) {
@@ -1082,6 +1253,14 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append("\"kind\":").append(hasKey() ? "\"keyed\"" : "\"dense\"").append(',');
             json.append("\"logicalName\":").append(quote(logicalName)).append(',');
             json.append("\"materializedType\":").append(quote(javaType));
+            if (!selectors.isEmpty()) {
+                json.append(',').append("\"selectors\":[");
+                for (int i = 0; i < selectors.size(); i++) {
+                    if (i > 0) json.append(',');
+                    selectors.get(i).appendJson(json);
+                }
+                json.append(']');
+            }
             json.append('}');
         }
 
@@ -1091,9 +1270,15 @@ public final class SomaProcessor extends AbstractProcessor {
             for (TableFieldModel field : fields) {
                 result.add(field.toGeneratorSpec());
             }
+            List<DenseTableSourceGenerator.SelectorSpec> generatedSelectors =
+                    new ArrayList<DenseTableSourceGenerator.SelectorSpec>();
+            for (SelectorModel selector : selectors) {
+                generatedSelectors.add(selector.toGeneratorSpec());
+            }
             return new DenseTableSourceGenerator.TableSpec(
                     origin, javaType, simpleName, logicalName,
-                    defaultCapacity < 0 ? 16 : defaultCapacity, result);
+                    defaultCapacity < 0 ? 16 : defaultCapacity,
+                    result, generatedSelectors);
         }
 
         private boolean hasKey() {
@@ -1103,6 +1288,83 @@ public final class SomaProcessor extends AbstractProcessor {
                 }
             }
             return false;
+        }
+    }
+
+    private static final class SelectorModel {
+        private final String kind;
+        private final String name;
+        private final List<SelectorLeafModel> leaves;
+
+        private SelectorModel(
+                String kind, String name, List<SelectorLeafModel> leaves) {
+            this.kind = kind;
+            this.name = name;
+            this.leaves = leaves;
+        }
+
+        private void appendJson(StringBuilder json) {
+            json.append('{');
+            json.append("\"kind\":").append(quote(kind)).append(',');
+            json.append("\"leaves\":[");
+            for (int i = 0; i < leaves.size(); i++) {
+                if (i > 0) json.append(',');
+                leaves.get(i).appendJson(json);
+            }
+            json.append("],\"name\":").append(quote(name)).append('}');
+        }
+
+        private DenseTableSourceGenerator.SelectorSpec toGeneratorSpec() {
+            List<DenseTableSourceGenerator.SelectorLeafSpec> result =
+                    new ArrayList<DenseTableSourceGenerator.SelectorLeafSpec>();
+            for (SelectorLeafModel leaf : leaves) {
+                result.add(new DenseTableSourceGenerator.SelectorLeafSpec(
+                        leaf.path, leaf.direction, leaf.publicType,
+                        leaf.storageType, leaf.enumType));
+            }
+            return new DenseTableSourceGenerator.SelectorSpec(kind, name, result);
+        }
+
+        private String generatedMethodName() {
+            String source = name.startsWith("by_") ? name.substring(3) : name;
+            StringBuilder suffix = new StringBuilder();
+            boolean upper = true;
+            for (int i = 0; i < source.length(); i++) {
+                char value = source.charAt(i);
+                if (value == '_') {
+                    upper = true;
+                } else {
+                    suffix.append(upper ? Character.toUpperCase(value) : value);
+                    upper = false;
+                }
+            }
+            return ("order".equals(kind) ? "by" : "findBy") + suffix;
+        }
+    }
+
+    private static final class SelectorLeafModel {
+        private final String path;
+        private final String direction;
+        private final String publicType;
+        private final String storageType;
+        private final String enumType;
+
+        private SelectorLeafModel(
+                String path, String direction, String publicType,
+                String storageType, String enumType) {
+            this.path = path;
+            this.direction = direction;
+            this.publicType = publicType;
+            this.storageType = storageType;
+            this.enumType = enumType;
+        }
+
+        private void appendJson(StringBuilder json) {
+            json.append('{');
+            json.append("\"direction\":").append(quote(direction)).append(',');
+            json.append("\"path\":").append(quote(path)).append(',');
+            json.append("\"storageType\":").append(quote(storageType));
+            json.append('}');
         }
     }
 
@@ -1159,11 +1421,18 @@ public final class SomaProcessor extends AbstractProcessor {
                         leaf.publicPrimitiveName, leaf.storagePrimitiveName,
                         leaf.columnType, leaf.enumJavaType));
             }
+            List<DenseTableSourceGenerator.ValueGroupSpec> groups =
+                    new ArrayList<DenseTableSourceGenerator.ValueGroupSpec>();
+            for (ValueGroupType group : type.valueGroups) {
+                groups.add(new DenseTableSourceGenerator.ValueGroupSpec(
+                        group.javaPath, group.logicalPath, group.javaType,
+                        group.firstLeaf, group.leafCount));
+            }
             return new DenseTableSourceGenerator.FieldSpec(
                     javaName, logicalName, type.publicType,
                     type.boxedName, type.storagePrimitiveName, type.columnType,
                     type.enumJavaType, type.valueJavaType, type.valueLeafJavaName,
-                    type.valueConstructionTemplate, leaves, optional, key);
+                    type.valueConstructionTemplate, leaves, groups, optional, key);
         }
 
         private static void appendLeafJson(
@@ -1192,6 +1461,7 @@ public final class SomaProcessor extends AbstractProcessor {
         private final String valueLeafSemantic;
         private final String valueConstructionTemplate;
         private final List<ValueLeafType> valueLeaves;
+        private final List<ValueGroupType> valueGroups;
 
         private TableFieldType(
                 TypeKind primitiveKind,
@@ -1208,7 +1478,8 @@ public final class SomaProcessor extends AbstractProcessor {
                 String valueLeafLogicalName,
                 String valueLeafSemantic,
                 String valueConstructionTemplate,
-                List<ValueLeafType> valueLeaves) {
+                List<ValueLeafType> valueLeaves,
+                List<ValueGroupType> valueGroups) {
             this.primitiveKind = primitiveKind;
             this.logicalType = logicalType;
             this.publicType = publicType;
@@ -1224,6 +1495,7 @@ public final class SomaProcessor extends AbstractProcessor {
             this.valueLeafSemantic = valueLeafSemantic;
             this.valueConstructionTemplate = valueConstructionTemplate;
             this.valueLeaves = valueLeaves;
+            this.valueGroups = valueGroups;
         }
 
         private static TableFieldType forKind(TypeKind kind) {
@@ -1256,7 +1528,7 @@ public final class SomaProcessor extends AbstractProcessor {
                     null, "enum:" + javaType, javaType, javaType, javaType,
                     "int", "IntColumn", javaType, enumModel,
                     null, null, null, null, null,
-                    new ArrayList<ValueLeafType>());
+                    new ArrayList<ValueLeafType>(), new ArrayList<ValueGroupType>());
         }
 
         private static TableFieldType forFlattenedValue(
@@ -1265,8 +1537,9 @@ public final class SomaProcessor extends AbstractProcessor {
                 return null;
             }
             List<ValueLeafType> leaves = new ArrayList<ValueLeafType>();
+            List<ValueGroupType> groups = new ArrayList<ValueGroupType>();
             String construction = flattenValue(
-                    value, values, "", "", "", leaves, new HashSet<String>());
+                    value, values, "", "", "", leaves, groups, new HashSet<String>());
             if (construction == null || leaves.isEmpty()) return null;
             ValueLeafType first = leaves.get(0);
             return new TableFieldType(
@@ -1284,7 +1557,7 @@ public final class SomaProcessor extends AbstractProcessor {
                     first.logicalName,
                     first.semantic,
                     construction,
-                    leaves);
+                    leaves, groups);
         }
 
         private static String flattenValue(
@@ -1294,8 +1567,10 @@ public final class SomaProcessor extends AbstractProcessor {
                 String logicalPrefix,
                 String storagePrefix,
                 List<ValueLeafType> leaves,
+                List<ValueGroupType> groups,
                 Set<String> visiting) {
             if (!visiting.add(value.javaType)) return null;
+            int firstLeaf = leaves.size();
             StringBuilder result = new StringBuilder("new ")
                     .append(value.javaType).append('(');
             for (int index = 0; index < value.fields.size(); index++) {
@@ -1310,7 +1585,7 @@ public final class SomaProcessor extends AbstractProcessor {
                     if (nested == null) return null;
                     String nestedExpression = flattenValue(
                             nested, values, javaPath + ".", logicalPath + ".",
-                            storageName, leaves, visiting);
+                            storageName, leaves, groups, visiting);
                     if (nestedExpression == null) return null;
                     result.append(nestedExpression);
                 } else {
@@ -1323,6 +1598,12 @@ public final class SomaProcessor extends AbstractProcessor {
                 }
             }
             visiting.remove(value.javaType);
+            String groupJavaPath = javaPrefix.isEmpty()
+                    ? "" : javaPrefix.substring(0, javaPrefix.length() - 1);
+            String groupLogicalPath = logicalPrefix.isEmpty()
+                    ? "" : logicalPrefix.substring(0, logicalPrefix.length() - 1);
+            groups.add(new ValueGroupType(groupJavaPath, groupLogicalPath,
+                    value.javaType, firstLeaf, leaves.size() - firstLeaf));
             return result.append(')').toString();
         }
 
@@ -1374,7 +1655,7 @@ public final class SomaProcessor extends AbstractProcessor {
                     kind, primitive, primitive, boxed, primitive, primitive,
                     column, null, null, null, null, null, null,
                     null,
-                    new ArrayList<ValueLeafType>());
+                    new ArrayList<ValueLeafType>(), new ArrayList<ValueGroupType>());
         }
     }
 
@@ -1400,6 +1681,24 @@ public final class SomaProcessor extends AbstractProcessor {
             this.storagePrimitiveName = storagePrimitiveName;
             this.columnType = columnType;
             this.enumJavaType = enumJavaType;
+        }
+    }
+
+    private static final class ValueGroupType {
+        private final String javaPath;
+        private final String logicalPath;
+        private final String javaType;
+        private final int firstLeaf;
+        private final int leafCount;
+
+        private ValueGroupType(
+                String javaPath, String logicalPath, String javaType,
+                int firstLeaf, int leafCount) {
+            this.javaPath = javaPath;
+            this.logicalPath = logicalPath;
+            this.javaType = javaType;
+            this.firstLeaf = firstLeaf;
+            this.leafCount = leafCount;
         }
     }
 }

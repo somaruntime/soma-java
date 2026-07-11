@@ -18,7 +18,7 @@ Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma
 
 首个 protocol type set 固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`ObjectColumn<T>`、`PresenceBitmap`、`MaterializationTracker`、`SparseIntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。Concrete column/key space提供 typed lookup/update；generic staging只发生在 growth boundary，hot loop由 generated code持有 concrete type。首次实现的 exact public/protected protocol methods进入独立 manifest，此后不得删除、改变语义或在不提升 runtime compatibility identity时产生 incompatible signature change。
 
-Exact current protocol matrix（Phase 1 + Phase 2，全部位于 `com.hgtech.soma.runtime.generated`）：
+Exact current protocol matrix（Phase 1 + Phase 2 + Phase 3 access structures，全部位于 `com.hgtech.soma.runtime.generated`）：
 
 ```text
 GeneratedMetadata(String schemaHash, String generatedTarget, String compilerIdentity,
@@ -27,6 +27,7 @@ GeneratedMetadata(String schemaHash, String generatedTarget, String compilerIden
 GeneratedMetadata.schemaHash/generatedTarget/compilerIdentity/generatedProtocol/
   runtimeCompatibility/planProtocol/algorithm/allocationEstimator -> non-null String
 RuntimeCompatibility.verify(GeneratedMetadata, RuntimePlan, String tableLogicalName) -> TablePlan
+RuntimeCompatibility.verifyAccess(TablePlan, boolean hasSelectors) -> TablePlan
 
 GeneratedColumn.stageCapacity(int) -> Object
 GeneratedColumn.commitCapacity(Object) -> void
@@ -48,11 +49,13 @@ PresenceBitmap.presentCount() -> int
 DenseTableState(String tableLogicalName, RuntimePlan, TablePlan, ColumnGroup)
 DenseTableState.size/capacity -> int; structuralEpoch -> long; isReleased -> boolean
 DenseTableState.runtimePlan -> RuntimePlan
+DenseTableState.sidecarRebuildCount -> long
 DenseTableState.checkActive(String operation) -> void
 DenseTableState.checkRowIndex(int rowIndex, String operation) -> int
 DenseTableState.beginOperation(String operation) -> void
 DenseTableState.endOperationSuccess(String operation, long scanned, long matched, long changed) -> void
 DenseTableState.endOperationFailure(String operation, long scanned, long matched, String errorCode) -> void
+DenseTableState.abortOperation(String operation) -> void
 DenseTableState.prepareAppend(int count) -> int startRow
 DenseTableState.commitAppend(int expectedStartRow, int count) -> void
 DenseTableState.prepareReplace(int newSize) -> int previousSize
@@ -62,6 +65,9 @@ DenseTableState.prepareRelease() -> int previousSize
 DenseTableState.commitClear(int expectedPreviousSize) -> void
 DenseTableState.commitRelease(int expectedPreviousSize) -> void
 DenseTableState.updateScratch(long currentBytes, long highWaterBytes) -> void
+DenseTableState.sidecarsDirtied(long distinctSidecars) -> void
+DenseTableState.sidecarRebuilt(long rows) -> void
+DenseTableState.sidecarScratch(long currentBytes, long highWaterBytes) -> void
 DenseTableState.updateResult(long scanned, long matched, long changed,
   long sidecarMaintained, long sidecarRebuilt) -> UpdateResult
 DenseTableState.statsSnapshot() -> TableStats; resetStats() -> void
@@ -73,11 +79,18 @@ HashIntKeySpace.put(int key, int rowSlot)/remove(int key)/updateRow(int key, int
 HashLongKeySpace(int expectedSize); size()/contains(long)/rowOf(long)
 HashLongKeySpace.put(long key, int rowSlot)/remove(long key)/updateRow(long key, int rowSlot)/clear() -> void
 HashCompositeKeySpace(int expectedSize); size()/ensureInsertCapacity() -> int/void
+HashCompositeKeySpace.estimatedPeakBytes(int expectedSize) -> long
 HashCompositeKeySpace.firstSlot(long hash)/nextSlot(int slot) -> int
 HashCompositeKeySpace.isEmpty/isLive(int slot) -> boolean
 HashCompositeKeySpace.hashAt(int slot) -> long; rowAt(int slot) -> int
 HashCompositeKeySpace.putAt(int slot, long hash, int rowSlot) -> void
 HashCompositeKeySpace.removeAt(int slot)/updateRowAt(int slot, int rowSlot)/clear() -> void
+RowPermutationSidecar(); isDirty() -> boolean; size()/rowAt(int) -> int
+RowPermutationSidecar.stage(int required) -> int[]
+RowPermutationSidecar.scratch(int required) -> int[]
+RowPermutationSidecar.retainedBytes()/rebuildPeakBytes(int required) -> long
+RowPermutationSidecar.commit(int[] staged, int committedSize) -> void
+RowPermutationSidecar.markDirty()/clear()/release() -> void
 KeyCanonicalization.strictFloatKeyBits(String table, String field, float value, String operation) -> int
 KeyCanonicalization.strictDoubleKeyBits(String table, String field, double value, String operation) -> long
 KeyCanonicalization.strictFloatStorage/strictDoubleStorage(...) -> canonical float/double
@@ -298,6 +311,8 @@ Runtime sidecar：
 orderedRows = int[] row permutation
 orderDirty = boolean
 ```
+
+`stage` 和 `scratch` 都按 sidecar instance 保留 primitive high-water array 并在后续 rebuild 复用；`clear` 保留容量，只有 `release` 丢弃 retained arrays。Dirty sidecar 可以复用旧 permutation 作为 detached staging，因为 dirty 状态禁止读取；rebuild/unique validation 失败时 sidecar 继续保持 dirty，不发布为 current facts。
 
 规则：
 

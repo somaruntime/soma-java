@@ -117,6 +117,15 @@ public final class RuntimeFailures {
                 table, context("key", keyField), null);
     }
 
+    public static SomaRuntimeException uniqueConstraintViolation(
+            String table, String selector, int leftRow, int rightRow, String operation) {
+        Map<String, String> context = context("selector", selector);
+        context.put("leftRow", Integer.toString(leftRow));
+        context.put("rightRow", Integer.toString(rightRow));
+        return create(SomaErrorCategory.CONFLICT, "unique_constraint_violation", operation,
+                table + "." + selector, context, null);
+    }
+
     public static SomaRuntimeException missingValueKey(
             String table, String keyField, String operation) {
         return create(SomaErrorCategory.LOOKUP, "missing_key", operation,

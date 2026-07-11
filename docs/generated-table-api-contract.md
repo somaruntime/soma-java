@@ -307,6 +307,8 @@ Index、unique 和 order source 都返回同一种 typed Row Pipeline。它们�
 
 Grouped selector 如果完整对应一个 `@SomaValue` field，generated method 应接受该 value type；否则使用 normalized leaf 顺序。具体命名冲突由 processor golden 固化。
 
+Index/unique exact source 的参数覆盖完整 selector。Order source 始终提供无参 whole-order overload；当 order 至少包含两个 leaf 时，还提供同名 grouped overload，按除最后一个排序 leaf之外的最长 leading prefix 限定 group，再保持完整 selector order。两种 overload 都在 terminal 时读取 current sidecar facts，pipeline construction 不提前 rebuild 或冻结 row indexes。
+
 ## 7. Intermediate operations
 
 V1 canonical operations：

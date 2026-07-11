@@ -8,6 +8,9 @@ public final class TablePlan {
     private final int growthNumerator;
     private final int growthDenominator;
     private final long maximumUpdateScratchBytes;
+    private final String accessStrategy;
+    private final String sidecarMaintenancePolicy;
+    private final long maximumSidecarScratchBytes;
 
     private TablePlan(Builder builder) {
         tableLogicalName = builder.tableLogicalName;
@@ -16,6 +19,9 @@ public final class TablePlan {
         growthNumerator = builder.growthNumerator;
         growthDenominator = builder.growthDenominator;
         maximumUpdateScratchBytes = builder.maximumUpdateScratchBytes;
+        accessStrategy = builder.accessStrategy;
+        sidecarMaintenancePolicy = builder.sidecarMaintenancePolicy;
+        maximumSidecarScratchBytes = builder.maximumSidecarScratchBytes;
     }
 
     public static Builder builder(String tableLogicalName, String algorithm) {
@@ -26,7 +32,10 @@ public final class TablePlan {
         return new Builder(tableLogicalName, algorithm)
                 .initialCapacity(initialCapacity)
                 .growthRatio(growthNumerator, growthDenominator)
-                .maximumUpdateScratchBytes(maximumUpdateScratchBytes);
+                .maximumUpdateScratchBytes(maximumUpdateScratchBytes)
+                .accessStrategy(accessStrategy)
+                .sidecarMaintenancePolicy(sidecarMaintenancePolicy)
+                .maximumSidecarScratchBytes(maximumSidecarScratchBytes);
     }
 
     public String tableLogicalName() { return tableLogicalName; }
@@ -35,13 +44,20 @@ public final class TablePlan {
     public int growthNumerator() { return growthNumerator; }
     public int growthDenominator() { return growthDenominator; }
     public long maximumUpdateScratchBytes() { return maximumUpdateScratchBytes; }
+    public String accessStrategy() { return accessStrategy; }
+    public String sidecarMaintenancePolicy() { return sidecarMaintenancePolicy; }
+    public long maximumSidecarScratchBytes() { return maximumSidecarScratchBytes; }
 
     String toCanonicalJson() {
         return "{\"algorithm\":" + CanonicalSupport.quote(algorithm)
+                + ",\"accessStrategy\":" + CanonicalSupport.quote(accessStrategy)
                 + ",\"growthDenominator\":" + growthDenominator
                 + ",\"growthNumerator\":" + growthNumerator
                 + ",\"initialCapacity\":" + initialCapacity
                 + ",\"maximumUpdateScratchBytes\":" + maximumUpdateScratchBytes
+                + ",\"maximumSidecarScratchBytes\":" + maximumSidecarScratchBytes
+                + ",\"sidecarMaintenancePolicy\":"
+                + CanonicalSupport.quote(sidecarMaintenancePolicy)
                 + ",\"table\":" + CanonicalSupport.quote(tableLogicalName) + "}";
     }
 
@@ -52,6 +68,9 @@ public final class TablePlan {
         private int growthNumerator = 3;
         private int growthDenominator = 2;
         private long maximumUpdateScratchBytes = 256L * 1024L * 1024L;
+        private String accessStrategy = "none";
+        private String sidecarMaintenancePolicy = "none";
+        private long maximumSidecarScratchBytes;
 
         private Builder(String tableLogicalName, String algorithm) {
             this.tableLogicalName = CanonicalSupport.required(tableLogicalName, "tableLogicalName");
@@ -80,6 +99,26 @@ public final class TablePlan {
                 throw new IllegalArgumentException("maximumUpdateScratchBytes must be positive");
             }
             maximumUpdateScratchBytes = value;
+            return this;
+        }
+
+        public Builder accessStrategy(String value) {
+            accessStrategy = CanonicalSupport.required(value, "accessStrategy");
+            return this;
+        }
+
+        public Builder sidecarMaintenancePolicy(String value) {
+            sidecarMaintenancePolicy = CanonicalSupport.required(
+                    value, "sidecarMaintenancePolicy");
+            return this;
+        }
+
+        public Builder maximumSidecarScratchBytes(long value) {
+            if (value < 0L) {
+                throw new IllegalArgumentException(
+                        "maximumSidecarScratchBytes must be non-negative");
+            }
+            maximumSidecarScratchBytes = value;
             return this;
         }
 

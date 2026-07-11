@@ -14,6 +14,11 @@ public final class TableStats {
     private final long growthCount;
     private final long updateScratchCurrentBytes;
     private final long updateScratchHighWaterBytes;
+    private final long sidecarDirtyCount;
+    private final long sidecarRebuildCount;
+    private final long sidecarRebuildRows;
+    private final long sidecarScratchCurrentBytes;
+    private final long sidecarScratchHighWaterBytes;
     private final String lastOperation;
     private final OperationOutcome lastOutcome;
     private final String lastErrorCode;
@@ -34,6 +39,11 @@ public final class TableStats {
             long growthCount,
             long updateScratchCurrentBytes,
             long updateScratchHighWaterBytes,
+            long sidecarDirtyCount,
+            long sidecarRebuildCount,
+            long sidecarRebuildRows,
+            long sidecarScratchCurrentBytes,
+            long sidecarScratchHighWaterBytes,
             String lastOperation,
             OperationOutcome lastOutcome,
             String lastErrorCode,
@@ -52,6 +62,11 @@ public final class TableStats {
         this.growthCount = growthCount;
         this.updateScratchCurrentBytes = updateScratchCurrentBytes;
         this.updateScratchHighWaterBytes = updateScratchHighWaterBytes;
+        this.sidecarDirtyCount = sidecarDirtyCount;
+        this.sidecarRebuildCount = sidecarRebuildCount;
+        this.sidecarRebuildRows = sidecarRebuildRows;
+        this.sidecarScratchCurrentBytes = sidecarScratchCurrentBytes;
+        this.sidecarScratchHighWaterBytes = sidecarScratchHighWaterBytes;
         this.lastOperation = lastOperation;
         this.lastOutcome = lastOutcome;
         this.lastErrorCode = lastErrorCode;
@@ -73,6 +88,68 @@ public final class TableStats {
             long growthCount,
             long updateScratchCurrentBytes,
             long updateScratchHighWaterBytes,
+            long sidecarDirtyCount,
+            long sidecarRebuildCount,
+            long sidecarRebuildRows,
+            String lastOperation,
+            OperationOutcome lastOutcome,
+            String lastErrorCode,
+            long lastScanned,
+            long lastMatched,
+            long lastChanged) {
+        return create(schemaHash, runtimeCompatibility, runtimePlanHash, statsMode,
+                rows, capacity, structuralEpoch, released, activeViews, growthCount,
+                updateScratchCurrentBytes, updateScratchHighWaterBytes,
+                sidecarDirtyCount, sidecarRebuildCount, sidecarRebuildRows,
+                0L, 0L, lastOperation, lastOutcome, lastErrorCode,
+                lastScanned, lastMatched, lastChanged);
+    }
+
+    public static TableStats create(
+            String schemaHash,
+            String runtimeCompatibility,
+            String runtimePlanHash,
+            StatsMode statsMode,
+            int rows,
+            int capacity,
+            long structuralEpoch,
+            boolean released,
+            int activeViews,
+            long growthCount,
+            long updateScratchCurrentBytes,
+            long updateScratchHighWaterBytes,
+            String lastOperation,
+            OperationOutcome lastOutcome,
+            String lastErrorCode,
+            long lastScanned,
+            long lastMatched,
+            long lastChanged) {
+        return create(schemaHash, runtimeCompatibility, runtimePlanHash, statsMode,
+                rows, capacity, structuralEpoch, released, activeViews, growthCount,
+                updateScratchCurrentBytes, updateScratchHighWaterBytes,
+                0L, 0L, 0L, 0L, 0L,
+                lastOperation, lastOutcome, lastErrorCode,
+                lastScanned, lastMatched, lastChanged);
+    }
+
+    public static TableStats create(
+            String schemaHash,
+            String runtimeCompatibility,
+            String runtimePlanHash,
+            StatsMode statsMode,
+            int rows,
+            int capacity,
+            long structuralEpoch,
+            boolean released,
+            int activeViews,
+            long growthCount,
+            long updateScratchCurrentBytes,
+            long updateScratchHighWaterBytes,
+            long sidecarDirtyCount,
+            long sidecarRebuildCount,
+            long sidecarRebuildRows,
+            long sidecarScratchCurrentBytes,
+            long sidecarScratchHighWaterBytes,
             String lastOperation,
             OperationOutcome lastOutcome,
             String lastErrorCode,
@@ -89,6 +166,10 @@ public final class TableStats {
         if (rows < 0 || capacity < rows || activeViews < 0 || structuralEpoch < 0L
                 || growthCount < 0L || updateScratchCurrentBytes < 0L
                 || updateScratchHighWaterBytes < updateScratchCurrentBytes
+                || sidecarDirtyCount < 0L || sidecarRebuildCount < 0L
+                || sidecarRebuildRows < 0L
+                || sidecarScratchCurrentBytes < 0L
+                || sidecarScratchHighWaterBytes < sidecarScratchCurrentBytes
                 || lastScanned < 0L || lastMatched < 0L || lastChanged < 0L
                 || lastChanged > lastMatched || lastMatched > lastScanned) {
             throw new IllegalArgumentException("invalid table stats snapshot");
@@ -96,6 +177,8 @@ public final class TableStats {
         return new TableStats(schemaHash, runtimeCompatibility, runtimePlanHash,
                 statsMode, rows, capacity, structuralEpoch, released, activeViews,
                 growthCount, updateScratchCurrentBytes, updateScratchHighWaterBytes,
+                sidecarDirtyCount, sidecarRebuildCount, sidecarRebuildRows,
+                sidecarScratchCurrentBytes, sidecarScratchHighWaterBytes,
                 lastOperation, lastOutcome, lastErrorCode,
                 lastScanned, lastMatched, lastChanged);
     }
@@ -112,6 +195,11 @@ public final class TableStats {
     public long growthCount() { return growthCount; }
     public long updateScratchCurrentBytes() { return updateScratchCurrentBytes; }
     public long updateScratchHighWaterBytes() { return updateScratchHighWaterBytes; }
+    public long sidecarDirtyCount() { return sidecarDirtyCount; }
+    public long sidecarRebuildCount() { return sidecarRebuildCount; }
+    public long sidecarRebuildRows() { return sidecarRebuildRows; }
+    public long sidecarScratchCurrentBytes() { return sidecarScratchCurrentBytes; }
+    public long sidecarScratchHighWaterBytes() { return sidecarScratchHighWaterBytes; }
     public String lastOperation() { return lastOperation; }
     public OperationOutcome lastOutcome() { return lastOutcome; }
     public String lastErrorCode() { return lastErrorCode; }
