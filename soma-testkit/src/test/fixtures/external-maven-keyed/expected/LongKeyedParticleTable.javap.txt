@@ -43,7 +43,8 @@ public final class com.example.soma.keyed.generated.LongKeyedParticleTable {
   public com.example.soma.keyed.LongKeyedParticle firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.keyed.LongKeyedParticle> fetchAll();
   public java.util.List<com.example.soma.keyed.LongKeyedParticle> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.keyed.generated.LongKeyedParticleRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.hgtech.soma.runtime.LongColumnPipeline idValues();

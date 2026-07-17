@@ -18,7 +18,7 @@ Owner：根项目协调层
 
 | 层级 | 一致性单元 | Owner |
 |---|---|---|
-| Table-local | 单个 TableStore 的 rows、columns、keys、sidecars、epoch | runtime-core |
+| Table-local | 单个 TableStore 的 rows、columns、primary locator、exact indexes、epoch | runtime-core |
 | Ownership aggregate | root table 与全部 owned child subtree | runtime-core |
 | Cross-root business consistency | 多个独立 root tables 的 operation sequence | application/solver |
 
@@ -34,11 +34,11 @@ SOMA V1 不把跨 root table transaction 纳入 runtime correctness。Applicatio
 - live rows 恰好占据 `[0, size)`；
 - 不保留 persistent tombstone；
 - 每个 column 的 addressable capacity 与 RowSpace 对齐；
-- swap-remove/batch compact 后 moved row 的所有 columns、keys、sidecars 和 child handles 同步修复；
+- swap-remove/tail-fill 后 moved row 的所有 columns、primary locator、exact-index links 和 child handles 同步修复；
 - structural mutation 提升对应 epoch；
 - released store 不再拥有 live rows。
 
-### 3.2 KeySpace
+### 3.2 Primary locator
 
 Keyed table 必须满足：
 
@@ -49,15 +49,15 @@ Keyed table 必须满足：
 - remove/compaction 后 key-to-slot 映射正确；
 - key equality/hash 与 normalized key semantics 一致。
 
-Dense table 没有 KeySpace；row index 不得进入 logical key contract。
+Dense table 没有 primary locator；packed Index 不得进入 logical key contract。
 
 ### 3.3 Floating identity/access
 
-参与 key/index/unique/order 的 floating leaf：
+参与 key/index/unique 的 floating leaf：
 
 - 必须 finite；
 - 写入、lookup 和 selector boundary canonicalize `-0.0` 为 `+0.0`；
-- equality、hash、matching 和 order 使用同一 canonical value；
+- equality、hash 和 matching 使用同一 canonical value；
 - invalid value 在 visible state 改变前失败。
 
 普通 payload 的 NaN/infinity/negative-zero 语义由 annotation contract 定义，不能用 NaN 表达 absence。
@@ -73,14 +73,14 @@ Dense table 没有 KeySpace；row index 不得进入 logical key contract。
 
 ### 3.5 AccessStructures
 
-Index、unique、order 和 stats 是派生结构：
+Index、unique 和 stats 是派生结构：
 
-- 状态必须是 clean/current 或明确 dirty；
-- read path 只能使用与当前 base facts 一致的结构；
-- dirty structure 在使用前正确 rebuild；
-- unique selector 对 live facts 保持唯一；
-- rebuild failure 不把部分结构发布为 current；
-- sidecar 不能成为业务事实源。
+- exact structure 在所有public operation边界必须始终current，不存在可观察dirty状态；
+- read path只能使用与当前base facts一致的结构，不能以full scan/rebuild fallback掩盖维护缺陷；
+- hash collision后必须执行generated full canonical equality；
+- unique selector对live facts保持唯一，并允许同一atomic update中的合法final-state value swap；
+- append/update/remove/replaceAll failure不能发布partial group/link/locator facts；
+- exact index不能成为业务事实源，组内枚举顺序不构成业务顺序。
 
 ### 3.6 AccessPath 与 terminal
 
@@ -88,8 +88,8 @@ Index、unique、order 和 stats 是派生结构：
 - candidate row 必须属于 terminal 开始时的有效 source domain；
 - filter/skip/limit/sorted/short-circuit 顺序符合 API；
 - mutation terminal 不因自身 field update 重新进入 source/filter/sort；
-- dynamic permutation 绑定对应 epoch；
-- callback 不获得 internal row pointer/sidecar handle。
+- dynamic permutation与`IndexSnapshot`绑定对应epoch；
+- callback不获得internal row pointer、group link或live IndexBuffer。
 
 ### 3.7 Ownership aggregate
 
@@ -133,7 +133,7 @@ RELEASED -> no transition back
 PRECHECK
   -> PREPARE
   -> APPLY_BASE_FACTS
-  -> MAINTAIN_OR_DIRTY_DERIVED
+  -> MAINTAIN_EXACT_DERIVED
   -> COMMIT_EPOCH
   -> SUCCESS
 ```
@@ -158,18 +158,18 @@ ACQUIRED -> ACTIVE -> CLOSED
 
 Active view 阻止冲突 structural mutation；mutation 必须在修改前返回 `view_pinned`。Closed/released view 后续读取返回 typed error。
 
-### 4.5 Sidecar
+### 4.5 Exact access structure
 
 ```text
-CLEAN_CURRENT
-  -> DIRTY
-  -> REBUILDING
-  -> CLEAN_CURRENT
+CURRENT
+  -> PREPARED_DELTA_OR_FRESH_BUILD
+  -> VALIDATED
+  -> CURRENT
 
-REBUILDING failure -> DIRTY
+expected failure -> original CURRENT facts
 ```
 
-只有完整 rebuild 成功后才发布新结构。
+Read path不执行rebuild。Bulk fresh build只能在replaceAll/create的未发布staging中发生；普通append/update/remove采用增量link/unlink/relocate。
 
 ### 4.6 Child slot
 
@@ -194,9 +194,9 @@ replace -> atomic handle switch
 
 ### 5.1 Table-local
 
-Insert、batch、update、remove、replaceAll 和 sidecar rebuild 必须在返回时满足：
+Insert、batch、update、remove 和 replaceAll 必须在返回时满足：
 
-- success：base facts、derived structures/dirty state 和 epoch 一致；
+- success：base facts、current derived structures 和 epoch 一致；
 - expected failure：调用前 visible facts 保持不变；
 - release：整个 owner scope 进入 terminal state；
 - invariant violation：明确报告，不能继续假装合法。
@@ -244,7 +244,7 @@ Oracle 只用于测试，不进入 production dependency。
 对相同 operation trace，比较：
 
 - logical rows/fields/presence；
-- key/index/order query result；
+- key/exact-index/dynamic-sort query result；
 - update/remove result；
 - child ownership graph；
 - error category/path；
@@ -256,7 +256,7 @@ Runtime invariant helper 分两层：
 
 | Helper | 检查 |
 |---|---|
-| table-local | packed rows、column length、bitmap、key mapping、sidecar、epoch |
+| table-local | packed rows、column length、bitmap、primary locator、exact-index group/link、epoch |
 | aggregate | child owner、cycle/orphan/dangling、cascade、replacement、pin/release |
 
 Testkit 还必须提供 schema-aware materialization comparator。具体 helper contract 由 [soma-testkit 契约](../soma-testkit/docs/testkit-contract.md) 拥有。

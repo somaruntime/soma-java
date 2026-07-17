@@ -8,6 +8,7 @@ import com.hgtech.soma.examples.fjsp.schema.OperationMachineKey;
 import com.hgtech.soma.examples.fjsp.schema.SetupFamilyId;
 import com.hgtech.soma.examples.fjsp.schema.generated.CandidateMachineDefinitionTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
+import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.UpdateResult;
 
@@ -71,11 +72,11 @@ final class FjspCandidateFrontier {
     Candidate select(MachineId machineId, long availableFromMinute,
                      boolean lastFamilyPresent, long lastFamily) {
         refresh(machineId, availableFromMinute, lastFamilyPresent, lastFamily);
-        int[] rows = instance.frontier.findByMachine(machineId)
+        IndexSnapshot rows = instance.frontier.findByMachine(machineId)
             .filter(row -> row.indicatorReady())
             .sorted(dispatchRule.comparator()).limit(1).rowIndexes();
-        require(rows.length == 1, "dispatch requires one candidate");
-        return read(rows[0]);
+        require(rows.size() == 1, "dispatch requires one candidate");
+        return read(rows.indexAt(0));
     }
 
     private void refresh(MachineId machineId, long availableFromMinute,

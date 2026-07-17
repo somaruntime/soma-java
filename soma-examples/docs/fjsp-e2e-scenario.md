@@ -4,7 +4,7 @@
 Owner：`soma-examples`
 事实范围：FJSP release/dispatch/commit flow、lookup/error/lifecycle evidence 和 G5 scenario boundary
 非事实范围：schema declaration、solver business transaction contract、runtime implementation 和性能 claim
-最后审查日期：2026-07-12
+最后审查日期：2026-07-17
 
 ## 1. 场景定位
 
@@ -40,7 +40,7 @@ SOMA 保证每次 table-local mutation 和 ownership aggregate 的正确性；�
 1. 从 request boundary 导入 jobs、operation definitions（含 candidate-machine child）、machines 和 setup times；
 2. batch import 初始化 generated tables；
 3. 当 operation release 时，通过 generated grouped/index row source读取definition scalar，并通过`operationDefinitions.candidateMachines(operationKey)` live child facade局部遍历可加工machine，生成`MachineCandidate` rows；release hot path不递归materialize detached parent + child `List`；
-4. 每轮从 `Machine.byAvailableTime().firstOrThrow()` 选择下一个可用 machine；
+4. 每轮从 `Machine.rows().sorted(machineAvailabilityComparator).firstOrThrow()` 选择下一个可用 machine；
 5. 对 `MachineCandidate.findByMachine(machineId)` 的候选更新 setup、effective ready time、FCFS value 和 SPT value；
 6. 对同一 machine 的候选执行 `sorted(dispatchRuleComparator).firstOrThrow()`，选择下一个 operation；
 7. 向 `OperationAssignment` result table 写入 assignment；
@@ -90,7 +90,6 @@ SOMA runtime 只提供 `find(...)` / `containsKey(...)` / empty Row Pipeline / t
 - `containsKey(key)`；
 - generated grouped index access, for example `findByOperation(operationKey)`；
 - generated machine frontier index access, for example `findByMachine(machineId)`；
-- generated order access；
 - generated optional presence predicate；
 - Row Pipeline `findFirst()` / `firstOrThrow()`；
 - Row Pipeline `sorted(comparator)` dynamic sort；
@@ -169,8 +168,8 @@ G5 examples report 应记录：
 - generated schema hash；
 - Java 8 smoke command；
 - request boundary -> loader -> generated tables -> solver core -> exporter -> response boundary 完整路径；
-- ordered access evidence；
-- grouped index/order source evidence；
+- physical source + explicit dynamic sort evidence；
+- grouped exact-index source evidence；
 - required lookup missing error 与 optional lookup empty result evidence；
 - Row Pipeline lazy terminal evidence；
 - ColumnView evidence；

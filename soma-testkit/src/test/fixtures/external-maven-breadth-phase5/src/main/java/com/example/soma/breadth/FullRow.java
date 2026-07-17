@@ -3,13 +3,10 @@ package com.example.soma.breadth;
 import com.hgtech.soma.annotation.SomaDefault;
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaOptional;
-import com.hgtech.soma.annotation.SomaOrder;
 import com.hgtech.soma.annotation.SomaSemantic;
-import com.hgtech.soma.annotation.SomaSort;
 import com.hgtech.soma.annotation.SomaTable;
 
 @SomaTable(name = "full_rows")
-@SomaOrder(name = "by_score", by = @SomaSort("score"))
 public final class FullRow {
     @SomaField @SomaDefault("true") public boolean active;
     @SomaField @SomaDefault("-7") public byte small;

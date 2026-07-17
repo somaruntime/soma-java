@@ -29,16 +29,12 @@ public final class DenseTableState {
     private long growthCount;
     private long updateScratchCurrentBytes;
     private long updateScratchHighWaterBytes;
-    private long sidecarDirtyCount;
-    private long sidecarRebuildCount;
-    private long sidecarRebuildRows;
-    private long sidecarScratchCurrentBytes;
-    private long sidecarScratchHighWaterBytes;
     private long operationScratchCurrentBytes;
     private long operationScratchHighWaterBytes;
     private long bulkScratchCurrentBytes;
     private long bulkScratchHighWaterBytes;
     private long keySpaceCurrentBytes;
+    private long exactIndexCurrentBytes;
     private String lastOperation = "";
     private OperationOutcome lastOutcome = OperationOutcome.NONE;
     private String lastErrorCode = "";
@@ -78,7 +74,6 @@ public final class DenseTableState {
         return activeViews > 0 || operationActive || materializationActive || callbackActive;
     }
     public RuntimePlan runtimePlan() { return runtimePlan; }
-    public long sidecarRebuildCount() { return sidecarRebuildCount; }
 
     public long acquireView(String operation) {
         checkActive(operation);
@@ -157,17 +152,56 @@ public final class DenseTableState {
     }
 
     public void reserve(int expectedCapacity) {
+        preflightReserve(
+                expectedCapacity, keySpaceCurrentBytes, exactIndexCurrentBytes);
+        commitReserve(expectedCapacity);
+    }
+
+    public void preflightReserve(
+            int expectedCapacity,
+            long proposedKeySpaceBytes,
+            long proposedExactIndexBytes) {
         requireStructural("reserve");
         if (expectedCapacity < 0) {
             throw new IllegalArgumentException("expectedCapacity must be non-negative");
         }
-        boolean willGrow = Math.max(size, expectedCapacity) > columns.capacity();
+        if (proposedKeySpaceBytes < 0L || proposedExactIndexBytes < 0L) {
+            throw RuntimeFailures.internalInvariant(
+                    "reserve_storage_preflight", tableLogicalName, "reserve");
+        }
+        int required = Math.max(size, expectedCapacity);
+        boolean willGrow = required > columns.capacity();
+        if (willGrow) {
+            requireGrowthAvailable("reserve");
+            requireStructuralEpochAvailable("reserve");
+        }
+        long proposedExternal = replacePart(
+                externalStorageBytes(), keySpaceCurrentBytes,
+                proposedKeySpaceBytes, "reserve");
+        proposedExternal = replacePart(
+                proposedExternal, exactIndexCurrentBytes,
+                proposedExactIndexBytes, "reserve");
+        columns.preflightCapacity(
+                required,
+                tablePlan.growthNumerator(),
+                tablePlan.growthDenominator(),
+                proposedExternal,
+                "reserve");
+    }
+
+    public void commitReserve(int expectedCapacity) {
+        requireStructural("reserve");
+        if (expectedCapacity < 0) {
+            throw new IllegalArgumentException("expectedCapacity must be non-negative");
+        }
+        int required = Math.max(size, expectedCapacity);
+        boolean willGrow = required > columns.capacity();
         if (willGrow) {
             requireGrowthAvailable("reserve");
             requireStructuralEpochAvailable("reserve");
         }
         boolean changed = columns.ensureCapacity(
-                Math.max(size, expectedCapacity),
+                required,
                 tablePlan.growthNumerator(), tablePlan.growthDenominator());
         if (changed) {
             incrementGrowth("reserve");
@@ -301,7 +335,8 @@ public final class DenseTableState {
         }
         if (count > 0) requireStructuralEpochAvailable("addBatch");
         int required = checkedSize(size, count, "addBatch");
-        preflightAppendStorage(count, keySpaceCurrentBytes, "addBatch");
+        preflightAppendStorage(
+                count, keySpaceCurrentBytes, exactIndexCurrentBytes, "addBatch");
         if (required > columns.capacity()) requireGrowthAvailable("addBatch");
         if (columns.ensureCapacity(
                 required, tablePlan.growthNumerator(), tablePlan.growthDenominator())) {
@@ -427,9 +462,9 @@ public final class DenseTableState {
         size = 0;
         columns.replaceExternalRetainedBytes(externalStorageBytes(), 0L, "release");
         updateScratchCurrentBytes = 0L;
-        sidecarScratchCurrentBytes = 0L;
         operationScratchCurrentBytes = 0L;
         keySpaceCurrentBytes = 0L;
+        exactIndexCurrentBytes = 0L;
         columns.releaseStorage();
         incrementStructuralEpoch("release");
         released = true;
@@ -473,9 +508,9 @@ public final class DenseTableState {
         columns.replaceExternalRetainedBytes(
                 externalStorageBytes(), 0L, "ownership.release");
         updateScratchCurrentBytes = 0L;
-        sidecarScratchCurrentBytes = 0L;
         operationScratchCurrentBytes = 0L;
         keySpaceCurrentBytes = 0L;
+        exactIndexCurrentBytes = 0L;
         columns.releaseStorage();
         incrementStructuralEpoch("ownership.release");
         released = true;
@@ -495,37 +530,6 @@ public final class DenseTableState {
         updateScratchCurrentBytes = currentBytes;
         if (highWaterBytes > updateScratchHighWaterBytes) {
             updateScratchHighWaterBytes = highWaterBytes;
-        }
-    }
-
-    public void sidecarsDirtied(long count) {
-        if (count < 0L || Long.MAX_VALUE - sidecarDirtyCount < count) {
-            throw RuntimeFailures.internalInvariant(
-                    "sidecar_dirty_stats", tableLogicalName, "sidecar.dirty");
-        }
-        sidecarDirtyCount += count;
-    }
-
-    public void sidecarRebuilt(long rows) {
-        if (rows < 0L || sidecarRebuildCount == Long.MAX_VALUE
-                || Long.MAX_VALUE - sidecarRebuildRows < rows) {
-            throw RuntimeFailures.internalInvariant(
-                    "sidecar_rebuild_stats", tableLogicalName, "sidecar.rebuild");
-        }
-        sidecarRebuildCount++;
-        sidecarRebuildRows += rows;
-    }
-
-    public void sidecarScratch(long currentBytes, long highWaterBytes) {
-        if (currentBytes < 0L || highWaterBytes < currentBytes
-                || highWaterBytes > tablePlan.maximumSidecarScratchBytes()) {
-            throw RuntimeFailures.internalInvariant(
-                    "sidecar_scratch_accounting", tableLogicalName, "sidecar.rebuild");
-        }
-        replaceExternalStorage(sidecarScratchCurrentBytes, currentBytes, "sidecar.scratch");
-        sidecarScratchCurrentBytes = currentBytes;
-        if (highWaterBytes > sidecarScratchHighWaterBytes) {
-            sidecarScratchHighWaterBytes = highWaterBytes;
         }
     }
 
@@ -550,16 +554,6 @@ public final class DenseTableState {
         preflightExternalStorage(operationScratchCurrentBytes, proposed, operation);
     }
 
-    public void preflightSidecarScratch(
-            long proposedCurrent, long transientPeak, String operation) {
-        if (transientPeak < 0L || transientPeak > tablePlan.maximumBulkScratchBytes()) {
-            throw RuntimeFailures.memoryLimitExceeded(
-                    tableLogicalName, operation,
-                    tablePlan.maximumBulkScratchBytes(), transientPeak);
-        }
-        preflightExternalStorage(sidecarScratchCurrentBytes, proposedCurrent, operation);
-    }
-
     public void preflightKeySpaceStorage(long proposed, String operation) {
         if (proposed > tablePlan.maximumBulkScratchBytes()) {
             throw RuntimeFailures.memoryLimitExceeded(
@@ -569,9 +563,20 @@ public final class DenseTableState {
         preflightExternalStorage(keySpaceCurrentBytes, proposed, operation);
     }
 
+    public void preflightExactIndexStorage(long proposed, String operation) {
+        if (proposed < 0L) {
+            throw RuntimeFailures.internalInvariant(
+                    "exact_index_storage_preflight", tableLogicalName, operation);
+        }
+        preflightExternalStorage(exactIndexCurrentBytes, proposed, operation);
+    }
+
     public void preflightAppendStorage(
-            int count, long proposedKeySpaceBytes, String operation) {
-        if (count < 0 || proposedKeySpaceBytes < 0L) {
+            int count,
+            long proposedKeySpaceBytes,
+            long proposedExactIndexBytes,
+            String operation) {
+        if (count < 0 || proposedKeySpaceBytes < 0L || proposedExactIndexBytes < 0L) {
             throw RuntimeFailures.internalInvariant(
                     "append_storage_preflight", tableLogicalName, operation);
         }
@@ -579,6 +584,9 @@ public final class DenseTableState {
         long proposedExternal = replacePart(
                 externalStorageBytes(), keySpaceCurrentBytes,
                 proposedKeySpaceBytes, operation);
+        proposedExternal = replacePart(
+                proposedExternal, exactIndexCurrentBytes,
+                proposedExactIndexBytes, operation);
         columns.preflightCapacity(
                 required,
                 tablePlan.growthNumerator(),
@@ -588,14 +596,20 @@ public final class DenseTableState {
     }
 
     public void preflightReplaceStorage(
-            int newSize, long proposedKeySpaceBytes, String operation) {
-        if (newSize < 0 || proposedKeySpaceBytes < 0L) {
+            int newSize,
+            long proposedKeySpaceBytes,
+            long proposedExactIndexBytes,
+            String operation) {
+        if (newSize < 0 || proposedKeySpaceBytes < 0L || proposedExactIndexBytes < 0L) {
             throw RuntimeFailures.internalInvariant(
                     "replace_storage_preflight", tableLogicalName, operation);
         }
         long proposedExternal = replacePart(
                 externalStorageBytes(), keySpaceCurrentBytes,
                 proposedKeySpaceBytes, operation);
+        proposedExternal = replacePart(
+                proposedExternal, exactIndexCurrentBytes,
+                proposedExactIndexBytes, operation);
         columns.preflightCapacity(
                 newSize,
                 tablePlan.growthNumerator(),
@@ -642,6 +656,15 @@ public final class DenseTableState {
         keySpaceCurrentBytes = proposed;
     }
 
+    public void commitExactIndexStorage(long previous, long proposed, String operation) {
+        if (previous != exactIndexCurrentBytes) {
+            throw RuntimeFailures.internalInvariant(
+                    "exact_index_storage_accounting", tableLogicalName, operation);
+        }
+        replaceExternalStorage(previous, proposed, operation);
+        exactIndexCurrentBytes = proposed;
+    }
+
     /** Rolls back a generated constructor after this state acquired table quota. */
     public void abortConstruction() {
         if (released || size != 0 || bulkScratchCurrentBytes != 0L) {
@@ -651,8 +674,8 @@ public final class DenseTableState {
         columns.replaceExternalRetainedBytes(
                 externalStorageBytes(), 0L, "table.create.rollback");
         keySpaceCurrentBytes = 0L;
+        exactIndexCurrentBytes = 0L;
         updateScratchCurrentBytes = 0L;
-        sidecarScratchCurrentBytes = 0L;
         operationScratchCurrentBytes = 0L;
         columns.releaseStorage();
         released = true;
@@ -671,9 +694,10 @@ public final class DenseTableState {
     }
 
     private long externalStorageBytes() {
-        long total = checkedStorageAdd(updateScratchCurrentBytes, sidecarScratchCurrentBytes);
+        long total = updateScratchCurrentBytes;
         total = checkedStorageAdd(total, operationScratchCurrentBytes);
-        return checkedStorageAdd(total, keySpaceCurrentBytes);
+        total = checkedStorageAdd(total, keySpaceCurrentBytes);
+        return checkedStorageAdd(total, exactIndexCurrentBytes);
     }
 
     private long replacePart(
@@ -697,29 +721,20 @@ public final class DenseTableState {
         }
     }
 
-    public UpdateResult updateResult(
-            long scanned,
-            long matched,
-            long changed,
-            long sidecarMaintained,
-            long sidecarRebuilt) {
-        return UpdateResult.create(
-                scanned, matched, changed, sidecarMaintained, sidecarRebuilt);
+    public UpdateResult updateResult(long scanned, long matched, long changed) {
+        return UpdateResult.create(scanned, matched, changed);
     }
 
     public RemoveResult removeResult(
             long scanned,
             long matched,
             long removed,
-            long compacted,
-            long sidecarMaintained,
-            long sidecarRebuilt) {
-        return RemoveResult.create(scanned, matched, removed, compacted,
-                sidecarMaintained, sidecarRebuilt);
+            long compacted) {
+        return RemoveResult.create(scanned, matched, removed, compacted);
     }
 
     public TableStats statsSnapshot() {
-        return TableStats.withPhase5OperationScratch(TableStats.create(
+        return TableStats.withOperationScratch(TableStats.create(
                 runtimePlan.schemaHash(),
                 runtimePlan.runtimeCompatibility(),
                 runtimePlan.runtimePlanHash(),
@@ -732,11 +747,6 @@ public final class DenseTableState {
                 growthCount,
                 updateScratchCurrentBytes,
                 updateScratchHighWaterBytes,
-                sidecarDirtyCount,
-                sidecarRebuildCount,
-                sidecarRebuildRows,
-                sidecarScratchCurrentBytes,
-                sidecarScratchHighWaterBytes,
                 lastOperation,
                 lastOutcome,
                 lastErrorCode,
@@ -747,7 +757,8 @@ public final class DenseTableState {
     }
 
     public TableStats statsSnapshot(long childInstances, long descendantRows) {
-        return TableStats.withPhase4(statsSnapshot(), childInstances, descendantRows,
+        return TableStats.withOwnershipAndMaterialization(
+                statsSnapshot(), childInstances, descendantRows,
                 materializationInvocationCount, materializationFailureCount,
                 lastMaterializationBudgetIdentity,
                 lastMaterializationMaximumOwnershipDepth,
@@ -770,9 +781,6 @@ public final class DenseTableState {
         lastScanned = 0L;
         lastMatched = 0L;
         lastChanged = 0L;
-        sidecarDirtyCount = 0L;
-        sidecarRebuildCount = 0L;
-        sidecarRebuildRows = 0L;
         materializationInvocationCount = 0L;
         materializationFailureCount = 0L;
         lastMaterializationBudgetIdentity = "";

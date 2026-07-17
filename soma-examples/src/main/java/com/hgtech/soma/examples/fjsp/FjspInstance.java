@@ -56,8 +56,8 @@ public final class FjspInstance implements AutoCloseable {
     return frontier.runtimePlan().runtimePlanHash();
   }
 
-  public long sidecarRebuildCount() {
-    return frontier.statsSnapshot().sidecarRebuildCount();
+  public long exactIndexProbeCount() {
+    return frontier.statsSnapshot().exactIndexProbeCount();
   }
 
   public int assignmentCapacity() {

@@ -63,8 +63,8 @@ if grep -F '"claimAllowed":true' "$artifact" >/dev/null \
   exit 1
 fi
 for expected in \
-  '"schemaVersion":"soma-benchmark-smoke-v3"' \
-  '"artifactVersion":"soma-java-benchmark-runner-v3"' \
+  '"schemaVersion":"soma-benchmark-smoke-v4"' \
+  '"artifactVersion":"soma-java-benchmark-runner-v4"' \
   '"scale":{"preset":"smoke","rows":128' \
   '"seed":1397706049' \
   '"warmupIterations":1' \
@@ -81,7 +81,7 @@ if grep -v -F '"allocatedBytes":null' "$artifact" >/dev/null \
     || grep -v -F '"allocationPerOperation":{"method":"not-observed","estimatedBytes":null}' \
       "$artifact" >/dev/null \
     || grep -v -F '"observationKinds":' "$artifact" >/dev/null; then
-  printf '%s\n' 'benchmark-smoke-check: v3 observation semantics missing' >&2
+  printf '%s\n' 'benchmark-smoke-check: v4 observation semantics missing' >&2
   exit 1
 fi
 
@@ -99,7 +99,7 @@ if "$JAVA_HOME/bin/java" -cp "$classpath" \
 fi
 
 shasum -a 256 "$artifact" \
-  soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v3.json \
+  soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
   >"$evidence_dir/checksums.sha256"
 find soma-benchmarks/src -type f | LC_ALL=C sort >"$evidence_dir/implementation-files.txt"
 printf '%s\n' \
@@ -113,8 +113,8 @@ while IFS= read -r implementation_file; do
 done <"$evidence_dir/implementation-files.txt" \
   >"$evidence_dir/implementation-checksums.sha256"
 
-cmp soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v3.json \
-  soma-benchmarks/target/classes/META-INF/soma/benchmark-smoke-schema-v3.json
+cmp soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
+  soma-benchmarks/target/classes/META-INF/soma/benchmark-smoke-schema-v4.json
 
 for class_name in BenchmarkSmokeRunner BenchmarkArtifactValidator; do
   major=$($JAVA_HOME/bin/javap -classpath soma-benchmarks/target/classes -verbose \

@@ -2,7 +2,7 @@
 
 状态：正式设计文档
 Owner：`soma-runtime-core`
-事实范围：packed/primitive/fused/allocation-bounded runtime kernel、capacity/scratch、KeySpace/sidecar 和 stats overhead
+事实范围：packed/primitive/fused/allocation-bounded runtime kernel、capacity/scratch、primary locator/exact index和stats overhead
 非事实范围：跨模块性能模型、public API、benchmark scenario/结果和具体永久阈值
 最后审查日期：2026-07-10
 
@@ -36,10 +36,10 @@ live RowSlot = [0, size)
 ```
 
 - 默认 scan 不遍历长期 tombstone/free-list hole；
-- single delete 可以使用 swap-remove 或语义等价的 packed remove；
-- multi-row remove 可以先在 terminal 内标记，再一次 compact；
-- terminal 内部 temporary mark 不得在成功返回后的 table state 中留下 hole；
-- row move 后 `KeySpace`、columns、bitmap、child handle 和 affected sidecars 必须同步维护或正确 dirty；
+- single delete 使用swap-remove；
+- multi-row remove把selected Index写入`IndexBuffer`并排序，再从tail选择未删除survivor填充front hole；
+- remove不得分配`boolean[size]`全表mark；成功返回后的table state不得留下hole；
+- row move 后primary locator、columns、bitmap、child handle和所有exact indexes必须同步维护；
 - dense public row index 与当前 packed `RowSlot` 对应，structural mutation 后失效。
 
 如果 future implementation 需要 segmented/chunked storage，仍必须提供等价的 contiguous/chunk-contiguous scan contract 和 evidence，不能静默退化成逐 row pointer traversal。
@@ -60,11 +60,11 @@ V1 baseline 是 pure SoA。AoSoA、blocked layout、string pool、compression �
 
 以下 non-materializing hot operations 在 capacity/scratch 已准备完成后，必须以 no per-row/per-field allocation 为目标，并由 allocation benchmark 验证：
 
-- default/index/order Row Pipeline 的 `count`、`anyMatch`、`noneMatch`、`forEach`；
+- default/exact-index/dynamic-sorted Row Pipeline 的 `count`、`anyMatch`、`noneMatch`、`forEach`；
 - Row Pipeline `update` 和 `remove` 的 traversal phase；
 - Column Pipeline / ColumnView primitive traversal；
-- `KeySpace.contains/fetch-locate` normal/missing path；
-- sidecar traversal；
+- primary-locator `contains/fetch-locate` normal/missing path；
+- exact group lookup/traversal；
 - optional bitmap scan。
 
 具体约束：
@@ -76,7 +76,7 @@ V1 baseline 是 pure SoA。AoSoA、blocked layout、string pool、compression �
 - dynamic sort、compaction、key buffer 使用 primitive scratch arrays；不得使用 `Integer[]` 或 materialized row array；
 - stats 使用 terminal-local primitive counters，结束时一次 publish；不得逐 row 更新 Map、timer object、atomic counter 或 histogram object。
 
-允许 allocation 的显式边界：capacity growth、rehash、sidecar rebuild、scratch first-growth、Batch construction、recursive materialization、external DTO mapping 和 explicit diagnostic tooling。它们必须分别统计。
+允许allocation的显式边界：capacity/index growth、rehash、replaceAll fresh-index build、scratch first-growth、public `IndexSnapshot` copy、Batch construction、recursive materialization、external DTO mapping和explicit diagnostic tooling。它们必须分别统计。普通exact read不得触发full-table rebuild或Java object allocation。
 
 ## 5. Generated specialization and JIT-friendly execution
 
@@ -86,7 +86,7 @@ Generated code 必须：
 
 - 静态绑定 normalized leaf 到 concrete primitive/reference column；
 - primitive getter/setter 使用 primitive type，不经 `Object`/boxing；
-- selector extraction、key leaf equality/hash、order comparator 采用 generated typed path；
+- selector extraction、key/selector leaf equality/hash、dynamic comparator采用generated typed path；
 - 在 terminal 开始前绑定所需 arrays/columns、RowSequence 和 callbacks；
 - lifecycle/released/epoch/shape 检查在可证明安全时 hoist 到 terminal/bulk boundary；
 - generated accessor/cursor call site 保持 monomorphic 或 JVM 可内联形态；
@@ -128,78 +128,62 @@ AccessPath
 
 `sorted(...).limit(k)` 是否使用 top-k internal optimization 属于 runtime-plan/benchmark 决策。只要 public semantics、determinism 和 tie-break 完全一致，可以作为内部优化；V1 不因此承诺 public top-k API。
 
-## 7. KeySpace implementation contract
+## 7. Primary locator implementation contract
 
-### 7.1 SparseIntKeySpace
+- int/long key使用primitive bucket/key/index arrays；
+- composite key normal lookup不创建临时tuple；
+- open addressing的empty/deleted state不使用boxed sentinel；
+- hash collision必须执行generated full canonical key equality；
+- remove/row move后locator必须同步到moved survivor的current Index；
+- load factor、probing、delete strategy和rehash threshold属于versioned runtime plan；
+- rehash/growth必须在visible mutation前完成或具备rollback-safe staging；
+- collision、probe、rehash和capacity必须在低干扰stats中可观察。
 
-`SparseIntKeySpace` 只适用于 non-negative、bounded 且 domain memory 可接受的 int identity。
+V1 concrete hash implementations在rehash时必须先用local primitive arrays完成全部live identity重插与计数校验，再一次发布arrays、used与metrics；allocation、重插、counter overflow或identity校验失败均保留旧映射。`capacity`是当前bucket array长度，`used`是LIVE+DELETED bucket数，probe/collision/rehash是since-reset checked counters；generated append/replace采用staged locator时先通过checked `addMetrics(...)`继承旧instance累计，再与新staging工作量一起发布；`resetMetrics()`只清零这三项累计，不改变locator、tombstone或capacity。
 
-- lookup/add/remove 不分配对象；
-- `dense[]` / `sparse[]` 使用 primitive arrays；
-- runtime plan/create boundary 必须验证 configured/observed domain 和 memory estimate；
-- sparse domain memory 与 maximum id/domain bound 相关，不能只按 live row count 估算；
-- domain 过大、负值语义或 memory budget 不适合时必须使用 `HashKeySpace` 或拒绝配置，不能尝试分配不可控 `sparse[]`；
-- clear 复用 capacity，但 high-water retention 必须可观察。
+Primitive key path不得以`HashMap<Key, Integer>`作为canonical runtime implementation。String/composite key可以读取reference column，但必须有单独memory/indirection evidence。
 
-### 7.2 HashKeySpace
+## 8. Grouped exact-index contract
 
-- int/long key 使用 primitive bucket/key/slot arrays；
-- composite key normal lookup 不创建临时 tuple；
-- open addressing 的 empty/deleted state 不使用 boxed sentinel；
-- collision 必须执行 full canonical key equality；
-- remove/row move 后 locator 必须保持正确；
-- load factor、probing、delete strategy 和 rehash threshold 属于 versioned runtime plan；
-- rehash/growth 必须在 visible mutation 前完成或具备 rollback-safe staging；
-- collision count、probe count、rehash count/capacity 必须在低干扰 stats 或 diagnostic mode 可观察。
+### 8.1 Primitive structure
 
-V1 concrete hash implementations在rehash时必须先用local primitive arrays完成全部live identity重插与计数校验，再一次发布arrays、used与metrics；allocation、重插、counter overflow或identity校验失败均保留旧映射。`capacity`是当前bucket array长度，`used`是LIVE+DELETED bucket数，probe/collision/rehash是since-reset checked counters；generated append/replace采用staged KeySpace时先通过checked `addMetrics(...)`继承旧instance累计，再与新staging工作量一起发布；`resetMetrics()`只清零这三项累计，不改变locator、tombstone或capacity。
-
-Primitive key path 不得以 `HashMap<Key, Integer>` 作为 canonical runtime implementation。String/object selector path 可以保留 reference，但必须有单独 memory/indirection evidence。
-
-## 8. Secondary index and order sidecar
-
-### 8.1 Primitive-first sidecar
-
-对于 primitive/value selector，secondary index、unique index 和 order sidecar 应以 primitive row slot/index structures 为主，避免 object-per-entry/object-per-group 结构。
-
-以下结构可以作为候选：
-
-- primitive bucket heads + next-row arrays；
-- sorted primitive row permutation + range lookup；
-- batch/read-mostly 场景的 rebuildable CSR-like grouped sidecar；
-- mutation-heavy 场景的 maintained primitive hash-chain/locator sidecar。
-
-具体结构由 selector cardinality、selectivity、mutation/read ratio、group size、memory overhead 和 benchmark 决定。对于 primitive selector，`Map<Key, List<Integer>>` 不得作为 claim-grade canonical implementation。
-
-### 8.2 Maintenance policy
-
-每个 sidecar 的 runtime plan 必须声明：
-
-- eager maintain、dirty/lazy rebuild 或 hybrid policy；
-- dirty transition；
-- rebuild trigger；
-- rebuild rows/bytes/scratch estimate；
-- selector update/remove/row move 的处理方式；
-- high-water memory 和 clear/reuse policy。
-
-同一次 terminal 对同一 sidecar 最多完成一次 rebuild。Runtime 必须能诊断 rebuild storm，例如：
+每个`@SomaIndex`/`@SomaUnique`使用`GroupedExactIndex`：
 
 ```text
-mutation -> dirty -> first -> rebuild -> mutation -> dirty -> first -> rebuild
+hash bucket -> same-hash group chain -> group head -> row links
+row -> group / prev / next
 ```
 
-不允许把 dirty order 的 `firstOrThrow()` 宣称为 O(1)。维护策略的阈值属于 runtime plan，但 rebuild 不得隐藏是永久契约。
+- runtime只保存primitive bucket/group/row-link arrays；不保存selector Java object或`Map<Value,List<Integer>>`；
+- generated code提供canonical hash以及与representative row的full leaf equality；
+- same-hash unequal selector通过group chain区分；
+- nonunique group允许0..N rows，unique group最多1 row；
+- group与row-link capacity独立checked growth，storage current/high-water可观察；
+- capacity target使用primitive arithmetic计算；capacity充足的steady-state preflight不创建临时descriptor对象；
+- group内row顺序不作公共承诺。
+
+### 8.2 Eager incremental maintenance
+
+- append在发布row前完成capacity/uniqueness preflight，发布facts后link；
+- update先对整次terminal final state执行unique validation，再unlink old、publish fields、link new；合法value swap必须成功；
+- selector全部来自immutable `@SomaKey` leaves时，generated update/mutator不执行无效的capacity preflight、unlink或relink；mixed selector只维护实际可变的selector；
+- remove先unlink removed row；tail-fill move使用`relocate(from,to)`修复per-row links；
+- replaceAll/create在detached structure中fresh build并与columns一起原子publish；
+- ordinary read只做hash/group lookup与link traversal，不存在dirty state、read-time full rebuild或full-scan fallback；
+- mutation expected failure时旧facts与所有exact structures保持一致。
+
+Probe、collision、rehash、entry/group count与storage按[Runtime errors与diagnostics契约](runtime-errors-and-diagnostics-contract.md)聚合观测。Fresh build是显式bulk mutation成本，不得伪装成read成本或沿用rebuild-sidecar语义。
 
 ## 9. Capacity、compaction and scratch memory
 
 - table/child initial capacity 是 hint，不是 max size；
 - growth 使用 overflow-safe geometric 或 evidence-backed equivalent policy，具体 factor 属于 runtime plan；
 - columns、bitmap、RowSpace 和 required locator structures 必须以一致的新 capacity stage；
-- `reserve(expected)` 应避免同一 import 中重复 growth；
+- `reserve(expected)` 对columns、primary locator与exact indexes做combined preflight并预留到同一expected row envelope，避免同一import中重复growth；expected resource failure发生在任何capacity publish前；
 - resize 的旧/新 arrays 瞬时共存必须进入 allocation/memory estimate；
 - `clear()` 默认复用 capacity，不在普通 hot path 自动 shrink；
 - object/reference column 在 remove/clear/replacement 后必须清除不再 live 的引用；
-- dynamic sort、compaction、row sequence 和 key buffer scratch 应在 single-owner boundary 复用，并有 maximum retained bytes/high-water stats；
+- dynamic sort、remove candidate、row sequence、key buffer和snapshot staging应通过table-local `IndexBuffer`等single-owner primitive scratch复用，并有maximum retained bytes/high-water stats；
 - 极端 high-water 后的 trim/rebuild 只能是显式 lifecycle/runtime-plan operation，不得在不可预测的普通 terminal 内触发。
 
 V1 不在本文固定 growth factor、load factor、trim threshold 或 scratch maximum；这些参数必须 versioned、可诊断并由 benchmark 校准。
@@ -223,7 +207,7 @@ Parent-owned child 的性能收益和成本必须同时建模：
 收益：
 
 - parent-key 定位后只扫描该 child instance 的 packed rows；
-- child-local index/order 不需要重复 parent key leaf；
+- child-local exact index不需要重复parent key leaf；
 - 不扫描其他 parent rows。
 
 成本：
@@ -253,7 +237,7 @@ Stats 分三层：
 |---|---|---|
 | always-on summary | enabled | terminal/mutation boundary O(1) publish；不得逐 row 分配或使用 atomic |
 | terminal-local counters | enabled | primitive local increments，terminal 结束后一次合并 |
-| diagnostic detail | explicit opt-in | probe histogram、phase timing、per-sidecar rebuild detail、sampling/profile hook |
+| diagnostic detail | explicit opt-in | probe histogram、phase timing、bounded per-index detail、sampling/profile hook |
 
 单线程 aggregate 不需要 lock、atomic 或 concurrent collection。Elapsed timer、histogram 和 profiler hook 不得默认进入最内层 field access。Benchmark 必须同时能运行 summary-only 与 diagnostic mode，避免把 instrumentation overhead 误认为 runtime 固有成本。
 
@@ -265,8 +249,8 @@ Stats 是观测事实，不驱动业务语义。Runtime plan 可以读取历史 
 
 | Tier | 路径 | 目标 |
 |---|---|---|
-| bulk | `reserve` / `addBatch` / `replaceAll` | 批量构造、capacity reuse、集中 sidecar maintenance |
-| direct/access | key/index/order source | 通过明确结构减少候选 rows |
+| bulk | `reserve` / `addBatch` / `replaceAll` | 批量构造、capacity reuse、fresh locator/index build |
+| direct/access | key/exact-index source | 通过明确结构减少candidate rows |
 | fused row | Row Pipeline + Cursor | typed、object-free row traversal/mutation |
 | primitive | Column Pipeline / ColumnView | 单列或少量 primitive columns 的最高吞吐路径 |
 | boundary | schema object/`List`/`Map` materialization | 完整 detached observation/export，不作为 hot-loop baseline |
@@ -278,10 +262,8 @@ API 易用性不得隐藏 tier 变化。特别是 `fetch`、`findFirst` 和 `fir
 以下属于 versioned runtime plan，不进入 Schema 或 `schema_hash`：
 
 - capacity growth factor、minimum capacity、trim policy；
-- SparseInt domain threshold/fallback；
-- HashKeySpace load factor、probing、delete/rehash strategy；
-- secondary index concrete structure；
-- sidecar eager/lazy/hybrid threshold；
+- primary locator load factor、probing、delete/rehash strategy；
+- exact-index bucket/group growth与probe strategy；
 - scratch retention limit；
 - child pooling/slab threshold；
 - string pool/compression；
@@ -303,10 +285,9 @@ Runtime plan identity 必须可读取；影响实际 layout/algorithm 的 plan c
 
 - packed primitive scan：Row Pipeline、Column path、handwritten primitive array baseline；
 - optional all-present/all-absent/mixed word scan；
-- SparseInt normal/domain-bound/fallback；
-- int/long/composite HashKeySpace normal/missing/collision/rehash；
-- secondary index grouped lookup across cardinality/selectivity；
-- order sidecar clean traversal、dirty rebuild、rebuild-storm pattern；
+- int/long/composite primary locator normal/missing/collision/rehash；
+- exact-index grouped lookup across cardinality/selectivity/collision；
+- exact-index incremental append/update/remove/relocate与replaceAll fresh build；
 - dynamic sort scratch reuse and comparator count；
 - single/batch delete compaction；
 - reserve/growth/replaceAll/clear reuse and transient allocation；
@@ -326,7 +307,7 @@ Claim-grade artifact 至少记录 rows/s、ns/row or ns/op、allocation/op、est
 - Row Pipeline intermediate stage 构造中间 Collection；
 - primitive key/index 使用 boxed `HashMap<Key, List<Integer>>` canonical path；
 - comparator 内做 cross-table lookup、materialization 或 allocation；
-- dirty sidecar rebuild 被 `first`/`fetch` 总时间隐藏；
+- exact-index read路径隐藏full-table rebuild或full-scan fallback；
 - persistent tombstone 让 default scan 逐 row 判断 live/dead；
 - stats 在 inner loop 使用 timer object、atomic 或 Map；
 - active ColumnView 下为了性能绕过 lifecycle checks；

@@ -65,7 +65,7 @@ Reject：`List<R>`、mutable DTO、schema object graph 或 Java Stream object ro
 
 不得：
 
-- 在 generated code 中复制通用 lifecycle/sidecar engine；
+- 在 generated code 中复制通用 lifecycle/exact-index engine；
 - 通过 reflection/metadata switch 执行 hot terminal；
 - 暴露 runtime internal handle。
 
@@ -73,8 +73,8 @@ Reject：`List<R>`、mutable DTO、schema object graph 或 Java Stream object ro
 
 负责：
 
-- RowSpace、ColumnStore、presence、KeySpace；
-- index/unique/order、AccessPath；
+- RowSpace、ColumnStore、presence、hash primary locator；
+- exact index/unique、AccessPath 与 reusable IndexBuffer；
 - mutation/compaction/epoch；
 - ownership registry、cascade lifecycle；
 - materialization accounting；
@@ -103,7 +103,7 @@ generated Batch builder
   -> local validation/default/presence
   -> runtime prepare capacity/key/unique/child
   -> publish base facts
-  -> maintain/dirty sidecars
+  -> incrementally maintain exact access structures
   -> commit epoch
 ```
 
@@ -111,7 +111,7 @@ Expected failure 保持旧事实。
 
 ### 5.3 Direct/pipeline mutation
 
-Generated mutator/cursor 直接绑定 primitive storage。MutationCoordinator 负责 key/unique precheck、sidecar、compaction、view pin 和 epoch。
+Generated mutator/cursor 直接绑定 primitive storage。MutationCoordinator 负责 key/unique precheck、exact-index delta、swap-remove、view pin 和 epoch。
 
 ### 5.4 Materialization
 
@@ -177,7 +177,7 @@ Phase 0 只证明 compiler/build foundation，不生成虚假的 G2/G4 feature-c
 实现：
 
 - generated key；
-- SparseInt/Hash KeySpace；
+- Hash primary locator；
 - contains/find/fetch/mutate/delete/keys；
 - duplicate/missing/canonical floating；
 - remove compaction repair。
@@ -185,25 +185,25 @@ Phase 0 只证明 compiler/build foundation，不生成虚假的 G2/G4 feature-c
 出口：
 
 - key differential/property evidence；
-- domain/load/collision/rehash stats；
+- load/collision/rehash stats；
 - no transient composite tuple hot lookup。
 
 ### Phase 3：AccessStructures
 
 实现：
 
-- index、unique、order；
+- exact non-unique index 与 exact unique access；
 - grouped source；
-- dirty/rebuild lifecycle；
+- eager/incremental maintenance 与 collision-safe equality；
 - dynamic row-index sort；
 - UpdateResult/RemoveResult stats。
 
 出口：
 
-- selector/unique/order oracle；
-- clean/dirty/rebuild evidence；
-- rebuild-storm observable；
-- primitive sidecar shape。
+- selector/unique oracle；
+- append/update/swap-remove/replaceAll differential evidence；
+- probe/collision/rehash/group/link observable；
+- primitive exact-index shape。
 
 ### Phase 4：Parent-owned child 与 materialization
 
@@ -300,8 +300,8 @@ Capability ID 是实施、PR 和 evidence 的稳定 traceability key，不拥有
 | `V1-DENSE-STORAGE` | dense packed rows、primitive columns 与 presence | [TableStore](../soma-runtime-core/docs/table-store-contract.md) | Phase 1 / Phase 1 | G3/G4 | `List<Row>`、DTO/object graph live storage |
 | `V1-ROW-PIPELINE` | one-shot fused Row Pipeline 与 reusable Cursor | [Generated API](generated-table-api-contract.md) / [Runtime performance](../soma-runtime-core/docs/runtime-performance-implementation-contract.md) | Phase 1 / Phase 5 | G2/G3/G4 | Java Stream、metadata interpreter、per-row object |
 | `V1-COLUMN-ACCESS` | Column Pipeline 与 typed readonly ColumnView | [Generated API](generated-table-api-contract.md) / [Code generation](../soma-processor/docs/code-generation-contract.md) | Phase 1 / Phase 5 | G2/G3/G4 | 用 schema-object materialization 代替 primitive hot access |
-| `V1-KEYED-IDENTITY` | generated key、SparseInt/Hash KeySpace、key API 与 Key Pipeline | [Generated API](generated-table-api-contract.md) / [TableStore](../soma-runtime-core/docs/table-store-contract.md) | Phase 2 / Phase 5 | G2/G3 | `HashMap<Key,Integer>` canonical path、transient tuple lookup |
-| `V1-ACCESS-STRUCTURES` | index、unique、order、grouped source 与 dynamic sort | [TableStore](../soma-runtime-core/docs/table-store-contract.md) / [Code generation](../soma-processor/docs/code-generation-contract.md) | Phase 3 / Phase 5 | G2/G3 | 只保留 scan、隐藏 rebuild storm |
+| `V1-KEYED-IDENTITY` | generated key、hash primary locator、key API 与 Key Pipeline | [Generated API](generated-table-api-contract.md) / [TableStore](../soma-runtime-core/docs/table-store-contract.md) | Phase 2 / Phase 5 | G2/G3 | `HashMap<Key,Integer>` canonical path、Sparse Set/entity 映射、transient tuple lookup |
+| `V1-ACCESS-STRUCTURES` | exact index、exact unique、grouped source 与 explicit dynamic sort | [TableStore](../soma-runtime-core/docs/table-store-contract.md) / [Code generation](../soma-processor/docs/code-generation-contract.md) | Phase 3 / Phase 5 | G2/G3 | maintained order、dirty/full rebuild、只保留 scan或hash-only equality |
 | `V1-MUTATION` | Direct/Mutator/pipeline mutation、compaction 与 result stats | [Generated API](generated-table-api-contract.md) / [Runtime correctness](runtime-correctness-model.md) | Phase 1 / Phase 5 | G2/G3 | key setter、expected failure partial state |
 | `V1-CHILD-OWNERSHIP` | parent-owned keyed/dense child 与 cascade lifecycle | [Annotation schema](../soma-annotations/docs/annotation-schema-contract.md) / [Runtime lifecycle](../soma-runtime-core/docs/runtime-lifecycle-contract.md) | Phase 4 / Phase 5 | G1/G3/G4 | share、attach、reparent 或 Java Collection live child |
 | `V1-MATERIALIZATION` | schema object/List/Map recursive detached materialization 与 budget | [Materialization](materialization-contract.md) | Phase 1 / Phase 5 | G1/G2/G3/G4 | shallow/partial graph、hidden write-back、无 budget overload |

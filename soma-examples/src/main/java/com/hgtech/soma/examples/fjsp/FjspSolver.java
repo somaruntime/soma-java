@@ -6,6 +6,7 @@ import com.hgtech.soma.examples.fjsp.schema.OperationId;
 import com.hgtech.soma.examples.fjsp.schema.OperationKey;
 import com.hgtech.soma.examples.fjsp.schema.generated.JobResultBatch;
 import com.hgtech.soma.examples.fjsp.schema.generated.OperationAssignmentBatch;
+import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.RemoveResult;
@@ -58,28 +59,39 @@ public final class FjspSolver {
   }
 
   private void releaseInitialOperations() {
-    int[] jobRows = instance.jobs.byDispatchOrder().rowIndexes();
+    IndexSnapshot jobRows = instance.jobs.rows().sorted((left, right) -> {
+      int compared = Long.compare(left.inputOrder(), right.inputOrder());
+      return compared != 0 ? compared
+        : Long.compare(left.jobIdValue(), right.jobIdValue());
+    }).rowIndexes();
     LongColumnView jobIds = instance.jobs.jobIdValueColumn();
     try {
-      for (int row : jobRows) frontier.release(operationAt(jobIds.getLong(row), 0));
+      for (int position = 0; position < jobRows.size(); position++) {
+        frontier.release(operationAt(jobIds.getLong(jobRows.indexAt(position)), 0));
+      }
     } finally {
       jobIds.close();
     }
   }
 
   private OperationKey operationAt(long jobId, int sequenceNo) {
-    int[] rows = instance.definitions.findByJobSequence(
+    IndexSnapshot rows = instance.definitions.findByJobSequence(
       new JobId(jobId), sequenceNo).rowIndexes();
-    require(rows.length == 1,
+    require(rows.size() == 1,
       "each job sequence must identify exactly one operation");
     LongColumnView operationIds =
       instance.definitions.operationKeyOperationIdValueColumn();
     try {
-      return new OperationKey(
-        new JobId(jobId), new OperationId(operationIds.getLong(rows[0])));
+      return operationAtRow(jobId, rows.indexAt(0), operationIds);
     } finally {
       operationIds.close();
     }
+  }
+
+  private OperationKey operationAtRow(
+      long jobId, int row, LongColumnView operationIds) {
+    return new OperationKey(
+      new JobId(jobId), new OperationId(operationIds.getLong(row)));
   }
 
   private Dispatch dispatchNext() {
@@ -96,12 +108,18 @@ public final class FjspSolver {
   }
 
   private MachineSelection selectNextMachine() {
-    int[] rows = instance.machines.byAvailableTime().rowIndexes();
+    IndexSnapshot rows = instance.machines.rows().sorted((left, right) -> {
+      int compared = Long.compare(
+        left.availableFromMinute(), right.availableFromMinute());
+      return compared != 0 ? compared
+        : Long.compare(left.machineIdValue(), right.machineIdValue());
+    }).rowIndexes();
     LongColumnView machineIds = instance.machines.machineIdValueColumn();
     LongColumnView available = instance.machines.availableFromMinuteColumn();
     LongColumnView lastFamily = instance.machines.lastSetupFamilyValueColumn();
     try {
-      for (int row : rows) {
+      for (int position = 0; position < rows.size(); position++) {
+        int row = rows.indexAt(position);
         MachineId machineId = new MachineId(machineIds.getLong(row));
         if (instance.frontier.findByMachine(machineId).count() == 0L) continue;
         boolean present = lastFamily.isPresent(row);
@@ -145,16 +163,23 @@ public final class FjspSolver {
     JobId jobId = new JobId(dispatch.jobId);
     instance.jobStates.mutate(jobId)
       .setNextSequenceNo(nextSequence).commit();
-    int[] successors = instance.definitions
+    IndexSnapshot successors = instance.definitions
       .findByJobSequence(jobId, nextSequence).rowIndexes();
-    if (successors.length == 1) {
-      OperationKey successor = operationAt(dispatch.jobId, nextSequence);
-      instance.operationStates.mutate(successor)
-        .setJobReadyMinute(dispatch.endMinute).commit();
-      frontier.release(successor);
-      return Completion.incomplete();
+    if (successors.size() == 1) {
+      LongColumnView operationIds =
+        instance.definitions.operationKeyOperationIdValueColumn();
+      try {
+        OperationKey successor = operationAtRow(
+          dispatch.jobId, successors.indexAt(0), operationIds);
+        instance.operationStates.mutate(successor)
+          .setJobReadyMinute(dispatch.endMinute).commit();
+        frontier.release(successor);
+        return Completion.incomplete();
+      } finally {
+        operationIds.close();
+      }
     }
-    require(successors.length == 0,
+    require(successors.size() == 0,
       "job sequence must not contain duplicate operations");
     long dueMinute;
     LongColumnView dueMinutes = instance.jobs.dueMinuteColumn();

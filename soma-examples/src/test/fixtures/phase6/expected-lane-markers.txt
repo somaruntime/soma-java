@@ -1,4 +1,4 @@
 lane=fjsp-errors duplicate_key=ok missing_key=ok optional_empty=ok empty_result=ok
 lane=fjsp-lifecycle view_pinned=ok released_view=ok table_released=ok stale_view=referenced-g3
-lane=fjsp-stats schema_hash=ok runtime_plan=ok sidecar=ok keyspace=ok
+lane=fjsp-stats schema_hash=ok runtime_plan=ok exactIndex=ok keyspace=ok
 lane=owner-breadth vrp_vehicle=ok vrp_unassigned=ok simulation_tank=ok simulation_valve=ok game_player=ok

@@ -13,6 +13,7 @@ import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.OperationAssignmentBatch;
+import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
@@ -31,7 +32,7 @@ public final class FjspVerificationSuite {
     System.out.println("lane=fjsp-lifecycle view_pinned=ok released_view=ok "
       + "table_released=ok stale_view=referenced-g3");
     System.out.println("lane=fjsp-stats schema_hash=ok runtime_plan=ok "
-      + "sidecar=ok keyspace=ok");
+      + "exactIndex=ok keyspace=ok");
     System.out.println("lane=owner-breadth vrp_vehicle=ok vrp_unassigned=ok "
       + "simulation_tank=ok simulation_valve=ok game_player=ok");
     System.out.println("fjsp-verification: ok");
@@ -47,8 +48,8 @@ public final class FjspVerificationSuite {
         "teaching problem cardinality");
       require(exported.size() == 2 && instance.schemaHash().length() == 64,
         "detached export and schema identity");
-      require(instance.sidecarRebuildCount() > 0L,
-        "solver exercised generated sidecars");
+      require(instance.exactIndexProbeCount() > 0L,
+        "solver exercised generated exact indexes");
       System.out.println("access-pattern-card scenario=fjsp "
         + "paths=child-release,keyed-frontier,grouped-update,dynamic-sort,grouped-remove "
         + "rows=" + result.assignments
@@ -62,7 +63,7 @@ public final class FjspVerificationSuite {
         + " evidenceScope=assignment-solve-and-export"
         + " observation=executed-result-accounting "
         + "assignments=" + result.assignments
-        + " sidecarRebuilds=" + instance.sidecarRebuildCount());
+        + " exactIndexProbes=" + instance.exactIndexProbeCount());
 
       OperationKey first = new OperationKey(new JobId(1L), new OperationId(10L));
       expectCode("duplicate_key", () -> instance.assignments.addBatch(
@@ -104,15 +105,15 @@ public final class FjspVerificationSuite {
       addCandidate(batch, expected, machine, family);
       frontier.addBatch(batch);
       frontier.delete(new OperationMachineKey(removed, machine));
-      int[] selected = frontier.findByMachine(machine)
+      IndexSnapshot selected = frontier.findByMachine(machine)
         .filter(row -> row.indicatorReady())
         .sorted(new FcfsSptDispatchRule().comparator())
         .limit(1).rowIndexes();
       LongColumnView operationIds =
         frontier.candidateKeyOperationKeyOperationIdValueColumn();
       try {
-        require(selected.length == 1
-            && operationIds.getLong(selected[0]) == 1L,
+        require(selected.size() == 1
+            && operationIds.getLong(selected.indexAt(0)) == 1L,
           "identity tie-break must survive packed compaction");
       } finally {
         operationIds.close();

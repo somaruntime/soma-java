@@ -23,7 +23,7 @@ Owner：根项目协调层
 | materialized shape | schema row、List/Map child、optional/null shape | boundary data contract |
 | compiler integration | plugin name、processor discovery、supported compiler identity | build-time consumer contract |
 | runtime plan | capacity/algorithm/stats/default budget configuration | instance execution contract，不是 logical schema |
-| internal implementation | RowSlot、bitmap、bucket、sidecar、normalized-model class | 无 consumer compatibility 承诺 |
+| internal implementation | packed Index、bitmap、bucket、group link、IndexBuffer、normalized-model class | 无 consumer compatibility 承诺 |
 | evidence format | gate/benchmark structured artifact | evidence contract，不是 runtime API |
 
 类型位于 artifact 中并不自动意味着 public。Public surface 必须由正式 owner contract 和发布时的 API manifest 同时确认；internal/package-private/test hook 不因可反射访问而获得兼容性承诺。
@@ -47,7 +47,7 @@ SOMA 使用多个正交 identity，不能用一个版本号替代全部语义：
 
 Schema version label 不能替代 exact hash；artifact version 不能替代 runtime compatibility；runtime plan hash 不进入 logical schema hash。
 
-首个 dense runtime slice 固化：generated protocol identity `soma-generated-runtime-v1`、runtime compatibility identity `soma-runtime-java8-v1`、runtime plan protocol `soma-runtime-plan-v1`、dense algorithm identity `dense-soa-v1`、materialization estimator `soma-materialization-estimator-v1`。这些 identity 必须进入 generated metadata、create mismatch fixture 和相应 manifest；字符串不包含组织名，也不改变 HGTECH/SOMA identity boundary。
+当前packed exact-access runtime固化：generated protocol identity `soma-generated-runtime-v3`、runtime compatibility identity `soma-runtime-java8-v3`、runtime plan protocol `soma-runtime-plan-v3`、dense algorithm identity `dense-soa-v1`、materialization estimator `soma-materialization-estimator-v1`。这些 identity 必须进入 generated metadata、create mismatch fixture 和相应 manifest；字符串不包含组织名，也不改变 HGTECH/SOMA identity boundary。v1/v2只属于首个公开发布前的历史实现，不是current compatibility target。
 
 ## 4. Initialization compatibility check
 
@@ -90,7 +90,7 @@ Generated table 创建 runtime storage 前必须验证：
 - `@SomaValue` lowering、constructor、equality/hash 改变；
 - `@SomaTable` public carrier、public no-arg construction 或 public mutable schema-field requirement 改变；
 - Materialized Object/List/Map shape 或 absent/present-empty 区分改变；
-- key/index/unique/order equality、hash、order 或 floating canonicalization 改变；
+- key/index/unique equality、hash、source-sequence 或 floating canonicalization 改变；
 - error code/category、lifecycle、failure atomicity 改变；
 - concurrency/persistence boundary改变；
 - supported compiler/build activation 被移除；
@@ -100,7 +100,7 @@ Generated table 创建 runtime storage 前必须验证：
 
 以下可以保持 public compatibility，但仍需证据：
 
-- internal algorithm、column class、probe/growth/sidecar strategy 改变；
+- internal algorithm、column class、probe/growth/exact-index strategy 改变；
 - performance 改善但 observable order/result/error 不变；
 - diagnostics message prose 改写，stable code/context 不变；
 - 新增 internal stats detail，默认成本和已有字段语义不变；
@@ -139,7 +139,7 @@ Generated table 创建 runtime storage 前必须验证：
 - 只列出正式 owner contract 授权的 public/protected surface；
 - internal packages、test hooks 和 compiler internals 不进入 manifest；
 - third-party type 不进入 public/generated signature；
-- sidecar、RowSlot、bitmap、bucket、allocator、compiler AST type 不得泄漏；
+- group link、live IndexBuffer、bitmap、bucket、allocator、compiler AST type 不得泄漏；
 - reflection 可见性不构成 public contract；
 - package split 前先证明独立版本/消费者边界。
 
@@ -165,7 +165,7 @@ Generated table 创建 runtime storage 前必须验证：
 
 Java 8跨package generated construction使用一个明确例外：handwritten public type `com.hgtech.soma.runtime.GeneratedColumnAccess` 是generated-only construction bridge。其public static factory签名只接受`Object`/String/enum member array并返回handwritten Column Pipeline/View；方法内部对`.runtime.generated` binding做exact type validation。所有具体Column Pipeline/View constructor改为package-private，application contract仍只允许经generated `fieldValues()/fieldColumn()`获取实例。该bridge进入handwritten manifest并标记`generated construction protocol`，不是application手工构造入口；schema-specific generated public signature仍不得引用`.runtime.generated`。
 
-本轮新增Value leaf/row-index generated API、callback/resource协议和RuntimePlan canonical dimensions，需要processor/runtime成对升级并重新生成。Identity提升为`soma-generated-runtime-v2`、`soma-runtime-java8-v2`、`soma-runtime-plan-v2`；v1与v2不能静默混用。完整迁移仍在V1内完成，不建立V2产品目标或v0.x替代release。
+Packed exact-access cutover 删除 maintained order、SparseInt 与 dirty sidecar protocol，新增 epoch-bearing `IndexSnapshot`、incremental grouped exact index、swap-remove 和新的 RuntimePlan/Stats shape。Processor/runtime 必须成对升级并重新生成；identity 统一提升为 `soma-generated-runtime-v3`、`soma-runtime-java8-v3`、`soma-runtime-plan-v3`。v1/v2 generated code 与 v3 runtime 不能静默混用。该 breaking cutover 发生在首个公开发布前，直接删除旧 surface，不保留失效 annotation、deprecated 空壳 getter或 runtime fallback；完整迁移仍在同一 Java-only V1 内完成。
 
 ## 10. Deprecation and removal
 
@@ -189,7 +189,7 @@ Java 8跨package generated construction使用一个明确例外：handwritten pu
 - processor/runtime match and mismatch cases；
 - old consumer source rebuild；
 - previous released artifact compatibility fixture when applicable；
-- error/default/order/materialization behavior cases；
+- error/default/source-sequence/materialization behavior cases；
 - release matrix 与 migration note。
 
 Passing unit tests 不能单独证明 compatibility。

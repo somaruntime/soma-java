@@ -4,9 +4,11 @@
 正式事实源：否
 已固化内容：[FJSP schema 示例](../../soma-examples/docs/fjsp-runtime-state-example.md)、[FJSP E2E 场景](../../soma-examples/docs/fjsp-e2e-scenario.md)、[Runtime-state benchmark 契约](../../soma-benchmarks/docs/runtime-state-benchmark-contract.md)
 仍在研究：frontier lifecycle、indicator/update 粒度和 claim-grade evidence
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
-对齐基线：[设计宪法](../soma-table-design-constitution.md)、[Generated Table API](../generated-table-api-contract.md)、[Runtime 性能模型](../runtime-performance-model.md)
+对齐基线：[设计宪法](../soma-table-design-constitution.md)、[Generated Table API](../generated-table-api-contract.md)、[Runtime 性能模型](../runtime-performance-model.md)、[TableStore 契约](../../soma-runtime-core/docs/table-store-contract.md)
+
+2026-07-17 baseline：SOMA 已删除 maintained order 与 dirty sidecar；keyed/dense 均采用 packed swap-remove，`@SomaIndex` 只提供 always-current exact group，业务顺序必须显式 `.sorted(...)`，machine availability queue 如需跨轮次维护则由 application-owned heap 承担。本文只继续研究 FJSP 场景取舍，不再把旧 order/sidecar 作为候选 runtime 方案。
 
 ## 1. 目标
 
@@ -28,7 +30,7 @@
 
 ### 2.1 数据职责审核
 
-本场景先按 application data role 分类，再选择 keyed/dense、index/order 和访问路径：
+本场景先按 application data role 分类，再选择 keyed/dense、exact index、显式排序和访问路径：
 
 | Data role | Table / field group | 权威性与生命周期 | 设计判断 |
 |---|---|---|---|
@@ -54,8 +56,8 @@ OperationAssignment       // result facts
 | Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
 |---|---|---|---|---|
 | `OperationDefinition.candidateMachines` | operation count × per-operation candidate-machine count；必须记录 empty/typical/high child cardinality | `machineId`、`processingTime` | operation release 时 parent-key locate + child packed scan；input import 后只读 | live child facade 应 object-free；parent `fetch` deep materialization 只作 reference/export 对照 |
-| `MachineCandidate` frontier | current released-unscheduled machine-operation pairs | candidate key、setup family、ready/setup/FCFS/SPT indicators | release batch append；按 machine grouped update/sort；按 operation grouped remove | by_machine/by_operation selectivity、dynamic-sort scratch、compaction 和 sidecar dirty/rebuild 分开计量 |
-| `MachineState` | machine count | `nextAvailableTime`、`lastSetupFamily` | repeated ordered first + one-row mutate | mutation/read ratio 决定 order eager/lazy policy；必须观察 rebuild-storm pattern |
+| `MachineCandidate` frontier | current released-unscheduled machine-operation pairs | candidate key、setup family、ready/setup/FCFS/SPT indicators | release batch append；按 machine exact-group update/sort；按 operation exact-group remove | by_machine/by_operation selectivity、dynamic-sort scratch、swap-remove 与 exact-index maintenance 分开计量 |
+| `MachineState` | machine count | `nextAvailableTime`、`lastSetupFamily` | repeated explicit arg-min + one-row mutate；或 application heap | 比较全量 arg-min 与外部 heap 的 mutation/read 成本，不把业务队列塞入 Table 物理顺序 |
 | `OperationRuntimeState` / `OperationAssignment` | operation count / assigned operation count | ready fields / result times | point lookup + result insert | split lookup 与 co-located baseline 比较；不得复制 authoritative assignment |
 | `SetupTime` | machine/setup-family combinations | key leaves、`setupTime` | dispatch indicator phase random point lookup | 记录 load factor、collision、reuse；comparator 内禁止 lookup |
 
@@ -123,9 +125,7 @@ import com.hgtech.soma.annotation.SomaChild;
 import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
-import com.hgtech.soma.annotation.SomaOrder;
 import com.hgtech.soma.annotation.SomaSchema;
-import com.hgtech.soma.annotation.SomaSort;
 import com.hgtech.soma.annotation.SomaTable;
 import com.hgtech.soma.annotation.SomaValue;
 import java.util.List;
@@ -191,10 +191,6 @@ public class SetupTimeKey {
 }
 
 @SomaTable(name = "machines", defaultCapacity = 128)
-@SomaOrder(name = "by_available_time", by = {
-    @SomaSort("nextAvailableTime"),
-    @SomaSort("machineId.value")
-})
 public final class MachineState {
     @SomaKey
     public MachineId machineId;
@@ -502,12 +498,12 @@ void commitAssignment(MachineCandidate chosen) {
 
 ### 5.2 风险和坏味道
 
-- 如果单台 machine frontier 很大，`sorted(comparator)` 会成为热点；届时需要 benchmark 后再考虑 top-k buffer 或稳定 schema order；
+- 如果单台 machine frontier 很大，`sorted(comparator)` 会成为热点；届时需要 benchmark 后再考虑 top-k buffer；跨轮次 queue 使用 application-owned heap；
 - `setupTimes.fetch(setupKey)` 缺失必须有明确业务语义：canonical FJSP 建议作为 required lookup error；若业务希望默认 0 或候选不可行，必须在场景契约中显式改写，不能由 runtime 猜测；
 - dispatch loop 连续修改 `operationAssignments`、`machines`、`machineCandidates`，SOMA V1 不提供跨 table transaction，一致性由 solver/application loop 保证；
 - `releaseNextOperations(...)` 不能退化成全表扫描，应依赖 job sequence、material dependency 或其他 lookup/index；
 - `indicatorReady` 只是本轮 machine dispatch 的计算状态，不能被误用成长期业务状态；
-- 动态排序不是 maintained `@SomaOrder`，不能宣称与 order sidecar 性能等价；
+- 动态排序是当前正式业务顺序机制；不能把一次性排序与 application-owned heap 的跨轮次维护成本混为一谈；
 - `MachineCandidate` 同时需要按 machine dispatch 和按 operation cleanup，不属于任一 parent row 的独占生命周期，因此不应改成 `MachineState` 或 `OperationRuntimeState` 的 child table。
 - `CandidateMachineDefinition.defaultCapacity` / `@SomaChild.initialCapacity` 是 per-child-instance hint，必须按单个 operation 的典型候选机器数设置；不能使用 root 总行数规模。
 
@@ -518,9 +514,9 @@ void commitAssignment(MachineCandidate chosen) {
 - generated API 命名 golden；
 - 非 canonical `SetupTime` 缺失语义变体，例如默认 0 或缺失表示不可行，必须另行修改场景契约；
 - `releaseNextOperations(...)` 的依赖索引设计；
-- dynamic sort、top-k 内部优化和 maintained order source 的 benchmark lane；
+- dynamic sort、top-k 内部优化和 application-owned heap 的同语义 benchmark lane；
 - candidate-machine dense child scan 与 flat composite-key/index baseline；
-- frontier add/update/remove、setup lookup、machine order sidecar rebuild、Materialized Object export、external DTO adapter 与 dense workspace rebuild 对照 lane；
+- frontier add/update/remove、setup lookup、machine arg-min/外部 heap、Materialized Object export、external DTO adapter 与 dense workspace rebuild 对照 lane；
 - export/fetchAll 使用 runtime plan 默认或显式 `MaterializationBudget`，并与 hot-loop Row Pipeline 成本分开统计；
 - cross-table commit 失败时的 solver-level error handling；
 - `OperationDefinition + OperationRuntimeState` 分表 lookup 与旧 co-located row 的 benchmark；若需要 preprojection，只复制 hot derived leaf，不复制 authoritative assignment；

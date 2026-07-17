@@ -4,7 +4,7 @@
 Owner：`soma-benchmarks`
 事实范围：evidence level、通用度量边界、artifact、claim 和设计反推条件
 非事实范围：具体 runtime-state scenario lanes、API/schema/runtime contract 和性能结果
-最后审查日期：2026-07-11
+最后审查日期：2026-07-17
 
 ## 1. 目标
 
@@ -29,7 +29,7 @@ Owner：`soma-benchmarks`
 - 不修改 Java annotation schema、generated Java API 或 runtime core 契约；
 - 不把临时蓝图整体固化为 SOMA V1 正式设计；
 - 不承诺 SOMA V1 提供跨 table transaction、heap、ECS、ODE solver、pathfinding engine、automatic join planner 或 lambda predicate index pushdown；
-- 不承诺 dynamic `sorted(comparator)` 与 maintained `@SomaOrder` 有等价性能；
+- 不承诺 `sorted(comparator)` 等价于 application-owned heap、priority queue 或长期维护的业务顺序；
 - 不把 `top-k`、route segment rewrite、event heap/range-pop、coordinate O(1) lookup 写成 V1 public API；
 - 不用 benchmark smoke、示例能跑或单机一次结果证明生产级性能优势。
 
@@ -67,8 +67,8 @@ Runtime-state benchmark 继续使用三层证据：
 - `KeySpace` capacity/load factor、insert、lookup、remove、missing key、duplicate key、probe/collision/rehash；
 - selector cardinality/selectivity、grouped result size、mutation/read ratio；
 - optional density 与 bitmap words scanned；
-- index/order sidecar dirty、rebuild count 和 rebuild time；
-- dynamic sort temporary row-index buffer size；
+- exact index entry/group、probe/collision/rehash、retained/high-water bytes；
+- dynamic sort `IndexBuffer` retained/high-water bytes、candidate count 与 comparator calls；
 - summary-only/diagnostic stats mode 与 instrumentation overhead；
 - ColumnView acquire/read/release、stale/released/view_pinned error；
 - hardware cache/branch counters when available；缺失时记录 profiler/tool limitation；
@@ -80,10 +80,10 @@ Validator必须做跨字段语义校验，而不只做JSON shape：workload执�
 
 以下成本不得隐藏在一个总耗时里：
 
-- `replaceAll(buildXxx())` 背后的 cross-table lookup、builder 构造、column rewrite、sidecar dirty/rebuild；
-- `sorted(comparator)` 背后的 candidate materialization、temporary row-index buffer、comparator 调用次数；
+- `replaceAll(buildXxx())` 背后的 cross-table lookup、builder 构造、column rewrite、detached exact-index bulk build；
+- `sorted(comparator)` 背后的 candidate freeze、`IndexBuffer` growth、comparator 调用次数；
 - `fetch(key)` 背后的 composite key 构造、hash/collision、missing key 语义；
-- maintained order source 的 lazy rebuild；
+- exact-index append/update/remove delta 与 collision full-equality；
 - object `materialize()` / Row Pipeline `fetchAll()` / recursive materialization / external DTO response mapping；
 - ColumnView active scope 与 structural mutation 冲突；
 - capacity/scratch first-growth、resize transient double-memory、compaction 和 retained high-water；
@@ -96,8 +96,8 @@ Input facts、working state 和 result facts 的职责分离是 modeling baselin
 
 | Lane | 度量对象 | 必须拆分的成本 | 不允许的结论 |
 |---|---|---|---|
-| `data_role.split` | input/working/result 使用独立 table 的方案 | extra key lookup、cross-table mutation sequence、batch/object/export mapping、table/sidecar memory | 不能仅凭职责清晰声明更快 |
-| `data_role.co_located` | 明确 field group co-location 的方案 | wider row scan、unused-column read、mixed mutation/sidecar、shadow-field risk | 不能以 locality 为由复制 authoritative fact |
+| `data_role.split` | input/working/result 使用独立 table 的方案 | extra key lookup、cross-table mutation sequence、batch/object/export mapping、table/exact-index memory | 不能仅凭职责清晰声明更快 |
+| `data_role.co_located` | 明确 field group co-location 的方案 | wider row scan、unused-column read、mixed mutation/exact-index maintenance、shadow-field risk | 不能以 locality 为由复制 authoritative fact |
 | `data_role.projection` | input leaf preprojection 或 result projection | projection build、copy bytes、reuse count、invalidation/rebuild | 不能把 derived projection 说成第二事实源 |
 
 两组 baseline 必须记录 table count、row/field count、keyed lookup、scanned columns、mutation count、recovery path、heap/allocation estimate 和 external export cost。职责分离是否进入正式场景 schema，取决于 correctness/invariant 与 benchmark evidence 的共同结果，benchmark 单独不能批准 schema。
@@ -107,7 +107,7 @@ Input facts、working state 和 result facts 的职责分离是 modeling baselin
 在证据覆盖范围内，benchmark 可以得出以下类型结论：
 
 - 某个访问路径在某个数据规模、mutation 模式、JVM 和硬件环境下比另一个 baseline 更快或更慢；
-- 某个 phase 是主要瓶颈，例如 order sidecar rebuild、`TravelCost.fetch`、recursive object export 或 route segment rewrite；
+- 某个 phase 是主要瓶颈，例如 exact-index collision/maintenance、dynamic sort、`TravelCost.fetch`、recursive object export 或 route segment rewrite；
 - 某个建模选择更适合该场景，例如 FJSP keyed frontier 或 VRP dense workspace；
 - 某个高级能力值得进入后续设计专题，例如 route segment rewrite 或 coordinate lookup API。
 
@@ -151,7 +151,7 @@ benchmark 不可以得出以下结论：
 
 ## 8. Runner artifact 字段
 
-整改后的V1 smoke runner exact schema identity是`soma-benchmark-smoke-v3`，checked-in schema位于`META-INF/soma/benchmark-smoke-schema-v3.json`。JSONL一行一个lane record，root禁止unknown field；`workloadId`固定绑定required lane，`workloadEvidence`使用exact nested contract并记录lane-specific proof。独立validator必须重新parse落盘artifact，递归验证root与nested required/type/range/const、required-lane manifest、唯一lane、lane-specific evidence、non-empty maps、non-empty known limitations及`claimAllowed=false`；empty map、wrong workload/proof、zero metric、wrong nested type及跨字段语义矛盾必须fail closed，不能只验证in-memory builder。
+整改后的V1 smoke runner exact schema identity是`soma-benchmark-smoke-v4`，checked-in schema位于`META-INF/soma/benchmark-smoke-schema-v4.json`。JSONL一行一个lane record，root禁止unknown field；`workloadId`固定绑定required lane，`workloadEvidence`使用exact nested contract并记录lane-specific proof。独立validator必须重新parse落盘artifact，递归验证root与nested required/type/range/const、required-lane manifest、唯一lane、lane-specific evidence、non-empty maps、non-empty known limitations及`claimAllowed=false`；empty map、wrong workload/proof、zero metric、wrong nested type及跨字段语义矛盾必须fail closed，不能只验证in-memory builder。
 
 Runner CLI固定支持`--output`、`--commit`、`--scale`、`--rows`、`--seed`、`--warmup`、`--forks`和`--measurements`；unknown/missing/invalid option fail closed。V1 smoke只允许single process fork，script preset为128 rows、固定seed、1次warmup和2次measurement；这些是可重复smoke配置，不是production性能参数或claim-grade默认值。
 
@@ -159,9 +159,9 @@ Runner CLI固定支持`--output`、`--commit`、`--scale`、`--rows`、`--seed`�
 
 `soma-smoke-measurement-allocation-v2`只估算measurement window内由lane显式创建或由SOMA runtime/generated path确定性创建的primitive/reference array payload、retained scratch/KeySpace replacement payload，以及成功发布的detached materialization estimator bytes；setup input/baseline、JVM object header、JIT/GC、callback/lambda carrier和失败后未发布的JVM incidental allocation不计入。每个lane必须把measurement内可确定的scratch/capacity growth纳入，不能只报告materialization；record仍以`exactJvmHeap=false`明确该数字不是heap profiler结果。
 
-setup 已持有的 table/KeySpace payload只进入working-set gauge，不得回填为measurement allocation。measurement 内的append-validation KeySpace、main KeySpace/table capacity growth和operation/update/sidecar scratch growth必须分别按实际分配容量记录，再汇总为lane allocation；final retained capacity不能代替allocation event。
+setup 已持有的 table/KeySpace/exact-index payload只进入working-set gauge，不得回填为measurement allocation。measurement 内的append-validation KeySpace、main KeySpace/table capacity growth、operation/update/`IndexBuffer` scratch与exact-index growth必须分别按实际分配容量记录，再汇总为lane allocation；final retained capacity不能代替allocation event。
 
-V1 smoke exact required manifest固定为G5 §9的20条最小integrated workload：3条optional density、packed primitive baseline、generated Row Pipeline fusion、SparseInt真实domain miss/reject guard与Hash KeySpace load/collision/rehash、generated normal/collision full-equality lookup、reserve/growth batch import、generated ordered lazy rebuild、generated keyed frontier lifecycle、generated dense replace/order terminals、ColumnView lifecycle、parent-local child versus flat、generated recursive materialization、generated五维实际用量limit成功/limit-1 typed failure及allocation/no-partial/recovery、compaction/capacity reuse、sidecar clean/dirty/rebuild storm、summary/diagnostic operation overhead。每个lane-specific nested object必须由checked-in JSON schema的exact object/oneOf contract与Java validator的lane binding共同校验required/type/range/const，任意非空object不能冒充evidence。`runtime-state-benchmark-contract.md`中的领域diagnostic lanes仍是可测问题目录，不得用同一个generic kernel换名冒充已执行，也不自动进入本exact smoke manifest。
+V1 smoke exact required manifest固定为G5 §9的20条最小integrated workload：3条optional density、packed primitive baseline、generated Row Pipeline fusion、full-domain Hash KeySpace load/collision/rehash、generated normal/collision full-equality lookup、reserve/growth batch import、generated exact-index incremental lookup、generated keyed frontier lifecycle、generated dense replace/explicit-sort terminals、ColumnView lifecycle、parent-local child versus flat、generated recursive materialization、generated五维实际用量limit成功/limit-1 typed failure及allocation/no-partial/recovery、swap-remove/capacity reuse、exact-index mutation/lookup no-rebuild storm、summary/diagnostic operation overhead。每个lane-specific nested object必须由checked-in JSON schema的exact object/oneOf contract与Java validator的lane binding共同校验required/type/range/const，任意非空object不能冒充evidence。`runtime-state-benchmark-contract.md`中的领域diagnostic lanes仍是可测问题目录，不得用同一个generic kernel换名冒充已执行，也不自动进入本exact smoke manifest。
 
 runtime-state scenario benchmark 的 artifact 必须表达：
 
@@ -200,7 +200,7 @@ workingSetEstimate
 allocationPerOperation
 allocatedBytes
 gcStats
-sidecarStats
+exactIndexStats
 keySpaceStats
 selectorStats
 optionalDensity
@@ -229,9 +229,9 @@ failureReason
 - 是否把临时蓝图判断固化成 V1 API/runtime/schema 承诺；
 - 是否错误套用 FJSP frontier；
 - 是否混淆 dense workspace 与 runtime frontier；
-- 是否混淆 dynamic sort 与 maintained order；
+- 是否混淆 explicit dynamic sort、exact access 与不稳定物理遍历顺序；
 - comparator 是否做 cross-table lookup；
-- 是否隐藏 builder、`replaceAll`、recursive object/external DTO export、sidecar rebuild 或 random lookup 成本；
+- 是否隐藏 builder、`replaceAll`、recursive object/external DTO export、exact-index bulk/delta maintenance 或 random lookup 成本；
 - 是否遗漏 per-row allocation/boxing、Cursor reuse、loop fusion、packed compaction、capacity/scratch growth 或 stats instrumentation overhead；
 - 是否记录 touched bytes/working set、selector selectivity、optional density、mutation/read ratio 和 KeySpace load/collision；
 - 是否存在 source-of-truth 双事实源；

@@ -7,20 +7,16 @@ import com.hgtech.soma.runtime.TablePlan;
 public final class RuntimeCompatibility {
     public static final String GENERATED_TARGET = "java8-columnar";
     public static final String COMPILER_IDENTITY = "soma-value-javac8-v1";
-    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v2";
-    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v2";
-    public static final String PLAN_PROTOCOL = "soma-runtime-plan-v2";
+    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v3";
+    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v3";
+    public static final String PLAN_PROTOCOL = "soma-runtime-plan-v3";
     public static final String DENSE_ALGORITHM = "dense-soa-v1";
     public static final String NO_ACCESS_STRATEGY = "none";
     public static final String NO_KEY_SPACE = "none";
-    public static final String HASH_INT_KEY_SPACE = "hash-int-v1";
-    public static final String HASH_LONG_KEY_SPACE = "hash-long-v1";
-    public static final String HASH_COMPOSITE_KEY_SPACE = "hash-composite-v1";
-    public static final String SPARSE_INT_KEY_SPACE = "sparse-int-v1";
-    public static final String PRIMITIVE_SORTED_PERMUTATION =
-            "primitive-sorted-permutation-v1";
-    public static final String NO_SIDECAR_MAINTENANCE = "none";
-    public static final String DIRTY_LAZY_REBUILD = "dirty-lazy-rebuild-v1";
+    public static final String HASH_INT_KEY_SPACE = "hash-int-v2";
+    public static final String HASH_LONG_KEY_SPACE = "hash-long-v2";
+    public static final String HASH_COMPOSITE_KEY_SPACE = "hash-composite-v2";
+    public static final String PRIMITIVE_EXACT_HASH = "primitive-exact-hash-v1";
     public static final String ALLOCATION_ESTIMATOR = "soma-materialization-estimator-v1";
 
     private RuntimeCompatibility() {
@@ -57,77 +53,29 @@ public final class RuntimeCompatibility {
 
     public static TablePlan verifyAccess(TablePlan plan, boolean hasSelectors) {
         String expectedStrategy = hasSelectors
-                ? PRIMITIVE_SORTED_PERMUTATION : NO_ACCESS_STRATEGY;
-        String expectedMaintenance = hasSelectors
-                ? DIRTY_LAZY_REBUILD : NO_SIDECAR_MAINTENANCE;
+                ? PRIMITIVE_EXACT_HASH : NO_ACCESS_STRATEGY;
         require("runtime_plan_mismatch", expectedStrategy,
                 plan.accessStrategy(), plan.tableLogicalName() + ".accessStrategy");
-        require("runtime_plan_mismatch", expectedMaintenance,
-                plan.sidecarMaintenancePolicy(),
-                plan.tableLogicalName() + ".sidecarMaintenancePolicy");
-        if (hasSelectors != (plan.maximumSidecarScratchBytes() > 0L)) {
-            throw RuntimeFailures.compatibilityMismatch(
-                    "runtime_plan_mismatch", hasSelectors ? "positive" : "0",
-                    Long.toString(plan.maximumSidecarScratchBytes()),
-                    plan.tableLogicalName() + ".maximumSidecarScratchBytes");
-        }
         return plan;
     }
 
-    public static TablePlan verifyKeySpace(
-            TablePlan plan, String expectedStrategy, boolean sparseEligible) {
-        String actual = plan.keySpaceStrategy();
-        boolean sparse = sparseEligible && SPARSE_INT_KEY_SPACE.equals(actual);
-        if (!sparse) {
-            require("runtime_plan_mismatch", expectedStrategy, actual,
-                    plan.tableLogicalName() + ".keySpaceStrategy");
-        }
-        if (sparse != (plan.maximumSparseKey() >= 0L)) {
-            throw RuntimeFailures.compatibilityMismatch(
-                    "runtime_plan_mismatch", sparse ? "non-negative" : "-1",
-                    Long.toString(plan.maximumSparseKey()),
-                    plan.tableLogicalName() + ".maximumSparseKey");
-        }
+    public static TablePlan verifyKeySpace(TablePlan plan, String expectedStrategy) {
+        require("runtime_plan_mismatch", expectedStrategy, plan.keySpaceStrategy(),
+                plan.tableLogicalName() + ".keySpaceStrategy");
         return plan;
     }
 
     public static IntKeySpace createIntKeySpace(TablePlan plan, int expectedSize) {
-        verifyKeySpace(plan, HASH_INT_KEY_SPACE, true);
-        if (SPARSE_INT_KEY_SPACE.equals(plan.keySpaceStrategy())) {
-            long domainEntries = plan.maximumSparseKey() + 1L;
-            long retained = domainEntries > Long.MAX_VALUE / 4L
-                    ? Long.MAX_VALUE : domainEntries * 4L;
-            if (retained > plan.maximumTableStorageBytes()) {
-                throw RuntimeFailures.memoryLimitExceeded(
-                        plan.tableLogicalName(), "table.create",
-                        plan.maximumTableStorageBytes(), retained);
-            }
-            return new SparseIntKeySpace((int) plan.maximumSparseKey(), expectedSize);
-        }
+        verifyKeySpace(plan, HASH_INT_KEY_SPACE);
         return new HashIntKeySpace(expectedSize);
     }
 
     public static long estimatedKeySpaceBytes(
-            TablePlan plan, String expectedStrategy, boolean sparseEligible,
-            int expectedSize) {
-        verifyKeySpace(plan, expectedStrategy, sparseEligible);
+            TablePlan plan, String expectedStrategy, int expectedSize) {
+        verifyKeySpace(plan, expectedStrategy);
         if (expectedSize < 0) {
             throw RuntimeFailures.invalidRuntimePlan(
                     plan.tableLogicalName() + ".expectedSize", "negative key-space size");
-        }
-        if (SPARSE_INT_KEY_SPACE.equals(plan.keySpaceStrategy())) {
-            long denseCapacity = 0L;
-            if (expectedSize > 0) {
-                denseCapacity = 4L;
-                while (denseCapacity < expectedSize) {
-                    if (denseCapacity > (Integer.MAX_VALUE - 8L) / 2L) {
-                        denseCapacity = Integer.MAX_VALUE - 8L;
-                        break;
-                    }
-                    denseCapacity *= 2L;
-                }
-            }
-            return checkedBytes(4L, plan.maximumSparseKey() + 1L + denseCapacity);
         }
         int capacity = hashCapacity(expectedSize);
         return (HASH_INT_KEY_SPACE.equals(expectedStrategy) ? 9L : 13L)
@@ -157,11 +105,6 @@ public final class RuntimeCompatibility {
             capacity <<= 1;
         }
         return capacity;
-    }
-
-    private static long checkedBytes(long width, long count) {
-        return count < 0L || count > Long.MAX_VALUE / width
-                ? Long.MAX_VALUE : width * count;
     }
 
     private static void require(String code, String expected, String actual, String path) {

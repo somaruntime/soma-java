@@ -33,7 +33,7 @@ Error object/context 是 immutable snapshot，不暴露 mutable runtime state、
 
 Generated code 通过 `com.hgtech.soma.runtime.generated.RuntimeFailures` 的 typed factory 构造 envelope；factory 是 generated-runtime protocol，不进入 generated facade public signature。Generated code 不自行拼接 unbounded context/message，也不直接写 stdout/stderr/logger。
 
-Phase 1 factory surface返回 `SomaRuntimeException`：`invalidRowIndex(table,index,size,epoch,operation)`、`optionalAbsent(table,field,operation)`、`invalidNullValue(table,field,operation)`、`missingRequiredField(table,field,operation)`、`tableReleased(table,operation)`、`releasedView(table,operation)`、`staleView(table,capturedEpoch,currentEpoch,operation)`、`viewPinned(table,operation,activeViews)`、`pipelineConsumed(table,operation)`、`mutationConsumed(table,operation)`、`staleMutator(table,capturedEpoch,currentEpoch)`、`reentrantAccess(table,activeOperation,requestedOperation)`、`callbackFailed(table,operation,stage,cause)`、`memoryLimitExceeded(table,operation,limit,proposed)`、`compatibilityMismatch(code,expected,actual,path)`、`invalidRuntimePlan(path,reason)`、`internalInvariant(invariantId,table,operation)`。Phase 2 的 typed key factory 为 seven primitive 与 enum 提供 `duplicateKey(table,key,operation)` 与 `missingKey(table,key,operation)` overload；enum descriptor 固定使用 `Enum.name()`，不调用 user-overridable `toString()`。single-leaf `@SomaValue` key 使用不泄露 payload 的 `duplicateValueKey(table,keyField,operation)` / `missingValueKey(...)`；`requiredEnumValue(...)` 和 `requiredValue(...)` 分别在 enum ordinal/value-leaf extraction 前以 `invalid_null_value` fail closed。并增加 `invalidFloatingAccessValue(table,field,valueClass,operation)`。primitive/enum/value key 是 bounded safe descriptor，后续 string/composite key factory仍必须遵守本 Owner 的 escaping/redaction 规则。String/path由generated logical metadata提供，不接受 arbitrary payload formatter。
+V3 factory surface返回 `SomaRuntimeException`：`invalidRowIndex(table,index,size,epoch,operation)`、`indexSnapshotWrongTable(table,operation)`、`staleIndexSnapshot(table,capturedEpoch,currentEpoch,operation)`、`optionalAbsent(table,field,operation)`、`invalidNullValue(table,field,operation)`、`missingRequiredField(table,field,operation)`、`tableReleased(table,operation)`、`releasedView(table,operation)`、`staleView(table,capturedEpoch,currentEpoch,operation)`、`viewPinned(table,operation,activeViews)`、`pipelineConsumed(table,operation)`、`mutationConsumed(table,operation)`、`staleMutator(table,capturedEpoch,currentEpoch)`、`reentrantAccess(table,activeOperation,requestedOperation)`、`callbackFailed(table,operation,stage,cause)`、`memoryLimitExceeded(table,operation,limit,proposed)`、`compatibilityMismatch(code,expected,actual,path)`、`invalidRuntimePlan(path,reason)`、`internalInvariant(invariantId,table,operation)`。Typed key factory 为 seven primitive 与 enum 提供 `duplicateKey(table,key,operation)` 与 `missingKey(table,key,operation)` overload；enum descriptor 固定使用 `Enum.name()`，不调用 user-overridable `toString()`。single-leaf `@SomaValue` key 使用不泄露 payload 的 `duplicateValueKey(table,keyField,operation)` / `missingValueKey(...)`；`requiredEnumValue(...)` 和 `requiredValue(...)` 分别在 enum ordinal/value-leaf extraction 前以 `invalid_null_value` fail closed。并增加 `invalidFloatingAccessValue(table,field,valueClass,operation)`。primitive/enum/value key 是 bounded safe descriptor，后续 string/composite key factory仍必须遵守本 Owner 的 escaping/redaction 规则。String/path由generated logical metadata提供，不接受 arbitrary payload formatter。
 
 ## 3. Categories
 
@@ -65,7 +65,6 @@ V1 code namespace 至少包含：
 | `missing_required_field` | invalid_input | table、field/path、operation |
 | `invalid_null_value` | invalid_input | table、field/path、operation |
 | `invalid_floating_access_value` | invalid_input | field/selector leaf、value class |
-| `invalid_key_domain` | invalid_input | table/key field、strategy、configured domain，不渲染raw key payload |
 | `invalid_selector` | invalid_input | table、selector/path |
 | `field_not_found` | invalid_input | table、field/path |
 | `dtype_mismatch` | invalid_input | path、expected、actual |
@@ -78,6 +77,8 @@ V1 code namespace 至少包含：
 | `pipeline_consumed` | lifecycle | pipeline/source/terminal |
 | `mutation_consumed` | lifecycle | table、mutation kind、operation |
 | `stale_mutator` | lifecycle | table、captured/current structural epoch |
+| `index_snapshot_wrong_table` | invalid_input | expected source table、operation，不暴露table token |
+| `stale_index_snapshot` | lifecycle | table、captured/current structural epoch |
 | `reentrant_access` | lifecycle | active/current operation |
 | `schema_hash_mismatch` | compatibility | expected/actual hash |
 | `runtime_compatibility_mismatch` | compatibility | generated/runtime version |
@@ -170,19 +171,17 @@ Snapshot 必须 immutable、self-consistent，并记录：
 - counter units；
 - whether detail is sampled/estimated/exact。
 
-首个 dense slice 固化 `OperationOutcome { NONE, SUCCESS, FAILED }` 与 immutable `com.hgtech.soma.runtime.TableStats`，由 generated `XxxTable.statsSnapshot()` 返回。Exact getters：`String schemaHash()`、`runtimeCompatibility()`、`runtimePlanHash()`、`lastOperation()`、`lastErrorCode()`；`StatsMode statsMode()`；`int rows()`、`capacity()`、`activeViews()`；`long structuralEpoch()`、`growthCount()`、`updateScratchCurrentBytes()`、`updateScratchHighWaterBytes()`、`lastScanned()`、`lastMatched()`、`lastChanged()`；`boolean released()`；`OperationOutcome lastOutcome()`。String均 non-null；无 last operation/error使用 empty string。后续 key/sidecar/child/materialization stats additive增加，不重命名或改变单位。
+V3固化`OperationOutcome { NONE, SUCCESS, FAILED }`与immutable `com.hgtech.soma.runtime.TableStats`，由generated `XxxTable.statsSnapshot()`返回。Base getters：`String schemaHash()`、`runtimeCompatibility()`、`runtimePlanHash()`、`lastOperation()`、`lastErrorCode()`；`StatsMode statsMode()`；`int rows()`、`capacity()`、`activeViews()`；`long structuralEpoch()`、`growthCount()`、`updateScratchCurrentBytes()`、`updateScratchHighWaterBytes()`、`lastScanned()`、`lastMatched()`、`lastChanged()`；`boolean released()`；`OperationOutcome lastOutcome()`。String均non-null；无last operation/error使用empty string。
 
-Phase 4 additive exact getters：`long childInstanceCount()`、`descendantRowCount()`、`materializationInvocationCount()`、`materializationFailureCount()`、`lastMaterializationTableInstances()`、`lastMaterializationRows()`、`lastMaterializationLeafValues()`、`lastMaterializationEstimatedAllocationBytes()`；`int lastMaterializationMaximumOwnershipDepth()`；`String lastMaterializationBudgetIdentity()`。前两项是snapshot scope内当前subtree facts，不由`resetStats()`清零；root snapshot聚合整个ownership aggregate，owned child snapshot以该child subtree为scope且不double count。Invocation/failure累计和last-materialization字段由`resetStats()`清零/空串；reset不修改live child、epoch、capacity或plan，active operation/materialization期间仍以`reentrant_access` fail closed。
+Ownership/materialization getters：`long childInstanceCount()`、`descendantRowCount()`、`materializationInvocationCount()`、`materializationFailureCount()`、`lastMaterializationTableInstances()`、`lastMaterializationRows()`、`lastMaterializationLeafValues()`、`lastMaterializationEstimatedAllocationBytes()`；`int lastMaterializationMaximumOwnershipDepth()`；`String lastMaterializationBudgetIdentity()`。前两项是snapshot scope内当前subtree facts，不由`resetStats()`清零；root snapshot聚合整个ownership aggregate，owned child snapshot以该child subtree为scope且不double count。Invocation/failure累计和last-materialization字段由`resetStats()`清零/空串；reset不修改live child、epoch、capacity或plan，active operation/materialization期间仍以`reentrant_access` fail closed。
 
-Phase 3 additive 固化 `long sidecarDirtyCount()`、`sidecarRebuildCount()` 和 `sidecarRebuildRows()`。`sidecarDirtyCount` 只累计 clean/current -> dirty 的 distinct sidecar transition；已经 dirty 时重复 mutation 不重复累计。`sidecarRebuildCount` 每次 detached staged permutation 成功 publish 后加一，`sidecarRebuildRows` 累计该次 full rebuild 覆盖的 live row 数；failed rebuild 不累计。`resetStats()` 同时清零这三个 lifetime-since-reset counter，不改变 sidecar clean/dirty/current facts。
+Exact-index aggregate getters固定为：`int exactIndexCount()`；`long exactIndexEntryCount()`、`exactIndexGroupCount()`、`exactIndexProbeCount()`、`exactIndexCollisionCount()`、`exactIndexRehashCount()`、`exactIndexStorageCurrentBytes()`、`exactIndexStorageHighWaterBytes()`。Count/entry/group/current bytes是snapshot current facts；probe/collision/rehash是since-reset counters；storage high-water是instance lifetime fact。Stats不公开per-selector无界collection；DIAGNOSTIC模式如需detail只能返回bounded immutable snapshot。
 
-Phase 3 同时 additive 固化 `long sidecarScratchCurrentBytes()` 与 `sidecarScratchHighWaterBytes()`。Current 是全部 selector sidecar 当前 retained permutation + merge scratch primitive arrays；high-water 还覆盖 rebuild growth 时 old/new arrays 瞬时共存的 checked peak。`clear` 保留 current，`release` 将 current 归零；high-water 是 instance lifetime resource fact，不因 `resetStats()` 丢失。
-
-Phase 5 additive 固化 `long operationScratchCurrentBytes()` 与 `operationScratchHighWaterBytes()`，覆盖 Row Pipeline selection、dynamic sort 与 remove marks 的 table-local retained primitive arrays；current 是当前 retained aggregate，high-water 是 instance lifetime fact，均不因 `resetStats()` 清零。Keyed table同时通过 `String keySpaceImplementation()`、`int keySpaceCapacity()`、`keySpaceUsed()`、`long keySpaceProbeCount()`、`keySpaceCollisionCount()`、`keySpaceRehashCount()` 暴露 concrete KeySpace 的低干扰观测；dense table使用empty implementation与全零key指标。`resetStats()`清零KeySpace probe/collision/rehash累计，不改变capacity、used、live identity或tombstone facts。
+Operation scratch getters为`long operationScratchCurrentBytes()`与`operationScratchHighWaterBytes()`，覆盖Row Pipeline candidate、dynamic sort、remove candidate和IndexSnapshot copy所需的table-local retained primitive arrays；current是当前retained aggregate，high-water是instance lifetime fact，均不因`resetStats()`清零。Keyed table同时通过`String keySpaceImplementation()`、`int keySpaceCapacity()`、`keySpaceUsed()`、`long keySpaceProbeCount()`、`keySpaceCollisionCount()`、`keySpaceRehashCount()`暴露primary locator的低干扰观测；dense table使用empty implementation与全零key指标。`resetStats()`清零primary/exact probe、collision和rehash累计，不改变capacity、used、live identity、groups或links。
 
 `resetStats()` 是 table operation boundary，不允许从 active Row Pipeline callback/terminal 内重入；否则返回 `reentrant_access`。已有 `SomaRuntimeException` 由 callback boundary 原样传播，只有普通application `RuntimeException`才包装为 `callback_failed`；任何 counter都不得被部分清零。
 
-`TableStats` constructor private；public static `create(...)` 按上述 getter顺序接收既有 identity/state/last-operation字段并返回 validated immutable snapshot；Phase 4 additive `withPhase4(TableStats base, ...)` 补入 child/materialization facts，Phase 5 additive `withPhase5OperationScratch(...)` 与 `withPhase5KeySpace(...)` 分别补入 operation scratch 和 KeySpace snapshot；这些方法只允许 generated-runtime protocol在同一瞬时 base snapshot 上补入不可变、non-negative且自洽的事实，不接受 mutable runtime state。`UpdateResult` 同样使用 private constructor + public static `create(scanned,matched,changed,sidecarMaintained,sidecarRebuilt)`；negative或不满足 `changed <= matched <= scanned` 的输入 fail fast。
+`TableStats` constructor private；public static `create(...)`接收identity/state/last-operation字段并返回validated immutable snapshot；`withOwnershipAndMaterialization(...)`、`withOperationScratch(...)`、`withKeySpace(...)`与`withExactIndexes(...)`分别补入同一瞬时的immutable、non-negative且自洽事实，不接受mutable runtime state。`UpdateResult.create(scanned,matched,changed)`要求`changed <= matched <= scanned`；`RemoveResult.create(scanned,matched,removed,compacted)`要求`compacted <= removed == matched <= scanned`。两者不再暴露maintenance/rebuild字段。
 
 Success terminal记录实际 scanned/matched/committed changed。Callback/runtime failure记录 attempted scanned/matched、`lastChanged=0`、outcome FAILED与 stable error code；expected validation在 traversal前失败时 scanned/matched/changed均为零。`statsSnapshot()`、`runtimePlan()`、`isReleased()` 是 release后的只读 diagnostic exception：仍可调用以观察 terminal state；所有 data/pipeline/mutation/materialization access继续返回 `table_released`。
 
@@ -194,12 +193,12 @@ Summary mode 至少提供：
 - estimated bytes/high water；
 - active view/released state；
 - growth/rehash/collision/probe summary；
-- sidecar dirty/rebuild count/rows/time summary；
+- primary locator与exact-index entry/group/probe/collision/rehash/storage summary；
 - scratch retained/high water；
 - last materialization counters/budget identity；
 - allocation/resource failure summary。
 
-Diagnostic mode 可以增加 histogram、phase timing、per-sidecar/probe detail，但必须显式启用并标记 overhead。Stats inner-loop cost 继续遵守 runtime performance implementation contract。
+Diagnostic mode 可以增加 histogram、phase timing、bounded per-index/probe detail，但必须显式启用并标记 overhead。Stats inner-loop cost 继续遵守 runtime performance implementation contract。
 
 ## 11. Snapshot and reset semantics
 

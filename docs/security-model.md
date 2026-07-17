@@ -19,7 +19,7 @@ SOMA 需要保护：
 - generated source/class 的完整性和可复现性；
 - schema/hash/compatibility identity 的真实性；
 - TableStore authoritative facts 和 ownership graph；
-- key/index/order/sidecar 与 base fact 的一致性；
+- primary key locator/exact index与base fact的一致性；
 - lifecycle boundary，避免 stale/use-after-release/borrow violation；
 - process availability，避免无界 allocation、深递归和 collision amplification；
 - diagnostics，避免默认泄露完整业务 payload；
@@ -44,7 +44,7 @@ application Java source / annotations
 - schema source 是受构建权限控制但仍需校验的输入；
 - annotation string/name/selector/default 不能直接拼接成未转义 Java source/path；
 - generated code 是 build artifact，不是可信手写白名单；
-- runtime values、batch size、key domain、child cardinality 和 callback 都可能造成异常或资源压力；
+- runtime values、batch size、key/selector distribution、child cardinality和callback都可能造成异常或资源压力；
 - detached object/DTO 离开 runtime 后由 application security policy 管理。
 
 ## 4. Compile-time security
@@ -77,20 +77,19 @@ Runtime 必须：
 - object/reference column 在 remove/clear/replacement 后清除 dead reference；
 - internal invariant violation fail fast，不能继续返回看似合法结果。
 
-Runtime internal handle、RowSlot、bucket、bitmap、sidecar 和 allocator detail 不进入 public API，避免调用方绕过 invariant。
+Runtime internal handle、RowSlot、bucket、bitmap、exact-index group/link和allocator detail不进入public API，避免调用方绕过invariant。
 
 ## 6. Resource exhaustion and denial of service
 
 以下输入需要显式 guard：
 
 - negative/overflow/超大 capacity 或 batch size；
-- SparseInt 超大 key domain；
-- HashKeySpace collision/probe/rehash amplification；
+- primary/exact hash collision、probe、rehash amplification；
 - 极深/极宽 child ownership graph；
 - recursive materialization table/row/leaf/allocation explosion；
 - 大量小 child instance 和 over-reserved capacity；
 - unbounded string/reference retention；
-- repeated dirty/rebuild storm；
+- mutation-heavy exact-index write amplification与replaceAll fresh-build峰值；
 - dynamic sort/scratch high-water retention；
 - user callback 的长时间执行、递归或异常。
 
@@ -98,8 +97,8 @@ Runtime internal handle、RowSlot、bucket、bitmap、sidecar 和 allocator deta
 
 - create/mutation 前 memory estimate 和 overflow-safe validation；
 - bounded `MaterializationBudget`；
-- runtime plan domain/load/capacity/scratch limit；
-- collision/probe/rehash/rebuild/high-water stats；
+- runtime plan load/capacity/scratch/storage limit；
+- primary/exact collision/probe/rehash/group/storage high-water stats；
 - all-or-nothing publish；
 - 对可预估/可控 resource failure 返回明确 resource error；raw `OutOfMemoryError` 作为 JVM fatal error 原样传播，但 group staging 必须避免 partial publish，绝不能捕获后继续伪装成功或静默损坏。
 
@@ -184,7 +183,7 @@ Materialized Object 被 application 映射为 JSON/protobuf/database/wire 后，
 - duplicate output/path escape rejection；
 - unsupported compiler fail closed；
 - capacity/checked-arithmetic boundaries；
-- SparseInt domain and HashKeySpace collision cases；
+- primary/exact hash collision、same-hash full-equality与rehash cases；
 - deep/wide child and materialization budget boundaries；
 - wrong-owner/dangling/released handle；
 - callback exception and no-partial-visible-state case；

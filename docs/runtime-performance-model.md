@@ -10,7 +10,7 @@ Owner：根项目协调层
 
 本文解释 SOMA Java 为什么可能高效、实现必须关注哪些成本、什么证据才能支持性能判断。
 
-列式存储、SoA、Sparse Set 和 DOD 是性能先验，不是性能保证。实现纪律由 [runtime 性能实现契约](../soma-runtime-core/docs/runtime-performance-implementation-contract.md) 拥有，测量和声明由 [benchmark evidence contract](../soma-benchmarks/docs/benchmark-evidence-contract.md) 拥有。
+列式存储、packed SoA、primitive hash access和DOD是性能先验，不是性能保证。实现纪律由[runtime性能实现契约](../soma-runtime-core/docs/runtime-performance-implementation-contract.md)拥有，测量和声明由[benchmark evidence contract](../soma-benchmarks/docs/benchmark-evidence-contract.md)拥有。
 
 ## 2. Performance north star
 
@@ -29,7 +29,7 @@ schema-known, long-lived, access-pattern-defined state
 - 读取只触达需要的 columns；
 - stable state packed 或 chunk-contiguous；
 - non-materializing terminal 不按 row/field 分配对象；
-- rebuild、growth、rehash、compaction、stats 等成本不隐藏。
+- exact-index maintenance/fresh build、growth、rehash、swap-remove、stats等成本不隐藏。
 
 ## 3. 五层性能模型
 
@@ -51,14 +51,14 @@ Access Pattern
 |---|---|
 | rows/cardinality | Table 和 child instance 的规模分布 |
 | hot columns | 每轮真正读取/写入哪些 leaf |
-| access source | packed、key、index、order、dynamic sort、child-local |
+| access source | packed、key、exact index、dynamic sort、child-local |
 | read/mutation mix | scan、lookup、update、remove、replace 频率 |
 | selectivity | selector 命中比例和 group size |
 | optional density | all-present/all-absent/mixed |
 | child density | parent count、child rows、small-instance distribution |
 | working set | hot bytes 与 cache fit |
 | allocation/export | materialization、DTO、scratch 频率 |
-| phase boundary | import、compute、rebuild、sort、export 是否分开 |
+| phase boundary | import、compute、index build/maintenance、sort、export是否分开 |
 
 Card 是 scenario/runtime-plan input，不是 logical Schema，不进入 schema hash。
 
@@ -83,7 +83,7 @@ Big-O 只能说明增长阶，还必须报告：
 - cache/indirection；
 - allocation/GC；
 - JIT/inlining shape；
-- sidecar rebuild 和 resize transient memory。
+- exact-index maintenance/rehash 和 resize transient memory。
 
 ## 6. Performance lanes
 
@@ -92,11 +92,11 @@ Big-O 只能说明增长阶，还必须报告：
 | Lane | 主要成本 |
 |---|---|
 | import/build | validation、Batch、growth、key/index construction |
-| direct lookup | key construction、hash/sparse domain、probe、missing |
+| direct lookup | key construction、hash、probe、missing |
 | packed scan | rows、touched columns/bytes、branch |
-| index/order | selector lookup、group traversal、dirty rebuild |
+| exact index | selector hash/full equality、group traversal、incremental maintenance |
 | dynamic sort | K、comparator calls、row-index scratch |
-| update/remove | matched rows、sidecar maintenance、compaction |
+| update/remove | matched rows、exact-index delta、swap-remove/tail-fill |
 | child-local | locate parent/child、small-instance overhead、contiguous scan |
 | materialization | recursive rows/leaves、object/collection allocation |
 | external mapping | DTO/wire conversion |
@@ -110,18 +110,16 @@ Big-O 只能说明增长阶，还必须报告：
 - initial allocation；
 - growth/resize 和 transient double-memory；
 - primitive/reference column copy；
-- key/index/order build 或 dirty marking；
+- primary locator/exact-index construction；
 - optional bitmap；
 - child lazy allocation；
 - validation 和 failure cleanup。
 
 `defaultCapacity` 是 hint，不是 logical limit。Growth factor、trim、reuse 和 scratch policy 属于 runtime plan。
 
-## 8. KeySpace
+## 8. Primary locator
 
-SparseInt 路径必须报告 key domain、dense/sparse capacity 和 fallback；不能仅按 row count 判断内存。
-
-Hash 路径必须报告 load factor、probe/collision、rehash、missing/duplicate mix 和 transient allocation。Composite key hot lookup 不应按操作创建 tuple/object。
+Hash primary locator必须报告load factor、probe/collision、rehash、missing/duplicate mix和transient allocation。Composite key hot lookup不应按操作创建tuple/object；V1不使用Key到bounded Entity的Sparse Set映射。
 
 复杂度结论必须限定：
 
@@ -130,19 +128,19 @@ Hash 路径必须报告 load factor、probe/collision、rehash、missing/duplica
 - capacity/load policy；
 - adversarial/collision assumption。
 
-## 9. Index、unique 与 order
+## 9. Exact index 与 unique
 
-AccessStructures 可以减少 candidate rows，但引入：
+Exact access structures可以减少candidate rows，但引入：
 
-- sidecar memory；
-- mutation maintenance；
-- dirty/rebuild；
-- selector materialization；
-- group/permutation traversal。
+- bucket/group/link memory；
+- mutation link/unlink/relocate；
+- probe/collision/rehash；
+- generated full equality；
+- group traversal。
 
-Eager、lazy 或 hybrid policy 属于 runtime plan。任何隐藏 rebuild storm 都是性能缺陷；stats 必须能区分 clean traversal 与 rebuild。
+V1固定eager/incremental maintenance，不把maintenance policy暴露为runtime plan。任何read-time rebuild/full-scan fallback都是性能与正确性缺陷；stats必须能观察probe、collision、rehash、group、link、unlink和relocate。
 
-Maintained order 和 dynamic `sorted(comparator)` 是不同 lane，不能用一个结果替代另一个。
+业务顺序只由dynamic `sorted(comparator)`或应用层专用priority结构表达，exact-index组内枚举顺序不作承诺。
 
 ## 10. Row/Key/Column Pipeline
 
@@ -217,7 +215,7 @@ Memory evidence至少分为：
 |---|---|
 | logical payload | primitive/reference columns |
 | presence | bitmap |
-| identity/access | keyspace、index、unique、order |
+| identity/access | primary locator、exact index、unique |
 | ownership | child handle、registry、instance metadata |
 | transient | growth、rehash、sort/compaction scratch、materialization |
 | retained | high-water capacity、object references |
@@ -256,8 +254,8 @@ Evidence 分为：
 
 - Row Pipeline 一定快于 handwritten loop；
 - child 一定快于 flat table；
-- SparseInt 一定比 hash 省内存；
-- maintained order 等价于 dynamic sort；
+- exact index一定快于packed scan；
+- exact index组内枚举等价于business order；
 - columnar layout 自动消除 allocation；
 - benchmark smoke 证明 production 性能；
 - 单场景结论可推广到所有 runtime state。

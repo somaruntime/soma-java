@@ -43,7 +43,8 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public com.example.soma.access.UniquePosition firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.access.UniquePosition> fetchAll();
   public java.util.List<com.example.soma.access.UniquePosition> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.UniquePositionRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.example.soma.access.generated.UniquePositionRows findByPositionKey(com.example.soma.access.RoutePositionKey);

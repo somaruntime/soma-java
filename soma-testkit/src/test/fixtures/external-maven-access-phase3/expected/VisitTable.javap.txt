@@ -45,12 +45,11 @@ public final class com.example.soma.access.generated.VisitTable {
   public com.example.soma.access.Visit firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.access.Visit> fetchAll();
   public java.util.List<com.example.soma.access.Visit> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.VisitRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.example.soma.access.generated.VisitRows findByRoute(com.example.soma.access.RouteId);
-  public com.example.soma.access.generated.VisitRows byRoutePosition();
-  public com.example.soma.access.generated.VisitRows byRoutePosition(com.example.soma.access.RouteId);
   public com.hgtech.soma.runtime.LongColumnPipeline keyRouteIdValues();
   public com.hgtech.soma.runtime.LongColumnView keyRouteIdValueColumn();
   public com.hgtech.soma.runtime.IntColumnPipeline keyPositionValues();

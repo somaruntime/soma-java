@@ -16,6 +16,7 @@ import com.hgtech.soma.runtime.FloatColumnView;
 import com.hgtech.soma.runtime.FloatConsumer;
 import com.hgtech.soma.runtime.FloatColumnPipeline;
 import com.hgtech.soma.runtime.IntColumnView;
+import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RemoveResult;
@@ -153,14 +154,24 @@ public final class DenseConsumer {
         require(descending.size() == 4 && descending.get(0).id == 4
                         && descending.get(3).id == 1,
                 "stable primitive-index sorted fetchAll");
-        int[] indexes = table.filter(new ParticleRows.Predicate() {
+        final IndexSnapshot indexSnapshot = table.filter(new ParticleRows.Predicate() {
             @Override
             public boolean test(ParticleRow row) {
                 return row.id() >= 3;
             }
         }).rowIndexes();
+        int[] indexes = indexSnapshot.toArray();
         require(indexes.length == 2 && indexes[0] == 2 && indexes[1] == 3,
                 "primitive rowIndexes");
+        table.requireCurrent(indexSnapshot);
+        final ParticleTable otherTable = ParticleTable.create();
+        expectCode("index_snapshot_wrong_table", new Action() {
+            @Override
+            public void run() {
+                otherTable.requireCurrent(indexSnapshot);
+            }
+        });
+        otherTable.release();
 
         final float beforeTwo = table.fetchAt(1).x;
         final float beforeThree = table.fetchAt(2).x;
@@ -202,6 +213,7 @@ public final class DenseConsumer {
                         && updated.changed() == 2L,
                 "update counters");
         require(table.fetchAt(2).energy == null, "update optional clear");
+        table.requireCurrent(indexSnapshot);
 
         final long[] tickSum = new long[] {0L};
         table.ticksValues().forEachLong(new LongConsumer() {
@@ -299,11 +311,16 @@ public final class DenseConsumer {
             }
         }).remove();
         require(removed.scanned() == 4L && removed.matched() == 1L
-                        && removed.removed() == 1L && removed.compacted() == 1L
-                        && removed.sidecarMaintained() == 0L && removed.sidecarRebuilt() == 0L,
-                "remove counters and dense sidecar accounting");
+                        && removed.removed() == 1L && removed.compacted() == 1L,
+                "remove counters and dense swap-remove accounting");
         require(table.size() == 3 && table.fetchAt(2).id == 4,
-                "remove preserves packed survivor order");
+                "remove fills the packed hole from the physical tail");
+        expectCode("stale_index_snapshot", new Action() {
+            @Override
+            public void run() {
+                table.requireCurrent(indexSnapshot);
+            }
+        });
         final long epochBeforeEmptyRemove = table.structuralEpoch();
         RemoveResult emptyRemove = table.filter(new ParticleRows.Predicate() {
             @Override
@@ -502,11 +519,7 @@ public final class DenseConsumer {
                         return row.id() % removeDivisor == removeRemainder;
                     }
                 }).remove();
-                for (int index = oracle.size() - 1; index >= 0; index--) {
-                    if (oracle.get(index).id % removeDivisor == removeRemainder) {
-                        oracle.remove(index);
-                    }
-                }
+                swapRemoveOracle(oracle, removeDivisor, removeRemainder);
                 assertParticles(oracle, table.materialize(), "differential dense facts");
                 List<Particle> descending = table.sorted(new ParticleRows.Comparator() {
                     @Override
@@ -734,6 +747,34 @@ public final class DenseConsumer {
                             && (left.energy == null ? right.energy == null : left.energy.equals(right.energy)),
                     message + " row=" + index);
         }
+    }
+
+    private static void swapRemoveOracle(
+            List<Particle> rows, int divisor, int remainder) {
+        int previous = rows.size();
+        int[] selected = new int[previous];
+        int count = 0;
+        for (int row = 0; row < previous; row++) {
+            if (rows.get(row).id % divisor == remainder) selected[count++] = row;
+        }
+        int newSize = previous - count;
+        int tail = previous - 1;
+        int selectedTail = count - 1;
+        for (int hole = 0; hole < count && selected[hole] < newSize; hole++) {
+            int write = selected[hole];
+            while (tail >= newSize) {
+                while (selectedTail >= 0 && selected[selectedTail] > tail) selectedTail--;
+                if (selectedTail >= 0 && selected[selectedTail] == tail) {
+                    tail--;
+                    selectedTail--;
+                    continue;
+                }
+                break;
+            }
+            require(tail >= newSize, "dense oracle swap-remove tail");
+            rows.set(write, rows.get(tail--));
+        }
+        while (rows.size() > newSize) rows.remove(rows.size() - 1);
     }
 
     private static void expectCode(String code, Action action) {

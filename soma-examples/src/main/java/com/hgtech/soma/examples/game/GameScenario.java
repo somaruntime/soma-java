@@ -13,6 +13,7 @@ import com.hgtech.soma.examples.game.generated.PendingDamageRowTable;
 import com.hgtech.soma.examples.game.generated.PlayerBatch;
 import com.hgtech.soma.examples.game.generated.PlayerTable;
 import com.hgtech.soma.runtime.EnumColumnView;
+import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.UpdateResult;
@@ -53,10 +54,15 @@ public final class GameScenario {
                     .addValues(new GridPosition(2, 0), TerrainType.PLAIN,
                             1, false, true, target));
 
-            int[] nextRows = units.byTurnOrder().limit(1).rowIndexes();
+            IndexSnapshot nextRows = units.rows().sorted((left, right) -> {
+                int compared = Integer.compare(left.initiative(), right.initiative());
+                return compared != 0 ? compared
+                        : Long.compare(left.unitIdValue(), right.unitIdValue());
+            }).limit(1).rowIndexes();
             LongColumnView unitIds = units.unitIdValueColumn();
             try {
-                require(nextRows.length == 1 && unitIds.getLong(nextRows[0]) == actor.value
+                require(nextRows.size() == 1
+                                && unitIds.getLong(nextRows.indexAt(0)) == actor.value
                                 && units.findByPlayer(player).count() == 1L,
                     "ordered and grouped unit access");
             } finally {
@@ -73,9 +79,15 @@ public final class GameScenario {
             moves.replaceAll(new MoveCandidateRowBatch(2)
                     .addValues(actor, destination, moveCost + 1, 2)
                     .addValues(actor, new GridPosition(0, 1), moveCost + 3, 1));
-            int[] selectedRows = moves.byTotalCost().limit(1).rowIndexes();
-            require(selectedRows.length == 1, "move order requires one candidate");
-            int selectedRow = selectedRows[0];
+            IndexSnapshot selectedRows = moves.rows().sorted((left, right) -> {
+                int compared = Integer.compare(left.totalCost(), right.totalCost());
+                if (compared != 0) return compared;
+                compared = Integer.compare(left.positionYValue(), right.positionYValue());
+                return compared != 0 ? compared
+                        : Integer.compare(left.positionXValue(), right.positionXValue());
+            }).limit(1).rowIndexes();
+            require(selectedRows.size() == 1, "move order requires one candidate");
+            int selectedRow = selectedRows.indexAt(0);
             IntColumnView moveX = moves.positionXValueColumn();
             IntColumnView moveY = moves.positionYValueColumn();
             IntColumnView remainingPoints = moves.remainingActionPointsColumn();
@@ -133,9 +145,13 @@ public final class GameScenario {
             }
             damage.addBatch(new PendingDamageRowBatch(1)
                     .addValues(1L, actor, target, attackDamage));
-            int[] pendingRows = damage.byResolutionOrder().limit(1).rowIndexes();
-            require(pendingRows.length == 1, "damage order requires one event");
-            int pendingRow = pendingRows[0];
+            IndexSnapshot pendingRows = damage.rows().sorted((left, right) -> {
+                int compared = Long.compare(left.resolutionOrder(), right.resolutionOrder());
+                return compared != 0 ? compared
+                        : Long.compare(left.targetUnitValue(), right.targetUnitValue());
+            }).limit(1).rowIndexes();
+            require(pendingRows.size() == 1, "damage order requires one event");
+            int pendingRow = pendingRows.indexAt(0);
             LongColumnView damageTargets = damage.targetUnitValueColumn();
             IntColumnView damageValues = damage.damageColumn();
             UnitId pendingTarget;
@@ -181,7 +197,7 @@ public final class GameScenario {
                     + (long) moves.capacity() * 4L
                     + (long) damage.capacity() * 8L;
             return new ScenarioResult(exportedUnits,
-                    units.runtimePlan().schemaHash(), units.statsSnapshot().sidecarDirtyCount(),
+                    units.runtimePlan().schemaHash(), units.statsSnapshot().exactIndexProbeCount(),
                     units.size() + map.size() + moves.size() + damage.size(), 32,
                     hotLeafWorkingSetBytes,
                     occupancyUpdate.scanned() + exportedUnits,
@@ -203,20 +219,20 @@ public final class GameScenario {
     public static final class ScenarioResult {
         public final int units;
         public final String schemaHash;
-        public final long sidecarDirtyCount;
+        public final long exactIndexProbeCount;
         public final int apcRows;
         public final int aggregateHotLeafWidths;
         public final long hotLeafWorkingSetBytes;
         public final long reads;
         public final long mutations;
         public final int exports;
-        ScenarioResult(int units, String schemaHash, long sidecarDirtyCount,
+        ScenarioResult(int units, String schemaHash, long exactIndexProbeCount,
                        int apcRows, int aggregateHotLeafWidths,
                        long hotLeafWorkingSetBytes, long reads, long mutations,
                        int exports) {
             this.units = units;
             this.schemaHash = schemaHash;
-            this.sidecarDirtyCount = sidecarDirtyCount;
+            this.exactIndexProbeCount = exactIndexProbeCount;
             this.apcRows = apcRows;
             this.aggregateHotLeafWidths = aggregateHotLeafWidths;
             this.hotLeafWorkingSetBytes = hotLeafWorkingSetBytes;

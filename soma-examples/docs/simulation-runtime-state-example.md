@@ -4,7 +4,7 @@
 Owner：`soma-examples`
 事实范围：连续仿真 data role、Access Pattern Card、schema 和使用边界
 非事实范围：ODE/numerical solver、public contract 和性能 claim
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
 ## 1. 文档定位
 
@@ -29,7 +29,7 @@ tank and valve entity state
 | Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
 |---|---|---|---|
 | `StateVectorRow` | stable vector slots × step count；记录 variable-kind distribution | repeated full/partition primitive scan + non-structural update | Row/Column path 与 primitive-array baseline；touched bytes 和 steady-state allocation/op 分开 |
-| pending events | queue size、due ratio、optional payload density | ordered prefix consume、append、batch remove/compact | clean/dirty order、rebuild storm、compaction scratch 和 bitmap path 分开 |
+| pending events | queue size、due ratio、optional payload density | external min-heap scheduling；table 只承载batch ingest/diagnostic/export | heap operation、table append、swap-remove scratch 和 bitmap path 分开 |
 | trace/coefficient | sample rate × variables；valve/material combinations | trace batch append/export；coefficient point lookup/preprojection | trace export/materialization 与 integration hot loop 分开；lookup load/collision/reuse 单独记录 |
 
 Fixture/benchmark 必须补充 vector working set、scan/update ratio、event due ratio、trace sampling ratio、JIT warmup/forks、summary/diagnostic stats mode 和 final export frequency；这些值不进入 Schema/hash。
@@ -91,9 +91,6 @@ public class ValveMaterialKey {
 }
 
 @SomaTable(name = "tanks", defaultCapacity = 256)
-@SomaOrder(name = "by_tank_id", by = {
-    @SomaSort("tankId.value")
-})
 public final class Tank {
     @SomaKey
     public TankId tankId;
@@ -148,9 +145,6 @@ public final class FlowCoefficient {
 }
 
 @SomaTable(name = "state_vector_rows", defaultCapacity = 4096)
-@SomaOrder(name = "by_vector_index", by = {
-    @SomaSort("vectorIndex")
-})
 public final class StateVectorRow {
     @SomaField
     public int vectorIndex;
@@ -175,10 +169,6 @@ public final class StateVectorRow {
 }
 
 @SomaTable(name = "pending_event_rows", defaultCapacity = 1024)
-@SomaOrder(name = "by_event_time", by = {
-    @SomaSort("eventTimeMillis"),
-    @SomaSort("sequenceNo")
-})
 public final class PendingEventRow {
     @SomaField(semantic = SomaSemantic.DATE_TIME)
     public long eventTimeMillis;
@@ -201,11 +191,6 @@ public final class PendingEventRow {
 }
 
 @SomaTable(name = "trace_sample_rows", defaultCapacity = 65536)
-@SomaOrder(name = "by_time_entity", by = {
-    @SomaSort("sampleTimeMillis"),
-    @SomaSort("entityKind"),
-    @SomaSort("entityId")
-})
 public final class TraceSampleRow {
     @SomaField(semantic = SomaSemantic.DATE_TIME)
     public long sampleTimeMillis;
@@ -229,7 +214,7 @@ public final class TraceSampleRow {
 - `Tank`、`Valve` 是 keyed entity state；
 - `FlowCoefficient` 是 keyed lookup table；
 - `StateVectorRow` 是 dense packed state vector，`vectorIndex` 只是当前向量布局位置；
-- `PendingEventRow` 是 dense event queue workspace，通过 `by_event_time` 取下一批事件；
+- `PendingEventRow` 是 dense event batch / diagnostic workspace；真正的下一事件调度由 simulator 外部最小堆负责；
 - `TraceSampleRow` 是 dense trace buffer / export buffer；
 - simulator OOP 层负责数值积分、事件应用和采样策略，SOMA 不拥有仿真算法。
 
@@ -241,9 +226,9 @@ Source-of-truth 口径：
 - simulator 只能在 step boundary、export boundary 或 diagnostic snapshot 同步这些 cache 字段；同步失败时，应停止 step、回滚外部 snapshot，或丢弃 cache 并从 `StateVectorRow` 重建；
 - 如果某个项目选择 `Tank` / `Valve` 为事实源，则 `StateVectorRow` 必须降级为派生 workspace，不能和本示例的 long-lived dense source-of-truth 口径混用。
 
-`PendingEventRow.by_event_time` 是稳定 ordered access path，用于按 `(eventTimeMillis, sequenceNo)` 消费 due events；它不是 heap、priority queue、prefix range-pop 或自动 range remove。典型实现应先遍历 due events 应用事件，再用单独 terminal 删除或 compact due rows，并把 queue size、due ratio、remove/compact 和 order sidecar dirty/rebuild 纳入 benchmark。
+事件队列不强行建模为 SOMA Table：simulator 使用外部最小堆按 `(eventTimeMillis, sequenceNo)` 调度。只有需要批量诊断、导出或列式分析时才把 event facts 写入 `PendingEventRow`；若在表内临时筛选 due rows，使用全量列扫描和显式 `sorted(...)`，并单独计量扫描、排序与 swap-remove。
 
-`TraceSampleRow` 是 trace / export buffer，不反向成为仿真状态事实源。`by_time_entity` 只应在 export / diagnostic terminal 支付 lazy rebuild 成本，不应进入每 step state-vector hot path 的性能 claim。
+`TraceSampleRow` 是 trace / export buffer，不反向成为仿真状态事实源。需要 time/entity 顺序时只在 export / diagnostic terminal 显式排序，不应进入每 step state-vector hot path 的性能 claim。
 
 `ColumnView` 只用于明确的 hot path primitive scan。示例默认采用读 view 关闭后再写入的两阶段模式；在 active ColumnView 下进行同 table structural mutation 应被视为 `view_pinned` 风险，除非 runtime contract 明确允许某类固定宽度非结构性更新。
 

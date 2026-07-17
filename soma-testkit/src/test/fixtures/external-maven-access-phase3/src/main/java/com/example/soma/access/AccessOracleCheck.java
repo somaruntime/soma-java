@@ -2,12 +2,14 @@ package com.example.soma.access;
 
 import com.example.soma.access.generated.AccessRecordBatch;
 import com.example.soma.access.generated.AccessRecordTable;
+import com.hgtech.soma.runtime.RemoveResult;
 
 import java.util.List;
 import java.util.Random;
+import java.util.Arrays;
 import java.lang.management.ManagementFactory;
 
-/** Deterministic differential oracle for Phase 3 selector/order maintenance. */
+/** Deterministic differential oracle for Phase 3 exact indexes and explicit sorting. */
 final class AccessOracleCheck {
     private AccessOracleCheck() {
     }
@@ -29,7 +31,7 @@ final class AccessOracleCheck {
         }
         AccessRecordTable table = AccessRecordTable.create();
         table.addBatch(batch);
-        verify(table, code, state, group, score);
+        verify(table, code, state, group, score, size);
         verifyCleanSelectorAllocationShape();
 
         for (int step = 0; step < 320; step++) {
@@ -39,9 +41,29 @@ final class AccessOracleCheck {
             table.mutateAt(row).setState(nextState).setScore(nextScore).commit();
             state[row] = nextState;
             score[row] = nextScore;
-            if ((step & 31) == 31) verify(table, code, state, group, score);
+            if ((step & 31) == 31) verify(table, code, state, group, score, size);
         }
-        verify(table, code, state, group, score);
+        verify(table, code, state, group, score, size);
+
+        int liveSize = size;
+        for (int step = 0; step < 48 && liveSize > 24; step++) {
+            final int selectedState = random.nextInt(7);
+            final int divisor = 3 + random.nextInt(4);
+            final int remainder = random.nextInt(divisor);
+            int expectedRemoved = countSelected(
+                    code, state, liveSize, selectedState, divisor, remainder);
+            RemoveResult removed = table.findByState(selectedState)
+                    .filter(row -> row.code() % divisor == remainder)
+                    .remove();
+            require(removed.removed() == expectedRemoved,
+                    "random exact-source remove count");
+            liveSize = applySwapRemove(
+                    code, state, group, score, liveSize,
+                    selectedState, divisor, remainder);
+            require(table.size() == liveSize, "random swap-remove table size");
+            verify(table, code, state, group, score, liveSize);
+        }
+        table.release();
     }
 
     private static void verifyCleanSelectorAllocationShape() {
@@ -92,11 +114,17 @@ final class AccessOracleCheck {
     }
 
     private static void verify(
-            AccessRecordTable table, int[] code, int[] state, int[] group, int[] score) {
+            AccessRecordTable table,
+            int[] code,
+            int[] state,
+            int[] group,
+            int[] score,
+            int size) {
         for (int expectedState = 0; expectedState < 7; expectedState++) {
-            int[] actual = table.findByState(expectedState).rowIndexes();
+            int[] actual = table.findByState(expectedState).rowIndexes().toArray();
+            Arrays.sort(actual);
             int cursor = 0;
-            for (int row = 0; row < state.length; row++) {
+            for (int row = 0; row < size; row++) {
                 if (state[row] != expectedState) continue;
                 require(cursor < actual.length && actual[cursor] == row,
                         "index oracle state=" + expectedState + " row=" + row);
@@ -104,22 +132,29 @@ final class AccessOracleCheck {
             }
             require(cursor == actual.length, "index oracle cardinality");
         }
-        for (int row = 0; row < code.length; row += 17) {
+        for (int row = 0; row < size; row += 17) {
             require(table.findByCode(code[row]).firstOrThrow().code == code[row],
                     "unique oracle row=" + row);
         }
         for (int expectedGroup = 0; expectedGroup < 9; expectedGroup++) {
-            List<AccessRecord> actual = table.byGroupScore(expectedGroup).fetchAll();
+            List<AccessRecord> actual = table.findByGroup(expectedGroup)
+                    .sorted((left, right) -> {
+                        int compared = Integer.compare(right.score(), left.score());
+                        return compared != 0 ? compared
+                                : Integer.compare(left.code(), right.code());
+                    }).fetchAll();
             int previousScore = Integer.MAX_VALUE;
-            int previousRow = -1;
+            int previousCode = Integer.MIN_VALUE;
             for (AccessRecord record : actual) {
-                int row = record.code - 10000;
-                require(group[row] == expectedGroup, "order oracle group");
+                int row = findRow(code, size, record.code);
+                require(row >= 0, "materialized exact-index code is live");
+                require(group[row] == expectedGroup, "exact-index group oracle");
                 require(score[row] < previousScore
-                                || (score[row] == previousScore && row > previousRow),
-                        "order oracle descending/stable");
+                                || (score[row] == previousScore
+                                        && record.code > previousCode),
+                        "explicit order oracle descending/identity tie-break");
                 previousScore = score[row];
-                previousRow = row;
+                previousCode = record.code;
             }
         }
         List<AccessRecord> dynamic = table.rows().sorted((left, right) -> {
@@ -134,6 +169,67 @@ final class AccessOracleCheck {
                                     && previous.code < current.code),
                     "dynamic sort oracle");
         }
+    }
+
+    private static int countSelected(
+            int[] code,
+            int[] state,
+            int size,
+            int selectedState,
+            int divisor,
+            int remainder) {
+        int count = 0;
+        for (int row = 0; row < size; row++) {
+            if (state[row] == selectedState && code[row] % divisor == remainder) count++;
+        }
+        return count;
+    }
+
+    private static int applySwapRemove(
+            int[] code,
+            int[] state,
+            int[] group,
+            int[] score,
+            int size,
+            int selectedState,
+            int divisor,
+            int remainder) {
+        int[] selected = new int[size];
+        int count = 0;
+        for (int row = 0; row < size; row++) {
+            if (state[row] == selectedState && code[row] % divisor == remainder) {
+                selected[count++] = row;
+            }
+        }
+        int newSize = size - count;
+        int tail = size - 1;
+        int selectedTail = count - 1;
+        for (int hole = 0; hole < count && selected[hole] < newSize; hole++) {
+            int write = selected[hole];
+            while (tail >= newSize) {
+                while (selectedTail >= 0 && selected[selectedTail] > tail) selectedTail--;
+                if (selectedTail >= 0 && selected[selectedTail] == tail) {
+                    tail--;
+                    selectedTail--;
+                    continue;
+                }
+                break;
+            }
+            require(tail >= newSize, "exact-index oracle swap-remove tail");
+            code[write] = code[tail];
+            state[write] = state[tail];
+            group[write] = group[tail];
+            score[write] = score[tail];
+            tail--;
+        }
+        return newSize;
+    }
+
+    private static int findRow(int[] code, int size, int expectedCode) {
+        for (int row = 0; row < size; row++) {
+            if (code[row] == expectedCode) return row;
+        }
+        return -1;
     }
 
     private static void require(boolean condition, String message) {

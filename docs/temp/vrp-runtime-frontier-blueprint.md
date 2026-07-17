@@ -4,9 +4,11 @@
 正式事实源：否
 已固化内容：[VRP schema 示例](../../soma-examples/docs/vrp-runtime-state-example.md)、[Runtime-state benchmark 契约](../../soma-benchmarks/docs/runtime-state-benchmark-contract.md)
 仍在研究：dense workspace 与 keyed insertion frontier 的升级条件
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
-对齐基线：[设计宪法](../soma-table-design-constitution.md)、[Generated Table API](../generated-table-api-contract.md)、[Runtime 性能模型](../runtime-performance-model.md)
+对齐基线：[设计宪法](../soma-table-design-constitution.md)、[Generated Table API](../generated-table-api-contract.md)、[Runtime 性能模型](../runtime-performance-model.md)、[TableStore 契约](../../soma-runtime-core/docs/table-store-contract.md)
+
+2026-07-17 baseline：SOMA 不再提供 maintained order 或 dirty sidecar。下文的 route/customer/candidate 业务顺序统一由显式 `.sorted(totalComparator)` 或 application-owned 专用结构产生；`@SomaIndex` 只承担 always-current exact access，dense/keyed 删除都采用 packed swap-remove。
 
 ## 1. 目标与适用范围
 
@@ -29,13 +31,13 @@
 
 | Table | 当前形态 | 生命周期判断 | 主要访问方式 |
 |---|---|---|---|
-| `Customer` | keyed entity state | 长期 runtime state | `fetch(customerId)`、`mutate(customerId)`、`by_state`、`by_due_then_input` |
+| `Customer` | keyed entity state | 长期 runtime state | `fetch(customerId)`、`mutate(customerId)`、state exact lookup、due/input 显式排序 |
 | `Vehicle` | keyed entity state | 导入后长期只读或低频状态 | `fetch(vehicleId)`、按 vehicle id 遍历 |
 | `Route` | keyed entity state | 构造过程中持续 mutation | `fetch(routeId)`、`mutate(routeId)`、`by_vehicle` |
 | `TravelCost` | keyed lookup data | 导入后只读 lookup | `fetch(locationPair)` |
-| `RouteVisitRow` | per-route dense child `List<RouteVisitRow>` | route 当前访问序列 | parent key + child-local `byPosition()` |
-| `UnassignedCustomerRow` | dense workspace / frontier view | 未分配客户的当前候选视图 | `by_due_then_input()` |
-| `InsertionCandidateRow` | dense workspace | 当前插入候选集合 | `by_best_delta()` |
+| `RouteVisitRow` | per-route dense child `List<RouteVisitRow>` | route 当前访问序列 | parent key + child-local `.rows().sorted(byPosition)` |
+| `UnassignedCustomerRow` | dense workspace / frontier view | 未分配客户的当前候选视图 | `.rows().sorted(byDueThenInput)` |
+| `InsertionCandidateRow` | dense workspace | 当前插入候选集合 | `.rows().sorted(byBestDelta)` |
 
 `RouteVisitRow` 使用 dense table 是合理的：`position` 是当前 route sequence 中的位置，不是 stable business identity；插入会导致后续 position 大量变化，用 keyed table 反而会把 row identity 和位置维护复杂化。
 
@@ -68,10 +70,10 @@ UnassignedCustomerRow  // rebuildable working workspace, never authoritative
 | Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
 |---|---|---|---|---|
 | `Route.visits` dense child | route count × empty/typical/high visits per route | `position`、customer/location、arrival/departure/load | scoring 时 parent-key child-local scan；commit 时 route-local rewrite/replace | 记录 child instance count/small-array overhead；与 flat grouped-index/filter baseline 比较 |
-| `InsertionCandidateRow` dense workspace | unassigned customers × considered routes × positions | feasibility、delta、arrival、penalty、tie-break | 每轮 `replaceAll` + dynamic/maintained order + first | builder、column rewrite、order rebuild、scratch reuse 和 allocation/op 分开；不把 pathing/scoring 算法归因于 runtime |
+| `InsertionCandidateRow` dense workspace | unassigned customers × considered routes × positions | feasibility、delta、arrival、penalty、tie-break | 每轮 `replaceAll` + explicit dynamic sort + first | builder、column rewrite、sort scratch reuse 和 allocation/op 分开；不把 pathing/scoring 算法归因于 runtime |
 | optional keyed insertion frontier | affected route/customer/position/version pairs | key/version、indicator fields | incremental add/update/remove + grouped lookup | 仅在跨轮 reuse 和局部 invalidation 成立时测；记录 mutation/read ratio 与 stale cleanup |
 | `TravelCost` | location-pair facts | key leaves、distance/time | candidate scoring 中高频 random point lookup | 记录 load/collision、lookup reuse、preprojection build/amortization；comparator 内禁止 lookup |
-| `UnassignedCustomerRow` | remaining unassigned customers | due/input/demand | ordered selection、remove/rebuild | 作为 rebuildable workspace；记录 compaction、order dirty/rebuild 和 capacity retention |
+| `UnassignedCustomerRow` | remaining unassigned customers | due/input/demand | explicit sorted selection、remove/rebuild | 作为 rebuildable workspace；记录 swap-remove、dynamic-sort scratch 和 capacity retention |
 
 必须额外记录 route/global scan ratio、selector cardinality/selectivity、visits working-set bytes、candidate scratch high-water、stats mode 和 materialization/export frequency。
 
@@ -97,7 +99,8 @@ initialize customers / vehicles / routes / travel_costs
 
 ```java
 insertionCandidates.replaceAll(buildAllInsertionCandidates());
-InsertionCandidateRow chosen = insertionCandidates.byBestDelta().firstOrThrow();
+InsertionCandidateRow chosen = insertionCandidates.rows()
+    .sorted(byBestDeltaComparator).firstOrThrow();
 ```
 
 这一行会隐藏多类成本：
@@ -108,7 +111,7 @@ InsertionCandidateRow chosen = insertionCandidates.byBestDelta().firstOrThrow();
 - 多次读取 `TravelCost`；
 - 计算 capacity、arrival、waiting、time window penalty；
 - 构造 batch row；
-- `replaceAll` 后让 `by_best_delta` order sidecar dirty/rebuild；
+- 为本轮 candidate sequence 执行显式 dynamic sort；
 - 只为了选一个候选，却重建了全局候选集合。
 
 因此 VRP 应按规模和变更局部性分两种方案。
@@ -123,7 +126,7 @@ InsertionCandidateRow chosen = insertionCandidates.byBestDelta().firstOrThrow();
 - 每轮策略确实需要全局重算所有 feasible insertion；
 - time window propagation 导致一次插入会影响多数 route/customer pair；
 - candidate row 不需要跨轮按 stable key 删除或更新；
-- 主要收益来自 packed scan、batch `replaceAll`、capacity reuse 和 maintained order source。
+- 主要收益来自 packed scan、batch `replaceAll`、capacity reuse 和 table-local sort scratch。
 
 这时 `replaceAll(batch)` 是 SOMA V1 明确支持的 dense table 性能边界，不是坏味道。
 
@@ -135,7 +138,7 @@ InsertionCandidateRow chosen = insertionCandidates.byBestDelta().firstOrThrow();
 - 大量未分配 customer 对其他 route 的 candidate score 不变；
 - 需要按 route、customer 或 route-position 局部删除 / 更新候选；
 - 每轮全量 `replaceAll(buildAllInsertionCandidates())` 成为热点；
-- `by_best_delta` order sidecar 每轮全量 dirty/rebuild 成为主要成本。
+- 每轮 candidate dynamic sort 成为主要成本，且局部 invalidation 已经足够稳定。
 
 推荐的 frontier identity 可以是：
 
@@ -170,9 +173,6 @@ public final class Route {
 }
 
 @SomaTable(name = "route_visit_rows", defaultCapacity = 32)
-@SomaOrder(name = "by_position", by = {
-    @SomaSort("position")
-})
 public final class RouteVisitRow {
     @SomaField
     public int position;
@@ -189,7 +189,7 @@ public final class RouteVisitRow {
 如果采用 child 方案：
 
 - `RouteVisitRow.routeId` 从 child row 中删除，parent ownership 已确定其归属；
-- child 内 order 只需要 `position` 和完整 tie-break，不再把 `routeId` 放入 selector；
+- child 内业务顺序由 `position` 和完整 tie-break 的显式 comparator 产生，不再把 `routeId` 放入排序条件；
 - required child 初始是 logical empty，storage lazy allocation；
 - route-local rewrite 使用 detached child Batch staged/validated 后替换 child 内容；失败时旧 child 保持不变；
 - 删除、clear 或 release parent 时级联 release visits subtree；
@@ -200,9 +200,9 @@ public final class RouteVisitRow {
 
 两种方案必须在相同语义下比较：
 
-- flat：全局 dense `RouteVisitRow(routeId, position, ...)` + grouped order/index filter；
+- flat：全局 dense `RouteVisitRow(routeId, position, ...)` + exact-group lookup/filter + explicit sort；
 - child：per-route dense child + parent-key child access；
-- 分别记录 route-local scan/rewrite、global all-route scan、sidecar、allocation、recursive object/List export 和 `MaterializationBudget`；
+- 分别记录 route-local scan/rewrite、global all-route scan、exact-index maintenance、sort scratch、allocation、recursive object/List export 和 `MaterializationBudget`；
 - 使用 benchmark contract 的 `child_locality.parent_scan` / `child_locality.flat_filter`，不能仅凭局部性直觉声明性能优势。
 
 ## 5. 潜在瓶颈识别
@@ -212,14 +212,14 @@ public final class RouteVisitRow {
 - **全量 candidate rebuild**：复杂度接近 `unassignedCustomerCount * routeCount * averageRouteLength`，如果每轮只 commit 一个 customer，会产生大量重复计算；
 - **隐藏 cross-table lookup**：candidate build 中频繁读取 `Customer`、`Route`、`RouteVisitRow`、`TravelCost`，不能放在 comparator 内；
 - **重复 builder 构造**：如果每轮构造完整 batch，Java 对象分配和 field copy 可能盖过 columnar runtime 收益；
-- **order sidecar 误用**：每轮 `replaceAll` 后 `by_best_delta` lazy rebuild 是合理的，但不能宣称等价于 maintained incremental order；
+- **业务顺序误用**：每轮 `replaceAll` 后的 dynamic sort 是显式策略成本，不能把它伪装成 Table 自动维护或物理顺序；
 - **route position stale**：dense `RouteVisitRow.position` 是当前位置，structural mutation 后旧 row index 和旧 position 都不能作为长期引用；
 - **TravelCost lookup 语义隐藏**：`scoreInsertion(...)` 必须明确 missing pair 是 typed required lookup error、不可行候选，还是 fallback distance；不能由 SOMA runtime 猜；
 - **indicator 粒度过粗**：一次性计算所有 delta、arrival、capacity、penalty，会掩盖哪些指标能在 route/customer 级缓存。
 
 ## 6. 可选 keyed frontier benchmark 草案
 
-小规模或全局重算场景应保留当前正式示例的 dense workspace。也就是说，`InsertionCandidateRow` 仍然可以是 dense table，并且每轮通过 `replaceAll(batch)` 发布当前 candidate workspace；`by_best_delta` 如果保留，也只是当前 workspace 的稳定访问路径，不代表 SOMA 推荐把所有策略排序固化进 schema。
+小规模或全局重算场景应保留当前正式示例的 dense workspace。也就是说，`InsertionCandidateRow` 仍然可以是 dense table，并且每轮通过 `replaceAll(batch)` 发布当前 candidate workspace；`by_best_delta` 只是本轮显式 comparator，不进入 Schema。
 
 本节 schema 采用 per-route dense child 作为推荐形态；flat root-level `RouteVisitRow(routeId, position, ...)` 只保留为 benchmark baseline。
 
@@ -267,9 +267,6 @@ public final class CustomerAssignment {
 
 @SomaTable(name = "routes", defaultCapacity = 512)
 @SomaIndex(name = "by_vehicle", fields = {"vehicleId.value"})
-@SomaOrder(name = "by_route_id", by = {
-    @SomaSort("routeId.value")
-})
 public final class Route {
     @SomaKey
     public RouteId routeId;
@@ -302,9 +299,6 @@ public final class Route {
 }
 
 @SomaTable(name = "route_visit_rows", defaultCapacity = 32)
-@SomaOrder(name = "by_position", by = {
-    @SomaSort("position")
-})
 public final class RouteVisitRow {
     @SomaField
     public int position;
@@ -362,7 +356,7 @@ public final class InsertionCandidate {
 - `InsertionCandidateKey` 的身份只在同一个 `RouteVersion` epoch 内有效，不是跨整个求解生命周期稳定的 business identity；
 - `InsertionCandidate` 不声明 `by_best_delta` order。候选的策略排序属于 constructor 策略层，可通过当前 frontier 的 dynamic sort 完成；
 - 草案不保留单独 `dispatchScore`。本蓝图选择保留 comparator 实际使用的 indicator 字段，避免把某个策略 score 固化成 schema 事实；
-- 如果后续 benchmark 证明全局 best candidate 的 maintained order 明显有价值，可以在正式设计中再评估 `@SomaOrder`；
+- 如果后续 benchmark 证明全局 best candidate 需要跨轮次维护，应评估 application-owned priority queue，而不是恢复 Table maintained order；
 - `RouteVersion` 是 stale candidate 防线，避免旧 position 在 route mutation 后继续有效；
 - `RouteVisitRow` 在推荐方案中是 per-route dense child；flat root table 只作为相同语义 benchmark baseline。Candidate frontier 决策不自动改变 visit ownership。
 
@@ -394,7 +388,7 @@ void refreshInsertionCandidatesForRoute(RouteId routeId) {
 
     CandidateBatch batch = insertionCandidates.newBatch();
 
-    unassignedCustomerRows.byDueThenInput()
+    unassignedCustomerRows.rows().sorted(byDueThenInputComparator)
         .forEach(u -> {
             CustomerDefinition customer = customerDefinitions.fetch(u.customerId());
 
@@ -541,7 +535,7 @@ CommitResult commitInsertion(InsertionCandidate chosen) {
 `rewriteRouteVisitsForInsertion(...)` 不是一个可以忽略成本的 helper。它至少包含：
 
 ```text
-routes.visits(routeId).byPosition()
+routes.visits(routeId).rows().sorted(byPositionComparator)
   -> 读取当前 route visits
   -> 构造插入后的新 sequence
   -> 重写 position / arrival / departure / loadAfterVisit
@@ -563,8 +557,8 @@ routes.visits(routeId).byPosition()
 
 - candidate rows 连续写入；
 - `replaceAll(batch)` 复用 capacity；
-- 若沿用当前正式示例的 `by_best_delta`，ordered row sequence 来自 order sidecar；本蓝图不把它作为推荐固化项；
-- 不固化策略 order 时，可用 dynamic sort / top-k row-index buffer 完成当前轮选择；
+- candidate business sequence 来自 explicit dynamic sort；
+- 可用 dynamic sort / top-k IndexBuffer 完成当前轮选择；
 - 适合规模较小且全局重算不可避免的情况。
 
 keyed insertion frontier 的 cache 友好性来自：
@@ -576,14 +570,14 @@ keyed insertion frontier 的 cache 友好性来自：
 
 潜在代价：
 
-- keyed frontier 引入 `KeySpace`、secondary index 和更多 sidecar 维护；
+- keyed frontier 引入 primary locator、secondary exact index 和更多增量维护；
 - `findByRoute(routeId).remove()` 与 `addBatch` 会导致结构性 mutation；
 - 如果每次插入实际影响大部分 route，增量 frontier 可能比 dense full rebuild 更慢；
-- dynamic sort 使用临时 row-index buffer，不能宣称与 maintained `@SomaOrder` 等价。
+- dynamic sort 使用 table-local `IndexBuffer`；application heap 是另一种跨轮次维护结构，两者必须按同语义分别测量。
 
 因此正式化前必须通过 benchmark lane 比较：
 
-- 当前示例 dense `replaceAll + by_best_delta().firstOrThrow()`；
+- 当前示例 dense `replaceAll + rows().sorted(byBestDelta).firstOrThrow()`；
 - 不固化 order 的 dense `replaceAll + dynamic sort / top-k`；
 - keyed frontier `findByRoute/remove + addBatch + dynamic sorted`；
 - 极端 hot path 下的 ColumnView / primitive loop；
@@ -595,7 +589,7 @@ keyed insertion frontier 的 cache 友好性来自：
 ## 9. SOMA V1 可能暴露的问题
 
 - 需要更清楚地表达 dense workspace 与 keyed frontier 的选择边界，避免用户把 `replaceAll` 或 keyed frontier 绝对化；
-- child-local order source 例如 `routes.visits(routeId).byPosition()` 对 VRP 很关键，generated parent-key child API 命名需要 golden 固化；
+- child-local live access 例如 `routes.visits(routeId).rows().sorted(byPosition)` 对 VRP 很关键，generated parent-key child API 命名需要 golden 固化；
 - Row Pipeline 不支持同 table callback 内 structural mutation，这会影响 route sequence 插入和候选刷新，需要示例明确分阶段；
 - `RouteVisitRow` dense sequence 的插入可能需要高效 row move / segment rewrite，否则 route 更新会成为瓶颈；
 - `RouteVisitRow.position` 是 route 当前顺序事实源；`Customer.assignedPosition` 如果保留，只能作为诊断 / snapshot 字段并由 constructor 同步重写；
@@ -629,7 +623,7 @@ keyed insertion frontier 的 cache 友好性来自：
 - `RouteVisitRow` 插入和后续 position 重写的 generated API 形态；
 - parent key 下不触发 deep materialization 的 live child access 形态；
 - flat dense route visits 与 per-route dense child 的 locality、global scan、rewrite 和 recursive object/List 成本；
-- `findByRoute(routeId).remove()` 与 `addBatch` 的 sidecar dirty/rebuild 成本；
+- `findByRoute(routeId).remove()` 与 `addBatch` 的 exact-index 增量维护成本；
 - dense full rebuild 与 keyed frontier 在不同规模下的 crossover point；
 - `TravelCost.fetch(locationPair)` missing key 的业务语义；
 - 是否需要 route-level cached prefix arrival / load rows 来减少 insertion scoring 重算。
@@ -637,4 +631,4 @@ keyed insertion frontier 的 cache 友好性来自：
 
 ### 10.4 当前判定
 
-该蓝图已按审查结论修正后保留为临时蓝图。正式示例默认仍应保持 dense `InsertionCandidateRow` workspace；keyed insertion frontier 只作为严格前提下的 benchmark 候选。Customer input/assignment 建议分离，unassigned rows 明确降级为可重建 workspace；Route/RouteVisit current solution 同时作为最终 route result，不复制 shadow result table。`RouteVisitRow` 另行比较 flat dense 与 parent-owned dense child，不把 candidate frontier 决策和 route ownership 决策混为一谈。后续重点比较 dense full rebuild、dynamic sort / maintained order、keyed insertion frontier、flat-vs-child route visits、route segment rewrite 和 travel-cost lookup/preprojection。
+该蓝图已按审查结论修正后保留为临时蓝图。正式示例默认仍应保持 dense `InsertionCandidateRow` workspace；keyed insertion frontier 只作为严格前提下的 benchmark 候选。Customer input/assignment 建议分离，unassigned rows 明确降级为可重建 workspace；Route/RouteVisit current solution 同时作为最终 route result，不复制 shadow result table。`RouteVisitRow` 另行比较 flat dense 与 parent-owned dense child，不把 candidate frontier 决策和 route ownership 决策混为一谈。后续重点比较 dense full rebuild、dynamic sort / application priority queue、keyed insertion frontier、flat-vs-child route visits、route segment rewrite 和 travel-cost lookup/preprojection。

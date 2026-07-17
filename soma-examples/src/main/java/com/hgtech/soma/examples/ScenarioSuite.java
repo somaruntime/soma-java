@@ -65,7 +65,8 @@ public final class ScenarioSuite {
                 + " selectedScope=single-actor"
                 + " evidenceScope=occupancy-update-and-unit-export"
                 + " observation=executed-result-accounting "
-                + "units=" + game.units + " sidecarDirty=" + game.sidecarDirtyCount);
+                + "units=" + game.units + " exactIndexProbes="
+                + game.exactIndexProbeCount);
         System.out.println("soma-examples-scenarios: ok");
     }
 

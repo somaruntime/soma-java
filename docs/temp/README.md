@@ -4,13 +4,9 @@
 正式事实源：否
 最后审查日期：2026-07-17
 
-本目录保存尚未迁入唯一 Owner 的专题草案与长期研究蓝图。任何实现、Gate、兼容性判断或发布声明仍必须以 [正式设计文档索引](../README.md) 登记的 Owner 为准。
+本目录只保留尚未固化的长期研究蓝图。任何实现、Gate、兼容性判断或发布声明仍必须以 [正式设计文档索引](../README.md) 登记的 Owner 为准。
 
-## 当前治理专题
-
-| 专题 | 状态 | 目标 |
-|---|---|---|
-| [Packed Index / Exact Access / IndexBuffer 重设计](packed-index-runtime-redesign/README.md) | 待独立审查 | 在不进入实现的前提下，完整设计取消 Sparse Set 与 maintained order、引入 eager exact access、统一 `IndexBuffer`、采用 keyed/dense swap-remove 的迁移方案 |
+Packed Index / Exact Access / IndexBuffer 专题已于2026-07-17完成Owner迁移、实现、验证与退役；实施evidence见[专题收口报告](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)，临时专题原文不再保留。
 
 ## 长期研究蓝图
 
@@ -21,7 +17,7 @@
 | [连续仿真 runtime state](simulation-runtime-state-blueprint.md) | state vector、event queue、trace buffer 的 concrete runner 和 evidence |
 | [Game runtime frontier](game-runtime-frontier-blueprint.md) | dense action workspace、occupancy lookup 和 game-loop evidence |
 
-这些长期蓝图仍按各自页首说明解释。若其 `@SomaOrder`、dirty sidecar、Sparse Set 或稳定物理顺序假设与新的重设计专题冲突，在专题尚未正式批准和迁移前，冲突只表示研究方向正在变化；不能任选一份临时文档作为实现事实源。
+这些长期蓝图仍按各自页首说明解释，并已同步到packed/exact v3 baseline；它们继续研究scenario role、hot-loop与evidence，不拥有public/runtime语义。
 
 ## 生命周期
 

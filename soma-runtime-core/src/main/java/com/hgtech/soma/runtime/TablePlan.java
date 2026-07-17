@@ -12,10 +12,7 @@ public final class TablePlan {
     private final long maximumBulkScratchBytes;
     private final long maximumTableStorageBytes;
     private final String keySpaceStrategy;
-    private final long maximumSparseKey;
     private final String accessStrategy;
-    private final String sidecarMaintenancePolicy;
-    private final long maximumSidecarScratchBytes;
 
     private TablePlan(Builder builder) {
         tableLogicalName = builder.tableLogicalName;
@@ -28,10 +25,7 @@ public final class TablePlan {
         maximumBulkScratchBytes = builder.maximumBulkScratchBytes;
         maximumTableStorageBytes = builder.maximumTableStorageBytes;
         keySpaceStrategy = builder.keySpaceStrategy;
-        maximumSparseKey = builder.maximumSparseKey;
         accessStrategy = builder.accessStrategy;
-        sidecarMaintenancePolicy = builder.sidecarMaintenancePolicy;
-        maximumSidecarScratchBytes = builder.maximumSidecarScratchBytes;
     }
 
     public static Builder builder(String tableLogicalName, String algorithm) {
@@ -47,10 +41,7 @@ public final class TablePlan {
                 .maximumBulkScratchBytes(maximumBulkScratchBytes)
                 .maximumTableStorageBytes(maximumTableStorageBytes)
                 .keySpaceStrategy(keySpaceStrategy)
-                .maximumSparseKey(maximumSparseKey)
-                .accessStrategy(accessStrategy)
-                .sidecarMaintenancePolicy(sidecarMaintenancePolicy)
-                .maximumSidecarScratchBytes(maximumSidecarScratchBytes);
+                .accessStrategy(accessStrategy);
     }
 
     public String tableLogicalName() { return tableLogicalName; }
@@ -63,10 +54,7 @@ public final class TablePlan {
     public long maximumBulkScratchBytes() { return maximumBulkScratchBytes; }
     public long maximumTableStorageBytes() { return maximumTableStorageBytes; }
     public String keySpaceStrategy() { return keySpaceStrategy; }
-    public long maximumSparseKey() { return maximumSparseKey; }
     public String accessStrategy() { return accessStrategy; }
-    public String sidecarMaintenancePolicy() { return sidecarMaintenancePolicy; }
-    public long maximumSidecarScratchBytes() { return maximumSidecarScratchBytes; }
 
     String toCanonicalJson() {
         return "{\"algorithm\":" + CanonicalSupport.quote(algorithm)
@@ -77,12 +65,8 @@ public final class TablePlan {
                 + ",\"keySpaceStrategy\":" + CanonicalSupport.quote(keySpaceStrategy)
                 + ",\"maximumBulkScratchBytes\":" + maximumBulkScratchBytes
                 + ",\"maximumOperationScratchBytes\":" + maximumOperationScratchBytes
-                + ",\"maximumSidecarScratchBytes\":" + maximumSidecarScratchBytes
-                + ",\"maximumSparseKey\":" + maximumSparseKey
                 + ",\"maximumTableStorageBytes\":" + maximumTableStorageBytes
                 + ",\"maximumUpdateScratchBytes\":" + maximumUpdateScratchBytes
-                + ",\"sidecarMaintenancePolicy\":"
-                + CanonicalSupport.quote(sidecarMaintenancePolicy)
                 + ",\"table\":" + CanonicalSupport.quote(tableLogicalName) + "}";
     }
 
@@ -97,10 +81,7 @@ public final class TablePlan {
         private long maximumBulkScratchBytes = 256L * 1024L * 1024L;
         private long maximumTableStorageBytes = 256L * 1024L * 1024L;
         private String keySpaceStrategy = "none";
-        private long maximumSparseKey = -1L;
         private String accessStrategy = "none";
-        private String sidecarMaintenancePolicy = "none";
-        private long maximumSidecarScratchBytes;
 
         private Builder(String tableLogicalName, String algorithm) {
             this.tableLogicalName = CanonicalSupport.required(tableLogicalName, "tableLogicalName");
@@ -164,32 +145,8 @@ public final class TablePlan {
             return this;
         }
 
-        public Builder maximumSparseKey(long value) {
-            if (value < -1L || value >= Integer.MAX_VALUE) {
-                throw new IllegalArgumentException(
-                        "maximumSparseKey must be -1 or array-representable int");
-            }
-            maximumSparseKey = value;
-            return this;
-        }
-
         public Builder accessStrategy(String value) {
             accessStrategy = CanonicalSupport.required(value, "accessStrategy");
-            return this;
-        }
-
-        public Builder sidecarMaintenancePolicy(String value) {
-            sidecarMaintenancePolicy = CanonicalSupport.required(
-                    value, "sidecarMaintenancePolicy");
-            return this;
-        }
-
-        public Builder maximumSidecarScratchBytes(long value) {
-            if (value < 0L) {
-                throw new IllegalArgumentException(
-                        "maximumSidecarScratchBytes must be non-negative");
-            }
-            maximumSidecarScratchBytes = value;
             return this;
         }
 

@@ -48,7 +48,8 @@ public final class BreadthConsumer {
                         && value.priority == 7 && value.total == 1234567890123L
                         && Float.isNaN(value.payload)
                         && value.ratio == Double.POSITIVE_INFINITY
-                        && Float.floatToIntBits(value.score) == 0
+                        && Float.floatToRawIntBits(value.score)
+                                == Float.floatToRawIntBits(-0.0f)
                         && "default".equals(value.label)
                         && value.state == State.READY,
                 "writer scalar/String/enum defaults");
@@ -176,7 +177,7 @@ public final class BreadthConsumer {
                 () -> keyed.keys().fetchAll(oneRow), "key budget enforcement");
 
         TableStats keyStats = keyed.statsSnapshot();
-        check("hash-composite-v1".equals(keyStats.keySpaceImplementation())
+        check("hash-composite-v2".equals(keyStats.keySpaceImplementation())
                         && keyStats.keySpaceCapacity() > 0
                         && keyStats.keySpaceUsed() >= keyed.size()
                         && keyStats.keySpaceProbeCount() > 0L

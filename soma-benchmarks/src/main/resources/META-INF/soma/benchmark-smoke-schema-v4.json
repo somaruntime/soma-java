@@ -1,13 +1,13 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "$id": "soma-benchmark-smoke-v3",
+  "$id": "soma-benchmark-smoke-v4",
   "title": "SOMA Java benchmark smoke JSONL record",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "schemaVersion": {
       "type": "string",
-      "const": "soma-benchmark-smoke-v3"
+      "const": "soma-benchmark-smoke-v4"
     },
     "scenario": {
       "type": "string",
@@ -71,7 +71,7 @@
     },
     "artifactVersion": {
       "type": "string",
-      "const": "soma-java-benchmark-runner-v3"
+      "const": "soma-java-benchmark-runner-v4"
     },
     "javaVersion": {
       "type": "string",
@@ -494,7 +494,7 @@
         "timeMillis"
       ]
     },
-    "sidecarStats": {
+    "exactIndexStats": {
       "oneOf": [
         {
           "type": "object",
@@ -518,18 +518,58 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "rebuildCount": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-grouped-exact-index"
+            },
+            "indexCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "entryCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "groupCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "probeCount": {
               "type": "integer",
               "minimum": 0
             },
-            "dirtyCount": {
+            "collisionCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rehashCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "currentBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "highWaterBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "allocationBytes": {
               "type": "integer",
               "minimum": 0
             }
           },
           "required": [
-            "rebuildCount",
-            "dirtyCount"
+            "implementation",
+            "indexCount",
+            "entryCount",
+            "groupCount",
+            "probeCount",
+            "collisionCount",
+            "rehashCount",
+            "currentBytes",
+            "highWaterBytes",
+            "allocationBytes"
           ]
         },
         {
@@ -538,13 +578,13 @@
           "properties": {
             "implementation": {
               "type": "string",
-              "const": "generated-insertion-workspace"
+              "const": "generated-grouped-exact-index"
             },
             "replaceRows": {
               "type": "integer",
               "minimum": 1
             },
-            "maintainedFirstOrThrow": {
+            "exactLookupCount": {
               "type": "integer",
               "minimum": 1
             },
@@ -556,27 +596,19 @@
               "type": "integer",
               "minimum": 0
             },
-            "dirtyCount": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "rebuildCount": {
-              "type": "integer",
-              "minimum": 0
-            },
             "replaceTouchedBytes": {
               "type": "integer",
               "minimum": 1
             },
-            "maintainedOrderRebuildRows": {
+            "exactLookupRows": {
               "type": "integer",
               "minimum": 1
             },
-            "maintainedOrderKeyWidthBytes": {
+            "exactLookupKeyWidthBytes": {
               "type": "integer",
-              "const": 32
+              "const": 8
             },
-            "maintainedOrderTouchedBytes": {
+            "exactLookupTouchedBytes": {
               "type": "integer",
               "minimum": 1
             },
@@ -600,9 +632,45 @@
               "type": "integer",
               "minimum": 1
             },
+            "indexCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "entryCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "groupCount": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "probeCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "collisionCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "rehashCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "currentBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "highWaterBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
             "tableCapacity": {
               "type": "integer",
               "minimum": 1
+            },
+            "exactIndexAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
             },
             "scratchAllocationBytes": {
               "type": "integer",
@@ -616,21 +684,28 @@
           "required": [
             "implementation",
             "replaceRows",
-            "maintainedFirstOrThrow",
+            "exactLookupCount",
             "dynamicFindFirst",
             "dynamicFirstOrThrow",
-            "dirtyCount",
-            "rebuildCount",
             "replaceTouchedBytes",
-            "maintainedOrderRebuildRows",
-            "maintainedOrderKeyWidthBytes",
-            "maintainedOrderTouchedBytes",
+            "exactLookupRows",
+            "exactLookupKeyWidthBytes",
+            "exactLookupTouchedBytes",
             "dynamicComparatorRows",
             "dynamicComparatorWidthBytes",
             "dynamicComparatorTouchedBytes",
             "materializedRowWidthBytes",
             "materializationTouchedBytes",
+            "indexCount",
+            "entryCount",
+            "groupCount",
+            "probeCount",
+            "collisionCount",
+            "rehashCount",
+            "currentBytes",
+            "highWaterBytes",
             "tableCapacity",
+            "exactIndexAllocationBytes",
             "scratchAllocationBytes",
             "retainedScratchBytes"
           ]
@@ -639,72 +714,27 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "compactedRows": {
+            "implementation": {
+              "type": "string",
+              "const": "kernel-grouped-exact-index"
+            },
+            "entryCount": {
               "type": "integer",
               "minimum": 0
             },
-            "retainedCapacity": {
+            "groupCount": {
               "type": "integer",
               "minimum": 0
             },
-            "operationScratchCurrentBytes": {
+            "probeCount": {
               "type": "integer",
               "minimum": 0
             },
-            "operationScratchHighWaterBytes": {
+            "collisionCount": {
               "type": "integer",
               "minimum": 0
             },
-            "singleRemoved": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "batchCompacted": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "clearReuseCapacityBefore": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "clearReuseCapacityAfter": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "measurementArrayAllocationBytes": {
-              "type": "integer",
-              "minimum": 0
-            }
-          },
-          "required": [
-            "compactedRows",
-            "retainedCapacity",
-            "operationScratchCurrentBytes",
-            "operationScratchHighWaterBytes",
-            "singleRemoved",
-            "batchCompacted",
-            "clearReuseCapacityBefore",
-            "clearReuseCapacityAfter",
-            "measurementArrayAllocationBytes"
-          ]
-        },
-        {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "dirtyCount": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "rebuildCount": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "rebuildRows": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "rebuildNanos": {
+            "rehashCount": {
               "type": "integer",
               "minimum": 0
             },
@@ -716,24 +746,36 @@
               "type": "integer",
               "minimum": 0
             },
-            "cleanTraversalCount": {
+            "mutationCount": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "lookupCount": {
               "type": "integer",
               "minimum": 1
             },
-            "stormRebuilds": {
+            "lookupRows": {
               "type": "integer",
-              "minimum": 4
+              "minimum": 1
+            },
+            "measurementAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
             }
           },
           "required": [
-            "dirtyCount",
-            "rebuildCount",
-            "rebuildRows",
-            "rebuildNanos",
+            "implementation",
+            "entryCount",
+            "groupCount",
+            "probeCount",
+            "collisionCount",
+            "rehashCount",
             "currentBytes",
             "highWaterBytes",
-            "cleanTraversalCount",
-            "stormRebuilds"
+            "mutationCount",
+            "lookupCount",
+            "lookupRows",
+            "measurementAllocationBytes"
           ]
         }
       ]
@@ -764,7 +806,7 @@
           "properties": {
             "implementation": {
               "type": "string",
-              "const": "generated-hash-composite-v1"
+              "const": "generated-hash-composite-v2"
             },
             "fullEqualityDistinguished": {
               "type": "boolean",
@@ -1717,7 +1759,7 @@
     "allocationPerOperation",
     "allocatedBytes",
     "gcStats",
-    "sidecarStats",
+    "exactIndexStats",
     "keySpaceStats",
     "selectorStats",
     "optionalDensity",

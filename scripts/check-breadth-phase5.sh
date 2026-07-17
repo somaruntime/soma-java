@@ -82,7 +82,7 @@ if ! grep -E '^[0-9a-f]{64}$' "$fixture/target/classes/$schema_hash" >/dev/null;
 fi
 
 # normalized golden 必须实际含有 defaults、reference/enum/value 和 String keyed child 事实。
-grep -F '"default":{"literal":"-0.0","normalized":"0.0"}' \
+grep -F '"default":{"literal":"-0.0","normalized":"-0.0"}' \
   "$fixture/target/classes/$schema" >/dev/null
 grep -F '"default":{"literal":"2026-01-02T03:04:05Z","normalized":"1767323045000"}' \
   "$fixture/target/classes/$schema" >/dev/null

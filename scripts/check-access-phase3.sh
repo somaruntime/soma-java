@@ -63,11 +63,7 @@ cmp "$expected/UniquePositionTable.javap.txt" "$evidence_dir/UniquePositionTable
 grep -F 'findByState(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
 grep -F 'findByGroup(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
 grep -F 'findByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
-grep -F 'byGroupScore();' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
-grep -F 'byGroupScore(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
 grep -F 'findByRoute(com.example.soma.access.RouteId);' "$evidence_dir/VisitTable.javap.txt" >/dev/null
-grep -F 'byRoutePosition();' "$evidence_dir/VisitTable.javap.txt" >/dev/null
-grep -F 'byRoutePosition(com.example.soma.access.RouteId);' "$evidence_dir/VisitTable.javap.txt" >/dev/null
 grep -F 'findByPositionKey(com.example.soma.access.RoutePositionKey);' \
   "$evidence_dir/UniquePositionTable.javap.txt" >/dev/null
 
@@ -76,17 +72,18 @@ unique_table=$fixture/target/generated-sources/annotations/com/example/soma/acce
 enum_table=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/EnumAccessTable.java
 boolean_double_table=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/BooleanDoubleAccessTable.java
 rows_source=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/AccessRecordRows.java
-grep -F 'RowPermutationSidecar selector' "$access_table" >/dev/null
-grep -F 'while(from<to)' "$access_table" >/dev/null
-grep -F 'HashCompositeKeySpace uniqueSpace' "$access_table" >/dev/null
+grep -F 'GroupedExactIndex selector' "$access_table" >/dev/null
+grep -F 'linkExactIndexRows' "$access_table" >/dev/null
+grep -F 'relocateExactIndexRows' "$access_table" >/dev/null
+grep -F 'IndexBuffer candidateScratch' "$access_table" >/dev/null
 grep -F 'updateField1Leaf0' "$unique_table" >/dev/null
 grep -F 'private int[] updateField1=' "$enum_table" >/dev/null
 grep -F 'private boolean[] updateField1=' "$boolean_double_table" >/dev/null
 grep -F 'private double[] updateField2=' "$boolean_double_table" >/dev/null
 grep -F 'RowToMutator' "$boolean_double_table" >/dev/null
-if grep -E 'uniqueHash[0-9]+Mutator' "$access_table" "$unique_table" \
-  "$boolean_double_table" >/dev/null; then
-  printf '%s\n' 'access-phase3-check: one-row unique mutation regressed to full hash rebuild' >&2
+if grep -E 'markSelector.*Dirty|RowPermutationSidecar|SparseIntKeySpace' \
+  "$access_table" "$unique_table" "$boolean_double_table" >/dev/null; then
+  printf '%s\n' 'access-phase3-check: removed rebuild/sparse protocol leaked' >&2
   exit 1
 fi
 grep -F 'abstract int rowAt(int position)' "$rows_source" >/dev/null
@@ -102,8 +99,8 @@ if grep -E 'List<Integer>|HashMap|Object\[\]|RoutePositionKey\[\] update' \
 fi
 if ! grep -F '"kind":"index"' "$fixture/target/classes/$schema" >/dev/null \
     || ! grep -F '"kind":"unique"' "$fixture/target/classes/$schema" >/dev/null \
-    || ! grep -F '"kind":"order"' "$fixture/target/classes/$schema" >/dev/null \
-    || ! grep -F '"direction":"DESC"' "$fixture/target/classes/$schema" >/dev/null; then
+    || grep -F '"kind":"order"' "$fixture/target/classes/$schema" >/dev/null \
+    || grep -F '"direction"' "$fixture/target/classes/$schema" >/dev/null; then
   printf '%s\n' 'access-phase3-check: normalized selector facts missing' >&2
   exit 1
 fi

@@ -38,7 +38,7 @@ Testkit 不可以：
 
 - 定义新的 annotation、generated API、runtime error 或 schema compatibility semantics；
 - 成为 production runtime dependency；
-- 通过 reflection/sidecar mutation 绕过 public/generated contract；
+- 通过 reflection/exact-index link mutation 绕过 public/generated contract；
 - 把 golden 文本当作唯一 correctness evidence；
 - 隐式调用 table-row `equals()` 证明完整内容相等；
 - 产生 benchmark 性能 claim。
@@ -120,7 +120,7 @@ Runtime invariant helper 分两层：
 - live row/slot/capacity/column length alignment and packed `[0,size)`；
 - optional bitmap/payload/present count；
 - `KeySpace` key-to-slot mapping；
-- index/unique/order sidecar clean/dirty/current-row consistency；
+- index/unique exact structure 的 bucket/group/row-link 与 current-row consistency；
 - store epoch、active view、released state；
 - floating strict leaf finite/canonical value。
 
@@ -181,7 +181,8 @@ Testkit 可以提供不产生性能 claim 的结构性 assertion/helper，用于
 - composite key normal/missing lookup 不产生 runtime transient tuple；
 - summary stats 在 terminal boundary publish，diagnostic mode 可区分；
 - clear/remove/replacement 后 object/reference column 不保留 dead reference；
-- sidecar dirty/rebuild event 与 terminal stats 一致，同一 terminal 不重复 rebuild 同一 sidecar；
+- exact index 在 append/update/remove 后始终 current，read terminal 不触发 rebuild/full-scan fallback；
+- hash collision fixture 必须经过 generated full canonical equality，swap-remove 后 row link 与 locator 同步修复；
 - required empty/optional absent child 不 eager allocate child storage。
 
 这些 assertion 可以使用 test-scoped counters、allocation event hooks、generated-source/bytecode inspection 或受控 fixture；具体 helper API 由实现阶段固定。它们只能证明 implementation shape 和事件边界，不代替 benchmark throughput、latency、GC 或 hardware evidence。

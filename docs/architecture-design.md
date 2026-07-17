@@ -58,7 +58,7 @@ Java annotation schema
 | Public schema | annotation、field role、type、optional/default/access declaration | runtime storage |
 | Compile-time processing | javac integration、validation、normalization、hash、diagnostics、codegen | live runtime facts |
 | Generated API | schema-specific facade、cursor、mutator、materializer、column binding | generic metadata interpretation policy |
-| Runtime core | primitive storage、lookup/sidecar、mutation/lifecycle/error | annotation source 和业务约束 |
+| Runtime core | primitive storage、primary/exact lookup、mutation/lifecycle/error | annotation source 和业务约束 |
 | Evidence | compile/golden/invariant/example/benchmark/report | 产品契约 |
 
 依赖和事实都必须从 application/public boundary 指向稳定 core contract，不能让 examples、reports 或 runtime details 反向定义 schema/API。
@@ -79,7 +79,7 @@ Generated code 实现根级公共 API 契约，但 processor internal model 不�
 
 ### 5.3 `soma-runtime-core`
 
-拥有 annotation-agnostic TableStore kernel、primitive columns、bitmap、KeySpace、AccessStructures、AccessPath、mutation、ownership lifecycle、runtime errors 和性能实现纪律。
+拥有annotation-agnostic TableStore kernel、primitive columns、bitmap、hash primary locator、GroupedExactIndex、AccessPath、mutation、ownership lifecycle、runtime errors和性能实现纪律。
 
 Runtime 不解析 annotation，不生成 Java source，不拥有 schema logical meaning。
 
@@ -181,10 +181,10 @@ external facts
 
 ```text
 generated source method
-  -> AccessPath / packed rows
+  -> AccessPath / packed rows / exact group
   -> fused Row/Key/Column traversal or ColumnView
   -> primitive reads/writes
-  -> coordinated sidecar/lifecycle update
+  -> coordinated locator/exact-index/lifecycle update
 ```
 
 Hot loop 不以 schema object、Java Collection graph、reflection 或 per-cell metadata interpreter 为基础。
@@ -208,11 +208,11 @@ TableStore 由职责明确的组件组合：
 | Component | 架构责任 |
 |---|---|
 | RowSpace | packed live-row domain、size/capacity、compaction |
-| KeySpace | keyed table logical key 到 row slot 的定位 |
+| PrimaryLocator | keyed table logical key到current Index的hash定位 |
 | ColumnStore | primitive/reference payload 和 presence |
-| AccessStructures | secondary index、unique、order 等派生结构 |
-| AccessPath | terminal 的候选 row sequence |
-| MutationCoordinator | visible mutation、sidecar、epoch 和 pin 冲突协调 |
+| AccessStructures | secondary exact index与unique的bucket/group/row-link结构 |
+| AccessPath | terminal的candidate Index sequence |
+| MutationCoordinator | visible mutation、locator/exact index、epoch和pin冲突协调 |
 | LifecycleState | active/released、view/cursor/pipeline 生命周期 |
 
 这些是 runtime internal，不进入 public/generated 用户术语。详细设计分别由 [TableStore 契约](../soma-runtime-core/docs/table-store-contract.md)、[runtime lifecycle 契约](../soma-runtime-core/docs/runtime-lifecycle-contract.md)、[runtime plan 契约](../soma-runtime-core/docs/runtime-plan-contract.md) 和 [runtime errors/diagnostics 契约](../soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md) 拥有。
@@ -233,7 +233,7 @@ TableStore 由职责明确的组件组合：
 用户不应看到：
 
 - RowSlot、ChildTableHandle；
-- hash bucket、bitmap word、sidecar node；
+- hash bucket、bitmap word、exact-index group/link；
 - allocator/scratch internal；
 - arbitrary internal AccessPath extension；
 - processor normalized model implementation class。
@@ -265,19 +265,19 @@ TableStore 由职责明确的组件组合：
 - 两个模块共同拥有同一 public fact；
 - child storage 被共享或 reparent；
 - detached object 暗含 write-back；
-- application 依赖 hidden sidecar/order 作为业务事实；
+- application依赖physical Index/group traversal order作为业务顺序；
 - 为开发顺序缩水 V1 release contract。
 
 ## 13. 演进边界
 
-Runtime plan 可以演进 capacity、hash strategy、index maintenance、scratch、stats mode 和 materialization default budget，不改变 logical schema。
+Runtime plan可以演进capacity、hash/primary-locator strategy、exact-index implementation、scratch、stats mode和materialization default budget，不改变logical schema。
 
 以下变化必须按 compatibility/breaking change 审查：
 
 - annotation 或 field semantic；
 - normalized schema/hash input；
 - generated public API；
-- ownership、optional/default、key/index/order；
+- ownership、optional/default、key/index/unique；
 - materialization shape；
 - runtime error/lifecycle；
 - release gate 和 claim。

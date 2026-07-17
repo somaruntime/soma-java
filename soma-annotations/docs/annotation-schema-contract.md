@@ -2,7 +2,7 @@
 
 状态：正式设计文档
 Owner：`soma-annotations`
-事实范围：public schema annotation、类型系统、field role、optional/default、key/index/unique/order 和 child declaration
+事实范围：public schema annotation、类型系统、field role、optional/default、key/index/unique 和 child declaration
 非事实范围：normalization、schema hash、diagnostics、generated API、runtime storage 和示例场景
 最后审查日期：2026-07-10
 
@@ -32,8 +32,6 @@ V1 schema declaration 至少包含以下概念：
 | ignore | `@SomaIgnore` | explicitly excluded declaration helper field |
 | index | `@SomaIndex` / `@SomaIndexes` | secondary non-unique access |
 | unique | `@SomaUnique` / `@SomaUniques` | secondary unique access |
-| order | `@SomaOrder` / `@SomaOrders` | table-scoped ordered access |
-| sort | `@SomaSort` | one ordered selector item, direction defaults to ASC |
 
 V1 要求 schema source 显式表达 SOMA 语义。普通 Java field、getter、setter、bean naming 或 Java 字段初始化表达式不能自动成为 schema fact。`@SomaValue` 的 implicit final/public/construction/equality/hash 属于 SOMA compiler semantics，不是普通 Java modifier 推断，也不依赖用户同时标注 Lombok annotation。
 
@@ -47,18 +45,15 @@ V1 annotation API 同时追求表达能力和易用性。规则：
 - `@SomaField.name`、`@SomaKey.name`、`@SomaChild.name` 缺省时使用 Java field name 作为 logical field name；显式 `name` 用于 schema logical name override；`@SomaOptional` 只表达 presence modifier，不另行拥有 logical name；
 - selector path 使用 logical field name；如果字段设置了 `name` override，selector 必须使用 override 后的 logical path；
 - generated Java API 方法名默认从 Java field name 派生，不因为 schema logical name override 破坏 Java 侧可读性；
-- `@SomaSort.value` 是 `field` 的 shorthand，`direction` 默认 `ASC`；
-- `@SomaIndex.value`、`@SomaUnique.value`、`@SomaOrder.value` 是 `name` 的 alias，但 Java annotation 语法在同时设置其他参数时仍应使用 named form；
-- normalized schema model 必须把所有缺省值归一化为显式 logical name、semantic 和 direction，因此 annotation 简写不影响 schema hash 的确定性。
+- `@SomaIndex.value`、`@SomaUnique.value` 是 `name` 的 alias，但 Java annotation 语法在同时设置其他参数时仍应使用 named form；
+- normalized schema model 必须把所有缺省值归一化为显式 logical name 和 semantic，因此 annotation 简写不影响 schema hash 的确定性。
 
 示例：
 
 ```java
 @SomaTable(defaultCapacity = 4096) // logical table name defaults to Operation
-@SomaOrder(name = "by_dispatch_order", by = {
-    @SomaSort("inputOrder"),
-    @SomaSort("sequenceNo"),
-    @SomaSort(value = "operationKey.operationId.value", direction = SomaDirection.DESC)
+@SomaIndex(name = "by_job", fields = {
+    "operationKey.jobId.value"
 })
 public final class Operation {
     @SomaKey(name = "operation_key")
@@ -123,8 +118,6 @@ V1 annotation API 的 target / retention 基线：
 | `@SomaIgnore` | `FIELD` | `SOURCE` |
 | `@SomaIndex` / `@SomaIndexes` | `TYPE` | `SOURCE` |
 | `@SomaUnique` / `@SomaUniques` | `TYPE` | `SOURCE` |
-| `@SomaOrder` / `@SomaOrders` | `TYPE` | `SOURCE` |
-| `@SomaSort` | `ANNOTATION_TYPE` | `SOURCE` |
 
 V1 runtime 不通过 reflection 解释 schema。annotation retention 使用 `SOURCE`，javac 8 parse-phase transformer 负责 `@SomaValue` effective-type lowering，JSR 269 processor 负责 normalized schema model、metadata 和 generated Java source。Transformer 缺失或 compiler unsupported 时必须 fail closed，不得把 transformation 推迟到 runtime或静默退化为 mutable class。
 
@@ -166,11 +159,11 @@ V1 不从 Java type name 猜测 semantic scalar。semantic scalar 必须由 anno
 
 V1 采用 ordinary-payload/strict-access 分层策略：
 
-- 不参与 key/index/unique/order 的 `float` / `double` leaf 允许 Java IEEE-754 `NaN`、positive/negative infinity 和 negative zero；
+- 不参与 key/index/unique 的 `float` / `double` leaf 允许 Java IEEE-754 `NaN`、positive/negative infinity 和 negative zero；
 - `NaN` 不表示 optional absence，absence 只由 presence bitmap 表达；
-- 参与 `@SomaKey` 或 `@SomaIndex` / `@SomaUnique` / `@SomaOrder` selector 的 floating leaf 必须 finite；
+- 参与 `@SomaKey` 或 `@SomaIndex` / `@SomaUnique` selector 的 floating leaf 必须 finite；
 - strict access leaf 的 negative zero 在 schema default、Batch/import、Mutator、lookup 和 generated source parameter boundary canonicalize 为 positive zero；
-- equality、hash、index matching 和 order comparator 使用同一 canonical value；
+- equality、hash 和 index matching 使用同一 canonical value；
 - V1 不提供 per-field floating-policy annotation。
 
 Processor 从 normalized field role 判断 floating leaf 是否 strict。Shared `@SomaValue` 可以在普通 field 中保留 ordinary semantics，也可以在 outer key/selector path 下获得 strict semantics；不能只根据 Value declaration 自身猜测。
@@ -221,7 +214,7 @@ Compile-time effective shape 等价于：class final、annotated field `public f
 - value 内部每个 instance field 必须显式标注 `@SomaField`；`@SomaIgnore` 只服务允许 detached helper state 的 table carrier，不允许绕过 value immutability；
 - `@SomaField` instance field 逻辑上 `public final`；显式 `public final` 可以作为冗余兼容写法，但 canonical example 不要求；
 - value class 逻辑上 final，不允许 inheritance、non-final escape hatch、setter 或 mutable alias；
-- value 内部不允许 `@SomaKey`、`@SomaChild`、`@SomaOptional`、`@SomaIndex`、`@SomaUnique` 或 `@SomaOrder`；
+- value 内部不允许 `@SomaKey`、`@SomaChild`、`@SomaOptional`、`@SomaIndex` 或 `@SomaUnique`；
 - value 内部不允许字段类型为 `@SomaTable`、`List`、`Map`、array 或其他 mutable container；
 - value 作为 table field 时按 leaf expansion 展开为 columns；
 - value 被 `@SomaKey` 使用时，其 leaf fields 共同构成 composite key；
@@ -230,7 +223,7 @@ Compile-time effective shape 等价于：class final、annotated field `public f
 - value 不支持 optional field；canonical constructor 对 String、enum、nested value reference 执行 non-null 检查，并以 Java field name 作为 `NullPointerException` message；
 - user-defined `equals()` / `hashCode()` 不得改变 SOMA canonical value semantics；V1 processor 应拒绝冲突实现或以 generated effective shape 覆盖，具体 diagnostic 由 processor contract 固定。
 
-`@SomaValue` 的 floating leaf 使用确定性的 Java wrapper bit semantics：所有 NaN 表示归一到同一 equality/hash，negative zero 与 positive zero 可区分。若该 leaf 通过 outer key 或 index/unique/order selector 进入 identity/access role，则 generated boundary 必须进一步要求 finite 并把 negative zero canonicalize 为 positive zero。
+`@SomaValue` 的 floating leaf 使用确定性的 Java wrapper bit semantics：所有 NaN 表示归一到同一 equality/hash，negative zero 与 positive zero 可区分。若该 leaf 通过 outer key 或 index/unique selector 进入 identity/access role，则 generated boundary 必须进一步要求 finite 并把 negative zero canonicalize 为 positive zero。
 
 `@SomaValue` 不表达 cross-table object reference。跨表关系应使用 `MachineId`、`OperationKey` 这类 value/key 表达，然后由 generated table API 做 lookup。
 
@@ -253,7 +246,7 @@ Keyed table 有 stable logical key。
 - keyed table 必须有且只有一个 logical key；
 - key 可以是 scalar、semantic scalar、enum 或 value；
 - 复合业务身份通过 value key 表达；
-- primary key lookup 是 keyed table 的基础能力；runtime internal 由 `KeySpace` 承载，不作为普通 secondary index sidecar 暴露给 schema/API；
+- primary key lookup 是 keyed table 的基础能力；runtime internal 由 hash primary locator 承载，不作为普通 secondary index 暴露给 schema/API；
 - key equality 由 normalized key leaf path 和 storage type 决定。
 
 ### 6.2 Dense table
@@ -274,7 +267,7 @@ Dense table 可以是长生命周期 runtime state，也可以作为长生命周
 
 - dense table 不声明 `@SomaKey`；
 - dense row index 只是当前 packed storage 的位置，不是 stable business identity；
-- dense table 可以声明 `@SomaOrder`，用于按当前 storage state 生成 ordered access；
+- dense table 的物理遍历顺序不稳定；需要业务顺序时由 Row Pipeline 显式 `sorted(...)`；
 - dense table 可以使用 `replaceAll(batch)` 批量刷新，同时复用 capacity；
 - dense table 单行 materialize 为 schema class，whole-table `materialize()` 返回 `List<R>`，但不暴露 stable key API。
 
@@ -289,7 +282,7 @@ Map<K, R> <=> keyed child SomaTable<K, R>
 
 规则：
 
-- table 可以包含 `@SomaField`、`@SomaKey`、`@SomaChild`、`@SomaOptional` modifier、`@SomaIgnore`、`@SomaIndex`、`@SomaUnique` 和 `@SomaOrder`；
+- table 可以包含 `@SomaField`、`@SomaKey`、`@SomaChild`、`@SomaOptional` modifier、`@SomaIgnore`、`@SomaIndex` 和 `@SomaUnique`；
 - `@SomaField` 标注的 value typed field 会 flatten；
 - `@SomaChild List<R>` 要求 `R` 是没有 `@SomaKey` 的 `@SomaTable` class；
 - `@SomaChild Map<K,R>` 要求 `R` 是有且只有一个 logical key 的 `@SomaTable` class，且 `K` 精确等于该 key 的 materialized Java type；primitive/semantic primitive key 使用对应 boxed type，enum、String 与 value key 保持 exact reference type；
@@ -297,7 +290,7 @@ Map<K, R> <=> keyed child SomaTable<K, R>
 - child table instance 的 ownership 属于 enclosing parent SomaTable aggregate，并且只 attach 到一个 parent row/field slot；
 - live child instance 不允许被多个 parent row 共享，也不允许 reparent；
 - public/generated mutation boundary 不接受任意 live child facade 或 Java `List`/`Map` 作为 live attachment；只接受 detached child Batch/subtree construction data；
-- child table 的 key/index/unique/order 只作用于该 child table instance；
+- child table 的 key/index/unique 只作用于该 child table instance；
 - cross-table reference 不使用 table typed field，而使用 scalar、enum、semantic scalar 或 value key。
 
 Schema table-ownership dependency graph 必须无环。Processor 必须拒绝直接或间接 ownership cycle，并报告完整 declaration path；同一个 child table type 可以被不同 parent declaration 复用，这不表示 runtime instance 可以共享。
@@ -343,7 +336,7 @@ public final class Operation {
 - optional child absent 映射为 `null`，present-empty 映射为 non-null empty `List`/`Map`；
 - optional scalar/value absent 映射为 `null`；optional primitive schema source 必须使用 boxed type；
 - ordinary scalar/value key reference 保持 key value，不自动展开 referenced table；
-- `ChildTableHandle`、presence bitmap、RowSlot、sidecar 和 runtime stats 不进入 materialized shape；
+- `ChildTableHandle`、presence bitmap、packed Index、exact-index link 和 runtime stats 不进入 materialized shape；
 - materialized schema object/collection 是 caller-owned detached copy，可以被调用方修改，但无 dirty tracking 或 automatic write-back；
 - `@SomaTable` class 不生成 structural equality/hash；`List`/`Map` 使用 Java Collection contract，`@SomaValue` 使用 canonical value equality/hash。
 
@@ -441,14 +434,14 @@ Floating default normalization：
 - strict leaf 的 `-0.0` default normalized result 为 `0.0`；
 - invalid floating default 在 processor 阶段失败，不得延后到 runtime create。
 
-## 10. Index / unique / order
+## 10. Index / unique
 
-`@SomaIndex`、`@SomaUnique` 和 `@SomaOrder` 是 table-level access constraints。
+`@SomaIndex` 与 `@SomaUnique` 是 table-level exact-access constraints。
 
 规则：
 
 - 只能放在 `@SomaTable` 类型上；
-- Java 8 repeated annotation 必须提供容器 annotation，例如 `@SomaIndexes`、`@SomaOrders`；
+- Java 8 repeated annotation 必须提供容器 annotation，例如 `@SomaIndexes`、`@SomaUniques`；
 - selector 使用 logical field path，例如 `operationKey.jobId.value`、`machineId.value`；
 - selector 可以引用 value leaf path；
 - selector 不可穿透 child table；
@@ -456,11 +449,11 @@ Floating default normalization：
 - selector 引用 floating leaf 时，该 leaf 获得 strict access semantics：default/import/mutation/source argument 必须 finite，negative zero canonicalize 为 positive zero；
 - index 是 secondary non-unique access；
 - unique 是 secondary unique access；
-- order 是 table-scoped ordered access，不表示 physical row reorder；
-- order selector 必须通过 `@SomaSort` 声明，`direction` 缺省为 `ASC`；
-- 同一 table 内 index、unique、order 名称不能冲突。
+- 同一 table 内 index、unique 名称不能冲突；
+- index/unique 只表达完整 selector 的 exact equality，不表达 range、prefix range 或 maintained order；
+- exact structure 必须在 mutation 成功返回时已经 current，不能把 dirty/full rebuild 推迟到下一次读取。
 
-Grouped index/order source 使用 selector prefix 表达。Selector prefix 是 normalized selector 的连续前缀 leaf 序列；它可以对应一个 scalar field，也可以正好对应一个 `@SomaValue` field 的全部 leaf。Processor 可以基于这种前缀生成自然的 grouped source method，并返回同一套 Row Pipeline。
+Grouped index source 使用完整 selector 表达。一个 generated 参数可以对应 scalar field，也可以对应一个 `@SomaValue` field 的全部 leaf；processor 将它展开为完整 canonical leaf equality，并返回同一套 Row Pipeline。
 
 例如某个采用 flat pair lookup 的场景中，`OperationMachineCapability.findByOperation(operationKey)` 使用 `@SomaIndex` 的完整 selector，它正好对应 `operationMachineKey.operationKey` 的全部 leaf：
 
@@ -471,16 +464,7 @@ Grouped index/order source 使用 selector prefix 表达。Selector prefix 是 n
 })
 ```
 
-例如 flat root-level visit baseline 中，`RouteVisit.byRoutePosition(routeId)` 使用 `@SomaOrder` 的 leading selector prefix，把 route key leaf 放在前面，再把 route 内位置排序字段放在后面：
-
-```java
-@SomaOrder(name = "by_route_position", by = {
-    @SomaSort("routeId.value"),
-    @SomaSort("position")
-})
-```
-
-Grouped source 是 generated API convenience，不改变 schema kind，也不引入 query DSL。V1 支持 Java lambda 作为 row-level `filter` / `update` callback，但不引入 arbitrary join planner，也不承诺 lambda predicate 自动下推到 index。Selector diagnostics 必须指出出错 path、失败的 path segment、候选字段列表、是否因 optional/string/table leaf 被拒绝，以及对应 Java element location。
+Grouped source 是 generated API convenience，不改变 schema kind，也不引入 query DSL。返回集合的组内顺序不作承诺；未排序 terminal 只遵循该次 source sequence。需要业务顺序时必须显式 `sorted(...)`，长期 priority/event queue 由应用层专用结构维护稳定 key。V1 支持 Java lambda 作为 row-level `filter` / `update` callback，但不引入 arbitrary join planner，也不承诺 lambda predicate 自动下推到 index。Selector diagnostics 必须指出出错 path、失败的 path segment、候选字段列表、是否因 optional/string/table leaf 被拒绝，以及对应 Java element location。
 
 ## 11. 建模与示例边界
 

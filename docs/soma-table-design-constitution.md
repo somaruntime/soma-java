@@ -44,7 +44,7 @@ API / DTO / file / application object
   -> API / DTO / result / diagnostics
 ```
 
-数据成功进入 runtime 后，SomaTable ownership aggregate 是该运行时状态的唯一事实源。输入对象、detached object、index、order、stats 和输出对象都不是并行事实源。
+数据成功进入 runtime 后，SomaTable ownership aggregate 是该运行时状态的唯一事实源。输入对象、detached object、index、排序结果、stats 和输出对象都不是并行事实源。
 
 ### 3.2 三个相互正交的分类轴
 
@@ -88,7 +88,7 @@ SOMA Java 不是 ORM、database、serialization framework、persistence format�
 
 ### 原则二：唯一事实源
 
-成功 import 后，logical rows、field values、presence 和 ownership relation 共同构成 SomaTable runtime facts。KeySpace、index、unique、order、permutation、cache 和 stats 都是派生结构；Materialized Object 和 external DTO 是观察或映射。
+成功 import 后，logical rows、field values、presence 和 ownership relation 共同构成 SomaTable runtime facts。Primary locator、index、unique、动态排序结果、cache 和 stats 都是派生结构；Materialized Object 和 external DTO 是观察或映射。
 
 同一业务事实不得同时由 SomaTable 和 mutable DTO/Collection/cache 独立维护。
 
@@ -97,7 +97,7 @@ SOMA Java 不是 ORM、database、serialization framework、persistence format�
 - keyed table 有 stable logical key；
 - dense table 没有 stable logical key。
 
-Dense row index、RowSlot、ChildTableHandle 和 sidecar position 都是 runtime-local location，不能冒充业务身份。
+Current Index、ChildTableHandle和exact-index group/link position都是runtime-local location，不能冒充业务身份。
 
 ### 原则四：Ownership 与 Table kind 正交
 
@@ -111,17 +111,17 @@ Keyed/dense table 都可以作为 root、parent 或 child。Parent row 的 child
 
 必须区分 required、optional absent、default、zero、empty、invalid、missing key 和 empty result。Optional absence 只由 presence 表达，不能使用 `0`、`-1`、`NaN` 或空字符串 sentinel。
 
-普通 floating payload 保留 Java IEEE-754 值域；参与 key/index/unique/order 的 floating leaf 必须 finite，并把 `-0.0` canonicalize 为 `+0.0`。Equality、hash 和 order 必须使用同一 canonical value。
+普通 floating payload 保留 Java IEEE-754 值域；参与 key/index/unique 的 floating leaf 必须 finite，并把 `-0.0` canonicalize 为 `+0.0`。Equality 与 hash 必须使用同一 canonical value。
 
 ### 原则六：初始化和 mutation 必须受控
 
 Table create 后必须处于空且合法状态。Row 只有在 key、required/default、presence、child binding 和 unique constraints 全部成功后才成为 live row。
 
-所有事实修改只经过 generated Mutator、Batch、Row Pipeline mutation 或 generated child API。Key identity 不原地修改；identity 变化使用 delete + insert。Expected failure 不得留下半写入 row、orphan child 或部分 sidecar 更新。
+所有事实修改只经过 generated Mutator、Batch、Row Pipeline mutation 或 generated child API。Key identity 不原地修改；identity 变化使用 delete + insert。Expected failure 不得留下半写入 row、orphan child 或部分 locator/index 更新。
 
 ### 原则七：正确性边界分层
 
-每次单表 mutation 返回后，该表的 RowSpace、ColumnStore、KeySpace、bitmap、index、order 和 epoch 必须一致。
+每次单表 mutation 返回后，该表的 RowSpace、ColumnStore、primary locator、bitmap、exact index 和 epoch 必须一致。
 
 Parent-child handle、exclusive ownership、cascade lifecycle 和 recursive materialization 构成 ownership aggregate correctness。
 
@@ -141,7 +141,7 @@ Materialized row 不提供 structural equality/hash；完整内容比较由 test
 |---|---:|---:|
 | Materialized Object / `List` / `Map` | 否 | 是 |
 | Key value | 否 | 是 |
-| RowIndexBuffer | 否，但绑定 epoch | 仅在有效 epoch |
+| IndexSnapshot | 否，但携带捕获时的 structural epoch | 仅在该 epoch 仍为 current 时 |
 | Row Cursor | 是 | 否 |
 | ColumnView | 是 | 仅在 active scope |
 | ChildTableHandle | 是，internal | 不可公开 |
@@ -156,9 +156,9 @@ SomaTable 是 synchronous single-owner object，不支持 concurrent read、conc
 
 ### 原则十一：访问模式决定建模和性能
 
-真实场景必须先识别 hot loop、data role、ownership 和访问模式，再选择 keyed/dense、root/child、index/order、Row Pipeline、ColumnView 或 materialization。
+真实场景必须先识别 hot loop、data role、ownership 和访问模式，再选择 keyed/dense、root/child、exact index、显式动态排序、Row Pipeline、ColumnView 或 materialization。
 
-列式存储、SoA、Sparse Set 和 DOD 提供性能先验，不提供无条件性能保证。正式场景使用 Access Pattern Card 描述规模、hot columns、access/mutation mix、selectivity、optional/child density、working set 和 export frequency；它属于 runtime plan，不进入 schema hash。
+列式存储、packed SoA 和 DOD 提供性能先验，不提供无条件性能保证。正式场景使用 Access Pattern Card 描述规模、hot columns、access/mutation mix、selectivity、optional/child density、working set 和 export frequency；它属于 runtime plan，不进入 schema hash。
 
 稳定 hot path 必须保持 packed、primitive-specialized、fused 和 allocation-bounded，不能退化为 object/metadata interpreter。
 
@@ -191,7 +191,7 @@ V1 最终必须保留：
 - parent-owned keyed/dense child；
 - immutable `@SomaValue` 和 schema-backed materialization；
 - primitive columns、presence bitmap 和 packed rows；
-- KeySpace、index、unique、order；
+- hash-based primary locator、exact index、unique 与显式动态排序；
 - Direct API、Row/Key/Column Pipeline、Mutator 和 ColumnView；
 - typed errors、lifecycle 和 budget；
 - schema hash/runtime compatibility；

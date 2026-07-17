@@ -4,7 +4,7 @@
 Owner：`soma-benchmarks`
 事实范围：runtime implementation shape、FJSP、VRP、Simulation、Game、child locality 和 deep-materialization benchmark lanes
 非事实范围：evidence level/artifact、public API/schema/runtime contract 和性能结果
-最后审查日期：2026-07-12
+最后审查日期：2026-07-17
 
 ## 1. 目标
 
@@ -20,9 +20,9 @@ Scenario benchmark 之前必须有 component-level shape evidence，避免把实
 |---|---|---|
 | `kernel.packed_scan` | Row Pipeline、Column path、handwritten primitive array | packed rows、touched columns/bytes、rows/s、allocation/op |
 | `kernel.pipeline_fusion` | fused terminal 与显式 intermediate baseline | traversal count、Cursor count、intermediate allocation、short-circuit |
-| `kernel.keyspace` | SparseInt/Hash/composite 与同语义 primitive baseline | domain/load factor、probe/collision、rehash、missing、allocation |
-| `kernel.sidecar` | clean traversal、dirty rebuild、rebuild-storm pattern | rebuild count/time/bytes、mutation/read ratio、selectivity |
-| `kernel.compaction` | single swap-remove、batch compact、clear reuse | moved rows、sidecar repair、scratch、retained capacity |
+| `kernel.keyspace` | full-int/long/composite Hash KeySpace 与同语义 primitive baseline | load factor、probe/collision、rehash、missing、allocation |
+| `kernel.exact_index` | incremental append/update/remove、collision equality、mutation/read storm | entry/group、probe/collision/rehash、no-read-rebuild、retained/high-water bytes |
+| `kernel.compaction` | single/batch swap-remove、clear reuse | moved rows、locator/exact-link repair、scratch、retained capacity |
 | `kernel.stats_overhead` | summary-only 与 diagnostic mode | time/allocation delta、counter/histogram cost |
 
 这些 lane 验证 runtime implementation shape，不直接批准某个 application schema。Scenario 建模建议仍需要对应 FJSP/VRP/Simulation/Game lane。
@@ -36,12 +36,12 @@ FJSP 的 canonical 场景是 `MachineCandidate` keyed runtime frontier。该结�
 | Lane | 度量对象 | 必须拆分的成本 | 不允许的结论 |
 |---|---|---|---|
 | `fjsp.input.candidate_child_scan` | 遍历 `OperationDefinition.candidateMachines` dense child | parent fetch/live-child locate、child rows、packed scan、allocation、TableStore count | 只证明 per-operation owned input 的 locality/cost |
-| `fjsp.input.candidate_flat_index` | flat composite-key processing table grouped index baseline | index lookup、candidate rows、physical locality、sidecar memory | 作为同语义 child baseline，不预设更慢 |
-| `fjsp.frontier.release` | release operation 后为可加工 machine 生成 candidate | candidate-child scan、setup lookup、candidate batch builder、`addBatch`、by_machine/by_operation index dirty | 不能说所有场景都应使用 keyed frontier |
-| `fjsp.frontier.indicator_update` | 当前 machine 下更新 setup、ready、FCFS/SPT sort values | `findByMachine` candidate rows、`SetupTime.fetch`、changed rows、sidecar dirty | 不能把 setup lookup 隐藏进 comparator |
-| `fjsp.frontier.dispatch_sort` | dynamic sort 选择当前 machine 的候选 | candidate count、comparator 调用、temporary row-index buffer、`firstOrThrow` | 不能宣称等价 maintained order |
+| `fjsp.input.candidate_flat_index` | flat composite-key processing table grouped exact-index baseline | exact lookup、candidate rows、physical locality、exact-index memory | 作为同语义 child baseline，不预设更慢 |
+| `fjsp.frontier.release` | release operation 后为可加工 machine 生成 candidate | candidate-child scan、setup lookup、candidate batch builder、`addBatch`、by_machine/by_operation exact-index delta | 不能说所有场景都应使用 keyed frontier |
+| `fjsp.frontier.indicator_update` | 当前 machine 下更新 setup、ready、FCFS/SPT sort values | `findByMachine` candidate rows、`SetupTime.fetch`、changed rows、unchanged exact-index entries | 不能把 setup lookup 隐藏进 comparator |
+| `fjsp.frontier.dispatch_sort` | dynamic sort 选择当前 machine 的候选 | candidate count、comparator 调用、`IndexBuffer` growth/reuse、`firstOrThrow` | 不能宣称等价 application-owned priority queue |
 | `fjsp.frontier.cleanup` | 选中 operation 后删除所有 machine-operation candidate | `findByOperation` rows、`remove`、index cleanup、compaction | 不能暗示跨 table atomic commit |
-| `fjsp.machine_order` | `Machine.byAvailableTime().firstOrThrow()` | order sidecar rebuild、ordered traversal、machine count | 不能把 lazy rebuild 记成 O(1) |
+| `fjsp.machine_dynamic_sort` | `Machine.rows().sorted(...).firstOrThrow()` | physical scan、`IndexBuffer` sort、comparator calls、machine count | 不能把全量显式排序记成 O(1) |
 | `fjsp.data_role.operation_split` | `OperationDefinition + OperationRuntimeState + OperationAssignment` 对比旧 mixed operation row | definition/state lookup、assignment insert、cross-table recovery、result export | 不能复制 assignment shadow fields |
 
 ### 3.2 对照 lane
@@ -92,9 +92,9 @@ VRP 的默认正式示例仍应把 `InsertionCandidateRow` 作为 dense workspac
 
 | Lane | 度量对象 | 必须拆分的成本 | 不允许的结论 |
 |---|---|---|---|
-| `vrp.dense_workspace.full_rebuild` | 每轮重建全部 insertion candidates | customer/route/visit/travel lookup、builder 构造、`replaceAll`、order rebuild | 不能把 `replaceAll` 当作免费边界 |
-| `vrp.dense_workspace.dynamic_sort` | dense workspace 上 dynamic sort / limit | candidate count、temporary row-index buffer、comparator 调用 | 不能声明优于 maintained order，除非测得 |
-| `vrp.dense_workspace.maintained_order` | `by_best_delta().firstOrThrow()` | order sidecar dirty/rebuild、ordered traversal | 不能把策略排序固化为通用 schema 建议 |
+| `vrp.dense_workspace.full_rebuild` | 每轮重建全部 insertion candidates | customer/route/visit/travel lookup、builder 构造、`replaceAll`、exact-index bulk build | 不能把 `replaceAll` 当作免费边界 |
+| `vrp.dense_workspace.dynamic_sort` | dense workspace 上 dynamic sort / limit | candidate count、`IndexBuffer` growth/reuse、comparator 调用 | 不能推导为长期维护的业务顺序 |
+| `vrp.dense_workspace.route_exact_sort` | `findByRoute(routeId).sorted(...).firstOrThrow()` | exact lookup/group size、candidate sort、full-scan baseline | 不能把 exact source 与业务排序混成一种索引 |
 | `vrp.keyed_frontier` | 可选 keyed insertion frontier | key insert/remove、findByRoute/findByCustomer、RouteVersion stale cleanup | 不能作为默认方案 |
 | `vrp.data_role.customer_split` | `CustomerDefinition + CustomerAssignment + rebuildable UnassignedCustomerRow` 对比 mixed customer row | definition lookup、assignment insert、workspace remove/rebuild、export | unassigned workspace 不能成为 assignment fact source |
 
@@ -110,15 +110,16 @@ VRP claim 必须区分数据布局收益、构造启发式算法收益和候选�
 
 ## 5. 连续仿真 benchmark lanes
 
-连续仿真的核心不是 frontier，而是 dense long-lived state vector、event queue ordered consume 和 trace/export buffer。
+连续仿真的核心不是 frontier，而是 dense long-lived state vector、application-owned event heap 和 trace/export buffer。
 
 | Lane | 度量对象 | 必须拆分的成本 | 不允许的结论 |
 |---|---|---|---|
-| `simulation.state_vector.row_pipeline_update` | `StateVectorRow` 原地 update | scanned rows、changed rows、sidecar dirty、materialized object count | 不能把每步 `replaceAll` 当作默认 |
+| `simulation.state_vector.row_pipeline_update` | `StateVectorRow` 原地 update | scanned rows、changed rows、exact-index delta（若有）、materialized object count | 不能把每步 `replaceAll` 当作默认 |
 | `simulation.state_vector.column_view` | ColumnView / scratch 两阶段 primitive scan | acquire/read/release、scratch write、释放 view 后 mutation | 不能在 active view 下暗示安全 structural mutation |
 | `simulation.state_vector.primitive_baseline` | Java primitive array baseline | loop time、copy/projection cost | 不能用不同语义证明 SOMA 更快 |
-| `simulation.event_queue.consume_remove` | `PendingEventRow.by_event_time` due consume/remove | queue size、due ratio、two-terminal scan、remove/compact、order rebuild | 不能宣称 heap / range-pop 性能 |
-| `simulation.trace.append_export` | trace append 与 export order | append batch、order dirty、export lazy rebuild、object/export adapter | 不能把 export order 成本混入主循环 claim |
+| `simulation.event_heap.consume` | application-owned min-heap due consume | heap size、due ratio、push/pop、table diagnostic/export adapter | 不把 heap 能力归入 SOMA runtime |
+| `simulation.event_table.scan_sort_remove` | `PendingEventRow` scan/sort/remove 对照 | table size、due ratio、`IndexBuffer` sort、swap-remove | 只作为同语义诊断对照，不承诺 range-pop |
+| `simulation.trace.append_export` | trace append 与 export order | append batch、explicit export sort、object/export adapter | 不能把 export order 成本混入主循环 claim |
 | `simulation.coefficient_preprojection` | `FlowCoefficient` lookup vs preprojection | keyed fetch、dense projection build、ColumnView scan | 不能让 derivative inner loop 隐藏 random lookup |
 | `simulation.data_role.definition_state` | topology/parameter definition + `StateVectorRow` 对比 entity numeric cache | definition lookup、state scan、final projection、legacy cache sync/recovery | 不能同时把 entity cache 和 state vector 写成 authoritative |
 
@@ -130,11 +131,11 @@ Game runtime 默认把 `MoveCandidateRow` 作为 selected-unit / current-action 
 
 | Lane | 度量对象 | 必须拆分的成本 | 不允许的结论 |
 |---|---|---|---|
-| `game.move_workspace.selected_unit` | selected unit 的 move candidates | pathing/visibility/ability lookup、builder、`replaceAll`、order rebuild | 不能推广为 all-units frontier |
-| `game.move_workspace.dynamic_sort` | dynamic sort / top-k 候选 | candidate count、temporary row-index buffer、tie-breaker | 不能承诺 public top-k terminal |
+| `game.move_workspace.selected_unit` | selected unit 的 move candidates | pathing/visibility/ability lookup、builder、`replaceAll`、explicit sort | 不能推广为 all-units frontier |
+| `game.move_workspace.dynamic_sort` | dynamic sort / top-k 候选 | candidate count、`IndexBuffer` growth/reuse、tie-breaker | 不能承诺 public top-k terminal |
 | `game.action_frontier.optional` | 可选全局 keyed action frontier | stable identity、ActionVersion、invalidations、index cleanup | 不能进入默认正式示例 |
-| `game.coordinate_lookup` | `(x, y) -> tile` lookup variants | dense scan、order source、external adapter、keyed/unique coordinate | 不能把 `by_grid_position` 宣称为 O(1) |
-| `game.damage_resolution` | pending damage resolution buffer | ordered traversal、target unit `fetch/mutate`、aggregation、`clear` sidecar dirty | 不能把它说成纯 dense scan |
+| `game.coordinate_lookup` | `(x, y) -> tile` lookup variants | dense scan、external adapter、keyed/unique coordinate | 不能把物理遍历顺序宣称为 O(1) |
+| `game.damage_resolution` | pending damage resolution buffer | explicit sort、target unit `fetch/mutate`、aggregation、`clear` | 不能把它说成纯 dense scan |
 | `game.occupancy_consistency` | `GameUnitState.position` 与 `TileOccupancyRow.occupantUnit` 同步 | commit 成功、cache 更新失败、rebuild/stop-frame/snapshot policy | 不能暗示 SOMA 有跨表 transaction |
 | `game.data_role.tile_split` | `MapTileDefinitionRow + TileOccupancyRow` 对比 mixed tile row | paired scan/lookup、occupancy rebuild、memory、visibility/pathing access | 不能仅凭 split/co-location 结构推导性能优势 |
 

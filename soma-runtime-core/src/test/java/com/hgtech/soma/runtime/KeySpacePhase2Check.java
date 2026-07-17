@@ -3,7 +3,6 @@ package com.hgtech.soma.runtime;
 import com.hgtech.soma.runtime.generated.HashIntKeySpace;
 import com.hgtech.soma.runtime.generated.HashLongKeySpace;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
-import com.hgtech.soma.runtime.generated.SparseIntKeySpace;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,7 +16,7 @@ public final class KeySpacePhase2Check {
     }
 
     public static void main(String[] args) {
-        testSparseIntPackedSlots();
+        testHashIntPackedRows();
         testHashIntRandomized();
         testHashLongRandomized();
         testHashCompositeProbeRandomized();
@@ -26,11 +25,8 @@ public final class KeySpacePhase2Check {
         System.out.println("keyspace-phase2-test: ok");
     }
 
-    private static void testSparseIntPackedSlots() {
-        SparseIntKeySpace keys = new SparseIntKeySpace(127);
-        assertEquals(127, keys.maximumKey(), "sparse maximum key");
-        assertEquals(128, keys.sparseCapacity(), "sparse domain capacity");
-        assertEquals(0, keys.denseCapacity(), "sparse initial dense capacity");
+    private static void testHashIntPackedRows() {
+        HashIntKeySpace keys = new HashIntKeySpace(0);
         List<Integer> oracle = new ArrayList<Integer>();
         for (int key = 0; key < 96; key += 3) {
             keys.put(key, oracle.size());
@@ -38,18 +34,22 @@ public final class KeySpacePhase2Check {
         }
         for (int step = 0; step < 12; step++) {
             int row = (step * 5) % oracle.size();
-            oracle.remove(row);
-            keys.removeAt(row);
-            assertEquals(oracle.size(), keys.size(), "sparse size");
+            int removed = oracle.get(row).intValue();
+            int lastIndex = oracle.size() - 1;
+            int moved = oracle.get(lastIndex).intValue();
+            keys.remove(removed);
+            oracle.remove(lastIndex);
+            if (row < oracle.size()) {
+                oracle.set(row, Integer.valueOf(moved));
+                keys.updateRow(moved, row);
+            }
+            assertEquals(oracle.size(), keys.size(), "packed hash size");
             for (int index = 0; index < oracle.size(); index++) {
-                assertEquals(index, keys.rowOf(oracle.get(index).intValue()), "sparse packed slot");
+                assertEquals(index, keys.rowOf(oracle.get(index).intValue()),
+                        "hash locator follows packed swap-remove");
             }
         }
-        assertEquals(-1, keys.rowOf(-1), "negative sparse missing");
-        assertEquals(-1, keys.rowOf(128), "overflow sparse missing");
-        if (keys.denseCapacity() < keys.size()) {
-            throw new AssertionError("sparse dense capacity is below live size");
-        }
+        assertEquals(-1, keys.rowOf(removedSentinel()), "missing hash key");
     }
 
     private static void testHashIntRandomized() {
@@ -277,11 +277,10 @@ public final class KeySpacePhase2Check {
                 HashCompositeKeySpace.estimatedPeakBytes(impossibleExpectedSize);
             }
         }, "composite estimator expected size overflow");
-        assertIllegalArgument(new Runnable() {
-            @Override public void run() {
-                new SparseIntKeySpace(Integer.MAX_VALUE);
-            }
-        }, "sparse domain array overflow");
+    }
+
+    private static int removedSentinel() {
+        return Integer.MIN_VALUE;
     }
 
     private static int hashOnlyInsertionSlot(HashCompositeKeySpace keys, long hash) {

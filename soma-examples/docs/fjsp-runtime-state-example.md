@@ -4,7 +4,7 @@
 Owner：`soma-examples`
 事实范围：FJSP data role、Access Pattern Card、schema source 和 runtime-state coverage
 非事实范围：dispatch E2E flow、SOMA public contract 和 benchmark result
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
 ## 1. 文档定位
 
@@ -33,8 +33,8 @@ jobs / operation definitions with candidate-machine children / machines / setup 
 | Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
 |---|---|---|---|
 | operation candidate child | operation count × empty/typical/high candidate-machine count | release 时 parent-key child scan；input 后只读 | live child scan 不 materialize；与 flat grouped-index baseline 比较 locality 与 child-instance overhead |
-| `MachineCandidate` frontier | current released-unscheduled pairs；记录 by_machine/by_operation group size | batch add、grouped update、dynamic sort、grouped remove/compact | primitive row-index scratch、sidecar dirty/rebuild、steady-state allocation/op 分开 |
-| machine/setup/assignment | machine/operation/setup-matrix scale | repeated ordered first、point lookup/mutate、result insert | order rebuild storm、HashKeySpace load/collision、split lookup/export 分开 |
+| `MachineCandidate` frontier | current released-unscheduled pairs；记录 by_machine/by_operation group size | batch add、exact-group update、dynamic sort、grouped swap-remove | `IndexBuffer` retained bytes、exact-index probe/collision/rehash、steady-state allocation/op 分开 |
+| machine/setup/assignment | machine/operation/setup-matrix scale | physical scan + explicit sort、point lookup/mutate、result insert | sort candidate count、HashKeySpace load/collision、split lookup/export 分开 |
 
 Fixture/benchmark 必须补充 hot columns、touched bytes/working set、selector selectivity、mutation/read ratio、JIT warmup/forks、stats mode 和 export frequency；这些值不进入 Schema/hash。
 
@@ -54,9 +54,7 @@ import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
-import com.hgtech.soma.annotation.SomaOrder;
 import com.hgtech.soma.annotation.SomaSchema;
-import com.hgtech.soma.annotation.SomaSort;
 import com.hgtech.soma.annotation.SomaTable;
 import com.hgtech.soma.annotation.SomaValue;
 import java.util.List;
@@ -133,10 +131,6 @@ public class SetupTimeKey {
 }
 
 @SomaTable(name = "job_definitions", defaultCapacity = 1024)
-@SomaOrder(name = "by_dispatch_order", by = {
-    @SomaSort("inputOrder"),
-    @SomaSort("jobId.value")
-})
 public final class JobDefinition {
     @SomaKey
     public JobId jobId;
@@ -243,10 +237,6 @@ public final class OperationAssignment {
 
 @SomaTable(name = "machines", defaultCapacity = 128)
 @SomaIndex(name = "by_state", fields = {"state"})
-@SomaOrder(name = "by_available_time", by = {
-    @SomaSort("availableFromMinute"),
-    @SomaSort("machineId.value")
-})
 public final class Machine {
     @SomaKey
     public MachineId machineId;
@@ -340,7 +330,9 @@ public final class MachineCandidate {
 - nested value；
 - optional field；
 - table-level index；
-- table-level order；
+- exact index 与 unique-current invariant；
+- 物理遍历不保证业务顺序；
+- 显式 dynamic sort 与 `IndexBuffer` candidate freeze；
 - Row Pipeline lazy terminal；
 - ColumnView。
 

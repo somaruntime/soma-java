@@ -116,7 +116,7 @@ Schema 中同一个 child table type 可以被多个 parent declarations 复用�
 | external adapter object | input/output external DTO | 否 | 由 application/API/wire/persistence owner 定义；只通过显式 mapper 与 Batch 或 Materialized Object 交换数据 |
 | callback borrow | Row Cursor | 是 | callback 返回后失效，不得逃逸 |
 | scoped borrow | ColumnView | 是 | 受 owner、epoch、close/release、view_pinned 约束 |
-| internal locator | `RowSlot`/`ChildTableHandle`/sidecar position | 是 | 不公开、不序列化、不进入业务身份 |
+| internal locator | current `Index`/`ChildTableHandle`/exact-index group或link position | 是 | 不公开、不序列化、不进入业务身份 |
 
 Recursive materialization 只沿 ownership edge，把 parent row 可达的全部 child subtree 转换成完整 schema object graph；dense child 写入 `List`，keyed child 写入 `Map`；普通 key reference 不触发 lookup、join 或 graph expansion。
 
@@ -133,8 +133,8 @@ Required empty child materialize 为 non-null empty `List`/`Map`；optional abse
 | 分类 | 示例 | 是否为 runtime fact source |
 |---|---|---:|
 | authoritative runtime fact | logical rows、field values、presence、ownership relation | 是 |
-| derived access structure | KeySpace locator、secondary/unique index、order sidecar、row permutation | 否 |
-| live diagnostics | stats、high-water、allocation estimate、dirty/rebuild count | 否 |
+| derived access structure | primary locator、secondary exact index、unique index | 否 |
+| live diagnostics | stats、high-water、allocation estimate、probe/collision/rehash count | 否 |
 | materialized observation | schema object、detached `List`/`Map`、export/response DTO、debug output | 否 |
 | borrowed access | Row Cursor、ColumnView | 否，直接观察 live fact |
 | external fact | input/request DTO、database、file、protobuf、API request/response | 不属于 SOMA runtime truth |
@@ -147,14 +147,14 @@ Required empty child materialize 为 non-null empty `List`/`Map`；optional abse
 |---|---|---|
 | `TableStore` / generated `XxxTableStore` | 单张 generated table instance 的 runtime internal storage composition root | 不等于跨 child 的 ownership aggregate，不是 public API |
 | `TableLayout` | schema hash、field layout、column binding、selector/runtime-plan metadata | 不持有实际 row payload |
-| `RowSpace` | row membership、`RowSlot` 分配、packed slot 有效性 | 不持有 field payload/key/index policy |
-| `KeySpace` | keyed table 的 `RowKey -> RowSlot` identity locator | primary key lookup，不是 secondary index |
-| `SparseIntKeySpace` | bounded int id 的 sparse-set-style `KeySpace` implementation | Sparse Set 只是实现材料 |
-| `HashKeySpace` | int/long/composite key 的 hash-based `KeySpace` implementation | bucket/probing 是 internal detail |
+| `RowSpace` | row membership、current `Index`分配、packed range有效性 | 不持有field payload/locator/index policy |
+| `PrimaryLocator` | keyed table的`RowKey -> current Index` identity locator | primary key lookup，不是secondary index |
+| `HashIntKeySpace` / `HashLongKeySpace` / `HashCompositeKeySpace` | primary locator的primitive/composite hash实现 | bucket/probing是internal detail |
 | `ColumnStore` | primitive/object columns、presence bitmap、capacity、slot payload、child handle column | 不拥有 key/access/mutation policy |
-| `AccessStructures` | maintained secondary index、unique index、order sidecar | derived，不拥有 authoritative facts |
-| `AccessPath` | scan/index/order/dynamic sort source 的 internal execution entry | 产生 `RowSequence`，不拥有 payload |
-| `MutationCoordinator` | batch、replaceAll、delete、row move、child replacement、sidecar/epoch 协调 | 防止 subcomponent 隐藏跨组件副作用 |
+| `GroupedExactIndex` / `AccessStructures` | maintained secondary exact index与unique的bucket/group/row-link | derived，不拥有authoritative facts |
+| `AccessPath` | scan/exact-index/dynamic-sort source的internal execution entry | 产生candidate Index sequence，不拥有payload |
+| `MutationCoordinator` | batch、replaceAll、update、swap-remove、child replacement、locator/index/epoch协调 | 防止subcomponent隐藏跨组件副作用 |
+| `IndexBuffer` | table-local reusable `int[] + length` operation scratch | internal，terminal后logical reset，不是public result |
 | `LifecycleState` | epoch、active borrow、released、stats、typed lifecycle errors | 不定义 schema、不持有 field payload |
 
 ```text
@@ -162,7 +162,7 @@ XxxTable
   -> XxxTableStore
        -> TableLayout
        -> RowSpace
-            -> KeySpace        // keyed table only
+       -> PrimaryLocator       // keyed table only
        -> ColumnStore
        -> AccessStructures
        -> AccessPath
@@ -175,14 +175,13 @@ XxxTable
 | 正式术语 | 定义 | 边界 |
 |---|---|---|
 | `RowKey` | stable logical identity | 仅 keyed table 有；identity change 使用 delete + insert |
-| row index | dense table public direct API 的当前 packed position | 非 stable identity，structural mutation 后可能失效 |
-| `RowSlot` | runtime packed column storage 的当前 physical slot | runtime internal，row move 后可能变化 |
-| `RowSequence` | 某次 Row Pipeline terminal 使用的 row-slot sequence | 可来自 scan/index/order/dynamic sort |
-| primary key lookup | `KeySpace` 的 `RowKey -> RowSlot` identity lookup | 不作为普通 secondary index |
-| secondary index | `AccessStructures` 维护的 non-primary access structure | 不保证 physical continuity |
-| unique index | `AccessStructures` 维护的 secondary uniqueness structure | 不等于 primary key identity |
-| order sidecar | maintained ordered row permutation | 不改变 `ColumnStore` physical row order |
-| dynamic sort | 单次 terminal 临时构造 row permutation | 不等于 maintained `@SomaOrder` |
+| `Index` | table当前packed `[0,size)`物理位置；也是dense direct API的整数位置 | 非stable identity，structural mutation后可能指向另一row |
+| `IndexSnapshot` | public detached Index序列与来源table/captured structural epoch | 不是live view；wrong-table或stale使用fail closed |
+| candidate Index sequence | 某次Row Pipeline terminal使用的Index序列 | 可来自scan、exact group或dynamic sort |
+| primary key lookup | `PrimaryLocator`的`RowKey -> current Index` identity lookup | 不作为普通secondary index |
+| secondary exact index | `GroupedExactIndex`维护的non-primary exact access structure | 不支持range，不保证physical/group order |
+| unique index | group size至多1的secondary exact structure | 不等于primary key identity |
+| dynamic sort | 单次terminal在`IndexBuffer`中排序candidate Index | 不移动columns，不形成maintained order |
 
 ## 10. Value state 与浮点术语
 
@@ -190,9 +189,9 @@ XxxTable
 
 | 术语 | 定义 |
 |---|---|
-| ordinary floating payload | 不参与 key/index/unique/order 的 float/double leaf，可保存 Java IEEE-754 exceptional values |
-| strict identity/access floating leaf | 参与 key/index/unique/order 的 floating leaf，必须 finite，并把 `-0.0` canonicalize 为 `+0.0` |
-| canonical floating value | default/write/query boundary 完成 finite validation 和 zero normalization 后，用于 equality/hash/order 的值 |
+| ordinary floating payload | 不参与key/index/unique的float/double leaf，可保存Java IEEE-754 exceptional values |
+| strict identity/access floating leaf | 参与key/index/unique的floating leaf，必须finite，并把`-0.0` canonicalize为`+0.0` |
+| canonical floating value | default/write/query boundary完成finite validation和zero normalization后，用于equality/hash的值 |
 | business numeric constraint | 非负、范围、业务单位等 loader/application-owned 规则，不由 SOMA 自动推断 |
 
 ## 11. Metadata、compatibility 与 execution 术语
@@ -206,7 +205,7 @@ XxxTable
 | processor/runtime compatibility version | generated code 与 runtime protocol identity | 否 |
 | Access Pattern Card | scenario/runtime-plan 输入；记录 rows、hot columns、access/mutation mix、selectivity、optional/child density、working set、allocation/export frequency | 否 |
 | runtime performance shape | packed/primitive/fused/allocation-bounded hot-loop 结构及其可验证 evidence | 否 |
-| runtime plan | capacity、growth、KeySpace/index/order strategy、storage/allocation/scratch hint、stats mode、MaterializationBudget default、estimator version 等执行计划 | 否 |
+| runtime plan | capacity、growth、primary-locator/exact-index strategy、storage/allocation/scratch hint、stats mode、MaterializationBudget default、estimator version等执行计划 | 否 |
 | runtime plan hash | effective runtime plan identity | 否 |
 | runtime stats | live diagnostics，不是 schema fact | 否 |
 | runtime error code | 不依赖 message parsing 的 stable machine-readable failure identity | 否 |

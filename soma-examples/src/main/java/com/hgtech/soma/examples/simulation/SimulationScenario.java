@@ -13,6 +13,7 @@ import com.hgtech.soma.examples.simulation.generated.TraceSampleRowTable;
 import com.hgtech.soma.examples.simulation.generated.ValveBatch;
 import com.hgtech.soma.examples.simulation.generated.ValveTable;
 import com.hgtech.soma.runtime.DoubleColumnView;
+import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.UpdateResult;
 
@@ -43,7 +44,7 @@ public final class SimulationScenario {
                     sourceTank, targetTank, 0.25d, 8.0d, true));
             coefficients.addBatch(new FlowCoefficientBatch(1)
                     .addValues(coefficientKey, 0.5d));
-            require(tanks.byTankId().firstOrThrow().tankId.equals(sourceTank)
+            require(tanks.fetch(sourceTank).tankId.equals(sourceTank)
                             && valves.findByFromTank(sourceTank).count() == 1L
                             && valves.findByToTank(targetTank).count() == 1L,
                     "tank order and valve topology indexes are live");
@@ -61,14 +62,19 @@ public final class SimulationScenario {
                     .addValues(1000L, 1L, SimEventKind.VALVE_SETPOINT,
                             SimEntityKind.VALVE, 1L, true, 0.75d));
 
-            int[] dueRows = events.byEventTime().limit(1).rowIndexes();
-            require(dueRows.length == 1, "event order requires one due event");
+            IndexSnapshot dueRows = events.rows().sorted((left, right) -> {
+                int compared = Long.compare(
+                        left.eventTimeMillis(), right.eventTimeMillis());
+                return compared != 0 ? compared
+                        : Long.compare(left.sequenceNo(), right.sequenceNo());
+            }).limit(1).rowIndexes();
+            require(dueRows.size() == 1, "event order requires one due event");
             DoubleColumnView payloads = events.numericPayloadColumn();
             double duePayload;
             try {
-                require(payloads.isPresent(dueRows[0]),
+                require(payloads.isPresent(dueRows.indexAt(0)),
                         "ordered event preserves optional payload presence");
-                duePayload = payloads.getDouble(dueRows[0]);
+                duePayload = payloads.getDouble(dueRows.indexAt(0));
             } finally {
                 payloads.close();
             }
@@ -133,7 +139,14 @@ public final class SimulationScenario {
                             SimVariableKind.LEVEL_LITERS, level)
                     .addValues(1000L, SimEntityKind.VALVE, 1L,
                             SimVariableKind.VALVE_OPENING_RATIO, opening));
-            List<TraceSampleRow> exported = trace.byTimeEntity().fetchAll();
+            List<TraceSampleRow> exported = trace.rows().sorted((left, right) -> {
+                int compared = Long.compare(
+                        left.sampleTimeMillis(), right.sampleTimeMillis());
+                if (compared != 0) return compared;
+                compared = left.entityKind().compareTo(right.entityKind());
+                return compared != 0 ? compared
+                        : Long.compare(left.entityId(), right.entityId());
+            }).fetchAll();
             require(exported.size() == 2 && exported.get(0).value == 98.0d,
                     "trace is a detached export buffer, not the state fact source");
             expectCode("missing_key", () -> coefficients.fetch(new ValveMaterialKey(

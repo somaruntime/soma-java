@@ -19,6 +19,20 @@ public final class RuntimeFailures {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_row_index", operation, table, context, null);
     }
 
+    public static SomaRuntimeException indexSnapshotWrongTable(
+            String table, String operation) {
+        return create(SomaErrorCategory.INVALID_INPUT, "index_snapshot_wrong_table",
+                operation, table, empty(), null);
+    }
+
+    public static SomaRuntimeException staleIndexSnapshot(
+            String table, long capturedEpoch, long currentEpoch, String operation) {
+        Map<String, String> context = context("capturedEpoch", capturedEpoch);
+        context.put("currentEpoch", Long.toString(currentEpoch));
+        return create(SomaErrorCategory.LIFECYCLE, "stale_index_snapshot",
+                operation, table, context, null);
+    }
+
     public static SomaRuntimeException optionalAbsent(String table, String field, String operation) {
         return create(SomaErrorCategory.LOOKUP, "optional_absent", operation,
                 table + "." + field, empty(), null);
@@ -136,16 +150,6 @@ public final class RuntimeFailures {
             String table, String field, String valueClass, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_floating_access_value", operation,
                 table + "." + field, context("valueClass", valueClass), null);
-    }
-
-    public static SomaRuntimeException invalidKeyDomain(
-            String table, String keyField, String strategy, long maximumKey,
-            String operation) {
-        Map<String, String> context = context("keyField", keyField);
-        context.put("strategy", strategy);
-        context.put("maximumKey", Long.toString(maximumKey));
-        return create(SomaErrorCategory.INVALID_INPUT, "invalid_key_domain", operation,
-                table + "." + keyField, context, null);
     }
 
     public static SomaRuntimeException invalidNullValue(String table, String field, String operation) {

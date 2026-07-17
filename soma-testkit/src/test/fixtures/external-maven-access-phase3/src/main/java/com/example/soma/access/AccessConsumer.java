@@ -24,6 +24,7 @@ import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.UpdateResult;
+import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 
 import java.util.List;
@@ -42,18 +43,25 @@ public final class AccessConsumer {
                 () -> UniquePositionTable.create().findByPositionKey(null).count());
 
         RuntimePlan accessDefault = AccessRecordTable.defaultRuntimePlan();
-        TablePlan tinySidecar = accessDefault.requireTable("AccessRecord")
-                .toBuilder().maximumSidecarScratchBytes(1L).build();
+        TablePlan tinyStorage = accessDefault.requireTable("AccessRecord")
+                .toBuilder().maximumTableStorageBytes(1L).build();
+        expectCode("memory_limit_exceeded", () -> AccessRecordTable.create(
+                accessDefault.toBuilder().replaceTable(tinyStorage).build()));
+        TablePlan invalidStrategy = accessDefault.requireTable("AccessRecord")
+                .toBuilder().accessStrategy("none").build();
+        expectCode("runtime_plan_mismatch", () -> AccessRecordTable.create(
+                accessDefault.toBuilder().replaceTable(invalidStrategy).build()));
+
+        TablePlan boundedPlan = accessDefault.requireTable("AccessRecord")
+                .toBuilder().maximumTableStorageBytes(1024L * 1024L).build();
         AccessRecordTable boundedAccess = AccessRecordTable.create(
-                accessDefault.toBuilder().replaceTable(tinySidecar).build());
+                accessDefault.toBuilder().replaceTable(boundedPlan).build());
         AccessRecordBatch boundedBatch = new AccessRecordBatch();
         boundedBatch.addValues(1, 1, 1, 1);
         boundedAccess.addBatch(boundedBatch);
-        expectCode("memory_limit_exceeded", () -> boundedAccess.findByState(1).count());
-        TablePlan invalidPolicy = accessDefault.requireTable("AccessRecord")
-                .toBuilder().sidecarMaintenancePolicy("none").build();
-        expectCode("runtime_plan_mismatch", () -> AccessRecordTable.create(
-                accessDefault.toBuilder().replaceTable(invalidPolicy).build()));
+        require(boundedAccess.findByState(1).count() == 1L,
+                "exact lookup does not need read-time rebuild scratch");
+        boundedAccess.release();
 
         MutatorAtomicAccessBatch atomicBatch = new MutatorAtomicAccessBatch();
         atomicBatch.addValues(1, AccessState.READY);
@@ -109,39 +117,50 @@ public final class AccessConsumer {
         require(stableTopOne.code == 10 && topOneComparisons[0] == table.size() - 1,
                 "stable arg-min keeps first-on-equal with linear comparisons");
         require(table.statsSnapshot().operationScratchCurrentBytes()
-                        == Math.max(4L, topOneScratchBefore),
+                        == Math.max(16L, topOneScratchBefore),
                 "stable top-one does not allocate full sort scratch");
         require(table.findByState(2).count() == 3L, "non-unique index exact source");
         require(table.findByGroup(1).count() == 3L, "repeated index container");
         require(table.findByCode(20).firstOrThrow().score == 10, "unique source");
 
-        List<AccessRecord> groupOne = table.byGroupScore(1).fetchAll();
-        require(groupOne.size() == 3, "order prefix group");
+        List<AccessRecord> groupOne = table.findByGroup(1).sorted((left, right) -> {
+            int compared = Integer.compare(right.score(), left.score());
+            return compared != 0 ? compared : Integer.compare(left.code(), right.code());
+        }).fetchAll();
+        require(groupOne.size() == 3, "exact group followed by explicit sort");
         require(groupOne.get(0).score == 30 && groupOne.get(1).score == 20
-                && groupOne.get(2).score == 10, "maintained descending order");
-        List<AccessRecord> stableEquals = table.byGroupScore(2).fetchAll();
+                && groupOne.get(2).score == 10, "explicit descending order");
+        List<AccessRecord> stableEquals = table.findByGroup(2)
+                .sorted((left, right) -> {
+                    int compared = Integer.compare(right.score(), left.score());
+                    return compared != 0 ? compared
+                            : Integer.compare(left.code(), right.code());
+                }).fetchAll();
         require(stableEquals.get(0).code == 40 && stableEquals.get(1).code == 50,
-                "maintained order is stable for equal selector values");
-        require(table.statsSnapshot().sidecarRebuildCount() == 4L
-                        && table.statsSnapshot().sidecarRebuildRows() == 20L,
-                "initial sidecar rebuild evidence");
-        require("primitive-sorted-permutation-v1".equals(
-                        table.runtimePlan().requireTable("AccessRecord").accessStrategy())
-                        && "dirty-lazy-rebuild-v1".equals(table.runtimePlan()
-                                .requireTable("AccessRecord").sidecarMaintenancePolicy())
-                        && table.runtimePlan().requireTable("AccessRecord")
-                                .maximumSidecarScratchBytes() > 0L,
-                "effective runtime plan declares selector strategy and bound");
-        require(table.statsSnapshot().sidecarScratchCurrentBytes() > 0L
-                        && table.statsSnapshot().sidecarScratchHighWaterBytes()
-                                >= table.statsSnapshot().sidecarScratchCurrentBytes(),
-                "sidecar retained and rebuild peak bytes are observable");
+                "explicit identity tie-break is deterministic");
+        require(table.statsSnapshot().exactIndexCount() == 3
+                        && table.statsSnapshot().exactIndexEntryCount() == 15L
+                        && table.statsSnapshot().exactIndexGroupCount() == 10L,
+                "incremental exact index cardinalities are observable");
+        require("primitive-exact-hash-v1".equals(
+                        table.runtimePlan().requireTable("AccessRecord").accessStrategy()),
+                "effective runtime plan declares exact-hash access strategy");
+        require(table.statsSnapshot().exactIndexStorageCurrentBytes() > 0L
+                        && table.statsSnapshot().exactIndexStorageHighWaterBytes()
+                                >= table.statsSnapshot().exactIndexStorageCurrentBytes(),
+                "exact-index retained and high-water bytes are observable");
+        long storageBeforeCleanRead = table.statsSnapshot()
+                .exactIndexStorageCurrentBytes();
+        long probesBeforeCleanRead = table.statsSnapshot().exactIndexProbeCount();
         table.findByState(2).count();
-        require(table.statsSnapshot().sidecarRebuildCount() == 4L,
-                "clean sidecar does not rebuild");
+        require(table.statsSnapshot().exactIndexStorageCurrentBytes()
+                        == storageBeforeCleanRead
+                        && table.statsSnapshot().exactIndexProbeCount()
+                                > probesBeforeCleanRead,
+                "exact lookup probes current index without read-time rebuild");
         table.findByState(2).firstOrThrow();
         require(table.statsSnapshot().lastScanned() == 1L,
-                "selector firstOrThrow reads sidecar lazily");
+                "selector firstOrThrow traverses one exact-index candidate");
 
         try {
             table.findByState(2).filter(row -> {
@@ -165,19 +184,25 @@ public final class AccessConsumer {
         AccessRecordRows currentStateOne = table.findByState(1);
         table.mutateAt(1).setState(2).setScore(50).commit();
         require(currentStateOne.count() == 0L,
-                "source resolves current sidecar facts at terminal time");
-        require(table.statsSnapshot().sidecarDirtyCount() == 2L,
-                "mutation dirties only dependent selectors");
-        require(table.findByState(2).count() == 4L, "mutation invalidates index sidecar");
-        require(table.byGroupScore(1).firstOrThrow().code == 20,
-                "mutation invalidates order sidecar");
-        long stormRebuilds = table.statsSnapshot().sidecarRebuildCount();
+                "source resolves current exact-index facts at terminal time");
+        require(table.findByState(2).count() == 4L,
+                "mutation incrementally maintains the exact index");
+        require(table.findByGroup(1).sorted((left, right) -> {
+            int compared = Integer.compare(right.score(), left.score());
+            return compared != 0 ? compared : Integer.compare(left.code(), right.code());
+        }).firstOrThrow().code == 20,
+                "manual sort observes the published mutation");
+        long probesBeforeMutationReads = table.statsSnapshot().exactIndexProbeCount();
+        long storageBeforeMutationReads = table.statsSnapshot()
+                .exactIndexStorageCurrentBytes();
         table.mutateAt(0).setScore(31).commit();
-        table.byGroupScore(1).firstOrThrow();
+        table.findByGroup(1).firstOrThrow();
         table.mutateAt(0).setScore(30).commit();
-        table.byGroupScore(1).firstOrThrow();
-        require(table.statsSnapshot().sidecarRebuildCount() == stormRebuilds + 2L,
-                "mutation-read rebuild storm remains observable");
+        table.findByGroup(1).firstOrThrow();
+        require(table.statsSnapshot().exactIndexProbeCount() > probesBeforeMutationReads
+                        && table.statsSnapshot().exactIndexStorageCurrentBytes()
+                                == storageBeforeMutationReads,
+                "mutation/read alternation remains incremental without rebuild storage");
 
         AccessRecordTable resultTable = AccessRecordTable.create();
         AccessRecordBatch resultBatch = new AccessRecordBatch();
@@ -204,29 +229,30 @@ public final class AccessConsumer {
         resultTable.mutateAt(0).setState(2).commit();
         UpdateResult updateResult = resultTable.findByState(2)
                 .update(row -> row.setState(row.state()));
-        require(updateResult.sidecarMaintained() == 0L
-                        && updateResult.sidecarRebuilt() == 1L,
-                "update result reports source sidecar rebuild");
+        require(updateResult.scanned() == 1L && updateResult.matched() == 1L
+                        && updateResult.changed() == 0L,
+                "update result reports operation work only");
         resultTable.mutateAt(0).setState(1).commit();
         RemoveResult removeResult = resultTable.findByState(1).limit(1).remove();
-        require(removeResult.sidecarMaintained() == 0L
-                        && removeResult.sidecarRebuilt() == 1L,
-                "remove result reports source sidecar rebuild");
+        require(removeResult.scanned() == 1L && removeResult.matched() == 1L
+                        && removeResult.removed() == 1L,
+                "remove result reports operation work only");
         long retainedBeforeClear = resultTable.statsSnapshot()
-                .sidecarScratchCurrentBytes();
+                .exactIndexStorageCurrentBytes();
         resultTable.clear();
-        require(resultTable.statsSnapshot().sidecarScratchCurrentBytes()
-                        == retainedBeforeClear,
-                "clear retains sidecar high-water arrays");
+        require(resultTable.statsSnapshot().exactIndexStorageCurrentBytes()
+                        == retainedBeforeClear
+                        && resultTable.statsSnapshot().exactIndexEntryCount() == 0L,
+                "clear retains exact-index arrays while removing entries");
         resultTable.release();
-        require(resultTable.statsSnapshot().sidecarScratchCurrentBytes() == 0L
-                        && resultTable.statsSnapshot().sidecarScratchHighWaterBytes()
+        require(resultTable.statsSnapshot().exactIndexStorageCurrentBytes() == 0L
+                        && resultTable.statsSnapshot().exactIndexStorageHighWaterBytes()
                                 >= retainedBeforeClear,
-                "release drops retained sidecar arrays but preserves high-water evidence");
+                "release drops exact-index arrays but preserves high-water evidence");
 
         table.findByState(2).filter(row -> row.group() == 2).remove();
         require(table.size() == 4 && table.findByState(2).count() == 3L,
-                "compaction invalidates sidecars");
+                "swap-remove relocates exact-index row links");
 
         AccessRecordBatch duplicate = new AccessRecordBatch(1);
         duplicate.addValues(20, 9, 9, 9);
@@ -255,7 +281,25 @@ public final class AccessConsumer {
                 .addValues(new RoutePositionKey(routeTwo, 1), 21)
                 .addValues(new RoutePositionKey(routeOne, 1), 11);
         VisitTable visitTable = VisitTable.create();
+        visitTable.reserve(64);
+        int reservedKeyCapacity = visitTable.statsSnapshot().keySpaceCapacity();
+        long reservedKeyRehashes = visitTable.statsSnapshot().keySpaceRehashCount();
+        long reservedExactBytes = visitTable.statsSnapshot()
+                .exactIndexStorageCurrentBytes();
+        long reservedExactRehashes = visitTable.statsSnapshot()
+                .exactIndexRehashCount();
+        require(visitTable.capacity() >= 64 && reservedKeyCapacity >= 64
+                        && reservedExactBytes > 0L,
+                "reserve covers columns, primary locator and exact indexes");
         visitTable.addBatch(visits);
+        require(visitTable.statsSnapshot().keySpaceCapacity() == reservedKeyCapacity
+                        && visitTable.statsSnapshot().keySpaceRehashCount()
+                                == reservedKeyRehashes
+                        && visitTable.statsSnapshot().exactIndexStorageCurrentBytes()
+                                == reservedExactBytes
+                        && visitTable.statsSnapshot().exactIndexRehashCount()
+                                == reservedExactRehashes,
+                "reserved import does not regrow locator or exact-index arrays");
         require(visitTable.findRowIndex(routeOne.value, 1) >= 0
                         && visitTable.findRowIndex(routeOne.value, 99) == -1,
                 "flattened composite key locator avoids key carrier materialization");
@@ -274,10 +318,17 @@ public final class AccessConsumer {
                 () -> visitTable.keys().forEach(key -> visitTable.size()));
         require(visitTable.findByRoute(routeOne).count() == 2L,
                 "nested value grouped index parameter");
-        require(visitTable.byRoutePosition(routeOne).firstOrThrow().payload == 11,
-                "nested value grouped order prefix");
-        require(visitTable.byRoutePosition().fetchAll().size() == 3,
-                "whole maintained order overload");
+        require(visitTable.findByRoute(routeOne).sorted((left, right) ->
+                        Integer.compare(left.keyPositionValue(), right.keyPositionValue()))
+                        .firstOrThrow().payload == 11,
+                "nested value exact source composes with explicit sort");
+        require(visitTable.rows().sorted((left, right) -> {
+            int compared = Long.compare(
+                    left.keyRouteIdValue(), right.keyRouteIdValue());
+            return compared != 0 ? compared : Integer.compare(
+                    left.keyPositionValue(), right.keyPositionValue());
+        }).fetchAll().size() == 3,
+                "whole-table explicit order remains available");
 
         FloatingAccessBatch floatingBatch = new FloatingAccessBatch();
         floatingBatch.addValues(1, -0.0f).addValues(2, 2.5f);
@@ -288,8 +339,10 @@ public final class AccessConsumer {
         require(Float.floatToIntBits(floating.fetchAt(0).metric)
                         == Float.floatToIntBits(0.0f),
                 "floating access stores canonical positive zero");
-        require(floating.byMetricOrder().firstOrThrow().id == 1,
-                "floating maintained order");
+        require(floating.rows().sorted((left, right) ->
+                        Float.compare(left.metric(), right.metric()))
+                        .firstOrThrow().id == 1,
+                "floating explicit order");
         FloatingAccessBatch canonicalDuplicate = new FloatingAccessBatch();
         canonicalDuplicate.addValues(4, 0.0f);
         expectCode("unique_constraint_violation",
@@ -326,12 +379,16 @@ public final class AccessConsumer {
         enumTable.addBatch(enumBatch);
         require(enumTable.findByState(AccessState.RUNNING).count() == 2L,
                 "enum index keeps typed source parameter");
-        require(enumTable.byStateRank(AccessState.RUNNING).firstOrThrow().id == 3,
-                "enum grouped order prefix");
-        long enumDirtyBefore = enumTable.statsSnapshot().sidecarDirtyCount();
+        require(enumTable.findByState(AccessState.RUNNING)
+                        .sorted((left, right) -> Integer.compare(left.rank(), right.rank()))
+                        .firstOrThrow().id == 3,
+                "enum exact source composes with explicit sort");
+        long enumStorageBefore = enumTable.statsSnapshot()
+                .exactIndexStorageCurrentBytes();
         enumTable.findByState(AccessState.READY).update(row -> row.setId(20));
-        require(enumTable.statsSnapshot().sidecarDirtyCount() == enumDirtyBefore,
-                "unrelated update keeps selector sidecars clean");
+        require(enumTable.statsSnapshot().exactIndexStorageCurrentBytes()
+                        == enumStorageBefore,
+                "unrelated update leaves exact-index storage unchanged");
         enumTable.findByState(AccessState.RUNNING).update(row -> {
             if (row.id() == 1) row.setState(AccessState.READY);
         });
@@ -349,8 +406,10 @@ public final class AccessConsumer {
                 "boolean index uses primitive selector binding");
         require(booleanDouble.findByMetric(2.0d).firstOrThrow().id == 1,
                 "double unique uses primitive selector binding");
-        require(booleanDouble.byActiveMetric(true).firstOrThrow().id == 3,
-                "boolean/double grouped DESC order");
+        require(booleanDouble.findByActive(true).sorted((left, right) ->
+                        Double.compare(right.metric(), left.metric()))
+                        .firstOrThrow().id == 3,
+                "boolean exact source composes with double DESC order");
         expectCode("invalid_floating_access_value",
                 () -> booleanDouble.findByMetric(Double.NaN).count());
 
@@ -388,37 +447,51 @@ public final class AccessConsumer {
         AccessRecordBatch two = new AccessRecordBatch()
                 .addValues(1, 1, 1, 1)
                 .addValues(2, 1, 1, 2);
-        long exact = HashCompositeKeySpace.estimatedPeakBytes(2);
-        AccessRecordTable exactTable = AccessRecordTable.create(accessPlanWithBulk(exact));
-        exactTable.addBatch(two);
-        require(exactTable.size() == 2, "unique append exact bulk limit");
-        exactTable.replaceAll(two);
-        require(exactTable.size() == 2, "unique replace exact bulk limit");
-        exactTable.release();
+        long appendScratch = HashCompositeKeySpace.estimatedPeakBytes(2);
+        AccessRecordTable appendExact = AccessRecordTable.create(
+                accessPlanWithBulk(appendScratch));
+        appendExact.addBatch(two);
+        require(appendExact.size() == 2, "unique append exact bulk limit");
+        appendExact.release();
 
-        AccessRecordTable bounded = AccessRecordTable.create(accessPlanWithBulk(exact - 1L));
-        long appendEpoch = bounded.structuralEpoch();
-        int appendCapacity = bounded.capacity();
-        expectMemoryLimit(exact - 1L, exact, () -> bounded.addBatch(two));
-        require(bounded.size() == 0 && bounded.structuralEpoch() == appendEpoch
-                        && bounded.capacity() == appendCapacity,
+        AccessRecordTable appendBounded = AccessRecordTable.create(
+                accessPlanWithBulk(appendScratch - 1L));
+        long appendEpoch = appendBounded.structuralEpoch();
+        int appendCapacity = appendBounded.capacity();
+        expectMemoryLimit(appendScratch - 1L, appendScratch,
+                () -> appendBounded.addBatch(two));
+        require(appendBounded.size() == 0
+                        && appendBounded.structuralEpoch() == appendEpoch
+                        && appendBounded.capacity() == appendCapacity,
                 "unique append bulk failure preserves facts/capacity/epoch");
         AccessRecordBatch one = new AccessRecordBatch().addValues(3, 1, 1, 3);
-        bounded.addBatch(one);
-        require(bounded.size() == 1 && bounded.fetchAt(0).code == 3,
+        appendBounded.addBatch(one);
+        require(appendBounded.size() == 1 && appendBounded.fetchAt(0).code == 3,
                 "unique append retry with admissible scratch");
+        appendBounded.release();
 
-        long replaceEpoch = bounded.structuralEpoch();
-        int replaceCapacity = bounded.capacity();
-        expectMemoryLimit(exact - 1L, exact, () -> bounded.replaceAll(two));
-        require(bounded.size() == 1 && bounded.fetchAt(0).code == 3
-                        && bounded.structuralEpoch() == replaceEpoch
-                        && bounded.capacity() == replaceCapacity,
+        long replaceScratch = 3L * GroupedExactIndex.estimatedRetainedBytes(2, 2);
+        AccessRecordTable replaceExact = AccessRecordTable.create(
+                accessPlanWithBulk(replaceScratch));
+        replaceExact.replaceAll(two);
+        require(replaceExact.size() == 2, "exact-index replace exact bulk limit");
+        replaceExact.release();
+
+        AccessRecordTable replaceBounded = AccessRecordTable.create(
+                accessPlanWithBulk(replaceScratch - 1L));
+        replaceBounded.addBatch(one);
+        long replaceEpoch = replaceBounded.structuralEpoch();
+        int replaceCapacity = replaceBounded.capacity();
+        expectMemoryLimit(replaceScratch - 1L, replaceScratch,
+                () -> replaceBounded.replaceAll(two));
+        require(replaceBounded.size() == 1 && replaceBounded.fetchAt(0).code == 3
+                        && replaceBounded.structuralEpoch() == replaceEpoch
+                        && replaceBounded.capacity() == replaceCapacity,
                 "unique replace bulk failure preserves facts/capacity/epoch");
-        bounded.replaceAll(new AccessRecordBatch().addValues(4, 1, 1, 4));
-        require(bounded.size() == 1 && bounded.fetchAt(0).code == 4,
+        replaceBounded.replaceAll(new AccessRecordBatch().addValues(4, 1, 1, 4));
+        require(replaceBounded.size() == 1 && replaceBounded.fetchAt(0).code == 4,
                 "unique replace retry with admissible scratch");
-        bounded.release();
+        replaceBounded.release();
     }
 
     private static RuntimePlan accessPlanWithBulk(long maximumBulkScratchBytes) {

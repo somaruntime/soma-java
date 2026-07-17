@@ -4,7 +4,7 @@
 Owner：`soma-examples`
 事实范围：VRP 构造解 data role、Access Pattern Card、schema 和使用边界
 非事实范围：完整 VRP solver、public contract 和性能 claim
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
 ## 1. 文档定位
 
@@ -29,8 +29,8 @@ vehicles / customers / travel cost lookup
 | Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
 |---|---|---|---|
 | `Route.visits` child | route count × empty/typical/high visits | parent-key child scan、route-local rewrite/replace | child instance/small-array overhead 与 flat grouped baseline 同时计量 |
-| insertion workspace | unassigned customers × considered routes × positions | per-round `replaceAll`、dynamic/maintained order、first | builder、column rewrite、sort scratch、order rebuild 和 capacity reuse 分开 |
-| travel/unassigned state | location pairs、remaining customers | repeated point lookup、ordered remove/rebuild | KeySpace load/collision、selector selectivity、compaction 和 preprojection amortization 分开 |
+| insertion workspace | unassigned customers × considered routes × positions | per-round `replaceAll`、route exact-source、dynamic sort、first | builder、column rewrite、`IndexBuffer` sort scratch 和 capacity reuse 分开 |
+| travel/unassigned state | location pairs、remaining customers | repeated point lookup、physical scan + explicit sort、swap-remove/rebuild | KeySpace load/collision、selector selectivity、compaction 和 preprojection amortization 分开 |
 
 Fixture/benchmark 必须补充 route/global scan ratio、hot columns、touched bytes、mutation/read ratio、optional/child density、JIT warmup/forks、stats mode 和 export frequency；这些值不进入 Schema/hash。
 
@@ -87,11 +87,6 @@ public class LocationPairKey {
 
 @SomaTable(name = "customers", defaultCapacity = 4096)
 @SomaIndex(name = "by_state", fields = {"state"})
-@SomaOrder(name = "by_due_then_input", by = {
-    @SomaSort("dueMinute"),
-    @SomaSort("inputOrder"),
-    @SomaSort("customerId.value")
-})
 public final class Customer {
     @SomaKey
     public CustomerId customerId;
@@ -132,9 +127,6 @@ public final class Customer {
 }
 
 @SomaTable(name = "vehicles", defaultCapacity = 512)
-@SomaOrder(name = "by_vehicle_id", by = {
-    @SomaSort("vehicleId.value")
-})
 public final class Vehicle {
     @SomaKey
     public VehicleId vehicleId;
@@ -155,9 +147,6 @@ public final class Vehicle {
 
 @SomaTable(name = "routes", defaultCapacity = 512)
 @SomaIndex(name = "by_vehicle", fields = {"vehicleId.value"})
-@SomaOrder(name = "by_route_id", by = {
-    @SomaSort("routeId.value")
-})
 public final class Route {
     @SomaKey
     public RouteId routeId;
@@ -202,9 +191,6 @@ public final class TravelCost {
 }
 
 @SomaTable(name = "route_visit_rows", defaultCapacity = 32)
-@SomaOrder(name = "by_position", by = {
-    @SomaSort("position")
-})
 public final class RouteVisitRow {
     @SomaField
     public int position;
@@ -223,11 +209,6 @@ public final class RouteVisitRow {
 }
 
 @SomaTable(name = "unassigned_customer_rows", defaultCapacity = 4096)
-@SomaOrder(name = "by_due_then_input", by = {
-    @SomaSort("dueMinute"),
-    @SomaSort("inputOrder"),
-    @SomaSort("customerId.value")
-})
 public final class UnassignedCustomerRow {
     @SomaField
     public CustomerId customerId;
@@ -243,12 +224,7 @@ public final class UnassignedCustomerRow {
 }
 
 @SomaTable(name = "insertion_candidate_rows", defaultCapacity = 16384)
-@SomaOrder(name = "by_best_delta", by = {
-    @SomaSort("violationPenalty"),
-    @SomaSort("deltaDistanceMeters"),
-    @SomaSort("projectedArrivalMinute"),
-    @SomaSort("customerId.value")
-})
+@SomaIndex(name = "by_route", fields = {"routeId.value"})
 public final class InsertionCandidateRow {
     @SomaField
     public CustomerId customerId;
@@ -275,7 +251,7 @@ public final class InsertionCandidateRow {
 - `Customer`、`Vehicle`、`Route` 是 keyed entity state；
 - `TravelCost` 是 keyed lookup table，用于 `LocationPairKey -> distance/travel time`；
 - `Route.visits` 是 parent-owned dense route sequence，不承诺 child row 的 `position` 是 stable key；
-- `UnassignedCustomerRow` 和 `InsertionCandidateRow` 是 dense workspace，通过 order access 支撑构造解选择；
+- `UnassignedCustomerRow` 和 `InsertionCandidateRow` 是 dense workspace；route-local 候选先由 `by_route` exact source 收窄，再通过 `sorted(...)` 完成本轮选择；
 - 上层 VRP constructor 负责容量、时间窗、候选生成和路线关闭策略。
 
 Source-of-truth 口径：
@@ -288,7 +264,7 @@ Source-of-truth 口径：
 
 `TravelCost` 在 canonical 示例中是 required lookup：构造 candidate 时访问到缺失 `LocationPairKey` 表示输入矩阵不完整，应暴露 typed missing key / required lookup error。若业务要把缺失 arc 表达为不可行候选或 fallback distance，必须由 VRP constructor 显式选择并写入场景契约，SOMA runtime 不猜测业务语义。
 
-`InsertionCandidateRow.by_best_delta` 只服务当前 dense workspace 的 selection order。它不是全局策略排序承诺，也不表示 maintained order 与 dynamic `sorted(comparator)` 性能等价；是否保留该 order、改用 dynamic sort，或升级为 keyed insertion frontier，需要通过 benchmark 比较。
+Insertion candidate 的 best-delta 次序只属于当前 terminal：先从 `findByRoute(routeId)` 获取候选，再显式按 violation、distance、arrival 和 customer identity 调用 `sorted(comparator)`。SOMA 不维护全局业务顺序；如果将来需要跨轮复用候选，应另行设计 keyed insertion frontier、版本和失效策略。
 
 `rewriteRouteVisitsForInsertion(...)` 不是零成本 helper。一次插入至少会读取当前 route child，构造插入后的 sequence，重写 position / arrival / departure / loadAfterVisit，并在保留 `Customer.assignedPosition` 时同步刷新受影响 customer 的诊断 snapshot。V1 使用 `routes.visits(routeId)` 定位 live child facade；child 内容 replacement 必须 staged/validated 后原子切换，失败时旧 child 保持不变。该示例不承诺零拷贝 route segment rewrite public API。
 

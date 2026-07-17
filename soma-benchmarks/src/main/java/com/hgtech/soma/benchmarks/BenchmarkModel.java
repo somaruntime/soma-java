@@ -21,8 +21,8 @@ import java.util.Set;
 
 /** Benchmark runner内部的exact JSONL model与无第三方JSON codec。 */
 final class BenchmarkModel {
-    static final String SCHEMA_VERSION = "soma-benchmark-smoke-v3";
-    static final String ARTIFACT_VERSION = "soma-java-benchmark-runner-v3";
+    static final String SCHEMA_VERSION = "soma-benchmark-smoke-v4";
+    static final String ARTIFACT_VERSION = "soma-java-benchmark-runner-v4";
 
     static final List<String> FIELDS = Collections.unmodifiableList(Arrays.asList(
             "schemaVersion", "scenario", "lane", "workloadId", "workloadEvidence",
@@ -34,7 +34,7 @@ final class BenchmarkModel {
             "operationCounts", "accessPatternCard", "observationKinds",
             "touchedBytesEstimate",
             "workingSetEstimate", "allocationPerOperation", "allocatedBytes",
-            "gcStats", "sidecarStats", "keySpaceStats", "selectorStats",
+            "gcStats", "exactIndexStats", "keySpaceStats", "selectorStats",
             "optionalDensity", "mutationReadRatio", "statsMode",
             "materializationStats", "effectiveMaterializationBudget",
             "materializationBudgetDimension", "materializationPath",
@@ -134,7 +134,7 @@ final class BenchmarkModel {
         values.put("allocatedBytes", null);
         values.put("gcStats", object("method", "not-observed-in-smoke",
                 "count", null, "timeMillis", null));
-        values.put("sidecarStats", observation.sidecarStats);
+        values.put("exactIndexStats", observation.exactIndexStats);
         values.put("keySpaceStats", observation.keySpaceStats);
         values.put("selectorStats", observation.selectorStats);
         values.put("optionalDensity", observation.optionalDensity);
@@ -287,7 +287,7 @@ final class BenchmarkModel {
         requireNonEmptyMap(record, "observationKinds");
         requireMap(record, "allocationPerOperation");
         requireNonEmptyMap(record, "gcStats");
-        requireNonEmptyMap(record, "sidecarStats");
+        requireNonEmptyMap(record, "exactIndexStats");
         requireNonEmptyMap(record, "keySpaceStats");
         requireNonEmptyMap(record, "selectorStats");
         requireNonEmptyMap(record, "materializationStats");
@@ -939,8 +939,8 @@ final class LaneObservation {
     String workingSetScope = "runtime-owned retained primitive arrays and scratch used in measurement";
     Map<String, Object> accessPatternCard = BenchmarkModel.object("applicable", Boolean.FALSE,
             "reason", "populated-at-finish");
-    Map<String, Object> sidecarStats = BenchmarkModel.object("applicable", Boolean.FALSE,
-            "reason", "lane-does-not-use-sidecar");
+    Map<String, Object> exactIndexStats = BenchmarkModel.object("applicable", Boolean.FALSE,
+            "reason", "lane-does-not-use-exact-index");
     Map<String, Object> keySpaceStats = BenchmarkModel.object("applicable", Boolean.FALSE,
             "reason", "lane-does-not-use-keyspace");
     Map<String, Object> selectorStats = BenchmarkModel.object("applicable", Boolean.FALSE,

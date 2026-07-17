@@ -4,15 +4,17 @@
 正式事实源：否
 已固化内容：[Simulation schema 示例](../../soma-examples/docs/simulation-runtime-state-example.md)、[Runtime-state benchmark 契约](../../soma-benchmarks/docs/runtime-state-benchmark-contract.md)
 仍在研究：state vector、event queue、trace buffer 的 concrete runner 和 evidence
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
-对齐基线：[设计宪法](../soma-table-design-constitution.md)、[Generated Table API](../generated-table-api-contract.md)、[Runtime 性能模型](../runtime-performance-model.md)
+对齐基线：[设计宪法](../soma-table-design-constitution.md)、[Generated Table API](../generated-table-api-contract.md)、[Runtime 性能模型](../runtime-performance-model.md)、[正式 Simulation 示例](../../soma-examples/docs/simulation-runtime-state-example.md)
+
+2026-07-17 baseline：SOMA 已删除 maintained order 与 dirty sidecar；真正的 event queue 由 simulator-owned min-heap 按 `(eventTimeMillis, sequenceNo)` 维护。`PendingEventRow` 只承担 batch ingest、诊断、导出或列式分析；表内需要顺序时显式 `.sorted(totalComparator)`。dense/keyed 删除均为 packed swap-remove，不保证物理遍历顺序。
 
 ## 1. 目标与适用范围
 
 本文基于 `soma-examples/docs/simulation-runtime-state-example.md`，审视 tank / valve network 连续仿真场景下 SOMA runtime state 的建模方式。
 
-连续仿真和 FJSP / VRP 的主要差异是：核心 hot path 不是候选 frontier 选择，而是 state vector 的重复扫描更新、event queue 的时间有序消费，以及 trace buffer 的批量追加和导出。
+连续仿真和 FJSP / VRP 的主要差异是：核心 hot path 不是候选 frontier 选择，而是 state vector 的重复扫描更新、外部 event heap 的时间有序消费，以及 trace buffer 的批量追加和导出。
 
 适用边界：
 
@@ -32,9 +34,9 @@
 | `Tank` | keyed entity state | 长期 runtime entity state | `fetch(tankId)`、`mutate(tankId)`、`by_tank_id` |
 | `Valve` | keyed entity state | 长期 runtime entity state | `fetch(valveId)`、`by_from_tank`、`by_to_tank` |
 | `FlowCoefficient` | keyed lookup data | 导入后只读 lookup | `fetch(valveMaterialKey)` |
-| `StateVectorRow` | dense long-lived state | packed state vector | `by_vector_index()`、ColumnView / row-index scan |
-| `PendingEventRow` | dense event queue state | 跨 step 待处理事件队列 | `by_event_time()` |
-| `TraceSampleRow` | dense trace / export buffer | 采样输出缓冲 | append / batch export / `by_time_entity()` |
+| `StateVectorRow` | dense long-lived state | packed state vector | physical scan、explicit sort、ColumnView / Index scan |
+| `PendingEventRow` | dense event batch / diagnostic workspace | ingest、诊断或导出边界 | batch append / explicit filter-sort / swap-remove |
+| `TraceSampleRow` | dense trace / export buffer | 采样输出缓冲 | append / boundary explicit sort / batch export |
 
 `StateVectorRow.vectorIndex` 是当前向量布局位置，不是 stable logical key。`PendingEventRow.sequenceNo` 是 event ordering tie-breaker，也不是 entity identity。`TraceSampleRow` 是输出记录，不应成为仿真状态事实源。
 
@@ -44,7 +46,7 @@
 |---|---|---|---|
 | input facts | `TankDefinition`、`ValveDefinition`、`FlowCoefficient`、initial conditions | import 后 authoritative、read-only/read-mostly | topology/parameter 与 numeric working state 分开 |
 | working state | `StateVectorRow` | simulation 期间 authoritative numeric state | long-lived dense state；不在 entity table 再维护 authoritative numeric copy |
-| working state | `PendingEventRow` | 当前尚未消费事件的 authoritative queue state | initial events 从 input 导入后即成为 working state；消费后删除，不兼任 history |
+| working state | application min-heap | 当前尚未消费事件的 authoritative queue state | SOMA Table 不承担 priority queue；`PendingEventRow` 只是可丢弃的 ingest/diagnostic projection |
 | result facts | `TraceSampleRow` | sampling policy 产生的 authoritative sampled trace | 只服务 export/diagnostic，不反向驱动积分状态 |
 | result facts | final state projection | 由最终 `StateVectorRow` 直接 materialize/map | 不维护内容相同的 `FinalState` shadow table |
 
@@ -57,8 +59,8 @@
 | Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
 |---|---|---|---|---|
 | `StateVectorRow` | stable vector slots；记录 total rows 与 variable-kind distribution | `value`、`derivative`、`scale`，mapping fields只在 boundary 使用 | 每 step full/partition sequential scan + non-structural update | Row/Column path 与 primitive arrays 对照；记录 touched bytes、allocation/op、layout stability 和 stats overhead |
-| `PendingEventRow` | queue size、due-event ratio | event time、sequence、kind、target、optional payload | ordered prefix consume + batch remove/compact + append | 记录 clean/dirty order、rebuild storm、due selectivity、compaction scratch 和 optional density |
-| `TraceSampleRow` | sample rate × observed variables × steps | time/entity/variable/value | batch append；低频 export/order | append 与 export rebuild/materialization 分离；记录 capacity high-water、GC/reference cost |
+| application event heap / `PendingEventRow` projection | queue size、due-event ratio | event time、sequence、kind、target、optional payload | heap push/pop；必要时 batch project + table scan/sort/remove | heap 与 Table projection 分开计量；记录 due selectivity、swap-remove scratch 和 optional density |
+| `TraceSampleRow` | sample rate × observed variables × steps | time/entity/variable/value | batch append；低频 explicit sorted export | append 与 export sort/materialization 分离；记录 capacity high-water、GC/reference cost |
 | `FlowCoefficient` | valve/material combinations | key leaves、coefficient | derivative phase repeated point lookup or preprojected dense access | 记录 load/collision、random lookup count、projection build/reuse；inner loop 不隐藏 lookup |
 | definition tables | tank/valve/topology count | phase-specific stable leaves | initialization/low-frequency lookup | 与 state vector working set 分开；不在每 step materialize definition object |
 
@@ -71,7 +73,7 @@ Benchmark 必须记录 step count、scan/update ratio、variable distribution、
 ```text
 initialize tanks / valves / flow_coefficients
   -> initialize state_vector_rows
-  -> initialize pending_event_rows
+  -> initialize application event heap
   -> for each simulation step:
        consume due events by event time
        apply events to entity state or state vector
@@ -85,7 +87,7 @@ initialize tanks / valves / flow_coefficients
 该 hot loop 中有三类不同的数据压力：
 
 - `StateVectorRow`：高频、密集、重复扫描和 primitive update；
-- `PendingEventRow`：按 event time 有序读取，消费后 structural remove 或批量 compact；
+- application event heap：按 event time/sequence 有序 pop；可选 `PendingEventRow` 只做 batch projection；
 - `TraceSampleRow`：高频 append，但通常不参与下一步计算。
 
 如果每个 step 都执行：
@@ -94,7 +96,7 @@ initialize tanks / valves / flow_coefficients
 stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 ```
 
-这会把实体状态读取、向量布局重建、Batch/builder 构造和 order sidecar dirty/rebuild 混在一起，破坏 state vector 作为 long-lived dense state 的意义。
+这会把实体状态读取、向量布局重建和 Batch/builder 构造混在一起，破坏 state vector 作为 long-lived dense state 的意义。
 
 更好的方向是：state vector 初始化一次，仿真过程中以 row-index / ColumnView / Row Pipeline update 原地更新；只有向量结构发生变化时才重建。
 
@@ -123,15 +125,15 @@ stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 
 ### 4.2 `PendingEventRow`
 
-`PendingEventRow` 是 dense event queue workspace：
+`PendingEventRow` 不是 canonical event queue，而是 dense event batch / diagnostic workspace：
 
 - row 没有 stable logical key；
-- event 按 `(eventTimeMillis, sequenceNo)` 排序消费；
-- 新事件可批量 append；
-- due events 被消费后 remove 或 compact；
-- 不是事件历史，历史应进入 trace / log / export，不保留在 pending queue。
+- application min-heap 按 `(eventTimeMillis, sequenceNo)` push/pop；
+- 只有 batch ingest、诊断、导出或列式分析需要时才投影进 Table；
+- Table 内临时 due-row 处理使用 scan/filter、显式 sort 与 swap-remove；
+- event history 进入 trace / log / export，不与 pending heap 或 projection 混用。
 
-这里和 FJSP dispatch 不同：`by_event_time` 是稳定 ordered access path，不是临时策略排序。使用 maintained `@SomaOrder` 是合理的，但它不是 heap、priority queue 或 range-pop API。`byEventTime().filter(...).forEach(...)` 后再 `byEventTime().filter(...).remove()` 是 two-terminal 写法，可能每 step 扫描 pending queue 两次；queue size、due ratio、remove/compact 和 order sidecar dirty/rebuild 必须进入 benchmark。
+如果某个 benchmark 刻意比较 Table-only 方案，必须明确它不是 SOMA 推荐的 priority queue 实现，并把全量 scan、dynamic sort、two-terminal remove 和 heap push/pop 分开计量。
 
 ### 4.3 `TraceSampleRow`
 
@@ -140,13 +142,13 @@ stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 - 主要写入方向是 append；
 - 主要读取方向是导出、诊断、可视化；
 - 不应在主仿真计算中频繁反查；
-- 高频采样时维护 `by_time_entity` order sidecar 可能带来写放大。
+- 高频采样时每步排序会带来不必要写后读成本。
 
-本蓝图选择保留 `TraceSampleRow.by_time_entity`，但只用于 export / diagnostic terminal。Trace 写入可以按 chunk 或 step batch 追加；`by_time_entity` 的 lazy rebuild 成本只应在导出或诊断阶段支付并计入 stats，不能进入每步 state-vector hot path。如果未来 benchmark 证明该 order 对高频 trace 写入过重，应改成 chunk export 或 export boundary dynamic sort，而不是在主循环中实时维护。
+Trace 写入按 chunk 或 step batch 追加；需要 `(time, entity, variable)` 顺序时，只在 export / diagnostic boundary 执行显式 sort。该排序成本不得混入每步 state-vector hot path；数据量过大时使用 chunk export 或外部归并。
 
 ### 4.4 浮点异常值与业务有效性
 
-`StateVectorRow.value`、`derivative`、`scale` 和 `TraceSampleRow.value` 都是普通 floating payload，不参与 key/index/unique/order。SOMA 因而允许 Java IEEE-754 的 `NaN`、positive/negative infinity 和 negative zero；这些值不是 optional absence，absence 只能由 presence bitmap 表达。
+`StateVectorRow.value`、`derivative`、`scale` 和 `TraceSampleRow.value` 都是普通 floating payload，不参与 key/index/unique。SOMA 因而允许 Java IEEE-754 的 `NaN`、positive/negative infinity 和 negative zero；这些值不是 optional absence，absence 只能由 presence bitmap 表达。
 
 物理模型通常需要更严格的业务约束，例如：
 
@@ -159,7 +161,7 @@ stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 
 ### 4.5 为什么 state/event/trace 不按 entity 拆成 child
 
-`StateVectorRow` 的核心访问模式是跨实体连续 vector scan，把它拆成 `Tank` / `Valve` 的 per-entity child 会破坏统一 layout 和 primitive locality。`PendingEventRow` 由 simulation timeline 拥有，可能跨多个 target entity；`TraceSampleRow` 由 sampling/export phase 拥有，也不是任一 entity row 的独占 subtree。
+`StateVectorRow` 的核心访问模式是跨实体连续 vector scan，把它拆成 `Tank` / `Valve` 的 per-entity child 会破坏统一 layout 和 primitive locality。Event heap / `PendingEventRow` projection 由 simulation timeline 拥有，可能跨多个 target entity；`TraceSampleRow` 由 sampling/export phase 拥有，也不是任一 entity row 的独占 subtree。
 
 因此三者继续作为 root-level dense table。只有 future simulation session 本身被明确建模为 parent row，并且整个 state/event/trace aggregate 的 lifecycle、key-scoped live child access 和 deep materialization boundary 都已正式设计时，才评估 session-owned child；不得为了表达对象层级而牺牲全局 hot scan。
 
@@ -170,8 +172,8 @@ stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 - **state vector rebuild**：每步重建 dense table 会破坏 cache locality 和 capacity reuse；
 - **Object materialization 泄漏到 hot loop**：每步大量 `fetch(tankId)` / detached schema object 会把 columnar hot path 退化成 object graph；
 - **FlowCoefficient 随机 lookup 热点**：按 valve/material 每步 `fetch` 可能成为随机访问瓶颈；
-- **event queue remove 频繁触发 sidecar dirty**：逐条 remove due event 可能比批量消费/compact 更昂贵；
-- **trace order 成本口径**：append trace 后 order sidecar 可能 dirty；`by_time_entity` 的 lazy rebuild 只应在 export / diagnostic terminal 支付，不能混入主循环 claim；
+- **把 Table 当 priority queue**：大队列低 due ratio 下的全量 scan/sort/remove 会掩盖专用 heap 的优势；
+- **trace order 成本口径**：explicit boundary sort 只应在 export / diagnostic terminal 支付，不能混入主循环 claim；
 - **双事实源 drift**：`Tank` 与 `StateVectorRow` 如果都可被写，会产生状态漂移；
 - **ColumnView lifecycle 冲突**：active ColumnView 下做 structural mutation 可能返回 `view_pinned` 类错误；
 - **preprojection 缺失**：`FlowCoefficient.fetch` 如果在 derivative inner loop 中重复执行，应预投影到 valve-local dense row 或 state vector adjacent column，否则 keyed lookup 成本会被物理模型计算掩盖。
@@ -195,9 +197,6 @@ public enum SimVariableKind {
 }
 
 @SomaTable(name = "state_vector_rows", defaultCapacity = 4096)
-@SomaOrder(name = "by_vector_index", by = {
-    @SomaSort("vectorIndex")
-})
 public final class StateVectorRow {
     @SomaField
     public int vectorIndex;
@@ -222,10 +221,6 @@ public final class StateVectorRow {
 }
 
 @SomaTable(name = "pending_event_rows", defaultCapacity = 1024)
-@SomaOrder(name = "by_event_time", by = {
-    @SomaSort("eventTimeMillis"),
-    @SomaSort("sequenceNo")
-})
 public final class PendingEventRow {
     @SomaField(semantic = SomaSemantic.DATE_TIME)
     public long eventTimeMillis;
@@ -248,11 +243,6 @@ public final class PendingEventRow {
 }
 
 @SomaTable(name = "trace_sample_rows", defaultCapacity = 65536)
-@SomaOrder(name = "by_time_entity", by = {
-    @SomaSort("sampleTimeMillis"),
-    @SomaSort("entityKind"),
-    @SomaSort("entityId")
-})
 public final class TraceSampleRow {
     @SomaField(semantic = SomaSemantic.DATE_TIME)
     public long sampleTimeMillis;
@@ -275,8 +265,8 @@ public final class TraceSampleRow {
 
 - `variableKind` 使用 enum，避免把可读 `String` 放进 hot schema；可读名称应放到低频 mapping table 或导出层；
 - `StateVectorRow` 不声明 key，`vectorIndex` 仍不是 stable business identity；
-- `PendingEventRow.by_event_time` 是稳定事件队列访问路径，可以保留 `@SomaOrder`；
-- `TraceSampleRow.by_time_entity` 被保留为 export / diagnostic order；它的 lazy rebuild 成本不得混入 step hot path claim。
+- application min-heap 是 pending event queue 的唯一推荐调度结构；
+- `PendingEventRow` / `TraceSampleRow` 需要业务顺序时在 diagnostic/export boundary 显式排序。
 
 ## 7. 推荐的 Java 8 SOMA API 使用流程
 
@@ -298,25 +288,20 @@ void initializeSimulation(SimulationInput input) {
 
 ```java
 void consumeDueEvents(long stepEndMillis) {
-    pendingEventRows.byEventTime()
-        .filter(e -> e.eventTimeMillis() <= stepEndMillis)
-        .forEach(e -> applyEvent(e));
-
-    pendingEventRows.byEventTime()
-        .filter(e -> e.eventTimeMillis() <= stepEndMillis)
-        .remove();
+    while (!eventHeap.isEmpty()
+            && eventHeap.peek().eventTimeMillis <= stepEndMillis) {
+        applyEvent(eventHeap.remove());
+    }
 }
 ```
 
-这里故意分成两个 terminal。Row Pipeline 是 one-shot，且 callback 内不应对同一 table 做 structural mutation。Optimized blueprint 的数值事件只修改 `StateVectorRow`；如果未来允许 topology/definition 变化，应作为独立场景设计，并由 simulator 保证不会形成跨 table mutation cycle。
-
-该写法不是 heap pop，也不是 prefix range remove。大队列、少量 due event、频繁新增事件时，two-terminal scan 和 remove/compact 成本可能成为热点；benchmark 必须覆盖 queue size、due ratio、order sidecar dirty/rebuild 和 remove stats。
+heap node 保存 stable event facts，不保存 SOMA packed Index。Optimized blueprint 的数值事件只修改 `StateVectorRow`；如果未来允许 topology/definition 变化，应作为独立场景设计，并由 simulator 保证不会形成跨 table mutation cycle。若额外维护 `PendingEventRow` projection，heap 与 Table 的一致性由 simulator 明确拥有。
 
 ### 7.3 更新 state vector
 
 ```java
 void integrateStep(double dtSeconds) {
-    stateVectorRows.byVectorIndex()
+    stateVectorRows.rows()
         .update(s -> {
             double next = s.value() + s.derivative() * dtSeconds / s.scale();
             s.setValue(next);
@@ -354,7 +339,7 @@ for (int row = 0; row < size; row++) {
 void sampleTrace(long sampleTimeMillis) {
     TraceSampleBatch batch = traceSampleRows.newBatch();
 
-    stateVectorRows.byVectorIndex()
+    stateVectorRows.rows()
         .forEach(s -> batch.add()
             .setSampleTimeMillis(sampleTimeMillis)
             .setEntityKind(s.entityKind())
@@ -380,8 +365,8 @@ Trace 写入应按采样周期批量发生，不应在每个 primitive update �
 主要削弱因素：
 
 - 若每步 `fetch(tankId)` materialize schema object，会破坏 columnar hot path；
-- 若每步 `replaceAll(stateVectorBatch)`，order sidecar 和 storage rewrite 会成为不必要成本；
-- 若 trace 和 state vector 放在同一 hot loop path，trace append / order dirty 可能污染 cache；
+- 若每步 `replaceAll(stateVectorBatch)`，storage rewrite 会成为不必要成本；
+- 若 trace 和 state vector 放在同一 hot loop path，trace append / boundary sort 可能污染 cache；
 - 若 `FlowCoefficient.fetch` 在每个 valve 的每个 step 随机触发，可能需要把 coefficients 预投影到 valve-local dense rows 或 state vector adjacent columns。
 
 因此蓝图建议：
@@ -402,8 +387,8 @@ Final-state export 直接读取最终 `StateVectorRow` facts，并由 entity map
 - Dense table 需要被正式呈现为 long-lived state，不只是 `replaceAll` workspace；
 - Row Pipeline update 是否足够表达高频 primitive vector update，需要和 ColumnView lane 做 benchmark 对比；
 - active ColumnView 与 mutation 的关系需要在示例中讲清，否则用户容易写出 view-pinned 的 hot loop；
-- event queue 的 ordered access 很自然，但 SOMA `@SomaOrder` 不是 heap，不能宣称插入/删除复杂度等价于专用 priority queue；
-- trace buffer 高频追加时，order sidecar dirty/rebuild 成本可能暴露 runtime stats 不足；
+- event queue 使用 application-owned min-heap；SOMA Table 只承担可选 projection，不能宣称其 scan/sort/remove 等价于 priority queue；
+- trace buffer 高频追加时，必须把 boundary dynamic sort 与 append 分开计量；
 - `StateVectorRow` 是本文采用的数值状态 source-of-truth；推荐 definition table 不再保存 numeric shadow fields，兼容旧示例的 cache 同步点和失败恢复由 simulator 定义；
 - `FlowCoefficient` inner-loop lookup 是否需要 preprojection 必须用 benchmark 证明；
 - 普通 floating payload 的 finite/scale 业务 invariant 必须由 simulator 明确校验，不能依赖 SOMA 自动拒绝 NaN/Infinity。
@@ -415,7 +400,7 @@ Final-state export 直接读取最终 `StateVectorRow` facts，并由 entity map
 - 没有把连续仿真误建模成 candidate frontier；
 - `StateVectorRow` 保持 dense long-lived state，符合 packed scan 和 primitive update；
 - 明确 `StateVectorRow` 是数值状态 source-of-truth；optimized blueprint 默认不维护 `Tank`/`Valve` numeric cache，兼容旧示例时只允许 derived boundary cache；
-- `PendingEventRow.by_event_time` 作为稳定 event queue order 保留，区别于策略 dynamic sort；
+- application min-heap 作为稳定 event queue 结构，`PendingEventRow` 降级为可选 projection；
 - `TraceSampleRow` 被定位为 export/diagnostic buffer，不反向成为状态事实源；
 - input definition、numeric working state、trace/final result 已形成清晰三段，final state 不复制 shadow table；
 - 明确了 simulator OOP 层拥有数值模型、事件规则和跨 table 一致性。
@@ -426,13 +411,13 @@ Final-state export 直接读取最终 `StateVectorRow` facts，并由 entity map
 - ColumnView hot path 必须保持只读 view 与写入阶段分离，除非 runtime contract 明确允许；
 - 兼容旧示例时，`Tank`/`Valve` numeric cache 与 `StateVectorRow` 同步失败会导致 drift，必须有 simulator-level 恢复策略；optimized blueprint 默认不维护这份 cache；
 - `PendingEventRow` two-terminal consume/remove 在大队列低 due ratio 下可能成本较高；
-- `TraceSampleRow.by_time_entity` 只适合作为 export/diagnostic order，不应进入每步主循环；
+- `TraceSampleRow` 的 explicit sorted export 不应进入每步主循环；
 - `NaN`/Infinity 传播策略若未固定，会使相同 runtime storage 在不同 simulator 中产生不同失败语义。
 
 ### 10.3 待验证事项
 
 - State vector Row Pipeline update 与 ColumnView / primitive loop 的性能分界；
-- queue size、due ratio、due event remove/compact、order sidecar dirty/rebuild 成本；
+- queue size、due ratio、heap push/pop 与可选 Table projection/swap-remove 成本；
 - trace buffer append/export order 是否需要 chunk table、分段 export 或 export boundary dynamic sort；
 - `FlowCoefficient` preprojection：keyed lookup、valve-local dense row、state vector adjacent column 和 ColumnView primitive scan 的对比；
 - state vector 和 entity table 的同步周期及错误恢复策略；

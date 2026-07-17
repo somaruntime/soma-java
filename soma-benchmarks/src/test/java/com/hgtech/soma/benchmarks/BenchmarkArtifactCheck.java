@@ -43,7 +43,7 @@ public final class BenchmarkArtifactCheck {
 
         File wrongWorkload = new File(directory, "invalid-workload-id.jsonl");
         rewrite(valid, wrongWorkload,
-                "soma-g5-smoke:kernel.optional_all_present:v3", "wrong-workload", -1);
+                "soma-g5-smoke:kernel.optional_all_present:v4", "wrong-workload", -1);
         expectInvalid(wrongWorkload, "wrong workload id");
 
         File emptyEvidence = new File(directory, "invalid-empty-workload-evidence.jsonl");
@@ -73,15 +73,15 @@ public final class BenchmarkArtifactCheck {
 
         File arbitraryKeySpace = new File(directory, "invalid-arbitrary-keyspace.jsonl");
         rewriteObjectField(valid, arbitraryKeySpace,
-                "kernel.keyspace_domain_load_collision_rehash",
+                "kernel.keyspace_full_domain_load_collision_rehash",
                 "keySpaceStats", "{\"garbage\":1}");
         expectInvalid(arbitraryKeySpace, "arbitrary non-empty keyspace evidence");
 
-        File arbitrarySidecar = new File(directory, "invalid-arbitrary-sidecar.jsonl");
-        rewriteObjectField(valid, arbitrarySidecar,
-                "generated.dense_scratch_replace_order",
-                "sidecarStats", "{\"garbage\":1}");
-        expectInvalid(arbitrarySidecar, "arbitrary non-empty sidecar evidence");
+        File arbitraryExactIndex = new File(directory, "invalid-arbitrary-exact-index.jsonl");
+        rewriteObjectField(valid, arbitraryExactIndex,
+                "generated.dense_scratch_replace_sort",
+                "exactIndexStats", "{\"garbage\":1}");
+        expectInvalid(arbitraryExactIndex, "arbitrary non-empty exact-index evidence");
 
         File arbitraryMaterialization = new File(directory,
                 "invalid-arbitrary-materialization.jsonl");
@@ -153,17 +153,17 @@ public final class BenchmarkArtifactCheck {
                 "kernel.column_view", "columnViewStats", "acquired", "1");
         expectInvalid(staleColumnViewAggregate, "ColumnView counters kept first iteration");
 
-        File staleDenseSidecar = new File(directory,
-                "invalid-stale-dense-sidecar.jsonl");
-        rewriteNestedScalarField(valid, staleDenseSidecar,
-                "generated.dense_scratch_replace_order", "sidecarStats", "dirtyCount", "1");
-        expectInvalid(staleDenseSidecar, "dense sidecar counter kept first iteration");
+        File staleDenseExactIndex = new File(directory,
+                "invalid-stale-dense-exact-index.jsonl");
+        rewriteNestedScalarField(valid, staleDenseExactIndex,
+                "generated.dense_scratch_replace_sort", "exactIndexStats", "replaceRows", "65");
+        expectInvalid(staleDenseExactIndex, "dense exact-index counter kept first iteration");
 
-        File staleFrontierSidecar = new File(directory,
-                "invalid-stale-frontier-sidecar.jsonl");
-        rewriteNestedScalarField(valid, staleFrontierSidecar,
-                "generated.keyed_frontier", "sidecarStats", "rebuildCount", "2");
-        expectInvalid(staleFrontierSidecar, "frontier sidecar counter kept first iteration");
+        File staleFrontierExactIndex = new File(directory,
+                "invalid-stale-frontier-exact-index.jsonl");
+        rewriteNestedScalarField(valid, staleFrontierExactIndex,
+                "generated.keyed_frontier", "exactIndexStats", "currentBytes", "0");
+        expectInvalid(staleFrontierExactIndex, "frontier exact-index storage mismatch");
 
         File setupKeySpaceLeak = new File(directory,
                 "invalid-setup-keyspace-allocation.jsonl");
@@ -186,13 +186,13 @@ public final class BenchmarkArtifactCheck {
                 "\"deltaDurationSeconds\"", -1);
         expectInvalid(wrongHotColumn, "Access Pattern Card uses a non-schema hot column");
 
-        File wrongMaintainedTouched = new File(directory,
-                "invalid-maintained-order-touched.jsonl");
-        rewriteNestedScalarField(valid, wrongMaintainedTouched,
-                "generated.dense_scratch_replace_order", "sidecarStats",
-                "maintainedOrderTouchedBytes", "1");
-        expectInvalid(wrongMaintainedTouched,
-                "maintained-order touched bytes omit the four-key projection");
+        File wrongExactLookupTouched = new File(directory,
+                "invalid-exact-lookup-touched.jsonl");
+        rewriteNestedScalarField(valid, wrongExactLookupTouched,
+                "generated.dense_scratch_replace_sort", "exactIndexStats",
+                "exactLookupTouchedBytes", "1");
+        expectInvalid(wrongExactLookupTouched,
+                "exact-lookup touched bytes contradict traversed rows");
 
         File staleChildInstances = new File(directory,
                 "invalid-stale-child-instances.jsonl");

@@ -4,7 +4,7 @@
 Owner：`soma-processor`
 事实范围：schema-specific Java artifacts、static runtime binding、deterministic output、golden 和 package smoke
 非事实范围：public annotation semantics、normalization/hash 算法、public API behavior 和 runtime kernel
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
 ## 1. 目标
 
@@ -62,7 +62,7 @@ Generated source 依赖：
 - JDK 8；
 - 不依赖 third-party collection library。
 
-Processor artifact 继续只依赖 annotations，不增加 runtime-core compile dependency；emitter 使用正式 FQN 生成对 `com.hgtech.soma.runtime` handwritten API和 `com.hgtech.soma.runtime.generated` protocol 的 source binding。Runtime protocol identity固定为 `soma-generated-runtime-v1`，runtime compatibility为 `soma-runtime-java8-v1`。Generated code在 create boundary一次性验证/bind schema、protocol、compiler、runtime、plan、estimator与 concrete typed columns；hot loop不做 reflection、field-name/Map lookup、dtype switch或 metadata interpretation。
+Processor artifact 继续只依赖 annotations，不增加 runtime-core compile dependency；emitter 使用正式 FQN 生成对 `com.hgtech.soma.runtime` handwritten API和 `com.hgtech.soma.runtime.generated` protocol 的 source binding。当前Runtime protocol identity固定为 `soma-generated-runtime-v3`，runtime compatibility为 `soma-runtime-java8-v3`。Generated code在 create boundary一次性验证/bind schema、protocol、compiler、runtime、plan、estimator与 concrete typed columns；hot loop不做 reflection、field-name/Map lookup、dtype switch或 metadata interpretation。
 
 Compiler plugin/processor 是 build-only dependency，不进入 generated runtime dependency graph。IDE code insight、其他 javac family 和 ECJ support 不能由 generated-source compile success 推导。
 
@@ -77,7 +77,7 @@ Generated artifact 必须完整实现根级 [Generated Table API 契约](../../d
 
 Codegen 只拥有 schema-specific type/name/static binding，不重新定义 public method semantics。任何新增 convenience method 都必须先进入根级 API contract 和 processor golden，不能只在 codegen 文档中成为隐式 public capability。
 
-Keyed table 绑定 single generated key type 与 KeySpace；dense table 不生成 stable key。Dense row index 只绑定当前 packed state。Public API 不暴露 RowSlot、bitmap、sidecar、ChildTableHandle 或 column mutation primitive。
+Keyed table绑定single generated key type与hash primary locator；dense table不生成stable key。Public `Index`只绑定当前packed state，批量导出由`IndexSnapshot`携带来源table与epoch。Public API不暴露bucket、bitmap、exact-index group/link、`IndexBuffer`、`ChildTableHandle`或column mutation primitive。
 
 ## 4. Batch API binding
 
@@ -88,6 +88,7 @@ Generated batch 是 construction/import boundary。
 - batch builder 不直接写 table；
 - batch 可以估算 row count；
 - table `addBatch` 可根据 batch size reserve；
+- table `reserve(expected)` 静态计算columns、primary locator和每个exact index的proposed retained bytes，先执行combined preflight，再调用generated-runtime protocol预留全部structure；
 - child table import 使用 detached/unattached child batch；batch 不接受 live ChildTable facade/handle，lookup data 也不应默认建成 child table；
 - batch 不承担 key uniqueness 的最终事实，table import 时仍需 runtime `KeySpace` / `AccessStructures` validation。
 
@@ -111,7 +112,7 @@ Generated table 的 `find` / `fetch` / `fetchAt` 和 Row Pipeline 的 `findFirst
 - required empty child 映射为 non-null empty `List`/`Map`；
 - optional absent child 与 present-empty child 保持不同；
 - ordinary key reference 只保留 key value，不自动 lookup referenced table；
-- returned graph 不包含 `RowSlot`、`ChildTableHandle`、bitmap、sidecar、ColumnView 或 Row Cursor；
+- returned graph不包含current Index、`ChildTableHandle`、bitmap、exact-index group/link、ColumnView或Row Cursor；
 - 修改、保存或丢弃 schema object/collection 不改变 Table；写入必须重新经过 generated Batch/Mutator/mutation API。
 
 Processor 不为 `@SomaTable` class 生成 structural `equals()` / `hashCode()`；`List`/`Map` 使用 Java Collection contract。`@SomaValue` 由 compile-time lowering 提供 canonical value equality/hash，并可作为 keyed materialization 的 map key。
@@ -161,7 +162,6 @@ V1 generated Rows 至少覆盖：
 - table facade default packed scan source；
 - explicit `rows()` source alias；
 - generated index / unique source method, named as `findByXxx(...)` by default；
-- generated order source method, named as `byXxx(...)` by default；
 - Java lambda `filter(predicate)`；
 - dynamic `sorted(comparator)`；
 - `skip(n)` / `limit(n)`；
@@ -175,32 +175,33 @@ Row Pipeline construction 不扫描 table、不复制 row、不 acquire ColumnVi
 
 Row Pipeline callback 参数是 generated row cursor / mutable row cursor，不是 schema object。Cursor 只在 callback 调用期间有效，不允许逃逸。
 
-V1 支持 arbitrary Java lambda 作为 row-level filter/update callback，但不承诺 lambda predicate 自动下推到 index。需要 index/order 加速时，用户应从 generated source method 进入同一套 Rows pipeline。V1 不生成 `java.util.stream.Stream` bridge、parallel stream、join planner 或 ORM query DSL。
+V1 支持 arbitrary Java lambda 作为 row-level filter/update callback，但不承诺 lambda predicate 自动下推到 index。需要 exact index 加速时，用户应从 generated source method 进入同一套 Rows pipeline；需要业务顺序时显式调用 `sorted(...)`。V1 不生成 `java.util.stream.Stream` bridge、parallel stream、join planner 或 ORM query DSL。
 
 Row Pipeline source/terminal generation 不得为每个 candidate row 创建 Cursor、Iterator、Optional、boxed row index 或 stage result。Pipeline/callback object 可以在 construction/call boundary 产生；steady-state non-materializing terminal 的 allocation target 是 zero per row。Materializing terminal 的 schema object/List/Map allocation必须继续与 traversal stats 分开。
 
 Flattened Value leaf binding遵守根级 Generated API Owner 的stem算法。Row cursor直接绑定physical leaf column；primitive/enum leaf同时绑定handwritten Column Pipeline/View；完整Value getter是显式detached reconstruction。Value key还生成materialized key与flattened leaf两组`findRowIndex/rowIndexOf` overload，二者必须复用同一canonical hash/full-equality实现，不能构造transient tuple。
 
-### 6.1 Grouped index/order source
+### 6.1 Grouped exact-index source
 
-V1 codegen 必须把 normalized selector 转换成稳定的 generated source method。Grouped source 是 generated API convenience，不是新的 schema kind，也不暴露 runtime sidecar。
+V1 codegen 必须把 normalized selector 转换成稳定的 generated source method。Grouped source 是 generated API convenience，不是新的 schema kind，也不暴露 runtime bucket/group/link。
 
 规则：
 
 - `@SomaIndex` / `@SomaUnique` 的 source method 默认命名为 `findByXxx(...)`，返回该 table 的 generated `XxxRows`；
 - `@SomaIndex` / `@SomaUnique` 的 exact source 参数覆盖完整 normalized selector；
-- `@SomaOrder` 的 source method 默认命名为 `byXxx(...)`，无参 overload 遍历整个 maintained order；selector 至少有两个 leaf 时，另生成一个同名 grouped overload，其参数覆盖除最后一个排序 leaf 外的最长 leading prefix，用于稳定的 group-local ordered traversal；
-- grouped source 的参数来自 normalized selector prefix；
-- 如果 selector prefix 正好覆盖一个 scalar/value field path 的全部 leaf，generated method 使用该 scalar/value type 作为参数；
-- 如果 selector prefix 不能映射为一个 scalar/value field path，generated method 使用 normalized leaf 参数顺序；
+- grouped source 的参数来自完整 normalized selector；
+- 如果完整 selector 正好覆盖一个 scalar/value field path 的全部 leaf，generated method 使用该 scalar/value type 作为参数；
+- 如果完整 selector 不能映射为一个 scalar/value field path，generated method 使用 normalized leaf 参数顺序；
 - generated method name、参数名、参数顺序和 overload 冲突必须由 golden 固化；
 - 命名冲突或 ambiguous overload 必须在 processor validation 阶段失败，不能生成不可编译代码；
-- grouped source 只选择 terminal 初始 `RowSequence`，后续仍使用同一套 `filter` / `sorted` / `limit` / terminal API。
+- grouped source 只选择 terminal 初始 `RowSequence`，后续仍使用同一套 `filter` / `sorted` / `limit` / terminal API；
+- terminal开始时以canonical hash定位group，hash collision后执行generated full equality；沿primitive row link零复制遍历，读取不允许dirty rebuild/full-scan fallback；
+- group内枚举顺序不作承诺，swap-remove/update后可以改变。
 
 Grouped source 必须由 processor golden 覆盖至少以下形状：
 
 - composite/value selector 参数折叠；
-- grouped index、unique 和 order source；
+- grouped index 与 unique source；
 - parent-owned dense/keyed child source；
 - method/parameter/overload collision diagnostics；
 - FJSP、VRP 等 formal example 中声明的 canonical access path。
@@ -209,13 +210,13 @@ Grouped source 必须由 processor golden 覆盖至少以下形状：
 
 ### 6.2 Floating access binding
 
-Processor 根据 normalized field role 为 key/index/unique/order 中的 floating leaf 生成统一 validation/canonicalization binding：
+Processor 根据 normalized field role 为 key/index/unique 中的 floating leaf 生成统一 validation/canonicalization binding：
 
 - strict schema default 编译期拒绝 NaN/infinity，negative zero normalized 为 positive zero；
 - selector穿过`@SomaValue`时，对应value leaf default同样按outer strict path在processor阶段拒绝non-finite；全递归leaf default覆盖的required value由RowBuilder直接生成canonical constructor expression，partial coverage不生成临时partial value；
 - Batch/import 和 Mutator 写入前检查 finite/canonical zero；
-- key lookup 与 generated index/unique/order source 参数使用同一 canonicalization；
-- equality/hash/index matching/order comparator 绑定同一 canonical value；
+- key lookup 与 generated index/unique source 参数使用同一 canonicalization；
+- equality/hash/index matching 绑定同一 canonical value；
 - diagnostics 包含 declaration/selector leaf path，不压缩为 generic invalid input。
 
 Ordinary payload floating leaf 不生成上述 finite rejection。全局 floating semantics 变化必须触发 processor/runtime compatibility version 变化，并由 golden/compatibility tests 固化。
@@ -229,7 +230,7 @@ Generated mutator 用于 existing row mutation。
 - mutator 不生成 key setter；
 - key identity change 必须 delete + insert；
 - mutator commit 时更新 affected column；
-- 修改 index/unique/order selector 字段时同步更新或标记 dirty；
+- 修改 index/unique selector 字段时在publish内按old-value unlink/new-value link同步更新；
 - active ColumnView 下 structural mutation 映射为 view_pinned；
 - mutation error 必须保留 typed runtime exception / error code。
 
@@ -256,7 +257,7 @@ Generated names 必须避免冲突：
 - table name；
 - batch name；
 - key/value name；
-- index/unique/order access method name；
+- index/unique access method name；
 - optional presence method name；
 - materialization/budget overload method name；
 - child presence/ensure/replace/unset method name；
@@ -282,7 +283,7 @@ Generated output 必须包含：
 - generated package；
 - table metadata。
 
-本轮V1 governance后的generated metadata固定携带：`generatedProtocol=soma-generated-runtime-v2`、`runtimeCompatibility=soma-runtime-java8-v2`、`runtimePlanProtocol=soma-runtime-plan-v2`、`denseAlgorithm=dense-soa-v1`、`allocationEstimator=soma-materialization-estimator-v1`和compiler lowering identity`soma-value-javac8-v1`。v2增加Value leaf/row-index协议、callback scope、column construction bridge、resource/key-plan维度；旧generated/runtime组合必须在create时失败，consumer需重新生成并编译。
+本轮 packed exact-access cutover 后 generated metadata 固定携带：`generatedProtocol=soma-generated-runtime-v3`、`runtimeCompatibility=soma-runtime-java8-v3`、`runtimePlanProtocol=soma-runtime-plan-v3`、`denseAlgorithm=dense-soa-v1`、`allocationEstimator=soma-materialization-estimator-v1` 和 compiler lowering identity `soma-value-javac8-v1`。v3 固化 packed Index、epoch-bearing `IndexSnapshot`、incremental grouped exact index、swap-remove 及对应 plan/stats shape；旧 generated/runtime 组合必须在 create 时失败，consumer 需重新生成并编译。
 
 Schema hash mismatch 必须在 table/create or generated metadata verification 阶段失败，不能延迟到 hot path。
 
@@ -325,11 +326,11 @@ V1 golden cases 至少覆盖：
 - enum field；
 - string field；
 - value key；
-- index/unique/order；
+- index/unique；
 - grouped index source, for example `findByJobSequence(JobId jobId, int sequenceNo)`；
 - frontier grouped index source, for example `findByMachine(MachineId machineId)` and `findByOperation(OperationKey operationKey)` on `MachineCandidate`；
-- grouped order source for a flat baseline, for example `byRoutePosition(RouteId routeId)`；
-- parent-key live child source and child-local order, for example `routes.visits(routeId).byPosition()`；
+- grouped exact-index source for a flat baseline, for example `findByRoute(RouteId routeId)`；
+- parent-key live child source plus explicit child-local `sorted(...)`；
 - invalid selector；
 - duplicate key declaration；
 - generated mutator without key setter；
@@ -357,7 +358,7 @@ Package smoke 至少验证：
 - `@SomaSchema` package metadata can be read by the processor；
 - generated source can compile under Java 8 target；
 - generated table can create runtime storage；
-- addBatch / fetch returning schema class / whole-table List-or-Map materialize / Row Pipeline filter/update/remove/fetchAll / index source / ordered source / key pipeline / child API / ColumnView can execute；
+- addBatch / fetch returning schema class / whole-table List-or-Map materialize / Row Pipeline filter/sorted/update/remove/fetchAll / exact-index source / key pipeline / child API / ColumnView can execute；
 - default/explicit MaterializationBudget overload and typed budget error can execute；
 - schema hash metadata exists；
 - runtime stats can be read；

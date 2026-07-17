@@ -5,13 +5,14 @@ import com.hgtech.soma.runtime.generated.ChildOwnershipRegistry;
 import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.GeneratedMetadata;
 import com.hgtech.soma.runtime.generated.GeneratedColumn;
+import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
+import com.hgtech.soma.runtime.generated.IndexBuffer;
 import com.hgtech.soma.runtime.generated.IntColumn;
 import com.hgtech.soma.runtime.generated.LongColumn;
 import com.hgtech.soma.runtime.generated.MaterializationTracker;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
-import com.hgtech.soma.runtime.generated.RowPermutationSidecar;
 import com.hgtech.soma.runtime.generated.OwnedChildTable;
 
 import java.util.Locale;
@@ -41,7 +42,7 @@ public final class RuntimeCorePhase1Check {
         testPresenceBitmapAgainstOracle();
         testOptionalColumnPipelinePresenceLanes();
         testMaterializationBudget();
-        testSidecarProtocolAndStats();
+        testExactIndexProtocolAndStats();
         assertTrue(HashCompositeKeySpace.estimatedPeakBytes(1024)
                         > 40L * 1024L,
                 "composite hash peak estimator includes final rehash coexistence");
@@ -89,18 +90,16 @@ public final class RuntimeCorePhase1Check {
                 .maximumOperationScratchBytes(12L)
                 .maximumBulkScratchBytes(13L)
                 .maximumTableStorageBytes(14L)
-                .keySpaceStrategy(RuntimeCompatibility.SPARSE_INT_KEY_SPACE)
-                .maximumSparseKey(15L)
+                .keySpaceStrategy(RuntimeCompatibility.HASH_INT_KEY_SPACE)
                 .build();
         assertEquals("{\"algorithm\":\"dense-soa-v1\",\"accessStrategy\":\"none\","
                         + "\"growthDenominator\":4,\"growthNumerator\":5,"
-                        + "\"initialCapacity\":4,\"keySpaceStrategy\":\"sparse-int-v1\","
+                        + "\"initialCapacity\":4,\"keySpaceStrategy\":\"hash-int-v2\","
                         + "\"maximumBulkScratchBytes\":13,"
                         + "\"maximumOperationScratchBytes\":12,"
-                        + "\"maximumSidecarScratchBytes\":0,\"maximumSparseKey\":15,"
                         + "\"maximumTableStorageBytes\":14,"
                         + "\"maximumUpdateScratchBytes\":11,"
-                        + "\"sidecarMaintenancePolicy\":\"none\",\"table\":\"Order\"}",
+                        + "\"table\":\"Order\"}",
                 table.toCanonicalJson(), "table resource plan canonical order");
         RuntimePlan plan = RuntimePlan.builder(
                         "schema-v1",
@@ -118,11 +117,11 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumLeafValues\":50000000,"
                         + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
                         + "\"maximumTableInstances\":100000},"
-                        + "\"generatedProtocol\":\"soma-generated-runtime-v2\","
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v3\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
-                        + "\"planProtocol\":\"soma-runtime-plan-v2\","
-                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v2\","
+                        + "\"planProtocol\":\"soma-runtime-plan-v3\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v3\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");
@@ -707,30 +706,35 @@ public final class RuntimeCorePhase1Check {
                 "mixed word callback failure matched semantics");
     }
 
-    private static void testSidecarProtocolAndStats() {
-        RowPermutationSidecar sidecar = new RowPermutationSidecar();
-        assertTrue(sidecar.isDirty(), "new sidecar dirty");
-        int[] staged = sidecar.stage(3);
-        staged[0] = 2;
-        staged[1] = 0;
-        staged[2] = 1;
-        sidecar.commit(staged, 3);
-        assertFalse(sidecar.isDirty(), "committed sidecar current");
-        assertEquals(2, sidecar.rowAt(0), "sidecar permutation");
-        sidecar.markDirty();
-        assertTrue(sidecar.isDirty(), "sidecar dirty transition");
-        assertTrue(staged == sidecar.stage(2), "dirty rebuild reuses permutation high-water");
-        int[] scratch = sidecar.scratch(3);
-        assertTrue(scratch == sidecar.scratch(2), "sidecar sort scratch high-water reuse");
-        assertEquals(24L, sidecar.retainedBytes(), "sidecar retained primitive bytes");
-        assertEquals(24L, sidecar.rebuildPeakBytes(3), "same-size rebuild peak");
-        sidecar.clear();
-        assertEquals(0, sidecar.size(), "sidecar clear");
-        sidecar.markDirty();
-        assertTrue(staged == sidecar.stage(3), "clear retains sidecar capacity");
-        sidecar.release();
-        assertTrue(staged != sidecar.stage(3), "release drops retained permutation");
-        assertTrue(scratch != sidecar.scratch(3), "release drops retained scratch");
+    private static void testExactIndexProtocolAndStats() {
+        IndexBuffer buffer = new IndexBuffer();
+        int[] first = buffer.prepare(3);
+        first[0] = 2;
+        first[1] = 0;
+        first[2] = 1;
+        buffer.reset();
+        assertEquals(0, buffer.length(), "IndexBuffer reset logical length");
+        assertTrue(first == buffer.prepare(2), "IndexBuffer reuses retained storage");
+        buffer.release();
+        assertTrue(first != buffer.prepare(3), "IndexBuffer release drops storage");
+
+        GroupedExactIndex index = new GroupedExactIndex(0);
+        index.ensureCapacity(4, 4);
+        int firstGroup = index.createGroup(7L);
+        index.link(firstGroup, 0);
+        index.link(firstGroup, 1);
+        int collisionGroup = index.createGroup(7L);
+        index.link(collisionGroup, 2);
+        assertEquals(collisionGroup, index.firstGroup(7L), "new same-hash group is bucket head");
+        index.recordCollision();
+        assertEquals(firstGroup, index.nextHashGroup(collisionGroup),
+                "same-hash groups remain traversable for full equality");
+        index.unlink(2);
+        assertEquals(1, index.groupCount(), "empty exact group is reclaimed");
+        index.relocate(1, 3);
+        assertFalse(index.isLinked(1), "relocated source is unlinked");
+        assertTrue(index.isLinked(3), "relocated destination is linked");
+        assertEquals(2, index.entryCount(), "exact index keeps entry cardinality");
 
         IntColumn value = new IntColumn();
         ColumnGroup columns = newColumnGroup(2, value);
@@ -738,20 +742,20 @@ public final class RuntimeCorePhase1Check {
         DenseTableState state = new DenseTableState(
                 "Order", plan, plan.requireTable("Order"), columns);
         RuntimeCompatibility.verifyAccess(plan.requireTable("Order"), true);
-        state.sidecarScratch(24L, 48L);
-        state.sidecarsDirtied(2L);
-        state.sidecarRebuilt(7L);
-        TableStats stats = state.statsSnapshot();
-        assertEquals(2L, stats.sidecarDirtyCount(), "sidecar dirty stats");
-        assertEquals(1L, stats.sidecarRebuildCount(), "sidecar rebuild stats");
-        assertEquals(7L, stats.sidecarRebuildRows(), "sidecar rebuild row stats");
-        assertEquals(24L, stats.sidecarScratchCurrentBytes(),
-                "sidecar scratch current stats");
-        assertEquals(48L, stats.sidecarScratchHighWaterBytes(),
-                "sidecar scratch high-water stats");
-        state.resetStats();
-        assertEquals(0L, state.statsSnapshot().sidecarRebuildCount(),
-                "sidecar stats reset");
+        TableStats stats = TableStats.withExactIndexes(
+                state.statsSnapshot(), 1, index.entryCount(), index.groupCount(),
+                index.probeCount(), index.collisionCount(), index.rehashCount(),
+                index.retainedBytes(), index.storageHighWaterBytes());
+        assertEquals(1, stats.exactIndexCount(), "exact index count stats");
+        assertEquals(2L, stats.exactIndexEntryCount(), "exact index entry stats");
+        assertEquals(1L, stats.exactIndexGroupCount(), "exact index group stats");
+        assertTrue(stats.exactIndexProbeCount() > 0L, "exact index probe stats");
+        assertTrue(stats.exactIndexCollisionCount() > 0L, "exact index collision stats");
+        index.clear();
+        assertEquals(0, index.entryCount(), "exact index clear");
+        long retained = index.retainedBytes();
+        index.release();
+        assertTrue(retained > index.retainedBytes(), "exact index release drops storage");
     }
 
     private static void testStructuralRemoveStateTransition() {
@@ -768,10 +772,10 @@ public final class RuntimeCorePhase1Check {
         state.endOperationSuccess("rows.remove", 4L, 2L, 2L);
         assertEquals(2, state.size(), "remove size");
         assertEquals(epoch + 1L, state.structuralEpoch(), "remove structural epoch");
-        RemoveResult result = state.removeResult(4L, 2L, 2L, 1L, 0L, 0L);
+        RemoveResult result = state.removeResult(4L, 2L, 2L, 1L);
         assertEquals(1L, result.compacted(), "remove compaction count");
         try {
-            RemoveResult.create(1L, 1L, 0L, 0L, 0L, 0L);
+            RemoveResult.create(1L, 1L, 0L, 0L);
             throw new AssertionError("remove result must require removed == matched");
         } catch (IllegalArgumentException expected) {
             // expected
@@ -920,9 +924,7 @@ public final class RuntimeCorePhase1Check {
                 RuntimeCompatibility.PLAN_PROTOCOL,
                 RuntimeCompatibility.ALLOCATION_ESTIMATOR)
                 .addTable(TablePlan.builder("Order", RuntimeCompatibility.DENSE_ALGORITHM)
-                        .accessStrategy(RuntimeCompatibility.PRIMITIVE_SORTED_PERMUTATION)
-                        .sidecarMaintenancePolicy(RuntimeCompatibility.DIRTY_LAZY_REBUILD)
-                        .maximumSidecarScratchBytes(1024L)
+                        .accessStrategy(RuntimeCompatibility.PRIMITIVE_EXACT_HASH)
                         .build())
                 .build();
     }

@@ -16,7 +16,7 @@ Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime 
 
 Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
 
-当前v2 protocol type set固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation与KeySpace exact factory/estimator）、`RuntimeFailures`（bounded structured error factory）、`KeyCanonicalization`（strict floating key validation/bit binding）、`GeneratedColumn` + `ColumnGroup`（group capacity staging）、`DenseTableState`（packed size/structural epoch/release/stats/resource coordination）、`BooleanColumn`、`ByteColumn`、`ShortColumn`、`IntColumn`、`LongColumn`、`FloatColumn`、`DoubleColumn`、`ObjectColumn<T>`、`PresenceBitmap`、`MaterializationTracker`、`MaterializationAllocation`、`ChildOwnershipRegistry`、`OwnedChildTable`、`IntKeySpace`、`SparseIntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。`MaterializationAllocation` 是 materialization boundary 的scoped controlled allocation admission protocol，不进入row/storage hot path。`StorageBudget`、column retained-byte accounting和cascade scratch counters是runtime package-private实现，不是generated/public protocol；不能只为test或golden将其公开。Concrete column/key space提供typed lookup/update；generic staging只发生在growth boundary，hot loop由generated code持有concrete/static protocol。exact public/protected protocol methods进入独立manifest，此后不得删除、改变语义或在不提升runtime compatibility identity时产生incompatible signature change。
+当前v3 protocol type set固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation与hash primary-locator estimator）、`RuntimeFailures`、`KeyCanonicalization`、`GeneratedColumn` + `ColumnGroup`、`DenseTableState`、primitive/object columns、`PresenceBitmap`、`MaterializationTracker`、`MaterializationAllocation`、`ChildOwnershipRegistry`、`OwnedChildTable`、`IndexBuffer`、`GroupedExactIndex`、`IntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。V3删除`SparseIntKeySpace`与`RowPermutationSidecar`。`MaterializationAllocation`是materialization boundary的scoped controlled allocation admission protocol，不进入row/storage hot path。`StorageBudget`、column retained-byte accounting和cascade scratch counters是runtime package-private实现，不是generated/public protocol。Concrete column/locator/index提供typed lookup/update；generic staging只发生在growth/bulk boundary，hot loop由generated code持有concrete/static protocol。
 
 Exact current protocol matrix（Phase 1 + Phase 2 + Phase 3 access structures，全部位于 `com.hgtech.soma.runtime.generated`）：
 
@@ -54,7 +54,6 @@ PresenceBitmap.presentCount() -> int
 DenseTableState(String tableLogicalName, RuntimePlan, TablePlan, ColumnGroup)
 DenseTableState.size/capacity -> int; structuralEpoch -> long; isReleased -> boolean
 DenseTableState.runtimePlan -> RuntimePlan
-DenseTableState.sidecarRebuildCount -> long
 DenseTableState.checkActive(String operation) -> void
 DenseTableState.checkRowIndex(int rowIndex, String operation) -> int
 DenseTableState.beginOperation(String operation) -> void
@@ -85,12 +84,8 @@ DenseTableState.preflightOwnedRelease(String operation) -> void
 DenseTableState.isOwned/hasPinnedBorrow -> boolean
 DenseTableState.commitOwnedRelease(boolean aggregateRelease) -> void
 DenseTableState.updateScratch(long currentBytes, long highWaterBytes) -> void
-DenseTableState.sidecarsDirtied(long distinctSidecars) -> void
-DenseTableState.sidecarRebuilt(long rows) -> void
-DenseTableState.sidecarScratch(long currentBytes, long highWaterBytes) -> void
 DenseTableState.reserve(int expectedCapacity) / operationScratch(long currentBytes) -> void
-DenseTableState.updateResult(long scanned, long matched, long changed,
-  long sidecarMaintained, long sidecarRebuilt) -> UpdateResult
+DenseTableState.updateResult(long scanned, long matched, long changed) -> UpdateResult
 DenseTableState.statsSnapshot() / statsSnapshot(long childInstances, long descendantRows)
   -> TableStats; resetStats() -> void
 
@@ -98,9 +93,6 @@ IntKeySpace.implementation/size/capacity/used/contains/rowOf/requireInsertKey/
   retainedBytes/retainedBytesAfterEnsureAdditional/allocationBytesDuringEnsureAdditional/
   ensureAdditionalCapacity/put/remove/removeAt/updateRow/clear/releaseStorage/
   probeCount/collisionCount/rehashCount/addMetrics/resetMetrics
-SparseIntKeySpace(int maximumKey); size()/contains(int)/rowOf(int)
-SparseIntKeySpace.put(int key, int rowSlot)/removeAt(int rowSlot)/clear() -> void
-SparseIntKeySpace.maximumKey()/sparseCapacity()/denseCapacity() -> int
 HashIntKeySpace(int expectedSize); size()/contains(int)/rowOf(int)
 HashIntKeySpace.put(int key, int rowSlot)/remove(int key)/updateRow(int key, int rowSlot)/clear() -> void
 HashLongKeySpace(int expectedSize); size()/contains(long)/rowOf(long)
@@ -121,13 +113,12 @@ HashIntKeySpace / HashLongKeySpace / HashCompositeKeySpace
   .retainedBytes()/retainedBytesAfterEnsureAdditional(int)/
   allocationBytesDuringEnsureAdditional(int)/ensureAdditionalCapacity(int)/releaseStorage()
 PresenceBitmap.wordAt(int wordIndex) -> long
-RowPermutationSidecar(); isDirty() -> boolean; size()/rowAt(int) -> int
-RowPermutationSidecar.stage(int required) -> int[]
-RowPermutationSidecar.scratch(int required) -> int[]
-RowPermutationSidecar.retainedBytes()/retainedBytesAfterRebuild(int required)/
-  rebuildPeakBytes(int required) -> long
-RowPermutationSidecar.commit(int[] staged, int committedSize) -> void
-RowPermutationSidecar.markDirty()/clear()/release() -> void
+IndexBuffer.ensureCapacity(int)/array()/reset()/retainedBytes()/release() -> primitive scratch lifecycle
+GroupedExactIndex.ensureCapacity(int rowCapacity, int additionalGroups) -> void
+GroupedExactIndex.firstGroup(long hash)/nextHashGroup(int group)/representativeRow(int group) -> int
+GroupedExactIndex.createGroup(long hash)/link(int group, int row)/unlink(int row)/relocate(int from, int to) -> void
+GroupedExactIndex.groupSize(int group)/firstRow(int group)/nextRow(int row) -> int
+GroupedExactIndex.clear()/release()/retainedBytes()/probeCount()/collisionCount()/rehashCount()/resetMetrics()
 KeyCanonicalization.strictFloatKeyBits(String table, String field, float value, String operation) -> int
 KeyCanonicalization.strictDoubleKeyBits(String table, String field, double value, String operation) -> long
 KeyCanonicalization.strictFloatStorage/strictDoubleStorage(...) -> canonical float/double
@@ -158,7 +149,7 @@ OwnedChildTable.hasPinnedSubtree/preflightOwnedRelease/releaseOwnedSubtree/subtr
   subtreeDescendantRowCount
 ```
 
-`HashIntKeySpace` / `HashLongKeySpace` 的 `remove` 只写 tombstone，不在 remove/packed compaction 内触发 rehash/allocation；generated keyed delete 先移除 deleted key，再在同一 structural commit 前逐 survivor 调用 `updateRow` 修复移动后的 slot。rehash 只能发生在后续 insert/growth boundary，不能留下对已提交 row 的 stale locator。
+`HashIntKeySpace` / `HashLongKeySpace` 的 `remove` 只写 tombstone，不在 remove/swap-remove 内触发 rehash/allocation；generated keyed delete先移除deleted key，再对实际tail-fill survivor调用`updateRow`修复目标Index。rehash只能发生在insert/growth boundary，不能留下对已提交row的stale locator。
 
 `boolean`、`byte`、`short`、`int` 和 `float` key 静态绑定 `HashIntKeySpace`；`long`、`double` key 静态绑定 `HashLongKeySpace`。floating key 在 Batch/import、lookup和compaction repair均先经 `KeyCanonicalization` 拒绝 non-finite、把 `-0.0` canonicalize为 `+0.0` 并使用 canonical bits；不在 hot lookup 创建 boxed key、tuple或metadata interpreter。
 
@@ -169,7 +160,7 @@ XxxTable
   -> XxxTableStore
        -> TableLayout
        -> RowSpace
-            -> KeySpace        // keyed table only
+            -> PrimaryLocator  // keyed table only
        -> ColumnStore
        -> AccessStructures
        -> AccessPath
@@ -183,17 +174,17 @@ XxxTable
 |---|---|
 | `TableStore` | 一张 generated table 的 runtime internal aggregate owner |
 | `TableLayout` | schema hash、field layout、column binding、selector metadata |
-| `RowSpace` | row membership、`RowSlot` 分配、packed slot 有效性规则 |
-| `KeySpace` | keyed table 才有的 `RowKey -> RowSlot` 身份定位结构 |
+| `RowSpace` | row membership、packed `Index` 与 `[0,size)` 有效性规则 |
+| `PrimaryLocator` | keyed table 才有的 `RowKey -> Index` hash定位结构 |
 | `ColumnStore` | primitive/object columns、presence bitmap、capacity 和 slot-level payload |
-| `AccessStructures` | secondary index、unique index、order sidecar 等被维护的访问结构 |
-| `AccessPath` | default scan、index source、order source 等 Row Pipeline source 的内部执行入口 |
-| `MutationCoordinator` | batch、replaceAll、delete、row move、sidecar dirty/rebuild、epoch 协调 |
+| `AccessStructures` | secondary exact index与unique的bucket/group/row-link结构 |
+| `AccessPath` | default scan、exact-index source与dynamic sort等Row Pipeline source的内部执行入口 |
+| `MutationCoordinator` | batch、replaceAll、update、swap-remove、exact-index delta、epoch协调 |
 | `LifecycleState` | epoch、active view、released、stats、typed lifecycle errors |
 
-Public keyed table 映射为 `TableStore + RowSpace + KeySpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。
+Public keyed table 映射为 `TableStore + RowSpace + PrimaryLocator + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。
 
-Public dense table 映射为 `TableStore + RowSpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。Dense table 没有 `KeySpace`，但仍保留 ColumnView、Row Pipeline、Materialized Object、secondary index/order、lifecycle 和 typed errors。
+Public dense table 映射为 `TableStore + RowSpace + ColumnStore + AccessStructures + AccessPath + MutationCoordinator + LifecycleState`。Dense table没有PrimaryLocator，但仍保留ColumnView、Row Pipeline、Materialized Object、secondary exact index/unique、lifecycle和typed errors。
 
 ## 3. ColumnStore
 
@@ -207,7 +198,7 @@ Public dense table 映射为 `TableStore + RowSpace + ColumnStore + AccessStruct
 - `@SomaChild List`/`Map` field 使用 `ChildTableHandle` locator column，不存储 Java Collection 或 public/live object reference；
 - `RowSlot` 是当前 packed storage 内的位置，不是 stable business identity。Public dense table direct API 中的 row index 映射到当前 `RowSlot`。
 
-每个公开可用的 stable table state 中，live `RowSlot` 必须形成 `[0, size)` packed range；terminal 内 temporary removal marks 可以存在，但成功返回后不得留下长期 tombstone/hole。Single/batch delete 的具体 swap-remove/compact algorithm 属于 implementation，结果必须恢复 packed invariant，并同步维护或 dirty 所有 locator/sidecar。
+每个公开可用的 stable table state 中，live `RowSlot` 必须形成 `[0, size)` packed range；remove candidate可以暂存在`IndexBuffer`，但不得分配或保留`boolean[size]`全表mark，成功返回后也不得留下长期 tombstone/hole。Single/batch delete必须通过swap-remove/tail-fill恢复packed invariant，并同步维护所有primary locator与exact index。
 
 V1 runtime core 至少提供：
 
@@ -232,24 +223,24 @@ Capacity growth 使用 group staging：所有 leaf columns、presence words与 R
 
 ## 4. Public table kind mapping
 
-Runtime core 必须支持 public/generated API 的两类 table：keyed table 和 dense table。二者共享 `TableStore` 组合模型，区别在于是否存在 `KeySpace`。
+Runtime core 必须支持 public/generated API 的两类 table：keyed table 和 dense table。二者共享 `TableStore` 组合模型，区别在于是否存在`PrimaryLocator`。
 
 Keyed table：
 
 - 有 stable logical key；
-- 必须维护 `KeySpace`，用于 `RowKey -> RowSlot`；
+- 必须维护hash-based `PrimaryLocator`，用于 `RowKey -> RowSlot`；
 - 支持 duplicate key detection、`fetch(key)`、`containsKey(key)`、`mutate(key)` 和 `delete(key)`；
 - 适合 entity state、lookup table 和唯一性约束。
 
 Dense table：
 
 - 没有 stable logical key；
-- 以 packed row storage、row-index iteration、ColumnView 和 ordered access 为主要访问方式；
+- 以 packed row storage、current-Index iteration、ColumnView 和exact/dynamic-sorted access为主要访问方式；
 - 适合矩阵/数组型 runtime state、packed scan 和 solver workspace；
 - 可以是长生命周期 table，也可以通过 `replaceAll(batch)` 在同一 table instance 内反复刷新；
 - row index 只对当前 table state 有效，structural mutation 后不得作为 stable identity 使用。
 
-Runtime core 不把短生命周期 Java 临时对象作为优化目标。dense workspace 的价值在于复用 column capacity、批量刷新和 sidecar access，而不是替代普通局部对象。
+Runtime core 必须减少hot terminal中的短生命周期Java对象。Dense workspace的价值在于复用column capacity、批量刷新、IndexBuffer和exact-access storage；普通局部对象仍由application按业务需要使用。
 
 ## 5. Optional bitmap
 
@@ -270,128 +261,71 @@ row_index -> words[row_index / 64] bit (row_index % 64)
 - runtime 维护 `presentCount` 或等价 metadata；
 - generated predicate 支持 all-present、all-absent、mixed chunk scan。
 
-## 6. KeySpace and primary key lookup
+## 6. Primary locator
 
-Keyed table 必须有 `KeySpace`。Primary key lookup 属于 table identity / row 定位，不作为普通 secondary index sidecar 处理。
-
-查找语义：
+Keyed table必须有hash-based primary locator。Primary lookup属于table identity，不作为普通secondary index处理：
 
 ```text
-RowKey leaf values -> KeySpace -> RowSlot
+canonical RowKey leaves -> hash locator -> current packed Index
 ```
 
-V1 至少支持以下 `KeySpace` 实现材料：
+Primitive int-width/enum/floating-bit key使用`HashIntKeySpace`，long-width key使用`HashLongKeySpace`，String/composite Value key使用`HashCompositeKeySpace`。所有实现采用open addressing、not-found sentinel、duplicate detection、tombstone delete、growth-boundary rehash和row relocation repair；不使用Key到bounded Entity的Sparse Set映射。
 
-- `SparseIntKeySpace`：bounded int id，使用 sparse-set-style `dense[] + sparse[]`；
-- `HashKeySpace`：int / long / enum ordinal / generated composite key，使用 hash-based key lookup。
+`HashCompositeKeySpace`只保存primitive hash、probe state和packed Index；generated table在同hash candidate上静态展开normalized leaf equality。只有full equality才视为同一identity，hash collision继续probe。remove/swap-remove先按row leaf找回identity slot，再remove或更新实际moved survivor的Index。
 
-`HashKeySpace` 至少支持：
-
-- int key -> `RowSlot`；
-- long key -> `RowSlot`；
-- enum key -> exact enum direct API、static cached member array 和 packed `int ordinal -> RowSlot`；
-- generated composite key -> `RowSlot`；
-- open addressing；
-- not-found sentinel；
-- duplicate key detection；
-- remove / row move update；
-- rehash；
-- collision full equality。
-
-`HashCompositeKeySpace` 只保存 primitive `long hash`、probe state 和 packed `RowSlot`；它不接受 value object、`Object[]`、lambda comparator 或 reflection metadata。generated table 在同 hash candidate 上静态展开 normalized leaf equality，只有 full equality 才视为同一 identity；hash collision 继续 probe，不能被当作 duplicate/missing。Batch preflight 使用同一 raw probe substrate 和 batch leaf equality，确保 duplicate failure 在 visible mutation 前发生。remove/compaction 先按 row leaf 找回完整 identity slot，再 tombstone/remove 或更新 surviving `RowSlot`；rehash 只重排 raw hash/slot，不改变 leaf facts。
-
-Hash value、bucket layout 和 probing strategy 是 internal implementation detail，不进入 generated public API、Materialized Object 或 schema hash。
+Hash value、bucket layout和probing strategy是internal implementation detail，不进入generated public API、Materialized Object或schema hash。
 
 ### 6.1 Floating identity/access canonicalization
 
-Runtime core 必须提供 generated binding 可复用的 floating validation/canonicalization primitive：
+Runtime core必须提供generated binding可复用的floating validation/canonicalization primitive：
 
-- ordinary payload column 接受 Java `NaN`、positive/negative infinity 和 negative zero；
-- key/index/unique/order floating leaf 写入或查询前必须 finite；
-- strict leaf negative zero canonicalize 为 positive zero；
-- key equality/hash、secondary matching、unique detection 和 order comparator 使用相同 canonical value；
-- invalid value 在 visible mutation 前返回 typed invalid-value error，并携带 field/selector/materialization path；
-- ordinary payload 不承诺保留不同 NaN payload bit pattern。
+- ordinary payload column接受Java `NaN`、positive/negative infinity和negative zero；
+- key/index/unique floating leaf写入或查询前必须finite；
+- strict leaf negative zero canonicalize为positive zero；
+- key equality/hash、secondary matching和unique detection使用相同canonical value；
+- invalid value在visible mutation前返回typed invalid-value error，并携带field/selector/materialization path。
 
-Runtime 不根据 column type 自行猜测 strict role；generated adapter 从 normalized schema model 传入明确 role/binding。
+## 7. Packed Index 与 IndexBuffer
 
-## 7. SparseIntKeySpace / sparse set material
+两类table的live rows始终占据`[0,size)`。`Index`只是当前物理位置；structural mutation后旧Index可以指向另一row。Public bulk导出使用epoch-bearing detached `IndexSnapshot`，runtime hot execution使用table-local `IndexBuffer`。
 
-V1 提供 self-owned sparse-set-style material，用于 `SparseIntKeySpace` 或 bounded int id membership 场景：
+`IndexBuffer`只保存primitive `int[] + length/high-water`，用于dynamic sort、mutation candidate freeze和显式snapshot copy；reset只归零logical length，不逐元素清零。读取exact group时优先沿group link零复制遍历，不为每个stage复制候选数组。
 
-```text
-dense[]
-sparse[]
-size
-contains(id) = sparse[id] < size && dense[sparse[id]] == id
-```
+## 8. Grouped exact index / unique
 
-该结构负责：
-
-- add；
-- remove；
-- contains；
-- dense iteration；
-- clear reuse capacity；
-- capacity growth；
-- deterministic iteration order as stored in dense array。
-
-Sparse Set 是 runtime internal implementation material，不是 table 本体，不作为 public generated collection 暴露。
-
-## 8. AccessStructures: secondary index / unique index
-
-V1 `AccessStructures` 至少承载：
-
-- secondary non-unique index；
-- secondary unique index；
-- order sidecar。
-
-Primary key lookup 由 `KeySpace` 承载，不列为普通 secondary index。
-
-规则：
-
-- index selector 由 processor 归一化；
-- generated code 负责将 selector leaf values 写入 runtime index；
-- unique index duplicate 必须返回可区分错误；
-- non-unique index 可以使用 row list、row chain 或 rebuildable sidecar；
-- row move 后必须同步维护或标记 dirty。
-
-V1 可先实现 primary key 和 order，secondary index/unique 按 gate 优先级逐步补齐，但正式 release claim 只能引用已验证能力。
-
-## 9. AccessStructures: order sidecar
-
-`order` 是 table-level ordered access contract，不改变 packed storage physical row order。
-
-Runtime sidecar：
+每个`@SomaIndex`/`@SomaUnique`由一个`GroupedExactIndex`承载：
 
 ```text
-orderedRows = int[] row permutation
-orderDirty = boolean
+hash bucket -> same-hash group chain -> group head -> row links
+row -> group / prev / next
 ```
 
-`stage` 和 `scratch` 都按 sidecar instance 保留 primitive high-water array 并在后续 rebuild 复用；`clear` 保留容量，只有 `release` 丢弃 retained arrays。Dirty sidecar 可以复用旧 permutation 作为 detached staging，因为 dirty 状态禁止读取；rebuild/unique validation 失败时 sidecar 继续保持 dirty，不发布为 current facts。
+Generated code拥有selector hash与full canonical equality；runtime只拥有primitive bucket/group/link管理。规则：
 
-规则：
+- index允许group size为0..N；unique要求group size最多1；
+- append/update/remove采用incremental link/unlink/relocate；
+- replaceAll/create可以在未发布fresh structure中bulk build；
+- read path不存在dirty/full rebuild/full-scan fallback；
+- hash collision通过same-hash group chain与representative-row full equality区分；
+- group内枚举顺序不作承诺；
+- update先验证整次terminal的final-state uniqueness，允许合法value swap，再统一publish；
+- mutation成功返回时所有structures已经current，expected failure保留旧facts。
 
-- insert/delete/replaceAll/clear/row move 后 order sidecar 必须保持正确或标记 dirty；
-- 修改参与 order 的字段后标记 dirty 或 eager update；
-- terminal operation 前 lazy rebuild；
-- generated comparator 基于 normalized selector 和 direction；
-- order sidecar 不进入 Materialized Object、ColumnView 或 public API；
-- ordered access 返回 key buffer、row index buffer 或 materialized schema object/list。
+## 9. Swap-remove / tail-fill
+
+Dense与keyed table删除都不保证物理顺序。单row删除把最后一个survivor移动到hole；multi-row删除先排序selected Index，再从tail domain选择未删除survivor填充front holes。实际move数`compacted <= removed`。
+
+每次move必须同步复制全部column/presence/child handle，修复primary locator，并调用每个exact index的`relocate(from,to)`；不允许stable forward compaction、`boolean[size]`全表mark或read-time repair。
 
 ## 10. AccessPath
 
-`AccessPath` 是 Row Pipeline source 的内部执行入口。它只决定 terminal 开始时的初始 `RowSequence`，不改变 table storage 本体。
+`AccessPath`只决定terminal开始时的初始source sequence：
 
-V1 至少需要：
+- default scan：当前物理`0..size-1`；
+- exact-index source：terminal开始时定位current group并沿row links遍历；
+- dynamic sorted path：把当前candidate写入IndexBuffer并按本次comparator排序。
 
-- default scan path：遍历当前 packed rows；
-- index path：从 maintained secondary index / unique index 产生候选 rows；
-- order path：从 maintained order sidecar 产生 ordered rows；
-- dynamic sorted path：基于本次 pipeline comparator 生成临时 row permutation。
-
-`AccessPath` 不进入 public API。Generated `findByXxx(...)`、`byXxx(...)` 和默认 table source 是 public/generated API 表达；runtime internal 可映射到对应 `AccessPath`。
+未排序terminal只遵循current source sequence，不承诺business order。`AccessPath`不进入public API；generated `findByXxx(...)`与默认table source映射到内部path，业务顺序显式使用`sorted(...)`。
 
 ## 11. Batch boundary
 
@@ -399,10 +333,10 @@ V1 至少需要：
 
 规则：
 
-- loader 应先估算 capacity，再 reserve；
+- loader 应先估算 capacity，再 reserve；generated reserve同时覆盖columns、primary locator与exact indexes，而不是只增长column arrays；
 - addBatch 按 batch size 扩容和写入；
 - replaceAll 尽量复用 capacity，是 dense table 刷新矩阵行、packed data 和 solver workspace 的主要边界；
-- index 和 order sidecar 在 batch boundary 统一更新或标记 dirty；
+- primary locator与exact index在detached staged state中统一build/validate，并随batch facts原子publish；
 - per-row append 不是默认 import 路径；
 - deterministic memory limit 和可控 allocator/provider failure 必须映射为可区分错误；raw `OutOfMemoryError` 原样传播，capacity/column staging 保证 publish 前旧 stable state 仍满足 invariant。
 
@@ -415,7 +349,7 @@ Runtime 必须区分：
 | Pipeline plan | 否 | terminal operation 基于执行时 table 状态 |
 | Materialized schema object / `List` / `Map` | 否 | detached complete copy，不反映后续 mutation |
 | KeyBuffer | 否 | stable materialized key values |
-| RowIndexBuffer | 否 | 只对生成时 table epoch 有效 |
+| IndexSnapshot | 否 | 只对来源table的captured structural epoch有效；stale/wrong-table使用fail closed |
 | ColumnView | 是 | live readonly view，structural mutation 返回 view_pinned |
 | ChildTableHandle | 是，internal | 绑定 ownership/lifecycle，不进入 public result |
 
@@ -433,7 +367,7 @@ Stable public state 必须满足根级 [Runtime 正确性模型](../../docs/runt
 
 - live rows packed in `[0,size)`；
 - columns/presence/key mapping aligned；
-- key/index/order locator 在 row move 后 current 或明确 dirty；
+- primary locator与all exact indexes在row move后current；
 - dead reference 不保持无意义 GC reachability；
 - runtime internal handle/buffer 不进入 public result。
 

@@ -33,14 +33,13 @@ public final class com.example.soma.access.generated.AccessRecordTable {
   public com.example.soma.access.AccessRecord firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.access.AccessRecord> fetchAll();
   public java.util.List<com.example.soma.access.AccessRecord> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.access.generated.AccessRecordRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.example.soma.access.generated.AccessRecordRows findByState(int);
   public com.example.soma.access.generated.AccessRecordRows findByGroup(int);
   public com.example.soma.access.generated.AccessRecordRows findByCode(int);
-  public com.example.soma.access.generated.AccessRecordRows byGroupScore();
-  public com.example.soma.access.generated.AccessRecordRows byGroupScore(int);
   public com.hgtech.soma.runtime.IntColumnPipeline codeValues();
   public com.hgtech.soma.runtime.IntColumnView codeColumn();
   public com.hgtech.soma.runtime.IntColumnPipeline stateValues();

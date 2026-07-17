@@ -67,15 +67,13 @@ TablePlan.tableLogicalName/algorithm -> String
 TablePlan.initialCapacity/growthNumerator/growthDenominator -> int
 TablePlan.maximumUpdateScratchBytes -> long
 TablePlan.maximumOperationScratchBytes/maximumBulkScratchBytes/
-    maximumTableStorageBytes/maximumSparseKey -> long
+    maximumTableStorageBytes -> long
 TablePlan.keySpaceStrategy -> String
-TablePlan.accessStrategy/sidecarMaintenancePolicy -> String
-TablePlan.maximumSidecarScratchBytes -> long
+TablePlan.accessStrategy -> String
 TablePlan.Builder.initialCapacity(int)/growthRatio(int,int)/
     maximumUpdateScratchBytes(long)/maximumOperationScratchBytes(long)/
     maximumBulkScratchBytes(long)/maximumTableStorageBytes(long)/
-    keySpaceStrategy(String)/maximumSparseKey(long)/accessStrategy(String)/
-    sidecarMaintenancePolicy(String)/maximumSidecarScratchBytes(long) -> Builder
+    keySpaceStrategy(String)/accessStrategy(String) -> Builder
 TablePlan.Builder.build() -> TablePlan
 ChildPlan.create(String ownerTable, String childField,
     String childTable, int initialCapacity) -> ChildPlan
@@ -83,15 +81,15 @@ ChildPlan.ownerTable/childField/childTable -> String
 ChildPlan.initialCapacity -> int
 ```
 
-All parameters/getters are non-null. `requireTable` unknown name返回 `invalid_runtime_plan`；`tables()` 不返回 mutable internal map。Initial capacity > 0；growth numerator > denominator >= 1；table/aggregate/update/operation/bulk storage limit > 0；ownership table instance limit > 0；maximum sidecar scratch >= 0。`maximumSparseKey=-1`表示不适用，否则为array-representable非负int。Generated `create` 对 selector table要求已支持的 access/policy identity和 positive sidecar bound，对 no-selector table要求 `none/none/0`。Schema-specific unknown/missing/inapplicable table在 generated `create` validation fail。
+All parameters/getters are non-null. `requireTable` unknown name返回 `invalid_runtime_plan`；`tables()`不返回mutable internal map。Initial capacity > 0；growth numerator > denominator >= 1；table/aggregate/update/operation/bulk storage limit > 0；ownership table instance limit > 0。Generated `create`对selector table要求支持的exact-access identity，对no-selector table要求`none`。Schema-specific unknown/missing/inapplicable table在generated `create` validation fail。
 
 V1 初始 identity/baseline：
 
 | Item | Identity/value |
 |---|---|
-| runtime compatibility | `soma-runtime-java8-v2` |
-| generated runtime protocol | `soma-generated-runtime-v2` |
-| plan protocol | `soma-runtime-plan-v2` |
+| runtime compatibility | `soma-runtime-java8-v3` |
+| generated runtime protocol | `soma-generated-runtime-v3` |
+| plan protocol | `soma-runtime-plan-v3` |
 | dense algorithm | `dense-soa-v1` |
 | materialization estimator | `soma-materialization-estimator-v1` |
 | unspecified dense initial capacity | `16` rows |
@@ -99,14 +97,12 @@ V1 初始 identity/baseline：
 | maximum update scratch | `268435456` bytes（256 MiB，checked preflight，可显式覆盖） |
 | maximum row-operation scratch | `268435456` bytes（256 MiB，pipeline/sort/remove retained primitive arrays 的 checked aggregate ceiling） |
 | maximum bulk scratch | `268435456` bytes（batch/key/unique/cascade staging的checked peak ceiling） |
-| maximum retained table storage | `268435456` bytes（columns、presence、KeySpace和retained scratch current合计） |
+| maximum retained table storage | `268435456` bytes（columns、presence、primary locator、exact indexes和retained buffers合计） |
 | maximum aggregate storage | `1073741824` bytes（同ownership aggregate全部table instance的runtime-owned current storage） |
 | maximum ownership table instances | `65536`（root与所有present child instance合计） |
-| default key strategy | eligible int key为`hash-int-v1`；long/double为`hash-long-v1`；String/composite Value为`hash-composite-v1`；dense为`none` |
-| sparse int strategy | 仅required Java `int` scalar key可显式选`sparse-int-v1`，必须同时给出`maximumSparseKey>=0`；无silent fallback |
-| no-selector access policy | `none` / `none` / `0` sidecar bytes |
-| selector access policy | `primitive-sorted-permutation-v1` + `dirty-lazy-rebuild-v1` |
-| maximum sidecar scratch | selector table 默认 `268435456` bytes（含 retained arrays 与 rebuild growth peak） |
+| default key strategy | int-width/enum/float key为`hash-int-v2`；long/double为`hash-long-v2`；String/composite Value为`hash-composite-v2`；dense为`none` |
+| no-selector access strategy | `none` |
+| selector access strategy | `primitive-exact-hash-v1`，固定eager/incremental |
 | default stats mode | `summary` |
 
 这些是 versioned effective plan facts，不是性能优势或永久调优结论。改变 baseline 必须产生新的 plan hash/evidence；改变不兼容 protocol/algorithm semantics 必须提升对应 identity。
@@ -117,10 +113,8 @@ V1 初始 identity/baseline：
 
 - initial/minimum capacity；
 - growth、reserve、clear/trim policy；
-- SparseInt domain threshold/fallback；
-- HashKeySpace load/probe/delete/rehash policy；
-- index/unique/order concrete strategy；
-- sidecar eager/lazy/hybrid maintenance policy；
+- hash primary-locator load/probe/delete/rehash policy；
+- index/unique exact concrete strategy；
 - scratch retention/maximum policy；
 - child small-instance/pooling candidate；
 - string/reference storage policy；
@@ -128,11 +122,11 @@ V1 初始 identity/baseline：
 - memory/size/domain guard；
 - implementation protocol/algorithm id。
 
-V1 exact `keySpaceStrategy` 只允许 `none`、`hash-int-v1`、`hash-long-v1`、`hash-composite-v1`、`sparse-int-v1`。Dense只能`none/-1`；generated key shape必须与hash strategy exact匹配；`sparse-int-v1`只适用于required Java `int` scalar key，并要求explicit `maximumSparseKey`。Sparse lookup的out-of-domain作为missing；insert/replace的out-of-domain返回typed `invalid_key_domain`。Runtime不在sparse过大或allocation失败时切换hash。
+V1 exact `keySpaceStrategy`只允许`none`、`hash-int-v2`、`hash-long-v2`、`hash-composite-v2`。Dense只能`none`；generated key shape必须与hash strategy exact匹配。`accessStrategy`只允许`none`或`primitive-exact-hash-v1`；maintenance固定eager/incremental，不提供lazy/dirty policy。
 
-`maximumTableStorageBytes`约束该table instance的current columns、presence、KeySpace和retained scratch；`maximumBulkScratchBytes`约束单次batch/key/unique/cascade staging peak。`maximumAggregateStorageBytes`和`maximumOwnershipTableInstances`由root create产生的shared aggregate budget执行，child create/replacement先reserve、失败回滚，final release归还。Estimate使用checked arithmetic和versioned primitive/reference-slot estimator；超过limit在真实array allocation前返回`memory_limit_exceeded`，旧facts/capacity/quota不变。
+`maximumTableStorageBytes`约束该table instance的current columns、presence、primary locator、exact indexes和retained buffers；`maximumBulkScratchBytes`约束单次batch/locator/index/cascade staging peak。`maximumOperationScratchBytes`约束IndexBuffer/sort/remove candidate material。`maximumAggregateStorageBytes`和`maximumOwnershipTableInstances`由root create产生的shared aggregate budget执行，child create/replacement先reserve、失败回滚，final release归还。Estimate使用checked arithmetic和versioned primitive/reference-slot estimator；超过limit在真实array allocation前返回`memory_limit_exceeded`，旧facts/capacity/quota不变。
 
-并非每个 table 使用全部维度。Dense table 不接受 KeySpace 配置；没有 order/index 的 table 不接受对应 sidecar override。Unknown/inapplicable option 必须 fail closed，不能静默忽略。
+并非每个table使用全部维度。Dense table不接受primary-locator配置；没有index/unique的table不接受exact-access strategy。Unknown/inapplicable option必须fail closed，不能静默忽略。
 
 ## 4. Schema default 与 runtime default
 
@@ -143,7 +137,7 @@ V1 exact `keySpaceStrategy` 只允许 `none`、`hash-int-v1`、`hash-long-v1`、
 - default plan 变化必须进入 runtime plan identity、release note 和 performance evidence；
 - per-call operation argument 不自动变成 plan fact。
 
-Schema annotation 不声明 growth factor、load factor、sidecar strategy、stats level 或 benchmark profile。
+Schema annotation不声明growth factor、load factor、exact-index algorithm、stats level或benchmark profile。
 
 ## 5. Ownership aggregate scope
 
@@ -156,7 +150,7 @@ Parent-owned child table 使用同一个 aggregate plan 中对应 child table id
 - child instance 不能附带来自另一 aggregate 的 arbitrary plan/handle；
 - replacement subtree 使用 parent aggregate 的 effective plan stage/validate。
 
-每条normalized ownership edge另有immutable effective `ChildPlan`，identity为`owner table logical name + child field logical name`。它记录child table logical name和resolved positive initial capacity；annotation/source中的`-1`在generated default plan构造前解析为child `TablePlan.initialCapacity`，不进入effective plan。Application override只接受positive capacity。`ChildPlan`按owner table/field排序进入runtime plan hash，允许同一child type被多个parent field用不同capacity复用；child algorithm/sidecar等其余策略仍由child `TablePlan`拥有。
+每条normalized ownership edge另有immutable effective `ChildPlan`，identity为`owner table logical name + child field logical name`。它记录child table logical name和resolved positive initial capacity；annotation/source中的`-1`在generated default plan构造前解析为child `TablePlan.initialCapacity`，不进入effective plan。Application override只接受positive capacity。`ChildPlan`按owner table/field排序进入runtime plan hash，允许同一child type被多个parent field用不同capacity复用；child algorithm、primary locator与exact-access等其余策略仍由child `TablePlan`拥有。
 
 未来如允许 child-instance override，必须先定义 identity、ownership、replacement 和 reproducibility 影响；V1 不提供 ad-hoc live child override。
 
@@ -202,9 +196,9 @@ Create 前至少验证：
 - table logical identity 完整且无 unknown duplicate；
 - numeric range/overflow；
 - capacity 与 estimated bytes；
-- SparseInt domain；
 - load/probe/rehash parameter legality；
-- sidecar strategy 与 declared selector匹配；
+- primary-locator strategy 与 key shape匹配；
+- exact-access strategy 与 declared index/unique匹配；
 - scratch/memory limit；
 - child plan completeness；
 - MaterializationBudget/estimator protocol；
@@ -230,7 +224,7 @@ Canonical plan 必须：
 - 区分 absent/inapplicable 与 explicit value；
 - 记录 protocol/algorithm/estimator identity。
 
-Canonical effective plan使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。Canonical text必须对Java UTF-16 input lossless：surrogate code unit逐个输出为大写四位`\uXXXX`，合法supplementary code point输出一对escape，孤立surrogate不得退化为UTF-8 replacement character。Root keys固定包含`allocationEstimator`、optional `children`、`defaultMaterializationBudget`、`generatedProtocol`、`maximumAggregateStorageBytes`、`maximumOwnershipTableInstances`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`。Child entry固定键为`childField`、`childTable`、`initialCapacity`、`ownerTable`，按owner/field排序。Table entry固定键为`algorithm`、`accessStrategy`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`keySpaceStrategy`、`maximumBulkScratchBytes`、`maximumOperationScratchBytes`、`maximumSidecarScratchBytes`、`maximumSparseKey`、`maximumTableStorageBytes`、`maximumUpdateScratchBytes`、`sidecarMaintenancePolicy`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
+Canonical effective plan使用 UTF-8 JSON、Unicode code-point object-key order、table logical identity order和无 whitespace形式。Canonical text必须对Java UTF-16 input lossless：surrogate code unit逐个输出为大写四位`\uXXXX`，合法supplementary code point输出一对escape，孤立surrogate不得退化为UTF-8 replacement character。Root keys固定包含`allocationEstimator`、optional `children`、`defaultMaterializationBudget`、`generatedProtocol`、`maximumAggregateStorageBytes`、`maximumOwnershipTableInstances`、`planProtocol`、`runtimeCompatibility`、`schemaHash`、`statsMode`、`tables`。Child entry固定键为`childField`、`childTable`、`initialCapacity`、`ownerTable`，按owner/field排序。Table entry固定键为`algorithm`、`accessStrategy`、`growthDenominator`、`growthNumerator`、`initialCapacity`、`keySpaceStrategy`、`maximumBulkScratchBytes`、`maximumOperationScratchBytes`、`maximumTableStorageBytes`、`maximumUpdateScratchBytes`、`table`。Budget object keys固定为 `maximumEstimatedAllocationBytes`、`maximumLeafValues`、`maximumOwnershipDepth`、`maximumRows`、`maximumTableInstances`。Unknown table、duplicate table、missing table和不适用 dimension在 create 前 fail closed。
 
 `MaterializationBudget.identity()` 使用同一 canonical budget object与前缀 `soma-java:v1:materialization-budget\n` 的 lowercase SHA-256。Per-call override因此有稳定 identity但不改变 `runtimePlanHash`。
 
@@ -240,7 +234,7 @@ Runtime plan hash 用于 diagnostics/reproducibility/compatibility，不是 secu
 
 - builder/config input 可以是 mutable application object；
 - validation 后 runtime 只持有 immutable effective plan；
-- table create 后不能 set growth/load/stats/sidecar policy；
+- table create 后不能 set growth/load/stats/locator/index policy；
 - explicit reserve/clear/trim 等 operation 只能在 plan 允许范围内改变 storage state，不改变 plan identity；
 - 需要换 plan 时创建新的 ownership aggregate 并显式迁移/import facts；
 - SOMA V1 不提供 live plan mutation、automatic migration 或 adaptive replanning。
@@ -251,7 +245,7 @@ Generated/runtime API 必须能读取：
 
 - runtime plan protocol/version/hash；
 - effective table policy identity；
-- effective capacity/domain/sidecar/stats mode summary；
+- effective capacity/primary-locator/exact-access/stats mode summary；
 - default materialization budget identity；
 - estimator version；
 - plan validation failure context。
@@ -278,4 +272,4 @@ Default parameter性能只能由 benchmark evidence 校准；contract test 只�
 
 ## 14. 非目标
 
-除本文已固化的首个 Java construction boundary、dense growth与 update-scratch baseline 外，本文不固定 future KeySpace/sidecar threshold、probe strategy、sort/compaction scratch、pool threshold、config file syntax、environment mapping 或 production tuning value。
+除本文已固化的首个 Java construction boundary、dense growth与 update-scratch baseline 外，本文不固定 future locator/index threshold、probe strategy、sort/compaction scratch、pool threshold、config file syntax、environment mapping 或 production tuning value。

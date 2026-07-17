@@ -12,6 +12,7 @@ import com.hgtech.soma.runtime.UpdateResult;
 import com.hgtech.soma.runtime.generated.ChildOwnershipRegistry;
 import com.hgtech.soma.runtime.generated.ColumnGroup;
 import com.hgtech.soma.runtime.generated.DenseTableState;
+import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.runtime.generated.HashIntKeySpace;
 import com.hgtech.soma.runtime.generated.IntColumn;
@@ -19,9 +20,7 @@ import com.hgtech.soma.runtime.generated.MaterializationAllocation;
 import com.hgtech.soma.runtime.generated.MaterializationTracker;
 import com.hgtech.soma.runtime.generated.OwnedChildTable;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
-import com.hgtech.soma.runtime.generated.RowPermutationSidecar;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
-import com.hgtech.soma.runtime.generated.SparseIntKeySpace;
 
 import com.hgtech.soma.examples.fjsp.schema.JobId;
 import com.hgtech.soma.examples.fjsp.schema.MachineCandidate;
@@ -69,20 +68,20 @@ final class SmokeLaneSuite {
             "kernel.optional_mixed_chunks",
             "kernel.packed_scan",
             "generated.pipeline_fusion",
-            "kernel.keyspace_domain_load_collision_rehash",
+            "kernel.keyspace_full_domain_load_collision_rehash",
             "kernel.key_lookup_normal",
             "kernel.key_lookup_collision",
             "kernel.batch_import.reserve",
             "kernel.batch_import.growth",
-            "generated.ordered_access_lazy_rebuild",
+            "generated.exact_index_incremental_lookup",
             "generated.keyed_frontier",
-            "generated.dense_scratch_replace_order",
+            "generated.dense_scratch_replace_sort",
             "kernel.column_view",
             "child_locality.parent_scan_vs_flat",
             "generated.materialization_recursive_success",
             "materialization.budget_boundary",
             "kernel.compaction_capacity_reuse",
-            "kernel.sidecar_clean_dirty_rebuild_storm",
+            "kernel.exact_index_mutation_lookup_storm",
             "kernel.stats_mode_overhead"));
 
     private static volatile long blackhole;
@@ -115,19 +114,19 @@ final class SmokeLaneSuite {
         if (lane.startsWith("kernel.optional_")) return optional(config, lane);
         if (lane.equals("kernel.packed_scan")) return packedScan(config, lane);
         if (lane.equals("generated.pipeline_fusion")) return generatedPipelineFusion(config, lane);
-        if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) return keySpace(config, lane);
+        if (lane.equals("kernel.keyspace_full_domain_load_collision_rehash")) return keySpace(config, lane);
         if (lane.equals("kernel.key_lookup_normal")
                 || lane.equals("kernel.key_lookup_collision")) return generatedKeyLookup(config, lane);
         if (lane.startsWith("kernel.batch_import")) return batchImport(config, lane);
-        if (lane.equals("generated.ordered_access_lazy_rebuild")) return generatedDenseWorkspace(config, lane, false);
+        if (lane.equals("generated.exact_index_incremental_lookup")) return generatedDenseWorkspace(config, lane, false);
         if (lane.equals("generated.keyed_frontier")) return generatedKeyedFrontier(config, lane);
-        if (lane.equals("generated.dense_scratch_replace_order")) return generatedDenseWorkspace(config, lane, true);
+        if (lane.equals("generated.dense_scratch_replace_sort")) return generatedDenseWorkspace(config, lane, true);
         if (lane.equals("kernel.column_view")) return columnView(config, lane);
         if (lane.equals("child_locality.parent_scan_vs_flat")) return childLocality(config, lane);
         if (lane.equals("generated.materialization_recursive_success")) return generatedMaterialization(config, lane);
         if (lane.equals("materialization.budget_boundary")) return generatedBudgetBoundary(config, lane);
         if (lane.equals("kernel.compaction_capacity_reuse")) return compaction(config, lane);
-        if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) return sidecar(config, lane);
+        if (lane.equals("kernel.exact_index_mutation_lookup_storm")) return exactIndexStorm(config, lane);
         if (lane.equals("kernel.stats_mode_overhead")) return statsOverhead(config, lane);
         throw new IllegalArgumentException("unimplemented required benchmark lane: " + lane);
     }
@@ -243,7 +242,7 @@ final class SmokeLaneSuite {
         result.materializationEstimatedAllocationBytes = result.estimatedAllocationBytes;
         result.touchedBytes = 32L * result.lookups;
         result.workingSetBytes = 32L * stats.capacity() + 13L * stats.keySpaceCapacity();
-        result.keySpaceStats = BenchmarkModel.object("implementation", "generated-hash-composite-v1",
+        result.keySpaceStats = BenchmarkModel.object("implementation", "generated-hash-composite-v2",
                 "fullEqualityDistinguished", Boolean.TRUE,
                 "collisionConstructed", Boolean.valueOf(collision),
                 "collisionCount", Long.valueOf(stats.keySpaceCollisionCount()),
@@ -327,12 +326,13 @@ final class SmokeLaneSuite {
                 stats.operationScratchCurrentBytes(),
                 beforeMeasurement.operationScratchCurrentBytes())
                 + positiveDelta(stats.updateScratchCurrentBytes(),
-                beforeMeasurement.updateScratchCurrentBytes())
-                + positiveDelta(stats.sidecarScratchCurrentBytes(),
-                beforeMeasurement.sidecarScratchCurrentBytes());
+                beforeMeasurement.updateScratchCurrentBytes());
+        long exactIndexAllocationBytes = positiveDelta(
+                stats.exactIndexStorageCurrentBytes(),
+                beforeMeasurement.exactIndexStorageCurrentBytes());
         result.estimatedAllocationBytes = firstStats.lastMaterializationEstimatedAllocationBytes()
                 + tableGrowthAllocationBytes + keySpaceAllocationBytes
-                + scratchAllocationBytes;
+                + scratchAllocationBytes + exactIndexAllocationBytes;
         result.materializationEstimatedAllocationBytes =
                 firstStats.lastMaterializationEstimatedAllocationBytes();
         result.touchedBytes = 105L * (count + updated.scanned()
@@ -341,7 +341,7 @@ final class SmokeLaneSuite {
                 + 13L * stats.keySpaceCapacity()
                 + stats.operationScratchCurrentBytes()
                 + stats.updateScratchCurrentBytes()
-                + stats.sidecarScratchCurrentBytes();
+                + stats.exactIndexStorageCurrentBytes();
         result.keySpaceStats = BenchmarkModel.object("implementation", "generated-machine-candidate-frontier",
                 "added", Integer.valueOf(count), "updated", Long.valueOf(updated.changed()),
                 "dynamicFirst", 1L, "removed", Long.valueOf(removed),
@@ -360,9 +360,17 @@ final class SmokeLaneSuite {
                 "tableGrowthAllocationBytes", Long.valueOf(tableGrowthAllocationBytes),
                 "scratchAllocationBytes", Long.valueOf(scratchAllocationBytes),
                 "retainedScratchBytes", Long.valueOf(scratchAllocationBytes));
-        result.sidecarStats = BenchmarkModel.object("rebuildCount",
-                Long.valueOf(stats.sidecarRebuildCount()), "dirtyCount",
-                Long.valueOf(stats.sidecarDirtyCount()));
+        result.exactIndexStats = BenchmarkModel.object(
+                "implementation", "generated-grouped-exact-index",
+                "indexCount", Integer.valueOf(stats.exactIndexCount()),
+                "entryCount", Long.valueOf(stats.exactIndexEntryCount()),
+                "groupCount", Long.valueOf(stats.exactIndexGroupCount()),
+                "probeCount", Long.valueOf(stats.exactIndexProbeCount()),
+                "collisionCount", Long.valueOf(stats.exactIndexCollisionCount()),
+                "rehashCount", Long.valueOf(stats.exactIndexRehashCount()),
+                "currentBytes", Long.valueOf(stats.exactIndexStorageCurrentBytes()),
+                "highWaterBytes", Long.valueOf(stats.exactIndexStorageHighWaterBytes()),
+                "allocationBytes", Long.valueOf(exactIndexAllocationBytes));
         result.limitations = BenchmarkModel.limitations(
                 "integrated generated table workload covers add/update/dynamic firstOrThrow/remove in one frontier lifecycle",
                 "candidate scoring is deterministic benchmark data; no solver-quality or throughput claim");
@@ -372,19 +380,20 @@ final class SmokeLaneSuite {
     private static LaneObservation generatedDenseWorkspace(BenchmarkConfig config, String lane,
                                                             boolean replaceAndBothTerminals) {
         int count = Math.max(8, config.rows);
+        RouteId route = new RouteId(1L);
         long setupStart = System.nanoTime();
         InsertionCandidateRowTable table = InsertionCandidateRowTable.create();
         InsertionCandidateRowBatch first = insertionBatch(count, 1000L);
         table.replaceAll(first);
-        table.byBestDelta().firstOrThrow();
+        table.findByRoute(route).count();
         InsertionCandidateRowBatch replacement = insertionBatch(count, 2000L);
         table.resetStats();
         TableStats beforeMeasurement = table.statsSnapshot();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
         table.replaceAll(replacement);
-        InsertionCandidateRow maintained = table.byBestDelta().firstOrThrow();
-        TableStats maintainedStats = table.statsSnapshot();
+        long exactMatches = table.findByRoute(route).count();
+        TableStats exactStats = table.statsSnapshot();
         InsertionCandidateRow dynamic = table.rows().sorted(new InsertionCandidateRowRows.Comparator() {
             @Override public int compare(com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow left,
                                          com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow right) {
@@ -401,76 +410,83 @@ final class SmokeLaneSuite {
             secondDynamicStats = table.statsSnapshot();
         }
         long measured = elapsed(measureStart);
-        require(maintained.customerId.equals(dynamic.customerId),
-                "maintained and dynamic dense order terminals disagree");
+        require(exactMatches == count && dynamic.routeId.equals(route),
+                "exact route index and explicit dynamic sort disagree with replacement facts");
         TableStats stats = table.statsSnapshot();
         table.release();
         LaneObservation result = base(lane, setup, measured, count);
         result.operations = replaceAndBothTerminals ? 4L : 3L;
-        result.scanned = count + maintainedStats.lastScanned()
+        result.scanned = count + exactStats.lastScanned()
                 + dynamicStats.lastScanned()
                 + (secondDynamicStats == null ? 0L : secondDynamicStats.lastScanned());
-        result.matched = replaceAndBothTerminals ? 3L : 2L;
+        result.matched = exactStats.lastMatched() + dynamicStats.lastMatched()
+                + (secondDynamicStats == null ? 0L : secondDynamicStats.lastMatched());
         result.changed = count;
-        result.materializationInvocations = replaceAndBothTerminals ? 3L : 2L;
+        result.materializationInvocations = replaceAndBothTerminals ? 2L : 1L;
         result.materialized = result.materializationInvocations;
         long scratchAllocationBytes = positiveDelta(
                 stats.operationScratchCurrentBytes(),
                 beforeMeasurement.operationScratchCurrentBytes())
                 + positiveDelta(stats.updateScratchCurrentBytes(),
-                beforeMeasurement.updateScratchCurrentBytes())
-                + positiveDelta(stats.sidecarScratchCurrentBytes(),
-                beforeMeasurement.sidecarScratchCurrentBytes());
-        result.estimatedAllocationBytes = maintainedStats.lastMaterializationEstimatedAllocationBytes()
-                + dynamicStats.lastMaterializationEstimatedAllocationBytes()
+                beforeMeasurement.updateScratchCurrentBytes());
+        long exactIndexAllocationBytes = positiveDelta(
+                stats.exactIndexStorageCurrentBytes(),
+                beforeMeasurement.exactIndexStorageCurrentBytes());
+        result.estimatedAllocationBytes = dynamicStats.lastMaterializationEstimatedAllocationBytes()
                 + (secondDynamicStats == null ? 0L
                 : secondDynamicStats.lastMaterializationEstimatedAllocationBytes())
-                + scratchAllocationBytes;
+                + scratchAllocationBytes + exactIndexAllocationBytes;
         result.materializationEstimatedAllocationBytes =
-                maintainedStats.lastMaterializationEstimatedAllocationBytes()
-                + dynamicStats.lastMaterializationEstimatedAllocationBytes()
+                dynamicStats.lastMaterializationEstimatedAllocationBytes()
                 + (secondDynamicStats == null ? 0L
                 : secondDynamicStats.lastMaterializationEstimatedAllocationBytes());
         long replaceTouchedBytes = Math.multiplyExact(44L, count);
-        long maintainedOrderRebuildRows = maintainedStats.sidecarRebuildRows();
-        long maintainedOrderTouchedBytes = Math.multiplyExact(
-                32L, maintainedOrderRebuildRows);
+        long exactLookupRows = exactStats.lastScanned();
+        long exactLookupTouchedBytes = Math.multiplyExact(8L, exactLookupRows);
         long dynamicComparatorRows = dynamicStats.lastScanned()
                 + (secondDynamicStats == null ? 0L : secondDynamicStats.lastScanned());
         long dynamicComparatorTouchedBytes = Math.multiplyExact(8L, dynamicComparatorRows);
         long materializationTouchedBytes = Math.multiplyExact(44L, result.materialized);
-        result.touchedBytes = replaceTouchedBytes + maintainedOrderTouchedBytes
+        result.touchedBytes = replaceTouchedBytes + exactLookupTouchedBytes
                 + dynamicComparatorTouchedBytes + materializationTouchedBytes;
         result.workingSetBytes = 44L * stats.capacity()
                 + stats.operationScratchCurrentBytes()
                 + stats.updateScratchCurrentBytes()
-                + stats.sidecarScratchCurrentBytes();
-        result.sidecarStats = BenchmarkModel.object("implementation", "generated-insertion-workspace",
+                + stats.exactIndexStorageCurrentBytes();
+        result.exactIndexStats = BenchmarkModel.object(
+                "implementation", "generated-grouped-exact-index",
                 "replaceRows", Integer.valueOf(count),
-                "maintainedFirstOrThrow", 1L, "dynamicFindFirst", 1L,
+                "exactLookupCount", Long.valueOf(exactMatches),
+                "dynamicFindFirst", 1L,
                 "dynamicFirstOrThrow", replaceAndBothTerminals ? 1L : 0L,
-                "dirtyCount", Long.valueOf(stats.sidecarDirtyCount()),
-                "rebuildCount", Long.valueOf(stats.sidecarRebuildCount()),
                 "replaceTouchedBytes", Long.valueOf(replaceTouchedBytes),
-                "maintainedOrderRebuildRows", Long.valueOf(maintainedOrderRebuildRows),
-                "maintainedOrderKeyWidthBytes", 32L,
-                "maintainedOrderTouchedBytes", Long.valueOf(maintainedOrderTouchedBytes),
+                "exactLookupRows", Long.valueOf(exactLookupRows),
+                "exactLookupKeyWidthBytes", 8L,
+                "exactLookupTouchedBytes", Long.valueOf(exactLookupTouchedBytes),
                 "dynamicComparatorRows", Long.valueOf(dynamicComparatorRows),
                 "dynamicComparatorWidthBytes", 8L,
                 "dynamicComparatorTouchedBytes", Long.valueOf(dynamicComparatorTouchedBytes),
                 "materializedRowWidthBytes", 44L,
                 "materializationTouchedBytes", Long.valueOf(materializationTouchedBytes),
+                "indexCount", Integer.valueOf(stats.exactIndexCount()),
+                "entryCount", Long.valueOf(stats.exactIndexEntryCount()),
+                "groupCount", Long.valueOf(stats.exactIndexGroupCount()),
+                "probeCount", Long.valueOf(stats.exactIndexProbeCount()),
+                "collisionCount", Long.valueOf(stats.exactIndexCollisionCount()),
+                "rehashCount", Long.valueOf(stats.exactIndexRehashCount()),
+                "currentBytes", Long.valueOf(stats.exactIndexStorageCurrentBytes()),
+                "highWaterBytes", Long.valueOf(stats.exactIndexStorageHighWaterBytes()),
                 "tableCapacity", Integer.valueOf(stats.capacity()),
+                "exactIndexAllocationBytes", Long.valueOf(exactIndexAllocationBytes),
                 "scratchAllocationBytes", Long.valueOf(scratchAllocationBytes),
                 "retainedScratchBytes", Long.valueOf(
-                stats.operationScratchCurrentBytes() + stats.updateScratchCurrentBytes()
-                        + stats.sidecarScratchCurrentBytes()));
+                stats.operationScratchCurrentBytes() + stats.updateScratchCurrentBytes()));
         result.limitations = BenchmarkModel.limitations(
-                "generated dense workspace performs replaceAll and maintained/dynamic ordered terminals",
+                "generated dense workspace performs replaceAll, exact lookup and explicit sort terminals",
                 "candidate construction is outside measured publication/terminal phase");
         return finish(result, replaceAndBothTerminals
-                ? "generated-dense-replace-and-order-terminals"
-                : "generated-maintained-order-dirty-lazy-rebuild");
+                ? "generated-dense-replace-and-sort-terminals"
+                : "generated-exact-index-incremental-lookup");
     }
 
     private static InsertionCandidateRowBatch insertionBatch(int count, long base) {
@@ -531,63 +547,43 @@ final class SmokeLaneSuite {
         long setupStart = System.nanoTime();
         int count = Math.max(65, config.rows);
         HashIntKeySpace hash = new HashIntKeySpace(1);
-        SparseIntKeySpace sparse = new SparseIntKeySpace(count * 2);
         HashCompositeKeySpace composite = new HashCompositeKeySpace(1);
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
-        int[] direct = new int[count * 2 + 1];
-        Arrays.fill(direct, -1);
         for (int row = 0; row < count; row++) {
             hash.put(row * 17 + 3, row);
-            sparse.put(row * 2, row);
-            direct[row * 2] = row;
             composite.ensureInsertCapacity();
-            int slot = insertionSlot(composite, lane.contains("collision") ? 7L : row * 31L + 11L);
-            composite.putAt(slot, lane.contains("collision") ? 7L : row * 31L + 11L, row);
+            int slot = insertionSlot(composite, 7L);
+            composite.putAt(slot, 7L, row);
         }
-        int sparseOutOfDomainMisses = 0;
-        if (sparse.rowOf(-1) == -1) sparseOutOfDomainMisses++;
-        if (sparse.rowOf(sparse.maximumKey() + 1) == -1) sparseOutOfDomainMisses++;
-        int sparseDomainGuardRejects = 0;
-        try {
-            sparse.put(-1, sparse.size());
-        } catch (IllegalArgumentException expected) {
-            sparseDomainGuardRejects++;
-        }
+        hash.put(Integer.MIN_VALUE, count);
+        hash.put(Integer.MAX_VALUE, count + 1);
+        boolean minimumAccepted = hash.rowOf(Integer.MIN_VALUE) == count;
+        boolean maximumAccepted = hash.rowOf(Integer.MAX_VALUE) == count + 1;
         long checksum = 0L;
         for (int row = 0; row < count; row++) {
             checksum += hash.rowOf(row * 17 + 3);
-            checksum += sparse.rowOf(row * 2);
-            checksum += direct[row * 2];
         }
         int missing = hash.rowOf(-999);
         for (int row = 0; row < count / 4; row++) hash.remove(row * 17 + 3);
         long measured = elapsed(measureStart);
-        require(missing == -1 && checksum >= 0L && sparseOutOfDomainMisses == 2
-                        && sparseDomainGuardRejects == 1,
-                "keyspace lookup/domain-guard semantics");
+        require(missing == -1 && checksum >= 0L && minimumAccepted && maximumAccepted,
+                "hash keyspace accepts the complete int identity domain");
         blackhole ^= checksum;
         LaneObservation result = base(lane, setup, measured, count);
-        result.operations = count * 6L + count / 4L + 4L;
-        result.lookups = count * 3L + 3L;
-        result.missing = 3L;
-        result.changed = count * 3L + count / 4L;
-        result.scanned = count * 3L;
-        result.matched = count * 3L;
-        result.touchedBytes = 24L * count;
-        result.workingSetBytes = sparse.retainedBytes()
-                + hash.retainedBytes() + composite.retainedBytes()
-                + 4L * direct.length;
-        result.estimatedAllocationBytes = 4L * direct.length
-                + hashGrowthBytes(9L, hash.capacity())
-                + hashGrowthBytes(13L, composite.capacity())
-                + sparseDenseGrowthBytes(sparse.denseCapacity());
+        result.operations = count * 3L + count / 4L + 5L;
+        result.lookups = count + 3L;
+        result.missing = 1L;
+        result.changed = count * 2L + count / 4L + 2L;
+        result.scanned = count;
+        result.matched = count;
+        result.touchedBytes = 22L * count;
+        result.workingSetBytes = hash.retainedBytes() + composite.retainedBytes();
+        result.estimatedAllocationBytes = hashGrowthBytes(9L, hash.capacity())
+                + hashGrowthBytes(13L, composite.capacity());
         result.keySpaceStats = BenchmarkModel.object(
-                "sparseMaximumKey", Integer.valueOf(sparse.maximumKey()),
-                "sparseCapacity", Integer.valueOf(sparse.sparseCapacity()),
-                "sparseDenseCapacity", Integer.valueOf(sparse.denseCapacity()),
-                "sparseOutOfDomainMisses", Integer.valueOf(sparseOutOfDomainMisses),
-                "sparseDomainGuardRejects", Integer.valueOf(sparseDomainGuardRejects),
+                "fullIntDomainMinimumAccepted", Boolean.valueOf(minimumAccepted),
+                "fullIntDomainMaximumAccepted", Boolean.valueOf(maximumAccepted),
                 "hashCapacity", Integer.valueOf(hash.capacity()),
                 "hashUsed", Integer.valueOf(hash.used()),
                 "hashLoadFactor", Double.valueOf((double) hash.size() / hash.capacity()),
@@ -600,9 +596,9 @@ final class SmokeLaneSuite {
                 "compositeRehashCount", Long.valueOf(composite.rehashCount()),
                 "normalMissing", 1L, "duplicateAttempts", 0L);
         result.limitations = BenchmarkModel.limitations(
-                "smoke validates SparseInt domain and Hash load/collision/rehash paths; no complexity or speed claim",
+                "smoke validates full-int-domain Hash and collision/rehash paths; no complexity or speed claim",
                 "composite lane uses raw hash/row substrate; generated full-key equality is covered by G2/G4 consumers");
-        result.baselineId = "primitive-direct-domain-array-v1";
+        result.baselineId = "primitive-hash-full-int-domain-v2";
         return finish(result, "key-identity-lookup-mutation");
     }
 
@@ -640,59 +636,73 @@ final class SmokeLaneSuite {
         return finish(result, reserve ? "batch-import-with-reserve" : "batch-import-growth");
     }
 
-    private static LaneObservation sidecar(BenchmarkConfig config, String lane) {
+    private static LaneObservation exactIndexStorm(BenchmarkConfig config, String lane) {
+        int rows = Math.max(1, config.rows);
+        int groups = rows < 2 ? 1 : Math.min(16, rows / 2);
         long setupStart = System.nanoTime();
-        RowPermutationSidecar sidecar = new RowPermutationSidecar();
-        KernelTable table = new KernelTable(config.rows, "required", StatsMode.DIAGNOSTIC, true);
+        GroupedExactIndex index = new GroupedExactIndex(0);
+        index.ensureCapacity(rows, groups);
+        int[] groupIds = new int[groups];
+        for (int group = 0; group < groups; group++) {
+            groupIds[group] = index.createGroup(31L * group + 7L);
+        }
+        for (int row = 0; row < rows; row++) index.link(groupIds[row % groups], row);
+        index.resetMetrics();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
-        long rebuildNanos = 0L;
-        int rebuilds = 4;
+        int mutationPasses = rows < 2 ? 0 : 4;
         long checksum = 0L;
-        for (int rebuild = 0; rebuild < rebuilds; rebuild++) {
-            long rebuildStart = System.nanoTime();
-            int[] staged = sidecar.stage(config.rows);
-            for (int row = 0; row < config.rows; row++) staged[row] = config.rows - row - 1;
-            Arrays.sort(staged, 0, config.rows);
-            sidecar.scratch(config.rows);
-            sidecar.commit(staged, config.rows);
-            table.state.sidecarRebuilt(config.rows);
-            table.state.sidecarScratch(sidecar.retainedBytes(), sidecar.rebuildPeakBytes(config.rows));
-            rebuildNanos += elapsed(rebuildStart);
-            checksum += sidecar.rowAt(config.rows / 2);
-            if (rebuild + 1 < rebuilds) {
-                sidecar.markDirty();
-                table.state.sidecarsDirtied(1L);
+        for (int pass = 0; pass < mutationPasses; pass++) {
+            for (int row = 0; row < rows; row++) {
+                int group = row % groups;
+                index.unlink(row);
+                index.link(groupIds[group], row);
             }
         }
-        for (int row = 0; row < config.rows; row++) checksum += sidecar.rowAt(row);
-        sidecar.markDirty();
-        table.state.sidecarsDirtied(1L);
+        int lookupRows = 0;
+        for (int group = 0; group < groups; group++) {
+            int found = index.firstGroup(31L * group + 7L);
+            require(found == groupIds[group], "exact-index group lookup identity");
+            for (int row = index.firstRow(found); row >= 0; row = index.nextRow(row)) {
+                checksum += row;
+                lookupRows++;
+            }
+        }
         long measured = elapsed(measureStart);
+        require(lookupRows == rows && index.entryCount() == rows
+                        && index.groupCount() == groups,
+                "incremental exact-index mutation/lookup cardinality");
         blackhole ^= checksum;
-        TableStats stats = table.state.statsSnapshot();
-        LaneObservation result = base(lane, setup, measured, config.rows);
-        result.scanned = config.rows * (rebuilds + 1L);
+        LaneObservation result = base(lane, setup, measured, rows);
+        result.scanned = rows * (mutationPasses + 1L);
         result.matched = result.scanned;
-        result.operations = rebuilds + 1L;
-        result.touchedBytes = 8L * config.rows * rebuilds + 4L * config.rows;
-        result.workingSetBytes = sidecar.retainedBytes();
-        result.estimatedAllocationBytes = sidecar.rebuildPeakBytes(config.rows);
-        result.explicitMutations = rebuilds;
-        result.sidecarStats = BenchmarkModel.object("dirtyCount", Long.valueOf(stats.sidecarDirtyCount()),
-                "rebuildCount", Long.valueOf(stats.sidecarRebuildCount()),
-                "rebuildRows", Long.valueOf(stats.sidecarRebuildRows()),
-                "rebuildNanos", Long.valueOf(rebuildNanos),
-                "currentBytes", Long.valueOf(stats.sidecarScratchCurrentBytes()),
-                "highWaterBytes", Long.valueOf(stats.sidecarScratchHighWaterBytes()),
-                "cleanTraversalCount", 1L, "stormRebuilds", Integer.valueOf(rebuilds));
-        result.selectorStats = BenchmarkModel.object("cardinality", Integer.valueOf(config.rows),
-                "selectivity", 1.0d, "dynamicSortBufferBytes", Long.valueOf(4L * config.rows));
+        result.operations = mutationPasses + groups;
+        result.touchedBytes = 24L * rows * mutationPasses + 4L * rows;
+        result.workingSetBytes = index.retainedBytes();
+        result.estimatedAllocationBytes = 0L;
+        result.explicitMutations = (long) mutationPasses * rows;
+        result.explicitReads = lookupRows;
+        result.exactIndexStats = BenchmarkModel.object(
+                "implementation", "kernel-grouped-exact-index",
+                "entryCount", Integer.valueOf(index.entryCount()),
+                "groupCount", Integer.valueOf(index.groupCount()),
+                "probeCount", Long.valueOf(index.probeCount()),
+                "collisionCount", Long.valueOf(index.collisionCount()),
+                "rehashCount", Long.valueOf(index.rehashCount()),
+                "currentBytes", Long.valueOf(index.retainedBytes()),
+                "highWaterBytes", Long.valueOf(index.storageHighWaterBytes()),
+                "mutationCount", Long.valueOf(result.explicitMutations),
+                "lookupCount", Integer.valueOf(groups),
+                "lookupRows", Integer.valueOf(lookupRows),
+                "measurementAllocationBytes", 0L);
+        result.selectorStats = BenchmarkModel.object("cardinality", Integer.valueOf(rows),
+                "selectivity", Double.valueOf(1.0d / groups),
+                "exactLookupBufferBytes", 0L);
         result.statsMode = "diagnostic";
         result.limitations = BenchmarkModel.limitations(
-                "smoke records clean/dirty/rebuild-storm shape; timing is not a maintained-order claim",
-                "Arrays.sort is the benchmark baseline; generated comparator evidence is separate");
-        return finish(result, "order-sidecar-dirty-lazy-rebuild");
+                "smoke records pre-sized incremental unlink/link and exact traversal shape",
+                "generated full-equality and collision handling are covered by external consumers");
+        return finish(result, "exact-index-mutation-lookup-no-rebuild");
     }
 
     private static LaneObservation compaction(BenchmarkConfig config, String lane) {
@@ -741,7 +751,7 @@ final class SmokeLaneSuite {
         result.estimatedAllocationBytes = 12L;
         result.touchedBytes = 8L * config.rows;
         result.workingSetBytes = 4L * table.state.capacity() + 4L * scratch.length;
-        result.sidecarStats = BenchmarkModel.object("compactedRows", Long.valueOf(result.removed),
+        result.selectorStats = BenchmarkModel.object("compactedRows", Long.valueOf(result.removed),
                 "retainedCapacity", Integer.valueOf(table.state.capacity()),
                 "operationScratchCurrentBytes", Long.valueOf(stats.operationScratchCurrentBytes()),
                 "operationScratchHighWaterBytes", Long.valueOf(stats.operationScratchHighWaterBytes()),
@@ -856,14 +866,10 @@ final class SmokeLaneSuite {
         int parents = 8;
         int[] flatParent = new int[parents * child.state.size()];
         int[] flatValue = new int[flatParent.length];
-        RowPermutationSidecar grouped = new RowPermutationSidecar();
-        int[] groupedRows = grouped.stage(flatParent.length);
         for (int row = 0; row < flatParent.length; row++) {
             flatParent[row] = row / child.state.size();
             flatValue[row] = row % child.state.size();
-            groupedRows[row] = row;
         }
-        grouped.commit(groupedRows, flatParent.length);
         long setup = elapsed(setupStart);
         long childStart = System.nanoTime();
         KernelTable resolved = (KernelTable) registry.resolve(handle, owner, "children", "benchmark.scan");
@@ -897,7 +903,7 @@ final class SmokeLaneSuite {
                 "flatFilterNanos", Long.valueOf(flatNanos));
         result.limitations = BenchmarkModel.limitations(
                 "smoke compares same-value parent-local child and flat-filter paths without claiming locality advantage",
-                "cache/profile counters unavailable; grouped baseline uses runtime primitive sidecar rather than generated schema API");
+                "cache/profile counters are unavailable; flat baseline is a primitive parent-id scan");
         return finish(result, "parent-owned-child-versus-flat");
     }
 
@@ -1149,7 +1155,7 @@ final class SmokeLaneSuite {
             return Arrays.asList("vectorIndex", "entityKind", "entityId", "variableKind",
                     "value", "derivative", "scale");
         }
-        if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) {
+        if (lane.equals("kernel.keyspace_full_domain_load_collision_rehash")) {
             return Arrays.asList("key", "rowIndex", "hashSlot");
         }
         if (lane.equals("kernel.key_lookup_normal")
@@ -1164,8 +1170,8 @@ final class SmokeLaneSuite {
                     "processingMinutes", "setupMinutes", "effectiveReadyMinute",
                     "fcfsValue", "sptValue", "indicatorReady");
         }
-        if (lane.equals("generated.ordered_access_lazy_rebuild")
-                || lane.equals("generated.dense_scratch_replace_order")) {
+        if (lane.equals("generated.exact_index_incremental_lookup")
+                || lane.equals("generated.dense_scratch_replace_sort")) {
             return Arrays.asList("customerId.value", "routeId.value", "insertAfterPosition",
                     "deltaDistanceMeters", "projectedArrivalMinute", "violationPenalty");
         }
@@ -1178,8 +1184,8 @@ final class SmokeLaneSuite {
             return Arrays.asList("operationKey", "candidateMachines");
         }
         if (lane.equals("kernel.compaction_capacity_reuse")) return Arrays.asList("value");
-        if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) {
-            return Arrays.asList("rowIndex", "orderKey");
+        if (lane.equals("kernel.exact_index_mutation_lookup_storm")) {
+            return Arrays.asList("hashGroup", "rowLink");
         }
         if (lane.equals("kernel.stats_mode_overhead")) return Arrays.asList("value");
         throw new IllegalArgumentException("missing Access Pattern Card hot columns for " + lane);
@@ -1189,7 +1195,7 @@ final class SmokeLaneSuite {
         if (!REQUIRED_LANES.contains(lane)) {
             throw new IllegalArgumentException("unknown benchmark workload lane: " + lane);
         }
-        return "soma-g5-smoke:" + lane + ":v3";
+        return "soma-g5-smoke:" + lane + ":v4";
     }
 
     static void validateWorkloadEvidence(String lane, Map<String, Object> evidence) {
@@ -1233,7 +1239,7 @@ final class SmokeLaneSuite {
         Map<String, Object> allocation = nested(record, "allocationEstimate");
         long iterations = number(record, "measurementIterations");
         long scaleRows = number(nested(record, "scale"), "rows");
-        boolean sidecar = false, keySpace = false, selector = false;
+        boolean exactIndex = false, keySpace = false, selector = false;
         boolean materialization = number(operations, "materializations") > 0L;
         boolean specializedMaterialization = false, budget = false, columnView = false;
 
@@ -1296,30 +1302,24 @@ final class SmokeLaneSuite {
                             * (number(stats, "operationScratchHighWaterBytes")
                             + number(stats, "updateScratchCurrentBytes")),
                     "fusion nested counters contradict root measurement facts");
-        } else if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) {
+        } else if (lane.equals("kernel.keyspace_full_domain_load_collision_rehash")) {
             keySpace = true;
             Map<String, Object> stats = nested(record, "keySpaceStats");
-            requireExactKeys(stats, new String[] {"sparseMaximumKey", "sparseCapacity",
-                    "sparseDenseCapacity", "sparseOutOfDomainMisses",
-                    "sparseDomainGuardRejects", "hashCapacity", "hashUsed",
+            requireExactKeys(stats, new String[] {"fullIntDomainMinimumAccepted",
+                    "fullIntDomainMaximumAccepted", "hashCapacity", "hashUsed",
                     "hashLoadFactor", "hashProbeCount", "hashCollisionCount",
                     "hashRehashCount", "compositeCapacity", "compositeProbeCount",
                     "compositeCollisionCount", "compositeRehashCount",
                     "normalMissing", "duplicateAttempts"});
-            requireIntegerFields(stats, new String[] {"sparseMaximumKey", "sparseCapacity",
-                    "sparseDenseCapacity", "sparseOutOfDomainMisses",
-                    "sparseDomainGuardRejects", "hashCapacity", "hashUsed",
+            requireBoolean(stats, "fullIntDomainMinimumAccepted", true);
+            requireBoolean(stats, "fullIntDomainMaximumAccepted", true);
+            requireIntegerFields(stats, new String[] {"hashCapacity", "hashUsed",
                     "hashProbeCount", "hashCollisionCount", "hashRehashCount",
                     "compositeCapacity", "compositeProbeCount",
                     "compositeCollisionCount", "compositeRehashCount",
                     "normalMissing", "duplicateAttempts"});
             requireRange(stats, "hashLoadFactor", 0.0d, 1.0d);
-            require(number(stats, "sparseOutOfDomainMisses") == 2L * iterations,
-                    "SparseInt out-of-domain miss evidence");
-            require(number(stats, "sparseDomainGuardRejects") == iterations,
-                    "SparseInt domain guard reject evidence");
-            require(number(stats, "sparseOutOfDomainMisses")
-                            + number(stats, "normalMissing") == number(operations, "missing"),
+            require(number(stats, "normalMissing") == number(operations, "missing"),
                     "KeySpace missing counters contradict root facts");
             require(number(stats, "duplicateAttempts")
                             == number(operations, "duplicates"),
@@ -1330,7 +1330,7 @@ final class SmokeLaneSuite {
             Map<String, Object> stats = nested(record, "keySpaceStats");
             requireExactKeys(stats, new String[] {"implementation", "fullEqualityDistinguished",
                     "collisionConstructed", "collisionCount", "probeCount", "rehashCount"});
-            requireStringValue(stats, "implementation", "generated-hash-composite-v1");
+            requireStringValue(stats, "implementation", "generated-hash-composite-v2");
             requireBoolean(stats, "fullEqualityDistinguished", true);
             requireBoolean(stats, "collisionConstructed", lane.endsWith("collision"));
             requireIntegerFields(stats, new String[] {"collisionCount", "probeCount", "rehashCount"});
@@ -1356,47 +1356,52 @@ final class SmokeLaneSuite {
                             && number(stats, "growthCount")
                             == (lane.endsWith("reserve") ? 0L : iterations),
                     "batch import counters contradict measurement window");
-        } else if (lane.equals("generated.ordered_access_lazy_rebuild")
-                || lane.equals("generated.dense_scratch_replace_order")) {
-            sidecar = true;
-            Map<String, Object> stats = nested(record, "sidecarStats");
+        } else if (lane.equals("generated.exact_index_incremental_lookup")
+                || lane.equals("generated.dense_scratch_replace_sort")) {
+            exactIndex = true;
+            Map<String, Object> stats = nested(record, "exactIndexStats");
             requireExactKeys(stats, new String[] {"implementation", "replaceRows",
-                    "maintainedFirstOrThrow", "dynamicFindFirst", "dynamicFirstOrThrow",
-                    "dirtyCount", "rebuildCount", "replaceTouchedBytes",
-                    "maintainedOrderRebuildRows", "maintainedOrderKeyWidthBytes",
-                    "maintainedOrderTouchedBytes", "dynamicComparatorRows",
+                    "exactLookupCount", "dynamicFindFirst", "dynamicFirstOrThrow",
+                    "replaceTouchedBytes", "exactLookupRows", "exactLookupKeyWidthBytes",
+                    "exactLookupTouchedBytes", "dynamicComparatorRows",
                     "dynamicComparatorWidthBytes", "dynamicComparatorTouchedBytes",
-                    "materializedRowWidthBytes", "materializationTouchedBytes", "tableCapacity",
+                    "materializedRowWidthBytes", "materializationTouchedBytes",
+                    "indexCount", "entryCount", "groupCount", "probeCount",
+                    "collisionCount", "rehashCount", "currentBytes", "highWaterBytes",
+                    "tableCapacity", "exactIndexAllocationBytes",
                     "scratchAllocationBytes", "retainedScratchBytes"});
-            requireStringValue(stats, "implementation", "generated-insertion-workspace");
-            requireIntegerFields(stats, new String[] {"replaceRows", "maintainedFirstOrThrow",
-                    "dynamicFindFirst", "dynamicFirstOrThrow", "dirtyCount", "rebuildCount",
-                    "replaceTouchedBytes", "maintainedOrderRebuildRows",
-                    "maintainedOrderKeyWidthBytes", "maintainedOrderTouchedBytes",
+            requireStringValue(stats, "implementation", "generated-grouped-exact-index");
+            requireIntegerFields(stats, new String[] {"replaceRows", "exactLookupCount",
+                    "dynamicFindFirst", "dynamicFirstOrThrow", "replaceTouchedBytes",
+                    "exactLookupRows", "exactLookupKeyWidthBytes", "exactLookupTouchedBytes",
                     "dynamicComparatorRows", "dynamicComparatorWidthBytes",
                     "dynamicComparatorTouchedBytes", "materializedRowWidthBytes",
-                    "materializationTouchedBytes", "tableCapacity", "scratchAllocationBytes",
+                    "materializationTouchedBytes", "indexCount", "entryCount",
+                    "groupCount", "probeCount", "collisionCount", "rehashCount",
+                    "currentBytes", "highWaterBytes", "tableCapacity",
+                    "exactIndexAllocationBytes", "scratchAllocationBytes",
                     "retainedScratchBytes"});
             requirePositive(stats, "replaceRows", lane);
-            requirePositive(stats, "maintainedFirstOrThrow", lane);
+            requirePositive(stats, "exactLookupCount", lane);
             requirePositive(stats, "dynamicFindFirst", lane);
-            if (lane.equals("generated.dense_scratch_replace_order")) {
+            requirePositive(stats, "indexCount", lane);
+            requirePositive(stats, "entryCount", lane);
+            if (lane.equals("generated.dense_scratch_replace_sort")) {
                 requirePositive(stats, "dynamicFirstOrThrow", lane);
             }
-            long terminals = number(stats, "maintainedFirstOrThrow")
-                    + number(stats, "dynamicFindFirst")
+            long terminals = number(stats, "dynamicFindFirst")
                     + number(stats, "dynamicFirstOrThrow");
             require(number(stats, "replaceRows") == number(rows, "changed")
                             && terminals == number(operations, "materializations")
                             && terminals == number(rows, "materialized")
-                            && number(operations, "operations") == iterations + terminals
-                            && number(stats, "dirtyCount") == iterations
-                            && number(stats, "rebuildCount") == iterations
+                            && number(operations, "operations") == 2L * iterations + terminals
+                            && number(stats, "exactLookupCount")
+                                    == number(stats, "exactLookupRows")
                             && number(stats, "replaceTouchedBytes")
                             == 44L * number(stats, "replaceRows")
-                            && number(stats, "maintainedOrderKeyWidthBytes") == 32L
-                            && number(stats, "maintainedOrderTouchedBytes")
-                            == 32L * number(stats, "maintainedOrderRebuildRows")
+                            && number(stats, "exactLookupKeyWidthBytes") == 8L
+                            && number(stats, "exactLookupTouchedBytes")
+                            == 8L * number(stats, "exactLookupRows")
                             && number(stats, "dynamicComparatorWidthBytes") == 8L
                             && number(stats, "dynamicComparatorTouchedBytes")
                             == 8L * number(stats, "dynamicComparatorRows")
@@ -1405,18 +1410,20 @@ final class SmokeLaneSuite {
                             == 44L * number(rows, "materialized")
                             && number(record, "touchedBytesEstimate")
                             == number(stats, "replaceTouchedBytes")
-                            + number(stats, "maintainedOrderTouchedBytes")
+                            + number(stats, "exactLookupTouchedBytes")
                             + number(stats, "dynamicComparatorTouchedBytes")
                             + number(stats, "materializationTouchedBytes")
                             && number(record, "workingSetEstimate")
                             == 44L * number(stats, "tableCapacity")
+                            + number(stats, "currentBytes")
                             + number(stats, "retainedScratchBytes")
                             && number(allocation, "bytes")
                             == number(nested(record, "materializationStats"), "estimatedBytes")
+                            + number(stats, "exactIndexAllocationBytes")
                             + number(stats, "scratchAllocationBytes"),
                     "dense workspace counters include setup or contradict terminals");
         } else if (lane.equals("generated.keyed_frontier")) {
-            sidecar = true;
+            exactIndex = true;
             keySpace = true;
             Map<String, Object> keys = nested(record, "keySpaceStats");
             requireExactKeys(keys, new String[] {"implementation", "added", "updated",
@@ -1440,8 +1447,16 @@ final class SmokeLaneSuite {
             requirePositive(keys, "updated", lane);
             requirePositive(keys, "dynamicFirst", lane);
             requirePositive(keys, "removed", lane);
-            requireExactIntegers(nested(record, "sidecarStats"),
-                    new String[] {"rebuildCount", "dirtyCount"});
+            Map<String, Object> indexes = nested(record, "exactIndexStats");
+            requireExactKeys(indexes, new String[] {"implementation", "indexCount",
+                    "entryCount", "groupCount", "probeCount", "collisionCount",
+                    "rehashCount", "currentBytes", "highWaterBytes", "allocationBytes"});
+            requireStringValue(indexes, "implementation", "generated-grouped-exact-index");
+            requireIntegerFields(indexes, new String[] {"indexCount", "entryCount",
+                    "groupCount", "probeCount", "collisionCount", "rehashCount",
+                    "currentBytes", "highWaterBytes", "allocationBytes"});
+            requirePositive(indexes, "indexCount", lane);
+            requirePositive(indexes, "entryCount", lane);
             require(number(operations, "operations") == 4L * iterations
                             && number(rows, "changed")
                             == number(keys, "added") + number(keys, "updated")
@@ -1449,15 +1464,12 @@ final class SmokeLaneSuite {
                             && number(rows, "materialized") == number(keys, "dynamicFirst")
                             && number(operations, "materializations")
                             == number(keys, "dynamicFirst")
-                            && number(nested(record, "sidecarStats"), "dirtyCount")
-                            == 2L * iterations
-                            && number(nested(record, "sidecarStats"), "rebuildCount")
-                            == 2L * iterations
                             && number(record, "touchedBytesEstimate")
                             == 105L * (number(rows, "scanned") + iterations)
                             && number(record, "workingSetEstimate")
                             == 105L * number(keys, "tableCapacity")
                             + 13L * number(keys, "keySpaceCapacity")
+                            + number(indexes, "currentBytes")
                             + number(keys, "retainedScratchBytes")
                             && number(keys, "appendValidationKeySpaceAllocationBytes")
                             == 13L * number(keys, "appendValidationKeySpaceCapacity")
@@ -1477,6 +1489,7 @@ final class SmokeLaneSuite {
                             == number(nested(record, "materializationStats"), "estimatedBytes")
                             + number(keys, "tableGrowthAllocationBytes")
                             + number(keys, "keySpaceAllocationBytes")
+                            + number(indexes, "allocationBytes")
                             + number(keys, "scratchAllocationBytes"),
                     "keyed frontier nested counters contradict measured lifecycle");
         } else if (lane.equals("kernel.column_view")) {
@@ -1581,8 +1594,8 @@ final class SmokeLaneSuite {
                     "materialization budget root counters include setup or contradict outcomes");
             validateBoundaries(stats.get("boundaries"));
         } else if (lane.equals("kernel.compaction_capacity_reuse")) {
-            sidecar = true;
-            Map<String, Object> stats = nested(record, "sidecarStats");
+            selector = true;
+            Map<String, Object> stats = nested(record, "selectorStats");
             requireExactIntegers(stats,
                     new String[] {"compactedRows", "retainedCapacity",
                             "operationScratchCurrentBytes", "operationScratchHighWaterBytes",
@@ -1595,32 +1608,33 @@ final class SmokeLaneSuite {
                             && number(allocation, "bytes")
                             == number(stats, "measurementArrayAllocationBytes"),
                     "compaction nested counters contradict root measurement facts");
-        } else if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) {
-            sidecar = true;
+        } else if (lane.equals("kernel.exact_index_mutation_lookup_storm")) {
+            exactIndex = true;
             selector = true;
-            requireExactIntegers(nested(record, "sidecarStats"),
-                    new String[] {"dirtyCount", "rebuildCount", "rebuildRows",
-                            "rebuildNanos", "currentBytes", "highWaterBytes",
-                            "cleanTraversalCount", "stormRebuilds"});
-            Map<String, Object> sidecarStats = nested(record, "sidecarStats");
-            require(number(sidecarStats, "cleanTraversalCount") == iterations
-                            && number(sidecarStats, "stormRebuilds") == 4L * iterations
-                            && number(sidecarStats, "rebuildRows")
-                            + number(nested(record, "selectorStats"), "cardinality")
-                            * number(sidecarStats, "cleanTraversalCount")
-                            == number(rows, "scanned")
-                            && number(sidecarStats, "rebuildCount")
-                            == number(sidecarStats, "stormRebuilds")
-                            && number(operations, "operations")
-                            == number(sidecarStats, "cleanTraversalCount")
-                            + number(sidecarStats, "stormRebuilds")
-                            && number(allocation, "bytes")
-                            == iterations * number(sidecarStats, "highWaterBytes"),
-                    "sidecar clean/rebuild-storm evidence");
+            Map<String, Object> indexStats = nested(record, "exactIndexStats");
+            requireExactKeys(indexStats, new String[] {"implementation", "entryCount",
+                    "groupCount", "probeCount", "collisionCount", "rehashCount",
+                    "currentBytes", "highWaterBytes", "mutationCount", "lookupCount",
+                    "lookupRows", "measurementAllocationBytes"});
+            requireStringValue(indexStats, "implementation", "kernel-grouped-exact-index");
+            requireIntegerFields(indexStats, new String[] {"entryCount", "groupCount",
+                    "probeCount", "collisionCount", "rehashCount", "currentBytes",
+                    "highWaterBytes", "mutationCount", "lookupCount", "lookupRows",
+                    "measurementAllocationBytes"});
+            require(number(indexStats, "entryCount")
+                            == number(nested(record, "selectorStats"), "cardinality")
+                            && number(indexStats, "lookupRows")
+                                    == number(rows, "source")
+                            && number(indexStats, "mutationCount") > 0L
+                            && number(indexStats, "measurementAllocationBytes") == 0L
+                            && number(allocation, "bytes") == 0L
+                            && number(record, "workingSetEstimate")
+                                    == number(indexStats, "currentBytes"),
+                    "incremental exact-index storm evidence");
             Map<String, Object> stats = nested(record, "selectorStats");
             requireExactKeys(stats, new String[] {"cardinality", "selectivity",
-                    "dynamicSortBufferBytes"});
-            requireIntegerFields(stats, new String[] {"cardinality", "dynamicSortBufferBytes"});
+                    "exactLookupBufferBytes"});
+            requireIntegerFields(stats, new String[] {"cardinality", "exactLookupBufferBytes"});
             requireRange(stats, "selectivity", 0.0d, 1.0d);
         } else if (lane.equals("kernel.stats_mode_overhead")) {
             selector = true;
@@ -1643,7 +1657,7 @@ final class SmokeLaneSuite {
             throw new IllegalArgumentException("missing lane evidence contract " + lane);
         }
 
-        validateDefaultIfUnused(record, "sidecarStats", sidecar);
+        validateDefaultIfUnused(record, "exactIndexStats", exactIndex);
         validateDefaultIfUnused(record, "keySpaceStats", keySpace);
         validateDefaultIfUnused(record, "selectorStats", selector);
         if (!materialization) {
@@ -1850,19 +1864,19 @@ final class SmokeLaneSuite {
         if (lane.startsWith("kernel.optional_")) return "optional-bitmap-scan";
         if (lane.equals("kernel.packed_scan")) return "packed-vs-primitive-equality";
         if (lane.equals("generated.pipeline_fusion")) return "generated-fused-terminal";
-        if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) return "keyspace-domain-load-rehash";
+        if (lane.equals("kernel.keyspace_full_domain_load_collision_rehash")) return "keyspace-full-domain-load-rehash";
         if (lane.equals("kernel.key_lookup_normal")) return "generated-normal-full-key-lookup";
         if (lane.equals("kernel.key_lookup_collision")) return "generated-collision-full-equality";
         if (lane.startsWith("kernel.batch_import")) return "batch-capacity-path";
-        if (lane.equals("generated.ordered_access_lazy_rebuild")) return "generated-lazy-order-rebuild";
+        if (lane.equals("generated.exact_index_incremental_lookup")) return "generated-exact-index-incremental-lookup";
         if (lane.equals("generated.keyed_frontier")) return "generated-frontier-add-update-first-remove";
-        if (lane.equals("generated.dense_scratch_replace_order")) return "generated-replace-findfirst-firstorthrow";
+        if (lane.equals("generated.dense_scratch_replace_sort")) return "generated-replace-sort-findfirst-firstorthrow";
         if (lane.equals("kernel.column_view")) return "column-view-lifecycle";
         if (lane.equals("child_locality.parent_scan_vs_flat")) return "parent-local-versus-flat";
         if (lane.equals("generated.materialization_recursive_success")) return "generated-recursive-map-object-list";
         if (lane.equals("materialization.budget_boundary")) return "generated-budget-allocation-no-partial";
         if (lane.equals("kernel.compaction_capacity_reuse")) return "compaction-capacity-scratch-reuse";
-        if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) return "sidecar-clean-dirty-rebuild-storm";
+        if (lane.equals("kernel.exact_index_mutation_lookup_storm")) return "exact-index-mutation-lookup-no-rebuild";
         if (lane.equals("kernel.stats_mode_overhead")) return "summary-vs-diagnostic-operations";
         throw new IllegalArgumentException("no proof contract for " + lane);
     }
@@ -1871,20 +1885,20 @@ final class SmokeLaneSuite {
         if (lane.startsWith("kernel.optional_")) return "optional-column-scan";
         if (lane.equals("kernel.packed_scan")) return "packed-scan-and-primitive-baseline";
         if (lane.equals("generated.pipeline_fusion")) return "generated-fused-filter-limit-update-terminal";
-        if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) return "key-identity-lookup-mutation";
+        if (lane.equals("kernel.keyspace_full_domain_load_collision_rehash")) return "key-identity-lookup-mutation";
         if (lane.equals("kernel.key_lookup_normal")) return "generated-normal-key-lookup";
         if (lane.equals("kernel.key_lookup_collision")) return "generated-full-equality-collision-lookup";
         if (lane.equals("kernel.batch_import.reserve")) return "batch-import-with-reserve";
         if (lane.equals("kernel.batch_import.growth")) return "batch-import-growth";
-        if (lane.equals("generated.ordered_access_lazy_rebuild")) return "generated-maintained-order-dirty-lazy-rebuild";
+        if (lane.equals("generated.exact_index_incremental_lookup")) return "generated-exact-index-incremental-lookup";
         if (lane.equals("generated.keyed_frontier")) return "generated-keyed-frontier-lifecycle";
-        if (lane.equals("generated.dense_scratch_replace_order")) return "generated-dense-replace-and-order-terminals";
+        if (lane.equals("generated.dense_scratch_replace_sort")) return "generated-dense-replace-and-sort-terminals";
         if (lane.equals("kernel.column_view")) return "column-view-lifecycle";
         if (lane.equals("child_locality.parent_scan_vs_flat")) return "parent-owned-child-versus-flat";
         if (lane.equals("generated.materialization_recursive_success")) return "generated-recursive-map-object-list-materialization";
         if (lane.equals("materialization.budget_boundary")) return "generated-budget-allocation-no-partial-recovery";
         if (lane.equals("kernel.compaction_capacity_reuse")) return "packed-remove-compaction-reuse";
-        if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) return "order-sidecar-dirty-lazy-rebuild";
+        if (lane.equals("kernel.exact_index_mutation_lookup_storm")) return "exact-index-mutation-lookup-no-rebuild";
         if (lane.equals("kernel.stats_mode_overhead")) return "stats-mode-integrated-operation-overhead";
         throw new IllegalArgumentException("no phase contract for " + lane);
     }
@@ -1974,19 +1988,25 @@ final class SmokeLaneSuite {
                     "tableGrowthAllocationBytes", "scratchAllocationBytes");
             maximum(target.keySpaceStats, source.keySpaceStats, "tableCapacity",
                     "keySpaceCapacity", "retainedScratchBytes");
-            sum(target.sidecarStats, source.sidecarStats, "rebuildCount", "dirtyCount");
-        } else if (lane.equals("generated.ordered_access_lazy_rebuild")
-                || lane.equals("generated.dense_scratch_replace_order")) {
-            same(target.sidecarStats, source.sidecarStats, "implementation",
-                    "maintainedOrderKeyWidthBytes", "dynamicComparatorWidthBytes",
-                    "materializedRowWidthBytes");
-            sum(target.sidecarStats, source.sidecarStats, "replaceRows",
-                    "maintainedFirstOrThrow", "dynamicFindFirst", "dynamicFirstOrThrow",
-                    "dirtyCount", "rebuildCount", "replaceTouchedBytes",
-                    "maintainedOrderRebuildRows", "maintainedOrderTouchedBytes",
+            same(target.exactIndexStats, source.exactIndexStats,
+                    "implementation", "indexCount");
+            sum(target.exactIndexStats, source.exactIndexStats,
+                    "probeCount", "collisionCount", "rehashCount", "allocationBytes");
+            maximum(target.exactIndexStats, source.exactIndexStats,
+                    "entryCount", "groupCount", "currentBytes", "highWaterBytes");
+        } else if (lane.equals("generated.exact_index_incremental_lookup")
+                || lane.equals("generated.dense_scratch_replace_sort")) {
+            same(target.exactIndexStats, source.exactIndexStats, "implementation",
+                    "exactLookupKeyWidthBytes", "dynamicComparatorWidthBytes",
+                    "materializedRowWidthBytes", "indexCount");
+            sum(target.exactIndexStats, source.exactIndexStats, "replaceRows",
+                    "exactLookupCount", "dynamicFindFirst", "dynamicFirstOrThrow",
+                    "replaceTouchedBytes", "exactLookupRows", "exactLookupTouchedBytes",
                     "dynamicComparatorRows", "dynamicComparatorTouchedBytes",
-                    "materializationTouchedBytes", "scratchAllocationBytes");
-            maximum(target.sidecarStats, source.sidecarStats,
+                    "materializationTouchedBytes", "probeCount", "collisionCount",
+                    "rehashCount", "exactIndexAllocationBytes", "scratchAllocationBytes");
+            maximum(target.exactIndexStats, source.exactIndexStats,
+                    "entryCount", "groupCount", "currentBytes", "highWaterBytes",
                     "tableCapacity", "retainedScratchBytes");
         } else if (lane.equals("generated.pipeline_fusion")) {
             same(target.selectorStats, source.selectorStats,
@@ -1995,12 +2015,11 @@ final class SmokeLaneSuite {
                     "updateTerminal", "matched", "changed", "perRowObjects");
             maximum(target.selectorStats, source.selectorStats,
                     "capacity", "operationScratchHighWaterBytes", "updateScratchCurrentBytes");
-        } else if (lane.equals("kernel.keyspace_domain_load_collision_rehash")) {
+        } else if (lane.equals("kernel.keyspace_full_domain_load_collision_rehash")) {
             same(target.keySpaceStats, source.keySpaceStats,
-                    "sparseMaximumKey", "sparseCapacity", "sparseDenseCapacity",
+                    "fullIntDomainMinimumAccepted", "fullIntDomainMaximumAccepted",
                     "hashCapacity", "hashUsed", "hashLoadFactor", "compositeCapacity");
             sum(target.keySpaceStats, source.keySpaceStats,
-                    "sparseOutOfDomainMisses", "sparseDomainGuardRejects",
                     "hashProbeCount", "hashCollisionCount", "hashRehashCount",
                     "compositeProbeCount", "compositeCollisionCount",
                     "compositeRehashCount", "normalMissing", "duplicateAttempts");
@@ -2008,18 +2027,20 @@ final class SmokeLaneSuite {
             same(target.selectorStats, source.selectorStats, "reserved");
             maximum(target.selectorStats, source.selectorStats, "capacity");
             sum(target.selectorStats, source.selectorStats, "growthCount");
-        } else if (lane.equals("kernel.sidecar_clean_dirty_rebuild_storm")) {
-            sum(target.sidecarStats, source.sidecarStats, "dirtyCount", "rebuildCount",
-                    "rebuildRows", "rebuildNanos", "cleanTraversalCount", "stormRebuilds");
-            maximum(target.sidecarStats, source.sidecarStats,
-                    "currentBytes", "highWaterBytes");
+        } else if (lane.equals("kernel.exact_index_mutation_lookup_storm")) {
+            same(target.exactIndexStats, source.exactIndexStats, "implementation");
+            sum(target.exactIndexStats, source.exactIndexStats,
+                    "probeCount", "collisionCount", "rehashCount", "mutationCount",
+                    "lookupCount", "lookupRows", "measurementAllocationBytes");
+            maximum(target.exactIndexStats, source.exactIndexStats,
+                    "entryCount", "groupCount", "currentBytes", "highWaterBytes");
             same(target.selectorStats, source.selectorStats,
-                    "cardinality", "selectivity", "dynamicSortBufferBytes");
+                    "cardinality", "selectivity", "exactLookupBufferBytes");
         } else if (lane.equals("kernel.compaction_capacity_reuse")) {
-            sum(target.sidecarStats, source.sidecarStats,
+            sum(target.selectorStats, source.selectorStats,
                     "compactedRows", "singleRemoved", "batchCompacted",
                     "measurementArrayAllocationBytes");
-            maximum(target.sidecarStats, source.sidecarStats,
+            maximum(target.selectorStats, source.selectorStats,
                     "retainedCapacity", "operationScratchCurrentBytes",
                     "operationScratchHighWaterBytes", "clearReuseCapacityBefore",
                     "clearReuseCapacityAfter");
@@ -2105,12 +2126,6 @@ final class SmokeLaneSuite {
                 : Math.multiplyExact(bytesPerBucket, 2L * finalCapacity - 8L);
     }
 
-    /** Dense arrays allocated by 0 -> 4 -> 8 -> ... -> final sparse-slot growth. */
-    private static long sparseDenseGrowthBytes(int finalCapacity) {
-        return finalCapacity == 0 ? 0L
-                : Math.multiplyExact(4L, 2L * finalCapacity - 4L);
-    }
-
     private static long repeatedInstrumentedScans(KernelTable table, int repetitions) {
         long checksum = 0L;
         for (int index = 0; index < repetitions; index++) {
@@ -2176,9 +2191,7 @@ final class SmokeLaneSuite {
                     .growthRatio(3, 2)
                     .maximumUpdateScratchBytes(16L * 1024L * 1024L)
                     .maximumOperationScratchBytes(16L * 1024L * 1024L)
-                    .accessStrategy("primitive-sorted-permutation-v1")
-                    .sidecarMaintenancePolicy("dirty-lazy-rebuild-v1")
-                    .maximumSidecarScratchBytes(16L * 1024L * 1024L)
+                    .accessStrategy(RuntimeCompatibility.NO_ACCESS_STRATEGY)
                     .build();
             RuntimePlan plan = RuntimePlan.builder("benchmark-schema-v1",
                             RuntimeCompatibility.RUNTIME_COMPATIBILITY,

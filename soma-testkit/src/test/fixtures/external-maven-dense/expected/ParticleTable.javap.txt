@@ -33,7 +33,8 @@ public final class com.example.soma.dense.generated.ParticleTable {
   public com.example.soma.dense.Particle firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.dense.Particle> fetchAll();
   public java.util.List<com.example.soma.dense.Particle> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.dense.generated.ParticleRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.hgtech.soma.runtime.IntColumnPipeline idValues();

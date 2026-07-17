@@ -24,6 +24,7 @@ import com.hgtech.soma.runtime.TablePlan;
 import java.lang.management.ManagementFactory;
 import java.util.List;
 import java.util.Optional;
+import java.util.Random;
 import java.util.function.Consumer;
 
 public final class KeyedConsumer {
@@ -101,10 +102,11 @@ public final class KeyedConsumer {
         });
         testLongKeyBinding();
         testAdditionalPrimitiveKeyBindings();
-        testSparseIntGeneratedBinding();
+        testHashIntGeneratedBinding();
         testRepeatedSmallBatchDoesNotRebuildEveryAppend();
         testBatchInternalDuplicateValidation();
         testSingletonAppendValidationAllocation();
+        testKeyedSwapRemoveDifferential();
         System.out.println("keyed-consumer: ok");
     }
 
@@ -181,70 +183,38 @@ public final class KeyedConsumer {
         });
     }
 
-    private static void testSparseIntGeneratedBinding() {
+    private static void testHashIntGeneratedBinding() {
         RuntimePlan base = KeyedParticleTable.defaultRuntimePlan();
-        TablePlan sparseTable = base.requireTable("KeyedParticle").toBuilder()
-                .keySpaceStrategy("sparse-int-v1")
-                .maximumSparseKey(31L)
-                .maximumTableStorageBytes(184L)
-                .maximumBulkScratchBytes(144L)
+        TablePlan hashTable = base.requireTable("KeyedParticle").toBuilder()
+                .keySpaceStrategy("hash-int-v2")
+                .maximumTableStorageBytes(1024L * 1024L)
+                .maximumBulkScratchBytes(1024L * 1024L)
                 .build();
-        RuntimePlan sparsePlan = base.toBuilder()
-                .maximumAggregateStorageBytes(5576L)
-                .replaceTable(sparseTable)
+        RuntimePlan hashPlan = base.toBuilder()
+                .maximumAggregateStorageBytes(16L * 1024L * 1024L)
+                .replaceTable(hashTable)
                 .build();
-        KeyedParticleTable sparse = KeyedParticleTable.create(sparsePlan);
+        KeyedParticleTable hash = KeyedParticleTable.create(hashPlan);
         KeyedParticleBatch batch = new KeyedParticleBatch();
-        batch.addValues(0, 10, false, 0);
+        batch.addValues(-1, 10, false, 0);
         batch.addValues(31, 20, true, 7);
-        sparse.addBatch(batch);
-        require(sparse.fetch(0).energy == 10 && sparse.fetch(31).priority == 7,
-                "generated sparse endpoints");
-        require(!sparse.containsKey(-1) && sparse.findRowIndex(32) == -1,
-                "generated sparse out-of-domain lookup is missing");
+        hash.addBatch(batch);
+        require(hash.fetch(-1).energy == 10 && hash.fetch(31).priority == 7,
+                "generated hash accepts the complete int identity domain");
+        require(!hash.containsKey(32) && hash.findRowIndex(32) == -1,
+                "generated hash missing lookup");
         expectCode("missing_key", new Action() {
-            @Override public void run() { sparse.rowIndexOf(32); }
+            @Override public void run() { hash.rowIndexOf(32); }
         });
-        expectCode("invalid_key_domain", new Action() {
-            @Override public void run() {
-                KeyedParticleBatch outside = new KeyedParticleBatch();
-                outside.addValues(32, 99, false, 0);
-                sparse.addBatch(outside);
-            }
-        });
-        require(sparse.size() == 2 && sparse.fetch(31).energy == 20,
-                "sparse domain rejection preserves facts");
-        sparse.delete(0);
-        require(sparse.rowIndexOf(31) == 0,
-                "sparse delete repairs packed row slot");
-        require("sparse-int-v1".equals(sparse.statsSnapshot().keySpaceImplementation()),
-                "sparse strategy is explicit and observable");
-        sparse.release();
-        require(sparse.statsSnapshot().capacity() == 0
-                        && sparse.statsSnapshot().keySpaceCapacity() == 0,
-                "sparse release drops table and key storage");
-
-        RuntimePlan tableLimitFailure = base.toBuilder()
-                .replaceTable(sparseTable.toBuilder()
-                        .maximumTableStorageBytes(175L).build())
-                .build();
-        expectCode("memory_limit_exceeded", new Action() {
-            @Override public void run() { KeyedParticleTable.create(tableLimitFailure); }
-        });
-        RuntimePlan bulkLimitFailure = base.toBuilder()
-                .replaceTable(sparseTable.toBuilder()
-                        .maximumBulkScratchBytes(143L).build())
-                .build();
-        expectCode("memory_limit_exceeded", new Action() {
-            @Override public void run() { KeyedParticleTable.create(bulkLimitFailure); }
-        });
-        RuntimePlan aggregateLimitFailure = base.toBuilder()
-                .maximumAggregateStorageBytes(5503L)
-                .replaceTable(sparseTable)
-                .build();
-        expectCode("memory_limit_exceeded", new Action() {
-            @Override public void run() { KeyedParticleTable.create(aggregateLimitFailure); }
-        });
+        hash.delete(-1);
+        require(hash.rowIndexOf(31) == 0,
+                "hash delete repairs packed row mapping");
+        require("hash-int-v2".equals(hash.statsSnapshot().keySpaceImplementation()),
+                "hash strategy is explicit and observable");
+        hash.release();
+        require(hash.statsSnapshot().capacity() == 0
+                        && hash.statsSnapshot().keySpaceCapacity() == 0,
+                "hash release drops table and key storage");
     }
 
     private static void testRepeatedSmallBatchDoesNotRebuildEveryAppend() {
@@ -269,6 +239,54 @@ public final class KeyedConsumer {
             @Override public void run() { table.addBatch(duplicate); }
         });
         require(table.size() == 0, "batch-internal duplicate append is atomic");
+    }
+
+    private static void testKeyedSwapRemoveDifferential() {
+        final int rowCount = 128;
+        KeyedParticleBatch batch = new KeyedParticleBatch(rowCount);
+        boolean[] live = new boolean[rowCount];
+        for (int id = 0; id < rowCount; id++) {
+            batch.addValues(id, id * 10, false, 0);
+            live[id] = true;
+        }
+        KeyedParticleTable table = KeyedParticleTable.create();
+        table.addBatch(batch);
+        Random random = new Random(0x534f4d41L);
+        for (int round = 0; round < 24 && table.size() > 8; round++) {
+            final int divisor = 5 + random.nextInt(5);
+            final int remainder = random.nextInt(divisor);
+            int expectedRemoved = 0;
+            for (int id = 0; id < rowCount; id++) {
+                if (live[id] && id % divisor == remainder) expectedRemoved++;
+            }
+            long epoch = table.structuralEpoch();
+            com.hgtech.soma.runtime.RemoveResult removed = table.rows()
+                    .filter(row -> row.id() % divisor == remainder)
+                    .remove();
+            require(removed.removed() == expectedRemoved,
+                    "keyed random swap-remove count");
+            if (expectedRemoved == 0) {
+                require(table.structuralEpoch() == epoch,
+                        "empty keyed remove is non-structural");
+            }
+            for (int id = 0; id < rowCount; id++) {
+                if (live[id] && id % divisor == remainder) live[id] = false;
+            }
+            int expectedSize = 0;
+            for (int id = 0; id < rowCount; id++) {
+                if (live[id]) {
+                    expectedSize++;
+                    require(table.containsKey(id) && table.fetch(id).energy == id * 10,
+                            "keyed locator survives swap-remove id=" + id);
+                } else {
+                    require(!table.containsKey(id),
+                            "removed keyed identity stays absent id=" + id);
+                }
+            }
+            require(table.size() == expectedSize,
+                    "keyed random swap-remove packed size");
+        }
+        table.release();
     }
 
     private static void testSingletonAppendValidationAllocation() {

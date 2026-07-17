@@ -15,6 +15,7 @@ import com.hgtech.soma.examples.vrp.generated.UnassignedCustomerRowTable;
 import com.hgtech.soma.examples.vrp.generated.VehicleBatch;
 import com.hgtech.soma.examples.vrp.generated.VehicleTable;
 import com.hgtech.soma.runtime.IntColumnView;
+import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.UpdateResult;
@@ -71,10 +72,18 @@ public final class VrpScenario {
 
             require(routes.visits(routeId).size() == 2,
                     "route rewrite starts from a non-empty two-row sequence");
-            require(vehicles.byVehicleId().firstOrThrow().vehicleId.equals(vehicleId)
+            require(vehicles.fetch(vehicleId).vehicleId.equals(vehicleId)
                             && routes.findByVehicle(vehicleId).count() == 1L
-                            && routes.byRouteId().firstOrThrow().routeId.equals(routeId)
-                            && unassigned.byDueThenInput().firstOrThrow().customerId
+                            && routes.fetch(routeId).routeId.equals(routeId)
+                            && unassigned.rows().sorted((left, right) -> {
+                                int compared = Long.compare(
+                                        left.dueMinute(), right.dueMinute());
+                                if (compared != 0) return compared;
+                                compared = Long.compare(
+                                        left.inputOrder(), right.inputOrder());
+                                return compared != 0 ? compared : Long.compare(
+                                        left.customerIdValue(), right.customerIdValue());
+                            }).firstOrThrow().customerId
                             .equals(customerThree),
                     "vehicle and derived unassigned workspaces use Owner access paths");
             require(travel.fetch(new LocationPairKey(depot, secondLocation))
@@ -84,9 +93,20 @@ public final class VrpScenario {
             candidates.replaceAll(new InsertionCandidateRowBatch(2)
                     .addValues(customerThree, routeId, 1, 2000L, 4L, 0L)
                     .addValues(customerThree, routeId, 0, 1400L, 3L, 0L));
-            int[] chosenRows = candidates.byBestDelta().limit(1).rowIndexes();
-            require(chosenRows.length == 1, "insertion order requires one candidate");
-            int chosenRow = chosenRows[0];
+            IndexSnapshot chosenRows = candidates.rows().sorted((left, right) -> {
+                int compared = Long.compare(
+                        left.violationPenalty(), right.violationPenalty());
+                if (compared != 0) return compared;
+                compared = Long.compare(
+                        left.deltaDistanceMeters(), right.deltaDistanceMeters());
+                if (compared != 0) return compared;
+                compared = Long.compare(left.projectedArrivalMinute(),
+                        right.projectedArrivalMinute());
+                return compared != 0 ? compared : Long.compare(
+                        left.customerIdValue(), right.customerIdValue());
+            }).limit(1).rowIndexes();
+            require(chosenRows.size() == 1, "insertion order requires one candidate");
+            int chosenRow = chosenRows.indexAt(0);
             LongColumnView candidateCustomer = candidates.customerIdValueColumn();
             IntColumnView insertAfter = candidates.insertAfterPositionColumn();
             CustomerId chosenCustomer;
@@ -117,19 +137,21 @@ public final class VrpScenario {
             candidates.filter(row -> row.customerIdValue() == chosenCustomer.value).remove();
 
             RouteVisitRowTable liveVisits = routes.visits(routeId);
-            int[] visitRows = liveVisits.byPosition().rowIndexes();
+            IndexSnapshot visitRows = liveVisits.rows().sorted((left, right) ->
+                    Integer.compare(left.position(), right.position()))
+                    .rowIndexes();
             LongColumnView visitCustomers = liveVisits.customerIdValueColumn();
             IntColumnView positions = liveVisits.positionColumn();
             LongColumnView arrivals = liveVisits.arrivalMinuteColumn();
             IntColumnView loads = liveVisits.loadAfterVisitColumn();
             try {
-                require(visitRows.length == 3
-                                && visitCustomers.getLong(visitRows[0]) == customerOne.value
-                                && visitCustomers.getLong(visitRows[1]) == customerThree.value
-                                && visitCustomers.getLong(visitRows[2]) == customerTwo.value
-                                && positions.getInt(visitRows[2]) == 2
-                                && arrivals.getLong(visitRows[2]) == 5L
-                                && loads.getInt(visitRows[2]) == 4,
+                require(visitRows.size() == 3
+                                && visitCustomers.getLong(visitRows.indexAt(0)) == customerOne.value
+                                && visitCustomers.getLong(visitRows.indexAt(1)) == customerThree.value
+                                && visitCustomers.getLong(visitRows.indexAt(2)) == customerTwo.value
+                                && positions.getInt(visitRows.indexAt(2)) == 2
+                                && arrivals.getLong(visitRows.indexAt(2)) == 5L
+                                && loads.getInt(visitRows.indexAt(2)) == 4,
                         "non-empty insertion rewrites the shifted route segment");
             } finally {
                 loads.close();

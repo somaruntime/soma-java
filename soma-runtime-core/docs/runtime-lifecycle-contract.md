@@ -18,7 +18,7 @@ Runtime core 必须为 `@SomaChild` field 提供 schema-agnostic child ownership
 
 - `ChildTableHandle` 是 opaque instance locator，不是 row index、secondary index、business key 或 Java object reference contract；
 - parent row/field slot 绑定至多一个 child instance；required child 可以处于 logical-present/unallocated-empty 状态，optional child 另有 explicit presence；
-- child instance 有独立 `TableStore`、key/index/order 和 lifecycle state，但 lifecycle authority 属于 enclosing parent ownership aggregate；
+- child instance有独立`TableStore`、primary locator/exact index和lifecycle state，但lifecycle authority属于enclosing parent ownership aggregate；
 - runtime ownership instance graph 必须是 forest，每个 child instance 只有一个 owner；
 - public/generated API 不得导出 handle、attach existing child 或 reparent；
 - handle registry 必须能检测 dangling handle、wrong-owner handle、released child 和 runtime ownership cycle，并进入 internal invariant violation path。
@@ -85,7 +85,7 @@ Cascade遵守descendants-first two-phase publish：先用ownership registry持�
 
 Delete/clear/unset/replacement 必须检查整个 affected subtree 的 active ColumnView/pinned borrow。任意 descendant pinned 时，在 visible state 改变前返回 `view_pinned`。Final aggregate `release()` 是 terminal lifecycle operation，可以把 existing child facade/view 统一置为 released；后续读取返回 released error，而不是继续访问 detached storage。
 
-Final root/owned release必须把所有current retained runtime storage归零：column/presence arrays、KeySpace buckets/domain/dense map、selector/update/operation/cascade scratch和ownership registry arrays都release或替换为空数组，并向aggregate storage budget归还quota。`TableStats.capacity()`及各current-bytes在released snapshot中为0，high-water/cumulative counters保留。旧ColumnView即使仍被application引用，也只能观察`table_released/child_released`，不能借由column对象继续保留原大数组。Release不承诺JVM立即GC，但runtime自身不再强持有上述storage。
+Final root/owned release必须把所有current retained runtime storage归零：column/presence arrays、primary-locator buckets、exact-index bucket/group/link arrays、update/operation/cascade scratch和ownership registry arrays都release或替换为空数组，并向aggregate storage budget归还quota。`TableStats.capacity()`及各current-bytes在released snapshot中为0，high-water/cumulative counters保留。旧ColumnView即使仍被application引用，也只能观察`table_released/child_released`，不能借由column对象继续保留原大数组。Release不承诺JVM立即GC，但runtime自身不再强持有上述storage。
 
 ## 5. Mutation 分类
 
@@ -94,7 +94,7 @@ Mutation 分为：
 | 类别 | 示例 | active view 存活时 |
 |---|---|---|
 | non-structural | 修改现有非 key fixed-width leaf，且不改变 storage length/layout | 可以允许 |
-| structural | reserve、append batch、replaceAll、delete、row move、string relocation、child ensure/unset/replacement/cascade clear、index/order rebuild with exposed view risk | affected subtree pinned 时返回 view_pinned |
+| structural | reserve、append batch、replaceAll、delete、row move、string relocation、child ensure/unset/replacement/cascade clear | affected subtree pinned时返回view_pinned |
 
 如果实现无法证明 mutation 不影响 ColumnView 所依赖的 storage，应按 structural mutation 处理。
 

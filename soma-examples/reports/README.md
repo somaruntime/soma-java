@@ -5,6 +5,7 @@
 ## 当前正式报告
 
 - [Java-only SOMA V1 G5 examples evidence](java-v1-g5-examples-report.md)
+- [Packed Index / Exact Access 场景迁移与当前重验证](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)
 
 ## 历史审查
 

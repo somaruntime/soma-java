@@ -6,7 +6,7 @@
 
 | 文档 | Owner | 单一职责 |
 |---|---|---|
-| [Java annotation schema 契约](annotation-schema-contract.md) | `soma-annotations` | annotation、类型系统、field role、optional/default、key/index/order 和 child declaration |
+| [Java annotation schema 契约](annotation-schema-contract.md) | `soma-annotations` | annotation、类型系统、field role、optional/default、key/index/unique和child declaration |
 
 Processing、normalized schema、hash、diagnostics 和 code generation 属于 [soma-processor](../../soma-processor/docs/README.md)。
 

@@ -140,7 +140,7 @@ public final class com.example.soma.breadth.generated.FullRowRows {
   public com.example.soma.breadth.FullRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.breadth.FullRow> fetchAll();
   public java.util.List<com.example.soma.breadth.FullRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.FullRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
@@ -180,10 +180,10 @@ public final class com.example.soma.breadth.generated.FullRowTable {
   public com.example.soma.breadth.FullRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.breadth.FullRow> fetchAll();
   public java.util.List<com.example.soma.breadth.FullRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.FullRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.example.soma.breadth.generated.FullRowRows byScore();
   public com.hgtech.soma.runtime.BooleanColumnPipeline activeValues();
   public com.hgtech.soma.runtime.BooleanColumnView activeColumn();
   public com.hgtech.soma.runtime.ByteColumnPipeline smallValues();
@@ -293,7 +293,7 @@ public final class com.example.soma.breadth.generated.StringKeyRowRows {
   public com.example.soma.breadth.StringKeyRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll();
   public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringKeyRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
@@ -343,7 +343,8 @@ public final class com.example.soma.breadth.generated.StringKeyRowTable {
   public com.example.soma.breadth.StringKeyRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll();
   public java.util.List<com.example.soma.breadth.StringKeyRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringKeyRowRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.hgtech.soma.runtime.IntColumnPipeline valueValues();
@@ -397,7 +398,7 @@ public final class com.example.soma.breadth.generated.StringParentRows {
   public com.example.soma.breadth.StringParent firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.breadth.StringParent> fetchAll();
   public java.util.List<com.example.soma.breadth.StringParent> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringParentRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
 }
@@ -439,7 +440,8 @@ public final class com.example.soma.breadth.generated.StringParentTable {
   public com.example.soma.breadth.StringParent firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.breadth.StringParent> fetchAll();
   public java.util.List<com.example.soma.breadth.StringParent> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringParentRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.hgtech.soma.runtime.IntColumnPipeline idValues();

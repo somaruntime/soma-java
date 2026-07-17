@@ -4,7 +4,7 @@
 Owner：`soma-examples`
 事实范围：runtime-state scenario 通用建模规则、索引和覆盖矩阵
 非事实范围：具体场景 schema、public contract 和 benchmark result
-最后审查日期：2026-07-10
+最后审查日期：2026-07-17
 
 ## 1. 目标
 
@@ -22,7 +22,7 @@ Owner：`soma-examples`
 lifecycle、golden 和 gate-only fixture 进入 test source；其他三个示例是否采用同一结构，
 须在 FJSP 可读性审查后分别决定，不能机械复制。上层 OOP 负责 workflow orchestration、
 algorithm strategy、domain rule 和 solver / simulator / game loop；SOMA 负责
-schema-defined hot layout、key/index/order access、packed dense state 和 detached
+schema-defined hot layout、key/exact-index access、explicit dynamic sort、packed dense state 和 detached
 materialized object。
 
 代码块保存在各场景文档中。真实 Java 项目中，`package-info.java`、enum、`@SomaValue` 和 `@SomaTable` schema-backed row class 应按 Java 文件规则拆分。`@SomaTable` class 本身就是 detached single-row materialization shape；processor 不再生成 public `XxxRecord` 第二类型。
@@ -73,7 +73,7 @@ materialized object。
 - `@SomaKey` 必须是 table direct field 的 logical identity，value key 足以表达 composite key；
 - 不需要 `@SomaEnum`，Java enum 被 SOMA field 引用后自动纳入 schema；
 - 不需要 `@SomaTableRole`，四个示例中的角色都能由 keyed / dense table 与命名文档说明表达；
-- `@SomaOrder` 的多个声明应理解为 named ordered access path，不是 table physical order；
+- `@SomaIndex` / `@SomaUnique` 只表达 exact access；业务顺序通过本次 Row Pipeline 的 `sorted(...)` 显式建立；
 - optional scalar schema 字段必须使用 boxed type，否则 detached schema object 无法表达 absent；
 - semantic scalar 只在确实需要时间语义时显式声明，例如连续仿真的 `DATE_TIME`。
 
@@ -82,7 +82,7 @@ materialized object。
 本组示例不定义：
 
 - generated API 的最终方法签名；
-- runtime core 的 sidecar 内部结构；
+- runtime core 的 exact-index / `IndexBuffer` 内部结构；
 - benchmark 结果或对比结论；具体规模 preset 与计时口径由 `soma-benchmarks` 拥有，
   examples 只提供可复用的同语义算法 kernel；
 - 完整业务求解器、仿真器或 game engine；

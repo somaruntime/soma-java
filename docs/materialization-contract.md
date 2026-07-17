@@ -23,7 +23,7 @@ TableStore authoritative facts
 
 单行 materialization 直接使用对应 `@SomaTable` schema class。它：
 
-- 不持有 RowSlot、child handle、bitmap、sidecar、Cursor 或 ColumnView；
+- 不持有current Index、child handle、bitmap、exact-index group/link、IndexBuffer、Cursor或ColumnView；
 - 不自动 write-back、dirty track 或同步；
 - 可以在 Table mutation/release 后继续存在；
 - 可能相对当前 Table 变旧；
@@ -181,8 +181,8 @@ Application/table configuration 可以覆盖这些值。默认值必须由 deep-
 
 - Dense child/whole table 没有显式 order 时按当次 packed traversal materialize；这不是稳定业务顺序；
 - keyed `Map` 不承诺业务 iteration order；
-- order/index/dynamic sort Row Pipeline 按其确定的 sequence materialize 为 `List`；
-- consumer 依赖稳定顺序时必须选择明确 order source 和完整 tie-break；
+- exact-index/default source 与 dynamic sort Row Pipeline 按该 terminal 确定的 sequence materialize 为 `List`；
+- consumer 依赖业务顺序时必须显式 `sorted(...)` 并提供完整 tie-break；
 - structural mutation 后不得依赖旧 packed order。
 
 ## 11. Equality 与 hash

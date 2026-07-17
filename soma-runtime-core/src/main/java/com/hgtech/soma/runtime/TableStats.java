@@ -1,6 +1,6 @@
 package com.hgtech.soma.runtime;
 
-/** Immutable self-consistent dense table stats snapshot。 */
+/** Immutable self-consistent table stats snapshot。 */
 public final class TableStats {
     private final String schemaHash;
     private final String runtimeCompatibility;
@@ -14,17 +14,13 @@ public final class TableStats {
     private final long growthCount;
     private final long updateScratchCurrentBytes;
     private final long updateScratchHighWaterBytes;
-    private final long sidecarDirtyCount;
-    private final long sidecarRebuildCount;
-    private final long sidecarRebuildRows;
-    private final long sidecarScratchCurrentBytes;
-    private final long sidecarScratchHighWaterBytes;
     private final String lastOperation;
     private final OperationOutcome lastOutcome;
     private final String lastErrorCode;
     private final long lastScanned;
     private final long lastMatched;
     private final long lastChanged;
+
     private final long childInstanceCount;
     private final long descendantRowCount;
     private final long materializationInvocationCount;
@@ -35,6 +31,7 @@ public final class TableStats {
     private final long lastMaterializationRows;
     private final long lastMaterializationLeafValues;
     private final long lastMaterializationEstimatedAllocationBytes;
+
     private final long operationScratchCurrentBytes;
     private final long operationScratchHighWaterBytes;
     private final String keySpaceImplementation;
@@ -43,6 +40,15 @@ public final class TableStats {
     private final long keySpaceProbeCount;
     private final long keySpaceCollisionCount;
     private final long keySpaceRehashCount;
+
+    private final int exactIndexCount;
+    private final long exactIndexEntryCount;
+    private final long exactIndexGroupCount;
+    private final long exactIndexProbeCount;
+    private final long exactIndexCollisionCount;
+    private final long exactIndexRehashCount;
+    private final long exactIndexStorageCurrentBytes;
+    private final long exactIndexStorageHighWaterBytes;
 
     private TableStats(
             String schemaHash,
@@ -57,11 +63,6 @@ public final class TableStats {
             long growthCount,
             long updateScratchCurrentBytes,
             long updateScratchHighWaterBytes,
-            long sidecarDirtyCount,
-            long sidecarRebuildCount,
-            long sidecarRebuildRows,
-            long sidecarScratchCurrentBytes,
-            long sidecarScratchHighWaterBytes,
             String lastOperation,
             OperationOutcome lastOutcome,
             String lastErrorCode,
@@ -85,7 +86,15 @@ public final class TableStats {
             int keySpaceUsed,
             long keySpaceProbeCount,
             long keySpaceCollisionCount,
-            long keySpaceRehashCount) {
+            long keySpaceRehashCount,
+            int exactIndexCount,
+            long exactIndexEntryCount,
+            long exactIndexGroupCount,
+            long exactIndexProbeCount,
+            long exactIndexCollisionCount,
+            long exactIndexRehashCount,
+            long exactIndexStorageCurrentBytes,
+            long exactIndexStorageHighWaterBytes) {
         this.schemaHash = schemaHash;
         this.runtimeCompatibility = runtimeCompatibility;
         this.runtimePlanHash = runtimePlanHash;
@@ -98,11 +107,6 @@ public final class TableStats {
         this.growthCount = growthCount;
         this.updateScratchCurrentBytes = updateScratchCurrentBytes;
         this.updateScratchHighWaterBytes = updateScratchHighWaterBytes;
-        this.sidecarDirtyCount = sidecarDirtyCount;
-        this.sidecarRebuildCount = sidecarRebuildCount;
-        this.sidecarRebuildRows = sidecarRebuildRows;
-        this.sidecarScratchCurrentBytes = sidecarScratchCurrentBytes;
-        this.sidecarScratchHighWaterBytes = sidecarScratchHighWaterBytes;
         this.lastOperation = lastOperation;
         this.lastOutcome = lastOutcome;
         this.lastErrorCode = lastErrorCode;
@@ -118,7 +122,8 @@ public final class TableStats {
         this.lastMaterializationTableInstances = lastMaterializationTableInstances;
         this.lastMaterializationRows = lastMaterializationRows;
         this.lastMaterializationLeafValues = lastMaterializationLeafValues;
-        this.lastMaterializationEstimatedAllocationBytes = lastMaterializationEstimatedAllocationBytes;
+        this.lastMaterializationEstimatedAllocationBytes =
+                lastMaterializationEstimatedAllocationBytes;
         this.operationScratchCurrentBytes = operationScratchCurrentBytes;
         this.operationScratchHighWaterBytes = operationScratchHighWaterBytes;
         this.keySpaceImplementation = keySpaceImplementation;
@@ -127,6 +132,14 @@ public final class TableStats {
         this.keySpaceProbeCount = keySpaceProbeCount;
         this.keySpaceCollisionCount = keySpaceCollisionCount;
         this.keySpaceRehashCount = keySpaceRehashCount;
+        this.exactIndexCount = exactIndexCount;
+        this.exactIndexEntryCount = exactIndexEntryCount;
+        this.exactIndexGroupCount = exactIndexGroupCount;
+        this.exactIndexProbeCount = exactIndexProbeCount;
+        this.exactIndexCollisionCount = exactIndexCollisionCount;
+        this.exactIndexRehashCount = exactIndexRehashCount;
+        this.exactIndexStorageCurrentBytes = exactIndexStorageCurrentBytes;
+        this.exactIndexStorageHighWaterBytes = exactIndexStorageHighWaterBytes;
     }
 
     public static TableStats create(
@@ -142,68 +155,6 @@ public final class TableStats {
             long growthCount,
             long updateScratchCurrentBytes,
             long updateScratchHighWaterBytes,
-            long sidecarDirtyCount,
-            long sidecarRebuildCount,
-            long sidecarRebuildRows,
-            String lastOperation,
-            OperationOutcome lastOutcome,
-            String lastErrorCode,
-            long lastScanned,
-            long lastMatched,
-            long lastChanged) {
-        return create(schemaHash, runtimeCompatibility, runtimePlanHash, statsMode,
-                rows, capacity, structuralEpoch, released, activeViews, growthCount,
-                updateScratchCurrentBytes, updateScratchHighWaterBytes,
-                sidecarDirtyCount, sidecarRebuildCount, sidecarRebuildRows,
-                0L, 0L, lastOperation, lastOutcome, lastErrorCode,
-                lastScanned, lastMatched, lastChanged);
-    }
-
-    public static TableStats create(
-            String schemaHash,
-            String runtimeCompatibility,
-            String runtimePlanHash,
-            StatsMode statsMode,
-            int rows,
-            int capacity,
-            long structuralEpoch,
-            boolean released,
-            int activeViews,
-            long growthCount,
-            long updateScratchCurrentBytes,
-            long updateScratchHighWaterBytes,
-            String lastOperation,
-            OperationOutcome lastOutcome,
-            String lastErrorCode,
-            long lastScanned,
-            long lastMatched,
-            long lastChanged) {
-        return create(schemaHash, runtimeCompatibility, runtimePlanHash, statsMode,
-                rows, capacity, structuralEpoch, released, activeViews, growthCount,
-                updateScratchCurrentBytes, updateScratchHighWaterBytes,
-                0L, 0L, 0L, 0L, 0L,
-                lastOperation, lastOutcome, lastErrorCode,
-                lastScanned, lastMatched, lastChanged);
-    }
-
-    public static TableStats create(
-            String schemaHash,
-            String runtimeCompatibility,
-            String runtimePlanHash,
-            StatsMode statsMode,
-            int rows,
-            int capacity,
-            long structuralEpoch,
-            boolean released,
-            int activeViews,
-            long growthCount,
-            long updateScratchCurrentBytes,
-            long updateScratchHighWaterBytes,
-            long sidecarDirtyCount,
-            long sidecarRebuildCount,
-            long sidecarRebuildRows,
-            long sidecarScratchCurrentBytes,
-            long sidecarScratchHighWaterBytes,
             String lastOperation,
             OperationOutcome lastOutcome,
             String lastErrorCode,
@@ -220,10 +171,6 @@ public final class TableStats {
         if (rows < 0 || capacity < rows || activeViews < 0 || structuralEpoch < 0L
                 || growthCount < 0L || updateScratchCurrentBytes < 0L
                 || updateScratchHighWaterBytes < updateScratchCurrentBytes
-                || sidecarDirtyCount < 0L || sidecarRebuildCount < 0L
-                || sidecarRebuildRows < 0L
-                || sidecarScratchCurrentBytes < 0L
-                || sidecarScratchHighWaterBytes < sidecarScratchCurrentBytes
                 || lastScanned < 0L || lastMatched < 0L || lastChanged < 0L
                 || lastChanged > lastMatched || lastMatched > lastScanned) {
             throw new IllegalArgumentException("invalid table stats snapshot");
@@ -231,15 +178,14 @@ public final class TableStats {
         return new TableStats(schemaHash, runtimeCompatibility, runtimePlanHash,
                 statsMode, rows, capacity, structuralEpoch, released, activeViews,
                 growthCount, updateScratchCurrentBytes, updateScratchHighWaterBytes,
-                sidecarDirtyCount, sidecarRebuildCount, sidecarRebuildRows,
-                sidecarScratchCurrentBytes, sidecarScratchHighWaterBytes,
                 lastOperation, lastOutcome, lastErrorCode,
                 lastScanned, lastMatched, lastChanged,
                 0L, 0L, 0L, 0L, "", 0, 0L, 0L, 0L, 0L,
-                0L, 0L, "", 0, 0, 0L, 0L, 0L);
+                0L, 0L, "", 0, 0, 0L, 0L, 0L,
+                0, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
     }
 
-    public static TableStats withPhase4(
+    public static TableStats withOwnershipAndMaterialization(
             TableStats base,
             long childInstanceCount,
             long descendantRowCount,
@@ -251,56 +197,50 @@ public final class TableStats {
             long lastMaterializationRows,
             long lastMaterializationLeafValues,
             long lastMaterializationEstimatedAllocationBytes) {
-        if (base == null) throw new NullPointerException("base");
+        requireBase(base);
         if (lastMaterializationBudgetIdentity == null) {
             throw new NullPointerException("lastMaterializationBudgetIdentity");
         }
         if (childInstanceCount < 0L || descendantRowCount < 0L
-                || materializationInvocationCount < 0L || materializationFailureCount < 0L
+                || materializationInvocationCount < 0L
+                || materializationFailureCount < 0L
                 || materializationFailureCount > materializationInvocationCount
                 || lastMaterializationMaximumOwnershipDepth < 0
-                || lastMaterializationTableInstances < 0L || lastMaterializationRows < 0L
+                || lastMaterializationTableInstances < 0L
+                || lastMaterializationRows < 0L
                 || lastMaterializationLeafValues < 0L
                 || lastMaterializationEstimatedAllocationBytes < 0L) {
-            throw new IllegalArgumentException("invalid phase4 table stats");
+            throw new IllegalArgumentException("invalid ownership/materialization stats");
         }
-        return new TableStats(base.schemaHash, base.runtimeCompatibility,
-                base.runtimePlanHash, base.statsMode, base.rows, base.capacity,
-                base.structuralEpoch, base.released, base.activeViews, base.growthCount,
-                base.updateScratchCurrentBytes, base.updateScratchHighWaterBytes,
-                base.sidecarDirtyCount, base.sidecarRebuildCount, base.sidecarRebuildRows,
-                base.sidecarScratchCurrentBytes, base.sidecarScratchHighWaterBytes,
-                base.lastOperation, base.lastOutcome, base.lastErrorCode,
-                base.lastScanned, base.lastMatched, base.lastChanged,
+        return copy(base,
                 childInstanceCount, descendantRowCount,
                 materializationInvocationCount, materializationFailureCount,
                 lastMaterializationBudgetIdentity,
                 lastMaterializationMaximumOwnershipDepth,
                 lastMaterializationTableInstances, lastMaterializationRows,
-                lastMaterializationLeafValues, lastMaterializationEstimatedAllocationBytes,
+                lastMaterializationLeafValues,
+                lastMaterializationEstimatedAllocationBytes,
                 base.operationScratchCurrentBytes, base.operationScratchHighWaterBytes,
                 base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
                 base.keySpaceProbeCount, base.keySpaceCollisionCount,
-                base.keySpaceRehashCount);
+                base.keySpaceRehashCount,
+                base.exactIndexCount, base.exactIndexEntryCount,
+                base.exactIndexGroupCount, base.exactIndexProbeCount,
+                base.exactIndexCollisionCount, base.exactIndexRehashCount,
+                base.exactIndexStorageCurrentBytes,
+                base.exactIndexStorageHighWaterBytes);
     }
 
-    public static TableStats withPhase5OperationScratch(
+    public static TableStats withOperationScratch(
             TableStats base,
             long operationScratchCurrentBytes,
             long operationScratchHighWaterBytes) {
-        if (base == null) throw new NullPointerException("base");
+        requireBase(base);
         if (operationScratchCurrentBytes < 0L
                 || operationScratchHighWaterBytes < operationScratchCurrentBytes) {
             throw new IllegalArgumentException("invalid operation scratch stats");
         }
-        return new TableStats(base.schemaHash, base.runtimeCompatibility,
-                base.runtimePlanHash, base.statsMode, base.rows, base.capacity,
-                base.structuralEpoch, base.released, base.activeViews, base.growthCount,
-                base.updateScratchCurrentBytes, base.updateScratchHighWaterBytes,
-                base.sidecarDirtyCount, base.sidecarRebuildCount, base.sidecarRebuildRows,
-                base.sidecarScratchCurrentBytes, base.sidecarScratchHighWaterBytes,
-                base.lastOperation, base.lastOutcome, base.lastErrorCode,
-                base.lastScanned, base.lastMatched, base.lastChanged,
+        return copy(base,
                 base.childInstanceCount, base.descendantRowCount,
                 base.materializationInvocationCount, base.materializationFailureCount,
                 base.lastMaterializationBudgetIdentity,
@@ -311,10 +251,15 @@ public final class TableStats {
                 operationScratchCurrentBytes, operationScratchHighWaterBytes,
                 base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
                 base.keySpaceProbeCount, base.keySpaceCollisionCount,
-                base.keySpaceRehashCount);
+                base.keySpaceRehashCount,
+                base.exactIndexCount, base.exactIndexEntryCount,
+                base.exactIndexGroupCount, base.exactIndexProbeCount,
+                base.exactIndexCollisionCount, base.exactIndexRehashCount,
+                base.exactIndexStorageCurrentBytes,
+                base.exactIndexStorageHighWaterBytes);
     }
 
-    public static TableStats withPhase5KeySpace(
+    public static TableStats withKeySpace(
             TableStats base,
             String keySpaceImplementation,
             int keySpaceCapacity,
@@ -322,29 +267,21 @@ public final class TableStats {
             long keySpaceProbeCount,
             long keySpaceCollisionCount,
             long keySpaceRehashCount) {
-        if (base == null) throw new NullPointerException("base");
+        requireBase(base);
         if (keySpaceImplementation == null) {
             throw new NullPointerException("keySpaceImplementation");
         }
         boolean absent = keySpaceImplementation.isEmpty();
-        if (keySpaceCapacity < 0 || keySpaceUsed < 0
-                || keySpaceUsed > keySpaceCapacity
+        if (keySpaceCapacity < 0 || keySpaceUsed < 0 || keySpaceUsed > keySpaceCapacity
                 || keySpaceProbeCount < 0L || keySpaceCollisionCount < 0L
                 || keySpaceCollisionCount > keySpaceProbeCount
                 || keySpaceRehashCount < 0L
                 || (absent && (keySpaceCapacity != 0 || keySpaceUsed != 0
                 || keySpaceProbeCount != 0L || keySpaceCollisionCount != 0L
                 || keySpaceRehashCount != 0L))) {
-            throw new IllegalArgumentException("invalid key space stats");
+            throw new IllegalArgumentException("invalid key-space stats");
         }
-        return new TableStats(base.schemaHash, base.runtimeCompatibility,
-                base.runtimePlanHash, base.statsMode, base.rows, base.capacity,
-                base.structuralEpoch, base.released, base.activeViews, base.growthCount,
-                base.updateScratchCurrentBytes, base.updateScratchHighWaterBytes,
-                base.sidecarDirtyCount, base.sidecarRebuildCount, base.sidecarRebuildRows,
-                base.sidecarScratchCurrentBytes, base.sidecarScratchHighWaterBytes,
-                base.lastOperation, base.lastOutcome, base.lastErrorCode,
-                base.lastScanned, base.lastMatched, base.lastChanged,
+        return copy(base,
                 base.childInstanceCount, base.descendantRowCount,
                 base.materializationInvocationCount, base.materializationFailureCount,
                 base.lastMaterializationBudgetIdentity,
@@ -354,7 +291,110 @@ public final class TableStats {
                 base.lastMaterializationEstimatedAllocationBytes,
                 base.operationScratchCurrentBytes, base.operationScratchHighWaterBytes,
                 keySpaceImplementation, keySpaceCapacity, keySpaceUsed,
-                keySpaceProbeCount, keySpaceCollisionCount, keySpaceRehashCount);
+                keySpaceProbeCount, keySpaceCollisionCount, keySpaceRehashCount,
+                base.exactIndexCount, base.exactIndexEntryCount,
+                base.exactIndexGroupCount, base.exactIndexProbeCount,
+                base.exactIndexCollisionCount, base.exactIndexRehashCount,
+                base.exactIndexStorageCurrentBytes,
+                base.exactIndexStorageHighWaterBytes);
+    }
+
+    public static TableStats withExactIndexes(
+            TableStats base,
+            int exactIndexCount,
+            long exactIndexEntryCount,
+            long exactIndexGroupCount,
+            long exactIndexProbeCount,
+            long exactIndexCollisionCount,
+            long exactIndexRehashCount,
+            long exactIndexStorageCurrentBytes,
+            long exactIndexStorageHighWaterBytes) {
+        requireBase(base);
+        boolean absent = exactIndexCount == 0;
+        if (exactIndexCount < 0 || exactIndexEntryCount < 0L
+                || exactIndexGroupCount < 0L
+                || exactIndexGroupCount > exactIndexEntryCount
+                || exactIndexProbeCount < 0L || exactIndexCollisionCount < 0L
+                || exactIndexCollisionCount > exactIndexProbeCount
+                || exactIndexRehashCount < 0L
+                || exactIndexStorageCurrentBytes < 0L
+                || exactIndexStorageHighWaterBytes < exactIndexStorageCurrentBytes
+                || (absent && (exactIndexEntryCount != 0L
+                || exactIndexGroupCount != 0L || exactIndexProbeCount != 0L
+                || exactIndexCollisionCount != 0L || exactIndexRehashCount != 0L
+                || exactIndexStorageCurrentBytes != 0L
+                || exactIndexStorageHighWaterBytes != 0L))) {
+            throw new IllegalArgumentException("invalid exact-index stats");
+        }
+        return copy(base,
+                base.childInstanceCount, base.descendantRowCount,
+                base.materializationInvocationCount, base.materializationFailureCount,
+                base.lastMaterializationBudgetIdentity,
+                base.lastMaterializationMaximumOwnershipDepth,
+                base.lastMaterializationTableInstances, base.lastMaterializationRows,
+                base.lastMaterializationLeafValues,
+                base.lastMaterializationEstimatedAllocationBytes,
+                base.operationScratchCurrentBytes, base.operationScratchHighWaterBytes,
+                base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
+                base.keySpaceProbeCount, base.keySpaceCollisionCount,
+                base.keySpaceRehashCount,
+                exactIndexCount, exactIndexEntryCount, exactIndexGroupCount,
+                exactIndexProbeCount, exactIndexCollisionCount, exactIndexRehashCount,
+                exactIndexStorageCurrentBytes, exactIndexStorageHighWaterBytes);
+    }
+
+    private static TableStats copy(
+            TableStats base,
+            long childInstanceCount,
+            long descendantRowCount,
+            long materializationInvocationCount,
+            long materializationFailureCount,
+            String lastMaterializationBudgetIdentity,
+            int lastMaterializationMaximumOwnershipDepth,
+            long lastMaterializationTableInstances,
+            long lastMaterializationRows,
+            long lastMaterializationLeafValues,
+            long lastMaterializationEstimatedAllocationBytes,
+            long operationScratchCurrentBytes,
+            long operationScratchHighWaterBytes,
+            String keySpaceImplementation,
+            int keySpaceCapacity,
+            int keySpaceUsed,
+            long keySpaceProbeCount,
+            long keySpaceCollisionCount,
+            long keySpaceRehashCount,
+            int exactIndexCount,
+            long exactIndexEntryCount,
+            long exactIndexGroupCount,
+            long exactIndexProbeCount,
+            long exactIndexCollisionCount,
+            long exactIndexRehashCount,
+            long exactIndexStorageCurrentBytes,
+            long exactIndexStorageHighWaterBytes) {
+        return new TableStats(base.schemaHash, base.runtimeCompatibility,
+                base.runtimePlanHash, base.statsMode, base.rows, base.capacity,
+                base.structuralEpoch, base.released, base.activeViews,
+                base.growthCount, base.updateScratchCurrentBytes,
+                base.updateScratchHighWaterBytes,
+                base.lastOperation, base.lastOutcome, base.lastErrorCode,
+                base.lastScanned, base.lastMatched, base.lastChanged,
+                childInstanceCount, descendantRowCount,
+                materializationInvocationCount, materializationFailureCount,
+                lastMaterializationBudgetIdentity,
+                lastMaterializationMaximumOwnershipDepth,
+                lastMaterializationTableInstances, lastMaterializationRows,
+                lastMaterializationLeafValues,
+                lastMaterializationEstimatedAllocationBytes,
+                operationScratchCurrentBytes, operationScratchHighWaterBytes,
+                keySpaceImplementation, keySpaceCapacity, keySpaceUsed,
+                keySpaceProbeCount, keySpaceCollisionCount, keySpaceRehashCount,
+                exactIndexCount, exactIndexEntryCount, exactIndexGroupCount,
+                exactIndexProbeCount, exactIndexCollisionCount, exactIndexRehashCount,
+                exactIndexStorageCurrentBytes, exactIndexStorageHighWaterBytes);
+    }
+
+    private static void requireBase(TableStats base) {
+        if (base == null) throw new NullPointerException("base");
     }
 
     public String schemaHash() { return schemaHash; }
@@ -369,11 +409,6 @@ public final class TableStats {
     public long growthCount() { return growthCount; }
     public long updateScratchCurrentBytes() { return updateScratchCurrentBytes; }
     public long updateScratchHighWaterBytes() { return updateScratchHighWaterBytes; }
-    public long sidecarDirtyCount() { return sidecarDirtyCount; }
-    public long sidecarRebuildCount() { return sidecarRebuildCount; }
-    public long sidecarRebuildRows() { return sidecarRebuildRows; }
-    public long sidecarScratchCurrentBytes() { return sidecarScratchCurrentBytes; }
-    public long sidecarScratchHighWaterBytes() { return sidecarScratchHighWaterBytes; }
     public String lastOperation() { return lastOperation; }
     public OperationOutcome lastOutcome() { return lastOutcome; }
     public String lastErrorCode() { return lastErrorCode; }
@@ -384,11 +419,15 @@ public final class TableStats {
     public long descendantRowCount() { return descendantRowCount; }
     public long materializationInvocationCount() { return materializationInvocationCount; }
     public long materializationFailureCount() { return materializationFailureCount; }
-    public String lastMaterializationBudgetIdentity() { return lastMaterializationBudgetIdentity; }
+    public String lastMaterializationBudgetIdentity() {
+        return lastMaterializationBudgetIdentity;
+    }
     public int lastMaterializationMaximumOwnershipDepth() {
         return lastMaterializationMaximumOwnershipDepth;
     }
-    public long lastMaterializationTableInstances() { return lastMaterializationTableInstances; }
+    public long lastMaterializationTableInstances() {
+        return lastMaterializationTableInstances;
+    }
     public long lastMaterializationRows() { return lastMaterializationRows; }
     public long lastMaterializationLeafValues() { return lastMaterializationLeafValues; }
     public long lastMaterializationEstimatedAllocationBytes() {
@@ -402,4 +441,16 @@ public final class TableStats {
     public long keySpaceProbeCount() { return keySpaceProbeCount; }
     public long keySpaceCollisionCount() { return keySpaceCollisionCount; }
     public long keySpaceRehashCount() { return keySpaceRehashCount; }
+    public int exactIndexCount() { return exactIndexCount; }
+    public long exactIndexEntryCount() { return exactIndexEntryCount; }
+    public long exactIndexGroupCount() { return exactIndexGroupCount; }
+    public long exactIndexProbeCount() { return exactIndexProbeCount; }
+    public long exactIndexCollisionCount() { return exactIndexCollisionCount; }
+    public long exactIndexRehashCount() { return exactIndexRehashCount; }
+    public long exactIndexStorageCurrentBytes() {
+        return exactIndexStorageCurrentBytes;
+    }
+    public long exactIndexStorageHighWaterBytes() {
+        return exactIndexStorageHighWaterBytes;
+    }
 }

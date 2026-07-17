@@ -78,7 +78,7 @@
 ## 3. Schema 与 generated API
 
 1. 在 `package-info.java` 声明 `@SomaSchema`；
-2. 使用 `@SomaTable`、`@SomaValue`、`@SomaField`、`@SomaKey`、`@SomaIndex`、`@SomaUnique`、`@SomaOrder`、`@SomaChild` 等定义 logical schema；
+2. 使用 `@SomaTable`、`@SomaValue`、`@SomaField`、`@SomaKey`、`@SomaIndex`、`@SomaUnique`、`@SomaChild` 等定义 logical schema；`@SomaIndex`/`@SomaUnique`只提供exact access，业务顺序在generated Row Pipeline上显式调用`sorted(totalComparator)`；
 3. Maven compile 同时激活 `SomaValue` javac plugin 与 annotation processor；
 4. application 只依赖 generated typed API 和 `soma-runtime-core`，不直接访问 generated-sources directory 或 runtime internal type；
 5. 所有同一应用中的 generated source、runtime-core、runtime plan 和 schema hash必须通过初始化兼容性检查。

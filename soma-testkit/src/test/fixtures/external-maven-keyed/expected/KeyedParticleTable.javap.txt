@@ -43,7 +43,8 @@ public final class com.example.soma.keyed.generated.KeyedParticleTable {
   public com.example.soma.keyed.KeyedParticle firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.keyed.KeyedParticle> fetchAll();
   public java.util.List<com.example.soma.keyed.KeyedParticle> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public int[] rowIndexes();
+  public com.hgtech.soma.runtime.IndexSnapshot rowIndexes();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
   public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.keyed.generated.KeyedParticleRows$Updater);
   public com.hgtech.soma.runtime.RemoveResult remove();
   public com.hgtech.soma.runtime.IntColumnPipeline idValues();

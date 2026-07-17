@@ -239,12 +239,13 @@ if ! grep -q 'IntKeySpace keySpace' "$table_source" \
   exit 1
 fi
 if grep -F 'stageAppendKeys' "$table_source" "$composite_table_source" >/dev/null \
-  || ! grep -F 'validateAppendKeys(batch);ensureAppendKeyCapacity(count,"addBatch");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;state.commitAppend(start,count)' "$table_source" >/dev/null \
-  || ! grep -F 'validateAppendKeys(batch);ensureAppendKeyCapacity(count,"addBatch");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;state.commitAppend(start,count)' "$composite_table_source" >/dev/null \
+  || ! grep -F 'validateAppendKeys(batch);ensureAppendKeyCapacity(count,"addBatch");ensureExactIndexCapacity(size()+count,count,"addBatch");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count)' "$table_source" >/dev/null \
+  || ! grep -F 'validateAppendKeys(batch);ensureAppendKeyCapacity(count,"addBatch");ensureExactIndexCapacity(size()+count,count,"addBatch");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count)' "$composite_table_source" >/dev/null \
   || ! grep -F 'if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count)' "$table_source" >/dev/null \
   || ! grep -F 'if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count)' "$composite_table_source" >/dev/null \
-  || ! grep -F 'stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),"replaceAll");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count)' "$composite_table_source" >/dev/null \
-  || ! grep -F 'state.commitReplace(previous,count);publishKeySpace(staged,"replaceAll");staged=null' "$composite_table_source" >/dev/null; then
+  || ! grep -F 'stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());ExactIndexStage stagedIndexes=stageExactIndexes(batch,"replaceAll");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),"replaceAll");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count)' "$composite_table_source" >/dev/null \
+  || ! grep -F 'publishKeySpace(staged,"replaceAll");staged=null;stagedIndexes.publish("replaceAll");stagedIndexes=null;state.commitReplace(previous,count)' "$composite_table_source" >/dev/null \
+  || ! grep -F 'discardKeySpace(staged,"replaceAll");if(stagedIndexes!=null)stagedIndexes.discard("replaceAll")' "$composite_table_source" >/dev/null; then
   printf '%s\n' 'generated-keyed-phase2-check: incremental append/replacement atomicity shape missing' >&2
   exit 1
 fi

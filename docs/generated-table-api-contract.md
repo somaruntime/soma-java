@@ -61,7 +61,7 @@ XxxBatch.addValues(XxxBatch.Writer)
 XxxBatch.addValues(requiredValues..., optionalPresent, optionalPrimitiveValue...) // JVM slots允许时
 ```
 
-`RuntimePlan`、`MaterializationBudget`、`UpdateResult` 和 structured runtime exception 位于 `com.hgtech.soma.runtime` handwritten runtime API。`XxxRows` 的 generated nested SAM types `Predicate`、`Consumer`、`Updater` 分别接收 `XxxRow` / `XxxMutableRow`；generated facade 的 public signature 不暴露 RowSlot、column、bitmap、runtime generated-protocol type 或 storage binding。
+`RuntimePlan`、`MaterializationBudget`、`IndexSnapshot`、`UpdateResult` 和 structured runtime exception 位于 `com.hgtech.soma.runtime` handwritten runtime API。`XxxRows` 的 generated nested SAM types `Predicate`、`Consumer`、`Updater` 分别接收 `XxxRow` / `XxxMutableRow`；generated facade 的 public signature 不暴露 index link、live IndexBuffer、column、bitmap、runtime generated-protocol type 或 storage binding。
 
 Application override 从 generated default plan 派生：读取 `RuntimePlan.requireTable(name)`，通过 `TablePlan.toBuilder()` 修改，再用 `RuntimePlan.toBuilder().replaceTable(...)` 替换；fresh plan使用 `addTable(...)`。直接构造 incompatible identity虽可用于 negative/compatibility tooling，但 `create` 必须拒绝。Table create 后 `runtimePlan()` 返回同一 immutable effective plan，不能 live mutate。
 
@@ -101,7 +101,8 @@ public final class XxxTable {
     public Optional<Xxx> findFirst();
     public Xxx firstOrThrow();
     public List<Xxx> fetchAll();
-    public int[] rowIndexes();
+    public IndexSnapshot rowIndexes();
+    public void requireCurrent(IndexSnapshot snapshot);
     public UpdateResult update(XxxRows.Updater updater);
     public RemoveResult remove();
     public TableStats statsSnapshot();
@@ -142,7 +143,7 @@ public final class XxxRows {
     public Optional<Xxx> findFirst();
     public Xxx firstOrThrow();
     public List<Xxx> fetchAll();
-    public int[] rowIndexes();
+    public IndexSnapshot rowIndexes();
     public UpdateResult update(Updater updater);
     public RemoveResult remove();
     public interface Predicate { boolean test(XxxRow row); }
@@ -152,24 +153,19 @@ public final class XxxRows {
 }
 
 public final class UpdateResult {
-    public static UpdateResult create(long scanned, long matched, long changed,
-        long sidecarMaintained, long sidecarRebuilt);
+    public static UpdateResult create(long scanned, long matched, long changed);
     public long scanned();
     public long matched();
     public long changed();
-    public long sidecarMaintained();
-    public long sidecarRebuilt();
 }
 
 public final class RemoveResult {
     public static RemoveResult create(long scanned, long matched, long removed,
-        long compacted, long sidecarMaintained, long sidecarRebuilt);
+        long compacted);
     public long scanned();
     public long matched();
     public long removed();
     public long compacted();
-    public long sidecarMaintained();
-    public long sidecarRebuilt();
 }
 ```
 
@@ -254,6 +250,7 @@ Dense row index 是当前 packed storage location，不是 stable identity。Str
 ### 4.3 Whole-table operation
 
 - `addBatch(batch)` 增量增加合法 rows；
+- `reserve(expectedCapacity)` 预留columns、primary locator与exact indexes的同一row envelope；不改变size或业务事实，expected resource failure不发布partial capacity；
 - `replaceAll(batch)` 全量替换，失败时旧事实不变；
 - `clear()` 删除全部 rows，但 table 仍 active；
 - `release()` 结束 ownership aggregate 生命周期；
@@ -300,15 +297,14 @@ Source 只选择 terminal 的初始 row sequence：
 |---|---|---|
 | default packed | `table.filter(...)` | 当前 packed rows；keyed table 不承诺 key order |
 | explicit rows | `table.rows()` | default source 的显式别名 |
-| index/unique | `findByCell(cellId)` | maintained selector 的候选 rows |
-| maintained order | `byRenderOrder()` | order sidecar traversal |
+| index/unique | `findByCell(cellId)` | exact selector 的 current candidate rows |
 | child-local | `routes.visits(routeId)` | parent-owned child table source |
 
-Index、unique 和 order source 都返回同一种 typed Row Pipeline。它们不是 query DSL、join 或 sidecar handle。
+Index 与 unique source 都返回同一种 typed Row Pipeline。它们不是 query DSL、join 或 internal index handle。
 
 Grouped selector 如果完整对应一个 `@SomaValue` field，generated method 应接受该 value type；否则使用 normalized leaf 顺序。具体命名冲突由 processor golden 固化。
 
-Index/unique exact source 的参数覆盖完整 selector。Order source 始终提供无参 whole-order overload；当 order 至少包含两个 leaf 时，还提供同名 grouped overload，按除最后一个排序 leaf之外的最长 leading prefix 限定 group，再保持完整 selector order。两种 overload 都在 terminal 时读取 current sidecar facts，pipeline construction 不提前 rebuild 或冻结 row indexes。
+Index/unique exact source 的参数覆盖完整 selector。Pipeline construction只保存selector参数；terminal开始时定位current group并沿primitive link遍历，不复制全组、不触发dirty rebuild。组内枚举顺序不作承诺。
 
 ## 7. Intermediate operations
 
@@ -322,7 +318,7 @@ sorted(comparator)
 ```
 
 - `filter` 接受 row-level predicate，不承诺 lambda-to-index analysis；
-- `sorted` 是 dynamic row order，不移动真实 columns，不等同于 `@SomaOrder`；
+- `sorted` 是唯一的 table/pipeline business-order primitive；它不移动真实 columns；
 - comparator 必须纯读，不修改 table；
 - equal comparator result 应保留 source order，以获得 deterministic traversal；
 - `sorted(...).limit(n)` 按排序后顺序截断；
@@ -348,7 +344,9 @@ rowIndexes()
 - `firstOrThrow` 在 empty result 时抛 typed error；
 - `fetchAll` 按 pipeline row sequence 返回 `List<R>`；
 - `rowIndexes` 返回 epoch-sensitive packed indexes，不是业务 identity；
-- V1 exact `rowIndexes()` 返回 primitive `int[]` detached buffer；不返回 boxed `List<Integer>`、live view或可跨 structural epoch解释的 identity；
+- V1 exact `rowIndexes()` 返回 detached immutable `IndexSnapshot`，包含捕获时 structural epoch、`size()`、`indexAt(int)` 和 defensive-copy `toArray()`；不返回 boxed `List<Integer>` 或 live view；
+- generated table `requireCurrent(IndexSnapshot)` 必须拒绝其他table的snapshot以及structural epoch不匹配，分别返回typed ownership/`stale_index_snapshot`错误；
+- 未排序 terminal 遵循当次 source sequence：default source 是当前物理 `[0,size)`，exact index source 是当前组内枚举；二者都不承诺业务顺序；
 - `findXxx` 表示 optional result，required-result 使用 `fetchXxx` 或 `firstOrThrow`；
 - `firstOrThrow` 空结果使用 lookup category `empty_result`，context包含table/source和terminal operation；
 - 不引入 `fetchFirst`，避免与 `fetch(key)` / `fetchAt` 混淆。
@@ -365,17 +363,15 @@ RemoveResult remove()
 - `update` 接受 mutable cursor，只修改非 key fields；
 - `remove` 删除 matched rows，是 structural mutation；
 - `filter(...).remove()` 是 canonical 删除写法；
-- candidate sequence 在 terminal 开始时确定，不因 terminal 内字段变化重新进入 filter/index/order/sort；
-- selector fields 变化可以在 terminal 结束时统一维护 sidecar；
-- expected failure 不得留下 partial row 或 partial sidecar。
+- candidate sequence 在 terminal 开始时确定，不因 terminal 内字段变化重新进入 filter/index/sort；
+- selector fields 变化在publish阶段按old-value unlink、field publish、new-value link增量维护；成功返回前所有exact structures已经current；
+- expected failure 不得留下 partial row 或 partial locator/index。
 
-`UpdateResult` 至少表达 scanned、matched、changed 和 sidecar maintenance；`RemoveResult` 至少表达 scanned、matched、removed、compaction 和 sidecar maintenance。它们不是性能证明，但必须支持 diagnostics 和 evidence。
+`UpdateResult` 的稳定 public shape是immutable `long scanned()`、`long matched()`、`long changed()`。`RemoveResult` 的稳定 public shape是immutable `long scanned()`、`long matched()`、`long removed()`、`long compacted()`。Exact-index维护属于runtime invariant和stats，不进入logical operation result。
 
-Phase 1 固化 `UpdateResult` 的稳定 public shape：immutable `long scanned()`、`long matched()`、`long changed()`、`long sidecarMaintained()` 和 `long sidecarRebuilt()`。Dense/no-sidecar slice 后两项为零但不能省略；后续 sidecar implementation 直接填充，不迁移 consumer。
+成功 remove 必须满足 `removed == matched <= scanned` 与 `0 <= compacted <= removed`。`compacted` 是tail-fill/swap-remove为恢复packed `[0,size)`而实际移动的survivor row数；物理顺序不稳定。Failed terminal不返回result，旧rows/epoch/locator/index facts保持不变。
 
-Phase 1 固化 `RemoveResult` 的稳定 public shape：immutable `long scanned()`、`long matched()`、`long removed()`、`long compacted()`、`long sidecarMaintained()`、`long sidecarRebuilt()`。成功 remove 必须满足 `removed == matched <= scanned`；`compacted` 是为恢复 packed `[0,size)` 而实际移动的 survivor row 数，可能大于本 terminal 的 `scanned`（例如先以 `limit(1)` 删除首 row），因此只要求 non-negative。Dense/no-sidecar 后两项为零。Failed terminal 不返回 result，旧 rows/epoch/sidecar facts保持不变。
-
-计数单位固定：`scanned` 是从 source实际拉取并进入 intermediate evaluation 的 candidate row数，因 limit/short-circuit未拉取的不计；`matched` 是依次通过 filter/skip/limit并到达 updater 的 row数；`changed` 是 publish时最终 staged logical field/presence与 terminal前不同的 distinct row数，同值 setter和先改后恢复不计；`sidecarMaintained` 是本 terminal至少执行一次 incremental maintenance的 distinct sidecar结构数；`sidecarRebuilt` 是完成 full rebuild并发布的 distinct sidecar结构数。一个 sidecar处理多个 row仍计一。Failed terminal不返回 `UpdateResult`，且 committed `changed` 为零；attempted scanned/matched进入 failed last-operation stats。
+计数单位固定：`scanned` 是从 source实际拉取并进入 intermediate evaluation 的 candidate row数，因 limit/short-circuit未拉取的不计；`matched` 是依次通过 filter/skip/limit并到达 updater 的 row数；`changed` 是 publish时最终 staged logical field/presence与 terminal前不同的 distinct row数，同值 setter和先改后恢复不计。Failed terminal不返回 `UpdateResult`，且 committed `changed` 为零；attempted scanned/matched进入 failed last-operation stats。
 
 `update` 使用整次 terminal 的 primitive staging：filter/candidate 先冻结 matched row indexes，单个 reusable mutable cursor 只写 staging columns，全部 callback/validation 成功后统一 publish。任一 callback 失败时 live columns、presence、epoch 和 stats 中的 committed facts保持不变，并以 `callback_failed` 保留 cause；不得逐 row 直接写 live facts再承诺未来补 rollback。
 
@@ -474,11 +470,11 @@ Application callback抛出异常时，non-mutating terminal不修改table；muta
 Public API 只承诺：
 
 - non-materializing terminal 不需要 per-row schema object；
-- default packed source、index/order source 和 dynamic sort 语义可区分；
+- default packed source、exact-index source 和 dynamic sort 语义可区分；
 - primitive column path 和 borrowed ColumnView 可显式选择；
 - materialization 是独立 allocation boundary。
 
-Loop fusion、Cursor reuse、primitive specialization、row permutation、scratch 和 no-per-row-allocation 由 [runtime 性能实现契约](../soma-runtime-core/docs/runtime-performance-implementation-contract.md) 拥有。任何速度声明仍需 benchmark。
+Loop fusion、Cursor reuse、primitive specialization、group-link traversal、IndexBuffer 和 no-per-row-allocation 由 [runtime 性能实现契约](../soma-runtime-core/docs/runtime-performance-implementation-contract.md) 拥有。任何速度声明仍需 benchmark。
 
 ## 16. 与 Java Stream 的关系
 
@@ -487,7 +483,7 @@ Row Pipeline 借用 Java Stream 的部分命名，但不实现 `java.util.stream
 - 元素是 callback-scoped cursor，不是 object row；
 - update/remove 是一等 terminal；
 - 不承诺 parallel/spliterator/collector；
-- sidecar、view pin 和 mutation lifecycle 是 SOMA 语义。
+- exact-index consistency、view pin 和 mutation lifecycle 是 SOMA 语义。
 
 需要通用 Java Stream 时，先显式 materialize：
 

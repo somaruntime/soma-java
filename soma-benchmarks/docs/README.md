@@ -14,7 +14,7 @@
 V1 smoke runner、exact JSONL schema、strict validator 和required-lane manifest已固化于：
 
 - `BenchmarkSmokeRunner` / `BenchmarkArtifactValidator`；
-- `META-INF/soma/benchmark-smoke-schema-v3.json`；
+- `META-INF/soma/benchmark-smoke-schema-v4.json`；
 - `scripts/check-benchmark-smoke.sh`；
 - `soma-benchmarks/reports/java-v1-benchmark-smoke-report.md`。
 

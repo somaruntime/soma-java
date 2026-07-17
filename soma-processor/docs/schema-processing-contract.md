@@ -45,7 +45,7 @@ V1 baseline：
 - table/value field order 使用 annotation processor 从 lowered javac element model 读取到的 source declaration order；
 - field position 隐式来自 source declaration order；
 - V1 不要求用户显式声明 `position`；
-- index/unique/order declaration order 使用 annotation array order 或 repeated annotation 的 source order；
+- index/unique declaration order 使用 repeated annotation 的 source order；
 - processor golden tests 必须证明同一 source 在同一 Java 8 toolchain 下 canonical output 稳定；
 - runtime 不得依赖 reflection order。
 
@@ -66,7 +66,7 @@ Normalized schema model 至少包含：
 - field / child / optional-modifier list；
 - key declaration；
 - schema default declaration；
-- index / unique / order declaration；
+- index / unique declaration；
 - selector normalized path；
 - resolved storage type；
 - layout order；
@@ -96,8 +96,8 @@ Runtime plan 可以包含：
 - `defaultCapacity`；
 - storage hint；
 - capacity growth/trim、allocation/scratch strategy；
-- SparseInt domain/fallback、HashKeySpace load/probing/rehash strategy；
-- secondary index concrete structure and sidecar eager/lazy/hybrid policy；
+- hash primary-locator load/probing/rehash strategy；
+- secondary exact-index concrete structure；
 - stats diagnostic mode；
 - default `MaterializationBudget`；
 - materialization allocation estimator version；
@@ -162,12 +162,12 @@ V1 中以下变化均视为 breaking change：
 - 修改 `@SomaSchema.name`；
 - 重命名 enum、value、table；
 - 重命名或重排 enum member；
-- 重命名 key、field、optional、index、unique、order；
+- 重命名 key、field、optional、index、unique；
 - keyed table 与 dense table 之间切换；
 - 修改字段类型；
 - 修改 semantic scalar storage；
 - 修改 key 类型、key leaf structure 或 equality 语义；
-- 修改 selector、order direction 或 access name；
+- 修改 selector 或 access name；
 - 删除字段；
 - 新增改变 layout 的字段；
 - 修改 optional / required 语义；
@@ -233,7 +233,7 @@ Processor diagnostics 至少区分：
 - selector path uses Java field name after logical name override；
 - duplicate generated access name；
 - value contains table/List/Map/mutable field；
-- value contains key/index/unique/order declaration；
+- value contains key/index/unique declaration；
 - unsupported Java language feature；
 - optional primitive declared without boxed schema/materialization type；
 - unsupported unsigned type expectation；
@@ -279,7 +279,7 @@ Table/codegen family additive 分配：
 | `SOMA-TABLE-006` | public no-arg construction or public mutable field shape invalid |
 | `SOMA-TABLE-007` | default capacity/runtime-plan hint invalid |
 | `SOMA-TABLE-008` | table key cardinality/type/requiredness invalid |
-| `SOMA-TABLE-009` | index/unique/order name、selector leaf、direction 或 access binding invalid |
+| `SOMA-TABLE-009` | index/unique name、selector leaf 或 exact-access binding invalid |
 | `SOMA-TABLE-010` | child container/row/key/modifier/ownership declaration invalid |
 | `SOMA-TABLE-011` | direct/indirect child ownership cycle |
 | `SOMA-GEN-001` | generated public name/signature collision |
@@ -310,4 +310,4 @@ Generated API 的用户语义由根级 [Generated Table API 契约](../../docs/g
 
 ## 10. 非目标
 
-本文不规定 compiler lowering mechanics、generated Java class/method body、runtime column/keyspace algorithm、runtime-plan concrete strategy、automatic schema migration 或 additive compatibility。Compiler mechanics 由 [Compiler integration 契约](compiler-integration-contract.md) 拥有。
+本文不规定 compiler lowering mechanics、generated Java class/method body、runtime column/locator/index algorithm、runtime-plan concrete strategy、automatic schema migration 或 additive compatibility。Compiler mechanics 由 [Compiler integration 契约](compiler-integration-contract.md) 拥有。

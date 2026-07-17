@@ -13,7 +13,7 @@ import java.util.Map;
 /** Strict JSONL/schema/required-lane validator，可独立用于已有artifact。 */
 public final class BenchmarkArtifactValidator {
     private static final String SCHEMA_RESOURCE =
-            "/META-INF/soma/benchmark-smoke-schema-v3.json";
+            "/META-INF/soma/benchmark-smoke-schema-v4.json";
 
     private BenchmarkArtifactValidator() {
     }
@@ -73,7 +73,7 @@ public final class BenchmarkArtifactValidator {
                 "throughput", "latency", "rowCounts", "candidateCounts",
                 "operationCounts", "accessPatternCard", "observationKinds",
                 "allocationPerOperation",
-                "gcStats", "sidecarStats", "keySpaceStats", "selectorStats",
+                "gcStats", "exactIndexStats", "keySpaceStats", "selectorStats",
                 "mutationReadRatio", "materializationStats",
                 "effectiveMaterializationBudget", "externalDtoStats",
                 "columnViewStats", "allocationEstimate", "hardwareCounterStats"};
