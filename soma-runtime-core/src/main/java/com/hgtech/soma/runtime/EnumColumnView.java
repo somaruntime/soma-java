@@ -6,6 +6,8 @@ import com.hgtech.soma.runtime.generated.PresenceBitmap;
 
 /** 由 ordinal-packed IntColumn 支撑的显式 live enum view。 */
 public final class EnumColumnView<E extends Enum<E>> extends AbstractColumnView implements AutoCloseable {
+    private static final ColumnViewOperations.Cache OPERATIONS =
+            new ColumnViewOperations.Cache("get");
     private final IntColumn column;
     private final E[] members;
 
@@ -16,7 +18,7 @@ public final class EnumColumnView<E extends Enum<E>> extends AbstractColumnView 
             String table,
             String field,
             E[] members) {
-        super(state, column, presence, table, field);
+        super(state, column, presence, table, field, OPERATIONS);
         if (members == null) {
             throw new NullPointerException("members");
         }
@@ -25,12 +27,12 @@ public final class EnumColumnView<E extends Enum<E>> extends AbstractColumnView 
     }
 
     public boolean isPresent(int rowIndex) {
-        return present(checkedRow(rowIndex, "isPresent"));
+        return present(checkedPresenceRow(rowIndex));
     }
 
     public E get(int rowIndex) {
-        int row = checkedRow(rowIndex, "get");
-        requirePresent(row, "get");
+        int row = checkedValueRow(rowIndex);
+        requirePresent(row);
         return members[column.get(row)];
     }
 

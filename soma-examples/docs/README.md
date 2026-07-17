@@ -1,6 +1,14 @@
 # soma-examples 正式设计文档
 
-本目录保存 Java 8 formal usage scenarios。Scenario 拥有 Access Pattern Card、data role 和 E2E evidence boundary，但不拥有 annotation、API 或 runtime contract。
+本目录保存 Java 8 formal usage scenarios。Scenario 的第一职责是教学：让读者从简洁的
+算法 loop 看见 SOMA schema、generated table、索引、Row Pipeline、ColumnView 和
+detached export 如何协作。Access Pattern Card、data role 和 E2E evidence boundary 是
+第二职责；错误矩阵、lifecycle/golden 和 gate 断言必须进入独立 verification 入口，不能
+淹没教学主流程。Scenario 不拥有 annotation、API、runtime contract 或 benchmark 结果。
+
+FJSP production source 以 application package + 单一 `fjsp.schema` package 组织；V1
+processor 的 schema package ownership 不允许把 value/table 声明拆到两个 Java package。
+Verification 位于 `src/test/java`，100k synthetic input 和计时位于 `soma-benchmarks`。
 
 ## 正式设计文档
 

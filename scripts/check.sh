@@ -27,6 +27,7 @@ cd "$root_dir"
 ./scripts/check-external-consumer.sh
 ./scripts/check-examples-phase6.sh
 ./scripts/check-benchmark-smoke.sh
+./scripts/check-fjsp-allocation-gc.sh
 git diff --check
 
 printf '%s\n' 'project-check: ok'

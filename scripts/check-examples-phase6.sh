@@ -29,13 +29,20 @@ scenario_output=$evidence_dir/scenario-output.txt
 "$JAVA_HOME/bin/java" -cp "$classes:$runtime_classes" \
   com.hgtech.soma.examples.ScenarioSuite >"$scenario_output"
 cat "$scenario_output"
+"$JAVA_HOME/bin/java" -cp "$root_dir/soma-examples/target/test-classes:$classes:$runtime_classes" \
+  com.hgtech.soma.examples.fjsp.FjspVerificationSuite \
+  >"$evidence_dir/fjsp-verification.txt"
+cat "$evidence_dir/fjsp-verification.txt"
+grep -F 'fjsp-verification: ok' "$evidence_dir/fjsp-verification.txt" >/dev/null
+combined_output=$evidence_dir/combined-output.txt
+cat "$scenario_output" "$evidence_dir/fjsp-verification.txt" >"$combined_output"
 
-grep -F 'access-pattern-card scenario=fjsp' "$scenario_output" >/dev/null
+grep -F 'access-pattern-card scenario=fjsp' "$combined_output" >/dev/null
 grep -F 'access-pattern-card scenario=vrp' "$scenario_output" >/dev/null
 grep -F 'access-pattern-card scenario=simulation' "$scenario_output" >/dev/null
 grep -F 'access-pattern-card scenario=game' "$scenario_output" >/dev/null
 for scenario in fjsp vrp simulation game; do
-  apc_line=$(grep -F "access-pattern-card scenario=$scenario " "$scenario_output")
+  apc_line=$(grep -F "access-pattern-card scenario=$scenario " "$combined_output")
   printf '%s\n' "$apc_line" | grep -E ' rows=[1-9][0-9]* ' >/dev/null
   printf '%s\n' "$apc_line" | grep -E ' hotColumns=[^ ]+' >/dev/null
   printf '%s\n' "$apc_line" | grep -E ' hotLeafWidthsByTable=[^ ]+ ' >/dev/null
@@ -44,29 +51,39 @@ for scenario in fjsp vrp simulation game; do
   printf '%s\n' "$apc_line" | grep -E ' reads=[1-9][0-9]* mutations=[1-9][0-9]* ' >/dev/null
   printf '%s\n' "$apc_line" | grep -F 'observation=executed-result-accounting' >/dev/null
 done
-grep -F 'scenario=fjsp ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=64 ' >/dev/null
+grep -F 'scenario=fjsp ' "$combined_output" | grep -F 'aggregateHotLeafWidths=64 ' >/dev/null
 grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=32 ' >/dev/null
 grep -F 'scenario=simulation ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=44 ' >/dev/null
 grep -F 'scenario=game ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=32 ' >/dev/null
-grep -F 'workingSetFormula=assignments.capacity*64' "$scenario_output" >/dev/null
+grep -F 'workingSetFormula=assignments.capacity*64' "$combined_output" >/dev/null
 grep -F 'workingSetFormula=visits.capacity*32' "$scenario_output" >/dev/null
 grep -F 'workingSetFormula=state.capacity*44' "$scenario_output" >/dev/null
 grep -F 'workingSetFormula=units.capacity*12+map.capacity*8+moves.capacity*4+damage.capacity*8' \
   "$scenario_output" >/dev/null
 
-fjsp_rows_source=$root_dir/soma-examples/target/generated-sources/annotations/com/hgtech/soma/examples/fjsp/generated/MachineCandidateRows.java
-grep -F 'Selection s=select(terminalMaximum())' "$fjsp_rows_source" >/dev/null
+fjsp_rows_source=$root_dir/soma-examples/target/generated-sources/annotations/com/hgtech/soma/examples/fjsp/schema/generated/MachineCandidateRows.java
+grep -F 'selectionRows=values;selectionLength=length;selectionScanned=scanned' \
+  "$fjsp_rows_source" >/dev/null
+if grep -F 'class Selection' "$fjsp_rows_source" >/dev/null; then
+  printf '%s\n' 'examples-phase6-check: terminal Selection allocation regressed' >&2
+  exit 1
+fi
 grep -F 'private int terminalMaximum()' "$fjsp_rows_source" >/dev/null
-grep -F 'dynamic sorted limit(1) rowIndexes adds no full-sort scratch' \
-  "$root_dir/soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java" >/dev/null
+grep -F 'identity tie-break must survive packed compaction' \
+  "$root_dir/soma-examples/src/test/java/com/hgtech/soma/examples/fjsp/FjspVerificationSuite.java" >/dev/null
 grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'visits=3' >/dev/null
 grep -F 'soma-examples-scenarios: ok' "$scenario_output" >/dev/null
-grep '^lane=' "$scenario_output" >"$evidence_dir/lane-markers.txt"
+grep '^lane=' "$evidence_dir/fjsp-verification.txt" \
+  >"$evidence_dir/lane-markers.txt"
 cmp "$expected/expected-lane-markers.txt" "$evidence_dir/lane-markers.txt"
 
 for scenario_package in fjsp vrp simulation game; do
-  schema="$classes/META-INF/soma/com.hgtech.soma.examples.$scenario_package.schema.json"
-  schema_hash="$classes/META-INF/soma/com.hgtech.soma.examples.$scenario_package.schema.sha256"
+  schema_package="com.hgtech.soma.examples.$scenario_package"
+  if [ "$scenario_package" = 'fjsp' ]; then
+    schema_package="$schema_package.schema"
+  fi
+  schema="$classes/META-INF/soma/$schema_package.schema.json"
+  schema_hash="$classes/META-INF/soma/$schema_package.schema.sha256"
   test -s "$schema"
   test -s "$schema_hash"
   cmp "$expected/$(basename "$schema")" "$schema"
@@ -79,10 +96,10 @@ for scenario_package in fjsp vrp simulation game; do
 done
 
 for generated_type in \
-  fjsp/generated/OperationDefinitionTable \
-  fjsp/generated/MachineTable \
-  fjsp/generated/MachineCandidateTable \
-  fjsp/generated/OperationAssignmentTable \
+  fjsp/schema/generated/OperationDefinitionTable \
+  fjsp/schema/generated/MachineTable \
+  fjsp/schema/generated/MachineCandidateTable \
+  fjsp/schema/generated/OperationAssignmentTable \
   vrp/generated/RouteTable \
   vrp/generated/InsertionCandidateRowTable \
   simulation/generated/StateVectorRowTable \
@@ -132,8 +149,8 @@ if grep -R -E 'java\.util\.stream|java\.lang\.reflect|Class\.forName' \
   printf '%s\n' 'examples-phase6-check: reflective or Stream runtime path detected' >&2
   exit 1
 fi
-if sed -n '/private static void release(/,/private static DispatchResult dispatch(/p' \
-    soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java |
+if sed -n '/void release(/,/Candidate select(/p' \
+    soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspCandidateFrontier.java |
     grep -F 'definitions.fetch' >/dev/null; then
   printf '%s\n' 'examples-phase6-check: FJSP release hot path materializes definition' >&2
   exit 1
@@ -144,7 +161,7 @@ if grep -F 'byGridPosition().fetchAll()' \
   exit 1
 fi
 if grep -E 'row\.(position|customerId|machineId|candidateKey)\(\)' \
-    soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java \
+    soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspCandidateFrontier.java \
     soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java \
     soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java \
     >/dev/null; then
@@ -152,7 +169,7 @@ if grep -E 'row\.(position|customerId|machineId|candidateKey)\(\)' \
   exit 1
 fi
 grep -F 'identity tie-break must survive packed compaction' \
-  soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java >/dev/null
+  soma-examples/src/test/java/com/hgtech/soma/examples/fjsp/FjspVerificationSuite.java >/dev/null
 grep -F 'non-empty insertion rewrites the shifted route segment' \
   soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java >/dev/null
 grep -F '<artifactId>soma-processor</artifactId>' soma-examples/pom.xml >/dev/null

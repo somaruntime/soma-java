@@ -21,6 +21,7 @@ import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
 
+import java.lang.management.ManagementFactory;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -102,6 +103,8 @@ public final class KeyedConsumer {
         testAdditionalPrimitiveKeyBindings();
         testSparseIntGeneratedBinding();
         testRepeatedSmallBatchDoesNotRebuildEveryAppend();
+        testBatchInternalDuplicateValidation();
+        testSingletonAppendValidationAllocation();
         System.out.println("keyed-consumer: ok");
     }
 
@@ -255,6 +258,58 @@ public final class KeyedConsumer {
                 "repeated small keyed append preserves facts");
         require(table.statsSnapshot().keySpaceRehashCount() < 16L,
                 "small batches only rebuild at geometric capacity boundaries");
+    }
+
+    private static void testBatchInternalDuplicateValidation() {
+        final KeyedParticleTable table = KeyedParticleTable.create();
+        final KeyedParticleBatch duplicate = new KeyedParticleBatch(2);
+        duplicate.addValues(7, 1, false, 0);
+        duplicate.addValues(7, 2, false, 0);
+        expectCode("duplicate_key", new Action() {
+            @Override public void run() { table.addBatch(duplicate); }
+        });
+        require(table.size() == 0, "batch-internal duplicate append is atomic");
+    }
+
+    private static void testSingletonAppendValidationAllocation() {
+        final int warmup = 12000;
+        final int iterations = 2048;
+        KeyedParticleBatch[] batches = new KeyedParticleBatch[warmup + iterations];
+        for (int id = 0; id < batches.length; id++) {
+            batches[id] = new KeyedParticleBatch(1);
+            batches[id].addValues(id, id, false, 0);
+        }
+
+        RuntimePlan base = KeyedParticleTable.defaultRuntimePlan();
+        TablePlan tablePlan = base.requireTable("KeyedParticle").toBuilder()
+                .initialCapacity(16384)
+                .build();
+        KeyedParticleTable table = KeyedParticleTable.create(
+                base.toBuilder().replaceTable(tablePlan).build());
+        for (int index = 0; index < warmup; index++) {
+            table.addBatch(batches[index]);
+        }
+
+        java.lang.management.ThreadMXBean management = ManagementFactory.getThreadMXBean();
+        require(management instanceof com.sun.management.ThreadMXBean,
+                "JDK must expose per-thread allocation counter for keyed shape evidence");
+        com.sun.management.ThreadMXBean allocation =
+                (com.sun.management.ThreadMXBean) management;
+        if (!allocation.isThreadAllocatedMemoryEnabled()) {
+            allocation.setThreadAllocatedMemoryEnabled(true);
+        }
+        long threadId = Thread.currentThread().getId();
+        long before = allocation.getThreadAllocatedBytes(threadId);
+        for (int index = warmup; index < batches.length; index++) {
+            table.addBatch(batches[index]);
+        }
+        long bytes = allocation.getThreadAllocatedBytes(threadId) - before;
+        require(bytes <= 8192L,
+                "singleton keyed append validation must not allocate a temporary KeySpace bytes="
+                        + bytes + " iterations=" + iterations);
+        require(table.size() == batches.length
+                        && table.fetch(batches.length - 1).energy == batches.length - 1,
+                "singleton keyed append allocation fixture preserves facts");
     }
     private static void expectCode(String code, Action action) {
         try {

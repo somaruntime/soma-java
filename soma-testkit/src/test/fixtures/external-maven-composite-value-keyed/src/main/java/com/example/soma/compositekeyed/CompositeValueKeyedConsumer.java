@@ -78,6 +78,19 @@ public final class CompositeValueKeyedConsumer {
                         .addValues(key(7000000001L, 11, 0.0d, "north", KeyKind.READY, 0.0f), 999));
             }
         });
+        final OperationStateTable batchDuplicateTable = OperationStateTable.create();
+        final OperationKey batchDuplicate =
+                key(123L, 4, 8.0d, "within-batch", KeyKind.READY, 2.0f);
+        expectCode("duplicate_key", new Action() {
+            @Override
+            public void run() {
+                batchDuplicateTable.addBatch(new OperationStateBatch()
+                        .addValues(batchDuplicate, 1)
+                        .addValues(batchDuplicate, 2));
+            }
+        });
+        require(batchDuplicateTable.size() == 0,
+                "composite batch-internal duplicate append is atomic");
         expectCode("missing_key", new Action() {
             @Override
             public void run() {

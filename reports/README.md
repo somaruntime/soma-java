@@ -20,6 +20,7 @@
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-17 性能优化后 G6 本机诊断](2026-07-17-post-optimization-g6-diagnostic-report.md)
 - [2026-07-11 SOMA Java V1 专题治理收口](soma-java-v1-topical-governance-report.md)
 - [Java V1 Phase 0 compiler/build checkpoint](java-v1-phase-0-compiler-build-report.md)
 - [Java V1 Phase 0 schema carrier construction 设计缺口](java-v1-phase-0-schema-carrier-design-gap.md)

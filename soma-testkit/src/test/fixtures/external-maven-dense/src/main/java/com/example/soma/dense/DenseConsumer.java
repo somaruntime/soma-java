@@ -31,6 +31,8 @@ import java.lang.management.ManagementFactory;
 import java.util.function.LongConsumer;
 
 public final class DenseConsumer {
+    private static volatile Object allocationEscape;
+
     private DenseConsumer() {
     }
 
@@ -38,6 +40,9 @@ public final class DenseConsumer {
         testAllPrimitiveAndPresenceBindings();
         testDenseDifferentialOracle();
         testColumnPipelineAllocationShape();
+        testColumnViewAllocationShape();
+        testColumnViewAcquisitionAllocation();
+        testRowPipelineAllocationShape();
 
         ParticleBatch batch = new ParticleBatch(2);
         batch.addValues(1, 10L, 1.5f, true, 7);
@@ -86,6 +91,23 @@ public final class DenseConsumer {
             }
         }).skip(1).limit(2);
         require(selected.count() == 2L, "fused row pipeline count");
+        require(table.filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.id() > 0;
+            }
+        }).skip(0).limit(4).filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.ticks() > 0L;
+            }
+        }).skip(0).limit(4).filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.x() > 0.0f;
+            }
+        }).skip(0).limit(4).count() == 4L,
+                "deep one-shot row pipeline plan growth");
         expectCode("pipeline_consumed", new Action() {
             @Override
             public void run() {
@@ -537,6 +559,139 @@ public final class DenseConsumer {
                         + smallBytes + " large=" + largeBytes);
         small.release();
         large.release();
+    }
+
+    private static void testColumnViewAllocationShape() {
+        ParticleTable small = allocationTable(32);
+        ParticleTable large = allocationTable(512);
+        FloatColumnView smallView = small.xColumn();
+        FloatColumnView largeView = large.xColumn();
+        try {
+            for (int round = 0; round < 1000; round++) {
+                readColumn(smallView, 32);
+                readColumn(largeView, 512);
+            }
+            com.sun.management.ThreadMXBean allocation = allocationCounter();
+            long threadId = Thread.currentThread().getId();
+            long smallBytes = allocatedColumnViewBytes(
+                    allocation, threadId, smallView, 32);
+            long largeBytes = allocatedColumnViewBytes(
+                    allocation, threadId, largeView, 512);
+            require(largeBytes <= smallBytes + 16384L,
+                    "column view allocation must not scale with reads small="
+                            + smallBytes + " large=" + largeBytes);
+        } finally {
+            smallView.close();
+            largeView.close();
+            small.release();
+            large.release();
+        }
+    }
+
+    private static void testColumnViewAcquisitionAllocation() {
+        ParticleTable table = allocationTable(1);
+        try {
+            for (int round = 0; round < 12000; round++) {
+                FloatColumnView view = table.xColumn();
+                allocationEscape = view;
+                view.getFloat(0);
+                view.close();
+            }
+            com.sun.management.ThreadMXBean allocation = allocationCounter();
+            long threadId = Thread.currentThread().getId();
+            int iterations = 4096;
+            long before = allocation.getThreadAllocatedBytes(threadId);
+            float checksum = 0.0f;
+            for (int round = 0; round < iterations; round++) {
+                FloatColumnView view = table.xColumn();
+                allocationEscape = view;
+                checksum += view.getFloat(0);
+                view.close();
+            }
+            long bytes = allocation.getThreadAllocatedBytes(threadId) - before;
+            if (checksum == Float.MIN_VALUE) throw new AssertionError("unreachable");
+            require(bytes <= 128L * iterations + 16384L,
+                    "column view acquisition must only allocate the view handle bytes="
+                            + bytes + " iterations=" + iterations);
+        } finally {
+            allocationEscape = null;
+            table.release();
+        }
+    }
+
+    private static void testRowPipelineAllocationShape() {
+        ParticleTable small = allocationTable(32);
+        ParticleTable large = allocationTable(512);
+        ParticleRows.Predicate predicate = new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return row.id() >= 0;
+            }
+        };
+        for (int round = 0; round < 1000; round++) {
+            small.filter(predicate).count();
+            large.filter(predicate).count();
+        }
+        com.sun.management.ThreadMXBean allocation = allocationCounter();
+        long threadId = Thread.currentThread().getId();
+        long smallBytes = allocatedRowPipelineBytes(
+                allocation, threadId, small, predicate);
+        long largeBytes = allocatedRowPipelineBytes(
+                allocation, threadId, large, predicate);
+        require(largeBytes <= smallBytes + 16384L,
+                "row pipeline allocation must not scale with rows small="
+                        + smallBytes + " large=" + largeBytes);
+        small.release();
+        large.release();
+    }
+
+    private static com.sun.management.ThreadMXBean allocationCounter() {
+        java.lang.management.ThreadMXBean management =
+                ManagementFactory.getThreadMXBean();
+        require(management instanceof com.sun.management.ThreadMXBean,
+                "JDK must expose per-thread allocation counter for shape evidence");
+        com.sun.management.ThreadMXBean allocation =
+                (com.sun.management.ThreadMXBean) management;
+        if (!allocation.isThreadAllocatedMemoryEnabled()) {
+            allocation.setThreadAllocatedMemoryEnabled(true);
+        }
+        return allocation;
+    }
+
+    private static float readColumn(FloatColumnView view, int rows) {
+        float checksum = 0.0f;
+        for (int row = 0; row < rows; row++) {
+            checksum += view.getFloat(row);
+        }
+        return checksum;
+    }
+
+    private static long allocatedColumnViewBytes(
+            com.sun.management.ThreadMXBean allocation,
+            long threadId,
+            FloatColumnView view,
+            int rows) {
+        long before = allocation.getThreadAllocatedBytes(threadId);
+        float checksum = 0.0f;
+        for (int round = 0; round < 300; round++) {
+            checksum += readColumn(view, rows);
+        }
+        if (checksum == Float.MIN_VALUE) throw new AssertionError("unreachable");
+        return allocation.getThreadAllocatedBytes(threadId) - before;
+    }
+
+    private static long allocatedRowPipelineBytes(
+            com.sun.management.ThreadMXBean allocation,
+            long threadId,
+            ParticleTable table,
+            ParticleRows.Predicate predicate) {
+        long before = allocation.getThreadAllocatedBytes(threadId);
+        long checksum = 0L;
+        for (int round = 0; round < 300; round++) {
+            checksum += table.filter(predicate).count();
+        }
+        if (checksum == Long.MIN_VALUE) throw new AssertionError("unreachable");
+        return allocation.getThreadAllocatedBytes(threadId) - before;
     }
 
     private static ParticleTable allocationTable(int rows) {

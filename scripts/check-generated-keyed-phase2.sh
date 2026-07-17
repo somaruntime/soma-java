@@ -179,6 +179,7 @@ value_table_source=$value_fixture/target/generated-sources/annotations/com/examp
 if ! grep -F ' fetch(com.example.soma.valuekeyed.MachineId);' \
   "$evidence_dir/ValueKeyedMachineTable.javap.txt" >/dev/null \
   || ! grep -q 'HashLongKeySpace keySpace' "$value_table_source" \
+  || ! grep -F 'if(batch.size()==1)' "$value_table_source" >/dev/null \
   || ! grep -F 'idColumn.set(t,batch.idStorageValue(s));' "$value_table_source" >/dev/null; then
   printf '%s\n' 'generated-keyed-phase2-check: value key direct/primitive binding missing' >&2
   exit 1
@@ -191,6 +192,7 @@ composite_batch_source=$composite_fixture/target/generated-sources/annotations/c
 if ! grep -F ' fetch(com.example.soma.compositekeyed.OperationKey);' \
   "$evidence_dir/OperationStateTable.javap.txt" >/dev/null \
   || ! grep -q 'HashCompositeKeySpace keySpace' "$composite_table_source" \
+  || ! grep -F 'if(batch.size()==1)' "$composite_table_source" >/dev/null \
   || ! grep -q 'ObjectColumn<java.lang.String>' "$composite_table_source" \
   || ! grep -q 'compositeBatchTableEquals' "$composite_table_source" \
   || ! grep -q 'new com.example.soma.compositekeyed.Coordinate' "$composite_table_source"; then
@@ -231,6 +233,7 @@ if grep -E 'setId|clearId|setUpdateId|updateId' \
   exit 1
 fi
 if ! grep -q 'IntKeySpace keySpace' "$table_source" \
+  || ! grep -F 'if(batch.size()==1)' "$table_source" >/dev/null \
   || ! grep -q 'HashIntKeySpace staged=newAppendValidationKeySpace' "$table_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: planned int keyspace protocol binding missing' >&2
   exit 1

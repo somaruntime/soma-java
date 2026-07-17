@@ -4,7 +4,7 @@
 Owner：`soma-benchmarks`
 事实范围：runtime implementation shape、FJSP、VRP、Simulation、Game、child locality 和 deep-materialization benchmark lanes
 非事实范围：evidence level/artifact、public API/schema/runtime contract 和性能结果
-最后审查日期：2026-07-10
+最后审查日期：2026-07-12
 
 ## 1. 目标
 
@@ -55,6 +55,34 @@ FJSP 必须保留 dense workspace 对照 lane：
 - Materialized Object export and external DTO mapping。
 
 只有当 keyed frontier 在相同语义、相同数据规模和相同 dispatch rule 下表现更好，且 phase evidence 能说明收益来自增量维护而不是算法策略差异时，才能把 keyed frontier 写成该 FJSP 场景的推荐 benchmark 结论。
+
+### 3.3 教学算法的 10 万工序 integrated solve
+
+`fjsp.solve.fcfs_spt_100k` 固定复用 `soma-examples` 的教学算法 kernel，而不是在 benchmark
+模块复制 solver。默认 workload 为：
+
+| 维度 | 值 |
+|---|---:|
+| jobs | 1,000 |
+| operations per job | 100 |
+| total operations | 100,000 |
+| machines | 100 |
+| candidate machines per operation | 3 |
+| dispatch rule | effective-ready -> FCFS -> SPT -> identity tie-break |
+
+Runner 必须记录 seed、JDK/OS/architecture、JVM args、warmup 和 measurement iteration。
+Benchmark-only synthetic problem generation 位于 measurement window 之外；每次 iteration
+至少分离 `problem -> FjspInstance` import、`solve`、`export` 三段时间。`solve` 从尚未
+release operation 的完整 instance 开始，包含 initial release 和全部 100,000 assignments；
+problem generation/import 不得混入 solve 时间。结果至少校验 assignment count、job
+completion count、makespan、total tardiness、frontier empty 和 deterministic checksum。
+
+`OperationDefinition.candidateMachines` 仍是 parent-owned dense child。100,000 operation
+会超过默认 `maximumOwnershipTableInstances=65,536`，该 preset 必须从 generated default
+`RuntimePlan` 派生并显式提高 ownership table-instance 和 aggregate-storage budget，同时在
+artifact 中记录 effective plan；不得为绕过预算改成 DTO/Collection live storage。该 lane
+首先是 diagnostic evidence，未提供同语义 baseline、独立 fork 和统计分析前
+`claimAllowed=false`。
 
 ## 4. VRP benchmark lanes
 

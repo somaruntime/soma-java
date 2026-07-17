@@ -45,10 +45,14 @@ cmp "$source_fixture/expected-schema.sha256" "$fixture/target/classes/$schema_ha
 
 parent_source=$fixture/target/generated-sources/annotations/com/example/soma/child/generated/ParentRowTable.java
 child_source=$fixture/target/generated-sources/annotations/com/example/soma/child/generated/KeyedChildRowTable.java
+generated_dir=$fixture/target/generated-sources/annotations/com/example/soma/child/generated
 registry_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/ChildOwnershipRegistry.java
 grep -F 'LongColumn ownerTokenColumn' "$parent_source" >/dev/null
 grep -F 'LongColumn childrenHandleColumn' "$parent_source" >/dev/null
 grep -F 'ChildOwnershipRegistry ownership' "$parent_source" >/dev/null
+grep -F 'TablePlan childrenTablePlan' "$parent_source" >/dev/null
+grep -F 'effectiveChildTablePlan(plan,"children")' "$parent_source" >/dev/null
+grep -F 'createOwned(runtimePlan(),ownership,childrenTablePlan' "$parent_source" >/dev/null
 grep -F 'ownership.beginCascade' "$parent_source" >/dev/null
 grep -F 'ownership.collectCascade' "$parent_source" >/dev/null
 grep -F 'ownership.cancelCascade' "$parent_source" >/dev/null
@@ -63,6 +67,16 @@ if grep -E 'ObjectColumn<.*Table|List<.*>Column|Map<.*>Column' \
 fi
 if grep -E 'ArrayList|HashMap|Map<' "$registry_source" >/dev/null; then
   printf '%s\n' 'child-phase4-check: Java Collection leaked into ownership registry storage' >&2
+  exit 1
+fi
+if ! grep -F 'createOwned(RuntimePlan plan,ChildOwnershipRegistry ownership,TablePlan tablePlan,String path)' \
+    "$generated_dir"/*Table.java >/dev/null 2>&1; then
+  printf '%s\n' 'child-phase4-check: owned child did not receive pre-bound TablePlan' >&2
+  exit 1
+fi
+if grep -E 'static .* createOwned\(.*(verifySchemaPlan|toBuilder)' \
+    "$generated_dir"/*Table.java >/dev/null; then
+  printf '%s\n' 'child-phase4-check: owned child repeated schema verification or TablePlan copy' >&2
   exit 1
 fi
 
@@ -102,7 +116,6 @@ if grep -F ' copy();' "$evidence_dir/ParentRowBatch.javap.txt" >/dev/null; then
 fi
 
 phase4_javap=$evidence_dir/phase4-generated.javap.txt
-generated_dir=$fixture/target/generated-sources/annotations/com/example/soma/child/generated
 types_file=$evidence_dir/phase4-generated-types.txt
 for source in "$generated_dir"/*.java; do
   basename "$source" .java

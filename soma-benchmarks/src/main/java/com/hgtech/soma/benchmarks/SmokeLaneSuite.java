@@ -23,20 +23,20 @@ import com.hgtech.soma.runtime.generated.RowPermutationSidecar;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
 import com.hgtech.soma.runtime.generated.SparseIntKeySpace;
 
-import com.hgtech.soma.examples.fjsp.JobId;
-import com.hgtech.soma.examples.fjsp.MachineCandidate;
-import com.hgtech.soma.examples.fjsp.MachineId;
-import com.hgtech.soma.examples.fjsp.OperationDefinition;
-import com.hgtech.soma.examples.fjsp.OperationId;
-import com.hgtech.soma.examples.fjsp.OperationKey;
-import com.hgtech.soma.examples.fjsp.OperationMachineKey;
-import com.hgtech.soma.examples.fjsp.SetupFamilyId;
-import com.hgtech.soma.examples.fjsp.generated.CandidateMachineDefinitionBatch;
-import com.hgtech.soma.examples.fjsp.generated.MachineCandidateBatch;
-import com.hgtech.soma.examples.fjsp.generated.MachineCandidateRows;
-import com.hgtech.soma.examples.fjsp.generated.MachineCandidateTable;
-import com.hgtech.soma.examples.fjsp.generated.OperationDefinitionBatch;
-import com.hgtech.soma.examples.fjsp.generated.OperationDefinitionTable;
+import com.hgtech.soma.examples.fjsp.schema.JobId;
+import com.hgtech.soma.examples.fjsp.schema.MachineCandidate;
+import com.hgtech.soma.examples.fjsp.schema.MachineId;
+import com.hgtech.soma.examples.fjsp.schema.OperationDefinition;
+import com.hgtech.soma.examples.fjsp.schema.OperationId;
+import com.hgtech.soma.examples.fjsp.schema.OperationKey;
+import com.hgtech.soma.examples.fjsp.schema.OperationMachineKey;
+import com.hgtech.soma.examples.fjsp.schema.SetupFamilyId;
+import com.hgtech.soma.examples.fjsp.schema.generated.CandidateMachineDefinitionBatch;
+import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
+import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRows;
+import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
+import com.hgtech.soma.examples.fjsp.schema.generated.OperationDefinitionBatch;
+import com.hgtech.soma.examples.fjsp.schema.generated.OperationDefinitionTable;
 import com.hgtech.soma.examples.simulation.SimEntityKind;
 import com.hgtech.soma.examples.simulation.SimVariableKind;
 import com.hgtech.soma.examples.simulation.generated.StateVectorRowBatch;
@@ -285,8 +285,8 @@ final class SmokeLaneSuite {
         MachineCandidate chosen = table.findByMachine(machineA)
                 .filter(row -> row.indicatorReady())
                 .sorted(new MachineCandidateRows.Comparator() {
-                    @Override public int compare(com.hgtech.soma.examples.fjsp.generated.MachineCandidateRow left,
-                                                 com.hgtech.soma.examples.fjsp.generated.MachineCandidateRow right) {
+                    @Override public int compare(com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRow left,
+                                                 com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRow right) {
                         return Long.compare(left.effectiveReadyMinute(), right.effectiveReadyMinute());
                     }
                 }).firstOrThrow();

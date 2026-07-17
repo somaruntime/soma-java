@@ -14,6 +14,7 @@ abstract class AbstractColumnPipeline {
     private final PresenceBitmap presence;
     private final String table;
     private final String operation;
+    private final String callbackOperation;
 
     AbstractColumnPipeline(
             DenseTableState state, Object column, PresenceBitmap presence, String table, String field) {
@@ -24,11 +25,12 @@ abstract class AbstractColumnPipeline {
         this.presence = presence;
         this.table = table;
         this.operation = field + ".values";
+        this.callbackOperation = operation + ".consumer";
     }
 
     protected final void begin() {
         state.beginOperation(operation);
-        state.beginCallback(operation + ".consumer");
+        state.beginCallback(callbackOperation);
     }
     protected final int size() { return state.size(); }
     protected final int traversalLane(int limit) {
@@ -68,11 +70,11 @@ abstract class AbstractColumnPipeline {
         return bits;
     }
     protected final void success(long scanned, long matched) {
-        state.endCallback(operation + ".consumer");
+        state.endCallback(callbackOperation);
         state.endOperationSuccess(operation, scanned, matched, 0L);
     }
     protected final void failure(long scanned, long matched, String errorCode) {
-        state.endCallback(operation + ".consumer");
+        state.endCallback(callbackOperation);
         state.endOperationFailure(operation, scanned, matched, errorCode);
     }
     protected final SomaRuntimeException callbackFailed(RuntimeException cause) {

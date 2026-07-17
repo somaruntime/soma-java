@@ -150,6 +150,7 @@ grep -F 'firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);' \
 
 string_key_source=$generated_dir/StringKeyRowTable.java
 grep -F 'HashCompositeKeySpace' "$string_key_source" >/dev/null
+grep -F 'if(batch.size()==1)' "$string_key_source" >/dev/null
 if grep -E 'private .*HashMap|Map<java\.lang\.String,Integer>|List<Integer>' \
   "$string_key_source" >/dev/null; then
   printf '%s\n' 'breadth-phase5-check: Java Collection leaked into String key hot path' >&2

@@ -9,6 +9,10 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
   printf '%s\n' 'build-governance-check: JAVA_HOME must point to a full JDK 8' >&2
   exit 1
 fi
+if ! command -v rg >/dev/null 2>&1; then
+  printf '%s\n' 'build-governance-check: rg is required for source-shape validation' >&2
+  exit 1
+fi
 
 dependency_plugin_version=$(sed -n \
   's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \

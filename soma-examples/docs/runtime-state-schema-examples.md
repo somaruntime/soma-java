@@ -8,7 +8,7 @@ Owner：`soma-examples`
 
 ## 1. 目标
 
-本文是 `soma_java` V1 runtime state schema 示例的总览入口，负责维护四类示例共同遵守的建模规则、场景索引和覆盖矩阵。每个具体场景的 schema source、运行流程和使用边界已经拆分到独立文档，避免后续扩展示例时在一个大文件中相互牵动。
+本文是 `soma_java` V1 runtime state schema 示例的总览入口，负责维护四类示例共同遵守的建模规则、教学结构、场景索引和覆盖矩阵。每个具体场景的 schema source、运行流程和使用边界已经拆分到独立文档，避免后续扩展示例时在一个大文件中相互牵动。
 
 四类典型场景是：
 
@@ -17,7 +17,13 @@ Owner：`soma-examples`
 3. 连续仿真过程；
 4. game runtime state。
 
-这些示例只表达构造、仿真或 game loop 运行期间的高性能 runtime data container，不表达 optimization search、策略选择、规则调度或 UI / service 集成。上层 OOP 负责 workflow orchestration、algorithm strategy、domain rule 和 solver / simulator / game loop；SOMA 负责 schema-defined hot layout、key/index/order access、packed dense state 和 detached materialized object。
+这些示例以“读者先看懂算法，再理解 SOMA 如何让运行时状态更简洁”为组织原则。FJSP
+先落成可读入口、输入模型、算法 loop、table lifecycle 与领域结果分离的参考结构，错误、
+lifecycle、golden 和 gate-only fixture 进入 test source；其他三个示例是否采用同一结构，
+须在 FJSP 可读性审查后分别决定，不能机械复制。上层 OOP 负责 workflow orchestration、
+algorithm strategy、domain rule 和 solver / simulator / game loop；SOMA 负责
+schema-defined hot layout、key/index/order access、packed dense state 和 detached
+materialized object。
 
 代码块保存在各场景文档中。真实 Java 项目中，`package-info.java`、enum、`@SomaValue` 和 `@SomaTable` schema-backed row class 应按 Java 文件规则拆分。`@SomaTable` class 本身就是 detached single-row materialization shape；processor 不再生成 public `XxxRecord` 第二类型。
 
@@ -77,7 +83,8 @@ Owner：`soma-examples`
 
 - generated API 的最终方法签名；
 - runtime core 的 sidecar 内部结构；
-- benchmark 规模、性能结论或对比口径；
+- benchmark 结果或对比结论；具体规模 preset 与计时口径由 `soma-benchmarks` 拥有，
+  examples 只提供可复用的同语义算法 kernel；
 - 完整业务求解器、仿真器或 game engine；
 - schema migration 或跨版本兼容策略；
 - persistence / wire format / protobuf schema。

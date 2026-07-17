@@ -59,12 +59,32 @@ cmp "$fixture/target/classes/$schema_hash" "$repeat_fixture/target/classes/$sche
 cmp "$expected/ParticleTable.javap.txt" "$evidence_dir/ParticleTable.javap.txt"
 cmp "$expected/ParticleBatch.javap.txt" "$evidence_dir/ParticleBatch.javap.txt"
 rows_source=$fixture/target/generated-sources/annotations/com/example/soma/dense/generated/ParticleRows.java
+column_view_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/AbstractColumnView.java
+column_view_operations_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/ColumnViewOperations.java
+grep -F 'private final int stageCount' "$rows_source" >/dev/null
+grep -F 'int capacity=n==0?4:' "$rows_source" >/dev/null
+grep -F 'Arrays.fill(seen,0,stageCount,0L)' "$rows_source" >/dev/null
+if grep -E 'new Selection|new long\[kinds\.length\]|operation\+"\.predicate"|Arrays\.copyOf\(kinds,n\+1\)' \
+  "$rows_source" >/dev/null; then
+  printf '%s\n' 'generated-dense-phase1-check: row pipeline temporary allocation shape regressed' >&2
+  exit 1
+fi
 if grep -E 'java\.util\.stream|Object\[|Integer\[|new (ArrayList|LinkedList)|for\([^)]*\).*new (Cursor|MutableCursor)' "$rows_source"; then
   printf '%s\n' 'generated-dense-phase1-check: forbidden row hot-path source shape' >&2
   exit 1
 fi
 if grep -E 'java/util/stream|java/lang/(Boolean|Byte|Short|Integer|Long|Float|Double)\.valueOf|java/util/Iterator' "$evidence_dir/ParticleRows.bytecode.txt"; then
   printf '%s\n' 'generated-dense-phase1-check: forbidden row hot-path bytecode shape' >&2
+  exit 1
+fi
+if grep -F 'field + ".column"' "$column_view_source" >/dev/null \
+    || ! grep -F 'operationsCache.forField(field)' "$column_view_source" >/dev/null; then
+  printf '%s\n' 'generated-dense-phase1-check: ColumnView hot construction rebuilt diagnostic strings' >&2
+  exit 1
+fi
+if grep -E 'java\.util\.(Map|HashMap|ConcurrentMap|ConcurrentHashMap)' \
+    "$column_view_operations_source" >/dev/null; then
+  printf '%s\n' 'generated-dense-phase1-check: Java Collection entered ColumnView hot binding' >&2
   exit 1
 fi
 "$JAVA_HOME/bin/java" \

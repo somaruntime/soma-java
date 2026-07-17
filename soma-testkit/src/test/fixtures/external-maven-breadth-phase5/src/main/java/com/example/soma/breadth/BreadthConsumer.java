@@ -197,7 +197,7 @@ public final class BreadthConsumer {
         keyed.addBatch(new StringKeyRowBatch()
                 .addValues("Cc", 3, false, null));
         check(keyed.statsSnapshot().keySpaceProbeCount() > probesBeforeAppend,
-                "staged KeySpace replacement preserves since-reset metrics");
+                "singleton validation preserves since-reset KeySpace metrics");
 
         int beforeDuplicate = keyed.size();
         expectCode("duplicate_key",
@@ -206,6 +206,13 @@ public final class BreadthConsumer {
                 "duplicate String key");
         check(keyed.size() == beforeDuplicate && keyed.fetch("Aa").value == 1,
                 "duplicate key atomicity");
+        expectCode("duplicate_key",
+                () -> keyed.addBatch(new StringKeyRowBatch()
+                        .addValues("within-batch", 10, false, null)
+                        .addValues("within-batch", 11, false, null)),
+                "batch-internal duplicate String key");
+        check(keyed.size() == beforeDuplicate,
+                "batch-internal duplicate String append is atomic");
         keyed.delete("Aa");
         check(!keyed.containsKey("Aa") && keyed.containsKey("BB")
                         && keyed.containsKey("Cc") && keyed.fetch("BB").value == 2,

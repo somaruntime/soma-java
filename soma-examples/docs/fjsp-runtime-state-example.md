@@ -17,7 +17,7 @@ Dispatch/commit/error/G5 evidence 由 [FJSP E2E 场景契约](fjsp-e2e-scenario.
 FJSP 示例表达 `FCFS + SPT` 一类构造解过程中的 runtime state：
 
 ```text
-jobs / operation definitions with candidate-machine children / materials / machines / setup times
+jobs / operation definitions with candidate-machine children / machines / setup times
   -> operation release
   -> machine_candidates keyed runtime frontier
   -> per-machine indicator update
@@ -241,15 +241,6 @@ public final class OperationAssignment {
     public long endMinute;
 }
 
-@SomaTable(name = "materials", defaultCapacity = 4096)
-public final class Material {
-    @SomaKey
-    public MaterialId materialId;
-
-    @SomaField
-    public long readyMinute;
-}
-
 @SomaTable(name = "machines", defaultCapacity = 128)
 @SomaIndex(name = "by_state", fields = {"state"})
 @SomaOrder(name = "by_available_time", by = {
@@ -341,7 +332,6 @@ public final class MachineCandidate {
 - `OperationRuntimeState` keyed working-state table；
 - `OperationAssignment` keyed result table；
 - `JobDefinition` keyed input table、`JobRuntimeState` keyed working-state table 与 `JobResult` keyed result table；
-- `Material` keyed table；
 - `Machine` keyed table；
 - `MachineCandidate` keyed runtime frontier table；
 - `SetupTime` keyed lookup table；

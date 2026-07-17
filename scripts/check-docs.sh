@@ -79,15 +79,16 @@ for file in $formal_docs; do
   fi
 done
 
-expected_temp_docs=$(printf '%s\n' \
+expected_blueprint_docs=$(printf '%s\n' \
   fjsp-machine-candidate-frontier-blueprint.md \
   game-runtime-frontier-blueprint.md \
   simulation-runtime-state-blueprint.md \
   vrp-runtime-frontier-blueprint.md)
-actual_temp_docs=$(find docs/temp -maxdepth 1 -type f -name '*.md' -exec basename {} \; |
+actual_blueprint_docs=$(find docs/temp -maxdepth 1 -type f -name '*blueprint.md' \
+  -exec basename {} \; |
   LC_ALL=C sort)
-if [ "$actual_temp_docs" != "$expected_temp_docs" ]; then
-  fail 'docs/temp must contain exactly the four approved long-lived research blueprints'
+if [ "$actual_blueprint_docs" != "$expected_blueprint_docs" ]; then
+  fail 'docs/temp must retain exactly the four approved long-lived research blueprints'
 fi
 
 for file in docs/temp/*blueprint.md; do
@@ -98,6 +99,40 @@ for file in docs/temp/*blueprint.md; do
   if ! grep -q '^正式事实源：否$' "$file"; then
     fail "$file must declare that it is not a formal fact source"
   fi
+done
+
+unexpected_top_level_temp_docs=$(find docs/temp -maxdepth 1 -type f -name '*.md' \
+  ! -name 'README.md' ! -name '*blueprint.md' -print)
+if [ -n "$unexpected_top_level_temp_docs" ]; then
+  fail 'ordinary temporary design documents must live in a topic directory under docs/temp'
+fi
+
+if [ -f docs/temp/README.md ]; then
+  if ! grep -q '^状态：临时设计索引$' docs/temp/README.md; then
+    fail 'docs/temp/README.md must declare temporary-design-index status'
+  fi
+  if ! grep -q '^正式事实源：否$' docs/temp/README.md; then
+    fail 'docs/temp/README.md must declare that it is not a formal fact source'
+  fi
+fi
+
+for directory in docs/temp/*; do
+  [ -d "$directory" ] || continue
+  if [ ! -f "$directory/README.md" ]; then
+    fail "$directory must contain README.md"
+    continue
+  fi
+  for file in $(find "$directory" -type f -name '*.md' -print | sort); do
+    if ! sed -n '1,12p' "$file" | grep -q '^状态：'; then
+      fail "$file must declare temporary-design status"
+    fi
+    if ! sed -n '1,12p' "$file" | grep -q '^正式事实源：否$'; then
+      fail "$file must declare that it is not a formal fact source"
+    fi
+    if ! sed -n '1,12p' "$file" | grep -q '^实施授权：无'; then
+      fail "$file must declare that it grants no implementation authority"
+    fi
+  done
 done
 
 if [ "$failed" -ne 0 ]; then

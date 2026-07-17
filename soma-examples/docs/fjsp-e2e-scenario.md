@@ -4,11 +4,21 @@
 Owner：`soma-examples`
 事实范围：FJSP release/dispatch/commit flow、lookup/error/lifecycle evidence 和 G5 scenario boundary
 非事实范围：schema declaration、solver business transaction contract、runtime implementation 和性能 claim
-最后审查日期：2026-07-10
+最后审查日期：2026-07-12
 
 ## 1. 场景定位
 
 本文定义 FJSP formal example 必须演示和验证的 end-to-end flow。Runtime-state schema 与 Access Pattern Card 由 [FJSP runtime state schema 示例](fjsp-runtime-state-example.md) 拥有。
+
+FJSP source 的阅读顺序固定为：`FjspScenario` 教学门面 -> `FjspProblem` 输入 ->
+`FjspInstanceFactory` 导入 -> `FjspInstance` runtime state -> `FjspSolver` 算法 loop ->
+`FjspSolveResult`。`FjspCandidateFrontier` 只封装 keyed frontier 的发布、刷新和选择，
+`FcfsSptDispatchRule` 只拥有稳定排序规则。所有 annotation schema 声明集中在单一
+`fjsp.schema` package；这是 V1 schema-package ownership 的直接结果，不拆成相互嵌套的
+`value`/`table` Java packages。
+
+教学入口不包含 generated table 细节、计时、错误矩阵或 gate 断言；这些进入 test source。
+Benchmark 复用同一 `FjspInstanceFactory + FjspSolver`，不复制另一套算法。
 
 Canonical flow 是：
 
@@ -27,7 +37,7 @@ SOMA 保证每次 table-local mutation 和 ownership aggregate 的正确性；�
 
 默认示例算法：
 
-1. 从 request boundary 导入 jobs、operation definitions（含 candidate-machine child）、materials、machines 和 setup times；
+1. 从 request boundary 导入 jobs、operation definitions（含 candidate-machine child）、machines 和 setup times；
 2. batch import 初始化 generated tables；
 3. 当 operation release 时，通过 generated grouped/index row source读取definition scalar，并通过`operationDefinitions.candidateMachines(operationKey)` live child facade局部遍历可加工machine，生成`MachineCandidate` rows；release hot path不递归materialize detached parent + child `List`；
 4. 每轮从 `Machine.byAvailableTime().firstOrThrow()` 选择下一个可用 machine；
@@ -52,7 +62,7 @@ detached schema object；不得为每个比较或候选扫描重建完整 Value/
 
 `releaseNextOperations(...)` 应依赖 `OperationDefinition.by_job_sequence(jobId, nextSequenceNo)`、`JobRuntimeState.nextSequenceNo` 或 material / predecessor readiness 的明确索引或业务队列，不能退化为全表扫描。operation release 后，再局部遍历该 definition 独占的 `candidateMachines` child，增量加入 `MachineCandidate` frontier。
 
-SOMA V1 只保证单张 table mutation 后的 table 内部不变量。`OperationAssignment` 新增、`Machine` availability 更新、`MachineCandidate` frontier 删除、`JobRuntimeState` 和 `Material` 推进等跨 table 提交序列，不具备 runtime transaction 语义；其一致性、提交顺序、失败处理和补偿策略由 solver loop 拥有。任一步失败时，solver loop 应停止本轮、回滚外部 snapshot，或重建 `MachineCandidate` frontier，不能假设 SOMA runtime 自动补偿。
+SOMA V1 只保证单张 table mutation 后的 table 内部不变量。`OperationAssignment` 新增、`Machine` availability 更新、`MachineCandidate` frontier 删除和 `JobRuntimeState` 推进等跨 table 提交序列，不具备 runtime transaction 语义；其一致性和提交顺序由 solver loop 拥有。本示例采用 disposable instance policy：任一步失败即停止求解并由 caller 关闭、丢弃整个 `FjspInstance`，不能假设 SOMA runtime 自动补偿。
 
 `MachineCandidate` 是 keyed runtime frontier。候选 row 存在表示该 `(MachineId, OperationKey)` 组合仍处于可选 frontier；operation 被选中后，solver loop 应通过 `findByOperation(operationKey).remove()` 删除所有相关候选，而不是保留长期 `active` 标志。`indicatorReady` 只是当前 machine snapshot / 当前 dispatch 轮次下的 indicator 计算状态，不能作为长期业务状态或候选有效性事实。Dispatch rule 属于 solver 策略，示例不在 `MachineCandidate` schema 上声明 `byMachineDispatchRule` 这类 order。
 
@@ -122,9 +132,15 @@ Examples 可以作为 benchmark smoke 的基础，但 benchmark smoke 只能证�
 
 Benchmark smoke 不能单独支撑“更快”“更省内存”或“生产级大规模 hot path”声明。
 
+`soma-benchmarks` 额外拥有 `fjsp.solve.fcfs_spt_100k` diagnostic preset：1000 jobs、
+每 job 100 operations、100 machines、每 operation 3 candidate machines，固定 seed，
+使用本契约同一 FCFS + SPT + identity tie-break。该 preset 分离 workload/import、solve
+hot loop 和 export 时间；单机结果只回答“本次环境和本次 commit 用时多少”，不自动形成
+跨机器或 release 性能承诺。
+
 ## 7. 使用方式
 
-- `JobDefinition`、`OperationDefinition` 与其 `candidateMachines` dense child、`SetupTime` 是 input facts；`JobRuntimeState`、`OperationRuntimeState`、`Material`、`Machine`、`MachineCandidate` 是 working state；`JobResult` 与 `OperationAssignment` 是 result facts；
+- `JobDefinition`、`OperationDefinition` 与其 `candidateMachines` dense child、`SetupTime` 是 input facts；`JobRuntimeState`、`OperationRuntimeState`、`Machine`、`MachineCandidate` 是 working state；`JobResult` 与 `OperationAssignment` 是 result facts；material readiness 作为 operation runtime readiness fact 存储，不保留未被算法使用的独立 `Material` table；
 - `SetupTime` 是 keyed lookup data；
 - `MachineCandidate` 是 keyed runtime frontier，primary key 是包含 `MachineId` 与 `OperationKey` 的组合；
 - `MachineCandidate.by_machine` 支撑当前 machine dispatch，`MachineCandidate.by_operation` 支撑 operation 被选中后的候选清理；
