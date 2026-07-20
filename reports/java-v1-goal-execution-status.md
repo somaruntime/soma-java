@@ -1,16 +1,18 @@
 # Java-only SOMA V1 Goal execution status
 
 状态：blocked（G6真实发布事实不足；不能完成 Goal）
-更新日期：2026-07-17
+更新日期：2026-07-20
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前 packed/exact v3 实施提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；其对照基线为 `6f91e57`，完整 evidence 见专题收口报告
+packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；post-cutover功能/性能尾项代码基线：`b991f4c docs: define keyspace as primary locator`；完整evidence见两份dated专题报告
 
 本文件是中断恢复和进度审计入口，不是设计事实源。正式语义仍由 `docs/README.md` 及各模块 Owner 文档拥有。
 
 2026-07-11专题治理已完成对完整功能V1的无缩水再审计：P0、V1 blocker和required P1均关闭，G0-G5在Zulu JDK 8完整`./scripts/check.sh`上fresh通过，独立reviewer最终PASS。完整findings、Capability矩阵、package重放边界与evidence见[`soma-java-v1-topical-governance-report.md`](soma-java-v1-topical-governance-report.md)。该专题不替代本文件的原Goal；G6仍blocked。
 
 2026-07-17经用户明确批准，项目完成首个公开发布前的Packed Index / Exact Access / IndexBuffer breaking cutover：删除Sparse Set、maintained order与dirty selector rebuild，keyed/dense统一swap-remove，exact index改为mutation-boundary eager incremental维护，public row-index sequence改为epoch-bearing `IndexSnapshot`，runtime/generated/plan protocol升为v3。正式Owner、consumer、Schema/hash/golden、examples、benchmark与Gate同步迁移；当前事实与evidence见[`2026-07-17-packed-exact-index-runtime-redesign-report.md`](2026-07-17-packed-exact-index-runtime-redesign-report.md)。该迁移不处理也不解除G6。
+
+2026-07-20完成post-cutover尾项治理：固化caller-responsibility Index契约，按distinct-group cardinality收紧exact-index容量，优化single snapshot，FJSP machine selection改为application-owned indexed heap，拆分exact-index source emitter，并保留/澄清`KeySpace` primary-locator术语。当前实现与component/FJSP A/B evidence见[`2026-07-20-packed-exact-index-post-cutover-closeout-report.md`](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)。该治理不处理也不解除G6。
 
 ## 1. 当前总进度
 

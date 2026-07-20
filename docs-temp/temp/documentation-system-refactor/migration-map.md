@@ -10,7 +10,7 @@ Owner：SOMA Java 文档体系重构专题
 
 核对基线：`4b6fa43`
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 状态
 
@@ -64,7 +64,7 @@ Owner：SOMA Java 文档体系重构专题
 | VRP long-lived temp blueprint + formal example | VRP Blueprint + Conformance gaps | partial | 目标 data-role split 尚未实现 |
 | Simulation long-lived temp blueprint + formal example | Simulation Blueprint + Conformance gaps | partial | numeric source-of-truth 仍有代码差距 |
 | Game long-lived temp blueprint + formal example | Game Blueprint + Conformance gaps | partial | tile/occupancy split 尚未实现 |
-| packed-exact post-cutover tails | future Temporary/Conformance/Report 由 Owner 裁决 | pending | 本专题不修改用户现有材料 |
+| packed-exact post-cutover tails | 正式Owner + Conformance/Implementation Map + dated closeout report | closed | 2026-07-20治理完成后删除原Temporary |
 
 ## 5. 切换前必须关闭
 

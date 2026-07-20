@@ -6,4 +6,5 @@
 - [第一轮 runtime allocation/GC 优化 evidence](first-round-runtime-allocation-optimization-report.md)
 - [第二轮 runtime 性能优化与机会审查 evidence](second-round-runtime-allocation-optimization-report.md)（旧dirty/rebuild selector基线）
 - [Packed Index / Exact Access / IndexBuffer 重设计实施与A/B evidence](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)（当前实现形态）
+- [Packed Exact post-cutover component 与FJSP machine-selection evidence](../../reports/2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 - [Root G5 examples/benchmark gate](../../reports/java-v1-g5-examples-benchmark-gate-report.md)

@@ -8,9 +8,9 @@ Owner：SOMA Java 文档体系重构专题
 
 事实范围：切换前现有文档类别、当前权威角色和候选去向
 
-核对基线：`4b6fa43` 加当前未提交文档状态
+核对基线：`b991f4c` 加当前候选文档状态
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 根级正式设计
 
@@ -40,7 +40,7 @@ Module docs 中的规范性长期事实必须迁入对应 Design；纯代码投�
 
 `docs/temp/` 当前包含四份长期研究蓝图：FJSP、VRP、Simulation、Game。它们不是正式 Design source，但包含目标场景、风险和待验证方向。候选体系已提炼为正式分类下的 Blueprint；未固化的研究细节仍需逐项复核。
 
-工作区还存在用户维护的 `docs/temp/packed-exact-index-post-cutover-tails/` 和 `docs/temp/README.md` 修改。本专题不修改它们。切换前必须由其 Owner 决定哪些观察进入 Conformance、Governance Report 或新 Temporary，不能静默丢失。
+`docs/temp/packed-exact-index-post-cutover-tails/` 已完成正式Owner迁移、代码与evidence验证，并由2026-07-20 dated closeout report承接长期证据后删除。候选 Conformance、Implementation Map和性能Report已同步其当前投影，没有把Temporary过程文档保留为第二事实源。
 
 ## 4. Guides 与 Reports
 

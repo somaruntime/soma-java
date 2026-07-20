@@ -5,6 +5,7 @@
 ## 当前 V1 状态与 Gate
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
+- [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)（当前post-cutover功能/性能实现与证据）
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)（当前 v3 实现形态与 `4b6fa43` 重验证入口）
 
 | Gate | 状态 | 正式报告 |
@@ -21,6 +22,7 @@
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)
 - [2026-07-17 性能优化后 G6 本机诊断](2026-07-17-post-optimization-g6-diagnostic-report.md)
 - [2026-07-11 SOMA Java V1 专题治理收口](soma-java-v1-topical-governance-report.md)

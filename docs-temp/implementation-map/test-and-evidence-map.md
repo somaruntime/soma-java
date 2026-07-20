@@ -10,9 +10,9 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近核对基线：`4b6fa43`
+最近核对基线：`b991f4c`
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 验证层次
 
@@ -24,7 +24,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
 | runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness |
 | scenario | [`check-examples-phase6.sh`](../../scripts/check-examples-phase6.sh) | FJSP/VRP/simulation/game executable behavior |
-| benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh) | artifact integrity 与性能形状 |
+| benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh) | artifact integrity、FJSP allocation/GC与component allocation/cardinality memory |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
 ## 2. Testkit
@@ -35,7 +35,7 @@ Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 ja
 
 ## 3. Evidence artifact
 
-Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 校验。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
+Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或lane-specific strict validator校验。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
 
 ## 4. 维护提示
 

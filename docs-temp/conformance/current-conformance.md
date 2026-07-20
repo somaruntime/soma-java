@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：候选 Blueprint/Design、commit `4b6fa43` 的代码与当前正式 evidence
+核对对象：候选 Blueprint/Design、commit `b991f4c` 的代码与当前正式 evidence
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -36,8 +36,8 @@ Owner：SOMA Java 一致性审查
 | child ownership/lifecycle | 一致且 evidenced | child external consumer、ownership/materialization Gate | 保持 |
 | structured failure/plan/stats | 一致且 evidenced | runtime diagnostics、compatibility/error fixtures | 保持 |
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
-| hot-path performance shape | 一致但 evidence 有限 | allocation/GC Gate、benchmark artifacts、2026-07-17 local diagnostic | 结论限制在已测环境 |
-| FJSP 目标场景 | 部分一致 | 当前 solver 已有 split schema、incremental frontier、by-machine exact access 和 explicit dispatch sort；machine selection 仍按 table 动态排序 | external heap 仍是目标选择，见 [known-gaps](known-gaps.md) |
+| hot-path performance shape | 一致但 evidence 有限 | allocation/GC Gate、component artifact、FJSP 5-run A/B；见2026-07-20收口报告 | 结论限制在已测环境与lane |
+| FJSP 目标场景 | 一致且 evidenced | split schema、incremental frontier、by-machine exact access、candidate explicit sort与application-owned indexed machine heap | 保持Table事实与外部queue职责分离 |
 | VRP / Simulation / Game 目标形态 | 目标差距 | 当前 examples 仍保留蓝图拟拆分的混合 data-role row/cache | 见 [known-gaps](known-gaps.md) |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 不影响本次文档候选建设，不得误报 release ready |
@@ -45,17 +45,18 @@ Owner：SOMA Java 一致性审查
 
 ## 3. 当前结论
 
-候选 Design 对 core compiler/runtime 的描述与 `4b6fa43` 当前实现基本一致，没有发现需要立即修改代码的 blocking Design deviation。主要未闭合项属于三类：
+候选 Design 对 core compiler/runtime 的描述与 `b991f4c` 当前实现基本一致，没有发现需要立即修改代码的 blocking Design deviation。主要未闭合项属于三类：
 
-1. 四个场景 Blueprint 仍有不同程度的目标差距，其中 FJSP 只剩 machine selection 结构选择，其他三个主要是数据角色拆分；
+1. VRP、Simulation、Game 三个场景 Blueprint 仍有数据角色拆分目标差距；FJSP machine selection 已按场景Blueprint关闭；
 2. 性能结论仍受测量环境与 lane 范围约束；
 3. G6 和新文档体系切换分别因外部发布事实与候选治理流程未完成而保持未收口。
 
-本结论不扩大当前任务授权。本任务只建设 `docs-temp/`，不修改示例、runtime、正式 Design 或 release 状态。
+本结论不扩大任何任务授权；Conformance 只记录已由专题 Owner 批准并完成的处置。
 
 ## 4. Evidence 入口
 
 - [当前 G0–G6 状态](../../reports/java-v1-goal-execution-status.md)
 - [Packed Index / Exact Access / IndexBuffer 收口](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)
+- [Packed Exact Index 切换后尾项治理](../../reports/2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 - [G5 examples/benchmark Gate](../../reports/java-v1-g5-examples-benchmark-gate-report.md)
 - [性能优化后本机诊断](../../reports/2026-07-17-post-optimization-g6-diagnostic-report.md)
