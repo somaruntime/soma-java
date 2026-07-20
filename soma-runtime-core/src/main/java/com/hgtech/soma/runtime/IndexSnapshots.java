@@ -2,7 +2,10 @@ package com.hgtech.soma.runtime;
 
 import java.util.Arrays;
 
-/** Generated-runtime construction and ownership protocol for {@link IndexSnapshot}。 */
+/**
+ * Generated-runtime construction and optional ownership-check protocol for {@link IndexSnapshot}.
+ * This helper does not turn a detached index sequence into a stable row snapshot.
+ */
 public final class IndexSnapshots {
     private IndexSnapshots() {
     }

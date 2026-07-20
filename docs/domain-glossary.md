@@ -4,7 +4,7 @@
 Owner：根项目协调层
 事实范围：跨模块 canonical 术语、限定词和“不等同于”边界
 非事实范围：API behavior、schema validation、runtime lifecycle 和性能结论
-最后审查日期：2026-07-10
+最后审查日期：2026-07-20
 
 ## 1. 目标与权威边界
 
@@ -175,13 +175,15 @@ XxxTable
 | 正式术语 | 定义 | 边界 |
 |---|---|---|
 | `RowKey` | stable logical identity | 仅 keyed table 有；identity change 使用 delete + insert |
-| `Index` | table当前packed `[0,size)`物理位置；也是dense direct API的整数位置 | 非stable identity，structural mutation后可能指向另一row |
-| `IndexSnapshot` | public detached Index序列与来源table/captured structural epoch | 不是live view；wrong-table或stale使用fail closed |
+| `Index` | table当前packed `[0,size)`物理位置；也是dense direct API的整数位置 | 非stable identity；来源Table任意mutation/lifecycle变化后caller不再继续使用 |
+| `IndexSnapshot` | public detached Index数值序列与来源table/captured structural epoch | 非stable identity或row snapshot；只供一个同步只读消费批次立即使用 |
 | candidate Index sequence | 某次Row Pipeline terminal使用的Index序列 | 可来自scan、exact group或dynamic sort |
 | primary key lookup | `PrimaryLocator`的`RowKey -> current Index` identity lookup | 不作为普通secondary index |
 | secondary exact index | `GroupedExactIndex`维护的non-primary exact access structure | 不支持range，不保证physical/group order |
 | unique index | group size至多1的secondary exact structure | 不等于primary key identity |
 | dynamic sort | 单次terminal在`IndexBuffer`中排序candidate Index | 不移动columns，不形成maintained order |
+
+`requireCurrent(snapshot)` 是可选的边界防御术语：它检查 owner、active lifecycle、structural epoch 和 current Index range，不表示 snapshot 具有自动 guarded consumption，也不证明非结构字段变化后的 filter/order 语义。跨 operation 的稳定引用统一使用 `RowKey` / `@SomaKey`。
 
 ## 10. Value state 与浮点术语
 

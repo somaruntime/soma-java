@@ -10,7 +10,7 @@ Owner：FJSP 目标场景
 
 非事实范围：调度算法正确性、精确公共 API 契约、当前实现状态、benchmark 结论和 release readiness
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 场景目标
 
@@ -462,7 +462,7 @@ try {
 }
 ```
 
-这条路径避免完整 `MachineCandidate` materialization，但 `IndexSnapshot` 是显式复制的 public 结果。Blueprint 不把它写成零分配；是否需要新的 callback-scoped first terminal，必须经过独立 Design 和 benchmark，而不是在场景代码中暗自引入。
+这条路径避免完整 `MachineCandidate` materialization，但 `IndexSnapshot` 是显式复制的 public 结果。Caller必须在这一个同步只读批次中立即完成ColumnView读取，期间不修改frontier，随后丢弃snapshot；任何frontier mutation/lifecycle变化都会使其失效。`requireCurrent`只可作为测试、调试或边界防御。Blueprint不把该路径写成零分配；是否需要新的callback-scoped first terminal，必须经过独立Design和benchmark，而不是在场景代码中暗自引入。
 
 ## 13. Candidate Index 的逐级缩减
 
@@ -477,7 +477,7 @@ MachineCandidateTable             100,000 current Index
   -> terminal                              detached row or IndexSnapshot
 ```
 
-runtime 可以用 table-local、可复用的 primitive `IndexBuffer` 承载 L1/L2/L3，并在 terminal 成功或失败后 reset。`IndexBuffer` 不进入 generated public model；需要跨 operation 保存结果时，solver 显式请求 epoch-sensitive `IndexSnapshot`。
+runtime 可以用 table-local、可复用的 primitive `IndexBuffer` 承载 L1/L2/L3，并在 terminal 成功或失败后 reset。`IndexBuffer` 不进入 generated public model；`IndexSnapshot` 只服务紧接着的同步只读消费批次，需要跨 operation 保存候选引用时 solver 必须保存 `@SomaKey` identity。
 
 任何 stage 都不得把当前 group 扩展回全表。`@SomaIndex` 也不得使用 dirty-on-write、read-time full rebuild/sort 的 sidecar 语义。
 

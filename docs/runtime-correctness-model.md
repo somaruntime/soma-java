@@ -4,7 +4,7 @@
 Owner：根项目协调层
 事实范围：runtime 跨组件不变量、状态机、失败原子性、correctness oracle 和 gate 映射
 非事实范围：runtime class/API、具体数据结构算法、场景业务规则和性能结论
-最后审查日期：2026-07-10
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -88,7 +88,9 @@ Index、unique 和 stats 是派生结构：
 - candidate row 必须属于 terminal 开始时的有效 source domain；
 - filter/skip/limit/sorted/short-circuit 顺序符合 API；
 - mutation terminal 不因自身 field update 重新进入 source/filter/sort；
-- dynamic permutation与`IndexSnapshot`绑定对应epoch；
+- dynamic permutation导出的`IndexSnapshot`只复制当次candidate Index sequence并记录来源/structural epoch，不形成stable row snapshot；
+- caller只在一个同步只读Index消费批次中立即使用Index/IndexSnapshot，期间不得修改来源Table；任意mutation或lifecycle变化后必须视为失效；
+- `requireCurrent(snapshot)`只提供可选的owner、active lifecycle、structural epoch和current Index range检查；它不证明非结构字段变化后原filter/order仍成立；
 - callback不获得internal row pointer、group link或live IndexBuffer。
 
 ### 3.7 Ownership aggregate
@@ -200,6 +202,8 @@ Insert、batch、update、remove 和 replaceAll 必须在返回时满足：
 - expected failure：调用前 visible facts 保持不变；
 - release：整个 owner scope 进入 terminal state；
 - invariant violation：明确报告，不能继续假装合法。
+
+这里的原子性只覆盖一次同步 Table Operation。多次 generated API 调用、IndexSnapshot 捕获后的后续读取序列以及多个 root Table 之间都不构成 SOMA transaction；application 负责调用顺序、失效边界与失败处置。
 
 ### 5.2 Ownership aggregate
 

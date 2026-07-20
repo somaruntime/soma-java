@@ -12,7 +12,7 @@ Owner：SOMA ownership 与 lifecycle semantics
 
 非事实范围：child schema syntax、storage layout、错误文案和 application transaction
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. Ownership model
 
@@ -41,15 +41,14 @@ Raw handle、owner token 和 RowSlot 不进入 public error context、DTO 或 ge
 
 ## 4. Structural epoch
 
-Structural change 成功后递增 table structural epoch。以下对象必须捕获并校验相关 identity/epoch：
+Structural change 成功后递增 table structural epoch。Cursor、mutator、pipeline和ColumnView按各自契约强制校验identity/epoch；IndexSnapshot只记录来源与captured epoch，采用caller-responsibility：
 
 - cursor、mutator 和 one-shot pipeline；
 - ColumnView；
-- `IndexSnapshot`；
 - child facade/handle generation；
 - materialization traversal state。
 
-Stale access 必须返回 typed lifecycle failure，不得读取新 Index 上的无关 row。Epoch 递增必须 overflow-safe；无法继续表示时 fail closed。
+Caller只在一个同步只读批次内立即消费IndexSnapshot，并在任意来源mutation/lifecycle变化后视为失效。可选`requireCurrent`只检查owner、active lifecycle、structural epoch和range；它不能检测非结构mutation。其余强制borrow/lifecycle stale access必须返回typed failure。Epoch递增必须overflow-safe；无法继续表示时fail closed。
 
 ## 5. View 与 mutation
 

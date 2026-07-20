@@ -4,7 +4,7 @@
 Owner：`soma-runtime-core`
 事实范围：TableStore composition、RowSpace、ColumnStore、presence、KeySpace、AccessStructures、AccessPath、Batch 和 storage-facing buffers
 非事实范围：ownership/lifecycle/errors、public API、schema semantics 和性能参数
-最后审查日期：2026-07-11
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -287,7 +287,9 @@ Runtime core必须提供generated binding可复用的floating validation/canonic
 
 ## 7. Packed Index 与 IndexBuffer
 
-两类table的live rows始终占据`[0,size)`。`Index`只是当前物理位置；structural mutation后旧Index可以指向另一row。Public bulk导出使用epoch-bearing detached `IndexSnapshot`，runtime hot execution使用table-local `IndexBuffer`。
+两类table的live rows始终占据`[0,size)`。`Index`只是当前物理位置，不是stable identity。Public bulk导出使用携带来源/structural epoch的detached `IndexSnapshot`，runtime hot execution使用table-local `IndexBuffer`。
+
+Index消费采用caller-responsibility：caller只在一个同步只读批次内立即消费Index/IndexSnapshot，期间不修改来源Table；来源Table发生任意mutation或lifecycle变化后全部视为失效。`IndexSnapshot`只复制`int`序列，不复制row facts。Generated `requireCurrent`可以调用owner/lifecycle/structural-epoch/range检查，但它是可选边界防御，不能把Index变成stable locator，也不能检测所有非结构field mutation。
 
 `IndexBuffer`只保存primitive `int[] + length/high-water`，用于dynamic sort、mutation candidate freeze和显式snapshot copy；reset只归零logical length，不逐元素清零。读取exact group时优先沿group link零复制遍历，不为每个stage复制候选数组。
 
@@ -349,7 +351,7 @@ Runtime 必须区分：
 | Pipeline plan | 否 | terminal operation 基于执行时 table 状态 |
 | Materialized schema object / `List` / `Map` | 否 | detached complete copy，不反映后续 mutation |
 | KeyBuffer | 否 | stable materialized key values |
-| IndexSnapshot | 否 | 只对来源table的captured structural epoch有效；stale/wrong-table使用fail closed |
+| IndexSnapshot | 否 | 只供一个同步只读消费批次立即使用；任意来源mutation/lifecycle变化后caller视为失效，`requireCurrent`仅提供有限的可选防御 |
 | ColumnView | 是 | live readonly view，structural mutation 返回 view_pinned |
 | ChildTableHandle | 是，internal | 绑定 ownership/lifecycle，不进入 public result |
 

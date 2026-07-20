@@ -4,7 +4,7 @@
 Owner：`soma-runtime-core`
 事实范围：runtime exception envelope、stable error code/category/context、callback failure、stats snapshot/reset 和 logging side-effect boundary
 非事实范围：schema compile diagnostics、public generated method naming、lifecycle state transition、runtime algorithm 和 application logging policy
-最后审查日期：2026-07-11
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -84,6 +84,8 @@ V1 code namespace 至少包含：
 | `runtime_compatibility_mismatch` | compatibility | generated/runtime version |
 | `compiler_integration_mismatch` | compatibility | generated/lowering identity |
 | `runtime_plan_mismatch` | compatibility | expected/actual plan protocol/hash |
+
+`index_snapshot_wrong_table`与`stale_index_snapshot`只由显式`requireCurrent(snapshot)`等边界检查产生；它们不是每次`IndexSnapshot.indexAt()`的隐式hot-path guard。检查通过只证明owner、active lifecycle、structural epoch和Index range满足该次检查，不证明非结构field mutation后的原filter/order语义。
 | `materialization_budget_exceeded` | resource | dimension、limit、current/proposed、budget identity、path |
 | `memory_limit_exceeded` | resource | limit、estimate/current/proposed、operation |
 | `allocation_failure` | resource | phase、requested estimate、cause type |

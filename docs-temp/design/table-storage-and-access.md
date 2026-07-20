@@ -12,7 +12,7 @@ Owner：SOMA table storage 与 access semantics
 
 非事实范围：ownership lifecycle、error envelope、materialization 和具体 hash/sort 实现类
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. Table kind
 
@@ -86,7 +86,7 @@ terminal(L3)            -> result/update/remove/materialization
 
 Row Pipeline 是 one-shot、同步、非重入 operation。内部可以使用 small-inline stage plan、fused loop 和 primitive scratch，但不能改变 callback 顺序、failure atomicity 或 public lifecycle 语义。
 
-需要跨 operation 保存 Index 时，caller 必须显式请求 immutable `IndexSnapshot`。Snapshot 绑定 table identity 和 structural epoch；结构变化后使用必须失败，不得把 stale Index 当成 row identity。
+`IndexSnapshot`只用于把一次operation产生的Index序列复制到紧接着的同步只读消费批次。Caller在该批次内不得修改来源Table；来源Table发生任意mutation/lifecycle变化后必须视为失效。`requireCurrent`可以在测试、调试或边界代码中检查owner、active lifecycle、structural epoch和range，但不能证明非结构field变化后的原filter/order语义。需要跨operation保存引用时使用`@SomaKey`，不能用IndexSnapshot冒充row identity。
 
 ## 6. Mutation boundary
 

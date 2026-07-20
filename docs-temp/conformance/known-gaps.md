@@ -12,7 +12,7 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：自动授权实施、未来 roadmap 或重新定义 Design
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 未闭合差距
 
@@ -32,7 +32,7 @@ Owner：SOMA Java 一致性审查
 |---|---|---|
 | Sparse Set / dirty selector / maintained order | 已由 V3 packed exact cutover关闭 | 不恢复读时全表 rebuild、稳定物理顺序或 Sparse Set public model |
 | dense stable compaction 假设 | 已关闭 | keyed/dense 均保持 swap-remove；未排序 terminal 不承诺顺序 |
-| public row-index list | 已由 `IndexSnapshot` + internal `IndexBuffer` 取代 | 不把内部 scratch 暴露为 stable row identity |
+| public row-index list | 已由 caller-responsibility `IndexSnapshot` + internal `IndexBuffer` 取代 | snapshot只在同步只读批次立即消费；跨operation使用`@SomaKey`，不把内部scratch或Index冒充stable identity |
 
 ## 3. 不构成差距的观察
 

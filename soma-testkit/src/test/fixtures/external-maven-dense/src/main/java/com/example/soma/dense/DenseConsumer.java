@@ -163,6 +163,9 @@ public final class DenseConsumer {
         int[] indexes = indexSnapshot.toArray();
         require(indexes.length == 2 && indexes[0] == 2 && indexes[1] == 3,
                 "primitive rowIndexes");
+        indexes[0] = -1;
+        require(indexSnapshot.indexAt(0) == 2,
+                "IndexSnapshot owns a defensive detached copy");
         table.requireCurrent(indexSnapshot);
         final ParticleTable otherTable = ParticleTable.create();
         expectCode("index_snapshot_wrong_table", new Action() {
@@ -213,7 +216,6 @@ public final class DenseConsumer {
                         && updated.changed() == 2L,
                 "update counters");
         require(table.fetchAt(2).energy == null, "update optional clear");
-        table.requireCurrent(indexSnapshot);
 
         final long[] tickSum = new long[] {0L};
         table.ticksValues().forEachLong(new LongConsumer() {
@@ -321,6 +323,8 @@ public final class DenseConsumer {
                 table.requireCurrent(indexSnapshot);
             }
         });
+        require(indexSnapshot.indexAt(0) == 2,
+                "stale IndexSnapshot remains a raw detached sequence, not an automatic live guard");
         final long epochBeforeEmptyRemove = table.structuralEpoch();
         RemoveResult emptyRemove = table.filter(new ParticleRows.Predicate() {
             @Override
@@ -339,6 +343,7 @@ public final class DenseConsumer {
         table.addBatch(batch);
         table.clear();
         require(table.size() == 0, "clear");
+        final IndexSnapshot releaseSnapshot = table.rowIndexes();
         IntColumnView releasedView = table.idColumn();
         table.release();
         table.release();
@@ -354,6 +359,12 @@ public final class DenseConsumer {
             @Override
             public void run() {
                 table.fetchAt(0);
+            }
+        });
+        expectCode("table_released", new Action() {
+            @Override
+            public void run() {
+                table.requireCurrent(releaseSnapshot);
             }
         });
     }

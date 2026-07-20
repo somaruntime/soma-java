@@ -12,7 +12,7 @@ Owner：SOMA schema 与 generated contract
 
 非事实范围：runtime 存储算法、具体 generator 类结构和 measured performance
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. Schema vocabulary
 
@@ -68,7 +68,8 @@ Schema hash 表达 schema contract identity；runtime plan hash 表达运行时�
 - materializing terminal 返回 detached `@SomaTable` object；它不是 live view；
 - pipeline callback 收到 callback-scoped row cursor/mutator，不能逃逸、缓存或跨 stage 使用；
 - Row Pipeline 和 mutation builder 是 one-shot；消费后再次调用必须产生 typed lifecycle error；
-- `IndexSnapshot` 是显式复制的 public index result，绑定 source table 和 structural epoch；
+- `IndexSnapshot` 是显式复制的 public Index result，只复制数值序列并记录 source table / structural epoch；它不是 stable identity 或 row snapshot；
+- caller只在一个同步只读Index消费批次中立即使用，来源Table任意mutation/lifecycle变化后视为失效；`requireCurrent`只作为可选边界防御，不进入强制hot path；
 - internal candidate scratch 统一称为 `IndexBuffer`，不进入 application data model；
 - callback failure 必须遵守 mutation atomicity，不允许 partially committed row set。
 

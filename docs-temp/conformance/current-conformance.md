@@ -12,7 +12,7 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：授权修复、重新定义 Design 或声明 public release readiness
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 判定口径
 
@@ -32,6 +32,7 @@ Owner：SOMA Java 一致性审查
 | packed keyed/dense storage | 一致且 evidenced | generated/runtime checks；G3 passed | 保持 |
 | primary identity 与 exact access | 一致且 evidenced | V3 Hash KeySpace、GroupedExactIndex、access fixtures；packed exact cutover passed | 保持 |
 | swap-remove 与 IndexBuffer pipeline | 一致且 evidenced | generated access/remove tests、benchmark smoke | 保持 |
+| Index / IndexSnapshot caller-responsibility | 一致且 evidenced | detached `IndexSnapshot`、optional `requireCurrent`、wrong/stale consumer tests；正式 Owner 已明确非 stable identity/row snapshot | 保持 raw detached API，不增加强制 hot-path guard |
 | child ownership/lifecycle | 一致且 evidenced | child external consumer、ownership/materialization Gate | 保持 |
 | structured failure/plan/stats | 一致且 evidenced | runtime diagnostics、compatibility/error fixtures | 保持 |
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |

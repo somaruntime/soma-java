@@ -12,7 +12,7 @@ Owner：SOMA Java 跨模块 canonical terminology
 
 非事实范围：API behavior、storage algorithm、lifecycle transition 和性能结论
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 限定规则
 
@@ -32,7 +32,7 @@ Owner：SOMA Java 跨模块 canonical terminology
 | Row Cursor / Mutator | callback-scoped live borrow | materialized row、可缓存 proxy |
 | Column Pipeline | 单列 typed traversal/terminal path | object Stream、ColumnView lifecycle |
 | ColumnView | scoped typed live-column borrow | detached array/copy |
-| `IndexSnapshot` | detached current-Index sequence + source/epoch identity | stable row identity、live view |
+| `IndexSnapshot` | detached current-Index数值序列 + source/epoch诊断信息；只供一个同步只读消费批次 | stable row identity、row snapshot、live view |
 | Materialized Object | detached schema object/`List`/`Map` observation | live storage、external DTO、snapshot isolation |
 
 ## 3. Application modeling
@@ -86,7 +86,7 @@ Application data role 与 table kind、ownership 正交：
 | `IndexBuffer` | table-local reusable primitive candidate scratch |
 | lifecycle state | epoch、borrow、active operation、released 和 stats state |
 
-`IndexBuffer` 是 internal operation scratch；`IndexSnapshot` 是 public detached sequence。两者都不拥有业务 identity。
+`IndexBuffer` 是 internal operation scratch；`IndexSnapshot` 是 public detached sequence。两者都不拥有业务 identity。`requireCurrent`只表示可选的owner/lifecycle/structural-epoch/range检查，不表示自动guarded consumption。
 
 ## 6. Row、order 与 floating value
 

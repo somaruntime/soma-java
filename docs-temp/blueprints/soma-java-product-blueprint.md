@@ -10,7 +10,7 @@ Owner：SOMA Java 产品蓝图
 
 非事实范围：精确 API 契约、实现算法、当前支持状态、性能结论和 release readiness
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 这份蓝图面向谁
 
@@ -114,7 +114,7 @@ public final class MachineCandidate {
 | typed mutation builder | 单个 keyed row 的受控变更与 commit |
 | primitive `ColumnView` | 按当前 Index 读取 hot primitive leaf |
 | child table facade | 访问 parent-owned live child，而不是物化 `List` |
-| `IndexSnapshot` | 显式保存一次 operation 的 Index 结果 |
+| `IndexSnapshot` | 显式复制一次 operation 的 Index 结果，供紧接着的同步只读批次消费 |
 
 这些类型应让 IDE completion、javac type checking 和生成 diagnostics 成为主要使用界面。runtime 内部的 hash slot、relocation link、owner token 和 backing array 不进入 public application model。
 
@@ -211,7 +211,7 @@ try {
 }
 ```
 
-这条路径避免物化完整 `MachineCandidate`，但 `rowIndexes()` 明确复制出一个 `IndexSnapshot`，不能被宣传为零分配。Snapshot 绑定 table structural epoch；结构变化后不能把旧 Index 当成稳定 identity。
+这条路径避免物化完整 `MachineCandidate`，但 `rowIndexes()` 明确复制出一个 `IndexSnapshot`，不能被宣传为零分配。Caller只在当前同步只读批次内立即消费；来源Table任意mutation/lifecycle变化后必须丢弃。`requireCurrent`只是可选边界防御，跨operation引用必须使用`@SomaKey`。
 
 runtime 在一次 Row Pipeline 内部使用的 primitive scratch 统一称为 `IndexBuffer`。它属于 table operation、在 terminal 后 reset，并不作为 public `List<Integer>`、row collection 或 application state 暴露。
 

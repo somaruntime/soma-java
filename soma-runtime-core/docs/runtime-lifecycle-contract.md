@@ -4,7 +4,7 @@
 Owner：`soma-runtime-core`
 事实范围：child ownership、materialization accounting、epoch/view/pipeline lifecycle、mutation coordination、concurrency 和 release
 非事实范围：public API naming、storage data structure、schema declaration 和 benchmark claim
-最后审查日期：2026-07-10
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -65,6 +65,8 @@ Runtime table 至少维护：
 - structural mutation 遇到 active ColumnView 时返回 view_pinned，除非实现能证明 storage address/length/layout 不变；
 - released view 和 stale view 是不同错误；
 - destroy/clear 必须避免 use-after-release 语义。
+
+Public `Index`/`IndexSnapshot` 不属于 borrowed lifecycle object，也没有自动 runtime pin。Caller只能在一个同步只读消费批次中立即使用，并在来源Table任意mutation或lifecycle变化后将其视为失效。Generated `requireCurrent(snapshot)`只按调用时状态提供owner、active lifecycle、structural epoch与range检查；非结构mutation不提升structural epoch，因此该检查不能恢复或证明snapshot原有的filter/order含义。
 
 Application callback是同table的独占scoped execution：runtime在调用predicate/comparator/consumer/updater/column/key consumer或Batch Writer前建立callback depth=1，finally清除。Callback只能使用当前传入Cursor/MutableCursor/RowBuilder；同一table的任何外部facade access（包括`size`、key lookup、pipeline创建、view acquire、mutator和structural operation）返回`reentrant_access`，另一table合法。Nested callback不能绕过该scope。SOMA lifecycle error原样传播，普通application exception才映射`callback_failed`。
 

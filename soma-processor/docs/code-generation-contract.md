@@ -4,7 +4,7 @@
 Owner：`soma-processor`
 事实范围：schema-specific Java artifacts、static runtime binding、deterministic output、golden 和 package smoke
 非事实范围：public annotation semantics、normalization/hash 算法、public API behavior 和 runtime kernel
-最后审查日期：2026-07-17
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -77,7 +77,7 @@ Generated artifact 必须完整实现根级 [Generated Table API 契约](../../d
 
 Codegen 只拥有 schema-specific type/name/static binding，不重新定义 public method semantics。任何新增 convenience method 都必须先进入根级 API contract 和 processor golden，不能只在 codegen 文档中成为隐式 public capability。
 
-Keyed table绑定single generated key type与hash primary locator；dense table不生成stable key。Public `Index`只绑定当前packed state，批量导出由`IndexSnapshot`携带来源table与epoch。Public API不暴露bucket、bitmap、exact-index group/link、`IndexBuffer`、`ChildTableHandle`或column mutation primitive。
+Keyed table绑定single generated key type与hash primary locator；dense table不生成stable key。Public `Index`只绑定当前packed state，批量导出由`IndexSnapshot`复制Index序列并携带来源table与structural epoch。Codegen保留`indexAt`raw detached读取和可选`requireCurrent`边界检查，不生成强制per-index live guard；caller-responsibility语义仍由根级API Owner定义。Public API不暴露bucket、bitmap、exact-index group/link、`IndexBuffer`、`ChildTableHandle`或column mutation primitive。
 
 ## 4. Batch API binding
 

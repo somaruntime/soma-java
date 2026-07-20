@@ -4,7 +4,7 @@
 Owner：根项目协调层
 事实范围：SomaTable 总心智模型、跨模块永久原则和不可缩水边界
 非事实范围：annotation 语法、generated API 细节、runtime 数据结构和 benchmark 结果
-最后审查日期：2026-07-10
+最后审查日期：2026-07-20
 
 ## 1. 文档定位
 
@@ -141,12 +141,14 @@ Materialized row 不提供 structural equality/hash；完整内容比较由 test
 |---|---:|---:|
 | Materialized Object / `List` / `Map` | 否 | 是 |
 | Key value | 否 | 是 |
-| IndexSnapshot | 否，但携带捕获时的 structural epoch | 仅在该 epoch 仍为 current 时 |
+| IndexSnapshot | 否；只复制捕获时的 Index 数值，并携带来源/structural epoch | 只在一个同步只读消费批次中立即使用；来源 Table 发生任意 mutation 或 lifecycle 变化后由 caller 视为失效 |
 | Row Cursor | 是 | 否 |
 | ColumnView | 是 | 仅在 active scope |
 | ChildTableHandle | 是，internal | 不可公开 |
 
 任何 API 都不能同时承诺 detached-copy 与 live-view 语义。
+
+`Index`/`IndexSnapshot` 采用 caller-responsibility 契约：二者都不是 stable identity 或 row-state snapshot。需要修改当前候选时直接使用 Row Pipeline `update()` / `remove()` terminal；需要跨 operation 保存稳定引用时使用 `@SomaKey`。Generated `requireCurrent(snapshot)` 只是在测试、调试或边界代码中可选的 owner、active lifecycle、structural epoch 与 Index range 防御，不进入强制 hot path，也不能证明非结构字段 mutation 后原 filter/order 语义仍成立。
 
 ### 原则十：并发和一致性由上层控制
 

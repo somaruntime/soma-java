@@ -4,7 +4,7 @@
 Owner：根项目协调层
 事实范围：Generated keyed/dense Table、Direct API、Row/Key/Column Pipeline、Mutator、child facade 和 ColumnView 的用户语义
 非事实范围：schema annotation、code generation 过程、TableStore 数据结构、deep materialization 细节和性能实现算法
-最后审查日期：2026-07-11
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -344,8 +344,10 @@ rowIndexes()
 - `firstOrThrow` 在 empty result 时抛 typed error；
 - `fetchAll` 按 pipeline row sequence 返回 `List<R>`；
 - `rowIndexes` 返回 epoch-sensitive packed indexes，不是业务 identity；
-- V1 exact `rowIndexes()` 返回 detached immutable `IndexSnapshot`，包含捕获时 structural epoch、`size()`、`indexAt(int)` 和 defensive-copy `toArray()`；不返回 boxed `List<Integer>` 或 live view；
-- generated table `requireCurrent(IndexSnapshot)` 必须拒绝其他table的snapshot以及structural epoch不匹配，分别返回typed ownership/`stale_index_snapshot`错误；
+- V1 exact `rowIndexes()` 返回 detached immutable `IndexSnapshot`，包含来源 identity、捕获时 structural epoch、`size()`、`indexAt(int)` 和 defensive-copy `toArray()`；它只复制 Index 序列，不复制 row facts，不返回 boxed `List<Integer>` 或 live view；
+- caller只能在一个同步、只读的Index消费批次中立即使用Index/IndexSnapshot，期间不得修改来源Table；来源Table发生任意mutation或lifecycle变化后，既有Index/IndexSnapshot必须全部视为失效；
+- `indexAt(int)`只校验snapshot内部position，不自动访问来源Table。Generated table `requireCurrent(IndexSnapshot)`是测试、调试或边界代码中的可选防御：它拒绝wrong-table、released table、structural epoch不匹配和越界current Index，但不进入强制hot path，也不能发现非结构field mutation或证明原filter/order仍成立；
+- 需要修改候选行时使用同一Pipeline的`update()`/`remove()`terminal；需要跨operation保存稳定引用时使用`@SomaKey`，不能保存IndexSnapshot代替identity；
 - 未排序 terminal 遵循当次 source sequence：default source 是当前物理 `[0,size)`，exact index source 是当前组内枚举；二者都不承诺业务顺序；
 - `findXxx` 表示 optional result，required-result 使用 `fetchXxx` 或 `firstOrThrow`；
 - `firstOrThrow` 空结果使用 lookup category `empty_result`，context包含table/source和terminal operation；
