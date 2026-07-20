@@ -1,10 +1,14 @@
 # Security model
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[兼容性、安全与版本](design/compatibility-security-and-versioning.md)、[测试与 evidence](engineering/testing-and-evidence.md)、[Release 治理](engineering/release-governance.md)
 事实范围：SOMA Java trust boundary、protected assets、compile/runtime abuse cases、resource exhaustion、diagnostic exposure 和 supply-chain obligations
 非事实范围：业务授权、application data classification、漏洞报告联系人、具体修复结果和第三方 scanner 配置
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；当前工作必须使用上方取代者。
 
 ## 1. 目标
 

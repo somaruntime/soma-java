@@ -1,10 +1,14 @@
 # soma_java 领域术语表
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[领域语言](design/domain-language.md)
 事实范围：跨模块 canonical 术语、限定词和“不等同于”边界
 非事实范围：API behavior、schema validation、runtime lifecycle 和性能结论
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；当前工作必须使用上方取代者。
 
 ## 1. 目标与权威边界
 

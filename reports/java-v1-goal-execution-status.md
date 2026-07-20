@@ -1,18 +1,37 @@
 # Java-only SOMA V1 Goal execution status
 
+类型：Report / Goal 状态
+
 状态：blocked（G6真实发布事实不足；不能完成 Goal）
+
+Owner：SOMA Java Goal 状态输出
+
+受众：项目 Owner、维护者与 Gate reviewer
+
+事实范围：完整 Java-only V1 Goal、功能/Gate状态、验证记录和当前阻塞
+
+非事实范围：重新定义 Blueprint/Design 或授权 release
+
+适用版本：最后 implementation-affecting baseline `b991f4c`
+
+输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
+
+最后审查日期：2026-07-20
+
 更新日期：2026-07-20
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；post-cutover功能/性能尾项代码基线：`b991f4c docs: define keyspace as primary locator`；完整evidence见两份dated专题报告
 
-本文件是中断恢复和进度审计入口，不是设计事实源。正式语义仍由 `docs/README.md` 及各模块 Owner 文档拥有。
+本文件是中断恢复和进度审计入口，不是 Design。目标与正式语义从 `docs/blueprints/`、`docs/design/` 进入；当前代码由代码本身拥有，并通过 `docs/implementation-map/` 导航。
 
 2026-07-11专题治理已完成对完整功能V1的无缩水再审计：P0、V1 blocker和required P1均关闭，G0-G5在Zulu JDK 8完整`./scripts/check.sh`上fresh通过，独立reviewer最终PASS。完整findings、Capability矩阵、package重放边界与evidence见[`soma-java-v1-topical-governance-report.md`](soma-java-v1-topical-governance-report.md)。该专题不替代本文件的原Goal；G6仍blocked。
 
 2026-07-17经用户明确批准，项目完成首个公开发布前的Packed Index / Exact Access / IndexBuffer breaking cutover：删除Sparse Set、maintained order与dirty selector rebuild，keyed/dense统一swap-remove，exact index改为mutation-boundary eager incremental维护，public row-index sequence改为epoch-bearing `IndexSnapshot`，runtime/generated/plan protocol升为v3。正式Owner、consumer、Schema/hash/golden、examples、benchmark与Gate同步迁移；当前事实与evidence见[`2026-07-17-packed-exact-index-runtime-redesign-report.md`](2026-07-17-packed-exact-index-runtime-redesign-report.md)。该迁移不处理也不解除G6。
 
 2026-07-20完成post-cutover尾项治理：固化caller-responsibility Index契约，按distinct-group cardinality收紧exact-index容量，优化single snapshot，FJSP machine selection改为application-owned indexed heap，拆分exact-index source emitter，并保留/澄清`KeySpace` primary-locator术语。当前实现与component/FJSP A/B evidence见[`2026-07-20-packed-exact-index-post-cutover-closeout-report.md`](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)。该治理不处理也不解除G6。
+
+2026-07-20正式启用设计驱动文档体系：Blueprint、Design、Implementation Map、Conformance与Engineering成为当前入口；32份旧Owner按迁移审计标记superseded或改为current-executable Report。该切换只改变文档权威与导航，不改变代码、能力、Gate或G6状态；详见[`2026-07-20-documentation-framework-cutover-report.md`](2026-07-20-documentation-framework-cutover-report.md)。
 
 ## 1. 当前总进度
 
@@ -27,7 +46,9 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP、Lite、Basic 或缩水后的替代目标。
 
-## 2. Capability Ledger 状态
+## 2. 历史 Capability evidence inventory
+
+以下ID保留为既有实施/Gate evidence的追踪标签，不再构成当前Design、路线图或平行能力事实源；当前目标、规范和差距分别由Blueprint、Design和Conformance拥有。
 
 22 项为 `evidenced`：
 

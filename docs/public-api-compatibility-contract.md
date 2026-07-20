@@ -1,10 +1,14 @@
 # Public API 与兼容性契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[兼容性、安全与版本](design/compatibility-security-and-versioning.md)
 事实范围：public/generated/internal surface 分类、兼容性维度、版本身份、deprecation 和 consumer migration
 非事实范围：artifact 发布流程、具体 annotation/API 语义、schema hash 算法、runtime plan 参数和 release 结果
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；精确当前 surface 从[可执行契约地图](implementation-map/executable-contract-map.md)进入。
 
 ## 1. 目标
 

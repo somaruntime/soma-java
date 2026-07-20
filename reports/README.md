@@ -1,10 +1,23 @@
 # soma_java 报告索引
 
-`reports/` 保存带时间点的正式审查、验证、benchmark 和 release evidence。报告不是设计事实源；当前设计必须回到 [docs](../docs/README.md)。
+类型：Report 入口
+
+状态：当前
+
+Owner：SOMA Java 正式报告输出
+
+事实范围：当前与历史审查、验证、benchmark、治理和 release evidence导航
+
+非事实范围：Blueprint、Design 或当前代码实现事实
+
+最后审查日期：2026-07-20
+
+`reports/` 保存带时间点的正式审查、验证、benchmark、治理和 release evidence。报告不是 Design；目标、规范和当前实现分别回到 [Blueprint](../docs/blueprints/README.md)、[Design](../docs/design/README.md)和[Implementation Map](../docs/implementation-map/README.md)。
 
 ## 当前 V1 状态与 Gate
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
+- [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
 - [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)（当前post-cutover功能/性能实现与证据）
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)（当前 v3 实现形态与 `4b6fa43` 重验证入口）
 
@@ -18,10 +31,13 @@
 | G5 | passed | [packed/exact v3 当前专题报告](2026-07-17-packed-exact-index-runtime-redesign-report.md)；[旧 examples/benchmark Gate](java-v1-g5-examples-benchmark-gate-report.md) 为 v2 历史快照 |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
+Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。
+
 - [G6 support matrix evidence](java-v1-support-matrix-report.md)
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-20 设计驱动文档体系正式切换](2026-07-20-documentation-framework-cutover-report.md)
 - [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)
 - [2026-07-17 性能优化后 G6 本机诊断](2026-07-17-post-optimization-g6-diagnostic-report.md)

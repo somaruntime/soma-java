@@ -1,41 +1,72 @@
-# soma_java 正式设计文档索引
+# SOMA Java 文档入口
 
-本目录是 Java-only SOMA 根级正式设计事实入口。模块内部事实进入对应模块的 `docs/`；README、AGENTS、guides、reports 和 `docs/temp/` 都不是设计事实源。
+类型：文档体系入口
 
-## 根级正式设计文档
+状态：正式
 
-| 文档 | 唯一 Owner | 单一职责 |
+Owner：SOMA Java 文档治理
+
+事实范围：正式文档分类、权威关系、当前入口和历史文档边界
+
+非事实范围：具体产品语义、当前代码细节和某次验证结果
+
+采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
+
+最后审查日期：2026-07-20
+
+## 1. 权威关系
+
+SOMA Java 采用以下设计驱动关系：
+
+```text
+Blueprint  ->  Design  ->  Code / Tests
+                    \       /
+Implementation Map -- maps --
+Conformance -------- compares Blueprint / Design / Code / Tests
+Engineering -------- governs how changes and evidence are produced
+Current facts + evidence  ->  Reports
+Temporary  ->  candidate decision  ->  atomic promotion or deletion
+```
+
+- Blueprint 拥有目标形态和目标使用方式；
+- Design 拥有长期规范性设计；
+- 代码、配置和可执行产物拥有当前实现事实；
+- Implementation Map 只提供实现投影和导航；
+- Conformance 识别偏差并记录 Owner 处置，不扩大实施授权；
+- Engineering 拥有可靠推进过程；
+- Report 拥有正式输出或特定时点结论，不反向定义产品能力；
+- Temporary 只承载专题候选设计，收口后必须删除。
+
+## 2. 正式入口
+
+| 分类 | 回答的问题 | 入口 |
 |---|---|---|
-| [文档治理规则](documentation-governance.md) | 根项目协调层 | 文档分类、Owner、生命周期和质量门禁 |
-| [领域术语表](domain-glossary.md) | 根项目协调层 | canonical 术语及“不等同于”边界 |
-| [SomaTable 设计宪法](soma-table-design-constitution.md) | 根项目协调层 | 总心智模型和跨模块永久原则 |
-| [项目架构设计](architecture-design.md) | 根项目协调层 | 系统边界、模块、依赖方向和数据流 |
-| [Build 与依赖契约](build-and-dependency-contract.md) | 根项目协调层 | Maven reactor、模块依赖、consumer build、dependency 与 CI baseline |
-| [Public API 与兼容性契约](public-api-compatibility-contract.md) | 根项目协调层 | public/generated/internal surface、compatibility identity 和 migration |
-| [Generated Table API 契约](generated-table-api-contract.md) | 根项目协调层 | Direct API、Row/Key/Column Pipeline、Mutator、ColumnView 用户语义 |
-| [Materialization 契约](materialization-contract.md) | 根项目协调层 | detached object、递归 child、collection shape 和 budget |
-| [Runtime 正确性模型](runtime-correctness-model.md) | 根项目协调层 | runtime 不变量、状态机、失败原子性和 oracle |
-| [Runtime 性能模型](runtime-performance-model.md) | 根项目协调层 | access pattern、复杂度、allocation 和 claim 边界 |
-| [Security model](security-model.md) | 根项目协调层 | trust boundary、integrity、resource abuse、diagnostic exposure 和 supply chain |
-| [实现策略](implementation-strategy.md) | 根项目协调层 | 实现架构、垂直切片顺序和防缩水出口 |
-| [V1 验证门禁](validation-gates.md) | 根项目协调层 | readiness gate、evidence 和 release claim |
-| [Versioning 与 release 契约](versioning-and-release-contract.md) | 根项目协调层 | artifact version、publishing readiness、rollback 和 release evidence |
+| Blueprint | SOMA Java 最终希望成为什么、怎样被使用？ | [Blueprint](blueprints/README.md) |
+| Design | 系统应当长期遵守什么？ | [Design](design/README.md) |
+| Implementation Map | 当前关键实现和 evidence 在哪里？ | [Implementation Map](implementation-map/README.md) |
+| Conformance | Blueprint、Design、代码和测试是否一致？ | [Conformance](conformance/README.md) |
+| Engineering | 项目怎样可靠构建、验证和治理？ | [Engineering](engineering/README.md) |
+| Report | 当前输出、测量和 Gate 结论是什么？ | [用户/开发者指南](../guides/README.md)、[报告](../reports/README.md)、[可执行场景输出](../soma-examples/docs/README.md) |
 
-## 模块正式设计入口
+修改功能或实施专题时，先从 Blueprint 与对应 Design 理解目标，再通过 Implementation Map 进入代码和测试；发现不一致时进入 Conformance，而不是让当前实现反向降低 Design。
 
-| 模块 | 正式设计入口 | 事实范围 |
-|---|---|---|
-| `soma-annotations` | [docs](../soma-annotations/docs/README.md) | public schema annotation |
-| `soma-processor` | [docs](../soma-processor/docs/README.md) | compiler integration、processing、normalization、hash、diagnostics、code generation |
-| `soma-runtime-core` | [docs](../soma-runtime-core/docs/README.md) | TableStore、lifecycle、runtime plan、errors/diagnostics、performance implementation |
-| `soma-testkit` | [docs](../soma-testkit/docs/README.md) | compile/golden/invariant/evidence helper contract |
-| `soma-examples` | [docs](../soma-examples/docs/README.md) | formal usage scenarios and Access Pattern Cards |
-| `soma-benchmarks` | [docs](../soma-benchmarks/docs/README.md) | evidence methodology and runtime-state benchmark lanes |
+## 3. 模块实现入口
 
-## 非正式设计入口
+| 模块 | 当前实现导航 |
+|---|---|
+| `soma-annotations` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-annotations/docs/README.md) |
+| `soma-processor` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-processor/docs/README.md) |
+| `soma-runtime-core` | [Runtime Core Map](implementation-map/runtime-core-map.md)、[模块文档入口](../soma-runtime-core/docs/README.md) |
+| `soma-testkit` | [测试与 evidence Map](implementation-map/test-and-evidence-map.md)、[模块文档入口](../soma-testkit/docs/README.md) |
+| `soma-examples` | [场景与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[可执行场景输出](../soma-examples/docs/README.md) |
+| `soma-benchmarks` | [场景与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[模块文档入口](../soma-benchmarks/docs/README.md) |
 
-- 长期研究蓝图与临时专题位于 [docs/temp](temp/)；
-- 正式审查、验证和 release evidence 位于 [reports](../reports/README.md)；
-- 用户和开发者指南未来按需进入 `guides/`，不进入 `reports/`。
+模块 `docs/` 中保留的旧契约均为 `superseded` 历史设计，不再拥有当前事实。精确 public/generated/schema/protocol surface 由代码、golden、artifact 和 validator 拥有，并由[可执行契约地图](implementation-map/executable-contract-map.md)登记。
 
-正式实现、gate 或 release claim 不得把 README、guides、reports 或临时蓝图当作设计事实源。
+## 4. Temporary 与历史材料
+
+重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。当前没有 active Temporary。
+
+旧 root/module 契约保留原路径只为历史链接稳定，必须标记 `superseded` 并退出所有 current 导航。历史 Report 可以引用其当时输入，但当前工作不得把它们当作 Design Owner。
+
+文档分类、Owner、metadata 和生命周期以[文档治理](engineering/documentation-governance.md)为准；综合验证入口是 `./scripts/check.sh`。

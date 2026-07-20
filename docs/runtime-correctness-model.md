@@ -1,10 +1,14 @@
 # Runtime 正确性模型
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[Correctness 与 failure](design/correctness-and-failure.md)、[Ownership 与 lifecycle](design/ownership-and-lifecycle.md)
 事实范围：runtime 跨组件不变量、状态机、失败原子性、correctness oracle 和 gate 映射
 非事实范围：runtime class/API、具体数据结构算法、场景业务规则和性能结论
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；当前工作必须使用上方取代者。
 
 ## 1. 目标
 

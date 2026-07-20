@@ -1,10 +1,14 @@
 # Runtime plan 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-runtime-core`
+当前取代者：[Runtime Plan 与可观测性](../../docs/design/runtime-plan-and-observability.md)、[可执行契约地图](../../docs/implementation-map/executable-contract-map.md)
 事实范围：RuntimePlan scope、configuration dimensions、creation/validation、identity/hash、override、immutability 和 diagnostics
 非事实范围：logical schema、public generated API naming、具体 algorithm implementation、benchmark calibration result 和 release default claim
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 Runtime Plan 事实。
 
 ## 1. 目标
 

@@ -1,10 +1,14 @@
 # TableStore 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-runtime-core`
+当前取代者：[Table、存储与访问](../../docs/design/table-storage-and-access.md)、[Runtime Core Map](../../docs/implementation-map/runtime-core-map.md)
 事实范围：TableStore composition、RowSpace、ColumnStore、presence、KeySpace、AccessStructures、AccessPath、Batch 和 storage-facing buffers
 非事实范围：ownership/lifecycle/errors、public API、schema semantics 和性能参数
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 storage 事实。
 
 ## 1. 目标
 

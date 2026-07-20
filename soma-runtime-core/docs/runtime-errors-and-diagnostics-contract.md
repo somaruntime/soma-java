@@ -1,10 +1,14 @@
 # Runtime errors 与 diagnostics 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-runtime-core`
+当前取代者：[Correctness 与 failure](../../docs/design/correctness-and-failure.md)、[Runtime Plan 与可观测性](../../docs/design/runtime-plan-and-observability.md)、[可执行契约地图](../../docs/implementation-map/executable-contract-map.md)
 事实范围：runtime exception envelope、stable error code/category/context、callback failure、stats snapshot/reset 和 logging side-effect boundary
 非事实范围：schema compile diagnostics、public generated method naming、lifecycle state transition、runtime algorithm 和 application logging policy
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 errors/stats 事实。
 
 ## 1. 目标
 

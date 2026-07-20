@@ -1,10 +1,14 @@
 # Build 与依赖契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[系统架构](design/system-architecture.md)、[构建与验证](engineering/build-and-validation.md)
 事实范围：Maven reactor、模块依赖方向、artifact classification、consumer build path、dependency policy、reproducibility 和 CI baseline
 非事实范围：release approval、public API behavior、compiler lowering internals、test implementation和具体发布结果
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；当前工作必须使用上方取代者。
 
 ## 1. 目标
 

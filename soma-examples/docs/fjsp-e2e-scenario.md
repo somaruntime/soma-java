@@ -1,14 +1,20 @@
-# FJSP E2E 场景契约
+# FJSP E2E 可执行场景说明
 
-状态：正式设计文档
-Owner：`soma-examples`
+类型：Report / 开发者 current-executable 场景
+状态：当前
+Owner：`soma-examples` output
+受众：使用或维护当前 FJSP example 的开发者
+适用版本：最后 implementation-affecting baseline `b991f4c`
+输入事实源：当前 example source、[FJSP Blueprint](../../docs/blueprints/fjsp-runtime-state-blueprint.md)、Design 与 G5 evidence
 事实范围：FJSP release/dispatch/commit flow、lookup/error/lifecycle evidence 和 G5 scenario boundary
 非事实范围：schema declaration、solver business transaction contract、runtime implementation 和性能 claim
 最后审查日期：2026-07-20
 
+> 本文记录当前 executable example，不拥有目标设计。文中的“必须/应当”只复述所链接 Blueprint、Design 或现有验证要求；发生冲突时以正式 Owner 为准。
+
 ## 1. 场景定位
 
-本文定义 FJSP formal example 必须演示和验证的 end-to-end flow。Runtime-state schema 与 Access Pattern Card 由 [FJSP runtime state schema 示例](fjsp-runtime-state-example.md) 拥有。
+本文记录当前 FJSP example 演示和验证的 end-to-end flow。Runtime-state schema 与 Access Pattern Card 的当前投影见 [FJSP runtime state schema 示例](fjsp-runtime-state-example.md)。
 
 FJSP source 的阅读顺序固定为：`FjspScenario` 教学门面 -> `FjspProblem` 输入 ->
 `FjspInstanceFactory` 导入 -> `FjspInstance` runtime state -> `FjspSolver` 算法 loop ->

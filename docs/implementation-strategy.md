@@ -1,10 +1,14 @@
 # SOMA Java V1 实现策略
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[设计宪法](design/soma-java-design-constitution.md)、[Validation Gate 治理](engineering/validation-gates.md)、[Conformance](conformance/README.md)
 事实范围：跨模块实现架构、垂直切片顺序、阶段出口和 V1 防缩水规则
 非事实范围：具体 class/package、runtime 算法参数、项目排期和 release 结果
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的阶段与 capability 历史，不再是当前路线图或 Design Owner；当前目标、偏差和 evidence 分别由上方正式入口拥有。
 
 ## 1. 目标
 

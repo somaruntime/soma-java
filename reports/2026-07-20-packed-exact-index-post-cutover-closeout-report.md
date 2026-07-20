@@ -154,4 +154,4 @@ Artifact SHA-256：
 - component：`target/post-cutover-components.qz8pWn/post-cutover-components.jsonl`，SHA-256 `a232d7c4033d738844c5f876b4579ade5578aebf23213d60dbd718e545c14460`；
 - FJSP allocation/GC：`target/fjsp-allocation-gc.EApy1a/fjsp-100k-allocation-gc.jsonl`，SHA-256 `523f9838b43d7286e47e9c5f91d4c337251184168aff259aa958b1e84ec1869b`。
 
-`target/`只保存本机可重放evidence，不是长期事实源。原`docs/temp/packed-exact-index-post-cutover-tails/`已在本报告和正式Owner接管稳定事实后删除；四份长期研究蓝图继续保留。本报告回填后另行执行`./scripts/check-docs.sh`与`git diff --check`。
+`target/`只保存本机可重放evidence，不是长期事实源。原`docs/temp/packed-exact-index-post-cutover-tails/`已在本报告和当时正式Owner接管稳定事实后删除；四份研究蓝图在本报告形成时继续保留，随后已由设计驱动文档体系切换晋升到`docs/blueprints/`。本报告回填后另行执行`./scripts/check-docs.sh`与`git diff --check`。

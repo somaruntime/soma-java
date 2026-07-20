@@ -1,10 +1,14 @@
 # Compiler integration 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-processor`
+当前取代者：[系统架构](../../docs/design/system-architecture.md)、[Schema 与生成 API](../../docs/design/schema-and-generated-api.md)、[Compiler 与 codegen Map](../../docs/implementation-map/compiler-and-codegen-map.md)
 事实范围：`@SomaValue` source lowering、javac integration、processor phase ordering、supported compiler/build boundary 和 fail-closed behavior
 非事实范围：annotation logical semantics、generated API behavior、normalized schema/hash、runtime storage 和 IDE 产品实现
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 compiler integration 事实。
 
 ## 1. 目标
 

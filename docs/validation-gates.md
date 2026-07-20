@@ -1,10 +1,14 @@
 # soma_java V1 验证门禁
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[Validation Gate 治理](engineering/validation-gates.md)、[测试与 evidence](engineering/testing-and-evidence.md)
 事实范围：V1 readiness gates、required evidence、report path、blocking 和 release claim
 非事实范围：owner contract 语义、具体测试实现和性能结果
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史 Gate 设计上下文，不再拥有当前过程事实；当前 Gate 结果仍由正式 Report 陈述。
 
 ## 1. 门禁原则
 

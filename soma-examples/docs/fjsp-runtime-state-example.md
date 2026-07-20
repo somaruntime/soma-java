@@ -1,14 +1,20 @@
 # FJSP runtime state schema 示例
 
-状态：正式设计文档
-Owner：`soma-examples`
+类型：Report / 开发者 current-executable 场景
+状态：当前
+Owner：`soma-examples` output
+受众：使用或维护当前 FJSP runtime-state example 的开发者
+适用版本：最后 implementation-affecting baseline `b991f4c`
+输入事实源：当前 example source、[FJSP Blueprint](../../docs/blueprints/fjsp-runtime-state-blueprint.md)、Design 与 G5 evidence
 事实范围：FJSP data role、Access Pattern Card、schema source 和 runtime-state coverage
 非事实范围：dispatch E2E flow、SOMA public contract 和 benchmark result
 最后审查日期：2026-07-20
 
+> 本文记录当前 executable example，不拥有目标设计。文中的“必须/应当”只复述所链接 Blueprint、Design 或现有验证要求；发生冲突时以正式 Owner 为准。
+
 ## 1. 文档定位
 
-本文是 FJSP runtime-state schema 的正式示例。它说明如何把 input facts、working state、result facts、owned candidate-machine input 和 keyed MachineCandidate frontier 映射为 SOMA schema。
+本文是 FJSP runtime-state schema 的当前可执行示例。它说明当前代码如何把 input facts、working state、result facts、owned candidate-machine input 和 keyed MachineCandidate frontier 映射为 SOMA schema。
 
 Dispatch/commit/error/G5 evidence 由 [FJSP E2E 场景契约](fjsp-e2e-scenario.md) 拥有。Schema/API/runtime semantics 以对应 owner contract 为准。
 
@@ -336,11 +342,10 @@ public final class MachineCandidate {
 - Row Pipeline lazy terminal；
 - ColumnView。
 
-## 5. 与正式契约的关系
+## 5. 与正式设计和当前实现的关系
 
-- Annotation syntax 以 [annotation schema 契约](../../soma-annotations/docs/annotation-schema-contract.md) 为准；
-- Generated access 以 [Generated Table API 契约](../../docs/generated-table-api-contract.md) 为准；
-- Child materialization 以 [Materialization 契约](../../docs/materialization-contract.md) 为准；
+- Annotation 与 generated access 的规范性语义以 [Schema 与生成 API](../../docs/design/schema-and-generated-api.md) 为准；当前精确 surface 由 [可执行契约地图](../../docs/implementation-map/executable-contract-map.md) 登记的代码、golden 与 validator 拥有；
+- Child materialization 以 [物化边界](../../docs/design/materialization-boundary.md) 为准；
 - MachineCandidate frontier 是 FJSP scenario decision，不是所有 candidate set 的默认结构。
 
 ## 6. 非目标

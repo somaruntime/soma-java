@@ -2,7 +2,7 @@
 
 Benchmark evidence methodology、runtime-state lanes 与 Java 8 smoke runner 模块。
 
-正式设计：[soma-benchmarks/docs/README.md](docs/README.md)
+当前过程设计：[Benchmark 治理](../docs/engineering/benchmark-governance.md)；实现导航：[module docs](docs/README.md)
 
 本机 smoke 入口：`../scripts/check-benchmark-smoke.sh`。Runner 输出
 `soma-benchmark-smoke-v4` JSONL，并由独立 validator 按 checked-in schema 与

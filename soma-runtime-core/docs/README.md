@@ -1,17 +1,15 @@
-# soma-runtime-core 正式设计文档
+# soma-runtime-core 文档入口
 
-本目录保存 annotation-agnostic Java runtime kernel 的正式设计事实。
+Runtime 的长期规范性语义由根级 [Table、存储与访问](../../docs/design/table-storage-and-access.md)、[Ownership 与 lifecycle](../../docs/design/ownership-and-lifecycle.md)、[Correctness 与 failure](../../docs/design/correctness-and-failure.md)、[Runtime Plan 与可观测性](../../docs/design/runtime-plan-and-observability.md)及[性能模型](../../docs/design/performance-model.md)拥有。
 
-## 正式设计文档
+当前实现、协议和测试从 [Runtime Core Map](../../docs/implementation-map/runtime-core-map.md)、[可执行契约地图](../../docs/implementation-map/executable-contract-map.md)和[测试与 evidence Map](../../docs/implementation-map/test-and-evidence-map.md)进入。
 
-| 文档 | Owner | 单一职责 |
-|---|---|---|
-| [TableStore 契约](table-store-contract.md) | `soma-runtime-core` | storage components、KeySpace、AccessStructures、AccessPath 和 Batch |
-| [Runtime lifecycle 契约](runtime-lifecycle-contract.md) | `soma-runtime-core` | ownership、mutation、epoch/view、concurrency 和 release |
-| [Runtime plan 契约](runtime-plan-contract.md) | `soma-runtime-core` | plan scope、configuration、validation、immutability、identity/hash 和 override |
-| [Runtime errors 与 diagnostics 契约](runtime-errors-and-diagnostics-contract.md) | `soma-runtime-core` | structured errors、stable code/context、callback failure、stats 和 logging boundary |
-| [Runtime 性能实现契约](runtime-performance-implementation-contract.md) | `soma-runtime-core` | packed/primitive/fused/allocation-bounded kernel discipline |
+## 历史设计
 
-Runtime-core 不解析 annotation、不生成 Java source，也不拥有 public Schema/API semantics。
+- [TableStore 契约](table-store-contract.md)（`superseded`）
+- [Runtime lifecycle 契约](runtime-lifecycle-contract.md)（`superseded`）
+- [Runtime plan 契约](runtime-plan-contract.md)（`superseded`）
+- [Runtime errors 与 diagnostics 契约](runtime-errors-and-diagnostics-contract.md)（`superseded`）
+- [Runtime 性能实现契约](runtime-performance-implementation-contract.md)（`superseded`）
 
-临时专题进入 `docs/temp/`，不得成为正式事实源。
+这些文件只保留切换前上下文，不再拥有当前 Design。

@@ -1,15 +1,13 @@
-# soma-processor 正式设计文档
+# soma-processor 文档入口
 
-本目录保存 `soma-processor` 的 compile-time processing 与 code generation 事实。
+本模块的长期规范性语义由根级 [系统架构](../../docs/design/system-architecture.md)、[Schema 与生成 API](../../docs/design/schema-and-generated-api.md)及[兼容性、安全与版本](../../docs/design/compatibility-security-and-versioning.md)拥有。
 
-## 正式设计文档
+当前 implementation、fixture、golden 和 Gate 从 [Compiler 与 codegen Map](../../docs/implementation-map/compiler-and-codegen-map.md)、[可执行契约地图](../../docs/implementation-map/executable-contract-map.md)和[测试与 evidence Map](../../docs/implementation-map/test-and-evidence-map.md)进入。
 
-| 文档 | Owner | 单一职责 |
-|---|---|---|
-| [Compiler integration 契约](compiler-integration-contract.md) | `soma-processor` | javac 8 parse-phase lowering、processor phase order、support matrix 与 fail-closed behavior |
-| [Schema processing 契约](schema-processing-contract.md) | `soma-processor` | validation、normalized schema、exact hash、compatibility 和 diagnostics |
-| [Code generation 契约](code-generation-contract.md) | `soma-processor` | generated artifacts、static binding、deterministic output、golden/package smoke |
+## 历史设计
 
-Public annotation semantics 属于 [soma-annotations](../../soma-annotations/docs/README.md)；Generated Table 用户语义属于根级 [API 契约](../../docs/generated-table-api-contract.md)；consumer build 由根级 [Build 与依赖契约](../../docs/build-and-dependency-contract.md) 拥有。
+- [Compiler integration 契约](compiler-integration-contract.md)（`superseded`）
+- [Schema processing 契约](schema-processing-contract.md)（`superseded`）
+- [Code generation 契约](code-generation-contract.md)（`superseded`）
 
-临时专题进入 `docs/temp/`，不得成为正式事实源。
+这些文件只保留切换前上下文，不再拥有当前 Design。

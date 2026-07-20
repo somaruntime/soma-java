@@ -1,14 +1,20 @@
 # 连续仿真 runtime state 示例
 
-状态：正式设计文档
-Owner：`soma-examples`
+类型：Report / 开发者 current-executable 场景
+状态：当前
+Owner：`soma-examples` output
+受众：使用或维护当前 Simulation runtime-state example 的开发者
+适用版本：最后 implementation-affecting baseline `b991f4c`
+输入事实源：当前 example source、[Simulation Blueprint](../../docs/blueprints/simulation-runtime-state-blueprint.md)、Design 与 G5 evidence
 事实范围：连续仿真 data role、Access Pattern Card、schema 和使用边界
 非事实范围：ODE/numerical solver、public contract 和性能 claim
-最后审查日期：2026-07-17
+最后审查日期：2026-07-20
+
+> 本文记录当前 executable example，不拥有目标设计。目标形态与当前代码的已知差距见 [Conformance](../../docs/conformance/known-gaps.md)；文中的“必须/应当”只复述正式 Owner 或验证要求。
 
 ## 1. 文档定位
 
-本文是 `连续仿真 runtime state 示例` 的独立场景文档。它从 [Runtime state schema 典型示例](runtime-state-schema-examples.md) 拆分而来，遵守该总览文档中的通用建模规则。
+本文记录 `连续仿真 runtime state 示例` 的当前代码投影，并从 [Runtime state schema 典型示例](runtime-state-schema-examples.md) 进入其 executable context。
 
 ## 2. 场景边界
 

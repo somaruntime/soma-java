@@ -1,14 +1,20 @@
 # Runtime state schema 典型示例
 
-状态：正式设计文档
-Owner：`soma-examples`
+类型：Report / 开发者 current-executable 索引
+状态：当前
+Owner：`soma-examples` output
+受众：评估 SOMA 当前四类 executable scenario 的开发者
+适用版本：最后 implementation-affecting baseline `b991f4c`
+输入事实源：当前 example source、[Blueprint](../../docs/blueprints/README.md)、Design 与 G5 evidence
 事实范围：runtime-state scenario 通用建模规则、索引和覆盖矩阵
 非事实范围：具体场景 schema、public contract 和 benchmark result
-最后审查日期：2026-07-17
+最后审查日期：2026-07-20
+
+> 本文是当前 executable scenario 的开发者索引，不拥有目标设计。目标形态由 Blueprint 拥有，长期规范性语义由 Design 拥有，差距由 Conformance 记录。
 
 ## 1. 目标
 
-本文是 `soma_java` V1 runtime state schema 示例的总览入口，负责维护四类示例共同遵守的建模规则、教学结构、场景索引和覆盖矩阵。每个具体场景的 schema source、运行流程和使用边界已经拆分到独立文档，避免后续扩展示例时在一个大文件中相互牵动。
+本文是 `soma_java` V1 当前 runtime-state examples 的总览入口，记录四类示例的现有建模形态、教学结构、场景索引和覆盖矩阵。每个具体场景的 schema source、运行流程和使用边界位于独立文档。
 
 四类典型场景是：
 
@@ -67,7 +73,7 @@ materialized object。
 
 ## 5. 对正式契约的覆盖说明
 
-四个示例覆盖并验证 `soma_java` V1 annotation contract 的几个边界。示例文档不拥有 annotation contract；如果示例与正式契约冲突，以 `soma-annotations/docs/annotation-schema-contract.md` 为准。
+四个示例覆盖并验证 `soma_java` V1 annotation contract 的几个边界。示例文档不拥有 annotation contract；目标语义以 [Schema 与生成 API](../../docs/design/schema-and-generated-api.md) 为准，当前精确 annotation/generated surface 由 [可执行契约地图](../../docs/implementation-map/executable-contract-map.md) 登记的代码、golden 与 validator 拥有。
 
 - `@SomaField` 比 `@SomaColumn` 更符合 Java logical schema；column 是 runtime flatten 之后的物理概念；
 - `@SomaKey` 必须是 table direct field 的 logical identity，value key 足以表达 composite key；

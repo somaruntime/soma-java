@@ -21,17 +21,16 @@ require_once() {
   fi
 }
 
-require_once docs/soma-table-design-constitution.md '### 原则十五：实现阶段不得缩水'
-require_once docs/implementation-strategy.md '### 8.1 唯一 V1 目标与 Phase 语义'
-require_once docs/implementation-strategy.md '### 8.2 单调收敛原则'
-require_once docs/implementation-strategy.md '### 8.3 V1 capability ledger'
-require_once docs/implementation-strategy.md '### 8.5 Scope change hard stop'
-require_once docs/validation-gates.md '### 4.1 V1 scope non-regression'
-require_once docs/validation-gates.md '### 4.2 实施验证环境与支持矩阵边界'
-require_once docs/versioning-and-release-contract.md '### 3.1 V1.0 RC 完成边界'
-require_once docs/versioning-and-release-contract.md '### 3.2 发布身份原则'
-require_once docs/build-and-dependency-contract.md '### 2.1 实施验证基线'
-require_once AGENTS.md '## V1 Scope Preservation'
+require_once docs/design/soma-java-design-constitution.md '当前 slice 必须是最终架构的有效子集，不能依赖未来 migration/rewrite 才成立。'
+require_once docs/design/soma-java-design-constitution.md 'V1 只承诺 Java 8 进程内使用'
+require_once docs/engineering/validation-gates.md '## 1. Gate 不是阶段折扣'
+require_once docs/engineering/validation-gates.md '## 4. Scope non-regression'
+require_once docs/design/compatibility-security-and-versioning.md '组织与发布主体为 HGTECH，产品品牌为 SOMA'
+require_once docs/design/compatibility-security-and-versioning.md '## 5. Release 边界'
+require_once docs/engineering/build-and-validation.md 'V1 compiler validation 使用完整 JDK 8 javac'
+require_once docs/engineering/documentation-governance.md '重大长期设计变化先进入 Temporary'
+require_once docs/conformance/known-gaps.md '| `CF-006` | Release evidence |'
+require_once AGENTS.md '## Design-driven Scope Preservation'
 require_once .github/pull_request_template.md '## V1 防缩水'
 require_once pom.xml '<name>HGTECH</name>'
 
@@ -40,36 +39,6 @@ excluded_identity_files=$(rg -l -i "$excluded_identity" --glob '!target/**' --gl
 if [ -n "$excluded_identity_files" ]; then
   fail 'the excluded historical identity must not appear anywhere in the repository'
 fi
-
-capability_ids='
-V1-ANNOTATION-SCHEMA
-V1-COMPILER-LOWERING
-V1-PROCESSING-MODEL
-V1-SCHEMA-HASH
-V1-PUBLIC-COMPATIBILITY
-V1-GENERATED-API
-V1-DENSE-STORAGE
-V1-ROW-PIPELINE
-V1-COLUMN-ACCESS
-V1-KEYED-IDENTITY
-V1-ACCESS-STRUCTURES
-V1-MUTATION
-V1-CHILD-OWNERSHIP
-V1-MATERIALIZATION
-V1-RUNTIME-LIFECYCLE
-V1-RUNTIME-ERRORS
-V1-RUNTIME-PLAN
-V1-PERFORMANCE-SHAPE
-V1-SECURITY-INTEGRITY
-V1-EVIDENCE-TOOLING
-V1-CONSUMER-PACKAGE
-V1-SCENARIO-BENCHMARK
-V1-RELEASE-EVIDENCE
-'
-
-for capability_id in $capability_ids; do
-  require_once docs/implementation-strategy.md "| \`$capability_id\` |"
-done
 
 if [ "$failed" -ne 0 ]; then
   exit 1

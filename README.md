@@ -4,11 +4,11 @@
 
 ## 当前状态
 
-Java-only V1 的 annotation、compiler/processor、generated API、columnar runtime、formal scenarios 与 benchmark runner 已进入完整实施和门禁验证。仓库尚未达到 public release readiness；正式 G6 report通过前不得把本地artifact称为公开release。当前设计事实从 [正式设计文档索引](docs/README.md) 进入；模块内部事实以各模块 `docs/` 为准。
+Java-only V1 的 annotation、compiler/processor、generated API、columnar runtime、formal scenarios 与 benchmark runner 已进入完整实施和门禁验证。仓库尚未达到 public release readiness；正式 G6 report通过前不得把本地artifact称为公开release。目标与长期设计从 [文档入口](docs/README.md) 进入，当前实现由代码拥有并通过 [Implementation Map](docs/implementation-map/README.md) 导航。
 
 ## 模块
 
-| Module | 设计入口 |
+| Module | 当前导航 |
 |---|---|
 | `soma-annotations` | [docs](soma-annotations/docs/README.md) |
 | `soma-processor` | [docs](soma-processor/docs/README.md) |
@@ -19,14 +19,16 @@ Java-only V1 的 annotation、compiler/processor、generated API、columnar runt
 
 ## 其他入口
 
-- [文档治理规则](docs/documentation-governance.md)
-- [Build 与依赖契约](docs/build-and-dependency-contract.md)
+- [Blueprint](docs/blueprints/README.md)
+- [Design](docs/design/README.md)
+- [文档治理](docs/engineering/documentation-governance.md)
+- [构建与验证](docs/engineering/build-and-validation.md)
 - [贡献说明](CONTRIBUTING.md)
 - [Java 8安装与Maven consumer指南](guides/java-v1-install-and-consumer-guide.md)
 - [Apache License 2.0](LICENSE)
 - [Changelog](CHANGELOG.md)
 - [正式报告](reports/README.md)
-- 未来用户/开发者指南按需进入 `guides/`
+- [用户与开发者指南](guides/README.md)
 - 项目检查：`./scripts/check.sh`
 - examples验证：`./scripts/check-examples-phase6.sh`
 - benchmark smoke：`./scripts/check-benchmark-smoke.sh`

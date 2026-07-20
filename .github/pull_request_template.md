@@ -4,24 +4,24 @@
 
 ## Owner 与兼容性
 
-- [ ] 已找到并先修改唯一正式 Owner 文档，或本次不改变设计事实
+- [ ] 已从 Blueprint 确认目标并找到唯一 Design Owner，或本次不改变长期设计
 - [ ] 已说明 public/generated/schema/runtime-plan/error/release 兼容性影响
-- [ ] 未把 README、report、guide 或 `docs/temp/` 当作事实源
+- [ ] 未把 README、Report、Guide、Implementation Map、Temporary 或 superseded 历史文档当作 Design
 - [ ] 未引入未决第三方 dependency 或跨模块反向依赖
 - [ ] HGTECH 只用于组织/发布 metadata，SOMA public/generated/schema/runtime 概念未被组织名侵入；coordinates/artifact identity 未经批准不变
 
 ## V1 防缩水
 
-涉及的 Capability ID：
+涉及的 Blueprint / Design Owner：
 
-当前未实现但仍保留在 V1 的 capability、Phase 和 Gate：
+当前仍存在的 Conformance 差距与 Gate：
 
-- [ ] 本次只服务完整 Java-only SOMA V1；Phase 没有被改写为 `v0.x`、MVP、Lite、Basic 或独立产品目标
-- [ ] 当前产物是最终 V1 架构的有效子集；后续可通过 additive completion 或 contract-preserving internal refinement 收敛
+- [ ] 实现继续服务正式 Blueprint/Design，没有把未实现目标改写为 future、optional、MVP、Lite 或永久非目标
+- [ ] 当前产物是最终 Design 的有效子集；后续只需 additive completion 或 contract-preserving internal refinement
 - [ ] 未引入后续必须迁移 consumer 的 temporary public/generated API
 - [ ] 未把 temporary canonical storage/hot path、stub、fake 或 test-only bypass 当作 capability evidence
-- [ ] 未实现 capability 仍映射到原完整出口和最终 Gate，没有被标记 `dropped`、`optional` 或 indefinite `deferred`
-- [ ] 宪法、正式 Owner、capability ledger、Gate 和 release claim 未被实现反向改写；如有变化，已附用户/项目决策者批准和正式 scope-change 记录
+- [ ] 未闭合偏差仍由 Conformance 记录，没有被报告或实现静默隐藏
+- [ ] Blueprint、Design、Owner、Gate 和 release claim 未被实现反向改写；如有变化，已附明确授权和正式设计决策
 - [ ] Closeout 包含 `V1 scope non-regression`，并确认后续不需要 public migration、核心事实迁移或 canonical hot-path rewrite
 
 ## 验证

@@ -1,10 +1,14 @@
 # Code generation 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-processor`
+当前取代者：[Schema 与生成 API](../../docs/design/schema-and-generated-api.md)、[Compiler 与 codegen Map](../../docs/implementation-map/compiler-and-codegen-map.md)、[可执行契约地图](../../docs/implementation-map/executable-contract-map.md)
 事实范围：schema-specific Java artifacts、static runtime binding、deterministic output、golden 和 package smoke
 非事实范围：public annotation semantics、normalization/hash 算法、public API behavior 和 runtime kernel
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 code generation 事实。
 
 ## 1. 目标
 

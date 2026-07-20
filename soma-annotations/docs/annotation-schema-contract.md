@@ -1,10 +1,14 @@
 # Java annotation schema 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-annotations`
+当前取代者：[Schema 与生成 API](../../docs/design/schema-and-generated-api.md)、[可执行契约地图](../../docs/implementation-map/executable-contract-map.md)
 事实范围：public schema annotation、类型系统、field role、optional/default、key/index/unique 和 child declaration
 非事实范围：normalization、schema hash、diagnostics、generated API、runtime storage 和示例场景
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 schema 事实。
 
 ## 1. 目标
 

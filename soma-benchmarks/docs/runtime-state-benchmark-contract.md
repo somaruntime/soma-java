@@ -1,10 +1,14 @@
 # Runtime-state benchmark 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-benchmarks`
+当前取代者：[Blueprint](../../docs/blueprints/README.md)、[Benchmark 治理](../../docs/engineering/benchmark-governance.md)、[场景与 benchmark Map](../../docs/implementation-map/scenario-and-benchmark-map.md)
 事实范围：runtime implementation shape、FJSP、VRP、Simulation、Game、child locality 和 deep-materialization benchmark lanes
 非事实范围：evidence level/artifact、public API/schema/runtime contract 和性能结果
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史 scenario benchmark 设计上下文，不再拥有当前方法事实。
 
 ## 1. 目标
 

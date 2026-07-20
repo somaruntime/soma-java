@@ -1,26 +1,28 @@
-# soma-examples 正式设计文档
+# soma-examples 可执行场景输出
 
-本目录保存 Java 8 formal usage scenarios。Scenario 的第一职责是教学：让读者从简洁的
-算法 loop 看见 SOMA schema、generated table、索引、Row Pipeline、ColumnView 和
-detached export 如何协作。Access Pattern Card、data role 和 E2E evidence boundary 是
-第二职责；错误矩阵、lifecycle/golden 和 gate 断言必须进入独立 verification 入口，不能
-淹没教学主流程。Scenario 不拥有 annotation、API、runtime contract 或 benchmark 结果。
+类型：Report / 开发者文档入口
 
-FJSP production source 以 application package + 单一 `fjsp.schema` package 组织；V1
-processor 的 schema package ownership 不允许把 value/table 声明拆到两个 Java package。
-Verification 位于 `src/test/java`，100k synthetic input 和计时位于 `soma-benchmarks`。
+状态：当前
 
-## 正式设计文档
+Owner：SOMA Java example output
 
-| 文档 | Owner | 单一职责 |
-|---|---|---|
-| [Runtime-state scenarios 总览](runtime-state-schema-examples.md) | `soma-examples` | 通用建模规则、场景索引和覆盖矩阵 |
-| [FJSP runtime state schema 示例](fjsp-runtime-state-example.md) | `soma-examples` | FJSP data role、Access Pattern Card 和 schema |
-| [FJSP E2E 场景契约](fjsp-e2e-scenario.md) | `soma-examples` | release/dispatch/commit/error/G5 flow |
-| [VRP runtime state 示例](vrp-runtime-state-example.md) | `soma-examples` | VRP schema 与 access pattern |
-| [连续仿真 runtime state 示例](simulation-runtime-state-example.md) | `soma-examples` | Simulation schema 与 access pattern |
-| [Game runtime state 示例](game-runtime-state-example.md) | `soma-examples` | Game schema 与 access pattern |
+事实范围：当前 executable example 的导航、适用实现基线和目标差距边界
 
-完整 API/schema/runtime 语义必须引用对应 owner；示例冲突时修改示例，不修改 owner contract。
+非事实范围：核心 Design、公共 API、benchmark 结果和 release claim
 
-临时专题进入 `docs/temp/`，不得成为正式事实源。
+适用版本：最后 implementation-affecting baseline `b991f4c`
+
+最后审查日期：2026-07-20
+
+本目录描述当前代码实际提供的 Java 8 scenario，不拥有 SOMA 设计。目标使用形态从 [Blueprint](../../docs/blueprints/README.md) 进入，长期语义从 [Design](../../docs/design/README.md) 进入，当前代码从[场景与 benchmark Map](../../docs/implementation-map/scenario-and-benchmark-map.md)进入；目标与示例的差距由 [Conformance](../../docs/conformance/known-gaps.md)记录。
+
+## 当前可执行场景
+
+- [Runtime-state scenarios 总览](runtime-state-schema-examples.md)
+- [FJSP runtime state](fjsp-runtime-state-example.md)
+- [FJSP E2E](fjsp-e2e-scenario.md)
+- [VRP runtime state](vrp-runtime-state-example.md)
+- [连续仿真 runtime state](simulation-runtime-state-example.md)
+- [Game runtime state](game-runtime-state-example.md)
+
+FJSP 当前实现与目标形态基本一致；VRP、Simulation 和 Game 仍有已裁决的 Blueprint→Code 差距。本文档分类不会把这些差距改写为已完成。

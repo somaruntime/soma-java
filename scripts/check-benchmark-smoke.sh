@@ -105,7 +105,9 @@ find soma-benchmarks/src -type f | LC_ALL=C sort >"$evidence_dir/implementation-
 printf '%s\n' \
   soma-benchmarks/README.md \
   soma-benchmarks/docs/README.md \
-  soma-benchmarks/docs/benchmark-evidence-contract.md \
+  docs/design/performance-model.md \
+  docs/engineering/benchmark-governance.md \
+  docs/implementation-map/scenario-and-benchmark-map.md \
   scripts/check-benchmark-smoke.sh \
   >>"$evidence_dir/implementation-files.txt"
 while IFS= read -r implementation_file; do

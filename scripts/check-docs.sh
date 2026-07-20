@@ -12,12 +12,16 @@ fail() {
   failed=1
 }
 
+require_once() {
+  file=$1
+  pattern=$2
+  count=$(sed -n '1,32p' "$file" | grep -E -c "$pattern" || true)
+  if [ "$count" -ne 1 ]; then
+    fail "$file must declare exactly one $pattern in its metadata"
+  fi
+}
+
 markdown_files=$(find . -path './.git' -prune -o -type f -name '*.md' -print | sort)
-formal_docs=$(find docs soma-* -type f -name '*.md' -print |
-  grep -E '^(docs|soma-[^/]+/docs)/' |
-  grep -v '/temp/' |
-  grep -v '/README.md$' |
-  sort)
 
 for file in $markdown_files; do
   if grep -n '[[:blank:]]$' "$file" >/dev/null 2>&1; then
@@ -42,98 +46,217 @@ for file in $markdown_files; do
   done || failed=1
 done
 
-for file in $formal_docs; do
-  line_count=$(wc -l < "$file" | tr -d ' ')
-  if [ "$line_count" -gt 500 ]; then
-    fail "$file exceeds the 500-line formal-document limit"
-  fi
+current_categories='blueprints design implementation-map conformance engineering'
 
-  for field in '状态：正式设计文档' '事实范围：' '非事实范围：' '最后审查日期：'; do
-    field_count=$(sed -n '1,12p' "$file" | grep -c "^$field" || true)
-    if [ "$field_count" -ne 1 ]; then
-      fail "$file must declare exactly one $field metadata field"
-    fi
-  done
-
-  owner_count=$(sed -n '1,12p' "$file" | grep -c '^Owner：' || true)
-  if [ "$owner_count" -ne 1 ]; then
-    fail "$file must declare exactly one Owner"
-  fi
-
-  if sed -n '1,12p' "$file" | grep -nE '^Owner：.*(/| 与 |、)' >/dev/null 2>&1; then
-    fail "$file declares a joint Owner"
-  fi
-
-  index_file="$(dirname "$file")/README.md"
-  base_name=$(basename "$file")
-  if ! grep -F "$base_name" "$index_file" >/dev/null 2>&1; then
-    fail "$file is not indexed by $index_file"
-  fi
-
-  if grep -nE '\]\([^)]*docs/temp/|\]\([^)]*/temp/' "$file" >/dev/null 2>&1; then
-    fail "$file links to a temporary design document"
-  fi
-
-  if grep -n '^状态：迁移说明' "$file" >/dev/null 2>&1; then
-    fail "$file is a migration placeholder inside formal docs"
-  fi
-done
-
-expected_blueprint_docs=$(printf '%s\n' \
-  fjsp-machine-candidate-frontier-blueprint.md \
-  game-runtime-frontier-blueprint.md \
-  simulation-runtime-state-blueprint.md \
-  vrp-runtime-frontier-blueprint.md)
-actual_blueprint_docs=$(find docs/temp -maxdepth 1 -type f -name '*blueprint.md' \
-  -exec basename {} \; |
-  LC_ALL=C sort)
-if [ "$actual_blueprint_docs" != "$expected_blueprint_docs" ]; then
-  fail 'docs/temp must retain exactly the four approved long-lived research blueprints'
-fi
-
-for file in docs/temp/*blueprint.md; do
-  [ -f "$file" ] || continue
-  if ! grep -q '^状态：长期研究蓝图$' "$file"; then
-    fail "$file must declare long-lived blueprint status"
-  fi
-  if ! grep -q '^正式事实源：否$' "$file"; then
-    fail "$file must declare that it is not a formal fact source"
-  fi
-done
-
-unexpected_top_level_temp_docs=$(find docs/temp -maxdepth 1 -type f -name '*.md' \
-  ! -name 'README.md' ! -name '*blueprint.md' -print)
-if [ -n "$unexpected_top_level_temp_docs" ]; then
-  fail 'ordinary temporary design documents must live in a topic directory under docs/temp'
-fi
-
-if [ -f docs/temp/README.md ]; then
-  if ! grep -q '^状态：临时设计索引$' docs/temp/README.md; then
-    fail 'docs/temp/README.md must declare temporary-design-index status'
-  fi
-  if ! grep -q '^正式事实源：否$' docs/temp/README.md; then
-    fail 'docs/temp/README.md must declare that it is not a formal fact source'
-  fi
-fi
-
-for directory in docs/temp/*; do
-  [ -d "$directory" ] || continue
-  if [ ! -f "$directory/README.md" ]; then
+for category in $current_categories; do
+  directory="docs/$category"
+  index_file="$directory/README.md"
+  if [ ! -f "$index_file" ]; then
     fail "$directory must contain README.md"
     continue
   fi
-  for file in $(find "$directory" -type f -name '*.md' -print | sort); do
-    if ! sed -n '1,12p' "$file" | grep -q '^状态：'; then
-      fail "$file must declare temporary-design status"
+
+  for file in $(find "$directory" -maxdepth 1 -type f -name '*.md' -print | sort); do
+    require_once "$file" '^类型：'
+    require_once "$file" '^状态：正式$'
+    require_once "$file" '^Owner：'
+    require_once "$file" '^事实范围：'
+    require_once "$file" '^最后审查日期：'
+
+    if [ "$file" != "$index_file" ]; then
+      base_name=$(basename "$file")
+      if ! grep -F "$base_name" "$index_file" >/dev/null 2>&1; then
+        fail "$file is not indexed by $index_file"
+      fi
     fi
-    if ! sed -n '1,12p' "$file" | grep -q '^正式事实源：否$'; then
-      fail "$file must declare that it is not a formal fact source"
-    fi
-    if ! sed -n '1,12p' "$file" | grep -q '^实施授权：无'; then
-      fail "$file must declare that it grants no implementation authority"
+
+    if grep -nE '\]\([^)]*(docs-temp|docs/temp)|\]\([^)]*/temp/' "$file" >/dev/null 2>&1; then
+      fail "$file links to Temporary as a formal fact source"
     fi
   done
 done
+
+for file in docs/design/*.md; do
+  [ "$file" = 'docs/design/README.md' ] && continue
+  require_once "$file" '^服务(蓝图|场景)：'
+done
+
+design_owners=$(for file in docs/design/*.md; do
+  [ "$file" = 'docs/design/README.md' ] && continue
+  sed -n 's/^Owner：//p' "$file"
+done | sort)
+duplicate_design_owners=$(printf '%s\n' "$design_owners" | uniq -d)
+if [ -n "$duplicate_design_owners" ]; then
+  fail "Design Owner must be unique: $duplicate_design_owners"
+fi
+
+for file in docs/implementation-map/*-map.md; do
+  require_once "$file" '^对应 Design：'
+  require_once "$file" '^最近实现核对基线：'
+done
+
+for category_index in \
+  docs/blueprints/README.md \
+  docs/design/README.md \
+  docs/implementation-map/README.md \
+  docs/conformance/README.md \
+  docs/engineering/README.md; do
+  if ! grep -F "${category_index#docs/}" docs/README.md >/dev/null 2>&1; then
+    fail "$category_index is not indexed by docs/README.md"
+  fi
+done
+
+superseded_docs=$(printf '%s\n' \
+  docs/architecture-design.md \
+  docs/build-and-dependency-contract.md \
+  docs/documentation-governance.md \
+  docs/domain-glossary.md \
+  docs/generated-table-api-contract.md \
+  docs/implementation-strategy.md \
+  docs/materialization-contract.md \
+  docs/public-api-compatibility-contract.md \
+  docs/runtime-correctness-model.md \
+  docs/runtime-performance-model.md \
+  docs/security-model.md \
+  docs/soma-table-design-constitution.md \
+  docs/validation-gates.md \
+  docs/versioning-and-release-contract.md \
+  soma-annotations/docs/annotation-schema-contract.md \
+  soma-processor/docs/compiler-integration-contract.md \
+  soma-processor/docs/schema-processing-contract.md \
+  soma-processor/docs/code-generation-contract.md \
+  soma-runtime-core/docs/table-store-contract.md \
+  soma-runtime-core/docs/runtime-lifecycle-contract.md \
+  soma-runtime-core/docs/runtime-plan-contract.md \
+  soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md \
+  soma-runtime-core/docs/runtime-performance-implementation-contract.md \
+  soma-testkit/docs/testkit-contract.md \
+  soma-benchmarks/docs/benchmark-evidence-contract.md \
+  soma-benchmarks/docs/runtime-state-benchmark-contract.md)
+
+for file in $superseded_docs; do
+  if [ ! -f "$file" ]; then
+    fail "missing superseded historical document $file"
+    continue
+  fi
+  require_once "$file" '^类型：历史设计$'
+  require_once "$file" '^状态：superseded$'
+  require_once "$file" '^Owner：'
+  require_once "$file" '^当前取代者：'
+
+  base_name=$(basename "$file")
+  if grep -F "]($base_name)" docs/README.md >/dev/null 2>&1 \
+      || grep -F "]($base_name#" docs/README.md >/dev/null 2>&1; then
+    fail "$file appears in the current docs/README.md navigation"
+  fi
+done
+
+current_reference_docs=$(find \
+  docs/blueprints \
+  docs/design \
+  docs/implementation-map \
+  docs/conformance \
+  docs/engineering \
+  guides \
+  soma-examples/docs \
+  -type f -name '*.md' -print | sort)
+current_reference_docs="$current_reference_docs
+README.md
+AGENTS.md
+CONTRIBUTING.md
+.github/pull_request_template.md
+reports/README.md"
+
+for current_file in $current_reference_docs; do
+  for historical_file in $superseded_docs; do
+    if grep -F "$historical_file" "$current_file" >/dev/null 2>&1; then
+      fail "$current_file references superseded Design $historical_file as a current path"
+    fi
+  done
+
+  grep -nEo '\]\([^)]*\.md(#[^)]*)?\)' "$current_file" 2>/dev/null |
+  while IFS=: read -r line_no raw_link; do
+    target=$(printf '%s' "$raw_link" | sed -e 's/^](//' -e 's/)$//' -e 's/#.*$//')
+    case "$target" in
+      http://*|https://*|'') continue ;;
+    esac
+
+    target_directory="$(dirname "$current_file")/$(dirname "$target")"
+    [ -d "$target_directory" ] || continue
+    resolved_target="$(CDPATH= cd -- "$target_directory" && pwd -P)/$(basename "$target")"
+
+    for historical_file in $superseded_docs; do
+      if [ "$resolved_target" = "$root_dir/$historical_file" ]; then
+        printf '%s\n' "doc-check: $current_file:$line_no links to superseded Design $historical_file" >&2
+        exit 1
+      fi
+    done
+  done || failed=1
+done
+
+current_example_reports=$(printf '%s\n' \
+  soma-examples/docs/runtime-state-schema-examples.md \
+  soma-examples/docs/fjsp-runtime-state-example.md \
+  soma-examples/docs/fjsp-e2e-scenario.md \
+  soma-examples/docs/vrp-runtime-state-example.md \
+  soma-examples/docs/simulation-runtime-state-example.md \
+  soma-examples/docs/game-runtime-state-example.md)
+
+for file in $current_example_reports; do
+  for pattern in '^类型：Report /' '^状态：当前$' '^Owner：' '^受众：' '^适用版本：' '^输入事实源：' '^事实范围：' '^最后审查日期：'; do
+    require_once "$file" "$pattern"
+  done
+  if ! grep -F "$(basename "$file")" soma-examples/docs/README.md >/dev/null 2>&1; then
+    fail "$file is not indexed by soma-examples/docs/README.md"
+  fi
+done
+
+for file in guides/java-v1-install-and-consumer-guide.md guides/development-guide.md; do
+  for pattern in '^类型：Report /' '^状态：当前$' '^Owner：' '^受众：' '^适用版本：' '^输入事实源：' '^事实范围：' '^最后审查日期：'; do
+    require_once "$file" "$pattern"
+  done
+  if ! grep -F "$(basename "$file")" guides/README.md >/dev/null 2>&1; then
+    fail "$file is not indexed by guides/README.md"
+  fi
+done
+
+for file in \
+  reports/java-v1-goal-execution-status.md \
+  reports/current-performance-summary.md \
+  reports/2026-07-20-documentation-framework-cutover-report.md; do
+  if [ ! -f "$file" ]; then
+    fail "missing current Report $file"
+    continue
+  fi
+  for pattern in '^类型：Report' '^状态：' '^Owner：' '^受众：' '^适用版本：' '^输入事实源：' '^事实范围：' '^最后审查日期：'; do
+    require_once "$file" "$pattern"
+  done
+  if ! grep -F "$(basename "$file")" reports/README.md >/dev/null 2>&1; then
+    fail "$file is not indexed by reports/README.md"
+  fi
+done
+
+if [ -e docs-temp ]; then
+  fail 'docs-temp must not exist after the formal cutover'
+fi
+
+if [ -d docs/temp ]; then
+  for topic in docs/temp/*; do
+    [ -d "$topic" ] || continue
+    if [ ! -f "$topic/README.md" ]; then
+      fail "$topic must contain README.md"
+      continue
+    fi
+    for file in $(find "$topic" -type f -name '*.md' -print | sort); do
+      require_once "$file" '^类型：Temporary$'
+      require_once "$file" '^状态：'
+      require_once "$file" '^Owner：'
+      require_once "$file" '^事实范围：'
+      require_once "$file" '^非事实范围：'
+      require_once "$file" '^最后审查日期：'
+    done
+  done
+fi
 
 if [ "$failed" -ne 0 ]; then
   exit 1

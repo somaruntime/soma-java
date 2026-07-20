@@ -1,0 +1,102 @@
+# Table、存储与访问设计
+
+类型：Design
+
+状态：正式
+
+Owner：SOMA table storage 与 access semantics
+
+服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
+
+事实范围：table kind、packed storage、identity、exact access、IndexBuffer、Row Pipeline 和 mutation 形状
+
+非事实范围：ownership lifecycle、error envelope、materialization 和具体 hash/sort 实现类
+
+最后审查日期：2026-07-20
+
+## 1. Table kind
+
+SOMA 只有两种 public table kind：
+
+| Kind | Identity | 典型访问 |
+|---|---|---|
+| keyed table | `@SomaKey` 定义稳定 logical identity | key fetch/mutate/delete、exact access、scan |
+| dense table | 无 stable row identity | packed scan、current Index、exact access、workspace replace/update |
+
+Root/child 是 ownership 维度，不是第三种 table kind。Input/working/result 是 application data role，也不改变 table kind。
+
+## 2. Packed columnar storage
+
+每张 live table 必须满足：
+
+```text
+live Index = [0, size)
+每个 leaf field -> 同长度 typed column
+optional field -> presence bitmap + payload/handle column
+```
+
+Primitive、enum、semantic scalar 和 `@SomaValue` leaf 尽量使用 primitive columns；String V1 可以使用 `String[]`；child field 只保存 opaque handle，不保存 live Java Collection 或 row object。
+
+Capacity growth 必须先 stage 所有相关 column/bitmap/locator storage，再一次 publish。失败时旧 size、capacity、epoch 和 live values 保持一致。
+
+## 3. Identity 与 exact access
+
+### 3.1 Primary identity
+
+Keyed table 使用 hash-based primary locator 完成 `key -> current Index`。Locator 必须 collision-safe；hash 命中后仍按 key 的完整 value equality 判断。Dense table不创建 primary locator。
+
+### 3.2 Secondary exact access
+
+- `@SomaUnique`：一个 exact value 对应零或一个 row；insert/update 冲突在提交前拒绝；
+- `@SomaIndex`：一个 exact value 对应零个、一个或多个 current Index；
+- exact structure 在 append、update、remove、replace 和 compaction boundary eager/incremental 维护；
+- read path 不允许以 dirty 标记触发全表 rebuild/sort，也不允许静默 scan fallback；
+- bucket/group 只保存访问结构，不成为业务事实；row move 后必须同步 relocate links。
+
+V1 不提供 range lookup。用户可以用列式全量 filter 实现范围条件。V1 也不提供 maintained order；跨操作持久顺序由 application 专用结构表达。
+
+Floating key/exact value 必须使用稳定 canonicalization：拒绝 non-finite access value，并将 `-0.0` 与 `+0.0` 归一到同一 identity。普通 floating payload 的业务有效性仍由 application 定义。
+
+## 4. Delete 与 compaction
+
+Keyed 和 dense table 均使用 swap-remove/tail-fill：
+
+1. 识别待删除 Index；
+2. 从末尾选择未删除 survivor 填补前部 hole；
+3. 同步移动所有 columns、presence、child handle；
+4. 修复 primary locator 和全部 exact structures；
+5. 清理 tail 并提交 size/epoch。
+
+删除后不保证物理遍历顺序。未显式排序的 `firstOrThrow()`、`limit(n)`、`fetchAll()` 或等价 terminal 只基于执行时的当前物理顺序；业务不能把它当成稳定顺序。
+
+Multi-row remove 使用当前候选 Index 的 primitive scratch，不分配或长期保留 `boolean[size]` mark，也不留下 tombstone row/hole。
+
+## 5. IndexBuffer 与 Row Pipeline
+
+`IndexBuffer` 是 table-local、可复用、primitive `int[]` scratch。它只保存当前 operation 的候选 Index，不保存 row object：
+
+```text
+source scan/exact group -> L1
+filter(L1)              -> L2 in place
+sorted(L2)              -> L3
+terminal(L3)            -> result/update/remove/materialization
+```
+
+每个 stage 只处理上一个 stage 的候选；exact source 不先生成全表 Index 再过滤；dynamic sort 只排序当前候选。Terminal 结束或失败后 buffer reset 供下一 operation 复用，retained capacity 受 runtime plan 和 memory budget 约束。
+
+Row Pipeline 是 one-shot、同步、非重入 operation。内部可以使用 small-inline stage plan、fused loop 和 primitive scratch，但不能改变 callback 顺序、failure atomicity 或 public lifecycle 语义。
+
+`IndexSnapshot`只用于把一次operation产生的Index序列复制到紧接着的同步只读消费批次。Caller在该批次内不得修改来源Table；来源Table发生任意mutation/lifecycle变化后必须视为失效。`requireCurrent`可以在测试、调试或边界代码中检查owner、active lifecycle、structural epoch和range，但不能证明非结构field变化后的原filter/order语义。需要跨operation保存引用时使用`@SomaKey`，不能用IndexSnapshot冒充row identity。
+
+## 6. Mutation boundary
+
+- `Batch` 是 typed import/append/replace staging boundary，不是 live storage；
+- `RowKey` 不原地修改；identity change 使用 delete + insert。unique、index 和 child 相关更新必须先完成全部 validation/preflight；
+- remove 只作用于当前 candidate set；
+- `clear()` 释放 live rows但可以复用已准入 capacity；`release()` 进入 terminal lifecycle；
+- success result 记录实际 scanned、matched、changed/removed；failure 不伪造已提交 changed；
+- comparator/filter/update callback 不能逃逸 cursor、嵌套访问同一 aggregate 或执行未声明的结构变更。
+
+## 7. 顺序与确定性
+
+物理顺序不是业务契约。需要确定性结果时，caller 提供覆盖全部 tie-break 的 total comparator；一次排序不改变 table 的 canonical physical order，也不建立长期索引。Priority queue、event queue 和 maintained leaderboard 由 application-owned data structure 实现。

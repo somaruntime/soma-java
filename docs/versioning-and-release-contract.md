@@ -1,10 +1,14 @@
 # Versioning 与 release 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[兼容性、安全与版本](design/compatibility-security-and-versioning.md)、[Release 治理](engineering/release-governance.md)、[Validation Gate 治理](engineering/validation-gates.md)
 事实范围：artifact version policy、V1.0 RC 完成边界、发布身份、license 方向、release artifact、publishing prerequisites、open-source readiness、rollback/withdrawal 和 release evidence
 非事实范围：public API 具体兼容语义、build graph、license 法律解释、漏洞联系人、release 执行结果和业务 roadmap
 最后审查日期：2026-07-11
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；当前 readiness 由正式 Report 陈述。
 
 ## 1. 目标
 

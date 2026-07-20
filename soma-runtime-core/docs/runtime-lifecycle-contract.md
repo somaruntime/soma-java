@@ -1,10 +1,14 @@
 # Runtime lifecycle 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-runtime-core`
+当前取代者：[Ownership 与 lifecycle](../../docs/design/ownership-and-lifecycle.md)、[Correctness 与 failure](../../docs/design/correctness-and-failure.md)、[Runtime Core Map](../../docs/implementation-map/runtime-core-map.md)
 事实范围：child ownership、materialization accounting、epoch/view/pipeline lifecycle、mutation coordination、concurrency 和 release
 非事实范围：public API naming、storage data structure、schema declaration 和 benchmark claim
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 lifecycle 事实。
 
 ## 1. 目标
 

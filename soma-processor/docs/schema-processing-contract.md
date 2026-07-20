@@ -1,10 +1,14 @@
 # Schema processing 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-processor`
+当前取代者：[Schema 与生成 API](../../docs/design/schema-and-generated-api.md)、[兼容性、安全与版本](../../docs/design/compatibility-security-and-versioning.md)、[Compiler 与 codegen Map](../../docs/implementation-map/compiler-and-codegen-map.md)
 事实范围：compile-time collection、validation、declaration order、normalized schema、exact hash、compatibility identity 和 diagnostics
 非事实范围：public annotation semantics、generated API behavior、runtime storage 和 benchmark
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 processing/schema identity 事实。
 
 ## 1. 目标
 

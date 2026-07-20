@@ -1,10 +1,14 @@
 # SomaTable 设计宪法
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[SOMA Java 设计宪法](design/soma-java-design-constitution.md)
 事实范围：SomaTable 总心智模型、跨模块永久原则和不可缩水边界
 非事实范围：annotation 语法、generated API 细节、runtime 数据结构和 benchmark 结果
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；当前工作必须使用上方取代者。
 
 ## 1. 文档定位
 

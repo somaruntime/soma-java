@@ -1,10 +1,14 @@
 # soma-testkit 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：`soma-testkit`
+当前取代者：[测试与 evidence](../../docs/engineering/testing-and-evidence.md)、[测试与 evidence Map](../../docs/implementation-map/test-and-evidence-map.md)
 事实范围：compile/golden/invariant/materialization/performance-shape assertion helper 语义
 非事实范围：被测试模块的 schema/API/runtime behavior 和 benchmark claim
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前 testkit 事实。
 
 ## 1. 目标
 

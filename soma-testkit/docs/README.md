@@ -1,13 +1,9 @@
-# soma-testkit 正式设计文档
+# soma-testkit 文档入口
 
-本目录保存可重复 compile/golden/runtime assertion helper 的正式设计事实。
+测试与 evidence 的长期过程规则由 [测试与 evidence](../../docs/engineering/testing-and-evidence.md)拥有；当前 helper、fixture、golden 和 Gate 从[测试与 evidence Map](../../docs/implementation-map/test-and-evidence-map.md)进入。
 
-## 正式设计文档
+## 历史设计
 
-| 文档 | Owner | 单一职责 |
-|---|---|---|
-| [soma-testkit 契约](testkit-contract.md) | `soma-testkit` | compile/golden/invariant/materialization/performance-shape helper 语义 |
+- [soma-testkit 契约](testkit-contract.md)（`superseded`，只保留切换前上下文）
 
-Concrete Java package、helper method、fixture/golden layout 和 structured serialization 在实现阶段固化，但不得削弱本契约。
-
-临时专题进入 `docs/temp/`，不得成为正式事实源。
+本目录不再拥有独立 Design。

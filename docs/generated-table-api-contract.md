@@ -1,10 +1,14 @@
 # Generated Table API 契约
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[Schema 与生成 API](design/schema-and-generated-api.md)、[Table、存储与访问](design/table-storage-and-access.md)、[Ownership 与 lifecycle](design/ownership-and-lifecycle.md)、[Materialization 边界](design/materialization-boundary.md)
 事实范围：Generated keyed/dense Table、Direct API、Row/Key/Column Pipeline、Mutator、child facade 和 ColumnView 的用户语义
 非事实范围：schema annotation、code generation 过程、TableStore 数据结构、deep materialization 细节和性能实现算法
 最后审查日期：2026-07-20
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；精确当前 surface 从[可执行契约地图](implementation-map/executable-contract-map.md)进入。
 
 ## 1. 目标
 

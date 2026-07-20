@@ -4,10 +4,10 @@
 
 ## 1. 先读事实源
 
-- 根级正式设计从 [docs/README.md](docs/README.md) 进入；
-- 文档分类和 Owner 遵守 [docs/documentation-governance.md](docs/documentation-governance.md)；
-- 模块修改前阅读对应 `<module>/docs/README.md`；
-- README、AGENTS、guides、reports 和 `docs/temp/` 不是设计事实源。
+- 目标与正式设计从 [docs/README.md](docs/README.md) 进入；
+- 文档分类和 Owner 遵守 [文档治理](docs/engineering/documentation-governance.md)；
+- 修改前先读相关 Blueprint/Design，再通过 [Implementation Map](docs/implementation-map/README.md)和对应 `<module>/docs/README.md` 定位代码；
+- README、AGENTS、Guide、Report、Implementation Map 和 superseded 历史文档都不重新定义 Design。
 
 ## 2. Build prerequisites
 
@@ -29,14 +29,14 @@ V1 compiler integration 只把 full JDK 8 javac 当作 compiler authority；publ
 
 设计或 public contract 变更：
 
-1. 识别唯一 Owner；
-2. 先修改 Owner contract；
-3. 同步 glossary、module obligation、examples 和 gates；
-4. 增加匹配的 compile/golden/invariant/consumer/benchmark evidence；
-5. 更新 report，但不让 report 反向定义设计；
+1. 从 Blueprint 确认目标并识别唯一 Design Owner；
+2. 重大长期变化先在 Temporary 中形成候选并获得授权；
+3. 实施代码和匹配的 compile/golden/invariant/consumer/benchmark evidence；
+4. 更新 Implementation Map、Conformance 和必要 Report；
+5. 原子固化正式事实并删除 Temporary；
 6. 完成整体一致性复核。
 
-实现变更应沿 [实现策略](docs/implementation-strategy.md) 的 vertical slice 推进，不能为了局部速度把尚未实现的 V1 capability 改写成永久非目标。
+实现必须服务 [Design](docs/design/README.md)，不能为了局部速度把未实现目标改写成 future、optional、MVP 或永久非目标。真实偏差进入 [Conformance](docs/conformance/README.md)，Conformance 不自动授权修改。
 
 ## 4. Dependency changes
 
@@ -57,7 +57,7 @@ V1 compiler integration 只把 full JDK 8 javac 当作 compiler authority；publ
 - compiler/processor：compile fixture、golden、external consumer、unsupported compiler negative case；
 - runtime：invariant、failure atomicity、error path、allocation/performance-shape evidence；
 - public API：API/generated diff 和 compatibility case；
-- benchmark：使用正式 evidence contract，不把 smoke 写成性能 claim；
+- benchmark：遵守 [Benchmark 治理](docs/engineering/benchmark-governance.md)，不把 smoke 写成性能 claim；
 - release：G0-G6、reproducibility、checksum、migration/rollback 和 security/license evidence。
 
 ## 6. Pull request quality

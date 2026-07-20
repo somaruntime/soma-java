@@ -1,10 +1,14 @@
 # Runtime 性能模型
 
-状态：正式设计文档
+类型：历史设计
+状态：superseded
 Owner：根项目协调层
+当前取代者：[性能模型](design/performance-model.md)、[Benchmark 治理](engineering/benchmark-governance.md)
 事实范围：性能北极星、Access Pattern Card、成本模型、性能路径和 claim 边界
 非事实范围：具体 runtime 数据结构参数、benchmark scenario、测量结果和 release 性能声明
 最后审查日期：2026-07-10
+
+> 本文只保留切换前的历史设计上下文，不再拥有当前事实；当前工作必须使用上方取代者。
 
 ## 1. 目标
 
