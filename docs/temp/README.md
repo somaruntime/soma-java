@@ -2,11 +2,17 @@
 
 状态：临时设计索引
 正式事实源：否
-最后审查日期：2026-07-17
+最后审查日期：2026-07-19
 
-本目录只保留尚未固化的长期研究蓝图。任何实现、Gate、兼容性判断或发布声明仍必须以 [正式设计文档索引](../README.md) 登记的 Owner 为准。
+本目录保留用户明确批准的长期研究蓝图，以及尚未完成决策或迁移的普通临时专题。任何实现、Gate、兼容性判断或发布声明仍必须以 [正式设计文档索引](../README.md) 登记的 Owner 为准。
 
 Packed Index / Exact Access / IndexBuffer 专题已于2026-07-17完成Owner迁移、实现、验证与退役；实施evidence见[专题收口报告](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)，临时专题原文不再保留。
+
+## 普通临时专题
+
+| 专题 | 当前边界 | 删除条件 |
+|---|---|---|
+| [Packed Index / Exact Access 切换后尾项治理](packed-exact-index-post-cutover-tails/) | 记录报告卫生、`IndexSnapshot`安全决策、allocation/retained-memory与可维护性尾项；不重新打开已完成cutover | 稳定决定迁入唯一Owner、分项evidence关闭并形成dated closeout |
 
 ## 长期研究蓝图
 
