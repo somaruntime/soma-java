@@ -14,6 +14,9 @@ fi
 "$JAVA_HOME/bin/java" \
   -cp "soma-runtime-core/target/classes:soma-runtime-core/target/test-classes" \
   com.hgtech.soma.runtime.RuntimeCorePhase1Check
+"$JAVA_HOME/bin/java" \
+  -cp "soma-runtime-core/target/classes:soma-runtime-core/target/test-classes" \
+  com.hgtech.soma.runtime.GroupedExactIndexCheck
 "$JAVA_HOME/bin/java" -version
 
 printf '%s\n' 'runtime-core-phase1-check: ok'
