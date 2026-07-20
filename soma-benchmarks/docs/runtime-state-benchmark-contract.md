@@ -42,6 +42,7 @@ FJSP 的 canonical 场景是 `MachineCandidate` keyed runtime frontier。该结�
 | `fjsp.frontier.dispatch_sort` | dynamic sort 选择当前 machine 的候选 | candidate count、comparator 调用、`IndexBuffer` growth/reuse、`firstOrThrow` | 不能宣称等价 application-owned priority queue |
 | `fjsp.frontier.cleanup` | 选中 operation 后删除所有 machine-operation candidate | `findByOperation` rows、`remove`、index cleanup、compaction | 不能暗示跨 table atomic commit |
 | `fjsp.machine_dynamic_sort` | `Machine.rows().sorted(...).firstOrThrow()` | physical scan、`IndexBuffer` sort、comparator calls、machine count | 不能把全量显式排序记成 O(1) |
+| `fjsp.machine_external_heap` | application-owned indexed minimum heap，以`MachineTable`为权威facts | heap size、activate/update、stale drop、identity tie-break、allocation/op | 不能把queue升级为SOMA API、maintained order或跨表transaction |
 | `fjsp.data_role.operation_split` | `OperationDefinition + OperationRuntimeState + OperationAssignment` 对比旧 mixed operation row | definition/state lookup、assignment insert、cross-table recovery、result export | 不能复制 assignment shadow fields |
 
 ### 3.2 对照 lane

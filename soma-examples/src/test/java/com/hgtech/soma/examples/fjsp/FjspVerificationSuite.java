@@ -25,6 +25,7 @@ public final class FjspVerificationSuite {
   }
 
   public static void main(String[] args) {
+    verifyApplicationMachineHeap();
     verifySharedSolverPath();
     verifyStableTieBreakAfterCompaction();
     System.out.println("lane=fjsp-errors duplicate_key=ok missing_key=ok "
@@ -38,6 +39,30 @@ public final class FjspVerificationSuite {
     System.out.println("fjsp-verification: ok");
   }
 
+  private static void verifyApplicationMachineHeap() {
+    try (FjspInstance instance = FjspInstanceFactory.create(
+        FjspProblem.teachingExample())) {
+      FjspMachineAvailabilityQueue queue =
+        new FjspMachineAvailabilityQueue(instance.machines);
+      MachineId first = new MachineId(100L);
+      MachineId second = new MachineId(200L);
+      queue.activate(second);
+      queue.activate(first);
+      int firstSlot = queue.take();
+      require(queue.machineId(firstSlot).equals(first),
+        "machine heap uses available time before insertion order");
+      queue.updateInactive(first, 150L);
+      queue.activate(first);
+      int secondSlot = queue.take();
+      require(queue.machineId(secondSlot).equals(second),
+        "machine heap reflects updated availability");
+      queue.updateInactive(second, 150L);
+      queue.activate(second);
+      require(queue.machineId(queue.take()).equals(first),
+        "machine heap uses machine identity as total tie-break");
+    }
+  }
+
   private static void verifySharedSolverPath() {
     try (FjspInstance instance = FjspInstanceFactory.create(
         FjspProblem.teachingExample())) {
@@ -46,12 +71,15 @@ public final class FjspVerificationSuite {
       List<OperationAssignment> exported = instance.exportAssignments();
       require(result.assignments == 2 && result.completedJobs == 1,
         "teaching problem cardinality");
+      require(result.makespan == 11L && result.totalTardiness == 0L
+          && result.checksum == 925548380L,
+        "application heap preserves deterministic teaching result");
       require(exported.size() == 2 && instance.schemaHash().length() == 64,
         "detached export and schema identity");
       require(instance.exactIndexProbeCount() > 0L,
         "solver exercised generated exact indexes");
       System.out.println("access-pattern-card scenario=fjsp "
-        + "paths=child-release,keyed-frontier,grouped-update,dynamic-sort,grouped-remove "
+        + "paths=child-release,machine-heap,keyed-frontier,grouped-update,dynamic-sort,grouped-remove "
         + "rows=" + result.assignments
         + " hotColumns=operationKey,assignedMachine,setupStartMinute,setupMinutes,startMinute,processingMinutes,endMinute"
         + " hotLeafWidthsByTable=operation_assignments:64"

@@ -4,7 +4,7 @@
 Owner：`soma-examples`
 事实范围：FJSP release/dispatch/commit flow、lookup/error/lifecycle evidence 和 G5 scenario boundary
 非事实范围：schema declaration、solver business transaction contract、runtime implementation 和性能 claim
-最后审查日期：2026-07-17
+最后审查日期：2026-07-20
 
 ## 1. 场景定位
 
@@ -12,7 +12,8 @@ Owner：`soma-examples`
 
 FJSP source 的阅读顺序固定为：`FjspScenario` 教学门面 -> `FjspProblem` 输入 ->
 `FjspInstanceFactory` 导入 -> `FjspInstance` runtime state -> `FjspSolver` 算法 loop ->
-`FjspSolveResult`。`FjspCandidateFrontier` 只封装 keyed frontier 的发布、刷新和选择，
+`FjspSolveResult`。`FjspMachineAvailabilityQueue`是application-owned indexed minimum heap；
+`FjspCandidateFrontier`只封装 keyed frontier 的发布、刷新和选择，
 `FcfsSptDispatchRule` 只拥有稳定排序规则。所有 annotation schema 声明集中在单一
 `fjsp.schema` package；这是 V1 schema-package ownership 的直接结果，不拆成相互嵌套的
 `value`/`table` Java packages。
@@ -40,7 +41,7 @@ SOMA 保证每次 table-local mutation 和 ownership aggregate 的正确性；�
 1. 从 request boundary 导入 jobs、operation definitions（含 candidate-machine child）、machines 和 setup times；
 2. batch import 初始化 generated tables；
 3. 当 operation release 时，通过 generated grouped/index row source读取definition scalar，并通过`operationDefinitions.candidateMachines(operationKey)` live child facade局部遍历可加工machine，生成`MachineCandidate` rows；release hot path不递归materialize detached parent + child `List`；
-4. 每轮从 `Machine.rows().sorted(machineAvailabilityComparator).firstOrThrow()` 选择下一个可用 machine；
+4. 每轮从application-owned indexed minimum heap选择下一个有released candidate的machine；heap按`availableFromMinute, machineId.value`形成全序，`MachineTable`仍是availability权威Owner；
 5. 对 `MachineCandidate.findByMachine(machineId)` 的候选更新 setup、effective ready time、FCFS value 和 SPT value；
 6. 对同一 machine 的候选执行 `sorted(dispatchRuleComparator).firstOrThrow()`，选择下一个 operation；
 7. 向 `OperationAssignment` result table 写入 assignment；
@@ -66,6 +67,8 @@ SOMA V1 只保证单张 table mutation 后的 table 内部不变量。`Operation
 
 `MachineCandidate` 是 keyed runtime frontier。候选 row 存在表示该 `(MachineId, OperationKey)` 组合仍处于可选 frontier；operation 被选中后，solver loop 应通过 `findByOperation(operationKey).remove()` 删除所有相关候选，而不是保留长期 `active` 标志。`indicatorReady` 只是当前 machine snapshot / 当前 dispatch 轮次下的 indicator 计算状态，不能作为长期业务状态或候选有效性事实。Dispatch rule 属于 solver 策略，示例不在 `MachineCandidate` schema 上声明 `byMachineDispatchRule` 这类 order。
 
+Machine heap只保存`MachineId`到application slot的映射和派生availability，不保存SOMA物理Index。release成功路径激活相关machine；selected machine在table mutation后更新heap派生值；其他machine因frontier cleanup变空时允许保留stale entry，并在其到达heap root时按当前`findByMachine(...).count()`惰性淘汰。任一跨table/queue步骤失败仍服从disposable instance policy，不把heap包装成SOMA transaction或`@SomaOrder`。
+
 ## 3. Lookup missing semantics
 
 FJSP example 必须明确区分 runtime missing key 与业务不可行：
@@ -90,6 +93,7 @@ SOMA runtime 只提供 `find(...)` / `containsKey(...)` / empty Row Pipeline / t
 - `containsKey(key)`；
 - generated grouped index access, for example `findByOperation(operationKey)`；
 - generated machine frontier index access, for example `findByMachine(machineId)`；
+- application-owned machine availability minimum heap；
 - generated optional presence predicate；
 - Row Pipeline `findFirst()` / `firstOrThrow()`；
 - Row Pipeline `sorted(comparator)` dynamic sort；
@@ -168,7 +172,7 @@ G5 examples report 应记录：
 - generated schema hash；
 - Java 8 smoke command；
 - request boundary -> loader -> generated tables -> solver core -> exporter -> response boundary 完整路径；
-- physical source + explicit dynamic sort evidence；
+- application heap machine selection + candidate exact source / explicit dynamic sort evidence；
 - grouped exact-index source evidence；
 - required lookup missing error 与 optional lookup empty result evidence；
 - Row Pipeline lazy terminal evidence；

@@ -18,11 +18,14 @@ import com.hgtech.soma.runtime.UpdateResult;
 final class FjspCandidateFrontier {
     private final FjspInstance instance;
     private final FcfsSptDispatchRule dispatchRule;
+    private final FjspMachineAvailabilityQueue machineQueue;
 
     FjspCandidateFrontier(
-        FjspInstance instance, FcfsSptDispatchRule dispatchRule) {
+        FjspInstance instance, FcfsSptDispatchRule dispatchRule,
+        FjspMachineAvailabilityQueue machineQueue) {
         this.instance = instance;
         this.dispatchRule = dispatchRule;
+        this.machineQueue = machineQueue;
     }
 
     void release(OperationKey operation) {
@@ -60,12 +63,15 @@ final class FjspCandidateFrontier {
         final long baseReady = maximum(
             releaseMinute, maximum(jobReady, materialReady));
         final SetupFamilyId targetFamily = new SetupFamilyId(setupFamily);
-        candidates.forEach(candidate -> batch.addValues(
-            new OperationMachineKey(operation,
-                new MachineId(candidate.machineIdValue())),
-            targetFamily, releaseMinute, jobReady, materialReady, baseReady,
-            candidate.processingMinutes(), 0L, baseReady, releaseMinute,
-            candidate.processingMinutes(), false));
+        candidates.forEach(candidate -> {
+            MachineId machineId = new MachineId(candidate.machineIdValue());
+            batch.addValues(new OperationMachineKey(operation, machineId),
+                targetFamily, releaseMinute, jobReady, materialReady, baseReady,
+                candidate.processingMinutes(), 0L, baseReady, releaseMinute,
+                candidate.processingMinutes(), false);
+            // addBatch失败后整个solver instance按既定协议丢弃，无需恢复外部queue。
+            machineQueue.activate(machineId);
+        });
         instance.frontier.addBatch(batch);
     }
 

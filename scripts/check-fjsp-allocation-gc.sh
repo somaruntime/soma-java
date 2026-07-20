@@ -73,6 +73,8 @@ fi
 shasum -a 256 "$artifact" \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspScaleBenchmark.java \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/JvmRuntimeMetrics.java \
+  soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspSolver.java \
+  soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspMachineAvailabilityQueue.java \
   >"$evidence_dir/checksums.sha256"
 
 printf '%s\n' "fjsp-allocation-gc-evidence: $evidence_dir"

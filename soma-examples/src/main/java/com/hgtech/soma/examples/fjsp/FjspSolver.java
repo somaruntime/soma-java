@@ -20,6 +20,7 @@ import com.hgtech.soma.runtime.RemoveResult;
 public final class FjspSolver {
   private final FjspInstance instance;
   private final FjspCandidateFrontier frontier;
+  private final FjspMachineAvailabilityQueue machineQueue;
   private boolean solved;
 
   public FjspSolver(FjspInstance instance,
@@ -27,7 +28,9 @@ public final class FjspSolver {
     if (instance == null) throw new NullPointerException("instance");
     if (dispatchRule == null) throw new NullPointerException("dispatchRule");
     this.instance = instance;
-    this.frontier = new FjspCandidateFrontier(instance, dispatchRule);
+    this.machineQueue = new FjspMachineAvailabilityQueue(instance.machines);
+    this.frontier = new FjspCandidateFrontier(
+      instance, dispatchRule, machineQueue);
   }
 
   public FjspSolveResult solve() {
@@ -108,28 +111,25 @@ public final class FjspSolver {
   }
 
   private MachineSelection selectNextMachine() {
-    IndexSnapshot rows = instance.machines.rows().sorted((left, right) -> {
-      int compared = Long.compare(
-        left.availableFromMinute(), right.availableFromMinute());
-      return compared != 0 ? compared
-        : Long.compare(left.machineIdValue(), right.machineIdValue());
-    }).rowIndexes();
-    LongColumnView machineIds = instance.machines.machineIdValueColumn();
     LongColumnView available = instance.machines.availableFromMinuteColumn();
     LongColumnView lastFamily = instance.machines.lastSetupFamilyValueColumn();
     try {
-      for (int position = 0; position < rows.size(); position++) {
-        int row = rows.indexAt(position);
-        MachineId machineId = new MachineId(machineIds.getLong(row));
+      while (!machineQueue.isEmpty()) {
+        int slot = machineQueue.take();
+        MachineId machineId = machineQueue.machineId(slot);
+        // 其他operation的retire可能使该machine entry变空；到达heap root时惰性淘汰。
         if (instance.frontier.findByMachine(machineId).count() == 0L) continue;
+        int row = instance.machines.rowIndexOf(machineId.value);
+        long currentAvailable = available.getLong(row);
+        require(currentAvailable == machineQueue.availableFromMinute(slot),
+          "machine queue must match authoritative table availability");
         boolean present = lastFamily.isPresent(row);
-        return new MachineSelection(machineId, available.getLong(row), present,
+        return new MachineSelection(machineId, currentAvailable, present,
           present ? lastFamily.getLong(row) : 0L);
       }
     } finally {
       lastFamily.close();
       available.close();
-      machineIds.close();
     }
     throw new IllegalStateException("no machine has a released candidate");
   }
@@ -143,10 +143,14 @@ public final class FjspSolver {
       start, candidate.processingMinutes, end));
     instance.machines.mutate(machineId).setAvailableFromMinute(end)
       .setLastSetupFamily(candidate.targetSetupFamily).commit();
+    machineQueue.updateInactive(machineId, end);
     RemoveResult removed = instance.frontier
       .findByOperation(candidate.operationKey).remove();
     require(removed.removed() > 0L,
       "commit must remove all candidates of the assigned operation");
+    if (instance.frontier.findByMachine(machineId).count() != 0L) {
+      machineQueue.activate(machineId);
+    }
   }
 
   private Completion advanceJob(Dispatch dispatch) {

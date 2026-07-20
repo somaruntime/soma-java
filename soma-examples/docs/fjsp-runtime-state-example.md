@@ -4,7 +4,7 @@
 Owner：`soma-examples`
 事实范围：FJSP data role、Access Pattern Card、schema source 和 runtime-state coverage
 非事实范围：dispatch E2E flow、SOMA public contract 和 benchmark result
-最后审查日期：2026-07-17
+最后审查日期：2026-07-20
 
 ## 1. 文档定位
 
@@ -34,7 +34,7 @@ jobs / operation definitions with candidate-machine children / machines / setup 
 |---|---|---|---|
 | operation candidate child | operation count × empty/typical/high candidate-machine count | release 时 parent-key child scan；input 后只读 | live child scan 不 materialize；与 flat grouped-index baseline 比较 locality 与 child-instance overhead |
 | `MachineCandidate` frontier | current released-unscheduled pairs；记录 by_machine/by_operation group size | batch add、exact-group update、dynamic sort、grouped swap-remove | `IndexBuffer` retained bytes、exact-index probe/collision/rehash、steady-state allocation/op 分开 |
-| machine/setup/assignment | machine/operation/setup-matrix scale | physical scan + explicit sort、point lookup/mutate、result insert | sort candidate count、HashKeySpace load/collision、split lookup/export 分开 |
+| machine/setup/assignment | machine/operation/setup-matrix scale | application minimum heap、point lookup/mutate、result insert | heap size/update/stale drop、HashKeySpace load/collision、split lookup/export 分开；heap不保存SOMA Index |
 
 Fixture/benchmark 必须补充 hot columns、touched bytes/working set、selector selectivity、mutation/read ratio、JIT warmup/forks、stats mode 和 export frequency；这些值不进入 Schema/hash。
 

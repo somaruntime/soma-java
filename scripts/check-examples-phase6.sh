@@ -71,6 +71,15 @@ fi
 grep -F 'private int terminalMaximum()' "$fjsp_rows_source" >/dev/null
 grep -F 'identity tie-break must survive packed compaction' \
   "$root_dir/soma-examples/src/test/java/com/hgtech/soma/examples/fjsp/FjspVerificationSuite.java" >/dev/null
+grep -F 'application heap preserves deterministic teaching result' \
+  "$root_dir/soma-examples/src/test/java/com/hgtech/soma/examples/fjsp/FjspVerificationSuite.java" >/dev/null
+grep -F 'new FjspMachineAvailabilityQueue(instance.machines)' \
+  "$root_dir/soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspSolver.java" >/dev/null
+if grep -F 'instance.machines.rows().sorted' \
+    "$root_dir/soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspSolver.java" >/dev/null; then
+  printf '%s\n' 'examples-phase6-check: machine dynamic-sort reference leaked into canonical solver' >&2
+  exit 1
+fi
 grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'visits=3' >/dev/null
 grep -F 'soma-examples-scenarios: ok' "$scenario_output" >/dev/null
 grep '^lane=' "$evidence_dir/fjsp-verification.txt" \
