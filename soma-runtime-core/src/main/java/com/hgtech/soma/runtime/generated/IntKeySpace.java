@@ -1,6 +1,6 @@
 package com.hgtech.soma.runtime.generated;
 
-/** Generated int-key table可选择的primitive KeySpace协议。 */
+/** Generated int-key table的primitive primary-locator协议；KeySpace不表示Sparse Set。 */
 public interface IntKeySpace {
     String implementation();
     int size();

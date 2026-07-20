@@ -122,7 +122,7 @@ V1 初始 identity/baseline：
 - memory/size/domain guard；
 - implementation protocol/algorithm id。
 
-V1 exact `keySpaceStrategy`只允许`none`、`hash-int-v2`、`hash-long-v2`、`hash-composite-v2`。Dense只能`none`；generated key shape必须与hash strategy exact匹配。`accessStrategy`只允许`none`或`primitive-exact-hash-v1`；maintenance固定eager/incremental，不提供lazy/dirty policy。
+V1 exact `keySpaceStrategy` 是primary-locator策略的兼容性字段名，保留`KeySpace`不表示Sparse Set或entity-id space。它只允许`none`、`hash-int-v2`、`hash-long-v2`、`hash-composite-v2`。Dense只能`none`；generated key shape必须与hash strategy exact匹配。`accessStrategy`只允许`none`或`primitive-exact-hash-v1`；maintenance固定eager/incremental，不提供lazy/dirty policy。
 
 `maximumTableStorageBytes`约束该table instance的current columns、presence、primary locator、exact indexes和retained buffers；`maximumBulkScratchBytes`约束单次batch/locator/index/cascade staging peak。`maximumOperationScratchBytes`约束IndexBuffer/sort/remove candidate material。`maximumAggregateStorageBytes`和`maximumOwnershipTableInstances`由root create产生的shared aggregate budget执行，child create/replacement先reserve、失败回滚，final release归还。Estimate使用checked arithmetic和versioned primitive/reference-slot estimator；超过limit在真实array allocation前返回`memory_limit_exceeded`，旧facts/capacity/quota不变。
 

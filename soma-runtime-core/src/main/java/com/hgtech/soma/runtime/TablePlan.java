@@ -53,6 +53,7 @@ public final class TablePlan {
     public long maximumOperationScratchBytes() { return maximumOperationScratchBytes; }
     public long maximumBulkScratchBytes() { return maximumBulkScratchBytes; }
     public long maximumTableStorageBytes() { return maximumTableStorageBytes; }
+    /** Primary-locator strategy；KeySpace是兼容性字段名，不表示Sparse Set。 */
     public String keySpaceStrategy() { return keySpaceStrategy; }
     public String accessStrategy() { return accessStrategy; }
 

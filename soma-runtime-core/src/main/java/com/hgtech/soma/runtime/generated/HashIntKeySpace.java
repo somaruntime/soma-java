@@ -2,7 +2,7 @@ package com.hgtech.soma.runtime.generated;
 
 import java.util.Arrays;
 
-/** Primitive open-addressed int key to packed RowSlot mapping. */
+/** Primitive open-addressed int-key primary locator；KeySpace不表示Sparse Set。 */
 public final class HashIntKeySpace implements IntKeySpace {
     private static final int MAX_CAPACITY = 1 << 30;
     private static final byte EMPTY = 0;

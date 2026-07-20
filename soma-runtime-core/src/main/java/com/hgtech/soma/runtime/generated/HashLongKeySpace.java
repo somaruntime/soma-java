@@ -2,7 +2,7 @@ package com.hgtech.soma.runtime.generated;
 
 import java.util.Arrays;
 
-/** 基于 primitive open addressing 的 long key 到 packed RowSlot 映射。 */
+/** 基于primitive open addressing的long-key primary locator；KeySpace不表示Sparse Set。 */
 public final class HashLongKeySpace {
     private static final int MAX_CAPACITY = 1 << 30;
     private static final byte EMPTY = 0;

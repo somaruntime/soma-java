@@ -3,7 +3,7 @@ package com.hgtech.soma.runtime.generated;
 import java.util.Arrays;
 
 /**
- * 复合 key 的 primitive hash probe substrate。
+ * 复合key的primitive primary-locator hash substrate；KeySpace不表示Sparse Set。
  *
  * <p>本类只保存 hash 与 packed RowSlot，不把 schema value/object 放入 runtime storage。
  * generated table 在同 hash candidate 上静态展开完整 leaf equality，然后调用本协议完成

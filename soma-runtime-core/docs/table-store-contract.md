@@ -266,13 +266,15 @@ row_index -> words[row_index / 64] bit (row_index % 64)
 - runtime 维护 `presentCount` 或等价 metadata；
 - generated predicate 支持 all-present、all-absent、mixed chunk scan。
 
-## 6. Primary locator
+## 6. Primary locator / KeySpace
 
 Keyed table必须有hash-based primary locator。Primary lookup属于table identity，不作为普通secondary index处理：
 
 ```text
 canonical RowKey leaves -> hash locator -> current packed Index
 ```
+
+`PrimaryLocator` 是职责名称；`KeySpace` 是现行代码、generated-runtime protocol、runtime plan与stats中保留的canonical implementation umbrella term。二者在本节指向同一 `RowKey -> current Index` locator 职责。保留 `KeySpace` 是兼容性裁决，不引入bounded entity id、Sparse Set或稳定物理Index语义，也不把它提升为新的schema/public access概念。
 
 Primitive int-width/enum/floating-bit key使用`HashIntKeySpace`，long-width key使用`HashLongKeySpace`，String/composite Value key使用`HashCompositeKeySpace`。所有实现采用open addressing、not-found sentinel、duplicate detection、tombstone delete、growth-boundary rehash和row relocation repair；不使用Key到bounded Entity的Sparse Set映射。
 

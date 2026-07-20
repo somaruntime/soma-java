@@ -149,7 +149,8 @@ Required empty child materialize 为 non-null empty `List`/`Map`；optional abse
 | `TableLayout` | schema hash、field layout、column binding、selector/runtime-plan metadata | 不持有实际 row payload |
 | `RowSpace` | row membership、current `Index`分配、packed range有效性 | 不持有field payload/locator/index policy |
 | `PrimaryLocator` | keyed table的`RowKey -> current Index` identity locator | primary key lookup，不是secondary index |
-| `HashIntKeySpace` / `HashLongKeySpace` / `HashCompositeKeySpace` | primary locator的primitive/composite hash实现 | bucket/probing是internal detail |
+| `KeySpace` | primary locator在现行代码、runtime protocol、plan与stats中的canonical umbrella term | 不表示Sparse Set、bounded entity-id space、stable Index或新的schema概念 |
+| `HashIntKeySpace` / `HashLongKeySpace` / `HashCompositeKeySpace` | `KeySpace`的primitive/composite hash实现 | bucket/probing是internal detail |
 | `ColumnStore` | primitive/object columns、presence bitmap、capacity、slot payload、child handle column | 不拥有 key/access/mutation policy |
 | `GroupedExactIndex` / `AccessStructures` | maintained secondary exact index与unique的bucket/group/row-link | derived，不拥有authoritative facts |
 | `AccessPath` | scan/exact-index/dynamic-sort source的internal execution entry | 产生candidate Index sequence，不拥有payload |

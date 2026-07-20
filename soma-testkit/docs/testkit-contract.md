@@ -119,7 +119,7 @@ Runtime invariant helper 分两层：
 
 - live row/slot/capacity/column length alignment and packed `[0,size)`；
 - optional bitmap/payload/present count；
-- `KeySpace` key-to-slot mapping；
+- `KeySpace` primary key-to-current-Index locator mapping；
 - index/unique exact structure 的 bucket/group/row-link 与 current-row consistency；
 - store epoch、active view、released state；
 - floating strict leaf finite/canonical value。
