@@ -37,6 +37,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-20 文档架构专题治理](2026-07-20-document-architecture-governance-report.md)
 - [2026-07-20 设计驱动文档体系正式切换](2026-07-20-documentation-framework-cutover-report.md)
 - [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)

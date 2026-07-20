@@ -40,7 +40,7 @@ Owner：SOMA Java 一致性审查
 | VRP / Simulation / Game 目标形态 | 目标差距 | 当前 examples 仍保留蓝图拟拆分的混合 data-role row/cache | 见 [known-gaps](known-gaps.md) |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
-| 设计驱动文档体系 | 已正式启用 | 32份旧Owner已处置，rich Blueprint、Design、Map、Conformance、Engineering与checker已切换 | 保持唯一Owner和Temporary退役门禁 |
+| 设计驱动文档体系 | 一致且 evidenced | 32份旧Owner已处置；Design 具备层次/关注点/上位关系与场景追踪；Blueprint、Map、Conformance职责分离；checker 已覆盖结构门禁 | 保持唯一Owner、抽象层次和Temporary退役门禁 |
 
 ## 3. 当前结论
 
@@ -62,3 +62,4 @@ VRP/Simulation/Game目标差距、有限性能evidence和G6均已有Owner处置�
 - [G5 examples/benchmark Gate](../../reports/java-v1-g5-examples-benchmark-gate-report.md)
 - [性能优化后本机诊断](../../reports/2026-07-17-post-optimization-g6-diagnostic-report.md)
 - [设计驱动文档体系正式切换](../../reports/2026-07-20-documentation-framework-cutover-report.md)
+- [文档架构专题治理](../../reports/2026-07-20-document-architecture-governance-report.md)

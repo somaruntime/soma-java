@@ -10,6 +10,8 @@ Owner：FJSP 目标场景
 
 非事实范围：调度算法正确性、精确公共 API 契约、当前实现状态、benchmark 结论和 release readiness
 
+设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[Runtime Plan 与可观测性](../design/runtime-plan-and-observability.md)、[性能模型](../design/performance-model.md)
+
 最后审查日期：2026-07-20
 
 ## 1. 场景目标

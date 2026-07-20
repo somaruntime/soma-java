@@ -6,7 +6,7 @@
 
 Owner：SOMA scenario/benchmark 实现导航
 
-对应 Blueprint：[Blueprint 导航](../blueprints/README.md)
+对应 Blueprint：[产品蓝图](../blueprints/soma-java-product-blueprint.md)、[FJSP](../blueprints/fjsp-runtime-state-blueprint.md)、[VRP](../blueprints/vrp-runtime-state-blueprint.md)、[连续仿真](../blueprints/simulation-runtime-state-blueprint.md)、[Game](../blueprints/game-runtime-state-blueprint.md)
 
 对应 Design：[Table、存储与访问](../design/table-storage-and-access.md)、[性能模型](../design/performance-model.md)
 
@@ -18,13 +18,13 @@ Owner：SOMA scenario/benchmark 实现导航
 
 ## 1. 示例入口
 
-| 场景 | 当前 executable 入口 | 关键实现 |
-|---|---|---|
-| 总入口 | [`ScenarioSuite.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/ScenarioSuite.java) | 运行四类 scenario |
-| FJSP | [`FjspScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java) | [`FjspSolver.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspSolver.java)、[`FjspCandidateFrontier.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspCandidateFrontier.java)、application-owned `FjspMachineAvailabilityQueue`、schema package |
-| VRP | [`VrpScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java) | route/visit/customer/candidate schema classes |
-| Simulation | [`SimulationScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/simulation/SimulationScenario.java) | state vector、pending event、trace schema classes |
-| Game | [`GameScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java) | player/unit/map/move/damage schema classes |
+| 场景 | 目标入口 | 当前 executable 入口 | 关键实现 |
+|---|---|---|---|
+| 总入口 | [产品蓝图](../blueprints/soma-java-product-blueprint.md) | [`ScenarioSuite.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/ScenarioSuite.java) | 运行四类 scenario |
+| FJSP | [FJSP 蓝图](../blueprints/fjsp-runtime-state-blueprint.md) | [`FjspScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java) | [`FjspSolver.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspSolver.java)、[`FjspCandidateFrontier.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspCandidateFrontier.java)、application-owned `FjspMachineAvailabilityQueue`、schema package |
+| VRP | [VRP 蓝图](../blueprints/vrp-runtime-state-blueprint.md) | [`VrpScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java) | route/visit/customer/candidate schema classes |
+| Simulation | [连续仿真蓝图](../blueprints/simulation-runtime-state-blueprint.md) | [`SimulationScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/simulation/SimulationScenario.java) | state vector、pending event、trace schema classes |
+| Game | [Game 蓝图](../blueprints/game-runtime-state-blueprint.md) | [`GameScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java) | player/unit/map/move/damage schema classes |
 
 当前 executable 示例可能仍采用较早的数据角色拆分；正式 Blueprint 中的目标形态不是当前代码地图。两者差距由 Conformance 明确，不在本地图中改写为“已实现”。
 

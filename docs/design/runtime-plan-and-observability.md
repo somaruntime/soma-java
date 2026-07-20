@@ -6,6 +6,12 @@
 
 Owner：SOMA runtime configuration 与 observability semantics
 
+设计层次：`D2` 能力设计
+
+主要关注点：Create-time execution plan、resource admission、stats 与诊断边界
+
+上位设计：[系统架构](system-architecture.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：create-time runtime plan、resource admission、plan identity、stats mode、snapshot/reset 与诊断副作用边界
@@ -13,6 +19,8 @@ Owner：SOMA runtime configuration 与 observability semantics
 非事实范围：Java builder 的当前完整方法清单、内部计数器字段、某次统计结果和 benchmark 阈值
 
 最后审查日期：2026-07-20
+
+本 Owner 把 plan 与 observability 放在同一能力边界：plan 决定实例创建时准入哪些资源和观测成本，observability 只能暴露该实例已选择的模式，不能反向引入隐藏策略。当前 builder 方法和计数器布局属于实现事实。
 
 ## 1. Runtime Plan 的角色
 

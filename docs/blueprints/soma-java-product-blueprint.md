@@ -10,6 +10,8 @@ Owner：SOMA Java 产品蓝图
 
 非事实范围：精确 API 契约、实现算法、当前支持状态、性能结论和 release readiness
 
+设计约束入口：[Design 导航、层次与 Owner](../design/README.md)
+
 最后审查日期：2026-07-20
 
 ## 1. 这份蓝图面向谁

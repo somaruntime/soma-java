@@ -78,7 +78,33 @@ done
 
 for file in docs/design/*.md; do
   [ "$file" = 'docs/design/README.md' ] && continue
+  require_once "$file" '^设计层次：`(D0|D1|D2|Q)`([[:blank:]].*)?$'
+  require_once "$file" '^主要关注点：'
+  require_once "$file" '^上位设计：'
   require_once "$file" '^服务(蓝图|场景)：'
+done
+
+for heading in \
+  '## 1. 抽象层次' \
+  '## 2. 关注点 Owner' \
+  '## 3. Blueprint → Design 追踪'; do
+  if ! grep -F "$heading" docs/design/README.md >/dev/null 2>&1; then
+    fail "docs/design/README.md must contain $heading"
+  fi
+done
+
+for file in docs/blueprints/*.md; do
+  [ "$file" = 'docs/blueprints/README.md' ] && continue
+  require_once "$file" '^设计约束入口：'
+
+  base_name=$(basename "$file")
+  if ! grep -F "$base_name" docs/design/README.md >/dev/null 2>&1; then
+    fail "$file is not traced by docs/design/README.md"
+  fi
+
+  if grep -nE '^当前实现参考：|^服务设计：|^#{2,3} .*(当前实现|当前示例|自审|风险和坏味道|待验证事项|当前判定|SOMA V[0-9]+ 可能暴露的问题)' "$file" >/dev/null 2>&1; then
+    fail "$file contains Implementation/Conformance content outside Blueprint responsibility"
+  fi
 done
 
 design_owners=$(for file in docs/design/*.md; do
@@ -223,6 +249,7 @@ done
 for file in \
   reports/java-v1-goal-execution-status.md \
   reports/current-performance-summary.md \
+  reports/2026-07-20-document-architecture-governance-report.md \
   reports/2026-07-20-documentation-framework-cutover-report.md; do
   if [ ! -f "$file" ]; then
     fail "missing current Report $file"

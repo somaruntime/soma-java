@@ -6,6 +6,12 @@
 
 Owner：SOMA runtime correctness 与 failure semantics
 
+设计层次：`Q` 横切质量
+
+主要关注点：一致性、失败原子性、结构化错误与可信状态
+
+上位设计：[设计宪法](soma-java-design-constitution.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：可见原子性、invariant、structured errors、callback/resource failure 和失败后的可信状态

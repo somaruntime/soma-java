@@ -42,7 +42,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 | 分类 | 回答的问题 | 入口 |
 |---|---|---|
 | Blueprint | SOMA Java 最终希望成为什么、怎样被使用？ | [Blueprint](blueprints/README.md) |
-| Design | 系统应当长期遵守什么？ | [Design](design/README.md) |
+| Design | 系统从原则到能力应当怎样逐层展开，各关注点由谁负责？ | [Design](design/README.md) |
 | Implementation Map | 当前关键实现和 evidence 在哪里？ | [Implementation Map](implementation-map/README.md) |
 | Conformance | Blueprint、Design、代码和测试是否一致？ | [Conformance](conformance/README.md) |
 | Engineering | 项目怎样可靠构建、验证和治理？ | [Engineering](engineering/README.md) |

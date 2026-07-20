@@ -10,17 +10,15 @@ Owner：连续仿真目标场景
 
 非事实范围：积分算法、物理模型、精确公共 API、当前实现状态和性能结论
 
-服务设计：[设计宪法](../design/soma-java-design-constitution.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[性能模型](../design/performance-model.md)
-
-当前实现参考：[Simulation schema 示例](../../soma-examples/docs/simulation-runtime-state-example.md)、[场景与 benchmark 地图](../implementation-map/scenario-and-benchmark-map.md)
+设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Materialization 边界](../design/materialization-boundary.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
 最后审查日期：2026-07-20
 
-2026-07-17 baseline：SOMA 已删除 maintained order 与 dirty sidecar；真正的 event queue 由 simulator-owned min-heap 按 `(eventTimeMillis, sequenceNo)` 维护。`PendingEventRow` 只承担 batch ingest、诊断、导出或列式分析；表内需要顺序时显式 `.sorted(totalComparator)`。dense/keyed 删除均为 packed swap-remove，不保证物理遍历顺序。
+目标约束：真正的 event queue 由 simulator-owned min-heap 按 `(eventTimeMillis, sequenceNo)` 维护。`PendingEventRow` 只承担 batch ingest、诊断、导出或列式分析；Table 内需要顺序时显式 `.sorted(totalComparator)`，物理遍历顺序不构成业务契约。
 
 ## 1. 目标与适用范围
 
-本文基于 `soma-examples/docs/simulation-runtime-state-example.md`，审视 tank / valve network 连续仿真场景下 SOMA runtime state 的建模方式。
+本文展示 tank / valve network 连续仿真场景下 SOMA runtime state 的目标建模方式。
 
 连续仿真和 FJSP / VRP 的主要差异是：核心 hot path 不是候选 frontier 选择，而是 state vector 的重复扫描更新、外部 event heap 的时间有序消费，以及 trace buffer 的批量追加和导出。
 
@@ -33,22 +31,21 @@ Owner：连续仿真目标场景
 
 本蓝图中的 `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但不是 live runtime storage。Materializing API/terminal 返回 schema class 或 `List`/`Map`，Row Pipeline callback 参数仍是 callback-scoped Row Cursor。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化；trace/export 只是 runtime buffer 和外部 adapter boundary。
 
-## 2. 当前示例中的 runtime tables
+## 2. 目标数据角色与 Table 形态
 
-当前 executable example 包含以下 table：
-
-| Table | 当前形态 | 生命周期判断 | 主要访问方式 |
+| Table / structure | 目标形态 | 生命周期责任 | 主要访问方式 |
 |---|---|---|---|
-| `Tank` | keyed entity state | 长期 runtime entity state | `fetch(tankId)`、`mutate(tankId)`、`by_tank_id` |
-| `Valve` | keyed entity state | 长期 runtime entity state | `fetch(valveId)`、`by_from_tank`、`by_to_tank` |
+| `TankDefinition` | keyed input fact | import 后 authoritative、read-only | `fetch(tankId)`、topology lookup |
+| `ValveDefinition` | keyed input fact | import 后 authoritative、read-only | `fetch(valveId)`、`by_from_tank`、`by_to_tank` |
 | `FlowCoefficient` | keyed lookup data | 导入后只读 lookup | `fetch(valveMaterialKey)` |
 | `StateVectorRow` | dense long-lived state | packed state vector | physical scan、explicit sort、ColumnView / Index scan |
-| `PendingEventRow` | dense event batch / diagnostic workspace | ingest、诊断或导出边界 | batch append / explicit filter-sort / swap-remove |
+| application event heap | application-owned priority queue | 尚未消费事件的唯一 queue state | `(eventTimeMillis, sequenceNo)` push/pop |
+| `PendingEventRow` | 可选 dense event projection | ingest、诊断或导出边界 | batch append / explicit filter-sort / remove |
 | `TraceSampleRow` | dense trace / export buffer | 采样输出缓冲 | append / boundary explicit sort / batch export |
 
 `StateVectorRow.vectorIndex` 是当前向量布局位置，不是 stable logical key。`PendingEventRow.sequenceNo` 是 event ordering tie-breaker，也不是 entity identity。`TraceSampleRow` 是输出记录，不应成为仿真状态事实源。
 
-### 2.1 Application data role 审核
+### 2.1 Application data role 边界
 
 | Data role | Table / field group | 权威性与生命周期 | 优化判断 |
 |---|---|---|---|
@@ -123,10 +120,10 @@ stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 关键风险是它可能和 `Tank.levelLiters`、`Tank.temperatureCelsius`、`Valve.openingRatio` 形成双事实源。该蓝图采用明确的 source-of-truth 选择：
 
 - `StateVectorRow` 是数值状态 source-of-truth；
-- 推荐的 optimized blueprint 不在 `TankDefinition` / `ValveDefinition` 保存 `levelLiters`、`temperatureCelsius`、`openingRatio`；boundary mapper 通过 state-vector entity mapping 构造 DTO；
-- 如果兼容旧示例而保留这些字段，它们只能作为可丢弃的 derived export cache，不是 result fact 或第二 source-of-truth；
+- `TankDefinition` / `ValveDefinition` 不保存 `levelLiters`、`temperatureCelsius`、`openingRatio` 等可写 numeric shadow；boundary mapper 通过 state-vector entity mapping 构造 DTO；
+- 如果 application 为低频观察保留 numeric cache，它只能是可丢弃的 derived export cache，不是 result fact 或第二 source-of-truth；
 - 数值积分、事件应用和 derivative 计算只写 `StateVectorRow`；
-- 兼容旧示例时，`Tank`/`Valve` 对应 cache 字段只能在 simulator 定义的同步点写入，例如 step boundary、export boundary 或 diagnostic snapshot；
+- 对应 cache 字段只能在 simulator 定义的同步点写入，例如 step boundary、export boundary 或 diagnostic snapshot；
 - 如果同步失败，simulator 必须停止本 step、回滚到外部 snapshot，或丢弃 cache 并从 `StateVectorRow` 重建，不能让 SOMA runtime 猜测哪边权威。
 
 如果某个项目坚持 `Tank` 是事实源，则 `StateVectorRow` 必须降级为派生 workspace，且不能跨 step 保存未同步值；这属于另一条场景，不应混入本文蓝图。
@@ -171,9 +168,9 @@ Trace 写入按 chunk 或 step batch 追加；需要 `(time, entity, variable)` 
 
 `StateVectorRow` 的核心访问模式是跨实体连续 vector scan，把它拆成 `Tank` / `Valve` 的 per-entity child 会破坏统一 layout 和 primitive locality。Event heap / `PendingEventRow` projection 由 simulation timeline 拥有，可能跨多个 target entity；`TraceSampleRow` 由 sampling/export phase 拥有，也不是任一 entity row 的独占 subtree。
 
-因此三者继续作为 root-level dense table。只有 future simulation session 本身被明确建模为 parent row，并且整个 state/event/trace aggregate 的 lifecycle、key-scoped live child access 和 deep materialization boundary 都已正式设计时，才评估 session-owned child；不得为了表达对象层级而牺牲全局 hot scan。
+因此 Table 形态的 state、event projection 和 trace 继续作为 root-level dense table。只有 simulation session 本身被明确建模为 parent row，并且整个 aggregate 的 lifecycle、key-scoped live child access 和 deep materialization boundary 都已正式设计时，才评估 session-owned child；不得为了表达对象层级而牺牲全局 hot scan。
 
-## 5. 潜在瓶颈识别
+## 5. 场景对 Design 的压力
 
 主要风险：
 
@@ -188,7 +185,7 @@ Trace 写入按 chunk 或 step batch 追加；需要 `(time, entity, variable)` 
 
 ## 6. 推荐的 schema annotation 草案
 
-当前 executable example 方向基本正确，但蓝图建议强化 state vector ownership，并给 `StateVectorRow` 增加稳定的 entity mapping 字段，用于边界同步，而不是用于 keyed lookup。
+目标 schema 强化 state vector ownership，并给 `StateVectorRow` 增加稳定的 entity mapping 字段，用于边界同步，而不是用于 keyed lookup。
 
 ```java
 @SomaSchema(
@@ -303,7 +300,7 @@ void consumeDueEvents(long stepEndMillis) {
 }
 ```
 
-heap node 保存 stable event facts，不保存 SOMA packed Index。Optimized blueprint 的数值事件只修改 `StateVectorRow`；如果未来允许 topology/definition 变化，应作为独立场景设计，并由 simulator 保证不会形成跨 table mutation cycle。若额外维护 `PendingEventRow` projection，heap 与 Table 的一致性由 simulator 明确拥有。
+heap node 保存 stable event facts，不保存 SOMA packed Index。目标形态的数值事件只修改 `StateVectorRow`；如果允许 topology/definition 变化，应作为独立场景设计，并由 simulator 保证不会形成跨 table mutation cycle。若额外维护 `PendingEventRow` projection，heap 与 Table 的一致性由 simulator 明确拥有。
 
 ### 7.3 更新 state vector
 
@@ -367,7 +364,7 @@ Trace 写入应按采样周期批量发生，不应在每个 primitive update �
 
 - `StateVectorRow` 是 dense packed table，适合连续 scan；
 - primitive field 通过 Row Pipeline cursor 或 ColumnView 读取，避免 per-row schema-object allocation；
-- event queue 和 trace buffer 使用 dense rows，结构简单；
+- 可选 event projection 和 trace buffer 使用 dense rows，结构简单；
 - `FlowCoefficient` 作为 keyed lookup 与 topology/entity state 分离。
 
 主要削弱因素：
@@ -390,48 +387,31 @@ Final-state export 直接读取最终 `StateVectorRow` facts，并由 entity map
 
 `FlowCoefficient` 的推荐口径是：低频 topology 初始化或 material 变化时可以 keyed `fetch`；如果 derivative inner loop 每 step 每 valve 都需要 coefficient，应预投影到 valve-local dense row、state vector adjacent column，或其他连续 layout。benchmark 需要单独比较 keyed lookup、预投影 dense row 和 ColumnView primitive scan。
 
-## 9. SOMA V1 可能暴露的问题
+## 9. 目标形态必须处理的边界
 
-- Dense table 需要被正式呈现为 long-lived state，不只是 `replaceAll` workspace；
+- Dense table 在此承担 long-lived state，不只是 `replaceAll` workspace；
 - Row Pipeline update 是否足够表达高频 primitive vector update，需要和 ColumnView lane 做 benchmark 对比；
-- active ColumnView 与 mutation 的关系需要在示例中讲清，否则用户容易写出 view-pinned 的 hot loop；
+- 使用 journey 必须讲清 active ColumnView 与 mutation 的关系，避免形成 view-pinned hot loop；
 - event queue 使用 application-owned min-heap；SOMA Table 只承担可选 projection，不能宣称其 scan/sort/remove 等价于 priority queue；
 - trace buffer 高频追加时，必须把 boundary dynamic sort 与 append 分开计量；
-- `StateVectorRow` 是本文采用的数值状态 source-of-truth；推荐 definition table 不再保存 numeric shadow fields，兼容旧示例的 cache 同步点和失败恢复由 simulator 定义；
+- `StateVectorRow` 是本文采用的数值状态 source-of-truth；definition table 不保存 numeric shadow fields，任何 derived cache 的同步点和失败恢复由 simulator 定义；
 - `FlowCoefficient` inner-loop lookup 是否需要 preprojection 必须用 benchmark 证明；
 - 普通 floating payload 的 finite/scale 业务 invariant 必须由 simulator 明确校验，不能依赖 SOMA 自动拒绝 NaN/Infinity。
 
-## 10. 自审结论
+## 10. 目标决策与证明义务
 
-### 10.1 通过项
+### 10.1 目标决策
 
-- 没有把连续仿真误建模成 candidate frontier；
-- `StateVectorRow` 保持 dense long-lived state，符合 packed scan 和 primitive update；
-- 明确 `StateVectorRow` 是数值状态 source-of-truth；optimized blueprint 默认不维护 `Tank`/`Valve` numeric cache，兼容旧示例时只允许 derived boundary cache；
-- application min-heap 作为稳定 event queue 结构，`PendingEventRow` 降级为可选 projection；
-- `TraceSampleRow` 被定位为 export/diagnostic buffer，不反向成为状态事实源；
-- input definition、numeric working state、trace/final result 已形成清晰三段，final state 不复制 shadow table；
-- 明确了 simulator OOP 层拥有数值模型、事件规则和跨 table 一致性。
+- `StateVectorRow` 是 dense long-lived authoritative numeric state；definition table 不保存可写 numeric shadow；
+- application min-heap 是唯一 event queue，`PendingEventRow` 只是可选 projection；
+- `TraceSampleRow` 是 export/diagnostic buffer，不反向驱动积分状态；final state 直接从 state vector 投影；
+- simulator 拥有数值模型、异常值策略、事件规则、projection/cache 同步和跨 table 一致性；
+- ColumnView hot path 默认把 live read scope 与写入阶段分开，除非下位 Design 明确允许固定宽度写入。
 
-### 10.2 风险和坏味道
+### 10.2 采用前证明义务
 
-- `SimVariableKind` 若未来不够表达业务变量，应改成 numeric `variableId` 或 value key，而不是回退到 hot path String；
-- ColumnView hot path 必须保持只读 view 与写入阶段分离，除非 runtime contract 明确允许；
-- 兼容旧示例时，`Tank`/`Valve` numeric cache 与 `StateVectorRow` 同步失败会导致 drift，必须有 simulator-level 恢复策略；optimized blueprint 默认不维护这份 cache；
-- `PendingEventRow` two-terminal consume/remove 在大队列低 due ratio 下可能成本较高；
-- `TraceSampleRow` 的 explicit sorted export 不应进入每步主循环；
-- `NaN`/Infinity 传播策略若未固定，会使相同 runtime storage 在不同 simulator 中产生不同失败语义。
-
-### 10.3 待验证事项
-
-- State vector Row Pipeline update 与 ColumnView / primitive loop 的性能分界；
-- queue size、due ratio、heap push/pop 与可选 Table projection/swap-remove 成本；
-- trace buffer append/export order 是否需要 chunk table、分段 export 或 export boundary dynamic sort；
-- `FlowCoefficient` preprojection：keyed lookup、valve-local dense row、state vector adjacent column 和 ColumnView primitive scan 的对比；
-- state vector 和 entity table 的同步周期及错误恢复策略；
-- finite value、non-zero scale 和 integration exceptional-value policy 的 fixture/error evidence；
-- input definition + state vector 分离与旧 entity numeric cache 方案的 export/lookup/allocation 对比。
-
-### 10.4 当前判定
-
-本蓝图要求目标示例把 topology/parameter input definition、authoritative numeric working state、trace/final result 分开，并删除或明确降级 entity numeric shadow cache。后续场景专题应分别验证 `StateVectorRow` update、application event heap 与可选 Table projection、`TraceSampleRow` append/export、final-state projection 和 `FlowCoefficient` preprojection，不能把这些成本合并成一个笼统结论。
+- 比较 state-vector Row Pipeline update、ColumnView 与 primitive loop 的成本边界；
+- 分开验证 heap push/pop、可选 Table projection、trace append/export 和 final-state materialization；
+- 比较 `FlowCoefficient` keyed lookup、preprojected dense row、adjacent column 与 ColumnView scan；
+- 为 finite value、non-zero scale 和 integration exceptional value 固化 simulator invariant 与 failure evidence；
+- 验证 definition/state 分离后的 export、lookup、allocation，以及任何 derived numeric cache 的同步和重建语义。

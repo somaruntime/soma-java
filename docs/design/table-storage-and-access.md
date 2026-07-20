@@ -6,13 +6,21 @@
 
 Owner：SOMA table storage 与 access semantics
 
+设计层次：`D2` 能力设计
+
+主要关注点：Table kind、packed storage、identity、exact access 与候选操作
+
+上位设计：[系统架构](system-architecture.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：table kind、packed storage、identity、exact access、IndexBuffer、Row Pipeline 和 mutation 形状
 
-非事实范围：ownership lifecycle、error envelope、materialization 和具体 hash/sort 实现类
+非事实范围：ownership lifecycle、公开 IndexSnapshot 消费契约、error envelope、materialization 和具体 hash/sort 实现类
 
 最后审查日期：2026-07-20
+
+本 Owner 先定义 Table、identity 与 access 的能力语义，再展开 packed relocation、exact structure 和 candidate scratch 等机制约束。具体 hash/sort 类、数组字段和生成方法是当前实现事实，不在此维护。
 
 ## 1. Table kind
 
@@ -86,7 +94,7 @@ terminal(L3)            -> result/update/remove/materialization
 
 Row Pipeline 是 one-shot、同步、非重入 operation。内部可以使用 small-inline stage plan、fused loop 和 primitive scratch，但不能改变 callback 顺序、failure atomicity 或 public lifecycle 语义。
 
-`IndexSnapshot`只用于把一次operation产生的Index序列复制到紧接着的同步只读消费批次。Caller在该批次内不得修改来源Table；来源Table发生任意mutation/lifecycle变化后必须视为失效。`requireCurrent`可以在测试、调试或边界代码中检查owner、active lifecycle、structural epoch和range，但不能证明非结构field变化后的原filter/order语义。需要跨operation保存引用时使用`@SomaKey`，不能用IndexSnapshot冒充row identity。
+`IndexSnapshot` terminal 可以复制当前候选 Index，但其公开消费契约由 [Schema 与生成 API](schema-and-generated-api.md)唯一拥有；本 Owner 只规定它不复用或暴露内部 `IndexBuffer`。
 
 ## 6. Mutation boundary
 

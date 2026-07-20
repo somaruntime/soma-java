@@ -27,9 +27,18 @@ Owner：SOMA Java 文档过程
 | Report | 拥有某次正式输出/测量/审查结论，不独立发明能力 |
 | Temporary | 承载专题候选设计，不拥有长期事实 |
 
-每份受治理文档至少声明类型、状态、Owner、事实范围和最后审查日期。Implementation Map 还必须声明核对 commit；snapshot Report 声明日期、commit、环境和方法。
+每份受治理文档至少声明类型、状态、Owner、事实范围和最后审查日期。Blueprint 还必须声明设计约束入口；Design 必须声明主要设计层次、主要关注点、上位设计和服务 Blueprint；Implementation Map 必须声明核对 commit；snapshot Report 声明日期、commit、环境和方法。
 
-### 1.1 本项目目录映射
+### 1.1 Design 的两个组织维度
+
+Design 入口必须同时维护：
+
+- 抽象层次：从系统原则、系统结构到能力设计，并由横切质量约束各层；
+- 关注点：为长期语义分配唯一 Owner，避免沿上下层或相邻能力重复定义。
+
+层次不是目录模板，也不要求一层一文件。每份 Design 只声明主要层次；涉及相邻层次时，由上位设计给出方向，下位 Owner 展开语义或机制。项目 Blueprint 必须能够反向追踪到直接约束其目标形态的 Design。
+
+### 1.2 本项目目录映射
 
 | 逻辑分类 | 正式物理入口 |
 |---|---|
@@ -42,6 +51,8 @@ Report只使用上表已登记入口，不创建`docs/reports/`等平行输出�
 ## 2. 唯一 Owner
 
 一个正式事实只在一个文档或外部登记源中定义。其他文档优先链接和摘要，不复制完整规则。发现重复时先确认语义 Owner，再删除或降级副本；不能依靠“两个地方同步更新”维持一致性。
+
+同一事实沿抽象层次出现时，上位 Design 只保留系统方向或不变量，下位 Design 拥有可执行语义与机制约束；若下位内容尚未形成独立责任，则留在现有 Owner 内展开，不为形式拆文档。
 
 精确当前 public/generated/schema/protocol surface 可以由代码、`javap` golden、schema artifact 或 validator 拥有，但必须在 Implementation Map 登记同步规则。Design 仍拥有该 surface 的目标语义与演进边界；“代码是当前事实”不等于“代码自动符合设计”。
 
@@ -92,6 +103,7 @@ promote long-lived facts to Blueprint/Design/Engineering as appropriate
 - 每个 current 文档被唯一入口索引，superseded 文档不出现在 current 导航；
 - relative links 可解析，current/Design/Engineering 不引用 Temporary 作为事实源；
 - Design Owner 无重复，Implementation Map 有对应 Design和实现基线，Report 有受众/输入事实源/适用版本，snapshot Report另有日期/commit/环境/方法；
+- Design 层次值合法、上位关系和 Blueprint 追踪入口存在；Blueprint 有设计约束入口且不承载当前实现盘点、自审或一致性判定栏目；
 - `docs/temp/` 只包含 active topic，topic 有 README、授权边界和退役条件；
 - 历史报告可以链接 superseded input，但必须通过 current index 区分历史与当前结论。
 

@@ -6,6 +6,12 @@
 
 Owner：SOMA compatibility、security 与 release identity
 
+设计层次：`Q` 横切质量
+
+主要关注点：兼容面、信任边界、协议/产品身份与版本演进
+
+上位设计：[设计宪法](soma-java-design-constitution.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：兼容面、协议 identity、输入信任边界、版本与产品身份
@@ -13,6 +19,8 @@ Owner：SOMA compatibility、security 与 release identity
 非事实范围：具体 release 进度、账户/签名配置和某次安全扫描结果
 
 最后审查日期：2026-07-20
+
+本横切 Owner 以“可消费身份如何安全演进”为共同边界：compatibility 分类决定什么可以改变，security 约束输入和协议信任，version/identity 让双方可验证。具体发布进度、账户和签名状态仍由 Engineering 与 Report 拥有。
 
 ## 1. 兼容面
 

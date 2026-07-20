@@ -6,13 +6,19 @@
 
 Owner：SOMA Java 总体设计原则
 
+设计层次：`D0` 系统原则
+
+主要关注点：产品边界、设计优先级与系统级不变量
+
+上位设计：无；直接服务 Blueprint
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：产品边界、设计优先级和所有实现必须遵守的系统级不变量
 
 非事实范围：模块内算法、代码位置、验证结果和 release readiness
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 定位
 
@@ -39,12 +45,13 @@ SOMA Java 是 Java 8 annotation schema 与进程内 columnar runtime state 系�
 
 ### 2.2 存储与 identity
 
-- 所有 live row 都 packed 在 `[0, size)`；
+- 所有 live row 都形成 `[0, size)` 的连续物理集合；
 - keyed table 拥有稳定业务 identity；dense table 不拥有稳定 row identity；
-- Index 只是当前 table state 内的物理位置，删除、replace 或 compaction 后可以变化；
-- keyed 和 dense 删除均使用 swap-remove/tail-fill，不保证物理遍历顺序；
-- `@SomaKey` 是 primary unique identity；`@SomaUnique` 是 secondary exact unique access；`@SomaIndex` 是 secondary non-unique exact access；
-- V1 不提供 range index、maintained order 或读时全表重建的 dirty selector。
+- Index 只是当前 table state 内的物理位置，结构变化后可以改变；物理遍历顺序不是业务契约；
+- primary identity 与 secondary exact access 是不同责任，不能用二级访问路径冒充稳定 identity；
+- 声明的读取能力不得依赖隐藏的全表重建；跨 operation 的持久业务顺序由 application 拥有。
+
+具体 annotation 语义由 [Schema 与生成 API](schema-and-generated-api.md)拥有；packed relocation、exact structure 和显式排序机制由 [Table、存储与访问](table-storage-and-access.md)拥有。
 
 ### 2.3 Ownership 与执行
 
@@ -64,8 +71,8 @@ SOMA Java 是 Java 8 annotation schema 与进程内 columnar runtime state 系�
 ### 2.5 性能形状
 
 - runtime hot storage/path 不得退化为 schema object、DTO、Java Collection graph、reflection、metadata interpreter、Java Stream、boxing tuple 或 per-row polymorphic dispatch；
-- exact access 在 mutation boundary 增量维护，读取不触发全表 sort/rebuild；
-- Row Pipeline stage 只处理当前候选 Index，terminal 不得静默扩展回全表；
+- 声明的 exact access 在 mutation 成功时已经 current，读取不触发全表 rebuild；
+- 候选操作只处理前序阶段产生的候选，terminal 不得静默扩展回全表；
 - steady-state allocation、retained scratch、GC、working-set bytes 和 boundary materialization 必须分别可观察；
 - 性能优化改变语义、API、determinism、ownership、failure 或兼容性前，先修改对应 Design Owner。
 

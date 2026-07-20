@@ -6,11 +6,17 @@
 
 Owner：SOMA ownership 与 lifecycle semantics
 
+设计层次：`D2` 能力设计
+
+主要关注点：Ownership aggregate、borrow/currentness 与资源生命周期
+
+上位设计：[系统架构](system-architecture.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
-事实范围：root/parent/child ownership、aggregate access、epoch、view、operation 和 release
+事实范围：root/parent/child ownership、aggregate access、epoch/currentness、view、operation 和 release
 
-非事实范围：child schema syntax、storage layout、错误文案和 application transaction
+非事实范围：child schema syntax、storage layout、公开 IndexSnapshot 消费契约、错误文案和 application transaction
 
 最后审查日期：2026-07-20
 
@@ -41,14 +47,14 @@ Raw handle、owner token 和 RowSlot 不进入 public error context、DTO 或 ge
 
 ## 4. Structural epoch
 
-Structural change 成功后递增 table structural epoch。Cursor、mutator、pipeline和ColumnView按各自契约强制校验identity/epoch；IndexSnapshot只记录来源与captured epoch，采用caller-responsibility：
+Structural change 成功后递增 table structural epoch。以下 live borrow 或 operation state 按各自契约强制校验 identity/epoch：
 
 - cursor、mutator 和 one-shot pipeline；
 - ColumnView；
 - child facade/handle generation；
 - materialization traversal state。
 
-Caller只在一个同步只读批次内立即消费IndexSnapshot，并在任意来源mutation/lifecycle变化后视为失效。可选`requireCurrent`只检查owner、active lifecycle、structural epoch和range；它不能检测非结构mutation。其余强制borrow/lifecycle stale access必须返回typed failure。Epoch递增必须overflow-safe；无法继续表示时fail closed。
+`IndexSnapshot` 采用 caller-responsibility，不是强制 live borrow；完整公开消费契约由 [Schema 与生成 API](schema-and-generated-api.md)拥有。本 Owner 只定义 currentness 机制：snapshot 记录 source 与 captured structural epoch；可选 `requireCurrent` 检查 owner、active lifecycle、structural epoch 和 range，但不能检测非结构 mutation。其余强制 borrow/lifecycle stale access 必须返回 typed failure。Epoch 递增必须 overflow-safe；无法继续表示时 fail closed。
 
 ## 5. View 与 mutation
 

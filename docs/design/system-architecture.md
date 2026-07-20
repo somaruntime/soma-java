@@ -6,13 +6,19 @@
 
 Owner：SOMA Java 系统架构
 
+设计层次：`D1` 系统结构
+
+主要关注点：模块边界、编译/运行时分层与依赖方向
+
+上位设计：[设计宪法](soma-java-design-constitution.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：模块职责、编译链、运行时分层、依赖方向和公共边界
 
 非事实范围：schema 字段语义、runtime 具体算法、代码位置和构建过程
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 总体数据流
 

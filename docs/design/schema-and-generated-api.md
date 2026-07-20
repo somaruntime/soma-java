@@ -6,13 +6,21 @@
 
 Owner：SOMA schema 与 generated contract
 
+设计层次：`D2` 能力设计
+
+主要关注点：Schema 语言、编译期契约与 schema-specific generated API
+
+上位设计：[系统架构](system-architecture.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
-事实范围：annotation/schema 语义、compiler/codegen 技术路线、normalization/hash、编译期诊断和 generated facade 语义
+事实范围：annotation/schema 语义、compiler/codegen 技术路线、normalization/hash、编译期诊断、generated facade 语义和公开 IndexSnapshot 消费契约
 
 非事实范围：runtime 存储算法、具体 generator 类结构和 measured performance
 
 最后审查日期：2026-07-20
+
+本 Owner 先定义 schema 与 generated public capability 的长期语义，再约束实现这些语义所必需的 compiler/codegen 机制。当前 generator 类、精确 signature 和 emission 结构不属于本 Design，由 Implementation Map 与 executable surface 记录。
 
 ## 1. Schema vocabulary
 

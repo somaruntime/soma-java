@@ -6,6 +6,12 @@
 
 Owner：SOMA detached materialization semantics
 
+设计层次：`D2` 能力设计
+
+主要关注点：Detached object graph、预算、递归投影与导出边界
+
+上位设计：[系统架构](system-architecture.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：materialized object graph、预算、递归 ownership traversal、allocation admission 和导出边界

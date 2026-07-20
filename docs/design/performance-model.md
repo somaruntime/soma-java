@@ -6,6 +6,12 @@
 
 Owner：SOMA 跨模块性能设计
 
+设计层次：`Q` 横切质量
+
+主要关注点：Hot-path 成本模型、优化约束与性能证据
+
+上位设计：[设计宪法](soma-java-design-constitution.md)
+
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
 事实范围：性能北极星、成本分解、hot-path 约束、优化决策和 evidence 义务

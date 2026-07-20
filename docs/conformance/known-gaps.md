@@ -35,6 +35,7 @@ Owner：SOMA Java 一致性审查
 | public row-index list | 已由 caller-responsibility `IndexSnapshot` + internal `IndexBuffer` 取代 | snapshot只在同步只读批次立即消费；跨operation使用`@SomaKey`，不把内部scratch或Index冒充stable identity |
 | FJSP machine selection | 已由application-owned indexed min-heap关闭 | Table继续拥有machine事实；heap只保存MachineId/slot，不把SOMA Index作为长期identity |
 | `CF-007` 文档候选完整性 | 已关闭 | 32份旧Owner已按迁移审计处置；正式入口、checker与Report已切换，Temporary已删除 |
+| `CF-008` 文档抽象层次与职责混合 | 已关闭 | Design 已建立 `D0/D1/D2/Q`、上位设计和场景追踪；Blueprint 不再承载当前实现盘点、自审或一致性结论；checker 防止结构回退 |
 
 ## 3. 不构成差距的观察
 
