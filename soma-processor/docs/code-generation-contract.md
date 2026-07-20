@@ -88,7 +88,8 @@ Generated batch 是 construction/import boundary。
 - batch builder 不直接写 table；
 - batch 可以估算 row count；
 - table `addBatch` 可根据 batch size reserve；
-- table `reserve(expected)` 静态计算columns、primary locator和每个exact index的proposed retained bytes，先执行combined preflight，再调用generated-runtime protocol预留全部structure；
+- table `reserve(expected)` 静态计算columns、primary locator和每个exact index row-link envelope的proposed retained bytes，先执行combined preflight；尚不存在的selector value不被当成distinct group预留；
+- `addBatch`在任何可见mutation前生成primitive detached group-count pass，分别计算每个selector相对current index的新增group数，再执行selector-specific capacity preflight；`replaceAll`按batch真实distinct-group cardinality生成fresh index；
 - child table import 使用 detached/unattached child batch；batch 不接受 live ChildTable facade/handle，lookup data 也不应默认建成 child table；
 - batch 不承担 key uniqueness 的最终事实，table import 时仍需 runtime `KeySpace` / `AccessStructures` validation。
 
@@ -196,6 +197,7 @@ V1 codegen 必须把 normalized selector 转换成稳定的 generated source met
 - 命名冲突或 ambiguous overload 必须在 processor validation 阶段失败，不能生成不可编译代码；
 - grouped source 只选择 terminal 初始 `RowSequence`，后续仍使用同一套 `filter` / `sorted` / `limit` / terminal API；
 - terminal开始时以canonical hash定位group，hash collision后执行generated full equality；沿primitive row link零复制遍历，读取不允许dirty rebuild/full-scan fallback；
+- generated create/reserve不把table row capacity解释为group cardinality；append group-count scratch必须纳入bulk resource admission，失败时不得发布partial columns、locator或links；
 - group内枚举顺序不作承诺，swap-remove/update后可以改变。
 
 Grouped source 必须由 processor golden 覆盖至少以下形状：

@@ -16,7 +16,7 @@ Runtime core 使用 `TableStore` 组合模型承载 generated table 的 runtime 
 
 Generated source 与 runtime-core 的跨 package binding 位于 `com.hgtech.soma.runtime.generated`，分类为 generated-runtime protocol，不是 application API/SPI。它可以公开最窄的 typed RowSpace/column/presence/lifecycle primitive供 generated package绑定，但 generated facade public signature不得泄漏这些 type。`com.hgtech.soma.runtime.internal` 继续只承载 runtime artifact内部实现。
 
-当前v3 protocol type set固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation与hash primary-locator estimator）、`RuntimeFailures`、`KeyCanonicalization`、`GeneratedColumn` + `ColumnGroup`、`DenseTableState`、primitive/object columns、`PresenceBitmap`、`MaterializationTracker`、`MaterializationAllocation`、`ChildOwnershipRegistry`、`OwnedChildTable`、`IndexBuffer`、`GroupedExactIndex`、`IntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。V3删除`SparseIntKeySpace`与`RowPermutationSidecar`。`MaterializationAllocation`是materialization boundary的scoped controlled allocation admission protocol，不进入row/storage hot path。`StorageBudget`、column retained-byte accounting和cascade scratch counters是runtime package-private实现，不是generated/public protocol。Concrete column/locator/index提供typed lookup/update；generic staging只发生在growth/bulk boundary，hot loop由generated code持有concrete/static protocol。
+当前v3 protocol type set固化为：`GeneratedMetadata`、`RuntimeCompatibility`（create-time identity validation与hash primary-locator estimator）、`RuntimeFailures`、`KeyCanonicalization`、`GeneratedColumn` + `ColumnGroup`、`DenseTableState`、primitive/object columns、`PresenceBitmap`、`MaterializationTracker`、`MaterializationAllocation`、`ChildOwnershipRegistry`、`OwnedChildTable`、`IndexBuffer`、`ExactGroupCounter`、`GroupedExactIndex`、`IntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace` 和 `HashCompositeKeySpace`。V3删除`SparseIntKeySpace`与`RowPermutationSidecar`。`ExactGroupCounter`只在bulk mutation preflight中保存hash与representative batch Index，不进入table retained access structure或read path。`MaterializationAllocation`是materialization boundary的scoped controlled allocation admission protocol，不进入row/storage hot path。`StorageBudget`、column retained-byte accounting和cascade scratch counters是runtime package-private实现，不是generated/public protocol。Concrete column/locator/index提供typed lookup/update；generic staging只发生在growth/bulk boundary，hot loop由generated code持有concrete/static protocol。
 
 Exact current protocol matrix（Phase 1 + Phase 2 + Phase 3 access structures，全部位于 `com.hgtech.soma.runtime.generated`）：
 
@@ -114,6 +114,11 @@ HashIntKeySpace / HashLongKeySpace / HashCompositeKeySpace
   allocationBytesDuringEnsureAdditional(int)/ensureAdditionalCapacity(int)/releaseStorage()
 PresenceBitmap.wordAt(int wordIndex) -> long
 IndexBuffer.ensureCapacity(int)/array()/reset()/retainedBytes()/release() -> primitive scratch lifecycle
+ExactGroupCounter(int maximumGroups)
+ExactGroupCounter.estimatedRetainedBytes(int)/retainedBytes() -> long
+ExactGroupCounter.firstGroup(long)/nextHashGroup(int)/representativeRow(int)/createGroup(long,int)/groupCount() -> int
+ExactGroupCounter.release() -> void
+GroupedExactIndex(int expectedRows, int expectedGroups)
 GroupedExactIndex.ensureCapacity(int rowCapacity, int additionalGroups) -> void
 GroupedExactIndex.firstGroup(long hash)/nextHashGroup(int group)/representativeRow(int group) -> int
 GroupedExactIndex.createGroup(long hash)/link(int group, int row)/unlink(int row)/relocate(int from, int to) -> void
@@ -309,6 +314,8 @@ Generated code拥有selector hash与full canonical equality；runtime只拥有pr
 - replaceAll/create可以在未发布fresh structure中bulk build；
 - read path不存在dirty/full rebuild/full-scan fallback；
 - hash collision通过same-hash group chain与representative-row full equality区分；
+- row-link容量与distinct-group/bucket容量独立；initial capacity和`reserve(expected)`只扩大row-link envelope，不假定一行一group；
+- `addBatch`在publish前用primitive detached scratch计算每个selector的batch distinct groups及相对current index的新增groups，再分别preflight/grow；`replaceAll`按batch真实distinct cardinality fresh build；
 - group内枚举顺序不作承诺；
 - update先验证整次terminal的final-state uniqueness，允许合法value swap，再统一publish；
 - mutation成功返回时所有structures已经current，expected failure保留旧facts。
@@ -335,10 +342,10 @@ Dense与keyed table删除都不保证物理顺序。单row删除把最后一个s
 
 规则：
 
-- loader 应先估算 capacity，再 reserve；generated reserve同时覆盖columns、primary locator与exact indexes，而不是只增长column arrays；
-- addBatch 按 batch size 扩容和写入；
+- loader 应先估算 capacity，再 reserve；generated reserve同时覆盖columns、primary locator与exact-index row links，但不为尚未出现的selector value虚构group；
+- addBatch 按 batch size 扩容和写入，并在可见mutation前精确计算各selector新增group cardinality；
 - replaceAll 尽量复用 capacity，是 dense table 刷新矩阵行、packed data 和 solver workspace 的主要边界；
-- primary locator与exact index在detached staged state中统一build/validate，并随batch facts原子publish；
+- replaceAll的primary locator与exact index在detached staged state中统一build/validate，并按真实group cardinality随batch facts原子publish；
 - per-row append 不是默认 import 路径；
 - deterministic memory limit 和可控 allocator/provider failure 必须映射为可区分错误；raw `OutOfMemoryError` 原样传播，capacity/column staging 保证 publish 前旧 stable state 仍满足 invariant。
 

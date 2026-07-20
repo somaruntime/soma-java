@@ -165,6 +165,19 @@ public final class com.hgtech.soma.runtime.generated.DoubleColumn extends com.hg
   public void commitCapacity(java.lang.Object);
   public void clearRange(int, int);
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ExactGroupCounter
+Compiled from "ExactGroupCounter.java"
+public final class com.hgtech.soma.runtime.generated.ExactGroupCounter {
+  public com.hgtech.soma.runtime.generated.ExactGroupCounter(int);
+  public static long estimatedRetainedBytes(int);
+  public int groupCount();
+  public int firstGroup(long);
+  public int nextHashGroup(int);
+  public int representativeRow(int);
+  public int createGroup(long, int);
+  public long retainedBytes();
+  public void release();
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.FloatColumn
 Compiled from "FloatColumn.java"
 public final class com.hgtech.soma.runtime.generated.FloatColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
@@ -200,6 +213,7 @@ public final class com.hgtech.soma.runtime.generated.GeneratedMetadata {
 Compiled from "GroupedExactIndex.java"
 public final class com.hgtech.soma.runtime.generated.GroupedExactIndex {
   public com.hgtech.soma.runtime.generated.GroupedExactIndex(int);
+  public com.hgtech.soma.runtime.generated.GroupedExactIndex(int, int);
   public static long estimatedRetainedBytes(int, int);
   public int entryCount();
   public int groupCount();

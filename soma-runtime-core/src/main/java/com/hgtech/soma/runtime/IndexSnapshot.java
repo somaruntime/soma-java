@@ -15,11 +15,23 @@ public final class IndexSnapshot {
     private final Object ownerToken;
     private final long structuralEpoch;
     private final int[] indexes;
+    private final int singleIndex;
+    private final int size;
 
     IndexSnapshot(Object ownerToken, long structuralEpoch, int[] indexes) {
         this.ownerToken = ownerToken;
         this.structuralEpoch = structuralEpoch;
         this.indexes = indexes;
+        this.singleIndex = 0;
+        this.size = indexes.length;
+    }
+
+    IndexSnapshot(Object ownerToken, long structuralEpoch, int singleIndex) {
+        this.ownerToken = ownerToken;
+        this.structuralEpoch = structuralEpoch;
+        this.indexes = null;
+        this.singleIndex = singleIndex;
+        this.size = 1;
     }
 
     Object ownerToken() {
@@ -31,17 +43,19 @@ public final class IndexSnapshot {
     }
 
     public int size() {
-        return indexes.length;
+        return size;
     }
 
     public int indexAt(int position) {
-        if (position < 0 || position >= indexes.length) {
+        if (position < 0 || position >= size) {
             throw new IndexOutOfBoundsException("snapshot position out of range");
         }
-        return indexes[position];
+        return size == 1 ? singleIndex : indexes[position];
     }
 
     public int[] toArray() {
-        return Arrays.copyOf(indexes, indexes.length);
+        return size == 1
+                ? new int[] {singleIndex}
+                : Arrays.copyOf(indexes, size);
     }
 }

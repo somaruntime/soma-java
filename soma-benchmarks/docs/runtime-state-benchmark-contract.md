@@ -4,7 +4,7 @@
 Owner：`soma-benchmarks`
 事实范围：runtime implementation shape、FJSP、VRP、Simulation、Game、child locality 和 deep-materialization benchmark lanes
 非事实范围：evidence level/artifact、public API/schema/runtime contract 和性能结果
-最后审查日期：2026-07-17
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -19,9 +19,9 @@ Scenario benchmark 之前必须有 component-level shape evidence，避免把实
 | Lane | 必须比较 | 主要证据 |
 |---|---|---|
 | `kernel.packed_scan` | Row Pipeline、Column path、handwritten primitive array | packed rows、touched columns/bytes、rows/s、allocation/op |
-| `kernel.pipeline_fusion` | fused terminal 与显式 intermediate baseline | traversal count、Cursor count、intermediate allocation、short-circuit |
+| `kernel.pipeline_fusion` | fused terminal 与显式 intermediate baseline；exact source的count/filter/sorted + `IndexSnapshot`/materialization子lane | traversal count、Cursor count、intermediate allocation、snapshot copy、materialization、short-circuit |
 | `kernel.keyspace` | full-int/long/composite Hash KeySpace 与同语义 primitive baseline | load factor、probe/collision、rehash、missing、allocation |
-| `kernel.exact_index` | incremental append/update/remove、collision equality、mutation/read storm | entry/group、probe/collision/rehash、no-read-rebuild、retained/high-water bytes |
+| `kernel.exact_index` | incremental append/update/remove、collision equality、mutation/read storm；rows与distinct groups独立变化的cardinality matrix | entry/group、probe/collision/rehash、no-read-rebuild、row-link与group/bucket retained/high-water bytes |
 | `kernel.compaction` | single/batch swap-remove、clear reuse | moved rows、locator/exact-link repair、scratch、retained capacity |
 | `kernel.stats_overhead` | summary-only 与 diagnostic mode | time/allocation delta、counter/histogram cost |
 

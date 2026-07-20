@@ -1,6 +1,7 @@
 package com.hgtech.soma.runtime;
 
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
+import com.hgtech.soma.runtime.generated.ExactGroupCounter;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,13 +15,43 @@ public final class GroupedExactIndexCheck {
     }
 
     public static void main(String[] args) {
+        testExactGroupCounter();
         testCapacityLifecycleAndFailureBoundaries();
         testSameHashFullEqualityChain();
         testRandomizedAppendRegroupSwapRemoveAndReuse();
         System.out.println("grouped-exact-index-test: ok");
     }
 
+    private static void testExactGroupCounter() {
+        ExactGroupCounter counter = new ExactGroupCounter(8);
+        assertEquals(ExactGroupCounter.estimatedRetainedBytes(8),
+                counter.retainedBytes(), "group-counter retained bytes");
+        int first = counter.createGroup(7L, 1);
+        int collision = counter.createGroup(7L, 3);
+        counter.createGroup(9L, 5);
+        assertEquals(collision, counter.firstGroup(7L), "counter hash-chain head");
+        assertEquals(first, counter.nextHashGroup(collision), "counter same-hash traversal");
+        assertEquals(3, counter.representativeRow(collision),
+                "counter representative row");
+        assertEquals(3, counter.groupCount(), "counter group count");
+        counter.release();
+        assertEquals(0L, counter.retainedBytes(), "counter release");
+        expectIllegalState(new Action() {
+            @Override public void run() { new ExactGroupCounter(0).createGroup(1L, 0); }
+        }, "counter capacity boundary");
+    }
+
     private static void testCapacityLifecycleAndFailureBoundaries() {
+        GroupedExactIndex cardinalityAware = new GroupedExactIndex(64, 2);
+        assertEquals(GroupedExactIndex.estimatedRetainedBytes(64, 2),
+                cardinalityAware.retainedBytes(), "cardinality-aware construction");
+        cardinalityAware.ensureCapacity(64, 6);
+        for (int group = 0; group < 6; group++) {
+            cardinalityAware.createGroup(group);
+        }
+        assertEquals(6, cardinalityAware.groupCount(), "prepared exact groups");
+        cardinalityAware.release();
+
         final GroupedExactIndex index = new GroupedExactIndex(0);
         assertEquals(GroupedExactIndex.estimatedRetainedBytes(0, 0),
                 index.retainedBytes(), "empty retained-byte estimate");

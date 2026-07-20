@@ -14,6 +14,9 @@ public final class GroupedExactIndex {
     private static final byte FREE = 0;
     private static final byte LIVE = 1;
     private static final int MAX_CAPACITY = 1 << 30;
+    private static final int[] EMPTY_INTS = new int[0];
+    private static final long[] EMPTY_LONGS = new long[0];
+    private static final byte[] EMPTY_BYTES = new byte[0];
 
     private int[] bucketHeads;
     private long[] groupHashes;
@@ -36,12 +39,19 @@ public final class GroupedExactIndex {
     private long storageHighWaterBytes;
 
     public GroupedExactIndex(int expectedRows) {
-        if (expectedRows < 0) {
-            throw new IllegalArgumentException("expectedRows must be non-negative");
+        this(expectedRows, expectedRows);
+    }
+
+    /**
+     * 分别建立row-link storage与预期exact-group容量，避免把table capacity解释为一行一group。
+     */
+    public GroupedExactIndex(int expectedRows, int expectedGroups) {
+        if (expectedRows < 0 || expectedGroups < 0 || expectedGroups > expectedRows) {
+            throw new IllegalArgumentException("invalid expected exact-index capacity");
         }
         int rowCapacity = expectedRows;
-        int groupCapacity = expectedRows == 0 ? 4 : expectedRows;
-        int bucketCapacity = bucketCapacityFor(expectedRows);
+        int groupCapacity = expectedGroups == 0 ? 4 : expectedGroups;
+        int bucketCapacity = bucketCapacityFor(expectedGroups);
         bucketHeads = new int[bucketCapacity];
         groupHashes = new long[groupCapacity];
         nextHashGroups = new int[groupCapacity];
@@ -351,15 +361,15 @@ public final class GroupedExactIndex {
     }
 
     public void release() {
-        bucketHeads = new int[0];
-        groupHashes = new long[0];
-        nextHashGroups = new int[0];
-        groupHeadRows = new int[0];
-        groupSizes = new int[0];
-        groupStates = new byte[0];
-        rowGroups = new int[0];
-        rowPrevious = new int[0];
-        rowNext = new int[0];
+        bucketHeads = EMPTY_INTS;
+        groupHashes = EMPTY_LONGS;
+        nextHashGroups = EMPTY_INTS;
+        groupHeadRows = EMPTY_INTS;
+        groupSizes = EMPTY_INTS;
+        groupStates = EMPTY_BYTES;
+        rowGroups = EMPTY_INTS;
+        rowPrevious = EMPTY_INTS;
+        rowNext = EMPTY_INTS;
         groupCount = 0;
         entryCount = 0;
         nextGroupSlot = 0;
@@ -383,8 +393,10 @@ public final class GroupedExactIndex {
         if (requiredGroupSlots > Integer.MAX_VALUE - 8L) {
             throw new IllegalArgumentException("exact-index group capacity exhausted");
         }
-        return grownCapacity(
-                groupHashes.length, (int) requiredGroupSlots, true);
+        if (nextGroupSlot == 0 && requiredGroupSlots > groupHashes.length) {
+            return Math.max(4, (int) requiredGroupSlots);
+        }
+        return grownCapacity(groupHashes.length, (int) requiredGroupSlots, true);
     }
 
     private int targetBucketCapacity(int additionalGroups) {

@@ -7,6 +7,8 @@ import java.util.Arrays;
  * This helper does not turn a detached index sequence into a stable row snapshot.
  */
 public final class IndexSnapshots {
+    private static final int[] EMPTY = new int[0];
+
     private IndexSnapshots() {
     }
 
@@ -20,8 +22,13 @@ public final class IndexSnapshots {
         if (structuralEpoch < 0L || length < 0 || length > indexes.length) {
             throw new IllegalArgumentException("invalid index snapshot");
         }
-        return new IndexSnapshot(
-                ownerToken, structuralEpoch, Arrays.copyOf(indexes, length));
+        if (length == 0) {
+            return new IndexSnapshot(ownerToken, structuralEpoch, EMPTY);
+        }
+        if (length == 1) {
+            return new IndexSnapshot(ownerToken, structuralEpoch, indexes[0]);
+        }
+        return new IndexSnapshot(ownerToken, structuralEpoch, Arrays.copyOf(indexes, length));
     }
 
     public static boolean isOwnedBy(IndexSnapshot snapshot, Object ownerToken) {

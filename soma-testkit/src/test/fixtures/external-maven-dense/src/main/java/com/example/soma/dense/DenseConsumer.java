@@ -166,6 +166,19 @@ public final class DenseConsumer {
         indexes[0] = -1;
         require(indexSnapshot.indexAt(0) == 2,
                 "IndexSnapshot owns a defensive detached copy");
+        IndexSnapshot singleSnapshot = table.limit(1).rowIndexes();
+        int[] singleIndexes = singleSnapshot.toArray();
+        singleIndexes[0] = -1;
+        require(singleSnapshot.size() == 1 && singleSnapshot.indexAt(0) == 0,
+                "single IndexSnapshot keeps detached-copy semantics");
+        IndexSnapshot emptySnapshot = table.filter(new ParticleRows.Predicate() {
+            @Override
+            public boolean test(ParticleRow row) {
+                return false;
+            }
+        }).rowIndexes();
+        require(emptySnapshot.size() == 0 && emptySnapshot.toArray().length == 0,
+                "empty IndexSnapshot remains detached");
         table.requireCurrent(indexSnapshot);
         final ParticleTable otherTable = ParticleTable.create();
         expectCode("index_snapshot_wrong_table", new Action() {

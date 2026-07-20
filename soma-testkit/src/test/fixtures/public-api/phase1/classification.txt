@@ -9,6 +9,7 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ChildOwnershipRegistr
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ColumnGroup
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DenseTableState
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.DoubleColumn
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.ExactGroupCounter
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.FloatColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedMetadata

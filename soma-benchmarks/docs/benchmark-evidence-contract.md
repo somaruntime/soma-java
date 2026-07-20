@@ -4,7 +4,7 @@
 Owner：`soma-benchmarks`
 事实范围：evidence level、通用度量边界、artifact、claim 和设计反推条件
 非事实范围：具体 runtime-state scenario lanes、API/schema/runtime contract 和性能结果
-最后审查日期：2026-07-17
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -160,6 +160,8 @@ Runner CLI固定支持`--output`、`--commit`、`--scale`、`--rows`、`--seed`�
 `soma-smoke-measurement-allocation-v2`只估算measurement window内由lane显式创建或由SOMA runtime/generated path确定性创建的primitive/reference array payload、retained scratch/KeySpace replacement payload，以及成功发布的detached materialization estimator bytes；setup input/baseline、JVM object header、JIT/GC、callback/lambda carrier和失败后未发布的JVM incidental allocation不计入。每个lane必须把measurement内可确定的scratch/capacity growth纳入，不能只报告materialization；record仍以`exactJvmHeap=false`明确该数字不是heap profiler结果。
 
 setup 已持有的 table/KeySpace/exact-index payload只进入working-set gauge，不得回填为measurement allocation。measurement 内的append-validation KeySpace、main KeySpace/table capacity growth、operation/update/`IndexBuffer` scratch与exact-index growth必须分别按实际分配容量记录，再汇总为lane allocation；final retained capacity不能代替allocation event。
+
+Packed/exact cutover后的component diagnostic另以`soma-post-cutover-component-v1` JSONL记录：exact-source `count`、`filter`、`sorted + IndexSnapshot`、`sorted + materialization`的current-thread allocation，以及`rows × distinct groups`矩阵中的row-worst-case/cardinality-aware primitive array payload。该artifact必须由独立validator复读，记录JDK/JVM/OS/architecture/commit、warmup/iterations、allocation method、GC、estimator、limitations与`claimAllowed=false`；它用于内部优化裁决，不替代smoke v4 manifest或claim-grade evidence。
 
 V1 smoke exact required manifest固定为G5 §9的20条最小integrated workload：3条optional density、packed primitive baseline、generated Row Pipeline fusion、full-domain Hash KeySpace load/collision/rehash、generated normal/collision full-equality lookup、reserve/growth batch import、generated exact-index incremental lookup、generated keyed frontier lifecycle、generated dense replace/explicit-sort terminals、ColumnView lifecycle、parent-local child versus flat、generated recursive materialization、generated五维实际用量limit成功/limit-1 typed failure及allocation/no-partial/recovery、swap-remove/capacity reuse、exact-index mutation/lookup no-rebuild storm、summary/diagnostic operation overhead。每个lane-specific nested object必须由checked-in JSON schema的exact object/oneOf contract与Java validator的lane binding共同校验required/type/range/const，任意非空object不能冒充evidence。`runtime-state-benchmark-contract.md`中的领域diagnostic lanes仍是可测问题目录，不得用同一个generic kernel换名冒充已执行，也不自动进入本exact smoke manifest。
 

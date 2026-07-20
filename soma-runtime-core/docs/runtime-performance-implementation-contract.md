@@ -4,7 +4,7 @@
 Owner：`soma-runtime-core`
 事实范围：packed/primitive/fused/allocation-bounded runtime kernel、capacity/scratch、primary locator/exact index和stats overhead
 非事实范围：跨模块性能模型、public API、benchmark scenario/结果和具体永久阈值
-最后审查日期：2026-07-10
+最后审查日期：2026-07-20
 
 ## 1. 目标
 
@@ -159,12 +159,15 @@ row -> group / prev / next
 - same-hash unequal selector通过group chain区分；
 - nonunique group允许0..N rows，unique group最多1 row；
 - group与row-link capacity独立checked growth，storage current/high-water可观察；
+- row capacity、group capacity与bucket capacity不得互相冒充：table initial capacity和`reserve(expected)`只预留row-link envelope，不得默认推导为`expected`个distinct groups；
+- `addBatch`在可见mutation前使用primitive detached分组精确计算每个selector相对current table的新增group数，再做selector-specific capacity preflight；该临时分组属于bulk scratch，不进入steady-state read path；
+- `replaceAll`先得到batch真实distinct-group cardinality，再按该基数构建detached fresh index；不得因最坏cardinality直接长期保留`rows`个group slots；
 - capacity target使用primitive arithmetic计算；capacity充足的steady-state preflight不创建临时descriptor对象；
 - group内row顺序不作公共承诺。
 
 ### 8.2 Eager incremental maintenance
 
-- append在发布row前完成capacity/uniqueness preflight，发布facts后link；
+- append在发布row前完成uniqueness、真实新增group计数与selector-specific capacity preflight，发布facts后link；计数或扩容失败不得暴露partial row/index state；
 - update先对整次terminal final state执行unique validation，再unlink old、publish fields、link new；合法value swap必须成功；
 - selector全部来自immutable `@SomaKey` leaves时，generated update/mutator不执行无效的capacity preflight、unlink或relink；mixed selector只维护实际可变的selector；
 - remove先unlink removed row；tail-fill move使用`relocate(from,to)`修复per-row links；
@@ -179,7 +182,7 @@ Probe、collision、rehash、entry/group count与storage按[Runtime errors与dia
 - table/child initial capacity 是 hint，不是 max size；
 - growth 使用 overflow-safe geometric 或 evidence-backed equivalent policy，具体 factor 属于 runtime plan；
 - columns、bitmap、RowSpace 和 required locator structures 必须以一致的新 capacity stage；
-- `reserve(expected)` 对columns、primary locator与exact indexes做combined preflight并预留到同一expected row envelope，避免同一import中重复growth；expected resource failure发生在任何capacity publish前；
+- `reserve(expected)` 对columns、primary locator与exact-index row links做combined preflight并预留到同一expected row envelope；尚不存在的selector value不预留虚构group/bucket，实际group容量在`addBatch`精确计数后预检；expected resource failure发生在任何capacity publish前；
 - resize 的旧/新 arrays 瞬时共存必须进入 allocation/memory estimate；
 - `clear()` 默认复用 capacity，不在普通 hot path 自动 shrink；
 - object/reference column 在 remove/clear/replacement 后必须清除不再 live 的引用；

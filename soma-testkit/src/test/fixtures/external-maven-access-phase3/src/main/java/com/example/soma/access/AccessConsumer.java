@@ -296,10 +296,12 @@ public final class AccessConsumer {
                         && visitTable.statsSnapshot().keySpaceRehashCount()
                                 == reservedKeyRehashes
                         && visitTable.statsSnapshot().exactIndexStorageCurrentBytes()
-                                == reservedExactBytes
+                                > reservedExactBytes
                         && visitTable.statsSnapshot().exactIndexRehashCount()
-                                == reservedExactRehashes,
-                "reserved import does not regrow locator or exact-index arrays");
+                                > reservedExactRehashes
+                        && visitTable.statsSnapshot().exactIndexEntryCount() == 3L
+                        && visitTable.statsSnapshot().exactIndexGroupCount() == 2L,
+                "reserve covers row links while append admits actual exact groups");
         require(visitTable.findRowIndex(routeOne.value, 1) >= 0
                         && visitTable.findRowIndex(routeOne.value, 99) == -1,
                 "flattened composite key locator avoids key carrier materialization");

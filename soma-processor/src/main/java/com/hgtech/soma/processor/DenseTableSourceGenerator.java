@@ -862,12 +862,12 @@ final class DenseTableSourceGenerator {
         if (!table.selectors.isEmpty()) {
             out.append("    long estimatedExactIndexBytes=0L;");
             for (int i = 0; i < table.selectors.size(); i++) {
-                out.append("estimatedExactIndexBytes=addExactMetric(estimatedExactIndexBytes,GroupedExactIndex.estimatedRetainedBytes(tablePlan.initialCapacity(),tablePlan.initialCapacity()));");
+                out.append("estimatedExactIndexBytes=addExactMetric(estimatedExactIndexBytes,GroupedExactIndex.estimatedRetainedBytes(tablePlan.initialCapacity(),0));");
             }
             out.append("state.preflightExactIndexStorage(estimatedExactIndexBytes,\"table.create\");try{");
             for (int i = 0; i < table.selectors.size(); i++) {
                 out.append("selector").append(i)
-                        .append("Index=new GroupedExactIndex(tablePlan.initialCapacity());");
+                        .append("Index=new GroupedExactIndex(tablePlan.initialCapacity(),0);");
             }
             out.append("long actualExactIndexBytes=exactIndexRetainedBytes();if(actualExactIndexBytes!=estimatedExactIndexBytes)throw RuntimeFailures.internalInvariant(\"exact_index_estimator\",TABLE,\"table.create\");state.commitExactIndexStorage(0L,actualExactIndexBytes,\"table.create\");}catch(RuntimeException failure){");
             for (int i = 0; i < table.selectors.size(); i++) {
@@ -899,21 +899,21 @@ final class DenseTableSourceGenerator {
                 .append(table.keyed()
                         ? "keySpace.retainedBytesAfterEnsureAdditional(additional)"
                         : "0L")
-                .append(",proposedExactIndexes=exactIndexRetainedBytesAfterEnsure(required,additional);state.preflightReserve(expectedCapacity,proposedKeySpace,proposedExactIndexes);")
+                .append(",proposedExactIndexes=exactIndexRetainedBytesAfterEnsure(required,0);state.preflightReserve(expectedCapacity,proposedKeySpace,proposedExactIndexes);")
                 .append(table.keyed()
                         ? "ensureAppendKeyCapacity(additional,\"reserve\");"
                         : "")
-                .append("ensureExactIndexCapacity(required,additional,\"reserve\");state.commitReserve(expectedCapacity);}\n\n");
+                .append("ensureExactIndexCapacity(required,0,\"reserve\");state.commitReserve(expectedCapacity);}\n\n");
         if (table.children.isEmpty() && table.keyed()) {
             String keySpaceType = table.keyField().keySpaceType();
             out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"addBatch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;")
-                    .append("validateSelectorAppend(batch);validateUniqueAppend(batch);validateAppendKeys(batch);ensureAppendKeyCapacity(count,\"addBatch\");ensureExactIndexCapacity(size()+count,count,\"addBatch\");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count);}catch(RuntimeException failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);throw failure;}catch(Error failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);throw failure;}}\n")
+                    .append("validateSelectorAppend(batch);validateUniqueAppend(batch);validateAppendKeys(batch);ensureAppendKeyCapacity(count,\"addBatch\");ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count);}catch(RuntimeException failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);throw failure;}catch(Error failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);throw failure;}}\n")
                     .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"replaceAll\");state.prepareReplace(0);")
                     .append("validateSelectorReplacement(batch);validateUniqueReplacement(batch);").append(keySpaceType).append(" staged=stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);publishKeySpace(staged,\"replaceAll\");staged=null;stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}catch(Error failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}}\n")
                     .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();clearColumns(0,previous);keySpace.clear();clearExactIndexes();state.commitClear(previous);}\n")
                     .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);keySpace.releaseStorage();releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}\n\n");
         } else if (table.children.isEmpty()) {
-            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"addBatch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;validateSelectorAppend(batch);validateUniqueAppend(batch);ensureExactIndexCapacity(size()+count,count,\"addBatch\");int start=state.prepareAppend(count);copyBatch(batch,0,start,count);linkExactIndexRows(start,count);state.commitAppend(start,count);}\n")
+            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"addBatch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;validateSelectorAppend(batch);validateUniqueAppend(batch);ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");int start=state.prepareAppend(count);copyBatch(batch,0,start,count);linkExactIndexRows(start,count);state.commitAppend(start,count);}\n")
                     .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"replaceAll\");state.prepareReplace(0);int count=batch.size();validateSelectorReplacement(batch);validateUniqueReplacement(batch);ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");try{state.preflightReplaceStorage(count,0L,stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}catch(Error failure){if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}}\n")
                     .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();clearColumns(0,previous);clearExactIndexes();state.commitClear(previous);}\n")
                     .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}\n\n");
@@ -1270,7 +1270,7 @@ final class DenseTableSourceGenerator {
                 .append(validateAppendKeys)
                 .append("ChildStage staged=stageChildren(batch,\"addBatch\");int start=-1;boolean keysAppended=false;try{")
                 .append(prepareAppendKeys)
-                .append("ensureExactIndexCapacity(size()+count,count,\"addBatch\");start=state.prepareAppend(count);copyBatch(batch,0,start,count);copyChildStage(batch,staged,start,count);")
+                .append("ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");start=state.prepareAppend(count);copyBatch(batch,0,start,count);copyChildStage(batch,staged,start,count);")
                 .append(appendKeys)
                 .append("linkExactIndexRows(start,count);state.commitAppend(start,count);staged.publish();}catch(RuntimeException failure){")
                 .append(rollbackAppendKeys)
@@ -1784,17 +1784,40 @@ final class DenseTableSourceGenerator {
             out.append("selector").append(i).append("Index.release();");
         }
         out.append("state.commitExactIndexStorage(previous,0L,operation);}\n")
-                .append("  private void ensureExactIndexCapacity(int requiredRows,int additionalGroups,String operation){long previous=exactIndexRetainedBytes(),proposed=0L;");
+                .append("  private void ensureExactIndexCapacity(int requiredRows,int additionalGroups,String operation){ensureExactIndexCapacities(requiredRows,operation");
+        for (int i = 0; i < table.selectors.size(); i++) {
+            out.append(",additionalGroups");
+        }
+        out.append(");}\n  private void ensureExactIndexCapacities(int requiredRows,String operation");
+        for (int i = 0; i < table.selectors.size(); i++) {
+            out.append(",int additional").append(i);
+        }
+        out.append("){long previous=exactIndexRetainedBytes(),proposed=0L;");
         for (int i = 0; i < table.selectors.size(); i++) {
             out.append("proposed=addExactMetric(proposed,selector").append(i)
-                    .append("Index.retainedBytesAfterEnsure(requiredRows,additionalGroups));");
+                    .append("Index.retainedBytesAfterEnsure(requiredRows,additional")
+                    .append(i).append("));");
         }
         out.append("state.preflightExactIndexStorage(proposed,operation);try{");
         for (int i = 0; i < table.selectors.size(); i++) {
             out.append("selector").append(i)
-                    .append("Index.ensureCapacity(requiredRows,additionalGroups);");
+                    .append("Index.ensureCapacity(requiredRows,additional")
+                    .append(i).append(");");
         }
         out.append("}finally{long actual=exactIndexRetainedBytes();if(actual!=previous)state.commitExactIndexStorage(previous,actual,operation);}}\n")
+                .append("  private void ensureExactIndexAppendCapacity(int requiredRows,")
+                .append(table.name("Batch"))
+                .append(" batch,String operation){long scratch=ExactGroupCounter.estimatedRetainedBytes(batch.size());");
+        out.append("state.reserveBulkScratch(scratch,operation);try{");
+        for (int i = 0; i < table.selectors.size(); i++) {
+            out.append("long groups").append(i).append("=selector")
+                    .append(i).append("BatchGroups(batch,true);");
+        }
+        out.append("ensureExactIndexCapacities(requiredRows,operation");
+        for (int i = 0; i < table.selectors.size(); i++) {
+            out.append(",(int)groups").append(i);
+        }
+        out.append(");}finally{state.releaseBulkScratch(scratch,operation);}}\n")
                 .append("  private void linkExactIndexRows(int from,int count){for(int row=from;row<from+count;row++){");
         for (int i = 0; i < table.selectors.size(); i++) {
             out.append("linkSelector").append(i).append("Row(row);");
@@ -1918,6 +1941,11 @@ final class DenseTableSourceGenerator {
                     .append("BatchEqual(").append(table.name("Batch"))
                     .append(" batch,int left,int right){return ");
             appendSelectorBatchEquality(out, table, selector, "batch", "left", "right", "replaceAll");
+            out.append(";}\n  private boolean selector").append(i)
+                    .append("RowBatchEqual(int left,").append(table.name("Batch"))
+                    .append(" batch,int right){return ");
+            appendSelectorRowBatchEquality(
+                    out, table, selector, "left", "batch", "right", "addBatch");
             out.append(";}\n  private int selector").append(i).append("Group(");
             appendSelectorParameters(out, parameters);
             out.append("){long hash=selector").append(i).append("HashValues(");
@@ -1942,9 +1970,20 @@ final class DenseTableSourceGenerator {
                         .append("Index.groupSize(group)!=0)throw RuntimeFailures.internalInvariant(\"unique_exact_index_conflict\",TABLE,\"exact-index.link\");");
             }
             out.append("selector").append(i).append("Index.link(group,row);}\n")
+                    .append("  private long selector").append(i)
+                    .append("BatchGroups(").append(table.name("Batch"))
+                    .append(" batch,boolean compareLive){ExactGroupCounter staged=new ExactGroupCounter(batch.size());int additional=0;try{for(int row=0;row<batch.size();row++){long hash=selector")
+                    .append(i).append("HashBatch(batch,row);int group=staged.firstGroup(hash);while(group>=0&&!selector")
+                    .append(i).append("BatchEqual(batch,staged.representativeRow(group),row)){group=staged.nextHashGroup(group);}if(group<0){staged.createGroup(hash,row);if(compareLive){int live=selector")
+                    .append(i).append("Index.firstGroup(hash);while(live>=0&&!selector")
+                    .append(i).append("RowBatchEqual(selector").append(i)
+                    .append("Index.representativeRow(live),batch,row)){selector")
+                    .append(i).append("Index.recordCollision();live=selector")
+                    .append(i).append("Index.nextHashGroup(live);}if(live<0)additional++;}}}return((long)staged.groupCount()<<32)|((long)additional&4294967295L);}finally{staged.release();}}\n")
                     .append("  private GroupedExactIndex buildSelector").append(i)
                     .append("Index(").append(table.name("Batch"))
-                    .append(" batch,String operation){GroupedExactIndex staged=new GroupedExactIndex(batch.size());for(int row=0;row<batch.size();row++){long hash=selector")
+                    .append(" batch,String operation){int distinct=(int)(selector").append(i)
+                    .append("BatchGroups(batch,false)>>>32);GroupedExactIndex staged=new GroupedExactIndex(batch.size(),distinct);for(int row=0;row<batch.size();row++){long hash=selector")
                     .append(i).append("HashBatch(batch,row);int group=staged.firstGroup(hash);while(group>=0&&!selector")
                     .append(i).append("BatchEqual(batch,staged.representativeRow(group),row)){staged.recordCollision();group=staged.nextHashGroup(group);}");
             if ("unique".equals(selector.kind)) {
@@ -2035,6 +2074,27 @@ final class DenseTableSourceGenerator {
         }
     }
 
+    private static void appendSelectorRowBatchEquality(
+            SourceBuilder out,
+            TableSpec table,
+            SelectorSpec selector,
+            String row,
+            String batch,
+            String batchRow,
+            String operation) {
+        for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+            if (leafIndex > 0) out.append("&&");
+            SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+            SelectorBinding binding = selectorBinding(table, leaf);
+            String rowValue = selectorStorageValue(
+                    leaf, binding.columnExpression(row), operation);
+            String batchValue = selectorBatchValue(
+                    binding, leaf, batch, batchRow, operation);
+            out.append('(').append(compareExpression(
+                    leaf.storageType, rowValue, batchValue)).append(")==0");
+        }
+    }
+
     private static void appendSelectorValueArguments(
             SourceBuilder out, int parameterCount) {
         for (int index = 0; index < parameterCount; index++) {
@@ -2063,7 +2123,7 @@ final class DenseTableSourceGenerator {
             out.append("stage.selector").append(i).append("=buildSelector")
                     .append(i).append("Index(batch,operation);");
         }
-        out.append("if(stage.retainedBytes()!=scratch)throw RuntimeFailures.internalInvariant(\"exact_index_estimator\",TABLE,operation);return stage;}catch(RuntimeException failure){stage.discard(operation);throw failure;}catch(Error failure){stage.discard(operation);throw failure;}}\n")
+        out.append("if(stage.retainedBytes()>scratch)throw RuntimeFailures.internalInvariant(\"exact_index_estimator\",TABLE,operation);return stage;}catch(RuntimeException failure){stage.discard(operation);throw failure;}catch(Error failure){stage.discard(operation);throw failure;}}\n")
                 .append("  private final class ExactIndexStage{private long scratchBytes;private boolean consumed;");
         for (int i = 0; i < table.selectors.size(); i++) {
             out.append("private GroupedExactIndex selector").append(i).append(';');
