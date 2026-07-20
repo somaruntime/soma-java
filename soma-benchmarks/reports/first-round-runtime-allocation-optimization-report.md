@@ -5,6 +5,8 @@
 唯一 Owner：`soma-benchmarks`（benchmark evidence）；实现 Owner 仍分别归属 `soma-runtime-core` 与 `soma-processor`
 Capability：`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-CHILD-OWNERSHIP`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-SCENARIO-BENCHMARK`
 
+> 当前性说明（2026-07-20）：本文记录 packed/exact v3 切换前的第一轮 allocation 优化证据。仍适用的实现纪律由正式 Owner 负责；当前 runtime 形态和 post-cutover A/B 见 [2026-07-17 专题收口报告](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)。
+
 本报告记录第一轮不改变 public/generated API 的 runtime allocation 优化及本机诊断 evidence。所有 FJSP record 固定 `claimAllowed=false`；本报告不建立绝对性能阈值，不支持吞吐、延迟、内存优势、G6 support matrix、RC 或 release readiness 声明。
 
 ## 1. 优化范围

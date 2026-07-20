@@ -8,6 +8,8 @@ Gate：G3 — runtime core gate
 验证 commit：`060a6df`（`feat: complete phase 5 capability breadth`）
 Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（继续 active）
 
+> 当前性说明（2026-07-20）：本报告是 commit `060a6df` 的 v2 G3 evidence 快照，其中 SparseInt、sidecar dirty/rebuild 与 maintained-order material 已由 `4b6fa43` 的 packed/exact v3 切换取代。当前 runtime 形态与 fresh Gate 入口见 [2026-07-17 专题收口报告](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)；本文保留当时 Gate 证据，不定义当前实现。
+
 本报告关闭 G3 required evidence。它不关闭 G5、G6、V1.0 RC 或 release readiness，也不支持任何绝对或相对性能优势声明。
 
 ## 1. 目标、范围与事实源

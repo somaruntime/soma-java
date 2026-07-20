@@ -7,6 +7,8 @@ Owner：`soma-examples`
 执行人：Codex
 Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（G6未通过，当前blocked）
 
+> 当前性说明（2026-07-20）：本报告是 2026-07-11 的 v2 examples evidence 快照，其中 `byAvailableTime` maintained order、sidecar rebuild 和旧场景 marker 已由 `4b6fa43` 的 packed/exact v3 切换取代。当前 examples 形态与重验证入口见 [2026-07-17 专题收口报告](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)；本文保留历史 evidence，不定义当前示例。
+
 本报告证明四个Java 8 formal scenarios及其Access Pattern Card对应的可运行examples evidence通过。`soma-benchmarks`的runner、required lanes和结构化JSONL由其独立Owner report证明；两者已由`reports/java-v1-g5-examples-benchmark-gate-report.md`联合审查并关闭G5。本报告本身仍不单独拥有G5或release readiness。
 
 ## 1. 验证对象与artifact

@@ -5,16 +5,16 @@
 ## 当前 V1 状态与 Gate
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
-- [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)（当前G0–G5实现形态与重验证入口）
+- [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)（当前 v3 实现形态与 `4b6fa43` 重验证入口）
 
 | Gate | 状态 | 正式报告 |
 |---|---|---|
 | G0 | passed | [scope freeze](java-v1-g0-scope-freeze-report.md) |
 | G1 | passed | [schema processing](../soma-processor/reports/java-v1-g1-schema-processing-report.md)；packed/exact cutover见当前专题报告 |
 | G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；packed/exact cutover见当前专题报告 |
-| G3 | passed | [runtime core](../soma-runtime-core/reports/java-v1-g3-runtime-core-report.md)；packed/exact cutover见当前专题报告 |
+| G3 | passed | [packed/exact v3 当前专题报告](2026-07-17-packed-exact-index-runtime-redesign-report.md)；[旧 runtime-core contributor](../soma-runtime-core/reports/java-v1-g3-runtime-core-report.md) 为 v2 历史快照 |
 | G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md) |
-| G5 | passed | [examples/benchmark](java-v1-g5-examples-benchmark-gate-report.md)；packed/exact cutover见当前专题报告 |
+| G5 | passed | [packed/exact v3 当前专题报告](2026-07-17-packed-exact-index-runtime-redesign-report.md)；[旧 examples/benchmark Gate](java-v1-g5-examples-benchmark-gate-report.md) 为 v2 历史快照 |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
 - [G6 support matrix evidence](java-v1-support-matrix-report.md)
@@ -26,7 +26,7 @@
 - [2026-07-11 SOMA Java V1 专题治理收口](soma-java-v1-topical-governance-report.md)
 - [Java V1 Phase 0 compiler/build checkpoint](java-v1-phase-0-compiler-build-report.md)
 - [Java V1 Phase 0 schema carrier construction 设计缺口](java-v1-phase-0-schema-carrier-design-gap.md)
-- [Java V1 Phase 3 access structures](java-v1-phase-3-access-structures-report.md)
+- [Java V1 Phase 3 access structures](java-v1-phase-3-access-structures-report.md)（v2 历史 checkpoint；已由 packed/exact v3 切换取代）
 - [Java V1 Phase 4 child/materialization](java-v1-phase-4-child-materialization-report.md)
 - [Java-only SOMA V1 Phase 5 full breadth closeout](java-v1-phase-5-full-breadth-report.md)
 - [2026-07-10 Implementation-readiness 治理收尾](2026-07-10-implementation-readiness-governance-report.md)

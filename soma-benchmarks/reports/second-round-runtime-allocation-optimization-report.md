@@ -5,6 +5,8 @@
 唯一 Owner：`soma-benchmarks`（benchmark evidence）；实现事实仍分别归属 `soma-runtime-core` 与 `soma-processor`
 Capability：`V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-SCENARIO-BENCHMARK`
 
+> 当前性说明（2026-07-20）：本文记录 packed/exact v3 切换前的第二轮诊断；其中 selector dirty/rebuild CPU 热点已由 `4b6fa43` 消除。当前实现和同机 A/B 见 [2026-07-17 专题收口报告](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)，本文只保留历史归因证据。
+
 本报告记录第二轮不改变 public/generated API、Schema、Owner、Gate 或 runtime 业务语义的性能审查与实现。本轮 FJSP record 均固定 `claimAllowed=false`；单机单次数据只用于定位分配来源与验证优化方向，不建立跨机器吞吐、延迟、内存、G6 support matrix、RC 或 release readiness 声明。
 
 ## 1. 审查结论与本轮选择

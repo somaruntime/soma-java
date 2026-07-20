@@ -8,6 +8,8 @@ Runner artifact：`soma-java-benchmark-runner-v2`
 JSONL schema：`soma-benchmark-smoke-v2`
 implementation commit：`2597c81895ea024867b2c8bb2eafab175e6cea5c`
 
+> 当前性说明（2026-07-20）：本报告记录 v2 benchmark artifact；旧 SparseInt、maintained-order 和 sidecar-rebuild lanes 已由 `4b6fa43` 的 packed/exact v3 runner/schema 重验证取代。当前入口见 [2026-07-17 专题收口报告](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)，本文只保留历史 smoke evidence。
+
 本报告只证明 G5 §9 的 benchmark runner、20 条最小 integrated smoke workload、结构化 JSONL 与 strict validator 在记录环境通过。所有 record 固定 `level=smoke`、`claimAllowed=false`；不支持 throughput、latency、memory 或相对性能优势声明。
 
 ## 1. 实现与 evidence contract

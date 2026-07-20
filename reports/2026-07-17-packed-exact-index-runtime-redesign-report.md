@@ -3,6 +3,7 @@
 状态：passed；专题实施、证据回放与临时设计退役均已完成
 日期：2026-07-17
 专题基线：`6f91e57 perf: establish FJSP baseline and packed-index redesign`
+实施提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`
 唯一事实源：本报告只记录实施与 evidence；设计语义仍由 `docs/README.md` 登记的各唯一 Owner 拥有
 Capability：`V1-ANNOTATION-SCHEMA`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`、`V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-KEYED-IDENTITY`、`V1-ACCESS-STRUCTURES`、`V1-MUTATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`、`V1-SCENARIO-BENCHMARK`
 
@@ -218,4 +219,4 @@ Artifact SHA-256：
 
 结果为 `project-check: ok`，覆盖 scope/docs、全模块 Maven build、public API、compiler/codegen、runtime-core、dense/keyed/access/child/breadth external consumer、四个正式场景、benchmark artifact validator、benchmark smoke 与 FJSP allocation/GC Gate。最终 FJSP evidence 位于本机 `target/fjsp-allocation-gc.Q1G3lR/`，其 JSONL SHA-256 已在§8登记；`target/` artifact 不是版本库中的长期事实源。
 
-临时专题目录 `docs/temp/packed-index-runtime-redesign/` 已在正式 Owner 与本报告接管事实后删除，四份用户批准的长期研究蓝图继续保留。报告最终回填后又执行 `./scripts/check-docs.sh` 与 `git diff --check`；本报告随专题实现提交共同 handoff，提交哈希以 Git 历史为准。
+临时专题目录 `docs/temp/packed-index-runtime-redesign/` 已在正式 Owner 与本报告接管事实后删除，四份用户批准的长期研究蓝图继续保留。报告最终回填后又执行 `./scripts/check-docs.sh` 与 `git diff --check`；本报告与实现共同由提交 `4b6fa43` handoff。

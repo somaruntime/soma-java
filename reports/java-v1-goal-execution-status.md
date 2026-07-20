@@ -4,7 +4,7 @@
 更新日期：2026-07-17
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
-当前实现迁移基线：`6f91e57 perf: establish FJSP baseline and packed-index redesign`；当前HEAD实现见专题收口报告
+当前 packed/exact v3 实施提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；其对照基线为 `6f91e57`，完整 evidence 见专题收口报告
 
 本文件是中断恢复和进度审计入口，不是设计事实源。正式语义仍由 `docs/README.md` 及各模块 Owner 文档拥有。
 
