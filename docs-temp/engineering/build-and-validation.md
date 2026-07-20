@@ -10,7 +10,7 @@ Owner：SOMA Java build/validation 过程
 
 非事实范围：产品功能语义、正式支持矩阵和某次 Gate 结果
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 基线
 
@@ -19,6 +19,8 @@ Owner：SOMA Java build/validation 过程
 - 根 Maven reactor 必须在 Java 8 source/target 下构建；
 - 本机通过只说明实际记录的 vendor/version、OS 和 architecture，不自动形成支持矩阵；
 - 不用新 JDK 的 `--release 8` 替代 compiler integration evidence。
+
+Canonical build 必须从根 Maven Wrapper进入同一 reactor graph。Production consumer 的运行边界是 annotations + runtime-core，processor只进入编译/build path；testkit、examples 和 benchmarks 不得成为隐式 production runtime dependency。新增 module、plugin、repository 或第三方 dependency需要先核对架构、供应链和 consumer graph。
 
 ## 2. 命令层次
 
@@ -39,7 +41,15 @@ Owner：SOMA Java build/validation 过程
 
 任何脚本拆分或加速都必须保持 fail-closed：跳过、找不到工具、artifact schema 错误和 prerequisite 不满足不得被报告为 passed。
 
-## 4. 记录
+## 4. Reproducibility 与 repository hygiene
+
+- dependency/plugin/wrapper version和repository来源必须可审计；
+- generated source、schema artifact 和 package不能包含 timestamp、local path或随机顺序；
+- source/binary/javadoc/checksum在同一 candidate 上生成，dirty worktree只允许作为明确标记的本机诊断；
+- target、本机 benchmark artifact、credential和IDE私有配置不进入版本库事实；
+- CI 或本机脚本不得用不同 classpath、test-only bypass或网络偶然命中替代普通 consumer path。
+
+## 5. 记录
 
 可复现验证至少记录：
 

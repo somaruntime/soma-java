@@ -12,7 +12,7 @@ Owner：SOMA compatibility、security 与 release identity
 
 非事实范围：具体 release 进度、账户/签名配置和某次安全扫描结果
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 兼容面
 
@@ -30,6 +30,17 @@ Owner：SOMA compatibility、security 与 release identity
 | evidence artifact | report/benchmark/package schema | versioned parser/validator |
 
 “Java 源码能编译”不能替代 generated/runtime/schema compatibility。
+
+当前精确 signature、annotation element、generated method、error code、plan field 和 artifact schema 由代码与[可执行契约地图](../implementation-map/executable-contract-map.md)登记；本 Design 拥有这些 surface 的分类和允许怎样演进。
+
+### 1.1 Change classification
+
+- breaking：移除/重命名 public shape、改变已有成功/失败/ordering/ownership/materialization 语义、改变 schema/hash/protocol meaning，或让旧 generated artifact 与新 runtime 静默产生不同结果；
+- additive：增加不改变既有调用解析和行为的新 surface，并补齐 compile/run evidence；
+- behavior-preserving internal：不改变 public/generated/schema/protocol observable semantics 的实现重构；
+- evidence-only：只修正测量、报告或验证说明，不改变产品能力。
+
+Pre-1.0 允许有意的 breaking change，但不允许无记录漂移。Breaking change 必须有明确 Owner 决定、migration/重新生成要求、identity/version 变化和 external consumer 证据。已经发布的 public surface若需要移除，应先提供可迁移的 replacement 与 deprecation boundary；内部 package 不因此成为稳定 SPI。
 
 ## 2. Identity
 
@@ -67,8 +78,20 @@ Processor 和 runtime 将 schema/source、runtime plan、batch values、keys、c
 
 Security hardening 不能通过降低 public correctness 或静默丢弃数据实现。
 
+### 4.1 Trust boundary
+
+SOMA 是进程内 library，不是 sandbox。它保护 schema/compiler/runtime integrity、resource boundary、deterministic output、diagnostic privacy 和 artifact supply chain；application仍负责 authentication、authorization、tenant isolation、domain validation、sensitive-data policy 和不受信任 callback 的隔离。
+
+关键 protected assets 包括：generated source/class 与 schema identity、packed live facts、locator/index/ownership consistency、resource budget、error/diagnostic context 和发布 artifact/provenance。Hash 只能用于定位，collision 后必须执行 full equality；不能把非加密 hash 误写成 adversarial security guarantee。
+
+Dependency、plugin、wrapper、build input 和 package metadata 必须可审计。新增第三方 runtime dependency、动态代码加载、隐式网络/文件访问或扩大 compiler privilege 都属于 Design/Security review surface。
+
 ## 5. Release 边界
 
 功能/性能 evidence 与 public release readiness 分开。只有 package metadata、license/notice、SCM/ownership、support matrix、签名/provenance、security scan 和 external consumer 等发布 Gate 全部形成证据后，才可以声明 public RC/release readiness。
 
 本 Design 规定必须满足的身份与边界；当前 readiness 由相应 Report 陈述。
+
+Version label、Maven artifact version、schema user version、schema hash、generated/runtime protocol 和 runtime plan hash 分别治理。Snapshot/RC/release 不得靠改名掩盖未满足 Gate；同一已发布坐标不可变。
+
+Release 必须可追溯到 clean immutable commit、可复现 source/binary/javadoc/checksum 和 provenance。发现错误 artifact 或安全问题时，维护者应能够停止分发、标记受影响版本、发布修复/替代并保留审计记录；rollback/withdrawal 不得静默复用原坐标内容。

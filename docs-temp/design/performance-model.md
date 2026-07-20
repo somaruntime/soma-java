@@ -12,7 +12,7 @@ Owner：SOMA 跨模块性能设计
 
 非事实范围：某次 benchmark 数值、机器支持声明和永久 Gate 阈值
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 北极星
 
@@ -83,9 +83,9 @@ Exact access 的 read cost 与命中 group 相关；write cost显式承担 hash 
 
 Child table 避免 flat global scan，但会增加 registry、handle、小数组 header 和 over-reservation。Evidence 必须覆盖 empty/singleton/small/high cardinality 以及 instance-count × row-count 组合。
 
-## 6. Runtime plan
+## 6. Runtime plan 的性能约束
 
-Capacity、memory limit、stats mode、locator/index load 策略、materialization budget 和 estimator identity 由 create-time immutable runtime plan 预绑定。读取 hot path 不解析动态 metadata；plan 变化产生不同 plan hash，不能静默改变既有 table。
+Capacity、memory limit、stats mode、locator/index load 策略、materialization budget 和 estimator identity 由 create-time immutable runtime plan 预绑定。读取 hot path 不解析动态 metadata；plan 变化产生不同 plan hash，不能静默改变既有 table。Plan/Stats 的规范性语义由 [Runtime Plan 与可观测性](runtime-plan-and-observability.md)拥有，本节只拥有其性能约束。
 
 ## 7. Evidence 义务
 

@@ -10,7 +10,7 @@ Owner：SOMA runtime-core 实现导航
 
 事实范围：当前 handwritten runtime、generated-runtime protocol、hot path 和核心验证入口
 
-最近核对基线：`b991f4c`
+最近实现核对基线：`b991f4c`
 
 最后审查日期：2026-07-20
 

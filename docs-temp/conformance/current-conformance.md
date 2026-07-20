@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：候选 Blueprint/Design、commit `b991f4c` 的代码与当前正式 evidence
+核对对象：候选 Blueprint/Design、commit `b991f4c` 的实现、现行文档 `fe163b8` 与当前正式 evidence
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -41,17 +41,19 @@ Owner：SOMA Java 一致性审查
 | VRP / Simulation / Game 目标形态 | 目标差距 | 当前 examples 仍保留蓝图拟拆分的混合 data-role row/cache | 见 [known-gaps](known-gaps.md) |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 不影响本次文档候选建设，不得误报 release ready |
-| 新文档体系 | 候选未启用 | `docs-temp/` 未被当前入口采用，也未执行原子切换 | 继续专题验证 |
+| 新文档体系 | 切换准备完成，候选未启用 | 32份Owner迁移审计、rich Blueprint、目标路径rehearsal与pre-cutover review已完成 | 等待明确授权后原子切换 |
 
 ## 3. 当前结论
 
-候选 Design 对 core compiler/runtime 的描述与 `b991f4c` 当前实现基本一致，没有发现需要立即修改代码的 blocking Design deviation。主要未闭合项属于三类：
+候选 Design 对 core compiler/runtime 的描述与 `b991f4c` 当前实现基本一致，没有发现需要立即修改代码的 blocking Design deviation。文档体系本身已完成切换前内容与治理审查。其余未闭合项属于三类：
 
 1. VRP、Simulation、Game 三个场景 Blueprint 仍有数据角色拆分目标差距；FJSP machine selection 已按场景Blueprint关闭；
 2. 性能结论仍受测量环境与 lane 范围约束；
-3. G6 和新文档体系切换分别因外部发布事实与候选治理流程未完成而保持未收口。
+3. G6因外部发布事实保持blocked；新文档体系仅因尚未获授权和执行原子切换而保持未启用。
 
-本结论不扩大任何任务授权；Conformance 只记录已由专题 Owner 批准并完成的处置。
+VRP/Simulation/Game目标差距、有限性能evidence和G6均已有Owner处置，不构成文档体系切换的未裁决 blocker。文档切换也不会自动关闭这些差距。
+
+本结论不扩大任何任务授权；Conformance 只记录当前判断与相关 Owner 已作出的处置决定，不表示差距实现已获授权或完成。
 
 ## 4. Evidence 入口
 

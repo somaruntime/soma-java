@@ -2,19 +2,21 @@
 
 类型：Temporary
 
-状态：进行中
+状态：清单完成
 
 Owner：SOMA Java 文档体系重构专题
 
 事实范围：切换前现有文档类别、当前权威角色和候选去向
 
-核对基线：`b991f4c` 加当前候选文档状态
+现行文档输入基线：`fe163b8`
+
+实现核对基线：`b991f4c`
 
 最后审查日期：2026-07-20
 
 ## 1. 根级正式设计
 
-当前 [`docs/README.md`](../../../docs/README.md) 登记的长期 Owner 包括：
+当前 [`docs/README.md`](../../../docs/README.md) 及 module indexes合计登记 32 份正式 Owner，包括：
 
 - Design constitution、architecture、domain glossary；
 - annotation/schema、generated API、materialization；
@@ -38,15 +40,15 @@ Module docs 中的规范性长期事实必须迁入对应 Design；纯代码投�
 
 ## 3. 当前 Blueprint/Temporary
 
-`docs/temp/` 当前包含四份长期研究蓝图：FJSP、VRP、Simulation、Game。它们不是正式 Design source，但包含目标场景、风险和待验证方向。候选体系已提炼为正式分类下的 Blueprint；未固化的研究细节仍需逐项复核。
+`docs/temp/` 当前包含四份长期研究蓝图：FJSP、VRP、Simulation、Game。它们不是正式 Design source，但包含目标场景、风险和待验证方向。候选体系已把四份内容逐项吸收为正式分类下的 rich Blueprint；旧 copies 在切换时删除。
 
 `docs/temp/packed-exact-index-post-cutover-tails/` 已完成正式Owner迁移、代码与evidence验证，并由2026-07-20 dated closeout report承接长期证据后删除。候选 Conformance、Implementation Map和性能Report已同步其当前投影，没有把Temporary过程文档保留为第二事实源。
 
 ## 4. Guides 与 Reports
 
-- 当前 `guides/` 拥有安装/consumer 使用输出；候选框架把用户与开发者文档归入 Reports；
+- 当前 `guides/` 拥有安装/consumer 使用输出；目标体系把它登记为 Report/user+developer 的正式物理入口；
 - 当前 `reports/` 及 module reports 拥有审查、Gate、benchmark、implementation 和 release evidence；
-- 历史 report 不应改写成 Design；切换时可以保留原路径、迁移到新 Reports，或建立只读历史索引，但必须避免断链和当前状态混淆。
+- 历史 report 不改写成 Design并保留原路径；现行 `reports/README.md` 已区分 current Gate、治理 checkpoint 与 archive，切换只更新必要链接和分类说明。
 
 ## 5. 可执行治理
 
@@ -54,4 +56,4 @@ Module docs 中的规范性长期事实必须迁入对应 Design；纯代码投�
 
 ## 6. 清单结论
 
-现有信息没有单一“一对一搬家”方案。新体系需要按事实性质拆分：长期规范进入 Design，当前实现导航进入 Implementation Map，偏差进入 Conformance，过程进入 Engineering，正式输出进入 Reports，未决候选留在 Temporary。
+现有信息不能一对一搬家。逐份归宿已经在[现行事实迁移审计](fact-migration-audit.md)裁决：长期规范进入 Design，当前精确 surface进入 executable contract，代码导航进入 Implementation Map，偏差进入 Conformance，过程进入 Engineering，正式输出进入 Reports，旧 Owner退出 current导航。

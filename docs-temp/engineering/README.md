@@ -10,11 +10,12 @@ Owner：SOMA Java 工程治理
 
 非事实范围：产品语义、当前能力和某次验证结果
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 - [文档治理](documentation-governance.md)
 - [构建与验证](build-and-validation.md)
 - [测试与 evidence](testing-and-evidence.md)
+- [Validation Gate 治理](validation-gates.md)
 - [Benchmark 治理](benchmark-governance.md)
 - [Release 治理](release-governance.md)
 

@@ -10,11 +10,17 @@ Owner：SOMA Java release 状态
 
 事实范围：指定基线的功能 Gate、G6 差距和允许/禁止声明
 
-适用基线：commit `4b6fa43`，artifact version `0.1.0-SNAPSHOT`
+适用版本：commit `b991f4c`，artifact version `0.1.0-SNAPSHOT`
 
 输入事实源：当前 G0–G6 reports
 
-最后审查日期：2026-07-19
+审查日期：2026-07-20
+
+审查环境：本地 macOS aarch64、Azul Zulu OpenJDK `1.8.0_492-b09`
+
+审查方法：核对 current report index、G0–G6 evidence与完整 `./scripts/check.sh`
+
+最后审查日期：2026-07-20
 
 ## 1. 当前能力
 

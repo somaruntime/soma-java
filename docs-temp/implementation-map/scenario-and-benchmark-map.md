@@ -8,9 +8,11 @@ Owner：SOMA scenario/benchmark 实现导航
 
 对应 Blueprint：[Blueprint 导航](../blueprints/README.md)
 
+对应 Design：[Table、存储与访问](../design/table-storage-and-access.md)、[性能模型](../design/performance-model.md)
+
 事实范围：当前四类示例、FJSP solver 和 benchmark runner 的代码入口
 
-最近核对基线：`b991f4c`
+最近实现核对基线：`b991f4c`
 
 最后审查日期：2026-07-20
 

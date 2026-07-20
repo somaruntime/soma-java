@@ -10,7 +10,7 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近核对基线：`b991f4c`
+最近实现核对基线：`b991f4c`
 
 最后审查日期：2026-07-20
 

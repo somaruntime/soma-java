@@ -12,7 +12,7 @@ Owner：SOMA Java 文档过程
 
 采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 分类与权威
 
@@ -29,9 +29,27 @@ Owner：SOMA Java 文档过程
 
 每份受治理文档至少声明类型、状态、Owner、事实范围和最后审查日期。Implementation Map 还必须声明核对 commit；snapshot Report 声明日期、commit、环境和方法。
 
+### 1.1 本项目目录映射
+
+| 逻辑分类 | 正式物理入口 |
+|---|---|
+| Blueprint / Design / Implementation Map / Conformance / Engineering / Temporary | `docs/<category>/` |
+| Report / 用户与开发者输出 | `guides/`；registered current-executable scenario output 位于 `soma-examples/docs/` |
+| Report / 性能、治理、Gate、release evidence | `reports/` 与已登记的 module contributor reports |
+
+`docs-temp/reports/` 是候选期 staging，不在切换后形成第三个输出入口。目录位置不改变分类权威；每个正式入口必须登记它拥有和不拥有的事实。
+
 ## 2. 唯一 Owner
 
 一个正式事实只在一个文档或外部登记源中定义。其他文档优先链接和摘要，不复制完整规则。发现重复时先确认语义 Owner，再删除或降级副本；不能依靠“两个地方同步更新”维持一致性。
+
+精确当前 public/generated/schema/protocol surface 可以由代码、`javap` golden、schema artifact 或 validator 拥有，但必须在 Implementation Map 登记同步规则。Design 仍拥有该 surface 的目标语义与演进边界；“代码是当前事实”不等于“代码自动符合设计”。
+
+### 2.1 信息预算
+
+不对所有分类套用统一行数上限。Blueprint可以为完整使用者 journey保留较丰富的示例；Design按唯一 Owner和关注点保持可读；Implementation Map必须简短，避免复制可搜索的代码清单；Report长度由受众和证据决定。需要拆分时以Owner清晰、导航成本和重复事实为依据，而不是为了满足任意行数。
+
+正式 checker不得把现行“所有 formal docs最多500行”的规则原样施加到 rich Blueprint；可以对不同分类提供独立的提醒阈值，但不能用行数替代内容和Owner审查。
 
 ## 3. 轻量治理闭环
 
@@ -63,3 +81,18 @@ promote long-lived facts to Blueprint/Design/Engineering as appropriate
 ## 5. 候选体系切换
 
 `docs-temp/` 当前只是候选。正式切换必须另获授权，并在一个可审查变更中完成入口、Owner、链接、检查脚本和旧文档处置。禁止先让一部分正式入口指向候选体系，形成长期双重 Owner。
+
+旧文档若因历史链接需要保留，必须标记 `superseded`、声明当前取代者，并从所有 current 入口移除；它不再拥有正式事实。Temporary 不使用 superseded/archive 逃避删除义务。
+
+## 6. 可执行文档门禁
+
+正式文档检查至少 fail closed 地验证：
+
+- 所有受治理文档的 required metadata 和分类特有 metadata；
+- 每个 current 文档被唯一入口索引，superseded 文档不出现在 current 导航；
+- relative links 可解析，current/Design/Engineering 不引用 Temporary 作为事实源；
+- Design Owner 无重复，Implementation Map 有对应 Design和实现基线，Report 有受众/输入事实源/适用版本，snapshot Report另有日期/commit/环境/方法；
+- `docs/temp/` 只包含 active topic，topic 有 README、授权边界和退役条件；
+- 历史报告可以链接 superseded input，但必须通过 current index 区分历史与当前结论。
+
+目录或 metadata 规则变化必须先更新本 Owner，再更新 checker；checker 通过不能替代事实迁移审查。

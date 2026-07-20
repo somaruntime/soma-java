@@ -8,11 +8,11 @@ Owner：SOMA runtime correctness 与 failure semantics
 
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
-事实范围：可见原子性、invariant、structured errors、callback/resource failure 和可信状态
+事实范围：可见原子性、invariant、structured errors、callback/resource failure 和失败后的可信状态
 
 非事实范围：具体存储算法、日志策略、application 事务和编译期诊断文本
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 稳定状态
 
@@ -83,11 +83,9 @@ SOMA 的原子性只覆盖 table facts。Callback 已经产生的外部 I/O、�
 - stale view/snapshot/mutator 不能降级为当前 row access；
 - comparator、diagnostics 或 error rendering 不触发 hidden table access。
 
-## 6. Diagnostics
+## 6. Failure diagnostics
 
-Stats 是 immutable observation，不是业务事实。Snapshot 应区分 current facts、since-reset counters、lifetime/high-water 和 last-operation detail；`resetStats()` 只重置允许重置的观测，不修改 rows、capacity、epoch、ownership、plan 或 lifetime high-water。
-
-Runtime 不直接写 stdout/stderr、不安装全局 logger，也不在 hot loop 格式化 stack、JSON 或 payload。Application 决定日志、采样、脱敏和 trace 关联。
+Error envelope 只提供 bounded、deterministic 的 failure context，不产生 stdout/stderr、全局 logger、网络/文件 I/O 或 hot-loop 格式化副作用。Stats mode、snapshot/reset、high-water 和 plan identity 由 [Runtime Plan 与可观测性](runtime-plan-and-observability.md)拥有；Application 决定日志、采样、脱敏和 trace 关联。
 
 ## 7. 跨表边界
 

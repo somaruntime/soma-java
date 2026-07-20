@@ -2,79 +2,70 @@
 
 类型：Temporary
 
-状态：第一版，待逐条事实复核
+状态：切换方案已裁决，待执行
 
 Owner：SOMA Java 文档体系重构专题
 
-事实范围：现有 Owner 到候选 Owner 的覆盖关系、迁移状态和待决事项
+事实范围：现有文档类别到候选分类、物理入口和生命周期动作的迁移规则
 
-核对基线：`4b6fa43`
+非事实范围：逐项事实复核明细、正式切换授权和产品能力变更
+
+现行文档输入基线：`fe163b8`
+
+实现核对基线：`b991f4c`
 
 最后审查日期：2026-07-20
 
-## 1. 状态
+逐份 Owner 的事实归宿与判定见[现行事实迁移审计](fact-migration-audit.md)。本文件只保留切换时需要执行的结构映射，避免维护第二份事实清单。
 
-- **covered**：候选 Owner 已覆盖主要长期事实，仍需最终逐条核对；
-- **split**：旧文件混合多类事实，候选体系已按职责拆分；
-- **partial**：只提炼了稳定部分，未决细节仍在原文/Temporary；
-- **retain-report**：保持 evidence/history，不迁入 Design；
-- **pending**：切换前仍需 Owner 决定。
+## 1. 目标目录
 
-## 2. 根级与 module Design
+```text
+docs/
+  README.md
+  blueprints/
+  design/
+  implementation-map/
+  conformance/
+  engineering/
+  temp/
 
-| 当前 Owner | 候选 Owner | 状态 | 说明 |
-|---|---|---|---|
-| `docs/soma-table-design-constitution.md` | Design constitution、table/access、ownership | split | 总原则与机制不变量分开 |
-| `docs/architecture-design.md` | System architecture | covered | module/data-flow/public boundary |
-| `docs/domain-glossary.md` | Domain language | covered | 压缩术语，行为仍链接对应 Owner |
-| `soma-annotations/.../annotation-schema-contract.md` | Schema & generated API | covered | annotation 长期语义 |
-| processor compiler/schema/codegen contracts | Schema & generated API + compiler map | split | 规范性规则进 Design，类/fixture 进 Map |
-| `docs/generated-table-api-contract.md` | Schema & generated API、table/access、ownership、materialization | split | 按语义 Owner 拆分 |
-| `docs/materialization-contract.md` | Materialization boundary | covered | detached/budget/all-or-nothing |
-| `docs/runtime-correctness-model.md` | Correctness & failure、ownership | covered | single-aggregate correctness |
-| `docs/runtime-performance-model.md` | Performance model | covered | claim/evidence 过程另入 Engineering |
-| `docs/public-api-compatibility-contract.md` | Compatibility/security/versioning | covered | surface matrix 与 identity |
-| `docs/security-model.md` | Compatibility/security/versioning + Engineering release/testing | split | 永久边界和扫描过程分开 |
-| runtime-core TableStore contract | Table/storage/access + runtime map | split | semantics 与 class/protocol projection 分开 |
-| runtime-core lifecycle contract | Ownership/lifecycle + correctness | covered | transition细节需最终逐条核对 |
-| runtime-core runtime plan contract | Performance + compatibility + runtime map | split | plan semantics 与实现入口分开 |
-| runtime-core errors/diagnostics contract | Correctness/failure | covered | stats detailed surface需最终核对 |
-| runtime-core performance implementation contract | Performance + runtime map | split | 永久 mechanics 与当前 protocol 分开 |
+guides/             # Report: user/developer
+reports/            # Report: performance/governance/Gate/release/history
+soma-examples/docs/ # registered Report: current executable scenarios
+```
 
-## 3. Engineering、evidence 与输出
+`docs-temp/reports/` 是 staging，不直接成为 `docs/reports/`。Root/module contributor reports保留既有路径；目录映射由 Engineering 文档治理登记。
 
-| 当前 Owner | 候选 Owner | 状态 | 说明 |
-|---|---|---|---|
-| `docs/documentation-governance.md` | Engineering documentation governance | covered | 采用 rc.2 的轻量闭环 |
-| `docs/build-and-dependency-contract.md` | System architecture + Engineering build | split | dependency direction 与过程分开 |
-| `docs/implementation-strategy.md` | Engineering build/testing + Conformance + historical report | pending | 实施顺序不是长期产品设计；capability状态需保留可追踪性 |
-| `docs/validation-gates.md` | Engineering build/testing/benchmark/release | split | Gate 语义与结果分开 |
-| `docs/versioning-and-release-contract.md` | Compatibility/versioning + Engineering release | split | identity 与 release过程分开 |
-| testkit contract | Engineering testing + evidence map | split | helper contract 的长期 public面需最终判断 |
-| benchmark contracts | Performance Design + Benchmark Engineering/Map | split | 方法、设计成本与实现入口分开 |
-| `guides/` | Reports/user | partial | 已有安装细节保留，候选用户输出需完整对照 |
-| current Gate/implementation reports | Reports/governance/release/history | retain-report | 不升级为 Design，不丢失 checksum/环境/结论 |
-| archived reports | read-only history index | pending | 决定保留原路径还是迁移历史区 |
+## 2. 内容动作
 
-## 4. Blueprint 与场景
+| 当前内容 | 切换动作 |
+|---|---|
+| candidate Blueprint/Design/Map/Conformance/Engineering | promote 到 `docs/<category>/`，状态改为正式 |
+| candidate user/developer Report | 与 `guides/` 合并或新增 current guide，不保留 staging duplicate |
+| candidate performance/release Report | 与现行 current report/index核对；仅在有独立输出价值时转化为 dated/current Report |
+| candidate governance Report | 转化为本次正式切换 Governance Report |
+| 旧 root/module Design | 标记 superseded、声明唯一取代者并退出 current 入口；历史链接可保留 |
+| `soma-examples/docs/` | 元数据改为 developer/current-executable Report，明确不拥有目标 Design |
+| 旧 `docs/temp/*blueprint.md` | 修复引用后删除；目标内容由新 Blueprint拥有 |
+| active documentation-system Temporary | 切换、验证和 Governance Report完成后的最后一步删除 |
 
-| 当前材料 | 候选 Owner | 状态 | 说明 |
-|---|---|---|---|
-| FJSP long-lived temp blueprint + formal example | FJSP Blueprint + scenario map | partial | 稳定目标已提炼，研究待验证项仍需核对 |
-| VRP long-lived temp blueprint + formal example | VRP Blueprint + Conformance gaps | partial | 目标 data-role split 尚未实现 |
-| Simulation long-lived temp blueprint + formal example | Simulation Blueprint + Conformance gaps | partial | numeric source-of-truth 仍有代码差距 |
-| Game long-lived temp blueprint + formal example | Game Blueprint + Conformance gaps | partial | tile/occupancy split 尚未实现 |
-| packed-exact post-cutover tails | 正式Owner + Conformance/Implementation Map + dated closeout report | closed | 2026-07-20治理完成后删除原Temporary |
+## 3. 入口与 Agent 路由
 
-## 5. 切换前必须关闭
+- `docs/README.md` 成为正式分类入口；
+- root/module README 不再创建 module Design island，只导航新 Design、Implementation Map、current executable Report和module code；
+- `AGENTS.md` 的必读入口、Temporary规则、Gate/Report入口与新体系一致；
+- `guides/README.md` 和 `reports/README.md` 分别拥有逻辑 Report 的 current 导航；
+- current 导航不列 superseded Design或历史 Report。
 
-- 对每份旧正式 Owner 建立事实级 checklist，而不只是文件级映射；
-- 决定 implementation strategy/capability ledger 的长期 Owner；
-- 核对 generated API、stats/error code、runtime plan 等详细 contract 没有被过度压缩丢失；
-- 决定 module-level Design 是否保留独立文件或由根级 Design 完全拥有；
-- 设计旧 report/history 的稳定链接与 current-index 规则；
-- 处理当前 `docs/temp` 研究蓝图与 user-owned tails；
-- 更新并 rehearsal 文档检查脚本；
-- 确认切换后不存在旧/新双重 Owner。
+## 4. 可执行治理
 
-本映射是迁移工具，不是正式 Owner，也不意味着上述 pending 已获实施授权。
+正式切换同时更新 `scripts/check-docs.sh`，至少覆盖 metadata、唯一入口、Design Owner、Implementation Map baseline、Report snapshot字段、superseded/current隔离、Temporary禁止引用与相对链接。`scripts/check.sh`继续把 docs Gate 作为全局前置检查。
+
+Checker 只验证可执行结构规则；事实是否迁移完整仍以本专题的 Owner 审计和独立 review为准。
+
+## 5. 边界
+
+本迁移不修改 SOMA public/schema/runtime semantics，不处理 VRP/Simulation/Game implementation gaps，也不处理 G6 external release facts。上述差距已由 Conformance 分类，不阻塞文档体系切换。
+
+切换必须是一个可回退变更；禁止把新入口、旧 Owner降级、checker和Temporary删除分散成长期中间状态。

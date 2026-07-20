@@ -85,6 +85,8 @@ Application data role 与 table kind、ownership 正交：
 | `MutationCoordinator` | batch/update/remove/compaction/index/epoch coordination |
 | `IndexBuffer` | table-local reusable primitive candidate scratch |
 | lifecycle state | epoch、borrow、active operation、released 和 stats state |
+| `RuntimePlan` | create-time immutable aggregate execution/resource policy |
+| `TableStats` | immutable runtime observation；不拥有 business facts |
 
 `IndexBuffer` 是 internal operation scratch；`IndexSnapshot` 是 public detached sequence。两者都不拥有业务 identity。`requireCurrent`只表示可选的owner/lifecycle/structural-epoch/range检查，不表示自动guarded consumption。
 

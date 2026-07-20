@@ -10,13 +10,15 @@ Owner：SOMA Java 性能输出
 
 事实范围：指定 commit、环境和方法下的 packed exact component 与 FJSP 诊断结果
 
-适用代码基线：`b991f4c`
+适用版本：commit `b991f4c`
 
 测量日期：2026-07-20
 
 环境：Azul Zulu OpenJDK `1.8.0_492-b09`，macOS `26.5.2`，aarch64
 
-输入 evidence：[Packed Exact Index 切换后尾项治理报告](../../../reports/2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
+方法：component runner 2,000 warmup + 5,000 measurement；FJSP 100,000 operations，同机2次warmup + 5次measurement A/B
+
+输入事实源：[Packed Exact Index 切换后尾项治理报告](../../../reports/2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 
 最后审查日期：2026-07-20
 

@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：进行中
+状态：切换准备完成，待正式授权
 
 Owner：SOMA Java 文档体系重构专题
 
@@ -10,9 +10,9 @@ Owner：SOMA Java 文档体系重构专题
 
 非事实范围：SOMA 正式设计、当前实现语义和 release 状态
 
-专题基线：框架 `1.0.0-rc.2`，项目 commit `4b6fa43`
+专题基线：框架 `1.0.0-rc.2`，现行文档 `fe163b8`，实现 `b991f4c`
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-20
 
 ## 1. 意图
 
@@ -30,14 +30,16 @@ Owner：SOMA Java 文档体系重构专题
 
 - [当前文档清单](current-document-inventory.md)
 - [迁移映射](migration-map.md)
+- [现行事实迁移审计](fact-migration-audit.md)
 - [切换检查表](cutover-checklist.md)
+- [正式切换前审查](pre-cutover-review.md)
 - 候选 [Blueprint](../../blueprints/README.md)、[Design](../../design/README.md)、[Implementation Map](../../implementation-map/README.md)、[Conformance](../../conformance/README.md)、[Engineering](../../engineering/README.md) 和 [Reports](../../reports/README.md)
 
 ## 4. 当前状态
 
-已完成候选目录、入口、核心内容、第一版迁移映射、手工 metadata/link 检查和一次完整 `./scripts/check.sh` 非回归验证。当前仍未完成：逐条 lossless fact review、候选链接/metadata 的正式自动检查方案、切换 rehearsal、旧文档最终处置和明确切换授权。
+候选目录、rich Blueprint、Design Owner、executable contract boundary、Implementation Map、Conformance、Engineering、Report mapping、32份现行Owner迁移审计、目标路径 rehearsal和旧文档处置方案均已完成。本轮未发现候选体系的 blocking defect。
 
-因此本专题保持进行中，候选体系保持未启用；Temporary 不能删除。
+切换前的现行 checker与完整项目 Gate已经通过；尚未执行的是正式切换动作及其授权、新体系 checker落地、切换后完整 Gate和Temporary删除。因此候选体系保持未启用；本Temporary继续存在，不能提前删除。
 
 ## 5. 收口条件
 
