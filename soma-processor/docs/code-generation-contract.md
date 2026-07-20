@@ -64,6 +64,8 @@ Generated source 依赖：
 
 Processor artifact 继续只依赖 annotations，不增加 runtime-core compile dependency；emitter 使用正式 FQN 生成对 `com.hgtech.soma.runtime` handwritten API和 `com.hgtech.soma.runtime.generated` protocol 的 source binding。当前Runtime protocol identity固定为 `soma-generated-runtime-v3`，runtime compatibility为 `soma-runtime-java8-v3`。Generated code在 create boundary一次性验证/bind schema、protocol、compiler、runtime、plan、estimator与 concrete typed columns；hot loop不做 reflection、field-name/Map lookup、dtype switch或 metadata interpretation。
 
+Generator 内部按生成职责拆分，但不得改变输出协议：`DenseTableSourceGenerator` 负责 table artifact 的总编排，`DenseExactIndexSourceEmitter` 负责 exact-index runtime source 片段；selector normalization、canonical comparison/hash 和公共命名仍由同一 validated model 与共享 binding 生成。内部拆分必须以 generated-source byte identity、golden 和 package smoke 证明不改变 generated API、源码顺序或 runtime protocol，不能借重构引入并行语义。
+
 Compiler plugin/processor 是 build-only dependency，不进入 generated runtime dependency graph。IDE code insight、其他 javac family 和 ECJ support 不能由 generated-source compile success 推导。
 
 ## 3. Table API binding
