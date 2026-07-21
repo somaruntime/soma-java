@@ -580,7 +580,7 @@
               "type": "string",
               "const": "generated-grouped-exact-index"
             },
-            "replaceRows": {
+            "addedRows": {
               "type": "integer",
               "minimum": 1
             },
@@ -588,47 +588,19 @@
               "type": "integer",
               "minimum": 1
             },
-            "dynamicFindFirst": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "dynamicFirstOrThrow": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "replaceTouchedBytes": {
-              "type": "integer",
-              "minimum": 1
-            },
             "exactLookupRows": {
               "type": "integer",
               "minimum": 1
             },
-            "exactLookupKeyWidthBytes": {
+            "lookupKeyWidthBytes": {
               "type": "integer",
               "const": 8
             },
-            "exactLookupTouchedBytes": {
+            "appendTouchedBytes": {
               "type": "integer",
               "minimum": 1
             },
-            "dynamicComparatorRows": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "dynamicComparatorWidthBytes": {
-              "type": "integer",
-              "const": 8
-            },
-            "dynamicComparatorTouchedBytes": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "materializedRowWidthBytes": {
-              "type": "integer",
-              "const": 44
-            },
-            "materializationTouchedBytes": {
+            "lookupTouchedBytes": {
               "type": "integer",
               "minimum": 1
             },
@@ -668,7 +640,11 @@
               "type": "integer",
               "minimum": 1
             },
-            "exactIndexAllocationBytes": {
+            "tableGrowthAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "allocationBytes": {
               "type": "integer",
               "minimum": 0
             },
@@ -683,19 +659,12 @@
           },
           "required": [
             "implementation",
-            "replaceRows",
+            "addedRows",
             "exactLookupCount",
-            "dynamicFindFirst",
-            "dynamicFirstOrThrow",
-            "replaceTouchedBytes",
             "exactLookupRows",
-            "exactLookupKeyWidthBytes",
-            "exactLookupTouchedBytes",
-            "dynamicComparatorRows",
-            "dynamicComparatorWidthBytes",
-            "dynamicComparatorTouchedBytes",
-            "materializedRowWidthBytes",
-            "materializationTouchedBytes",
+            "lookupKeyWidthBytes",
+            "appendTouchedBytes",
+            "lookupTouchedBytes",
             "indexCount",
             "entryCount",
             "groupCount",
@@ -705,7 +674,8 @@
             "currentBytes",
             "highWaterBytes",
             "tableCapacity",
-            "exactIndexAllocationBytes",
+            "tableGrowthAllocationBytes",
+            "allocationBytes",
             "scratchAllocationBytes",
             "retainedScratchBytes"
           ]
@@ -835,6 +805,44 @@
             "collisionCount",
             "probeCount",
             "rehashCount"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-hash-composite-v2"
+            },
+            "appendValidationAllocationBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "mainGrowthAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "allocationBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "capacityBeforeMeasurement": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "capacity": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "implementation",
+            "appendValidationAllocationBytes",
+            "mainGrowthAllocationBytes",
+            "allocationBytes",
+            "capacityBeforeMeasurement",
+            "capacity"
           ]
         },
         {
@@ -1133,6 +1141,79 @@
             "operationScratchHighWaterBytes",
             "updateScratchCurrentBytes",
             "perRowObjects"
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "implementation": {
+              "type": "string",
+              "const": "generated-row-pipeline"
+            },
+            "replaceRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicFindFirst": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicFirstOrThrow": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "replaceTouchedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicComparatorRows": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "dynamicComparatorWidthBytes": {
+              "type": "integer",
+              "const": 8
+            },
+            "dynamicComparatorTouchedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "materializedRowWidthBytes": {
+              "type": "integer",
+              "const": 56
+            },
+            "materializationTouchedBytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "tableCapacity": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "scratchAllocationBytes": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "retainedScratchBytes": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "implementation",
+            "replaceRows",
+            "dynamicFindFirst",
+            "dynamicFirstOrThrow",
+            "replaceTouchedBytes",
+            "dynamicComparatorRows",
+            "dynamicComparatorWidthBytes",
+            "dynamicComparatorTouchedBytes",
+            "materializedRowWidthBytes",
+            "materializationTouchedBytes",
+            "tableCapacity",
+            "scratchAllocationBytes",
+            "retainedScratchBytes"
           ]
         },
         {

@@ -7,9 +7,7 @@ public final class FcfsSptDispatchRule {
   MachineCandidateRows.Comparator comparator() {
     return (left, right) -> {
       int compared = Long.compare(
-        left.effectiveReadyMinute(), right.effectiveReadyMinute());
-      if (compared != 0) return compared;
-      compared = Long.compare(left.fcfsValue(), right.fcfsValue());
+        left.fcfsValue(), right.fcfsValue());
       if (compared != 0) return compared;
       compared = Long.compare(left.sptValue(), right.sptValue());
       if (compared != 0) return compared;

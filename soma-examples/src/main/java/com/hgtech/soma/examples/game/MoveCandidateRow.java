@@ -5,7 +5,6 @@ import com.hgtech.soma.annotation.SomaTable;
 
 @SomaTable(name = "move_candidate_rows", defaultCapacity = 2048)
 public final class MoveCandidateRow {
-    @SomaField public UnitId unitId;
     @SomaField public GridPosition position;
     @SomaField public int totalCost;
     @SomaField public int remainingActionPoints;

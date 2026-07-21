@@ -12,9 +12,9 @@ Owner：连续仿真目标场景
 
 设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Materialization 边界](../design/materialization-boundary.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
-目标约束：真正的 event queue 由 simulator-owned min-heap 按 `(eventTimeMillis, sequenceNo)` 维护。`PendingEventRow` 只承担 batch ingest、诊断、导出或列式分析；Table 内需要顺序时显式 `.sorted(totalComparator)`，物理遍历顺序不构成业务契约。
+目标约束：真正的 event queue 由 simulator-owned min-heap 按 `(simulationTimeNanos, sequenceNo)` 维护。`PendingEventRow` 只承担 batch ingest、诊断、导出或列式分析；Table 内需要顺序时显式 `.sorted(totalComparator)`，物理遍历顺序不构成业务契约。
 
 ## 1. 目标与适用范围
 
@@ -27,7 +27,7 @@ Owner：连续仿真目标场景
 - 只讨论 Java 8 generated table / Row Pipeline / ColumnView 使用方式；
 - 只讨论仿真运行期间的 runtime state，不讨论 ODE solver、数值积分策略、并行调度或事件业务规则；
 - SOMA 保存 hot runtime data plane，simulator OOP 层拥有物理模型、事件语义、采样策略和跨 table 一致性；
-- 本文定义目标使用形态，不是精确 schema/API contract；代码片段用于表达使用者意图。
+- 本文定义目标使用形态，不是精确 schema/API contract；未标为算法伪代码的片段按目标 Java 8 使用代码审查。示例采用从 session origin 起算的 non-negative `simulationTimeNanos`，不把仿真时钟冒充 wall-clock `DATE_TIME`；具体积分器可以替换，但事件顺序、状态事实源、资源复用和失败边界必须保持明确。
 
 本蓝图中的 `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但不是 live runtime storage。Materializing API/terminal 返回 schema class 或 `List`/`Map`，Row Pipeline callback 参数仍是 callback-scoped Row Cursor。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化；trace/export 只是 runtime buffer 和外部 adapter boundary。
 
@@ -39,7 +39,7 @@ Owner：连续仿真目标场景
 | `ValveDefinition` | keyed input fact | import 后 authoritative、read-only | `fetch(valveId)`、`by_from_tank`、`by_to_tank` |
 | `FlowCoefficient` | keyed lookup data | 导入后只读 lookup | `fetch(valveMaterialKey)` |
 | `StateVectorRow` | dense long-lived state | packed state vector | physical scan、explicit sort、ColumnView / Index scan |
-| application event heap | application-owned priority queue | 尚未消费事件的唯一 queue state | `(eventTimeMillis, sequenceNo)` push/pop |
+| application event heap | application-owned priority queue | 尚未消费事件的唯一 queue state | `(simulationTimeNanos, sequenceNo)` push/pop |
 | `PendingEventRow` | 可选 dense event projection | ingest、诊断或导出边界 | batch append / explicit filter-sort / remove |
 | `TraceSampleRow` | dense trace / export buffer | 采样输出缓冲 | append / boundary explicit sort / batch export |
 
@@ -133,7 +133,7 @@ stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 `PendingEventRow` 不是 canonical event queue，而是 dense event batch / diagnostic workspace：
 
 - row 没有 stable logical key；
-- application min-heap 按 `(eventTimeMillis, sequenceNo)` push/pop；
+- application min-heap 按 `(simulationTimeNanos, sequenceNo)` push/pop；
 - 只有 batch ingest、诊断、导出或列式分析需要时才投影进 Table；
 - Table 内临时 due-row 处理使用 scan/filter、显式 sort 与 swap-remove；
 - event history 进入 trace / log / export，不与 pending heap 或 projection 混用。
@@ -227,8 +227,8 @@ public final class StateVectorRow {
 
 @SomaTable(name = "pending_event_rows", defaultCapacity = 1024)
 public final class PendingEventRow {
-    @SomaField(semantic = SomaSemantic.DATE_TIME)
-    public long eventTimeMillis;
+    @SomaField
+    public long simulationTimeNanos;
 
     @SomaField
     public long sequenceNo;
@@ -249,8 +249,8 @@ public final class PendingEventRow {
 
 @SomaTable(name = "trace_sample_rows", defaultCapacity = 65536)
 public final class TraceSampleRow {
-    @SomaField(semantic = SomaSemantic.DATE_TIME)
-    public long sampleTimeMillis;
+    @SomaField
+    public long sampleTimeNanos;
 
     @SomaField
     public SimEntityKind entityKind;
@@ -284,79 +284,163 @@ void initializeSimulation(SimulationInput input) {
     flowCoefficients.addBatch(buildFlowCoefficientBatch(input));
 
     stateVectorRows.replaceAll(buildInitialStateVector(input));
-    pendingEventRows.replaceAll(buildInitialEvents(input));
+    validateDenseVectorLayout(stateVectorRows);
+    integrationWorkspace.ensureCapacity(stateVectorRows.size());
+
+    eventHeap.clear();
+    eventHeap.addAll(buildImmutableEvents(input));
+    if (eventProjectionEnabled) {
+        pendingEventRows.replaceAll(projectEvents(eventHeap));
+    } else {
+        pendingEventRows.clear();
+    }
     traceSampleRows.clear();
 }
 ```
 
-### 7.2 消费 due events
+`eventHeap` 是 pending event 的唯一事实源。`PendingEventRow` 只在显式启用 projection 时从 heap 重建，不能被 event loop 反向消费成第二个 queue。Java 8 `PriorityQueue` 的 iterator 不保证 priority order，因此 `projectEvents(...)` 只能做无序 projection；需要有序诊断输出时复制后显式排序，不能靠遍历 heap 得到时间序。`validateDenseVectorLayout` 验证 `vectorIndex` 唯一、连续且覆盖 `[0,size)`，并验证 `(entityKind, entityId, variableKind)` mapping 唯一；进入 time loop 后不得对 state-vector table 做 structural mutation，除非先结束当前 run、重建 layout 与所有 application scratch。
+
+### 7.2 按事件边界推进 simulation clock
 
 ```java
-void consumeDueEvents(long stepEndMillis) {
+void advanceTo(long targetTimeNanos) {
+    if (targetTimeNanos < currentTimeNanos) {
+        throw new IllegalArgumentException("simulation time cannot move backwards");
+    }
+
+    consumeDueEventsAt(currentTimeNanos);
+    while (currentTimeNanos < targetTimeNanos) {
+        long segmentEnd = eventHeap.isEmpty()
+            ? targetTimeNanos
+            : Math.min(targetTimeNanos,
+                eventHeap.peek().simulationTimeNanos);
+        if (segmentEnd < currentTimeNanos) {
+            throw new IllegalStateException("late event in simulation heap");
+        }
+
+        long elapsedNanos = Math.subtractExact(
+            segmentEnd, currentTimeNanos);
+        computeDerivativesAt(currentTimeNanos);
+        integrateStep(elapsedNanos * 1.0e-9d);
+        currentTimeNanos = segmentEnd;
+        consumeDueEventsAt(currentTimeNanos);
+    }
+}
+
+void consumeDueEventsAt(long timeNanos) {
     while (!eventHeap.isEmpty()
-            && eventHeap.peek().eventTimeMillis <= stepEndMillis) {
-        applyEvent(eventHeap.remove());
+            && eventHeap.peek().simulationTimeNanos == timeNanos) {
+        SimEvent event = eventHeap.peek();
+        applyEvent(event);
+        if (eventHeap.poll() != event) {
+            throw new IllegalStateException("event heap head changed during apply");
+        }
     }
 }
 ```
 
-heap node 保存 stable event facts，不保存 SOMA packed Index。目标形态的数值事件只修改 `StateVectorRow`；如果允许 topology/definition 变化，应作为独立场景设计，并由 simulator 保证不会形成跨 table mutation cycle。若额外维护 `PendingEventRow` projection，heap 与 Table 的一致性由 simulator 明确拥有。
+heap node 是 immutable application value，保存 stable event facts，不保存 SOMA packed Index；`sequenceNo` 在 session 内唯一、单调分配并在溢出前 fail closed，使 `(simulationTimeNanos, sequenceNo)` 成为 total order。同一 event apply 期间只允许调度不早于当前时刻、且 sequence 更大的 event，因此已应用 node 仍应是 heap head；不能修改已进入 Java 8 `PriorityQueue` 的排序字段。
+
+目标形态的数值事件只修改 `StateVectorRow`；如果允许 topology/definition 变化，应作为独立场景设计，并由 simulator 保证不会形成跨 table mutation cycle。若额外维护 `PendingEventRow` projection，它在明确 boundary 重建，不能要求 heap 与 projection 在每次 pop 后跨结构原子同步。`advanceTo` 不是跨 heap/Table transaction；apply 或 integration 失败后 simulator 停止使用当前 session，或从 application checkpoint 恢复，不能重试一份可能已部分应用的 event。
+
+`computeDerivativesAt(...)` 是 application numerical-model phase：它从同一个 current state 计算完整 derivative staging，再以单 Table atomic update 发布，不能在 comparator 中做 topology lookup，也不能让一部分 row 使用新 derivative、另一部分仍使用旧 derivative。这里的 `integrateStep` 展示一次 Euler-style state update；高阶或 adaptive integrator 可以替换它，并拥有自己的 substep/derivative refresh，但必须保留 event boundary、staging、数值校验与失败边界。
 
 ### 7.3 更新 state vector
 
 ```java
 void integrateStep(double dtSeconds) {
+    if (!Double.isFinite(dtSeconds) || dtSeconds < 0.0d) {
+        throw new IllegalArgumentException("invalid integration interval");
+    }
+
     stateVectorRows.rows()
         .update(s -> {
-            double next = s.value() + s.derivative() * dtSeconds / s.scale();
+            double value = s.value();
+            double derivative = s.derivative();
+            double scale = s.scale();
+            if (!Double.isFinite(value)
+                    || !Double.isFinite(derivative)
+                    || !Double.isFinite(scale)
+                    || scale == 0.0d) {
+                throw new SimulationNumericsException(
+                    "invalid state vector row");
+            }
+
+            double next = value + derivative * dtSeconds / scale;
+            if (!Double.isFinite(next)) {
+                throw new SimulationNumericsException(
+                    "non-finite integration result");
+            }
             s.setValue(next);
         });
 }
 ```
 
-如果数值内核极端 hot，可以使用 generated ColumnView 做只读 primitive scan，再在释放 view 后进入写入阶段：
+`dtSeconds` 在 operation 外验证；row-local value、derivative、scale 和 next value 在 staged update callback 中验证。任一 callback 失败都会使本次单 Table update 不发布部分结果；application `SimulationNumericsException` 即使由 runtime callback envelope 包装，也必须通过 cause/category 与 storage failure 分开记录，并按 simulator checkpoint/fail-stop 规则处理，不能把 `NaN` 当作缺失或继续传播。
+
+上面的 Row Pipeline 是 canonical readable path。耦合数值内核需要先读取完整旧向量、再发布新向量时，使用 session-owned reusable scratch，而不是每 step 分配新数组或逐 row 创建 mutator：
 
 ```java
 int size = stateVectorRows.size();
-double[] nextValues = new double[size];
+double[] nextValues = integrationWorkspace.nextValues(size);
 
-try (DoubleColumnView values = stateVectorRows.valueColumn();
+try (IntColumnView vectorIndexes = stateVectorRows.vectorIndexColumn();
+     DoubleColumnView values = stateVectorRows.valueColumn();
      DoubleColumnView derivatives = stateVectorRows.derivativeColumn();
      DoubleColumnView scales = stateVectorRows.scaleColumn()) {
     for (int row = 0; row < size; row++) {
-        nextValues[row] = values.getDouble(row)
-            + derivatives.getDouble(row) * dtSeconds / scales.getDouble(row);
+        int slot = vectorIndexes.getInt(row);
+        double value = values.getDouble(row);
+        double derivative = derivatives.getDouble(row);
+        double scale = scales.getDouble(row);
+        if (!Double.isFinite(value)
+                || !Double.isFinite(derivative)
+                || !Double.isFinite(scale)
+                || scale == 0.0d) {
+            throw new SimulationNumericsException(
+                "invalid state vector row");
+        }
+        double next = value + derivative * dtSeconds / scale;
+        if (!Double.isFinite(next)) {
+            throw new SimulationNumericsException(
+                "non-finite integration result");
+        }
+        nextValues[slot] = next;
     }
 }
 
-for (int row = 0; row < size; row++) {
-    stateVectorRows.mutateAt(row)
-        .setValue(nextValues[row])
-        .commit();
-}
+stateVectorRows.rows().update(row ->
+    row.setValue(nextValues[row.vectorIndex()]));
 ```
 
-该两阶段写法避免在 active ColumnView 下同表写入。只有 runtime contract 明确允许 active view 下 fixed-width non-structural update 时，才可以把读写合并到同一 view scope；否则应使用 Row Pipeline update cursor 或上面的 scratch 分阶段方案。
+该两阶段写法避免在 active ColumnView 下同表写入，并把大数组变成有明确上限、随 session 释放的 application scratch。它可能仍有一次 operation/callback 级开销，但没有 per-row object 或 per-step `double[size]` allocation；是否需要新的 writable/bulk primitive generated API 只能在现有 Row Pipeline lane 已被 benchmark 证明不足后进入 Design，不能在 Blueprint 中虚构。
 
 ### 7.4 追加 trace samples
 
 ```java
-void sampleTrace(long sampleTimeMillis) {
-    TraceSampleBatch batch = traceSampleRows.newBatch();
+void sampleTrace(long sampleTimeNanos) {
+    if (sampleTimeNanos < 0L
+            || sampleTimeNanos <= lastSampleTimeNanos) {
+        throw new IllegalArgumentException("trace time must increase");
+    }
+
+    TraceSampleRowBatch batch = reusableTraceBatch;
+    batch.clear();
 
     stateVectorRows.rows()
-        .forEach(s -> batch.add()
-            .setSampleTimeMillis(sampleTimeMillis)
-            .setEntityKind(s.entityKind())
-            .setEntityId(s.entityId())
-            .setVariableKind(s.variableKind())
-            .setValue(s.value()));
+        .forEach(s -> batch.addValues(
+            sampleTimeNanos,
+            s.entityKind(),
+            s.entityId(),
+            s.variableKind(),
+            s.value()));
 
     traceSampleRows.addBatch(batch);
+    lastSampleTimeNanos = sampleTimeNanos;
 }
 ```
 
-Trace 写入应按采样周期批量发生，不应在每个 primitive update 后逐行 append。
+`lastSampleTimeNanos` 初始为 `-1`，只在 `addBatch` 成功后推进；结合唯一 state-vector mapping，保证每次采样的 `(sampleTimeNanos, entityKind, entityId, variableKind)` 唯一。`reusableTraceBatch` 在 session 创建时按采样上限准入，并只在当前同步调用中复用；`addBatch` 完成 detached staging copy 后下一次采样才 `clear()`。Trace 写入按采样周期批量发生，不在每个 primitive update 后逐行 append。稳定 export 顺序使用上述完整 tuple 的 total comparator；enum 次序采用 schema 声明顺序，不使用 `toString()`。
 
 ## 8. Cache 友好性分析
 
@@ -377,7 +461,7 @@ Trace 写入应按采样周期批量发生，不应在每个 primitive update �
 因此蓝图建议：
 
 - state vector 初始化后原地更新；
-- due events 批量消费和批量 remove；
+- due events 只从 application heap 按 total order 消费；可选 Table projection 在独立 boundary 重建或清理；
 - trace buffer 与 state vector 计算路径分离；
 - required lookup 在 step 前尽量预绑定或缓存到 dense row，不在 inner loop 重复 random lookup。
 
@@ -403,14 +487,14 @@ Final-state export 直接读取最终 `StateVectorRow` facts，并由 entity map
 ### 10.1 目标决策
 
 - `StateVectorRow` 是 dense long-lived authoritative numeric state；definition table 不保存可写 numeric shadow；
-- application min-heap 是唯一 event queue，`PendingEventRow` 只是可选 projection；
+- application min-heap 是唯一 event queue，使用 immutable node 和 `(simulationTimeNanos, sequenceNo)` total order；积分在 event boundary 分段，`PendingEventRow` 只是可选 projection；
 - `TraceSampleRow` 是 export/diagnostic buffer，不反向驱动积分状态；final state 直接从 state vector 投影；
 - simulator 拥有数值模型、异常值策略、事件规则、projection/cache 同步和跨 table 一致性；
 - ColumnView hot path 默认把 live read scope 与写入阶段分开，除非下位 Design 明确允许固定宽度写入。
 
 ### 10.2 采用前证明义务
 
-- 比较 state-vector Row Pipeline update、ColumnView 与 primitive loop 的成本边界；
+- 比较 state-vector Row Pipeline update、ColumnView + reusable scratch 与 primitive baseline 的成本边界，并验证 steady step 不分配 `double[size]`；
 - 分开验证 heap push/pop、可选 Table projection、trace append/export 和 final-state materialization；
 - 比较 `FlowCoefficient` keyed lookup、preprojected dense row、adjacent column 与 ColumnView scan；
 - 为 finite value、non-zero scale 和 integration exceptional value 固化 simulator invariant 与 failure evidence；

@@ -79,7 +79,7 @@ public final class BenchmarkArtifactCheck {
 
         File arbitraryExactIndex = new File(directory, "invalid-arbitrary-exact-index.jsonl");
         rewriteObjectField(valid, arbitraryExactIndex,
-                "generated.dense_scratch_replace_sort",
+                "generated.exact_index_incremental_lookup",
                 "exactIndexStats", "{\"garbage\":1}");
         expectInvalid(arbitraryExactIndex, "arbitrary non-empty exact-index evidence");
 
@@ -153,11 +153,11 @@ public final class BenchmarkArtifactCheck {
                 "kernel.column_view", "columnViewStats", "acquired", "1");
         expectInvalid(staleColumnViewAggregate, "ColumnView counters kept first iteration");
 
-        File staleDenseExactIndex = new File(directory,
-                "invalid-stale-dense-exact-index.jsonl");
-        rewriteNestedScalarField(valid, staleDenseExactIndex,
-                "generated.dense_scratch_replace_sort", "exactIndexStats", "replaceRows", "65");
-        expectInvalid(staleDenseExactIndex, "dense exact-index counter kept first iteration");
+        File staleDenseWorkspace = new File(directory,
+                "invalid-stale-dense-workspace.jsonl");
+        rewriteNestedScalarField(valid, staleDenseWorkspace,
+                "generated.dense_scratch_replace_sort", "selectorStats", "replaceRows", "65");
+        expectInvalid(staleDenseWorkspace, "dense workspace counter kept first iteration");
 
         File staleFrontierExactIndex = new File(directory,
                 "invalid-stale-frontier-exact-index.jsonl");
@@ -182,15 +182,15 @@ public final class BenchmarkArtifactCheck {
                 "append-validation KeySpace allocation kept first iteration");
 
         File wrongHotColumn = new File(directory, "invalid-hot-column.jsonl");
-        rewrite(valid, wrongHotColumn, "\"projectedArrivalMinute\"",
+        rewrite(valid, wrongHotColumn, "\"projectedArrivalSecond\"",
                 "\"deltaDurationSeconds\"", -1);
         expectInvalid(wrongHotColumn, "Access Pattern Card uses a non-schema hot column");
 
         File wrongExactLookupTouched = new File(directory,
                 "invalid-exact-lookup-touched.jsonl");
         rewriteNestedScalarField(valid, wrongExactLookupTouched,
-                "generated.dense_scratch_replace_sort", "exactIndexStats",
-                "exactLookupTouchedBytes", "1");
+                "generated.exact_index_incremental_lookup", "exactIndexStats",
+                "lookupTouchedBytes", "1");
         expectInvalid(wrongExactLookupTouched,
                 "exact-lookup touched bytes contradict traversed rows");
 

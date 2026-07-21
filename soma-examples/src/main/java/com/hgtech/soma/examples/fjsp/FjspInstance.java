@@ -19,6 +19,7 @@ import java.util.List;
 public final class FjspInstance implements AutoCloseable {
   final int operationCount;
   final int jobCount;
+  final int maximumCandidatesPerOperation;
   final JobDefinitionTable jobs;
   final JobRuntimeStateTable jobStates;
   final JobResultTable jobResults;
@@ -30,9 +31,11 @@ public final class FjspInstance implements AutoCloseable {
   final MachineCandidateTable frontier;
   private boolean closed;
 
-  FjspInstance(int operationCount, int jobCount, RuntimePlan plan) {
+  FjspInstance(int operationCount, int jobCount,
+               int maximumCandidatesPerOperation, RuntimePlan plan) {
     this.operationCount = operationCount;
     this.jobCount = jobCount;
+    this.maximumCandidatesPerOperation = maximumCandidatesPerOperation;
     jobs = JobDefinitionTable.create(plan);
     jobStates = JobRuntimeStateTable.create(plan);
     jobResults = JobResultTable.create(plan);

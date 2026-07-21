@@ -88,6 +88,18 @@ final class FjspMachineAvailabilityQueue {
     availableFromMinutes[slot] = availableFromMinute;
   }
 
+  /** 在全部 authoritative SOMA 写入成功后同步一个 machine 的派生 heap membership。 */
+  void refresh(MachineId machineId, long availableFromMinute,
+               boolean eligible) {
+    int slot = slotOf(machineId);
+    int position = positions[slot];
+    if (position != INACTIVE) {
+      removeAt(position);
+    }
+    availableFromMinutes[slot] = availableFromMinute;
+    if (eligible) activate(machineId);
+  }
+
   boolean isEmpty() {
     return size == 0;
   }
@@ -143,6 +155,22 @@ final class FjspMachineAvailabilityQueue {
     }
     heap[position] = slot;
     positions[slot] = position;
+  }
+
+  private void removeAt(int position) {
+    int removed = heap[position];
+    positions[removed] = INACTIVE;
+    int remaining = --size;
+    if (position == remaining) return;
+    int replacement = heap[remaining];
+    heap[position] = replacement;
+    positions[replacement] = position;
+    if (position > 0
+        && compare(replacement, heap[(position - 1) >>> 1]) < 0) {
+      siftUp(position);
+    } else {
+      siftDown(position);
+    }
   }
 
   private int compare(int left, int right) {

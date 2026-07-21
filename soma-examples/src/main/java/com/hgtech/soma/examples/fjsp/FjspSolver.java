@@ -2,11 +2,13 @@ package com.hgtech.soma.examples.fjsp;
 
 import com.hgtech.soma.examples.fjsp.schema.JobId;
 import com.hgtech.soma.examples.fjsp.schema.MachineId;
+import com.hgtech.soma.examples.fjsp.schema.MachineState;
 import com.hgtech.soma.examples.fjsp.schema.OperationId;
 import com.hgtech.soma.examples.fjsp.schema.OperationKey;
 import com.hgtech.soma.examples.fjsp.schema.generated.JobResultBatch;
 import com.hgtech.soma.examples.fjsp.schema.generated.OperationAssignmentBatch;
 import com.hgtech.soma.runtime.IndexSnapshot;
+import com.hgtech.soma.runtime.EnumColumnView;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.RemoveResult;
@@ -21,6 +23,14 @@ public final class FjspSolver {
   private final FjspInstance instance;
   private final FjspCandidateFrontier frontier;
   private final FjspMachineAvailabilityQueue machineQueue;
+  private final OperationAssignmentBatch assignmentBatch =
+    new OperationAssignmentBatch(1);
+  private final JobResultBatch jobResultBatch = new JobResultBatch(1);
+  private final FjspReleasedMachines releasedMachines;
+  private final MachineSelection selectedMachine = new MachineSelection();
+  private final Dispatch dispatch = new Dispatch();
+  private boolean completedJob;
+  private long completedJobTardiness;
   private boolean solved;
 
   public FjspSolver(FjspInstance instance,
@@ -29,23 +39,27 @@ public final class FjspSolver {
     if (dispatchRule == null) throw new NullPointerException("dispatchRule");
     this.instance = instance;
     this.machineQueue = new FjspMachineAvailabilityQueue(instance.machines);
-    this.frontier = new FjspCandidateFrontier(
-      instance, dispatchRule, machineQueue);
+    this.frontier = new FjspCandidateFrontier(instance, dispatchRule);
+    this.releasedMachines = new FjspReleasedMachines(
+      instance.maximumCandidatesPerOperation);
   }
 
   public FjspSolveResult solve() {
     if (solved) throw new IllegalStateException("FJSP solver is one-shot");
+    solved = true;
     releaseInitialOperations();
     long makespan = 0L;
     long totalTardiness = 0L;
     long checksum = 1L;
     int completedJobs = 0;
     while (instance.assignments.size() < instance.operationCount) {
-      Dispatch dispatch = dispatchNext();
-      Completion completion = advanceJob(dispatch);
-      if (completion.completed) {
-        completedJobs++;
-        totalTardiness += completion.tardiness;
+      dispatchNext();
+      advanceJob();
+      refreshQueueMembership(dispatch.machineId);
+      if (completedJob) {
+        completedJobs = Math.addExact(completedJobs, 1);
+        totalTardiness = Math.addExact(
+          totalTardiness, completedJobTardiness);
       }
       makespan = Math.max(makespan, dispatch.endMinute);
       checksum = 31L * checksum + dispatch.jobId;
@@ -56,7 +70,6 @@ public final class FjspSolver {
       "all jobs must be completed");
     require(instance.frontier.size() == 0,
       "frontier must be empty after solve");
-    solved = true;
     return new FjspSolveResult(instance.assignments.size(), completedJobs,
       makespan, totalTardiness, checksum);
   }
@@ -70,7 +83,10 @@ public final class FjspSolver {
     LongColumnView jobIds = instance.jobs.jobIdValueColumn();
     try {
       for (int position = 0; position < jobRows.size(); position++) {
-        frontier.release(operationAt(jobIds.getLong(jobRows.indexAt(position)), 0));
+        frontier.release(
+          operationAt(jobIds.getLong(jobRows.indexAt(position)), 0),
+          releasedMachines);
+        refreshQueueMembership(null);
       }
     } finally {
       jobIds.close();
@@ -97,22 +113,27 @@ public final class FjspSolver {
       new JobId(jobId), new OperationId(operationIds.getLong(row)));
   }
 
-  private Dispatch dispatchNext() {
-    MachineSelection machine = selectNextMachine();
+  private void dispatchNext() {
+    selectNextMachine();
+    MachineSelection machine = selectedMachine;
     FjspCandidateFrontier.Candidate candidate = frontier.select(
       machine.machineId, machine.availableFromMinute,
       machine.lastFamilyPresent, machine.lastFamily);
     long setupStart = maximum(
       machine.availableFromMinute, candidate.baseReadyMinute);
-    long start = setupStart + candidate.setupMinutes;
-    long end = start + candidate.processingMinutes;
+    long start = Math.addExact(setupStart, candidate.setupMinutes);
+    long end = Math.addExact(start, candidate.processingMinutes);
     commit(machine.machineId, candidate, setupStart, start, end);
-    return new Dispatch(candidate.jobId, candidate.operationId, end);
+    dispatch.machineId = machine.machineId;
+    dispatch.jobId = candidate.jobId;
+    dispatch.operationId = candidate.operationId;
+    dispatch.endMinute = end;
   }
 
-  private MachineSelection selectNextMachine() {
+  private void selectNextMachine() {
     LongColumnView available = instance.machines.availableFromMinuteColumn();
     LongColumnView lastFamily = instance.machines.lastSetupFamilyValueColumn();
+    EnumColumnView<MachineState> states = instance.machines.stateColumn();
     try {
       while (!machineQueue.isEmpty()) {
         int slot = machineQueue.take();
@@ -120,40 +141,47 @@ public final class FjspSolver {
         // 其他operation的retire可能使该machine entry变空；到达heap root时惰性淘汰。
         if (instance.frontier.findByMachine(machineId).count() == 0L) continue;
         int row = instance.machines.rowIndexOf(machineId.value);
+        if (states.get(row) != MachineState.READY) continue;
         long currentAvailable = available.getLong(row);
         require(currentAvailable == machineQueue.availableFromMinute(slot),
           "machine queue must match authoritative table availability");
         boolean present = lastFamily.isPresent(row);
-        return new MachineSelection(machineId, currentAvailable, present,
-          present ? lastFamily.getLong(row) : 0L);
+        selectedMachine.machineId = machineId;
+        selectedMachine.availableFromMinute = currentAvailable;
+        selectedMachine.lastFamilyPresent = present;
+        selectedMachine.lastFamily = present ? lastFamily.getLong(row) : 0L;
+        return;
       }
     } finally {
+      states.close();
       lastFamily.close();
       available.close();
     }
-    throw new IllegalStateException("no machine has a released candidate");
+    throw new FjspInfeasibleException(
+      "operations remain but no machine has an eligible released candidate");
   }
 
   private void commit(MachineId machineId,
                       FjspCandidateFrontier.Candidate candidate,
                       long setupStart, long start, long end) {
     // 有序提交而非跨表原子事务；失败后由 instance lifecycle 负责整体丢弃。
-    instance.assignments.addBatch(new OperationAssignmentBatch(1).addValues(
+    assignmentBatch.clear();
+    assignmentBatch.addValues(
       candidate.operationKey, machineId, setupStart, candidate.setupMinutes,
-      start, candidate.processingMinutes, end));
+      start, candidate.processingMinutes, end);
+    instance.assignments.addBatch(assignmentBatch);
     instance.machines.mutate(machineId).setAvailableFromMinute(end)
       .setLastSetupFamily(candidate.targetSetupFamily).commit();
-    machineQueue.updateInactive(machineId, end);
     RemoveResult removed = instance.frontier
       .findByOperation(candidate.operationKey).remove();
     require(removed.removed() > 0L,
       "commit must remove all candidates of the assigned operation");
-    if (instance.frontier.findByMachine(machineId).count() != 0L) {
-      machineQueue.activate(machineId);
-    }
   }
 
-  private Completion advanceJob(Dispatch dispatch) {
+  private void advanceJob() {
+    completedJob = false;
+    completedJobTardiness = 0L;
+    releasedMachines.reset();
     int definitionRow = instance.definitions.rowIndexOf(
       dispatch.jobId, dispatch.operationId);
     int sequenceNo;
@@ -163,7 +191,7 @@ public final class FjspSolver {
     } finally {
       sequences.close();
     }
-    int nextSequence = sequenceNo + 1;
+    int nextSequence = Math.addExact(sequenceNo, 1);
     JobId jobId = new JobId(dispatch.jobId);
     instance.jobStates.mutate(jobId)
       .setNextSequenceNo(nextSequence).commit();
@@ -177,8 +205,8 @@ public final class FjspSolver {
           dispatch.jobId, successors.indexAt(0), operationIds);
         instance.operationStates.mutate(successor)
           .setJobReadyMinute(dispatch.endMinute).commit();
-        frontier.release(successor);
-        return Completion.incomplete();
+        frontier.release(successor, releasedMachines);
+        return;
       } finally {
         operationIds.close();
       }
@@ -192,10 +220,42 @@ public final class FjspSolver {
     } finally {
       dueMinutes.close();
     }
-    long tardiness = Math.max(0L, dispatch.endMinute - dueMinute);
-    instance.jobResults.addBatch(new JobResultBatch(1).addValues(
-      jobId, dispatch.endMinute, tardiness));
-    return Completion.completed(tardiness);
+    long tardiness = Math.max(
+      0L, Math.subtractExact(dispatch.endMinute, dueMinute));
+    jobResultBatch.clear();
+    jobResultBatch.addValues(jobId, dispatch.endMinute, tardiness);
+    instance.jobResults.addBatch(jobResultBatch);
+    completedJob = true;
+    completedJobTardiness = tardiness;
+  }
+
+  private void refreshQueueMembership(MachineId committedMachine) {
+    LongColumnView available = instance.machines.availableFromMinuteColumn();
+    EnumColumnView<MachineState> states = instance.machines.stateColumn();
+    try {
+      if (committedMachine != null) {
+        refreshQueueMembership(committedMachine, available, states);
+      }
+      for (int index = 0; index < releasedMachines.size(); index++) {
+        long machineId = releasedMachines.machineIdValue(index);
+        if (committedMachine == null
+            || committedMachine.value != machineId) {
+          refreshQueueMembership(new MachineId(machineId), available, states);
+        }
+      }
+    } finally {
+      states.close();
+      available.close();
+    }
+  }
+
+  private void refreshQueueMembership(
+      MachineId machineId, LongColumnView available,
+      EnumColumnView<MachineState> states) {
+    int row = instance.machines.rowIndexOf(machineId.value);
+    boolean eligible = states.get(row) == MachineState.READY
+      && instance.frontier.findByMachine(machineId).count() != 0L;
+    machineQueue.refresh(machineId, available.getLong(row), eligible);
   }
 
   private static long maximum(long left, long right) {
@@ -207,47 +267,16 @@ public final class FjspSolver {
   }
 
   private static final class MachineSelection {
-    final MachineId machineId;
-    final long availableFromMinute;
-    final boolean lastFamilyPresent;
-    final long lastFamily;
-
-    MachineSelection(MachineId machineId, long availableFromMinute,
-                     boolean lastFamilyPresent, long lastFamily) {
-      this.machineId = machineId;
-      this.availableFromMinute = availableFromMinute;
-      this.lastFamilyPresent = lastFamilyPresent;
-      this.lastFamily = lastFamily;
-    }
+    MachineId machineId;
+    long availableFromMinute;
+    boolean lastFamilyPresent;
+    long lastFamily;
   }
 
   private static final class Dispatch {
-    final long jobId;
-    final long operationId;
-    final long endMinute;
-
-    Dispatch(long jobId, long operationId, long endMinute) {
-      this.jobId = jobId;
-      this.operationId = operationId;
-      this.endMinute = endMinute;
-    }
-  }
-
-  private static final class Completion {
-    final boolean completed;
-    final long tardiness;
-
-    private Completion(boolean completed, long tardiness) {
-      this.completed = completed;
-      this.tardiness = tardiness;
-    }
-
-    static Completion incomplete() {
-      return new Completion(false, 0L);
-    }
-
-    static Completion completed(long tardiness) {
-      return new Completion(true, tardiness);
-    }
+    MachineId machineId;
+    long jobId;
+    long operationId;
+    long endMinute;
   }
 }

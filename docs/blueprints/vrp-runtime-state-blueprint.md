@@ -12,7 +12,7 @@ Owner：VRP 目标场景
 
 设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Ownership 与 lifecycle](../design/ownership-and-lifecycle.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
 目标约束：route/customer/candidate 的业务顺序由显式 `.sorted(totalComparator)` 或 application-owned 专用结构产生；`@SomaIndex` 只承担 always-current exact access，物理遍历顺序不构成业务契约。
 
@@ -27,7 +27,9 @@ Owner：VRP 目标场景
 - 只讨论 Java 8 generated table / Row Pipeline / ColumnView 使用方式；
 - 只讨论构造解 runtime state，不讨论局部搜索、Tabu、LNS、列生成、CP-SAT 或最优性证明；
 - SOMA 保存 hot runtime state，VRP constructor 拥有插入策略、容量和时间窗规则、跨 table 一致性和失败处理；
-- 本文定义目标使用形态，不是精确 schema/API contract；代码片段用于表达使用者意图。
+- 本文定义目标使用形态，不是精确 schema/API contract；未标为算法伪代码的片段按目标 Java 8 使用代码审查，允许省略 import、外围 owner 和领域 helper，但必须把 insertion position、可行性、时间单位、total comparator 与跨表失败边界表达完整。
+
+Canonical CVRPTW 示例统一使用 meter、second 和 non-negative integral load/capacity；input loader 在进入 constructor 前验证单位、非负性、time-window 关系与 checked-arithmetic 上界。其他单位制必须整体替换字段名与 adapter，不能在同一 runtime state 中混用 minute/second 或 distance/cost。
 
 本蓝图中的 `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但不是 live runtime storage。Materializing API/terminal 直接返回 schema class 或 `List`/`Map`；Row Pipeline callback 参数仍是 callback-scoped Row Cursor。`@SomaValue` 由 compiler 提供 immutable value semantics。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化。
 
@@ -37,16 +39,18 @@ Owner：VRP 目标场景
 |---|---|---|---|
 | `CustomerDefinition` | keyed input fact | import 后 authoritative、read-only | `fetch(customerId)`、due/input 显式排序 |
 | `VehicleDefinition` | keyed input fact | import 后 authoritative、read-only | `fetch(vehicleId)`、按 vehicle id 显式排序 |
-| `Route` | keyed working/result fact | 构造过程中持续 mutation | `fetch(routeId)`、`mutate(routeId)`、`by_vehicle` |
+| `Route` | keyed working/result fact | 构造过程中持续 mutation | `fetch(routeId)`、`mutate(routeId)`、每 vehicle 唯一 active route access |
 | `TravelCost` | keyed lookup data | 导入后只读 lookup | `fetch(locationPair)` |
 | `RouteVisitRow` | per-route dense child `List<RouteVisitRow>` | route 当前访问序列 | parent key + child-local `.rows().sorted(byPosition)` |
-| `CustomerAssignment` | keyed result fact | row absence 表示尚未分配 | `fetch(customerId)`、`by_route` |
+| `CustomerAssignment` | keyed result fact | row absence 表示尚未分配 | `fetch(customerId)`；只有 route-scoped result query 稳定高频时才声明 `by_route` |
 | `UnassignedCustomerRow` | dense rebuildable workspace | definition/assignment 差集的热视图 | `.rows().sorted(byDueThenInput)` |
 | `InsertionCandidateRow` | dense workspace，满足采用条件时可换为 keyed frontier | 可重建候选状态 | `.rows().sorted(byBestDelta)` 或 grouped exact access |
 
 `RouteVisitRow` 使用 dense table 是合理的：`position` 是当前 route sequence 中的位置，不是 stable business identity；插入会导致后续 position 大量变化，用 keyed table 反而会把 row identity 和位置维护复杂化。
 
-路线顺序的事实源是 `RouteVisitRow.position`。`CustomerAssignment.routeId` 表示 customer 已分配到哪条 route；`assignedPosition` 若作为诊断 / snapshot 字段存在，必须在 route segment rewrite 后同步重写，否则会和 `RouteVisitRow.position` drift。
+每次 route-local rewrite 必须在 publish 前验证 `position` 恰好为连续、唯一的 `[0, visitCount)`，并验证 customer 不重复、arrival/departure/load propagation 与 vehicle depot 边界一致。该业务 invariant 由 constructor 负责；它不是依赖物理 Index 偶然连续来成立。
+
+路线顺序的事实源是 `RouteVisitRow.position`。`CustomerAssignment.routeId` 只表示 customer 已分配到哪条 route；canonical live model 不再复制 `assignedPosition`，需要位置时从当前 route visits 派生，避免每次 segment rewrite 同步另一份位置事实。
 
 ### 2.1 Application data role 边界
 
@@ -75,8 +79,8 @@ UnassignedCustomerRow  // rebuildable working workspace, never authoritative
 | Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
 |---|---|---|---|---|
 | `Route.visits` dense child | route count × empty/typical/high visits per route | `position`、customer/location、arrival/departure/load | scoring 时 parent-key child-local scan；commit 时 route-local rewrite/replace | 记录 child instance count/small-array overhead；与 flat grouped-index/filter baseline 比较 |
-| `InsertionCandidateRow` dense workspace | unassigned customers × considered routes × positions | feasibility、delta、arrival、penalty、tie-break | 每轮 `replaceAll` + explicit dynamic sort + first | builder、column rewrite、sort scratch reuse 和 allocation/op 分开；不把 pathing/scoring 算法归因于 runtime |
-| optional keyed insertion frontier | affected route/customer/position/version pairs | key/version、indicator fields | incremental add/update/remove + grouped lookup | 仅在跨轮 reuse 和局部 invalidation 成立时测；记录 mutation/read ratio 与 stale cleanup |
+| `InsertionCandidateRow` dense workspace | unassigned customers × considered routes × insertion ordinals | route/customer/ordinal/version、delta、arrival/load/duration | 每轮 `replaceAll` + explicit dynamic sort + first | builder、column rewrite、sort scratch reuse 和 allocation/op 分开；不把 routing/scoring 算法归因于 runtime |
+| optional keyed insertion frontier | affected route/customer/ordinal/version pairs | key/version、score fields | incremental add/update/remove + grouped lookup | 仅在跨轮 reuse 和局部 invalidation 成立时测；记录 mutation/read ratio 与 stale cleanup |
 | `TravelCost` | location-pair facts | key leaves、distance/time | candidate scoring 中高频 random point lookup | 记录 load/collision、lookup reuse、preprojection build/amortization；comparator 内禁止 lookup |
 | `UnassignedCustomerRow` | remaining unassigned customers | due/input/demand | explicit sorted selection、remove/rebuild | 作为 rebuildable workspace；记录 swap-remove、dynamic-sort scratch 和 capacity retention |
 
@@ -92,11 +96,11 @@ initialize customers / vehicles / routes / travel_costs
   -> initialize empty route_visit_rows
   -> repeat until no unassigned customers:
        choose candidate generation scope
-       compute insertion indicators
+       compute complete feasible insertion scores
        publish candidate rows
        select best candidate
        commit route insertion
-       update Customer / Route / RouteVisitRow / UnassignedCustomerRow
+       update CustomerAssignment / Route / RouteVisitRow / UnassignedCustomerRow
        invalidate or recompute affected candidates
 ```
 
@@ -114,7 +118,7 @@ InsertionCandidateRow chosen = insertionCandidates.rows()
 - 遍历所有 route；
 - 遍历每条 route 的所有 insertion position；
 - 多次读取 `TravelCost`；
-- 计算 capacity、arrival、waiting、time window penalty；
+- 计算 capacity、arrival、waiting 和完整 time-window propagation；
 - 构造 batch row；
 - 为本轮 candidate sequence 执行显式 dynamic sort；
 - 只为了选一个候选，却重建了全局候选集合。
@@ -148,10 +152,10 @@ InsertionCandidateRow chosen = insertionCandidates.rows()
 推荐的 frontier identity 可以是：
 
 ```text
-(RouteId, CustomerId, InsertAfterPosition, RouteVersion)
+(RouteId, CustomerId, InsertionOrdinal, RouteVersion)
 ```
 
-其中 `RouteVersion` 或等价字段非常关键。VRP 的 `insertAfterPosition` 不是 stable identity；一次插入会移动后续 position。如果没有 route version，旧 candidate row 可能仍然指向过期位置。
+`insertionOrdinal` 的合法范围是 `[0, visitCount]`：`0` 表示 depot 与首个 visit 之间，`visitCount` 表示末尾 visit 与 depot 之间，空 route 唯一合法值也是 `0`。它不是 absence sentinel，而是当前 route version 内明确定义的 edge ordinal。`RouteVersion` 同样不可缺少；一次插入会改变后续 ordinal，如果没有 version，旧 candidate row 可能仍然指向过期 edge。
 
 ### 4.3 `RouteVisitRow`：flat dense 与 parent-owned dense child
 
@@ -160,7 +164,7 @@ InsertionCandidateRow chosen = insertionCandidates.rows()
 ```text
 Route keyed parent row
   -> required visits child table
-       -> RouteVisitRow(position, customerId, arrivalMinute, ...)
+       -> RouteVisitRow(position, customerId, arrivalSecond, ...)
 ```
 
 概念 schema 可以表达为：
@@ -184,6 +188,9 @@ public final class RouteVisitRow {
 
     @SomaField
     public CustomerId customerId;
+
+    @SomaField
+    public LocationId locationId;
 
     // arrival/departure/load fields 省略。
 }
@@ -218,19 +225,17 @@ public final class RouteVisitRow {
 - **隐藏 cross-table lookup**：candidate build 中频繁读取 `Customer`、`Route`、`RouteVisitRow`、`TravelCost`，不能放在 comparator 内；
 - **重复 builder 构造**：如果每轮构造完整 batch，Java 对象分配和 field copy 可能盖过 columnar runtime 收益；
 - **业务顺序误用**：每轮 `replaceAll` 后的 dynamic sort 是显式策略成本，不能把它伪装成 Table 自动维护或物理顺序；
-- **route position stale**：dense `RouteVisitRow.position` 是当前位置，structural mutation 后旧 row index 和旧 position 都不能作为长期引用；
-- **TravelCost lookup 语义隐藏**：`scoreInsertion(...)` 必须明确 missing pair 是 typed required lookup error、不可行候选，还是 fallback distance；不能由 SOMA runtime 猜；
-- **indicator 粒度过粗**：一次性计算所有 delta、arrival、capacity、penalty，会掩盖哪些指标能在 route/customer 级缓存。
+- **route position stale**：任何来源 Table mutation/lifecycle change 后旧 Index 都失效；route rewrite 后旧 `RouteVisitRow.position` 也只描述旧 route version，二者都不能作为长期 identity；
+- **TravelCost lookup 语义隐藏**：canonical input 的 required directed pair 若在运行中 missing，必须按 malformed problem fail closed；不可达 arc、sparse graph 或 shortest-path fallback 只能进入另一个显式 application model；
+- **score 粒度过粗**：一次性计算所有 delta、arrival、capacity 和 suffix propagation，会掩盖哪些量能在 route/customer 级安全缓存。
 
-## 6. 可选 keyed frontier 的采用条件
+## 6. 默认 schema 与可选 keyed frontier
 
 小规模或全局重算场景以 dense workspace 为默认目标。`InsertionCandidateRow` 每轮通过 `replaceAll(batch)` 发布 candidate workspace；`by_best_delta` 只是本轮显式 comparator，不进入 Schema。
 
 本节 schema 采用 per-route dense child 作为推荐形态；flat root-level `RouteVisitRow(routeId, position, ...)` 只保留为 benchmark baseline。
 
-只有在全量 rebuild 已经被 benchmark 证明是瓶颈，且候选确实需要跨轮次保留、按 route/customer 局部删除和按 route version 失效时，才考虑下面的 keyed frontier 方案。
-
-**本节是条件式目标方案，不替换默认的 dense `InsertionCandidateRow` workspace。**
+只有在全量 rebuild 已经被 benchmark 证明是瓶颈，且候选确实需要跨轮次保留、按 route/customer 局部删除和按 route version 失效时，才把默认 dense row 换成后面的 keyed frontier。
 
 ```java
 @SomaSchema(
@@ -240,38 +245,17 @@ public final class RouteVisitRow {
 )
 package com.example.vrp.state;
 
-@SomaValue
-public class InsertionCandidateKey {
-    @SomaField
-    RouteId routeId;
-
-    @SomaField
-    CustomerId customerId;
-
-    @SomaField
-    int insertAfterPosition;
-
-    @SomaField
-    long routeVersion;
-}
-
 @SomaTable(name = "customer_assignments", defaultCapacity = 4096)
-@SomaIndex(name = "by_route", fields = {
-    "routeId.value"
-})
 public final class CustomerAssignment {
     @SomaKey
     public CustomerId customerId;
 
     @SomaField
     public RouteId routeId;
-
-    @SomaField
-    public long arrivalMinute;
 }
 
 @SomaTable(name = "routes", defaultCapacity = 512)
-@SomaIndex(name = "by_vehicle", fields = {"vehicleId.value"})
+@SomaUnique(name = "by_vehicle", fields = {"vehicleId.value"})
 public final class Route {
     @SomaKey
     public RouteId routeId;
@@ -312,13 +296,46 @@ public final class RouteVisitRow {
     public CustomerId customerId;
 
     @SomaField
-    public long arrivalMinute;
+    public LocationId locationId;
 
     @SomaField
-    public long departureMinute;
+    public long arrivalSecond;
+
+    @SomaField
+    public long departureSecond;
 
     @SomaField
     public int loadAfterVisit;
+}
+
+@SomaTable(name = "insertion_candidate_rows", defaultCapacity = 16384)
+public final class InsertionCandidateRow {
+    @SomaField public RouteId routeId;
+    @SomaField public CustomerId customerId;
+    @SomaField public int insertionOrdinal;
+    @SomaField public long routeVersion;
+    @SomaField public long deltaDistanceMeters;
+    @SomaField public long projectedArrivalSecond;
+    @SomaField public int projectedLoad;
+    @SomaField public long projectedTotalDurationSeconds;
+}
+```
+
+Canonical CVRPTW journey 把 capacity 和 time window 当作 hard constraint：candidate builder 只发布已完成完整 propagation 且可行的 row。若某个产品采用 soft constraint，penalty 必须作为该产品明确命名、带单位且进入 total comparator 的字段，不能复用一个含义模糊的 `violationPenalty`。
+
+`RouteVisitRow.locationId` 是从 immutable `CustomerDefinition` 预投影到 current route sequence 的只读 leaf，用于避免评分时为每个 predecessor/successor 重复 materialize customer；插入时必须与 customer definition 校验一致，之后不能独立修改成第二份 location 事实。
+
+这里假设每个 vehicle 在当前 solve 中只有一条 active route，因此 `by_vehicle` 是 `@SomaUnique`。允许同一 vehicle 多 trip/route 的模型必须改用 `@SomaIndex`，并把 trip identity 纳入业务规则；不能保留 unique 声明后依赖插入冲突控制业务流程。
+
+条件式 keyed frontier 只替换 candidate table；其他事实与 ownership 不变：
+
+```java
+@SomaValue
+public class InsertionCandidateKey {
+    @SomaField RouteId routeId;
+    @SomaField CustomerId customerId;
+    @SomaField int insertionOrdinal;
+    @SomaField long routeVersion;
 }
 
 @SomaTable(name = "insertion_candidates", defaultCapacity = 16384)
@@ -333,25 +350,16 @@ public final class InsertionCandidate {
     public InsertionCandidateKey candidateKey;
 
     @SomaField
-    public long baseDeltaDistanceMeters;
+    public long deltaDistanceMeters;
 
     @SomaField
-    public long projectedArrivalMinute;
+    public long projectedArrivalSecond;
 
     @SomaField
     public int projectedLoad;
 
     @SomaField
-    public boolean capacityFeasible;
-
-    @SomaField
-    public long timeWindowPenalty;
-
-    @SomaField
-    public long violationPenalty;
-
-    @SomaField
-    public boolean indicatorReady;
+    public long projectedTotalDurationSeconds;
 }
 ```
 
@@ -360,9 +368,9 @@ public final class InsertionCandidate {
 - 上面的 `InsertionCandidate` 是增量 frontier 候选方案，不是默认形态；
 - `InsertionCandidateKey` 的身份只在同一个 `RouteVersion` epoch 内有效，不是跨整个求解生命周期稳定的 business identity；
 - `InsertionCandidate` 不声明 `by_best_delta` order。候选的策略排序属于 constructor 策略层，可通过 frontier 的 dynamic sort 完成；
-- 草案不保留单独 `dispatchScore`。本蓝图选择保留 comparator 实际使用的 indicator 字段，避免把某个策略 score 固化成 schema 事实；
+- candidate 只保留 comparator 与 commit 真正需要的事实，不把某个可变策略压成 `dispatchScore`，也不机械复制 FJSP 的 `indicatorReady` 生命周期；
 - 当 benchmark 证明全局 best candidate 需要跨轮次维护时，应评估 application-owned priority queue，而不是恢复 Table maintained order；
-- `RouteVersion` 是 stale candidate 防线，避免旧 position 在 route mutation 后继续有效；
+- `RouteVersion` 是 stale candidate 防线，避免旧 insertion ordinal 在 route mutation 后继续有效；
 - `RouteVisitRow` 在推荐方案中是 per-route dense child；flat root table 只作为相同语义 benchmark baseline。Candidate frontier 决策不自动改变 visit ownership。
 
 ## 7. 推荐的 Java 8 SOMA API 使用流程
@@ -378,114 +386,81 @@ void initializeRuntime(ProblemInput input) {
 
     customerAssignments.clear();
     unassignedCustomerRows.replaceAll(buildUnassignedBatch(input));
-    insertionCandidates.clear();
+    insertionCandidateRows.clear();
 }
 ```
 
-### 7.2 发布或刷新受影响 route 的候选
+选择 keyed frontier 的实例以 `insertionCandidates.clear()` 代替最后一行；一个 solve 只采用一种 candidate store，不同时维护 dense 与 keyed 两份候选事实。
+
+### 7.2 默认 dense workspace：完整构建后一次发布
+
+默认方案先在 detached Batch 中完成本轮所有评分，再以一次 `replaceAll` 发布：
+
+```java
+InsertionCandidateRowBatch batch = candidateBuilder
+    .buildAllFeasible(unassignedCustomerRows, routes, travelCosts);
+
+insertionCandidateRows.replaceAll(batch);
+```
+
+`candidateBuilder` 是 application component，不是省略业务语义的黑箱。它必须对每个 `(customer, route)` 恰好一次枚举 `0..visitCount` 的全部 insertion ordinal，包括空 route 的 ordinal `0`；从 vehicle depot 与 ordered visits 得到 predecessor/successor；完成 capacity、整条受影响 suffix 的 arrival/time-window propagation；只发布 hard-constraint feasible row；保证 projected load/duration 与完整 rewritten route 一致，并对 distance、duration、load 和 route version 使用 checked arithmetic。它只能在一个同步只读批次中消费 SOMA Index，不能把 Index 保存进 Batch 或跨轮缓存。返回的 Batch 是 builder-owned reusable staging；`replaceAll`/`addBatch` 完成 detached copy 后才可清空复用，不能被另一轮并发填充。
+
+Canonical input 把 `TravelCost` 定义为求解所需 location pair 的完整 directed lookup。Loader 在 solve 前验证 required pair；运行中 missing lookup 表示 malformed problem，立即终止并丢弃 instance。稀疏 road graph、shortest-path fallback 或不可达 arc 属于另一条明确的 application model，不能由 comparator 或 SOMA runtime 临时猜测。
+
+### 7.3 条件式 keyed frontier：先 stage，再替换受影响 group
+
+只有采用 keyed frontier 时才出现 route-local refresh：
 
 ```java
 void refreshInsertionCandidatesForRoute(RouteId routeId) {
-    Route route = routes.fetch(routeId);
-    long routeVersion = route.routeVersion;
+    Route route = routes.fetch(routeId); // readable reference path
+    InsertionCandidateBatch staged = candidateBuilder
+        .buildFeasibleForRoute(route, unassignedCustomerRows, travelCosts);
 
     insertionCandidates.findByRoute(routeId).remove();
-
-    CandidateBatch batch = insertionCandidates.newBatch();
-
-    unassignedCustomerRows.rows().sorted(byDueThenInputComparator)
-        .forEach(u -> {
-            CustomerDefinition customer = customerDefinitions.fetch(u.customerId());
-
-            for (RouteVisitRow visit : route.visits) {
-                    int insertAfter = visit.position;
-                    InsertionScore score = scoreInsertion(route, customer, insertAfter);
-                    if (!score.feasibleByTravelCost()) {
-                        return;
-                    }
-
-                    InsertionCandidateKey key = new InsertionCandidateKey(
-                        routeId,
-                        customer.customerId,
-                        insertAfter,
-                        routeVersion
-                    );
-
-                    batch.add()
-                        .setCandidateKey(key)
-                        .setBaseDeltaDistanceMeters(score.deltaDistanceMeters())
-                        .setProjectedArrivalMinute(score.projectedArrivalMinute())
-                        .setProjectedLoad(score.projectedLoad())
-                        .setCapacityFeasible(score.capacityFeasible())
-                        .setTimeWindowPenalty(score.timeWindowPenalty())
-                        .setViolationPenalty(score.violationPenalty())
-                        .setIndicatorReady(false);
-            }
-        });
-
-    insertionCandidates.addBatch(batch);
+    insertionCandidates.addBatch(staged);
 }
 ```
 
-注意：上面是目标流程草案。同一 table 的 Row Pipeline callback 内不得对该 table 做 structural mutation；`findByRoute(routeId).remove()` 必须在读取和 batch add 之前完成。需要嵌套访问时，应先复制必要的候选信息，或使用 ColumnView / application loop 分阶段遍历。
+Batch 必须在删除旧 group 前完整构建。`remove + addBatch` 仍然是两个 Table operations，不是原子 group replacement；若第二步失败，frontier 作为 rebuildable workspace 整体失效并由 constructor 重建，不能继续消费残缺 group。`routes.fetch(routeId)` 会递归物化 visits，只适合 reference path；hot path 使用 parent-key live child facade、ColumnView 和 application-owned reusable staging。
 
-`scoreInsertion(...)` 不能隐藏业务语义。它至少应显式读取 predecessor / successor location，并对每个 `TravelCost.fetch(locationPair)` 缺失采用固定策略：
+### 7.4 使用 total comparator 选择
 
-- required lookup missing：抛 typed runtime error，中止本次构造；
-- infeasible candidate：该 insertion 不进入 batch；
-- fallback distance：由 VRP constructor 提供确定性 fallback，SOMA runtime 不参与猜测。
-
-上述三种策略只能选一种作为场景契约，不能在 comparator 或 runtime core 中临时决定。
-
-### 7.3 分阶段计算 indicator
+默认 dense row 的 comparator 覆盖完整 tie-break：
 
 ```java
-void updateCandidateIndicators() {
-    insertionCandidates
-        .filter(c -> !c.indicatorReady())
-        .update(c -> {
-            long violation = c.capacityFeasible()
-                ? c.timeWindowPenalty()
-                : CAPACITY_VIOLATION_PENALTY + c.timeWindowPenalty();
-
-            c.setViolationPenalty(violation);
-            c.setIndicatorReady(true);
-        });
-}
-```
-
-### 7.4 选择与提交
-
-```java
-InsertionCandidate chosen = insertionCandidates
-    .filter(c -> c.indicatorReady())
+InsertionCandidateRow chosen = insertionCandidateRows.rows()
     .sorted((a, b) -> {
-        int byViolation = Long.compare(a.violationPenalty(), b.violationPenalty());
-        if (byViolation != 0) {
-            return byViolation;
-        }
+        int compared = Long.compare(
+            a.deltaDistanceMeters(), b.deltaDistanceMeters());
+        if (compared != 0) return compared;
 
-        int byDelta = Long.compare(a.baseDeltaDistanceMeters(), b.baseDeltaDistanceMeters());
-        if (byDelta != 0) {
-            return byDelta;
-        }
+        compared = Long.compare(
+            a.projectedArrivalSecond(), b.projectedArrivalSecond());
+        if (compared != 0) return compared;
 
-        int byArrival = Long.compare(a.projectedArrivalMinute(), b.projectedArrivalMinute());
-        if (byArrival != 0) {
-            return byArrival;
-        }
+        compared = Long.compare(a.routeIdValue(), b.routeIdValue());
+        if (compared != 0) return compared;
 
-        return Long.compare(
-            a.candidateKey().customerId().value(),
-            b.candidateKey().customerId().value()
-        );
+        compared = Long.compare(a.customerIdValue(), b.customerIdValue());
+        if (compared != 0) return compared;
+
+        compared = Integer.compare(
+            a.insertionOrdinal(), b.insertionOrdinal());
+        if (compared != 0) return compared;
+
+        return Long.compare(a.routeVersion(), b.routeVersion());
     })
     .firstOrThrow();
-
-commitInsertion(chosen);
 ```
 
+keyed frontier 使用同一业务顺序，只把 route/customer/ordinal/version 从 `candidateKey` leaf 读取。Comparator 不访问 route、visit、customer 或 `TravelCost` table，不执行 callback side effect，也不依赖当前物理顺序。
+
+empty candidate result 表示当前 hard-constraint model 没有可行 insertion。Constructor 必须明确返回 infeasible/partial-solution outcome 或终止；不能通过放宽约束、选择未排序第一行或复用上一轮 candidate 静默继续。
+
 ### 7.5 Commit insertion
+
+下面的 `ChosenInsertion` 是 application-local immutable value，可由 dense row 或 keyed candidate 投影；它不保存 SOMA Index：
 
 ```java
 enum CommitResult {
@@ -493,51 +468,51 @@ enum CommitResult {
     STALE
 }
 
-CommitResult commitInsertion(InsertionCandidate chosen) {
-    InsertionCandidateKey key = chosen.candidateKey;
-    Route route = routes.fetch(key.routeId);
-
-    if (route.routeVersion != key.routeVersion) {
-        insertionCandidates.findByRoute(key.routeId).remove();
-        refreshInsertionCandidatesForRoute(key.routeId);
+CommitResult commitInsertion(ChosenInsertion chosen) {
+    Route route = routes.fetch(chosen.routeId());
+    if (route.routeVersion != chosen.routeVersion()
+            || customerAssignments.containsKey(chosen.customerId())) {
         return CommitResult.STALE;
     }
 
-    rewriteRouteVisitsForInsertion(
-        key.routeId,
-        key.customerId,
-        key.insertAfterPosition
-    );
+    RouteVisitRowBatch rewritten = routeRewriteWorkspace
+        .buildRewrittenVisits(
+            route, chosen.customerId(), chosen.insertionOrdinal());
+    CustomerAssignmentBatch assignment = reusableAssignmentBatch;
+    assignment.clear();
+    assignment.addValues(chosen.customerId(), chosen.routeId());
 
-    CustomerAssignmentBatch assignmentBatch = customerAssignments.newBatch();
-    assignmentBatch.add()
-        .setCustomerId(key.customerId)
-        .setRouteId(key.routeId)
-        .setArrivalMinute(chosen.projectedArrivalMinute);
-    customerAssignments.addBatch(assignmentBatch);
+    long nextDistance = Math.addExact(
+        route.totalDistanceMeters, chosen.deltaDistanceMeters());
+    long nextVersion = Math.addExact(route.routeVersion, 1L);
+    if (nextDistance < 0L
+            || chosen.projectedLoad() < 0
+            || chosen.projectedTotalDurationSeconds() < 0L) {
+        throw new IllegalArgumentException("invalid insertion projection");
+    }
 
-    routes.mutate(key.routeId)
-        .setLoad(chosen.projectedLoad)
-        .setTotalDistanceMeters(
-            route.totalDistanceMeters + chosen.baseDeltaDistanceMeters
-        )
-        .setRouteVersion(route.routeVersion + 1L)
+    customerAssignments.addBatch(assignment);
+    routes.replaceVisits(chosen.routeId(), rewritten);
+    routes.mutate(chosen.routeId())
+        .setLoad(chosen.projectedLoad())
+        .setTotalDistanceMeters(nextDistance)
+        .setTotalDurationSeconds(chosen.projectedTotalDurationSeconds())
+        .setRouteVersion(nextVersion)
         .commit();
 
     unassignedCustomerRows
-        .filter(u -> u.customerId().equals(key.customerId))
+        .filter(u -> u.customerIdValue() == chosen.customerId().value)
         .remove();
-
-    insertionCandidates.findByCustomer(key.customerId).remove();
-    refreshInsertionCandidatesForRoute(key.routeId);
-
+    retireCandidateWorkspace(chosen);
     return CommitResult.COMMITTED;
 }
 ```
 
+`retireCandidateWorkspace` 只处理 derived candidate state：dense 方案在 commit 后整表 `clear()` 并由下一轮 rebuild；keyed 方案删除已分配 customer 的 group、淘汰旧 route version，并刷新受影响 route。它不能修改 route/assignment authoritative facts，也不能把 stale candidate 当作成功提交。
+
 `firstOrThrow()` 和 `fetch(...)` 都返回 detached schema object。`routes.fetch(routeId)` 会递归物化完整 `Route.visits` List，因此上面的 reference code 以可读性为主；route-scoring hot path 应改用 parent-key live child facade 和 Row Cursor。`@SomaTable` row 不生成 structural equality/hash；代码中的 `CustomerId` / candidate key 比较依赖 immutable `@SomaValue` equality。
 
-`rewriteRouteVisitsForInsertion(...)` 不是一个可以忽略成本的 helper。它至少包含：
+`routeRewriteWorkspace.buildRewrittenVisits(...)` 不是一个可以忽略成本的 helper。该 application workspace 按单 route visit 上限准入并复用 primitive/Batch storage；`routes.replaceVisits(...)` 完成 detached copy 后才可重置。它至少包含：
 
 ```text
 routes.visits(routeId).rows().sorted(byPositionComparator)
@@ -545,16 +520,17 @@ routes.visits(routeId).rows().sorted(byPositionComparator)
   -> 构造插入后的新 sequence
   -> 重写 position / arrival / departure / loadAfterVisit
   -> 使用 child Batch 批量替换该 route 的 visits child rows
-  -> 如保留 Customer.assignedPosition 诊断字段，则同步重写受影响 customer
 ```
+
+publish 前该 helper 重新验证 ordinal 边界、customer/location 一致性、position 连续唯一、customer 不重复、depot edge、capacity/time-window propagation，以及 batch 汇总值与 `ChosenInsertion.projectedLoad/projectedTotalDurationSeconds` 一致。`reusableAssignmentBatch` 同样只在 `customerAssignments.addBatch(...)` 完成 copy 后清空；两份 staging 都不是 live state。
 
 目标 generated API 必须能够用 route-level batch rebuild 或外部 sequence builder 后 `replaceAll` 表达受控 rewrite，不能假设存在未设计的高效 row move。若要新增 segment rewrite API，必须先进入对应 Design Owner。
 
-调用方不能把 `CommitResult.STALE` 当作 successful commit。主循环应在 `STALE` 时 retry selection；否则会出现无进展计数、重复 stale candidate 或错误跳过 customer。
+调用方不能把 `CommitResult.STALE` 当作 successful commit。主循环应先刷新/重建 stale route candidate，再重新 selection；否则会出现无进展计数、重复 stale candidate 或错误跳过 customer。
 
-跨 table commit 的一致性由 VRP constructor 拥有。SOMA V1 不提供跨 table transaction；如果中间失败，constructor 必须有清晰的停止、补偿或重建 frontier 策略。
+跨 table commit 的一致性由 VRP constructor 拥有。SOMA V1 不提供跨 table transaction；canonical 方案在任何 authoritative write 已发布后发生失败时立即把本次 solve instance 标记为不可继续使用并整体丢弃。只有全部 authoritative route/assignment facts 已成功，而失败仅发生在 `UnassignedCustomerRow` 或 candidate workspace 清理时，才允许从 authoritative facts 重建这些 derived workspaces 后继续。
 
-`CustomerAssignment` 是 customer assignment 的唯一 result fact。`UnassignedCustomerRow` 只是从 definition/assignment 差集构造的 hot workspace；如果 assignment 已写入但 workspace remove 失败，constructor 应停止本轮并重建 unassigned/candidate workspace，而不是回写另一份 `Customer.state` 作为补偿。
+`CustomerAssignment` 只保存 customer -> route 归属；arrival/departure/position 都由 current route visits 持有，因为后续 insertion propagation 仍可能改变已分配 customer 的时间与位置。`UnassignedCustomerRow` 只是从 definition/assignment 差集构造的 hot workspace；只有 route visits、route scalar 和 assignment 都已经成功提交后，workspace remove 失败才可以通过重建 unassigned/candidate workspace 恢复。不能回写另一份 `Customer.state` 作为补偿。
 
 ## 8. Cache 友好性分析
 
@@ -568,10 +544,10 @@ routes.visits(routeId).rows().sorted(byPositionComparator)
 
 keyed insertion frontier 的 cache 友好性来自：
 
-- route/customer/position 候选跨轮保留，避免全量重建；
+- route/customer/ordinal 候选跨轮保留，避免全量重建；
 - 只删除和重算受影响 route 或 selected customer 的候选；
-- indicator 更新集中在 frontier rows，comparator 只读取 candidate row 字段；
-- `TravelCost` lookup 发生在 indicator build 阶段，不发生在排序 comparator 中。
+- score 更新集中在 frontier rows，comparator 只读取 candidate row 字段；
+- `TravelCost` lookup 发生在 candidate build 阶段，不发生在排序 comparator 中。
 
 潜在代价：
 
@@ -597,23 +573,23 @@ keyed insertion frontier 的 cache 友好性来自：
 - child-local live access 例如 `routes.visits(routeId).rows().sorted(byPosition)` 对 VRP 很关键，generated parent-key child API 命名需要 golden 固化；
 - Row Pipeline 不支持同 table callback 内 structural mutation，这会影响 route sequence 插入和候选刷新，需要示例明确分阶段；
 - `RouteVisitRow` dense sequence 的插入需要受控的 route-local rewrite；不能假设存在未设计的高效 row move；
-- `RouteVisitRow.position` 是 route 当前顺序事实源；`Customer.assignedPosition` 如果保留，只能作为诊断 / snapshot 字段并由 constructor 同步重写；
-- missing `TravelCost` 的语义必须由业务定义：typed required lookup error、不可行候选，或 fallback distance，不能由 SOMA runtime 猜测。
+- `RouteVisitRow.position` 是 route 当前顺序事实源；canonical live model 不复制 `Customer.assignedPosition`；
+- canonical journey 在 solve 前验证 required directed `TravelCost` 完整性；稀疏图、不可达 arc 或 shortest-path fallback 必须另立 application model，不能由 SOMA runtime 猜测。
 
 ## 10. 目标决策与证明义务
 
 ### 10.1 目标决策
 
 - 默认使用 dense `InsertionCandidateRow` workspace；只有稳定 identity、跨轮复用和局部失效同时成立时才采用 keyed frontier；
-- `RouteVisitRow` 保持 dense route sequence；flat root 与 parent-owned child 是 locality/ownership 取舍，不与 candidate frontier 决策绑定；
+- canonical `RouteVisitRow` 是 parent-owned dense child；flat root 只保留为同语义 benchmark baseline，visit ownership 决策不与 candidate frontier 选择绑定；
 - `CustomerDefinition`、`CustomerAssignment` 和 rebuildable `UnassignedCustomerRow` 分离；Route/RouteVisit current solution 同时作为最终 route result，不复制 shadow result；
-- comparator 只读取 candidate row 字段；`RouteVersion` 防止 stale position candidate；`CommitResult.STALE` 不计作成功提交；
-- 跨 table 一致性、missing `TravelCost` 语义和失败恢复由 VRP constructor 拥有。
+- comparator 只读取 candidate row 字段；`RouteVersion` 防止 stale ordinal candidate；`CommitResult.STALE` 不计作成功提交；
+- 跨 table 一致性、required `TravelCost` 完整性和失败恢复由 VRP constructor 拥有。
 
 ### 10.2 采用前证明义务
 
 - 固化 route-local rewrite 和 parent-key live child access 的 generated API 语义；
 - 在相同语义下比较 flat dense visits 与 per-route dense child 的 locality、global scan、rewrite、allocation 和 recursive materialization 成本；
 - 比较 dense rebuild 与 keyed frontier 在不同规模、mutation/read ratio 和 invalidation 局部性下的 crossover；
-- 验证 `InsertionCandidateKey` 的 stale cleanup、`indicatorReady` 生命周期和 exact-index 增量维护成本；
-- 为 `TravelCost.fetch(locationPair)` 选择唯一业务语义，并验证 customer definition/assignment/workspace 分离后的 commit 与 recovery。
+- 验证 `InsertionCandidateKey` 的 stale cleanup、route-version replacement 和 exact-index 增量维护成本；
+- 验证 required `TravelCost` 预检，并验证 customer definition/assignment/workspace 分离后的 commit 与 recovery。

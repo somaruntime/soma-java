@@ -118,9 +118,9 @@ final class SmokeLaneSuite {
         if (lane.equals("kernel.key_lookup_normal")
                 || lane.equals("kernel.key_lookup_collision")) return generatedKeyLookup(config, lane);
         if (lane.startsWith("kernel.batch_import")) return batchImport(config, lane);
-        if (lane.equals("generated.exact_index_incremental_lookup")) return generatedDenseWorkspace(config, lane, false);
+        if (lane.equals("generated.exact_index_incremental_lookup")) return generatedExactIndexLookup(config, lane);
         if (lane.equals("generated.keyed_frontier")) return generatedKeyedFrontier(config, lane);
-        if (lane.equals("generated.dense_scratch_replace_sort")) return generatedDenseWorkspace(config, lane, true);
+        if (lane.equals("generated.dense_scratch_replace_sort")) return generatedDenseWorkspace(config, lane);
         if (lane.equals("kernel.column_view")) return columnView(config, lane);
         if (lane.equals("child_locality.parent_scan_vs_flat")) return childLocality(config, lane);
         if (lane.equals("generated.materialization_recursive_success")) return generatedMaterialization(config, lane);
@@ -377,53 +377,48 @@ final class SmokeLaneSuite {
         return finish(result, "generated-keyed-frontier-lifecycle");
     }
 
-    private static LaneObservation generatedDenseWorkspace(BenchmarkConfig config, String lane,
-                                                            boolean replaceAndBothTerminals) {
+    private static LaneObservation generatedExactIndexLookup(
+            BenchmarkConfig config, String lane) {
         int count = Math.max(8, config.rows);
-        RouteId route = new RouteId(1L);
+        JobId job = new JobId(17L);
+        MachineId machineA = new MachineId(31L);
+        MachineId machineB = new MachineId(32L);
+        SetupFamilyId setup = new SetupFamilyId(7L);
         long setupStart = System.nanoTime();
-        InsertionCandidateRowTable table = InsertionCandidateRowTable.create();
-        InsertionCandidateRowBatch first = insertionBatch(count, 1000L);
-        table.replaceAll(first);
-        table.findByRoute(route).count();
-        InsertionCandidateRowBatch replacement = insertionBatch(count, 2000L);
-        table.resetStats();
-        TableStats beforeMeasurement = table.statsSnapshot();
-        long setup = elapsed(setupStart);
-        long measureStart = System.nanoTime();
-        table.replaceAll(replacement);
-        long exactMatches = table.findByRoute(route).count();
-        TableStats exactStats = table.statsSnapshot();
-        InsertionCandidateRow dynamic = table.rows().sorted(new InsertionCandidateRowRows.Comparator() {
-            @Override public int compare(com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow left,
-                                         com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow right) {
-                return Long.compare(left.deltaDistanceMeters(), right.deltaDistanceMeters());
-            }
-        }).findFirst().get();
-        TableStats dynamicStats = table.statsSnapshot();
-        TableStats secondDynamicStats = null;
-        if (replaceAndBothTerminals) {
-            require(table.rows().sorted((left, right) -> Long.compare(
-                    left.deltaDistanceMeters(), right.deltaDistanceMeters()))
-                    .firstOrThrow().customerId.equals(dynamic.customerId),
-                    "dynamic firstOrThrow must agree with findFirst");
-            secondDynamicStats = table.statsSnapshot();
+        MachineCandidateTable table = MachineCandidateTable.create();
+        MachineCandidateBatch batch = new MachineCandidateBatch(count);
+        for (int index = 0; index < count; index++) {
+            OperationKey operation = new OperationKey(job, new OperationId(index + 1L));
+            MachineId machine = (index & 1) == 0 ? machineA : machineB;
+            batch.addValues(new OperationMachineKey(operation, machine), setup,
+                    index, 0L, 0L, index, index + 1L, 0L,
+                    index, index, index + 1L, false);
         }
+        TableStats beforeMeasurement = table.statsSnapshot();
+        long setupNanos = elapsed(setupStart);
+        long measureStart = System.nanoTime();
+        table.addBatch(batch);
+        long exactMatches = table.findByMachine(machineA).count();
+        TableStats lookupStats = table.statsSnapshot();
         long measured = elapsed(measureStart);
-        require(exactMatches == count && dynamic.routeId.equals(route),
-                "exact route index and explicit dynamic sort disagree with replacement facts");
+        long expectedMatches = (count + 1L) / 2L;
+        require(exactMatches == expectedMatches,
+                "incrementally maintained exact index must return its complete group");
         TableStats stats = table.statsSnapshot();
         table.release();
-        LaneObservation result = base(lane, setup, measured, count);
-        result.operations = replaceAndBothTerminals ? 4L : 3L;
-        result.scanned = count + exactStats.lastScanned()
-                + dynamicStats.lastScanned()
-                + (secondDynamicStats == null ? 0L : secondDynamicStats.lastScanned());
-        result.matched = exactStats.lastMatched() + dynamicStats.lastMatched()
-                + (secondDynamicStats == null ? 0L : secondDynamicStats.lastMatched());
-        result.changed = count;
-        result.materializationInvocations = replaceAndBothTerminals ? 2L : 1L;
-        result.materialized = result.materializationInvocations;
+
+        long appendValidationKeySpaceAllocationBytes =
+                RuntimeCompatibility.estimatedHashKeySpaceBytes(
+                        RuntimeCompatibility.HASH_COMPOSITE_KEY_SPACE, count);
+        long mainKeySpaceGrowthAllocationBytes =
+                stats.keySpaceCapacity() > beforeMeasurement.keySpaceCapacity()
+                        ? Math.multiplyExact(13L, stats.keySpaceCapacity()) : 0L;
+        long keySpaceAllocationBytes = Math.addExact(
+                appendValidationKeySpaceAllocationBytes,
+                mainKeySpaceGrowthAllocationBytes);
+        long tableGrowthAllocationBytes =
+                stats.capacity() > beforeMeasurement.capacity()
+                        ? Math.multiplyExact(105L, stats.capacity()) : 0L;
         long scratchAllocationBytes = positiveDelta(
                 stats.operationScratchCurrentBytes(),
                 beforeMeasurement.operationScratchCurrentBytes())
@@ -432,42 +427,43 @@ final class SmokeLaneSuite {
         long exactIndexAllocationBytes = positiveDelta(
                 stats.exactIndexStorageCurrentBytes(),
                 beforeMeasurement.exactIndexStorageCurrentBytes());
-        result.estimatedAllocationBytes = dynamicStats.lastMaterializationEstimatedAllocationBytes()
-                + (secondDynamicStats == null ? 0L
-                : secondDynamicStats.lastMaterializationEstimatedAllocationBytes())
-                + scratchAllocationBytes + exactIndexAllocationBytes;
-        result.materializationEstimatedAllocationBytes =
-                dynamicStats.lastMaterializationEstimatedAllocationBytes()
-                + (secondDynamicStats == null ? 0L
-                : secondDynamicStats.lastMaterializationEstimatedAllocationBytes());
-        long replaceTouchedBytes = Math.multiplyExact(44L, count);
-        long exactLookupRows = exactStats.lastScanned();
-        long exactLookupTouchedBytes = Math.multiplyExact(8L, exactLookupRows);
-        long dynamicComparatorRows = dynamicStats.lastScanned()
-                + (secondDynamicStats == null ? 0L : secondDynamicStats.lastScanned());
-        long dynamicComparatorTouchedBytes = Math.multiplyExact(8L, dynamicComparatorRows);
-        long materializationTouchedBytes = Math.multiplyExact(44L, result.materialized);
-        result.touchedBytes = replaceTouchedBytes + exactLookupTouchedBytes
-                + dynamicComparatorTouchedBytes + materializationTouchedBytes;
-        result.workingSetBytes = 44L * stats.capacity()
+        long lookupRows = lookupStats.lastScanned();
+        long appendTouchedBytes = Math.multiplyExact(105L, count);
+        long lookupTouchedBytes = Math.multiplyExact(8L, lookupRows);
+
+        LaneObservation result = base(lane, setupNanos, measured, count);
+        result.operations = 2L;
+        result.lookups = 1L;
+        result.scanned = Math.addExact(count, lookupRows);
+        result.matched = exactMatches;
+        result.changed = count;
+        result.touchedBytes = Math.addExact(appendTouchedBytes, lookupTouchedBytes);
+        result.workingSetBytes = 105L * stats.capacity()
+                + 13L * stats.keySpaceCapacity()
                 + stats.operationScratchCurrentBytes()
                 + stats.updateScratchCurrentBytes()
                 + stats.exactIndexStorageCurrentBytes();
+        result.estimatedAllocationBytes = tableGrowthAllocationBytes
+                + keySpaceAllocationBytes + scratchAllocationBytes
+                + exactIndexAllocationBytes;
+        result.keySpaceStats = BenchmarkModel.object(
+                "implementation", "generated-hash-composite-v2",
+                "appendValidationAllocationBytes",
+                Long.valueOf(appendValidationKeySpaceAllocationBytes),
+                "mainGrowthAllocationBytes",
+                Long.valueOf(mainKeySpaceGrowthAllocationBytes),
+                "allocationBytes", Long.valueOf(keySpaceAllocationBytes),
+                "capacityBeforeMeasurement",
+                Integer.valueOf(beforeMeasurement.keySpaceCapacity()),
+                "capacity", Integer.valueOf(stats.keySpaceCapacity()));
         result.exactIndexStats = BenchmarkModel.object(
                 "implementation", "generated-grouped-exact-index",
-                "replaceRows", Integer.valueOf(count),
+                "addedRows", Integer.valueOf(count),
                 "exactLookupCount", Long.valueOf(exactMatches),
-                "dynamicFindFirst", 1L,
-                "dynamicFirstOrThrow", replaceAndBothTerminals ? 1L : 0L,
-                "replaceTouchedBytes", Long.valueOf(replaceTouchedBytes),
-                "exactLookupRows", Long.valueOf(exactLookupRows),
-                "exactLookupKeyWidthBytes", 8L,
-                "exactLookupTouchedBytes", Long.valueOf(exactLookupTouchedBytes),
-                "dynamicComparatorRows", Long.valueOf(dynamicComparatorRows),
-                "dynamicComparatorWidthBytes", 8L,
-                "dynamicComparatorTouchedBytes", Long.valueOf(dynamicComparatorTouchedBytes),
-                "materializedRowWidthBytes", 44L,
-                "materializationTouchedBytes", Long.valueOf(materializationTouchedBytes),
+                "exactLookupRows", Long.valueOf(lookupRows),
+                "lookupKeyWidthBytes", 8L,
+                "appendTouchedBytes", Long.valueOf(appendTouchedBytes),
+                "lookupTouchedBytes", Long.valueOf(lookupTouchedBytes),
                 "indexCount", Integer.valueOf(stats.exactIndexCount()),
                 "entryCount", Long.valueOf(stats.exactIndexEntryCount()),
                 "groupCount", Long.valueOf(stats.exactIndexGroupCount()),
@@ -477,23 +473,105 @@ final class SmokeLaneSuite {
                 "currentBytes", Long.valueOf(stats.exactIndexStorageCurrentBytes()),
                 "highWaterBytes", Long.valueOf(stats.exactIndexStorageHighWaterBytes()),
                 "tableCapacity", Integer.valueOf(stats.capacity()),
-                "exactIndexAllocationBytes", Long.valueOf(exactIndexAllocationBytes),
+                "tableGrowthAllocationBytes", Long.valueOf(tableGrowthAllocationBytes),
+                "allocationBytes", Long.valueOf(exactIndexAllocationBytes),
                 "scratchAllocationBytes", Long.valueOf(scratchAllocationBytes),
                 "retainedScratchBytes", Long.valueOf(
                 stats.operationScratchCurrentBytes() + stats.updateScratchCurrentBytes()));
         result.limitations = BenchmarkModel.limitations(
-                "generated dense workspace performs replaceAll, exact lookup and explicit sort terminals",
+                "generated keyed table appends rows and immediately consumes one grouped exact index",
+                "smoke validates incremental maintenance counters; claimAllowed=false");
+        return finish(result, "generated-exact-index-incremental-lookup");
+    }
+
+    private static LaneObservation generatedDenseWorkspace(
+            BenchmarkConfig config, String lane) {
+        int count = Math.max(8, config.rows);
+        RouteId route = new RouteId(1L);
+        long setupStart = System.nanoTime();
+        InsertionCandidateRowTable table = InsertionCandidateRowTable.create();
+        InsertionCandidateRowBatch first = insertionBatch(count, 1000L);
+        table.replaceAll(first);
+        InsertionCandidateRowBatch replacement = insertionBatch(count, 2000L);
+        table.resetStats();
+        TableStats beforeMeasurement = table.statsSnapshot();
+        long setup = elapsed(setupStart);
+        long measureStart = System.nanoTime();
+        table.replaceAll(replacement);
+        InsertionCandidateRow dynamic = table.rows().sorted(new InsertionCandidateRowRows.Comparator() {
+            @Override public int compare(com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow left,
+                                         com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow right) {
+                return Long.compare(left.deltaDistanceMeters(), right.deltaDistanceMeters());
+            }
+        }).findFirst().get();
+        TableStats dynamicStats = table.statsSnapshot();
+        require(table.rows().sorted((left, right) -> Long.compare(
+                left.deltaDistanceMeters(), right.deltaDistanceMeters()))
+                .firstOrThrow().customerId.equals(dynamic.customerId),
+                "dynamic firstOrThrow must agree with findFirst");
+        TableStats secondDynamicStats = table.statsSnapshot();
+        long measured = elapsed(measureStart);
+        require(dynamic.routeId.equals(route),
+                "dynamic sort must select from the replacement workspace");
+        TableStats stats = table.statsSnapshot();
+        table.release();
+        LaneObservation result = base(lane, setup, measured, count);
+        result.operations = 3L;
+        result.scanned = count + dynamicStats.lastScanned()
+                + secondDynamicStats.lastScanned();
+        result.matched = dynamicStats.lastMatched()
+                + secondDynamicStats.lastMatched();
+        result.changed = count;
+        result.materializationInvocations = 2L;
+        result.materialized = result.materializationInvocations;
+        long scratchAllocationBytes = positiveDelta(
+                stats.operationScratchCurrentBytes(),
+                beforeMeasurement.operationScratchCurrentBytes())
+                + positiveDelta(stats.updateScratchCurrentBytes(),
+                beforeMeasurement.updateScratchCurrentBytes());
+        result.estimatedAllocationBytes = dynamicStats.lastMaterializationEstimatedAllocationBytes()
+                + secondDynamicStats.lastMaterializationEstimatedAllocationBytes()
+                + scratchAllocationBytes;
+        result.materializationEstimatedAllocationBytes =
+                dynamicStats.lastMaterializationEstimatedAllocationBytes()
+                + secondDynamicStats.lastMaterializationEstimatedAllocationBytes();
+        long replaceTouchedBytes = Math.multiplyExact(56L, count);
+        long dynamicComparatorRows = dynamicStats.lastScanned()
+                + secondDynamicStats.lastScanned();
+        long dynamicComparatorTouchedBytes = Math.multiplyExact(8L, dynamicComparatorRows);
+        long materializationTouchedBytes = Math.multiplyExact(56L, result.materialized);
+        result.touchedBytes = replaceTouchedBytes
+                + dynamicComparatorTouchedBytes + materializationTouchedBytes;
+        result.workingSetBytes = 56L * stats.capacity()
+                + stats.operationScratchCurrentBytes()
+                + stats.updateScratchCurrentBytes();
+        result.selectorStats = BenchmarkModel.object(
+                "implementation", "generated-row-pipeline",
+                "replaceRows", Integer.valueOf(count),
+                "dynamicFindFirst", 1L,
+                "dynamicFirstOrThrow", 1L,
+                "replaceTouchedBytes", Long.valueOf(replaceTouchedBytes),
+                "dynamicComparatorRows", Long.valueOf(dynamicComparatorRows),
+                "dynamicComparatorWidthBytes", 8L,
+                "dynamicComparatorTouchedBytes", Long.valueOf(dynamicComparatorTouchedBytes),
+                "materializedRowWidthBytes", 56L,
+                "materializationTouchedBytes", Long.valueOf(materializationTouchedBytes),
+                "tableCapacity", Integer.valueOf(stats.capacity()),
+                "scratchAllocationBytes", Long.valueOf(scratchAllocationBytes),
+                "retainedScratchBytes", Long.valueOf(
+                stats.operationScratchCurrentBytes() + stats.updateScratchCurrentBytes()));
+        result.limitations = BenchmarkModel.limitations(
+                "generated dense workspace performs replaceAll and two explicit sort terminals without a maintained index",
                 "candidate construction is outside measured publication/terminal phase");
-        return finish(result, replaceAndBothTerminals
-                ? "generated-dense-replace-and-sort-terminals"
-                : "generated-exact-index-incremental-lookup");
+        return finish(result, "generated-dense-replace-and-sort-terminals");
     }
 
     private static InsertionCandidateRowBatch insertionBatch(int count, long base) {
         InsertionCandidateRowBatch batch = new InsertionCandidateRowBatch(count);
         for (int index = 0; index < count; index++) {
-            batch.addValues(new CustomerId(index + 1L), new RouteId(1L), index,
-                    base + count - index, index, 0L);
+            batch.addValues(new RouteId(1L), new CustomerId(index + 1L), index,
+                    1L, base + count - index, base + index,
+                    index + 1, base + count + index);
         }
         return batch;
     }
@@ -1170,10 +1248,14 @@ final class SmokeLaneSuite {
                     "processingMinutes", "setupMinutes", "effectiveReadyMinute",
                     "fcfsValue", "sptValue", "indicatorReady");
         }
-        if (lane.equals("generated.exact_index_incremental_lookup")
-                || lane.equals("generated.dense_scratch_replace_sort")) {
-            return Arrays.asList("customerId.value", "routeId.value", "insertAfterPosition",
-                    "deltaDistanceMeters", "projectedArrivalMinute", "violationPenalty");
+        if (lane.equals("generated.exact_index_incremental_lookup")) {
+            return Arrays.asList("candidateKey.machineId.value", "candidateKey.operationKey",
+                    "baseReadyMinute", "processingMinutes", "indicatorReady");
+        }
+        if (lane.equals("generated.dense_scratch_replace_sort")) {
+            return Arrays.asList("routeId.value", "customerId.value", "insertionOrdinal",
+                    "routeVersion", "deltaDistanceMeters", "projectedArrivalSecond",
+                    "projectedLoad", "projectedTotalDurationSeconds");
         }
         if (lane.equals("kernel.column_view")) return Arrays.asList("value", "presence");
         if (lane.equals("child_locality.parent_scan_vs_flat")) {
@@ -1356,70 +1438,108 @@ final class SmokeLaneSuite {
                             && number(stats, "growthCount")
                             == (lane.endsWith("reserve") ? 0L : iterations),
                     "batch import counters contradict measurement window");
-        } else if (lane.equals("generated.exact_index_incremental_lookup")
-                || lane.equals("generated.dense_scratch_replace_sort")) {
+        } else if (lane.equals("generated.exact_index_incremental_lookup")) {
             exactIndex = true;
+            keySpace = true;
             Map<String, Object> stats = nested(record, "exactIndexStats");
-            requireExactKeys(stats, new String[] {"implementation", "replaceRows",
-                    "exactLookupCount", "dynamicFindFirst", "dynamicFirstOrThrow",
-                    "replaceTouchedBytes", "exactLookupRows", "exactLookupKeyWidthBytes",
-                    "exactLookupTouchedBytes", "dynamicComparatorRows",
-                    "dynamicComparatorWidthBytes", "dynamicComparatorTouchedBytes",
-                    "materializedRowWidthBytes", "materializationTouchedBytes",
+            requireExactKeys(stats, new String[] {"implementation", "addedRows",
+                    "exactLookupCount", "exactLookupRows", "lookupKeyWidthBytes",
+                    "appendTouchedBytes", "lookupTouchedBytes",
                     "indexCount", "entryCount", "groupCount", "probeCount",
                     "collisionCount", "rehashCount", "currentBytes", "highWaterBytes",
-                    "tableCapacity", "exactIndexAllocationBytes",
+                    "tableCapacity", "tableGrowthAllocationBytes", "allocationBytes",
                     "scratchAllocationBytes", "retainedScratchBytes"});
             requireStringValue(stats, "implementation", "generated-grouped-exact-index");
-            requireIntegerFields(stats, new String[] {"replaceRows", "exactLookupCount",
-                    "dynamicFindFirst", "dynamicFirstOrThrow", "replaceTouchedBytes",
-                    "exactLookupRows", "exactLookupKeyWidthBytes", "exactLookupTouchedBytes",
-                    "dynamicComparatorRows", "dynamicComparatorWidthBytes",
-                    "dynamicComparatorTouchedBytes", "materializedRowWidthBytes",
-                    "materializationTouchedBytes", "indexCount", "entryCount",
+            requireIntegerFields(stats, new String[] {"addedRows", "exactLookupCount",
+                    "exactLookupRows", "lookupKeyWidthBytes", "appendTouchedBytes",
+                    "lookupTouchedBytes", "indexCount", "entryCount",
                     "groupCount", "probeCount", "collisionCount", "rehashCount",
                     "currentBytes", "highWaterBytes", "tableCapacity",
-                    "exactIndexAllocationBytes", "scratchAllocationBytes",
+                    "tableGrowthAllocationBytes", "allocationBytes", "scratchAllocationBytes",
                     "retainedScratchBytes"});
-            requirePositive(stats, "replaceRows", lane);
+            requirePositive(stats, "addedRows", lane);
             requirePositive(stats, "exactLookupCount", lane);
-            requirePositive(stats, "dynamicFindFirst", lane);
             requirePositive(stats, "indexCount", lane);
             requirePositive(stats, "entryCount", lane);
-            if (lane.equals("generated.dense_scratch_replace_sort")) {
-                requirePositive(stats, "dynamicFirstOrThrow", lane);
-            }
+            Map<String, Object> keys = nested(record, "keySpaceStats");
+            requireExactKeys(keys, new String[] {"implementation",
+                    "appendValidationAllocationBytes", "mainGrowthAllocationBytes",
+                    "allocationBytes", "capacityBeforeMeasurement", "capacity"});
+            requireStringValue(keys, "implementation", "generated-hash-composite-v2");
+            requireIntegerFields(keys, new String[] {"appendValidationAllocationBytes",
+                    "mainGrowthAllocationBytes", "allocationBytes",
+                    "capacityBeforeMeasurement", "capacity"});
+            require(number(stats, "addedRows") == number(rows, "source")
+                            && number(rows, "changed") == number(rows, "source")
+                            && number(rows, "scanned") == number(stats, "addedRows")
+                            + number(stats, "exactLookupRows")
+                            && number(rows, "matched") == number(stats, "exactLookupCount")
+                            && number(operations, "operations") == 2L * iterations
+                            && number(operations, "lookups") == iterations
+                            && number(operations, "materializations") == 0L
+                            && number(rows, "materialized") == 0L
+                            && number(stats, "exactLookupCount")
+                                    == number(stats, "exactLookupRows")
+                            && number(stats, "appendTouchedBytes")
+                            == 105L * number(stats, "addedRows")
+                            && number(stats, "lookupKeyWidthBytes") == 8L
+                            && number(stats, "lookupTouchedBytes")
+                            == 8L * number(stats, "exactLookupRows")
+                            && number(record, "touchedBytesEstimate")
+                            == number(stats, "appendTouchedBytes")
+                            + number(stats, "lookupTouchedBytes")
+                            && number(record, "workingSetEstimate")
+                            == 105L * number(stats, "tableCapacity")
+                            + 13L * number(keys, "capacity")
+                            + number(stats, "currentBytes")
+                            + number(stats, "retainedScratchBytes")
+                            && number(allocation, "bytes")
+                            == number(stats, "tableGrowthAllocationBytes")
+                            + number(stats, "allocationBytes")
+                            + number(keys, "allocationBytes")
+                            + number(stats, "scratchAllocationBytes"),
+                    "exact-index incremental lookup counters contradict the workload");
+        } else if (lane.equals("generated.dense_scratch_replace_sort")) {
+            selector = true;
+            Map<String, Object> stats = nested(record, "selectorStats");
+            requireExactKeys(stats, new String[] {"implementation", "replaceRows",
+                    "dynamicFindFirst", "dynamicFirstOrThrow", "replaceTouchedBytes",
+                    "dynamicComparatorRows", "dynamicComparatorWidthBytes",
+                    "dynamicComparatorTouchedBytes", "materializedRowWidthBytes",
+                    "materializationTouchedBytes", "tableCapacity",
+                    "scratchAllocationBytes", "retainedScratchBytes"});
+            requireStringValue(stats, "implementation", "generated-row-pipeline");
+            requireIntegerFields(stats, new String[] {"replaceRows", "dynamicFindFirst",
+                    "dynamicFirstOrThrow", "replaceTouchedBytes", "dynamicComparatorRows",
+                    "dynamicComparatorWidthBytes", "dynamicComparatorTouchedBytes",
+                    "materializedRowWidthBytes", "materializationTouchedBytes",
+                    "tableCapacity", "scratchAllocationBytes", "retainedScratchBytes"});
+            requirePositive(stats, "replaceRows", lane);
+            requirePositive(stats, "dynamicFindFirst", lane);
+            requirePositive(stats, "dynamicFirstOrThrow", lane);
             long terminals = number(stats, "dynamicFindFirst")
                     + number(stats, "dynamicFirstOrThrow");
             require(number(stats, "replaceRows") == number(rows, "changed")
                             && terminals == number(operations, "materializations")
                             && terminals == number(rows, "materialized")
-                            && number(operations, "operations") == 2L * iterations + terminals
-                            && number(stats, "exactLookupCount")
-                                    == number(stats, "exactLookupRows")
+                            && number(operations, "operations") == iterations + terminals
                             && number(stats, "replaceTouchedBytes")
-                            == 44L * number(stats, "replaceRows")
-                            && number(stats, "exactLookupKeyWidthBytes") == 8L
-                            && number(stats, "exactLookupTouchedBytes")
-                            == 8L * number(stats, "exactLookupRows")
+                            == 56L * number(stats, "replaceRows")
                             && number(stats, "dynamicComparatorWidthBytes") == 8L
                             && number(stats, "dynamicComparatorTouchedBytes")
                             == 8L * number(stats, "dynamicComparatorRows")
-                            && number(stats, "materializedRowWidthBytes") == 44L
+                            && number(stats, "materializedRowWidthBytes") == 56L
                             && number(stats, "materializationTouchedBytes")
-                            == 44L * number(rows, "materialized")
+                            == 56L * number(rows, "materialized")
                             && number(record, "touchedBytesEstimate")
                             == number(stats, "replaceTouchedBytes")
-                            + number(stats, "exactLookupTouchedBytes")
                             + number(stats, "dynamicComparatorTouchedBytes")
                             + number(stats, "materializationTouchedBytes")
                             && number(record, "workingSetEstimate")
-                            == 44L * number(stats, "tableCapacity")
-                            + number(stats, "currentBytes")
+                            == 56L * number(stats, "tableCapacity")
                             + number(stats, "retainedScratchBytes")
                             && number(allocation, "bytes")
                             == number(nested(record, "materializationStats"), "estimatedBytes")
-                            + number(stats, "exactIndexAllocationBytes")
                             + number(stats, "scratchAllocationBytes"),
                     "dense workspace counters include setup or contradict terminals");
         } else if (lane.equals("generated.keyed_frontier")) {
@@ -1994,19 +2114,31 @@ final class SmokeLaneSuite {
                     "probeCount", "collisionCount", "rehashCount", "allocationBytes");
             maximum(target.exactIndexStats, source.exactIndexStats,
                     "entryCount", "groupCount", "currentBytes", "highWaterBytes");
-        } else if (lane.equals("generated.exact_index_incremental_lookup")
-                || lane.equals("generated.dense_scratch_replace_sort")) {
+        } else if (lane.equals("generated.exact_index_incremental_lookup")) {
             same(target.exactIndexStats, source.exactIndexStats, "implementation",
-                    "exactLookupKeyWidthBytes", "dynamicComparatorWidthBytes",
-                    "materializedRowWidthBytes", "indexCount");
-            sum(target.exactIndexStats, source.exactIndexStats, "replaceRows",
-                    "exactLookupCount", "dynamicFindFirst", "dynamicFirstOrThrow",
-                    "replaceTouchedBytes", "exactLookupRows", "exactLookupTouchedBytes",
-                    "dynamicComparatorRows", "dynamicComparatorTouchedBytes",
-                    "materializationTouchedBytes", "probeCount", "collisionCount",
-                    "rehashCount", "exactIndexAllocationBytes", "scratchAllocationBytes");
+                    "lookupKeyWidthBytes", "indexCount");
+            sum(target.exactIndexStats, source.exactIndexStats, "addedRows",
+                    "exactLookupCount", "exactLookupRows", "appendTouchedBytes",
+                    "lookupTouchedBytes", "probeCount", "collisionCount",
+                    "rehashCount", "tableGrowthAllocationBytes", "allocationBytes",
+                    "scratchAllocationBytes");
             maximum(target.exactIndexStats, source.exactIndexStats,
                     "entryCount", "groupCount", "currentBytes", "highWaterBytes",
+                    "tableCapacity", "retainedScratchBytes");
+            same(target.keySpaceStats, source.keySpaceStats, "implementation",
+                    "capacityBeforeMeasurement");
+            sum(target.keySpaceStats, source.keySpaceStats,
+                    "appendValidationAllocationBytes", "mainGrowthAllocationBytes",
+                    "allocationBytes");
+            maximum(target.keySpaceStats, source.keySpaceStats, "capacity");
+        } else if (lane.equals("generated.dense_scratch_replace_sort")) {
+            same(target.selectorStats, source.selectorStats, "implementation",
+                    "dynamicComparatorWidthBytes", "materializedRowWidthBytes");
+            sum(target.selectorStats, source.selectorStats, "replaceRows",
+                    "dynamicFindFirst", "dynamicFirstOrThrow", "replaceTouchedBytes",
+                    "dynamicComparatorRows", "dynamicComparatorTouchedBytes",
+                    "materializationTouchedBytes", "scratchAllocationBytes");
+            maximum(target.selectorStats, source.selectorStats,
                     "tableCapacity", "retainedScratchBytes");
         } else if (lane.equals("generated.pipeline_fusion")) {
             same(target.selectorStats, source.selectorStats,

@@ -3,13 +3,13 @@ package com.hgtech.soma.examples.vrp;
 import com.hgtech.soma.annotation.SomaChild;
 import com.hgtech.soma.annotation.SomaDefault;
 import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaTable;
+import com.hgtech.soma.annotation.SomaUnique;
 import java.util.List;
 
 @SomaTable(name = "routes", defaultCapacity = 512)
-@SomaIndex(name = "by_vehicle", fields = {"vehicleId.value"})
+@SomaUnique(name = "by_vehicle", fields = {"vehicleId.value"})
 public final class Route {
     @SomaKey public RouteId routeId;
     @SomaField public VehicleId vehicleId;

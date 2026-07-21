@@ -52,13 +52,13 @@ for scenario in fjsp vrp simulation game; do
   printf '%s\n' "$apc_line" | grep -F 'observation=executed-result-accounting' >/dev/null
 done
 grep -F 'scenario=fjsp ' "$combined_output" | grep -F 'aggregateHotLeafWidths=64 ' >/dev/null
-grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=32 ' >/dev/null
+grep -F 'scenario=vrp ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=40 ' >/dev/null
 grep -F 'scenario=simulation ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=44 ' >/dev/null
-grep -F 'scenario=game ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=32 ' >/dev/null
+grep -F 'scenario=game ' "$scenario_output" | grep -F 'aggregateHotLeafWidths=68 ' >/dev/null
 grep -F 'workingSetFormula=assignments.capacity*64' "$combined_output" >/dev/null
-grep -F 'workingSetFormula=visits.capacity*32' "$scenario_output" >/dev/null
+grep -F 'workingSetFormula=visits.capacity*40' "$scenario_output" >/dev/null
 grep -F 'workingSetFormula=state.capacity*44' "$scenario_output" >/dev/null
-grep -F 'workingSetFormula=units.capacity*12+map.capacity*8+moves.capacity*4+damage.capacity*8' \
+grep -F 'workingSetFormula=unitStates.capacity*16+occupancy.capacity*8+moves.capacity*16+damage.capacity*28' \
   "$scenario_output" >/dev/null
 
 fjsp_rows_source=$root_dir/soma-examples/target/generated-sources/annotations/com/hgtech/soma/examples/fjsp/schema/generated/MachineCandidateRows.java
@@ -110,11 +110,19 @@ for generated_type in \
   fjsp/schema/generated/MachineCandidateTable \
   fjsp/schema/generated/OperationAssignmentTable \
   vrp/generated/RouteTable \
+  vrp/generated/CustomerDefinitionTable \
+  vrp/generated/CustomerAssignmentTable \
   vrp/generated/InsertionCandidateRowTable \
+  simulation/generated/TankDefinitionTable \
+  simulation/generated/ValveDefinitionTable \
   simulation/generated/StateVectorRowTable \
   simulation/generated/PendingEventRowTable \
-  game/generated/GameUnitTable \
-  game/generated/MapTileRowTable; do
+  game/generated/PlayerDefinitionTable \
+  game/generated/PlayerStateTable \
+  game/generated/GameUnitDefinitionTable \
+  game/generated/GameUnitStateTable \
+  game/generated/MapTileDefinitionRowTable \
+  game/generated/TileOccupancyRowTable; do
   test -s "$classes/com/hgtech/soma/examples/$generated_type.class"
 done
 

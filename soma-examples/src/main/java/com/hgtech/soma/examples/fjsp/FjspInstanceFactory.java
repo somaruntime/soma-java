@@ -34,7 +34,8 @@ public final class FjspInstanceFactory {
         defaults.maximumAggregateStorageBytes(), 2L * 1024L * 1024L * 1024L))
       .build();
     FjspInstance instance = new FjspInstance(
-      problem.operationCount(), problem.jobCount(), plan);
+      problem.operationCount(), problem.jobCount(),
+      problem.maximumCandidatesPerOperation, plan);
     boolean complete = false;
     try {
       reserve(problem, instance);

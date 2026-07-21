@@ -7,7 +7,8 @@ import com.hgtech.soma.annotation.SomaTable;
 public final class RouteVisitRow {
     @SomaField public int position;
     @SomaField public CustomerId customerId;
-    @SomaField public long arrivalMinute;
-    @SomaField public long departureMinute;
+    @SomaField public LocationId locationId;
+    @SomaField public long arrivalSecond;
+    @SomaField public long departureSecond;
     @SomaField public int loadAfterVisit;
 }

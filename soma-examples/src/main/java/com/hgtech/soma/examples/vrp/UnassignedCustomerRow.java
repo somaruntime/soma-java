@@ -7,6 +7,6 @@ import com.hgtech.soma.annotation.SomaTable;
 public final class UnassignedCustomerRow {
     @SomaField public CustomerId customerId;
     @SomaField public int demand;
-    @SomaField public long dueMinute;
+    @SomaField public long dueSecond;
     @SomaField public long inputOrder;
 }

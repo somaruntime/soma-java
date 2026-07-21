@@ -14,6 +14,7 @@ import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.OperationAssignmentBatch;
 import com.hgtech.soma.runtime.IndexSnapshot;
+import com.hgtech.soma.runtime.BooleanColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
@@ -26,6 +27,8 @@ public final class FjspVerificationSuite {
 
   public static void main(String[] args) {
     verifyApplicationMachineHeap();
+    verifyReleaseAndIndicatorProtocol();
+    verifyInputPreflight();
     verifySharedSolverPath();
     verifyStableTieBreakAfterCompaction();
     System.out.println("lane=fjsp-errors duplicate_key=ok missing_key=ok "
@@ -34,8 +37,11 @@ public final class FjspVerificationSuite {
       + "table_released=ok stale_view=referenced-g3");
     System.out.println("lane=fjsp-stats schema_hash=ok runtime_plan=ok "
       + "exactIndex=ok keyspace=ok");
-    System.out.println("lane=owner-breadth vrp_vehicle=ok vrp_unassigned=ok "
-      + "simulation_tank=ok simulation_valve=ok game_player=ok");
+    System.out.println("lane=fjsp-adoption unique_sequence=ok "
+      + "setup_matrix=ok checked_time=ok publish_before_heap=ok "
+      + "indicator_policy=ok reusable_staging=ok");
+    System.out.println("lane=owner-breadth vrp_definition_assignment=ok "
+      + "simulation_definition_vector=ok game_definition_state_cache=ok");
     System.out.println("fjsp-verification: ok");
   }
 
@@ -61,6 +67,77 @@ public final class FjspVerificationSuite {
       require(queue.machineId(queue.take()).equals(first),
         "machine heap uses machine identity as total tie-break");
     }
+  }
+
+  private static void verifyReleaseAndIndicatorProtocol() {
+    try (FjspInstance instance = FjspInstanceFactory.create(
+        FjspProblem.teachingExample())) {
+      FjspCandidateFrontier frontier = new FjspCandidateFrontier(
+        instance, new FcfsSptDispatchRule());
+      FjspReleasedMachines released = new FjspReleasedMachines(
+        instance.maximumCandidatesPerOperation);
+      OperationKey operation = new OperationKey(
+        new JobId(1L), new OperationId(10L));
+      frontier.release(operation, released);
+      require(released.size() == 2 && instance.frontier.size() == 2,
+        "release publishes complete frontier before heap refresh");
+      BooleanColumnView ready = instance.frontier.indicatorReadyColumn();
+      LongColumnView fcfs = instance.frontier.fcfsValueColumn();
+      LongColumnView spt = instance.frontier.sptValueColumn();
+      try {
+        for (int row = 0; row < instance.frontier.size(); row++) {
+          require(!ready.getBoolean(row) && fcfs.getLong(row) == 0L
+              && spt.getLong(row) == 0L,
+            "unrefreshed indicators use neutral values");
+        }
+      } finally {
+        spt.close();
+        fcfs.close();
+        ready.close();
+      }
+      FjspCandidateFrontier.Candidate selected = frontier.select(
+        new MachineId(100L), 0L, false, 0L);
+      require(selected.jobId == 1L && selected.operationId == 10L,
+        "refreshed group is selectable");
+      IndexSnapshot machineRows = instance.frontier
+        .findByMachine(new MachineId(100L)).rowIndexes();
+      ready = instance.frontier.indicatorReadyColumn();
+      fcfs = instance.frontier.fcfsValueColumn();
+      spt = instance.frontier.sptValueColumn();
+      try {
+        int row = machineRows.indexAt(0);
+        require(ready.getBoolean(row) && fcfs.getLong(row) == 0L
+            && spt.getLong(row) == 6L,
+          "FCFS uses effective-ready and SPT includes setup");
+      } finally {
+        spt.close();
+        fcfs.close();
+        ready.close();
+      }
+    }
+  }
+
+  private static void verifyInputPreflight() {
+    expectIllegalArgument(() -> FjspProblem.builder()
+      .addJob(1L, 0L, 10L, 1)
+      .addMachine(1L)
+      .addSetupTime(1L, 7L, 7L, 0L)
+      .addOperation(1L, 1L, 0, 0L, 7L, 0L, 0L,
+        new long[]{1L, 1L}, new long[]{1L, 2L})
+      .build());
+    expectIllegalArgument(() -> FjspProblem.builder()
+      .addJob(1L, 0L, 10L, 1)
+      .addMachine(1L)
+      .addOperation(1L, 1L, 0, 0L, 7L, 0L, 0L,
+        new long[]{1L}, new long[]{1L})
+      .build());
+    expectIllegalArgument(() -> FjspProblem.builder()
+      .addJob(1L, 0L, 10L, 1)
+      .addMachine(1L)
+      .addSetupTime(1L, 7L, 7L, 0L)
+      .addOperation(1L, 1L, 0, Long.MAX_VALUE, 7L, 0L, 0L,
+        new long[]{1L}, new long[]{1L})
+      .build());
   }
 
   private static void verifySharedSolverPath() {
@@ -99,7 +176,7 @@ public final class FjspVerificationSuite {
           0L, 0L, 0L, 1L, 1L)));
       expectCode("missing_key", () -> instance.setupTimes.fetch(
         new SetupTimeKey(new MachineId(100L), new SetupFamilyPair(
-          new SetupFamilyId(8L), new SetupFamilyId(7L)))));
+          new SetupFamilyId(99L), new SetupFamilyId(7L)))));
       require(!instance.frontier.findByMachine(new MachineId(999L))
           .findFirst().isPresent(), "optional lookup remains empty");
       expectCode("empty_result", () -> instance.frontier
@@ -165,6 +242,15 @@ public final class FjspVerificationSuite {
     } catch (SomaRuntimeException failure) {
       require(code.equals(failure.code()),
         "expected " + code + " but got " + failure.code());
+    }
+  }
+
+  private static void expectIllegalArgument(Action action) {
+    try {
+      action.run();
+      throw new AssertionError("expected input preflight failure");
+    } catch (IllegalArgumentException expected) {
+      // Expected.
     }
   }
 

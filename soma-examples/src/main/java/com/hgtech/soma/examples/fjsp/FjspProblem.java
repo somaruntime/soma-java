@@ -21,6 +21,7 @@ public final class FjspProblem {
   final List<OperationInput> operations;
   final int candidateCount;
   final int frontierCapacity;
+  final int maximumCandidatesPerOperation;
 
   private FjspProblem(Builder builder) {
     jobs = immutableCopy(builder.jobs);
@@ -28,7 +29,9 @@ public final class FjspProblem {
     setupTimes = immutableCopy(builder.setupTimes);
     operations = immutableCopy(builder.operations);
     candidateCount = builder.candidateCount;
-    frontierCapacity = validateAndCalculateFrontierCapacity();
+    Validation validation = validate();
+    frontierCapacity = validation.frontierCapacity;
+    maximumCandidatesPerOperation = validation.maximumCandidatesPerOperation;
   }
 
   public static Builder builder() {
@@ -41,7 +44,11 @@ public final class FjspProblem {
       .addJob(1L, 0L, 50L, 2)
       .addMachine(100L)
       .addMachineWithLastSetupFamily(200L, 100L, 8L)
+      .addSetupTime(100L, 7L, 7L, 0L)
       .addSetupTime(100L, 7L, 8L, 2L)
+      .addSetupTime(100L, 8L, 7L, 2L)
+      .addSetupTime(100L, 8L, 8L, 0L)
+      .addSetupTime(200L, 7L, 7L, 0L)
       .addSetupTime(200L, 8L, 7L, 0L)
       .addOperation(1L, 10L, 0, 0L, 7L, 0L, 0L,
         new long[]{100L, 200L}, new long[]{6L, 4L})
@@ -66,7 +73,7 @@ public final class FjspProblem {
     return candidateCount;
   }
 
-  private int validateAndCalculateFrontierCapacity() {
+  private Validation validate() {
     if (jobs.isEmpty() || machines.isEmpty() || operations.isEmpty()) {
       throw new IllegalArgumentException(
         "FJSP problem requires jobs, machines and operations");
@@ -74,6 +81,11 @@ public final class FjspProblem {
     int expectedOperations = 0;
     Map<Long, JobInput> jobsById = new HashMap<Long, JobInput>();
     for (JobInput job : jobs) {
+      if (job.inputOrder < 0L || job.dueMinute < 0L
+          || job.operationCount <= 0) {
+        throw new IllegalArgumentException(
+          "job order, due time and operation count must be non-negative/positive");
+      }
       expectedOperations = Math.addExact(expectedOperations, job.operationCount);
       if (jobsById.put(Long.valueOf(job.jobId), job) != null) {
         throw new IllegalArgumentException("duplicate job id: " + job.jobId);
@@ -84,16 +96,42 @@ public final class FjspProblem {
         "job operation counts do not match operation inputs");
     }
     Set<Long> machineIds = new HashSet<Long>();
+    Map<Long, Set<Long>> targetFamiliesByMachine =
+      new HashMap<Long, Set<Long>>();
     for (MachineInput machine : machines) {
-      if (!machineIds.add(Long.valueOf(machine.machineId))) {
+      Long machineId = Long.valueOf(machine.machineId);
+      if (machine.availableFromMinute < 0L) {
+        throw new IllegalArgumentException(
+          "machine availability must be non-negative");
+      }
+      if (!machineIds.add(machineId)) {
         throw new IllegalArgumentException(
           "duplicate machine id: " + machine.machineId);
       }
+      targetFamiliesByMachine.put(machineId, new HashSet<Long>());
+    }
+    Set<String> setupKeys = new HashSet<String>();
+    long maximumSetupMinutes = 0L;
+    for (SetupTimeInput setup : setupTimes) {
+      if (!machineIds.contains(Long.valueOf(setup.machineId))
+          || setup.setupMinutes < 0L) {
+        throw new IllegalArgumentException(
+          "invalid setup machine or negative setup time");
+      }
+      if (!setupKeys.add(setupKey(
+          setup.machineId, setup.fromFamily, setup.toFamily))) {
+        throw new IllegalArgumentException("duplicate setup identity");
+      }
+      maximumSetupMinutes = Math.max(maximumSetupMinutes, setup.setupMinutes);
     }
     Set<String> operationIdentities = new HashSet<String>();
     Set<String> jobSequences = new HashSet<String>();
     Map<Long, Integer> maximumCandidatesByJob =
       new HashMap<Long, Integer>();
+    int maximumCandidates = 0;
+    long latestReadyMinute = 0L;
+    long maximumProcessingTotal = 0L;
+    int validatedCandidateCount = 0;
     for (OperationInput operation : operations) {
       JobInput job = jobsById.get(Long.valueOf(operation.jobId));
       if (job == null || operation.sequenceNo < 0
@@ -105,13 +143,38 @@ public final class FjspProblem {
           || !jobSequences.add(operation.jobId + ":" + operation.sequenceNo)) {
         throw new IllegalArgumentException("duplicate operation identity/sequence");
       }
+      if (operation.releaseMinute < 0L || operation.jobReadyMinute < 0L
+          || operation.materialReadyMinute < 0L) {
+        throw new IllegalArgumentException(
+          "operation readiness times must be non-negative");
+      }
+      latestReadyMinute = Math.max(latestReadyMinute,
+        Math.max(operation.releaseMinute,
+          Math.max(operation.jobReadyMinute, operation.materialReadyMinute)));
+      Set<Long> candidates = new HashSet<Long>();
+      long maximumProcessing = 0L;
       for (int index = 0; index < operation.machineIds.length; index++) {
-        if (!machineIds.contains(Long.valueOf(operation.machineIds[index]))
+        Long machineId = Long.valueOf(operation.machineIds[index]);
+        if (!machineIds.contains(machineId)
             || operation.processingMinutes[index] <= 0L) {
           throw new IllegalArgumentException(
             "invalid candidate machine or processing time");
         }
+        if (!candidates.add(machineId)) {
+          throw new IllegalArgumentException(
+            "duplicate candidate machine for one operation");
+        }
+        targetFamiliesByMachine.get(machineId).add(
+          Long.valueOf(operation.setupFamily));
+        maximumProcessing = Math.max(
+          maximumProcessing, operation.processingMinutes[index]);
       }
+      validatedCandidateCount = Math.addExact(
+        validatedCandidateCount, operation.machineIds.length);
+      maximumCandidates = Math.max(
+        maximumCandidates, operation.machineIds.length);
+      maximumProcessingTotal = Math.addExact(
+        maximumProcessingTotal, maximumProcessing);
       Integer current = maximumCandidatesByJob.get(
         Long.valueOf(operation.jobId));
       if (current == null || operation.machineIds.length > current.intValue()) {
@@ -123,7 +186,54 @@ public final class FjspProblem {
     for (Integer maximum : maximumCandidatesByJob.values()) {
       capacity = Math.addExact(capacity, maximum.intValue());
     }
-    return capacity;
+    if (validatedCandidateCount != candidateCount) {
+      throw new IllegalArgumentException("candidate count does not match inputs");
+    }
+    for (MachineInput machine : machines) {
+      Set<Long> targets = targetFamiliesByMachine.get(
+        Long.valueOf(machine.machineId));
+      Set<Long> fromFamilies = new HashSet<Long>(targets);
+      if (machine.lastSetupFamily != null) {
+        fromFamilies.add(machine.lastSetupFamily);
+      }
+      for (Long from : fromFamilies) {
+        for (Long to : targets) {
+          if (!setupKeys.contains(setupKey(machine.machineId,
+              from.longValue(), to.longValue()))) {
+            throw new IllegalArgumentException(
+              "missing required setup lookup for machine "
+                + machine.machineId + ": " + from + " -> " + to);
+          }
+        }
+      }
+      latestReadyMinute = Math.max(
+        latestReadyMinute, machine.availableFromMinute);
+    }
+    try {
+      long maximumSetupTotal = Math.multiplyExact(
+        maximumSetupMinutes, (long) operations.size());
+      Math.addExact(Math.addExact(latestReadyMinute,
+        maximumProcessingTotal), maximumSetupTotal);
+    } catch (ArithmeticException overflow) {
+      throw new IllegalArgumentException(
+        "FJSP time upper bound exceeds long range", overflow);
+    }
+    return new Validation(capacity, maximumCandidates);
+  }
+
+  private static String setupKey(long machineId, long fromFamily,
+                                 long toFamily) {
+    return machineId + ":" + fromFamily + ":" + toFamily;
+  }
+
+  private static final class Validation {
+    final int frontierCapacity;
+    final int maximumCandidatesPerOperation;
+
+    Validation(int frontierCapacity, int maximumCandidatesPerOperation) {
+      this.frontierCapacity = frontierCapacity;
+      this.maximumCandidatesPerOperation = maximumCandidatesPerOperation;
+    }
   }
 
   private static <T> List<T> immutableCopy(List<T> values) {

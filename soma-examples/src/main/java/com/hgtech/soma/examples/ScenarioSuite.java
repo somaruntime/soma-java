@@ -21,17 +21,17 @@ public final class ScenarioSuite {
         require(vrp.schemaHash.length() == 64 && simulation.schemaHash.length() == 64
                         && game.schemaHash.length() == 64,
                 "all generated schema hashes are readable");
-        require(vrp.aggregateHotLeafWidths == 32 && simulation.aggregateHotLeafWidths == 44
-                        && game.aggregateHotLeafWidths == 32,
+        require(vrp.aggregateHotLeafWidths == 40 && simulation.aggregateHotLeafWidths == 44
+                        && game.aggregateHotLeafWidths == 68,
                 "APC aggregate widths must match each declared per-table ledger");
         System.out.println("access-pattern-card scenario=vrp "
                 + "paths=route-child,travel-lookup,insertion-order,route-rewrite "
                 + "rows=" + vrp.apcRows
-                + " hotColumns=position,customerId,arrivalMinute,departureMinute,loadAfterVisit"
-                + " hotLeafWidthsByTable=route_visit_rows:32"
+                + " hotColumns=position,customerId,locationId,arrivalSecond,departureSecond,loadAfterVisit"
+                + " hotLeafWidthsByTable=route_visit_rows:40"
                 + " aggregateHotLeafWidths=" + vrp.aggregateHotLeafWidths
                 + " workingSetHotLeafBytes=" + vrp.hotLeafWorkingSetBytes
-                + " workingSetFormula=visits.capacity*32"
+                + " workingSetFormula=visits.capacity*40"
                 + " reads=" + vrp.reads + " mutations=" + vrp.mutations
                 + " exports=" + vrp.exports
                 + " childDensity=one-required-child-per-route"
@@ -55,11 +55,11 @@ public final class ScenarioSuite {
         System.out.println("access-pattern-card scenario=game "
                 + "paths=unit-order,ability-lookup,move-workspace,occupancy-cache,damage-buffer "
                 + "rows=" + game.apcRows
-                + " hotColumns=unit.position,unit.actionPoints,map.occupantUnit,move.totalCost,damage.targetUnit"
-                + " hotLeafWidthsByTable=units:12,map:8,moves:4,damage:8"
+                + " hotColumns=unit.position,unit.hp,unit.actionPoints,occupancy.occupantUnit,move.position,move.totalCost,move.remainingActionPoints,damage.resolutionOrder,damage.sequenceNo,damage.targetUnit,damage.damage"
+                + " hotLeafWidthsByTable=unit_states:16,occupancy:8,moves:16,damage:28"
                 + " aggregateHotLeafWidths=" + game.aggregateHotLeafWidths
                 + " workingSetHotLeafBytes=" + game.hotLeafWorkingSetBytes
-                + " workingSetFormula=units.capacity*12+map.capacity*8+moves.capacity*4+damage.capacity*8"
+                + " workingSetFormula=unitStates.capacity*16+occupancy.capacity*8+moves.capacity*16+damage.capacity*28"
                 + " reads=" + game.reads + " mutations=" + game.mutations
                 + " exports=" + game.exports
                 + " selectedScope=single-actor"

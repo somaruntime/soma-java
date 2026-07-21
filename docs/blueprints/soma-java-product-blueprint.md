@@ -12,13 +12,13 @@ Owner：SOMA Java 产品蓝图
 
 设计约束入口：[Design 导航、层次与 Owner](../design/README.md)
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
 ## 1. 这份蓝图面向谁
 
 这份蓝图从使用者视角说明 SOMA Java 希望成为什么，以及一段真实业务代码使用它时应当是什么感觉。使用者不需要先理解 runtime 内部的 column、bucket 或 compaction 算法，也应当能够完成 Schema 建模、生成代码、导入数据、查询、更新、选择和导出。
 
-文中的代码同时承担两项职责：展示目标体验，并让目标尽量接近可编译、可验证的 Java 8 用法。示例中的具体类名和方法名参考当前 FJSP 场景，但不由 Blueprint 定义；精确契约由 [Schema 与生成 API](../design/schema-and-generated-api.md) 拥有，当前实现位置由 Implementation Map 记录。
+文中的代码同时承担两项职责：展示目标体验，并让目标尽量接近可编译、可验证的 Java 8 用法。未特别标为伪代码的片段都按“目标使用代码”审查：允许省略 import、外围 owner 和普通业务 helper，但不能依赖未说明的 SOMA 语义。示例中的具体类名和方法名参考当前 FJSP 场景，但不由 Blueprint 定义；精确契约由 [Schema 与生成 API](../design/schema-and-generated-api.md) 拥有，当前实现位置由 Implementation Map 记录。
 
 ## 2. 用户要解决的问题
 
@@ -92,6 +92,9 @@ public class OperationMachineKey {
 public final class MachineCandidate {
     @SomaKey public OperationMachineKey candidateKey;
     @SomaField public SetupFamilyId targetSetupFamily;
+    @SomaField public long operationReleaseMinute;
+    @SomaField public long jobReadyMinute;
+    @SomaField public long materialReadyMinute;
     @SomaField public long baseReadyMinute;
     @SomaField public long processingMinutes;
     @SomaField public long setupMinutes;
@@ -135,7 +138,7 @@ candidates.reserve(expectedCandidateCount);
 
 MachineCandidateBatch batch = new MachineCandidateBatch(batchSize);
 batch.addValues(key, family, release, jobReady, materialReady,
-    baseReady, processing, 0L, baseReady, release, processing, false);
+    baseReady, processing, 0L, baseReady, 0L, 0L, false);
 candidates.addBatch(batch);
 ```
 
@@ -158,15 +161,21 @@ long countOnMachine = candidates
 ```java
 UpdateResult refreshed = candidates.findByMachine(machineId).update(row -> {
     long effectiveReady = Math.max(machineReady, row.baseReadyMinute());
-    row.setSetupMinutes(setupMinutes(row.targetSetupFamilyValue()));
+    long setup = setupMinutes(machineId, lastSetupFamily,
+        row.targetSetupFamilyValue());
+    long serviceDuration = Math.addExact(setup, row.processingMinutes());
+
+    row.setSetupMinutes(setup);
     row.setEffectiveReadyMinute(effectiveReady);
-    row.setFcfsValue(row.operationReleaseMinute());
-    row.setSptValue(row.processingMinutes());
+    row.setFcfsValue(effectiveReady);
+    row.setSptValue(serviceDuration);
     row.setIndicatorReady(true);
 });
 ```
 
-update callback 收到 callback-scoped row mutator。它不是可以缓存或跨 operation 使用的 live entity object。terminal 成功后，`UpdateResult` 报告 matched/changed；失败时不能暴露部分提交。
+这里把 FCFS 指标定义为当前 machine 上的 `effectiveReady`，把 SPT 定义为本次占用 machine 的 `setup + processing` 时长；`indicatorReady=false` 时两个策略字段只是不可消费的占位值。如果某个 solver 采用不同 FCFS/SPT 定义，应该使用不同的策略名称和 comparator，而不是保留同名字段却静默改变含义。领域时间必须在 import 时验证为非负，并使用 checked addition 防止溢出。
+
+update callback 收到 callback-scoped row mutator。它不是可以缓存或跨 operation 使用的 live entity object。terminal 成功后，`UpdateResult` 报告 matched/changed；失败时不能暴露部分提交。`setupMinutes(...)` 是 application lookup helper，不是 SOMA 内建调度规则；canonical FJSP 约定 absent `lastSetupFamily` 表示初始加工不需要 setup，否则执行 required exact lookup。该 helper 不得重入 `candidates` 或产生外部副作用。
 
 ### 6.4 缩小候选、动态排序并取第一项
 
@@ -199,21 +208,21 @@ IndexSnapshot selected = candidates.findByMachine(machineId)
     .limit(1)
     .rowIndexes();
 
+if (selected.size() != 1) {
+    throw new IllegalStateException("dispatch requires exactly one candidate");
+}
+
 int row = selected.indexAt(0);
-LongColumnView operationIds =
-    candidates.candidateKeyOperationKeyOperationIdValueColumn();
-LongColumnView processing = candidates.processingMinutesColumn();
-try {
+try (LongColumnView operationIds =
+         candidates.candidateKeyOperationKeyOperationIdValueColumn();
+     LongColumnView processing = candidates.processingMinutesColumn()) {
     long operationId = operationIds.getLong(row);
     long processingMinutes = processing.getLong(row);
     // application hot-path logic
-} finally {
-    processing.close();
-    operationIds.close();
 }
 ```
 
-这条路径避免物化完整 `MachineCandidate`，但 `rowIndexes()` 明确复制出一个 `IndexSnapshot`，不能被宣传为零分配。Caller只在当前同步只读批次内立即消费；来源Table任意mutation/lifecycle变化后必须丢弃。`requireCurrent`只是可选边界防御，跨operation引用必须使用`@SomaKey`。
+这条路径避免物化完整 `MachineCandidate`，但 `rowIndexes()` 明确复制出一个 `IndexSnapshot`，不能被宣传为零分配。Caller 只在当前同步只读批次内立即消费；来源 Table 任意 mutation/lifecycle 变化后必须丢弃。`requireCurrent` 只是可选边界防御，跨 operation 引用必须使用 `@SomaKey`。
 
 runtime 在一次 Row Pipeline 内部使用的 primitive scratch 统一称为 `IndexBuffer`。它属于 table operation、在 terminal 后 reset，并不作为 public `List<Integer>`、row collection 或 application state 暴露。
 
@@ -250,11 +259,11 @@ child 的 lifecycle 属于 parent aggregate。它不是可以 share/reparent 的
 List<OperationAssignment> result =
     assignments.fetchAll(MaterializationBudget.defaults());
 
-frontier.release();
+candidates.release();
 assignments.release();
 ```
 
-materialization 返回 detached object graph，适用于结果导出、测试 oracle 和 adapter 输入。它与后续 DTO/wire mapping 是两个边界；大规模导出必须有显式预算，不能混入 storage hot-path 的性能声明。
+materialization 返回 detached object graph，适用于结果导出、测试 oracle 和 adapter 输入。它与后续 DTO/wire mapping 是两个边界；大规模导出必须有显式预算，不能混入 storage hot-path 的性能声明。多个 root table 应由 application aggregate owner 在 `finally`/`close` 路径按明确顺序释放；不能只展示正常路径上的零散 `release()`，让构建或求解异常泄漏 lifecycle。
 
 ## 7. 顺序、删除与失败语义
 
