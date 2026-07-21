@@ -1,241 +1,131 @@
 # 连续仿真 runtime state 示例
 
 类型：Report / 开发者 current-executable 场景
+
 状态：当前
+
 Owner：`soma-examples` output
-受众：使用或维护当前 Simulation runtime-state example 的开发者
-适用版本：最后 implementation-affecting baseline `b991f4c`
-输入事实源：当前 example source、[Simulation Blueprint](../../docs/blueprints/simulation-runtime-state-blueprint.md)、Design 与 G5 evidence
-事实范围：连续仿真 data role、Access Pattern Card、schema 和使用边界
-非事实范围：ODE/numerical solver、public contract 和性能 claim
-最后审查日期：2026-07-20
 
-> 本文记录当前 executable example，不拥有目标设计。目标形态与当前代码的已知差距见 [Conformance](../../docs/conformance/known-gaps.md)；文中的“必须/应当”只复述正式 Owner 或验证要求。
+受众：使用或维护当前 simulation runtime-state example 的开发者
 
-## 1. 文档定位
+适用版本：最后 implementation-affecting baseline `a137b10`
 
-本文记录 `连续仿真 runtime state 示例` 的当前代码投影，并从 [Runtime state schema 典型示例](runtime-state-schema-examples.md) 进入其 executable context。
+输入事实源：当前 example source、[连续仿真 Blueprint](../../docs/blueprints/simulation-runtime-state-blueprint.md)、Design 与 phase-6 evidence
 
-## 2. 场景边界
+事实范围：当前 simulation schema、event/vector/trace journey、数值与失败边界
 
-连续仿真示例表达 tank / valve network 的 time-step simulation runtime state：
+非事实范围：完整仿真平台、SOMA public contract 和性能优势
+
+最后审查日期：2026-07-21
+
+> 本文只记录当前 executable example。目标仍由 Blueprint 拥有，长期语义仍由 Design 拥有。
+
+## 1. 当前场景
+
+[`SimulationScenario.java`](../src/main/java/com/hgtech/soma/examples/simulation/SimulationScenario.java) 运行一个 tank/valve event-boundary simulation：
 
 ```text
-tank and valve entity state
-  -> flow coefficient lookup
-  -> state vector dense rows
-  -> pending event dense rows
-  -> trace sample dense rows
+validate/import definitions + dense vector
+  -> validate immutable vector layout
+  -> schedule immutable events in application PriorityQueue
+  -> integrate to next event boundary
+  -> apply same-time events in total order
+  -> optionally rebuild Table event projection
+  -> append/export trace and final vector projection
 ```
 
-不表达 ODE solver 实现、数值积分策略、并行仿真调度或事件业务规则。SOMA 只承载可被 simulator hot loop 反复读取、扫描和更新的状态容器。
+仿真时间是从 session origin 起算的 non-negative `simulationTimeNanos`，不是 wall-clock `DATE_TIME`。Fixture 在相同纳秒时刻放入两个事件，直接验证 `(simulationTimeNanos, sequenceNo)` 的稳定全序。
 
-### 2.1 Access Pattern Card
+## 2. 当前数据角色
 
-| Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
-|---|---|---|---|
-| `StateVectorRow` | stable vector slots × step count；记录 variable-kind distribution | repeated full/partition primitive scan + non-structural update | Row/Column path 与 primitive-array baseline；touched bytes 和 steady-state allocation/op 分开 |
-| pending events | queue size、due ratio、optional payload density | external min-heap scheduling；table 只承载batch ingest/diagnostic/export | heap operation、table append、swap-remove scratch 和 bitmap path 分开 |
-| trace/coefficient | sample rate × variables；valve/material combinations | trace batch append/export；coefficient point lookup/preprojection | trace export/materialization 与 integration hot loop 分开；lookup load/collision/reuse 单独记录 |
+| Role | 当前载体 | 权威性与访问方式 |
+|---|---|---|
+| input facts | `TankDefinition`、`ValveDefinition`、`FlowCoefficient` | keyed、import 后只读；topology exact access 与 coefficient required lookup |
+| numeric working state | `StateVectorRow` | 唯一 authoritative numeric state；long-lived dense vector |
+| pending-event state | application `PriorityQueue<SimEvent>` | 尚未消费事件的唯一 queue state |
+| diagnostic projection | `PendingEventRow` | 从 heap 在显式 boundary 重建；event loop 不反向消费它 |
+| result/export | `TraceSampleRow` 与 final vector projection | trace 不反向成为 state source；final state 直接从 vector 导出 |
 
-Fixture/benchmark 必须补充 vector working set、scan/update ratio、event due ratio、trace sampling ratio、JIT warmup/forks、summary/diagnostic stats mode 和 final export frequency；这些值不进入 Schema/hash。
+Definition table 不再保存 `levelLiters`、`openingRatio` 等 mutable numeric shadow。`StateVectorRow.vectorIndex` 只是当前 dense layout slot，不是 stable business identity。
 
-## 3. Schema source 示例
+## 3. 关键 schema 投影
 
 ```java
-@SomaSchema(
-    name = "continuous_sim_runtime_state",
-    generatedPackage = "com.example.sim.state.generated",
-    version = "1"
-)
-package com.example.sim.state;
-
-import com.hgtech.soma.annotation.SomaSemantic;
-
-public enum SimEntityKind {
-    TANK,
-    VALVE
+@SomaTable(name = "tank_definitions", defaultCapacity = 256)
+public final class TankDefinition {
+    @SomaKey public TankId tankId;
+    @SomaField public MaterialId materialId;
+    @SomaField public double capacityLiters;
 }
 
-public enum SimEventKind {
-    VALVE_SETPOINT,
-    MATERIAL_FEED,
-    SENSOR_SAMPLE
-}
-
-public enum SimVariableKind {
-    LEVEL_LITERS,
-    TEMPERATURE_CELSIUS,
-    VALVE_OPENING_RATIO
-}
-
-@SomaValue
-public class TankId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class ValveId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class MaterialId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class ValveMaterialKey {
-    @SomaField
-    ValveId valveId;
-
-    @SomaField
-    MaterialId materialId;
-}
-
-@SomaTable(name = "tanks", defaultCapacity = 256)
-public final class Tank {
-    @SomaKey
-    public TankId tankId;
-
-    @SomaField
-    public MaterialId materialId;
-
-    @SomaField
-    public double levelLiters;
-
-    @SomaField
-    public double capacityLiters;
-
-    @SomaField
-    public double temperatureCelsius;
-
-    @SomaField(semantic = SomaSemantic.DATE_TIME)
-    public long lastUpdateMillis;
-}
-
-@SomaTable(name = "valves", defaultCapacity = 512)
+@SomaTable(name = "valve_definitions", defaultCapacity = 512)
 @SomaIndex(name = "by_from_tank", fields = {"fromTank.value"})
 @SomaIndex(name = "by_to_tank", fields = {"toTank.value"})
-public final class Valve {
-    @SomaKey
-    public ValveId valveId;
-
-    @SomaField
-    public TankId fromTank;
-
-    @SomaField
-    public TankId toTank;
-
-    @SomaField
-    public double openingRatio;
-
-    @SomaField
-    public double maxFlowLitersPerSecond;
-
-    @SomaField
-    @SomaDefault("true")
-    public boolean enabled;
-}
-
-@SomaTable(name = "flow_coefficients", defaultCapacity = 1024)
-public final class FlowCoefficient {
-    @SomaKey
-    public ValveMaterialKey valveMaterialKey;
-
-    @SomaField
-    public double coefficient;
+public final class ValveDefinition {
+    @SomaKey public ValveId valveId;
+    @SomaField public TankId fromTank;
+    @SomaField public TankId toTank;
+    @SomaField public double maxFlowLitersPerSecond;
+    @SomaField public boolean enabled;
 }
 
 @SomaTable(name = "state_vector_rows", defaultCapacity = 4096)
 public final class StateVectorRow {
-    @SomaField
-    public int vectorIndex;
-
-    @SomaField
-    public SimEntityKind entityKind;
-
-    @SomaField
-    public long entityId;
-
-    @SomaField
-    public SimVariableKind variableKind;
-
-    @SomaField
-    public double value;
-
-    @SomaField
-    public double derivative;
-
-    @SomaField
-    public double scale;
+    @SomaField public int vectorIndex;
+    @SomaField public SimEntityKind entityKind;
+    @SomaField public long entityId;
+    @SomaField public SimVariableKind variableKind;
+    @SomaField public double value;
+    @SomaField public double derivative;
+    @SomaField public double scale;
 }
 
 @SomaTable(name = "pending_event_rows", defaultCapacity = 1024)
 public final class PendingEventRow {
-    @SomaField(semantic = SomaSemantic.DATE_TIME)
-    public long eventTimeMillis;
-
-    @SomaField
-    public long sequenceNo;
-
-    @SomaField
-    public SimEventKind eventKind;
-
-    @SomaField
-    public SimEntityKind targetKind;
-
-    @SomaField
-    public long targetId;
-
-    @SomaField
-    @SomaOptional
-    public Double numericPayload;
-}
-
-@SomaTable(name = "trace_sample_rows", defaultCapacity = 65536)
-public final class TraceSampleRow {
-    @SomaField(semantic = SomaSemantic.DATE_TIME)
-    public long sampleTimeMillis;
-
-    @SomaField
-    public SimEntityKind entityKind;
-
-    @SomaField
-    public long entityId;
-
-    @SomaField
-    public SimVariableKind variableKind;
-
-    @SomaField
-    public double value;
+    @SomaField public long simulationTimeNanos;
+    @SomaField public long sequenceNo;
+    @SomaField public SimEventKind eventKind;
+    @SomaField public SimEntityKind targetKind;
+    @SomaField public long targetId;
+    @SomaField @SomaOptional public Double numericPayload;
 }
 ```
 
-## 4. 使用方式
+完整声明以 [`com.hgtech.soma.examples.simulation`](../src/main/java/com/hgtech/soma/examples/simulation) 为准。`TraceSampleRow.sampleTimeNanos` 使用同一 session-relative 单位。
 
-- `Tank`、`Valve` 是 keyed entity state；
-- `FlowCoefficient` 是 keyed lookup table；
-- `StateVectorRow` 是 dense packed state vector，`vectorIndex` 只是当前向量布局位置；
-- `PendingEventRow` 是 dense event batch / diagnostic workspace；真正的下一事件调度由 simulator 外部最小堆负责；
-- `TraceSampleRow` 是 dense trace buffer / export buffer；
-- simulator OOP 层负责数值积分、事件应用和采样策略，SOMA 不拥有仿真算法。
+## 4. Vector 与 event 协议
 
-Source-of-truth 口径：
+进入 time loop 前，application 验证：
 
-- canonical 示例选择 `StateVectorRow` 作为数值状态事实源；
-- `StateVectorRow.entityKind + entityId + variableKind` 定义 vector slot 对应的业务变量，`vectorIndex` 仍只是当前 dense layout 位置，不是 stable key；
-- `Tank.levelLiters`、`Tank.temperatureCelsius`、`Valve.openingRatio` 只作为 boundary cache / DTO / export snapshot；数值积分、事件应用和 derivative 计算应写入 `StateVectorRow`；
-- simulator 只能在 step boundary、export boundary 或 diagnostic snapshot 同步这些 cache 字段；同步失败时，应停止 step、回滚外部 snapshot，或丢弃 cache 并从 `StateVectorRow` 重建；
-- 如果某个项目选择 `Tank` / `Valve` 为事实源，则 `StateVectorRow` 必须降级为派生 workspace，不能和本示例的 long-lived dense source-of-truth 口径混用。
+- `vectorIndex` 唯一、连续并完整覆盖 `[0,size)`；
+- `(entityKind, entityId, variableKind)` mapping 唯一；
+- value、derivative、scale 均 finite，且 scale 非零；
+- topology/parameter 数值合法，时间 arithmetic 不溢出。
 
-事件队列不强行建模为 SOMA Table：simulator 使用外部最小堆按 `(eventTimeMillis, sequenceNo)` 调度。只有需要批量诊断、导出或列式分析时才把 event facts 写入 `PendingEventRow`；若在表内临时筛选 due rows，使用全量列扫描和显式 `sorted(...)`，并单独计量扫描、排序与 swap-remove。
+`Simulator` 分配单调 `sequenceNo`，在溢出前 fail closed；heap node 是 immutable application value，不保存 SOMA Index。Java `PriorityQueue` iterator 被明确视为无序，event projection 只能无序复制；需要有序诊断时必须对 projection 另做显式 total sort。
 
-`TraceSampleRow` 是 trace / export buffer，不反向成为仿真状态事实源。需要 time/entity 顺序时只在 export / diagnostic terminal 显式排序，不应进入每 step state-vector hot path 的性能 claim。
+`advanceTo` 每次先推进到 `min(targetTime, heapHeadTime)`，完整计算 derivative staging，再通过一次 Table update 发布；到达边界后按 `(time, sequence)` 消费全部 due event。过去时刻的 event 被拒绝，event apply/integration 的任何异常都会把 simulator 标为 fail-stop。
 
-`ColumnView` 只用于明确的 hot path primitive scan。示例默认采用读 view 关闭后再写入的两阶段模式；在 active ColumnView 下进行同 table structural mutation 应被视为 `view_pinned` 风险，除非 runtime contract 明确允许某类固定宽度非结构性更新。
+## 5. 数值原子性
 
-`FlowCoefficient.fetch(valveMaterialKey)` 的缺失在 canonical 示例中表示 required lookup missing / 输入不完整。若 derivative inner loop 每 step 每 valve 都需要 coefficient，simulator 应考虑在 step 前预投影到 valve-local dense row 或 state vector adjacent column；SOMA 不自动 join 或自动 preprojection。
+`IntegrationWorkspace` 在 session 创建时分配并复用 `double[] nextValues`；derivative 也使用固定 scratch。每个 step 分成：
+
+1. 只读 ColumnView 扫描当前完整 vector；
+2. 验证 finite/scale 并计算全部 next values；
+3. 关闭 read views；
+4. 单次 `update` 发布新 value。
+
+Fixture 用一个 zero-scale row 触发 `SimulationNumericsException`，并验证两行 value 都保持原值。因此这里证明的是单次 Table operation 的失败原子性，不是 heap + Table 的跨结构 transaction。
+
+## 6. Trace 与性能边界
+
+- trace 使用 reusable `TraceSampleRowBatch` 批量追加；只在 export boundary 按 `(time, entityKind, entityId, variableKind)` 排序；
+- event heap、event Table projection 与 trace 分开计量；Table scan/sort 不被描述为 priority queue；
+- state-vector hot columns 的当前 APC width 为 44 bytes；fixture 记录 2 个 vector rows、5 个实际 changed-row mutations 和 2 个 trace exports；
+- phase-6 Gate 固定 schema/hash、generated/public surface、same-time order、late-event rejection、numeric atomicity和 projection 非权威性。
+
+这些结果只证明当前 Java 8 fixture 的 executable accounting，不构成通用积分器精度或 throughput claim。
+
+## 7. 非目标
+
+本示例不实现 adaptive/high-order integrator、动态 topology、分布式仿真、持久化 event log、rollback checkpoint、跨 Table transaction 或 wall-clock scheduling。

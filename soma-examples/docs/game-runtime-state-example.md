@@ -1,235 +1,153 @@
 # Game runtime state 示例
 
 类型：Report / 开发者 current-executable 场景
+
 状态：当前
+
 Owner：`soma-examples` output
+
 受众：使用或维护当前 Game runtime-state example 的开发者
-适用版本：最后 implementation-affecting baseline `b991f4c`
-输入事实源：当前 example source、[Game Blueprint](../../docs/blueprints/game-runtime-state-blueprint.md)、Design 与 G5 evidence
-事实范围：Game runtime data role、Access Pattern Card、schema 和使用边界
-非事实范围：game rules/ECS/pathfinding、public contract 和性能 claim
-最后审查日期：2026-07-20
 
-> 本文记录当前 executable example，不拥有目标设计。目标形态与当前代码的已知差距见 [Conformance](../../docs/conformance/known-gaps.md)；文中的“必须/应当”只复述正式 Owner 或验证要求。
+适用版本：最后 implementation-affecting baseline `a137b10`
 
-## 1. 文档定位
+输入事实源：当前 example source、[Game Blueprint](../../docs/blueprints/game-runtime-state-blueprint.md)、Design 与 phase-6 evidence
 
-本文记录 `Game runtime state 示例` 的当前代码投影，并从 [Runtime state schema 典型示例](runtime-state-schema-examples.md) 进入其 executable context。
+事实范围：当前 Game schema、move/cache/damage journey、失败与性能边界
 
-## 2. 场景边界
+非事实范围：完整 game engine、ECS/pathfinding、SOMA public contract 和性能优势
 
-Game 示例表达 grid tactics / turn-based game loop 的 runtime state：
+最后审查日期：2026-07-21
+
+> 本文只记录当前 executable example。目标仍由 Blueprint 拥有，长期语义仍由 Design 拥有。
+
+## 1. 当前场景
+
+[`GameScenario.java`](../src/main/java/com/hgtech/soma/examples/game/GameScenario.java) 执行一个 turn-based tactics slice：
 
 ```text
-players / units / map tiles / ability cost lookup
-  -> visibility or move candidate dense rows
-  -> pending damage dense rows
-  -> unit mutation and detached schema object / boundary DTO export
+validate/import definitions + mutable state
+  -> rebuild keyed occupancy cache from live units
+  -> total-order select READY unit
+  -> publish selected-unit move workspace
+  -> prepare/revalidate/commit move
+  -> update or rebuild occupancy cache
+  -> stage total-ordered damage commands
+  -> mutate unit/player state and clear damage buffer
+  -> export authoritative state
 ```
 
-SOMA 不是 ECS framework，不拥有 system scheduling、rendering、input、network replication 或 game rules。它只承载 game loop 中需要高频扫描、排序、按 key mutation 或 detached schema object 构造的 runtime state；外部 DTO 只属于 adapter 边界。
+SOMA 只承载 hot runtime state 与 typed access；turn scheduling、pathfinding、action revision、cache recovery 和 damage transaction policy属于 application `Battle`。
 
-### 2.1 Access Pattern Card
+## 2. 当前数据角色
 
-| Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
-|---|---|---|---|
-| unit/player state | live units/players | explicit-sort next-unit、point/exact-group access、field mutate | selector selectivity、`IndexBuffer` sort、Cursor path 与 materialized fetch 分开 |
-| map/occupancy | map cells、optional occupancy density | visibility/pathing scan、coordinate access、move 后 cache update/rebuild | paired working set、coordinate variants 和 occupancy consistency 分开 |
-| move/damage workspaces | selected-unit candidates、current damage rows | `replaceAll`、dynamic sort、target point mutate、clear/swap-remove | builder、sort/compaction scratch、capacity reuse、allocation/op 和 stats mode 分开 |
+| Role | 当前 Table | 权威性与访问方式 |
+|---|---|---|
+| input facts | `PlayerDefinition`、`GameUnitDefinition`、`AbilityCost`、`MapTileDefinitionRow` | keyed、import 后只读；tile 以 `GridPosition` point lookup |
+| mutable authoritative state | `PlayerState`、`GameUnitState` | keyed mutation；unit position 是 occupancy 的事实源 |
+| derived cache | `TileOccupancyRow` | keyed coordinate cache；从全部 live unit positions 可重建 |
+| selected-action workspace | `MoveCandidateRow` | 单 selected unit 的 dense `replaceAll + sorted` workspace，不重复 unit identity |
+| phase command buffer | `PendingDamageRow` | dense current-resolution buffer；成功后 clear，不是 history/replay log |
 
-Fixture/benchmark 必须补充 map working-set bytes、selected-unit/all-units scope、damage target reuse、KeySpace load/collision、JIT warmup/forks 和 snapshot/export frequency；这些值不进入 Schema/hash。
+`GameUnitState` 中的 player/initiative 是 immutable definition leaf 的 hot-path preprojection；import 校验两边一致，之后不作为第二份可修改 definition。
 
-## 3. Schema source 示例
+## 3. 关键 schema 投影
 
 ```java
-@SomaSchema(
-    name = "game_runtime_state",
-    generatedPackage = "com.example.game.state.generated",
-    version = "1"
-)
-package com.example.game.state;
-
-public enum TerrainType {
-    PLAIN,
-    FOREST,
-    WATER,
-    WALL
+@SomaTable(name = "game_unit_definitions", defaultCapacity = 1024)
+public final class GameUnitDefinition {
+    @SomaKey public UnitId unitId;
+    @SomaField public PlayerId playerId;
+    @SomaField public UnitClassId unitClassId;
+    @SomaField public int initiative;
 }
 
-public enum UnitState {
-    READY,
-    MOVED,
-    STUNNED,
-    DEAD
-}
-
-public enum AbilityId {
-    MOVE,
-    ATTACK,
-    HEAL
-}
-
-@SomaValue
-public class PlayerId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class UnitId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class UnitClassId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class GridPosition {
-    @SomaField
-    int x;
-
-    @SomaField
-    int y;
-}
-
-@SomaValue
-public class UnitAbilityKey {
-    @SomaField
-    UnitClassId unitClassId;
-
-    @SomaField
-    AbilityId abilityId;
-}
-
-@SomaTable(name = "players", defaultCapacity = 16)
-public final class Player {
-    @SomaKey
-    public PlayerId playerId;
-
-    @SomaField
-    public int teamNo;
-
-    @SomaField
-    @SomaDefault("0")
-    public long score;
-}
-
-@SomaTable(name = "units", defaultCapacity = 1024)
+@SomaTable(name = "game_unit_states", defaultCapacity = 1024)
 @SomaIndex(name = "by_player", fields = {"playerId.value"})
 @SomaIndex(name = "by_state", fields = {"state"})
-public final class GameUnit {
-    @SomaKey
-    public UnitId unitId;
-
-    @SomaField
-    public PlayerId playerId;
-
-    @SomaField
-    public UnitClassId unitClassId;
-
-    @SomaField
-    public GridPosition position;
-
-    @SomaField
-    public int hp;
-
-    @SomaField
-    public int actionPoints;
-
-    @SomaField
-    public int initiative;
-
-    @SomaField
-    @SomaDefault("READY")
-    public UnitState state;
-
-    @SomaField
-    @SomaOptional
-    public UnitId targetUnit;
+public final class GameUnitState {
+    @SomaKey public UnitId unitId;
+    @SomaField public PlayerId playerId;
+    @SomaField public int initiative;
+    @SomaField public GridPosition position;
+    @SomaField public int hp;
+    @SomaField public int actionPoints;
+    @SomaField public UnitState state;
+    @SomaField @SomaOptional public UnitId targetUnit;
 }
 
-@SomaTable(name = "ability_costs", defaultCapacity = 128)
-public final class AbilityCost {
-    @SomaKey
-    public UnitAbilityKey unitAbilityKey;
-
-    @SomaField
-    public int actionPointCost;
-
-    @SomaField
-    public int range;
-
-    @SomaField
-    public int baseDamage;
+@SomaTable(name = "map_tile_definition_rows", defaultCapacity = 4096)
+public final class MapTileDefinitionRow {
+    @SomaKey public GridPosition position;
+    @SomaField public TerrainType terrain;
+    @SomaField public int moveCost;
+    @SomaField public boolean blocksSight;
 }
 
-@SomaTable(name = "map_tile_rows", defaultCapacity = 4096)
-public final class MapTileRow {
-    @SomaField
-    public GridPosition position;
-
-    @SomaField
-    public TerrainType terrain;
-
-    @SomaField
-    public int moveCost;
-
-    @SomaField
-    public boolean blocksSight;
-
-    @SomaField
-    @SomaOptional
-    public UnitId occupantUnit;
+@SomaTable(name = "tile_occupancy_rows", defaultCapacity = 4096)
+public final class TileOccupancyRow {
+    @SomaKey public GridPosition position;
+    @SomaField @SomaOptional public UnitId occupantUnit;
 }
 
 @SomaTable(name = "move_candidate_rows", defaultCapacity = 2048)
 public final class MoveCandidateRow {
-    @SomaField
-    public UnitId unitId;
-
-    @SomaField
-    public GridPosition position;
-
-    @SomaField
-    public int totalCost;
-
-    @SomaField
-    public int remainingActionPoints;
+    @SomaField public GridPosition position;
+    @SomaField public int totalCost;
+    @SomaField public int remainingActionPoints;
 }
 
 @SomaTable(name = "pending_damage_rows", defaultCapacity = 1024)
 public final class PendingDamageRow {
-    @SomaField
-    public long resolutionOrder;
-
-    @SomaField
-    public UnitId sourceUnit;
-
-    @SomaField
-    public UnitId targetUnit;
-
-    @SomaField
-    public int damage;
+    @SomaField public long resolutionOrder;
+    @SomaField public long sequenceNo;
+    @SomaField public UnitId sourceUnit;
+    @SomaField public UnitId targetUnit;
+    @SomaField public int damage;
 }
 ```
 
-## 4. 使用方式
+完整声明以 [`com.hgtech.soma.examples.game`](../src/main/java/com/hgtech/soma/examples/game) 为准。
 
-- `Player`、`GameUnit` 是 keyed entity state；
-- `AbilityCost` 是 keyed lookup table；
-- `MapTileRow` 是 dense grid layout，适合 render / visibility / packed scan；需要 grid traversal 时显式排序或由外部 grid adapter 保持坐标布局；
-- `MoveCandidateRow` 默认是 selected-unit / current-action dense workspace；`unitId` 是诊断、导出或断言字段，不构成 action identity，也不表示 all-units global frontier；
-- `PendingDamageRow` 是当前结算阶段的 dense resolution buffer；
-- game loop OOP 层负责回合推进、技能规则、路径搜索和渲染同步，SOMA 不替代 game engine。
+## 4. Move action 协议
 
-`MoveCandidateRow` 的 total-cost 次序只服务 selected-unit workspace 的本次选择，通过 `sorted(comparator)` 显式建立。它不是全局行动策略排序承诺；是否为全局 AI planning 引入 keyed `ActionCandidate` frontier，需要通过 benchmark 和单独设计判断。当前正式示例不引入全局 `ActionCandidate` frontier；只有跨 tick 保留、局部失效、稳定 identity、版本语义和 cache 清理策略都成立后，它才可能成为后续研究方向。
+READY unit 按 `(initiative, unitId)` 升序显式排序。Move workspace 的 owner 是 immutable application `MoveActionContext`，其中保存 unit identity、origin、initial AP、pathing revision 与 generation；candidate row 不复制这些相同 facts。
 
-`GameUnit.position` 是单位位置事实源；`MapTileRow.occupantUnit` 是 occupancy cache。移动提交时，game loop 应先提交 `GameUnit.position`，再更新或重建 `MapTileRow.occupantUnit`。如果 cache 更新失败，game loop 必须停止当前 frame、回滚外部 snapshot，或从 `GameUnit.position` 重建 occupancy cache；SOMA V1 不提供跨 table transaction 或自动补偿。
+候选发布使用 reusable `MoveCandidateRowBatch`。选择 comparator 是：
 
-如果 pathing hot loop 频繁执行 `(x, y) -> tile`，应由外部 grid adapter 维护 `(x, y) -> current Index` invariant，并在 structural mutation 后重建；或者改为 keyed / unique coordinate `MapTile`。coordinate lookup 应进入 benchmark lane，不能从物理遍历顺序推导性能结论。
+```text
+totalCost -> position.y -> position.x
+```
 
-`PendingDamageRow` 在本次结算 terminal 中按 resolution order 显式排序，写回 keyed `GameUnit` / `Player` 后 clear 或 replace。它不是 history / replay log；如果需要跨 tick 保留、取消、去重、网络重放或幂等结算，应另建 keyed event / command table。damage resolution 包含 pending row traversal/sort、target `fetch`、target `mutate` 和 buffer clear 的成本，不能被描述为纯 dense scan。
+Comparator 只读取 row，不查 tile、occupancy、ability 或 unit table。`PreparedMove` 绑定 context 与选中值，不保存 SOMA Index。重建 workspace、切换 selected unit 或推进 pathing revision 后，旧 prepared move 返回 `STALE`，不会写入权威状态。
+
+Commit 会重新验证 unit state、origin/AP、target terrain 和 source/target occupancy；随后先提交 `GameUnitState.position/actionPoints/state`，再推进 revision，最后增量更新 occupancy。两个 cache mutation 不是 transaction：预期的 SOMA cache failure 会先 invalidate cache，再从 live units 完整重建；重建也失败则当前 battle/frame 停止。
+
+## 5. Occupancy invariant
+
+Cache rebuild 使用 owner-owned `TileOccupancyRowBatch`，并验证：
+
+- 每个 coordinate 至多一个 live unit；
+- 每个 live unit 都映射到一个存在且可通行的 tile；
+- cache 为每个 tile 生成一行，absence 用 optional `occupantUnit` 表达；
+- rebuild 完整成功后才通过 `replaceAll` 发布并重新标记为 valid。
+
+因此 `GameUnitState.position` 与 cache 不构成两个平级事实源。场景在 move 后又执行一次完整 rebuild，直接证明 cache 的 reconstructibility。
+
+## 6. Damage 协议
+
+Application 为每个 resolution batch 单调分配 `sequenceNo`，并按 `(resolutionOrder, sequenceNo)` total order 读取。`DamageCommandBuffer` 在同步只读批次内把完整 command facts 复制到 reusable primitive arrays，验证 non-negative、source/target existence、sequence uniqueness 和 aggregate overflow，关闭 Table read boundary 后才开始跨表 mutation。
+
+从第一次 unit mutation直到 player score 更新和 pending buffer clear，任何异常都会使 `DamageResolution` fail-stop；未清理 command 不得重放。需要 retry/replay/幂等时，应改为带 stable command identity 和 checkpoint 的另一种 application model。
+
+## 7. 性能与证据边界
+
+- move Batch、occupancy rebuild Batch、damage Batch 与 primitive command arrays 都由 owner 复用；
+- ColumnView 在 phase 粒度打开并关闭，不在每个 tile/command 内重复创建；
+- current APC ledger 分别为 unit state 16、occupancy 8、move 16、damage 28 bytes，aggregate width 68；
+- phase-6 Gate 固定 schema/hash、generated/public surface、stale action、keyed cache rebuild、damage total order 和 fail-stop behavior。
+
+这些结果只覆盖当前 Java 8 teaching fixture，不构成固定矩形 grid、ECS 或 large-scale pathfinding 的性能承诺。
+
+## 8. 非目标
+
+本示例不实现 ECS archetype、rendering、network replication、全局 AI action frontier、复杂 pathfinding、rollback netcode、持久化 replay log 或跨 Table transaction。

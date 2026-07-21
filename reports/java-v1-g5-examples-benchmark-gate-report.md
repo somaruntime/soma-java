@@ -8,7 +8,7 @@ Owner：root
 Capability：`V1-SCENARIO-BENCHMARK` → `evidenced`
 Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（G6 未通过，当前 blocked）
 
-> 当前性说明（2026-07-20）：本报告是 2026-07-11 的 v2 G5 Gate 快照；其中 maintained order、dirty selector 和旧 benchmark schema 已由 `4b6fa43` 的 packed/exact v3 切换取代。当前场景、benchmark 与重验证入口见 [2026-07-17 专题收口报告](2026-07-17-packed-exact-index-runtime-redesign-report.md)。本文保留当时 Gate 结论，不定义当前 runtime 形态。
+> 当前性说明（2026-07-21）：本报告是 2026-07-11 的 v2 G5 Gate 快照；maintained order、dirty selector 和旧 benchmark schema 已由 packed/exact v3 切换取代，四场景 canonical journey 又已由 `a137b10` 重新采纳。当前场景、benchmark 映射与重验证入口见 [2026-07-21 专题治理报告](2026-07-21-four-scenario-blueprint-adoption-report.md)。本文只保留当时 Gate 结论。
 
 ## 1. 结论
 

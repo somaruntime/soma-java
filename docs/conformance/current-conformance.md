@@ -6,13 +6,13 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design、commit `b991f4c` 的实现与当前正式 evidence
+核对对象：正式 Blueprint/Design、commit `a137b10` 的实现与当前正式 evidence
 
 事实范围：主要设计能力的一致性判断和直接依据
 
 非事实范围：授权修复、重新定义 Design 或声明 public release readiness
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
 ## 1. 判定口径
 
@@ -35,22 +35,23 @@ Owner：SOMA Java 一致性审查
 | child ownership/lifecycle | 一致且 evidenced | child external consumer、ownership/materialization Gate | 保持 |
 | structured failure/plan/stats | 一致且 evidenced | runtime diagnostics、compatibility/error fixtures | 保持 |
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
-| hot-path performance shape | 一致但 evidence 有限 | allocation/GC Gate、component artifact、FJSP 5-run A/B；见2026-07-20收口报告 | 结论限制在已测环境与lane |
-| FJSP 目标场景 | 一致且 evidenced | split schema、incremental frontier、by-machine exact access、candidate explicit sort与application-owned indexed machine heap | 保持Table事实与外部queue职责分离 |
-| VRP / Simulation / Game 目标形态 | 目标差距 | 当前 examples 仍保留蓝图拟拆分的混合 data-role row/cache | 见 [known-gaps](known-gaps.md) |
+| hot-path performance shape | 一致但 evidence 有限 | 当前component artifact、FJSP 5-run allocation/GC诊断与完整Gate；旧A/B只作为heap决策的历史证据 | 结论限制在已测环境与lane，见当前性能摘要 |
+| FJSP 目标场景 | 一致且 evidenced | unique sequence、完整 import/setup preflight、reusable frontier staging、FCFS/SPT indicator、publish-before-heap、checked commit；phase-6 adoption lane passed | 保持Table事实与外部queue职责分离 |
+| VRP 目标场景 | 一致且 evidenced | definition/assignment/workspace 分离、全 insertion ordinal、hard-constraint propagation、route-version stale guard、authoritative-first commit；scenario Gate passed | 保持 route/assignment 单一事实源与 derived workspace rebuild 边界 |
+| Simulation 目标场景 | 一致且 evidenced | definition/vector 分离、application event heap、nanosecond clock、derivative staging、numeric atomicity/fail-stop、trace export；scenario Gate passed | 保持 `StateVectorRow` 数值事实源和 projection 非权威性 |
+| Game 目标场景 | 一致且 evidenced | definition/state 分离、keyed tile/occupancy、generation/revision stale guard、cache rebuild、damage total order/primitive staging；scenario Gate passed | 保持 unit position 权威、occupancy 可重建以及 damage fail-stop |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
 | 设计驱动文档体系 | 一致且 evidenced | 32份旧Owner已处置；Design 具备层次/关注点/上位关系与场景追踪；Blueprint、Map、Conformance职责分离；checker 已覆盖结构门禁 | 保持唯一Owner、抽象层次和Temporary退役门禁 |
 
 ## 3. 当前结论
 
-正式 Design 对 core compiler/runtime 的描述与 `b991f4c` 当前实现基本一致，没有发现需要立即修改代码的 blocking Design deviation。文档体系切换已经完成，其余未闭合项属于三类：
+正式 Design 对 core compiler/runtime 的描述与当前实现一致，没有发现需要修改 core Design/public API 的 blocking deviation。四场景已在 `a137b10` 采用 Blueprint canonical model；其余未闭合项只有两类：
 
-1. VRP、Simulation、Game 三个场景 Blueprint 仍有数据角色拆分目标差距；FJSP machine selection 已按场景Blueprint关闭；
-2. 性能结论仍受测量环境与 lane 范围约束；
-3. G6因外部发布事实保持blocked。
+1. 性能结论仍受测量环境与 lane 范围约束；
+2. G6因外部发布事实保持blocked。
 
-VRP/Simulation/Game目标差距、有限性能evidence和G6均已有Owner处置；文档切换没有自动关闭或改写这些差距。
+`CF-001..003` 的关闭依据是 schema、executable journey、fixtures、benchmark 映射和文档投影共同完成，不是仅凭 Blueprint wording 关闭。有限性能 evidence 和 G6 仍按既有 Owner 处置。
 
 本结论不扩大任何任务授权；Conformance 只记录当前判断与相关 Owner 已作出的处置决定，不表示差距实现已获授权或完成。
 
@@ -63,3 +64,4 @@ VRP/Simulation/Game目标差距、有限性能evidence和G6均已有Owner处置�
 - [性能优化后本机诊断](../../reports/2026-07-17-post-optimization-g6-diagnostic-report.md)
 - [设计驱动文档体系正式切换](../../reports/2026-07-20-documentation-framework-cutover-report.md)
 - [文档架构专题治理](../../reports/2026-07-20-document-architecture-governance-report.md)
+- [四场景 Blueprint 采纳治理](../../reports/2026-07-21-four-scenario-blueprint-adoption-report.md)

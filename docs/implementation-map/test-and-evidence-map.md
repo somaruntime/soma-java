@@ -10,9 +10,9 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：`b991f4c`
+最近实现核对基线：`a137b10`
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
 ## 1. 验证层次
 
@@ -23,7 +23,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
 | runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness |
-| scenario | [`check-examples-phase6.sh`](../../scripts/check-examples-phase6.sh) | FJSP/VRP/simulation/game executable behavior |
+| scenario | [`check-examples-phase6.sh`](../../scripts/check-examples-phase6.sh) | 四场景 canonical journey、schema/hash、222个 generated types、public API facts、Java 8 classfile 与 Access Pattern marker |
 | benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh) | artifact integrity、FJSP allocation/GC与component allocation/cardinality memory |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
@@ -35,7 +35,7 @@ Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 ja
 
 ## 3. Evidence artifact
 
-Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或lane-specific strict validator校验。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
+Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或lane-specific strict validator校验。当前 smoke 将 grouped exact-index incremental lookup 与 VRP dense `replaceAll + sorted` 分成不同 lane，禁止把无 `@SomaIndex` 的 workspace 记作 exact-index evidence。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
 
 ## 4. 维护提示
 

@@ -12,21 +12,21 @@ Owner：SOMA scenario/benchmark 实现导航
 
 事实范围：当前四类示例、FJSP solver 和 benchmark runner 的代码入口
 
-最近实现核对基线：`b991f4c`
+最近实现核对基线：`a137b10`
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
 ## 1. 示例入口
 
 | 场景 | 目标入口 | 当前 executable 入口 | 关键实现 |
 |---|---|---|---|
 | 总入口 | [产品蓝图](../blueprints/soma-java-product-blueprint.md) | [`ScenarioSuite.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/ScenarioSuite.java) | 运行四类 scenario |
-| FJSP | [FJSP 蓝图](../blueprints/fjsp-runtime-state-blueprint.md) | [`FjspScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java) | [`FjspSolver.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspSolver.java)、[`FjspCandidateFrontier.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspCandidateFrontier.java)、application-owned `FjspMachineAvailabilityQueue`、schema package |
-| VRP | [VRP 蓝图](../blueprints/vrp-runtime-state-blueprint.md) | [`VrpScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java) | route/visit/customer/candidate schema classes |
-| Simulation | [连续仿真蓝图](../blueprints/simulation-runtime-state-blueprint.md) | [`SimulationScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/simulation/SimulationScenario.java) | state vector、pending event、trace schema classes |
-| Game | [Game 蓝图](../blueprints/game-runtime-state-blueprint.md) | [`GameScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java) | player/unit/map/move/damage schema classes |
+| FJSP | [FJSP 蓝图](../blueprints/fjsp-runtime-state-blueprint.md) | [`FjspScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java) | unique job-sequence access、完整 setup/import preflight、reusable frontier staging、FCFS/SPT indicator、application indexed machine heap、fail-stop solver |
+| VRP | [VRP 蓝图](../blueprints/vrp-runtime-state-blueprint.md) | [`VrpScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java) | definition/assignment 分离、unique vehicle route、parent-owned visits、全 ordinal candidate projection、route-version stale guard 与 derived-workspace recovery |
+| Simulation | [连续仿真蓝图](../blueprints/simulation-runtime-state-blueprint.md) | [`SimulationScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/simulation/SimulationScenario.java) | definition/vector 分离、nanosecond clock、application `PriorityQueue`、optional event projection、derivative staging、numeric fail-stop 与 trace export |
+| Game | [Game 蓝图](../blueprints/game-runtime-state-blueprint.md) | [`GameScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java) | definition/state 分离、keyed tile/occupancy、action generation/revision stale guard、cache rebuild、damage total order 与 primitive staging |
 
-当前 executable 示例可能仍采用较早的数据角色拆分；正式 Blueprint 中的目标形态不是当前代码地图。两者差距由 Conformance 明确，不在本地图中改写为“已实现”。
+四个 executable journey 已采用当前 Blueprint 的 canonical data role、identity、顺序和失败边界。Blueprint 仍拥有目标，代码与本地图只拥有当前投影；后续任何偏差继续由 Conformance 识别。
 
 ## 2. Benchmark 入口
 
@@ -37,7 +37,7 @@ Owner：SOMA scenario/benchmark 实现导航
 - JVM/GC metrics：[`JvmRuntimeMetrics.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/JvmRuntimeMetrics.java)；
 - scenario smoke lane composition：[`SmokeLaneSuite.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneSuite.java)。
 
-FJSP machine-selection A/B由commit-bound 5-run JSONL记录；component runner独立记录pipeline allocation与exact-index distinct-group retained payload，两者均为`claimAllowed=false`诊断证据。
+FJSP current 5-run allocation/GC诊断与component runner分别记录场景allocation/GC、pipeline allocation和exact-index distinct-group retained payload；2026-07-20 machine-selection A/B只作为application heap决策的历史证据。Smoke runner 的 `generated.exact_index_incremental_lookup` 使用 keyed `MachineCandidate` grouped exact access，`generated.dense_scratch_replace_sort` 使用无 maintained index 的 VRP insertion workspace；所有这些 artifact 均为`claimAllowed=false`诊断证据。
 
 ## 3. 追踪方式
 

@@ -12,13 +12,13 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：最后 implementation-affecting baseline `b991f4c`
+适用版本：最后 implementation-affecting baseline `a137b10`
 
 输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
-更新日期：2026-07-20
+更新日期：2026-07-21
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；post-cutover功能/性能尾项代码基线：`b991f4c docs: define keyspace as primary locator`；完整evidence见两份dated专题报告
@@ -33,12 +33,14 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 2026-07-20正式启用设计驱动文档体系：Blueprint、Design、Implementation Map、Conformance与Engineering成为当前入口；32份旧Owner按迁移审计标记superseded或改为current-executable Report。该切换只改变文档权威与导航，不改变代码、能力、Gate或G6状态；详见[`2026-07-20-documentation-framework-cutover-report.md`](2026-07-20-documentation-framework-cutover-report.md)。
 
+2026-07-21完成四场景 Blueprint canonical journey 采纳：FJSP、VRP、Simulation和Game的data role、identity、ordering、failure与performance boundary已同步到current executable examples，phase-6 fixtures、benchmark lane、Implementation Map、Conformance和developer current Report一并重绑。实现基线为`a137b10 feat(examples): adopt four scenario blueprints`；当前结论与证据见[`2026-07-21-four-scenario-blueprint-adoption-report.md`](2026-07-21-four-scenario-blueprint-adoption-report.md)。该治理未改变core Design/public API、Gate定义或G6状态。
+
 ## 1. 当前总进度
 
 | 总体工作 | 状态 | 可核验出口 |
 |---|---|---|
 | Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
-| Phase 6：四个正式场景、Access Pattern Cards、benchmark、release mechanics | implementation-complete | 70 个 scenario source、200 个 generated type、711 个 Java 8 class；20 条真实 integrated benchmark workload；License/POM/source/javadoc/package/security scripts |
+| Phase 6：四个正式场景、Access Pattern Cards、benchmark、release mechanics | implementation-complete | 83 个 scenario source、222 个 generated type、782 个 Java 8 class；20 条真实 integrated benchmark workload；License/POM/source/javadoc/package/security scripts |
 | 集中验证与修复 | passed | Zulu 与 Corretto 两套完整 JDK 8均得到`project-check: ok`；post-fix benchmark两vendor通过；package/security diagnostic通过 |
 | G5 examples/benchmark gate | passed | examples 与 benchmark contributor reports；root G5 closeout report |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
@@ -68,14 +70,18 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 | G2 | passed | `soma-processor/reports/java-v1-g2-code-generation-report.md` |
 | G3 | passed | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` |
 | G4 | passed | `reports/java-v1-g4-package-smoke-report.md` |
-| G5 | passed | `reports/java-v1-g5-examples-benchmark-gate-report.md` |
+| G5 | passed | `reports/2026-07-21-four-scenario-blueprint-adoption-report.md`；2026-07-11 root Gate 为历史快照 |
 | G6 | blocked | `reports/java-v1-g6-release-readiness-report.md` |
 
 因此“完整 V1 功能范围 + G0–G5”的功能 RC 边界已满足；它不是可公开发布的 RC artifact。当前 artifact 仍是 `0.1.0-SNAPSHOT`，G6 未通过前不得公开分发或声明正式支持矩阵。
 
 ## 4. 集中验证记录
 
-### 4.1 2026-07-11 专题治理 fresh validation
+### 4.1 2026-07-21 四场景采纳验证
+
+`a137b10`的实现、当前正式文档与退役后 Temporary 已由Zulu JDK 8完整`./scripts/check.sh`重新验证，结果为`project-check: ok`。四场景生成222个type/782个major-52 class，benchmark产生20+20 records且36个negative path全部fail closed，component与FJSP allocation/GC Gate也通过。完整命令、环境、artifact与claim边界见[2026-07-21 专题治理报告](2026-07-21-four-scenario-blueprint-adoption-report.md)。
+
+### 4.2 2026-07-11 专题治理 fresh validation
 
 实现提交`aa7a466`上执行：
 
@@ -85,7 +91,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home SOMA_UNSUPP
 
 结果`project-check: ok`；20条benchmark lane各聚合2次measurement，36条serialized negative artifact均fail closed。最后一次现存benchmark目录为`target/benchmark-smoke.PJkPCM`。clean package mechanics在`2490406`已通过；`aa7a466`的fresh package重放在项目编译前因Maven Central TLS中断，当前实现内容由Maven verify和多组external Maven consumer覆盖，具体限制不作为G6证据并在专题报告§12披露。
 
-### 4.2 Phase 6 原集中验证记录
+### 4.3 Phase 6 原集中验证记录
 
 完整命令：
 
@@ -104,9 +110,9 @@ Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh`
 
 ## 5. V1 scope non-regression
 
-- Capability：21 项既有 `evidenced` 状态未回退；`V1-SCENARIO-BENCHMARK` 从 `in-progress` 进入 `evidenced`；`V1-RELEASE-EVIDENCE` 从 `not-started` 进入实施后因外部发布事实不足保持 `blocked`。
+- Capability：22 项既有 `evidenced` 状态未回退；`V1-RELEASE-EVIDENCE` 因外部发布事实不足继续保持 `blocked`。
 - Owner、正式语义与Gate经用户批准按packed/exact v3目标先行迁移，没有为实现捷径反向降低Capability或release claim。
-- 四个场景使用 generated live facade 和正式 runtime path；benchmark 只记录真实执行的 20 条 minimum integrated workload，不把 generic kernel 换名冒充证据。
+- 四个场景已以current generated live facade和正式runtime path采纳Blueprint canonical journey；benchmark只记录真实执行的20条minimum integrated workload，且分开keyed exact-index与dense scratch/sort证据。
 - packed/exact breaking migration已在首个公开发布前一次完成；后续功能性能工作应是additive completion或contract-preserving internal refinement，不应再次迁移public/generated API、核心事实、consumer或canonical hot path。
 - 未引入 temporary public/generated contract、temporary storage/hot path、test-only bypass、未来 migration 或 rewrite。
 

@@ -1,285 +1,146 @@
 # VRP 构造解 runtime state 示例
 
 类型：Report / 开发者 current-executable 场景
+
 状态：当前
+
 Owner：`soma-examples` output
+
 受众：使用或维护当前 VRP runtime-state example 的开发者
-适用版本：最后 implementation-affecting baseline `b991f4c`
-输入事实源：当前 example source、[VRP Blueprint](../../docs/blueprints/vrp-runtime-state-blueprint.md)、Design 与 G5 evidence
-事实范围：VRP 构造解 data role、Access Pattern Card、schema 和使用边界
-非事实范围：完整 VRP solver、public contract 和性能 claim
-最后审查日期：2026-07-20
 
-> 本文记录当前 executable example，不拥有目标设计。目标形态与当前代码的已知差距见 [Conformance](../../docs/conformance/known-gaps.md)；文中的“必须/应当”只复述正式 Owner 或验证要求。
+适用版本：最后 implementation-affecting baseline `a137b10`
 
-## 1. 文档定位
+输入事实源：当前 example source、[VRP Blueprint](../../docs/blueprints/vrp-runtime-state-blueprint.md)、Design 与 phase-6 evidence
 
-本文记录 `VRP 构造解 runtime state 示例` 的当前代码投影，并从 [Runtime state schema 典型示例](runtime-state-schema-examples.md) 进入其 executable context。
+事实范围：当前 VRP schema、candidate build/select/commit journey、失败与性能边界
 
-## 2. 场景边界
+非事实范围：完整 VRP solver、SOMA public contract 和性能优势
 
-VRP 示例表达 greedy insertion / cheapest insertion 构造解过程中的 runtime state：
+最后审查日期：2026-07-21
+
+> 本文只记录当前 executable example。目标仍由 Blueprint 拥有，长期语义仍由 Design 拥有。
+
+## 1. 当前场景
+
+[`VrpScenario.java`](../src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java) 执行一轮 cheapest-insertion journey：
 
 ```text
-vehicles / customers / travel cost lookup
-  -> unassigned customer workspace
-  -> per-route visit dense children
-  -> insertion candidate workspace
-  -> route/customer mutation
+validate/import definitions + current solution
+  -> rebuild unassigned workspace
+  -> enumerate every route insertion ordinal
+  -> publish feasible dense candidate workspace
+  -> total-order select + stale preflight
+  -> publish assignment and rewritten route
+  -> retire derived workspaces
+  -> export current Route
 ```
 
-不表达局部搜索、Tabu、LNS、列生成、CP-SAT 或最优性证明。每条 `Route` 独占一个 `List<RouteVisitRow>` dense child，因为插入位置会频繁变化，`position` 是当前 route sequence 的位置，不是 stable business identity。Flat root-level `RouteVisitRow(routeId, position, ...)` 只作为相同语义的 benchmark baseline。
+教学 fixture 同时包含一条非空 route 和一条空 route。候选生成会覆盖非空 route 的 `0..visitCount` 以及空 route 唯一合法的 ordinal `0`，不是只演示单一插入位置。
 
-### 2.1 Access Pattern Card
+## 2. 当前数据角色
 
-| Core path | Cardinality/working set | Access/mutation mix | Allocation/evidence boundary |
-|---|---|---|---|
-| `Route.visits` child | route count × empty/typical/high visits | parent-key child scan、route-local rewrite/replace | child instance/small-array overhead 与 flat grouped baseline 同时计量 |
-| insertion workspace | unassigned customers × considered routes × positions | per-round `replaceAll`、route exact-source、dynamic sort、first | builder、column rewrite、`IndexBuffer` sort scratch 和 capacity reuse 分开 |
-| travel/unassigned state | location pairs、remaining customers | repeated point lookup、physical scan + explicit sort、swap-remove/rebuild | KeySpace load/collision、selector selectivity、compaction 和 preprojection amortization 分开 |
+| Role | 当前 Table | 权威性与访问方式 |
+|---|---|---|
+| input facts | `CustomerDefinition`、`VehicleDefinition`、`TravelCost` | keyed、import 后只读；required directed travel pair 缺失即 malformed input |
+| current solution | `Route` + parent-owned `RouteVisitRow` child | route scalar 与 visits 是下一轮评分和最终路线结果的唯一事实源 |
+| assignment result | `CustomerAssignment` | keyed `customer -> route`；row absence 表示尚未分配 |
+| derived working state | `UnassignedCustomerRow` | definition/assignment 差集的 dense workspace，可重建 |
+| derived candidate state | `InsertionCandidateRow` | 当前轮 dense workspace，`replaceAll(batch)` 后显式排序 |
 
-Fixture/benchmark 必须补充 route/global scan ratio、hot columns、touched bytes、mutation/read ratio、optional/child density、JIT warmup/forks、stats mode 和 export frequency；这些值不进入 Schema/hash。
+`CustomerAssignment` 不复制 position、arrival 或 departure；这些事实只保存在 current route visits。当前 one-active-route-per-vehicle 模型用 `Route.by_vehicle` secondary unique access，而不是普通 group index。
 
-## 3. Schema source 示例
+## 3. 关键 schema 投影
 
 ```java
-@SomaSchema(
-    name = "vrp_construction_runtime_state",
-    generatedPackage = "com.example.vrp.state.generated",
-    version = "1"
-)
-package com.example.vrp.state;
-
-import java.util.List;
-
-public enum CustomerState {
-    UNASSIGNED,
-    ASSIGNED,
-    SKIPPED
+@SomaTable(name = "customer_definitions", defaultCapacity = 4096)
+public final class CustomerDefinition {
+    @SomaKey public CustomerId customerId;
+    @SomaField public long inputOrder;
+    @SomaField public LocationId locationId;
+    @SomaField public int demand;
+    @SomaField public long readySecond;
+    @SomaField public long dueSecond;
+    @SomaField public long serviceSeconds;
 }
 
-@SomaValue
-public class CustomerId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class VehicleId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class RouteId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class LocationId {
-    @SomaField
-    long value;
-}
-
-@SomaValue
-public class LocationPairKey {
-    @SomaField
-    LocationId fromLocation;
-
-    @SomaField
-    LocationId toLocation;
-}
-
-@SomaTable(name = "customers", defaultCapacity = 4096)
-@SomaIndex(name = "by_state", fields = {"state"})
-public final class Customer {
-    @SomaKey
-    public CustomerId customerId;
-
-    @SomaField
-    public long inputOrder;
-
-    @SomaField
-    public LocationId locationId;
-
-    @SomaField
-    public int demand;
-
-    @SomaField
-    public long readyMinute;
-
-    @SomaField
-    public long dueMinute;
-
-    @SomaField
-    public long serviceMinutes;
-
-    @SomaField
-    @SomaDefault("UNASSIGNED")
-    public CustomerState state;
-
-    @SomaField
-    @SomaOptional
-    public RouteId assignedRoute;
-
-    @SomaField
-    @SomaOptional
-    public Integer assignedPosition;
-
-    @SomaField
-    @SomaOptional
-    public Long arrivalMinute;
-}
-
-@SomaTable(name = "vehicles", defaultCapacity = 512)
-public final class Vehicle {
-    @SomaKey
-    public VehicleId vehicleId;
-
-    @SomaField
-    public int capacity;
-
-    @SomaField
-    public LocationId startLocation;
-
-    @SomaField
-    public LocationId endLocation;
-
-    @SomaField
-    @SomaDefault("0")
-    public long availableFromMinute;
+@SomaTable(name = "customer_assignments", defaultCapacity = 4096)
+public final class CustomerAssignment {
+    @SomaKey public CustomerId customerId;
+    @SomaField public RouteId routeId;
 }
 
 @SomaTable(name = "routes", defaultCapacity = 512)
-@SomaIndex(name = "by_vehicle", fields = {"vehicleId.value"})
+@SomaUnique(name = "by_vehicle", fields = {"vehicleId.value"})
 public final class Route {
-    @SomaKey
-    public RouteId routeId;
-
-    @SomaField
-    public VehicleId vehicleId;
-
-    @SomaField
-    @SomaDefault("0")
-    public int load;
-
-    @SomaField
-    @SomaDefault("0")
-    public long totalDistanceMeters;
-
-    @SomaField
-    @SomaDefault("0")
-    public long totalDurationSeconds;
-
-    @SomaField
-    @SomaDefault("0")
-    public long routeVersion;
-
-    @SomaField
-    @SomaDefault("false")
-    public boolean closed;
-
-    @SomaChild(initialCapacity = 32)
-    public List<RouteVisitRow> visits;
-}
-
-@SomaTable(name = "travel_costs", defaultCapacity = 65536)
-public final class TravelCost {
-    @SomaKey
-    public LocationPairKey locationPair;
-
-    @SomaField
-    public long distanceMeters;
-
-    @SomaField
-    public long travelSeconds;
-}
-
-@SomaTable(name = "route_visit_rows", defaultCapacity = 32)
-public final class RouteVisitRow {
-    @SomaField
-    public int position;
-
-    @SomaField
-    public CustomerId customerId;
-
-    @SomaField
-    public long arrivalMinute;
-
-    @SomaField
-    public long departureMinute;
-
-    @SomaField
-    public int loadAfterVisit;
-}
-
-@SomaTable(name = "unassigned_customer_rows", defaultCapacity = 4096)
-public final class UnassignedCustomerRow {
-    @SomaField
-    public CustomerId customerId;
-
-    @SomaField
-    public int demand;
-
-    @SomaField
-    public long dueMinute;
-
-    @SomaField
-    public long inputOrder;
+    @SomaKey public RouteId routeId;
+    @SomaField public VehicleId vehicleId;
+    @SomaField public int load;
+    @SomaField public long totalDistanceMeters;
+    @SomaField public long totalDurationSeconds;
+    @SomaField public long routeVersion;
+    @SomaChild(initialCapacity = 32) public List<RouteVisitRow> visits;
 }
 
 @SomaTable(name = "insertion_candidate_rows", defaultCapacity = 16384)
-@SomaIndex(name = "by_route", fields = {"routeId.value"})
 public final class InsertionCandidateRow {
-    @SomaField
-    public CustomerId customerId;
-
-    @SomaField
-    public RouteId routeId;
-
-    @SomaField
-    public int insertAfterPosition;
-
-    @SomaField
-    public long deltaDistanceMeters;
-
-    @SomaField
-    public long projectedArrivalMinute;
-
-    @SomaField
-    public long violationPenalty;
+    @SomaField public RouteId routeId;
+    @SomaField public CustomerId customerId;
+    @SomaField public int insertionOrdinal;
+    @SomaField public long routeVersion;
+    @SomaField public long deltaDistanceMeters;
+    @SomaField public long projectedArrivalSecond;
+    @SomaField public int projectedLoad;
+    @SomaField public long projectedTotalDurationSeconds;
 }
 ```
 
-## 4. 使用方式
+完整、可编译声明以 [`com.hgtech.soma.examples.vrp`](../src/main/java/com/hgtech/soma/examples/vrp) 为准。`RouteVisitRow` 预投影 immutable `LocationId`，并统一使用 seconds；candidate schema 不维护 `by_route` 或业务 order。
 
-- `Customer`、`Vehicle`、`Route` 是 keyed entity state；
-- `TravelCost` 是 keyed lookup table，用于 `LocationPairKey -> distance/travel time`；
-- `Route.visits` 是 parent-owned dense route sequence，不承诺 child row 的 `position` 是 stable key；
-- `UnassignedCustomerRow` 和 `InsertionCandidateRow` 是 dense workspace；route-local 候选先由 `by_route` exact source 收窄，再通过 `sorted(...)` 完成本轮选择；
-- 上层 VRP constructor 负责容量、时间窗、候选生成和路线关闭策略。
+## 4. Build 与 select
 
-Source-of-truth 口径：
+`CandidateBuilder` 使用 owner-owned reusable `InsertionCandidateRowBatch` 和 primitive route workspace。对每个 customer/route，它先按 `position` 读取 live child，再枚举全部 ordinal，完整传播：
 
-- `Route.visits` 中 `RouteVisitRow.position` 是该 route 当前访问顺序的事实源；parent ownership 已确定归属，因此 child row 不重复保存 `routeId`；
-- `Customer.state` 和 `Customer.assignedRoute` 表达 customer 是否已经分配到某条 route；
-- `Customer.assignedPosition` 如果保留，只是诊断 / snapshot 字段，不应作为 route sequence 的权威事实；
-- `UnassignedCustomerRow` 是由 `Customer.state == UNASSIGNED` 派生出的 hot workspace / frontier view，constructor 必须在分配或跳过 customer 时同步删除或重建；
-- `Route.routeVersion` 是 route sequence mutation epoch，每次 route visit segment rewrite 后递增；当前 dense workspace 默认每轮重建 candidate，通常不需要跨轮 stale candidate 校验，但如果某个实现保留候选行跨轮复用，必须把 route version 纳入校验。
+- depot edge 和所有受影响 visit edge；
+- arrival、ready/due window 与 service time；
+- cumulative load 与 vehicle capacity；
+- total distance、duration 和插入 customer arrival；
+- `Math.addExact` / `subtractExact` 的 overflow 检查。
 
-`TravelCost` 在 canonical 示例中是 required lookup：构造 candidate 时访问到缺失 `LocationPairKey` 表示输入矩阵不完整，应暴露 typed missing key / required lookup error。若业务要把缺失 arc 表达为不可行候选或 fallback distance，必须由 VRP constructor 显式选择并写入场景契约，SOMA runtime 不猜测业务语义。
+只有满足 hard constraints 的 row 才进入 Batch。Batch 完整构造后通过 `replaceAll` 一次发布；排序 comparator 只读取 candidate row，顺序为：
 
-Insertion candidate 的 best-delta 次序只属于当前 terminal：先从 `findByRoute(routeId)` 获取候选，再显式按 violation、distance、arrival 和 customer identity 调用 `sorted(comparator)`。SOMA 不维护全局业务顺序；如果将来需要跨轮复用候选，应另行设计 keyed insertion frontier、版本和失效策略。
+```text
+deltaDistanceMeters
+  -> projectedArrivalSecond
+  -> routeId
+  -> customerId
+  -> insertionOrdinal
+  -> routeVersion
+```
 
-`rewriteRouteVisitsForInsertion(...)` 不是零成本 helper。一次插入至少会读取当前 route child，构造插入后的 sequence，重写 position / arrival / departure / loadAfterVisit，并在保留 `Customer.assignedPosition` 时同步刷新受影响 customer 的诊断 snapshot。V1 使用 `routes.visits(routeId)` 定位 live child facade；child 内容 replacement 必须 staged/validated 后原子切换，失败时旧 child 保持不变。该示例不承诺零拷贝 route segment rewrite public API。
+若 unassigned customer 仍存在而 candidate 为空，场景抛出 `VrpInfeasibleException`；不会选择物理第一行、放宽约束或复用上一轮候选。
 
-正式 smoke 的 `route-rewrite` 证据必须从已有2行的非空 route sequence 插入1个
-customer并形成3行结果，同时证明插入点之后的原 row 从position 1移动到position 2、
-arrival/departure/loadAfterVisit同步重写、`routeVersion`递增以及Customer诊断位置同步；
-empty -> single-row initialization不能命名为route insertion/rewrite evidence。选择与局部验证
-使用generated row locator和Value leaf ColumnView；递归`Route + List`只在export boundary执行。
+## 5. Commit 与失败边界
 
-VRP constructor 拥有跨 table 一致性。`Customer`、`Route` 及其 visits child、`UnassignedCustomerRow`、`InsertionCandidateRow` 的提交序列没有 SOMA runtime transaction；中间失败时，constructor 必须停止构造、回滚外部 snapshot，或重建 derived workspace / candidate rows。
+选中值先被复制为 application-owned immutable `ChosenInsertion`，不保存 SOMA Index。Commit 在任何权威写之前重新验证 route version、assignment absence、ordinal、完整 route projection 及 candidate 汇总值：
 
-`routes.fetch(routeId)` 会递归 materialize detached `Route + List<RouteVisitRow>`；hot-loop 局部扫描应优先使用 `routes.visits(routeId)`，避免为访问 live child 而构造完整 object/List graph。
+1. stale candidate 返回 `STALE`，不写任何权威事实；
+2. 写入 `CustomerAssignment`；
+3. `replaceVisits` 发布完整 child rewrite；
+4. 更新 route load/distance/duration/version；
+5. 只有权威事实完整成功后，才清理 unassigned/candidate derived workspace。
+
+SOMA 不提供跨 Table transaction。从第一次权威写开始发生任何失败，当前 solve instance 进入 fail-stop；仅 derived cleanup 失败时，application 才能从 route/assignment 权威事实重建 workspace 后继续。
+
+## 6. 性能与证据边界
+
+- candidate build 复用 Batch、primitive sequence 和 child rewrite staging；
+- ColumnView 在一个 phase 内复用并在 mutation 前关闭；
+- dynamic sort 使用 table-local `IndexBuffer`，candidate table 不承担 maintained index 成本；
+- phase-6 Gate 固定 schema/hash、222-type manifest 中的 VRP generated surface、public facts、Java 8 classfile 和 scenario output；
+- benchmark `generated.dense_scratch_replace_sort` 单独测量无 maintained index 的 56-byte candidate workspace；它不再伪装成 exact-index lane。
+
+当前 scenario APC 的 route-visit hot leaf width 为 40 bytes，报告只覆盖该 fixture 的 executed result accounting，不构成普遍 VRP 性能结论。
+
+## 7. 非目标
+
+本示例不实现局部搜索、LNS、Tabu、列生成、最优性证明、稀疏图 shortest-path fallback、跨 root transaction 或可重试的持久化命令协议。

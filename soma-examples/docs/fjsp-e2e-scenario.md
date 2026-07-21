@@ -4,11 +4,11 @@
 状态：当前
 Owner：`soma-examples` output
 受众：使用或维护当前 FJSP example 的开发者
-适用版本：最后 implementation-affecting baseline `b991f4c`
+适用版本：最后 implementation-affecting baseline `a137b10`
 输入事实源：当前 example source、[FJSP Blueprint](../../docs/blueprints/fjsp-runtime-state-blueprint.md)、Design 与 G5 evidence
 事实范围：FJSP release/dispatch/commit flow、lookup/error/lifecycle evidence 和 G5 scenario boundary
 非事实范围：schema declaration、solver business transaction contract、runtime implementation 和性能 claim
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
 > 本文记录当前 executable example，不拥有目标设计。文中的“必须/应当”只复述所链接 Blueprint、Design 或现有验证要求；发生冲突时以正式 Owner 为准。
 
@@ -57,9 +57,10 @@ SOMA 保证每次 table-local mutation 和 ownership aggregate 的正确性；�
 11. fetch/materialize detached schema objects；
 12. export response boundary。
 
-`dispatchRuleComparator` 的稳定顺序固定为：`effectiveReadyMinute`、`fcfsValue`、
-`sptValue`，随后按 candidate identity 的 `jobId.value`、`operationId.value`、
-`machineId.value` 升序完成最终 tie-break。前三项完全相等时不得依赖当前 packed row、
+`dispatchRuleComparator` 的稳定顺序固定为：`fcfsValue`、`sptValue`，随后按
+candidate identity 的 `jobId.value`、`operationId.value`、`machineId.value` 升序完成
+最终 tie-break。`fcfsValue == effectiveReadyMinute`，`sptValue == setupMinutes + processingMinutes`；
+二者完全相等时不得依赖当前 packed row、
 插入顺序或 compaction 后的物理位置；正式 smoke 必须构造等值候选并在删除/compaction
 后复核同一 identity 仍被选中。Canonical dispatch hot path 使用 generated leaf getter、
 row locator 与 typed ColumnView 读取选中事实，只有 assignment/export 等明确边界才构造
@@ -67,7 +68,7 @@ detached schema object；不得为每个比较或候选扫描重建完整 Value/
 
 算法正确性不是 SOMA 的完整 APS 承诺。该示例只用于证明 runtime state API 能支撑典型调度 hot loop。
 
-`releaseNextOperations(...)` 应依赖 `OperationDefinition.by_job_sequence(jobId, nextSequenceNo)`、`JobRuntimeState.nextSequenceNo` 或 material / predecessor readiness 的明确索引或业务队列，不能退化为全表扫描。operation release 后，再局部遍历该 definition 独占的 `candidateMachines` child，增量加入 `MachineCandidate` frontier。
+`releaseNextOperations(...)` 通过 secondary-unique `OperationDefinition.by_job_sequence(jobId, nextSequenceNo)` 定位 successor，不能退化为全表扫描。operation release 后，先用 reusable Batch 完整 stage 并发布该 definition 独占 child 产生的全部 `MachineCandidate`，再返回 bounded primitive machine set 供外部 heap 刷新；不能先激活 heap 再补 frontier。
 
 SOMA V1 只保证单张 table mutation 后的 table 内部不变量。`OperationAssignment` 新增、`Machine` availability 更新、`MachineCandidate` frontier 删除和 `JobRuntimeState` 推进等跨 table 提交序列，不具备 runtime transaction 语义；其一致性和提交顺序由 solver loop 拥有。本示例采用 disposable instance policy：任一步失败即停止求解并由 caller 关闭、丢弃整个 `FjspInstance`，不能假设 SOMA runtime 自动补偿。
 
@@ -79,13 +80,13 @@ Machine heap只保存`MachineId`到application slot的映射和派生availabilit
 
 FJSP example 必须明确区分 runtime missing key 与业务不可行：
 
-- `OperationDefinition.candidateMachines` 表示 operation-machine 可加工关系。required child 为空表示该 operation 没有候选 machine；solver core 将其解释为当前无可行机器，而不是 SOMA runtime error。
+- `OperationDefinition.candidateMachines` 表示 operation-machine 可加工关系。Schema 可以表达 required empty child，但当前 canonical loader 在首个权威写前拒绝没有候选 machine 的 operation，并把它归类为 malformed/infeasible problem input，而不是留到 hot loop 空转。
 - `MachineCandidate` 表示已经 release 且仍未被分配的候选 frontier。某个 operation 不在 frontier 中，可能表示它尚未 release、已经被分配、或因业务规则暂不可行；具体解释由 solver core 拥有。
 - 如果 loader 或 solver core 已经确定某个 `OperationDefinition` 必须存在，再调用 `operationDefinitions.fetch(operationKey)` 或 `firstOrThrow()` 时缺失，应作为 typed missing key / empty required result 错误暴露。
 - `SetupTime` 在 V1 canonical FJSP 中是 required setup matrix lookup。除第一道工序或机器没有 `lastSetupFamily` 且业务规则定义 setup 为 `0` 的情况外，缺失 `SetupTime` row 表示输入或模型不完整，应通过 typed missing key / required lookup error 暴露。
 - 如果未来示例要表达 sparse setup matrix，例如缺失 setup 表示不可行或默认 `0`，必须先修改本契约，不能由 runtime 自行猜测。
 
-SOMA runtime 只提供 `find(...)` / `containsKey(...)` / empty Row Pipeline / typed missing error 等基础语义。候选不可行、输入不完整、默认 setup 等业务解释属于 loader 或 solver core。
+SOMA runtime 只提供 `find(...)` / `containsKey(...)` / empty Row Pipeline / typed missing error 等基础语义。当前 loader 还在发布 instance 前验证 job sequence 连续、引用完整、candidate machine 唯一、required setup transition matrix 完整、时间非负和 worst-case checked arithmetic；候选不可行、输入不完整、默认 setup 等业务解释属于 loader 或 solver core。
 
 ## 4. API usage points
 

@@ -4,11 +4,11 @@
 状态：当前
 Owner：`soma-examples` output
 受众：使用或维护当前 FJSP runtime-state example 的开发者
-适用版本：最后 implementation-affecting baseline `b991f4c`
+适用版本：最后 implementation-affecting baseline `a137b10`
 输入事实源：当前 example source、[FJSP Blueprint](../../docs/blueprints/fjsp-runtime-state-blueprint.md)、Design 与 G5 evidence
 事实范围：FJSP data role、Access Pattern Card、schema source 和 runtime-state coverage
 非事实范围：dispatch E2E flow、SOMA public contract 和 benchmark result
-最后审查日期：2026-07-20
+最后审查日期：2026-07-21
 
 > 本文记录当前 executable example，不拥有目标设计。文中的“必须/应当”只复述所链接 Blueprint、Design 或现有验证要求；发生冲突时以正式 Owner 为准。
 
@@ -62,6 +62,7 @@ import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaOptional;
 import com.hgtech.soma.annotation.SomaSchema;
 import com.hgtech.soma.annotation.SomaTable;
+import com.hgtech.soma.annotation.SomaUnique;
 import com.hgtech.soma.annotation.SomaValue;
 import java.util.List;
 
@@ -184,7 +185,7 @@ public final class CandidateMachineDefinition {
 }
 
 @SomaTable(name = "operation_definitions", defaultCapacity = 4096)
-@SomaIndex(name = "by_job_sequence", fields = {
+@SomaUnique(name = "by_job_sequence", fields = {
     "operationKey.jobId.value",
     "sequenceNo"
 })
@@ -242,7 +243,6 @@ public final class OperationAssignment {
 }
 
 @SomaTable(name = "machines", defaultCapacity = 128)
-@SomaIndex(name = "by_state", fields = {"state"})
 public final class Machine {
     @SomaKey
     public MachineId machineId;
@@ -261,10 +261,6 @@ public final class Machine {
 }
 
 @SomaTable(name = "setup_times", defaultCapacity = 1024)
-@SomaIndex(name = "by_machine_to_family", fields = {
-    "setupTimeKey.machineId.value",
-    "setupTimeKey.familyPair.toFamily.value"
-})
 public final class SetupTime {
     @SomaKey
     public SetupTimeKey setupTimeKey;
@@ -331,6 +327,7 @@ public final class MachineCandidate {
 - `Machine` keyed table；
 - `MachineCandidate` keyed runtime frontier table；
 - `SetupTime` keyed lookup table；
+- `OperationDefinition.by_job_sequence` secondary unique access；
 - enum；
 - value key；
 - nested value；
@@ -341,6 +338,8 @@ public final class MachineCandidate {
 - 显式 dynamic sort 与 `IndexBuffer` candidate freeze；
 - Row Pipeline lazy terminal；
 - ColumnView。
+
+当前 import preflight 还验证 job sequence 连续完整、operation candidate machine 不重复、全部引用存在、required setup transition matrix 完整、时间非负且 worst-case checked arithmetic 不溢出。Frontier release 使用 reusable Batch 和 bounded primitive machine scratch，publish 完整 candidate group 后 application heap 才刷新 membership；未 refresh row 保持 `indicatorReady=false` 且 FCFS/SPT 为中性 `0`。
 
 ## 5. 与正式设计和当前实现的关系
 
