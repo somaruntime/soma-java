@@ -17,19 +17,19 @@ abstract class AbstractColumnView {
 
     AbstractColumnView(
             DenseTableState state, Object column, PresenceBitmap presence,
-            String table, String field, ColumnViewOperations.Cache operationsCache) {
+            String table, String field, String columnOperation,
+            String presenceOperation, String valueOperation) {
         if (state == null || column == null || table == null || field == null
-                || operationsCache == null) {
+                || columnOperation == null || presenceOperation == null || valueOperation == null) {
             throw new NullPointerException("column view binding");
         }
-        ColumnViewOperations operations = operationsCache.forField(field);
         this.state = state;
         this.presence = presence;
         this.table = table;
         this.field = field;
-        this.presenceOperation = operations.presence;
-        this.valueOperation = operations.value;
-        this.capturedEpoch = state.acquireView(operations.column);
+        this.presenceOperation = presenceOperation;
+        this.valueOperation = valueOperation;
+        this.capturedEpoch = state.acquireView(columnOperation);
     }
 
     protected final int checkedPresenceRow(int rowIndex) {

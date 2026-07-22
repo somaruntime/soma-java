@@ -1,9 +1,9 @@
 package com.example.soma.keyed;
 
 import com.example.soma.keyed.generated.KeyedParticleBatch;
-import com.example.soma.keyed.generated.KeyedParticleKeys;
-import com.example.soma.keyed.generated.KeyedParticleRow;
-import com.example.soma.keyed.generated.KeyedParticleRows;
+import com.example.soma.keyed.generated.KeyedParticleKeyTraversal;
+import com.example.soma.keyed.generated.KeyedParticleCursor;
+import com.example.soma.keyed.generated.KeyedParticleScan;
 import com.example.soma.keyed.generated.KeyedParticleTable;
 import com.example.soma.keyed.generated.LongKeyedParticleBatch;
 import com.example.soma.keyed.generated.LongKeyedParticleTable;
@@ -49,7 +49,7 @@ public final class KeyedConsumer {
         require(table.fetch(1).energy == 11 && table.fetch(1).priority == null,
                 "keyed mutator excludes identity and updates fields");
 
-        KeyedParticleKeys keys = table.keys();
+        KeyedParticleKeyTraversal keys = table.keys();
         final int[] sum = new int[] {0};
         keys.forEach(new Consumer<Integer>() {
             @Override
@@ -57,13 +57,34 @@ public final class KeyedConsumer {
                 sum[0] += value.intValue();
             }
         });
-        require(sum[0] == 6, "key pipeline forEach");
+        require(sum[0] == 6, "key traversal forEach");
+        expectCode("traversal_consumed", new Action() {
+            @Override
+            public void run() {
+                keys.forEach(new Consumer<Integer>() {
+                    @Override public void accept(Integer value) { }
+                });
+            }
+        });
+        KeyedParticleKeyTraversal validationFailure = table.keys();
+        try {
+            validationFailure.fetchAll(null);
+            throw new AssertionError("null materialization budget must fail");
+        } catch (NullPointerException expected) {
+            // Validation happens before one-shot consumption.
+        }
+        require(validationFailure.fetchAll().size() == 3,
+                "failed key traversal validation leaves the handle usable");
+        KeyedParticleKeyTraversal reentrantDefaultBudget = table.keys();
+        table.limit(1).forEach(candidate ->
+                expectCode("reentrant_access", reentrantDefaultBudget::findFirst));
+        expectCode("traversal_consumed", reentrantDefaultBudget::fetchAll);
         List<Integer> exported = table.keys().fetchAll();
         require(exported.size() == 3 && exported.get(0).intValue() == 1
                         && exported.get(2).intValue() == 3,
-                "key pipeline stable value export");
+                "key traversal stable value export");
         require(table.keys().findFirst().get().intValue() == 1,
-                "key pipeline first");
+                "key traversal first");
 
         expectCode("duplicate_key", new Action() {
             @Override
@@ -85,9 +106,9 @@ public final class KeyedConsumer {
         table.delete(2);
         require(!table.containsKey(2) && table.fetch(3).energy == 30,
                 "delete repairs compacted key slots");
-        table.filter(new KeyedParticleRows.Predicate() {
+        table.filter(new KeyedParticleScan.Predicate() {
             @Override
-            public boolean test(KeyedParticleRow row) {
+            public boolean test(KeyedParticleCursor row) {
                 return row.id() == 1;
             }
         }).remove();
@@ -123,7 +144,7 @@ public final class KeyedConsumer {
         table.mutate(firstId).setEnergy(11L).commit();
         require(table.fetch(firstId).energy == 11L, "long key mutator");
         require(table.keys().fetchAll().get(1).longValue() == secondId,
-                "long key pipeline value export");
+                "long key traversal value export");
         table.delete(firstId);
         require(table.fetch(secondId).energy == 20L, "long key compaction repair");
     }
@@ -201,13 +222,13 @@ public final class KeyedConsumer {
         hash.addBatch(batch);
         require(hash.fetch(-1).energy == 10 && hash.fetch(31).priority == 7,
                 "generated hash accepts the complete int identity domain");
-        require(!hash.containsKey(32) && hash.findRowIndex(32) == -1,
+        require(!hash.containsKey(32) && hash.findIndex(32) == -1,
                 "generated hash missing lookup");
         expectCode("missing_key", new Action() {
-            @Override public void run() { hash.rowIndexOf(32); }
+            @Override public void run() { hash.requireIndex(32); }
         });
         hash.delete(-1);
-        require(hash.rowIndexOf(31) == 0,
+        require(hash.requireIndex(31) == 0,
                 "hash delete repairs packed row mapping");
         require("hash-int-v2".equals(hash.statsSnapshot().keySpaceImplementation()),
                 "hash strategy is explicit and observable");
@@ -260,7 +281,7 @@ public final class KeyedConsumer {
                 if (live[id] && id % divisor == remainder) expectedRemoved++;
             }
             long epoch = table.structuralEpoch();
-            com.hgtech.soma.runtime.RemoveResult removed = table.rows()
+            com.hgtech.soma.runtime.RemoveResult removed = table
                     .filter(row -> row.id() % divisor == remainder)
                     .remove();
             require(removed.removed() == expectedRemoved,

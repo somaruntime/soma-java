@@ -5,6 +5,7 @@ import com.hgtech.soma.runtime.generated.ChildOwnershipRegistry;
 import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.GeneratedMetadata;
 import com.hgtech.soma.runtime.generated.GeneratedColumn;
+import com.hgtech.soma.runtime.generated.GeneratedScanPlan;
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.runtime.generated.IndexBuffer;
@@ -36,11 +37,12 @@ public final class RuntimeCorePhase1Check {
         testChildOwnershipRegistry();
         testRetryableCascadeAndRegistryRelease();
         testCompatibilityBoundary();
+        testGeneratedScanPlan();
         testDenseColumnsLifecycleAndStats();
         testStructuralRemoveStateTransition();
         testViewLifecycleState();
         testPresenceBitmapAgainstOracle();
-        testOptionalColumnPipelinePresenceLanes();
+        testOptionalColumnTraversalPresenceLanes();
         testMaterializationBudget();
         testExactIndexProtocolAndStats();
         assertTrue(HashCompositeKeySpace.estimatedPeakBytes(1024)
@@ -117,11 +119,11 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumLeafValues\":50000000,"
                         + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
                         + "\"maximumTableInstances\":100000},"
-                        + "\"generatedProtocol\":\"soma-generated-runtime-v3\","
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v4\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
                         + "\"planProtocol\":\"soma-runtime-plan-v3\","
-                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v3\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v4\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");
@@ -516,6 +518,40 @@ public final class RuntimeCorePhase1Check {
         });
     }
 
+    private static void testGeneratedScanPlan() {
+        ReferenceScanPlan plan = new ReferenceScanPlan("Order.byStatus");
+        Object first = new Object();
+        plan.reference = new Object();
+        plan.append((byte) 1, first, 0L, 1);
+        plan.append((byte) 2, null, 7L, 2);
+        plan.append((byte) 3, null, 9L, 3);
+        assertTrue(plan.isCurrent(3), "inline generation is current");
+        assertTrue(plan.callback(0) == first, "inline callback identity");
+        assertEquals(7L, plan.argument(1), "inline primitive argument");
+
+        plan.append((byte) 4, first, 0L, 4);
+        plan.append((byte) 1, first, 0L, 5);
+        for (int generation = 6; generation <= 16; generation++) {
+            plan.append((byte) 2, null, generation, generation);
+        }
+        assertEquals(16, plan.stageCount(), "overflow growth preserves stage count");
+        assertEquals(16L, plan.argument(15), "overflow growth preserves arguments");
+        plan.argument(15, 3L);
+        assertEquals(3L, plan.argument(15), "consumed argument is mutable in place");
+        try {
+            plan.append((byte) 1, first, 0L, 18);
+            throw new AssertionError("generation gap must fail");
+        } catch (IllegalStateException expected) {
+            assertEquals(16, plan.stageCount(), "failed append is not published");
+        }
+
+        plan.consume();
+        assertFalse(plan.isCurrent(16), "consumed plan is not current");
+        plan.clear();
+        assertTrue(plan.reference == null, "typed source reference is cleared");
+        assertEquals("Order.byStatus", plan.sourcePath(), "prebound source path");
+    }
+
     private static void testDenseColumnsLifecycleAndStats() {
         IntColumn quantity = new IntColumn();
         LongColumn timestamp = new LongColumn();
@@ -629,7 +665,7 @@ public final class RuntimeCorePhase1Check {
         }
     }
 
-    private static void testOptionalColumnPipelinePresenceLanes() {
+    private static void testOptionalColumnTraversalPresenceLanes() {
         final int size = 66;
         IntColumn values = new IntColumn();
         PresenceBitmap presence = new PresenceBitmap();
@@ -643,8 +679,9 @@ public final class RuntimeCorePhase1Check {
         }
         state.commitAppend(start, size);
 
-        IntColumnPipeline optional = new IntColumnPipeline(
-                state, values, presence, "Order", "quantity");
+        IntColumnTraversal optional = new IntColumnTraversal(
+                state, values, presence, "Order",
+                "quantity.values", "quantity.values.consumer");
         final long[] sum = {0L};
         IntConsumer accumulator = new IntConsumer() {
             @Override public void accept(int value) { sum[0] += value; }
@@ -656,12 +693,19 @@ public final class RuntimeCorePhase1Check {
                 "all-absent lane scanned semantics");
         assertEquals(0L, state.statsSnapshot().lastMatched(),
                 "all-absent lane matched semantics");
+        final IntColumnTraversal consumed = optional;
+        expectCode("traversal_consumed", new ThrowingRunnable() {
+            @Override public void run() { consumed.forEachInt(accumulator); }
+        });
 
         int[] selected = {0, 63, 64, 65};
         for (int i = 0; i < selected.length; i++) {
             presence.setPresent(selected[i]);
         }
         sum[0] = 0L;
+        optional = new IntColumnTraversal(
+                state, values, presence, "Order",
+                "quantity.values", "quantity.values.consumer");
         optional.forEachInt(accumulator);
         assertEquals(192L, sum[0], "mixed word lane visits 63/64 boundary rows");
         assertEquals(size, state.statsSnapshot().lastScanned(),
@@ -673,13 +717,17 @@ public final class RuntimeCorePhase1Check {
             presence.setPresent(row);
         }
         sum[0] = 0L;
+        optional = new IntColumnTraversal(
+                state, values, presence, "Order",
+                "quantity.values", "quantity.values.consumer");
         optional.forEachInt(accumulator);
         assertEquals(2145L, sum[0], "all-present lane visits every payload");
         assertEquals(size, state.statsSnapshot().lastMatched(),
                 "all-present lane matched semantics");
 
-        IntColumnPipeline required = new IntColumnPipeline(
-                state, values, null, "Order", "quantity");
+        IntColumnTraversal required = new IntColumnTraversal(
+                state, values, null, "Order",
+                "quantity.values", "quantity.values.consumer");
         sum[0] = 0L;
         required.forEachInt(accumulator);
         assertEquals(2145L, sum[0], "required lane visits every payload");
@@ -687,9 +735,13 @@ public final class RuntimeCorePhase1Check {
         presence.clearRange(0, size);
         presence.setPresent(0);
         presence.setPresent(63);
+        optional = new IntColumnTraversal(
+                state, values, presence, "Order",
+                "quantity.values", "quantity.values.consumer");
+        final IntColumnTraversal failing = optional;
         expectCode("callback_failed", new ThrowingRunnable() {
             @Override public void run() {
-                optional.forEachInt(new IntConsumer() {
+                failing.forEachInt(new IntConsumer() {
                     private int calls;
                     @Override public void accept(int value) {
                         calls++;
@@ -704,6 +756,9 @@ public final class RuntimeCorePhase1Check {
                 "mixed word callback failure scanned semantics");
         assertEquals(2L, state.statsSnapshot().lastMatched(),
                 "mixed word callback failure matched semantics");
+        expectCode("traversal_consumed", new ThrowingRunnable() {
+            @Override public void run() { failing.forEachInt(accumulator); }
+        });
     }
 
     private static void testExactIndexProtocolAndStats() {
@@ -969,6 +1024,19 @@ public final class RuntimeCorePhase1Check {
     private static void assertEquals(long expected, long actual, String message) {
         if (expected != actual) {
             throw new AssertionError(message + ": expected=" + expected + " actual=" + actual);
+        }
+    }
+
+    private static final class ReferenceScanPlan extends GeneratedScanPlan {
+        private Object reference;
+
+        private ReferenceScanPlan(String sourcePath) {
+            super(sourcePath);
+        }
+
+        @Override
+        protected void clearSource() {
+            reference = null;
         }
     }
 

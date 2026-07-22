@@ -255,7 +255,7 @@ public final class BreadthConsumer {
         FullRowTable table = FullRowTable.create();
         table.addBatch(batch);
         final String sentinel = new String("failed-update-retained-reference-sentinel");
-        expectCode("callback_failed", () -> table.rows().update(row -> {
+        expectCode("callback_failed", () -> table.update(row -> {
             row.setName(sentinel);
             throw new IllegalStateException("intentional update failure");
         }), "failed update callback");

@@ -2,13 +2,13 @@
 
 类型：Temporary
 
-状态：Stage 1 完成；无 Stage 2 实施授权
+状态：Stage 2 production/public API/runtime 实现与工作树 Gate 完成；正式固化待授权
 
 Owner：SOMA Java Access Model / Candidate Scan 专题治理
 
 事实范围：本专题的意图、Access Model、Candidate Scan 目标设计、阶段、Temporary 裁决、evidence、实施包与退役条件
 
-非事实范围：正式 Blueprint/Design 语义、当前 public/generated API 承诺、已经完成的 Stage 2 实现、性能收益和 release readiness
+非事实范围：正式 Blueprint/Design 语义、已提交的 Stage 2 候选、正式性能声明和 release readiness
 
 正式事实源：否
 
@@ -24,7 +24,9 @@ Owner：SOMA Java Access Model / Candidate Scan 专题治理
 
 实现核对入口：[Compiler 与 codegen Map](../../implementation-map/compiler-and-codegen-map.md)、[Runtime Core Map](../../implementation-map/runtime-core-map.md)。当前性能入口：[当前性能摘要](../../../reports/current-performance-summary.md)。
 
-本目录的裁决是 Stage 2 唯一候选目标，但仍不是正式产品事实。用户明确授权 Stage 2 之前，不得据此修改 production annotation、processor、runtime、generated public API、scenario 或正式 Design。
+本目录的裁决仍不是正式产品事实。用户已于 2026-07-22 授权 Stage 2 的
+production/public API/runtime 实施，但没有授权正式 Owner 固化；因此当前可以实现并
+验证候选，不得提前修改正式 Design、Report 或删除 Temporary。
 
 ## 2. 文档职责
 
@@ -40,7 +42,8 @@ Owner：SOMA Java Access Model / Candidate Scan 专题治理
 | [操作目录](operation-catalog.md) | source/stage/terminal descriptor 与 legality matrix |
 | [Pipeline IR](pipeline-ir.md) | Candidate Scan semantic、bound、physical 与 compact representation 详细设计 |
 | [核心术语](core-terminology.md) | canonical target vocabulary 与 current-to-target mapping |
-| [Stage 2 实施包](stage-2-implementation-package.md) | 模块切片、迁移、Gate、停止条件；不构成实施授权 |
+| [Stage 2 实施包](stage-2-implementation-package.md) | 模块切片、迁移、Gate、停止条件与实际完成状态 |
+| [Stage 2 Evidence](stage-2-evidence.md) | production/API/runtime 实现、correctness、allocation、JFR、code size 与 FJSP A/B |
 | [Stage 0 审查](stage-0-review.md) | Access Model 建立前的历史候选审查与 Stage 1 输入 |
 | [Stage 1 收口审查](stage-1-review.md) | 追踪、自审、验证和 Stage 2 readiness 判断 |
 
@@ -114,7 +117,7 @@ CandidateAccess 的目标产品名称是 **Candidate Scan**。Table 本身是 pa
 | exact source | generated typed leaf capture；terminal-time current group binding |
 | best-one execution | 单 Sort 兼容尾部使用 stable arg-min；k > 1 继续 full stable sort |
 | stats | 记录 semantic logical work；caller-held plan bytes 不进入 TableStats |
-| compatibility | clean cutover；generated/runtime protocol v4；Schema 与 plan identity 不变 |
+| compatibility | clean cutover；generated/runtime protocol v4；Schema identity 不变；plan hash因compatibility输入变化而确定性更新 |
 
 `AM-DEC-01..06`、`OP-DEC-01..06`、`RP-DEC-01..08` 已全部关闭，没有保留 implementation-time naming 或 semantic choice。
 
@@ -136,8 +139,8 @@ Stage 1 在同一 Zulu JDK 8 / macOS aarch64 环境建立了以下诊断事实�
 |---|---|---|
 | Stage 0：产品/IR/术语候选 | 完成 | 识别需要更上游的 Access Model |
 | Stage 1：Access Model、evidence、裁决与详细设计 | 完成 | 全部决策关闭；实施包完整；Gate 通过 |
-| Stage 2：production/public 原子实现 | 未授权、未开始 | target API/runtime/tests/scenarios 全部落地，无双轨 |
-| Stage 3：验证、调优与一致性 | 未开始 | correctness/performance/scenario/full Gate |
+| Stage 2：production/public 原子实现 | 工作树完成 | target API/runtime/tests/scenarios 全部落地，无双轨 |
+| Stage 3：验证、调优与一致性 | 工作树 Gate 完成 | correctness/performance/scenario/full Gate 均通过；正式固化前需在 immutable candidate 重放 |
 | Stage 4：正式固化与 Temporary 删除 | 未开始 | 唯一 Owner 原子更新，Governance Report，删除本目录 |
 
 阶段只是同一治理专题的执行顺序，不是降级 roadmap。Stage 2 每个切片都必须是最终设计的有效子集，最终 cutover 不保留 temporary alias 或第二套 executor。
@@ -157,7 +160,8 @@ Stage 2 的 correctness、identity、allocation、GC、code-size、FJSP 与 scop
 
 ## 10. 正式固化与退出
 
-只有 Stage 2/3 全部完成且用户授权正式切换后，才执行：
+Stage 2/3 已在基于 `2f0d116` 的未提交工作树完成。只有用户授权正式切换，且在
+immutable candidate 上重放必要 Gate 后，才执行：
 
 ```text
 accepted Temporary facts
@@ -168,4 +172,6 @@ accepted Temporary facts
   -> delete this Temporary topic
 ```
 
-正式文档在最后保持原子切换，不提前进入中间状态。当前唯一下一步授权问题是：是否开始 [Stage 2 实施包](stage-2-implementation-package.md)；Stage 1 完成本身不自动扩大实施权限。
+正式文档在最后保持原子切换，不提前进入中间状态。当前唯一下一步授权问题是：
+是否提交 Stage 2 候选并执行正式 Owner 固化、Governance/Performance Report 与
+Temporary 删除；当前工作树 Gate 通过本身不自动扩大该权限。

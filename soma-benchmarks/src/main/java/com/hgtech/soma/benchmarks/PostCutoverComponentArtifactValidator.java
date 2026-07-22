@@ -14,6 +14,23 @@ import java.util.Map;
 
 /** 独立复读并验证 post-cutover component JSONL artifact。 */
 public final class PostCutoverComponentArtifactValidator {
+    private static final List<String> ALLOCATION_LANES = Arrays.asList(
+            "candidate_scan.packed_zero_count",
+            "candidate_scan.packed_one_filter_count",
+            "candidate_scan.exact_zero_count",
+            "candidate_scan.exact_zero_index",
+            "candidate_scan.exact_one_filter_count",
+            "candidate_scan.exact_two_stage_count",
+            "candidate_scan.exact_three_stage_count",
+            "candidate_scan.exact_four_stage_overflow_count",
+            "candidate_scan.exact_five_stage_overflow_count",
+            "candidate_scan.exact_sixteen_stage_overflow_count",
+            "candidate_scan.exact_filter_sort_index",
+            "candidate_scan.exact_filter_sort_snapshot",
+            "candidate_scan.exact_filter_sort_materialize",
+            "point.primary_find_index",
+            "key_traversal.first_materialize",
+            "column_traversal.long_for_each");
     private static final List<String> ALLOCATION_FIELDS = Arrays.asList(
             "schemaVersion", "artifactVersion", "kind", "lane", "status", "commit",
             "javaVersion", "javaVendor", "jvmArgs", "os", "architecture", "cpu",
@@ -67,8 +84,12 @@ public final class PostCutoverComponentArtifactValidator {
         } finally {
             reader.close();
         }
-        if (allocations != 12 || memories != 24) {
-            throw new IllegalArgumentException("expected 12 allocation and 24 memory records");
+        if (allocations != ALLOCATION_LANES.size() || memories != 24) {
+            throw new IllegalArgumentException("expected " + ALLOCATION_LANES.size()
+                    + " allocation and 24 memory records");
+        }
+        if (!lanes.subList(0, ALLOCATION_LANES.size()).equals(ALLOCATION_LANES)) {
+            throw new IllegalArgumentException("allocation lane order or coverage");
         }
     }
 
@@ -103,11 +124,19 @@ public final class PostCutoverComponentArtifactValidator {
             positive(record, "distinctGroups");
             positive(record, "groupRows");
             positive(record, "matchingRows");
-            positive(record, "allocatedBytes");
-            positive(record, "allocatedBytesPerOperation");
+            nonNegative(record, "allocatedBytes");
+            double allocatedBytesPerOperation = nonNegativeDecimal(
+                    record, "allocatedBytesPerOperation");
             positive(record, "elapsedNanos");
-            positive(record, "nanosPerOperation");
+            positiveDecimal(record, "nanosPerOperation");
             gcStats(record.get("gcStats"));
+            double envelope = allocationEnvelope(string(record, "lane"));
+            if (envelope >= 0.0d) {
+                require(allocatedBytesPerOperation <= envelope,
+                        "allocation envelope for " + record.get("lane")
+                                + ": actual=" + allocatedBytesPerOperation
+                                + " maximum=" + envelope);
+            }
         } else if ("memory".equals(kind)) {
             expected = MEMORY_FIELDS;
             require("deterministic-estimate".equals(record.get("observationKind")),
@@ -175,6 +204,35 @@ public final class PostCutoverComponentArtifactValidator {
         long value = number(values, field);
         require(value >= 0L, field);
         return value;
+    }
+
+    private static double positiveDecimal(Map<String, Object> values, String field) {
+        Object value = values.get(field);
+        require(value instanceof Number, field);
+        double decimal = ((Number) value).doubleValue();
+        require(!Double.isNaN(decimal) && !Double.isInfinite(decimal)
+                && decimal > 0.0d, field);
+        return decimal;
+    }
+
+    private static double nonNegativeDecimal(Map<String, Object> values, String field) {
+        Object value = values.get(field);
+        require(value instanceof Number, field);
+        double decimal = ((Number) value).doubleValue();
+        require(!Double.isNaN(decimal) && !Double.isInfinite(decimal)
+                && decimal >= 0.0d, field);
+        return decimal;
+    }
+
+    private static double allocationEnvelope(String lane) {
+        if ("candidate_scan.packed_zero_count".equals(lane)) return 16.0d;
+        if ("candidate_scan.exact_zero_count".equals(lane)) return 89.0d;
+        if ("candidate_scan.exact_one_filter_count".equals(lane)) return 193.0d;
+        if ("candidate_scan.exact_three_stage_count".equals(lane)) return 241.0d;
+        if ("candidate_scan.exact_five_stage_overflow_count".equals(lane)) return 465.0d;
+        if ("candidate_scan.exact_filter_sort_index".equals(lane)) return 273.0d;
+        if ("column_traversal.long_for_each".equals(lane)) return 160.0d;
+        return -1.0d;
     }
 
     private static long number(Map<String, Object> values, String field) {

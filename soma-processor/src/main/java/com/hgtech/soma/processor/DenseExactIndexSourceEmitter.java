@@ -157,7 +157,7 @@ final class DenseExactIndexSourceEmitter {
             }
             out.append("if(");
             appendNoMutableSelectorChange(out, table, "changed");
-            out.append(")return;ensureExactIndexCapacity(size(),count,\"rows.update\");for(int index=0;index<count;index++){int target=rows[index];");
+            out.append(")return;ensureExactIndexCapacity(size(),count,\"scan.update\");for(int index=0;index<count;index++){int target=rows[index];");
             for (int i = 0; i < table.selectors.size(); i++) {
                 if (!selectorCanChange(table, table.selectors.get(i))) continue;
                 out.append("if(changed").append(i).append("&&selector")
@@ -219,17 +219,21 @@ final class DenseExactIndexSourceEmitter {
             }
             out.append("  private long selector").append(i).append("HashValues(");
             appendSelectorParameters(out, parameters);
+            if (!parameters.isEmpty()) out.append(',');
+            out.append("String operation");
             out.append("){long hash=1469598103934665603L;");
-            appendSelectorHash(out, table, selector, null, null, parameters, method);
+            appendSelectorHash(out, table, selector, null, null, parameters, "$operation");
             out.append("return hash;}\n  private int compareSelector").append(i)
                     .append("LeafValues(int left,int right){");
             appendSelectorComparison(out, table, selector, "left", "right", selector.leaves.size(), true, method);
             out.append("return 0;}\n  private int compareSelector").append(i)
                     .append("ToValues(int row,");
             appendSelectorParameters(out, parameters);
+            if (!parameters.isEmpty()) out.append(',');
+            out.append("String operation");
             out.append("){");
             appendSelectorComparison(out, table, selector, "row", null,
-                    selectorParameterLeafCount(selector), false, method, parameters);
+                    selectorParameterLeafCount(selector), false, "$operation", parameters);
             out.append("return 0;}\n  private boolean selector").append(i)
                     .append("BatchEqual(").append(table.name("Batch"))
                     .append(" batch,int left,int right){return ");
@@ -241,12 +245,17 @@ final class DenseExactIndexSourceEmitter {
                     out, table, selector, "left", "batch", "right", "addBatch");
             out.append(";}\n  private int selector").append(i).append("Group(");
             appendSelectorParameters(out, parameters);
+            if (!parameters.isEmpty()) out.append(',');
+            out.append("String operation");
             out.append("){long hash=selector").append(i).append("HashValues(");
             appendSelectorValueArguments(out, parameters.size());
+            if (!parameters.isEmpty()) out.append(',');
+            out.append("operation");
             out.append(");int group=selector").append(i).append("Index.firstGroup(hash);while(group>=0&&compareSelector")
                     .append(i).append("ToValues(selector").append(i)
                     .append("Index.representativeRow(group)");
             appendSelectorArguments(out, parameters.size());
+            out.append(",operation");
             out.append(")!=0){selector").append(i)
                     .append("Index.recordCollision();group=selector").append(i)
                     .append("Index.nextHashGroup(group);}return group;}\n  private void linkSelector")

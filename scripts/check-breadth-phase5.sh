@@ -107,23 +107,23 @@ for source in "$generated_dir"/*.java; do
 done | LC_ALL=C sort >"$types_file"
 printf '%s\n' \
   FullRowBatch \
-  FullRowMutableRow \
+  FullRowUpdateCursor \
   FullRowMutator \
-  FullRowRow \
-  FullRowRows \
+  FullRowCursor \
+  FullRowScan \
   FullRowTable \
   StringKeyRowBatch \
-  StringKeyRowKeys \
-  StringKeyRowMutableRow \
+  StringKeyRowKeyTraversal \
+  StringKeyRowUpdateCursor \
   StringKeyRowMutator \
-  StringKeyRowRow \
-  StringKeyRowRows \
+  StringKeyRowCursor \
+  StringKeyRowScan \
   StringKeyRowTable \
   StringParentBatch \
-  StringParentMutableRow \
+  StringParentUpdateCursor \
   StringParentMutator \
-  StringParentRow \
-  StringParentRows \
+  StringParentCursor \
+  StringParentScan \
   StringParentTable \
   | LC_ALL=C sort >"$evidence_dir/expected-generated-types.txt"
 cmp "$evidence_dir/expected-generated-types.txt" "$types_file"

@@ -75,16 +75,16 @@ public final class FjspSolver {
   }
 
   private void releaseInitialOperations() {
-    IndexSnapshot jobRows = instance.jobs.rows().sorted((left, right) -> {
+    IndexSnapshot jobIndexes = instance.jobs.sorted((left, right) -> {
       int compared = Long.compare(left.inputOrder(), right.inputOrder());
       return compared != 0 ? compared
         : Long.compare(left.jobIdValue(), right.jobIdValue());
-    }).rowIndexes();
+    }).indexSnapshot();
     LongColumnView jobIds = instance.jobs.jobIdValueColumn();
     try {
-      for (int position = 0; position < jobRows.size(); position++) {
+      for (int position = 0; position < jobIndexes.size(); position++) {
         frontier.release(
-          operationAt(jobIds.getLong(jobRows.indexAt(position)), 0),
+          operationAt(jobIds.getLong(jobIndexes.indexAt(position)), 0),
           releasedMachines);
         refreshQueueMembership(null);
       }
@@ -94,14 +94,12 @@ public final class FjspSolver {
   }
 
   private OperationKey operationAt(long jobId, int sequenceNo) {
-    IndexSnapshot rows = instance.definitions.findByJobSequence(
-      new JobId(jobId), sequenceNo).rowIndexes();
-    require(rows.size() == 1,
-      "each job sequence must identify exactly one operation");
+    int row = instance.definitions.requireIndexByJobSequence(
+      new JobId(jobId), sequenceNo);
     LongColumnView operationIds =
       instance.definitions.operationKeyOperationIdValueColumn();
     try {
-      return operationAtRow(jobId, rows.indexAt(0), operationIds);
+      return operationAtRow(jobId, row, operationIds);
     } finally {
       operationIds.close();
     }
@@ -139,8 +137,8 @@ public final class FjspSolver {
         int slot = machineQueue.take();
         MachineId machineId = machineQueue.machineId(slot);
         // 其他operation的retire可能使该machine entry变空；到达heap root时惰性淘汰。
-        if (instance.frontier.findByMachine(machineId).count() == 0L) continue;
-        int row = instance.machines.rowIndexOf(machineId.value);
+        if (instance.frontier.scanByMachine(machineId).count() == 0L) continue;
+        int row = instance.machines.requireIndex(machineId.value);
         if (states.get(row) != MachineState.READY) continue;
         long currentAvailable = available.getLong(row);
         require(currentAvailable == machineQueue.availableFromMinute(slot),
@@ -173,7 +171,7 @@ public final class FjspSolver {
     instance.machines.mutate(machineId).setAvailableFromMinute(end)
       .setLastSetupFamily(candidate.targetSetupFamily).commit();
     RemoveResult removed = instance.frontier
-      .findByOperation(candidate.operationKey).remove();
+      .scanByOperation(candidate.operationKey).remove();
     require(removed.removed() > 0L,
       "commit must remove all candidates of the assigned operation");
   }
@@ -182,7 +180,7 @@ public final class FjspSolver {
     completedJob = false;
     completedJobTardiness = 0L;
     releasedMachines.reset();
-    int definitionRow = instance.definitions.rowIndexOf(
+    int definitionRow = instance.definitions.requireIndex(
       dispatch.jobId, dispatch.operationId);
     int sequenceNo;
     IntColumnView sequences = instance.definitions.sequenceNoColumn();
@@ -195,14 +193,14 @@ public final class FjspSolver {
     JobId jobId = new JobId(dispatch.jobId);
     instance.jobStates.mutate(jobId)
       .setNextSequenceNo(nextSequence).commit();
-    IndexSnapshot successors = instance.definitions
-      .findByJobSequence(jobId, nextSequence).rowIndexes();
-    if (successors.size() == 1) {
+    int successorIndex = instance.definitions
+      .findIndexByJobSequence(jobId, nextSequence);
+    if (successorIndex >= 0) {
       LongColumnView operationIds =
         instance.definitions.operationKeyOperationIdValueColumn();
       try {
         OperationKey successor = operationAtRow(
-          dispatch.jobId, successors.indexAt(0), operationIds);
+          dispatch.jobId, successorIndex, operationIds);
         instance.operationStates.mutate(successor)
           .setJobReadyMinute(dispatch.endMinute).commit();
         frontier.release(successor, releasedMachines);
@@ -211,12 +209,10 @@ public final class FjspSolver {
         operationIds.close();
       }
     }
-    require(successors.size() == 0,
-      "job sequence must not contain duplicate operations");
     long dueMinute;
     LongColumnView dueMinutes = instance.jobs.dueMinuteColumn();
     try {
-      dueMinute = dueMinutes.getLong(instance.jobs.rowIndexOf(dispatch.jobId));
+      dueMinute = dueMinutes.getLong(instance.jobs.requireIndex(dispatch.jobId));
     } finally {
       dueMinutes.close();
     }
@@ -252,9 +248,9 @@ public final class FjspSolver {
   private void refreshQueueMembership(
       MachineId machineId, LongColumnView available,
       EnumColumnView<MachineState> states) {
-    int row = instance.machines.rowIndexOf(machineId.value);
+    int row = instance.machines.requireIndex(machineId.value);
     boolean eligible = states.get(row) == MachineState.READY
-      && instance.frontier.findByMachine(machineId).count() != 0L;
+      && instance.frontier.scanByMachine(machineId).count() != 0L;
     machineQueue.refresh(machineId, available.getLong(row), eligible);
   }
 

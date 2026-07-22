@@ -13,9 +13,9 @@ fi
 ./mvnw -B -ntp -pl soma-processor -am package -DskipTests
 ./mvnw -B -ntp -pl soma-runtime-core package -DskipTests
 
-annotations_jar=soma-annotations/target/soma-annotations-0.1.0-SNAPSHOT.jar
-processor_jar=soma-processor/target/soma-processor-0.1.0-SNAPSHOT.jar
-runtime_jar=soma-runtime-core/target/soma-runtime-core-0.1.0-SNAPSHOT.jar
+annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
+processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
+runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
 fixture=soma-testkit/src/test/fixtures/compiler/internal-names-phase6
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/internal-names-phase6.XXXXXX")
@@ -34,6 +34,19 @@ mkdir -p "$classes" "$generated"
 
 table_source=$generated/com/example/internalnames/generated/InternalNamesRowTable.java
 test -s "$table_source"
+if rg -n '\browIndex\b|rowIndexes\(' "$generated" >/dev/null \
+    || rg -n 'public .*\(int rowIndex\)' \
+      soma-runtime-core/src/main/java/com/hgtech/soma/runtime/*ColumnView.java >/dev/null; then
+  printf '%s\n' 'internal-names-phase6-check: public rowIndex parameter leaked' >&2
+  exit 1
+fi
+if rg -n -i --glob '!**/target/**' \
+    'row pipeline|column pipeline|key pipeline|generated-row-pipeline|allocatedRowPipeline' \
+    soma-processor/src/main soma-runtime-core/src/main soma-examples/src/main \
+    soma-benchmarks/src/main soma-testkit/src/test/fixtures >/dev/null; then
+  printf '%s\n' 'internal-names-phase6-check: superseded core access vocabulary leaked' >&2
+  exit 1
+fi
 grep -F 'private int updateScratchCapacity;' "$table_source" >/dev/null
 grep -F 'private int[] updateField1=new int[0];' "$table_source" >/dev/null
 grep -F 'private int[] updateField2=new int[0];' "$table_source" >/dev/null

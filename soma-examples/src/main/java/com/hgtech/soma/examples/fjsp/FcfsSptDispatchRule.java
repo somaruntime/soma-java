@@ -1,10 +1,10 @@
 package com.hgtech.soma.examples.fjsp;
 
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRows;
+import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateScan;
 
 /** FCFS + SPT，并以领域 identity 保证完全稳定的 tie-break。 */
 public final class FcfsSptDispatchRule {
-  MachineCandidateRows.Comparator comparator() {
+  MachineCandidateScan.Comparator comparator() {
     return (left, right) -> {
       int compared = Long.compare(
         left.fcfsValue(), right.fcfsValue());

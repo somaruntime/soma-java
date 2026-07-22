@@ -1091,7 +1091,7 @@
           "properties": {
             "implementation": {
               "type": "string",
-              "const": "generated-row-pipeline"
+              "const": "generated-candidate-scan"
             },
             "filterStages": {
               "type": "integer",
@@ -1149,7 +1149,7 @@
           "properties": {
             "implementation": {
               "type": "string",
-              "const": "generated-row-pipeline"
+              "const": "generated-candidate-scan"
             },
             "replaceRows": {
               "type": "integer",

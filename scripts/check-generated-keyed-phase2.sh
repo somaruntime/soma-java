@@ -118,8 +118,8 @@ cmp "$composite_fixture/target/classes/META-INF/soma/com.example.soma.compositek
   "$composite_repeat_fixture/target/classes/META-INF/soma/com.example.soma.compositekeyed.schema.sha256"
 
 for class_name in \
-  KeyedParticleTable KeyedParticleMutator KeyedParticleMutableRow KeyedParticleKeys \
-  LongKeyedParticleTable LongKeyedParticleMutator LongKeyedParticleKeys; do
+  KeyedParticleTable KeyedParticleMutator KeyedParticleUpdateCursor KeyedParticleKeyTraversal \
+  LongKeyedParticleTable LongKeyedParticleMutator LongKeyedParticleKeyTraversal; do
   "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
     "com.example.soma.keyed.generated.$class_name" > "$evidence_dir/$class_name.javap.txt"
   cmp "$expected/$class_name.javap.txt" "$evidence_dir/$class_name.javap.txt"
@@ -147,14 +147,14 @@ check_primitive_table DoubleKeyedTable double
 
 enum_table_source=$enum_fixture/target/generated-sources/annotations/com/example/soma/enumkeyed/generated/EnumKeyedJobTable.java
 enum_mutator_source=$enum_fixture/target/generated-sources/annotations/com/example/soma/enumkeyed/generated/EnumKeyedJobMutator.java
-enum_mutable_source=$enum_fixture/target/generated-sources/annotations/com/example/soma/enumkeyed/generated/EnumKeyedJobMutableRow.java
+enum_mutable_source=$enum_fixture/target/generated-sources/annotations/com/example/soma/enumkeyed/generated/EnumKeyedJobUpdateCursor.java
 "$JAVA_HOME/bin/javap" -classpath "$enum_fixture/target/classes" -public \
   com.example.soma.enumkeyed.generated.EnumKeyedJobTable >"$evidence_dir/EnumKeyedJobTable.javap.txt"
 if ! grep -F ' containsKey(com.example.soma.enumkeyed.LifecycleState);' \
   "$evidence_dir/EnumKeyedJobTable.javap.txt" >/dev/null \
   || ! grep -F ' fetch(com.example.soma.enumkeyed.LifecycleState);' \
   "$evidence_dir/EnumKeyedJobTable.javap.txt" >/dev/null \
-  || ! grep -F 'com.hgtech.soma.runtime.EnumColumnPipeline<com.example.soma.enumkeyed.LifecycleState> stateValues();' \
+  || ! grep -F 'com.hgtech.soma.runtime.EnumColumnTraversal<com.example.soma.enumkeyed.LifecycleState> stateValues();' \
   "$evidence_dir/EnumKeyedJobTable.javap.txt" >/dev/null; then
   printf '%s\n' 'generated-keyed-phase2-check: enum direct API or column binding missing' >&2
   exit 1
@@ -207,12 +207,12 @@ if grep -E 'HashMap|Object\[\].*key|new (Tuple|OperationKey)\(' "$composite_tabl
 fi
 
 mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutator.java
-mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleMutableRow.java
+mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleUpdateCursor.java
 long_mutator_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleMutator.java
-long_mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleMutableRow.java
+long_mutable_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleUpdateCursor.java
 table_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleTable.java
 long_table_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/LongKeyedParticleTable.java
-rows_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleRows.java
+scan_source=$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/KeyedParticleScan.java
 if grep -E 'setId|clearId|setUpdateId|updateId' \
   "$mutator_source" "$mutable_source" "$long_mutator_source" "$long_mutable_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: key mutation surface leaked' >&2
@@ -220,15 +220,15 @@ if grep -E 'setId|clearId|setUpdateId|updateId' \
 fi
 if grep -E 'setId|clearId|setUpdateId|updateId' \
   "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/BooleanKeyedMutator.java" \
-  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/BooleanKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/BooleanKeyedUpdateCursor.java" \
   "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ByteKeyedMutator.java" \
-  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ByteKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ByteKeyedUpdateCursor.java" \
   "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ShortKeyedMutator.java" \
-  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ShortKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/ShortKeyedUpdateCursor.java" \
   "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/FloatKeyedMutator.java" \
-  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/FloatKeyedMutableRow.java" \
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/FloatKeyedUpdateCursor.java" \
   "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/DoubleKeyedMutator.java" \
-  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/DoubleKeyedMutableRow.java"; then
+  "$fixture/target/generated-sources/annotations/com/example/soma/keyed/generated/DoubleKeyedUpdateCursor.java"; then
   printf '%s\n' 'generated-keyed-phase2-check: primitive key mutation surface leaked' >&2
   exit 1
 fi
@@ -263,8 +263,8 @@ if ! grep -q 'KeyCanonicalization.strictDouble' \
   printf '%s\n' 'generated-keyed-phase2-check: strict double key binding missing' >&2
   exit 1
 fi
-if grep -E 'java\.util\.stream|Object\[|Integer\[|java\.util\.Iterator|new (ArrayList|LinkedList)' "$rows_source"; then
-  printf '%s\n' 'generated-keyed-phase2-check: forbidden row hot-path source shape' >&2
+if grep -E 'java\.util\.stream|Integer\[|java\.util\.Iterator|new (ArrayList|LinkedList)' "$scan_source"; then
+  printf '%s\n' 'generated-keyed-phase2-check: forbidden candidate scan hot-path source shape' >&2
   exit 1
 fi
 
@@ -280,19 +280,19 @@ if ! grep -q 'SOMA-TABLE-008' "$evidence_dir/invalid-keyed.log"; then
 fi
 
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
   com.example.soma.keyed.KeyedConsumer
 
 "$JAVA_HOME/bin/java" \
-  -cp "$enum_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  -cp "$enum_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
   com.example.soma.enumkeyed.EnumKeyedConsumer
 
 "$JAVA_HOME/bin/java" \
-  -cp "$value_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  -cp "$value_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
   com.example.soma.valuekeyed.ValueKeyedConsumer
 
 "$JAVA_HOME/bin/java" \
-  -cp "$composite_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  -cp "$composite_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
   com.example.soma.compositekeyed.CompositeValueKeyedConsumer
 
 "$JAVA_HOME/bin/java" -version

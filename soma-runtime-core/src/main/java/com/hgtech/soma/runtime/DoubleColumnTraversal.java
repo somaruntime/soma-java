@@ -1,15 +1,15 @@
 package com.hgtech.soma.runtime;
 
 import com.hgtech.soma.runtime.generated.DenseTableState;
-import com.hgtech.soma.runtime.generated.LongColumn;
+import com.hgtech.soma.runtime.generated.DoubleColumn;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 
-import java.util.function.LongConsumer;
+import java.util.function.DoubleConsumer;
 
-public final class LongColumnPipeline extends AbstractColumnPipeline {
-    private final LongColumn column;
-    LongColumnPipeline(DenseTableState state, LongColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
-    public void forEachLong(LongConsumer consumer) {
+public final class DoubleColumnTraversal extends AbstractColumnTraversal {
+    private final DoubleColumn column;
+    DoubleColumnTraversal(DenseTableState state, DoubleColumn column, PresenceBitmap presence, String table, String operation, String callbackOperation) { super(state, column, presence, table, operation, callbackOperation); this.column = column; }
+    public void forEachDouble(DoubleConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {
             int limit = size();

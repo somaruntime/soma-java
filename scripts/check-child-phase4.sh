@@ -40,7 +40,7 @@ cmp "$source_fixture/expected-schema.json" "$fixture/target/classes/$schema"
 cmp "$source_fixture/expected-schema.sha256" "$fixture/target/classes/$schema_hash"
 
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
   com.example.soma.child.ChildConsumer
 
 parent_source=$fixture/target/generated-sources/annotations/com/example/soma/child/generated/ParentRowTable.java
@@ -63,6 +63,10 @@ grep -F 'accountOwnedAll' "$child_source" >/dev/null
 if grep -E 'ObjectColumn<.*Table|List<.*>Column|Map<.*>Column' \
   "$parent_source" "$child_source" >/dev/null; then
   printf '%s\n' 'child-phase4-check: collection/facade leaked into live child storage' >&2
+  exit 1
+fi
+if grep -E 'public .+\(int rowIndex([,)])' "$generated_dir"/*Table.java >/dev/null; then
+  printf '%s\n' 'child-phase4-check: public child facade rowIndex parameter leaked' >&2
   exit 1
 fi
 if grep -E 'ArrayList|HashMap|Map<' "$registry_source" >/dev/null; then

@@ -274,7 +274,7 @@ JFR 已证明 `AbstractColumnPipeline` 每次构造会拼接 operation/callback 
 | compiler lowering identity | 不变：`soma-value-javac8-v1` |
 | generated protocol | `soma-generated-runtime-v3` → `v4` |
 | runtime compatibility | `soma-runtime-java8-v3` → `v4` |
-| runtime plan protocol/hash fields | 不变：`soma-runtime-plan-v3` |
+| runtime plan protocol/hash inputs | protocol与输入集合不变：`soma-runtime-plan-v3`；compatibility字段值升级到v4，因此最终plan hash必须确定性变化 |
 | dense algorithm | 不变：`dense-soa-v1` |
 | exact/key strategy | 不变 |
 | materialization estimator | 不变 |

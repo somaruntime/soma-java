@@ -32,7 +32,7 @@ import com.hgtech.soma.examples.fjsp.schema.OperationMachineKey;
 import com.hgtech.soma.examples.fjsp.schema.SetupFamilyId;
 import com.hgtech.soma.examples.fjsp.schema.generated.CandidateMachineDefinitionBatch;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRows;
+import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateScan;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.OperationDefinitionBatch;
 import com.hgtech.soma.examples.fjsp.schema.generated.OperationDefinitionTable;
@@ -46,7 +46,7 @@ import com.hgtech.soma.examples.vrp.LocationId;
 import com.hgtech.soma.examples.vrp.LocationPairKey;
 import com.hgtech.soma.examples.vrp.RouteId;
 import com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowBatch;
-import com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRows;
+import com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowScan;
 import com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowTable;
 import com.hgtech.soma.examples.vrp.generated.TravelCostBatch;
 import com.hgtech.soma.examples.vrp.generated.TravelCostTable;
@@ -139,8 +139,9 @@ final class SmokeLaneSuite {
         long setup = elapsed(setupStart);
         final long[] sum = {0L};
         long measureStart = System.nanoTime();
-        GeneratedColumnAccess.intPipeline(table.state, table.values, table.presence,
-                "BenchmarkRows", "value").forEachInt(new IntConsumer() {
+        GeneratedColumnAccess.intTraversal(table.state, table.values, table.presence,
+                "BenchmarkRows", "value.values", "value.values.consumer")
+                .forEachInt(new IntConsumer() {
             @Override public void accept(int value) { sum[0] += value; }
         });
         long measured = elapsed(measureStart);
@@ -171,8 +172,9 @@ final class SmokeLaneSuite {
         long setup = elapsed(setupStart);
         final long[] soma = {0L};
         long somaStart = System.nanoTime();
-        GeneratedColumnAccess.intPipeline(table.state, table.values, null,
-                "BenchmarkRows", "value").forEachInt(new IntConsumer() {
+        GeneratedColumnAccess.intTraversal(table.state, table.values, null,
+                "BenchmarkRows", "value.values", "value.values.consumer")
+                .forEachInt(new IntConsumer() {
             @Override public void accept(int value) { soma[0] += value; }
         });
         long somaNanos = elapsed(somaStart);
@@ -277,20 +279,20 @@ final class SmokeLaneSuite {
         TableStats beforeMeasurement = table.statsSnapshot();
         long measureStart = System.nanoTime();
         table.addBatch(batch);
-        UpdateResult updated = table.findByMachine(machineA).update(row -> {
+        UpdateResult updated = table.scanByMachine(machineA).update(row -> {
             row.setIndicatorReady(true);
             row.setEffectiveReadyMinute(row.baseReadyMinute() + 1L);
         });
-        MachineCandidate chosen = table.findByMachine(machineA)
+        MachineCandidate chosen = table.scanByMachine(machineA)
                 .filter(row -> row.indicatorReady())
-                .sorted(new MachineCandidateRows.Comparator() {
-                    @Override public int compare(com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRow left,
-                                                 com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRow right) {
+                .sorted(new MachineCandidateScan.Comparator() {
+                    @Override public int compare(com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateCursor left,
+                                                 com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateCursor right) {
                         return Long.compare(left.effectiveReadyMinute(), right.effectiveReadyMinute());
                     }
                 }).firstOrThrow();
         TableStats firstStats = table.statsSnapshot();
-        RemoveResult removedResult = table.findByOperation(chosen.candidateKey.operationKey).remove();
+        RemoveResult removedResult = table.scanByOperation(chosen.candidateKey.operationKey).remove();
         long removed = removedResult.removed();
         long measured = elapsed(measureStart);
         require(updated.changed() > 0L && removed == 1L && table.size() == count - 1,
@@ -398,7 +400,7 @@ final class SmokeLaneSuite {
         long setupNanos = elapsed(setupStart);
         long measureStart = System.nanoTime();
         table.addBatch(batch);
-        long exactMatches = table.findByMachine(machineA).count();
+        long exactMatches = table.scanByMachine(machineA).count();
         TableStats lookupStats = table.statsSnapshot();
         long measured = elapsed(measureStart);
         long expectedMatches = (count + 1L) / 2L;
@@ -498,14 +500,14 @@ final class SmokeLaneSuite {
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
         table.replaceAll(replacement);
-        InsertionCandidateRow dynamic = table.rows().sorted(new InsertionCandidateRowRows.Comparator() {
-            @Override public int compare(com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow left,
-                                         com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowRow right) {
+        InsertionCandidateRow dynamic = table.sorted(new InsertionCandidateRowScan.Comparator() {
+            @Override public int compare(com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowCursor left,
+                                         com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowCursor right) {
                 return Long.compare(left.deltaDistanceMeters(), right.deltaDistanceMeters());
             }
         }).findFirst().get();
         TableStats dynamicStats = table.statsSnapshot();
-        require(table.rows().sorted((left, right) -> Long.compare(
+        require(table.sorted((left, right) -> Long.compare(
                 left.deltaDistanceMeters(), right.deltaDistanceMeters()))
                 .firstOrThrow().customerId.equals(dynamic.customerId),
                 "dynamic firstOrThrow must agree with findFirst");
@@ -546,7 +548,7 @@ final class SmokeLaneSuite {
                 + stats.operationScratchCurrentBytes()
                 + stats.updateScratchCurrentBytes();
         result.selectorStats = BenchmarkModel.object(
-                "implementation", "generated-row-pipeline",
+                "implementation", "generated-candidate-scan",
                 "replaceRows", Integer.valueOf(count),
                 "dynamicFindFirst", 1L,
                 "dynamicFirstOrThrow", 1L,
@@ -589,7 +591,7 @@ final class SmokeLaneSuite {
         long setup = elapsed(setupStart);
         int limit = Math.max(1, count / 4);
         long measureStart = System.nanoTime();
-        UpdateResult updated = table.rows().filter(row -> (row.vectorIndex() & 1) == 0)
+        UpdateResult updated = table.filter(row -> (row.vectorIndex() & 1) == 0)
                 .limit(limit).update(row -> row.setValue(row.value() + row.derivative()));
         long measured = elapsed(measureStart);
         require(updated.matched() == limit && updated.changed() == limit,
@@ -607,7 +609,7 @@ final class SmokeLaneSuite {
         result.workingSetBytes = 44L * stats.capacity()
                 + stats.operationScratchCurrentBytes()
                 + stats.updateScratchCurrentBytes();
-        result.selectorStats = BenchmarkModel.object("implementation", "generated-row-pipeline",
+        result.selectorStats = BenchmarkModel.object("implementation", "generated-candidate-scan",
                 "filterStages", 1L, "limitStages", 1L, "updateTerminal", 1L,
                 "matched", Long.valueOf(updated.matched()),
                 "changed", Long.valueOf(updated.changed()),
@@ -616,7 +618,7 @@ final class SmokeLaneSuite {
                 "updateScratchCurrentBytes", Long.valueOf(stats.updateScratchCurrentBytes()),
                 "perRowObjects", 0L);
         result.limitations = BenchmarkModel.limitations(
-                "generated Row Pipeline executes filter+limit+update as one terminal with reusable cursor/scratch",
+                "generated Candidate Scan executes filter+limit+update as one terminal with reusable cursor/scratch",
                 "zero per-row objects is structural generated-code evidence, not a JVM allocation-profiler result");
         return finish(result, "generated-fused-filter-limit-update-terminal");
     }
@@ -852,7 +854,8 @@ final class SmokeLaneSuite {
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
         IntColumnView view = GeneratedColumnAccess.intView(
-                table.state, table.values, table.presence, "BenchmarkRows", "value");
+                table.state, table.values, table.presence, "BenchmarkRows", "value",
+                "value.column", "value.column.isPresent", "value.column.getInt");
         long checksum = 0L;
         int reads = 0;
         for (int row = 0; row < config.rows; row++) {
@@ -1361,7 +1364,7 @@ final class SmokeLaneSuite {
                     "updateTerminal", "matched", "changed",
                     "capacity", "operationScratchHighWaterBytes",
                     "updateScratchCurrentBytes", "perRowObjects"});
-            requireStringValue(stats, "implementation", "generated-row-pipeline");
+            requireStringValue(stats, "implementation", "generated-candidate-scan");
             requireIntegerFields(stats, new String[] {"filterStages", "limitStages",
                     "updateTerminal", "matched", "changed",
                     "capacity", "operationScratchHighWaterBytes",
@@ -1508,7 +1511,7 @@ final class SmokeLaneSuite {
                     "dynamicComparatorTouchedBytes", "materializedRowWidthBytes",
                     "materializationTouchedBytes", "tableCapacity",
                     "scratchAllocationBytes", "retainedScratchBytes"});
-            requireStringValue(stats, "implementation", "generated-row-pipeline");
+            requireStringValue(stats, "implementation", "generated-candidate-scan");
             requireIntegerFields(stats, new String[] {"replaceRows", "dynamicFindFirst",
                     "dynamicFirstOrThrow", "replaceTouchedBytes", "dynamicComparatorRows",
                     "dynamicComparatorWidthBytes", "dynamicComparatorTouchedBytes",

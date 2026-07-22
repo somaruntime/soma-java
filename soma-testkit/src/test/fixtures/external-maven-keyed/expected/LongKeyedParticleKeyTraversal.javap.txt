@@ -1,5 +1,5 @@
-Compiled from "LongKeyedParticleKeys.java"
-public final class com.example.soma.keyed.generated.LongKeyedParticleKeys {
+Compiled from "LongKeyedParticleKeyTraversal.java"
+public final class com.example.soma.keyed.generated.LongKeyedParticleKeyTraversal {
   public void forEach(java.util.function.Consumer<java.lang.Long>);
   public java.util.List<java.lang.Long> fetchAll();
   public java.util.List<java.lang.Long> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);

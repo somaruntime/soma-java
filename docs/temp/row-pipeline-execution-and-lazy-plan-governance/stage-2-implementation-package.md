@@ -2,13 +2,13 @@
 
 类型：Temporary
 
-状态：Implementation-ready；未获 Stage 2 实施授权
+状态：S2.1–S2.6 工作树实现与 Gate 完成；S2.7 正式固化待授权
 
 Owner：SOMA Java Access Model / Candidate Scan 专题治理
 
-事实范围：Stage 2 的模块变更面、原子切换顺序、迁移、验证Gate与停止条件
+事实范围：Stage 2 的模块变更面、原子切换顺序、实际迁移、验证Gate与停止条件
 
-非事实范围：已经实施、已经通过Gate、正式Design或发布计划
+非事实范围：已提交的immutable候选、正式Design、正式性能声明或发布计划
 
 输入：[Stage 1 决策](stage-1-decisions.md)、[Pipeline IR](pipeline-ir.md)、[Stage 1 Evidence](stage-1-evidence.md)
 
@@ -26,7 +26,10 @@ Owner：SOMA Java Access Model / Candidate Scan 专题治理
 - correctness、compatibility、allocation、code-size和四场景验证；
 - 最终正式Owner原子固化并删除Temporary。
 
-本包不授权开始，用户必须另行明确同意Stage 2。
+用户已于 2026-07-22 授权提交 Stage 1 基线，并开始 Stage 2 的
+production/public API/runtime 实施。正式 Owner 固化与 Temporary 删除仍按 S2.7
+在实现和 Gate 收口后原子执行。当前 S2.1–S2.6 已在未提交工作树完成，证据见
+[Stage 2 Evidence](stage-2-evidence.md)；S2.7 未获授权。
 
 ## 2. 模块变更面
 
@@ -178,7 +181,7 @@ Blueprint target experience
 
 - 同一schema source的schema JSON/hash byte-identical；
 - old generated/runtime与v4 mismatch在create前fail closed；
-- plan hash相同，因为plan fields/protocol不变；
+- plan protocol与输入集合不变；compatibility字段值升级到v4，因此plan hash按正式Design确定性变化；
 - deterministic generation、Java 8 classfile、external Maven compile/run。
 
 ## 6. Performance Gate
@@ -200,18 +203,22 @@ Blueprint target experience
 | Lane | Current B/op | Target envelope |
 |---|---:|---:|
 | Packed zero-stage count | 83.7216 | `<= 16` |
-| Exact zero-stage count | 112.0736 | `<= 96` |
-| Exact one-stage filter count | 400.0736 | `<= 240` |
-| Exact three-stage count | 560.0736 | `<= 320` |
-| Exact five-stage overflow count | 1000.0736 | `<= 560` |
-| Exact filter-sort scalar Index | snapshot baseline 648.0960 | `<= 320`且不创建IndexSnapshot |
+| Exact zero-stage count | 112.0736 | `<= 89` |
+| Exact one-stage filter count | 400.0736 | `<= 193` |
+| Exact three-stage count | 560.0736 | `<= 241` |
+| Exact five-stage overflow count | 1000.0736 | `<= 465` |
+| Exact filter-sort scalar Index | snapshot baseline 648.0960 | `<= 273`且不创建IndexSnapshot |
 | long Column traversal | 564.7280 | `<= 160`，无runtime String concat |
 
-Envelope依赖同一Zulu JDK 8/aarch64 ThreadMXBean方法。更换JDK/architecture时先建立新baseline，不直接套用绝对值。
+Envelope依赖同一Zulu JDK 8/aarch64 ThreadMXBean方法。最终 handle 裁决后，Scan 只保留
+plan reference与generation，Table/source state归入typed plan；Exact zero-stage 实现分配为
+`88 B/op`，当前 harness 固定带来约 `0.0736 B/op` 观测开销，因此可执行上限收紧为
+`89 B/op`。其余受handle布局影响的lane同步收紧，防止多余引用重新进入handle。
+更换JDK/architecture时先建立新baseline，不直接套用绝对值。
 
 ### 6.3 Integrated/code-size non-regression
 
-- FJSP checksum、assignments、makespan、tardiness、plan hash全部不变；
+- FJSP checksum、assignments、makespan、tardiness与Schema identity不变；plan hash只允许因v4 compatibility输入确定性变化，并须在全部measurement中一致；
 - solve median throughput不劣于同机baseline 10%，allocation/op不得回退；
 - total allocation/op不得回退超过2%，并单独报告import/solve/export；
 - GC只作诊断，不用单次count硬判，但显著回退必须解释；
@@ -250,7 +257,8 @@ Envelope依赖同一Zulu JDK 8/aarch64 ThreadMXBean方法。更换JDK/architectu
 | generated orchestration/names | `DenseTableSourceGenerator.java`、`SomaProcessor.java` |
 | exact codegen | `DenseExactIndexSourceEmitter.java` |
 | runtime compatibility | `RuntimeCompatibility.java` |
-| Column traversal/view | `AbstractColumnPipeline.java`、typed Pipeline/View、`GeneratedColumnAccess.java`、`ColumnViewOperations.java` |
+| Candidate Scan runtime | `GeneratedScanPlan.java`、`GeneratedScanEvaluation.java` |
+| Column traversal/view | `AbstractColumnTraversal.java`、typed Traversal/View、`GeneratedColumnAccess.java` |
 | snapshot/stats/failure | `IndexSnapshot.java`、`DenseTableState.java`、`RuntimeFailures.java` |
 | external oracle | `external-maven-dense`、`external-maven-access-phase3`、keyed/child/breadth fixtures |
 | component evidence | `PostCutoverComponentBenchmark.java` + validator/script |

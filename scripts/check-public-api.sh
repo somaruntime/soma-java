@@ -10,9 +10,9 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javap" ]; then
   exit 1
 fi
 
-annotations_jar=soma-annotations/target/soma-annotations-0.1.0-SNAPSHOT.jar
-processor_jar=soma-processor/target/soma-processor-0.1.0-SNAPSHOT.jar
-runtime_jar=soma-runtime-core/target/soma-runtime-core-0.1.0-SNAPSHOT.jar
+annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
+processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
+runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
 expected=soma-testkit/src/test/fixtures/public-api/phase1
 for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
   if [ ! -f "$artifact" ]; then
@@ -102,9 +102,9 @@ if grep -F 'com.hgtech.soma.runtime.generated.' "$bridge_javap" >/dev/null; then
   printf '%s\n' 'public-api-check: generated construction bridge leaked runtime binding type' >&2
   exit 1
 fi
-if grep -E '^  public com\.hgtech\.soma\.runtime\.(Boolean|Byte|Short|Int|Long|Float|Double|Enum)Column(Pipeline|View)\(' \
+if grep -E '^  public com\.hgtech\.soma\.runtime\.(Boolean|Byte|Short|Int|Long|Float|Double|Enum)Column(Traversal|View)\(' \
   "$actual_javap" >/dev/null; then
-  printf '%s\n' 'public-api-check: direct Column Pipeline/View constructor leaked' >&2
+  printf '%s\n' 'public-api-check: direct Column Traversal/View constructor leaked' >&2
   exit 1
 fi
 generated_column_javap=$evidence_dir/generated-column.javap.txt

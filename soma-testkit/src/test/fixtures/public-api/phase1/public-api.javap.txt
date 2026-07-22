@@ -15,22 +15,22 @@ public final class com.hgtech.soma.processor.javac8.SomaJavacPlugin implements c
 ## PUBLIC generated-construction-protocol com.hgtech.soma.runtime.GeneratedColumnAccess
 Compiled from "GeneratedColumnAccess.java"
 public final class com.hgtech.soma.runtime.GeneratedColumnAccess {
-  public static com.hgtech.soma.runtime.BooleanColumnPipeline booleanPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.ByteColumnPipeline bytePipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.ShortColumnPipeline shortPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.IntColumnPipeline intPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.LongColumnPipeline longPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.FloatColumnPipeline floatPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.DoubleColumnPipeline doublePipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnPipeline<E> enumPipeline(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, E[]);
-  public static com.hgtech.soma.runtime.BooleanColumnView booleanView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.ByteColumnView byteView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.ShortColumnView shortView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.IntColumnView intView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.LongColumnView longView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.FloatColumnView floatView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.DoubleColumnView doubleView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String);
-  public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnView<E> enumView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, E[]);
+  public static com.hgtech.soma.runtime.BooleanColumnTraversal booleanTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ByteColumnTraversal byteTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ShortColumnTraversal shortTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.IntColumnTraversal intTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.LongColumnTraversal longTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.FloatColumnTraversal floatTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.DoubleColumnTraversal doubleTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String);
+  public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnTraversal<E> enumTraversal(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, E[]);
+  public static com.hgtech.soma.runtime.BooleanColumnView booleanView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ByteColumnView byteView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.ShortColumnView shortView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.IntColumnView intView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.LongColumnView longView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.FloatColumnView floatView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.DoubleColumnView doubleView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
+  public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnView<E> enumView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, E[]);
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.BooleanColumn
 Compiled from "BooleanColumn.java"
@@ -208,6 +208,31 @@ public final class com.hgtech.soma.runtime.generated.GeneratedMetadata {
   public java.lang.String planProtocol();
   public java.lang.String algorithm();
   public java.lang.String allocationEstimator();
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedScanEvaluation
+Compiled from "GeneratedScanEvaluation.java"
+public final class com.hgtech.soma.runtime.generated.GeneratedScanEvaluation {
+  public int attemptedScanned;
+  public int attemptedMatched;
+  public int selectionScanned;
+  public int length;
+  public int[] indexes;
+  public com.hgtech.soma.runtime.generated.GeneratedScanEvaluation();
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedScanPlan
+Compiled from "GeneratedScanPlan.java"
+public class com.hgtech.soma.runtime.generated.GeneratedScanPlan {
+  public com.hgtech.soma.runtime.generated.GeneratedScanPlan(java.lang.String);
+  public final int stageCount();
+  public final boolean isCurrent(int);
+  public final void consume();
+  public final void append(byte, java.lang.Object, long, int);
+  public final byte kind(int);
+  public final java.lang.Object callback(int);
+  public final long argument(int);
+  public final void argument(int, long);
+  public final void clear();
+  public final java.lang.String sourcePath();
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupedExactIndex
 Compiled from "GroupedExactIndex.java"
@@ -529,6 +554,7 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException staleView(java.lang.String, long, long, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException viewPinned(java.lang.String, java.lang.String, int);
   public static com.hgtech.soma.runtime.SomaRuntimeException pipelineConsumed(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException traversalConsumed(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException mutationConsumed(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException staleMutator(java.lang.String, long, long);
   public static com.hgtech.soma.runtime.SomaRuntimeException reentrantAccess(java.lang.String, java.lang.String, java.lang.String);
@@ -639,9 +665,9 @@ public interface com.hgtech.soma.annotation.SomaUniques extends java.lang.annota
 Compiled from "SomaValue.java"
 public interface com.hgtech.soma.annotation.SomaValue extends java.lang.annotation.Annotation {
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnPipeline
-Compiled from "BooleanColumnPipeline.java"
-public final class com.hgtech.soma.runtime.BooleanColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnTraversal
+Compiled from "BooleanColumnTraversal.java"
+public final class com.hgtech.soma.runtime.BooleanColumnTraversal extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEachBoolean(com.hgtech.soma.runtime.BooleanConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnView
@@ -656,9 +682,9 @@ Compiled from "BooleanConsumer.java"
 public interface com.hgtech.soma.runtime.BooleanConsumer {
   public abstract void accept(boolean);
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnPipeline
-Compiled from "ByteColumnPipeline.java"
-public final class com.hgtech.soma.runtime.ByteColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnTraversal
+Compiled from "ByteColumnTraversal.java"
+public final class com.hgtech.soma.runtime.ByteColumnTraversal extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEachByte(com.hgtech.soma.runtime.ByteConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ByteColumnView
@@ -682,9 +708,9 @@ public final class com.hgtech.soma.runtime.ChildPlan {
   public java.lang.String childTable();
   public int initialCapacity();
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnPipeline
-Compiled from "DoubleColumnPipeline.java"
-public final class com.hgtech.soma.runtime.DoubleColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnTraversal
+Compiled from "DoubleColumnTraversal.java"
+public final class com.hgtech.soma.runtime.DoubleColumnTraversal extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEachDouble(java.util.function.DoubleConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnView
@@ -694,9 +720,9 @@ public final class com.hgtech.soma.runtime.DoubleColumnView extends com.hgtech.s
   public double getDouble(int);
   public void close();
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnPipeline
-Compiled from "EnumColumnPipeline.java"
-public final class com.hgtech.soma.runtime.EnumColumnPipeline<E extends java.lang.Enum<E>> extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnTraversal
+Compiled from "EnumColumnTraversal.java"
+public final class com.hgtech.soma.runtime.EnumColumnTraversal<E extends java.lang.Enum<E>> extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEach(java.util.function.Consumer<? super E>);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.EnumColumnView
@@ -706,9 +732,9 @@ public final class com.hgtech.soma.runtime.EnumColumnView<E extends java.lang.En
   public E get(int);
   public void close();
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnPipeline
-Compiled from "FloatColumnPipeline.java"
-public final class com.hgtech.soma.runtime.FloatColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnTraversal
+Compiled from "FloatColumnTraversal.java"
+public final class com.hgtech.soma.runtime.FloatColumnTraversal extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEachFloat(com.hgtech.soma.runtime.FloatConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.FloatColumnView
@@ -737,9 +763,9 @@ public final class com.hgtech.soma.runtime.IndexSnapshots {
   public static com.hgtech.soma.runtime.IndexSnapshot copyOf(java.lang.Object, long, int[], int);
   public static boolean isOwnedBy(com.hgtech.soma.runtime.IndexSnapshot, java.lang.Object);
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.IntColumnPipeline
-Compiled from "IntColumnPipeline.java"
-public final class com.hgtech.soma.runtime.IntColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.IntColumnTraversal
+Compiled from "IntColumnTraversal.java"
+public final class com.hgtech.soma.runtime.IntColumnTraversal extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEachInt(java.util.function.IntConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.IntColumnView
@@ -749,9 +775,9 @@ public final class com.hgtech.soma.runtime.IntColumnView extends com.hgtech.soma
   public int getInt(int);
   public void close();
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.LongColumnPipeline
-Compiled from "LongColumnPipeline.java"
-public final class com.hgtech.soma.runtime.LongColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.LongColumnTraversal
+Compiled from "LongColumnTraversal.java"
+public final class com.hgtech.soma.runtime.LongColumnTraversal extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEachLong(java.util.function.LongConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.LongColumnView
@@ -835,9 +861,9 @@ public final class com.hgtech.soma.runtime.RuntimePlan$Builder {
   public com.hgtech.soma.runtime.RuntimePlan$Builder replaceChild(com.hgtech.soma.runtime.ChildPlan);
   public com.hgtech.soma.runtime.RuntimePlan build();
 }
-## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnPipeline
-Compiled from "ShortColumnPipeline.java"
-public final class com.hgtech.soma.runtime.ShortColumnPipeline extends com.hgtech.soma.runtime.AbstractColumnPipeline {
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnTraversal
+Compiled from "ShortColumnTraversal.java"
+public final class com.hgtech.soma.runtime.ShortColumnTraversal extends com.hgtech.soma.runtime.AbstractColumnTraversal {
   public void forEachShort(com.hgtech.soma.runtime.ShortConsumer);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnView

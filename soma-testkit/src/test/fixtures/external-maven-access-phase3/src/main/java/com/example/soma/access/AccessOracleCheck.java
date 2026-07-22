@@ -52,7 +52,7 @@ final class AccessOracleCheck {
             final int remainder = random.nextInt(divisor);
             int expectedRemoved = countSelected(
                     code, state, liveSize, selectedState, divisor, remainder);
-            RemoveResult removed = table.findByState(selectedState)
+            RemoveResult removed = table.scanByState(selectedState)
                     .filter(row -> row.code() % divisor == remainder)
                     .remove();
             require(removed.removed() == expectedRemoved,
@@ -70,8 +70,8 @@ final class AccessOracleCheck {
         AccessRecordTable small = allocationTable(32, 20000);
         AccessRecordTable large = allocationTable(512, 30000);
         for (int round = 0; round < 1000; round++) {
-            small.findByState(1).count();
-            large.findByState(1).count();
+            small.scanByState(1).count();
+            large.scanByState(1).count();
         }
         java.lang.management.ThreadMXBean management = ManagementFactory.getThreadMXBean();
         require(management instanceof com.sun.management.ThreadMXBean,
@@ -98,7 +98,7 @@ final class AccessOracleCheck {
         }
         AccessRecordTable table = AccessRecordTable.create();
         table.addBatch(batch);
-        table.findByState(1).count();
+        table.scanByState(1).count();
         return table;
     }
 
@@ -108,7 +108,7 @@ final class AccessOracleCheck {
             AccessRecordTable table) {
         long before = allocation.getThreadAllocatedBytes(threadId);
         for (int round = 0; round < 300; round++) {
-            table.findByState(1).count();
+            table.scanByState(1).count();
         }
         return allocation.getThreadAllocatedBytes(threadId) - before;
     }
@@ -121,7 +121,7 @@ final class AccessOracleCheck {
             int[] score,
             int size) {
         for (int expectedState = 0; expectedState < 7; expectedState++) {
-            int[] actual = table.findByState(expectedState).rowIndexes().toArray();
+            int[] actual = table.scanByState(expectedState).indexSnapshot().toArray();
             Arrays.sort(actual);
             int cursor = 0;
             for (int row = 0; row < size; row++) {
@@ -133,11 +133,11 @@ final class AccessOracleCheck {
             require(cursor == actual.length, "index oracle cardinality");
         }
         for (int row = 0; row < size; row += 17) {
-            require(table.findByCode(code[row]).firstOrThrow().code == code[row],
+            require(table.fetchByCode(code[row]).code == code[row],
                     "unique oracle row=" + row);
         }
         for (int expectedGroup = 0; expectedGroup < 9; expectedGroup++) {
-            List<AccessRecord> actual = table.findByGroup(expectedGroup)
+            List<AccessRecord> actual = table.scanByGroup(expectedGroup)
                     .sorted((left, right) -> {
                         int compared = Integer.compare(right.score(), left.score());
                         return compared != 0 ? compared
@@ -157,7 +157,7 @@ final class AccessOracleCheck {
                 previousCode = record.code;
             }
         }
-        List<AccessRecord> dynamic = table.rows().sorted((left, right) -> {
+        List<AccessRecord> dynamic = table.sorted((left, right) -> {
             int compared = Integer.compare(left.score(), right.score());
             return compared != 0 ? compared : Integer.compare(left.code(), right.code());
         }).fetchAll();

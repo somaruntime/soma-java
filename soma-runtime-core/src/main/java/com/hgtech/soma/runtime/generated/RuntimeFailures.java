@@ -202,6 +202,10 @@ public final class RuntimeFailures {
         return create(SomaErrorCategory.LIFECYCLE, "pipeline_consumed", operation, table, empty(), null);
     }
 
+    public static SomaRuntimeException traversalConsumed(String table, String operation) {
+        return create(SomaErrorCategory.LIFECYCLE, "traversal_consumed", operation, table, empty(), null);
+    }
+
     public static SomaRuntimeException mutationConsumed(String table, String operation) {
         return create(SomaErrorCategory.LIFECYCLE, "mutation_consumed", operation, table, empty(), null);
     }

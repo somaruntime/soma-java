@@ -44,7 +44,7 @@ cmp "$expected/com.example.soma.access.schema.json" "$fixture/target/classes/$sc
 cmp "$expected/com.example.soma.access.schema.sha256" "$fixture/target/classes/$schema_hash"
 
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
   com.example.soma.access.AccessConsumer
 
 javap_table() {
@@ -60,18 +60,21 @@ cmp "$expected/AccessRecordTable.javap.txt" "$evidence_dir/AccessRecordTable.jav
 cmp "$expected/VisitTable.javap.txt" "$evidence_dir/VisitTable.javap.txt"
 cmp "$expected/UniquePositionTable.javap.txt" "$evidence_dir/UniquePositionTable.javap.txt"
 
-grep -F 'findByState(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
-grep -F 'findByGroup(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
-grep -F 'findByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
-grep -F 'findByRoute(com.example.soma.access.RouteId);' "$evidence_dir/VisitTable.javap.txt" >/dev/null
-grep -F 'findByPositionKey(com.example.soma.access.RoutePositionKey);' \
+grep -F 'scanByState(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
+grep -F 'scanByGroup(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
+grep -F 'containsByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
+grep -F 'findIndexByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
+grep -F 'fetchByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
+grep -F 'scanByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
+grep -F 'scanByRoute(com.example.soma.access.RouteId);' "$evidence_dir/VisitTable.javap.txt" >/dev/null
+grep -F 'fetchByPositionKey(com.example.soma.access.RoutePositionKey);' \
   "$evidence_dir/UniquePositionTable.javap.txt" >/dev/null
 
 access_table=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/AccessRecordTable.java
 unique_table=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/UniquePositionTable.java
 enum_table=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/EnumAccessTable.java
 boolean_double_table=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/BooleanDoubleAccessTable.java
-rows_source=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/AccessRecordRows.java
+scan_source=$fixture/target/generated-sources/annotations/com/example/soma/access/generated/AccessRecordScan.java
 grep -F 'GroupedExactIndex selector' "$access_table" >/dev/null
 grep -F 'linkExactIndexRows' "$access_table" >/dev/null
 grep -F 'relocateExactIndexRows' "$access_table" >/dev/null
@@ -86,14 +89,23 @@ if grep -E 'markSelector.*Dirty|RowPermutationSidecar|SparseIntKeySpace' \
   printf '%s\n' 'access-phase3-check: removed rebuild/sparse protocol leaked' >&2
   exit 1
 fi
-grep -F 'abstract int rowAt(int position)' "$rows_source" >/dev/null
-if grep -F 'int fill(int[] target)' "$rows_source" >/dev/null; then
-  printf '%s\n' 'access-phase3-check: eager selector source copy leaked' >&2
+grep -F 'private final Source plan;private final int generation;' "$scan_source" >/dev/null
+grep -F 'static class Source extends GeneratedScanPlan{private AccessRecordTable table;' \
+  "$scan_source" >/dev/null
+grep -F 'int size(){AccessRecordTable table=table();group=' "$scan_source" >/dev/null
+grep -F 'int rowAt(int position){AccessRecordTable table=table();' "$scan_source" >/dev/null
+grep -F 'if(plan.stageCount()==0){int cardinality=plan.size();' "$scan_source" >/dev/null
+grep -F 'static final class ExactSource0 extends Source' "$scan_source" >/dev/null
+if grep -F 'int fill(int[] target)' "$scan_source" >/dev/null \
+    || grep -F 'new Source(){' "$scan_source" >/dev/null; then
+  printf '%s\n' 'access-phase3-check: Scan handle/source representation regressed' >&2
   exit 1
 fi
 if grep -E 'List<Integer>|HashMap|Object\[\]|RoutePositionKey\[\] update' \
   "$access_table" "$unique_table" "$enum_table" "$boolean_double_table" \
-  "$rows_source" | grep -v 'materializeOwnedMap' >/dev/null; then
+  | grep -v 'materializeOwnedMap' >/dev/null \
+  || grep -E 'List<Integer>|HashMap|RoutePositionKey\[\] update' \
+  "$scan_source" >/dev/null; then
   printf '%s\n' 'access-phase3-check: object/collection hot storage leaked' >&2
   exit 1
 fi

@@ -1,9 +1,9 @@
 package com.example.soma.dense;
 
 import com.example.soma.dense.generated.ParticleBatch;
-import com.example.soma.dense.generated.ParticleMutableRow;
-import com.example.soma.dense.generated.ParticleRow;
-import com.example.soma.dense.generated.ParticleRows;
+import com.example.soma.dense.generated.ParticleUpdateCursor;
+import com.example.soma.dense.generated.ParticleCursor;
+import com.example.soma.dense.generated.ParticleScan;
 import com.example.soma.dense.generated.ParticleTable;
 import com.example.soma.dense.generated.PrimitiveSampleBatch;
 import com.example.soma.dense.generated.PrimitiveSampleTable;
@@ -14,7 +14,7 @@ import com.hgtech.soma.runtime.ByteConsumer;
 import com.hgtech.soma.runtime.DoubleColumnView;
 import com.hgtech.soma.runtime.FloatColumnView;
 import com.hgtech.soma.runtime.FloatConsumer;
-import com.hgtech.soma.runtime.FloatColumnPipeline;
+import com.hgtech.soma.runtime.FloatColumnTraversal;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.LongColumnView;
@@ -40,10 +40,10 @@ public final class DenseConsumer {
     public static void main(String[] args) {
         testAllPrimitiveAndPresenceBindings();
         testDenseDifferentialOracle();
-        testColumnPipelineAllocationShape();
+        testColumnTraversalAllocationShape();
         testColumnViewAllocationShape();
         testColumnViewAcquisitionAllocation();
-        testRowPipelineAllocationShape();
+        testCandidateScanAllocationShape();
 
         ParticleBatch batch = new ParticleBatch(2);
         batch.addValues(1, 10L, 1.5f, true, 7);
@@ -71,6 +71,19 @@ public final class DenseConsumer {
         require(table.size() == 4, "addBatch size");
         require(table.capacity() >= 4, "capacity");
         require(table.runtimePlan() == ParticleTable.defaultRuntimePlan(), "default plan identity");
+        require(table.findIndex() == 0 && table.requireIndex() == 0,
+                "packed scalar Index terminals");
+        require(table.filter(row -> row.id() == 3).findIndex() == 2
+                        && table.filter(row -> row.id() == 3).requireIndex() == 2,
+                "filtered scalar Index terminals");
+        require(table.filter(row -> false).findIndex() == -1,
+                "scalar Index miss");
+        expectCode("empty_result", new Action() {
+            @Override
+            public void run() {
+                table.filter(row -> false).requireIndex();
+            }
+        });
 
         Particle first = table.fetchAt(0);
         require(first.id == 1 && first.ticks == 10L && first.x == 1.5f,
@@ -85,30 +98,17 @@ public final class DenseConsumer {
         require(Integer.valueOf(8).equals(table.fetchAt(0).energy), "mutator optional field");
         require(table.structuralEpoch() == epoch, "in-place mutation is not structural");
 
-        ParticleRows selected = table.filter(new ParticleRows.Predicate() {
+        ParticleScan selected = table.filter(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() >= 2;
             }
         }).skip(1).limit(2);
-        require(selected.count() == 2L, "fused row pipeline count");
-        require(table.filter(new ParticleRows.Predicate() {
-            @Override
-            public boolean test(ParticleRow row) {
-                return row.id() > 0;
-            }
-        }).skip(0).limit(4).filter(new ParticleRows.Predicate() {
-            @Override
-            public boolean test(ParticleRow row) {
-                return row.ticks() > 0L;
-            }
-        }).skip(0).limit(4).filter(new ParticleRows.Predicate() {
-            @Override
-            public boolean test(ParticleRow row) {
-                return row.x() > 0.0f;
-            }
-        }).skip(0).limit(4).count() == 4L,
-                "deep one-shot row pipeline plan growth");
+        require(selected.count() == 2L, "fused candidate Scan count");
+        ParticleScan.Predicate all = row -> row.id() > 0;
+        requireStageCount(table, all, 4);
+        requireStageCount(table, all, 5);
+        requireStageCount(table, all, 16);
         expectCode("pipeline_consumed", new Action() {
             @Override
             public void run() {
@@ -116,67 +116,104 @@ public final class DenseConsumer {
             }
         });
 
-        require(table.anyMatch(new ParticleRows.Predicate() {
+        ParticleScan previousHandle = table.filter(all);
+        ParticleScan currentHandle = previousHandle.limit(2);
+        expectCode("pipeline_consumed", () -> previousHandle.skip(0));
+        expectIllegalArgument(() -> currentHandle.skip(-1));
+        require(currentHandle.count() == 2L,
+                "failed intermediate validation leaves the current handle usable");
+        expectCode("pipeline_consumed", () -> currentHandle.count());
+
+        ParticleScan terminalValidationFailure = table.filter(all);
+        try {
+            terminalValidationFailure.fetchAll(null);
+            throw new AssertionError("null materialization budget must fail");
+        } catch (NullPointerException expected) {
+            // Terminal validation happens before one-shot consumption.
+        }
+        require(terminalValidationFailure.count() == 4L,
+                "failed terminal validation leaves the current handle usable");
+
+        ParticleScan reentrantDefaultBudget = table.filter(all);
+        table.limit(1).forEach(candidate ->
+                expectCode("reentrant_access", reentrantDefaultBudget::findFirst));
+        expectCode("pipeline_consumed", reentrantDefaultBudget::count);
+
+        final Object retainedSentinel = new Object();
+        ParticleScan callbackFailure = table.filter(row -> {
+            allocationEscape = retainedSentinel;
+            throw new IllegalStateException("expected callback failure");
+        });
+        expectCode("callback_failed", () -> callbackFailure.count());
+        assertConsumedPlanCleared(callbackFailure);
+        expectCode("pipeline_consumed", () -> callbackFailure.count());
+
+        FloatColumnTraversal oneShotTraversal = table.xValues();
+        oneShotTraversal.forEachFloat(value -> { });
+        expectCode("traversal_consumed",
+                () -> oneShotTraversal.forEachFloat(value -> { }));
+
+        require(table.anyMatch(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() == 4;
             }
         }), "anyMatch");
-        require(table.noneMatch(new ParticleRows.Predicate() {
+        require(table.noneMatch(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() > 4;
             }
         }), "noneMatch");
-        require(table.filter(new ParticleRows.Predicate() {
+        require(table.filter(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() == 3;
             }
         }).findFirst().get().id == 3, "findFirst detached result");
         expectCode("empty_result", new Action() {
             @Override
             public void run() {
-                table.filter(new ParticleRows.Predicate() {
+                table.filter(new ParticleScan.Predicate() {
                     @Override
-                    public boolean test(ParticleRow row) {
+                    public boolean test(ParticleCursor row) {
                         return false;
                     }
                 }).firstOrThrow();
             }
         });
-        List<Particle> descending = table.sorted(new ParticleRows.Comparator() {
+        List<Particle> descending = table.sorted(new ParticleScan.Comparator() {
             @Override
-            public int compare(ParticleRow left, ParticleRow right) {
+            public int compare(ParticleCursor left, ParticleCursor right) {
                 return right.id() - left.id();
             }
         }).fetchAll();
         require(descending.size() == 4 && descending.get(0).id == 4
                         && descending.get(3).id == 1,
                 "stable primitive-index sorted fetchAll");
-        final IndexSnapshot indexSnapshot = table.filter(new ParticleRows.Predicate() {
+        final IndexSnapshot indexSnapshot = table.filter(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() >= 3;
             }
-        }).rowIndexes();
+        }).indexSnapshot();
         int[] indexes = indexSnapshot.toArray();
         require(indexes.length == 2 && indexes[0] == 2 && indexes[1] == 3,
-                "primitive rowIndexes");
+                "primitive IndexSnapshot");
         indexes[0] = -1;
         require(indexSnapshot.indexAt(0) == 2,
                 "IndexSnapshot owns a defensive detached copy");
-        IndexSnapshot singleSnapshot = table.limit(1).rowIndexes();
+        IndexSnapshot singleSnapshot = table.limit(1).indexSnapshot();
         int[] singleIndexes = singleSnapshot.toArray();
         singleIndexes[0] = -1;
         require(singleSnapshot.size() == 1 && singleSnapshot.indexAt(0) == 0,
                 "single IndexSnapshot keeps detached-copy semantics");
-        IndexSnapshot emptySnapshot = table.filter(new ParticleRows.Predicate() {
+        IndexSnapshot emptySnapshot = table.filter(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return false;
             }
-        }).rowIndexes();
+        }).indexSnapshot();
         require(emptySnapshot.size() == 0 && emptySnapshot.toArray().length == 0,
                 "empty IndexSnapshot remains detached");
         table.requireCurrent(indexSnapshot);
@@ -194,14 +231,14 @@ public final class DenseConsumer {
         expectCode("callback_failed", new Action() {
             @Override
             public void run() {
-                table.filter(new ParticleRows.Predicate() {
+                table.filter(new ParticleScan.Predicate() {
                     @Override
-                    public boolean test(ParticleRow row) {
+                    public boolean test(ParticleCursor row) {
                         return row.id() == 2 || row.id() == 3;
                     }
-                }).update(new ParticleRows.Updater() {
+                }).update(new ParticleScan.Updater() {
                     @Override
-                    public void update(ParticleMutableRow row) {
+                    public void update(ParticleUpdateCursor row) {
                         row.setX(row.x() + 10.0f);
                         if (row.id() == 3) {
                             throw new IllegalStateException("expected callback failure");
@@ -213,14 +250,14 @@ public final class DenseConsumer {
         require(table.fetchAt(1).x == beforeTwo && table.fetchAt(2).x == beforeThree,
                 "failed update atomicity");
 
-        UpdateResult updated = table.filter(new ParticleRows.Predicate() {
+        UpdateResult updated = table.filter(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() == 2 || row.id() == 3;
             }
-        }).update(new ParticleRows.Updater() {
+        }).update(new ParticleScan.Updater() {
             @Override
-            public void update(ParticleMutableRow row) {
+            public void update(ParticleUpdateCursor row) {
                 row.setX(row.x() + 1.0f);
                 row.clearEnergy();
             }
@@ -237,7 +274,7 @@ public final class DenseConsumer {
                 tickSum[0] += value;
             }
         });
-        require(tickSum[0] == 101L, "required long column pipeline");
+        require(tickSum[0] == 101L, "required long column traversal");
         final int[] energySum = new int[] {0};
         table.energyValues().forEachInt(value -> energySum[0] += value);
         require(energySum[0] == 8, "optional pipeline visits only present values");
@@ -252,7 +289,8 @@ public final class DenseConsumer {
                 });
             }
         });
-        require(table.size() == 4, "column pipeline callback cannot structurally mutate");
+        require(table.size() == 4,
+                "column traversal callback cannot structurally mutate");
 
         FloatColumnView xView = table.xColumn();
         try {
@@ -267,6 +305,9 @@ public final class DenseConsumer {
                     table.clear();
                 }
             });
+            ParticleScan blockedMutation = table.filter(all);
+            expectCode("view_pinned", () -> blockedMutation.remove());
+            expectCode("pipeline_consumed", () -> blockedMutation.count());
         } finally {
             xView.close();
         }
@@ -304,9 +345,9 @@ public final class DenseConsumer {
         expectCode("callback_failed", new Action() {
             @Override
             public void run() {
-                table.filter(new ParticleRows.Predicate() {
+                table.filter(new ParticleScan.Predicate() {
                     @Override
-                    public boolean test(ParticleRow row) {
+                    public boolean test(ParticleCursor row) {
                         if (row.id() == 3) {
                             throw new IllegalStateException("expected remove predicate failure");
                         }
@@ -319,9 +360,9 @@ public final class DenseConsumer {
                         && table.structuralEpoch() == epochBeforeFailedRemove,
                 "failed remove preserves visible table facts");
 
-        RemoveResult removed = table.filter(new ParticleRows.Predicate() {
+        RemoveResult removed = table.filter(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() == 3;
             }
         }).remove();
@@ -339,9 +380,9 @@ public final class DenseConsumer {
         require(indexSnapshot.indexAt(0) == 2,
                 "stale IndexSnapshot remains a raw detached sequence, not an automatic live guard");
         final long epochBeforeEmptyRemove = table.structuralEpoch();
-        RemoveResult emptyRemove = table.filter(new ParticleRows.Predicate() {
+        RemoveResult emptyRemove = table.filter(new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return false;
             }
         }).remove();
@@ -356,7 +397,7 @@ public final class DenseConsumer {
         table.addBatch(batch);
         table.clear();
         require(table.size() == 0, "clear");
-        final IndexSnapshot releaseSnapshot = table.rowIndexes();
+        final IndexSnapshot releaseSnapshot = table.indexSnapshot();
         IntColumnView releasedView = table.idColumn();
         table.release();
         table.release();
@@ -451,7 +492,7 @@ public final class DenseConsumer {
         require(booleanValue[0] && byteValue[0] == 1 && shortValue[0] == 2
                         && intValue[0] == 3 && longValue[0] == 4L
                         && floatValue[0] == 5.0f && doubleValue[0] == 6.0d,
-                "all required primitive column pipelines");
+                "all required primitive column traversals");
         final int[] optionalDoubleCallbacks = new int[] {0};
         table.optionalDoubleValues().forEachDouble(value -> optionalDoubleCallbacks[0]++);
         require(optionalDoubleCallbacks[0] == 0, "absent optional pipeline has no payload callback");
@@ -513,14 +554,14 @@ public final class DenseConsumer {
             for (int round = 0; round < 5; round++) {
                 final int updateDivisor = 2 + random.nextInt(4);
                 final int updateRemainder = random.nextInt(updateDivisor);
-                table.filter(new ParticleRows.Predicate() {
+                table.filter(new ParticleScan.Predicate() {
                     @Override
-                    public boolean test(ParticleRow row) {
+                    public boolean test(ParticleCursor row) {
                         return row.id() % updateDivisor == updateRemainder;
                     }
-                }).update(new ParticleRows.Updater() {
+                }).update(new ParticleScan.Updater() {
                     @Override
-                    public void update(ParticleMutableRow row) {
+                    public void update(ParticleUpdateCursor row) {
                         row.setX(row.x() + 0.25f);
                         if ((row.id() & 1) == 0) {
                             row.clearEnergy();
@@ -537,17 +578,17 @@ public final class DenseConsumer {
                 }
                 final int removeDivisor = 2 + random.nextInt(4);
                 final int removeRemainder = random.nextInt(removeDivisor);
-                table.filter(new ParticleRows.Predicate() {
+                table.filter(new ParticleScan.Predicate() {
                     @Override
-                    public boolean test(ParticleRow row) {
+                    public boolean test(ParticleCursor row) {
                         return row.id() % removeDivisor == removeRemainder;
                     }
                 }).remove();
                 swapRemoveOracle(oracle, removeDivisor, removeRemainder);
                 assertParticles(oracle, table.materialize(), "differential dense facts");
-                List<Particle> descending = table.sorted(new ParticleRows.Comparator() {
+                List<Particle> descending = table.sorted(new ParticleScan.Comparator() {
                     @Override
-                    public int compare(ParticleRow left, ParticleRow right) {
+                    public int compare(ParticleCursor left, ParticleCursor right) {
                         return right.id() - left.id();
                     }
                 }).fetchAll();
@@ -564,7 +605,7 @@ public final class DenseConsumer {
         }
     }
 
-    private static void testColumnPipelineAllocationShape() {
+    private static void testColumnTraversalAllocationShape() {
         final FloatConsumer sink = new FloatConsumer() {
             @Override
             public void accept(float value) {
@@ -575,11 +616,9 @@ public final class DenseConsumer {
         };
         ParticleTable small = allocationTable(32);
         ParticleTable large = allocationTable(512);
-        FloatColumnPipeline smallPipeline = small.xValues();
-        FloatColumnPipeline largePipeline = large.xValues();
         for (int round = 0; round < 1000; round++) {
-            smallPipeline.forEachFloat(sink);
-            largePipeline.forEachFloat(sink);
+            small.xValues().forEachFloat(sink);
+            large.xValues().forEachFloat(sink);
         }
         java.lang.management.ThreadMXBean management = ManagementFactory.getThreadMXBean();
         require(management instanceof com.sun.management.ThreadMXBean,
@@ -589,10 +628,10 @@ public final class DenseConsumer {
             allocation.setThreadAllocatedMemoryEnabled(true);
         }
         long threadId = Thread.currentThread().getId();
-        long smallBytes = allocatedBytes(allocation, threadId, smallPipeline, sink);
-        long largeBytes = allocatedBytes(allocation, threadId, largePipeline, sink);
+        long smallBytes = allocatedTraversalBytes(allocation, threadId, small, sink);
+        long largeBytes = allocatedTraversalBytes(allocation, threadId, large, sink);
         require(largeBytes <= smallBytes + 16384L,
-                "column pipeline allocation must not scale with rows small="
+                "column traversal allocation must not scale with rows small="
                         + smallBytes + " large=" + largeBytes);
         small.release();
         large.release();
@@ -656,12 +695,12 @@ public final class DenseConsumer {
         }
     }
 
-    private static void testRowPipelineAllocationShape() {
+    private static void testCandidateScanAllocationShape() {
         ParticleTable small = allocationTable(32);
         ParticleTable large = allocationTable(512);
-        ParticleRows.Predicate predicate = new ParticleRows.Predicate() {
+        ParticleScan.Predicate predicate = new ParticleScan.Predicate() {
             @Override
-            public boolean test(ParticleRow row) {
+            public boolean test(ParticleCursor row) {
                 return row.id() >= 0;
             }
         };
@@ -671,12 +710,12 @@ public final class DenseConsumer {
         }
         com.sun.management.ThreadMXBean allocation = allocationCounter();
         long threadId = Thread.currentThread().getId();
-        long smallBytes = allocatedRowPipelineBytes(
+        long smallBytes = allocatedCandidateScanBytes(
                 allocation, threadId, small, predicate);
-        long largeBytes = allocatedRowPipelineBytes(
+        long largeBytes = allocatedCandidateScanBytes(
                 allocation, threadId, large, predicate);
         require(largeBytes <= smallBytes + 16384L,
-                "row pipeline allocation must not scale with rows small="
+                "candidate scan allocation must not scale with rows small="
                         + smallBytes + " large=" + largeBytes);
         small.release();
         large.release();
@@ -717,11 +756,11 @@ public final class DenseConsumer {
         return allocation.getThreadAllocatedBytes(threadId) - before;
     }
 
-    private static long allocatedRowPipelineBytes(
+    private static long allocatedCandidateScanBytes(
             com.sun.management.ThreadMXBean allocation,
             long threadId,
             ParticleTable table,
-            ParticleRows.Predicate predicate) {
+            ParticleScan.Predicate predicate) {
         long before = allocation.getThreadAllocatedBytes(threadId);
         long checksum = 0L;
         for (int round = 0; round < 300; round++) {
@@ -741,16 +780,26 @@ public final class DenseConsumer {
         return table;
     }
 
-    private static long allocatedBytes(
+    private static long allocatedTraversalBytes(
             com.sun.management.ThreadMXBean allocation,
             long threadId,
-            FloatColumnPipeline pipeline,
+            ParticleTable table,
             FloatConsumer sink) {
         long before = allocation.getThreadAllocatedBytes(threadId);
         for (int round = 0; round < 300; round++) {
-            pipeline.forEachFloat(sink);
+            table.xValues().forEachFloat(sink);
         }
         return allocation.getThreadAllocatedBytes(threadId) - before;
+    }
+
+    private static void requireStageCount(
+            ParticleTable table, ParticleScan.Predicate predicate, int stages) {
+        ParticleScan scan = table.filter(predicate);
+        for (int stage = 1; stage < stages; stage++) {
+            scan = scan.skip(0);
+        }
+        require(scan.count() == table.size(),
+                "candidate scan stage count " + stages);
     }
 
     private static Particle copy(Particle source) {
@@ -809,6 +858,47 @@ public final class DenseConsumer {
             require(code.equals(failure.code()),
                     "failure code expected=" + code + " actual=" + failure.code());
         }
+    }
+
+    private static void expectIllegalArgument(Action action) {
+        try {
+            action.run();
+            throw new AssertionError("expected IllegalArgumentException");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    private static void assertConsumedPlanCleared(ParticleScan scan) {
+        try {
+            java.lang.reflect.Field plan = scan.getClass().getDeclaredField("plan");
+            plan.setAccessible(true);
+            Object owner = plan.get(scan);
+            java.lang.reflect.Field table = declaredField(owner.getClass(), "table");
+            java.lang.reflect.Field inline = declaredField(owner.getClass(), "inline");
+            java.lang.reflect.Field overflow = declaredField(owner.getClass(), "overflow");
+            table.setAccessible(true);
+            inline.setAccessible(true);
+            overflow.setAccessible(true);
+            require(table.get(owner) == null,
+                    "consumed Scan clears its source-plan table reference");
+            require(inline.get(owner) == null && overflow.get(owner) == null,
+                    "terminal failure clears stage callback storage");
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError("cannot inspect consumed Scan plan", failure);
+        }
+    }
+
+    private static java.lang.reflect.Field declaredField(Class<?> type, String name)
+            throws NoSuchFieldException {
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                return current.getDeclaredField(name);
+            } catch (NoSuchFieldException ignored) {
+                // Search the generated typed source plan and its shared plan base.
+            }
+        }
+        throw new NoSuchFieldException(name);
     }
 
     private static void require(boolean condition, String message) {

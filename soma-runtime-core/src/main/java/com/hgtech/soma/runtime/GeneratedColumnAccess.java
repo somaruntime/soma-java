@@ -20,102 +20,119 @@ public final class GeneratedColumnAccess {
     private GeneratedColumnAccess() {
     }
 
-    public static BooleanColumnPipeline booleanPipeline(
-            Object state, Object column, Object presence, String table, String field) {
-        return new BooleanColumnPipeline(state(state), column(column, BooleanColumn.class),
-                presence(presence), table, field);
+    public static BooleanColumnTraversal booleanTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation) {
+        return new BooleanColumnTraversal(state(state), column(column, BooleanColumn.class),
+                presence(presence), table, operation, callbackOperation);
     }
 
-    public static ByteColumnPipeline bytePipeline(
-            Object state, Object column, Object presence, String table, String field) {
-        return new ByteColumnPipeline(state(state), column(column, ByteColumn.class),
-                presence(presence), table, field);
+    public static ByteColumnTraversal byteTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation) {
+        return new ByteColumnTraversal(state(state), column(column, ByteColumn.class),
+                presence(presence), table, operation, callbackOperation);
     }
 
-    public static ShortColumnPipeline shortPipeline(
-            Object state, Object column, Object presence, String table, String field) {
-        return new ShortColumnPipeline(state(state), column(column, ShortColumn.class),
-                presence(presence), table, field);
+    public static ShortColumnTraversal shortTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation) {
+        return new ShortColumnTraversal(state(state), column(column, ShortColumn.class),
+                presence(presence), table, operation, callbackOperation);
     }
 
-    public static IntColumnPipeline intPipeline(
-            Object state, Object column, Object presence, String table, String field) {
-        return new IntColumnPipeline(state(state), column(column, IntColumn.class),
-                presence(presence), table, field);
+    public static IntColumnTraversal intTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation) {
+        return new IntColumnTraversal(state(state), column(column, IntColumn.class),
+                presence(presence), table, operation, callbackOperation);
     }
 
-    public static LongColumnPipeline longPipeline(
-            Object state, Object column, Object presence, String table, String field) {
-        return new LongColumnPipeline(state(state), column(column, LongColumn.class),
-                presence(presence), table, field);
+    public static LongColumnTraversal longTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation) {
+        return new LongColumnTraversal(state(state), column(column, LongColumn.class),
+                presence(presence), table, operation, callbackOperation);
     }
 
-    public static FloatColumnPipeline floatPipeline(
-            Object state, Object column, Object presence, String table, String field) {
-        return new FloatColumnPipeline(state(state), column(column, FloatColumn.class),
-                presence(presence), table, field);
+    public static FloatColumnTraversal floatTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation) {
+        return new FloatColumnTraversal(state(state), column(column, FloatColumn.class),
+                presence(presence), table, operation, callbackOperation);
     }
 
-    public static DoubleColumnPipeline doublePipeline(
-            Object state, Object column, Object presence, String table, String field) {
-        return new DoubleColumnPipeline(state(state), column(column, DoubleColumn.class),
-                presence(presence), table, field);
+    public static DoubleColumnTraversal doubleTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation) {
+        return new DoubleColumnTraversal(state(state), column(column, DoubleColumn.class),
+                presence(presence), table, operation, callbackOperation);
     }
 
-    public static <E extends Enum<E>> EnumColumnPipeline<E> enumPipeline(
-            Object state, Object column, Object presence, String table, String field,
+    public static <E extends Enum<E>> EnumColumnTraversal<E> enumTraversal(
+            Object state, Object column, Object presence, String table,
+            String operation, String callbackOperation,
             E[] members) {
-        return new EnumColumnPipeline<E>(state(state), column(column, IntColumn.class),
-                presence(presence), table, field, requiredMembers(members));
+        return new EnumColumnTraversal<E>(state(state), column(column, IntColumn.class),
+                presence(presence), table, operation, callbackOperation, requiredMembers(members));
     }
 
     public static BooleanColumnView booleanView(
-            Object state, Object column, Object presence, String table, String field) {
+            Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation) {
         return new BooleanColumnView(state(state), column(column, BooleanColumn.class),
-                presence(presence), table, field);
+                presence(presence), table, field, columnOperation, presenceOperation, valueOperation);
     }
 
     public static ByteColumnView byteView(
-            Object state, Object column, Object presence, String table, String field) {
+            Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation) {
         return new ByteColumnView(state(state), column(column, ByteColumn.class),
-                presence(presence), table, field);
+                presence(presence), table, field, columnOperation, presenceOperation, valueOperation);
     }
 
     public static ShortColumnView shortView(
-            Object state, Object column, Object presence, String table, String field) {
+            Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation) {
         return new ShortColumnView(state(state), column(column, ShortColumn.class),
-                presence(presence), table, field);
+                presence(presence), table, field, columnOperation, presenceOperation, valueOperation);
     }
 
     public static IntColumnView intView(
-            Object state, Object column, Object presence, String table, String field) {
+            Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation) {
         return new IntColumnView(state(state), column(column, IntColumn.class),
-                presence(presence), table, field);
+                presence(presence), table, field, columnOperation, presenceOperation, valueOperation);
     }
 
     public static LongColumnView longView(
-            Object state, Object column, Object presence, String table, String field) {
+            Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation) {
         return new LongColumnView(state(state), column(column, LongColumn.class),
-                presence(presence), table, field);
+                presence(presence), table, field, columnOperation, presenceOperation, valueOperation);
     }
 
     public static FloatColumnView floatView(
-            Object state, Object column, Object presence, String table, String field) {
+            Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation) {
         return new FloatColumnView(state(state), column(column, FloatColumn.class),
-                presence(presence), table, field);
+                presence(presence), table, field, columnOperation, presenceOperation, valueOperation);
     }
 
     public static DoubleColumnView doubleView(
-            Object state, Object column, Object presence, String table, String field) {
+            Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation) {
         return new DoubleColumnView(state(state), column(column, DoubleColumn.class),
-                presence(presence), table, field);
+                presence(presence), table, field, columnOperation, presenceOperation, valueOperation);
     }
 
     public static <E extends Enum<E>> EnumColumnView<E> enumView(
             Object state, Object column, Object presence, String table, String field,
+            String columnOperation, String presenceOperation, String valueOperation,
             E[] members) {
         return new EnumColumnView<E>(state(state), column(column, IntColumn.class),
-                presence(presence), table, field, requiredMembers(members));
+                presence(presence), table, field, columnOperation, presenceOperation,
+                valueOperation, requiredMembers(members));
     }
 
     private static DenseTableState state(Object value) {

@@ -1,13 +1,13 @@
 package com.hgtech.soma.runtime;
 
+import com.hgtech.soma.runtime.generated.ByteColumn;
 import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
-import com.hgtech.soma.runtime.generated.ShortColumn;
 
-public final class ShortColumnPipeline extends AbstractColumnPipeline {
-    private final ShortColumn column;
-    ShortColumnPipeline(DenseTableState state, ShortColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
-    public void forEachShort(ShortConsumer consumer) {
+public final class ByteColumnTraversal extends AbstractColumnTraversal {
+    private final ByteColumn column;
+    ByteColumnTraversal(DenseTableState state, ByteColumn column, PresenceBitmap presence, String table, String operation, String callbackOperation) { super(state, column, presence, table, operation, callbackOperation); this.column = column; }
+    public void forEachByte(ByteConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {
             int limit = size();

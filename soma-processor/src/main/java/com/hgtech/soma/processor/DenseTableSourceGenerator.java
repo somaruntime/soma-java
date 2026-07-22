@@ -21,13 +21,13 @@ final class DenseTableSourceGenerator {
 
     List<GeneratedSourceOutput> render(TableSpec table) {
         List<GeneratedSourceOutput> result = new ArrayList<GeneratedSourceOutput>();
-        add(result, table.name("Row"), rowSource(table), table.origin);
-        add(result, table.name("MutableRow"), mutableRowSource(table), table.origin);
+        add(result, table.name("Cursor"), cursorSource(table), table.origin);
+        add(result, table.name("UpdateCursor"), updateCursorSource(table), table.origin);
         add(result, table.name("Batch"), batchSource(table), table.origin);
         add(result, table.name("Mutator"), mutatorSource(table), table.origin);
-        add(result, table.name("Rows"), rowsSource(table), table.origin);
+        add(result, table.name("Scan"), scanSource(table), table.origin);
         if (table.keyed()) {
-            add(result, table.name("Keys"), keysSource(table), table.origin);
+            add(result, table.name("KeyTraversal"), keyTraversalSource(table), table.origin);
         }
         add(result, table.name("Table"), tableSource(table), table.origin);
         return result;
@@ -47,9 +47,9 @@ final class DenseTableSourceGenerator {
                 + generatedPackage + ";\n\n";
     }
 
-    private String rowSource(TableSpec table) {
+    private String cursorSource(TableSpec table) {
         SourceBuilder out = new SourceBuilder(header());
-        out.append("public interface ").append(table.name("Row")).append(" {\n");
+        out.append("public interface ").append(table.name("Cursor")).append(" {\n");
         for (FieldSpec field : table.fields) {
             if (field.optional) {
                 out.append("  boolean ").append(field.javaName).append("Present();\n")
@@ -72,10 +72,10 @@ final class DenseTableSourceGenerator {
         return out.append("}\n").toString();
     }
 
-    private String mutableRowSource(TableSpec table) {
+    private String updateCursorSource(TableSpec table) {
         SourceBuilder out = new SourceBuilder(header());
-        out.append("public interface ").append(table.name("MutableRow"))
-                .append(" extends ").append(table.name("Row")).append(" {\n");
+        out.append("public interface ").append(table.name("UpdateCursor"))
+                .append(" extends ").append(table.name("Cursor")).append(" {\n");
         for (FieldSpec field : table.fields) {
             if (field.key) {
                 continue;
@@ -538,7 +538,7 @@ final class DenseTableSourceGenerator {
         out.append("import com.hgtech.soma.runtime.generated.RuntimeFailures;\n\n")
                 .append("public final class ").append(name).append(" {\n")
                 .append("  private final ").append(table.name("Table")).append(" table;\n")
-                .append("  private final int rowIndex;\n  private final long epoch;\n  private boolean consumed;\n");
+                .append("  private final int index;\n  private final long epoch;\n  private boolean consumed;\n");
         for (FieldSpec field : table.fields) {
             if (field.key) {
                 continue;
@@ -549,21 +549,21 @@ final class DenseTableSourceGenerator {
             if (field.optional) out.append("  private boolean ").append(field.javaName).append("Present;\n");
         }
         out.append("\n  ").append(name).append('(').append(table.name("Table"))
-                .append(" table, int rowIndex, long epoch) {\n    this.table = table; this.rowIndex = rowIndex; this.epoch = epoch;\n");
+                .append(" table, int index, long epoch) {\n    this.table = table; this.index = index; this.epoch = epoch;\n");
         for (FieldSpec field : table.fields) {
             if (field.key) {
                 continue;
             }
             out.append("    this.").append(field.javaName).append("Value = ");
             if (field.optional) {
-                out.append("table.").append(field.javaName).append("Present(rowIndex)?table.")
-                        .append(field.javaName).append("Value(rowIndex):")
+                out.append("table.").append(field.javaName).append("Present(index)?table.")
+                        .append(field.javaName).append("Value(index):")
                         .append(field.zero());
             } else {
-                out.append("table.").append(field.javaName).append("Value(rowIndex)");
+                out.append("table.").append(field.javaName).append("Value(index)");
             }
             out.append(";\n");
-            if (field.optional) out.append("    this.").append(field.javaName).append("Present = table.").append(field.javaName).append("Present(rowIndex);\n");
+            if (field.optional) out.append("    this.").append(field.javaName).append("Present = table.").append(field.javaName).append("Present(index);\n");
         }
         out.append("  }\n\n");
         for (FieldSpec field : table.fields) {
@@ -590,14 +590,14 @@ final class DenseTableSourceGenerator {
                     .append(field.javaName).append("Touched; }\n");
             if (field.optional) out.append("  boolean ").append(field.javaName).append("Present() { return ").append(field.javaName).append("Present; }\n");
         }
-        return out.append("\n  public void commit() { check(); consumed = true; table.commitMutator(rowIndex, epoch, this); }\n")
+        return out.append("\n  public void commit() { check(); consumed = true; table.commitMutator(index, epoch, this); }\n")
                 .append("  private void check() { if (consumed) throw RuntimeFailures.mutationConsumed(")
                 .append(q(table.logicalName)).append(", \"mutator\"); }\n}\n").toString();
     }
 
-    private String keysSource(TableSpec table) {
+    private String keyTraversalSource(TableSpec table) {
         FieldSpec key = table.keyField();
-        String name = table.name("Keys");
+        String name = table.name("KeyTraversal");
         String tableName = table.name("Table");
         SourceBuilder out = new SourceBuilder(header());
         out.append("import com.hgtech.soma.runtime.MaterializationBudget;\n")
@@ -606,78 +606,97 @@ final class DenseTableSourceGenerator {
                 .append("import java.util.ArrayList;\nimport java.util.List;\nimport java.util.Optional;\n")
                 .append("import java.util.function.Consumer;\n\n")
                 .append("public final class ").append(name).append(" {\n")
-                .append("  private final ").append(tableName).append(" table;\n")
+                .append("  private final ").append(tableName).append(" table;private boolean consumed;\n")
                 .append("  ").append(name).append('(').append(tableName).append(" table){this.table=table;}\n")
-                .append("  public void forEach(Consumer<").append(key.boxed).append("> consumer){if(consumer==null)throw new NullPointerException(\"consumer\");table.begin(\"keys.forEach\");long scanned=0L;try{int size=table.size();for(int row=0;row<size;row++){scanned++;table.beginCallback(\"keys.forEach.consumer\");try{consumer.accept(").append(key.boxValue("table." + key.javaName + "Value(row)")).append(");}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"keys.forEach\",\"consumer\",callback);}finally{table.endCallback(\"keys.forEach.consumer\");}}table.endSuccess(\"keys.forEach\",scanned,scanned,0L);}catch(SomaRuntimeException failure){table.endFailure(\"keys.forEach\",scanned,scanned,failure.code());throw failure;}catch(Error failure){table.endFailure(\"keys.forEach\",scanned,scanned,\"callback_failed\");throw failure;}}\n")
-                .append("  public List<").append(key.boxed).append("> fetchAll(){return fetchAll(table.runtimePlan().defaultMaterializationBudget());}\n")
-                .append("  public List<").append(key.boxed).append("> fetchAll(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");table.begin(\"keys.fetchAll\");try{List<").append(key.boxed).append("> result=table.materializeKeys(budget,\"keys.fetchAll\",true);long count=result.size();table.endSuccess(\"keys.fetchAll\",count,count,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.fetchAll\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"keys.fetchAll\");throw failure;}catch(Error failure){table.abort(\"keys.fetchAll\");throw failure;}}\n")
-                .append("  public Optional<").append(key.boxed).append("> findFirst(){return findFirst(table.runtimePlan().defaultMaterializationBudget());}\n")
-                .append("  public Optional<").append(key.boxed).append("> findFirst(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");table.begin(\"keys.findFirst\");try{Optional<").append(key.boxed).append("> result=table.materializeOptionalKey(budget,\"keys.findFirst\",true);long count=result.isPresent()?1L:0L;table.endSuccess(\"keys.findFirst\",count,count,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.findFirst\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"keys.findFirst\");throw failure;}catch(Error failure){table.abort(\"keys.findFirst\");throw failure;}}\n")
-                .append("  public ").append(key.boxed).append(" firstOrThrow(){return firstOrThrow(table.runtimePlan().defaultMaterializationBudget());}\n")
-                .append("  public ").append(key.boxed).append(" firstOrThrow(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");table.begin(\"keys.firstOrThrow\");try{").append(key.boxed).append(" result=table.materializeRequiredKey(budget,\"keys.firstOrThrow\",true);table.endSuccess(\"keys.firstOrThrow\",1L,1L,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.firstOrThrow\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"keys.firstOrThrow\");throw failure;}catch(Error failure){table.abort(\"keys.firstOrThrow\");throw failure;}}\n")
+                .append("  public void forEach(Consumer<").append(key.boxed).append("> consumer){if(consumer==null)throw new NullPointerException(\"consumer\");start(\"keys.forEach\");long scanned=0L;try{int size=table.size();for(int row=0;row<size;row++){scanned++;table.beginCallback(\"keys.forEach.consumer\");try{consumer.accept(").append(key.boxValue("table." + key.javaName + "Value(row)")).append(");}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"keys.forEach\",\"consumer\",callback);}finally{table.endCallback(\"keys.forEach.consumer\");}}table.endSuccess(\"keys.forEach\",scanned,scanned,0L);}catch(SomaRuntimeException failure){table.endFailure(\"keys.forEach\",scanned,scanned,failure.code());throw failure;}catch(Error failure){table.endFailure(\"keys.forEach\",scanned,scanned,\"callback_failed\");throw failure;}}\n")
+                .append("  public List<").append(key.boxed).append("> fetchAll(){start(\"keys.fetchAll\");return fetchAllStarted(null);}\n")
+                .append("  public List<").append(key.boxed).append("> fetchAll(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"keys.fetchAll\");return fetchAllStarted(budget);}\n")
+                .append("  private List<").append(key.boxed).append("> fetchAllStarted(MaterializationBudget budget){try{budget=materializationBudget(budget);List<").append(key.boxed).append("> result=table.materializeKeys(budget,\"keys.fetchAll\",true);long count=result.size();table.endSuccess(\"keys.fetchAll\",count,count,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.fetchAll\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"keys.fetchAll\");throw failure;}catch(Error failure){table.abort(\"keys.fetchAll\");throw failure;}}\n")
+                .append("  public Optional<").append(key.boxed).append("> findFirst(){start(\"keys.findFirst\");return findFirstStarted(null);}\n")
+                .append("  public Optional<").append(key.boxed).append("> findFirst(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"keys.findFirst\");return findFirstStarted(budget);}\n")
+                .append("  private Optional<").append(key.boxed).append("> findFirstStarted(MaterializationBudget budget){try{budget=materializationBudget(budget);Optional<").append(key.boxed).append("> result=table.materializeOptionalKey(budget,\"keys.findFirst\",true);long count=result.isPresent()?1L:0L;table.endSuccess(\"keys.findFirst\",count,count,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.findFirst\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"keys.findFirst\");throw failure;}catch(Error failure){table.abort(\"keys.findFirst\");throw failure;}}\n")
+                .append("  public ").append(key.boxed).append(" firstOrThrow(){start(\"keys.firstOrThrow\");return firstOrThrowStarted(null);}\n")
+                .append("  public ").append(key.boxed).append(" firstOrThrow(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"keys.firstOrThrow\");return firstOrThrowStarted(budget);}\n")
+                .append("  private ").append(key.boxed).append(" firstOrThrowStarted(MaterializationBudget budget){try{budget=materializationBudget(budget);").append(key.boxed).append(" result=table.materializeRequiredKey(budget,\"keys.firstOrThrow\",true);table.endSuccess(\"keys.firstOrThrow\",1L,1L,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"keys.firstOrThrow\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"keys.firstOrThrow\");throw failure;}catch(Error failure){table.abort(\"keys.firstOrThrow\");throw failure;}}\n")
+                .append("  private MaterializationBudget materializationBudget(MaterializationBudget budget){return budget==null?table.runtimePlan().defaultMaterializationBudget():budget;}\n")
+                .append("  private void start(String operation){check(operation);consumed=true;table.begin(operation);}\n")
+                .append("  private void check(String operation){if(consumed)throw RuntimeFailures.traversalConsumed(").append(q(table.logicalName)).append(",operation);}\n")
                 .append("}\n");
         return out.toString();
     }
 
-    private String rowsSource(TableSpec table) {
-        String rows = table.name("Rows");
-        String row = table.name("Row");
-        String mutable = table.name("MutableRow");
+    private String scanSource(TableSpec table) {
+        String rows = table.name("Scan");
+        String row = table.name("Cursor");
+        String mutable = table.name("UpdateCursor");
         SourceBuilder out = new SourceBuilder(header());
         out.append("import com.hgtech.soma.runtime.RemoveResult;\n")
                 .append("import com.hgtech.soma.runtime.IndexSnapshot;\n")
                 .append("import com.hgtech.soma.runtime.MaterializationBudget;\n")
                 .append("import com.hgtech.soma.runtime.SomaRuntimeException;\n")
                 .append("import com.hgtech.soma.runtime.UpdateResult;\n")
+                .append("import com.hgtech.soma.runtime.generated.GeneratedScanEvaluation;\n")
+                .append("import com.hgtech.soma.runtime.generated.GeneratedScanPlan;\n")
                 .append("import com.hgtech.soma.runtime.generated.RuntimeFailures;\n")
-                .append("import java.util.Arrays;\nimport java.util.List;\nimport java.util.Optional;\n\n")
+                .append("import java.util.List;\nimport java.util.Optional;\n\n")
                 .append("public final class ").append(rows).append(" {\n")
                 .append("  private static final byte FILTER=1,SKIP=2,LIMIT=3,SORT=4;\n")
-                .append("  private static final byte[] EMPTY_KINDS=new byte[0];private static final Predicate[] EMPTY_PREDICATES=new Predicate[0];private static final Comparator[] EMPTY_COMPARATORS=new Comparator[0];private static final long[] EMPTY_COUNTS=new long[0];\n")
-                .append("  private final ").append(table.name("Table")).append(" table;private final Source source;\n")
-                .append("  private final byte[] kinds;private final Predicate[] predicates;private final Comparator[] comparators;private final long[] counts,seen;private final int stageCount;private boolean consumed;private long attemptedScanned,attemptedMatched,selectionScanned;private int[] selectionRows;private int selectionLength;\n")
-                .append("  ").append(rows).append('(').append(table.name("Table")).append(" table){this(table,null,EMPTY_KINDS,EMPTY_PREDICATES,EMPTY_COMPARATORS,EMPTY_COUNTS,EMPTY_COUNTS,0);}\n")
-                .append("  ").append(rows).append('(').append(table.name("Table")).append(" table,Source source){this(table,source,EMPTY_KINDS,EMPTY_PREDICATES,EMPTY_COMPARATORS,EMPTY_COUNTS,EMPTY_COUNTS,0);}\n")
-                .append("  private ").append(rows).append('(').append(table.name("Table")).append(" table,Source source,byte[] kinds,Predicate[] predicates,Comparator[] comparators,long[] counts,long[] seen,int stageCount){this.table=table;this.source=source;this.kinds=kinds;this.predicates=predicates;this.comparators=comparators;this.counts=counts;this.seen=seen;this.stageCount=stageCount;}\n")
+                .append("  private final Source plan;private final int generation;\n")
+                .append("  ").append(rows).append("(Source plan){this(plan,0);}\n")
+                .append("  private ").append(rows).append("(Source plan,int generation){this.plan=plan;this.generation=generation;}\n")
+                .append("  private static ").append(rows).append(" packed(").append(table.name("Table")).append(" table,byte kind,Object callback,long argument){Source plan=new Source(table,").append(q(table.logicalName)).append(");plan.append(kind,callback,argument,1);return new ").append(rows).append("(plan,1);}\n")
+                .append("  static ").append(rows).append(" packedFilter(").append(table.name("Table")).append(" table,Predicate value){if(value==null)throw new NullPointerException(\"predicate\");return packed(table,FILTER,value,0L);}\n")
+                .append("  static ").append(rows).append(" packedSkip(").append(table.name("Table")).append(" table,long value){if(value<0L)throw new IllegalArgumentException(\"count must be non-negative\");return packed(table,SKIP,null,value);}\n")
+                .append("  static ").append(rows).append(" packedLimit(").append(table.name("Table")).append(" table,long value){if(value<0L)throw new IllegalArgumentException(\"count must be non-negative\");return packed(table,LIMIT,null,value);}\n")
+                .append("  static ").append(rows).append(" packedSorted(").append(table.name("Table")).append(" table,Comparator value){if(value==null)throw new NullPointerException(\"comparator\");return packed(table,SORT,value,0L);}\n");
+        out
                 .append("  public ").append(rows).append(" filter(Predicate value){if(value==null)throw new NullPointerException(\"predicate\");return append(FILTER,value,null,0L);}\n")
                 .append("  public ").append(rows).append(" skip(long value){if(value<0L)throw new IllegalArgumentException(\"count must be non-negative\");return append(SKIP,null,null,value);}\n")
                 .append("  public ").append(rows).append(" limit(long value){if(value<0L)throw new IllegalArgumentException(\"count must be non-negative\");return append(LIMIT,null,null,value);}\n")
                 .append("  public ").append(rows).append(" sorted(Comparator value){if(value==null)throw new NullPointerException(\"comparator\");return append(SORT,null,value,0L);}\n")
-                .append("  private ").append(rows).append(" append(byte kind,Predicate predicate,Comparator comparator,long count){check(\"intermediate\");int n=stageCount;byte[] nk=kinds;Predicate[] np=predicates;Comparator[] nc=comparators;long[] nn=counts,ns=seen;if(n==kinds.length){int capacity=n==0?4:n<=Integer.MAX_VALUE/2?n*2:Integer.MAX_VALUE;if(capacity<=n)throw new OutOfMemoryError(\"pipeline stage capacity\");nk=Arrays.copyOf(kinds,capacity);np=Arrays.copyOf(predicates,capacity);nc=Arrays.copyOf(comparators,capacity);nn=Arrays.copyOf(counts,capacity);ns=Arrays.copyOf(seen,capacity);}").append(rows).append(" next=new ").append(rows).append("(table,source,nk,np,nc,nn,ns,n+1);nk[n]=kind;np[n]=predicate;nc[n]=comparator;nn[n]=count;consumed=true;return next;}\n\n")
-                .append("  public long count(){start(\"rows.count\");long scanned=0L,reached=0L;try{if(!hasSort()){Cursor c=hasFilter()?new Cursor(table):null;int initial=source==null?table.size():source.size();resetSeen();for(int position=0;position<initial&&!limitReached(seen,0,stageCount);position++){int rowIndex=source==null?position:source.rowAt(position);scanned++;if(matches(rowIndex,c,seen,0,stageCount))reached++;}table.endSuccess(\"rows.count\",scanned,reached,0L);return reached;}select(terminalMaximum());table.endSuccess(\"rows.count\",selectionScanned,selectionLength,0L);return selectionLength;}catch(SomaRuntimeException f){table.endFailure(\"rows.count\",scanned==0L?attemptedScanned:scanned,reached==0L?attemptedMatched:reached,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.count\");throw f;}catch(Error f){table.abort(\"rows.count\");throw f;}}\n")
+                .append("  private ").append(rows).append(" append(byte kind,Predicate predicate,Comparator comparator,long count){check(\"intermediate\");int nextGeneration=generation+1;if(nextGeneration<0)throw new OutOfMemoryError(\"pipeline generation\");").append(rows).append(" next=new ").append(rows).append("(plan,nextGeneration);plan.append(kind,predicate!=null?predicate:comparator,count,nextGeneration);return next;}\n\n")
+                .append("  public long count(){start(\"scan.count\");long scanned=0L,reached=0L;GeneratedScanEvaluation e=null;try{if(plan.stageCount()==0){int cardinality=plan.size();table().endSuccess(\"scan.count\",cardinality,cardinality,0L);return cardinality;}if(!hasSort()){Cursor c=hasFilter()?new Cursor(table()):null;int initial=plan.size();for(int position=0;position<initial&&!limitReached(0,plan.stageCount());position++){int index=plan.rowAt(position);scanned++;if(matches(index,c,0,plan.stageCount()))reached++;}table().endSuccess(\"scan.count\",scanned,reached,0L);return reached;}e=new GeneratedScanEvaluation();select(e,terminalMaximum());table().endSuccess(\"scan.count\",e.selectionScanned,e.length,0L);return e.length;}catch(SomaRuntimeException f){table().endFailure(\"scan.count\",e==null?scanned:e.attemptedScanned,e==null?reached:e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.count\");throw f;}catch(Error f){table().abort(\"scan.count\");throw f;}finally{finish();}}\n")
                 .append("  public boolean anyMatch(Predicate value){return matchTerminal(value,true);}\n")
                 .append("  public boolean noneMatch(Predicate value){return !matchTerminal(value,false);}\n")
-                .append("  private boolean matchTerminal(Predicate value,boolean any){if(value==null)throw new NullPointerException(\"predicate\");String op=any?\"rows.anyMatch\":\"rows.noneMatch\",callback=any?\"rows.anyMatch.predicate\":\"rows.noneMatch.predicate\";start(op);long reached=0L,scanned=0L;try{Cursor c=new Cursor(table);if(!hasSort()){int initial=source==null?table.size():source.size();resetSeen();for(int position=0;position<initial&&!limitReached(seen,0,stageCount);position++){int rowIndex=source==null?position:source.rowAt(position);scanned++;if(matches(rowIndex,c,seen,0,stageCount)){reached++;if(test(value,c,rowIndex,op,callback)){table.endSuccess(op,scanned,reached,0L);return true;}}}table.endSuccess(op,scanned,reached,0L);return false;}select(terminalMaximum());scanned=selectionScanned;for(int i=0;i<selectionLength;i++){reached++;if(test(value,c,selectionRows[i],op,callback)){table.endSuccess(op,scanned,reached,0L);return true;}}table.endSuccess(op,scanned,reached,0L);return false;}catch(SomaRuntimeException f){table.endFailure(op,scanned==0L?attemptedScanned:scanned,reached==0L?attemptedMatched:reached,f.code());throw f;}catch(RuntimeException f){table.abort(op);throw f;}catch(Error f){table.abort(op);throw f;}}\n")
-                .append("  public void forEach(Consumer value){if(value==null)throw new NullPointerException(\"consumer\");start(\"rows.forEach\");long reached=0L,scanned=0L;try{Cursor c=new Cursor(table);if(!hasSort()){int initial=source==null?table.size():source.size();resetSeen();for(int position=0;position<initial&&!limitReached(seen,0,stageCount);position++){int rowIndex=source==null?position:source.rowAt(position);scanned++;if(!matches(rowIndex,c,seen,0,stageCount))continue;reached++;c.open(rowIndex);table.beginCallback(\"rows.forEach.consumer\");try{value.accept(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"rows.forEach\",\"consumer\",callback);}finally{table.endCallback(\"rows.forEach.consumer\");c.close();}}table.endSuccess(\"rows.forEach\",scanned,reached,0L);return;}select(terminalMaximum());scanned=selectionScanned;for(int i=0;i<selectionLength;i++){reached++;c.open(selectionRows[i]);table.beginCallback(\"rows.forEach.consumer\");try{value.accept(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"rows.forEach\",\"consumer\",callback);}finally{table.endCallback(\"rows.forEach.consumer\");c.close();}}table.endSuccess(\"rows.forEach\",scanned,reached,0L);}catch(SomaRuntimeException f){table.endFailure(\"rows.forEach\",scanned==0L?attemptedScanned:scanned,reached==0L?attemptedMatched:reached,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.forEach\");throw f;}catch(Error f){table.abort(\"rows.forEach\");throw f;}}\n")
-                .append("  public Optional<").append(table.carrierType).append("> findFirst(){return findFirst(table.runtimePlan().defaultMaterializationBudget());}\n")
-                .append("  public Optional<").append(table.carrierType).append("> findFirst(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"rows.findFirst\");try{select(1);Optional<").append(table.carrierType).append("> result=table.materializeOptionalRow(selectionLength==0?-1:selectionRows[0],budget,\"rows.findFirst\",true);table.endSuccess(\"rows.findFirst\",selectionScanned,selectionLength,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.findFirst\",attemptedScanned,attemptedMatched,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.findFirst\");throw f;}catch(Error f){table.abort(\"rows.findFirst\");throw f;}}\n")
-                .append("  public ").append(table.carrierType).append(" firstOrThrow(){return firstOrThrow(table.runtimePlan().defaultMaterializationBudget());}\n")
-                .append("  public ").append(table.carrierType).append(" firstOrThrow(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"rows.firstOrThrow\");try{select(1);").append(table.carrierType).append(" result=table.materializeRequiredRow(selectionLength==0?-1:selectionRows[0],budget,\"rows.firstOrThrow\",true,sourcePath());table.endSuccess(\"rows.firstOrThrow\",selectionScanned,1L,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.firstOrThrow\",attemptedScanned,attemptedMatched,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.firstOrThrow\");throw f;}catch(Error f){table.abort(\"rows.firstOrThrow\");throw f;}}\n")
-                .append("  public List<").append(table.carrierType).append("> fetchAll(){return fetchAll(table.runtimePlan().defaultMaterializationBudget());}\n")
-                .append("  public List<").append(table.carrierType).append("> fetchAll(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"rows.fetchAll\");try{select(terminalMaximum());List<").append(table.carrierType).append("> result=table.materializeRows(selectionRows,selectionLength,budget,\"rows.fetchAll\",true);table.endSuccess(\"rows.fetchAll\",selectionScanned,selectionLength,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.fetchAll\",attemptedScanned,attemptedMatched,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.fetchAll\");throw f;}catch(Error f){table.abort(\"rows.fetchAll\");throw f;}}\n")
-                .append("  public IndexSnapshot rowIndexes(){start(\"rows.rowIndexes\");try{select(terminalMaximum());IndexSnapshot result=table.indexSnapshot(selectionRows,selectionLength);table.endSuccess(\"rows.rowIndexes\",selectionScanned,selectionLength,0L);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.rowIndexes\",attemptedScanned,attemptedMatched,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.rowIndexes\");throw f;}catch(Error f){table.abort(\"rows.rowIndexes\");throw f;}}\n")
-                .append("  public UpdateResult update(Updater value){if(value==null)throw new NullPointerException(\"updater\");table.preflightMutation(\"rows.update\");start(\"rows.update\");long reached=0L;boolean selected=false;try{select(terminalMaximum());selected=true;table.prepareUpdateScratch(selectionLength);table.loadUpdateScratch(selectionRows,selectionLength);MutableCursor c=new MutableCursor(table);for(int i=0;i<selectionLength;i++){reached++;c.open(i,selectionRows[i]);table.beginCallback(\"rows.update.updater\");try{value.update(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"rows.update\",\"updater\",callback);}finally{table.endCallback(\"rows.update.updater\");c.close();}}long changed=table.publishUpdate(selectionRows,selectionLength);table.endSuccess(\"rows.update\",selectionScanned,selectionLength,changed);return table.updateResult(selectionScanned,selectionLength,changed);}catch(SomaRuntimeException f){table.endFailure(\"rows.update\",selected?selectionScanned:attemptedScanned,reached==0L&&!selected?attemptedMatched:reached,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.update\");throw f;}catch(Error f){table.abort(\"rows.update\");throw f;}finally{if(selected)table.clearUpdateScratch(selectionLength);}}\n\n")
-                .append("  public RemoveResult remove(){table.preflightMutation(\"rows.remove\");start(\"rows.remove\");boolean selected=false;try{select(terminalMaximum());selected=true;RemoveResult result=table.removeSelected(selectionRows,selectionLength,selectionScanned,\"rows.remove\");table.endSuccess(\"rows.remove\",selectionScanned,selectionLength,selectionLength);return result;}catch(SomaRuntimeException f){table.endFailure(\"rows.remove\",selected?selectionScanned:attemptedScanned,selected?selectionLength:attemptedMatched,f.code());throw f;}catch(RuntimeException f){table.abort(\"rows.remove\");throw f;}catch(Error f){table.abort(\"rows.remove\");throw f;}}\n\n")
-                .append("  private void select(int maximum){attemptedScanned=0L;attemptedMatched=0L;int initial=source==null?table.size():source.size();int firstSort=firstSort();if(maximum==1&&stableArgMinEligible(firstSort)){selectStableArgMin(initial,firstSort);return;}int required=firstSort<stageCount?initial:Math.min(initial,maximum);int[] values=table.preparePipelineScratch(required);resetSeen();Cursor cursor=hasFilter()?new Cursor(table):null;int length=0;long scanned=0L;for(int position=0;position<initial&&!limitReached(seen,0,firstSort);position++){int rowIndex=source==null?position:source.rowAt(position);scanned++;attemptedScanned=scanned;if(matches(rowIndex,cursor,seen,0,firstSort)){values[length++]=rowIndex;attemptedMatched=length;}if(firstSort==stageCount&&length>=maximum)break;}for(int stage=firstSort;stage<stageCount;stage++){if(kinds[stage]==SORT){stableSort(values,length,comparators[stage]);}else if(kinds[stage]==FILTER){int write=0;for(int i=0;i<length;i++)if(test(predicates[stage],cursor,values[i],\"rows.filter\",\"rows.filter.predicate\"))values[write++]=values[i];length=write;attemptedMatched=length;}else if(kinds[stage]==SKIP){int remove=(int)Math.min((long)length,counts[stage]);System.arraycopy(values,remove,values,0,length-remove);length-=remove;attemptedMatched=length;}else{length=(int)Math.min((long)length,counts[stage]);attemptedMatched=length;}}if(length>maximum)length=maximum;attemptedMatched=length;selectionRows=values;selectionLength=length;selectionScanned=scanned;}\n")
-                .append("  private boolean stableArgMinEligible(int firstSort){if(firstSort>=stageCount)return false;int sorts=0;for(int i=0;i<stageCount;i++){if(kinds[i]==SORT)sorts++;if(i>firstSort&&kinds[i]!=LIMIT)return false;}return sorts==1;}\n")
-                .append("  private void selectStableArgMin(int initial,int sortStage){int[] values=table.preparePipelineScratch(Math.min(initial,1));resetSeen();Cursor cursor=hasFilter()?new Cursor(table):null,left=new Cursor(table),right=new Cursor(table);int best=-1;long scanned=0L,candidates=0L;for(int position=0;position<initial&&!limitReached(seen,0,sortStage);position++){int rowIndex=source==null?position:source.rowAt(position);scanned++;attemptedScanned=scanned;if(!matches(rowIndex,cursor,seen,0,sortStage))continue;candidates++;attemptedMatched=candidates;if(best<0||compare(comparators[sortStage],left,right,rowIndex,best)<0)best=rowIndex;}int length=best<0?0:1;for(int stage=sortStage+1;stage<stageCount;stage++)length=(int)Math.min((long)length,counts[stage]);if(length!=0)values[0]=best;attemptedMatched=length;selectionRows=values;selectionLength=length;selectionScanned=scanned;}\n")
-                .append("  private int terminalMaximum(){int first=firstSort(),maximum=Integer.MAX_VALUE;if(first==stageCount){for(int i=0;i<stageCount;i++)if(kinds[i]==LIMIT)maximum=(int)Math.min((long)maximum,counts[i]);return maximum;}for(int i=first+1;i<stageCount;i++){if(kinds[i]!=LIMIT)return Integer.MAX_VALUE;maximum=(int)Math.min((long)maximum,counts[i]);}return maximum;}\n")
-                .append("  private int firstSort(){for(int i=0;i<stageCount;i++)if(kinds[i]==SORT)return i;return stageCount;}\n")
-                .append("  private boolean hasSort(){return firstSort()!=stageCount;}\n")
-                .append("  private boolean hasFilter(){for(int i=0;i<stageCount;i++)if(kinds[i]==FILTER)return true;return false;}\n")
-                .append("  private void resetSeen(){Arrays.fill(seen,0,stageCount,0L);}\n")
-                .append("  private boolean limitReached(long[] seen,int from,int to){for(int i=from;i<to;i++)if(kinds[i]==LIMIT&&seen[i]>=counts[i])return true;return false;}\n")
-                .append("  private boolean matches(int rowIndex,Cursor cursor,long[] seen,int from,int to){for(int i=from;i<to;i++){if(kinds[i]==FILTER){if(!test(predicates[i],cursor,rowIndex,\"rows.filter\",\"rows.filter.predicate\"))return false;}else if(kinds[i]==SKIP){if(seen[i]<counts[i]){seen[i]++;return false;}}else if(kinds[i]==LIMIT){if(seen[i]>=counts[i])return false;seen[i]++;}}return true;}\n")
-                .append("  private boolean test(Predicate value,Cursor cursor,int rowIndex,String operation,String callbackOperation){cursor.open(rowIndex);table.beginCallback(callbackOperation);try{return value.test(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",operation,\"predicate\",callback);}finally{table.endCallback(callbackOperation);cursor.close();}}\n")
-                .append("  private void stableSort(int[] values,int length,Comparator comparator){int[] auxiliary=table.prepareSortScratch(length);Cursor left=new Cursor(table),right=new Cursor(table);for(int width=1;width<length;width=width>length/2?length:width*2){for(int start=0;start<length;start+=width*2){int middle=Math.min(start+width,length),end=Math.min(start+width*2,length),a=start,b=middle,w=start;while(a<middle||b<end){if(b>=end||(a<middle&&compare(comparator,left,right,values[a],values[b])<=0))auxiliary[w++]=values[a++];else auxiliary[w++]=values[b++];}System.arraycopy(auxiliary,start,values,start,end-start);}}}\n")
-                .append("  private int compare(Comparator value,Cursor left,Cursor right,int a,int b){left.open(a);right.open(b);table.beginCallback(\"rows.sorted.comparator\");try{return value.compare(left,right);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"rows.sorted\",\"comparator\",callback);}finally{table.endCallback(\"rows.sorted.comparator\");left.close();right.close();}}\n")
-                .append("  private void start(String operation){check(operation);consumed=true;attemptedScanned=0L;attemptedMatched=0L;table.begin(operation);}\n  private void check(String operation){if(consumed)throw RuntimeFailures.pipelineConsumed(sourcePath(),operation);}\n")
-                .append("  private String sourcePath(){return source==null?").append(q(table.logicalName)).append(":").append(q(table.logicalName + ".")).append("+source.name();}\n")
-                .append("  static abstract class Source{abstract int size();abstract int rowAt(int position);abstract String name();}\n")
-                .append("  public interface Predicate{boolean test(").append(row).append(" row);}\n  public interface Consumer{void accept(").append(row).append(" row);}\n  public interface Updater{void update(").append(mutable).append(" row);}\n  public interface Comparator{int compare(").append(row).append(" left,").append(row).append(" right);}\n")
-                .append("  private static final class Cursor implements ").append(row).append(" {\n    protected final ").append(table.name("Table")).append(" table;protected int row;protected boolean active;Cursor(").append(table.name("Table")).append(" table){this.table=table;}void open(int row){this.row=row;active=true;}void close(){active=false;}void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_row_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
+                .append("  private boolean matchTerminal(Predicate value,boolean any){if(value==null)throw new NullPointerException(\"predicate\");String op=any?\"scan.anyMatch\":\"scan.noneMatch\",callback=any?\"scan.anyMatch.predicate\":\"scan.noneMatch.predicate\";start(op);long reached=0L,scanned=0L;GeneratedScanEvaluation e=null;try{Cursor c=new Cursor(table());if(!hasSort()){int initial=plan.size();for(int position=0;position<initial&&!limitReached(0,plan.stageCount());position++){int index=plan.rowAt(position);scanned++;if(matches(index,c,0,plan.stageCount())){reached++;if(test(value,c,index,op,callback)){table().endSuccess(op,scanned,reached,0L);return true;}}}table().endSuccess(op,scanned,reached,0L);return false;}e=new GeneratedScanEvaluation();select(e,terminalMaximum());scanned=e.selectionScanned;for(int i=0;i<e.length;i++){reached++;if(test(value,c,e.indexes[i],op,callback)){table().endSuccess(op,scanned,reached,0L);return true;}}table().endSuccess(op,scanned,reached,0L);return false;}catch(SomaRuntimeException f){table().endFailure(op,e==null?scanned:e.attemptedScanned,e==null?reached:e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(op);throw f;}catch(Error f){table().abort(op);throw f;}finally{finish();}}\n")
+                .append("  public void forEach(Consumer value){if(value==null)throw new NullPointerException(\"consumer\");start(\"scan.forEach\");long reached=0L,scanned=0L;GeneratedScanEvaluation e=null;try{Cursor c=new Cursor(table());if(!hasSort()){int initial=plan.size();for(int position=0;position<initial&&!limitReached(0,plan.stageCount());position++){int index=plan.rowAt(position);scanned++;if(!matches(index,c,0,plan.stageCount()))continue;reached++;c.open(index);table().beginCallback(\"scan.forEach.consumer\");try{value.accept(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"scan.forEach\",\"consumer\",callback);}finally{table().endCallback(\"scan.forEach.consumer\");c.close();}}table().endSuccess(\"scan.forEach\",scanned,reached,0L);return;}e=new GeneratedScanEvaluation();select(e,terminalMaximum());scanned=e.selectionScanned;for(int i=0;i<e.length;i++){reached++;c.open(e.indexes[i]);table().beginCallback(\"scan.forEach.consumer\");try{value.accept(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"scan.forEach\",\"consumer\",callback);}finally{table().endCallback(\"scan.forEach.consumer\");c.close();}}table().endSuccess(\"scan.forEach\",scanned,reached,0L);}catch(SomaRuntimeException f){table().endFailure(\"scan.forEach\",e==null?scanned:e.attemptedScanned,e==null?reached:e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.forEach\");throw f;}catch(Error f){table().abort(\"scan.forEach\");throw f;}finally{finish();}}\n")
+                .append("  public int findIndex(){start(\"scan.findIndex\");GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{select(e,1);int result=e.length==0?-1:e.indexes[0];table().endSuccess(\"scan.findIndex\",e.selectionScanned,e.length,0L);return result;}catch(SomaRuntimeException f){table().endFailure(\"scan.findIndex\",e.attemptedScanned,e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.findIndex\");throw f;}catch(Error f){table().abort(\"scan.findIndex\");throw f;}finally{finish();}}\n")
+                .append("  public int requireIndex(){start(\"scan.requireIndex\");GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{select(e,1);if(e.length==0)throw RuntimeFailures.emptyResult(sourcePath(),\"scan.requireIndex\");int result=e.indexes[0];table().endSuccess(\"scan.requireIndex\",e.selectionScanned,1L,0L);return result;}catch(SomaRuntimeException f){table().endFailure(\"scan.requireIndex\",e.attemptedScanned,e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.requireIndex\");throw f;}catch(Error f){table().abort(\"scan.requireIndex\");throw f;}finally{finish();}}\n")
+                .append("  public Optional<").append(table.carrierType).append("> findFirst(){start(\"scan.findFirst\");return findFirstStarted(null);}\n")
+                .append("  public Optional<").append(table.carrierType).append("> findFirst(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"scan.findFirst\");return findFirstStarted(budget);}\n")
+                .append("  private Optional<").append(table.carrierType).append("> findFirstStarted(MaterializationBudget budget){GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{budget=materializationBudget(budget);select(e,1);Optional<").append(table.carrierType).append("> result=table().materializeOptionalRow(e.length==0?-1:e.indexes[0],budget,\"scan.findFirst\",true);table().endSuccess(\"scan.findFirst\",e.selectionScanned,e.length,0L);return result;}catch(SomaRuntimeException f){table().endFailure(\"scan.findFirst\",e.attemptedScanned,e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.findFirst\");throw f;}catch(Error f){table().abort(\"scan.findFirst\");throw f;}finally{finish();}}\n")
+                .append("  public ").append(table.carrierType).append(" firstOrThrow(){start(\"scan.firstOrThrow\");return firstOrThrowStarted(null);}\n")
+                .append("  public ").append(table.carrierType).append(" firstOrThrow(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"scan.firstOrThrow\");return firstOrThrowStarted(budget);}\n")
+                .append("  private ").append(table.carrierType).append(" firstOrThrowStarted(MaterializationBudget budget){GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{budget=materializationBudget(budget);select(e,1);").append(table.carrierType).append(" result=table().materializeRequiredRow(e.length==0?-1:e.indexes[0],budget,\"scan.firstOrThrow\",true,sourcePath());table().endSuccess(\"scan.firstOrThrow\",e.selectionScanned,1L,0L);return result;}catch(SomaRuntimeException f){table().endFailure(\"scan.firstOrThrow\",e.attemptedScanned,e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.firstOrThrow\");throw f;}catch(Error f){table().abort(\"scan.firstOrThrow\");throw f;}finally{finish();}}\n")
+                .append("  public List<").append(table.carrierType).append("> fetchAll(){start(\"scan.fetchAll\");return fetchAllStarted(null);}\n")
+                .append("  public List<").append(table.carrierType).append("> fetchAll(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");start(\"scan.fetchAll\");return fetchAllStarted(budget);}\n")
+                .append("  private List<").append(table.carrierType).append("> fetchAllStarted(MaterializationBudget budget){GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{budget=materializationBudget(budget);select(e,terminalMaximum());List<").append(table.carrierType).append("> result=table().materializeRows(e.indexes,e.length,budget,\"scan.fetchAll\",true);table().endSuccess(\"scan.fetchAll\",e.selectionScanned,e.length,0L);return result;}catch(SomaRuntimeException f){table().endFailure(\"scan.fetchAll\",e.attemptedScanned,e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.fetchAll\");throw f;}catch(Error f){table().abort(\"scan.fetchAll\");throw f;}finally{finish();}}\n")
+                .append("  private MaterializationBudget materializationBudget(MaterializationBudget budget){return budget==null?table().runtimePlan().defaultMaterializationBudget():budget;}\n")
+                .append("  public IndexSnapshot indexSnapshot(){start(\"scan.indexSnapshot\");GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{select(e,terminalMaximum());IndexSnapshot result=table().indexSnapshot(e.indexes,e.length);table().endSuccess(\"scan.indexSnapshot\",e.selectionScanned,e.length,0L);return result;}catch(SomaRuntimeException f){table().endFailure(\"scan.indexSnapshot\",e.attemptedScanned,e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.indexSnapshot\");throw f;}catch(Error f){table().abort(\"scan.indexSnapshot\");throw f;}finally{finish();}}\n")
+                .append("  public UpdateResult update(Updater value){if(value==null)throw new NullPointerException(\"updater\");startMutation(\"scan.update\");long reached=0L;boolean selected=false;GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{select(e,terminalMaximum());selected=true;table().prepareUpdateScratch(e.length);table().loadUpdateScratch(e.indexes,e.length);MutableCursor c=new MutableCursor(table());for(int i=0;i<e.length;i++){reached++;c.open(i,e.indexes[i]);table().beginCallback(\"scan.update.updater\");try{value.update(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"scan.update\",\"updater\",callback);}finally{table().endCallback(\"scan.update.updater\");c.close();}}long changed=table().publishUpdate(e.indexes,e.length);table().endSuccess(\"scan.update\",e.selectionScanned,e.length,changed);return table().updateResult(e.selectionScanned,e.length,changed);}catch(SomaRuntimeException f){table().endFailure(\"scan.update\",selected?e.selectionScanned:e.attemptedScanned,reached==0L&&!selected?e.attemptedMatched:reached,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.update\");throw f;}catch(Error f){table().abort(\"scan.update\");throw f;}finally{if(selected)table().clearUpdateScratch(e.length);finish();}}\n\n")
+                .append("  public RemoveResult remove(){startMutation(\"scan.remove\");boolean selected=false;GeneratedScanEvaluation e=new GeneratedScanEvaluation();try{select(e,terminalMaximum());selected=true;RemoveResult result=table().removeSelected(e.indexes,e.length,e.selectionScanned,\"scan.remove\");table().endSuccess(\"scan.remove\",e.selectionScanned,e.length,e.length);return result;}catch(SomaRuntimeException f){table().endFailure(\"scan.remove\",selected?e.selectionScanned:e.attemptedScanned,selected?e.length:e.attemptedMatched,f.code());throw f;}catch(RuntimeException f){table().abort(\"scan.remove\");throw f;}catch(Error f){table().abort(\"scan.remove\");throw f;}finally{finish();}}\n\n")
+                .append("  private void select(GeneratedScanEvaluation e,int maximum){int initial=plan.size();int firstSort=firstSort();if(maximum==1&&stableArgMinEligible(firstSort)){selectStableArgMin(e,initial,firstSort);return;}int required=firstSort<plan.stageCount()?initial:Math.min(initial,maximum);int[] values=table().preparePipelineScratch(required);Cursor cursor=hasFilter()?new Cursor(table()):null;int length=0,scanned=0;for(int position=0;position<initial&&!limitReached(0,firstSort);position++){int index=plan.rowAt(position);scanned++;e.attemptedScanned=scanned;if(matches(index,cursor,0,firstSort)){values[length++]=index;e.attemptedMatched=length;}if(firstSort==plan.stageCount()&&length>=maximum)break;}for(int stage=firstSort;stage<plan.stageCount();stage++){byte kind=plan.kind(stage);if(kind==SORT){stableSort(values,length,(Comparator)plan.callback(stage));}else if(kind==FILTER){int write=0;Predicate predicate=(Predicate)plan.callback(stage);for(int i=0;i<length;i++)if(test(predicate,cursor,values[i],\"scan.filter\",\"scan.filter.predicate\"))values[write++]=values[i];length=write;e.attemptedMatched=length;}else if(kind==SKIP){int remove=(int)Math.min((long)length,plan.argument(stage));System.arraycopy(values,remove,values,0,length-remove);length-=remove;e.attemptedMatched=length;}else{length=(int)Math.min((long)length,plan.argument(stage));e.attemptedMatched=length;}}if(length>maximum)length=maximum;e.attemptedMatched=length;e.indexes=values;e.length=length;e.selectionScanned=scanned;}\n")
+                .append("  private boolean stableArgMinEligible(int firstSort){if(firstSort>=plan.stageCount())return false;int sorts=0;for(int i=0;i<plan.stageCount();i++){byte kind=plan.kind(i);if(kind==SORT)sorts++;if(i>firstSort&&kind!=LIMIT)return false;}return sorts==1;}\n")
+                .append("  private void selectStableArgMin(GeneratedScanEvaluation e,int initial,int sortStage){int[] values=table().preparePipelineScratch(Math.min(initial,1));Cursor left=new Cursor(table()),right=new Cursor(table()),cursor=hasFilter()?left:null;int best=-1,scanned=0,candidates=0;for(int position=0;position<initial&&!limitReached(0,sortStage);position++){int index=plan.rowAt(position);scanned++;e.attemptedScanned=scanned;if(!matches(index,cursor,0,sortStage))continue;candidates++;e.attemptedMatched=candidates;if(best<0||compare((Comparator)plan.callback(sortStage),left,right,index,best)<0)best=index;}int length=best<0?0:1;for(int stage=sortStage+1;stage<plan.stageCount();stage++)length=(int)Math.min((long)length,plan.argument(stage));if(length!=0)values[0]=best;e.attemptedMatched=length;e.indexes=values;e.length=length;e.selectionScanned=scanned;}\n")
+                .append("  private int terminalMaximum(){int first=firstSort(),maximum=Integer.MAX_VALUE;if(first==plan.stageCount()){for(int i=0;i<plan.stageCount();i++)if(plan.kind(i)==LIMIT)maximum=(int)Math.min((long)maximum,plan.argument(i));return maximum;}for(int i=first+1;i<plan.stageCount();i++){if(plan.kind(i)!=LIMIT)return Integer.MAX_VALUE;maximum=(int)Math.min((long)maximum,plan.argument(i));}return maximum;}\n")
+                .append("  private int firstSort(){for(int i=0;i<plan.stageCount();i++)if(plan.kind(i)==SORT)return i;return plan.stageCount();}\n")
+                .append("  private boolean hasSort(){return firstSort()!=plan.stageCount();}\n")
+                .append("  private boolean hasFilter(){for(int i=0;i<plan.stageCount();i++)if(plan.kind(i)==FILTER)return true;return false;}\n")
+                .append("  private boolean limitReached(int from,int to){for(int i=from;i<to;i++)if(plan.kind(i)==LIMIT&&plan.argument(i)<=0L)return true;return false;}\n")
+                .append("  private boolean matches(int index,Cursor cursor,int from,int to){for(int i=from;i<to;i++){byte kind=plan.kind(i);if(kind==FILTER){if(!test((Predicate)plan.callback(i),cursor,index,\"scan.filter\",\"scan.filter.predicate\"))return false;}else if(kind==SKIP){long remaining=plan.argument(i);if(remaining>0L){plan.argument(i,remaining-1L);return false;}}else if(kind==LIMIT){long remaining=plan.argument(i);if(remaining<=0L)return false;plan.argument(i,remaining-1L);}}return true;}\n")
+                .append("  private boolean test(Predicate value,Cursor cursor,int index,String operation,String callbackOperation){cursor.open(index);table().beginCallback(callbackOperation);try{return value.test(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",operation,\"predicate\",callback);}finally{table().endCallback(callbackOperation);cursor.close();}}\n")
+                .append("  private void stableSort(int[] values,int length,Comparator comparator){int[] auxiliary=table().prepareSortScratch(length);Cursor left=new Cursor(table()),right=new Cursor(table());for(int width=1;width<length;width=width>length/2?length:width*2){for(int start=0;start<length;start+=width*2){int middle=Math.min(start+width,length),end=Math.min(start+width*2,length),a=start,b=middle,w=start;while(a<middle||b<end){if(b>=end||(a<middle&&compare(comparator,left,right,values[a],values[b])<=0))auxiliary[w++]=values[a++];else auxiliary[w++]=values[b++];}System.arraycopy(auxiliary,start,values,start,end-start);}}}\n")
+                .append("  private int compare(Comparator value,Cursor left,Cursor right,int a,int b){left.open(a);right.open(b);table().beginCallback(\"scan.sorted.comparator\");try{return value.compare(left,right);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(").append(q(table.logicalName)).append(",\"scan.sorted\",\"comparator\",callback);}finally{table().endCallback(\"scan.sorted.comparator\");left.close();right.close();}}\n")
+                .append("  private void start(String operation){consume(operation);try{table().begin(operation);}catch(RuntimeException failure){finish();throw failure;}catch(Error failure){finish();throw failure;}}\n  private void startMutation(String operation){consume(operation);try{table().preflightMutation(operation);table().begin(operation);}catch(RuntimeException failure){finish();throw failure;}catch(Error failure){finish();throw failure;}}\n  private void consume(String operation){check(operation);plan.consume();}\n  private void check(String operation){if(!plan.isCurrent(generation))throw RuntimeFailures.pipelineConsumed(sourcePath(),operation);}\n")
+                .append("  private ").append(table.name("Table")).append(" table(){return plan.table();}\n")
+                .append("  private void finish(){plan.clear();}\n")
+                .append("  private String sourcePath(){return plan.sourcePath();}\n")
+                .append("  static class Source extends GeneratedScanPlan{private ").append(table.name("Table")).append(" table;Source(").append(table.name("Table")).append(" table,String sourcePath){super(sourcePath);this.table=table;}final ").append(table.name("Table")).append(" table(){return table;}int size(){return table.size();}int rowAt(int position){return position;}protected void clearSource(){table=null;}}\n");
+        appendScanSources(out, table);
+        out.append("  public interface Predicate{boolean test(").append(row).append(" candidate);}\n  public interface Consumer{void accept(").append(row).append(" candidate);}\n  public interface Updater{void update(").append(mutable).append(" candidate);}\n  public interface Comparator{int compare(").append(row).append(" left,").append(row).append(" right);}\n")
+                .append("  static final class Cursor implements ").append(row).append(" {\n    protected final ").append(table.name("Table")).append(" table;protected int row;protected boolean active;Cursor(").append(table.name("Table")).append(" table){this.table=table;}void open(int row){this.row=row;active=true;}void close(){active=false;}void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
         appendCursorMethods(out, table, false);
-        out.append("  }\n\n  private static final class MutableCursor implements ").append(mutable).append(" {\n    private final ").append(table.name("Table")).append(" table; private int scratch,row; private boolean active; MutableCursor(").append(table.name("Table")).append(" table){this.table=table;} void open(int scratch,int row){this.scratch=scratch;this.row=row;active=true;} void close(){active=false;} void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_mutable_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
+        out.append("  }\n\n  static final class MutableCursor implements ").append(mutable).append(" {\n    private final ").append(table.name("Table")).append(" table; private int scratch,row; private boolean active; MutableCursor(").append(table.name("Table")).append(" table){this.table=table;} void open(int scratch,int row){this.scratch=scratch;this.row=row;active=true;} void close(){active=false;} void valid(){if(!active)throw RuntimeFailures.internalInvariant(\"escaped_update_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
         appendCursorMethods(out, table, true);
         for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
             FieldSpec field = table.fields.get(fieldIndex);
@@ -700,6 +719,99 @@ final class DenseTableSourceGenerator {
                     .append(clearUpdateMethod(fieldIndex)).append("(scratch);}\n");
         }
         return out.append("  }\n}\n").toString();
+    }
+
+    private void appendPackedTableTerminalExecutors(SourceBuilder out, TableSpec table) {
+        String tableType = table.name("Table");
+        String carrierType = table.carrierType;
+        String scanType = table.name("Scan");
+        out.append("  private static boolean packedAnyMatch(").append(tableType).append(" table,").append(scanType).append(".Predicate value){return packedMatch(table,value,true);}\n")
+                .append("  private static boolean packedNoneMatch(").append(tableType).append(" table,").append(scanType).append(".Predicate value){return !packedMatch(table,value,false);}\n")
+                .append("  private static boolean packedMatch(").append(tableType).append(" table,").append(scanType).append(".Predicate value,boolean any){if(value==null)throw new NullPointerException(\"predicate\");String op=any?\"scan.anyMatch\":\"scan.noneMatch\",callback=any?\"scan.anyMatch.predicate\":\"scan.noneMatch.predicate\";table.begin(op);long scanned=0L,reached=0L;try{").append(scanType).append(".Cursor c=new ").append(scanType).append(".Cursor(table);int size=table.size();for(int row=0;row<size;row++){scanned++;reached++;c.open(row);table.beginCallback(callback);boolean matched;try{matched=value.test(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException failure){throw RuntimeFailures.callbackFailed(")
+                .append(q(table.logicalName)).append(",op,\"predicate\",failure);}finally{table.endCallback(callback);c.close();}if(matched){table.endSuccess(op,scanned,reached,0L);return true;}}table.endSuccess(op,scanned,reached,0L);return false;}catch(SomaRuntimeException failure){table.endFailure(op,scanned,reached,failure.code());throw failure;}catch(RuntimeException failure){table.abort(op);throw failure;}catch(Error failure){table.abort(op);throw failure;}}\n")
+                .append("  private static void packedForEach(").append(tableType).append(" table,").append(scanType).append(".Consumer value){if(value==null)throw new NullPointerException(\"consumer\");table.begin(\"scan.forEach\");long scanned=0L;try{").append(scanType).append(".Cursor c=new ").append(scanType).append(".Cursor(table);int size=table.size();for(int row=0;row<size;row++){scanned++;c.open(row);table.beginCallback(\"scan.forEach.consumer\");try{value.accept(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException failure){throw RuntimeFailures.callbackFailed(")
+                .append(q(table.logicalName)).append(",\"scan.forEach\",\"consumer\",failure);}finally{table.endCallback(\"scan.forEach.consumer\");c.close();}}table.endSuccess(\"scan.forEach\",scanned,scanned,0L);}catch(SomaRuntimeException failure){table.endFailure(\"scan.forEach\",scanned,scanned,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"scan.forEach\");throw failure;}catch(Error failure){table.abort(\"scan.forEach\");throw failure;}}\n")
+                .append("  private static Optional<").append(carrierType).append("> packedFindFirst(").append(tableType).append(" table,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");table.begin(\"scan.findFirst\");long reached=0L;try{int row=table.size()==0?-1:0;reached=row<0?0L:1L;Optional<").append(carrierType).append("> result=table.materializeOptionalRow(row,budget,\"scan.findFirst\",true);table.endSuccess(\"scan.findFirst\",reached,reached,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"scan.findFirst\",reached,reached,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"scan.findFirst\");throw failure;}catch(Error failure){table.abort(\"scan.findFirst\");throw failure;}}\n")
+                .append("  private static ").append(carrierType).append(" packedFirstOrThrow(").append(tableType).append(" table,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");table.begin(\"scan.firstOrThrow\");long reached=0L;try{int row=table.size()==0?-1:0;reached=row<0?0L:1L;").append(carrierType).append(" result=table.materializeRequiredRow(row,budget,\"scan.firstOrThrow\",true,")
+                .append(q(table.logicalName)).append(");table.endSuccess(\"scan.firstOrThrow\",1L,1L,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"scan.firstOrThrow\",reached,reached,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"scan.firstOrThrow\");throw failure;}catch(Error failure){table.abort(\"scan.firstOrThrow\");throw failure;}}\n")
+                .append("  private static List<").append(carrierType).append("> packedFetchAll(").append(tableType).append(" table,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");table.begin(\"scan.fetchAll\");long reached=0L;try{int count=table.size();int[] rows=table.preparePipelineScratch(count);for(int i=0;i<count;i++)rows[i]=i;reached=count;List<").append(carrierType).append("> result=table.materializeRows(rows,count,budget,\"scan.fetchAll\",true);table.endSuccess(\"scan.fetchAll\",reached,reached,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"scan.fetchAll\",reached,reached,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"scan.fetchAll\");throw failure;}catch(Error failure){table.abort(\"scan.fetchAll\");throw failure;}}\n")
+                .append("  private static IndexSnapshot packedIndexSnapshot(").append(tableType).append(" table){table.begin(\"scan.indexSnapshot\");long reached=0L;try{int count=table.size();int[] rows=table.preparePipelineScratch(count);for(int i=0;i<count;i++)rows[i]=i;reached=count;IndexSnapshot result=table.indexSnapshot(rows,count);table.endSuccess(\"scan.indexSnapshot\",reached,reached,0L);return result;}catch(SomaRuntimeException failure){table.endFailure(\"scan.indexSnapshot\",reached,reached,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"scan.indexSnapshot\");throw failure;}catch(Error failure){table.abort(\"scan.indexSnapshot\");throw failure;}}\n")
+                .append("  private static UpdateResult packedUpdate(").append(tableType).append(" table,").append(scanType).append(".Updater value){if(value==null)throw new NullPointerException(\"updater\");table.preflightMutation(\"scan.update\");table.begin(\"scan.update\");long reached=0L,scanned=0L;boolean selected=false;int count=0;try{count=table.size();int[] rows=table.preparePipelineScratch(count);for(int i=0;i<count;i++)rows[i]=i;scanned=count;selected=true;table.prepareUpdateScratch(count);table.loadUpdateScratch(rows,count);").append(scanType).append(".MutableCursor c=new ").append(scanType).append(".MutableCursor(table);for(int i=0;i<count;i++){reached++;c.open(i,rows[i]);table.beginCallback(\"scan.update.updater\");try{value.update(c);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException failure){throw RuntimeFailures.callbackFailed(")
+                .append(q(table.logicalName)).append(",\"scan.update\",\"updater\",failure);}finally{table.endCallback(\"scan.update.updater\");c.close();}}long changed=table.publishUpdate(rows,count);table.endSuccess(\"scan.update\",scanned,count,changed);return table.updateResult(scanned,count,changed);}catch(SomaRuntimeException failure){table.endFailure(\"scan.update\",scanned,reached,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"scan.update\");throw failure;}catch(Error failure){table.abort(\"scan.update\");throw failure;}finally{if(selected)table.clearUpdateScratch(count);}}\n")
+                .append("  private static RemoveResult packedRemove(").append(tableType).append(" table){table.preflightMutation(\"scan.remove\");table.begin(\"scan.remove\");long scanned=0L;try{int count=table.size();int[] rows=table.preparePipelineScratch(count);for(int i=0;i<count;i++)rows[i]=i;scanned=count;RemoveResult result=table.removeSelected(rows,count,scanned,\"scan.remove\");table.endSuccess(\"scan.remove\",scanned,count,count);return result;}catch(SomaRuntimeException failure){table.endFailure(\"scan.remove\",scanned,scanned,failure.code());throw failure;}catch(RuntimeException failure){table.abort(\"scan.remove\");throw failure;}catch(Error failure){table.abort(\"scan.remove\");throw failure;}}\n");
+    }
+
+    private void appendScanSources(SourceBuilder out, TableSpec table) {
+        String scan = table.name("Scan");
+        String tableType = table.name("Table");
+        for (int selectorIndex = 0; selectorIndex < table.selectors.size(); selectorIndex++) {
+            SelectorSpec selector = table.selectors.get(selectorIndex);
+            String sourceType = "ExactSource" + selectorIndex;
+            String method = selectorMethodName(selector);
+            out.append("  static ").append(scan).append(" exact")
+                    .append(selectorIndex).append('(').append(tableType)
+                    .append(" table,long hash");
+            for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+                SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                out.append(',').append(leaf.storageType).append(" sourceLeaf")
+                        .append(leafIndex);
+            }
+            out.append("){return new ").append(scan).append("(new ")
+                    .append(sourceType).append("(table,hash");
+            appendSourceLeafArguments(out, selector.leaves.size());
+            out.append("));}\n  static final class ").append(sourceType)
+                    .append(" extends Source{private final long hash;");
+            for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+                SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                out.append("private ").append(leaf.storageType).append(" sourceLeaf")
+                        .append(leafIndex).append(';');
+            }
+            out.append("private int group,row,nextPosition;").append(sourceType)
+                    .append('(').append(tableType).append(" table,long hash");
+            for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+                SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                out.append(',').append(leaf.storageType).append(" sourceLeaf")
+                        .append(leafIndex);
+            }
+            out.append("){super(table,").append(q(table.logicalName + "." + method))
+                    .append(");this.hash=hash;");
+            for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+                out.append("this.sourceLeaf").append(leafIndex)
+                        .append("=sourceLeaf").append(leafIndex).append(';');
+            }
+            out.append("}int size(){").append(tableType)
+                    .append(" table=table();group=table.selector").append(selectorIndex)
+                    .append("SourceGroup(hash");
+            appendSourceLeafArguments(out, selector.leaves.size());
+            out.append(");row=group<0?-1:table.selector").append(selectorIndex)
+                    .append("SourceFirst(group);nextPosition=0;return group<0?0:table.selector")
+                    .append(selectorIndex).append("SourceSize(group);}int rowAt(")
+                    .append("int position){").append(tableType)
+                    .append(" table=table();if(position!=nextPosition||row<0)throw RuntimeFailures.internalInvariant(\"exact_index_source_sequence\",")
+                    .append(q(table.logicalName)).append(',').append(q(method))
+                    .append(");int result=row;row=table.selector").append(selectorIndex)
+                    .append("SourceNext(row);nextPosition++;return result;}protected void clearSource(){");
+            for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+                SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                if (!primitiveJavaType(leaf.storageType)) {
+                    out.append("sourceLeaf").append(leafIndex).append("=null;");
+                }
+            }
+            out.append("super.clearSource();}}\n");
+        }
+    }
+
+    private static void appendSourceLeafArguments(SourceBuilder out, int leafCount) {
+        for (int leafIndex = 0; leafIndex < leafCount; leafIndex++) {
+            out.append(",sourceLeaf").append(leafIndex);
+        }
+    }
+
+    private static boolean primitiveJavaType(String type) {
+        return "boolean".equals(type) || "byte".equals(type)
+                || "short".equals(type) || "int".equals(type)
+                || "long".equals(type) || "float".equals(type)
+                || "double".equals(type) || "char".equals(type);
     }
 
     private void appendCursorMethods(SourceBuilder out, TableSpec table, boolean scratch) {
@@ -744,7 +856,7 @@ final class DenseTableSourceGenerator {
         SourceBuilder out = new SourceBuilder(header());
         out.append("import com.hgtech.soma.runtime.*;\n")
                 .append("import com.hgtech.soma.runtime.generated.*;\n")
-                .append("import java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\n\n")
+                .append("import java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\nimport java.util.Optional;\n\n")
                 .append("public final class ").append(name).append(" {\n")
                 .append("  private static final String TABLE=").append(q(table.logicalName)).append(";\n")
                 .append("  private static final GeneratedMetadata METADATA=new GeneratedMetadata(")
@@ -1037,23 +1149,23 @@ final class DenseTableSourceGenerator {
             FieldSpec key = table.keyField();
             if (key.compositeKey()) {
                 out.append("  public boolean containsKey(").append(key.primitive).append(" key){state.checkActive(\"containsKey\");return compositeLookup(key,\"containsKey\")>=0;}\n")
-                        .append("  public int findRowIndex(").append(key.primitive).append(" key){state.checkActive(\"findRowIndex\");return compositeLookup(key,\"findRowIndex\");}\n")
-                        .append("  public int rowIndexOf(").append(key.primitive).append(" key){state.checkActive(\"rowIndexOf\");return keyRow(key,\"rowIndexOf\");}\n")
+                        .append("  public int findIndex(").append(key.primitive).append(" key){state.checkActive(\"findIndex\");return compositeLookup(key,\"findIndex\");}\n")
+                        .append("  public int requireIndex(").append(key.primitive).append(" key){state.checkActive(\"requireIndex\");return keyRow(key,\"requireIndex\");}\n")
                         .append("  public java.util.Optional<").append(table.carrierType).append("> find(").append(key.primitive).append(" key){return find(key,runtimePlan().defaultMaterializationBudget());}\n")
                         .append("  public java.util.Optional<").append(table.carrierType).append("> find(").append(key.primitive).append(" key,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");state.checkActive(\"find\");int row=compositeLookup(key,\"find\");return materializeOptionalRow(row,budget,\"find\",false);}\n")
                         .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key){return materializeRequiredRow(keyRow(key,\"fetch\"),runtimePlan().defaultMaterializationBudget(),\"fetch\",false,TABLE);}\n")
                         .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");return materializeRequiredRow(keyRow(key,\"fetch\"),budget,\"fetch\",false,TABLE);}\n")
                         .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
                         .append("  public void delete(").append(key.primitive).append(" key){ownership.preflightMutation(\"delete\");state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"delete\");throw failure;}catch(Error failure){state.abortOperation(\"delete\");throw failure;}}\n")
-                        .append("  public ").append(table.name("Keys")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("Keys")).append("(this);}\n");
+                        .append("  public ").append(table.name("KeyTraversal")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("KeyTraversal")).append("(this);}\n");
             } else {
                 out.append("  public boolean containsKey(").append(key.primitive).append(" key){state.checkActive(\"containsKey\");return keySpace.contains(")
                         .append(key.keySpaceValue("key", "containsKey"))
                         .append(");}\n")
-                        .append("  public int findRowIndex(").append(key.primitive).append(" key){state.checkActive(\"findRowIndex\");return keySpace.rowOf(")
-                        .append(key.keySpaceValue("key", "findRowIndex"))
+                        .append("  public int findIndex(").append(key.primitive).append(" key){state.checkActive(\"findIndex\");return keySpace.rowOf(")
+                        .append(key.keySpaceValue("key", "findIndex"))
                         .append(");}\n")
-                        .append("  public int rowIndexOf(").append(key.primitive).append(" key){state.checkActive(\"rowIndexOf\");return keyRow(key,\"rowIndexOf\");}\n")
+                        .append("  public int requireIndex(").append(key.primitive).append(" key){state.checkActive(\"requireIndex\");return keyRow(key,\"requireIndex\");}\n")
                         .append("  public java.util.Optional<").append(table.carrierType).append("> find(").append(key.primitive).append(" key){state.checkActive(\"find\");int row=keySpace.rowOf(")
                         .append(key.keySpaceValue("key", "find"))
                         .append(");return materializeOptionalRow(row,runtimePlan().defaultMaterializationBudget(),\"find\",false);}\n")
@@ -1064,39 +1176,41 @@ final class DenseTableSourceGenerator {
                         .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");return materializeRequiredRow(keyRow(key,\"fetch\"),budget,\"fetch\",false,TABLE);}\n")
                         .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
                         .append("  public void delete(").append(key.primitive).append(" key){ownership.preflightMutation(\"delete\");state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"delete\");throw failure;}catch(Error failure){state.abortOperation(\"delete\");throw failure;}}\n")
-                        .append("  public ").append(table.name("Keys")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("Keys")).append("(this);}\n");
+                        .append("  public ").append(table.name("KeyTraversal")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("KeyTraversal")).append("(this);}\n");
             }
             appendValueKeyLeafLocators(out, key);
         }
-        out.append("  public ").append(table.name("Mutator")).append(" mutateAt(int rowIndex){int row=state.checkRowIndex(rowIndex,\"mutateAt\");return new ").append(table.name("Mutator")).append("(this,row,structuralEpoch());}\n")
-                .append("  public ").append(table.name("Rows")).append(" rows(){state.checkActive(\"rows\");return new ").append(table.name("Rows")).append("(this);}\n")
-                .append("  public ").append(table.name("Rows")).append(" filter(").append(table.name("Rows")).append(".Predicate predicate){return rows().filter(predicate);}\n")
-                .append("  public ").append(table.name("Rows")).append(" skip(long count){return rows().skip(count);}\n")
-                .append("  public ").append(table.name("Rows")).append(" limit(long count){return rows().limit(count);}\n")
-                .append("  public ").append(table.name("Rows")).append(" sorted(").append(table.name("Rows")).append(".Comparator comparator){return rows().sorted(comparator);}\n")
-                .append("  public long count(){return rows().count();}\n")
-                .append("  public boolean anyMatch(").append(table.name("Rows")).append(".Predicate predicate){return rows().anyMatch(predicate);}\n")
-                .append("  public boolean noneMatch(").append(table.name("Rows")).append(".Predicate predicate){return rows().noneMatch(predicate);}\n")
-                .append("  public void forEach(").append(table.name("Rows")).append(".Consumer consumer){rows().forEach(consumer);}\n")
-                .append("  public java.util.Optional<").append(table.carrierType).append("> findFirst(){return rows().findFirst();}\n")
-                .append("  public java.util.Optional<").append(table.carrierType).append("> findFirst(MaterializationBudget budget){return rows().findFirst(budget);}\n")
-                .append("  public ").append(table.carrierType).append(" firstOrThrow(){return rows().firstOrThrow();}\n")
-                .append("  public ").append(table.carrierType).append(" firstOrThrow(MaterializationBudget budget){return rows().firstOrThrow(budget);}\n")
-                .append("  public java.util.List<").append(table.carrierType).append("> fetchAll(){return rows().fetchAll();}\n")
-                .append("  public java.util.List<").append(table.carrierType).append("> fetchAll(MaterializationBudget budget){return rows().fetchAll(budget);}\n")
-                .append("  public IndexSnapshot rowIndexes(){return rows().rowIndexes();}\n")
+        appendPackedTableTerminalExecutors(out, table);
+        out.append("  public ").append(table.name("Mutator")).append(" mutateAt(int index){int current=state.checkRowIndex(index,\"mutateAt\");return new ").append(table.name("Mutator")).append("(this,current,structuralEpoch());}\n")
+                .append("  public ").append(table.name("Scan")).append(" filter(").append(table.name("Scan")).append(".Predicate predicate){return ").append(table.name("Scan")).append(".packedFilter(this,predicate);}\n")
+                .append("  public ").append(table.name("Scan")).append(" skip(long count){return ").append(table.name("Scan")).append(".packedSkip(this,count);}\n")
+                .append("  public ").append(table.name("Scan")).append(" limit(long count){return ").append(table.name("Scan")).append(".packedLimit(this,count);}\n")
+                .append("  public ").append(table.name("Scan")).append(" sorted(").append(table.name("Scan")).append(".Comparator comparator){return ").append(table.name("Scan")).append(".packedSorted(this,comparator);}\n")
+                .append("  public long count(){state.beginOperation(\"scan.count\");try{long result=state.size();state.endOperationSuccess(\"scan.count\",result,result,0L);return result;}catch(SomaRuntimeException failure){state.endOperationFailure(\"scan.count\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.count\");throw failure;}catch(Error failure){state.abortOperation(\"scan.count\");throw failure;}}\n")
+                .append("  public boolean anyMatch(").append(table.name("Scan")).append(".Predicate predicate){return packedAnyMatch(this,predicate);}\n")
+                .append("  public boolean noneMatch(").append(table.name("Scan")).append(".Predicate predicate){return packedNoneMatch(this,predicate);}\n")
+                .append("  public void forEach(").append(table.name("Scan")).append(".Consumer consumer){packedForEach(this,consumer);}\n")
+                .append("  public int findIndex(){state.beginOperation(\"scan.findIndex\");try{int result=state.size()==0?-1:0;long matched=result<0?0L:1L;state.endOperationSuccess(\"scan.findIndex\",matched,matched,0L);return result;}catch(SomaRuntimeException failure){state.endOperationFailure(\"scan.findIndex\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.findIndex\");throw failure;}catch(Error failure){state.abortOperation(\"scan.findIndex\");throw failure;}}\n")
+                .append("  public int requireIndex(){state.beginOperation(\"scan.requireIndex\");try{if(state.size()==0)throw RuntimeFailures.emptyResult(TABLE,\"scan.requireIndex\");state.endOperationSuccess(\"scan.requireIndex\",1L,1L,0L);return 0;}catch(SomaRuntimeException failure){state.endOperationFailure(\"scan.requireIndex\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.requireIndex\");throw failure;}catch(Error failure){state.abortOperation(\"scan.requireIndex\");throw failure;}}\n")
+                .append("  public java.util.Optional<").append(table.carrierType).append("> findFirst(){return packedFindFirst(this,runtimePlan().defaultMaterializationBudget());}\n")
+                .append("  public java.util.Optional<").append(table.carrierType).append("> findFirst(MaterializationBudget budget){return packedFindFirst(this,budget);}\n")
+                .append("  public ").append(table.carrierType).append(" firstOrThrow(){return packedFirstOrThrow(this,runtimePlan().defaultMaterializationBudget());}\n")
+                .append("  public ").append(table.carrierType).append(" firstOrThrow(MaterializationBudget budget){return packedFirstOrThrow(this,budget);}\n")
+                .append("  public java.util.List<").append(table.carrierType).append("> fetchAll(){return packedFetchAll(this,runtimePlan().defaultMaterializationBudget());}\n")
+                .append("  public java.util.List<").append(table.carrierType).append("> fetchAll(MaterializationBudget budget){return packedFetchAll(this,budget);}\n")
+                .append("  public IndexSnapshot indexSnapshot(){return packedIndexSnapshot(this);}\n")
                 .append("  public void requireCurrent(IndexSnapshot snapshot){state.checkActive(\"requireCurrent\");if(snapshot==null)throw new NullPointerException(\"snapshot\");if(!IndexSnapshots.isOwnedBy(snapshot,indexSnapshotOwner))throw RuntimeFailures.indexSnapshotWrongTable(TABLE,\"requireCurrent\");long current=structuralEpoch();if(snapshot.structuralEpoch()!=current)throw RuntimeFailures.staleIndexSnapshot(TABLE,snapshot.structuralEpoch(),current,\"requireCurrent\");for(int i=0;i<snapshot.size();i++)state.checkRowIndex(snapshot.indexAt(i),\"requireCurrent\");}\n")
-                .append("  public UpdateResult update(").append(table.name("Rows")).append(".Updater updater){return rows().update(updater);}\n")
-                .append("  public RemoveResult remove(){return rows().remove();}\n");
+                .append("  public UpdateResult update(").append(table.name("Scan")).append(".Updater updater){return packedUpdate(this,updater);}\n")
+                .append("  public RemoveResult remove(){return packedRemove(this);}\n");
         appendSelectorSources(out, table);
         for (FieldSpec field : table.fields) {
             String presence = field.optional ? field.javaName + "Presence" : "null";
             if (field.supportsColumnAccess()) {
-                out.append("  public ").append(field.columnPipelineType()).append(' ')
+                out.append("  public ").append(field.columnTraversalType()).append(' ')
                         .append(field.javaName).append("Values(){state.checkActive(")
                         .append(q(field.logicalName + ".values"))
                         .append(");return ")
-                        .append(field.columnPipelineConstruction(presence)).append(";}\n")
+                        .append(field.columnTraversalConstruction(presence)).append(";}\n")
                         .append("  public ").append(field.columnViewType()).append(' ')
                         .append(field.javaName).append("Column(){return ")
                         .append(field.columnViewConstruction(presence)).append(";}\n");
@@ -1104,11 +1218,11 @@ final class DenseTableSourceGenerator {
             if (field.valueBacked()) {
                 for (ValueLeafSpec leaf : field.valueLeaves) {
                     if (!leaf.supportsColumnAccess()) continue;
-                    out.append("  public ").append(leaf.columnPipelineType()).append(' ')
+                    out.append("  public ").append(leaf.columnTraversalType()).append(' ')
                             .append(leaf.stem(field)).append("s(){state.checkActive(")
                             .append(q(field.logicalName + "." + leaf.logicalName + ".values"))
                             .append(");return ")
-                            .append(leaf.columnPipelineConstruction(field, presence))
+                            .append(leaf.columnTraversalConstruction(field, presence))
                             .append(";}\n")
                             .append("  public ").append(leaf.columnViewType()).append(' ')
                             .append(leaf.stem(field)).append("Column(){return ")
@@ -1135,13 +1249,13 @@ final class DenseTableSourceGenerator {
                 .append("  private void requireOperationScratch(long pipeline,long sort,String operation){long bytes=operationScratchBytes(pipeline,sort),limit=runtimePlan().requireTable(TABLE).maximumOperationScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,operation,limit,bytes);state.preflightOperationScratch(bytes,operation);}\n")
                 .append("  private void recordOperationScratch(){state.operationScratch(operationScratchBytes(pipelineScratch.retainedBytes(),sortScratch.retainedBytes()));}\n")
                 .append("  int[] preparePipelineScratch(int required){if(required<0||required>size())throw RuntimeFailures.internalInvariant(\"pipeline_scratch_size\",TABLE,\"rows\");if(pipelineScratch.capacity()<required){requireOperationScratch(pipelineScratch.retainedBytesAfterEnsure(required),sortScratch.retainedBytes(),\"rows\");pipelineScratch.ensureCapacity(required);recordOperationScratch();}return pipelineScratch.prepare(required);}\n")
-                .append("  int[] prepareSortScratch(int required){if(required<0||required>size())throw RuntimeFailures.internalInvariant(\"sort_scratch_size\",TABLE,\"rows.sort\");if(sortScratch.capacity()<required){requireOperationScratch(pipelineScratch.retainedBytes(),sortScratch.retainedBytesAfterEnsure(required),\"rows.sort\");sortScratch.ensureCapacity(required);recordOperationScratch();}return sortScratch.prepare(required);}\n")
+                .append("  int[] prepareSortScratch(int required){if(required<0||required>size())throw RuntimeFailures.internalInvariant(\"sort_scratch_size\",TABLE,\"scan.sort\");if(sortScratch.capacity()<required){requireOperationScratch(pipelineScratch.retainedBytes(),sortScratch.retainedBytesAfterEnsure(required),\"scan.sort\");sortScratch.ensureCapacity(required);recordOperationScratch();}return sortScratch.prepare(required);}\n")
                 .append("  ").append(table.carrierType).append(" materializeRow(int row){return materializeRow(row,runtimePlan().defaultMaterializationBudget());}\n")
                 .append("  ").append(table.carrierType).append(" materializeRow(int row,MaterializationBudget budget){return materializeRequiredRow(row,budget,\"fetchAt\",false,TABLE);}\n")
                 .append("  ").append(table.carrierType).append(" materializeRequiredRow(int row,MaterializationBudget budget,String operation,boolean nested,String sourcePath){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(row<0)throw RuntimeFailures.emptyResult(sourcePath,operation);tracker.addRows(1L,TABLE);accountRowRecursive(tracker,row,0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);").append(table.carrierType).append(" result=carrierRecursive(row,0,TABLE);endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
                 .append("  java.util.Optional<").append(table.carrierType).append("> materializeOptionalRow(int row,MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(row<0){tracker.addOptionalAllocation(false,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<").append(table.carrierType).append("> empty=java.util.Optional.empty();endMaterializationSuccess(tracker);return empty;}tracker.addRows(1L,TABLE);tracker.addOptionalAllocation(true,TABLE);accountRowRecursive(tracker,row,0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<").append(table.carrierType).append("> result=java.util.Optional.of(carrierRecursive(row,0,TABLE));endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
                 .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count){return materializeRows(rows,count,runtimePlan().defaultMaterializationBudget());}\n")
-                .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget){return materializeRows(rows,count,budget,\"rows.fetchAll\",true);}\n")
+                .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget){return materializeRows(rows,count,budget,\"scan.fetchAll\",true);}\n")
                 .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);tracker.addRows(count,TABLE);tracker.addListAllocation(count,TABLE);for(int i=0;i<count;i++)accountRowRecursive(tracker,rows[i],0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);List<").append(table.carrierType).append("> result=new ArrayList<").append(table.carrierType).append(">(count);for(int i=0;i<count;i++)result.add(carrierRecursive(rows[i],0,TABLE));endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n");
         appendTableFieldAccess(out, table);
         appendMutatorCommit(out, table);
@@ -1395,8 +1509,8 @@ final class DenseTableSourceGenerator {
             rowExpression = "keyRow(parentKey,operation)";
         } else {
             locatorType = "int";
-            locatorName = "rowIndex";
-            rowExpression = "state.checkRowIndex(rowIndex,operation)";
+            locatorName = "index";
+            rowExpression = "state.checkRowIndex(index,operation)";
         }
         String c = cap(child.javaName);
         out.append("  private ").append(child.tableType()).append(' ')
@@ -1548,9 +1662,9 @@ final class DenseTableSourceGenerator {
     private void appendMaterializationRuntime(SourceBuilder out, TableSpec table) {
         String carrier = table.carrierType;
         out.append("\n  public ").append(carrier)
-                .append(" fetchAt(int rowIndex){return fetchAt(rowIndex,runtimePlan().defaultMaterializationBudget());}\n")
+                .append(" fetchAt(int index){return fetchAt(index,runtimePlan().defaultMaterializationBudget());}\n")
                 .append("  public ").append(carrier)
-                .append(" fetchAt(int rowIndex,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");int row=state.checkRowIndex(rowIndex,\"fetchAt\");return materializeRequiredRow(row,budget,\"fetchAt\",false,TABLE);}\n");
+                .append(" fetchAt(int index,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");int row=state.checkRowIndex(index,\"fetchAt\");return materializeRequiredRow(row,budget,\"fetchAt\",false,TABLE);}\n");
         if (table.keyed()) {
             FieldSpec key = table.keyField();
             out.append("  public java.util.Map<").append(key.boxed).append(',')
@@ -1717,28 +1831,175 @@ final class DenseTableSourceGenerator {
     }
 
     private void appendSelectorSources(SourceBuilder out, TableSpec table) {
-        String rows = table.name("Rows");
+        String scan = table.name("Scan");
         for (int i = 0; i < table.selectors.size(); i++) {
             SelectorSpec selector = table.selectors.get(i);
             List<SelectorParameter> parameters = selectorParameters(table, selector);
-            String method = selectorMethodName(selector);
-            out.append("  public ").append(rows).append(' ').append(method).append('(');
+            String suffix = selectorSuffix(selector);
+            String method = "scanBy" + suffix;
+            out.append("  public ").append(scan).append(' ').append(method).append('(');
             appendSelectorParameters(out, parameters);
-            out.append("){state.checkActive(").append(q(method)).append(");return new ")
-                    .append(rows).append("(this,new ").append(rows)
-                    .append(".Source(){private int group,row,nextPosition;int size(){group=selector")
-                    .append(i).append("Group(");
-            for (int parameter = 0; parameter < parameters.size(); parameter++) {
-                if (parameter > 0) out.append(',');
-                out.append("value").append(parameter);
+            out.append("){state.checkActive(").append(q(method)).append(");");
+            for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+                SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                out.append(leaf.storageType).append(" sourceLeaf").append(leafIndex)
+                        .append('=').append(selectorParameterArgument(
+                                parameters, leafIndex, leaf, method)).append(';');
             }
-            out.append(");row=group<0?-1:selector").append(i)
-                    .append("Index.firstRow(group);nextPosition=0;return group<0?0:selector")
-                    .append(i).append("Index.groupSize(group);}int rowAt(int position){if(position!=nextPosition||row<0)throw RuntimeFailures.internalInvariant(\"exact_index_source_sequence\",TABLE,")
-                    .append(q(method)).append(");int result=row;row=selector")
-                    .append(i).append("Index.nextRow(row);nextPosition++;return result;}String name(){return ")
-                    .append(q(method)).append(";}});}\n");
+            out.append("long hash=1469598103934665603L;");
+            for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+                SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                out.append("hash=(hash^").append(selectorHashBits(
+                        leaf.storageType, "sourceLeaf" + leafIndex))
+                        .append(")*1099511628211L;");
+            }
+            out.append("return ").append(scan).append(".exact").append(i)
+                    .append("(this,hash");
+            appendSourceLeafArguments(out, selector.leaves.size());
+            out.append(");}\n");
+
+            if ("unique".equals(selector.kind)) {
+                appendUniquePointMethods(out, table, selector, i, parameters, suffix);
+            }
+            appendExactSourceTableMethods(out, table, selector, i);
         }
+    }
+
+    private void appendExactSourceTableMethods(
+            SourceBuilder out, TableSpec table, SelectorSpec selector, int index) {
+        out.append("  int selector").append(index)
+                .append("SourceGroup(long hash");
+        for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+            out.append(',').append(selector.leaves.get(leafIndex).storageType)
+                    .append(" sourceLeaf").append(leafIndex);
+        }
+        out.append("){int group=selector").append(index)
+                .append("Index.firstGroup(hash);while(group>=0&&!selector")
+                .append(index).append("SourceEqual(selector").append(index)
+                .append("Index.representativeRow(group)");
+        appendSourceLeafArguments(out, selector.leaves.size());
+        out.append(")){selector").append(index)
+                .append("Index.recordCollision();group=selector").append(index)
+                .append("Index.nextHashGroup(group);}return group;}\n  private boolean selector")
+                .append(index).append("SourceEqual(int row");
+        for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+            out.append(',').append(selector.leaves.get(leafIndex).storageType)
+                    .append(" sourceLeaf").append(leafIndex);
+        }
+        out.append("){return ");
+        for (int leafIndex = 0; leafIndex < selector.leaves.size(); leafIndex++) {
+            if (leafIndex > 0) out.append("&&");
+            SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+            SelectorBinding binding = selectorBinding(table, leaf);
+            out.append('(').append(compareExpression(
+                    leaf.storageType,
+                    binding.columnExpression("row"),
+                    "sourceLeaf" + leafIndex)).append(")==0");
+        }
+        out.append(";}\n  int selector").append(index)
+                .append("SourceFirst(int group){return selector").append(index)
+                .append("Index.firstRow(group);}\n  int selector").append(index)
+                .append("SourceNext(int row){return selector").append(index)
+                .append("Index.nextRow(row);}\n  int selector").append(index)
+                .append("SourceSize(int group){return selector").append(index)
+                .append("Index.groupSize(group);}\n");
+    }
+
+    private void appendUniquePointMethods(
+            SourceBuilder out,
+            TableSpec table,
+            SelectorSpec selector,
+            int index,
+            List<SelectorParameter> parameters,
+            String suffix) {
+        String contains = "containsBy" + suffix;
+        String findIndex = "findIndexBy" + suffix;
+        String requireIndex = "requireIndexBy" + suffix;
+        String find = "findBy" + suffix;
+        String fetch = "fetchBy" + suffix;
+        String mutate = "mutateBy" + suffix;
+        String delete = "deleteBy" + suffix;
+
+        out.append("  public boolean ").append(contains).append('(');
+        appendSelectorParameters(out, parameters);
+        out.append("){state.checkActive(").append(q(contains)).append(");return selector")
+                .append(index).append("Group(");
+        appendSelectorValueArguments(out, parameters.size());
+        if (!parameters.isEmpty()) out.append(',');
+        out.append(q(contains)).append(")>=0;}\n");
+
+        out.append("  public int ").append(findIndex).append('(');
+        appendSelectorParameters(out, parameters);
+        out.append("){state.checkActive(").append(q(findIndex)).append(");int group=selector")
+                .append(index).append("Group(");
+        appendSelectorValueArguments(out, parameters.size());
+        if (!parameters.isEmpty()) out.append(',');
+        out.append(q(findIndex)).append(");return group<0?-1:selector")
+                .append(index).append("Index.firstRow(group);}\n");
+
+        out.append("  public int ").append(requireIndex).append('(');
+        appendSelectorParameters(out, parameters);
+        out.append("){state.checkActive(").append(q(requireIndex)).append(");int group=selector")
+                .append(index).append("Group(");
+        appendSelectorValueArguments(out, parameters.size());
+        if (!parameters.isEmpty()) out.append(',');
+        out.append(q(requireIndex)).append(");if(group<0)throw RuntimeFailures.emptyResult(TABLE+")
+                .append(q("." + selector.name)).append(',').append(q(requireIndex))
+                .append(");return selector").append(index).append("Index.firstRow(group);}\n");
+
+        out.append("  public java.util.Optional<").append(table.carrierType).append("> ")
+                .append(find).append('(');
+        appendSelectorParameters(out, parameters);
+        out.append("){return ").append(find).append('(');
+        appendSelectorValueArguments(out, parameters.size());
+        if (!parameters.isEmpty()) out.append(',');
+        out.append("runtimePlan().defaultMaterializationBudget());}\n  public java.util.Optional<")
+                .append(table.carrierType).append("> ").append(find).append('(');
+        appendSelectorParameters(out, parameters);
+        if (!parameters.isEmpty()) out.append(',');
+        out.append("MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");int row=")
+                .append(findIndex).append('(');
+        appendSelectorValueArguments(out, parameters.size());
+        out.append(");return materializeOptionalRow(row,budget,").append(q(find))
+                .append(",false);}\n");
+
+        out.append("  public ").append(table.carrierType).append(' ').append(fetch).append('(');
+        appendSelectorParameters(out, parameters);
+        out.append("){return ").append(fetch).append('(');
+        appendSelectorValueArguments(out, parameters.size());
+        if (!parameters.isEmpty()) out.append(',');
+        out.append("runtimePlan().defaultMaterializationBudget());}\n  public ")
+                .append(table.carrierType).append(' ').append(fetch).append('(');
+        appendSelectorParameters(out, parameters);
+        if (!parameters.isEmpty()) out.append(',');
+        out.append("MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");int row=")
+                .append(requireIndex).append('(');
+        appendSelectorValueArguments(out, parameters.size());
+        out.append(");return materializeRequiredRow(row,budget,").append(q(fetch))
+                .append(",false,TABLE+").append(q("." + selector.name)).append(");}\n");
+
+        out.append("  public ").append(table.name("Mutator")).append(' ').append(mutate).append('(');
+        appendSelectorParameters(out, parameters);
+        out.append("){return mutateAt(").append(requireIndex).append('(');
+        appendSelectorValueArguments(out, parameters.size());
+        out.append("));}\n");
+
+        out.append("  public void ").append(delete).append('(');
+        appendSelectorParameters(out, parameters);
+        out.append("){ownership.preflightMutation(").append(q(delete))
+                .append(");state.beginOperation(").append(q(delete))
+                .append(");long scanned=0L;try{int group=selector").append(index).append("Group(");
+        appendSelectorValueArguments(out, parameters.size());
+        if (!parameters.isEmpty()) out.append(',');
+        out.append(q(delete)).append(");if(group<0)throw RuntimeFailures.emptyResult(TABLE+")
+                .append(q("." + selector.name)).append(',').append(q(delete))
+                .append(");int row=selector").append(index)
+                .append("Index.firstRow(group);scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,")
+                .append(q(delete)).append(");state.endOperationSuccess(").append(q(delete))
+                .append(",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(")
+                .append(q(delete)).append(",scanned,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(")
+                .append(q(delete)).append(");throw failure;}catch(Error failure){state.abortOperation(")
+                .append(q(delete)).append(");throw failure;}}\n");
     }
 
 
@@ -1901,7 +2162,7 @@ final class DenseTableSourceGenerator {
         out.append(";}\n  private boolean selector").append(index)
                 .append("ChangedByUpdateRow(int target,int scratch){return ");
         appendSelectorChangedExpression(
-                out, table, selector, "target", null, "scratch", "rows.update");
+                out, table, selector, "target", null, "scratch", "scan.update");
         out.append(";}\n  private boolean selector").append(index)
                 .append("ChangedByUpdate(int[] selected,int count){for(int scratch=0;scratch<count;scratch++){int target=selected[scratch];if(selector")
                 .append(index)
@@ -1961,7 +2222,7 @@ final class DenseTableSourceGenerator {
         out.append("}}\n  private void validateSelectorMutator(").append(mutator).append(" mutation){");
         appendSelectorStrictValidation(out, table, "MutatorOnly", "0", "mutator.commit");
         out.append("}\n  private void validateSelectorUpdate(int count){for(int row=0;row<count;row++){");
-        appendSelectorStrictValidation(out, table, "UpdateOnly", "row", "rows.update");
+        appendSelectorStrictValidation(out, table, "UpdateOnly", "row", "scan.update");
         out.append("}}\n  private void validateUniqueAppend(").append(batch).append(" batch){");
         for (int i = 0; i < table.selectors.size(); i++) {
             if (!"unique".equals(table.selectors.get(i).kind)) continue;
@@ -2004,12 +2265,12 @@ final class DenseTableSourceGenerator {
                         .append("ChangedByUpdate(selected,selectedCount);if(unique")
                         .append(i).append("Changed)changedUniqueCount++;");
             }
-            out.append("if(changedUniqueCount==0)return;int[] lookup=prepareCandidateScratch();long retained=candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity);long unit=HashCompositeKeySpace.estimatedPeakBytes(size());long uniqueBytes=unit>Long.MAX_VALUE/(long)changedUniqueCount?Long.MAX_VALUE:unit*(long)changedUniqueCount;long required=uniqueBytes==Long.MAX_VALUE||retained>Long.MAX_VALUE-uniqueBytes?Long.MAX_VALUE:retained+uniqueBytes;long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(required>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,required);state.updateScratch(required,required);try{Arrays.fill(lookup,0,size(),-1);for(int index=0;index<selectedCount;index++)lookup[selected[index]]=index;");
+            out.append("if(changedUniqueCount==0)return;int[] lookup=prepareCandidateScratch();long retained=candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity);long unit=HashCompositeKeySpace.estimatedPeakBytes(size());long uniqueBytes=unit>Long.MAX_VALUE/(long)changedUniqueCount?Long.MAX_VALUE:unit*(long)changedUniqueCount;long required=uniqueBytes==Long.MAX_VALUE||retained>Long.MAX_VALUE-uniqueBytes?Long.MAX_VALUE:retained+uniqueBytes;long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(required>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"scan.update\",limit,required);state.updateScratch(required,required);try{Arrays.fill(lookup,0,size(),-1);for(int index=0;index<selectedCount;index++)lookup[selected[index]]=index;");
             for (int i = 0; i < table.selectors.size(); i++) {
                 if (!"unique".equals(table.selectors.get(i).kind)) continue;
                 out.append("if(unique").append(i).append("Changed)");
                 appendUniqueProbeLoop(out, table.selectors.get(i), i, "Update",
-                        "size()", "candidate", "lookup", "rows.update");
+                        "size()", "candidate", "lookup", "scan.update");
             }
             out.append("}finally{state.updateScratch(retained,required);}");
         }
@@ -2020,7 +2281,7 @@ final class DenseTableSourceGenerator {
             if (!"unique".equals(selector.kind)) continue;
             appendUniqueModeMethods(out, table, selector, i, "Append", batch + " batch", "addBatch");
             appendUniqueModeMethods(out, table, selector, i, "Replacement", batch + " batch", "replaceAll");
-            appendUniqueModeMethods(out, table, selector, i, "Update", "int[] lookup", "rows.update");
+            appendUniqueModeMethods(out, table, selector, i, "Update", "int[] lookup", "scan.update");
         }
     }
 
@@ -2196,11 +2457,11 @@ final class DenseTableSourceGenerator {
             SelectorLeafSpec leaf, String value, String operation) {
         if ("float".equals(leaf.storageType)) {
             return "KeyCanonicalization.strictFloatStorage(TABLE," + q(leaf.path) + ","
-                    + value + "," + q(operation) + ")";
+                    + value + "," + operationExpression(operation) + ")";
         }
         if ("double".equals(leaf.storageType)) {
             return "KeyCanonicalization.strictDoubleStorage(TABLE," + q(leaf.path) + ","
-                    + value + "," + q(operation) + ")";
+                    + value + "," + operationExpression(operation) + ")";
         }
         return value;
     }
@@ -2298,7 +2559,7 @@ final class DenseTableSourceGenerator {
         return best;
     }
 
-    static String selectorMethodName(SelectorSpec selector) {
+    static String selectorSuffix(SelectorSpec selector) {
         String source = selector.name.startsWith("by_")
                 ? selector.name.substring(3) : selector.name;
         StringBuilder suffix = new StringBuilder();
@@ -2312,7 +2573,11 @@ final class DenseTableSourceGenerator {
                 upper = false;
             }
         }
-        return "findBy" + suffix;
+        return suffix.toString();
+    }
+
+    static String selectorMethodName(SelectorSpec selector) {
+        return "scanBy" + selectorSuffix(selector);
     }
 
     static void appendSelectorComparison(
@@ -2359,11 +2624,11 @@ final class DenseTableSourceGenerator {
                 value = "RuntimeFailures.requiredValue(TABLE,"
                         + q(groupedField.logicalName
                                 + (group.logicalPath.isEmpty() ? "" : "." + group.logicalPath))
-                        + "," + value + "," + q(operation) + ")."
+                        + "," + value + "," + operationExpression(operation) + ")."
                         + relativeJavaPath(group.javaPath, groupedLeaf.javaName);
                 if (groupedLeaf.enumType != null) {
                     value = "RuntimeFailures.requiredEnumValue(TABLE," + q(leaf.path) + ","
-                            + value + "," + q(operation) + ").ordinal()";
+                            + value + "," + operationExpression(operation) + ").ordinal()";
                 }
                 return selectorStorageValue(leaf, value, operation);
             }
@@ -2380,17 +2645,25 @@ final class DenseTableSourceGenerator {
             SelectorLeafSpec leaf, String value, String operation) {
         if (leaf.enumType != null) {
             return "RuntimeFailures.requiredEnumValue(TABLE," + q(leaf.path) + ","
-                    + value + "," + q(operation) + ").ordinal()";
+                    + value + "," + operationExpression(operation) + ").ordinal()";
+        }
+        if ("java.lang.String".equals(leaf.publicType)) {
+            return "RuntimeFailures.requiredValue(TABLE," + q(leaf.path) + ","
+                    + value + "," + operationExpression(operation) + ")";
         }
         if ("float".equals(leaf.storageType)) {
             return "KeyCanonicalization.strictFloatStorage(TABLE," + q(leaf.path) + ","
-                    + value + "," + q(operation) + ")";
+                    + value + "," + operationExpression(operation) + ")";
         }
         if ("double".equals(leaf.storageType)) {
             return "KeyCanonicalization.strictDoubleStorage(TABLE," + q(leaf.path) + ","
-                    + value + "," + q(operation) + ")";
+                    + value + "," + operationExpression(operation) + ")";
         }
         return value;
+    }
+
+    private static String operationExpression(String operation) {
+        return "$operation".equals(operation) ? "operation" : q(operation);
     }
 
     private static String compareExpression(String type, String left, String right) {
@@ -2768,29 +3041,29 @@ final class DenseTableSourceGenerator {
     private static void appendValueKeyLeafLocators(SourceBuilder out, FieldSpec key) {
         if (!key.valueBacked()) return;
         if (key.compositeKey()) {
-            out.append("  public int findRowIndex(");
+            out.append("  public int findIndex(");
             appendValueLeafParameters(out, key);
-            out.append("){state.checkActive(\"findRowIndex\");return compositeLookupLeaves(");
+            out.append("){state.checkActive(\"findIndex\");return compositeLookupLeaves(");
             appendValueLeafArguments(out, key);
-            out.append(",\"findRowIndex\");}\n  public int rowIndexOf(");
+            out.append(",\"findIndex\");}\n  public int requireIndex(");
             appendValueLeafParameters(out, key);
-            out.append("){state.checkActive(\"rowIndexOf\");return keyRowLeaves(");
+            out.append("){state.checkActive(\"requireIndex\");return keyRowLeaves(");
             appendValueLeafArguments(out, key);
-            out.append(",\"rowIndexOf\");}\n");
+            out.append(",\"requireIndex\");}\n");
             return;
         }
         ValueLeafSpec leaf = key.valueLeaves.get(0);
         String parameter = leaf.stem(key);
-        out.append("  public int findRowIndex(").append(leaf.primitive).append(' ')
+        out.append("  public int findIndex(").append(leaf.primitive).append(' ')
                 .append(parameter)
-                .append("){state.checkActive(\"findRowIndex\");return keySpace.rowOf(")
-                .append(key.keySpaceValueFromStorage(parameter, "findRowIndex"))
-                .append(");}\n  public int rowIndexOf(").append(leaf.primitive).append(' ')
+                .append("){state.checkActive(\"findIndex\");return keySpace.rowOf(")
+                .append(key.keySpaceValueFromStorage(parameter, "findIndex"))
+                .append(");}\n  public int requireIndex(").append(leaf.primitive).append(' ')
                 .append(parameter)
-                .append("){state.checkActive(\"rowIndexOf\");int row=keySpace.rowOf(")
-                .append(key.keySpaceValueFromStorage(parameter, "rowIndexOf"))
+                .append("){state.checkActive(\"requireIndex\");int row=keySpace.rowOf(")
+                .append(key.keySpaceValueFromStorage(parameter, "requireIndex"))
                 .append(");if(row<0)throw RuntimeFailures.missingValueKey(TABLE,")
-                .append(q(key.logicalName)).append(",\"rowIndexOf\");return row;}\n");
+                .append(q(key.logicalName)).append(",\"requireIndex\");return row;}\n");
     }
 
     private static void appendKeySpaceLifecycleRuntime(
@@ -2870,12 +3143,12 @@ final class DenseTableSourceGenerator {
                         .append("  void ").append(setUpdateMethod(fieldIndex)).append("(int row,")
                         .append(field.primitive).append(" value){")
                         .append(field.primitive).append(" required=RuntimeFailures.requiredValue(TABLE,")
-                        .append(q(field.logicalName)).append(",value,\"rows.update\");");
+                        .append(q(field.logicalName)).append(",value,\"scan.update\");");
                 for (int leafIndex = 0; leafIndex < field.valueLeaves.size(); leafIndex++) {
                     ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
                     out.append(updateScratch(fieldIndex, leafIndex))
                             .append("[row]=").append(leaf.storageValue(field,
-                                    "required." + leaf.javaName, "rows.update"))
+                                    "required." + leaf.javaName, "scan.update"))
                             .append(';');
                 }
             } else {
@@ -2886,7 +3159,7 @@ final class DenseTableSourceGenerator {
                         .append("  void ").append(setUpdateMethod(fieldIndex)).append("(int row,")
                         .append(field.primitive)
                         .append(" value){").append(updateScratch(fieldIndex)).append("[row]=")
-                        .append(field.storageValue("value", "rows.update")).append(';');
+                        .append(field.storageValue("value", "scan.update")).append(';');
             }
             if (field.optional) out.append(updatePresenceScratch(fieldIndex))
                     .append("[row]=true;");
@@ -2906,10 +3179,10 @@ final class DenseTableSourceGenerator {
                     if (field.optional) {
                         out.append("if(!").append(updatePresenceScratch(fieldIndex))
                                 .append("[row])throw RuntimeFailures.optionalAbsent(TABLE,")
-                                .append(q(field.logicalName)).append(",\"rows.update.leaf\");");
+                                .append(q(field.logicalName)).append(",\"scan.update.leaf\");");
                     }
                     out.append(target).append("[row]=")
-                            .append(leaf.storageValue(field, "value", "rows.update"))
+                            .append(leaf.storageValue(field, "value", "scan.update"))
                             .append(";}\n");
                 }
             }
@@ -3031,8 +3304,8 @@ final class DenseTableSourceGenerator {
     }
 
     private void appendUpdateScratch(SourceBuilder out, TableSpec table) {
-        out.append("  int[] prepareCandidateScratch(){int required=size();long bytes=candidateScratch.retainedBytesAfterEnsure(required)+updateBytes(updateScratchCapacity);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);state.preflightUpdateScratch(bytes,\"rows.update\");candidateScratch.ensureCapacity(required);state.updateScratch(candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity),candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity));return candidateScratch.prepare(required);}\n")
-                .append("  void prepareUpdateScratch(int required){if(required<=updateScratchCapacity)return;long bytes=candidateScratch.retainedBytes()+updateBytes(required);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"rows.update\",limit,bytes);state.preflightUpdateScratch(bytes,\"rows.update\");\n");
+        out.append("  int[] prepareCandidateScratch(){int required=size();long bytes=candidateScratch.retainedBytesAfterEnsure(required)+updateBytes(updateScratchCapacity);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"scan.update\",limit,bytes);state.preflightUpdateScratch(bytes,\"scan.update\");candidateScratch.ensureCapacity(required);state.updateScratch(candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity),candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity));return candidateScratch.prepare(required);}\n")
+                .append("  void prepareUpdateScratch(int required){if(required<=updateScratchCapacity)return;long bytes=candidateScratch.retainedBytes()+updateBytes(required);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"scan.update\",limit,bytes);state.preflightUpdateScratch(bytes,\"scan.update\");\n");
         for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
             FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
@@ -3095,7 +3368,7 @@ final class DenseTableSourceGenerator {
             if (field.optional) out.append("    ").append(updatePresenceScratch(fieldIndex))
                     .append("[i]=").append(field.javaName).append("Present(row);\n");
         }
-        out.append("  }}\n  void clearUpdateScratch(int count){if(count<0||count>updateScratchCapacity)throw RuntimeFailures.internalInvariant(\"update_scratch_clear\",TABLE,\"rows.update\");");
+        out.append("  }}\n  void clearUpdateScratch(int count){if(count<0||count>updateScratchCapacity)throw RuntimeFailures.internalInvariant(\"update_scratch_clear\",TABLE,\"scan.update\");");
         for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
             FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) continue;
@@ -3120,16 +3393,16 @@ final class DenseTableSourceGenerator {
                 continue;
             }
             String different = field.flattenedValueStorage()
-                    ? flattenedScratchDifferent(table, field, "row", "i", "rows.update")
+                    ? flattenedScratchDifferent(table, field, "row", "i", "scan.update")
                     : field.valueBacked()
                             ? scalarValueDifferent(table, field,
                                     field.javaName + "Column.get(row)",
-                                    updateScratch(fieldIndex) + "[i]", "rows.update")
+                                    updateScratch(fieldIndex) + "[i]", "scan.update")
                     : field.enumType != null
                             ? field.javaName + "Column.get(row)!="
                                     + updateScratch(fieldIndex) + "[i]"
                             : accessAwareDifferent(table, field, field.javaName + "Value(row)",
-                                    updateScratch(fieldIndex) + "[i]", "rows.update");
+                                    updateScratch(fieldIndex) + "[i]", "scan.update");
             if (field.optional) different = field.javaName + "Present(row)!="
                     + updatePresenceScratch(fieldIndex) + "[i]||(" + field.javaName
                     + "Present(row)&&(" + different + "))";
@@ -3144,18 +3417,18 @@ final class DenseTableSourceGenerator {
                     SelectorLeafSpec accessLeaf = selectorLeaf(
                             table, field.logicalName + "." + leaf.logicalName);
                     if (accessLeaf != null) {
-                        stored = canonicalAccessStorage(accessLeaf, stored, "rows.update");
+                        stored = canonicalAccessStorage(accessLeaf, stored, "scan.update");
                     }
                     out.append("    ").append(leaf.physicalName(field)).append("Column.set(row,")
                             .append(stored).append(");\n");
                 }
             } else {
                 String stored = field.enumType == null
-                        ? field.storageValue(updateScratch(fieldIndex) + "[i]", "rows.update")
+                        ? field.storageValue(updateScratch(fieldIndex) + "[i]", "scan.update")
                         : updateScratch(fieldIndex) + "[i]";
                 SelectorLeafSpec accessLeaf = selectorLeaf(table, field.logicalName);
                 if (accessLeaf != null) {
-                    stored = canonicalAccessStorage(accessLeaf, stored, "rows.update");
+                    stored = canonicalAccessStorage(accessLeaf, stored, "scan.update");
                 }
                 out.append("    ").append(field.javaName).append("Column.set(row,")
                         .append(stored).append(");\n");
@@ -3207,8 +3480,8 @@ final class DenseTableSourceGenerator {
             } else {
                 out.append("    for(int index=0;index<count;index++){int row=selected[index];keySpace.remove(")
                         .append(key.valueBacked()
-                                ? key.keySpaceValueFromStorage(key.javaName + "Column.get(row)", "rows.remove")
-                                : key.keySpaceValue(key.javaName + "Value(row)", "rows.remove"))
+                                ? key.keySpaceValueFromStorage(key.javaName + "Column.get(row)", "scan.remove")
+                                : key.keySpaceValue(key.javaName + "Value(row)", "scan.remove"))
                         .append(");}\n");
             }
         }
@@ -3253,8 +3526,8 @@ final class DenseTableSourceGenerator {
             } else {
                 out.append("    keySpace.updateRow(")
                         .append(key.valueBacked()
-                                ? key.keySpaceValueFromStorage(key.javaName + "Column.get(read)", "rows.remove")
-                                : key.keySpaceValue(key.javaName + "Value(read)", "rows.remove"))
+                                ? key.keySpaceValueFromStorage(key.javaName + "Column.get(read)", "scan.remove")
+                                : key.keySpaceValue(key.javaName + "Value(read)", "scan.remove"))
                         .append(",write);\n");
             }
         }
@@ -3907,9 +4180,9 @@ final class DenseTableSourceGenerator {
             return valueType == null && !"java.lang.String".equals(primitive);
         }
 
-        String columnPipelineType() {
-            return enumType == null ? cap(primitive) + "ColumnPipeline"
-                    : "EnumColumnPipeline<" + enumType + ">";
+        String columnTraversalType() {
+            return enumType == null ? cap(primitive) + "ColumnTraversal"
+                    : "EnumColumnTraversal<" + enumType + ">";
         }
 
         String columnViewType() {
@@ -3917,24 +4190,32 @@ final class DenseTableSourceGenerator {
                     : "EnumColumnView<" + enumType + ">";
         }
 
-        String columnPipelineConstruction(String presence) {
+        String columnTraversalConstruction(String presence) {
+            String operation = logicalName + ".values";
             if (enumType == null) {
-                return "GeneratedColumnAccess." + primitive + "Pipeline(state,"
+                return "GeneratedColumnAccess." + primitive + "Traversal(state,"
                         + javaName + "Column," + presence
-                        + ",TABLE," + q(logicalName) + ")";
+                        + ",TABLE," + q(operation) + ","
+                        + q(operation + ".consumer") + ")";
             }
-            return "GeneratedColumnAccess.enumPipeline(state," + javaName + "Column,"
-                    + presence + ",TABLE," + q(logicalName) + "," + enumConstantsName() + ")";
+            return "GeneratedColumnAccess.enumTraversal(state," + javaName + "Column,"
+                    + presence + ",TABLE," + q(operation) + ","
+                    + q(operation + ".consumer") + "," + enumConstantsName() + ")";
         }
 
         String columnViewConstruction(String presence) {
+            String path = logicalName + ".column";
+            String getter = enumType == null ? "get" + cap(primitive) : "get";
             if (enumType == null) {
                 return "GeneratedColumnAccess." + primitive + "View(state,"
                         + javaName + "Column," + presence
-                        + ",TABLE," + q(logicalName) + ")";
+                        + ",TABLE," + q(logicalName) + "," + q(path) + ","
+                        + q(path + ".isPresent") + "," + q(path + "." + getter) + ")";
             }
             return "GeneratedColumnAccess.enumView(state," + javaName + "Column,"
-                    + presence + ",TABLE," + q(logicalName) + "," + enumConstantsName() + ")";
+                    + presence + ",TABLE," + q(logicalName) + "," + q(path) + ","
+                    + q(path + ".isPresent") + "," + q(path + "." + getter) + ","
+                    + enumConstantsName() + ")";
         }
     }
 
@@ -3999,9 +4280,9 @@ final class DenseTableSourceGenerator {
             return !"java.lang.String".equals(storagePrimitive);
         }
 
-        String columnPipelineType() {
-            return enumType == null ? cap(primitive) + "ColumnPipeline"
-                    : "EnumColumnPipeline<" + enumType + ">";
+        String columnTraversalType() {
+            return enumType == null ? cap(primitive) + "ColumnTraversal"
+                    : "EnumColumnTraversal<" + enumType + ">";
         }
 
         String columnViewType() {
@@ -4009,26 +4290,33 @@ final class DenseTableSourceGenerator {
                     : "EnumColumnView<" + enumType + ">";
         }
 
-        String columnPipelineConstruction(FieldSpec owner, String presence) {
+        String columnTraversalConstruction(FieldSpec owner, String presence) {
+            String logicalPath = owner.logicalName + "." + logicalName;
+            String operation = logicalPath + ".values";
             if (enumType == null) {
-                return "GeneratedColumnAccess." + primitive + "Pipeline(state,"
+                return "GeneratedColumnAccess." + primitive + "Traversal(state,"
                         + columnName(owner) + "," + presence + ",TABLE,"
-                        + q(owner.logicalName + "." + logicalName) + ")";
+                        + q(operation) + "," + q(operation + ".consumer") + ")";
             }
-            return "GeneratedColumnAccess.enumPipeline(state," + columnName(owner) + ","
-                    + presence + ",TABLE," + q(owner.logicalName + "." + logicalName)
-                    + "," + enumConstantsName(owner) + ")";
+            return "GeneratedColumnAccess.enumTraversal(state," + columnName(owner) + ","
+                    + presence + ",TABLE," + q(operation) + ","
+                    + q(operation + ".consumer") + "," + enumConstantsName(owner) + ")";
         }
 
         String columnViewConstruction(FieldSpec owner, String presence) {
+            String logicalPath = owner.logicalName + "." + logicalName;
+            String path = logicalPath + ".column";
+            String getter = enumType == null ? "get" + cap(primitive) : "get";
             if (enumType == null) {
                 return "GeneratedColumnAccess." + primitive + "View(state,"
                         + columnName(owner) + "," + presence + ",TABLE,"
-                        + q(owner.logicalName + "." + logicalName) + ")";
+                        + q(logicalPath) + "," + q(path) + ","
+                        + q(path + ".isPresent") + "," + q(path + "." + getter) + ")";
             }
             return "GeneratedColumnAccess.enumView(state," + columnName(owner) + ","
-                    + presence + ",TABLE," + q(owner.logicalName + "." + logicalName)
-                    + "," + enumConstantsName(owner) + ")";
+                    + presence + ",TABLE," + q(logicalPath) + "," + q(path) + ","
+                    + q(path + ".isPresent") + "," + q(path + "." + getter) + ","
+                    + enumConstantsName(owner) + ")";
         }
 
         String storageZero() {

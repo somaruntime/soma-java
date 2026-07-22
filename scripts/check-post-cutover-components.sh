@@ -42,8 +42,8 @@ if "$JAVA_HOME/bin/java" -cp "$classpath" \
 fi
 
 record_count=$(wc -l <"$artifact" | tr -d ' ')
-if [ "$record_count" -ne 36 ]; then
-  printf '%s\n' "post-cutover-component-check: expected 36 records, got $record_count" >&2
+if [ "$record_count" -ne 40 ]; then
+  printf '%s\n' "post-cutover-component-check: expected 40 records, got $record_count" >&2
   exit 1
 fi
 if grep -v -F '"schemaVersion":"soma-post-cutover-component-v1"' "$artifact" >/dev/null \
@@ -52,18 +52,22 @@ if grep -v -F '"schemaVersion":"soma-post-cutover-component-v1"' "$artifact" >/d
   exit 1
 fi
 for lane in \
-  pipeline.packed_source_count \
-  pipeline.packed_filter_count \
-  pipeline.exact_source_count \
-  pipeline.exact_skip_count \
-  pipeline.exact_filter_count \
-  pipeline.exact_filter_skip_limit_count \
-  pipeline.exact_filter_skip_limit_filter_count \
-  pipeline.exact_filter_skip_limit_filter_skip_count \
-  pipeline.exact_filter_sort_snapshot \
-  pipeline.exact_filter_sort_materialize \
-  key.first_materialize \
-  column.long_for_each; do
+  candidate_scan.packed_zero_count \
+  candidate_scan.packed_one_filter_count \
+  candidate_scan.exact_zero_count \
+  candidate_scan.exact_zero_index \
+  candidate_scan.exact_one_filter_count \
+  candidate_scan.exact_two_stage_count \
+  candidate_scan.exact_three_stage_count \
+  candidate_scan.exact_four_stage_overflow_count \
+  candidate_scan.exact_five_stage_overflow_count \
+  candidate_scan.exact_sixteen_stage_overflow_count \
+  candidate_scan.exact_filter_sort_index \
+  candidate_scan.exact_filter_sort_snapshot \
+  candidate_scan.exact_filter_sort_materialize \
+  point.primary_find_index \
+  key_traversal.first_materialize \
+  column_traversal.long_for_each; do
   if ! grep -F "\"lane\":\"$lane\"" "$artifact" >/dev/null; then
     printf '%s\n' "post-cutover-component-check: missing lane $lane" >&2
     exit 1

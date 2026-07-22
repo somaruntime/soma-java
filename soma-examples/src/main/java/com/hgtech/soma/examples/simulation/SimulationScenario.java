@@ -61,8 +61,8 @@ public final class SimulationScenario {
         .addValues(1, SimEntityKind.VALVE, valveId.value,
           SimVariableKind.VALVE_OPENING_RATIO, 0.25d, 0.0d, 1.0d));
       validateDenseVectorLayout(state);
-      require(valves.findByFromTank(sourceTank).count() == 1L
-          && valves.findByToTank(targetTank).count() == 1L,
+      require(valves.scanByFromTank(sourceTank).count() == 1L
+          && valves.scanByToTank(targetTank).count() == 1L,
         "definition topology indexes are live without numeric shadows");
 
       double coefficient = readCoefficient(coefficients, coefficientKey);
@@ -101,7 +101,7 @@ public final class SimulationScenario {
         SimEntityKind.TANK, sourceTank.value, false, 0.0d));
 
       simulator.sampleTrace(finalTime);
-      List<TraceSampleRow> exported = trace.rows().sorted((left, right) -> {
+      List<TraceSampleRow> exported = trace.sorted((left, right) -> {
         int compared = Long.compare(
           left.sampleTimeNanos(), right.sampleTimeNanos());
         if (compared != 0) return compared;
@@ -140,7 +140,7 @@ public final class SimulationScenario {
 
   private static double readCoefficient(
       FlowCoefficientTable coefficients, ValveMaterialKey key) {
-    int row = coefficients.rowIndexOf(
+    int row = coefficients.requireIndex(
       key.valveId.value, key.materialId.value);
     DoubleColumnView values = coefficients.coefficientColumn();
     try {
@@ -155,7 +155,7 @@ public final class SimulationScenario {
       long entityId, SimVariableKind variableKind) {
     IndexSnapshot rows = state.filter(row ->
       row.entityKind() == entityKind && row.entityId() == entityId
-        && row.variableKind() == variableKind).rowIndexes();
+        && row.variableKind() == variableKind).indexSnapshot();
     require(rows.size() == 1, "state mapping must identify one vector slot");
     DoubleColumnView values = state.valueColumn();
     try {

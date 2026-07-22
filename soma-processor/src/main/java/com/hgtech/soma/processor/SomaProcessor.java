@@ -688,6 +688,32 @@ public final class SomaProcessor extends AbstractProcessor {
             valid &= generatedSignature(signatures, tableScope,
                     selector.generatedMethodName(), model.origin,
                     parameters.toArray(new String[parameters.size()]));
+            if ("unique".equals(selector.kind)) {
+                String suffix = selector.generatedSuffix();
+                String[] pointParameters = parameters.toArray(new String[parameters.size()]);
+                valid &= generatedSignature(signatures, tableScope,
+                        "containsBy" + suffix, model.origin, pointParameters);
+                valid &= generatedSignature(signatures, tableScope,
+                        "findIndexBy" + suffix, model.origin, pointParameters);
+                valid &= generatedSignature(signatures, tableScope,
+                        "requireIndexBy" + suffix, model.origin, pointParameters);
+                valid &= generatedSignature(signatures, tableScope,
+                        "findBy" + suffix, model.origin, pointParameters);
+                valid &= generatedSignature(signatures, tableScope,
+                        "fetchBy" + suffix, model.origin, pointParameters);
+                valid &= generatedSignature(signatures, tableScope,
+                        "mutateBy" + suffix, model.origin, pointParameters);
+                valid &= generatedSignature(signatures, tableScope,
+                        "deleteBy" + suffix, model.origin, pointParameters);
+                List<String> budgetParameters = new ArrayList<String>(parameters);
+                budgetParameters.add("com.hgtech.soma.runtime.MaterializationBudget");
+                String[] withBudget = budgetParameters.toArray(
+                        new String[budgetParameters.size()]);
+                valid &= generatedSignature(signatures, tableScope,
+                        "findBy" + suffix, model.origin, withBudget);
+                valid &= generatedSignature(signatures, tableScope,
+                        "fetchBy" + suffix, model.origin, withBudget);
+            }
         }
 
         String batchFieldScope = model.javaType + "#batch-fields";
@@ -775,20 +801,21 @@ public final class SomaProcessor extends AbstractProcessor {
         valid &= generatedSignature(signatures, scope, "clear", origin);
         valid &= generatedSignature(signatures, scope, "release", origin);
         valid &= generatedSignature(signatures, scope, "mutateAt", origin, "int");
-        valid &= generatedSignature(signatures, scope, "rows", origin);
         valid &= generatedSignature(signatures, scope, "filter", origin,
-                table.name("Rows") + ".Predicate");
+                table.name("Scan") + ".Predicate");
         valid &= generatedSignature(signatures, scope, "skip", origin, "long");
         valid &= generatedSignature(signatures, scope, "limit", origin, "long");
         valid &= generatedSignature(signatures, scope, "sorted", origin,
-                table.name("Rows") + ".Comparator");
+                table.name("Scan") + ".Comparator");
         valid &= generatedSignature(signatures, scope, "count", origin);
         valid &= generatedSignature(signatures, scope, "anyMatch", origin,
-                table.name("Rows") + ".Predicate");
+                table.name("Scan") + ".Predicate");
         valid &= generatedSignature(signatures, scope, "noneMatch", origin,
-                table.name("Rows") + ".Predicate");
+                table.name("Scan") + ".Predicate");
         valid &= generatedSignature(signatures, scope, "forEach", origin,
-                table.name("Rows") + ".Consumer");
+                table.name("Scan") + ".Consumer");
+        valid &= generatedSignature(signatures, scope, "findIndex", origin);
+        valid &= generatedSignature(signatures, scope, "requireIndex", origin);
         valid &= generatedSignature(signatures, scope, "findFirst", origin);
         valid &= generatedSignature(signatures, scope, "findFirst", origin,
                 "com.hgtech.soma.runtime.MaterializationBudget");
@@ -798,9 +825,9 @@ public final class SomaProcessor extends AbstractProcessor {
         valid &= generatedSignature(signatures, scope, "fetchAll", origin);
         valid &= generatedSignature(signatures, scope, "fetchAll", origin,
                 "com.hgtech.soma.runtime.MaterializationBudget");
-        valid &= generatedSignature(signatures, scope, "rowIndexes", origin);
+        valid &= generatedSignature(signatures, scope, "indexSnapshot", origin);
         valid &= generatedSignature(signatures, scope, "update", origin,
-                table.name("Rows") + ".Updater");
+                table.name("Scan") + ".Updater");
         valid &= generatedSignature(signatures, scope, "remove", origin);
         valid &= generatedSignature(signatures, scope, "statsSnapshot", origin);
         valid &= generatedSignature(signatures, scope, "resetStats", origin);
@@ -808,9 +835,9 @@ public final class SomaProcessor extends AbstractProcessor {
             DenseTableSourceGenerator.FieldSpec key = table.keyField();
             valid &= generatedSignature(signatures, scope, "containsKey", origin,
                     key.primitive);
-            valid &= generatedSignature(signatures, scope, "findRowIndex", origin,
+            valid &= generatedSignature(signatures, scope, "findIndex", origin,
                     key.primitive);
-            valid &= generatedSignature(signatures, scope, "rowIndexOf", origin,
+            valid &= generatedSignature(signatures, scope, "requireIndex", origin,
                     key.primitive);
             valid &= generatedSignature(signatures, scope, "find", origin,
                     key.primitive);
@@ -830,9 +857,9 @@ public final class SomaProcessor extends AbstractProcessor {
                 for (DenseTableSourceGenerator.ValueLeafSpec leaf : key.valueLeaves) {
                     leafTypes.add(leaf.primitive);
                 }
-                valid &= generatedSignature(signatures, scope, "findRowIndex", origin,
+                valid &= generatedSignature(signatures, scope, "findIndex", origin,
                         leafTypes.toArray(new String[leafTypes.size()]));
-                valid &= generatedSignature(signatures, scope, "rowIndexOf", origin,
+                valid &= generatedSignature(signatures, scope, "requireIndex", origin,
                         leafTypes.toArray(new String[leafTypes.size()]));
             }
         }
@@ -2006,12 +2033,12 @@ public final class SomaProcessor extends AbstractProcessor {
     private List<String> generatedTypeNames(
             DenseTableSourceGenerator.TableSpec table) {
         List<String> result = new ArrayList<String>();
-        result.add(table.name("Row"));
-        result.add(table.name("MutableRow"));
+        result.add(table.name("Cursor"));
+        result.add(table.name("UpdateCursor"));
         result.add(table.name("Batch"));
         result.add(table.name("Mutator"));
-        result.add(table.name("Rows"));
-        if (table.keyed()) result.add(table.name("Keys"));
+        result.add(table.name("Scan"));
+        if (table.keyed()) result.add(table.name("KeyTraversal"));
         result.add(table.name("Table"));
         return result;
     }
@@ -2534,7 +2561,7 @@ public final class SomaProcessor extends AbstractProcessor {
             return new DenseTableSourceGenerator.SelectorSpec(kind, name, result);
         }
 
-        private String generatedMethodName() {
+        private String generatedSuffix() {
             String source = name.startsWith("by_") ? name.substring(3) : name;
             StringBuilder suffix = new StringBuilder();
             boolean upper = true;
@@ -2547,7 +2574,11 @@ public final class SomaProcessor extends AbstractProcessor {
                     upper = false;
                 }
             }
-            return "findBy" + suffix;
+            return suffix.toString();
+        }
+
+        private String generatedMethodName() {
+            return "scanBy" + generatedSuffix();
         }
     }
 

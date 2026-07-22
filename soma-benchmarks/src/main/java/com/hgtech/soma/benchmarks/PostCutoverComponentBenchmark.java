@@ -8,8 +8,8 @@ import com.hgtech.soma.examples.fjsp.schema.OperationKey;
 import com.hgtech.soma.examples.fjsp.schema.OperationMachineKey;
 import com.hgtech.soma.examples.fjsp.schema.SetupFamilyId;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRow;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateRows;
+import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateCursor;
+import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateScan;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
 import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.TableStats;
@@ -29,27 +29,31 @@ import java.util.function.LongConsumer;
 /** Packed/exact cutover 后 allocation 与 exact-index cardinality 的诊断 runner。 */
 public final class PostCutoverComponentBenchmark {
     static final String SCHEMA_VERSION = "soma-post-cutover-component-v1";
-    static final String ARTIFACT_VERSION = "soma-java-post-cutover-component-v2";
+    static final String ARTIFACT_VERSION = "soma-java-post-cutover-component-v3";
     private static final int CANDIDATE_ROWS = 4096;
     private static final int MACHINE_COUNT = 64;
     private static final int OPTIONS_PER_OPERATION = 4;
     private static final MachineId QUERY_MACHINE = new MachineId(17L);
+    private static final OperationMachineKey QUERY_CANDIDATE_KEY =
+            new OperationMachineKey(
+                    new OperationKey(new JobId(0L), new OperationId(0L)),
+                    new MachineId(0L));
     private static volatile long LONG_SINK;
     private static volatile Object OBJECT_SINK;
     private static final LongSum LONG_SUM = new LongSum();
 
-    private static final MachineCandidateRows.Predicate READY =
-            new MachineCandidateRows.Predicate() {
+    private static final MachineCandidateScan.Predicate READY =
+            new MachineCandidateScan.Predicate() {
                 @Override
-                public boolean test(MachineCandidateRow row) {
+                public boolean test(MachineCandidateCursor row) {
                     return row.indicatorReady();
                 }
             };
 
-    private static final MachineCandidateRows.Comparator DISPATCH_ORDER =
-            new MachineCandidateRows.Comparator() {
+    private static final MachineCandidateScan.Comparator DISPATCH_ORDER =
+            new MachineCandidateScan.Comparator() {
                 @Override
-                public int compare(MachineCandidateRow left, MachineCandidateRow right) {
+                public int compare(MachineCandidateCursor left, MachineCandidateCursor right) {
                     int value = Long.compare(left.fcfsValue(), right.fcfsValue());
                     if (value != 0) return value;
                     value = Long.compare(left.sptValue(), right.sptValue());
@@ -99,110 +103,145 @@ public final class PostCutoverComponentBenchmark {
                     "generated exact-index group count");
             require(exactStats.exactIndexStorageCurrentBytes() == expectedExactBytes,
                     "generated exact-index cardinality-aware capacity");
-            int groupRows = (int) table.findByMachine(QUERY_MACHINE).count();
-            int matchingRows = (int) table.findByMachine(QUERY_MACHINE)
+            int groupRows = (int) table.scanByMachine(QUERY_MACHINE).count();
+            int matchingRows = (int) table.scanByMachine(QUERY_MACHINE)
                     .filter(READY).count();
             require(groupRows == CANDIDATE_ROWS / MACHINE_COUNT,
                     "unexpected by-machine group size");
             require(matchingRows > 0 && matchingRows < groupRows,
                     "filter must select a strict subset");
+            require(table.findIndex(QUERY_CANDIDATE_KEY) >= 0,
+                    "primary point benchmark key");
 
             measure(options, environment, records, table,
-                    "pipeline.packed_source_count", CANDIDATE_ROWS, CANDIDATE_ROWS,
+                    "candidate_scan.packed_zero_count", CANDIDATE_ROWS, CANDIDATE_ROWS,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.rows().count();
+                            return value.count();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.packed_filter_count", CANDIDATE_ROWS,
+                    "candidate_scan.packed_one_filter_count", CANDIDATE_ROWS,
                     CANDIDATE_ROWS - CANDIDATE_ROWS / 4,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.rows().filter(READY).count();
+                            return value.filter(READY).count();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_source_count", groupRows, matchingRows,
+                    "candidate_scan.exact_zero_count", groupRows, groupRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.findByMachine(QUERY_MACHINE).count();
+                            return value.scanByMachine(QUERY_MACHINE).count();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_skip_count", groupRows, groupRows - 1,
+                    "candidate_scan.exact_zero_index", groupRows, 1,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.findByMachine(QUERY_MACHINE).skip(1).count();
+                            return value.scanByMachine(QUERY_MACHINE).requireIndex();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_filter_count", groupRows, matchingRows,
+                    "candidate_scan.exact_one_filter_count", groupRows, matchingRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.findByMachine(QUERY_MACHINE)
+                            return value.scanByMachine(QUERY_MACHINE)
                                     .filter(READY).count();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_filter_skip_limit_count", groupRows, 4,
+                    "candidate_scan.exact_two_stage_count", groupRows, matchingRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.findByMachine(QUERY_MACHINE)
-                                    .filter(READY).skip(1).limit(4).count();
+                            return exactFilterStages(value, 2).count();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_filter_skip_limit_filter_count", groupRows, 4,
+                    "candidate_scan.exact_three_stage_count", groupRows, matchingRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.findByMachine(QUERY_MACHINE)
-                                    .filter(READY).skip(1).limit(4)
-                                    .filter(READY).count();
+                            return exactFilterStages(value, 3).count();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_filter_skip_limit_filter_skip_count", groupRows, 4,
+                    "candidate_scan.exact_four_stage_overflow_count", groupRows,
+                    matchingRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            return value.findByMachine(QUERY_MACHINE)
-                                    .filter(READY).skip(1).limit(4)
-                                    .filter(READY).skip(0).count();
+                            return exactFilterStages(value, 4).count();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_filter_sort_snapshot", groupRows, matchingRows,
+                    "candidate_scan.exact_five_stage_overflow_count", groupRows,
+                    matchingRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            IndexSnapshot snapshot = value.findByMachine(QUERY_MACHINE)
+                            return exactFilterStages(value, 5).count();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "candidate_scan.exact_sixteen_stage_overflow_count", groupRows,
+                    matchingRows,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return exactFilterStages(value, 16).count();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "candidate_scan.exact_filter_sort_index", groupRows, matchingRows,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.scanByMachine(QUERY_MACHINE)
                                     .filter(READY).sorted(DISPATCH_ORDER)
-                                    .limit(1).rowIndexes();
-                            OBJECT_SINK = snapshot;
-                            return snapshot.size() == 0 ? -1L : snapshot.indexAt(0);
+                                    .requireIndex();
                         }
                     });
             measure(options, environment, records, table,
-                    "pipeline.exact_filter_sort_materialize", groupRows, matchingRows,
+                    "candidate_scan.exact_filter_sort_snapshot", groupRows, matchingRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
-                            MachineCandidate candidate = value.findByMachine(QUERY_MACHINE)
+                            IndexSnapshot snapshot = value.scanByMachine(QUERY_MACHINE)
+                                    .filter(READY).sorted(DISPATCH_ORDER).limit(1)
+                                    .indexSnapshot();
+                            OBJECT_SINK = snapshot;
+                            return snapshot.size();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "candidate_scan.exact_filter_sort_materialize", groupRows,
+                    matchingRows,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            MachineCandidate candidate = value.scanByMachine(QUERY_MACHINE)
                                     .filter(READY).sorted(DISPATCH_ORDER).firstOrThrow();
                             OBJECT_SINK = candidate;
                             return candidate.candidateKey.operationKey.operationId.value;
                         }
                     });
             measure(options, environment, records, table,
-                    "key.first_materialize", CANDIDATE_ROWS, 1,
+                    "point.primary_find_index", 1, 1,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.findIndex(QUERY_CANDIDATE_KEY);
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "key_traversal.first_materialize", CANDIDATE_ROWS, 1,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
@@ -212,7 +251,7 @@ public final class PostCutoverComponentBenchmark {
                         }
                     });
             measure(options, environment, records, table,
-                    "column.long_for_each", CANDIDATE_ROWS, CANDIDATE_ROWS,
+                    "column_traversal.long_for_each", CANDIDATE_ROWS, CANDIDATE_ROWS,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
@@ -224,6 +263,15 @@ public final class PostCutoverComponentBenchmark {
         } finally {
             table.release();
         }
+    }
+
+    private static MachineCandidateScan exactFilterStages(
+            MachineCandidateTable table, int stages) {
+        MachineCandidateScan scan = table.scanByMachine(QUERY_MACHINE);
+        for (int stage = 0; stage < stages; stage++) {
+            scan = scan.filter(READY);
+        }
+        return scan;
     }
 
     private static void measure(

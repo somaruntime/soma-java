@@ -75,8 +75,8 @@ public final class VrpScenario {
         "current candidate commits once");
 
       RouteVisitRowTable liveVisits = routes.visits(input.activeRoute);
-      IndexSnapshot visitRows = liveVisits.rows().sorted((left, right) ->
-        Integer.compare(left.position(), right.position())).rowIndexes();
+      IndexSnapshot visitIndexes = liveVisits.sorted((left, right) ->
+        Integer.compare(left.position(), right.position())).indexSnapshot();
       LongColumnView visitCustomers = liveVisits.customerIdValueColumn();
       LongColumnView visitLocations = liveVisits.locationIdValueColumn();
       IntColumnView positions = liveVisits.positionColumn();
@@ -84,11 +84,11 @@ public final class VrpScenario {
       LongColumnView departures = liveVisits.departureSecondColumn();
       IntColumnView loads = liveVisits.loadAfterVisitColumn();
       try {
-        require(visitRows.size() == 3,
+        require(visitIndexes.size() == 3,
           "non-empty insertion rewrites the shifted route segment");
-        int first = visitRows.indexAt(0);
-        int inserted = visitRows.indexAt(1);
-        int last = visitRows.indexAt(2);
+        int first = visitIndexes.indexAt(0);
+        int inserted = visitIndexes.indexAt(1);
+        int last = visitIndexes.indexAt(2);
         require(positions.getInt(first) == 0
             && positions.getInt(inserted) == 1
             && positions.getInt(last) == 2
@@ -117,13 +117,13 @@ public final class VrpScenario {
           .equals(input.activeRoute)
           && unassigned.size() == 0 && candidates.size() == 0,
         "assignment is authoritative and derived workspaces retire");
-      require(routes.findByVehicle(input.activeVehicle).count() == 1L
-          && routes.findByVehicle(input.emptyVehicle).count() == 1L,
+      require(routes.containsByVehicle(input.activeVehicle)
+          && routes.containsByVehicle(input.emptyVehicle),
         "one-active-route model uses secondary unique vehicle access");
       expectCode("missing_key", () -> travel.fetch(new LocationPairKey(
         input.depot, new LocationId(999L))));
 
-      long reads = Math.addExact(visitRows.size(), exported.visits.size());
+      long reads = Math.addExact(visitIndexes.size(), exported.visits.size());
       return new ScenarioResult(exported.visits.size(),
         routes.runtimePlan().schemaHash(),
         routes.statsSnapshot().childInstanceCount(), liveVisits.size(), 40,
@@ -181,7 +181,7 @@ public final class VrpScenario {
   }
 
   private static ChosenInsertion select(InsertionCandidateRowTable candidates) {
-    IndexSnapshot selected = candidates.rows().sorted((left, right) -> {
+    int row = candidates.sorted((left, right) -> {
       int compared = Long.compare(
         left.deltaDistanceMeters(), right.deltaDistanceMeters());
       if (compared != 0) return compared;
@@ -196,12 +196,11 @@ public final class VrpScenario {
         left.insertionOrdinal(), right.insertionOrdinal());
       if (compared != 0) return compared;
       return Long.compare(left.routeVersion(), right.routeVersion());
-    }).limit(1).rowIndexes();
-    if (selected.size() != 1) {
+    }).findIndex();
+    if (row < 0) {
       throw new VrpInfeasibleException(
         "unassigned customers remain but no feasible insertion exists");
     }
-    int row = selected.indexAt(0);
     LongColumnView routeIds = candidates.routeIdValueColumn();
     LongColumnView customerIds = candidates.customerIdValueColumn();
     IntColumnView ordinals = candidates.insertionOrdinalColumn();
@@ -236,11 +235,11 @@ public final class VrpScenario {
       InsertionCandidateRowTable candidates,
       RouteProjectionWorkspace workspace,
       CustomerAssignmentBatch assignmentBatch) {
-    int routeRow = routes.rowIndexOf(chosen.routeId.value);
+    int routeIndex = routes.requireIndex(chosen.routeId.value);
     LongColumnView versions = routes.routeVersionColumn();
     long currentVersion;
     try {
-      currentVersion = versions.getLong(routeRow);
+      currentVersion = versions.getLong(routeIndex);
     } finally {
       versions.close();
     }
@@ -261,7 +260,7 @@ public final class VrpScenario {
     LongColumnView distances = routes.totalDistanceMetersColumn();
     long currentDistance;
     try {
-      currentDistance = distances.getLong(routeRow);
+      currentDistance = distances.getLong(routeIndex);
     } finally {
       distances.close();
     }
@@ -309,15 +308,15 @@ public final class VrpScenario {
         VehicleDefinitionTable vehicles, RouteTable routes,
         TravelCostTable travel, UnassignedCustomerRowTable unassigned) {
       batch.clear();
-      IndexSnapshot customerRows = unassigned.rows().sorted((left, right) -> {
+      IndexSnapshot customerIndexes = unassigned.sorted((left, right) -> {
         int compared = Long.compare(left.dueSecond(), right.dueSecond());
         if (compared != 0) return compared;
         compared = Long.compare(left.inputOrder(), right.inputOrder());
         return compared != 0 ? compared
           : Long.compare(left.customerIdValue(), right.customerIdValue());
-      }).rowIndexes();
-      IndexSnapshot routeRows = routes.rows().sorted((left, right) ->
-        Long.compare(left.routeIdValue(), right.routeIdValue())).rowIndexes();
+      }).indexSnapshot();
+      IndexSnapshot routeIndexes = routes.sorted((left, right) ->
+        Long.compare(left.routeIdValue(), right.routeIdValue())).indexSnapshot();
       LongColumnView unassignedIds = unassigned.customerIdValueColumn();
       LongColumnView routeIds = routes.routeIdValueColumn();
       LongColumnView versions = routes.routeVersionColumn();
@@ -325,27 +324,27 @@ public final class VrpScenario {
       IntColumnView routeLoads = routes.loadColumn();
       try {
         for (int customerPosition = 0;
-             customerPosition < customerRows.size(); customerPosition++) {
+             customerPosition < customerIndexes.size(); customerPosition++) {
           CustomerId customerId = new CustomerId(unassignedIds.getLong(
-            customerRows.indexAt(customerPosition)));
+            customerIndexes.indexAt(customerPosition)));
           require(!assignments.containsKey(customerId),
             "unassigned workspace cannot contain assigned customer");
           for (int routePosition = 0;
-               routePosition < routeRows.size(); routePosition++) {
-            int routeRow = routeRows.indexAt(routePosition);
-            RouteId routeId = new RouteId(routeIds.getLong(routeRow));
+               routePosition < routeIndexes.size(); routePosition++) {
+            int routeIndex = routeIndexes.indexAt(routePosition);
+            RouteId routeId = new RouteId(routeIds.getLong(routeIndex));
             workspace.loadRoute(routes, routeId, customers);
             int ordinalCount = Math.addExact(workspace.visitCount, 1);
             for (int ordinal = 0; ordinal < ordinalCount; ordinal++) {
               workspace.project(ordinal, customerId, customers,
                 vehicles, routes, travel, false);
               if (!workspace.feasible) continue;
-              require(workspace.projectedLoad >= routeLoads.getInt(routeRow),
+              require(workspace.projectedLoad >= routeLoads.getInt(routeIndex),
                 "insertion cannot reduce route load");
               long delta = Math.subtractExact(
-                workspace.totalDistanceMeters, distances.getLong(routeRow));
+                workspace.totalDistanceMeters, distances.getLong(routeIndex));
               batch.addValues(routeId, customerId, ordinal,
-                versions.getLong(routeRow), delta,
+                versions.getLong(routeIndex), delta,
                 workspace.insertedArrivalSecond,
                 workspace.projectedLoad,
                 workspace.totalDurationSeconds);
@@ -387,11 +386,11 @@ public final class VrpScenario {
       this.routeId = routeId;
       RouteVisitRowTable visits = routes.visits(routeId);
       ensureCapacity(visits.size());
-      IndexSnapshot ordered = visits.rows().sorted((left, right) -> {
+      IndexSnapshot ordered = visits.sorted((left, right) -> {
         int compared = Integer.compare(left.position(), right.position());
         return compared != 0 ? compared
           : Long.compare(left.customerIdValue(), right.customerIdValue());
-      }).rowIndexes();
+      }).indexSnapshot();
       LongColumnView ids = visits.customerIdValueColumn();
       LongColumnView locations = visits.locationIdValueColumn();
       IntColumnView positions = visits.positionColumn();
@@ -408,7 +407,7 @@ public final class VrpScenario {
             require(customerIds[previous] != customerId,
               "route cannot visit one customer twice");
           }
-          int definitionRow = customers.rowIndexOf(customerId);
+          int definitionRow = customers.requireIndex(customerId);
           require(definitionLocations.getLong(definitionRow) == locationId,
             "preprojected visit location must match customer definition");
           customerIds[position] = customerId;
@@ -435,15 +434,15 @@ public final class VrpScenario {
           throw new IllegalArgumentException("customer already occurs in route");
         }
       }
-      int routeRow = routes.rowIndexOf(routeId.value);
+      int routeIndex = routes.requireIndex(routeId.value);
       LongColumnView vehicleIds = routes.vehicleIdValueColumn();
       VehicleId vehicleId;
       try {
-        vehicleId = new VehicleId(vehicleIds.getLong(routeRow));
+        vehicleId = new VehicleId(vehicleIds.getLong(routeIndex));
       } finally {
         vehicleIds.close();
       }
-      int vehicleRow = vehicles.rowIndexOf(vehicleId.value);
+      int vehicleIndex = vehicles.requireIndex(vehicleId.value);
       IntColumnView capacities = vehicles.capacityColumn();
       LongColumnView starts = vehicles.startLocationValueColumn();
       LongColumnView ends = vehicles.endLocationValueColumn();
@@ -453,10 +452,10 @@ public final class VrpScenario {
       long endLocation;
       long availableSecond;
       try {
-        capacity = capacities.getInt(vehicleRow);
-        startLocation = starts.getLong(vehicleRow);
-        endLocation = ends.getLong(vehicleRow);
-        availableSecond = available.getLong(vehicleRow);
+        capacity = capacities.getInt(vehicleIndex);
+        startLocation = starts.getLong(vehicleIndex);
+        endLocation = ends.getLong(vehicleIndex);
+        availableSecond = available.getLong(vehicleIndex);
       } finally {
         available.close();
         ends.close();
@@ -485,13 +484,13 @@ public final class VrpScenario {
             : position < insertionOrdinal ? position : position - 1;
           long customerId = inserted
             ? insertedCustomer.value : customerIds[oldPosition];
-          int customerRow = customers.rowIndexOf(customerId);
+          int customerRow = customers.requireIndex(customerId);
           long location = customerLocations.getLong(customerRow);
           int demand = demands.getInt(customerRow);
           long readySecond = ready.getLong(customerRow);
           long dueSecond = due.getLong(customerRow);
           long serviceSeconds = service.getLong(customerRow);
-          int arcRow = travel.rowIndexOf(previousLocation, location);
+          int arcRow = travel.requireIndex(previousLocation, location);
           totalDistanceMeters = Math.addExact(totalDistanceMeters,
             travelDistances.getLong(arcRow));
           long arrival = Math.max(readySecond,
@@ -510,7 +509,7 @@ public final class VrpScenario {
           currentSecond = departure;
           previousLocation = location;
         }
-        int returnArc = travel.rowIndexOf(previousLocation, endLocation);
+        int returnArc = travel.requireIndex(previousLocation, endLocation);
         totalDistanceMeters = Math.addExact(totalDistanceMeters,
           travelDistances.getLong(returnArc));
         currentSecond = Math.addExact(currentSecond,

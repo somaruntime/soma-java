@@ -4,8 +4,8 @@ import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeFailures;
 
-/** Shared operation/lifecycle binding for primitive column traversal. */
-abstract class AbstractColumnPipeline {
+/** Shared one-shot operation/lifecycle binding for typed column traversal. */
+abstract class AbstractColumnTraversal {
     protected static final int TRAVERSE_ALL = 0;
     protected static final int TRAVERSE_NONE = 1;
     protected static final int TRAVERSE_MIXED = 2;
@@ -15,20 +15,27 @@ abstract class AbstractColumnPipeline {
     private final String table;
     private final String operation;
     private final String callbackOperation;
+    private boolean consumed;
 
-    AbstractColumnPipeline(
-            DenseTableState state, Object column, PresenceBitmap presence, String table, String field) {
-        if (state == null || column == null || table == null || field == null) {
-            throw new NullPointerException("column pipeline binding");
+    AbstractColumnTraversal(
+            DenseTableState state, Object column, PresenceBitmap presence, String table,
+            String operation, String callbackOperation) {
+        if (state == null || column == null || table == null
+                || operation == null || callbackOperation == null) {
+            throw new NullPointerException("column traversal binding");
         }
         this.state = state;
         this.presence = presence;
         this.table = table;
-        this.operation = field + ".values";
-        this.callbackOperation = operation + ".consumer";
+        this.operation = operation;
+        this.callbackOperation = callbackOperation;
     }
 
     protected final void begin() {
+        if (consumed) {
+            throw RuntimeFailures.traversalConsumed(table, operation);
+        }
+        consumed = true;
         state.beginOperation(operation);
         state.beginCallback(callbackOperation);
     }

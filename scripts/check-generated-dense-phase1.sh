@@ -55,40 +55,46 @@ cmp "$fixture/target/classes/$schema_hash" "$repeat_fixture/target/classes/$sche
 "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
   com.example.soma.dense.generated.ParticleBatch > "$evidence_dir/ParticleBatch.javap.txt"
 "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -c \
-  com.example.soma.dense.generated.ParticleRows > "$evidence_dir/ParticleRows.bytecode.txt"
+  com.example.soma.dense.generated.ParticleScan > "$evidence_dir/ParticleScan.bytecode.txt"
 cmp "$expected/ParticleTable.javap.txt" "$evidence_dir/ParticleTable.javap.txt"
 cmp "$expected/ParticleBatch.javap.txt" "$evidence_dir/ParticleBatch.javap.txt"
-rows_source=$fixture/target/generated-sources/annotations/com/example/soma/dense/generated/ParticleRows.java
+scan_source=$fixture/target/generated-sources/annotations/com/example/soma/dense/generated/ParticleScan.java
+table_source=$fixture/target/generated-sources/annotations/com/example/soma/dense/generated/ParticleTable.java
+scan_plan_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/GeneratedScanPlan.java
 column_view_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/AbstractColumnView.java
-column_view_operations_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/ColumnViewOperations.java
-grep -F 'private final int stageCount' "$rows_source" >/dev/null
-grep -F 'int capacity=n==0?4:' "$rows_source" >/dev/null
-grep -F 'Arrays.fill(seen,0,stageCount,0L)' "$rows_source" >/dev/null
-if grep -E 'new Selection|new long\[kinds\.length\]|operation\+"\.predicate"|Arrays\.copyOf\(kinds,n\+1\)' \
-  "$rows_source" >/dev/null; then
-  printf '%s\n' 'generated-dense-phase1-check: row pipeline temporary allocation shape regressed' >&2
+grep -F 'private static final class Inline' "$scan_plan_source" >/dev/null
+grep -F 'private static final class Overflow' "$scan_plan_source" >/dev/null
+grep -F 'plan.isCurrent(generation)' "$scan_source" >/dev/null
+grep -F 'private final Source plan;private final int generation;' "$scan_source" >/dev/null
+grep -F 'static class Source extends GeneratedScanPlan{private ParticleTable table;' \
+  "$scan_source" >/dev/null
+grep -F 'private static boolean packedAnyMatch' "$table_source" >/dev/null
+if grep -E 'class (Inline|Overflow|Evaluation|Plan)' "$scan_source" >/dev/null \
+    || grep -F 'packedAnyMatch' "$scan_source" >/dev/null \
+    || grep -F 'new ParticleScan(this' "$table_source" >/dev/null; then
+  printf '%s\n' 'generated-dense-phase1-check: shared plan or direct packed executor regressed' >&2
   exit 1
 fi
-if grep -E 'java\.util\.stream|Object\[|Integer\[|new (ArrayList|LinkedList)|for\([^)]*\).*new (Cursor|MutableCursor)' "$rows_source"; then
-  printf '%s\n' 'generated-dense-phase1-check: forbidden row hot-path source shape' >&2
+if grep -E 'new Selection|boolean\[\] seen|operation\+"\.predicate"|Arrays\.copyOf\(kinds,n\+1\)' \
+  "$scan_source" >/dev/null; then
+  printf '%s\n' 'generated-dense-phase1-check: candidate scan temporary allocation shape regressed' >&2
   exit 1
 fi
-if grep -E 'java/util/stream|java/lang/(Boolean|Byte|Short|Integer|Long|Float|Double)\.valueOf|java/util/Iterator' "$evidence_dir/ParticleRows.bytecode.txt"; then
-  printf '%s\n' 'generated-dense-phase1-check: forbidden row hot-path bytecode shape' >&2
+if grep -E 'java\.util\.stream|Integer\[|new (ArrayList|LinkedList)|for\([^)]*\).*new (Cursor|UpdateCursor)' "$scan_source"; then
+  printf '%s\n' 'generated-dense-phase1-check: forbidden candidate scan hot-path source shape' >&2
+  exit 1
+fi
+if grep -E 'java/util/stream|java/lang/(Boolean|Byte|Short|Integer|Long|Float|Double)\.valueOf|java/util/Iterator' "$evidence_dir/ParticleScan.bytecode.txt"; then
+  printf '%s\n' 'generated-dense-phase1-check: forbidden candidate scan hot-path bytecode shape' >&2
   exit 1
 fi
 if grep -F 'field + ".column"' "$column_view_source" >/dev/null \
-    || ! grep -F 'operationsCache.forField(field)' "$column_view_source" >/dev/null; then
+    || grep -F 'ColumnViewOperations' "$column_view_source" >/dev/null; then
   printf '%s\n' 'generated-dense-phase1-check: ColumnView hot construction rebuilt diagnostic strings' >&2
   exit 1
 fi
-if grep -E 'java\.util\.(Map|HashMap|ConcurrentMap|ConcurrentHashMap)' \
-    "$column_view_operations_source" >/dev/null; then
-  printf '%s\n' 'generated-dense-phase1-check: Java Collection entered ColumnView hot binding' >&2
-  exit 1
-fi
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.1.0-SNAPSHOT/soma-runtime-core-0.1.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
   com.example.soma.dense.DenseConsumer
 
 "$JAVA_HOME/bin/java" -version

@@ -17,8 +17,8 @@ if [ "$java_specification" != '1.8' ]; then
   exit 1
 fi
 
-annotations_jar=soma-annotations/target/soma-annotations-0.1.0-SNAPSHOT.jar
-processor_jar=soma-processor/target/soma-processor-0.1.0-SNAPSHOT.jar
+annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
+processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 for artifact in "$annotations_jar" "$processor_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' "compiler-phase0-check: missing artifact $artifact; run reactor package first" >&2

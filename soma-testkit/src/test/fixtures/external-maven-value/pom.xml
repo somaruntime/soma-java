@@ -15,7 +15,7 @@
     <maven.dependency.plugin.version>3.8.1</maven.dependency.plugin.version>
     <maven.jar.plugin.version>3.4.2</maven.jar.plugin.version>
     <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
-    <soma.version>0.1.0-SNAPSHOT</soma.version>
+    <soma.version>0.2.0-SNAPSHOT</soma.version>
   </properties>
 
   <dependencies>

@@ -4,9 +4,9 @@ import com.example.soma.child.generated.ChildRowBatch;
 import com.example.soma.child.generated.ChildRowTable;
 import com.example.soma.child.generated.ParentRowBatch;
 import com.example.soma.child.generated.ParentRowTable;
-import com.example.soma.child.generated.ParentRowRows;
-import com.example.soma.child.generated.ChildRowRows;
-import com.example.soma.child.generated.ChildRowRow;
+import com.example.soma.child.generated.ParentRowScan;
+import com.example.soma.child.generated.ChildRowScan;
+import com.example.soma.child.generated.ChildRowCursor;
 import com.example.soma.child.generated.KeyedChildRowBatch;
 import com.example.soma.child.generated.KeyedChildRowTable;
 import com.example.soma.child.generated.GrandchildRowTable;
@@ -424,8 +424,8 @@ public final class ChildConsumer {
         final ChildRowTable movedChild = table.children(1);
         final ChildRowTable deletedChild = table.children(0);
         movedChild.addBatch(new ChildRowBatch().add(child(44)));
-        table.filter(new ParentRowRows.Predicate() {
-            public boolean test(com.example.soma.child.generated.ParentRowRow row) {
+        table.filter(new ParentRowScan.Predicate() {
+            public boolean test(com.example.soma.child.generated.ParentRowCursor row) {
                 return row.id() == 7;
             }
         }).remove();
@@ -437,8 +437,8 @@ public final class ChildConsumer {
         check(table.children(0).fetchAt(0).value == 44, "moved child locator repair");
 
         final ChildRowTable pinnedChild = table.children(0);
-        pinnedChild.forEach(new ChildRowRows.Consumer() {
-            public void accept(ChildRowRow row) {
+        pinnedChild.forEach(new ChildRowScan.Consumer() {
+            public void accept(ChildRowCursor row) {
                 expectCode("view_pinned", new Action() {
                     public void run() { table.clear(); }
                 });
@@ -603,8 +603,8 @@ public final class ChildConsumer {
         check(table.size() == 2 && table.structuralEpoch() == epoch
                         && table.statsSnapshot().childInstanceCount() == childInstances,
                 "instance quota failure preserves facts/epoch");
-        table.filter(new ParentRowRows.Predicate() {
-            public boolean test(com.example.soma.child.generated.ParentRowRow row) {
+        table.filter(new ParentRowScan.Predicate() {
+            public boolean test(com.example.soma.child.generated.ParentRowCursor row) {
                 return row.id() == 301;
             }
         }).remove();

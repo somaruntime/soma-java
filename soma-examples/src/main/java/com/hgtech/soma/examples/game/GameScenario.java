@@ -54,7 +54,7 @@ public final class GameScenario {
 
       GameUnitState selected = battle.selectNextUnit();
       require(selected.unitId.equals(input.actor)
-          && unitStates.findByPlayer(input.player).count() == 1L,
+          && unitStates.scanByPlayer(input.player).count() == 1L,
         "ready-unit total order and preprojected player access are live");
       MoveActionContext firstContext = battle.rebuildMoves(selected);
       PreparedMove firstPrepared = battle.chooseMove(firstContext);
@@ -66,7 +66,7 @@ public final class GameScenario {
           && battle.commitMove(prepared) == MoveCommitResult.COMMITTED,
         "current action context commits the selected-unit move");
 
-      int actorRow = unitStates.rowIndexOf(input.actor.value);
+      int actorRow = unitStates.requireIndex(input.actor.value);
       IntColumnView unitX = unitStates.positionXValueColumn();
       IntColumnView unitY = unitStates.positionYValueColumn();
       try {
@@ -85,7 +85,7 @@ public final class GameScenario {
       require(occupancyCache.rebuildCount == 2,
         "occupancy cache is reproducible from unit positions");
 
-      int attackRow = costs.rowIndexOf(
+      int attackRow = costs.requireIndex(
         input.soldier.value, AbilityId.ATTACK);
       IntColumnView baseDamage = costs.baseDamageColumn();
       int attackDamage;
@@ -221,7 +221,7 @@ public final class GameScenario {
       MoveActionContext next = new MoveActionContext(selected.unitId,
         selected.position, selected.actionPoints, pathingRevision,
         nextGeneration);
-      int moveCostRow = costs.rowIndexOf(
+      int moveCostRow = costs.requireIndex(
         definition.unitClassId.value, AbilityId.MOVE);
       IntColumnView abilityCosts = costs.actionPointCostColumn();
       int abilityCost;
@@ -244,7 +244,7 @@ public final class GameScenario {
             Math.abs(x - selected.position.x),
             Math.abs(y - selected.position.y));
           if (distance != 1) return;
-          int occupancyRow = occupancy.table.rowIndexOf(x, y);
+          int occupancyRow = occupancy.table.requireIndex(x, y);
           if (occupants.isPresent(occupancyRow)) return;
           int totalCost = Math.addExact(abilityCost, tile.moveCost());
           int remaining = Math.subtractExact(
@@ -337,24 +337,24 @@ public final class GameScenario {
     void rebuildFromUnits(MapTileDefinitionRowTable tiles,
                           GameUnitStateTable states) {
       rebuildBatch.clear();
-      IndexSnapshot tileRows = tiles.rows().sorted((left, right) -> {
+      IndexSnapshot tileIndexes = tiles.sorted((left, right) -> {
         int compared = Integer.compare(
           left.positionYValue(), right.positionYValue());
         return compared != 0 ? compared
           : Integer.compare(left.positionXValue(), right.positionXValue());
-      }).rowIndexes();
+      }).indexSnapshot();
       IntColumnView tileX = tiles.positionXValueColumn();
       IntColumnView tileY = tiles.positionYValueColumn();
       LongColumnView unitIds = states.unitIdValueColumn();
       try {
-        for (int position = 0; position < tileRows.size(); position++) {
-          int tileRow = tileRows.indexAt(position);
-          int x = tileX.getInt(tileRow);
-          int y = tileY.getInt(tileRow);
+        for (int position = 0; position < tileIndexes.size(); position++) {
+          int tileIndex = tileIndexes.indexAt(position);
+          int x = tileX.getInt(tileIndex);
+          int y = tileY.getInt(tileIndex);
           IndexSnapshot occupants = states.filter(row ->
             row.state() != UnitState.DEAD
               && row.positionXValue() == x
-              && row.positionYValue() == y).rowIndexes();
+              && row.positionYValue() == y).indexSnapshot();
           require(occupants.size() <= 1,
             "one coordinate cannot contain multiple live units");
           if (occupants.size() == 0) {
@@ -401,8 +401,8 @@ public final class GameScenario {
       try {
         for (int row = 0; row < states.size(); row++) {
           if (unitStates.get(row) == UnitState.DEAD) continue;
-          int tileRow = tiles.rowIndexOf(x.getInt(row), y.getInt(row));
-          TerrainType value = terrain.get(tileRow);
+          int tileIndex = tiles.requireIndex(x.getInt(row), y.getInt(row));
+          TerrainType value = terrain.get(tileIndex);
           require(value != TerrainType.WALL && value != TerrainType.WATER,
             "live unit must occupy a traversable tile");
         }
@@ -464,12 +464,12 @@ public final class GameScenario {
     void copyAndValidate(PendingDamageRowTable pending,
                          GameUnitStateTable states) {
       size = 0;
-      IndexSnapshot ordered = pending.rows().sorted((left, right) -> {
+      IndexSnapshot ordered = pending.sorted((left, right) -> {
         int compared = Long.compare(
           left.resolutionOrder(), right.resolutionOrder());
         return compared != 0 ? compared
           : Long.compare(left.sequenceNo(), right.sequenceNo());
-      }).rowIndexes();
+      }).indexSnapshot();
       LongColumnView orders = pending.resolutionOrderColumn();
       LongColumnView sequences = pending.sequenceNoColumn();
       LongColumnView sources = pending.sourceUnitValueColumn();

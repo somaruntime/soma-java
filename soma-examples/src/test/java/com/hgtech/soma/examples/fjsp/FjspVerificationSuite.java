@@ -13,7 +13,6 @@ import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.MachineTable;
 import com.hgtech.soma.examples.fjsp.schema.generated.OperationAssignmentBatch;
-import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.BooleanColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.SomaRuntimeException;
@@ -99,15 +98,14 @@ public final class FjspVerificationSuite {
         new MachineId(100L), 0L, false, 0L);
       require(selected.jobId == 1L && selected.operationId == 10L,
         "refreshed group is selectable");
-      IndexSnapshot machineRows = instance.frontier
-        .findByMachine(new MachineId(100L)).rowIndexes();
+      int machineIndex = instance.frontier
+        .scanByMachine(new MachineId(100L)).requireIndex();
       ready = instance.frontier.indicatorReadyColumn();
       fcfs = instance.frontier.fcfsValueColumn();
       spt = instance.frontier.sptValueColumn();
       try {
-        int row = machineRows.indexAt(0);
-        require(ready.getBoolean(row) && fcfs.getLong(row) == 0L
-            && spt.getLong(row) == 6L,
+        require(ready.getBoolean(machineIndex) && fcfs.getLong(machineIndex) == 0L
+            && spt.getLong(machineIndex) == 6L,
           "FCFS uses effective-ready and SPT includes setup");
       } finally {
         spt.close();
@@ -177,10 +175,10 @@ public final class FjspVerificationSuite {
       expectCode("missing_key", () -> instance.setupTimes.fetch(
         new SetupTimeKey(new MachineId(100L), new SetupFamilyPair(
           new SetupFamilyId(99L), new SetupFamilyId(7L)))));
-      require(!instance.frontier.findByMachine(new MachineId(999L))
+      require(!instance.frontier.scanByMachine(new MachineId(999L))
           .findFirst().isPresent(), "optional lookup remains empty");
       expectCode("empty_result", () -> instance.frontier
-        .findByMachine(new MachineId(999L)).firstOrThrow());
+        .scanByMachine(new MachineId(999L)).firstOrThrow());
 
       LongColumnView available = instance.machines.availableFromMinuteColumn();
       try {
@@ -210,15 +208,14 @@ public final class FjspVerificationSuite {
       addCandidate(batch, expected, machine, family);
       frontier.addBatch(batch);
       frontier.delete(new OperationMachineKey(removed, machine));
-      IndexSnapshot selected = frontier.findByMachine(machine)
+      int selected = frontier.scanByMachine(machine)
         .filter(row -> row.indicatorReady())
         .sorted(new FcfsSptDispatchRule().comparator())
-        .limit(1).rowIndexes();
+        .requireIndex();
       LongColumnView operationIds =
         frontier.candidateKeyOperationKeyOperationIdValueColumn();
       try {
-        require(selected.size() == 1
-            && operationIds.getLong(selected.indexAt(0)) == 1L,
+        require(operationIds.getLong(selected) == 1L,
           "identity tie-break must survive packed compaction");
       } finally {
         operationIds.close();

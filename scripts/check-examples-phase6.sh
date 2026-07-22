@@ -61,14 +61,14 @@ grep -F 'workingSetFormula=state.capacity*44' "$scenario_output" >/dev/null
 grep -F 'workingSetFormula=unitStates.capacity*16+occupancy.capacity*8+moves.capacity*16+damage.capacity*28' \
   "$scenario_output" >/dev/null
 
-fjsp_rows_source=$root_dir/soma-examples/target/generated-sources/annotations/com/hgtech/soma/examples/fjsp/schema/generated/MachineCandidateRows.java
-grep -F 'selectionRows=values;selectionLength=length;selectionScanned=scanned' \
-  "$fjsp_rows_source" >/dev/null
-if grep -F 'class Selection' "$fjsp_rows_source" >/dev/null; then
+fjsp_scan_source=$root_dir/soma-examples/target/generated-sources/annotations/com/hgtech/soma/examples/fjsp/schema/generated/MachineCandidateScan.java
+grep -F 'e.indexes=values;e.length=length;e.selectionScanned=scanned' \
+  "$fjsp_scan_source" >/dev/null
+if grep -F 'class Selection' "$fjsp_scan_source" >/dev/null; then
   printf '%s\n' 'examples-phase6-check: terminal Selection allocation regressed' >&2
   exit 1
 fi
-grep -F 'private int terminalMaximum()' "$fjsp_rows_source" >/dev/null
+grep -F 'private int terminalMaximum()' "$fjsp_scan_source" >/dev/null
 grep -F 'identity tie-break must survive packed compaction' \
   "$root_dir/soma-examples/src/test/java/com/hgtech/soma/examples/fjsp/FjspVerificationSuite.java" >/dev/null
 grep -F 'application heap preserves deterministic teaching result' \
@@ -193,7 +193,7 @@ grep -F '<artifactId>soma-processor</artifactId>' soma-examples/pom.xml >/dev/nu
 grep -A2 -F '<artifactId>soma-processor</artifactId>' soma-examples/pom.xml |
   grep -F '<scope>provided</scope>' >/dev/null
 
-shasum -a 256 soma-examples/target/soma-examples-0.1.0-SNAPSHOT.jar \
+shasum -a 256 soma-examples/target/soma-examples-0.2.0-SNAPSHOT.jar \
   >"$evidence_dir/artifact.sha256"
 git diff --check
 

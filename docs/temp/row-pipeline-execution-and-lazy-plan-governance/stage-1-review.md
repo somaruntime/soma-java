@@ -69,7 +69,7 @@ Stage 1 已按“Access Model 先于 Pipeline IR”的上游顺序完成产品�
 - Key/Column 是 terminal-only one-shot Traversal，不继承 Candidate stages；`ColumnView` 保持 scoped random read；
 - exact source 在调用时验证/展开 typed selector leaf，在 terminal 绑定 current group facts；
 - compact plan 为 per-operation owner + generation handle、inline 3 + tested overflow，不使用 Table-global/ThreadLocal state；
-- clean API cutover、runtime protocol v4、Schema/plan identity 不变的责任边界一致；
+- clean API cutover、runtime protocol v4、Schema identity不变的责任边界一致；plan hash按正式Design包含compatibility值，升级后应确定性变化；
 - 产品示例、术语、操作目录、IR 和实施 migration card 使用同一目标词汇。
 
 未发现 `Row Pipeline`、`Operation Pipeline` 或现有 generated 名称仍被误写为目标 canonical language；它们只出现在 current-state、历史或 migration 语境。
@@ -112,7 +112,7 @@ Component v2 使用未提交 benchmark harness，因此只作为 Stage 1 归因�
 下列事项是 Stage 2 必须通过 Gate 证明的实现风险，不是留给实现者自由选择的设计问题：
 
 1. clean rename 的迁移规模与 generated name collision；
-2. protocol v4 fail-closed 与 Schema/plan identity byte parity；
+2. protocol v4 fail-closed、Schema identity byte parity与plan hash确定性更新；
 3. compact plan 在 callback failure、allocation failure和consumed cleanup 下的 lifecycle；
 4. allocation 降低是否以 generated source/class 膨胀为代价；
 5. stable arg-min、logical stats、candidate mutation 与 exact relocation 的等语义；

@@ -7,18 +7,19 @@ import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import java.util.function.Consumer;
 
 /** 基于 ordinal packed storage 的静态 enum 绑定；遍历不对 ordinal boxing。 */
-public final class EnumColumnPipeline<E extends Enum<E>> extends AbstractColumnPipeline {
+public final class EnumColumnTraversal<E extends Enum<E>> extends AbstractColumnTraversal {
     private final IntColumn column;
     private final E[] members;
 
-    EnumColumnPipeline(
+    EnumColumnTraversal(
             DenseTableState state,
             IntColumn column,
             PresenceBitmap presence,
             String table,
-            String field,
+            String operation,
+            String callbackOperation,
             E[] members) {
-        super(state, column, presence, table, field);
+        super(state, column, presence, table, operation, callbackOperation);
         if (members == null) {
             throw new NullPointerException("members");
         }

@@ -1,15 +1,13 @@
 package com.hgtech.soma.runtime;
 
+import com.hgtech.soma.runtime.generated.BooleanColumn;
 import com.hgtech.soma.runtime.generated.DenseTableState;
-import com.hgtech.soma.runtime.generated.IntColumn;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 
-import java.util.function.IntConsumer;
-
-public final class IntColumnPipeline extends AbstractColumnPipeline {
-    private final IntColumn column;
-    IntColumnPipeline(DenseTableState state, IntColumn column, PresenceBitmap presence, String table, String field) { super(state, column, presence, table, field); this.column = column; }
-    public void forEachInt(IntConsumer consumer) {
+public final class BooleanColumnTraversal extends AbstractColumnTraversal {
+    private final BooleanColumn column;
+    BooleanColumnTraversal(DenseTableState state, BooleanColumn column, PresenceBitmap presence, String table, String operation, String callbackOperation) { super(state, column, presence, table, operation, callbackOperation); this.column = column; }
+    public void forEachBoolean(BooleanConsumer consumer) {
         if (consumer == null) throw new NullPointerException("consumer"); long scanned = 0L, matched = 0L; begin();
         try {
             int limit = size();

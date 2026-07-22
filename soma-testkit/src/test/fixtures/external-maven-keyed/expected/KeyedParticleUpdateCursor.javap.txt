@@ -1,0 +1,6 @@
+Compiled from "KeyedParticleUpdateCursor.java"
+public interface com.example.soma.keyed.generated.KeyedParticleUpdateCursor extends com.example.soma.keyed.generated.KeyedParticleCursor {
+  public abstract void setEnergy(int);
+  public abstract void setPriority(int);
+  public abstract void clearPriority();
+}

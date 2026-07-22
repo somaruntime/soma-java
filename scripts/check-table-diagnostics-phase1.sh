@@ -10,9 +10,9 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   exit 1
 fi
 
-annotations_jar=soma-annotations/target/soma-annotations-0.1.0-SNAPSHOT.jar
-processor_jar=soma-processor/target/soma-processor-0.1.0-SNAPSHOT.jar
-runtime_jar=soma-runtime-core/target/soma-runtime-core-0.1.0-SNAPSHOT.jar
+annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
+processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
+runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
 fixture_root=soma-testkit/src/test/fixtures/compiler
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/phase1-table-diagnostics.XXXXXX")
