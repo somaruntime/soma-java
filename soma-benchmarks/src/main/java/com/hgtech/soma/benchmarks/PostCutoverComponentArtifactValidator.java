@@ -67,8 +67,8 @@ public final class PostCutoverComponentArtifactValidator {
         } finally {
             reader.close();
         }
-        if (allocations != 4 || memories != 24) {
-            throw new IllegalArgumentException("expected 4 allocation and 24 memory records");
+        if (allocations != 12 || memories != 24) {
+            throw new IllegalArgumentException("expected 12 allocation and 24 memory records");
         }
     }
 

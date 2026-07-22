@@ -24,17 +24,19 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.LongConsumer;
 
 /** Packed/exact cutover 后 allocation 与 exact-index cardinality 的诊断 runner。 */
 public final class PostCutoverComponentBenchmark {
     static final String SCHEMA_VERSION = "soma-post-cutover-component-v1";
-    static final String ARTIFACT_VERSION = "soma-java-post-cutover-component-v1";
+    static final String ARTIFACT_VERSION = "soma-java-post-cutover-component-v2";
     private static final int CANDIDATE_ROWS = 4096;
     private static final int MACHINE_COUNT = 64;
     private static final int OPTIONS_PER_OPERATION = 4;
     private static final MachineId QUERY_MACHINE = new MachineId(17L);
     private static volatile long LONG_SINK;
     private static volatile Object OBJECT_SINK;
+    private static final LongSum LONG_SUM = new LongSum();
 
     private static final MachineCandidateRows.Predicate READY =
             new MachineCandidateRows.Predicate() {
@@ -106,11 +108,36 @@ public final class PostCutoverComponentBenchmark {
                     "filter must select a strict subset");
 
             measure(options, environment, records, table,
+                    "pipeline.packed_source_count", CANDIDATE_ROWS, CANDIDATE_ROWS,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.rows().count();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "pipeline.packed_filter_count", CANDIDATE_ROWS,
+                    CANDIDATE_ROWS - CANDIDATE_ROWS / 4,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.rows().filter(READY).count();
+                        }
+                    });
+            measure(options, environment, records, table,
                     "pipeline.exact_source_count", groupRows, matchingRows,
                     new Lane() {
                         @Override
                         public long run(MachineCandidateTable value) {
                             return value.findByMachine(QUERY_MACHINE).count();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "pipeline.exact_skip_count", groupRows, groupRows - 1,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.findByMachine(QUERY_MACHINE).skip(1).count();
                         }
                     });
             measure(options, environment, records, table,
@@ -120,6 +147,35 @@ public final class PostCutoverComponentBenchmark {
                         public long run(MachineCandidateTable value) {
                             return value.findByMachine(QUERY_MACHINE)
                                     .filter(READY).count();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "pipeline.exact_filter_skip_limit_count", groupRows, 4,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.findByMachine(QUERY_MACHINE)
+                                    .filter(READY).skip(1).limit(4).count();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "pipeline.exact_filter_skip_limit_filter_count", groupRows, 4,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.findByMachine(QUERY_MACHINE)
+                                    .filter(READY).skip(1).limit(4)
+                                    .filter(READY).count();
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "pipeline.exact_filter_skip_limit_filter_skip_count", groupRows, 4,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            return value.findByMachine(QUERY_MACHINE)
+                                    .filter(READY).skip(1).limit(4)
+                                    .filter(READY).skip(0).count();
                         }
                     });
             measure(options, environment, records, table,
@@ -143,6 +199,26 @@ public final class PostCutoverComponentBenchmark {
                                     .filter(READY).sorted(DISPATCH_ORDER).firstOrThrow();
                             OBJECT_SINK = candidate;
                             return candidate.candidateKey.operationKey.operationId.value;
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "key.first_materialize", CANDIDATE_ROWS, 1,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            OperationMachineKey key = value.keys().firstOrThrow();
+                            OBJECT_SINK = key;
+                            return key.operationKey.operationId.value;
+                        }
+                    });
+            measure(options, environment, records, table,
+                    "column.long_for_each", CANDIDATE_ROWS, CANDIDATE_ROWS,
+                    new Lane() {
+                        @Override
+                        public long run(MachineCandidateTable value) {
+                            LONG_SUM.value = 0L;
+                            value.processingMinutesValues().forEachLong(LONG_SUM);
+                            return LONG_SUM.value;
                         }
                     });
         } finally {
@@ -361,6 +437,15 @@ public final class PostCutoverComponentBenchmark {
 
     private interface Lane {
         long run(MachineCandidateTable table);
+    }
+
+    private static final class LongSum implements LongConsumer {
+        long value;
+
+        @Override
+        public void accept(long current) {
+            value += current;
+        }
     }
 
     private static final class Options {
