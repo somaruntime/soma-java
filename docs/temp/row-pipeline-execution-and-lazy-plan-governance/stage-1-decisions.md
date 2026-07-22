@@ -2,21 +2,23 @@
 
 类型：Temporary
 
-状态：Stage 1 冻结；待 Stage 2 明确实施授权与正式 Owner 固化
+状态：Stage 1 冻结；已由 `fd82eba` 实现，待正式 Owner 固化
 
 Owner：SOMA Java Access Model / Candidate Scan 专题治理
 
 事实范围：本专题对产品模型、API、命名、lifecycle、stats、callback、表示、migration 与 identity 的唯一候选裁决
 
-非事实范围：当前已经实现的能力、正式 Design、Stage 2 已获授权或性能收益
+非事实范围：正式 Design、正式性能声明或 release readiness
 
 输入：[Access Model](access-model.md)、[API 覆盖矩阵](access-api-coverage.md)、[Stage 1 Evidence](stage-1-evidence.md)
 
-最后审查日期：2026-07-22
+最后审查日期：2026-07-23
 
 ## 1. 决策权边界
 
-本文件关闭 Stage 1 内部待决项，使后续实现只有一套目标，不再保留平行 shortlist。它仍是 Temporary：只有在用户授权 Stage 2、实现与 Gate 完成、正式 Owner 原子固化后，才能成为产品事实。
+本文件关闭 Stage 1 内部待决项，使实现只有一套目标，不保留平行 shortlist。
+`fd82eba` 已完成其代码投影与 Gate；它仍是 Temporary，只有正式 Owner 原子固化后
+才能成为正式产品事实。
 
 若 Stage 2 evidence 否定某个性能表示，可以在不降低 Access Model/API 目标的前提下调整 internal representation；若要改变 public shape、cardinality、lifecycle 或 callback 语义，必须停止并重开对应决策。
 
@@ -323,4 +325,5 @@ JFR 已证明 `AbstractColumnPipeline` 每次构造会拼接 operation/callback 
 | `RP-DEC-08` | 拒绝进入 RuntimePlan/TableStats；接受benchmark治理 |
 | `AM-DEC-01..06` | 全部关闭 |
 
-Stage 1 已无阻塞详细实现设计的产品/语义待决项。剩余动作是把这些裁决投影到 Pipeline IR、Stage 2 slice 与验证 Gate；是否开始实施仍由用户另行授权。
+Stage 1 已无产品/语义待决项，Stage 2 已将这些裁决投影到 Pipeline IR、代码与 Gate。
+当前只剩需单独授权的正式 Owner 原子固化。

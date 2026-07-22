@@ -2,19 +2,19 @@
 
 类型：Temporary
 
-状态：Stage 2 production/public API/runtime 实现与工作树 Gate 完成；正式固化待授权
+状态：immutable Stage 2 executable candidate 已形成；正式固化待单独授权
 
 Owner：SOMA Java Access Model / Candidate Scan 专题治理
 
 事实范围：本专题的意图、Access Model、Candidate Scan 目标设计、阶段、Temporary 裁决、evidence、实施包与退役条件
 
-非事实范围：正式 Blueprint/Design 语义、已提交的 Stage 2 候选、正式性能声明和 release readiness
+非事实范围：正式 Blueprint/Design 语义、正式性能声明和 release readiness
 
 正式事实源：否
 
 专题建立基线：`5217c27ae4a07a5ec8ec3b70ae92224aac5706d2`
 
-最后审查日期：2026-07-22
+最后审查日期：2026-07-23
 
 当前目录名沿用专题建立时的工作名称。`Row Pipeline` 与 `Operation Pipeline` 已退出目标 canonical language；目录名不重新定义产品术语。
 
@@ -24,9 +24,9 @@ Owner：SOMA Java Access Model / Candidate Scan 专题治理
 
 实现核对入口：[Compiler 与 codegen Map](../../implementation-map/compiler-and-codegen-map.md)、[Runtime Core Map](../../implementation-map/runtime-core-map.md)。当前性能入口：[当前性能摘要](../../../reports/current-performance-summary.md)。
 
-本目录的裁决仍不是正式产品事实。用户已于 2026-07-22 授权 Stage 2 的
-production/public API/runtime 实施，但没有授权正式 Owner 固化；因此当前可以实现并
-验证候选，不得提前修改正式 Design、Report 或删除 Temporary。
+本目录的裁决仍不是正式产品事实。用户已授权并完成 Stage 2 的
+production/public API/runtime 实施、候选提交与 commit-bound 验证，但没有授权正式
+Owner 固化；因此不得提前修改正式 Design、Report 或删除 Temporary。
 
 ## 2. 文档职责
 
@@ -48,6 +48,10 @@ production/public API/runtime 实施，但没有授权正式 Owner 固化；因�
 | [Stage 1 收口审查](stage-1-review.md) | 追踪、自审、验证和 Stage 2 readiness 判断 |
 
 这些文档共同属于一个 Temporary topic，不各自成为平行 Owner。发生表述冲突时，以 `Stage 1 决策` 为本专题候选裁决入口，以正式 Design 为长期约束。
+
+`stage-0-*`、`stage-1-charter`、`stage-1-review` 与 `stage-1-evidence` 保留各阶段当时的
+授权和基线快照；其中“未授权”“当前”等时间性表述不代表本专题最新状态。最新状态
+只由本 README、Stage 2 实施包与 Stage 2 Evidence 导航。
 
 ## 3. 治理意图
 
@@ -139,8 +143,8 @@ Stage 1 在同一 Zulu JDK 8 / macOS aarch64 环境建立了以下诊断事实�
 |---|---|---|
 | Stage 0：产品/IR/术语候选 | 完成 | 识别需要更上游的 Access Model |
 | Stage 1：Access Model、evidence、裁决与详细设计 | 完成 | 全部决策关闭；实施包完整；Gate 通过 |
-| Stage 2：production/public 原子实现 | 工作树完成 | target API/runtime/tests/scenarios 全部落地，无双轨 |
-| Stage 3：验证、调优与一致性 | 工作树 Gate 完成 | correctness/performance/scenario/full Gate 均通过；正式固化前需在 immutable candidate 重放 |
+| Stage 2：production/public 原子实现 | `fd82eba` 完成 | target API/runtime/tests/scenarios 全部落地，无双轨 |
+| Stage 3：验证、调优与一致性 | immutable candidate 完成 | correctness/performance/scenario/full Gate 与五组多 fork A/B 通过 |
 | Stage 4：正式固化与 Temporary 删除 | 未开始 | 唯一 Owner 原子更新，Governance Report，删除本目录 |
 
 阶段只是同一治理专题的执行顺序，不是降级 roadmap。Stage 2 每个切片都必须是最终设计的有效子集，最终 cutover 不保留 temporary alias 或第二套 executor。
@@ -160,8 +164,8 @@ Stage 2 的 correctness、identity、allocation、GC、code-size、FJSP 与 scop
 
 ## 10. 正式固化与退出
 
-Stage 2/3 已在基于 `2f0d116` 的未提交工作树完成。只有用户授权正式切换，且在
-immutable candidate 上重放必要 Gate 后，才执行：
+Stage 2/3 已在 executable candidate `fd82eba` 上完成并重放 Gate。只有用户另行授权
+正式切换后，才执行：
 
 ```text
 accepted Temporary facts
@@ -172,6 +176,6 @@ accepted Temporary facts
   -> delete this Temporary topic
 ```
 
-正式文档在最后保持原子切换，不提前进入中间状态。当前唯一下一步授权问题是：
-是否提交 Stage 2 候选并执行正式 Owner 固化、Governance/Performance Report 与
-Temporary 删除；当前工作树 Gate 通过本身不自动扩大该权限。
+正式文档在最后保持原子切换，不提前进入中间状态。当前唯一下一步授权问题是是否
+执行正式 Owner 固化、Governance/Performance Report 与 Temporary 删除；immutable
+candidate 完成本身不自动扩大该权限。

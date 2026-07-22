@@ -2,17 +2,17 @@
 
 类型：Temporary
 
-状态：Stage 1 canonical candidate 冻结；待正式领域语言固化
+状态：Stage 1 canonical candidate 已由 `fd82eba` 实现；待正式领域语言固化
 
 Owner：SOMA Java Access Model 核心术语治理
 
 事实范围：目标 canonical terminology、概念边界、generated replacement与迁移约束
 
-非事实范围：当前 API 已经改名、正式术语Owner或兼容承诺
+非事实范围：正式术语Owner或兼容承诺
 
 输入：[产品模型](product-model.md)、[Stage 1 决策](stage-1-decisions.md)
 
-最后审查日期：2026-07-22
+最后审查日期：2026-07-23
 
 ## 1. 命名原则
 
@@ -154,4 +154,5 @@ Processor必须在生成前检查：
 
 Stage 0的`Operation Pipeline/Scan vs Elements` shortlist已经关闭：Access Model成为umbrella，Candidate Scan成为multi-field lazy family，Cursor/UpdateCursor、KeyTraversal、ColumnTraversal、PackedIndexSpace和Index词族形成唯一候选。
 
-本文件仍是Temporary；当前代码继续使用旧词，直到Stage 2获得授权并通过完整迁移Gate。
+本文件仍是Temporary；`fd82eba` 已完成 clean naming cutover 与完整迁移 Gate，但在
+S2.7 原子固化前仍不替代正式领域语言 Owner。

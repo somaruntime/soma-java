@@ -2,23 +2,24 @@
 
 类型：Temporary
 
-状态：Stage 1 evidence complete；决策见 Stage 1 决策文档
+状态：Stage 1 baseline evidence complete；目标已由 `fd82eba` 实现
 
 Owner：SOMA Java Access Model API 审查
 
-事实范围：当前 generated/runtime API 对 Access Model 的覆盖、重复、缺口与抽象问题
+事实范围：Stage 1 baseline generated/runtime API 对 Access Model 的覆盖、重复、缺口与抽象问题
 
-非事实范围：当前用户承诺的改变、已经实施的新名称、正式兼容性声明
+非事实范围：正式用户承诺或兼容性声明
 
 基线：`5217c27ae4a07a5ec8ec3b70ae92224aac5706d2`
 
 输入：[Access Model](access-model.md)
 
-最后审查日期：2026-07-22
+最后审查日期：2026-07-23
 
 ## 1. 证据方法
 
-覆盖矩阵由以下当前事实交叉核对：
+覆盖矩阵由以下 Stage 1 baseline 事实交叉核对；本文件中的“当前”均指基线
+`5217c27`，Stage 2 candidate 结果见 [Stage 2 Evidence](stage-2-evidence.md)：
 
 - FJSP generated `MachineCandidateTable`、`OperationDefinitionTable`、`*Rows`、`*Keys`、`*Batch`；
 - runtime `IndexSnapshot`、typed `*ColumnPipeline`、typed `*ColumnView`；

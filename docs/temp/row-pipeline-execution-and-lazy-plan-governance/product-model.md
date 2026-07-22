@@ -2,17 +2,17 @@
 
 类型：Temporary
 
-状态：Stage 1 产品候选冻结；待 Stage 2 实施与正式固化
+状态：Stage 1 产品候选已由 `fd82eba` 实现；待正式固化
 
 Owner：SOMA Java Access Model 产品模型
 
 事实范围：目标使用者心智模型、Access family、Candidate DSL、产品边界与能力准入
 
-非事实范围：当前已实现的新 API、具体 compact layout、正式产品承诺
+非事实范围：具体 compact layout、正式产品承诺
 
 输入：[Access Model](access-model.md)、[Stage 1 决策](stage-1-decisions.md)
 
-最后审查日期：2026-07-22
+最后审查日期：2026-07-23
 
 ## 1. 产品定位
 
@@ -158,11 +158,14 @@ Java Stream、数据库或Arrow中存在同名能力，不构成准入理由。
 - 不把application heap/event queue/transaction放入SOMA；
 - 不为Key/Column补齐对称Candidate stage。
 
-## 9. Current / target 边界
+## 9. Stage 1 baseline / Stage 2 candidate 边界
 
-当前代码仍使用`*Rows/*Row/*MutableRow/rows()/findByX/rowIndexes/*ColumnPipeline`。本文所有`*Scan/*Cursor/scanBy/indexSnapshot/*Traversal`示例都是Stage 1目标候选，不是当前支持声明。
+Stage 1 baseline 使用`*Rows/*Row/*MutableRow/rows()/findByX/rowIndexes/*ColumnPipeline`。
+`fd82eba` 已实现本文的`*Scan/*Cursor/scanBy/indexSnapshot/*Traversal`候选；它是当前
+executable candidate，但在正式 Owner 固化前仍不是正式文档支持声明。
 
-目标只有在Stage 2实现、external consumer与完整Gate通过，并固化到正式Blueprint/Design后，才能替换当前事实。
+目标已通过 external consumer 与完整 Gate；只有在 S2.7 固化到正式 Blueprint/Design
+后，才能替换正式文档事实。
 
 ## 10. 产品完成条件
 

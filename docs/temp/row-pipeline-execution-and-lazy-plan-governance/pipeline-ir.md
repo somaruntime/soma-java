@@ -2,17 +2,17 @@
 
 类型：Temporary
 
-状态：Stage 1 详细设计冻结；待 Stage 2 实施授权
+状态：Stage 1 详细设计冻结；已由 `fd82eba` 实现，待正式固化
 
 Owner：SOMA Java Candidate Scan 语义与执行模型
 
 事实范围：Candidate Scan 的语义 IR、terminal-time binding、physical execution、compact representation、failure/stats/resource 协议
 
-非事实范围：当前已经实现的新 API、正式 runtime protocol、性能收益与 release readiness
+非事实范围：正式 runtime protocol Owner、正式性能声明与 release readiness
 
 输入：[Access Model](access-model.md)、[Stage 1 决策](stage-1-decisions.md)、[Stage 1 Evidence](stage-1-evidence.md)
 
-最后审查日期：2026-07-22
+最后审查日期：2026-07-23
 
 ## 1. 设计定位
 
@@ -399,6 +399,9 @@ Codegen必须验证：`*Scan/*Cursor/*UpdateCursor/*KeyTraversal`、selector poi
 
 ## 16. Stage 1 结论
 
-Candidate Scan 的semantic、binding、physical、representation和failure/stats责任已经闭合。Stage 2可以在不重新发明产品语义的情况下实施；micro-layout只允许在inline/overflow等语义边界内以evidence调整。
+Candidate Scan 的semantic、binding、physical、representation和failure/stats责任已经闭合。
+Stage 2 已在不重新发明产品语义的前提下实现，并仅在既定边界内以 evidence 调整
+micro-layout。
 
-本文件仍不授权实施，也不把目标API或allocation改善陈述为当前事实。
+本文件仍是 Temporary 设计，不替代正式 Owner；实现与 allocation 事实由
+[Stage 2 Evidence](stage-2-evidence.md)承担。

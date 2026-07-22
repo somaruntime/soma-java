@@ -2,17 +2,17 @@
 
 类型：Temporary
 
-状态：S2.1–S2.6 工作树实现与 Gate 完成；S2.7 正式固化待授权
+状态：S2.1–S2.6 immutable candidate 完成；S2.7 正式固化待单独授权
 
 Owner：SOMA Java Access Model / Candidate Scan 专题治理
 
 事实范围：Stage 2 的模块变更面、原子切换顺序、实际迁移、验证Gate与停止条件
 
-非事实范围：已提交的immutable候选、正式Design、正式性能声明或发布计划
+非事实范围：正式Design、正式性能声明或发布计划
 
 输入：[Stage 1 决策](stage-1-decisions.md)、[Pipeline IR](pipeline-ir.md)、[Stage 1 Evidence](stage-1-evidence.md)
 
-最后审查日期：2026-07-22
+最后审查日期：2026-07-23
 
 ## 1. 实施目标
 
@@ -26,10 +26,10 @@ Owner：SOMA Java Access Model / Candidate Scan 专题治理
 - correctness、compatibility、allocation、code-size和四场景验证；
 - 最终正式Owner原子固化并删除Temporary。
 
-用户已于 2026-07-22 授权提交 Stage 1 基线，并开始 Stage 2 的
-production/public API/runtime 实施。正式 Owner 固化与 Temporary 删除仍按 S2.7
-在实现和 Gate 收口后原子执行。当前 S2.1–S2.6 已在未提交工作树完成，证据见
-[Stage 2 Evidence](stage-2-evidence.md)；S2.7 未获授权。
+用户已授权并完成 Stage 2 的 production/public API/runtime 实施与 immutable
+candidate。S2.1–S2.6 固定在 executable commit `fd82eba`，证据见
+[Stage 2 Evidence](stage-2-evidence.md)。正式 Owner 固化与 Temporary 删除仍须按
+S2.7 获得单独授权并原子执行。
 
 ## 2. 模块变更面
 
@@ -264,6 +264,9 @@ plan reference与generation，Table/source state归入typed plan；Exact zero-st
 | component evidence | `PostCutoverComponentBenchmark.java` + validator/script |
 | integrated evidence | FJSP 100k runner、four-scenario checker |
 
-## 10. 实施授权问题
+## 10. 候选出口
 
-Stage 1完成后，用户只需裁决一个问题：是否授权按本包开始Stage 2的production/public/formal变更。无需再次讨论已关闭的命名、Unique cardinality、inline capacity或Access family，除非出现第8节停止条件。
+Stage 2 production/public 实施、P1/P2、命名、handle、性能与 Gate 已完成，候选为
+`fd82eba`。当前只剩 S2.7 正式 Owner 原子固化；该动作必须单独授权，无需重新讨论
+已经关闭的命名、Unique cardinality、inline capacity或Access family，除非出现新的
+反证或第8节停止条件。
