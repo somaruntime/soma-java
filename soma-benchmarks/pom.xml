@@ -19,11 +19,46 @@
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
+      <artifactId>soma-annotations</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
       <artifactId>soma-runtime-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-processor</artifactId>
+      <scope>provided</scope>
     </dependency>
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>soma-examples</artifactId>
     </dependency>
   </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <configuration>
+          <compilerArgs>
+            <arg>-Xplugin:SomaValue</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>soma-processor</artifactId>
+              <version>${project.version}</version>
+            </path>
+            <path>
+              <groupId>${project.groupId}</groupId>
+              <artifactId>soma-annotations</artifactId>
+              <version>${project.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
 </project>

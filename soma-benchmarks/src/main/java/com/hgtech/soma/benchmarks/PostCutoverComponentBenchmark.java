@@ -1,16 +1,16 @@
 package com.hgtech.soma.benchmarks;
 
-import com.hgtech.soma.examples.fjsp.schema.JobId;
-import com.hgtech.soma.examples.fjsp.schema.MachineCandidate;
-import com.hgtech.soma.examples.fjsp.schema.MachineId;
-import com.hgtech.soma.examples.fjsp.schema.OperationId;
-import com.hgtech.soma.examples.fjsp.schema.OperationKey;
-import com.hgtech.soma.examples.fjsp.schema.OperationMachineKey;
-import com.hgtech.soma.examples.fjsp.schema.SetupFamilyId;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateCursor;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateScan;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
+import com.hgtech.soma.benchmarks.schema.CandidateKey;
+import com.hgtech.soma.benchmarks.schema.CategoryId;
+import com.hgtech.soma.benchmarks.schema.GroupCandidate;
+import com.hgtech.soma.benchmarks.schema.GroupId;
+import com.hgtech.soma.benchmarks.schema.ItemId;
+import com.hgtech.soma.benchmarks.schema.NamespaceId;
+import com.hgtech.soma.benchmarks.schema.WorkKey;
+import com.hgtech.soma.benchmarks.schema.generated.GroupCandidateBatch;
+import com.hgtech.soma.benchmarks.schema.generated.GroupCandidateCursor;
+import com.hgtech.soma.benchmarks.schema.generated.GroupCandidateScan;
+import com.hgtech.soma.benchmarks.schema.generated.GroupCandidateTable;
 import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
@@ -31,41 +31,41 @@ public final class PostCutoverComponentBenchmark {
     static final String SCHEMA_VERSION = "soma-post-cutover-component-v1";
     static final String ARTIFACT_VERSION = "soma-java-post-cutover-component-v3";
     private static final int CANDIDATE_ROWS = 4096;
-    private static final int MACHINE_COUNT = 64;
-    private static final int OPTIONS_PER_OPERATION = 4;
-    private static final MachineId QUERY_MACHINE = new MachineId(17L);
-    private static final OperationMachineKey QUERY_CANDIDATE_KEY =
-            new OperationMachineKey(
-                    new OperationKey(new JobId(0L), new OperationId(0L)),
-                    new MachineId(0L));
+    private static final int GROUP_COUNT = 64;
+    private static final int OPTIONS_PER_WORK = 4;
+    private static final GroupId QUERY_GROUP = new GroupId(17L);
+    private static final CandidateKey QUERY_CANDIDATE_KEY =
+            new CandidateKey(
+                    new WorkKey(new NamespaceId(0L), new ItemId(0L)),
+                    new GroupId(0L));
     private static volatile long LONG_SINK;
     private static volatile Object OBJECT_SINK;
     private static final LongSum LONG_SUM = new LongSum();
 
-    private static final MachineCandidateScan.Predicate READY =
-            new MachineCandidateScan.Predicate() {
+    private static final GroupCandidateScan.Predicate READY =
+            new GroupCandidateScan.Predicate() {
                 @Override
-                public boolean test(MachineCandidateCursor row) {
-                    return row.indicatorReady();
+                public boolean test(GroupCandidateCursor row) {
+                    return row.selected();
                 }
             };
 
-    private static final MachineCandidateScan.Comparator DISPATCH_ORDER =
-            new MachineCandidateScan.Comparator() {
+    private static final GroupCandidateScan.Comparator DISPATCH_ORDER =
+            new GroupCandidateScan.Comparator() {
                 @Override
-                public int compare(MachineCandidateCursor left, MachineCandidateCursor right) {
-                    int value = Long.compare(left.fcfsValue(), right.fcfsValue());
+                public int compare(GroupCandidateCursor left, GroupCandidateCursor right) {
+                    int value = Long.compare(left.metric7(), right.metric7());
                     if (value != 0) return value;
-                    value = Long.compare(left.sptValue(), right.sptValue());
+                    value = Long.compare(left.metric8(), right.metric8());
                     if (value != 0) return value;
-                    value = Long.compare(left.candidateKeyOperationKeyJobIdValue(),
-                            right.candidateKeyOperationKeyJobIdValue());
+                    value = Long.compare(left.candidateKeyWorkKeyNamespaceIdValue(),
+                            right.candidateKeyWorkKeyNamespaceIdValue());
                     if (value != 0) return value;
-                    value = Long.compare(left.candidateKeyOperationKeyOperationIdValue(),
-                            right.candidateKeyOperationKeyOperationIdValue());
+                    value = Long.compare(left.candidateKeyWorkKeyItemIdValue(),
+                            right.candidateKeyWorkKeyItemIdValue());
                     if (value != 0) return value;
-                    return Long.compare(left.candidateKeyMachineIdValue(),
-                            right.candidateKeyMachineIdValue());
+                    return Long.compare(left.candidateKeyGroupIdValue(),
+                            right.candidateKeyGroupIdValue());
                 }
             };
 
@@ -88,26 +88,26 @@ public final class PostCutoverComponentBenchmark {
             Options options,
             BenchmarkEnvironment environment,
             List<LinkedHashMap<String, Object>> records) {
-        MachineCandidateTable table = MachineCandidateTable.create();
+        GroupCandidateTable table = GroupCandidateTable.create();
         try {
             table.addBatch(candidateBatch());
             TableStats exactStats = table.statsSnapshot();
             long expectedExactBytes = GroupedExactIndex.estimatedRetainedBytes(
-                    table.capacity(), MACHINE_COUNT)
+                    table.capacity(), GROUP_COUNT)
                     + GroupedExactIndex.estimatedRetainedBytes(
-                    table.capacity(), CANDIDATE_ROWS / OPTIONS_PER_OPERATION);
+                    table.capacity(), CANDIDATE_ROWS / OPTIONS_PER_WORK);
             require(exactStats.exactIndexEntryCount() == 2L * CANDIDATE_ROWS,
                     "generated exact-index entry count");
             require(exactStats.exactIndexGroupCount()
-                            == MACHINE_COUNT + CANDIDATE_ROWS / OPTIONS_PER_OPERATION,
+                            == GROUP_COUNT + CANDIDATE_ROWS / OPTIONS_PER_WORK,
                     "generated exact-index group count");
             require(exactStats.exactIndexStorageCurrentBytes() == expectedExactBytes,
                     "generated exact-index cardinality-aware capacity");
-            int groupRows = (int) table.scanByMachine(QUERY_MACHINE).count();
-            int matchingRows = (int) table.scanByMachine(QUERY_MACHINE)
+            int groupRows = (int) table.scanByGroup(QUERY_GROUP).count();
+            int matchingRows = (int) table.scanByGroup(QUERY_GROUP)
                     .filter(READY).count();
-            require(groupRows == CANDIDATE_ROWS / MACHINE_COUNT,
-                    "unexpected by-machine group size");
+            require(groupRows == CANDIDATE_ROWS / GROUP_COUNT,
+                    "unexpected exact group size");
             require(matchingRows > 0 && matchingRows < groupRows,
                     "filter must select a strict subset");
             require(table.findIndex(QUERY_CANDIDATE_KEY) >= 0,
@@ -117,7 +117,7 @@ public final class PostCutoverComponentBenchmark {
                     "candidate_scan.packed_zero_count", CANDIDATE_ROWS, CANDIDATE_ROWS,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return value.count();
                         }
                     });
@@ -126,7 +126,7 @@ public final class PostCutoverComponentBenchmark {
                     CANDIDATE_ROWS - CANDIDATE_ROWS / 4,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return value.filter(READY).count();
                         }
                     });
@@ -134,24 +134,24 @@ public final class PostCutoverComponentBenchmark {
                     "candidate_scan.exact_zero_count", groupRows, groupRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
-                            return value.scanByMachine(QUERY_MACHINE).count();
+                        public long run(GroupCandidateTable value) {
+                            return value.scanByGroup(QUERY_GROUP).count();
                         }
                     });
             measure(options, environment, records, table,
                     "candidate_scan.exact_zero_index", groupRows, 1,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
-                            return value.scanByMachine(QUERY_MACHINE).requireIndex();
+                        public long run(GroupCandidateTable value) {
+                            return value.scanByGroup(QUERY_GROUP).requireIndex();
                         }
                     });
             measure(options, environment, records, table,
                     "candidate_scan.exact_one_filter_count", groupRows, matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
-                            return value.scanByMachine(QUERY_MACHINE)
+                        public long run(GroupCandidateTable value) {
+                            return value.scanByGroup(QUERY_GROUP)
                                     .filter(READY).count();
                         }
                     });
@@ -159,7 +159,7 @@ public final class PostCutoverComponentBenchmark {
                     "candidate_scan.exact_two_stage_count", groupRows, matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return exactFilterStages(value, 2).count();
                         }
                     });
@@ -167,7 +167,7 @@ public final class PostCutoverComponentBenchmark {
                     "candidate_scan.exact_three_stage_count", groupRows, matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return exactFilterStages(value, 3).count();
                         }
                     });
@@ -176,7 +176,7 @@ public final class PostCutoverComponentBenchmark {
                     matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return exactFilterStages(value, 4).count();
                         }
                     });
@@ -185,7 +185,7 @@ public final class PostCutoverComponentBenchmark {
                     matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return exactFilterStages(value, 5).count();
                         }
                     });
@@ -194,7 +194,7 @@ public final class PostCutoverComponentBenchmark {
                     matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return exactFilterStages(value, 16).count();
                         }
                     });
@@ -202,8 +202,8 @@ public final class PostCutoverComponentBenchmark {
                     "candidate_scan.exact_filter_sort_index", groupRows, matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
-                            return value.scanByMachine(QUERY_MACHINE)
+                        public long run(GroupCandidateTable value) {
+                            return value.scanByGroup(QUERY_GROUP)
                                     .filter(READY).sorted(DISPATCH_ORDER)
                                     .requireIndex();
                         }
@@ -212,8 +212,8 @@ public final class PostCutoverComponentBenchmark {
                     "candidate_scan.exact_filter_sort_snapshot", groupRows, matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
-                            IndexSnapshot snapshot = value.scanByMachine(QUERY_MACHINE)
+                        public long run(GroupCandidateTable value) {
+                            IndexSnapshot snapshot = value.scanByGroup(QUERY_GROUP)
                                     .filter(READY).sorted(DISPATCH_ORDER).limit(1)
                                     .indexSnapshot();
                             OBJECT_SINK = snapshot;
@@ -225,18 +225,18 @@ public final class PostCutoverComponentBenchmark {
                     matchingRows,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
-                            MachineCandidate candidate = value.scanByMachine(QUERY_MACHINE)
+                        public long run(GroupCandidateTable value) {
+                            GroupCandidate candidate = value.scanByGroup(QUERY_GROUP)
                                     .filter(READY).sorted(DISPATCH_ORDER).firstOrThrow();
                             OBJECT_SINK = candidate;
-                            return candidate.candidateKey.operationKey.operationId.value;
+                            return candidate.candidateKey.workKey.itemId.value;
                         }
                     });
             measure(options, environment, records, table,
                     "point.primary_find_index", 1, 1,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             return value.findIndex(QUERY_CANDIDATE_KEY);
                         }
                     });
@@ -244,19 +244,19 @@ public final class PostCutoverComponentBenchmark {
                     "key_traversal.first_materialize", CANDIDATE_ROWS, 1,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
-                            OperationMachineKey key = value.keys().firstOrThrow();
+                        public long run(GroupCandidateTable value) {
+                            CandidateKey key = value.keys().firstOrThrow();
                             OBJECT_SINK = key;
-                            return key.operationKey.operationId.value;
+                            return key.workKey.itemId.value;
                         }
                     });
             measure(options, environment, records, table,
                     "column_traversal.long_for_each", CANDIDATE_ROWS, CANDIDATE_ROWS,
                     new Lane() {
                         @Override
-                        public long run(MachineCandidateTable value) {
+                        public long run(GroupCandidateTable value) {
                             LONG_SUM.value = 0L;
-                            value.processingMinutesValues().forEachLong(LONG_SUM);
+                            value.metric4Values().forEachLong(LONG_SUM);
                             return LONG_SUM.value;
                         }
                     });
@@ -265,9 +265,9 @@ public final class PostCutoverComponentBenchmark {
         }
     }
 
-    private static MachineCandidateScan exactFilterStages(
-            MachineCandidateTable table, int stages) {
-        MachineCandidateScan scan = table.scanByMachine(QUERY_MACHINE);
+    private static GroupCandidateScan exactFilterStages(
+            GroupCandidateTable table, int stages) {
+        GroupCandidateScan scan = table.scanByGroup(QUERY_GROUP);
         for (int stage = 0; stage < stages; stage++) {
             scan = scan.filter(READY);
         }
@@ -278,7 +278,7 @@ public final class PostCutoverComponentBenchmark {
             Options options,
             BenchmarkEnvironment environment,
             List<LinkedHashMap<String, Object>> records,
-            MachineCandidateTable table,
+            GroupCandidateTable table,
             String laneName,
             int groupRows,
             int matchingRows,
@@ -303,7 +303,7 @@ public final class PostCutoverComponentBenchmark {
         record.put("warmupIterations", Integer.valueOf(options.warmupIterations));
         record.put("measurementIterations", Integer.valueOf(options.measurementIterations));
         record.put("rows", Integer.valueOf(CANDIDATE_ROWS));
-        record.put("distinctGroups", Integer.valueOf(MACHINE_COUNT));
+        record.put("distinctGroups", Integer.valueOf(GROUP_COUNT));
         record.put("groupRows", Integer.valueOf(groupRows));
         record.put("matchingRows", Integer.valueOf(matchingRows));
         record.put("allocationMethod", JvmRuntimeMetrics.allocationMethod());
@@ -395,30 +395,30 @@ public final class PostCutoverComponentBenchmark {
         }
     }
 
-    private static MachineCandidateBatch candidateBatch() {
-        MachineCandidateBatch batch = new MachineCandidateBatch(CANDIDATE_ROWS);
-        SetupFamilyId[] families = new SetupFamilyId[16];
-        MachineId[] machines = new MachineId[MACHINE_COUNT];
-        for (int index = 0; index < families.length; index++) {
-            families[index] = new SetupFamilyId(index);
+    private static GroupCandidateBatch candidateBatch() {
+        GroupCandidateBatch batch = new GroupCandidateBatch(CANDIDATE_ROWS);
+        CategoryId[] categories = new CategoryId[16];
+        GroupId[] groups = new GroupId[GROUP_COUNT];
+        for (int index = 0; index < categories.length; index++) {
+            categories[index] = new CategoryId(index);
         }
-        for (int index = 0; index < machines.length; index++) {
-            machines[index] = new MachineId(index);
+        for (int index = 0; index < groups.length; index++) {
+            groups[index] = new GroupId(index);
         }
         for (int row = 0; row < CANDIDATE_ROWS; row++) {
-            int operation = row / OPTIONS_PER_OPERATION;
-            int option = row % OPTIONS_PER_OPERATION;
-            long job = operation / 16L;
-            int machine = (operation + option * 17) % MACHINE_COUNT;
-            long ready = operation * 3L + option;
-            long processing = 1L + ((operation * 7L + option) % 43L);
-            batch.addValues(new OperationMachineKey(
-                            new OperationKey(new JobId(job), new OperationId(operation)),
-                            machines[machine]),
-                    families[operation % families.length],
-                    operation, operation, option, ready, processing,
-                    option, ready, ready, processing + option,
-                    (operation & 3) != 0);
+            int work = row / OPTIONS_PER_WORK;
+            int option = row % OPTIONS_PER_WORK;
+            long namespace = work / 16L;
+            int group = (work + option * 17) % GROUP_COUNT;
+            long ready = work * 3L + option;
+            long payload = 1L + ((work * 7L + option) % 43L);
+            batch.addValues(new CandidateKey(
+                            new WorkKey(new NamespaceId(namespace), new ItemId(work)),
+                            groups[group]),
+                    categories[work % categories.length],
+                    work, work, option, ready, payload,
+                    option, ready, ready, payload + option,
+                    (work & 3) != 0);
         }
         return batch;
     }
@@ -484,7 +484,7 @@ public final class PostCutoverComponentBenchmark {
     }
 
     private interface Lane {
-        long run(MachineCandidateTable table);
+        long run(GroupCandidateTable table);
     }
 
     private static final class LongSum implements LongConsumer {

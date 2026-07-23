@@ -26,7 +26,14 @@ cpu_identity=$(uname -m)
 
 ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
 
-classpath="soma-benchmarks/target/classes:soma-runtime-core/target/classes:soma-examples/target/classes"
+if grep -F 'com.hgtech.soma.examples' \
+    soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java \
+    >/dev/null; then
+  printf '%s\n' 'post-cutover-component-check: example domain import detected' >&2
+  exit 1
+fi
+
+classpath="soma-benchmarks/target/classes:soma-runtime-core/target/classes"
 SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
   -Xms256m -Xmx512m -cp "$classpath" \
   com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark \
@@ -77,6 +84,8 @@ done
 shasum -a 256 "$artifact" \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java \
+  soma-benchmarks/target/classes/META-INF/soma/com.hgtech.soma.benchmarks.schema.schema.json \
+  soma-benchmarks/target/classes/META-INF/soma/com.hgtech.soma.benchmarks.schema.schema.sha256 \
   >"$evidence_dir/checksums.sha256"
 
 for class_name in PostCutoverComponentBenchmark PostCutoverComponentArtifactValidator; do

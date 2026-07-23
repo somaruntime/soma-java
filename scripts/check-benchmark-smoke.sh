@@ -44,6 +44,14 @@ if grep -F 'SmokeLaneSuite' "$benchmark_source/BenchmarkModel.java" >/dev/null \
   exit 1
 fi
 
+for neutral_owner in SmokeLaneWorkloads.java PostCutoverComponentBenchmark.java; do
+  if grep -F 'com.hgtech.soma.examples' "$benchmark_source/$neutral_owner" >/dev/null; then
+    printf '%s\n' \
+      "benchmark-smoke-check: neutral component owner imports example domain: $neutral_owner" >&2
+    exit 1
+  fi
+done
+
 grep -F '"x-soma-laneBinding": "SmokeLaneSuite.validateLaneRecord"' \
   soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
   >/dev/null
@@ -55,7 +63,7 @@ cpu_identity=$(uname -m)
 
 ./mvnw -B -ntp -pl soma-benchmarks -am clean test-compile
 
-classpath="soma-benchmarks/target/classes:soma-benchmarks/target/test-classes:soma-runtime-core/target/classes:soma-examples/target/classes"
+classpath="soma-benchmarks/target/classes:soma-benchmarks/target/test-classes:soma-runtime-core/target/classes"
 artifact=$evidence_dir/benchmark-smoke.jsonl
 repeat_artifact=$evidence_dir/benchmark-smoke-repeat.jsonl
 

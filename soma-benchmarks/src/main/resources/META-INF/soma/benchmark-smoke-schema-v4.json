@@ -851,7 +851,7 @@
           "properties": {
             "implementation": {
               "type": "string",
-              "const": "generated-machine-candidate-frontier"
+              "const": "generated-keyed-candidate-frontier"
             },
             "added": {
               "type": "integer",

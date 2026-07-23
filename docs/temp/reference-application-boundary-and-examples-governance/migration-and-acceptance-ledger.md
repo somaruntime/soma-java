@@ -72,16 +72,16 @@ Owner：SOMA 参考应用迁移与验收
 - [x] exact deletion/provenance list complete；
 - [x] no stop condition triggered；
 - [x] Stage 1 scope non-regression review passed；
-- [ ] Stage 1 committed。
+- [x] Stage 1 committed as `9ee6556`。
 
 ### Stage 2
 
-- [ ] standalone child projects and isolated consumer build；
-- [ ] benchmark neutral schema；
-- [ ] component lanes no longer use domain schema；
-- [ ] existing old scenario Gate still passes until replacement；
-- [ ] clean/repeat/source-shape evidence；
-- [ ] Stage 2 commit。
+- [x] standalone child projects and isolated consumer build；
+- [x] benchmark neutral schema；
+- [x] component lanes no longer use domain schema；
+- [x] existing old scenario Gate still passes until replacement；
+- [x] clean/repeat/source-shape evidence；
+- [x] Stage 2 committed by the commit containing this ledger update。
 
 ### Stage 3
 

@@ -22,34 +22,32 @@ import com.hgtech.soma.runtime.generated.OwnedChildTable;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
 
-import com.hgtech.soma.examples.fjsp.schema.JobId;
-import com.hgtech.soma.examples.fjsp.schema.MachineCandidate;
-import com.hgtech.soma.examples.fjsp.schema.MachineId;
-import com.hgtech.soma.examples.fjsp.schema.OperationDefinition;
-import com.hgtech.soma.examples.fjsp.schema.OperationId;
-import com.hgtech.soma.examples.fjsp.schema.OperationKey;
-import com.hgtech.soma.examples.fjsp.schema.OperationMachineKey;
-import com.hgtech.soma.examples.fjsp.schema.SetupFamilyId;
-import com.hgtech.soma.examples.fjsp.schema.generated.CandidateMachineDefinitionBatch;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateBatch;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateScan;
-import com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateTable;
-import com.hgtech.soma.examples.fjsp.schema.generated.OperationDefinitionBatch;
-import com.hgtech.soma.examples.fjsp.schema.generated.OperationDefinitionTable;
-import com.hgtech.soma.examples.simulation.SimEntityKind;
-import com.hgtech.soma.examples.simulation.SimVariableKind;
-import com.hgtech.soma.examples.simulation.generated.StateVectorRowBatch;
-import com.hgtech.soma.examples.simulation.generated.StateVectorRowTable;
-import com.hgtech.soma.examples.vrp.CustomerId;
-import com.hgtech.soma.examples.vrp.InsertionCandidateRow;
-import com.hgtech.soma.examples.vrp.LocationId;
-import com.hgtech.soma.examples.vrp.LocationPairKey;
-import com.hgtech.soma.examples.vrp.RouteId;
-import com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowBatch;
-import com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowScan;
-import com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowTable;
-import com.hgtech.soma.examples.vrp.generated.TravelCostBatch;
-import com.hgtech.soma.examples.vrp.generated.TravelCostTable;
+import com.hgtech.soma.benchmarks.schema.CandidateKey;
+import com.hgtech.soma.benchmarks.schema.CategoryId;
+import com.hgtech.soma.benchmarks.schema.DenseWorkspaceFact;
+import com.hgtech.soma.benchmarks.schema.EntityKind;
+import com.hgtech.soma.benchmarks.schema.GroupCandidate;
+import com.hgtech.soma.benchmarks.schema.GroupId;
+import com.hgtech.soma.benchmarks.schema.ItemId;
+import com.hgtech.soma.benchmarks.schema.LookupId;
+import com.hgtech.soma.benchmarks.schema.LookupKey;
+import com.hgtech.soma.benchmarks.schema.NamespaceId;
+import com.hgtech.soma.benchmarks.schema.OwnerFact;
+import com.hgtech.soma.benchmarks.schema.VariableKind;
+import com.hgtech.soma.benchmarks.schema.WorkKey;
+import com.hgtech.soma.benchmarks.schema.generated.DenseWorkspaceFactBatch;
+import com.hgtech.soma.benchmarks.schema.generated.DenseWorkspaceFactScan;
+import com.hgtech.soma.benchmarks.schema.generated.DenseWorkspaceFactTable;
+import com.hgtech.soma.benchmarks.schema.generated.GroupCandidateBatch;
+import com.hgtech.soma.benchmarks.schema.generated.GroupCandidateScan;
+import com.hgtech.soma.benchmarks.schema.generated.GroupCandidateTable;
+import com.hgtech.soma.benchmarks.schema.generated.LookupFactBatch;
+import com.hgtech.soma.benchmarks.schema.generated.LookupFactTable;
+import com.hgtech.soma.benchmarks.schema.generated.NumericFactBatch;
+import com.hgtech.soma.benchmarks.schema.generated.NumericFactTable;
+import com.hgtech.soma.benchmarks.schema.generated.OwnedOptionBatch;
+import com.hgtech.soma.benchmarks.schema.generated.OwnerFactBatch;
+import com.hgtech.soma.benchmarks.schema.generated.OwnerFactTable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -163,21 +161,21 @@ final class SmokeLaneWorkloads {
         long hashA = (0xcbf29ce484222325L ^ fromA) * 0x100000001b3L;
         long hashB = (0xcbf29ce484222325L ^ fromB) * 0x100000001b3L;
         long toB = collision ? hashB ^ hashA ^ toA : 5L;
-        LocationPairKey first = new LocationPairKey(new LocationId(fromA), new LocationId(toA));
-        LocationPairKey second = new LocationPairKey(new LocationId(fromB), new LocationId(toB));
+        LookupKey first = new LookupKey(new LookupId(fromA), new LookupId(toA));
+        LookupKey second = new LookupKey(new LookupId(fromB), new LookupId(toB));
         long setupStart = System.nanoTime();
-        TravelCostTable table = TravelCostTable.create();
-        table.addBatch(new TravelCostBatch(2)
+        LookupFactTable table = LookupFactTable.create();
+        table.addBatch(new LookupFactBatch(2)
                 .addValues(first, 101L, 11L)
                 .addValues(second, 202L, 22L));
         table.resetStats();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
-        long firstDistance = table.fetch(first).distanceMeters;
+        long firstDistance = table.fetch(first).primaryMetric;
         TableStats firstStats = table.statsSnapshot();
-        long secondDistance = table.fetch(second).distanceMeters;
+        long secondDistance = table.fetch(second).primaryMetric;
         TableStats secondStats = table.statsSnapshot();
-        boolean missing = !table.find(new LocationPairKey(new LocationId(9L), new LocationId(9L)))
+        boolean missing = !table.find(new LookupKey(new LookupId(9L), new LookupId(9L)))
                 .isPresent();
         TableStats missingStats = table.statsSnapshot();
         long measured = elapsed(measureStart);
@@ -216,19 +214,17 @@ final class SmokeLaneWorkloads {
 
     private static LaneObservation generatedKeyedFrontier(BenchmarkConfig config, String lane) {
         int count = Math.max(8, config.rows);
-        JobId job = new JobId(7L);
-        MachineId machineA = new MachineId(11L);
-        MachineId machineB = new MachineId(12L);
-        SetupFamilyId setup = new SetupFamilyId(3L);
-        OperationKey[] operations = new OperationKey[count];
+        NamespaceId namespace = new NamespaceId(7L);
+        GroupId groupA = new GroupId(11L);
+        GroupId groupB = new GroupId(12L);
+        CategoryId category = new CategoryId(3L);
         long setupStart = System.nanoTime();
-        MachineCandidateTable table = MachineCandidateTable.create();
-        MachineCandidateBatch batch = new MachineCandidateBatch(count);
+        GroupCandidateTable table = GroupCandidateTable.create();
+        GroupCandidateBatch batch = new GroupCandidateBatch(count);
         for (int index = 0; index < count; index++) {
-            OperationKey operation = new OperationKey(job, new OperationId(index + 1L));
-            operations[index] = operation;
-            MachineId machine = (index & 1) == 0 ? machineA : machineB;
-            batch.addValues(new OperationMachineKey(operation, machine), setup,
+            WorkKey work = new WorkKey(namespace, new ItemId(index + 1L));
+            GroupId group = (index & 1) == 0 ? groupA : groupB;
+            batch.addValues(new CandidateKey(work, group), category,
                     index, 0L, 0L, index, index + 1L, 0L,
                     index, index, index + 1L, false);
         }
@@ -236,20 +232,21 @@ final class SmokeLaneWorkloads {
         TableStats beforeMeasurement = table.statsSnapshot();
         long measureStart = System.nanoTime();
         table.addBatch(batch);
-        UpdateResult updated = table.scanByMachine(machineA).update(row -> {
-            row.setIndicatorReady(true);
-            row.setEffectiveReadyMinute(row.baseReadyMinute() + 1L);
+        UpdateResult updated = table.scanByGroup(groupA).update(row -> {
+            row.setSelected(true);
+            row.setMetric6(row.metric3() + 1L);
         });
-        MachineCandidate chosen = table.scanByMachine(machineA)
-                .filter(row -> row.indicatorReady())
-                .sorted(new MachineCandidateScan.Comparator() {
-                    @Override public int compare(com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateCursor left,
-                                                 com.hgtech.soma.examples.fjsp.schema.generated.MachineCandidateCursor right) {
-                        return Long.compare(left.effectiveReadyMinute(), right.effectiveReadyMinute());
+        GroupCandidate chosen = table.scanByGroup(groupA)
+                .filter(row -> row.selected())
+                .sorted(new GroupCandidateScan.Comparator() {
+                    @Override public int compare(
+                            com.hgtech.soma.benchmarks.schema.generated.GroupCandidateCursor left,
+                            com.hgtech.soma.benchmarks.schema.generated.GroupCandidateCursor right) {
+                        return Long.compare(left.metric6(), right.metric6());
                     }
                 }).firstOrThrow();
         TableStats firstStats = table.statsSnapshot();
-        RemoveResult removedResult = table.scanByOperation(chosen.candidateKey.operationKey).remove();
+        RemoveResult removedResult = table.scanByWork(chosen.candidateKey.workKey).remove();
         long removed = removedResult.removed();
         long measured = elapsed(measureStart);
         require(updated.changed() > 0L && removed == 1L && table.size() == count - 1,
@@ -301,7 +298,7 @@ final class SmokeLaneWorkloads {
                 + stats.operationScratchCurrentBytes()
                 + stats.updateScratchCurrentBytes()
                 + stats.exactIndexStorageCurrentBytes();
-        result.keySpaceStats = BenchmarkModel.object("implementation", "generated-machine-candidate-frontier",
+        result.keySpaceStats = BenchmarkModel.object("implementation", "generated-keyed-candidate-frontier",
                 "added", Integer.valueOf(count), "updated", Long.valueOf(updated.changed()),
                 "dynamicFirst", 1L, "removed", Long.valueOf(removed),
                 "tableCapacityBeforeMeasurement", Integer.valueOf(beforeMeasurement.capacity()),
@@ -339,17 +336,17 @@ final class SmokeLaneWorkloads {
     private static LaneObservation generatedExactIndexLookup(
             BenchmarkConfig config, String lane) {
         int count = Math.max(8, config.rows);
-        JobId job = new JobId(17L);
-        MachineId machineA = new MachineId(31L);
-        MachineId machineB = new MachineId(32L);
-        SetupFamilyId setup = new SetupFamilyId(7L);
+        NamespaceId namespace = new NamespaceId(17L);
+        GroupId groupA = new GroupId(31L);
+        GroupId groupB = new GroupId(32L);
+        CategoryId category = new CategoryId(7L);
         long setupStart = System.nanoTime();
-        MachineCandidateTable table = MachineCandidateTable.create();
-        MachineCandidateBatch batch = new MachineCandidateBatch(count);
+        GroupCandidateTable table = GroupCandidateTable.create();
+        GroupCandidateBatch batch = new GroupCandidateBatch(count);
         for (int index = 0; index < count; index++) {
-            OperationKey operation = new OperationKey(job, new OperationId(index + 1L));
-            MachineId machine = (index & 1) == 0 ? machineA : machineB;
-            batch.addValues(new OperationMachineKey(operation, machine), setup,
+            WorkKey work = new WorkKey(namespace, new ItemId(index + 1L));
+            GroupId group = (index & 1) == 0 ? groupA : groupB;
+            batch.addValues(new CandidateKey(work, group), category,
                     index, 0L, 0L, index, index + 1L, 0L,
                     index, index, index + 1L, false);
         }
@@ -357,7 +354,7 @@ final class SmokeLaneWorkloads {
         long setupNanos = elapsed(setupStart);
         long measureStart = System.nanoTime();
         table.addBatch(batch);
-        long exactMatches = table.scanByMachine(machineA).count();
+        long exactMatches = table.scanByGroup(groupA).count();
         TableStats lookupStats = table.statsSnapshot();
         long measured = elapsed(measureStart);
         long expectedMatches = (count + 1L) / 2L;
@@ -446,31 +443,32 @@ final class SmokeLaneWorkloads {
     private static LaneObservation generatedDenseWorkspace(
             BenchmarkConfig config, String lane) {
         int count = Math.max(8, config.rows);
-        RouteId route = new RouteId(1L);
+        GroupId group = new GroupId(1L);
         long setupStart = System.nanoTime();
-        InsertionCandidateRowTable table = InsertionCandidateRowTable.create();
-        InsertionCandidateRowBatch first = insertionBatch(count, 1000L);
+        DenseWorkspaceFactTable table = DenseWorkspaceFactTable.create();
+        DenseWorkspaceFactBatch first = denseWorkspaceBatch(count, 1000L);
         table.replaceAll(first);
-        InsertionCandidateRowBatch replacement = insertionBatch(count, 2000L);
+        DenseWorkspaceFactBatch replacement = denseWorkspaceBatch(count, 2000L);
         table.resetStats();
         TableStats beforeMeasurement = table.statsSnapshot();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
         table.replaceAll(replacement);
-        InsertionCandidateRow dynamic = table.sorted(new InsertionCandidateRowScan.Comparator() {
-            @Override public int compare(com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowCursor left,
-                                         com.hgtech.soma.examples.vrp.generated.InsertionCandidateRowCursor right) {
-                return Long.compare(left.deltaDistanceMeters(), right.deltaDistanceMeters());
+        DenseWorkspaceFact dynamic = table.sorted(new DenseWorkspaceFactScan.Comparator() {
+            @Override public int compare(
+                    com.hgtech.soma.benchmarks.schema.generated.DenseWorkspaceFactCursor left,
+                    com.hgtech.soma.benchmarks.schema.generated.DenseWorkspaceFactCursor right) {
+                return Long.compare(left.sortMetric(), right.sortMetric());
             }
         }).findFirst().get();
         TableStats dynamicStats = table.statsSnapshot();
         require(table.sorted((left, right) -> Long.compare(
-                left.deltaDistanceMeters(), right.deltaDistanceMeters()))
-                .firstOrThrow().customerId.equals(dynamic.customerId),
+                left.sortMetric(), right.sortMetric()))
+                .firstOrThrow().itemId.equals(dynamic.itemId),
                 "dynamic firstOrThrow must agree with findFirst");
         TableStats secondDynamicStats = table.statsSnapshot();
         long measured = elapsed(measureStart);
-        require(dynamic.routeId.equals(route),
+        require(dynamic.groupId.equals(group),
                 "dynamic sort must select from the replacement workspace");
         TableStats stats = table.statsSnapshot();
         table.release();
@@ -525,10 +523,10 @@ final class SmokeLaneWorkloads {
         return SmokeLaneEvidence.finish(result, "generated-dense-replace-and-sort-terminals");
     }
 
-    private static InsertionCandidateRowBatch insertionBatch(int count, long base) {
-        InsertionCandidateRowBatch batch = new InsertionCandidateRowBatch(count);
+    private static DenseWorkspaceFactBatch denseWorkspaceBatch(int count, long base) {
+        DenseWorkspaceFactBatch batch = new DenseWorkspaceFactBatch(count);
         for (int index = 0; index < count; index++) {
-            batch.addValues(new RouteId(1L), new CustomerId(index + 1L), index,
+            batch.addValues(new GroupId(1L), new ItemId(index + 1L), index,
                     1L, base + count - index, base + index,
                     index + 1, base + count + index);
         }
@@ -538,17 +536,17 @@ final class SmokeLaneWorkloads {
     private static LaneObservation generatedPipelineFusion(BenchmarkConfig config, String lane) {
         int count = Math.max(8, config.rows);
         long setupStart = System.nanoTime();
-        StateVectorRowTable table = StateVectorRowTable.create();
-        StateVectorRowBatch batch = new StateVectorRowBatch(count);
+        NumericFactTable table = NumericFactTable.create();
+        NumericFactBatch batch = new NumericFactBatch(count);
         for (int index = 0; index < count; index++) {
-            batch.addValues(index, SimEntityKind.TANK, index,
-                    SimVariableKind.LEVEL_LITERS, index, 1.0d, 1.0d);
+            batch.addValues(index, EntityKind.PRIMARY, index,
+                    VariableKind.VALUE, index, 1.0d, 1.0d);
         }
         table.addBatch(batch);
         long setup = elapsed(setupStart);
         int limit = Math.max(1, count / 4);
         long measureStart = System.nanoTime();
-        UpdateResult updated = table.filter(row -> (row.vectorIndex() & 1) == 0)
+        UpdateResult updated = table.filter(row -> (row.factIndex() & 1) == 0)
                 .limit(limit).update(row -> row.setValue(row.value() + row.derivative()));
         long measured = elapsed(measureStart);
         require(updated.matched() == limit && updated.changed() == limit,
@@ -947,14 +945,14 @@ final class SmokeLaneWorkloads {
 
     private static LaneObservation generatedMaterialization(BenchmarkConfig config, String lane) {
         long setupStart = System.nanoTime();
-        OperationDefinitionTable table = materializationFixture();
+        OwnerFactTable table = materializationFixture();
         long setup = elapsed(setupStart);
         long measureStart = System.nanoTime();
-        Map<OperationKey, OperationDefinition> materialized = table.materialize();
+        Map<WorkKey, OwnerFact> materialized = table.materialize();
         long measured = elapsed(measureStart);
         int childRows = 0;
-        for (OperationDefinition definition : materialized.values()) {
-            childRows += definition.candidateMachines.size();
+        for (OwnerFact fact : materialized.values()) {
+            childRows += fact.options.size();
         }
         require(materialized.size() == 2 && childRows == 2,
                 "generated recursive Map/schema-object/List materialization");
@@ -972,7 +970,7 @@ final class SmokeLaneWorkloads {
         result.touchedBytes = 8L * stats.lastMaterializationLeafValues();
         result.touchedBytesScope = "materialized leaf payload bytes traversed in measurement";
         result.workingSetScope = "maximum successfully published detached materialization payload estimate";
-        result.materializationPath = "operation_definitions[].candidateMachines";
+        result.materializationPath = "owner_facts[].options";
         result.materializationStats = BenchmarkModel.object("implementation", "generated-recursive-materializer",
                 "rootMapEntries", Integer.valueOf(materialized.size()),
                 "schemaObjects", 4L, "lists", 2L, "mapEntries", 2L,
@@ -984,7 +982,7 @@ final class SmokeLaneWorkloads {
                 "partialResults", 0L);
         result.effectiveMaterializationBudget = budgetMap(MaterializationBudget.defaults());
         result.limitations = BenchmarkModel.limitations(
-                "real generated OperationDefinition materializer publishes Map of schema objects with owned List children",
+                "neutral generated OwnerFact materializer publishes Map of schema objects with owned List children",
                 "estimated allocation follows the deterministic V1 estimator, not exact JVM heap accounting");
         return SmokeLaneEvidence.finish(result, "generated-recursive-map-object-list-materialization");
     }
@@ -993,8 +991,8 @@ final class SmokeLaneWorkloads {
         final String[] dimensions = {"maximumOwnershipDepth", "maximumTableInstances",
                 "maximumRows", "maximumLeafValues", "maximumEstimatedAllocationBytes"};
         long setupStart = System.nanoTime();
-        final OperationDefinitionTable table = materializationFixture();
-        Map<OperationKey, OperationDefinition> baseline = table.materialize();
+        final OwnerFactTable table = materializationFixture();
+        Map<WorkKey, OwnerFact> baseline = table.materialize();
         TableStats baselineStats = table.statsSnapshot();
         final long[] observed = {
                 baselineStats.lastMaterializationMaximumOwnershipDepth(),
@@ -1013,12 +1011,12 @@ final class SmokeLaneWorkloads {
             String dimension = dimensions[index];
             long exactLimit = observed[index];
             MaterializationBudget successBudget = budgetForDimension(dimension, exactLimit);
-            Map<OperationKey, OperationDefinition> atLimit = table.materialize(successBudget);
+            Map<WorkKey, OwnerFact> atLimit = table.materialize(successBudget);
             require(atLimit.size() == 2, "generated materialization limit success: " + dimension);
             successes++;
             long failingLimit = exactLimit - 1L;
             MaterializationBudget failureBudget = budgetForDimension(dimension, failingLimit);
-            Map<OperationKey, OperationDefinition> partial = null;
+            Map<WorkKey, OwnerFact> partial = null;
             try {
                 partial = table.materialize(failureBudget);
                 throw new AssertionError("generated materialization budget did not fail: " + dimension);
@@ -1044,7 +1042,7 @@ final class SmokeLaneWorkloads {
                 failures++;
             }
         }
-        Map<OperationKey, OperationDefinition> allocationPartial = null;
+        Map<WorkKey, OwnerFact> allocationPartial = null;
         MaterializationAllocation.Scope scope = MaterializationAllocation.installForCurrentThread(
                 new MaterializationAllocation.Provider() {
                     @Override public boolean allow(String phase, long bytes, String path) {
@@ -1062,7 +1060,7 @@ final class SmokeLaneWorkloads {
         } finally {
             scope.close();
         }
-        Map<OperationKey, OperationDefinition> recovery = table.materialize();
+        Map<WorkKey, OwnerFact> recovery = table.materialize();
         long measured = elapsed(measureStart);
         TableStats stats = table.statsSnapshot();
         require(successes == dimensions.length && failures == dimensions.length
@@ -1084,7 +1082,7 @@ final class SmokeLaneWorkloads {
         result.touchedBytesScope = "materialization leaf payload attempts in measurement";
         result.workingSetScope = "maximum successfully published detached materialization payload estimate";
         result.materializationBudgetDimension = "all-five-dimensions-plus-allocation-admission";
-        result.materializationPath = "operation_definitions[].candidateMachines";
+        result.materializationPath = "owner_facts[].options";
         result.materializationStats = BenchmarkModel.object("implementation", "generated-recursive-materializer",
                 "boundarySuccesses", Integer.valueOf(successes),
                 "budgetFailures", Integer.valueOf(failures), "allocationFailures", 1L,
@@ -1117,17 +1115,17 @@ final class SmokeLaneWorkloads {
         return builder.build();
     }
 
-    private static OperationDefinitionTable materializationFixture() {
-        JobId job = new JobId(99L);
-        SetupFamilyId family = new SetupFamilyId(5L);
-        OperationDefinitionTable table = OperationDefinitionTable.create();
-        table.addBatch(new OperationDefinitionBatch(2)
-                .addValues(new OperationKey(job, new OperationId(1L)), 0, 0L, family,
-                        new CandidateMachineDefinitionBatch(2)
-                                .addValues(new MachineId(1L), 3L)
-                                .addValues(new MachineId(2L), 4L))
-                .addValues(new OperationKey(job, new OperationId(2L)), 1, 0L, family,
-                        new CandidateMachineDefinitionBatch(0)));
+    private static OwnerFactTable materializationFixture() {
+        NamespaceId namespace = new NamespaceId(99L);
+        CategoryId category = new CategoryId(5L);
+        OwnerFactTable table = OwnerFactTable.create();
+        table.addBatch(new OwnerFactBatch(2)
+                .addValues(new WorkKey(namespace, new ItemId(1L)), 0, 0L, category,
+                        new OwnedOptionBatch(2)
+                                .addValues(new GroupId(1L), 3L)
+                                .addValues(new GroupId(2L), 4L))
+                .addValues(new WorkKey(namespace, new ItemId(2L)), 1, 0L, category,
+                        new OwnedOptionBatch(0)));
         return table;
     }
 

@@ -361,7 +361,7 @@ final class SmokeLaneContract {
                     "mainKeySpaceGrowthAllocationBytes", "keySpaceAllocationBytes",
                     "tableGrowthAllocationBytes", "scratchAllocationBytes",
                     "retainedScratchBytes"});
-            requireStringValue(keys, "implementation", "generated-machine-candidate-frontier");
+            requireStringValue(keys, "implementation", "generated-keyed-candidate-frontier");
             requireIntegerFields(keys, new String[] {"added", "updated", "dynamicFirst",
                     "removed", "tableCapacityBeforeMeasurement", "tableCapacity",
                     "keySpaceCapacityBeforeMeasurement", "keySpaceCapacity",

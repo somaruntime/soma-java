@@ -1,0 +1,111 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- Intentionally independent: this application must build as an ordinary consumer. -->
+  <groupId>com.hgtech.soma.examples</groupId>
+  <artifactId>grassing-individual-simulation</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+
+  <name>SOMA Grassing Individual Simulation Reference Application</name>
+  <description>Independent Java 8 reference application consuming SOMA public artifacts.</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.build.outputTimestamp>2026-07-23T00:00:00Z</project.build.outputTimestamp>
+    <maven.compiler.source>1.8</maven.compiler.source>
+    <maven.compiler.target>1.8</maven.compiler.target>
+    <maven.compiler.plugin.version>3.11.0</maven.compiler.plugin.version>
+    <maven.dependency.plugin.version>3.8.1</maven.dependency.plugin.version>
+    <maven.enforcer.plugin.version>3.5.0</maven.enforcer.plugin.version>
+    <maven.jar.plugin.version>3.4.2</maven.jar.plugin.version>
+    <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
+    <soma.version>0.2.0-SNAPSHOT</soma.version>
+    <maven.deploy.skip>true</maven.deploy.skip>
+  </properties>
+
+  <dependencies>
+    <dependency>
+      <groupId>com.hgtech.soma</groupId>
+      <artifactId>soma-annotations</artifactId>
+      <version>${soma.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.hgtech.soma</groupId>
+      <artifactId>soma-runtime-core</artifactId>
+      <version>${soma.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.hgtech.soma</groupId>
+      <artifactId>soma-processor</artifactId>
+      <version>${soma.version}</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven.compiler.plugin.version}</version>
+        <configuration>
+          <source>${maven.compiler.source}</source>
+          <target>${maven.compiler.target}</target>
+          <encoding>${project.build.sourceEncoding}</encoding>
+          <compilerArgs>
+            <arg>-Xplugin:SomaValue</arg>
+          </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>com.hgtech.soma</groupId>
+              <artifactId>soma-processor</artifactId>
+              <version>${soma.version}</version>
+            </path>
+            <path>
+              <groupId>com.hgtech.soma</groupId>
+              <artifactId>soma-annotations</artifactId>
+              <version>${soma.version}</version>
+            </path>
+          </annotationProcessorPaths>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>${maven.dependency.plugin.version}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <version>${maven.enforcer.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>enforce-java-8</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[1.8,1.9)</version>
+                </requireJavaVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>${maven.jar.plugin.version}</version>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven.surefire.plugin.version}</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>
