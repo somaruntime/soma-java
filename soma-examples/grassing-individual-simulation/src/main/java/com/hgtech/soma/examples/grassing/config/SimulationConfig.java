@@ -27,6 +27,8 @@ public final class SimulationConfig {
   private final double grassingAmount;
   private final double searchEnergyThreshold;
   private final int traceInterval;
+  private final String canonicalText;
+  private final String checksum;
 
   SimulationConfig(TreeMap<String, String> values) {
     this.values = new TreeMap<String, String>(values);
@@ -51,6 +53,9 @@ public final class SimulationConfig {
     searchEnergyThreshold = parseDouble("search.energy.threshold");
     traceInterval = parseInt("trace.interval");
     validate();
+    canonicalText = buildCanonicalText();
+    checksum = new StableHash()
+        .addString(canonicalText).finishHex();
   }
 
   private void validate() {
@@ -217,6 +222,10 @@ public final class SimulationConfig {
   public int traceInterval() { return traceInterval; }
 
   public String canonicalText() {
+    return canonicalText;
+  }
+
+  private String buildCanonicalText() {
     StringBuilder text = new StringBuilder();
     for (String key : values.keySet()) {
       text.append(key).append('=').append(values.get(key)).append('\n');
@@ -225,6 +234,6 @@ public final class SimulationConfig {
   }
 
   public String checksum() {
-    return new StableHash().addString(canonicalText()).finishHex();
+    return checksum;
   }
 }
