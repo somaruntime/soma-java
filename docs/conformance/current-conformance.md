@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design、commit `6b6dc49` 的 compiler/codegen 内部结构、commit `fd82eba` 的产品语义实现与当前正式 evidence
+核对对象：正式 Blueprint/Design、commit `fd82eba` 的产品语义实现、commit `79c0a89` 的 compiler/codegen 内部结构、commit `8f685e2` 的 benchmark/evidence 实现与 commit `75ee658` 的正式治理收口
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -44,11 +44,11 @@ Owner：SOMA Java 一致性审查
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
 | 设计驱动文档体系 | 一致且 evidenced | 32份旧Owner已处置；Design 具备层次/关注点/上位关系与场景追踪；Blueprint、Map、Conformance职责分离；checker 已覆盖结构门禁 | 保持唯一Owner、抽象层次和Temporary退役门禁 |
-| 项目复杂度与可维护性 | 一致且 evidenced | historical/current拓扑、processor/codegen责任拆分、byte-identical generated/class manifest、完整Gate与多fork对照 | 继续使用软触发器和责任Gate，不设置LOC配额 |
+| 项目复杂度与可维护性 | 一致且 evidenced | historical/current拓扑、processor/codegen与benchmark责任拆分、normalized generated-footprint诊断、byte-stable generation、完整Gate与多fork对照 | 继续使用软触发器和责任Gate，不设置LOC配额 |
 
 ## 3. 当前结论
 
-正式 Design 对 core compiler/runtime 的描述与当前实现一致，没有发现需要修改 core Design/public API 的 blocking deviation。`6b6dc49` 只重组 compiler/codegen 内部责任；generated source、runtime/examples/benchmark class、Schema/hash 与可执行语义没有变化。Access Model、Candidate Scan、Unique point family、scalar Index terminal、Traversal naming、v4 identity 与四场景均已完成 clean cutover；其余未闭合项只有两类：
+正式 Design 对 core compiler/runtime 的描述与当前实现一致，没有发现需要修改 core Design/public API 的 blocking deviation。`79c0a89` 修正 compiler/codegen 内部所有权，`8f685e2` 完成 benchmark 分责与 generated-footprint 诊断；generated Java、Schema/hash、public/generated API、runtime 语义与四场景没有变化，`75ee658` 已完成正式 Owner、Report、checker 和 Temporary 退役。Access Model、Candidate Scan、Unique point family、scalar Index terminal、Traversal naming、v4 identity 与四场景均已完成 clean cutover；其余未闭合项只有两类：
 
 1. 性能结论仍受测量环境与 lane 范围约束；
 2. G6因外部发布事实保持blocked。
@@ -70,3 +70,4 @@ Owner：SOMA Java 一致性审查
 - [Access Model / Candidate Scan 正式切换治理](../../reports/2026-07-23-access-model-candidate-scan-governance-report.md)
 - [Access Model / Candidate Scan 性能证据](../../reports/2026-07-23-access-model-candidate-scan-performance-report.md)
 - [项目复杂度与可维护性治理](../../reports/2026-07-23-project-complexity-and-maintainability-governance-report.md)
+- [复杂度可持续性后续治理](../../reports/2026-07-23-complexity-sustainability-governance-report.md)

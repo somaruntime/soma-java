@@ -12,7 +12,7 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：最后 implementation-affecting baseline `fd82eba`
+适用版本：产品语义 baseline `fd82eba`；最后 internal implementation/evidence baseline `8f685e2`；正式治理收口 `75ee658`
 
 输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
 
@@ -37,13 +37,15 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 2026-07-23完成Access Model / Candidate Scan产品化治理：建立Point/Candidate/Column/Key/Bulk/Ownership完整访问模型，generated API clean cutover到Table/Scan/Cursor/UpdateCursor/Traversal与Unique point family，runtime采用compact typed plan、source/terminal specialization和stable arg-min；compatibility升级到v4、development version升级到`0.2.0-SNAPSHOT`。实现基线为`fd82eba feat: implement Stage 2 access model`；正式Owner、scope non-regression与证据见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。该治理不处理也不解除G6。
 
+2026-07-23随后完成项目复杂度与可维护性治理及后续可持续性审计：processor selector/admission与Table source helper责任核对到`79c0a89`，benchmark lane分责和generated-footprint evidence核对到`8f685e2`，最终正式收口为`75ee658`。本轮保持generated Java、schema/hash、public/generated API、runtime语义、四场景和Gate不变；结论与证据见[项目复杂度与可维护性治理报告](2026-07-23-project-complexity-and-maintainability-governance-report.md)和[复杂度可持续性后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。该治理不处理也不解除G6。
+
 ## 1. 当前总进度
 
 | 总体工作 | 状态 | 可核验出口 |
 |---|---|---|
 | Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
 | Phase 6：四个正式场景、Access Pattern Cards、benchmark、release mechanics | implementation-complete | 83 个 scenario source、222 个 generated type、782 个 Java 8 class；20 条真实 integrated benchmark workload；License/POM/source/javadoc/package/security scripts |
-| 集中验证与修复 | passed | 当前 `fd82eba` / v4候选已在Azul Zulu full JDK 8得到`project-check: ok`；早期Corretto结果仅为历史evidence，不属于当前支持或重放要求；package/security diagnostic通过 |
+| 集中验证与修复 | passed | 产品语义`fd82eba`、internal implementation/evidence `8f685e2`与正式收口`75ee658`均保持v4契约，并在Azul Zulu full JDK 8得到`project-check: ok`；早期Corretto结果仅为历史evidence，不属于当前支持或重放要求；package/security diagnostic通过 |
 | G5 examples/benchmark gate | passed | examples 与 benchmark contributor reports；root G5 closeout report |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
 | V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
@@ -79,15 +81,19 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 
 ## 4. 集中验证记录
 
-### 4.1 2026-07-23 Access Model / Candidate Scan验证
+### 4.1 2026-07-23 复杂度可持续性正式收口
+
+`79c0a89`修正compiler/codegen内部责任，`8f685e2`完成benchmark分责与generated-footprint诊断，`75ee658`完成正式Owner、Governance Report、入口/checker与Temporary退役。最终候选在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`；20条benchmark record、36条negative path、222个generated type、782个major-52 class与四场景保持，FJSP 100k allocation/GC Gate无Full GC。该结果只证明内部责任与evidence治理没有造成scope回退，不建立新的跨环境性能claim；详见[后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。
+
+### 4.2 2026-07-23 Access Model / Candidate Scan验证
 
 `fd82eba`的production/public API/runtime、external consumers、四场景、16条allocation、24条memory、code-size与FJSP多fork证据均已在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`。四份Schema hash保持不变，generated/runtime compatibility升级到v4，plan protocol仍为v3；详细环境、artifact与claim边界见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。
 
-### 4.2 2026-07-21 四场景采纳验证
+### 4.3 2026-07-21 四场景采纳验证
 
 `a137b10`的实现、当前正式文档与退役后 Temporary 已由Zulu JDK 8完整`./scripts/check.sh`重新验证，结果为`project-check: ok`。四场景生成222个type/782个major-52 class，benchmark产生20+20 records且36个negative path全部fail closed，component与FJSP allocation/GC Gate也通过。完整命令、环境、artifact与claim边界见[2026-07-21 专题治理报告](2026-07-21-four-scenario-blueprint-adoption-report.md)。
 
-### 4.3 2026-07-11 专题治理 fresh validation
+### 4.4 2026-07-11 专题治理 fresh validation
 
 实现提交`aa7a466`上执行：
 
@@ -97,7 +103,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home SOMA_UNSUPP
 
 结果`project-check: ok`；20条benchmark lane各聚合2次measurement，36条serialized negative artifact均fail closed。最后一次现存benchmark目录为`target/benchmark-smoke.PJkPCM`。clean package mechanics在`2490406`已通过；`aa7a466`的fresh package重放在项目编译前因Maven Central TLS中断，当前实现内容由Maven verify和多组external Maven consumer覆盖，具体限制不作为G6证据并在专题报告§12披露。
 
-### 4.4 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
+### 4.5 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
 
 完整命令：
 
@@ -120,6 +126,7 @@ Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh`
 - Owner、正式语义与Gate经用户批准按packed/exact v3目标先行迁移，没有为实现捷径反向降低Capability或release claim。
 - 四个场景已以current generated live facade和正式runtime path采纳Blueprint canonical journey；benchmark只记录真实执行的20条minimum integrated workload，且分开keyed exact-index与dense scratch/sort证据。
 - Access Model / Candidate Scan v4 clean migration已在首个公开发布前完成；后续功能性能工作应是additive completion或contract-preserving internal refinement，不应再次引入双轨public/generated API、平行事实或temporary canonical hot path。
+- 复杂度可持续性治理只调整internal implementation/evidence责任与诊断，不改变产品语义；正式Owner、Report、checker和Temporary退役已在`75ee658`闭环。
 - 未引入 temporary public/generated contract、temporary storage/hot path、test-only bypass、未来 migration 或 rewrite。
 
 ## 6. 当前唯一剩余工作
