@@ -20,11 +20,13 @@ Owner：industrial-dynamic-scheduler
 | long-run | 10,000 operations | 持续 update/remove、event 和 checksum |
 
 每个 profile 都生成两次 input 并比较 checksum，再创建两个独立 runtime 比较结果；
-problem generation 与 bootstrap 不计入 solve measurement。
+problem generation 与 preparation 不计入 solve measurement。`default` 是生产
+resource；其余三个 profile、fixture 和 benchmark options 位于 test resources。
+Problem profile 不包含 `benchmark.*`，因此输入 identity 与测量过程相互独立。
 
 ## 独立领域 validator
 
-Validator 不读取 SOMA table 内部状态，基于 detached problem 和最终 assignment
+Validator 不读取 SOMA table 内部状态，基于 detached Problem 和完整 Result
 重新验证：
 
 - operation cardinality/identity 与 eligible processing duration；
@@ -49,7 +51,7 @@ makespan = 13, tardiness = 1, weighted tardiness = 2
 
 correctness lane 验证：
 
-- invalid detached input 在 bootstrap 前被拒绝；
+- invalid detached input 在 Runtime projection 前被拒绝；
 - solver 第二次执行被拒绝；
 - assignment mutation 后旧 `IndexSnapshot` stale；
 - other-table snapshot 作为 wrong source 被拒绝；
@@ -61,7 +63,7 @@ correctness lane 验证：
 每个 benchmark record 来自独立 JVM fork，包含：
 
 - config/input/result checksum 与 schema/runtime-plan identity；
-- warmup、measurement、setup/solve nanos；
+- warmup、forks、measurement、preparation/solve nanos；
 - current-thread allocated bytes；
 - Young/Full GC count 与 pause；
 - exact-index、update scratch、operation scratch high-water；
@@ -70,3 +72,11 @@ correctness lane 验证：
 Gate 要求至少三个 fork，且 identity/checksum 跨 fork 唯一稳定、allocation 和 solve
 time 为正。它证明该 workload 在当前 Zulu JDK 8 本机可重复执行，不证明 SOMA
 普遍优于其他存储，也不外推为发布支持矩阵。
+
+Gate 还要求：
+
+- clean/repeat 生成源码和 schema artifact byte-stable；
+- production JAR 不含 fixture/oracle/verification/benchmark；
+- application 不绕过 Solver facade；
+- config/problem 不依赖 SOMA runtime/generated code；
+- 旧 `state`、bootstrap、runner 和 config identity 无 current 残留。

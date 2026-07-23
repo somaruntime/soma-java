@@ -92,6 +92,26 @@ if grep -R -E \
     'industrial-scheduler-check: production depends on test/evidence' >&2
   exit 1
 fi
+if grep -R -E \
+    '^import com\.hgtech\.soma\.examples\.scheduler\.(application|config|result|solver)' \
+    "$main_root/runtime" \
+    >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.scheduler\.(application|config|runtime|schema|solver)' \
+      "$main_root/result" \
+      >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.scheduler\.(application|benchmark|config|fixture|oracle|verification)' \
+      "$main_root/solver" \
+      >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.scheduler\.(application|config|problem|result|runtime|solver|support)' \
+      "$main_root/schema" \
+      >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: production package DAG regressed' >&2
+  exit 1
+fi
 if grep -R -F 'SyntheticSchedulingProblemFactory' \
     "$main_root/runtime" \
     >/dev/null; then

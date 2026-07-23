@@ -15,20 +15,51 @@ Owner：industrial-dynamic-scheduler
 依赖方向固定为：
 
 ```text
-config -> problem -> bootstrap -> runtime -> validation/evidence
+application
+  -> config / problem / factory
+  -> solver facade
+       -> dispatch engine / event / frontier / committer
+       -> runtime factory / projection / schema
+       -> detached result assembly
+
+test fixture / oracle / verification / benchmark
+  -> production contracts
 ```
 
-- `config/` 严格读取 properties、校验全部 key 并输出 canonical text；
-- `problem/` 生成和预检 detached input，不 import SOMA runtime/generated code；
-- `state/` 只声明 annotation schema；
-- `runtime/` 装载 authoritative state，拥有 event queue、resource calendar 和 solve；
-- `validation/` 只依赖 detached problem 与 materialized result；
-- `evidence/` 编排 correctness、long-run 和 benchmark，不进入 production loop。
+- `application/` 是 composition root，只选择配置、Factory 和 Solver；
+- `config/` 只读取 problem-generation properties、校验全部 key 并输出
+  canonical text；
+- `problem/` 拥有 top-level Spec、Factory、预检、lookup 和 input checksum，
+  不 import SOMA runtime/generated code；
+- `schema/` 只声明 annotation schema；
+- `solver/` 拥有 canonical facade、一次性 session、算法状态机与 result
+  assembly；
+- `runtime/` 拥有 RuntimePlan、Table aggregate、Problem projection、
+  projection verification、event queue 和 resource calendar；
+- `result/` 只依赖 detached problem，拥有 immutable Result、checksum 和完整
+  domain validator；
+- fixture、oracle、verification、benchmark 和 JVM metrics 只存在于
+  `src/test`。
 
-Runtime 不反向调用 generator；generator 的可变 `Random` 状态在 problem 构造完成后
-即可释放。
+Runtime 不反向调用 Factory；Factory 的可变 `Random` 状态在 Problem 构造完成后
+即可释放。生产包不依赖 test/evidence 包。
 
-## State projection
+## Problem、Solver 与 Result
+
+`SchedulingProblem` defensive-copy 所有顶层集合，并把校验、lookup 和 checksum
+分别委托给自己的唯一 Owner。`SyntheticSchedulingProblemFactory` 只根据
+`ProblemGenerationConfig` 创建输入；fixture 不复用为生产数据源。
+
+`SchedulingSolver.solve(problem)` 是普通调用入口。需要区分 preparation/solve
+measurement 时使用 `prepare(problem)` 返回 `SchedulingSession`。Session 状态为
+`READY -> SOLVING -> CLOSED`，成功、失败或显式关闭都会释放唯一拥有的 Runtime。
+
+`ScheduleResult` 包含全部 detached `ScheduledOperation`、目标统计、稳定 checksum
+和 `SolveDiagnostics`。Result assembler 逐字段复制 schema record，并在 Runtime
+关闭前捕获 `RuntimeSnapshot`；Result 不保存 ColumnView、Index、IndexSnapshot、
+Cursor、Batch 或 mutable schema record。
+
+## Schema projection
 
 | 角色 | SOMA table | 主要访问 |
 |---|---|---|
@@ -41,7 +72,12 @@ Runtime 不反向调用 generator；generator 的可变 `Random` 状态在 probl
 resource lane array 是 application structure，可由 input/assignment 重建，不成为
 live SOMA storage 的旁路事实源。
 
-## 调度算法
+## 调度算法与责任
+
+`DispatchEngine` 只编排状态机；`ExternalEventProcessor` 拥有 event replay 和首工序
+发布；`CandidateFrontier` 拥有 candidate 发布、刷新、全序选择和版本复验；
+`AssignmentCommitter` 拥有 authoritative mutation、candidate 退役和 successor
+发布。四者不得复制 comparator、refresh 或 commit 顺序。
 
 每次循环：
 
@@ -61,7 +97,7 @@ assignment 是该约束的最终权威事实。
 ## Failure 与 lifecycle
 
 - problem 在首次 Table mutation 前完成 identity/reference/range/matrix/event 预检；
-- bootstrap 失败会关闭整个尚未发布的 aggregate；
+- runtime factory/projection 失败会关闭整个尚未发布的 aggregate；
 - 单 Table operation 保持 SOMA 失败原子性；
 - SOMA V1 没有跨 Table transaction；authoritative write 后失败使 solve fail-stop；
 - derived frontier、event projection 与 resource calendar 可以从 input/assignment
@@ -69,7 +105,7 @@ assignment 是该约束的最终权威事实。
 - `SchedulerRuntime` 是唯一 owner，按 result/derived/lookup/state/definition
   逆序 release；
 - callback 不重入同一 aggregate，不产生外部副作用；
-- solver 和 pipeline 都是 one-shot。
+- session、dispatch engine 和 pipeline 都是 one-shot。
 
 ## Index 与物理顺序
 
@@ -77,5 +113,6 @@ assignment 是该约束的最终权威事实。
 physical order；result checksum 在按 operation identity 排序后计算。验证器还会
 反转 materialized assignment 清单，证明输出不依赖 packed physical order。
 
-`IndexSnapshot` 只在同步只读批次消费；应用负路径显式验证 mutation 后 stale、
-wrong-source 和 release 后访问均被拒绝。
+`IndexSnapshot` 只在同步只读批次消费；test-only 负路径显式验证 mutation 后
+stale、wrong-source 和 release 后访问均被拒绝。生产 JAR 不携带这些 evidence
+runner。

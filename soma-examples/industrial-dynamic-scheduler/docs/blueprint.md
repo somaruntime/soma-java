@@ -12,27 +12,27 @@ Owner：industrial-dynamic-scheduler
 
 ## 目标体验
 
-使用者通过一份版本化配置生成可重放的工业问题，把已校验输入一次性装载到
-SOMA columnar runtime，运行动态 event/dispatch/commit 循环，最后取得通过独立
-领域 validator 的 assignment。改变问题规模或 seed 不改变 solver 分支，也不把
-测试数据生成逻辑带进 hot loop。
+使用者通过一份版本化配置生成可重放的工业问题，把已校验输入交给一个普通
+`SchedulingSolver`，获得在 Runtime 关闭后仍完整可用的不可变 `ScheduleResult`。
+改变问题规模或 seed 不改变 solver 分支，也不把测试数据生成逻辑带进 hot loop。
 
 ```text
 properties
-  -> strict SchedulerConfig
-  -> detached SchedulingProblemGenerator
+  -> strict ProblemConfigLoader
+  -> ProblemGenerationConfig
+  -> SchedulingProblemFactory
   -> immutable SchedulingProblem + input checksum
-  -> SchedulerRuntimeBootstrap
-  -> SOMA tables + application event/resource structures
-  -> IndustrialScheduler
-  -> assignments + domain validation + result checksum
+  -> SchedulingSolver
+  -> internal Runtime/Schema + event/frontier/commit
+  -> detached ScheduleResult
+  -> independent domain validation
 ```
 
 ## 使用旅程
 
 配置显式控制 jobs、operations/job、machine eligibility、setup family、
 secondary-resource capacity、release/material distribution、maintenance、
-transport、machine delay、due/priority、seed 和 benchmark 轮次：
+transport、machine delay、due/priority 和 seed：
 
 ```properties
 seed=1702
@@ -47,6 +47,34 @@ machine.delay.events=6
 
 同一最终配置和 seed 必须产生相同 input checksum。CLI 输出的 config checksum
 用于证明 override 后究竟运行了什么；input checksum 与 result checksum 不混用。
+benchmark warmup/forks/measurements 使用另一份 test-only 配置，不参与问题
+identity。
+
+应用代码只面向 Problem、Solver 和 Result：
+
+```java
+ProblemGenerationConfig config = ProblemConfigLoader.load("default");
+SchedulingProblemFactory factory =
+    new SyntheticSchedulingProblemFactory();
+SchedulingProblem problem = factory.create(config);
+
+SchedulingSolver solver = new SomaSchedulingSolver();
+ScheduleResult result = solver.solve(problem);
+ScheduleValidator.ValidationSummary validated =
+    ScheduleValidator.validate(problem, result);
+```
+
+需要分别测量 preparation 与 solve 时，可以使用一次性 session：
+
+```java
+SchedulingSession session = solver.prepare(problem);
+try {
+  ScheduleResult result = session.solve();
+  // result 已 detached；solve 返回前内部 Runtime 已关闭。
+} finally {
+  session.close();
+}
+```
 
 ## SOMA schema 的应用方式
 
@@ -97,7 +125,8 @@ frontier.scanByOperation(operationKey).remove();
 ```
 
 跨事件保存 `OperationKey`、`MachineId` 等 stable key；current Index 与
-`IndexSnapshot` 只在同步只读批次内使用。最终边界才 materialize assignment。
+`IndexSnapshot` 只在同步只读批次内使用。Solver 终点才把
+`OperationAssignment` schema record 复制为 `ScheduledOperation`。
 
 ## 领域闭环
 
@@ -120,6 +149,8 @@ Event queue、resource lane calendar、maintenance evaluator 和跨 Table 提交
 ## 成功标准
 
 - 普通 Maven consumer 可以独立构建与运行；
+- production JAR 只包含应用代码，不包含 fixture、oracle、verification 或
+  benchmark；
 - correctness fixture 有手算结果；
 - 四个配置均可重放并通过完整 validator；
 - long-run 持续 mutation 后 frontier 清空且所有 operation 恰好一次 assignment；

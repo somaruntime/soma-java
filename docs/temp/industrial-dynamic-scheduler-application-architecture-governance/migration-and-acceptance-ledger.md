@@ -18,8 +18,9 @@ Owner：industrial-dynamic-scheduler migration and acceptance ledger
 |---|---|---|---|
 | 治理前实现 | `048b225` | passed | Zulu JDK 8 完整 `project-check: ok` |
 | Stage 0 协议/审计 | `7f43f1d` | passed | docs Gate、完整 `project-check: ok` |
-| Stage 1 详细设计 | 待提交 | active | docs Gate |
-| implementation candidate | 待形成 | pending | 专项 Gate |
+| Stage 1 详细设计 | `3f8fa54` | passed | docs Gate |
+| Solver/Result boundary | `f2e1cdc` | passed | Zulu JDK 8 compile、correctness |
+| implementation candidate | `899753d` / `69e5dc6` | passed | 专项 Gate、isolated clean/repeat、四 profile、三 fork |
 | final cutover | 待形成 | pending | 完整 Gate、Report、Temporary退役 |
 
 首次完整 Gate 遇到 Maven Central TLS transient；固定 TLS 1.2 后同一基线完整通过。
@@ -29,33 +30,33 @@ Owner：industrial-dynamic-scheduler migration and acceptance ledger
 
 | 旧责任 | 目标唯一 Owner | 状态 |
 |---|---|---|
-| CLI 手工 runtime 编排 | `SchedulingSolver` / `SomaSchedulingSolver` | pending |
-| runtime 导出 + 摘要分离 | 完整 `ScheduleResult` / assembler | pending |
-| validator 拥有 checksum | `ScheduleChecksum` | pending |
-| nested input records | top-level Problem model | pending |
-| generator static utility | `SchedulingProblemFactory` implementation | pending |
-| bootstrap 全部职责 | runtime factory/projector/verifier | pending |
-| IndustrialScheduler 全部职责 | engine/event/frontier/committer | pending |
-| `state` 技术包 | `schema` 技术投影 | pending |
-| main fixture/oracle/checks | test fixture/oracle/verification | pending |
-| main benchmark/JVM metrics | test benchmark | pending |
-| SchedulerConfig benchmark keys | `BenchmarkOptions` test config | pending |
+| CLI 手工 runtime 编排 | `SchedulingSolver` / `SomaSchedulingSolver` | passed |
+| runtime 导出 + 摘要分离 | 完整 `ScheduleResult` / assembler | passed |
+| validator 拥有 checksum | `ScheduleChecksum` | passed |
+| nested input records | top-level Problem model | passed |
+| generator static utility | `SchedulingProblemFactory` implementation | passed |
+| bootstrap 全部职责 | runtime factory/projector/verifier | passed |
+| IndustrialScheduler 全部职责 | engine/event/frontier/committer | passed |
+| `state` 技术包 | `schema` 技术投影 | passed |
+| main fixture/oracle/checks | test fixture/oracle/verification | passed |
+| main benchmark/JVM metrics | test benchmark | passed |
+| SchedulerConfig benchmark keys | `BenchmarkOptions` test config | passed |
 
 ## 3. 能力验收
 
 | 事实 | 基线 | Candidate | 最终 |
 |---|---|---|---|
-| 四 profile deterministic input | passed | pending | pending |
-| correctness expected schedule | passed | pending | pending |
-| complete domain validator | passed | pending | pending |
-| one-shot/lifecycle/IndexSnapshot negative | passed | pending | pending |
-| long-run 10,000 operations | passed | pending | pending |
-| multi-fork allocation/GC/high-water | passed | pending | pending |
-| ordinary consumer clean/repeat | passed | pending | pending |
-| Java 8 + generated/schema reproducibility | passed | pending | pending |
-| production JAR excludes evidence | failed by design | pending | pending |
-| package dependency DAG | failed by design | pending | pending |
-| canonical Problem/Solver/Result journey | failed by design | pending | pending |
+| 四 profile deterministic input | passed | passed | pending |
+| correctness expected schedule | passed | passed | pending |
+| complete domain validator | passed | passed | pending |
+| one-shot/lifecycle/IndexSnapshot negative | passed | passed | pending |
+| long-run 10,000 operations | passed | passed | pending |
+| multi-fork allocation/GC/high-water | passed | passed | pending |
+| ordinary consumer clean/repeat | passed | passed | pending |
+| Java 8 + generated/schema reproducibility | passed | passed | pending |
+| production JAR excludes evidence | failed by design | passed | pending |
+| package dependency DAG | failed by design | passed | pending |
+| canonical Problem/Solver/Result journey | failed by design | passed | pending |
 
 ## 4. 实施顺序
 

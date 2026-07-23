@@ -22,10 +22,15 @@ Owner：SOMA Java reference applications
 
 ## 当前参考应用
 
-- [工业动态调度引擎](../industrial-dynamic-scheduler/docs/README.md)：flexible machine、动态事件、约束传播、增量 frontier、完整 validator 与多 fork evidence；
+- [工业动态调度引擎](../industrial-dynamic-scheduler/docs/README.md)：top-level
+  Problem/Factory、canonical Solver/Session、detached Result、动态约束、增量
+  frontier、production/test 隔离与多 fork evidence；
 - [个体生态仿真](../grassing-individual-simulation/docs/README.md)：grasser–grass systems、确定性随机、AoS oracle、物理顺序独立性与 long-run evidence。
 
-每个应用都把版本化配置和 detached input generation 与 authoritative runtime state 分开。Generator 不持有 SOMA runtime，bootstrap 校验后一次装载，hot loop 不反向调用 generator；相同配置与 seed 必须产生相同 input checksum。
+每个应用都把版本化配置和 detached input generation 与 authoritative runtime
+state 分开。工业调度应用通过 Factory/Solver facade 隐藏 runtime lifecycle；
+生态仿真仍使用自有 generator/bootstrap。两者的 hot loop 都不反向调用输入生成器，
+相同配置与 seed 必须产生相同 input checksum。
 
 ## Canonical Gate
 

@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design、既有 core 产品语义与 compiler/runtime evidence，以及 reference-application implementation baseline `955c956`
+核对对象：正式 Blueprint/Design、既有 core 产品语义与 compiler/runtime evidence，以及 industrial scheduler implementation baseline `69e5dc6`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -38,7 +38,7 @@ Owner：SOMA Java 一致性审查
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
 | hot-path performance shape | 一致但 evidence 有限 | neutral component allocation/memory、JFR attribution、三 surface Scan footprint 与两个应用 multi-fork；完整 Gate passed | 结论限制在已测环境与lane，见当前性能摘要 |
 | reference application boundary | 一致且 evidenced | `soma-examples` 仅聚合两个 independent child；isolated repository/runtime graph/source-shape Gate | 应用只消费 public artifacts，不反向拥有 core Design |
-| industrial dynamic scheduler | application evidence complete | versioned config、detached generator、完整约束、oracle/validator、failure/lifecycle、long-run 与 multi-fork | 领域事实和 integrated evidence 保持 application-owned |
+| industrial dynamic scheduler | 一致且 evidenced | top-level Problem/Factory、canonical Solver/Session、detached Result、Runtime/Schema projection、production/test source-set、完整约束、oracle/validator、failure/lifecycle、long-run、JAR purity 与 multi-fork | 保持应用分层和唯一 canonical journey；领域事实与 integrated evidence 继续 application-owned |
 | grassing individual simulation | application evidence complete | versioned config、detached generator、显式 system 顺序、AoS逐tick等价、order independence、long-run 与 multi-fork | 领域事实和 integrated evidence 保持 application-owned |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
@@ -49,7 +49,9 @@ Owner：SOMA Java 一致性审查
 
 正式 Design 对 core compiler/runtime 的描述与当前实现一致，没有发现需要修改 core Design/public API 的 blocking deviation。旧四场景已经从产品 Blueprint、Design trace、current Conformance、共享 example JAR 和 benchmark dependency 中退出；其 SOMA evidence 责任分别由 core fixtures、neutral component benchmark 与两个 isolated reference applications 接管。领域专属算法已按非产品事实退役，历史 Report 只保留 provenance。
 
-Access Model、Candidate Scan、Unique point family、scalar Index terminal、Traversal naming 与 v4 identity 没有变化；两个参考应用不建立新的产品契约。其余未闭合项只有两类：
+Access Model、Candidate Scan、Unique point family、scalar Index terminal、
+Traversal naming 与 v4 identity 没有变化；工业调度应用的重构只消费既有 SOMA
+契约，不建立新的产品契约。其余未闭合项只有两类：
 
 1. 性能结论仍受测量环境与 lane 范围约束；
 2. G6因外部发布事实保持blocked。

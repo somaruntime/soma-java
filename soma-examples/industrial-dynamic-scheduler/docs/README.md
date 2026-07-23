@@ -27,12 +27,16 @@ Owner：industrial-dynamic-scheduler
 ```bash
 ./mvnw -f soma-examples/industrial-dynamic-scheduler/pom.xml clean package
 java -cp "<application classes>:<runtime classpath>" \
-  com.hgtech.soma.examples.scheduler.SchedulerApplication default
+  com.hgtech.soma.examples.scheduler.application.SchedulerApplication default
 ```
 
-第一个参数可以是 `correctness`、`default`、`large`、`long-run`，也可以是
-`.properties` 文件；后续参数使用 `key=value` 显式覆盖。程序输出最终生效配置、
-config/input/result 三种 checksum，以及 generation、bootstrap、solve 各自耗时。
+生产资源只提供 `default` problem profile；第一个参数也可以是外部
+`.properties` 文件，后续参数使用 `key=value` 显式覆盖。程序输出最终生效配置、
+config/input/result 三种 checksum，以及 generation、preparation、solve 各自耗时。
+
+`correctness`、`large`、`long-run`、fixture、oracle、verification 和 benchmark
+全部位于 test source-set，不进入生产 JAR。Problem generation 配置与 benchmark
+measurement 配置彼此独立。
 
 项目级 canonical Gate：
 
@@ -40,6 +44,7 @@ config/input/result 三种 checksum，以及 generation、bootstrap、solve 各�
 ./scripts/check-industrial-scheduler.sh
 ```
 
-该 Gate 在 evidence-local Maven repository 中构建普通 consumer，执行四个配置、
-手算 oracle、领域 validator、lifecycle 负路径和三个独立 JVM fork。所有性能
-artifact 默认 `claimAllowed=false`。
+该 Gate 在 evidence-local Maven repository 中构建普通 consumer，检查 production
+JAR 和 package DAG，执行四个 problem profile、手算 oracle、领域 validator、
+lifecycle 负路径和三个独立 JVM fork。所有性能 artifact 默认
+`claimAllowed=false`。

@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：commit `955c956`
+实现核对基线：commit `69e5dc6`
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 
@@ -35,7 +35,8 @@ Owner：SOMA Java 一致性审查
 | Candidate plan allocation与best-one snapshot | 已关闭 | compact typed plan、Packed/exact specialization与scalar Index terminal保持component/code-size Gate |
 | application-owned priority structure | 已关闭 | SOMA 只拥有 Table facts；应用长期 queue/heap 保存 stable domain identity，不保存 current Index |
 | reference application ownership | 已关闭 | 应用 Blueprint/Design/correctness/integrated evidence 由 child project 自有，不进入 SOMA Design trace |
-| config/generator/runtime lifecycle | 已关闭 | versioned config 与 detached generator 先产生可重放 input；bootstrap 后 runtime hot loop 不反向依赖 generator |
+| config/factory/solver/runtime/result lifecycle | 已关闭 | Problem config 与 benchmark options 分离；detached Factory 先产生可重放 input；canonical Solver/Session 独占 Runtime 并返回 detached Result；hot loop 不反向依赖 Factory |
+| reference application production/test 边界 | 已关闭 | industrial scheduler production JAR 不含 fixture/oracle/verification/benchmark；source-shape 与 JAR Gate 防止 evidence 回流生产 |
 | `CF-007` 文档候选完整性 | 已关闭 | 32份旧Owner已按迁移审计处置；正式入口、checker与Report已切换，Temporary已删除 |
 | `CF-008` 文档抽象层次与职责混合 | 已关闭 | Design 已建立 `D0/D1/D2/Q`、上位设计和场景追踪；Blueprint 不再承载当前实现盘点、自审或一致性结论；checker 防止结构回退 |
 
