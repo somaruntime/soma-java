@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 1 详细设计完成；实施中）
+状态：active（Stage 1 实施与验证完成；等待项目 Owner 结果审查）
 
 Owner：SOMA Java 复杂度可持续性 Stage 0 审计专题
 
@@ -12,7 +12,7 @@ Owner：SOMA Java 复杂度可持续性 Stage 0 审计专题
 
 正式事实源：否
 
-实施授权：有（仅限本专题 Stage 1 三个内部治理 slice）
+实施授权：已完成（当前停止点不包含正式固化或 Temporary 退役）
 
 Stage 0 不可变基线：commit `e69eec2`
 
@@ -70,6 +70,9 @@ Stage 0 只授权读取正式 Owner、代码、Git 历史与可执行 evidence�
 
 Stage 1 详细设计见 [Stage 1 设计](stage-1-design.md)。
 
+Stage 1 的实际结果、非回归证据与残余风险见
+[Stage 1 结果审查](stage-1-result-review.md)。
+
 ## 5. 非回归约束
 
 后续若获授权，仍必须保持：
@@ -104,6 +107,9 @@ Stage 1D  runtime retain decision：无代码变更
 ```
 
 三个实施 slice 必须可以独立保留并分别验证。Stage 1 最后停在结果审查处；未经新的明确授权，不修改正式 Owner、不形成最终 Governance Report、不删除 Temporary。
+
+三个实施 slice 已分别完成并提交；完整 Gate 已通过。专题当前停在项目
+Owner 结果审查处。
 
 ## 8. Stage 0 完成与停止点
 

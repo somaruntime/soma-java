@@ -69,7 +69,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 当前 active Temporary topic：
 
-- [复杂度可持续性治理](temp/complexity-sustainability-stage0-audit/README.md)：Stage 0 已完成四个限定审计；当前按获批 Stage 1 设计实施 benchmark、processor 与 generated-footprint 三个内部治理 slice。
+- [复杂度可持续性治理](temp/complexity-sustainability-stage0-audit/README.md)：Stage 1 三个内部治理 slice 已完成并通过完整 Gate；当前等待项目 Owner 审查治理结果，尚未正式固化或退役。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 
