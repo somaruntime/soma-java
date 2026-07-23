@@ -22,6 +22,14 @@ public final class SimulationDiagnostics {
     if (runtimePlanHash == null) {
       throw new NullPointerException("runtimePlanHash");
     }
+    if (exactIndexHighWaterBytes < 0L
+        || updateScratchHighWaterBytes < 0L
+        || operationScratchHighWaterBytes < 0L
+        || populationGrowthCount < 0L
+        || populationCapacity < 0 || traceCapacity < 0) {
+      throw new IllegalArgumentException(
+          "diagnostic counters and capacities must be non-negative");
+    }
     this.schemaHash = schemaHash;
     this.runtimePlanHash = runtimePlanHash;
     this.exactIndexHighWaterBytes = exactIndexHighWaterBytes;

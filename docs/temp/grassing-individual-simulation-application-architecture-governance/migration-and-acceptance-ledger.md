@@ -21,8 +21,8 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 | Stage 1 详细设计 | `5c8f781` | passed | vocabulary、DAG、Result/Snapshot、system/source-set裁决 |
 | Stage 2 canonical boundary | `a1ceddb` | passed | Scenario/Factory、Simulator/Session、detached Result、composition root |
 | Stage 3 internal responsibilities | `1c410b8` | passed | Config loader、Runtime projection、Engine/System、Schema clean cutover |
-| Stage 4 source-set and Gate | 待提交 | in progress | production/test resources、JAR purity、DAG、retired identity |
-| implementation candidate | 待形成 | pending | 专项、四 profile、AoS、multi-fork、isolated/repeat |
+| Stage 4 source-set and Gate | `a4744ef` | passed | production/test resources、JAR purity、DAG、retired identity |
+| implementation candidate | 待提交 | in progress | 专项、四 profile、AoS、multi-fork、isolated/repeat |
 | final cutover | 待形成 | pending | 完整 Gate、Report、Temporary退役 |
 
 ## 2. 责任接管候选
@@ -61,14 +61,14 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 
 | 事实 | 基线 | Candidate | 最终 |
 |---|---|---|---|
-| 四 profile deterministic input | passed | pending | pending |
-| correctness per-tick AoS bit equality | passed | pending | pending |
-| initial-order independence | passed | pending | pending |
-| domain invariant / churn | passed | pending | pending |
-| lifecycle / IndexSnapshot negative | passed | pending | pending |
-| long-run 2,000 ticks | passed | pending | pending |
-| multi-fork allocation/GC/high-water | passed | pending | pending |
-| ordinary consumer clean/repeat | passed | pending | pending |
+| 四 profile deterministic input | passed | passed | pending |
+| correctness per-tick AoS bit equality | passed | passed | pending |
+| initial-order independence | passed | passed | pending |
+| domain invariant / churn | passed | passed | pending |
+| lifecycle / IndexSnapshot negative | passed | passed | pending |
+| long-run 2,000 ticks | passed | passed | pending |
+| multi-fork allocation/GC/high-water | passed | passed | pending |
+| ordinary consumer clean/repeat | passed | passed | pending |
 | Java 8 + generated/schema reproducibility | passed | pending | pending |
 | production JAR excludes evidence | failed by design | passed | pending |
 | package dependency DAG | not gated | passed | pending |
@@ -87,6 +87,11 @@ Stage 4 将非 default profile、AoS oracle、verification、negative checks、J
 配置。专项 Gate 已新增 package DAG、JAR purity、canonical contract 和 retired
 identity 的 fail-closed 规则，并改为在 test classpath 执行 evidence、在 production
 classpath 执行 Application。
+
+Candidate hardening 补齐了 RuntimeFactory 部分创建失败时的释放闭包、Runtime 多资源
+release 的 suppressed-failure 处理，以及 detached Result/Diagnostics 的构造
+invariant。专项 Gate 通过后才形成 immutable candidate；clean/repeat 和项目完整
+Gate 在该 commit 上执行。
 
 ## 5. 实施原则
 

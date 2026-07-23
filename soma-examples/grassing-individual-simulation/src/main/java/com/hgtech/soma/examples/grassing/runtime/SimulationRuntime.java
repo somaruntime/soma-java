@@ -78,11 +78,32 @@ public final class SimulationRuntime implements AutoCloseable {
   public void close() {
     if (closed) return;
     closed = true;
-    traces.release();
-    grassers.release();
-    Arrays.fill(grass, 0.0);
-    Arrays.fill(cellPopulation, 0);
-    Arrays.fill(cellShare, 0.0);
-    Arrays.fill(cellConsumption, 0.0);
+    Throwable failure = null;
+    try {
+      traces.release();
+    } catch (Throwable releaseFailure) {
+      failure = releaseFailure;
+    }
+    try {
+      grassers.release();
+    } catch (Throwable releaseFailure) {
+      if (failure == null) {
+        failure = releaseFailure;
+      } else {
+        failure.addSuppressed(releaseFailure);
+      }
+    } finally {
+      Arrays.fill(grass, 0.0);
+      Arrays.fill(cellPopulation, 0);
+      Arrays.fill(cellShare, 0.0);
+      Arrays.fill(cellConsumption, 0.0);
+    }
+    if (failure instanceof RuntimeException) {
+      throw (RuntimeException) failure;
+    }
+    if (failure instanceof Error) throw (Error) failure;
+    if (failure != null) {
+      throw new IllegalStateException("runtime release failed", failure);
+    }
   }
 }

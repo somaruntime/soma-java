@@ -12,19 +12,47 @@ public final class SimulationRuntimeFactory {
   public SimulationRuntime create(SimulationScenario scenario) {
     if (scenario == null) throw new NullPointerException("scenario");
     RuntimePlan plan = plan(scenario.config(), scenario.population());
-    GrasserStateTable grassers = GrasserStateTable.create(plan);
-    TraceSampleTable traces = TraceSampleTable.create(plan);
-    SimulationRuntime runtime = new SimulationRuntime(
-        scenario.config(), scenario.checksum(),
-        grassers, traces, scenario.grassCopy());
-    boolean complete = false;
+    GrasserStateTable grassers = null;
+    TraceSampleTable traces = null;
+    SimulationRuntime runtime = null;
     try {
+      grassers = GrasserStateTable.create(plan);
+      traces = TraceSampleTable.create(plan);
+      runtime = new SimulationRuntime(
+          scenario.config(), scenario.checksum(),
+          grassers, traces, scenario.grassCopy());
       RuntimeProjector.project(scenario, runtime);
       RuntimeProjectionVerifier.verify(scenario, runtime);
-      complete = true;
       return runtime;
-    } finally {
-      if (!complete) runtime.close();
+    } catch (RuntimeException failure) {
+      cleanup(runtime, traces, grassers, failure);
+      throw failure;
+    } catch (Error failure) {
+      cleanup(runtime, traces, grassers, failure);
+      throw failure;
+    }
+  }
+
+  private static void cleanup(
+      SimulationRuntime runtime,
+      TraceSampleTable traces,
+      GrasserStateTable grassers,
+      Throwable failure) {
+    try {
+      if (runtime != null) {
+        runtime.close();
+        return;
+      }
+      if (traces != null) traces.release();
+    } catch (Throwable cleanupFailure) {
+      failure.addSuppressed(cleanupFailure);
+    }
+    if (runtime == null && grassers != null) {
+      try {
+        grassers.release();
+      } catch (Throwable cleanupFailure) {
+        failure.addSuppressed(cleanupFailure);
+      }
     }
   }
 

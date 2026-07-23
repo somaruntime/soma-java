@@ -31,6 +31,16 @@ public final class SimulationResult {
       throw new NullPointerException("resultChecksum");
     }
     if (diagnostics == null) throw new NullPointerException("diagnostics");
+    if (ticks < 0 || population < 0 || maximumPopulation < population
+        || grassingPopulation < 0 || searchingPopulation < 0
+        || grassingPopulation + searchingPopulation != population
+        || births < 0L || deaths < 0L) {
+      throw new IllegalArgumentException("invalid simulation summary");
+    }
+    if (!Double.isFinite(totalGrass) || !Double.isFinite(totalEnergy)) {
+      throw new IllegalArgumentException(
+          "simulation aggregates must be finite");
+    }
     this.ticks = ticks;
     this.population = population;
     this.maximumPopulation = maximumPopulation;
