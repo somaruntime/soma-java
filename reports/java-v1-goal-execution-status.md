@@ -12,7 +12,7 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：产品语义 baseline `fd82eba`；internal implementation/evidence baseline `8f685e2`；reference-application implementation baseline `955c956`
+适用版本：产品语义 baseline `fd82eba`；internal implementation/evidence baseline `8f685e2`；reference-application implementation baseline `955c956`；正式治理收口 `f6c3646`
 
 输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
 
@@ -39,7 +39,7 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 2026-07-23随后完成项目复杂度与可维护性治理及后续可持续性审计：processor selector/admission与Table source helper责任核对到`79c0a89`，benchmark lane分责和generated-footprint evidence核对到`8f685e2`，最终正式收口为`75ee658`。该治理在其候选时点保持generated Java、schema/hash、public/generated API、runtime语义、四场景和Gate不变；结论与证据见[项目复杂度与可维护性治理报告](2026-07-23-project-complexity-and-maintainability-governance-report.md)和[复杂度可持续性后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。
 
-2026-07-23参考应用边界治理进一步解除旧四场景与SOMA产品设计的所有权耦合：`soma-examples`成为工业动态调度与个体生态仿真两个普通Java 8 consumer的聚合器，输入生成与运行时状态严格分离；component benchmark完成领域中性化，应用integrated evidence回到各应用。旧四场景产品Owner、共享JAR、源码/测试/golden/脚本和benchmark dependency已在`955c956`原子退出，所需G0–G5责任由core fixtures、neutral benchmark与两个应用接管。`955c956`已在Azul Zulu full JDK 8重跑完整`./scripts/check.sh`并得到`project-check: ok`；正式Owner、报告、引用闭包与Temporary退役均已收口。当前结论见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)，G6不在本专题范围内。
+2026-07-23参考应用边界治理进一步解除旧四场景与SOMA产品设计的所有权耦合：`soma-examples`成为工业动态调度与个体生态仿真两个普通Java 8 consumer的聚合器，输入生成与运行时状态严格分离；component benchmark完成领域中性化，应用integrated evidence回到各应用。旧四场景产品Owner、共享JAR、源码/测试/golden/脚本和benchmark dependency已在`955c956`原子退出，所需G0–G5责任由core fixtures、neutral benchmark与两个应用接管。`955c956`已在Azul Zulu full JDK 8重跑完整`./scripts/check.sh`并得到`project-check: ok`；正式Owner、报告、引用闭包与Temporary退役在`f6c3646`收口。当前结论见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)，G6不在本专题范围内。
 
 ## 1. 当前总进度
 

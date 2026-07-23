@@ -10,6 +10,8 @@ Owner：SOMA Java 参考应用边界治理输出
 
 适用版本：core product baseline `fd82eba`；reference-application implementation baseline `955c956`
 
+正式治理收口：commit `f6c3646`
+
 输入事实源：正式 Blueprint/Design、两个参考应用源码与文档、neutral/application benchmark artifacts、Implementation Map、Conformance、Git provenance 与专项 Gate
 
 事实范围：参考应用与 SOMA 产品的所有权边界、旧四场景 evidence replacement、`soma-examples`/benchmark 拓扑、Stage 5 原子切换及 scope non-regression
@@ -114,7 +116,7 @@ Stage 5 原子切换候选在提交前通过完整 Gate，并提交为 immutable
 - 16 条 allocation、24 条 memory component evidence；
 - 三 surface generated-footprint Gate。
 
-最终引用闭包按旧 package、`ScenarioSuite`、旧 Gate、FJSP runner 与“四场景 current claim”等精确 identity 审计：剩余命中只属于历史 Report、Git provenance 或 checker 的禁止恢复断言。长期事实已提升到 Blueprint、Design、Implementation Map、Conformance、Engineering、current Report 与两个应用文档的唯一 Owner；Temporary 随后删除，不归档。
+最终引用闭包按旧 package、`ScenarioSuite`、旧 Gate、FJSP runner 与“四场景 current claim”等精确 identity 审计：剩余命中只属于历史 Report、Git provenance 或 checker 的禁止恢复断言。长期事实已提升到 Blueprint、Design、Implementation Map、Conformance、Engineering、current Report 与两个应用文档的唯一 Owner；Temporary 在 `f6c3646` 删除，不归档。
 
 最终候选继续使用 Azul Zulu full JDK 8；未增加其他 JDK 验真或支持声明。`git diff --check` 通过，G6 状态保持不变。
 
