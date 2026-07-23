@@ -3,7 +3,8 @@ package com.hgtech.soma.processor;
 import java.util.ArrayList;
 import java.util.List;
 
-import static com.hgtech.soma.processor.DenseAuxiliarySourceEmitter.*;
+import static com.hgtech.soma.processor.DenseScanExecutionSourceSupport.*;
+import static com.hgtech.soma.processor.DenseSelectorCodegenModel.*;
 import static com.hgtech.soma.processor.DenseSelectorSourceSupport.*;
 import static com.hgtech.soma.processor.DenseSourceNames.*;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.*;

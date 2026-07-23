@@ -2,9 +2,11 @@ package com.hgtech.soma.processor;
 
 import java.util.List;
 
+import static com.hgtech.soma.processor.DenseSelectorCodegenModel.SelectorParameter;
+import static com.hgtech.soma.processor.DenseSelectorCodegenModel.selectorParameterLeafCount;
+import static com.hgtech.soma.processor.DenseSelectorCodegenModel.selectorParameters;
 import static com.hgtech.soma.processor.DenseSelectorSourceSupport.SelectorBinding;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.SelectorLeafSpec;
-import static com.hgtech.soma.processor.DenseSelectorSourceSupport.SelectorParameter;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.SelectorSpec;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.TableSpec;
 import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendExactIndexReplacementRuntime;
@@ -25,8 +27,6 @@ import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorCanCh
 import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorHashBits;
 import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorMethodName;
 import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorMutatorValueOrLive;
-import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorParameterLeafCount;
-import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorParameters;
 import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorStorageValue;
 
 /** Exact-index runtime source的byte-stable专用emitter。 */

@@ -1,8 +1,8 @@
 package com.hgtech.soma.processor;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import static com.hgtech.soma.processor.DenseSelectorCodegenModel.*;
 import static com.hgtech.soma.processor.DenseSourceNames.*;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.*;
 
@@ -508,63 +508,10 @@ final class DenseSelectorSourceSupport {
         }
     }
 
-    static int selectorParameterLeafCount(SelectorSpec selector) {
-        return selector.leaves.size();
-    }
-
-    static List<SelectorParameter> selectorParameters(
-            TableSpec table, SelectorSpec selector) {
-        int leafCount = selectorParameterLeafCount(selector);
-        List<SelectorParameter> result = new ArrayList<SelectorParameter>();
-        int leafIndex = 0;
-        while (leafIndex < leafCount) {
-            SelectorGroupBinding grouped = groupedValueGroup(
-                    table, selector, leafIndex, leafCount);
-            if (grouped != null) {
-                result.add(new SelectorParameter(
-                        leafIndex, grouped.group.leafCount,
-                        grouped.group.javaType, grouped));
-                leafIndex += grouped.group.leafCount;
-            } else {
-                SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
-                result.add(new SelectorParameter(leafIndex, 1, leaf.publicType, null));
-                leafIndex++;
-            }
+    static void appendSourceLeafArguments(SourceBuilder out, int leafCount) {
+        for (int leafIndex = 0; leafIndex < leafCount; leafIndex++) {
+            out.append(",sourceLeaf").append(leafIndex);
         }
-        return result;
-    }
-
-    static List<String> selectorPublicParameterTypes(
-            TableSpec table, SelectorSpec selector) {
-        List<String> result = new ArrayList<String>();
-        for (SelectorParameter parameter : selectorParameters(table, selector)) {
-            result.add(parameter.publicType);
-        }
-        return result;
-    }
-
-    private static SelectorGroupBinding groupedValueGroup(
-            TableSpec table, SelectorSpec selector, int start, int limit) {
-        SelectorGroupBinding best = null;
-        for (FieldSpec field : table.fields) {
-            for (ValueGroupSpec group : field.valueGroups) {
-                if (group.leafCount == 0 || start + group.leafCount > limit) continue;
-                boolean matches = true;
-                for (int i = 0; i < group.leafCount; i++) {
-                    ValueLeafSpec leaf = field.valueLeaves.get(group.firstLeaf + i);
-                    String path = field.logicalName + "." + leaf.logicalName;
-                    if (!path.equals(selector.leaves.get(start + i).path)) {
-                        matches = false;
-                        break;
-                    }
-                }
-                if (matches && (best == null
-                        || group.leafCount > best.group.leafCount)) {
-                    best = new SelectorGroupBinding(field, group);
-                }
-            }
-        }
-        return best;
     }
 
     static String selectorSuffix(SelectorSpec selector) {
@@ -817,32 +764,6 @@ final class DenseSelectorSourceSupport {
 
         String columnExpression(String row) {
             return column + ".get(" + row + ")";
-        }
-    }
-
-    static final class SelectorParameter {
-        final int firstLeaf;
-        final int leafCount;
-        final String publicType;
-        final SelectorGroupBinding grouped;
-
-        SelectorParameter(
-                int firstLeaf, int leafCount, String publicType,
-                SelectorGroupBinding grouped) {
-            this.firstLeaf = firstLeaf;
-            this.leafCount = leafCount;
-            this.publicType = publicType;
-            this.grouped = grouped;
-        }
-    }
-
-    private static final class SelectorGroupBinding {
-        final FieldSpec field;
-        final ValueGroupSpec group;
-
-        SelectorGroupBinding(FieldSpec field, ValueGroupSpec group) {
-            this.field = field;
-            this.group = group;
         }
     }
 

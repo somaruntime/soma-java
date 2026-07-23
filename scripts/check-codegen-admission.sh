@@ -22,9 +22,11 @@ for source in \
   SomaProcessor.java \
   SomaSchemaModel.java \
   DenseTableCodegenModel.java \
+  DenseSelectorCodegenModel.java \
   DenseTableSourceGenerator.java \
   DenseTableSourceEmitter.java \
   DenseAuxiliarySourceEmitter.java \
+  DenseScanExecutionSourceSupport.java \
   DenseSelectorSourceSupport.java \
   DenseExactIndexSourceEmitter.java; do
   if [ ! -f "$processor_source/$source" ]; then
@@ -37,16 +39,26 @@ grep -F 'import static com.hgtech.soma.processor.SomaSchemaModel.*;' \
   "$processor_source/SomaProcessor.java" >/dev/null
 grep -F 'static final class SchemaModel' "$processor_source/SomaSchemaModel.java" >/dev/null
 grep -F 'static final class TableSpec' "$processor_source/DenseTableCodegenModel.java" >/dev/null
+grep -F 'static final class SelectorParameter' \
+  "$processor_source/DenseSelectorCodegenModel.java" >/dev/null
 grep -F 'new DenseAuxiliarySourceEmitter' \
   "$processor_source/DenseTableSourceGenerator.java" >/dev/null
 grep -F 'new DenseTableSourceEmitter' \
   "$processor_source/DenseTableSourceGenerator.java" >/dev/null
+grep -F 'DenseSelectorCodegenModel.selectorPublicParameterTypes' \
+  "$processor_source/SomaProcessor.java" >/dev/null
+grep -F 'DenseScanExecutionSourceSupport.*' \
+  "$processor_source/DenseTableSourceEmitter.java" >/dev/null
 
 if grep -F 'static final class SchemaModel' "$processor_source/SomaProcessor.java" >/dev/null \
     || grep -F 'static final class TableSpec' \
       "$processor_source/DenseTableSourceGenerator.java" >/dev/null \
     || grep -F 'DenseTableSourceGenerator.' \
-      "$processor_source/DenseExactIndexSourceEmitter.java" >/dev/null; then
+      "$processor_source/DenseExactIndexSourceEmitter.java" >/dev/null \
+    || grep -F 'DenseSelectorSourceSupport' \
+      "$processor_source/SomaProcessor.java" >/dev/null \
+    || grep -F 'DenseAuxiliarySourceEmitter' \
+      "$processor_source/DenseTableSourceEmitter.java" >/dev/null; then
   printf '%s\n' 'codegen-admission-check: processor/codegen responsibility boundary regressed' >&2
   exit 1
 fi
