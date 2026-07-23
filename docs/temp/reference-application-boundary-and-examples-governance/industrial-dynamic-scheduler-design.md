@@ -47,6 +47,38 @@ Owner：工业动态调度参考应用候选设计
 
 不把 event queue、calendar algorithm 或 cross-table transaction 强行建进 SOMA。
 
+### 3.1 应用 schema
+
+候选 schema package 为 `com.hgtech.soma.examples.scheduler.state`，generated package 为其 `.generated`。精确字段可以在不改变下列责任的前提下随编译诊断调整：
+
+| Table | Kind / maintained access | 责任 |
+|---|---|---|
+| `JobDefinition` | keyed `JobId` | release、material readiness、due、priority、operation count |
+| `OperationDefinition` | keyed `OperationKey`；unique `(JobId, sequence)`；owned `EligibleMachine` child | precedence、setup family、resource demand、候选机定义 |
+| `MachineDefinition` | keyed `MachineId`；owned `MaintenanceWindow` child | calendar、maintenance 与初始 setup family |
+| `MachineState` | keyed `MachineId` | next availability、last setup family、version |
+| `OperationState` | keyed `OperationKey`；index readiness status | predecessor completion、scheduled/released/version |
+| `SecondaryResourceState` | keyed `ResourceId` | capacity、next availability、version |
+| `SetupTime` | keyed `(MachineId, fromFamily, toFamily)` | required exact setup lookup |
+| `TransportTime` | keyed `(fromMachine, toMachine)` | required exact transport lookup |
+| `DispatchCandidate` | keyed `(OperationKey, MachineId)`；index machine/operation | derived frontier 与排序指标 |
+| `OperationAssignment` | keyed `OperationKey`；index machine/resource | authoritative result fact |
+
+Event heap、machine heap、calendar evaluator、input arrays 和 validator 不进入 schema。Optional last family 只表示首个 assignment 的显式 absence，不使用 sentinel。
+
+### 3.2 代码责任
+
+```text
+config/       strict properties loading, CLI overrides, effective-config output
+problem/      detached domain records, generator, input checksum
+state/        annotation schema only
+runtime/      bootstrap, aggregate owner, event/machine heaps, dispatch engine
+validation/   tiny expected oracle, full invariant validator, result checksum
+evidence/     verification main and benchmark runner
+```
+
+`problem/` 不 import `.state.generated` 或 `com.hgtech.soma.runtime`；`runtime/` 不生成输入。`SchedulerRuntime` 是所有 Table、heap、Batch 和 scratch 的唯一 lifecycle owner。
+
 ## 4. 配置、问题生成与运行时装载
 
 应用把“构造可重放工业问题”和“执行动态调度”分成三个生命周期：
@@ -144,3 +176,14 @@ Index/IndexSnapshot 只在同步只读 batch 中消费；跨 event 保存 stable
 - 默认 `claimAllowed=false`。
 
 旧 FJSP 100k benchmark 只能作为历史对照，不得用不同语义 workload 直接宣称性能改善。
+
+### 9.1 受版本控制的 workload
+
+| Config | 用途 | 证明边界 |
+|---|---|---|
+| `correctness.properties` | 小规模、固定 seed | generator、bootstrap、手算结果与全部约束 |
+| `default.properties` | 普通演示 | CLI journey、deterministic validator |
+| `large.properties` | 较大规模 | capacity、frontier、allocation/GC smoke |
+| `long-run.properties` | 多轮或大事件量 | stale event、swap-remove、resource/lifecycle 稳定性 |
+
+Benchmark setup 必须在计时前完成 config load、problem generation、input validation 和 bootstrap；测量只包含 solve/runtime，另行报告 setup 时间。

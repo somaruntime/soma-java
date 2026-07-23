@@ -188,4 +188,6 @@ Goal 只有在以下条件全部满足后才能完成：
 - [目标架构](target-architecture.md)
 - [工业动态调度详细设计](industrial-dynamic-scheduler-design.md)
 - [个体生态仿真详细设计](grassing-individual-simulation-design.md)
+- [实施与原子切换设计](implementation-and-cutover-design.md)
+- [引用闭包清单](reference-closure-inventory.md)
 - [迁移与验收账本](migration-and-acceptance-ledger.md)

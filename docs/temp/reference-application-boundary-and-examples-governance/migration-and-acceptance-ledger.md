@@ -60,24 +60,25 @@ Owner：SOMA 参考应用迁移与验收
 - [x] active Temporary registration candidate prepared；
 - [x] doc Gate passed；
 - [x] full starting-point Gate passed；
-- [ ] Stage 0 committed。
+- [x] Stage 0 committed as `169e1f6`。
 
 ### Stage 1
 
-- [ ] all current references inventoried；
-- [ ] every old evidence responsibility classified；
-- [ ] target Maven topology proven feasible；
-- [ ] both application designs complete；
-- [ ] config/generator/input/bootstrap/runtime boundaries complete；
-- [ ] exact deletion/provenance list complete；
-- [ ] no stop condition triggered；
-- [ ] Stage 1 review and commit。
+- [x] all current references inventoried；
+- [x] every old evidence responsibility classified；
+- [x] target Maven topology proven feasible；
+- [x] both application designs complete；
+- [x] config/generator/input/bootstrap/runtime boundaries complete；
+- [x] exact deletion/provenance list complete；
+- [x] no stop condition triggered；
+- [x] Stage 1 scope non-regression review passed；
+- [ ] Stage 1 committed。
 
 ### Stage 2
 
-- [ ] aggregator and isolated consumer build；
+- [ ] standalone child projects and isolated consumer build；
 - [ ] benchmark neutral schema；
-- [ ] `soma-benchmarks` no domain-example dependency；
+- [ ] component lanes no longer use domain schema；
 - [ ] existing old scenario Gate still passes until replacement；
 - [ ] clean/repeat/source-shape evidence；
 - [ ] Stage 2 commit。
@@ -105,6 +106,8 @@ Owner：SOMA 参考应用迁移与验收
 ### Stage 5
 
 - [ ] replacement ledger complete；
+- [ ] top-level aggregator activated；
+- [ ] `soma-benchmarks` no domain-example dependency；
 - [ ] formal facts atomically switched；
 - [ ] old four scenarios and committed artifacts deleted；
 - [ ] reference closure and provenance audit clean；

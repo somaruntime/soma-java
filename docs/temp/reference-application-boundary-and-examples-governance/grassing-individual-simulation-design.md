@@ -45,6 +45,28 @@ GrasserState
 
 Grass field 使用 application-owned row-major primitive `float[]`。它固定尺寸、按坐标直接寻址，不为了扩大 SOMA 使用面强行建成 Table。Random source、system schedule、renderer 和 checkpoint 同样由 application 拥有。
 
+### 2.1 应用 schema 与代码责任
+
+候选 schema package 为 `com.hgtech.soma.examples.grassing.state`：
+
+| Table | Kind / maintained access | 责任 |
+|---|---|---|
+| `GrasserState` | keyed `GrasserId`；index `mode` | position、energy、mode、movement direction |
+| `TraceSample` | dense | 周期性 population/grass/energy/birth/death summary |
+
+Grass grid、per-cell delta、identity-order scratch、deterministic random、renderer 和 checkpoint 为 application-owned primitive structure。`GrasserState` 是 canonical runtime state，不拆成多张 component Table，也不引入 entity/component composition API。
+
+```text
+config/       strict properties loading, CLI overrides, effective-config output
+model/        detached initial state, generator, input checksum
+state/        annotation schema only
+runtime/      bootstrap, aggregate, ordered systems, primitive staging
+validation/   AoS oracle, invariant validator, stable checksum
+evidence/     verification main and benchmark runner
+```
+
+`model/` 不 import `.state.generated` 或 SOMA runtime；system 不读取 generator 的可变状态。Runtime aggregate 独占 Table、grass array、Batch 和 scratch lifecycle。
+
 ## 3. 配置、初始状态生成与运行时装载
 
 应用把初始生态系统的生成与 tick runtime 分离：
@@ -157,3 +179,14 @@ Grass 与 grasser state 属于同一 simulation aggregate，但 SOMA 不提供�
 - allocation、GC、high-water、population churn；
 - correctness checksum；
 - 默认 `claimAllowed=false`。
+
+### 10.1 受版本控制的 workload
+
+| Config | 用途 | 证明边界 |
+|---|---|---|
+| `correctness.properties` | tiny world、固定个体 | AoS逐 tick 等价与输入重放 |
+| `default.properties` | 普通 headless demo | 完整 system journey |
+| `large.properties` | 大 world/population | packed/group/column/bulk 成本 |
+| `long-run.properties` | 高 tick/churn | birth/death、identity、numeric 与内存稳定性 |
+
+Benchmark setup 在计时前完成 config、initial-state generation、checksum、validation 和 bootstrap；measurement 只覆盖 tick systems。Renderer 永不进入 performance Gate。
