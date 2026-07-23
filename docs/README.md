@@ -65,7 +65,11 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 ## 4. Temporary 与历史材料
 
-重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。当前没有 active Temporary topic。
+重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
+
+当前 active Temporary topic：
+
+- [复杂度可持续性 Stage 0 审计](temp/complexity-sustainability-stage0-audit/README.md)：只审计 generated footprint、benchmark lane、processor emitter 依赖与 runtime 状态机；当前无实施授权。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 
