@@ -43,7 +43,7 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 2026-07-23工业动态调度参考应用进一步完成应用架构治理：建立Problem/Factory/Solver/Runtime/Schema/Result责任和唯一canonical journey，detached Result在runtime关闭后仍可消费，fixture/oracle/verification/benchmark全部退出production source-set，production JAR与package DAG由专项Gate保护。实现候选为`69e5dc6`，正式文档切换为`6ae9eb6`；四profile、10,000-operation long-run、三fork allocation/GC/high-water、isolated clean/repeat与完整`./scripts/check.sh`均通过。该治理不改变SOMA产品语义或G6状态，详见[工业动态调度参考应用架构治理报告](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)。
 
-2026-07-23个体生态仿真参考应用完成同等架构治理：建立Config/Scenario Factory/Simulator/Session/Engine/System/Runtime/Schema/Result责任和唯一canonical journey，detached Result在runtime关闭后仍可消费，oracle/verification/benchmark及非default profile全部退出production source-set，production JAR、package DAG与retired identity由专项Gate保护。实现候选为`287350d`；四profile、2,000-tick long-run、逐tick AoS位级等价、物理顺序独立性、三fork allocation/GC/high-water、isolated clean/repeat与完整`./scripts/check.sh`均通过。该治理不改变SOMA产品语义或G6状态，详见[个体生态仿真参考应用架构治理报告](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)。
+2026-07-23个体生态仿真参考应用完成同等架构治理：建立Config/Scenario Factory/Simulator/Session/Engine/System/Runtime/Schema/Result责任和唯一canonical journey，detached Result在runtime关闭后仍可消费，oracle/verification/benchmark及非default profile全部退出production source-set，production JAR、package DAG与retired identity由专项Gate保护。实现候选为`287350d`，正式文档切换为`8ca1ab2`；四profile、2,000-tick long-run、逐tick AoS位级等价、物理顺序独立性、三fork allocation/GC/high-water、isolated clean/repeat与完整`./scripts/check.sh`均通过。该治理不改变SOMA产品语义或G6状态，详见[个体生态仿真参考应用架构治理报告](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)。
 
 ## 1. 当前总进度
 

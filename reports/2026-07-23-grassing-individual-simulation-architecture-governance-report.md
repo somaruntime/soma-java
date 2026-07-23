@@ -8,7 +8,7 @@ Owner：grassing-individual-simulation application architecture governance outpu
 
 受众：项目 Owner、SOMA 维护者、参考应用维护者与 Gate reviewer
 
-适用版本：治理前基线 `1c1bc22`；实现候选 `287350d`；正式文档切换为本报告所在提交
+适用版本：治理前基线 `1c1bc22`；实现候选 `287350d`；正式文档切换 `8ca1ab2`
 
 输入事实源：应用 Blueprint/Design、production/test source、isolated consumer
 artifact、四 profile、AoS oracle、multi-fork evidence、Implementation Map、
