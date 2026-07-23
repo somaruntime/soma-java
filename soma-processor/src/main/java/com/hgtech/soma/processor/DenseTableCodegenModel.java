@@ -12,6 +12,15 @@ final class DenseTableCodegenModel {
     private DenseTableCodegenModel() {
     }
 
+    static TableSpec requireTable(List<TableSpec> tables, String logicalName) {
+        for (TableSpec table : tables) {
+            if (table.logicalName.equals(logicalName)) {
+                return table;
+            }
+        }
+        throw new IllegalStateException("missing schema table: " + logicalName);
+    }
+
     static final class TableSpec {
         final Element origin;
         final String carrierType;
