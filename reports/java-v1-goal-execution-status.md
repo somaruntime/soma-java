@@ -12,7 +12,7 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：产品语义 baseline `fd82eba`；internal implementation/evidence baseline `8f685e2`；reference-application Stage 5 cutover candidate
+适用版本：产品语义 baseline `fd82eba`；internal implementation/evidence baseline `8f685e2`；reference-application implementation baseline `955c956`
 
 输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
 
@@ -39,7 +39,7 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 2026-07-23随后完成项目复杂度与可维护性治理及后续可持续性审计：processor selector/admission与Table source helper责任核对到`79c0a89`，benchmark lane分责和generated-footprint evidence核对到`8f685e2`，最终正式收口为`75ee658`。该治理在其候选时点保持generated Java、schema/hash、public/generated API、runtime语义、四场景和Gate不变；结论与证据见[项目复杂度与可维护性治理报告](2026-07-23-project-complexity-and-maintainability-governance-report.md)和[复杂度可持续性后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。
 
-2026-07-23参考应用边界治理进一步解除旧四场景与SOMA产品设计的所有权耦合：`soma-examples`成为工业动态调度与个体生态仿真两个普通Java 8 consumer的聚合器，输入生成与运行时状态严格分离；component benchmark完成领域中性化，应用integrated evidence回到各应用。旧四场景产品Owner、共享JAR、源码/测试/golden/脚本和benchmark dependency已在Stage 5候选中原子退出，所需G0–G5责任由core fixtures、neutral benchmark与两个应用接管。当前结论见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)；Stage 6最终Gate和Temporary退役尚待完成，G6不在本专题范围内。
+2026-07-23参考应用边界治理进一步解除旧四场景与SOMA产品设计的所有权耦合：`soma-examples`成为工业动态调度与个体生态仿真两个普通Java 8 consumer的聚合器，输入生成与运行时状态严格分离；component benchmark完成领域中性化，应用integrated evidence回到各应用。旧四场景产品Owner、共享JAR、源码/测试/golden/脚本和benchmark dependency已在`955c956`原子退出，所需G0–G5责任由core fixtures、neutral benchmark与两个应用接管。`955c956`已在Azul Zulu full JDK 8重跑完整`./scripts/check.sh`并得到`project-check: ok`；正式Owner、报告、引用闭包与Temporary退役均已收口。当前结论见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)，G6不在本专题范围内。
 
 ## 1. 当前总进度
 
@@ -47,7 +47,7 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 |---|---|---|
 | Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
 | Phase 6：Access Pattern Cards、两个独立参考应用、benchmark、release mechanics | implementation-complete | core fixtures与external consumer；两个application-owned correctness/long-run/multi-fork Gate；20条neutral benchmark workload；License/POM/source/javadoc/package/security scripts |
-| 集中验证与修复 | passed；当前Stage 5候选待最终重放 | 产品语义`fd82eba`、internal implementation/evidence `8f685e2`与此前治理收口`75ee658`均保持v4契约并得到`project-check: ok`；当前参考应用候选已通过专项Gate，Stage 6将在immutable commit上重跑完整Gate |
+| 集中验证与修复 | passed | 产品语义`fd82eba`、internal implementation/evidence `8f685e2`、此前治理收口`75ee658`与参考应用实现`955c956`均保持v4契约并在Azul Zulu full JDK 8得到`project-check: ok` |
 | G5 reference applications/benchmark gate | passed | core Access Model evidence、neutral benchmark、两个独立参考应用与当前治理报告 |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
 | V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
@@ -83,9 +83,9 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 
 ## 4. 集中验证记录
 
-### 4.1 2026-07-23 参考应用边界 Stage 5 候选
+### 4.1 2026-07-23 参考应用边界正式收口
 
-当前候选已通过文档、reactor、artifact isolation、两个应用的correctness/default/large/long-run、多fork evidence、20+20条neutral benchmark record、36条negative path、16条allocation、24条memory与三surface generated-footprint专项Gate。旧四场景已退出current Blueprint/Design/Conformance、共享example JAR和benchmark dependency；Stage 6仍需在immutable Stage 5 commit上完成完整`./scripts/check.sh`、引用闭包、Temporary退役和最终提交。详见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)。
+`955c956`已通过文档、reactor、artifact isolation、两个应用的correctness/default/large/long-run、多fork evidence、20+20条neutral benchmark record、36条negative path、16条allocation、24条memory与三surface generated-footprint Gate，并在immutable commit上得到完整`project-check: ok`。旧四场景已退出current Blueprint/Design/Conformance、共享example JAR和benchmark dependency；正式Owner、引用闭包、Governance Report与Temporary退役均已闭合。详见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)。
 
 ### 4.2 2026-07-23 复杂度可持续性正式收口（历史候选事实）
 

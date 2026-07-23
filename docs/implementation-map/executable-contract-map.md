@@ -10,7 +10,7 @@ Owner：SOMA executable contract 实现导航
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：Stage 5 reference-application cutover candidate
+最近实现核对基线：commit `955c956`
 
 最后审查日期：2026-07-23
 

@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：Stage 5 reference-application cutover candidate
+实现核对基线：commit `955c956`
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 

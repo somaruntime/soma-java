@@ -10,7 +10,7 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：Stage 5 reference-application cutover candidate
+最近实现核对基线：commit `955c956`
 
 最后审查日期：2026-07-23
 

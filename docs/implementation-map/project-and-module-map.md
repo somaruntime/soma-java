@@ -10,7 +10,7 @@ Owner：SOMA Java 项目实现导航
 
 事实范围：当前 Maven reactor、模块职责、主要产物和顶层执行入口
 
-最近实现核对基线：Stage 5 reference-application cutover candidate
+最近实现核对基线：commit `955c956`
 
 最后审查日期：2026-07-23
 

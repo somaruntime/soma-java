@@ -18,7 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
-- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（当前 G5 Owner；Stage 5 原子切换候选，Stage 6 最终 Gate 尚待完成）
+- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（当前 G5 Owner；两个独立参考应用、neutral benchmark 与旧场景退役）
 - [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)（benchmark分责、processor所有权、generated-footprint诊断与runtime保留裁决）
 - [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)（历史/current拓扑、processor/codegen分责、byte-stable与多fork非回归）
 - [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)（当前v4产品模型、正式Owner、实现与scope non-regression结论）

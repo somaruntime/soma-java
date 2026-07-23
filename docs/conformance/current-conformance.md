@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design、既有 core 产品语义与 compiler/runtime evidence，以及 Stage 5 reference-application cutover candidate
+核对对象：正式 Blueprint/Design、既有 core 产品语义与 compiler/runtime evidence，以及 reference-application implementation baseline `955c956`
 
 事实范围：主要设计能力的一致性判断和直接依据
 

@@ -2,13 +2,13 @@
 
 类型：Report / Governance
 
-状态：当前（Stage 5 原子切换候选；Stage 6 最终 Gate 尚待完成）
+状态：当前（治理已完成）
 
 Owner：SOMA Java 参考应用边界治理输出
 
 受众：项目 Owner、SOMA 维护者、参考应用维护者与 Gate reviewer
 
-适用版本：core product baseline `fd82eba`；Stage 5 reference-application cutover candidate
+适用版本：core product baseline `fd82eba`；reference-application implementation baseline `955c956`
 
 输入事实源：正式 Blueprint/Design、两个参考应用源码与文档、neutral/application benchmark artifacts、Implementation Map、Conformance、Git provenance 与专项 Gate
 
@@ -24,7 +24,7 @@ Owner：SOMA Java 参考应用边界治理输出
 
 ## 1. 当前结论
 
-Stage 5 已完成参考应用边界的原子切换候选：
+本专题已完成参考应用边界的原子切换与正式收口：
 
 - SOMA 根级 Blueprint、Design 与 Conformance 不再拥有 FJSP、VRP、Simulation、Game 领域目标；
 - `soma-examples` 成为只登记两个普通 Java 8 consumer 的 Maven 聚合器，不再生产共享领域 JAR；
@@ -99,13 +99,13 @@ Generated footprint 现在按三个 surface 分开：
 | industrial scheduler | 12 | 296,763 | 1,279 | 425,166 |
 | grassing simulation | 2 | 47,835 | 213 | 68,276 |
 
-这些数据只证明当前候选在本机和对应 workload 下的执行形状，不建立跨环境 SLA、普遍性能优势、正式支持矩阵或 release claim。
+这些数据只证明 `955c956` 在本机和对应 workload 下的执行形状，不建立跨环境 SLA、普遍性能优势、正式支持矩阵或 release claim。
 
-## 6. Stage 5 验证
+## 6. 验证与收口
 
-原子切换候选已经通过：
+Stage 5 原子切换候选在提交前通过完整 Gate，并提交为 immutable implementation baseline `955c956`。Stage 6 随后在该提交上重新执行 `./scripts/check.sh`，结果为 `project-check: ok`：
 
-- 文档 metadata、链接、唯一产品 Blueprint、应用非规范性边界与 active Temporary 检查；
+- 文档 metadata、链接、唯一产品 Blueprint、应用非规范性边界与 Temporary lifecycle 检查；
 - 根 Maven reactor `verify`；
 - 两个 child 的 isolated repository/build/runtime graph/repeat-manifest Gate；
 - scheduler correctness/default/large/long-run 与三 fork evidence；
@@ -114,7 +114,9 @@ Generated footprint 现在按三个 surface 分开：
 - 16 条 allocation、24 条 memory component evidence；
 - 三 surface generated-footprint Gate。
 
-Stage 6 仍需在 immutable Stage 5 commit 上重跑完整 `./scripts/check.sh`、完成最终引用闭包、固化精确 commit、退役 Temporary 并确认工作树干净。完成前本报告不宣称专题正式收口。
+最终引用闭包按旧 package、`ScenarioSuite`、旧 Gate、FJSP runner 与“四场景 current claim”等精确 identity 审计：剩余命中只属于历史 Report、Git provenance 或 checker 的禁止恢复断言。长期事实已提升到 Blueprint、Design、Implementation Map、Conformance、Engineering、current Report 与两个应用文档的唯一 Owner；Temporary 随后删除，不归档。
+
+最终候选继续使用 Azul Zulu full JDK 8；未增加其他 JDK 验真或支持声明。`git diff --check` 通过，G6 状态保持不变。
 
 ## 7. Scope non-regression
 
@@ -126,4 +128,4 @@ Stage 6 仍需在 immutable Stage 5 commit 上重跑完整 `./scripts/check.sh`�
 - 性能 Gate 未放宽，本机 artifact 不外推；
 - G6 继续 `blocked`，本专题不处理发布事实。
 
-本次变更是产品边界纠正和 evidence Owner 重组，不是产品能力删除，也不要求未来重写才能成立。
+本次变更是产品边界纠正和 evidence Owner 重组，不是产品能力删除，也不要求未来重写才能成立。专题没有残留平行 Owner、共享 example runtime、旧场景 current 导航或未接管 evidence。

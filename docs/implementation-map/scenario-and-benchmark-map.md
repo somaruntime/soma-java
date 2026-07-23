@@ -12,7 +12,7 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前两个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：Stage 5 reference-application cutover candidate
+最近实现核对基线：commit `955c956`
 
 最后审查日期：2026-07-23
 

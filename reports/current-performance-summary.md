@@ -8,7 +8,7 @@ Owner：SOMA Java 性能输出
 
 受众：评估当前 runtime 形状和后续优化价值的维护者
 
-适用版本：core product baseline `fd82eba`；reference-application Stage 5 cutover candidate
+适用版本：core product baseline `fd82eba`；reference-application implementation baseline `955c956`
 
 输入事实源：[Access Model / Candidate Scan 性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)、neutral component artifact、两个 reference application canonical Gate
 
