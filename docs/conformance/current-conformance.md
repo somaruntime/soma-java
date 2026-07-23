@@ -38,7 +38,7 @@ Owner：SOMA Java 一致性审查
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
 | hot-path performance shape | 一致但 evidence 有限 | neutral component allocation/memory、JFR attribution、三 surface Scan footprint 与两个应用 multi-fork；完整 Gate passed | 结论限制在已测环境与lane，见当前性能摘要 |
 | reference application boundary | 一致且 evidenced | `soma-examples` 仅聚合两个 independent child；isolated repository/runtime graph/source-shape Gate | 应用只消费 public artifacts，不反向拥有 core Design |
-| industrial dynamic scheduler | 一致且 evidenced | top-level Problem/Factory、canonical Solver/Session、detached Result、Runtime/Schema projection、production/test source-set、完整约束、oracle/validator、failure/lifecycle、long-run、JAR purity 与 multi-fork | 保持应用分层和唯一 canonical journey；领域事实与 integrated evidence 继续 application-owned |
+| industrial dynamic scheduler | 一致且 evidenced | top-level Problem/Factory、canonical Solver/Session、detached Result、Runtime/Schema projection、production/test source-set、完整约束、oracle/validator、failure/lifecycle、long-run、JAR purity、multi-fork 与[治理报告](../../reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md) | 保持应用分层和唯一 canonical journey；领域事实与 integrated evidence 继续 application-owned |
 | grassing individual simulation | application evidence complete | versioned config、detached generator、显式 system 顺序、AoS逐tick等价、order independence、long-run 与 multi-fork | 领域事实和 integrated evidence 保持 application-owned |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
