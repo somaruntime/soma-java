@@ -69,7 +69,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 当前 active Temporary topic：
 
-- [复杂度可持续性 Stage 0 审计](temp/complexity-sustainability-stage0-audit/README.md)：只审计 generated footprint、benchmark lane、processor emitter 依赖与 runtime 状态机；当前无实施授权。
+- [复杂度可持续性治理](temp/complexity-sustainability-stage0-audit/README.md)：Stage 0 已完成四个限定审计；当前按获批 Stage 1 设计实施 benchmark、processor 与 generated-footprint 三个内部治理 slice。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

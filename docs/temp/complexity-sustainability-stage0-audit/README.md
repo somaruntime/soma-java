@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 0 审计完成；等待后续裁决）
+状态：active（Stage 1 详细设计完成；实施中）
 
 Owner：SOMA Java 复杂度可持续性 Stage 0 审计专题
 
@@ -12,9 +12,9 @@ Owner：SOMA Java 复杂度可持续性 Stage 0 审计专题
 
 正式事实源：否
 
-实施授权：无
+实施授权：有（仅限本专题 Stage 1 三个内部治理 slice）
 
-核对基线：commit `2ca309b418cc9c48470c18b2c29b45eff7106612`
+Stage 0 不可变基线：commit `e69eec2`
 
 最后审查日期：2026-07-23
 
@@ -52,16 +52,23 @@ Owner：SOMA Java 复杂度可持续性 Stage 0 审计专题
 
 ## 4. 授权边界
 
-当前只授权读取正式 Owner、代码、Git 历史与可执行 evidence，并维护本 Temporary 及 `docs/README.md` 的 active-topic 登记。
+Stage 0 只授权读取正式 Owner、代码、Git 历史与可执行 evidence，并维护本 Temporary 及 `docs/README.md` 的 active-topic 登记。项目 Owner 已在 Stage 0 基线提交后授权以下 Stage 1：
 
-当前没有以下授权：
+- benchmark lane 的内部责任重组；
+- processor selector model、emitter support 与 artifact helper 的内部所有权修正；
+- generated footprint 的归一化诊断 evidence；
+- 与上述内部实现直接相关的测试、fixture、脚本和 checker；
+- 每个 slice 的独立验证与提交。
 
-- 修改 Java 生产代码、测试、fixture、scenario、benchmark 或脚本；
+当前仍没有以下授权：
+
 - 修改正式 Blueprint、Design、Implementation Map、Conformance、Engineering 或 Report；
-- 修改 Gate 阈值、基线、Schema、API、运行时协议或性能语义；
-- 建立第二轮实施专题、阶段性代码 candidate 或实施提交。
+- 修改 Gate 阈值、既有基线、Schema、API、运行时协议或性能语义；
+- 拆分 runtime 状态机；
+- 引入第三方依赖、删除 evidence lane 或降低验证；
+- 正式固化长期事实或删除本 Temporary。
 
-Stage 0 结论本身不扩大授权。任何 Stage 1 裁决或实现都需要项目 Owner 明确批准。
+Stage 1 详细设计见 [Stage 1 设计](stage-1-design.md)。
 
 ## 5. 非回归约束
 
@@ -85,20 +92,18 @@ Stage 0 结论本身不扩大授权。任何 Stage 1 裁决或实现都需要项
 
 Stage 0 没有发现功能缺陷、性能回退或必须立即修改 public Design 的偏差。
 
-## 7. 后续阶段候选
+## 7. Stage 1 裁决
 
-若项目 Owner 授权继续，建议下一步仍只做决策，不直接改代码：
+项目 Owner 已批准一次有边界的 Stage 1：
 
 ```text
-Stage 1A  generated footprint measurement / budget 裁决
-Stage 1B  benchmark lane responsibility 与 canonical registry 裁决
-Stage 1C  processor dependency ownership 裁决
-Stage 1D  runtime retain-or-extract 裁决
-  -> 明确是否存在值得实施的最小 slices
-  -> 另行授权后才进入实现
+Stage 1A  benchmark lane responsibility
+Stage 1B  processor dependency ownership
+Stage 1C  generated footprint evidence
+Stage 1D  runtime retain decision：无代码变更
 ```
 
-四项可以在一次 Stage 1 中统一裁决，但不得因为其中两项证据较强，就自动批准其余两项实施。
+三个实施 slice 必须可以独立保留并分别验证。Stage 1 最后停在结果审查处；未经新的明确授权，不修改正式 Owner、不形成最终 Governance Report、不删除 Temporary。
 
 ## 8. Stage 0 完成与停止点
 
@@ -110,7 +115,7 @@ Stage 0 完成条件：
 - 文档 Gate、完整项目 Gate 和 `git diff --check` 通过；
 - 没有发生任何实现或正式事实变更。
 
-达到上述条件后，本专题停在 active Temporary 状态。未经明确授权，不进入 Stage 1，不删除或晋升本 Temporary。
+上述条件已经在 commit `e69eec2` 达成。Stage 1 完成后，本专题继续保持 active，等待项目 Owner 审查实施收益与范围非回归；不自动删除或晋升。
 
 ## 9. 退役条件
 
