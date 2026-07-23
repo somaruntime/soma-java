@@ -684,7 +684,7 @@ public final class SomaProcessor extends AbstractProcessor {
             SelectorModel selector = model.selectors.get(i);
             DenseTableCodegenModel.SelectorSpec generated = table.selectors.get(i);
             List<String> parameters =
-                    DenseTableSourceGenerator.selectorPublicParameterTypes(table, generated);
+                    DenseSelectorSourceSupport.selectorPublicParameterTypes(table, generated);
             valid &= generatedSignature(signatures, tableScope,
                     selector.generatedMethodName(), model.origin,
                     parameters.toArray(new String[parameters.size()]));

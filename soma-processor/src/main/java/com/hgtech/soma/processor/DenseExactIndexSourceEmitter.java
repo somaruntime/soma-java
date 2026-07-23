@@ -2,32 +2,32 @@ package com.hgtech.soma.processor;
 
 import java.util.List;
 
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.SelectorBinding;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.SelectorBinding;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.SelectorLeafSpec;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.SelectorParameter;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.SelectorParameter;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.SelectorSpec;
 import static com.hgtech.soma.processor.DenseTableCodegenModel.TableSpec;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendExactIndexReplacementRuntime;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendNoMutableSelectorChange;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorArguments;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorBatchEquality;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorChangeRuntime;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorComparison;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorHash;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorParameters;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorRowBatchEquality;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorValueArguments;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendUniqueValidationRuntime;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.hasMutableSelectors;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendExactIndexReplacementRuntime;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendNoMutableSelectorChange;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorArguments;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorBatchEquality;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorChangeRuntime;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorComparison;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorHash;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorParameters;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorRowBatchEquality;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendSelectorValueArguments;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.appendUniqueValidationRuntime;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.hasMutableSelectors;
 import static com.hgtech.soma.processor.DenseSourceNames.q;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorBinding;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorCanChange;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorHashBits;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorMethodName;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorMutatorValueOrLive;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorParameterLeafCount;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorParameters;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorStorageValue;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorBinding;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorCanChange;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorHashBits;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorMethodName;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorMutatorValueOrLive;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorParameterLeafCount;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorParameters;
+import static com.hgtech.soma.processor.DenseSelectorSourceSupport.selectorStorageValue;
 
 /** Exact-index runtime source的byte-stable专用emitter。 */
 final class DenseExactIndexSourceEmitter {
