@@ -2,7 +2,7 @@ package com.hgtech.soma.examples.scheduler.solver;
 
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
-import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntimeBootstrap;
+import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntimeFactory;
 
 /** 使用 SOMA columnar runtime 的正式 solver 实现。 */
 public final class SomaSchedulingSolver implements SchedulingSolver {
@@ -20,6 +20,6 @@ public final class SomaSchedulingSolver implements SchedulingSolver {
   public SchedulingSession prepare(SchedulingProblem problem) {
     if (problem == null) throw new NullPointerException("problem");
     return new SomaSchedulingSession(
-        SchedulerRuntimeBootstrap.load(problem));
+        new SchedulerRuntimeFactory().create(problem));
   }
 }

@@ -1,8 +1,10 @@
 package com.hgtech.soma.examples.scheduler.application;
 
-import com.hgtech.soma.examples.scheduler.config.SchedulerConfig;
+import com.hgtech.soma.examples.scheduler.config.ProblemConfigLoader;
+import com.hgtech.soma.examples.scheduler.config.ProblemGenerationConfig;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblemGenerator;
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblemFactory;
+import com.hgtech.soma.examples.scheduler.problem.SyntheticSchedulingProblemFactory;
 import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
 import com.hgtech.soma.examples.scheduler.result.ScheduleValidator;
 import com.hgtech.soma.examples.scheduler.solver.SchedulingSession;
@@ -20,9 +22,12 @@ public final class SchedulerApplication {
     String selector = args.length == 0 ? "default" : args[0];
     String[] overrides = args.length <= 1
         ? new String[0] : Arrays.copyOfRange(args, 1, args.length);
-    SchedulerConfig config = SchedulerConfig.load(selector, overrides);
+    ProblemGenerationConfig config =
+        ProblemConfigLoader.load(selector, overrides);
+    SchedulingProblemFactory problemFactory =
+        new SyntheticSchedulingProblemFactory();
     long generationStart = System.nanoTime();
-    SchedulingProblem problem = SchedulingProblemGenerator.generate(config);
+    SchedulingProblem problem = problemFactory.create(config);
     long generationNanos = System.nanoTime() - generationStart;
     SchedulingSolver solver = new SomaSchedulingSolver();
     SchedulingSession session = null;

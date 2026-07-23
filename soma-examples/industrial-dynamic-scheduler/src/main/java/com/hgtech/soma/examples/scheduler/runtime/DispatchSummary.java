@@ -9,7 +9,7 @@ public final class DispatchSummary {
   public final long weightedTardiness;
   public final long processedEvents;
 
-  DispatchSummary(
+  public DispatchSummary(
       int assignments, int completedJobs, long makespanMinute,
       long totalTardinessMinutes, long weightedTardiness,
       long processedEvents) {

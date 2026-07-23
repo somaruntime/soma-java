@@ -1,18 +1,20 @@
 package com.hgtech.soma.examples.scheduler.runtime;
 
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.ExternalEvent;
-import com.hgtech.soma.examples.scheduler.state.OperationAssignment;
-import com.hgtech.soma.examples.scheduler.state.generated.DispatchCandidateTable;
-import com.hgtech.soma.examples.scheduler.state.generated.JobDefinitionTable;
-import com.hgtech.soma.examples.scheduler.state.generated.MachineDefinitionTable;
-import com.hgtech.soma.examples.scheduler.state.generated.MachineRuntimeStateTable;
-import com.hgtech.soma.examples.scheduler.state.generated.OperationAssignmentTable;
-import com.hgtech.soma.examples.scheduler.state.generated.OperationDefinitionTable;
-import com.hgtech.soma.examples.scheduler.state.generated.OperationRuntimeStateTable;
-import com.hgtech.soma.examples.scheduler.state.generated.SecondaryResourceStateTable;
-import com.hgtech.soma.examples.scheduler.state.generated.SetupTimeTable;
-import com.hgtech.soma.examples.scheduler.state.generated.TransportTimeTable;
+import com.hgtech.soma.examples.scheduler.problem.ExternalEvent;
+import com.hgtech.soma.examples.scheduler.problem.JobSpec;
+import com.hgtech.soma.examples.scheduler.schema.MachineId;
+import com.hgtech.soma.examples.scheduler.schema.OperationAssignment;
+import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.MachineDefinitionTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.MachineRuntimeStateTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.OperationDefinitionTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.OperationRuntimeStateTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.SecondaryResourceStateTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.SetupTimeTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeTable;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.TableStats;
 
@@ -72,7 +74,7 @@ public final class SchedulerRuntime implements AutoCloseable {
         Math.max(1, problem.events().size()), ExternalEvent.ORDER);
     this.events.addAll(problem.events());
     this.jobGates = new HashMap<Long, JobGate>();
-    for (SchedulingProblem.JobInput job : problem.jobs()) {
+    for (JobSpec job : problem.jobs()) {
       jobGates.put(Long.valueOf(job.id), new JobGate());
     }
     this.resourceCalendars = resourceCalendars;
@@ -120,6 +122,131 @@ public final class SchedulerRuntime implements AutoCloseable {
         frontierStats.operationScratchHighWaterBytes(),
         assignmentStats.capacity(), frontierStats.capacity(),
         assignmentKeyCount());
+  }
+
+  public int jobCount() { return jobCount; }
+  public int operationCount() { return operationCount; }
+  public int maximumCandidatesPerOperation() {
+    return maximumCandidatesPerOperation;
+  }
+  public JobDefinitionTable jobs() { ensureOpen(); return jobs; }
+  public OperationDefinitionTable operationDefinitions() {
+    ensureOpen();
+    return operationDefinitions;
+  }
+  public MachineDefinitionTable machineDefinitions() {
+    ensureOpen();
+    return machineDefinitions;
+  }
+  public MachineRuntimeStateTable machineStates() {
+    ensureOpen();
+    return machineStates;
+  }
+  public OperationRuntimeStateTable operationStates() {
+    ensureOpen();
+    return operationStates;
+  }
+  public SecondaryResourceStateTable resourceStates() {
+    ensureOpen();
+    return resourceStates;
+  }
+  public SetupTimeTable setupTimes() { ensureOpen(); return setupTimes; }
+  public TransportTimeTable transportTimes() {
+    ensureOpen();
+    return transportTimes;
+  }
+  public DispatchCandidateTable frontier() { ensureOpen(); return frontier; }
+  public OperationAssignmentTable assignments() {
+    ensureOpen();
+    return assignments;
+  }
+  public int frontierSize() { ensureOpen(); return frontier.size(); }
+  public int assignmentSize() { ensureOpen(); return assignments.size(); }
+
+  public boolean hasEvents() {
+    ensureOpen();
+    return !events.isEmpty();
+  }
+
+  public long nextEventMinute() {
+    ensureOpen();
+    if (events.isEmpty()) {
+      throw new IllegalStateException("no pending event");
+    }
+    return events.peek().minute;
+  }
+
+  public ExternalEvent pollEvent() {
+    ensureOpen();
+    ExternalEvent event = events.poll();
+    if (event == null) throw new IllegalStateException("no pending event");
+    return event;
+  }
+
+  public void markJobReleased(long jobId) {
+    ensureOpen();
+    requireJobGate(jobId).released = true;
+  }
+
+  public void markMaterialReady(long jobId) {
+    ensureOpen();
+    requireJobGate(jobId).materialReady = true;
+  }
+
+  public boolean readyToPublish(long jobId) {
+    ensureOpen();
+    return requireJobGate(jobId).readyToPublish();
+  }
+
+  public void markInitialOperationPublished(long jobId) {
+    ensureOpen();
+    requireJobGate(jobId).initialOperationPublished = true;
+  }
+
+  public long fitMachineInterval(
+      MachineId machine,
+      long earliestStart,
+      long occupiedMinutes) {
+    ensureOpen();
+    return MachineCalendar.fit(
+        this, machine, earliestStart, occupiedMinutes);
+  }
+
+  public long earliestResourceStart(long resourceId, int units) {
+    return requireResourceCalendar(resourceId).earliestStart(units);
+  }
+
+  public void commitResource(
+      long resourceId, long startMinute, long endMinute, int units) {
+    requireResourceCalendar(resourceId).commit(
+        startMinute, endMinute, units);
+  }
+
+  public long nextResourceAvailableMinute(long resourceId) {
+    return requireResourceCalendar(resourceId).nextAvailableMinute();
+  }
+
+  public int resourceCapacity(long resourceId) {
+    return requireResourceCalendar(resourceId).capacity();
+  }
+
+  private ResourceCalendar requireResourceCalendar(long resourceId) {
+    ensureOpen();
+    ResourceCalendar calendar =
+        resourceCalendars.get(Long.valueOf(resourceId));
+    if (calendar == null) {
+      throw new IllegalArgumentException(
+          "unknown resource " + resourceId);
+    }
+    return calendar;
+  }
+
+  private JobGate requireJobGate(long jobId) {
+    JobGate gate = jobGates.get(Long.valueOf(jobId));
+    if (gate == null) {
+      throw new IllegalArgumentException("unknown job " + jobId);
+    }
+    return gate;
   }
 
   private void ensureOpen() {

@@ -49,9 +49,26 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" -f "$pom" \
   "org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version:build-classpath" \
   -DincludeScope=runtime -Dmdep.outputFile="$runtime_classpath_file"
-runtime_classpath=$application_dir/target/classes:$(cat "$runtime_classpath_file")
+runtime_classpath=$application_dir/target/test-classes:$application_dir/target/classes:$(cat "$runtime_classpath_file")
 
-if grep -R -E 'com\.hgtech\.soma\.(runtime|examples\.scheduler\.state\.generated)' \
+main_root=$application_dir/src/main/java/com/hgtech/soma/examples/scheduler
+test_root=$application_dir/src/test/java/com/hgtech/soma/examples/scheduler
+for package in application config problem solver runtime result schema; do
+  if [ ! -d "$main_root/$package" ]; then
+    printf '%s\n' \
+      "industrial-scheduler-check: missing production package $package" >&2
+    exit 1
+  fi
+done
+for package in benchmark fixture oracle verification; do
+  if [ ! -d "$test_root/$package" ]; then
+    printf '%s\n' \
+      "industrial-scheduler-check: missing test concern $package" >&2
+    exit 1
+  fi
+done
+
+if grep -R -E 'com\.hgtech\.soma\.(runtime|examples\.scheduler\.schema\.generated)' \
     "$application_dir/src/main/java/com/hgtech/soma/examples/scheduler/config" \
     "$application_dir/src/main/java/com/hgtech/soma/examples/scheduler/problem" \
     "$application_dir/src/main/java/com/hgtech/soma/examples/scheduler/support" \
@@ -59,17 +76,66 @@ if grep -R -E 'com\.hgtech\.soma\.(runtime|examples\.scheduler\.state\.generated
   printf '%s\n' 'industrial-scheduler-check: generator/input depends on SOMA runtime' >&2
   exit 1
 fi
-if grep -R -F 'SchedulingProblemGenerator' \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/scheduler/runtime" \
+if grep -R -E \
+    '^import com\.hgtech\.soma\.examples\.scheduler\.(runtime|schema)' \
+    "$main_root/application" \
+    >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: application bypasses solver facade' >&2
+  exit 1
+fi
+if grep -R -E \
+    '^import com\.hgtech\.soma\.examples\.scheduler\.(benchmark|fixture|oracle|verification)' \
+    "$main_root/runtime" "$main_root/solver" \
+    >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: production depends on test/evidence' >&2
+  exit 1
+fi
+if grep -R -F 'SyntheticSchedulingProblemFactory' \
+    "$main_root/runtime" \
     >/dev/null; then
   printf '%s\n' 'industrial-scheduler-check: runtime calls the input generator' >&2
+  exit 1
+fi
+if grep -R -F 'benchmark.' "$main_root" \
+    >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: benchmark options leaked into production' >&2
+  exit 1
+fi
+if find "$main_root" -type f \( \
+    -name '*Fixtures.java' -o -name '*Oracle.java' \
+    -o -name '*RuntimeChecks.java' -o -name 'JvmMetrics.java' \
+    -o -name 'SchedulerVerification.java' \
+    -o -name 'SchedulerBenchmark.java' \) | grep . >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: evidence source remains in production' >&2
+  exit 1
+fi
+if grep -R -E \
+    'com\.hgtech\.soma\.examples\.scheduler\.state|SchedulerConfig|SchedulingProblemGenerator|SchedulerRuntimeBootstrap|IndustrialScheduler|runtime\.ScheduleResult' \
+    "$application_dir/src" >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: retired package or type identity remains' >&2
+  exit 1
+fi
+
+jar_manifest=$evidence_dir/production-jar.txt
+jar tf "$application_dir/target/industrial-dynamic-scheduler-1.0.0-SNAPSHOT.jar" \
+  >"$jar_manifest"
+if grep -E \
+    '/(benchmark|fixture|oracle|verification)/|SchedulerRuntimeTestAccess|JvmMetrics|SchedulingProblemFixtures|TinyScheduleOracle' \
+    "$jar_manifest" >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: production JAR contains evidence classes' >&2
   exit 1
 fi
 
 verification_log=$evidence_dir/verification.log
 for profile in correctness default large long-run; do
   "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$runtime_classpath" \
-    com.hgtech.soma.examples.scheduler.evidence.SchedulerVerification \
+    com.hgtech.soma.examples.scheduler.verification.SchedulerVerification \
     "$profile" >>"$verification_log"
 done
 if [ "$(grep -c '^scheduler-verification:' "$verification_log")" -ne 4 ] \
@@ -79,20 +145,21 @@ if [ "$(grep -c '^scheduler-verification:' "$verification_log")" -ne 4 ] \
 fi
 
 "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$runtime_classpath" \
-  com.hgtech.soma.examples.scheduler.SchedulerApplication default \
+  com.hgtech.soma.examples.scheduler.application.SchedulerApplication default \
   >"$evidence_dir/default-run.txt"
 grep -F 'claimAllowed=false' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'config.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'input.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'result.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 
-forks=$(sed -n 's/^benchmark.forks=//p' \
-  "$application_dir/src/main/resources/config/default.properties")
+benchmark_options=$application_dir/src/test/resources/benchmark/default.properties
+forks=$(sed -n 's/^benchmark.forks=//p' "$benchmark_options")
 benchmark_artifact=$evidence_dir/benchmark.jsonl
 fork=1
 while [ "$fork" -le "$forks" ]; do
   "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$runtime_classpath" \
-    com.hgtech.soma.examples.scheduler.evidence.SchedulerBenchmark default \
+    com.hgtech.soma.examples.scheduler.benchmark.SchedulerBenchmark \
+    default default \
     >>"$benchmark_artifact"
   fork=$((fork + 1))
 done
@@ -102,6 +169,7 @@ if [ "$(wc -l <"$benchmark_artifact" | tr -d ' ')" -ne "$forks" ]; then
 fi
 grep -F '"artifact":"industrial-scheduler-benchmark-v1"' \
   "$benchmark_artifact" >/dev/null
+grep -F "\"forks\":$forks" "$benchmark_artifact" >/dev/null
 if grep -v '"claimAllowed":false' "$benchmark_artifact" >/dev/null; then
   printf '%s\n' 'industrial-scheduler-check: invalid benchmark claim' >&2
   exit 1

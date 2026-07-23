@@ -1,7 +1,7 @@
 package com.hgtech.soma.examples.scheduler.runtime;
 
-import com.hgtech.soma.examples.scheduler.state.MachineId;
-import com.hgtech.soma.examples.scheduler.state.generated.MaintenanceWindowTable;
+import com.hgtech.soma.examples.scheduler.schema.MachineId;
+import com.hgtech.soma.examples.scheduler.schema.generated.MaintenanceWindowTable;
 import com.hgtech.soma.runtime.LongColumnView;
 
 /** 对 owned maintenance child 做物理顺序无关的连续区间定位。 */
@@ -15,7 +15,7 @@ final class MachineCalendar {
       throw new IllegalArgumentException("invalid machine interval");
     }
     MaintenanceWindowTable windows =
-        runtime.machineDefinitions.maintenanceWindows(machine);
+        runtime.machineDefinitions().maintenanceWindows(machine);
     LongColumnView starts = windows.startMinuteColumn();
     LongColumnView ends = windows.endMinuteColumn();
     try {

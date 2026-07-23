@@ -1,12 +1,14 @@
 package com.hgtech.soma.examples.scheduler.result;
 
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.ExternalEvent;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.JobInput;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.MachineInput;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.MachineOption;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.MaintenanceInput;
-import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.OperationInput;
+import com.hgtech.soma.examples.scheduler.problem.ExternalEvent;
+import com.hgtech.soma.examples.scheduler.problem.ExternalEventType;
+import com.hgtech.soma.examples.scheduler.problem.JobSpec;
+import com.hgtech.soma.examples.scheduler.problem.MachineSpec;
+import com.hgtech.soma.examples.scheduler.problem.MachineOption;
+import com.hgtech.soma.examples.scheduler.problem.MaintenanceInterval;
+import com.hgtech.soma.examples.scheduler.problem.OperationSpec;
+import com.hgtech.soma.examples.scheduler.problem.ResourceSpec;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -33,7 +35,7 @@ public final class ScheduleValidator {
         "operation assigned more than once");
 
     long makespan = 0L;
-    for (OperationInput operation : problem.operations()) {
+    for (OperationSpec operation : problem.operations()) {
       ScheduledOperation assignment =
           byOperation.get(identity(operation.jobId, operation.operationId));
       require(assignment != null, "missing operation assignment");
@@ -46,8 +48,8 @@ public final class ScheduleValidator {
 
     long tardiness = 0L;
     long weightedTardiness = 0L;
-    for (JobInput job : problem.jobs()) {
-      OperationInput last = problem.operation(
+    for (JobSpec job : problem.jobs()) {
+      OperationSpec last = problem.operation(
           job.id, job.operationCount - 1);
       long completion = byOperation.get(identity(
           last.jobId, last.operationId)).endMinute;
@@ -87,7 +89,7 @@ public final class ScheduleValidator {
   }
 
   private static void validateAssignment(
-      SchedulingProblem problem, OperationInput operation,
+      SchedulingProblem problem, OperationSpec operation,
       ScheduledOperation assignment) {
     MachineOption selected = null;
     for (MachineOption option : operation.options) {
@@ -103,7 +105,7 @@ public final class ScheduleValidator {
         "setup family");
     require(operation.resourceId == assignment.resourceId,
         "secondary resource");
-    JobInput job = problem.job(operation.jobId);
+    JobSpec job = problem.job(operation.jobId);
     require(assignment.dueMinute == job.dueMinute
             && assignment.priority == job.priority,
         "due/priority projection");
@@ -125,10 +127,10 @@ public final class ScheduleValidator {
   private static void validatePrecedence(
       SchedulingProblem problem,
       Map<String, ScheduledOperation> assignments) {
-    for (JobInput job : problem.jobs()) {
+    for (JobSpec job : problem.jobs()) {
       ScheduledOperation predecessor = null;
       for (int sequence = 0; sequence < job.operationCount; sequence++) {
-        OperationInput operation = problem.operation(job.id, sequence);
+        OperationSpec operation = problem.operation(job.id, sequence);
         ScheduledOperation current = assignments.get(identity(
             operation.jobId, operation.operationId));
         if (predecessor != null) {
@@ -161,7 +163,7 @@ public final class ScheduleValidator {
       }
       values.add(assignment);
     }
-    for (MachineInput machine : problem.machines()) {
+    for (MachineSpec machine : problem.machines()) {
       List<ScheduledOperation> values =
           byMachine.get(Long.valueOf(machine.id));
       if (values == null) continue;
@@ -175,13 +177,13 @@ public final class ScheduleValidator {
             machine.id, family, assignment.setupFamilyId);
         require(assignment.setupMinutes == expectedSetup,
             "sequence-dependent setup");
-        for (MaintenanceInput maintenance : machine.maintenance) {
+        for (MaintenanceInterval maintenance : machine.maintenance) {
           require(!overlap(assignment.setupStartMinute,
               assignment.endMinute, maintenance.startMinute,
               maintenance.endMinute), "maintenance overlap");
         }
         for (ExternalEvent event : problem.events()) {
-          if (event.type == SchedulingProblem.MACHINE_DELAY
+          if (event.type == ExternalEventType.MACHINE_DELAY
               && event.subjectId == machine.id
               && event.minute <= assignment.setupStartMinute) {
             require(assignment.setupStartMinute >= event.value,
@@ -198,13 +200,13 @@ public final class ScheduleValidator {
       SchedulingProblem problem, List<ScheduledOperation> assignments) {
     Map<Long, List<ResourceEvent>> events =
         new HashMap<Long, List<ResourceEvent>>();
-    Map<String, OperationInput> inputs =
-        new HashMap<String, OperationInput>();
-    for (OperationInput operation : problem.operations()) {
+    Map<String, OperationSpec> inputs =
+        new HashMap<String, OperationSpec>();
+    for (OperationSpec operation : problem.operations()) {
       inputs.put(identity(operation.jobId, operation.operationId), operation);
     }
     for (ScheduledOperation assignment : assignments) {
-      OperationInput input = inputs.get(identity(
+      OperationSpec input = inputs.get(identity(
           assignment.jobId, assignment.operationId));
       Long resource = Long.valueOf(input.resourceId);
       List<ResourceEvent> values = events.get(resource);
@@ -217,7 +219,7 @@ public final class ScheduleValidator {
       values.add(new ResourceEvent(assignment.endMinute,
           -input.resourceUnits));
     }
-    for (SchedulingProblem.ResourceInput resource : problem.resources()) {
+    for (ResourceSpec resource : problem.resources()) {
       List<ResourceEvent> values = events.get(Long.valueOf(resource.id));
       if (values == null) continue;
       Collections.sort(values, ResourceEvent.ORDER);

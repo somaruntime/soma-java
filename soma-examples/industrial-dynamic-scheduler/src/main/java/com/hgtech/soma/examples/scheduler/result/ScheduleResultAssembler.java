@@ -1,8 +1,9 @@
 package com.hgtech.soma.examples.scheduler.result;
 
 import com.hgtech.soma.examples.scheduler.runtime.DispatchSummary;
+import com.hgtech.soma.examples.scheduler.runtime.RuntimeSnapshot;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
-import com.hgtech.soma.examples.scheduler.state.OperationAssignment;
+import com.hgtech.soma.examples.scheduler.schema.OperationAssignment;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -33,10 +34,10 @@ public final class ScheduleResultAssembler {
           value.dueMinute,
           value.priority));
     }
-    SchedulerRuntime.RuntimeEvidence evidence = runtime.runtimeEvidence();
+    RuntimeSnapshot evidence = RuntimeSnapshot.capture(runtime);
     SolveDiagnostics diagnostics = new SolveDiagnostics(
-        runtime.schemaHash(),
-        runtime.runtimePlanHash(),
+        evidence.schemaHash,
+        evidence.runtimePlanHash,
         evidence.exactIndexProbes,
         evidence.exactIndexHighWaterBytes,
         evidence.updateScratchHighWaterBytes,

@@ -3,7 +3,6 @@ package com.hgtech.soma.examples.scheduler.solver;
 import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
 import com.hgtech.soma.examples.scheduler.result.ScheduleResultAssembler;
 import com.hgtech.soma.examples.scheduler.runtime.DispatchSummary;
-import com.hgtech.soma.examples.scheduler.runtime.IndustrialScheduler;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
 
 /** package-private session implementation，独占一个 SchedulerRuntime。 */
@@ -21,7 +20,7 @@ final class SomaSchedulingSession implements SchedulingSession {
     if (runtime == null) throw new IllegalStateException("session is closed");
     started = true;
     try {
-      DispatchSummary summary = new IndustrialScheduler(runtime).solve();
+      DispatchSummary summary = new DispatchEngine(runtime).solve();
       return ScheduleResultAssembler.assemble(runtime, summary);
     } finally {
       close();

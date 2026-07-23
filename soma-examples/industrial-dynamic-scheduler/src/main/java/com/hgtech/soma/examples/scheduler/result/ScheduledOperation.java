@@ -25,6 +25,24 @@ public final class ScheduledOperation {
       long setupFamilyId, long setupStartMinute, long setupMinutes,
       long transportMinutes, long startMinute, long processingMinutes,
       long endMinute, long dueMinute, int priority) {
+    if (jobId <= 0L || operationId <= 0L || machineId <= 0L
+        || resourceId <= 0L || setupFamilyId <= 0L) {
+      throw new IllegalArgumentException(
+          "scheduled operation identity must be positive");
+    }
+    if (setupStartMinute < 0L || setupMinutes < 0L
+        || transportMinutes < 0L || processingMinutes <= 0L
+        || dueMinute < 0L || priority <= 0) {
+      throw new IllegalArgumentException(
+          "scheduled operation timing and priority are invalid");
+    }
+    if (startMinute != Math.addExact(
+        setupStartMinute, setupMinutes)
+        || endMinute != Math.addExact(
+            startMinute, processingMinutes)) {
+      throw new IllegalArgumentException(
+          "scheduled operation interval arithmetic is invalid");
+    }
     this.jobId = jobId;
     this.operationId = operationId;
     this.machineId = machineId;
