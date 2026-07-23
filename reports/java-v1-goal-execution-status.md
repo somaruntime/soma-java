@@ -12,7 +12,7 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：产品语义 baseline `fd82eba`；internal implementation/evidence baseline `8f685e2`；reference-application boundary baseline `955c956`；industrial scheduler implementation baseline `69e5dc6`
+适用版本：产品语义 baseline `fd82eba`；internal implementation/evidence baseline `8f685e2`；reference-application boundary baseline `955c956`；scheduler/simulation architecture baseline `69e5dc6` / `287350d`
 
 输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
 
@@ -43,6 +43,8 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 2026-07-23工业动态调度参考应用进一步完成应用架构治理：建立Problem/Factory/Solver/Runtime/Schema/Result责任和唯一canonical journey，detached Result在runtime关闭后仍可消费，fixture/oracle/verification/benchmark全部退出production source-set，production JAR与package DAG由专项Gate保护。实现候选为`69e5dc6`，正式文档切换为`6ae9eb6`；四profile、10,000-operation long-run、三fork allocation/GC/high-water、isolated clean/repeat与完整`./scripts/check.sh`均通过。该治理不改变SOMA产品语义或G6状态，详见[工业动态调度参考应用架构治理报告](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)。
 
+2026-07-23个体生态仿真参考应用完成同等架构治理：建立Config/Scenario Factory/Simulator/Session/Engine/System/Runtime/Schema/Result责任和唯一canonical journey，detached Result在runtime关闭后仍可消费，oracle/verification/benchmark及非default profile全部退出production source-set，production JAR、package DAG与retired identity由专项Gate保护。实现候选为`287350d`；四profile、2,000-tick long-run、逐tick AoS位级等价、物理顺序独立性、三fork allocation/GC/high-water、isolated clean/repeat与完整`./scripts/check.sh`均通过。该治理不改变SOMA产品语义或G6状态，详见[个体生态仿真参考应用架构治理报告](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)。
+
 ## 1. 当前总进度
 
 | 总体工作 | 状态 | 可核验出口 |
@@ -50,7 +52,7 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 | Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
 | Phase 6：Access Pattern Cards、两个独立参考应用、benchmark、release mechanics | implementation-complete | core fixtures与external consumer；两个application-owned correctness/long-run/multi-fork Gate；20条neutral benchmark workload；License/POM/source/javadoc/package/security scripts |
 | 集中验证与修复 | passed | 产品语义`fd82eba`、internal implementation/evidence `8f685e2`、此前治理收口`75ee658`与参考应用实现`955c956`均保持v4契约并在Azul Zulu full JDK 8得到`project-check: ok` |
-| G5 reference applications/benchmark gate | passed | core Access Model evidence、neutral benchmark、两个独立参考应用、边界治理与scheduler架构治理报告 |
+| G5 reference applications/benchmark gate | passed | core Access Model evidence、neutral benchmark、两个独立参考应用、边界治理与两份应用架构治理报告 |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
 | V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
 
@@ -78,7 +80,7 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 | G2 | passed | `soma-processor/reports/java-v1-g2-code-generation-report.md` |
 | G3 | passed | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` |
 | G4 | passed | `reports/java-v1-g4-package-smoke-report.md` |
-| G5 | passed | `reports/2026-07-23-reference-application-boundary-governance-report.md`、`reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md`与Access Model治理；四场景/2026-07-11报告为历史 provenance |
+| G5 | passed | `reports/2026-07-23-reference-application-boundary-governance-report.md`、两份 reference application 架构治理报告与 Access Model 治理；四场景/2026-07-11报告为历史 provenance |
 | G6 | blocked | `reports/java-v1-g6-release-readiness-report.md` |
 
 因此“完整 V1 功能范围 + G0–G5”的功能 RC 边界已满足；它不是可公开发布的 RC artifact。当前 artifact 是 `0.2.0-SNAPSHOT`，G6 未通过前不得公开分发或声明正式支持矩阵。

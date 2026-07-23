@@ -10,7 +10,7 @@ Owner：SOMA Java 实现导航
 
 非事实范围：规范性设计、未来计划和实现正确性裁决
 
-最近实现核对基线：commit `69e5dc6`
+最近实现核对基线：commit `287350d`
 
 最后审查日期：2026-07-23
 
@@ -27,6 +27,6 @@ Implementation Map 是当前代码的简短投影。代码变化后，以代码�
 
 “实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续
 docs/governance-only commit。Compiler/codegen、Access Model 和 core runtime
-继续沿用各自既有 immutable baseline；工业调度参考应用的 production/test
-架构与本地图由 `69e5dc6` 核对，另一参考应用仍沿用既有 baseline。该切换不建立
-新的 SOMA 产品契约版本。
+继续沿用各自既有 immutable baseline；工业调度参考应用由 `69e5dc6` 核对，个体
+生态仿真参考应用由 `287350d` 核对。两次应用架构治理都不建立新的 SOMA 产品
+契约版本。

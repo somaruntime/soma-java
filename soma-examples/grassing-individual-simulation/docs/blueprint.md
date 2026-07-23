@@ -14,22 +14,52 @@ Owner：grassing-individual-simulation
 
 ## 使用目标
 
-使用者通过版本化配置生成可重放的 grass field 与 grasser population，装载独立
-runtime aggregate，按显式 system 顺序执行 headless ticks，并以 AoS oracle、
-invariant 和稳定 checksum 验证结果。问题规模、初始状态和运行期状态是三个明确
-边界：
+使用者通过版本化配置生成可重放的 grass field 与 grasser population，再通过
+统一 facade 执行完整仿真或逐 tick 控制 Session，最后获得与 live runtime 完全
+分离的结果。问题规模、初始场景和运行期状态是三个明确边界：
 
 ```text
-properties
-  -> SimulationConfig
-  -> InitialStateGenerator
-  -> detached SimulationInitialState
-  -> SimulationRuntimeBootstrap
-  -> SimulationEngine
+properties / explicit overrides
+  -> SimulationConfigLoader
+  -> immutable SimulationConfig
+  -> SimulationScenarioFactory
+  -> detached SimulationScenario
+  -> Simulator / SimulationSession
+  -> detached SimulationResult
 ```
 
 修改 world、population、seed 或 tick 数不需要改变 runtime code。相同生效配置与
 seed 必须产生相同 input checksum；改变初始装载的物理顺序不能改变领域结果。
+Scenario Factory 不持有 live runtime；Simulator 不反向读取配置文件或生成输入。
+
+普通调用只需要：
+
+```java
+SimulationConfig config =
+    new SimulationConfigLoader().load("config/simulation.properties");
+SimulationScenarioFactory factory =
+    new SyntheticSimulationScenarioFactory();
+SimulationScenario scenario = factory.create(config);
+
+Simulator simulator = new SomaSimulator();
+SimulationResult result = simulator.run(scenario);
+```
+
+需要逐 tick 控制时使用同一 production path：
+
+```java
+try (SimulationSession session = simulator.prepare(scenario)) {
+  while (session.hasNextTick()) {
+    session.step();
+  }
+  SimulationResult result = session.finish();
+}
+```
+
+Session 是 one-shot live-state owner；失败后 fail-stop，`finish()` 或 `close()`
+释放 runtime。`SimulationResult` 是关闭后仍可读取的轻量 detached summary，不
+隐式复制完整 world。完整状态导出不是当前参考应用的 contract；出现真实需求时应
+单独设计显式 budget/policy。
 
 ## SOMA projection
 
@@ -50,18 +80,18 @@ public final class GrasserState {
 }
 ```
 
-初始状态在 bootstrap 一次性投影：
+Scenario 在 runtime factory 中一次性投影：
 
 ```java
-GrasserStateBatch batch = new GrasserStateBatch(initial.population());
-for (IndividualInput value : initial.individuals()) {
-  batch.addValues(new GrasserId(value.id), value.x, value.y, value.energy,
-      mode(value.mode), value.movementDirection);
+GrasserStateBatch batch = new GrasserStateBatch(scenario.population());
+for (IndividualSeed value : scenario.individuals()) {
+  batch.addValues(new GrasserId(value.id()), value.x(), value.y(), value.energy(),
+      mode(value.mode()), value.movementDirection());
 }
 grassers.replaceAll(batch);
 ```
 
-此后 runtime 不再调用 generator，也不持有 generator 的可变状态。
+此后 runtime 不再调用 Scenario Factory，也不持有 Factory 的可变状态。
 
 ## Tick journey
 
@@ -114,5 +144,5 @@ logistic 方程在精确 0 上进入不可恢复的吸收态。应用借鉴 gras
 ## 输出
 
 Canonical CLI 输出最终生效配置、config/input/result checksum、tick、population、
-birth/death、grass/energy 总量。Renderer 不是 correctness 或 performance
-authority；本参考应用当前以可重放 headless journey 为正式入口。
+maximum population、birth/death、grass/energy 总量。Renderer 不是 correctness
+或 performance authority；本参考应用当前以可重放 headless journey 为正式入口。

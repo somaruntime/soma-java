@@ -12,7 +12,7 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前两个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：commit `69e5dc6`
+最近实现核对基线：commit `287350d`
 
 最后审查日期：2026-07-23
 
@@ -23,14 +23,15 @@ Owner：SOMA reference application / benchmark 实现导航
 | Application | 自有文档 | executable / runtime | input 与验证 |
 |---|---|---|---|
 | industrial dynamic scheduler | [application docs](../../soma-examples/industrial-dynamic-scheduler/docs/README.md) | [`SchedulerApplication.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/application/SchedulerApplication.java)、[`SomaSchedulingSolver.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/solver/SomaSchedulingSolver.java)、[`SchedulerRuntime.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/SchedulerRuntime.java) | [`SyntheticSchedulingProblemFactory.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem/SyntheticSchedulingProblemFactory.java)、[`SchedulerRuntimeFactory.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/SchedulerRuntimeFactory.java)、[`SchedulerVerification.java`](../../soma-examples/industrial-dynamic-scheduler/src/test/java/com/hgtech/soma/examples/scheduler/verification/SchedulerVerification.java) |
-| grassing individual simulation | [application docs](../../soma-examples/grassing-individual-simulation/docs/README.md) | [`SimulationApplication.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/SimulationApplication.java)、[`SimulationEngine.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationEngine.java)、[`SimulationRuntime.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationRuntime.java) | [`InitialStateGenerator.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/model/InitialStateGenerator.java)、[`SimulationRuntimeBootstrap.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationRuntimeBootstrap.java)、[`SimulationVerification.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/evidence/SimulationVerification.java) |
+| grassing individual simulation | [application docs](../../soma-examples/grassing-individual-simulation/docs/README.md) | [`SimulationApplication.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/SimulationApplication.java)、[`Simulator.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/simulation/Simulator.java)、[`SimulationSession.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/simulation/SimulationSession.java)、[`SomaSimulator.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/simulation/SomaSimulator.java)、[`SimulationResult.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/result/SimulationResult.java) | [`SyntheticSimulationScenarioFactory.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/scenario/SyntheticSimulationScenarioFactory.java)、[`SimulationRuntimeFactory.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationRuntimeFactory.java)、[`SimulationVerification.java`](../../soma-examples/grassing-individual-simulation/src/test/java/com/hgtech/soma/examples/grassing/evidence/SimulationVerification.java) |
 
 两个 child POM 都是普通 Java 8 consumer，只声明 `soma-annotations`、
-`soma-runtime-core` 和 compile-time `soma-processor`。工业调度应用已采用
-`application/config/problem/solver/runtime/result/schema` production 分层；
-fixture/oracle/verification/benchmark 位于 test source-set。两个应用的版本化
-config 与 detached generation 拥有输入，runtime hot loop 不反向依赖 generator
-或 factory。
+`soma-runtime-core` 和 compile-time `soma-processor`。工业调度应用采用
+`application/config/problem/solver/runtime/result/schema` 分层；个体生态仿真采用
+`config/scenario/simulation/runtime/result/schema/support` 分层。两个应用的
+fixture/oracle/verification/benchmark 均位于 test source-set，production JAR
+不含 evidence implementation。版本化 config 与 detached factory 拥有输入，
+runtime hot loop 不反向依赖 generator 或 factory。
 
 ## 2. Benchmark 入口
 
@@ -38,7 +39,7 @@ config 与 detached generation 拥有输入，runtime hot loop 不反向依赖 g
 - neutral component runner / validator：[`PostCutoverComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java)、[`PostCutoverComponentArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java)；
 - lane contract、workload、evidence 与 aggregation：[`SmokeLaneContract.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneContract.java)、[`SmokeLaneWorkloads.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneWorkloads.java)、[`SmokeLaneEvidence.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneEvidence.java)、[`SmokeLaneAggregation.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneAggregation.java)；
 - neutral schema：[`schema`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/schema)；
-- application-integrated evidence：[`SchedulerBenchmark.java`](../../soma-examples/industrial-dynamic-scheduler/src/test/java/com/hgtech/soma/examples/scheduler/benchmark/SchedulerBenchmark.java)、[`SimulationBenchmark.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/evidence/SimulationBenchmark.java)。
+- application-integrated evidence：[`SchedulerBenchmark.java`](../../soma-examples/industrial-dynamic-scheduler/src/test/java/com/hgtech/soma/examples/scheduler/benchmark/SchedulerBenchmark.java)、[`SimulationBenchmark.java`](../../soma-examples/grassing-individual-simulation/src/test/java/com/hgtech/soma/examples/grassing/evidence/SimulationBenchmark.java)。
 
 `soma-benchmarks` 不依赖或导入 reference application domain。它只测 SOMA component mechanics；真实应用的 allocation、GC、runtime high-water 和 correctness guard 由 application 自有 runner/Gate 负责。全部 smoke/diagnostic artifact 保持 `claimAllowed=false`。
 

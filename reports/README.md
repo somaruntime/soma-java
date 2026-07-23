@@ -18,6 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)（Config/Scenario/Simulator/Session/Engine/System/Runtime/Schema/Result分层、source-set与canonical journey）
 - [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)（Problem/Factory/Solver/Runtime/Schema/Result分层、source-set与canonical journey）
 - [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（当前 G5 Owner；两个独立参考应用、neutral benchmark 与旧场景退役）
 - [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)（benchmark分责、processor所有权、generated-footprint诊断与runtime保留裁决）
@@ -43,6 +44,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)
 - [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)
 - [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)
 - [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)

@@ -8,7 +8,7 @@ Owner：SOMA Java 性能输出
 
 受众：评估当前 runtime 形状和后续优化价值的维护者
 
-适用版本：core product baseline `fd82eba`；reference-application implementation baseline `955c956`
+适用版本：core product baseline `fd82eba`；reference-application boundary baseline `955c956`；scheduler/simulation architecture baseline `69e5dc6` / `287350d`
 
 输入事实源：[Access Model / Candidate Scan 性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)、neutral component artifact、两个 reference application canonical Gate
 
@@ -61,15 +61,21 @@ Correctness、large 与 long-run profile 另行证明 6/8,000/10,000 operations�
 
 ### 3.2 Grassing individual simulation
 
-Default profile 为 800 initial individuals、500 ticks，观测到 maximum population 1,139；三个 fork 的全部 identity/checksum 一致。每个 fork执行 1 次 warmup + 3 次 measurement：
+Default profile 为 800 initial individuals、500 ticks，观测到 maximum population
+1,139；三个 fork 的全部 identity/checksum 一致。每个 fork 执行 1 次 warmup +
+3 次 measurement。架构治理候选 `287350d` 的本机平均值为：
 
-- `tickNanos` 总计范围 `64,023,791..64,369,041`；
-- allocated bytes 均为 `7,425,824`，约 `4,951 B/measured tick`；
+- `tickNanos` 总计 `67,169,264`；
+- allocated bytes `7,439,536`，约 `4,960 B/measured tick`；
 - Young/Full GC count 与 pause均为 `0`；
 - exact-index、update scratch、operation scratch high-water 分别为 `64,333`、`27,336`、`12,776 bytes`；
 - population table growth count 为 `1`。
 
-Correctness 使用逐 tick AoS 位级 oracle；large/long-run 分别覆盖 30,000 individuals × 300 ticks 与 5,000 individuals × 2,000 ticks。性能 lane 不替代这些 correctness guard。
+相对治理前 `1c1bc22` 同机三 fork 平均 allocation `7,425,416 bytes`，变化约
+`+0.19%`；wall-clock 变化约 `+1.5%`，只作诊断，不形成可归因性能结论。
+Correctness 使用逐 tick AoS 位级 oracle；large/long-run 分别覆盖 30,000
+individuals × 300 ticks 与 5,000 individuals × 2,000 ticks。性能 lane 不替代
+这些 correctness guard。
 
 ## 4. Generated footprint
 
