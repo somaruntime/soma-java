@@ -2,7 +2,7 @@
 
 类型：应用验证
 
-状态：candidate
+状态：当前
 
 Owner：industrial-dynamic-scheduler
 

@@ -34,6 +34,40 @@ dependency_plugin_version=$(sed -n \
   pom.xml | sed -n '1p')
 dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version
 
+grep -F '<packaging>pom</packaging>' soma-examples/pom.xml >/dev/null
+for application in industrial-dynamic-scheduler grassing-individual-simulation; do
+  grep -F "<module>$application</module>" soma-examples/pom.xml >/dev/null
+done
+if find soma-examples/src -type f -print 2>/dev/null | grep . >/dev/null \
+    || grep -F '<dependencies>' soma-examples/pom.xml >/dev/null \
+    || grep -F '<artifactId>soma-examples</artifactId>' soma-benchmarks/pom.xml >/dev/null; then
+  printf '%s\n' 'reference-app-check: aggregator or benchmark dependency boundary regressed' >&2
+  exit 1
+fi
+for retired in \
+  scripts/check-examples-phase6.sh \
+  scripts/check-fjsp-allocation-gc.sh \
+  scripts/run-fjsp-100k-benchmark.sh; do
+  if [ -e "$retired" ]; then
+    printf '%s\n' "reference-app-check: retired current path remains: $retired" >&2
+    exit 1
+  fi
+done
+if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime)' \
+    soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem \
+    soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/model \
+    >/dev/null; then
+  printf '%s\n' 'reference-app-check: detached input model/generator imports SOMA runtime' >&2
+  exit 1
+fi
+if grep -R -E 'SchedulingProblemGenerator|InitialStateGenerator' \
+    soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime \
+    soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime \
+    >/dev/null; then
+  printf '%s\n' 'reference-app-check: runtime loop refers back to input generator' >&2
+  exit 1
+fi
+
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/reference-applications.XXXXXX")
 repository=$evidence_dir/repository

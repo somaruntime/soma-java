@@ -18,11 +18,11 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（当前 G5 Owner；Stage 5 原子切换候选，Stage 6 最终 Gate 尚待完成）
 - [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)（benchmark分责、processor所有权、generated-footprint诊断与runtime保留裁决）
 - [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)（历史/current拓扑、processor/codegen分责、byte-stable与多fork非回归）
 - [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)（当前v4产品模型、正式Owner、实现与scope non-regression结论）
 - [2026-07-23 Access Model / Candidate Scan 性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)（component、JFR、code-size与FJSP多fork A/B）
-- [2026-07-21 四场景 Blueprint 采纳专题治理](2026-07-21-four-scenario-blueprint-adoption-report.md)（当前四场景、fixture、benchmark 映射与一致性证据）
 - [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)（当前post-cutover功能/性能实现与证据）
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)（当前 v3 实现形态与 `4b6fa43` 重验证入口）
 
@@ -33,7 +33,7 @@ Owner：SOMA Java 正式报告输出
 | G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；v4 generated surface见[当前治理报告](2026-07-23-access-model-candidate-scan-governance-report.md) |
 | G3 | passed | [Access Model / Candidate Scan v4治理](2026-07-23-access-model-candidate-scan-governance-report.md)与[性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)；packed/exact v3报告保留前序证据 |
 | G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md) |
-| G5 | passed | [四场景 Blueprint 采纳报告](2026-07-21-four-scenario-blueprint-adoption-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)；[旧 examples/benchmark Gate](archive/java-v1-g5-examples-benchmark-gate-report.md) 为 v2 历史快照 |
+| G5 | passed | [参考应用边界治理](2026-07-23-reference-application-boundary-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)；旧四场景与旧 examples/benchmark Gate 只保留历史 provenance |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
 Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。
@@ -42,16 +42,21 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)
 - [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)
 - [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)
 - [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)
 - [2026-07-23 Access Model / Candidate Scan 性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)
-- [2026-07-21 四场景 Blueprint 采纳专题治理](2026-07-21-four-scenario-blueprint-adoption-report.md)
 - [2026-07-20 文档架构专题治理](2026-07-20-document-architecture-governance-report.md)
 - [2026-07-20 设计驱动文档体系正式切换](2026-07-20-documentation-framework-cutover-report.md)
 - [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)
 - [2026-07-17 性能优化后 G6 本机诊断](2026-07-17-post-optimization-g6-diagnostic-report.md)
+
+## 历史治理证据（保留原路径）
+
+- [2026-07-21 四场景 Blueprint 采纳专题治理](2026-07-21-four-scenario-blueprint-adoption-report.md)（`a137b10` 时点证据；不再拥有 current G5 或当前示例）
+
 ## 历史归档
 
 - [2026-07-11 SOMA Java V1 专题治理收口](archive/soma-java-v1-topical-governance-report.md)

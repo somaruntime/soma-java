@@ -2,7 +2,7 @@
 
 类型：应用 Blueprint
 
-状态：candidate
+状态：当前
 
 Owner：grassing-individual-simulation
 

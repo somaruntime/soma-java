@@ -10,7 +10,7 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：`8f685e2`
+最近实现核对基线：Stage 5 reference-application cutover candidate
 
 最后审查日期：2026-07-23
 
@@ -23,8 +23,9 @@ Owner：SOMA 测试与 evidence 实现导航
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
 | runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、Candidate sequence、one-shot/retention、unique point 与 v4 identity |
-| scenario | [`check-examples-phase6.sh`](../../scripts/check-examples-phase6.sh) | 四场景 canonical journey、schema/hash、222个 generated types、public API facts、Java 8 classfile 与 Access Pattern marker |
-| benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、lane 责任边界、FJSP allocation/GC、source/stage/terminal allocation、cardinality memory 与 generated footprint |
+| reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 两个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
+| application correctness/evidence | [`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)、[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh) | versioned config、detached input checksum、oracle/validator、failure/lifecycle、long-run 与应用自有 multi-fork allocation/GC |
+| neutral benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、lane 责任边界、source/stage/terminal allocation、cardinality memory 与三类 representative generated footprint |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
 ## 2. Testkit
@@ -35,9 +36,9 @@ Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 ja
 
 ## 3. Evidence artifact
 
-Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或lane-specific strict validator校验。当前 smoke 将 grouped exact-index incremental lookup 与 VRP dense `replaceAll + sorted` 分成不同 lane，禁止把无 `@SomaIndex` 的 workspace 记作 exact-index evidence。
+Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或 lane-specific strict validator 校验。当前 smoke 使用 benchmark-owned `GroupCandidate` 和 `DenseWorkspaceFact` 分别证明 grouped exact access 与无 maintained index 的 `replaceAll + sorted`，禁止把后者误记为 exact-index evidence。
 
-Scan code-size evidence 保留 33-table fixed-candidate 基线与 15% ceiling，同时生成 `scan-artifact-footprint.tsv` 和 `schema-footprint.tsv`；checker要求两级 TSV 汇总重建原 aggregate。后两者用于定位增长形状，不是容量承诺、单 feature 因果模型或调整原 Gate 的依据。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
+Scan code-size evidence 对 neutral benchmark、industrial scheduler 和 grassing simulation 分别保留首个切换候选的 fixed-candidate + 15% ceiling，同时生成 surface、Scan artifact 和 schema footprint；checker要求三层汇总闭合。它用于定位生成规模变化，不是容量承诺或单 feature 因果模型。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
 
 ## 4. 维护提示
 

@@ -175,6 +175,8 @@ current_reference_docs=$(find \
   docs/engineering \
   guides \
   soma-examples/docs \
+  soma-examples/industrial-dynamic-scheduler/docs \
+  soma-examples/grassing-individual-simulation/docs \
   -type f -name '*.md' -print | sort)
 current_reference_docs="$current_reference_docs
 README.md
@@ -214,22 +216,38 @@ for current_file in $current_reference_docs; do
   done || failed=1
 done
 
-current_example_reports=$(printf '%s\n' \
-  soma-examples/docs/runtime-state-schema-examples.md \
-  soma-examples/docs/fjsp-runtime-state-example.md \
-  soma-examples/docs/fjsp-e2e-scenario.md \
-  soma-examples/docs/vrp-runtime-state-example.md \
-  soma-examples/docs/simulation-runtime-state-example.md \
-  soma-examples/docs/game-runtime-state-example.md)
-
-for file in $current_example_reports; do
+for file in soma-examples/docs/README.md; do
   for pattern in '^类型：Report /' '^状态：当前$' '^Owner：' '^受众：' '^适用版本：' '^输入事实源：' '^事实范围：' '^最后审查日期：'; do
     require_once "$file" "$pattern"
   done
-  if ! grep -F "$(basename "$file")" soma-examples/docs/README.md >/dev/null 2>&1; then
-    fail "$file is not indexed by soma-examples/docs/README.md"
+done
+
+for application in industrial-dynamic-scheduler grassing-individual-simulation; do
+  application_docs="soma-examples/$application/docs"
+  for file in "$application_docs"/*.md; do
+    for pattern in '^类型：应用' '^状态：当前$' "^Owner：$application$" '^对 SOMA 产品规范性：否$' '^最后审查日期：'; do
+      require_once "$file" "$pattern"
+    done
+    if [ "$file" != "$application_docs/README.md" ] \
+        && ! grep -F "$(basename "$file")" "$application_docs/README.md" >/dev/null 2>&1; then
+      fail "$file is not indexed by $application_docs/README.md"
+    fi
+  done
+  if ! grep -F "../$application/docs/README.md" soma-examples/docs/README.md >/dev/null 2>&1; then
+    fail "$application must be indexed by soma-examples/docs/README.md"
   fi
 done
+
+product_blueprint_count=$(find docs/blueprints -maxdepth 1 -type f -name '*.md' \
+  ! -name README.md | wc -l | tr -d ' ')
+if [ "$product_blueprint_count" -ne 1 ] \
+    || [ ! -f docs/blueprints/soma-java-product-blueprint.md ]; then
+  fail 'docs/blueprints must contain exactly one SOMA product Blueprint'
+fi
+if grep -E 'industrial-dynamic-scheduler/docs/blueprint|grassing-individual-simulation/docs/blueprint' \
+    docs/design/README.md >/dev/null 2>&1; then
+  fail 'application Blueprint must not enter SOMA Design trace'
+fi
 
 for file in guides/java-v1-install-and-consumer-guide.md guides/development-guide.md; do
   for pattern in '^类型：Report /' '^状态：当前$' '^Owner：' '^受众：' '^适用版本：' '^输入事实源：' '^事实范围：' '^最后审查日期：'; do
@@ -243,6 +261,7 @@ done
 for file in \
   reports/java-v1-goal-execution-status.md \
   reports/current-performance-summary.md \
+  reports/2026-07-23-reference-application-boundary-governance-report.md \
   reports/2026-07-23-complexity-sustainability-governance-report.md \
   reports/2026-07-23-project-complexity-and-maintainability-governance-report.md \
   reports/2026-07-23-access-model-candidate-scan-governance-report.md \

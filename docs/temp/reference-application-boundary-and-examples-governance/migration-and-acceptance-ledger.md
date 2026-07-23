@@ -16,38 +16,38 @@ Owner：SOMA 参考应用迁移与验收
 
 | 旧责任 | 起始 evidence | 目标 Owner | 删除前证据 | 状态 |
 |---|---|---|---|---|
-| primary key / unique / exact access | FJSP/VRP/Game schema + external fixtures | core external fixtures + scheduler | core Gate + scheduler isolated run | pending |
-| Candidate exact group update/filter/sort/best/remove | FJSP frontier | core access fixture + scheduler | differential/invariant + application run | pending |
-| packed dense scan/update | Simulation/Game | core access fixture + simulation | AoS oracle + long-run | pending |
-| ColumnView hot access | scenario source-shape + core fixture | core fixture + simulation | isolated app + source/import check | pending |
-| owner child | FJSP/VRP | core child fixture + scheduler | child lifecycle/replacement + app import | pending |
-| Batch add/replace/clear | all scenarios | core fixture + both apps | build/run/oracle | pending |
-| Index/IndexSnapshot invalidation | FJSP verification | core access fixture + both apps | stale/wrong-source + order-independence | pending |
-| swap-remove relocation | FJSP/Game | core runtime fixture + both apps | removal/checksum/tie-break | pending |
-| materialization/budget | scenario result/export | core fixture + app final output | budget/graph/result validation | pending |
-| failure/lifecycle | FJSP suite + scenario protocols | core invariant + both aggregate owners | negative/fail-stop/release tests | pending |
-| exact-index component cost | FJSP schema benchmark | neutral benchmark schema | multi-fork artifact | pending |
-| dense replace/sort component cost | VRP schema benchmark | neutral benchmark schema | multi-fork artifact | pending |
-| integrated allocation/GC | FJSP 100k | scheduler + simulation own lanes | semantics-specific multi-fork artifact | pending |
-| generated breadth/schema/hash | four scenario manifest | core external breadth + two app manifests | clean/repeat generated evidence | pending |
-| Java 8 executable consumer | ScenarioSuite | two isolated applications | separate Maven build/class major | pending |
-| workload/initial-state construction | scenario code inline fixtures | versioned app config + detached generator | deterministic input checksum + bootstrap equivalence | pending |
-| FJSP/VRP/Game business algorithms | old example code/docs | retire | domain-only classification | pending |
-| old simulation business model | old example | retire/replaced by new independent model | no current owner/reference | pending |
+| primary key / unique / exact access | FJSP/VRP/Game schema + external fixtures | core external fixtures + scheduler | core Gate + scheduler isolated run | passed |
+| Candidate exact group update/filter/sort/best/remove | FJSP frontier | core access fixture + scheduler | differential/invariant + application run | passed |
+| packed dense scan/update | Simulation/Game | core access fixture + simulation | AoS oracle + long-run | passed |
+| ColumnView hot access | scenario source-shape + core fixture | core fixture + simulation | isolated app + source/import check | passed |
+| owner child | FJSP/VRP | core child fixture + scheduler | child lifecycle/replacement + app import | passed |
+| Batch add/replace/clear | all scenarios | core fixture + both apps | build/run/oracle | passed |
+| Index/IndexSnapshot invalidation | FJSP verification | core access fixture + both apps | stale/wrong-source + order-independence | passed |
+| swap-remove relocation | FJSP/Game | core runtime fixture + both apps | removal/checksum/tie-break | passed |
+| materialization/budget | scenario result/export | core fixture + app final output | budget/graph/result validation | passed |
+| failure/lifecycle | FJSP suite + scenario protocols | core invariant + both aggregate owners | negative/fail-stop/release tests | passed |
+| exact-index component cost | FJSP schema benchmark | neutral benchmark schema | multi-fork artifact | passed |
+| dense replace/sort component cost | VRP schema benchmark | neutral benchmark schema | multi-fork artifact | passed |
+| integrated allocation/GC | FJSP 100k | scheduler + simulation own lanes | semantics-specific multi-fork artifact | passed |
+| generated breadth/schema/hash | four scenario manifest | core external breadth + two app manifests | clean/repeat generated evidence | passed |
+| Java 8 executable consumer | ScenarioSuite | two isolated applications | separate Maven build/class major | passed |
+| workload/initial-state construction | scenario code inline fixtures | versioned app config + detached generator | deterministic input checksum + bootstrap equivalence | passed |
+| FJSP/VRP/Game business algorithms | old example code/docs | retire | domain-only classification | retired |
+| old simulation business model | old example | retire/replaced by new independent model | no current owner/reference | retired |
 
 ## 2. Asset closure ledger
 
 | Asset family | 最终处置 | 前置 |
 |---|---|---|
-| four runtime-state Blueprints | delete | product Blueprint中性化、Design trace切换 |
-| old example Java packages/tests | delete | replacement ledger全部通过 |
-| old example current docs | delete | new application docs current |
-| old module contributor reports | archive/provenance or delete if duplicate | current navigation closure |
-| phase-6 scenario script | replace | two isolated app Gates + core contract Gate |
-| old schema/hash/public/generated manifests | delete | app/core manifests registered |
-| benchmark domain imports | delete | neutral schema + app integrated lanes |
-| FJSP scale scripts/classes | move/rewrite under scheduler or retire | same-semantics evidence decision |
-| current Map/Conformance/G5 wording | atomic replace | Stage 5 |
+| four runtime-state Blueprints | deleted | product Blueprint已中性化，Design trace已切换 |
+| old example Java packages/tests | deleted | replacement ledger全部通过 |
+| old example current docs | deleted | new application docs为current |
+| old module contributor reports | deleted，Git保留provenance | current navigation已闭合 |
+| phase-6 scenario script | replaced | two isolated app Gates + core contract Gate |
+| old schema/hash/public/generated manifests | deleted | app/core manifests已登记 |
+| benchmark domain imports | deleted | neutral schema + app integrated lanes |
+| FJSP scale scripts/classes | retired | scheduler拥有独立同语义integrated evidence |
+| current Map/Conformance/G5 wording | atomically replaced | Stage 5 candidate |
 | historical root reports | retain as historical provenance | current index labels/links correct |
 | active Temporary | delete | final Report + all Gates |
 
@@ -81,7 +81,7 @@ Owner：SOMA 参考应用迁移与验收
 - [x] component lanes no longer use domain schema；
 - [x] existing old scenario Gate still passes until replacement；
 - [x] clean/repeat/source-shape evidence；
-- [x] Stage 2 committed by the commit containing this ledger update。
+- [x] Stage 2 committed as `ccd1f30`。
 
 ### Stage 3
 
@@ -91,7 +91,7 @@ Owner：SOMA 参考应用迁移与验收
 - [x] SOMA access breadth；
 - [x] isolated build；
 - [x] long-run and multi-fork evidence；
-- [x] Stage 3 committed by the commit containing this ledger update。
+- [x] Stage 3 committed as `7e50b29`。
 
 Stage 3 的 canonical Gate 为 `check-industrial-scheduler.sh`：四个受版本控制的
 profile 分别覆盖 6、192、8,000 和 10,000 个 operation；correctness 另有手算
@@ -106,7 +106,7 @@ oracle 与 lifecycle 负路径，default 由三个独立 JVM fork 记录 allocat
 - [x] physical-order independence；
 - [x] isolated build；
 - [x] long-run and multi-fork evidence；
-- [x] Stage 4 committed by the commit containing this ledger update。
+- [x] Stage 4 committed as `a4b8a3e`。
 
 Stage 4 的 canonical Gate 为 `check-grassing-simulation.sh`：四个受版本控制的
 profile 覆盖 5/800/30,000/5,000 个初始 individual 与 12/500/300/2,000 ticks；
@@ -118,13 +118,13 @@ index、scratch、capacity growth 和 runtime high-water，全部 artifact 保�
 
 ### Stage 5
 
-- [ ] replacement ledger complete；
-- [ ] top-level aggregator activated；
-- [ ] `soma-benchmarks` no domain-example dependency；
-- [ ] formal facts atomically switched；
-- [ ] old four scenarios and committed artifacts deleted；
-- [ ] reference closure and provenance audit clean；
-- [ ] G5 not weakened；
+- [x] replacement ledger complete；
+- [x] top-level aggregator activated；
+- [x] `soma-benchmarks` no domain-example dependency；
+- [x] formal facts atomically switched；
+- [x] old four scenarios and committed artifacts deleted；
+- [x] reference closure and provenance audit clean；
+- [x] G5 not weakened；
 - [ ] Stage 5 immutable candidate commit。
 
 ### Stage 6

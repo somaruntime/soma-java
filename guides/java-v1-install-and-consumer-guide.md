@@ -101,7 +101,7 @@ Owner：SOMA Java 用户输出
 4. application 只依赖 generated typed API 和 `soma-runtime-core`，不直接访问 generated-sources directory 或 runtime internal type；
 5. 所有同一应用中的 generated source、runtime-core、runtime plan 和 schema hash必须通过初始化兼容性检查。
 
-正式可执行示例位于 `soma-examples`；独立于 reactor parent 的完整 consumer fixture 位于 `soma-testkit/src/test/fixtures/external-maven-breadth-phase5`。
+两个正式参考应用位于 `soma-examples` 的独立 child projects；独立于 reactor parent 的完整 core consumer fixture 位于 `soma-testkit/src/test/fixtures/external-maven-breadth-phase5`。
 
 ## 4. 建模顺序与关键语义
 

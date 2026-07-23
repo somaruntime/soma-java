@@ -9,52 +9,16 @@
   </parent>
 
   <artifactId>soma-examples</artifactId>
-  <name>SOMA Java Examples</name>
-  <description>Java 8 示例和端到端 smoke 场景。</description>
+  <packaging>pom</packaging>
+  <name>SOMA Java Reference Applications</name>
+  <description>独立 Java 8 参考应用的聚合边界。</description>
 
   <properties>
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>
 
-  <dependencies>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>soma-annotations</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>soma-runtime-core</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>${project.groupId}</groupId>
-      <artifactId>soma-processor</artifactId>
-      <scope>provided</scope>
-    </dependency>
-  </dependencies>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-          <compilerArgs>
-            <arg>-Xplugin:SomaValue</arg>
-          </compilerArgs>
-          <annotationProcessorPaths>
-            <path>
-              <groupId>${project.groupId}</groupId>
-              <artifactId>soma-processor</artifactId>
-              <version>${project.version}</version>
-            </path>
-            <path>
-              <groupId>${project.groupId}</groupId>
-              <artifactId>soma-annotations</artifactId>
-              <version>${project.version}</version>
-            </path>
-          </annotationProcessorPaths>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
+  <modules>
+    <module>industrial-dynamic-scheduler</module>
+    <module>grassing-individual-simulation</module>
+  </modules>
 </project>

@@ -46,7 +46,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 | Implementation Map | 当前关键实现和 evidence 在哪里？ | [Implementation Map](implementation-map/README.md) |
 | Conformance | Blueprint、Design、代码和测试是否一致？ | [Conformance](conformance/README.md) |
 | Engineering | 项目怎样可靠构建、验证和治理？ | [Engineering](engineering/README.md) |
-| Report | 当前输出、测量和 Gate 结论是什么？ | [用户/开发者指南](../guides/README.md)、[报告](../reports/README.md)、[可执行场景输出](../soma-examples/docs/README.md) |
+| Report | 当前输出、测量和 Gate 结论是什么？ | [用户/开发者指南](../guides/README.md)、[报告](../reports/README.md)、[参考应用输出](../soma-examples/docs/README.md) |
 
 修改功能或实施专题时，先从 Blueprint 与对应 Design 理解目标，再通过 Implementation Map 进入代码和测试；发现不一致时进入 Conformance，而不是让当前实现反向降低 Design。
 
@@ -58,8 +58,8 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 | `soma-processor` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-processor/docs/README.md) |
 | `soma-runtime-core` | [Runtime Core Map](implementation-map/runtime-core-map.md)、[模块文档入口](../soma-runtime-core/docs/README.md) |
 | `soma-testkit` | [测试与 evidence Map](implementation-map/test-and-evidence-map.md)、[模块文档入口](../soma-testkit/docs/README.md) |
-| `soma-examples` | [场景与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[可执行场景输出](../soma-examples/docs/README.md) |
-| `soma-benchmarks` | [场景与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[模块文档入口](../soma-benchmarks/docs/README.md) |
+| `soma-examples` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[参考应用输出](../soma-examples/docs/README.md) |
+| `soma-benchmarks` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[模块文档入口](../soma-benchmarks/docs/README.md) |
 
 模块 `docs/` 中保留的旧契约路径均为 `superseded` tombstone，只提供历史链接稳定性和 Git provenance，不再拥有正文或当前事实。精确 public/generated/schema/protocol surface 由代码、golden、artifact 和 validator 拥有，并由[可执行契约地图](implementation-map/executable-contract-map.md)登记。
 

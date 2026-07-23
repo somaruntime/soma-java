@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：`fd82eba`
+实现核对基线：Stage 5 reference-application cutover candidate
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 
@@ -33,10 +33,9 @@ Owner：SOMA Java 一致性审查
 | Row-oriented generated access vocabulary | 已由 Access Model / Candidate Scan clean cutover关闭 | current surface保持 Table/Scan/Cursor/UpdateCursor/Traversal、`findIndex/requireIndex/indexSnapshot`；不恢复双轨alias |
 | group-shaped secondary unique access | 已关闭 | Unique优先保持0..1 point family；只有需要stage时使用`scanByX` bridge |
 | Candidate plan allocation与best-one snapshot | 已关闭 | compact typed plan、Packed/exact specialization与scalar Index terminal保持component/code-size Gate |
-| FJSP machine selection | 已由application-owned indexed min-heap关闭 | Table继续拥有machine事实；heap只保存MachineId/slot，不把SOMA Index作为长期identity |
-| `CF-001` VRP data-role split | 已由四场景采纳治理关闭 | `CustomerDefinition` / `CustomerAssignment` / derived workspace 分离；route visits 与 assignment 是权威事实，candidate/unassigned 只允许重建 |
-| `CF-002` Simulation numeric source | 已由四场景采纳治理关闭 | definition table 不保存 mutable numeric state；`StateVectorRow` 是唯一数值事实源，event heap 权威而 Table event 只作 projection |
-| `CF-003` Game tile/cache split | 已由四场景采纳治理关闭 | keyed tile definition 与 occupancy 分离；unit position 权威，cache 增量失败时 invalidate 并从 live units 重建 |
+| application-owned priority structure | 已关闭 | SOMA 只拥有 Table facts；应用长期 queue/heap 保存 stable domain identity，不保存 current Index |
+| reference application ownership | 已关闭 | 应用 Blueprint/Design/correctness/integrated evidence 由 child project 自有，不进入 SOMA Design trace |
+| config/generator/runtime lifecycle | 已关闭 | versioned config 与 detached generator 先产生可重放 input；bootstrap 后 runtime hot loop 不反向依赖 generator |
 | `CF-007` 文档候选完整性 | 已关闭 | 32份旧Owner已按迁移审计处置；正式入口、checker与Report已切换，Temporary已删除 |
 | `CF-008` 文档抽象层次与职责混合 | 已关闭 | Design 已建立 `D0/D1/D2/Q`、上位设计和场景追踪；Blueprint 不再承载当前实现盘点、自审或一致性结论；checker 防止结构回退 |
 

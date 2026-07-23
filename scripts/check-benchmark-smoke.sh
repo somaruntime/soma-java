@@ -44,13 +44,13 @@ if grep -F 'SmokeLaneSuite' "$benchmark_source/BenchmarkModel.java" >/dev/null \
   exit 1
 fi
 
-for neutral_owner in SmokeLaneWorkloads.java PostCutoverComponentBenchmark.java; do
-  if grep -F 'com.hgtech.soma.examples' "$benchmark_source/$neutral_owner" >/dev/null; then
-    printf '%s\n' \
-      "benchmark-smoke-check: neutral component owner imports example domain: $neutral_owner" >&2
-    exit 1
-  fi
-done
+if grep -R -F 'com.hgtech.soma.examples' "$benchmark_source" >/dev/null \
+    || grep -F '<artifactId>soma-examples</artifactId>' \
+      soma-benchmarks/pom.xml >/dev/null; then
+  printf '%s\n' \
+    'benchmark-smoke-check: benchmark imports or depends on reference application domain' >&2
+  exit 1
+fi
 
 grep -F '"x-soma-laneBinding": "SmokeLaneSuite.validateLaneRecord"' \
   soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \

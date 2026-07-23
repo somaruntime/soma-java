@@ -1,17 +1,10 @@
 # soma-examples
 
-Java 8 教学示例模块。第一职责是用可运行、可阅读的算法流程展示 SOMA
-如何承载 hot runtime state；E2E smoke 与 gate evidence 是第二职责，并与教学主流程隔离。
+`soma-examples` 是两个独立 Java 8 参考应用的 Maven 聚合边界，不产出供其他模块依赖的领域共享 JAR：
 
-FJSP 建议直接从 `FjspScenario` 开始：它只展示 `FjspProblem -> FjspInstance ->
-FjspSolver -> FjspSolveResult`。SOMA schema 集中在 `fjsp.schema`；错误、lifecycle 和
-determinism 断言位于 test source。性能规模与计时由 `soma-benchmarks` 拥有，不在教学
-入口中混入 stopwatch 或 gate 断言。
+- [`industrial-dynamic-scheduler`](industrial-dynamic-scheduler/docs/README.md)；
+- [`grassing-individual-simulation`](grassing-individual-simulation/docs/README.md)。
 
-目标场景：[Blueprint](../docs/blueprints/README.md)
+两个应用分别拥有自己的 Blueprint、Design、配置、detached input generator、runtime state、正确性验证和 integrated performance evidence。它们只消费 SOMA public artifacts，不拥有或重新定义 SOMA 产品语义。
 
-当前可执行场景：[soma-examples/docs/README.md](docs/README.md)
-
-正式报告：[soma-examples/reports/README.md](reports/README.md)
-
-模块 README 只负责导航。
+聚合与验证入口见 [developer docs](docs/README.md)。模块 README 只负责导航。

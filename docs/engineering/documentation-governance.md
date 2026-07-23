@@ -43,7 +43,7 @@ Design 入口必须同时维护：
 | 逻辑分类 | 正式物理入口 |
 |---|---|
 | Blueprint / Design / Implementation Map / Conformance / Engineering / Temporary | `docs/<category>/` |
-| Report / 用户与开发者输出 | `guides/`；registered current-executable scenario output 位于 `soma-examples/docs/` |
+| Report / 用户与开发者输出 | `guides/`；参考应用聚合导航位于 `soma-examples/docs/`，应用自有文档位于各 child `docs/` |
 | Report / 性能、治理、Gate、release evidence | `reports/` 与已登记的 module contributor reports |
 
 Report只使用上表已登记入口，不创建`docs/reports/`等平行输出根。目录位置不改变分类权威；每个正式入口必须登记它拥有和不拥有的事实。

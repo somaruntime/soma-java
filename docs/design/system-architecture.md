@@ -41,8 +41,8 @@ Java 8 source + SOMA annotations
 | `soma-processor` | javac 8 integration、validation、normalization、hash、generation | live runtime state |
 | `soma-runtime-core` | storage、lifecycle、plan、errors、diagnostics 和机械性能 primitive | application schema interpretation |
 | `soma-testkit` | compile/golden/invariant/evidence helpers | production runtime shortcut |
-| `soma-examples` | canonical Java 8 scenarios 和 Access Pattern | 发明核心语义 |
-| `soma-benchmarks` | benchmark 方法、runner 和 evidence artifact | 用结果反向静默改写设计 |
+| `soma-examples` | 聚合两个独立 Java 8 reference consumer；应用各自拥有领域 Blueprint、Design 和 integrated evidence | 产出领域共享 JAR或发明核心语义 |
+| `soma-benchmarks` | 领域中性的 component benchmark、runner 和 evidence artifact | 依赖参考应用 schema或用结果反向静默改写设计 |
 
 Production consumer 的最小 runtime 依赖由 `soma-annotations`、`soma-processor` 和 `soma-runtime-core` 构成。testkit、examples 和 benchmarks 是验证面，不进入生产运行时依赖。
 
@@ -87,7 +87,7 @@ TableStore
 - annotation 不依赖 processor 或 runtime；
 - processor 可以理解 annotation 和生成 runtime protocol binding；
 - runtime-core 不依赖 application schema、examples 或 processor implementation；
-- examples/benchmarks 可以消费 production modules；production modules 不反向依赖它们；
+- reference applications/benchmarks 可以消费 production modules；production modules 不反向依赖它们，benchmark 也不依赖 reference application domain；
 - testkit 只能提供验证能力，不得让 production path 在测试环境下拥有额外语义；
 - 未经正式设计，不增加第三方 runtime 依赖。
 

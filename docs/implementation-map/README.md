@@ -10,7 +10,7 @@ Owner：SOMA Java 实现导航
 
 非事实范围：规范性设计、未来计划和实现正确性裁决
 
-最近实现核对基线：`8f685e2`
+最近实现核对基线：Stage 5 reference-application cutover candidate
 
 最后审查日期：2026-07-23
 
@@ -21,8 +21,8 @@ Implementation Map 是当前代码的简短投影。代码变化后，以代码�
 - [Runtime Core 地图](runtime-core-map.md)
 - [可执行契约地图](executable-contract-map.md)
 - [测试与 evidence 地图](test-and-evidence-map.md)
-- [场景与 benchmark 地图](scenario-and-benchmark-map.md)
+- [参考应用与 benchmark 地图](scenario-and-benchmark-map.md)
 
 普通类、字段和方法清单由代码搜索获得，不在这里维护第二份完整目录。
 
-“实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续 docs/governance-only commit。Compiler/codegen 内部责任核对到 `79c0a89`，benchmark lane 分责核对到 `242d83f`，generated-footprint evidence 核对到 `8f685e2`；Access Model、generated API/runtime、consumer 与四场景语义仍核对到 `fd82eba`。本轮 processor 变更保持 generated Java、schema/hash 与 class/public manifest 一致，因此不建立新的产品契约版本。
+“实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续 docs/governance-only commit。Compiler/codegen、Access Model 和 runtime 继续沿用各自既有 immutable baseline；reference applications、benchmark dependency boundary、G5 evidence 与本地图由 Stage 5 candidate 一并切换，候选提交固化后在最终收口回填精确 commit。该切换不建立新的产品契约版本。

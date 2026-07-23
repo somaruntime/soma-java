@@ -1,49 +1,48 @@
-# 场景与 benchmark 地图
+# 参考应用与 benchmark 地图
 
 类型：Implementation Map
 
 状态：正式
 
-Owner：SOMA scenario/benchmark 实现导航
+Owner：SOMA reference application / benchmark 实现导航
 
-对应 Blueprint：[产品蓝图](../blueprints/soma-java-product-blueprint.md)、[FJSP](../blueprints/fjsp-runtime-state-blueprint.md)、[VRP](../blueprints/vrp-runtime-state-blueprint.md)、[连续仿真](../blueprints/simulation-runtime-state-blueprint.md)、[Game](../blueprints/game-runtime-state-blueprint.md)
+对应 Blueprint：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
-对应 Design：[Table、存储与访问](../design/table-storage-and-access.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[性能模型](../design/performance-model.md)
+对应 Design：[系统架构](../design/system-architecture.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[性能模型](../design/performance-model.md)
 
-事实范围：当前四类示例、FJSP solver 和 benchmark runner 的代码入口
+事实范围：当前两个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：`8f685e2`
+最近实现核对基线：Stage 5 reference-application cutover candidate
 
 最后审查日期：2026-07-23
 
-## 1. 示例入口
+## 1. 聚合与应用入口
 
-| 场景 | 目标入口 | 当前 executable 入口 | 关键实现 |
+[`soma-examples/pom.xml`](../../soma-examples/pom.xml) 只聚合两个 child project，不产出领域共享 JAR，也不向 child 注入 parent、dependency management 或 runtime shortcut。
+
+| Application | 自有文档 | executable / runtime | input 与验证 |
 |---|---|---|---|
-| 总入口 | [产品蓝图](../blueprints/soma-java-product-blueprint.md) | [`ScenarioSuite.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/ScenarioSuite.java) | 运行四类 scenario |
-| FJSP | [FJSP 蓝图](../blueprints/fjsp-runtime-state-blueprint.md) | [`FjspScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/fjsp/FjspScenario.java) | unique job-sequence access、完整 setup/import preflight、reusable frontier staging、FCFS/SPT indicator、application indexed machine heap、fail-stop solver |
-| VRP | [VRP 蓝图](../blueprints/vrp-runtime-state-blueprint.md) | [`VrpScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/vrp/VrpScenario.java) | definition/assignment 分离、unique vehicle route、parent-owned visits、全 ordinal candidate projection、route-version stale guard 与 derived-workspace recovery |
-| Simulation | [连续仿真蓝图](../blueprints/simulation-runtime-state-blueprint.md) | [`SimulationScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/simulation/SimulationScenario.java) | definition/vector 分离、nanosecond clock、application `PriorityQueue`、optional event projection、derivative staging、numeric fail-stop 与 trace export |
-| Game | [Game 蓝图](../blueprints/game-runtime-state-blueprint.md) | [`GameScenario.java`](../../soma-examples/src/main/java/com/hgtech/soma/examples/game/GameScenario.java) | definition/state 分离、keyed tile/occupancy、action generation/revision stale guard、cache rebuild、damage total order 与 primitive staging |
+| industrial dynamic scheduler | [application docs](../../soma-examples/industrial-dynamic-scheduler/docs/README.md) | [`SchedulerApplication.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/SchedulerApplication.java)、[`IndustrialScheduler.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/IndustrialScheduler.java)、[`SchedulerRuntime.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/SchedulerRuntime.java) | [`SchedulingProblemGenerator.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem/SchedulingProblemGenerator.java)、[`SchedulerRuntimeBootstrap.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/SchedulerRuntimeBootstrap.java)、[`SchedulerVerification.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/evidence/SchedulerVerification.java) |
+| grassing individual simulation | [application docs](../../soma-examples/grassing-individual-simulation/docs/README.md) | [`SimulationApplication.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/SimulationApplication.java)、[`SimulationEngine.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationEngine.java)、[`SimulationRuntime.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationRuntime.java) | [`InitialStateGenerator.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/model/InitialStateGenerator.java)、[`SimulationRuntimeBootstrap.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationRuntimeBootstrap.java)、[`SimulationVerification.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/evidence/SimulationVerification.java) |
 
-四个 executable journey 已采用当前 Blueprint 的 canonical data role、identity、顺序和失败边界。Blueprint 仍拥有目标，代码与本地图只拥有当前投影；后续任何偏差继续由 Conformance 识别。
+两个 child POM 都是普通 Java 8 consumer，只声明 `soma-annotations`、`soma-runtime-core` 和 compile-time `soma-processor`。版本化 config 与 detached generator 拥有输入；bootstrap 建立 authoritative runtime，hot loop 不反向依赖 generator。
 
 ## 2. Benchmark 入口
 
-- smoke/all-lane runner：[`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java)；
-- packed/exact component runner：[`PostCutoverComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java)；
-- FJSP scale runner：[`FjspScaleBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspScaleBenchmark.java)；
-- FJSP options/model/report：[`FjspBenchmarkOptions.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspBenchmarkOptions.java)、[`FjspBenchmarkMeasurement.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspBenchmarkMeasurement.java)、[`FjspBenchmarkReport.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspBenchmarkReport.java)；
-- JVM/GC metrics：[`JvmRuntimeMetrics.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/JvmRuntimeMetrics.java)；
-- smoke orchestration/compatibility facade：[`SmokeLaneSuite.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneSuite.java)；
-- lane manifest、identity、metadata 与 validation：[`SmokeLaneContract.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneContract.java)；
-- typed workloads 与 fixture execution：[`SmokeLaneWorkloads.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneWorkloads.java)；
-- observation evidence 与 repeated-measurement merge：[`SmokeLaneEvidence.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneEvidence.java)、[`SmokeLaneAggregation.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneAggregation.java)。
+- smoke runner / validator：[`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java)、[`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java)；
+- neutral component runner / validator：[`PostCutoverComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java)、[`PostCutoverComponentArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java)；
+- lane contract、workload、evidence 与 aggregation：[`SmokeLaneContract.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneContract.java)、[`SmokeLaneWorkloads.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneWorkloads.java)、[`SmokeLaneEvidence.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneEvidence.java)、[`SmokeLaneAggregation.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneAggregation.java)；
+- neutral schema：[`schema`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/schema)；
+- application-integrated evidence：[`SchedulerBenchmark.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/evidence/SchedulerBenchmark.java)、[`SimulationBenchmark.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/evidence/SimulationBenchmark.java)。
 
-`BenchmarkModel` 依赖 `SmokeLaneContract`，不反向依赖 suite；suite 保留 JSON schema lane binding 所需的窄 compatibility delegate，但不拥有 lane 事实。Source-shape checker 防止 manifest、workload、validation 与 aggregation 责任重新集中。
+`soma-benchmarks` 不依赖或导入 reference application domain。它只测 SOMA component mechanics；真实应用的 allocation、GC、runtime high-water 和 correctness guard 由 application 自有 runner/Gate 负责。全部 smoke/diagnostic artifact 保持 `claimAllowed=false`。
 
-FJSP multi-fork allocation/GC诊断与component runner分别记录场景allocation/GC、Candidate Scan source/stage/terminal allocation和exact-index distinct-group retained payload；code-size runner同时输出 fixed-candidate Gate、逐 Scan artifact 与逐 schema footprint 诊断。2026-07-20 machine-selection A/B只作为application heap决策的历史证据。Smoke runner 的 `generated.exact_index_incremental_lookup` 使用 keyed `MachineCandidate` grouped exact access，`generated.dense_scratch_replace_sort` 使用无 maintained index 的 VRP insertion workspace；所有这些 artifact 均为`claimAllowed=false`诊断证据。
+## 3. Gate
 
-## 3. 追踪方式
+- artifact isolation：[`check-reference-applications.sh`](../../scripts/check-reference-applications.sh)；
+- scheduler correctness/long-run/multi-fork：[`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)；
+- simulation oracle/long-run/multi-fork：[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)；
+- neutral smoke/component：[`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)；
+- generated footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
 
-Blueprint 决定场景要验证的目标 access pattern；Design 决定不可违反的语义；examples 提供 executable reference；benchmarks 隔离待测 lane；reports 只陈述 artifact 支持的结论。场景代码本身不拥有 core Design。
+Blueprint 和 Design 决定产品目标与语义；应用拥有领域 correctness，benchmark 拥有测量 artifact，本地图只导航当前实现。

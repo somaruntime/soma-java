@@ -2,7 +2,7 @@
 
 类型：应用开发者文档
 
-状态：candidate
+状态：当前
 
 Owner：industrial-dynamic-scheduler
 

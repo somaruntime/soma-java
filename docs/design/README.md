@@ -47,10 +47,8 @@ Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层�
 | Blueprint | 直接约束其目标形态的 Design |
 |---|---|
 | [SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md) | 全部正式 Design；D0/D1 定义系统方向，D2/Q 完成能力与质量展开 |
-| [FJSP runtime state](../blueprints/fjsp-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Correctness 与 failure](correctness-and-failure.md)、[Runtime Plan 与可观测性](runtime-plan-and-observability.md)、[性能模型](performance-model.md) |
-| [VRP runtime state](../blueprints/vrp-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Ownership 与 lifecycle](ownership-and-lifecycle.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
-| [连续仿真 runtime state](../blueprints/simulation-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Materialization 边界](materialization-boundary.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
-| [Game runtime state](../blueprints/game-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Materialization 边界](materialization-boundary.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
+
+参考应用的应用级 Blueprint 不进入本表，也不拥有 SOMA Design；它们只通过 public artifacts 消费这里定义的产品能力。
 
 ## 4. 阅读与变更规则
 

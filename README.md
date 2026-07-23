@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-Java-only V1 的 annotation、compiler/processor、generated API、columnar runtime、formal scenarios 与 benchmark runner 已进入完整实施和门禁验证。仓库尚未达到 public release readiness；正式 G6 report通过前不得把本地artifact称为公开release。目标与长期设计从 [文档入口](docs/README.md) 进入，当前实现由代码拥有并通过 [Implementation Map](docs/implementation-map/README.md) 导航。
+Java-only V1 的 annotation、compiler/processor、generated API、columnar runtime、独立 reference applications 与 benchmark runner 已进入完整实施和门禁验证。仓库尚未达到 public release readiness；正式 G6 report通过前不得把本地artifact称为公开release。目标与长期设计从 [文档入口](docs/README.md) 进入，当前实现由代码拥有并通过 [Implementation Map](docs/implementation-map/README.md) 导航。
 
 ## 模块
 
@@ -30,7 +30,7 @@ Java-only V1 的 annotation、compiler/processor、generated API、columnar runt
 - [正式报告](reports/README.md)
 - [用户与开发者指南](guides/README.md)
 - 项目检查：`./scripts/check.sh`
-- examples验证：`./scripts/check-examples-phase6.sh`
+- reference applications：`./scripts/check-reference-applications.sh`
 - benchmark smoke：`./scripts/check-benchmark-smoke.sh`
 - release package smoke：`./scripts/package-smoke.sh`
 - 单独 Maven reactor：`./mvnw -B -ntp verify`

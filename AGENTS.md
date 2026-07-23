@@ -40,8 +40,8 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - `soma-processor`：javac 8 integration、processing、normalization/hash、diagnostics、code generation；
 - `soma-runtime-core`：TableStore、lifecycle、runtime plan、errors/diagnostics、runtime性能实现；
 - `soma-testkit`：compile/golden/invariant/evidence helpers；
-- `soma-examples`：current executable Java 8 scenarios；
-- `soma-benchmarks`：benchmark runner、validator 与 runtime-state lanes。
+- `soma-examples`：两个独立 Java 8 reference consumer 的聚合边界，不产出领域共享 JAR；
+- `soma-benchmarks`：领域中性 component benchmark、runner、validator 与 runtime-state lanes。
 
 跨模块长期语义由根级 Design 拥有；模块 `docs/` 中的旧契约已 `superseded`，只保留历史上下文。模块修改前仍应读取对应 `<module>/docs/README.md` 以定位当前实现与历史边界。
 
@@ -60,7 +60,7 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - 文档、报告和代码注释默认使用中文；
 - Blueprint、Design、Implementation Map、Conformance 和 Engineering 位于 `docs/` 对应分类；
 - 用户/开发者输出进入 `guides/`，性能、治理、Gate 和 release evidence进入 `reports/`；
-- `soma-examples/docs/` 是 current-executable developer Report，不拥有 core Design；
+- `soma-examples/docs/` 是 reference application developer Report 入口；child application docs 各自拥有领域事实，但不拥有 core Design；
 - Temporary 只在 active topic 期间存在，稳定事实原子固化后删除，不归档；
 - 文档规则以[文档治理](docs/engineering/documentation-governance.md)为准。
 

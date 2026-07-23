@@ -25,7 +25,7 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 | G2 | Azul Zulu full JDK 8 integration、normalization、deterministic codegen、generated API 与 negative fixture |
 | G3 | packed storage、locator/exact access、完整 Access Model、Candidate Scan/Traversal lifecycle、child、plan、error/stats 和性能机械形状 |
 | G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 runtime 并执行 package surface |
-| G5 | canonical scenarios、Access Pattern/API mapping、benchmark artifact 与 failure/lifecycle lane 可执行 |
+| G5 | Access Pattern/API mapping、普通 Java 8 reference consumer、领域 correctness/failure/lifecycle、领域中性 component benchmark 与应用自有 integrated evidence 可执行 |
 | G6 | license、SCM/ownership/contact、package/provenance、security、support matrix、publishing 和 sign-off |
 
 V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate。

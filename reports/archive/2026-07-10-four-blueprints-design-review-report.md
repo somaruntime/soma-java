@@ -2,7 +2,7 @@
 
 状态：临时治理报告；已按 2026-07-10 SomaTable 正式设计基线复审
 日期：2026-07-10
-范围：[FJSP blueprint](../../docs/blueprints/fjsp-runtime-state-blueprint.md)、[VRP blueprint](../../docs/blueprints/vrp-runtime-state-blueprint.md)、[Simulation blueprint](../../docs/blueprints/simulation-runtime-state-blueprint.md)、[Game blueprint](../../docs/blueprints/game-runtime-state-blueprint.md)
+范围：当时的 `docs/blueprints/fjsp-runtime-state-blueprint.md`、`vrp-runtime-state-blueprint.md`、`simulation-runtime-state-blueprint.md`、`game-runtime-state-blueprint.md`（这些历史路径已在 2026-07-23 reference-application cutover 中删除，正文由 Git provenance 保留）
 
 ## 1. 审查目标
 

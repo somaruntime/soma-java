@@ -2,7 +2,7 @@
 
 类型：Governance Report
 
-状态：passed；实现、正式事实提升、完整 Gate 与 Temporary 退役均已完成
+状态：历史治理证据；其当时实现、正式事实提升、完整 Gate 与 Temporary 退役均已完成
 
 Owner：SOMA Java 四场景 Blueprint 采纳治理
 
@@ -12,15 +12,17 @@ Owner：SOMA Java 四场景 Blueprint 采纳治理
 
 适用版本：commit `a137b10`
 
-事实范围：FJSP、VRP、Simulation、Game 的 current executable 采纳、fixtures、benchmark 映射、一致性与验证
+事实范围：commit `a137b10` 时 FJSP、VRP、Simulation、Game 的 executable 采纳、fixtures、benchmark 映射、一致性与验证
 
 非事实范围：core Design/public API 重新定义、普遍性能优势、G6 或 public release readiness
 
-输入事实源：正式 Blueprint/Design、`a137b10` source/fixtures、current Implementation Map/Conformance 与本次可重放验证
+输入事实源：`a137b10` 时的 Blueprint/Design、source/fixtures、Implementation Map/Conformance 与该次可重放验证
 
 最后审查日期：2026-07-21
 
 ## 1. 结论
+
+> 本报告只保留 `a137b10` 时点的治理 provenance。旧四场景已由 2026-07-23 参考应用边界治理退役，本报告不再拥有 current G5、产品能力或当前示例导航。
 
 项目 Owner 接受的四个新场景目标已完成实现采纳。`a137b10` 不只替换 schema 名称，而是同步迁移了 data role、identity、candidate/order、application-owned structure、failure protocol 和 hot-path 边界。当前 Implementation Map、Conformance、developer current Report、phase-6 fixtures 与 benchmark lanes 已重新绑定到该实现基线。
 
