@@ -277,16 +277,21 @@ if [ -e docs/temp/row-pipeline-execution-and-lazy-plan-governance ]; then
   fail 'retired Access Model / Candidate Scan Temporary topic must not exist'
 fi
 
-if ! grep -F '当前没有 active Temporary topic' docs/README.md >/dev/null 2>&1; then
-  fail 'docs/README.md must state the current Temporary status'
-fi
-
+active_temp_topic_count=0
 if [ -d docs/temp ]; then
   for topic in docs/temp/*; do
     [ -d "$topic" ] || continue
+    active_temp_topic_count=$((active_temp_topic_count + 1))
+    topic_name=$(basename "$topic")
     if [ ! -f "$topic/README.md" ]; then
       fail "$topic must contain README.md"
       continue
+    fi
+    if ! grep -E '^状态：active([（[:blank:]]|$)' "$topic/README.md" >/dev/null 2>&1; then
+      fail "$topic/README.md must declare an active status"
+    fi
+    if ! grep -F "](temp/$topic_name/README.md)" docs/README.md >/dev/null 2>&1; then
+      fail "$topic must be registered by docs/README.md"
     fi
     for file in $(find "$topic" -type f -name '*.md' -print | sort); do
       require_once "$file" '^类型：Temporary$'
@@ -297,6 +302,17 @@ if [ -d docs/temp ]; then
       require_once "$file" '^最后审查日期：'
     done
   done
+fi
+
+if [ "$active_temp_topic_count" -eq 0 ]; then
+  if ! grep -F '当前没有 active Temporary topic' docs/README.md >/dev/null 2>&1; then
+    fail 'docs/README.md must state that there is no active Temporary topic'
+  fi
+  if grep -E '\]\(temp/[^)]*/README\.md\)' docs/README.md >/dev/null 2>&1; then
+    fail 'docs/README.md must not register a Temporary topic when docs/temp is empty'
+  fi
+elif grep -F '当前没有 active Temporary topic' docs/README.md >/dev/null 2>&1; then
+  fail 'docs/README.md must not claim there is no active Temporary topic'
 fi
 
 if [ "$failed" -ne 0 ]; then
