@@ -1,6 +1,8 @@
 package com.hgtech.soma.examples.grassing.runtime;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
+import com.hgtech.soma.examples.grassing.result.SimulationDiagnostics;
+import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.state.BehaviourMode;
 import com.hgtech.soma.examples.grassing.state.GrasserId;
 import com.hgtech.soma.examples.grassing.state.generated.GrasserStateBatch;
@@ -52,6 +54,10 @@ public final class SimulationEngine {
     while (tick < config.ticks()) step();
     completed = true;
     return result();
+  }
+
+  public boolean hasNextTick() {
+    return !completed && tick < config.ticks();
   }
 
   public void step() {
@@ -264,7 +270,21 @@ public final class SimulationEngine {
     return new SimulationResult(
         (int) tick, runtime.grassers.size(), maximumPopulation,
         summary.grassing, summary.searching, births, deaths,
-        summary.totalGrass, summary.totalEnergy, checksum());
+        summary.totalGrass, summary.totalEnergy,
+        config.checksum(), runtime.inputChecksum, checksum(),
+        diagnostics());
+  }
+
+  private SimulationDiagnostics diagnostics() {
+    SimulationRuntime.RuntimeEvidence evidence = runtime.runtimeEvidence();
+    return new SimulationDiagnostics(
+        runtime.schemaHash(), runtime.runtimePlanHash(),
+        evidence.exactIndexHighWaterBytes,
+        evidence.updateScratchHighWaterBytes,
+        evidence.operationScratchHighWaterBytes,
+        evidence.populationGrowthCount,
+        evidence.populationCapacity,
+        evidence.traceCapacity);
   }
 
   private Summary summary() {

@@ -1,9 +1,11 @@
 package com.hgtech.soma.examples.grassing.validation;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState;
-import com.hgtech.soma.examples.grassing.runtime.SimulationResult;
+import com.hgtech.soma.examples.grassing.config.SimulationConfigLoader;
+import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
+import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
+import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.state.BehaviourMode;
 import com.hgtech.soma.examples.grassing.state.GrasserState;
 import com.hgtech.soma.examples.grassing.state.TraceSample;
@@ -31,7 +33,7 @@ public final class SimulationValidator {
           "grass is outside domain bounds");
       totalGrass += value;
     }
-    require(equalBits(totalGrass, result.totalGrass),
+    require(equalBits(totalGrass, result.totalGrass()),
         "result grass total differs from authoritative grid");
 
     List<GrasserState> individuals = runtime.materializeIndividuals();
@@ -64,20 +66,20 @@ public final class SimulationValidator {
     }
     Collections.sort(individuals, INDIVIDUAL_ORDER);
     for (GrasserState individual : individuals) totalEnergy += individual.energy;
-    require(equalBits(totalEnergy, result.totalEnergy),
+    require(equalBits(totalEnergy, result.totalEnergy()),
         "result energy total differs from canonical individual order");
-    require(individuals.size() == result.population
-            && grassing == result.grassingPopulation
-            && searching == result.searchingPopulation,
+    require(individuals.size() == result.population()
+            && grassing == result.grassingPopulation()
+            && searching == result.searchingPopulation(),
         "result population summary mismatch");
-    require(Math.addExact(config.initialPopulation(), result.births)
-            - result.deaths == result.population,
+    require(Math.addExact(config.initialPopulation(), result.births())
+            - result.deaths() == result.population(),
         "population conservation mismatch");
 
-    require(runtime.keyCount() == result.population,
+    require(runtime.keyCount() == result.population(),
         "key traversal does not cover population");
     double snapshotEnergy = runtime.snapshotEnergySum();
-    require(close(snapshotEnergy, result.totalEnergy, result.population),
+    require(close(snapshotEnergy, result.totalEnergy(), result.population()),
         "IndexSnapshot column gather mismatch");
 
     List<TraceSample> traces = runtime.materializeTraces();
@@ -98,22 +100,22 @@ public final class SimulationValidator {
       previousTick = sample.tick;
     }
     TraceSample last = traces.get(traces.size() - 1);
-    require(last.tick == result.ticks
-            && last.population == result.population
-            && last.births == result.births
-            && last.deaths == result.deaths
-            && equalBits(last.totalGrass, result.totalGrass)
-            && equalBits(last.totalEnergy, result.totalEnergy),
+    require(last.tick == result.ticks()
+            && last.population == result.population()
+            && last.births == result.births()
+            && last.deaths == result.deaths()
+            && equalBits(last.totalGrass, result.totalGrass())
+            && equalBits(last.totalEnergy, result.totalEnergy()),
         "final trace differs from result");
   }
 
   static void assertEquivalent(
       SimulationRuntime runtime, ReferenceSimulation reference,
       SimulationResult runtimeResult) {
-    require(runtimeResult.ticks == reference.tick(),
+    require(runtimeResult.ticks() == reference.tick(),
         "AoS tick mismatch");
-    require(runtimeResult.births == reference.births()
-            && runtimeResult.deaths == reference.deaths(),
+    require(runtimeResult.births() == reference.births()
+            && runtimeResult.deaths() == reference.deaths(),
         "AoS birth/death mismatch");
     double[] actualGrass = runtime.grassCopy();
     double[] expectedGrass = reference.grassCopy();
@@ -145,34 +147,41 @@ public final class SimulationValidator {
     expectFailure(new Action() {
       @Override
       public void run() throws Exception {
-        SimulationConfig.load("correctness", "world.width=0");
+        new SimulationConfigLoader().load(
+            "correctness", "world.width=0");
       }
     }, "zero world width");
     expectFailure(new Action() {
       @Override
       public void run() throws Exception {
-        SimulationConfig.load("correctness", "grass.growth.rate=NaN");
+        new SimulationConfigLoader().load(
+            "correctness", "grass.growth.rate=NaN");
       }
     }, "NaN growth rate");
     expectFailure(new Action() {
       @Override
-      public void run() {
+      public void run() throws Exception {
         double[] grass = new double[] {0.5};
-        SimulationInitialState.IndividualInput first =
-            new SimulationInitialState.IndividualInput(
+        IndividualSeed first =
+            new IndividualSeed(
                 1L, 0, 0, 1.0,
-                SimulationInitialState.MODE_GRASSING, 0);
-        new SimulationInitialState(1, 1, grass,
+                IndividualSeed.MODE_GRASSING, 0);
+        SimulationConfig config = new SimulationConfigLoader().load(
+            "correctness", "world.width=1", "world.height=1",
+            "initial.population=2");
+        new SimulationScenario(config, grass,
             java.util.Arrays.asList(first, first));
       }
     }, "duplicate identity");
     expectFailure(new Action() {
       @Override
-      public void run() {
-        new SimulationInitialState(1, 1,
-            new double[] {Double.NaN},
-            java.util.Collections
-                .<SimulationInitialState.IndividualInput>emptyList());
+      public void run() throws Exception {
+        SimulationConfig config = new SimulationConfigLoader().load(
+            "correctness", "world.width=1", "world.height=1",
+            "initial.population=1");
+        new SimulationScenario(config, new double[] {Double.NaN},
+            java.util.Collections.singletonList(new IndividualSeed(
+                1L, 0, 0, 1.0, IndividualSeed.MODE_GRASSING, 0)));
       }
     }, "NaN initial grass");
     require(correctness.configVersion() == 1,

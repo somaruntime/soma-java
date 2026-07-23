@@ -1,23 +1,21 @@
-package com.hgtech.soma.examples.grassing.model;
+package com.hgtech.soma.examples.grassing.scenario;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState.IndividualInput;
 import com.hgtech.soma.examples.grassing.support.DeterministicRandom;
 
 import java.util.ArrayList;
 
-/** 只从配置生成 detached input，不持有或调用 SOMA runtime。 */
-public final class InitialStateGenerator {
+/** 按版本化规则确定性生成合成仿真场景。 */
+public final class SyntheticSimulationScenarioFactory
+    implements SimulationScenarioFactory {
   private static final int GRASS_PROCESS = 1;
   private static final int POSITION_PROCESS = 2;
   private static final int ENERGY_PROCESS = 3;
   private static final int MODE_PROCESS = 4;
   private static final int DIRECTION_PROCESS = 5;
 
-  private InitialStateGenerator() {
-  }
-
-  public static SimulationInitialState generate(SimulationConfig config) {
+  @Override
+  public SimulationScenario create(SimulationConfig config) {
     if (config == null) throw new NullPointerException("config");
     double[] grass = new double[config.cellCount()];
     double grassRange = config.grassMaximum() - config.grassMinimum();
@@ -26,8 +24,8 @@ public final class InitialStateGenerator {
           * DeterministicRandom.unit(
               config.seed(), -1L, cell, GRASS_PROCESS, 0);
     }
-    ArrayList<IndividualInput> individuals =
-        new ArrayList<IndividualInput>(config.initialPopulation());
+    ArrayList<IndividualSeed> individuals =
+        new ArrayList<IndividualSeed>(config.initialPopulation());
     double energyRange = config.energyMaximum() - config.energyMinimum();
     for (int index = 0; index < config.initialPopulation(); index++) {
       long id = index + 1L;
@@ -40,14 +38,13 @@ public final class InitialStateGenerator {
               config.seed(), -1L, id, ENERGY_PROCESS, 0);
       int mode = DeterministicRandom.unit(
           config.seed(), -1L, id, MODE_PROCESS, 0) < 0.5
-          ? SimulationInitialState.MODE_GRASSING
-          : SimulationInitialState.MODE_SEARCHING;
+          ? IndividualSeed.MODE_GRASSING
+          : IndividualSeed.MODE_SEARCHING;
       int direction = DeterministicRandom.bounded(
           config.seed(), -1L, id, DIRECTION_PROCESS, 0, 4);
-      individuals.add(new IndividualInput(
+      individuals.add(new IndividualSeed(
           id, x, y, energy, mode, direction));
     }
-    return new SimulationInitialState(
-        config.width(), config.height(), grass, individuals);
+    return new SimulationScenario(config, grass, individuals);
   }
 }

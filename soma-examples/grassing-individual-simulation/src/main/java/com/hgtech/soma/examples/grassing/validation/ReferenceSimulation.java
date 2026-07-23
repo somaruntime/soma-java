@@ -1,8 +1,8 @@
 package com.hgtech.soma.examples.grassing.validation;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState.IndividualInput;
+import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
+import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.support.DeterministicRandom;
 
 import java.util.ArrayList;
@@ -28,17 +28,17 @@ final class ReferenceSimulation {
   private long deaths;
 
   ReferenceSimulation(
-      SimulationConfig config, SimulationInitialState initialState) {
+      SimulationConfig config, SimulationScenario scenario) {
     this.config = config;
-    this.grass = initialState.grassCopy();
+    this.grass = scenario.grassCopy();
     this.individuals =
-        new ArrayList<Individual>(initialState.population());
+        new ArrayList<Individual>(scenario.population());
     long maximumId = 0L;
-    for (IndividualInput input : initialState.individuals()) {
+    for (IndividualSeed input : scenario.individuals()) {
       individuals.add(new Individual(
-          input.id, input.x, input.y, input.energy,
-          input.mode, input.movementDirection));
-      maximumId = Math.max(maximumId, input.id);
+          input.id(), input.x(), input.y(), input.energy(),
+          input.mode(), input.movementDirection()));
+      maximumId = Math.max(maximumId, input.id());
     }
     this.nextId = Math.addExact(maximumId, 1L);
     this.cellPopulation = new int[grass.length];
@@ -103,7 +103,7 @@ final class ReferenceSimulation {
           config.seed(), tick, childId, CHILD_DIRECTION_PROCESS, 0, 4);
       offspring.add(new Individual(
           childId, parent.x, parent.y, childEnergy,
-          SimulationInitialState.MODE_GRASSING, direction));
+          IndividualSeed.MODE_GRASSING, direction));
     }
     individuals.addAll(offspring);
     births += offspring.size();
@@ -112,7 +112,7 @@ final class ReferenceSimulation {
   private void grass() {
     Arrays.fill(cellPopulation, 0);
     for (Individual individual : individuals) {
-      if (individual.mode == SimulationInitialState.MODE_GRASSING) {
+      if (individual.mode == IndividualSeed.MODE_GRASSING) {
         cellPopulation[cell(individual.x, individual.y)]++;
       }
     }
@@ -123,11 +123,11 @@ final class ReferenceSimulation {
           0.0, grass[cell] - config.grassRegrowthFloor());
       double share = Math.min(config.grassingAmount(), consumable / count);
       for (Individual individual : individuals) {
-        if (individual.mode == SimulationInitialState.MODE_GRASSING
+        if (individual.mode == IndividualSeed.MODE_GRASSING
             && cell(individual.x, individual.y) == cell) {
           individual.energy += share;
           if (share < config.grassingAmount() * 0.5) {
-            individual.mode = SimulationInitialState.MODE_SEARCHING;
+            individual.mode = IndividualSeed.MODE_SEARCHING;
           }
         }
       }
@@ -138,7 +138,7 @@ final class ReferenceSimulation {
 
   private void search() {
     for (Individual individual : individuals) {
-      if (individual.mode != SimulationInitialState.MODE_SEARCHING) continue;
+      if (individual.mode != IndividualSeed.MODE_SEARCHING) continue;
       int direction = DeterministicRandom.bounded(
           config.seed(), tick, individual.id, MOVEMENT_PROCESS, 0, 4);
       if (direction == 0) {
@@ -156,7 +156,7 @@ final class ReferenceSimulation {
       if (individual.energy <= config.searchEnergyThreshold()
           || grass[cell(individual.x, individual.y)]
           >= config.grassingAmount() * 0.5) {
-        individual.mode = SimulationInitialState.MODE_GRASSING;
+        individual.mode = IndividualSeed.MODE_GRASSING;
       }
     }
   }

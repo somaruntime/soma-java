@@ -1,7 +1,7 @@
 package com.hgtech.soma.examples.grassing.runtime;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState;
+import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.state.BehaviourMode;
 import com.hgtech.soma.examples.grassing.state.GrasserId;
 import com.hgtech.soma.examples.grassing.state.generated.GrasserStateBatch;
@@ -13,8 +13,8 @@ public final class SimulationRuntimeChecks {
   }
 
   public static void verify(
-      SimulationConfig config, SimulationInitialState initial) {
-    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(config, initial);
+      SimulationConfig config, SimulationScenario scenario) {
+    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(scenario);
     try {
       SimulationEngine engine = new SimulationEngine(runtime);
       IndexSnapshot current = runtime.grassers.indexSnapshot();
@@ -26,7 +26,7 @@ public final class SimulationRuntimeChecks {
         }
       }, "wrong-source snapshot");
 
-      long firstId = initial.individuals().get(0).id;
+      long firstId = scenario.individuals().get(0).id();
       require(runtime.grassers.containsKey(new GrasserId(firstId)),
           "primary key lookup failed");
       int index = runtime.grassers.requireIndex(firstId);

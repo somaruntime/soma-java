@@ -16,6 +16,7 @@ import java.util.List;
 /** 一次 simulation session 的 SOMA tables、grass grid 与 scratch owner。 */
 public final class SimulationRuntime implements AutoCloseable {
   final SimulationConfig config;
+  final String inputChecksum;
   final GrasserStateTable grassers;
   final TraceSampleTable traces;
   final double[] grass;
@@ -25,11 +26,12 @@ public final class SimulationRuntime implements AutoCloseable {
   private long nextId;
   private boolean closed;
 
-  SimulationRuntime(SimulationConfig config,
+  SimulationRuntime(SimulationConfig config, String inputChecksum,
                     GrasserStateTable grassers,
                     TraceSampleTable traces,
                     double[] grass) {
     this.config = config;
+    this.inputChecksum = inputChecksum;
     this.grassers = grassers;
     this.traces = traces;
     this.grass = grass;

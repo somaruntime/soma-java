@@ -1,12 +1,13 @@
 package com.hgtech.soma.examples.grassing.evidence;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
-import com.hgtech.soma.examples.grassing.model.InitialStateGenerator;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState;
+import com.hgtech.soma.examples.grassing.config.SimulationConfigLoader;
+import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationEngine;
-import com.hgtech.soma.examples.grassing.runtime.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeBootstrap;
+import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
+import com.hgtech.soma.examples.grassing.scenario.SyntheticSimulationScenarioFactory;
 import com.hgtech.soma.examples.grassing.validation.SimulationValidator;
 
 /** 单 JVM fork 的 correctness-guarded integrated benchmark。 */
@@ -16,9 +17,9 @@ public final class SimulationBenchmark {
 
   public static void main(String[] args) throws Exception {
     String selector = args.length == 0 ? "default" : args[0];
-    SimulationConfig config = SimulationConfig.load(selector);
-    SimulationInitialState initialState =
-        InitialStateGenerator.generate(config);
+    SimulationConfig config = new SimulationConfigLoader().load(selector);
+    SimulationScenario initialState =
+        new SyntheticSimulationScenarioFactory().create(config);
     for (int warmup = 0; warmup < config.benchmarkWarmup(); warmup++) {
       execute(config, initialState, false);
     }
@@ -103,11 +104,10 @@ public final class SimulationBenchmark {
   }
 
   private static Measurement execute(
-      SimulationConfig config, SimulationInitialState initialState,
+      SimulationConfig config, SimulationScenario initialState,
       boolean measured) {
     long setupStart = System.nanoTime();
-    SimulationRuntime runtime =
-        SimulationRuntimeBootstrap.load(config, initialState);
+    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(initialState);
     SimulationEngine engine = new SimulationEngine(runtime);
     long setupNanos = System.nanoTime() - setupStart;
     try {
@@ -136,8 +136,9 @@ public final class SimulationBenchmark {
           evidence.updateScratchHighWaterBytes,
           evidence.operationScratchHighWaterBytes,
           evidence.populationGrowthCount,
-          result.maximumPopulation, result.resultChecksum,
-          runtime.schemaHash(), runtime.runtimePlanHash());
+          result.maximumPopulation(), result.resultChecksum(),
+          result.diagnostics().schemaHash(),
+          result.diagnostics().runtimePlanHash());
     } finally {
       runtime.close();
     }

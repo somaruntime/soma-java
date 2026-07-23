@@ -18,7 +18,8 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 |---|---|---|---|
 | 治理前实现 | `1c1bc22` | passed | Zulu JDK 8 完整 `project-check: ok` |
 | Stage 0 Temporary | `f852028` | passed | 文档 Gate、现状审计与治理协议 |
-| Stage 1 详细设计 | 待提交 | in progress | vocabulary、DAG、Result/Snapshot、system/source-set裁决 |
+| Stage 1 详细设计 | `5c8f781` | passed | vocabulary、DAG、Result/Snapshot、system/source-set裁决 |
+| Stage 2 canonical boundary | 待提交 | in progress | Scenario/Factory、Simulator/Session、detached Result、composition root |
 | implementation candidate | 待形成 | pending | 专项、四 profile、AoS、multi-fork、isolated/repeat |
 | final cutover | 待形成 | pending | 完整 Gate、Report、Temporary退役 |
 
@@ -26,15 +27,15 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 
 | 当前责任 | 目标唯一 Owner | 状态 |
 |---|---|---|
-| CLI 手工 runtime 编排 | `Simulator` / `SimulationSession` | pending |
+| CLI 手工 runtime 编排 | `Simulator` / `SimulationSession` | passed |
 | Config + benchmark keys | domain Config + test BenchmarkOptions | pending |
-| static initial generator | `SimulationScenarioFactory` implementation | pending |
-| nested `IndividualInput` | top-level Scenario input type | pending |
+| static initial generator | `SimulationScenarioFactory` implementation | passed |
+| nested `IndividualInput` | top-level Scenario input type | passed |
 | bootstrap 全部职责 | runtime factory/projector/verifier | pending |
 | Engine 全部 system | engine orchestrator + ordered systems | pending |
-| Engine result/checksum | result assembler/checksum | pending |
+| Engine result/checksum | detached `result` boundary | passed |
 | runtime materialization/stats | test access / evidence | pending |
-| live Runtime validator | production invariant boundary + detached result/test oracle | pending |
+| live Runtime validator | detached result + test-only oracle | in progress |
 | `state` 技术包 | `schema` 技术投影 | pending |
 | main oracle/checks | test oracle/verification | pending |
 | main benchmark/JVM metrics | test benchmark | pending |
@@ -69,7 +70,11 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 | Java 8 + generated/schema reproducibility | passed | pending | pending |
 | production JAR excludes evidence | failed by design | pending | pending |
 | package dependency DAG | not gated | pending | pending |
-| canonical Scenario/Simulator/Result journey | failed by design | pending | pending |
+| canonical Scenario/Simulator/Result journey | failed by design | passed | pending |
+
+Stage 2 在 Zulu JDK 8 通过现有专项 Gate。四 profile 的 input/result checksum、
+correctness AoS oracle、replay/order independence、long-run 和三 fork evidence 均
+保持稳定；专项 Gate 的 source-set/JAR/DAG 规则将在 Stage 4 加固。
 
 ## 5. 实施原则
 

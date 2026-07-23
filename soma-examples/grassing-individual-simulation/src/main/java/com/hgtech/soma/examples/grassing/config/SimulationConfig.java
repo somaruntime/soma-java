@@ -82,7 +82,7 @@ public final class SimulationConfig {
     validate();
   }
 
-  public static SimulationConfig load(String selector, String... overrides)
+  static SimulationConfig load(String selector, String... overrides)
       throws IOException {
     if (selector == null || selector.trim().isEmpty()) {
       throw new IllegalArgumentException("config selector must not be empty");

@@ -1,8 +1,8 @@
 package com.hgtech.soma.examples.grassing.runtime;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState;
-import com.hgtech.soma.examples.grassing.model.SimulationInitialState.IndividualInput;
+import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
+import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.state.BehaviourMode;
 import com.hgtech.soma.examples.grassing.state.GrasserId;
 import com.hgtech.soma.examples.grassing.state.generated.GrasserStateBatch;
@@ -13,35 +13,34 @@ import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
 
-/** detached initial state 到 authoritative runtime 的唯一装载边界。 */
+/** detached Scenario 到 authoritative runtime 的唯一装载边界。 */
 public final class SimulationRuntimeBootstrap {
   private SimulationRuntimeBootstrap() {
   }
 
-  public static SimulationRuntime load(
-      SimulationConfig config, SimulationInitialState initialState) {
-    if (config == null) throw new NullPointerException("config");
-    if (initialState == null) throw new NullPointerException("initialState");
-    validateInput(config, initialState);
-    RuntimePlan plan = plan(config, initialState);
+  public static SimulationRuntime load(SimulationScenario scenario) {
+    if (scenario == null) throw new NullPointerException("scenario");
+    SimulationConfig config = scenario.config();
+    RuntimePlan plan = plan(config, scenario);
     GrasserStateTable grassers = GrasserStateTable.create(plan);
     TraceSampleTable traces = TraceSampleTable.create(plan);
     SimulationRuntime runtime = new SimulationRuntime(
-        config, grassers, traces, initialState.grassCopy());
+        config, scenario.checksum(),
+        grassers, traces, scenario.grassCopy());
     boolean complete = false;
     try {
       GrasserStateBatch batch =
-          new GrasserStateBatch(initialState.population());
+          new GrasserStateBatch(scenario.population());
       long maximumId = 0L;
-      for (IndividualInput individual : initialState.individuals()) {
-        batch.addValues(new GrasserId(individual.id),
-            individual.x, individual.y, individual.energy,
-            mode(individual.mode), individual.movementDirection);
-        maximumId = Math.max(maximumId, individual.id);
+      for (IndividualSeed individual : scenario.individuals()) {
+        batch.addValues(new GrasserId(individual.id()),
+            individual.x(), individual.y(), individual.energy(),
+            mode(individual.mode()), individual.movementDirection());
+        maximumId = Math.max(maximumId, individual.id());
       }
       grassers.replaceAll(batch);
       runtime.initializeNextId(Math.addExact(maximumId, 1L));
-      verifyProjection(initialState, runtime);
+      verifyProjection(scenario, runtime);
       complete = true;
       return runtime;
     } finally {
@@ -50,9 +49,9 @@ public final class SimulationRuntimeBootstrap {
   }
 
   private static RuntimePlan plan(
-      SimulationConfig config, SimulationInitialState initialState) {
+      SimulationConfig config, SimulationScenario scenario) {
     RuntimePlan base = GrasserStateTable.defaultRuntimePlan();
-    int populationCapacity = Math.max(1, initialState.population());
+    int populationCapacity = Math.max(1, scenario.population());
     int traceCapacity = Math.max(
         2, config.ticks() / config.traceInterval() + 2);
     RuntimePlan.Builder builder = base.toBuilder()
@@ -72,44 +71,31 @@ public final class SimulationRuntimeBootstrap {
     builder.replaceTable(replacement);
   }
 
-  private static void validateInput(
-      SimulationConfig config, SimulationInitialState initialState) {
-    require(initialState.width() == config.width()
-            && initialState.height() == config.height(),
-        "initial state dimensions differ from config");
-    require(initialState.population() == config.initialPopulation(),
-        "initial population differs from config");
-    for (double grass : initialState.grassCopy()) {
-      require(grass <= config.grassCarryingCapacity(),
-          "initial grass exceeds configured carrying capacity");
-    }
-  }
-
   private static BehaviourMode mode(int ordinal) {
-    if (ordinal == SimulationInitialState.MODE_GRASSING) {
+    if (ordinal == IndividualSeed.MODE_GRASSING) {
       return BehaviourMode.GRASSING;
     }
-    if (ordinal == SimulationInitialState.MODE_SEARCHING) {
+    if (ordinal == IndividualSeed.MODE_SEARCHING) {
       return BehaviourMode.SEARCHING;
     }
     throw new IllegalArgumentException("unknown input behaviour mode");
   }
 
   private static void verifyProjection(
-      SimulationInitialState initialState, SimulationRuntime runtime) {
-    require(runtime.grassers.size() == initialState.population(),
+      SimulationScenario scenario, SimulationRuntime runtime) {
+    require(runtime.grassers.size() == scenario.population(),
         "population projection");
     require(runtime.traces.size() == 0, "trace table must start empty");
     DoubleColumnView energy = runtime.grassers.energyColumn();
     IntColumnView x = runtime.grassers.xColumn();
     IntColumnView y = runtime.grassers.yColumn();
     try {
-      for (IndividualInput individual : initialState.individuals()) {
-        int index = runtime.grassers.requireIndex(individual.id);
+      for (IndividualSeed individual : scenario.individuals()) {
+        int index = runtime.grassers.requireIndex(individual.id());
         require(Double.doubleToLongBits(energy.getDouble(index))
-                == Double.doubleToLongBits(individual.energy)
-                && x.getInt(index) == individual.x
-                && y.getInt(index) == individual.y,
+                == Double.doubleToLongBits(individual.energy())
+                && x.getInt(index) == individual.x()
+                && y.getInt(index) == individual.y(),
             "individual value projection");
       }
     } finally {
