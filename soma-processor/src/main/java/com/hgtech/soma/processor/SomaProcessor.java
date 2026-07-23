@@ -553,7 +553,7 @@ public final class SomaProcessor extends AbstractProcessor {
     }
 
     private boolean validateGeneratedSignatures(TableModel model) {
-        DenseTableSourceGenerator.TableSpec table = model.toGeneratorSpec();
+        DenseTableCodegenModel.TableSpec table = model.toGeneratorSpec();
         Map<String, Element> signatures = new LinkedHashMap<String, Element>();
         Map<String, Element> fields = new LinkedHashMap<String, Element>();
         boolean valid = true;
@@ -573,7 +573,7 @@ public final class SomaProcessor extends AbstractProcessor {
 
         Map<String, TableFieldModel> origins = new LinkedHashMap<String, TableFieldModel>();
         for (TableFieldModel field : model.fields) origins.put(field.javaName, field);
-        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+        for (DenseTableCodegenModel.FieldSpec field : table.fields) {
             TableFieldModel source = origins.get(field.javaName);
             valid &= generatedSignature(
                     signatures, rowScope, field.javaName, source.origin);
@@ -586,7 +586,7 @@ public final class SomaProcessor extends AbstractProcessor {
                         field.javaName + "Or", source.origin, field.primitive);
             }
             if (field.valueBacked()) {
-                for (DenseTableSourceGenerator.ValueLeafSpec leaf : field.valueLeaves) {
+                for (DenseTableCodegenModel.ValueLeafSpec leaf : field.valueLeaves) {
                     valid &= generatedSignature(
                             signatures, rowScope, leaf.stem(field), source.origin);
                 }
@@ -595,7 +595,7 @@ public final class SomaProcessor extends AbstractProcessor {
                 valid &= generatedSignature(signatures, rowScope,
                         "set" + capitalize(field.javaName), source.origin, field.primitive);
                 if (field.valueBacked()) {
-                    for (DenseTableSourceGenerator.ValueLeafSpec leaf : field.valueLeaves) {
+                    for (DenseTableCodegenModel.ValueLeafSpec leaf : field.valueLeaves) {
                         valid &= generatedSignature(signatures, rowScope,
                                 "set" + capitalize(leaf.stem(field)),
                                 source.origin, leaf.primitive);
@@ -610,7 +610,7 @@ public final class SomaProcessor extends AbstractProcessor {
 
         String builderScope = model.javaType + "#batch-row-builder";
         String mutatorScope = model.javaType + "#mutator";
-        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+        for (DenseTableCodegenModel.FieldSpec field : table.fields) {
             TableFieldModel source = origins.get(field.javaName);
             String capitalized = capitalize(field.javaName);
             valid &= generatedSignature(signatures, builderScope,
@@ -629,7 +629,7 @@ public final class SomaProcessor extends AbstractProcessor {
             }
         }
         valid &= generatedSignature(signatures, mutatorScope, "commit", model.origin);
-        for (DenseTableSourceGenerator.ChildSpec child : table.children) {
+        for (DenseTableCodegenModel.ChildSpec child : table.children) {
             TableFieldModel source = origins.get(child.javaName);
             valid &= generatedSignature(signatures, builderScope,
                     "set" + capitalize(child.javaName), source.origin, child.batchType());
@@ -641,7 +641,7 @@ public final class SomaProcessor extends AbstractProcessor {
 
         String tableScope = model.javaType + "#table";
         valid &= registerFixedTableSignatures(signatures, tableScope, table, model.origin);
-        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+        for (DenseTableCodegenModel.FieldSpec field : table.fields) {
             TableFieldModel source = origins.get(field.javaName);
             if (field.supportsColumnAccess()) {
                 valid &= generatedSignature(signatures, tableScope,
@@ -650,7 +650,7 @@ public final class SomaProcessor extends AbstractProcessor {
                         field.javaName + "Column", source.origin);
             }
             if (field.valueBacked()) {
-                for (DenseTableSourceGenerator.ValueLeafSpec leaf : field.valueLeaves) {
+                for (DenseTableCodegenModel.ValueLeafSpec leaf : field.valueLeaves) {
                     if (!leaf.supportsColumnAccess()) continue;
                     valid &= generatedSignature(signatures, tableScope,
                             leaf.stem(field) + "s", source.origin);
@@ -660,7 +660,7 @@ public final class SomaProcessor extends AbstractProcessor {
             }
         }
         String locatorType = table.keyed() ? table.keyField().primitive : "int";
-        for (DenseTableSourceGenerator.ChildSpec child : table.children) {
+        for (DenseTableCodegenModel.ChildSpec child : table.children) {
             TableFieldModel source = origins.get(child.javaName);
             String capitalized = capitalize(child.javaName);
             if (child.optional) {
@@ -682,7 +682,7 @@ public final class SomaProcessor extends AbstractProcessor {
         }
         for (int i = 0; i < model.selectors.size(); i++) {
             SelectorModel selector = model.selectors.get(i);
-            DenseTableSourceGenerator.SelectorSpec generated = table.selectors.get(i);
+            DenseTableCodegenModel.SelectorSpec generated = table.selectors.get(i);
             List<String> parameters =
                     DenseTableSourceGenerator.selectorPublicParameterTypes(table, generated);
             valid &= generatedSignature(signatures, tableScope,
@@ -722,11 +722,11 @@ public final class SomaProcessor extends AbstractProcessor {
             valid &= generatedField(fields, tableFieldScope,
                     "ownerTokenColumn", model.origin);
         }
-        for (DenseTableSourceGenerator.FieldSpec field : table.fields) {
+        for (DenseTableCodegenModel.FieldSpec field : table.fields) {
             TableFieldModel source = origins.get(field.javaName);
             if (field.flattenedValueStorage()) {
                 for (int i = 0; i < field.valueLeaves.size(); i++) {
-                    DenseTableSourceGenerator.ValueLeafSpec leaf = field.valueLeaves.get(i);
+                    DenseTableCodegenModel.ValueLeafSpec leaf = field.valueLeaves.get(i);
                     String physical = field.javaName + "Leaf" + i;
                     valid &= generatedField(fields, batchFieldScope,
                             physical + "Values", source.origin);
@@ -762,7 +762,7 @@ public final class SomaProcessor extends AbstractProcessor {
                         field.javaName + "Presence", source.origin);
             }
         }
-        for (DenseTableSourceGenerator.ChildSpec child : table.children) {
+        for (DenseTableCodegenModel.ChildSpec child : table.children) {
             TableFieldModel source = origins.get(child.javaName);
             valid &= generatedField(fields, batchFieldScope,
                     child.javaName + "Values", source.origin);
@@ -781,7 +781,7 @@ public final class SomaProcessor extends AbstractProcessor {
     private boolean registerFixedTableSignatures(
             Map<String, Element> signatures,
             String scope,
-            DenseTableSourceGenerator.TableSpec table,
+            DenseTableCodegenModel.TableSpec table,
             Element origin) {
         boolean valid = true;
         valid &= generatedSignature(signatures, scope, "create", origin);
@@ -832,7 +832,7 @@ public final class SomaProcessor extends AbstractProcessor {
         valid &= generatedSignature(signatures, scope, "statsSnapshot", origin);
         valid &= generatedSignature(signatures, scope, "resetStats", origin);
         if (table.keyed()) {
-            DenseTableSourceGenerator.FieldSpec key = table.keyField();
+            DenseTableCodegenModel.FieldSpec key = table.keyField();
             valid &= generatedSignature(signatures, scope, "containsKey", origin,
                     key.primitive);
             valid &= generatedSignature(signatures, scope, "findIndex", origin,
@@ -854,7 +854,7 @@ public final class SomaProcessor extends AbstractProcessor {
             valid &= generatedSignature(signatures, scope, "keys", origin);
             if (key.valueBacked()) {
                 List<String> leafTypes = new ArrayList<String>();
-                for (DenseTableSourceGenerator.ValueLeafSpec leaf : key.valueLeaves) {
+                for (DenseTableCodegenModel.ValueLeafSpec leaf : key.valueLeaves) {
                     leafTypes.add(leaf.primitive);
                 }
                 valid &= generatedSignature(signatures, scope, "findIndex", origin,
@@ -1914,8 +1914,8 @@ public final class SomaProcessor extends AbstractProcessor {
         List<SchemaArtifactPlan> result = new ArrayList<SchemaArtifactPlan>();
         Map<String, Element> generatedTypes = new TreeMap<String, Element>(
                 UnicodeCodePointOrder.INSTANCE);
-        Map<String, List<DenseTableSourceGenerator.TableSpec>> specsBySchema =
-                new TreeMap<String, List<DenseTableSourceGenerator.TableSpec>>(
+        Map<String, List<DenseTableCodegenModel.TableSpec>> specsBySchema =
+                new TreeMap<String, List<DenseTableCodegenModel.TableSpec>>(
                         UnicodeCodePointOrder.INSTANCE);
         for (SchemaModel schema : schemas.values()) {
             if (schema.tables.size() > CodegenLimits.MAXIMUM_SCHEMA_TABLES) {
@@ -1923,8 +1923,8 @@ public final class SomaProcessor extends AbstractProcessor {
                         CodegenLimits.MAXIMUM_SCHEMA_TABLES, schema.tables.size(),
                         schema.sourcePackage);
             }
-            List<DenseTableSourceGenerator.TableSpec> tableSpecs =
-                    new ArrayList<DenseTableSourceGenerator.TableSpec>();
+            List<DenseTableCodegenModel.TableSpec> tableSpecs =
+                    new ArrayList<DenseTableCodegenModel.TableSpec>();
             for (TableModel table : schema.tables.values()) {
                 int leafCount = normalizedPhysicalLeafCount(table);
                 if (leafCount > CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES) {
@@ -1932,7 +1932,7 @@ public final class SomaProcessor extends AbstractProcessor {
                             CodegenLimits.MAXIMUM_TABLE_PHYSICAL_LEAVES,
                             leafCount, table.javaType);
                 }
-                DenseTableSourceGenerator.TableSpec tableSpec = table.toGeneratorSpec();
+                DenseTableCodegenModel.TableSpec tableSpec = table.toGeneratorSpec();
                 tableSpecs.add(tableSpec);
                 for (String generatedName : generatedTypeNames(tableSpec)) {
                     String qualifiedName = schema.generatedPackage + "." + generatedName;
@@ -1959,14 +1959,14 @@ public final class SomaProcessor extends AbstractProcessor {
         for (SchemaModel schema : schemas.values()) {
             String json = schema.toCanonicalJson();
             String hash = sha256(SCHEMA_HASH_PREFIX + json);
-            List<DenseTableSourceGenerator.TableSpec> tableSpecs =
+            List<DenseTableCodegenModel.TableSpec> tableSpecs =
                     specsBySchema.get(schema.sourcePackage);
             DenseTableSourceGenerator generator = new DenseTableSourceGenerator(
                     schema.generatedPackage, hash, tableSpecs);
             List<GeneratedSourceOutput> sources =
                     new ArrayList<GeneratedSourceOutput>();
             long totalLength = 0L;
-            for (DenseTableSourceGenerator.TableSpec tableSpec : tableSpecs) {
+            for (DenseTableCodegenModel.TableSpec tableSpec : tableSpecs) {
                 List<GeneratedSourceOutput> rendered;
                 try {
                     rendered = generator.render(tableSpec);
@@ -2031,7 +2031,7 @@ public final class SomaProcessor extends AbstractProcessor {
     }
 
     private List<String> generatedTypeNames(
-            DenseTableSourceGenerator.TableSpec table) {
+            DenseTableCodegenModel.TableSpec table) {
         List<String> result = new ArrayList<String>();
         result.add(table.name("Cursor"));
         result.add(table.name("UpdateCursor"));
@@ -2497,21 +2497,21 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append('}');
         }
 
-        private DenseTableSourceGenerator.TableSpec toGeneratorSpec() {
-            List<DenseTableSourceGenerator.FieldSpec> result =
-                    new ArrayList<DenseTableSourceGenerator.FieldSpec>();
-            List<DenseTableSourceGenerator.ChildSpec> childResult =
-                    new ArrayList<DenseTableSourceGenerator.ChildSpec>();
+        private DenseTableCodegenModel.TableSpec toGeneratorSpec() {
+            List<DenseTableCodegenModel.FieldSpec> result =
+                    new ArrayList<DenseTableCodegenModel.FieldSpec>();
+            List<DenseTableCodegenModel.ChildSpec> childResult =
+                    new ArrayList<DenseTableCodegenModel.ChildSpec>();
             for (TableFieldModel field : fields) {
                 if (field.child == null) result.add(field.toGeneratorSpec());
                 else childResult.add(field.toGeneratorChildSpec());
             }
-            List<DenseTableSourceGenerator.SelectorSpec> generatedSelectors =
-                    new ArrayList<DenseTableSourceGenerator.SelectorSpec>();
+            List<DenseTableCodegenModel.SelectorSpec> generatedSelectors =
+                    new ArrayList<DenseTableCodegenModel.SelectorSpec>();
             for (SelectorModel selector : selectors) {
                 generatedSelectors.add(selector.toGeneratorSpec());
             }
-            return new DenseTableSourceGenerator.TableSpec(
+            return new DenseTableCodegenModel.TableSpec(
                     origin, javaType, simpleName, logicalName,
                     defaultCapacity < 0 ? 16 : defaultCapacity,
                     result, childResult, generatedSelectors);
@@ -2550,15 +2550,15 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append("],\"name\":").append(quote(name)).append('}');
         }
 
-        private DenseTableSourceGenerator.SelectorSpec toGeneratorSpec() {
-            List<DenseTableSourceGenerator.SelectorLeafSpec> result =
-                    new ArrayList<DenseTableSourceGenerator.SelectorLeafSpec>();
+        private DenseTableCodegenModel.SelectorSpec toGeneratorSpec() {
+            List<DenseTableCodegenModel.SelectorLeafSpec> result =
+                    new ArrayList<DenseTableCodegenModel.SelectorLeafSpec>();
             for (SelectorLeafModel leaf : leaves) {
-                result.add(new DenseTableSourceGenerator.SelectorLeafSpec(
+                result.add(new DenseTableCodegenModel.SelectorLeafSpec(
                         leaf.path, "ASC", leaf.publicType,
                         leaf.storageType, leaf.enumType));
             }
-            return new DenseTableSourceGenerator.SelectorSpec(kind, name, result);
+            return new DenseTableCodegenModel.SelectorSpec(kind, name, result);
         }
 
         private String generatedSuffix() {
@@ -2679,23 +2679,23 @@ public final class SomaProcessor extends AbstractProcessor {
             json.append('}');
         }
 
-        private DenseTableSourceGenerator.FieldSpec toGeneratorSpec() {
-            List<DenseTableSourceGenerator.ValueLeafSpec> leaves =
-                    new ArrayList<DenseTableSourceGenerator.ValueLeafSpec>();
+        private DenseTableCodegenModel.FieldSpec toGeneratorSpec() {
+            List<DenseTableCodegenModel.ValueLeafSpec> leaves =
+                    new ArrayList<DenseTableCodegenModel.ValueLeafSpec>();
             for (ValueLeafType leaf : type.valueLeaves) {
-                leaves.add(new DenseTableSourceGenerator.ValueLeafSpec(
+                leaves.add(new DenseTableCodegenModel.ValueLeafSpec(
                         leaf.javaName, leaf.storageName, leaf.logicalName, leaf.semantic,
                         leaf.publicPrimitiveName, leaf.storagePrimitiveName,
                         leaf.columnType, leaf.enumJavaType));
             }
-            List<DenseTableSourceGenerator.ValueGroupSpec> groups =
-                    new ArrayList<DenseTableSourceGenerator.ValueGroupSpec>();
+            List<DenseTableCodegenModel.ValueGroupSpec> groups =
+                    new ArrayList<DenseTableCodegenModel.ValueGroupSpec>();
             for (ValueGroupType group : type.valueGroups) {
-                groups.add(new DenseTableSourceGenerator.ValueGroupSpec(
+                groups.add(new DenseTableCodegenModel.ValueGroupSpec(
                         group.javaPath, group.logicalPath, group.javaType,
                         group.firstLeaf, group.leafCount, group.directFieldCount));
             }
-            return new DenseTableSourceGenerator.FieldSpec(
+            return new DenseTableCodegenModel.FieldSpec(
                     javaName, logicalName, type.publicType,
                     type.boxedName, type.storagePrimitiveName, type.columnType,
                     type.enumJavaType, type.valueJavaType, type.valueLeafJavaName,
@@ -2704,8 +2704,8 @@ public final class SomaProcessor extends AbstractProcessor {
                             : type.valueDefaultExpression);
         }
 
-        private DenseTableSourceGenerator.ChildSpec toGeneratorChildSpec() {
-            return new DenseTableSourceGenerator.ChildSpec(
+        private DenseTableCodegenModel.ChildSpec toGeneratorChildSpec() {
+            return new DenseTableCodegenModel.ChildSpec(
                     javaName, logicalName, child.container, child.rowJavaType,
                     child.rowSimpleName, child.tableLogicalName,
                     child.keyMaterializedType, child.keyJavaName, child.materializedType,

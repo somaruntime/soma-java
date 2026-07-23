@@ -3,10 +3,10 @@ package com.hgtech.soma.processor;
 import java.util.List;
 
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.SelectorBinding;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.SelectorLeafSpec;
+import static com.hgtech.soma.processor.DenseTableCodegenModel.SelectorLeafSpec;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.SelectorParameter;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.SelectorSpec;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.TableSpec;
+import static com.hgtech.soma.processor.DenseTableCodegenModel.SelectorSpec;
+import static com.hgtech.soma.processor.DenseTableCodegenModel.TableSpec;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendExactIndexReplacementRuntime;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendNoMutableSelectorChange;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorArguments;
@@ -19,7 +19,7 @@ import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelector
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendSelectorValueArguments;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.appendUniqueValidationRuntime;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.hasMutableSelectors;
-import static com.hgtech.soma.processor.DenseTableSourceGenerator.q;
+import static com.hgtech.soma.processor.DenseSourceNames.q;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorBinding;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorCanChange;
 import static com.hgtech.soma.processor.DenseTableSourceGenerator.selectorHashBits;
