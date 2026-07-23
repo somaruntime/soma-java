@@ -190,6 +190,10 @@ for current_file in $current_reference_docs; do
     fail "$current_file contains retired current API vocabulary"
   fi
 
+  if grep -nE '(由|仍由)[[:blank:]]+active[[:blank:]]+Temporary|active[[:blank:]]+Temporary[^。；]*(拥有|负责|裁决)' "$current_file" >/dev/null 2>&1; then
+    fail "$current_file treats Temporary as a current fact owner"
+  fi
+
   for historical_file in $superseded_docs; do
     if grep -F "$historical_file" "$current_file" >/dev/null 2>&1; then
       fail "$current_file references superseded Design $historical_file as a current path"

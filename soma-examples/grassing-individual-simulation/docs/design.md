@@ -67,5 +67,5 @@ canonicalize 个体，再编码 grass 的固定 cell 顺序。
 配置在装载时一次解析为 typed primitive 字段，hot loop 不重复解析字符串。系统
 loop 不使用 Java Stream，也不逐 tick materialize object graph。
 
-详细迁移与切换裁决仍由 active Temporary 专题拥有；本应用文档不重新定义 SOMA
-Access Model 或 runtime 语义。
+本应用只拥有个体生态仿真的领域设计；SOMA Access Model 与 runtime 语义仍由
+[根级正式 Design](../../../docs/design/README.md)拥有。
