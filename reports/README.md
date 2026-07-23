@@ -31,7 +31,7 @@ Owner：SOMA Java 正式报告输出
 | G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；v4 generated surface见[当前治理报告](2026-07-23-access-model-candidate-scan-governance-report.md) |
 | G3 | passed | [Access Model / Candidate Scan v4治理](2026-07-23-access-model-candidate-scan-governance-report.md)与[性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)；packed/exact v3报告保留前序证据 |
 | G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md) |
-| G5 | passed | [四场景 Blueprint 采纳报告](2026-07-21-four-scenario-blueprint-adoption-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)；[旧 examples/benchmark Gate](java-v1-g5-examples-benchmark-gate-report.md) 为 v2 历史快照 |
+| G5 | passed | [四场景 Blueprint 采纳报告](2026-07-21-four-scenario-blueprint-adoption-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)；[旧 examples/benchmark Gate](archive/java-v1-g5-examples-benchmark-gate-report.md) 为 v2 历史快照 |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
 Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。
@@ -48,17 +48,17 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 - [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
 - [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)
 - [2026-07-17 性能优化后 G6 本机诊断](2026-07-17-post-optimization-g6-diagnostic-report.md)
-- [2026-07-11 SOMA Java V1 专题治理收口](soma-java-v1-topical-governance-report.md)
-- [Java V1 Phase 0 compiler/build checkpoint](java-v1-phase-0-compiler-build-report.md)
-- [Java V1 Phase 0 schema carrier construction 设计缺口](java-v1-phase-0-schema-carrier-design-gap.md)
-- [Java V1 Phase 3 access structures](java-v1-phase-3-access-structures-report.md)（v2 历史 checkpoint；已由 packed/exact v3 切换取代）
-- [Java V1 Phase 4 child/materialization](java-v1-phase-4-child-materialization-report.md)
-- [Java-only SOMA V1 Phase 5 full breadth closeout](java-v1-phase-5-full-breadth-report.md)
-- [2026-07-10 Implementation-readiness 治理收尾](2026-07-10-implementation-readiness-governance-report.md)
-- [2026-07-10 Compiler integration feasibility](2026-07-10-compiler-integration-spike-report.md)
-
 ## 历史归档
 
+- [2026-07-11 SOMA Java V1 专题治理收口](archive/soma-java-v1-topical-governance-report.md)
+- [Java V1 Phase 0 compiler/build checkpoint](archive/java-v1-phase-0-compiler-build-report.md)
+- [Java V1 Phase 0 schema carrier construction 设计缺口](archive/java-v1-phase-0-schema-carrier-design-gap.md)
+- [Java V1 Phase 3 access structures](archive/java-v1-phase-3-access-structures-report.md)（v2 历史 checkpoint；已由 packed/exact v3 切换取代）
+- [Java V1 Phase 4 child/materialization](archive/java-v1-phase-4-child-materialization-report.md)
+- [Java-only SOMA V1 Phase 5 full breadth closeout](archive/java-v1-phase-5-full-breadth-report.md)
+- [旧 examples/benchmark G5 Gate](archive/java-v1-g5-examples-benchmark-gate-report.md)
+- [2026-07-10 Implementation-readiness 治理收尾](archive/2026-07-10-implementation-readiness-governance-report.md)
+- [2026-07-10 Compiler integration feasibility](archive/2026-07-10-compiler-integration-spike-report.md)
 - [2026-07-10 文档体系重构收尾报告](archive/2026-07-10-documentation-system-refactor-report.md)
 - [2026-07-10 四个蓝图设计审查](archive/2026-07-10-four-blueprints-design-review-report.md)
 - [2026-07-10 SomaTable 设计治理收尾](archive/2026-07-10-soma-table-design-governance-closeout-report.md)

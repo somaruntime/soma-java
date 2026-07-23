@@ -1,11 +1,13 @@
 # Java-only SOMA V1 Phase 3 AccessStructures closeout report
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 状态：passed
 日期：2026-07-11
 实现 commit：`3292e7a`
 Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（继续 active）
 
-> 当前性说明（2026-07-20）：本报告是 commit `3292e7a` 的 v2 历史 checkpoint，其中 `@SomaOrder`、`RowPermutationSidecar`、dirty/lazy rebuild 与 stable tie-break 已由 `4b6fa43` 的 packed/exact v3 切换取代。当前实现与验证入口见 [2026-07-17 专题收口报告](2026-07-17-packed-exact-index-runtime-redesign-report.md)；本文保留当时证据，不定义当前架构。
+> 当前性说明（2026-07-20）：本报告是 commit `3292e7a` 的 v2 历史 checkpoint，其中 `@SomaOrder`、`RowPermutationSidecar`、dirty/lazy rebuild 与 stable tie-break 已由 `4b6fa43` 的 packed/exact v3 切换取代。当前实现与验证入口见 [2026-07-17 专题收口报告](../2026-07-17-packed-exact-index-runtime-redesign-report.md)；本文保留当时证据，不定义当前架构。
 
 本报告只关闭 Phase 3 实施 checkpoint，不关闭任一完整 Capability、RC、G1–G6 或 release readiness。
 

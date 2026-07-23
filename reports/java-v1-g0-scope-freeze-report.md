@@ -154,7 +154,7 @@ V1-SCENARIO-BENCHMARK
 V1-RELEASE-EVIDENCE
 ```
 
-Phase 0 后，`V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`、`V1-SECURITY-INTEGRITY`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE` 为 `in-progress`；其余 15 项为 `not-started`。具体状态变化和 evidence 见 [Phase 0 report](java-v1-phase-0-compiler-build-report.md)。没有 Capability 被删除、waive、降为 optional 或移出 V1。
+Phase 0 后，`V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`、`V1-SECURITY-INTEGRITY`、`V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE` 为 `in-progress`；其余 15 项为 `not-started`。具体状态变化和 evidence 见 [Phase 0 report](archive/java-v1-phase-0-compiler-build-report.md)。没有 Capability 被删除、waive、降为 optional 或移出 V1。
 
 ## 7. Gate status
 

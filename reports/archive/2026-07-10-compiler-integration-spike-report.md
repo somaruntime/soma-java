@@ -1,5 +1,7 @@
 # 2026-07-10 Compiler integration feasibility report
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 日期：2026-07-10
 目标：验证 `@SomaValue` implicit immutable effective type 是否可以由 Java 8 build-time tooling 实现
 输入事实源：annotation schema、schema processing、code generation、public compatibility 与 compiler integration contracts

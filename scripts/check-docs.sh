@@ -132,43 +132,33 @@ for category_index in \
   fi
 done
 
-superseded_docs=$(printf '%s\n' \
-  docs/architecture-design.md \
-  docs/build-and-dependency-contract.md \
-  docs/documentation-governance.md \
-  docs/domain-glossary.md \
-  docs/generated-table-api-contract.md \
-  docs/implementation-strategy.md \
-  docs/materialization-contract.md \
-  docs/public-api-compatibility-contract.md \
-  docs/runtime-correctness-model.md \
-  docs/runtime-performance-model.md \
-  docs/security-model.md \
-  docs/soma-table-design-constitution.md \
-  docs/validation-gates.md \
-  docs/versioning-and-release-contract.md \
-  soma-annotations/docs/annotation-schema-contract.md \
-  soma-processor/docs/compiler-integration-contract.md \
-  soma-processor/docs/schema-processing-contract.md \
-  soma-processor/docs/code-generation-contract.md \
-  soma-runtime-core/docs/table-store-contract.md \
-  soma-runtime-core/docs/runtime-lifecycle-contract.md \
-  soma-runtime-core/docs/runtime-plan-contract.md \
-  soma-runtime-core/docs/runtime-errors-and-diagnostics-contract.md \
-  soma-runtime-core/docs/runtime-performance-implementation-contract.md \
-  soma-testkit/docs/testkit-contract.md \
-  soma-benchmarks/docs/benchmark-evidence-contract.md \
-  soma-benchmarks/docs/runtime-state-benchmark-contract.md)
+superseded_docs=$(find docs soma-*/docs \
+  -type f -name '*.md' -exec grep -l '^状态：superseded$' {} \; | sort)
 
 for file in $superseded_docs; do
-  if [ ! -f "$file" ]; then
-    fail "missing superseded historical document $file"
-    continue
-  fi
   require_once "$file" '^类型：历史设计$'
   require_once "$file" '^状态：superseded$'
   require_once "$file" '^Owner：'
   require_once "$file" '^当前取代者：'
+  require_once "$file" '^历史正文基线：commit `[0-9a-f]{40}` 的 `[^`]+`$'
+
+  history_reference=$(sed -n 's/^历史正文基线：commit `\([0-9a-f][0-9a-f]*\)` 的 `\([^`]*\)`$/\1 \2/p' "$file")
+  history_commit=${history_reference%% *}
+  history_path=${history_reference#* }
+  if [ "$history_path" != "$file" ]; then
+    fail "$file historical provenance path must match its current path"
+  elif ! git cat-file -e "$history_commit:$history_path" 2>/dev/null; then
+    fail "$file historical provenance cannot resolve $history_commit:$history_path"
+  fi
+
+  historical_heading_count=$(grep -c '^## ' "$file" || true)
+  if [ "$historical_heading_count" -ne 1 ] \
+      || ! grep -F '## 历史正文' "$file" >/dev/null 2>&1; then
+    fail "$file must remain a thin historical tombstone"
+  fi
+  if ! grep -F "git show $history_commit:$history_path" "$file" >/dev/null 2>&1; then
+    fail "$file must expose its Git provenance command"
+  fi
 
   base_name=$(basename "$file")
   if grep -F "]($base_name)" docs/README.md >/dev/null 2>&1 \

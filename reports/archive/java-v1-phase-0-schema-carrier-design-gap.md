@@ -1,5 +1,7 @@
 # Java V1 Phase 0 schema carrier construction 设计缺口
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 状态：resolved
 记录日期：2026-07-10
 记录人：Codex

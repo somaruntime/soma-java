@@ -61,7 +61,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 | `soma-examples` | [场景与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[可执行场景输出](../soma-examples/docs/README.md) |
 | `soma-benchmarks` | [场景与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[模块文档入口](../soma-benchmarks/docs/README.md) |
 
-模块 `docs/` 中保留的旧契约均为 `superseded` 历史设计，不再拥有当前事实。精确 public/generated/schema/protocol surface 由代码、golden、artifact 和 validator 拥有，并由[可执行契约地图](implementation-map/executable-contract-map.md)登记。
+模块 `docs/` 中保留的旧契约路径均为 `superseded` tombstone，只提供历史链接稳定性和 Git provenance，不再拥有正文或当前事实。精确 public/generated/schema/protocol surface 由代码、golden、artifact 和 validator 拥有，并由[可执行契约地图](implementation-map/executable-contract-map.md)登记。
 
 ## 4. Temporary 与历史材料
 
@@ -71,6 +71,6 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 
-旧 root/module 契约保留原路径只为历史链接稳定，必须标记 `superseded` 并退出所有 current 导航。历史 Report 可以引用其当时输入，但当前工作不得把它们当作 Design Owner。
+旧 root/module 契约保留原路径只为历史链接稳定，必须标记 `superseded`、登记正文 provenance 并退出所有 current 导航。历史 Report 可以引用其当时输入，但当前工作不得把它们当作 Design Owner。
 
 文档分类、Owner、metadata 和生命周期以[文档治理](engineering/documentation-governance.md)为准；综合验证入口是 `./scripts/check.sh`。

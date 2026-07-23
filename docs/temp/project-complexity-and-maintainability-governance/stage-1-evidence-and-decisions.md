@@ -61,15 +61,15 @@ Owner：SOMA Java 项目复杂度与可维护性治理专题
 
 ### 3.2 移入 archive 的 checkpoint
 
-1. `2026-07-10-compiler-integration-spike-report.md`
-2. `2026-07-10-implementation-readiness-governance-report.md`
-3. `java-v1-g5-examples-benchmark-gate-report.md`
-4. `java-v1-phase-0-compiler-build-report.md`
-5. `java-v1-phase-0-schema-carrier-design-gap.md`
-6. `java-v1-phase-3-access-structures-report.md`
-7. `java-v1-phase-4-child-materialization-report.md`
-8. `java-v1-phase-5-full-breadth-report.md`
-9. `soma-java-v1-topical-governance-report.md`
+1. `reports/archive/2026-07-10-compiler-integration-spike-report.md`
+2. `reports/archive/2026-07-10-implementation-readiness-governance-report.md`
+3. `reports/archive/java-v1-g5-examples-benchmark-gate-report.md`
+4. `reports/archive/java-v1-phase-0-compiler-build-report.md`
+5. `reports/archive/java-v1-phase-0-schema-carrier-design-gap.md`
+6. `reports/archive/java-v1-phase-3-access-structures-report.md`
+7. `reports/archive/java-v1-phase-4-child-materialization-report.md`
+8. `reports/archive/java-v1-phase-5-full-breadth-report.md`
+9. `reports/archive/soma-java-v1-topical-governance-report.md`
 
 这些报告分别已被后续 compiler、Access Model、child、breadth、四场景或专题收口 evidence 取代。移动时更新全部仓库内链接；内容不改写，保留原时间点术语和结论。
 

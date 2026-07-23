@@ -1,5 +1,7 @@
 # Java-only SOMA V1 Phase 5 full breadth closeout report
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 状态：completed
 日期：2026-07-11
 Checkpoint：Phase 5 processor/codegen hardening 与 full V1 capability breadth

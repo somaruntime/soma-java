@@ -1,5 +1,7 @@
 # SOMA Java V1 专题治理报告
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 状态：completed（专题 Goal 完成；原完整 V1 Goal 仍因 G6 blocked）
 报告日期：2026-07-11
 事实截止：本报告只绑定当前专题分支的 live repository、实际命令与后续提交；不替代任何正式设计 Owner

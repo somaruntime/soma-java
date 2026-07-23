@@ -61,7 +61,7 @@ Owner：SOMA Java 一致性审查
 - [当前 G0–G6 状态](../../reports/java-v1-goal-execution-status.md)
 - [Packed Index / Exact Access / IndexBuffer 收口](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)
 - [Packed Exact Index 切换后尾项治理](../../reports/2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
-- [G5 examples/benchmark Gate](../../reports/java-v1-g5-examples-benchmark-gate-report.md)
+- [G5 examples/benchmark Gate](../../reports/archive/java-v1-g5-examples-benchmark-gate-report.md)
 - [性能优化后本机诊断](../../reports/2026-07-17-post-optimization-g6-diagnostic-report.md)
 - [设计驱动文档体系正式切换](../../reports/2026-07-20-documentation-framework-cutover-report.md)
 - [文档架构专题治理](../../reports/2026-07-20-document-architecture-governance-report.md)

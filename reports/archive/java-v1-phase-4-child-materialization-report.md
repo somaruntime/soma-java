@@ -1,5 +1,7 @@
 # Java-only SOMA V1 Phase 4 child/materialization closeout report
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 状态：passed
 日期：2026-07-11
 实现 commits：`aaed474`、`d9ad752`

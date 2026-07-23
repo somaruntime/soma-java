@@ -25,7 +25,7 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 
 本文件是中断恢复和进度审计入口，不是 Design。目标与正式语义从 `docs/blueprints/`、`docs/design/` 进入；当前代码由代码本身拥有，并通过 `docs/implementation-map/` 导航。
 
-2026-07-11专题治理已完成对完整功能V1的无缩水再审计：P0、V1 blocker和required P1均关闭，G0-G5在Zulu JDK 8完整`./scripts/check.sh`上fresh通过，独立reviewer最终PASS。完整findings、Capability矩阵、package重放边界与evidence见[`soma-java-v1-topical-governance-report.md`](soma-java-v1-topical-governance-report.md)。该专题不替代本文件的原Goal；G6仍blocked。
+2026-07-11专题治理已完成对完整功能V1的无缩水再审计：P0、V1 blocker和required P1均关闭，G0-G5在Zulu JDK 8完整`./scripts/check.sh`上fresh通过，独立reviewer最终PASS。完整findings、Capability矩阵、package重放边界与evidence见[历史专题治理报告](archive/soma-java-v1-topical-governance-report.md)。该专题不替代本文件的原Goal；G6仍blocked。
 
 2026-07-17经用户明确批准，项目完成首个公开发布前的Packed Index / Exact Access / IndexBuffer breaking cutover：删除Sparse Set、maintained order与dirty selector rebuild，keyed/dense统一swap-remove，exact index改为mutation-boundary eager incremental维护，public row-index sequence改为epoch-bearing `IndexSnapshot`，runtime/generated/plan protocol升为v3。正式Owner、consumer、Schema/hash/golden、examples、benchmark与Gate同步迁移；当前事实与evidence见[`2026-07-17-packed-exact-index-runtime-redesign-report.md`](2026-07-17-packed-exact-index-runtime-redesign-report.md)。该迁移不处理也不解除G6。
 

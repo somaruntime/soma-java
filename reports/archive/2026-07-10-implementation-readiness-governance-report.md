@@ -1,5 +1,7 @@
 # 2026-07-10 Implementation-readiness 治理收尾报告
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 日期：2026-07-10
 目标：从高质量 Java 开源项目角度闭合 SOMA Java 实施前的 compiler、contract、build、security、release 与文档治理缺口
 范围：正式设计文档、Maven/module skeleton、Wrapper、CI/community skeleton 和 feasibility evidence；不实现 SOMA Java 功能代码
@@ -16,7 +18,7 @@
 - public release 所需 license、namespace、SCM/contact 等未决组织/法律事实被明确设为 G6 blocker，没有使用 placeholder；
 - 长期蓝图保持原位置和非事实源地位。
 
-项目现在可以开始 [实现策略](../docs/implementation-strategy.md) 的 Phase 0，但仍没有 Java 功能实现，也没有任何 G1-G6 passed claim。
+项目现在可以开始 [实现策略](../../docs/implementation-strategy.md) 的 Phase 0，但仍没有 Java 功能实现，也没有任何 G1-G6 passed claim。
 
 ## 2. New formal owner contracts
 

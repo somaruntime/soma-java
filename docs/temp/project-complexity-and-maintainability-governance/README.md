@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 1 已完成，Stage 2–5 实施中）
+状态：active（Stage 2 已完成，Stage 3–5 实施中）
 
 Owner：SOMA Java 项目复杂度与可维护性治理专题
 
@@ -155,7 +155,18 @@ artifact-specific emitter 可以围绕 Table、Scan、Point/Exact、Mutation、O
 
 Stage 0.1 已在 `docs/README.md` 登记本专题，并使 `scripts/check-docs.sh` 根据 `docs/temp/` 的实际目录验证 active 状态。本专题退役后，入口恢复“当前没有 active Temporary topic”，同一通用规则验证无 active topic 状态。
 
-## 12. 退役条件
+## 12. Stage 2 文档候选
+
+Stage 2 已形成并通过完整 Gate：
+
+- 26 份 superseded Design 由 7,214 行正文压缩为 702 行 thin tombstone；原路径、current replacement、Owner 和 commit `74f8f3c344eda6f5b8c3ddbd799f3460c1f786e1` provenance 均保留；
+- checker 改为按 metadata 发现历史文档，并验证 tombstone 形状、原路径和 Git object，不再维护 26 项硬编码清单；
+- 9 份被后续结论取代的 checkpoint Report 移入 `reports/archive/`，root Report 由 24 份降为 15 份，全部内部引用闭合；
+- Blueprint、正式 Design、产品代码、测试、fixture、scenario 和 benchmark 均未删改；
+- 当前 checkout 的 Markdown 总量为 131 份、12,860 行；该数字只描述结果，不是验收配额；
+- Zulu JDK 8u492 上 `./scripts/check-docs.sh`、`git diff --check` 和 `./scripts/check.sh` 全部通过。
+
+## 13. 退役条件
 
 专题完成后，将长期事实分别固化到唯一的 Blueprint、Design 或 Engineering Owner，刷新必要的 Implementation Map、Conformance 与 current Report；若过程证据具有长期价值，形成 Governance Report。完成全量 Gate 和切换授权后删除本目录，不归档 Temporary。
 

@@ -95,7 +95,7 @@ Amazon Corretto 8.492.09.2 / OpenJDK `1.8.0_492-b09`使用同一Maven/OS/archite
 |---|---|---|
 | `V1-SCENARIO-BENCHMARK` | `implemented-unverified`，含伪 passed lane | `evidenced`，20 条 G5 minimum integrated workload |
 | G5 benchmark contributor | 未可信 | passed |
-| G5 overall | 未关闭 | 已由`reports/java-v1-g5-examples-benchmark-gate-report.md`联合examples与Access Pattern Cards关闭 |
+| G5 overall | 未关闭 | 已由`reports/archive/java-v1-g5-examples-benchmark-gate-report.md`联合examples与Access Pattern Cards关闭 |
 | G6 / V1 Goal | active | blocked（G6外部发布事实不足） |
 
 - Capability、正式 Owner、root Gate 与 release claim 未缩水；只是移除了没有真实 workload 的虚假 evidence claim。

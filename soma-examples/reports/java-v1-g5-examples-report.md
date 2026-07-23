@@ -9,7 +9,7 @@ Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（G6未通过�
 
 > 当前性说明（2026-07-21）：本报告是 2026-07-11 的 v2 examples evidence 快照；其 maintained order/sidecar 与旧四场景 canonical journey 均已被后续治理取代。当前 executable examples 与重验证入口见 [2026-07-21 四场景采纳报告](../../reports/2026-07-21-four-scenario-blueprint-adoption-report.md)；本文只保留历史 evidence。
 
-本报告证明四个Java 8 formal scenarios及其Access Pattern Card对应的可运行examples evidence通过。`soma-benchmarks`的runner、required lanes和结构化JSONL由其独立Owner report证明；两者已由`reports/java-v1-g5-examples-benchmark-gate-report.md`联合审查并关闭G5。本报告本身仍不单独拥有G5或release readiness。
+本报告证明四个Java 8 formal scenarios及其Access Pattern Card对应的可运行examples evidence通过。`soma-benchmarks`的runner、required lanes和结构化JSONL由其独立Owner report证明；两者已由`reports/archive/java-v1-g5-examples-benchmark-gate-report.md`联合审查并关闭G5。本报告本身仍不单独拥有G5或release readiness。
 
 ## 1. 验证对象与artifact
 

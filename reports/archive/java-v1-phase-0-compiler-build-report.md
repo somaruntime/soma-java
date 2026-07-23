@@ -1,5 +1,7 @@
 # Java-only SOMA V1 Phase 0 compiler/build checkpoint report
 
+归档说明：本报告是特定时间点的历史 checkpoint，保留原结论与术语作为 provenance。
+
 Checkpoint：Phase 0 compiler/build vertical slice
 状态：passed
 唯一协调 Owner：root
@@ -11,7 +13,7 @@ artifact version：`0.1.0-SNAPSHOT`
 
 ## 1. Outcome
 
-Commit `2346252` 满足 [实现策略](../docs/implementation-strategy.md)定义的 Phase 0 出口：full JDK 8 javac direct compilation 与独立 Maven consumer 看到同一 `@SomaValue` effective type；plugin/processor 双向 activation、unsupported compiler、annotation identity 歧义和 source conflict 均 fail closed；classfile、canonical schema/hash、clean repeatability、真实 incremental mutation、public API manifest 及 application runtime dependency graph 均有可重复验证的 fixture。
+Commit `2346252` 满足 [实现策略](../../docs/implementation-strategy.md)定义的 Phase 0 出口：full JDK 8 javac direct compilation 与独立 Maven consumer 看到同一 `@SomaValue` effective type；plugin/processor 双向 activation、unsupported compiler、annotation identity 歧义和 source conflict 均 fail closed；classfile、canonical schema/hash、clean repeatability、真实 incremental mutation、public API manifest 及 application runtime dependency graph 均有可重复验证的 fixture。
 
 Phase 0 状态为 `passed`，但它只关闭 compiler/build foundation checkpoint。相关 Capability 仍为 `in-progress`，G1-G6 仍为 `not-started`；本报告不构成 G2、G4、V1.0 RC、release readiness、正式 package 或 support matrix 声明。
 
