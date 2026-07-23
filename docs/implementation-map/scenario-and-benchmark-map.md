@@ -8,13 +8,13 @@ Owner：SOMA scenario/benchmark 实现导航
 
 对应 Blueprint：[产品蓝图](../blueprints/soma-java-product-blueprint.md)、[FJSP](../blueprints/fjsp-runtime-state-blueprint.md)、[VRP](../blueprints/vrp-runtime-state-blueprint.md)、[连续仿真](../blueprints/simulation-runtime-state-blueprint.md)、[Game](../blueprints/game-runtime-state-blueprint.md)
 
-对应 Design：[Table、存储与访问](../design/table-storage-and-access.md)、[性能模型](../design/performance-model.md)
+对应 Design：[Table、存储与访问](../design/table-storage-and-access.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[性能模型](../design/performance-model.md)
 
 事实范围：当前四类示例、FJSP solver 和 benchmark runner 的代码入口
 
-最近实现核对基线：`a137b10`
+最近实现核对基线：`fd82eba`
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. 示例入口
 
@@ -37,7 +37,7 @@ Owner：SOMA scenario/benchmark 实现导航
 - JVM/GC metrics：[`JvmRuntimeMetrics.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/JvmRuntimeMetrics.java)；
 - scenario smoke lane composition：[`SmokeLaneSuite.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneSuite.java)。
 
-FJSP current 5-run allocation/GC诊断与component runner分别记录场景allocation/GC、pipeline allocation和exact-index distinct-group retained payload；2026-07-20 machine-selection A/B只作为application heap决策的历史证据。Smoke runner 的 `generated.exact_index_incremental_lookup` 使用 keyed `MachineCandidate` grouped exact access，`generated.dense_scratch_replace_sort` 使用无 maintained index 的 VRP insertion workspace；所有这些 artifact 均为`claimAllowed=false`诊断证据。
+FJSP multi-fork allocation/GC诊断与component runner分别记录场景allocation/GC、Candidate Scan source/stage/terminal allocation和exact-index distinct-group retained payload；code-size runner约束 generated Scan source/class/nested-class规模。2026-07-20 machine-selection A/B只作为application heap决策的历史证据。Smoke runner 的 `generated.exact_index_incremental_lookup` 使用 keyed `MachineCandidate` grouped exact access，`generated.dense_scratch_replace_sort` 使用无 maintained index 的 VRP insertion workspace；所有这些 artifact 均为`claimAllowed=false`诊断证据。
 
 ## 3. 追踪方式
 

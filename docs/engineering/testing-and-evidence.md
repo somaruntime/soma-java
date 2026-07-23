@@ -10,7 +10,7 @@ Owner：SOMA Java 测试/evidence 过程
 
 非事实范围：Design 语义本身和当前测试结果
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-23
 
 ## 1. 原则
 
@@ -40,9 +40,13 @@ Runtime tests 应覆盖 stable state 和 failure boundary，特别是：
 - packed range、primary locator、exact links 和 compaction repair；
 - unique/key conflict、floating canonicalization；
 - child ownership forest、cascade、stale handle/view/snapshot；
+- Access Model source/cardinality、ordered stage、stable sort、scalar Index、Unique point/Scan bridge；
+- Candidate Scan/Traversal one-shot、old-handle alias、terminal failure consumption、consumed-plan reference cleanup；
 - callback/resource/allocation failure atomicity；
 - materialization budget、deep graph 和 all-or-nothing；
 - stats reset/current/high-water self-consistency。
+
+Candidate executor优化必须用reference evaluator或等价oracle覆盖声明顺序与callback/failure语义；source/terminal shortcut不得只靠benchmark结果证明正确。Generated命名切换还必须同时验证current public tokens与旧canonical token absence，历史Report/superseded文档除外。
 
 ## 4. Evidence 质量
 

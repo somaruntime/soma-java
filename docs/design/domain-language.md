@@ -18,7 +18,7 @@ Owner：SOMA Java 跨模块 canonical terminology
 
 非事实范围：API behavior、storage algorithm、lifecycle transition 和性能结论
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 限定规则
 
@@ -34,9 +34,11 @@ Owner：SOMA Java 跨模块 canonical terminology
 | keyed table | 有 stable logical key 的 table kind | Java Map storage、entity role、secondary unique |
 | dense table | 无 stable logical key 的 packed table kind | Java List storage、缩水 table |
 | Batch | detached construction/import boundary | live runtime fact、serialization protocol |
-| Row Pipeline | generated row source/stage/terminal access | Java Stream、query DSL、parallel pipeline |
-| Row Cursor / Mutator | callback-scoped live borrow | materialized row、可缓存 proxy |
-| Column Pipeline | 单列 typed traversal/terminal path | object Stream、ColumnView lifecycle |
+| Access Model | Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义 | 只有 Pipeline 的查询 DSL |
+| Candidate Scan | generated Candidate source/stage/terminal access | Java Stream、query DSL、parallel pipeline |
+| Cursor / UpdateCursor | callback-scoped live borrow | materialized row、可缓存 proxy |
+| ColumnTraversal | 单列 one-shot typed traversal | object Stream、ColumnView lifecycle |
+| KeyTraversal | keyed table logical key 的 one-shot traversal | row scan、stable key collection view |
 | ColumnView | scoped typed live-column borrow | detached array/copy |
 | `IndexSnapshot` | detached current-Index 数值序列及可选 currentness 诊断信息；消费契约见 [Schema 与生成 API](schema-and-generated-api.md) | stable row identity、row snapshot、live view |
 | Materialized Object | detached schema object/`List`/`Map` observation | live storage、external DTO、snapshot isolation |
@@ -87,7 +89,7 @@ Application data role 与 table kind、ownership 正交：
 | `PrimaryLocator` / KeySpace | keyed table 的 key → current Index locator |
 | `ColumnStore` | typed columns、presence、capacity 和 child-handle payload |
 | `GroupedExactIndex` | secondary exact bucket/group/row-link derived structure |
-| `AccessPath` | scan/exact/dynamic-sort candidate source |
+| `AccessPath` | Packed/exact Candidate source 的 internal binding |
 | `MutationCoordinator` | batch/update/remove/compaction/index/epoch coordination |
 | `IndexBuffer` | table-local reusable primitive candidate scratch |
 | lifecycle state | epoch、borrow、active operation、released 和 stats state |
@@ -100,7 +102,7 @@ Application data role 与 table kind、ownership 正交：
 
 - `RowKey`：keyed table 的 stable logical identity；
 - current `Index`：当前 packed `[0,size)` 位置，structural mutation 后可指向其他 row；
-- candidate Index sequence：一次 pipeline terminal 使用的候选；
+- Candidate Index sequence：一次 Candidate Scan terminal 使用的候选；
 - dynamic sort：只排序本次候选，不移动 columns、不建立 maintained order；
 - ordinary floating payload：可以按 Java IEEE-754 保存，业务范围由 application 校验；
 - strict identity/access floating leaf：参与 key/index/unique，finite 且把 `-0.0` canonicalize 为 `+0.0`。

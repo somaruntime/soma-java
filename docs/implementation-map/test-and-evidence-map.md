@@ -6,13 +6,13 @@
 
 Owner：SOMA 测试与 evidence 实现导航
 
-对应 Design：[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
+对应 Design：[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：`a137b10`
+最近实现核对基线：`fd82eba`
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. 验证层次
 
@@ -22,9 +22,9 @@ Owner：SOMA 测试与 evidence 实现导航
 | compile fixtures | [`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness |
+| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、Candidate sequence、one-shot/retention、unique point 与 v4 identity |
 | scenario | [`check-examples-phase6.sh`](../../scripts/check-examples-phase6.sh) | 四场景 canonical journey、schema/hash、222个 generated types、public API facts、Java 8 classfile 与 Access Pattern marker |
-| benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh) | artifact integrity、FJSP allocation/GC与component allocation/cardinality memory |
+| benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、FJSP allocation/GC、source/stage/terminal allocation、cardinality memory 与 generated code size |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
 ## 2. Testkit

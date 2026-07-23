@@ -6,13 +6,13 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design、commit `a137b10` 的实现与当前正式 evidence
+核对对象：正式 Blueprint/Design、commit `fd82eba` 的实现与当前正式 evidence
 
 事实范围：主要设计能力的一致性判断和直接依据
 
 非事实范围：授权修复、重新定义 Design 或声明 public release readiness
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. 判定口径
 
@@ -27,15 +27,16 @@ Owner：SOMA Java 一致性审查
 |---|---|---|---|
 | Java 8 annotation/schema/compiler | 一致且 evidenced | processor/plugin、compile fixtures；G1 passed | 保持 |
 | deterministic normalization/hash | 一致且 evidenced | schema JSON/hash golden、Unicode fixture | 保持 |
-| schema-specific generated API | 一致且 evidenced | external Maven consumers、public `javap` golden；G2/G4 passed | 保持 |
+| schema-specific generated API | 一致且 evidenced | Table/Scan/Cursor/Traversal/point families 的 external Maven consumers、public `javap` golden；G2/G4 passed | 保持 v4 clean surface，不恢复旧 alias |
 | packed keyed/dense storage | 一致且 evidenced | generated/runtime checks；G3 passed | 保持 |
 | primary identity 与 exact access | 一致且 evidenced | V3 Hash KeySpace、GroupedExactIndex、access fixtures；packed exact cutover passed | 保持 |
-| swap-remove 与 IndexBuffer pipeline | 一致且 evidenced | generated access/remove tests、benchmark smoke | 保持 |
+| Access Model 与 Candidate Scan | 一致且 evidenced | Access Pattern/API oracle、ordered-stage differential、one-shot/retention tests、四场景与 external consumers | 保持 Point/Candidate/Column/Key/Bulk/Ownership 边界 |
+| swap-remove 与 IndexBuffer execution | 一致且 evidenced | generated access/remove tests、component benchmark | 保持 |
 | Index / IndexSnapshot caller-responsibility | 一致且 evidenced | detached `IndexSnapshot`、optional `requireCurrent`、wrong/stale consumer tests；正式 Owner 已明确非 stable identity/row snapshot | 保持 raw detached API，不增加强制 hot-path guard |
 | child ownership/lifecycle | 一致且 evidenced | child external consumer、ownership/materialization Gate | 保持 |
 | structured failure/plan/stats | 一致且 evidenced | runtime diagnostics、compatibility/error fixtures | 保持 |
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
-| hot-path performance shape | 一致但 evidence 有限 | 当前component artifact、FJSP 5-run allocation/GC诊断与完整Gate；旧A/B只作为heap决策的历史证据 | 结论限制在已测环境与lane，见当前性能摘要 |
+| hot-path performance shape | 一致但 evidence 有限 | 16条component allocation、24条memory、JFR attribution、Scan code-size与FJSP 5-fork A/B；完整Gate passed | 结论限制在已测环境与lane，见当前性能摘要 |
 | FJSP 目标场景 | 一致且 evidenced | unique sequence、完整 import/setup preflight、reusable frontier staging、FCFS/SPT indicator、publish-before-heap、checked commit；phase-6 adoption lane passed | 保持Table事实与外部queue职责分离 |
 | VRP 目标场景 | 一致且 evidenced | definition/assignment/workspace 分离、全 insertion ordinal、hard-constraint propagation、route-version stale guard、authoritative-first commit；scenario Gate passed | 保持 route/assignment 单一事实源与 derived workspace rebuild 边界 |
 | Simulation 目标场景 | 一致且 evidenced | definition/vector 分离、application event heap、nanosecond clock、derivative staging、numeric atomicity/fail-stop、trace export；scenario Gate passed | 保持 `StateVectorRow` 数值事实源和 projection 非权威性 |
@@ -46,7 +47,7 @@ Owner：SOMA Java 一致性审查
 
 ## 3. 当前结论
 
-正式 Design 对 core compiler/runtime 的描述与当前实现一致，没有发现需要修改 core Design/public API 的 blocking deviation。四场景已在 `a137b10` 采用 Blueprint canonical model；其余未闭合项只有两类：
+正式 Design 对 core compiler/runtime 的描述与 `fd82eba` 一致，没有发现需要修改 core Design/public API 的 blocking deviation。Access Model、Candidate Scan、Unique point family、scalar Index terminal、Traversal naming、v4 identity 与四场景均已完成 clean cutover；其余未闭合项只有两类：
 
 1. 性能结论仍受测量环境与 lane 范围约束；
 2. G6因外部发布事实保持blocked。
@@ -65,3 +66,5 @@ Owner：SOMA Java 一致性审查
 - [设计驱动文档体系正式切换](../../reports/2026-07-20-documentation-framework-cutover-report.md)
 - [文档架构专题治理](../../reports/2026-07-20-document-architecture-governance-report.md)
 - [四场景 Blueprint 采纳治理](../../reports/2026-07-21-four-scenario-blueprint-adoption-report.md)
+- [Access Model / Candidate Scan 正式切换治理](../../reports/2026-07-23-access-model-candidate-scan-governance-report.md)
+- [Access Model / Candidate Scan 性能证据](../../reports/2026-07-23-access-model-candidate-scan-performance-report.md)

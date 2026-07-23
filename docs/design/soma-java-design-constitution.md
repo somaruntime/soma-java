@@ -18,7 +18,7 @@ Owner：SOMA Java 总体设计原则
 
 非事实范围：模块内算法、代码位置、验证结果和 release readiness
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 定位
 
@@ -52,6 +52,8 @@ SOMA Java 是 Java 8 annotation schema 与进程内 columnar runtime state 系�
 - 声明的读取能力不得依赖隐藏的全表重建；跨 operation 的持久业务顺序由 application 拥有。
 
 具体 annotation 语义由 [Schema 与生成 API](schema-and-generated-api.md)拥有；packed relocation、exact structure 和显式排序机制由 [Table、存储与访问](table-storage-and-access.md)拥有。
+
+Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)拥有；Pipeline 不代表整个产品访问模型。
 
 ### 2.3 Ownership 与执行
 

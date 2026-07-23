@@ -12,11 +12,11 @@ Owner：SOMA Java 开发者输出
 
 非事实范围：重新定义 Design、自动授权实现或声明 release readiness
 
-适用版本：最后 implementation-affecting baseline `b991f4c`
+适用版本：最后 implementation-affecting baseline `fd82eba`
 
 输入事实源：正式文档体系、当前代码、scripts 和 Gate reports
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 先定位事实
 
@@ -27,7 +27,7 @@ Owner：SOMA Java 开发者输出
 | 变更 | 主要入口 | 至少验证 |
 |---|---|---|
 | annotation/schema | annotations + processor | compile fixtures、schema/golden、external consumer |
-| generated public API | generator | public manifest/`javap`、external compile/run、runtime binding |
+| generated public API / Access Model | generator | public manifest/`javap`、Access Pattern oracle、external compile/run、runtime binding |
 | runtime protocol/storage | runtime-core + generator | kernel invariant、generated dense/keyed/access/child tests |
 | lifecycle/error/materialization | runtime-core + generator | failure path、atomicity、external child/breadth consumers |
 | scenario | examples schema + scenario | executable output、relevant benchmark lane |
@@ -56,6 +56,7 @@ Owner：SOMA Java 开发者输出
 - 不用 test-only bypass 代替 production semantics；
 - 不新增第三方 runtime dependency，除非 Design 已批准；
 - 不恢复 Sparse Set、dirty selector rebuild、maintained physical order 或 stable raw Index；
+- 不恢复已退役的generated access词族或双轨alias；current canonical surface保持Table/Scan/Cursor/UpdateCursor/Traversal；
 - 保留 mutation atomicity、full equality、ownership 和 structured failure。
 
 ## 5. 收口

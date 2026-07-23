@@ -10,7 +10,7 @@ Owner：SOMA Java benchmark 过程
 
 非事实范围：性能设计目标和某次测量数值
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-23
 
 ## 1. Lane 设计
 
@@ -24,10 +24,10 @@ Lane 需要明确：setup、warmup、measurement、fork、dataset、stats mode�
 
 - full scan vs exact source；
 - rebuild workspace vs incremental frontier；
-- dynamic sort vs top-k vs application heap；
+- dynamic sort/best-one vs application heap；public top-k 未准入时不作为产品路径；
 - flat table vs parent-owned child；
 - keyed lookup vs受控 dense preprojection；
-- Row Pipeline vs ColumnView/primitive path；
+- Candidate Scan vs scalar Index/IndexSnapshot vs ColumnTraversal/ColumnView/primitive path；
 - hot path vs materialization/DTO export。
 
 对照必须保持相同结果、tie-break、failure 和生命周期，不能通过减少语义换取数字。
@@ -37,6 +37,8 @@ Lane 需要明确：setup、warmup、measurement、fork、dataset、stats mode�
 结构化 artifact 至少记录 identity/environment/method、throughput或latency、allocation/op、Young/Full GC、scanned/matched/changed、retained/high-water storage/scratch、locator/index metrics 和 checksum。
 
 Runner/validator schema 是 evidence compatibility surface；字段变更需要版本化和 parser validation。
+
+Candidate Scan 治理还必须分开报告 Packed/exact source、stage count/overflow、terminal shape、snapshot/materialization、plan/handle allocation与table-retained scratch，并用 source/class bytes、nested class count和clean javac时间约束generated code膨胀。Integrated A/B使用多个独立JVM fork；单进程重复measurement不能单独证明收益。
 
 ## 4. Claim
 

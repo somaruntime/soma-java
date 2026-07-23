@@ -6,13 +6,13 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：`a137b10`
+实现核对基线：`fd82eba`
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 
 非事实范围：自动授权实施、未来 roadmap 或重新定义 Design
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. 未闭合差距
 
@@ -30,6 +30,9 @@ Owner：SOMA Java 一致性审查
 | Sparse Set / dirty selector / maintained order | 已由 V3 packed exact cutover关闭 | 不恢复读时全表 rebuild、稳定物理顺序或 Sparse Set public model |
 | dense stable compaction 假设 | 已关闭 | keyed/dense 均保持 swap-remove；未排序 terminal 不承诺顺序 |
 | public row-index list | 已由 caller-responsibility `IndexSnapshot` + internal `IndexBuffer` 取代 | snapshot只在同步只读批次立即消费；跨operation使用`@SomaKey`，不把内部scratch或Index冒充stable identity |
+| Row-oriented generated access vocabulary | 已由 Access Model / Candidate Scan clean cutover关闭 | current surface保持 Table/Scan/Cursor/UpdateCursor/Traversal、`findIndex/requireIndex/indexSnapshot`；不恢复双轨alias |
+| group-shaped secondary unique access | 已关闭 | Unique优先保持0..1 point family；只有需要stage时使用`scanByX` bridge |
+| Candidate plan allocation与best-one snapshot | 已关闭 | compact typed plan、Packed/exact specialization与scalar Index terminal保持component/code-size Gate |
 | FJSP machine selection | 已由application-owned indexed min-heap关闭 | Table继续拥有machine事实；heap只保存MachineId/slot，不把SOMA Index作为长期identity |
 | `CF-001` VRP data-role split | 已由四场景采纳治理关闭 | `CustomerDefinition` / `CustomerAssignment` / derived workspace 分离；route visits 与 assignment 是权威事实，candidate/unassigned 只允许重建 |
 | `CF-002` Simulation numeric source | 已由四场景采纳治理关闭 | definition table 不保存 mutable numeric state；`StateVectorRow` 是唯一数值事实源，event heap 权威而 Table event 只作 projection |

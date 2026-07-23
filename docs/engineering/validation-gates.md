@@ -10,7 +10,7 @@ Owner：SOMA Java validation gate 过程
 
 非事实范围：产品语义、当前 Gate 结果、具体测试实现和 release 授权
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. Gate 不是阶段折扣
 
@@ -23,9 +23,9 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 | G0 | Java-only scope、Blueprint/Design/Owner、non-goal 和 claim boundary 已稳定 |
 | G1 | annotation/schema/value/type/ownership/selector/default/hash/diagnostic 语义可编译验证 |
 | G2 | full JDK 8 integration、normalization、deterministic codegen、generated API 与 negative fixture |
-| G3 | packed storage、locator/exact access、pipeline、lifecycle、child、plan、error/stats 和性能机械形状 |
+| G3 | packed storage、locator/exact access、完整 Access Model、Candidate Scan/Traversal lifecycle、child、plan、error/stats 和性能机械形状 |
 | G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 runtime 并执行 package surface |
-| G5 | canonical scenarios、Access Pattern、benchmark artifact 与 failure/lifecycle lane 可执行 |
+| G5 | canonical scenarios、Access Pattern/API mapping、benchmark artifact 与 failure/lifecycle lane 可执行 |
 | G6 | license、SCM/ownership/contact、package/provenance、security、support matrix、publishing 和 sign-off |
 
 V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate。

@@ -10,9 +10,9 @@ Owner：VRP 目标场景
 
 非事实范围：VRP 算法正确性、精确公共 API、当前实现状态、benchmark 结论和 release readiness
 
-设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Ownership 与 lifecycle](../design/ownership-and-lifecycle.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
+设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Ownership 与 lifecycle](../design/ownership-and-lifecycle.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 目标约束：route/customer/candidate 的业务顺序由显式 `.sorted(totalComparator)` 或 application-owned 专用结构产生；`@SomaIndex` 只承担 always-current exact access，物理遍历顺序不构成业务契约。
 
@@ -24,14 +24,14 @@ Owner：VRP 目标场景
 
 适用边界：
 
-- 只讨论 Java 8 generated table / Row Pipeline / ColumnView 使用方式；
+- 只讨论 Java 8 generated Table / Candidate Scan / ColumnView 使用方式；
 - 只讨论构造解 runtime state，不讨论局部搜索、Tabu、LNS、列生成、CP-SAT 或最优性证明；
 - SOMA 保存 hot runtime state，VRP constructor 拥有插入策略、容量和时间窗规则、跨 table 一致性和失败处理；
 - 本文定义目标使用形态，不是精确 schema/API contract；未标为算法伪代码的片段按目标 Java 8 使用代码审查，允许省略 import、外围 owner 和领域 helper，但必须把 insertion position、可行性、时间单位、total comparator 与跨表失败边界表达完整。
 
 Canonical CVRPTW 示例统一使用 meter、second 和 non-negative integral load/capacity；input loader 在进入 constructor 前验证单位、非负性、time-window 关系与 checked-arithmetic 上界。其他单位制必须整体替换字段名与 adapter，不能在同一 runtime state 中混用 minute/second 或 distance/cost。
 
-本蓝图中的 `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但不是 live runtime storage。Materializing API/terminal 直接返回 schema class 或 `List`/`Map`；Row Pipeline callback 参数仍是 callback-scoped Row Cursor。`@SomaValue` 由 compiler 提供 immutable value semantics。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化。
+本蓝图中的 `@SomaTable` class 同时定义 element schema 与 detached single-item materialization shape，但不是 live runtime storage。Materializing API/terminal 直接返回 schema class 或 `List`/`Map`；Candidate Scan callback 参数仍是 callback-scoped Cursor。`@SomaValue` 由 compiler 提供 immutable value semantics。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化。
 
 ## 2. 目标数据角色与 Table 形态
 
@@ -41,10 +41,10 @@ Canonical CVRPTW 示例统一使用 meter、second 和 non-negative integral loa
 | `VehicleDefinition` | keyed input fact | import 后 authoritative、read-only | `fetch(vehicleId)`、按 vehicle id 显式排序 |
 | `Route` | keyed working/result fact | 构造过程中持续 mutation | `fetch(routeId)`、`mutate(routeId)`、每 vehicle 唯一 active route access |
 | `TravelCost` | keyed lookup data | 导入后只读 lookup | `fetch(locationPair)` |
-| `RouteVisitRow` | per-route dense child `List<RouteVisitRow>` | route 当前访问序列 | parent key + child-local `.rows().sorted(byPosition)` |
+| `RouteVisitRow` | per-route dense child `List<RouteVisitRow>` | route 当前访问序列 | parent key + child-local `.sorted(byPosition)` |
 | `CustomerAssignment` | keyed result fact | row absence 表示尚未分配 | `fetch(customerId)`；只有 route-scoped result query 稳定高频时才声明 `by_route` |
-| `UnassignedCustomerRow` | dense rebuildable workspace | definition/assignment 差集的热视图 | `.rows().sorted(byDueThenInput)` |
-| `InsertionCandidateRow` | dense workspace，满足采用条件时可换为 keyed frontier | 可重建候选状态 | `.rows().sorted(byBestDelta)` 或 grouped exact access |
+| `UnassignedCustomerRow` | dense rebuildable workspace | definition/assignment 差集的热视图 | `.sorted(byDueThenInput)` |
+| `InsertionCandidateRow` | dense workspace，满足采用条件时可换为 keyed frontier | 可重建候选状态 | `.sorted(byBestDelta)` 或 grouped exact access |
 
 `RouteVisitRow` 使用 dense table 是合理的：`position` 是当前 route sequence 中的位置，不是 stable business identity；插入会导致后续 position 大量变化，用 keyed table 反而会把 row identity 和位置维护复杂化。
 
@@ -76,7 +76,7 @@ UnassignedCustomerRow  // rebuildable working workspace, never authoritative
 
 以下 card 是 scenario/runtime-plan input，不进入 Schema/hash；benchmark 必须给出实际 scale、selectivity、working set 和 frequency。
 
-| Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
+| Table / phase | Elements/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
 |---|---|---|---|---|
 | `Route.visits` dense child | route count × empty/typical/high visits per route | `position`、customer/location、arrival/departure/load | scoring 时 parent-key child-local scan；commit 时 route-local rewrite/replace | 记录 child instance count/small-array overhead；与 flat grouped-index/filter baseline 比较 |
 | `InsertionCandidateRow` dense workspace | unassigned customers × considered routes × insertion ordinals | route/customer/ordinal/version、delta、arrival/load/duration | 每轮 `replaceAll` + explicit dynamic sort + first | builder、column rewrite、sort scratch reuse 和 allocation/op 分开；不把 routing/scoring 算法归因于 runtime |
@@ -108,7 +108,7 @@ initialize customers / vehicles / routes / travel_costs
 
 ```java
 insertionCandidates.replaceAll(buildAllInsertionCandidates());
-InsertionCandidateRow chosen = insertionCandidates.rows()
+InsertionCandidateRow chosen = insertionCandidates
     .sorted(byBestDeltaComparator).firstOrThrow();
 ```
 
@@ -208,7 +208,7 @@ public final class RouteVisitRow {
 - 不允许把一个 live visits child attach 给另一条 Route；跨 route 移动 customer 表达为旧 child 删除数据、新 child 构造数据，不是 reparent child instance；
 - 跨 `Route`、`Customer`、`UnassignedCustomerRow` 和 candidate table 的业务提交仍不具备 runtime transaction。
 
-`routes.fetch(routeId)` 会完整递归 materialize `Route + List<RouteVisitRow>`。候选评分 hot loop 只读取 `routeVersion/load` 并遍历 live visits 时，不应被迫构造完整 detached object graph，因此 generated API 必须同时提供 `routes.visits(routeId)` 这类按 parent key 定位 live child facade 的入口。该入口不 materialize parent/child object graph，callback 仍使用 child Row Cursor。
+`routes.fetch(routeId)` 会完整递归 materialize `Route + List<RouteVisitRow>`。候选评分 hot loop 只读取 `routeVersion/load` 并遍历 live visits 时，不应被迫构造完整 detached object graph，因此 generated API 必须同时提供 `routes.visits(routeId)` 这类按 parent key 定位 live child facade 的入口。该入口不 materialize parent/child object graph，callback 仍使用 child Cursor。
 
 两种方案必须在相同语义下比较：
 
@@ -417,7 +417,7 @@ void refreshInsertionCandidatesForRoute(RouteId routeId) {
     InsertionCandidateBatch staged = candidateBuilder
         .buildFeasibleForRoute(route, unassignedCustomerRows, travelCosts);
 
-    insertionCandidates.findByRoute(routeId).remove();
+    insertionCandidates.scanByRoute(routeId).remove();
     insertionCandidates.addBatch(staged);
 }
 ```
@@ -429,7 +429,7 @@ Batch 必须在删除旧 group 前完整构建。`remove + addBatch` 仍然是�
 默认 dense row 的 comparator 覆盖完整 tie-break：
 
 ```java
-InsertionCandidateRow chosen = insertionCandidateRows.rows()
+InsertionCandidateRow chosen = insertionCandidateRows
     .sorted((a, b) -> {
         int compared = Long.compare(
             a.deltaDistanceMeters(), b.deltaDistanceMeters());
@@ -510,12 +510,12 @@ CommitResult commitInsertion(ChosenInsertion chosen) {
 
 `retireCandidateWorkspace` 只处理 derived candidate state：dense 方案在 commit 后整表 `clear()` 并由下一轮 rebuild；keyed 方案删除已分配 customer 的 group、淘汰旧 route version，并刷新受影响 route。它不能修改 route/assignment authoritative facts，也不能把 stale candidate 当作成功提交。
 
-`firstOrThrow()` 和 `fetch(...)` 都返回 detached schema object。`routes.fetch(routeId)` 会递归物化完整 `Route.visits` List，因此上面的 reference code 以可读性为主；route-scoring hot path 应改用 parent-key live child facade 和 Row Cursor。`@SomaTable` row 不生成 structural equality/hash；代码中的 `CustomerId` / candidate key 比较依赖 immutable `@SomaValue` equality。
+`firstOrThrow()` 和 `fetch(...)` 都返回 detached schema object。`routes.fetch(routeId)` 会递归物化完整 `Route.visits` List，因此上面的 reference code 以可读性为主；route-scoring hot path 应改用 parent-key live child facade 和 Cursor。`@SomaTable` carrier 不生成 structural equality/hash；代码中的 `CustomerId` / candidate key 比较依赖 immutable `@SomaValue` equality。
 
 `routeRewriteWorkspace.buildRewrittenVisits(...)` 不是一个可以忽略成本的 helper。该 application workspace 按单 route visit 上限准入并复用 primitive/Batch storage；`routes.replaceVisits(...)` 完成 detached copy 后才可重置。它至少包含：
 
 ```text
-routes.visits(routeId).rows().sorted(byPositionComparator)
+routes.visits(routeId).sorted(byPositionComparator)
   -> 读取当前 route visits
   -> 构造插入后的新 sequence
   -> 重写 position / arrival / departure / loadAfterVisit
@@ -552,15 +552,15 @@ keyed insertion frontier 的 cache 友好性来自：
 潜在代价：
 
 - keyed frontier 引入 primary locator、secondary exact index 和更多增量维护；
-- `findByRoute(routeId).remove()` 与 `addBatch` 会导致结构性 mutation；
+- `scanByRoute(routeId).remove()` 与 `addBatch` 会导致结构性 mutation；
 - 如果每次插入实际影响大部分 route，增量 frontier 可能比 dense full rebuild 更慢；
 - dynamic sort 使用 table-local `IndexBuffer`；application heap 是另一种跨轮次维护结构，两者必须按同语义分别测量。
 
 因此选择具体形态前必须通过同语义 benchmark lane 比较：
 
-- dense `replaceAll + rows().sorted(byBestDelta).firstOrThrow()`；
+- dense `replaceAll + sorted(byBestDelta).firstOrThrow()`；
 - 不固化 order 的 dense `replaceAll + dynamic sort / top-k`；
-- keyed frontier `findByRoute/remove + addBatch + dynamic sorted`；
+- keyed frontier `scanByRoute/remove + addBatch + dynamic sorted`；
 - 极端 hot path 下的 ColumnView / primitive loop；
 - keyed pair `TravelCost.fetch(locationPair)`；
 - route-local cached neighbor cost；
@@ -570,8 +570,8 @@ keyed insertion frontier 的 cache 友好性来自：
 ## 9. 目标形态必须处理的边界
 
 - 必须明确 dense workspace 与 keyed frontier 的选择边界，避免把 `replaceAll` 或 keyed frontier 绝对化；
-- child-local live access 例如 `routes.visits(routeId).rows().sorted(byPosition)` 对 VRP 很关键，generated parent-key child API 命名需要 golden 固化；
-- Row Pipeline 不支持同 table callback 内 structural mutation，这会影响 route sequence 插入和候选刷新，需要示例明确分阶段；
+- child-local live access 例如 `routes.visits(routeId).sorted(byPosition)` 对 VRP 很关键，generated parent-key child API 命名需要 golden 固化；
+- Candidate Scan 不支持同 Table callback 内 structural mutation，这会影响 route sequence 插入和候选刷新，需要示例明确分阶段；
 - `RouteVisitRow` dense sequence 的插入需要受控的 route-local rewrite；不能假设存在未设计的高效 row move；
 - `RouteVisitRow.position` 是 route 当前顺序事实源；canonical live model 不复制 `Customer.assignedPosition`；
 - canonical journey 在 solve 前验证 required directed `TravelCost` 完整性；稀疏图、不可达 arc 或 shortest-path fallback 必须另立 application model，不能由 SOMA runtime 猜测。

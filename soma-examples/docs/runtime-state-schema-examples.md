@@ -8,7 +8,7 @@ Owner：`soma-examples` output
 
 受众：评估或维护四类 current executable scenario 的开发者
 
-适用版本：最后 implementation-affecting baseline `a137b10`
+适用版本：最后 implementation-affecting baseline `fd82eba`
 
 输入事实源：当前 example source、[Blueprint](../../docs/blueprints/README.md)、Design 与 phase-6 evidence
 
@@ -16,7 +16,7 @@ Owner：`soma-examples` output
 
 非事实范围：具体 Blueprint 决策、SOMA public contract 和 benchmark claim
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 > 本文是当前 executable scenario 的开发者索引，不拥有目标设计。目标由 Blueprint 拥有，长期语义由 Design 拥有，差距由 Conformance 记录。
 

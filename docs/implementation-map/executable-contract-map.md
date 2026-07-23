@@ -6,13 +6,13 @@
 
 Owner：SOMA executable contract 实现导航
 
-对应 Design：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Runtime Plan 与可观测性](../design/runtime-plan-and-observability.md)、[兼容性、安全与版本](../design/compatibility-security-and-versioning.md)
+对应 Design：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Runtime Plan 与可观测性](../design/runtime-plan-and-observability.md)、[兼容性、安全与版本](../design/compatibility-security-and-versioning.md)
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：`a137b10`
+最近实现核对基线：`fd82eba`
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. 为什么单独登记
 
@@ -28,8 +28,8 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 | `@SomaValue` effective class shape | javac plugin + generated class | compiler `value-success`/modifier fixtures与 external Maven value consumer |
 | normalized schema/hash | processor normalized model/output | compiler fixture `expected/*.schema.json`、`.sha256`，四场景 phase-6 schema/hash，以及 Unicode/negative diagnostics |
 | handwritten runtime public API | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | [`public-api/phase1/public-api.javap.txt`](../../soma-testkit/src/test/fixtures/public-api/phase1/public-api.javap.txt) |
-| generated public API | generated source/class output | external dense/keyed/access/child/breadth `javap` golden + compile/run |
-| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding | runtime/generated Gate scripts + external consumers |
+| generated public API | generated source/class output；当前 canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child | external dense/keyed/access/child/breadth `javap` golden + compile/run |
+| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v4 | runtime/generated Gate scripts + v3/v4 mismatch oracle + external consumers |
 | runtime plan/default/stats/error codes | runtime public/internal sources | runtime-core check、diagnostics Gate、external access/child/breadth consumers |
 | benchmark artifact schema | benchmark model/validator | smoke runner、strict validator、negative artifact cases；exact-index incremental lane 与无索引 dense-workspace lane 分开记录 |
 

@@ -10,9 +10,9 @@ Owner：连续仿真目标场景
 
 非事实范围：积分算法、物理模型、精确公共 API、当前实现状态和性能结论
 
-设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Materialization 边界](../design/materialization-boundary.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
+设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Materialization 边界](../design/materialization-boundary.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 目标约束：真正的 event queue 由 simulator-owned min-heap 按 `(simulationTimeNanos, sequenceNo)` 维护。`PendingEventRow` 只承担 batch ingest、诊断、导出或列式分析；Table 内需要顺序时显式 `.sorted(totalComparator)`，物理遍历顺序不构成业务契约。
 
@@ -24,12 +24,12 @@ Owner：连续仿真目标场景
 
 适用边界：
 
-- 只讨论 Java 8 generated table / Row Pipeline / ColumnView 使用方式；
+- 只讨论 Java 8 generated Table / Candidate Scan / ColumnView 使用方式；
 - 只讨论仿真运行期间的 runtime state，不讨论 ODE solver、数值积分策略、并行调度或事件业务规则；
 - SOMA 保存 hot runtime data plane，simulator OOP 层拥有物理模型、事件语义、采样策略和跨 table 一致性；
 - 本文定义目标使用形态，不是精确 schema/API contract；未标为算法伪代码的片段按目标 Java 8 使用代码审查。示例采用从 session origin 起算的 non-negative `simulationTimeNanos`，不把仿真时钟冒充 wall-clock `DATE_TIME`；具体积分器可以替换，但事件顺序、状态事实源、资源复用和失败边界必须保持明确。
 
-本蓝图中的 `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但不是 live runtime storage。Materializing API/terminal 返回 schema class 或 `List`/`Map`，Row Pipeline callback 参数仍是 callback-scoped Row Cursor。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化；trace/export 只是 runtime buffer 和外部 adapter boundary。
+本蓝图中的 `@SomaTable` class 同时定义 element schema 与 detached single-item materialization shape，但不是 live runtime storage。Materializing API/terminal 返回 schema class 或 `List`/`Map`，Candidate Scan callback 参数仍是 callback-scoped Cursor。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化；trace/export 只是 runtime buffer 和外部 adapter boundary。
 
 ## 2. 目标数据角色与 Table 形态
 
@@ -61,7 +61,7 @@ Owner：连续仿真目标场景
 
 以下 card 是 simulation runtime plan 输入，不进入 Schema/hash。实际 vector size、step count、event/trace density 和 working-set bytes 必须由 fixture/benchmark 明确。
 
-| Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
+| Table / phase | Elements/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
 |---|---|---|---|---|
 | `StateVectorRow` | stable vector slots；记录 total rows 与 variable-kind distribution | `value`、`derivative`、`scale`，mapping fields只在 boundary 使用 | 每 step full/partition sequential scan + non-structural update | Row/Column path 与 primitive arrays 对照；记录 touched bytes、allocation/op、layout stability 和 stats overhead |
 | application event heap / `PendingEventRow` projection | queue size、due-event ratio | event time、sequence、kind、target、optional payload | heap push/pop；必要时 batch project + table scan/sort/remove | heap 与 Table projection 分开计量；记录 due selectivity、swap-remove scratch 和 optional density |
@@ -103,7 +103,7 @@ stateVectorRows.replaceAll(buildStateVectorFromTanksAndValves());
 
 这会把实体状态读取、向量布局重建和 Batch/builder 构造混在一起，破坏 state vector 作为 long-lived dense state 的意义。
 
-更好的方向是：state vector 初始化一次，仿真过程中以 row-index / ColumnView / Row Pipeline update 原地更新；只有向量结构发生变化时才重建。
+更好的方向是：state vector 初始化一次，仿真过程中以 current Index / ColumnView / Candidate Scan update 原地更新；只有向量结构发生变化时才重建。
 
 ## 4. 生命周期判断
 
@@ -353,8 +353,7 @@ void integrateStep(double dtSeconds) {
         throw new IllegalArgumentException("invalid integration interval");
     }
 
-    stateVectorRows.rows()
-        .update(s -> {
+    stateVectorRows.update(s -> {
             double value = s.value();
             double derivative = s.derivative();
             double scale = s.scale();
@@ -378,7 +377,7 @@ void integrateStep(double dtSeconds) {
 
 `dtSeconds` 在 operation 外验证；row-local value、derivative、scale 和 next value 在 staged update callback 中验证。任一 callback 失败都会使本次单 Table update 不发布部分结果；application `SimulationNumericsException` 即使由 runtime callback envelope 包装，也必须通过 cause/category 与 storage failure 分开记录，并按 simulator checkpoint/fail-stop 规则处理，不能把 `NaN` 当作缺失或继续传播。
 
-上面的 Row Pipeline 是 canonical readable path。耦合数值内核需要先读取完整旧向量、再发布新向量时，使用 session-owned reusable scratch，而不是每 step 分配新数组或逐 row 创建 mutator：
+上面的 Candidate Scan 是 canonical readable path。耦合数值内核需要先读取完整旧向量、再发布新向量时，使用 session-owned reusable scratch，而不是每 step 分配新数组或逐 element 创建 mutator：
 
 ```java
 int size = stateVectorRows.size();
@@ -409,11 +408,11 @@ try (IntColumnView vectorIndexes = stateVectorRows.vectorIndexColumn();
     }
 }
 
-stateVectorRows.rows().update(row ->
+stateVectorRows.update(row ->
     row.setValue(nextValues[row.vectorIndex()]));
 ```
 
-该两阶段写法避免在 active ColumnView 下同表写入，并把大数组变成有明确上限、随 session 释放的 application scratch。它可能仍有一次 operation/callback 级开销，但没有 per-row object 或 per-step `double[size]` allocation；是否需要新的 writable/bulk primitive generated API 只能在现有 Row Pipeline lane 已被 benchmark 证明不足后进入 Design，不能在 Blueprint 中虚构。
+该两阶段写法避免在 active ColumnView 下同表写入，并把大数组变成有明确上限、随 session 释放的 application scratch。它可能仍有一次 operation/callback 级开销，但没有 per-element object 或 per-step `double[size]` allocation；是否需要新的 writable/bulk primitive generated API 只能在现有 Candidate Scan lane 已被 benchmark 证明不足后进入 Design，不能在 Blueprint 中虚构。
 
 ### 7.4 追加 trace samples
 
@@ -427,8 +426,7 @@ void sampleTrace(long sampleTimeNanos) {
     TraceSampleRowBatch batch = reusableTraceBatch;
     batch.clear();
 
-    stateVectorRows.rows()
-        .forEach(s -> batch.addValues(
+    stateVectorRows.forEach(s -> batch.addValues(
             sampleTimeNanos,
             s.entityKind(),
             s.entityId(),
@@ -447,7 +445,7 @@ void sampleTrace(long sampleTimeNanos) {
 该场景的 cache 友好性主要来自：
 
 - `StateVectorRow` 是 dense packed table，适合连续 scan；
-- primitive field 通过 Row Pipeline cursor 或 ColumnView 读取，避免 per-row schema-object allocation；
+- primitive field 通过 Candidate Scan Cursor 或 ColumnView 读取，避免 per-element schema-object allocation；
 - 可选 event projection 和 trace buffer 使用 dense rows，结构简单；
 - `FlowCoefficient` 作为 keyed lookup 与 topology/entity state 分离。
 
@@ -474,7 +472,7 @@ Final-state export 直接读取最终 `StateVectorRow` facts，并由 entity map
 ## 9. 目标形态必须处理的边界
 
 - Dense table 在此承担 long-lived state，不只是 `replaceAll` workspace；
-- Row Pipeline update 是否足够表达高频 primitive vector update，需要和 ColumnView lane 做 benchmark 对比；
+- Candidate Scan update 是否足够表达高频 primitive vector update，需要和 ColumnView lane 做 benchmark 对比；
 - 使用 journey 必须讲清 active ColumnView 与 mutation 的关系，避免形成 view-pinned hot loop；
 - event queue 使用 application-owned min-heap；SOMA Table 只承担可选 projection，不能宣称其 scan/sort/remove 等价于 priority queue；
 - trace buffer 高频追加时，必须把 boundary dynamic sort 与 append 分开计量；
@@ -494,7 +492,7 @@ Final-state export 直接读取最终 `StateVectorRow` facts，并由 entity map
 
 ### 10.2 采用前证明义务
 
-- 比较 state-vector Row Pipeline update、ColumnView + reusable scratch 与 primitive baseline 的成本边界，并验证 steady step 不分配 `double[size]`；
+- 比较 state-vector Candidate Scan update、ColumnView + reusable scratch 与 primitive baseline 的成本边界，并验证 steady step 不分配 `double[size]`；
 - 分开验证 heap push/pop、可选 Table projection、trace append/export 和 final-state materialization；
 - 比较 `FlowCoefficient` keyed lookup、preprojected dense row、adjacent column 与 ColumnView scan；
 - 为 finite value、non-zero scale 和 integration exceptional value 固化 simulator invariant 与 failure evidence；

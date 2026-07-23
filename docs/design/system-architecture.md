@@ -18,7 +18,7 @@ Owner：SOMA Java 系统架构
 
 非事实范围：schema 字段语义、runtime 具体算法、代码位置和构建过程
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 总体数据流
 
@@ -54,7 +54,7 @@ Application 只使用 annotation、handwritten runtime configuration/error/value
 
 ### 3.2 Generated facade
 
-每个 schema 生成 table、batch、cursor/mutator、selector、column view 和 child facade 等类型。它们是 schema-specific contract，不使用反射解释字段。
+每个 schema 生成 Table、Batch、Scan、Cursor/UpdateCursor、selector point/source、Key/Column Traversal、ColumnView 和 child facade 等类型。它们是 schema-specific contract，不使用反射解释字段。
 
 ### 3.3 Generated-runtime protocol
 

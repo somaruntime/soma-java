@@ -4,11 +4,11 @@
 状态：当前
 Owner：`soma-examples` output
 受众：使用或维护当前 FJSP runtime-state example 的开发者
-适用版本：最后 implementation-affecting baseline `a137b10`
+适用版本：最后 implementation-affecting baseline `fd82eba`
 输入事实源：当前 example source、[FJSP Blueprint](../../docs/blueprints/fjsp-runtime-state-blueprint.md)、Design 与 G5 evidence
 事实范围：FJSP data role、Access Pattern Card、schema source 和 runtime-state coverage
 非事实范围：dispatch E2E flow、SOMA public contract 和 benchmark result
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 > 本文记录当前 executable example，不拥有目标设计。文中的“必须/应当”只复述所链接 Blueprint、Design 或现有验证要求；发生冲突时以正式 Owner 为准。
 
@@ -336,7 +336,7 @@ public final class MachineCandidate {
 - exact index 与 unique-current invariant；
 - 物理遍历不保证业务顺序；
 - 显式 dynamic sort 与 `IndexBuffer` candidate freeze；
-- Row Pipeline lazy terminal；
+- Candidate Scan lazy/one-shot terminal；
 - ColumnView。
 
 当前 import preflight 还验证 job sequence 连续完整、operation candidate machine 不重复、全部引用存在、required setup transition matrix 完整、时间非负且 worst-case checked arithmetic 不溢出。Frontier release 使用 reusable Batch 和 bounded primitive machine scratch，publish 完整 candidate group 后 application heap 才刷新 membership；未 refresh row 保持 `indicatorReady=false` 且 FCFS/SPT 为中性 `0`。

@@ -18,7 +18,7 @@ Owner：SOMA runtime correctness 与 failure semantics
 
 非事实范围：具体存储算法、日志策略、application 事务和编译期诊断文本
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 稳定状态
 
@@ -71,7 +71,7 @@ Caller 不解析 message 判断恢复策略。Context 必须 deterministic、imm
 | 类别 | 语义 | aggregate 状态 |
 |---|---|---|
 | invalid input / lookup / conflict | caller 输入或当前事实不满足 operation | 仍可信 |
-| lifecycle | handle、view、pipeline 或 table 已失效 | 其他合法 owner 仍可信 |
+| lifecycle | Scan/Traversal handle、View 或 Table 已失效 | 其他合法 owner 仍可信 |
 | compatibility | artifact/plan/schema 不匹配 | create boundary 不发布 aggregate |
 | resource | 显式 budget/provider/preflight 拒绝 | 旧状态仍可信 |
 | callback | application callback 抛出普通异常 | 按 mutation atomicity 保持旧状态 |
@@ -85,7 +85,7 @@ SOMA 的原子性只覆盖 table facts。Callback 已经产生的外部 I/O、�
 
 - 同一 aggregate active operation 期间的嵌套访问必须 fail closed；
 - cursor/mutator 不能保存到 callback 外；
-- one-shot pipeline/mutation 被消费后不能复用；
+- one-shot Candidate Scan、Traversal 或 mutation 被消费后不能复用；terminal 已接受执行后，即使 begin/preflight/default-budget 失败也保持 consumed；
 - stale view/snapshot/mutator 不能降级为当前 row access；
 - comparator、diagnostics 或 error rendering 不触发 hidden table access。
 

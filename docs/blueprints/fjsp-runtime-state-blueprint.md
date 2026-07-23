@@ -10,9 +10,9 @@ Owner：FJSP 目标场景
 
 非事实范围：调度算法正确性、精确公共 API 契约、当前实现状态、benchmark 结论和 release readiness
 
-设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[Runtime Plan 与可观测性](../design/runtime-plan-and-observability.md)、[性能模型](../design/performance-model.md)
+设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[Runtime Plan 与可观测性](../design/runtime-plan-and-observability.md)、[性能模型](../design/performance-model.md)
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. 场景目标
 
@@ -22,7 +22,7 @@ Owner：FJSP 目标场景
 
 - Schema 应当怎样表达 job、operation、machine、setup 和 candidate；
 - annotation processor 会给 solver 提供哪些领域化接口；
-- `findByMachine -> update` 与 `findByMachine -> filter -> sorted -> terminal` 如何组合；
+- `scanByMachine -> update` 与 `scanByMachine -> filter -> sorted -> terminal` 如何组合；
 - 哪些数据属于 SOMA，哪些策略和队列仍属于 solver；
 - readable reference path 与 allocation-aware hot path 的边界在哪里。
 
@@ -42,7 +42,7 @@ while (assignments.size() < totalOperationCount) {
     refreshIndicators(machineId, machine.availableFromMinute,
         machine.lastSetupFamily);
 
-    MachineCandidate chosen = frontier.findByMachine(machineId)
+    MachineCandidate chosen = frontier.scanByMachine(machineId)
         .filter(row -> row.indicatorReady())
         .sorted(byFcfsThenSpt)
         .firstOrThrow();
@@ -60,11 +60,11 @@ while (assignments.size() < totalOperationCount) {
 
 1. SOMA 保存 machine、operation、frontier 和 assignment 的当前事实；
 2. solver 拥有 dispatch comparator、machine event queue、跨表提交顺序和失败处置；
-3. pipeline 的每个 stage 只处理前一个 stage 留下的 candidate Index。
+3. Candidate Scan 的每个 stage 只处理前一个 stage 留下的 Candidate Index。
 
 `selectNextEligibleMachine(...)` 必须丢弃 generation/available-time 已与 `Machine` 不一致、machine state 当前不可调度或已无 candidate 的 stale heap entry；若 assignment 尚未完成而 heap 已无 eligible machine，应返回明确的 infeasible/deadlock outcome，不能空转。`releaseSuccessorIfAny(...)` 先完成 successor progress 与 frontier publish，再返回本次新增候选涉及的 machine set；`refreshQueueMembership(...)` 按 `MachineId` 去重 committed/newly-released machines，以 `Machine` 当前 availability/state 更新 indexed heap，并且只激活仍有 candidate 的 machine。三个 helper 都属于 application，不能把 queue 与 Table 的同步伪装成 SOMA 原子操作。
 
-可读性优先的 `firstOrThrow()` 会物化一个 detached `MachineCandidate`。真正的 hot loop 可以改用后文的 `IndexSnapshot + ColumnView` 形态，避免物化完整 row，但仍需单独计量显式 snapshot 成本。
+可读性优先的 `firstOrThrow()` 会物化一个 detached `MachineCandidate`。真正的 hot loop 可以改用后文的 scalar current Index + ColumnView 形态，避免物化完整 carrier，也避免为 best-one 先复制 snapshot。
 
 ## 3. 数据角色与 Table 选择
 
@@ -250,14 +250,14 @@ annotation processor 应让 solver 获得类似下面的 schema-specific API：
 
 | 生成接口 | FJSP 用法 |
 |---|---|
-| `OperationDefinitionTable.fetch/rowIndexOf` | 找到 operation input |
+| `OperationDefinitionTable.fetch/requireIndex` | 找到 operation input |
 | `OperationDefinitionTable.findByJobSequence` | 通过 secondary unique 找 0/1 个 successor operation |
 | `OperationDefinitionTable.candidateMachines(key)` | 获取 live dense child facade |
 | `MachineTable.fetch/mutate` | 读取和推进 machine working state |
-| `SetupTimeTable.fetch/rowIndexOf` | setup exact lookup |
-| `MachineCandidateTable.findByMachine` | refresh/select 当前 machine group |
-| `MachineCandidateTable.findByOperation` | commit 后删除 operation group |
-| `MachineCandidateRows.Comparator` | typed total comparator |
+| `SetupTimeTable.fetch/requireIndex` | setup exact lookup |
+| `MachineCandidateTable.scanByMachine` | refresh/select 当前 machine group |
+| `MachineCandidateTable.scanByOperation` | commit 后删除 operation group |
+| `MachineCandidateScan.Comparator` | typed total comparator |
 | `OperationAssignmentBatch` | typed result append |
 | typed `ColumnView` | 通过 Index 读取 primitive hot fields |
 
@@ -342,7 +342,7 @@ frontier.addBatch(batch);
 ### 11.1 可读性优先路径
 
 ```java
-frontier.findByMachine(machineId).update(row -> {
+frontier.scanByMachine(machineId).update(row -> {
     long setup = lastFamily == null ? 0L : setupTimes.fetch(
         new SetupTimeKey(machineId,
             new SetupFamilyPair(lastFamily,
@@ -365,9 +365,9 @@ frontier.findByMachine(machineId).update(row -> {
 
 ```java
 try (LongColumnView setupMinutes = setupTimes.setupMinutesColumn()) {
-    frontier.findByMachine(machineId).update(row -> {
+    frontier.scanByMachine(machineId).update(row -> {
         long setup = lastFamilyPresent
-            ? setupMinutes.getLong(setupTimes.rowIndexOf(
+            ? setupMinutes.getLong(setupTimes.requireIndex(
                 machineId.value,
                 lastFamilyValue,
                 row.targetSetupFamilyValue()))
@@ -384,14 +384,14 @@ try (LongColumnView setupMinutes = setupTimes.setupMinutesColumn()) {
 }
 ```
 
-这条路径使用 flattened key leaf 和 primitive column，不为每个候选物化 setup row。`findByMachine` 必须直接进入当前 exact group；如果全表有 100,000 个候选而该 machine 只有 10,000 个，update 只处理这 10,000 个。
+这条路径使用 flattened key leaf 和 primitive column，不为每个候选物化 setup carrier。`scanByMachine` 必须直接进入当前 exact group；如果全表有 100,000 个候选而该 machine 只有 10,000 个，update 只处理这 10,000 个。
 
 ## 12. Select：在当前 group 内筛选和排序
 
 ### 12.1 total comparator
 
 ```java
-MachineCandidateRows.Comparator byFcfsThenSpt = (left, right) -> {
+MachineCandidateScan.Comparator byFcfsThenSpt = (left, right) -> {
     int compared = Long.compare(left.fcfsValue(), right.fcfsValue());
     if (compared != 0) return compared;
 
@@ -418,7 +418,7 @@ comparator 覆盖完整领域 tie-break，因而不依赖 table 的物理遍历�
 ### 12.2 可读性优先 terminal
 
 ```java
-MachineCandidate chosen = frontier.findByMachine(machineId)
+MachineCandidate chosen = frontier.scanByMachine(machineId)
     .filter(row -> row.indicatorReady())
     .sorted(byFcfsThenSpt)
     .firstOrThrow();
@@ -429,17 +429,11 @@ MachineCandidate chosen = frontier.findByMachine(machineId)
 ### 12.3 低物化 terminal
 
 ```java
-IndexSnapshot selected = frontier.findByMachine(machineId)
+int selected = frontier.scanByMachine(machineId)
     .filter(row -> row.indicatorReady())
     .sorted(byFcfsThenSpt)
-    .limit(1)
-    .rowIndexes();
+    .requireIndex();
 
-if (selected.size() != 1) {
-    throw new IllegalStateException("dispatch requires one candidate");
-}
-
-int row = selected.indexAt(0);
 try (LongColumnView jobIds =
          frontier.candidateKeyOperationKeyJobIdValueColumn();
      LongColumnView operationIds =
@@ -450,17 +444,17 @@ try (LongColumnView jobIds =
          frontier.effectiveReadyMinuteColumn();
      LongColumnView processing = frontier.processingMinutesColumn();
      LongColumnView setup = frontier.setupMinutesColumn()) {
-    long jobId = jobIds.getLong(row);
-    long operationId = operationIds.getLong(row);
-    long targetSetupFamily = targetFamilies.getLong(row);
-    long effectiveReadyMinute = effectiveReady.getLong(row);
-    long processingMinutes = processing.getLong(row);
-    long setupMinutesValue = setup.getLong(row);
+    long jobId = jobIds.getLong(selected);
+    long operationId = operationIds.getLong(selected);
+    long targetSetupFamily = targetFamilies.getLong(selected);
+    long effectiveReadyMinute = effectiveReady.getLong(selected);
+    long processingMinutes = processing.getLong(selected);
+    long setupMinutesValue = setup.getLong(selected);
     // 构造一个只含 commit 所需 primitive facts 的 application-local value
 }
 ```
 
-这条路径避免完整 `MachineCandidate` materialization，但 `IndexSnapshot` 是显式复制的 public 结果，application-local commit value 也可能产生一次小对象分配。Caller 必须在这一个同步只读批次中立即完成 ColumnView 读取，期间不修改 frontier，随后丢弃 snapshot；任何 frontier mutation/lifecycle 变化都会使其失效。`requireCurrent` 只可作为测试、调试或边界防御。Blueprint 不把该路径写成零分配；是否需要新的 callback-scoped first terminal，必须经过独立 Design 和 benchmark，而不是在场景代码中暗自引入。
+这条路径避免完整 `MachineCandidate` materialization，也不先创建 `IndexSnapshot`。Caller 必须在这一个同步只读批次中立即完成 ColumnView 读取，期间不修改 frontier，随后丢弃 current Index；任何 frontier mutation/lifecycle 变化都会使其失效。确实需要批量稀疏 gather 时才调用 `indexSnapshot()`，并显式计量复制成本；`requireCurrent` 只可作为测试、调试或边界防御。
 
 ## 13. Candidate Index 的逐级缩减
 
@@ -468,11 +462,11 @@ try (LongColumnView jobIds =
 
 ```text
 MachineCandidateTable             100,000 current Index
-  -> findByMachine(machineId)       10,000 current Index
+  -> scanByMachine(machineId)       10,000 current Index
   -> filter(indicatorReady)          1,000 current Index
   -> sorted(total comparator)         1,000 current Index, reordered
-  -> limit(1)                             1 current Index
-  -> terminal                              detached row or IndexSnapshot
+  -> requireIndex()                        1 current Index
+  -> ColumnView gather                     application primitive facts
 ```
 
 runtime 可以用 table-local、可复用的 primitive `IndexBuffer` 承载 L1/L2/L3，并在 terminal 成功或失败后 reset。`IndexBuffer` 不进入 generated public model；`IndexSnapshot` 只服务紧接着的同步只读消费批次，需要跨 operation 保存候选引用时 solver 必须保存 `@SomaKey` identity。
@@ -490,7 +484,7 @@ MachineAvailabilityQueue machineQueue =
 
 queue 只保存由 machine state 派生的选择顺序，`MachineTable` 保存权威 machine state。solver 先从 heap 取出 machine，再以 table 当前值校验 availability；commit 后先更新 table，再更新 inactive heap slot，只有该 machine 仍有候选时才重新 activate。release 新 operation 时，frontier publish 成功后激活涉及的 machine。
 
-普通 Java 8 `PriorityQueue` 也可以作为较简单的 reference 实现，但 queued entry 的排序字段必须 immutable；`PriorityQueue` 不提供 decrease-key，不能原地修改已经入队的 availability。采用重复 immutable entry 时必须带 generation/version 并在 pop 时淘汰 stale entry。不能让 `machines.rows().sorted(...)` 冒充跨轮 persistent event queue；一次显式 sort 只适合小规模 reference path 或 benchmark 对照。
+普通 Java 8 `PriorityQueue` 也可以作为较简单的 reference 实现，但 queued entry 的排序字段必须 immutable；`PriorityQueue` 不提供 decrease-key，不能原地修改已经入队的 availability。采用重复 immutable entry 时必须带 generation/version 并在 pop 时淘汰 stale entry。不能让 `machines.sorted(...)` 冒充跨轮 persistent event queue；一次 Candidate Scan 的显式 sort 只适合小规模 reference path 或 benchmark 对照。
 
 ## 15. Commit、retire 与 successor release
 
@@ -510,7 +504,7 @@ machines.mutate(machineId)
     .commit();
 
 RemoveResult retired = frontier
-    .findByOperation(operationKey)
+    .scanByOperation(operationKey)
     .remove();
 
 ReleasedMachines newlyReleased =
@@ -523,7 +517,7 @@ ReleasedMachines newlyReleased =
 
 `setupStart`、`start` 和 `end` 分别通过 checked `max`/`Math.addExact` 计算；negative duration、overflow 或 required setup lookup missing 都是 malformed problem/solver failure，不能通过 wraparound 继续调度。
 
-`findByOperation(...).remove()` 只删除已分配 operation 的 candidate group。packed table 使用 swap-remove，runtime 同步修复 primary locator、`by_machine` 和 `by_operation`；solver 不能依赖删除前后的物理 Index 或遍历顺序。
+`scanByOperation(...).remove()` 只删除已分配 operation 的 candidate group。packed table 使用 swap-remove，runtime 同步修复 primary locator、`by_machine` 和 `by_operation`；solver 不能依赖删除前后的物理 Index 或遍历顺序。
 
 SOMA V1 不提供跨 root table transaction。assignment、machine、frontier、job progress 和 external heap 的提交顺序由 solver 定义；任一步失败后，application 停止使用并丢弃当前 FJSP instance，或按它自己已经证明的恢复协议处理，不能假设 SOMA 自动跨表回滚。
 
@@ -548,7 +542,7 @@ List<OperationAssignment> result =
 - executable FJSP scenario 覆盖 import、release、refresh、select、commit、retire、successor release 和 export；
 - invariant test 证明 primary/exact access 在 update 与 swap-remove 后保持一致；
 - selection trace 证明 exact group、filter 和 sort 只处理逐级缩减的 Index；
-- allocation lane 分别测量 readable materialization、Row Pipeline、`IndexSnapshot`、ColumnView 和 external DTO mapping；
+- allocation lane 分别测量 readable materialization、Candidate Scan、scalar Index、`IndexSnapshot`、ColumnTraversal/ColumnView 和 external DTO mapping；
 - benchmark 比较 incremental frontier 与 per-round rebuild，并记录吞吐、allocation/op、bytes/op、Young/Full GC 和 pause；
 - failure test 证明单 table mutation 不暴露部分提交，并验证 solver 对跨表失败的停止/丢弃策略；
 - deterministic test 证明 total comparator 与显式 export order 不依赖物理遍历顺序。

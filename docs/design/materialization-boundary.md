@@ -18,7 +18,7 @@ Owner：SOMA detached materialization semantics
 
 非事实范围：external DTO/wire format、application serializer 和 benchmark 结果
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-23
 
 ## 1. 定位
 
@@ -73,7 +73,7 @@ Materialization 先遍历/估算并检查 ownership、lifecycle 和 budget，再
 
 ## 6. 使用准则
 
-Hot loop 优先使用 Row Pipeline、typed cursor、ColumnView 或 schema-specific primitive path。Materialization 适合：
+Hot loop 优先使用 Candidate Scan、typed Cursor、ColumnView 或 schema-specific primitive path。Materialization 适合：
 
 - 单次 point fetch 的可读 reference path；
 - solve/simulation/action boundary 的 snapshot；

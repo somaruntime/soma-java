@@ -10,13 +10,13 @@ Owner：SOMA Java 项目实现导航
 
 事实范围：当前 Maven reactor、模块职责、主要产物和顶层执行入口
 
-最近实现核对基线：`a137b10`
+最近实现核对基线：`fd82eba`
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. Reactor
 
-根 [`pom.xml`](../../pom.xml) 当前版本为 `0.1.0-SNAPSHOT`，Java source/target 1.8，并按以下顺序声明模块：
+根 [`pom.xml`](../../pom.xml) 当前版本为 `0.2.0-SNAPSHOT`，Java source/target 1.8，并按以下顺序声明模块：
 
 | Module | 当前主要代码入口 | 当前产物角色 |
 |---|---|---|

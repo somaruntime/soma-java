@@ -12,11 +12,11 @@ Owner：SOMA Java 用户输出
 
 非事实范围：重新定义 public/schema/runtime Design 或声明 public release readiness
 
-适用版本：当前仓库 `0.1.0-SNAPSHOT`，最后 implementation-affecting baseline `b991f4c`
+适用版本：当前仓库 `0.2.0-SNAPSHOT`，最后 implementation-affecting baseline `fd82eba`
 
 输入事实源：[正式文档入口](../docs/README.md)、当前 `pom.xml`、external Maven fixtures 与 Gate reports
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 本指南说明 Java 8 Maven consumer 如何使用 SOMA annotations、compiler transformer、annotation processor 和 runtime-core。正式支持的 JDK vendor/minor、OS 与 architecture 只能引用 G6 compatibility matrix；未进入矩阵的环境均为 untested/unsupported。
 
@@ -33,14 +33,14 @@ Owner：SOMA Java 用户输出
 
 ## 2. Maven 配置
 
-当前本地试用使用 `0.1.0-SNAPSHOT`；未来正式发布后再把 `${soma.version}` 替换为对应 release version。`soma-processor` 只属于 build path，不应进入 application runtime graph。
+当前本地试用使用 `0.2.0-SNAPSHOT`；未来正式发布后再把 `${soma.version}` 替换为对应 release version。`soma-processor` 只属于 build path，不应进入 application runtime graph。
 
 ```xml
 <properties>
   <maven.compiler.source>1.8</maven.compiler.source>
   <maven.compiler.target>1.8</maven.compiler.target>
   <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  <soma.version>0.1.0-SNAPSHOT</soma.version>
+  <soma.version>0.2.0-SNAPSHOT</soma.version>
 </properties>
 
 <dependencies>
@@ -96,7 +96,7 @@ Owner：SOMA Java 用户输出
 ## 3. Schema 与 generated API
 
 1. 在 `package-info.java` 声明 `@SomaSchema`；
-2. 使用 `@SomaTable`、`@SomaValue`、`@SomaField`、`@SomaKey`、`@SomaIndex`、`@SomaUnique`、`@SomaChild` 等定义 logical schema；`@SomaIndex`/`@SomaUnique`只提供exact access，业务顺序在generated Row Pipeline上显式调用`sorted(totalComparator)`；
+2. 使用 `@SomaTable`、`@SomaValue`、`@SomaField`、`@SomaKey`、`@SomaIndex`、`@SomaUnique`、`@SomaChild` 等定义 logical schema；`@SomaIndex` 提供 exact-group `scanByX`，`@SomaUnique` 优先提供 0..1 point family，业务顺序在 Candidate Scan 上显式调用 `sorted(totalComparator)`；
 3. Maven compile 同时激活 `SomaValue` javac plugin 与 annotation processor；
 4. application 只依赖 generated typed API 和 `soma-runtime-core`，不直接访问 generated-sources directory 或 runtime internal type；
 5. 所有同一应用中的 generated source、runtime-core、runtime plan 和 schema hash必须通过初始化兼容性检查。
@@ -110,9 +110,9 @@ Owner：SOMA Java 用户输出
 3. 只为稳定 exact access 声明 `@SomaIndex`/`@SomaUnique`；
 4. parent 独占且同生命周期的数据使用 `@SomaChild`；
 5. 可变业务顺序在调用处显式 `sorted(totalComparator)`，跨轮次队列使用 application-owned heap；
-6. hot loop 使用 generated pipeline/view，object graph 只在边界 materialize。
+6. hot loop 按 Point/Candidate/Column/Key/Bulk/Ownership 选择自然路径；Candidate Scan、ColumnTraversal或ColumnView负责计算访问，object graph只在边界materialize。
 
-Keyed identity 稳定，但 current Index 不稳定。Keyed/dense 删除都使用 swap-remove，未排序的 `first`、`limit` 和 `fetchAll` 只基于当时 source sequence。`IndexSnapshot` 只在紧接着的同步只读批次消费；跨 operation 保存引用必须使用 `@SomaKey`。SOMA 不提供跨 table transaction，业务提交与恢复由 application 负责。
+Keyed identity 稳定，但 current Index 不稳定。Keyed/dense 删除都使用 swap-remove，未排序的 first/limit/indexSnapshot/fetchAll 只基于当时 source sequence。`findIndex/requireIndex` 不物化 carrier；`IndexSnapshot` 显式复制并只在紧接着的同步只读批次消费；跨 operation 保存引用必须使用 `@SomaKey`。SOMA 不提供跨 table transaction，业务提交与恢复由 application 负责。
 
 ## 5. 验证安装
 

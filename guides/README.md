@@ -10,7 +10,7 @@ Owner：SOMA Java 正式指南输出
 
 非事实范围：Design、当前实现细节和 Gate 结论
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 指南解释正式事实，但不重新定义 SOMA 能力。目标形态从 [Blueprint](../docs/blueprints/README.md) 进入，规范性语义从 [Design](../docs/design/README.md) 进入，当前代码从 [Implementation Map](../docs/implementation-map/README.md) 进入。
 

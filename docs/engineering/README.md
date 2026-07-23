@@ -10,7 +10,7 @@ Owner：SOMA Java 工程治理
 
 非事实范围：产品语义、当前能力和某次验证结果
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 - [文档治理](documentation-governance.md)
 - [构建与验证](build-and-validation.md)

@@ -18,7 +18,7 @@ Owner：SOMA ownership 与 lifecycle semantics
 
 非事实范围：child schema syntax、storage layout、公开 IndexSnapshot 消费契约、错误文案和 application transaction
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. Ownership model
 
@@ -49,7 +49,7 @@ Raw handle、owner token 和 RowSlot 不进入 public error context、DTO 或 ge
 
 Structural change 成功后递增 table structural epoch。以下 live borrow 或 operation state 按各自契约强制校验 identity/epoch：
 
-- cursor、mutator 和 one-shot pipeline；
+- Cursor、UpdateCursor、one-shot Candidate Scan 与 Traversal；
 - ColumnView；
 - child facade/handle generation；
 - materialization traversal state。

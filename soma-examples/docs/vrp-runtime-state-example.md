@@ -8,7 +8,7 @@ Owner：`soma-examples` output
 
 受众：使用或维护当前 VRP runtime-state example 的开发者
 
-适用版本：最后 implementation-affecting baseline `a137b10`
+适用版本：最后 implementation-affecting baseline `fd82eba`
 
 输入事实源：当前 example source、[VRP Blueprint](../../docs/blueprints/vrp-runtime-state-blueprint.md)、Design 与 phase-6 evidence
 
@@ -16,7 +16,7 @@ Owner：`soma-examples` output
 
 非事实范围：完整 VRP solver、SOMA public contract 和性能优势
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 > 本文只记录当前 executable example。目标仍由 Blueprint 拥有，长期语义仍由 Design 拥有。
 

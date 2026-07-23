@@ -12,7 +12,7 @@ Owner：SOMA Java 文档过程
 
 采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 分类与权威
 
@@ -105,6 +105,7 @@ promote long-lived facts to Blueprint/Design/Engineering as appropriate
 - Design Owner 无重复，Implementation Map 有对应 Design和实现基线，Report 有受众/输入事实源/适用版本，snapshot Report另有日期/commit/环境/方法；
 - Design 层次值合法、上位关系和 Blueprint 追踪入口存在；Blueprint 有设计约束入口且不承载当前实现盘点、自审或一致性判定栏目；
 - `docs/temp/` 只包含 active topic，topic 有 README、授权边界和退役条件；
+- current Blueprint/Design/Map/Conformance/Engineering、Guide 与 registered current-executable Report 不得继续使用已完成 clean cutover 的旧 canonical API/术语；历史 Report 和 superseded Design 保留 provenance；
 - 历史报告可以链接 superseded input，但必须通过 current index 区分历史与当前结论。
 
 目录或 metadata 规则变化必须先更新本 Owner，再更新 checker；checker 通过不能替代事实迁移审查。

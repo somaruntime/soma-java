@@ -18,7 +18,7 @@ Owner：SOMA 跨模块性能设计
 
 非事实范围：某次 benchmark 数值、机器支持声明和永久 Gate 阈值
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 北极星
 
@@ -39,6 +39,8 @@ SOMA 的性能目标是让目标 runtime-state access pattern 由有效数据工
 - stats mode、snapshot/export frequency 和 allocation boundary。
 
 没有 Access Pattern 的“换一种数据结构会更快”不构成设计结论。
+
+完整 Access Pattern Catalog、组合合法性和基础成本模型由 [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)拥有。本 Owner 负责跨模块机械约束与 evidence 义务。
 
 ## 3. 成本分解
 
@@ -64,7 +66,7 @@ Benchmark 必须避免把 setup、input build、external DTO mapping 或 JVM war
 - live storage 为 packed SoA；
 - hot leaf access 使用 concrete typed columns/static binding；
 - steady-state path 不创建 per-row object、tuple、iterator、lambda capture graph 或 boxed key；
-- Row Pipeline plan/candidate scratch 可复用并 fused，stage 不复制完整 candidate arrays；
+- Candidate Scan 使用 compact typed plan、fused traversal 与可复用 candidate scratch，stage 不复制完整 candidate arrays；
 - exact selector 从 group 直接产生候选，读取不重建全表；
 - delete 不创建 `boolean[size]` mark；
 - capacity growth 在明确 boundary stage/publish；
@@ -77,13 +79,15 @@ Benchmark 必须避免把 setup、input build、external DTO mapping 或 JVM war
 
 连续 scan 应按实际 touched columns 衡量，不把全部 row width 当作固定成本。Filter 只遍历当前候选 Index，并尽可能在一个 primitive buffer 内压缩。
 
+Packed zero-stage 与 exact source-only terminal 应有直接执行路径。短 stage 链不得为每个 stage 建立 linked node 或复制完整 stage arrays；overflow 表示也必须保持 primitive kind/argument 与 callback reference 分离。
+
 ### 5.2 Exact lookup
 
 Exact access 的 read cost 与命中 group 相关；write cost显式承担 hash probe、group/link delta 和 compaction relocation。必须同时测 lookup throughput 与 mutation maintenance，不能只展示单边收益。
 
 ### 5.3 Dynamic sort
 
-排序只作用于当前候选集。若 terminal 只需要 first/top-k，可以在不改变 comparator/determinism 的前提下采用选择算法；跨轮次 order 由 application heap/tree 等专用结构承担。
+排序只作用于当前候选集。若 terminal 只需要 first，可以在保持 stable first-on-equal、callback/failure 和 logical stats 的前提下采用 arg-min；本 Design 不因此准入 public top-k。跨轮次 order 由 application heap/tree 等专用结构承担。
 
 ### 5.4 Child locality
 

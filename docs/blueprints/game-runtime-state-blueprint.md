@@ -10,9 +10,9 @@ Owner：Game 目标场景
 
 非事实范围：完整 game engine、ECS 调度、网络协议、精确公共 API、当前实现状态和性能结论
 
-设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Materialization 边界](../design/materialization-boundary.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
+设计约束入口：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Table、存储与访问](../design/table-storage-and-access.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Materialization 边界](../design/materialization-boundary.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 目标约束：所有 grid、turn、candidate、damage 业务顺序都通过显式 `.sorted(totalComparator)` 或 application-owned 专用结构产生。`@SomaIndex` 只提供 always-current exact access，物理遍历顺序不构成业务契约。
 
@@ -24,12 +24,12 @@ Game 场景和 FJSP 的相似点是都有候选 action / move 的生成与选择
 
 适用边界：
 
-- 只讨论 Java 8 generated table / Row Pipeline / ColumnView 使用方式；
+- 只讨论 Java 8 generated Table / Candidate Scan / ColumnView 使用方式；
 - 只讨论 game loop runtime state，不讨论 ECS scheduling、rendering、input、network replication、AI search 或完整 game rules；
 - SOMA 保存 hot runtime state，game loop 拥有行动规则、路径搜索、伤害结算、跨 table 一致性和 external DTO export；
 - 本文定义目标使用形态，不是精确 schema/API contract；未标为算法伪代码的片段按目标 Java 8 使用代码审查，允许省略 import、外围 battle owner 和完整 pathfinding/rules，但必须明确 turn total order、coordinate identity、action preflight、derived cache 失效和跨表 failure protocol。
 
-本蓝图中的 `@SomaTable` class 同时定义 row schema 与 detached single-row materialization shape，但不是 live runtime storage。Materializing API/terminal 返回 schema class 或 `List`/`Map`，Row Pipeline callback 参数仍是 callback-scoped Row Cursor。`@SomaValue` 由 compiler 提供 immutable value semantics。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化；snapshot/replay/network output 只能由外部 adapter 构造。
+本蓝图中的 `@SomaTable` class 同时定义 element schema 与 detached single-item materialization shape，但不是 live runtime storage。Materializing API/terminal 返回 schema class 或 `List`/`Map`，Candidate Scan callback 参数仍是 callback-scoped Cursor。`@SomaValue` 由 compiler 提供 immutable value semantics。SOMA ownership aggregate 只允许单线程同步访问，不提供并发访问、跨 table transaction、序列化或持久化；snapshot/replay/network output 只能由外部 adapter 构造。
 
 ## 2. 目标数据角色与 Table 形态
 
@@ -63,7 +63,7 @@ Final hp/position/score 在 battle 结束前仍是 working state，结束后直�
 
 以下 card 是 game scenario/runtime-plan input，不进入 Schema/hash。Map size、unit count、candidate count、damage density 和 tick/action frequency 必须由 benchmark fixture 提供。
 
-| Table / phase | Rows/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
+| Table / phase | Elements/cardinality | Hot columns | Access / mutation mix | Locality / allocation boundary |
 |---|---|---|---|---|
 | `GameUnitState` | live units | turn/state/position/hp/action points | explicit sorted next-unit、point fetch/mutate、player/state exact access | 记录 selector selectivity、mutation/read ratio、sort scratch 和 object-free cursor path |
 | `MapTileDefinitionRow` / `TileOccupancyRow` | map cells | terrain/move cost vs occupant | keyed coordinate access、visibility/pathing packed scan、move 后 cache update/rebuild | 两张 root table 的 Index 独立；点查、paired-by-key scan、definition/state split 与 occupancy rebuild 分开计量 |
@@ -95,7 +95,7 @@ initialize players / units / map tiles / ability_costs
 
 ```java
 moveCandidateRows.replaceAll(buildMovesFor(selectedUnit));
-MoveCandidateRow chosen = moveCandidateRows.rows()
+MoveCandidateRow chosen = moveCandidateRows
     .sorted(byTotalCostComparator).firstOrThrow();
 ```
 
@@ -317,7 +317,7 @@ public final class ActionCandidate {
 ### 7.1 选择当前单位
 
 ```java
-GameUnitState selected = unitStates.rows()
+GameUnitState selected = unitStates
     .filter(u -> u.state() == UnitState.READY)
     .sorted((a, b) -> {
         int compared = Integer.compare(a.initiative(), b.initiative());
@@ -379,7 +379,7 @@ PreparedMove chooseMove(MoveActionContext context) {
         throw new IllegalStateException("stale move action context");
     }
 
-    MoveCandidateRow chosen = moveCandidateRows.rows()
+    MoveCandidateRow chosen = moveCandidateRows
         .filter(m -> m.remainingActionPoints() >= 0)
         .sorted((a, b) -> {
             int compared = Integer.compare(a.totalCost(), b.totalCost());
@@ -490,14 +490,14 @@ Canonical keyed coordinate path 仍需与其他形态做同语义比较：
 
 ```java
 void resolveDamage() {
-    IndexSnapshot ordered = pendingDamageRows.rows()
+    IndexSnapshot ordered = pendingDamageRows
         .sorted((a, b) -> {
             int compared = Long.compare(
                 a.resolutionOrder(), b.resolutionOrder());
             return compared != 0 ? compared
                 : Long.compare(a.sequenceNo(), b.sequenceNo());
         })
-        .rowIndexes();
+        .indexSnapshot();
 
     damageCommands.clear();
     try (LongColumnView resolutionOrders =

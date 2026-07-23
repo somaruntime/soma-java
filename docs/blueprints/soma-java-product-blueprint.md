@@ -12,7 +12,7 @@ Owner：SOMA Java 产品蓝图
 
 设计约束入口：[Design 导航、层次与 Owner](../design/README.md)
 
-最后审查日期：2026-07-21
+最后审查日期：2026-07-23
 
 ## 1. 这份蓝图面向谁
 
@@ -39,9 +39,10 @@ annotation schema
     -> javac 生成 schema-specific API
     -> application 创建并拥有 table lifecycle
     -> batch 导入 packed columns
-    -> key / exact group / scan 产生候选 Index
-    -> filter / sorted / update / remove 只处理当前候选
-    -> terminal 按需物化 detached object 或导出 IndexSnapshot
+    -> 按 Point / Candidate / Column / Key / Bulk / Ownership 选择访问族
+    -> Candidate Scan 从 Packed / Exact source 组合有序 stage
+    -> terminal 按需返回 current Index、借用 Cursor、复制 snapshot、
+       物化 detached object 或提交 mutation
 ```
 
 建模时，使用者只需要依次回答四个问题：
@@ -52,6 +53,8 @@ annotation schema
 4. 哪些 value equality access 会稳定、频繁地出现，值得声明为 `@SomaUnique` 或 `@SomaIndex`？
 
 `@SomaKey` 表示 primary unique identity；`@SomaUnique` 表示 secondary unique access；`@SomaIndex` 表示 secondary non-unique exact access。它们不是 B+ 树、排序索引或 range query 声明。
+
+Pipeline 只服务 CandidateAccess，不代表 SOMA 的全部访问模型。已知 Key、Unique 或 current Index 时优先 PointAccess；只读单列时使用 ColumnTraversal/ColumnView；批量导入和 child replacement 保持各自的 staging/ownership boundary。使用者不需要为了 API 形式统一，把所有操作都拼成万能链。
 
 ## 4. 从 annotation schema 开始
 
@@ -113,10 +116,12 @@ public final class MachineCandidate {
 
 | 生成形态 | 用户用途 |
 |---|---|
-| `MachineCandidateTable` | create、reserve、key/exact access、pipeline、lifecycle |
+| `MachineCandidateTable` | create、reserve、Point/Candidate/Bulk/ownership access、lifecycle |
 | `MachineCandidateBatch` | typed bulk import/append staging |
-| `MachineCandidateRows` | typed filter、comparator、update callback |
+| `MachineCandidateScan` | lazy typed Candidate source/stage/terminal |
+| `MachineCandidateCursor` / `MachineCandidateUpdateCursor` | callback-scoped read/update access |
 | typed mutation builder | 单个 keyed row 的受控变更与 commit |
+| typed `ColumnTraversal` / `KeyTraversal` | one-shot 单列或 logical key traversal |
 | primitive `ColumnView` | 按当前 Index 读取 hot primitive leaf |
 | child table facade | 访问 parent-owned live child，而不是物化 `List` |
 | `IndexSnapshot` | 显式复制一次 operation 的 Index 结果，供紧接着的同步只读批次消费 |
@@ -150,38 +155,38 @@ Batch 是一次写入的 typed staging boundary，不是 live row storage。对�
 MachineCandidate one = candidates.fetch(candidateKey);
 
 long countOnMachine = candidates
-    .findByMachine(machineId)
+    .scanByMachine(machineId)
     .count();
 ```
 
-`fetch(...)` 返回 detached schema object，适合点查和边界代码；`findByMachine(...)` 直接从增量维护的 exact structure 得到当前 group，读取时不能因为 dirty sidecar 回退到全表重建或全表排序。
+`fetch(...)` 返回 detached schema object，适合点查和边界代码；`scanByMachine(...)` 直接从增量维护的 exact structure 得到当前 group，读取时不能因为 dirty sidecar 回退到全表重建或全表排序。对于 `@SomaUnique`，canonical 路径直接使用 `findIndexByX/requireIndexByX/findByX/fetchByX` 等 point family；只有确实需要 filter/sort stage 时才进入 `scanByX`。
 
 ### 6.3 对当前候选组更新
 
 ```java
-UpdateResult refreshed = candidates.findByMachine(machineId).update(row -> {
-    long effectiveReady = Math.max(machineReady, row.baseReadyMinute());
+UpdateResult refreshed = candidates.scanByMachine(machineId).update(candidate -> {
+    long effectiveReady = Math.max(machineReady, candidate.baseReadyMinute());
     long setup = setupMinutes(machineId, lastSetupFamily,
-        row.targetSetupFamilyValue());
-    long serviceDuration = Math.addExact(setup, row.processingMinutes());
+        candidate.targetSetupFamilyValue());
+    long serviceDuration = Math.addExact(setup, candidate.processingMinutes());
 
-    row.setSetupMinutes(setup);
-    row.setEffectiveReadyMinute(effectiveReady);
-    row.setFcfsValue(effectiveReady);
-    row.setSptValue(serviceDuration);
-    row.setIndicatorReady(true);
+    candidate.setSetupMinutes(setup);
+    candidate.setEffectiveReadyMinute(effectiveReady);
+    candidate.setFcfsValue(effectiveReady);
+    candidate.setSptValue(serviceDuration);
+    candidate.setIndicatorReady(true);
 });
 ```
 
 这里把 FCFS 指标定义为当前 machine 上的 `effectiveReady`，把 SPT 定义为本次占用 machine 的 `setup + processing` 时长；`indicatorReady=false` 时两个策略字段只是不可消费的占位值。如果某个 solver 采用不同 FCFS/SPT 定义，应该使用不同的策略名称和 comparator，而不是保留同名字段却静默改变含义。领域时间必须在 import 时验证为非负，并使用 checked addition 防止溢出。
 
-update callback 收到 callback-scoped row mutator。它不是可以缓存或跨 operation 使用的 live entity object。terminal 成功后，`UpdateResult` 报告 matched/changed；失败时不能暴露部分提交。`setupMinutes(...)` 是 application lookup helper，不是 SOMA 内建调度规则；canonical FJSP 约定 absent `lastSetupFamily` 表示初始加工不需要 setup，否则执行 required exact lookup。该 helper 不得重入 `candidates` 或产生外部副作用。
+update callback 收到 callback-scoped UpdateCursor。它不是可以缓存或跨 operation 使用的 live entity object。terminal 成功后，`UpdateResult` 报告 matched/changed；失败时不能暴露部分提交。`setupMinutes(...)` 是 application lookup helper，不是 SOMA 内建调度规则；canonical FJSP 约定 absent `lastSetupFamily` 表示初始加工不需要 setup，否则执行 required exact lookup。该 helper 不得重入 `candidates` 或产生外部副作用。
 
 ### 6.4 缩小候选、动态排序并取第一项
 
 ```java
-MachineCandidate chosen = candidates.findByMachine(machineId)
-    .filter(row -> row.indicatorReady())
+MachineCandidate chosen = candidates.scanByMachine(machineId)
+    .filter(candidate -> candidate.indicatorReady())
     .sorted(dispatchComparator)
     .firstOrThrow();
 ```
@@ -202,29 +207,23 @@ firstOrThrow(L3)       -> detached MachineCandidate
 当 hot loop 只需要少数字段时，使用者可以显式取得 Index 结果，再通过 primitive column 读取：
 
 ```java
-IndexSnapshot selected = candidates.findByMachine(machineId)
-    .filter(row -> row.indicatorReady())
+int selected = candidates.scanByMachine(machineId)
+    .filter(candidate -> candidate.indicatorReady())
     .sorted(dispatchComparator)
-    .limit(1)
-    .rowIndexes();
+    .requireIndex();
 
-if (selected.size() != 1) {
-    throw new IllegalStateException("dispatch requires exactly one candidate");
-}
-
-int row = selected.indexAt(0);
 try (LongColumnView operationIds =
          candidates.candidateKeyOperationKeyOperationIdValueColumn();
      LongColumnView processing = candidates.processingMinutesColumn()) {
-    long operationId = operationIds.getLong(row);
-    long processingMinutes = processing.getLong(row);
+    long operationId = operationIds.getLong(selected);
+    long processingMinutes = processing.getLong(selected);
     // application hot-path logic
 }
 ```
 
-这条路径避免物化完整 `MachineCandidate`，但 `rowIndexes()` 明确复制出一个 `IndexSnapshot`，不能被宣传为零分配。Caller 只在当前同步只读批次内立即消费；来源 Table 任意 mutation/lifecycle 变化后必须丢弃。`requireCurrent` 只是可选边界防御，跨 operation 引用必须使用 `@SomaKey`。
+这条 best-one 路径避免物化完整 `MachineCandidate`，也不先创建多项 `IndexSnapshot`。返回的 current Index 只能在当前同步只读批次内立即消费；来源 Table 任意 mutation/lifecycle 变化后必须丢弃，跨 operation 引用必须使用 `@SomaKey`。
 
-runtime 在一次 Row Pipeline 内部使用的 primitive scratch 统一称为 `IndexBuffer`。它属于 table operation、在 terminal 后 reset，并不作为 public `List<Integer>`、row collection 或 application state 暴露。
+确实需要批量稀疏 gather 时，调用 `indexSnapshot()` 显式复制最终 Index sequence，再在同一个只读批次中配合 ColumnView 消费；`requireCurrent` 只是可选边界防御。Runtime 在一次 Candidate Scan 内部使用的 primitive scratch 统一称为 `IndexBuffer`，它在 terminal 后 reset，不作为 public `List<Integer>`、record collection 或 application state 暴露。
 
 ### 6.6 parent-owned child
 
@@ -270,7 +269,7 @@ materialization 返回 detached object graph，适用于结果导出、测试 or
 使用者必须能够预期以下行为：
 
 - keyed table 和 dense table 都采用 packed swap-remove；删除后不保证物理遍历顺序；
-- 未显式排序的 `firstOrThrow()`、`limit(n)` 和 `fetchAll()` 只反映执行时的物理顺序；
+- 未显式排序的 `firstOrThrow()`、`limit(n)`、`indexSnapshot()` 和 `fetchAll()` 只反映执行时的 source sequence；
 - `sorted(...)` 只产生本次候选访问顺序，不维护跨 operation 的优先队列；
 - range 条件通过列式 scan/filter 表达，V1 不自动维护 range index；
 - primary/exact access、swap-remove relocation 和 column mutation 必须在 table operation 边界保持一致；
@@ -293,7 +292,7 @@ materialization 返回 detached object graph，适用于结果导出、测试 or
 从使用者视角，目标形态只有在以下条件同时成立时才算成功：
 
 - annotation 足以表达 table kind、identity、ownership、field 和稳定 exact access；
-- 生成 API 能在普通 Java 8 代码中完成导入、点查、候选 pipeline、更新、删除和导出；
+- 生成 API 能在普通 Java 8 代码中完成 Point、Candidate、Column、Key、Bulk 与 Ownership access；
 - runtime state 只有一个权威 live storage，不形成 DTO/object graph shadow；
 - exact access 在写入时增量维护，读取不触发隐藏的全表重建；
 - candidate stage 只处理上一 stage 的 Index，排序只处理当前候选集；

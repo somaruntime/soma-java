@@ -10,7 +10,7 @@ Owner：SOMA Java 系统设计
 
 非事实范围：当前实现位置、验证结果和迁移过程
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层次展开责任、按关注点分配唯一 Owner；层次不是目录结构，关注点也不是重复定义同一事实的理由。
 
@@ -33,7 +33,8 @@ Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层�
 | `D1` | [系统架构](system-architecture.md) | 模块职责、编译链、运行时分层和依赖方向 |
 | `D1` | [领域语言](domain-language.md) | 跨模块 canonical 术语和“不等同于”边界 |
 | `D2` | [Schema 与生成 API](schema-and-generated-api.md) | annotation 语义、schema normalization、生成接口、公开 IndexSnapshot 消费契约和命名边界 |
-| `D2` | [Table、存储与访问](table-storage-and-access.md) | keyed/dense、packed SoA、exact access、IndexBuffer 和 Row Pipeline |
+| `D2` | [Table、存储与访问](table-storage-and-access.md) | keyed/dense、packed SoA、primary/exact structures、swap-remove 和 IndexBuffer |
+| `D2` | [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md) | 访问族、组合代数、Candidate Scan、terminal、one-shot 与成本边界 |
 | `D2` | [Ownership 与 lifecycle](ownership-and-lifecycle.md) | root/child ownership、view、epoch/currentness 和资源生命周期 |
 | `D2` | [Materialization 边界](materialization-boundary.md) | detached object graph、预算、导出边界和 allocation admission |
 | `D2` | [Runtime Plan 与可观测性](runtime-plan-and-observability.md) | create-time plan、resource admission、plan identity、stats 与诊断副作用边界 |
@@ -46,10 +47,10 @@ Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层�
 | Blueprint | 直接约束其目标形态的 Design |
 |---|---|
 | [SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md) | 全部正式 Design；D0/D1 定义系统方向，D2/Q 完成能力与质量展开 |
-| [FJSP runtime state](../blueprints/fjsp-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Correctness 与 failure](correctness-and-failure.md)、[Runtime Plan 与可观测性](runtime-plan-and-observability.md)、[性能模型](performance-model.md) |
-| [VRP runtime state](../blueprints/vrp-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Ownership 与 lifecycle](ownership-and-lifecycle.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
-| [连续仿真 runtime state](../blueprints/simulation-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Materialization 边界](materialization-boundary.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
-| [Game runtime state](../blueprints/game-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Materialization 边界](materialization-boundary.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
+| [FJSP runtime state](../blueprints/fjsp-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Correctness 与 failure](correctness-and-failure.md)、[Runtime Plan 与可观测性](runtime-plan-and-observability.md)、[性能模型](performance-model.md) |
+| [VRP runtime state](../blueprints/vrp-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Ownership 与 lifecycle](ownership-and-lifecycle.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
+| [连续仿真 runtime state](../blueprints/simulation-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Materialization 边界](materialization-boundary.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
+| [Game runtime state](../blueprints/game-runtime-state-blueprint.md) | [Schema 与生成 API](schema-and-generated-api.md)、[Table、存储与访问](table-storage-and-access.md)、[Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)、[Materialization 边界](materialization-boundary.md)、[Correctness 与 failure](correctness-and-failure.md)、[性能模型](performance-model.md) |
 
 ## 4. 阅读与变更规则
 

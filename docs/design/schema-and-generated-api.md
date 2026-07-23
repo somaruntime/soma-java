@@ -18,7 +18,7 @@ Owner：SOMA schema 与 generated contract
 
 非事实范围：runtime 存储算法、具体 generator 类结构和 measured performance
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 本 Owner 先定义 schema 与 generated public capability 的长期语义，再约束实现这些语义所必需的 compiler/codegen 机制。当前 generator 类、精确 signature 和 emission 结构不属于本 Design，由 Implementation Map 与 executable surface 记录。
 
@@ -85,9 +85,10 @@ Normalized model 至少保留 schema/table/value identity、logical field/leaf p
 - schema-specific table create 与 runtime plan binding；
 - typed batch/import；
 - keyed fetch/contains/mutate/delete，或 dense packed access；
-- default scan、exact selector source、filter、dynamic sort 和 terminal；
+- Packed source、exact selector source、filter/skip/limit/dynamic sort 和 Candidate terminal；
 - typed mutation terminal、result/stats；
-- typed Column Pipeline、primitive ColumnView 和 direct column access；
+- typed ColumnTraversal、primitive ColumnView 和 direct column access；
+- keyed KeyTraversal 与 secondary-unique point family；
 - parent-owned child facade；
 - detached row/aggregate materialization与预算；
 - lifecycle、structured errors 和 compatibility identity。
@@ -103,19 +104,21 @@ Normalized model 至少保留 schema/table/value identity、logical field/leaf p
 | keyed direct access | key 是 stable identity；missing 与 conflict 使用明确 result/typed failure |
 | dense access | current Index 只在当前 table state 有效，不是 stable identity |
 | exact source | 从 eager maintained group 产生当前候选，不做 read-time rebuild/scan fallback |
-| Row Pipeline | one-shot、同步、非重入；stage 只消费前一 candidate set |
+| Candidate Scan | lazy intermediate、one-shot、同步、非重入；stage 只消费前一 candidate set |
 | update/remove | 只作用于当前候选，维护 columns、locator、exact access、ownership 和 epoch 原子一致 |
-| Column Pipeline/View | typed leaf access；live borrow 有明确 close、pin、epoch 和 stale 语义 |
+| ColumnTraversal/View | typed leaf access；Traversal one-shot，live View 有明确 close、pin、epoch 和 stale 语义 |
 | materializing terminal | 返回 detached schema object/List/Map，并遵守 aggregate budget |
 | IndexSnapshot terminal | 复制 current Index 序列，只供紧接着的同步只读批次 |
 
 精确方法名、overload 和参数顺序由 generated `javap` golden 与 external consumer 拥有当前事实。Blueprint 中的代码只表达目标体验。
 
-## 5. Row 与 callback 语义
+完整 Access family、组合合法性、sequence 与 terminal 语义由 [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)拥有；本 Owner 负责把它们投影为 schema-specific generated contract。
+
+## 5. Handle 与 callback 语义
 
 - materializing terminal 返回 detached `@SomaTable` object；它不是 live view；
-- pipeline callback 收到 callback-scoped row cursor/mutator，不能逃逸、缓存或跨 stage 使用；
-- Row Pipeline 和 mutation builder 是 one-shot；消费后再次调用必须产生 typed lifecycle error；
+- Candidate callback 收到 callback-scoped Cursor/UpdateCursor，不能逃逸、缓存或跨 stage 使用；
+- Candidate Scan、KeyTraversal、ColumnTraversal 和 mutation builder 是 one-shot；消费后再次调用必须产生 typed lifecycle error；
 - `IndexSnapshot` 是显式复制的 public Index result，只复制数值序列并记录 source table / structural epoch；它不是 stable identity 或 row snapshot；
 - caller只在一个同步只读Index消费批次中立即使用，来源Table任意mutation/lifecycle变化后视为失效；`requireCurrent`只作为可选边界防御，不进入强制hot path；
 - internal candidate scratch 统一称为 `IndexBuffer`，不进入 application data model；

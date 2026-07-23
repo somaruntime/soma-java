@@ -10,9 +10,9 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`b991f4c`
+最近实现核对基线：`fd82eba`
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 主流程
 
@@ -22,12 +22,12 @@ Owner：SOMA compiler/codegen 实现导航
 | compiler handshake | [`CompilerProtocol.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/internal/CompilerProtocol.java) | plugin/processor identity 协同 |
 | JSR 269 | [`SomaProcessor.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/SomaProcessor.java) | discovery、validation、normalization、schema artifact |
 | deterministic order | [`UnicodeCodePointOrder.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/UnicodeCodePointOrder.java) | schema/codegen stable ordering |
-| source generation | [`DenseTableSourceGenerator.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableSourceGenerator.java) | dense/keyed artifact 总编排 |
+| source generation | [`DenseTableSourceGenerator.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableSourceGenerator.java) | Table/Batch/Scan/Cursor/Traversal 与 dense/keyed artifact 总编排 |
 | exact-index emitter | [`DenseExactIndexSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseExactIndexSourceEmitter.java) | exact-index runtime source片段；保持byte-stable output |
 | admission | [`CodegenLimits.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/CodegenLimits.java) | 生成规模上限 |
 | output boundary | [`GeneratedSourceOutput.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/GeneratedSourceOutput.java) | generated source publish |
 
-Generator 仍集中持有validated model与共享selector binding；exact-index runtime source已按职责拆到专用emitter。该拆分经generated-source byte identity与external consumer验证，不建立第二套生成语义。
+Generator 集中持有 validated model、generated naming 和 selector binding；exact-index runtime source按职责位于专用 emitter。Candidate Scan 生成 typed source plan、small-inline/overflow stage storage 与 terminal executor；public handle不暴露 runtime IR。当前生成结构由 source-shape checker、`javap` golden、external consumer 和 code-size Gate共同约束。
 
 ## 2. Schema 输入
 

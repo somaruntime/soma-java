@@ -194,6 +194,10 @@ CONTRIBUTING.md
 reports/README.md"
 
 for current_file in $current_reference_docs; do
+  if grep -nE 'Row Pipeline|Row Cursor|Column Pipeline|\.rows\(|\.rowIndexes\(|findRowIndex\(|rowIndexOf\(|findByMachine|findByOperation|findByRoute|AbstractColumnPipeline|ColumnPipeline' "$current_file" >/dev/null 2>&1; then
+    fail "$current_file contains retired current API vocabulary"
+  fi
+
   for historical_file in $superseded_docs; do
     if grep -F "$historical_file" "$current_file" >/dev/null 2>&1; then
       fail "$current_file references superseded Design $historical_file as a current path"
@@ -249,6 +253,8 @@ done
 for file in \
   reports/java-v1-goal-execution-status.md \
   reports/current-performance-summary.md \
+  reports/2026-07-23-access-model-candidate-scan-governance-report.md \
+  reports/2026-07-23-access-model-candidate-scan-performance-report.md \
   reports/2026-07-20-document-architecture-governance-report.md \
   reports/2026-07-20-documentation-framework-cutover-report.md; do
   if [ ! -f "$file" ]; then
@@ -265,6 +271,14 @@ done
 
 if [ -e docs-temp ]; then
   fail 'docs-temp must not exist after the formal cutover'
+fi
+
+if [ -e docs/temp/row-pipeline-execution-and-lazy-plan-governance ]; then
+  fail 'retired Access Model / Candidate Scan Temporary topic must not exist'
+fi
+
+if ! grep -F '当前没有 active Temporary topic' docs/README.md >/dev/null 2>&1; then
+  fail 'docs/README.md must state the current Temporary status'
 fi
 
 if [ -d docs/temp ]; then

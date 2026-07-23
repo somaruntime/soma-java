@@ -8,17 +8,17 @@ Owner：SOMA table storage 与 access semantics
 
 设计层次：`D2` 能力设计
 
-主要关注点：Table kind、packed storage、identity、exact access 与候选操作
+主要关注点：Table kind、packed storage、identity、exact access structure 与 relocation
 
 上位设计：[系统架构](system-architecture.md)
 
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
-事实范围：table kind、packed storage、identity、exact access、IndexBuffer、Row Pipeline 和 mutation 形状
+事实范围：table kind、packed storage、primary/exact structures、swap-remove、IndexBuffer 和 mutation storage shape
 
 非事实范围：ownership lifecycle、公开 IndexSnapshot 消费契约、error envelope、materialization 和具体 hash/sort 实现类
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 本 Owner 先定义 Table、identity 与 access 的能力语义，再展开 packed relocation、exact structure 和 candidate scratch 等机制约束。具体 hash/sort 类、数组字段和生成方法是当前实现事实，不在此维护。
 
@@ -79,12 +79,12 @@ Keyed 和 dense table 均使用 swap-remove/tail-fill：
 
 Multi-row remove 使用当前候选 Index 的 primitive scratch，不分配或长期保留 `boolean[size]` mark，也不留下 tombstone row/hole。
 
-## 5. IndexBuffer 与 Row Pipeline
+## 5. IndexBuffer 与 Candidate execution
 
 `IndexBuffer` 是 table-local、可复用、primitive `int[]` scratch。它只保存当前 operation 的候选 Index，不保存 row object：
 
 ```text
-source scan/exact group -> L1
+Packed/exact source     -> L1
 filter(L1)              -> L2 in place
 sorted(L2)              -> L3
 terminal(L3)            -> result/update/remove/materialization
@@ -92,7 +92,7 @@ terminal(L3)            -> result/update/remove/materialization
 
 每个 stage 只处理上一个 stage 的候选；exact source 不先生成全表 Index 再过滤；dynamic sort 只排序当前候选。Terminal 结束或失败后 buffer reset 供下一 operation 复用，retained capacity 受 runtime plan 和 memory budget 约束。
 
-Row Pipeline 是 one-shot、同步、非重入 operation。内部可以使用 small-inline stage plan、fused loop 和 primitive scratch，但不能改变 callback 顺序、failure atomicity 或 public lifecycle 语义。
+Candidate Scan 的组合、one-shot、terminal 与执行约束由 [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)拥有。本 Owner 只规定 `IndexBuffer` 不保存 schema object、不暴露给 application，且任何 executor 都必须保持 packed/exact structures 与 current Index 一致。
 
 `IndexSnapshot` terminal 可以复制当前候选 Index，但其公开消费契约由 [Schema 与生成 API](schema-and-generated-api.md)唯一拥有；本 Owner 只规定它不复用或暴露内部 `IndexBuffer`。
 
@@ -103,7 +103,7 @@ Row Pipeline 是 one-shot、同步、非重入 operation。内部可以使用 sm
 - remove 只作用于当前 candidate set；
 - `clear()` 释放 live rows但可以复用已准入 capacity；`release()` 进入 terminal lifecycle；
 - success result 记录实际 scanned、matched、changed/removed；failure 不伪造已提交 changed；
-- comparator/filter/update callback 不能逃逸 cursor、嵌套访问同一 aggregate 或执行未声明的结构变更。
+- comparator/filter/update callback 不能逃逸 Cursor、嵌套访问同一 aggregate 或执行未声明的结构变更。
 
 ## 7. 顺序与确定性
 

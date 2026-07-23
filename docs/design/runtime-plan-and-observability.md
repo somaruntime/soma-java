@@ -18,7 +18,7 @@ Owner：SOMA runtime configuration 与 observability semantics
 
 非事实范围：Java builder 的当前完整方法清单、内部计数器字段、某次统计结果和 benchmark 阈值
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 本 Owner 把 plan 与 observability 放在同一能力边界：plan 决定实例创建时准入哪些资源和观测成本，observability 只能暴露该实例已选择的模式，不能反向引入隐藏策略。当前 builder 方法和计数器布局属于实现事实。
 
@@ -76,6 +76,8 @@ Stats 是 immutable observation，不是业务事实。Snapshot 必须区分：
 - since-reset counters：operations、scanned、matched、changed、probes、collisions、rehashes 等；
 - lifetime/high-water：capacity、storage、scratch、child instance 等不可因 reset 伪造回落的历史高点；
 - last-operation detail：只描述最近一次已完成 operation，失败时不得伪造已提交 changed/removed。
+
+Candidate Scan 的 source/cardinality shortcut 可以减少 physical traversal，但 `scanned/matched/changed` 仍按公开 operation 的 logical reference semantics 发布；physical loop、comparison 和 allocation 进入 benchmark evidence，不混入业务统计。Caller-owned Scan plan/handle 不是 Table retained storage，不计入 TableStats；Table-owned `IndexBuffer`、sort/update scratch 仍进入 current/high-water accounting。
 
 `resetStats()` 只重置明确允许重置的观测窗口；不能修改 table rows、capacity、epoch、ownership、plan、lifecycle 或 lifetime high-water。Snapshot 不返回 live mutable counter view。
 
