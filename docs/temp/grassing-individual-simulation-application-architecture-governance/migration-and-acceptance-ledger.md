@@ -17,8 +17,8 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 | 阶段 | Commit | 状态 | 证据 |
 |---|---|---|---|
 | 治理前实现 | `1c1bc22` | passed | Zulu JDK 8 完整 `project-check: ok` |
-| Stage 0 Temporary | 待提交 | in progress | 文档 Gate、现状审计与治理协议 |
-| Stage 1 详细设计 | 待形成 | pending | vocabulary、DAG、Result/Snapshot、system/source-set裁决 |
+| Stage 0 Temporary | `f852028` | passed | 文档 Gate、现状审计与治理协议 |
+| Stage 1 详细设计 | 待提交 | in progress | vocabulary、DAG、Result/Snapshot、system/source-set裁决 |
 | implementation candidate | 待形成 | pending | 专项、四 profile、AoS、multi-fork、isolated/repeat |
 | final cutover | 待形成 | pending | 完整 Gate、Report、Temporary退役 |
 
@@ -39,7 +39,22 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 | main oracle/checks | test oracle/verification | pending |
 | main benchmark/JVM metrics | test benchmark | pending |
 
-## 3. 非回归验收
+## 3. Stage 1 裁决
+
+- canonical journey 为
+  `Config -> Scenario Factory -> Scenario -> Simulator/Session -> Result`；
+- Scenario 同时拥有 Config 与 detached initial state；
+- `Simulator`/`SomaSimulator` 是 facade，Session 是 canonical stepwise API；
+- Result 是轻量 detached summary；本专题不新增完整 Snapshot public contract；
+- Engine 只编排，六个 ordered process 各有独立 package-private Owner；
+- Runtime factory、projector、projection verifier 和 live aggregate 分责；
+- `state -> schema` clean cutover，不保留兼容壳；
+- correctness/large/long-run、oracle、verification、benchmark 和 runtime test access
+  全部进入 test source-set；
+- input/result checksum 和 random addressing 必须保持；config/schema/plan identity
+  按已声明的责任与 package 迁移建立新稳定基线。
+
+## 4. 非回归验收
 
 | 事实 | 基线 | Candidate | 最终 |
 |---|---|---|---|
@@ -56,7 +71,7 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 | package dependency DAG | not gated | pending | pending |
 | canonical Scenario/Simulator/Result journey | failed by design | pending | pending |
 
-## 4. 实施原则
+## 5. 实施原则
 
 - 先建立最终边界，再移动内部责任；
 - 每次只迁移一个共同变化原因，并保持当前 checksum/evidence；
@@ -66,7 +81,7 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 - 不以 LOC 或文件数作为拆分/删除依据；
 - 不借本专题修改 SOMA core 或工业动态调度应用。
 
-## 5. Gate 目标
+## 6. Gate 目标
 
 专项 Gate 最终至少 fail-closed 验证：
 
@@ -81,7 +96,7 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 - 三 fork checksum/identity、allocation、GC 和 high-water；
 - isolated local repository、clean/repeat manifest 和 Java major 52。
 
-## 6. 最终引用闭包
+## 7. 最终引用闭包
 
 最终 current 导航与 production source 不应继续依赖：
 

@@ -75,12 +75,10 @@ Index 生命周期、失败原子性和 runtime protocol 均不得改变。
 
 ## 5. 当前授权边界
 
-当前授权只覆盖本 Temporary、`docs/README.md` active topic 登记和文档验证，不包含
-production Java、资源、应用正式文档、Implementation Map、Conformance、Report 或
-Gate 的实施修改。
-
-进入 production 实施前必须完成 Stage 1 详细设计并获得项目 Owner 授权。以下情况
-在任何阶段都必须停止并请求决定：
+项目 Owner 已在 2026-07-23 授权使用 Goal Mode 完成本专题，包括 production
+Java、资源、测试、应用正式文档、Implementation Map、Conformance、Report、Gate
+和阶段性 Git 提交。该授权不扩大本协议的事实范围。以下情况在任何阶段都必须停止
+并请求决定：
 
 - 需要修改 SOMA public/generated API、annotation 或 runtime；
 - 需要改变仿真领域语义、结果语义、随机语义或 evidence 强度；
@@ -124,4 +122,5 @@ Gate 的实施修改。
 
 - [当前架构审计](current-architecture-audit.md)
 - [目标架构候选](target-architecture.md)
+- [详细设计](detailed-design.md)
 - [迁移与验收账本](migration-and-acceptance-ledger.md)
