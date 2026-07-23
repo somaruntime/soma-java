@@ -41,7 +41,7 @@ if rg -n '\browIndex\b|rowIndexes\(' "$generated" >/dev/null \
   exit 1
 fi
 if rg -n -i --glob '!**/target/**' \
-    'row pipeline|column pipeline|key pipeline|generated-row-pipeline|allocatedRowPipeline' \
+    'row[- ]pipeline|column pipeline|key pipeline|generated-row-pipeline|allocatedRowPipeline' \
     soma-processor/src/main soma-runtime-core/src/main soma-examples/src/main \
     soma-benchmarks/src/main soma-testkit/src/test/fixtures >/dev/null; then
   printf '%s\n' 'internal-names-phase6-check: superseded core access vocabulary leaked' >&2

@@ -10,14 +10,15 @@ Owner：SOMA Java build/validation 过程
 
 非事实范围：产品功能语义、正式支持矩阵和某次 Gate 结果
 
-最后审查日期：2026-07-20
+最后审查日期：2026-07-23
 
 ## 1. 基线
 
 - 使用项目 Maven Wrapper；
-- V1 compiler validation 使用完整 JDK 8 javac；
+- V1 compiler/runtime validation 使用 Azul Zulu full JDK 8 javac/runtime；
 - 根 Maven reactor 必须在 Java 8 source/target 下构建；
-- 本机通过只说明实际记录的 vendor/version、OS 和 architecture，不自动形成支持矩阵；
+- Corretto 和其他 JDK distribution 不属于当前验真或目标支持范围，不要求多 vendor 重放；
+- Zulu 本机通过只说明实际记录的 version/build、OS 和 architecture，不自动外推到其他 Zulu update 或平台；
 - 不用新 JDK 的 `--release 8` 替代 compiler integration evidence。
 
 Canonical build 必须从根 Maven Wrapper进入同一 reactor graph。Production consumer 的运行边界是 annotations + runtime-core，processor只进入编译/build path；testkit、examples 和 benchmarks 不得成为隐式 production runtime dependency。新增 module、plugin、repository 或第三方 dependency需要先核对架构、供应链和 consumer graph。

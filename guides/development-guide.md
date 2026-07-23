@@ -46,7 +46,7 @@ Owner：SOMA Java 开发者输出
 ./scripts/package-smoke.sh
 ```
 
-完整验证使用 full JDK 8。窄检查适合快速反馈，跨模块/public/generated/protocol 收口运行 `./scripts/check.sh`。
+完整验证使用 Azul Zulu full JDK 8；不要求在 Corretto 或其他 JDK distribution 上重放。窄检查适合快速反馈，跨模块/public/generated/protocol 收口运行 `./scripts/check.sh`。
 
 ## 4. 代码约束
 

@@ -50,8 +50,9 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - 组织与发布主体为 HGTECH，产品品牌为 SOMA，Maven `groupId` / Java package root 为 `com.hgtech.soma`，artifact 名保持 `soma-*`；
 - HGTECH 只进入真实组织、SCM、POM、publishing 和 provenance 边界，不成为 SOMA annotation、generated API、runtime type、error 或 schema 概念前缀；
 - release identity 与安全边界以[兼容性、安全与版本](docs/design/compatibility-security-and-versioning.md)为准；过程以[Release 治理](docs/engineering/release-governance.md)和[Validation Gate 治理](docs/engineering/validation-gates.md)为准；
-- full JDK 8 javac 是当前 compiler authority；新 JDK `--release 8` 不能冒充受支持 transformer；
+- Azul Zulu full JDK 8 javac/runtime 是当前唯一 compiler 与 validation authority；新 JDK `--release 8` 不能冒充受支持 transformer；
 - 每次 validation 记录实际 JDK vendor/version/build、Maven、OS、architecture 和命令；本机通过不得外推为支持矩阵；
+- Corretto 或其他 JDK distribution 不属于当前验真或目标支持范围，不要求新增、补跑或维持多 vendor Gate；历史运行记录不构成当前支持声明；
 - G6 support matrix、SCM/contact、signing/publishing 等真实事实不足时保持 `blocked`，不得用 placeholder 或单机 smoke 替代。
 
 ## Documentation Workflow

@@ -1,6 +1,6 @@
 package com.hgtech.soma.runtime;
 
-/** Immutable result of a successful row-pipeline update terminal。 */
+/** Immutable result of a successful Candidate Scan update terminal. */
 public final class UpdateResult {
     private final long scanned;
     private final long matched;

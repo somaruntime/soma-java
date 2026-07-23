@@ -64,7 +64,7 @@ Schema hash 与 runtime plan hash 分离。Mismatch 在 aggregate 发布前以 t
 
 ## 3. Java 与产品身份
 
-- V1 language/runtime boundary 是 Java 8；full JDK 8 javac 是 compiler authority；
+- V1 language/runtime boundary 是 Java 8；当前实现与验真只以 Azul Zulu full JDK 8 javac/runtime 为 authority；Corretto 和其他 JDK distribution 不属于当前验真或目标支持范围；
 - 组织与发布主体为 HGTECH，产品品牌为 SOMA；
 - Maven `groupId` 和 Java package root 为 `com.hgtech.soma`；
 - artifact 保持 `soma-*`；

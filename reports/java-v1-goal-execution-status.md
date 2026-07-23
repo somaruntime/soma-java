@@ -43,7 +43,7 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 |---|---|---|
 | Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
 | Phase 6：四个正式场景、Access Pattern Cards、benchmark、release mechanics | implementation-complete | 83 个 scenario source、222 个 generated type、782 个 Java 8 class；20 条真实 integrated benchmark workload；License/POM/source/javadoc/package/security scripts |
-| 集中验证与修复 | passed | Zulu 与 Corretto 两套完整 JDK 8均得到`project-check: ok`；post-fix benchmark两vendor通过；package/security diagnostic通过 |
+| 集中验证与修复 | passed | 当前 `fd82eba` / v4候选已在Azul Zulu full JDK 8得到`project-check: ok`；早期Corretto结果仅为历史evidence，不属于当前支持或重放要求；package/security diagnostic通过 |
 | G5 examples/benchmark gate | passed | examples 与 benchmark contributor reports；root G5 closeout report |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
 | V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
@@ -81,7 +81,7 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 
 ### 4.1 2026-07-23 Access Model / Candidate Scan验证
 
-`fd82eba`的production/public API/runtime、external consumers、四场景、16条allocation、24条memory、code-size与FJSP多fork证据均已通过完整`./scripts/check.sh`，结果为`project-check: ok`。四份Schema hash保持不变，generated/runtime compatibility升级到v4，plan protocol仍为v3；详细环境、artifact与claim边界见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。
+`fd82eba`的production/public API/runtime、external consumers、四场景、16条allocation、24条memory、code-size与FJSP多fork证据均已在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`。四份Schema hash保持不变，generated/runtime compatibility升级到v4，plan protocol仍为v3；详细环境、artifact与claim边界见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。
 
 ### 4.2 2026-07-21 四场景采纳验证
 
@@ -97,7 +97,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home SOMA_UNSUPP
 
 结果`project-check: ok`；20条benchmark lane各聚合2次measurement，36条serialized negative artifact均fail closed。最后一次现存benchmark目录为`target/benchmark-smoke.PJkPCM`。clean package mechanics在`2490406`已通过；`aa7a466`的fresh package重放在项目编译前因Maven Central TLS中断，当前实现内容由Maven verify和多组external Maven consumer覆盖，具体限制不作为G6证据并在专题报告§12披露。
 
-### 4.4 Phase 6 原集中验证记录
+### 4.4 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
 
 完整命令：
 
@@ -110,7 +110,7 @@ Zulu 环境：Azul Zulu OpenJDK `1.8.0_492-b09`、`javac 1.8.0_492`、Maven Wrap
 
 Corretto 环境：Amazon Corretto `1.8.0_492-b09` / `8.492.09.2`、`javac 1.8.0_492`、Maven Wrapper `3.9.16`、macOS `26.5.2` / Darwin `25.5.0`、arm64/aarch64。完整结果`project-check: ok`；examples：`target/phase6-examples.BxKJHi`；post-fix focused benchmark：`target/benchmark-smoke.YL4tuu`，20+20 records、12 negative通过。
 
-两次均验证 compiler fixtures、schema/hash、public/generated API、runtime invariants、external Maven consumer、四场景、错误/生命周期/stats、20 条 benchmark workload、JSONL strict validator、Java 8 class major 52 和 `git diff --check`。本机结果只证明上述环境，不外推为其他 OS/architecture/JDK vendor 的正式支持承诺。
+两次均验证 compiler fixtures、schema/hash、public/generated API、runtime invariants、external Maven consumer、四场景、错误/生命周期/stats、20 条 benchmark workload、JSONL strict validator、Java 8 class major 52 和 `git diff --check`。这些内容只记录当时基线的执行事实；当前项目只以Azul Zulu full JDK 8作为验真与目标支持distribution，不再要求Corretto重放，也不把这次历史结果外推为当前支持承诺。
 
 Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh` passed，evidence `target/package-smoke.f8IUL8`；`OSV_SCANNER=/tmp/osv-scanner-v2.3.8-darwin-arm64 ./scripts/security-release-scan.sh` passed，evidence `target/security-release-scan.3iyUxx`。两者明确dirty/unsigned，不替代G6。
 

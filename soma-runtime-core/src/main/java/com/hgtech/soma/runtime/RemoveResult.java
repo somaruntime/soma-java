@@ -1,6 +1,6 @@
 package com.hgtech.soma.runtime;
 
-/** Immutable result of a successful row-pipeline structural remove terminal。 */
+/** Immutable result of a successful Candidate Scan structural remove terminal. */
 public final class RemoveResult {
     private final long scanned;
     private final long matched;

@@ -4,6 +4,7 @@
 Gate：G6 release readiness gate
 Owner：root
 执行日期：2026-07-11
+最后审查日期：2026-07-23
 执行人：Codex
 Capability：`V1-RELEASE-EVIDENCE` → `blocked`
 Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（当前 blocked，不是 completed）
@@ -12,7 +13,7 @@ Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（当前 blocke
 
 G6 未通过。完整 V1 功能与 G0–G5 已通过，本地 License/package/reproducibility/SBOM/security mechanics 也已实施并成功诊断；但真实 SCM/contact、namespace ownership、community/security contact、clean public Git provenance、最终 Apache-2.0授权、signing/publishing provenance 和正式支持矩阵仍缺失。
 
-当前最强允许结论是“完整 V1 功能 RC 边界已满足，本地 release mechanics 通过诊断”。当前 `0.1.0-SNAPSHOT`、dirty/unsigned artifact 不是 public RC artifact，不得 push/tag/publish 或声明 release ready、Maven Central ready、production ready。
+当前最强允许结论是“完整 V1 功能 RC 边界已满足，本地 release mechanics 通过诊断”。当前 `0.2.0-SNAPSHOT`、dirty/unsigned artifact 不是 public RC artifact，不得 push/tag/publish 或声明 release ready、Maven Central ready、production ready。
 
 ## 2. 已完成的本地 release evidence
 
@@ -71,18 +72,17 @@ OSV_SCANNER=/tmp/osv-scanner-v2.3.8-darwin-arm64 ./scripts/security-release-scan
 | Git identity/provenance | blocked | 现有历史含正式Owner明确禁止扩散的历史身份；公开前需用批准的真实身份重写或建立clean public history并重放commit-bound evidence |
 | Signing/OIDC/publishing provenance | blocked | signing key、attestation/OIDC与publishing account/endpoint未提供 |
 | Release notes/install/rollback | implemented-unverified | `CHANGELOG.md`、install guide和release contract已落地；仍需绑定最终version/date/commit/artifact URLs |
-| Java 8/OS/architecture support matrix | blocked | 两个JDK 8 vendor已在同一macOS arm64验证；其他OS/arch/vendor/update未验证，正式承诺尚未批准 |
+| Java 8/OS/architecture support matrix | blocked | JDK vendor边界已裁决为Azul Zulu only；当前v4只在记录版本的Zulu/macOS arm64验证，精确version/OS/architecture承诺尚未批准 |
 
 ## 4. 本机 observed validation matrix
 
-正式矩阵报告见`reports/java-v1-support-matrix-report.md`。当前只记录observed evidence：
+正式矩阵报告见`reports/java-v1-support-matrix-report.md`。当前候选只记录Zulu observed evidence：
 
 - Azul Zulu 8.94.0.17 / OpenJDK `1.8.0_492-b09`，full `javac 1.8.0_492`；
-- Amazon Corretto 8.492.09.2 / OpenJDK `1.8.0_492-b09`，full `javac 1.8.0_492`；
 - Maven Wrapper / Apache Maven 3.9.16；macOS 26.5.2 / Darwin 25.5.0；arm64/aarch64；
-- 两套环境的完整`./scripts/check.sh`均为`project-check: ok`；修复后的benchmark又在两套环境分别通过20+20 records和12条negative case。
+- 当前v4候选的完整`./scripts/check.sh`为`project-check: ok`；component、code-size、benchmark与多fork证据均在同一Zulu环境形成。
 
-这不是跨平台支持承诺。正式G6 matrix保持blocked。
+早期Corretto执行结果只作为旧候选的历史evidence保留，不属于当前支持范围，也不要求再次重放。这不是跨平台支持承诺；正式G6 matrix保持blocked。
 
 ## 5. V1 scope non-regression
 
@@ -90,6 +90,7 @@ OSV_SCANNER=/tmp/osv-scanner-v2.3.8-darwin-arm64 ./scripts/security-release-scan
 - 未完成项仍完整保留在原Phase 6/G6，没有被删除、optional化、waive或移入新版本。
 - Owner、正式契约、Capability Ledger、Gate和release claim未改变。
 - release脚本不改变public/generated API、runtime核心事实、consumer或canonical hot path。
+- Zulu-only是明确的JDK vendor边界；support matrix仍需批准并验证具体Zulu version/build、OS和architecture，但不要求新增其他vendor。
 - 后续只需additive release-boundary evidence completion与clean commit重放；不需要public contract migration、temporary contract、temporary hot path或rewrite。
 
 ## 6. 解除阻塞所需真实输入

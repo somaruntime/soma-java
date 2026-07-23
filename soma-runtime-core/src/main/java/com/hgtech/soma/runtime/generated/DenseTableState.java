@@ -231,7 +231,7 @@ public final class DenseTableState {
         materializationActive = true;
     }
 
-    /** Starts materialization owned by the currently active row-pipeline operation. */
+    /** Starts materialization owned by the currently active table operation. */
     public void beginOperationMaterialization(String operation) {
         checkActive(operation);
         requireActiveOperation(operation);
