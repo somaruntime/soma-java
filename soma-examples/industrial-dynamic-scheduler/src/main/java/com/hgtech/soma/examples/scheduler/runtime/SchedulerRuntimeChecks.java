@@ -15,7 +15,7 @@ public final class SchedulerRuntimeChecks {
     try {
       IndexSnapshot beforeMutation = runtime.assignments.indexSnapshot();
       IndexSnapshot wrongSource = runtime.jobs.indexSnapshot();
-      ScheduleResult result = new IndustrialScheduler(runtime).solve();
+      DispatchSummary result = new IndustrialScheduler(runtime).solve();
       if (result.assignments != problem.operationCount()) {
         throw new IllegalStateException("runtime check solve did not complete");
       }

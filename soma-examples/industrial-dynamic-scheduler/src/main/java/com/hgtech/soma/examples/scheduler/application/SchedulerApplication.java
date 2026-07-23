@@ -1,17 +1,15 @@
-package com.hgtech.soma.examples.scheduler;
+package com.hgtech.soma.examples.scheduler.application;
 
 import com.hgtech.soma.examples.scheduler.config.SchedulerConfig;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblemGenerator;
-import com.hgtech.soma.examples.scheduler.runtime.IndustrialScheduler;
-import com.hgtech.soma.examples.scheduler.runtime.ScheduleResult;
-import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
-import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntimeBootstrap;
-import com.hgtech.soma.examples.scheduler.state.OperationAssignment;
-import com.hgtech.soma.examples.scheduler.validation.ScheduleValidator;
+import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
+import com.hgtech.soma.examples.scheduler.result.ScheduleValidator;
+import com.hgtech.soma.examples.scheduler.solver.SchedulingSession;
+import com.hgtech.soma.examples.scheduler.solver.SchedulingSolver;
+import com.hgtech.soma.examples.scheduler.solver.SomaSchedulingSolver;
 
 import java.util.Arrays;
-import java.util.List;
 
 /** 普通 Java 8 consumer 的 headless CLI journey。 */
 public final class SchedulerApplication {
@@ -26,17 +24,17 @@ public final class SchedulerApplication {
     long generationStart = System.nanoTime();
     SchedulingProblem problem = SchedulingProblemGenerator.generate(config);
     long generationNanos = System.nanoTime() - generationStart;
-    SchedulerRuntime runtime = null;
+    SchedulingSolver solver = new SomaSchedulingSolver();
+    SchedulingSession session = null;
     try {
       long bootstrapStart = System.nanoTime();
-      runtime = SchedulerRuntimeBootstrap.load(problem);
+      session = solver.prepare(problem);
       long bootstrapNanos = System.nanoTime() - bootstrapStart;
       long solveStart = System.nanoTime();
-      ScheduleResult result = new IndustrialScheduler(runtime).solve();
+      ScheduleResult result = session.solve();
       long solveNanos = System.nanoTime() - solveStart;
-      List<OperationAssignment> assignments = runtime.exportAssignments();
       ScheduleValidator.ValidationSummary validated =
-          ScheduleValidator.validate(problem, assignments, result);
+          ScheduleValidator.validate(problem, result);
       System.out.print(config.canonicalText());
       System.out.println("config.checksum=" + config.checksum());
       System.out.println("input.checksum=" + problem.checksum());
@@ -52,7 +50,7 @@ public final class SchedulerApplication {
       System.out.println("solve.nanos=" + solveNanos);
       System.out.println("claimAllowed=false");
     } finally {
-      if (runtime != null) runtime.close();
+      if (session != null) session.close();
     }
   }
 }

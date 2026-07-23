@@ -118,7 +118,8 @@ public final class SchedulerRuntime implements AutoCloseable {
         frontierStats.exactIndexStorageHighWaterBytes(),
         frontierStats.updateScratchHighWaterBytes(),
         frontierStats.operationScratchHighWaterBytes(),
-        assignmentStats.capacity(), frontierStats.capacity());
+        assignmentStats.capacity(), frontierStats.capacity(),
+        assignmentKeyCount());
   }
 
   private void ensureOpen() {
@@ -151,17 +152,20 @@ public final class SchedulerRuntime implements AutoCloseable {
     public final long operationScratchHighWaterBytes;
     public final int assignmentCapacity;
     public final int frontierCapacity;
+    public final int assignmentKeyCount;
 
     RuntimeEvidence(long exactIndexProbes, long exactIndexHighWaterBytes,
                     long updateScratchHighWaterBytes,
                     long operationScratchHighWaterBytes,
-                    int assignmentCapacity, int frontierCapacity) {
+                    int assignmentCapacity, int frontierCapacity,
+                    int assignmentKeyCount) {
       this.exactIndexProbes = exactIndexProbes;
       this.exactIndexHighWaterBytes = exactIndexHighWaterBytes;
       this.updateScratchHighWaterBytes = updateScratchHighWaterBytes;
       this.operationScratchHighWaterBytes = operationScratchHighWaterBytes;
       this.assignmentCapacity = assignmentCapacity;
       this.frontierCapacity = frontierCapacity;
+      this.assignmentKeyCount = assignmentKeyCount;
     }
   }
 }

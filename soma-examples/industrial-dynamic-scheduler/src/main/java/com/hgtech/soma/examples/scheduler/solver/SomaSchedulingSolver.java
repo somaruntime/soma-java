@@ -1,0 +1,25 @@
+package com.hgtech.soma.examples.scheduler.solver;
+
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
+import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
+import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntimeBootstrap;
+
+/** 使用 SOMA columnar runtime 的正式 solver 实现。 */
+public final class SomaSchedulingSolver implements SchedulingSolver {
+  @Override
+  public ScheduleResult solve(SchedulingProblem problem) {
+    SchedulingSession session = prepare(problem);
+    try {
+      return session.solve();
+    } finally {
+      session.close();
+    }
+  }
+
+  @Override
+  public SchedulingSession prepare(SchedulingProblem problem) {
+    if (problem == null) throw new NullPointerException("problem");
+    return new SomaSchedulingSession(
+        SchedulerRuntimeBootstrap.load(problem));
+  }
+}

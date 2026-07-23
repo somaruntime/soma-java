@@ -3,14 +3,12 @@ package com.hgtech.soma.examples.scheduler.evidence;
 import com.hgtech.soma.examples.scheduler.config.SchedulerConfig;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblemGenerator;
-import com.hgtech.soma.examples.scheduler.runtime.IndustrialScheduler;
-import com.hgtech.soma.examples.scheduler.runtime.ScheduleResult;
-import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
-import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntimeBootstrap;
-import com.hgtech.soma.examples.scheduler.state.OperationAssignment;
-import com.hgtech.soma.examples.scheduler.validation.ScheduleValidator;
-
-import java.util.List;
+import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
+import com.hgtech.soma.examples.scheduler.result.ScheduleValidator;
+import com.hgtech.soma.examples.scheduler.result.SolveDiagnostics;
+import com.hgtech.soma.examples.scheduler.solver.SchedulingSession;
+import com.hgtech.soma.examples.scheduler.solver.SchedulingSolver;
+import com.hgtech.soma.examples.scheduler.solver.SomaSchedulingSolver;
 
 /** 单 JVM fork 的 correctness-guarded integrated benchmark。 */
 public final class SchedulerBenchmark {
@@ -98,7 +96,8 @@ public final class SchedulerBenchmark {
   private static Measurement execute(
       SchedulingProblem problem, boolean measured) {
     long setupStart = System.nanoTime();
-    SchedulerRuntime runtime = SchedulerRuntimeBootstrap.load(problem);
+    SchedulingSolver solver = new SomaSchedulingSolver();
+    SchedulingSession session = solver.prepare(problem);
     long setupNanos = System.nanoTime() - setupStart;
     try {
       long beforeAllocation = measured
@@ -106,16 +105,15 @@ public final class SchedulerBenchmark {
       JvmMetrics.GcSnapshot beforeGc = measured
           ? JvmMetrics.gcSnapshot() : null;
       long solveStart = System.nanoTime();
-      ScheduleResult result = new IndustrialScheduler(runtime).solve();
+      ScheduleResult result = session.solve();
       long solveNanos = System.nanoTime() - solveStart;
       JvmMetrics.GcSnapshot afterGc = measured
           ? JvmMetrics.gcSnapshot() : null;
       long allocated = measured
           ? Math.subtractExact(JvmMetrics.currentThreadAllocatedBytes(),
               beforeAllocation) : 0L;
-      List<OperationAssignment> assignments = runtime.exportAssignments();
-      ScheduleValidator.validate(problem, assignments, result);
-      SchedulerRuntime.RuntimeEvidence evidence = runtime.runtimeEvidence();
+      ScheduleValidator.validate(problem, result);
+      SolveDiagnostics evidence = result.diagnostics;
       return new Measurement(setupNanos, solveNanos, allocated,
           measured ? delta(afterGc.youngCount, beforeGc.youngCount) : 0L,
           measured ? delta(afterGc.youngMillis, beforeGc.youngMillis) : 0L,
@@ -124,10 +122,10 @@ public final class SchedulerBenchmark {
           evidence.exactIndexHighWaterBytes,
           evidence.updateScratchHighWaterBytes,
           evidence.operationScratchHighWaterBytes,
-          result.resultChecksum, runtime.schemaHash(),
-          runtime.runtimePlanHash());
+          result.resultChecksum, evidence.schemaHash,
+          evidence.runtimePlanHash);
     } finally {
-      runtime.close();
+      session.close();
     }
   }
 

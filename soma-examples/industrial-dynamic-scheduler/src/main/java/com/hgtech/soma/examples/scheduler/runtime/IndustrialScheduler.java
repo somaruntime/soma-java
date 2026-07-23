@@ -82,7 +82,7 @@ public final class IndustrialScheduler {
         runtime.maximumCandidatesPerOperation);
   }
 
-  public ScheduleResult solve() {
+  public DispatchSummary solve() {
     if (solved) throw new IllegalStateException("scheduler is one-shot");
     solved = true;
     while (runtime.assignments.size() < runtime.operationCount) {
@@ -109,9 +109,8 @@ public final class IndustrialScheduler {
         "frontier must be empty after all assignments");
     require(completedJobs == runtime.jobCount,
         "all jobs must be completed");
-    return new ScheduleResult(runtime.assignments.size(), completedJobs,
-        makespan, totalTardiness, weightedTardiness, processedEvents,
-        resultChecksum());
+    return new DispatchSummary(runtime.assignments.size(), completedJobs,
+        makespan, totalTardiness, weightedTardiness, processedEvents);
   }
 
   private void processEventsThrough(long cutoff) {
@@ -465,11 +464,6 @@ public final class IndustrialScheduler {
     } finally {
       operationIds.close();
     }
-  }
-
-  private String resultChecksum() {
-    return com.hgtech.soma.examples.scheduler.validation.ScheduleValidator
-        .assignmentChecksum(runtime.exportAssignments());
   }
 
   private static void require(boolean condition, String message) {
