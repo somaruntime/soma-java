@@ -1,4 +1,4 @@
-package com.hgtech.soma.examples.grassing.state;
+package com.hgtech.soma.examples.grassing.schema;
 
 import com.hgtech.soma.annotation.SomaField;
 import com.hgtech.soma.annotation.SomaTable;

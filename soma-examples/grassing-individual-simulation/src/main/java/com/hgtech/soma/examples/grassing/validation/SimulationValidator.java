@@ -6,9 +6,9 @@ import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
 import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
-import com.hgtech.soma.examples.grassing.state.BehaviourMode;
-import com.hgtech.soma.examples.grassing.state.GrasserState;
-import com.hgtech.soma.examples.grassing.state.TraceSample;
+import com.hgtech.soma.examples.grassing.schema.BehaviourMode;
+import com.hgtech.soma.examples.grassing.schema.GrasserState;
+import com.hgtech.soma.examples.grassing.schema.TraceSample;
 import com.hgtech.soma.examples.grassing.validation.ReferenceSimulation.Individual;
 
 import java.util.Collections;

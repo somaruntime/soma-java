@@ -2,9 +2,9 @@ package com.hgtech.soma.examples.grassing.runtime;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
-import com.hgtech.soma.examples.grassing.state.BehaviourMode;
-import com.hgtech.soma.examples.grassing.state.GrasserId;
-import com.hgtech.soma.examples.grassing.state.generated.GrasserStateBatch;
+import com.hgtech.soma.examples.grassing.schema.BehaviourMode;
+import com.hgtech.soma.examples.grassing.schema.GrasserId;
+import com.hgtech.soma.examples.grassing.schema.generated.GrasserStateBatch;
 import com.hgtech.soma.runtime.IndexSnapshot;
 
 /** reference application 边界上的 key、Index 与 lifecycle 负路径。 */
@@ -14,7 +14,8 @@ public final class SimulationRuntimeChecks {
 
   public static void verify(
       SimulationConfig config, SimulationScenario scenario) {
-    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(scenario);
+    SimulationRuntime runtime =
+        new SimulationRuntimeFactory().create(scenario);
     try {
       SimulationEngine engine = new SimulationEngine(runtime);
       IndexSnapshot current = runtime.grassers.indexSnapshot();

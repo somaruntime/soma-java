@@ -3,7 +3,7 @@ package com.hgtech.soma.examples.grassing.simulation;
 import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationEngine;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
-import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeBootstrap;
+import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeFactory;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 
 /** 使用 SOMA columnar runtime 执行场景的 production implementation。 */
@@ -21,7 +21,7 @@ public final class SomaSimulator implements Simulator {
   @Override
   public SimulationSession prepare(SimulationScenario scenario) {
     if (scenario == null) throw new NullPointerException("scenario");
-    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(scenario);
+    SimulationRuntime runtime = new SimulationRuntimeFactory().create(scenario);
     boolean complete = false;
     try {
       SimulationSession session = new SomaSimulationSession(

@@ -5,7 +5,7 @@ import com.hgtech.soma.examples.grassing.config.SimulationConfigLoader;
 import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationEngine;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
-import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeBootstrap;
+import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeFactory;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.scenario.SyntheticSimulationScenarioFactory;
 import com.hgtech.soma.examples.grassing.validation.SimulationValidator;
@@ -107,7 +107,8 @@ public final class SimulationBenchmark {
       SimulationConfig config, SimulationScenario initialState,
       boolean measured) {
     long setupStart = System.nanoTime();
-    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(initialState);
+    SimulationRuntime runtime =
+        new SimulationRuntimeFactory().create(initialState);
     SimulationEngine engine = new SimulationEngine(runtime);
     long setupNanos = System.nanoTime() - setupStart;
     try {

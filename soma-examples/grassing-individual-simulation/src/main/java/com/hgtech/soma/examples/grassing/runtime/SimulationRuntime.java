@@ -1,10 +1,10 @@
 package com.hgtech.soma.examples.grassing.runtime;
 
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
-import com.hgtech.soma.examples.grassing.state.GrasserState;
-import com.hgtech.soma.examples.grassing.state.TraceSample;
-import com.hgtech.soma.examples.grassing.state.generated.GrasserStateTable;
-import com.hgtech.soma.examples.grassing.state.generated.TraceSampleTable;
+import com.hgtech.soma.examples.grassing.schema.GrasserState;
+import com.hgtech.soma.examples.grassing.schema.TraceSample;
+import com.hgtech.soma.examples.grassing.schema.generated.GrasserStateTable;
+import com.hgtech.soma.examples.grassing.schema.generated.TraceSampleTable;
 import com.hgtech.soma.runtime.DoubleColumnView;
 import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.MaterializationBudget;

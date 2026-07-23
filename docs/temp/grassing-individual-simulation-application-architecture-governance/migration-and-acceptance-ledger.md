@@ -19,7 +19,8 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 | 治理前实现 | `1c1bc22` | passed | Zulu JDK 8 完整 `project-check: ok` |
 | Stage 0 Temporary | `f852028` | passed | 文档 Gate、现状审计与治理协议 |
 | Stage 1 详细设计 | `5c8f781` | passed | vocabulary、DAG、Result/Snapshot、system/source-set裁决 |
-| Stage 2 canonical boundary | 待提交 | in progress | Scenario/Factory、Simulator/Session、detached Result、composition root |
+| Stage 2 canonical boundary | `a1ceddb` | passed | Scenario/Factory、Simulator/Session、detached Result、composition root |
+| Stage 3 internal responsibilities | 待提交 | in progress | Config loader、Runtime projection、Engine/System、Schema clean cutover |
 | implementation candidate | 待形成 | pending | 专项、四 profile、AoS、multi-fork、isolated/repeat |
 | final cutover | 待形成 | pending | 完整 Gate、Report、Temporary退役 |
 
@@ -31,12 +32,12 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 | Config + benchmark keys | domain Config + test BenchmarkOptions | pending |
 | static initial generator | `SimulationScenarioFactory` implementation | passed |
 | nested `IndividualInput` | top-level Scenario input type | passed |
-| bootstrap 全部职责 | runtime factory/projector/verifier | pending |
-| Engine 全部 system | engine orchestrator + ordered systems | pending |
+| bootstrap 全部职责 | runtime factory/projector/verifier | passed |
+| Engine 全部 system | engine orchestrator + ordered systems | passed |
 | Engine result/checksum | detached `result` boundary | passed |
 | runtime materialization/stats | test access / evidence | pending |
 | live Runtime validator | detached result + test-only oracle | in progress |
-| `state` 技术包 | `schema` 技术投影 | pending |
+| `state` 技术包 | `schema` 技术投影 | passed |
 | main oracle/checks | test oracle/verification | pending |
 | main benchmark/JVM metrics | test benchmark | pending |
 
@@ -75,6 +76,10 @@ Owner：grassing-individual-simulation migration and acceptance ledger
 Stage 2 在 Zulu JDK 8 通过现有专项 Gate。四 profile 的 input/result checksum、
 correctness AoS oracle、replay/order independence、long-run 和三 fork evidence 均
 保持稳定；专项 Gate 的 source-set/JAR/DAG 规则将在 Stage 4 加固。
+
+Stage 3 同样通过上述 evidence。四 profile 的 domain input/result checksum 与 Stage
+2 完全相同；Schema clean cutover 后，schema/runtime-plan hash 按设计建立新的稳定
+identity，未改变 table/field/index/capacity 或 Access Model 语义。
 
 ## 5. 实施原则
 

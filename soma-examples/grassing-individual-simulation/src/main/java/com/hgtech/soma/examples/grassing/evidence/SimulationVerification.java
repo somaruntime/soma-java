@@ -5,7 +5,7 @@ import com.hgtech.soma.examples.grassing.config.SimulationConfigLoader;
 import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationEngine;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
-import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeBootstrap;
+import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeFactory;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeChecks;
 import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
@@ -64,7 +64,7 @@ public final class SimulationVerification {
 
   private static String verifyAoS(
       SimulationConfig config, SimulationScenario scenario) {
-    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(scenario);
+    SimulationRuntime runtime = new SimulationRuntimeFactory().create(scenario);
     try {
       SimulationEngine engine = new SimulationEngine(runtime);
       com.hgtech.soma.examples.grassing.validation.ReferenceSimulationBridge
@@ -85,7 +85,7 @@ public final class SimulationVerification {
 
   private static Run execute(
       SimulationConfig config, SimulationScenario scenario) {
-    SimulationRuntime runtime = SimulationRuntimeBootstrap.load(scenario);
+    SimulationRuntime runtime = new SimulationRuntimeFactory().create(scenario);
     try {
       SimulationEngine engine = new SimulationEngine(runtime);
       SimulationResult result = engine.run();
