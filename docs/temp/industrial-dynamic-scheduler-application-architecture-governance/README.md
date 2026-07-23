@@ -104,4 +104,6 @@ package，但必须保持 Table、字段、identity、cardinality、ownership �
 ## 7. 当前专题材料
 
 - [当前架构审计](current-architecture-audit.md)
-- 目标架构与迁移设计将在 Stage 1 完成。
+- [目标架构](target-architecture.md)
+- [详细设计](detailed-design.md)
+- [迁移与验收账本](migration-and-acceptance-ledger.md)
