@@ -66,3 +66,5 @@ LOC、文件数和类数只用于发现异常，不是删除、合并或拆分�
 - evidence lane 只有相似外形，却不能说明独立 failure、consumer 或 measurement 问题。
 
 审查必须回到 Blueprint、Design、Owner、变化原因和 evidence value；软信号不自动判失败，也不得迫使功能或 Gate 缩水。Compiler/codegen 的 normalized model、codegen model、orchestrator 和 emitter 责任边界由既有 codegen admission Gate 检查；fixture、scenario、benchmark 和脚本只在能降低共享机制成本且不合并独立证据域时才整合。
+
+Benchmark lane 的 manifest/identity/validation、typed workload、evidence assembly 与 aggregation 应保持可独立审查；兼容 facade 可以编排和转发，但不成为第二事实 Owner。Generated footprint 同时保留固定 candidate 回归 Gate 与 artifact/schema 归一化诊断：诊断用于定位增长来源，不替代既有基线、阈值或 compiler admission，也不得外推为容量或性能 claim。

@@ -67,9 +67,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前 active Temporary topic：
-
-- [复杂度可持续性治理](temp/complexity-sustainability-stage0-audit/README.md)：Stage 1 三个内部治理 slice 已完成并通过完整 Gate；当前等待项目 Owner 审查治理结果，尚未正式固化或退役。
+当前没有 active Temporary topic。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

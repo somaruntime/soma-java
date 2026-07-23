@@ -10,7 +10,7 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`6b6dc49`
+最近实现核对基线：`79c0a89`
 
 最后审查日期：2026-07-23
 
@@ -24,15 +24,19 @@ Owner：SOMA compiler/codegen 实现导航
 | normalized schema model | [`SomaSchemaModel.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/SomaSchemaModel.java)、[`SomaSchemaJson.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/SomaSchemaJson.java) | normalized schema/value/table model 与 canonical schema JSON |
 | deterministic order | [`UnicodeCodePointOrder.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/UnicodeCodePointOrder.java) | schema/codegen stable ordering |
 | dense codegen model | [`DenseTableCodegenModel.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableCodegenModel.java) | Table/Field/Child/Selector emission model |
+| selector codegen model | [`DenseSelectorCodegenModel.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseSelectorCodegenModel.java) | selector 参数分组与 canonical public parameter type sequence |
 | artifact orchestration | [`DenseTableSourceGenerator.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableSourceGenerator.java) | deterministic generated artifact 清单与发布顺序 |
 | Table emitter | [`DenseTableSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableSourceEmitter.java) | packed Table implementation |
 | auxiliary emitter | [`DenseAuxiliarySourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseAuxiliarySourceEmitter.java) | Cursor/UpdateCursor/Batch/Mutator/KeyTraversal/Scan facade |
 | exact-index emitter | [`DenseExactIndexSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseExactIndexSourceEmitter.java) | exact-index runtime source片段；保持byte-stable output |
-| selector support | [`DenseSelectorSourceSupport.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseSelectorSourceSupport.java) | emitter共享的selector binding、comparison、change与unique support |
+| selector source support | [`DenseSelectorSourceSupport.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseSelectorSourceSupport.java) | emitter 共享的 source arguments、comparison、change 与 unique support |
+| Scan execution support | [`DenseScanExecutionSourceSupport.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseScanExecutionSourceSupport.java) | 写入 Table artifact 的 Candidate Scan terminal executor source |
 | admission | [`CodegenLimits.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/CodegenLimits.java) | 生成规模上限 |
 | output boundary | [`GeneratedSourceOutput.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/GeneratedSourceOutput.java) | generated source publish |
 
-Processor、normalized model、codegen model、orchestrator 与 artifact emitter 之间只沿生成流程依赖；exact-index emitter 不反向依赖 orchestrator。Candidate Scan 生成 typed source plan、small-inline/overflow stage storage 与 terminal executor；public handle不暴露 runtime IR。当前责任关系由 codegen admission source-shape check 约束，生成契约继续由 clean/repeat source、schema/hash、`javap` golden、external consumer 和 code-size Gate 约束。
+Processor admission 读取 selector codegen model，而不依赖 source emitter support；Table/Exact emitters 组合 selector model 与 source support，Table emitter 通过 Scan execution support 写入 terminal executor，不再借用 Auxiliary artifact emitter。`DenseTableSourceEmitter -> DenseExactIndexSourceEmitter` 仍是有意的 artifact-internal composition；exact-index emitter 不反向依赖 orchestrator。
+
+Candidate Scan 继续生成 typed source plan、small-inline/overflow stage storage 与 terminal executor；public handle不暴露 runtime IR。当前依赖方向由 codegen admission source-shape check 约束，生成契约继续由 clean/repeat source、schema/hash、`javap` golden、external consumer 和 code-size Gate 约束。
 
 ## 2. Schema 输入
 

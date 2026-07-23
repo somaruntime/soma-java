@@ -12,7 +12,7 @@ Owner：SOMA scenario/benchmark 实现导航
 
 事实范围：当前四类示例、FJSP solver 和 benchmark runner 的代码入口
 
-最近实现核对基线：`fd82eba`
+最近实现核对基线：`8f685e2`
 
 最后审查日期：2026-07-23
 
@@ -35,9 +35,14 @@ Owner：SOMA scenario/benchmark 实现导航
 - FJSP scale runner：[`FjspScaleBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspScaleBenchmark.java)；
 - FJSP options/model/report：[`FjspBenchmarkOptions.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspBenchmarkOptions.java)、[`FjspBenchmarkMeasurement.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspBenchmarkMeasurement.java)、[`FjspBenchmarkReport.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/FjspBenchmarkReport.java)；
 - JVM/GC metrics：[`JvmRuntimeMetrics.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/JvmRuntimeMetrics.java)；
-- scenario smoke lane composition：[`SmokeLaneSuite.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneSuite.java)。
+- smoke orchestration/compatibility facade：[`SmokeLaneSuite.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneSuite.java)；
+- lane manifest、identity、metadata 与 validation：[`SmokeLaneContract.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneContract.java)；
+- typed workloads 与 fixture execution：[`SmokeLaneWorkloads.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneWorkloads.java)；
+- observation evidence 与 repeated-measurement merge：[`SmokeLaneEvidence.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneEvidence.java)、[`SmokeLaneAggregation.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneAggregation.java)。
 
-FJSP multi-fork allocation/GC诊断与component runner分别记录场景allocation/GC、Candidate Scan source/stage/terminal allocation和exact-index distinct-group retained payload；code-size runner约束 generated Scan source/class/nested-class规模。2026-07-20 machine-selection A/B只作为application heap决策的历史证据。Smoke runner 的 `generated.exact_index_incremental_lookup` 使用 keyed `MachineCandidate` grouped exact access，`generated.dense_scratch_replace_sort` 使用无 maintained index 的 VRP insertion workspace；所有这些 artifact 均为`claimAllowed=false`诊断证据。
+`BenchmarkModel` 依赖 `SmokeLaneContract`，不反向依赖 suite；suite 保留 JSON schema lane binding 所需的窄 compatibility delegate，但不拥有 lane 事实。Source-shape checker 防止 manifest、workload、validation 与 aggregation 责任重新集中。
+
+FJSP multi-fork allocation/GC诊断与component runner分别记录场景allocation/GC、Candidate Scan source/stage/terminal allocation和exact-index distinct-group retained payload；code-size runner同时输出 fixed-candidate Gate、逐 Scan artifact 与逐 schema footprint 诊断。2026-07-20 machine-selection A/B只作为application heap决策的历史证据。Smoke runner 的 `generated.exact_index_incremental_lookup` 使用 keyed `MachineCandidate` grouped exact access，`generated.dense_scratch_replace_sort` 使用无 maintained index 的 VRP insertion workspace；所有这些 artifact 均为`claimAllowed=false`诊断证据。
 
 ## 3. 追踪方式
 

@@ -243,6 +243,7 @@ done
 for file in \
   reports/java-v1-goal-execution-status.md \
   reports/current-performance-summary.md \
+  reports/2026-07-23-complexity-sustainability-governance-report.md \
   reports/2026-07-23-project-complexity-and-maintainability-governance-report.md \
   reports/2026-07-23-access-model-candidate-scan-governance-report.md \
   reports/2026-07-23-access-model-candidate-scan-performance-report.md \

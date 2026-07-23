@@ -10,7 +10,7 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：`fd82eba`
+最近实现核对基线：`8f685e2`
 
 最后审查日期：2026-07-23
 
@@ -24,7 +24,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
 | runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、Candidate sequence、one-shot/retention、unique point 与 v4 identity |
 | scenario | [`check-examples-phase6.sh`](../../scripts/check-examples-phase6.sh) | 四场景 canonical journey、schema/hash、222个 generated types、public API facts、Java 8 classfile 与 Access Pattern marker |
-| benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、FJSP allocation/GC、source/stage/terminal allocation、cardinality memory 与 generated code size |
+| benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-fjsp-allocation-gc.sh`](../../scripts/check-fjsp-allocation-gc.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、lane 责任边界、FJSP allocation/GC、source/stage/terminal allocation、cardinality memory 与 generated footprint |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
 ## 2. Testkit
@@ -35,7 +35,9 @@ Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 ja
 
 ## 3. Evidence artifact
 
-Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或lane-specific strict validator校验。当前 smoke 将 grouped exact-index incremental lookup 与 VRP dense `replaceAll + sorted` 分成不同 lane，禁止把无 `@SomaIndex` 的 workspace 记作 exact-index evidence。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
+Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或lane-specific strict validator校验。当前 smoke 将 grouped exact-index incremental lookup 与 VRP dense `replaceAll + sorted` 分成不同 lane，禁止把无 `@SomaIndex` 的 workspace 记作 exact-index evidence。
+
+Scan code-size evidence 保留 33-table fixed-candidate 基线与 15% ceiling，同时生成 `scan-artifact-footprint.tsv` 和 `schema-footprint.tsv`；checker要求两级 TSV 汇总重建原 aggregate。后两者用于定位增长形状，不是容量承诺、单 feature 因果模型或调整原 Gate 的依据。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
 
 ## 4. 维护提示
 
