@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 0.1 已完成，Stage 1–5 已授权）
+状态：active（Stage 1 已完成，Stage 2–5 实施中）
 
 Owner：SOMA Java 项目复杂度与可维护性治理专题
 
@@ -158,3 +158,5 @@ Stage 0.1 已在 `docs/README.md` 登记本专题，并使 `scripts/check-docs.s
 ## 12. 退役条件
 
 专题完成后，将长期事实分别固化到唯一的 Blueprint、Design 或 Engineering Owner，刷新必要的 Implementation Map、Conformance 与 current Report；若过程证据具有长期价值，形成 Governance Report。完成全量 Gate 和切换授权后删除本目录，不归档 Temporary。
+
+Stage 1 的证据与六项裁决见 [Stage 1 证据与裁决](stage-1-evidence-and-decisions.md)。
