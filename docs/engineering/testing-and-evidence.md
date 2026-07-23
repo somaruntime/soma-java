@@ -53,3 +53,16 @@ Candidate executor优化必须用reference evaluator或等价oracle覆盖声明�
 Evidence 必须可追踪到 Design capability、commit、命令和 artifact。Report 只使用 validator 接受的结构化 artifact或可复现直接输出；不得把“测试类存在”“脚本打印 ok”或无 checksum 的手工摘录当成充分证据。
 
 发现 flaky、环境跳过或网络依赖失败时，明确标记未验证；不能把以前的 passed 自动外推到新 commit。
+
+## 5. 复杂度防回归
+
+LOC、文件数和类数只用于发现异常，不是删除、合并或拆分的验收配额。出现以下信号时应进行责任审查：
+
+- 一个实现 Owner 同时承载三个以上稳定且可独立变化的关注点；
+- normalizer、model、emitter 与 orchestrator 出现反向依赖；
+- 一项能力变更需要同步修改三个以上没有共同 Owner 的位置；
+- 同一规范事实存在两个 current 定义；
+- generated footprint、class size、clean compile 或 Gate 成本接近既有上限；
+- evidence lane 只有相似外形，却不能说明独立 failure、consumer 或 measurement 问题。
+
+审查必须回到 Blueprint、Design、Owner、变化原因和 evidence value；软信号不自动判失败，也不得迫使功能或 Gate 缩水。Compiler/codegen 的 normalized model、codegen model、orchestrator 和 emitter 责任边界由既有 codegen admission Gate 检查；fixture、scenario、benchmark 和脚本只在能降低共享机制成本且不合并独立证据域时才整合。

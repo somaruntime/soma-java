@@ -18,6 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)（历史/current拓扑、processor/codegen分责、byte-stable与多fork非回归）
 - [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)（当前v4产品模型、正式Owner、实现与scope non-regression结论）
 - [2026-07-23 Access Model / Candidate Scan 性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)（component、JFR、code-size与FJSP多fork A/B）
 - [2026-07-21 四场景 Blueprint 采纳专题治理](2026-07-21-four-scenario-blueprint-adoption-report.md)（当前四场景、fixture、benchmark 映射与一致性证据）
@@ -40,6 +41,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)
 - [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)
 - [2026-07-23 Access Model / Candidate Scan 性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)
 - [2026-07-21 四场景 Blueprint 采纳专题治理](2026-07-21-four-scenario-blueprint-adoption-report.md)

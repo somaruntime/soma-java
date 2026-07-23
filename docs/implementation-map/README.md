@@ -10,7 +10,7 @@ Owner：SOMA Java 实现导航
 
 非事实范围：规范性设计、未来计划和实现正确性裁决
 
-最近实现核对基线：`fd82eba`
+最近实现核对基线：`6b6dc49`
 
 最后审查日期：2026-07-23
 
@@ -25,4 +25,4 @@ Implementation Map 是当前代码的简短投影。代码变化后，以代码�
 
 普通类、字段和方法清单由代码搜索获得，不在这里维护第二份完整目录。
 
-“实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续 docs/governance-only commit。Access Model、generated API/runtime、consumer、场景与 benchmark 的当前实现统一核对到 `fd82eba`；后续正式文档切换不改变该可执行候选。
+“实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续 docs/governance-only commit。Compiler/codegen 内部责任结构核对到 `6b6dc49`；Access Model、generated API/runtime、consumer、场景与 benchmark 的可执行语义仍核对到 `fd82eba`。前者 clean generate 的 222 个 Java source 以及 runtime/examples/benchmark class manifest 与治理起点逐字节一致，因此不建立新的产品契约版本。
