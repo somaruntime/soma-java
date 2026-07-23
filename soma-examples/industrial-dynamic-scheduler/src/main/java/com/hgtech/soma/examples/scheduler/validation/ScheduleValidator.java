@@ -1,0 +1,344 @@
+package com.hgtech.soma.examples.scheduler.validation;
+
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.ExternalEvent;
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.JobInput;
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.MachineInput;
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.MachineOption;
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.MaintenanceInput;
+import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem.OperationInput;
+import com.hgtech.soma.examples.scheduler.runtime.ScheduleResult;
+import com.hgtech.soma.examples.scheduler.state.OperationAssignment;
+import com.hgtech.soma.examples.scheduler.support.StableHash;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+/** 不读取 SOMA runtime 内部状态的完整领域结果校验器。 */
+public final class ScheduleValidator {
+  private ScheduleValidator() {
+  }
+
+  public static ValidationSummary validate(
+      SchedulingProblem problem, List<OperationAssignment> assignments,
+      ScheduleResult claimed) {
+    if (problem == null || assignments == null || claimed == null) {
+      throw new NullPointerException("problem, assignments and claimed");
+    }
+    require(assignments.size() == problem.operationCount(),
+        "assignment cardinality");
+    Map<String, OperationAssignment> byOperation =
+        indexAssignments(assignments);
+    require(byOperation.size() == problem.operationCount(),
+        "operation assigned more than once");
+
+    long makespan = 0L;
+    for (OperationInput operation : problem.operations()) {
+      OperationAssignment assignment =
+          byOperation.get(identity(operation.jobId, operation.operationId));
+      require(assignment != null, "missing operation assignment");
+      validateAssignment(problem, operation, assignment);
+      makespan = Math.max(makespan, assignment.endMinute);
+    }
+    validatePrecedence(problem, byOperation);
+    validateMachines(problem, assignments);
+    validateResources(problem, assignments);
+
+    long tardiness = 0L;
+    long weightedTardiness = 0L;
+    for (JobInput job : problem.jobs()) {
+      OperationInput last = problem.operation(
+          job.id, job.operationCount - 1);
+      long completion = byOperation.get(identity(
+          last.jobId, last.operationId)).endMinute;
+      long late = Math.max(0L, Math.subtractExact(completion, job.dueMinute));
+      tardiness = Math.addExact(tardiness, late);
+      weightedTardiness = Math.addExact(weightedTardiness,
+          Math.multiplyExact(late, (long) job.priority));
+    }
+    String checksum = assignmentChecksum(assignments);
+    require(claimed.assignments == assignments.size(), "claimed assignments");
+    require(claimed.completedJobs == problem.jobs().size(),
+        "claimed completed jobs");
+    require(claimed.makespanMinute == makespan, "claimed makespan");
+    require(claimed.totalTardinessMinutes == tardiness,
+        "claimed tardiness");
+    require(claimed.weightedTardiness == weightedTardiness,
+        "claimed weighted tardiness");
+    require(checksum.equals(claimed.resultChecksum),
+        "claimed result checksum");
+    return new ValidationSummary(assignments.size(), makespan, tardiness,
+        weightedTardiness, checksum);
+  }
+
+  private static Map<String, OperationAssignment> indexAssignments(
+      List<OperationAssignment> assignments) {
+    Map<String, OperationAssignment> result =
+        new HashMap<String, OperationAssignment>();
+    for (OperationAssignment assignment : assignments) {
+      require(assignment != null && assignment.operationKey != null
+              && assignment.operationKey.jobId != null
+              && assignment.operationKey.operationId != null,
+          "assignment identity");
+      String identity = identity(assignment.operationKey.jobId.value,
+          assignment.operationKey.operationId.value);
+      require(result.put(identity, assignment) == null,
+          "duplicate assignment " + identity);
+    }
+    return result;
+  }
+
+  private static void validateAssignment(
+      SchedulingProblem problem, OperationInput operation,
+      OperationAssignment assignment) {
+    MachineOption selected = null;
+    for (MachineOption option : operation.options) {
+      if (option.machineId == assignment.machineId.value) {
+        selected = option;
+        break;
+      }
+    }
+    require(selected != null, "machine is not eligible");
+    require(selected.processingMinutes == assignment.processingMinutes,
+        "machine-specific processing duration");
+    require(operation.setupFamily == assignment.setupFamily.value,
+        "setup family");
+    require(operation.resourceId == assignment.resourceId.value,
+        "secondary resource");
+    JobInput job = problem.job(operation.jobId);
+    require(assignment.dueMinute == job.dueMinute
+            && assignment.priority == job.priority,
+        "due/priority projection");
+    require(assignment.setupStartMinute >= 0L
+            && assignment.setupMinutes >= 0L
+            && assignment.transportMinutes >= 0L,
+        "non-negative timing");
+    require(assignment.startMinute == Math.addExact(
+        assignment.setupStartMinute, assignment.setupMinutes),
+        "setup/start arithmetic");
+    require(assignment.endMinute == Math.addExact(
+        assignment.startMinute, assignment.processingMinutes),
+        "processing/end arithmetic");
+    require(assignment.setupStartMinute >= job.releaseMinute
+            && assignment.setupStartMinute >= job.materialReadyMinute,
+        "release/material readiness");
+  }
+
+  private static void validatePrecedence(
+      SchedulingProblem problem,
+      Map<String, OperationAssignment> assignments) {
+    for (JobInput job : problem.jobs()) {
+      OperationAssignment predecessor = null;
+      for (int sequence = 0; sequence < job.operationCount; sequence++) {
+        OperationInput operation = problem.operation(job.id, sequence);
+        OperationAssignment current = assignments.get(identity(
+            operation.jobId, operation.operationId));
+        if (predecessor != null) {
+          long transport = problem.transportMinutes(
+              predecessor.machineId.value, current.machineId.value);
+          require(current.transportMinutes == transport,
+              "transport duration");
+          require(current.setupStartMinute >= Math.addExact(
+              predecessor.endMinute, transport),
+              "precedence/transport readiness");
+        } else {
+          require(current.transportMinutes == 0L,
+              "first operation transport");
+        }
+        predecessor = current;
+      }
+    }
+  }
+
+  private static void validateMachines(
+      SchedulingProblem problem, List<OperationAssignment> assignments) {
+    Map<Long, List<OperationAssignment>> byMachine =
+        new HashMap<Long, List<OperationAssignment>>();
+    for (OperationAssignment assignment : assignments) {
+      Long key = Long.valueOf(assignment.machineId.value);
+      List<OperationAssignment> values = byMachine.get(key);
+      if (values == null) {
+        values = new ArrayList<OperationAssignment>();
+        byMachine.put(key, values);
+      }
+      values.add(assignment);
+    }
+    for (MachineInput machine : problem.machines()) {
+      List<OperationAssignment> values =
+          byMachine.get(Long.valueOf(machine.id));
+      if (values == null) continue;
+      Collections.sort(values, ASSIGNMENT_TIME_ORDER);
+      long available = machine.initialAvailableMinute;
+      long family = machine.initialSetupFamily;
+      for (OperationAssignment assignment : values) {
+        require(assignment.setupStartMinute >= available,
+            "machine overlap");
+        long expectedSetup = problem.setupMinutes(
+            machine.id, family, assignment.setupFamily.value);
+        require(assignment.setupMinutes == expectedSetup,
+            "sequence-dependent setup");
+        for (MaintenanceInput maintenance : machine.maintenance) {
+          require(!overlap(assignment.setupStartMinute,
+              assignment.endMinute, maintenance.startMinute,
+              maintenance.endMinute), "maintenance overlap");
+        }
+        for (ExternalEvent event : problem.events()) {
+          if (event.type == SchedulingProblem.MACHINE_DELAY
+              && event.subjectId == machine.id
+              && event.minute <= assignment.setupStartMinute) {
+            require(assignment.setupStartMinute >= event.value,
+                "dynamic machine delay");
+          }
+        }
+        available = assignment.endMinute;
+        family = assignment.setupFamily.value;
+      }
+    }
+  }
+
+  private static void validateResources(
+      SchedulingProblem problem, List<OperationAssignment> assignments) {
+    Map<Long, List<ResourceEvent>> events =
+        new HashMap<Long, List<ResourceEvent>>();
+    Map<String, OperationInput> inputs =
+        new HashMap<String, OperationInput>();
+    for (OperationInput operation : problem.operations()) {
+      inputs.put(identity(operation.jobId, operation.operationId), operation);
+    }
+    for (OperationAssignment assignment : assignments) {
+      OperationInput input = inputs.get(identity(
+          assignment.operationKey.jobId.value,
+          assignment.operationKey.operationId.value));
+      Long resource = Long.valueOf(input.resourceId);
+      List<ResourceEvent> values = events.get(resource);
+      if (values == null) {
+        values = new ArrayList<ResourceEvent>();
+        events.put(resource, values);
+      }
+      values.add(new ResourceEvent(assignment.startMinute,
+          input.resourceUnits));
+      values.add(new ResourceEvent(assignment.endMinute,
+          -input.resourceUnits));
+    }
+    for (SchedulingProblem.ResourceInput resource : problem.resources()) {
+      List<ResourceEvent> values = events.get(Long.valueOf(resource.id));
+      if (values == null) continue;
+      Collections.sort(values, ResourceEvent.ORDER);
+      int used = 0;
+      for (ResourceEvent event : values) {
+        used = Math.addExact(used, event.delta);
+        require(used >= 0 && used <= resource.capacity,
+            "secondary resource capacity");
+      }
+      require(used == 0, "secondary resource accounting");
+    }
+  }
+
+  public static String assignmentChecksum(
+      List<OperationAssignment> assignments) {
+    ArrayList<OperationAssignment> ordered =
+        new ArrayList<OperationAssignment>(assignments);
+    Collections.sort(ordered, ASSIGNMENT_IDENTITY_ORDER);
+    StableHash hash = new StableHash()
+        .addString("industrial-scheduler-result-v1")
+        .addInt(ordered.size());
+    for (OperationAssignment assignment : ordered) {
+      hash.addLong(assignment.operationKey.jobId.value)
+          .addLong(assignment.operationKey.operationId.value)
+          .addLong(assignment.machineId.value)
+          .addLong(assignment.resourceId.value)
+          .addLong(assignment.setupFamily.value)
+          .addLong(assignment.setupStartMinute)
+          .addLong(assignment.setupMinutes)
+          .addLong(assignment.transportMinutes)
+          .addLong(assignment.startMinute)
+          .addLong(assignment.processingMinutes)
+          .addLong(assignment.endMinute)
+          .addLong(assignment.dueMinute)
+          .addInt(assignment.priority);
+    }
+    return hash.finishHex();
+  }
+
+  private static boolean overlap(long leftStart, long leftEnd,
+                                 long rightStart, long rightEnd) {
+    return leftStart < rightEnd && leftEnd > rightStart;
+  }
+
+  private static String identity(long job, long operation) {
+    return job + ":" + operation;
+  }
+
+  private static void require(boolean condition, String label) {
+    if (!condition) {
+      throw new IllegalStateException(
+          "schedule validation failed: " + label);
+    }
+  }
+
+  private static final Comparator<OperationAssignment>
+      ASSIGNMENT_TIME_ORDER = new Comparator<OperationAssignment>() {
+        @Override
+        public int compare(OperationAssignment left,
+                           OperationAssignment right) {
+          int result = Long.compare(
+              left.setupStartMinute, right.setupStartMinute);
+          if (result != 0) return result;
+          return ASSIGNMENT_IDENTITY_ORDER.compare(left, right);
+        }
+      };
+
+  private static final Comparator<OperationAssignment>
+      ASSIGNMENT_IDENTITY_ORDER = new Comparator<OperationAssignment>() {
+        @Override
+        public int compare(OperationAssignment left,
+                           OperationAssignment right) {
+          int result = Long.compare(left.operationKey.jobId.value,
+              right.operationKey.jobId.value);
+          if (result != 0) return result;
+          return Long.compare(left.operationKey.operationId.value,
+              right.operationKey.operationId.value);
+        }
+      };
+
+  private static final class ResourceEvent {
+    static final Comparator<ResourceEvent> ORDER =
+        new Comparator<ResourceEvent>() {
+          @Override
+          public int compare(ResourceEvent left, ResourceEvent right) {
+            int time = Long.compare(left.minute, right.minute);
+            if (time != 0) return time;
+            return Integer.compare(left.delta, right.delta);
+          }
+        };
+    final long minute;
+    final int delta;
+
+    ResourceEvent(long minute, int delta) {
+      this.minute = minute;
+      this.delta = delta;
+    }
+  }
+
+  public static final class ValidationSummary {
+    public final int assignments;
+    public final long makespanMinute;
+    public final long totalTardinessMinutes;
+    public final long weightedTardiness;
+    public final String checksum;
+
+    ValidationSummary(int assignments, long makespanMinute,
+                      long totalTardinessMinutes, long weightedTardiness,
+                      String checksum) {
+      this.assignments = assignments;
+      this.makespanMinute = makespanMinute;
+      this.totalTardinessMinutes = totalTardinessMinutes;
+      this.weightedTardiness = weightedTardiness;
+      this.checksum = checksum;
+    }
+  }
+}

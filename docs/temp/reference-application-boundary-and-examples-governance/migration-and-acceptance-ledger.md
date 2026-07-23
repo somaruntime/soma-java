@@ -85,13 +85,18 @@ Owner：SOMA 参考应用迁移与验收
 
 ### Stage 3
 
-- [ ] scheduler domain loop/validator/oracle；
-- [ ] versioned configs + detached problem generator + bootstrap；
-- [ ] mandatory industrial constraints；
-- [ ] SOMA access breadth；
-- [ ] isolated build；
-- [ ] long-run and multi-fork evidence；
-- [ ] Stage 3 commit。
+- [x] scheduler domain loop/validator/oracle；
+- [x] versioned configs + detached problem generator + bootstrap；
+- [x] mandatory industrial constraints；
+- [x] SOMA access breadth；
+- [x] isolated build；
+- [x] long-run and multi-fork evidence；
+- [x] Stage 3 committed by the commit containing this ledger update。
+
+Stage 3 的 canonical Gate 为 `check-industrial-scheduler.sh`：四个受版本控制的
+profile 分别覆盖 6、192、8,000 和 10,000 个 operation；correctness 另有手算
+oracle 与 lifecycle 负路径，default 由三个独立 JVM fork 记录 allocation、GC
+和 runtime high-water，所有 artifact 均保持 `claimAllowed=false`。
 
 ### Stage 4
 

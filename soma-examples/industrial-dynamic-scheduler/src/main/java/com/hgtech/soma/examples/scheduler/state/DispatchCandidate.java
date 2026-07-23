@@ -24,5 +24,7 @@ public final class DispatchCandidate {
   @SomaField public long dueMinute;
   @SomaField public int priority;
   @SomaField public long operationVersion;
+  @SomaField public long machineVersion;
+  @SomaField public long resourceVersion;
   @SomaField public boolean ready;
 }
