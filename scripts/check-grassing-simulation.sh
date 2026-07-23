@@ -52,28 +52,142 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
   "org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version:build-classpath" \
   -DincludeScope=runtime -Dmdep.outputFile="$runtime_classpath_file"
 runtime_classpath=$application_dir/target/classes:$(cat "$runtime_classpath_file")
+test_classpath=$application_dir/target/test-classes:$runtime_classpath
 
-if grep -R -E \
-    'com\.hgtech\.soma\.(runtime|examples\.grassing\.state\.generated)' \
+for package in config scenario simulation result runtime schema support; do
+  if [ ! -d \
+      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/$package" ]; then
+    printf '%s\n' \
+      "grassing-simulation-check: missing production package $package" >&2
+    exit 1
+  fi
+done
+for retired in model state evidence validation; do
+  if find \
+      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/$retired" \
+      -type f -print 2>/dev/null | grep . >/dev/null; then
+    printf '%s\n' \
+      "grassing-simulation-check: retired production package remains: $retired" >&2
+    exit 1
+  fi
+done
+if grep -R -E '^import com\.hgtech\.soma\.(runtime|examples\.grassing\.schema\.generated)' \
     "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/config" \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/model" \
+    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/scenario" \
     "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/support" \
     >/dev/null; then
   printf '%s\n' \
-    'grassing-simulation-check: config/generator input depends on SOMA runtime' >&2
+    'grassing-simulation-check: detached input depends on SOMA runtime' >&2
   exit 1
 fi
-if grep -R -F 'InitialStateGenerator' \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/runtime" \
+if grep -R -E \
+    '^import com\.hgtech\.soma\.examples\.grassing\.(runtime|schema|simulation|result|scenario)' \
+    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/config" \
+    >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.grassing\.(runtime|schema|simulation|result)' \
+      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/scenario" \
+      >/dev/null \
+    || grep -R -E '^import com\.hgtech\.soma\.' \
+      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/support" \
+      >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.(runtime|examples\.grassing)' \
+      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/schema" \
+      >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.grassing\.(application|simulation|evidence|validation)' \
+      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/runtime" \
+      >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.grassing\.(config|schema|support|evidence|validation)' \
+      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/simulation" \
+      >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: production package DAG regressed' >&2
+  exit 1
+fi
+if grep -R -E '^import com\.hgtech\.soma\.' \
+    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/result" \
     >/dev/null; then
   printf '%s\n' \
-    'grassing-simulation-check: runtime calls the initial-state generator' >&2
+    'grassing-simulation-check: detached result depends on SOMA' >&2
+  exit 1
+fi
+if grep -E '^import com\.hgtech\.soma\.examples\.grassing\.(runtime|schema)' \
+    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/SimulationApplication.java" \
+    >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: application bypasses the simulation facade' >&2
+  exit 1
+fi
+if grep -R -E \
+    'examples\.grassing\.(evidence|validation)|SimulationRuntime(TestAccess|Checks)|benchmark\.(warmup|forks|measurements)' \
+    "$application_dir/src/main/java" >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: test/evidence responsibility leaked into production' >&2
+  exit 1
+fi
+if grep -R -E \
+    'examples\.grassing\.(state|model)|SimulationRuntimeBootstrap|InitialStateGenerator|SimulationInitialState' \
+    "$application_dir/src/main/java" >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: retired production identity remains' >&2
+  exit 1
+fi
+main_profiles=$(find "$application_dir/src/main/resources/config" \
+  -type f -name '*.properties' | wc -l | tr -d ' ')
+if [ "$main_profiles" -ne 1 ] \
+    || [ ! -f "$application_dir/src/main/resources/config/default.properties" ] \
+    || grep -R -F 'benchmark.' "$application_dir/src/main/resources" \
+      >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: production config/resource boundary regressed' >&2
+  exit 1
+fi
+for profile in correctness large long-run; do
+  if [ ! -f "$application_dir/src/test/resources/config/$profile.properties" ]; then
+    printf '%s\n' \
+      "grassing-simulation-check: missing test profile $profile" >&2
+    exit 1
+  fi
+done
+if [ ! -f \
+    "$application_dir/src/test/resources/benchmark/default.properties" ]; then
+  printf '%s\n' \
+    'grassing-simulation-check: missing benchmark options' >&2
   exit 1
 fi
 
+production_jar=$application_dir/target/grassing-individual-simulation-1.0.0-SNAPSHOT.jar
+jar_manifest=$evidence_dir/production-jar.txt
+"$JAVA_HOME/bin/jar" tf "$production_jar" >"$jar_manifest"
+if grep -E \
+    'grassing/(evidence|validation|model|state)/|SimulationRuntime(TestAccess|Checks)|config/(correctness|large|long-run)\.properties|benchmark/' \
+    "$jar_manifest" >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: production JAR contains test or retired content' >&2
+  exit 1
+fi
+if ! grep -F \
+    'com/hgtech/soma/examples/grassing/schema/generated/GrasserStateTable.class' \
+    "$jar_manifest" >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: production JAR lacks current schema projection' >&2
+  exit 1
+fi
+for contract in \
+  com.hgtech.soma.examples.grassing.scenario.SimulationScenario \
+  com.hgtech.soma.examples.grassing.simulation.Simulator \
+  com.hgtech.soma.examples.grassing.simulation.SimulationSession \
+  com.hgtech.soma.examples.grassing.result.SimulationResult; do
+  "$JAVA_HOME/bin/javap" -classpath "$runtime_classpath" "$contract" \
+    >"$evidence_dir/$(printf '%s' "$contract" | tr . _).javap"
+done
+
 verification_log=$evidence_dir/verification.log
 for profile in correctness default large long-run; do
-  "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$runtime_classpath" \
+  "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$test_classpath" \
     com.hgtech.soma.examples.grassing.evidence.SimulationVerification \
     "$profile" >>"$verification_log"
 done
@@ -110,11 +224,11 @@ grep -F 'input.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'result.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 
 forks=$(sed -n 's/^benchmark.forks=//p' \
-  "$application_dir/src/main/resources/config/default.properties")
+  "$application_dir/src/test/resources/benchmark/default.properties")
 benchmark_artifact=$evidence_dir/benchmark.jsonl
 fork=1
 while [ "$fork" -le "$forks" ]; do
-  "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$runtime_classpath" \
+  "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$test_classpath" \
     com.hgtech.soma.examples.grassing.evidence.SimulationBenchmark default \
     >>"$benchmark_artifact"
   fork=$((fork + 1))

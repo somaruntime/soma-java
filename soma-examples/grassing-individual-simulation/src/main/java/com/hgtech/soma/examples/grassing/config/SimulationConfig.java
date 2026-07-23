@@ -27,9 +27,6 @@ public final class SimulationConfig {
   private final double grassingAmount;
   private final double searchEnergyThreshold;
   private final int traceInterval;
-  private final int benchmarkWarmup;
-  private final int benchmarkForks;
-  private final int benchmarkMeasurements;
 
   SimulationConfig(TreeMap<String, String> values) {
     this.values = new TreeMap<String, String>(values);
@@ -53,9 +50,6 @@ public final class SimulationConfig {
     grassingAmount = parseDouble("grassing.amount");
     searchEnergyThreshold = parseDouble("search.energy.threshold");
     traceInterval = parseInt("trace.interval");
-    benchmarkWarmup = parseInt("benchmark.warmup");
-    benchmarkForks = parseInt("benchmark.forks");
-    benchmarkMeasurements = parseInt("benchmark.measurements");
     validate();
   }
 
@@ -102,9 +96,6 @@ public final class SimulationConfig {
     require(searchEnergyThreshold() >= 0.0,
         "search energy threshold must be non-negative");
     requirePositive("trace.interval");
-    requireNonNegative("benchmark.warmup");
-    requirePositive("benchmark.forks");
-    requirePositive("benchmark.measurements");
   }
 
   private void requirePositive(String key) {
@@ -167,9 +158,6 @@ public final class SimulationConfig {
     if ("initial.population".equals(key)) return initialPopulation;
     if ("ticks".equals(key)) return ticks;
     if ("trace.interval".equals(key)) return traceInterval;
-    if ("benchmark.warmup".equals(key)) return benchmarkWarmup;
-    if ("benchmark.forks".equals(key)) return benchmarkForks;
-    if ("benchmark.measurements".equals(key)) return benchmarkMeasurements;
     throw new IllegalArgumentException("not an integer config key: " + key);
   }
 
@@ -227,11 +215,6 @@ public final class SimulationConfig {
     return searchEnergyThreshold;
   }
   public int traceInterval() { return traceInterval; }
-  public int benchmarkWarmup() { return benchmarkWarmup; }
-  public int benchmarkForks() { return benchmarkForks; }
-  public int benchmarkMeasurements() {
-    return benchmarkMeasurements;
-  }
 
   public String canonicalText() {
     StringBuilder text = new StringBuilder();

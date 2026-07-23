@@ -6,10 +6,14 @@ import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationEngine;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeFactory;
-import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeChecks;
+import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeBoundaryVerification;
 import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.scenario.SyntheticSimulationScenarioFactory;
+import com.hgtech.soma.examples.grassing.simulation.SimulationSession;
+import com.hgtech.soma.examples.grassing.simulation.Simulator;
+import com.hgtech.soma.examples.grassing.simulation.SomaSimulator;
+import com.hgtech.soma.examples.grassing.validation.SimulationResultAssertions;
 import com.hgtech.soma.examples.grassing.validation.SimulationValidator;
 
 import java.util.ArrayList;
@@ -49,7 +53,8 @@ public final class SimulationVerification {
     if (isCorrectnessProfile(selector)) {
       oracle = verifyAoS(config, first);
       SimulationValidator.verifyInvalidInputs(config);
-      SimulationRuntimeChecks.verify(config, first);
+      SimulationRuntimeBoundaryVerification.verify(first);
+      verifySessionLifecycle(first);
     }
     System.out.println("simulation-verification: profile=" + selector
         + " ticks=" + run.result.ticks()
@@ -97,10 +102,39 @@ public final class SimulationVerification {
         oneShotRejected = true;
       }
       require(oneShotRejected, "one-shot engine accepted a second run");
-      return new Run(result);
+      SimulationResult facadeResult = new SomaSimulator().run(scenario);
+      SimulationResultAssertions.validate(scenario, facadeResult);
+      require(result.resultChecksum().equals(
+              facadeResult.resultChecksum()),
+          "canonical facade changed the runtime result");
+      return new Run(facadeResult);
     } finally {
       runtime.close();
     }
+  }
+
+  private static void verifySessionLifecycle(SimulationScenario scenario) {
+    Simulator simulator = new SomaSimulator();
+    SimulationSession session = simulator.prepare(scenario);
+    SimulationResult initial = session.currentResult();
+    require(initial.ticks() == 0, "prepared session did not start at tick zero");
+    while (session.hasNextTick()) session.step();
+    SimulationResult beforeFinish = session.currentResult();
+    SimulationResult result = session.finish();
+    require(beforeFinish.resultChecksum().equals(result.resultChecksum()),
+        "finish changed an already completed session");
+    String detachedChecksum = result.resultChecksum();
+    session.close();
+    session.close();
+    require(detachedChecksum.equals(result.resultChecksum()),
+        "detached result changed after session close");
+    boolean rejected = false;
+    try {
+      session.currentResult();
+    } catch (IllegalStateException expected) {
+      rejected = true;
+    }
+    require(rejected, "closed session still exposed live state");
   }
 
   private static SimulationScenario reversed(SimulationScenario scenario) {

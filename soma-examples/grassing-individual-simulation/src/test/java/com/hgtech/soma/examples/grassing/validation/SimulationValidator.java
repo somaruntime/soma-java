@@ -4,6 +4,7 @@ import com.hgtech.soma.examples.grassing.config.SimulationConfig;
 import com.hgtech.soma.examples.grassing.config.SimulationConfigLoader;
 import com.hgtech.soma.examples.grassing.result.SimulationResult;
 import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
+import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeTestAccess;
 import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.schema.BehaviourMode;
@@ -25,7 +26,7 @@ public final class SimulationValidator {
   public static void validate(
       SimulationConfig config, SimulationRuntime runtime,
       SimulationResult result) {
-    double[] grass = runtime.grassCopy();
+    double[] grass = SimulationRuntimeTestAccess.grassCopy(runtime);
     double totalGrass = 0.0;
     for (double value : grass) {
       require(Double.isFinite(value), "grass is not finite");
@@ -36,7 +37,8 @@ public final class SimulationValidator {
     require(equalBits(totalGrass, result.totalGrass()),
         "result grass total differs from authoritative grid");
 
-    List<GrasserState> individuals = runtime.materializeIndividuals();
+    List<GrasserState> individuals =
+        SimulationRuntimeTestAccess.materializeIndividuals(runtime);
     Set<Long> identities = new HashSet<Long>(
         Math.max(1, individuals.size() * 4 / 3 + 1));
     double totalEnergy = 0.0;
@@ -76,13 +78,16 @@ public final class SimulationValidator {
             - result.deaths() == result.population(),
         "population conservation mismatch");
 
-    require(runtime.keyCount() == result.population(),
+    require(SimulationRuntimeTestAccess.keyCount(runtime)
+            == result.population(),
         "key traversal does not cover population");
-    double snapshotEnergy = runtime.snapshotEnergySum();
+    double snapshotEnergy =
+        SimulationRuntimeTestAccess.snapshotEnergySum(runtime);
     require(close(snapshotEnergy, result.totalEnergy(), result.population()),
         "IndexSnapshot column gather mismatch");
 
-    List<TraceSample> traces = runtime.materializeTraces();
+    List<TraceSample> traces =
+        SimulationRuntimeTestAccess.materializeTraces(runtime);
     require(!traces.isEmpty(), "trace is empty");
     long previousTick = -1L;
     for (TraceSample sample : traces) {
@@ -117,7 +122,8 @@ public final class SimulationValidator {
     require(runtimeResult.births() == reference.births()
             && runtimeResult.deaths() == reference.deaths(),
         "AoS birth/death mismatch");
-    double[] actualGrass = runtime.grassCopy();
+    double[] actualGrass =
+        SimulationRuntimeTestAccess.grassCopy(runtime);
     double[] expectedGrass = reference.grassCopy();
     require(actualGrass.length == expectedGrass.length,
         "AoS grass length mismatch");
@@ -126,7 +132,8 @@ public final class SimulationValidator {
           "AoS grass mismatch at cell " + cell);
     }
 
-    List<GrasserState> actual = runtime.materializeIndividuals();
+    List<GrasserState> actual =
+        SimulationRuntimeTestAccess.materializeIndividuals(runtime);
     Collections.sort(actual, INDIVIDUAL_ORDER);
     List<Individual> expected = reference.canonicalIndividuals();
     require(actual.size() == expected.size(), "AoS population mismatch");

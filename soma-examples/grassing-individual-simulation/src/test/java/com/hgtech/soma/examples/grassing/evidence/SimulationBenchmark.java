@@ -3,12 +3,12 @@ package com.hgtech.soma.examples.grassing.evidence;
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
 import com.hgtech.soma.examples.grassing.config.SimulationConfigLoader;
 import com.hgtech.soma.examples.grassing.result.SimulationResult;
-import com.hgtech.soma.examples.grassing.runtime.SimulationEngine;
-import com.hgtech.soma.examples.grassing.runtime.SimulationRuntime;
-import com.hgtech.soma.examples.grassing.runtime.SimulationRuntimeFactory;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.scenario.SyntheticSimulationScenarioFactory;
-import com.hgtech.soma.examples.grassing.validation.SimulationValidator;
+import com.hgtech.soma.examples.grassing.simulation.SimulationSession;
+import com.hgtech.soma.examples.grassing.simulation.Simulator;
+import com.hgtech.soma.examples.grassing.simulation.SomaSimulator;
+import com.hgtech.soma.examples.grassing.validation.SimulationResultAssertions;
 
 /** 单 JVM fork 的 correctness-guarded integrated benchmark。 */
 public final class SimulationBenchmark {
@@ -18,10 +18,11 @@ public final class SimulationBenchmark {
   public static void main(String[] args) throws Exception {
     String selector = args.length == 0 ? "default" : args[0];
     SimulationConfig config = new SimulationConfigLoader().load(selector);
-    SimulationScenario initialState =
+    BenchmarkOptions options = BenchmarkOptions.loadDefault();
+    SimulationScenario scenario =
         new SyntheticSimulationScenarioFactory().create(config);
-    for (int warmup = 0; warmup < config.benchmarkWarmup(); warmup++) {
-      execute(config, initialState, false);
+    for (int warmup = 0; warmup < options.warmup(); warmup++) {
+      execute(config, scenario, false);
     }
 
     long setupNanos = 0L;
@@ -42,8 +43,8 @@ public final class SimulationBenchmark {
     String schemaHash = null;
     String runtimePlanHash = null;
     for (int measurement = 0;
-         measurement < config.benchmarkMeasurements(); measurement++) {
-      Measurement value = execute(config, initialState, true);
+         measurement < options.measurements(); measurement++) {
+      Measurement value = execute(config, scenario, true);
       setupNanos = Math.addExact(setupNanos, value.setupNanos);
       tickNanos = Math.addExact(tickNanos, value.tickNanos);
       minimumTickNanos = Math.min(minimumTickNanos, value.tickNanos);
@@ -77,15 +78,16 @@ public final class SimulationBenchmark {
     System.out.println("{"
         + "\"artifact\":\"grassing-simulation-benchmark-v1\","
         + "\"profile\":\"" + selector + "\","
-        + "\"inputChecksum\":\"" + initialState.checksum() + "\","
+        + "\"inputChecksum\":\"" + scenario.checksum() + "\","
         + "\"resultChecksum\":\"" + resultChecksum + "\","
         + "\"schemaHash\":\"" + schemaHash + "\","
         + "\"runtimePlanHash\":\"" + runtimePlanHash + "\","
         + "\"ticks\":" + config.ticks() + ","
         + "\"initialPopulation\":" + config.initialPopulation() + ","
         + "\"maximumPopulation\":" + maximumPopulation + ","
-        + "\"warmup\":" + config.benchmarkWarmup() + ","
-        + "\"measurements\":" + config.benchmarkMeasurements() + ","
+        + "\"warmup\":" + options.warmup() + ","
+        + "\"configuredForks\":" + options.forks() + ","
+        + "\"measurements\":" + options.measurements() + ","
         + "\"setupNanos\":" + setupNanos + ","
         + "\"tickNanos\":" + tickNanos + ","
         + "\"minimumTickNanos\":" + minimumTickNanos + ","
@@ -104,12 +106,11 @@ public final class SimulationBenchmark {
   }
 
   private static Measurement execute(
-      SimulationConfig config, SimulationScenario initialState,
+      SimulationConfig config, SimulationScenario scenario,
       boolean measured) {
     long setupStart = System.nanoTime();
-    SimulationRuntime runtime =
-        new SimulationRuntimeFactory().create(initialState);
-    SimulationEngine engine = new SimulationEngine(runtime);
+    Simulator simulator = new SomaSimulator();
+    SimulationSession session = simulator.prepare(scenario);
     long setupNanos = System.nanoTime() - setupStart;
     try {
       long beforeAllocation = measured
@@ -117,31 +118,29 @@ public final class SimulationBenchmark {
       JvmMetrics.GcSnapshot beforeGc = measured
           ? JvmMetrics.gcSnapshot() : null;
       long tickStart = System.nanoTime();
-      SimulationResult result = engine.run();
+      SimulationResult result = session.finish();
       long tickNanos = System.nanoTime() - tickStart;
       JvmMetrics.GcSnapshot afterGc = measured
           ? JvmMetrics.gcSnapshot() : null;
       long allocated = measured
           ? Math.subtractExact(JvmMetrics.currentThreadAllocatedBytes(),
               beforeAllocation) : 0L;
-      SimulationValidator.validate(config, runtime, result);
-      SimulationRuntime.RuntimeEvidence evidence =
-          runtime.runtimeEvidence();
+      SimulationResultAssertions.validate(scenario, result);
       return new Measurement(
           setupNanos, tickNanos, allocated,
           measured ? delta(afterGc.youngCount, beforeGc.youngCount) : 0L,
           measured ? delta(afterGc.youngMillis, beforeGc.youngMillis) : 0L,
           measured ? delta(afterGc.fullCount, beforeGc.fullCount) : 0L,
           measured ? delta(afterGc.fullMillis, beforeGc.fullMillis) : 0L,
-          evidence.exactIndexHighWaterBytes,
-          evidence.updateScratchHighWaterBytes,
-          evidence.operationScratchHighWaterBytes,
-          evidence.populationGrowthCount,
+          result.diagnostics().exactIndexHighWaterBytes(),
+          result.diagnostics().updateScratchHighWaterBytes(),
+          result.diagnostics().operationScratchHighWaterBytes(),
+          result.diagnostics().populationGrowthCount(),
           result.maximumPopulation(), result.resultChecksum(),
           result.diagnostics().schemaHash(),
           result.diagnostics().runtimePlanHash());
     } finally {
-      runtime.close();
+      session.close();
     }
   }
 

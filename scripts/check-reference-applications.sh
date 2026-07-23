@@ -55,12 +55,13 @@ for retired in \
 done
 if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime)' \
     soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem \
-    soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/model \
+    soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/scenario \
     >/dev/null; then
   printf '%s\n' 'reference-app-check: detached input model/generator imports SOMA runtime' >&2
   exit 1
 fi
-if grep -R -E 'SyntheticSchedulingProblemFactory|InitialStateGenerator' \
+if grep -R -E \
+    'SyntheticSchedulingProblemFactory|SyntheticSimulationScenarioFactory' \
     soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime \
     soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime \
     >/dev/null; then

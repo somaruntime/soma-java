@@ -23,9 +23,7 @@ public final class SimulationConfigLoader {
           "initial.energy.minimum", "initial.energy.maximum",
           "metabolism.cost", "reproduction.threshold",
           "reproduction.probability", "grassing.amount",
-          "search.energy.threshold", "trace.interval",
-          "benchmark.warmup", "benchmark.forks",
-          "benchmark.measurements")));
+          "search.energy.threshold", "trace.interval")));
 
   public SimulationConfig load(String selector, String... overrides)
       throws IOException {

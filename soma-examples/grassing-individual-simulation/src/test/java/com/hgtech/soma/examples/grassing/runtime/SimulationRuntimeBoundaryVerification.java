@@ -1,6 +1,5 @@
 package com.hgtech.soma.examples.grassing.runtime;
 
-import com.hgtech.soma.examples.grassing.config.SimulationConfig;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.schema.BehaviourMode;
 import com.hgtech.soma.examples.grassing.schema.GrasserId;
@@ -8,12 +7,11 @@ import com.hgtech.soma.examples.grassing.schema.generated.GrasserStateBatch;
 import com.hgtech.soma.runtime.IndexSnapshot;
 
 /** reference application 边界上的 key、Index 与 lifecycle 负路径。 */
-public final class SimulationRuntimeChecks {
-  private SimulationRuntimeChecks() {
+public final class SimulationRuntimeBoundaryVerification {
+  private SimulationRuntimeBoundaryVerification() {
   }
 
-  public static void verify(
-      SimulationConfig config, SimulationScenario scenario) {
+  public static void verify(SimulationScenario scenario) {
     SimulationRuntime runtime =
         new SimulationRuntimeFactory().create(scenario);
     try {
@@ -66,7 +64,7 @@ public final class SimulationRuntimeChecks {
     expectFailure(new Action() {
       @Override
       public void run() {
-        runtime.population();
+        SimulationRuntimeTestAccess.population(runtime);
       }
     }, "released runtime access");
   }

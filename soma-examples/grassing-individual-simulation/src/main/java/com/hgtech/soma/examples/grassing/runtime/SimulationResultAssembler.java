@@ -83,15 +83,7 @@ final class SimulationResultAssembler {
   }
 
   private SimulationDiagnostics diagnostics() {
-    SimulationRuntime.RuntimeEvidence evidence = runtime.runtimeEvidence();
-    return new SimulationDiagnostics(
-        runtime.schemaHash(), runtime.runtimePlanHash(),
-        evidence.exactIndexHighWaterBytes,
-        evidence.updateScratchHighWaterBytes,
-        evidence.operationScratchHighWaterBytes,
-        evidence.populationGrowthCount,
-        evidence.populationCapacity,
-        evidence.traceCapacity);
+    return runtime.diagnostics();
   }
 
   private static void requireFinite(double value, String name) {
