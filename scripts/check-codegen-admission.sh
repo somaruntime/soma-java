@@ -17,6 +17,40 @@ if [ "$java_specification" != '1.8' ]; then
   exit 1
 fi
 
+processor_source=soma-processor/src/main/java/com/hgtech/soma/processor
+for source in \
+  SomaProcessor.java \
+  SomaSchemaModel.java \
+  DenseTableCodegenModel.java \
+  DenseTableSourceGenerator.java \
+  DenseTableSourceEmitter.java \
+  DenseAuxiliarySourceEmitter.java \
+  DenseSelectorSourceSupport.java \
+  DenseExactIndexSourceEmitter.java; do
+  if [ ! -f "$processor_source/$source" ]; then
+    printf '%s\n' "codegen-admission-check: missing codegen responsibility owner $source" >&2
+    exit 1
+  fi
+done
+
+grep -F 'import static com.hgtech.soma.processor.SomaSchemaModel.*;' \
+  "$processor_source/SomaProcessor.java" >/dev/null
+grep -F 'static final class SchemaModel' "$processor_source/SomaSchemaModel.java" >/dev/null
+grep -F 'static final class TableSpec' "$processor_source/DenseTableCodegenModel.java" >/dev/null
+grep -F 'new DenseAuxiliarySourceEmitter' \
+  "$processor_source/DenseTableSourceGenerator.java" >/dev/null
+grep -F 'new DenseTableSourceEmitter' \
+  "$processor_source/DenseTableSourceGenerator.java" >/dev/null
+
+if grep -F 'static final class SchemaModel' "$processor_source/SomaProcessor.java" >/dev/null \
+    || grep -F 'static final class TableSpec' \
+      "$processor_source/DenseTableSourceGenerator.java" >/dev/null \
+    || grep -F 'DenseTableSourceGenerator.' \
+      "$processor_source/DenseExactIndexSourceEmitter.java" >/dev/null; then
+  printf '%s\n' 'codegen-admission-check: processor/codegen responsibility boundary regressed' >&2
+  exit 1
+fi
+
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar

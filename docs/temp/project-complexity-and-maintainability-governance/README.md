@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 2 已完成，Stage 3–5 实施中）
+状态：active（Stage 4 已完成，Stage 5 收口中）
 
 Owner：SOMA Java 项目复杂度与可维护性治理专题
 
@@ -166,7 +166,25 @@ Stage 2 已形成并通过完整 Gate：
 - 当前 checkout 的 Markdown 总量为 131 份、12,860 行；该数字只描述结果，不是验收配额；
 - Zulu JDK 8u492 上 `./scripts/check-docs.sh`、`git diff --check` 和 `./scripts/check.sh` 全部通过。
 
-## 13. 退役条件
+## 13. Stage 3 processor/codegen 候选
+
+Stage 3 按稳定职责完成五个可独立保留的内部重构提交：
+
+- `a77b3e1` 分离 dense codegen model，`59480a7` 分离 selector source support；
+- `c10ef87` 分离 auxiliary emitter，`4859497` 将 generator 收敛为 artifact orchestrator；
+- `6b6dc49` 分离 normalized schema model 与 schema JSON support。
+
+`SomaProcessor` 由 3,054 行降为 2,156 行，保留 discovery、validation、admission、artifact plan 与 output 流程；`DenseTableSourceGenerator` 由 4,432 行降为 47 行，只编排 deterministic artifacts。Table、auxiliary facade、exact index、selector support、dense codegen model 和 normalized schema model 各自拥有明确责任。核心三模块生产源码由 16,372 行变为 16,524 行；增加的 152 行是责任边界成本，不作为失败。
+
+每个切片均在 Zulu JDK 8u492 上 clean generate。最终 222 个 generated Java 文件与 Stage 1 逐文件 SHA-256 manifest 完全一致，manifest SHA-256 仍为 `2ce2b6cd4e5da117b311a3c0719f5843140042fb6a0f8d1d269707c334de4897`；compiler phase-0 与 codegen admission 均通过。
+
+## 14. Stage 4 evidence 候选
+
+fixture、scenario、benchmark 和既有 Gate 保持独立，不建立通用 runner，也不提交一份重复 222 个生成文件的永久 manifest。唯一新增的 evidence 是在既有 `check-codegen-admission.sh` 中验证 normalized model、codegen model、orchestrator 和 emitter Owner 仍存在，且禁止 model 回流 processor/generator 或 exact emitter 反向依赖 orchestrator。
+
+该检查约束责任关系而非文件行数；既有 public API、schema/hash/golden、external consumer、correctness、allocation、code-size 和性能 Gate 不变。
+
+## 15. 退役条件
 
 专题完成后，将长期事实分别固化到唯一的 Blueprint、Design 或 Engineering Owner，刷新必要的 Implementation Map、Conformance 与 current Report；若过程证据具有长期价值，形成 Governance Report。完成全量 Gate 和切换授权后删除本目录，不归档 Temporary。
 
