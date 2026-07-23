@@ -18,6 +18,36 @@ if [ "$java_specification" != '1.8' ]; then
   exit 1
 fi
 
+benchmark_source=soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks
+for owner in \
+  SmokeLaneSuite.java \
+  SmokeLaneContract.java \
+  SmokeLaneWorkloads.java \
+  SmokeLaneEvidence.java \
+  SmokeLaneAggregation.java; do
+  if [ ! -f "$benchmark_source/$owner" ]; then
+    printf '%s\n' "benchmark-smoke-check: missing lane responsibility owner $owner" >&2
+    exit 1
+  fi
+done
+
+if grep -F 'SmokeLaneSuite' "$benchmark_source/BenchmarkModel.java" >/dev/null \
+    || grep -F 'BenchmarkModel' "$benchmark_source/SmokeLaneContract.java" >/dev/null \
+    || grep -F 'REQUIRED_LANES' "$benchmark_source/SmokeLaneWorkloads.java" >/dev/null \
+    || grep -F 'private static LaneObservation optional' \
+      "$benchmark_source/SmokeLaneSuite.java" >/dev/null \
+    || grep -F 'validateAccessPatternCard' \
+      "$benchmark_source/SmokeLaneSuite.java" >/dev/null \
+    || grep -F 'private static void merge' \
+      "$benchmark_source/SmokeLaneSuite.java" >/dev/null; then
+  printf '%s\n' 'benchmark-smoke-check: lane responsibility boundary regressed' >&2
+  exit 1
+fi
+
+grep -F '"x-soma-laneBinding": "SmokeLaneSuite.validateLaneRecord"' \
+  soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
+  >/dev/null
+
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/benchmark-smoke.XXXXXX")
 commit=$(git rev-parse HEAD)

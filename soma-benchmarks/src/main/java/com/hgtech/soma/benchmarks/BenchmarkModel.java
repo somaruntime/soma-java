@@ -228,19 +228,19 @@ final class BenchmarkModel {
             if (((List<?>) record.get("knownLimitations")).isEmpty()) {
                 throw new IllegalArgumentException("knownLimitations required: " + lane);
             }
-            String expectedWorkload = SmokeLaneSuite.workloadId(lane);
+            String expectedWorkload = SmokeLaneContract.workloadId(lane);
             if (!expectedWorkload.equals(record.get("workloadId"))) {
                 throw new IllegalArgumentException("wrong workloadId for " + lane);
             }
             @SuppressWarnings("unchecked")
             Map<String, Object> evidence = (Map<String, Object>) record.get("workloadEvidence");
-            SmokeLaneSuite.validateWorkloadEvidence(lane, evidence);
-            SmokeLaneSuite.validateLaneRecord(lane, record);
+            SmokeLaneContract.validateWorkloadEvidence(lane, evidence);
+            SmokeLaneContract.validateLaneRecord(lane, record);
         }
-        Set<String> missing = new LinkedHashSet<String>(SmokeLaneSuite.REQUIRED_LANES);
+        Set<String> missing = new LinkedHashSet<String>(SmokeLaneContract.REQUIRED_LANES);
         missing.removeAll(lanes);
         Set<String> unexpected = new LinkedHashSet<String>(lanes);
-        unexpected.removeAll(SmokeLaneSuite.REQUIRED_LANES);
+        unexpected.removeAll(SmokeLaneContract.REQUIRED_LANES);
         if (!missing.isEmpty() || !unexpected.isEmpty()) {
             throw new IllegalArgumentException("lane manifest mismatch missing=" + missing
                     + " unexpected=" + unexpected);
