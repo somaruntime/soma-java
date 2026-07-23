@@ -43,7 +43,7 @@ GrasserState
 
 `movementDirection` 只在 searching 时有业务意义。是否为 `mode` 维护 `@SomaIndex` 必须用实际 group ratio、transition ratio 和 scan cost 裁决；canonical path 只能有一个，另一个只可作为同语义 benchmark baseline。
 
-Grass field 使用 application-owned row-major primitive `float[]`。它固定尺寸、按坐标直接寻址，不为了扩大 SOMA 使用面强行建成 Table。Random source、system schedule、renderer 和 checkpoint 同样由 application 拥有。
+Grass field 使用 application-owned row-major primitive `double[]`。它固定尺寸、按坐标直接寻址，不为了扩大 SOMA 使用面强行建成 Table。为避免纯 logistic 方程在 grass 被消费到精确 0 后进入不可恢复的吸收态，配置拥有 seed-bank regrowth floor；消费只能使用 floor 以上的 biomass，growth 仍受 carrying capacity 约束。Random source、system schedule、renderer 和 checkpoint 同样由 application 拥有。
 
 ### 2.1 应用 schema 与代码责任
 

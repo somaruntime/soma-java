@@ -9,6 +9,8 @@ public final class TraceSample {
   @SomaField public int population;
   @SomaField public double totalGrass;
   @SomaField public double totalEnergy;
+  @SomaField public int grassingPopulation;
+  @SomaField public int searchingPopulation;
   @SomaField public long births;
   @SomaField public long deaths;
 }

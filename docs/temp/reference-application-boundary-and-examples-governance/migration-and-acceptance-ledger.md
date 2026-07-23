@@ -100,13 +100,21 @@ oracle 与 lifecycle 负路径，default 由三个独立 JVM fork 记录 allocat
 
 ### Stage 4
 
-- [ ] simulation systems/deterministic random/oracle；
-- [ ] versioned configs + detached initial-state generator + bootstrap；
-- [ ] SOMA access breadth；
-- [ ] physical-order independence；
-- [ ] isolated build；
-- [ ] long-run and multi-fork evidence；
-- [ ] Stage 4 commit。
+- [x] simulation systems/deterministic random/oracle；
+- [x] versioned configs + detached initial-state generator + bootstrap；
+- [x] SOMA access breadth；
+- [x] physical-order independence；
+- [x] isolated build；
+- [x] long-run and multi-fork evidence；
+- [x] Stage 4 committed by the commit containing this ledger update。
+
+Stage 4 的 canonical Gate 为 `check-grassing-simulation.sh`：四个受版本控制的
+profile 覆盖 5/800/30,000/5,000 个初始 individual 与 12/500/300/2,000 ticks；
+correctness 逐 tick 与独立 AoS 位级等价，default/large/long-run 均保持非零种群
+和真实 birth/death churn。default 的三个独立 JVM fork 具有相同
+input/result/schema/runtime-plan identity，记录 allocation、Young/Full GC、exact
+index、scratch、capacity growth 和 runtime high-water，全部 artifact 保持
+`claimAllowed=false`。
 
 ### Stage 5
 

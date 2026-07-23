@@ -28,6 +28,7 @@ cd "$root_dir"
 ./scripts/check-examples-phase6.sh
 ./scripts/check-reference-applications.sh
 ./scripts/check-industrial-scheduler.sh
+./scripts/check-grassing-simulation.sh
 ./scripts/check-scan-code-size.sh
 ./scripts/check-benchmark-smoke.sh
 ./scripts/check-post-cutover-components.sh
