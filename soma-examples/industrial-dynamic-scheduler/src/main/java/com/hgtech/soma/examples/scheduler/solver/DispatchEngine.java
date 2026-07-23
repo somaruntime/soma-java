@@ -1,6 +1,5 @@
 package com.hgtech.soma.examples.scheduler.solver;
 
-import com.hgtech.soma.examples.scheduler.runtime.DispatchSummary;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
 
 /**

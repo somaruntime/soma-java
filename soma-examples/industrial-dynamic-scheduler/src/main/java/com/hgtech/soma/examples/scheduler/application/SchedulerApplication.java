@@ -32,9 +32,9 @@ public final class SchedulerApplication {
     SchedulingSolver solver = new SomaSchedulingSolver();
     SchedulingSession session = null;
     try {
-      long bootstrapStart = System.nanoTime();
+      long preparationStart = System.nanoTime();
       session = solver.prepare(problem);
-      long bootstrapNanos = System.nanoTime() - bootstrapStart;
+      long preparationNanos = System.nanoTime() - preparationStart;
       long solveStart = System.nanoTime();
       ScheduleResult result = session.solve();
       long solveNanos = System.nanoTime() - solveStart;
@@ -51,7 +51,7 @@ public final class SchedulerApplication {
       System.out.println("weighted.tardiness=" + validated.weightedTardiness);
       System.out.println("events.processed=" + result.processedEvents);
       System.out.println("generation.nanos=" + generationNanos);
-      System.out.println("bootstrap.nanos=" + bootstrapNanos);
+      System.out.println("preparation.nanos=" + preparationNanos);
       System.out.println("solve.nanos=" + solveNanos);
       System.out.println("claimAllowed=false");
     } finally {

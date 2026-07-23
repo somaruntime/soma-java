@@ -29,7 +29,7 @@ public final class SchedulerBenchmark {
       execute(problem, false);
     }
 
-    long setupNanos = 0L;
+    long preparationNanos = 0L;
     long solveNanos = 0L;
     long minimumSolveNanos = Long.MAX_VALUE;
     long maximumSolveNanos = 0L;
@@ -47,7 +47,8 @@ public final class SchedulerBenchmark {
     for (int measurement = 0;
          measurement < options.measurements(); measurement++) {
       Measurement value = execute(problem, true);
-      setupNanos = Math.addExact(setupNanos, value.setupNanos);
+      preparationNanos = Math.addExact(
+          preparationNanos, value.preparationNanos);
       solveNanos = Math.addExact(solveNanos, value.solveNanos);
       minimumSolveNanos = Math.min(minimumSolveNanos, value.solveNanos);
       maximumSolveNanos = Math.max(maximumSolveNanos, value.solveNanos);
@@ -84,7 +85,7 @@ public final class SchedulerBenchmark {
         + "\"warmup\":" + options.warmup() + ","
         + "\"forks\":" + options.forks() + ","
         + "\"measurements\":" + options.measurements() + ","
-        + "\"setupNanos\":" + setupNanos + ","
+        + "\"preparationNanos\":" + preparationNanos + ","
         + "\"solveNanos\":" + solveNanos + ","
         + "\"minimumSolveNanos\":" + minimumSolveNanos + ","
         + "\"maximumSolveNanos\":" + maximumSolveNanos + ","
@@ -102,10 +103,10 @@ public final class SchedulerBenchmark {
 
   private static Measurement execute(
       SchedulingProblem problem, boolean measured) {
-    long setupStart = System.nanoTime();
+    long preparationStart = System.nanoTime();
     SchedulingSolver solver = new SomaSchedulingSolver();
     SchedulingSession session = solver.prepare(problem);
-    long setupNanos = System.nanoTime() - setupStart;
+    long preparationNanos = System.nanoTime() - preparationStart;
     try {
       long beforeAllocation = measured
           ? JvmMetrics.currentThreadAllocatedBytes() : 0L;
@@ -121,7 +122,7 @@ public final class SchedulerBenchmark {
               beforeAllocation) : 0L;
       ScheduleValidator.validate(problem, result);
       SolveDiagnostics evidence = result.diagnostics;
-      return new Measurement(setupNanos, solveNanos, allocated,
+      return new Measurement(preparationNanos, solveNanos, allocated,
           measured ? delta(afterGc.youngCount, beforeGc.youngCount) : 0L,
           measured ? delta(afterGc.youngMillis, beforeGc.youngMillis) : 0L,
           measured ? delta(afterGc.fullCount, beforeGc.fullCount) : 0L,
@@ -141,7 +142,7 @@ public final class SchedulerBenchmark {
   }
 
   private static final class Measurement {
-    final long setupNanos;
+    final long preparationNanos;
     final long solveNanos;
     final long allocatedBytes;
     final long youngGcCount;
@@ -155,13 +156,13 @@ public final class SchedulerBenchmark {
     final String schemaHash;
     final String runtimePlanHash;
 
-    Measurement(long setupNanos, long solveNanos, long allocatedBytes,
+    Measurement(long preparationNanos, long solveNanos, long allocatedBytes,
                 long youngGcCount, long youngGcMillis,
                 long fullGcCount, long fullGcMillis,
                 long exactIndexHighWater, long updateScratchHighWater,
                 long operationScratchHighWater, String resultChecksum,
                 String schemaHash, String runtimePlanHash) {
-      this.setupNanos = setupNanos;
+      this.preparationNanos = preparationNanos;
       this.solveNanos = solveNanos;
       this.allocatedBytes = allocatedBytes;
       this.youngGcCount = youngGcCount;

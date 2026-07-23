@@ -1,6 +1,9 @@
-package com.hgtech.soma.examples.scheduler.result;
+package com.hgtech.soma.examples.scheduler.solver;
 
-import com.hgtech.soma.examples.scheduler.runtime.DispatchSummary;
+import com.hgtech.soma.examples.scheduler.result.ScheduleChecksum;
+import com.hgtech.soma.examples.scheduler.result.ScheduledOperation;
+import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
+import com.hgtech.soma.examples.scheduler.result.SolveDiagnostics;
 import com.hgtech.soma.examples.scheduler.runtime.RuntimeSnapshot;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
 import com.hgtech.soma.examples.scheduler.schema.OperationAssignment;
@@ -9,11 +12,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** SOMA schema record 到 detached application result 的唯一转换边界。 */
-public final class ScheduleResultAssembler {
+final class ScheduleResultAssembler {
   private ScheduleResultAssembler() {
   }
 
-  public static ScheduleResult assemble(
+  static ScheduleResult assemble(
       SchedulerRuntime runtime, DispatchSummary summary) {
     List<OperationAssignment> source = runtime.exportAssignments();
     ArrayList<ScheduledOperation> assignments =

@@ -1,7 +1,6 @@
 package com.hgtech.soma.examples.scheduler.solver;
 
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
-import com.hgtech.soma.examples.scheduler.runtime.DispatchSummary;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntimeFactory;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTable;

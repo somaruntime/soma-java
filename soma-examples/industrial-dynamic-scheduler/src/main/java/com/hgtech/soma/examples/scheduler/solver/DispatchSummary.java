@@ -1,7 +1,7 @@
-package com.hgtech.soma.examples.scheduler.runtime;
+package com.hgtech.soma.examples.scheduler.solver;
 
 /** 调度循环产出的轻量内部摘要，不负责结果物化或校验。 */
-public final class DispatchSummary {
+final class DispatchSummary {
   public final int assignments;
   public final int completedJobs;
   public final long makespanMinute;
@@ -9,7 +9,7 @@ public final class DispatchSummary {
   public final long weightedTardiness;
   public final long processedEvents;
 
-  public DispatchSummary(
+  DispatchSummary(
       int assignments, int completedJobs, long makespanMinute,
       long totalTardinessMinutes, long weightedTardiness,
       long processedEvents) {
