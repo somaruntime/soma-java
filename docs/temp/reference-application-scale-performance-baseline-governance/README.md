@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 3 completed，进入 Stage 4 结果审查）
+状态：active（Stage 4 completed，进入 Stage 5 原子固化）
 
 Owner：SOMA reference application scale performance baseline governance
 
@@ -220,3 +220,4 @@ identity。
 - [Gate 与 Baseline 详细设计](gate-and-baseline-design.md)
 - [Stage 2 候选审查](stage-2-candidate-review.md)
 - [Stage 3 校准与 Baseline](stage-3-calibration-and-baseline.md)
+- [Stage 4 结果与非回归审查](stage-4-result-and-non-regression-review.md)
