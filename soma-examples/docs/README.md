@@ -16,7 +16,7 @@ Owner：SOMA Java reference applications
 
 非事实范围：SOMA 核心 Design、公共 API、跨环境性能 claim 和 release readiness
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 `soma-examples` 只聚合参考应用，不再拥有一个共享领域 runtime、场景套件或产品能力事实。SOMA 的目标和长期语义分别由[产品 Blueprint](../../docs/blueprints/soma-java-product-blueprint.md)和[Design](../../docs/design/README.md)拥有；当前代码与 Gate 从[参考应用与 benchmark Map](../../docs/implementation-map/scenario-and-benchmark-map.md)进入。
 
@@ -38,6 +38,13 @@ state 分开。工业调度应用通过 Factory/Solver facade 隐藏 runtime lif
 ./scripts/check-reference-applications.sh
 ./scripts/check-industrial-scheduler.sh
 ./scripts/check-grassing-simulation.sh
+./scripts/check-reference-application-fast-performance.sh
+./scripts/check-reference-application-scale-performance.sh
+./scripts/check-reference-application-soak-performance.sh
+./scripts/check-reference-application-full-performance.sh
 ```
 
-第一个 Gate 在 evidence-local Maven repository 中证明两个 child 是普通 consumer；后两个 Gate 分别拥有领域 correctness、long-run 和 integrated multi-fork evidence。所有本机性能 artifact 均保持 `claimAllowed=false`。
+前三个 Gate 证明两个 child 是普通 consumer，并分别拥有领域 correctness、架构与
+lifecycle；Fast、Scale、Soak 对应 default、large、long-run 的 3-fork
+performance baseline，Full 组合六个 workload 与三层结构检查。所有本机性能
+artifact 均保持 `claimAllowed=false`。

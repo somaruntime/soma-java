@@ -15,9 +15,9 @@ Owner：industrial-dynamic-scheduler
 | Config | 规模 | 责任 |
 |---|---:|---|
 | correctness | 6 operations | generator replay、手算 oracle、负路径 |
-| default | 192 operations | 普通 CLI journey、multi-fork |
-| large | 8,000 operations | capacity、frontier 与 allocation smoke |
-| long-run | 10,000 operations | 持续 update/remove、event 和 checksum |
+| default | 10 jobs、1,000 operations、10 machines、3 candidates/operation | 普通 CLI journey、Fast multi-fork |
+| large | 1,000 jobs、100,000 operations、100 machines、3 candidates/operation | 大 frontier、capacity、throughput 与 Scale multi-fork |
+| long-run | 100 jobs、10,000 operations、100 machines、3 candidates/operation | machine delay、持续 update/remove、event 与 Soak multi-fork |
 
 每个 profile 都生成两次 input 并比较 checksum，再创建两个独立 runtime 比较结果；
 problem generation 与 preparation 不计入 solve measurement。`default` 是生产
@@ -60,25 +60,36 @@ correctness lane 验证：
 
 ## 性能 artifact
 
-`industrial-scheduler-benchmark-v2` 的每个 record 来自独立 JVM fork，包含：
+`industrial-scheduler-benchmark-v3` 的每个 record 来自独立 JVM fork，包含：
 
 - config/input/result checksum 与 schema/runtime-plan identity；
 - commit、fork/configured forks、实际 JDK/JVM/OS/architecture/CPU/max heap；
-- warmup、measurement、preparation/solve nanos；
+- profile、jobs/operations/machines/candidates、warmup/measurement 与实际
+  operation executions；
+- preparation/solve nanos、nanos/operation；
 - current-thread allocated bytes；
 - Young/Full GC count 与 pause；
 - exact-index、update scratch、operation scratch high-water；
+- maximum frontier capacity；
 - `claimAllowed=false`。
 
-Application-owned baseline 位于 test resources。普通 Gate 使用 3 fork；9-fork
-校准 `ab28350` 得到：
+Application-owned baseline 位于 test resources。每个普通 profile Gate 使用
+3 fork；9-fork 校准候选为 `1af43ac`：
 
-- allocation `8,319,504..8,320,064 bytes`，上限 `8,736,068`；
-- solve p50 `37,619,668 ns`、p90/max `39,133,584 ns`，median 上限
-  `56,429,502 ns`；
-- exact/update/operation scratch high-water 固定为
-  `3,015 / 7,560 / 368 bytes`；
-- Young/Full GC count 与 pause 均为 `0`。
+| Profile | 9-fork hot operation range / median | Timing limit | Allocation range / limit |
+|---|---:|---:|---:|
+| default | `30.387..32.105 / 31.159 ms` | `46.738 ms` | `16.070..16.075 / 16.878 MB` |
+| large | `8.552..8.874 / 8.694 s` | `13.041 s` | `411.337..414.294 / 435.008 MB` |
+| long-run | `130.108..138.278 / 133.318 ms` | `199.976 ms` | `39.731..42.415 / 44.536 MB` |
+
+| Profile | exact/update/operation high-water | Frontier | 校准最大 GC / baseline envelope |
+|---|---:|---:|---|
+| default | `1,438 / 2,520 / 160 B` | `30` | Young `0/0 ms`，Full `0/0 ms` |
+| large | `106,479 / 160,545 / 14,380 B` | `3,000` | Young `5/17 ms -> 6/22 ms`，Full `0/0 ms` |
+| long-run | `15,086 / 15,015 / 1,256 B` | `300` | Young `1/4 ms -> 2/5 ms`，Full `0/0 ms` |
+
+表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。Default、large、
+long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部六个应用 workload。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
 `not-applicable`；无论结果如何，invalid schema/shape/claim/fork/identity 都失败。

@@ -53,3 +53,6 @@ clean/repeat manifest、generated/schema reproducibility 与 Java major 52。所
 artifact 默认 `claimAllowed=false`。同环境下，版本化 application baseline 由
 统一 comparator 判定 `passed/failed`；环境不同且 artifact 合法时明确返回
 `not-applicable`。
+
+Default、large、long-run 的专项性能入口分别为 Fast、Scale、Soak，Full 组合三个
+profile 与 scheduler 的对应 profile。每个普通性能 Gate 使用三个独立 JVM fork。

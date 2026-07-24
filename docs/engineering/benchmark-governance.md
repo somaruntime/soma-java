@@ -17,7 +17,7 @@ Owner：SOMA Java benchmark 过程
 | 层次 | Owner | 回答的问题 | 当前状态 |
 |---|---|---|---|
 | Component Performance Baseline | `soma-benchmarks` | SOMA 领域中性 mechanics 是否回归 | 已建立本机环境基线 |
-| Reference Application Integrated Performance Baseline | 各 child application | 固定真实 workload 的端到端 hot operation 是否回归 | 两个应用各有自有基线 |
+| Reference Application Integrated Performance Baseline | 各 child application | 固定真实 workload 的端到端 hot operation 是否回归 | 两个应用各拥有 default、large、long-run 基线 |
 | Public Performance Evidence / Claim | 经审批的正式 Report | 哪些环境、workload 和统计证据允许对外声明 | 当前不存在 |
 
 前两层可以进入工程回归 Gate；第三层不是自动汇总结果，必须另有环境矩阵、
@@ -73,11 +73,13 @@ metric：
 当前两个应用的 hot-operation timing Gate。
 
 - component 普通 Gate 使用 5 个独立 JVM fork；
-- 两个 application 普通 Gate 各使用 3 个独立 JVM fork；
+- 六个 application profile 的普通 Gate 各使用 3 个独立 JVM fork；
 - 新建或重校 baseline 使用同环境 9 fork；
 - application allocation limit 为 `ceil(max × 1.05)`；
 - timing limit 为 `ceil(max(p50 × 1.50, p90 × 1.25))`，p90 使用
   nearest-rank。
+- GC count 在校准最大值为零时上限为零，否则为 `max + 1`；GC pause 在最大值
+  为零时上限为零，否则为 `ceil(max × 1.25)`。
 
 异常样本、热降频或后台噪声明显时重跑，不得用异常结果放宽 baseline。普通 Gate
 只读 checked-in baseline，不提供 update-in-place。Rebaseline 必须单独产生候选
@@ -91,13 +93,24 @@ artifact/diff，并说明触发原因、旧/新 identity、环境、9-fork 统�
 - neutral comparator：`PerformanceBaselineDefinition` /
   `PerformanceBaselineComparator`；
 - 三层结构 Gate：`scripts/check-performance-baseline-architecture.sh`；
-- component/application Gate：`check-post-cutover-components.sh`、
-  `check-industrial-scheduler.sh`、`check-grassing-simulation.sh`；
+- component Gate：`check-post-cutover-components.sh`；
+- application Fast/Scale/Soak/Full Gate：
+  `check-reference-application-fast-performance.sh`、
+  `check-reference-application-scale-performance.sh`、
+  `check-reference-application-soak-performance.sh`、
+  `check-reference-application-full-performance.sh`；
+- application correctness 与架构 Gate：`check-industrial-scheduler.sh`、
+  `check-grassing-simulation.sh`；
 - 综合入口：`scripts/check.sh`。
 
 `check-performance-baseline-architecture.sh` 固定验证当前
-component=1、reference-application=2、public-claim=0，以及模块依赖和 Owner
+component=1、reference-application=6、public-claim=0，以及模块依赖和 Owner
 边界。新增环境或 public claim 必须显式修改 Owner、evidence 和 Gate。
+
+`default` 进入普通 `scripts/check.sh` 的 Fast lane；`large` 和 `long-run` 分别由
+Scale 与 Soak 专项 Gate 承担，Full 组合六个 workload。性能专题、rebaseline 和
+正式性能收口必须运行 Full；运行频率差异不改变 baseline 的正式性、3-fork
+下限、失败含义或 correctness guard。
 
 ## 6. 对照与 claim
 

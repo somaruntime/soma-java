@@ -12,8 +12,8 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前两个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：reference application architecture `69e5dc6` / `287350d`；
-performance baseline implementation `5be618a`
+最近实现核对基线：reference application scale candidate `1af43ac`；
+performance baseline implementation `938b3d5`
 
 最后审查日期：2026-07-24
 
@@ -45,11 +45,16 @@ runtime hot loop 不反向依赖 generator 或 factory。
 
 `soma-benchmarks` 不依赖或导入 reference application domain。它只测 SOMA component mechanics；真实应用的 allocation、GC、runtime high-water 和 correctness guard 由 application 自有 runner/Gate 负责。全部 smoke/diagnostic artifact 保持 `claimAllowed=false`。
 
-当前三份 checked-in baseline 分别位于：
+当前七份 checked-in baseline 分别为一份 component baseline 和六份
+application profile baseline：
 
 - [`component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json)；
-- [`scheduler baseline`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-zulu8-macos-aarch64-v1.json)；
-- [`simulation baseline`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-zulu8-macos-aarch64-v1.json)。
+- scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v2.json)、
+  [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v1.json)、
+  [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v1.json)；
+- simulation [`default`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v2.json)、
+  [`large`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v1.json)、
+  [`long-run`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v1.json)。
 
 Comparator 只拥有领域中性协议。两个应用各自拥有 workload identity、阈值和
 test-resource baseline，POM 不依赖 `soma-benchmarks`；baseline 不进入 production
@@ -61,10 +66,16 @@ JAR。当前没有 public performance claim。
 - scheduler correctness/long-run/multi-fork：[`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)；
 - simulation oracle/long-run/multi-fork：[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)；
 - neutral smoke/component：[`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)；
+- application Fast/Scale/Soak/Full：[`check-reference-application-fast-performance.sh`](../../scripts/check-reference-application-fast-performance.sh)、
+  [`check-reference-application-scale-performance.sh`](../../scripts/check-reference-application-scale-performance.sh)、
+  [`check-reference-application-soak-performance.sh`](../../scripts/check-reference-application-soak-performance.sh)、
+  [`check-reference-application-full-performance.sh`](../../scripts/check-reference-application-full-performance.sh)；
 - baseline Owner/层次防回归：[`check-performance-baseline-architecture.sh`](../../scripts/check-performance-baseline-architecture.sh)；
 - generated footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
 
-三个专项脚本都调用同一 comparator；component 普通 Gate 为 5 fork，两个应用各为
-3 fork。环境匹配时判定 `passed/failed`，环境不同但 artifact 合法时为
+全部 profile runner 都调用同一 comparator；component 普通 Gate 为 5 fork，六个
+应用 profile 各为 3 fork，重校为 9 fork。普通 `scripts/check.sh` 执行 Fast；
+性能专题和 rebaseline 使用 Full。环境匹配时判定 `passed/failed`，环境不同但
+artifact 合法时为
 `not-applicable`。Blueprint 和 Design 决定产品目标与语义；应用拥有领域
 correctness，benchmark 拥有测量 artifact，本地图只导航当前实现。

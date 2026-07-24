@@ -18,6 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)（六个 default/large/long-run baseline、Fast/Scale/Soak/Full Gate、性能归因与 scope non-regression）
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)（component、两个 application baseline、环境感知 comparator、9-fork 校准与 public claim 边界）
 - [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)（Config/Scenario/Simulator/Session/Engine/System/Runtime/Schema/Result分层、source-set与canonical journey）
 - [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)（Problem/Factory/Solver/Runtime/Schema/Result分层、source-set与canonical journey）
@@ -36,7 +37,7 @@ Owner：SOMA Java 正式报告输出
 | G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；v4 generated surface见[当前治理报告](2026-07-23-access-model-candidate-scan-governance-report.md) |
 | G3 | passed | [Access Model / Candidate Scan v4治理](2026-07-23-access-model-candidate-scan-governance-report.md)与[性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)；packed/exact v3报告保留前序证据 |
 | G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md) |
-| G5 | passed | [参考应用边界治理](2026-07-23-reference-application-boundary-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)；旧四场景与旧 examples/benchmark Gate 只保留历史 provenance |
+| G5 | passed | [参考应用边界治理](2026-07-23-reference-application-boundary-governance-report.md)、[大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)；旧四场景只保留历史 provenance |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
 Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。
@@ -45,6 +46,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)
 - [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)
 - [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)

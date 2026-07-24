@@ -265,6 +265,7 @@ done
 for file in \
   reports/java-v1-goal-execution-status.md \
   reports/current-performance-summary.md \
+  reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md \
   reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md \
   reports/2026-07-23-reference-application-boundary-governance-report.md \
   reports/2026-07-23-complexity-sustainability-governance-report.md \

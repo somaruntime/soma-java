@@ -10,9 +10,9 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`79c0a89`
+最近实现核对基线：`c0fa1c9`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 1. 主流程
 
@@ -37,6 +37,11 @@ Owner：SOMA compiler/codegen 实现导航
 Processor admission 读取 selector codegen model，而不依赖 source emitter support；Table/Exact emitters 组合 selector model 与 source support，Table emitter 通过 Scan execution support 写入 terminal executor，不再借用 Auxiliary artifact emitter。`DenseTableSourceEmitter -> DenseExactIndexSourceEmitter` 仍是有意的 artifact-internal composition；exact-index emitter 不反向依赖 orchestrator。
 
 Candidate Scan 继续生成 typed source plan、small-inline/overflow stage storage 与 terminal executor；public handle不暴露 runtime IR。当前依赖方向由 codegen admission source-shape check 约束，生成契约继续由 clean/repeat source、schema/hash、`javap` golden、external consumer 和 code-size Gate 约束。
+
+Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免 Zulu
+javac 8 在相邻 clean compile 间为私有内部类选择不同 synthetic access marker；
+codegen admission 同时校验生成源码形状和完整编译。该形状不进入 public/generated
+contract。
 
 ## 2. Schema 输入
 

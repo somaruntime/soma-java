@@ -67,9 +67,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前 active Temporary topic：
-
-- [Reference Application 大规模性能基线治理](temp/reference-application-scale-performance-baseline-governance/README.md)：在不改变 SOMA 产品语义和两个应用生产设计的前提下，为 `default`、`large`、`long-run` 建立分责明确的大规模集成性能基线。
+当前没有 active Temporary topic。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

@@ -17,9 +17,9 @@ Owner：grassing-individual-simulation
 | Config | 规模 | 责任 |
 |---|---:|---|
 | correctness | 8 × 6、5 individuals、12 ticks | 逐 tick AoS 等价、负路径 |
-| default | 96 × 72、800 individuals、500 ticks | production CLI、replay、multi-fork |
-| large | 512 × 384、30,000 individuals、300 ticks | capacity、column/group/bulk 成本 |
-| long-run | 256 × 192、5,000 individuals、2,000 ticks | birth/death churn、numeric 与内存稳定性 |
+| default | 128 × 72、1,000 individuals、1,000 ticks | production CLI、replay、Fast multi-fork |
+| large | 1280 × 720、100,000 individuals、1,000 ticks | 大 live set、capacity、column/group/bulk 与 Scale multi-fork |
+| long-run | 400 × 225、10,000 individuals、10,000 ticks | 持续 birth/death churn、numeric、内存稳定性与 Soak multi-fork |
 
 每个 profile 都重复生成 input 并比较 checksum。correctness/default 还以相同
 detached Scenario 创建独立 Session，并反转 initial packed order 后比较结果。
@@ -72,27 +72,36 @@ stop、partial-create/release closure、primary-key point access、duplicate Bat
 
 Benchmark setup 完成配置解析、initial-state generation、checksum、校验、
 bootstrap 和 tick-0 trace；measurement 只覆盖 tick systems。
-`grassing-simulation-benchmark-v2` 的每个独立 JVM fork 输出：
+`grassing-simulation-benchmark-v3` 的每个独立 JVM fork 输出：
 
 - config/input/result checksum 与 schema/runtime-plan identity；
 - commit、fork/configured forks、实际 JDK/JVM/OS/architecture/CPU/max heap；
-- warmup、measurement、setup/tick nanos；
+- profile、logical world、ticks/initial population、warmup/measurement 与实际
+  tick executions；
+- setup/tick nanos、nanos/tick；
 - current-thread allocated bytes；
 - Young/Full GC count 与 pause；
 - exact-index、update scratch、operation scratch high-water；
 - initial/maximum population 与 population table growth count；
 - `claimAllowed=false`。
 
-Application-owned baseline 位于 test resources。普通 Gate 使用 3 fork；9-fork
-校准 `ab28350` 得到：
+Application-owned baseline 位于 test resources。每个普通 profile Gate 使用
+3 fork；9-fork 校准候选为 `1af43ac`：
 
-- allocation `7,439,296..7,440,784 bytes`，上限 `7,812,824`；
-- tick p50 `66,086,417 ns`、p90/max `76,318,167 ns`，median 上限
-  `99,129,626 ns`；
-- exact/update/operation scratch high-water 固定为
-  `64,333 / 27,336 / 12,776 bytes`；
-- maximum population `1,139`、population growth count `1`；
-- Young/Full GC count 与 pause 均为 `0`。
+| Profile | 9-fork hot operation range / median | Timing limit | Allocation range / limit |
+|---|---:|---:|---:|
+| default | `145.689..165.054 / 146.905 ms` | `220.357 ms` | `11.530..11.531 / 12.108 MB` |
+| large | `5.913..6.080 / 5.948 s` | `8.922 s` | `426.403 / 447.723 MB` |
+| long-run | `3.577..3.649 / 3.604 s` | `5.406 s` | `47.352..47.358 / 49.726 MB` |
+
+| Profile | exact/update/operation high-water | Maximum population / growth | 校准最大 GC / baseline envelope |
+|---|---:|---:|---|
+| default | `67,933 / 34,392 / 12,776 B` | `1,433 / 1` | Young `0/0 ms`，Full `0/0 ms` |
+| large | `9,152,156 / 3,799,632 / 1,659,040 B` | `158,318 / 2` | Young `15/11 ms -> 16/14 ms`，Full `1/28 ms -> 2/35 ms` |
+| long-run | `693,389 / 332,088 / 121,364 B` | `13,837 / 1` | Young `0/0 ms`，Full `0/0 ms` |
+
+表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。Default、large、
+long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部六个应用 workload。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
 `not-applicable`；invalid schema/shape/claim/fork/identity 仍失败。旧 64 KiB/tick

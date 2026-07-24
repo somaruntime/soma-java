@@ -10,8 +10,8 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：重新定义设计、直接修改实现或扩大任务授权
 
-实现核对基线：core/reference applications `69e5dc6` / `287350d`；
-performance baseline evidence `5be618a`
+实现核对基线：core product `fd82eba`；compiler/codegen stability `c0fa1c9`；
+reference applications `1af43ac`；performance baseline evidence `938b3d5`
 
 最后审查日期：2026-07-24
 
