@@ -119,7 +119,7 @@ final class DenseSelectorSourceSupport {
             out.append("  private ExactIndexStage stageExactIndexes(")
                     .append(table.name("Batch"))
                     .append(" batch,String operation){return new ExactIndexStage();}\n")
-                    .append("  private final class ExactIndexStage{long retainedBytes(){return 0L;}void publish(String operation){}void discard(String operation){}}\n");
+                    .append("  private final class ExactIndexStage{ExactIndexStage(){}long retainedBytes(){return 0L;}void publish(String operation){}void discard(String operation){}}\n");
             return;
         }
         out.append("  private ExactIndexStage stageExactIndexes(")

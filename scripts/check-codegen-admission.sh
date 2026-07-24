@@ -315,6 +315,9 @@ fi
 # not merely processor-only generation.
 run_full_success table256 "$table256"
 test -f "$evidence_dir/table256/classes/com/example/admission/table256/generated/WideTable256Table.class"
+grep -F 'private final class ExactIndexStage{ExactIndexStage(){}' \
+  "$evidence_dir/table256/generated/com/example/admission/table256/generated/WideTable256Table.java" \
+  >/dev/null
 run_failure table257 "$table257" SOMA-GEN-003 table-physical-leaves
 
 many256=$sources/many256
