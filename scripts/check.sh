@@ -6,6 +6,7 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 
 ./scripts/check-docs.sh
+./scripts/check-performance-baseline-architecture.sh
 ./mvnw -B -ntp verify
 ./scripts/check-build-governance.sh
 ./scripts/check-public-api.sh
