@@ -2,13 +2,13 @@
 
 类型：Temporary
 
-状态：active（Stage 0 complete）
+状态：active（Stage 1）
 
 Owner：SOMA reference application scale performance baseline governance
 
 正式事实源：否
 
-实施授权：仅 Stage 0 Temporary、文档入口、验证和 immutable starting point
+实施授权：Stage 1–5 归因、保持语义的 example/core 优化、evidence、Gate 与固化
 
 事实范围：专题意图、目标 workload、非回归约束、阶段、停止条件和验收协议
 
@@ -89,9 +89,16 @@ logical cell 数。
 - Zulu JDK 8 唯一验真边界、G6 状态和 public/release claim；
 - component baseline 的领域中性责任。
 
-允许未来 Stage 在既有设计内修改 application test config、benchmark/evidence
-代码、test resource baseline、脚本、checker、Engineering、Implementation Map、
-Conformance 和 Report。任何 core runtime 性能优化都不在本专题的默认授权内。
+允许后续 Stage 在既有设计内修改 application config、内部生产实现、
+application-owned design、benchmark/evidence、test resource baseline、脚本、
+checker、Engineering、Implementation Map、Conformance 和 Report。允许修改
+SOMA generated/runtime 内部性能实现，但必须保持 public/generated API、Schema、
+Access Model 与全部 runtime 语义，并用 component reproduction 与同语义 A/B
+证明归因和收益。
+
+性能问题先按 [归因与修复协议](performance-attribution-and-remediation.md)甄别。
+“Example 变慢”本身不能直接授权 core 修改；“某个 Table 字段多”也不能直接授权
+拆表。
 
 ## 5. 必须停止并请求决定
 
@@ -123,6 +130,7 @@ Conformance 和 Report。任何 core runtime 性能优化都不在本专题的�
 
 - 裁决 profile-specific artifact、heap、warmup、measurement 和 Gate 拓扑；
 - 定义归一化指标及其分母、测量窗口和 aggregation；
+- 建立 performance attribution、component reproduction 和同语义优化规则；
 - 完成六个 workload 的单 fork feasibility；
 - 形成风险、预计 Gate 成本和实施 slices，不建立 baseline。
 
@@ -201,3 +209,10 @@ identity。
 
 阶段性 feasibility、单 fork 数字、部分 profile baseline 或一份报告都不能代替
 最终收口。
+
+## 10. 专题文档
+
+- [Stage 0 基线审计](stage-0-baseline-audit.md)
+- [性能归因与修复协议](performance-attribution-and-remediation.md)
+- [Workload 与测量详细设计](workload-and-measurement-design.md)
+- [Gate 与 Baseline 详细设计](gate-and-baseline-design.md)
