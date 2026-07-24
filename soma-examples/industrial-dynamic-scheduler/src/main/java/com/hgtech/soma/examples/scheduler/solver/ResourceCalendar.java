@@ -1,20 +1,22 @@
-package com.hgtech.soma.examples.scheduler.runtime;
+package com.hgtech.soma.examples.scheduler.solver;
 
 import java.util.Arrays;
 
-/** application-owned、可由 assignment 重建的 secondary-resource lane calendar。 */
+/**
+ * CandidateFrontier 拥有的 secondary-resource lane calendar。
+ *
+ * <p>它是可由 assignment 重建的求解加速结构，不是 authoritative
+ * SOMA state。</p>
+ */
 final class ResourceCalendar {
   private final long[] availableMinutes;
 
   ResourceCalendar(int capacity) {
     if (capacity <= 0) {
-      throw new IllegalArgumentException("capacity must be positive");
+      throw new IllegalArgumentException(
+          "capacity must be positive");
     }
     availableMinutes = new long[capacity];
-  }
-
-  int capacity() {
-    return availableMinutes.length;
   }
 
   long earliestStart(int units) {
@@ -22,10 +24,12 @@ final class ResourceCalendar {
     return availableMinutes[units - 1];
   }
 
-  void commit(long startMinute, long endMinute, int units) {
+  void commit(
+      long startMinute, long endMinute, int units) {
     requireUnits(units);
     if (startMinute < 0L || endMinute <= startMinute) {
-      throw new IllegalArgumentException("invalid resource reservation");
+      throw new IllegalArgumentException(
+          "invalid resource reservation");
     }
     for (int index = 0; index < units; index++) {
       if (availableMinutes[index] > startMinute) {
@@ -39,13 +43,10 @@ final class ResourceCalendar {
     Arrays.sort(availableMinutes);
   }
 
-  long nextAvailableMinute() {
-    return availableMinutes[0];
-  }
-
   private void requireUnits(int units) {
     if (units <= 0 || units > availableMinutes.length) {
-      throw new IllegalArgumentException("invalid resource unit demand");
+      throw new IllegalArgumentException(
+          "invalid resource unit demand");
     }
   }
 }

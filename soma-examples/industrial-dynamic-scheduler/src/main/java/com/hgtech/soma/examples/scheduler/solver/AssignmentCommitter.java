@@ -8,9 +8,6 @@ import com.hgtech.soma.examples.scheduler.schema.OperationStatus;
 import com.hgtech.soma.examples.scheduler.schema.ResourceId;
 import com.hgtech.soma.examples.scheduler.schema.SetupFamilyId;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentBatch;
-import com.hgtech.soma.runtime.IntColumnView;
-import com.hgtech.soma.runtime.LongColumnView;
-import com.hgtech.soma.runtime.RemoveResult;
 
 /** assignment append、authoritative state mutation 与 successor 发布边界。 */
 final class AssignmentCommitter {
@@ -51,14 +48,12 @@ final class AssignmentCommitter {
         .setVersion(Math.addExact(selected.machineVersion, 1L))
         .commit();
 
-    runtime.commitResource(
-        selected.resourceId,
+    frontier.commitResource(
+        resource,
         selected.effectiveStartMinute,
         selected.completionMinute,
         selected.resourceUnits);
     runtime.resourceStates().mutate(resource)
-        .setNextAvailableMinute(runtime.nextResourceAvailableMinute(
-            selected.resourceId))
         .setVersion(Math.addExact(selected.resourceVersion, 1L))
         .commit();
 
@@ -67,10 +62,8 @@ final class AssignmentCommitter {
         .setVersion(Math.addExact(selected.operationVersion, 1L))
         .commit();
 
-    RemoveResult removed =
-        runtime.frontier().scanByOperation(operation).remove();
-    require(removed.removed() > 0L,
-        "assignment must retire every candidate of its operation");
+    frontier.retireOperation(operation);
+    frontier.refreshMachine(machine);
     releaseSuccessor(
         operation, machine, selected.completionMinute, selected);
     makespan = Math.max(makespan, selected.completionMinute);
@@ -86,28 +79,11 @@ final class AssignmentCommitter {
       MachineId machine,
       long predecessorEnd,
       SelectedCandidate selected) {
-    int definitionIndex =
-        runtime.operationDefinitions().requireIndex(operation);
-    IntColumnView sequences =
-        runtime.operationDefinitions().sequenceNoColumn();
-    int sequence;
-    try {
-      sequence = sequences.getInt(definitionIndex);
-    } finally {
-      sequences.close();
-    }
-    int next = Math.addExact(sequence, 1);
-    int successorIndex = runtime.operationDefinitions()
-        .findIndexByJobSequence(operation.jobId, next);
-    if (successorIndex >= 0) {
-      LongColumnView operationIds = runtime.operationDefinitions()
-          .operationKeyOperationIdValueColumn();
-      long successorId;
-      try {
-        successorId = operationIds.getLong(successorIndex);
-      } finally {
-        operationIds.close();
-      }
+    int next = Math.addExact(
+        frontier.operationSequence(operation), 1);
+    long successorId = frontier.operationIdAt(
+        operation.jobId.value, next);
+    if (successorId != Long.MIN_VALUE) {
       frontier.releaseOperation(
           new OperationKey(
               operation.jobId, new OperationId(successorId)),
@@ -120,9 +96,5 @@ final class AssignmentCommitter {
     weightedTardiness = Math.addExact(weightedTardiness,
         Math.multiplyExact(tardiness, (long) selected.priority));
     completedJobs = Math.addExact(completedJobs, 1);
-  }
-
-  private static void require(boolean condition, String message) {
-    if (!condition) throw new IllegalStateException(message);
   }
 }

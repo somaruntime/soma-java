@@ -11,5 +11,4 @@ public final class JobDefinition {
   @SomaField public long materialReadyMinute;
   @SomaField public long dueMinute;
   @SomaField public int priority;
-  @SomaField public int operationCount;
 }

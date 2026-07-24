@@ -7,6 +7,7 @@ import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
 final class SomaSchedulingSession implements SchedulingSession {
   private SchedulerRuntime runtime;
   private boolean started;
+  private SolveEvidence evidence;
 
   SomaSchedulingSession(SchedulerRuntime runtime) {
     this.runtime = runtime;
@@ -19,10 +20,21 @@ final class SomaSchedulingSession implements SchedulingSession {
     started = true;
     try {
       DispatchSummary summary = new DispatchEngine(runtime).solve();
-      return ScheduleResultAssembler.assemble(runtime, summary);
+      ScheduleResult result =
+          ScheduleResultAssembler.assemble(runtime, summary);
+      evidence = SolveEvidence.capture(runtime, summary);
+      return result;
     } finally {
       close();
     }
+  }
+
+  SolveEvidence evidence() {
+    if (evidence == null) {
+      throw new IllegalStateException(
+          "solve evidence is available only after a successful solve");
+    }
+    return evidence;
   }
 
   @Override

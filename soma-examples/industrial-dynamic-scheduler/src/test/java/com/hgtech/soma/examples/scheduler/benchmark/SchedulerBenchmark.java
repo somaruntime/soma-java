@@ -7,7 +7,7 @@ import com.hgtech.soma.examples.scheduler.problem.SchedulingProblemFactory;
 import com.hgtech.soma.examples.scheduler.problem.SyntheticSchedulingProblemFactory;
 import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
 import com.hgtech.soma.examples.scheduler.result.ScheduleValidator;
-import com.hgtech.soma.examples.scheduler.result.SolveDiagnostics;
+import com.hgtech.soma.examples.scheduler.solver.SchedulerExecutionTestAccess;
 import com.hgtech.soma.examples.scheduler.solver.SchedulingSession;
 import com.hgtech.soma.examples.scheduler.solver.SchedulingSolver;
 import com.hgtech.soma.examples.scheduler.solver.SomaSchedulingSolver;
@@ -33,9 +33,11 @@ public final class SchedulerBenchmark {
 
     long preparationNanos = 0L;
     long solveNanos = 0L;
+    long endToEndNanos = 0L;
     long minimumSolveNanos = Long.MAX_VALUE;
     long maximumSolveNanos = 0L;
     long allocatedBytes = 0L;
+    long endToEndAllocatedBytes = 0L;
     long youngGcCount = 0L;
     long youngGcMillis = 0L;
     long fullGcCount = 0L;
@@ -52,9 +54,13 @@ public final class SchedulerBenchmark {
       preparationNanos = Math.addExact(
           preparationNanos, value.preparationNanos);
       solveNanos = Math.addExact(solveNanos, value.solveNanos);
+      endToEndNanos = Math.addExact(
+          endToEndNanos, value.endToEndNanos);
       minimumSolveNanos = Math.min(minimumSolveNanos, value.solveNanos);
       maximumSolveNanos = Math.max(maximumSolveNanos, value.solveNanos);
       allocatedBytes = Math.addExact(allocatedBytes, value.allocatedBytes);
+      endToEndAllocatedBytes = Math.addExact(
+          endToEndAllocatedBytes, value.endToEndAllocatedBytes);
       youngGcCount = Math.addExact(youngGcCount, value.youngGcCount);
       youngGcMillis = Math.addExact(youngGcMillis, value.youngGcMillis);
       fullGcCount = Math.addExact(fullGcCount, value.fullGcCount);
@@ -78,9 +84,12 @@ public final class SchedulerBenchmark {
     }
     System.out.println("{"
         + "\"schemaVersion\":\"soma-reference-application-benchmark-v1\","
-        + "\"artifactVersion\":\"industrial-scheduler-benchmark-v3\","
+        + "\"artifactVersion\":\"industrial-scheduler-benchmark-v4\","
         + environment.jsonFields() + ","
         + "\"profile\":\"" + selector + "\","
+        + "\"configChecksum\":\"" + config.checksum() + "\","
+        + "\"generatorVersion\":" + config.generatorVersion() + ","
+        + "\"seed\":" + config.seed() + ","
         + "\"inputChecksum\":\"" + problem.checksum() + "\","
         + "\"resultChecksum\":\"" + resultChecksum + "\","
         + "\"schemaHash\":\"" + schemaHash + "\","
@@ -97,6 +106,7 @@ public final class SchedulerBenchmark {
             problem.operationCount(), options.measurements()) + ","
         + "\"preparationNanos\":" + preparationNanos + ","
         + "\"solveNanos\":" + solveNanos + ","
+        + "\"endToEndNanos\":" + endToEndNanos + ","
         + "\"minimumSolveNanos\":" + minimumSolveNanos + ","
         + "\"maximumSolveNanos\":" + maximumSolveNanos + ","
         + "\"solveNanosPerOperation\":"
@@ -105,6 +115,11 @@ public final class SchedulerBenchmark {
         + "\"allocatedBytes\":" + allocatedBytes + ","
         + "\"allocatedBytesPerOperation\":"
         + ceilingDivide(allocatedBytes, Math.multiplyExact(
+            problem.operationCount(), options.measurements())) + ","
+        + "\"endToEndAllocatedBytes\":"
+        + endToEndAllocatedBytes + ","
+        + "\"endToEndAllocatedBytesPerOperation\":"
+        + ceilingDivide(endToEndAllocatedBytes, Math.multiplyExact(
             problem.operationCount(), options.measurements())) + ","
         + "\"youngGcCount\":" + youngGcCount + ","
         + "\"youngGcPauseMillis\":" + youngGcMillis + ","
@@ -129,6 +144,8 @@ public final class SchedulerBenchmark {
 
   private static Measurement execute(
       SchedulingProblem problem, boolean measured) {
+    long beforeEndToEndAllocation = measured
+        ? JvmMetrics.currentThreadAllocatedBytes() : 0L;
     long preparationStart = System.nanoTime();
     SchedulingSolver solver = new SomaSchedulingSolver();
     SchedulingSession session = solver.prepare(problem);
@@ -141,14 +158,22 @@ public final class SchedulerBenchmark {
       long solveStart = System.nanoTime();
       ScheduleResult result = session.solve();
       long solveNanos = System.nanoTime() - solveStart;
+      long endToEndNanos = Math.addExact(
+          preparationNanos, solveNanos);
       JvmMetrics.GcSnapshot afterGc = measured
           ? JvmMetrics.gcSnapshot() : null;
-      long allocated = measured
-          ? Math.subtractExact(JvmMetrics.currentThreadAllocatedBytes(),
-              beforeAllocation) : 0L;
+      long afterAllocation = measured
+          ? JvmMetrics.currentThreadAllocatedBytes() : 0L;
+      long allocated = measured ? Math.subtractExact(
+          afterAllocation, beforeAllocation) : 0L;
+      long endToEndAllocated = measured ? Math.subtractExact(
+          afterAllocation, beforeEndToEndAllocation) : 0L;
       ScheduleValidator.validate(problem, result);
-      SolveDiagnostics evidence = result.diagnostics;
-      return new Measurement(preparationNanos, solveNanos, allocated,
+      SchedulerExecutionTestAccess.Evidence evidence =
+          SchedulerExecutionTestAccess.capture(session);
+      return new Measurement(
+          preparationNanos, solveNanos, endToEndNanos,
+          allocated, endToEndAllocated,
           measured ? delta(afterGc.youngCount, beforeGc.youngCount) : 0L,
           measured ? delta(afterGc.youngMillis, beforeGc.youngMillis) : 0L,
           measured ? delta(afterGc.fullCount, beforeGc.fullCount) : 0L,
@@ -170,7 +195,9 @@ public final class SchedulerBenchmark {
   private static final class Measurement {
     final long preparationNanos;
     final long solveNanos;
+    final long endToEndNanos;
     final long allocatedBytes;
+    final long endToEndAllocatedBytes;
     final long youngGcCount;
     final long youngGcMillis;
     final long fullGcCount;
@@ -182,7 +209,10 @@ public final class SchedulerBenchmark {
     final String schemaHash;
     final String runtimePlanHash;
 
-    Measurement(long preparationNanos, long solveNanos, long allocatedBytes,
+    Measurement(
+                long preparationNanos, long solveNanos,
+                long endToEndNanos, long allocatedBytes,
+                long endToEndAllocatedBytes,
                 long youngGcCount, long youngGcMillis,
                 long fullGcCount, long fullGcMillis,
                 long exactIndexHighWater, long updateScratchHighWater,
@@ -190,7 +220,9 @@ public final class SchedulerBenchmark {
                 String schemaHash, String runtimePlanHash) {
       this.preparationNanos = preparationNanos;
       this.solveNanos = solveNanos;
+      this.endToEndNanos = endToEndNanos;
       this.allocatedBytes = allocatedBytes;
+      this.endToEndAllocatedBytes = endToEndAllocatedBytes;
       this.youngGcCount = youngGcCount;
       this.youngGcMillis = youngGcMillis;
       this.fullGcCount = fullGcCount;

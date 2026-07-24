@@ -85,5 +85,6 @@ final class ExternalEventProcessor {
             Math.max(currentAvailability, event.value))
         .setVersion(Math.addExact(version, 1L))
         .commit();
+    frontier.refreshMachine(machine);
   }
 }

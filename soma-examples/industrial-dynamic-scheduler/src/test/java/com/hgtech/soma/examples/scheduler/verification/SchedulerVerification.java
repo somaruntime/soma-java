@@ -12,6 +12,7 @@ import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
 import com.hgtech.soma.examples.scheduler.result.ScheduleValidator;
 import com.hgtech.soma.examples.scheduler.solver.SchedulingSession;
 import com.hgtech.soma.examples.scheduler.solver.SchedulingSolver;
+import com.hgtech.soma.examples.scheduler.solver.SchedulerExecutionTestAccess;
 import com.hgtech.soma.examples.scheduler.solver.SomaSchedulingSolver;
 import com.hgtech.soma.examples.scheduler.oracle.TinyScheduleOracle;
 
@@ -50,6 +51,9 @@ public final class SchedulerVerification {
         || selector.endsWith("correctness.properties")) {
       oracleChecksum = TinyScheduleOracle.verify();
       SchedulingProblemFixtures.verifyInvalidInputRejected();
+      SchedulingProblemFixtures.verifyTimeOverflowRejected();
+      SchedulingProblemFixtures.verifySemanticIdentity();
+      SchedulingProblemFixtures.verifyResultClaimsClosed();
       SchedulerRuntimeChecks.verify(
           SchedulingProblemFixtures.tinyOracle());
     }
@@ -58,7 +62,7 @@ public final class SchedulerVerification {
         + " inputChecksum=" + first.checksum()
         + " resultChecksum=" + run.result.resultChecksum
         + " oracleChecksum=" + oracleChecksum
-        + " events=" + run.result.processedEvents
+        + " events=" + run.evidence.processedEvents
         + " claimAllowed=false");
   }
 
@@ -68,7 +72,9 @@ public final class SchedulerVerification {
     try {
       ScheduleResult result = session.solve();
       ScheduleValidator.validate(problem, result);
-      require(result.diagnostics.assignmentKeyCount == problem.operationCount(),
+      SchedulerExecutionTestAccess.Evidence evidence =
+          SchedulerExecutionTestAccess.capture(session);
+      require(evidence.assignmentKeyCount == problem.operationCount(),
           "key traversal did not cover every assignment");
       boolean oneShotRejected = false;
       try {
@@ -77,7 +83,7 @@ public final class SchedulerVerification {
         oneShotRejected = true;
       }
       require(oneShotRejected, "one-shot solver accepted a second run");
-      return new Run(result);
+      return new Run(result, evidence);
     } finally {
       session.close();
     }
@@ -89,9 +95,12 @@ public final class SchedulerVerification {
 
   private static final class Run {
     final ScheduleResult result;
+    final SchedulerExecutionTestAccess.Evidence evidence;
 
-    Run(ScheduleResult result) {
+    Run(ScheduleResult result,
+        SchedulerExecutionTestAccess.Evidence evidence) {
       this.result = result;
+      this.evidence = evidence;
     }
   }
 }

@@ -3,8 +3,6 @@ package com.hgtech.soma.examples.scheduler.solver;
 import com.hgtech.soma.examples.scheduler.result.ScheduleChecksum;
 import com.hgtech.soma.examples.scheduler.result.ScheduledOperation;
 import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
-import com.hgtech.soma.examples.scheduler.result.SolveDiagnostics;
-import com.hgtech.soma.examples.scheduler.runtime.RuntimeSnapshot;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
 import com.hgtech.soma.examples.scheduler.schema.OperationAssignment;
 
@@ -37,25 +35,12 @@ final class ScheduleResultAssembler {
           value.dueMinute,
           value.priority));
     }
-    RuntimeSnapshot evidence = RuntimeSnapshot.capture(runtime);
-    SolveDiagnostics diagnostics = new SolveDiagnostics(
-        evidence.schemaHash,
-        evidence.runtimePlanHash,
-        evidence.exactIndexProbes,
-        evidence.exactIndexHighWaterBytes,
-        evidence.updateScratchHighWaterBytes,
-        evidence.operationScratchHighWaterBytes,
-        evidence.assignmentCapacity,
-        evidence.frontierCapacity,
-        evidence.assignmentKeyCount);
     return new ScheduleResult(
         assignments,
         summary.completedJobs,
         summary.makespanMinute,
         summary.totalTardinessMinutes,
         summary.weightedTardiness,
-        summary.processedEvents,
-        ScheduleChecksum.compute(assignments),
-        diagnostics);
+        ScheduleChecksum.compute(assignments));
   }
 }

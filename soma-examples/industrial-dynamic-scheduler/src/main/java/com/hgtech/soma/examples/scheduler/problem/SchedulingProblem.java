@@ -8,8 +8,6 @@ import java.util.List;
  * 与 SOMA runtime 完全解耦、完成引用与范围预检的工业调度输入。
  */
 public final class SchedulingProblem {
-  private final int generatorVersion;
-  private final long seed;
   private final List<JobSpec> jobs;
   private final List<MachineSpec> machines;
   private final List<ResourceSpec> resources;
@@ -21,8 +19,6 @@ public final class SchedulingProblem {
   private final String checksum;
 
   public SchedulingProblem(
-      int generatorVersion,
-      long seed,
       List<JobSpec> jobs,
       List<MachineSpec> machines,
       List<ResourceSpec> resources,
@@ -30,8 +26,6 @@ public final class SchedulingProblem {
       List<SetupTimeSpec> setupTimes,
       List<TransportTimeSpec> transportTimes,
       List<ExternalEvent> events) {
-    this.generatorVersion = generatorVersion;
-    this.seed = seed;
     this.jobs = immutable(jobs);
     this.machines = immutable(machines);
     this.resources = immutable(resources);
@@ -46,12 +40,10 @@ public final class SchedulingProblem {
         this.jobs, this.machines, this.resources, this.operations,
         this.setupTimes, this.transportTimes, this.events);
     checksum = SchedulingProblemChecksum.compute(
-        generatorVersion, seed, this.jobs, this.machines, this.resources,
-        this.operations, this.setupTimes, this.transportTimes, this.events);
+        this.jobs, this.machines, this.resources, this.operations,
+        this.setupTimes, this.transportTimes, this.events);
   }
 
-  public int generatorVersion() { return generatorVersion; }
-  public long seed() { return seed; }
   public List<JobSpec> jobs() { return jobs; }
   public List<MachineSpec> machines() { return machines; }
   public List<ResourceSpec> resources() { return resources; }

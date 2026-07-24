@@ -3,7 +3,6 @@ package com.hgtech.soma.examples.scheduler.runtime;
 import com.hgtech.soma.examples.scheduler.problem.JobSpec;
 import com.hgtech.soma.examples.scheduler.problem.MachineOption;
 import com.hgtech.soma.examples.scheduler.problem.MachineSpec;
-import com.hgtech.soma.examples.scheduler.problem.MaintenanceInterval;
 import com.hgtech.soma.examples.scheduler.problem.OperationSpec;
 import com.hgtech.soma.examples.scheduler.problem.ResourceSpec;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
@@ -20,9 +19,7 @@ import com.hgtech.soma.examples.scheduler.schema.SetupFamilyId;
 import com.hgtech.soma.examples.scheduler.schema.SetupTimeKey;
 import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineBatch;
 import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionBatch;
-import com.hgtech.soma.examples.scheduler.schema.generated.MachineDefinitionBatch;
 import com.hgtech.soma.examples.scheduler.schema.generated.MachineRuntimeStateBatch;
-import com.hgtech.soma.examples.scheduler.schema.generated.MaintenanceWindowBatch;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationDefinitionBatch;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationRuntimeStateBatch;
 import com.hgtech.soma.examples.scheduler.schema.generated.SecondaryResourceStateBatch;
@@ -49,13 +46,11 @@ final class RuntimeProjector {
       SchedulingProblem problem, SchedulerRuntime runtime) {
     runtime.jobs().reserve(problem.jobs().size());
     runtime.operationDefinitions().reserve(problem.operationCount());
-    runtime.machineDefinitions().reserve(problem.machines().size());
     runtime.machineStates().reserve(problem.machines().size());
     runtime.operationStates().reserve(problem.operationCount());
     runtime.resourceStates().reserve(problem.resources().size());
     runtime.setupTimes().reserve(problem.setupTimes().size());
     runtime.transportTimes().reserve(problem.transportTimes().size());
-    runtime.frontier().reserve(problem.frontierCapacity());
     runtime.assignments().reserve(problem.operationCount());
   }
 
@@ -65,8 +60,7 @@ final class RuntimeProjector {
         Math.min(BATCH_SIZE, problem.jobs().size()));
     for (JobSpec job : problem.jobs()) {
       batch.addValues(new JobId(job.id), job.releaseMinute,
-          job.materialReadyMinute, job.dueMinute, job.priority,
-          job.operationCount);
+          job.materialReadyMinute, job.dueMinute, job.priority);
       if (batch.size() == BATCH_SIZE) {
         runtime.jobs().addBatch(batch);
         batch.clear();
@@ -77,31 +71,19 @@ final class RuntimeProjector {
 
   private static void importMachines(
       SchedulingProblem problem, SchedulerRuntime runtime) {
-    MachineDefinitionBatch definitions = new MachineDefinitionBatch(
-        Math.min(BATCH_SIZE, problem.machines().size()));
     MachineRuntimeStateBatch states = new MachineRuntimeStateBatch(
         Math.min(BATCH_SIZE, problem.machines().size()));
     for (MachineSpec machine : problem.machines()) {
-      MaintenanceWindowBatch maintenance =
-          new MaintenanceWindowBatch(machine.maintenance.size());
-      for (MaintenanceInterval window : machine.maintenance) {
-        maintenance.addValues(
-            window.startMinute, window.endMinute);
-      }
       MachineId machineId = new MachineId(machine.id);
       SetupFamilyId initialFamily =
           new SetupFamilyId(machine.initialSetupFamily);
-      definitions.addValues(machineId, initialFamily, maintenance);
       states.addValues(machineId, machine.initialAvailableMinute,
-          true, initialFamily, 0L);
-      if (definitions.size() == BATCH_SIZE) {
-        runtime.machineDefinitions().addBatch(definitions);
+          initialFamily, 0L);
+      if (states.size() == BATCH_SIZE) {
         runtime.machineStates().addBatch(states);
-        definitions.clear();
         states.clear();
       }
     }
-    runtime.machineDefinitions().addBatch(definitions);
     runtime.machineStates().addBatch(states);
   }
 
@@ -113,7 +95,7 @@ final class RuntimeProjector {
             Math.min(BATCH_SIZE, problem.resources().size()));
     for (ResourceSpec resource : problem.resources()) {
       batch.addValues(new ResourceId(resource.id),
-          resource.capacity, 0L, 0L);
+          resource.capacity, 0L);
     }
     runtime.resourceStates().addBatch(batch);
   }

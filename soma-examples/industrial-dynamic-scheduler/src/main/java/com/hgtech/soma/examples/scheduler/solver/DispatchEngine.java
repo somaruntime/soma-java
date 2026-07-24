@@ -25,36 +25,40 @@ final class DispatchEngine {
   DispatchSummary solve() {
     if (solved) throw new IllegalStateException("engine is one-shot");
     solved = true;
-    while (runtime.assignmentSize() < runtime.operationCount()) {
-      if (frontier.isEmpty()) {
-        require(eventProcessor.hasPending(),
-            "unscheduled operations remain without event or candidate");
-        eventProcessor.processThrough(eventProcessor.nextMinute());
-        continue;
+    try {
+      while (runtime.assignmentSize() < runtime.operationCount()) {
+        if (frontier.isEmpty()) {
+          require(eventProcessor.hasPending(),
+              "unscheduled operations remain without event or candidate");
+          eventProcessor.processThrough(eventProcessor.nextMinute());
+          continue;
+        }
+        SelectedCandidate selected = frontier.select();
+        long setupStart = Math.subtractExact(
+            selected.effectiveStartMinute, selected.setupMinutes);
+        if (eventProcessor.hasPending()
+            && eventProcessor.nextMinute() <= setupStart) {
+          eventProcessor.processThrough(eventProcessor.nextMinute());
+          continue;
+        }
+        frontier.revalidate(selected);
+        committer.commit(selected, setupStart);
       }
-      SelectedCandidate selected = frontier.refreshAndSelect();
-      long setupStart = Math.subtractExact(
-          selected.effectiveStartMinute, selected.setupMinutes);
-      if (eventProcessor.hasPending()
-          && eventProcessor.nextMinute() <= setupStart) {
-        eventProcessor.processThrough(eventProcessor.nextMinute());
-        continue;
-      }
-      frontier.revalidate(selected);
-      committer.commit(selected, setupStart);
+      eventProcessor.processThrough(committer.makespan());
+      require(frontier.isEmpty(),
+          "frontier must be empty after all assignments");
+      require(committer.completedJobs() == runtime.jobCount(),
+          "all jobs must be completed");
+      return new DispatchSummary(
+          runtime.assignmentSize(),
+          committer.completedJobs(),
+          committer.makespan(),
+          committer.totalTardiness(),
+          committer.weightedTardiness(),
+          eventProcessor.processedEvents());
+    } finally {
+      frontier.close();
     }
-    eventProcessor.processThrough(committer.makespan());
-    require(frontier.isEmpty(),
-        "frontier must be empty after all assignments");
-    require(committer.completedJobs() == runtime.jobCount(),
-        "all jobs must be completed");
-    return new DispatchSummary(
-        runtime.assignmentSize(),
-        committer.completedJobs(),
-        committer.makespan(),
-        committer.totalTardiness(),
-        committer.weightedTardiness(),
-        eventProcessor.processedEvents());
   }
 
   private static void require(boolean condition, String message) {

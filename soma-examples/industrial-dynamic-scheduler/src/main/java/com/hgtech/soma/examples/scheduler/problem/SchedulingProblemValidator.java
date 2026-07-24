@@ -29,9 +29,9 @@ final class SchedulingProblemValidator {
         indexSetups(machines, operations, setupTimes, machineById);
     Map<String, TransportTimeSpec> transportByKey =
         indexTransports(machines, transportTimes, machineById);
-    validateDefinitions(
-        jobs, machines, operations, setupTimes, transportTimes);
     validateEvents(jobs, events, jobById, machineById);
+    validateTimeArithmetic(
+        jobs, machines, operations, setupTimes, transportTimes, events);
 
     int maximumCandidates = 0;
     for (OperationSpec operation : operations) {
@@ -226,35 +226,64 @@ final class SchedulingProblemValidator {
     return Collections.unmodifiableMap(result);
   }
 
-  private static void validateDefinitions(
+  private static void validateTimeArithmetic(
       List<JobSpec> jobs,
       List<MachineSpec> machines,
       List<OperationSpec> operations,
       List<SetupTimeSpec> setupTimes,
-      List<TransportTimeSpec> transportTimes) {
-    long upperBound = 0L;
-    for (JobSpec job : jobs) {
-      upperBound = Math.max(upperBound,
-          Math.max(job.releaseMinute, job.materialReadyMinute));
-    }
-    for (MachineSpec machine : machines) {
-      upperBound = Math.max(
-          upperBound, machine.initialAvailableMinute);
-    }
-    for (OperationSpec operation : operations) {
-      long maximum = 0L;
-      for (MachineOption option : operation.options) {
-        maximum = Math.max(maximum, option.processingMinutes);
+      List<TransportTimeSpec> transportTimes,
+      List<ExternalEvent> events) {
+    try {
+      long horizon = 0L;
+      for (JobSpec job : jobs) {
+        horizon = Math.max(horizon,
+            Math.max(job.releaseMinute, job.materialReadyMinute));
       }
-      upperBound = Math.addExact(upperBound, maximum);
+      for (MachineSpec machine : machines) {
+        horizon = Math.max(horizon, machine.initialAvailableMinute);
+        for (MaintenanceInterval maintenance : machine.maintenance) {
+          horizon = Math.max(horizon, maintenance.endMinute);
+        }
+      }
+      for (ExternalEvent event : events) {
+        horizon = Math.max(horizon,
+            Math.max(event.minute, event.value));
+      }
+      long maximumSetup = 0L;
+      for (SetupTimeSpec setup : setupTimes) {
+        maximumSetup = Math.max(maximumSetup, setup.minutes);
+      }
+      long maximumTransport = 0L;
+      for (TransportTimeSpec transport : transportTimes) {
+        maximumTransport = Math.max(
+            maximumTransport, transport.minutes);
+      }
+      for (OperationSpec operation : operations) {
+        long maximumProcessing = 0L;
+        for (MachineOption option : operation.options) {
+          maximumProcessing = Math.max(
+              maximumProcessing, option.processingMinutes);
+        }
+        horizon = Math.addExact(horizon, maximumTransport);
+        horizon = Math.addExact(horizon, maximumSetup);
+        horizon = Math.addExact(horizon, maximumProcessing);
+      }
+      long totalTardinessBound = 0L;
+      long weightedTardinessBound = 0L;
+      for (JobSpec job : jobs) {
+        totalTardinessBound =
+            Math.addExact(totalTardinessBound, horizon);
+        weightedTardinessBound = Math.addExact(
+            weightedTardinessBound,
+            Math.multiplyExact(horizon, (long) job.priority));
+      }
+      require(totalTardinessBound >= 0L
+              && weightedTardinessBound >= 0L,
+          "invalid aggregate time bound");
+    } catch (ArithmeticException overflow) {
+      throw new IllegalArgumentException(
+          "time arithmetic exceeds signed long range", overflow);
     }
-    for (SetupTimeSpec setup : setupTimes) {
-      upperBound = Math.addExact(upperBound, setup.minutes);
-    }
-    for (TransportTimeSpec transport : transportTimes) {
-      upperBound = Math.addExact(upperBound, transport.minutes);
-    }
-    require(upperBound >= 0L, "time upper bound overflow");
   }
 
   private static void validateEvents(

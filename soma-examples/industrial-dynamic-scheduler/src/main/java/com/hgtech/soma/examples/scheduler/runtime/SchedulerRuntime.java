@@ -4,9 +4,7 @@ import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.problem.ExternalEvent;
 import com.hgtech.soma.examples.scheduler.problem.JobSpec;
 import com.hgtech.soma.examples.scheduler.schema.OperationAssignment;
-import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionTable;
-import com.hgtech.soma.examples.scheduler.schema.generated.MachineDefinitionTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.MachineRuntimeStateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationDefinitionTable;
@@ -27,50 +25,41 @@ import java.util.PriorityQueue;
 public final class SchedulerRuntime implements AutoCloseable {
   final int jobCount;
   final int operationCount;
-  final int maximumCandidatesPerOperation;
+  final int frontierCapacity;
   final JobDefinitionTable jobs;
   final OperationDefinitionTable operationDefinitions;
-  final MachineDefinitionTable machineDefinitions;
   final MachineRuntimeStateTable machineStates;
   final OperationRuntimeStateTable operationStates;
   final SecondaryResourceStateTable resourceStates;
   final SetupTimeTable setupTimes;
   final TransportTimeTable transportTimes;
-  final DispatchCandidateTable frontier;
   final OperationAssignmentTable assignments;
   final PriorityQueue<ExternalEvent> events;
   final Map<Long, JobGate> jobGates;
   final MachineCalendar[] machineCalendars;
-  final ResourceCalendar[] resourceCalendars;
   private boolean closed;
 
   SchedulerRuntime(
       SchedulingProblem problem,
       JobDefinitionTable jobs,
       OperationDefinitionTable operationDefinitions,
-      MachineDefinitionTable machineDefinitions,
       MachineRuntimeStateTable machineStates,
       OperationRuntimeStateTable operationStates,
       SecondaryResourceStateTable resourceStates,
       SetupTimeTable setupTimes,
       TransportTimeTable transportTimes,
-      DispatchCandidateTable frontier,
       OperationAssignmentTable assignments,
-      MachineCalendar[] machineCalendars,
-      ResourceCalendar[] resourceCalendars) {
+      MachineCalendar[] machineCalendars) {
     this.jobCount = problem.jobs().size();
     this.operationCount = problem.operationCount();
-    this.maximumCandidatesPerOperation =
-        problem.maximumCandidatesPerOperation();
+    this.frontierCapacity = problem.frontierCapacity();
     this.jobs = jobs;
     this.operationDefinitions = operationDefinitions;
-    this.machineDefinitions = machineDefinitions;
     this.machineStates = machineStates;
     this.operationStates = operationStates;
     this.resourceStates = resourceStates;
     this.setupTimes = setupTimes;
     this.transportTimes = transportTimes;
-    this.frontier = frontier;
     this.assignments = assignments;
     this.events = new PriorityQueue<ExternalEvent>(
         Math.max(1, problem.events().size()), ExternalEvent.ORDER);
@@ -80,7 +69,6 @@ public final class SchedulerRuntime implements AutoCloseable {
       jobGates.put(Long.valueOf(job.id), new JobGate());
     }
     this.machineCalendars = machineCalendars;
-    this.resourceCalendars = resourceCalendars;
   }
 
   public List<OperationAssignment> exportAssignments() {
@@ -99,12 +87,12 @@ public final class SchedulerRuntime implements AutoCloseable {
 
   public String schemaHash() {
     ensureOpen();
-    return frontier.runtimePlan().schemaHash();
+    return assignments.runtimePlan().schemaHash();
   }
 
   public String runtimePlanHash() {
     ensureOpen();
-    return frontier.runtimePlan().runtimePlanHash();
+    return assignments.runtimePlan().runtimePlanHash();
   }
 
   public int assignmentKeyCount() {
@@ -117,29 +105,51 @@ public final class SchedulerRuntime implements AutoCloseable {
 
   public RuntimeEvidence runtimeEvidence() {
     ensureOpen();
-    TableStats frontierStats = frontier.statsSnapshot();
     TableStats assignmentStats = assignments.statsSnapshot();
-    return new RuntimeEvidence(frontierStats.exactIndexProbeCount(),
-        frontierStats.exactIndexStorageHighWaterBytes(),
-        frontierStats.updateScratchHighWaterBytes(),
-        frontierStats.operationScratchHighWaterBytes(),
-        assignmentStats.capacity(), frontierStats.capacity(),
+    TableStats[] stats = {
+        jobs.statsSnapshot(),
+        operationDefinitions.statsSnapshot(),
+        machineStates.statsSnapshot(),
+        operationStates.statsSnapshot(),
+        resourceStates.statsSnapshot(),
+        setupTimes.statsSnapshot(),
+        transportTimes.statsSnapshot(),
+        assignmentStats
+    };
+    long exactIndexProbes = 0L;
+    long exactIndexHighWaterBytes = 0L;
+    long updateScratchHighWaterBytes = 0L;
+    long operationScratchHighWaterBytes = 0L;
+    for (TableStats value : stats) {
+      exactIndexProbes = Math.addExact(
+          exactIndexProbes, value.exactIndexProbeCount());
+      exactIndexHighWaterBytes = Math.addExact(
+          exactIndexHighWaterBytes,
+          value.exactIndexStorageHighWaterBytes());
+      updateScratchHighWaterBytes = Math.addExact(
+          updateScratchHighWaterBytes,
+          value.updateScratchHighWaterBytes());
+      operationScratchHighWaterBytes = Math.addExact(
+          operationScratchHighWaterBytes,
+          value.operationScratchHighWaterBytes());
+    }
+    return new RuntimeEvidence(
+        exactIndexProbes,
+        exactIndexHighWaterBytes,
+        updateScratchHighWaterBytes,
+        operationScratchHighWaterBytes,
+        assignmentStats.capacity(),
+        frontierCapacity,
         assignmentKeyCount());
   }
 
   public int jobCount() { return jobCount; }
   public int operationCount() { return operationCount; }
-  public int maximumCandidatesPerOperation() {
-    return maximumCandidatesPerOperation;
-  }
+  public int frontierCapacity() { return frontierCapacity; }
   public JobDefinitionTable jobs() { ensureOpen(); return jobs; }
   public OperationDefinitionTable operationDefinitions() {
     ensureOpen();
     return operationDefinitions;
-  }
-  public MachineDefinitionTable machineDefinitions() {
-    ensureOpen();
-    return machineDefinitions;
   }
   public MachineRuntimeStateTable machineStates() {
     ensureOpen();
@@ -158,12 +168,10 @@ public final class SchedulerRuntime implements AutoCloseable {
     ensureOpen();
     return transportTimes;
   }
-  public DispatchCandidateTable frontier() { ensureOpen(); return frontier; }
   public OperationAssignmentTable assignments() {
     ensureOpen();
     return assignments;
   }
-  public int frontierSize() { ensureOpen(); return frontier.size(); }
   public int assignmentSize() { ensureOpen(); return assignments.size(); }
 
   public boolean hasEvents() {
@@ -215,26 +223,6 @@ public final class SchedulerRuntime implements AutoCloseable {
         earliestStart, occupiedMinutes);
   }
 
-  public long earliestResourceStart(int resourceIndex, int units) {
-    return requireResourceCalendar(resourceIndex).earliestStart(units);
-  }
-
-  public void commitResource(
-      long resourceId, long startMinute, long endMinute, int units) {
-    requireResourceCalendar(resourceStates.requireIndex(resourceId)).commit(
-        startMinute, endMinute, units);
-  }
-
-  public long nextResourceAvailableMinute(long resourceId) {
-    return requireResourceCalendar(
-        resourceStates.requireIndex(resourceId)).nextAvailableMinute();
-  }
-
-  public int resourceCapacity(long resourceId) {
-    return requireResourceCalendar(
-        resourceStates.requireIndex(resourceId)).capacity();
-  }
-
   private MachineCalendar requireMachineCalendar(int machineIndex) {
     ensureOpen();
     if (machineIndex < 0 || machineIndex >= machineCalendars.length) {
@@ -243,18 +231,6 @@ public final class SchedulerRuntime implements AutoCloseable {
     MachineCalendar calendar = machineCalendars[machineIndex];
     if (calendar == null) {
       throw new IllegalStateException("missing machine calendar");
-    }
-    return calendar;
-  }
-
-  private ResourceCalendar requireResourceCalendar(int resourceIndex) {
-    ensureOpen();
-    if (resourceIndex < 0 || resourceIndex >= resourceCalendars.length) {
-      throw new IllegalArgumentException("unknown resource Index");
-    }
-    ResourceCalendar calendar = resourceCalendars[resourceIndex];
-    if (calendar == null) {
-      throw new IllegalStateException("missing resource calendar");
     }
     return calendar;
   }
@@ -276,17 +252,14 @@ public final class SchedulerRuntime implements AutoCloseable {
     if (closed) return;
     closed = true;
     assignments.release();
-    frontier.release();
     transportTimes.release();
     setupTimes.release();
     resourceStates.release();
     operationStates.release();
     machineStates.release();
-    machineDefinitions.release();
     operationDefinitions.release();
     jobs.release();
     events.clear();
-    Arrays.fill(resourceCalendars, null);
     Arrays.fill(machineCalendars, null);
     jobGates.clear();
   }

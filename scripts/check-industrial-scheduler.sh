@@ -213,7 +213,7 @@ jar_manifest=$evidence_dir/production-jar.txt
 jar tf "$application_build_dir/industrial-dynamic-scheduler-1.0.0-SNAPSHOT.jar" \
   >"$jar_manifest"
 if grep -E \
-    '/(benchmark|fixture|oracle|verification)/|SchedulerRuntimeTestAccess|JvmMetrics|SchedulingProblemFixtures|TinyScheduleOracle' \
+    '/(benchmark|fixture|oracle|verification)/|Scheduler(Runtime|Execution)TestAccess|JvmMetrics|SchedulingProblemFixtures|TinyScheduleOracle' \
     "$jar_manifest" >/dev/null; then
   printf '%s\n' \
     'industrial-scheduler-check: production JAR contains evidence classes' >&2
@@ -261,7 +261,7 @@ if [ "$(wc -l <"$benchmark_artifact" | tr -d ' ')" -ne "$forks" ]; then
   printf '%s\n' 'industrial-scheduler-check: fork count mismatch' >&2
   exit 1
 fi
-grep -F '"artifactVersion":"industrial-scheduler-benchmark-v3"' \
+grep -F '"artifactVersion":"industrial-scheduler-benchmark-v4"' \
     "$benchmark_artifact" >/dev/null
 grep -F "\"configuredForks\":$forks" "$benchmark_artifact" >/dev/null
 grep -F "\"profile\":\"$profile\"" "$benchmark_artifact" >/dev/null
@@ -269,7 +269,7 @@ if grep -v '"claimAllowed":false' "$benchmark_artifact" >/dev/null; then
   printf '%s\n' 'industrial-scheduler-check: invalid benchmark claim' >&2
   exit 1
 fi
-for field in inputChecksum resultChecksum schemaHash runtimePlanHash; do
+for field in configChecksum inputChecksum resultChecksum schemaHash runtimePlanHash; do
   sed -n "s/.*\\\"$field\\\":\\\"\\([^\\\"]*\\)\\\".*/\\1/p" \
     "$benchmark_artifact" | LC_ALL=C sort -u >"$evidence_dir/$field.txt"
   if [ "$(wc -l <"$evidence_dir/$field.txt" | tr -d ' ')" -ne 1 ]; then
@@ -278,7 +278,8 @@ for field in inputChecksum resultChecksum schemaHash runtimePlanHash; do
   fi
 done
 for field in jobs operations machines candidatesPerOperation \
-  warmup measurements operationExecutions frontierCapacity; do
+  generatorVersion seed warmup measurements operationExecutions \
+  frontierCapacity; do
   sed -n "s/.*\\\"$field\\\":\\([0-9][0-9]*\\).*/\\1/p" \
     "$benchmark_artifact" | LC_ALL=C sort -u >"$evidence_dir/$field.txt"
   if [ "$(wc -l <"$evidence_dir/$field.txt" | tr -d ' ')" -ne 1 ]; then
@@ -316,10 +317,17 @@ done
 while IFS= read -r record; do
   allocated=$(printf '%s\n' "$record" |
     sed -n 's/.*"allocatedBytes":\([0-9][0-9]*\).*/\1/p')
+  end_to_end_allocated=$(printf '%s\n' "$record" |
+    sed -n 's/.*"endToEndAllocatedBytes":\([0-9][0-9]*\).*/\1/p')
   solve=$(printf '%s\n' "$record" |
     sed -n 's/.*"solveNanos":\([0-9][0-9]*\).*/\1/p')
+  end_to_end=$(printf '%s\n' "$record" |
+    sed -n 's/.*"endToEndNanos":\([0-9][0-9]*\).*/\1/p')
   if [ -z "$allocated" ] || [ "$allocated" -le 0 ] \
-      || [ -z "$solve" ] || [ "$solve" -le 0 ]; then
+      || [ -z "$end_to_end_allocated" ] \
+      || [ "$end_to_end_allocated" -lt "$allocated" ] \
+      || [ -z "$solve" ] || [ "$solve" -le 0 ] \
+      || [ -z "$end_to_end" ] || [ "$end_to_end" -lt "$solve" ]; then
     printf '%s\n' 'industrial-scheduler-check: missing allocation/time evidence' >&2
     exit 1
   fi

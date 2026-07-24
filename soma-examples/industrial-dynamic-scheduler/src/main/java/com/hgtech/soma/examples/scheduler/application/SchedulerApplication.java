@@ -49,7 +49,6 @@ public final class SchedulerApplication {
       System.out.println("tardiness.minute="
           + validated.totalTardinessMinutes);
       System.out.println("weighted.tardiness=" + validated.weightedTardiness);
-      System.out.println("events.processed=" + result.processedEvents);
       System.out.println("generation.nanos=" + generationNanos);
       System.out.println("preparation.nanos=" + preparationNanos);
       System.out.println("solve.nanos=" + solveNanos);

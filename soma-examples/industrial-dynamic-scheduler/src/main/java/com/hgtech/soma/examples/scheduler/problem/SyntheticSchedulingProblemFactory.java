@@ -26,7 +26,7 @@ public final class SyntheticSchedulingProblemFactory
     List<SetupTimeSpec> setups = setups(config, random);
     List<TransportTimeSpec> transports = transports(config, random);
     List<ExternalEvent> events = events(config, jobs, random);
-    return new SchedulingProblem(config.generatorVersion(), config.seed(),
+    return new SchedulingProblem(
         jobs, machines, resources, operations, setups, transports, events);
   }
 

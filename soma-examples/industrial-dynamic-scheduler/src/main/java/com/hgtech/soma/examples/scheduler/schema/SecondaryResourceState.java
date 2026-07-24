@@ -8,6 +8,5 @@ import com.hgtech.soma.annotation.SomaTable;
 public final class SecondaryResourceState {
   @SomaKey public ResourceId resourceId;
   @SomaField public int capacity;
-  @SomaField public long nextAvailableMinute;
   @SomaField public long version;
 }

@@ -25,19 +25,47 @@ final class MachineCalendar {
       throw new IllegalArgumentException("invalid machine interval");
     }
     long candidate = earliestStart;
-    boolean moved;
-    do {
-      moved = false;
-      long candidateEnd = Math.addExact(candidate, occupiedMinutes);
-      long next = candidate;
-      for (int index = 0; index < starts.length; index++) {
-        if (candidate < ends[index] && candidateEnd > starts[index]) {
-          next = Math.max(next, ends[index]);
-          moved = true;
-        }
+    int index = firstEndingAfter(candidate);
+    while (index < starts.length) {
+      long candidateEnd =
+          Math.addExact(candidate, occupiedMinutes);
+      if (candidateEnd <= starts[index]) {
+        return candidate;
       }
-      candidate = next;
-    } while (moved);
+      if (candidate < ends[index]) {
+        candidate = ends[index];
+      }
+      index++;
+    }
     return candidate;
+  }
+
+  private int firstEndingAfter(long minute) {
+    int low = 0;
+    int high = ends.length;
+    while (low < high) {
+      int middle = (low + high) >>> 1;
+      if (ends[middle] <= minute) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return low;
+  }
+
+  boolean matches(List<MaintenanceInterval> windows) {
+    if (windows == null || windows.size() != starts.length) {
+      return false;
+    }
+    for (int index = 0; index < starts.length; index++) {
+      MaintenanceInterval window = windows.get(index);
+      if (window == null
+          || starts[index] != window.startMinute
+          || ends[index] != window.endMinute) {
+        return false;
+      }
+    }
+    return true;
   }
 }

@@ -1,12 +1,10 @@
 package com.hgtech.soma.examples.scheduler.solver;
 
-import com.hgtech.soma.examples.scheduler.schema.DispatchCandidateKey;
 import com.hgtech.soma.examples.scheduler.schema.JobId;
 import com.hgtech.soma.examples.scheduler.schema.MachineId;
 import com.hgtech.soma.examples.scheduler.schema.OperationId;
 import com.hgtech.soma.examples.scheduler.schema.OperationKey;
 import com.hgtech.soma.examples.scheduler.schema.ResourceId;
-import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateCursor;
 
 /** CandidateFrontier 复用的单项 selected scratch。 */
 final class SelectedCandidate {
@@ -17,6 +15,7 @@ final class SelectedCandidate {
   long targetSetupFamily;
   long resourceId;
   int resourceUnits;
+  long baseReadyMinute;
   long processingMinutes;
   long setupMinutes;
   long transportMinutes;
@@ -32,28 +31,25 @@ final class SelectedCandidate {
     present = false;
   }
 
-  void copy(DispatchCandidateCursor value) {
-    present = true;
-    jobId = value.candidateKeyOperationKeyJobIdValue();
-    operationId = value.candidateKeyOperationKeyOperationIdValue();
-    machineId = value.candidateKeyMachineIdValue();
-    targetSetupFamily = value.targetSetupFamilyValue();
-    resourceId = value.requiredResourceValue();
-    resourceUnits = value.requiredResourceUnits();
-    processingMinutes = value.processingMinutes();
-    setupMinutes = value.setupMinutes();
-    transportMinutes = value.transportMinutes();
-    effectiveStartMinute = value.effectiveStartMinute();
-    completionMinute = value.completionMinute();
-    dueMinute = value.dueMinute();
-    priority = value.priority();
-    operationVersion = value.operationVersion();
-    machineVersion = value.machineVersion();
-    resourceVersion = value.resourceVersion();
-  }
-
-  DispatchCandidateKey key() {
-    return new DispatchCandidateKey(operation(), machine());
+  void copyFrom(SelectedCandidate source) {
+    present = source.present;
+    jobId = source.jobId;
+    operationId = source.operationId;
+    machineId = source.machineId;
+    targetSetupFamily = source.targetSetupFamily;
+    resourceId = source.resourceId;
+    resourceUnits = source.resourceUnits;
+    baseReadyMinute = source.baseReadyMinute;
+    processingMinutes = source.processingMinutes;
+    setupMinutes = source.setupMinutes;
+    transportMinutes = source.transportMinutes;
+    effectiveStartMinute = source.effectiveStartMinute;
+    completionMinute = source.completionMinute;
+    dueMinute = source.dueMinute;
+    priority = source.priority;
+    operationVersion = source.operationVersion;
+    machineVersion = source.machineVersion;
+    resourceVersion = source.resourceVersion;
   }
 
   OperationKey operation() {

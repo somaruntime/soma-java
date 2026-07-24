@@ -1,84 +1,102 @@
 package com.hgtech.soma.examples.scheduler.solver;
 
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
-import com.hgtech.soma.examples.scheduler.schema.DispatchCandidateKey;
 import com.hgtech.soma.examples.scheduler.schema.JobId;
 import com.hgtech.soma.examples.scheduler.schema.MachineId;
 import com.hgtech.soma.examples.scheduler.schema.OperationId;
 import com.hgtech.soma.examples.scheduler.schema.OperationKey;
 import com.hgtech.soma.examples.scheduler.schema.OperationStatus;
 import com.hgtech.soma.examples.scheduler.schema.ResourceId;
-import com.hgtech.soma.examples.scheduler.schema.SetupFamilyId;
-import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateBatch;
-import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateCursor;
-import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateScan;
 import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationRuntimeStateMutator;
 import com.hgtech.soma.runtime.EnumColumnView;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
-import com.hgtech.soma.runtime.UpdateResult;
 
-/** Candidate 发布、刷新、排序选择与版本复验的唯一 Owner。 */
-final class CandidateFrontier {
-  private static final DispatchCandidateScan.Comparator TOTAL_ORDER =
-      new DispatchCandidateScan.Comparator() {
-        @Override
-        public int compare(DispatchCandidateCursor left,
-                           DispatchCandidateCursor right) {
-          int result = Long.compare(setupStart(left), setupStart(right));
-          if (result != 0) return result;
-          result = Long.compare(
-              left.completionMinute(), right.completionMinute());
-          if (result != 0) return result;
-          result = Integer.compare(right.priority(), left.priority());
-          if (result != 0) return result;
-          result = Long.compare(left.dueMinute(), right.dueMinute());
-          if (result != 0) return result;
-          result = Long.compare(
-              left.candidateKeyOperationKeyJobIdValue(),
-              right.candidateKeyOperationKeyJobIdValue());
-          if (result != 0) return result;
-          result = Long.compare(
-              left.candidateKeyOperationKeyOperationIdValue(),
-              right.candidateKeyOperationKeyOperationIdValue());
-          if (result != 0) return result;
-          return Long.compare(left.candidateKeyMachineIdValue(),
-              right.candidateKeyMachineIdValue());
-        }
-
-        private long setupStart(DispatchCandidateCursor value) {
-          return Math.subtractExact(
-              value.effectiveStartMinute(), value.setupMinutes());
-        }
-      };
-
+/**
+ * Candidate 发布、增量刷新、全局选择与版本复验的唯一 Owner。
+ *
+ * <p>SOMA tables 保存定义和 authoritative runtime state。candidate 是可由
+ * 这些事实重建的短命求解投影，由 primitive pool 和每机代表项最小堆持有，
+ * 不进入 SOMA table graph。</p>
+ */
+final class CandidateFrontier implements AutoCloseable {
   private final SchedulerRuntime runtime;
-  private final DispatchCandidateBatch releaseBatch;
+  private final CandidatePool candidates;
+  private final MachineFrontierHeap heap;
   private final SelectedCandidate selected = new SelectedCandidate();
-  private final long[][] resourceReadyVersions;
-  private final long[][] resourceReadyMinutes;
+  private final SelectedCandidate machineBest =
+      new SelectedCandidate();
+  private final SelectedCandidate releasedCandidate =
+      new SelectedCandidate();
+  private final SelectedCandidate candidateScratch =
+      new SelectedCandidate();
+  private final ResourceCalendar[] resourceCalendars;
+
+  /*
+   * 下列 view 绑定的 Table 在 solve 中只有 point mutation，没有结构变化。
+   * 因此它们可以安全复用，并在 frontier lifecycle 结束时统一关闭。
+   */
+  private final EnumColumnView<OperationStatus> operationStatuses;
+  private final LongColumnView operationVersions;
+  private final LongColumnView definitionFamilies;
+  private final LongColumnView definitionResourceIds;
+  private final IntColumnView definitionResourceUnits;
+  private final LongColumnView definitionOperationIds;
+  private final IntColumnView definitionSequences;
+  private final LongColumnView jobReleaseMinutes;
+  private final LongColumnView jobMaterialMinutes;
+  private final LongColumnView jobDueMinutes;
+  private final IntColumnView jobPriorities;
+  private final LongColumnView transportValues;
+  private final LongColumnView machineAvailable;
+  private final LongColumnView machineFamilies;
+  private final LongColumnView machineVersions;
+  private final LongColumnView resourceVersions;
+  private final LongColumnView setupValues;
+  private boolean closed;
 
   CandidateFrontier(SchedulerRuntime runtime) {
     this.runtime = runtime;
-    releaseBatch = new DispatchCandidateBatch(
-        runtime.maximumCandidatesPerOperation());
+    candidates = new CandidatePool(
+        runtime.frontierCapacity(), runtime.machineStates().size());
+    heap = new MachineFrontierHeap(runtime.machineStates().size());
+    operationStatuses = runtime.operationStates().statusColumn();
+    operationVersions = runtime.operationStates().versionColumn();
+    definitionFamilies =
+        runtime.operationDefinitions().setupFamilyValueColumn();
+    definitionResourceIds =
+        runtime.operationDefinitions().requiredResourceValueColumn();
+    definitionResourceUnits =
+        runtime.operationDefinitions().requiredResourceUnitsColumn();
+    definitionOperationIds =
+        runtime.operationDefinitions()
+            .operationKeyOperationIdValueColumn();
+    definitionSequences =
+        runtime.operationDefinitions().sequenceNoColumn();
+    jobReleaseMinutes = runtime.jobs().releaseMinuteColumn();
+    jobMaterialMinutes = runtime.jobs().materialReadyMinuteColumn();
+    jobDueMinutes = runtime.jobs().dueMinuteColumn();
+    jobPriorities = runtime.jobs().priorityColumn();
+    transportValues = runtime.transportTimes().transportMinutesColumn();
+    machineAvailable =
+        runtime.machineStates().nextAvailableMinuteColumn();
+    machineFamilies =
+        runtime.machineStates().lastSetupFamilyValueColumn();
+    machineVersions = runtime.machineStates().versionColumn();
+    resourceVersions = runtime.resourceStates().versionColumn();
+    setupValues = runtime.setupTimes().setupMinutesColumn();
+
     int resourceCount = runtime.resourceStates().size();
-    resourceReadyVersions = new long[resourceCount][];
-    resourceReadyMinutes = new long[resourceCount][];
+    resourceCalendars = new ResourceCalendar[resourceCount];
     IntColumnView capacities =
         runtime.resourceStates().capacityColumn();
     try {
       for (int resourceIndex = 0;
            resourceIndex < resourceCount; resourceIndex++) {
-        int capacity = capacities.getInt(resourceIndex);
-        resourceReadyVersions[resourceIndex] =
-            new long[Math.addExact(capacity, 1)];
-        resourceReadyMinutes[resourceIndex] =
-            new long[Math.addExact(capacity, 1)];
-        for (int units = 0; units <= capacity; units++) {
-          resourceReadyVersions[resourceIndex][units] = Long.MIN_VALUE;
-        }
+        resourceCalendars[resourceIndex] =
+            new ResourceCalendar(
+                capacities.getInt(resourceIndex));
       }
     } finally {
       capacities.close();
@@ -86,52 +104,71 @@ final class CandidateFrontier {
   }
 
   boolean isEmpty() {
-    return runtime.frontierSize() == 0;
+    if (candidates.size() == 0) {
+      heap.clear();
+      return true;
+    }
+    require(!heap.isEmpty(),
+        "candidate pool has no machine representative");
+    return false;
   }
 
-  SelectedCandidate refreshAndSelect() {
-    refresh();
-    selected.clear();
-    runtime.frontier()
-        .filter(candidate -> candidate.ready())
-        .sorted(TOTAL_ORDER)
-        .limit(1)
-        .forEach(selected::copy);
-    require(selected.present,
-        "non-empty frontier has no ready candidate");
-    return selected;
+  SelectedCandidate select() {
+    require(candidates.size() > 0 && !heap.isEmpty(),
+        "cannot select from an empty frontier");
+    while (true) {
+      int machineIndex = heap.bestMachineIndex();
+      long machineId = heap.bestMachineId();
+      if (heap.bestIsDirty()) {
+        recomputeMachine(machineIndex, machineId);
+        continue;
+      }
+      selected.clear();
+      heap.copyBest(selected);
+      int resourceIndex =
+          runtime.resourceStates().requireIndex(selected.resourceId);
+      long machineVersion = machineVersions.getLong(machineIndex);
+      long resourceVersion = resourceVersions.getLong(resourceIndex);
+      if (selected.machineVersion != machineVersion) {
+        recomputeMachine(machineIndex, machineId);
+        continue;
+      }
+      if (selected.resourceVersion == resourceVersion) {
+        return selected;
+      }
+      if (advanceResourceVersionWithoutScoreChange(
+          selected, resourceIndex, resourceVersion)) {
+        return selected;
+      }
+      /*
+       * Resource lane availability only moves forward, so a cached machine
+       * representative remains a lower bound after resource mutation. Machine
+       * mutation and candidate membership changes publish an explicit lower
+       * bound marker. In both cases only the root machine must be recomputed.
+       */
+      recomputeMachine(machineIndex, machineId);
+    }
   }
 
   void revalidate(SelectedCandidate value) {
-    require(runtime.frontier().containsKey(value.key()),
-        "selected candidate was relocated or retired");
+    require(candidates.contains(
+            value.jobId, value.operationId, value.machineId),
+        "selected candidate was retired");
     int operationIndex =
         runtime.operationStates().requireIndex(value.operation());
     int machineIndex =
-        runtime.machineStates().requireIndex(value.machine());
+        runtime.machineStates().requireIndex(value.machineId);
     int resourceIndex =
-        runtime.resourceStates().requireIndex(value.resource());
-    LongColumnView operationVersions =
-        runtime.operationStates().versionColumn();
-    LongColumnView machineVersions =
-        runtime.machineStates().versionColumn();
-    LongColumnView resourceVersions =
-        runtime.resourceStates().versionColumn();
-    try {
-      require(operationVersions.getLong(operationIndex)
-              == value.operationVersion,
-          "stale operation candidate");
-      require(machineVersions.getLong(machineIndex)
-              == value.machineVersion,
-          "stale machine candidate");
-      require(resourceVersions.getLong(resourceIndex)
-              == value.resourceVersion,
-          "stale resource candidate");
-    } finally {
-      resourceVersions.close();
-      machineVersions.close();
-      operationVersions.close();
-    }
+        runtime.resourceStates().requireIndex(value.resourceId);
+    require(operationVersions.getLong(operationIndex)
+            == value.operationVersion,
+        "stale operation candidate");
+    require(machineVersions.getLong(machineIndex)
+            == value.machineVersion,
+        "stale machine candidate");
+    require(resourceVersions.getLong(resourceIndex)
+            == value.resourceVersion,
+        "stale resource candidate");
   }
 
   void releaseOperation(
@@ -140,19 +177,8 @@ final class CandidateFrontier {
       MachineId predecessorMachine) {
     int stateIndex =
         runtime.operationStates().requireIndex(operation);
-    EnumColumnView<OperationStatus> statuses =
-        runtime.operationStates().statusColumn();
-    LongColumnView versions =
-        runtime.operationStates().versionColumn();
-    OperationStatus status;
-    long previousVersion;
-    try {
-      status = statuses.get(stateIndex);
-      previousVersion = versions.getLong(stateIndex);
-    } finally {
-      versions.close();
-      statuses.close();
-    }
+    OperationStatus status = operationStatuses.get(stateIndex);
+    long previousVersion = operationVersions.getLong(stateIndex);
     require(status == OperationStatus.WAITING,
         "only a waiting operation can enter the frontier");
     long operationVersion = Math.addExact(previousVersion, 1L);
@@ -170,53 +196,22 @@ final class CandidateFrontier {
 
     int definitionIndex =
         runtime.operationDefinitions().requireIndex(operation);
-    LongColumnView families =
-        runtime.operationDefinitions().setupFamilyValueColumn();
-    LongColumnView resourceIds =
-        runtime.operationDefinitions().requiredResourceValueColumn();
-    IntColumnView resourceUnits =
-        runtime.operationDefinitions().requiredResourceUnitsColumn();
-    long family;
-    long resource;
-    int units;
-    try {
-      family = families.getLong(definitionIndex);
-      resource = resourceIds.getLong(definitionIndex);
-      units = resourceUnits.getInt(definitionIndex);
-    } finally {
-      resourceUnits.close();
-      resourceIds.close();
-      families.close();
-    }
+    long family = definitionFamilies.getLong(definitionIndex);
+    long resource = definitionResourceIds.getLong(definitionIndex);
+    int units = definitionResourceUnits.getInt(definitionIndex);
 
     int jobIndex = runtime.jobs().requireIndex(operation.jobId);
-    LongColumnView releaseMinutes =
-        runtime.jobs().releaseMinuteColumn();
-    LongColumnView materialMinutes =
-        runtime.jobs().materialReadyMinuteColumn();
-    LongColumnView dueMinutes = runtime.jobs().dueMinuteColumn();
-    IntColumnView priorities = runtime.jobs().priorityColumn();
-    long jobReady;
-    long due;
-    int priority;
-    try {
-      jobReady = Math.max(releaseMinutes.getLong(jobIndex),
-          materialMinutes.getLong(jobIndex));
-      due = dueMinutes.getLong(jobIndex);
-      priority = priorities.getInt(jobIndex);
-    } finally {
-      priorities.close();
-      dueMinutes.close();
-      materialMinutes.close();
-      releaseMinutes.close();
-    }
+    long jobReady = Math.max(
+        jobReleaseMinutes.getLong(jobIndex),
+        jobMaterialMinutes.getLong(jobIndex));
+    long due = jobDueMinutes.getLong(jobIndex);
+    int priority = jobPriorities.getInt(jobIndex);
 
     EligibleMachineTable eligible =
         runtime.operationDefinitions().eligibleMachines(operation);
     LongColumnView machineIds = eligible.machineIdValueColumn();
     LongColumnView processingMinutes =
         eligible.processingMinutesColumn();
-    releaseBatch.clear();
     try {
       for (int index = 0; index < eligible.size(); index++) {
         MachineId machine =
@@ -226,151 +221,268 @@ final class CandidateFrontier {
         long predecessorReady = Math.addExact(
             predecessorEnd, transport);
         long baseReady = Math.max(jobReady, predecessorReady);
-        releaseBatch.addValues(
-            new DispatchCandidateKey(operation, machine),
-            new SetupFamilyId(family), new ResourceId(resource), units,
-            baseReady, processingMinutes.getLong(index), 0L, transport,
-            baseReady, baseReady, due, priority, operationVersion,
-            0L, 0L, false);
+        addReleasedCandidate(
+            operation, machine, family, resource, units,
+            baseReady, processingMinutes.getLong(index),
+            transport, due, priority, operationVersion);
       }
     } finally {
       processingMinutes.close();
       machineIds.close();
     }
-    runtime.frontier().addBatch(releaseBatch);
+  }
+
+  void refreshMachine(MachineId machine) {
+    heap.markDirty(runtime.machineStates().requireIndex(machine));
+  }
+
+  void commitResource(
+      ResourceId resource,
+      long startMinute,
+      long endMinute,
+      int units) {
+    resourceCalendars[
+        runtime.resourceStates().requireIndex(resource)]
+        .commit(startMinute, endMinute, units);
+  }
+
+  void retireOperation(OperationKey operation) {
+    EligibleMachineTable eligible =
+        runtime.operationDefinitions().eligibleMachines(operation);
+    LongColumnView machineIds = eligible.machineIdValueColumn();
+    int removed = 0;
+    try {
+      for (int index = 0; index < eligible.size(); index++) {
+        long machineId = machineIds.getLong(index);
+        int machineIndex =
+            runtime.machineStates().requireIndex(machineId);
+        if (heap.represents(
+            machineIndex,
+            operation.jobId.value,
+            operation.operationId.value,
+            machineId)) {
+          heap.markDirty(machineIndex);
+        }
+        candidates.remove(
+            operation.jobId.value,
+            operation.operationId.value,
+            machineId);
+        removed = Math.addExact(removed, 1);
+      }
+    } finally {
+      machineIds.close();
+    }
+    require(removed > 0,
+        "assignment must retire every candidate of its operation");
   }
 
   OperationKey operationAt(long jobId, int sequence) {
     int index = runtime.operationDefinitions()
         .requireIndexByJobSequence(new JobId(jobId), sequence);
-    LongColumnView operationIds = runtime.operationDefinitions()
-        .operationKeyOperationIdValueColumn();
-    try {
-      return new OperationKey(new JobId(jobId),
-          new OperationId(operationIds.getLong(index)));
-    } finally {
-      operationIds.close();
-    }
+    return new OperationKey(new JobId(jobId),
+        new OperationId(definitionOperationIds.getLong(index)));
+  }
+
+  int operationSequence(OperationKey operation) {
+    return definitionSequences.getInt(
+        runtime.operationDefinitions().requireIndex(operation));
+  }
+
+  long operationIdAt(long jobId, int sequence) {
+    int index = runtime.operationDefinitions()
+        .findIndexByJobSequence(new JobId(jobId), sequence);
+    return index < 0 ? Long.MIN_VALUE
+        : definitionOperationIds.getLong(index);
   }
 
   private long transportMinutes(MachineId from, MachineId to) {
     int index = runtime.transportTimes()
         .requireIndex(from.value, to.value);
-    LongColumnView minutes =
-        runtime.transportTimes().transportMinutesColumn();
-    try {
-      return minutes.getLong(index);
-    } finally {
-      minutes.close();
+    return transportValues.getLong(index);
+  }
+
+  private void recomputeMachine(
+      int machineIndex, long machineId) {
+    machineBest.clear();
+    for (int slot = candidates.firstByMachine(machineIndex);
+         slot >= 0; slot = candidates.nextByMachine(slot)) {
+      candidateScratch.clear();
+      candidates.copyTo(slot, candidateScratch);
+      require(candidateScratch.machineId == machineId,
+          "machine candidate group contains the wrong machine");
+      int resourceIndex = candidates.resourceIndex(slot);
+      long machineVersion = machineVersions.getLong(machineIndex);
+      long resourceVersion =
+          resourceVersions.getLong(resourceIndex);
+      boolean refreshed = false;
+      if (candidateScratch.machineVersion != machineVersion) {
+        refreshCandidate(
+            candidateScratch, machineIndex, resourceIndex);
+        refreshed = true;
+      } else if (candidateScratch.resourceVersion
+          != resourceVersion) {
+        if (!advanceResourceVersionWithoutScoreChange(
+            candidateScratch, resourceIndex, resourceVersion)) {
+          refreshCandidate(
+              candidateScratch, machineIndex, resourceIndex);
+        }
+        refreshed = true;
+      }
+      if (refreshed) {
+        candidates.updateFrom(slot, candidateScratch);
+      }
+      if (betterThanMachineBest(candidateScratch)) {
+        machineBest.copyFrom(candidateScratch);
+      }
+    }
+    if (machineBest.present) {
+      heap.publish(machineIndex, machineBest);
+    } else {
+      heap.remove(machineIndex);
     }
   }
 
-  private void refresh() {
-    final LongColumnView machineAvailable =
-        runtime.machineStates().nextAvailableMinuteColumn();
-    final LongColumnView machineFamilies =
-        runtime.machineStates().lastSetupFamilyValueColumn();
-    final LongColumnView machineVersions =
-        runtime.machineStates().versionColumn();
-    final LongColumnView resourceVersions =
-        runtime.resourceStates().versionColumn();
-    final LongColumnView setupValues =
-        runtime.setupTimes().setupMinutesColumn();
-    try {
-      UpdateResult result = runtime.frontier()
-          .filter(candidate -> {
-            int machineIndex = runtime.machineStates().requireIndex(
-                candidate.candidateKeyMachineIdValue());
-            int resourceIndex = runtime.resourceStates().requireIndex(
-                candidate.requiredResourceValue());
-            return !candidate.ready()
-                || candidate.machineVersion()
-                    != machineVersions.getLong(machineIndex)
-                || candidate.resourceVersion()
-                    != resourceVersions.getLong(resourceIndex);
-          })
-          .update(candidate -> {
-        long machineId = candidate.candidateKeyMachineIdValue();
-        long resourceId = candidate.requiredResourceValue();
-        int machineIndex =
-            runtime.machineStates().requireIndex(machineId);
-        int resourceIndex =
-            runtime.resourceStates().requireIndex(resourceId);
-        long machineVersion = machineVersions.getLong(machineIndex);
-        long resourceVersion = resourceVersions.getLong(resourceIndex);
-        long resourceReady = resourceReadyMinute(
-            resourceIndex, resourceVersion,
-            candidate.requiredResourceUnits());
-        boolean machineCurrent = candidate.ready()
-            && candidate.machineVersion() == machineVersion;
-        if (machineCurrent) {
-          long setup = candidate.setupMinutes();
-          long processingStart = candidate.effectiveStartMinute();
-          if (resourceReady > processingStart) {
-            long setupStart = runtime.fitMachineInterval(
-                machineIndex,
-                Math.subtractExact(resourceReady, setup),
-                Math.addExact(setup, candidate.processingMinutes()));
-            processingStart = Math.addExact(setupStart, setup);
-          }
-          candidate.setEffectiveStartMinute(processingStart);
-          candidate.setCompletionMinute(Math.addExact(
-              processingStart, candidate.processingMinutes()));
-          candidate.setResourceVersion(resourceVersion);
-          return;
-        }
-        long setup = 0L;
-        if (machineFamilies.isPresent(machineIndex)) {
-          int setupIndex = runtime.setupTimes().requireIndex(
-              machineId,
-              machineFamilies.getLong(machineIndex),
-              candidate.targetSetupFamilyValue());
-          setup = setupValues.getLong(setupIndex);
-        }
-        long earliestSetup = Math.max(candidate.baseReadyMinute(),
-            machineAvailable.getLong(machineIndex));
-        earliestSetup = Math.max(earliestSetup,
-            Math.max(0L, Math.subtractExact(resourceReady, setup)));
-        long occupied = Math.addExact(
-            setup, candidate.processingMinutes());
-        long setupStart = runtime.fitMachineInterval(
-            machineIndex, earliestSetup, occupied);
-        long processingStart = Math.addExact(setupStart, setup);
-        long completion = Math.addExact(
-            processingStart, candidate.processingMinutes());
-        candidate.setSetupMinutes(setup);
-        candidate.setEffectiveStartMinute(processingStart);
-        candidate.setCompletionMinute(completion);
-        candidate.setMachineVersion(machineVersion);
-        candidate.setResourceVersion(resourceVersion);
-        candidate.setReady(true);
-      });
-      require(result.matched() == result.changed(),
-          "every stale candidate must publish its current versions");
-    } finally {
-      setupValues.close();
-      resourceVersions.close();
-      machineVersions.close();
-      machineFamilies.close();
-      machineAvailable.close();
+  private void refreshCandidate(
+      SelectedCandidate candidate,
+      int machineIndex,
+      int resourceIndex) {
+    long machineVersion = machineVersions.getLong(machineIndex);
+    long resourceVersion = resourceVersions.getLong(resourceIndex);
+    long setup = setupValues.getLong(
+        runtime.setupTimes().requireIndex(
+            candidate.machineId,
+            machineFamilies.getLong(machineIndex),
+            candidate.targetSetupFamily));
+    long resourceReady = resourceReadyMinute(
+        resourceIndex, candidate.resourceUnits);
+    long earliestSetup = Math.max(
+        candidate.baseReadyMinute,
+        machineAvailable.getLong(machineIndex));
+    earliestSetup = Math.max(earliestSetup,
+        Math.max(0L, Math.subtractExact(resourceReady, setup)));
+    long setupStart = runtime.fitMachineInterval(
+        machineIndex, earliestSetup,
+        Math.addExact(setup, candidate.processingMinutes));
+    candidate.setupMinutes = setup;
+    candidate.effectiveStartMinute =
+        Math.addExact(setupStart, setup);
+    candidate.completionMinute = Math.addExact(
+        candidate.effectiveStartMinute,
+        candidate.processingMinutes);
+    candidate.machineVersion = machineVersion;
+    candidate.resourceVersion = resourceVersion;
+  }
+
+  private boolean advanceResourceVersionWithoutScoreChange(
+      SelectedCandidate candidate,
+      int resourceIndex,
+      long resourceVersion) {
+    long resourceReady = resourceReadyMinute(
+        resourceIndex, candidate.resourceUnits);
+    if (resourceReady > candidate.effectiveStartMinute) {
+      return false;
     }
+    candidate.resourceVersion = resourceVersion;
+    return true;
+  }
+
+  private void addReleasedCandidate(
+      OperationKey operation,
+      MachineId machine,
+      long targetSetupFamily,
+      long resourceId,
+      int resourceUnits,
+      long baseReady,
+      long processing,
+      long transport,
+      long due,
+      int priority,
+      long operationVersion) {
+    int machineIndex =
+        runtime.machineStates().requireIndex(machine);
+    int resourceIndex =
+        runtime.resourceStates().requireIndex(resourceId);
+    releasedCandidate.present = true;
+    releasedCandidate.jobId = operation.jobId.value;
+    releasedCandidate.operationId = operation.operationId.value;
+    releasedCandidate.machineId = machine.value;
+    releasedCandidate.targetSetupFamily = targetSetupFamily;
+    releasedCandidate.resourceId = resourceId;
+    releasedCandidate.resourceUnits = resourceUnits;
+    releasedCandidate.baseReadyMinute = baseReady;
+    releasedCandidate.processingMinutes = processing;
+    releasedCandidate.transportMinutes = transport;
+    releasedCandidate.dueMinute = due;
+    releasedCandidate.priority = priority;
+    releasedCandidate.operationVersion = operationVersion;
+    refreshCandidate(
+        releasedCandidate, machineIndex, resourceIndex);
+    candidates.add(
+        releasedCandidate, machineIndex, resourceIndex);
+    heap.consider(machineIndex, releasedCandidate);
+  }
+
+  private boolean betterThanMachineBest(
+      SelectedCandidate candidate) {
+    if (!machineBest.present) return true;
+    long setupStart = Math.subtractExact(
+        candidate.effectiveStartMinute,
+        candidate.setupMinutes);
+    long bestSetupStart = Math.subtractExact(
+        machineBest.effectiveStartMinute,
+        machineBest.setupMinutes);
+    int result = Long.compare(setupStart, bestSetupStart);
+    if (result != 0) return result < 0;
+    result = Long.compare(
+        candidate.completionMinute,
+        machineBest.completionMinute);
+    if (result != 0) return result < 0;
+    result = Integer.compare(
+        machineBest.priority, candidate.priority);
+    if (result != 0) return result < 0;
+    result = Long.compare(
+        candidate.dueMinute, machineBest.dueMinute);
+    if (result != 0) return result < 0;
+    result = Long.compare(
+        candidate.jobId, machineBest.jobId);
+    if (result != 0) return result < 0;
+    result = Long.compare(
+        candidate.operationId, machineBest.operationId);
+    if (result != 0) return result < 0;
+    return Long.compare(
+        candidate.machineId, machineBest.machineId) < 0;
   }
 
   private long resourceReadyMinute(
-      int resourceIndex, long resourceVersion, int units) {
-    long[] versions = resourceReadyVersions[resourceIndex];
-    if (units <= 0 || units >= versions.length) {
-      throw new IllegalArgumentException("invalid resource unit demand");
-    }
-    if (versions[units] != resourceVersion) {
-      resourceReadyMinutes[resourceIndex][units] =
-          runtime.earliestResourceStart(resourceIndex, units);
-      versions[units] = resourceVersion;
-    }
-    return resourceReadyMinutes[resourceIndex][units];
+      int resourceIndex, int units) {
+    return resourceCalendars[resourceIndex].earliestStart(units);
   }
 
-  private static void require(boolean condition, String message) {
+  @Override
+  public void close() {
+    if (closed) return;
+    closed = true;
+    setupValues.close();
+    resourceVersions.close();
+    machineVersions.close();
+    machineFamilies.close();
+    machineAvailable.close();
+    transportValues.close();
+    jobPriorities.close();
+    jobDueMinutes.close();
+    jobMaterialMinutes.close();
+    jobReleaseMinutes.close();
+    definitionSequences.close();
+    definitionOperationIds.close();
+    definitionResourceUnits.close();
+    definitionResourceIds.close();
+    definitionFamilies.close();
+    operationVersions.close();
+    operationStatuses.close();
+  }
+
+  private static void require(
+      boolean condition, String message) {
     if (!condition) throw new IllegalStateException(message);
   }
 }

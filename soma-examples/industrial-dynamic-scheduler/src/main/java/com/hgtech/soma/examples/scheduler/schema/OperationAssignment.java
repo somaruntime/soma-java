@@ -1,13 +1,10 @@
 package com.hgtech.soma.examples.scheduler.schema;
 
 import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaIndex;
 import com.hgtech.soma.annotation.SomaKey;
 import com.hgtech.soma.annotation.SomaTable;
 
 @SomaTable(name = "operation_assignments", defaultCapacity = 8192)
-@SomaIndex(name = "by_machine", fields = {"machineId.value"})
-@SomaIndex(name = "by_resource", fields = {"resourceId.value"})
 public final class OperationAssignment {
   @SomaKey public OperationKey operationKey;
   @SomaField public MachineId machineId;

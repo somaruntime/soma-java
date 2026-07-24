@@ -2,10 +2,7 @@ package com.hgtech.soma.examples.scheduler.runtime;
 
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.problem.MachineSpec;
-import com.hgtech.soma.examples.scheduler.problem.ResourceSpec;
-import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionTable;
-import com.hgtech.soma.examples.scheduler.schema.generated.MachineDefinitionTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.MachineRuntimeStateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationDefinitionTable;
@@ -24,8 +21,6 @@ public final class SchedulerRuntimeFactory {
     JobDefinitionTable jobs = JobDefinitionTable.create(plan);
     OperationDefinitionTable operations =
         OperationDefinitionTable.create(plan);
-    MachineDefinitionTable machineDefinitions =
-        MachineDefinitionTable.create(plan);
     MachineRuntimeStateTable machineStates =
         MachineRuntimeStateTable.create(plan);
     OperationRuntimeStateTable operationStates =
@@ -34,8 +29,6 @@ public final class SchedulerRuntimeFactory {
         SecondaryResourceStateTable.create(plan);
     SetupTimeTable setups = SetupTimeTable.create(plan);
     TransportTimeTable transports = TransportTimeTable.create(plan);
-    DispatchCandidateTable frontier =
-        DispatchCandidateTable.create(plan);
     OperationAssignmentTable assignments =
         OperationAssignmentTable.create(plan);
     MachineCalendar[] machineCalendars =
@@ -44,16 +37,10 @@ public final class SchedulerRuntimeFactory {
       MachineSpec machine = problem.machines().get(index);
       machineCalendars[index] = new MachineCalendar(machine.maintenance);
     }
-    ResourceCalendar[] resourceCalendars =
-        new ResourceCalendar[problem.resources().size()];
-    for (int index = 0; index < resourceCalendars.length; index++) {
-      ResourceSpec resource = problem.resources().get(index);
-      resourceCalendars[index] = new ResourceCalendar(resource.capacity);
-    }
     SchedulerRuntime runtime = new SchedulerRuntime(
-        problem, jobs, operations, machineDefinitions, machineStates,
-        operationStates, resources, setups, transports, frontier,
-        assignments, machineCalendars, resourceCalendars);
+        problem, jobs, operations, machineStates,
+        operationStates, resources, setups, transports,
+        assignments, machineCalendars);
     boolean complete = false;
     try {
       new RuntimeProjector().project(problem, runtime);
@@ -79,8 +66,6 @@ public final class SchedulerRuntimeFactory {
         builder, base, "job_definitions", problem.jobs().size());
     replaceCapacity(builder, base, "operation_definitions",
         problem.operationCount());
-    replaceCapacity(builder, base, "machine_definitions",
-        problem.machines().size());
     replaceCapacity(builder, base, "machine_runtime_states",
         problem.machines().size());
     replaceCapacity(builder, base, "operation_runtime_states",
@@ -91,8 +76,6 @@ public final class SchedulerRuntimeFactory {
         problem.setupTimes().size());
     replaceCapacity(builder, base, "transport_times",
         problem.transportTimes().size());
-    replaceCapacity(builder, base, "dispatch_candidates",
-        problem.frontierCapacity());
     replaceCapacity(builder, base, "operation_assignments",
         problem.operationCount());
     return builder.build();
