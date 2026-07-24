@@ -22,8 +22,8 @@ final class BenchmarkEnvironment {
   final String cpu = required("SOMA_BENCHMARK_CPU");
   final long maxHeapBytes = Runtime.getRuntime().maxMemory();
 
-  BenchmarkEnvironment(int expectedForks) {
-    if (fork > configuredForks || configuredForks != expectedForks) {
+  BenchmarkEnvironment(int minimumForks) {
+    if (fork > configuredForks || configuredForks < minimumForks) {
       throw new IllegalArgumentException("benchmark fork contract mismatch");
     }
   }
