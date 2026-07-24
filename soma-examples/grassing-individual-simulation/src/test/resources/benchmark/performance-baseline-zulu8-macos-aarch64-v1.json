@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "soma-performance-baseline-v1",
+  "baselineId": "grassing-simulation-zulu8-macos-aarch64-v1",
+  "layer": "reference-application",
+  "subject": "grassing-individual-simulation",
+  "artifactVersion": "grassing-simulation-benchmark-v2",
+  "calibration": {
+    "commit": "ab28350f972a9b80ae7d1c65b408281184007e36",
+    "date": "2026-07-24",
+    "forks": 9,
+    "formula": "allocation=ceil(max*1.05); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25))"
+  },
+  "environment": {
+    "javaVersion": "1.8.0_492-b09",
+    "javaVendor": "Azul Systems, Inc.",
+    "javaVmName": "OpenJDK 64-Bit Server VM",
+    "javaVmVersion": "25.492-b09",
+    "jvmArgs": [
+      "-Xms256m",
+      "-Xmx256m"
+    ],
+    "osName": "Mac OS X",
+    "osVersion": "26.5.2",
+    "architecture": "aarch64",
+    "cpu": "Apple M5 Pro",
+    "maxHeapBytes": 257425408
+  },
+  "minimumForks": 3,
+  "identity": {
+    "schemaVersion": "soma-reference-application-benchmark-v1",
+    "profile": "default",
+    "inputChecksum": "746fb030a082f59559215c749b61317b17102b4a5ba48128d9250f8c9809c042",
+    "resultChecksum": "77ee6d6e449e1116ebf4926d59e9d0497e67c093aa9e92a0de4398d91a4428f2",
+    "schemaHash": "fa9980069efd263e0940ca9e3f388144c6a3357d9973518db83a7aa855ddc64d",
+    "runtimePlanHash": "eedcaa2bdce46c8d1dac9fae16c8633faa1760711ee1582a0d83c48e88a38d2e",
+    "ticks": 500,
+    "initialPopulation": 800,
+    "warmup": 1,
+    "measurements": 3
+  },
+  "recordShapes": [
+    {
+      "id": "integrated-run",
+      "selector": {},
+      "fields": [
+        "schemaVersion",
+        "artifactVersion",
+        "commit",
+        "fork",
+        "configuredForks",
+        "javaVersion",
+        "javaVendor",
+        "javaVmName",
+        "javaVmVersion",
+        "jvmArgs",
+        "osName",
+        "osVersion",
+        "architecture",
+        "cpu",
+        "maxHeapBytes",
+        "profile",
+        "inputChecksum",
+        "resultChecksum",
+        "schemaHash",
+        "runtimePlanHash",
+        "ticks",
+        "initialPopulation",
+        "maximumPopulation",
+        "warmup",
+        "measurements",
+        "setupNanos",
+        "tickNanos",
+        "minimumTickNanos",
+        "maximumTickNanos",
+        "allocatedBytes",
+        "youngGcCount",
+        "youngGcPauseMillis",
+        "fullGcCount",
+        "fullGcPauseMillis",
+        "exactIndexHighWaterBytes",
+        "updateScratchHighWaterBytes",
+        "operationScratchHighWaterBytes",
+        "populationGrowthCount",
+        "claimAllowed"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "allocation.integrated-run",
+      "selector": {},
+      "field": "allocatedBytes",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 7812824
+    },
+    {
+      "id": "timing.integrated-run",
+      "selector": {},
+      "field": "tickNanos",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 99129626
+    },
+    {
+      "id": "gc.young-count",
+      "selector": {},
+      "field": "youngGcCount",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.young-pause",
+      "selector": {},
+      "field": "youngGcPauseMillis",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.full-count",
+      "selector": {},
+      "field": "fullGcCount",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.full-pause",
+      "selector": {},
+      "field": "fullGcPauseMillis",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "high-water.exact-index",
+      "selector": {},
+      "field": "exactIndexHighWaterBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 64333
+    },
+    {
+      "id": "high-water.update-scratch",
+      "selector": {},
+      "field": "updateScratchHighWaterBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 27336
+    },
+    {
+      "id": "high-water.operation-scratch",
+      "selector": {},
+      "field": "operationScratchHighWaterBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 12776
+    },
+    {
+      "id": "population.maximum",
+      "selector": {},
+      "field": "maximumPopulation",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 1139
+    },
+    {
+      "id": "population.growth-count",
+      "selector": {},
+      "field": "populationGrowthCount",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 1
+    }
+  ],
+  "claimAllowed": false
+}

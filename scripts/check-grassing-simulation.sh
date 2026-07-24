@@ -285,9 +285,19 @@ while IFS= read -r record; do
   fi
 done <"$benchmark_artifact"
 
+baseline=$application_dir/src/test/resources/benchmark/performance-baseline-zulu8-macos-aarch64-v1.json
+baseline_result=$evidence_dir/performance-baseline-result.json
+./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+  -pl soma-benchmarks -am test-compile
+"$JAVA_HOME/bin/java" \
+  -cp "$root_dir/soma-benchmarks/target/classes" \
+  com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+  "$baseline" "$baseline_result" "$benchmark_artifact"
+
 "$JAVA_HOME/bin/java" -version
 "$JAVA_HOME/bin/javac" -version
 ./mvnw -version
+printf '%s\n' "grassing-simulation-baseline: $baseline_result"
 printf '%s\n' "grassing-simulation-benchmark: $benchmark_artifact"
 printf '%s\n' "grassing-simulation-evidence: $evidence_dir"
 printf '%s\n' 'grassing-simulation-check: ok'
