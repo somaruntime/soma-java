@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 1）
+状态：active（Stage 2 candidate）
 
 Owner：SOMA reference application scale performance baseline governance
 
@@ -133,6 +133,8 @@ Access Model 与全部 runtime 语义，并用 component reproduction 与同语�
 - 建立 performance attribution、component reproduction 和同语义优化规则；
 - 完成六个 workload 的单 fork feasibility；
 - 形成风险、预计 Gate 成本和实施 slices，不建立 baseline。
+
+结果见 [Stage 1 feasibility 与性能归因](stage-1-feasibility-and-attribution.md)。
 
 ### Stage 2：workload 与 evidence 实施
 

@@ -29,20 +29,17 @@ import com.hgtech.soma.examples.scheduler.schema.generated.SecondaryResourceStat
 import com.hgtech.soma.examples.scheduler.schema.generated.SetupTimeBatch;
 import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeBatch;
 
-import java.util.Map;
-
 /** detached Problem 到 authoritative SOMA tables 的唯一投影边界。 */
 final class RuntimeProjector {
   private static final int BATCH_SIZE = 512;
 
   void project(
       SchedulingProblem problem,
-      SchedulerRuntime runtime,
-      Map<Long, ResourceCalendar> calendars) {
+      SchedulerRuntime runtime) {
     reserve(problem, runtime);
     importJobs(problem, runtime);
     importMachines(problem, runtime);
-    importResources(problem, runtime, calendars);
+    importResources(problem, runtime);
     importOperations(problem, runtime);
     importSetups(problem, runtime);
     importTransport(problem, runtime);
@@ -110,16 +107,13 @@ final class RuntimeProjector {
 
   private static void importResources(
       SchedulingProblem problem,
-      SchedulerRuntime runtime,
-      Map<Long, ResourceCalendar> calendars) {
+      SchedulerRuntime runtime) {
     SecondaryResourceStateBatch batch =
         new SecondaryResourceStateBatch(
             Math.min(BATCH_SIZE, problem.resources().size()));
     for (ResourceSpec resource : problem.resources()) {
       batch.addValues(new ResourceId(resource.id),
           resource.capacity, 0L, 0L);
-      calendars.put(Long.valueOf(resource.id),
-          new ResourceCalendar(resource.capacity));
     }
     runtime.resourceStates().addBatch(batch);
   }

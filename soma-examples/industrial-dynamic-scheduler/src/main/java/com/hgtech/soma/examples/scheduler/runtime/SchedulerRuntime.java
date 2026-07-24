@@ -3,7 +3,6 @@ package com.hgtech.soma.examples.scheduler.runtime;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.problem.ExternalEvent;
 import com.hgtech.soma.examples.scheduler.problem.JobSpec;
-import com.hgtech.soma.examples.scheduler.schema.MachineId;
 import com.hgtech.soma.examples.scheduler.schema.OperationAssignment;
 import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionTable;
@@ -18,6 +17,7 @@ import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeTable;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.TableStats;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +40,8 @@ public final class SchedulerRuntime implements AutoCloseable {
   final OperationAssignmentTable assignments;
   final PriorityQueue<ExternalEvent> events;
   final Map<Long, JobGate> jobGates;
-  final Map<Long, ResourceCalendar> resourceCalendars;
+  final MachineCalendar[] machineCalendars;
+  final ResourceCalendar[] resourceCalendars;
   private boolean closed;
 
   SchedulerRuntime(
@@ -55,7 +56,8 @@ public final class SchedulerRuntime implements AutoCloseable {
       TransportTimeTable transportTimes,
       DispatchCandidateTable frontier,
       OperationAssignmentTable assignments,
-      Map<Long, ResourceCalendar> resourceCalendars) {
+      MachineCalendar[] machineCalendars,
+      ResourceCalendar[] resourceCalendars) {
     this.jobCount = problem.jobs().size();
     this.operationCount = problem.operationCount();
     this.maximumCandidatesPerOperation =
@@ -77,6 +79,7 @@ public final class SchedulerRuntime implements AutoCloseable {
     for (JobSpec job : problem.jobs()) {
       jobGates.put(Long.valueOf(job.id), new JobGate());
     }
+    this.machineCalendars = machineCalendars;
     this.resourceCalendars = resourceCalendars;
   }
 
@@ -204,39 +207,54 @@ public final class SchedulerRuntime implements AutoCloseable {
   }
 
   public long fitMachineInterval(
-      MachineId machine,
+      int machineIndex,
       long earliestStart,
       long occupiedMinutes) {
     ensureOpen();
-    return MachineCalendar.fit(
-        this, machine, earliestStart, occupiedMinutes);
+    return requireMachineCalendar(machineIndex).fit(
+        earliestStart, occupiedMinutes);
   }
 
-  public long earliestResourceStart(long resourceId, int units) {
-    return requireResourceCalendar(resourceId).earliestStart(units);
+  public long earliestResourceStart(int resourceIndex, int units) {
+    return requireResourceCalendar(resourceIndex).earliestStart(units);
   }
 
   public void commitResource(
       long resourceId, long startMinute, long endMinute, int units) {
-    requireResourceCalendar(resourceId).commit(
+    requireResourceCalendar(resourceStates.requireIndex(resourceId)).commit(
         startMinute, endMinute, units);
   }
 
   public long nextResourceAvailableMinute(long resourceId) {
-    return requireResourceCalendar(resourceId).nextAvailableMinute();
+    return requireResourceCalendar(
+        resourceStates.requireIndex(resourceId)).nextAvailableMinute();
   }
 
   public int resourceCapacity(long resourceId) {
-    return requireResourceCalendar(resourceId).capacity();
+    return requireResourceCalendar(
+        resourceStates.requireIndex(resourceId)).capacity();
   }
 
-  private ResourceCalendar requireResourceCalendar(long resourceId) {
+  private MachineCalendar requireMachineCalendar(int machineIndex) {
     ensureOpen();
-    ResourceCalendar calendar =
-        resourceCalendars.get(Long.valueOf(resourceId));
+    if (machineIndex < 0 || machineIndex >= machineCalendars.length) {
+      throw new IllegalArgumentException("unknown machine Index");
+    }
+    MachineCalendar calendar = machineCalendars[machineIndex];
     if (calendar == null) {
-      throw new IllegalArgumentException(
-          "unknown resource " + resourceId);
+      throw new IllegalStateException("missing machine calendar");
+    }
+    return calendar;
+  }
+
+  private ResourceCalendar requireResourceCalendar(int resourceIndex) {
+    ensureOpen();
+    if (resourceIndex < 0 || resourceIndex >= resourceCalendars.length) {
+      throw new IllegalArgumentException("unknown resource Index");
+    }
+    ResourceCalendar calendar = resourceCalendars[resourceIndex];
+    if (calendar == null) {
+      throw new IllegalStateException("missing resource calendar");
     }
     return calendar;
   }
@@ -268,7 +286,8 @@ public final class SchedulerRuntime implements AutoCloseable {
     operationDefinitions.release();
     jobs.release();
     events.clear();
-    resourceCalendars.clear();
+    Arrays.fill(resourceCalendars, null);
+    Arrays.fill(machineCalendars, null);
     jobGates.clear();
   }
 

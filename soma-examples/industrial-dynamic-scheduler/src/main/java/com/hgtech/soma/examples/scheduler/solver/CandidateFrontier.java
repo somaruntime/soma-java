@@ -258,30 +258,28 @@ final class CandidateFrontier {
         runtime.setupTimes().setupMinutesColumn();
     try {
       UpdateResult result = runtime.frontier().update(candidate -> {
-        MachineId machine =
-            new MachineId(candidate.candidateKeyMachineIdValue());
-        ResourceId resource =
-            new ResourceId(candidate.requiredResourceValue());
-        OperationKey operation = new OperationKey(
-            new JobId(candidate.candidateKeyOperationKeyJobIdValue()),
-            new OperationId(
-                candidate.candidateKeyOperationKeyOperationIdValue()));
+        long machineId = candidate.candidateKeyMachineIdValue();
+        long resourceId = candidate.requiredResourceValue();
+        long jobId =
+            candidate.candidateKeyOperationKeyJobIdValue();
+        long operationId =
+            candidate.candidateKeyOperationKeyOperationIdValue();
         int machineIndex =
-            runtime.machineStates().requireIndex(machine);
+            runtime.machineStates().requireIndex(machineId);
         int operationIndex =
-            runtime.operationStates().requireIndex(operation);
+            runtime.operationStates().requireIndex(jobId, operationId);
         int resourceIndex =
-            runtime.resourceStates().requireIndex(resource);
+            runtime.resourceStates().requireIndex(resourceId);
         long setup = 0L;
         if (machineFamilies.isPresent(machineIndex)) {
           int setupIndex = runtime.setupTimes().requireIndex(
-              machine.value,
+              machineId,
               machineFamilies.getLong(machineIndex),
               candidate.targetSetupFamilyValue());
           setup = setupValues.getLong(setupIndex);
         }
         long resourceReady = runtime.earliestResourceStart(
-            resource.value, candidate.requiredResourceUnits());
+            resourceIndex, candidate.requiredResourceUnits());
         long earliestSetup = Math.max(candidate.baseReadyMinute(),
             machineAvailable.getLong(machineIndex));
         earliestSetup = Math.max(earliestSetup,
@@ -289,7 +287,7 @@ final class CandidateFrontier {
         long occupied = Math.addExact(
             setup, candidate.processingMinutes());
         long setupStart = runtime.fitMachineInterval(
-            machine, earliestSetup, occupied);
+            machineIndex, earliestSetup, occupied);
         long processingStart = Math.addExact(setupStart, setup);
         long completion = Math.addExact(
             processingStart, candidate.processingMinutes());

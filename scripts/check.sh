@@ -27,8 +27,7 @@ cd "$root_dir"
 ./scripts/check-generated-dense-phase1.sh
 ./scripts/check-external-consumer.sh
 ./scripts/check-reference-applications.sh
-./scripts/check-industrial-scheduler.sh
-./scripts/check-grassing-simulation.sh
+./scripts/check-reference-application-fast-performance.sh
 ./scripts/check-scan-code-size.sh
 ./scripts/check-benchmark-smoke.sh
 ./scripts/check-post-cutover-components.sh

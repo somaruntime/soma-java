@@ -1,5 +1,7 @@
 package com.hgtech.soma.examples.grassing.evidence;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -32,13 +34,13 @@ final class BenchmarkOptions {
     this.measurements = measurements;
   }
 
-  static BenchmarkOptions loadDefault() throws IOException {
-    Properties properties = new Properties();
-    InputStream input = BenchmarkOptions.class.getClassLoader()
-        .getResourceAsStream("benchmark/default.properties");
-    if (input == null) {
-      throw new IOException("benchmark/default.properties not found");
+  static BenchmarkOptions load(String selector) throws IOException {
+    if (selector == null || selector.trim().isEmpty()) {
+      throw new IllegalArgumentException(
+          "benchmark selector must not be empty");
     }
+    Properties properties = new Properties();
+    InputStream input = open(selector.trim());
     try {
       properties.load(input);
     } finally {
@@ -52,6 +54,21 @@ final class BenchmarkOptions {
         parse(properties, "benchmark.warmup"),
         parse(properties, "benchmark.forks"),
         parse(properties, "benchmark.measurements"));
+  }
+
+  private static InputStream open(String selector) throws IOException {
+    File file = new File(selector);
+    if (file.isFile()) return new FileInputStream(file);
+    String resource = selector.endsWith(".properties")
+        ? (selector.startsWith("benchmark/") ? selector
+            : "benchmark/" + selector)
+        : "benchmark/" + selector + ".properties";
+    InputStream input = BenchmarkOptions.class.getClassLoader()
+        .getResourceAsStream(resource);
+    if (input == null) {
+      throw new IOException("benchmark options not found: " + selector);
+    }
+    return input;
   }
 
   private static int parse(Properties properties, String key) {

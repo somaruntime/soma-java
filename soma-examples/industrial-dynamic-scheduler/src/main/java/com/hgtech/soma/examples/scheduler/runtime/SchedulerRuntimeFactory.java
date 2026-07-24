@@ -1,6 +1,8 @@
 package com.hgtech.soma.examples.scheduler.runtime;
 
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
+import com.hgtech.soma.examples.scheduler.problem.MachineSpec;
+import com.hgtech.soma.examples.scheduler.problem.ResourceSpec;
 import com.hgtech.soma.examples.scheduler.schema.generated.DispatchCandidateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.MachineDefinitionTable;
@@ -13,9 +15,6 @@ import com.hgtech.soma.examples.scheduler.schema.generated.SetupTimeTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeTable;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /** 单次 solve 的 RuntimePlan、table graph 与 lifecycle 工厂。 */
 public final class SchedulerRuntimeFactory {
@@ -39,15 +38,25 @@ public final class SchedulerRuntimeFactory {
         DispatchCandidateTable.create(plan);
     OperationAssignmentTable assignments =
         OperationAssignmentTable.create(plan);
-    Map<Long, ResourceCalendar> calendars =
-        new HashMap<Long, ResourceCalendar>();
+    MachineCalendar[] machineCalendars =
+        new MachineCalendar[problem.machines().size()];
+    for (int index = 0; index < machineCalendars.length; index++) {
+      MachineSpec machine = problem.machines().get(index);
+      machineCalendars[index] = new MachineCalendar(machine.maintenance);
+    }
+    ResourceCalendar[] resourceCalendars =
+        new ResourceCalendar[problem.resources().size()];
+    for (int index = 0; index < resourceCalendars.length; index++) {
+      ResourceSpec resource = problem.resources().get(index);
+      resourceCalendars[index] = new ResourceCalendar(resource.capacity);
+    }
     SchedulerRuntime runtime = new SchedulerRuntime(
         problem, jobs, operations, machineDefinitions, machineStates,
         operationStates, resources, setups, transports, frontier,
-        assignments, calendars);
+        assignments, machineCalendars, resourceCalendars);
     boolean complete = false;
     try {
-      new RuntimeProjector().project(problem, runtime, calendars);
+      new RuntimeProjector().project(problem, runtime);
       RuntimeProjectionVerifier.verify(problem, runtime);
       complete = true;
       return runtime;

@@ -27,11 +27,46 @@ case "$java_vendor" in
     ;;
 esac
 
+profile=${1:-default}
+case "$profile" in
+  default) heap=256m; baseline_version=v2 ;;
+  large) heap=256m; baseline_version=v1 ;;
+  long-run) heap=256m; baseline_version=v1 ;;
+  *)
+    printf '%s\n' \
+      "grassing-simulation-check: unsupported profile $profile" >&2
+    exit 1
+    ;;
+esac
+
 application=grassing-individual-simulation
 application_dir=$root_dir/soma-examples/$application
 pom=$application_dir/pom.xml
+benchmark_options=$application_dir/src/test/resources/benchmark/$profile.properties
+minimum_forks=$(sed -n 's/^benchmark.forks=//p' "$benchmark_options")
+forks=${2:-$minimum_forks}
+case "$forks" in
+  ''|*[!0-9]*)
+    printf '%s\n' \
+      "grassing-simulation-check: invalid fork count $forks" >&2
+    exit 1
+    ;;
+esac
+if [ "$forks" -lt "$minimum_forks" ]; then
+  printf '%s\n' \
+    "grassing-simulation-check: $profile requires at least $minimum_forks forks" >&2
+  exit 1
+fi
 mkdir -p target
-evidence_dir=$(mktemp -d "$root_dir/target/grassing-simulation.XXXXXX")
+if [ "$#" -ge 3 ]; then
+  case "$3" in
+    /*) evidence_dir=$3 ;;
+    *) evidence_dir=$root_dir/$3 ;;
+  esac
+  mkdir -p "$evidence_dir"
+else
+  evidence_dir=$(mktemp -d "$root_dir/target/grassing-simulation.XXXXXX")
+fi
 repository=$evidence_dir/repository
 mkdir -p "$repository"
 seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
@@ -145,10 +180,11 @@ if [ "$main_profiles" -ne 1 ] \
     'grassing-simulation-check: production config/resource boundary regressed' >&2
   exit 1
 fi
-for profile in correctness large long-run; do
-  if [ ! -f "$application_dir/src/test/resources/config/$profile.properties" ]; then
+for resource_profile in correctness large long-run; do
+  if [ ! -f \
+      "$application_dir/src/test/resources/config/$resource_profile.properties" ]; then
     printf '%s\n' \
-      "grassing-simulation-check: missing test profile $profile" >&2
+      "grassing-simulation-check: missing test profile $resource_profile" >&2
     exit 1
   fi
 done
@@ -186,34 +222,32 @@ for contract in \
 done
 
 verification_log=$evidence_dir/verification.log
-for profile in correctness default large long-run; do
+for verification_profile in correctness "$profile"; do
   "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$test_classpath" \
     com.hgtech.soma.examples.grassing.evidence.SimulationVerification \
-    "$profile" >>"$verification_log"
+    "$verification_profile" >>"$verification_log"
 done
-if [ "$(grep -c '^simulation-verification:' "$verification_log")" -ne 4 ] \
+if [ "$(grep -c '^simulation-verification:' "$verification_log")" -ne 2 ] \
     || grep -v 'claimAllowed=false' "$verification_log" >/dev/null; then
   printf '%s\n' \
     'grassing-simulation-check: verification artifact mismatch' >&2
   exit 1
 fi
-for profile in default large long-run; do
-  record=$(grep "^simulation-verification: profile=$profile " \
-    "$verification_log")
-  population=$(printf '%s\n' "$record" |
-    sed -n 's/.* population=\([0-9][0-9]*\) .*/\1/p')
-  births=$(printf '%s\n' "$record" |
-    sed -n 's/.* births=\([0-9][0-9]*\) .*/\1/p')
-  deaths=$(printf '%s\n' "$record" |
-    sed -n 's/.* deaths=\([0-9][0-9]*\) .*/\1/p')
-  if [ -z "$population" ] || [ "$population" -le 0 ] \
-      || [ -z "$births" ] || [ "$births" -le 0 ] \
-      || [ -z "$deaths" ] || [ "$deaths" -le 0 ]; then
-    printf '%s\n' \
-      "grassing-simulation-check: $profile does not sustain birth/death churn" >&2
-    exit 1
-  fi
-done
+record=$(grep "^simulation-verification: profile=$profile " \
+  "$verification_log")
+population=$(printf '%s\n' "$record" |
+  sed -n 's/.* population=\([0-9][0-9]*\) .*/\1/p')
+births=$(printf '%s\n' "$record" |
+  sed -n 's/.* births=\([0-9][0-9]*\) .*/\1/p')
+deaths=$(printf '%s\n' "$record" |
+  sed -n 's/.* deaths=\([0-9][0-9]*\) .*/\1/p')
+if [ -z "$population" ] || [ "$population" -le 0 ] \
+    || [ -z "$births" ] || [ "$births" -le 0 ] \
+    || [ -z "$deaths" ] || [ "$deaths" -le 0 ]; then
+  printf '%s\n' \
+    "grassing-simulation-check: $profile does not sustain birth/death churn" >&2
+  exit 1
+fi
 
 "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$runtime_classpath" \
   com.hgtech.soma.examples.grassing.SimulationApplication default \
@@ -223,8 +257,6 @@ grep -F 'config.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'input.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'result.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 
-forks=$(sed -n 's/^benchmark.forks=//p' \
-  "$application_dir/src/test/resources/benchmark/default.properties")
 benchmark_artifact=$evidence_dir/benchmark.jsonl
 benchmark_commit=$(git rev-parse HEAD)
 benchmark_cpu=$(./scripts/benchmark-cpu-identity.sh)
@@ -234,8 +266,9 @@ while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_FORK="$fork" \
   SOMA_BENCHMARK_FORKS="$forks" \
   SOMA_BENCHMARK_CPU="$benchmark_cpu" \
-  "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$test_classpath" \
-    com.hgtech.soma.examples.grassing.evidence.SimulationBenchmark default \
+  "$JAVA_HOME/bin/java" -Xms"$heap" -Xmx"$heap" -cp "$test_classpath" \
+    com.hgtech.soma.examples.grassing.evidence.SimulationBenchmark \
+    "$profile" "$profile" \
     >>"$benchmark_artifact"
   fork=$((fork + 1))
 done
@@ -243,14 +276,26 @@ if [ "$(wc -l <"$benchmark_artifact" | tr -d ' ')" -ne "$forks" ]; then
   printf '%s\n' 'grassing-simulation-check: fork count mismatch' >&2
   exit 1
 fi
-grep -F '"artifactVersion":"grassing-simulation-benchmark-v2"' \
+grep -F '"artifactVersion":"grassing-simulation-benchmark-v3"' \
     "$benchmark_artifact" >/dev/null
+grep -F "\"configuredForks\":$forks" "$benchmark_artifact" >/dev/null
+grep -F "\"profile\":\"$profile\"" "$benchmark_artifact" >/dev/null
 if grep -v '"claimAllowed":false' "$benchmark_artifact" >/dev/null; then
   printf '%s\n' 'grassing-simulation-check: invalid benchmark claim' >&2
   exit 1
 fi
 for field in inputChecksum resultChecksum schemaHash runtimePlanHash; do
   sed -n "s/.*\\\"$field\\\":\\\"\\([^\\\"]*\\)\\\".*/\\1/p" \
+    "$benchmark_artifact" | LC_ALL=C sort -u >"$evidence_dir/$field.txt"
+  if [ "$(wc -l <"$evidence_dir/$field.txt" | tr -d ' ')" -ne 1 ]; then
+    printf '%s\n' \
+      "grassing-simulation-check: unstable $field across forks" >&2
+    exit 1
+  fi
+done
+for field in worldWidth worldHeight worldCells ticks initialPopulation \
+  tickExecutions maximumPopulation; do
+  sed -n "s/.*\\\"$field\\\":\\([0-9][0-9]*\\).*/\\1/p" \
     "$benchmark_artifact" | LC_ALL=C sort -u >"$evidence_dir/$field.txt"
   if [ "$(wc -l <"$evidence_dir/$field.txt" | tr -d ' ')" -ne 1 ]; then
     printf '%s\n' \
@@ -274,19 +319,27 @@ while IFS= read -r record; do
   fi
 done <"$benchmark_artifact"
 
-baseline=$application_dir/src/test/resources/benchmark/performance-baseline-zulu8-macos-aarch64-v1.json
-baseline_result=$evidence_dir/performance-baseline-result.json
-./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-benchmarks -am test-compile
-"$JAVA_HOME/bin/java" \
-  -cp "$root_dir/soma-benchmarks/target/classes" \
-  com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
-  "$baseline" "$baseline_result" "$benchmark_artifact"
+baseline=$application_dir/src/test/resources/benchmark/performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json
+if [ "${SOMA_APPLICATION_PERFORMANCE_MODE:-compare}" = calibration ]; then
+  baseline_result=
+else
+  baseline_result=$evidence_dir/performance-baseline-result.json
+  ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+    -pl soma-benchmarks -am test-compile
+  "$JAVA_HOME/bin/java" \
+    -cp "$root_dir/soma-benchmarks/target/classes" \
+    com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+    "$baseline" "$baseline_result" "$benchmark_artifact"
+fi
 
 "$JAVA_HOME/bin/java" -version
 "$JAVA_HOME/bin/javac" -version
 ./mvnw -version
-printf '%s\n' "grassing-simulation-baseline: $baseline_result"
+if [ -n "$baseline_result" ]; then
+  printf '%s\n' "grassing-simulation-baseline: $baseline_result"
+else
+  printf '%s\n' 'grassing-simulation-baseline: calibration-only'
+fi
 printf '%s\n' "grassing-simulation-benchmark: $benchmark_artifact"
 printf '%s\n' "grassing-simulation-evidence: $evidence_dir"
-printf '%s\n' 'grassing-simulation-check: ok'
+printf '%s\n' "grassing-simulation-check: profile=$profile forks=$forks ok"

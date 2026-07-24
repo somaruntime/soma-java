@@ -78,21 +78,34 @@ public final class SchedulerBenchmark {
     }
     System.out.println("{"
         + "\"schemaVersion\":\"soma-reference-application-benchmark-v1\","
-        + "\"artifactVersion\":\"industrial-scheduler-benchmark-v2\","
+        + "\"artifactVersion\":\"industrial-scheduler-benchmark-v3\","
         + environment.jsonFields() + ","
         + "\"profile\":\"" + selector + "\","
         + "\"inputChecksum\":\"" + problem.checksum() + "\","
         + "\"resultChecksum\":\"" + resultChecksum + "\","
         + "\"schemaHash\":\"" + schemaHash + "\","
         + "\"runtimePlanHash\":\"" + runtimePlanHash + "\","
+        + "\"jobs\":" + problem.jobs().size() + ","
         + "\"operations\":" + problem.operationCount() + ","
+        + "\"machines\":" + problem.machines().size() + ","
+        + "\"candidatesPerOperation\":"
+        + problem.maximumCandidatesPerOperation() + ","
         + "\"warmup\":" + options.warmup() + ","
         + "\"measurements\":" + options.measurements() + ","
+        + "\"operationExecutions\":"
+        + Math.multiplyExact(
+            problem.operationCount(), options.measurements()) + ","
         + "\"preparationNanos\":" + preparationNanos + ","
         + "\"solveNanos\":" + solveNanos + ","
         + "\"minimumSolveNanos\":" + minimumSolveNanos + ","
         + "\"maximumSolveNanos\":" + maximumSolveNanos + ","
+        + "\"solveNanosPerOperation\":"
+        + ceilingDivide(solveNanos, Math.multiplyExact(
+            problem.operationCount(), options.measurements())) + ","
         + "\"allocatedBytes\":" + allocatedBytes + ","
+        + "\"allocatedBytesPerOperation\":"
+        + ceilingDivide(allocatedBytes, Math.multiplyExact(
+            problem.operationCount(), options.measurements())) + ","
         + "\"youngGcCount\":" + youngGcCount + ","
         + "\"youngGcPauseMillis\":" + youngGcMillis + ","
         + "\"fullGcCount\":" + fullGcCount + ","
@@ -101,7 +114,17 @@ public final class SchedulerBenchmark {
         + "\"updateScratchHighWaterBytes\":" + updateScratchHighWater + ","
         + "\"operationScratchHighWaterBytes\":"
         + operationScratchHighWater + ","
+        + "\"frontierCapacity\":"
+        + problem.frontierCapacity() + ","
         + "\"claimAllowed\":false}");
+  }
+
+  private static long ceilingDivide(long value, int divisor) {
+    if (value < 0L || divisor <= 0) {
+      throw new IllegalArgumentException(
+          "ceiling division requires non-negative value and positive divisor");
+    }
+    return value == 0L ? 0L : 1L + (value - 1L) / divisor;
   }
 
   private static Measurement execute(

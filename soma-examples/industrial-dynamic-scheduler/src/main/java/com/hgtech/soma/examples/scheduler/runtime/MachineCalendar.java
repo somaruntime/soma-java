@@ -1,44 +1,43 @@
 package com.hgtech.soma.examples.scheduler.runtime;
 
-import com.hgtech.soma.examples.scheduler.schema.MachineId;
-import com.hgtech.soma.examples.scheduler.schema.generated.MaintenanceWindowTable;
-import com.hgtech.soma.runtime.LongColumnView;
+import com.hgtech.soma.examples.scheduler.problem.MaintenanceInterval;
 
-/** 对 owned maintenance child 做物理顺序无关的连续区间定位。 */
+import java.util.List;
+
+/** 从不可变 machine definition 投影出的连续区间定位结构。 */
 final class MachineCalendar {
-  private MachineCalendar() {
+  private final long[] starts;
+  private final long[] ends;
+
+  MachineCalendar(List<MaintenanceInterval> windows) {
+    if (windows == null) throw new NullPointerException("windows");
+    starts = new long[windows.size()];
+    ends = new long[windows.size()];
+    for (int index = 0; index < windows.size(); index++) {
+      MaintenanceInterval window = windows.get(index);
+      starts[index] = window.startMinute;
+      ends[index] = window.endMinute;
+    }
   }
 
-  static long fit(SchedulerRuntime runtime, MachineId machine,
-                  long earliestStart, long occupiedMinutes) {
+  long fit(long earliestStart, long occupiedMinutes) {
     if (earliestStart < 0L || occupiedMinutes <= 0L) {
       throw new IllegalArgumentException("invalid machine interval");
     }
-    MaintenanceWindowTable windows =
-        runtime.machineDefinitions().maintenanceWindows(machine);
-    LongColumnView starts = windows.startMinuteColumn();
-    LongColumnView ends = windows.endMinuteColumn();
-    try {
-      long candidate = earliestStart;
-      boolean moved;
-      do {
-        moved = false;
-        long candidateEnd = Math.addExact(candidate, occupiedMinutes);
-        long next = candidate;
-        for (int index = 0; index < windows.size(); index++) {
-          long start = starts.getLong(index);
-          long end = ends.getLong(index);
-          if (candidate < end && candidateEnd > start) {
-            next = Math.max(next, end);
-            moved = true;
-          }
+    long candidate = earliestStart;
+    boolean moved;
+    do {
+      moved = false;
+      long candidateEnd = Math.addExact(candidate, occupiedMinutes);
+      long next = candidate;
+      for (int index = 0; index < starts.length; index++) {
+        if (candidate < ends[index] && candidateEnd > starts[index]) {
+          next = Math.max(next, ends[index]);
+          moved = true;
         }
-        candidate = next;
-      } while (moved);
-      return candidate;
-    } finally {
-      ends.close();
-      starts.close();
-    }
+      }
+      candidate = next;
+    } while (moved);
+    return candidate;
   }
 }

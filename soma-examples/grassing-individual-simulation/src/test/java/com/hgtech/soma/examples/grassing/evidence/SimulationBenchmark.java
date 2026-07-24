@@ -18,7 +18,8 @@ public final class SimulationBenchmark {
   public static void main(String[] args) throws Exception {
     String selector = args.length == 0 ? "default" : args[0];
     SimulationConfig config = new SimulationConfigLoader().load(selector);
-    BenchmarkOptions options = BenchmarkOptions.loadDefault();
+    BenchmarkOptions options = BenchmarkOptions.load(
+        args.length < 2 ? selector : args[1]);
     BenchmarkEnvironment environment =
         new BenchmarkEnvironment(options.forks());
     SimulationScenario scenario =
@@ -79,23 +80,35 @@ public final class SimulationBenchmark {
     }
     System.out.println("{"
         + "\"schemaVersion\":\"soma-reference-application-benchmark-v1\","
-        + "\"artifactVersion\":\"grassing-simulation-benchmark-v2\","
+        + "\"artifactVersion\":\"grassing-simulation-benchmark-v3\","
         + environment.jsonFields() + ","
         + "\"profile\":\"" + selector + "\","
         + "\"inputChecksum\":\"" + scenario.checksum() + "\","
         + "\"resultChecksum\":\"" + resultChecksum + "\","
         + "\"schemaHash\":\"" + schemaHash + "\","
         + "\"runtimePlanHash\":\"" + runtimePlanHash + "\","
+        + "\"worldWidth\":" + config.width() + ","
+        + "\"worldHeight\":" + config.height() + ","
+        + "\"worldCells\":"
+        + Math.multiplyExact(config.width(), config.height()) + ","
         + "\"ticks\":" + config.ticks() + ","
         + "\"initialPopulation\":" + config.initialPopulation() + ","
         + "\"maximumPopulation\":" + maximumPopulation + ","
         + "\"warmup\":" + options.warmup() + ","
         + "\"measurements\":" + options.measurements() + ","
+        + "\"tickExecutions\":"
+        + Math.multiplyExact(config.ticks(), options.measurements()) + ","
         + "\"setupNanos\":" + setupNanos + ","
         + "\"tickNanos\":" + tickNanos + ","
         + "\"minimumTickNanos\":" + minimumTickNanos + ","
         + "\"maximumTickNanos\":" + maximumTickNanos + ","
+        + "\"tickNanosPerTick\":"
+        + ceilingDivide(tickNanos,
+            Math.multiplyExact(config.ticks(), options.measurements())) + ","
         + "\"allocatedBytes\":" + allocatedBytes + ","
+        + "\"allocatedBytesPerTick\":"
+        + ceilingDivide(allocatedBytes,
+            Math.multiplyExact(config.ticks(), options.measurements())) + ","
         + "\"youngGcCount\":" + youngGcCount + ","
         + "\"youngGcPauseMillis\":" + youngGcMillis + ","
         + "\"fullGcCount\":" + fullGcCount + ","
@@ -106,6 +119,14 @@ public final class SimulationBenchmark {
         + operationScratchHighWater + ","
         + "\"populationGrowthCount\":" + populationGrowthCount + ","
         + "\"claimAllowed\":false}");
+  }
+
+  private static long ceilingDivide(long value, int divisor) {
+    if (value < 0L || divisor <= 0) {
+      throw new IllegalArgumentException(
+          "ceiling division requires non-negative value and positive divisor");
+    }
+    return value == 0L ? 0L : 1L + (value - 1L) / divisor;
   }
 
   private static Measurement execute(
