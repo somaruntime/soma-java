@@ -29,9 +29,33 @@ esac
 
 profile=${1:-default}
 case "$profile" in
-  default) heap=256m; baseline_version=v2 ;;
-  large) heap=256m; baseline_version=v1 ;;
-  long-run) heap=256m; baseline_version=v1 ;;
+  default)
+    heap=256m
+    baseline_version=v2
+    expected_measurements=3
+    expected_width=128
+    expected_height=72
+    expected_population=1000
+    expected_ticks=1000
+    ;;
+  large)
+    heap=256m
+    baseline_version=v1
+    expected_measurements=1
+    expected_width=1280
+    expected_height=720
+    expected_population=100000
+    expected_ticks=1000
+    ;;
+  long-run)
+    heap=256m
+    baseline_version=v1
+    expected_measurements=1
+    expected_width=400
+    expected_height=225
+    expected_population=10000
+    expected_ticks=10000
+    ;;
   *)
     printf '%s\n' \
       "grassing-simulation-check: unsupported profile $profile" >&2
@@ -69,6 +93,7 @@ else
 fi
 repository=$evidence_dir/repository
 mkdir -p "$repository"
+application_build_dir=$evidence_dir/application-target
 seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
 if [ -d "$seed_repository" ]; then
   cp -R "$seed_repository/." "$repository/"
@@ -77,7 +102,15 @@ fi
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
   -pl soma-runtime-core,soma-processor -am install -DskipTests
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+  -Dsoma.build.directory="$application_build_dir" \
   -f "$pom" clean package
+if grep -R -a -F 'Unresolved compilation problem' \
+    "$application_build_dir/classes" "$application_build_dir/test-classes" \
+    >/dev/null; then
+  printf '%s\n' \
+    'grassing-simulation-check: compiler-error stub found in isolated build' >&2
+  exit 1
+fi
 
 dependency_plugin_version=$(sed -n \
   's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
@@ -86,8 +119,8 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" -f "$pom" \
   "org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version:build-classpath" \
   -DincludeScope=runtime -Dmdep.outputFile="$runtime_classpath_file"
-runtime_classpath=$application_dir/target/classes:$(cat "$runtime_classpath_file")
-test_classpath=$application_dir/target/test-classes:$runtime_classpath
+runtime_classpath=$application_build_dir/classes:$(cat "$runtime_classpath_file")
+test_classpath=$application_build_dir/test-classes:$runtime_classpath
 
 for package in config scenario simulation result runtime schema support; do
   if [ ! -d \
@@ -195,7 +228,7 @@ if [ ! -f \
   exit 1
 fi
 
-production_jar=$application_dir/target/grassing-individual-simulation-1.0.0-SNAPSHOT.jar
+production_jar=$application_build_dir/grassing-individual-simulation-1.0.0-SNAPSHOT.jar
 jar_manifest=$evidence_dir/production-jar.txt
 "$JAVA_HOME/bin/jar" tf "$production_jar" >"$jar_manifest"
 if grep -E \
@@ -222,6 +255,7 @@ for contract in \
 done
 
 verification_log=$evidence_dir/verification.log
+: >"$verification_log"
 for verification_profile in correctness "$profile"; do
   "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$test_classpath" \
     com.hgtech.soma.examples.grassing.evidence.SimulationVerification \
@@ -258,6 +292,7 @@ grep -F 'input.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'result.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 
 benchmark_artifact=$evidence_dir/benchmark.jsonl
+: >"$benchmark_artifact"
 benchmark_commit=$(git rev-parse HEAD)
 benchmark_cpu=$(./scripts/benchmark-cpu-identity.sh)
 fork=1
@@ -294,7 +329,7 @@ for field in inputChecksum resultChecksum schemaHash runtimePlanHash; do
   fi
 done
 for field in worldWidth worldHeight worldCells ticks initialPopulation \
-  tickExecutions maximumPopulation; do
+  maximumPopulation warmup measurements tickExecutions; do
   sed -n "s/.*\\\"$field\\\":\\([0-9][0-9]*\\).*/\\1/p" \
     "$benchmark_artifact" | LC_ALL=C sort -u >"$evidence_dir/$field.txt"
   if [ "$(wc -l <"$evidence_dir/$field.txt" | tr -d ' ')" -ne 1 ]; then
@@ -302,6 +337,32 @@ for field in worldWidth worldHeight worldCells ticks initialPopulation \
       "grassing-simulation-check: unstable $field across forks" >&2
     exit 1
   fi
+done
+for expectation in \
+  "worldWidth:$expected_width" \
+  "worldHeight:$expected_height" \
+  "ticks:$expected_ticks" \
+  "initialPopulation:$expected_population" \
+  "warmup:1" \
+  "measurements:$expected_measurements" \
+  "tickExecutions:$((expected_ticks * expected_measurements))"; do
+  field=${expectation%%:*}
+  expected=${expectation#*:}
+  actual=$(cat "$evidence_dir/$field.txt")
+  if [ "$actual" != "$expected" ]; then
+    printf '%s\n' \
+      "grassing-simulation-check: $profile $field expected $expected, got $actual" >&2
+    exit 1
+  fi
+done
+fork=1
+while [ "$fork" -le "$forks" ]; do
+  if [ "$(grep -c "\"fork\":$fork," "$benchmark_artifact")" -ne 1 ]; then
+    printf '%s\n' \
+      "grassing-simulation-check: missing or duplicate fork $fork" >&2
+    exit 1
+  fi
+  fork=$((fork + 1))
 done
 while IFS= read -r record; do
   allocated=$(printf '%s\n' "$record" |

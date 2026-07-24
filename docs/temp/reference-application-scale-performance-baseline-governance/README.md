@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 2 candidate）
+状态：active（Stage 2 completed，等待 immutable candidate 提交）
 
 Owner：SOMA reference application scale performance baseline governance
 
@@ -218,3 +218,4 @@ identity。
 - [性能归因与修复协议](performance-attribution-and-remediation.md)
 - [Workload 与测量详细设计](workload-and-measurement-design.md)
 - [Gate 与 Baseline 详细设计](gate-and-baseline-design.md)
+- [Stage 2 候选审查](stage-2-candidate-review.md)

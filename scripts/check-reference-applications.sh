@@ -104,11 +104,20 @@ for application in industrial-dynamic-scheduler grassing-individual-simulation; 
     exit 1
   fi
 
+  first_build=$evidence_dir/$application-first-target
+  repeat_build=$evidence_dir/$application-repeat-target
   ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+    -Dsoma.build.directory="$first_build" \
     -f "$pom" clean package
 
-  generated=$application_dir/target/generated-sources/annotations
-  classes=$application_dir/target/classes
+  generated=$first_build/generated-sources/annotations
+  classes=$first_build/classes
+  if grep -R -a -F 'Unresolved compilation problem' \
+      "$classes" "$first_build/test-classes" >/dev/null; then
+    printf '%s\n' \
+      "reference-app-check: compiler-error stub in first $application build" >&2
+    exit 1
+  fi
   first_dir=$evidence_dir/$application-first
   mkdir -p "$first_dir"
   find "$generated" -type f -name '*.java' | LC_ALL=C sort |
@@ -134,29 +143,43 @@ for application in industrial-dynamic-scheduler grassing-individual-simulation; 
   fi
 
   ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+    -Dsoma.build.directory="$repeat_build" \
     -f "$pom" clean package
 
-  find "$generated" -type f -name '*.java' | LC_ALL=C sort |
-    sed "s#^$generated/##" >"$evidence_dir/$application-generated-repeat.txt"
-  find "$classes/META-INF/soma" -type f -name '*.schema.*' | LC_ALL=C sort |
-    sed "s#^$classes/##" >"$evidence_dir/$application-schema-repeat.txt"
+  repeat_generated=$repeat_build/generated-sources/annotations
+  repeat_classes=$repeat_build/classes
+  if grep -R -a -F 'Unresolved compilation problem' \
+      "$repeat_classes" "$repeat_build/test-classes" >/dev/null; then
+    printf '%s\n' \
+      "reference-app-check: compiler-error stub in repeat $application build" >&2
+    exit 1
+  fi
+  find "$repeat_generated" -type f -name '*.java' | LC_ALL=C sort |
+    sed "s#^$repeat_generated/##" \
+      >"$evidence_dir/$application-generated-repeat.txt"
+  find "$repeat_classes/META-INF/soma" -type f -name '*.schema.*' |
+    LC_ALL=C sort |
+    sed "s#^$repeat_classes/##" \
+      >"$evidence_dir/$application-schema-repeat.txt"
   cmp "$first_dir/generated-manifest.txt" \
     "$evidence_dir/$application-generated-repeat.txt"
   cmp "$first_dir/schema-manifest.txt" \
     "$evidence_dir/$application-schema-repeat.txt"
   while IFS= read -r relative; do
-    shasum -a 256 "$generated/$relative"
+    shasum -a 256 "$repeat_generated/$relative"
   done <"$first_dir/generated-manifest.txt" >"$evidence_dir/$application-generated-repeat.sha256"
   while IFS= read -r relative; do
-    shasum -a 256 "$classes/$relative"
+    shasum -a 256 "$repeat_classes/$relative"
   done <"$first_dir/schema-manifest.txt" >"$evidence_dir/$application-schema-repeat.sha256"
   sed "s#$generated/##" "$first_dir/generated.sha256" \
     >"$evidence_dir/$application-generated-first-normalized.sha256"
-  sed "s#$generated/##" "$evidence_dir/$application-generated-repeat.sha256" \
+  sed "s#$repeat_generated/##" \
+    "$evidence_dir/$application-generated-repeat.sha256" \
     >"$evidence_dir/$application-generated-repeat-normalized.sha256"
   sed "s#$classes/##" "$first_dir/schema.sha256" \
     >"$evidence_dir/$application-schema-first-normalized.sha256"
-  sed "s#$classes/##" "$evidence_dir/$application-schema-repeat.sha256" \
+  sed "s#$repeat_classes/##" \
+    "$evidence_dir/$application-schema-repeat.sha256" \
     >"$evidence_dir/$application-schema-repeat-normalized.sha256"
   cmp "$evidence_dir/$application-generated-first-normalized.sha256" \
     "$evidence_dir/$application-generated-repeat-normalized.sha256"

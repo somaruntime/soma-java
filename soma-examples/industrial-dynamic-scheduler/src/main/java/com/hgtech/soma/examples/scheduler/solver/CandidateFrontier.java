@@ -56,11 +56,33 @@ final class CandidateFrontier {
   private final SchedulerRuntime runtime;
   private final DispatchCandidateBatch releaseBatch;
   private final SelectedCandidate selected = new SelectedCandidate();
+  private final long[][] resourceReadyVersions;
+  private final long[][] resourceReadyMinutes;
 
   CandidateFrontier(SchedulerRuntime runtime) {
     this.runtime = runtime;
     releaseBatch = new DispatchCandidateBatch(
         runtime.maximumCandidatesPerOperation());
+    int resourceCount = runtime.resourceStates().size();
+    resourceReadyVersions = new long[resourceCount][];
+    resourceReadyMinutes = new long[resourceCount][];
+    IntColumnView capacities =
+        runtime.resourceStates().capacityColumn();
+    try {
+      for (int resourceIndex = 0;
+           resourceIndex < resourceCount; resourceIndex++) {
+        int capacity = capacities.getInt(resourceIndex);
+        resourceReadyVersions[resourceIndex] =
+            new long[Math.addExact(capacity, 1)];
+        resourceReadyMinutes[resourceIndex] =
+            new long[Math.addExact(capacity, 1)];
+        for (int units = 0; units <= capacity; units++) {
+          resourceReadyVersions[resourceIndex][units] = Long.MIN_VALUE;
+        }
+      }
+    } finally {
+      capacities.close();
+    }
   }
 
   boolean isEmpty() {
@@ -250,26 +272,53 @@ final class CandidateFrontier {
         runtime.machineStates().lastSetupFamilyValueColumn();
     final LongColumnView machineVersions =
         runtime.machineStates().versionColumn();
-    final LongColumnView operationVersions =
-        runtime.operationStates().versionColumn();
     final LongColumnView resourceVersions =
         runtime.resourceStates().versionColumn();
     final LongColumnView setupValues =
         runtime.setupTimes().setupMinutesColumn();
     try {
-      UpdateResult result = runtime.frontier().update(candidate -> {
+      UpdateResult result = runtime.frontier()
+          .filter(candidate -> {
+            int machineIndex = runtime.machineStates().requireIndex(
+                candidate.candidateKeyMachineIdValue());
+            int resourceIndex = runtime.resourceStates().requireIndex(
+                candidate.requiredResourceValue());
+            return !candidate.ready()
+                || candidate.machineVersion()
+                    != machineVersions.getLong(machineIndex)
+                || candidate.resourceVersion()
+                    != resourceVersions.getLong(resourceIndex);
+          })
+          .update(candidate -> {
         long machineId = candidate.candidateKeyMachineIdValue();
         long resourceId = candidate.requiredResourceValue();
-        long jobId =
-            candidate.candidateKeyOperationKeyJobIdValue();
-        long operationId =
-            candidate.candidateKeyOperationKeyOperationIdValue();
         int machineIndex =
             runtime.machineStates().requireIndex(machineId);
-        int operationIndex =
-            runtime.operationStates().requireIndex(jobId, operationId);
         int resourceIndex =
             runtime.resourceStates().requireIndex(resourceId);
+        long machineVersion = machineVersions.getLong(machineIndex);
+        long resourceVersion = resourceVersions.getLong(resourceIndex);
+        long resourceReady = resourceReadyMinute(
+            resourceIndex, resourceVersion,
+            candidate.requiredResourceUnits());
+        boolean machineCurrent = candidate.ready()
+            && candidate.machineVersion() == machineVersion;
+        if (machineCurrent) {
+          long setup = candidate.setupMinutes();
+          long processingStart = candidate.effectiveStartMinute();
+          if (resourceReady > processingStart) {
+            long setupStart = runtime.fitMachineInterval(
+                machineIndex,
+                Math.subtractExact(resourceReady, setup),
+                Math.addExact(setup, candidate.processingMinutes()));
+            processingStart = Math.addExact(setupStart, setup);
+          }
+          candidate.setEffectiveStartMinute(processingStart);
+          candidate.setCompletionMinute(Math.addExact(
+              processingStart, candidate.processingMinutes()));
+          candidate.setResourceVersion(resourceVersion);
+          return;
+        }
         long setup = 0L;
         if (machineFamilies.isPresent(machineIndex)) {
           int setupIndex = runtime.setupTimes().requireIndex(
@@ -278,8 +327,6 @@ final class CandidateFrontier {
               candidate.targetSetupFamilyValue());
           setup = setupValues.getLong(setupIndex);
         }
-        long resourceReady = runtime.earliestResourceStart(
-            resourceIndex, candidate.requiredResourceUnits());
         long earliestSetup = Math.max(candidate.baseReadyMinute(),
             machineAvailable.getLong(machineIndex));
         earliestSetup = Math.max(earliestSetup,
@@ -294,24 +341,33 @@ final class CandidateFrontier {
         candidate.setSetupMinutes(setup);
         candidate.setEffectiveStartMinute(processingStart);
         candidate.setCompletionMinute(completion);
-        candidate.setOperationVersion(
-            operationVersions.getLong(operationIndex));
-        candidate.setMachineVersion(
-            machineVersions.getLong(machineIndex));
-        candidate.setResourceVersion(
-            resourceVersions.getLong(resourceIndex));
+        candidate.setMachineVersion(machineVersion);
+        candidate.setResourceVersion(resourceVersion);
         candidate.setReady(true);
       });
-      require(result.matched() == runtime.frontierSize(),
-          "frontier refresh cardinality mismatch");
+      require(result.matched() == result.changed(),
+          "every stale candidate must publish its current versions");
     } finally {
       setupValues.close();
       resourceVersions.close();
-      operationVersions.close();
       machineVersions.close();
       machineFamilies.close();
       machineAvailable.close();
     }
+  }
+
+  private long resourceReadyMinute(
+      int resourceIndex, long resourceVersion, int units) {
+    long[] versions = resourceReadyVersions[resourceIndex];
+    if (units <= 0 || units >= versions.length) {
+      throw new IllegalArgumentException("invalid resource unit demand");
+    }
+    if (versions[units] != resourceVersion) {
+      resourceReadyMinutes[resourceIndex][units] =
+          runtime.earliestResourceStart(resourceIndex, units);
+      versions[units] = resourceVersion;
+    }
+    return resourceReadyMinutes[resourceIndex][units];
   }
 
   private static void require(boolean condition, String message) {

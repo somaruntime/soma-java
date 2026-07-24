@@ -47,9 +47,11 @@ grep -F '"layer": "reference-application"' "$scheduler_baseline" >/dev/null
 grep -F '"layer": "reference-application"' "$simulation_baseline" >/dev/null
 
 grep -F "$component_baseline" scripts/check-post-cutover-components.sh >/dev/null
-grep -F 'performance-baseline-zulu8-macos-aarch64-v1.json' \
+grep -F \
+  'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
   scripts/check-industrial-scheduler.sh >/dev/null
-grep -F 'performance-baseline-zulu8-macos-aarch64-v1.json' \
+grep -F \
+  'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
   scripts/check-grassing-simulation.sh >/dev/null
 for script in \
   scripts/check-post-cutover-components.sh \

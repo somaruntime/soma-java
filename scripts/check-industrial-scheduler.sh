@@ -27,9 +27,33 @@ esac
 
 profile=${1:-default}
 case "$profile" in
-  default) heap=256m; baseline_version=v2 ;;
-  large) heap=512m; baseline_version=v1 ;;
-  long-run) heap=256m; baseline_version=v1 ;;
+  default)
+    heap=256m
+    baseline_version=v2
+    expected_measurements=3
+    expected_jobs=10
+    expected_operations=1000
+    expected_machines=10
+    expected_candidates=3
+    ;;
+  large)
+    heap=512m
+    baseline_version=v1
+    expected_measurements=1
+    expected_jobs=1000
+    expected_operations=100000
+    expected_machines=100
+    expected_candidates=3
+    ;;
+  long-run)
+    heap=256m
+    baseline_version=v1
+    expected_measurements=1
+    expected_jobs=100
+    expected_operations=10000
+    expected_machines=100
+    expected_candidates=3
+    ;;
   *)
     printf '%s\n' \
       "industrial-scheduler-check: unsupported profile $profile" >&2
@@ -67,6 +91,7 @@ else
 fi
 repository=$evidence_dir/repository
 mkdir -p "$repository"
+application_build_dir=$evidence_dir/application-target
 seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
 if [ -d "$seed_repository" ]; then
   cp -R "$seed_repository/." "$repository/"
@@ -75,7 +100,15 @@ fi
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
   -pl soma-runtime-core,soma-processor -am install -DskipTests
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+  -Dsoma.build.directory="$application_build_dir" \
   -f "$pom" clean package
+if grep -R -a -F 'Unresolved compilation problem' \
+    "$application_build_dir/classes" "$application_build_dir/test-classes" \
+    >/dev/null; then
+  printf '%s\n' \
+    'industrial-scheduler-check: compiler-error stub found in isolated build' >&2
+  exit 1
+fi
 
 dependency_plugin_version=$(sed -n \
   's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
@@ -84,7 +117,7 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" -f "$pom" \
   "org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version:build-classpath" \
   -DincludeScope=runtime -Dmdep.outputFile="$runtime_classpath_file"
-runtime_classpath=$application_dir/target/test-classes:$application_dir/target/classes:$(cat "$runtime_classpath_file")
+runtime_classpath=$application_build_dir/test-classes:$application_build_dir/classes:$(cat "$runtime_classpath_file")
 
 main_root=$application_dir/src/main/java/com/hgtech/soma/examples/scheduler
 test_root=$application_dir/src/test/java/com/hgtech/soma/examples/scheduler
@@ -177,7 +210,7 @@ if grep -R -E \
 fi
 
 jar_manifest=$evidence_dir/production-jar.txt
-jar tf "$application_dir/target/industrial-dynamic-scheduler-1.0.0-SNAPSHOT.jar" \
+jar tf "$application_build_dir/industrial-dynamic-scheduler-1.0.0-SNAPSHOT.jar" \
   >"$jar_manifest"
 if grep -E \
     '/(benchmark|fixture|oracle|verification)/|SchedulerRuntimeTestAccess|JvmMetrics|SchedulingProblemFixtures|TinyScheduleOracle' \
@@ -188,6 +221,7 @@ if grep -E \
 fi
 
 verification_log=$evidence_dir/verification.log
+: >"$verification_log"
 for verification_profile in correctness "$profile"; do
   "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$runtime_classpath" \
     com.hgtech.soma.examples.scheduler.verification.SchedulerVerification \
@@ -208,6 +242,7 @@ grep -F 'input.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'result.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 
 benchmark_artifact=$evidence_dir/benchmark.jsonl
+: >"$benchmark_artifact"
 benchmark_commit=$(git rev-parse HEAD)
 benchmark_cpu=$(./scripts/benchmark-cpu-identity.sh)
 fork=1
@@ -243,7 +278,7 @@ for field in inputChecksum resultChecksum schemaHash runtimePlanHash; do
   fi
 done
 for field in jobs operations machines candidatesPerOperation \
-  operationExecutions frontierCapacity; do
+  warmup measurements operationExecutions frontierCapacity; do
   sed -n "s/.*\\\"$field\\\":\\([0-9][0-9]*\\).*/\\1/p" \
     "$benchmark_artifact" | LC_ALL=C sort -u >"$evidence_dir/$field.txt"
   if [ "$(wc -l <"$evidence_dir/$field.txt" | tr -d ' ')" -ne 1 ]; then
@@ -251,6 +286,32 @@ for field in jobs operations machines candidatesPerOperation \
       "industrial-scheduler-check: unstable $field across forks" >&2
     exit 1
   fi
+done
+for expectation in \
+  "jobs:$expected_jobs" \
+  "operations:$expected_operations" \
+  "machines:$expected_machines" \
+  "candidatesPerOperation:$expected_candidates" \
+  "warmup:1" \
+  "measurements:$expected_measurements" \
+  "operationExecutions:$((expected_operations * expected_measurements))"; do
+  field=${expectation%%:*}
+  expected=${expectation#*:}
+  actual=$(cat "$evidence_dir/$field.txt")
+  if [ "$actual" != "$expected" ]; then
+    printf '%s\n' \
+      "industrial-scheduler-check: $profile $field expected $expected, got $actual" >&2
+    exit 1
+  fi
+done
+fork=1
+while [ "$fork" -le "$forks" ]; do
+  if [ "$(grep -c "\"fork\":$fork," "$benchmark_artifact")" -ne 1 ]; then
+    printf '%s\n' \
+      "industrial-scheduler-check: missing or duplicate fork $fork" >&2
+    exit 1
+  fi
+  fork=$((fork + 1))
 done
 while IFS= read -r record; do
   allocated=$(printf '%s\n' "$record" |
