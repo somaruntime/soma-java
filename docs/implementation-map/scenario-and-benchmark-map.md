@@ -12,8 +12,8 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前两个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：reference application scale candidate `1af43ac`；
-performance baseline implementation `938b3d5`
+最近实现核对基线：industrial scheduler candidate `a7d4fde`；
+其余 reference application / performance baseline implementation `938b3d5`
 
 最后审查日期：2026-07-24
 
@@ -23,7 +23,7 @@ performance baseline implementation `938b3d5`
 
 | Application | 自有文档 | executable / runtime | input 与验证 |
 |---|---|---|---|
-| industrial dynamic scheduler | [application docs](../../soma-examples/industrial-dynamic-scheduler/docs/README.md) | [`SchedulerApplication.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/application/SchedulerApplication.java)、[`SomaSchedulingSolver.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/solver/SomaSchedulingSolver.java)、[`SchedulerRuntime.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/SchedulerRuntime.java) | [`SyntheticSchedulingProblemFactory.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem/SyntheticSchedulingProblemFactory.java)、[`SchedulerRuntimeFactory.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/SchedulerRuntimeFactory.java)、[`SchedulerVerification.java`](../../soma-examples/industrial-dynamic-scheduler/src/test/java/com/hgtech/soma/examples/scheduler/verification/SchedulerVerification.java) |
+| industrial dynamic scheduler | [application docs](../../soma-examples/industrial-dynamic-scheduler/docs/README.md) | [`SchedulerApplication.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/application/SchedulerApplication.java)、[`SomaSchedulingSolver.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/solver/SomaSchedulingSolver.java)、[`CandidateFrontier.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/solver/CandidateFrontier.java)、[`SchedulerRuntime.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/SchedulerRuntime.java) | [`SchedulingProblem.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem/SchedulingProblem.java)、[`SyntheticSchedulingProblemFactory.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem/SyntheticSchedulingProblemFactory.java)、[`RuntimeProjector.java`](../../soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime/RuntimeProjector.java)、[`SchedulerVerification.java`](../../soma-examples/industrial-dynamic-scheduler/src/test/java/com/hgtech/soma/examples/scheduler/verification/SchedulerVerification.java) |
 | grassing individual simulation | [application docs](../../soma-examples/grassing-individual-simulation/docs/README.md) | [`SimulationApplication.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/SimulationApplication.java)、[`Simulator.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/simulation/Simulator.java)、[`SimulationSession.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/simulation/SimulationSession.java)、[`SomaSimulator.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/simulation/SomaSimulator.java)、[`SimulationResult.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/result/SimulationResult.java) | [`SyntheticSimulationScenarioFactory.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/scenario/SyntheticSimulationScenarioFactory.java)、[`SimulationRuntimeFactory.java`](../../soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime/SimulationRuntimeFactory.java)、[`SimulationVerification.java`](../../soma-examples/grassing-individual-simulation/src/test/java/com/hgtech/soma/examples/grassing/evidence/SimulationVerification.java) |
 
 两个 child POM 都是普通 Java 8 consumer，只声明 `soma-annotations`、
@@ -33,6 +33,12 @@ performance baseline implementation `938b3d5`
 fixture/oracle/verification/benchmark 均位于 test source-set，production JAR
 不含 evidence implementation。版本化 config 与 detached factory 拥有输入，
 runtime hot loop 不反向依赖 generator 或 factory。
+
+工业调度的 eligible option 由一张 flat immutable Table 和
+`by_operation` exact-group 承载；完整 projection 逐值复核位于 test-only
+`SchedulerProjectionTestAccess`。Candidate 不进入 SOMA schema，而由
+`CandidatePool`、`MachineFrontierHeap` 和 stable domain identity 维护；这三者是
+可从 Table facts 重建的算法状态。
 
 ## 2. Benchmark 入口
 
@@ -49,9 +55,9 @@ runtime hot loop 不反向依赖 generator 或 factory。
 application profile baseline：
 
 - [`component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json)；
-- scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v2.json)、
-  [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v1.json)、
-  [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v1.json)；
+- scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v3.json)、
+  [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v2.json)、
+  [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v2.json)；
 - simulation [`default`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v2.json)、
   [`large`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v1.json)、
   [`long-run`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v1.json)。
@@ -74,8 +80,11 @@ JAR。当前没有 public performance claim。
 - generated footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
 
 全部 profile runner 都调用同一 comparator；component 普通 Gate 为 5 fork，六个
-应用 profile 各为 3 fork，重校为 9 fork。普通 `scripts/check.sh` 执行 Fast；
-性能专题和 rebaseline 使用 Full。环境匹配时判定 `passed/failed`，环境不同但
+应用 profile 各为 3 fork，新 application baseline 通常至少 5 fork。9 fork
+只用于明确授权的方差诊断，不是失败后的自动重跑。普通 `scripts/check.sh`
+不隐式启动 application fork；Fast/Scale/Soak 按 profile 独立运行，只有跨应用
+runner/comparator 变化或明确完整验真时使用 Full。环境匹配时判定
+`passed/failed`，环境不同但
 artifact 合法时为
 `not-applicable`。Blueprint 和 Design 决定产品目标与语义；应用拥有领域
 correctness，benchmark 拥有测量 artifact，本地图只导航当前实现。

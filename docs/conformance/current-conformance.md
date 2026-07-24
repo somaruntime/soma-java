@@ -7,8 +7,8 @@
 Owner：SOMA Java 一致性审查
 
 核对对象：正式 Blueprint/Design、既有 core 产品语义、compiler/codegen
-stability `c0fa1c9`、两个 reference application scale candidate `1af43ac`，
-以及三层 performance baseline evidence `938b3d5`
+stability `c0fa1c9`、industrial scheduler candidate `a7d4fde`、其余
+reference application / performance baseline evidence `938b3d5`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -40,7 +40,7 @@ stability `c0fa1c9`、两个 reference application scale candidate `1af43ac`，
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
 | hot-path performance shape | 一致但 evidence 有限 | 版本化 neutral component 与六个 application profile baseline、统一 comparator、allocation/GC/high-water/timing、9-fork 校准和 Fast/Scale/Soak/Full Gate | 结论限制在 baseline 精确环境与 workload；其他环境为 `not-applicable` |
 | reference application boundary | 一致且 evidenced | `soma-examples` 仅聚合两个 independent child；isolated repository/runtime graph/source-shape Gate | 应用只消费 public artifacts，不反向拥有 core Design |
-| industrial dynamic scheduler | 一致且 evidenced | top-level Problem/Factory、canonical Solver/Session、detached Result、Runtime/Schema projection、production/test source-set、完整约束、oracle/validator、failure/lifecycle、JAR purity，以及 1k/100k/10k operations 的 multi-fork baseline；见[架构治理](../../reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)与[规模性能治理](../../reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md) | 保持应用分层和唯一 canonical journey；领域事实与 integrated evidence 继续 application-owned |
+| industrial dynamic scheduler | 一致且 evidenced | Problem semantic identity/range preflight、canonical Solver/Session、domain-only detached Result、flat eligible exact-group projection、application-owned global frontier、完整约束/oracle/claim validator/failure/lifecycle/JAR purity，以及 1k/100k/10k operations 的 hot + canonical multi-fork baseline；见[架构治理](../../reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)与[设计性能治理](../../reports/2026-07-24-industrial-scheduler-design-and-performance-governance-report.md) | 保持应用分层、Access Pattern→Schema 追踪和唯一 canonical journey；领域事实与 execution evidence 继续分离且 application-owned |
 | grassing individual simulation | 一致且 evidenced | Config/Scenario Factory/Simulator/Session/Result canonical journey、Engine/System/Runtime/Schema 分责、production/test 隔离、detached Result、AoS逐tick等价、order independence、JAR/DAG，以及 1k×1k/100k×1k/10k×10k 的 multi-fork baseline；见[架构治理](../../reports/2026-07-23-grassing-individual-simulation-architecture-governance-report.md)与[规模性能治理](../../reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md) | 保持应用分层、one-shot lifecycle 和唯一 canonical journey；领域事实与 integrated evidence 继续 application-owned |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
@@ -79,3 +79,4 @@ SOMA 契约，不建立新的产品契约。其余未闭合项只有两类：
 - [个体生态仿真参考应用架构治理](../../reports/2026-07-23-grassing-individual-simulation-architecture-governance-report.md)
 - [三层性能基线治理](../../reports/2026-07-24-three-layer-performance-baseline-governance-report.md)
 - [Reference Application 大规模性能基线治理](../../reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
+- [Industrial Dynamic Scheduler 设计与性能治理](../../reports/2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)

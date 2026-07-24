@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "industrial-scheduler-long-run-zulu8-macos-aarch64-v1",
+  "baselineId": "industrial-scheduler-long-run-zulu8-macos-aarch64-v2",
   "layer": "reference-application",
   "subject": "industrial-dynamic-scheduler",
-  "artifactVersion": "industrial-scheduler-benchmark-v3",
+  "artifactVersion": "industrial-scheduler-benchmark-v4",
   "calibration": {
-    "commit": "1af43ac06e7a460b1951983997be313b02398239",
+    "commit": "a7d4fde29f028c7c229cff04e6e8f56358841fab",
     "date": "2026-07-24",
     "forks": 9,
-    "formula": "allocation=ceil(max*1.05); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25)"
+    "formula": "allocation=ceil(p50*1.25); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else=max+1; gc-pause=0-if-zero-else=ceil(max*1.25)"
   },
   "environment": {
     "javaVersion": "1.8.0_492-b09",
@@ -29,10 +29,13 @@
   "identity": {
     "schemaVersion": "soma-reference-application-benchmark-v1",
     "profile": "long-run",
-    "inputChecksum": "c01b96e7156ee1a2cedba3c8b8bbcdc947b350eeefc3317b54ba444a2f638d8b",
+    "configChecksum": "84f4d7edc714facd02b830ca5163706bc481968f742b3a05e3b73506530f7ca1",
+    "generatorVersion": 1,
+    "seed": 1704,
+    "inputChecksum": "76670f9e33f38902b51b080c0429fe8114f6fc6f7ccc0f93b432eb7c6b461cc3",
     "resultChecksum": "72332e1116ab7f78c4901dcf698dcf25e08dfe9ee8e5ba681f6cda702dd78108",
-    "schemaHash": "eec9e34d59f3dd90010bbfcfb88c2a036fc7fb6429639cffd81e5e2ab95a818e",
-    "runtimePlanHash": "16b31c98688c0aab40dd35a86f55170465aaab585ffba841924dba161b9c85c2",
+    "schemaHash": "a178aa87d32d2fbbcea0a58dfa84fa1006bbfd6b80789959422b1ec9cf3b2f85",
+    "runtimePlanHash": "c73d3d23d032709d820cd9919e06799749734e59638e6fed0b8b33276d75b0b9",
     "jobs": 100,
     "operations": 10000,
     "machines": 100,
@@ -62,6 +65,9 @@
         "cpu",
         "maxHeapBytes",
         "profile",
+        "configChecksum",
+        "generatorVersion",
+        "seed",
         "inputChecksum",
         "resultChecksum",
         "schemaHash",
@@ -75,11 +81,14 @@
         "operationExecutions",
         "preparationNanos",
         "solveNanos",
+        "endToEndNanos",
         "minimumSolveNanos",
         "maximumSolveNanos",
         "solveNanosPerOperation",
         "allocatedBytes",
         "allocatedBytesPerOperation",
+        "endToEndAllocatedBytes",
+        "endToEndAllocatedBytesPerOperation",
         "youngGcCount",
         "youngGcPauseMillis",
         "fullGcCount",
@@ -94,20 +103,36 @@
   ],
   "metrics": [
     {
-      "id": "allocation.integrated-run",
+      "id": "allocation.hot-solve",
       "selector": {},
       "field": "allocatedBytes",
-      "aggregation": "maximum",
+      "aggregation": "median",
       "comparison": "at-most",
-      "reference": 44535776
+      "reference": 17269510
     },
     {
-      "id": "timing.integrated-run",
+      "id": "allocation.end-to-end",
+      "selector": {},
+      "field": "endToEndAllocatedBytes",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 42303450
+    },
+    {
+      "id": "timing.hot-solve",
       "selector": {},
       "field": "solveNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 199976438
+      "reference": 70574937
+    },
+    {
+      "id": "timing.end-to-end",
+      "selector": {},
+      "field": "endToEndNanos",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 110942937
     },
     {
       "id": "gc.young-count",
@@ -123,7 +148,7 @@
       "field": "youngGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 5
+      "reference": 4
     },
     {
       "id": "gc.full-count",
@@ -147,7 +172,7 @@
       "field": "exactIndexHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 15086
+      "reference": 1162144
     },
     {
       "id": "high-water.update-scratch",
@@ -155,7 +180,7 @@
       "field": "updateScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 15015
+      "reference": 0
     },
     {
       "id": "high-water.operation-scratch",
@@ -163,7 +188,7 @@
       "field": "operationScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 1256
+      "reference": 48544
     },
     {
       "id": "frontier.capacity",

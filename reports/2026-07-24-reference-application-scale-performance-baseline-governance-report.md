@@ -124,7 +124,7 @@ runtime state 拆 Table、增加索引或修改 SOMA core 会改善当前模型�
 
 ## 5. Baseline Owner 与 provenance
 
-当前 application baselines：
+本报告收口时的 application baselines：
 
 ```text
 industrial-dynamic-scheduler:
@@ -148,6 +148,18 @@ git show 7252646:soma-examples/grassing-individual-simulation/src/test/resources
 
 三层性能基线治理报告保留建立 component + 两份初始 application baseline 的
 时点事实；本报告接管当前六 profile 结果，不回写历史数字。
+
+工业调度三份 baseline 后续由设计与性能治理重新校准并退出 current Owner。
+本报告中的历史版本可从本报告收口提交读取：
+
+```sh
+git show 22d8846:soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v2.json
+git show 22d8846:soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v1.json
+git show 22d8846:soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v1.json
+```
+
+当前 baseline 必须从 Implementation Map 或当前性能摘要进入，不能由本历史报告
+的时点清单反向恢复 Owner 身份。
 
 ## 6. 实施与验证
 

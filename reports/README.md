@@ -18,6 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)（Problem/Result 契约、Access Pattern→Schema、global frontier、canonical/hot 9-fork evidence 与 scope non-regression）
 - [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)（六个 default/large/long-run baseline、Fast/Scale/Soak/Full Gate、性能归因与 scope non-regression）
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)（component、两个 application baseline、环境感知 comparator、9-fork 校准与 public claim 边界）
 - [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)（Config/Scenario/Simulator/Session/Engine/System/Runtime/Schema/Result分层、source-set与canonical journey）
@@ -46,6 +47,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)
 - [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)
 - [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)

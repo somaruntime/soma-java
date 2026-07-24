@@ -68,23 +68,27 @@ metric：
 ## 4. 指标、fork 与校准
 
 准入 aggregation 为 `all-equal`、`maximum` 和 `median`；comparison 为
-`equal` 和 `at-most`。Deterministic identity/high-water 用全等，allocation/GC
-用 maximum，timing 用 multi-fork median。Setup/preparation 可以报告，但不进入
-当前两个应用的 hot-operation timing Gate。
+`equal` 和 `at-most`。Deterministic identity/high-water 用全等，GC 用 maximum，
+timing 用 multi-fork median。Component allocation 使用 maximum；带完整 JVM
+执行路径的 application allocation 使用 median fitness envelope，避免 TLAB、
+tiered compilation 或延迟初始化的单个极值触发 rebaseline。Setup/preparation
+可以报告，但不进入当前两个应用的 hot-operation timing Gate。
 
 - component 普通 Gate 使用 5 个独立 JVM fork；
 - 六个 application profile 的普通 Gate 各使用 3 个独立 JVM fork；
-- 新建或重校 baseline 使用同环境 9 fork；
-- application allocation limit 为 `ceil(max × 1.05)`；
+- 新建或重校 application baseline 通常使用同环境 5 fork；
+- 9 fork 只用于明确授权的方差诊断或 public claim 准备；
+- application allocation limit 为 `ceil(p50 × 1.25)`；
 - timing limit 为 `ceil(max(p50 × 1.50, p90 × 1.25))`，p90 使用
   nearest-rank。
 - GC count 在校准最大值为零时上限为零，否则为 `max + 1`；GC pause 在最大值
   为零时上限为零，否则为 `ceil(max × 1.25)`。
 
-异常样本、热降频或后台噪声明显时重跑，不得用异常结果放宽 baseline。普通 Gate
-只读 checked-in baseline，不提供 update-in-place。Rebaseline 必须单独产生候选
-artifact/diff，并说明触发原因、旧/新 identity、环境、9-fork 统计和 correctness
-结果；环境变化新增 baseline，不覆盖旧环境事实。
+异常样本、热降频或后台噪声明显时应先记录为 methodology finding，不得自动循环
+重跑或用单个异常结果放宽 baseline。普通 Gate 只读 checked-in baseline，不提供
+update-in-place。Rebaseline 必须单独产生候选 artifact/diff，并说明触发原因、
+旧/新 identity、环境、至少 5-fork 统计和 correctness 结果；环境变化新增
+baseline，不覆盖旧环境事实。
 
 ## 5. 当前 Owner 与 Gate
 
@@ -107,10 +111,11 @@ artifact/diff，并说明触发原因、旧/新 identity、环境、9-fork 统�
 component=1、reference-application=6、public-claim=0，以及模块依赖和 Owner
 边界。新增环境或 public claim 必须显式修改 Owner、evidence 和 Gate。
 
-`default` 进入普通 `scripts/check.sh` 的 Fast lane；`large` 和 `long-run` 分别由
-Scale 与 Soak 专项 Gate 承担，Full 组合六个 workload。性能专题、rebaseline 和
-正式性能收口必须运行 Full；运行频率差异不改变 baseline 的正式性、3-fork
-下限、失败含义或 correctness guard。
+`scripts/check.sh` 不再隐式启动 application fork；功能、构建、架构与性能责任
+分开。Fast、Scale、Soak 分别承担 default、large、long-run，Full 只在跨应用
+runner/comparator 变更或明确要求完整性能验真时组合六个 workload。应用内部变更
+只运行受影响 profile，一次失败进入归因，不自动 rebaseline。运行频率差异不改变
+baseline 的正式性、3-fork 下限、失败含义或 correctness guard。
 
 ## 6. 对照与 claim
 

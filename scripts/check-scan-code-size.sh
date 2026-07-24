@@ -145,10 +145,10 @@ measure_surface() {
     done >>"$schema_footprint"
 }
 
-# Baselines are the first immutable two-reference-application candidate plus 15%.
+# Baselines are the current immutable application candidates plus 15%.
 measure_surface neutral-benchmark soma-benchmarks 6 166428 740 234066 51
 measure_surface industrial-scheduler \
-  soma-examples/industrial-dynamic-scheduler 12 341277 1470 488940 103
+  soma-examples/industrial-dynamic-scheduler 9 251396 1081 358335 75
 measure_surface grassing-simulation \
   soma-examples/grassing-individual-simulation 2 55010 244 78517 17
 
@@ -160,7 +160,7 @@ schema_tables=$(awk -F '	' 'NR > 1 {sum += $3} END {print sum + 0}' \
   "$schema_footprint")
 schema_scans=$(awk -F '	' 'NR > 1 {sum += $8} END {print sum + 0}' \
   "$schema_footprint")
-if [ "$total_scans" -ne 20 ] \
+if [ "$total_scans" -ne 17 ] \
     || [ "$artifact_scans" -ne "$total_scans" ] \
     || [ "$schema_tables" -ne "$total_scans" ] \
     || [ "$schema_scans" -ne "$total_scans" ]; then

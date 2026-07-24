@@ -60,36 +60,65 @@ correctness lane 验证：
 
 ## 性能 artifact
 
-`industrial-scheduler-benchmark-v3` 的每个 record 来自独立 JVM fork，包含：
+`industrial-scheduler-benchmark-v4` 的每个 record 来自独立 JVM fork，包含：
 
 - config/input/result checksum 与 schema/runtime-plan identity；
 - commit、fork/configured forks、实际 JDK/JVM/OS/architecture/CPU/max heap；
 - profile、jobs/operations/machines/candidates、warmup/measurement 与实际
   operation executions；
-- preparation/solve nanos、nanos/operation；
-- current-thread allocated bytes；
+- preparation、hot solve 与 canonical end-to-end nanos；
+- hot solve 与 end-to-end current-thread allocated bytes；
 - Young/Full GC count 与 pause；
 - exact-index、update scratch、operation scratch high-water；
 - maximum frontier capacity；
 - `claimAllowed=false`。
 
 Application-owned baseline 位于 test resources。每个普通 profile Gate 使用
-3 fork；9-fork 校准候选为 `1af43ac`：
+3 fork；当前 9-fork immutable calibration candidate 为 `a7d4fde`：
 
-| Profile | 9-fork hot operation range / median | Timing limit | Allocation range / limit |
+| Profile | hot solve range / median | Timing limit | hot allocation range / limit |
 |---|---:|---:|---:|
-| default | `30.387..32.105 / 31.159 ms` | `46.738 ms` | `16.070..16.075 / 16.878 MB` |
-| large | `8.552..8.874 / 8.694 s` | `13.041 s` | `411.337..414.294 / 435.008 MB` |
-| long-run | `130.108..138.278 / 133.318 ms` | `199.976 ms` | `39.731..42.415 / 44.536 MB` |
+| default | `13.459..15.522 / 14.174 ms` | `21.261 ms` | `3.956 / 4.946 MB` |
+| large | `1.278..1.295 / 1.287 s` | `1.931 s` | `111.032..117.538 / 143.338 MB` |
+| long-run | `44.056..49.702 / 47.050 ms` | `70.575 ms` | `11.008..15.022 / 17.270 MB` |
+
+| Profile | canonical end-to-end range / median | Timing limit | end-to-end allocation range / limit |
+|---|---:|---:|---:|
+| default | `22.255..24.496 / 22.830 ms` | `34.245 ms` | `8.097..8.098 / 10.123 MB` |
+| large | `1.318..1.335 / 1.327 s` | `1.990 s` | `227.001..241.513 / 288.904 MB` |
+| long-run | `70.904..77.993 / 73.962 ms` | `110.943 ms` | `31.035..35.049 / 42.303 MB` |
 
 | Profile | exact/update/operation high-water | Frontier | 校准最大 GC / baseline envelope |
 |---|---:|---:|---|
-| default | `1,438 / 2,520 / 160 B` | `30` | Young `0/0 ms`，Full `0/0 ms` |
-| large | `106,479 / 160,545 / 14,380 B` | `3,000` | Young `5/17 ms -> 6/22 ms`，Full `0/0 ms` |
-| long-run | `15,086 / 15,015 / 1,256 B` | `300` | Young `1/4 ms -> 2/5 ms`，Full `0/0 ms` |
+| default | `106,384 / 0 / 4,256 B` | `30` | Young `0/0 ms`，Full `0/0 ms` |
+| large | `11,832,761 / 0 / 553,012 B` | `3,000` | Young `2/8 ms -> 3/10 ms`，Full `0/0 ms` |
+| long-run | `1,162,144 / 0 / 48,544 B` | `300` | Young `1/3 ms -> 2/4 ms`，Full `0/0 ms` |
 
-表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。Default、large、
+表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。应用级 allocation
+使用跨 fork 中位数和 `allocation=ceil(p50*1.25)` fitness envelope；timing 使用
+`timing=ceil(max(p50*1.50,p90*1.25))`，不是由目标倒推。Default、large、
 long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部六个应用 workload。
+Long-run 在首次普通重放中暴露 ThreadMXBean/TLAB allocation 分布超出首轮
+9-fork 最大值，因此不再用 maximum 驱动反复 rebaseline。确定性 high-water
+继续 `all-equal`，GC 继续取 maximum。
+
+日常应用性能 Gate 固定 3 fork。新 baseline 通常使用 5 fork；9 fork 只用于获得
+明确授权的方差诊断或 public claim 准备，不属于普通开发、治理收口或失败后的
+自动重跑。
+
+该校准同时保护两条不同责任的路径：
+
+- hot solve 排除 generation 和 preparation，观察算法循环与 SOMA runtime access；
+- canonical end-to-end 从 `prepare(problem)` 开始，包含 Table construction、
+  batch projection、solve、result materialization 和 close，不包含 synthetic
+  generation。
+
+早期候选在 large profile 中为每个 operation 建立一个 eligible-machine child
+Table，9 fork 端到端分配约 `718..724 MB`，并在 3/9 fork 发生 Full GC。最终
+Schema 改为一张 flat immutable exact-group Table，并把逐值 projection
+verification 留在 test-only Gate；最终 9 fork 端到端分配降至
+`227.001..241.513 MB`，Full GC 为零。exact-index high-water 的增长是 300,000
+option 的受控 flat access path，不是未界定的临时对象。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
 `not-applicable`；无论结果如何，invalid schema/shape/claim/fork/identity 都失败。
@@ -100,6 +129,8 @@ Gate 还要求：
 
 - clean/repeat 生成源码和 schema artifact byte-stable；
 - production JAR 不含 fixture/oracle/verification/benchmark；
+- production `prepare()` 不执行 test-only 全投影逐值复核；
 - application 不绕过 Solver facade；
 - config/problem 不依赖 SOMA runtime/generated code；
-- 旧 `state`、bootstrap、runner 和 config identity 无 current 残留。
+- 旧 `state`、bootstrap、runner、candidate Table、runtime diagnostics Result
+  和 config-as-problem-identity 无 current 残留。

@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 目标体验
 
@@ -45,10 +45,11 @@ maintenance.period.minutes=480
 machine.delay.events=6
 ```
 
-同一最终配置和 seed 必须产生相同 input checksum。CLI 输出的 config checksum
-用于证明 override 后究竟运行了什么；input checksum 与 result checksum 不混用。
-benchmark warmup/forks/measurements 使用另一份 test-only 配置，不参与问题
-identity。
+同一组领域事实必须产生相同 input checksum，输入集合的排列顺序不得改变其
+semantic identity。CLI 另行输出 config checksum、generator version 和 seed，
+用于重放“怎样生成输入”；这些 provenance 不进入 Problem identity，也不与
+result checksum 混用。benchmark warmup/forks/measurements 使用另一份 test-only
+配置，不参与输入 identity。
 
 应用代码只面向 Problem、Solver 和 Result：
 
@@ -78,8 +79,9 @@ try {
 
 ## SOMA schema 的应用方式
 
-Stable identity、secondary unique、exact group 与 owned child 各自表达自己的
-cardinality，不把它们强制合成一种索引：
+应用先从实际访问模式决定 Schema。Operation 使用 stable key 和
+`job + sequence` 的 0..1 查找；eligible option 是不可变 exact group，因此使用
+一张 flat Table，而不是为每个 operation 创建 child Table：
 
 ```java
 @SomaTable(name = "operation_definitions")
@@ -89,44 +91,40 @@ public final class OperationDefinition {
   @SomaKey public OperationKey operationKey;
   @SomaField public int sequenceNo;
   @SomaField public SetupFamilyId setupFamily;
-  @SomaChild(initialCapacity = 8)
-  public List<EligibleMachine> eligibleMachines;
+  @SomaField public ResourceId requiredResource;
+  @SomaField public int requiredResourceUnits;
 }
-```
 
-Frontier 是 derived state，以 operation-machine stable key 保证唯一，并用 exact
-group 支持按 machine 或 operation 访问：
-
-```java
-@SomaTable(name = "dispatch_candidates")
-@SomaIndex(name = "by_machine",
-    fields = {"candidateKey.machineId.value"})
+@SomaTable(name = "eligible_machines")
 @SomaIndex(name = "by_operation", fields = {
-    "candidateKey.operationKey.jobId.value",
-    "candidateKey.operationKey.operationId.value"})
-public final class DispatchCandidate {
-  @SomaKey public DispatchCandidateKey candidateKey;
-  // readiness、duration、score 和 source-version fields
+    "operationKey.jobId.value",
+    "operationKey.operationId.value"})
+public final class EligibleMachine {
+  @SomaField public OperationKey operationKey;
+  @SomaField public MachineId machineId;
+  @SomaField public long processingMinutes;
 }
 ```
 
-典型 pipeline 只处理当前 candidate set。刷新、选择和 swap-remove 都不全表
-物化：
+投影使用 Batch；求解时按 operation 直接遍历 exact group，不生成中间
+materialization：
 
 ```java
-frontier.update(candidate -> refresh(candidate));
-
-frontier.filter(candidate -> candidate.ready())
-    .sorted(TOTAL_ORDER)
-    .limit(1)
-    .forEach(selected::copy);
-
-frontier.scanByOperation(operationKey).remove();
+eligibleMachines.scanByOperation(operationKey)
+    .forEach(option -> publishCandidate(
+        option.machineIdValue(),
+        option.processingMinutes()));
 ```
 
-跨事件保存 `OperationKey`、`MachineId` 等 stable key；current Index 与
-`IndexSnapshot` 只在同步只读批次内使用。Solver 终点才把
-`OperationAssignment` schema record 复制为 `ScheduledOperation`。
+Job、machine/resource state、setup/transport lookup 和 assignment 分别使用与其
+cardinality 对应的 key/unique/point/append 路径。跨事件保存
+`OperationKey`、`MachineId` 等 stable key；current Index 与 `IndexSnapshot`
+只在同步只读批次内使用。Solver 终点才把 `OperationAssignment` schema record
+复制为 `ScheduledOperation`。
+
+Candidate frontier 是可由 Table facts 重建的算法状态，而不是领域事实。应用使用
+固定容量 primitive pool、machine-local group 和每机一个代表项的 indexed
+min-heap 实现全局 best-one；它不伪装成 SOMA Table，也不长期保存 SOMA Index。
 
 ## 领域闭环
 
@@ -140,11 +138,13 @@ frontier.scanByOperation(operationKey).remove();
 - secondary-resource multi-lane capacity；
 - due date、priority、tardiness；
 - job release、material ready 和 machine delay 外部事件；
-- frontier refresh、total-order selection、version revalidation、
+- candidate 增量 refresh、global total-order best-one、version revalidation、
   explicit cross-table commit 与 successor release。
 
-Event queue、resource lane calendar、maintenance evaluator 和跨 Table 提交顺序属于
-应用，不被包装成 SOMA 产品能力。SOMA 也不因此成为通用调度框架。
+Event queue、candidate pool/heap、resource lane calendar、maintenance evaluator
+和跨 Table 提交顺序属于应用，不被包装成 SOMA 产品能力。SOMA 负责列式事实、
+point/exact-group access、mutation、append、lifecycle 和受控 materialization；
+它不因此成为通用调度框架。
 
 ## 成功标准
 

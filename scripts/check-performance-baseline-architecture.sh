@@ -8,9 +8,9 @@ cd "$root_dir"
 component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json
 scheduler_baseline_dir=soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark
 simulation_baseline_dir=soma-examples/grassing-individual-simulation/src/test/resources/benchmark
-scheduler_default_baseline=$scheduler_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v2.json
-scheduler_large_baseline=$scheduler_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v1.json
-scheduler_long_run_baseline=$scheduler_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v1.json
+scheduler_default_baseline=$scheduler_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v3.json
+scheduler_large_baseline=$scheduler_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v2.json
+scheduler_long_run_baseline=$scheduler_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v2.json
 simulation_default_baseline=$simulation_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v2.json
 simulation_large_baseline=$simulation_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v1.json
 simulation_long_run_baseline=$simulation_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v1.json
@@ -64,19 +64,26 @@ check_application_baseline() {
   grep -F "\"subject\": \"$subject\"" "$baseline" >/dev/null
   grep -F "\"artifactVersion\": \"$artifact_version\"" "$baseline" >/dev/null
   grep -F "\"profile\": \"$profile\"" "$baseline" >/dev/null
-  grep -F '"forks": 9' "$baseline" >/dev/null
   grep -F '"minimumForks": 3' "$baseline" >/dev/null
+  calibration_forks=$(sed -n \
+    's/^[[:space:]]*"forks": \([0-9][0-9]*\),$/\1/p' \
+    "$baseline" | head -n 1)
+  if [ -z "$calibration_forks" ] || [ "$calibration_forks" -lt 5 ]; then
+    printf '%s\n' \
+      "performance-baseline-architecture-check: $baseline requires at least 5 calibration forks" >&2
+    exit 1
+  fi
 }
 
 check_application_baseline \
   "$scheduler_default_baseline" industrial-dynamic-scheduler default \
-  industrial-scheduler-benchmark-v3
+  industrial-scheduler-benchmark-v4
 check_application_baseline \
   "$scheduler_large_baseline" industrial-dynamic-scheduler large \
-  industrial-scheduler-benchmark-v3
+  industrial-scheduler-benchmark-v4
 check_application_baseline \
   "$scheduler_long_run_baseline" industrial-dynamic-scheduler long-run \
-  industrial-scheduler-benchmark-v3
+  industrial-scheduler-benchmark-v4
 check_application_baseline \
   "$simulation_default_baseline" grassing-individual-simulation default \
   grassing-simulation-benchmark-v3
