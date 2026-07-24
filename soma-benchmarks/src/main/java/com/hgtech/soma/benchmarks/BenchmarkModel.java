@@ -895,10 +895,13 @@ final class BenchmarkConfig {
 final class BenchmarkEnvironment {
     final String javaVersion = System.getProperty("java.runtime.version", System.getProperty("java.version"));
     final String javaVendor = System.getProperty("java.vendor", "unknown");
+    final String javaVmName = System.getProperty("java.vm.name", "unknown");
+    final String javaVmVersion = System.getProperty("java.vm.version", "unknown");
     final List<String> jvmArgs = Collections.unmodifiableList(
             new ArrayList<String>(ManagementFactory.getRuntimeMXBean().getInputArguments()));
-    final String os = System.getProperty("os.name", "unknown") + " "
-            + System.getProperty("os.version", "unknown");
+    final String osName = System.getProperty("os.name", "unknown");
+    final String osVersion = System.getProperty("os.version", "unknown");
+    final String os = osName + " " + osVersion;
     final String architecture = System.getProperty("os.arch", "unknown");
     final String cpu = System.getenv("SOMA_BENCHMARK_CPU") == null
             ? "availableProcessors=" + Runtime.getRuntime().availableProcessors()

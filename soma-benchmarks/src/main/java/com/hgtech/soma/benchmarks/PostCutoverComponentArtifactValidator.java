@@ -8,9 +8,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** 独立复读并验证 post-cutover component JSONL artifact。 */
 public final class PostCutoverComponentArtifactValidator {
@@ -32,16 +35,20 @@ public final class PostCutoverComponentArtifactValidator {
             "key_traversal.first_materialize",
             "column_traversal.long_for_each");
     private static final List<String> ALLOCATION_FIELDS = Arrays.asList(
-            "schemaVersion", "artifactVersion", "kind", "lane", "status", "commit",
-            "javaVersion", "javaVendor", "jvmArgs", "os", "architecture", "cpu",
+            "schemaVersion", "artifactVersion", "kind", "lane", "status",
+            "fork", "configuredForks", "commit",
+            "javaVersion", "javaVendor", "javaVmName", "javaVmVersion", "jvmArgs",
+            "osName", "osVersion", "architecture", "cpu",
             "maxHeapBytes", "warmupIterations", "measurementIterations", "rows",
             "distinctGroups", "groupRows", "matchingRows", "allocationMethod",
             "allocatedBytes", "allocatedBytesPerOperation", "elapsedNanos",
             "nanosPerOperation", "gcStats", "checksum", "observationKind",
             "knownLimitations", "claimAllowed");
     private static final List<String> MEMORY_FIELDS = Arrays.asList(
-            "schemaVersion", "artifactVersion", "kind", "lane", "status", "commit",
-            "javaVersion", "javaVendor", "jvmArgs", "os", "architecture", "cpu",
+            "schemaVersion", "artifactVersion", "kind", "lane", "status",
+            "fork", "configuredForks", "commit",
+            "javaVersion", "javaVendor", "javaVmName", "javaVmVersion", "jvmArgs",
+            "osName", "osVersion", "architecture", "cpu",
             "maxHeapBytes", "strategy", "warmupIterations", "measurementIterations", "rows",
             "distinctGroups", "entryCount", "groupCount", "retainedBytes",
             "rightSizedRetainedBytesEstimate", "overRetainedBytesEstimate",
@@ -52,45 +59,86 @@ public final class PostCutoverComponentArtifactValidator {
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length != 1) throw new IllegalArgumentException("artifact path required");
-        validate(new File(args[0]));
+        if (args.length == 0) throw new IllegalArgumentException("artifact path required");
+        List<File> artifacts = new ArrayList<File>();
+        for (String arg : args) artifacts.add(new File(arg));
+        validate(artifacts);
         System.out.println("post-cutover-component-artifact-validation: ok");
     }
 
     static void validate(File artifact) throws IOException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(
-                new FileInputStream(artifact), StandardCharsets.UTF_8));
+        validate(Collections.singletonList(artifact));
+    }
+
+    static void validate(List<File> artifacts) throws IOException {
         int allocations = 0;
         int memories = 0;
-        List<String> lanes = new ArrayList<String>();
-        try {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                if (line.isEmpty()) throw new IllegalArgumentException("empty JSONL line");
-                Object parsed = BenchmarkModel.Json.parse(line);
-                if (!(parsed instanceof Map)) {
-                    throw new IllegalArgumentException("record must be object");
+        Integer configuredForks = null;
+        Set<Integer> forks = new LinkedHashSet<Integer>();
+        Set<String> unique = new LinkedHashSet<String>();
+        Map<Integer, List<String>> allocationLanes =
+                new LinkedHashMap<Integer, List<String>>();
+        Map<Integer, Integer> memoryCounts =
+                new LinkedHashMap<Integer, Integer>();
+        for (File artifact : artifacts) {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(
+                    new FileInputStream(artifact), StandardCharsets.UTF_8));
+            try {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.isEmpty()) {
+                        throw new IllegalArgumentException("empty JSONL line");
+                    }
+                    Object parsed = BenchmarkModel.Json.parse(line);
+                    if (!(parsed instanceof Map)) {
+                        throw new IllegalArgumentException("record must be object");
+                    }
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> record = (Map<String, Object>) parsed;
+                    validateRecord(record);
+                    int fork = (int) number(record, "fork");
+                    int configured = (int) number(record, "configuredForks");
+                    if (configuredForks == null) configuredForks = Integer.valueOf(configured);
+                    else require(configuredForks.intValue() == configured,
+                            "configured forks");
+                    forks.add(Integer.valueOf(fork));
+                    String lane = (String) record.get("lane");
+                    require(unique.add(fork + ":" + lane),
+                            "duplicate lane " + fork + ":" + lane);
+                    String kind = (String) record.get("kind");
+                    if ("allocation".equals(kind)) {
+                        allocations++;
+                        List<String> lanes = allocationLanes.get(Integer.valueOf(fork));
+                        if (lanes == null) {
+                            lanes = new ArrayList<String>();
+                            allocationLanes.put(Integer.valueOf(fork), lanes);
+                        }
+                        lanes.add(lane);
+                    } else {
+                        memories++;
+                        Integer count = memoryCounts.get(Integer.valueOf(fork));
+                        memoryCounts.put(Integer.valueOf(fork),
+                                Integer.valueOf(count == null ? 1 : count.intValue() + 1));
+                    }
                 }
-                @SuppressWarnings("unchecked")
-                Map<String, Object> record = (Map<String, Object>) parsed;
-                validateRecord(record);
-                String kind = (String) record.get("kind");
-                if ("allocation".equals(kind)) allocations++;
-                else memories++;
-                String lane = (String) record.get("lane");
-                if (lanes.contains(lane)) throw new IllegalArgumentException("duplicate lane " + lane);
-                lanes.add(lane);
+            } finally {
+                reader.close();
             }
-        } finally {
-            reader.close();
         }
-        if (allocations != ALLOCATION_LANES.size() || memories != 24) {
-            throw new IllegalArgumentException("expected " + ALLOCATION_LANES.size()
-                    + " allocation and 24 memory records");
+        require(configuredForks != null
+                        && configuredForks.intValue() == forks.size(),
+                "observed forks");
+        for (int fork = 1; fork <= configuredForks.intValue(); fork++) {
+            require(forks.contains(Integer.valueOf(fork)), "fork coverage");
+            require(ALLOCATION_LANES.equals(allocationLanes.get(Integer.valueOf(fork))),
+                    "allocation lane order or coverage for fork " + fork);
+            require(Integer.valueOf(24).equals(memoryCounts.get(Integer.valueOf(fork))),
+                    "memory lane coverage for fork " + fork);
         }
-        if (!lanes.subList(0, ALLOCATION_LANES.size()).equals(ALLOCATION_LANES)) {
-            throw new IllegalArgumentException("allocation lane order or coverage");
-        }
+        require(allocations == ALLOCATION_LANES.size() * configuredForks.intValue(),
+                "allocation record count");
+        require(memories == 24 * configuredForks.intValue(),
+                "memory record count");
     }
 
     static void validateRecord(Map<String, Object> record) {
@@ -100,11 +148,17 @@ public final class PostCutoverComponentArtifactValidator {
                 record.get("artifactVersion")), "artifactVersion");
         require("passed".equals(record.get("status")), "status");
         require(Boolean.FALSE.equals(record.get("claimAllowed")), "claimAllowed");
+        long fork = positive(record, "fork");
+        long forks = positive(record, "configuredForks");
+        require(fork <= forks, "fork range");
         string(record, "lane");
         string(record, "commit");
         string(record, "javaVersion");
         string(record, "javaVendor");
-        string(record, "os");
+        string(record, "javaVmName");
+        string(record, "javaVmVersion");
+        string(record, "osName");
+        string(record, "osVersion");
         string(record, "architecture");
         string(record, "cpu");
         positive(record, "maxHeapBytes");

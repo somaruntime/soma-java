@@ -130,8 +130,9 @@ Comparator 先做 artifact/schema/identity 验证，再比较 baseline environme
 - 7 条已有 representative allocation envelope 从 Java hardcode 迁移到 baseline，
   保持原最大值，不借治理放宽；
 - 同 7 条 representative lane 增加 `nanosPerOperation` 的 multi-fork median Gate；
-- 24 条 memory lane 的 `retainedBytes`、`overRetainedBytesEstimate` 和
-  `storageHighWaterBytes` 使用 `all-equal + equal`；
+- 24 条 memory lane 的 `retainedBytes` 使用 `all-equal + equal`；artifact
+  validator 继续验证 `overRetainedBytesEstimate`、`storageHighWaterBytes` 与
+  estimator 的派生关系，避免在 baseline 重复保存可推导事实；
 - allocation lane 的 Young/Full/Unknown GC count 使用 `maximum + at-most(0)`。
 
 普通 Gate 使用 5 个独立 JVM fork；校准使用 9 fork。Smoke lane 不进入性能阈值。

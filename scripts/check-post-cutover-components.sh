@@ -22,7 +22,7 @@ mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/post-cutover-components.XXXXXX")
 artifact=$evidence_dir/post-cutover-components.jsonl
 commit=$(git rev-parse HEAD)
-cpu_identity=$(uname -m)
+cpu_identity=$(./scripts/benchmark-cpu-identity.sh)
 
 ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
 
@@ -40,6 +40,10 @@ SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
   --output "$artifact" --commit "$commit" --warmup 2000 --iterations 5000
 "$JAVA_HOME/bin/java" -cp "$classpath" \
   com.hgtech.soma.benchmarks.PostCutoverComponentArtifactValidator "$artifact"
+"$JAVA_HOME/bin/java" \
+  -cp "soma-benchmarks/target/test-classes:$classpath" \
+  com.hgtech.soma.benchmarks.PerformanceBaselineComparatorCheck \
+  "$evidence_dir/baseline-negative-paths"
 
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
     com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark --unknown value \
@@ -53,7 +57,7 @@ if [ "$record_count" -ne 40 ]; then
   printf '%s\n' "post-cutover-component-check: expected 40 records, got $record_count" >&2
   exit 1
 fi
-if grep -v -F '"schemaVersion":"soma-post-cutover-component-v1"' "$artifact" >/dev/null \
+if grep -v -F '"schemaVersion":"soma-post-cutover-component-v2"' "$artifact" >/dev/null \
     || grep -v -F '"claimAllowed":false' "$artifact" >/dev/null; then
   printf '%s\n' 'post-cutover-component-check: invalid schema or claim boundary' >&2
   exit 1
@@ -84,11 +88,18 @@ done
 shasum -a 256 "$artifact" \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java \
+  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineDefinition.java \
+  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparator.java \
+  soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparatorCheck.java \
   soma-benchmarks/target/classes/META-INF/soma/com.hgtech.soma.benchmarks.schema.schema.json \
   soma-benchmarks/target/classes/META-INF/soma/com.hgtech.soma.benchmarks.schema.schema.sha256 \
   >"$evidence_dir/checksums.sha256"
 
-for class_name in PostCutoverComponentBenchmark PostCutoverComponentArtifactValidator; do
+for class_name in \
+  PostCutoverComponentBenchmark \
+  PostCutoverComponentArtifactValidator \
+  PerformanceBaselineComparator \
+  PerformanceBaselineDefinition; do
   major=$($JAVA_HOME/bin/javap -classpath soma-benchmarks/target/classes -verbose \
     "com.hgtech.soma.benchmarks.$class_name" |
     sed -n 's/^[[:space:]]*major version: //p' | head -n 1)

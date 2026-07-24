@@ -28,8 +28,8 @@ import java.util.function.LongConsumer;
 
 /** Packed/exact cutover 后 allocation 与 exact-index cardinality 的诊断 runner。 */
 public final class PostCutoverComponentBenchmark {
-    static final String SCHEMA_VERSION = "soma-post-cutover-component-v1";
-    static final String ARTIFACT_VERSION = "soma-java-post-cutover-component-v3";
+    static final String SCHEMA_VERSION = "soma-post-cutover-component-v2";
+    static final String ARTIFACT_VERSION = "soma-java-post-cutover-component-v4";
     private static final int CANDIDATE_ROWS = 4096;
     private static final int GROUP_COUNT = 64;
     private static final int OPTIONS_PER_WORK = 4;
@@ -431,11 +431,16 @@ public final class PostCutoverComponentBenchmark {
         record.put("kind", kind);
         record.put("lane", lane);
         record.put("status", "passed");
+        record.put("fork", Integer.valueOf(options.fork));
+        record.put("configuredForks", Integer.valueOf(options.forks));
         record.put("commit", options.commit);
         record.put("javaVersion", environment.javaVersion);
         record.put("javaVendor", environment.javaVendor);
+        record.put("javaVmName", environment.javaVmName);
+        record.put("javaVmVersion", environment.javaVmVersion);
         record.put("jvmArgs", environment.jvmArgs);
-        record.put("os", environment.os);
+        record.put("osName", environment.osName);
+        record.put("osVersion", environment.osVersion);
         record.put("architecture", environment.architecture);
         record.put("cpu", environment.cpu);
         record.put("maxHeapBytes", Long.valueOf(environment.memory));
@@ -499,13 +504,17 @@ public final class PostCutoverComponentBenchmark {
     private static final class Options {
         final File output;
         final String commit;
+        final int fork;
+        final int forks;
         final int warmupIterations;
         final int measurementIterations;
 
-        Options(File output, String commit, int warmupIterations,
-                int measurementIterations) {
+        Options(File output, String commit, int fork, int forks,
+                int warmupIterations, int measurementIterations) {
             this.output = output;
             this.commit = commit;
+            this.fork = fork;
+            this.forks = forks;
             this.warmupIterations = warmupIterations;
             this.measurementIterations = measurementIterations;
         }
@@ -513,6 +522,8 @@ public final class PostCutoverComponentBenchmark {
         static Options parse(String[] args) {
             File output = null;
             String commit = null;
+            int fork = 1;
+            int forks = 1;
             int warmup = 2000;
             int iterations = 5000;
             for (int index = 0; index < args.length; index += 2) {
@@ -523,6 +534,8 @@ public final class PostCutoverComponentBenchmark {
                 String value = args[index + 1];
                 if ("--output".equals(option)) output = new File(value);
                 else if ("--commit".equals(option)) commit = value;
+                else if ("--fork".equals(option)) fork = integer(value, option, false);
+                else if ("--forks".equals(option)) forks = integer(value, option, false);
                 else if ("--warmup".equals(option)) warmup = integer(value, option, true);
                 else if ("--iterations".equals(option)) iterations = integer(value, option, false);
                 else throw new IllegalArgumentException("unknown option " + option);
@@ -531,7 +544,8 @@ public final class PostCutoverComponentBenchmark {
             if (commit == null || commit.isEmpty()) {
                 throw new IllegalArgumentException("--commit required");
             }
-            return new Options(output, commit, warmup, iterations);
+            if (fork > forks) throw new IllegalArgumentException("--fork exceeds --forks");
+            return new Options(output, commit, fork, forks, warmup, iterations);
         }
 
         private static int integer(String value, String option, boolean allowZero) {
