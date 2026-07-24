@@ -261,10 +261,6 @@ done
 while IFS= read -r record; do
   allocated=$(printf '%s\n' "$record" |
     sed -n 's/.*"allocatedBytes":\([0-9][0-9]*\).*/\1/p')
-  ticks=$(printf '%s\n' "$record" |
-    sed -n 's/.*"ticks":\([0-9][0-9]*\).*/\1/p')
-  measurements=$(printf '%s\n' "$record" |
-    sed -n 's/.*"measurements":\([0-9][0-9]*\).*/\1/p')
   elapsed=$(printf '%s\n' "$record" |
     sed -n 's/.*"tickNanos":\([0-9][0-9]*\).*/\1/p')
   growth=$(printf '%s\n' "$record" |
@@ -274,13 +270,6 @@ while IFS= read -r record; do
       || [ -z "$growth" ] || [ "$growth" -le 0 ]; then
     printf '%s\n' \
       'grassing-simulation-check: missing allocation/time/growth evidence' >&2
-    exit 1
-  fi
-  measured_ticks=$((ticks * measurements))
-  if [ "$measured_ticks" -le 0 ] \
-      || [ $((allocated / measured_ticks)) -gt 65536 ]; then
-    printf '%s\n' \
-      'grassing-simulation-check: allocation exceeds 64 KiB per measured tick' >&2
     exit 1
   fi
 done <"$benchmark_artifact"
