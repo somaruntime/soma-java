@@ -28,7 +28,8 @@ import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeBatch;
 
 /** detached Problem 到 authoritative SOMA tables 的唯一投影边界。 */
 final class RuntimeProjector {
-  private static final int BATCH_SIZE = 512;
+  /** Amortizes batch validation while bounding projector scratch. */
+  private static final int BATCH_SIZE = 32768;
 
   void project(
       SchedulingProblem problem,
@@ -46,6 +47,7 @@ final class RuntimeProjector {
       SchedulingProblem problem, SchedulerRuntime runtime) {
     runtime.jobs().reserve(problem.jobs().size());
     runtime.operationDefinitions().reserve(problem.operationCount());
+    runtime.eligibleMachines().reserve(eligibleMachineCount(problem));
     runtime.machineStates().reserve(problem.machines().size());
     runtime.operationStates().reserve(problem.operationCount());
     runtime.resourceStates().reserve(problem.resources().size());
@@ -108,19 +110,25 @@ final class RuntimeProjector {
     OperationRuntimeStateBatch states =
         new OperationRuntimeStateBatch(
             Math.min(BATCH_SIZE, problem.operationCount()));
+    EligibleMachineBatch eligibleMachines =
+        new EligibleMachineBatch(Math.min(
+            BATCH_SIZE, eligibleMachineCount(problem)));
     for (OperationSpec operation : problem.operations()) {
-      EligibleMachineBatch eligible =
-          new EligibleMachineBatch(operation.options.size());
+      OperationKey key = operationKey(operation);
       for (MachineOption option : operation.options) {
-        eligible.addValues(
+        eligibleMachines.addValues(
+            key,
             new MachineId(option.machineId),
             option.processingMinutes);
+        if (eligibleMachines.size() == BATCH_SIZE) {
+          runtime.eligibleMachines().addBatch(eligibleMachines);
+          eligibleMachines.clear();
+        }
       }
-      OperationKey key = operationKey(operation);
       definitions.addValues(key, operation.sequence,
           new SetupFamilyId(operation.setupFamily),
           new ResourceId(operation.resourceId),
-          operation.resourceUnits, eligible);
+          operation.resourceUnits);
       states.addValues(
           key, OperationStatus.WAITING, 0L, false, null, 0L);
       if (definitions.size() == BATCH_SIZE) {
@@ -132,6 +140,7 @@ final class RuntimeProjector {
     }
     runtime.operationDefinitions().addBatch(definitions);
     runtime.operationStates().addBatch(states);
+    runtime.eligibleMachines().addBatch(eligibleMachines);
   }
 
   private static void importSetups(
@@ -175,5 +184,13 @@ final class RuntimeProjector {
     return new OperationKey(
         new JobId(operation.jobId),
         new OperationId(operation.operationId));
+  }
+
+  static int eligibleMachineCount(SchedulingProblem problem) {
+    int count = 0;
+    for (OperationSpec operation : problem.operations()) {
+      count = Math.addExact(count, operation.options.size());
+    }
+    return count;
   }
 }

@@ -12,22 +12,35 @@ import com.hgtech.soma.examples.scheduler.problem.TransportTimeSpec;
 import com.hgtech.soma.examples.scheduler.schema.JobId;
 import com.hgtech.soma.examples.scheduler.schema.OperationKey;
 import com.hgtech.soma.examples.scheduler.schema.OperationStatus;
-import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineCursor;
+import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineScan;
 import com.hgtech.soma.runtime.EnumColumnView;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.PriorityQueue;
 
-/** Problem 到 Runtime 投影完整性和 key/unique/child 语义的验真。 */
-final class RuntimeProjectionVerifier {
-  private RuntimeProjectionVerifier() {
+/** Problem 到 Runtime 投影完整性和 key/unique/child 语义的 test-only 验真。 */
+public final class SchedulerProjectionTestAccess {
+  private SchedulerProjectionTestAccess() {
   }
 
-  static void verify(
+  public static void verify(SchedulingProblem problem) {
+    SchedulerRuntime runtime =
+        new SchedulerRuntimeFactory().create(problem);
+    try {
+      verifyProjection(problem, runtime);
+    } finally {
+      runtime.close();
+    }
+  }
+
+  private static void verifyProjection(
       SchedulingProblem problem, SchedulerRuntime runtime) {
     verifyCardinalities(problem, runtime);
     verifyJobs(problem, runtime);
@@ -45,6 +58,9 @@ final class RuntimeProjectionVerifier {
     require(runtime.operationDefinitions().size()
             == problem.operationCount(),
         "operation projection");
+    require(runtime.eligibleMachines().size()
+            == RuntimeProjector.eligibleMachineCount(problem),
+        "eligible-machine projection");
     require(runtime.operationStates().size()
             == problem.operationCount(),
         "operation state projection");
@@ -127,9 +143,7 @@ final class RuntimeProjectionVerifier {
                 && units.getInt(definitionIndex)
                     == operation.resourceUnits,
             "operation value projection");
-        verifyEligibleMachines(
-            operation,
-            runtime.operationDefinitions().eligibleMachines(key));
+        verifyEligibleMachines(operation, runtime);
 
         int stateIndex =
             runtime.operationStates().requireIndex(key);
@@ -153,25 +167,32 @@ final class RuntimeProjectionVerifier {
   }
 
   private static void verifyEligibleMachines(
-      OperationSpec operation, EligibleMachineTable eligible) {
-    require(eligible.size() == operation.options.size(),
-        "eligible child cardinality");
-    LongColumnView machineIds = eligible.machineIdValueColumn();
-    LongColumnView processing =
-        eligible.processingMinutesColumn();
-    try {
-      for (int index = 0;
-           index < operation.options.size(); index++) {
-        MachineOption option = operation.options.get(index);
-        require(machineIds.getLong(index) == option.machineId
-                && processing.getLong(index)
-                    == option.processingMinutes,
-            "eligible child value projection");
-      }
-    } finally {
-      processing.close();
-      machineIds.close();
+      OperationSpec operation, SchedulerRuntime runtime) {
+    final Map<Long, Long> remaining =
+        new HashMap<Long, Long>();
+    for (MachineOption option : operation.options) {
+      remaining.put(
+          Long.valueOf(option.machineId),
+          Long.valueOf(option.processingMinutes));
     }
+    final int[] matched = new int[1];
+    runtime.eligibleMachines()
+        .scanByOperation(RuntimeProjector.operationKey(operation))
+        .forEach(new EligibleMachineScan.Consumer() {
+          @Override
+          public void accept(EligibleMachineCursor option) {
+            Long processing = remaining.remove(
+                Long.valueOf(option.machineIdValue()));
+            require(processing != null
+                    && processing.longValue()
+                        == option.processingMinutes(),
+                "eligible-machine value projection");
+            matched[0]++;
+          }
+        });
+    require(matched[0] == operation.options.size()
+            && remaining.isEmpty(),
+        "eligible-machine group projection");
   }
 
   private static void verifyMachines(

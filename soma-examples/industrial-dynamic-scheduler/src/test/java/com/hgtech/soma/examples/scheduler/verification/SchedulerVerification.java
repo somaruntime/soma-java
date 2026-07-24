@@ -10,6 +10,7 @@ import com.hgtech.soma.examples.scheduler.result.ScheduleChecksum;
 import com.hgtech.soma.examples.scheduler.result.ScheduledOperation;
 import com.hgtech.soma.examples.scheduler.result.ScheduleResult;
 import com.hgtech.soma.examples.scheduler.result.ScheduleValidator;
+import com.hgtech.soma.examples.scheduler.runtime.SchedulerProjectionTestAccess;
 import com.hgtech.soma.examples.scheduler.solver.SchedulingSession;
 import com.hgtech.soma.examples.scheduler.solver.SchedulingSolver;
 import com.hgtech.soma.examples.scheduler.solver.SchedulerExecutionTestAccess;
@@ -33,6 +34,7 @@ public final class SchedulerVerification {
     SchedulingProblem repeat = factory.create(config);
     require(first.checksum().equals(repeat.checksum()),
         "generator is not deterministic");
+    SchedulerProjectionTestAccess.verify(first);
 
     Run run = execute(first);
     Run repeatedRun = execute(repeat);

@@ -213,7 +213,7 @@ jar_manifest=$evidence_dir/production-jar.txt
 jar tf "$application_build_dir/industrial-dynamic-scheduler-1.0.0-SNAPSHOT.jar" \
   >"$jar_manifest"
 if grep -E \
-    '/(benchmark|fixture|oracle|verification)/|Scheduler(Runtime|Execution)TestAccess|JvmMetrics|SchedulingProblemFixtures|TinyScheduleOracle' \
+    '/(benchmark|fixture|oracle|verification)/|Scheduler(Runtime|Execution|Projection)TestAccess|JvmMetrics|SchedulingProblemFixtures|TinyScheduleOracle' \
     "$jar_manifest" >/dev/null; then
   printf '%s\n' \
     'industrial-scheduler-check: production JAR contains evidence classes' >&2

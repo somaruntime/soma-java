@@ -3,6 +3,7 @@ package com.hgtech.soma.examples.scheduler.runtime;
 import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.problem.MachineSpec;
 import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.MachineRuntimeStateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationDefinitionTable;
@@ -21,6 +22,8 @@ public final class SchedulerRuntimeFactory {
     JobDefinitionTable jobs = JobDefinitionTable.create(plan);
     OperationDefinitionTable operations =
         OperationDefinitionTable.create(plan);
+    EligibleMachineTable eligibleMachines =
+        EligibleMachineTable.create(plan);
     MachineRuntimeStateTable machineStates =
         MachineRuntimeStateTable.create(plan);
     OperationRuntimeStateTable operationStates =
@@ -38,13 +41,12 @@ public final class SchedulerRuntimeFactory {
       machineCalendars[index] = new MachineCalendar(machine.maintenance);
     }
     SchedulerRuntime runtime = new SchedulerRuntime(
-        problem, jobs, operations, machineStates,
+        problem, jobs, operations, eligibleMachines, machineStates,
         operationStates, resources, setups, transports,
         assignments, machineCalendars);
     boolean complete = false;
     try {
       new RuntimeProjector().project(problem, runtime);
-      RuntimeProjectionVerifier.verify(problem, runtime);
       complete = true;
       return runtime;
     } finally {
@@ -57,15 +59,13 @@ public final class SchedulerRuntimeFactory {
     RuntimePlan.Builder builder = base.toBuilder()
         .maximumAggregateStorageBytes(Math.max(
             base.maximumAggregateStorageBytes(),
-            2L * 1024L * 1024L * 1024L))
-        .maximumOwnershipTableInstances(Math.max(
-            base.maximumOwnershipTableInstances(),
-            problem.operationCount()
-                + problem.machines().size() + 1024L));
+            2L * 1024L * 1024L * 1024L));
     replaceCapacity(
         builder, base, "job_definitions", problem.jobs().size());
     replaceCapacity(builder, base, "operation_definitions",
         problem.operationCount());
+    replaceCapacity(builder, base, "eligible_machines",
+        RuntimeProjector.eligibleMachineCount(problem));
     replaceCapacity(builder, base, "machine_runtime_states",
         problem.machines().size());
     replaceCapacity(builder, base, "operation_runtime_states",

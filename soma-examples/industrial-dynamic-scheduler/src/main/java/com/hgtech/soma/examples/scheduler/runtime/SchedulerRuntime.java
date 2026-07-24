@@ -4,6 +4,7 @@ import com.hgtech.soma.examples.scheduler.problem.SchedulingProblem;
 import com.hgtech.soma.examples.scheduler.problem.ExternalEvent;
 import com.hgtech.soma.examples.scheduler.problem.JobSpec;
 import com.hgtech.soma.examples.scheduler.schema.OperationAssignment;
+import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.JobDefinitionTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.MachineRuntimeStateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTable;
@@ -28,6 +29,7 @@ public final class SchedulerRuntime implements AutoCloseable {
   final int frontierCapacity;
   final JobDefinitionTable jobs;
   final OperationDefinitionTable operationDefinitions;
+  final EligibleMachineTable eligibleMachines;
   final MachineRuntimeStateTable machineStates;
   final OperationRuntimeStateTable operationStates;
   final SecondaryResourceStateTable resourceStates;
@@ -43,6 +45,7 @@ public final class SchedulerRuntime implements AutoCloseable {
       SchedulingProblem problem,
       JobDefinitionTable jobs,
       OperationDefinitionTable operationDefinitions,
+      EligibleMachineTable eligibleMachines,
       MachineRuntimeStateTable machineStates,
       OperationRuntimeStateTable operationStates,
       SecondaryResourceStateTable resourceStates,
@@ -55,6 +58,7 @@ public final class SchedulerRuntime implements AutoCloseable {
     this.frontierCapacity = problem.frontierCapacity();
     this.jobs = jobs;
     this.operationDefinitions = operationDefinitions;
+    this.eligibleMachines = eligibleMachines;
     this.machineStates = machineStates;
     this.operationStates = operationStates;
     this.resourceStates = resourceStates;
@@ -109,6 +113,7 @@ public final class SchedulerRuntime implements AutoCloseable {
     TableStats[] stats = {
         jobs.statsSnapshot(),
         operationDefinitions.statsSnapshot(),
+        eligibleMachines.statsSnapshot(),
         machineStates.statsSnapshot(),
         operationStates.statsSnapshot(),
         resourceStates.statsSnapshot(),
@@ -150,6 +155,10 @@ public final class SchedulerRuntime implements AutoCloseable {
   public OperationDefinitionTable operationDefinitions() {
     ensureOpen();
     return operationDefinitions;
+  }
+  public EligibleMachineTable eligibleMachines() {
+    ensureOpen();
+    return eligibleMachines;
   }
   public MachineRuntimeStateTable machineStates() {
     ensureOpen();
@@ -257,6 +266,7 @@ public final class SchedulerRuntime implements AutoCloseable {
     resourceStates.release();
     operationStates.release();
     machineStates.release();
+    eligibleMachines.release();
     operationDefinitions.release();
     jobs.release();
     events.clear();

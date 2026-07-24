@@ -60,7 +60,8 @@ Java 8 应用。实现继续服务应用 Blueprint/Design；benchmark、syntheti
 
 | 行为 | Access Pattern | 当前候选表示 |
 |---|---|---|
-| job/operation/machine/resource 定义读取 | key/unique/owned-child/column | 只保留求解实际读取的 Table 字段 |
+| job/operation/machine/resource 定义读取 | key/unique/column | 只保留求解实际读取的 Table 字段 |
+| operation 的 eligible machine 读取 | immutable exact-group | 单一 flat Table + `by_operation`，避免每 operation 一个 owned child Table |
 | operation 发布与退役 | operation key + owned eligible child | application-owned primitive candidate pool 与每机 intrusive list |
 | stale candidate 刷新 | machine/resource version invalidation | machine dirty marker；resource version 先作“不改变得分”证明，再按需刷新 |
 | global total-order best-one | current candidate global arg-min | 每机一个代表项的 indexed min-heap，保留原 comparator 全序 |
@@ -68,6 +69,11 @@ Java 8 应用。实现继续服务应用 Blueprint/Design；benchmark、syntheti
 | maintenance/resource availability | immutable/derived calendar | maintenance 二分定位冲突区间；resource lane 由 solver 单次生命周期拥有 |
 
 精确删除清单必须由调用链、生成 surface、测试和性能证据共同确认。
+
+9-fork canonical evidence 曾暴露 100,000 个 owned eligible-machine child Table
+导致约 `718..724 MB` 端到端分配并偶发 Full GC。该表示已按实际 exact-group
+访问改为 flat immutable Table；完整投影逐值复核继续由 test-only Gate 承担，
+不再进入 production `prepare()`。
 
 ### 4.3 性能归因
 

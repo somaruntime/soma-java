@@ -7,7 +7,8 @@ import com.hgtech.soma.examples.scheduler.schema.OperationId;
 import com.hgtech.soma.examples.scheduler.schema.OperationKey;
 import com.hgtech.soma.examples.scheduler.schema.OperationStatus;
 import com.hgtech.soma.examples.scheduler.schema.ResourceId;
-import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineCursor;
+import com.hgtech.soma.examples.scheduler.schema.generated.EligibleMachineScan;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationRuntimeStateMutator;
 import com.hgtech.soma.runtime.EnumColumnView;
 import com.hgtech.soma.runtime.IntColumnView;
@@ -31,6 +32,8 @@ final class CandidateFrontier implements AutoCloseable {
       new SelectedCandidate();
   private final SelectedCandidate candidateScratch =
       new SelectedCandidate();
+  private final EligibleMachineAccess eligibleMachineAccess =
+      new EligibleMachineAccess();
   private final ResourceCalendar[] resourceCalendars;
 
   /*
@@ -207,29 +210,10 @@ final class CandidateFrontier implements AutoCloseable {
     long due = jobDueMinutes.getLong(jobIndex);
     int priority = jobPriorities.getInt(jobIndex);
 
-    EligibleMachineTable eligible =
-        runtime.operationDefinitions().eligibleMachines(operation);
-    LongColumnView machineIds = eligible.machineIdValueColumn();
-    LongColumnView processingMinutes =
-        eligible.processingMinutesColumn();
-    try {
-      for (int index = 0; index < eligible.size(); index++) {
-        MachineId machine =
-            new MachineId(machineIds.getLong(index));
-        long transport = predecessorMachine == null ? 0L
-            : transportMinutes(predecessorMachine, machine);
-        long predecessorReady = Math.addExact(
-            predecessorEnd, transport);
-        long baseReady = Math.max(jobReady, predecessorReady);
-        addReleasedCandidate(
-            operation, machine, family, resource, units,
-            baseReady, processingMinutes.getLong(index),
-            transport, due, priority, operationVersion);
-      }
-    } finally {
-      processingMinutes.close();
-      machineIds.close();
-    }
+    eligibleMachineAccess.publish(
+        operation, predecessorEnd, predecessorMachine,
+        family, resource, units, jobReady, due, priority,
+        operationVersion);
   }
 
   void refreshMachine(MachineId machine) {
@@ -247,31 +231,7 @@ final class CandidateFrontier implements AutoCloseable {
   }
 
   void retireOperation(OperationKey operation) {
-    EligibleMachineTable eligible =
-        runtime.operationDefinitions().eligibleMachines(operation);
-    LongColumnView machineIds = eligible.machineIdValueColumn();
-    int removed = 0;
-    try {
-      for (int index = 0; index < eligible.size(); index++) {
-        long machineId = machineIds.getLong(index);
-        int machineIndex =
-            runtime.machineStates().requireIndex(machineId);
-        if (heap.represents(
-            machineIndex,
-            operation.jobId.value,
-            operation.operationId.value,
-            machineId)) {
-          heap.markDirty(machineIndex);
-        }
-        candidates.remove(
-            operation.jobId.value,
-            operation.operationId.value,
-            machineId);
-        removed = Math.addExact(removed, 1);
-      }
-    } finally {
-      machineIds.close();
-    }
+    int removed = eligibleMachineAccess.retire(operation);
     require(removed > 0,
         "assignment must retire every candidate of its operation");
   }
@@ -295,9 +255,9 @@ final class CandidateFrontier implements AutoCloseable {
         : definitionOperationIds.getLong(index);
   }
 
-  private long transportMinutes(MachineId from, MachineId to) {
+  private long transportMinutes(long from, long to) {
     int index = runtime.transportTimes()
-        .requireIndex(from.value, to.value);
+        .requireIndex(from, to);
     return transportValues.getLong(index);
   }
 
@@ -388,7 +348,7 @@ final class CandidateFrontier implements AutoCloseable {
 
   private void addReleasedCandidate(
       OperationKey operation,
-      MachineId machine,
+      long machineId,
       long targetSetupFamily,
       long resourceId,
       int resourceUnits,
@@ -399,13 +359,13 @@ final class CandidateFrontier implements AutoCloseable {
       int priority,
       long operationVersion) {
     int machineIndex =
-        runtime.machineStates().requireIndex(machine);
+        runtime.machineStates().requireIndex(machineId);
     int resourceIndex =
         runtime.resourceStates().requireIndex(resourceId);
     releasedCandidate.present = true;
     releasedCandidate.jobId = operation.jobId.value;
     releasedCandidate.operationId = operation.operationId.value;
-    releasedCandidate.machineId = machine.value;
+    releasedCandidate.machineId = machineId;
     releasedCandidate.targetSetupFamily = targetSetupFamily;
     releasedCandidate.resourceId = resourceId;
     releasedCandidate.resourceUnits = resourceUnits;
@@ -456,6 +416,103 @@ final class CandidateFrontier implements AutoCloseable {
   private long resourceReadyMinute(
       int resourceIndex, int units) {
     return resourceCalendars[resourceIndex].earliestStart(units);
+  }
+
+  private final class EligibleMachineAccess
+      implements EligibleMachineScan.Consumer {
+    private OperationKey operation;
+    private MachineId predecessorMachine;
+    private long predecessorEnd;
+    private long family;
+    private long resource;
+    private int units;
+    private long jobReady;
+    private long due;
+    private int priority;
+    private long operationVersion;
+    private boolean retiring;
+    private int removed;
+
+    void publish(
+        OperationKey currentOperation,
+        long currentPredecessorEnd,
+        MachineId currentPredecessorMachine,
+        long currentFamily,
+        long currentResource,
+        int currentUnits,
+        long currentJobReady,
+        long currentDue,
+        int currentPriority,
+        long currentOperationVersion) {
+      open(currentOperation, false);
+      predecessorEnd = currentPredecessorEnd;
+      predecessorMachine = currentPredecessorMachine;
+      family = currentFamily;
+      resource = currentResource;
+      units = currentUnits;
+      jobReady = currentJobReady;
+      due = currentDue;
+      priority = currentPriority;
+      operationVersion = currentOperationVersion;
+      consume();
+    }
+
+    int retire(OperationKey currentOperation) {
+      open(currentOperation, true);
+      consume();
+      return removed;
+    }
+
+    @Override
+    public void accept(EligibleMachineCursor option) {
+      long machineId = option.machineIdValue();
+      if (retiring) {
+        int machineIndex =
+            runtime.machineStates().requireIndex(machineId);
+        if (heap.represents(
+            machineIndex,
+            operation.jobId.value,
+            operation.operationId.value,
+            machineId)) {
+          heap.markDirty(machineIndex);
+        }
+        candidates.remove(
+            operation.jobId.value,
+            operation.operationId.value,
+            machineId);
+        removed = Math.addExact(removed, 1);
+        return;
+      }
+      long transport = predecessorMachine == null ? 0L
+          : transportMinutes(predecessorMachine.value, machineId);
+      long predecessorReady =
+          Math.addExact(predecessorEnd, transport);
+      long baseReady = Math.max(jobReady, predecessorReady);
+      addReleasedCandidate(
+          operation, machineId, family, resource, units,
+          baseReady, option.processingMinutes(),
+          transport, due, priority, operationVersion);
+    }
+
+    private void open(
+        OperationKey currentOperation, boolean currentRetiring) {
+      require(operation == null,
+          "eligible-machine access is already active");
+      operation = currentOperation;
+      retiring = currentRetiring;
+      removed = 0;
+    }
+
+    private void consume() {
+      try {
+        runtime.eligibleMachines()
+            .scanByOperation(operation)
+            .forEach(this);
+      } finally {
+        operation = null;
+        predecessorMachine = null;
+      }
+    }
   }
 
   @Override
