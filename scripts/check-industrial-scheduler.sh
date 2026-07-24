@@ -175,8 +175,14 @@ grep -F 'result.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 benchmark_options=$application_dir/src/test/resources/benchmark/default.properties
 forks=$(sed -n 's/^benchmark.forks=//p' "$benchmark_options")
 benchmark_artifact=$evidence_dir/benchmark.jsonl
+benchmark_commit=$(git rev-parse HEAD)
+benchmark_cpu=$(./scripts/benchmark-cpu-identity.sh)
 fork=1
 while [ "$fork" -le "$forks" ]; do
+  SOMA_BENCHMARK_COMMIT="$benchmark_commit" \
+  SOMA_BENCHMARK_FORK="$fork" \
+  SOMA_BENCHMARK_FORKS="$forks" \
+  SOMA_BENCHMARK_CPU="$benchmark_cpu" \
   "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$runtime_classpath" \
     com.hgtech.soma.examples.scheduler.benchmark.SchedulerBenchmark \
     default default \
@@ -187,9 +193,9 @@ if [ "$(wc -l <"$benchmark_artifact" | tr -d ' ')" -ne "$forks" ]; then
   printf '%s\n' 'industrial-scheduler-check: fork count mismatch' >&2
   exit 1
 fi
-grep -F '"artifact":"industrial-scheduler-benchmark-v1"' \
-  "$benchmark_artifact" >/dev/null
-grep -F "\"forks\":$forks" "$benchmark_artifact" >/dev/null
+grep -F '"artifactVersion":"industrial-scheduler-benchmark-v2"' \
+    "$benchmark_artifact" >/dev/null
+grep -F "\"configuredForks\":$forks" "$benchmark_artifact" >/dev/null
 if grep -v '"claimAllowed":false' "$benchmark_artifact" >/dev/null; then
   printf '%s\n' 'industrial-scheduler-check: invalid benchmark claim' >&2
   exit 1

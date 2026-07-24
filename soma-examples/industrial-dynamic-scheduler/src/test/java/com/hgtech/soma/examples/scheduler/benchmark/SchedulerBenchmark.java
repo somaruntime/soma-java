@@ -22,6 +22,8 @@ public final class SchedulerBenchmark {
     ProblemGenerationConfig config = ProblemConfigLoader.load(selector);
     BenchmarkOptions options = BenchmarkOptions.load(
         args.length < 2 ? "default" : args[1]);
+    BenchmarkEnvironment environment =
+        new BenchmarkEnvironment(options.forks());
     SchedulingProblemFactory factory =
         new SyntheticSchedulingProblemFactory();
     SchedulingProblem problem = factory.create(config);
@@ -75,7 +77,9 @@ public final class SchedulerBenchmark {
       }
     }
     System.out.println("{"
-        + "\"artifact\":\"industrial-scheduler-benchmark-v1\","
+        + "\"schemaVersion\":\"soma-reference-application-benchmark-v1\","
+        + "\"artifactVersion\":\"industrial-scheduler-benchmark-v2\","
+        + environment.jsonFields() + ","
         + "\"profile\":\"" + selector + "\","
         + "\"inputChecksum\":\"" + problem.checksum() + "\","
         + "\"resultChecksum\":\"" + resultChecksum + "\","
@@ -83,7 +87,6 @@ public final class SchedulerBenchmark {
         + "\"runtimePlanHash\":\"" + runtimePlanHash + "\","
         + "\"operations\":" + problem.operationCount() + ","
         + "\"warmup\":" + options.warmup() + ","
-        + "\"forks\":" + options.forks() + ","
         + "\"measurements\":" + options.measurements() + ","
         + "\"preparationNanos\":" + preparationNanos + ","
         + "\"solveNanos\":" + solveNanos + ","

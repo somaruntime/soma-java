@@ -19,6 +19,8 @@ public final class SimulationBenchmark {
     String selector = args.length == 0 ? "default" : args[0];
     SimulationConfig config = new SimulationConfigLoader().load(selector);
     BenchmarkOptions options = BenchmarkOptions.loadDefault();
+    BenchmarkEnvironment environment =
+        new BenchmarkEnvironment(options.forks());
     SimulationScenario scenario =
         new SyntheticSimulationScenarioFactory().create(config);
     for (int warmup = 0; warmup < options.warmup(); warmup++) {
@@ -76,7 +78,9 @@ public final class SimulationBenchmark {
       }
     }
     System.out.println("{"
-        + "\"artifact\":\"grassing-simulation-benchmark-v1\","
+        + "\"schemaVersion\":\"soma-reference-application-benchmark-v1\","
+        + "\"artifactVersion\":\"grassing-simulation-benchmark-v2\","
+        + environment.jsonFields() + ","
         + "\"profile\":\"" + selector + "\","
         + "\"inputChecksum\":\"" + scenario.checksum() + "\","
         + "\"resultChecksum\":\"" + resultChecksum + "\","
@@ -86,7 +90,6 @@ public final class SimulationBenchmark {
         + "\"initialPopulation\":" + config.initialPopulation() + ","
         + "\"maximumPopulation\":" + maximumPopulation + ","
         + "\"warmup\":" + options.warmup() + ","
-        + "\"configuredForks\":" + options.forks() + ","
         + "\"measurements\":" + options.measurements() + ","
         + "\"setupNanos\":" + setupNanos + ","
         + "\"tickNanos\":" + tickNanos + ","

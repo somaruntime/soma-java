@@ -226,8 +226,14 @@ grep -F 'result.checksum=' "$evidence_dir/default-run.txt" >/dev/null
 forks=$(sed -n 's/^benchmark.forks=//p' \
   "$application_dir/src/test/resources/benchmark/default.properties")
 benchmark_artifact=$evidence_dir/benchmark.jsonl
+benchmark_commit=$(git rev-parse HEAD)
+benchmark_cpu=$(./scripts/benchmark-cpu-identity.sh)
 fork=1
 while [ "$fork" -le "$forks" ]; do
+  SOMA_BENCHMARK_COMMIT="$benchmark_commit" \
+  SOMA_BENCHMARK_FORK="$fork" \
+  SOMA_BENCHMARK_FORKS="$forks" \
+  SOMA_BENCHMARK_CPU="$benchmark_cpu" \
   "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$test_classpath" \
     com.hgtech.soma.examples.grassing.evidence.SimulationBenchmark default \
     >>"$benchmark_artifact"
@@ -237,8 +243,8 @@ if [ "$(wc -l <"$benchmark_artifact" | tr -d ' ')" -ne "$forks" ]; then
   printf '%s\n' 'grassing-simulation-check: fork count mismatch' >&2
   exit 1
 fi
-grep -F '"artifact":"grassing-simulation-benchmark-v1"' \
-  "$benchmark_artifact" >/dev/null
+grep -F '"artifactVersion":"grassing-simulation-benchmark-v2"' \
+    "$benchmark_artifact" >/dev/null
 if grep -v '"claimAllowed":false' "$benchmark_artifact" >/dev/null; then
   printf '%s\n' 'grassing-simulation-check: invalid benchmark claim' >&2
   exit 1
