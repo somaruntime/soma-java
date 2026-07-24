@@ -12,9 +12,10 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前两个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：commit `287350d`
+最近实现核对基线：reference application architecture `69e5dc6` / `287350d`；
+performance baseline implementation `5be618a`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 1. 聚合与应用入口
 
@@ -37,11 +38,22 @@ runtime hot loop 不反向依赖 generator 或 factory。
 
 - smoke runner / validator：[`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java)、[`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java)；
 - neutral component runner / validator：[`PostCutoverComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java)、[`PostCutoverComponentArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java)；
+- baseline parser / comparator：[`PerformanceBaselineDefinition.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineDefinition.java)、[`PerformanceBaselineComparator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparator.java)；
 - lane contract、workload、evidence 与 aggregation：[`SmokeLaneContract.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneContract.java)、[`SmokeLaneWorkloads.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneWorkloads.java)、[`SmokeLaneEvidence.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneEvidence.java)、[`SmokeLaneAggregation.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneAggregation.java)；
 - neutral schema：[`schema`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/schema)；
 - application-integrated evidence：[`SchedulerBenchmark.java`](../../soma-examples/industrial-dynamic-scheduler/src/test/java/com/hgtech/soma/examples/scheduler/benchmark/SchedulerBenchmark.java)、[`SimulationBenchmark.java`](../../soma-examples/grassing-individual-simulation/src/test/java/com/hgtech/soma/examples/grassing/evidence/SimulationBenchmark.java)。
 
 `soma-benchmarks` 不依赖或导入 reference application domain。它只测 SOMA component mechanics；真实应用的 allocation、GC、runtime high-water 和 correctness guard 由 application 自有 runner/Gate 负责。全部 smoke/diagnostic artifact 保持 `claimAllowed=false`。
+
+当前三份 checked-in baseline 分别位于：
+
+- [`component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json)；
+- [`scheduler baseline`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-zulu8-macos-aarch64-v1.json)；
+- [`simulation baseline`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-zulu8-macos-aarch64-v1.json)。
+
+Comparator 只拥有领域中性协议。两个应用各自拥有 workload identity、阈值和
+test-resource baseline，POM 不依赖 `soma-benchmarks`；baseline 不进入 production
+JAR。当前没有 public performance claim。
 
 ## 3. Gate
 
@@ -49,6 +61,10 @@ runtime hot loop 不反向依赖 generator 或 factory。
 - scheduler correctness/long-run/multi-fork：[`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)；
 - simulation oracle/long-run/multi-fork：[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)；
 - neutral smoke/component：[`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)；
+- baseline Owner/层次防回归：[`check-performance-baseline-architecture.sh`](../../scripts/check-performance-baseline-architecture.sh)；
 - generated footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
 
-Blueprint 和 Design 决定产品目标与语义；应用拥有领域 correctness，benchmark 拥有测量 artifact，本地图只导航当前实现。
+三个专项脚本都调用同一 comparator；component 普通 Gate 为 5 fork，两个应用各为
+3 fork。环境匹配时判定 `passed/failed`，环境不同但 artifact 合法时为
+`not-applicable`。Blueprint 和 Design 决定产品目标与语义；应用拥有领域
+correctness，benchmark 拥有测量 artifact，本地图只导航当前实现。

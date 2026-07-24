@@ -12,7 +12,7 @@ Owner：SOMA Java 文档治理
 
 采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 1. 权威关系
 
@@ -67,9 +67,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前 active Temporary topic：
-
-- [SOMA 三层性能基线治理](temp/three-layer-performance-baseline-governance/README.md)：建立领域中性 component、两个 reference application integrated 和 public claim 三层责任模型，并把现有诊断 evidence 提升为环境感知、可持续判回归的工程基线。
+当前没有 active Temporary topic。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

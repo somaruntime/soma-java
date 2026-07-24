@@ -10,7 +10,7 @@ Owner：SOMA Java 正式报告输出
 
 非事实范围：Blueprint、Design 或当前代码实现事实
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 `reports/` 保存带时间点的正式审查、验证、benchmark、治理和 release evidence。报告不是 Design；目标、规范和当前实现分别回到 [Blueprint](../docs/blueprints/README.md)、[Design](../docs/design/README.md)和[Implementation Map](../docs/implementation-map/README.md)。
 
@@ -18,6 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)（component、两个 application baseline、环境感知 comparator、9-fork 校准与 public claim 边界）
 - [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)（Config/Scenario/Simulator/Session/Engine/System/Runtime/Schema/Result分层、source-set与canonical journey）
 - [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)（Problem/Factory/Solver/Runtime/Schema/Result分层、source-set与canonical journey）
 - [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（当前 G5 Owner；两个独立参考应用、neutral benchmark 与旧场景退役）
@@ -44,6 +45,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)
 - [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)
 - [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)
 - [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)

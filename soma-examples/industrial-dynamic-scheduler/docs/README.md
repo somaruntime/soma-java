@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 本应用是一个独立 Java 8 consumer：它只依赖 `soma-annotations`、
 `soma-runtime-core` 和 compile-time `soma-processor`，不依赖 root reactor、
@@ -47,4 +47,5 @@ measurement 配置彼此独立。
 该 Gate 在 evidence-local Maven repository 中构建普通 consumer，检查 production
 JAR 和 package DAG，执行四个 problem profile、手算 oracle、领域 validator、
 lifecycle 负路径和三个独立 JVM fork。所有性能 artifact 默认
-`claimAllowed=false`。
+`claimAllowed=false`。同环境下，版本化 application baseline 由统一 comparator
+判定 `passed/failed`；环境不同且 artifact 合法时明确返回 `not-applicable`。

@@ -10,7 +10,7 @@ Owner：SOMA Java 测试/evidence 过程
 
 非事实范围：Design 语义本身和当前测试结果
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 1. 原则
 
@@ -53,6 +53,12 @@ Candidate executor优化必须用reference evaluator或等价oracle覆盖声明�
 Evidence 必须可追踪到 Design capability、commit、命令和 artifact。Report 只使用 validator 接受的结构化 artifact或可复现直接输出；不得把“测试类存在”“脚本打印 ok”或无 checksum 的手工摘录当成充分证据。
 
 发现 flaky、环境跳过或网络依赖失败时，明确标记未验证；不能把以前的 passed 自动外推到新 commit。
+
+Performance baseline 还必须验证 measurement/baseline/result 三种 artifact 的
+schema、exact record shape、`claimAllowed=false`、fork 连续性、workload identity
+和环境稳定性。环境不匹配只能在这些检查之后得到 `not-applicable`；invalid
+artifact 不得借环境差异逃逸。Comparator 的 negative paths 至少覆盖 pass、
+metric failure、environment mismatch、claim、shape、fork、identity 和样本稳定性。
 
 ## 5. 复杂度防回归
 

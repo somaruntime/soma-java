@@ -10,7 +10,7 @@ Owner：SOMA Java build/validation 过程
 
 非事实范围：产品功能语义、正式支持矩阵和某次 Gate 结果
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 1. 基线
 
@@ -38,7 +38,10 @@ Canonical build 必须从根 Maven Wrapper进入同一 reactor graph。Productio
 
 ## 3. 全局检查
 
-[`scripts/check.sh`](../../scripts/check.sh) 是当前代码库的综合验证入口。它串联文档、Maven、public API、compiler/codegen、runtime/keyspace/access/child/breadth、external consumer、examples、benchmark 与 allocation/GC 检查。
+[`scripts/check.sh`](../../scripts/check.sh) 是当前代码库的综合验证入口。它串联
+文档、Maven、public API、compiler/codegen、runtime/keyspace/access/child/
+breadth、external consumer、reference applications、smoke，以及三层性能基线
+架构和 component/application baseline Gate。
 
 任何脚本拆分或加速都必须保持 fail-closed：跳过、找不到工具、artifact schema 错误和 prerequisite 不满足不得被报告为 passed。
 

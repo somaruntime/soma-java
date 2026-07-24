@@ -8,7 +8,7 @@ Owner：grassing-individual-simulation
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 本应用是独立 Java 8 Maven consumer。它以
 `Config -> Scenario Factory -> Scenario -> Simulator/Session -> Result`
@@ -50,4 +50,6 @@ java -cp "<application classes>:<runtime classpath>" \
 逐 tick AoS oracle、Index/lifecycle 负路径、长期 invariant 和三个独立 JVM fork；
 同时验证 production JAR purity、package DAG、canonical contract、retired identity、
 clean/repeat manifest、generated/schema reproducibility 与 Java major 52。所有性能
-artifact 默认 `claimAllowed=false`。
+artifact 默认 `claimAllowed=false`。同环境下，版本化 application baseline 由
+统一 comparator 判定 `passed/failed`；环境不同且 artifact 合法时明确返回
+`not-applicable`。

@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 配置责任
 
@@ -60,18 +60,30 @@ correctness lane 验证：
 
 ## 性能 artifact
 
-每个 benchmark record 来自独立 JVM fork，包含：
+`industrial-scheduler-benchmark-v2` 的每个 record 来自独立 JVM fork，包含：
 
 - config/input/result checksum 与 schema/runtime-plan identity；
-- warmup、forks、measurement、preparation/solve nanos；
+- commit、fork/configured forks、实际 JDK/JVM/OS/architecture/CPU/max heap；
+- warmup、measurement、preparation/solve nanos；
 - current-thread allocated bytes；
 - Young/Full GC count 与 pause；
 - exact-index、update scratch、operation scratch high-water；
 - `claimAllowed=false`。
 
-Gate 要求至少三个 fork，且 identity/checksum 跨 fork 唯一稳定、allocation 和 solve
-time 为正。它证明该 workload 在当前 Zulu JDK 8 本机可重复执行，不证明 SOMA
-普遍优于其他存储，也不外推为发布支持矩阵。
+Application-owned baseline 位于 test resources。普通 Gate 使用 3 fork；9-fork
+校准 `ab28350` 得到：
+
+- allocation `8,319,504..8,320,064 bytes`，上限 `8,736,068`；
+- solve p50 `37,619,668 ns`、p90/max `39,133,584 ns`，median 上限
+  `56,429,502 ns`；
+- exact/update/operation scratch high-water 固定为
+  `3,015 / 7,560 / 368 bytes`；
+- Young/Full GC count 与 pause 均为 `0`。
+
+Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
+`not-applicable`；无论结果如何，invalid schema/shape/claim/fork/identity 都失败。
+它证明该 workload 在记录的 Zulu JDK 8 本机可回归比较，不证明 SOMA 普遍优于其他
+存储，也不外推为支持矩阵或 public claim。
 
 Gate 还要求：
 

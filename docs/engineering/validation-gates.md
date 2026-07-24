@@ -10,7 +10,7 @@ Owner：SOMA Java validation gate 过程
 
 非事实范围：产品语义、当前 Gate 结果、具体测试实现和 release 授权
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 1. Gate 不是阶段折扣
 
@@ -25,12 +25,17 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 | G2 | Azul Zulu full JDK 8 integration、normalization、deterministic codegen、generated API 与 negative fixture |
 | G3 | packed storage、locator/exact access、完整 Access Model、Candidate Scan/Traversal lifecycle、child、plan、error/stats 和性能机械形状 |
 | G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 runtime 并执行 package surface |
-| G5 | Access Pattern/API mapping、普通 Java 8 reference consumer、领域 correctness/failure/lifecycle、领域中性 component benchmark 与应用自有 integrated evidence 可执行 |
+| G5 | Access Pattern/API mapping、普通 Java 8 reference consumer、领域 correctness/failure/lifecycle、领域中性 component benchmark、应用自有 integrated evidence 与环境感知 baseline Gate 可执行 |
 | G6 | license、SCM/ownership/contact、package/provenance、security、support matrix、publishing 和 sign-off |
 
 V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate。
 
 当前 JDK Gate 只要求在记录版本的 Azul Zulu full JDK 8 上重放；不要求 Corretto 或其他 distribution 的并行验真。其他 distribution 的历史运行结果只属于当时 evidence，不扩展当前支持范围。
+
+性能 baseline 结果使用 `passed`、`failed`、`not-applicable` 子状态：
+`not-applicable` 只表示当前环境未覆盖该 baseline，不改变 G5 功能 Gate，也不能被
+表述为性能通过。具体顺序、阈值和更新纪律由
+[Benchmark 治理](benchmark-governance.md)拥有。
 
 ## 3. 状态与证据
 

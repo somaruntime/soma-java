@@ -10,42 +10,104 @@ Owner：SOMA Java benchmark 过程
 
 非事实范围：性能设计目标和某次测量数值
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
-## 1. Lane 设计
+## 1. 三层责任
 
-每个 lane 必须绑定一个 Access Pattern Card 和一个可验证问题，例如 exact-group lookup、frontier update/remove、dense scan、dynamic sort、child locality 或 materialization。
+| 层次 | Owner | 回答的问题 | 当前状态 |
+|---|---|---|---|
+| Component Performance Baseline | `soma-benchmarks` | SOMA 领域中性 mechanics 是否回归 | 已建立本机环境基线 |
+| Reference Application Integrated Performance Baseline | 各 child application | 固定真实 workload 的端到端 hot operation 是否回归 | 两个应用各有自有基线 |
+| Public Performance Evidence / Claim | 经审批的正式 Report | 哪些环境、workload 和统计证据允许对外声明 | 当前不存在 |
 
-Lane 需要明确：setup、warmup、measurement、fork、dataset、stats mode、thread/ownership model、output checksum，以及哪些 allocation/GC 属于被测 operation。
+前两层可以进入工程回归 Gate；第三层不是自动汇总结果，必须另有环境矩阵、
+统计强度、审批和正式 Report。任何 local baseline 都不能自动晋升为 public claim。
 
-## 2. 对照
+`soma-benchmarks` 可以拥有领域中性的 artifact parser/comparator，但不拥有应用
+workload 或阈值。应用 baseline 位于各自 test resources，child POM 不依赖
+`soma-benchmarks`，production JAR 也不包含 baseline。
 
-需要设计结论时，使用同语义对照：
+## 2. Lane 与 artifact
 
-- full scan vs exact source；
-- rebuild workspace vs incremental frontier；
-- dynamic sort/best-one vs application heap；public top-k 未准入时不作为产品路径；
-- flat table vs parent-owned child；
-- keyed lookup vs受控 dense preprojection；
-- Candidate Scan vs scalar Index/IndexSnapshot vs ColumnTraversal/ColumnView/primitive path；
-- hot path vs materialization/DTO export。
+每个 lane 必须绑定 Access Pattern Card 和可验证问题，并明确 setup、warmup、
+measurement、fork、dataset、stats mode、thread/ownership model、checksum，以及
+哪些 allocation/GC 属于被测 operation。
 
-对照必须保持相同结果、tie-break、failure 和生命周期，不能通过减少语义换取数字。
+版本化 JSONL measurement 至少记录：
 
-## 3. Artifact 与指标
+- schema/artifact version、commit、fork/configured forks；
+- 实际 Java/JVM、JVM args、OS、architecture、CPU 型号和 max heap；
+- workload、result/schema/runtime-plan identity；
+- timing、allocation、Young/Full GC、retained/high-water 和 checksum；
+- `claimAllowed=false`。
 
-结构化 artifact 至少记录 identity/environment/method、throughput或latency、allocation/op、Young/Full GC、scanned/matched/changed、retained/high-water storage/scratch、locator/index metrics 和 checksum。
+Baseline 使用 `soma-performance-baseline-v1`，包含 Owner/layer/subject、
+artifact version、校准 commit/date/forks/formula、精确环境、minimum forks、
+workload identity、record shape 和 metric rules。Record 必须且只能匹配一个
+exact shape；缺字段、额外字段或未知 contract 均失败。
 
-Runner/validator schema 是 evidence compatibility surface；字段变更需要版本化和 parser validation。
+Runner/validator/baseline/result schema 都是 evidence compatibility surface；字段
+变化需要版本化、strict parser 和 negative paths。
 
-Candidate Scan 治理还必须分开报告 Packed/exact source、stage count/overflow、terminal shape、snapshot/materialization、plan/handle allocation与table-retained scratch，并用 source/class bytes、nested class count和clean javac时间约束generated code膨胀。Integrated A/B使用多个独立JVM fork；单进程重复measurement不能单独证明收益。
+## 3. Comparator 状态
 
-## 4. Claim
+Comparator 按以下顺序处理：先验证 schema、shape、claim、artifact version、fork、
+workload identity 和跨 fork 环境一致性，再判断 baseline 环境是否适用，最后解释
+metric：
 
-- smoke 只证明 lane 可执行、artifact 合法和基本 invariant；
-- local diagnostic 只支持该环境；
-- Gate 说明明确阈值在指定环境/规模下通过；
-- 跨机器、跨 JDK 或 production claim 需要对应矩阵；
-- 单次最好结果、无 warmup/fork、无 correctness guard 或混入 setup 的结果不得进入正式性能声明。
+| 状态 | 含义 | 进程结果 |
+|---|---|---:|
+| `passed` | 环境适用，全部规则通过 | 0 |
+| `failed` | contract/identity 无效，或适用环境发生回归 | 非 0 |
+| `not-applicable` | artifact 合法，但环境与 baseline 不同 | 0 |
+
+环境不匹配不能掩盖坏 artifact。`not-applicable` 只表示本次未验真该环境 baseline，
+不表示性能通过或失败。Comparator result 同样版本化并保持
+`claimAllowed=false`。
+
+## 4. 指标、fork 与校准
+
+准入 aggregation 为 `all-equal`、`maximum` 和 `median`；comparison 为
+`equal` 和 `at-most`。Deterministic identity/high-water 用全等，allocation/GC
+用 maximum，timing 用 multi-fork median。Setup/preparation 可以报告，但不进入
+当前两个应用的 hot-operation timing Gate。
+
+- component 普通 Gate 使用 5 个独立 JVM fork；
+- 两个 application 普通 Gate 各使用 3 个独立 JVM fork；
+- 新建或重校 baseline 使用同环境 9 fork；
+- application allocation limit 为 `ceil(max × 1.05)`；
+- timing limit 为 `ceil(max(p50 × 1.50, p90 × 1.25))`，p90 使用
+  nearest-rank。
+
+异常样本、热降频或后台噪声明显时重跑，不得用异常结果放宽 baseline。普通 Gate
+只读 checked-in baseline，不提供 update-in-place。Rebaseline 必须单独产生候选
+artifact/diff，并说明触发原因、旧/新 identity、环境、9-fork 统计和 correctness
+结果；环境变化新增 baseline，不覆盖旧环境事实。
+
+## 5. 当前 Owner 与 Gate
+
+- component baseline：`soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/`；
+- scheduler/simulation baseline：各 child `src/test/resources/benchmark/`；
+- neutral comparator：`PerformanceBaselineDefinition` /
+  `PerformanceBaselineComparator`；
+- 三层结构 Gate：`scripts/check-performance-baseline-architecture.sh`；
+- component/application Gate：`check-post-cutover-components.sh`、
+  `check-industrial-scheduler.sh`、`check-grassing-simulation.sh`；
+- 综合入口：`scripts/check.sh`。
+
+`check-performance-baseline-architecture.sh` 固定验证当前
+component=1、reference-application=2、public-claim=0，以及模块依赖和 Owner
+边界。新增环境或 public claim 必须显式修改 Owner、evidence 和 Gate。
+
+## 6. 对照与 claim
+
+需要设计结论时使用同语义对照，如 full scan vs exact source、dynamic sort vs
+application heap、Candidate Scan vs point/column path、hot path vs materialization。
+对照必须保持相同结果、tie-break、failure 和 lifecycle，不能通过减少语义换数字。
+
+Smoke 只证明 lane 可执行、artifact 合法和基本 invariant；local baseline 只支持
+精确记录的环境/workload。单次最好结果、无 warmup/fork、无 correctness guard 或
+混入 setup 的结果不得进入正式性能声明。跨机器、跨 JDK、production 或 public
+claim 需要独立授权和对应矩阵。
 
 性能退化可以触发调查；是否改变 Design 由相关 Design Owner 决定，不由 benchmark 自动决定。

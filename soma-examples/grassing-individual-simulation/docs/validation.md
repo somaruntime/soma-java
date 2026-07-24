@@ -10,7 +10,7 @@ Owner：grassing-individual-simulation
 
 事实范围：config、Scenario/Simulator lifecycle、source-set、AoS oracle、long-run和performance evidence
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 ## 配置责任
 
@@ -70,10 +70,12 @@ stop、partial-create/release closure、primary-key point access、duplicate Bat
 
 ## 性能 artifact
 
-Benchmark setup 完成配置解析、initial-state generation、checksum、校验、bootstrap
-和 tick-0 trace；measurement 只覆盖 tick systems。每个独立 JVM fork 输出：
+Benchmark setup 完成配置解析、initial-state generation、checksum、校验、
+bootstrap 和 tick-0 trace；measurement 只覆盖 tick systems。
+`grassing-simulation-benchmark-v2` 的每个独立 JVM fork 输出：
 
 - config/input/result checksum 与 schema/runtime-plan identity；
+- commit、fork/configured forks、实际 JDK/JVM/OS/architecture/CPU/max heap；
 - warmup、measurement、setup/tick nanos；
 - current-thread allocated bytes；
 - Young/Full GC count 与 pause；
@@ -81,13 +83,19 @@ Benchmark setup 完成配置解析、initial-state generation、checksum、校�
 - initial/maximum population 与 population table growth count；
 - `claimAllowed=false`。
 
-Gate 要求至少三个 fork，identity/checksum 跨 fork 唯一稳定，并防止 allocation
-退化到每 measured tick 超过 64 KiB。实现候选 `287350d` 在正式切换树上的三个
-fork 平均分配 `7,439,536 bytes`，Young/Full GC 均为 `0`；exact-index、update scratch、
-operation scratch high-water 分别保持 `64,333`、`27,336`、`12,776 bytes`，
-population table growth count 为 `1`。相对治理前 `1c1bc22` 的平均分配变化约
-`+0.19%`，没有形成可归因的退化。
+Application-owned baseline 位于 test resources。普通 Gate 使用 3 fork；9-fork
+校准 `ab28350` 得到：
 
-上述本机 artifact 均为 `claimAllowed=false`。64 KiB/tick 阈值只保护当前应用
-evidence 不被配置解析或 materialization 意外污染，不是 SOMA 通用性能承诺；
-wall-clock 只作诊断，不外推为 SLA、支持矩阵或 release claim。
+- allocation `7,439,296..7,440,784 bytes`，上限 `7,812,824`；
+- tick p50 `66,086,417 ns`、p90/max `76,318,167 ns`，median 上限
+  `99,129,626 ns`；
+- exact/update/operation scratch high-water 固定为
+  `64,333 / 27,336 / 12,776 bytes`；
+- maximum population `1,139`、population growth count `1`；
+- Young/Full GC count 与 pause 均为 `0`。
+
+Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
+`not-applicable`；invalid schema/shape/claim/fork/identity 仍失败。旧 64 KiB/tick
+粗阈值已由更严格、版本化、环境感知的 allocation baseline 唯一接管，不保留双
+Owner。上述本机 evidence 只用于回归诊断，不外推为 SLA、支持矩阵、release 或
+public claim。

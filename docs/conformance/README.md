@@ -10,9 +10,10 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：重新定义设计、直接修改实现或扩大任务授权
 
-实现核对基线：`69e5dc6`
+实现核对基线：core/reference applications `69e5dc6` / `287350d`；
+performance baseline evidence `5be618a`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-24
 
 - [当前一致性基线](current-conformance.md)：按主要能力给出一致、部分验证或存在差距的判断；
 - [已知差距与处置](known-gaps.md)：只记录真实差距、分类和 Owner 决定。
