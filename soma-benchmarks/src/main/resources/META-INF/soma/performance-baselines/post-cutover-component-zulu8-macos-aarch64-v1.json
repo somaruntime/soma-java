@@ -1,0 +1,445 @@
+{
+  "schemaVersion": "soma-performance-baseline-v1",
+  "baselineId": "post-cutover-component-zulu8-macos-aarch64-v1",
+  "layer": "component",
+  "subject": "post-cutover-component",
+  "artifactVersion": "soma-java-post-cutover-component-v4",
+  "calibration": {
+    "commit": "66b7f6a40428d91a5d3f8c1260e2e9039f2e33b9",
+    "date": "2026-07-24",
+    "forks": 9,
+    "formula": "allocation=preserved-envelope; deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25))"
+  },
+  "environment": {
+    "javaVersion": "1.8.0_492-b09",
+    "javaVendor": "Azul Systems, Inc.",
+    "javaVmName": "OpenJDK 64-Bit Server VM",
+    "javaVmVersion": "25.492-b09",
+    "jvmArgs": [
+      "-Xms256m",
+      "-Xmx512m"
+    ],
+    "osName": "Mac OS X",
+    "osVersion": "26.5.2",
+    "architecture": "aarch64",
+    "cpu": "Apple M5 Pro",
+    "maxHeapBytes": 477626368
+  },
+  "minimumForks": 5,
+  "identity": {
+    "schemaVersion": "soma-post-cutover-component-v2"
+  },
+  "metrics": [
+    {
+      "id": "allocation.packed-zero-count",
+      "selector": {
+        "lane": "candidate_scan.packed_zero_count"
+      },
+      "field": "allocatedBytesPerOperation",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 16.0
+    },
+    {
+      "id": "allocation.exact-zero-count",
+      "selector": {
+        "lane": "candidate_scan.exact_zero_count"
+      },
+      "field": "allocatedBytesPerOperation",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 89.0
+    },
+    {
+      "id": "allocation.exact-one-filter-count",
+      "selector": {
+        "lane": "candidate_scan.exact_one_filter_count"
+      },
+      "field": "allocatedBytesPerOperation",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 193.0
+    },
+    {
+      "id": "allocation.exact-three-stage-count",
+      "selector": {
+        "lane": "candidate_scan.exact_three_stage_count"
+      },
+      "field": "allocatedBytesPerOperation",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 241.0
+    },
+    {
+      "id": "allocation.exact-five-stage-count",
+      "selector": {
+        "lane": "candidate_scan.exact_five_stage_overflow_count"
+      },
+      "field": "allocatedBytesPerOperation",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 465.0
+    },
+    {
+      "id": "allocation.exact-filter-sort-index",
+      "selector": {
+        "lane": "candidate_scan.exact_filter_sort_index"
+      },
+      "field": "allocatedBytesPerOperation",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 273.0
+    },
+    {
+      "id": "allocation.column-traversal",
+      "selector": {
+        "lane": "column_traversal.long_for_each"
+      },
+      "field": "allocatedBytesPerOperation",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 160.0
+    },
+    {
+      "id": "timing.packed-zero-count",
+      "selector": {
+        "lane": "candidate_scan.packed_zero_count"
+      },
+      "field": "nanosPerOperation",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 84.0
+    },
+    {
+      "id": "timing.exact-zero-count",
+      "selector": {
+        "lane": "candidate_scan.exact_zero_count"
+      },
+      "field": "nanosPerOperation",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 140.0
+    },
+    {
+      "id": "timing.exact-one-filter-count",
+      "selector": {
+        "lane": "candidate_scan.exact_one_filter_count"
+      },
+      "field": "nanosPerOperation",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 867.0
+    },
+    {
+      "id": "timing.exact-three-stage-count",
+      "selector": {
+        "lane": "candidate_scan.exact_three_stage_count"
+      },
+      "field": "nanosPerOperation",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 1105.0
+    },
+    {
+      "id": "timing.exact-five-stage-count",
+      "selector": {
+        "lane": "candidate_scan.exact_five_stage_overflow_count"
+      },
+      "field": "nanosPerOperation",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 1552.0
+    },
+    {
+      "id": "timing.exact-filter-sort-index",
+      "selector": {
+        "lane": "candidate_scan.exact_filter_sort_index"
+      },
+      "field": "nanosPerOperation",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 1112.0
+    },
+    {
+      "id": "timing.column-traversal",
+      "selector": {
+        "lane": "column_traversal.long_for_each"
+      },
+      "field": "nanosPerOperation",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 1601.0
+    },
+    {
+      "id": "gc.young-count",
+      "selector": {
+        "kind": "allocation"
+      },
+      "field": "gcStats.youngCount",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.full-count",
+      "selector": {
+        "kind": "allocation"
+      },
+      "field": "gcStats.fullCount",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.unknown-count",
+      "selector": {
+        "kind": "allocation"
+      },
+      "field": "gcStats.unknownCount",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "memory.1024-1024-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_1024_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 50176
+    },
+    {
+      "id": "memory.1024-1024-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_1024_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 50176
+    },
+    {
+      "id": "memory.1024-16-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_16_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 12880
+    },
+    {
+      "id": "memory.1024-16-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_16_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 50176
+    },
+    {
+      "id": "memory.1024-1-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_1_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 12388
+    },
+    {
+      "id": "memory.1024-1-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_1_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 50176
+    },
+    {
+      "id": "memory.1024-32-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_32_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 13472
+    },
+    {
+      "id": "memory.1024-32-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_1024_32_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 50176
+    },
+    {
+      "id": "memory.16384-128-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_128_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 201344
+    },
+    {
+      "id": "memory.16384-128-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_128_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 802816
+    },
+    {
+      "id": "memory.16384-16384-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_16384_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 802816
+    },
+    {
+      "id": "memory.16384-16384-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_16384_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 802816
+    },
+    {
+      "id": "memory.16384-16-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_16_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 197200
+    },
+    {
+      "id": "memory.16384-16-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_16_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 802816
+    },
+    {
+      "id": "memory.16384-1-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_1_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 196708
+    },
+    {
+      "id": "memory.16384-1-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_16384_1_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 802816
+    },
+    {
+      "id": "memory.65536-16-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_16_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 787024
+    },
+    {
+      "id": "memory.65536-16-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_16_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 3211264
+    },
+    {
+      "id": "memory.65536-1-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_1_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 786532
+    },
+    {
+      "id": "memory.65536-1-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_1_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 3211264
+    },
+    {
+      "id": "memory.65536-256-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_256_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 795904
+    },
+    {
+      "id": "memory.65536-256-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_256_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 3211264
+    },
+    {
+      "id": "memory.65536-65536-aware",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_65536_aware"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 3211264
+    },
+    {
+      "id": "memory.65536-65536-worst",
+      "selector": {
+        "lane": "exact_index.cardinality_65536_65536_worst_case"
+      },
+      "field": "retainedBytes",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 3211264
+    }
+  ],
+  "claimAllowed": false
+}

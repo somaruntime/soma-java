@@ -95,6 +95,11 @@ final class PerformanceBaselineDefinition {
         requireFields(environmentValue, ENVIRONMENT_FIELDS, "environment");
         LinkedHashMap<String, Object> environment =
                 copyMap(environmentValue, "environment", true);
+        for (String field : ENVIRONMENT_FIELDS) {
+            if (!"jvmArgs".equals(field) && !"maxHeapBytes".equals(field)) {
+                string(environment, field);
+            }
+        }
         require(environment.get("jvmArgs") instanceof List, "environment.jvmArgs");
         stringList((List<?>) environment.get("jvmArgs"), "environment.jvmArgs");
         positiveLong(environment, "maxHeapBytes");

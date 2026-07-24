@@ -109,7 +109,8 @@ public final class PerformanceBaselineComparator {
                 values.add(current);
             }
             Aggregated aggregated = aggregate(rule, values);
-            boolean passed = compare(rule, aggregated.value) && aggregated.stable;
+            require(aggregated.stable, "metric samples not stable for " + rule.id);
+            boolean passed = compare(rule, aggregated.value);
             String detail = aggregated.detail;
             if (!passed) {
                 failures.add(rule.id + " actual=" + display(aggregated.value)
@@ -275,10 +276,18 @@ public final class PerformanceBaselineComparator {
 
     private static boolean jsonEquals(Object left, Object right) {
         if (left instanceof Number && right instanceof Number) {
+            if (integral((Number) left) && integral((Number) right)) {
+                return ((Number) left).longValue() == ((Number) right).longValue();
+            }
             return Double.compare(((Number) left).doubleValue(),
                     ((Number) right).doubleValue()) == 0;
         }
         return left == null ? right == null : left.equals(right);
+    }
+
+    private static boolean integral(Number value) {
+        return value instanceof Byte || value instanceof Short
+                || value instanceof Integer || value instanceof Long;
     }
 
     private static String display(Object value) {

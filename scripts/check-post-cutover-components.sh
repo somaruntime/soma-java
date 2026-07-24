@@ -20,9 +20,11 @@ fi
 
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/post-cutover-components.XXXXXX")
-artifact=$evidence_dir/post-cutover-components.jsonl
 commit=$(git rev-parse HEAD)
 cpu_identity=$(./scripts/benchmark-cpu-identity.sh)
+forks=5
+baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json
+baseline_result=$evidence_dir/performance-baseline-result.json
 
 ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
 
@@ -34,16 +36,26 @@ if grep -F 'com.hgtech.soma.examples' \
 fi
 
 classpath="soma-benchmarks/target/classes:soma-runtime-core/target/classes"
-SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
-  -Xms256m -Xmx512m -cp "$classpath" \
-  com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark \
-  --output "$artifact" --commit "$commit" --warmup 2000 --iterations 5000
+fork=1
+while [ "$fork" -le "$forks" ]; do
+  SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
+    -Xms256m -Xmx512m -cp "$classpath" \
+    com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark \
+    --output "$evidence_dir/component-fork-$fork.jsonl" \
+    --commit "$commit" --fork "$fork" --forks "$forks" \
+    --warmup 2000 --iterations 5000
+  fork=$((fork + 1))
+done
+set -- "$evidence_dir"/component-fork-*.jsonl
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.PostCutoverComponentArtifactValidator "$artifact"
+  com.hgtech.soma.benchmarks.PostCutoverComponentArtifactValidator "$@"
 "$JAVA_HOME/bin/java" \
   -cp "soma-benchmarks/target/test-classes:$classpath" \
   com.hgtech.soma.benchmarks.PerformanceBaselineComparatorCheck \
   "$evidence_dir/baseline-negative-paths"
+"$JAVA_HOME/bin/java" -cp "$classpath" \
+  com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+  "$baseline" "$baseline_result" "$@"
 
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
     com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark --unknown value \
@@ -52,16 +64,25 @@ if "$JAVA_HOME/bin/java" -cp "$classpath" \
   exit 1
 fi
 
-record_count=$(wc -l <"$artifact" | tr -d ' ')
-if [ "$record_count" -ne 40 ]; then
-  printf '%s\n' "post-cutover-component-check: expected 40 records, got $record_count" >&2
+record_count=0
+for artifact in "$@"; do
+  current_count=$(wc -l <"$artifact" | tr -d ' ')
+  record_count=$((record_count + current_count))
+done
+if [ "$record_count" -ne $((40 * forks)) ]; then
+  printf '%s\n' \
+    "post-cutover-component-check: expected $((40 * forks)) records, got $record_count" >&2
   exit 1
 fi
-if grep -v -F '"schemaVersion":"soma-post-cutover-component-v2"' "$artifact" >/dev/null \
-    || grep -v -F '"claimAllowed":false' "$artifact" >/dev/null; then
-  printf '%s\n' 'post-cutover-component-check: invalid schema or claim boundary' >&2
-  exit 1
-fi
+for artifact in "$@"; do
+  if grep -v -F '"schemaVersion":"soma-post-cutover-component-v2"' \
+      "$artifact" >/dev/null \
+      || grep -v -F '"claimAllowed":false' "$artifact" >/dev/null; then
+    printf '%s\n' \
+      'post-cutover-component-check: invalid schema or claim boundary' >&2
+    exit 1
+  fi
+done
 for lane in \
   candidate_scan.packed_zero_count \
   candidate_scan.packed_one_filter_count \
@@ -79,13 +100,14 @@ for lane in \
   point.primary_find_index \
   key_traversal.first_materialize \
   column_traversal.long_for_each; do
-  if ! grep -F "\"lane\":\"$lane\"" "$artifact" >/dev/null; then
+  if ! grep -F "\"lane\":\"$lane\"" "$@" >/dev/null; then
     printf '%s\n' "post-cutover-component-check: missing lane $lane" >&2
     exit 1
   fi
 done
 
-shasum -a 256 "$artifact" \
+shasum -a 256 "$@" \
+  "$baseline" "$baseline_result" \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java \
   soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineDefinition.java \
@@ -110,5 +132,8 @@ for class_name in \
 done
 
 "$JAVA_HOME/bin/java" -version
+baseline_status=$(sed -n \
+  's/.*"status":"\([^"]*\)".*/\1/p' "$baseline_result")
+printf '%s\n' "post-cutover-component-baseline: $baseline_status"
 printf '%s\n' "post-cutover-component-evidence: $evidence_dir"
 printf '%s\n' 'post-cutover-component-check: ok'

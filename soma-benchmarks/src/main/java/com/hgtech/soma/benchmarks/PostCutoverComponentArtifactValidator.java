@@ -179,18 +179,10 @@ public final class PostCutoverComponentArtifactValidator {
             positive(record, "groupRows");
             positive(record, "matchingRows");
             nonNegative(record, "allocatedBytes");
-            double allocatedBytesPerOperation = nonNegativeDecimal(
-                    record, "allocatedBytesPerOperation");
+            nonNegativeDecimal(record, "allocatedBytesPerOperation");
             positive(record, "elapsedNanos");
             positiveDecimal(record, "nanosPerOperation");
             gcStats(record.get("gcStats"));
-            double envelope = allocationEnvelope(string(record, "lane"));
-            if (envelope >= 0.0d) {
-                require(allocatedBytesPerOperation <= envelope,
-                        "allocation envelope for " + record.get("lane")
-                                + ": actual=" + allocatedBytesPerOperation
-                                + " maximum=" + envelope);
-            }
         } else if ("memory".equals(kind)) {
             expected = MEMORY_FIELDS;
             require("deterministic-estimate".equals(record.get("observationKind")),
@@ -276,17 +268,6 @@ public final class PostCutoverComponentArtifactValidator {
         require(!Double.isNaN(decimal) && !Double.isInfinite(decimal)
                 && decimal >= 0.0d, field);
         return decimal;
-    }
-
-    private static double allocationEnvelope(String lane) {
-        if ("candidate_scan.packed_zero_count".equals(lane)) return 16.0d;
-        if ("candidate_scan.exact_zero_count".equals(lane)) return 89.0d;
-        if ("candidate_scan.exact_one_filter_count".equals(lane)) return 193.0d;
-        if ("candidate_scan.exact_three_stage_count".equals(lane)) return 241.0d;
-        if ("candidate_scan.exact_five_stage_overflow_count".equals(lane)) return 465.0d;
-        if ("candidate_scan.exact_filter_sort_index".equals(lane)) return 273.0d;
-        if ("column_traversal.long_for_each".equals(lane)) return 160.0d;
-        return -1.0d;
     }
 
     private static long number(Map<String, Object> values, String field) {
