@@ -122,4 +122,4 @@ Implementation Map、Conformance、Report 和 Temporary，并进行阶段性 Git
 ## 8. 当前材料
 
 - [Stage 0 当前证据审计](current-evidence-audit.md)
-
+- [Stage 1 详细设计](detailed-design.md)
