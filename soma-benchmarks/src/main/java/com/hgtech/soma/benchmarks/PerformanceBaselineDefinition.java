@@ -19,8 +19,8 @@ final class PerformanceBaselineDefinition {
     static final String SCHEMA_VERSION = "soma-performance-baseline-v1";
     private static final Set<String> ROOT_FIELDS = fields(
             "schemaVersion", "baselineId", "layer", "subject", "artifactVersion",
-            "calibration", "environment", "minimumForks", "identity", "metrics",
-            "claimAllowed");
+            "calibration", "environment", "minimumForks", "identity",
+            "recordShapes", "metrics", "claimAllowed");
     private static final Set<String> CALIBRATION_FIELDS = fields(
             "commit", "date", "forks", "formula");
     private static final Set<String> ENVIRONMENT_FIELDS = fields(
@@ -28,6 +28,8 @@ final class PerformanceBaselineDefinition {
             "osName", "osVersion", "architecture", "cpu", "maxHeapBytes");
     private static final Set<String> RULE_FIELDS = fields(
             "id", "selector", "field", "aggregation", "comparison", "reference");
+    private static final Set<String> SHAPE_FIELDS = fields(
+            "id", "selector", "fields");
 
     final String baselineId;
     final String layer;
@@ -40,6 +42,7 @@ final class PerformanceBaselineDefinition {
     final LinkedHashMap<String, Object> environment;
     final int minimumForks;
     final LinkedHashMap<String, Object> identity;
+    final List<RecordShape> recordShapes;
     final List<MetricRule> metrics;
 
     private PerformanceBaselineDefinition(
@@ -54,6 +57,7 @@ final class PerformanceBaselineDefinition {
             LinkedHashMap<String, Object> environment,
             int minimumForks,
             LinkedHashMap<String, Object> identity,
+            List<RecordShape> recordShapes,
             List<MetricRule> metrics) {
         this.baselineId = baselineId;
         this.layer = layer;
@@ -66,6 +70,7 @@ final class PerformanceBaselineDefinition {
         this.environment = environment;
         this.minimumForks = minimumForks;
         this.identity = identity;
+        this.recordShapes = recordShapes;
         this.metrics = metrics;
     }
 
@@ -111,6 +116,31 @@ final class PerformanceBaselineDefinition {
         require(!identityValue.isEmpty(), "identity");
         LinkedHashMap<String, Object> identity = copyMap(identityValue, "identity", false);
 
+        Object shapeValue = root.get("recordShapes");
+        require(shapeValue instanceof List && !((List<?>) shapeValue).isEmpty(),
+                "recordShapes");
+        List<RecordShape> recordShapes = new ArrayList<RecordShape>();
+        Set<String> shapeIds = new LinkedHashSet<String>();
+        for (Object value : (List<?>) shapeValue) {
+            Map<String, Object> shape = object(value, "record shape");
+            requireFields(shape, SHAPE_FIELDS, "record shape");
+            String id = string(shape, "id");
+            require(shapeIds.add(id), "duplicate record shape " + id);
+            LinkedHashMap<String, Object> selector =
+                    copyMap(object(shape.get("selector"), "shape selector"),
+                            "shape selector", false);
+            Object shapeFields = shape.get("fields");
+            require(shapeFields instanceof List && !((List<?>) shapeFields).isEmpty(),
+                    "record shape fields " + id);
+            stringList((List<?>) shapeFields, "record shape fields " + id);
+            LinkedHashSet<String> exactFields = new LinkedHashSet<String>();
+            for (Object field : (List<?>) shapeFields) {
+                require(exactFields.add((String) field),
+                        "duplicate record field " + id + "." + field);
+            }
+            recordShapes.add(new RecordShape(id, selector, exactFields));
+        }
+
         Object metricValue = root.get("metrics");
         require(metricValue instanceof List && !((List<?>) metricValue).isEmpty(), "metrics");
         List<MetricRule> metrics = new ArrayList<MetricRule>();
@@ -148,7 +178,8 @@ final class PerformanceBaselineDefinition {
         return new PerformanceBaselineDefinition(
                 baselineId, layer, subject, artifactVersion,
                 calibrationCommit, calibrationDate, calibrationForks,
-                calibrationFormula, environment, minimumForks, identity, metrics);
+                calibrationFormula, environment, minimumForks, identity,
+                recordShapes, metrics);
     }
 
     private static String read(File source) throws IOException {
@@ -263,6 +294,21 @@ final class PerformanceBaselineDefinition {
             this.aggregation = aggregation;
             this.comparison = comparison;
             this.reference = reference;
+        }
+    }
+
+    static final class RecordShape {
+        final String id;
+        final LinkedHashMap<String, Object> selector;
+        final Set<String> fields;
+
+        RecordShape(
+                String id,
+                LinkedHashMap<String, Object> selector,
+                Set<String> fields) {
+            this.id = id;
+            this.selector = selector;
+            this.fields = fields;
         }
     }
 }

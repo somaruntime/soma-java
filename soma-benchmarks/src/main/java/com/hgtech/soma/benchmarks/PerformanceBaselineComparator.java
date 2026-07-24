@@ -60,6 +60,7 @@ public final class PerformanceBaselineComparator {
         Integer configuredForks = null;
         Map<String, Object> firstEnvironment = null;
         for (Map<String, Object> record : records) {
+            validateRecordShape(record, baseline.recordShapes);
             require(Boolean.FALSE.equals(record.get("claimAllowed")),
                     "artifact claimAllowed");
             require(baseline.artifactVersion.equals(record.get("artifactVersion")),
@@ -174,16 +175,33 @@ public final class PerformanceBaselineComparator {
             List<Map<String, Object>> records, Map<String, Object> selector) {
         List<Map<String, Object>> result = new ArrayList<Map<String, Object>>();
         for (Map<String, Object> record : records) {
-            boolean matches = true;
-            for (Map.Entry<String, Object> criterion : selector.entrySet()) {
-                if (!jsonEquals(value(record, criterion.getKey()), criterion.getValue())) {
-                    matches = false;
-                    break;
-                }
-            }
-            if (matches) result.add(record);
+            if (matches(record, selector)) result.add(record);
         }
         return result;
+    }
+
+    private static void validateRecordShape(
+            Map<String, Object> record,
+            List<PerformanceBaselineDefinition.RecordShape> shapes) {
+        PerformanceBaselineDefinition.RecordShape matched = null;
+        for (PerformanceBaselineDefinition.RecordShape shape : shapes) {
+            if (!matches(record, shape.selector)) continue;
+            require(matched == null, "record shape ambiguity");
+            matched = shape;
+        }
+        require(matched != null, "record shape missing");
+        require(record.keySet().equals(matched.fields),
+                "record fields for shape " + matched.id);
+    }
+
+    private static boolean matches(
+            Map<String, Object> record, Map<String, Object> selector) {
+        for (Map.Entry<String, Object> criterion : selector.entrySet()) {
+            if (!jsonEquals(value(record, criterion.getKey()), criterion.getValue())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean balancedAcrossForks(

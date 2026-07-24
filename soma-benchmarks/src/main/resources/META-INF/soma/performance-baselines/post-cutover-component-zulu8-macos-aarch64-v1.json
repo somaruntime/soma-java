@@ -29,6 +29,92 @@
   "identity": {
     "schemaVersion": "soma-post-cutover-component-v2"
   },
+  "recordShapes": [
+    {
+      "id": "allocation",
+      "selector": {
+        "kind": "allocation"
+      },
+      "fields": [
+        "schemaVersion",
+        "artifactVersion",
+        "kind",
+        "lane",
+        "status",
+        "fork",
+        "configuredForks",
+        "commit",
+        "javaVersion",
+        "javaVendor",
+        "javaVmName",
+        "javaVmVersion",
+        "jvmArgs",
+        "osName",
+        "osVersion",
+        "architecture",
+        "cpu",
+        "maxHeapBytes",
+        "warmupIterations",
+        "measurementIterations",
+        "rows",
+        "distinctGroups",
+        "groupRows",
+        "matchingRows",
+        "allocationMethod",
+        "allocatedBytes",
+        "allocatedBytesPerOperation",
+        "elapsedNanos",
+        "nanosPerOperation",
+        "gcStats",
+        "checksum",
+        "observationKind",
+        "knownLimitations",
+        "claimAllowed"
+      ]
+    },
+    {
+      "id": "memory",
+      "selector": {
+        "kind": "memory"
+      },
+      "fields": [
+        "schemaVersion",
+        "artifactVersion",
+        "kind",
+        "lane",
+        "status",
+        "fork",
+        "configuredForks",
+        "commit",
+        "javaVersion",
+        "javaVendor",
+        "javaVmName",
+        "javaVmVersion",
+        "jvmArgs",
+        "osName",
+        "osVersion",
+        "architecture",
+        "cpu",
+        "maxHeapBytes",
+        "strategy",
+        "warmupIterations",
+        "measurementIterations",
+        "rows",
+        "distinctGroups",
+        "entryCount",
+        "groupCount",
+        "retainedBytes",
+        "rightSizedRetainedBytesEstimate",
+        "overRetainedBytesEstimate",
+        "storageHighWaterBytes",
+        "estimatorVersion",
+        "checksum",
+        "observationKind",
+        "knownLimitations",
+        "claimAllowed"
+      ]
+    }
+  ],
   "metrics": [
     {
       "id": "allocation.packed-zero-count",

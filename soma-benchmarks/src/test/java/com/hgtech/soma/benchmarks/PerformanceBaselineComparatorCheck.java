@@ -68,6 +68,12 @@ public final class PerformanceBaselineComparatorCheck {
         writeRecords(unbalanced, uneven);
         expectInvalid(definition, unbalanced, "unbalanced selector/fork coverage");
 
+        File extraField = new File(directory, "extra-field.jsonl");
+        List<LinkedHashMap<String, Object>> extra = records("Zulu", false, 10L, 2);
+        extra.get(0).put("unexpected", Long.valueOf(1L));
+        writeRecords(extraField, extra);
+        expectInvalid(definition, extraField, "extra record field");
+
         File badBaseline = new File(directory, "bad-baseline.json");
         LinkedHashMap<String, Object> invalidDefinition = baseline("Zulu", 12.0d, 2);
         invalidDefinition.put("claimAllowed", Boolean.TRUE);
@@ -79,7 +85,7 @@ public final class PerformanceBaselineComparatorCheck {
             // expected
         }
 
-        System.out.println("performance-baseline-negative-paths: 8");
+        System.out.println("performance-baseline-comparator-cases: 9");
         System.out.println("performance-baseline-comparator-check: ok");
     }
 
@@ -115,6 +121,16 @@ public final class PerformanceBaselineComparatorCheck {
                 "minimumForks", Integer.valueOf(forks),
                 "identity", BenchmarkModel.object(
                         "profile", "default"),
+                "recordShapes", Arrays.asList(BenchmarkModel.object(
+                        "id", "measurement",
+                        "selector", BenchmarkModel.object(),
+                        "fields", Arrays.asList(
+                                "artifactVersion", "profile", "kind", "fork",
+                                "configuredForks", "elapsedNanos", "checksum",
+                                "claimAllowed", "javaVersion", "javaVendor",
+                                "javaVmName", "javaVmVersion", "jvmArgs",
+                                "osName", "osVersion", "architecture", "cpu",
+                                "maxHeapBytes"))),
                 "metrics", metrics,
                 "claimAllowed", Boolean.FALSE);
     }

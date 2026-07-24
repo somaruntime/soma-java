@@ -75,6 +75,7 @@ calibration = commit + date + forks + formula
 environment = exact field/value map
 minimumForks
 identity = exact field/value map
+recordShapes[] = selector + exact root fields
 metrics[] = selector + field path + aggregation + comparison + limit/value
 claimAllowed = false
 ```
@@ -92,8 +93,10 @@ claimAllowed = false
 - `equal`：deterministic identity/metric 精确相等；
 - `at-most`：allocation、GC、high-water 或 timing 不超过 limit。
 
-未知 schema、字段、selector、aggregation、comparison、重复 rule、无匹配样本、
-非有限数、少于 minimum forks 或 `claimAllowed != false` 必须 fail closed。
+每个 measurement record 必须且只能匹配一个 `recordShape`；缺少字段、额外字段或
+shape 歧义均失败。未知 schema、selector、aggregation、comparison、重复 rule、
+无匹配样本、非有限数、少于 minimum forks 或 `claimAllowed != false` 必须
+fail closed。
 
 Baseline 所有权位置：
 
