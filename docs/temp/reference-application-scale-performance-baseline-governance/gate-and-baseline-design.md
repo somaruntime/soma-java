@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：completed（Stage 2 实现）
+状态：completed（Stage 3 baseline 切换）
 
 Owner：SOMA reference application scale performance baseline governance
 

@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 1 candidate）
+状态：active（Stage 4 结果审查）
 
 Owner：SOMA reference application scale performance baseline governance
 

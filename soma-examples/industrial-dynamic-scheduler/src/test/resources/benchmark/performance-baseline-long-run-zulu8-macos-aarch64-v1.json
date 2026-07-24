@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "industrial-scheduler-zulu8-macos-aarch64-v1",
+  "baselineId": "industrial-scheduler-long-run-zulu8-macos-aarch64-v1",
   "layer": "reference-application",
   "subject": "industrial-dynamic-scheduler",
-  "artifactVersion": "industrial-scheduler-benchmark-v2",
+  "artifactVersion": "industrial-scheduler-benchmark-v3",
   "calibration": {
-    "commit": "ab28350f972a9b80ae7d1c65b408281184007e36",
+    "commit": "1af43ac06e7a460b1951983997be313b02398239",
     "date": "2026-07-24",
     "forks": 9,
-    "formula": "allocation=ceil(max*1.05); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25))"
+    "formula": "allocation=ceil(max*1.05); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25)"
   },
   "environment": {
     "javaVersion": "1.8.0_492-b09",
@@ -28,14 +28,18 @@
   "minimumForks": 3,
   "identity": {
     "schemaVersion": "soma-reference-application-benchmark-v1",
-    "profile": "default",
-    "inputChecksum": "bc1c3d0e4a5021b96f8778724713d2e01849d63d9914c499f7f2a4ad3d000432",
-    "resultChecksum": "a57e4a4fa6d5a13768472f7aac21edd121820fd502fc551d5f3e78f982689fb3",
+    "profile": "long-run",
+    "inputChecksum": "c01b96e7156ee1a2cedba3c8b8bbcdc947b350eeefc3317b54ba444a2f638d8b",
+    "resultChecksum": "72332e1116ab7f78c4901dcf698dcf25e08dfe9ee8e5ba681f6cda702dd78108",
     "schemaHash": "eec9e34d59f3dd90010bbfcfb88c2a036fc7fb6429639cffd81e5e2ab95a818e",
-    "runtimePlanHash": "515b31263052c27107b898bc5dfe73acdf00e17808c28b181bce48bbc7036113",
-    "operations": 192,
+    "runtimePlanHash": "16b31c98688c0aab40dd35a86f55170465aaab585ffba841924dba161b9c85c2",
+    "jobs": 100,
+    "operations": 10000,
+    "machines": 100,
+    "candidatesPerOperation": 3,
     "warmup": 1,
-    "measurements": 3
+    "measurements": 1,
+    "operationExecutions": 10000
   },
   "recordShapes": [
     {
@@ -62,14 +66,20 @@
         "resultChecksum",
         "schemaHash",
         "runtimePlanHash",
+        "jobs",
         "operations",
+        "machines",
+        "candidatesPerOperation",
         "warmup",
         "measurements",
+        "operationExecutions",
         "preparationNanos",
         "solveNanos",
         "minimumSolveNanos",
         "maximumSolveNanos",
+        "solveNanosPerOperation",
         "allocatedBytes",
+        "allocatedBytesPerOperation",
         "youngGcCount",
         "youngGcPauseMillis",
         "fullGcCount",
@@ -77,6 +87,7 @@
         "exactIndexHighWaterBytes",
         "updateScratchHighWaterBytes",
         "operationScratchHighWaterBytes",
+        "frontierCapacity",
         "claimAllowed"
       ]
     }
@@ -88,7 +99,7 @@
       "field": "allocatedBytes",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 8736068
+      "reference": 44535776
     },
     {
       "id": "timing.integrated-run",
@@ -96,7 +107,7 @@
       "field": "solveNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 56429502
+      "reference": 199976438
     },
     {
       "id": "gc.young-count",
@@ -104,7 +115,7 @@
       "field": "youngGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 2
     },
     {
       "id": "gc.young-pause",
@@ -112,7 +123,7 @@
       "field": "youngGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 5
     },
     {
       "id": "gc.full-count",
@@ -136,7 +147,7 @@
       "field": "exactIndexHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 3015
+      "reference": 15086
     },
     {
       "id": "high-water.update-scratch",
@@ -144,7 +155,7 @@
       "field": "updateScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 7560
+      "reference": 15015
     },
     {
       "id": "high-water.operation-scratch",
@@ -152,7 +163,15 @@
       "field": "operationScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 368
+      "reference": 1256
+    },
+    {
+      "id": "frontier.capacity",
+      "selector": {},
+      "field": "frontierCapacity",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 300
     }
   ],
   "claimAllowed": false

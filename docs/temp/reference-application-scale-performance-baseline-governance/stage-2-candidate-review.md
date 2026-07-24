@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：completed（等待 immutable candidate 提交）
+状态：completed（immutable candidate `1af43ac`）
 
 Owner：SOMA reference application scale performance baseline governance
 
