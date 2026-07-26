@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（F0 product-boundary baseline frozen）
+状态：active（F0 product boundary frozen；Stage 1 coverage closed）
 
 Owner：SOMA Transformation product boundary
 
@@ -89,7 +89,7 @@ projection、允许的信息损失和 Identity 映射，再用于推导能力：
 
 这里的 SOMA Table 是 application 问题事实面向本地计算目的的投影，不自动成为
 MES、求解器或游戏世界的全局事实源。Batch/Delta 经 validation 和 safe point
-发布后，Table 才是该 Runtime Epoch 内 SOMA 计算的权威 live state；上游系统的
+发布后，Table 才是当前 active lifecycle 内 SOMA 计算的权威 live state；上游系统的
 持久化或业务权威性不因此转移。
 
 投影不得丢失计算所需的 Identity、ownership、absence、order 或 Value semantics。
@@ -186,7 +186,7 @@ runtime-core 责任。本专题只接纳以下通用 handoff：
 ```text
 detached typed Batch / Delta
   -> safe-point mutation
-  -> runtime epoch
+  -> stable Table state
 
 detached dispatch result / command
   -> application publisher
@@ -209,20 +209,101 @@ State(t) + Delta(t)
   -> State(t + 1)
 ```
 
-待裁决问题：
+Stage 2 结论：
 
-- Delta 作为 detached handoff、SOMA mutation result 和 Logical Shape 时，是否
-  共享一种 value/identity/version contract；
-- Group、Join、Window 是否允许 retained derived state；
-- retained state 是否只是 access structure，还是新的 runtime fact；
-- incremental maintenance 失败如何保持旧 stable state；
-- 完全重算与增量维护由谁选择并承担内存预算。
+- Delta 是 detached typed handoff/Shape，拥有 stable Key、ordered operation、
+  optional structural-epoch/version guard；不是 retained executor state；
+- Group、Join、Window 只保留 Invocation-local scratch/result；
+- 只有既有 Key/Unique/Exact access structure 可以作为同步维护的 derived
+  representation，operator 不能暗中建立第二份长期 runtime fact；
+- 每次 Invocation 从当前 live Table state 重新求值；application 可以通过显式
+  Batch/Delta 更新输入，但 planner 不跨 Invocation 自动维护 view；
+- retained temporal state、watermark、incremental recovery 和 maintenance
+  memory budget 需要未来独立产品决定。
 
-automatic incremental maintenance 是独立的代数、生命周期和恢复问题。当前
-候选将它保持为 non-goal；D8/D18 必须在 Stage 2 最终关闭。若要接纳，必须修改
+automatic incremental maintenance 因此被冻结为 non-goal。若要接纳，必须修改
 最低目标包络并获得用户决定，不能以“optimizer”或普通 scratch 暗中实现。
 
-## 8. 当前边界保护
+## 8. Stage 1 场景语义投影
+
+场景只用于证明共同语义和边界，不把领域对象提升为 SOMA core 概念：
+
+| 场景 | 权威 runtime fact | 行为叙事 | Access / Transformation 投影 | Effect / Result | 保持在 application |
+|---|---|---|---|---|---|
+| RTD | operation、resource、calendar、setup/transport 与 versioned external Delta | safe-point apply → join feasible relation → filter/project → group/rank → stage assignment command | Point/Exact/Column/Batch/Delta；Join、Selection、Projection、GroupBy、best/top-k | detached command；显式 single-source MutationSet | MES I/O、规则编排、跨系统事务、恢复和发布 |
+| 工业调度算法 | definition、runtime state、eligible relation、machine/resource availability | 定位 frontier → gather columns →计算 score →选择 best →逐 root 提交领域动作 | Point/Unique/Exact/Column 已有；Projection、Aggregation、受约束 Join 与 reusable Definition 是 gap | current Index/Scalar/command；现有 Table mutation 保留 | machine heap、solver loop、跨 Table commit policy |
+| 个体仿真 | keyed individual state、environment state、tick input 与 churn | packed/exact traversal → partition behavior → update movement/energy → stage birth/death → aggregate diagnostics | Packed/Exact/Column/Candidate mutation 已有；Partition、Projection、Reduction、parallel tick 是 gap | single-source update/remove、Batch append、detached diagnostics | clock、system order、random policy、spatial/environment scratch |
+| 游戏运行时 | identity-bound component state、frame input 和 system order | identity association → select active → transform → reduce/event output → deterministic scatter | Point/Column、identity Join、Partition、Projection、Reduction、parallel system | single-source staged scatter、detached event/command | game loop、render/network、event/state machine |
+
+“工业调度算法”与“个体仿真”有当前代码证据；RTD 和游戏只有设计 trace。
+Stage 2 的 reference oracle 可以使用最小 synthetic facts 验证语义，但 Stage 1
+不新增第三个 example，也不把概念 trace 表述为当前能力。
+
+## 9. Access / Transformation / Contract Coverage
+
+### 9.1 Source 与 Access
+
+| Pattern | 当前 canonical 路径 | Stage 1 结论 | 后续 Owner |
+|---|---|---|---|
+| Packed / current Index | Table terminal、Scan、`fetchAt/mutateAt` family | 保留；不统一进 graph 才算完整 | 既有 Access Design |
+| primary / secondary unique point | key/unique point family | 保留 `0..1` 语义；可作为 Definition Source binding | Stage 3 generated binding |
+| secondary exact group | `scanByX` eager group source | 保留；不得 read-time rebuild | Stage 3 generated binding |
+| owned child | parent-owned child facade/Scan | 保留 aggregate ownership，不升级跨 root transaction | Stage 2 lineage / Stage 3 binding |
+| Key / Column / IndexSnapshot gather | Traversal、ColumnView、snapshot | 保留独立低成本路径；graph 只能显式 bind | Stage 2 Result / Stage 3 binding |
+| Batch / replace / clear | detached Batch + Table operation | 保留；Batch 是外部输入边界 | Stage 2 Effect |
+| Delta / Parameter | 尚无 transformation contract | 新增 detached typed Source；不接 I/O client | Stage 2 semantics / Stage 3 contract |
+| multi-source relation | application 手工 point/gather | 缺少 schema-aware read-only Join | Stage 2 Join / Stage 3 coordinator |
+
+### 9.2 Operator 与 Result
+
+| 能力族 | 当前能力 | canonical 目标 | Gap 分类 |
+|---|---|---|---|
+| Selection / Skip / Limit | Candidate Scan | 保留 lazy/fused fast path，并进入共享语义 | semantic bridge |
+| Projection | callback 内手工计算 | typed derived Value/tuple，可保留或丢弃 lineage | new semantic/contract |
+| Aggregation / best | count/match/best-current-Index 特化 | scalar reduce、min/max/sum/count/arg-min/max/top-k | additive terminal/operator |
+| Partition / Combine | application branch | disjoint branches、ordered same-lineage concat/union-all | new semantic/contract |
+| Sort | Candidate dynamic stable sort | 扩展到合法 ordered Shape；physical strategy internal | additive semantic |
+| GroupBy | application Map/array | invocation-local typed groups + aggregate/borrow result | new semantic/contract |
+| Join | application point/gather | inner/left-outer/left-semi/left-anti equi Join | new multi-source semantic |
+| Expand | owned child facade | owned-child Expand；不接 arbitrary flatMap | controlled extension |
+| finite Window | application loop | ordered invocation-local finite Window | new semantic/contract |
+| Prefix Scan | application loop | inclusive/exclusive ordered scan | new semantic/contract |
+| Result consumption | probe/current Index/snapshot/borrow/materialize | shape-aware Scalar/Borrow/IndexSnapshot/detached-columnar/Materialize | normalize and extend |
+| Effect | update/remove/Batch operation | controlled single-source MutationSet、Delta apply、detached command | normalize and extend |
+| reusable execution | one-shot mutable Scan plan | immutable Definition/Template + one-shot Invocation | new architecture |
+| parallel execution | application-owned loops | controlled Invocation-internal adaptive parallelism | new architecture |
+
+### 9.3 Contract Gap 处置
+
+- `Preserve`：Point、Column、Key、Bulk、Ownership 和 Candidate Scan fast path 不因
+  Transformation Model 被通用化或改名；
+- `Bridge`：现有 Scan 通过 shared semantics/reference oracle 对齐，但允许继续使用
+  compact generated plan 与 specialized terminal；
+- `Add`：Expression、Projection、Aggregation、Partition/Combine、GroupBy、Join、
+  finite Window、Prefix Scan、shape-aware Result、Delta 和 reusable DataFlow；
+- `Internal`：IR、planner、kernel、scratch、physical Join/Reduction/Partition 策略；
+- `Application`：control loop、domain rule、frontier/heap、I/O、transaction、
+  clock、spatial scratch、event machine 和 publisher。
+
+每个 gap 已归属于 Stage 2 semantic Owner 或 Stage 3 contract/architecture Owner；
+没有使用“未来实现再决定”的未归属 gap。精确 Java 名称和 overload 不属于
+Stage 1 退出条件。
+
+## 10. Stage 1 关闭结论
+
+Stage 1 已完成四场景 semantic projection、runtime fact/behavior、
+Access/Transformation/contract coverage：
+
+- 当前能力和目标能力已分开；
+- Pipeline 没有被提升为全部 Access Model；
+- 新能力均能追踪到至少两个目标场景或 RTD 能力闭包；
+- direct access、application-owned structure 和外部 I/O 没有被错误迁入 graph；
+- 全部 contract gap 已分配 Stage 2/3 Owner。
+
+因此 Stage 1 关闭。该结论不表示任何新 operator 已实现，也不改变正式
+Blueprint/Design/API。
+
+## 11. 当前边界保护
 
 正式裁决前仍以正式 Blueprint/Design 为准；Candidate Scan 保持既有
 CandidateAccess，application-owned heap/frontier/event queue 不自动迁入 SOMA。

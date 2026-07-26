@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（F0 Product/Scope Baseline frozen；Stage 1–3 semantic/architecture closure pending）
+状态：active（Stage 1–3 closed；immutable implementation candidate ready；Stage 4 not authorized）
 
 Owner：SOMA Transformation Model governance
 
@@ -18,8 +18,8 @@ Owner：SOMA Transformation Model governance
 
 最后审查日期：2026-07-26
 
-冻结层级：F0 Product/Scope；不是 Semantic/Architecture Freeze 或 immutable
-implementation candidate
+冻结层级：F0 Product/Scope + Stage 1–3 Semantic/Architecture Candidate；不是
+正式 Design 或 production implementation
 
 ## 1. 意图
 
@@ -113,8 +113,24 @@ F0 冻结产品定位、设计脊柱、最低目标包络、非目标、非回�
 architecture closure，不能借实现困难删除或降级 Fixed Target。
 
 F0 不冻结具体 Java API、IR encoding、module topology、Value/absence、binding、
-resource、failure 或 physical algorithm；这些仍由 Candidate/Open 决策和
-prototype 关闭。因此，F0 不是 production 实施授权。
+resource、failure 或 physical algorithm；这些在 F0 后由 Stage 1–3 决策和
+prototype 关闭。因此，F0 本身不是 production 实施授权。
+
+### 3.2 Stage 1–3 Candidate Freeze
+
+Stage 1–3 已在 F0 不缩水前提下关闭：
+
+- Stage 1：四场景 semantic projection 与 Access/Transformation/API coverage；
+- Stage 2：Value、Shape、Expression、Operator、Result、Effect、Delta、Window、
+  Parallel eligibility 与 reference oracle；
+- Stage 3：public role、opaque IR、Definition/Template/Invocation、binding、
+  `soma-dataflow` module、identity、resource、executor、explain 和 Safe Point，
+  并通过 Temporary Java 8 architecture prototype。
+
+Decision Register 当前为 8 Fixed Target、22 Resolved、0 Candidate、0 Open。
+这形成可供用户审查的 immutable implementation candidate。它不修改正式
+Blueprint/Design 或当前产品能力，也不授予 Stage 4 production 实施；P2 physical
+algorithm 和最终性能数字仍由 Stage 5 evidence 选择。
 
 ## 4. 非目标
 
@@ -160,15 +176,15 @@ alias、双 executor、旧 adapter 或长期迁移层。
 
 ## 6. 阶段
 
-| Stage | 责任 | 退出条件 |
-|---|---|---|
-| 0 | 协议、基线、结构整理、自审 | Temporary 自洽；当前事实与风险有证据 |
-| 1 | 场景语义投影、权威运行时事实和 Access/Transformation coverage | capability variant、事实 Owner 与 core/application 边界闭合 |
-| 2 | State Transition、Shape、Value、Expression、Operator、Effect、DAG/Window/Parallel semantics | Semantic Closure Gate 通过 |
-| 3 | contract projection、IR、binding、planner、module、identity、resource、explain 与 prototype | Architecture Feasibility Gate 通过并形成 immutable candidate |
-| 4 | 按 vertical slice 完成 DSL 与 Reusable DataFlow 双轨实施 | admitted capability 全部端到端闭合 |
-| 5 | physical optimization 与稳定性能验真 | correctness、allocation、GC、tail latency、parallel crossover 通过 |
-| 6 | scope non-regression、正式事实原子固化和 Temporary 退役 | 完整 Gate、Report、提交和无 active topic 状态完成 |
+| Stage | 状态 | 责任 | 退出条件 |
+|---|---|---|---|
+| 0 | COMPLETE | 协议、基线、结构整理、自审 | Temporary 自洽；当前事实与风险有证据 |
+| 1 | COMPLETE | 场景语义投影、权威运行时事实和 Access/Transformation coverage | capability variant、事实 Owner 与 core/application 边界闭合 |
+| 2 | COMPLETE | State Transition、Shape、Value、Expression、Operator、Effect、DAG/Window/Parallel semantics | Semantic Closure Gate 通过 |
+| 3 | COMPLETE | contract projection、IR、binding、planner、module、identity、resource、explain 与 prototype | Architecture Feasibility Gate 通过并形成 immutable candidate |
+| 4 | BLOCKED | 按 vertical slice 完成 DSL 与 Reusable DataFlow 双轨实施 | admitted capability 全部端到端闭合 |
+| 5 | PENDING | physical optimization 与稳定性能验真 | correctness、allocation、GC、tail latency、parallel crossover 通过 |
+| 6 | PENDING | scope non-regression、正式事实原子固化和 Temporary 退役 | 完整 Gate、Report、提交和无 active topic 状态完成 |
 
 Stage 4 的每个 slice 必须是最终设计的有效子集：
 
@@ -189,9 +205,9 @@ Scenario / Semantic Projection
 
 Stage 4 前必须依次通过：
 
-1. Semantic Closure；
-2. Architecture Feasibility；
-3. 用户对 frozen target 的明确 Implementation Authorization。
+1. Semantic Closure：`PASSED`；
+2. Architecture Feasibility：`PASSED`；
+3. 用户对 frozen target 的明确 Implementation Authorization：`NOT GRANTED`。
 
 以下情况必须停止并请求决定：
 

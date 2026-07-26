@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（semantic design candidate；Stage 2 closure pending）
+状态：active（Stage 2 semantic closure complete；Stage 3 contract projection complete）
 
 Owner：SOMA Transformation semantics
 
@@ -58,7 +58,7 @@ pure operator 只产生 invocation-local derived information，不修改 source�
 | 信息 | 性质与 Owner | 生命周期规则 |
 |---|---|---|
 | Schema semantics | compiler/runtime 共享的结构与契约事实 | protocol/version 决定兼容性 |
-| Table live state | 当前 Runtime Epoch 内 SOMA 计算的权威事实 | 只由合法 Table Operation 或 safe-point apply 改变 |
+| Table live state | 当前 active lifecycle 内 SOMA 计算的权威事实 | 只由合法 Table Operation 或 safe-point apply 改变 |
 | Key/Unique/Exact access structure | 从 live state 派生并同步维护的物化表示 | 失配是 invariant violation，不能成为第二事实源 |
 | Logical Definition | 用户声明的计算语义事实 | immutable，可复用，不绑定 current state |
 | Compiled Template/Physical Plan/cache | 从 Definition、Schema 和 policy 推导 | 可验证、失效和重建，不拥有 logical semantics |
@@ -135,19 +135,40 @@ Shape、Value、Operator、Effect 和 failure identity。
 ## 3. Value Semantics
 
 Value semantics 是 Join、GroupBy、Window、ordering、hash 和 parallel reduction
-共享的 P0 契约。Stage 2 必须冻结：
+共享的契约：
 
-- primitive、`@SomaValue`、composite key 和 predicate 的 equality/hash/identity；
-- total/stable order、comparator consistency、absence/sentinel/null；
-- overflow/division/conversion、floating special value/reduction/scan order，以及
-  accumulator seed、identity、associativity 和 merge contract；
-- user function 的 purity、determinism、non-interference 和 thread-safety。
+| Value | equality / hash | built-in order |
+|---|---|---|
+| boolean、integral、char、enum | Java value equality 与对应稳定 hash | value/ordinal 的 total order |
+| String | Java content equality/hash | Unicode code-point lexicographic order |
+| `@SomaValue` / composite | canonical leaf order 的结构 equality/hash | 全部 leaf 可排序时的 lexicographic order |
+| ordinary float/double payload | Java 8 comparison/IEEE-754 arithmetic；不自动变成 hash key | `Float.compare`/`Double.compare` total order |
+| finite canonical floating key | 拒绝 NaN/Infinity，`-0.0` 规范化为 `+0.0` | canonical numeric order |
+| optional value | presence 与 payload 是两个状态 | 显式 requested 时 absent-first；没有隐式 sentinel |
 
-Key/Unique/GroupBy/Join 的 equality 必须与 hash 一致；order 不是 identity，absent
-不是任意 present value。sequential/parallel 和所有 physical kernel 必须共享
-同一边界行为。
+GroupBy/Join/hash key 必须是 required、hashable value；optional 输入必须先显式
+`isPresent`、`requirePresent` 或 `coalesce`，避免把 absence 静默解释为可匹配 key。
+outer-join 的 absent side 是 tuple-side presence，不是字段 `null`、default 或
+optional leaf absence。Equality 与 hash 必须一致；order 不参与 Identity。
 
-具体 Java 映射尚未冻结，因此 D23 仍是实施阻断项。
+算术与 reduction：
+
+- primitive 表达式保持 Java 8 promotion、two's-complement integral overflow、
+  integer divide-by-zero 和 IEEE-754 行为；narrowing 必须显式；
+- built-in integral `sum` 使用 `long` accumulator；`long` overflow 与 Java
+  `LongStream.sum` 一样 wrap；`average` 使用 `(count, sum)` 并返回显式 empty；
+- `min/max/arg-min/arg-max/top-k` 使用显式 total comparator，compare 为零时保留
+  upstream first/stable order；
+- reduction/scan 明确 seed、empty、accumulate、merge、finish 和 failure；
+- built-in floating sum/average 与 order-sensitive reducer 使用 canonical
+  left fold，AdaptiveParallel 必须 sequential fallback；
+- 只有 reducer 声明并满足 identity、associativity、deterministic merge 和
+  thread-safety，才允许 fixed-tree parallel merge；声明错误属于 caller contract
+  violation，由 differential/property evidence 防御，runtime 不分析 bytecode。
+
+所有 kernel、sequential/parallel executor 和 reference oracle 使用同一规则。
+Value/absence/overflow/floating semantics 在 Stage 2 冻结；精确 Java method 名称
+仍由 Stage 3 投影。
 
 ## 4. Source 与 Lineage
 
@@ -185,6 +206,13 @@ registered contract 由 caller 声明；analyzer 只能验证 typed/structural c
 registered function，也不能通过虚假 trait 绕过 sequential、lifecycle 或
 failure fence。
 
+Generated expression 是 canonical optimizable path。Registered function 只在
+generated vocabulary 无法自然表达领域计算时使用，并以 caller 提供的稳定
+`semanticId + version + typed signature` 参与 Definition identity。Opaque callback
+只按 Definition 实例 identity 缓存，默认 sequential、order-sensitive、
+non-reorderable；callback 抛出的第一个 logical-order failure 是 Invocation primary
+failure。任何表达都不得读取或修改未声明 Table、Cursor 或 mutable global state。
+
 ## 6. Operator Catalog
 
 | Family | 最低目标 variant | 主要语义 |
@@ -206,7 +234,24 @@ Catalog 只表达受控能力族；unbounded stream/object flat-map 与完整 se
 scan 是独立的 order-sensitive `N -> N` operator，不伪装成 reduction；time
 Window 必须 finite/ordered，retained/incremental 不在最低包络。
 
-### 6.1 Join Semantics
+### 6.1 基础 Operator Semantics
+
+- Selection 保持 upstream order；`skip/limit` 按进入该 stage 的 sequence 计数；
+- Projection 是逐 element 的 `1 -> 1` typed derivation。只有显式保留唯一
+  single-source current Index 且不 duplicate/expand 时，才保留 writable lineage；
+- count 在 empty 上为零；match 允许 logical short-circuit；无 identity seed 的
+  min/max/reduce 在 empty 上返回 explicit absence，不能返回 default；
+- stable sort 建立 comparator order；top-k 等价于完整 stable sort 后取前 `k`，
+  `k < 0` 拒绝、`k = 0` 为空；
+- GroupBy 按 key 在 upstream 中第一次出现的次序产生 group，group 内保持
+  upstream order；hash iteration 不能成为可观察顺序；
+- predicate Partition 由调用点声明 branch 顺序；key Partition 采用 key 首次出现
+  顺序。每个 upstream element 恰好进入一个 branch，除显式 later filter 外不丢失；
+- owned-child Expand 按 parent upstream order，再按各 child 当前 source order
+  展开。跨多个 parent 的结果默认 read-only；
+- 所有 barrier 在接受 terminal 后才执行；budget/failure 不得发布 partial result。
+
+### 6.2 Join Semantics
 
 Join 的 match mechanism 与 preservation semantics 正交：
 
@@ -218,12 +263,16 @@ Join 的 match mechanism 与 preservation semantics 正交：
 | Left Anti | `Candidate<L>`，single-left lineage | 只保留不存在匹配的 left |
 
 left-driven variant 保持 left order；primary/unique 至多匹配一个 right，exact-group
-按本次 bound right sequence 展开并受 output budget 约束。semi/anti 保持
+按本次 bound right sequence 展开并受 output budget 约束。对于每个 left，
+Inner/Left Outer 按 right bound sequence 发布全部匹配，保留 duplicate
+multiplicity；Left Outer 无匹配时只发布一个 absent-right tuple。semi/anti 保持
 single-source Effect 能力，Joined 默认只读。right variants 交换 source 后组合；
 full/cross/theta 不在最低包络。logical absent 不是 `null`/默认值/sentinel，D23
-必须冻结其投影；point/exact/hash/merge/sort-merge 只是 physical strategy。
+的投影使用显式 side-presence；point/exact/hash/merge/sort-merge 只是 physical
+strategy。Join key 必须使用上一节的 required hashable equality；self-join 可以
+使用两个 logical alias，但同一 physical Table 只取得一次 lifecycle guard。
 
-### 6.2 Combine 与 Prefix Scan
+### 6.3 Combine 与 Prefix Scan
 
 最低 Combine 是 shape/value-compatible、same-lineage branch 的 ordered
 concat/union-all：按输入 branch 声明顺序连接，并保留每个 branch 的内部顺序和
@@ -236,6 +285,21 @@ accumulate/merge 和 failure/value semantics。输出与输入等 cardinality，
 `Projected<L,A>` 表达每个位置的累计值。只有 contract 与 fixed decomposition
 能够证明结果 identity 时才允许 parallel scan；否则 planner 必须 sequential
 fallback。Tree Scan 是 physical strategy，不改变逻辑顺序或 floating contract。
+
+### 6.4 Finite Window
+
+Window 只接受已建立 total logical order 的 finite input：
+
+- count window 具有正 `width`、正 `step` 和显式 `includePartial/dropPartial`；
+  anchor 从 Index 0 开始，窗口为 `[anchor, min(anchor + width, N))`；
+- range/time window 使用 required non-decreasing `long` order key、正 width、
+  正 step、显式 origin 和 partial policy，窗口区间为 half-open
+  `[anchor, anchor + width)`；
+- range anchor 只覆盖 bound input 的有限 key range；empty window 不发布；
+- window 按 anchor order 发布，元素保持 upstream order；overflow、非单调 key、
+  非法 width/step 在发布前 fail closed；
+- window state 只属于 Invocation scratch，不跨 Invocation 持有 watermark、
+  late event、eviction 或 recovery state。
 
 ## 7. Composition Algebra
 
@@ -263,16 +327,22 @@ transaction 和 recovery 只负责触发 Definition/Invocation，不成为 Logic
 每条 edge 必须能推导 input/output Shape、cardinality、lineage、order 和 Value
 semantics。缺少任一项时，Definition 在执行前 fail closed。
 
-Stage 2 必须形成 Shape legality matrix，至少关闭：
+Stage 2 冻结以下 Shape legality：
 
-| Shape | 必须闭合的后续能力 | 默认 Effect |
-|---|---|---|
-| Candidate/Projected | select/project/order/group/partition/scan/combine/aggregate | 保留可证明 single-source lineage 时可 controlled mutate |
-| Partitioned | branch-local transform、branch terminal、disjoint Combine | branch lineage 受 partition/disjointness 约束 |
-| Grouped | group projection、per-group aggregate、having、detached consumption | read-only |
-| Joined | select/project/order/group/window/aggregate、detached consumption | read-only；semi/anti 的 Candidate 例外 |
-| Windowed | window projection/aggregate、detached consumption | read-only |
-| Scalar | direct result/handoff | detached |
+| Shape | 合法后续 | canonical 低物化 terminal | Effect |
+|---|---|---|---|
+| Candidate | select/project/sort/top-k/group/partition/scan/combine/aggregate/join/owned-child expand | probe、borrow、current Index、IndexSnapshot | 保持唯一 single-source lineage 时 update/remove |
+| Projected | select/project/sort/top-k/group/partition/scan/combine/aggregate/join/window | scalar 或 typed borrowed traversal；大结果 detached-columnar | 仅保留唯一 current Index、无 duplicate/expand 时可回到 single-source MutationSet |
+| Partitioned | branch-local Candidate/Projected 合法操作、branch terminal、disjoint Combine | branch-scoped borrow 或 detached-columnar | analyzer 证明同一 Partition、branch 不重复且 target lineage 唯一时可恢复 Effect |
+| Grouped | group projection、per-group aggregate、having、sort group、detached consumption | group cursor/aggregate scalar 或 detached-columnar | read-only |
+| Joined | select/project/sort/top-k/group/window/aggregate | joined cursor 或 presence-aware detached-columnar | read-only；semi/anti 输出 Candidate 例外 |
+| Windowed | window projection/aggregate/select | window cursor、scalar stream 或 detached-columnar | read-only |
+| Scalar | direct read、detached handoff | direct typed scalar/explicit absence | 不可回写 |
+| Delta/MutationSet | validate、compose disjoint target commands、apply/handoff | detached command summary | 仅显式 safe-point/single-source commit |
+
+不合法的核心组合包括：Joined/Grouped/Windowed 直接 update/remove、不同 Table
+current Index Combine、unordered input Window/Prefix Scan、optional key 未显式处理的
+Join/GroupBy、Effect node fan-out、以及 detached result 直接恢复 writable lineage。
 
 表中能力是闭包责任，不是最终 public method 清单。每个 admitted Shape 必须至少
 有一个不依赖 per-element object materialization 的 canonical terminal。
@@ -298,22 +368,31 @@ bind typed sources
 - automatic incremental view maintenance：由 Delta 驱动长期维护 derived state。
 
 后两者需要 watermark、late event、eviction、recovery、retained-memory ownership
-和独立等价性证明。当前候选将它们保持为非目标；若要接纳，必须单独改变最低目标
-包络并获得用户决定。
+和独立等价性证明。Stage 2 将 temporal retained Window 与 automatic
+incremental view maintenance 冻结为非目标；若要接纳，必须单独改变最低目标
+包络并获得用户决定。Invocation 结束后只允许丢弃 scratch 或交付 detached
+Result，不保留由 operator 暗中维护的第二份 runtime fact。
 
 `Delta` 在本专题中是带明确 Identity/version/operation semantics 的 detached
 input/output projection，可作为 safe-point mutation 输入；它不是 live Table
 事实，也不自动意味着 retained incremental executor。最低 apply semantics 是：
 
-- keyed target 以 stable Key 表达 `Insert`、`Update`、`Delete`；每项可以携带
-  expected version/epoch；
+- Delta envelope 记录 schema/target identity、ordered entries 和可选
+  expected structural epoch；不保存 JDBC/CDC handle；
+- keyed target 以 stable Key 表达 `Insert`、`Update`、`Delete`；row-level
+  expected version 只有 schema/contract 显式提供 version expression 时才存在；
 - Insert 要求 absent，Update/Delete 要求 present；`Upsert` 不是隐式默认语义；
-- duplicate key、operation order、version conflict 和 idempotence policy 在
-  staging 时 fail closed；
+- 同一 Delta 中 duplicate target Key 拒绝；entry declaration order 是可观察
+  apply order，physical executor 不得按 hash iteration 静默重排；
+- expected structural epoch/version conflict 在 staging 时 fail closed；SOMA 不持有已消费
+  delta-id 历史，因此不承诺跨调用 exactly-once/idempotence，application 必须用
+  checkpoint、expected structural epoch/version 或业务 Identity 控制 replay；
 - dense target 没有跨 operation stable identity，只能使用 Batch append/replace
   或当前 Invocation 内的 frozen MutationSet；
 - 整批 validation、resource/access-path preflight 成功后按 deterministic order
-  apply，并只发布一个新 Runtime Epoch。
+  apply，并只发布一次 operation result；structural epoch 严格遵守既有
+  structural-change 契约。范围仍是一个 Table/ownership aggregate，不是跨 root
+  transaction。
 
 ## 9. Effect 与 External Handoff
 
@@ -323,6 +402,12 @@ single-table live lineage 可以 update/remove；Projection 只有保留该 line
 回写；Joined/Grouped/Windowed 默认 read-only。multi-source 只产生 detached
 MutationSet/command，不获得跨 Table atomic commit；external handoff 只返回
 detached value，不执行 SQL、网络、checkpoint 或 transaction。
+
+Probe/Scalar 读取不是 mutation；Borrow 是 callback-scoped consumption effect。
+Borrow callback 的外部副作用不属于 SOMA 原子性，callback failure 只能保证不发布
+尚未 commit 的 SOMA MutationSet，不能回滚 application 已执行的 I/O 或对象修改。
+State mutation 与 detached handoff 不能在同一个隐式 terminal 中混合；需要两者时
+先 deterministic commit，再由 application 显式发布 detached command。
 
 ## 10. Result 与 Consumption Model
 
@@ -340,8 +425,22 @@ Result form 由 Shape、lineage、lifecycle、size 和 budget 推导，不以一
 
 Detached columnar result 使用 JVM heap typed/primitive arrays，并拥有独立 output
 budget；它不是 live Table、稳定 source snapshot 或可直接回写的 lineage。重新进入
-SOMA 必须经过显式 Batch/Delta validation 与 publish。并非每个 Shape 支持所有
-form，Stage 2–3 必须关闭 canonical terminal、absence、close/escape 和 failure。
+SOMA 必须经过显式 Batch/Delta validation 与 publish。
+
+消费契约冻结为：
+
+- Borrowed traversal 只在 Invocation terminal callback 中有效；Cursor、tuple、
+  group/window view 不得逃逸，terminal 返回即失效；
+- IndexSnapshot 只支持 single-Table Candidate，并继续遵守 caller-responsibility；
+- detached-columnar 在成功返回前完成全部 output budget、presence bitmap 和
+  shape/protocol identity 建立；caller 显式 close 只在未来持有可关闭资源时需要，
+  V1 普通 heap array result 不要求 close；
+- materialization 必须显式选择并预检 object/cardinality budget；
+- empty scalar 使用 primitive-specific presence/result，不用 `null` 或默认值；
+- outer Join absence 通过 side presence 读取；访问 absent side 的 leaf 返回 typed
+  failure，不返回默认 carrier；
+- execute、budget、callback、cancel 或 allocation failure 不返回 partial detached
+  Result。Borrow 已发生的 application side effect 除外，责任如上一节。
 
 ## 11. Candidate Scan 子代数
 
@@ -359,3 +458,33 @@ Reusable Definition 不得直接复用 current mutable `GeneratedScanPlan`。
 
 DSL fast path 可以绕过通用 graph object，但必须通过 shared semantics、reference
 oracle 和 differential evidence 证明结果与完整模型一致。
+
+## 12. Reference Oracle
+
+Stage 2 冻结一个 test-only、领域中性的 reference evaluator：
+
+- 使用小规模 detached logical facts和直接 Java 8 collections/object tuple 表达
+  semantics，不进入 production artifact 或 hot path；
+- 每个 operator 只实现本文件定义的 cardinality、order、lineage/absence 与
+  failure，不模拟 physical planner；
+- 覆盖 empty/single/duplicate、optional/outer absence、stable tie、overflow、
+  callback failure、budget rejection、Join multiplicity、Partition/Combine、
+  Window boundary、Delta conflict 和 sequential/parallel identity；
+- Candidate Scan fast path、generated DSL 和 reusable DataFlow 对同一 fixture
+  进行 differential comparison；
+- property test 改变 input cardinality、group distribution、join selectivity、
+  partition count 和 worker decomposition，但不通过随机 timing 判断正确性。
+
+Oracle 只拥有测试语义投影；Transformation Model 仍是规范 Owner。
+
+## 13. Stage 2 Semantic Closure
+
+Stage 2 已冻结 State/Derivation、Value/absence、Expression、Operator variants、
+Shape legality、Join preservation/multiplicity、Group/Partition/Combine order、
+finite Window、Prefix Scan、Result、Effect、Delta apply、retained-state non-goal、
+parallel eligibility 和 reference oracle。
+
+D2、D3、D7–D9、D14、D17–D18、D23–D24、D27–D30 已具有唯一语义结论。
+Java contract role、IR boundary、binding/context、module 和 cache/resource 已由
+[Execution Architecture](execution-architecture.md) 在 Stage 3 冻结。具体
+physical strategy 仍由 Stage 5 evidence 选择，不构成 Stage 2 语义缺口。

@@ -69,7 +69,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 当前 active Temporary topic：
 
-- [SOMA Transformation Model 与 Typed DataFlow 产品化治理](temp/soma-transformation-model-governance/README.md)：建立 Access 之上的 Transformation、Expression、Effect、Reusable DataFlow 与受控并行执行模型；F0 Product/Scope Baseline 已冻结，Stage 1–3 semantic/contract/architecture 尚未闭合，不改变正式产品语义。
+- [SOMA Transformation Model 与 Typed DataFlow 产品化治理](temp/soma-transformation-model-governance/README.md)：建立 Access 之上的 Transformation、Expression、Effect、Reusable DataFlow 与受控并行执行模型；Stage 1–3 已闭合为 immutable implementation candidate，Stage 4 尚未授权，不改变正式产品语义。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

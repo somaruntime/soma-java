@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（F0 Product/Scope Freeze audit complete；semantic/architecture closure pending；implementation blocked）
+状态：active（Stage 1–3 immutable candidate audit complete；implementation not authorized）
 
 Owner：SOMA Transformation governance decisions and evidence
 
@@ -21,46 +21,48 @@ Owner：SOMA Transformation governance decisions and evidence
 | 状态 | 含义 |
 |---|---|
 | Fixed Target | 用户已确认的专题目标；仍须在最终正式 Design 中原子固化 |
+| Resolved | Temporary 已有唯一语义/架构结论；进入 immutable candidate，但尚非正式 Design |
 | Candidate | Temporary 已形成推荐方向，但需 Stage 1–3 语义/架构证据后冻结 |
 | Open | 当前仍有多个合理答案，是 production 实施阻断项 |
 
 pre-release clean break 降低迁移负担，不会把 Candidate/Open 自动升级为正式决定。
 
 F0 Freeze 只覆盖 README 最低目标和 Decision Register 中的 Fixed Target。
-Candidate/Open 仍须 Stage 1–3 关闭；F0 不表示 Semantic Closure、Architecture
-Feasibility 或 Implementation Authorization 已通过。
+Stage 1–3 现已把原 Candidate/Open 收敛为 Resolved；Fixed Target/Resolved
+共同构成 Temporary immutable candidate，但仍不自动成为正式 Design 或
+Implementation Authorization。
 
 ## 2. Decision Register
 
 | ID | 责任 | 状态 | 当前方向 / 关闭条件 |
 |---|---|---|---|
 | D1 | 产品定位与准入 | Fixed Target | Schema-Defined、Compiler-Specialized、JVM Heap-Resident embedded runtime-state computing；SOMA 拥有 state/local-compute plane，application 拥有 control plane |
-| D2 | State/Shape/Traits/Properties | Candidate | State/Behavior 由 State Transition 连接；三层描述正交；补齐 Partitioned 与 Shape legality matrix；semantic role 不等于 public Java type |
-| D3 | graph topology | Candidate | 单 invocation 有限 DAG；反馈跨 invocation |
-| D4 | DSL/builder/IR boundary | Candidate | generated typed DSL + controlled Definition builder；不是 query language，internal IR 不公开 |
-| D5 | reuse lifecycle | Candidate | immutable Definition/Template；one-shot Invocation |
-| D6 | multi-source consistency | Open | 冻结 root registration、guard order、cross-schema 和 stale source 规则 |
-| D7 | joined/grouped/window effect | Candidate | 默认 read-only；只允许 explicit single-source write 或 detached command |
-| D8 | Delta/retained/incremental ownership | Open | Delta 是 keyed Insert/Update/Delete detached projection；冻结 version/conflict/idempotence/apply；retained state 与 automatic incrementalization 需最终归属 |
+| D2 | State/Shape/Traits/Properties | Resolved | State Transition 连接 State/Behavior；Shape/Traits/Properties 正交；legality 与 terminal matrix 已冻结 |
+| D3 | graph topology | Resolved | 单 Invocation finite DAG；shared pure result；feedback 只跨 Invocation |
+| D4 | DSL/builder/IR boundary | Resolved | generated typed DSL + controlled one-shot builder；public Definition opaque，internal IR/physical plan 不公开 |
+| D5 | reuse lifecycle | Resolved | immutable Definition/Template；explicit compile/retain；one-shot Invocation state machine |
+| D6 | multi-source consistency | Resolved | Invocation-owned typed binding；aggregate ID canonical guard、alias dedup、cross-schema compatibility、reverse cleanup |
+| D7 | joined/grouped/window effect | Resolved | Joined/Grouped/Windowed read-only；semi/anti Candidate 或 analyzer-proven single-source lineage 才可 mutate |
+| D8 | Delta/retained/incremental ownership | Resolved | detached ordered keyed Delta + optional structural-epoch/version guard；无 implicit upsert/idempotence；retained/incremental 非目标 |
 | D9 | logical operator set | Fixed Target | README 冻结受控 capability family，包括 Combine 与 Prefix Scan；不追求 SQL/关系代数完备，Stage 2 关闭具体 variant |
-| D10 | static/dynamic planner input | Candidate | static lowering + bind-time specialization；barrier replan 尚待裁决 |
+| D10 | static/dynamic planner input | Resolved | static lowering + bind-time specialization + deterministic barrier-local selection；不反馈共享 Template |
 | D11 | parallel semantics | Fixed Target | 独占 Invocation 内部并行；不开放 concurrent Table access；保持 sequential identity、fixed merge、bounded failure、deterministic commit |
-| D12 | annotation/generated compatibility | Candidate | Schema-defined 是产品模型，annotation 是当前 authoring surface；generated clean break 必须原子迁移 |
-| D13 | DSL/DataFlow shared core | Candidate | 共享 semantics/analyzer；允许不同 fast path，不允许双 correctness model |
-| D14 | typed expression/function/callback | Candidate | generated expression + registered pure function/reducer + opaque fence；不分析 bytecode/reflection |
-| D15 | schema-level Execution Context | Open | Context 是 composition root，不是万能事实源；冻结 source registry、root ownership 和各组件 lifecycle |
-| D16 | identity/cache invalidation | Open | 冻结 canonical identity、opaque callback cache 和 epoch participation |
-| D17 | fan-out/fan-in/effect scheduling | Candidate | shared pure result、consumer-counted scratch、shape/lineage-compatible Combine、effect terminal only |
-| D18 | Window/incremental split | Candidate | finite invocation Window 接纳；retained temporal/incremental 当前候选非目标 |
-| D19 | module topology | Open | 以 `soma-dataflow` 候选做 dependency/footprint/external consumer prototype |
-| D20 | diagnostics/observability | Candidate | graph phases 与 TableStats 分开；Explain 非 hot path |
+| D12 | annotation/generated compatibility | Resolved | annotation/schema hash 不变；generated/runtime v5 + transformation/kernel v1 原子 clean break，不保留双 protocol |
+| D13 | DSL/DataFlow shared core | Resolved | shared analyzer/candidate program/reference oracle；Scan 保持 specialized executor，不形成双 correctness model |
+| D14 | typed expression/function/callback | Resolved | generated expression、registered semantic ID/version function/reducer、definition-instance opaque fence |
+| D15 | schema-level Execution Context | Resolved | Context 只拥有 execution resources/defaults/accounting；source 只在 Invocation bind，不设 registry/global cache |
+| D16 | identity/cache invalidation | Resolved | canonical SHA-256 Definition/Template identity；epoch 只属 Invocation；无 global cache，opaque callback instance-bound |
+| D17 | fan-out/fan-in/effect scheduling | Resolved | shared pure result、consumer-counted scratch、ordered compatible Combine、Effect terminal only |
+| D18 | Window/incremental split | Resolved | finite count/range Window；temporal retained Window 与 automatic incrementalization 非目标 |
+| D19 | module topology | Resolved | 独立 `soma-dataflow`；每 Table 最多一个 companion；Java 8 external-consumer/footprint prototype 通过 |
+| D20 | diagnostics/observability | Resolved | graph stats 与 TableStats 分开；OFF/BASIC/DETAILED；Explain detached/redacted/non-hot-path |
 | D21 | executor ownership | Fixed Target | Sequential/AdaptiveParallel；managed dedicated + borrowed executor |
 | D22 | external state handoff | Fixed Target | Batch/Delta + Safe Point + detached output；MES/JDBC 单独专题 |
-| D23 | Value semantics | Open | equality/hash/order/absence/overflow/floating 必须 Stage 2 冻结 |
-| D24 | reference evaluator | Candidate | test-only authority；不进入 production artifact/hot path |
-| D25 | resource/deadline/cancellation | Open | 冻结 budget owner、cancellation/failure/Effect absence |
-| D26 | explainability contract | Candidate | 冻结必须解释的信息；API/renderer 可 evidence-selected |
-| D27 | projection/derivation authority | Candidate | Table live state 是 epoch 内权威事实；access/cache/plan/result 是有明确 source、rule 和 lifecycle 的投影或推导 |
+| D23 | Value semantics | Resolved | required/hashable key、explicit absence、Java 8 arithmetic、stable tie、floating left-fold fallback 已冻结 |
+| D24 | reference evaluator | Resolved | test-only logical oracle + differential/property evidence；不进 production artifact/hot path |
+| D25 | resource/deadline/cancellation | Resolved | Context upper bound + Invocation narrowing；hard output/scratch/task/deadline；logical failure priority与bounded drain |
+| D26 | explainability contract | Resolved | logical/bound explain 信息、redaction、stats mode 与非 hot-path边界冻结 |
+| D27 | projection/derivation authority | Resolved | Table live state 是 epoch 内权威事实；index/plan/result 是有 source/rule/lifecycle 的 derived representation |
 | D28 | Join preservation semantics | Fixed Target | inner/left-outer/left-semi/left-anti equi Join；right variants 组合；full/cross/theta 非最低目标 |
 | D29 | Result consumption model | Fixed Target | Shape-aware scalar/borrow/IndexSnapshot/detached-columnar/materialized/command；每个 admitted Shape 必须有低物化 canonical terminal |
 | D30 | Combine/Prefix Scan semantics | Fixed Target | ordered same-lineage concat/union-all 与 inclusive/exclusive prefix scan；完整 set algebra 非最低目标 |
@@ -124,10 +126,13 @@ Problem World / Scenario
 当前状态：
 
 ```text
-Semantic Closure         BLOCKED
-Architecture Feasibility BLOCKED
+Semantic Closure         PASSED
+Architecture Feasibility PASSED
 Implementation Authority NOT GRANTED
 ```
+
+前两个 Gate 只表示 Temporary candidate 已闭合并通过受控 feasibility evidence；
+在用户审查并明确授权前，不得修改 production/public/generated/runtime surface。
 
 ## 6. 抽象与单项实施准入
 
@@ -169,6 +174,35 @@ Implementation Authority NOT GRANTED
 - 两个 example 保持 problem/workload identity；
 - 不用缩小规模、自动放宽阈值或单次 wall-clock 掩盖问题。
 
+### 7.1 Stage 1–3 有界执行协议
+
+Stage 1–3 采用“证据够用即停”，不把设计闭合变成长时间调优：
+
+1. 每个 Decision 只进行一次事实审计、一次必要 prototype 和一次结论复核；
+2. 同一问题最多比较两个能保持 F0 目标的候选；第三种方向必须先证明前两种都
+   无法满足语义或架构约束；
+3. Stage 1 只形成 coverage 与 gap，不实现 operator；
+4. Stage 2 只冻结可观察语义和 reference oracle，不选择 P2 physical strategy；
+5. Stage 3 prototype 只回答 compatibility、footprint、lifecycle、determinism 和
+   fast-path feasibility，不追求最终吞吐数字；
+6. 可由静态依赖、编译、golden 或 deterministic test 回答的问题，不运行
+   benchmark；需要 timing 时先单 fork feasibility，只有结论会改变架构裁决时
+   才运行有限多 fork；
+7. 同一实验最多一次修正和复跑。仍不确定时记录 evidence limit 和保守裁决，
+   不循环调参、rebaseline 或缩小 workload；
+8. 窄 Gate 随 slice 运行；`./scripts/check.sh` 只在 Stage 3 immutable candidate
+   前运行一次；
+9. 不新增 F0 之外的能力，不提前进入 Stage 4 production 实施，不以文档篇幅、
+   LOC 或漂亮 benchmark 数字替代退出条件。
+
+各阶段唯一退出条件：
+
+| Stage | 唯一退出条件 |
+|---|---|
+| 1 | 场景、runtime fact/behavior、Access、Transformation、contract coverage 全映射，gap 均有 Owner |
+| 2 | admitted capability 的 Shape、Value、order、lineage、Effect、failure 与 legality 无 Open |
+| 3 | contract/IR/binding/module/identity/resource/explain 均有唯一候选，P1 prototype 通过，形成 immutable candidate |
+
 ## 8. Risk Register
 
 ### P0：实施前必须关闭
@@ -184,6 +218,10 @@ Implementation Authority NOT GRANTED
 - D25 deadline/resource/cancellation；
 - admitted operator variant 与 canonical API。
 
+状态：`CLOSED`。Stage 1 coverage、Stage 2 semantic closure 与 Stage 3 contract
+projection 已将上述责任映射到 Resolved/Fixed Target；不存在留给 Stage 4 决定的
+可观察语义。
+
 ### P1：必须由 prototype 证明
 
 - generated source/class/type/compile footprint；
@@ -193,6 +231,17 @@ Implementation Authority NOT GRANTED
 - sequential/parallel identity、cancel/drain 和 worker scratch；
 - Candidate Scan zero-stage/exact/best-one/mutation fast path；
 - golden、schema hash、protocol 和 external consumer closure。
+
+状态：`PASSED FOR ARCHITECTURE CANDIDATE`。证据组合为：
+
+- Temporary Java 8 prototype：module/external consumer、typed binding、
+  canonical guard/partial cleanup、consumer-counted scratch、callback retention、
+  direct/fixed-partition identity、cancel/drain、executor ownership 和 companion
+  footprint；
+- 当前 v4 executable evidence：Candidate Scan fast path、golden/schema hash、
+  generated protocol、external consumer 和 33-table code-size baseline；
+- Stage 4 强制 replacement Gate：真实 v5 binding 必须逐 slice 重新证明上述
+  executable contract。本状态不是用 prototype 替代 production evidence。
 
 ### P2：由稳定性能证据选择
 
@@ -204,7 +253,10 @@ Implementation Authority NOT GRANTED
 
 P2 是 physical strategy，不是产品语义。某个 P2 策略被否决不构成目标缩水。
 
-## 9. F0 Product/Scope Freeze Readiness 自审
+## 9. F0 Product/Scope Freeze Readiness 历史基线
+
+本节记录 immutable F0 commit
+`f3e694828c0b623b85dfe4e842c75e668db9ff9b` 当时的状态，不代表当前未决数：
 
 | 维度 | 结果 | 结论 |
 |---|---|---|
@@ -233,17 +285,42 @@ Stage 1–3 不得缩水的 immutable 目标基线；Semantic/Architecture Desig
 candidate，还不是 immutable implementation candidate。不得开始 Stage 4
 production 实施。
 
-## 10. 下一关闭顺序
+## 10. Stage 1–3 Immutable Candidate 自审
 
-1. Stage 1：完成四场景 semantic projection、runtime fact/behavior 与
-   Access/Transformation/contract coverage；
-2. Stage 2：关闭 D2/D3/D7–D9/D14/D17–D18/D23/D24/D27–D30；
-3. Stage 3：关闭 D4–D6/D10/D12–D13/D15–D16/D19–D20/D25–D26；
-4. 运行 architecture/footprint prototype 与 semantic differential evidence；
-5. 再做一次 immutable candidate audit；
-6. 用户明确授权后进入 Stage 4。
+| 维度 | 结果 | 结论 |
+|---|---|---|
+| Decision closure | PASS | 8 Fixed Target、22 Resolved、0 Candidate、0 Open |
+| Scope non-regression | PASS | F0 最低能力、Parallel、Safe Point、两 example、Scan fast path 和 evidence 全保留 |
+| Stage 1 coverage | PASS | 四场景 projection 与 Access/Transformation/contract gap 均有唯一 Owner |
+| Semantic Closure | PASS | Value、Shape、Operator、Result、Effect、order、lineage、failure 和 non-goal 已冻结 |
+| Architecture Feasibility | PASS | module/API/IR/binding/context/identity/resource/explain 有唯一候选并经 Java 8 prototype |
+| Access/Scan boundary | PASS | Point/Column/Key/Bulk/Ownership 独立；Candidate Scan 不改走 generic DAG executor |
+| Lifecycle/atomicity | PASS | 不开放 concurrent Table、跨 root transaction 或新半发布 lifecycle；既有 operation 原子性不削弱 |
+| Footprint discipline | PASS | 一个 Table 最多一个 companion；不按 operator × Table 生成；Stage 4 仍有真实 code-size Gate |
+| P2 separation | PASS | Join/reduction/partition/kernel/crossover 未被误写为固定产品语义 |
+| Implementation readiness | READY FOR AUTHORIZATION | 三重 Gate 前两项通过，Implementation Authority 仍未授予 |
 
-## 11. 最终收口检查
+本轮只修改 active Temporary 及其 prototype，没有修改正式 Blueprint/Design、
+production/public/generated API、annotation Schema、runtime、examples、benchmark
+或正式支持声明。Prototype 不进入 reactor 和 product artifact。
+
+Stage 4 仍须以真实代码逐 slice 证明 generated v5 binding、schema hash不变、
+Scan specialization、external consumer、failure atomicity、parallel identity、
+allocation/footprint 和 application trace；这些是 implementation evidence，
+不是尚未裁决的产品语义。
+
+因此 Stage 1–3 可以形成 immutable implementation candidate，但不得自动开始
+Stage 4。下一步必须由用户审查并明确授予 Implementation Authorization。
+
+## 11. Stage 4–6 剩余顺序
+
+1. 用户审查并授权 frozen candidate；
+2. Stage 4 按 Execution Architecture 的 vertical slice 原子实施；
+3. Stage 5 选择 P2 physical strategy 并完成稳定性能验真；
+4. Stage 6 scope non-regression、正式文档原子固化、Report、Temporary 退役与
+   完整 Gate。
+
+## 12. 最终收口检查
 
 专题退役前，所有 Open/Candidate 必须关闭，admitted capability 必须端到端完成，
 DSL/DataFlow/Parallel 与当前 Access/Scan 必须具有匹配的 correctness、lifecycle、
@@ -252,7 +329,7 @@ compatibility alias、第二 memory backend、重复 Owner 或 future-rewrite de
 最后原子同步正式 Design、代码、test、example、benchmark、Conformance、Report
 和 checker，删除 Temporary，并在最终源码上通过完整 Gate。
 
-## 12. 外部设计参照
+## 13. 外部设计参照
 
 非规范性参照包括 [Java Stream](https://docs.oracle.com/javase/8/docs/api/java/util/stream/package-summary.html)、
 [Arrow/Acero](https://arrow.apache.org/docs/cpp/acero/overview.html)、
