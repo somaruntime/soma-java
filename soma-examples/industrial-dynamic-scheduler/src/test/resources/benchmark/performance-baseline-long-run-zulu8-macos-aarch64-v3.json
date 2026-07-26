@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "industrial-scheduler-long-run-zulu8-macos-aarch64-v2",
+  "baselineId": "industrial-scheduler-long-run-zulu8-macos-aarch64-v3",
   "layer": "reference-application",
   "subject": "industrial-dynamic-scheduler",
   "artifactVersion": "industrial-scheduler-benchmark-v4",
   "calibration": {
-    "commit": "a7d4fde29f028c7c229cff04e6e8f56358841fab",
-    "date": "2026-07-24",
-    "forks": 9,
-    "formula": "allocation=ceil(p50*1.25); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else=max+1; gc-pause=0-if-zero-else=ceil(max*1.25)"
+    "commit": "44108fb624455bd83595dc997fdbdf42a5583102",
+    "date": "2026-07-27",
+    "forks": 5,
+    "formula": "identity-migration=generated-runtime-v5; thresholds=retained-from-prior-baseline-after-five-fork-non-regression"
   },
   "environment": {
     "javaVersion": "1.8.0_492-b09",
@@ -35,7 +35,7 @@
     "inputChecksum": "76670f9e33f38902b51b080c0429fe8114f6fc6f7ccc0f93b432eb7c6b461cc3",
     "resultChecksum": "72332e1116ab7f78c4901dcf698dcf25e08dfe9ee8e5ba681f6cda702dd78108",
     "schemaHash": "a178aa87d32d2fbbcea0a58dfa84fa1006bbfd6b80789959422b1ec9cf3b2f85",
-    "runtimePlanHash": "c73d3d23d032709d820cd9919e06799749734e59638e6fed0b8b33276d75b0b9",
+    "runtimePlanHash": "e3f5cf72e9834abc44db6722df7d716495ee7cb2bc72c7bdf9ccb3faa2699119",
     "jobs": 100,
     "operations": 10000,
     "machines": 100,

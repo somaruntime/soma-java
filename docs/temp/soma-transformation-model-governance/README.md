@@ -2,7 +2,8 @@
 
 类型：Temporary
 
-状态：active（Stage 1–5 complete；Stage 6 in progress）
+状态：active（Stage 1–5 complete；Stage 6 application candidate complete，
+formal promotion pending）
 
 Owner：SOMA Transformation Model governance
 
@@ -185,7 +186,7 @@ alias、双 executor、旧 adapter 或长期迁移层。
 | 3 | COMPLETE | contract projection、IR、binding、planner、module、identity、resource、explain 与 prototype | Architecture Feasibility Gate 通过并形成 immutable candidate |
 | 4 | COMPLETE | 按 vertical slice 完成 DSL 与 Reusable DataFlow 双轨实施 | admitted capability 已在 `190f90f` 端到端闭合 |
 | 5 | COMPLETE | physical optimization 与稳定性能验真 | correctness、allocation、GC、tail latency、parallel crossover 已闭合 |
-| 6 | IN PROGRESS | scope non-regression、industrial application trace、正式事实原子固化和 Temporary 退役 | 完整 Gate、Report、提交和无 active topic 状态完成 |
+| 6 | IN PROGRESS | scope non-regression、industrial application trace、正式事实原子固化和 Temporary 退役 | application candidate 已闭合；待完整 Gate、Report、提交和无 active topic 状态 |
 
 Stage 4 的每个 slice 必须是最终设计的有效子集：
 

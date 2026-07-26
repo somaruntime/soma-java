@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "industrial-scheduler-default-zulu8-macos-aarch64-v3",
+  "baselineId": "industrial-scheduler-large-zulu8-macos-aarch64-v3",
   "layer": "reference-application",
   "subject": "industrial-dynamic-scheduler",
   "artifactVersion": "industrial-scheduler-benchmark-v4",
   "calibration": {
-    "commit": "a7d4fde29f028c7c229cff04e6e8f56358841fab",
-    "date": "2026-07-24",
-    "forks": 9,
-    "formula": "allocation=ceil(p50*1.25); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25)"
+    "commit": "44108fb624455bd83595dc997fdbdf42a5583102",
+    "date": "2026-07-27",
+    "forks": 5,
+    "formula": "identity-migration=generated-runtime-v5; thresholds=retained-from-prior-baseline-after-five-fork-non-regression"
   },
   "environment": {
     "javaVersion": "1.8.0_492-b09",
@@ -16,33 +16,33 @@
     "javaVmName": "OpenJDK 64-Bit Server VM",
     "javaVmVersion": "25.492-b09",
     "jvmArgs": [
-      "-Xms256m",
-      "-Xmx256m"
+      "-Xms512m",
+      "-Xmx512m"
     ],
     "osName": "Mac OS X",
     "osVersion": "26.5.2",
     "architecture": "aarch64",
     "cpu": "Apple M5 Pro",
-    "maxHeapBytes": 257425408
+    "maxHeapBytes": 514850816
   },
   "minimumForks": 3,
   "identity": {
     "schemaVersion": "soma-reference-application-benchmark-v1",
-    "profile": "default",
-    "configChecksum": "b0d0404bba4f0bbcf62722b53c5daa8900df075b828c0ba5c3a0065b8ee95c1b",
+    "profile": "large",
+    "configChecksum": "fda0e3c4a880271b08c534b07f6f7ed113479633592193fb204397f91fcc039e",
     "generatorVersion": 1,
-    "seed": 1702,
-    "inputChecksum": "8aa5f7aa222205e79b69a243090927026911f67f48d603db9d3e0ba9895a6708",
-    "resultChecksum": "c9565a45d52b4446928c5e9fe8546ab6328c404b5b07e62baa74a0e85541facf",
+    "seed": 1703,
+    "inputChecksum": "f944f3818b1028d80e37eaf352bbfb68db30a6b2ac40262480687613904144b5",
+    "resultChecksum": "ab0d9c3d7e7d4d3b79a520b8016b0676deec2aae5ae6e34ada872d0a2adad32a",
     "schemaHash": "a178aa87d32d2fbbcea0a58dfa84fa1006bbfd6b80789959422b1ec9cf3b2f85",
-    "runtimePlanHash": "77991148118ec2670ed358c9a6e260c5ebce2c387956552b60d16360a96b1cb6",
-    "jobs": 10,
-    "operations": 1000,
-    "machines": 10,
+    "runtimePlanHash": "d70db53c1f0607c501ff7f976db98772ad5ffa1978d1d7687807c45470126a91",
+    "jobs": 1000,
+    "operations": 100000,
+    "machines": 100,
     "candidatesPerOperation": 3,
     "warmup": 1,
-    "measurements": 3,
-    "operationExecutions": 3000
+    "measurements": 1,
+    "operationExecutions": 100000
   },
   "recordShapes": [
     {
@@ -108,7 +108,7 @@
       "field": "allocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 4945880
+      "reference": 143337630
     },
     {
       "id": "allocation.end-to-end",
@@ -116,7 +116,7 @@
       "field": "endToEndAllocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 10122570
+      "reference": 288904040
     },
     {
       "id": "timing.hot-solve",
@@ -124,7 +124,7 @@
       "field": "solveNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 21261249
+      "reference": 1930655750
     },
     {
       "id": "timing.end-to-end",
@@ -132,7 +132,7 @@
       "field": "endToEndNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 34245435
+      "reference": 1990076312
     },
     {
       "id": "gc.young-count",
@@ -140,7 +140,7 @@
       "field": "youngGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 3
     },
     {
       "id": "gc.young-pause",
@@ -148,7 +148,7 @@
       "field": "youngGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 10
     },
     {
       "id": "gc.full-count",
@@ -172,7 +172,7 @@
       "field": "exactIndexHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 106384
+      "reference": 11832761
     },
     {
       "id": "high-water.update-scratch",
@@ -188,7 +188,7 @@
       "field": "operationScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 4256
+      "reference": 553012
     },
     {
       "id": "frontier.capacity",
@@ -196,7 +196,7 @@
       "field": "frontierCapacity",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 30
+      "reference": 3000
     }
   ],
   "claimAllowed": false

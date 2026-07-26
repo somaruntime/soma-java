@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：implementation candidate
+状态：immutable application candidate
 
 Owner：industrial-dynamic-scheduler DataFlow application trace
 
@@ -73,9 +73,31 @@ output 重复通用 null/lifecycle 测试。
 - isolated Java 8 Maven consumer 构建；
 - correctness/default/large/long-run 保持相同 input/result identity；
 - application verification 证明真实 DataFlow invocation 成功且覆盖 runtime facts；
-- public/generated API、Schema hash、RuntimePlan hash 和 frontier contract 不变；
-- default baseline 仍通过；large/long-run 只在完整 Gate 已拥有的既有 lane 中验真，
-  不因本次 trace 重新校准或放宽；
+- public/generated API、Schema hash 和 frontier contract 不变；generated-runtime v5
+  引起的 RuntimePlan hash 只进行 provenance-aware identity migration；
+- default/large/long-run 各使用一次 5-fork 校准证据验证既有阈值，不重新计算、
+  放宽或循环调节性能阈值；
 - production JAR 不包含 benchmark/fixture/oracle/verification；
 - formal Blueprint/Design/Implementation/Conformance/Report 最终原子接管本事实，
   随后删除本文件。
+
+## 5. Immutable candidate evidence
+
+候选提交：`44108fb624455bd83595dc997fdbdf42a5583102`
+
+应用 correctness Gate 首先识别出“按 operation 累加 tardiness”与领域语义不一致；
+修复位于事实 Owner：DataFlow 先按 `job + due + priority` GroupBy，再对每组
+`end` 求最大值，最后只按 job completion 计算 tardiness。测试未放宽，也未增加
+重复边界用例。
+
+三个既有 workload 各执行一次 5-fork 校准。输入、结果与 Schema identity 保持
+不变，只有 generated-runtime v5 的 RuntimePlan hash 发生预期变化：
+
+| profile | operations | solve 范围 | hot allocation 范围 | GC | 结论 |
+|---|---:|---:|---:|---:|---|
+| default | 1,000 | 14.68–15.75 ms | 4.06 MB | young/full 0/0 | 既有阈值通过 |
+| large | 100,000 | 1.30–1.33 s | 121.93–126.59 MB | young/full 2/0 | 既有阈值通过 |
+| long-run | 10,000 | 47.45–50.91 ms | 11.86–14.99 MB | young/full 1/0 | 既有阈值通过 |
+
+基线版本仅升级 identity/provenance，全部 metric reference 原样保留。这里证明
+应用 trace 没有破坏既有性能包络，不形成跨机器支持或发布声明。
