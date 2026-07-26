@@ -40,8 +40,21 @@ public final class DataFlowSliceDCheck {
         NumericFactDataFlow.Source source =
                 NumericFactDataFlow.source("facts");
         DataFlowContext sequential = DataFlowContext.sequential();
-        DataFlowContext managed = DataFlowContext.managedParallel(4);
+        DataFlowContext defaultAdaptive =
+                DataFlowContext.managedParallel(4);
+        DataFlowContext managed = DataFlowContext.managedParallel(
+                4,
+                ExecutionPolicy.adaptiveParallel()
+                        .withMinimumParallelCardinality(1024),
+                ExecutionBudget.defaults());
         try {
+            require(executeDefaultAdaptive(
+                            source.candidates().count(),
+                            source,
+                            table,
+                            defaultAdaptive)
+                            .stats.tasks() == 1,
+                    "default adaptive policy avoids unsupported small-work crossover");
             verifyPureKernels(source, table, sequential, managed);
             verifyFallbacks(source, table, managed);
             verifyEffect(source, table, managed);
@@ -50,6 +63,7 @@ public final class DataFlowSliceDCheck {
             verifyBorrowedExecutors(source, table);
         } finally {
             sequential.close();
+            defaultAdaptive.close();
             managed.close();
             table.release();
         }
@@ -380,7 +394,23 @@ public final class DataFlowSliceDCheck {
                         .bind(source, NumericFactDataFlow.bind(table))
                         .policy((context.workers() > 1
                                 ? ExecutionPolicy.adaptiveParallel()
+                                        .withMinimumParallelCardinality(1024)
                                 : ExecutionPolicy.sequential())
+                                .withStatsMode(StatsMode.DETAILED));
+        R result = invocation.execute();
+        return new Run<R>(result, invocation.stats());
+    }
+
+    private static <R> Run<R> executeDefaultAdaptive(
+            DataFlowDefinition<R> definition,
+            NumericFactDataFlow.Source source,
+            NumericFactTable table,
+            DataFlowContext context) {
+        DataFlowInvocation<R> invocation =
+                definition.compile()
+                        .newInvocation(context)
+                        .bind(source, NumericFactDataFlow.bind(table))
+                        .policy(ExecutionPolicy.adaptiveParallel()
                                 .withStatsMode(StatsMode.DETAILED));
         R result = invocation.execute();
         return new Run<R>(result, invocation.stats());

@@ -14,7 +14,7 @@ public final class ExecutionPolicy {
                     Mode.SEQUENTIAL, 1024, StatsMode.BASIC);
     private static final ExecutionPolicy ADAPTIVE =
             new ExecutionPolicy(
-                    Mode.ADAPTIVE_PARALLEL, 1024, StatsMode.BASIC);
+                    Mode.ADAPTIVE_PARALLEL, 65536, StatsMode.BASIC);
 
     private final Mode mode;
     private final int minimumParallelCardinality;

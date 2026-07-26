@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -213,6 +214,8 @@ public final class DataFlowComponentBenchmark {
             SINK = mix(SINK, lane.run());
         }
 
+        long[] invocationNanos =
+                new long[options.measurementIterations];
         long allThreadsBefore = lane.allThreads
                 ? JvmRuntimeMetrics.allLiveThreadAllocatedBytes() : -1L;
         JvmRuntimeMetrics.Snapshot before = JvmRuntimeMetrics.snapshot();
@@ -221,11 +224,16 @@ public final class DataFlowComponentBenchmark {
         for (int iteration = 0;
              iteration < options.measurementIterations;
              iteration++) {
-            checksum = mix(checksum, lane.run());
+            long invocationStarted = System.nanoTime();
+            long value = lane.run();
+            invocationNanos[iteration] =
+                    System.nanoTime() - invocationStarted;
+            checksum = mix(checksum, value);
         }
         long elapsed = System.nanoTime() - started;
         JvmRuntimeMetrics.Delta delta =
                 JvmRuntimeMetrics.snapshot().since(before);
+        Latency latency = Latency.from(invocationNanos);
         long allocatedBytes;
         String allocationMethod;
         if (lane.allThreads) {
@@ -269,6 +277,7 @@ public final class DataFlowComponentBenchmark {
                 Double.valueOf(
                         (double) elapsed
                                 / options.measurementIterations));
+        record.put("latencyNanos", latency.toMap());
         record.put("gcStats", gcStats(delta));
         record.put("checksum", Long.valueOf(checksum));
         record.put("observationKind", "measured");
@@ -279,6 +288,7 @@ public final class DataFlowComponentBenchmark {
                         lane.allThreads
                                 ? "allocation covers live Java threads; dead-thread allocation is not recoverable"
                                 : "allocation covers the benchmark thread",
+                        "per-invocation latency includes System.nanoTime sampling overhead",
                         "claimAllowed=false; no cross-machine or release claim"));
         record.put("claimAllowed", Boolean.FALSE);
         records.add(record);
@@ -398,6 +408,60 @@ public final class DataFlowComponentBenchmark {
         }
 
         abstract long run();
+    }
+
+    private static final class Latency {
+        final int samples;
+        final long p50;
+        final long p90;
+        final long p99;
+        final long maximum;
+
+        private Latency(
+                int samples,
+                long p50,
+                long p90,
+                long p99,
+                long maximum) {
+            this.samples = samples;
+            this.p50 = p50;
+            this.p90 = p90;
+            this.p99 = p99;
+            this.maximum = maximum;
+        }
+
+        static Latency from(long[] values) {
+            if (values.length == 0) {
+                throw new IllegalArgumentException(
+                        "latency samples required");
+            }
+            long[] sorted = Arrays.copyOf(values, values.length);
+            Arrays.sort(sorted);
+            return new Latency(
+                    sorted.length,
+                    percentile(sorted, 0.50d),
+                    percentile(sorted, 0.90d),
+                    percentile(sorted, 0.99d),
+                    sorted[sorted.length - 1]);
+        }
+
+        LinkedHashMap<String, Object> toMap() {
+            return BenchmarkModel.object(
+                    "samples", Integer.valueOf(samples),
+                    "p50", Long.valueOf(p50),
+                    "p90", Long.valueOf(p90),
+                    "p99", Long.valueOf(p99),
+                    "maximum", Long.valueOf(maximum),
+                    "method",
+                    "per-invocation-system-nanotime-nearest-rank");
+        }
+
+        private static long percentile(
+                long[] sorted, double percentile) {
+            int rank = (int) Math.ceil(
+                    percentile * sorted.length);
+            return sorted[Math.max(0, rank - 1)];
+        }
     }
 
     private static final class Workload implements AutoCloseable {
