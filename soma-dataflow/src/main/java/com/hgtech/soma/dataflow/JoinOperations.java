@@ -116,7 +116,7 @@ abstract class JoinOperation<
             KeyExpression<L> leftKey,
             KeyExpression<R> rightKey,
             JoinType type) {
-        super(left.source(), right.source());
+        super(left, right);
         this.left = left;
         this.right = right;
         this.leftKey = leftKey;

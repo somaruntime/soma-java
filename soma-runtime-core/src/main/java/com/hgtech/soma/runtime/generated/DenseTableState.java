@@ -159,6 +159,15 @@ public final class DenseTableState {
 
     public int checkRowIndex(int rowIndex, String operation) {
         checkActive(operation);
+        return checkGuardedRowIndex(rowIndex, operation);
+    }
+
+    /**
+     * Range validation for generated code that already owns an aggregate
+     * DataFlow guard and therefore must not re-enter application access
+     * preflight.
+     */
+    public int checkGuardedRowIndex(int rowIndex, String operation) {
         if (rowIndex < 0 || rowIndex >= size) {
             throw RuntimeFailures.invalidRowIndex(
                     tableLogicalName, rowIndex, size, structuralEpoch, operation);

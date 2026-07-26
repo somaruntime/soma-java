@@ -3,6 +3,8 @@ package com.hgtech.soma.dataflow;
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Immutable logical transformation definition.
@@ -28,6 +30,24 @@ public final class DataFlowDefinition<R> {
                     .append(source.alias()).append('\n')
                     .append(source.schemaIdentity()).append('\n')
                     .append(source.tableIdentity()).append('\n');
+        }
+        Map<Integer, ParameterSlot<?>> ordinals =
+                new HashMap<Integer, ParameterSlot<?>>();
+        Map<String, ParameterSlot<?>> names =
+                new HashMap<String, ParameterSlot<?>>();
+        for (ParameterSlot<?> parameter : operation.requiredParameters()) {
+            ParameterSlot<?> byOrdinal = ordinals.put(
+                    Integer.valueOf(parameter.ordinal()), parameter);
+            ParameterSlot<?> byName = names.put(parameter.name(), parameter);
+            if ((byOrdinal != null && byOrdinal != parameter)
+                    || (byName != null && byName != parameter)) {
+                throw DataFlowFailures.invalidInput(
+                        "dataflow_parameter_identity_collision",
+                        parameter.name(),
+                        "dataflow.definition");
+            }
+            canonical.append("parameter\n")
+                    .append(parameter.canonical()).append('\n');
         }
         canonical.append(operation.canonicalForm()).append('\n');
         identity = DataFlowSupport.identity(canonical.toString());
@@ -56,6 +76,10 @@ public final class DataFlowDefinition<R> {
 
     List<SourceSlot<? extends DataFlowBinding>> requiredSources() {
         return operation.requiredSources();
+    }
+
+    List<ParameterSlot<?>> requiredParameters() {
+        return operation.requiredParameters();
     }
 
     DataFlowOperation<R> operation() {

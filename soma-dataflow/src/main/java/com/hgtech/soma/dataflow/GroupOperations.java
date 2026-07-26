@@ -38,7 +38,7 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
     final KeyExpression<B> key;
 
     GroupOperation(CandidateProgram<B> program, KeyExpression<B> key) {
-        super(program.source());
+        super(program);
         this.program = program;
         this.key = key;
     }

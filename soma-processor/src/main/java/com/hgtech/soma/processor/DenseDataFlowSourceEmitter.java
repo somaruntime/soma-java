@@ -42,12 +42,19 @@ final class DenseDataFlowSourceEmitter {
                 .append("import com.hgtech.soma.dataflow.GeneratedDataFlow;\n")
                 .append("import com.hgtech.soma.dataflow.LongExpression;\n")
                 .append("import com.hgtech.soma.dataflow.ObjectExpression;\n")
+                .append("import com.hgtech.soma.dataflow.ParameterSlot;\n")
+                .append("import com.hgtech.soma.dataflow.PointFlow;\n")
                 .append("import com.hgtech.soma.dataflow.SourceSlot;\n")
+                .append("import com.hgtech.soma.dataflow.generated.CandidateBorrowAccess;\n")
                 .append("import com.hgtech.soma.dataflow.generated.CandidateIndexAccess;\n")
                 .append("import com.hgtech.soma.dataflow.generated.CandidateEffectAccess;\n")
+                .append("import com.hgtech.soma.dataflow.generated.CandidateMaterializationAccess;\n")
                 .append("import com.hgtech.soma.dataflow.generated.DataFlowBinding;\n")
                 .append("import com.hgtech.soma.dataflow.generated.OwnedChildAccess;\n")
+                .append("import com.hgtech.soma.dataflow.generated.PointIndexAccess;\n")
+                .append("import com.hgtech.soma.dataflow.generated.SnapshotGatherAccess;\n")
                 .append("import com.hgtech.soma.runtime.IndexSnapshot;\n")
+                .append("import com.hgtech.soma.runtime.MaterializationBudget;\n")
                 .append("import com.hgtech.soma.runtime.RemoveResult;\n")
                 .append("import com.hgtech.soma.runtime.UpdateResult;\n")
                 .append("import com.hgtech.soma.runtime.generated.RuntimeFailures;\n")
@@ -70,6 +77,7 @@ final class DenseDataFlowSourceEmitter {
                 .append("    private final Columns columns=new Columns(this);\n")
                 .append("    private Source(int ordinal,String alias){super(ordinal,alias,SCHEMA_IDENTITY,TABLE_IDENTITY);}\n")
                 .append("    public CandidateFlow<Binding> candidates(){return GeneratedDataFlow.candidates(this);}\n");
+        appendAccessSourceMethods(out, table);
         appendExactSourceMethods(out, table);
         appendOwnedChildSourceMethods(out, table);
         appendEffectSourceMethods(out, table);
@@ -83,6 +91,7 @@ final class DenseDataFlowSourceEmitter {
         appendExactAccessTypes(out, table);
         appendOwnedChildAccessTypes(out, table);
         appendEffectAccessType(out, table);
+        appendAccessTypes(out, table);
         out.append("  private static String identityComponent(Object value){String text=String.valueOf(value);return text.length()+\":\"+text;}\n\n")
                 .append("  public static final class Binding implements DataFlowBinding{\n")
                 .append("    private final ").append(tableType).append(" table;\n")
@@ -105,6 +114,49 @@ final class DenseDataFlowSourceEmitter {
                 .append("  }\n")
                 .append("}\n");
         return out.toString();
+    }
+
+    private static void appendAccessSourceMethods(
+            SourceBuilder out, TableSpec table) {
+        String scan = table.name("Scan");
+        String carrier = table.carrierType;
+        out.append("    public PointFlow<Binding,").append(carrier)
+                .append("> pointAt(int index){return GeneratedDataFlow.point(this,new CurrentIndexAccess(index),new MaterializationAccess());}\n")
+                .append("    public CandidateFlow<Binding> gather(ParameterSlot<IndexSnapshot> snapshot){return GeneratedDataFlow.gather(this,snapshot,new GatherAccess());}\n")
+                .append("    public DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(CandidateFlow<Binding> candidates,")
+                .append(scan)
+                .append(".Consumer consumer){return GeneratedDataFlow.borrow(this,candidates,new BorrowAccess(),consumer);}\n")
+                .append("    public DataFlowDefinition<java.util.List<")
+                .append(carrier)
+                .append(">> materialize(CandidateFlow<Binding> candidates,MaterializationBudget budget){return GeneratedDataFlow.materialize(this,candidates,new MaterializationAccess(),budget);}\n");
+        if (table.keyed()) {
+            FieldSpec key = table.keyField();
+            out.append("    public PointFlow<Binding,").append(carrier)
+                    .append("> pointBy").append(cap(key.javaName)).append('(')
+                    .append(key.primitive).append(" key){return GeneratedDataFlow.point(this,new KeyAccess(key),new MaterializationAccess());}\n");
+        }
+    }
+
+    private static void appendAccessTypes(
+            SourceBuilder out, TableSpec table) {
+        String scan = table.name("Scan");
+        out.append("  private static final class CurrentIndexAccess implements PointIndexAccess<Binding>{private final int index;private CurrentIndexAccess(int index){this.index=index;}public int index(Binding binding){return binding.table.dataFlowCurrentIndex(index);}public String identity(){return TABLE_IDENTITY+\":current-index:\"+index;}}\n")
+                .append("  private static final class GatherAccess implements SnapshotGatherAccess<Binding>{public void requireCurrent(Binding binding,IndexSnapshot snapshot){binding.table.dataFlowRequireCurrent(snapshot);}public String identity(){return TABLE_IDENTITY+\":index-snapshot-gather-v1\";}}\n")
+                .append("  private static final class BorrowAccess implements CandidateBorrowAccess<Binding>{public void borrow(Binding binding,int[] indexes,int count,Object consumer){binding.table.dataFlowBorrow(indexes,count,(")
+                .append(scan)
+                .append(".Consumer)consumer);}public String identity(){return TABLE_IDENTITY+\":candidate-borrow-v1\";}}\n")
+                .append("  private static final class MaterializationAccess implements CandidateMaterializationAccess<Binding,")
+                .append(table.carrierType)
+                .append(">{public java.util.List<").append(table.carrierType)
+                .append("> materialize(Binding binding,int[] indexes,int count,MaterializationBudget budget){return binding.table.dataFlowMaterializeRows(indexes,count,budget);}public String identity(){return TABLE_IDENTITY+\":materialize-v1\";}}\n");
+        if (table.keyed()) {
+            FieldSpec key = table.keyField();
+            out.append("  private static final class KeyAccess implements PointIndexAccess<Binding>{private final ")
+                    .append(key.primitive)
+                    .append(" key;private KeyAccess(").append(key.primitive)
+                    .append(" key){this.key=key;}public int index(Binding binding){return binding.table.dataFlowKeyIndex(key);}public String identity(){return TABLE_IDENTITY+\":primary-key:\"+identityComponent(key);}}\n");
+        }
+        out.append('\n');
     }
 
     private static void appendEffectSourceMethods(
@@ -208,6 +260,39 @@ final class DenseDataFlowSourceEmitter {
                     .append(selectorIndex).append("(hash");
             appendSourceLeafArguments(out, selector.leaves.size());
             out.append("));}\n");
+            if ("unique".equals(selector.kind)) {
+                out.append("    public PointFlow<Binding,")
+                        .append(table.carrierType)
+                        .append("> pointBy").append(suffix).append('(');
+                appendSelectorParameters(out, parameters);
+                out.append("){");
+                for (int leafIndex = 0;
+                     leafIndex < selector.leaves.size();
+                     leafIndex++) {
+                    SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                    out.append(leaf.storageType).append(" sourceLeaf")
+                            .append(leafIndex).append('=')
+                            .append(selectorParameterArgument(
+                                    parameters, leafIndex, leaf,
+                                    "pointBy" + suffix))
+                            .append(';');
+                }
+                out.append("long hash=1469598103934665603L;");
+                for (int leafIndex = 0;
+                     leafIndex < selector.leaves.size();
+                     leafIndex++) {
+                    SelectorLeafSpec leaf = selector.leaves.get(leafIndex);
+                    out.append("hash=(hash^")
+                            .append(selectorHashBits(
+                                    leaf.storageType,
+                                    "sourceLeaf" + leafIndex))
+                            .append(")*1099511628211L;");
+                }
+                out.append("return GeneratedDataFlow.point(this,new ExactAccess")
+                        .append(selectorIndex).append("(hash");
+                appendSourceLeafArguments(out, selector.leaves.size());
+                out.append("),new MaterializationAccess());}\n");
+            }
         }
     }
 
@@ -221,7 +306,10 @@ final class DenseDataFlowSourceEmitter {
                     selector.kind + ":" + selector.name;
             out.append("  private static final class ExactAccess")
                     .append(selectorIndex)
-                    .append(" implements CandidateIndexAccess<Binding>{\n")
+                    .append(" implements CandidateIndexAccess<Binding>")
+                    .append("unique".equals(selector.kind)
+                            ? ",PointIndexAccess<Binding>" : "")
+                    .append("{\n")
                     .append("    private final long hash;private final String identity;");
             for (int leafIndex = 0;
                  leafIndex < selector.leaves.size();
@@ -263,6 +351,9 @@ final class DenseDataFlowSourceEmitter {
                     .append(selectorIndex).append("SourceFirst(group);}\n")
                     .append("    public int next(Binding binding,int currentIndex){return binding.table.selector")
                     .append(selectorIndex).append("SourceNext(currentIndex);}\n")
+                    .append("unique".equals(selector.kind)
+                            ? "    public int index(Binding binding){int group=group(binding);return group<0?-1:first(binding,group);}\n"
+                            : "")
                     .append("    public String identity(){return identity;}\n")
                     .append("  }\n\n");
         }

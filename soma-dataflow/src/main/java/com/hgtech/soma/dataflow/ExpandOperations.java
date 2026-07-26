@@ -53,6 +53,10 @@ final class ExpandedProgram<
         return parents.source();
     }
 
+    CandidateProgram<P> parentProgram() {
+        return parents;
+    }
+
     SourceSlot<C> childSource() {
         return childSource;
     }
@@ -124,7 +128,7 @@ abstract class ExpandedOperation<
     final ExpandedProgram<P, C> program;
 
     ExpandedOperation(ExpandedProgram<P, C> program) {
-        super(program.parentSource());
+        super(program.parentProgram());
         this.program = program;
     }
 

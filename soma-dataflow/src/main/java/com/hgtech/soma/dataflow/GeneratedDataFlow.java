@@ -4,8 +4,16 @@ import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.dataflow.generated.CandidateIndexAccess;
 import com.hgtech.soma.dataflow.generated.CandidateEffectAccess;
 import com.hgtech.soma.dataflow.generated.OwnedChildAccess;
+import com.hgtech.soma.dataflow.generated.PointIndexAccess;
+import com.hgtech.soma.dataflow.generated.SnapshotGatherAccess;
+import com.hgtech.soma.dataflow.generated.CandidateBorrowAccess;
+import com.hgtech.soma.dataflow.generated.CandidateMaterializationAccess;
+import com.hgtech.soma.runtime.IndexSnapshot;
+import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.UpdateResult;
+
+import java.util.List;
 
 /**
  * Narrow construction bridge used by generated schema companions.
@@ -36,6 +44,64 @@ public final class GeneratedDataFlow {
         return new CandidateFlow<B>(
                 new CandidatePlan<B>(
                         new ExactCandidateInput<B>(source, access)));
+    }
+
+    public static <B extends DataFlowBinding, T> PointFlow<B, T> point(
+            SourceSlot<B> source,
+            PointIndexAccess<B> access,
+            CandidateMaterializationAccess<B, T> materialization) {
+        required(source, "source");
+        required(access, "access");
+        required(materialization, "materialization");
+        return new PointFlow<B, T>(
+                new CandidateFlow<B>(
+                        new CandidatePlan<B>(
+                                new PointCandidateInput<B>(source, access))),
+                materialization);
+    }
+
+    public static <B extends DataFlowBinding> CandidateFlow<B> gather(
+            SourceSlot<B> source,
+            ParameterSlot<IndexSnapshot> snapshot,
+            SnapshotGatherAccess<B> access) {
+        required(source, "source");
+        required(snapshot, "snapshot");
+        required(access, "access");
+        return new CandidateFlow<B>(
+                new CandidatePlan<B>(
+                        new SnapshotCandidateInput<B>(
+                                source, snapshot, access)));
+    }
+
+    public static <B extends DataFlowBinding>
+    DataFlowDefinition<LongScalarResult> borrow(
+            SourceSlot<B> source,
+            CandidateFlow<B> candidates,
+            CandidateBorrowAccess<B> access,
+            Object consumer) {
+        CandidateProgram<B> program =
+                requireCandidateSource(source, candidates, "borrow");
+        return DataFlowDefinition.of(
+                new CandidateBorrowOperation<B>(
+                        program,
+                        required(access, "access"),
+                        required(consumer, "consumer")));
+    }
+
+    public static <B extends DataFlowBinding, T>
+    DataFlowDefinition<List<T>> materialize(
+            SourceSlot<B> source,
+            CandidateFlow<B> candidates,
+            CandidateMaterializationAccess<B, T> access,
+            MaterializationBudget budget) {
+        CandidateProgram<B> program =
+                requireCandidateSource(source, candidates, "materialize");
+        return DataFlowDefinition.of(
+                new CandidateMaterializeOperation<B, T>(
+                        program,
+                        required(access, "access"),
+                        required(budget, "budget"),
+                        "Candidate"));
     }
 
     public static <

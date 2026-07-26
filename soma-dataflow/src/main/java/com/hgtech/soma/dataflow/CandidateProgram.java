@@ -2,6 +2,12 @@ package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.dataflow.generated.CandidateIndexAccess;
+import com.hgtech.soma.dataflow.generated.PointIndexAccess;
+import com.hgtech.soma.dataflow.generated.SnapshotGatherAccess;
+import com.hgtech.soma.runtime.IndexSnapshot;
+
+import java.util.Collections;
+import java.util.List;
 
 final class CandidatePlan<B extends DataFlowBinding> {
     private final CandidateInput<B> input;
@@ -123,6 +129,10 @@ interface CandidateInput<B extends DataFlowBinding> {
     boolean supportsStreaming();
 
     String canonical();
+
+    default List<ParameterSlot<?>> requiredParameters() {
+        return Collections.emptyList();
+    }
 }
 
 final class PackedCandidateInput<B extends DataFlowBinding>
@@ -283,6 +293,142 @@ final class ExactCandidateInput<B extends DataFlowBinding>
     }
 }
 
+final class PointCandidateInput<B extends DataFlowBinding>
+        implements CandidateInput<B> {
+    private final SourceSlot<B> source;
+    private final PointIndexAccess<B> access;
+
+    PointCandidateInput(SourceSlot<B> source, PointIndexAccess<B> access) {
+        this.source = source;
+        this.access = access;
+    }
+
+    @Override
+    public SourceSlot<B> source() {
+        return source;
+    }
+
+    @Override
+    public CandidateVisit visit(
+            ExecutionFrame frame, CandidateVisitor visitor, String operation) {
+        int index = locate(frame);
+        if (index < 0) {
+            return new CandidateVisit(1L, 0);
+        }
+        visitor.accept(index, 0);
+        return new CandidateVisit(1L, 1);
+    }
+
+    @Override
+    public CandidateSelection select(ExecutionFrame frame, String operation) {
+        int index = locate(frame);
+        int count = index < 0 ? 0 : 1;
+        int[] indexes = frame.newScratchIndexes(count, operation);
+        if (count != 0) {
+            indexes[0] = index;
+        }
+        return new CandidateSelection(indexes, count, 1L);
+    }
+
+    @Override
+    public int maximumCardinality(DataFlowBinding binding) {
+        return 1;
+    }
+
+    @Override
+    public boolean supportsStreaming() {
+        return true;
+    }
+
+    @Override
+    public String canonical() {
+        return "point(" + access.identity() + ")";
+    }
+
+    @SuppressWarnings("unchecked")
+    private int locate(ExecutionFrame frame) {
+        return access.index((B) frame.binding(source));
+    }
+}
+
+final class SnapshotCandidateInput<B extends DataFlowBinding>
+        implements CandidateInput<B> {
+    private final SourceSlot<B> source;
+    private final ParameterSlot<IndexSnapshot> snapshot;
+    private final SnapshotGatherAccess<B> access;
+    private final List<ParameterSlot<?>> requiredParameters;
+
+    SnapshotCandidateInput(
+            SourceSlot<B> source,
+            ParameterSlot<IndexSnapshot> snapshot,
+            SnapshotGatherAccess<B> access) {
+        this.source = source;
+        this.snapshot = snapshot;
+        this.access = access;
+        requiredParameters = Collections.<ParameterSlot<?>>singletonList(snapshot);
+    }
+
+    @Override
+    public SourceSlot<B> source() {
+        return source;
+    }
+
+    @Override
+    public CandidateVisit visit(
+            ExecutionFrame frame, CandidateVisitor visitor, String operation) {
+        IndexSnapshot value = checked(frame);
+        int visited = 0;
+        for (int position = 0; position < value.size(); position++) {
+            if ((position & 1023) == 0) {
+                frame.checkBoundary(operation);
+            }
+            visited++;
+            if (!visitor.accept(value.indexAt(position), position)) {
+                break;
+            }
+        }
+        return new CandidateVisit(value.size(), visited);
+    }
+
+    @Override
+    public CandidateSelection select(ExecutionFrame frame, String operation) {
+        IndexSnapshot value = checked(frame);
+        int[] indexes = frame.newScratchIndexes(value.size(), operation);
+        for (int position = 0; position < value.size(); position++) {
+            indexes[position] = value.indexAt(position);
+        }
+        return new CandidateSelection(indexes, value.size(), value.size());
+    }
+
+    @Override
+    public int maximumCardinality(DataFlowBinding binding) {
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public boolean supportsStreaming() {
+        return true;
+    }
+
+    @Override
+    public String canonical() {
+        return "index-snapshot-gather(" + snapshot.canonical() + ","
+                + access.identity() + ")";
+    }
+
+    @Override
+    public List<ParameterSlot<?>> requiredParameters() {
+        return requiredParameters;
+    }
+
+    @SuppressWarnings("unchecked")
+    private IndexSnapshot checked(ExecutionFrame frame) {
+        IndexSnapshot value = frame.parameter(snapshot);
+        access.requireCurrent((B) frame.binding(source), value);
+        return value;
+    }
+}
+
 final class CombinedCandidateInput<B extends DataFlowBinding>
         implements CandidateInput<B> {
     private final CandidateProgram<B> first;
@@ -359,6 +505,12 @@ final class CombinedCandidateInput<B extends DataFlowBinding>
     public String canonical() {
         return "combine(" + first.canonical() + "," + second.canonical() + ")";
     }
+
+    @Override
+    public List<ParameterSlot<?>> requiredParameters() {
+        return DataFlowSupport.unionParameters(
+                first.requiredParameters(), second.requiredParameters());
+    }
 }
 
 final class CandidateProgram<B extends DataFlowBinding> {
@@ -419,6 +571,10 @@ final class CandidateProgram<B extends DataFlowBinding> {
 
     SourceSlot<B> source() {
         return source;
+    }
+
+    List<ParameterSlot<?>> requiredParameters() {
+        return input.requiredParameters();
     }
 
     boolean hasSort() {

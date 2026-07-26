@@ -17,7 +17,7 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
             CandidateProgram<B> program,
             LongExpression<B> expression,
             int kind) {
-        super(program.source());
+        super(program);
         this.program = program;
         this.expression = expression;
         this.kind = kind;
@@ -147,7 +147,7 @@ final class DoubleReductionOperation<B extends DataFlowBinding, R>
             CandidateProgram<B> program,
             DoubleExpression<B> expression,
             int kind) {
-        super(program.source());
+        super(program);
         this.program = program;
         this.expression = expression;
         this.kind = kind;
@@ -263,7 +263,7 @@ final class LongPrefixOperation<B extends DataFlowBinding>
             LongExpression<B> expression,
             boolean inclusive,
             long seed) {
-        super(program.source());
+        super(program);
         this.program = program;
         this.expression = expression;
         this.inclusive = inclusive;

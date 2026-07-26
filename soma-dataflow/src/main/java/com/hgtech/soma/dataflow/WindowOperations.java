@@ -34,7 +34,7 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
     final WindowedFlow<B> flow;
 
     WindowOperation(WindowedFlow<B> flow) {
-        super(flow.program().source());
+        super(flow.program());
         this.flow = flow;
     }
 

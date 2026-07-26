@@ -30,6 +30,8 @@ public final class DataFlowInvocation<R> {
     private final DataFlowContext context;
     private final IdentityHashMap<SourceSlot<?>, DataFlowBinding> bindings =
             new IdentityHashMap<SourceSlot<?>, DataFlowBinding>();
+    private final IdentityHashMap<ParameterSlot<?>, Object> parameters =
+            new IdentityHashMap<ParameterSlot<?>, Object>();
     private ExecutionPolicy policy;
     private ExecutionBudget budget;
     private CancellationToken cancellationToken = CancellationToken.NONE;
@@ -69,6 +71,31 @@ public final class DataFlowInvocation<R> {
     public DataFlowInvocation<R> policy(ExecutionPolicy value) {
         requireConfigurable("dataflow.policy");
         policy = value == null ? context.defaultPolicy() : value;
+        return this;
+    }
+
+    public <T> DataFlowInvocation<R> parameter(
+            ParameterSlot<T> slot, T value) {
+        requireConfigurable("dataflow.parameter");
+        if (slot == null) {
+            throw new NullPointerException("slot");
+        }
+        if (value == null) {
+            throw new NullPointerException("value");
+        }
+        if (!slot.type().isInstance(value)) {
+            throw DataFlowFailures.invalidInput(
+                    "dataflow_parameter_type_mismatch",
+                    slot.name(),
+                    "dataflow.parameter");
+        }
+        if (parameters.put(slot, value) != null) {
+            throw DataFlowFailures.invalidInput(
+                    "dataflow_duplicate_parameter",
+                    slot.name(),
+                    "dataflow.parameter");
+        }
+        state = State.BINDING;
         return this;
     }
 
@@ -113,7 +140,12 @@ public final class DataFlowInvocation<R> {
             state = State.RUNNING;
             checkDeadlineAndCancellation("dataflow.execute");
             ExecutionFrame frame = new ExecutionFrame(
-                    context, bindings, policy, budget, cancellationToken);
+                    context,
+                    bindings,
+                    parameters,
+                    policy,
+                    budget,
+                    cancellationToken);
             ExecutionOutcome<R> outcome =
                     template.definition().operation().execute(frame);
             scanned = outcome.scanned;
@@ -243,6 +275,23 @@ public final class DataFlowInvocation<R> {
                     "dataflow_binding_cardinality",
                     template.identity(),
                     "dataflow.bind");
+        }
+        List<ParameterSlot<?>> requiredParameters =
+                template.definition().requiredParameters();
+        if (parameters.size() != requiredParameters.size()) {
+            throw DataFlowFailures.invalidInput(
+                    "dataflow_parameter_cardinality",
+                    template.identity(),
+                    "dataflow.parameter");
+        }
+        for (ParameterSlot<?> slot : requiredParameters) {
+            Object value = parameters.get(slot);
+            if (value == null || !slot.type().isInstance(value)) {
+                throw DataFlowFailures.invalidInput(
+                        "dataflow_missing_parameter",
+                        slot.name(),
+                        "dataflow.parameter");
+            }
         }
         TreeMap<Long, DataFlowBinding> canonical =
                 new TreeMap<Long, DataFlowBinding>();

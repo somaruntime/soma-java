@@ -15,7 +15,7 @@ final class CandidateCountOperation<B extends DataFlowBinding>
     private final CandidateProgram<B> program;
 
     CandidateCountOperation(CandidateProgram<B> program) {
-        super(program.source());
+        super(program);
         this.program = program;
     }
 
@@ -78,7 +78,7 @@ final class CandidateMatchOperation<B extends DataFlowBinding>
             CandidateProgram<B> program,
             BooleanExpression<B> predicate,
             int mode) {
-        super(program.source());
+        super(program);
         this.program = program;
         this.predicate = predicate;
         this.mode = mode;
@@ -151,7 +151,7 @@ final class CandidateIndexSnapshotOperation<B extends DataFlowBinding>
     private final CandidateProgram<B> program;
 
     CandidateIndexSnapshotOperation(CandidateProgram<B> program) {
-        super(program.source());
+        super(program);
         this.program = program;
     }
 
@@ -207,7 +207,7 @@ abstract class CandidateProjectionOperation<B extends DataFlowBinding, R>
     final CandidateProgram<B> program;
 
     CandidateProjectionOperation(CandidateProgram<B> program) {
-        super(program.source());
+        super(program);
         this.program = program;
     }
 

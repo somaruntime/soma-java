@@ -149,6 +149,39 @@ public final class ChildOwnershipRegistry {
         materializationOperation = "";
     }
 
+    /**
+     * Starts explicit object materialization nested inside the aggregate's
+     * already-active DataFlow read guard.
+     */
+    public void beginDataFlowMaterialization(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        if (!dataFlowActive) {
+            throw RuntimeFailures.internalInvariant(
+                    "dataflow_materialization_guard",
+                    "ownership",
+                    requested);
+        }
+        if (materializationActive) {
+            throw RuntimeFailures.reentrantAccess(
+                    "ownership", materializationOperation, requested);
+        }
+        materializationOperation = requested;
+        materializationActive = true;
+    }
+
+    public void endDataFlowMaterialization(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        if (!dataFlowActive || !materializationActive
+                || !materializationOperation.equals(requested)) {
+            throw RuntimeFailures.internalInvariant(
+                    "dataflow_materialization_guard",
+                    "ownership",
+                    requested);
+        }
+        materializationActive = false;
+        materializationOperation = "";
+    }
+
     /** Rejects any visible aggregate mutation while two-pass materialization is active. */
     public void preflightMutation(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
@@ -219,7 +252,8 @@ public final class ChildOwnershipRegistry {
 
     public void endDataFlow(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
-        if (!dataFlowActive || !dataFlowOperation.equals(requested)) {
+        if (!dataFlowActive || !dataFlowOperation.equals(requested)
+                || materializationActive) {
             throw RuntimeFailures.internalInvariant(
                     "dataflow_aggregate_guard", "ownership", requested);
         }

@@ -456,6 +456,7 @@ final class DenseTableSourceEmitter {
                 .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count){return materializeRows(rows,count,runtimePlan().defaultMaterializationBudget());}\n")
                 .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget){return materializeRows(rows,count,budget,\"scan.fetchAll\",true);}\n")
                 .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);tracker.addRows(count,TABLE);tracker.addListAllocation(count,TABLE);for(int i=0;i<count;i++)accountRowRecursive(tracker,rows[i],0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);List<").append(table.carrierType).append("> result=new ArrayList<").append(table.carrierType).append(">(count);for(int i=0;i<count;i++)result.add(carrierRecursive(rows[i],0,TABLE));endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n");
+        appendDataFlowAccessRuntime(out, table);
         appendTableFieldAccess(out, table);
         appendMutatorCommit(out, table);
         appendUpdateScratch(out, table);
@@ -463,6 +464,38 @@ final class DenseTableSourceEmitter {
         DenseExactIndexSourceEmitter.appendRuntime(out, table);
         appendOwnedLifecycle(out, table);
         return out.append("}\n").toString();
+    }
+
+    private static void appendDataFlowAccessRuntime(
+            SourceBuilder out, TableSpec table) {
+        String scan = table.name("Scan");
+        out.append("  int dataFlowCurrentIndex(int index){return state.checkGuardedRowIndex(index,\"dataflow.point\");}\n")
+                .append("  void dataFlowRequireCurrent(IndexSnapshot snapshot){if(snapshot==null)throw new NullPointerException(\"snapshot\");if(!IndexSnapshots.isOwnedBy(snapshot,indexSnapshotOwner))throw RuntimeFailures.indexSnapshotWrongTable(TABLE,\"dataflow.gather\");long current=state.structuralEpoch();if(snapshot.structuralEpoch()!=current)throw RuntimeFailures.staleIndexSnapshot(TABLE,snapshot.structuralEpoch(),current,\"dataflow.gather\");for(int i=0;i<snapshot.size();i++)state.checkGuardedRowIndex(snapshot.indexAt(i),\"dataflow.gather\");}\n")
+                .append("  void dataFlowBorrow(int[] rows,int count,")
+                .append(scan)
+                .append(".Consumer consumer){if(consumer==null)throw new NullPointerException(\"consumer\");")
+                .append(scan).append(".Cursor cursor=new ").append(scan)
+                .append(".Cursor(this);for(int i=0;i<count;i++){cursor.open(rows[i]);state.beginCallback(\"dataflow.borrow.consumer\");try{consumer.accept(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(TABLE,\"dataflow.borrow\",\"consumer\",callback);}finally{state.endCallback(\"dataflow.borrow.consumer\");cursor.close();}}}\n")
+                .append("  List<").append(table.carrierType)
+                .append("> dataFlowMaterializeRows(int[] rows,int count,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");String operation=\"dataflow.materialize\";ownership.beginDataFlowMaterialization(operation);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);tracker.addRows(count,TABLE);tracker.addListAllocation(count,TABLE);for(int i=0;i<count;i++)accountRowRecursive(tracker,rows[i],0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);List<")
+                .append(table.carrierType).append("> result=new ArrayList<")
+                .append(table.carrierType)
+                .append(">(count);for(int i=0;i<count;i++)result.add(carrierRecursive(rows[i],0,TABLE));return result;}finally{ownership.endDataFlowMaterialization(operation);}}\n");
+        if (!table.keyed()) {
+            return;
+        }
+        FieldSpec key = table.keyField();
+        out.append("  int dataFlowKeyIndex(")
+                .append(key.primitive)
+                .append(" key){return ");
+        if (key.compositeKey()) {
+            out.append("compositeLookup(key,\"dataflow.point\")");
+        } else {
+            out.append("keySpace.rowOf(")
+                    .append(key.keySpaceValue("key", "dataflow.point"))
+                    .append(')');
+        }
+        out.append(";}\n");
     }
 
     private void appendSchemaPlanRuntime(SourceBuilder out) {

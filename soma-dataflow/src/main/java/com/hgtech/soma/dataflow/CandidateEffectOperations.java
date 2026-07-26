@@ -14,7 +14,7 @@ abstract class CandidateEffectOperation<
     CandidateEffectOperation(
             CandidateProgram<B> program,
             CandidateEffectAccess<B> access) {
-        super(program.source());
+        super(program);
         this.program = program;
         this.access = access;
     }

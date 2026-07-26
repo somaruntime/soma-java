@@ -20,6 +20,10 @@ interface DataFlowOperation<R> {
     String physicalPlan();
 
     ExecutionOutcome<R> execute(ExecutionFrame frame);
+
+    default List<ParameterSlot<?>> requiredParameters() {
+        return Collections.emptyList();
+    }
 }
 
 interface DeferredEffect<R> {
@@ -97,6 +101,7 @@ final class ExecutionOutcome<R> {
 final class ExecutionFrame {
     private final DataFlowContext context;
     private final IdentityHashMap<SourceSlot<?>, DataFlowBinding> bindings;
+    private final IdentityHashMap<ParameterSlot<?>, Object> parameters;
     private final ExecutionPolicy policy;
     private final ExecutionBudget budget;
     private final CancellationToken cancellationToken;
@@ -107,11 +112,13 @@ final class ExecutionFrame {
     ExecutionFrame(
             DataFlowContext context,
             IdentityHashMap<SourceSlot<?>, DataFlowBinding> bindings,
+            IdentityHashMap<ParameterSlot<?>, Object> parameters,
             ExecutionPolicy policy,
             ExecutionBudget budget,
             CancellationToken cancellationToken) {
         this.context = context;
         this.bindings = bindings;
+        this.parameters = parameters;
         this.policy = policy;
         this.budget = budget;
         this.cancellationToken = cancellationToken;
@@ -127,6 +134,18 @@ final class ExecutionFrame {
                     source.tableIdentity());
         }
         return result;
+    }
+
+    <T> T parameter(ParameterSlot<T> slot) {
+        Object value = parameters.get(slot);
+        if (value == null && !parameters.containsKey(slot)) {
+            throw DataFlowFailures.internal(
+                    "dataflow_parameter_missing_after_preflight",
+                    slot.name(),
+                    "dataflow.execute",
+                    slot.type().getName());
+        }
+        return slot.type().cast(value);
     }
 
     ExecutionPolicy policy() {
@@ -264,23 +283,57 @@ final class ExecutionFrame {
 abstract class SingleSourceOperation<R> implements DataFlowOperation<R> {
     final SourceSlot<? extends DataFlowBinding> source;
     private final List<SourceSlot<? extends DataFlowBinding>> requiredSources;
+    private final List<ParameterSlot<?>> requiredParameters;
 
     SingleSourceOperation(SourceSlot<? extends DataFlowBinding> source) {
+        this(source, Collections.<ParameterSlot<?>>emptyList());
+    }
+
+    SingleSourceOperation(CandidateProgram<?> program) {
+        this(program.source(), program.requiredParameters());
+    }
+
+    private SingleSourceOperation(
+            SourceSlot<? extends DataFlowBinding> source,
+            List<ParameterSlot<?>> requiredParameters) {
         this.source = source;
         requiredSources = Collections
                 .<SourceSlot<? extends DataFlowBinding>>singletonList(source);
+        this.requiredParameters = requiredParameters;
     }
 
     @Override
     public final List<SourceSlot<? extends DataFlowBinding>> requiredSources() {
         return requiredSources;
     }
+
+    @Override
+    public final List<ParameterSlot<?>> requiredParameters() {
+        return requiredParameters;
+    }
 }
 
 abstract class MultiSourceOperation<R> implements DataFlowOperation<R> {
     private final List<SourceSlot<? extends DataFlowBinding>> requiredSources;
+    private final List<ParameterSlot<?>> requiredParameters;
 
     MultiSourceOperation(SourceSlot<?> first, SourceSlot<?> second) {
+        this(first, second, Collections.<ParameterSlot<?>>emptyList());
+    }
+
+    MultiSourceOperation(
+            CandidateProgram<?> first, CandidateProgram<?> second) {
+        this(
+                first.source(),
+                second.source(),
+                DataFlowSupport.unionParameters(
+                        first.requiredParameters(), second.requiredParameters()));
+    }
+
+    private MultiSourceOperation(
+            SourceSlot<?> first,
+            SourceSlot<?> second,
+            List<ParameterSlot<?>> requiredParameters) {
         ArrayList<SourceSlot<? extends DataFlowBinding>> sources =
                 new ArrayList<SourceSlot<? extends DataFlowBinding>>(2);
         @SuppressWarnings("unchecked")
@@ -294,10 +347,16 @@ abstract class MultiSourceOperation<R> implements DataFlowOperation<R> {
             sources.add(right);
         }
         requiredSources = Collections.unmodifiableList(sources);
+        this.requiredParameters = requiredParameters;
     }
 
     @Override
     public final List<SourceSlot<? extends DataFlowBinding>> requiredSources() {
         return requiredSources;
+    }
+
+    @Override
+    public final List<ParameterSlot<?>> requiredParameters() {
+        return requiredParameters;
     }
 }
