@@ -190,8 +190,8 @@ Stage 1–3 采用“证据够用即停”，不把设计闭合变成长时间�
    才运行有限多 fork；
 7. 同一实验最多一次修正和复跑。仍不确定时记录 evidence limit 和保守裁决，
    不循环调参、rebaseline 或缩小 workload；
-8. 窄 Gate 随 slice 运行；`./scripts/check.sh` 只在 Stage 3 immutable candidate
-   前运行一次；
+8. 窄 Gate 随 slice 运行；Stage 4/5 不因小改动反复运行
+   `./scripts/check.sh`，Stage 6 正式固化前只运行一次完整 promotion preflight；
 9. 不新增 F0 之外的能力，不提前进入 Stage 4 production 实施，不以文档篇幅、
    LOC 或漂亮 benchmark 数字替代退出条件。
 
@@ -309,14 +309,16 @@ allocation/footprint 和 application trace；这些是 implementation evidence�
 不是尚未裁决的产品语义。
 
 Stage 4 已由 `693c928` 至 `190f90f` 的 production vertical slices 完成，
-`check-dataflow-slice-f.sh` 是当前综合专项 Gate。Stage 5 继续负责 reference
-oracle、replacement/footprint 和稳定性能证据。
+`check-dataflow-slice-f.sh` 是当前综合契约 Gate。Stage 5 已形成 reference
+oracle、replacement/footprint、构造契约和稳定 component performance candidate；
+最终 industrial application trace 仍由本专题后续 slice 负责。
 
 ## 11. Stage 4–6 剩余顺序
 
 1. 用户已于 2026-07-26 审查并授权 frozen candidate；
 2. Stage 4 已在 `190f90f` 闭合 Foundation、A–I vertical slices；
-3. Stage 5 正在选择 P2 physical strategy并完成稳定性能验真；
+3. Stage 5 已形成构造契约、reference/footprint、3-fork component baseline、
+   bounded Effect scratch 与 parallel crossover 退出候选；
 4. Stage 6 完成 scope non-regression、正式文档原子固化、Report、Temporary 退役与
    完整 Gate。
 

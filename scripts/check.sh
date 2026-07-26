@@ -27,9 +27,12 @@ cd "$root_dir"
 ./scripts/check-generated-dense-phase1.sh
 ./scripts/check-external-consumer.sh
 ./scripts/check-reference-applications.sh
+./scripts/check-dataflow-slice-f.sh
+./scripts/check-dataflow-reference.sh
 ./scripts/check-scan-code-size.sh
 ./scripts/check-benchmark-smoke.sh
 ./scripts/check-post-cutover-components.sh
+./scripts/check-dataflow-performance.sh
 git diff --check
 
 printf '%s\n' 'project-check: ok'

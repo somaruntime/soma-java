@@ -621,5 +621,5 @@ Stage 3 已关闭：
 
 受控 prototype 与现有 v4 Scan/golden/external-consumer evidence 共同证明目标
 架构可行，且没有要求 generic object hot path、第三方依赖、concurrent Table、
-跨 root transaction 或新 lifecycle 语义。P2 physical algorithm 与最终性能数字
-仍留在 Stage 5。
+跨 root transaction 或新 lifecycle 语义。P2 physical algorithm 与 component
+性能 candidate 已由 [Stage 5 正确性与性能证据](stage-5-evidence.md)闭合。

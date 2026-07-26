@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 1–4 complete；Stage 5 evidence in progress）
+状态：active（Stage 1–4 complete；Stage 5 candidate）
 
 Owner：SOMA Transformation Model governance
 
@@ -184,7 +184,7 @@ alias、双 executor、旧 adapter 或长期迁移层。
 | 2 | COMPLETE | State Transition、Shape、Value、Expression、Operator、Effect、DAG/Window/Parallel semantics | Semantic Closure Gate 通过 |
 | 3 | COMPLETE | contract projection、IR、binding、planner、module、identity、resource、explain 与 prototype | Architecture Feasibility Gate 通过并形成 immutable candidate |
 | 4 | COMPLETE | 按 vertical slice 完成 DSL 与 Reusable DataFlow 双轨实施 | admitted capability 已在 `190f90f` 端到端闭合 |
-| 5 | IN PROGRESS | physical optimization 与稳定性能验真 | correctness、allocation、GC、tail latency、parallel crossover 通过 |
+| 5 | CANDIDATE | physical optimization 与稳定性能验真 | correctness、allocation、GC、tail latency、parallel crossover 已形成退出候选 |
 | 6 | PENDING | scope non-regression、正式事实原子固化和 Temporary 退役 | 完整 Gate、Report、提交和无 active topic 状态完成 |
 
 Stage 4 的每个 slice 必须是最终设计的有效子集：
@@ -267,3 +267,4 @@ Owner；最终原子固化正式事实，删除 Temporary，并通过完整 Gate
 | [Transformation Model](transformation-model.md) | Source、Shape、Value、Expression、Operator、Effect 与组合语义 |
 | [Execution Architecture](execution-architecture.md) | Definition/Template/Invocation、binding、planner、parallel、safe point、module 与 change map |
 | [裁决、证据与收口](decisions-evidence-and-closeout.md) | 决策状态、未决项、证据、Gate、风险和 implementation-readiness 自审 |
+| [Stage 5 正确性与性能证据](stage-5-evidence.md) | 构造契约、reference/footprint/component baseline、归因与 P2 裁决 |

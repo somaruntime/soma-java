@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：Stage 4 COMPLETE；Stage 5 evidence pending
+状态：Stage 4 COMPLETE；Stage 5 candidate
 
 Owner：SOMA Transformation Model governance
 
@@ -47,7 +47,7 @@ Owner 后删除本文件。
 | G Expression | Parameter、registered typed function/reducer、opaque fence | CLOSED |
 | H Graph | controlled `DataFlowDefinition.Builder`、finite DAG、shared pure branch、fan-out/fan-in | CLOSED |
 | I Diagnostics | bound specialization explain、stats policy、resource/failure detail | CLOSED |
-| J Evidence | reference oracle、golden/external consumer、footprint/component/application trace | STAGE 5 OWNER |
+| J Evidence | reference oracle、golden/external consumer、footprint/component trace | STAGE 5 CANDIDATE；application trace 由最终 industrial slice 闭合 |
 
 Stage 4 没有改变 annotation Schema、RuntimePlan v3、Index/ownership/lifecycle、
 单 Table failure atomicity 或现有 direct Access。generated/runtime v5 与
