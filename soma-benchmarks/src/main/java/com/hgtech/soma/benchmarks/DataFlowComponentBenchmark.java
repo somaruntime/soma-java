@@ -718,9 +718,8 @@ public final class DataFlowComponentBenchmark {
                     require(result.matched() == 1L
                                     && result.changed() == 1L,
                             "effect result");
-                    return mix(
-                            result.changed(),
-                            table.structuralEpoch());
+                    return result.matched() * 31L
+                            + result.changed();
                 }
             };
         }
