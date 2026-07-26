@@ -36,7 +36,7 @@ cp -R "$fixture_source/src" "$fixture/src"
 # Maven project and neither inherits the root parent nor receives reactor classpaths.
 ./mvnw -B -ntp \
   -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-processor -am \
+  -pl soma-runtime-core,soma-dataflow,soma-processor -am \
   install -DskipTests
 
 ./mvnw -B -ntp \
@@ -106,6 +106,7 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
   -DincludeScope=runtime \
   -Dmdep.outputFile="$runtime_classpath_file"
 grep -F '/soma-runtime-core/' "$runtime_classpath_file" >/dev/null
+grep -F '/soma-dataflow/' "$runtime_classpath_file" >/dev/null
 if grep -F '/soma-processor/' "$runtime_classpath_file" >/dev/null; then
   printf '%s\n' 'external-consumer-check: processor leaked into runtime graph' >&2
   exit 1

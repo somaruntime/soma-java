@@ -206,6 +206,12 @@ public final class RuntimeFailures {
         return create(SomaErrorCategory.LIFECYCLE, "traversal_consumed", operation, table, empty(), null);
     }
 
+    public static SomaRuntimeException ownedDataFlowSource(
+            String path, String operation) {
+        return create(SomaErrorCategory.INVALID_INPUT, "owned_dataflow_source",
+                operation, path, empty(), null);
+    }
+
     public static SomaRuntimeException mutationConsumed(String table, String operation) {
         return create(SomaErrorCategory.LIFECYCLE, "mutation_consumed", operation, table, empty(), null);
     }

@@ -25,6 +25,7 @@ for source in \
   DenseSelectorCodegenModel.java \
   DenseTableSourceGenerator.java \
   DenseTableSourceEmitter.java \
+  DenseDataFlowSourceEmitter.java \
   DenseAuxiliarySourceEmitter.java \
   DenseScanExecutionSourceSupport.java \
   DenseSelectorSourceSupport.java \
@@ -44,6 +45,8 @@ grep -F 'static final class SelectorParameter' \
 grep -F 'new DenseAuxiliarySourceEmitter' \
   "$processor_source/DenseTableSourceGenerator.java" >/dev/null
 grep -F 'new DenseTableSourceEmitter' \
+  "$processor_source/DenseTableSourceGenerator.java" >/dev/null
+grep -F 'new DenseDataFlowSourceEmitter' \
   "$processor_source/DenseTableSourceGenerator.java" >/dev/null
 grep -F 'DenseSelectorCodegenModel.selectorPublicParameterTypes' \
   "$processor_source/SomaProcessor.java" >/dev/null
@@ -66,7 +69,8 @@ fi
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
-for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
+dataflow_jar=soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar
+for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar" "$dataflow_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' "codegen-admission-check: missing artifact $artifact" >&2
     exit 1
@@ -207,7 +211,7 @@ run_success() {
   mkdir -p "$output/classes" "$output/generated"
   "$JAVA_HOME/bin/javac" \
     -encoding UTF-8 -source 8 -target 8 -proc:only \
-    -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+    -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
     -processor com.hgtech.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
@@ -223,7 +227,7 @@ run_full_success() {
   mkdir -p "$output/classes" "$output/generated"
   "$JAVA_HOME/bin/javac" \
     -encoding UTF-8 -source 8 -target 8 \
-    -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+    -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
     -processor com.hgtech.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
@@ -251,7 +255,7 @@ run_failure() {
   mkdir -p "$output/classes" "$output/generated"
   if "$JAVA_HOME/bin/javac" \
     -encoding UTF-8 -source 8 -target 8 -proc:only \
-    -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+    -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
     -processor com.hgtech.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
@@ -474,7 +478,7 @@ late_output=$evidence_dir/late-round
 mkdir -p "$late_output/classes" "$late_output/generated"
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 -proc:only \
-  -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+  -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$late_processor_classes:$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor,com.example.admission.late.LateSomaProcessor \
   -Xplugin:SomaValue -s "$late_output/generated" -d "$late_output/classes" \

@@ -2,13 +2,14 @@
 
 类型：Temporary
 
-状态：active（Stage 1–3 closed；immutable implementation candidate ready；Stage 4 not authorized）
+状态：active（Stage 1–3 frozen；Stage 4 implementation in progress）
 
 Owner：SOMA Transformation Model governance
 
 正式事实源：否
 
-实施授权：仅维护本 Temporary、active topic 登记和文档级验证
+实施授权：用户已于 2026-07-26 授权自主完成 Stage 4–6，并在 Stage 6 后纳入
+industrial-dynamic-scheduler；grassing-individual-simulation 明确排除在场景迁移外
 
 事实范围：专题意图、最低目标、范围、阶段、停止条件和验收协议
 
@@ -182,7 +183,7 @@ alias、双 executor、旧 adapter 或长期迁移层。
 | 1 | COMPLETE | 场景语义投影、权威运行时事实和 Access/Transformation coverage | capability variant、事实 Owner 与 core/application 边界闭合 |
 | 2 | COMPLETE | State Transition、Shape、Value、Expression、Operator、Effect、DAG/Window/Parallel semantics | Semantic Closure Gate 通过 |
 | 3 | COMPLETE | contract projection、IR、binding、planner、module、identity、resource、explain 与 prototype | Architecture Feasibility Gate 通过并形成 immutable candidate |
-| 4 | BLOCKED | 按 vertical slice 完成 DSL 与 Reusable DataFlow 双轨实施 | admitted capability 全部端到端闭合 |
+| 4 | IN PROGRESS | 按 vertical slice 完成 DSL 与 Reusable DataFlow 双轨实施 | admitted capability 全部端到端闭合 |
 | 5 | PENDING | physical optimization 与稳定性能验真 | correctness、allocation、GC、tail latency、parallel crossover 通过 |
 | 6 | PENDING | scope non-regression、正式事实原子固化和 Temporary 退役 | 完整 Gate、Report、提交和无 active topic 状态完成 |
 
@@ -207,7 +208,8 @@ Stage 4 前必须依次通过：
 
 1. Semantic Closure：`PASSED`；
 2. Architecture Feasibility：`PASSED`；
-3. 用户对 frozen target 的明确 Implementation Authorization：`NOT GRANTED`。
+3. 用户对 frozen target 的明确 Implementation Authorization：`GRANTED
+   2026-07-26`。
 
 以下情况必须停止并请求决定：
 

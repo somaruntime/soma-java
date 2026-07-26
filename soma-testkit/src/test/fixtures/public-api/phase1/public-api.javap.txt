@@ -32,6 +32,21 @@ public final class com.hgtech.soma.runtime.GeneratedColumnAccess {
   public static com.hgtech.soma.runtime.DoubleColumnView doubleView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
   public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnView<E> enumView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, E[]);
 }
+## PUBLIC generated-dataflow-protocol com.hgtech.soma.dataflow.generated.DataFlowBinding
+Compiled from "DataFlowBinding.java"
+public interface com.hgtech.soma.dataflow.generated.DataFlowBinding {
+  public abstract long aggregateInstanceId();
+  public abstract java.lang.Object physicalIdentity();
+  public abstract java.lang.String schemaIdentity();
+  public abstract java.lang.String tableIdentity();
+  public abstract java.lang.String generatedProtocol();
+  public abstract java.lang.String transformationProtocol();
+  public abstract java.lang.String kernelProtocol();
+  public abstract long structuralEpoch();
+  public abstract int packedSize();
+  public abstract void acquire(java.lang.String);
+  public abstract void release(java.lang.String, boolean, long, long, java.lang.String);
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.BooleanColumn
 Compiled from "BooleanColumn.java"
 public final class com.hgtech.soma.runtime.generated.BooleanColumn extends com.hgtech.soma.runtime.generated.GeneratedColumn {
@@ -59,10 +74,17 @@ Compiled from "ChildOwnershipRegistry.java"
 public final class com.hgtech.soma.runtime.generated.ChildOwnershipRegistry {
   public com.hgtech.soma.runtime.generated.ChildOwnershipRegistry();
   public com.hgtech.soma.runtime.generated.ChildOwnershipRegistry(long, long);
+  public long aggregateInstanceId();
+  public java.lang.Object physicalIdentity();
   public void releaseStorage();
   public void beginMaterialization(java.lang.String);
   public void endMaterialization();
   public void preflightMutation(java.lang.String);
+  public void preflightTableAccess(java.lang.String);
+  public void beginTableScope(java.lang.String);
+  public void endTableScope(java.lang.String);
+  public void beginDataFlow(java.lang.String);
+  public void endDataFlow(java.lang.String);
   public long newOwnerToken();
   public long stage(long, java.lang.String, java.lang.String, java.lang.Object, com.hgtech.soma.runtime.generated.OwnedChildTable);
   public void publish(long, long, java.lang.String);
@@ -92,6 +114,7 @@ public final class com.hgtech.soma.runtime.generated.ColumnGroup {
 Compiled from "DenseTableState.java"
 public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public com.hgtech.soma.runtime.generated.DenseTableState(java.lang.String, com.hgtech.soma.runtime.RuntimePlan, com.hgtech.soma.runtime.TablePlan, com.hgtech.soma.runtime.generated.ColumnGroup);
+  public com.hgtech.soma.runtime.generated.DenseTableState(java.lang.String, com.hgtech.soma.runtime.RuntimePlan, com.hgtech.soma.runtime.TablePlan, com.hgtech.soma.runtime.generated.ColumnGroup, com.hgtech.soma.runtime.generated.ChildOwnershipRegistry);
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -555,6 +578,7 @@ public final class com.hgtech.soma.runtime.generated.RuntimeFailures {
   public static com.hgtech.soma.runtime.SomaRuntimeException viewPinned(java.lang.String, java.lang.String, int);
   public static com.hgtech.soma.runtime.SomaRuntimeException pipelineConsumed(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException traversalConsumed(java.lang.String, java.lang.String);
+  public static com.hgtech.soma.runtime.SomaRuntimeException ownedDataFlowSource(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException mutationConsumed(java.lang.String, java.lang.String);
   public static com.hgtech.soma.runtime.SomaRuntimeException staleMutator(java.lang.String, long, long);
   public static com.hgtech.soma.runtime.SomaRuntimeException reentrantAccess(java.lang.String, java.lang.String, java.lang.String);
@@ -664,6 +688,145 @@ public interface com.hgtech.soma.annotation.SomaUniques extends java.lang.annota
 ## PUBLIC handwritten com.hgtech.soma.annotation.SomaValue
 Compiled from "SomaValue.java"
 public interface com.hgtech.soma.annotation.SomaValue extends java.lang.annotation.Annotation {
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.CancellationToken
+Compiled from "CancellationToken.java"
+public interface com.hgtech.soma.dataflow.CancellationToken {
+  public static final com.hgtech.soma.dataflow.CancellationToken NONE;
+  public abstract boolean isCancellationRequested();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.CandidateFlow
+Compiled from "CandidateFlow.java"
+public final class com.hgtech.soma.dataflow.CandidateFlow<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
+  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> count();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowContext
+Compiled from "DataFlowContext.java"
+public final class com.hgtech.soma.dataflow.DataFlowContext implements java.lang.AutoCloseable {
+  public static com.hgtech.soma.dataflow.DataFlowContext sequential();
+  public static com.hgtech.soma.dataflow.DataFlowContext managedParallel(int);
+  public static com.hgtech.soma.dataflow.DataFlowContext managedParallel(int, com.hgtech.soma.dataflow.ExecutionPolicy, com.hgtech.soma.dataflow.ExecutionBudget);
+  public static com.hgtech.soma.dataflow.DataFlowContext borrowed(java.util.concurrent.ExecutorService, int);
+  public static com.hgtech.soma.dataflow.DataFlowContext borrowed(java.util.concurrent.ExecutorService, int, com.hgtech.soma.dataflow.ExecutionPolicy, com.hgtech.soma.dataflow.ExecutionBudget);
+  public synchronized boolean ownsExecutor();
+  public synchronized boolean isClosed();
+  public int workers();
+  public synchronized void close();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowDefinition
+Compiled from "DataFlowDefinition.java"
+public final class com.hgtech.soma.dataflow.DataFlowDefinition<R> {
+  public java.lang.String identity();
+  public com.hgtech.soma.dataflow.DataFlowTemplate<R> compile();
+  public com.hgtech.soma.dataflow.DataFlowExplain explain();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowExplain
+Compiled from "DataFlowExplain.java"
+public final class com.hgtech.soma.dataflow.DataFlowExplain {
+  public java.lang.String definitionIdentity();
+  public java.lang.String templateIdentity();
+  public java.lang.String logicalShape();
+  public java.lang.String logicalPlan();
+  public java.lang.String physicalPlan();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowInvocation
+Compiled from "DataFlowInvocation.java"
+public final class com.hgtech.soma.dataflow.DataFlowInvocation<R> {
+  public <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.DataFlowInvocation<R> bind(com.hgtech.soma.dataflow.SourceSlot<B>, B);
+  public com.hgtech.soma.dataflow.DataFlowInvocation<R> policy(com.hgtech.soma.dataflow.ExecutionPolicy);
+  public com.hgtech.soma.dataflow.DataFlowInvocation<R> budget(com.hgtech.soma.dataflow.ExecutionBudget);
+  public com.hgtech.soma.dataflow.DataFlowInvocation<R> cancellationToken(com.hgtech.soma.dataflow.CancellationToken);
+  public R execute();
+  public com.hgtech.soma.dataflow.DataFlowStats stats();
+  public java.lang.String state();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowStats
+Compiled from "DataFlowStats.java"
+public final class com.hgtech.soma.dataflow.DataFlowStats {
+  public java.lang.String definitionIdentity();
+  public java.lang.String templateIdentity();
+  public java.lang.String policyIdentity();
+  public long boundSources();
+  public long scanned();
+  public long matched();
+  public long outputElements();
+  public int tasks();
+  public int workers();
+  public long elapsedNanos();
+  public java.lang.String outcome();
+  public java.lang.String failureCode();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowTemplate
+Compiled from "DataFlowTemplate.java"
+public final class com.hgtech.soma.dataflow.DataFlowTemplate<R> {
+  public java.lang.String identity();
+  public com.hgtech.soma.dataflow.DataFlowInvocation<R> newInvocation(com.hgtech.soma.dataflow.DataFlowContext);
+  public com.hgtech.soma.dataflow.DataFlowExplain explain();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.ExecutionBudget
+Compiled from "ExecutionBudget.java"
+public final class com.hgtech.soma.dataflow.ExecutionBudget {
+  public static com.hgtech.soma.dataflow.ExecutionBudget defaults();
+  public static com.hgtech.soma.dataflow.ExecutionBudget$Builder builder();
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder toBuilder();
+  public long maximumOutputElements();
+  public long maximumOutputBytes();
+  public long maximumInvocationScratchBytes();
+  public long maximumWorkerScratchBytes();
+  public int maximumTasks();
+  public int maximumWorkers();
+  public long deadlineNanos();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.ExecutionBudget$Builder
+Compiled from "ExecutionBudget.java"
+public final class com.hgtech.soma.dataflow.ExecutionBudget$Builder {
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder maximumOutputElements(long);
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder maximumOutputBytes(long);
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder maximumInvocationScratchBytes(long);
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder maximumWorkerScratchBytes(long);
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder maximumTasks(int);
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder maximumWorkers(int);
+  public com.hgtech.soma.dataflow.ExecutionBudget$Builder deadlineNanos(long);
+  public com.hgtech.soma.dataflow.ExecutionBudget build();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.ExecutionPolicy
+Compiled from "ExecutionPolicy.java"
+public final class com.hgtech.soma.dataflow.ExecutionPolicy {
+  public static com.hgtech.soma.dataflow.ExecutionPolicy sequential();
+  public static com.hgtech.soma.dataflow.ExecutionPolicy adaptiveParallel();
+  public com.hgtech.soma.dataflow.ExecutionPolicy withMinimumParallelCardinality(int);
+  public com.hgtech.soma.dataflow.ExecutionPolicy$Mode mode();
+  public int minimumParallelCardinality();
+  public java.lang.String identity();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.ExecutionPolicy$Mode
+Compiled from "ExecutionPolicy.java"
+public final class com.hgtech.soma.dataflow.ExecutionPolicy$Mode extends java.lang.Enum<com.hgtech.soma.dataflow.ExecutionPolicy$Mode> {
+  public static final com.hgtech.soma.dataflow.ExecutionPolicy$Mode SEQUENTIAL;
+  public static final com.hgtech.soma.dataflow.ExecutionPolicy$Mode ADAPTIVE_PARALLEL;
+  public static com.hgtech.soma.dataflow.ExecutionPolicy$Mode[] values();
+  public static com.hgtech.soma.dataflow.ExecutionPolicy$Mode valueOf(java.lang.String);
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.GeneratedDataFlow
+Compiled from "GeneratedDataFlow.java"
+public final class com.hgtech.soma.dataflow.GeneratedDataFlow {
+  public static final java.lang.String TRANSFORMATION_PROTOCOL;
+  public static final java.lang.String KERNEL_PROTOCOL;
+  public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.CandidateFlow<B> candidates(com.hgtech.soma.dataflow.SourceSlot<B>);
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.LongScalarResult
+Compiled from "LongScalarResult.java"
+public final class com.hgtech.soma.dataflow.LongScalarResult {
+  public com.hgtech.soma.dataflow.LongScalarResult(long);
+  public long value();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.SourceSlot
+Compiled from "SourceSlot.java"
+public class com.hgtech.soma.dataflow.SourceSlot<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
+  public int ordinal();
+  public java.lang.String alias();
+  public java.lang.String schemaIdentity();
+  public java.lang.String tableIdentity();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.BooleanColumnTraversal
 Compiled from "BooleanColumnTraversal.java"

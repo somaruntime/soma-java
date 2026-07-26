@@ -100,7 +100,7 @@ if [ -d "$seed_repository" ]; then
 fi
 
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-runtime-core,soma-processor -am install -DskipTests
+  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
   -Dsoma.build.directory="$application_build_dir" \
   -f "$pom" clean package

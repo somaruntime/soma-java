@@ -13,6 +13,7 @@ fi
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
+dataflow_jar=soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar
 fixture_root=soma-testkit/src/test/fixtures/compiler
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/phase1-table-diagnostics.XXXXXX")
@@ -24,7 +25,7 @@ compile_failure() {
   mkdir -p "$output"
   if "$JAVA_HOME/bin/javac" \
     -encoding UTF-8 -source 8 -target 8 \
-    -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+    -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
     -processor com.hgtech.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \

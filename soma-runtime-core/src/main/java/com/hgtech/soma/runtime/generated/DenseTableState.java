@@ -15,6 +15,7 @@ public final class DenseTableState {
     private final RuntimePlan runtimePlan;
     private final TablePlan tablePlan;
     private final ColumnGroup columns;
+    private final ChildOwnershipRegistry ownership;
 
     private int size;
     private long structuralEpoch;
@@ -56,10 +57,21 @@ public final class DenseTableState {
             RuntimePlan runtimePlan,
             TablePlan tablePlan,
             ColumnGroup columns) {
+        this(tableLogicalName, runtimePlan, tablePlan, columns,
+                Objects.requireNonNull(columns, "columns").ownershipInternal());
+    }
+
+    public DenseTableState(
+            String tableLogicalName,
+            RuntimePlan runtimePlan,
+            TablePlan tablePlan,
+            ColumnGroup columns,
+            ChildOwnershipRegistry ownership) {
         this.tableLogicalName = Objects.requireNonNull(tableLogicalName, "tableLogicalName");
         this.runtimePlan = Objects.requireNonNull(runtimePlan, "runtimePlan");
         this.tablePlan = Objects.requireNonNull(tablePlan, "tablePlan");
         this.columns = Objects.requireNonNull(columns, "columns");
+        this.ownership = Objects.requireNonNull(ownership, "ownership");
         if (!tableLogicalName.equals(tablePlan.tableLogicalName())) {
             throw RuntimeFailures.internalInvariant(
                     "dense_state_table_plan_identity", tableLogicalName, "table.create");
@@ -80,6 +92,7 @@ public final class DenseTableState {
         if (operationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
         }
+        ownership.beginTableScope(operation);
         activeViews++;
         return structuralEpoch;
     }
@@ -87,6 +100,7 @@ public final class DenseTableState {
     public void releaseView() {
         if (activeViews > 0) {
             activeViews--;
+            ownership.endTableScope("columnView");
         }
     }
 
@@ -110,6 +124,7 @@ public final class DenseTableState {
     }
 
     public void checkCallbackAccess(String operation) {
+        ownership.preflightTableAccess(operation);
         if (callbackActive) {
             throw RuntimeFailures.reentrantAccess(
                     tableLogicalName,
@@ -215,6 +230,7 @@ public final class DenseTableState {
         if (operationActive || materializationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
         }
+        ownership.beginTableScope(operation);
         operationActive = true;
         activeOperation = operation;
     }
@@ -304,6 +320,7 @@ public final class DenseTableState {
         validateCounts(scanned, matched, changed);
         operationActive = false;
         activeOperation = "";
+        ownership.endTableScope(operation);
         record(operation, OperationOutcome.SUCCESS, "", scanned, matched, changed);
     }
 
@@ -316,6 +333,7 @@ public final class DenseTableState {
         }
         operationActive = false;
         activeOperation = "";
+        ownership.endTableScope(operation);
         record(operation, OperationOutcome.FAILED,
                 Objects.requireNonNull(errorCode, "errorCode"), scanned, matched, 0L);
     }
@@ -325,6 +343,7 @@ public final class DenseTableState {
         requireActiveOperation(operation);
         operationActive = false;
         activeOperation = "";
+        ownership.endTableScope(operation);
     }
 
     public int prepareAppend(int count) {
@@ -468,7 +487,7 @@ public final class DenseTableState {
         columns.releaseStorage();
         incrementStructuralEpoch("release");
         released = true;
-        activeViews = 0;
+        invalidateViews("release");
         record("release", OperationOutcome.SUCCESS, "", expectedPreviousSize, expectedPreviousSize,
                 expectedPreviousSize);
     }
@@ -515,7 +534,7 @@ public final class DenseTableState {
         incrementStructuralEpoch("ownership.release");
         released = true;
         childReleased = !aggregateRelease;
-        activeViews = 0;
+        invalidateViews("ownership.release");
         record("ownership.release", OperationOutcome.SUCCESS, "",
                 previous, previous, previous);
     }
@@ -718,6 +737,13 @@ public final class DenseTableState {
         if (bulkScratchCurrentBytes != 0L) {
             throw RuntimeFailures.internalInvariant(
                     "bulk_scratch_release", tableLogicalName, operation);
+        }
+    }
+
+    private void invalidateViews(String operation) {
+        while (activeViews > 0) {
+            activeViews--;
+            ownership.endTableScope(operation);
         }
     }
 

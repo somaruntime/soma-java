@@ -11,6 +11,7 @@ public final class ColumnGroup {
     private final String table;
     private final TablePlan tablePlan;
     private final StorageBudget storageBudget;
+    private final ChildOwnershipRegistry ownership;
     private int capacity;
     private long retainedBytes;
     private long externalRetainedBytes;
@@ -31,6 +32,7 @@ public final class ColumnGroup {
         }
         this.table = table;
         this.tablePlan = tablePlan;
+        this.ownership = ownership;
         this.storageBudget = ownership.storageBudgetInternal();
         this.columns = columns.clone();
         validateColumns(this.columns);
@@ -69,6 +71,10 @@ public final class ColumnGroup {
 
     public int capacity() {
         return capacity;
+    }
+
+    ChildOwnershipRegistry ownershipInternal() {
+        return ownership;
     }
 
     public boolean ensureCapacity(int required, int growthNumerator, int growthDenominator) {

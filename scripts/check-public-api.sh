@@ -13,8 +13,9 @@ fi
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
+dataflow_jar=soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar
 expected=soma-testkit/src/test/fixtures/public-api/phase1
-for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
+for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar" "$dataflow_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' "public-api-check: missing artifact $artifact" >&2
     exit 1
@@ -45,6 +46,12 @@ classify_type() {
     com.hgtech.soma.runtime.*)
       printf '%s\n' "PUBLIC handwritten-runtime $type"
       ;;
+    com.hgtech.soma.dataflow.generated.*)
+      printf '%s\n' "PUBLIC generated-dataflow-protocol $type"
+      ;;
+    com.hgtech.soma.dataflow.*)
+      printf '%s\n' "PUBLIC handwritten-dataflow $type"
+      ;;
     com.hgtech.soma.processor.internal.*)
       printf '%s\n' "INTERNAL implementation $type"
       ;;
@@ -54,7 +61,7 @@ classify_type() {
   esac
 }
 
-for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
+for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar" "$dataflow_jar"; do
   "$JAVA_HOME/bin/jar" tf "$artifact" | sed -n '/\.class$/p' | while IFS= read -r entry; do
     type=$(printf '%s' "$entry" | sed 's#/#.#g; s#\.class$##')
     declaration=$(
@@ -78,6 +85,9 @@ while read -r classification role type; do
         ;;
       com.hgtech.soma.runtime.*)
         artifact=$runtime_jar
+        ;;
+      com.hgtech.soma.dataflow.*)
+        artifact=$dataflow_jar
         ;;
       *)
         artifact=$processor_jar

@@ -4,6 +4,7 @@
   <dependencies>
     <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-annotations</artifactId><version>${soma.version}</version></dependency>
     <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-runtime-core</artifactId><version>${soma.version}</version></dependency>
+    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-dataflow</artifactId><version>${soma.version}</version></dependency>
     <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-processor</artifactId><version>${soma.version}</version><scope>provided</scope></dependency>
   </dependencies>
   <build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.11.0</version><configuration><source>1.8</source><target>1.8</target><encoding>UTF-8</encoding><compilerArgs><arg>-Xplugin:SomaValue</arg></compilerArgs><annotationProcessorPaths>

@@ -1,6 +1,7 @@
 package com.example.soma.dense;
 
 import com.example.soma.dense.generated.ParticleBatch;
+import com.example.soma.dense.generated.ParticleDataFlow;
 import com.example.soma.dense.generated.ParticleUpdateCursor;
 import com.example.soma.dense.generated.ParticleCursor;
 import com.example.soma.dense.generated.ParticleScan;
@@ -25,6 +26,8 @@ import com.hgtech.soma.runtime.ShortColumnView;
 import com.hgtech.soma.runtime.ShortConsumer;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
+import com.hgtech.soma.dataflow.DataFlowContext;
+import com.hgtech.soma.dataflow.LongScalarResult;
 
 import java.util.List;
 import java.util.Random;
@@ -68,6 +71,14 @@ public final class DenseConsumer {
 
         ParticleTable table = ParticleTable.create();
         table.addBatch(batch);
+        ParticleDataFlow.Source particleSource = ParticleDataFlow.source("particles");
+        DataFlowContext dataFlowContext = DataFlowContext.sequential();
+        LongScalarResult packedCount = particleSource.candidates().count().compile()
+                .newInvocation(dataFlowContext)
+                .bind(particleSource, ParticleDataFlow.bind(table))
+                .execute();
+        require(packedCount.value() == 4L, "external generated DataFlow count");
+        dataFlowContext.close();
         require(table.size() == 4, "addBatch size");
         require(table.capacity() >= 4, "capacity");
         require(table.runtimePlan() == ParticleTable.defaultRuntimePlan(), "default plan identity");

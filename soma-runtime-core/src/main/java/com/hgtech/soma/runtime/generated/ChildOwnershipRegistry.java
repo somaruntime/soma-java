@@ -2,9 +2,11 @@ package com.hgtech.soma.runtime.generated;
 
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Aggregate-local opaque child locator registry；canonical storage是平行数组。 */
 public final class ChildOwnershipRegistry {
+    private static final AtomicLong NEXT_AGGREGATE_INSTANCE_ID = new AtomicLong(1L);
     private static final byte STAGED = 0;
     private static final byte LIVE = 1;
     private static final byte RELEASED = 2;
@@ -12,6 +14,7 @@ public final class ChildOwnershipRegistry {
     private static final int MAX_CASCADE_DEPTH = 256;
 
     private final StorageBudget storageBudget;
+    private final long aggregateInstanceId;
     private long retainedBytes;
     private boolean storageReleased;
 
@@ -38,12 +41,17 @@ public final class ChildOwnershipRegistry {
     private long nextOwnerToken = 1L;
     private boolean materializationActive;
     private String materializationOperation = "";
+    private boolean dataFlowActive;
+    private String dataFlowOperation = "";
+    private int activeTableScopes;
+    private String activeTableScope = "";
 
     public ChildOwnershipRegistry() {
         this(1024L * 1024L * 1024L, 65536L);
     }
 
     public ChildOwnershipRegistry(long maximumBytes, long maximumTableInstances) {
+        aggregateInstanceId = nextAggregateInstanceId();
         storageBudget = new StorageBudget(maximumBytes, maximumTableInstances);
         long initialBytes = estimatedRetainedBytes(16, 32, 0);
         storageBudget.reserveBytes(initialBytes, "ownership", "ownership.create");
@@ -74,9 +82,17 @@ public final class ChildOwnershipRegistry {
 
     StorageBudget storageBudgetInternal() { return storageBudget; }
 
+    public long aggregateInstanceId() {
+        return aggregateInstanceId;
+    }
+
+    public Object physicalIdentity() {
+        return this;
+    }
+
     public void releaseStorage() {
         if (storageReleased) return;
-        if (cascadeDepth != 0) {
+        if (cascadeDepth != 0 || dataFlowActive || activeTableScopes != 0) {
             throw RuntimeFailures.internalInvariant(
                     "cascade_release_scope", "ownership", "release");
         }
@@ -114,6 +130,7 @@ public final class ChildOwnershipRegistry {
     /** Starts one aggregate-wide two-pass materialization guard. */
     public void beginMaterialization(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
+        preflightTableAccess(requested);
         if (materializationActive) {
             throw RuntimeFailures.reentrantAccess(
                     "ownership", materializationOperation, requested);
@@ -135,9 +152,91 @@ public final class ChildOwnershipRegistry {
     /** Rejects any visible aggregate mutation while two-pass materialization is active. */
     public void preflightMutation(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
+        preflightTableAccess(requested);
         if (materializationActive) {
             throw RuntimeFailures.reentrantAccess(
                     "ownership", materializationOperation, requested);
+        }
+    }
+
+    /** Rejects application Table access while one aggregate DataFlow guard is active. */
+    public void preflightTableAccess(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        if (dataFlowActive) {
+            throw RuntimeFailures.reentrantAccess(
+                    "ownership", dataFlowOperation, requested);
+        }
+    }
+
+    /** Tracks a callback-scoped operation or ColumnView pin for DataFlow preflight. */
+    public void beginTableScope(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        preflightTableAccess(requested);
+        if (activeTableScopes == Integer.MAX_VALUE) {
+            throw RuntimeFailures.internalInvariant(
+                    "aggregate_scope_overflow", "ownership", requested);
+        }
+        if (activeTableScopes == 0) {
+            activeTableScope = requested;
+        }
+        activeTableScopes++;
+    }
+
+    public void endTableScope(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        if (activeTableScopes <= 0) {
+            throw RuntimeFailures.internalInvariant(
+                    "aggregate_scope_underflow", "ownership", requested);
+        }
+        activeTableScopes--;
+        if (activeTableScopes == 0) {
+            activeTableScope = "";
+        }
+    }
+
+    /**
+     * Acquires the aggregate-local exclusive execution guard used by generated
+     * DataFlow bindings.
+     */
+    public void beginDataFlow(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        if (dataFlowActive) {
+            throw RuntimeFailures.reentrantAccess(
+                    "ownership", dataFlowOperation, requested);
+        }
+        if (materializationActive || activeTableScopes != 0 || cascadeDepth != 0) {
+            String active = materializationActive
+                    ? materializationOperation
+                    : activeTableScopes != 0 ? activeTableScope : "ownership.cascade";
+            throw RuntimeFailures.reentrantAccess("ownership", active, requested);
+        }
+        if (storageReleased) {
+            throw RuntimeFailures.tableReleased("ownership", requested);
+        }
+        dataFlowOperation = requested;
+        dataFlowActive = true;
+    }
+
+    public void endDataFlow(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        if (!dataFlowActive || !dataFlowOperation.equals(requested)) {
+            throw RuntimeFailures.internalInvariant(
+                    "dataflow_aggregate_guard", "ownership", requested);
+        }
+        dataFlowActive = false;
+        dataFlowOperation = "";
+    }
+
+    private static long nextAggregateInstanceId() {
+        while (true) {
+            long current = NEXT_AGGREGATE_INSTANCE_ID.get();
+            if (current <= 0L || current == Long.MAX_VALUE) {
+                throw RuntimeFailures.internalInvariant(
+                        "aggregate_instance_id_exhausted", "ownership", "table.create");
+            }
+            if (NEXT_AGGREGATE_INSTANCE_ID.compareAndSet(current, current + 1L)) {
+                return current;
+            }
         }
     }
 

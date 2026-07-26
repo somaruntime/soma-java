@@ -50,7 +50,7 @@ cp -R "$invalid_source/src" "$invalid_fixture/src"
 
 ./mvnw -B -ntp \
   -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-processor -am \
+  -pl soma-runtime-core,soma-dataflow,soma-processor -am \
   install -DskipTests
 
 ./mvnw -B -ntp \

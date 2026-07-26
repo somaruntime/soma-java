@@ -37,6 +37,12 @@
       <artifactId>soma-runtime-core</artifactId>
       <version>${soma.version}</version>
     </dependency>
+    <!-- Protocol alignment only; this governance does not migrate the simulation. -->
+    <dependency>
+      <groupId>com.hgtech.soma</groupId>
+      <artifactId>soma-dataflow</artifactId>
+      <version>${soma.version}</version>
+    </dependency>
     <dependency>
       <groupId>com.hgtech.soma</groupId>
       <artifactId>soma-processor</artifactId>

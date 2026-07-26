@@ -29,6 +29,10 @@
       <groupId>${project.groupId}</groupId>
       <artifactId>soma-runtime-core</artifactId>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>soma-dataflow</artifactId>
+    </dependency>
   </dependencies>
 
   <build>

@@ -25,7 +25,7 @@ cp -R "$fixture_source/src" "$repeat_fixture/src"
 
 ./mvnw -B -ntp \
   -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-processor -am \
+  -pl soma-runtime-core,soma-dataflow,soma-processor -am \
   install -DskipTests
 
 ./mvnw -B -ntp \
@@ -94,7 +94,7 @@ if grep -F 'field + ".column"' "$column_view_source" >/dev/null \
   exit 1
 fi
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar:$local_repository/com/hgtech/soma/soma-dataflow/0.2.0-SNAPSHOT/soma-dataflow-0.2.0-SNAPSHOT.jar" \
   com.example.soma.dense.DenseConsumer
 
 "$JAVA_HOME/bin/java" -version

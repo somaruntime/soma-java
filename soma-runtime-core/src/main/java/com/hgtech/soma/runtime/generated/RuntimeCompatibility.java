@@ -7,8 +7,8 @@ import com.hgtech.soma.runtime.TablePlan;
 public final class RuntimeCompatibility {
     public static final String GENERATED_TARGET = "java8-columnar";
     public static final String COMPILER_IDENTITY = "soma-value-javac8-v1";
-    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v4";
-    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v4";
+    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v5";
+    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v5";
     public static final String PLAN_PROTOCOL = "soma-runtime-plan-v3";
     public static final String DENSE_ALGORITHM = "dense-soa-v1";
     public static final String NO_ACCESS_STRATEGY = "none";

@@ -24,6 +24,7 @@
   <modules>
     <module>soma-annotations</module>
     <module>soma-runtime-core</module>
+    <module>soma-dataflow</module>
     <module>soma-processor</module>
     <module>soma-testkit</module>
     <module>soma-examples</module>
@@ -60,6 +61,11 @@
       <dependency>
         <groupId>${project.groupId}</groupId>
         <artifactId>soma-runtime-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>soma-dataflow</artifactId>
         <version>${project.version}</version>
       </dependency>
       <dependency>

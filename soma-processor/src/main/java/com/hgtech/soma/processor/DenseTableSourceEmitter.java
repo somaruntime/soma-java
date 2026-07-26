@@ -142,7 +142,7 @@ final class DenseTableSourceEmitter {
                 if (child.optional) out.append(',').append(child.javaName).append("ChildPresence");
             }
         }
-        out.append(");\n    state=new DenseTableState(TABLE,plan,tablePlan,columns);\n");
+        out.append(");\n    state=new DenseTableState(TABLE,plan,tablePlan,columns,ownership);\n");
         out.append("    if(owned)state.markOwned(ownershipPath);\n");
         if (table.keyed()) {
             out.append("    try{keySpace=newKeySpace(tablePlan.initialCapacity(),\"table.create\");")
@@ -420,6 +420,13 @@ final class DenseTableSourceEmitter {
         }
         out
                 .append("  void begin(String operation){state.beginOperation(operation);}\n  void beginCallback(String callback){state.beginCallback(callback);}\n  void endCallback(String callback){state.endCallback(callback);}\n  void endSuccess(String operation,long scanned,long matched,long changed){state.endOperationSuccess(operation,scanned,matched,changed);}\n  void endFailure(String operation,long scanned,long matched,String code){state.endOperationFailure(operation,scanned,matched,code);}\n  void abort(String operation){state.abortOperation(operation);}\n  UpdateResult updateResult(long scanned,long matched,long changed){return state.updateResult(scanned,matched,changed);}\n  IndexSnapshot indexSnapshot(int[] indexes,int count){return IndexSnapshots.copyOf(indexSnapshotOwner,structuralEpoch(),indexes,count);}\n")
+                .append("  void requireDataFlowRootSource(){state.checkActive(\"dataflow.bind\");if(owned)throw RuntimeFailures.ownedDataFlowSource(TABLE,\"dataflow.bind\");}\n")
+                .append("  long dataFlowAggregateInstanceId(){return ownership.aggregateInstanceId();}\n")
+                .append("  Object dataFlowPhysicalIdentity(){return ownership.physicalIdentity();}\n")
+                .append("  long dataFlowStructuralEpoch(){return state.structuralEpoch();}\n")
+                .append("  int dataFlowPackedSize(){return state.size();}\n")
+                .append("  void acquireDataFlow(String operation){state.checkActive(operation);ownership.beginDataFlow(operation);}\n")
+                .append("  void releaseDataFlow(String operation){ownership.endDataFlow(operation);}\n")
                 .append("  void beginMaterialization(String operation,boolean nested){ownership.beginMaterialization(operation);try{if(nested)state.beginOperationMaterialization(operation);else state.beginMaterialization(operation);}catch(RuntimeException failure){ownership.endMaterialization();throw failure;}catch(Error failure){ownership.endMaterialization();throw failure;}}\n")
                 .append("  void endMaterializationSuccess(MaterializationTracker tracker){try{state.endMaterializationSuccess(tracker);}finally{ownership.endMaterialization();}}\n")
                 .append("  void endMaterializationFailure(MaterializationTracker tracker){try{state.endMaterializationFailure(tracker);}finally{ownership.endMaterialization();}}\n")

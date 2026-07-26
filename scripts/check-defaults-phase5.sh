@@ -13,6 +13,7 @@ fi
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
+dataflow_jar=soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar
 fixture=soma-testkit/src/test/fixtures/compiler/defaults-invalid-phase5
 boundary_fixture=soma-testkit/src/test/fixtures/compiler/defaults-boundary-phase5
 mkdir -p target
@@ -26,7 +27,7 @@ mkdir -p "$boundary_classes" "$boundary_generated"
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+  -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -56,7 +57,7 @@ fi
 
 "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar:$runtime_jar" \
+  -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \

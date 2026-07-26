@@ -151,7 +151,7 @@ build_release_shape() {
   fi
   if ! ./mvnw -B -ntp -Prelease-artifacts \
     -Dmaven.repo.local="$local_repository" \
-    -pl soma-annotations,soma-processor,soma-runtime-core -am clean package \
+    -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow -am clean package \
     > "$build_log" 2>&1; then
     cat "$build_log" >&2
     return 1
@@ -171,7 +171,7 @@ validate_artifact_set "$second_dir" second
 diff -u "$first_dir/checksums.sha256" "$second_dir/checksums.sha256" > "$work_dir/reproducibility.diff"
 
 ./mvnw -B -ntp -Dmaven.repo.local="$work_dir/repository-second" \
-  -pl soma-annotations,soma-processor,soma-runtime-core "$dependency_plugin":tree \
+  -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow "$dependency_plugin":tree \
   -Dscope=runtime > "$work_dir/runtime-dependency-tree.txt"
 
 mkdir -p "$root_dir/target"
@@ -195,7 +195,7 @@ commit=$(git rev-parse HEAD)
   printf 'artifactSet=parent-pom-plus-three-module-pom-binary-source-javadoc\n'
   printf 'classfileMajor=52\n'
   printf 'licenseNotice=binary-and-source-jars-exact-root-content\n'
-  printf 'buildCommand=./mvnw -B -ntp -Prelease-artifacts -Dmaven.repo.local=<isolated> -pl soma-annotations,soma-processor,soma-runtime-core -am clean package\n'
+  printf 'buildCommand=./mvnw -B -ntp -Prelease-artifacts -Dmaven.repo.local=<isolated> -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow -am clean package\n'
   printf 'javaHome=%s\n' "$JAVA_HOME"
   "$JAVA_HOME/bin/java" -version 2>&1 | sed 's/^/java=/'
   ./mvnw -version | sed 's/^/maven=/'

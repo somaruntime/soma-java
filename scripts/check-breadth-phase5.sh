@@ -46,7 +46,7 @@ fi
 
 # 将发布形态 artifact 安装到本次 evidence 独占仓库；consumer 不继承 reactor classpath。
 ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-processor -am install -DskipTests
+  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
 ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
   -f "$fixture/pom.xml" clean package
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \

@@ -79,7 +79,7 @@ if [ -d "$seed_repository" ]; then
 fi
 
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-runtime-core,soma-processor -am install -DskipTests
+  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
 
 for application in industrial-dynamic-scheduler grassing-individual-simulation; do
   application_dir=$root_dir/soma-examples/$application

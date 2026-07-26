@@ -121,7 +121,7 @@ diff -u "$evidence_dir/expected-sbom-components.sorted.tsv" \
   "$evidence_dir/sbom-components.tsv" > "$evidence_dir/sbom-components.diff"
 
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-annotations,soma-processor,soma-runtime-core "$dependency_plugin":tree \
+  -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow "$dependency_plugin":tree \
   -Dscope=runtime >"$evidence_dir/runtime-dependency-tree.txt"
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" "$dependency_plugin":resolve-plugins \
   >"$evidence_dir/build-plugin-inventory.txt"

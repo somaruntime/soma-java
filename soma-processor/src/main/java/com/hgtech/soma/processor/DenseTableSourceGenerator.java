@@ -11,6 +11,7 @@ final class DenseTableSourceGenerator {
     private final String generatedPackage;
     private final DenseAuxiliarySourceEmitter auxiliary;
     private final DenseTableSourceEmitter tableEmitter;
+    private final DenseDataFlowSourceEmitter dataFlowEmitter;
 
     DenseTableSourceGenerator(
             String generatedPackage,
@@ -20,6 +21,8 @@ final class DenseTableSourceGenerator {
         this.auxiliary = new DenseAuxiliarySourceEmitter(generatedPackage, schemaTables);
         this.tableEmitter = new DenseTableSourceEmitter(
                 generatedPackage, schemaHash, schemaTables);
+        this.dataFlowEmitter = new DenseDataFlowSourceEmitter(
+                generatedPackage, schemaHash);
     }
 
     List<GeneratedSourceOutput> render(TableSpec table) {
@@ -29,6 +32,7 @@ final class DenseTableSourceGenerator {
         add(result, table.name("Batch"), auxiliary.batchSource(table), table.origin);
         add(result, table.name("Mutator"), auxiliary.mutatorSource(table), table.origin);
         add(result, table.name("Scan"), auxiliary.scanSource(table), table.origin);
+        add(result, table.name("DataFlow"), dataFlowEmitter.dataFlowSource(table), table.origin);
         if (table.keyed()) {
             add(result, table.name("KeyTraversal"), auxiliary.keyTraversalSource(table), table.origin);
         }

@@ -314,8 +314,10 @@ Stage 4。下一步必须由用户审查并明确授予 Implementation Authoriza
 
 ## 11. Stage 4–6 剩余顺序
 
-1. 用户审查并授权 frozen candidate；
-2. Stage 4 按 Execution Architecture 的 vertical slice 原子实施；
+1. 用户已于 2026-07-26 审查并授权 frozen candidate；
+2. Stage 4 按 Execution Architecture 的 vertical slice 原子实施；foundation
+   首先闭合独立 `soma-dataflow` module、generated/runtime v5、aggregate guard、
+   Definition/Template/Invocation 和真实 external generated consumer；
 3. Stage 5 选择 P2 physical strategy 并完成稳定性能验真；
 4. Stage 6 scope non-regression、正式文档原子固化、Report、Temporary 退役与
    完整 Gate。

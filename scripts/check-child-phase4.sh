@@ -23,7 +23,7 @@ cp "$source_fixture/pom.xml" "$repeat_fixture/pom.xml"
 cp -R "$source_fixture/src" "$repeat_fixture/src"
 
 ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-processor -am install -DskipTests
+  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
 ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
   -f "$fixture/pom.xml" clean package
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \

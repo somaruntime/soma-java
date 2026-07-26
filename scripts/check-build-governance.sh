@@ -47,7 +47,7 @@ if rg -n '(^|[[:space:]])dependency:(tree|build-classpath|resolve-plugins)([[:sp
 fi
 
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-annotations,soma-processor,soma-runtime-core \
+  -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow \
   "$dependency_plugin":tree -Dscope=runtime \
   >"$evidence_dir/runtime-dependency-tree.txt"
 grep -F "dependency:$dependency_plugin_version:tree" \
