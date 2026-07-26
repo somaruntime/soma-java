@@ -146,6 +146,36 @@ public final class RuntimeFailures {
                 table, context("key", keyField), null);
     }
 
+    public static SomaRuntimeException duplicateDeltaTarget(
+            String table, int firstEntry, int duplicateEntry, String operation) {
+        Map<String, String> context = context(
+                "firstEntry", Integer.toString(firstEntry));
+        context.put("duplicateEntry", Integer.toString(duplicateEntry));
+        return create(SomaErrorCategory.CONFLICT, "duplicate_delta_target",
+                operation, table, context, null);
+    }
+
+    public static SomaRuntimeException deltaInsertTargetPresent(
+            String table, int entry, String operation) {
+        return create(SomaErrorCategory.CONFLICT, "delta_insert_target_present",
+                operation, table, context("entry", entry), null);
+    }
+
+    public static SomaRuntimeException deltaTargetAbsent(
+            String table, int entry, String operation) {
+        return create(SomaErrorCategory.LOOKUP, "delta_target_absent",
+                operation, table, context("entry", entry), null);
+    }
+
+    public static SomaRuntimeException staleDelta(
+            String table, long expectedEpoch, long currentEpoch, String operation) {
+        Map<String, String> context = context(
+                "expectedEpoch", Long.toString(expectedEpoch));
+        context.put("currentEpoch", Long.toString(currentEpoch));
+        return create(SomaErrorCategory.LIFECYCLE, "stale_delta",
+                operation, table, context, null);
+    }
+
     public static SomaRuntimeException invalidFloatingAccessValue(
             String table, String field, String valueClass, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "invalid_floating_access_value", operation,

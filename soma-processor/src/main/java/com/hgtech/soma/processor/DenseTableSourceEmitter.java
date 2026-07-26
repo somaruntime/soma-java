@@ -35,6 +35,7 @@ final class DenseTableSourceEmitter {
         SourceBuilder out = new SourceBuilder(header());
         out.append("import com.hgtech.soma.runtime.*;\n")
                 .append("import com.hgtech.soma.runtime.generated.*;\n")
+                .append("import com.hgtech.soma.dataflow.DeltaApplyResult;\n")
                 .append("import java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\nimport java.util.Optional;\n\n")
                 .append("public final class ").append(name).append(" {\n")
                 .append("  private static final String TABLE=").append(q(table.logicalName)).append(";\n")
@@ -210,6 +211,9 @@ final class DenseTableSourceEmitter {
                     .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}\n\n");
         } else {
             appendChildStructuralMethods(out, table);
+        }
+        if (table.keyed()) {
+            appendDeltaApply(out, table);
         }
         out.append("  private void copyBatch(").append(table.name("Batch")).append(" batch,int source,int target,int count){for(int i=0;i<count;i++){int s=source+i,t=target+i;\n");
         for (FieldSpec field : table.fields) {
@@ -522,6 +526,34 @@ final class DenseTableSourceEmitter {
         out.append("}\n");
     }
 
+    private static void appendDeltaApply(
+            SourceBuilder out, TableSpec table) {
+        String delta = table.name("Delta");
+        String batch = table.name("Batch");
+        FieldSpec key = table.keyField();
+        out.append("  public DeltaApplyResult applyDelta(").append(delta)
+                .append(" delta){if(delta==null)throw new NullPointerException(\"delta\");")
+                .append(delta).append(" detached=delta.copy();ownership.preflightMutation(\"delta.apply\");")
+                .append("long beforeEpoch=state.structuralEpoch();if(detached.hasExpectedStructuralEpoch()&&detached.expectedStructuralEpoch()!=beforeEpoch)throw RuntimeFailures.staleDelta(TABLE,detached.expectedStructuralEpoch(),beforeEpoch,\"delta.apply\");")
+                .append("for(int right=1;right<detached.size();right++)for(int left=0;left<right;left++)if(detached.sameKey(left,right))throw RuntimeFailures.duplicateDeltaTarget(TABLE,left,right,\"delta.apply\");")
+                .append("int beforeSize=state.size();if(detached.size()==0)return new DeltaApplyResult(0L,0L,0L,beforeSize,beforeSize,beforeEpoch,beforeEpoch);")
+                .append(batch).append(" working=").append(batch)
+                .append(".snapshotOf(this);long inserted=0L,updated=0L,deleted=0L;")
+                .append("for(int entry=0;entry<detached.size();entry++){int row=deltaRow(working,detached.keyAt(entry));byte kind=detached.kindAt(entry);")
+                .append("if(kind==").append(delta)
+                .append(".INSERT){if(row>=0)throw RuntimeFailures.deltaInsertTargetPresent(TABLE,entry,\"delta.apply\");working.appendFrom(detached.rows(),detached.rowIndexAt(entry));inserted++;}")
+                .append("else if(kind==").append(delta)
+                .append(".UPDATE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");working.replaceFrom(row,detached.rows(),detached.rowIndexAt(entry));updated++;}")
+                .append("else if(kind==").append(delta)
+                .append(".DELETE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");working.swapRemove(row);deleted++;}")
+                .append("else throw RuntimeFailures.internalInvariant(\"delta_operation\",TABLE,\"delta.apply\");}")
+                .append("long publishEpoch=state.structuralEpoch();if(publishEpoch!=beforeEpoch)throw RuntimeFailures.staleDelta(TABLE,beforeEpoch,publishEpoch,\"delta.apply\");")
+                .append("replaceAll(working);return new DeltaApplyResult(inserted,updated,deleted,beforeSize,state.size(),beforeEpoch,state.structuralEpoch());}\n")
+                .append("  private int deltaRow(").append(batch).append(" rows,")
+                .append(key.primitive)
+                .append(" key){for(int row=0;row<rows.size();row++)if(rows.keyMatches(row,key))return row;return -1;}\n");
+    }
+
     private void appendChildStructuralMethods(SourceBuilder out, TableSpec table) {
         String batch = table.name("Batch");
         String validateAppendKeys = table.keyed() ? "validateAppendKeys(batch);" : "";
@@ -677,6 +709,12 @@ final class DenseTableSourceEmitter {
             rowExpression = "state.checkRowIndex(index,operation)";
         }
         String c = cap(child.javaName);
+        out.append("  boolean dataFlow").append(c)
+                .append("PresentAt(int index){if(index<0||index>=state.size())throw RuntimeFailures.internalInvariant(\"dataflow_parent_index\",TABLE,\"dataflow.snapshot\");return ")
+                .append(child.optional
+                        ? child.javaName + "ChildPresence.isPresent(index)"
+                        : "true")
+                .append(";}\n");
         out.append("  ").append(child.tableType()).append(" dataFlow")
                 .append(c).append("At(int index){if(index<0||index>=state.size())throw RuntimeFailures.internalInvariant(\"dataflow_parent_index\",TABLE,\"dataflow.expand\");");
         if (child.optional) {

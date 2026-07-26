@@ -474,6 +474,7 @@ final class DenseAuxiliarySourceEmitter {
                     .append("Values[i]=").append(child.javaName).append("Values[i].copy();}");
         }
         out.append("return copy;}\n");
+        appendBatchDeltaSupport(out, table);
         out.append("\n  private static boolean present(long[] words, int row) { return (words[row >>> 6] & (1L << (row & 63))) != 0L; }\n")
                 .append("  private static void setPresent(long[] words, int row, boolean present) { int word = row >>> 6; long mask = 1L << (row & 63); if (present) words[word] |= mask; else words[word] &= ~mask; }\n\n")
                 .append("  public interface Writer { void write(RowBuilder row); }\n")
@@ -900,6 +901,149 @@ final class DenseAuxiliarySourceEmitter {
                     .append(c).append(';').append(child.javaName)
                     .append("Present[size]=staged").append(c).append("!=null;\n");
         }
+    }
+
+    private static void appendBatchDeltaSupport(
+            SourceBuilder out, TableSpec table) {
+        String batch = table.name("Batch");
+        String tableType = table.name("Table");
+        out.append("  static ").append(batch).append(" snapshotOf(")
+                .append(tableType)
+                .append(" source){if(source==null)throw new NullPointerException(\"source\");int count=source.size();")
+                .append(batch).append(" result=new ").append(batch)
+                .append("(count);for(int row=0;row<count;row++)result.appendFromTable(source,row);return result;}\n")
+                .append("  private void appendFromTable(").append(tableType)
+                .append(" source,int row){ensureOne();");
+        for (FieldSpec field : table.fields) {
+            String c = cap(field.javaName);
+            if (field.optional) {
+                out.append("if(source.").append(field.javaName)
+                        .append("Present(row))set").append(c)
+                        .append("(size,source.").append(field.javaName)
+                        .append("Value(row));else set").append(c)
+                        .append("Absent(size);");
+            } else {
+                out.append("set").append(c).append("(size,source.")
+                        .append(field.javaName).append("Value(row));");
+            }
+        }
+        for (ChildSpec child : table.children) {
+            String c = cap(child.javaName);
+            out.append("boolean ").append(child.javaName)
+                    .append("IsPresent=source.dataFlow").append(c)
+                    .append("PresentAt(row);")
+                    .append(child.tableType()).append(' ').append(child.javaName)
+                    .append("Table=source.dataFlow").append(c).append("At(row);")
+                    .append(child.batchType()).append(" staged").append(c)
+                    .append('=').append(child.javaName)
+                    .append("IsPresent?(").append(child.javaName)
+                    .append("Table==null?new ").append(child.batchType())
+                    .append("(0):").append(child.batchType()).append(".snapshotOf(")
+                    .append(child.javaName).append("Table)):null;")
+                    .append(child.javaName).append("Values[size]=staged")
+                    .append(c).append(';').append(child.javaName)
+                    .append("Present[size]=").append(child.javaName)
+                    .append("IsPresent;");
+        }
+        out.append("size++;}\n")
+                .append("  void appendFrom(").append(batch)
+                .append(" source,int sourceRow){checkSourceRow(source,sourceRow);ensureOne();copyRow(source,sourceRow,size,true);size++;}\n")
+                .append("  void replaceFrom(int targetRow,").append(batch)
+                .append(" source,int sourceRow){if(targetRow<0||targetRow>=size)throw new IndexOutOfBoundsException(\"target row: \"+targetRow);checkSourceRow(source,sourceRow);copyRow(source,sourceRow,targetRow,true);}\n")
+                .append("  void swapRemove(int row){if(row<0||row>=size)throw new IndexOutOfBoundsException(\"row: \"+row);int last=size-1;if(row!=last)copyRow(this,last,row,false);clearRow(last);size=last;}\n")
+                .append("  private static void checkSourceRow(").append(batch)
+                .append(" source,int row){if(source==null)throw new NullPointerException(\"source\");if(row<0||row>=source.size)throw new IndexOutOfBoundsException(\"source row: \"+row);}\n")
+                .append("  private void copyRow(").append(batch)
+                .append(" source,int sourceRow,int targetRow,boolean detachChildren){");
+        for (FieldSpec field : table.fields) {
+            if (field.flattenedValueStorage()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    String physical = leaf.physicalName(field);
+                    out.append(physical).append("Values[targetRow]=source.")
+                            .append(physical).append("Values[sourceRow];");
+                }
+            } else {
+                out.append(field.javaName)
+                        .append("Values[targetRow]=source.")
+                        .append(field.javaName).append("Values[sourceRow];");
+            }
+            if (field.optional) {
+                out.append("setPresent(").append(field.javaName)
+                        .append("Presence,targetRow,present(source.")
+                        .append(field.javaName).append("Presence,sourceRow));");
+            }
+        }
+        for (ChildSpec child : table.children) {
+            out.append(child.batchType()).append(" source")
+                    .append(cap(child.javaName)).append("=source.")
+                    .append(child.javaName).append("Values[sourceRow];")
+                    .append(child.javaName).append("Values[targetRow]=source")
+                    .append(cap(child.javaName))
+                    .append("==null?null:(detachChildren?source")
+                    .append(cap(child.javaName)).append(".copy():source")
+                    .append(cap(child.javaName)).append(");")
+                    .append(child.javaName).append("Present[targetRow]=source.")
+                    .append(child.javaName).append("Present[sourceRow];");
+        }
+        out.append("}\n  private void clearRow(int row){");
+        for (FieldSpec field : table.fields) {
+            if (field.flattenedValueStorage()) {
+                for (ValueLeafSpec leaf : field.valueLeaves) {
+                    if ("java.lang.String".equals(leaf.storagePrimitive)) {
+                        out.append(leaf.physicalName(field))
+                                .append("Values[row]=null;");
+                    }
+                }
+            } else if ("java.lang.String".equals(field.storagePrimitive)) {
+                out.append(field.javaName).append("Values[row]=null;");
+            }
+            if (field.optional) {
+                out.append("setPresent(").append(field.javaName)
+                        .append("Presence,row,false);");
+            }
+        }
+        for (ChildSpec child : table.children) {
+            out.append(child.javaName).append("Values[row]=null;")
+                    .append(child.javaName).append("Present[row]=false;");
+        }
+        out.append("}\n");
+        if (table.keyed()) {
+            appendBatchKeyMatch(out, table.keyField());
+        }
+    }
+
+    private static void appendBatchKeyMatch(
+            SourceBuilder out, FieldSpec key) {
+        out.append("  boolean keyMatches(int row,").append(key.primitive)
+                .append(" key){return ");
+        if (key.valueBacked()) {
+            out.append("key!=null&&");
+            for (int index = 0; index < key.valueLeaves.size(); index++) {
+                if (index > 0) {
+                    out.append("&&");
+                }
+                ValueLeafSpec leaf = key.valueLeaves.get(index);
+                String input = leaf.keyInputStorage(
+                        key, "key." + leaf.javaName, q("delta.apply"));
+                out.append(leaf.keyEqual(
+                        key,
+                        leaf.physicalName(key) + "Values[row]",
+                        input,
+                        q("delta.apply")));
+            }
+        } else if (key.enumType != null) {
+            out.append(key.javaName).append("Values[row]==RuntimeFailures.requiredEnumValue(TABLE,")
+                    .append(q(key.logicalName))
+                    .append(",key,\"delta.apply\").ordinal()");
+        } else if ("java.lang.String".equals(key.primitive)) {
+            out.append(key.javaName)
+                    .append("Values[row].equals(RuntimeFailures.requiredValue(TABLE,")
+                    .append(q(key.logicalName)).append(",key,\"delta.apply\"))");
+        } else {
+            out.append(key.javaName).append("Values[row]==")
+                    .append(key.storageValue("key", "delta.apply"));
+        }
+        out.append(";}\n");
     }
 
     private static void appendDirectParameters(SourceBuilder out, TableSpec table) {
