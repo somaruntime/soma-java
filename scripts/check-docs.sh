@@ -263,8 +263,23 @@ for file in guides/java-v1-install-and-consumer-guide.md guides/development-guid
 done
 
 for file in \
+  docs/design/transformation-model.md \
+  docs/design/dataflow-execution-model.md \
+  docs/implementation-map/dataflow-map.md; do
+  if [ ! -f "$file" ]; then
+    fail "missing current Transformation/DataFlow Owner $file"
+  fi
+done
+
+if ! grep -F 'soma-generated-runtime-v5' \
+    docs/design/compatibility-security-and-versioning.md >/dev/null 2>&1; then
+  fail 'compatibility Design must declare generated/runtime v5'
+fi
+
+for file in \
   reports/java-v1-goal-execution-status.md \
   reports/current-performance-summary.md \
+  reports/2026-07-27-transformation-dataflow-governance-report.md \
   reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md \
   reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md \
   reports/2026-07-23-reference-application-boundary-governance-report.md \
@@ -292,6 +307,10 @@ fi
 
 if [ -e docs/temp/row-pipeline-execution-and-lazy-plan-governance ]; then
   fail 'retired Access Model / Candidate Scan Temporary topic must not exist'
+fi
+
+if [ -e docs/temp/soma-transformation-model-governance ]; then
+  fail 'retired Transformation/DataFlow Temporary topic must not exist'
 fi
 
 active_temp_topic_count=0

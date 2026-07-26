@@ -10,7 +10,7 @@ Owner：SOMA Java 正式报告输出
 
 非事实范围：Blueprint、Design 或当前代码实现事实
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 `reports/` 保存带时间点的正式审查、验证、benchmark、治理和 release evidence。报告不是 Design；目标、规范和当前实现分别回到 [Blueprint](../docs/blueprints/README.md)、[Design](../docs/design/README.md)和[Implementation Map](../docs/implementation-map/README.md)。
 
@@ -18,6 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)（generated/runtime v5、transformation/kernel v1、构造契约、reference differential、受控并行、工业应用 trace 与 scope non-regression）
 - [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)（Problem/Result 契约、Access Pattern→Schema、global frontier、canonical/hot 9-fork evidence 与 scope non-regression）
 - [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)（六个 default/large/long-run baseline、Fast/Scale/Soak/Full Gate、性能归因与 scope non-regression）
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)（component、两个 application baseline、环境感知 comparator、9-fork 校准与 public claim 边界）
@@ -35,10 +36,10 @@ Owner：SOMA Java 正式报告输出
 |---|---|---|
 | G0 | passed | [scope freeze](java-v1-g0-scope-freeze-report.md) |
 | G1 | passed | [schema processing](../soma-processor/reports/java-v1-g1-schema-processing-report.md)；packed/exact cutover见当前专题报告 |
-| G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；v4 generated surface见[当前治理报告](2026-07-23-access-model-candidate-scan-governance-report.md) |
-| G3 | passed | [Access Model / Candidate Scan v4治理](2026-07-23-access-model-candidate-scan-governance-report.md)与[性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)；packed/exact v3报告保留前序证据 |
+| G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；当前 v5 generated DataFlow surface 见[Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md) |
+| G3 | passed | [Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md)、[Access Model / Candidate Scan v4治理](2026-07-23-access-model-candidate-scan-governance-report.md)与[性能证据](2026-07-23-access-model-candidate-scan-performance-report.md) |
 | G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md) |
-| G5 | passed | [参考应用边界治理](2026-07-23-reference-application-boundary-governance-report.md)、[大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)；旧四场景只保留历史 provenance |
+| G5 | passed | [Transformation/DataFlow 工业应用 trace](2026-07-27-transformation-dataflow-governance-report.md)、[参考应用边界治理](2026-07-23-reference-application-boundary-governance-report.md)、[大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md) |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
 Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。
@@ -47,6 +48,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)
 - [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)
 - [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)

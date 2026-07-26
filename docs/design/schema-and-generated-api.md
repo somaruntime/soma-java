@@ -14,11 +14,11 @@ Owner：SOMA schema 与 generated contract
 
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
-事实范围：annotation/schema 语义、compiler/codegen 技术路线、normalization/hash、编译期诊断、generated facade 语义和公开 IndexSnapshot 消费契约
+事实范围：annotation/schema 语义、compiler/codegen 技术路线、normalization/hash、编译期诊断、generated facade/DataFlow binding 语义和公开 IndexSnapshot 消费契约
 
 非事实范围：runtime 存储算法、具体 generator 类结构和 measured performance
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 本 Owner 先定义 schema 与 generated public capability 的长期语义，再约束实现这些语义所必需的 compiler/codegen 机制。当前 generator 类、精确 signature 和 emission 结构不属于本 Design，由 Implementation Map 与 executable surface 记录。
 
@@ -90,6 +90,8 @@ Normalized model 至少保留 schema/table/value identity、logical field/leaf p
 - typed ColumnTraversal、primitive ColumnView 和 direct column access；
 - keyed KeyTraversal 与 secondary-unique point family；
 - parent-owned child facade；
+- 每张 Table 一个 schema-specific DataFlow companion，提供 typed Source、column/value expression、point/exact/owned-child binding；
+- keyed table 的 typed detached Delta 与 safe-point `applyDelta`；
 - detached row/aggregate materialization与预算；
 - lifecycle、structured errors 和 compatibility identity。
 
@@ -105,6 +107,9 @@ Normalized model 至少保留 schema/table/value identity、logical field/leaf p
 | dense access | current Index 只在当前 table state 有效，不是 stable identity |
 | exact source | 从 eager maintained group 产生当前候选，不做 read-time rebuild/scan fallback |
 | Candidate Scan | lazy intermediate、one-shot、同步、非重入；stage 只消费前一 candidate set |
+| DataFlow companion | 生成 typed Source/Binding/Expression access；不保存 Template/Invocation，不生成 per-operator executor |
+| Definition/Template/Invocation | logical/reusable、compiled/reusable、bound/one-shot 三种 lifecycle 不能合并 |
+| keyed Delta/apply | detached ordered Insert/Update/Delete；整批 preflight 后在 single-aggregate safe point 原子 publish |
 | update/remove | 只作用于当前候选，维护 columns、locator、exact access、ownership 和 epoch 原子一致 |
 | ColumnTraversal/View | typed leaf access；Traversal one-shot，live View 有明确 close、pin、epoch 和 stale 语义 |
 | materializing terminal | 返回 detached schema object/List/Map，并遵守 aggregate budget |
@@ -114,11 +119,13 @@ Normalized model 至少保留 schema/table/value identity、logical field/leaf p
 
 完整 Access family、组合合法性、sequence 与 terminal 语义由 [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)拥有；本 Owner 负责把它们投影为 schema-specific generated contract。
 
+Logical Shape、Operator、Result/Effect 语义由 [Transformation Model](transformation-model.md)拥有；Definition/Template/Invocation、binding 和 protocol 由 [DataFlow 执行模型](dataflow-execution-model.md)拥有。本 Owner 只拥有 schema-specific generated projection，不复制 analyzer 或 executor。
+
 ## 5. Handle 与 callback 语义
 
 - materializing terminal 返回 detached `@SomaTable` object；它不是 live view；
 - Candidate callback 收到 callback-scoped Cursor/UpdateCursor，不能逃逸、缓存或跨 stage 使用；
-- Candidate Scan、KeyTraversal、ColumnTraversal 和 mutation builder 是 one-shot；消费后再次调用必须产生 typed lifecycle error；
+- Candidate Scan、KeyTraversal、ColumnTraversal、mutation builder、Definition Builder 和 Invocation 是 one-shot；消费后再次调用必须产生 typed lifecycle error；
 - `IndexSnapshot` 是显式复制的 public Index result，只复制数值序列并记录 source table / structural epoch；它不是 stable identity 或 row snapshot；
 - caller只在一个同步只读Index消费批次中立即使用，来源Table任意mutation/lifecycle变化后视为失效；`requireCurrent`只作为可选边界防御，不进入强制hot path；
 - internal candidate scratch 统一称为 `IndexBuffer`，不进入 application data model；
@@ -126,6 +133,6 @@ Normalized model 至少保留 schema/table/value identity、logical field/leaf p
 
 ## 6. API 演进
 
-Handwritten public、generated public 和 generated-runtime protocol 是不同兼容面。任何 public/generated 名称或语义变化必须更新 manifest/golden/external-consumer evidence；internal implementation 可以在不改变这些 surface 的前提下演进。
+Handwritten public、generated public、generated-runtime protocol 与 transformation/kernel protocol 是不同兼容面。任何 public/generated 名称或语义变化必须更新 manifest/golden/external-consumer evidence；internal implementation 可以在不改变这些 surface 的前提下演进。
 
 Generated output 必须 deterministic、byte-stable 于其声明的工具链/identity，不包含 timestamp、local path、random id 或 iteration-order 偶然性。Generated name collision、source size/parameter slot/resource admission 和 emission failure在 product artifact 发布前处理；不能通过临时 public carrier、字段截断、反射或 metadata interpreter 绕过。

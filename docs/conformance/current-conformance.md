@@ -6,15 +6,14 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design、既有 core 产品语义、compiler/codegen
-stability `c0fa1c9`、industrial scheduler candidate `a7d4fde`、其余
-reference application / performance baseline evidence `938b3d5`
+核对对象：正式 Blueprint/Design、Transformation/DataFlow 与 industrial
+application immutable candidate `2aa8c15`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
 非事实范围：授权修复、重新定义 Design 或声明 public release readiness
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 1. 判定口径
 
@@ -29,18 +28,21 @@ reference application / performance baseline evidence `938b3d5`
 |---|---|---|---|
 | Java 8 annotation/schema/compiler | 一致且 evidenced | processor/plugin、compile fixtures；G1 passed | 保持 |
 | deterministic normalization/hash | 一致且 evidenced | schema JSON/hash golden、Unicode fixture | 保持 |
-| schema-specific generated API | 一致且 evidenced | Table/Scan/Cursor/Traversal/point families 的 external Maven consumers、public `javap` golden；G2/G4 passed | 保持 v4 clean surface，不恢复旧 alias |
+| schema-specific generated API | 一致且 evidenced | Table/Scan/Cursor/Traversal/point/DataFlow/Delta families 的 external Maven consumers、public `javap` golden；G2/G4 passed | 保持 v5 clean surface，不恢复旧 alias 或 dual protocol |
 | packed keyed/dense storage | 一致且 evidenced | generated/runtime checks；G3 passed | 保持 |
 | primary identity 与 exact access | 一致且 evidenced | V3 Hash KeySpace、GroupedExactIndex、access fixtures；packed exact cutover passed | 保持 |
 | Access Model 与 Candidate Scan | 一致且 evidenced | Access Pattern/API oracle、ordered-stage differential、one-shot/retention tests、external consumers 与两个 isolated reference applications | 保持 Point/Candidate/Column/Key/Bulk/Ownership 边界 |
+| Transformation Model | 一致且 evidenced | Shape-specific typed API、Slice A–F、48-trial plain-array reference differential；Selection/Projection/Aggregation/Prefix/Partition/Combine/Group/Join/Expand/Window/Result/Effect 均有 canonical path | 保持 Access 与 Transformation 分层，不把 DataFlow 当成全部产品 |
+| Typed DataFlow execution | 一致且 evidenced | immutable Definition/Template、one-shot Invocation、generated binding、managed/borrowed executor、budget/cancel/stats/explain、safe-point Delta/Effect 与 external Java 8 consumer | 保持一套语义两种使用形态；不公开 internal IR 或引入隐式 common pool |
+| 按构造即正确 | 一致且 evidenced | typed immutable expression/result、one-shot Builder/Invocation、stable boundary failures、真实 internal publish guards；contract/property/differential evidence | 生产 Owner 继续承担不变量；测试不重复冻结 private layout |
 | swap-remove 与 IndexBuffer execution | 一致且 evidenced | generated access/remove tests、component benchmark | 保持 |
 | Index / IndexSnapshot caller-responsibility | 一致且 evidenced | detached `IndexSnapshot`、optional `requireCurrent`、wrong/stale consumer tests；正式 Owner 已明确非 stable identity/row snapshot | 保持 raw detached API，不增加强制 hot-path guard |
 | child ownership/lifecycle | 一致且 evidenced | child external consumer、ownership/materialization Gate | 保持 |
 | structured failure/plan/stats | 一致且 evidenced | runtime diagnostics、compatibility/error fixtures | 保持 |
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
-| hot-path performance shape | 一致但 evidence 有限 | 版本化 neutral component 与六个 application profile baseline、统一 comparator、allocation/GC/high-water/timing、9-fork 校准和 Fast/Scale/Soak/Full Gate | 结论限制在 baseline 精确环境与 workload；其他环境为 `not-applicable` |
+| hot-path performance shape | 一致但 evidence 有限 | Access/DataFlow 两份 neutral component 与六个 application profile baseline、统一 comparator、allocation/GC/high-water/tail/timing、generated footprint 和 Fast/Scale/Soak/Full Gate | 结论限制在 baseline 精确环境与 workload；其他环境为 `not-applicable` |
 | reference application boundary | 一致且 evidenced | `soma-examples` 仅聚合两个 independent child；isolated repository/runtime graph/source-shape Gate | 应用只消费 public artifacts，不反向拥有 core Design |
-| industrial dynamic scheduler | 一致且 evidenced | Problem semantic identity/range preflight、canonical Solver/Session、domain-only detached Result、flat eligible exact-group projection、application-owned global frontier、完整约束/oracle/claim validator/failure/lifecycle/JAR purity，以及 1k/100k/10k operations 的 hot + canonical multi-fork baseline；见[架构治理](../../reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)与[设计性能治理](../../reports/2026-07-24-industrial-scheduler-design-and-performance-governance-report.md) | 保持应用分层、Access Pattern→Schema 追踪和唯一 canonical journey；领域事实与 execution evidence 继续分离且 application-owned |
+| industrial dynamic scheduler | 一致且 evidenced | 既有 Problem/Solver/Result/frontier/完整约束闭环；新增 `AssignmentSummaryFlow` 从 authoritative assignment Table 推导 multi-output count/makespan/job completion/tardiness，三个 profile 的既有 threshold 由一次 5-fork v5 identity migration 保持通过 | 保持 primitive frontier 为 dispatch hot-path Owner；DataFlow 只承担自然的 summary transformation，不携带 diagnostics/live handle 进入 Result |
 | grassing individual simulation | 一致且 evidenced | Config/Scenario Factory/Simulator/Session/Result canonical journey、Engine/System/Runtime/Schema 分责、production/test 隔离、detached Result、AoS逐tick等价、order independence、JAR/DAG，以及 1k×1k/100k×1k/10k×10k 的 multi-fork baseline；见[架构治理](../../reports/2026-07-23-grassing-individual-simulation-architecture-governance-report.md)与[规模性能治理](../../reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md) | 保持应用分层、one-shot lifecycle 和唯一 canonical journey；领域事实与 integrated evidence 继续 application-owned |
 | G0–G5 功能与 package Gate | passed | 当前 [报告入口](../../reports/README.md) | 保持 evidence 可重放 |
 | G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
@@ -49,13 +51,13 @@ reference application / performance baseline evidence `938b3d5`
 
 ## 3. 当前结论
 
-正式 Design 对 core compiler/runtime 的描述与当前实现一致，没有发现需要修改 core Design/public API 的 blocking deviation。旧四场景已经从产品 Blueprint、Design trace、current Conformance、共享 example JAR 和 benchmark dependency 中退出；其 SOMA evidence 责任分别由 core fixtures、neutral component benchmark 与两个 isolated reference applications 接管。领域专属算法已按非产品事实退役，历史 Report 只保留 provenance。
+正式 Design 已原子接纳 Schema-Defined、Compiler-Specialized、JVM Heap-Resident runtime-state computing 定位，以及 Access 之上的 Transformation/DataFlow plane。当前 implementation、generated v5 contract、reference/property/differential evidence 与工业调度 application trace 一致，没有发现 blocking deviation。
 
 Access Model、Candidate Scan、Unique point family、scalar Index terminal、
-Traversal naming 与 v4 identity 没有变化；两个参考应用的架构治理都只消费既有
-SOMA 契约，不建立新的产品契约。其余未闭合项只有两类：
+Traversal、Index/ownership/lifecycle/atomicity 语义没有缩水。Grassing application
+只完成 v5 generated dependency/build 验证，没有迁移业务调用 trace。其余未闭合项只有两类：
 
-1. component 和六个 reference application profile 已有可持续回归 baseline，但性能结论
+1. 两个 component 和六个 reference application profile 已有可持续回归 baseline，但性能结论
    仍受精确环境与 lane 范围约束，且没有 public claim；
 2. G6因外部发布事实保持blocked。
 
@@ -80,3 +82,4 @@ SOMA 契约，不建立新的产品契约。其余未闭合项只有两类：
 - [三层性能基线治理](../../reports/2026-07-24-three-layer-performance-baseline-governance-report.md)
 - [Reference Application 大规模性能基线治理](../../reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
 - [Industrial Dynamic Scheduler 设计与性能治理](../../reports/2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)
+- [Transformation Model 与 Typed DataFlow 产品化治理](../../reports/2026-07-27-transformation-dataflow-governance-report.md)

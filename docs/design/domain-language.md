@@ -18,7 +18,7 @@ Owner：SOMA Java 跨模块 canonical terminology
 
 非事实范围：API behavior、storage algorithm、lifecycle transition 和性能结论
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. 限定规则
 
@@ -42,6 +42,13 @@ Owner：SOMA Java 跨模块 canonical terminology
 | ColumnView | scoped typed live-column borrow | detached array/copy |
 | `IndexSnapshot` | detached current-Index 数值序列及可选 currentness 诊断信息；消费契约见 [Schema 与生成 API](schema-and-generated-api.md) | stable row identity、row snapshot、live view |
 | Materialized Object | detached schema object/`List`/`Map` observation | live storage、external DTO、snapshot isolation |
+| Transformation Model | Shape、Value、lineage、order、Operator、Result 和 Effect 的语义 | Access Model、物理 planner、SQL |
+| Logical Shape | element/cardinality/lineage/value-state/order/effect capability 的语义角色 | Java Collection 类型、物理 buffer |
+| DataFlow Definition | immutable、可复用的 schema-bound logical computation | live Table、mutable plan、application rule engine |
+| DataFlow Template | Definition 的 immutable analyzed/static-lowered projection | bound source、executor、current epoch |
+| DataFlow Invocation | 绑定当前 source/parameter/resource 的 one-shot execution | reusable Definition、concurrent Table session |
+| Delta | 以 stable Key 和显式 operation 表达的 detached typed change | live Table state、CDC client、exactly-once log |
+| Detached Columnar Result | typed/primitive heap arrays、presence 和 shape identity 构成的 detached output | live ColumnView、stable source snapshot、object graph materialization |
 
 ## 3. Application modeling
 
@@ -95,6 +102,8 @@ Application data role 与 table kind、ownership 正交：
 | lifecycle state | epoch、borrow、active operation、released 和 stats state |
 | `RuntimePlan` | create-time immutable aggregate execution/resource policy |
 | `TableStats` | immutable runtime observation；不拥有 business facts |
+
+Transformation internal 的 logical node、physical schedule、kernel 和 worker scratch 不进入本表作为 public 领域概念；其 public 角色与边界由 [DataFlow 执行模型](dataflow-execution-model.md)拥有。
 
 `IndexBuffer` 是 internal operation scratch；`IndexSnapshot` 是 public detached sequence。两者都不拥有业务 identity；`requireCurrent` 的 currentness 机制由 [Ownership 与 lifecycle](ownership-and-lifecycle.md)定义。
 

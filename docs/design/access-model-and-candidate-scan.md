@@ -18,9 +18,11 @@ Owner：SOMA access semantics 与 Candidate Scan
 
 非事实范围：packed/exact 数据结构、精确 generated signature、具体 generator 类布局、benchmark 数值和 application 算法
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 SOMA Access Model 是使用者与 packed columnar Table 交互的完整语义体系。Pipeline 只负责 CandidateAccess；Point、Column、Key、Bulk 和 Ownership 路径不为追求 API 对称而绕入同一个 planner。
+
+Candidate Scan 同时是 [Transformation Model](transformation-model.md) 中 `Candidate` Shape 的线性、lazy、one-shot 特化子代数。它可以复用 shared semantics 和 reference oracle，但继续拥有 compact generated plan、source/terminal specialization 与最低抽象税路径；不能为了 graph 形式统一而改走 generic object executor。
 
 ## 1. Access family
 

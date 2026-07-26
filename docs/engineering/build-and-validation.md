@@ -10,7 +10,7 @@ Owner：SOMA Java build/validation 过程
 
 非事实范围：产品功能语义、正式支持矩阵和某次 Gate 结果
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 1. 基线
 
@@ -21,7 +21,7 @@ Owner：SOMA Java build/validation 过程
 - Zulu 本机通过只说明实际记录的 version/build、OS 和 architecture，不自动外推到其他 Zulu update 或平台；
 - 不用新 JDK 的 `--release 8` 替代 compiler integration evidence。
 
-Canonical build 必须从根 Maven Wrapper进入同一 reactor graph。Production consumer 的运行边界是 annotations + runtime-core，processor只进入编译/build path；testkit、examples 和 benchmarks 不得成为隐式 production runtime dependency。新增 module、plugin、repository 或第三方 dependency需要先核对架构、供应链和 consumer graph。
+Canonical build 必须从根 Maven Wrapper进入同一 reactor graph。Production consumer 的完整运行边界是 runtime-core + dataflow，annotations/processor进入编译生成路径；只使用 direct Access 的源码不需要引用 DataFlow type。Testkit、examples 和 benchmarks 不得成为隐式 production runtime dependency。新增 module、plugin、repository 或第三方 dependency需要先核对架构、供应链和 consumer graph。
 
 ## 2. 命令层次
 

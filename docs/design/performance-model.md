@@ -18,7 +18,7 @@ Owner：SOMA 跨模块性能设计
 
 非事实范围：某次 benchmark 数值、机器支持声明和永久 Gate 阈值
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. 北极星
 
@@ -59,6 +59,8 @@ source cost
   + optional materialization/export
 ```
 
+DataFlow 还需区分 author/build、compile、bind、execute、barrier、parallel task/merge、effect preflight/commit 和 detached output。Definition/Template 的一次性成本不能混进 steady-state Invocation，也不能从报告中隐藏。
+
 Benchmark 必须避免把 setup、input build、external DTO mapping 或 JVM warmup 混进待测 hot path，除非目标就是 end-to-end。
 
 ## 4. 永久机械约束
@@ -72,6 +74,9 @@ Benchmark 必须避免把 setup、input build、external DTO mapping 或 JVM war
 - capacity growth 在明确 boundary stage/publish；
 - diagnostics 默认低干扰，详细模式显式启用；
 - schema object/DTO/Collection graph/metadata interpreter/Stream 不进入 canonical hot storage/path。
+- 每张 Table 最多一个 generated DataFlow companion；shared operator/kernel 不按 `operator × Table` 展开；
+- graph hot path 不创建 per-element generic node/tuple/result object；large result allocation 必须归属于显式 detached output；
+- adaptive parallel 只在稳定证据支持的 cardinality/kernel 上启用，小规模、opaque callback、order-sensitive reduction 和 memory-bound lane 确定性回退。
 
 ## 5. 关键路径设计
 
@@ -93,6 +98,12 @@ Exact access 的 read cost 与命中 group 相关；write cost显式承担 hash 
 
 Child table 避免 flat global scan，但会增加 registry、handle、小数组 header 和 over-reservation。Evidence 必须覆盖 empty/singleton/small/high cardinality 以及 instance-count × row-count 组合。
 
+### 5.5 Transformation 与 parallel
+
+Selection/Projection 尽量 fuse；GroupBy、Join、Sort、Window、Prefix Scan 和 fan-out 只在语义需要时建立 barrier。`skip/limit/top-k/best-one` 应把可证明的 candidate/output 上界下推到 scratch admission，不能先复制完整 source 再截断。
+
+Sequential 是唯一语义基准。Parallel 使用 deterministic partition 和 fixed logical-order merge；只在不改变 floating/order/failure/Effect identity 时准入。Managed executor 由 Context 复用，borrowed executor 不由 SOMA 关闭，默认不隐式使用 common pool。
+
 ## 6. Runtime plan 的性能约束
 
 Capacity、memory limit、stats mode、locator/index load 策略、materialization budget 和 estimator identity 由 create-time immutable runtime plan 预绑定。读取 hot path 不解析动态 metadata；plan 变化产生不同 plan hash，不能静默改变既有 table。Plan/Stats 的规范性语义由 [Runtime Plan 与可观测性](runtime-plan-and-observability.md)拥有，本节只拥有其性能约束。
@@ -108,5 +119,7 @@ Capacity、memory limit、stats mode、locator/index load 策略、materializati
 - scanned/matched/changed；
 - locator/index probes、collisions、rehashes；
 - output checksum 或等价 correctness guard。
+
+Transformation component 还需分别覆盖 direct Access 对照、Definition/Template/Invocation 固定税、operator barrier、parallel crossover、detached output、safe-point Effect 和 generated footprint。性能测试不能替代 reference differential、构造契约或 failure evidence。
 
 单机 diagnostic 只支持对应环境的结论。阈值和 Gate 由 Engineering 拥有；测量结果由 Report 拥有。

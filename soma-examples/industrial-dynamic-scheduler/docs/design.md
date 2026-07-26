@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 责任方向
 
@@ -33,8 +33,9 @@ test fixture / oracle / verification / benchmark
   checksum，不 import SOMA runtime/generated code；generation provenance 由
   Config/Factory/CLI evidence 另行拥有；
 - `schema/` 只声明 annotation schema；
-- `solver/` 拥有 canonical facade、一次性 session、算法状态机与 result
-  assembly；
+- `solver/` 拥有 canonical facade、一次性 session、算法状态机、result
+  assembly，以及从 authoritative assignment Table 推导结果指标的
+  `AssignmentSummaryFlow`；
 - `runtime/` 拥有 RuntimePlan、Table aggregate、Problem projection、
   event queue 和 maintenance calendar；
 - `result/` 只依赖 detached Problem，拥有 immutable Result、checksum 和完整
@@ -77,6 +78,7 @@ benchmark。
 | operation/machine/resource state | primary-key point read/mutation + reused ColumnView | 三张 authoritative state Table |
 | setup/transport | composite primary-key point lookup | `SetupTime` / `TransportTime` |
 | assignment | append、key traversal、bounded materialization | `OperationAssignment` |
+| assignment summary | reusable typed DataFlow、count/max/groupBy、detached scalar | `AssignmentSummaryFlow` |
 | candidate frontier | operation-machine key、machine group、global arg-min | application-owned primitive pool + indexed min-heap |
 | event/maintenance/resource lane | priority/calendar operations | application structure |
 
@@ -142,3 +144,27 @@ physical order；result checksum 在按 operation identity 排序后计算。验
 `IndexSnapshot` 只在同步只读批次消费；test-only 负路径显式验证 mutation 后
 stale、wrong-source 和 release 后访问均被拒绝。生产 JAR 不携带这些 evidence
 runner。
+
+## Result transformation
+
+调度循环结束后，`AssignmentSummaryFlow` 把当前
+`OperationAssignmentTable` 绑定到一个预编译、无 live state 的 Definition：
+
+```text
+all assignments
+  -> count
+  -> max(endMinute)
+  -> groupBy(job + due + priority).max(endMinute)
+  -> immediate current-Index column reads for due/priority
+  -> detached metrics
+```
+
+最后一步只在同一同步只读批次消费 group representative Index；它不把 Index 或
+ColumnView 保存进 Result。Tardiness 以每个 job 的 completion 计算，而不是按
+operation 重复累加。Definition/Template 可复用，session 内的 Context 和
+Invocation one-shot；`DispatchEngine` 在 `finally` 中关闭 Context。
+
+Result 指标的完整性由 `AssignmentSummaryFlow.Metrics.validated` 在事实产生处
+负责：assignment cardinality、empty/non-empty makespan、dispatch makespan
+一致性和非负目标值使用真实失败，不依赖断言或 test-only validator。DataFlow
+diagnostics 只进入 package-private `SolveEvidence`，不成为领域 Result。

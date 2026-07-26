@@ -18,7 +18,7 @@ Owner：SOMA ownership 与 lifecycle semantics
 
 非事实范围：child schema syntax、storage layout、公开 IndexSnapshot 消费契约、错误文案和 application transaction
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. Ownership model
 
@@ -45,6 +45,8 @@ Raw handle、owner token 和 RowSlot 不进入 public error context、DTO 或 ge
 
 同一 aggregate 内同时只允许一个 active operation/materialization boundary。Callback、comparator、allocator provider 和 materializer 不得重入 table/child aggregate。
 
+DataFlow multi-source Invocation 只在 application 已独占全部 source aggregate 时按 stable aggregate identity 取得同步 guard。同一 aggregate 的多个 logical alias 去重；partial acquire 反向释放。Parallel worker 共享一次 Invocation 的独占权，不因此获得并发调用 Table API 的能力。
+
 ## 4. Structural epoch
 
 Structural change 成功后递增 table structural epoch。以下 live borrow 或 operation state 按各自契约强制校验 identity/epoch：
@@ -53,6 +55,7 @@ Structural change 成功后递增 table structural epoch。以下 live borrow �
 - ColumnView；
 - child facade/handle generation；
 - materialization traversal state。
+- DataFlow Invocation、borrowed result 和 generated binding guard。
 
 `IndexSnapshot` 采用 caller-responsibility，不是强制 live borrow；完整公开消费契约由 [Schema 与生成 API](schema-and-generated-api.md)拥有。本 Owner 只定义 currentness 机制：snapshot 记录 source 与 captured structural epoch；可选 `requireCurrent` 检查 owner、active lifecycle、structural epoch 和 range，但不能检测非结构 mutation。其余强制 borrow/lifecycle stale access 必须返回 typed failure。Epoch 递增必须 overflow-safe；无法继续表示时 fail closed。
 
@@ -78,3 +81,5 @@ View 约束由 operation 是否会破坏其 binding 决定，不能用“当前�
 ## 7. Application 边界
 
 Ownership aggregate 不是跨 table transaction。两个独立 roots 的变更顺序、snapshot、compensation、rebuild 和 failure recovery 均由 application 设计。
+
+Multi-source DataFlow 只提供一次同步 read boundary；Joined/Grouped/Windowed result 默认 detached/read-only。跨 root mutation 仍由 application 以多个 single-aggregate safe point 明确排序。

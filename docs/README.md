@@ -12,7 +12,7 @@ Owner：SOMA Java 文档治理
 
 采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 1. 权威关系
 
@@ -57,6 +57,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 | `soma-annotations` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-annotations/docs/README.md) |
 | `soma-processor` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-processor/docs/README.md) |
 | `soma-runtime-core` | [Runtime Core Map](implementation-map/runtime-core-map.md)、[模块文档入口](../soma-runtime-core/docs/README.md) |
+| `soma-dataflow` | [DataFlow Map](implementation-map/dataflow-map.md) |
 | `soma-testkit` | [测试与 evidence Map](implementation-map/test-and-evidence-map.md)、[模块文档入口](../soma-testkit/docs/README.md) |
 | `soma-examples` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[参考应用输出](../soma-examples/docs/README.md) |
 | `soma-benchmarks` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[模块文档入口](../soma-benchmarks/docs/README.md) |
@@ -67,9 +68,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前 active Temporary topic：
-
-- [SOMA Transformation Model 与 Typed DataFlow 产品化治理](temp/soma-transformation-model-governance/README.md)：建立 Access 之上的 Transformation、Expression、Effect、Reusable DataFlow 与受控并行执行模型；Stage 1–3 已闭合为 immutable implementation candidate，Stage 4 尚未授权，不改变正式产品语义。
+当前没有 active Temporary topic。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

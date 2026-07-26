@@ -1,6 +1,9 @@
 # soma_java
 
-`soma_java` 是 SOMA Java-only 项目，以 Java annotation schema、compile-time generation 和 Java columnar runtime 支撑高性能进程内 runtime state。
+`soma_java` 是 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 的
+Java 8 高性能运行时状态计算库。它以 annotation schema、compile-time
+generation、packed columnar runtime 和 typed DataFlow 支撑进程内状态访问、
+变换与 safe-point effect。
 
 ## 当前状态
 
@@ -13,6 +16,7 @@ Java-only V1 的 annotation、compiler/processor、generated API、columnar runt
 | `soma-annotations` | [docs](soma-annotations/docs/README.md) |
 | `soma-processor` | [docs](soma-processor/docs/README.md) |
 | `soma-runtime-core` | [docs](soma-runtime-core/docs/README.md) |
+| `soma-dataflow` | [DataFlow 实现地图](docs/implementation-map/dataflow-map.md) |
 | `soma-testkit` | [docs](soma-testkit/docs/README.md) |
 | `soma-examples` | [docs](soma-examples/docs/README.md) |
 | `soma-benchmarks` | [docs](soma-benchmarks/docs/README.md) |

@@ -10,7 +10,7 @@ Owner：SOMA Java 系统设计
 
 非事实范围：当前实现位置、验证结果和迁移过程
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层次展开责任、按关注点分配唯一 Owner；层次不是目录结构，关注点也不是重复定义同一事实的理由。
 
@@ -35,6 +35,8 @@ Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层�
 | `D2` | [Schema 与生成 API](schema-and-generated-api.md) | annotation 语义、schema normalization、生成接口、公开 IndexSnapshot 消费契约和命名边界 |
 | `D2` | [Table、存储与访问](table-storage-and-access.md) | keyed/dense、packed SoA、primary/exact structures、swap-remove 和 IndexBuffer |
 | `D2` | [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md) | 访问族、组合代数、Candidate Scan、terminal、one-shot 与成本边界 |
+| `D2` | [Transformation Model](transformation-model.md) | Logical Shape、Value、Expression、Operator、Result、Effect 与组合合法性 |
+| `D2` | [DataFlow 执行模型](dataflow-execution-model.md) | Definition/Template/Invocation、binding、资源、并行、safe point 与执行 identity |
 | `D2` | [Ownership 与 lifecycle](ownership-and-lifecycle.md) | root/child ownership、view、epoch/currentness 和资源生命周期 |
 | `D2` | [Materialization 边界](materialization-boundary.md) | detached object graph、预算、导出边界和 allocation admission |
 | `D2` | [Runtime Plan 与可观测性](runtime-plan-and-observability.md) | create-time plan、resource admission、plan identity、stats 与诊断副作用边界 |
@@ -46,7 +48,7 @@ Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层�
 
 | Blueprint | 直接约束其目标形态的 Design |
 |---|---|
-| [SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md) | 全部正式 Design；D0/D1 定义系统方向，D2/Q 完成能力与质量展开 |
+| [SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md) | 全部正式 Design；D0/D1 定义系统方向，Access/Transformation/DataFlow 展开本地计算能力，其余 D2/Q 闭合状态与质量边界 |
 
 参考应用的应用级 Blueprint 不进入本表，也不拥有 SOMA Design；它们只通过 public artifacts 消费这里定义的产品能力。
 

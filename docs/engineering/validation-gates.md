@@ -10,7 +10,7 @@ Owner：SOMA Java validation gate 过程
 
 非事实范围：产品语义、当前 Gate 结果、具体测试实现和 release 授权
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 1. Gate 不是阶段折扣
 
@@ -23,9 +23,9 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 | G0 | Java-only scope、Blueprint/Design/Owner、non-goal 和 claim boundary 已稳定 |
 | G1 | annotation/schema/value/type/ownership/selector/default/hash/diagnostic 语义可编译验证 |
 | G2 | Azul Zulu full JDK 8 integration、normalization、deterministic codegen、generated API 与 negative fixture |
-| G3 | packed storage、locator/exact access、完整 Access Model、Candidate Scan/Traversal lifecycle、child、plan、error/stats 和性能机械形状 |
-| G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 runtime 并执行 package surface |
-| G5 | Access Pattern/API mapping、普通 Java 8 reference consumer、领域 correctness/failure/lifecycle、领域中性 component benchmark、应用自有 default/large/long-run integrated evidence 与环境感知 Fast/Scale/Soak/Full Gate 可执行 |
+| G3 | packed storage、locator/exact access、完整 Access Model、Transformation/DataFlow、Candidate/Invocation lifecycle、child、plan、error/stats、safe-point Effect 和性能机械形状 |
+| G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 storage/DataFlow runtime 并执行 package surface |
+| G5 | Access/Transformation mapping、property/reference differential、普通 Java 8 reference consumer、领域 correctness/failure/lifecycle、领域中性 Access/DataFlow component benchmark、应用自有 default/large/long-run integrated evidence 与环境感知 Fast/Scale/Soak/Full Gate 可执行 |
 | G6 | license、SCM/ownership/contact、package/provenance、security、support matrix、publishing 和 sign-off |
 
 V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate。

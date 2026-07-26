@@ -12,7 +12,7 @@ Owner：SOMA Java 产品蓝图
 
 设计约束入口：[Design 导航、层次与 Owner](../design/README.md)
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. 这份蓝图面向谁
 
@@ -22,15 +22,16 @@ Owner：SOMA Java 产品蓝图
 
 ## 2. 用户要解决的问题
 
-SOMA Java 面向需要在一个 Java 8 进程内维护大量、高频变化 runtime state 的工程人员。典型代码同时具有以下特征：
+SOMA Java 是面向 Java 8 的 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 高性能运行时状态计算库。它面向需要在一个进程内维护大量、高频变化 state，并围绕这些 state 反复执行 typed local computation 的工程人员。典型代码同时具有以下特征：
 
 - 数据结构稳定，但字段会被反复读取和更新；
 - 既需要连续遍历，也需要按领域 Value Object 精确找到零个、一个或多个候选；
 - 一次业务操作通常是“先缩小候选集，再筛选、排序、更新或取第一项”；
+- 一个业务规则、算法步骤或 simulation system 需要反复执行 Selection、Projection、Aggregation、Group、Join 或 finite Window；
 - hot loop 不能被大量临时记录对象、装箱集合、反射或隐藏的全表重建主导；
 - 边界处仍希望使用普通、类型安全的 Java 对象，而不是让业务代码直接操作裸数组。
 
-SOMA 的目标不是把业务算法藏进一个通用查询引擎，而是让使用者声明稳定的数据形态和访问路径，由编译器生成领域化 facade，由 runtime 负责 packed columnar storage、exact access 和候选 Index 执行。
+SOMA 的目标不是把业务算法藏进一个通用查询引擎，而是让使用者声明稳定的数据形态和访问路径，由编译器生成领域化 facade，由 runtime 负责 packed columnar storage、exact access、候选 Index 执行和受控 typed transformation。Application 仍拥有 event loop、solver policy、domain rule、I/O、transaction 和 recovery。
 
 ## 3. 使用者心智模型
 
@@ -41,8 +42,10 @@ annotation schema
     -> batch 导入 packed columns
     -> 按 Point / Candidate / Column / Key / Bulk / Ownership 选择访问族
     -> Candidate Scan 从 Packed / Exact source 组合有序 stage
+    -> 复杂或重复规则可以定义为 immutable typed DataFlow
+    -> 每次绑定当前 Table/parameter，执行 one-shot Invocation
     -> terminal 按需返回 current Index、借用 Cursor、复制 snapshot、
-       物化 detached object 或提交 mutation
+       detached scalar/columnar result、物化 object 或提交 safe-point mutation
 ```
 
 建模时，使用者只需要依次回答四个问题：
@@ -55,6 +58,8 @@ annotation schema
 `@SomaKey` 表示 primary unique identity；`@SomaUnique` 表示 secondary unique access；`@SomaIndex` 表示 secondary non-unique exact access。它们不是 B+ 树、排序索引或 range query 声明。
 
 Pipeline 只服务 CandidateAccess，不代表 SOMA 的全部访问模型。已知 Key、Unique 或 current Index 时优先 PointAccess；只读单列时使用 ColumnTraversal/ColumnView；批量导入和 child replacement 保持各自的 staging/ownership boundary。使用者不需要为了 API 形式统一，把所有操作都拼成万能链。
+
+Transformation 也不替代 Access。Ad-hoc DSL 适合一次局部计算；Reusable DataFlow 适合反复执行的 dispatch rule、算法步骤或 simulation system。两者共享 Shape、Expression、Operator、Result 和 Effect 语义，但 direct point/column/candidate fast path 仍可保持更低固定成本。
 
 ## 4. 从 annotation schema 开始
 
@@ -117,6 +122,11 @@ public final class CandidateFact {
 | primitive `ColumnView` | 按当前 Index 读取 hot primitive leaf |
 | child table facade | 访问 parent-owned live child，而不是物化 `List` |
 | `IndexSnapshot` | 显式复制一次 Table operation 的 Index 结果，供紧接着的同步只读批次消费 |
+| `CandidateFactDataFlow` | 每 Table 一个 typed Source/column expression/binding companion |
+| `DataFlowDefinition` / `DataFlowTemplate` | immutable logical rule 与可复用 compiled template |
+| `DataFlowInvocation` / `DataFlowContext` | one-shot current-state execution 与显式资源/executor lifecycle |
+| scalar / detached-columnar result | 不构造 per-element record graph 的 transformation output |
+| typed Delta / `applyDelta` | keyed Table 的 detached ordered change 与 single-aggregate safe-point apply |
 
 这些类型应让 IDE completion、javac type checking 和生成 diagnostics 成为主要使用界面。runtime 内部的 hash slot、relocation link、owner token 和 backing array 不进入 public application model。
 
@@ -239,7 +249,42 @@ options.forEach(option -> {
 
 child 的 lifecycle 属于 parent aggregate。它不是可以 share/reparent 的独立 root，Schema 中的 `List` 也不意味着 runtime 以 Java Collection graph 保存 live data。
 
-### 6.7 边界物化与释放
+### 6.7 定义并重复执行 typed DataFlow
+
+当同一计算需要反复作用于当前 state 时，用户可以把逻辑规则与 live Table 分开：
+
+```java
+CandidateFactDataFlow.Source source =
+    CandidateFactDataFlow.source("candidates");
+
+DataFlowDefinition<OptionalLongResult> bestScore =
+    source.candidates()
+        .filter(source.columns().eligible())
+        .project(source.columns().primaryScore())
+        .min();
+
+DataFlowTemplate<OptionalLongResult> template = bestScore.compile();
+DataFlowContext context = DataFlowContext.managedParallel(4);
+try {
+    OptionalLongResult score = template.newInvocation(context)
+        .bind(source, CandidateFactDataFlow.bind(candidates))
+        .execute();
+
+    if (score.isPresent()) {
+        consume(score.value());
+    }
+} finally {
+    context.close();
+}
+```
+
+Definition/Template 不保存 Table、current Index 或 executor。每次 Invocation 显式绑定当前 source，是 one-shot；adaptive parallel 可以根据有界成本回退 sequential，结果、顺序和失败语义必须相同。用户也可以选择 `DataFlowContext.sequential()`，或把自己的 `ExecutorService` 以 borrowed 模式传入；SOMA 不会关闭 caller executor，也不会隐式使用 common pool。
+
+同一模型还支持 typed Projection/Aggregation、Partition/Combine、GroupBy、inner/left-outer/left-semi/left-anti equi Join、owned-child Expand、Prefix Scan 和 finite ordered Window。Grouped/Joined/Windowed 结果默认 read-only；跨 Table 计算只产生 detached result/command，不伪装成跨 Table transaction。
+
+局部只执行一次的简单表达可以直接 build/execute；反复规则显式保留 Template。Definition 是 lazy semantics，只有 Invocation terminal 才读取当前 state。`DataFlowExplain` 和 `DataFlowStats` 是 detached diagnostics，不是业务结果或 planner 的第二事实源。
+
+### 6.8 边界物化与释放
 
 ```java
 List<ResultFact> result =
@@ -282,6 +327,9 @@ materialization 返回 detached object graph，适用于结果导出、测试 or
 - exact access 在写入时增量维护，读取不触发隐藏的全表重建；
 - candidate stage 只处理上一 stage 的 Index，排序只处理当前候选集；
 - materialization、IndexSnapshot 和 external DTO mapping 都是显式、可预算的成本边界；
+- typed Transformation 覆盖常用 Shape/Operator，且每个大结果都有非 object-graph 的 canonical consumption；
+- ad-hoc DSL 与 reusable DataFlow 共享语义；Definition/Template 可复用，Invocation one-shot；
+- sequential 是 parallel 的语义基准，managed/borrowed executor ownership、budget、cancel 和 safe-point Effect 对 application 可见；
 - failure、lifecycle 和跨表责任对 application 可见；
 - 示例、测试、benchmark 和 external consumer 能共同验证这里描述的用户旅程。
 
@@ -290,7 +338,10 @@ materialization 返回 detached object graph，适用于结果导出、测试 or
 SOMA Java V1 不以以下能力为目标：
 
 - Python、C ABI、native runtime 或跨语言 FFI；
-- 持久化、查询语言、分布式执行或数据库事务；
+- 持久化、SQL/query language、分布式执行、数据库同步或事务；
+- off-heap/native 第二存储后端、无限 stream、retained temporal Window 或 automatic incremental view maintenance；
+- full-outer/cross/theta join、任意 flatMap 或通用 DataFrame；
+- 隐式 common pool、无约束并行或并发 Table API；
 - 自动维护任意业务顺序、range tree 或 application event queue；
 - 替 application 决定领域不变量、调度策略、跨表一致性或失败补偿；
 - 通过 materialized Java object graph 充当 live runtime storage；

@@ -12,15 +12,15 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：产品语义 baseline `fd82eba`；internal implementation/evidence baseline
-`c0fa1c9`；reference-application scale candidate `1af43ac`；performance
-baseline evidence `938b3d5`
+适用版本：Transformation/DataFlow production candidate `2aa8c15`；
+industrial application trace `586d523`；其余 reference-application baseline
+evidence `938b3d5`
 
 输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
-更新日期：2026-07-24
+更新日期：2026-07-27
 唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
 Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
 packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；post-cutover功能/性能尾项代码基线：`b991f4c docs: define keyspace as primary locator`；完整evidence见两份dated专题报告
@@ -56,14 +56,26 @@ Fast/Scale/Soak/Full Gate分责。实现候选为`1af43ac`，baseline切换为
 证据；最终重放发现的JDK 8私有生成构造器不稳定性由`c0fa1c9`以不改变公开契约
 和runtime语义的方式封闭。正式结论见[大规模性能基线治理报告](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)。
 
+2026-07-27 完成 Transformation Model 与 Typed DataFlow 产品化治理：Access
+Model 之上建立 Shape/Expression/Operator/Result/Effect 语义，新增独立
+`soma-dataflow`、generated `<Table>DataFlow`/keyed Delta、Definition/Template/
+one-shot Invocation、safe-point effect 和 managed/borrowed parallel。production
+candidate 为 `2aa8c15`；工业调度在不改变 Schema、Solver API 或 primitive
+frontier 的前提下，以真实 assignment summary DataFlow 验证应用闭环。构造契约、
+48-trial reference differential、external consumer、generated footprint、
+3-fork component baseline、三个 profile 5-fork non-regression 与完整
+`./scripts/check.sh` 均通过；正式结论见
+[Transformation/DataFlow 治理报告](2026-07-27-transformation-dataflow-governance-report.md)。
+该治理不处理也不解除 G6。
+
 ## 1. 当前总进度
 
 | 总体工作 | 状态 | 可核验出口 |
 |---|---|---|
 | Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
 | Phase 6：Access Pattern Cards、两个独立参考应用、benchmark、release mechanics | implementation-complete | core fixtures与external consumer；两个application-owned correctness/long-run/multi-fork Gate；20条neutral benchmark workload；License/POM/source/javadoc/package/security scripts |
-| 集中验证与修复 | passed | 产品语义`fd82eba`、compiler/codegen stability `c0fa1c9`、参考应用scale candidate `1af43ac`与baseline切换`938b3d5`均保持v4契约并在Azul Zulu full JDK 8得到`project-check: ok` |
-| G5 reference applications/benchmark gate | passed | core Access Model evidence、neutral benchmark、两个独立参考应用、六份profile baseline、Fast/Scale/Soak/Full Gate与对应治理报告 |
+| 集中验证与修复 | passed | `2aa8c15` 的 generated/runtime v5、transformation/kernel v1、既有 Access/Schema 与 reference applications 在 Azul Zulu full JDK 8 得到 `project-check: ok` |
+| G5 reference applications/benchmark gate | passed | core Access/Transformation evidence、neutral/DataFlow component benchmark、两个独立参考应用、六份 profile baseline、Fast/Scale/Soak/Full Gate 与对应治理报告 |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
 | V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
 
@@ -73,12 +85,13 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 
 以下ID保留为既有实施/Gate evidence的追踪标签，不再构成当前Design、路线图或平行能力事实源；当前目标、规范和差距分别由Blueprint、Design和Conformance拥有。
 
-22 项为 `evidenced`：
+23 项为 `evidenced`：
 
 - `V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`；
 - `V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`、`V1-ACCESS-STRUCTURES`、`V1-MUTATION`；
 - `V1-CHILD-OWNERSHIP`、`V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`、`V1-SECURITY-INTEGRITY`；
 - `V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`、`V1-SCENARIO-BENCHMARK`。
+- `V1-TRANSFORMATION-DATAFLOW`。
 
 `V1-RELEASE-EVIDENCE` 为 `blocked`：本地 package/reproducibility/SBOM/security/license mechanics 已实施，但真实组织发布边界和 clean immutable public provenance 未满足。该 Capability 仍完整保留在 V1，不是 optional、dropped 或 deferred。
 
@@ -89,7 +102,7 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 | G0 | passed | `reports/java-v1-g0-scope-freeze-report.md` |
 | G1 | passed | `soma-processor/reports/java-v1-g1-schema-processing-report.md` |
 | G2 | passed | `soma-processor/reports/java-v1-g2-code-generation-report.md` |
-| G3 | passed | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` |
+| G3 | passed | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` 与 `reports/2026-07-27-transformation-dataflow-governance-report.md` |
 | G4 | passed | `reports/java-v1-g4-package-smoke-report.md` |
 | G5 | passed | `reports/2026-07-23-reference-application-boundary-governance-report.md`、`reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md`、两份 reference application 架构治理报告与 Access Model 治理 |
 | G6 | blocked | `reports/java-v1-g6-release-readiness-report.md` |
@@ -98,7 +111,18 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 
 ## 4. 集中验证记录
 
-### 4.1 2026-07-24 大规模性能基线正式收口
+### 4.1 2026-07-27 Transformation/DataFlow 正式收口
+
+`2aa8c15` 是完整 promotion preflight 使用的 production/public/generated/runtime
+候选；Zulu JDK 8 上完整 `./scripts/check.sh` 返回 `project-check: ok`。
+Transformation contract、reference differential、external consumer、
+generated footprint、DataFlow 3-fork component baseline、工业调度
+correctness/5-fork identity migration 均通过。annotation Schema、Access Model、
+Index/ownership/lifecycle、单 Table 失败原子性、两个 reference application 和
+既有阈值未缩水；grassing 只因 generated companion/protocol 原子迁移而重新编译，
+没有业务 DataFlow 迁移。
+
+### 4.2 2026-07-24 大规模性能基线正式收口
 
 `1af43ac`冻结六个目标workload与同语义scheduler内部优化，`938b3d5`建立六份
 9-fork baseline并完成Owner/Gate切换；`c0fa1c9`封闭最终重放发现的JDK 8私有
@@ -108,23 +132,23 @@ architecture、codegen admission、两个应用correctness/architecture与完整
 public-claim=0。目标规模、API/Schema/Access Model/runtime语义和应用领域语义均
 未缩水，详见[大规模性能基线治理报告](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)。
 
-### 4.2 2026-07-23 参考应用边界正式收口
+### 4.3 2026-07-23 参考应用边界正式收口
 
 `955c956`已通过文档、reactor、artifact isolation、两个应用的correctness/default/large/long-run、多fork evidence、20+20条neutral benchmark record、36条negative path、16条allocation、24条memory与三surface generated-footprint Gate，并在immutable commit上得到完整`project-check: ok`。旧四场景已退出current Blueprint/Design/Conformance、共享example JAR和benchmark dependency；正式Owner、引用闭包、Governance Report与Temporary退役均已闭合。详见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)。
 
-### 4.3 2026-07-23 复杂度可持续性正式收口（历史候选事实）
+### 4.4 2026-07-23 复杂度可持续性正式收口（历史候选事实）
 
 `79c0a89`修正compiler/codegen内部责任，`8f685e2`完成benchmark分责与generated-footprint诊断，`75ee658`完成正式Owner、Governance Report、入口/checker与Temporary退役。当时的最终候选在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`；20条benchmark record、36条negative path、222个generated type、782个major-52 class与四场景保持，FJSP 100k allocation/GC Gate无Full GC。该段只记录该治理时点的非回归事实，不拥有当前参考应用边界；详见[后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。
 
-### 4.4 2026-07-23 Access Model / Candidate Scan验证（历史基线）
+### 4.5 2026-07-23 Access Model / Candidate Scan验证（历史基线）
 
 `fd82eba`的production/public API/runtime、external consumers、当时四场景、16条allocation、24条memory、code-size与FJSP多fork证据均已在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`。该段记录v4产品基线的验证来源；旧场景证据现已由core、neutral benchmark和两个参考应用替换。详细环境、artifact与claim边界见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。
 
-### 4.5 2026-07-21 四场景采纳验证（历史 provenance）
+### 4.6 2026-07-21 四场景采纳验证（历史 provenance）
 
 `a137b10`的实现、当前正式文档与退役后 Temporary 已由Zulu JDK 8完整`./scripts/check.sh`重新验证，结果为`project-check: ok`。四场景生成222个type/782个major-52 class，benchmark产生20+20 records且36个negative path全部fail closed，component与FJSP allocation/GC Gate也通过。完整命令、环境、artifact与claim边界见[2026-07-21 专题治理报告](2026-07-21-four-scenario-blueprint-adoption-report.md)。
 
-### 4.6 2026-07-11 专题治理 fresh validation
+### 4.7 2026-07-11 专题治理 fresh validation
 
 实现提交`aa7a466`上执行：
 
@@ -134,7 +158,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home SOMA_UNSUPP
 
 结果`project-check: ok`；20条benchmark lane各聚合2次measurement，36条serialized negative artifact均fail closed。最后一次现存benchmark目录为`target/benchmark-smoke.PJkPCM`。clean package mechanics在`2490406`已通过；`aa7a466`的fresh package重放在项目编译前因Maven Central TLS中断，当前实现内容由Maven verify和多组external Maven consumer覆盖，具体限制不作为G6证据并在专题报告§12披露。
 
-### 4.7 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
+### 4.8 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
 
 完整命令：
 
@@ -153,7 +177,9 @@ Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh`
 
 ## 5. V1 scope non-regression
 
-- Capability：22 项既有 `evidenced` 状态未回退；`V1-RELEASE-EVIDENCE` 因外部发布事实不足继续保持 `blocked`。
+- Capability：23 项 `evidenced`，既有 22 项未回退并新增
+  `V1-TRANSFORMATION-DATAFLOW`；`V1-RELEASE-EVIDENCE` 因外部发布事实不足继续
+  保持 `blocked`。
 - Owner、正式语义与Gate经用户批准按packed/exact v3目标先行迁移，没有为实现捷径反向降低Capability或release claim。
 - 旧四场景只保留历史 provenance；当前 G5 由 core Access Model fixtures、领域中性 component benchmark和两个普通 Java 8 reference consumers共同承担。
 - 两个参考应用分别拥有领域 Blueprint/Design、版本化配置、detached generator、bootstrap、runtime、correctness/long-run/multi-fork evidence；它们不进入 SOMA 产品 Design。
@@ -161,6 +187,9 @@ Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh`
   Gate 回归；9-fork calibration、3-fork ordinary comparison 和目标 workload
   均未缩水，且不形成 public claim。
 - Access Model / Candidate Scan v4 clean migration已在首个公开发布前完成；后续功能性能工作应是additive completion或contract-preserving internal refinement，不应再次引入双轨public/generated API、平行事实或temporary canonical hot path。
+- Transformation/DataFlow 以 generated/runtime v5 与 transformation/kernel v1
+  原子 clean break 完成；没有 v4 adapter、generic object executor、隐式 common
+  pool、第二存储后端或未来 rewrite 依赖。
 - 复杂度可持续性治理只调整internal implementation/evidence责任与诊断，不改变产品语义；其正式Owner、Report、checker和Temporary退役已在`75ee658`闭环。当前专题只重新划分参考应用与evidence Owner，不反向修改该历史结论。
 - 未引入 temporary public/generated contract、temporary storage/hot path、test-only bypass、未来 migration 或 rewrite。
 

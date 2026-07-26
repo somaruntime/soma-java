@@ -10,9 +10,9 @@ Owner：SOMA runtime-core 实现导航
 
 事实范围：当前 handwritten runtime、generated-runtime protocol、hot path 和核心验证入口
 
-最近实现核对基线：`fd82eba`
+最近实现核对基线：`2aa8c15`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. Handwritten public/runtime types
 
@@ -38,6 +38,7 @@ Protocol 位于 [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/sr
 - ownership：`ChildOwnershipRegistry`、`OwnedChildTable`；
 - materialization：`MaterializationTracker`、`MaterializationAllocation`；
 - compatibility/failure：`GeneratedMetadata`、`RuntimeCompatibility`、`RuntimeFailures`；
+- DataFlow lifecycle bridge：aggregate instance identity、canonical acquire/release guard 和 generated candidate/effect access；
 - resource accounting：`StorageBudget`。
 
 这些 public Java types 是 generator binding protocol，不是 application SPI。Generated facade 的 public signature 不应泄漏它们。
@@ -54,7 +55,7 @@ generated Table/Scan method
   -> DenseTableState success/failure stats and epoch commit
 ```
 
-Keyed delete 先从 KeySpace 移除目标 key，再对 tail-fill survivor 修复 current Index。Exact index 通过 group/link 增量维护；append/replace按实际distinct groups预检和分配。Candidate Scan source在terminal-time读取current group；source-only exact count可直接读取cardinality并保持logical stats。当前compatibility为v4，协议已经没有 `SparseIntKeySpace` 或 `RowPermutationSidecar`；`KeySpace`仅是primary-locator兼容性术语。
+Keyed delete 先从 KeySpace 移除目标 key，再对 tail-fill survivor 修复 current Index。Exact index 通过 group/link 增量维护；append/replace按实际distinct groups预检和分配。Candidate Scan source在terminal-time读取current group；source-only exact count可直接读取cardinality并保持logical stats。当前 generated/runtime compatibility 为 v5；runtime-core 只提供窄 DataFlow guard/access bridge，Definition/Template/Invocation 不进入本模块。协议已经没有 `SparseIntKeySpace` 或 `RowPermutationSidecar`；`KeySpace`仅是primary-locator兼容性术语。
 
 ## 4. 核心检查
 

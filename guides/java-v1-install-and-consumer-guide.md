@@ -12,13 +12,17 @@ Owner：SOMA Java 用户输出
 
 非事实范围：重新定义 public/schema/runtime Design 或声明 public release readiness
 
-适用版本：当前仓库 `0.2.0-SNAPSHOT`，最后 implementation-affecting baseline `fd82eba`
+适用版本：当前仓库 `0.2.0-SNAPSHOT`，最后 implementation-affecting baseline `2aa8c15`
 
 输入事实源：[正式文档入口](../docs/README.md)、当前 `pom.xml`、external Maven fixtures 与 Gate reports
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
-本指南说明 Java 8 Maven consumer 如何使用 SOMA annotations、compiler transformer、annotation processor 和 runtime-core。当前项目只以 Azul Zulu JDK 8 作为 compiler/runtime 验真与目标支持 distribution；Corretto 和其他 JDK distribution 均为 untested/unsupported。精确 Zulu version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
+本指南说明 Java 8 Maven consumer 如何使用 SOMA annotations、compiler
+transformer、annotation processor、runtime-core 和 typed DataFlow。当前项目
+只以 Azul Zulu JDK 8 作为 compiler/runtime 验真与目标支持 distribution；
+Corretto 和其他 JDK distribution 均为 untested/unsupported。精确 Zulu
+version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
 当前代码已通过 G0–G5，但 G6 仍 blocked，artifact 也仍是本地 snapshot。个人项目试用应先在本仓库执行 `./mvnw -B -ntp install`，不得把它描述为 public RC、production-ready 或已发布 artifact。
 
@@ -27,7 +31,8 @@ Owner：SOMA Java 用户输出
 - Azul Zulu 完整 JDK 8，必须同时包含 `java`、`javac` 和 JDK compiler APIs；
 - Maven 3.8.6–3.x；
 - UTF-8 source encoding；
-- SOMA 三个同版本 artifact：`soma-annotations`、`soma-processor`、`soma-runtime-core`。
+- SOMA 四个同版本 artifact：`soma-annotations`、`soma-processor`、
+  `soma-runtime-core`、`soma-dataflow`。
 
 不能用新 JDK 的 `--release 8` 代替 Zulu full JDK 8 compiler。Corretto、其他 JDK distribution、ECJ、JDK 9+ javac 或未进入正式矩阵的 IDE incremental compiler 不能被视为支持环境。
 
@@ -52,6 +57,11 @@ Owner：SOMA Java 用户输出
   <dependency>
     <groupId>com.hgtech.soma</groupId>
     <artifactId>soma-runtime-core</artifactId>
+    <version>${soma.version}</version>
+  </dependency>
+  <dependency>
+    <groupId>com.hgtech.soma</groupId>
+    <artifactId>soma-dataflow</artifactId>
     <version>${soma.version}</version>
   </dependency>
   <dependency>
@@ -98,7 +108,9 @@ Owner：SOMA Java 用户输出
 1. 在 `package-info.java` 声明 `@SomaSchema`；
 2. 使用 `@SomaTable`、`@SomaValue`、`@SomaField`、`@SomaKey`、`@SomaIndex`、`@SomaUnique`、`@SomaChild` 等定义 logical schema；`@SomaIndex` 提供 exact-group `scanByX`，`@SomaUnique` 优先提供 0..1 point family，业务顺序在 Candidate Scan 上显式调用 `sorted(totalComparator)`；
 3. Maven compile 同时激活 `SomaValue` javac plugin 与 annotation processor；
-4. application 只依赖 generated typed API 和 `soma-runtime-core`，不直接访问 generated-sources directory 或 runtime internal type；
+4. application 依赖 generated typed API、`soma-runtime-core` 和
+   `soma-dataflow`，不直接访问 generated-sources directory、logical IR 或
+   runtime internal type；
 5. 所有同一应用中的 generated source、runtime-core、runtime plan 和 schema hash必须通过初始化兼容性检查。
 
 两个正式参考应用位于 `soma-examples` 的独立 child projects；独立于 reactor parent 的完整 core consumer fixture 位于 `soma-testkit/src/test/fixtures/external-maven-breadth-phase5`。
@@ -110,9 +122,21 @@ Owner：SOMA Java 用户输出
 3. 只为稳定 exact access 声明 `@SomaIndex`/`@SomaUnique`；
 4. parent 独占且同生命周期的数据使用 `@SomaChild`；
 5. 可变业务顺序在调用处显式 `sorted(totalComparator)`，跨轮次队列使用 application-owned heap；
-6. hot loop 按 Point/Candidate/Column/Key/Bulk/Ownership 选择自然路径；Candidate Scan、ColumnTraversal或ColumnView负责计算访问，object graph只在边界materialize。
+6. hot loop 按 Point/Candidate/Column/Key/Bulk/Ownership 选择自然路径；
+   Candidate Scan、ColumnTraversal 或 ColumnView 负责局部访问；
+7. 需要 Selection、Projection、Aggregation、Partition、Join、GroupBy、
+   Window、detached Result 或 safe-point Effect 时，使用生成的
+   `<Table>DataFlow` 定义一次或可复用的 typed transformation，不把 generic
+   object graph、Java Stream 或 I/O 放进执行热路径。
 
-Keyed identity 稳定，但 current Index 不稳定。Keyed/dense 删除都使用 swap-remove，未排序的 first/limit/indexSnapshot/fetchAll 只基于当时 source sequence。`findIndex/requireIndex` 不物化 carrier；`IndexSnapshot` 显式复制并只在紧接着的同步只读批次消费；跨 operation 保存引用必须使用 `@SomaKey`。SOMA 不提供跨 table transaction，业务提交与恢复由 application 负责。
+Keyed identity 稳定，但 current Index 不稳定。Keyed/dense 删除都使用
+swap-remove，未排序的 first/limit/indexSnapshot/fetchAll 只基于当时 source
+sequence。`findIndex/requireIndex` 不物化 carrier；`IndexSnapshot` 显式复制并
+只在紧接着的同步只读批次消费；跨 operation 保存引用必须使用 `@SomaKey`。
+SOMA 不提供跨 table transaction，业务提交与恢复由 application 负责。
+DataFlow 的 Definition/Template 不持有 live Table；每次 Invocation one-shot，
+并行执行只在 Invocation 独占的只读/受控 Effect 边界内发生。外部状态同步先形成
+detached Batch/Delta，再在 application safe point 提交。
 
 ## 5. 验证安装
 
@@ -133,10 +157,12 @@ External consumer 至少确认：
 
 ## 6. Upgrade、rollback 与 withdrawal
 
-- annotation、processor和runtime-core必须使用同一artifact family version；
+- annotation、processor、runtime-core 和 dataflow 必须使用同一 artifact family
+  version；
 - schema、generated/runtime protocol或runtime plan identity不匹配时必须fail closed；
 - released artifact immutable，不覆盖同version binary；
-- 回退时同时回退三个artifact并重新生成consumer generated source，不能把旧generated class与新runtime混用；
+- 回退时同时回退四个 artifact 并重新生成 consumer generated source，不能把
+  旧 generated class 与新 runtime/dataflow 混用；
 - 如果某version被标记withdrawn，停止新部署并迁移到公告指定的修复版本；
 - SOMA V1不提供持久化schema migration，detached object/wire/database迁移由application adapter拥有。
 
@@ -144,7 +170,10 @@ External consumer 至少确认：
 
 - Java-only；不提供Python、C ABI、native runtime或跨语言FFI；
 - 只支持正式G6 matrix列出的Azul Zulu full JDK 8 javac/runtime组合；
-- runtime不是跨table transaction、ORM、ECS、query engine或persistence layer；
+- runtime 不是跨 table transaction、ORM、ECS、SQL/query engine 或
+  persistence layer；
+- DataFlow 只处理有限、typed、heap-resident 的 transformation；不提供无限流、
+  自动增量视图、full/cross/theta join、隐式 common pool 或 blocking I/O；
 - callback的业务副作用、超时、取消和外部一致性由application拥有；
 - benchmark smoke只证明路径和结构化证据可运行，不代表性能优势；
 - public publishing endpoint、SCM/contact或签名机制未进入正式G6 report前，不得把本地artifact当作公开release。

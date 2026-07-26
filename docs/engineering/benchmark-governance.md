@@ -10,7 +10,7 @@ Owner：SOMA Java benchmark 过程
 
 非事实范围：性能设计目标和某次测量数值
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 1. 三层责任
 
@@ -74,7 +74,8 @@ timing 用 multi-fork median。Component allocation 使用 maximum；带完整 J
 tiered compilation 或延迟初始化的单个极值触发 rebaseline。Setup/preparation
 可以报告，但不进入当前两个应用的 hot-operation timing Gate。
 
-- component 普通 Gate 使用 5 个独立 JVM fork；
+- Access component 普通 Gate 使用 5 个独立 JVM fork；
+- DataFlow component 使用固定 3 个独立 JVM fork，并记录 invocation p50/p90/p99/max；
 - 六个 application profile 的普通 Gate 各使用 3 个独立 JVM fork；
 - 新建或重校 application baseline 通常使用同环境 5 fork；
 - 9 fork 只用于明确授权的方差诊断或 public claim 准备；
@@ -97,7 +98,7 @@ baseline，不覆盖旧环境事实。
 - neutral comparator：`PerformanceBaselineDefinition` /
   `PerformanceBaselineComparator`；
 - 三层结构 Gate：`scripts/check-performance-baseline-architecture.sh`；
-- component Gate：`check-post-cutover-components.sh`；
+- component Gate：`check-post-cutover-components.sh`、`check-dataflow-performance.sh`；
 - application Fast/Scale/Soak/Full Gate：
   `check-reference-application-fast-performance.sh`、
   `check-reference-application-scale-performance.sh`、
@@ -108,7 +109,7 @@ baseline，不覆盖旧环境事实。
 - 综合入口：`scripts/check.sh`。
 
 `check-performance-baseline-architecture.sh` 固定验证当前
-component=1、reference-application=6、public-claim=0，以及模块依赖和 Owner
+component=2、reference-application=6、public-claim=0，以及模块依赖和 Owner
 边界。新增环境或 public claim 必须显式修改 Owner、evidence 和 Gate。
 
 `scripts/check.sh` 不再隐式启动 application fork；功能、构建、架构与性能责任
@@ -120,7 +121,8 @@ baseline 的正式性、3-fork 下限、失败含义或 correctness guard。
 ## 6. 对照与 claim
 
 需要设计结论时使用同语义对照，如 full scan vs exact source、dynamic sort vs
-application heap、Candidate Scan vs point/column path、hot path vs materialization。
+application heap、Candidate Scan vs point/column path、direct Candidate vs
+DataFlow bind/execute、sequential vs parallel、hot path vs detached output/materialization。
 对照必须保持相同结果、tie-break、failure 和 lifecycle，不能通过减少语义换数字。
 
 Smoke 只证明 lane 可执行、artifact 合法和基本 invariant；local baseline 只支持

@@ -18,11 +18,13 @@ Owner：SOMA Java 总体设计原则
 
 非事实范围：模块内算法、代码位置、验证结果和 release readiness
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. 定位
 
-SOMA Java 是 Java 8 annotation schema 与进程内 columnar runtime state 系统。Schema 经过编译期验证和规范化，生成 schema-specific facade；runtime kernel 不解释 application schema object graph。
+SOMA Java 是面向 Java 8 的 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 高性能运行时状态计算库。Schema 经过编译期验证和规范化，生成 schema-specific storage、access 与 transformation facade；runtime kernel 不解释 application schema object graph。
+
+SOMA 同时拥有 packed runtime-state plane 和围绕该状态的 typed local-compute plane。Annotation 是当前 Schema authoring surface，不是产品本质；产品不因增加 Transformation/DataFlow 而变成通用查询、DataFrame 或分布式计算平台。
 
 设计优先级如下：
 
@@ -42,6 +44,7 @@ SOMA Java 是 Java 8 annotation schema 与进程内 columnar runtime state 系�
 - schema object、materialized row、DTO、Java Collection graph、index、stats 和 report 都不是平行 live facts；
 - `@SomaTable` 类型描述 row schema 和 detached materialization shape，不是 live row object；
 - application data role 与 table kind 是不同维度：input/working/result 不决定 keyed/dense，keyed/dense 也不决定 ownership。
+- Logical Definition、Template、Invocation result、Delta 和 diagnostics 都是明确生命周期的语义或派生对象，不能成为与 Table 并行的 live fact source。
 
 ### 2.2 存储与 identity
 
@@ -55,12 +58,15 @@ SOMA Java 是 Java 8 annotation schema 与进程内 columnar runtime state 系�
 
 Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)拥有；Pipeline 不代表整个产品访问模型。
 
+数据怎样改变 Shape、cardinality、order 和 lineage 由 [Transformation Model](transformation-model.md)拥有；ad-hoc DSL 与 reusable Typed DataFlow 的执行角色、资源和并行边界由 [DataFlow 执行模型](dataflow-execution-model.md)拥有。两种使用形态必须共享同一语义，specialized fast path 不能形成第二 correctness model。
+
 ### 2.3 Ownership 与执行
 
 - child table 由唯一 parent row 独占，形成无环 ownership forest；
 - 不允许 share、reparent、dangling child 或绕过 parent 的 owned-child release；
 - 一个 root ownership aggregate 只允许单 owner、同步、非并发访问；
 - SOMA 不提供跨 root/table transaction，application 负责业务提交、回滚或重建。
+- parallel execution 只发生在 application 已独占的 one-shot Invocation 内部，不把 Table 变成 concurrent API，也不授予 worker 长期持有 live state 的权利。
 
 ### 2.4 正确性与边界
 
@@ -69,6 +75,7 @@ Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [
 - materialization 只产生 detached object graph，并受显式或 plan-default budget 约束；
 - lifecycle、compatibility 和错误必须可以通过结构化字段判断，不依赖 message parsing；
 - runtime 不产生隐藏 I/O、全局 logger 配置或隐式持久化。
+- 关键抽象必须按构造即正确：不变量由唯一 Owner 在事实产生处通过类型、不可变对象、静态工厂或 one-shot Builder 关闭；可能破坏数据、lineage、lifecycle 或原子性的检查不得依赖可关闭的 assertion。
 
 ### 2.5 性能形状
 
@@ -76,17 +83,18 @@ Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [
 - 声明的 exact access 在 mutation 成功时已经 current，读取不触发全表 rebuild；
 - 候选操作只处理前序阶段产生的候选，terminal 不得静默扩展回全表；
 - steady-state allocation、retained scratch、GC、working-set bytes 和 boundary materialization 必须分别可观察；
+- logical operator 不泄漏 Hash Join、Tree Reduction 等物理策略；adaptive parallel 以 sequential 为语义基准并按有界证据回退；
 - 性能优化改变语义、API、determinism、ownership、failure 或兼容性前，先修改对应 Design Owner。
 
 ## 3. 产品边界
 
-V1 只承诺 Java 8 进程内使用，不包含 Python、C ABI、native runtime、FFI、持久化、分布式、并发 table access、查询语言或 application 级事务。
+V1 只承诺 Java 8 进程内使用，不包含 Python、C ABI、native/off-heap runtime、FFI、持久化、分布式、并发 table access、SQL/query language、无限 stream、automatic incremental view maintenance 或 application 级事务。
 
 专用 priority queue、event heap、grid adapter、solver policy 和 domain cache 可以由 application 持有。SOMA 只吸收被多个目标场景证明为稳定、通用且能保持上述不变量的能力。
 
 ## 4. 设计决策规则
 
-- 新能力必须先说明它服务的 Blueprint 和 Access Pattern；
+- 新能力必须先说明它服务的 Blueprint、Access Pattern、Logical Shape 与状态变化；
 - schema 只固化稳定语义和稳定 access path，不固化可变策略；
 - 优化必须比较 end-to-end cost，不能只转移 allocation、rebuild 或一致性成本；
 - 当前实现与 Design 不一致时，记录 Conformance，不反向降低目标以合理化 shortcut；

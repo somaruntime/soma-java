@@ -8,11 +8,13 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 本应用是一个独立 Java 8 consumer：它只依赖 `soma-annotations`、
-`soma-runtime-core` 和 compile-time `soma-processor`，不依赖 root reactor、
-`soma-testkit`、旧 examples 或 internal package。
+`soma-runtime-core`、`soma-dataflow` 和 compile-time `soma-processor`，不依赖
+root reactor、`soma-testkit`、旧 examples 或 internal package。调度 hot loop
+继续使用应用自有 primitive frontier；完成后的 authoritative assignment Table
+由 typed DataFlow 推导 detached Result metrics。
 
 ## 入口
 

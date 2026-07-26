@@ -1,6 +1,8 @@
 # soma_java Agent Guide
 
-`soma_java` 是 Java 8 annotation schema + Java columnar runtime 项目。当前功能与性能状态以 Conformance 和 Report 为准；G6 未通过前不得声明 public release readiness。
+`soma_java` 是 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 的
+Java 8 columnar runtime-state computing 项目。当前功能与性能状态以
+Conformance 和 Report 为准；G6 未通过前不得声明 public release readiness。
 
 ## 必读入口
 
@@ -39,6 +41,8 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - `soma-annotations`：public schema annotation；
 - `soma-processor`：javac 8 integration、processing、normalization/hash、diagnostics、code generation；
 - `soma-runtime-core`：TableStore、lifecycle、runtime plan、errors/diagnostics、runtime性能实现；
+- `soma-dataflow`：typed Transformation、Definition/Template/Invocation、
+  execution context、detached result、controlled effect 与并行执行；
 - `soma-testkit`：compile/golden/invariant/evidence helpers；
 - `soma-examples`：两个独立 Java 8 reference consumer 的聚合边界，不产出领域共享 JAR；
 - `soma-benchmarks`：领域中性 component benchmark、runner、validator 与 runtime-state lanes。

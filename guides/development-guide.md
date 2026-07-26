@@ -12,11 +12,11 @@ Owner：SOMA Java 开发者输出
 
 非事实范围：重新定义 Design、自动授权实现或声明 release readiness
 
-适用版本：最后 implementation-affecting baseline `fd82eba`
+适用版本：最后 implementation-affecting baseline `2aa8c15`
 
 输入事实源：正式文档体系、当前代码、scripts 和 Gate reports
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. 先定位事实
 
@@ -29,6 +29,7 @@ Owner：SOMA Java 开发者输出
 | annotation/schema | annotations + processor | compile fixtures、schema/golden、external consumer |
 | generated public API / Access Model | generator | public manifest/`javap`、Access Pattern oracle、external compile/run、runtime binding |
 | runtime protocol/storage | runtime-core + generator | kernel invariant、generated dense/keyed/access/child tests |
+| Transformation / DataFlow | dataflow + generator | construct contract、reference differential、generated binding、external consumer、component baseline |
 | lifecycle/error/materialization | runtime-core + generator | failure path、atomicity、external child/breadth consumers |
 | scenario | examples schema + scenario | executable output、relevant benchmark lane |
 | benchmark/evidence | benchmarks + validator/scripts | smoke、negative artifact、checksum/claim rules |
@@ -53,11 +54,21 @@ Owner：SOMA Java 开发者输出
 - 保持 Java 8；
 - 不在 runtime hot storage/path 引入反射、Stream、DTO/object graph、boxed tuple 或 metadata interpreter；
 - 不把 generated-runtime protocol 暴露成 application SPI；
+- 不把 logical IR、physical strategy 或 executor internals 暴露成 application
+  SPI；
 - 不用 test-only bypass 代替 production semantics；
 - 不新增第三方 runtime dependency，除非 Design 已批准；
 - 不恢复 Sparse Set、dirty selector rebuild、maintained physical order 或 stable raw Index；
 - 不恢复已退役的generated access词族或双轨alias；current canonical surface保持Table/Scan/Cursor/UpdateCursor/Traversal；
 - 保留 mutation atomicity、full equality、ownership 和 structured failure。
+- 关键不变量在唯一 Owner 的构造/绑定/提交边界关闭；`assert` 只守护关闭后不会
+  损坏数据或语义的内部推导事实；
+- Definition Builder、Invocation 和 Effect 均保持 one-shot；并行路径不得隐式
+  使用 common pool 或开放 concurrent Table access。
+
+测试证明生产防线有效，而不是为每个方法复制相同边界用例。通用
+Transformation 语义优先由性质测试和 reference differential 覆盖；组合测试只
+保留新语义代表、canonical end-to-end、external consumer 与性能非回归证据。
 
 ## 5. 收口
 

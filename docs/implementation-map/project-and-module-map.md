@@ -10,9 +10,9 @@ Owner：SOMA Java 项目实现导航
 
 事实范围：当前 Maven reactor、模块职责、主要产物和顶层执行入口
 
-最近实现核对基线：commit `955c956`
+最近实现核对基线：commit `2aa8c15`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. Reactor
 
@@ -22,12 +22,13 @@ Owner：SOMA Java 项目实现导航
 |---|---|---|
 | `soma-annotations` | [`com.hgtech.soma.annotation`](../../soma-annotations/src/main/java/com/hgtech/soma/annotation) | public schema annotations |
 | `soma-runtime-core` | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | handwritten runtime + generated protocol |
+| `soma-dataflow` | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) | typed Transformation/DataFlow production runtime |
 | `soma-processor` | [`SomaProcessor.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/SomaProcessor.java) | javac plugin、processor、generator |
 | `soma-testkit` | [`MaterializedGraphComparator.java`](../../soma-testkit/src/main/java/com/hgtech/soma/testkit/MaterializedGraphComparator.java) | fixtures/evidence helpers |
 | `soma-examples` | [`pom.xml`](../../soma-examples/pom.xml)、[应用入口](../../soma-examples/docs/README.md) | 两个独立 Java 8 reference consumer 的 aggregator；不产出共享领域 JAR |
 | `soma-benchmarks` | [`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java) | 领域中性 component benchmark runners/artifacts |
 
-Production runtime boundary 是 annotations + processor + runtime-core；testkit、examples aggregator 和 benchmarks 不应出现在普通 consumer runtime classpath。两个 reference application 是普通 consumer，不是 SOMA runtime artifact。
+完整 production boundary 是 compile-time annotations/processor 与 runtime-core/dataflow；只使用 direct Access 的源码不引用 DataFlow type。Testkit、examples aggregator 和 benchmarks 不应出现在普通 consumer runtime classpath。两个 reference application 是普通 consumer，不是 SOMA runtime artifact。
 
 ## 2. Build 和 Gate 入口
 
@@ -48,9 +49,12 @@ application schema source
   -> target/generated-sources/annotations schema-specific code
   -> soma-runtime-core public config/errors + generated protocol
   -> application runtime tables
+  -> soma-dataflow typed Definition/Template/Invocation
+  -> generated companion binding
+  -> Result / safe-point Effect
 ```
 
-详细入口分别见[编译器与代码生成地图](compiler-and-codegen-map.md)和[Runtime Core 地图](runtime-core-map.md)。
+详细入口分别见[编译器与代码生成地图](compiler-and-codegen-map.md)、[Runtime Core 地图](runtime-core-map.md)和[DataFlow 实现地图](dataflow-map.md)。
 
 ## 4. 核对边界
 

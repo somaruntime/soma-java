@@ -6,13 +6,13 @@
 
 Owner：SOMA executable contract 实现导航
 
-对应 Design：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Runtime Plan 与可观测性](../design/runtime-plan-and-observability.md)、[兼容性、安全与版本](../design/compatibility-security-and-versioning.md)
+对应 Design：[Schema 与生成 API](../design/schema-and-generated-api.md)、[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Transformation Model](../design/transformation-model.md)、[DataFlow 执行模型](../design/dataflow-execution-model.md)、[Runtime Plan 与可观测性](../design/runtime-plan-and-observability.md)、[兼容性、安全与版本](../design/compatibility-security-and-versioning.md)
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：commit `955c956`
+最近实现核对基线：commit `2aa8c15`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. 为什么单独登记
 
@@ -28,8 +28,9 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 | `@SomaValue` effective class shape | javac plugin + generated class | compiler `value-success`/modifier fixtures与 external Maven value consumer |
 | normalized schema/hash | processor normalized model/output | compiler fixture `expected/*.schema.json`、`.sha256`、两个 isolated application 的 clean/repeat schema/hash manifest，以及 Unicode/negative diagnostics |
 | handwritten runtime public API | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | [`public-api/phase1/public-api.javap.txt`](../../soma-testkit/src/test/fixtures/public-api/phase1/public-api.javap.txt) |
-| generated public API | generated source/class output；当前 canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child | external dense/keyed/access/child/breadth `javap` golden + compile/run |
-| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v4 | runtime/generated Gate scripts + v3/v4 mismatch oracle + external consumers |
+| generated public API | generated source/class output；canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child/DataFlow companion/keyed Delta | external dense/keyed/access/child/breadth `javap` golden + compile/run |
+| DataFlow public API | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) 与 generated companion | public `javap`、Slice A–F、external consumer、reference differential |
+| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v5、transformation/kernel v1 | runtime/generated Gate scripts + v4/v5 fail-closed oracle + external consumers |
 | runtime plan/default/stats/error codes | runtime public/internal sources | runtime-core check、diagnostics Gate、external access/child/breadth consumers |
 | benchmark artifact schema | benchmark model/validator | smoke runner、strict validator、negative artifact cases；exact-index incremental lane 与无索引 dense-workspace lane 分开记录 |
 

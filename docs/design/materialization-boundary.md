@@ -18,11 +18,13 @@ Owner：SOMA detached materialization semantics
 
 非事实范围：external DTO/wire format、application serializer 和 benchmark 结果
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 1. 定位
 
 Materialization 把当前 table facts 投影为 detached Java object graph，用于可读性、边界输出、测试 reference path 和 application adapter。它不是 live storage、zero-copy view 或 hot-loop 默认访问方式。
+
+Transformation 的 detached columnar result 是另一种显式 output boundary：它保存 typed/primitive heap arrays、presence 和 shape identity，不构造 per-element object graph。其 Shape 与 output budget 由 [Transformation Model](transformation-model.md)拥有；本 Owner 只拥有 schema object graph materialization。
 
 ```text
 SOMA live table

@@ -10,11 +10,13 @@ Owner：SOMA Java 测试/evidence 过程
 
 非事实范围：Design 语义本身和当前测试结果
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 1. 原则
 
-测试验证 Design，而不是只冻结当前实现。每个长期 capability 应优先组合：
+生产代码自身承担正确性，测试证明这些防线有效，而不是把全部压力交给洪水式 case 或只冻结当前实现。每个长期 capability 应先识别关键抽象和不变量，为其指定唯一 Owner，并在事实产生处通过类型系统、不可变对象、静态工厂、one-shot Builder 或真实边界校验排除非法状态。
+
+测试优先组合：
 
 - compile-time positive/negative fixture；
 - generated/schema/public golden；
@@ -24,6 +26,8 @@ Owner：SOMA Java 测试/evidence 过程
 - 与性能相关时的 correctness-guarded benchmark lane。
 
 单个层次通常不足以证明跨 compiler/generated/runtime 的能力。
+
+同一种 null、lifecycle、ownership 或非法状态只在其 Owner 的代表性边界集中验证，不为每个 forwarding method 重复。Property test 和 reference differential 覆盖通用 operator/ordering/absence 语义；组合测试只选择具有新语义的代表，另保留少量 canonical end-to-end 与性能非回归证据。
 
 ## 2. Golden 与 fixture
 
@@ -45,8 +49,12 @@ Runtime tests 应覆盖 stable state 和 failure boundary，特别是：
 - callback/resource/allocation failure atomicity；
 - materialization budget、deep graph 和 all-or-nothing；
 - stats reset/current/high-water self-consistency。
+- Definition Builder、Template/Invocation one-shot、source/parameter/output identity；
+- Shape/lineage/operator legality、outer absence、Join multiplicity、Group/Partition order；
+- sequential/parallel result、order、failure 和 Effect identity；
+- Delta duplicate/presence/epoch/resource preflight 与 safe-point one publish。
 
-Candidate executor优化必须用reference evaluator或等价oracle覆盖声明顺序与callback/failure语义；source/terminal shortcut不得只靠benchmark结果证明正确。Generated命名切换还必须同时验证current public tokens与旧canonical token absence，历史Report/superseded文档除外。
+Candidate/DataFlow executor优化必须用reference evaluator或等价oracle覆盖声明顺序、absence、callback/failure和Effect语义；source/terminal shortcut不得只靠benchmark结果证明正确。测试不冻结 private helper、internal node 或 backing-array layout，除非该形状本身是明确的 footprint/compatibility contract。Generated命名切换还必须同时验证current public tokens与旧canonical token absence，历史Report/superseded文档除外。
 
 ## 4. Evidence 质量
 

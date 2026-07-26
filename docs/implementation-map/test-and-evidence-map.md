@@ -6,13 +6,13 @@
 
 Owner：SOMA 测试与 evidence 实现导航
 
-对应 Design：[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
+对应 Design：[Access Model 与 Candidate Scan](../design/access-model-and-candidate-scan.md)、[Transformation Model](../design/transformation-model.md)、[DataFlow 执行模型](../design/dataflow-execution-model.md)、[Correctness 与 failure](../design/correctness-and-failure.md)、[性能模型](../design/performance-model.md)
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：commit `c0fa1c9`
+最近实现核对基线：commit `2aa8c15`
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 1. 验证层次
 
@@ -22,10 +22,12 @@ Owner：SOMA 测试与 evidence 实现导航
 | compile fixtures | [`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、Candidate sequence、one-shot/retention、unique point 与 v4 identity |
+| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、Candidate sequence、one-shot/retention、unique point 与 v5 identity |
+| DataFlow contract | `check-dataflow-slice-f.sh`、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
+| reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 两个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
 | application correctness/evidence | [`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)、[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)、Fast/Scale/Soak/Full performance Gate | versioned config、detached input checksum、oracle/validator、failure/lifecycle，以及六个 profile 的多 fork timing/allocation/GC/high-water |
-| neutral benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、lane 责任边界、source/stage/terminal allocation、cardinality memory 与三类 representative generated footprint |
+| neutral benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-dataflow-performance.sh`](../../scripts/check-dataflow-performance.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、direct/Candidate/DataFlow cost、parallel crossover、safe-point Effect、cardinality memory 与 generated footprint |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
 ## 2. Testkit
@@ -52,4 +54,4 @@ Scan code-size evidence 对 neutral benchmark、industrial scheduler 和 grassin
 
 ## 4. 维护提示
 
-新增或修改 Design capability 时，至少选择一个直接不变量测试和一个外部/集成路径。测试如果只证明当前类内部实现而没有覆盖 public/generated behavior，不能单独关闭 Conformance 差距。
+新增或修改 Design capability 时，先确认不变量在唯一 production Owner 处已关闭，再选择一个直接构造/契约测试和一个外部、differential 或集成路径。不要为每个方法重复相同 null/lifecycle case；property/reference differential 应覆盖通用语义，代表性组合覆盖新增语义，少量 canonical end-to-end 与性能 evidence 守住产品边界。只冻结 private helper 或内部数组布局的测试不能关闭 Conformance 差距。

@@ -16,7 +16,7 @@ Owner：SOMA Java reference applications
 
 非事实范围：SOMA 核心 Design、公共 API、跨环境性能 claim 和 release readiness
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 `soma-examples` 只聚合参考应用，不再拥有一个共享领域 runtime、场景套件或产品能力事实。SOMA 的目标和长期语义分别由[产品 Blueprint](../../docs/blueprints/soma-java-product-blueprint.md)和[Design](../../docs/design/README.md)拥有；当前代码与 Gate 从[参考应用与 benchmark Map](../../docs/implementation-map/scenario-and-benchmark-map.md)进入。
 
@@ -24,7 +24,8 @@ Owner：SOMA Java reference applications
 
 - [工业动态调度引擎](../industrial-dynamic-scheduler/docs/README.md)：top-level
   Problem/Factory、canonical Solver/Session、detached Result、动态约束、增量
-  frontier、production/test 隔离与多 fork evidence；
+  frontier、assignment summary typed DataFlow、production/test 隔离与多 fork
+  evidence；
 - [个体生态仿真](../grassing-individual-simulation/docs/README.md)：grasser–grass systems、确定性随机、AoS oracle、物理顺序独立性与 long-run evidence。
 
 每个应用都把版本化配置和 detached input generation 与 authoritative runtime
