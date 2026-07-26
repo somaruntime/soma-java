@@ -374,6 +374,7 @@ final class CandidateProgram<B extends DataFlowBinding> {
     private final Object[] operands;
     private final long[] arguments;
     private final boolean hasSort;
+    private final boolean contiguousParallelSafe;
     private final String canonical;
 
     CandidateProgram(
@@ -387,25 +388,32 @@ final class CandidateProgram<B extends DataFlowBinding> {
         this.operands = operands;
         this.arguments = arguments;
         boolean sorting = false;
+        boolean parallelSafe = input instanceof PackedCandidateInput<?>;
         StringBuilder identity = new StringBuilder(input.canonical());
         for (int index = 0; index < kinds.length; index++) {
             byte kind = kinds[index];
             if (kind == FILTER) {
+                parallelSafe = parallelSafe
+                        && ((BooleanExpression<?>) operands[index]).parallelSafe;
                 identity.append("->filter(")
                         .append(((BooleanExpression<?>) operands[index]).identity())
                         .append(')');
             } else if (kind == SKIP) {
+                parallelSafe = false;
                 identity.append("->skip(").append(arguments[index]).append(')');
             } else if (kind == LIMIT) {
+                parallelSafe = false;
                 identity.append("->limit(").append(arguments[index]).append(')');
             } else if (kind == SORT) {
                 sorting = true;
+                parallelSafe = false;
                 identity.append("->sort(")
                         .append(((CandidateOrder<?>) operands[index]).identity())
                         .append(')');
             }
         }
         hasSort = sorting;
+        contiguousParallelSafe = parallelSafe;
         canonical = identity.toString();
     }
 
@@ -419,6 +427,34 @@ final class CandidateProgram<B extends DataFlowBinding> {
 
     boolean requiresBarrier() {
         return hasSort || !input.supportsStreaming();
+    }
+
+    boolean supportsContiguousParallel() {
+        return contiguousParallelSafe;
+    }
+
+    int contiguousCardinality(DataFlowBinding binding) {
+        if (!contiguousParallelSafe) {
+            throw new IllegalStateException(
+                    "candidate program is not contiguous-parallel safe");
+        }
+        return input.maximumCardinality(binding);
+    }
+
+    boolean parallelMatches(DataFlowBinding binding, int index) {
+        if (!contiguousParallelSafe) {
+            throw new IllegalStateException(
+                    "candidate program is not contiguous-parallel safe");
+        }
+        for (int stage = 0; stage < kinds.length; stage++) {
+            @SuppressWarnings("unchecked")
+            BooleanExpression<B> expression =
+                    (BooleanExpression<B>) operands[stage];
+            if (!expression.evaluate(binding, index)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     String canonical() {

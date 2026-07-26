@@ -36,13 +36,21 @@ final class CandidateCountOperation<B extends DataFlowBinding>
 
     @Override
     public String physicalPlan() {
-        return program.hasSort()
+        if (program.supportsContiguousParallel()) {
+            return "candidate-adaptive[contiguous-filter,count]";
+        }
+        return program.requiresBarrier()
                 ? "candidate-barrier[stable-sort,count]"
                 : "candidate-stream[filter-skip-limit,count]";
     }
 
     @Override
     public ExecutionOutcome<LongScalarResult> execute(ExecutionFrame frame) {
+        ExecutionOutcome<LongScalarResult> parallel =
+                ParallelCandidateExecution.count(program, frame);
+        if (parallel != null) {
+            return parallel;
+        }
         CandidateVisit visit =
                 program.visit(frame, NOOP, "dataflow.count");
         frame.reserveOutput(1L, 8L, "dataflow.count");
@@ -94,7 +102,7 @@ final class CandidateMatchOperation<B extends DataFlowBinding>
 
     @Override
     public String physicalPlan() {
-        return program.hasSort()
+        return program.requiresBarrier()
                 ? "candidate-barrier[stable-sort,short-circuit-match]"
                 : "candidate-stream[short-circuit-match]";
     }
@@ -169,8 +177,15 @@ final class CandidateIndexSnapshotOperation<B extends DataFlowBinding>
 
     @Override
     public ExecutionOutcome<IndexSnapshot> execute(ExecutionFrame frame) {
-        CandidateSelection selected =
-                program.select(frame, "dataflow.indexSnapshot");
+        ParallelCandidateSelection parallel =
+                ParallelCandidateExecution.select(
+                        program, frame, "dataflow.indexSnapshot");
+        CandidateSelection selected = parallel == null
+                ? program.select(frame, "dataflow.indexSnapshot")
+                : new CandidateSelection(
+                        parallel.indexes,
+                        parallel.matched,
+                        parallel.scanned);
         frame.reserveOutput(
                 selected.size,
                 (long) selected.size * 4L,
@@ -182,8 +197,8 @@ final class CandidateIndexSnapshotOperation<B extends DataFlowBinding>
                 selected.scanned,
                 selected.size,
                 selected.size,
-                1,
-                1);
+                parallel == null ? 1 : parallel.tasks,
+                parallel == null ? 1 : parallel.workers);
     }
 }
 
@@ -203,7 +218,10 @@ abstract class CandidateProjectionOperation<B extends DataFlowBinding, R>
 
     @Override
     public final String physicalPlan() {
-        return program.hasSort()
+        if (program.supportsContiguousParallel()) {
+            return "candidate-adaptive[contiguous-filter,stable-project]";
+        }
+        return program.requiresBarrier()
                 ? "candidate-selection-vector[stable-sort,project]"
                 : "candidate-stream[fused-project]";
     }
@@ -239,6 +257,12 @@ final class LongColumnOperation<B extends DataFlowBinding>
 
     @Override
     public ExecutionOutcome<LongColumnResult> execute(ExecutionFrame frame) {
+        ExecutionOutcome<LongColumnResult> parallel =
+                ParallelCandidateExecution.longColumn(
+                        program, expression, frame);
+        if (parallel != null) {
+            return parallel;
+        }
         final DataFlowBinding binding = frame.binding(source);
         if (program.hasSort()) {
             CandidateSelection selected =
@@ -309,6 +333,12 @@ final class DoubleColumnOperation<B extends DataFlowBinding>
 
     @Override
     public ExecutionOutcome<DoubleColumnResult> execute(ExecutionFrame frame) {
+        ExecutionOutcome<DoubleColumnResult> parallel =
+                ParallelCandidateExecution.doubleColumn(
+                        program, expression, frame);
+        if (parallel != null) {
+            return parallel;
+        }
         final DataFlowBinding binding = frame.binding(source);
         final CandidateSelection selected = program.hasSort()
                 ? program.select(frame, "dataflow.doubleColumn") : null;
@@ -378,6 +408,12 @@ final class BooleanColumnOperation<B extends DataFlowBinding>
 
     @Override
     public ExecutionOutcome<BooleanColumnResult> execute(ExecutionFrame frame) {
+        ExecutionOutcome<BooleanColumnResult> parallel =
+                ParallelCandidateExecution.booleanColumn(
+                        program, expression, frame);
+        if (parallel != null) {
+            return parallel;
+        }
         final DataFlowBinding binding = frame.binding(source);
         int capacity = program.maximumCardinality(binding);
         final boolean[] values =

@@ -53,7 +53,10 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
                         return "object-equal(" + left.canonical()
                                 + ",redacted-constant)";
                     }
-                });
+                },
+                ExpressionNodes.alwaysPresent(),
+                path + ".equal",
+                false);
     }
 
     public ObjectExpression<B, T> coalesce(final T fallback) {

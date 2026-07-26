@@ -75,8 +75,15 @@ final class CandidateUpdateOperation<B extends DataFlowBinding>
     @Override
     public ExecutionOutcome<UpdateResult> execute(
             ExecutionFrame frame) {
-        CandidateSelection selected =
-                program.select(frame, "dataflow.update.freeze");
+        ParallelCandidateSelection parallel =
+                ParallelCandidateExecution.select(
+                        program, frame, "dataflow.update.freeze");
+        CandidateSelection selected = parallel == null
+                ? program.select(frame, "dataflow.update.freeze")
+                : new CandidateSelection(
+                        parallel.indexes,
+                        parallel.matched,
+                        parallel.scanned);
         final B binding = binding(frame);
         final long expectedEpoch = binding.structuralEpoch();
         final int[] indexes = selected.indexes;
@@ -95,7 +102,9 @@ final class CandidateUpdateOperation<B extends DataFlowBinding>
                 },
                 selected.scanned,
                 selected.size,
-                1L);
+                1L,
+                parallel == null ? 1 : parallel.tasks,
+                parallel == null ? 1 : parallel.workers);
     }
 }
 
@@ -132,8 +141,15 @@ final class CandidateRemoveOperation<B extends DataFlowBinding>
     @Override
     public ExecutionOutcome<RemoveResult> execute(
             ExecutionFrame frame) {
-        CandidateSelection selected =
-                program.select(frame, "dataflow.remove.freeze");
+        ParallelCandidateSelection parallel =
+                ParallelCandidateExecution.select(
+                        program, frame, "dataflow.remove.freeze");
+        CandidateSelection selected = parallel == null
+                ? program.select(frame, "dataflow.remove.freeze")
+                : new CandidateSelection(
+                        parallel.indexes,
+                        parallel.matched,
+                        parallel.scanned);
         final B binding = binding(frame);
         final long expectedEpoch = binding.structuralEpoch();
         final int[] indexes = selected.indexes;
@@ -151,6 +167,8 @@ final class CandidateRemoveOperation<B extends DataFlowBinding>
                 },
                 selected.scanned,
                 selected.size,
-                1L);
+                1L,
+                parallel == null ? 1 : parallel.tasks,
+                parallel == null ? 1 : parallel.workers);
     }
 }

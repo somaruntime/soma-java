@@ -125,7 +125,7 @@ public final class DataFlowSliceACheck {
         require(lazyCount.explain().logicalPlan().contains("filter"),
                 "logical explain");
         require(lazyCount.compile().explain().physicalPlan()
-                        .contains("candidate-stream"),
+                        .contains("candidate-adaptive"),
                 "physical explain");
 
         DataFlowContext context = DataFlowContext.sequential();

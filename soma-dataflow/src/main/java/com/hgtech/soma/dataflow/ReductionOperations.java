@@ -69,7 +69,10 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
 
     @Override
     public String physicalPlan() {
-        return program.hasSort()
+        if (program.supportsContiguousParallel()) {
+            return "candidate-adaptive[contiguous-filter,fixed-tree-long-reduce]";
+        }
+        return program.requiresBarrier()
                 ? "candidate-barrier[stable-sort,left-fold]"
                 : "candidate-stream[fused-left-fold]";
     }
@@ -77,6 +80,12 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
     @Override
     @SuppressWarnings("unchecked")
     public ExecutionOutcome<R> execute(ExecutionFrame frame) {
+        ExecutionOutcome<R> parallel =
+                ParallelCandidateExecution.longReduction(
+                        program, expression, kind, frame);
+        if (parallel != null) {
+            return parallel;
+        }
         final DataFlowBinding binding = frame.binding(source);
         final long[] accumulator = new long[1];
         final int[] count = new int[1];

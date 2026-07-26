@@ -8,10 +8,11 @@ public final class BooleanExpression<B extends DataFlowBinding> {
     final BooleanNode node;
     final BooleanNode presence;
     final String path;
+    final boolean parallelSafe;
     private final String identity;
 
     BooleanExpression(SourceSlot<B> source, BooleanNode node) {
-        this(source, node, ExpressionNodes.alwaysPresent(), "boolean");
+        this(source, node, ExpressionNodes.alwaysPresent(), "boolean", true);
     }
 
     BooleanExpression(
@@ -19,10 +20,20 @@ public final class BooleanExpression<B extends DataFlowBinding> {
             BooleanNode node,
             BooleanNode presence,
             String path) {
+        this(source, node, presence, path, true);
+    }
+
+    BooleanExpression(
+            SourceSlot<B> source,
+            BooleanNode node,
+            BooleanNode presence,
+            String path,
+            boolean parallelSafe) {
         this.source = source;
         this.node = node;
         this.presence = presence;
         this.path = path;
+        this.parallelSafe = parallelSafe;
         identity = DataFlowSupport.identity(
                 "boolean-expression-v1\n" + source.alias() + "\n"
                         + node.canonical() + "\n"
@@ -54,7 +65,10 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                         return "boolean-coalesce(" + value.canonical() + ","
                                 + fallback + ")";
                     }
-                });
+                },
+                ExpressionNodes.alwaysPresent(),
+                path + ".coalesce",
+                parallelSafe);
     }
 
     public BooleanExpression<B> and(BooleanExpression<B> other) {
@@ -63,7 +77,8 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 source,
                 ExpressionNodes.and(node, other.node),
                 ExpressionNodes.andPresence(presence, other.presence),
-                path + ".and");
+                path + ".and",
+                parallelSafe && other.parallelSafe);
     }
 
     public BooleanExpression<B> or(BooleanExpression<B> other) {
@@ -72,12 +87,17 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 source,
                 ExpressionNodes.or(node, other.node),
                 ExpressionNodes.andPresence(presence, other.presence),
-                path + ".or");
+                path + ".or",
+                parallelSafe && other.parallelSafe);
     }
 
     public BooleanExpression<B> not() {
         return new BooleanExpression<B>(
-                source, ExpressionNodes.negate(node), presence, path + ".not");
+                source,
+                ExpressionNodes.negate(node),
+                presence,
+                path + ".not",
+                parallelSafe);
     }
 
     public CandidateOrder<B> ascending() {

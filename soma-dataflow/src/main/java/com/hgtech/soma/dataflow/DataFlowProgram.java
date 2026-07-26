@@ -55,14 +55,16 @@ final class ExecutionOutcome<R> {
             DeferredEffect<R> effect,
             long scanned,
             long matched,
-            long outputElements) {
+            long outputElements,
+            int tasks,
+            int workers) {
         this.result = null;
         this.effect = effect;
         this.scanned = scanned;
         this.matched = matched;
         this.outputElements = outputElements;
-        this.tasks = 1;
-        this.workers = 1;
+        this.tasks = tasks;
+        this.workers = workers;
     }
 
     static <R> ExecutionOutcome<R> effect(
@@ -74,7 +76,21 @@ final class ExecutionOutcome<R> {
             throw new NullPointerException("effect");
         }
         return new ExecutionOutcome<R>(
-                effect, scanned, matched, outputElements);
+                effect, scanned, matched, outputElements, 1, 1);
+    }
+
+    static <R> ExecutionOutcome<R> effect(
+            DeferredEffect<R> effect,
+            long scanned,
+            long matched,
+            long outputElements,
+            int tasks,
+            int workers) {
+        if (effect == null) {
+            throw new NullPointerException("effect");
+        }
+        return new ExecutionOutcome<R>(
+                effect, scanned, matched, outputElements, tasks, workers);
     }
 }
 
@@ -126,6 +142,13 @@ final class ExecutionFrame {
     }
 
     void checkBoundary(String operation) {
+        if (Thread.currentThread().isInterrupted()) {
+            throw DataFlowFailures.lifecycle(
+                    "dataflow_parallel_interrupted",
+                    "invocation",
+                    operation,
+                    "INTERRUPTED");
+        }
         if (cancellationToken.isCancellationRequested()) {
             throw DataFlowFailures.lifecycle(
                     "dataflow_cancelled", "invocation", operation, "CANCELLED");
@@ -144,6 +167,18 @@ final class ExecutionFrame {
         long bytes = multiply(length, 4L, operation);
         reserveScratch(bytes, operation);
         return new int[length];
+    }
+
+    long[] newScratchLongs(int length, String operation) {
+        long bytes = multiply(length, 8L, operation);
+        reserveScratch(bytes, operation);
+        return new long[length];
+    }
+
+    double[] newScratchDoubles(int length, String operation) {
+        long bytes = multiply(length, 8L, operation);
+        reserveScratch(bytes, operation);
+        return new double[length];
     }
 
     int[] newOutputIndexes(int length, String operation) {
