@@ -13,6 +13,7 @@ public final class com.example.soma.keyed.generated.KeyedParticleTable {
   public void replaceAll(com.example.soma.keyed.generated.KeyedParticleBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.keyed.generated.KeyedParticleDelta);
   public com.example.soma.keyed.KeyedParticle fetchAt(int);
   public com.example.soma.keyed.KeyedParticle fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Integer, com.example.soma.keyed.KeyedParticle> materialize();

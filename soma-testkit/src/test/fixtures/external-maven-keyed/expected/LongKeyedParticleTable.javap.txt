@@ -13,6 +13,7 @@ public final class com.example.soma.keyed.generated.LongKeyedParticleTable {
   public void replaceAll(com.example.soma.keyed.generated.LongKeyedParticleBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.keyed.generated.LongKeyedParticleDelta);
   public com.example.soma.keyed.LongKeyedParticle fetchAt(int);
   public com.example.soma.keyed.LongKeyedParticle fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Long, com.example.soma.keyed.LongKeyedParticle> materialize();
