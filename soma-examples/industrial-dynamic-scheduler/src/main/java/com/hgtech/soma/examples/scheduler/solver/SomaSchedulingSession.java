@@ -19,10 +19,12 @@ final class SomaSchedulingSession implements SchedulingSession {
     if (runtime == null) throw new IllegalStateException("session is closed");
     started = true;
     try {
-      DispatchSummary summary = new DispatchEngine(runtime).solve();
+      DispatchEngine engine = new DispatchEngine(runtime);
+      DispatchSummary summary = engine.solve();
       ScheduleResult result =
           ScheduleResultAssembler.assemble(runtime, summary);
-      evidence = SolveEvidence.capture(runtime, summary);
+      evidence = SolveEvidence.capture(
+          runtime, summary, engine.summaryEvidence());
       return result;
     } finally {
       close();

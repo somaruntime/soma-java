@@ -12,6 +12,7 @@ final class DispatchEngine {
   private final CandidateFrontier frontier;
   private final ExternalEventProcessor eventProcessor;
   private final AssignmentCommitter committer;
+  private AssignmentSummaryFlow.Evidence summaryEvidence;
   private boolean solved;
 
   DispatchEngine(SchedulerRuntime runtime) {
@@ -25,7 +26,9 @@ final class DispatchEngine {
   DispatchSummary solve() {
     if (solved) throw new IllegalStateException("engine is one-shot");
     solved = true;
+    AssignmentSummaryFlow summaryFlow = null;
     try {
+      summaryFlow = new AssignmentSummaryFlow();
       while (runtime.assignmentSize() < runtime.operationCount()) {
         if (frontier.isEmpty()) {
           require(eventProcessor.hasPending(),
@@ -49,16 +52,35 @@ final class DispatchEngine {
           "frontier must be empty after all assignments");
       require(committer.completedJobs() == runtime.jobCount(),
           "all jobs must be completed");
+      AssignmentSummaryFlow.Metrics metrics =
+          summaryFlow.summarize(
+              runtime.assignments(),
+              runtime.operationCount(),
+              runtime.jobCount(),
+              committer.makespan());
+      summaryEvidence = metrics.evidence;
       return new DispatchSummary(
-          runtime.assignmentSize(),
+          metrics.assignments,
           committer.completedJobs(),
-          committer.makespan(),
-          committer.totalTardiness(),
-          committer.weightedTardiness(),
+          metrics.makespan,
+          metrics.totalTardiness,
+          metrics.weightedTardiness,
           eventProcessor.processedEvents());
     } finally {
-      frontier.close();
+      try {
+        if (summaryFlow != null) summaryFlow.close();
+      } finally {
+        frontier.close();
+      }
     }
+  }
+
+  AssignmentSummaryFlow.Evidence summaryEvidence() {
+    if (summaryEvidence == null) {
+      throw new IllegalStateException(
+          "assignment summary evidence is unavailable");
+    }
+    return summaryEvidence;
   }
 
   private static void require(boolean condition, String message) {

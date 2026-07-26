@@ -30,6 +30,15 @@ public final class SchedulerExecutionTestAccess {
     public final int assignmentCapacity;
     public final int frontierCapacity;
     public final int assignmentKeyCount;
+    public final String dataFlowDefinitionIdentity;
+    public final String dataFlowTemplateIdentity;
+    public final String dataFlowPolicyIdentity;
+    public final long dataFlowBoundSources;
+    public final long dataFlowScanned;
+    public final long dataFlowMatched;
+    public final long dataFlowOutputElements;
+    public final int dataFlowTasks;
+    public final int dataFlowWorkers;
 
     private Evidence(SolveEvidence source) {
       processedEvents = source.processedEvents;
@@ -44,6 +53,17 @@ public final class SchedulerExecutionTestAccess {
       assignmentCapacity = source.assignmentCapacity;
       frontierCapacity = source.frontierCapacity;
       assignmentKeyCount = source.assignmentKeyCount;
+      dataFlowDefinitionIdentity =
+          source.dataFlowDefinitionIdentity;
+      dataFlowTemplateIdentity =
+          source.dataFlowTemplateIdentity;
+      dataFlowPolicyIdentity = source.dataFlowPolicyIdentity;
+      dataFlowBoundSources = source.dataFlowBoundSources;
+      dataFlowScanned = source.dataFlowScanned;
+      dataFlowMatched = source.dataFlowMatched;
+      dataFlowOutputElements = source.dataFlowOutputElements;
+      dataFlowTasks = source.dataFlowTasks;
+      dataFlowWorkers = source.dataFlowWorkers;
     }
   }
 }

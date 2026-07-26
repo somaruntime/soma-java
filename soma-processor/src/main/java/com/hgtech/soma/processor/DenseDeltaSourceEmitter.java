@@ -37,7 +37,7 @@ final class DenseDeltaSourceEmitter {
         appendKeyEnumConstants(out, key);
         out.append("  private byte[] kinds;\n")
                 .append("  private ").append(key.primitive).append("[] keys;\n")
-                .append("  private int[] rowIndexes;\n")
+                .append("  private int[] valueIndexes;\n")
                 .append("  private ").append(batch).append(" rows;\n")
                 .append("  private int size;\n")
                 .append("  private boolean expectedStructuralEpochSet;\n")
@@ -46,7 +46,7 @@ final class DenseDeltaSourceEmitter {
                 .append("  public ").append(delta)
                 .append("(int initialCapacity){if(initialCapacity<0)throw new IllegalArgumentException(\"initialCapacity must be non-negative\");")
                 .append("kinds=new byte[initialCapacity];keys=new ")
-                .append(key.primitive).append("[initialCapacity];rowIndexes=new int[initialCapacity];")
+                .append(key.primitive).append("[initialCapacity];valueIndexes=new int[initialCapacity];")
                 .append("rows=new ").append(batch).append("(initialCapacity);}\n\n")
                 .append("  public String schemaHash(){return SCHEMA_HASH;}\n")
                 .append("  public String tableIdentity(){return TABLE;}\n")
@@ -63,24 +63,24 @@ final class DenseDeltaSourceEmitter {
                 .append("  public ").append(delta).append(" update(")
                 .append(table.carrierType).append(" row){return addRow(UPDATE,row);}\n")
                 .append("  public ").append(delta).append(" delete(")
-                .append(key.primitive).append(" key){ensureOne();keys[size]=canonicalKey(key);kinds[size]=DELETE;rowIndexes[size]=-1;size++;return this;}\n")
+                .append(key.primitive).append(" key){ensureOne();keys[size]=canonicalKey(key);kinds[size]=DELETE;valueIndexes[size]=-1;size++;return this;}\n")
                 .append("  public Operation operationAt(int index){checkEntry(index);switch(kinds[index]){case INSERT:return Operation.INSERT;case UPDATE:return Operation.UPDATE;case DELETE:return Operation.DELETE;default:throw RuntimeFailures.internalInvariant(\"delta_operation\",TABLE,\"delta.operationAt\");}}\n")
                 .append("  public ").append(key.primitive)
                 .append(" keyAt(int index){checkEntry(index);return keys[index];}\n\n")
                 .append("  private ").append(delta).append(" addRow(byte kind,")
-                .append(table.carrierType).append(" row){if(row==null)throw new NullPointerException(\"row\");ensureOne();int rowIndex=rows.size();rows.add(row);keys[size]=rows.")
-                .append(key.javaName).append("Value(rowIndex);kinds[size]=kind;rowIndexes[size]=rowIndex;size++;return this;}\n")
-                .append("  private void ensureOne(){if(size==Integer.MAX_VALUE)throw new IllegalStateException(\"delta size overflow\");if(size<kinds.length)return;int next=(int)Math.min((long)Integer.MAX_VALUE,Math.max((long)size+1L,Math.max(1L,((long)size*3L+1L)/2L)));kinds=Arrays.copyOf(kinds,next);keys=Arrays.copyOf(keys,next);rowIndexes=Arrays.copyOf(rowIndexes,next);}\n")
+                .append(table.carrierType).append(" row){if(row==null)throw new NullPointerException(\"row\");ensureOne();int valueIndex=rows.size();rows.add(row);keys[size]=rows.")
+                .append(key.javaName).append("Value(valueIndex);kinds[size]=kind;valueIndexes[size]=valueIndex;size++;return this;}\n")
+                .append("  private void ensureOne(){if(size==Integer.MAX_VALUE)throw new IllegalStateException(\"delta size overflow\");if(size<kinds.length)return;int next=(int)Math.min((long)Integer.MAX_VALUE,Math.max((long)size+1L,Math.max(1L,((long)size*3L+1L)/2L)));kinds=Arrays.copyOf(kinds,next);keys=Arrays.copyOf(keys,next);valueIndexes=Arrays.copyOf(valueIndexes,next);}\n")
                 .append("  private void checkEntry(int index){if(index<0||index>=size)throw new IndexOutOfBoundsException(\"delta entry: \"+index);}\n");
         appendCanonicalKey(out, key);
         appendSameKey(out, key);
         out.append("  byte kindAt(int index){return kinds[index];}\n")
-                .append("  int rowIndexAt(int index){return rowIndexes[index];}\n")
+                .append("  int valueIndexAt(int index){return valueIndexes[index];}\n")
                 .append("  ").append(batch).append(" rows(){return rows;}\n")
                 .append("  boolean sameKey(int left,int right){return sameKeyValue(keys[left],keys[right]);}\n")
                 .append("  ").append(delta).append(" copy(){")
                 .append(delta).append(" copy=new ").append(delta)
-                .append("(size);copy.size=size;copy.kinds=Arrays.copyOf(kinds,size);copy.keys=Arrays.copyOf(keys,size);copy.rowIndexes=Arrays.copyOf(rowIndexes,size);copy.rows=rows.copy();copy.expectedStructuralEpochSet=expectedStructuralEpochSet;copy.expectedStructuralEpoch=expectedStructuralEpoch;return copy;}\n")
+                .append("(size);copy.size=size;copy.kinds=Arrays.copyOf(kinds,size);copy.keys=Arrays.copyOf(keys,size);copy.valueIndexes=Arrays.copyOf(valueIndexes,size);copy.rows=rows.copy();copy.expectedStructuralEpochSet=expectedStructuralEpochSet;copy.expectedStructuralEpoch=expectedStructuralEpoch;return copy;}\n")
                 .append("  public enum Operation{INSERT,UPDATE,DELETE}\n")
                 .append("}\n");
         return out.toString();

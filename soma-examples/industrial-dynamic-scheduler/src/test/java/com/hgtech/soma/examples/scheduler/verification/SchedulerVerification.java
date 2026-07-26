@@ -78,6 +78,13 @@ public final class SchedulerVerification {
           SchedulerExecutionTestAccess.capture(session);
       require(evidence.assignmentKeyCount == problem.operationCount(),
           "key traversal did not cover every assignment");
+      require(!evidence.dataFlowDefinitionIdentity.isEmpty()
+              && !evidence.dataFlowTemplateIdentity.isEmpty()
+              && evidence.dataFlowBoundSources == 1L
+              && evidence.dataFlowScanned >= problem.operationCount()
+              && evidence.dataFlowMatched >= problem.operationCount()
+              && evidence.dataFlowOutputElements >= 3L,
+          "assignment summary DataFlow evidence is incomplete");
       boolean oneShotRejected = false;
       try {
         session.solve();

@@ -16,8 +16,6 @@ final class AssignmentCommitter {
   private final OperationAssignmentBatch assignmentBatch =
       new OperationAssignmentBatch(1);
   private long makespan;
-  private long totalTardiness;
-  private long weightedTardiness;
   private int completedJobs;
 
   AssignmentCommitter(
@@ -71,8 +69,6 @@ final class AssignmentCommitter {
 
   int completedJobs() { return completedJobs; }
   long makespan() { return makespan; }
-  long totalTardiness() { return totalTardiness; }
-  long weightedTardiness() { return weightedTardiness; }
 
   private void releaseSuccessor(
       OperationKey operation,
@@ -90,11 +86,6 @@ final class AssignmentCommitter {
           predecessorEnd, machine);
       return;
     }
-    long tardiness = Math.max(0L, Math.subtractExact(
-        selected.completionMinute, selected.dueMinute));
-    totalTardiness = Math.addExact(totalTardiness, tardiness);
-    weightedTardiness = Math.addExact(weightedTardiness,
-        Math.multiplyExact(tardiness, (long) selected.priority));
     completedJobs = Math.addExact(completedJobs, 1);
   }
 }
