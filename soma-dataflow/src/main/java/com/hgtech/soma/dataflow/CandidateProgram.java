@@ -126,6 +126,10 @@ interface CandidateInput<B extends DataFlowBinding> {
 
     int maximumCardinality(DataFlowBinding binding);
 
+    default int selectionCardinality(ExecutionFrame frame) {
+        return maximumCardinality(frame.binding(source()));
+    }
+
     boolean supportsStreaming();
 
     String canonical();
@@ -403,6 +407,11 @@ final class SnapshotCandidateInput<B extends DataFlowBinding>
     @Override
     public int maximumCardinality(DataFlowBinding binding) {
         return Integer.MAX_VALUE;
+    }
+
+    @Override
+    public int selectionCardinality(ExecutionFrame frame) {
+        return checked(frame).size();
     }
 
     @Override
@@ -725,6 +734,14 @@ final class CandidateProgram<B extends DataFlowBinding> {
 
     CandidateSelection select(ExecutionFrame frame, String operation) {
         DataFlowBinding binding = frame.binding(source);
+        int inputCardinality = input.selectionCardinality(frame);
+        int boundedCardinality = upperBound(inputCardinality);
+        if (!hasSort
+                && input.supportsStreaming()
+                && boundedCardinality < inputCardinality) {
+            return selectBoundedStreaming(
+                    frame, operation, boundedCardinality);
+        }
         CandidateSelection base = input.select(frame, operation);
         int[] indexes = base.indexes;
         int size = base.size;
@@ -765,6 +782,42 @@ final class CandidateProgram<B extends DataFlowBinding> {
             }
         }
         return new CandidateSelection(indexes, size, base.scanned);
+    }
+
+    private CandidateSelection selectBoundedStreaming(
+            ExecutionFrame frame,
+            String operation,
+            final int capacity) {
+        final int[] indexes =
+                frame.newScratchIndexes(capacity, operation);
+        CandidateVisit visit = visit(
+                frame,
+                new CandidateVisitor() {
+                    @Override
+                    public boolean accept(
+                            int index, int outputPosition) {
+                        if (outputPosition < 0
+                                || outputPosition >= indexes.length) {
+                            throw DataFlowFailures.internal(
+                                    "dataflow_candidate_bound_violation",
+                                    source.alias(),
+                                    "dataflow.select",
+                                    canonical);
+                        }
+                        indexes[outputPosition] = index;
+                        return true;
+                    }
+                },
+                operation);
+        if (visit.matched > capacity) {
+            throw DataFlowFailures.internal(
+                    "dataflow_candidate_bound_violation",
+                    source.alias(),
+                    "dataflow.select",
+                    canonical);
+        }
+        return new CandidateSelection(
+                indexes, visit.matched, visit.scanned);
     }
 
     int upperBound(int cardinality) {

@@ -54,6 +54,32 @@ final class JvmRuntimeMetrics {
       : "thread-mxbean-current-thread-exact";
   }
 
+  static long allLiveThreadAllocatedBytes() {
+    if (ALLOCATION_BEAN == null) {
+      return -1L;
+    }
+    long[] values = ALLOCATION_BEAN.getThreadAllocatedBytes(
+      ALLOCATION_BEAN.getAllThreadIds());
+    long total = 0L;
+    for (long value : values) {
+      if (value < 0L) {
+        continue;
+      }
+      if (total > Long.MAX_VALUE - value) {
+        throw new IllegalStateException(
+          "live thread allocation observation overflow");
+      }
+      total += value;
+    }
+    return total;
+  }
+
+  static String allLiveThreadAllocationMethod() {
+    return ALLOCATION_BEAN == null
+      ? "not-observed"
+      : "thread-mxbean-all-live-threads";
+  }
+
   static String collectorNamesValue() {
     return COLLECTOR_NAMES;
   }
