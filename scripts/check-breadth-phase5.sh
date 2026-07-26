@@ -107,12 +107,15 @@ for source in "$generated_dir"/*.java; do
 done | LC_ALL=C sort >"$types_file"
 printf '%s\n' \
   FullRowBatch \
+  FullRowDataFlow \
   FullRowUpdateCursor \
   FullRowMutator \
   FullRowCursor \
   FullRowScan \
   FullRowTable \
   StringKeyRowBatch \
+  StringKeyRowDataFlow \
+  StringKeyRowDelta \
   StringKeyRowKeyTraversal \
   StringKeyRowUpdateCursor \
   StringKeyRowMutator \
@@ -120,6 +123,7 @@ printf '%s\n' \
   StringKeyRowScan \
   StringKeyRowTable \
   StringParentBatch \
+  StringParentDataFlow \
   StringParentUpdateCursor \
   StringParentMutator \
   StringParentCursor \

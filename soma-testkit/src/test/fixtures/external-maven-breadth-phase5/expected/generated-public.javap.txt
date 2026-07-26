@@ -56,6 +56,15 @@ public interface com.example.soma.breadth.generated.FullRowCursor {
   public abstract int optionalScalarValue();
   public abstract com.example.soma.breadth.ScalarValue optionalScalarOr(com.example.soma.breadth.ScalarValue);
 }
+## FullRowDataFlow
+Compiled from "FullRowDataFlow.java"
+public final class com.example.soma.breadth.generated.FullRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.breadth.generated.FullRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.breadth.generated.FullRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.breadth.generated.FullRowDataFlow$Binding bind(com.example.soma.breadth.generated.FullRowTable);
+}
 ## FullRowMutator
 Compiled from "FullRowMutator.java"
 public final class com.example.soma.breadth.generated.FullRowMutator {
@@ -253,6 +262,34 @@ public interface com.example.soma.breadth.generated.StringKeyRowCursor {
   public abstract java.lang.String note();
   public abstract java.lang.String noteOr(java.lang.String);
 }
+## StringKeyRowDataFlow
+Compiled from "StringKeyRowDataFlow.java"
+public final class com.example.soma.breadth.generated.StringKeyRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.breadth.generated.StringKeyRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.breadth.generated.StringKeyRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.breadth.generated.StringKeyRowDataFlow$Binding bind(com.example.soma.breadth.generated.StringKeyRowTable);
+}
+## StringKeyRowDelta
+Compiled from "StringKeyRowDelta.java"
+public final class com.example.soma.breadth.generated.StringKeyRowDelta {
+  public com.example.soma.breadth.generated.StringKeyRowDelta();
+  public com.example.soma.breadth.generated.StringKeyRowDelta(int);
+  public java.lang.String schemaHash();
+  public java.lang.String tableIdentity();
+  public int size();
+  public boolean isEmpty();
+  public com.example.soma.breadth.generated.StringKeyRowDelta expectStructuralEpoch(long);
+  public boolean hasExpectedStructuralEpoch();
+  public long expectedStructuralEpoch();
+  public com.example.soma.breadth.generated.StringKeyRowDelta clearExpectedStructuralEpoch();
+  public com.example.soma.breadth.generated.StringKeyRowDelta insert(com.example.soma.breadth.StringKeyRow);
+  public com.example.soma.breadth.generated.StringKeyRowDelta update(com.example.soma.breadth.StringKeyRow);
+  public com.example.soma.breadth.generated.StringKeyRowDelta delete(java.lang.String);
+  public com.example.soma.breadth.generated.StringKeyRowDelta$Operation operationAt(int);
+  public java.lang.String keyAt(int);
+}
 ## StringKeyRowKeyTraversal
 Compiled from "StringKeyRowKeyTraversal.java"
 public final class com.example.soma.breadth.generated.StringKeyRowKeyTraversal {
@@ -311,6 +348,7 @@ public final class com.example.soma.breadth.generated.StringKeyRowTable {
   public void replaceAll(com.example.soma.breadth.generated.StringKeyRowBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.breadth.generated.StringKeyRowDelta);
   public com.example.soma.breadth.StringKeyRow fetchAt(int);
   public com.example.soma.breadth.StringKeyRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.String, com.example.soma.breadth.StringKeyRow> materialize();
@@ -375,6 +413,15 @@ public final class com.example.soma.breadth.generated.StringParentBatch {
 Compiled from "StringParentCursor.java"
 public interface com.example.soma.breadth.generated.StringParentCursor {
   public abstract int id();
+}
+## StringParentDataFlow
+Compiled from "StringParentDataFlow.java"
+public final class com.example.soma.breadth.generated.StringParentDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.breadth.generated.StringParentDataFlow$Source source(java.lang.String);
+  public static com.example.soma.breadth.generated.StringParentDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.breadth.generated.StringParentDataFlow$Binding bind(com.example.soma.breadth.generated.StringParentTable);
 }
 ## StringParentMutator
 Compiled from "StringParentMutator.java"

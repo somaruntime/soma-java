@@ -16,6 +16,15 @@ Compiled from "ChildRowCursor.java"
 public interface com.example.soma.child.generated.ChildRowCursor {
   public abstract int value();
 }
+## ChildRowDataFlow
+Compiled from "ChildRowDataFlow.java"
+public final class com.example.soma.child.generated.ChildRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.child.generated.ChildRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.child.generated.ChildRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.child.generated.ChildRowDataFlow$Binding bind(com.example.soma.child.generated.ChildRowTable);
+}
 ## ChildRowMutator
 Compiled from "ChildRowMutator.java"
 public final class com.example.soma.child.generated.ChildRowMutator {
@@ -115,6 +124,34 @@ public interface com.example.soma.child.generated.DoubleKeyedChildRowCursor {
   public abstract double id();
   public abstract int value();
 }
+## DoubleKeyedChildRowDataFlow
+Compiled from "DoubleKeyedChildRowDataFlow.java"
+public final class com.example.soma.child.generated.DoubleKeyedChildRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.child.generated.DoubleKeyedChildRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.child.generated.DoubleKeyedChildRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.child.generated.DoubleKeyedChildRowDataFlow$Binding bind(com.example.soma.child.generated.DoubleKeyedChildRowTable);
+}
+## DoubleKeyedChildRowDelta
+Compiled from "DoubleKeyedChildRowDelta.java"
+public final class com.example.soma.child.generated.DoubleKeyedChildRowDelta {
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta();
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta(int);
+  public java.lang.String schemaHash();
+  public java.lang.String tableIdentity();
+  public int size();
+  public boolean isEmpty();
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta expectStructuralEpoch(long);
+  public boolean hasExpectedStructuralEpoch();
+  public long expectedStructuralEpoch();
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta clearExpectedStructuralEpoch();
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta insert(com.example.soma.child.DoubleKeyedChildRow);
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta update(com.example.soma.child.DoubleKeyedChildRow);
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta delete(double);
+  public com.example.soma.child.generated.DoubleKeyedChildRowDelta$Operation operationAt(int);
+  public double keyAt(int);
+}
 ## DoubleKeyedChildRowKeyTraversal
 Compiled from "DoubleKeyedChildRowKeyTraversal.java"
 public final class com.example.soma.child.generated.DoubleKeyedChildRowKeyTraversal {
@@ -171,6 +208,7 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public void replaceAll(com.example.soma.child.generated.DoubleKeyedChildRowBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.DoubleKeyedChildRowDelta);
   public com.example.soma.child.DoubleKeyedChildRow fetchAt(int);
   public com.example.soma.child.DoubleKeyedChildRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Double, com.example.soma.child.DoubleKeyedChildRow> materialize();
@@ -237,6 +275,34 @@ public interface com.example.soma.child.generated.FloatKeyedChildRowCursor {
   public abstract float id();
   public abstract int value();
 }
+## FloatKeyedChildRowDataFlow
+Compiled from "FloatKeyedChildRowDataFlow.java"
+public final class com.example.soma.child.generated.FloatKeyedChildRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.child.generated.FloatKeyedChildRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.child.generated.FloatKeyedChildRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.child.generated.FloatKeyedChildRowDataFlow$Binding bind(com.example.soma.child.generated.FloatKeyedChildRowTable);
+}
+## FloatKeyedChildRowDelta
+Compiled from "FloatKeyedChildRowDelta.java"
+public final class com.example.soma.child.generated.FloatKeyedChildRowDelta {
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta();
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta(int);
+  public java.lang.String schemaHash();
+  public java.lang.String tableIdentity();
+  public int size();
+  public boolean isEmpty();
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta expectStructuralEpoch(long);
+  public boolean hasExpectedStructuralEpoch();
+  public long expectedStructuralEpoch();
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta clearExpectedStructuralEpoch();
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta insert(com.example.soma.child.FloatKeyedChildRow);
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta update(com.example.soma.child.FloatKeyedChildRow);
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta delete(float);
+  public com.example.soma.child.generated.FloatKeyedChildRowDelta$Operation operationAt(int);
+  public float keyAt(int);
+}
 ## FloatKeyedChildRowKeyTraversal
 Compiled from "FloatKeyedChildRowKeyTraversal.java"
 public final class com.example.soma.child.generated.FloatKeyedChildRowKeyTraversal {
@@ -293,6 +359,7 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public void replaceAll(com.example.soma.child.generated.FloatKeyedChildRowBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.FloatKeyedChildRowDelta);
   public com.example.soma.child.FloatKeyedChildRow fetchAt(int);
   public com.example.soma.child.FloatKeyedChildRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Float, com.example.soma.child.FloatKeyedChildRow> materialize();
@@ -357,6 +424,15 @@ public final class com.example.soma.child.generated.FloatingParentRowBatch {
 Compiled from "FloatingParentRowCursor.java"
 public interface com.example.soma.child.generated.FloatingParentRowCursor {
   public abstract int id();
+}
+## FloatingParentRowDataFlow
+Compiled from "FloatingParentRowDataFlow.java"
+public final class com.example.soma.child.generated.FloatingParentRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.child.generated.FloatingParentRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.child.generated.FloatingParentRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.child.generated.FloatingParentRowDataFlow$Binding bind(com.example.soma.child.generated.FloatingParentRowTable);
 }
 ## FloatingParentRowMutator
 Compiled from "FloatingParentRowMutator.java"
@@ -460,6 +536,15 @@ Compiled from "GrandchildRowCursor.java"
 public interface com.example.soma.child.generated.GrandchildRowCursor {
   public abstract long amount();
 }
+## GrandchildRowDataFlow
+Compiled from "GrandchildRowDataFlow.java"
+public final class com.example.soma.child.generated.GrandchildRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.child.generated.GrandchildRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.child.generated.GrandchildRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.child.generated.GrandchildRowDataFlow$Binding bind(com.example.soma.child.generated.GrandchildRowTable);
+}
 ## GrandchildRowMutator
 Compiled from "GrandchildRowMutator.java"
 public final class com.example.soma.child.generated.GrandchildRowMutator {
@@ -559,6 +644,34 @@ public interface com.example.soma.child.generated.KeyedChildRowCursor {
   public abstract int id();
   public abstract int value();
 }
+## KeyedChildRowDataFlow
+Compiled from "KeyedChildRowDataFlow.java"
+public final class com.example.soma.child.generated.KeyedChildRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.child.generated.KeyedChildRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.child.generated.KeyedChildRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.child.generated.KeyedChildRowDataFlow$Binding bind(com.example.soma.child.generated.KeyedChildRowTable);
+}
+## KeyedChildRowDelta
+Compiled from "KeyedChildRowDelta.java"
+public final class com.example.soma.child.generated.KeyedChildRowDelta {
+  public com.example.soma.child.generated.KeyedChildRowDelta();
+  public com.example.soma.child.generated.KeyedChildRowDelta(int);
+  public java.lang.String schemaHash();
+  public java.lang.String tableIdentity();
+  public int size();
+  public boolean isEmpty();
+  public com.example.soma.child.generated.KeyedChildRowDelta expectStructuralEpoch(long);
+  public boolean hasExpectedStructuralEpoch();
+  public long expectedStructuralEpoch();
+  public com.example.soma.child.generated.KeyedChildRowDelta clearExpectedStructuralEpoch();
+  public com.example.soma.child.generated.KeyedChildRowDelta insert(com.example.soma.child.KeyedChildRow);
+  public com.example.soma.child.generated.KeyedChildRowDelta update(com.example.soma.child.KeyedChildRow);
+  public com.example.soma.child.generated.KeyedChildRowDelta delete(int);
+  public com.example.soma.child.generated.KeyedChildRowDelta$Operation operationAt(int);
+  public int keyAt(int);
+}
 ## KeyedChildRowKeyTraversal
 Compiled from "KeyedChildRowKeyTraversal.java"
 public final class com.example.soma.child.generated.KeyedChildRowKeyTraversal {
@@ -615,6 +728,7 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public void replaceAll(com.example.soma.child.generated.KeyedChildRowBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.KeyedChildRowDelta);
   public com.example.soma.child.generated.GrandchildRowTable grandchildren(int);
   public void replaceGrandchildren(int, com.example.soma.child.generated.GrandchildRowBatch);
   public com.example.soma.child.KeyedChildRow fetchAt(int);
@@ -681,6 +795,15 @@ public final class com.example.soma.child.generated.ParentRowBatch {
 Compiled from "ParentRowCursor.java"
 public interface com.example.soma.child.generated.ParentRowCursor {
   public abstract int id();
+}
+## ParentRowDataFlow
+Compiled from "ParentRowDataFlow.java"
+public final class com.example.soma.child.generated.ParentRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.child.generated.ParentRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.child.generated.ParentRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.child.generated.ParentRowDataFlow$Binding bind(com.example.soma.child.generated.ParentRowTable);
 }
 ## ParentRowMutator
 Compiled from "ParentRowMutator.java"
