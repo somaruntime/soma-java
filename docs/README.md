@@ -67,7 +67,9 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前没有 active Temporary topic。
+当前 active Temporary topic：
+
+- [SOMA Transformation Model 与 Typed DataFlow 产品化治理](temp/soma-transformation-model-governance/README.md)：建立 Access 之上的 Transformation、Expression、Effect、Reusable DataFlow 与受控并行执行模型；F0 Product/Scope Baseline 已冻结，Stage 1–3 semantic/contract/architecture 尚未闭合，不改变正式产品语义。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 
