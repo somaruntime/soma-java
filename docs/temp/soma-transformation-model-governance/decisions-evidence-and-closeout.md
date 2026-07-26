@@ -128,11 +128,11 @@ Problem World / Scenario
 ```text
 Semantic Closure         PASSED
 Architecture Feasibility PASSED
-Implementation Authority NOT GRANTED
+Implementation Authority GRANTED 2026-07-26
 ```
 
-前两个 Gate 只表示 Temporary candidate 已闭合并通过受控 feasibility evidence；
-在用户审查并明确授权前，不得修改 production/public/generated/runtime surface。
+用户已明确授权 frozen candidate 进入 Stage 4–6；授权没有改变 Fixed Target、
+停止条件或非回归约束。
 
 ## 6. 抽象与单项实施准入
 
@@ -298,28 +298,26 @@ production 实施。
 | Lifecycle/atomicity | PASS | 不开放 concurrent Table、跨 root transaction 或新半发布 lifecycle；既有 operation 原子性不削弱 |
 | Footprint discipline | PASS | 一个 Table 最多一个 companion；不按 operator × Table 生成；Stage 4 仍有真实 code-size Gate |
 | P2 separation | PASS | Join/reduction/partition/kernel/crossover 未被误写为固定产品语义 |
-| Implementation readiness | READY FOR AUTHORIZATION | 三重 Gate 前两项通过，Implementation Authority 仍未授予 |
+| Implementation readiness | AUTHORIZED | 用户于 2026-07-26 授权 Stage 4–6 |
 
-本轮只修改 active Temporary 及其 prototype，没有修改正式 Blueprint/Design、
-production/public/generated API、annotation Schema、runtime、examples、benchmark
-或正式支持声明。Prototype 不进入 reactor 和 product artifact。
+本节记录 `b9a0456` 的 Stage 1–3 immutable candidate 自审；其“尚未实施”措辞是
+历史快照，不代表当前状态。
 
 Stage 4 仍须以真实代码逐 slice 证明 generated v5 binding、schema hash不变、
 Scan specialization、external consumer、failure atomicity、parallel identity、
 allocation/footprint 和 application trace；这些是 implementation evidence，
 不是尚未裁决的产品语义。
 
-因此 Stage 1–3 可以形成 immutable implementation candidate，但不得自动开始
-Stage 4。下一步必须由用户审查并明确授予 Implementation Authorization。
+Stage 4 已由 `693c928` 至 `190f90f` 的 production vertical slices 完成，
+`check-dataflow-slice-f.sh` 是当前综合专项 Gate。Stage 5 继续负责 reference
+oracle、replacement/footprint 和稳定性能证据。
 
 ## 11. Stage 4–6 剩余顺序
 
 1. 用户已于 2026-07-26 审查并授权 frozen candidate；
-2. Stage 4 按 Execution Architecture 的 vertical slice 原子实施；foundation
-   首先闭合独立 `soma-dataflow` module、generated/runtime v5、aggregate guard、
-   Definition/Template/Invocation 和真实 external generated consumer；
-3. Stage 5 选择 P2 physical strategy 并完成稳定性能验真；
-4. Stage 6 scope non-regression、正式文档原子固化、Report、Temporary 退役与
+2. Stage 4 已在 `190f90f` 闭合 Foundation、A–I vertical slices；
+3. Stage 5 正在选择 P2 physical strategy并完成稳定性能验真；
+4. Stage 6 完成 scope non-regression、正式文档原子固化、Report、Temporary 退役与
    完整 Gate。
 
 ## 12. 最终收口检查
