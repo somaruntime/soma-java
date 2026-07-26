@@ -13,6 +13,7 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public void replaceAll(com.example.soma.access.generated.UniquePositionBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.access.generated.UniquePositionDelta);
   public com.example.soma.access.UniquePosition fetchAt(int);
   public com.example.soma.access.UniquePosition fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Integer, com.example.soma.access.UniquePosition> materialize();

@@ -4,7 +4,7 @@ package com.hgtech.soma.dataflow;
 public final class LongScalarResult {
     private final long value;
 
-    public LongScalarResult(long value) {
+    LongScalarResult(long value) {
         this.value = value;
     }
 

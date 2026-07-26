@@ -77,7 +77,7 @@ final class DenseDeltaSourceEmitter {
         out.append("  byte kindAt(int index){return kinds[index];}\n")
                 .append("  int rowIndexAt(int index){return rowIndexes[index];}\n")
                 .append("  ").append(batch).append(" rows(){return rows;}\n")
-                .append("  boolean sameKey(int left,int right){return sameKey(keys[left],keys[right]);}\n")
+                .append("  boolean sameKey(int left,int right){return sameKeyValue(keys[left],keys[right]);}\n")
                 .append("  ").append(delta).append(" copy(){")
                 .append(delta).append(" copy=new ").append(delta)
                 .append("(size);copy.size=size;copy.kinds=Arrays.copyOf(kinds,size);copy.keys=Arrays.copyOf(keys,size);copy.rowIndexes=Arrays.copyOf(rowIndexes,size);copy.rows=rows.copy();copy.expectedStructuralEpochSet=expectedStructuralEpochSet;copy.expectedStructuralEpoch=expectedStructuralEpoch;return copy;}\n")
@@ -135,7 +135,7 @@ final class DenseDeltaSourceEmitter {
     }
 
     private static void appendSameKey(SourceBuilder out, FieldSpec key) {
-        out.append("  private static boolean sameKey(")
+        out.append("  private static boolean sameKeyValue(")
                 .append(key.primitive).append(" left,")
                 .append(key.primitive).append(" right){return ");
         if (key.valueBacked()) {

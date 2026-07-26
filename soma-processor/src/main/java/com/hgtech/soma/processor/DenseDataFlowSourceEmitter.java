@@ -57,6 +57,7 @@ final class DenseDataFlowSourceEmitter {
                 .append("import com.hgtech.soma.runtime.MaterializationBudget;\n")
                 .append("import com.hgtech.soma.runtime.RemoveResult;\n")
                 .append("import com.hgtech.soma.runtime.UpdateResult;\n")
+                .append("import com.hgtech.soma.runtime.generated.KeyCanonicalization;\n")
                 .append("import com.hgtech.soma.runtime.generated.RuntimeFailures;\n")
                 .append("import com.hgtech.soma.runtime.generated.RuntimeCompatibility;\n\n")
                 .append("/** Schema-specific typed DataFlow source and binding companion. */\n")

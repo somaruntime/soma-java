@@ -4,7 +4,7 @@ package com.hgtech.soma.dataflow;
 public final class DoubleScalarResult {
     private final double value;
 
-    public DoubleScalarResult(double value) {
+    DoubleScalarResult(double value) {
         this.value = value;
     }
 

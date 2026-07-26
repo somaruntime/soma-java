@@ -4,7 +4,7 @@ package com.hgtech.soma.dataflow;
 public final class BooleanScalarResult {
     private final boolean value;
 
-    public BooleanScalarResult(boolean value) {
+    BooleanScalarResult(boolean value) {
         this.value = value;
     }
 

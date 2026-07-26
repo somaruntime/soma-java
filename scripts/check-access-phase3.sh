@@ -44,7 +44,7 @@ cmp "$expected/com.example.soma.access.schema.json" "$fixture/target/classes/$sc
 cmp "$expected/com.example.soma.access.schema.sha256" "$fixture/target/classes/$schema_hash"
 
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar:soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar" \
   com.example.soma.access.AccessConsumer
 
 javap_table() {
@@ -54,13 +54,21 @@ javap_table() {
     >"$evidence_dir/$class_name.javap.txt"
 }
 javap_table AccessRecordTable
+javap_table AccessRecordDataFlow
 javap_table VisitTable
 javap_table UniquePositionTable
+"$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
+  'com.example.soma.access.generated.AccessRecordDataFlow$Source' \
+  >"$evidence_dir/AccessRecordDataFlow.Source.javap.txt"
 cmp "$expected/AccessRecordTable.javap.txt" "$evidence_dir/AccessRecordTable.javap.txt"
 cmp "$expected/VisitTable.javap.txt" "$evidence_dir/VisitTable.javap.txt"
 cmp "$expected/UniquePositionTable.javap.txt" "$evidence_dir/UniquePositionTable.javap.txt"
 
 grep -F 'scanByState(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
+grep -F 'bind(com.example.soma.access.generated.AccessRecordTable);' \
+  "$evidence_dir/AccessRecordDataFlow.javap.txt" >/dev/null
+grep -F 'candidates();' \
+  "$evidence_dir/AccessRecordDataFlow.Source.javap.txt" >/dev/null
 grep -F 'scanByGroup(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
 grep -F 'containsByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null
 grep -F 'findIndexByCode(int);' "$evidence_dir/AccessRecordTable.javap.txt" >/dev/null

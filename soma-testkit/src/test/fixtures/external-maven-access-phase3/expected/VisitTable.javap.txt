@@ -13,6 +13,7 @@ public final class com.example.soma.access.generated.VisitTable {
   public void replaceAll(com.example.soma.access.generated.VisitBatch);
   public void clear();
   public void release();
+  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.access.generated.VisitDelta);
   public com.example.soma.access.Visit fetchAt(int);
   public com.example.soma.access.Visit fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
   public java.util.Map<com.example.soma.access.RoutePositionKey, com.example.soma.access.Visit> materialize();

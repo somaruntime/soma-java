@@ -1018,18 +1018,33 @@ final class DenseAuxiliarySourceEmitter {
                 .append(" key){return ");
         if (key.valueBacked()) {
             out.append("key!=null&&");
-            for (int index = 0; index < key.valueLeaves.size(); index++) {
-                if (index > 0) {
-                    out.append("&&");
-                }
-                ValueLeafSpec leaf = key.valueLeaves.get(index);
+            if (!key.flattenedValueStorage()) {
+                ValueLeafSpec leaf = key.valueLeaves.get(0);
                 String input = leaf.keyInputStorage(
                         key, "key." + leaf.javaName, q("delta.apply"));
                 out.append(leaf.keyEqual(
                         key,
-                        leaf.physicalName(key) + "Values[row]",
+                        key.javaName + "Values[row]",
                         input,
                         q("delta.apply")));
+            } else {
+                for (int index = 0;
+                        index < key.valueLeaves.size();
+                        index++) {
+                    if (index > 0) {
+                        out.append("&&");
+                    }
+                    ValueLeafSpec leaf = key.valueLeaves.get(index);
+                    String input = leaf.keyInputStorage(
+                            key,
+                            "key." + leaf.javaName,
+                            q("delta.apply"));
+                    out.append(leaf.keyEqual(
+                            key,
+                            leaf.physicalName(key) + "Values[row]",
+                            input,
+                            q("delta.apply")));
+                }
             }
         } else if (key.enumType != null) {
             out.append(key.javaName).append("Values[row]==RuntimeFailures.requiredEnumValue(TABLE,")

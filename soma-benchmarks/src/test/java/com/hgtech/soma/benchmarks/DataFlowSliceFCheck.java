@@ -12,6 +12,7 @@ import com.hgtech.soma.dataflow.DataFlowExplain;
 import com.hgtech.soma.dataflow.DataFlowInvocation;
 import com.hgtech.soma.dataflow.DataFlowResults;
 import com.hgtech.soma.dataflow.DataFlowStats;
+import com.hgtech.soma.dataflow.DeltaApplyResult;
 import com.hgtech.soma.dataflow.ExecutionBudget;
 import com.hgtech.soma.dataflow.ExecutionPolicy;
 import com.hgtech.soma.dataflow.AbsenceOrder;
@@ -501,6 +502,16 @@ public final class DataFlowSliceFCheck {
                         .candidates().count();
         require(!delimited.identity().equals(plain.identity()),
                 "length-prefixed canonical identity accepts arbitrary aliases");
+
+        try {
+            DeltaApplyResult.committed(
+                    1L, 0L, 0L, 0, 0, 0L, 1L);
+            throw new AssertionError(
+                    "inconsistent Delta result must fail at construction");
+        } catch (IllegalArgumentException expected) {
+            require(expected.getMessage().contains("size transition"),
+                    "DeltaApplyResult owns transition consistency");
+        }
 
         DataFlowContext context = DataFlowContext.sequential();
         try {

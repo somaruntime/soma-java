@@ -151,6 +151,9 @@ public final class DataFlowDefinition<R> {
                 new HashMap<String, OutputSlot<?>>();
         private State state = State.OPEN;
 
+        private Builder() {
+        }
+
         public <T> OutputSlot<T> output(
                 String name, DataFlowDefinition<T> definition) {
             requireOpen("dataflow.graph.output");

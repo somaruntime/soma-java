@@ -38,6 +38,7 @@ evidence_dir=$(mktemp -d "$root_dir/target/scan-code-size.XXXXXX")
 surface_footprint=$evidence_dir/surface-footprint.tsv
 artifact_footprint=$evidence_dir/scan-artifact-footprint.tsv
 schema_footprint=$evidence_dir/schema-footprint.tsv
+dataflow_footprint=$evidence_dir/dataflow-footprint.tsv
 
 printf '%s\n' \
   'surface	scanCount	sourceBytes	sourceLines	familyClassBytes	nestedClassCount	maxSourceBytes	maxSourceLines	maxFamilyClassBytes	maxNestedClassCount' \
@@ -48,6 +49,9 @@ printf '%s\n' \
 printf '%s\n' \
   'surface	schemaPackage	tableCount	fieldCount	physicalLeafCount	selectorCount	generatedSourceBytes	scanCount	scanSourceBytes' \
   >"$schema_footprint"
+printf '%s\n' \
+  'surface	tableCount	dataFlowCount	sourceBytes	sourceLines	familyClassBytes	nestedClassCount	maxSourceBytes	maxSourceLines	maxFamilyClassBytes	maxNestedClassCount' \
+  >"$dataflow_footprint"
 
 measure_surface() {
   surface=$1
@@ -57,6 +61,10 @@ measure_surface() {
   maximum_source_lines=$5
   maximum_family_bytes=$6
   maximum_nested_count=$7
+  maximum_dataflow_source_bytes=$8
+  maximum_dataflow_source_lines=$9
+  maximum_dataflow_family_bytes=${10}
+  maximum_dataflow_nested_count=${11}
 
   generated=$module/target/generated-sources/annotations
   classes=$module/target/classes
@@ -91,6 +99,40 @@ measure_surface() {
     "$surface" "$scan_count" "$source_bytes" "$source_lines" "$family_bytes" \
     "$nested_count" "$maximum_source_bytes" "$maximum_source_lines" \
     "$maximum_family_bytes" "$maximum_nested_count" >>"$surface_footprint"
+
+  dataflow_count=$(find "$generated" -type f -name '*DataFlow.java' |
+    wc -l | tr -d ' ')
+  dataflow_source_bytes=$(find "$generated" -type f -name '*DataFlow.java' \
+    -exec wc -c {} + |
+    awk '$2 != "total" {sum += $1} END {print sum + 0}')
+  dataflow_source_lines=$(find "$generated" -type f -name '*DataFlow.java' \
+    -exec wc -l {} + |
+    awk '$2 != "total" {sum += $1} END {print sum + 0}')
+  dataflow_top_class_bytes=$(find "$classes" -type f -name '*DataFlow.class' \
+    -exec wc -c {} + |
+    awk '$2 != "total" {sum += $1} END {print sum + 0}')
+  dataflow_nested_bytes=$(find "$classes" -type f -name '*DataFlow$*.class' \
+    -exec wc -c {} + |
+    awk '$2 != "total" {sum += $1} END {print sum + 0}')
+  dataflow_nested_count=$(find "$classes" -type f -name '*DataFlow$*.class' |
+    wc -l | tr -d ' ')
+  dataflow_family_bytes=$((dataflow_top_class_bytes + dataflow_nested_bytes))
+  if [ "$dataflow_count" -ne "$expected_scan_count" ] \
+      || [ "$dataflow_source_bytes" -gt "$maximum_dataflow_source_bytes" ] \
+      || [ "$dataflow_source_lines" -gt "$maximum_dataflow_source_lines" ] \
+      || [ "$dataflow_family_bytes" -gt "$maximum_dataflow_family_bytes" ] \
+      || [ "$dataflow_nested_count" -gt "$maximum_dataflow_nested_count" ]; then
+    printf '%s\n' \
+      "scan-code-size-check: $surface DataFlow footprint failed count=$dataflow_count sourceBytes=$dataflow_source_bytes sourceLines=$dataflow_source_lines familyBytes=$dataflow_family_bytes nestedCount=$dataflow_nested_count" >&2
+    exit 1
+  fi
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    "$surface" "$expected_scan_count" "$dataflow_count" \
+    "$dataflow_source_bytes" "$dataflow_source_lines" \
+    "$dataflow_family_bytes" "$dataflow_nested_count" \
+    "$maximum_dataflow_source_bytes" "$maximum_dataflow_source_lines" \
+    "$maximum_dataflow_family_bytes" "$maximum_dataflow_nested_count" \
+    >>"$dataflow_footprint"
 
   find "$generated" -type f -name '*Scan.java' | LC_ALL=C sort |
     while IFS= read -r scan_source; do
@@ -146,11 +188,14 @@ measure_surface() {
 }
 
 # Baselines are the current immutable application candidates plus 15%.
-measure_surface neutral-benchmark soma-benchmarks 6 166428 740 234066 51
+measure_surface neutral-benchmark soma-benchmarks \
+  6 166428 740 234066 51 78510 787 267263 71
 measure_surface industrial-scheduler \
-  soma-examples/industrial-dynamic-scheduler 9 251396 1081 358335 75
+  soma-examples/industrial-dynamic-scheduler \
+  9 251396 1081 358335 75 115761 1136 418589 105
 measure_surface grassing-simulation \
-  soma-examples/grassing-individual-simulation 2 55010 244 78517 17
+  soma-examples/grassing-individual-simulation \
+  2 55010 244 78517 17 25047 258 89307 23
 
 total_scans=$(awk -F '	' 'NR > 1 {sum += $2} END {print sum + 0}' \
   "$surface_footprint")
@@ -160,10 +205,16 @@ schema_tables=$(awk -F '	' 'NR > 1 {sum += $3} END {print sum + 0}' \
   "$schema_footprint")
 schema_scans=$(awk -F '	' 'NR > 1 {sum += $8} END {print sum + 0}' \
   "$schema_footprint")
+dataflow_tables=$(awk -F '	' 'NR > 1 {sum += $2} END {print sum + 0}' \
+  "$dataflow_footprint")
+dataflow_types=$(awk -F '	' 'NR > 1 {sum += $3} END {print sum + 0}' \
+  "$dataflow_footprint")
 if [ "$total_scans" -ne 17 ] \
     || [ "$artifact_scans" -ne "$total_scans" ] \
     || [ "$schema_tables" -ne "$total_scans" ] \
-    || [ "$schema_scans" -ne "$total_scans" ]; then
+    || [ "$schema_scans" -ne "$total_scans" ] \
+    || [ "$dataflow_tables" -ne "$total_scans" ] \
+    || [ "$dataflow_types" -ne "$total_scans" ]; then
   printf '%s\n' 'scan-code-size-check: normalized footprint evidence mismatch' >&2
   exit 1
 fi
@@ -176,13 +227,16 @@ evidence=$evidence_dir/scan-code-size.properties
   printf 'compileWallMillis=%s\n' "$compile_wall_millis"
   printf 'surfaceCount=3\n'
   printf 'scanCount=%s\n' "$total_scans"
+  printf 'dataFlowCompanionCount=%s\n' "$dataflow_types"
+  printf 'dataFlowGenerationRule=one-companion-per-table\n'
   printf 'regressionBudgetKind=fixed-candidate-per-surface\n'
   printf 'normalizedEvidenceRole=diagnostic-only\n'
   printf 'generatedSourceAdmissionOwner=CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH\n'
   printf 'claimAllowed=false\n'
 } >"$evidence"
 shasum -a 256 "$evidence" "$surface_footprint" "$artifact_footprint" \
-  "$schema_footprint" \
+  "$schema_footprint" "$dataflow_footprint" \
+  soma-processor/src/main/java/com/hgtech/soma/processor/DenseDataFlowSourceEmitter.java \
   soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/GeneratedScanPlan.java \
   soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/GeneratedScanEvaluation.java \
   >"$evidence_dir/checksums.sha256"

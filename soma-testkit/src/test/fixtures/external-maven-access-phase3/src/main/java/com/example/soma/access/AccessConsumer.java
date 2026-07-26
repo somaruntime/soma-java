@@ -1,6 +1,7 @@
 package com.example.soma.access;
 
 import com.example.soma.access.generated.AccessRecordBatch;
+import com.example.soma.access.generated.AccessRecordDataFlow;
 import com.example.soma.access.generated.AccessRecordScan;
 import com.example.soma.access.generated.AccessRecordTable;
 import com.example.soma.access.generated.VisitBatch;
@@ -26,6 +27,8 @@ import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.UpdateResult;
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
+import com.hgtech.soma.dataflow.DataFlowContext;
+import com.hgtech.soma.dataflow.LongColumnResult;
 
 import java.util.List;
 
@@ -34,6 +37,7 @@ public final class AccessConsumer {
     }
 
     public static void main(String[] args) {
+        verifyDataFlowConsumer();
         verifyUniqueBulkScratchBoundaries();
         verifyUniquePointFamily();
         expectCode("invalid_floating_access_value",
@@ -438,6 +442,38 @@ public final class AccessConsumer {
                 "composite unique point mutation failure is atomic");
 
         AccessOracleCheck.run();
+    }
+
+    private static void verifyDataFlowConsumer() {
+        AccessRecordTable table = AccessRecordTable.create();
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            table.addBatch(new AccessRecordBatch(4)
+                    .addValues(10, 2, 1, 30)
+                    .addValues(20, 1, 1, 10)
+                    .addValues(30, 2, 1, 20)
+                    .addValues(40, 2, 2, 20));
+            AccessRecordDataFlow.Source source =
+                    AccessRecordDataFlow.source("records");
+            LongColumnResult result = source.candidates()
+                    .filter(source.columns().state().equalTo(2L))
+                    .sortedBy(source.columns().score().descending()
+                            .then(source.columns().code().ascending()))
+                    .limit(2L)
+                    .project(source.columns().code())
+                    .toColumn()
+                    .compile()
+                    .newInvocation(context)
+                    .bind(source, AccessRecordDataFlow.bind(table))
+                    .execute();
+            require(result.size() == 2
+                            && result.valueAt(0) == 10L
+                            && result.valueAt(1) == 30L,
+                    "external generated DataFlow consumer");
+        } finally {
+            context.close();
+            table.release();
+        }
     }
 
     private static void verifyUniquePointFamily() {
