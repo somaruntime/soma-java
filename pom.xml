@@ -8,7 +8,7 @@
   <packaging>pom</packaging>
 
   <name>SOMA Java Parent</name>
-  <description>Java annotation schema and Java columnar runtime prototype for SOMA.</description>
+  <description>Schema-defined JVM heap-resident columnar computing and runtime library for Java 8.</description>
   <organization>
     <name>HGTECH</name>
   </organization>
