@@ -2,6 +2,9 @@ package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 
+import java.util.Collections;
+import java.util.List;
+
 /** Immutable schema-bound boolean expression. */
 public final class BooleanExpression<B extends DataFlowBinding> {
     final SourceSlot<B> source;
@@ -9,10 +12,17 @@ public final class BooleanExpression<B extends DataFlowBinding> {
     final BooleanNode presence;
     final String path;
     final boolean parallelSafe;
+    final List<ParameterSlot<?>> parameters;
     private final String identity;
 
     BooleanExpression(SourceSlot<B> source, BooleanNode node) {
-        this(source, node, ExpressionNodes.alwaysPresent(), "boolean", true);
+        this(
+                source,
+                node,
+                ExpressionNodes.alwaysPresent(),
+                "boolean",
+                Collections.<ParameterSlot<?>>emptyList(),
+                true);
     }
 
     BooleanExpression(
@@ -20,7 +30,13 @@ public final class BooleanExpression<B extends DataFlowBinding> {
             BooleanNode node,
             BooleanNode presence,
             String path) {
-        this(source, node, presence, path, true);
+        this(
+                source,
+                node,
+                presence,
+                path,
+                Collections.<ParameterSlot<?>>emptyList(),
+                true);
     }
 
     BooleanExpression(
@@ -29,19 +45,47 @@ public final class BooleanExpression<B extends DataFlowBinding> {
             BooleanNode presence,
             String path,
             boolean parallelSafe) {
+        this(
+                source,
+                node,
+                presence,
+                path,
+                Collections.<ParameterSlot<?>>emptyList(),
+                parallelSafe);
+    }
+
+    BooleanExpression(
+            SourceSlot<B> source,
+            BooleanNode node,
+            BooleanNode presence,
+            String path,
+            List<ParameterSlot<?>> parameters,
+            boolean parallelSafe) {
         this.source = source;
         this.node = node;
         this.presence = presence;
         this.path = path;
         this.parallelSafe = parallelSafe;
-        identity = DataFlowSupport.identity(
-                "boolean-expression-v1\n" + source.alias() + "\n"
-                        + node.canonical() + "\n"
-                        + presence.canonical() + "\n");
+        this.parameters = parameters;
+        StringBuilder canonical =
+                new StringBuilder("boolean-expression-v1");
+        DataFlowSupport.appendCanonical(
+                canonical, "source", source.alias());
+        DataFlowSupport.appendCanonical(
+                canonical, "node", node.canonical());
+        DataFlowSupport.appendCanonical(
+                canonical, "presence", presence.canonical());
+        identity = DataFlowSupport.identity(canonical.toString());
     }
 
     public BooleanExpression<B> isPresent() {
-        return new BooleanExpression<B>(source, presence);
+        return new BooleanExpression<B>(
+                source,
+                presence,
+                ExpressionNodes.alwaysPresent(),
+                path + ".present",
+                parameters,
+                parallelSafe);
     }
 
     public BooleanExpression<B> isAbsent() {
@@ -55,9 +99,13 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 source,
                 new BooleanNode() {
                     @Override
-                    public boolean evaluate(DataFlowBinding binding, int index) {
-                        return available.evaluate(binding, index)
-                                ? value.evaluate(binding, index) : fallback;
+                    public boolean evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        return available.evaluate(frame, binding, index)
+                                ? value.evaluate(frame, binding, index)
+                                : fallback;
                     }
 
                     @Override
@@ -68,6 +116,7 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 },
                 ExpressionNodes.alwaysPresent(),
                 path + ".coalesce",
+                parameters,
                 parallelSafe);
     }
 
@@ -78,6 +127,8 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 ExpressionNodes.and(node, other.node),
                 ExpressionNodes.andPresence(presence, other.presence),
                 path + ".and",
+                DataFlowSupport.unionParameters(
+                        parameters, other.parameters),
                 parallelSafe && other.parallelSafe);
     }
 
@@ -88,6 +139,8 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 ExpressionNodes.or(node, other.node),
                 ExpressionNodes.andPresence(presence, other.presence),
                 path + ".or",
+                DataFlowSupport.unionParameters(
+                        parameters, other.parameters),
                 parallelSafe && other.parallelSafe);
     }
 
@@ -97,6 +150,7 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 ExpressionNodes.negate(node),
                 presence,
                 path + ".not",
+                parameters,
                 parallelSafe);
     }
 
@@ -112,9 +166,15 @@ public final class BooleanExpression<B extends DataFlowBinding> {
         return identity;
     }
 
-    boolean evaluate(DataFlowBinding binding, int index) {
-        ExpressionNodes.requirePresent(presence, binding, index, path);
-        return node.evaluate(binding, index);
+    boolean evaluate(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
+        ExpressionNodes.requirePresent(
+                frame, presence, binding, index, path);
+        return node.evaluate(frame, binding, index);
+    }
+
+    boolean required() {
+        return ExpressionNodes.isAlwaysPresent(presence);
     }
 
     private void requireSameSource(BooleanExpression<B> other) {

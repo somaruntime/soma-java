@@ -20,6 +20,7 @@ import com.hgtech.soma.dataflow.LongColumnResult;
 import com.hgtech.soma.dataflow.LongScalarResult;
 import com.hgtech.soma.dataflow.OptionalDoubleResult;
 import com.hgtech.soma.dataflow.OptionalLongResult;
+import com.hgtech.soma.dataflow.StatsMode;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.UpdateResult;
 
@@ -293,6 +294,8 @@ public final class DataFlowSliceDCheck {
                         .compile()
                         .newInvocation(parallel)
                         .bind(source, NumericFactDataFlow.bind(table))
+                        .policy(ExecutionPolicy.adaptiveParallel()
+                                .withStatsMode(StatsMode.DETAILED))
                         .budget(oneTask);
         require(invocation.execute().value() == ROWS
                         && invocation.stats().tasks() == 1,
@@ -303,7 +306,8 @@ public final class DataFlowSliceDCheck {
                         .compile()
                         .newInvocation(parallel)
                         .bind(source, NumericFactDataFlow.bind(table))
-                        .policy(ExecutionPolicy.sequential());
+                        .policy(ExecutionPolicy.sequential()
+                                .withStatsMode(StatsMode.DETAILED));
         forcedSequential.execute();
         require(forcedSequential.stats().tasks() == 1,
                 "invocation policy sequential fallback");
@@ -373,7 +377,11 @@ public final class DataFlowSliceDCheck {
         DataFlowInvocation<R> invocation =
                 definition.compile()
                         .newInvocation(context)
-                        .bind(source, NumericFactDataFlow.bind(table));
+                        .bind(source, NumericFactDataFlow.bind(table))
+                        .policy((context.workers() > 1
+                                ? ExecutionPolicy.adaptiveParallel()
+                                : ExecutionPolicy.sequential())
+                                .withStatsMode(StatsMode.DETAILED));
         R result = invocation.execute();
         return new Run<R>(result, invocation.stats());
     }

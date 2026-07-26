@@ -13,8 +13,22 @@ public final class ObjectValueFlow<B extends DataFlowBinding, T> {
         this.expression = expression;
     }
 
+    public CandidateFlow<B> candidates() {
+        return new CandidateFlow<B>(program);
+    }
+
     public DataFlowDefinition<ObjectColumnResult<T>> toColumn() {
         return DataFlowDefinition.of(
                 new ObjectColumnOperation<B, T>(program, expression));
+    }
+
+    public DataFlowDefinition<LongScalarResult> borrow(
+            ObjectValueConsumer<T> consumer) {
+        if (consumer == null) {
+            throw new NullPointerException("consumer");
+        }
+        return DataFlowDefinition.of(
+                new ObjectValueBorrowOperation<B, T>(
+                        program, expression, consumer));
     }
 }

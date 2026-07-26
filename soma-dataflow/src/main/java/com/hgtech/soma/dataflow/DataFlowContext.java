@@ -49,11 +49,18 @@ public final class DataFlowContext implements AutoCloseable {
 
     public static DataFlowContext managedParallel(
             int workers, ExecutionPolicy policy, ExecutionBudget budgetUpperBound) {
-        if (workers <= 0) {
-            throw new IllegalArgumentException("workers must be positive");
+        requireArguments(workers, policy, budgetUpperBound);
+        ForkJoinPool pool = new ForkJoinPool(workers);
+        try {
+            return new DataFlowContext(
+                    pool, true, workers, policy, budgetUpperBound);
+        } catch (RuntimeException failure) {
+            pool.shutdownNow();
+            throw failure;
+        } catch (Error failure) {
+            pool.shutdownNow();
+            throw failure;
         }
-        return new DataFlowContext(
-                new ForkJoinPool(workers), true, workers, policy, budgetUpperBound);
     }
 
     public static DataFlowContext borrowed(
@@ -68,12 +75,30 @@ public final class DataFlowContext implements AutoCloseable {
             int workers,
             ExecutionPolicy policy,
             ExecutionBudget budgetUpperBound) {
+        requireArguments(workers, policy, budgetUpperBound);
         return new DataFlowContext(
                 Objects.requireNonNull(executor, "executor"),
                 false,
                 workers,
                 policy,
                 budgetUpperBound);
+    }
+
+    private static void requireArguments(
+            int workers,
+            ExecutionPolicy policy,
+            ExecutionBudget budgetUpperBound) {
+        if (workers <= 0) {
+            throw new IllegalArgumentException(
+                    "workers must be positive");
+        }
+        Objects.requireNonNull(policy, "policy");
+        Objects.requireNonNull(
+                budgetUpperBound, "budgetUpperBound");
+        if (workers > budgetUpperBound.maximumWorkers()) {
+            throw new IllegalArgumentException(
+                    "workers outside budget upper bound");
+        }
     }
 
     public synchronized boolean ownsExecutor() {

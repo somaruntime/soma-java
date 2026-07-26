@@ -5,6 +5,8 @@ import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 interface JoinMatchConsumer {
     boolean accept(int leftIndex, boolean rightPresent, int rightIndex);
@@ -12,6 +14,14 @@ interface JoinMatchConsumer {
 
 final class JoinPrepared<
         L extends DataFlowBinding, R extends DataFlowBinding> {
+    static final JoinMatchConsumer COUNTER = new JoinMatchConsumer() {
+        @Override
+        public boolean accept(
+                int leftIndex, boolean rightPresent, int rightIndex) {
+            return true;
+        }
+    };
+
     final CandidateSelection left;
     final CandidateSelection right;
     final DataFlowBinding leftBinding;
@@ -21,6 +31,7 @@ final class JoinPrepared<
     final JoinType type;
     final int[] buckets;
     final int[] next;
+    final JoinedStagePlan<L, R> stages;
 
     JoinPrepared(
             CandidateSelection left,
@@ -31,7 +42,8 @@ final class JoinPrepared<
             KeyExpression<R> rightKey,
             JoinType type,
             int[] buckets,
-            int[] next) {
+            int[] next,
+            JoinedStagePlan<L, R> stages) {
         this.left = left;
         this.right = right;
         this.leftBinding = leftBinding;
@@ -41,6 +53,7 @@ final class JoinPrepared<
         this.type = type;
         this.buckets = buckets;
         this.next = next;
+        this.stages = stages;
     }
 
     long scanned() {
@@ -48,6 +61,12 @@ final class JoinPrepared<
     }
 
     long enumerate(ExecutionFrame frame, JoinMatchConsumer consumer) {
+        return stages.isEmpty()
+                ? enumerateRaw(frame, consumer)
+                : stages.enumerate(frame, this, consumer);
+    }
+
+    long enumerateRaw(ExecutionFrame frame, JoinMatchConsumer consumer) {
         long output = 0L;
         int mask = buckets.length - 1;
         for (int leftPosition = 0; leftPosition < left.size; leftPosition++) {
@@ -55,13 +74,15 @@ final class JoinPrepared<
                 frame.checkBoundary("dataflow.join");
             }
             int leftIndex = left.indexes[leftPosition];
-            int bucket = bucket(leftKey.hash(leftBinding, leftIndex), mask);
+            int bucket = bucket(
+                    leftKey.hash(frame, leftBinding, leftIndex), mask);
             boolean matched = false;
             for (int rightPosition = buckets[bucket];
                  rightPosition >= 0;
                  rightPosition = next[rightPosition]) {
                 int rightIndex = right.indexes[rightPosition];
                 if (!leftKey.equal(
+                        frame,
                         leftBinding,
                         leftIndex,
                         rightKey,
@@ -109,6 +130,7 @@ abstract class JoinOperation<
     final KeyExpression<L> leftKey;
     final KeyExpression<R> rightKey;
     final JoinType type;
+    final JoinedStagePlan<L, R> stages;
 
     JoinOperation(
             CandidateProgram<L> left,
@@ -116,19 +138,65 @@ abstract class JoinOperation<
             KeyExpression<L> leftKey,
             KeyExpression<R> rightKey,
             JoinType type) {
-        super(left, right);
+        this(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                JoinedStagePlan.<L, R>empty(),
+                Collections.<ParameterSlot<?>>emptyList());
+    }
+
+    JoinOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            List<ParameterSlot<?>> additionalParameters) {
+        this(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                JoinedStagePlan.<L, R>empty(),
+                additionalParameters);
+    }
+
+    JoinOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages,
+            List<ParameterSlot<?>> additionalParameters) {
+        super(
+                left,
+                right,
+                DataFlowSupport.unionParameters(
+                        DataFlowSupport.unionParameters(
+                                DataFlowSupport.unionParameters(
+                                        leftKey.parameters(),
+                                        rightKey.parameters()),
+                                stages.parameters()),
+                        additionalParameters));
         this.left = left;
         this.right = right;
         this.leftKey = leftKey;
         this.rightKey = rightKey;
         this.type = type;
+        this.stages = stages;
     }
 
     @Override
     public final String canonicalForm() {
         return "join(" + type + "," + left.canonical() + ","
                 + right.canonical() + "," + leftKey.identity() + ","
-                + rightKey.identity() + ")->" + terminal();
+                + rightKey.identity() + "," + stages.canonical()
+                + ")->" + terminal();
     }
 
     @Override
@@ -142,12 +210,16 @@ abstract class JoinOperation<
     public final String logicalPlan() {
         return left.canonical() + " "
                 + type + " EQUI JOIN " + right.canonical()
+                + (stages.isEmpty()
+                ? "" : " -> JoinedStages")
                 + " -> " + terminal();
     }
 
     @Override
     public final String physicalPlan() {
-        return "left-driven-hash-join[stable-right-chain," + terminal() + "]";
+        return "left-driven-hash-join[stable-right-chain,"
+                + (stages.isEmpty() ? "stream" : "joined-stage-buffer")
+                + "," + terminal() + "]";
     }
 
     abstract String terminal();
@@ -168,7 +240,7 @@ abstract class JoinOperation<
         int mask = bucketCapacity - 1;
         for (int position = rightSelection.size - 1; position >= 0; position--) {
             int index = rightSelection.indexes[position];
-            long hash = rightKey.hash(rightBinding, index);
+            long hash = rightKey.hash(frame, rightBinding, index);
             int bucket = ((int) (hash ^ (hash >>> 32))) & mask;
             next[position] = buckets[bucket];
             buckets[bucket] = position;
@@ -182,7 +254,8 @@ abstract class JoinOperation<
                 rightKey,
                 type,
                 buckets,
-                next);
+                next,
+                stages);
     }
 
     private static int bucketCapacity(int size) {
@@ -220,6 +293,23 @@ final class JoinCountOperation<
         super(left, right, leftKey, rightKey, type);
     }
 
+    JoinCountOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                Collections.<ParameterSlot<?>>emptyList());
+    }
+
     @Override
     String terminal() {
         return "count";
@@ -250,6 +340,23 @@ final class JoinIndexOperation<
             KeyExpression<R> rightKey,
             JoinType type) {
         super(left, right, leftKey, rightKey, type);
+    }
+
+    JoinIndexOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                Collections.<ParameterSlot<?>>emptyList());
     }
 
     @Override
@@ -331,6 +438,23 @@ final class JoinLeftIndexOperation<
         super(left, right, leftKey, rightKey, type);
     }
 
+    JoinLeftIndexOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                Collections.<ParameterSlot<?>>emptyList());
+    }
+
     @Override
     String terminal() {
         return "left-index-snapshot";
@@ -391,6 +515,7 @@ final class JoinBorrowOperation<
         L extends DataFlowBinding, R extends DataFlowBinding>
         extends JoinOperation<L, R, LongScalarResult> {
     private final JoinedIndexConsumer consumer;
+    private final long opaqueIdentity;
 
     JoinBorrowOperation(
             CandidateProgram<L> left,
@@ -401,11 +526,32 @@ final class JoinBorrowOperation<
             JoinedIndexConsumer consumer) {
         super(left, right, leftKey, rightKey, type);
         this.consumer = consumer;
+        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
+    }
+
+    JoinBorrowOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages,
+            JoinedIndexConsumer consumer) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                Collections.<ParameterSlot<?>>emptyList());
+        this.consumer = consumer;
+        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
     }
 
     @Override
     String terminal() {
-        return "borrow";
+        return "borrow(opaque-instance-" + opaqueIdentity + ")";
     }
 
     @Override
@@ -440,6 +586,400 @@ final class JoinBorrowOperation<
                 prepared.scanned(),
                 count,
                 1L,
+                1,
+                1);
+    }
+}
+
+final class JoinLongProjectionOperation<
+        L extends DataFlowBinding,
+        R extends DataFlowBinding,
+        O> extends JoinOperation<L, R, O> {
+    private final LongExpression<?> expression;
+    private final boolean rightProjection;
+
+    private JoinLongProjectionOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages,
+            LongExpression<?> expression,
+            boolean rightProjection) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                expression.parameters);
+        this.expression = expression;
+        this.rightProjection = rightProjection;
+    }
+
+    static <L extends DataFlowBinding, R extends DataFlowBinding>
+    JoinLongProjectionOperation<L, R, LongColumnResult> left(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            LongExpression<L> expression) {
+        return new JoinLongProjectionOperation<
+                L, R, LongColumnResult>(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                JoinedStagePlan.<L, R>empty(),
+                expression,
+                false);
+    }
+
+    static <L extends DataFlowBinding, R extends DataFlowBinding>
+    JoinLongProjectionOperation<L, R, OptionalLongColumnResult> right(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            LongExpression<R> expression) {
+        return new JoinLongProjectionOperation<
+                L, R, OptionalLongColumnResult>(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                JoinedStagePlan.<L, R>empty(),
+                expression,
+                true);
+    }
+
+    static <L extends DataFlowBinding, R extends DataFlowBinding>
+    JoinLongProjectionOperation<L, R, LongColumnResult> left(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages,
+            LongExpression<L> expression) {
+        return new JoinLongProjectionOperation<
+                L, R, LongColumnResult>(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                expression,
+                false);
+    }
+
+    static <L extends DataFlowBinding, R extends DataFlowBinding>
+    JoinLongProjectionOperation<L, R, OptionalLongColumnResult> right(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages,
+            LongExpression<R> expression) {
+        return new JoinLongProjectionOperation<
+                L, R, OptionalLongColumnResult>(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                expression,
+                true);
+    }
+
+    @Override
+    String terminal() {
+        return rightProjection
+                ? "project-right-long" : "project-left-long";
+    }
+
+    @Override
+    public ExecutionOutcome<O> execute(final ExecutionFrame frame) {
+        final JoinPrepared<L, R> prepared = prepare(frame);
+        long cardinality = prepared.enumerate(frame, new JoinMatchConsumer() {
+            @Override
+            public boolean accept(
+                    int leftIndex,
+                    boolean rightPresent,
+                    int rightIndex) {
+                return true;
+            }
+        });
+        if (cardinality > Integer.MAX_VALUE) {
+            throw DataFlowFailures.resource(
+                    "dataflow_cardinality_overflow",
+                    left.source().alias(),
+                    "dataflow.join.project",
+                    Long.toString(cardinality));
+        }
+        final int size = (int) cardinality;
+        final long[] values =
+                frame.newOutputLongs(size, "dataflow.join.project");
+        final boolean[] presence = rightProjection
+                ? frame.newOutputBooleans(size, "dataflow.join.project")
+                : null;
+        final int[] write = new int[1];
+        prepared.enumerate(frame, new JoinMatchConsumer() {
+            @Override
+            public boolean accept(
+                    int leftIndex,
+                    boolean rightPresent,
+                    int rightIndex) {
+                int position = write[0]++;
+                if (rightProjection) {
+                    presence[position] = rightPresent;
+                    if (rightPresent) {
+                        @SuppressWarnings("unchecked")
+                        LongExpression<R> value =
+                                (LongExpression<R>) expression;
+                        values[position] = value.evaluate(
+                                frame,
+                                prepared.rightBinding,
+                                rightIndex);
+                    }
+                } else {
+                    @SuppressWarnings("unchecked")
+                    LongExpression<L> value =
+                            (LongExpression<L>) expression;
+                    values[position] = value.evaluate(
+                            frame,
+                            prepared.leftBinding,
+                            leftIndex);
+                }
+                return true;
+            }
+        });
+        Object result = rightProjection
+                ? new OptionalLongColumnResult(values, presence)
+                : new LongColumnResult(values, size);
+        @SuppressWarnings("unchecked")
+        O typed = (O) result;
+        return new ExecutionOutcome<O>(
+                typed,
+                prepared.scanned(),
+                size,
+                size,
+                1,
+                1);
+    }
+}
+
+final class JoinLeftGroupCountOperation<
+        L extends DataFlowBinding, R extends DataFlowBinding>
+        extends JoinOperation<L, R, GroupedLongResult> {
+    private final KeyExpression<L> groupKey;
+
+    JoinLeftGroupCountOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages,
+            KeyExpression<L> groupKey) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                groupKey.parameters());
+        this.groupKey = groupKey;
+    }
+
+    @Override
+    String terminal() {
+        return "group-counts-by-left(" + groupKey.identity() + ")";
+    }
+
+    @Override
+    public ExecutionOutcome<GroupedLongResult> execute(
+            final ExecutionFrame frame) {
+        final JoinPrepared<L, R> prepared = prepare(frame);
+        long cardinality = prepared.enumerate(
+                frame, JoinPrepared.COUNTER);
+        if (cardinality > Integer.MAX_VALUE) {
+            throw DataFlowFailures.resource(
+                    "dataflow_cardinality_overflow",
+                    left.source().alias(),
+                    "dataflow.join.groupByLeft",
+                    Long.toString(cardinality));
+        }
+        final int size = (int) cardinality;
+        final int[] leftIndexes = frame.newScratchIndexes(
+                size, "dataflow.join.groupByLeft");
+        final int[] write = new int[1];
+        prepared.enumerate(frame, new JoinMatchConsumer() {
+            @Override
+            public boolean accept(
+                    int leftIndex,
+                    boolean rightPresent,
+                    int rightIndex) {
+                leftIndexes[write[0]++] = leftIndex;
+                return true;
+            }
+        });
+
+        int capacity = bucketCapacity(size);
+        int[] buckets = frame.newScratchIndexes(
+                capacity, "dataflow.join.groupByLeft");
+        int[] next = frame.newScratchIndexes(
+                size, "dataflow.join.groupByLeft");
+        int[] representatives = frame.newScratchIndexes(
+                size, "dataflow.join.groupByLeft");
+        long[] counts = frame.newScratchLongs(
+                size, "dataflow.join.groupByLeft");
+        Arrays.fill(buckets, -1);
+        int mask = capacity - 1;
+        int groups = 0;
+        for (int position = 0; position < size; position++) {
+            int candidate = leftIndexes[position];
+            long hash = groupKey.hash(
+                    frame, prepared.leftBinding, candidate);
+            int bucket = ((int) (hash ^ (hash >>> 32))) & mask;
+            int group = buckets[bucket];
+            while (group >= 0 && !groupKey.equal(
+                    frame,
+                    prepared.leftBinding,
+                    candidate,
+                    groupKey,
+                    prepared.leftBinding,
+                    representatives[group])) {
+                group = next[group];
+            }
+            if (group < 0) {
+                group = groups++;
+                representatives[group] = candidate;
+                next[group] = buckets[bucket];
+                buckets[bucket] = group;
+            }
+            counts[group]++;
+        }
+        frame.reserveOutput(
+                groups,
+                (long) groups * 12L,
+                "dataflow.join.groupByLeft");
+        GroupedLongResult result = new GroupedLongResult(
+                left.source().alias(),
+                prepared.leftBinding.structuralEpoch(),
+                Arrays.copyOf(representatives, groups),
+                Arrays.copyOf(counts, groups));
+        return new ExecutionOutcome<GroupedLongResult>(
+                result,
+                prepared.scanned(),
+                size,
+                groups,
+                1,
+                1);
+    }
+
+    private static int bucketCapacity(int size) {
+        int target = size >= (1 << 29)
+                ? 1 << 30 : Math.max(4, size * 2);
+        int capacity = 1;
+        while (capacity < target) {
+            capacity <<= 1;
+        }
+        return capacity;
+    }
+}
+
+final class JoinCountWindowOperation<
+        L extends DataFlowBinding, R extends DataFlowBinding>
+        extends JoinOperation<L, R, LongColumnResult> {
+    private final int width;
+    private final int step;
+    private final PartialWindowPolicy partialPolicy;
+
+    JoinCountWindowOperation(
+            CandidateProgram<L> left,
+            CandidateProgram<R> right,
+            KeyExpression<L> leftKey,
+            KeyExpression<R> rightKey,
+            JoinType type,
+            JoinedStagePlan<L, R> stages,
+            int width,
+            int step,
+            PartialWindowPolicy partialPolicy) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                stages,
+                Collections.<ParameterSlot<?>>emptyList());
+        if (width <= 0 || step <= 0) {
+            throw new IllegalArgumentException(
+                    "window width and step must be positive");
+        }
+        if (partialPolicy == null) {
+            throw new NullPointerException("partialPolicy");
+        }
+        this.width = width;
+        this.step = step;
+        this.partialPolicy = partialPolicy;
+    }
+
+    @Override
+    String terminal() {
+        return "count-window(" + width + "," + step + ","
+                + partialPolicy + ")";
+    }
+
+    @Override
+    public ExecutionOutcome<LongColumnResult> execute(
+            ExecutionFrame frame) {
+        JoinPrepared<L, R> prepared = prepare(frame);
+        long cardinality = prepared.enumerate(
+                frame, JoinPrepared.COUNTER);
+        long estimated = cardinality == 0L
+                ? 0L : (cardinality - 1L) / step + 1L;
+        if (estimated > Integer.MAX_VALUE) {
+            throw DataFlowFailures.resource(
+                    "dataflow_window_count_overflow",
+                    left.source().alias(),
+                    "dataflow.join.window",
+                    Long.toString(estimated));
+        }
+        long[] counts = frame.newOutputLongs(
+                (int) estimated, "dataflow.join.window");
+        int windows = 0;
+        for (long anchor = 0L;
+             anchor < cardinality;
+             anchor += step) {
+            long end = Math.min(cardinality, anchor + width);
+            long count = end - anchor;
+            if (count < width
+                    && partialPolicy
+                    == PartialWindowPolicy.DROP_PARTIAL) {
+                break;
+            }
+            counts[windows++] = count;
+            if (anchor > Long.MAX_VALUE - step) {
+                break;
+            }
+        }
+        return new ExecutionOutcome<LongColumnResult>(
+                new LongColumnResult(counts, windows),
+                prepared.scanned(),
+                cardinality,
+                windows,
                 1,
                 1);
     }

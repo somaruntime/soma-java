@@ -13,8 +13,22 @@ public final class BooleanValueFlow<B extends DataFlowBinding> {
         this.expression = expression;
     }
 
+    public CandidateFlow<B> candidates() {
+        return new CandidateFlow<B>(program);
+    }
+
     public DataFlowDefinition<BooleanColumnResult> toColumn() {
         return DataFlowDefinition.of(
                 new BooleanColumnOperation<B>(program, expression));
+    }
+
+    public DataFlowDefinition<LongScalarResult> borrow(
+            BooleanValueConsumer consumer) {
+        if (consumer == null) {
+            throw new NullPointerException("consumer");
+        }
+        return DataFlowDefinition.of(
+                new BooleanValueBorrowOperation<B>(
+                        program, expression, consumer));
     }
 }

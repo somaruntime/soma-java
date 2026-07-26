@@ -2,6 +2,9 @@ package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 
+import java.util.Collections;
+import java.util.List;
+
 /** Invocation-local finite ordered Window shape. */
 public final class WindowedFlow<B extends DataFlowBinding> {
     private final CandidateProgram<B> program;
@@ -11,6 +14,7 @@ public final class WindowedFlow<B extends DataFlowBinding> {
     private final long step;
     private final long origin;
     private final PartialWindowPolicy partialPolicy;
+    private final WindowShapePlan<B> shape;
 
     private WindowedFlow(
             CandidateProgram<B> program,
@@ -20,6 +24,26 @@ public final class WindowedFlow<B extends DataFlowBinding> {
             long step,
             long origin,
             PartialWindowPolicy partialPolicy) {
+        this(
+                program,
+                time,
+                orderKey,
+                width,
+                step,
+                origin,
+                partialPolicy,
+                WindowShapePlan.<B>empty());
+    }
+
+    private WindowedFlow(
+            CandidateProgram<B> program,
+            boolean time,
+            LongExpression<B> orderKey,
+            long width,
+            long step,
+            long origin,
+            PartialWindowPolicy partialPolicy,
+            WindowShapePlan<B> shape) {
         if (width <= 0L || step <= 0L) {
             throw new IllegalArgumentException("window width and step must be positive");
         }
@@ -33,6 +57,7 @@ public final class WindowedFlow<B extends DataFlowBinding> {
         this.step = step;
         this.origin = origin;
         this.partialPolicy = partialPolicy;
+        this.shape = shape;
     }
 
     static <B extends DataFlowBinding> WindowedFlow<B> count(
@@ -60,6 +85,22 @@ public final class WindowedFlow<B extends DataFlowBinding> {
                 new WindowIndexOperation<B>(this));
     }
 
+    public WindowedFlow<B> havingCountAtLeast(long count) {
+        if (count < 0L) {
+            throw new IllegalArgumentException(
+                    "count must be non-negative");
+        }
+        return with(shape.havingAtLeast(count));
+    }
+
+    public WindowedFlow<B> havingCountAtMost(long count) {
+        if (count < 0L) {
+            throw new IllegalArgumentException(
+                    "count must be non-negative");
+        }
+        return with(shape.havingAtMost(count));
+    }
+
     public DataFlowDefinition<LongScalarResult> borrow(WindowConsumer consumer) {
         if (consumer == null) {
             throw new NullPointerException("consumer");
@@ -72,7 +113,26 @@ public final class WindowedFlow<B extends DataFlowBinding> {
             LongExpression<B> expression) {
         requireSource(expression);
         return DataFlowDefinition.of(
-                new WindowLongSumOperation<B>(this, expression));
+                WindowLongAggregationOperation.sum(this, expression));
+    }
+
+    public DataFlowDefinition<LongColumnResult> counts() {
+        return DataFlowDefinition.of(
+                WindowLongAggregationOperation.<B>counts(this));
+    }
+
+    public DataFlowDefinition<LongColumnResult> min(
+            LongExpression<B> expression) {
+        requireSource(expression);
+        return DataFlowDefinition.of(
+                WindowLongAggregationOperation.min(this, expression));
+    }
+
+    public DataFlowDefinition<LongColumnResult> max(
+            LongExpression<B> expression) {
+        requireSource(expression);
+        return DataFlowDefinition.of(
+                WindowLongAggregationOperation.max(this, expression));
     }
 
     CandidateProgram<B> program() {
@@ -85,6 +145,12 @@ public final class WindowedFlow<B extends DataFlowBinding> {
 
     LongExpression<B> orderKey() {
         return orderKey;
+    }
+
+    List<ParameterSlot<?>> windowParameters() {
+        return orderKey == null
+                ? Collections.<ParameterSlot<?>>emptyList()
+                : orderKey.parameters;
     }
 
     long width() {
@@ -101,6 +167,22 @@ public final class WindowedFlow<B extends DataFlowBinding> {
 
     PartialWindowPolicy partialPolicy() {
         return partialPolicy;
+    }
+
+    WindowShapePlan<B> shape() {
+        return shape;
+    }
+
+    private WindowedFlow<B> with(WindowShapePlan<B> next) {
+        return new WindowedFlow<B>(
+                program,
+                time,
+                orderKey,
+                width,
+                step,
+                origin,
+                partialPolicy,
+                next);
     }
 
     private void requireSource(LongExpression<B> expression) {

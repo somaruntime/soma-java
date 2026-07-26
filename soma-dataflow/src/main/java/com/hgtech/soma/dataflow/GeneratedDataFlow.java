@@ -13,6 +13,7 @@ import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.UpdateResult;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -197,6 +198,32 @@ public final class GeneratedDataFlow {
                 path);
     }
 
+    public static <B extends DataFlowBinding> LongExpression<B> longParameter(
+            SourceSlot<B> source, final ParameterSlot<Long> parameter) {
+        required(source, "source");
+        required(parameter, "parameter");
+        return new LongExpression<B>(
+                source,
+                new LongNode() {
+                    @Override
+                    public long evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        return frame.parameter(parameter).longValue();
+                    }
+
+                    @Override
+                    public String canonical() {
+                        return "long-parameter(" + parameter.canonical() + ")";
+                    }
+                },
+                ExpressionNodes.alwaysPresent(),
+                "parameter." + parameter.name(),
+                Collections.<ParameterSlot<?>>singletonList(parameter),
+                true);
+    }
+
     public static <B extends DataFlowBinding> LongExpression<B> optionalLong(
             SourceSlot<B> source, int columnOrdinal, String path) {
         return new LongExpression<B>(
@@ -224,6 +251,32 @@ public final class GeneratedDataFlow {
                 path);
     }
 
+    public static <B extends DataFlowBinding> DoubleExpression<B> doubleParameter(
+            SourceSlot<B> source, final ParameterSlot<Double> parameter) {
+        required(source, "source");
+        required(parameter, "parameter");
+        return new DoubleExpression<B>(
+                source,
+                new DoubleNode() {
+                    @Override
+                    public double evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        return frame.parameter(parameter).doubleValue();
+                    }
+
+                    @Override
+                    public String canonical() {
+                        return "double-parameter(" + parameter.canonical() + ")";
+                    }
+                },
+                ExpressionNodes.alwaysPresent(),
+                "parameter." + parameter.name(),
+                Collections.<ParameterSlot<?>>singletonList(parameter),
+                true);
+    }
+
     public static <B extends DataFlowBinding> BooleanExpression<B> requiredBoolean(
             SourceSlot<B> source, int columnOrdinal, String path) {
         return new BooleanExpression<B>(
@@ -243,10 +296,13 @@ public final class GeneratedDataFlow {
                 source,
                 new BooleanNode() {
                     @Override
-                    public boolean evaluate(DataFlowBinding binding, int index) {
+                    public boolean evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
                         ExpressionNodes.requirePresent(
-                                presence, binding, index, path);
-                        return value.evaluate(binding, index);
+                                frame, presence, binding, index, path);
+                        return value.evaluate(frame, binding, index);
                     }
 
                     @Override
@@ -256,6 +312,32 @@ public final class GeneratedDataFlow {
                 },
                 presence,
                 path);
+    }
+
+    public static <B extends DataFlowBinding> BooleanExpression<B> booleanParameter(
+            SourceSlot<B> source, final ParameterSlot<Boolean> parameter) {
+        required(source, "source");
+        required(parameter, "parameter");
+        return new BooleanExpression<B>(
+                source,
+                new BooleanNode() {
+                    @Override
+                    public boolean evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        return frame.parameter(parameter).booleanValue();
+                    }
+
+                    @Override
+                    public String canonical() {
+                        return "boolean-parameter(" + parameter.canonical() + ")";
+                    }
+                },
+                ExpressionNodes.alwaysPresent(),
+                "parameter." + parameter.name(),
+                Collections.<ParameterSlot<?>>singletonList(parameter),
+                true);
     }
 
     public static <B extends DataFlowBinding, T> ObjectExpression<B, T>
@@ -274,5 +356,32 @@ public final class GeneratedDataFlow {
                 ExpressionNodes.objectField(columnOrdinal, path),
                 ExpressionNodes.present(columnOrdinal, path),
                 path);
+    }
+
+    public static <B extends DataFlowBinding, T> ObjectExpression<B, T>
+    objectParameter(
+            SourceSlot<B> source, final ParameterSlot<T> parameter) {
+        required(source, "source");
+        required(parameter, "parameter");
+        return new ObjectExpression<B, T>(
+                source,
+                new ObjectNode() {
+                    @Override
+                    public Object evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        return frame.parameter(parameter);
+                    }
+
+                    @Override
+                    public String canonical() {
+                        return "object-parameter(" + parameter.canonical() + ")";
+                    }
+                },
+                ExpressionNodes.alwaysPresent(),
+                "parameter." + parameter.name(),
+                Collections.<ParameterSlot<?>>singletonList(parameter),
+                true);
     }
 }

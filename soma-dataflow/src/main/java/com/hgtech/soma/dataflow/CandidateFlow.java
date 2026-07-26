@@ -21,6 +21,11 @@ public final class CandidateFlow<B extends DataFlowBinding> {
         this.plan = plan;
     }
 
+    CandidateFlow(CandidateProgram<B> program) {
+        this(new CandidatePlan<B>(
+                new ProgramCandidateInput<B>(program)));
+    }
+
     public CandidateFlow<B> filter(BooleanExpression<B> predicate) {
         requireSource(predicate == null ? null : predicate.source, "predicate");
         return new CandidateFlow<B>(plan.filter(predicate));
@@ -101,6 +106,18 @@ public final class CandidateFlow<B extends DataFlowBinding> {
         return topK(1L, order).indexSnapshot();
     }
 
+    public DataFlowDefinition<IndexSnapshot> argMinIndexSnapshot(
+            LongExpression<B> expression) {
+        requireSource(expression == null ? null : expression.source, "expression");
+        return bestIndexSnapshot(expression.ascending());
+    }
+
+    public DataFlowDefinition<IndexSnapshot> argMaxIndexSnapshot(
+            LongExpression<B> expression) {
+        requireSource(expression == null ? null : expression.source, "expression");
+        return bestIndexSnapshot(expression.descending());
+    }
+
     public LongValueFlow<B> project(LongExpression<B> expression) {
         requireSource(expression == null ? null : expression.source, "expression");
         return new LongValueFlow<B>(plan.compileProgram(), expression);
@@ -127,6 +144,20 @@ public final class CandidateFlow<B extends DataFlowBinding> {
         return new PartitionedFlow<B>(
                 new CandidateFlow<B>(plan.filter(predicate)),
                 new CandidateFlow<B>(plan.filter(predicate.not())));
+    }
+
+    public KeyPartitionedFlow<B> partitionBy(KeyExpression<B> key) {
+        if (key == null) {
+            throw new NullPointerException("key");
+        }
+        if (key.source() != plan.source()) {
+            throw DataFlowFailures.invalidInput(
+                    "dataflow_partition_key_source_mismatch",
+                    plan.source().alias(),
+                    "dataflow.partitionBy");
+        }
+        return new KeyPartitionedFlow<B>(
+                plan.compileProgram(), key);
     }
 
     public <R extends DataFlowBinding> JoinBuilder<B, R> join(

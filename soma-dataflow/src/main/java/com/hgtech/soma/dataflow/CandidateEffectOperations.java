@@ -31,12 +31,18 @@ abstract class CandidateEffectOperation<
                 + " -> single-table-safe-point[" + effectName() + "]";
     }
 
+    @Override
+    public final boolean effectful() {
+        return true;
+    }
+
     abstract String effectName();
 }
 
 final class CandidateUpdateOperation<B extends DataFlowBinding>
         extends CandidateEffectOperation<B, UpdateResult> {
     private final Object updater;
+    private final long opaqueIdentity;
 
     CandidateUpdateOperation(
             CandidateProgram<B> program,
@@ -47,13 +53,14 @@ final class CandidateUpdateOperation<B extends DataFlowBinding>
             throw new NullPointerException("updater");
         }
         this.updater = updater;
+        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
     }
 
     @Override
     public String canonicalForm() {
         return program.canonical() + "->update("
-                + access.identity() + ",opaque@"
-                + Integer.toHexString(System.identityHashCode(updater)) + ")";
+                + access.identity() + ",opaque-instance-"
+                + opaqueIdentity + ")";
     }
 
     @Override

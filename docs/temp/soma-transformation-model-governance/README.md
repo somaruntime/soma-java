@@ -224,6 +224,30 @@ Stage 4 前必须依次通过：
 - 将 blocking I/O、checkpoint 或 external transaction 放入 graph/compute pool；
 - 无法在不改变目标的情况下获得合理内存、footprint 或性能。
 
+### 7.1 按构造即正确
+
+Stage 4–6 不把正确性主要委托给洪水式测试。关键不变量必须在唯一 Owner
+产生事实的位置关闭：
+
+| 抽象 | 唯一 Owner | 构造防线 |
+|---|---|---|
+| Value/Expression/Parameter | typed expression 与 `ParameterSlot` | carrier、presence、source、参数依赖、parallel fence 进入不可变表达式 |
+| Shape/lineage/legality | shape-specific DSL handle | 只暴露合法组合；不以 generic node 恢复 writable lineage |
+| Definition graph | one-shot controlled Builder | build 前关闭 source/output/effect/identity 冲突；成功或失败后均不可复用 |
+| Template/Invocation | immutable Template 与 one-shot Invocation | bind、compatibility、budget、lifecycle、guard 和 terminal state 真实校验 |
+| Result/Effect | shape-specific Result 与 safe-point Effect | live/detached、absence、budget、epoch 和 publish boundary 在构造/commit 处关闭 |
+| generated/runtime protocol | processor emitter 与 generated binding | schema-specific typed bridge、protocol/hash/ownership 在边界 fail closed |
+
+public/generated 边界对输入、生命周期、ownership、资源和兼容性使用稳定异常；
+内部 `assert` 只守护上游已证明、关闭断言也不会损坏数据或语义的纯推导事实。
+任何可能导致错误 publish、越界、失效 Index、错误 lineage 或原子性破坏的检查都
+必须保留真实 internal failure。
+
+测试证明防线而不复制防线：集中覆盖构造/契约，使用性质测试和 reference
+differential 覆盖通用语义，只为新语义选择代表性组合，并保留少量 canonical
+end-to-end、external consumer 和性能非回归证据；不冻结 private helper、内部
+数组布局或为每个方法重复相同 null/lifecycle 用例。
+
 ## 8. 完成条件
 
 专题退役前，Transformation/Execution 必须一致，DSL/DataFlow 必须共享语义内核，

@@ -24,6 +24,14 @@ interface DataFlowOperation<R> {
     default List<ParameterSlot<?>> requiredParameters() {
         return Collections.emptyList();
     }
+
+    default boolean effectful() {
+        return false;
+    }
+
+    default boolean parallelBranchSafe() {
+        return false;
+    }
 }
 
 interface DeferredEffect<R> {
@@ -105,9 +113,7 @@ final class ExecutionFrame {
     private final ExecutionPolicy policy;
     private final ExecutionBudget budget;
     private final CancellationToken cancellationToken;
-    private long scratchBytes;
-    private long outputBytes;
-    private long outputElements;
+    private final ExecutionAccounting accounting;
 
     ExecutionFrame(
             DataFlowContext context,
@@ -116,12 +122,31 @@ final class ExecutionFrame {
             ExecutionPolicy policy,
             ExecutionBudget budget,
             CancellationToken cancellationToken) {
+        this(
+                context,
+                bindings,
+                parameters,
+                policy,
+                budget,
+                cancellationToken,
+                new ExecutionAccounting(budget));
+    }
+
+    private ExecutionFrame(
+            DataFlowContext context,
+            IdentityHashMap<SourceSlot<?>, DataFlowBinding> bindings,
+            IdentityHashMap<ParameterSlot<?>, Object> parameters,
+            ExecutionPolicy policy,
+            ExecutionBudget budget,
+            CancellationToken cancellationToken,
+            ExecutionAccounting accounting) {
         this.context = context;
         this.bindings = bindings;
         this.parameters = parameters;
         this.policy = policy;
         this.budget = budget;
         this.cancellationToken = cancellationToken;
+        this.accounting = accounting;
     }
 
     DataFlowBinding binding(SourceSlot<?> source) {
@@ -158,6 +183,30 @@ final class ExecutionFrame {
 
     ExecutionBudget budget() {
         return budget;
+    }
+
+    long scratchBytes() {
+        return accounting.scratchBytes();
+    }
+
+    long outputBytes() {
+        return accounting.outputBytes();
+    }
+
+    long outputElements() {
+        return accounting.outputElements();
+    }
+
+    ExecutionFrame sequentialChild() {
+        return new ExecutionFrame(
+                context,
+                bindings,
+                parameters,
+                ExecutionPolicy.sequential()
+                        .withStatsMode(policy.statsMode()),
+                budget,
+                cancellationToken,
+                accounting);
     }
 
     void checkBoundary(String operation) {
@@ -200,6 +249,11 @@ final class ExecutionFrame {
         return new double[length];
     }
 
+    boolean[] newScratchBooleans(int length, String operation) {
+        reserveScratch(length, operation);
+        return new boolean[length];
+    }
+
     int[] newOutputIndexes(int length, String operation) {
         reserveOutput(length, multiply(length, 4L, operation), operation);
         return new int[length];
@@ -226,6 +280,49 @@ final class ExecutionFrame {
     }
 
     void reserveOutput(long elements, long bytes, String operation) {
+        accounting.reserveOutput(elements, bytes, operation);
+    }
+
+    private void reserveScratch(long bytes, String operation) {
+        accounting.reserveScratch(bytes, operation);
+    }
+
+    private static long multiply(int count, long width, String operation) {
+        if (count < 0 || (long) count > Long.MAX_VALUE / width) {
+            throw DataFlowFailures.resource(
+                    "dataflow_size_overflow",
+                    "invocation",
+                    operation,
+                    Integer.toString(count));
+        }
+        return (long) count * width;
+    }
+}
+
+final class ExecutionAccounting {
+    private final ExecutionBudget budget;
+    private long scratchBytes;
+    private long outputBytes;
+    private long outputElements;
+
+    ExecutionAccounting(ExecutionBudget budget) {
+        this.budget = budget;
+    }
+
+    synchronized long scratchBytes() {
+        return scratchBytes;
+    }
+
+    synchronized long outputBytes() {
+        return outputBytes;
+    }
+
+    synchronized long outputElements() {
+        return outputElements;
+    }
+
+    synchronized void reserveOutput(
+            long elements, long bytes, String operation) {
         if (elements < 0L || bytes < 0L
                 || outputElements > Long.MAX_VALUE - elements
                 || outputBytes > Long.MAX_VALUE - bytes) {
@@ -249,7 +346,7 @@ final class ExecutionFrame {
         outputBytes = nextBytes;
     }
 
-    private void reserveScratch(long bytes, String operation) {
+    synchronized void reserveScratch(long bytes, String operation) {
         if (bytes < 0L || scratchBytes > Long.MAX_VALUE - bytes) {
             throw DataFlowFailures.resource(
                     "dataflow_scratch_budget_exceeded",
@@ -267,17 +364,6 @@ final class ExecutionFrame {
         }
         scratchBytes = next;
     }
-
-    private static long multiply(int count, long width, String operation) {
-        if (count < 0 || (long) count > Long.MAX_VALUE / width) {
-            throw DataFlowFailures.resource(
-                    "dataflow_size_overflow",
-                    "invocation",
-                    operation,
-                    Integer.toString(count));
-        }
-        return (long) count * width;
-    }
 }
 
 abstract class SingleSourceOperation<R> implements DataFlowOperation<R> {
@@ -293,7 +379,16 @@ abstract class SingleSourceOperation<R> implements DataFlowOperation<R> {
         this(program.source(), program.requiredParameters());
     }
 
-    private SingleSourceOperation(
+    SingleSourceOperation(
+            CandidateProgram<?> program,
+            List<ParameterSlot<?>> additionalParameters) {
+        this(
+                program.source(),
+                DataFlowSupport.unionParameters(
+                        program.requiredParameters(), additionalParameters));
+    }
+
+    SingleSourceOperation(
             SourceSlot<? extends DataFlowBinding> source,
             List<ParameterSlot<?>> requiredParameters) {
         this.source = source;
@@ -324,10 +419,23 @@ abstract class MultiSourceOperation<R> implements DataFlowOperation<R> {
     MultiSourceOperation(
             CandidateProgram<?> first, CandidateProgram<?> second) {
         this(
+                first,
+                second,
+                Collections.<ParameterSlot<?>>emptyList());
+    }
+
+    MultiSourceOperation(
+            CandidateProgram<?> first,
+            CandidateProgram<?> second,
+            List<ParameterSlot<?>> additionalParameters) {
+        this(
                 first.source(),
                 second.source(),
                 DataFlowSupport.unionParameters(
-                        first.requiredParameters(), second.requiredParameters()));
+                        DataFlowSupport.unionParameters(
+                                first.requiredParameters(),
+                                second.requiredParameters()),
+                        additionalParameters));
     }
 
     private MultiSourceOperation(

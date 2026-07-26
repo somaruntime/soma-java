@@ -10,22 +10,32 @@ public final class ExecutionPolicy {
     }
 
     private static final ExecutionPolicy SEQUENTIAL =
-            new ExecutionPolicy(Mode.SEQUENTIAL, 1024, "sequential-v1");
+            new ExecutionPolicy(
+                    Mode.SEQUENTIAL, 1024, StatsMode.BASIC);
     private static final ExecutionPolicy ADAPTIVE =
-            new ExecutionPolicy(Mode.ADAPTIVE_PARALLEL, 1024, "adaptive-parallel-v1");
+            new ExecutionPolicy(
+                    Mode.ADAPTIVE_PARALLEL, 1024, StatsMode.BASIC);
 
     private final Mode mode;
     private final int minimumParallelCardinality;
+    private final StatsMode statsMode;
     private final String identity;
 
-    private ExecutionPolicy(Mode mode, int minimumParallelCardinality, String identity) {
+    private ExecutionPolicy(
+            Mode mode,
+            int minimumParallelCardinality,
+            StatsMode statsMode) {
         this.mode = Objects.requireNonNull(mode, "mode");
         if (minimumParallelCardinality <= 0) {
             throw new IllegalArgumentException(
                     "minimumParallelCardinality must be positive");
         }
         this.minimumParallelCardinality = minimumParallelCardinality;
-        this.identity = DataFlowSupport.required(identity, "identity");
+        this.statsMode = Objects.requireNonNull(statsMode, "statsMode");
+        this.identity = (mode == Mode.SEQUENTIAL
+                ? "sequential-v1" : "adaptive-parallel-v1")
+                + "[minimum=" + minimumParallelCardinality
+                + ",stats=" + statsMode + "]";
     }
 
     public static ExecutionPolicy sequential() {
@@ -37,7 +47,14 @@ public final class ExecutionPolicy {
     }
 
     public ExecutionPolicy withMinimumParallelCardinality(int value) {
-        return new ExecutionPolicy(mode, value, identity);
+        return new ExecutionPolicy(mode, value, statsMode);
+    }
+
+    public ExecutionPolicy withStatsMode(StatsMode value) {
+        return new ExecutionPolicy(
+                mode,
+                minimumParallelCardinality,
+                Objects.requireNonNull(value, "statsMode"));
     }
 
     public Mode mode() {
@@ -46,6 +63,10 @@ public final class ExecutionPolicy {
 
     public int minimumParallelCardinality() {
         return minimumParallelCardinality;
+    }
+
+    public StatsMode statsMode() {
+        return statsMode;
     }
 
     public String identity() {

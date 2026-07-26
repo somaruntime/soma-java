@@ -513,6 +513,51 @@ final class CombinedCandidateInput<B extends DataFlowBinding>
     }
 }
 
+final class ProgramCandidateInput<B extends DataFlowBinding>
+        implements CandidateInput<B> {
+    private final CandidateProgram<B> program;
+
+    ProgramCandidateInput(CandidateProgram<B> program) {
+        this.program = program;
+    }
+
+    @Override
+    public SourceSlot<B> source() {
+        return program.source();
+    }
+
+    @Override
+    public CandidateVisit visit(
+            ExecutionFrame frame, CandidateVisitor visitor, String operation) {
+        return program.visit(frame, visitor, operation);
+    }
+
+    @Override
+    public CandidateSelection select(ExecutionFrame frame, String operation) {
+        return program.select(frame, operation);
+    }
+
+    @Override
+    public int maximumCardinality(DataFlowBinding binding) {
+        return program.maximumCardinality(binding);
+    }
+
+    @Override
+    public boolean supportsStreaming() {
+        return !program.requiresBarrier();
+    }
+
+    @Override
+    public String canonical() {
+        return program.canonical();
+    }
+
+    @Override
+    public List<ParameterSlot<?>> requiredParameters() {
+        return program.requiredParameters();
+    }
+}
+
 final class CandidateProgram<B extends DataFlowBinding> {
     static final byte FILTER = 1;
     static final byte SKIP = 2;
@@ -527,6 +572,8 @@ final class CandidateProgram<B extends DataFlowBinding> {
     private final long[] arguments;
     private final boolean hasSort;
     private final boolean contiguousParallelSafe;
+    private final boolean branchParallelSafe;
+    private final List<ParameterSlot<?>> requiredParameters;
     private final String canonical;
 
     CandidateProgram(
@@ -541,14 +588,21 @@ final class CandidateProgram<B extends DataFlowBinding> {
         this.arguments = arguments;
         boolean sorting = false;
         boolean parallelSafe = input instanceof PackedCandidateInput<?>;
+        boolean branchSafe = true;
+        List<ParameterSlot<?>> parameters = input.requiredParameters();
         StringBuilder identity = new StringBuilder(input.canonical());
         for (int index = 0; index < kinds.length; index++) {
             byte kind = kinds[index];
             if (kind == FILTER) {
+                BooleanExpression<?> expression =
+                        (BooleanExpression<?>) operands[index];
                 parallelSafe = parallelSafe
-                        && ((BooleanExpression<?>) operands[index]).parallelSafe;
+                        && expression.parallelSafe;
+                branchSafe = branchSafe && expression.parallelSafe;
+                parameters = DataFlowSupport.unionParameters(
+                        parameters, expression.parameters);
                 identity.append("->filter(")
-                        .append(((BooleanExpression<?>) operands[index]).identity())
+                        .append(expression.identity())
                         .append(')');
             } else if (kind == SKIP) {
                 parallelSafe = false;
@@ -557,15 +611,22 @@ final class CandidateProgram<B extends DataFlowBinding> {
                 parallelSafe = false;
                 identity.append("->limit(").append(arguments[index]).append(')');
             } else if (kind == SORT) {
+                CandidateOrder<?> order =
+                        (CandidateOrder<?>) operands[index];
                 sorting = true;
                 parallelSafe = false;
+                branchSafe = branchSafe && order.parallelSafe;
+                parameters = DataFlowSupport.unionParameters(
+                        parameters, order.parameters);
                 identity.append("->sort(")
-                        .append(((CandidateOrder<?>) operands[index]).identity())
+                        .append(order.identity())
                         .append(')');
             }
         }
         hasSort = sorting;
         contiguousParallelSafe = parallelSafe;
+        branchParallelSafe = branchSafe;
+        requiredParameters = parameters;
         canonical = identity.toString();
     }
 
@@ -574,7 +635,7 @@ final class CandidateProgram<B extends DataFlowBinding> {
     }
 
     List<ParameterSlot<?>> requiredParameters() {
-        return input.requiredParameters();
+        return requiredParameters;
     }
 
     boolean hasSort() {
@@ -589,6 +650,10 @@ final class CandidateProgram<B extends DataFlowBinding> {
         return contiguousParallelSafe;
     }
 
+    boolean parallelBranchSafe() {
+        return branchParallelSafe;
+    }
+
     int contiguousCardinality(DataFlowBinding binding) {
         if (!contiguousParallelSafe) {
             throw new IllegalStateException(
@@ -597,7 +662,8 @@ final class CandidateProgram<B extends DataFlowBinding> {
         return input.maximumCardinality(binding);
     }
 
-    boolean parallelMatches(DataFlowBinding binding, int index) {
+    boolean parallelMatches(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
         if (!contiguousParallelSafe) {
             throw new IllegalStateException(
                     "candidate program is not contiguous-parallel safe");
@@ -606,7 +672,7 @@ final class CandidateProgram<B extends DataFlowBinding> {
             @SuppressWarnings("unchecked")
             BooleanExpression<B> expression =
                     (BooleanExpression<B>) operands[stage];
-            if (!expression.evaluate(binding, index)) {
+            if (!expression.evaluate(frame, binding, index)) {
                 return false;
             }
         }
@@ -644,7 +710,7 @@ final class CandidateProgram<B extends DataFlowBinding> {
                         if (limitExhausted(remaining)) {
                             return false;
                         }
-                        if (matches(binding, index, remaining)) {
+                        if (matches(frame, binding, index, remaining)) {
                             int outputPosition = matched[0]++;
                             if (!visitor.accept(index, outputPosition)) {
                                 return false;
@@ -673,7 +739,7 @@ final class CandidateProgram<B extends DataFlowBinding> {
                 int write = 0;
                 for (int index = 0; index < size; index++) {
                     int candidate = indexes[index];
-                    if (expression.evaluate(binding, candidate)) {
+                    if (expression.evaluate(frame, binding, candidate)) {
                         indexes[write++] = candidate;
                     }
                 }
@@ -729,14 +795,17 @@ final class CandidateProgram<B extends DataFlowBinding> {
     }
 
     private boolean matches(
-            DataFlowBinding binding, int index, long[] remaining) {
+            ExecutionFrame frame,
+            DataFlowBinding binding,
+            int index,
+            long[] remaining) {
         for (int stage = 0; stage < kinds.length; stage++) {
             byte kind = kinds[stage];
             if (kind == FILTER) {
                 @SuppressWarnings("unchecked")
                 BooleanExpression<B> expression =
                         (BooleanExpression<B>) operands[stage];
-                if (!expression.evaluate(binding, index)) {
+                if (!expression.evaluate(frame, binding, index)) {
                     return false;
                 }
             } else if (kind == SKIP) {
@@ -790,7 +859,10 @@ final class CandidateProgram<B extends DataFlowBinding> {
                     if (right >= end
                             || (left < middle
                             && order.node.compare(
-                            binding, indexes[left], indexes[right]) <= 0)) {
+                            frame,
+                            binding,
+                            indexes[left],
+                            indexes[right]) <= 0)) {
                         auxiliary[write++] = indexes[left++];
                     } else {
                         auxiliary[write++] = indexes[right++];

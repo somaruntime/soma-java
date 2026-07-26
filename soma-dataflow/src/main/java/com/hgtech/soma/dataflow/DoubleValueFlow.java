@@ -13,6 +13,10 @@ public final class DoubleValueFlow<B extends DataFlowBinding> {
         this.expression = expression;
     }
 
+    public CandidateFlow<B> candidates() {
+        return new CandidateFlow<B>(program);
+    }
+
     public DataFlowDefinition<DoubleColumnResult> toColumn() {
         return DataFlowDefinition.of(
                 new DoubleColumnOperation<B>(program, expression));
@@ -36,5 +40,15 @@ public final class DoubleValueFlow<B extends DataFlowBinding> {
     public DataFlowDefinition<OptionalDoubleResult> max() {
         return DataFlowDefinition.of(
                 DoubleReductionOperation.max(program, expression));
+    }
+
+    public DataFlowDefinition<LongScalarResult> borrow(
+            DoubleValueConsumer consumer) {
+        if (consumer == null) {
+            throw new NullPointerException("consumer");
+        }
+        return DataFlowDefinition.of(
+                new DoubleValueBorrowOperation<B>(
+                        program, expression, consumer));
     }
 }

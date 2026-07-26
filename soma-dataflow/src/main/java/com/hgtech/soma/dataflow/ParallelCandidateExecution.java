@@ -42,7 +42,7 @@ final class ParallelCandidateExecution {
                             if ((index & 1023) == 0) {
                                 frame.checkBoundary("dataflow.count");
                             }
-                            if (program.parallelMatches(binding, index)) {
+                            if (program.parallelMatches(frame, binding, index)) {
                                 count++;
                             }
                         }
@@ -88,7 +88,7 @@ final class ParallelCandidateExecution {
                             if ((index & 1023) == 0) {
                                 frame.checkBoundary(operation);
                             }
-                            if (program.parallelMatches(binding, index)) {
+                            if (program.parallelMatches(frame, binding, index)) {
                                 indexes[write++] = index;
                             }
                         }
@@ -116,6 +116,9 @@ final class ParallelCandidateExecution {
             final CandidateProgram<B> program,
             final LongExpression<B> expression,
             final ExecutionFrame frame) {
+        if (!expression.parallelSafe) {
+            return null;
+        }
         final DataFlowBinding binding = frame.binding(program.source());
         MatchLayout layout = layout(
                 program, binding, frame, "dataflow.longColumn");
@@ -136,9 +139,10 @@ final class ParallelCandidateExecution {
                             if ((index & 1023) == 0) {
                                 frame.checkBoundary("dataflow.longColumn");
                             }
-                            if (program.parallelMatches(binding, index)) {
+                            if (program.parallelMatches(frame, binding, index)) {
                                 values[write++] =
-                                        expression.evaluate(binding, index);
+                                        expression.evaluate(
+                                                frame, binding, index);
                             }
                         }
                         if (write != layout.offsets[partition + 1]) {
@@ -166,6 +170,9 @@ final class ParallelCandidateExecution {
             final CandidateProgram<B> program,
             final DoubleExpression<B> expression,
             final ExecutionFrame frame) {
+        if (!expression.parallelSafe) {
+            return null;
+        }
         final DataFlowBinding binding = frame.binding(program.source());
         MatchLayout layout = layout(
                 program, binding, frame, "dataflow.doubleColumn");
@@ -186,9 +193,10 @@ final class ParallelCandidateExecution {
                             if ((index & 1023) == 0) {
                                 frame.checkBoundary("dataflow.doubleColumn");
                             }
-                            if (program.parallelMatches(binding, index)) {
+                            if (program.parallelMatches(frame, binding, index)) {
                                 values[write++] =
-                                        expression.evaluate(binding, index);
+                                        expression.evaluate(
+                                                frame, binding, index);
                             }
                         }
                         if (write != layout.offsets[partition + 1]) {
@@ -239,9 +247,10 @@ final class ParallelCandidateExecution {
                             if ((index & 1023) == 0) {
                                 frame.checkBoundary("dataflow.booleanColumn");
                             }
-                            if (program.parallelMatches(binding, index)) {
+                            if (program.parallelMatches(frame, binding, index)) {
                                 values[write++] =
-                                        expression.evaluate(binding, index);
+                                        expression.evaluate(
+                                                frame, binding, index);
                             }
                         }
                         if (write != layout.offsets[partition + 1]) {
@@ -270,6 +279,9 @@ final class ParallelCandidateExecution {
             final LongExpression<B> expression,
             final int kind,
             final ExecutionFrame frame) {
+        if (!expression.parallelSafe) {
+            return null;
+        }
         final DataFlowBinding binding = frame.binding(program.source());
         final int cardinality = parallelCardinality(program, binding);
         final ParallelPlan plan = ParallelExecution.plan(
@@ -295,10 +307,11 @@ final class ParallelCandidateExecution {
                             if ((index & 1023) == 0) {
                                 frame.checkBoundary("dataflow.longReduce");
                             }
-                            if (!program.parallelMatches(binding, index)) {
+                            if (!program.parallelMatches(frame, binding, index)) {
                                 continue;
                             }
-                            long next = expression.evaluate(binding, index);
+                            long next = expression.evaluate(
+                                    frame, binding, index);
                             if (kind == LONG_SUM || kind == LONG_AVERAGE) {
                                 value += next;
                             } else if (count == 0
@@ -392,7 +405,7 @@ final class ParallelCandidateExecution {
                             if ((index & 1023) == 0) {
                                 frame.checkBoundary(operation);
                             }
-                            if (program.parallelMatches(binding, index)) {
+                            if (program.parallelMatches(frame, binding, index)) {
                                 count++;
                             }
                         }

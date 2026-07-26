@@ -7,8 +7,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 final class DataFlowSupport {
+    private static final AtomicLong OPAQUE_ID = new AtomicLong(1L);
+
     private DataFlowSupport() {
     }
 
@@ -53,6 +56,81 @@ final class DataFlowSupport {
         appendParameters(result, seen, first);
         appendParameters(result, seen, second);
         return Collections.unmodifiableList(result);
+    }
+
+    static String registeredIdentity(
+            String kind, String semanticId, String version) {
+        String id = required(semanticId, "semanticId");
+        String revision = required(version, "version");
+        StringBuilder canonical = new StringBuilder(kind);
+        appendCanonical(canonical, "semanticId", id);
+        appendCanonical(canonical, "version", revision);
+        return canonical.toString();
+    }
+
+    static void appendCanonical(
+            StringBuilder target, String name, String value) {
+        if (target == null) {
+            throw new NullPointerException("target");
+        }
+        required(name, "name");
+        if (value == null) {
+            throw new NullPointerException("value");
+        }
+        target.append('|')
+                .append(name.length()).append(':').append(name)
+                .append('=')
+                .append(value.length()).append(':').append(value);
+    }
+
+    static long nextOpaqueIdentity() {
+        long value = OPAQUE_ID.getAndIncrement();
+        if (value <= 0L) {
+            throw new IllegalStateException(
+                    "dataflow opaque definition identity exhausted");
+        }
+        return value;
+    }
+
+    static String constantIdentity(Object value) {
+        if (value == null) {
+            return "null";
+        }
+        if (value instanceof Enum<?>) {
+            Enum<?> enumeration = (Enum<?>) value;
+            StringBuilder canonical = new StringBuilder("enum");
+            appendCanonical(
+                    canonical,
+                    "type",
+                    enumeration.getDeclaringClass().getName());
+            appendCanonical(canonical, "name", enumeration.name());
+            return canonical.toString();
+        }
+        if (value instanceof String
+                || value instanceof Boolean
+                || value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long
+                || value instanceof Float
+                || value instanceof Double
+                || value instanceof Character) {
+            StringBuilder canonical = new StringBuilder("scalar");
+            appendCanonical(
+                    canonical, "type", value.getClass().getName());
+            appendCanonical(
+                    canonical, "value", String.valueOf(value));
+            return canonical.toString();
+        }
+        StringBuilder canonical =
+                new StringBuilder("opaque-constant-instance");
+        appendCanonical(
+                canonical,
+                "identity",
+                Long.toString(nextOpaqueIdentity()));
+        appendCanonical(
+                canonical, "type", value.getClass().getName());
+        return canonical.toString();
     }
 
     private static void appendParameters(

@@ -4,6 +4,8 @@ import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 final class WindowPrepared<B extends DataFlowBinding> {
     final CandidateSelection selected;
@@ -34,7 +36,16 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
     final WindowedFlow<B> flow;
 
     WindowOperation(WindowedFlow<B> flow) {
-        super(flow.program());
+        this(flow, Collections.<ParameterSlot<?>>emptyList());
+    }
+
+    WindowOperation(
+            WindowedFlow<B> flow,
+            List<ParameterSlot<?>> additionalParameters) {
+        super(
+                flow.program(),
+                DataFlowSupport.unionParameters(
+                        flow.windowParameters(), additionalParameters));
         this.flow = flow;
     }
 
@@ -44,7 +55,7 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
                 + (flow.time() ? "time" : "count") + "Window("
                 + flow.width() + "," + flow.step() + ","
                 + flow.origin() + "," + flow.partialPolicy() + ")->"
-                + terminal();
+                + flow.shape().canonical() + "->" + terminal();
     }
 
     @Override
@@ -56,6 +67,8 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
     public final String logicalPlan() {
         return flow.program().canonical() + " -> "
                 + (flow.time() ? "TimeWindow" : "CountWindow")
+                + (flow.shape().isIdentity()
+                ? "" : " -> WindowShape")
                 + " -> " + terminal();
     }
 
@@ -70,9 +83,10 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
         CandidateSelection selected =
                 flow.program().select(frame, "dataflow.window");
         DataFlowBinding binding = frame.binding(source);
-        return flow.time()
+        WindowPrepared<B> prepared = flow.time()
                 ? prepareTime(frame, selected, binding)
                 : prepareCount(frame, selected, binding);
+        return flow.shape().apply(prepared);
     }
 
     private WindowPrepared<B> prepareCount(
@@ -124,7 +138,8 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
                     selected, binding, new int[0], new int[0], 0, 0L);
         }
         LongExpression<B> order = flow.orderKey();
-        long first = order.evaluate(binding, selected.indexes[0]);
+        long first = order.evaluate(
+                frame, binding, selected.indexes[0]);
         if (flow.origin() > first) {
             throw DataFlowFailures.invalidInput(
                     "dataflow_window_origin_after_first",
@@ -133,7 +148,8 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
         }
         long previous = first;
         for (int position = 1; position < cardinality; position++) {
-            long value = order.evaluate(binding, selected.indexes[position]);
+            long value = order.evaluate(
+                    frame, binding, selected.indexes[position]);
             if (value < previous) {
                 throw DataFlowFailures.invalidInput(
                         "dataflow_window_order_not_monotonic",
@@ -177,7 +193,9 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
             long endKey = anchor + flow.width();
             while (startPosition < cardinality
                     && order.evaluate(
-                    binding, selected.indexes[startPosition]) < anchor) {
+                    frame,
+                    binding,
+                    selected.indexes[startPosition]) < anchor) {
                 startPosition++;
             }
             if (endPosition < startPosition) {
@@ -185,7 +203,9 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
             }
             while (endPosition < cardinality
                     && order.evaluate(
-                    binding, selected.indexes[endPosition]) < endKey) {
+                    frame,
+                    binding,
+                    selected.indexes[endPosition]) < endKey) {
                 endPosition++;
             }
             boolean partial = endKey > last
@@ -334,15 +354,17 @@ final class ActiveWindowCursor implements WindowCursor {
 final class WindowBorrowOperation<B extends DataFlowBinding>
         extends WindowOperation<B, LongScalarResult> {
     private final WindowConsumer consumer;
+    private final long opaqueIdentity;
 
     WindowBorrowOperation(WindowedFlow<B> flow, WindowConsumer consumer) {
         super(flow);
         this.consumer = consumer;
+        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
     }
 
     @Override
     String terminal() {
-        return "borrow";
+        return "borrow(opaque-instance-" + opaqueIdentity + ")";
     }
 
     @Override
@@ -380,36 +402,91 @@ final class WindowBorrowOperation<B extends DataFlowBinding>
     }
 }
 
-final class WindowLongSumOperation<B extends DataFlowBinding>
+final class WindowLongAggregationOperation<B extends DataFlowBinding>
         extends WindowOperation<B, LongColumnResult> {
-    private final LongExpression<B> expression;
+    private static final int COUNT = 0;
+    private static final int SUM = 1;
+    private static final int MIN = 2;
+    private static final int MAX = 3;
 
-    WindowLongSumOperation(
-            WindowedFlow<B> flow, LongExpression<B> expression) {
-        super(flow);
+    private final LongExpression<B> expression;
+    private final int kind;
+
+    private WindowLongAggregationOperation(
+            WindowedFlow<B> flow,
+            LongExpression<B> expression,
+            int kind) {
+        super(
+                flow,
+                expression == null
+                        ? Collections.<ParameterSlot<?>>emptyList()
+                        : expression.parameters);
         this.expression = expression;
+        this.kind = kind;
+    }
+
+    static <B extends DataFlowBinding> WindowLongAggregationOperation<B> counts(
+            WindowedFlow<B> flow) {
+        return new WindowLongAggregationOperation<B>(
+                flow, null, COUNT);
+    }
+
+    static <B extends DataFlowBinding> WindowLongAggregationOperation<B> sum(
+            WindowedFlow<B> flow, LongExpression<B> expression) {
+        return new WindowLongAggregationOperation<B>(
+                flow, expression, SUM);
+    }
+
+    static <B extends DataFlowBinding> WindowLongAggregationOperation<B> min(
+            WindowedFlow<B> flow, LongExpression<B> expression) {
+        return new WindowLongAggregationOperation<B>(
+                flow, expression, MIN);
+    }
+
+    static <B extends DataFlowBinding> WindowLongAggregationOperation<B> max(
+            WindowedFlow<B> flow, LongExpression<B> expression) {
+        return new WindowLongAggregationOperation<B>(
+                flow, expression, MAX);
     }
 
     @Override
     String terminal() {
-        return "long-sum";
+        return "long-aggregate(" + kind + ")";
     }
 
     @Override
     public ExecutionOutcome<LongColumnResult> execute(ExecutionFrame frame) {
         WindowPrepared<B> prepared = prepare(frame);
         long[] values = frame.newOutputLongs(
-                prepared.windowCount, "dataflow.window.sum");
+                prepared.windowCount, "dataflow.window.aggregate");
         for (int window = 0; window < prepared.windowCount; window++) {
-            long sum = 0L;
-            for (int position = prepared.starts[window];
-                 position < prepared.ends[window];
-                 position++) {
-                sum += expression.evaluate(
+            int start = prepared.starts[window];
+            int end = prepared.ends[window];
+            if (kind == COUNT) {
+                values[window] = end - start;
+                continue;
+            }
+            long aggregate = expression.evaluate(
+                    frame,
+                    prepared.binding,
+                    prepared.selected.indexes[start]);
+            if (kind == SUM) {
+                aggregate = 0L;
+            }
+            for (int position = start; position < end; position++) {
+                long value = expression.evaluate(
+                        frame,
                         prepared.binding,
                         prepared.selected.indexes[position]);
+                if (kind == SUM) {
+                    aggregate += value;
+                } else if (kind == MIN && value < aggregate) {
+                    aggregate = value;
+                } else if (kind == MAX && value > aggregate) {
+                    aggregate = value;
+                }
             }
-            values[window] = sum;
+            values[window] = aggregate;
         }
         return new ExecutionOutcome<LongColumnResult>(
                 new LongColumnResult(values, prepared.windowCount),

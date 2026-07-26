@@ -1,6 +1,9 @@
 package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
+import com.hgtech.soma.runtime.SomaRuntimeException;
+
+import java.util.List;
 
 final class LongReductionOperation<B extends DataFlowBinding, R>
         extends SingleSourceOperation<R> {
@@ -17,7 +20,7 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
             CandidateProgram<B> program,
             LongExpression<B> expression,
             int kind) {
-        super(program);
+        super(program, expression.parameters);
         this.program = program;
         this.expression = expression;
         this.kind = kind;
@@ -78,6 +81,12 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && expression.parallelSafe;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public ExecutionOutcome<R> execute(ExecutionFrame frame) {
         ExecutionOutcome<R> parallel =
@@ -94,7 +103,8 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
                 new CandidateVisitor() {
                     @Override
                     public boolean accept(int index, int outputPosition) {
-                        long value = expression.evaluate(binding, index);
+                        long value = expression.evaluate(
+                                frame, binding, index);
                         if (kind == SUM || kind == AVERAGE) {
                             accumulator[0] += value;
                         } else if (count[0] == 0
@@ -147,7 +157,7 @@ final class DoubleReductionOperation<B extends DataFlowBinding, R>
             CandidateProgram<B> program,
             DoubleExpression<B> expression,
             int kind) {
-        super(program);
+        super(program, expression.parameters);
         this.program = program;
         this.expression = expression;
         this.kind = kind;
@@ -203,6 +213,12 @@ final class DoubleReductionOperation<B extends DataFlowBinding, R>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && expression.parallelSafe;
+    }
+
+    @Override
     @SuppressWarnings("unchecked")
     public ExecutionOutcome<R> execute(ExecutionFrame frame) {
         final DataFlowBinding binding = frame.binding(source);
@@ -213,7 +229,8 @@ final class DoubleReductionOperation<B extends DataFlowBinding, R>
                 new CandidateVisitor() {
                     @Override
                     public boolean accept(int index, int outputPosition) {
-                        double value = expression.evaluate(binding, index);
+                        double value = expression.evaluate(
+                                frame, binding, index);
                         if (kind == SUM || kind == AVERAGE) {
                             accumulator[0] += value;
                         } else if (count[0] == 0
@@ -263,7 +280,7 @@ final class LongPrefixOperation<B extends DataFlowBinding>
             LongExpression<B> expression,
             boolean inclusive,
             long seed) {
-        super(program);
+        super(program, expression.parameters);
         this.program = program;
         this.expression = expression;
         this.inclusive = inclusive;
@@ -317,7 +334,8 @@ final class LongPrefixOperation<B extends DataFlowBinding>
                 new CandidateVisitor() {
                     @Override
                     public boolean accept(int index, int outputPosition) {
-                        long value = expression.evaluate(binding, index);
+                        long value = expression.evaluate(
+                                frame, binding, index);
                         if (inclusive) {
                             accumulator[0] += value;
                             values[outputPosition] = accumulator[0];
@@ -336,5 +354,209 @@ final class LongPrefixOperation<B extends DataFlowBinding>
                 visit.matched,
                 1,
                 1);
+    }
+}
+
+final class RegisteredLongReductionOperation<B extends DataFlowBinding>
+        extends SingleSourceOperation<LongScalarResult> {
+    private final CandidateProgram<B> program;
+    private final LongExpression<B> expression;
+    private final RegisteredLongReducer reducer;
+    private final String registeredIdentity;
+    private final boolean parallelEligible;
+
+    RegisteredLongReductionOperation(
+            CandidateProgram<B> program,
+            LongExpression<B> expression,
+            RegisteredLongReducer reducer) {
+        super(program, expression.parameters);
+        this.program = program;
+        this.expression = expression;
+        this.reducer = reducer;
+        registeredIdentity = DataFlowSupport.registeredIdentity(
+                "registered-long-reducer",
+                reducer.semanticId(),
+                reducer.version());
+        parallelEligible = expression.parallelSafe
+                && reducer.associative()
+                && reducer.deterministic()
+                && reducer.threadSafe();
+    }
+
+    @Override
+    public String canonicalForm() {
+        return program.canonical() + "->" + registeredIdentity
+                + "(" + expression.identity() + ")";
+    }
+
+    @Override
+    public String logicalShape() {
+        return "Projected<long> -> Scalar<long>";
+    }
+
+    @Override
+    public String logicalPlan() {
+        return program.canonical()
+                + " -> RegisteredLongReduce(" + registeredIdentity + ")";
+    }
+
+    @Override
+    public String physicalPlan() {
+        return parallelEligible
+                ? "candidate-adaptive[registered-fixed-tree-long-reduce]"
+                : "candidate-stream[registered-left-fold]";
+    }
+
+    @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && parallelEligible;
+    }
+
+    @Override
+    public ExecutionOutcome<LongScalarResult> execute(
+            final ExecutionFrame frame) {
+        final DataFlowBinding binding = frame.binding(source);
+        int cardinality = program.supportsContiguousParallel()
+                ? program.contiguousCardinality(binding) : 0;
+        ParallelPlan plan = ParallelExecution.plan(
+                frame,
+                cardinality,
+                parallelEligible && program.supportsContiguousParallel(),
+                16L,
+                1,
+                "dataflow.registeredLongReduce");
+        if (plan.parallel()) {
+            List<RegisteredLongPartial> partials = ParallelExecution.run(
+                    frame,
+                    plan,
+                    new ParallelWork<RegisteredLongPartial>() {
+                        @Override
+                        public RegisteredLongPartial execute(
+                                int partition,
+                                int startInclusive,
+                                int endExclusive) {
+                            long state = seed();
+                            int count = 0;
+                            for (int index = startInclusive;
+                                 index < endExclusive;
+                                 index++) {
+                                if ((index & 1023) == 0) {
+                                    frame.checkBoundary(
+                                            "dataflow.registeredLongReduce");
+                                }
+                                if (!program.parallelMatches(
+                                        frame, binding, index)) {
+                                    continue;
+                                }
+                                state = accumulate(
+                                        state,
+                                        expression.evaluate(
+                                                frame, binding, index));
+                                count++;
+                            }
+                            return new RegisteredLongPartial(state, count);
+                        }
+                    },
+                    "dataflow.registeredLongReduce");
+            long state = seed();
+            long matched = 0L;
+            for (RegisteredLongPartial partial : partials) {
+                state = merge(state, partial.state);
+                matched += partial.count;
+            }
+            long result = finish(state);
+            frame.reserveOutput(
+                    1L, 8L, "dataflow.registeredLongReduce");
+            return new ExecutionOutcome<LongScalarResult>(
+                    new LongScalarResult(result),
+                    cardinality,
+                    matched,
+                    1L,
+                    plan.tasks(),
+                    plan.workers());
+        }
+
+        final long[] state = new long[] {seed()};
+        CandidateVisit visit = program.visit(
+                frame,
+                new CandidateVisitor() {
+                    @Override
+                    public boolean accept(int index, int outputPosition) {
+                        state[0] = accumulate(
+                                state[0],
+                                expression.evaluate(frame, binding, index));
+                        return true;
+                    }
+                },
+                "dataflow.registeredLongReduce");
+        long result = finish(state[0]);
+        frame.reserveOutput(1L, 8L, "dataflow.registeredLongReduce");
+        return new ExecutionOutcome<LongScalarResult>(
+                new LongScalarResult(result),
+                visit.scanned,
+                visit.matched,
+                1L,
+                1,
+                1);
+    }
+
+    private long seed() {
+        try {
+            return reducer.seed();
+        } catch (SomaRuntimeException failure) {
+            throw failure;
+        } catch (RuntimeException callback) {
+            throw callback("seed", callback);
+        }
+    }
+
+    private long accumulate(long state, long value) {
+        try {
+            return reducer.accumulate(state, value);
+        } catch (SomaRuntimeException failure) {
+            throw failure;
+        } catch (RuntimeException callback) {
+            throw callback("accumulate", callback);
+        }
+    }
+
+    private long merge(long left, long right) {
+        try {
+            return reducer.merge(left, right);
+        } catch (SomaRuntimeException failure) {
+            throw failure;
+        } catch (RuntimeException callback) {
+            throw callback("merge", callback);
+        }
+    }
+
+    private long finish(long state) {
+        try {
+            return reducer.finish(state);
+        } catch (SomaRuntimeException failure) {
+            throw failure;
+        } catch (RuntimeException callback) {
+            throw callback("finish", callback);
+        }
+    }
+
+    private SomaRuntimeException callback(
+            String phase, RuntimeException failure) {
+        return DataFlowFailures.callback(
+                "dataflow_registered_long_reducer_failed",
+                registeredIdentity,
+                "dataflow.reduce." + phase,
+                failure);
+    }
+}
+
+final class RegisteredLongPartial {
+    final long state;
+    final int count;
+
+    RegisteredLongPartial(long state, int count) {
+        this.state = state;
+        this.count = count;
     }
 }

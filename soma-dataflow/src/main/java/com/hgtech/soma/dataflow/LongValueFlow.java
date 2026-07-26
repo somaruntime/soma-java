@@ -13,6 +13,11 @@ public final class LongValueFlow<B extends DataFlowBinding> {
         this.expression = expression;
     }
 
+    /** Returns the retained single-Table lineage for further legal operators. */
+    public CandidateFlow<B> candidates() {
+        return new CandidateFlow<B>(program);
+    }
+
     public DataFlowDefinition<LongColumnResult> toColumn() {
         return DataFlowDefinition.of(
                 new LongColumnOperation<B>(program, expression));
@@ -38,6 +43,16 @@ public final class LongValueFlow<B extends DataFlowBinding> {
                 LongReductionOperation.max(program, expression));
     }
 
+    public DataFlowDefinition<LongScalarResult> reduce(
+            RegisteredLongReducer reducer) {
+        if (reducer == null) {
+            throw new NullPointerException("reducer");
+        }
+        return DataFlowDefinition.of(
+                new RegisteredLongReductionOperation<B>(
+                        program, expression, reducer));
+    }
+
     public DataFlowDefinition<LongColumnResult> inclusivePrefixSum() {
         return DataFlowDefinition.of(
                 LongPrefixOperation.inclusive(program, expression));
@@ -46,5 +61,15 @@ public final class LongValueFlow<B extends DataFlowBinding> {
     public DataFlowDefinition<LongColumnResult> exclusivePrefixSum(long seed) {
         return DataFlowDefinition.of(
                 LongPrefixOperation.exclusive(program, expression, seed));
+    }
+
+    public DataFlowDefinition<LongScalarResult> borrow(
+            LongValueConsumer consumer) {
+        if (consumer == null) {
+            throw new NullPointerException("consumer");
+        }
+        return DataFlowDefinition.of(
+                new LongValueBorrowOperation<B>(
+                        program, expression, consumer));
     }
 }

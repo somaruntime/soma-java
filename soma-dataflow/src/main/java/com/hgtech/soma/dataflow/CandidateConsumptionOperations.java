@@ -37,6 +37,11 @@ final class PointExistsOperation<B extends DataFlowBinding>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe();
+    }
+
+    @Override
     public ExecutionOutcome<BooleanScalarResult> execute(ExecutionFrame frame) {
         CandidateSelection selected =
                 program.select(frame, "dataflow.point.exists");
@@ -55,6 +60,7 @@ final class CandidateBorrowOperation<B extends DataFlowBinding>
     private final CandidateProgram<B> program;
     private final CandidateBorrowAccess<B> access;
     private final Object consumer;
+    private final long opaqueIdentity;
 
     CandidateBorrowOperation(
             CandidateProgram<B> program,
@@ -64,12 +70,14 @@ final class CandidateBorrowOperation<B extends DataFlowBinding>
         this.program = program;
         this.access = access;
         this.consumer = consumer;
+        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
     }
 
     @Override
     public String canonicalForm() {
         return program.canonical() + "->borrow("
-                + access.identity() + ",opaque-instance)";
+                + access.identity() + ",opaque-instance-"
+                + opaqueIdentity + ")";
     }
 
     @Override

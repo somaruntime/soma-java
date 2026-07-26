@@ -3,6 +3,7 @@ package com.hgtech.soma.dataflow;
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Required, hashable composite key expression used by GroupBy and equi Join.
@@ -13,14 +14,23 @@ import java.util.Arrays;
 public final class KeyExpression<B extends DataFlowBinding> {
     private final SourceSlot<B> source;
     private final KeyComponent[] components;
+    private final List<ParameterSlot<?>> parameters;
+    private final boolean parallelSafe;
     private final String identity;
 
-    private KeyExpression(SourceSlot<B> source, KeyComponent[] components) {
+    private KeyExpression(
+            SourceSlot<B> source,
+            KeyComponent[] components,
+            List<ParameterSlot<?>> parameters,
+            boolean parallelSafe) {
         this.source = source;
         this.components = components;
+        this.parameters = parameters;
+        this.parallelSafe = parallelSafe;
         StringBuilder canonical = new StringBuilder("key-v1");
         for (KeyComponent component : components) {
-            canonical.append('\n').append(component.canonical());
+            DataFlowSupport.appendCanonical(
+                    canonical, "component", component.canonical());
         }
         identity = DataFlowSupport.identity(canonical.toString());
     }
@@ -33,7 +43,9 @@ public final class KeyExpression<B extends DataFlowBinding> {
         requireRequired(expression.required(), expression.path);
         return new KeyExpression<B>(
                 expression.source,
-                new KeyComponent[] {new LongKeyComponent(expression)});
+                new KeyComponent[] {new LongKeyComponent(expression)},
+                expression.parameters,
+                expression.parallelSafe);
     }
 
     public static <B extends DataFlowBinding, T> KeyExpression<B> of(
@@ -44,7 +56,35 @@ public final class KeyExpression<B extends DataFlowBinding> {
         requireRequired(expression.required(), expression.path);
         return new KeyExpression<B>(
                 expression.source,
-                new KeyComponent[] {new ObjectKeyComponent(expression)});
+                new KeyComponent[] {new ObjectKeyComponent(expression)},
+                expression.parameters,
+                expression.parallelSafe);
+    }
+
+    public static <B extends DataFlowBinding> KeyExpression<B> of(
+            DoubleExpression<B> expression) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        requireRequired(expression.required(), expression.path);
+        return new KeyExpression<B>(
+                expression.source,
+                new KeyComponent[] {new DoubleKeyComponent(expression)},
+                expression.parameters,
+                expression.parallelSafe);
+    }
+
+    public static <B extends DataFlowBinding> KeyExpression<B> of(
+            BooleanExpression<B> expression) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        requireRequired(expression.required(), expression.path);
+        return new KeyExpression<B>(
+                expression.source,
+                new KeyComponent[] {new BooleanKeyComponent(expression)},
+                expression.parameters,
+                expression.parallelSafe);
     }
 
     public KeyExpression<B> then(LongExpression<B> expression) {
@@ -53,7 +93,10 @@ public final class KeyExpression<B extends DataFlowBinding> {
         }
         requireSource(expression.source);
         requireRequired(expression.required(), expression.path);
-        return append(new LongKeyComponent(expression));
+        return append(
+                new LongKeyComponent(expression),
+                expression.parameters,
+                expression.parallelSafe);
     }
 
     public <T> KeyExpression<B> then(ObjectExpression<B, T> expression) {
@@ -62,7 +105,34 @@ public final class KeyExpression<B extends DataFlowBinding> {
         }
         requireSource(expression.source);
         requireRequired(expression.required(), expression.path);
-        return append(new ObjectKeyComponent(expression));
+        return append(
+                new ObjectKeyComponent(expression),
+                expression.parameters,
+                expression.parallelSafe);
+    }
+
+    public KeyExpression<B> then(DoubleExpression<B> expression) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        requireSource(expression.source);
+        requireRequired(expression.required(), expression.path);
+        return append(
+                new DoubleKeyComponent(expression),
+                expression.parameters,
+                expression.parallelSafe);
+    }
+
+    public KeyExpression<B> then(BooleanExpression<B> expression) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        requireSource(expression.source);
+        requireRequired(expression.required(), expression.path);
+        return append(
+                new BooleanKeyComponent(expression),
+                expression.parameters,
+                expression.parallelSafe);
     }
 
     public String identity() {
@@ -73,16 +143,26 @@ public final class KeyExpression<B extends DataFlowBinding> {
         return source;
     }
 
-    long hash(DataFlowBinding binding, int index) {
+    List<ParameterSlot<?>> parameters() {
+        return parameters;
+    }
+
+    boolean parallelSafe() {
+        return parallelSafe;
+    }
+
+    long hash(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
         long hash = 1469598103934665603L;
         for (KeyComponent component : components) {
-            hash = (hash ^ component.hash(binding, index))
+            hash = (hash ^ component.hash(frame, binding, index))
                     * 1099511628211L;
         }
         return hash;
     }
 
     boolean equal(
+            ExecutionFrame frame,
             DataFlowBinding leftBinding,
             int leftIndex,
             KeyExpression<?> right,
@@ -90,6 +170,7 @@ public final class KeyExpression<B extends DataFlowBinding> {
             int rightIndex) {
         for (int component = 0; component < components.length; component++) {
             if (!components[component].equal(
+                    frame,
                     leftBinding,
                     leftIndex,
                     right.components[component],
@@ -121,11 +202,18 @@ public final class KeyExpression<B extends DataFlowBinding> {
         }
     }
 
-    private KeyExpression<B> append(KeyComponent component) {
+    private KeyExpression<B> append(
+            KeyComponent component,
+            List<ParameterSlot<?>> addedParameters,
+            boolean addedParallelSafe) {
         KeyComponent[] next = Arrays.copyOf(
                 components, components.length + 1);
         next[components.length] = component;
-        return new KeyExpression<B>(source, next);
+        return new KeyExpression<B>(
+                source,
+                next,
+                DataFlowSupport.unionParameters(parameters, addedParameters),
+                parallelSafe && addedParallelSafe);
     }
 
     private void requireSource(SourceSlot<?> candidate) {
@@ -150,12 +238,16 @@ public final class KeyExpression<B extends DataFlowBinding> {
 interface KeyComponent {
     int LONG = 1;
     int OBJECT = 2;
+    int DOUBLE = 3;
+    int BOOLEAN = 4;
 
     int kind();
 
-    long hash(DataFlowBinding binding, int index);
+    long hash(
+            ExecutionFrame frame, DataFlowBinding binding, int index);
 
     boolean equal(
+            ExecutionFrame frame,
             DataFlowBinding leftBinding,
             int leftIndex,
             KeyComponent right,
@@ -178,21 +270,23 @@ final class LongKeyComponent implements KeyComponent {
     }
 
     @Override
-    public long hash(DataFlowBinding binding, int index) {
-        long value = expression.evaluate(binding, index);
+    public long hash(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
+        long value = expression.evaluate(frame, binding, index);
         return value ^ (value >>> 32);
     }
 
     @Override
     public boolean equal(
+            ExecutionFrame frame,
             DataFlowBinding leftBinding,
             int leftIndex,
             KeyComponent right,
             DataFlowBinding rightBinding,
             int rightIndex) {
-        return expression.evaluate(leftBinding, leftIndex)
+        return expression.evaluate(frame, leftBinding, leftIndex)
                 == ((LongKeyComponent) right).expression
-                .evaluate(rightBinding, rightIndex);
+                .evaluate(frame, rightBinding, rightIndex);
     }
 
     @Override
@@ -214,25 +308,105 @@ final class ObjectKeyComponent implements KeyComponent {
     }
 
     @Override
-    public long hash(DataFlowBinding binding, int index) {
-        Object value = expression.evaluate(binding, index);
+    public long hash(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
+        Object value = expression.evaluate(frame, binding, index);
         return value.hashCode();
     }
 
     @Override
     public boolean equal(
+            ExecutionFrame frame,
             DataFlowBinding leftBinding,
             int leftIndex,
             KeyComponent right,
             DataFlowBinding rightBinding,
             int rightIndex) {
-        return expression.evaluate(leftBinding, leftIndex).equals(
+        return expression.evaluate(frame, leftBinding, leftIndex).equals(
                 ((ObjectKeyComponent) right).expression
-                        .evaluate(rightBinding, rightIndex));
+                        .evaluate(frame, rightBinding, rightIndex));
     }
 
     @Override
     public String canonical() {
         return "object(" + expression.identity() + ")";
+    }
+}
+
+final class DoubleKeyComponent implements KeyComponent {
+    private final DoubleExpression<?> expression;
+
+    DoubleKeyComponent(DoubleExpression<?> expression) {
+        this.expression = expression;
+    }
+
+    @Override
+    public int kind() {
+        return DOUBLE;
+    }
+
+    @Override
+    public long hash(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
+        long bits = Double.doubleToLongBits(
+                expression.evaluate(frame, binding, index));
+        return bits ^ (bits >>> 32);
+    }
+
+    @Override
+    public boolean equal(
+            ExecutionFrame frame,
+            DataFlowBinding leftBinding,
+            int leftIndex,
+            KeyComponent right,
+            DataFlowBinding rightBinding,
+            int rightIndex) {
+        return Double.compare(
+                expression.evaluate(frame, leftBinding, leftIndex),
+                ((DoubleKeyComponent) right).expression.evaluate(
+                        frame, rightBinding, rightIndex)) == 0;
+    }
+
+    @Override
+    public String canonical() {
+        return "double(" + expression.identity() + ")";
+    }
+}
+
+final class BooleanKeyComponent implements KeyComponent {
+    private final BooleanExpression<?> expression;
+
+    BooleanKeyComponent(BooleanExpression<?> expression) {
+        this.expression = expression;
+    }
+
+    @Override
+    public int kind() {
+        return BOOLEAN;
+    }
+
+    @Override
+    public long hash(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
+        return expression.evaluate(frame, binding, index)
+                ? 1231L : 1237L;
+    }
+
+    @Override
+    public boolean equal(
+            ExecutionFrame frame,
+            DataFlowBinding leftBinding,
+            int leftIndex,
+            KeyComponent right,
+            DataFlowBinding rightBinding,
+            int rightIndex) {
+        return expression.evaluate(frame, leftBinding, leftIndex)
+                == ((BooleanKeyComponent) right).expression.evaluate(
+                        frame, rightBinding, rightIndex);
+    }
+
+    @Override
+    public String canonical() {
+        return "boolean(" + expression.identity() + ")";
     }
 }

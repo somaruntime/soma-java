@@ -76,7 +76,11 @@ final class DenseDataFlowSourceEmitter {
                 .append("  public static final class Source extends SourceSlot<Binding>{\n")
                 .append("    private final Columns columns=new Columns(this);\n")
                 .append("    private Source(int ordinal,String alias){super(ordinal,alias,SCHEMA_IDENTITY,TABLE_IDENTITY);}\n")
-                .append("    public CandidateFlow<Binding> candidates(){return GeneratedDataFlow.candidates(this);}\n");
+                .append("    public CandidateFlow<Binding> candidates(){return GeneratedDataFlow.candidates(this);}\n")
+                .append("    public LongExpression<Binding> longParameter(ParameterSlot<Long> parameter){return GeneratedDataFlow.longParameter(this,parameter);}\n")
+                .append("    public DoubleExpression<Binding> doubleParameter(ParameterSlot<Double> parameter){return GeneratedDataFlow.doubleParameter(this,parameter);}\n")
+                .append("    public BooleanExpression<Binding> booleanParameter(ParameterSlot<Boolean> parameter){return GeneratedDataFlow.booleanParameter(this,parameter);}\n")
+                .append("    public <T> ObjectExpression<Binding,T> objectParameter(ParameterSlot<T> parameter){return GeneratedDataFlow.objectParameter(this,parameter);}\n");
         appendAccessSourceMethods(out, table);
         appendExactSourceMethods(out, table);
         appendOwnedChildSourceMethods(out, table);

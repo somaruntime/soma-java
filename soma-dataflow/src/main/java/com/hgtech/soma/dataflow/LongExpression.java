@@ -1,6 +1,10 @@
 package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
+import com.hgtech.soma.runtime.SomaRuntimeException;
+
+import java.util.Collections;
+import java.util.List;
 
 /** Immutable schema-bound integral expression with a long carrier. */
 public final class LongExpression<B extends DataFlowBinding> {
@@ -8,6 +12,8 @@ public final class LongExpression<B extends DataFlowBinding> {
     final LongNode node;
     final BooleanNode presence;
     final String path;
+    final List<ParameterSlot<?>> parameters;
+    final boolean parallelSafe;
     private final String identity;
 
     LongExpression(
@@ -15,17 +21,47 @@ public final class LongExpression<B extends DataFlowBinding> {
             LongNode node,
             BooleanNode presence,
             String path) {
+        this(
+                source,
+                node,
+                presence,
+                path,
+                Collections.<ParameterSlot<?>>emptyList(),
+                true);
+    }
+
+    LongExpression(
+            SourceSlot<B> source,
+            LongNode node,
+            BooleanNode presence,
+            String path,
+            List<ParameterSlot<?>> parameters,
+            boolean parallelSafe) {
         this.source = source;
         this.node = node;
         this.presence = presence;
         this.path = path;
-        identity = DataFlowSupport.identity(
-                "long-expression-v1\n" + source.alias() + "\n"
-                        + node.canonical() + "\n" + presence.canonical() + "\n");
+        this.parameters = parameters;
+        this.parallelSafe = parallelSafe;
+        StringBuilder canonical =
+                new StringBuilder("long-expression-v1");
+        DataFlowSupport.appendCanonical(
+                canonical, "source", source.alias());
+        DataFlowSupport.appendCanonical(
+                canonical, "node", node.canonical());
+        DataFlowSupport.appendCanonical(
+                canonical, "presence", presence.canonical());
+        identity = DataFlowSupport.identity(canonical.toString());
     }
 
     public BooleanExpression<B> isPresent() {
-        return new BooleanExpression<B>(source, presence);
+        return new BooleanExpression<B>(
+                source,
+                presence,
+                ExpressionNodes.alwaysPresent(),
+                path + ".present",
+                parameters,
+                parallelSafe);
     }
 
     public BooleanExpression<B> isAbsent() {
@@ -39,9 +75,13 @@ public final class LongExpression<B extends DataFlowBinding> {
                 source,
                 new LongNode() {
                     @Override
-                    public long evaluate(DataFlowBinding binding, int index) {
-                        return available.evaluate(binding, index)
-                                ? value.evaluate(binding, index) : fallback;
+                    public long evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        return available.evaluate(frame, binding, index)
+                                ? value.evaluate(frame, binding, index)
+                                : fallback;
                     }
 
                     @Override
@@ -50,7 +90,9 @@ public final class LongExpression<B extends DataFlowBinding> {
                     }
                 },
                 ExpressionNodes.alwaysPresent(),
-                path + ".coalesce");
+                path + ".coalesce",
+                parameters,
+                parallelSafe);
     }
 
     public LongExpression<B> plus(final long value) {
@@ -81,6 +123,10 @@ public final class LongExpression<B extends DataFlowBinding> {
         return binary("multiply", other, 2);
     }
 
+    public LongExpression<B> dividedBy(LongExpression<B> other) {
+        return binary("divide", other, 3);
+    }
+
     public BooleanExpression<B> equalTo(final long value) {
         return compare(value, 0);
     }
@@ -109,12 +155,26 @@ public final class LongExpression<B extends DataFlowBinding> {
         return compare(other, 0);
     }
 
+    public BooleanExpression<B> notEqualTo(LongExpression<B> other) {
+        return compare(other, 1);
+    }
+
     public BooleanExpression<B> lessThan(LongExpression<B> other) {
         return compare(other, 2);
     }
 
+    public BooleanExpression<B> lessThanOrEqualTo(
+            LongExpression<B> other) {
+        return compare(other, 3);
+    }
+
     public BooleanExpression<B> greaterThan(LongExpression<B> other) {
         return compare(other, 4);
+    }
+
+    public BooleanExpression<B> greaterThanOrEqualTo(
+            LongExpression<B> other) {
+        return compare(other, 5);
     }
 
     public CandidateOrder<B> ascending() {
@@ -125,13 +185,100 @@ public final class LongExpression<B extends DataFlowBinding> {
         return CandidateOrder.longOrder(this, true);
     }
 
+    public LongExpression<B> map(final RegisteredLongFunction function) {
+        if (function == null) {
+            throw new NullPointerException("function");
+        }
+        final String registered = DataFlowSupport.registeredIdentity(
+                "registered-long-function",
+                function.semanticId(),
+                function.version());
+        final LongNode upstream = node;
+        return new LongExpression<B>(
+                source,
+                new LongNode() {
+                    @Override
+                    public long evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        try {
+                            return function.applyAsLong(
+                                    upstream.evaluate(frame, binding, index));
+                        } catch (SomaRuntimeException failure) {
+                            throw failure;
+                        } catch (RuntimeException callback) {
+                            throw DataFlowFailures.callback(
+                                    "dataflow_registered_long_function_failed",
+                                    path,
+                                    "dataflow.expression",
+                                    callback);
+                        }
+                    }
+
+                    @Override
+                    public String canonical() {
+                        return registered + "(" + upstream.canonical() + ")";
+                    }
+                },
+                presence,
+                path + ".registered",
+                parameters,
+                parallelSafe
+                        && function.deterministic()
+                        && function.threadSafe());
+    }
+
+    public LongExpression<B> mapOpaque(final OpaqueLongFunction function) {
+        if (function == null) {
+            throw new NullPointerException("function");
+        }
+        final long opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
+        final LongNode upstream = node;
+        return new LongExpression<B>(
+                source,
+                new LongNode() {
+                    @Override
+                    public long evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        try {
+                            return function.applyAsLong(
+                                    upstream.evaluate(frame, binding, index));
+                        } catch (SomaRuntimeException failure) {
+                            throw failure;
+                        } catch (RuntimeException callback) {
+                            throw DataFlowFailures.callback(
+                                    "dataflow_opaque_long_function_failed",
+                                    path,
+                                    "dataflow.expression",
+                                    callback);
+                        }
+                    }
+
+                    @Override
+                    public String canonical() {
+                        return "opaque-long-function-instance("
+                                + opaqueIdentity + ","
+                                + upstream.canonical() + ")";
+                    }
+                },
+                presence,
+                path + ".opaque",
+                parameters,
+                false);
+    }
+
     public String identity() {
         return identity;
     }
 
-    long evaluate(DataFlowBinding binding, int index) {
-        ExpressionNodes.requirePresent(presence, binding, index, path);
-        return node.evaluate(binding, index);
+    long evaluate(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
+        ExpressionNodes.requirePresent(
+                frame, presence, binding, index, path);
+        return node.evaluate(frame, binding, index);
     }
 
     boolean required() {
@@ -145,8 +292,11 @@ public final class LongExpression<B extends DataFlowBinding> {
                 source,
                 new LongNode() {
                     @Override
-                    public long evaluate(DataFlowBinding binding, int index) {
-                        long value = left.evaluate(binding, index);
+                    public long evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        long value = left.evaluate(frame, binding, index);
                         if (kind == 0) return value + right;
                         if (kind == 1) return value - right;
                         if (kind == 2) return value * right;
@@ -159,7 +309,9 @@ public final class LongExpression<B extends DataFlowBinding> {
                     }
                 },
                 presence,
-                path + "." + operation);
+                path + "." + operation,
+                parameters,
+                parallelSafe);
     }
 
     private LongExpression<B> binary(
@@ -171,12 +323,16 @@ public final class LongExpression<B extends DataFlowBinding> {
                 source,
                 new LongNode() {
                     @Override
-                    public long evaluate(DataFlowBinding binding, int index) {
-                        long a = left.evaluate(binding, index);
-                        long b = right.evaluate(binding, index);
+                    public long evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
+                        long a = left.evaluate(frame, binding, index);
+                        long b = right.evaluate(frame, binding, index);
                         if (kind == 0) return a + b;
                         if (kind == 1) return a - b;
-                        return a * b;
+                        if (kind == 2) return a * b;
+                        return a / b;
                     }
 
                     @Override
@@ -186,7 +342,10 @@ public final class LongExpression<B extends DataFlowBinding> {
                     }
                 },
                 ExpressionNodes.andPresence(presence, other.presence),
-                path + "." + operation);
+                path + "." + operation,
+                DataFlowSupport.unionParameters(
+                        parameters, other.parameters),
+                parallelSafe && other.parallelSafe);
     }
 
     private BooleanExpression<B> compare(final long right, final int kind) {
@@ -196,10 +355,13 @@ public final class LongExpression<B extends DataFlowBinding> {
                 source,
                 new BooleanNode() {
                     @Override
-                    public boolean evaluate(DataFlowBinding binding, int index) {
+                    public boolean evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
                         ExpressionNodes.requirePresent(
-                                available, binding, index, path);
-                        long value = left.evaluate(binding, index);
+                                frame, available, binding, index, path);
+                        long value = left.evaluate(frame, binding, index);
                         if (kind == 0) return value == right;
                         if (kind == 1) return value != right;
                         if (kind == 2) return value < right;
@@ -213,7 +375,11 @@ public final class LongExpression<B extends DataFlowBinding> {
                         return "compare-" + kind + "(" + left.canonical()
                                 + "," + right + ")";
                     }
-                });
+                },
+                ExpressionNodes.alwaysPresent(),
+                "boolean",
+                parameters,
+                parallelSafe);
     }
 
     private BooleanExpression<B> compare(
@@ -227,14 +393,20 @@ public final class LongExpression<B extends DataFlowBinding> {
                 source,
                 new BooleanNode() {
                     @Override
-                    public boolean evaluate(DataFlowBinding binding, int index) {
+                    public boolean evaluate(
+                            ExecutionFrame frame,
+                            DataFlowBinding binding,
+                            int index) {
                         ExpressionNodes.requirePresent(
-                                available, binding, index, path);
-                        long a = left.evaluate(binding, index);
-                        long b = right.evaluate(binding, index);
+                                frame, available, binding, index, path);
+                        long a = left.evaluate(frame, binding, index);
+                        long b = right.evaluate(frame, binding, index);
                         if (kind == 0) return a == b;
+                        if (kind == 1) return a != b;
                         if (kind == 2) return a < b;
-                        return a > b;
+                        if (kind == 3) return a <= b;
+                        if (kind == 4) return a > b;
+                        return a >= b;
                     }
 
                     @Override
@@ -242,7 +414,12 @@ public final class LongExpression<B extends DataFlowBinding> {
                         return "compare-" + kind + "(" + left.canonical()
                                 + "," + right.canonical() + ")";
                     }
-                });
+                },
+                ExpressionNodes.alwaysPresent(),
+                "boolean",
+                DataFlowSupport.unionParameters(
+                        parameters, other.parameters),
+                parallelSafe && other.parallelSafe);
     }
 
     private void requireSameSource(LongExpression<B> other) {

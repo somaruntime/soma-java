@@ -45,6 +45,11 @@ final class CandidateCountOperation<B extends DataFlowBinding>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe();
+    }
+
+    @Override
     public ExecutionOutcome<LongScalarResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<LongScalarResult> parallel =
                 ParallelCandidateExecution.count(program, frame);
@@ -78,7 +83,7 @@ final class CandidateMatchOperation<B extends DataFlowBinding>
             CandidateProgram<B> program,
             BooleanExpression<B> predicate,
             int mode) {
-        super(program);
+        super(program, predicate.parameters);
         this.program = program;
         this.predicate = predicate;
         this.mode = mode;
@@ -108,6 +113,12 @@ final class CandidateMatchOperation<B extends DataFlowBinding>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && predicate.parallelSafe;
+    }
+
+    @Override
     public ExecutionOutcome<BooleanScalarResult> execute(ExecutionFrame frame) {
         final DataFlowBinding binding = frame.binding(source);
         final boolean[] result = new boolean[] {mode == ALL};
@@ -120,7 +131,8 @@ final class CandidateMatchOperation<B extends DataFlowBinding>
                         if (done[0]) {
                             return false;
                         }
-                        boolean value = predicate.evaluate(binding, index);
+                        boolean value = predicate.evaluate(
+                                frame, binding, index);
                         if (mode == ANY && value) {
                             result[0] = true;
                             done[0] = true;
@@ -176,6 +188,11 @@ final class CandidateIndexSnapshotOperation<B extends DataFlowBinding>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe();
+    }
+
+    @Override
     public ExecutionOutcome<IndexSnapshot> execute(ExecutionFrame frame) {
         ParallelCandidateSelection parallel =
                 ParallelCandidateExecution.select(
@@ -206,8 +223,10 @@ abstract class CandidateProjectionOperation<B extends DataFlowBinding, R>
         extends SingleSourceOperation<R> {
     final CandidateProgram<B> program;
 
-    CandidateProjectionOperation(CandidateProgram<B> program) {
-        super(program);
+    CandidateProjectionOperation(
+            CandidateProgram<B> program,
+            java.util.List<ParameterSlot<?>> parameters) {
+        super(program, parameters);
         this.program = program;
     }
 
@@ -235,7 +254,7 @@ final class LongColumnOperation<B extends DataFlowBinding>
 
     LongColumnOperation(
             CandidateProgram<B> program, LongExpression<B> expression) {
-        super(program);
+        super(program, expression.parameters);
         this.expression = expression;
     }
 
@@ -256,6 +275,12 @@ final class LongColumnOperation<B extends DataFlowBinding>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && expression.parallelSafe;
+    }
+
+    @Override
     public ExecutionOutcome<LongColumnResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<LongColumnResult> parallel =
                 ParallelCandidateExecution.longColumn(
@@ -271,7 +296,7 @@ final class LongColumnOperation<B extends DataFlowBinding>
                     frame.newOutputLongs(selected.size, "dataflow.longColumn");
             for (int index = 0; index < selected.size; index++) {
                 values[index] = expression.evaluate(
-                        binding, selected.indexes[index]);
+                        frame, binding, selected.indexes[index]);
             }
             return new ExecutionOutcome<LongColumnResult>(
                     new LongColumnResult(values, selected.size),
@@ -290,7 +315,7 @@ final class LongColumnOperation<B extends DataFlowBinding>
                     @Override
                     public boolean accept(int index, int outputPosition) {
                         values[outputPosition] =
-                                expression.evaluate(binding, index);
+                                expression.evaluate(frame, binding, index);
                         return true;
                     }
                 },
@@ -311,7 +336,7 @@ final class DoubleColumnOperation<B extends DataFlowBinding>
 
     DoubleColumnOperation(
             CandidateProgram<B> program, DoubleExpression<B> expression) {
-        super(program);
+        super(program, expression.parameters);
         this.expression = expression;
     }
 
@@ -332,6 +357,12 @@ final class DoubleColumnOperation<B extends DataFlowBinding>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && expression.parallelSafe;
+    }
+
+    @Override
     public ExecutionOutcome<DoubleColumnResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<DoubleColumnResult> parallel =
                 ParallelCandidateExecution.doubleColumn(
@@ -349,7 +380,7 @@ final class DoubleColumnOperation<B extends DataFlowBinding>
         if (selected != null) {
             for (int index = 0; index < selected.size; index++) {
                 values[index] = expression.evaluate(
-                        binding, selected.indexes[index]);
+                        frame, binding, selected.indexes[index]);
             }
             return new ExecutionOutcome<DoubleColumnResult>(
                     new DoubleColumnResult(values, selected.size),
@@ -365,7 +396,7 @@ final class DoubleColumnOperation<B extends DataFlowBinding>
                     @Override
                     public boolean accept(int index, int outputPosition) {
                         values[outputPosition] =
-                                expression.evaluate(binding, index);
+                                expression.evaluate(frame, binding, index);
                         return true;
                     }
                 },
@@ -386,7 +417,7 @@ final class BooleanColumnOperation<B extends DataFlowBinding>
 
     BooleanColumnOperation(
             CandidateProgram<B> program, BooleanExpression<B> expression) {
-        super(program);
+        super(program, expression.parameters);
         this.expression = expression;
     }
 
@@ -407,6 +438,12 @@ final class BooleanColumnOperation<B extends DataFlowBinding>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && expression.parallelSafe;
+    }
+
+    @Override
     public ExecutionOutcome<BooleanColumnResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<BooleanColumnResult> parallel =
                 ParallelCandidateExecution.booleanColumn(
@@ -424,7 +461,7 @@ final class BooleanColumnOperation<B extends DataFlowBinding>
                     @Override
                     public boolean accept(int index, int outputPosition) {
                         values[outputPosition] =
-                                expression.evaluate(binding, index);
+                                expression.evaluate(frame, binding, index);
                         return true;
                     }
                 },
@@ -445,7 +482,7 @@ final class ObjectColumnOperation<B extends DataFlowBinding, T>
 
     ObjectColumnOperation(
             CandidateProgram<B> program, ObjectExpression<B, T> expression) {
-        super(program);
+        super(program, expression.parameters);
         this.expression = expression;
     }
 
@@ -466,6 +503,12 @@ final class ObjectColumnOperation<B extends DataFlowBinding, T>
     }
 
     @Override
+    public boolean parallelBranchSafe() {
+        return program.parallelBranchSafe()
+                && expression.parallelSafe;
+    }
+
+    @Override
     public ExecutionOutcome<ObjectColumnResult<T>> execute(ExecutionFrame frame) {
         final DataFlowBinding binding = frame.binding(source);
         int capacity = program.maximumCardinality(binding);
@@ -477,7 +520,7 @@ final class ObjectColumnOperation<B extends DataFlowBinding, T>
                     @Override
                     public boolean accept(int index, int outputPosition) {
                         values[outputPosition] =
-                                expression.evaluate(binding, index);
+                                expression.evaluate(frame, binding, index);
                         return true;
                     }
                 },

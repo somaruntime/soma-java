@@ -3,6 +3,9 @@ package com.hgtech.soma.dataflow;
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.dataflow.generated.OwnedChildAccess;
 
+import java.util.Collections;
+import java.util.List;
+
 interface ExpandedVisitor<C extends DataFlowBinding> {
     boolean accept(
             int parentIndex,
@@ -65,6 +68,12 @@ final class ExpandedProgram<
         return canonical;
     }
 
+    List<ParameterSlot<?>> childParameters() {
+        return childPredicate == null
+                ? Collections.<ParameterSlot<?>>emptyList()
+                : childPredicate.parameters;
+    }
+
     ExpandedProgram<P, C> filterChild(
             BooleanExpression<C> predicate) {
         BooleanExpression<C> combined = childPredicate == null
@@ -100,7 +109,7 @@ final class ExpandedProgram<
                             childScanned[0]++;
                             if (childPredicate != null
                                     && !childPredicate.evaluate(
-                                    childBinding, childIndex)) {
+                                    frame, childBinding, childIndex)) {
                                 continue;
                             }
                             int expandedPosition = matched[0]++;
@@ -128,7 +137,16 @@ abstract class ExpandedOperation<
     final ExpandedProgram<P, C> program;
 
     ExpandedOperation(ExpandedProgram<P, C> program) {
-        super(program.parentProgram());
+        this(program, Collections.<ParameterSlot<?>>emptyList());
+    }
+
+    ExpandedOperation(
+            ExpandedProgram<P, C> program,
+            List<ParameterSlot<?>> additionalParameters) {
+        super(
+                program.parentProgram(),
+                DataFlowSupport.unionParameters(
+                        program.childParameters(), additionalParameters));
         this.program = program;
     }
 
@@ -282,7 +300,7 @@ final class ExpandedLongColumnOperation<
     ExpandedLongColumnOperation(
             ExpandedProgram<P, C> program,
             LongExpression<C> expression) {
-        super(program);
+        super(program, expression.parameters);
         this.expression = expression;
     }
 
@@ -331,7 +349,7 @@ final class ExpandedLongColumnOperation<
                             int outputPosition) {
                         values[outputPosition] =
                                 expression.evaluate(
-                                        childBinding, childIndex);
+                                        frame, childBinding, childIndex);
                         return true;
                     }
                 },
@@ -361,7 +379,7 @@ final class ExpandedLongSumOperation<
     ExpandedLongSumOperation(
             ExpandedProgram<P, C> program,
             LongExpression<C> expression) {
-        super(program);
+        super(program, expression.parameters);
         this.expression = expression;
     }
 
@@ -395,7 +413,7 @@ final class ExpandedLongSumOperation<
                             int childIndex,
                             int outputPosition) {
                         sum[0] += expression.evaluate(
-                                childBinding, childIndex);
+                                frame, childBinding, childIndex);
                         return true;
                     }
                 },

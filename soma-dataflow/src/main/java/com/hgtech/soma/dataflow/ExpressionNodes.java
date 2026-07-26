@@ -6,31 +6,39 @@ import java.util.Comparator;
 import java.util.Objects;
 
 interface BooleanNode {
-    boolean evaluate(DataFlowBinding binding, int index);
+    boolean evaluate(
+            ExecutionFrame frame, DataFlowBinding binding, int index);
 
     String canonical();
 }
 
 interface LongNode {
-    long evaluate(DataFlowBinding binding, int index);
+    long evaluate(
+            ExecutionFrame frame, DataFlowBinding binding, int index);
 
     String canonical();
 }
 
 interface DoubleNode {
-    double evaluate(DataFlowBinding binding, int index);
+    double evaluate(
+            ExecutionFrame frame, DataFlowBinding binding, int index);
 
     String canonical();
 }
 
 interface ObjectNode {
-    Object evaluate(DataFlowBinding binding, int index);
+    Object evaluate(
+            ExecutionFrame frame, DataFlowBinding binding, int index);
 
     String canonical();
 }
 
 interface OrderNode {
-    int compare(DataFlowBinding binding, int left, int right);
+    int compare(
+            ExecutionFrame frame,
+            DataFlowBinding binding,
+            int left,
+            int right);
 
     String canonical();
 }
@@ -38,7 +46,8 @@ interface OrderNode {
 final class ExpressionNodes {
     private static final BooleanNode PRESENT = new BooleanNode() {
         @Override
-        public boolean evaluate(DataFlowBinding binding, int index) {
+        public boolean evaluate(
+                ExecutionFrame frame, DataFlowBinding binding, int index) {
             return true;
         }
 
@@ -62,7 +71,10 @@ final class ExpressionNodes {
     static BooleanNode present(final int columnOrdinal, final String path) {
         return new BooleanNode() {
             @Override
-            public boolean evaluate(DataFlowBinding binding, int index) {
+            public boolean evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
                 return binding.isPresent(columnOrdinal, index);
             }
 
@@ -76,7 +88,10 @@ final class ExpressionNodes {
     static LongNode longField(final int columnOrdinal, final String path) {
         return new LongNode() {
             @Override
-            public long evaluate(DataFlowBinding binding, int index) {
+            public long evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
                 return binding.longValue(columnOrdinal, index);
             }
 
@@ -90,7 +105,10 @@ final class ExpressionNodes {
     static DoubleNode doubleField(final int columnOrdinal, final String path) {
         return new DoubleNode() {
             @Override
-            public double evaluate(DataFlowBinding binding, int index) {
+            public double evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
                 return binding.doubleValue(columnOrdinal, index);
             }
 
@@ -104,7 +122,10 @@ final class ExpressionNodes {
     static BooleanNode booleanField(final int columnOrdinal, final String path) {
         return new BooleanNode() {
             @Override
-            public boolean evaluate(DataFlowBinding binding, int index) {
+            public boolean evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
                 return binding.booleanValue(columnOrdinal, index);
             }
 
@@ -118,7 +139,10 @@ final class ExpressionNodes {
     static ObjectNode objectField(final int columnOrdinal, final String path) {
         return new ObjectNode() {
             @Override
-            public Object evaluate(DataFlowBinding binding, int index) {
+            public Object evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
                 return binding.objectValue(columnOrdinal, index);
             }
 
@@ -130,11 +154,12 @@ final class ExpressionNodes {
     }
 
     static void requirePresent(
+            ExecutionFrame frame,
             BooleanNode presence,
             DataFlowBinding binding,
             int index,
             String path) {
-        if (!presence.evaluate(binding, index)) {
+        if (!presence.evaluate(frame, binding, index)) {
             throw DataFlowFailures.invalidInput(
                     "dataflow_absent_value", path, "dataflow.expression");
         }
@@ -150,9 +175,12 @@ final class ExpressionNodes {
         }
         return new BooleanNode() {
             @Override
-            public boolean evaluate(DataFlowBinding binding, int index) {
-                return left.evaluate(binding, index)
-                        && right.evaluate(binding, index);
+            public boolean evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
+                return left.evaluate(frame, binding, index)
+                        && right.evaluate(frame, binding, index);
             }
 
             @Override
@@ -166,8 +194,11 @@ final class ExpressionNodes {
     static BooleanNode negate(final BooleanNode value) {
         return new BooleanNode() {
             @Override
-            public boolean evaluate(DataFlowBinding binding, int index) {
-                return !value.evaluate(binding, index);
+            public boolean evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
+                return !value.evaluate(frame, binding, index);
             }
 
             @Override
@@ -180,9 +211,12 @@ final class ExpressionNodes {
     static BooleanNode and(final BooleanNode left, final BooleanNode right) {
         return new BooleanNode() {
             @Override
-            public boolean evaluate(DataFlowBinding binding, int index) {
-                return left.evaluate(binding, index)
-                        && right.evaluate(binding, index);
+            public boolean evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
+                return left.evaluate(frame, binding, index)
+                        && right.evaluate(frame, binding, index);
             }
 
             @Override
@@ -195,9 +229,12 @@ final class ExpressionNodes {
     static BooleanNode or(final BooleanNode left, final BooleanNode right) {
         return new BooleanNode() {
             @Override
-            public boolean evaluate(DataFlowBinding binding, int index) {
-                return left.evaluate(binding, index)
-                        || right.evaluate(binding, index);
+            public boolean evaluate(
+                    ExecutionFrame frame,
+                    DataFlowBinding binding,
+                    int index) {
+                return left.evaluate(frame, binding, index)
+                        || right.evaluate(frame, binding, index);
             }
 
             @Override

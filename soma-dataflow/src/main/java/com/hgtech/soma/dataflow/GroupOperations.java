@@ -4,6 +4,8 @@ import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 final class GroupPrepared<B extends DataFlowBinding> {
     final CandidateSelection selected;
@@ -12,7 +14,7 @@ final class GroupPrepared<B extends DataFlowBinding> {
     final int[] representatives;
     final int[] offsets;
     final int[] members;
-    final int[] groupByPosition;
+    final int memberCount;
 
     GroupPrepared(
             CandidateSelection selected,
@@ -21,14 +23,14 @@ final class GroupPrepared<B extends DataFlowBinding> {
             int[] representatives,
             int[] offsets,
             int[] members,
-            int[] groupByPosition) {
+            int memberCount) {
         this.selected = selected;
         this.binding = binding;
         this.groupCount = groupCount;
         this.representatives = representatives;
         this.offsets = offsets;
         this.members = members;
-        this.groupByPosition = groupByPosition;
+        this.memberCount = memberCount;
     }
 }
 
@@ -36,17 +38,37 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
         extends SingleSourceOperation<R> {
     final CandidateProgram<B> program;
     final KeyExpression<B> key;
+    final GroupShapePlan<B> shape;
 
-    GroupOperation(CandidateProgram<B> program, KeyExpression<B> key) {
-        super(program);
+    GroupOperation(
+            CandidateProgram<B> program,
+            KeyExpression<B> key,
+            GroupShapePlan<B> shape) {
+        this(
+                program,
+                key,
+                shape,
+                Collections.<ParameterSlot<?>>emptyList());
+    }
+
+    GroupOperation(
+            CandidateProgram<B> program,
+            KeyExpression<B> key,
+            GroupShapePlan<B> shape,
+            List<ParameterSlot<?>> additionalParameters) {
+        super(
+                program,
+                DataFlowSupport.unionParameters(
+                        key.parameters(), additionalParameters));
         this.program = program;
         this.key = key;
+        this.shape = shape;
     }
 
     @Override
     public final String canonicalForm() {
         return program.canonical() + "->groupBy(" + key.identity()
-                + ")->" + terminal();
+                + ")->" + shape.canonical() + "->" + terminal();
     }
 
     @Override
@@ -57,6 +79,7 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
     @Override
     public final String logicalPlan() {
         return program.canonical() + " -> GroupBy(first-key-order) -> "
+                + (shape.isIdentity() ? "" : "GroupShape -> ")
                 + terminal();
     }
 
@@ -91,10 +114,11 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
                 frame.checkBoundary("dataflow.groupBy");
             }
             int candidate = selected.indexes[position];
-            long hash = key.hash(binding, candidate);
+            long hash = key.hash(frame, binding, candidate);
             int bucket = ((int) (hash ^ (hash >>> 32))) & mask;
             int group = buckets[bucket];
             while (group >= 0 && !key.equal(
+                    frame,
                     binding,
                     candidate,
                     key,
@@ -125,14 +149,15 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
             int group = groupByPosition[position];
             members[write[group]++] = selected.indexes[position];
         }
-        return new GroupPrepared<B>(
+        GroupPrepared<B> prepared = new GroupPrepared<B>(
                 selected,
                 binding,
                 groups,
                 representatives,
                 offsets,
                 members,
-                groupByPosition);
+                cardinality);
+        return shape.apply(frame, prepared);
     }
 
     private static int bucketCapacity(int size) {
@@ -149,8 +174,10 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
 final class GroupIndexOperation<B extends DataFlowBinding>
         extends GroupOperation<B, GroupIndexResult> {
     GroupIndexOperation(
-            CandidateProgram<B> program, KeyExpression<B> key) {
-        super(program, key);
+            CandidateProgram<B> program,
+            KeyExpression<B> key,
+            GroupShapePlan<B> shape) {
+        super(program, key, shape);
     }
 
     @Override
@@ -163,15 +190,17 @@ final class GroupIndexOperation<B extends DataFlowBinding>
         GroupPrepared<B> prepared = prepare(frame);
         long bytes = (long) prepared.groupCount * 4L
                 + (long) (prepared.groupCount + 1) * 4L
-                + (long) prepared.selected.size * 4L;
+                + (long) prepared.memberCount * 4L;
         frame.reserveOutput(
-                prepared.selected.size, bytes, "dataflow.groupBy.indexSnapshot");
+                prepared.memberCount,
+                bytes,
+                "dataflow.groupBy.indexSnapshot");
         int[] representatives = Arrays.copyOf(
                 prepared.representatives, prepared.groupCount);
         int[] offsets = Arrays.copyOf(
                 prepared.offsets, prepared.groupCount + 1);
         int[] members = Arrays.copyOf(
-                prepared.members, prepared.selected.size);
+                prepared.members, prepared.memberCount);
         GroupIndexResult result = new GroupIndexResult(
                 source.alias(),
                 prepared.binding.structuralEpoch(),
@@ -181,8 +210,8 @@ final class GroupIndexOperation<B extends DataFlowBinding>
         return new ExecutionOutcome<GroupIndexResult>(
                 result,
                 prepared.selected.scanned,
-                prepared.selected.size,
-                prepared.selected.size,
+                prepared.memberCount,
+                prepared.memberCount,
                 1,
                 1);
     }
@@ -256,18 +285,21 @@ final class ActiveGroupCursor implements GroupCursor {
 final class GroupBorrowOperation<B extends DataFlowBinding>
         extends GroupOperation<B, LongScalarResult> {
     private final GroupConsumer consumer;
+    private final long opaqueIdentity;
 
     GroupBorrowOperation(
             CandidateProgram<B> program,
             KeyExpression<B> key,
+            GroupShapePlan<B> shape,
             GroupConsumer consumer) {
-        super(program, key);
+        super(program, key, shape);
         this.consumer = consumer;
+        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
     }
 
     @Override
     String terminal() {
-        return "borrow";
+        return "borrow(opaque-instance-" + opaqueIdentity + ")";
     }
 
     @Override
@@ -298,7 +330,7 @@ final class GroupBorrowOperation<B extends DataFlowBinding>
         return new ExecutionOutcome<LongScalarResult>(
                 new LongScalarResult(prepared.groupCount),
                 prepared.selected.scanned,
-                prepared.selected.size,
+                prepared.memberCount,
                 1L,
                 1,
                 1);
@@ -318,41 +350,53 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
     private GroupLongAggregationOperation(
             CandidateProgram<B> program,
             KeyExpression<B> key,
+            GroupShapePlan<B> shape,
             LongExpression<B> expression,
             int kind) {
-        super(program, key);
+        super(
+                program,
+                key,
+                shape,
+                expression == null
+                        ? Collections.<ParameterSlot<?>>emptyList()
+                        : expression.parameters);
         this.expression = expression;
         this.kind = kind;
     }
 
     static <B extends DataFlowBinding> GroupLongAggregationOperation<B> counts(
-            CandidateProgram<B> program, KeyExpression<B> key) {
+            CandidateProgram<B> program,
+            KeyExpression<B> key,
+            GroupShapePlan<B> shape) {
         return new GroupLongAggregationOperation<B>(
-                program, key, null, COUNT);
+                program, key, shape, null, COUNT);
     }
 
     static <B extends DataFlowBinding> GroupLongAggregationOperation<B> sum(
             CandidateProgram<B> program,
             KeyExpression<B> key,
+            GroupShapePlan<B> shape,
             LongExpression<B> expression) {
         return new GroupLongAggregationOperation<B>(
-                program, key, expression, SUM);
+                program, key, shape, expression, SUM);
     }
 
     static <B extends DataFlowBinding> GroupLongAggregationOperation<B> min(
             CandidateProgram<B> program,
             KeyExpression<B> key,
+            GroupShapePlan<B> shape,
             LongExpression<B> expression) {
         return new GroupLongAggregationOperation<B>(
-                program, key, expression, MIN);
+                program, key, shape, expression, MIN);
     }
 
     static <B extends DataFlowBinding> GroupLongAggregationOperation<B> max(
             CandidateProgram<B> program,
             KeyExpression<B> key,
+            GroupShapePlan<B> shape,
             LongExpression<B> expression) {
         return new GroupLongAggregationOperation<B>(
-                program, key, expression, MAX);
+                program, key, shape, expression, MAX);
     }
 
     @Override
@@ -380,13 +424,17 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
                 int start = prepared.offsets[group];
                 int end = prepared.offsets[group + 1];
                 long aggregate = expression.evaluate(
-                        prepared.binding, prepared.members[start]);
+                        frame,
+                        prepared.binding,
+                        prepared.members[start]);
                 if (kind == SUM) {
                     aggregate = 0L;
                 }
                 for (int position = start; position < end; position++) {
                     long value = expression.evaluate(
-                            prepared.binding, prepared.members[position]);
+                            frame,
+                            prepared.binding,
+                            prepared.members[position]);
                     if (kind == SUM) {
                         aggregate += value;
                     } else if (kind == MIN && value < aggregate) {
@@ -406,7 +454,7 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
         return new ExecutionOutcome<GroupedLongResult>(
                 result,
                 prepared.selected.scanned,
-                prepared.selected.size,
+                prepared.memberCount,
                 prepared.groupCount,
                 1,
                 1);
