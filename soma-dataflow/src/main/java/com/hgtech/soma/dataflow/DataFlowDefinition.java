@@ -2,48 +2,39 @@ package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
  * Immutable logical transformation definition.
  *
- * <p>A definition retains semantics and callbacks, never live Table state.</p>
+ * <p>A definition retains semantics and declared callbacks, never live Table
+ * state. Intermediate DSL calls remain lazy; execution starts only through a
+ * one-shot {@link DataFlowInvocation}.</p>
  */
 public final class DataFlowDefinition<R> {
-    enum TerminalKind {
-        PACKED_COUNT
-    }
-
-    private final List<SourceSlot<? extends DataFlowBinding>> requiredSources;
-    private final SourceSlot<? extends DataFlowBinding> candidateSource;
-    private final TerminalKind terminalKind;
+    private final DataFlowOperation<R> operation;
     private final String identity;
 
-    private DataFlowDefinition(
-            SourceSlot<? extends DataFlowBinding> candidateSource,
-            TerminalKind terminalKind) {
-        this.candidateSource = candidateSource;
-        this.requiredSources =
-                Collections.<SourceSlot<? extends DataFlowBinding>>singletonList(
-                        candidateSource);
-        this.terminalKind = terminalKind;
-        identity = DataFlowSupport.identity(
-                "soma-definition-v1\n"
-                        + candidateSource.ordinal() + "\n"
-                        + candidateSource.alias() + "\n"
-                        + candidateSource.schemaIdentity() + "\n"
-                        + candidateSource.tableIdentity() + "\n"
-                        + terminalKind.name() + "\n");
+    private DataFlowDefinition(DataFlowOperation<R> operation) {
+        if (operation == null) {
+            throw new NullPointerException("operation");
+        }
+        this.operation = operation;
+        StringBuilder canonical =
+                new StringBuilder("soma-definition-v1\n");
+        for (SourceSlot<? extends DataFlowBinding> source
+                : operation.requiredSources()) {
+            canonical.append(source.ordinal()).append('\n')
+                    .append(source.alias()).append('\n')
+                    .append(source.schemaIdentity()).append('\n')
+                    .append(source.tableIdentity()).append('\n');
+        }
+        canonical.append(operation.canonicalForm()).append('\n');
+        identity = DataFlowSupport.identity(canonical.toString());
     }
 
-    static DataFlowDefinition<LongScalarResult> packedCount(
-            SourceSlot<? extends DataFlowBinding> source) {
-        if (source == null) {
-            throw new NullPointerException("source");
-        }
-        return new DataFlowDefinition<LongScalarResult>(
-                source, TerminalKind.PACKED_COUNT);
+    static <R> DataFlowDefinition<R> of(DataFlowOperation<R> operation) {
+        return new DataFlowDefinition<R>(operation);
     }
 
     public String identity() {
@@ -58,20 +49,16 @@ public final class DataFlowDefinition<R> {
         return new DataFlowExplain(
                 identity,
                 "",
-                "Candidate -> Scalar<long>",
-                candidateSource.alias() + ":Packed -> Count",
+                operation.logicalShape(),
+                operation.logicalPlan(),
                 "unbound");
     }
 
     List<SourceSlot<? extends DataFlowBinding>> requiredSources() {
-        return requiredSources;
+        return operation.requiredSources();
     }
 
-    SourceSlot<? extends DataFlowBinding> candidateSource() {
-        return candidateSource;
-    }
-
-    TerminalKind terminalKind() {
-        return terminalKind;
+    DataFlowOperation<R> operation() {
+        return operation;
     }
 }

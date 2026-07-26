@@ -1,5 +1,7 @@
 package com.hgtech.soma.dataflow.generated;
 
+import com.hgtech.soma.runtime.IndexSnapshot;
+
 /**
  * Narrow generated-to-dataflow protocol.
  *
@@ -24,6 +26,18 @@ public interface DataFlowBinding {
     long structuralEpoch();
 
     int packedSize();
+
+    boolean isPresent(int columnOrdinal, int index);
+
+    boolean booleanValue(int columnOrdinal, int index);
+
+    long longValue(int columnOrdinal, int index);
+
+    double doubleValue(int columnOrdinal, int index);
+
+    Object objectValue(int columnOrdinal, int index);
+
+    IndexSnapshot indexSnapshot(int[] indexes, int length);
 
     void acquire(String operation);
 

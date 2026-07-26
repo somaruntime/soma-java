@@ -33,9 +33,9 @@ public final class DataFlowTemplate<R> {
         return new DataFlowExplain(
                 definition.identity(),
                 identity,
-                "Candidate -> Scalar<long>",
-                definition.candidateSource().alias() + ":Packed -> Count",
-                "candidate-program[packed-count]");
+                definition.operation().logicalShape(),
+                definition.operation().logicalPlan(),
+                definition.operation().physicalPlan());
     }
 
     DataFlowDefinition<R> definition() {

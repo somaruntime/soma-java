@@ -425,8 +425,17 @@ final class DenseTableSourceEmitter {
                 .append("  Object dataFlowPhysicalIdentity(){return ownership.physicalIdentity();}\n")
                 .append("  long dataFlowStructuralEpoch(){return state.structuralEpoch();}\n")
                 .append("  int dataFlowPackedSize(){return state.size();}\n")
+                .append("  IndexSnapshot dataFlowIndexSnapshot(int[] indexes,int length){return IndexSnapshots.copyOf(indexSnapshotOwner,state.structuralEpoch(),indexes,length);}\n")
                 .append("  void acquireDataFlow(String operation){state.checkActive(operation);ownership.beginDataFlow(operation);}\n")
                 .append("  void releaseDataFlow(String operation){ownership.endDataFlow(operation);}\n")
+                .append("  UpdateResult dataFlowUpdate(long expectedEpoch,int[] rows,int count,")
+                .append(table.name("Scan"))
+                .append(".Updater value){if(value==null)throw new NullPointerException(\"updater\");ownership.preflightMutation(\"dataflow.update\");long current=state.structuralEpoch();if(expectedEpoch!=current)throw RuntimeFailures.staleIndexSnapshot(TABLE,expectedEpoch,current,\"dataflow.update\");state.beginOperation(\"dataflow.update\");long reached=0L;boolean selected=false;try{selected=true;prepareUpdateScratch(count);loadUpdateScratch(rows,count);")
+                .append(table.name("Scan"))
+                .append(".MutableCursor cursor=new ")
+                .append(table.name("Scan"))
+                .append(".MutableCursor(this);for(int i=0;i<count;i++){reached++;cursor.open(i,rows[i]);state.beginCallback(\"dataflow.update.updater\");try{value.update(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(TABLE,\"dataflow.update\",\"updater\",callback);}finally{state.endCallback(\"dataflow.update.updater\");cursor.close();}}long changed=publishUpdate(rows,count);state.endOperationSuccess(\"dataflow.update\",count,count,changed);return state.updateResult(count,count,changed);}catch(SomaRuntimeException failure){state.endOperationFailure(\"dataflow.update\",count,reached,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"dataflow.update\");throw failure;}catch(Error failure){state.abortOperation(\"dataflow.update\");throw failure;}finally{if(selected)clearUpdateScratch(count);}}\n")
+                .append("  RemoveResult dataFlowRemove(long expectedEpoch,int[] rows,int count){ownership.preflightMutation(\"dataflow.remove\");long current=state.structuralEpoch();if(expectedEpoch!=current)throw RuntimeFailures.staleIndexSnapshot(TABLE,expectedEpoch,current,\"dataflow.remove\");state.beginOperation(\"dataflow.remove\");try{RemoveResult result=removeSelected(rows,count,count,\"dataflow.remove\");state.endOperationSuccess(\"dataflow.remove\",count,count,count);return result;}catch(SomaRuntimeException failure){state.endOperationFailure(\"dataflow.remove\",count,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"dataflow.remove\");throw failure;}catch(Error failure){state.abortOperation(\"dataflow.remove\");throw failure;}}\n")
                 .append("  void beginMaterialization(String operation,boolean nested){ownership.beginMaterialization(operation);try{if(nested)state.beginOperationMaterialization(operation);else state.beginMaterialization(operation);}catch(RuntimeException failure){ownership.endMaterialization();throw failure;}catch(Error failure){ownership.endMaterialization();throw failure;}}\n")
                 .append("  void endMaterializationSuccess(MaterializationTracker tracker){try{state.endMaterializationSuccess(tracker);}finally{ownership.endMaterialization();}}\n")
                 .append("  void endMaterializationFailure(MaterializationTracker tracker){try{state.endMaterializationFailure(tracker);}finally{ownership.endMaterialization();}}\n")
@@ -668,6 +677,17 @@ final class DenseTableSourceEmitter {
             rowExpression = "state.checkRowIndex(index,operation)";
         }
         String c = cap(child.javaName);
+        out.append("  ").append(child.tableType()).append(" dataFlow")
+                .append(c).append("At(int index){if(index<0||index>=state.size())throw RuntimeFailures.internalInvariant(\"dataflow_parent_index\",TABLE,\"dataflow.expand\");");
+        if (child.optional) {
+            out.append("if(!").append(child.javaName)
+                    .append("ChildPresence.isPresent(index))return null;");
+        }
+        out.append("long handle=").append(child.javaName)
+                .append("HandleColumn.get(index);if(handle==0L)return null;long owner=ownerTokenColumn.get(index);return(")
+                .append(child.tableType()).append(")ownership.resolve(handle,owner,")
+                .append(q(child.logicalName))
+                .append(",\"dataflow.expand\");}\n");
         out.append("  private ").append(child.tableType()).append(' ')
                 .append(child.javaName).append("AtRow(int row,boolean create,String operation){state.checkRowIndex(row,operation);");
         if (child.optional) {

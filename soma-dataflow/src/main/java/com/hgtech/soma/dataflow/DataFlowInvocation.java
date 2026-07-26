@@ -6,13 +6,13 @@ import com.hgtech.soma.runtime.SomaRuntimeException;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.TreeMap;
 
 /**
  * One-shot source binding and execution boundary.
  *
- * <p>An accepted execute call consumes the invocation regardless of outcome.</p>
+ * <p>An accepted execute call consumes the invocation regardless of outcome.
+ * Bindings and live guards exist only for that execute call.</p>
  */
 public final class DataFlowInvocation<R> {
     private enum State {
@@ -20,6 +20,7 @@ public final class DataFlowInvocation<R> {
         BINDING,
         READY,
         RUNNING,
+        COMMITTING,
         COMPLETED,
         FAILED,
         CANCELLED
@@ -67,8 +68,7 @@ public final class DataFlowInvocation<R> {
 
     public DataFlowInvocation<R> policy(ExecutionPolicy value) {
         requireConfigurable("dataflow.policy");
-        policy = value == null
-                ? context.defaultPolicy() : value;
+        policy = value == null ? context.defaultPolicy() : value;
         return this;
     }
 
@@ -92,12 +92,18 @@ public final class DataFlowInvocation<R> {
         requireConfigurable("dataflow.execute");
         state = State.READY;
         long started = System.nanoTime();
-        context.beginInvocation();
+        boolean contextBegun = false;
         List<DataFlowBinding> acquired = new ArrayList<DataFlowBinding>();
         long scanned = 0L;
         long matched = 0L;
+        long output = 0L;
+        int tasks = 0;
+        int workers = 0;
         String failureCode = "";
+        Throwable primary = null;
         try {
+            context.beginInvocation();
+            contextBegun = true;
             checkDeadlineAndCancellation("dataflow.preflight");
             TreeMap<Long, DataFlowBinding> canonical = resolveAndValidate();
             for (DataFlowBinding binding : canonical.values()) {
@@ -106,67 +112,121 @@ public final class DataFlowInvocation<R> {
             }
             state = State.RUNNING;
             checkDeadlineAndCancellation("dataflow.execute");
-            DataFlowBinding candidate =
-                    bindings.get(template.definition().candidateSource());
-            int cardinality = candidate.packedSize();
-            scanned = cardinality;
-            matched = cardinality;
-            if (budget.maximumOutputElements() < 1L) {
-                throw DataFlowFailures.resource(
-                        "dataflow_output_budget_exceeded",
-                        template.definition().candidateSource().alias(),
-                        "dataflow.execute", "1");
+            ExecutionFrame frame = new ExecutionFrame(
+                    context, bindings, policy, budget, cancellationToken);
+            ExecutionOutcome<R> outcome =
+                    template.definition().operation().execute(frame);
+            scanned = outcome.scanned;
+            matched = outcome.matched;
+            output = outcome.outputElements;
+            tasks = outcome.tasks;
+            workers = outcome.workers;
+            R result = outcome.result;
+            if (outcome.effect != null) {
+                SomaRuntimeException releaseFailure =
+                        releaseAcquired(
+                                acquired,
+                                false,
+                                scanned,
+                                matched,
+                                "");
+                acquired.clear();
+                if (releaseFailure != null) {
+                    throw releaseFailure;
+                }
+                checkDeadlineAndCancellation("dataflow.effect.preflight");
+                state = State.COMMITTING;
+                result = outcome.effect.commit();
             }
-            R result = executeTerminal(cardinality);
             state = State.COMPLETED;
-            stats = stats(started, scanned, matched, 1L, "SUCCESS", "", 1, 1);
+            stats = stats(
+                    started, scanned, matched, output,
+                    "SUCCESS", "", tasks, workers);
             return result;
         } catch (SomaRuntimeException failure) {
+            primary = failure;
             failureCode = failure.code();
-            if (state != State.CANCELLED) {
-                state = State.FAILED;
-            }
-            stats = stats(started, scanned, matched, 0L,
-                    state.name(), failureCode, 0, 0);
+            state = isCancellation(failureCode)
+                    ? State.CANCELLED : State.FAILED;
+            stats = stats(
+                    started, scanned, matched, 0L,
+                    state.name(), failureCode, tasks, workers);
             throw failure;
         } catch (RuntimeException failure) {
+            primary = failure;
             state = State.FAILED;
             failureCode = "dataflow_unexpected_failure";
-            stats = stats(started, scanned, matched, 0L,
-                    state.name(), failureCode, 0, 0);
-            throw DataFlowFailures.callback(
-                    failureCode, template.identity(), "dataflow.execute", failure);
+            stats = stats(
+                    started, scanned, matched, 0L,
+                    state.name(), failureCode, tasks, workers);
+            SomaRuntimeException wrapped = DataFlowFailures.callback(
+                    failureCode,
+                    template.identity(),
+                    "dataflow.execute",
+                    failure);
+            primary = wrapped;
+            throw wrapped;
+        } catch (Error failure) {
+            primary = failure;
+            state = State.FAILED;
+            stats = stats(
+                    started, scanned, matched, 0L,
+                    state.name(), "dataflow_error", tasks, workers);
+            throw failure;
         } finally {
-            SomaRuntimeException cleanup = null;
-            for (int index = acquired.size() - 1; index >= 0; index--) {
+            SomaRuntimeException cleanup = releaseAcquired(
+                    acquired,
+                    state == State.COMPLETED,
+                    scanned,
+                    matched,
+                    failureCode);
+            if (contextBegun) {
                 try {
-                    acquired.get(index).release(
-                            "dataflow.execute",
-                            state == State.COMPLETED,
-                            scanned,
-                            matched,
-                            failureCode);
+                    context.endInvocation();
                 } catch (SomaRuntimeException failure) {
-                    if (cleanup == null) {
-                        cleanup = failure;
-                    } else {
-                        cleanup.addSuppressed(failure);
-                    }
+                    cleanup = append(cleanup, failure);
                 }
             }
-            context.endInvocation();
-            if (cleanup != null && state == State.COMPLETED) {
-                state = State.FAILED;
-                throw cleanup;
+            if (cleanup != null) {
+                if (primary != null) {
+                    primary.addSuppressed(cleanup);
+                } else {
+                    state = State.FAILED;
+                    throw cleanup;
+                }
             }
         }
+    }
+
+    private static SomaRuntimeException releaseAcquired(
+            List<DataFlowBinding> acquired,
+            boolean success,
+            long scanned,
+            long matched,
+            String failureCode) {
+        SomaRuntimeException cleanup = null;
+        for (int index = acquired.size() - 1; index >= 0; index--) {
+            try {
+                acquired.get(index).release(
+                        "dataflow.execute",
+                        success,
+                        scanned,
+                        matched,
+                        failureCode);
+            } catch (SomaRuntimeException failure) {
+                cleanup = append(cleanup, failure);
+            }
+        }
+        return cleanup;
     }
 
     public DataFlowStats stats() {
         if (stats == null) {
             throw DataFlowFailures.lifecycle(
-                    "dataflow_stats_unavailable", template.identity(),
-                    "dataflow.stats", state.name());
+                    "dataflow_stats_unavailable",
+                    template.identity(),
+                    "dataflow.stats",
+                    state.name());
         }
         return stats;
     }
@@ -175,27 +235,19 @@ public final class DataFlowInvocation<R> {
         return state.name();
     }
 
-    @SuppressWarnings("unchecked")
-    private R executeTerminal(int cardinality) {
-        if (template.definition().terminalKind()
-                == DataFlowDefinition.TerminalKind.PACKED_COUNT) {
-            return (R) new LongScalarResult(cardinality);
-        }
-        throw DataFlowFailures.internal(
-                "dataflow_terminal_missing", template.identity(),
-                "dataflow.execute", template.definition().terminalKind().name());
-    }
-
     private TreeMap<Long, DataFlowBinding> resolveAndValidate() {
         List<SourceSlot<? extends DataFlowBinding>> required =
                 template.definition().requiredSources();
         if (bindings.size() != required.size()) {
             throw DataFlowFailures.invalidInput(
-                    "dataflow_binding_cardinality", template.identity(), "dataflow.bind");
+                    "dataflow_binding_cardinality",
+                    template.identity(),
+                    "dataflow.bind");
         }
         TreeMap<Long, DataFlowBinding> canonical =
                 new TreeMap<Long, DataFlowBinding>();
-        IdentityHashMap<Object, Long> physicalIds = new IdentityHashMap<Object, Long>();
+        IdentityHashMap<Object, Long> physicalIds =
+                new IdentityHashMap<Object, Long>();
         for (SourceSlot<? extends DataFlowBinding> slot : required) {
             DataFlowBinding binding = bindings.get(slot);
             if (binding == null) {
@@ -204,20 +256,25 @@ public final class DataFlowInvocation<R> {
             }
             verify(slot, binding);
             Long previousId = physicalIds.put(
-                    binding.physicalIdentity(), Long.valueOf(binding.aggregateInstanceId()));
+                    binding.physicalIdentity(),
+                    Long.valueOf(binding.aggregateInstanceId()));
             if (previousId != null
                     && previousId.longValue() != binding.aggregateInstanceId()) {
                 throw DataFlowFailures.conflict(
-                        "dataflow_aggregate_identity_mismatch", slot.alias(),
-                        "dataflow.bind", Long.toString(binding.aggregateInstanceId()));
+                        "dataflow_aggregate_identity_mismatch",
+                        slot.alias(),
+                        "dataflow.bind",
+                        Long.toString(binding.aggregateInstanceId()));
             }
-            DataFlowBinding previous =
-                    canonical.put(Long.valueOf(binding.aggregateInstanceId()), binding);
+            DataFlowBinding previous = canonical.put(
+                    Long.valueOf(binding.aggregateInstanceId()), binding);
             if (previous != null
                     && previous.physicalIdentity() != binding.physicalIdentity()) {
                 throw DataFlowFailures.conflict(
-                        "dataflow_aggregate_identity_collision", slot.alias(),
-                        "dataflow.bind", Long.toString(binding.aggregateInstanceId()));
+                        "dataflow_aggregate_identity_collision",
+                        slot.alias(),
+                        "dataflow.bind",
+                        Long.toString(binding.aggregateInstanceId()));
             }
         }
         return canonical;
@@ -226,22 +283,30 @@ public final class DataFlowInvocation<R> {
     private static void verify(
             SourceSlot<? extends DataFlowBinding> slot, DataFlowBinding binding) {
         requireIdentity(
-                slot.schemaIdentity(), binding.schemaIdentity(),
-                "dataflow_schema_mismatch", slot.alias());
+                slot.schemaIdentity(),
+                binding.schemaIdentity(),
+                "dataflow_schema_mismatch",
+                slot.alias());
         requireIdentity(
-                slot.tableIdentity(), binding.tableIdentity(),
-                "dataflow_table_mismatch", slot.alias());
+                slot.tableIdentity(),
+                binding.tableIdentity(),
+                "dataflow_table_mismatch",
+                slot.alias());
         requireIdentity(
-                "soma-generated-runtime-v5", binding.generatedProtocol(),
-                "dataflow_generated_protocol_mismatch", slot.alias());
+                "soma-generated-runtime-v5",
+                binding.generatedProtocol(),
+                "dataflow_generated_protocol_mismatch",
+                slot.alias());
         requireIdentity(
                 GeneratedDataFlow.TRANSFORMATION_PROTOCOL,
                 binding.transformationProtocol(),
-                "dataflow_transformation_protocol_mismatch", slot.alias());
+                "dataflow_transformation_protocol_mismatch",
+                slot.alias());
         requireIdentity(
                 GeneratedDataFlow.KERNEL_PROTOCOL,
                 binding.kernelProtocol(),
-                "dataflow_kernel_protocol_mismatch", slot.alias());
+                "dataflow_kernel_protocol_mismatch",
+                slot.alias());
     }
 
     private static void requireIdentity(
@@ -254,16 +319,19 @@ public final class DataFlowInvocation<R> {
 
     private void checkDeadlineAndCancellation(String operation) {
         if (cancellationToken.isCancellationRequested()) {
-            state = State.CANCELLED;
             throw DataFlowFailures.lifecycle(
-                    "dataflow_cancelled", template.identity(), operation, state.name());
+                    "dataflow_cancelled",
+                    template.identity(),
+                    operation,
+                    "CANCELLED");
         }
         long deadline = budget.deadlineNanos();
         if (deadline != 0L && System.nanoTime() - deadline >= 0L) {
-            state = State.CANCELLED;
             throw DataFlowFailures.resource(
-                    "dataflow_deadline_exceeded", template.identity(),
-                    operation, Long.toString(deadline));
+                    "dataflow_deadline_exceeded",
+                    template.identity(),
+                    operation,
+                    Long.toString(deadline));
         }
     }
 
@@ -291,11 +359,27 @@ public final class DataFlowInvocation<R> {
                 failureCode);
     }
 
+    private static boolean isCancellation(String code) {
+        return "dataflow_cancelled".equals(code)
+                || "dataflow_deadline_exceeded".equals(code);
+    }
+
+    private static SomaRuntimeException append(
+            SomaRuntimeException primary, SomaRuntimeException next) {
+        if (primary == null) {
+            return next;
+        }
+        primary.addSuppressed(next);
+        return primary;
+    }
+
     private void requireConfigurable(String operation) {
         if (state != State.NEW && state != State.BINDING) {
             throw DataFlowFailures.lifecycle(
-                    "dataflow_invocation_consumed", template.identity(),
-                    operation, state.name());
+                    "dataflow_invocation_consumed",
+                    template.identity(),
+                    operation,
+                    state.name());
         }
     }
 }
