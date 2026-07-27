@@ -12,7 +12,6 @@ final class DispatchEngine {
   private final CandidateFrontier frontier;
   private final ExternalEventProcessor eventProcessor;
   private final AssignmentCommitter committer;
-  private AssignmentSummaryFlow.Evidence summaryEvidence;
   private boolean solved;
 
   DispatchEngine(SchedulerRuntime runtime) {
@@ -26,9 +25,7 @@ final class DispatchEngine {
   DispatchSummary solve() {
     if (solved) throw new IllegalStateException("engine is one-shot");
     solved = true;
-    AssignmentSummaryFlow summaryFlow = null;
     try {
-      summaryFlow = new AssignmentSummaryFlow();
       while (runtime.assignmentSize() < runtime.operationCount()) {
         if (frontier.isEmpty()) {
           require(eventProcessor.hasPending(),
@@ -52,13 +49,12 @@ final class DispatchEngine {
           "frontier must be empty after all assignments");
       require(committer.completedJobs() == runtime.jobCount(),
           "all jobs must be completed");
-      AssignmentSummaryFlow.Metrics metrics =
-          summaryFlow.summarize(
+      AssignmentSummarizer.Metrics metrics =
+          new AssignmentSummarizer().summarize(
               runtime.assignments(),
               runtime.operationCount(),
               runtime.jobCount(),
               committer.makespan());
-      summaryEvidence = metrics.evidence;
       return new DispatchSummary(
           metrics.assignments,
           committer.completedJobs(),
@@ -67,20 +63,8 @@ final class DispatchEngine {
           metrics.weightedTardiness,
           eventProcessor.processedEvents());
     } finally {
-      try {
-        if (summaryFlow != null) summaryFlow.close();
-      } finally {
-        frontier.close();
-      }
+      frontier.close();
     }
-  }
-
-  AssignmentSummaryFlow.Evidence summaryEvidence() {
-    if (summaryEvidence == null) {
-      throw new IllegalStateException(
-          "assignment summary evidence is unavailable");
-    }
-    return summaryEvidence;
   }
 
   private static void require(boolean condition, String message) {

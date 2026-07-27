@@ -23,8 +23,7 @@ final class SomaSchedulingSession implements SchedulingSession {
       DispatchSummary summary = engine.solve();
       ScheduleResult result =
           ScheduleResultAssembler.assemble(runtime, summary);
-      evidence = SolveEvidence.capture(
-          runtime, summary, engine.summaryEvidence());
+      evidence = SolveEvidence.capture(runtime, summary);
       return result;
     } finally {
       close();

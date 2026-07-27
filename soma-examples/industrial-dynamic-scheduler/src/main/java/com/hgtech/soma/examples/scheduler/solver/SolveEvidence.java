@@ -14,22 +14,12 @@ final class SolveEvidence {
   final int assignmentCapacity;
   final int frontierCapacity;
   final int assignmentKeyCount;
-  final String dataFlowDefinitionIdentity;
-  final String dataFlowTemplateIdentity;
-  final String dataFlowPolicyIdentity;
-  final long dataFlowBoundSources;
-  final long dataFlowScanned;
-  final long dataFlowMatched;
-  final long dataFlowOutputElements;
-  final int dataFlowTasks;
-  final int dataFlowWorkers;
 
   private SolveEvidence(
       long processedEvents,
       String schemaHash,
       String runtimePlanHash,
-      SchedulerRuntime.RuntimeEvidence runtime,
-      AssignmentSummaryFlow.Evidence dataFlow) {
+      SchedulerRuntime.RuntimeEvidence runtime) {
     this.processedEvents = processedEvents;
     this.schemaHash = schemaHash;
     this.runtimePlanHash = runtimePlanHash;
@@ -41,27 +31,15 @@ final class SolveEvidence {
     assignmentCapacity = runtime.assignmentCapacity;
     frontierCapacity = runtime.frontierCapacity;
     assignmentKeyCount = runtime.assignmentKeyCount;
-    dataFlowDefinitionIdentity = dataFlow.definitionIdentity;
-    dataFlowTemplateIdentity = dataFlow.templateIdentity;
-    dataFlowPolicyIdentity = dataFlow.policyIdentity;
-    dataFlowBoundSources = dataFlow.boundSources;
-    dataFlowScanned = dataFlow.scanned;
-    dataFlowMatched = dataFlow.matched;
-    dataFlowOutputElements = dataFlow.outputElements;
-    dataFlowTasks = dataFlow.tasks;
-    dataFlowWorkers = dataFlow.workers;
   }
 
   static SolveEvidence capture(
       SchedulerRuntime runtime,
-      DispatchSummary summary,
-      AssignmentSummaryFlow.Evidence dataFlow) {
-    if (dataFlow == null) throw new NullPointerException("dataFlow");
+      DispatchSummary summary) {
     return new SolveEvidence(
         summary.processedEvents,
         runtime.schemaHash(),
         runtime.runtimePlanHash(),
-        runtime.runtimeEvidence(),
-        dataFlow);
+        runtime.runtimeEvidence());
   }
 }

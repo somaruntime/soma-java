@@ -37,6 +37,8 @@
       <artifactId>soma-runtime-core</artifactId>
       <version>${soma.version}</version>
     </dependency>
+    <!-- Full schema generation emits typed DataFlow companions even though
+         this application's business path uses direct Access/Transformation. -->
     <dependency>
       <groupId>com.hgtech.soma</groupId>
       <artifactId>soma-dataflow</artifactId>
