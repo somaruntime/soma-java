@@ -376,7 +376,7 @@ public final class DataFlowComponentBenchmark {
         }
     }
 
-    private static long mix(long state, long value) {
+    static long mix(long state, long value) {
         long result = state ^ value;
         result ^= result >>> 33;
         result *= 0xff51afd7ed558ccdl;
@@ -384,7 +384,7 @@ public final class DataFlowComponentBenchmark {
         return result;
     }
 
-    private static void require(boolean condition, String message) {
+    static void require(boolean condition, String message) {
         if (!condition) {
             throw new IllegalStateException(message);
         }
@@ -877,7 +877,7 @@ public final class DataFlowComponentBenchmark {
         }
     }
 
-    private static NumericFactBatch batch(int rows) {
+    static NumericFactBatch batch(int rows) {
         NumericFactBatch batch = new NumericFactBatch(rows);
         for (int index = 0; index < rows; index++) {
             batch.addValues(

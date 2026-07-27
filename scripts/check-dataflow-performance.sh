@@ -40,6 +40,16 @@ fi
 
 classpath="soma-benchmarks/target/classes:soma-dataflow/target/classes:soma-runtime-core/target/classes"
 
+benchmark_type='com.hgtech.soma.benchmarks.DataFlowComponentBenchmark'
+benchmark_descriptor=$("$JAVA_HOME/bin/javap" \
+  -classpath soma-benchmarks/target/classes -p "$benchmark_type")
+if printf '%s\n' "$benchmark_descriptor" |
+    grep -E ' access\$[0-9]+\(' >/dev/null; then
+  printf '%s\n' \
+    'dataflow-performance-check: unstable outer synthetic accessor detected' >&2
+  exit 1
+fi
+
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
     com.hgtech.soma.benchmarks.DataFlowComponentBenchmark --unknown value \
     >"$evidence_dir/invalid-option.log" 2>&1; then

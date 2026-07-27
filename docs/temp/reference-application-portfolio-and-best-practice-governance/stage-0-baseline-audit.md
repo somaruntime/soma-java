@@ -260,6 +260,13 @@ class-set 不一致的 Gate reliability 候选。
 `RA-GATE-001`”，不能表述为通过；这不改变两个应用既有 Gate 已在本次执行中通过
 的事实。
 
+Stage 1 已关闭该候选：private outer helper 形成的 synthetic accessor 是
+outer/nested class-set 的脆弱契约；实现已消除该 accessor，并在性能 fork 前加入
+descriptor preflight。两次 clean 编译表明 raw class SHA 会受 Zulu javac 8
+等价 lowering 变化影响，因此 Gate 不把 raw SHA 当作语义身份；完整 15-lane
+single admission 已通过。该结论没有改变 benchmark workload、fork、threshold
+或 baseline。
+
 ## 7. 风险与控制
 
 | 风险 | 控制 |

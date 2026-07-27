@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 0 complete）
+状态：active（Stage 1 complete）
 
 Owner：SOMA reference application portfolio and best-practice governance
 
@@ -112,6 +112,11 @@ Capability matrix 只说明各应用自然证明了什么，不让应用形成�
 
 详细现状和目标矩阵见
 [Portfolio 职责与覆盖](portfolio-responsibility-and-coverage.md)。
+
+Stage 1 详细设计与不变量闭包见：
+
+- [三应用详细设计](stage-1-detailed-design.md)；
+- [不变量与 Evidence 矩阵](stage-1-invariant-and-evidence-matrix.md)。
 
 ## 5. 两个现有应用的治理方法
 
@@ -229,7 +234,7 @@ Conformance 发现不扩大授权。正式 Design 在最终候选完成并获得
 | Stage | 当前状态 | 责任 | 退出条件 |
 |---|---|---|---|
 | 0 | COMPLETE | 协议、职责矩阵、现状审计、非回归约束和实施前基线 | Temporary 自洽；事实、候选问题和 Gate 已登记 |
-| 1 | PENDING | 两个现有应用详细审计、RTD business model 与三应用详细设计 | 抽象/叙事/不变量矩阵闭合；迁移顺序和 evidence 设计明确 |
+| 1 | COMPLETE | 两个现有应用详细审计、RTD business model 与三应用详细设计 | 抽象/叙事/不变量矩阵闭合；迁移顺序和 evidence 设计明确 |
 | 2 | PENDING | grassing 一致性治理 | 应用内部候选保持业务语义并通过专项 Gate |
 | 3 | PENDING | 独立 RTD rule engine 实现 | canonical journey、DataFlow/parallel/effect evidence 成立 |
 | 4 | PENDING | industrial 复审与 DataFlow 责任原子迁移 | `AssignmentSummaryFlow` 删除；Result/性能/coverage 不回归 |
