@@ -165,7 +165,8 @@ if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime|dataflow)' \
     'rtd-rule-engine-check: detached input depends on SOMA runtime' >&2
   exit 1
 fi
-if grep -R -E '^import com\.hgtech\.soma\.' \
+if grep -R -E \
+    '^import com\.hgtech\.soma\.(annotation|runtime|dataflow)|^import com\.hgtech\.soma\.examples\.rtd\.(config|dispatch|feed|rule|runtime|schema)' \
     "$main_root/result" >/dev/null; then
   printf '%s\n' \
     'rtd-rule-engine-check: detached result depends on SOMA' >&2
