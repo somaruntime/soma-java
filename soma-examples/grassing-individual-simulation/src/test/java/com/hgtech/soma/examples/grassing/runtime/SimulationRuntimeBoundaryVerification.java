@@ -15,6 +15,7 @@ public final class SimulationRuntimeBoundaryVerification {
     SimulationRuntime runtime =
         new SimulationRuntimeFactory().create(scenario);
     try {
+      SimulationRuntimeTestAccess.verifyProjection(scenario, runtime);
       SimulationEngine engine = new SimulationEngine(runtime);
       IndexSnapshot current = runtime.grassers.indexSnapshot();
       IndexSnapshot wrongSource = runtime.traces.indexSnapshot();

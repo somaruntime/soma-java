@@ -35,77 +35,66 @@ public final class SomaSimulator implements Simulator {
 
   private static final class SomaSimulationSession
       implements SimulationSession {
-    private static final int READY = 0;
-    private static final int RUNNING = 1;
-    private static final int FINISHED = 2;
-    private static final int CLOSED = 3;
-
-    private final SimulationRuntime runtime;
     private final SimulationEngine engine;
-    private int state = READY;
-    private SimulationResult result;
+    private final SimulationSessionLifecycle lifecycle;
 
     SomaSimulationSession(
         SimulationRuntime runtime, SimulationEngine engine) {
-      this.runtime = runtime;
+      lifecycle = new SimulationSessionLifecycle(runtime);
       this.engine = engine;
     }
 
     @Override
     public boolean hasNextTick() {
-      ensureActive();
+      lifecycle.requireActive();
       return engine.hasNextTick();
     }
 
     @Override
     public void step() {
-      ensureActive();
+      lifecycle.requireActive();
       if (!engine.hasNextTick()) {
         throw new IllegalStateException("simulation has no remaining tick");
       }
       try {
         engine.step();
-        state = RUNNING;
+        lifecycle.markRunning();
       } catch (RuntimeException failure) {
-        close();
-        throw failure;
+        throw lifecycle.fail(failure);
+      } catch (Error failure) {
+        throw lifecycle.fail(failure);
       }
     }
 
     @Override
     public SimulationResult currentResult() {
-      ensureActive();
-      return engine.currentResult();
+      lifecycle.requireActive();
+      try {
+        return engine.currentResult();
+      } catch (RuntimeException failure) {
+        throw lifecycle.fail(failure);
+      } catch (Error failure) {
+        throw lifecycle.fail(failure);
+      }
     }
 
     @Override
     public SimulationResult finish() {
-      ensureActive();
+      lifecycle.requireActive();
       try {
-        result = engine.run();
-        state = FINISHED;
-        runtime.close();
-        return result;
+        SimulationResult completed = engine.run();
+        lifecycle.finish();
+        return completed;
       } catch (RuntimeException failure) {
-        close();
-        throw failure;
+        throw lifecycle.fail(failure);
+      } catch (Error failure) {
+        throw lifecycle.fail(failure);
       }
     }
 
     @Override
     public void close() {
-      if (state == CLOSED) return;
-      runtime.close();
-      state = CLOSED;
-    }
-
-    private void ensureActive() {
-      if (state == FINISHED) {
-        throw new IllegalStateException("simulation session is finished");
-      }
-      if (state == CLOSED) {
-        throw new IllegalStateException("simulation session is closed");
-      }
+      lifecycle.close();
     }
   }
 }

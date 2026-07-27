@@ -2,8 +2,11 @@ package com.hgtech.soma.examples.grassing.runtime;
 
 import com.hgtech.soma.examples.grassing.schema.GrasserState;
 import com.hgtech.soma.examples.grassing.schema.TraceSample;
+import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
+import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.runtime.DoubleColumnView;
 import com.hgtech.soma.runtime.IndexSnapshot;
+import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 
 import java.util.Arrays;
@@ -27,6 +30,30 @@ public final class SimulationRuntimeTestAccess {
     runtime.grassers.keys().forEach(key ->
         count[0] = Math.addExact(count[0], 1));
     return count[0];
+  }
+
+  public static void verifyProjection(
+      SimulationScenario scenario, SimulationRuntime runtime) {
+    require(runtime.grassers.size() == scenario.population(),
+        "population projection");
+    require(runtime.traces.size() == 0, "trace table must start empty");
+    DoubleColumnView energy = runtime.grassers.energyColumn();
+    IntColumnView x = runtime.grassers.xColumn();
+    IntColumnView y = runtime.grassers.yColumn();
+    try {
+      for (IndividualSeed individual : scenario.individuals()) {
+        int index = runtime.grassers.requireIndex(individual.id());
+        require(Double.doubleToLongBits(energy.getDouble(index))
+                == Double.doubleToLongBits(individual.energy())
+                && x.getInt(index) == individual.x()
+                && y.getInt(index) == individual.y(),
+            "individual value projection");
+      }
+    } finally {
+      y.close();
+      x.close();
+      energy.close();
+    }
   }
 
   public static double[] grassCopy(SimulationRuntime runtime) {
@@ -75,5 +102,9 @@ public final class SimulationRuntimeTestAccess {
     } finally {
       energy.close();
     }
+  }
+
+  private static void require(boolean condition, String message) {
+    if (!condition) throw new IllegalStateException(message);
   }
 }

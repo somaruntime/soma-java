@@ -37,7 +37,8 @@
       <artifactId>soma-runtime-core</artifactId>
       <version>${soma.version}</version>
     </dependency>
-    <!-- Protocol alignment only; this governance does not migrate the simulation. -->
+    <!-- Full schema generation emits DataFlow companions even though this
+         application's canonical business path remains direct Access. -->
     <dependency>
       <groupId>com.hgtech.soma</groupId>
       <artifactId>soma-dataflow</artifactId>

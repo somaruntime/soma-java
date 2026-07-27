@@ -22,7 +22,6 @@ public final class SimulationRuntimeFactory {
           scenario.config(), scenario.checksum(),
           grassers, traces, scenario.grassCopy());
       RuntimeProjector.project(scenario, runtime);
-      RuntimeProjectionVerifier.verify(scenario, runtime);
       return runtime;
     } catch (RuntimeException failure) {
       cleanup(runtime, traces, grassers, failure);

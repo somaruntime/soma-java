@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 1 complete）
+状态：active（Stage 2 complete）
 
 Owner：SOMA reference application portfolio and best-practice governance
 
@@ -118,6 +118,9 @@ Stage 1 详细设计与不变量闭包见：
 - [三应用详细设计](stage-1-detailed-design.md)；
 - [不变量与 Evidence 矩阵](stage-1-invariant-and-evidence-matrix.md)。
 
+Stage 2 实施与非回归结论见
+[Grassing 一致性治理收口](stage-2-grassing-closeout.md)。
+
 ## 5. 两个现有应用的治理方法
 
 审计沿少量完整 vertical slice 展开，不逐类套模板：
@@ -212,8 +215,9 @@ Table transaction。
 
 ## 8. 授权边界与停止条件
 
-当前授权只覆盖 Stage 0。Production Java、正式 Design、应用正式文档、POM、
-脚本、Gate 和 baseline 均未获得修改授权。
+当前授权覆盖本专题 Stage 1–6 的应用、evidence、脚本、正式固化和阶段性提交。
+正式 Design 在 Stage 6 原子切换前保持稳定；本授权不扩大 SOMA public/generated
+API、annotation Schema、protocol 或核心语义。
 
 后续即使获得应用内部实施授权，出现以下情况仍必须停止并请求决定：
 
@@ -235,7 +239,7 @@ Conformance 发现不扩大授权。正式 Design 在最终候选完成并获得
 |---|---|---|---|
 | 0 | COMPLETE | 协议、职责矩阵、现状审计、非回归约束和实施前基线 | Temporary 自洽；事实、候选问题和 Gate 已登记 |
 | 1 | COMPLETE | 两个现有应用详细审计、RTD business model 与三应用详细设计 | 抽象/叙事/不变量矩阵闭合；迁移顺序和 evidence 设计明确 |
-| 2 | PENDING | grassing 一致性治理 | 应用内部候选保持业务语义并通过专项 Gate |
+| 2 | COMPLETE | grassing 一致性治理 | 应用内部候选保持业务语义并通过专项 Gate |
 | 3 | PENDING | 独立 RTD rule engine 实现 | canonical journey、DataFlow/parallel/effect evidence 成立 |
 | 4 | PENDING | industrial 复审与 DataFlow 责任原子迁移 | `AssignmentSummaryFlow` 删除；Result/性能/coverage 不回归 |
 | 5 | PENDING | 三应用 correctness、scale、soak、parallel 与 portfolio Gate | evidence Owner 唯一；无 coverage 缺口 |

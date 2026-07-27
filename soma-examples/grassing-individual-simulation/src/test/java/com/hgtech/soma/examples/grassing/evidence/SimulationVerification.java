@@ -11,6 +11,7 @@ import com.hgtech.soma.examples.grassing.scenario.IndividualSeed;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.scenario.SyntheticSimulationScenarioFactory;
 import com.hgtech.soma.examples.grassing.simulation.SimulationSession;
+import com.hgtech.soma.examples.grassing.simulation.SimulationSessionLifecycleVerification;
 import com.hgtech.soma.examples.grassing.simulation.Simulator;
 import com.hgtech.soma.examples.grassing.simulation.SomaSimulator;
 import com.hgtech.soma.examples.grassing.validation.SimulationResultAssertions;
@@ -55,6 +56,7 @@ public final class SimulationVerification {
       SimulationValidator.verifyInvalidInputs(config);
       SimulationRuntimeBoundaryVerification.verify(first);
       verifySessionLifecycle(first);
+      SimulationSessionLifecycleVerification.verify(first);
     }
     System.out.println("simulation-verification: profile=" + selector
         + " ticks=" + run.result.ticks()
