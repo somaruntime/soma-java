@@ -47,8 +47,8 @@ Implementation Map 在 P8 production cutover 后按实际代码更新，不提�
 | P4 integrated design | completed | `335a962` |
 | P5 independent design/scope audit | completed | `f226d56`、`aea5cc0`；三路复核 PASS |
 | P6 formal promotion | completed | `d5f713d`；Design target 与 `CF-009`–`CF-015` 同批固化 |
-| P7 production disposition | in progress | 对每个现存/目标 surface 作 RETAIN/MIGRATE/REMOVE 裁决 |
-| P8 production implementation | pending | 按语义 slice clean cutover |
+| P7 production disposition | completed | [逐项 RETAIN/MIGRATE/REMOVE 与 replacement closure](production-disposition.md) |
+| P8 production implementation | in progress | 按语义 slice clean cutover |
 | P9 three-example audit | pending | 先审计；只有真实偏差才修改 |
 | P10 qualification / fresh Gate | pending | production-shape evidence 与完整验证 |
 | P11 closeout / deletion | pending | 自包含 Report、Conformance/Map 收口、删除 Lab 与本目录 |
@@ -66,7 +66,7 @@ G01–G17 或正式 Conformance gap。
   accepted/rejected/inconclusive 与 Lab revision；
 - [P4 promotion map](integrated-final-design.md)：候选设计到正式 Owner 的转移；
 - [P5 独立审计](independent-design-and-scope-audit.md)：blocking findings 与复核；
-- P7 production disposition：开始 P8 前必须形成逐项可审计文件。
+- [P7 production disposition](production-disposition.md)：逐项 surface 与 successor；
 
 其余四份专题文件只保留原候选议题、正式 Owner 和 Git provenance 指针，不拥有
 长期事实。

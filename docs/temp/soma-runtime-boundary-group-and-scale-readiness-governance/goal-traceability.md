@@ -46,7 +46,7 @@ Blueprint/Design/Conformance 的替代定义
 | G10 | 不可行操作在 source touch 或大分配前以 typed failure 拒绝，资源口径可解释 | resource/failure/diagnostics Design | TV0、TV3、TV4、TV7、TV8；P6 formal Design | runtime-core/dataflow；preflight/overflow/OOM-avoidance tests | 三个 Example diagnostics | conformance-gap | `CF-012`/`CF-013`：分级 ledger、String profile、unknown-bound fail closed 与 explain |
 | G11 | String 在白名单 immutable value 语义下支持 payload、Key/Unique/Index、Group/Join 和 lifecycle | type/access/relation Design | TV8 A19/A20 | processor/runtime-core/dataflow；compile/differential/GC/scale | 按真实业务字段审计 | conformance-gap | 当前 selector 明确拒绝 String；需正式实现和 production qualification |
 | G12 | public/generated API、diagnostics、compatibility 与 internal strategy 不混淆 | generated/public contract；compatibility Design | external consumers、golden、TV evidence；P6 formal Design | annotations/processor/runtime/dataflow/testkit | 三个 Example | conformance-gap | `CF-009`–`CF-013` clean matrix 随 semantic slice 原子迁移 |
-| G13 | 代码和测试围绕核心抽象，删除不制造能力或 evidence 缺口 | complexity/testing/documentation governance | P6 formal Engineering；当前 code/test inventory | 全模块 disposition + replacement closure + full Gate | 三个 Example按需 | in-progress | P7 inventory/disposition，P8 replacement closure |
+| G13 | 代码和测试围绕核心抽象，删除不制造能力或 evidence 缺口 | complexity/testing/documentation governance | P6 formal Engineering；P7 production disposition | 全模块 disposition + replacement closure + full Gate | 三个 Example按需 | conformance-gap | P8执行replacement closure，P10验证 |
 | G14 | 三个 Example 是相互独立、符合最佳实践的 reference consumers | Product Blueprint；Example portfolio/report | 当前 G5/portfolio evidence | example docs/correctness/performance/full checks | 三个 Example | pending | P9 先审计；无新偏差则 RETAIN/no change |
 | G15 | Small/Medium、1M/10M、单表/双表 100M 与 String 的 claim 均有 production-shape evidence | performance/benchmark/validation governance | TV7/TV8；TV9 synthetic delivery | benchmarks/scripts/reports；Zulu 8 local qualification | N/A | pending | 生产实现后建立 bounded profiles；Lab synthetic delivery 不外推 SLA/support matrix |
 | G16 | G6、release 与支持声明保持诚实，治理通过不冒充 public readiness | compatibility/security/versioning；release governance | P6 Report 已撤销新 target 的旧 G1–G5 外推；G6 blocked | release Gate/report only | N/A | pending | P10/P11 更新 fresh Gate；缺失外部事实继续 blocked |
@@ -63,5 +63,6 @@ Blueprint/Design/Conformance 的替代定义
 | P4 | satisfied | 集成设计 `335a962`；完整 Metadata/Group/Capability/type/storage/relation/scheduler/delivery/resource/qualification target | A01–A21 全部有 Owner/slice；仍只是真实设计候选，不冒充 production |
 | P5 | satisfied | 三路独立审计初始 `CHANGES_REQUIRED`；修正 `f226d56` 经 evidence、production、product 三路差量复核全部 PASS | 保留 cross-Group/cross-schema/multi-instance 能力；消除 evidence 外推与双 Owner |
 | P6 | satisfied | 正式 Blueprint/Design/Conformance/Engineering 与 Report promotion `d5f713d` | 同批登记 `CF-009`–`CF-015`；旧 G1–G5 不外推新 target |
-| P7 | in progress | 对 live production/test/doc/evidence 建立逐项 RETAIN/MIGRATE/REMOVE disposition | 完成前不开始 P8；删除必须具备 replacement closure |
-| P8–P11 | pending | 按正式 Owner 和 Goal 执行 | 不得以耗时、token、代码规模或当前实现反向降低目标 |
+| P7 | satisfied | [production disposition](production-disposition.md)逐项冻结live predecessor、successor、closure与S1–S10顺序 | 删除必须具备source/generated/protocol/test/evidence replacement closure |
+| P8 | in progress | 按S1→S10 semantic slice clean cutover | 每个slice保持可编译，禁止双canonical path |
+| P9–P11 | pending | 按正式 Owner 和 Goal 执行 | 不得以耗时、token、代码规模或当前实现反向降低目标 |
