@@ -2,19 +2,21 @@
 
 类型：Temporary
 
-状态：active（Stage 2 complete）
+状态：active（Stage 3 complete）
 
 Owner：SOMA reference application portfolio and best-practice governance
 
 正式事实源：否
 
-实施授权：仅 Temporary、Stage 0 只读审计、文档入口、验证和 immutable starting point
+实施授权：本专题 Stage 1–6 的应用、evidence、脚本、正式固化和阶段性提交
 
 事实范围：专题意图、产品输入、应用职责、独立性、不变量、阶段、停止条件和验收协议
 
 非事实范围：当前正式产品语义、已确认应用缺陷、已批准 production 修改和发布声明
 
 起始仓库基线：`6bf0c0e546f22aa95d9d8b8a2748640aa43acd39`
+
+Stage 0 immutable baseline：`b893653`
 
 最后审查日期：2026-07-27
 
@@ -120,6 +122,9 @@ Stage 1 详细设计与不变量闭包见：
 
 Stage 2 实施与非回归结论见
 [Grassing 一致性治理收口](stage-2-grassing-closeout.md)。
+
+Stage 3 实施与非回归结论见
+[RTD Reference Application 收口](stage-3-rtd-closeout.md)。
 
 ## 5. 两个现有应用的治理方法
 
@@ -240,7 +245,7 @@ Conformance 发现不扩大授权。正式 Design 在最终候选完成并获得
 | 0 | COMPLETE | 协议、职责矩阵、现状审计、非回归约束和实施前基线 | Temporary 自洽；事实、候选问题和 Gate 已登记 |
 | 1 | COMPLETE | 两个现有应用详细审计、RTD business model 与三应用详细设计 | 抽象/叙事/不变量矩阵闭合；迁移顺序和 evidence 设计明确 |
 | 2 | COMPLETE | grassing 一致性治理 | 应用内部候选保持业务语义并通过专项 Gate |
-| 3 | PENDING | 独立 RTD rule engine 实现 | canonical journey、DataFlow/parallel/effect evidence 成立 |
+| 3 | COMPLETE | 独立 RTD rule engine 实现 | canonical journey、DataFlow/parallel/effect evidence 成立 |
 | 4 | PENDING | industrial 复审与 DataFlow 责任原子迁移 | `AssignmentSummaryFlow` 删除；Result/性能/coverage 不回归 |
 | 5 | PENDING | 三应用 correctness、scale、soak、parallel 与 portfolio Gate | evidence Owner 唯一；无 coverage 缺口 |
 | 6 | PENDING | scope non-regression、完整 Gate、正式固化和 Temporary 退役 | Report/Owner/导航完成；无尾项 |

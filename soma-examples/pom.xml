@@ -20,5 +20,6 @@
   <modules>
     <module>industrial-dynamic-scheduler</module>
     <module>grassing-individual-simulation</module>
+    <module>real-time-dispatch-rule-engine</module>
   </modules>
 </project>
