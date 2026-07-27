@@ -2,13 +2,13 @@ package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 
-/** Projected reference/value authoring handle. */
-public final class ObjectValueFlow<B extends DataFlowBinding, T> {
+/** Projected String-value authoring handle. */
+public final class StringValueFlow<B extends DataFlowBinding> {
     private final CandidateProgram<B> program;
-    private final ObjectExpression<B, T> expression;
+    private final StringExpression<B> expression;
 
-    ObjectValueFlow(
-            CandidateProgram<B> program, ObjectExpression<B, T> expression) {
+    StringValueFlow(
+            CandidateProgram<B> program, StringExpression<B> expression) {
         this.program = program;
         this.expression = expression;
     }
@@ -17,18 +17,18 @@ public final class ObjectValueFlow<B extends DataFlowBinding, T> {
         return new CandidateFlow<B>(program);
     }
 
-    public DataFlowDefinition<ObjectColumnResult<T>> toColumn() {
+    public DataFlowDefinition<StringColumnResult> toColumn() {
         return DataFlowDefinition.of(
-                new ObjectColumnOperation<B, T>(program, expression));
+                new StringColumnOperation<B>(program, expression));
     }
 
     public DataFlowDefinition<LongScalarResult> borrow(
-            ObjectValueConsumer<T> consumer) {
+            StringValueConsumer consumer) {
         if (consumer == null) {
             throw new NullPointerException("consumer");
         }
         return DataFlowDefinition.of(
-                new ObjectValueBorrowOperation<B, T>(
+                new StringValueBorrowOperation<B>(
                         program, expression, consumer));
     }
 }

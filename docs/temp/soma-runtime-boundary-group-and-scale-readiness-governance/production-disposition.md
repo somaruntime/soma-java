@@ -72,8 +72,8 @@ path或“先占位后重写”的 canonical hot path。
 - 三个 Example 不消费 legacy borrow，因此 callback pilot 不要求装饰性业务迁移；
 - String payload、primary key、Delta 与 generated row/materialization已有实现基础，
   但 secondary String selector仍由 `SomaProcessor.resolveSelectorLeaf`明确拒绝；
-- optional arbitrary declared reference 当前会经 `TableFieldType.forBoxed`进入
-  `ObjectColumn`，与四类封闭体系冲突；
+- optional arbitrary declared reference 当前已因 `TableFieldType.forBoxed`只接受
+  boxed primitive而被拒绝；但classifier与diagnostic尚未以四类体系显式建模；
 - current storage column全为 flat array，Group、完整 Metadata phase、generated
   SchemaMetadata、hard `maximumRows`、String profile和分级 ledger不存在；
 - current Candidate terminal主要以 universal `int[]` selection执行，Group/Join/
@@ -87,7 +87,7 @@ path或“先占位后重写”的 canonical hot path。
 | `SomaJavacPlugin` / `CompilerProtocol` / JSR 269 handshake | RETAIN | Java 8 compiler boundary | Zulu 8 positive/negative compile |
 | normalized schema/hash、Unicode order、artifact staging | RETAIN | processor normalized model | schema/hash golden、clean repeat |
 | `TableFieldType` 与 value leaf model | MIGRATE | internal four-kind classifier：primitive/String/flattened/owned-child | positive/negative classifier matrix |
-| optional arbitrary `forBoxed` reference admission | REMOVE | stable arbitrary-object diagnostic；stable ID + sidecar是application边界 | compile negative；old path absence |
+| boxed primitive admission、arbitrary reference rejection | RETAIN/MIGRATE | 纳入显式four-kind classifier与stable arbitrary-object diagnostic；stable ID + sidecar是application边界 | compile positive/negative；classifier evidence |
 | String secondary selector rejection fixture | REMOVE | typed String Key/Unique/Index acceptance；optional selector继续拒绝 | compile/golden/runtime collision evidence |
 | generic `ObjectColumn<T>` | REMOVE | concrete `StringColumn`；enum/semantic/value仍为primitive/String leaf column | source/protocol absence、GC cleanup |
 | `ObjectExpression/ObjectValueFlow/ObjectColumnResult/ObjectValueConsumer` | REMOVE | `StringExpression/StringValueFlow/StringColumnResult/StringValueConsumer`；flattened value由leaf expressions组成 | public/golden/external/differential |

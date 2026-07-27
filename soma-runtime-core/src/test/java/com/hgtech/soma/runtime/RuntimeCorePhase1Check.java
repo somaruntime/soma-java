@@ -120,11 +120,11 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumLeafValues\":50000000,"
                         + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
                         + "\"maximumTableInstances\":100000},"
-                        + "\"generatedProtocol\":\"soma-generated-runtime-v5\","
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v6\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
                         + "\"planProtocol\":\"soma-runtime-plan-v3\","
-                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v5\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v6\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");

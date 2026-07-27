@@ -23,7 +23,7 @@ import java.util.List;
  * protocol directly.</p>
  */
 public final class GeneratedDataFlow {
-    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v1";
+    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v2";
     public static final String KERNEL_PROTOCOL = "soma-kernel-v1";
 
     private GeneratedDataFlow() {
@@ -340,34 +340,34 @@ public final class GeneratedDataFlow {
                 true);
     }
 
-    public static <B extends DataFlowBinding, T> ObjectExpression<B, T>
-    requiredObject(SourceSlot<B> source, int columnOrdinal, String path) {
-        return new ObjectExpression<B, T>(
+    public static <B extends DataFlowBinding> StringExpression<B>
+    requiredString(SourceSlot<B> source, int columnOrdinal, String path) {
+        return new StringExpression<B>(
                 source,
-                ExpressionNodes.objectField(columnOrdinal, path),
+                ExpressionNodes.stringField(columnOrdinal, path),
                 ExpressionNodes.alwaysPresent(),
                 path);
     }
 
-    public static <B extends DataFlowBinding, T> ObjectExpression<B, T>
-    optionalObject(SourceSlot<B> source, int columnOrdinal, String path) {
-        return new ObjectExpression<B, T>(
+    public static <B extends DataFlowBinding> StringExpression<B>
+    optionalString(SourceSlot<B> source, int columnOrdinal, String path) {
+        return new StringExpression<B>(
                 source,
-                ExpressionNodes.objectField(columnOrdinal, path),
+                ExpressionNodes.stringField(columnOrdinal, path),
                 ExpressionNodes.present(columnOrdinal, path),
                 path);
     }
 
-    public static <B extends DataFlowBinding, T> ObjectExpression<B, T>
-    objectParameter(
-            SourceSlot<B> source, final ParameterSlot<T> parameter) {
+    public static <B extends DataFlowBinding> StringExpression<B>
+    stringParameter(
+            SourceSlot<B> source, final ParameterSlot<String> parameter) {
         required(source, "source");
         required(parameter, "parameter");
-        return new ObjectExpression<B, T>(
+        return new StringExpression<B>(
                 source,
-                new ObjectNode() {
+                new StringNode() {
                     @Override
-                    public Object evaluate(
+                    public String evaluate(
                             ExecutionFrame frame,
                             DataFlowBinding binding,
                             int index) {
@@ -376,7 +376,7 @@ public final class GeneratedDataFlow {
 
                     @Override
                     public String canonical() {
-                        return "object-parameter(" + parameter.canonical() + ")";
+                        return "string-parameter(" + parameter.canonical() + ")";
                     }
                 },
                 ExpressionNodes.alwaysPresent(),

@@ -39,9 +39,7 @@ final class DenseTableSourceEmitter {
                 .append("import java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\nimport java.util.Optional;\n\n")
                 .append("public final class ").append(name).append(" {\n")
                 .append("  private static final String TABLE=").append(q(table.logicalName)).append(";\n")
-                .append("  private static final GeneratedMetadata METADATA=new GeneratedMetadata(")
-                .append(q(schemaHash)).append(",RuntimeCompatibility.GENERATED_TARGET,RuntimeCompatibility.COMPILER_IDENTITY,RuntimeCompatibility.GENERATED_PROTOCOL,RuntimeCompatibility.RUNTIME_COMPATIBILITY,RuntimeCompatibility.PLAN_PROTOCOL,RuntimeCompatibility.DENSE_ALGORITHM,RuntimeCompatibility.ALLOCATION_ESTIMATOR);\n")
-                .append("  private static final RuntimePlan DEFAULT_RUNTIME_PLAN=createDefaultRuntimePlan();\n");
+                .append("  private static final GeneratedMetadata METADATA=SchemaMetadata.generatedMetadata();\n");
         for (FieldSpec field : table.fields) {
             if (field.enumType != null) {
                 out.append("  private static final ").append(field.enumType).append("[] ")
@@ -185,7 +183,8 @@ final class DenseTableSourceEmitter {
                 .append(");return new ").append(name).append("(plan,tablePlan,new ChildOwnershipRegistry(plan.maximumAggregateStorageBytes(),plan.maximumOwnershipTableInstances()),false,\"\");}\n")
                 .append("  static ").append(name).append(" createOwned(RuntimePlan plan,ChildOwnershipRegistry ownership,TablePlan tablePlan,String path){if(tablePlan==null)throw new NullPointerException(\"tablePlan\");return new ")
                 .append(name).append("(plan,tablePlan,ownership,true,path);}\n")
-                .append("  public static RuntimePlan defaultRuntimePlan(){return DEFAULT_RUNTIME_PLAN;}\n");
+                .append("  public static RuntimePlan defaultRuntimePlan(){return SchemaMetadata.defaultRuntimePlan();}\n")
+                .append("  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata(){return SchemaMetadata.schema().requireTable(TABLE);}\n");
         appendSchemaPlanRuntime(out);
         out.append("  public RuntimePlan runtimePlan(){state.checkCallbackAccess(\"runtimePlan\");return state.runtimePlan();}\n  public int size(){state.checkActive(\"size\");return state.size();}\n  public int capacity(){state.checkActive(\"capacity\");return state.capacity();}\n  public long structuralEpoch(){state.checkActive(\"structuralEpoch\");return state.structuralEpoch();}\n  public boolean isReleased(){state.checkCallbackAccess(\"isReleased\");return state.isReleased();}\n  public void reserve(int expectedCapacity){ownership.preflightMutation(\"reserve\");if(expectedCapacity<0)throw new IllegalArgumentException(\"expectedCapacity must be non-negative\");try{int required=Math.max(size(),expectedCapacity),additional=required-size();long proposedKeySpace=")
                 .append(table.keyed()
@@ -499,40 +498,9 @@ final class DenseTableSourceEmitter {
     }
 
     private void appendSchemaPlanRuntime(SourceBuilder out) {
-        out.append("  private static RuntimePlan createDefaultRuntimePlan(){RuntimePlan.Builder builder=RuntimePlan.builder(")
-                .append(q(schemaHash))
-                .append(",RuntimeCompatibility.RUNTIME_COMPATIBILITY,RuntimeCompatibility.GENERATED_PROTOCOL,RuntimeCompatibility.PLAN_PROTOCOL,RuntimeCompatibility.ALLOCATION_ESTIMATOR);");
-        for (TableSpec candidate : schemaTables) {
-            out.append("builder.addTable(TablePlan.builder(")
-                    .append(q(candidate.logicalName))
-                    .append(",RuntimeCompatibility.DENSE_ALGORITHM).initialCapacity(")
-                    .append(candidate.defaultCapacity)
-                    .append(").growthRatio(3,2).maximumUpdateScratchBytes(268435456L)")
-                    .append(".keySpaceStrategy(")
-                    .append(q(candidate.keyed()
-                            ? candidate.keyField().keySpaceImplementation() : "none"))
-                    .append(')');
-            if (!candidate.selectors.isEmpty()) {
-                out.append(".accessStrategy(RuntimeCompatibility.PRIMITIVE_EXACT_HASH)");
-            }
-            out.append(".build());");
-        }
-        for (TableSpec owner : schemaTables) {
-            for (ChildSpec child : owner.children) {
-                TableSpec childTable = schemaTable(child.tableLogicalName);
-                int capacity = child.initialCapacity > 0
-                        ? child.initialCapacity : childTable.defaultCapacity;
-                out.append("builder.addChild(ChildPlan.create(")
-                        .append(q(owner.logicalName)).append(',')
-                        .append(q(child.logicalName)).append(',')
-                        .append(q(child.tableLogicalName)).append(',')
-                        .append(capacity).append("));");
-            }
-        }
         int childCount = 0;
         for (TableSpec owner : schemaTables) childCount += owner.children.size();
-        out.append("return builder.build();}\n")
-                .append("  private static void verifySchemaPlan(RuntimePlan plan){if(plan.tables().size()!=")
+        out.append("  private static void verifySchemaPlan(RuntimePlan plan){if(plan.tables().size()!=")
                 .append(schemaTables.size()).append("||plan.children().size()!=")
                 .append(childCount)
                 .append(")throw RuntimeFailures.invalidRuntimePlan(TABLE,\"schema aggregate table/child plan completeness\");");

@@ -75,15 +75,15 @@ P8 consumer migration只修复 frozen contract；P9才决定 Example 是否存�
 
 Generated artifact、runtime、transformation Template 和 runtime plan 在相应 create/execute boundary 互相验证。当前 identity 为：
 
-- generated protocol：`soma-generated-runtime-v5`；
-- runtime compatibility：`soma-runtime-java8-v5`；
-- transformation protocol：`soma-transformation-v1`；
+- generated protocol：`soma-generated-runtime-v6`；
+- runtime compatibility：`soma-runtime-java8-v6`；
+- transformation protocol：`soma-transformation-v2`；
 - kernel protocol：`soma-kernel-v1`；
 - runtime plan protocol：`soma-runtime-plan-v3`；
 - dense storage algorithm：`dense-soa-v1`；
 - materialization estimator：`soma-materialization-estimator-v1`。
 
-Schema、Definition、function/reducer、transformation、kernel、planner policy、runtime plan 与 bound lifecycle identity 分离。Mismatch 在 aggregate publish 或 Invocation execute 前以 typed compatibility failure 拒绝，不能降级到反射、scan、v4/v5 双 adapter 或 best-effort execution。
+Schema、Definition、function/reducer、transformation、kernel、planner policy、runtime plan 与 bound lifecycle identity 分离。Mismatch 在 aggregate publish 或 Invocation execute 前以 typed compatibility failure 拒绝，不能降级到反射、scan、旧协议双 adapter 或 best-effort execution。
 
 Group stable `logicalGroupId`、runtime `groupInstanceId`、member slot、
 membershipEpoch、Table structuralEpoch 与 application dataVersion 是不同 identity。

@@ -46,7 +46,7 @@ public final class DataFlowSliceBCheck {
         LongColumnResult combined = execute(
                 source.candidates()
                         .partition(source.columns().entityKind()
-                                .equalTo(EntityKind.PRIMARY))
+                                .equalTo(EntityKind.PRIMARY.ordinal()))
                         .combine()
                         .project(source.columns().factIndex())
                         .toColumn(),

@@ -11,12 +11,16 @@ import com.hgtech.soma.dataflow.DataFlowDefinition;
 import com.hgtech.soma.dataflow.DataFlowInvocation;
 import com.hgtech.soma.dataflow.DoubleColumnResult;
 import com.hgtech.soma.dataflow.ExecutionBudget;
+import com.hgtech.soma.dataflow.GeneratedDataFlow;
 import com.hgtech.soma.dataflow.LongColumnResult;
 import com.hgtech.soma.dataflow.LongScalarResult;
 import com.hgtech.soma.dataflow.OptionalDoubleResult;
 import com.hgtech.soma.dataflow.OptionalLongResult;
+import com.hgtech.soma.dataflow.SourceSlot;
+import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
 
 /** Slice A 的 lazy、shape、order、value、budget 与 current-Index differential。 */
 public final class DataFlowSliceACheck {
@@ -151,8 +155,118 @@ public final class DataFlowSliceACheck {
             context.close();
         }
 
+        testProtocolMismatch();
         table.release();
         System.out.println("dataflow-slice-a-check: ok");
+    }
+
+    private static void testProtocolMismatch() {
+        ProtocolSource source = new ProtocolSource();
+        DataFlowDefinition<LongScalarResult> count =
+                GeneratedDataFlow.candidates(source).count();
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            expectProtocolCode(
+                    count,
+                    source,
+                    new ProtocolBinding(
+                            "soma-generated-runtime-v5",
+                            GeneratedDataFlow.TRANSFORMATION_PROTOCOL,
+                            GeneratedDataFlow.KERNEL_PROTOCOL),
+                    context,
+                    "dataflow_generated_protocol_mismatch");
+            expectProtocolCode(
+                    count,
+                    source,
+                    new ProtocolBinding(
+                            RuntimeCompatibility.GENERATED_PROTOCOL,
+                            "soma-transformation-v1",
+                            GeneratedDataFlow.KERNEL_PROTOCOL),
+                    context,
+                    "dataflow_transformation_protocol_mismatch");
+        } finally {
+            context.close();
+        }
+    }
+
+    private static void expectProtocolCode(
+            DataFlowDefinition<LongScalarResult> definition,
+            ProtocolSource source,
+            ProtocolBinding binding,
+            DataFlowContext context,
+            String code) {
+        try {
+            definition.compile().newInvocation(context)
+                    .bind(source, binding)
+                    .execute();
+            throw new AssertionError(code + " must fail closed");
+        } catch (SomaRuntimeException expected) {
+            require(code.equals(expected.code()), code + " failure code");
+        }
+    }
+
+    private static final class ProtocolSource
+            extends SourceSlot<ProtocolBinding> {
+        private ProtocolSource() {
+            super(0, "protocol", "protocol-schema", "protocol-table");
+        }
+    }
+
+    private static final class ProtocolBinding implements DataFlowBinding {
+        private final String generatedProtocol;
+        private final String transformationProtocol;
+        private final String kernelProtocol;
+        private final Object physicalIdentity = new Object();
+
+        private ProtocolBinding(
+                String generatedProtocol,
+                String transformationProtocol,
+                String kernelProtocol) {
+            this.generatedProtocol = generatedProtocol;
+            this.transformationProtocol = transformationProtocol;
+            this.kernelProtocol = kernelProtocol;
+        }
+
+        @Override public long aggregateInstanceId() { return 1L; }
+        @Override public Object physicalIdentity() { return physicalIdentity; }
+        @Override public String schemaIdentity() { return "protocol-schema"; }
+        @Override public String tableIdentity() { return "protocol-table"; }
+        @Override public String generatedProtocol() { return generatedProtocol; }
+        @Override public String transformationProtocol() {
+            return transformationProtocol;
+        }
+        @Override public String kernelProtocol() { return kernelProtocol; }
+        @Override public long structuralEpoch() { return 0L; }
+        @Override public int packedSize() { return 0; }
+        @Override public boolean isPresent(int columnOrdinal, int index) {
+            throw new AssertionError("protocol test must not touch data");
+        }
+        @Override public boolean booleanValue(int columnOrdinal, int index) {
+            throw new AssertionError("protocol test must not touch data");
+        }
+        @Override public long longValue(int columnOrdinal, int index) {
+            throw new AssertionError("protocol test must not touch data");
+        }
+        @Override public double doubleValue(int columnOrdinal, int index) {
+            throw new AssertionError("protocol test must not touch data");
+        }
+        @Override public String stringValue(int columnOrdinal, int index) {
+            throw new AssertionError("protocol test must not touch data");
+        }
+        @Override public IndexSnapshot indexSnapshot(int[] indexes, int length) {
+            throw new AssertionError("protocol test must not touch data");
+        }
+        @Override public void acquire(String operation) {
+            throw new AssertionError("protocol mismatch must precede acquire");
+        }
+        @Override public void release(
+                String operation,
+                boolean success,
+                long scanned,
+                long matched,
+                String failureCode) {
+            throw new AssertionError("protocol mismatch must not release");
+        }
     }
 
     private static NumericFactBatch batch() {

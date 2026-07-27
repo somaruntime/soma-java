@@ -438,8 +438,8 @@ public final class SomaProcessor extends AbstractProcessor {
                     continue;
                 }
                 error(field, "SOMA-TABLE-005",
-                        "unsupported SOMA table field type or optional materialized shape: "
-                                + field.asType());
+                        unsupportedTableFieldMessage(
+                                field.asType(), optional != null));
                 valid = false;
                 continue;
             }
@@ -991,8 +991,7 @@ public final class SomaProcessor extends AbstractProcessor {
             if (field.child != null) continue;
             if (field.optional) continue;
             if (field.type.valueJavaType == null) {
-                if (field.logicalName.equals(path)
-                        && !"java.lang.String".equals(field.type.storagePrimitiveName)) {
+                if (field.logicalName.equals(path)) {
                     return new SelectorLeafModel(path,
                             field.type.publicType, field.type.storagePrimitiveName,
                             field.type.enumJavaType);
@@ -1000,8 +999,7 @@ public final class SomaProcessor extends AbstractProcessor {
                 continue;
             }
             for (ValueLeafType leaf : field.type.valueLeaves) {
-                if ((field.logicalName + "." + leaf.logicalName).equals(path)
-                        && !"java.lang.String".equals(leaf.storagePrimitiveName)) {
+                if ((field.logicalName + "." + leaf.logicalName).equals(path)) {
                     return new SelectorLeafModel(path,
                             leaf.publicPrimitiveName, leaf.storagePrimitiveName,
                             leaf.enumJavaType);
@@ -1020,17 +1018,9 @@ public final class SomaProcessor extends AbstractProcessor {
             if (field.logicalName.equals(path) && field.optional) {
                 return "selector path is optional and cannot be indexed: " + path;
             }
-            if (field.logicalName.equals(path)
-                    && "java.lang.String".equals(field.type.storagePrimitiveName)) {
-                return "selector path resolves to unsupported string leaf: " + path;
-            }
             for (ValueLeafType leaf : field.type.valueLeaves) {
                 String candidate = field.logicalName + "." + leaf.logicalName;
                 candidates.add(candidate);
-                if (candidate.equals(path)
-                        && "java.lang.String".equals(leaf.storagePrimitiveName)) {
-                    return "selector path resolves to unsupported string leaf: " + path;
-                }
             }
         }
         return "invalid selector leaf path: " + path
@@ -1047,6 +1037,26 @@ public final class SomaProcessor extends AbstractProcessor {
         if (!(element instanceof TypeElement)) return null;
         TypeElement type = (TypeElement) element;
         return type.getAnnotation(SomaValue.class) == null ? null : type;
+    }
+
+    private String unsupportedTableFieldMessage(
+            TypeMirror mirror, boolean optional) {
+        if (mirror.getKind() == TypeKind.DECLARED) {
+            Element element = ((DeclaredType) mirror).asElement();
+            if (element instanceof TypeElement) {
+                TypeElement type = (TypeElement) element;
+                if (type.getKind() == ElementKind.CLASS
+                        || type.getKind() == ElementKind.INTERFACE) {
+                    return "arbitrary Java object is not a SOMA schema field; "
+                            + "use primitive, enum, String, @SomaValue, or "
+                            + "parent-owned @SomaChild state; store a stable ID "
+                            + "and keep application objects in a sidecar/registry: "
+                            + mirror;
+                }
+            }
+        }
+        return "unsupported SOMA table field type or optional materialized "
+                + "shape (optional=" + optional + "): " + mirror;
     }
 
     private ChildFieldType childFieldType(
@@ -1923,6 +1933,21 @@ public final class SomaProcessor extends AbstractProcessor {
                         CodegenLimits.MAXIMUM_SCHEMA_TABLES, schema.tables.size(),
                         schema.sourcePackage);
             }
+            String metadataName = schema.generatedPackage + ".SchemaMetadata";
+            Element metadataPrevious =
+                    generatedTypes.put(metadataName, schema.origin);
+            if (metadataPrevious != null) {
+                error(metadataPrevious, "SOMA-GEN-001",
+                        "generated top-level type collision: " + metadataName);
+                error(schema.origin, "SOMA-GEN-001",
+                        "generated top-level type collision: " + metadataName);
+            } else if (processingEnv.getElementUtils().getTypeElement(
+                    metadataName) != null
+                    && !isOwnedGeneratedSource(metadataName)) {
+                error(schema.origin, "SOMA-GEN-001",
+                        "generated top-level type conflicts with existing type: "
+                                + metadataName);
+            }
             List<DenseTableCodegenModel.TableSpec> tableSpecs =
                     new ArrayList<DenseTableCodegenModel.TableSpec>();
             for (TableModel table : schema.tables.values()) {
@@ -1988,6 +2013,32 @@ public final class SomaProcessor extends AbstractProcessor {
                 }
                 if (hasErrors) return Collections.emptyList();
             }
+            GeneratedSourceOutput metadataSource;
+            try {
+                metadataSource = new GeneratedSourceOutput(
+                        schema.generatedPackage + ".SchemaMetadata",
+                        new DenseMetadataSourceEmitter(schema, hash).source(),
+                        schema.origin);
+            } catch (SourceLimitExceeded exceeded) {
+                codegenAdmissionError(
+                        schema.origin,
+                        "generated-source-utf16",
+                        CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH,
+                        exceeded.proposed,
+                        schema.generatedPackage + ".SchemaMetadata");
+                return Collections.emptyList();
+            }
+            if (metadataSource.source.length()
+                    > CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH) {
+                codegenAdmissionError(
+                        schema.origin,
+                        "generated-source-utf16",
+                        CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH,
+                        metadataSource.source.length(),
+                        metadataSource.qualifiedName);
+            }
+            totalLength += metadataSource.source.length();
+            sources.add(metadataSource);
             if (totalLength > CodegenLimits.MAXIMUM_SCHEMA_GENERATED_SOURCE_LENGTH) {
                 codegenAdmissionError(schema.origin, "schema-generated-source-utf16",
                         CodegenLimits.MAXIMUM_SCHEMA_GENERATED_SOURCE_LENGTH, totalLength,
@@ -2038,6 +2089,8 @@ public final class SomaProcessor extends AbstractProcessor {
         result.add(table.name("Batch"));
         result.add(table.name("Mutator"));
         result.add(table.name("Scan"));
+        result.add(table.name("DataFlow"));
+        if (table.keyed()) result.add(table.name("Delta"));
         if (table.keyed()) result.add(table.name("KeyTraversal"));
         result.add(table.name("Table"));
         return result;

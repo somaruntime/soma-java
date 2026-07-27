@@ -5,20 +5,21 @@ import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
-/** Immutable schema-bound reference/enum/value expression. */
-public final class ObjectExpression<B extends DataFlowBinding, T> {
+/** Immutable schema-bound String expression. */
+public final class StringExpression<B extends DataFlowBinding> {
     final SourceSlot<B> source;
-    final ObjectNode node;
+    final StringNode node;
     final BooleanNode presence;
     final String path;
     final List<ParameterSlot<?>> parameters;
     final boolean parallelSafe;
     private final String identity;
 
-    ObjectExpression(
+    StringExpression(
             SourceSlot<B> source,
-            ObjectNode node,
+            StringNode node,
             BooleanNode presence,
             String path) {
         this(
@@ -30,9 +31,9 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
                 true);
     }
 
-    ObjectExpression(
+    StringExpression(
             SourceSlot<B> source,
-            ObjectNode node,
+            StringNode node,
             BooleanNode presence,
             String path,
             List<ParameterSlot<?>> parameters,
@@ -44,7 +45,7 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
         this.parameters = parameters;
         this.parallelSafe = parallelSafe;
         StringBuilder canonical =
-                new StringBuilder("object-expression-v1");
+                new StringBuilder("string-expression-v1");
         DataFlowSupport.appendCanonical(
                 canonical, "source", source.alias());
         DataFlowSupport.appendCanonical(
@@ -68,8 +69,8 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
         return isPresent().not();
     }
 
-    public BooleanExpression<B> equalTo(final T right) {
-        final ObjectNode left = node;
+    public BooleanExpression<B> equalTo(final String right) {
+        final StringNode left = node;
         final BooleanNode available = presence;
         final String constantIdentity =
                 DataFlowSupport.constantIdentity(right);
@@ -83,27 +84,27 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
                             int index) {
                         ExpressionNodes.requirePresent(
                                 frame, available, binding, index, path);
-                        return ExpressionNodes.equalObjects(
+                        return Objects.equals(
                                 left.evaluate(frame, binding, index), right);
                     }
 
                     @Override
                     public String canonical() {
-                        return "object-equal(" + left.canonical()
+                        return "string-equal(" + left.canonical()
                                 + "," + constantIdentity + ")";
                     }
                 },
                 ExpressionNodes.alwaysPresent(),
                 path + ".equal",
                 parameters,
-                false);
+                true);
     }
 
     public BooleanExpression<B> equalTo(
-            ObjectExpression<B, T> other) {
+            StringExpression<B> other) {
         requireSameSource(other);
-        final ObjectNode left = node;
-        final ObjectNode right = other.node;
+        final StringNode left = node;
+        final StringNode right = other.node;
         final BooleanNode available =
                 ExpressionNodes.andPresence(presence, other.presence);
         return new BooleanExpression<B>(
@@ -116,14 +117,14 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
                             int index) {
                         ExpressionNodes.requirePresent(
                                 frame, available, binding, index, path);
-                        return ExpressionNodes.equalObjects(
+                        return Objects.equals(
                                 left.evaluate(frame, binding, index),
                                 right.evaluate(frame, binding, index));
                     }
 
                     @Override
                     public String canonical() {
-                        return "object-equal(" + left.canonical()
+                        return "string-equal(" + left.canonical()
                                 + "," + right.canonical() + ")";
                     }
                 },
@@ -131,19 +132,19 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
                 path + ".equal",
                 DataFlowSupport.unionParameters(
                         parameters, other.parameters),
-                false);
+                parallelSafe && other.parallelSafe);
     }
 
-    public ObjectExpression<B, T> coalesce(final T fallback) {
-        final ObjectNode value = node;
+    public StringExpression<B> coalesce(final String fallback) {
+        final StringNode value = node;
         final BooleanNode available = presence;
         final String constantIdentity =
                 DataFlowSupport.constantIdentity(fallback);
-        return new ObjectExpression<B, T>(
+        return new StringExpression<B>(
                 source,
-                new ObjectNode() {
+                new StringNode() {
                     @Override
-                    public Object evaluate(
+                    public String evaluate(
                             ExecutionFrame frame,
                             DataFlowBinding binding,
                             int index) {
@@ -154,7 +155,7 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
 
                     @Override
                     public String canonical() {
-                        return "object-coalesce(" + value.canonical()
+                        return "string-coalesce(" + value.canonical()
                                 + "," + constantIdentity + ")";
                     }
                 },
@@ -165,44 +166,45 @@ public final class ObjectExpression<B extends DataFlowBinding, T> {
     }
 
     public CandidateOrder<B> ascending() {
-        return CandidateOrder.objectOrder(this, null, false);
+        return CandidateOrder.stringOrder(this, null, false);
     }
 
-    public CandidateOrder<B> ascending(Comparator<? super T> comparator) {
+    public CandidateOrder<B> ascending(
+            Comparator<? super String> comparator) {
         if (comparator == null) {
             throw new NullPointerException("comparator");
         }
-        return CandidateOrder.objectOrder(this, comparator, false);
+        return CandidateOrder.stringOrder(this, comparator, false);
     }
 
     public CandidateOrder<B> descending() {
-        return CandidateOrder.objectOrder(this, null, true);
+        return CandidateOrder.stringOrder(this, null, true);
     }
 
-    public CandidateOrder<B> descending(Comparator<? super T> comparator) {
+    public CandidateOrder<B> descending(
+            Comparator<? super String> comparator) {
         if (comparator == null) {
             throw new NullPointerException("comparator");
         }
-        return CandidateOrder.objectOrder(this, comparator, true);
+        return CandidateOrder.stringOrder(this, comparator, true);
     }
 
     public String identity() {
         return identity;
     }
 
-    @SuppressWarnings("unchecked")
-    T evaluate(
+    String evaluate(
             ExecutionFrame frame, DataFlowBinding binding, int index) {
         ExpressionNodes.requirePresent(
                 frame, presence, binding, index, path);
-        return (T) node.evaluate(frame, binding, index);
+        return node.evaluate(frame, binding, index);
     }
 
     boolean required() {
         return ExpressionNodes.isAlwaysPresent(presence);
     }
 
-    private void requireSameSource(ObjectExpression<B, T> other) {
+    private void requireSameSource(StringExpression<B> other) {
         if (other == null) {
             throw new NullPointerException("other");
         }

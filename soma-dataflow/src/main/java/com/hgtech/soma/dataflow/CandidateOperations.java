@@ -476,30 +476,30 @@ final class BooleanColumnOperation<B extends DataFlowBinding>
     }
 }
 
-final class ObjectColumnOperation<B extends DataFlowBinding, T>
-        extends CandidateProjectionOperation<B, ObjectColumnResult<T>> {
-    private final ObjectExpression<B, T> expression;
+final class StringColumnOperation<B extends DataFlowBinding>
+        extends CandidateProjectionOperation<B, StringColumnResult> {
+    private final StringExpression<B> expression;
 
-    ObjectColumnOperation(
-            CandidateProgram<B> program, ObjectExpression<B, T> expression) {
+    StringColumnOperation(
+            CandidateProgram<B> program, StringExpression<B> expression) {
         super(program, expression.parameters);
         this.expression = expression;
     }
 
     @Override
     public String canonicalForm() {
-        return program.canonical() + "->object-column("
+        return program.canonical() + "->string-column("
                 + expression.identity() + ")";
     }
 
     @Override
     public String logicalShape() {
-        return "Candidate -> Projected<object> -> DetachedColumn<object>";
+        return "Candidate -> Projected<String> -> DetachedColumn<String>";
     }
 
     @Override
     String projectionName() {
-        return "DetachedColumn<object>";
+        return "DetachedColumn<String>";
     }
 
     @Override
@@ -509,11 +509,11 @@ final class ObjectColumnOperation<B extends DataFlowBinding, T>
     }
 
     @Override
-    public ExecutionOutcome<ObjectColumnResult<T>> execute(ExecutionFrame frame) {
+    public ExecutionOutcome<StringColumnResult> execute(ExecutionFrame frame) {
         final DataFlowBinding binding = frame.binding(source);
         int capacity = program.maximumCardinality(binding);
-        final Object[] values =
-                frame.newOutputObjects(capacity, "dataflow.objectColumn");
+        final String[] values =
+                frame.newOutputStrings(capacity, "dataflow.stringColumn");
         CandidateVisit visit = program.visit(
                 frame,
                 new CandidateVisitor() {
@@ -524,9 +524,9 @@ final class ObjectColumnOperation<B extends DataFlowBinding, T>
                         return true;
                     }
                 },
-                "dataflow.objectColumn");
-        return new ExecutionOutcome<ObjectColumnResult<T>>(
-                new ObjectColumnResult<T>(values, visit.matched),
+                "dataflow.stringColumn");
+        return new ExecutionOutcome<StringColumnResult>(
+                new StringColumnResult(values, visit.matched),
                 visit.scanned,
                 visit.matched,
                 visit.matched,

@@ -2,6 +2,7 @@ package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -460,7 +461,7 @@ public final class DataFlowInvocation<R> {
                 "dataflow_table_mismatch",
                 slot.alias());
         requireIdentity(
-                "soma-generated-runtime-v5",
+                RuntimeCompatibility.GENERATED_PROTOCOL,
                 binding.generatedProtocol(),
                 "dataflow_generated_protocol_mismatch",
                 slot.alias());

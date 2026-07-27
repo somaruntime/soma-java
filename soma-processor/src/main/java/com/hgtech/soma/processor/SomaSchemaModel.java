@@ -19,6 +19,18 @@ import static com.hgtech.soma.processor.SomaSchemaJson.quote;
 
 /** Normalized schema and artifact-plan model produced before code generation. */
 final class SomaSchemaModel {
+    /** Closed compiler classification; no OTHER/object fallback exists. */
+    enum SchemaStorageKind {
+        PRIMITIVE_BACKED_SCALAR,
+        REFERENCE_BACKED_IMMUTABLE_SCALAR,
+        COMPILER_FLATTENED_VALUE,
+        OWNED_STRUCTURED_STATE;
+
+        String metadataConstant() {
+            return "SomaTypeKind." + name();
+        }
+    }
+
     private SomaSchemaModel() {
     }
 
@@ -592,6 +604,16 @@ final class SomaSchemaModel {
         final List<ValueLeafType> valueLeaves;
         final List<ValueGroupType> valueGroups;
 
+        SchemaStorageKind storageKind() {
+            if (valueJavaType != null) {
+                return SchemaStorageKind.COMPILER_FLATTENED_VALUE;
+            }
+            if ("java.lang.String".equals(storagePrimitiveName)) {
+                return SchemaStorageKind.REFERENCE_BACKED_IMMUTABLE_SCALAR;
+            }
+            return SchemaStorageKind.PRIMITIVE_BACKED_SCALAR;
+        }
+
         TableFieldType(
                 TypeKind primitiveKind,
                 String logicalType,
@@ -657,7 +679,7 @@ final class SomaSchemaModel {
             return new TableFieldType(
                     null, "string", "java.lang.String", "java.lang.String",
                     "java.lang.String", "java.lang.String",
-                    "ObjectColumn<java.lang.String>", null, null,
+                    "StringColumn", null, null,
                     null, null, null, null, null, null,
                     new ArrayList<ValueLeafType>(), new ArrayList<ValueGroupType>());
         }
@@ -783,17 +805,19 @@ final class SomaSchemaModel {
             if (primitive != null) {
                 return new ValueLeafType(javaPath, storageName, logicalPath,
                         field.semantic, primitive.publicType,
-                        primitive.storagePrimitiveName, primitive.columnType, null);
+                        primitive.storagePrimitiveName, primitive.columnType, null,
+                        field.defaultValue);
             }
             if ("string".equals(field.type.text)) {
                 return new ValueLeafType(javaPath, storageName, logicalPath,
                         field.semantic, "java.lang.String", "java.lang.String",
-                        "ObjectColumn<java.lang.String>", null);
+                        "StringColumn", null, field.defaultValue);
             }
             if (field.type.enumModel != null) {
                 String enumType = field.type.enumModel.javaType;
                 return new ValueLeafType(javaPath, storageName, logicalPath,
-                        field.semantic, enumType, "int", "IntColumn", enumType);
+                        field.semantic, enumType, "int", "IntColumn", enumType,
+                        field.defaultValue);
             }
             return null;
         }
@@ -837,11 +861,13 @@ final class SomaSchemaModel {
         final String storagePrimitiveName;
         final String columnType;
         final String enumJavaType;
+        final DefaultModel defaultValue;
 
         ValueLeafType(
                 String javaName, String storageName, String logicalName, String semantic,
                 String publicPrimitiveName, String storagePrimitiveName,
-                String columnType, String enumJavaType) {
+                String columnType, String enumJavaType,
+                DefaultModel defaultValue) {
             this.javaName = javaName;
             this.storageName = storageName;
             this.logicalName = logicalName;
@@ -850,6 +876,7 @@ final class SomaSchemaModel {
             this.storagePrimitiveName = storagePrimitiveName;
             this.columnType = columnType;
             this.enumJavaType = enumJavaType;
+            this.defaultValue = defaultValue;
         }
     }
 

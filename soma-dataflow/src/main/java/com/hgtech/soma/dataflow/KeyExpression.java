@@ -48,15 +48,15 @@ public final class KeyExpression<B extends DataFlowBinding> {
                 expression.parallelSafe);
     }
 
-    public static <B extends DataFlowBinding, T> KeyExpression<B> of(
-            ObjectExpression<B, T> expression) {
+    public static <B extends DataFlowBinding> KeyExpression<B> of(
+            StringExpression<B> expression) {
         if (expression == null) {
             throw new NullPointerException("expression");
         }
         requireRequired(expression.required(), expression.path);
         return new KeyExpression<B>(
                 expression.source,
-                new KeyComponent[] {new ObjectKeyComponent(expression)},
+                new KeyComponent[] {new StringKeyComponent(expression)},
                 expression.parameters,
                 expression.parallelSafe);
     }
@@ -99,14 +99,14 @@ public final class KeyExpression<B extends DataFlowBinding> {
                 expression.parallelSafe);
     }
 
-    public <T> KeyExpression<B> then(ObjectExpression<B, T> expression) {
+    public KeyExpression<B> then(StringExpression<B> expression) {
         if (expression == null) {
             throw new NullPointerException("expression");
         }
         requireSource(expression.source);
         requireRequired(expression.required(), expression.path);
         return append(
-                new ObjectKeyComponent(expression),
+                new StringKeyComponent(expression),
                 expression.parameters,
                 expression.parallelSafe);
     }
@@ -237,7 +237,7 @@ public final class KeyExpression<B extends DataFlowBinding> {
 
 interface KeyComponent {
     int LONG = 1;
-    int OBJECT = 2;
+    int STRING = 2;
     int DOUBLE = 3;
     int BOOLEAN = 4;
 
@@ -295,22 +295,22 @@ final class LongKeyComponent implements KeyComponent {
     }
 }
 
-final class ObjectKeyComponent implements KeyComponent {
-    private final ObjectExpression<?, ?> expression;
+final class StringKeyComponent implements KeyComponent {
+    private final StringExpression<?> expression;
 
-    ObjectKeyComponent(ObjectExpression<?, ?> expression) {
+    StringKeyComponent(StringExpression<?> expression) {
         this.expression = expression;
     }
 
     @Override
     public int kind() {
-        return OBJECT;
+        return STRING;
     }
 
     @Override
     public long hash(
             ExecutionFrame frame, DataFlowBinding binding, int index) {
-        Object value = expression.evaluate(frame, binding, index);
+        String value = expression.evaluate(frame, binding, index);
         return value.hashCode();
     }
 
@@ -323,13 +323,13 @@ final class ObjectKeyComponent implements KeyComponent {
             DataFlowBinding rightBinding,
             int rightIndex) {
         return expression.evaluate(frame, leftBinding, leftIndex).equals(
-                ((ObjectKeyComponent) right).expression
+                ((StringKeyComponent) right).expression
                         .evaluate(frame, rightBinding, rightIndex));
     }
 
     @Override
     public String canonical() {
-        return "object(" + expression.identity() + ")";
+        return "string(" + expression.identity() + ")";
     }
 }
 

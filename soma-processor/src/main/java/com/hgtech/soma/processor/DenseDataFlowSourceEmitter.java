@@ -33,7 +33,8 @@ final class DenseDataFlowSourceEmitter {
         String type = table.name("DataFlow");
         String tableType = table.name("Table");
         SourceBuilder out = new SourceBuilder(
-                "package " + generatedPackage + ";\n\n");
+                "// SOMA-GENERATED: soma-processor-v1\npackage "
+                        + generatedPackage + ";\n\n");
         out.append("import com.hgtech.soma.dataflow.BooleanExpression;\n")
                 .append("import com.hgtech.soma.dataflow.CandidateFlow;\n")
                 .append("import com.hgtech.soma.dataflow.DataFlowDefinition;\n")
@@ -41,7 +42,7 @@ final class DenseDataFlowSourceEmitter {
                 .append("import com.hgtech.soma.dataflow.ExpandedFlow;\n")
                 .append("import com.hgtech.soma.dataflow.GeneratedDataFlow;\n")
                 .append("import com.hgtech.soma.dataflow.LongExpression;\n")
-                .append("import com.hgtech.soma.dataflow.ObjectExpression;\n")
+                .append("import com.hgtech.soma.dataflow.StringExpression;\n")
                 .append("import com.hgtech.soma.dataflow.ParameterSlot;\n")
                 .append("import com.hgtech.soma.dataflow.PointFlow;\n")
                 .append("import com.hgtech.soma.dataflow.SourceSlot;\n")
@@ -81,7 +82,7 @@ final class DenseDataFlowSourceEmitter {
                 .append("    public LongExpression<Binding> longParameter(ParameterSlot<Long> parameter){return GeneratedDataFlow.longParameter(this,parameter);}\n")
                 .append("    public DoubleExpression<Binding> doubleParameter(ParameterSlot<Double> parameter){return GeneratedDataFlow.doubleParameter(this,parameter);}\n")
                 .append("    public BooleanExpression<Binding> booleanParameter(ParameterSlot<Boolean> parameter){return GeneratedDataFlow.booleanParameter(this,parameter);}\n")
-                .append("    public <T> ObjectExpression<Binding,T> objectParameter(ParameterSlot<T> parameter){return GeneratedDataFlow.objectParameter(this,parameter);}\n");
+                .append("    public StringExpression<Binding> stringParameter(ParameterSlot<String> parameter){return GeneratedDataFlow.stringParameter(this,parameter);}\n");
         appendAccessSourceMethods(out, table);
         appendExactSourceMethods(out, table);
         appendOwnedChildSourceMethods(out, table);
@@ -368,14 +369,6 @@ final class DenseDataFlowSourceEmitter {
             SourceBuilder out, TableSpec table) {
         int ordinal = 0;
         for (FieldSpec field : table.fields) {
-            appendExpressionMethod(
-                    out,
-                    field.javaName,
-                    field.logicalName,
-                    expressionType(field.primitive, field.enumType, field.valueType),
-                    publicType(field.primitive, field.enumType, field.valueType),
-                    field.optional,
-                    ordinal++);
             if (field.valueBacked()) {
                 for (ValueLeafSpec leaf : field.valueLeaves) {
                     appendExpressionMethod(
@@ -384,10 +377,18 @@ final class DenseDataFlowSourceEmitter {
                             field.logicalName + "." + leaf.logicalName,
                             expressionType(
                                     leaf.primitive, leaf.enumType, null),
-                            publicType(leaf.primitive, leaf.enumType, null),
                             field.optional,
                             ordinal++);
                 }
+            } else {
+                appendExpressionMethod(
+                        out,
+                        field.javaName,
+                        field.logicalName,
+                        expressionType(
+                                field.primitive, field.enumType, null),
+                        field.optional,
+                        ordinal++);
             }
         }
     }
@@ -397,15 +398,10 @@ final class DenseDataFlowSourceEmitter {
             String method,
             String path,
             String expressionType,
-            String publicType,
             boolean optional,
             int ordinal) {
         out.append("    public ");
-        if ("Object".equals(expressionType)) {
-            out.append("ObjectExpression<Binding,").append(publicType).append('>');
-        } else {
-            out.append(expressionType).append("Expression<Binding>");
-        }
+        out.append(expressionType).append("Expression<Binding>");
         out.append(' ').append(method).append("(){return GeneratedDataFlow.")
                 .append(optional ? "optional" : "required")
                 .append(expressionType).append("(source,")
@@ -417,10 +413,6 @@ final class DenseDataFlowSourceEmitter {
         out.append("    public boolean isPresent(int column,int index){switch(column){");
         int ordinal = 0;
         for (FieldSpec field : table.fields) {
-            out.append("case ").append(ordinal++).append(":return ")
-                    .append(field.optional
-                            ? "table." + field.javaName + "Present(index)" : "true")
-                    .append(';');
             if (field.valueBacked()) {
                 for (ValueLeafSpec ignored : field.valueLeaves) {
                     out.append("case ").append(ordinal++).append(":return ")
@@ -429,13 +421,19 @@ final class DenseDataFlowSourceEmitter {
                                     + "Present(index)" : "true")
                             .append(';');
                 }
+            } else {
+                out.append("case ").append(ordinal++).append(":return ")
+                        .append(field.optional
+                                ? "table." + field.javaName
+                                + "Present(index)" : "true")
+                        .append(';');
             }
         }
         out.append("default:throw unsupported(column,\"presence\");}}\n");
         appendCarrierAccess(out, table, "Boolean");
         appendCarrierAccess(out, table, "Long");
         appendCarrierAccess(out, table, "Double");
-        appendCarrierAccess(out, table, "Object");
+        appendCarrierAccess(out, table, "String");
     }
 
     private static void appendCarrierAccess(
@@ -448,7 +446,7 @@ final class DenseDataFlowSourceEmitter {
         } else if ("Double".equals(carrier)) {
             returnType = "double";
         } else {
-            returnType = "Object";
+            returnType = "String";
         }
         out.append("    public ").append(returnType).append(' ')
                 .append(Character.toLowerCase(carrier.charAt(0)))
@@ -456,31 +454,54 @@ final class DenseDataFlowSourceEmitter {
                 .append("Value(int column,int index){switch(column){");
         int ordinal = 0;
         for (FieldSpec field : table.fields) {
-            String type = expressionType(
-                    field.primitive, field.enumType, field.valueType);
-            if (carrier.equals(type)) {
-                out.append("case ").append(ordinal).append(":return ")
-                        .append(cast(carrier))
-                        .append("table.").append(field.javaName)
-                        .append("Value(index);");
-            }
-            ordinal++;
             if (field.valueBacked()) {
                 for (ValueLeafSpec leaf : field.valueLeaves) {
-                    type = expressionType(leaf.primitive, leaf.enumType, null);
+                    String type = expressionType(
+                            leaf.primitive, leaf.enumType, null);
                     if (carrier.equals(type)) {
-                        out.append("case ").append(ordinal).append(":return ")
-                                .append(cast(carrier))
-                                .append("table.").append(leaf.stem(field))
-                                .append("Value(index);");
+                        appendCarrierCase(
+                                out,
+                                carrier,
+                                ordinal,
+                                leaf.stem(field),
+                                leaf.enumType != null);
                     }
                     ordinal++;
                 }
+            } else {
+                String type = expressionType(
+                        field.primitive, field.enumType, null);
+                if (carrier.equals(type)) {
+                    appendCarrierCase(
+                            out,
+                            carrier,
+                            ordinal,
+                            field.javaName,
+                            field.enumType != null);
+                }
+                ordinal++;
             }
         }
         out.append("default:throw unsupported(column,")
                 .append(q(carrier.toLowerCase(java.util.Locale.ROOT)))
                 .append(");}}\n");
+    }
+
+    private static void appendCarrierCase(
+            SourceBuilder out,
+            String carrier,
+            int ordinal,
+            String method,
+            boolean enumType) {
+        out.append("case ").append(ordinal).append(":return ");
+        if (enumType) {
+            out.append("(long)table.").append(method)
+                    .append("Value(index).ordinal();");
+            return;
+        }
+        out.append(cast(carrier))
+                .append("table.").append(method)
+                .append("Value(index);");
     }
 
     private static String cast(String carrier) {
@@ -489,9 +510,15 @@ final class DenseDataFlowSourceEmitter {
 
     private static String expressionType(
             String primitive, String enumType, String valueType) {
-        if (enumType != null || valueType != null
-                || "java.lang.String".equals(primitive)) {
-            return "Object";
+        if (valueType != null) {
+            throw new IllegalArgumentException(
+                    "compiler-flattened value has no object expression");
+        }
+        if ("java.lang.String".equals(primitive)) {
+            return "String";
+        }
+        if (enumType != null) {
+            return "Long";
         }
         if ("boolean".equals(primitive)) {
             return "Boolean";
@@ -502,14 +529,4 @@ final class DenseDataFlowSourceEmitter {
         return "Long";
     }
 
-    private static String publicType(
-            String primitive, String enumType, String valueType) {
-        if (enumType != null) {
-            return enumType;
-        }
-        if (valueType != null) {
-            return valueType;
-        }
-        return primitive;
-    }
 }

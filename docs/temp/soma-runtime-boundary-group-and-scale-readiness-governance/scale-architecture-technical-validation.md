@@ -653,8 +653,8 @@ H12 不选择 String backend，只验证已冻结 reference-backed baseline：
     当前以 cardinality threshold 决定 eligibility，将逻辑范围切为不超过 worker
     数的 contiguous partitions，`tasks == workers`；尚无独立的 Segment、Morsel 和
     Execution Block 决策；
-15. [`ObjectColumn`](../../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/ObjectColumn.java)
-    当前以 `Object[]` 保存 String reference，clear/remove/replacement 会清除 dead
+15. [`StringColumn`](../../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/StringColumn.java)
+    当前以 `String[]` 保存白名单 String reference，clear/remove/replacement 会清除 dead
     reference；`estimatedBytes` / `retainedBytes` 使用 `8 × capacity` 的 structural
     estimator，不包含 reachable String object/character payload，也不等于 JVM
     observed heap。

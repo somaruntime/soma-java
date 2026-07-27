@@ -23,9 +23,9 @@ public final class JoinBuilder<
         return on(KeyExpression.of(leftKey), KeyExpression.of(rightKey));
     }
 
-    public <T> JoinedFlow<L, R> on(
-            ObjectExpression<L, T> leftKey,
-            ObjectExpression<R, T> rightKey) {
+    public JoinedFlow<L, R> on(
+            StringExpression<L> leftKey,
+            StringExpression<R> rightKey) {
         return on(KeyExpression.of(leftKey), KeyExpression.of(rightKey));
     }
 

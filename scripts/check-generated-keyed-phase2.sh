@@ -193,7 +193,7 @@ if ! grep -F ' fetch(com.example.soma.compositekeyed.OperationKey);' \
   "$evidence_dir/OperationStateTable.javap.txt" >/dev/null \
   || ! grep -q 'HashCompositeKeySpace keySpace' "$composite_table_source" \
   || ! grep -F 'if(batch.size()==1)' "$composite_table_source" >/dev/null \
-  || ! grep -q 'ObjectColumn<java.lang.String>' "$composite_table_source" \
+  || ! grep -q 'StringColumn' "$composite_table_source" \
   || ! grep -q 'compositeBatchTableEquals' "$composite_table_source" \
   || ! grep -q 'new com.example.soma.compositekeyed.Coordinate' "$composite_table_source"; then
   printf '%s\n' 'generated-keyed-phase2-check: composite value key static binding missing' >&2

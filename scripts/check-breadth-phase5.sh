@@ -113,6 +113,7 @@ printf '%s\n' \
   FullRowCursor \
   FullRowScan \
   FullRowTable \
+  SchemaMetadata \
   StringKeyRowBatch \
   StringKeyRowDataFlow \
   StringKeyRowDelta \
@@ -129,6 +130,13 @@ printf '%s\n' \
   StringParentCursor \
   StringParentScan \
   StringParentTable \
+  StringSelectorRowBatch \
+  StringSelectorRowDataFlow \
+  StringSelectorRowUpdateCursor \
+  StringSelectorRowMutator \
+  StringSelectorRowCursor \
+  StringSelectorRowScan \
+  StringSelectorRowTable \
   | LC_ALL=C sort >"$evidence_dir/expected-generated-types.txt"
 cmp "$evidence_dir/expected-generated-types.txt" "$types_file"
 
@@ -158,6 +166,16 @@ grep -F 'if(batch.size()==1)' "$string_key_source" >/dev/null
 if grep -E 'private .*HashMap|Map<java\.lang\.String,Integer>|List<Integer>' \
   "$string_key_source" >/dev/null; then
   printf '%s\n' 'breadth-phase5-check: Java Collection leaked into String key hot path' >&2
+  exit 1
+fi
+string_selector_source=$generated_dir/StringSelectorRowTable.java
+grep -F 'StringColumn labelColumn' "$string_selector_source" >/dev/null
+grep -F 'sourceLeaf0.hashCode()' "$string_selector_source" >/dev/null
+grep -F 'labelColumn.get(row).compareTo(sourceLeaf0)' \
+  "$string_selector_source" >/dev/null
+if grep -E 'ObjectColumn|ObjectExpression|objectValue|objectParameter' \
+  "$generated_dir"/*.java >/dev/null; then
+  printf '%s\n' 'breadth-phase5-check: generic Object value protocol leaked into generated source' >&2
   exit 1
 fi
 

@@ -26,8 +26,8 @@ interface DoubleNode {
     String canonical();
 }
 
-interface ObjectNode {
-    Object evaluate(
+interface StringNode {
+    String evaluate(
             ExecutionFrame frame, DataFlowBinding binding, int index);
 
     String canonical();
@@ -136,19 +136,19 @@ final class ExpressionNodes {
         };
     }
 
-    static ObjectNode objectField(final int columnOrdinal, final String path) {
-        return new ObjectNode() {
+    static StringNode stringField(final int columnOrdinal, final String path) {
+        return new StringNode() {
             @Override
-            public Object evaluate(
+            public String evaluate(
                     ExecutionFrame frame,
                     DataFlowBinding binding,
                     int index) {
-                return binding.objectValue(columnOrdinal, index);
+                return binding.stringValue(columnOrdinal, index);
             }
 
             @Override
             public String canonical() {
-                return "object-column(" + path + ")";
+                return "string-column(" + path + ")";
             }
         };
     }

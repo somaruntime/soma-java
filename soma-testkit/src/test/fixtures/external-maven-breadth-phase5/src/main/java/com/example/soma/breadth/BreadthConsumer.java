@@ -3,15 +3,28 @@ package com.example.soma.breadth;
 import com.example.soma.breadth.generated.FullRowBatch;
 import com.example.soma.breadth.generated.FullRowMutator;
 import com.example.soma.breadth.generated.FullRowTable;
+import com.example.soma.breadth.generated.SchemaMetadata;
 import com.example.soma.breadth.generated.StringKeyRowBatch;
 import com.example.soma.breadth.generated.StringKeyRowTable;
 import com.example.soma.breadth.generated.StringParentBatch;
 import com.example.soma.breadth.generated.StringParentTable;
+import com.example.soma.breadth.generated.StringSelectorRowBatch;
+import com.example.soma.breadth.generated.StringSelectorRowTable;
+import com.example.soma.breadth.generated.StringSelectorRowDataFlow;
+import com.hgtech.soma.dataflow.DataFlowContext;
+import com.hgtech.soma.dataflow.GroupedLongResult;
+import com.hgtech.soma.dataflow.KeyExpression;
+import com.hgtech.soma.dataflow.LongScalarResult;
+import com.hgtech.soma.dataflow.ParameterSlot;
+import com.hgtech.soma.dataflow.StringColumnResult;
 import com.hgtech.soma.runtime.EnumColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
+import com.hgtech.soma.runtime.metadata.SomaColumnMetadata;
+import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
+import com.hgtech.soma.runtime.metadata.SomaTypeKind;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -29,6 +42,7 @@ public final class BreadthConsumer {
         verifyFailedUpdateDoesNotRetainReferences();
         verifyPresenceWordBoundaries();
         verifyStringKeyAndBudgets();
+        verifyStringSelectorsAndMetadata();
         verifyStringKeyedChild();
         System.out.println("breadth-phase5-consumer: ok");
     }
@@ -242,6 +256,110 @@ public final class BreadthConsumer {
         parents.release();
     }
 
+    private static void verifyStringSelectorsAndMetadata() {
+        StringSelectorRowTable table = StringSelectorRowTable.create();
+        table.addBatch(new StringSelectorRowBatch()
+                .addValues(1, "Aa")
+                .addValues(2, "BB"));
+        check(table.scanByLabel("Aa").count() == 1L
+                        && table.scanByLabel("BB").count() == 1L,
+                "String index hash collision full equality");
+        check(table.fetchByUniqueLabel("Aa").id == 1
+                        && table.fetchByUniqueLabel("BB").id == 2
+                        && table.containsByUniqueLabel("Aa"),
+                "String unique point access");
+        expectCode("unique_constraint_violation",
+                () -> table.addBatch(
+                        new StringSelectorRowBatch().addValues(3, "Aa")),
+                "String unique duplicate");
+        check(table.size() == 2
+                        && table.fetchByUniqueLabel("Aa").id == 1,
+                "String unique failure atomicity");
+        check(table.statsSnapshot().exactIndexCount() == 2
+                        && table.statsSnapshot().exactIndexCollisionCount() > 0L,
+                "String index/unique collision accounting");
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            StringSelectorRowDataFlow.Source source =
+                    StringSelectorRowDataFlow.source("strings");
+            ParameterSlot<String> selected =
+                    ParameterSlot.of(0, "selectedLabel", String.class);
+            StringColumnResult projected = source.candidates()
+                    .filter(source.columns().label()
+                            .equalTo(source.stringParameter(selected)))
+                    .project(source.columns().label())
+                    .toColumn()
+                    .compile()
+                    .newInvocation(context)
+                    .bind(source, StringSelectorRowDataFlow.bind(table))
+                    .parameter(selected, "BB")
+                    .execute();
+            check(projected.size() == 1
+                            && "BB".equals(projected.valueAt(0)),
+                    "String expression/parameter/projection");
+            GroupedLongResult counts = source.candidates()
+                    .groupBy(KeyExpression.of(source.columns().label()))
+                    .counts()
+                    .compile()
+                    .newInvocation(context)
+                    .bind(source, StringSelectorRowDataFlow.bind(table))
+                    .execute();
+            check(counts.size() == 2
+                            && counts.valueAt(0) == 1L
+                            && counts.valueAt(1) == 1L,
+                    "String Group key");
+            StringSelectorRowDataFlow.Source left =
+                    StringSelectorRowDataFlow.source(0, "leftStrings");
+            StringSelectorRowDataFlow.Source right =
+                    StringSelectorRowDataFlow.source(1, "rightStrings");
+            LongScalarResult joined = left.candidates()
+                    .innerJoin(right.candidates())
+                    .on(left.columns().label(), right.columns().label())
+                    .count()
+                    .compile()
+                    .newInvocation(context)
+                    .bind(left, StringSelectorRowDataFlow.bind(table))
+                    .bind(right, StringSelectorRowDataFlow.bind(table))
+                    .execute();
+            check(joined.value() == 2L, "String Join key");
+        } finally {
+            context.close();
+        }
+
+        SomaTableMetadata descriptor =
+                SchemaMetadata.schema().requireTable("StringSelectorRow");
+        SomaColumnMetadata label = descriptor.requireColumn("label");
+        check(StringSelectorRowTable.metadata() == descriptor
+                        && label.type().kind()
+                        == SomaTypeKind.REFERENCE_BACKED_IMMUTABLE_SCALAR
+                        && "java.lang.String".equals(label.type().storageType())
+                        && descriptor.requireIndex("by_label")
+                        .leafPaths().get(0).equals("label")
+                        && descriptor.requireUnique("unique_label")
+                        .leafPaths().get(0).equals("label"),
+                "generated String descriptor projection");
+        SomaColumnMetadata valueLeaf = SchemaMetadata.schema()
+                .requireTable("full_rows")
+                .requireColumn("leafDefaults.count");
+        check(valueLeaf.type().kind()
+                        == SomaTypeKind.COMPILER_FLATTENED_VALUE
+                        && valueLeaf.hasDefault()
+                        && "3".equals(valueLeaf.normalizedDefault()),
+                "flattened value descriptor/default projection");
+        check(SchemaMetadata.schema().requireTable("string_parents")
+                        .requireOwnership("children").type().kind()
+                        == SomaTypeKind.OWNED_STRUCTURED_STATE,
+                "owned structured-state descriptor projection");
+        boolean immutable = false;
+        try {
+            SchemaMetadata.schema().tables().clear();
+        } catch (UnsupportedOperationException expected) {
+            immutable = true;
+        }
+        check(immutable, "descriptor collections are immutable");
+        table.release();
+    }
+
     private static void verifyFailedUpdateDoesNotRetainReferences() {
         FullRowBatch batch = new FullRowBatch();
         for (int index = 0; index < 2; index++) {
@@ -275,7 +393,7 @@ public final class BreadthConsumer {
                     assertArrayDoesNotRetain((Object[]) value, sentinel, field.getName());
                 } else if (value != null
                         && value.getClass().getName().equals(
-                        "com.hgtech.soma.runtime.generated.ObjectColumn")) {
+                        "com.hgtech.soma.runtime.generated.StringColumn")) {
                     Field values = value.getClass().getDeclaredField("values");
                     values.setAccessible(true);
                     assertArrayDoesNotRetain((Object[]) values.get(value), sentinel,

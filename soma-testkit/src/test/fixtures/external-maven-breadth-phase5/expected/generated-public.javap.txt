@@ -124,6 +124,7 @@ public final class com.example.soma.breadth.generated.FullRowTable {
   public static com.example.soma.breadth.generated.FullRowTable create();
   public static com.example.soma.breadth.generated.FullRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -239,6 +240,14 @@ public interface com.example.soma.breadth.generated.FullRowUpdateCursor extends 
   public abstract void setOptionalScalarValue(int);
   public abstract void clearOptionalScalar();
 }
+## SchemaMetadata
+Compiled from "SchemaMetadata.java"
+public final class com.example.soma.breadth.generated.SchemaMetadata {
+  public static com.hgtech.soma.runtime.metadata.SomaMetadata metadata();
+  public static com.hgtech.soma.runtime.metadata.SomaSchemaMetadata schema();
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.RuntimePlan$Builder newPlan();
+}
 ## StringKeyRowBatch
 Compiled from "StringKeyRowBatch.java"
 public final class com.example.soma.breadth.generated.StringKeyRowBatch {
@@ -338,6 +347,7 @@ public final class com.example.soma.breadth.generated.StringKeyRowTable {
   public static com.example.soma.breadth.generated.StringKeyRowTable create();
   public static com.example.soma.breadth.generated.StringKeyRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -458,6 +468,7 @@ public final class com.example.soma.breadth.generated.StringParentTable {
   public static com.example.soma.breadth.generated.StringParentTable create();
   public static com.example.soma.breadth.generated.StringParentTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -504,4 +515,126 @@ public final class com.example.soma.breadth.generated.StringParentTable {
 Compiled from "StringParentUpdateCursor.java"
 public interface com.example.soma.breadth.generated.StringParentUpdateCursor extends com.example.soma.breadth.generated.StringParentCursor {
   public abstract void setId(int);
+}
+## StringSelectorRowBatch
+Compiled from "StringSelectorRowBatch.java"
+public final class com.example.soma.breadth.generated.StringSelectorRowBatch {
+  public com.example.soma.breadth.generated.StringSelectorRowBatch();
+  public com.example.soma.breadth.generated.StringSelectorRowBatch(int);
+  public int size();
+  public int capacity();
+  public boolean isEmpty();
+  public com.example.soma.breadth.generated.StringSelectorRowBatch add(com.example.soma.breadth.StringSelectorRow);
+  public com.example.soma.breadth.generated.StringSelectorRowBatch addValues(com.example.soma.breadth.generated.StringSelectorRowBatch$Writer);
+  public com.example.soma.breadth.generated.StringSelectorRowBatch addValues(int, java.lang.String);
+  public void clear();
+}
+## StringSelectorRowCursor
+Compiled from "StringSelectorRowCursor.java"
+public interface com.example.soma.breadth.generated.StringSelectorRowCursor {
+  public abstract int id();
+  public abstract java.lang.String label();
+}
+## StringSelectorRowDataFlow
+Compiled from "StringSelectorRowDataFlow.java"
+public final class com.example.soma.breadth.generated.StringSelectorRowDataFlow {
+  public static final java.lang.String SCHEMA_IDENTITY;
+  public static final java.lang.String TABLE_IDENTITY;
+  public static com.example.soma.breadth.generated.StringSelectorRowDataFlow$Source source(java.lang.String);
+  public static com.example.soma.breadth.generated.StringSelectorRowDataFlow$Source source(int, java.lang.String);
+  public static com.example.soma.breadth.generated.StringSelectorRowDataFlow$Binding bind(com.example.soma.breadth.generated.StringSelectorRowTable);
+}
+## StringSelectorRowMutator
+Compiled from "StringSelectorRowMutator.java"
+public final class com.example.soma.breadth.generated.StringSelectorRowMutator {
+  public com.example.soma.breadth.generated.StringSelectorRowMutator setId(int);
+  public com.example.soma.breadth.generated.StringSelectorRowMutator setLabel(java.lang.String);
+  public void commit();
+}
+## StringSelectorRowScan
+Compiled from "StringSelectorRowScan.java"
+public final class com.example.soma.breadth.generated.StringSelectorRowScan {
+  public com.example.soma.breadth.generated.StringSelectorRowScan filter(com.example.soma.breadth.generated.StringSelectorRowScan$Predicate);
+  public com.example.soma.breadth.generated.StringSelectorRowScan skip(long);
+  public com.example.soma.breadth.generated.StringSelectorRowScan limit(long);
+  public com.example.soma.breadth.generated.StringSelectorRowScan sorted(com.example.soma.breadth.generated.StringSelectorRowScan$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.StringSelectorRowScan$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.StringSelectorRowScan$Predicate);
+  public void forEach(com.example.soma.breadth.generated.StringSelectorRowScan$Consumer);
+  public int findIndex();
+  public int requireIndex();
+  public java.util.Optional<com.example.soma.breadth.StringSelectorRow> findFirst();
+  public java.util.Optional<com.example.soma.breadth.StringSelectorRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringSelectorRow firstOrThrow();
+  public com.example.soma.breadth.StringSelectorRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringSelectorRow> fetchAll();
+  public java.util.List<com.example.soma.breadth.StringSelectorRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringSelectorRowScan$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+}
+## StringSelectorRowTable
+Compiled from "StringSelectorRowTable.java"
+public final class com.example.soma.breadth.generated.StringSelectorRowTable {
+  public static com.example.soma.breadth.generated.StringSelectorRowTable create();
+  public static com.example.soma.breadth.generated.StringSelectorRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public int size();
+  public int capacity();
+  public long structuralEpoch();
+  public boolean isReleased();
+  public void reserve(int);
+  public void addBatch(com.example.soma.breadth.generated.StringSelectorRowBatch);
+  public void replaceAll(com.example.soma.breadth.generated.StringSelectorRowBatch);
+  public void clear();
+  public void release();
+  public com.example.soma.breadth.StringSelectorRow fetchAt(int);
+  public com.example.soma.breadth.StringSelectorRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringSelectorRow> materialize();
+  public java.util.List<com.example.soma.breadth.StringSelectorRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.generated.StringSelectorRowMutator mutateAt(int);
+  public com.example.soma.breadth.generated.StringSelectorRowScan filter(com.example.soma.breadth.generated.StringSelectorRowScan$Predicate);
+  public com.example.soma.breadth.generated.StringSelectorRowScan skip(long);
+  public com.example.soma.breadth.generated.StringSelectorRowScan limit(long);
+  public com.example.soma.breadth.generated.StringSelectorRowScan sorted(com.example.soma.breadth.generated.StringSelectorRowScan$Comparator);
+  public long count();
+  public boolean anyMatch(com.example.soma.breadth.generated.StringSelectorRowScan$Predicate);
+  public boolean noneMatch(com.example.soma.breadth.generated.StringSelectorRowScan$Predicate);
+  public void forEach(com.example.soma.breadth.generated.StringSelectorRowScan$Consumer);
+  public int findIndex();
+  public int requireIndex();
+  public java.util.Optional<com.example.soma.breadth.StringSelectorRow> findFirst();
+  public java.util.Optional<com.example.soma.breadth.StringSelectorRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringSelectorRow firstOrThrow();
+  public com.example.soma.breadth.StringSelectorRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.breadth.StringSelectorRow> fetchAll();
+  public java.util.List<com.example.soma.breadth.StringSelectorRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
+  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.breadth.generated.StringSelectorRowScan$Updater);
+  public com.hgtech.soma.runtime.RemoveResult remove();
+  public com.example.soma.breadth.generated.StringSelectorRowScan scanByLabel(java.lang.String);
+  public com.example.soma.breadth.generated.StringSelectorRowScan scanByUniqueLabel(java.lang.String);
+  public boolean containsByUniqueLabel(java.lang.String);
+  public int findIndexByUniqueLabel(java.lang.String);
+  public int requireIndexByUniqueLabel(java.lang.String);
+  public java.util.Optional<com.example.soma.breadth.StringSelectorRow> findByUniqueLabel(java.lang.String);
+  public java.util.Optional<com.example.soma.breadth.StringSelectorRow> findByUniqueLabel(java.lang.String, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.StringSelectorRow fetchByUniqueLabel(java.lang.String);
+  public com.example.soma.breadth.StringSelectorRow fetchByUniqueLabel(java.lang.String, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.breadth.generated.StringSelectorRowMutator mutateByUniqueLabel(java.lang.String);
+  public void deleteByUniqueLabel(java.lang.String);
+  public com.hgtech.soma.runtime.IntColumnTraversal idValues();
+  public com.hgtech.soma.runtime.IntColumnView idColumn();
+  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public void resetStats();
+}
+## StringSelectorRowUpdateCursor
+Compiled from "StringSelectorRowUpdateCursor.java"
+public interface com.example.soma.breadth.generated.StringSelectorRowUpdateCursor extends com.example.soma.breadth.generated.StringSelectorRowCursor {
+  public abstract void setId(int);
+  public abstract void setLabel(java.lang.String);
 }

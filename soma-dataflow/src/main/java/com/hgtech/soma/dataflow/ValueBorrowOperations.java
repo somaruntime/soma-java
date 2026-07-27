@@ -195,16 +195,16 @@ final class BooleanValueBorrowOperation<B extends DataFlowBinding>
     }
 }
 
-final class ObjectValueBorrowOperation<
-        B extends DataFlowBinding, T>
+final class StringValueBorrowOperation<
+        B extends DataFlowBinding>
         extends ValueBorrowOperation<B> {
-    private final ObjectExpression<B, T> expression;
-    private final ObjectValueConsumer<T> consumer;
+    private final StringExpression<B> expression;
+    private final StringValueConsumer consumer;
 
-    ObjectValueBorrowOperation(
+    StringValueBorrowOperation(
             CandidateProgram<B> program,
-            ObjectExpression<B, T> expression,
-            ObjectValueConsumer<T> consumer) {
+            StringExpression<B> expression,
+            StringValueConsumer consumer) {
         super(program, expression.parameters);
         this.expression = expression;
         this.consumer = consumer;

@@ -157,9 +157,9 @@ public final class CandidateOrder<B extends DataFlowBinding> {
                 expression.parallelSafe);
     }
 
-    static <B extends DataFlowBinding, T> CandidateOrder<B> objectOrder(
-            final ObjectExpression<B, T> expression,
-            final Comparator<? super T> comparator,
+    static <B extends DataFlowBinding> CandidateOrder<B> stringOrder(
+            final StringExpression<B> expression,
+            final Comparator<? super String> comparator,
             final boolean descending) {
         final String comparatorIdentity = comparator == null
                 ? "natural"
@@ -169,24 +169,23 @@ public final class CandidateOrder<B extends DataFlowBinding> {
                 expression.source,
                 new OrderNode() {
                     @Override
-                    @SuppressWarnings("unchecked")
                     public int compare(
                             ExecutionFrame frame,
                             DataFlowBinding binding,
                             int left,
                             int right) {
-                        Object a = expression.evaluate(
+                        String a = expression.evaluate(
                                 frame, binding, left);
-                        Object b = expression.evaluate(
+                        String b = expression.evaluate(
                                 frame, binding, right);
-                        int result = ExpressionNodes.compareObjects(
-                                a, b, (Comparator<Object>) comparator);
+                        int result = comparator == null
+                                ? a.compareTo(b) : comparator.compare(a, b);
                         return descending ? -result : result;
                     }
 
                     @Override
                     public String canonical() {
-                        return (descending ? "object-desc(" : "object-asc(")
+                        return (descending ? "string-desc(" : "string-asc(")
                                 + expression.identity() + ","
                                 + comparatorIdentity + ")";
                     }

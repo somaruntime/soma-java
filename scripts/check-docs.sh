@@ -291,9 +291,9 @@ for file in \
   fi
 done
 
-if ! grep -F 'soma-generated-runtime-v5' \
+if ! grep -F 'soma-generated-runtime-v6' \
     docs/design/compatibility-security-and-versioning.md >/dev/null 2>&1; then
-  fail 'compatibility Design must declare generated/runtime v5'
+  fail 'compatibility Design must declare generated/runtime v6'
 fi
 
 for file in \

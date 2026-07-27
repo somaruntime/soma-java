@@ -274,6 +274,11 @@ final class ExecutionFrame {
         return new Object[length];
     }
 
+    String[] newOutputStrings(int length, String operation) {
+        reserveOutput(length, multiply(length, 8L, operation), operation);
+        return new String[length];
+    }
+
     boolean[] newOutputBooleans(int length, String operation) {
         reserveOutput(length, length, operation);
         return new boolean[length];

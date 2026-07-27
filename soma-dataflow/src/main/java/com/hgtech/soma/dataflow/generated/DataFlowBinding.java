@@ -35,7 +35,7 @@ public interface DataFlowBinding {
 
     double doubleValue(int columnOrdinal, int index);
 
-    Object objectValue(int columnOrdinal, int index);
+    String stringValue(int columnOrdinal, int index);
 
     IndexSnapshot indexSnapshot(int[] indexes, int length);
 

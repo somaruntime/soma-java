@@ -133,10 +133,10 @@ public final class CandidateFlow<B extends DataFlowBinding> {
         return new BooleanValueFlow<B>(plan.compileProgram(), expression);
     }
 
-    public <T> ObjectValueFlow<B, T> project(
-            ObjectExpression<B, T> expression) {
+    public StringValueFlow<B> project(
+            StringExpression<B> expression) {
         requireSource(expression == null ? null : expression.source, "expression");
-        return new ObjectValueFlow<B, T>(plan.compileProgram(), expression);
+        return new StringValueFlow<B>(plan.compileProgram(), expression);
     }
 
     public PartitionedFlow<B> partition(BooleanExpression<B> predicate) {
