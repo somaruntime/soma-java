@@ -2,6 +2,7 @@ package com.hgtech.soma.runtime.generated;
 
 import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
 
 /**
  * 以 stage-all-then-commit 方式协调同一 table 的 column capacity。
@@ -37,9 +38,12 @@ public final class ColumnGroup {
         this.tableLedger = ownership.newTableLedgerInternal(table);
         this.columns = columns.clone();
         validateColumns(this.columns);
-        long initialBytes = estimatedBytes(initialCapacity);
+        configureColumns();
+        int physicalInitialCapacity = physicalCapacity(initialCapacity);
+        long initialBytes = estimatedBytes(physicalInitialCapacity);
         requireTableLimit(initialBytes, "table.create");
-        long stagingBytes = stagingAllocationBytes(initialBytes);
+        long stagingBytes = stagingAllocationBytes(
+                physicalInitialCapacity);
         requireBulkLimit(stagingBytes, "table.create");
         tableLedger.reserveTableInstance("table.create");
         boolean bytesReserved = false;
@@ -50,9 +54,9 @@ public final class ColumnGroup {
             tableLedger.reserveTransient(
                     stagingCoordinatorBytes(), "table.create");
             transientReserved = true;
-            stageAndCommit(initialCapacity);
+            stageAndCommit(physicalInitialCapacity);
             retainedBytes = initialBytes;
-            this.capacity = initialCapacity;
+            this.capacity = physicalInitialCapacity;
         } catch (RuntimeException failure) {
             if (transientReserved) tableLedger.releaseTransient(
                     stagingCoordinatorBytes(), "table.create");
@@ -76,6 +80,34 @@ public final class ColumnGroup {
         return capacity;
     }
 
+    int segmentCount() {
+        if (capacity == 0) return 0;
+        if (tablePlan.storageLayout() == SomaStorageLayout.FLAT) return 1;
+        long tailRows = Math.max(
+                0L, (long) capacity - (long) tablePlan.flatHeadRows());
+        return 1 + (int) ((tailRows + tablePlan.segmentRows() - 1L)
+                / tablePlan.segmentRows());
+    }
+
+    int segmentEndExclusive(int rowIndex, int limitExclusive) {
+        if (rowIndex < 0 || limitExclusive < rowIndex
+                || limitExclusive > capacity) {
+            throw new IndexOutOfBoundsException("invalid segment range");
+        }
+        if (tablePlan.storageLayout() == SomaStorageLayout.FLAT
+                || rowIndex < tablePlan.flatHeadRows()) {
+            return Math.min(limitExclusive,
+                    tablePlan.storageLayout() == SomaStorageLayout.FLAT
+                            ? limitExclusive : tablePlan.flatHeadRows());
+        }
+        long tailOffset = (long) rowIndex
+                - (long) tablePlan.flatHeadRows();
+        long next = (long) tablePlan.flatHeadRows()
+                + ((tailOffset / tablePlan.segmentRows()) + 1L)
+                * (long) tablePlan.segmentRows();
+        return (int) Math.min((long) limitExclusive, next);
+    }
+
     ChildOwnershipRegistry ownershipInternal() {
         return ownership;
     }
@@ -92,10 +124,13 @@ public final class ColumnGroup {
         int newCapacity = targetCapacity(required, growthNumerator, growthDenominator);
         long newBytes = estimatedBytes(newCapacity);
         requireTableLimit(newBytes, "capacity.grow");
-        requireBulkLimit(stagingAllocationBytes(newBytes), "capacity.grow");
+        requireBulkLimit(
+                stagingAllocationBytes(newCapacity), "capacity.grow");
         long delta = newBytes - retainedBytes;
         tableLedger.reserveRetained(delta, "capacity.grow");
-        long transientBytes = checkedAdd(retainedBytes, stagingCoordinatorBytes());
+        long transientBytes = checkedAdd(
+                replacementTransientBytes(newCapacity),
+                stagingCoordinatorBytes());
         boolean transientReserved = false;
         try {
             tableLedger.reserveTransient(
@@ -144,11 +179,14 @@ public final class ColumnGroup {
                     table, operation, tablePlan.maximumTableStorageBytes(), proposedTable);
         }
         if (required > capacity) {
-            requireBulkLimit(stagingAllocationBytes(proposedColumns), operation);
+            requireBulkLimit(
+                    stagingAllocationBytes(proposedCapacity), operation);
         }
 
         long additionalTransient = required > capacity
-                ? checkedAdd(retainedBytes, stagingCoordinatorBytes())
+                ? checkedAdd(
+                        replacementTransientBytes(proposedCapacity),
+                        stagingCoordinatorBytes())
                 : 0L;
         tableLedger.preflightRetained(
                 proposedTable, additionalTransient, operation);
@@ -223,6 +261,12 @@ public final class ColumnGroup {
         }
     }
 
+    private void configureColumns() {
+        for (int index = 0; index < columns.length; index++) {
+            columns[index].configure(tablePlan);
+        }
+    }
+
     private void stageAndCommit(int newCapacity) {
         Object[] staged = new Object[columns.length];
         for (int i = 0; i < columns.length; i++) {
@@ -235,6 +279,19 @@ public final class ColumnGroup {
 
     private int targetCapacity(
             int required, int growthNumerator, int growthDenominator) {
+        if (tablePlan.storageLayout()
+                == SomaStorageLayout.FLAT_HEAD_SEGMENTED_TAIL) {
+            if (required <= tablePlan.flatHeadRows()
+                    && capacity < tablePlan.flatHeadRows()) {
+                long grownHead = ((long) capacity * (long) growthNumerator
+                        + (long) growthDenominator - 1L)
+                        / (long) growthDenominator;
+                long targetHead = Math.max((long) required, grownHead);
+                return (int) Math.min(
+                        (long) tablePlan.flatHeadRows(), targetHead);
+            }
+            return physicalCapacity(required);
+        }
         long grown = ((long) capacity * (long) growthNumerator
                 + (long) growthDenominator - 1L) / (long) growthDenominator;
         long target = Math.max((long) required, grown);
@@ -254,12 +311,49 @@ public final class ColumnGroup {
         return total;
     }
 
-    private long stagingCoordinatorBytes() {
-        return 8L * (long) columns.length;
+    private long stagingAllocationBytes(int newCapacity) {
+        long total = stagingCoordinatorBytes();
+        for (int index = 0; index < columns.length; index++) {
+            total = checkedAdd(
+                    total,
+                    columns[index].stagingAllocationBytes(newCapacity));
+        }
+        return total;
     }
 
-    private long stagingAllocationBytes(long stagedColumnBytes) {
-        return checkedAdd(stagedColumnBytes, stagingCoordinatorBytes());
+    private long replacementTransientBytes(int newCapacity) {
+        long total = 0L;
+        for (int index = 0; index < columns.length; index++) {
+            total = checkedAdd(
+                    total,
+                    columns[index].replacementTransientBytes(newCapacity));
+        }
+        return total;
+    }
+
+    private int physicalCapacity(int required) {
+        if (tablePlan.storageLayout() == SomaStorageLayout.FLAT
+                || required <= tablePlan.flatHeadRows()) {
+            return required;
+        }
+        long tailRows = (long) required
+                - (long) tablePlan.flatHeadRows();
+        long tailCount = (tailRows + tablePlan.segmentRows() - 1L)
+                / tablePlan.segmentRows();
+        long result = (long) tablePlan.flatHeadRows()
+                + tailCount * (long) tablePlan.segmentRows();
+        if (result > tablePlan.maximumRows()) {
+            result = tablePlan.maximumRows();
+            if (result < required) {
+                throw new IllegalArgumentException(
+                        "required capacity exceeds maximum rows");
+            }
+        }
+        return (int) result;
+    }
+
+    private long stagingCoordinatorBytes() {
+        return 8L * (long) columns.length;
     }
 
     private void requireTableLimit(long proposedColumns, String operation) {

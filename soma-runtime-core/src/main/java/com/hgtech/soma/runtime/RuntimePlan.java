@@ -3,6 +3,7 @@ package com.hgtech.soma.runtime;
 import com.hgtech.soma.runtime.generated.GeneratedPlanToken;
 import com.hgtech.soma.runtime.metadata.SomaEffectiveMetadata;
 import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
+import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -13,7 +14,7 @@ import java.util.TreeMap;
 
 /** Immutable schema-bound effective runtime plan。 */
 public final class RuntimePlan {
-    private static final String HASH_PREFIX = "soma-java:v2:runtime-plan\n";
+    private static final String HASH_PREFIX = "soma-java:v3:runtime-plan\n";
 
     private final String schemaHash;
     private final String runtimeCompatibility;
@@ -503,6 +504,12 @@ public final class RuntimePlan {
         public TableEditor maximumTableStorageBytes(long value) {
             owner.requireOpen();
             draft.maximumTableStorageBytes(value);
+            return this;
+        }
+
+        public TableEditor workloadProfile(SomaWorkloadProfile value) {
+            owner.requireOpen();
+            draft.workloadProfile(value);
             return this;
         }
 

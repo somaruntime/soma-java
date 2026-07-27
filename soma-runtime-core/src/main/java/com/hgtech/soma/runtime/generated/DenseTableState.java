@@ -82,6 +82,11 @@ public final class DenseTableState {
 
     public int size() { return size; }
     public int capacity() { return columns.capacity(); }
+    int storageSegmentCount() { return columns.segmentCount(); }
+    public int storageSegmentEndExclusive(
+            int rowIndex, int limitExclusive) {
+        return columns.segmentEndExclusive(rowIndex, limitExclusive);
+    }
     public long structuralEpoch() { return structuralEpoch; }
     public boolean isReleased() { return released; }
     public boolean hasPinnedBorrow() {

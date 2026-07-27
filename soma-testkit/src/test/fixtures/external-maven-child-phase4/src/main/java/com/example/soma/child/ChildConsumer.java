@@ -23,6 +23,9 @@ import com.hgtech.soma.runtime.StringResourceProfile;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.generated.GeneratedRuntimePlan;
 import com.hgtech.soma.runtime.generated.MaterializationAllocation;
+import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
+import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
+import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,6 +36,7 @@ public final class ChildConsumer {
     private ChildConsumer() {}
 
     public static void main(String[] args) {
+        testSegmentedChildHandleRelocation();
         testSnapshotBoundaries();
         testFloatingChildKeys();
         testOwnershipInstanceQuotaAndRetry();
@@ -47,7 +51,9 @@ public final class ChildConsumer {
                         16, 16, Integer.MAX_VALUE, 3, 2,
                         268435456L, 268435456L,
                         268435456L, 268435456L,
-                        "none", "none", false,
+                        "none", "none",
+                        RuntimeCompatibility.STORAGE_LAYOUT_FORMULA, 1,
+                        false,
                         StringResourceProfile.unprofiled()));
         final RuntimePlan extraTablePlan = extraTableBuilder.build();
         expectCode("invalid_runtime_plan", new Action() {
@@ -440,6 +446,60 @@ public final class ChildConsumer {
             public void run() { releasedByRoot.size(); }
         });
         System.out.println("child-phase4-consumer: ok");
+    }
+
+    private static void testSegmentedChildHandleRelocation() {
+        RuntimePlan.Builder builder = SchemaMetadata.newPlan();
+        builder.table("parent_rows")
+                .initialCapacity(4)
+                .planningRows(32769)
+                .maximumRows(70000)
+                .workloadProfile(SomaWorkloadProfile.SCAN_GROWTH);
+        RuntimePlan plan = builder.build();
+        check(plan.requireTable("parent_rows").storageLayout()
+                        == SomaStorageLayout.FLAT_HEAD_SEGMENTED_TAIL
+                        && plan.requireTable("parent_rows").flatHeadRows() == 32768
+                        && plan.requireTable("parent_rows").segmentRows() == 32768,
+                "segmented parent Plan identity");
+
+        ParentRowBatch batch = new ParentRowBatch(32770);
+        ChildRowBatch emptyChildren = new ChildRowBatch(0);
+        KeyedChildRowBatch emptyKeyedChildren = new KeyedChildRowBatch(0);
+        for (int row = 0; row < 32770; row++) {
+            batch.addValues(
+                    row, emptyChildren, null, emptyKeyedChildren);
+        }
+        ParentRowTable table = ParentRowTable.create(plan);
+        table.addBatch(batch);
+
+        ChildRowTable headChild = table.children(32767);
+        ChildRowTable removedChild = table.children(32768);
+        ChildRowTable movedChild = table.children(32769);
+        headChild.addBatch(new ChildRowBatch().add(child(67)));
+        removedChild.addBatch(new ChildRowBatch().add(child(68)));
+        movedChild.addBatch(new ChildRowBatch().add(child(69)));
+        check(table.children(32767).fetchAt(0).value == 67
+                        && table.children(32768).fetchAt(0).value == 68
+                        && table.children(32769).fetchAt(0).value == 69,
+                "child handles cross flat-head and tail boundary");
+
+        table.filter(new ParentRowScan.Predicate() {
+            public boolean test(
+                    com.example.soma.child.generated.ParentRowCursor row) {
+                return row.id() == 32768;
+            }
+        }).remove();
+        check(table.size() == 32769
+                        && table.fetchAt(32768).id == 32769
+                        && table.children(32768).fetchAt(0).value == 69
+                        && movedChild.fetchAt(0).value == 69,
+                "swap-remove repairs segmented child handle locator");
+        expectCode("child_released", new Action() {
+            public void run() {
+                removedChild.size();
+            }
+        });
+        table.release();
     }
 
     private static ChildRow child(int value) {

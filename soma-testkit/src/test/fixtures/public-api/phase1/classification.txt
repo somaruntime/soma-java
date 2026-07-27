@@ -201,3 +201,4 @@ PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaTableMetadata
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaTypeKind
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaTypeMetadata
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaUniqueMetadata
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaWorkloadProfile

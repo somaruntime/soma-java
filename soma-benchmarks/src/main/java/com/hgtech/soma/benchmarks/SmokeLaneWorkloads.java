@@ -1226,6 +1226,8 @@ final class SmokeLaneWorkloads {
                     256L * 1024L * 1024L,
                     RuntimeCompatibility.NO_KEY_SPACE,
                     RuntimeCompatibility.NO_ACCESS_STRATEGY,
+                    RuntimeCompatibility.STORAGE_LAYOUT_FORMULA,
+                    5,
                     false,
                     StringResourceProfile.unprofiled());
             RuntimePlan.Builder builder = GeneratedRuntimePlan.builder(

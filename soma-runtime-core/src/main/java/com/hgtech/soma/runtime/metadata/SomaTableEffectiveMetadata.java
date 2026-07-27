@@ -7,6 +7,11 @@ public interface SomaTableEffectiveMetadata {
     String logicalName();
     String algorithmIdentity();
     SomaStorageLayout storageLayout();
+    SomaWorkloadProfile workloadProfile();
+    String storageLayoutFormulaIdentity();
+    int structuralBytesPerRow();
+    int flatHeadRows();
+    int segmentRows();
     SomaPrimaryLocator primaryLocator();
     SomaExactAccess exactAccess();
     int initialCapacity();

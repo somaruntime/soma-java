@@ -3,51 +3,135 @@ package com.hgtech.soma.runtime.generated;
 import java.util.Arrays;
 
 public final class IntColumn extends GeneratedColumn {
-
-    private int[] values = new int[0];
+    private int[] head = new int[0];
+    private int[][] tails = new int[0][];
 
     public IntColumn() {
     }
 
     public int get(int rowIndex) {
-        return values[rowIndex];
+        return !segmented() || rowIndex < flatHeadRows()
+                ? head[rowIndex]
+                : tails[tailOrdinal(rowIndex)][tailOffset(rowIndex)];
     }
 
     public void set(int rowIndex, int value) {
-        values[rowIndex] = value;
+        if (!segmented() || rowIndex < flatHeadRows()) {
+            head[rowIndex] = value;
+        } else {
+            tails[tailOrdinal(rowIndex)][tailOffset(rowIndex)] = value;
+        }
     }
 
-    public void copyFrom(IntColumn source, int sourceIndex, int targetIndex, int length) {
-        if (source == null) {
-            throw new NullPointerException("source");
+    public void copyFrom(
+            IntColumn source, int sourceIndex, int targetIndex, int length) {
+        if (source == null) throw new NullPointerException("source");
+        requireCopyRange(
+                sourceIndex, targetIndex, length,
+                source.capacity(), capacity());
+        if (source == this && targetIndex > sourceIndex
+                && targetIndex < sourceIndex + length) {
+            for (int index = length - 1; index >= 0; index--) {
+                set(targetIndex + index, get(sourceIndex + index));
+            }
+        } else {
+            for (int index = 0; index < length; index++) {
+                set(targetIndex + index, source.get(sourceIndex + index));
+            }
         }
-        requireCopyRange(sourceIndex, targetIndex, length, source.values.length, values.length);
-        System.arraycopy(source.values, sourceIndex, values, targetIndex, length);
     }
 
     @Override
     public Object stageCapacity(int newCapacity) {
-        requireGrowth(values.length, newCapacity);
-        return Arrays.copyOf(values, newCapacity);
+        requireGrowth(capacity(), newCapacity);
+        int newHeadCapacity = headCapacityFor(newCapacity);
+        int[] stagedHead = newHeadCapacity == head.length
+                ? head : Arrays.copyOf(head, newHeadCapacity);
+        int newTailCount = tailCountFor(newCapacity);
+        int[][] stagedTails = tails;
+        if (newTailCount != tails.length) {
+            stagedTails = Arrays.copyOf(tails, newTailCount);
+            for (int ordinal = tails.length; ordinal < newTailCount; ordinal++) {
+                stagedTails[ordinal] = new int[segmentRows()];
+            }
+        }
+        return new Stage(stagedHead, stagedTails);
     }
 
     @Override
     public void commitCapacity(Object stagedCapacity) {
-        if (!(stagedCapacity instanceof int[])) {
+        if (!(stagedCapacity instanceof Stage)) {
             throw new IllegalStateException("staged capacity type mismatch");
         }
-        int[] staged = (int[]) stagedCapacity;
-        requireGrowth(values.length, staged.length);
-        values = staged;
+        Stage staged = (Stage) stagedCapacity;
+        requireGrowth(capacity(), staged.capacity());
+        head = staged.head;
+        tails = staged.tails;
     }
 
     @Override
     public void clearRange(int fromInclusive, int toExclusive) {
-        requireRange(fromInclusive, toExclusive, values.length);
-        Arrays.fill(values, fromInclusive, toExclusive, 0);
+        requireRange(fromInclusive, toExclusive, capacity());
+        if (!segmented()) {
+            Arrays.fill(head, fromInclusive, toExclusive, 0);
+            return;
+        }
+        int cursor = fromInclusive;
+        if (cursor < head.length) {
+            int end = Math.min(toExclusive, head.length);
+            Arrays.fill(head, cursor, end, 0);
+            cursor = end;
+        }
+        while (cursor < toExclusive) {
+            int ordinal = tailOrdinal(cursor);
+            int offset = tailOffset(cursor);
+            int end = Math.min(
+                    segmentRows(), offset + toExclusive - cursor);
+            Arrays.fill(tails[ordinal], offset, end, 0);
+            cursor += end - offset;
+        }
     }
 
-    @Override long estimatedBytes(int capacity) { requireCapacity(capacity); return 4L * capacity; }
-    @Override long retainedBytes() { return 4L * values.length; }
-    @Override void releaseStorage() { values = new int[0]; }
+    @Override long estimatedBytes(int capacity) {
+        return ColumnStorageSupport.retainedBytes(this, capacity, 4);
+    }
+
+    @Override long stagingAllocationBytes(int newCapacity) {
+        return ColumnStorageSupport.stagingAllocationBytes(
+                this, head.length, tails.length, newCapacity, 4);
+    }
+
+    @Override long replacementTransientBytes(int newCapacity) {
+        return ColumnStorageSupport.replacementTransientBytes(
+                this, head.length, tails.length, newCapacity, 4);
+    }
+
+    @Override long retainedBytes() {
+        return estimatedBytes(capacity());
+    }
+
+    @Override void releaseStorage() {
+        head = new int[0];
+        tails = new int[0][];
+    }
+
+    private int capacity() {
+        return capacityOf(head.length, tails.length);
+    }
+
+    private static final class Stage {
+        private final int[] head;
+        private final int[][] tails;
+
+        private Stage(int[] head, int[][] tails) {
+            this.head = head;
+            this.tails = tails;
+        }
+
+        private int capacity() {
+            return head.length
+                    + (tails.length == 0
+                    ? 0 : Math.multiplyExact(tails.length, tails[0].length));
+        }
+    }
 }

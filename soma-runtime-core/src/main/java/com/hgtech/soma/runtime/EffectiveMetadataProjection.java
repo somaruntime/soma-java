@@ -5,6 +5,7 @@ import com.hgtech.soma.runtime.metadata.SomaExactAccess;
 import com.hgtech.soma.runtime.metadata.SomaPrimaryLocator;
 import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
 import com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata;
+import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -85,6 +86,21 @@ final class EffectiveMetadataProjection implements SomaEffectiveMetadata {
         }
         @Override public SomaStorageLayout storageLayout() {
             return plan.storageLayout();
+        }
+        @Override public SomaWorkloadProfile workloadProfile() {
+            return plan.workloadProfile();
+        }
+        @Override public String storageLayoutFormulaIdentity() {
+            return plan.storageLayoutFormula();
+        }
+        @Override public int structuralBytesPerRow() {
+            return plan.structuralBytesPerRow();
+        }
+        @Override public int flatHeadRows() {
+            return plan.flatHeadRows();
+        }
+        @Override public int segmentRows() {
+            return plan.segmentRows();
         }
         @Override public SomaPrimaryLocator primaryLocator() {
             return plan.primaryLocator();

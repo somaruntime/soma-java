@@ -75,11 +75,12 @@ P8 consumer migration只修复 frozen contract；P9才决定 Example 是否存�
 
 Generated artifact、runtime、transformation Template 和 runtime plan 在相应 create/execute boundary 互相验证。当前 identity 为：
 
-- generated protocol：`soma-generated-runtime-v7`；
-- runtime compatibility：`soma-runtime-java8-v7`；
+- generated protocol：`soma-generated-runtime-v8`；
+- runtime compatibility：`soma-runtime-java8-v8`；
 - transformation protocol：`soma-transformation-v2`；
 - kernel protocol：`soma-kernel-v1`；
-- runtime plan protocol：`soma-runtime-plan-v4`；
+- runtime plan protocol：`soma-runtime-plan-v5`；
+- storage layout formula：`soma-storage-layout-v1`；
 - dense storage algorithm：`dense-soa-v1`；
 - materialization estimator：`soma-materialization-estimator-v1`。
 

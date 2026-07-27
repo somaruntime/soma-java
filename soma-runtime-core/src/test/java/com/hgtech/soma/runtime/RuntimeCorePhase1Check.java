@@ -15,6 +15,7 @@ import com.hgtech.soma.runtime.generated.LongColumn;
 import com.hgtech.soma.runtime.generated.MaterializationTracker;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
+import com.hgtech.soma.runtime.generated.StorageTestProtocol;
 import com.hgtech.soma.runtime.generated.OwnedChildTable;
 import com.hgtech.soma.runtime.metadata.SomaEffectiveMetadata;
 import com.hgtech.soma.runtime.metadata.SomaColumnMetadata;
@@ -31,6 +32,7 @@ import com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata;
 import com.hgtech.soma.runtime.metadata.SomaTableKind;
 import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
 import com.hgtech.soma.runtime.metadata.SomaUniqueMetadata;
+import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -51,6 +53,7 @@ public final class RuntimeCorePhase1Check {
         testResourcePlanCanonicalIdentity();
         testSchemaSeededPlanBuilderAndEffectiveMetadata();
         testPlanningRowsAndMaximumRows();
+        testStorageLayoutFormulaAndSegmentPublication();
         testStringResourceProfile();
         testSomaGroupCompositionLifecycleAndFaults();
         testUnicodeCodePointOrderAndLosslessCanonicalText();
@@ -127,9 +130,13 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumTableStorageBytes\":14,"
                         + "\"maximumUpdateScratchBytes\":11,"
                         + "\"planningRows\":16,\"storageLayout\":\"flat\","
+                        + "\"storageLayoutFormula\":\"soma-storage-layout-v1\","
+                        + "\"structuralBytesPerRow\":1,"
+                        + "\"flatHeadRows\":0,\"segmentRows\":0,"
                         + "\"stringCapable\":false,"
                         + "\"stringResourceProfile\":{\"status\":\"unprofiled\"},"
-                        + "\"table\":\"Order\"}",
+                        + "\"table\":\"Order\","
+                        + "\"workloadProfile\":\"balanced\"}",
                 table.toCanonicalJson(), "table resource plan canonical order");
         RuntimePlan plan = RuntimePlan.builder(
                         "schema-v1",
@@ -147,11 +154,11 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumLeafValues\":50000000,"
                         + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
                         + "\"maximumTableInstances\":100000},"
-                        + "\"generatedProtocol\":\"soma-generated-runtime-v7\","
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v8\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
-                        + "\"planProtocol\":\"soma-runtime-plan-v4\","
-                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v7\","
+                        + "\"planProtocol\":\"soma-runtime-plan-v5\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v8\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");
@@ -303,6 +310,77 @@ public final class RuntimeCorePhase1Check {
                 "reserve maximumRows rejection preserves rows");
         int releasedRows = state.prepareRelease();
         state.commitRelease(releasedRows);
+    }
+
+    private static void testStorageLayoutFormulaAndSegmentPublication() {
+        TablePlan small = TablePlan.builder(
+                        "Small", RuntimeCompatibility.DENSE_ALGORITHM)
+                .planningRows(32768)
+                .storageLayoutFormula(
+                        RuntimeCompatibility.STORAGE_LAYOUT_FORMULA, 64)
+                .build();
+        assertTrue(small.storageLayout() == SomaStorageLayout.FLAT,
+                "Small/Medium remains flat");
+        assertEquals(0, small.segmentRows(),
+                "flat plan has no segment rows");
+
+        TablePlan point = TablePlan.builder(
+                        "Point", RuntimeCompatibility.DENSE_ALGORITHM)
+                .planningRows(1024 * 1024)
+                .workloadProfile(SomaWorkloadProfile.POINT_HEAVY)
+                .storageLayoutFormula(
+                        RuntimeCompatibility.STORAGE_LAYOUT_FORMULA, 8)
+                .build();
+        assertTrue(point.storageLayout() == SomaStorageLayout.FLAT,
+                "point-heavy profile avoids premature segmentation");
+
+        TablePlan wide = TablePlan.builder(
+                        "Wide", RuntimeCompatibility.DENSE_ALGORITHM)
+                .planningRows(65536)
+                .storageLayoutFormula(
+                        RuntimeCompatibility.STORAGE_LAYOUT_FORMULA, 1024)
+                .build();
+        assertTrue(wide.storageLayout()
+                        == SomaStorageLayout.FLAT_HEAD_SEGMENTED_TAIL,
+                "planned structural bytes participate in layout resolution");
+
+        TablePlan large = TablePlan.builder(
+                        "Large", RuntimeCompatibility.DENSE_ALGORITHM)
+                .initialCapacity(4)
+                .planningRows(32769)
+                .maximumRows(100000)
+                .workloadProfile(SomaWorkloadProfile.SCAN_GROWTH)
+                .storageLayoutFormula(
+                        RuntimeCompatibility.STORAGE_LAYOUT_FORMULA, 64)
+                .build();
+        assertTrue(large.storageLayout()
+                        == SomaStorageLayout.FLAT_HEAD_SEGMENTED_TAIL,
+                "Large scan/growth resolves to head-tail");
+        assertEquals(32768, large.flatHeadRows(),
+                "flat head formula");
+        assertEquals(32768, large.segmentRows(),
+                "tail segment formula");
+        assertEquals(RuntimeCompatibility.STORAGE_LAYOUT_FORMULA,
+                large.storageLayoutFormula(), "layout formula identity");
+
+        RuntimePlan runtime = RuntimePlan.builder(
+                        "storage-layout-schema",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(large)
+                .build();
+        SomaTableEffectiveMetadata metadata =
+                runtime.effectiveMetadata().requireTable("Large");
+        assertTrue(metadata.workloadProfile()
+                        == SomaWorkloadProfile.SCAN_GROWTH,
+                "effective workload profile");
+        assertEquals(64, metadata.structuralBytesPerRow(),
+                "effective structural row width");
+        assertEquals(32768, metadata.segmentRows(),
+                "effective segment rows");
+        StorageTestProtocol.verifySegmentedPublication(large);
     }
 
     private static void testStringResourceProfile() {

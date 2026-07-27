@@ -44,6 +44,8 @@ public final class GeneratedRuntimePlan {
             long maximumTableStorageBytes,
             String keySpaceStrategy,
             String accessStrategy,
+            String storageLayoutFormula,
+            int structuralBytesPerRow,
             boolean stringCapable,
             StringResourceProfile stringResourceProfile) {
         return TablePlan.generatedBuilder(
@@ -62,6 +64,10 @@ public final class GeneratedRuntimePlan {
                         GeneratedPlanToken.INSTANCE, keySpaceStrategy)
                 .generatedAccessStrategy(
                         GeneratedPlanToken.INSTANCE, accessStrategy)
+                .generatedStorageLayoutFormula(
+                        GeneratedPlanToken.INSTANCE,
+                        storageLayoutFormula,
+                        structuralBytesPerRow)
                 .generatedStringCapable(
                         GeneratedPlanToken.INSTANCE, stringCapable)
                 .stringResourceProfile(stringResourceProfile)

@@ -175,6 +175,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public com.hgtech.soma.runtime.generated.DenseTableState(java.lang.String, com.hgtech.soma.runtime.RuntimePlan, com.hgtech.soma.runtime.TablePlan, com.hgtech.soma.runtime.generated.ColumnGroup, com.hgtech.soma.runtime.generated.ChildOwnershipRegistry);
   public int size();
   public int capacity();
+  public int storageSegmentEndExclusive(int, int);
   public long structuralEpoch();
   public boolean isReleased();
   public boolean hasPinnedBorrow();
@@ -313,7 +314,7 @@ public interface com.hgtech.soma.runtime.generated.GeneratedRootFactory<T> {
 Compiled from "GeneratedRuntimePlan.java"
 public final class com.hgtech.soma.runtime.generated.GeneratedRuntimePlan {
   public static com.hgtech.soma.runtime.RuntimePlan$Builder builder(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.TablePlan table(java.lang.String, java.lang.String, int, int, int, int, int, long, long, long, long, java.lang.String, java.lang.String, boolean, com.hgtech.soma.runtime.StringResourceProfile);
+  public static com.hgtech.soma.runtime.TablePlan table(java.lang.String, java.lang.String, int, int, int, int, int, long, long, long, long, java.lang.String, java.lang.String, java.lang.String, int, boolean, com.hgtech.soma.runtime.StringResourceProfile);
   public static com.hgtech.soma.runtime.RuntimePlan$Builder addTable(com.hgtech.soma.runtime.RuntimePlan$Builder, com.hgtech.soma.runtime.TablePlan);
   public static com.hgtech.soma.runtime.RuntimePlan$Builder addChild(com.hgtech.soma.runtime.RuntimePlan$Builder, com.hgtech.soma.runtime.ChildPlan);
 }
@@ -632,6 +633,7 @@ public final class com.hgtech.soma.runtime.generated.RuntimeCompatibility {
   public static final java.lang.String GENERATED_PROTOCOL;
   public static final java.lang.String RUNTIME_COMPATIBILITY;
   public static final java.lang.String PLAN_PROTOCOL;
+  public static final java.lang.String STORAGE_LAYOUT_FORMULA;
   public static final java.lang.String DENSE_ALGORITHM;
   public static final java.lang.String NO_ACCESS_STRATEGY;
   public static final java.lang.String NO_KEY_SPACE;
@@ -1747,6 +1749,7 @@ public final class com.hgtech.soma.runtime.RuntimePlan$TableEditor {
   public com.hgtech.soma.runtime.RuntimePlan$TableEditor maximumOperationScratchBytes(long);
   public com.hgtech.soma.runtime.RuntimePlan$TableEditor maximumBulkScratchBytes(long);
   public com.hgtech.soma.runtime.RuntimePlan$TableEditor maximumTableStorageBytes(long);
+  public com.hgtech.soma.runtime.RuntimePlan$TableEditor workloadProfile(com.hgtech.soma.runtime.metadata.SomaWorkloadProfile);
   public com.hgtech.soma.runtime.RuntimePlan$TableEditor stringResourceProfile(com.hgtech.soma.runtime.StringResourceProfile);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnTraversal
@@ -1927,6 +1930,11 @@ public final class com.hgtech.soma.runtime.TablePlan {
   public java.lang.String tableLogicalName();
   public java.lang.String algorithm();
   public com.hgtech.soma.runtime.metadata.SomaStorageLayout storageLayout();
+  public com.hgtech.soma.runtime.metadata.SomaWorkloadProfile workloadProfile();
+  public java.lang.String storageLayoutFormula();
+  public int structuralBytesPerRow();
+  public int flatHeadRows();
+  public int segmentRows();
   public int initialCapacity();
   public int planningRows();
   public int maximumRows();
@@ -1954,9 +1962,11 @@ public final class com.hgtech.soma.runtime.TablePlan$Builder {
   public com.hgtech.soma.runtime.TablePlan$Builder maximumOperationScratchBytes(long);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumBulkScratchBytes(long);
   public com.hgtech.soma.runtime.TablePlan$Builder maximumTableStorageBytes(long);
+  public com.hgtech.soma.runtime.TablePlan$Builder workloadProfile(com.hgtech.soma.runtime.metadata.SomaWorkloadProfile);
   public com.hgtech.soma.runtime.TablePlan$Builder stringResourceProfile(com.hgtech.soma.runtime.StringResourceProfile);
   public com.hgtech.soma.runtime.TablePlan$Builder generatedKeySpaceStrategy(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String);
   public com.hgtech.soma.runtime.TablePlan$Builder generatedAccessStrategy(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String);
+  public com.hgtech.soma.runtime.TablePlan$Builder generatedStorageLayoutFormula(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String, int);
   public com.hgtech.soma.runtime.TablePlan$Builder generatedStringCapable(com.hgtech.soma.runtime.generated.GeneratedPlanToken, boolean);
   public com.hgtech.soma.runtime.TablePlan build();
 }
@@ -2154,6 +2164,11 @@ public interface com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata {
   public abstract java.lang.String logicalName();
   public abstract java.lang.String algorithmIdentity();
   public abstract com.hgtech.soma.runtime.metadata.SomaStorageLayout storageLayout();
+  public abstract com.hgtech.soma.runtime.metadata.SomaWorkloadProfile workloadProfile();
+  public abstract java.lang.String storageLayoutFormulaIdentity();
+  public abstract int structuralBytesPerRow();
+  public abstract int flatHeadRows();
+  public abstract int segmentRows();
   public abstract com.hgtech.soma.runtime.metadata.SomaPrimaryLocator primaryLocator();
   public abstract com.hgtech.soma.runtime.metadata.SomaExactAccess exactAccess();
   public abstract int initialCapacity();
@@ -2217,4 +2232,13 @@ Compiled from "SomaUniqueMetadata.java"
 public interface com.hgtech.soma.runtime.metadata.SomaUniqueMetadata {
   public abstract java.lang.String name();
   public abstract java.util.List<java.lang.String> leafPaths();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaWorkloadProfile
+Compiled from "SomaWorkloadProfile.java"
+public final class com.hgtech.soma.runtime.metadata.SomaWorkloadProfile extends java.lang.Enum<com.hgtech.soma.runtime.metadata.SomaWorkloadProfile> {
+  public static final com.hgtech.soma.runtime.metadata.SomaWorkloadProfile BALANCED;
+  public static final com.hgtech.soma.runtime.metadata.SomaWorkloadProfile POINT_HEAVY;
+  public static final com.hgtech.soma.runtime.metadata.SomaWorkloadProfile SCAN_GROWTH;
+  public static com.hgtech.soma.runtime.metadata.SomaWorkloadProfile[] values();
+  public static com.hgtech.soma.runtime.metadata.SomaWorkloadProfile valueOf(java.lang.String);
 }

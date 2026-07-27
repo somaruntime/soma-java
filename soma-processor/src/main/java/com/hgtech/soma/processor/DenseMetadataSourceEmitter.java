@@ -249,6 +249,8 @@ final class DenseMetadataSourceEmitter {
                             ? q("none")
                             : "RuntimeCompatibility.PRIMITIVE_EXACT_HASH")
                     .append(',')
+                    .append("RuntimeCompatibility.STORAGE_LAYOUT_FORMULA,")
+                    .append(structuralBytesPerRow(spec)).append(',')
                     .append(hasString(spec))
                     .append(",StringResourceProfile.unprofiled()));");
         }
@@ -312,6 +314,34 @@ final class DenseMetadataSourceEmitter {
             }
         }
         return false;
+    }
+
+    private static int structuralBytesPerRow(
+            DenseTableCodegenModel.TableSpec table) {
+        long bytes = 0L;
+        for (DenseTableCodegenModel.FieldSpec field : table.fields) {
+            if (field.flattenedValueStorage()) {
+                for (DenseTableCodegenModel.ValueLeafSpec leaf
+                        : field.valueLeaves) {
+                    bytes += leaf.bytes();
+                }
+            } else {
+                bytes += field.bytes();
+            }
+            if (field.optional) bytes++;
+        }
+        if (!table.children.isEmpty()) {
+            bytes += 8L;
+            for (DenseTableCodegenModel.ChildSpec child : table.children) {
+                bytes += 8L;
+                if (child.optional) bytes++;
+            }
+        }
+        if (bytes <= 0L || bytes > Integer.MAX_VALUE) {
+            throw new IllegalStateException(
+                    "invalid generated structural row width");
+        }
+        return (int) bytes;
     }
 
     private void appendMetadataImplementations(SourceBuilder out) {

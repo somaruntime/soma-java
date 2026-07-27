@@ -20,6 +20,8 @@ import com.example.soma.keyed.generated.ShortKeyedTable;
 import com.example.soma.keyed.generated.SchemaMetadata;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.RuntimePlan;
+import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
+import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 
 import java.lang.management.ManagementFactory;
 import java.util.List;
@@ -128,7 +130,39 @@ public final class KeyedConsumer {
         testBatchInternalDuplicateValidation();
         testSingletonAppendValidationAllocation();
         testKeyedSwapRemoveDifferential();
+        testSegmentedKeyedRelocation();
         System.out.println("keyed-consumer: ok");
+    }
+
+    private static void testSegmentedKeyedRelocation() {
+        RuntimePlan.Builder builder = SchemaMetadata.newPlan();
+        builder.table("KeyedParticle")
+                .initialCapacity(4)
+                .planningRows(32769)
+                .maximumRows(70000)
+                .workloadProfile(SomaWorkloadProfile.SCAN_GROWTH);
+        RuntimePlan plan = builder.build();
+        require(plan.effectiveMetadata().requireTable("KeyedParticle")
+                        .storageLayout()
+                        == SomaStorageLayout.FLAT_HEAD_SEGMENTED_TAIL,
+                "keyed large plan resolves segmented storage");
+        KeyedParticleBatch batch = new KeyedParticleBatch(32770);
+        for (int id = 0; id < 32770; id++) {
+            batch.addValues(id, id * 2, (id & 1) == 0, id);
+        }
+        KeyedParticleTable table = KeyedParticleTable.create(plan);
+        table.addBatch(batch);
+        require(table.capacity() == 65536
+                        && table.fetch(32767).energy == 65534
+                        && table.fetch(32768).energy == 65536
+                        && table.fetch(32769).energy == 65538,
+                "key locator resolves rows across Segment boundary");
+        table.delete(32768);
+        require(!table.containsKey(32768)
+                        && table.requireIndex(32769) == 32768
+                        && table.fetch(32769).energy == 65538,
+                "key locator repairs cross-Segment tail-fill relocation");
+        table.release();
     }
 
     private static void testLongKeyBinding() {

@@ -4,6 +4,7 @@ import com.hgtech.soma.runtime.generated.GeneratedPlanToken;
 import com.hgtech.soma.runtime.metadata.SomaExactAccess;
 import com.hgtech.soma.runtime.metadata.SomaPrimaryLocator;
 import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
+import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 
 import java.util.Locale;
 
@@ -14,6 +15,11 @@ public final class TablePlan {
     private final String tableLogicalName;
     private final String algorithm;
     private final SomaStorageLayout storageLayout;
+    private final SomaWorkloadProfile workloadProfile;
+    private final String storageLayoutFormula;
+    private final int structuralBytesPerRow;
+    private final int flatHeadRows;
+    private final int segmentRows;
     private final int initialCapacity;
     private final int planningRows;
     private final int maximumRows;
@@ -31,7 +37,18 @@ public final class TablePlan {
     private TablePlan(Builder builder) {
         tableLogicalName = builder.tableLogicalName;
         algorithm = builder.algorithm;
-        storageLayout = builder.storageLayout;
+        workloadProfile = builder.workloadProfile;
+        storageLayoutFormula = builder.storageLayoutFormula;
+        structuralBytesPerRow = builder.structuralBytesPerRow;
+        StorageLayoutFormula.Resolution layout =
+                StorageLayoutFormula.resolve(
+                        storageLayoutFormula,
+                        workloadProfile,
+                        builder.planningRows,
+                        structuralBytesPerRow);
+        storageLayout = layout.layout;
+        flatHeadRows = layout.flatHeadRows;
+        segmentRows = layout.segmentRows;
         initialCapacity = builder.initialCapacity;
         planningRows = builder.planningRows;
         maximumRows = builder.maximumRows;
@@ -61,7 +78,6 @@ public final class TablePlan {
 
     public Builder toBuilder() {
         return new Builder(tableLogicalName, algorithm)
-                .storageLayout(storageLayout)
                 .initialCapacity(initialCapacity)
                 .planningRows(planningRows)
                 .maximumRows(maximumRows)
@@ -72,6 +88,9 @@ public final class TablePlan {
                 .maximumTableStorageBytes(maximumTableStorageBytes)
                 .primaryLocator(primaryLocator)
                 .exactAccess(exactAccess)
+                .workloadProfile(workloadProfile)
+                .storageLayoutFormula(
+                        storageLayoutFormula, structuralBytesPerRow)
                 .stringCapable(stringCapable)
                 .stringResourceProfile(stringResourceProfile);
     }
@@ -79,6 +98,11 @@ public final class TablePlan {
     public String tableLogicalName() { return tableLogicalName; }
     public String algorithm() { return algorithm; }
     public SomaStorageLayout storageLayout() { return storageLayout; }
+    public SomaWorkloadProfile workloadProfile() { return workloadProfile; }
+    public String storageLayoutFormula() { return storageLayoutFormula; }
+    public int structuralBytesPerRow() { return structuralBytesPerRow; }
+    public int flatHeadRows() { return flatHeadRows; }
+    public int segmentRows() { return segmentRows; }
     public int initialCapacity() { return initialCapacity; }
     public int planningRows() { return planningRows; }
     public int maximumRows() { return maximumRows; }
@@ -126,16 +150,28 @@ public final class TablePlan {
                 + ",\"storageLayout\":"
                 + CanonicalSupport.quote(
                         storageLayout.name().toLowerCase(Locale.ROOT))
+                + ",\"storageLayoutFormula\":"
+                + CanonicalSupport.quote(storageLayoutFormula)
+                + ",\"structuralBytesPerRow\":" + structuralBytesPerRow
+                + ",\"flatHeadRows\":" + flatHeadRows
+                + ",\"segmentRows\":" + segmentRows
                 + ",\"stringCapable\":" + stringCapable
                 + ",\"stringResourceProfile\":"
                 + stringResourceProfile.toCanonicalJson()
-                + ",\"table\":" + CanonicalSupport.quote(tableLogicalName) + "}";
+                + ",\"table\":" + CanonicalSupport.quote(tableLogicalName)
+                + ",\"workloadProfile\":"
+                + CanonicalSupport.quote(
+                        workloadProfile.name().toLowerCase(Locale.ROOT))
+                + "}";
     }
 
     public static final class Builder {
         private final String tableLogicalName;
         private final String algorithm;
-        private SomaStorageLayout storageLayout = SomaStorageLayout.FLAT;
+        private SomaWorkloadProfile workloadProfile =
+                SomaWorkloadProfile.BALANCED;
+        private String storageLayoutFormula = StorageLayoutFormula.IDENTITY;
+        private int structuralBytesPerRow = 1;
         private int initialCapacity = 16;
         private int planningRows = 16;
         private int maximumRows = Integer.MAX_VALUE;
@@ -232,6 +268,13 @@ public final class TablePlan {
             return this;
         }
 
+        public Builder workloadProfile(SomaWorkloadProfile value) {
+            requireOpen();
+            if (value == null) throw new NullPointerException("workloadProfile");
+            workloadProfile = value;
+            return this;
+        }
+
         public Builder stringResourceProfile(StringResourceProfile value) {
             requireOpen();
             if (value == null) {
@@ -265,11 +308,24 @@ public final class TablePlan {
             return accessStrategy(value);
         }
 
-        Builder storageLayout(SomaStorageLayout value) {
+        Builder storageLayoutFormula(String identity, int bytesPerRow) {
             requireOpen();
-            if (value == null) throw new NullPointerException("storageLayout");
-            storageLayout = value;
+            storageLayoutFormula = CanonicalSupport.required(
+                    identity, "storageLayoutFormula");
+            if (bytesPerRow <= 0) {
+                throw new IllegalArgumentException(
+                        "structuralBytesPerRow must be positive");
+            }
+            structuralBytesPerRow = bytesPerRow;
             return this;
+        }
+
+        public Builder generatedStorageLayoutFormula(
+                GeneratedPlanToken token,
+                String identity,
+                int bytesPerRow) {
+            GeneratedPlanToken.require(token);
+            return storageLayoutFormula(identity, bytesPerRow);
         }
 
         Builder primaryLocator(SomaPrimaryLocator value) {
@@ -309,6 +365,11 @@ public final class TablePlan {
                 throw new IllegalArgumentException(
                         "planningRows must be <= maximumRows");
             }
+            StorageLayoutFormula.resolve(
+                    storageLayoutFormula,
+                    workloadProfile,
+                    planningRows,
+                    structuralBytesPerRow);
             if (!stringCapable
                     && stringResourceProfile.status()
                     != StringResourceProfileStatus.UNPROFILED) {

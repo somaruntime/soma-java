@@ -21,11 +21,14 @@ import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RemoveResult;
+import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.ShortColumnView;
 import com.hgtech.soma.runtime.ShortConsumer;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
+import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
+import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 import com.hgtech.soma.dataflow.DataFlowContext;
 import com.hgtech.soma.dataflow.LongScalarResult;
 
@@ -48,6 +51,7 @@ public final class DenseConsumer {
         testColumnViewAcquisitionAllocation();
         testCandidateScanAllocationShape();
         testEscapedCursorFaultsAggregate();
+        testSegmentedGeneratedJourney();
 
         ParticleBatch batch = new ParticleBatch(2);
         batch.addValues(1, 10L, 1.5f, true, 7);
@@ -434,6 +438,65 @@ public final class DenseConsumer {
                 table.requireCurrent(releaseSnapshot);
             }
         });
+    }
+
+    private static void testSegmentedGeneratedJourney() {
+        RuntimePlan.Builder builder =
+                ParticleTable.defaultRuntimePlan().toBuilder();
+        builder.table(ParticleTable.metadata())
+                .initialCapacity(4)
+                .planningRows(32769)
+                .maximumRows(70000)
+                .workloadProfile(SomaWorkloadProfile.SCAN_GROWTH);
+        RuntimePlan plan = builder.build();
+        require(plan.effectiveMetadata()
+                        .requireTable(ParticleTable.metadata().logicalName())
+                        .storageLayout()
+                        == SomaStorageLayout.FLAT_HEAD_SEGMENTED_TAIL,
+                "generated large plan resolves segmented layout");
+        require(plan.effectiveMetadata()
+                        .requireTable(ParticleTable.metadata().logicalName())
+                        .segmentRows() == 32768,
+                "generated large plan exposes formula result");
+
+        ParticleBatch batch = new ParticleBatch(32770);
+        for (int row = 0; row < 32770; row++) {
+            batch.addValues(
+                    row,
+                    100000L + row,
+                    (float) row,
+                    (row & 1) == 0,
+                    row);
+        }
+        ParticleTable table = ParticleTable.create(plan);
+        table.addBatch(batch);
+        require(table.capacity() == 65536 && table.size() == 32770,
+                "generated head-tail publication capacity");
+        require(table.fetchAt(32767).id == 32767
+                        && table.fetchAt(32768).id == 32768
+                        && table.fetchAt(32769).id == 32769,
+                "generated point access crosses head-tail boundary");
+        require(table.anyMatch(row -> row.id() == 32769)
+                        && table.noneMatch(row -> row.id() < 0),
+                "generated packed scan crosses Segment outer loop");
+        table.mutateAt(32768)
+                .setTicks(777L)
+                .setEnergy(888)
+                .commit();
+        require(table.fetchAt(32768).ticks == 777L
+                        && Integer.valueOf(888).equals(
+                        table.fetchAt(32768).energy),
+                "generated mutation crosses head-tail boundary");
+        RemoveResult removed = table.filter(
+                row -> row.id() == 32768).remove();
+        require(removed.removed() == 1L
+                        && table.size() == 32769
+                        && table.fetchAt(32768).id == 32769,
+                "generated swap-remove relocates across Segment boundary");
+        table.clear();
+        require(table.size() == 0 && table.capacity() == 65536,
+                "clear retains admitted segmented capacity");
+        table.release();
     }
 
     private static void testAllPrimitiveAndPresenceBindings() {
