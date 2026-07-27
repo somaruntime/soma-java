@@ -39,6 +39,7 @@ public final class RuntimeCorePhase1Check {
         testCompatibilityBoundary();
         testGeneratedScanPlan();
         testDenseColumnsLifecycleAndStats();
+        testAggregateFaultState();
         testStructuralRemoveStateTransition();
         testViewLifecycleState();
         testPresenceBitmapAgainstOracle();
@@ -267,23 +268,6 @@ public final class RuntimeCorePhase1Check {
                 "child registry resolve");
         assertEquals(2L, registry.descendantRowCount(handle, owner, "lines"),
                 "child registry rows");
-        expectCode("child_wrong_owner", new ThrowingRunnable() {
-            @Override public void run() {
-                registry.resolve(handle, owner + 1L, "lines", "test");
-            }
-        });
-        expectCode("child_wrong_owner", new ThrowingRunnable() {
-            @Override public void run() {
-                registry.resolve(handle, owner, "otherLines", "test");
-            }
-        });
-        expectCode("ownership_cycle", new ThrowingRunnable() {
-            @Override public void run() {
-                registry.stage(registry.newOwnerToken(), "otherLines",
-                        "Other.lines", child, lifecycle);
-            }
-        });
-
         registry.beginMaterialization("materialize");
         expectCode("reentrant_access", new ThrowingRunnable() {
             @Override public void run() {
@@ -297,12 +281,6 @@ public final class RuntimeCorePhase1Check {
         });
         registry.endMaterialization();
         registry.preflightMutation("child.replace");
-        expectCode("internal_invariant_violation", new ThrowingRunnable() {
-            @Override public void run() {
-                registry.endMaterialization();
-            }
-        });
-
         registry.release(handle, owner, "lines", "test", false);
         assertTrue(released[0], "child release callback");
         expectCode("child_released", new ThrowingRunnable() {
@@ -340,6 +318,49 @@ public final class RuntimeCorePhase1Check {
         }
         registry.release(replacement, owner, "lines", "test", true);
         registry.releaseStorage();
+
+        final ChildOwnershipRegistry wrongOwner = new ChildOwnershipRegistry();
+        final long correctOwner = wrongOwner.newOwnerToken();
+        final long wrongOwnerHandle = wrongOwner.stage(
+                correctOwner, "lines", "Order.lines", new Object(), lifecycle);
+        wrongOwner.publish(wrongOwnerHandle, correctOwner, "lines");
+        expectCode("child_wrong_owner", new ThrowingRunnable() {
+            @Override public void run() {
+                wrongOwner.resolve(
+                        wrongOwnerHandle, correctOwner + 1L, "lines", "test");
+            }
+        });
+        expectCode("internal_invariant_violation", new ThrowingRunnable() {
+            @Override public void run() {
+                wrongOwner.preflightMutation("child.replace");
+            }
+        });
+        wrongOwner.release(
+                wrongOwnerHandle, correctOwner, "lines", "release", true);
+        wrongOwner.releaseStorage();
+
+        final ChildOwnershipRegistry cycle = new ChildOwnershipRegistry();
+        final long cycleOwner = cycle.newOwnerToken();
+        final Object cycleChild = new Object();
+        final long cycleHandle = cycle.stage(
+                cycleOwner, "lines", "Order.lines", cycleChild, lifecycle);
+        cycle.publish(cycleHandle, cycleOwner, "lines");
+        expectCode("ownership_cycle", new ThrowingRunnable() {
+            @Override public void run() {
+                cycle.stage(cycle.newOwnerToken(), "otherLines",
+                        "Other.lines", cycleChild, lifecycle);
+            }
+        });
+        cycle.release(cycleHandle, cycleOwner, "lines", "release", true);
+        cycle.releaseStorage();
+
+        final ChildOwnershipRegistry invalidGuard = new ChildOwnershipRegistry();
+        expectCode("internal_invariant_violation", new ThrowingRunnable() {
+            @Override public void run() {
+                invalidGuard.endMaterialization();
+            }
+        });
+        invalidGuard.releaseStorage();
     }
 
     private static void testOwnershipRegistryInitialStorageBoundary() {
@@ -870,6 +891,70 @@ public final class RuntimeCorePhase1Check {
             @Override
             public void run() {
                 state.checkView(state.structuralEpoch(), 0, "value.column.get");
+            }
+        });
+    }
+
+    private static void testAggregateFaultState() {
+        RuntimePlan plan = defaultPlan();
+        TablePlan tablePlan = plan.requireTable("Order");
+        ChildOwnershipRegistry ownership =
+                new ChildOwnershipRegistry(1024L * 1024L, 16L);
+        DenseTableState root = new DenseTableState(
+                "Order",
+                plan,
+                tablePlan,
+                new ColumnGroup("Order", tablePlan, ownership, 1, new IntColumn()),
+                ownership);
+        DenseTableState child = new DenseTableState(
+                "Order",
+                plan,
+                tablePlan,
+                new ColumnGroup("Order", tablePlan, ownership, 1, new LongColumn()),
+                ownership);
+
+        child.beginOperation("test.internal");
+        SomaRuntimeException internal =
+                com.hgtech.soma.runtime.generated.RuntimeFailures.internalInvariant(
+                        "test_fault", "Order", "test.internal");
+        child.endOperationFailure("test.internal", 0L, 0L, internal.code());
+        expectCode("internal_invariant_violation", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                root.checkActive("size");
+            }
+        });
+        expectCode("internal_invariant_violation", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                ownership.beginDataFlow("dataflow.execute");
+            }
+        });
+        root.checkCallbackAccess("statsSnapshot");
+        assertEquals(0, root.statsSnapshot().rows(), "fault diagnostics remain bounded");
+        ownership.preflightMutation("release");
+        int childSize = child.prepareRelease();
+        child.commitRelease(childSize);
+        int rootSize = root.prepareRelease();
+        root.commitRelease(rootSize);
+        ownership.releaseStorage();
+
+        ColumnGroup expectedColumns = newColumnGroup(1, new IntColumn());
+        DenseTableState expected = new DenseTableState(
+                "Order", plan, tablePlan, expectedColumns);
+        expected.beginOperation("test.expected");
+        expected.endOperationFailure("test.expected", 0L, 0L, "empty_result");
+        expected.checkActive("size");
+
+        ColumnGroup unexpectedColumns = newColumnGroup(1, new IntColumn());
+        final DenseTableState unexpected = new DenseTableState(
+                "Order", plan, tablePlan, unexpectedColumns);
+        unexpected.beginOperation("test.unexpected");
+        unexpected.abortOperation("test.unexpected");
+        expectCode("internal_invariant_violation", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                unexpected.checkActive("size");
             }
         });
     }

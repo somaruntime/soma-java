@@ -3,6 +3,7 @@ package com.hgtech.soma.runtime.generated;
 import com.hgtech.soma.runtime.OperationOutcome;
 import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
+import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
@@ -73,7 +74,7 @@ public final class DenseTableState {
         this.columns = Objects.requireNonNull(columns, "columns");
         this.ownership = Objects.requireNonNull(ownership, "ownership");
         if (!tableLogicalName.equals(tablePlan.tableLogicalName())) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "dense_state_table_plan_identity", tableLogicalName, "table.create");
         }
     }
@@ -133,6 +134,11 @@ public final class DenseTableState {
         }
     }
 
+    private SomaRuntimeException internalInvariant(
+            String invariant, String path, String operation) {
+        return ownership.internalInvariant(invariant, path, operation);
+    }
+
     public void beginCallback(String callback) {
         if (childReleased) {
             throw RuntimeFailures.childReleased(ownershipPath, callback);
@@ -150,7 +156,7 @@ public final class DenseTableState {
 
     public void endCallback(String callback) {
         if (!callbackActive || !activeCallback.equals(callback)) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "callback_scope", tableLogicalName, callback);
         }
         callbackActive = false;
@@ -190,7 +196,7 @@ public final class DenseTableState {
             throw new IllegalArgumentException("expectedCapacity must be non-negative");
         }
         if (proposedKeySpaceBytes < 0L || proposedExactIndexBytes < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "reserve_storage_preflight", tableLogicalName, "reserve");
         }
         int required = Math.max(size, expectedCapacity);
@@ -294,13 +300,13 @@ public final class DenseTableState {
 
     private void completeMaterialization(MaterializationTracker tracker, boolean failed) {
         if (!materializationActive) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "materialization_guard", tableLogicalName, "materialize");
         }
         materializationActive = false;
         if (failed) {
             if (materializationFailureCount == Long.MAX_VALUE) {
-                throw RuntimeFailures.internalInvariant(
+                throw internalInvariant(
                         "materialization_failure_overflow", tableLogicalName, "materialize");
             }
             materializationFailureCount++;
@@ -317,7 +323,7 @@ public final class DenseTableState {
 
     private void recordMaterializationInvocation(String operation) {
         if (materializationInvocationCount == Long.MAX_VALUE) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "materialization_invocation_overflow", tableLogicalName, operation);
         }
         materializationInvocationCount++;
@@ -335,9 +341,13 @@ public final class DenseTableState {
 
     public void endOperationFailure(
             String operation, long scanned, long matched, String errorCode) {
+        if (RuntimeFailures.isInternalCode(errorCode)) {
+            finishFaultedOperation(operation, scanned, matched, errorCode);
+            return;
+        }
         requireActiveOperation(operation);
         if (scanned < 0L || matched < 0L || matched > scanned) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "invalid_failed_operation_counts", tableLogicalName, operation);
         }
         operationActive = false;
@@ -347,18 +357,46 @@ public final class DenseTableState {
                 Objects.requireNonNull(errorCode, "errorCode"), scanned, matched, 0L);
     }
 
-    /** Clears the operation guard when application code or a JVM Error must propagate unchanged. */
+    /** Faults the aggregate and clears the local guard before an unexpected failure propagates. */
     public void abortOperation(String operation) {
-        requireActiveOperation(operation);
+        ownership.markUnexpectedFailure(operation);
+        if (!operationActive || !activeOperation.equals(operation)) {
+            recordFault(operation, 0L, 0L, "unexpected_operation_failure");
+            return;
+        }
         operationActive = false;
         activeOperation = "";
-        ownership.endTableScope(operation);
+        ownership.finishFaultedTableScope(operation);
+        recordFault(operation, 0L, 0L, "unexpected_operation_failure");
+    }
+
+    private void finishFaultedOperation(
+            String operation, long scanned, long matched, String errorCode) {
+        boolean ownsTableScope =
+                operationActive && activeOperation.equals(operation);
+        ownership.markFaulted(operation, errorCode);
+        operationActive = false;
+        activeOperation = "";
+        callbackActive = false;
+        activeCallback = "";
+        materializationActive = false;
+        if (ownsTableScope) ownership.finishFaultedTableScope(operation);
+        recordFault(operation, scanned, matched, errorCode);
+    }
+
+    private void recordFault(
+            String operation, long scanned, long matched, String errorCode) {
+        long safeScanned = Math.max(0L, scanned);
+        long safeMatched = Math.max(0L, Math.min(safeScanned, matched));
+        record(operation, OperationOutcome.FAILED,
+                Objects.requireNonNull(errorCode, "errorCode"),
+                safeScanned, safeMatched, 0L);
     }
 
     public int prepareAppend(int count) {
         requireStructural("addBatch");
         if (count < 0) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "negative_append_count", tableLogicalName, "addBatch");
         }
         if (count > 0) requireStructuralEpochAvailable("addBatch");
@@ -375,7 +413,7 @@ public final class DenseTableState {
 
     public void commitAppend(int expectedStartRow, int count) {
         if (expectedStartRow != size || count < 0) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "append_commit_identity", tableLogicalName, "addBatch");
         }
         int committedSize = checkedSize(size, count, "addBatch");
@@ -390,7 +428,7 @@ public final class DenseTableState {
     public int prepareReplace(int newSize) {
         requireStructural("replaceAll");
         if (newSize < 0) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "negative_replace_size", tableLogicalName, "replaceAll");
         }
         if (size != 0 || newSize != 0) requireStructuralEpochAvailable("replaceAll");
@@ -404,7 +442,7 @@ public final class DenseTableState {
 
     public void commitReplace(int expectedPreviousSize, int newSize) {
         if (expectedPreviousSize != size || newSize < 0 || newSize > capacity()) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "replace_commit_identity", tableLogicalName, "replaceAll");
         }
         if (expectedPreviousSize != 0 || newSize != 0) {
@@ -435,7 +473,7 @@ public final class DenseTableState {
 
     public void commitClear(int expectedPreviousSize) {
         if (expectedPreviousSize != size) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "clear_commit_identity", tableLogicalName, "clear");
         }
         if (expectedPreviousSize > 0) {
@@ -451,7 +489,7 @@ public final class DenseTableState {
             int expectedPreviousSize, int newSize, String operation) {
         requireActiveOperation(operation);
         if (expectedPreviousSize != size || newSize < 0 || newSize > size) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "remove_commit_identity", tableLogicalName, operation);
         }
         if (newSize != expectedPreviousSize) {
@@ -476,13 +514,13 @@ public final class DenseTableState {
     public void commitRelease(int expectedPreviousSize) {
         if (expectedPreviousSize < 0) {
             if (!released) {
-                throw RuntimeFailures.internalInvariant(
+                throw internalInvariant(
                         "release_idempotence", tableLogicalName, "release");
             }
             return;
         }
         if (released || expectedPreviousSize != size) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "release_commit_identity", tableLogicalName, "release");
         }
         requireNoTransientStorage("release");
@@ -503,7 +541,7 @@ public final class DenseTableState {
 
     public void markOwned(String path) {
         if (released || childReleased || !ownershipPath.isEmpty()) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "owned_table_identity", tableLogicalName, "child.create");
         }
         ownershipPath = Objects.requireNonNull(path, "path");
@@ -551,7 +589,7 @@ public final class DenseTableState {
     public void updateScratch(long currentBytes, long highWaterBytes) {
         if (currentBytes < 0L || highWaterBytes < currentBytes
                 || highWaterBytes > tablePlan.maximumUpdateScratchBytes()) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "update_scratch_accounting", tableLogicalName, "update");
         }
         replaceExternalStorage(updateScratchCurrentBytes, currentBytes, "update.scratch");
@@ -564,7 +602,7 @@ public final class DenseTableState {
     public void operationScratch(long currentBytes) {
         if (currentBytes < 0L
                 || currentBytes > tablePlan.maximumOperationScratchBytes()) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "operation_scratch_accounting", tableLogicalName, "operation.scratch");
         }
         replaceExternalStorage(operationScratchCurrentBytes, currentBytes, "operation.scratch");
@@ -593,7 +631,7 @@ public final class DenseTableState {
 
     public void preflightExactIndexStorage(long proposed, String operation) {
         if (proposed < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "exact_index_storage_preflight", tableLogicalName, operation);
         }
         preflightExternalStorage(exactIndexCurrentBytes, proposed, operation);
@@ -605,7 +643,7 @@ public final class DenseTableState {
             long proposedExactIndexBytes,
             String operation) {
         if (count < 0 || proposedKeySpaceBytes < 0L || proposedExactIndexBytes < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "append_storage_preflight", tableLogicalName, operation);
         }
         int required = checkedSize(size, count, operation);
@@ -629,7 +667,7 @@ public final class DenseTableState {
             long proposedExactIndexBytes,
             String operation) {
         if (newSize < 0 || proposedKeySpaceBytes < 0L || proposedExactIndexBytes < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "replace_storage_preflight", tableLogicalName, operation);
         }
         long proposedExternal = replacePart(
@@ -668,7 +706,7 @@ public final class DenseTableState {
 
     public void releaseBulkScratch(long bytes, String operation) {
         if (bytes < 0L || bytes > bulkScratchCurrentBytes) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "bulk_scratch_accounting", tableLogicalName, operation);
         }
         columns.releaseTransientBytes(bytes, operation);
@@ -677,7 +715,7 @@ public final class DenseTableState {
 
     public void commitKeySpaceStorage(long previous, long proposed, String operation) {
         if (previous != keySpaceCurrentBytes) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "key_space_storage_accounting", tableLogicalName, operation);
         }
         replaceExternalStorage(previous, proposed, operation);
@@ -686,7 +724,7 @@ public final class DenseTableState {
 
     public void commitExactIndexStorage(long previous, long proposed, String operation) {
         if (previous != exactIndexCurrentBytes) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "exact_index_storage_accounting", tableLogicalName, operation);
         }
         replaceExternalStorage(previous, proposed, operation);
@@ -696,7 +734,7 @@ public final class DenseTableState {
     /** Rolls back a generated constructor after this state acquired table quota. */
     public void abortConstruction() {
         if (released || size != 0 || bulkScratchCurrentBytes != 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "table_construction_rollback", tableLogicalName, "table.create");
         }
         columns.replaceExternalRetainedBytes(
@@ -731,7 +769,7 @@ public final class DenseTableState {
     private long replacePart(
             long total, long previousPart, long proposedPart, String operation) {
         if (previousPart < 0L || proposedPart < 0L || previousPart > total) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "table_storage_accounting", tableLogicalName, operation);
         }
         return checkedStorageAdd(total - previousPart, proposedPart);
@@ -744,7 +782,7 @@ public final class DenseTableState {
 
     private void requireNoTransientStorage(String operation) {
         if (bulkScratchCurrentBytes != 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "bulk_scratch_release", tableLogicalName, operation);
         }
     }
@@ -838,7 +876,7 @@ public final class DenseTableState {
 
     private void requireActiveOperation(String operation) {
         if (!operationActive || !activeOperation.equals(operation)) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "operation_guard_identity", tableLogicalName, operation);
         }
     }
@@ -870,14 +908,14 @@ public final class DenseTableState {
     private void validateCounts(long scanned, long matched, long changed) {
         if (scanned < 0L || matched < 0L || changed < 0L
                 || changed > matched || matched > scanned) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "invalid_operation_counts", tableLogicalName, activeOperation);
         }
     }
 
     private void incrementStructuralEpoch(String operation) {
         if (structuralEpoch == Long.MAX_VALUE) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "structural_epoch_overflow", tableLogicalName, operation);
         }
         structuralEpoch++;
@@ -885,21 +923,21 @@ public final class DenseTableState {
 
     private void requireStructuralEpochAvailable(String operation) {
         if (structuralEpoch == Long.MAX_VALUE) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "structural_epoch_overflow", tableLogicalName, operation);
         }
     }
 
     private void requireGrowthAvailable(String operation) {
         if (growthCount == Long.MAX_VALUE) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "growth_count_overflow", tableLogicalName, operation);
         }
     }
 
     private void incrementGrowth(String operation) {
         if (growthCount == Long.MAX_VALUE) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "growth_count_overflow", tableLogicalName, operation);
         }
         growthCount++;

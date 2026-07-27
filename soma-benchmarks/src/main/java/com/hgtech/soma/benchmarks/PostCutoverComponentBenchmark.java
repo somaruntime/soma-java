@@ -495,6 +495,9 @@ public final class PostCutoverComponentBenchmark {
     private static final class LongSum implements LongConsumer {
         long value;
 
+        LongSum() {
+        }
+
         @Override
         public void accept(long current) {
             value += current;

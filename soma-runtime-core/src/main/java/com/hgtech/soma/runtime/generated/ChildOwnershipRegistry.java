@@ -1,5 +1,8 @@
 package com.hgtech.soma.runtime.generated;
 
+import com.hgtech.soma.runtime.SomaErrorCategory;
+import com.hgtech.soma.runtime.SomaRuntimeException;
+
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
@@ -17,6 +20,9 @@ public final class ChildOwnershipRegistry {
     private final long aggregateInstanceId;
     private long retainedBytes;
     private boolean storageReleased;
+    private boolean faulted;
+    private String firstFaultOperation = "";
+    private String firstFaultCode = "";
 
     private long[] ownerTokens;
     private String[] fields;
@@ -52,7 +58,7 @@ public final class ChildOwnershipRegistry {
 
     public ChildOwnershipRegistry(long maximumBytes, long maximumTableInstances) {
         aggregateInstanceId = nextAggregateInstanceId();
-        storageBudget = new StorageBudget(maximumBytes, maximumTableInstances);
+        storageBudget = new StorageBudget(maximumBytes, maximumTableInstances, this);
         long initialBytes = estimatedRetainedBytes(16, 32, 0);
         storageBudget.reserveBytes(initialBytes, "ownership", "ownership.create");
         try {
@@ -90,16 +96,53 @@ public final class ChildOwnershipRegistry {
         return this;
     }
 
+    SomaRuntimeException internalInvariant(
+            String invariant, String path, String operation) {
+        markFaulted(operation, "internal_invariant_violation");
+        return RuntimeFailures.internalInvariant(invariant, path, operation);
+    }
+
+    private SomaRuntimeException internalFailure(
+            SomaRuntimeException failure, String operation) {
+        markFaulted(failure, operation);
+        return failure;
+    }
+
+    void markFaulted(String operation, String code) {
+        if (faulted) return;
+        faulted = true;
+        firstFaultOperation = Objects.requireNonNull(operation, "operation");
+        firstFaultCode = Objects.requireNonNull(code, "code");
+    }
+
+    void markFaulted(SomaRuntimeException failure, String operation) {
+        Objects.requireNonNull(failure, "failure");
+        if (failure.category() == SomaErrorCategory.INTERNAL) {
+            markFaulted(operation, failure.code());
+        }
+    }
+
+    void markUnexpectedFailure(String operation) {
+        markFaulted(operation, "unexpected_operation_failure");
+    }
+
+    void finishFaultedTableScope(String operation) {
+        Objects.requireNonNull(operation, "operation");
+        if (activeTableScopes <= 0) return;
+        activeTableScopes--;
+        if (activeTableScopes == 0) activeTableScope = "";
+    }
+
     public void releaseStorage() {
         if (storageReleased) return;
         if (cascadeDepth != 0 || dataFlowActive || activeTableScopes != 0) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "cascade_release_scope", "ownership", "release");
         }
         if (identitySize != 0 || storageBudget.currentTableInstances() != 0L
                 || storageBudget.transientBytes() != 0L
                 || storageBudget.currentBytes() != retainedBytes) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "aggregate_release_drain", "ownership", "release");
         }
         ownerTokens = new long[0];
@@ -142,7 +185,7 @@ public final class ChildOwnershipRegistry {
     /** Ends the current aggregate-wide materialization guard. */
     public void endMaterialization() {
         if (!materializationActive) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "ownership_materialization_guard", "ownership", "materialize");
         }
         materializationActive = false;
@@ -156,7 +199,7 @@ public final class ChildOwnershipRegistry {
     public void beginDataFlowMaterialization(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
         if (!dataFlowActive) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "dataflow_materialization_guard",
                     "ownership",
                     requested);
@@ -173,7 +216,7 @@ public final class ChildOwnershipRegistry {
         String requested = Objects.requireNonNull(operation, "operation");
         if (!dataFlowActive || !materializationActive
                 || !materializationOperation.equals(requested)) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "dataflow_materialization_guard",
                     "ownership",
                     requested);
@@ -195,6 +238,7 @@ public final class ChildOwnershipRegistry {
     /** Rejects application Table access while one aggregate DataFlow guard is active. */
     public void preflightTableAccess(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
+        if (!isFaultTolerantOperation(requested)) requireTrusted(requested);
         if (dataFlowActive) {
             throw RuntimeFailures.reentrantAccess(
                     "ownership", dataFlowOperation, requested);
@@ -206,7 +250,7 @@ public final class ChildOwnershipRegistry {
         String requested = Objects.requireNonNull(operation, "operation");
         preflightTableAccess(requested);
         if (activeTableScopes == Integer.MAX_VALUE) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "aggregate_scope_overflow", "ownership", requested);
         }
         if (activeTableScopes == 0) {
@@ -218,7 +262,7 @@ public final class ChildOwnershipRegistry {
     public void endTableScope(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
         if (activeTableScopes <= 0) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "aggregate_scope_underflow", "ownership", requested);
         }
         activeTableScopes--;
@@ -233,6 +277,7 @@ public final class ChildOwnershipRegistry {
      */
     public void beginDataFlow(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
+        requireTrusted(requested);
         if (dataFlowActive) {
             throw RuntimeFailures.reentrantAccess(
                     "ownership", dataFlowOperation, requested);
@@ -250,11 +295,25 @@ public final class ChildOwnershipRegistry {
         dataFlowActive = true;
     }
 
+    private void requireTrusted(String operation) {
+        if (faulted) {
+            throw RuntimeFailures.internalInvariant(
+                    "faulted_aggregate", "ownership", operation);
+        }
+    }
+
+    private static boolean isFaultTolerantOperation(String operation) {
+        return "runtimePlan".equals(operation)
+                || "isReleased".equals(operation)
+                || "statsSnapshot".equals(operation)
+                || "release".equals(operation);
+    }
+
     public void endDataFlow(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
         if (!dataFlowActive || !dataFlowOperation.equals(requested)
                 || materializationActive) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "dataflow_aggregate_guard", "ownership", requested);
         }
         dataFlowActive = false;
@@ -276,7 +335,7 @@ public final class ChildOwnershipRegistry {
 
     public long newOwnerToken() {
         if (nextOwnerToken == Long.MAX_VALUE) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "child_owner_token_exhausted", "ownership", "child.create");
         }
         return nextOwnerToken++;
@@ -294,7 +353,9 @@ public final class ChildOwnershipRegistry {
         Object requiredChild = Objects.requireNonNull(child, "child");
         OwnedChildTable requiredLifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
         if (identitySlot(requiredChild) >= 0) {
-            throw RuntimeFailures.ownershipCycle(requiredPath, "child.stage");
+            throw internalFailure(
+                    RuntimeFailures.ownershipCycle(requiredPath, "child.stage"),
+                    "child.stage");
         }
         if (freeHead < 0 && nextSlot == Integer.MAX_VALUE) {
             throw RuntimeFailures.memoryLimitExceeded(
@@ -310,7 +371,7 @@ public final class ChildOwnershipRegistry {
         if (freeHead >= 0) ensureStageCapacity(ownerTokens.length);
         int generation = generations[slot] + 1;
         if (generation <= 0) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "child_handle_generation_exhausted", "ownership", "child.stage");
         }
         generations[slot] = generation;
@@ -373,7 +434,10 @@ public final class ChildOwnershipRegistry {
         int index = index(handle, operation);
         if (states[index] == RELEASED) return;
         validateOwner(index, ownerToken, field, operation);
-        if (states[index] != LIVE) throw RuntimeFailures.childDangling(paths[index], operation);
+        if (states[index] != LIVE) {
+            throw internalFailure(
+                    RuntimeFailures.childDangling(paths[index], operation), operation);
+        }
         OwnedChildTable lifecycle = lifecycles[index];
         lifecycle.preflightOwnedRelease(aggregateRelease);
         releasePreflighted(index, aggregateRelease);
@@ -455,7 +519,7 @@ public final class ChildOwnershipRegistry {
         }
         int frame = cascadeDepth - 1;
         if (cascadeUsed >= cascadeHandles.length) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "cascade_collection_capacity", paths[index], operation);
         }
         cascadeHandles[cascadeUsed++] = handle;
@@ -472,7 +536,8 @@ public final class ChildOwnershipRegistry {
             for (int i = 0; i < count; i++) {
                 int index = index(cascadeHandles[start + i], operation);
                 if (states[index] != LIVE) {
-                    throw RuntimeFailures.childDangling(paths[index], operation);
+                    throw internalFailure(
+                            RuntimeFailures.childDangling(paths[index], operation), operation);
                 }
                 lifecycles[index].preflightOwnedRelease(aggregateRelease);
             }
@@ -480,7 +545,8 @@ public final class ChildOwnershipRegistry {
             for (int i = 0; i < count; i++) {
                 int index = index(cascadeHandles[start + i], operation);
                 if (states[index] != LIVE) {
-                    throw RuntimeFailures.childDangling(paths[index], operation);
+                    throw internalFailure(
+                            RuntimeFailures.childDangling(paths[index], operation), operation);
                 }
                 lifecycles[index].releaseOwnedSubtree(aggregateRelease);
             }
@@ -505,7 +571,8 @@ public final class ChildOwnershipRegistry {
             for (int i = 0; i < count; i++) {
                 int index = index(cascadeHandles[start + i], operation);
                 if (states[index] != LIVE) {
-                    throw RuntimeFailures.childDangling(paths[index], operation);
+                    throw internalFailure(
+                            RuntimeFailures.childDangling(paths[index], operation), operation);
                 }
                 lifecycles[index].preflightOwnedRelease(aggregateRelease);
             }
@@ -546,7 +613,7 @@ public final class ChildOwnershipRegistry {
         int index = index(handle, operation);
         validateOwner(index, ownerToken, field, operation);
         if (states[index] != STAGED) {
-            throw RuntimeFailures.internalInvariant("child_stage_state", paths[index], operation);
+            throw internalInvariant("child_stage_state", paths[index], operation);
         }
         return index;
     }
@@ -559,7 +626,8 @@ public final class ChildOwnershipRegistry {
         }
         validateOwner(index, ownerToken, field, operation);
         if (states[index] != LIVE) {
-            throw RuntimeFailures.childDangling(paths[index], operation);
+            throw internalFailure(
+                    RuntimeFailures.childDangling(paths[index], operation), operation);
         }
         return index;
     }
@@ -569,12 +637,14 @@ public final class ChildOwnershipRegistry {
         int generation = (int) (handle >>> 32);
         if (slot <= 0 || slot >= nextSlot || generation <= 0
                 || generations[slot] != generation) {
-            throw RuntimeFailures.childDangling("ownership", operation);
+            throw internalFailure(
+                    RuntimeFailures.childDangling("ownership", operation), operation);
         }
         int index = slot;
         if (states[index] != RELEASED
                 && (children[index] == null || lifecycles[index] == null)) {
-            throw RuntimeFailures.childDangling("ownership", operation);
+            throw internalFailure(
+                    RuntimeFailures.childDangling("ownership", operation), operation);
         }
         return index;
     }
@@ -800,7 +870,7 @@ public final class ChildOwnershipRegistry {
             }
             index = (index + 1) & mask;
         }
-        throw RuntimeFailures.internalInvariant(
+        throw internalInvariant(
                 "child_identity_registry_missing", "ownership", "child.release");
     }
 
@@ -816,7 +886,8 @@ public final class ChildOwnershipRegistry {
         requireOwner(ownerToken, paths[index], operation);
         if (ownerTokens[index] != ownerToken || fields[index] == null
                 || !fields[index].equals(field)) {
-            throw RuntimeFailures.childWrongOwner(paths[index], operation);
+            throw internalFailure(
+                    RuntimeFailures.childWrongOwner(paths[index], operation), operation);
         }
     }
 
@@ -914,7 +985,7 @@ public final class ChildOwnershipRegistry {
     private void requireCascade(String operation) {
         if (cascadeDepth <= 0
                 || !cascadeOperations[cascadeDepth - 1].equals(operation)) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "cascade_scope", "ownership", operation);
         }
     }
@@ -942,7 +1013,10 @@ public final class ChildOwnershipRegistry {
                 ? Long.MAX_VALUE : left * right;
     }
 
-    private static void requireOwner(long ownerToken, String path, String operation) {
-        if (ownerToken <= 0L) throw RuntimeFailures.childWrongOwner(path, operation);
+    private void requireOwner(long ownerToken, String path, String operation) {
+        if (ownerToken <= 0L) {
+            throw internalFailure(
+                    RuntimeFailures.childWrongOwner(path, operation), operation);
+        }
     }
 }

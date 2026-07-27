@@ -2,13 +2,13 @@
 
 类型：Temporary
 
-状态：active（Stage 2 candidate）
+状态：active（Stage 4 candidate）
 
 Owner：SOMA correctness preservation and software structure governance
 
 正式事实源：否
 
-实施授权：仅 Temporary、Stage 0 只读审计、文档入口、验证和 immutable starting point
+实施授权：Stage 1–5 内部治理、验证、正式固化、Temporary 退役和提交
 
 事实范围：专题意图、方法、范围、非回归约束、阶段、停止条件和验收协议
 
@@ -157,7 +157,7 @@ normal access。Stage 0 只确认以下审计候选，不预设修复：
 
 ## 7. 授权边界与停止条件
 
-当前授权只覆盖 Stage 0。Stage 1 之后需要用户继续授权。
+用户已授权本专题从 Stage 1 自主推进至正式收口。
 
 即使获得后续内部优化授权，出现以下情况仍必须停止并请求决定：
 
@@ -179,8 +179,8 @@ Conformance 发现本身不扩大实施授权。正式 Design 在最终候选获
 | 0 | COMPLETE | 协议、事实基线、初步风险和候选问题 | Temporary 自洽；现状、边界与 Gate instability 有证据 |
 | 1 | COMPLETE | 五个 vertical slice 的抽象、叙事和证明链审计 | 问题分级；无逐文件泛化审计 |
 | 2 | COMPLETE | internal/unexpected failure、fault scope 与可信状态详细设计 | Design candidate 自洽；性能/兼容影响明确 |
-| 3 | PENDING | 证据支持的 production/test 内部实施 | 每个 slice 独立正确、可验证、可保留 |
-| 4 | PENDING | property/differential/contract/E2E 与窄性能验证 | 防线有效；无洪水式重复测试 |
+| 3 | COMPLETE | 证据支持的 production/test 内部实施 | aggregate trust、failure routing 与 CP-007 已形成独立正确候选 |
+| 4 | COMPLETE | property/differential/contract/E2E 与窄性能验证 | 代表性防线、API 基线和五 fork 性能证据通过 |
 | 5 | PENDING | scope non-regression、完整 Gate、正式固化和退役 | 唯一 Owner、Report、无 Temporary 尾项 |
 
 Stage 1 可以判定某个候选为“保持现状”。Stage 2 不能以将来重写为理由批准当前

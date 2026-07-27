@@ -47,6 +47,7 @@ public final class DenseConsumer {
         testColumnViewAllocationShape();
         testColumnViewAcquisitionAllocation();
         testCandidateScanAllocationShape();
+        testEscapedCursorFaultsAggregate();
 
         ParticleBatch batch = new ParticleBatch(2);
         batch.addValues(1, 10L, 1.5f, true, 7);
@@ -789,6 +790,28 @@ public final class DenseConsumer {
         ParticleTable table = ParticleTable.create();
         table.addBatch(batch);
         return table;
+    }
+
+    private static void testEscapedCursorFaultsAggregate() {
+        final ParticleTable table = allocationTable(1);
+        final ParticleCursor[] escaped = new ParticleCursor[1];
+        table.limit(1).forEach(candidate -> escaped[0] = candidate);
+        expectCode("internal_invariant_violation", new Action() {
+            @Override
+            public void run() {
+                escaped[0].id();
+            }
+        });
+        expectCode("internal_invariant_violation", new Action() {
+            @Override
+            public void run() {
+                table.size();
+            }
+        });
+        require(table.statsSnapshot().rows() == 1L,
+                "faulted aggregate keeps bounded diagnostics");
+        table.release();
+        require(table.isReleased(), "faulted aggregate remains releasable");
     }
 
     private static long allocatedTraversalBytes(

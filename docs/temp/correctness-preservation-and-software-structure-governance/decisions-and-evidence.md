@@ -2,13 +2,13 @@
 
 类型：Temporary
 
-状态：Stage 2 candidate
+状态：Stage 4 candidate
 
 Owner：SOMA correctness preservation and software structure governance
 
 正式事实源：否
 
-事实范围：Stage 1 五条证明链、CP-001–CP-007 裁决和 Stage 2 实施候选
+事实范围：Stage 1 五条证明链、CP-001–CP-007 裁决、Stage 3 实施和 Stage 4 证据
 
 非事实范围：尚未验证的最终实现事实、正式 Design 和 release claim
 
@@ -106,10 +106,12 @@ unexpected failure 会清除 operation guard 后重新开放访问。
 
 - 当前事实：Stage 0 曾出现 outer class 调用 `$1` marker、nested class 提供
   `LongSum` marker 的 `NoSuchMethodError`。
-- 有界复核：Zulu `1.8.0_492-b09` 下两次 `clean test-compile` 均成功；
+- 有界复核：Zulu `1.8.0_492-b09` 下修复后的 clean/repeat 编译均成功；
   outer/nested SHA-256 分别稳定为
-  `41e844b9...aac847` / `bd1f896d...efc78`；两次 descriptor 都是
-  `LongSum(LongSum)`；`--unknown` class-load smoke 稳定到达参数校验。
+  `efd12d20cddc0cbcbdb77d2e0a5ba41cd796bd42e77bb66359e35fd74d2ab5fb` /
+  `fd2e983993e650125e3d70208d1014e9a352b1b6d7f4656b3e16a847d15e7a32`；
+  nested descriptor 只保留显式无参构造器；`--unknown` class-load smoke 稳定到达
+  参数校验。
 - 根因裁决：不是 SOMA runtime 或性能问题。私有 nested implicit constructor
   依赖 javac 8 synthetic marker，incremental/stale outer/nested artifact 可以形成
   不配套 class set；当前 Gate 又在五个 fork 之后才做 class-load smoke。
@@ -156,12 +158,13 @@ contract。
 ### 4.3 Runtime 协作
 
 - `DenseTableState.checkActive()` 通过 registry 统一拒绝 faulted aggregate；
-- stats 使用独立 diagnostics preflight，允许观察已有计数，但不清除 fault；
-- root release 使用独立 release preflight，允许 terminal cleanup；
+- stats 复用既有 `checkCallbackAccess("statsSnapshot")`，由 registry 对稳定操作名
+  作最小 fault-tolerant 判定，允许观察已有计数但不清除 fault；
+- root release 复用既有 `preflightMutation("release")`，允许 terminal cleanup；
 - internal invariant 由 aggregate-bound `DenseTableState`、`ColumnGroup`、
   `ChildOwnershipRegistry`、`StorageBudget` 在抛出前标记；
-- generated table 自身检测到的不变量通过一个 `state.internalInvariant(...)`
-  helper 标记；
+- generated table 自身检测到的不变量通过生成类私有 `internalInvariant(...)`
+  helper 映射到既有 state failure protocol；
 - active terminal 对 structured failure 传递 category；只有非 `INTERNAL` failure
   使用普通 `endOperationFailure()`；
 - raw unexpected failure 使用 faulting abort；callback 已经转成 `CALLBACK` 的路径
@@ -189,8 +192,9 @@ mutation、DataFlow acquire、stats reset 或 owned-child navigation。允许：
 - fault metadata 只在 first failure 写入；
 - public/generated signature、annotation Schema、runtime protocol identity、
   Access/DataFlow 语义和 application contract 不变；
-- runtime protocol 只做 additive internal binding helper，并保留旧 failure method
-  以兼容同版本已生成 class。
+- runtime protocol 不新增签名或 identity；生成类私有 helper 只调用既有
+  `DenseTableState` 协议，旧生成 class 继续由既有 failure method 获得同样的
+  fail-closed 行为。
 
 ## 5. Stage 3–4 slices
 
@@ -203,4 +207,48 @@ mutation、DataFlow acquire、stats reset 或 owned-child navigation。允许：
 4. Evidence slice：runtime/generated/DataFlow representative Gates、完整
    scope non-regression；没有新的性能机制变化时不 rebaseline。
 
-未触发停止条件。下一步唯一关键路径是实现 aggregate trust slice。
+## 6. Stage 3–4 实施与证据
+
+### 6.1 实施闭环
+
+- aggregate trust：`ChildOwnershipRegistry` 成为 root/child 共享的唯一 trust
+  Owner；first internal/unexpected failure 进入 faulted，normal access fail closed；
+- state cooperation：`DenseTableState` 在 internal code 和 raw unexpected failure
+  处标记 aggregate，并只关闭当前 operation 实际拥有的 table scope；
+- fact-origin defense：`ColumnGroup`、`StorageBudget`、ownership registry 及
+  generated invariant helper 在不变量产生处标记；
+- generated routing：structured `INTERNAL`、raw `RuntimeException` 和 `Error`
+  统一路由，普通 expected/callback failure 不误伤；
+- diagnostics/release：只允许既有 `runtimePlan`、`isReleased`、
+  `statsSnapshot` 和 root `release` operation，未增加 public fault query；
+- CP-007：`LongSum` 使用显式 package-private 无参构造器；descriptor 和
+  class-load smoke 在性能 fork 前验证。
+
+### 6.2 代表性证据
+
+| Evidence | 结果 |
+|---|---|
+| processor clean compile、codegen admission | PASS |
+| runtime-core phase 1 | PASS |
+| generated dense / keyed consumer | PASS |
+| access、child ownership representative consumer | PASS |
+| DataFlow reference differential | PASS |
+| public API baseline | PASS，未修改 golden |
+| post-cutover component benchmark | PASS，Zulu JDK 8、5 forks、baseline `passed` |
+| clean/repeat class identity | PASS，SHA 与无参 descriptor 稳定 |
+| `git diff --check`、benchmark script syntax | PASS |
+
+五 fork evidence 在后续 clean 前生成于
+`target/post-cutover-components.tDxKVh`；它是本机临时 Gate artifact，不是正式
+发布或跨机器性能声明。Stage 5 仍需原子固化正式 Owner、形成 Report、删除
+Temporary，并只在最后运行一次完整 Gate。
+
+### 6.3 非回归与停止条件
+
+- annotation Schema、public/generated API、runtime protocol identity 均未变化；
+- Access Model、Transformation/DataFlow、Index、ownership、原子性和应用场景语义
+  未改变；
+- 没有新增依赖、恢复 API、第二套 lifecycle 或 hot-path allocation；
+- public API Gate 曾识别出候选实现的协议面扩张，最终实现已改为复用既有协议，
+  未通过更新 golden 绕过；
+- 未触发需要用户再次裁决的停止条件。

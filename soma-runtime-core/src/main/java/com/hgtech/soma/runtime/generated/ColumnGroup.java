@@ -1,6 +1,7 @@
 package com.hgtech.soma.runtime.generated;
 
 import com.hgtech.soma.runtime.TablePlan;
+import com.hgtech.soma.runtime.SomaRuntimeException;
 
 /**
  * 以 stage-all-then-commit 方式协调同一 table 的 column capacity。
@@ -128,7 +129,7 @@ public final class ColumnGroup {
                     "growth ratio must satisfy numerator > denominator >= 1");
         }
         if (proposedExternalRetainedBytes < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "table_storage_accounting", table, operation);
         }
         int proposedCapacity = required <= capacity
@@ -146,7 +147,7 @@ public final class ColumnGroup {
 
         long currentOwned = checkedAdd(retainedBytes, externalRetainedBytes);
         if (currentOwned > storageBudget.currentBytes()) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "aggregate_storage_accounting", table, operation);
         }
         long otherRetained = storageBudget.currentBytes() - currentOwned;
@@ -172,7 +173,7 @@ public final class ColumnGroup {
     void replaceExternalRetainedBytes(
             long previous, long proposed, String operation) {
         if (previous != externalRetainedBytes || proposed < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "table_storage_accounting", table, operation);
         }
         preflightExternalRetainedBytes(proposed, operation);
@@ -186,7 +187,7 @@ public final class ColumnGroup {
 
     void preflightExternalRetainedBytes(long proposed, String operation) {
         if (proposed < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "table_storage_accounting", table, operation);
         }
         long tableBytes = checkedAdd(retainedBytes, proposed);
@@ -207,7 +208,7 @@ public final class ColumnGroup {
 
     void reserveTransientBytes(long bytes, String operation) {
         if (bytes < 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "table_transient_storage_accounting", table, operation);
         }
         storageBudget.reserveTransientBytes(bytes, table, operation);
@@ -220,7 +221,7 @@ public final class ColumnGroup {
     void releaseStorage() {
         if (released) return;
         if (externalRetainedBytes != 0L) {
-            throw RuntimeFailures.internalInvariant(
+            throw internalInvariant(
                     "table_external_storage_release", table, "release");
         }
         for (int i = 0; i < columns.length; i++) columns[i].releaseStorage();
@@ -299,5 +300,10 @@ public final class ColumnGroup {
             throw RuntimeFailures.memoryLimitExceeded(
                     table, operation, tablePlan.maximumBulkScratchBytes(), proposed);
         }
+    }
+
+    private SomaRuntimeException internalInvariant(
+            String invariant, String path, String operation) {
+        return ownership.internalInvariant(invariant, path, operation);
     }
 }

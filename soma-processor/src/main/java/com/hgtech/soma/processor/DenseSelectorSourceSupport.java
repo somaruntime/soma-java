@@ -133,7 +133,7 @@ final class DenseSelectorSourceSupport {
             out.append("stage.selector").append(i).append("=buildSelector")
                     .append(i).append("Index(batch,operation);");
         }
-        out.append("if(stage.retainedBytes()>scratch)throw RuntimeFailures.internalInvariant(\"exact_index_estimator\",TABLE,operation);return stage;}catch(RuntimeException failure){stage.discard(operation);throw failure;}catch(Error failure){stage.discard(operation);throw failure;}}\n")
+        out.append("if(stage.retainedBytes()>scratch)throw internalInvariant(\"exact_index_estimator\",TABLE,operation);return stage;}catch(RuntimeException failure){stage.discard(operation);throw failure;}catch(Error failure){stage.discard(operation);throw failure;}}\n")
                 .append("  private final class ExactIndexStage{private long scratchBytes;private boolean consumed;");
         for (int i = 0; i < table.selectors.size(); i++) {
             out.append("private GroupedExactIndex selector").append(i).append(';');
@@ -144,7 +144,7 @@ final class DenseSelectorSourceSupport {
                     .append("!=null)value=addExactMetric(value,selector")
                     .append(i).append(".retainedBytes());");
         }
-        out.append("return value;}void publish(String operation){if(consumed)throw RuntimeFailures.internalInvariant(\"exact_index_stage_consumed\",TABLE,operation);long previous=exactIndexRetainedBytes(),proposed=retainedBytes();state.preflightExactIndexStorage(proposed,operation);state.releaseBulkScratch(scratchBytes,operation);scratchBytes=0L;state.commitExactIndexStorage(previous,proposed,operation);");
+        out.append("return value;}void publish(String operation){if(consumed)throw internalInvariant(\"exact_index_stage_consumed\",TABLE,operation);long previous=exactIndexRetainedBytes(),proposed=retainedBytes();state.preflightExactIndexStorage(proposed,operation);state.releaseBulkScratch(scratchBytes,operation);scratchBytes=0L;state.commitExactIndexStorage(previous,proposed,operation);");
         for (int i = 0; i < table.selectors.size(); i++) {
             out.append("GroupedExactIndex previous").append(i).append("=selector")
                     .append(i).append("Index;selector").append(i)

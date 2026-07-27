@@ -269,7 +269,7 @@ final class DenseExactIndexSourceEmitter {
                     .append(i).append("Index.createGroup(hash);");
             if ("unique".equals(selector.kind)) {
                 out.append("else if(selector").append(i)
-                        .append("Index.groupSize(group)!=0)throw RuntimeFailures.internalInvariant(\"unique_exact_index_conflict\",TABLE,\"exact-index.link\");");
+                        .append("Index.groupSize(group)!=0)throw internalInvariant(\"unique_exact_index_conflict\",TABLE,\"exact-index.link\");");
             }
             out.append("selector").append(i).append("Index.link(group,row);}\n")
                     .append("  private long selector").append(i)

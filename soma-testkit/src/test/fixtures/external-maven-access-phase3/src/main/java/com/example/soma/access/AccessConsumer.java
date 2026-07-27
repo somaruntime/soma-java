@@ -101,8 +101,13 @@ public final class AccessConsumer {
         } finally {
             MutatorAtomicAccess.failConstruction = false;
         }
-        require(atomicTable.scanById(1).count() == 1L,
-                "carrier RuntimeException releases operation guard");
+        expectCode("internal_invariant_violation",
+                () -> atomicTable.scanById(1).count());
+        require(atomicTable.statsSnapshot().rows() == 1L,
+                "carrier RuntimeException keeps bounded diagnostics");
+        atomicTable.release();
+        require(atomicTable.isReleased(),
+                "carrier RuntimeException keeps terminal release available");
 
         AccessRecordBatch batch = new AccessRecordBatch(4);
         batch.addValues(10, 2, 1, 30);
@@ -168,8 +173,10 @@ public final class AccessConsumer {
         require(table.statsSnapshot().lastScanned() == 1L,
                 "selector firstOrThrow traverses one exact-index candidate");
 
+        final AccessRecordTable errorTable = AccessRecordTable.create();
+        errorTable.addBatch(batch);
         try {
-            table.scanByState(2).filter(row -> {
+            errorTable.scanByState(2).filter(row -> {
                 throw new AssertionError("terminal error");
             }).count();
             throw new AssertionError("expected terminal error");
@@ -177,8 +184,11 @@ public final class AccessConsumer {
             require("terminal error".equals(expected.getMessage()),
                     "unexpected terminal error");
         }
-        require(table.scanByState(2).count() == 3L,
-                "terminal Error closes operation lifecycle");
+        expectCode("internal_invariant_violation",
+                () -> errorTable.scanByState(2).count());
+        require(errorTable.statsSnapshot().rows() == 5L,
+                "terminal Error keeps bounded diagnostics");
+        errorTable.release();
         expectCode("callback_failed", () -> table.filter(row -> {
             if (row.code() == 20) throw new IllegalArgumentException("predicate failed");
             return false;

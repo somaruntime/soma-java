@@ -36,6 +36,27 @@ if grep -F 'com.hgtech.soma.examples' \
 fi
 
 classpath="soma-benchmarks/target/classes:soma-runtime-core/target/classes"
+
+long_sum_type='com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark$LongSum'
+long_sum_descriptor=$("$JAVA_HOME/bin/javap" \
+  -classpath soma-benchmarks/target/classes -p "$long_sum_type")
+if ! printf '%s\n' "$long_sum_descriptor" |
+    grep -F 'PostCutoverComponentBenchmark$LongSum();' >/dev/null \
+    || printf '%s\n' "$long_sum_descriptor" |
+    grep -F 'PostCutoverComponentBenchmark$LongSum(com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark$LongSum);' \
+      >/dev/null; then
+  printf '%s\n' \
+    'post-cutover-component-check: unstable synthetic LongSum constructor detected' >&2
+  exit 1
+fi
+
+if "$JAVA_HOME/bin/java" -cp "$classpath" \
+    com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark --unknown value \
+    >"$evidence_dir/invalid-option.log" 2>&1; then
+  printf '%s\n' 'post-cutover-component-check: unknown CLI option accepted' >&2
+  exit 1
+fi
+
 fork=1
 while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
@@ -56,13 +77,6 @@ set -- "$evidence_dir"/component-fork-*.jsonl
 "$JAVA_HOME/bin/java" -cp "$classpath" \
   com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
   "$baseline" "$baseline_result" "$@"
-
-if "$JAVA_HOME/bin/java" -cp "$classpath" \
-    com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark --unknown value \
-    >"$evidence_dir/invalid-option.log" 2>&1; then
-  printf '%s\n' 'post-cutover-component-check: unknown CLI option accepted' >&2
-  exit 1
-fi
 
 record_count=0
 for artifact in "$@"; do

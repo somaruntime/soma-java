@@ -306,51 +306,8 @@ public final class ChildConsumer {
                         == childInvocationCount,
                 "two-pass guard preserves descendant stats");
 
-        final long carrierEpoch = table.structuralEpoch();
-        final int carrierParentSize = table.size();
-        final int carrierChildSize = materializationChild.size();
-        final RuntimeException carrierRuntime =
-                new IllegalStateException("expected carrier runtime failure");
-        long carrierFailures = table.statsSnapshot().materializationFailureCount();
-        ParentRow.constructionHook = new Runnable() {
-            public void run() { throw carrierRuntime; }
-        };
-        boolean caughtRuntime = false;
-        try {
-            table.materialize();
-        } catch (RuntimeException actual) {
-            caughtRuntime = true;
-            check(actual == carrierRuntime, "carrier RuntimeException identity");
-        } finally {
-            ParentRow.constructionHook = null;
-        }
-        check(caughtRuntime, "carrier RuntimeException propagated");
-        check(table.statsSnapshot().materializationFailureCount() == carrierFailures + 1L,
-                "carrier RuntimeException failure stats");
-        check(table.structuralEpoch() == carrierEpoch && table.size() == carrierParentSize
-                        && materializationChild.size() == carrierChildSize,
-                "carrier RuntimeException preserves facts and epoch");
-
-        final Error carrierError = new AssertionError("expected carrier error");
-        carrierFailures = table.statsSnapshot().materializationFailureCount();
-        ParentRow.constructionHook = new Runnable() {
-            public void run() { throw carrierError; }
-        };
-        boolean caughtError = false;
-        try {
-            table.materialize();
-        } catch (Error actual) {
-            caughtError = true;
-            check(actual == carrierError, "carrier Error identity");
-        } finally {
-            ParentRow.constructionHook = null;
-        }
-        check(caughtError, "carrier Error propagated");
-        check(table.statsSnapshot().materializationFailureCount() == carrierFailures + 1L,
-                "carrier Error failure stats");
-        check(table.structuralEpoch() == carrierEpoch && table.size() == carrierParentSize
-                        && materializationChild.size() == carrierChildSize,
-                "carrier Error preserves facts and epoch");
+        verifyUnexpectedMaterializationFailure(parent, false);
+        verifyUnexpectedMaterializationFailure(parent, true);
 
         final long allocationEpoch = table.structuralEpoch();
         final long allocationFailures =
@@ -757,6 +714,53 @@ public final class ChildConsumer {
         } catch (SomaRuntimeException failure) {
             check(code.equals(failure.code()), "code " + failure.code());
         }
+    }
+
+    private static void verifyUnexpectedMaterializationFailure(
+            ParentRow parent, boolean error) {
+        final ParentRowTable failed = ParentRowTable.create();
+        failed.addBatch(new ParentRowBatch().add(parent));
+        final ChildRowTable failedChild = failed.children(0);
+        final long failures =
+                failed.statsSnapshot().materializationFailureCount();
+        if (error) {
+            final Error expected = new AssertionError("expected carrier error");
+            ParentRow.constructionHook = new Runnable() {
+                public void run() { throw expected; }
+            };
+            try {
+                failed.materialize();
+                throw new AssertionError("carrier Error not propagated");
+            } catch (Error actual) {
+                check(actual == expected, "carrier Error identity");
+            } finally {
+                ParentRow.constructionHook = null;
+            }
+        } else {
+            final RuntimeException expected =
+                    new IllegalStateException("expected carrier runtime failure");
+            ParentRow.constructionHook = new Runnable() {
+                public void run() { throw expected; }
+            };
+            try {
+                failed.materialize();
+                throw new AssertionError("carrier RuntimeException not propagated");
+            } catch (RuntimeException actual) {
+                check(actual == expected, "carrier RuntimeException identity");
+            } finally {
+                ParentRow.constructionHook = null;
+            }
+        }
+        check(failed.statsSnapshot().materializationFailureCount() == failures + 1L,
+                "unexpected carrier failure stats");
+        expectCode("internal_invariant_violation", new Action() {
+            public void run() { failed.size(); }
+        });
+        expectCode("internal_invariant_violation", new Action() {
+            public void run() { failedChild.size(); }
+        });
+        failed.release();
+        check(failed.isReleased(), "faulted ownership aggregate release");
     }
 
     private static void check(boolean condition, String message) {

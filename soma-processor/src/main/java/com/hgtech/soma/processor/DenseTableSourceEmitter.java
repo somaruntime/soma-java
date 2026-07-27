@@ -161,7 +161,7 @@ final class DenseTableSourceEmitter {
                 out.append("selector").append(i)
                         .append("Index=new GroupedExactIndex(tablePlan.initialCapacity(),0);");
             }
-            out.append("long actualExactIndexBytes=exactIndexRetainedBytes();if(actualExactIndexBytes!=estimatedExactIndexBytes)throw RuntimeFailures.internalInvariant(\"exact_index_estimator\",TABLE,\"table.create\");state.commitExactIndexStorage(0L,actualExactIndexBytes,\"table.create\");}catch(RuntimeException failure){");
+            out.append("long actualExactIndexBytes=exactIndexRetainedBytes();if(actualExactIndexBytes!=estimatedExactIndexBytes)throw internalInvariant(\"exact_index_estimator\",TABLE,\"table.create\");state.commitExactIndexStorage(0L,actualExactIndexBytes,\"table.create\");}catch(RuntimeException failure){");
             for (int i = 0; i < table.selectors.size(); i++) {
                 out.append("if(selector").append(i)
                         .append("Index!=null)selector").append(i).append("Index.release();");
@@ -187,7 +187,7 @@ final class DenseTableSourceEmitter {
                 .append(name).append("(plan,tablePlan,ownership,true,path);}\n")
                 .append("  public static RuntimePlan defaultRuntimePlan(){return DEFAULT_RUNTIME_PLAN;}\n");
         appendSchemaPlanRuntime(out);
-        out.append("  public RuntimePlan runtimePlan(){state.checkCallbackAccess(\"runtimePlan\");return state.runtimePlan();}\n  public int size(){state.checkActive(\"size\");return state.size();}\n  public int capacity(){state.checkActive(\"capacity\");return state.capacity();}\n  public long structuralEpoch(){state.checkCallbackAccess(\"structuralEpoch\");return state.structuralEpoch();}\n  public boolean isReleased(){state.checkCallbackAccess(\"isReleased\");return state.isReleased();}\n  public void reserve(int expectedCapacity){ownership.preflightMutation(\"reserve\");if(expectedCapacity<0)throw new IllegalArgumentException(\"expectedCapacity must be non-negative\");int required=Math.max(size(),expectedCapacity),additional=required-size();long proposedKeySpace=")
+        out.append("  public RuntimePlan runtimePlan(){state.checkCallbackAccess(\"runtimePlan\");return state.runtimePlan();}\n  public int size(){state.checkActive(\"size\");return state.size();}\n  public int capacity(){state.checkActive(\"capacity\");return state.capacity();}\n  public long structuralEpoch(){state.checkActive(\"structuralEpoch\");return state.structuralEpoch();}\n  public boolean isReleased(){state.checkCallbackAccess(\"isReleased\");return state.isReleased();}\n  public void reserve(int expectedCapacity){ownership.preflightMutation(\"reserve\");if(expectedCapacity<0)throw new IllegalArgumentException(\"expectedCapacity must be non-negative\");try{int required=Math.max(size(),expectedCapacity),additional=required-size();long proposedKeySpace=")
                 .append(table.keyed()
                         ? "keySpace.retainedBytesAfterEnsureAdditional(additional)"
                         : "0L")
@@ -195,20 +195,20 @@ final class DenseTableSourceEmitter {
                 .append(table.keyed()
                         ? "ensureAppendKeyCapacity(additional,\"reserve\");"
                         : "")
-                .append("ensureExactIndexCapacity(required,0,\"reserve\");state.commitReserve(expectedCapacity);}\n\n");
+                .append("ensureExactIndexCapacity(required,0,\"reserve\");state.commitReserve(expectedCapacity);}catch(RuntimeException failure){observeFailure(failure,\"reserve\");throw failure;}catch(Error failure){observeFailure(failure,\"reserve\");throw failure;}}\n\n");
         if (table.children.isEmpty() && table.keyed()) {
             String keySpaceType = table.keyField().keySpaceType();
             out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"addBatch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;")
-                    .append("validateSelectorAppend(batch);validateUniqueAppend(batch);validateAppendKeys(batch);ensureAppendKeyCapacity(count,\"addBatch\");ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count);}catch(RuntimeException failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);throw failure;}catch(Error failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);throw failure;}}\n")
+                    .append("validateSelectorAppend(batch);validateUniqueAppend(batch);validateAppendKeys(batch);ensureAppendKeyCapacity(count,\"addBatch\");ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count);}catch(RuntimeException failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);observeFailure(failure,\"addBatch\");throw failure;}catch(Error failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);observeFailure(failure,\"addBatch\");throw failure;}}\n")
                     .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"replaceAll\");state.prepareReplace(0);")
-                    .append("validateSelectorReplacement(batch);validateUniqueReplacement(batch);").append(keySpaceType).append(" staged=stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);publishKeySpace(staged,\"replaceAll\");staged=null;stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}catch(Error failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}}\n")
-                    .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();clearColumns(0,previous);keySpace.clear();clearExactIndexes();state.commitClear(previous);}\n")
-                    .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);keySpace.releaseStorage();releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}\n\n");
+                    .append("validateSelectorReplacement(batch);validateUniqueReplacement(batch);").append(keySpaceType).append(" staged=stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);publishKeySpace(staged,\"replaceAll\");staged=null;stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}catch(Error failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}}\n")
+                    .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();try{clearColumns(0,previous);keySpace.clear();clearExactIndexes();state.commitClear(previous);}catch(RuntimeException failure){observeFailure(failure,\"clear\");throw failure;}catch(Error failure){observeFailure(failure,\"clear\");throw failure;}}\n")
+                    .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");try{int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);keySpace.releaseStorage();releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}catch(RuntimeException failure){observeFailure(failure,\"release\");throw failure;}catch(Error failure){observeFailure(failure,\"release\");throw failure;}}\n\n");
         } else if (table.children.isEmpty()) {
-            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"addBatch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;validateSelectorAppend(batch);validateUniqueAppend(batch);ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");int start=state.prepareAppend(count);copyBatch(batch,0,start,count);linkExactIndexRows(start,count);state.commitAppend(start,count);}\n")
-                    .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"replaceAll\");state.prepareReplace(0);int count=batch.size();validateSelectorReplacement(batch);validateUniqueReplacement(batch);ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");try{state.preflightReplaceStorage(count,0L,stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}catch(Error failure){if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");throw failure;}}\n")
-                    .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();clearColumns(0,previous);clearExactIndexes();state.commitClear(previous);}\n")
-                    .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}\n\n");
+            out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"addBatch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;validateSelectorAppend(batch);validateUniqueAppend(batch);ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");int start=state.prepareAppend(count);try{copyBatch(batch,0,start,count);linkExactIndexRows(start,count);state.commitAppend(start,count);}catch(RuntimeException failure){observeFailure(failure,\"addBatch\");throw failure;}catch(Error failure){observeFailure(failure,\"addBatch\");throw failure;}}\n")
+                    .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"replaceAll\");state.prepareReplace(0);int count=batch.size();validateSelectorReplacement(batch);validateUniqueReplacement(batch);ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");try{state.preflightReplaceStorage(count,0L,stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}catch(Error failure){if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}}\n")
+                    .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();try{clearColumns(0,previous);clearExactIndexes();state.commitClear(previous);}catch(RuntimeException failure){observeFailure(failure,\"clear\");throw failure;}catch(Error failure){observeFailure(failure,\"clear\");throw failure;}}\n")
+                    .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");try{int previous=state.prepareRelease();if(previous>=0){clearColumns(0,previous);releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}catch(RuntimeException failure){observeFailure(failure,\"release\");throw failure;}catch(Error failure){observeFailure(failure,\"release\");throw failure;}}\n\n");
         } else {
             appendChildStructuralMethods(out, table);
         }
@@ -339,7 +339,7 @@ final class DenseTableSourceEmitter {
                         .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key){return materializeRequiredRow(keyRow(key,\"fetch\"),runtimePlan().defaultMaterializationBudget(),\"fetch\",false,TABLE);}\n")
                         .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");return materializeRequiredRow(keyRow(key,\"fetch\"),budget,\"fetch\",false,TABLE);}\n")
                         .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
-                        .append("  public void delete(").append(key.primitive).append(" key){ownership.preflightMutation(\"delete\");state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"delete\");throw failure;}catch(Error failure){state.abortOperation(\"delete\");throw failure;}}\n")
+                        .append("  public void delete(").append(key.primitive).append(" key){ownership.preflightMutation(\"delete\");state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){endFailure(\"delete\",scanned,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"delete\");throw failure;}catch(Error failure){state.abortOperation(\"delete\");throw failure;}}\n")
                         .append("  public ").append(table.name("KeyTraversal")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("KeyTraversal")).append("(this);}\n");
             } else {
                 out.append("  public boolean containsKey(").append(key.primitive).append(" key){state.checkActive(\"containsKey\");return keySpace.contains(")
@@ -358,7 +358,7 @@ final class DenseTableSourceEmitter {
                         .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key){return materializeRequiredRow(keyRow(key,\"fetch\"),runtimePlan().defaultMaterializationBudget(),\"fetch\",false,TABLE);}\n")
                         .append("  public ").append(table.carrierType).append(" fetch(").append(key.primitive).append(" key,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");return materializeRequiredRow(keyRow(key,\"fetch\"),budget,\"fetch\",false,TABLE);}\n")
                         .append("  public ").append(table.name("Mutator")).append(" mutate(").append(key.primitive).append(" key){return mutateAt(keyRow(key,\"mutate\"));}\n")
-                        .append("  public void delete(").append(key.primitive).append(" key){ownership.preflightMutation(\"delete\");state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"delete\",scanned,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"delete\");throw failure;}catch(Error failure){state.abortOperation(\"delete\");throw failure;}}\n")
+                        .append("  public void delete(").append(key.primitive).append(" key){ownership.preflightMutation(\"delete\");state.beginOperation(\"delete\");long scanned=0L;try{int row=keyRow(key,\"delete\");scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,\"delete\");state.endOperationSuccess(\"delete\",1L,1L,1L);}catch(SomaRuntimeException failure){endFailure(\"delete\",scanned,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"delete\");throw failure;}catch(Error failure){state.abortOperation(\"delete\");throw failure;}}\n")
                         .append("  public ").append(table.name("KeyTraversal")).append(" keys(){state.checkActive(\"keys\");return new ").append(table.name("KeyTraversal")).append("(this);}\n");
             }
             appendValueKeyLeafLocators(out, key);
@@ -369,12 +369,12 @@ final class DenseTableSourceEmitter {
                 .append("  public ").append(table.name("Scan")).append(" skip(long count){return ").append(table.name("Scan")).append(".packedSkip(this,count);}\n")
                 .append("  public ").append(table.name("Scan")).append(" limit(long count){return ").append(table.name("Scan")).append(".packedLimit(this,count);}\n")
                 .append("  public ").append(table.name("Scan")).append(" sorted(").append(table.name("Scan")).append(".Comparator comparator){return ").append(table.name("Scan")).append(".packedSorted(this,comparator);}\n")
-                .append("  public long count(){state.beginOperation(\"scan.count\");try{long result=state.size();state.endOperationSuccess(\"scan.count\",result,result,0L);return result;}catch(SomaRuntimeException failure){state.endOperationFailure(\"scan.count\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.count\");throw failure;}catch(Error failure){state.abortOperation(\"scan.count\");throw failure;}}\n")
+                .append("  public long count(){state.beginOperation(\"scan.count\");try{long result=state.size();state.endOperationSuccess(\"scan.count\",result,result,0L);return result;}catch(SomaRuntimeException failure){endFailure(\"scan.count\",0L,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.count\");throw failure;}catch(Error failure){state.abortOperation(\"scan.count\");throw failure;}}\n")
                 .append("  public boolean anyMatch(").append(table.name("Scan")).append(".Predicate predicate){return packedAnyMatch(this,predicate);}\n")
                 .append("  public boolean noneMatch(").append(table.name("Scan")).append(".Predicate predicate){return packedNoneMatch(this,predicate);}\n")
                 .append("  public void forEach(").append(table.name("Scan")).append(".Consumer consumer){packedForEach(this,consumer);}\n")
-                .append("  public int findIndex(){state.beginOperation(\"scan.findIndex\");try{int result=state.size()==0?-1:0;long matched=result<0?0L:1L;state.endOperationSuccess(\"scan.findIndex\",matched,matched,0L);return result;}catch(SomaRuntimeException failure){state.endOperationFailure(\"scan.findIndex\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.findIndex\");throw failure;}catch(Error failure){state.abortOperation(\"scan.findIndex\");throw failure;}}\n")
-                .append("  public int requireIndex(){state.beginOperation(\"scan.requireIndex\");try{if(state.size()==0)throw RuntimeFailures.emptyResult(TABLE,\"scan.requireIndex\");state.endOperationSuccess(\"scan.requireIndex\",1L,1L,0L);return 0;}catch(SomaRuntimeException failure){state.endOperationFailure(\"scan.requireIndex\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.requireIndex\");throw failure;}catch(Error failure){state.abortOperation(\"scan.requireIndex\");throw failure;}}\n")
+                .append("  public int findIndex(){state.beginOperation(\"scan.findIndex\");try{int result=state.size()==0?-1:0;long matched=result<0?0L:1L;state.endOperationSuccess(\"scan.findIndex\",matched,matched,0L);return result;}catch(SomaRuntimeException failure){endFailure(\"scan.findIndex\",0L,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.findIndex\");throw failure;}catch(Error failure){state.abortOperation(\"scan.findIndex\");throw failure;}}\n")
+                .append("  public int requireIndex(){state.beginOperation(\"scan.requireIndex\");try{if(state.size()==0)throw RuntimeFailures.emptyResult(TABLE,\"scan.requireIndex\");state.endOperationSuccess(\"scan.requireIndex\",1L,1L,0L);return 0;}catch(SomaRuntimeException failure){endFailure(\"scan.requireIndex\",0L,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"scan.requireIndex\");throw failure;}catch(Error failure){state.abortOperation(\"scan.requireIndex\");throw failure;}}\n")
                 .append("  public java.util.Optional<").append(table.carrierType).append("> findFirst(){return packedFindFirst(this,runtimePlan().defaultMaterializationBudget());}\n")
                 .append("  public java.util.Optional<").append(table.carrierType).append("> findFirst(MaterializationBudget budget){return packedFindFirst(this,budget);}\n")
                 .append("  public ").append(table.carrierType).append(" firstOrThrow(){return packedFirstOrThrow(this,runtimePlan().defaultMaterializationBudget());}\n")
@@ -423,7 +423,7 @@ final class DenseTableSourceEmitter {
             out.append("  public TableStats statsSnapshot(){state.checkCallbackAccess(\"statsSnapshot\");return exactIndexStats(state.statsSnapshot(subtreeChildInstanceCount(),subtreeDescendantRowCount()-state.size()));}\n  public void resetStats(){ownership.preflightMutation(\"resetStats\");state.resetStats();resetExactIndexMetrics();}\n\n");
         }
         out
-                .append("  void begin(String operation){state.beginOperation(operation);}\n  void beginCallback(String callback){state.beginCallback(callback);}\n  void endCallback(String callback){state.endCallback(callback);}\n  void endSuccess(String operation,long scanned,long matched,long changed){state.endOperationSuccess(operation,scanned,matched,changed);}\n  void endFailure(String operation,long scanned,long matched,String code){state.endOperationFailure(operation,scanned,matched,code);}\n  void abort(String operation){state.abortOperation(operation);}\n  UpdateResult updateResult(long scanned,long matched,long changed){return state.updateResult(scanned,matched,changed);}\n  IndexSnapshot indexSnapshot(int[] indexes,int count){return IndexSnapshots.copyOf(indexSnapshotOwner,structuralEpoch(),indexes,count);}\n")
+                .append("  void begin(String operation){state.beginOperation(operation);}\n  void beginCallback(String callback){state.beginCallback(callback);}\n  void endCallback(String callback){state.endCallback(callback);}\n  void endSuccess(String operation,long scanned,long matched,long changed){state.endOperationSuccess(operation,scanned,matched,changed);}\n  void endFailure(String operation,long scanned,long matched,String code){state.endOperationFailure(operation,scanned,matched,code);}\n  void endFailure(String operation,long scanned,long matched,SomaRuntimeException failure){state.endOperationFailure(operation,scanned,matched,failure.category()==SomaErrorCategory.INTERNAL?\"internal_invariant_violation\":failure.code());}\n  void abort(String operation){state.abortOperation(operation);}\n  void observeFailure(Throwable failure,String operation){if(failure instanceof SomaRuntimeException){if(((SomaRuntimeException)failure).category()==SomaErrorCategory.INTERNAL)state.endOperationFailure(operation,0L,0L,\"internal_invariant_violation\");}else state.abortOperation(operation);}\n  SomaRuntimeException internalInvariant(String invariant,String path,String operation){state.endOperationFailure(operation,0L,0L,\"internal_invariant_violation\");return RuntimeFailures.internalInvariant(invariant,path,operation);}\n  UpdateResult updateResult(long scanned,long matched,long changed){return state.updateResult(scanned,matched,changed);}\n  IndexSnapshot indexSnapshot(int[] indexes,int count){return IndexSnapshots.copyOf(indexSnapshotOwner,structuralEpoch(),indexes,count);}\n")
                 .append("  void requireDataFlowRootSource(){state.checkActive(\"dataflow.bind\");if(owned)throw RuntimeFailures.ownedDataFlowSource(TABLE,\"dataflow.bind\");}\n")
                 .append("  long dataFlowAggregateInstanceId(){return ownership.aggregateInstanceId();}\n")
                 .append("  Object dataFlowPhysicalIdentity(){return ownership.physicalIdentity();}\n")
@@ -438,24 +438,24 @@ final class DenseTableSourceEmitter {
                 .append(table.name("Scan"))
                 .append(".MutableCursor cursor=new ")
                 .append(table.name("Scan"))
-                .append(".MutableCursor(this);for(int i=0;i<count;i++){reached++;cursor.open(i,rows[i]);state.beginCallback(\"dataflow.update.updater\");try{value.update(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(TABLE,\"dataflow.update\",\"updater\",callback);}finally{state.endCallback(\"dataflow.update.updater\");cursor.close();}}long changed=publishUpdate(rows,count);state.endOperationSuccess(\"dataflow.update\",count,count,changed);return state.updateResult(count,count,changed);}catch(SomaRuntimeException failure){state.endOperationFailure(\"dataflow.update\",count,reached,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"dataflow.update\");throw failure;}catch(Error failure){state.abortOperation(\"dataflow.update\");throw failure;}finally{if(selected)clearUpdateScratch(count);}}\n")
-                .append("  RemoveResult dataFlowRemove(long expectedEpoch,int[] rows,int count){ownership.preflightMutation(\"dataflow.remove\");long current=state.structuralEpoch();if(expectedEpoch!=current)throw RuntimeFailures.staleIndexSnapshot(TABLE,expectedEpoch,current,\"dataflow.remove\");state.beginOperation(\"dataflow.remove\");try{RemoveResult result=removeSelected(rows,count,count,\"dataflow.remove\");state.endOperationSuccess(\"dataflow.remove\",count,count,count);return result;}catch(SomaRuntimeException failure){state.endOperationFailure(\"dataflow.remove\",count,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"dataflow.remove\");throw failure;}catch(Error failure){state.abortOperation(\"dataflow.remove\");throw failure;}}\n")
+                .append(".MutableCursor(this);for(int i=0;i<count;i++){reached++;cursor.open(i,rows[i]);state.beginCallback(\"dataflow.update.updater\");try{value.update(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(TABLE,\"dataflow.update\",\"updater\",callback);}finally{state.endCallback(\"dataflow.update.updater\");cursor.close();}}long changed=publishUpdate(rows,count);state.endOperationSuccess(\"dataflow.update\",count,count,changed);return state.updateResult(count,count,changed);}catch(SomaRuntimeException failure){endFailure(\"dataflow.update\",count,reached,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"dataflow.update\");throw failure;}catch(Error failure){state.abortOperation(\"dataflow.update\");throw failure;}finally{if(selected)clearUpdateScratch(count);}}\n")
+                .append("  RemoveResult dataFlowRemove(long expectedEpoch,int[] rows,int count){ownership.preflightMutation(\"dataflow.remove\");long current=state.structuralEpoch();if(expectedEpoch!=current)throw RuntimeFailures.staleIndexSnapshot(TABLE,expectedEpoch,current,\"dataflow.remove\");state.beginOperation(\"dataflow.remove\");try{RemoveResult result=removeSelected(rows,count,count,\"dataflow.remove\");state.endOperationSuccess(\"dataflow.remove\",count,count,count);return result;}catch(SomaRuntimeException failure){endFailure(\"dataflow.remove\",count,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"dataflow.remove\");throw failure;}catch(Error failure){state.abortOperation(\"dataflow.remove\");throw failure;}}\n")
                 .append("  void beginMaterialization(String operation,boolean nested){ownership.beginMaterialization(operation);try{if(nested)state.beginOperationMaterialization(operation);else state.beginMaterialization(operation);}catch(RuntimeException failure){ownership.endMaterialization();throw failure;}catch(Error failure){ownership.endMaterialization();throw failure;}}\n")
                 .append("  void endMaterializationSuccess(MaterializationTracker tracker){try{state.endMaterializationSuccess(tracker);}finally{ownership.endMaterialization();}}\n")
-                .append("  void endMaterializationFailure(MaterializationTracker tracker){try{state.endMaterializationFailure(tracker);}finally{ownership.endMaterialization();}}\n")
+                .append("  void endMaterializationFailure(MaterializationTracker tracker,Throwable failure,String operation){Throwable cleanup=null;try{state.endMaterializationFailure(tracker);}catch(Throwable current){cleanup=current;}try{ownership.endMaterialization();}catch(Throwable current){if(cleanup==null)cleanup=current;else cleanup.addSuppressed(current);}if(cleanup!=null&&cleanup!=failure)failure.addSuppressed(cleanup);observeFailure(failure,operation);if(cleanup!=null&&cleanup!=failure)observeFailure(cleanup,operation);}\n")
                 .append("  void preflightMutation(String operation){ownership.preflightMutation(operation);}\n")
                 .append("  private long operationScratchBytes(long pipeline,long sort){return pipeline>Long.MAX_VALUE-sort?Long.MAX_VALUE:pipeline+sort;}\n")
                 .append("  private void requireOperationScratch(long pipeline,long sort,String operation){long bytes=operationScratchBytes(pipeline,sort),limit=runtimePlan().requireTable(TABLE).maximumOperationScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,operation,limit,bytes);state.preflightOperationScratch(bytes,operation);}\n")
                 .append("  private void recordOperationScratch(){state.operationScratch(operationScratchBytes(pipelineScratch.retainedBytes(),sortScratch.retainedBytes()));}\n")
-                .append("  int[] preparePipelineScratch(int required){if(required<0||required>size())throw RuntimeFailures.internalInvariant(\"pipeline_scratch_size\",TABLE,\"rows\");if(pipelineScratch.capacity()<required){requireOperationScratch(pipelineScratch.retainedBytesAfterEnsure(required),sortScratch.retainedBytes(),\"rows\");pipelineScratch.ensureCapacity(required);recordOperationScratch();}return pipelineScratch.prepare(required);}\n")
-                .append("  int[] prepareSortScratch(int required){if(required<0||required>size())throw RuntimeFailures.internalInvariant(\"sort_scratch_size\",TABLE,\"scan.sort\");if(sortScratch.capacity()<required){requireOperationScratch(pipelineScratch.retainedBytes(),sortScratch.retainedBytesAfterEnsure(required),\"scan.sort\");sortScratch.ensureCapacity(required);recordOperationScratch();}return sortScratch.prepare(required);}\n")
+                .append("  int[] preparePipelineScratch(int required){if(required<0||required>size())throw internalInvariant(\"pipeline_scratch_size\",TABLE,\"rows\");if(pipelineScratch.capacity()<required){requireOperationScratch(pipelineScratch.retainedBytesAfterEnsure(required),sortScratch.retainedBytes(),\"rows\");pipelineScratch.ensureCapacity(required);recordOperationScratch();}return pipelineScratch.prepare(required);}\n")
+                .append("  int[] prepareSortScratch(int required){if(required<0||required>size())throw internalInvariant(\"sort_scratch_size\",TABLE,\"scan.sort\");if(sortScratch.capacity()<required){requireOperationScratch(pipelineScratch.retainedBytes(),sortScratch.retainedBytesAfterEnsure(required),\"scan.sort\");sortScratch.ensureCapacity(required);recordOperationScratch();}return sortScratch.prepare(required);}\n")
                 .append("  ").append(table.carrierType).append(" materializeRow(int row){return materializeRow(row,runtimePlan().defaultMaterializationBudget());}\n")
                 .append("  ").append(table.carrierType).append(" materializeRow(int row,MaterializationBudget budget){return materializeRequiredRow(row,budget,\"fetchAt\",false,TABLE);}\n")
-                .append("  ").append(table.carrierType).append(" materializeRequiredRow(int row,MaterializationBudget budget,String operation,boolean nested,String sourcePath){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(row<0)throw RuntimeFailures.emptyResult(sourcePath,operation);tracker.addRows(1L,TABLE);accountRowRecursive(tracker,row,0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);").append(table.carrierType).append(" result=carrierRecursive(row,0,TABLE);endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
-                .append("  java.util.Optional<").append(table.carrierType).append("> materializeOptionalRow(int row,MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(row<0){tracker.addOptionalAllocation(false,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<").append(table.carrierType).append("> empty=java.util.Optional.empty();endMaterializationSuccess(tracker);return empty;}tracker.addRows(1L,TABLE);tracker.addOptionalAllocation(true,TABLE);accountRowRecursive(tracker,row,0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<").append(table.carrierType).append("> result=java.util.Optional.of(carrierRecursive(row,0,TABLE));endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
+                .append("  ").append(table.carrierType).append(" materializeRequiredRow(int row,MaterializationBudget budget,String operation,boolean nested,String sourcePath){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(row<0)throw RuntimeFailures.emptyResult(sourcePath,operation);tracker.addRows(1L,TABLE);accountRowRecursive(tracker,row,0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);").append(table.carrierType).append(" result=carrierRecursive(row,0,TABLE);endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,operation);throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,operation);throw failure;}}\n")
+                .append("  java.util.Optional<").append(table.carrierType).append("> materializeOptionalRow(int row,MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(row<0){tracker.addOptionalAllocation(false,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<").append(table.carrierType).append("> empty=java.util.Optional.empty();endMaterializationSuccess(tracker);return empty;}tracker.addRows(1L,TABLE);tracker.addOptionalAllocation(true,TABLE);accountRowRecursive(tracker,row,0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<").append(table.carrierType).append("> result=java.util.Optional.of(carrierRecursive(row,0,TABLE));endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,operation);throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,operation);throw failure;}}\n")
                 .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count){return materializeRows(rows,count,runtimePlan().defaultMaterializationBudget());}\n")
                 .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget){return materializeRows(rows,count,budget,\"scan.fetchAll\",true);}\n")
-                .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);tracker.addRows(count,TABLE);tracker.addListAllocation(count,TABLE);for(int i=0;i<count;i++)accountRowRecursive(tracker,rows[i],0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);List<").append(table.carrierType).append("> result=new ArrayList<").append(table.carrierType).append(">(count);for(int i=0;i<count;i++)result.add(carrierRecursive(rows[i],0,TABLE));endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n");
+                .append("  List<").append(table.carrierType).append("> materializeRows(int[] rows,int count,MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);tracker.addRows(count,TABLE);tracker.addListAllocation(count,TABLE);for(int i=0;i<count;i++)accountRowRecursive(tracker,rows[i],0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);List<").append(table.carrierType).append("> result=new ArrayList<").append(table.carrierType).append(">(count);for(int i=0;i<count;i++)result.add(carrierRecursive(rows[i],0,TABLE));endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,operation);throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,operation);throw failure;}}\n");
         appendDataFlowAccessRuntime(out, table);
         appendTableFieldAccess(out, table);
         appendMutatorCommit(out, table);
@@ -579,7 +579,7 @@ final class DenseTableSourceEmitter {
                 .append(".UPDATE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");working.replaceFrom(row,detached.rows(),detached.valueIndexAt(entry));updated++;}")
                 .append("else if(kind==").append(delta)
                 .append(".DELETE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");working.swapRemove(row);deleted++;}")
-                .append("else throw RuntimeFailures.internalInvariant(\"delta_operation\",TABLE,\"delta.apply\");}")
+                .append("else throw internalInvariant(\"delta_operation\",TABLE,\"delta.apply\");}")
                 .append("long publishEpoch=state.structuralEpoch();if(publishEpoch!=beforeEpoch)throw RuntimeFailures.staleDelta(TABLE,beforeEpoch,publishEpoch,\"delta.apply\");")
                 .append("replaceAll(working);return DeltaApplyResult.committed(inserted,updated,deleted,beforeSize,state.size(),beforeEpoch,state.structuralEpoch());}\n")
                 .append("  private int deltaRow(").append(batch).append(" rows,")
@@ -617,9 +617,9 @@ final class DenseTableSourceEmitter {
                 .append(appendKeys)
                 .append("linkExactIndexRows(start,count);state.commitAppend(start,count);staged.publish();}catch(RuntimeException failure){")
                 .append(rollbackAppendKeys)
-                .append("if(start>=0)clearColumns(start,start+count);staged.discard();throw failure;}catch(Error failure){")
+                .append("if(start>=0)clearColumns(start,start+count);staged.discard();observeFailure(failure,\"addBatch\");throw failure;}catch(Error failure){")
                 .append(rollbackAppendKeys)
-                .append("if(start>=0)clearColumns(start,start+count);staged.discard();throw failure;}}\n")
+                .append("if(start>=0)clearColumns(start,start+count);staged.discard();observeFailure(failure,\"addBatch\");throw failure;}}\n")
                 .append("  public void replaceAll(").append(batch)
                 .append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"replaceAll\");state.prepareReplace(0);int count=batch.size();validateSelectorReplacement(batch);validateUniqueReplacement(batch);")
                 .append(replacementKeys)
@@ -631,15 +631,15 @@ final class DenseTableSourceEmitter {
                 .append(publishReplacementKeys)
                 .append("stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;staged.publish();state.commitReplace(previous,count);}catch(RuntimeException failure){")
                 .append(discardReplacementKeys)
-                .append("if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");staged.discard();throw failure;}catch(Error failure){")
+                .append("if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");staged.discard();observeFailure(failure,\"replaceAll\");throw failure;}catch(Error failure){")
                 .append(discardReplacementKeys)
-                .append("if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");staged.discard();throw failure;}}\n")
-                .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();beginRetireRows(0,previous,\"clear\",true);releaseRetired(false,\"clear\");clearColumns(0,previous);")
+                .append("if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");staged.discard();observeFailure(failure,\"replaceAll\");throw failure;}}\n")
+                .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();try{beginRetireRows(0,previous,\"clear\",true);releaseRetired(false,\"clear\");clearColumns(0,previous);")
                 .append(clearKeys)
-                .append("clearExactIndexes();state.commitClear(previous);}\n")
-                .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");int previous=state.prepareRelease();if(previous>=0){beginRetireRows(0,previous,\"release\",false);releaseRetired(true,\"release\");clearColumns(0,previous);")
+                .append("clearExactIndexes();state.commitClear(previous);}catch(RuntimeException failure){observeFailure(failure,\"clear\");throw failure;}catch(Error failure){observeFailure(failure,\"clear\");throw failure;}}\n")
+                .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.preflightMutation(\"release\");try{int previous=state.prepareRelease();if(previous>=0){beginRetireRows(0,previous,\"release\",false);releaseRetired(true,\"release\");clearColumns(0,previous);")
                 .append(releaseKeys)
-                .append("releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}\n\n");
+                .append("releaseExactIndexes(\"release\");releaseRetainedScratch();state.commitRelease(previous);ownership.releaseStorage();}}catch(RuntimeException failure){observeFailure(failure,\"release\");throw failure;}catch(Error failure){observeFailure(failure,\"release\");throw failure;}}\n\n");
     }
 
     private void appendChildOwnershipRuntime(SourceBuilder out, TableSpec table) {
@@ -743,13 +743,13 @@ final class DenseTableSourceEmitter {
         }
         String c = cap(child.javaName);
         out.append("  boolean dataFlow").append(c)
-                .append("PresentAt(int index){if(index<0||index>=state.size())throw RuntimeFailures.internalInvariant(\"dataflow_parent_index\",TABLE,\"dataflow.snapshot\");return ")
+                .append("PresentAt(int index){if(index<0||index>=state.size())throw internalInvariant(\"dataflow_parent_index\",TABLE,\"dataflow.snapshot\");return ")
                 .append(child.optional
                         ? child.javaName + "ChildPresence.isPresent(index)"
                         : "true")
                 .append(";}\n");
         out.append("  ").append(child.tableType()).append(" dataFlow")
-                .append(c).append("At(int index){if(index<0||index>=state.size())throw RuntimeFailures.internalInvariant(\"dataflow_parent_index\",TABLE,\"dataflow.expand\");");
+                .append(c).append("At(int index){if(index<0||index>=state.size())throw internalInvariant(\"dataflow_parent_index\",TABLE,\"dataflow.expand\");");
         if (child.optional) {
             out.append("if(!").append(child.javaName)
                     .append("ChildPresence.isPresent(index))return null;");
@@ -806,14 +806,14 @@ final class DenseTableSourceEmitter {
                     .append(child.tableType()).append(" instance=").append(child.tableType())
                     .append(".createOwned(runtimePlan(),ownership,")
                     .append(child.javaName).append("TablePlan,TABLE+\".\"+")
-                    .append(q(child.logicalName)).append(");long staged=0L;try{staged=ownership.stage(owner,")
+                    .append(q(child.logicalName)).append(");long staged=0L;boolean switched=false;try{staged=ownership.stage(owner,")
                     .append(q(child.logicalName)).append(",TABLE+\".\"+")
                     .append(q(child.logicalName)).append(",instance,instance.ownedLifecycle());")
                     .append(child.javaName).append("HandleColumn.set(row,staged);")
                     .append(child.javaName).append("ChildPresence.setPresent(row);ownership.publish(staged,owner,")
-                    .append(q(child.logicalName)).append(");state.commitChildChange(operation);return instance;}catch(RuntimeException failure){if(staged!=0L)ownership.discardStaged(staged,owner,")
-                    .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);throw failure;}catch(Error failure){if(staged!=0L)ownership.discardStaged(staged,owner,")
-                    .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);throw failure;}}return ")
+                    .append(q(child.logicalName)).append(");switched=true;state.commitChildChange(operation);return instance;}catch(RuntimeException failure){if(!switched){if(staged!=0L)ownership.discardStaged(staged,owner,")
+                    .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);}observeFailure(failure,operation);throw failure;}catch(Error failure){if(!switched){if(staged!=0L)ownership.discardStaged(staged,owner,")
+                    .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);}observeFailure(failure,operation);throw failure;}}return ")
                     .append(child.javaName).append("AtRow(row,true,operation);}\n");
         }
         out.append("  public void replace").append(c).append('(')
@@ -836,8 +836,8 @@ final class DenseTableSourceEmitter {
         out.append("ownership.publish(staged,owner,").append(q(child.logicalName))
                 .append(");switched=true;ownership.releasePreflighted(old,owner,")
                 .append(q(child.logicalName)).append(",operation,false);state.commitChildChange(operation);}catch(RuntimeException failure){if(!switched){if(staged!=0L)ownership.discardStaged(staged,owner,")
-                .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);}throw failure;}catch(Error failure){if(!switched){if(staged!=0L)ownership.discardStaged(staged,owner,")
-                .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);}throw failure;}}\n");
+                .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);}observeFailure(failure,operation);throw failure;}catch(Error failure){if(!switched){if(staged!=0L)ownership.discardStaged(staged,owner,")
+                .append(q(child.logicalName)).append(");else instance.releaseOwnedSubtree(false);}observeFailure(failure,operation);throw failure;}}\n");
         if (child.optional) {
             out.append("  public void unset").append(c).append('(')
                     .append(locatorType).append(' ').append(locatorName)
@@ -845,10 +845,10 @@ final class DenseTableSourceEmitter {
                     .append(";int row=").append(rowExpression).append(";ownership.preflightMutation(operation);state.prepareChildChange(operation);if(!")
                     .append(child.javaName).append("ChildPresence.isPresent(row))return;long owner=ownerTokenColumn.get(row),old=")
                     .append(child.javaName).append("HandleColumn.get(row);ownership.preflightPinned(old,owner,")
-                    .append(q(child.logicalName)).append(",operation);")
+                    .append(q(child.logicalName)).append(",operation);try{")
                     .append("ownership.release(old,owner,").append(q(child.logicalName)).append(",operation,false);")
                     .append(child.javaName).append("HandleColumn.set(row,0L);")
-                    .append(child.javaName).append("ChildPresence.clearPresent(row);state.commitChildChange(operation);}\n");
+                    .append(child.javaName).append("ChildPresence.clearPresent(row);state.commitChildChange(operation);}catch(RuntimeException failure){observeFailure(failure,operation);throw failure;}catch(Error failure){observeFailure(failure,operation);throw failure;}}\n");
         }
     }
 
@@ -866,12 +866,12 @@ final class DenseTableSourceEmitter {
             out.append("}");
         }
         out.append("return false;}\n")
-                .append("  void preflightOwnedRelease(boolean aggregateRelease){if(!owned)throw RuntimeFailures.internalInvariant(\"root_owned_release\",TABLE,\"ownership.release\");if(state.isReleased())return;state.preflightOwnedRelease(\"ownership.release\");int previous=state.size();");
+                .append("  void preflightOwnedRelease(boolean aggregateRelease){if(!owned)throw internalInvariant(\"root_owned_release\",TABLE,\"ownership.release\");if(state.isReleased())return;state.preflightOwnedRelease(\"ownership.release\");int previous=state.size();");
         if (!table.children.isEmpty()) {
             out.append("beginRetireRows(0,previous,\"ownership.release\",false);ownership.preflightCascade(aggregateRelease,\"ownership.release\");");
         }
         out.append("}\n")
-                .append("  void releaseOwnedSubtree(boolean aggregateRelease){if(!owned)throw RuntimeFailures.internalInvariant(\"root_owned_release\",TABLE,\"ownership.release\");if(state.isReleased())return;int previous=state.size();");
+                .append("  void releaseOwnedSubtree(boolean aggregateRelease){if(!owned)throw internalInvariant(\"root_owned_release\",TABLE,\"ownership.release\");if(state.isReleased())return;int previous=state.size();");
         if (!table.children.isEmpty()) {
             out.append("beginRetireRows(0,previous,\"ownership.release\",false);releaseRetired(aggregateRelease,\"ownership.release\");");
         }
@@ -916,7 +916,7 @@ final class DenseTableSourceEmitter {
             out.append("  public java.util.Map<").append(key.boxed).append(',')
                     .append(carrier).append("> materialize(){return materialize(runtimePlan().defaultMaterializationBudget());}\n")
                     .append("  public java.util.Map<").append(key.boxed).append(',')
-                    .append(carrier).append("> materialize(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");beginMaterialization(\"materialize\",false);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);accountOwnedAll(tracker,0,TABLE);MaterializationAllocation.preflight(\"materialize\",tracker.estimatedBytes(),TABLE);java.util.Map<").append(key.boxed).append(',').append(carrier).append("> result=materializeOwnedMap(0,TABLE);endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
+                    .append(carrier).append("> materialize(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");beginMaterialization(\"materialize\",false);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);accountOwnedAll(tracker,0,TABLE);MaterializationAllocation.preflight(\"materialize\",tracker.estimatedBytes(),TABLE);java.util.Map<").append(key.boxed).append(',').append(carrier).append("> result=materializeOwnedMap(0,TABLE);endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,\"materialize\");throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,\"materialize\");throw failure;}}\n")
                     .append("  void accountOwnedAll(MaterializationTracker tracker,int depth,String path){tracker.enterOwnership(this,path);tracker.checkOwnershipDepth(depth,path);tracker.addTableInstances(1L,path);int count=size();tracker.addRows(count,path);tracker.addMapAllocation(count,")
                     .append(materializedKeyBoxes(key) ? "true" : "false")
                     .append(",path);for(int row=0;row<count;row++)accountRowRecursive(tracker,row,depth,path);tracker.exitOwnership(this,path);}\n")
@@ -938,7 +938,7 @@ final class DenseTableSourceEmitter {
                     .append(key.boxed).append("> result=new java.util.ArrayList<")
                     .append(key.boxed).append(">(count);for(int row=0;row<count;row++)result.add(")
                     .append(key.boxValue(key.javaName + "Value(row)"))
-                    .append(");endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
+                    .append(");endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,operation);throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,operation);throw failure;}}\n")
                     .append("  java.util.Optional<").append(key.boxed).append("> materializeOptionalKey(MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(size()==0){tracker.addOptionalAllocation(false,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<")
                     .append(key.boxed).append("> empty=java.util.Optional.empty();endMaterializationSuccess(tracker);return empty;}tracker.addRows(1L,TABLE);tracker.addOptionalAllocation(true,TABLE);tracker.addLeafValues(")
                     .append(materializedKeyLeafCount(key)).append("L,TABLE);");
@@ -949,7 +949,7 @@ final class DenseTableSourceEmitter {
             out.append("tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);java.util.Optional<")
                     .append(key.boxed).append("> result=java.util.Optional.of(")
                     .append(key.boxValue(key.javaName + "Value(0)"))
-                    .append(");endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
+                    .append(");endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,operation);throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,operation);throw failure;}}\n")
                     .append("  ").append(key.boxed).append(" materializeRequiredKey(MaterializationBudget budget,String operation,boolean nested){beginMaterialization(operation,nested);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);if(size()==0)throw RuntimeFailures.emptyResult(TABLE,operation);tracker.addRows(1L,TABLE);tracker.addLeafValues(")
                     .append(materializedKeyLeafCount(key)).append("L,TABLE);");
             if (keyBytes != 0L) {
@@ -959,12 +959,12 @@ final class DenseTableSourceEmitter {
             out.append("tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);")
                     .append(key.boxed).append(" result=")
                     .append(key.boxValue(key.javaName + "Value(0)"))
-                    .append(";endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n");
+                    .append(";endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,operation);throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,operation);throw failure;}}\n");
         } else {
             out.append("  public java.util.List<").append(carrier)
                     .append("> materialize(){return materialize(runtimePlan().defaultMaterializationBudget());}\n")
                     .append("  public java.util.List<").append(carrier)
-                    .append("> materialize(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");beginMaterialization(\"materialize\",false);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);accountOwnedAll(tracker,0,TABLE);MaterializationAllocation.preflight(\"materialize\",tracker.estimatedBytes(),TABLE);java.util.List<").append(carrier).append("> result=materializeOwnedList(0,TABLE);endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker);throw failure;}catch(Error failure){endMaterializationFailure(tracker);throw failure;}}\n")
+                    .append("> materialize(MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");beginMaterialization(\"materialize\",false);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);accountOwnedAll(tracker,0,TABLE);MaterializationAllocation.preflight(\"materialize\",tracker.estimatedBytes(),TABLE);java.util.List<").append(carrier).append("> result=materializeOwnedList(0,TABLE);endMaterializationSuccess(tracker);return result;}catch(RuntimeException failure){endMaterializationFailure(tracker,failure,\"materialize\");throw failure;}catch(Error failure){endMaterializationFailure(tracker,failure,\"materialize\");throw failure;}}\n")
                     .append("  void accountOwnedAll(MaterializationTracker tracker,int depth,String path){tracker.enterOwnership(this,path);tracker.checkOwnershipDepth(depth,path);tracker.addTableInstances(1L,path);int count=size();tracker.addRows(count,path);tracker.addListAllocation(count,path);for(int row=0;row<count;row++)accountRowRecursive(tracker,row,depth,path);tracker.exitOwnership(this,path);}\n")
                     .append("  java.util.List<").append(carrier)
                     .append("> materializeOwnedList(int depth,String path){int count=size();java.util.List<")
@@ -1242,8 +1242,8 @@ final class DenseTableSourceEmitter {
                 .append(");int row=selector").append(index)
                 .append("Index.firstRow(group);scanned=1L;int[] selected=preparePipelineScratch(1);selected[0]=row;removeSelected(selected,1,1L,")
                 .append(q(delete)).append(");state.endOperationSuccess(").append(q(delete))
-                .append(",1L,1L,1L);}catch(SomaRuntimeException failure){state.endOperationFailure(")
-                .append(q(delete)).append(",scanned,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(")
+                .append(",1L,1L,1L);}catch(SomaRuntimeException failure){endFailure(")
+                .append(q(delete)).append(",scanned,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(")
                 .append(q(delete)).append(");throw failure;}catch(Error failure){state.abortOperation(")
                 .append(q(delete)).append(");throw failure;}}\n");
     }
@@ -1269,7 +1269,7 @@ final class DenseTableSourceEmitter {
                 .append(" batch,int start){for(int row=0;row<batch.size();row++){String value=batch.")
                 .append(key.javaName).append("Value(row);long hash=stringKeyHash(value);keySpace.putAt(compositeInsertionSlot(keySpace,hash),hash,start+row);}}\n")
                 .append("  private void rollbackAppendKeys(").append(batch)
-                .append(" batch,int start){for(int row=batch.size()-1;row>=0;row--){int slot=compositeStoredSlot(start+row,\"addBatch.rollback\");if(slot<0)throw RuntimeFailures.internalInvariant(\"append_key_rollback\",TABLE,\"addBatch.rollback\");keySpace.removeAt(slot);}}\n")
+                .append(" batch,int start){for(int row=batch.size()-1;row>=0;row--){int slot=compositeStoredSlot(start+row,\"addBatch.rollback\");if(slot<0)throw internalInvariant(\"append_key_rollback\",TABLE,\"addBatch.rollback\");keySpace.removeAt(slot);}}\n")
                 .append("  private HashCompositeKeySpace stageReplacementKeys(")
                 .append(batch).append(" batch){HashCompositeKeySpace staged=newKeySpace(batch.size(),\"replaceAll\");for(int row=0;row<batch.size();row++){staged.ensureInsertCapacity();String value=batch.")
                 .append(key.javaName).append("Value(row);long hash=stringKeyHash(value);if(compositeBatchSlot(staged,hash,batch,row)>=0)throw ")
@@ -1318,7 +1318,7 @@ final class DenseTableSourceEmitter {
         appendCompositeBatchHash(out, key, "batch", "row", "\"addBatch\"");
         out.append(";keySpace.putAt(compositeInsertionSlot(keySpace,hash),hash,start+row);}}\n");
         out.append("  private void rollbackAppendKeys(").append(batch)
-                .append(" batch,int start){for(int row=batch.size()-1;row>=0;row--){int slot=compositeStoredSlot(start+row,\"addBatch.rollback\");if(slot<0)throw RuntimeFailures.internalInvariant(\"append_key_rollback\",TABLE,\"addBatch.rollback\");keySpace.removeAt(slot);}}\n");
+                .append(" batch,int start){for(int row=batch.size()-1;row>=0;row--){int slot=compositeStoredSlot(start+row,\"addBatch.rollback\");if(slot<0)throw internalInvariant(\"append_key_rollback\",TABLE,\"addBatch.rollback\");keySpace.removeAt(slot);}}\n");
 
         out.append("  private HashCompositeKeySpace stageReplacementKeys(").append(batch)
                 .append(" batch){HashCompositeKeySpace staged=newKeySpace(batch.size(),\"replaceAll\");for(int row=0;row<batch.size();row++){staged.ensureInsertCapacity();long hash=");
@@ -1529,7 +1529,7 @@ final class DenseTableSourceEmitter {
                 .append(key.keySpaceType()).append(" staged=")
                 .append(key.keySpaceConstruction(
                         "runtimePlan().requireTable(TABLE)", "expected"))
-                .append(";if(staged.retainedBytes()!=bytes){staged.releaseStorage();throw RuntimeFailures.internalInvariant(\"key_space_estimator\",TABLE,operation);}return staged;}catch(RuntimeException failure){state.releaseBulkScratch(bytes,operation);throw failure;}catch(Error failure){state.releaseBulkScratch(bytes,operation);throw failure;}}\n  private void discardKeySpace(")
+                .append(";if(staged.retainedBytes()!=bytes){staged.releaseStorage();throw internalInvariant(\"key_space_estimator\",TABLE,operation);}return staged;}catch(RuntimeException failure){state.releaseBulkScratch(bytes,operation);throw failure;}catch(Error failure){state.releaseBulkScratch(bytes,operation);throw failure;}}\n  private void discardKeySpace(")
                 .append(key.keySpaceType()).append(" staged,String operation){if(staged==null)return;state.releaseBulkScratch(staged.retainedBytes(),operation);staged.releaseStorage();}\n  private void publishKeySpace(")
                 .append(key.keySpaceType())
                 .append(" staged,String operation){")
@@ -1541,11 +1541,11 @@ final class DenseTableSourceEmitter {
                 .append(",expected);state.reserveBulkScratch(bytes,operation);try{")
                 .append(validationType).append(" staged=")
                 .append(key.appendValidationKeySpaceConstruction("expected"))
-                .append(";if(staged.retainedBytes()!=bytes){staged.releaseStorage();throw RuntimeFailures.internalInvariant(\"append_key_estimator\",TABLE,operation);}return staged;}catch(RuntimeException failure){state.releaseBulkScratch(bytes,operation);throw failure;}catch(Error failure){state.releaseBulkScratch(bytes,operation);throw failure;}}\n")
+                .append(";if(staged.retainedBytes()!=bytes){staged.releaseStorage();throw internalInvariant(\"append_key_estimator\",TABLE,operation);}return staged;}catch(RuntimeException failure){state.releaseBulkScratch(bytes,operation);throw failure;}catch(Error failure){state.releaseBulkScratch(bytes,operation);throw failure;}}\n")
                 .append("  private void discardAppendValidationKeySpace(")
                 .append(validationType)
                 .append(" staged,String operation){state.releaseBulkScratch(staged.retainedBytes(),operation);staged.releaseStorage();}\n")
-                .append("  private void ensureAppendKeyCapacity(int additional,String operation){long previous=keySpace.retainedBytes(),proposed=keySpace.retainedBytesAfterEnsureAdditional(additional),allocation=keySpace.allocationBytesDuringEnsureAdditional(additional);state.preflightAppendStorage(additional,proposed,exactIndexRetainedBytes(),operation);state.preflightKeySpaceStorage(proposed,operation);state.reserveBulkScratch(allocation,operation);try{keySpace.ensureAdditionalCapacity(additional);}catch(RuntimeException failure){state.releaseBulkScratch(allocation,operation);throw failure;}catch(Error failure){state.releaseBulkScratch(allocation,operation);throw failure;}state.releaseBulkScratch(allocation,operation);if(keySpace.retainedBytes()!=proposed)throw RuntimeFailures.internalInvariant(\"append_key_capacity\",TABLE,operation);state.commitKeySpaceStorage(previous,proposed,operation);}\n");
+                .append("  private void ensureAppendKeyCapacity(int additional,String operation){long previous=keySpace.retainedBytes(),proposed=keySpace.retainedBytesAfterEnsureAdditional(additional),allocation=keySpace.allocationBytesDuringEnsureAdditional(additional);state.preflightAppendStorage(additional,proposed,exactIndexRetainedBytes(),operation);state.preflightKeySpaceStorage(proposed,operation);state.reserveBulkScratch(allocation,operation);try{keySpace.ensureAdditionalCapacity(additional);}catch(RuntimeException failure){state.releaseBulkScratch(allocation,operation);throw failure;}catch(Error failure){state.releaseBulkScratch(allocation,operation);throw failure;}state.releaseBulkScratch(allocation,operation);if(keySpace.retainedBytes()!=proposed)throw internalInvariant(\"append_key_capacity\",TABLE,operation);state.commitKeySpaceStorage(previous,proposed,operation);}\n");
     }
 
     private static void appendValueLeafParameters(SourceBuilder out, FieldSpec key) {
@@ -1753,7 +1753,7 @@ final class DenseTableSourceEmitter {
             }
             out.append("    }\n");
         }
-        out.append("    publishMutatorExactIndexes(row,mutation);state.endOperationSuccess(\"mutator.commit\",1L,1L,changed?1L:0L);}catch(SomaRuntimeException failure){state.endOperationFailure(\"mutator.commit\",0L,0L,failure.code());throw failure;}catch(RuntimeException failure){state.abortOperation(\"mutator.commit\");throw failure;}catch(Error failure){state.abortOperation(\"mutator.commit\");throw failure;}}\n");
+        out.append("    publishMutatorExactIndexes(row,mutation);state.endOperationSuccess(\"mutator.commit\",1L,1L,changed?1L:0L);}catch(SomaRuntimeException failure){endFailure(\"mutator.commit\",0L,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"mutator.commit\");throw failure;}catch(Error failure){state.abortOperation(\"mutator.commit\");throw failure;}}\n");
     }
 
     private void appendUpdateScratch(SourceBuilder out, TableSpec table) {
@@ -1821,7 +1821,7 @@ final class DenseTableSourceEmitter {
             if (field.optional) out.append("    ").append(updatePresenceScratch(fieldIndex))
                     .append("[i]=").append(field.javaName).append("Present(row);\n");
         }
-        out.append("  }}\n  void clearUpdateScratch(int count){if(count<0||count>updateScratchCapacity)throw RuntimeFailures.internalInvariant(\"update_scratch_clear\",TABLE,\"scan.update\");");
+        out.append("  }}\n  void clearUpdateScratch(int count){if(count<0||count>updateScratchCapacity)throw internalInvariant(\"update_scratch_clear\",TABLE,\"scan.update\");");
         for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
             FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) continue;
@@ -1922,14 +1922,14 @@ final class DenseTableSourceEmitter {
     }
 
     private void appendRemove(SourceBuilder out, TableSpec table) {
-        out.append("  RemoveResult removeSelected(int[] selected,int count,long scanned,String operation){int previous=size();if(count<0||count>previous)throw RuntimeFailures.internalInvariant(\"remove_selection_count\",TABLE,operation);state.preflightStructuralOperation(operation,count!=0);Arrays.sort(selected,0,count);for(int index=0;index<count;index++){int row=selected[index];if(row<0||row>=previous||(index!=0&&selected[index-1]==row))throw RuntimeFailures.internalInvariant(\"remove_selection_identity\",TABLE,operation);}");
+        out.append("  RemoveResult removeSelected(int[] selected,int count,long scanned,String operation){int previous=size();if(count<0||count>previous)throw internalInvariant(\"remove_selection_count\",TABLE,operation);state.preflightStructuralOperation(operation,count!=0);Arrays.sort(selected,0,count);for(int index=0;index<count;index++){int row=selected[index];if(row<0||row>=previous||(index!=0&&selected[index-1]==row))throw internalInvariant(\"remove_selection_identity\",TABLE,operation);}");
         if (!table.children.isEmpty()) {
             out.append("beginRetireSelection(selected,count,operation,true);releaseRetired(false,operation);");
         }
         if (table.keyed()) {
             FieldSpec key = table.keyField();
             if (key.compositeKey()) {
-                out.append("    for(int index=0;index<count;index++){int row=selected[index],slot=compositeStoredSlot(row,operation);if(slot<0)throw RuntimeFailures.internalInvariant(\"composite_key_missing\",TABLE,operation);keySpace.removeAt(slot);}\n");
+                out.append("    for(int index=0;index<count;index++){int row=selected[index],slot=compositeStoredSlot(row,operation);if(slot<0)throw internalInvariant(\"composite_key_missing\",TABLE,operation);keySpace.removeAt(slot);}\n");
             } else {
                 out.append("    for(int index=0;index<count;index++){int row=selected[index];keySpace.remove(")
                         .append(key.valueBacked()
@@ -1938,7 +1938,7 @@ final class DenseTableSourceEmitter {
                         .append(");}\n");
             }
         }
-        out.append("unlinkExactIndexRows(selected,count);int newSize=previous-count,tail=previous-1,selectedTail=count-1;long compacted=0L;for(int holeIndex=0;holeIndex<count&&selected[holeIndex]<newSize;holeIndex++){int write=selected[holeIndex];while(tail>=newSize){while(selectedTail>=0&&selected[selectedTail]>tail)selectedTail--;if(selectedTail>=0&&selected[selectedTail]==tail){tail--;selectedTail--;continue;}break;}if(tail<newSize)throw RuntimeFailures.internalInvariant(\"swap_remove_tail\",TABLE,operation);int read=tail--;\n");
+        out.append("unlinkExactIndexRows(selected,count);int newSize=previous-count,tail=previous-1,selectedTail=count-1;long compacted=0L;for(int holeIndex=0;holeIndex<count&&selected[holeIndex]<newSize;holeIndex++){int write=selected[holeIndex];while(tail>=newSize){while(selectedTail>=0&&selected[selectedTail]>tail)selectedTail--;if(selectedTail>=0&&selected[selectedTail]==tail){tail--;selectedTail--;continue;}break;}if(tail<newSize)throw internalInvariant(\"swap_remove_tail\",TABLE,operation);int read=tail--;\n");
         for (FieldSpec field : table.fields) {
             if (field.flattenedValueStorage()) {
                 for (ValueLeafSpec leaf : field.valueLeaves) {
@@ -1975,7 +1975,7 @@ final class DenseTableSourceEmitter {
         if (table.keyed()) {
             FieldSpec key = table.keyField();
             if (key.compositeKey()) {
-                out.append("    int keySlot=compositeStoredSlot(read,operation);if(keySlot<0)throw RuntimeFailures.internalInvariant(\"composite_key_missing\",TABLE,operation);keySpace.updateRowAt(keySlot,write);\n");
+                out.append("    int keySlot=compositeStoredSlot(read,operation);if(keySlot<0)throw internalInvariant(\"composite_key_missing\",TABLE,operation);keySpace.updateRowAt(keySlot,write);\n");
             } else {
                 out.append("    keySpace.updateRow(")
                         .append(key.valueBacked()

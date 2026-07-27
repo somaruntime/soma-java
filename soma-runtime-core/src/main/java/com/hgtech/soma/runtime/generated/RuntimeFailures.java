@@ -348,6 +348,13 @@ public final class RuntimeFailures {
                 table, context("invariant", invariantId), null);
     }
 
+    static boolean isInternalCode(String code) {
+        return "internal_invariant_violation".equals(code)
+                || "child_wrong_owner".equals(code)
+                || "child_dangling".equals(code)
+                || "ownership_cycle".equals(code);
+    }
+
     private static SomaRuntimeException create(
             SomaErrorCategory category,
             String code,
