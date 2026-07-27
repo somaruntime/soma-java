@@ -35,7 +35,10 @@ dependency_plugin_version=$(sed -n \
 dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version
 
 grep -F '<packaging>pom</packaging>' soma-examples/pom.xml >/dev/null
-for application in industrial-dynamic-scheduler grassing-individual-simulation; do
+for application in \
+  industrial-dynamic-scheduler \
+  grassing-individual-simulation \
+  real-time-dispatch-rule-engine; do
   grep -F "<module>$application</module>" soma-examples/pom.xml >/dev/null
 done
 if find soma-examples/src -type f -print 2>/dev/null | grep . >/dev/null \
@@ -56,16 +59,34 @@ done
 if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime)' \
     soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem \
     soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/scenario \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/config \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/feed \
     >/dev/null; then
   printf '%s\n' 'reference-app-check: detached input model/generator imports SOMA runtime' >&2
   exit 1
 fi
 if grep -R -E \
-    'SyntheticSchedulingProblemFactory|SyntheticSimulationScenarioFactory' \
+    'SyntheticSchedulingProblemFactory|SyntheticSimulationScenarioFactory|SyntheticDispatchScenarioFactory' \
     soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime \
     soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/runtime \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/rule \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/dispatch \
     >/dev/null; then
   printf '%s\n' 'reference-app-check: runtime loop refers back to input generator' >&2
+  exit 1
+fi
+if grep -R -E \
+    '^import com\.hgtech\.soma\.examples\.(grassing|rtd)' \
+    soma-examples/industrial-dynamic-scheduler/src >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.(scheduler|rtd)' \
+      soma-examples/grassing-individual-simulation/src >/dev/null \
+    || grep -R -E \
+      '^import com\.hgtech\.soma\.examples\.(scheduler|grassing)' \
+      soma-examples/real-time-dispatch-rule-engine/src >/dev/null; then
+  printf '%s\n' \
+    'reference-app-check: cross-application source dependency detected' >&2
   exit 1
 fi
 
@@ -81,7 +102,10 @@ fi
 ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
   -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
 
-for application in industrial-dynamic-scheduler grassing-individual-simulation; do
+for application in \
+  industrial-dynamic-scheduler \
+  grassing-individual-simulation \
+  real-time-dispatch-rule-engine; do
   application_dir=$root_dir/soma-examples/$application
   pom=$application_dir/pom.xml
   if grep -F '<parent>' "$pom" >/dev/null \

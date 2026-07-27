@@ -28,7 +28,7 @@ esac
 
 start_millis=$(perl -MTime::HiRes=time -e 'printf "%.0f", time() * 1000')
 ./mvnw -B -ntp \
-  -pl soma-benchmarks,soma-examples/industrial-dynamic-scheduler,soma-examples/grassing-individual-simulation \
+  -pl soma-benchmarks,soma-examples/industrial-dynamic-scheduler,soma-examples/grassing-individual-simulation,soma-examples/real-time-dispatch-rule-engine \
   -am -DskipTests clean compile
 end_millis=$(perl -MTime::HiRes=time -e 'printf "%.0f", time() * 1000')
 compile_wall_millis=$((end_millis - start_millis))
@@ -196,6 +196,9 @@ measure_surface industrial-scheduler \
 measure_surface grassing-simulation \
   soma-examples/grassing-individual-simulation \
   2 55010 244 78517 17 25047 258 89307 23
+measure_surface rtd-rule-engine \
+  soma-examples/real-time-dispatch-rule-engine \
+  2 54559 243 76900 18 25757 260 90786 25
 
 total_scans=$(awk -F '	' 'NR > 1 {sum += $2} END {print sum + 0}' \
   "$surface_footprint")
@@ -209,7 +212,7 @@ dataflow_tables=$(awk -F '	' 'NR > 1 {sum += $2} END {print sum + 0}' \
   "$dataflow_footprint")
 dataflow_types=$(awk -F '	' 'NR > 1 {sum += $3} END {print sum + 0}' \
   "$dataflow_footprint")
-if [ "$total_scans" -ne 17 ] \
+if [ "$total_scans" -ne 19 ] \
     || [ "$artifact_scans" -ne "$total_scans" ] \
     || [ "$schema_tables" -ne "$total_scans" ] \
     || [ "$schema_scans" -ne "$total_scans" ] \
