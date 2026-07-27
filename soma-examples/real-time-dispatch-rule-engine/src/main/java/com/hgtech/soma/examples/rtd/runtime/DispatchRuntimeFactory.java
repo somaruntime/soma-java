@@ -5,7 +5,6 @@ import com.hgtech.soma.examples.rtd.feed.DispatchScenario;
 import com.hgtech.soma.examples.rtd.schema.generated.ResourceStateTable;
 import com.hgtech.soma.examples.rtd.schema.generated.WorkStateTable;
 import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.TablePlan;
 
 /** 为 detached Scenario 创建并完整投影 live RTD runtime。 */
 public final class DispatchRuntimeFactory {
@@ -37,22 +36,18 @@ public final class DispatchRuntimeFactory {
         .maximumAggregateStorageBytes(Math.max(
             base.maximumAggregateStorageBytes(),
             2L * 1024L * 1024L * 1024L));
-    replaceCapacity(
-        builder, base, "rtd_work_states", config.totalWork());
-    replaceCapacity(
-        builder, base, "rtd_resource_states", config.resourceCount());
+    setCapacity(
+        builder, "rtd_work_states", config.totalWork());
+    setCapacity(
+        builder, "rtd_resource_states", config.resourceCount());
     return builder.build();
   }
 
-  private static void replaceCapacity(
+  private static void setCapacity(
       RuntimePlan.Builder builder,
-      RuntimePlan base,
       String table,
       int capacity) {
-    TablePlan replacement = base.requireTable(table).toBuilder()
-        .initialCapacity(Math.max(1, capacity))
-        .build();
-    builder.replaceTable(replacement);
+    builder.table(table).initialCapacity(Math.max(1, capacity));
   }
 
   private static void cleanup(

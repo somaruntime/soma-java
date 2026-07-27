@@ -5,7 +5,6 @@ import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.schema.generated.GrasserStateTable;
 import com.hgtech.soma.examples.grassing.schema.generated.TraceSampleTable;
 import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.TablePlan;
 
 /** 创建并完整投影一个 live SOMA runtime aggregate。 */
 public final class SimulationRuntimeFactory {
@@ -63,17 +62,15 @@ public final class SimulationRuntimeFactory {
     RuntimePlan.Builder builder = base.toBuilder()
         .maximumAggregateStorageBytes(Math.max(
             base.maximumAggregateStorageBytes(), 2L * 1024L * 1024L * 1024L));
-    replaceCapacity(
-        builder, base, "grasser_states", Math.max(1, initialPopulation));
-    replaceCapacity(builder, base, "trace_samples", traceCapacity);
+    setCapacity(
+        builder, "grasser_states", Math.max(1, initialPopulation));
+    setCapacity(builder, "trace_samples", traceCapacity);
     return builder.build();
   }
 
-  private static void replaceCapacity(
-      RuntimePlan.Builder builder, RuntimePlan base,
+  private static void setCapacity(
+      RuntimePlan.Builder builder,
       String table, int capacity) {
-    TablePlan replacement = base.requireTable(table).toBuilder()
-        .initialCapacity(Math.max(1, capacity)).build();
-    builder.replaceTable(replacement);
+    builder.table(table).initialCapacity(Math.max(1, capacity));
   }
 }

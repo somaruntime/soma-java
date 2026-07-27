@@ -15,6 +15,11 @@ import com.hgtech.soma.runtime.generated.MaterializationTracker;
 import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
 import com.hgtech.soma.runtime.generated.OwnedChildTable;
+import com.hgtech.soma.runtime.metadata.SomaEffectiveMetadata;
+import com.hgtech.soma.runtime.metadata.SomaExactAccess;
+import com.hgtech.soma.runtime.metadata.SomaPrimaryLocator;
+import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
+import com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata;
 
 import java.util.Locale;
 import java.util.Random;
@@ -30,6 +35,9 @@ public final class RuntimeCorePhase1Check {
         testCanonicalIdentityIsLocaleIndependent();
         testPlanReplacementChangesIdentity();
         testResourcePlanCanonicalIdentity();
+        testSchemaSeededPlanBuilderAndEffectiveMetadata();
+        testPlanningRowsAndMaximumRows();
+        testStringResourceProfile();
         testUnicodeCodePointOrderAndLosslessCanonicalText();
         testChildPlanIdentity();
         testOwnershipRegistryInitialStorageBoundary();
@@ -95,13 +103,17 @@ public final class RuntimeCorePhase1Check {
                 .maximumTableStorageBytes(14L)
                 .keySpaceStrategy(RuntimeCompatibility.HASH_INT_KEY_SPACE)
                 .build();
-        assertEquals("{\"algorithm\":\"dense-soa-v1\",\"accessStrategy\":\"none\","
+        assertEquals("{\"accessStrategy\":\"none\",\"algorithm\":\"dense-soa-v1\","
                         + "\"growthDenominator\":4,\"growthNumerator\":5,"
                         + "\"initialCapacity\":4,\"keySpaceStrategy\":\"hash-int-v2\","
                         + "\"maximumBulkScratchBytes\":13,"
                         + "\"maximumOperationScratchBytes\":12,"
+                        + "\"maximumRows\":2147483647,"
                         + "\"maximumTableStorageBytes\":14,"
                         + "\"maximumUpdateScratchBytes\":11,"
+                        + "\"planningRows\":16,\"storageLayout\":\"flat\","
+                        + "\"stringCapable\":false,"
+                        + "\"stringResourceProfile\":{\"status\":\"unprofiled\"},"
                         + "\"table\":\"Order\"}",
                 table.toCanonicalJson(), "table resource plan canonical order");
         RuntimePlan plan = RuntimePlan.builder(
@@ -123,11 +135,236 @@ public final class RuntimeCorePhase1Check {
                         + "\"generatedProtocol\":\"soma-generated-runtime-v6\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
-                        + "\"planProtocol\":\"soma-runtime-plan-v3\","
+                        + "\"planProtocol\":\"soma-runtime-plan-v4\","
                         + "\"runtimeCompatibility\":\"soma-runtime-java8-v6\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");
+    }
+
+    private static void testSchemaSeededPlanBuilderAndEffectiveMetadata() {
+        RuntimePlan seed = RuntimePlan.builder(
+                        "schema-plan-builder",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(TablePlan.builder(
+                                "StringRows",
+                                RuntimeCompatibility.DENSE_ALGORITHM)
+                        .stringCapable(true)
+                        .initialCapacity(4)
+                        .planningRows(8)
+                        .maximumRows(32)
+                        .keySpaceStrategy(
+                                RuntimeCompatibility.HASH_INT_KEY_SPACE)
+                        .accessStrategy(
+                                RuntimeCompatibility.PRIMITIVE_EXACT_HASH)
+                        .build())
+                .build();
+
+        RuntimePlan.Builder firstBuilder = seed.toBuilder();
+        RuntimePlan.TableEditor firstEditor =
+                firstBuilder.table("StringRows");
+        firstEditor.initialCapacity(6)
+                .planningRows(12)
+                .maximumRows(48)
+                .maximumTableStorageBytes(4096L);
+        RuntimePlan first = firstBuilder.build();
+
+        RuntimePlan.Builder secondBuilder = seed.toBuilder();
+        secondBuilder.table("StringRows")
+                .maximumTableStorageBytes(4096L)
+                .maximumRows(48)
+                .planningRows(12)
+                .initialCapacity(6);
+        RuntimePlan second = secondBuilder.build();
+        assertEquals(first.runtimePlanHash(), second.runtimePlanHash(),
+                "editor invocation order must not affect plan identity");
+
+        expectIllegalState(new ThrowingRunnable() {
+            @Override public void run() {
+                firstEditor.initialCapacity(7);
+            }
+        }, "table editor must close with parent builder");
+        expectIllegalState(new ThrowingRunnable() {
+            @Override public void run() {
+                firstBuilder.statsMode(StatsMode.SUMMARY);
+            }
+        }, "plan builder must be one-shot");
+        expectIllegalState(new ThrowingRunnable() {
+            @Override public void run() {
+                firstBuilder.build();
+            }
+        }, "second plan build must fail");
+
+        SomaEffectiveMetadata effective = first.effectiveMetadata();
+        assertEquals(first.runtimePlanHash(), effective.runtimePlanHash(),
+                "effective metadata plan identity");
+        assertTrue(effective == first.effectiveMetadata(),
+                "effective metadata projection is plan-owned and stable");
+        SomaTableEffectiveMetadata table =
+                effective.requireTable("StringRows");
+        assertEquals(6, table.initialCapacity(),
+                "effective initial capacity");
+        assertEquals(12, table.planningRows(),
+                "effective planning rows");
+        assertEquals(48, table.maximumRows(),
+                "effective maximum rows");
+        assertTrue(table.storageLayout() == SomaStorageLayout.FLAT,
+                "effective layout");
+        assertTrue(table.primaryLocator() == SomaPrimaryLocator.HASH_INT,
+                "effective primary locator");
+        assertTrue(table.exactAccess() == SomaExactAccess.EXACT_HASH,
+                "effective exact access");
+        try {
+            effective.tables().add(table);
+            throw new AssertionError(
+                    "effective metadata table list must be immutable");
+        } catch (UnsupportedOperationException expected) {
+            // expected
+        }
+        expectCode("invalid_runtime_plan", new ThrowingRunnable() {
+            @Override public void run() {
+                effective.requireTable("Missing");
+            }
+        });
+    }
+
+    private static void testPlanningRowsAndMaximumRows() {
+        TablePlan table = TablePlan.builder(
+                        "Bounded", RuntimeCompatibility.DENSE_ALGORITHM)
+                .initialCapacity(2)
+                .planningRows(2)
+                .maximumRows(5)
+                .build();
+        RuntimePlan plan = RuntimePlan.builder(
+                        "bounded-schema",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(table)
+                .build();
+        IntColumn values = new IntColumn();
+        DenseTableState state = new DenseTableState(
+                "Bounded", plan, table,
+                new ColumnGroup(
+                        "Bounded", table, new ChildOwnershipRegistry(),
+                        table.initialCapacity(), values));
+
+        int start = state.prepareAppend(3);
+        for (int row = 0; row < 3; row++) {
+            values.set(start + row, row);
+        }
+        state.commitAppend(start, 3);
+        assertEquals(3, state.size(),
+                "planningRows is a non-binding hint");
+        long epoch = state.structuralEpoch();
+        try {
+            state.prepareAppend(3);
+            throw new AssertionError(
+                    "maximumRows append preflight must fail");
+        } catch (SomaRuntimeException failure) {
+            assertEquals("row_limit_exceeded", failure.code(),
+                    "maximumRows failure code");
+            assertEquals("3", failure.context().get("current"),
+                    "maximumRows current context");
+            assertEquals("5", failure.context().get("limit"),
+                    "maximumRows limit context");
+            assertEquals("6", failure.context().get("proposed"),
+                    "maximumRows proposed context");
+        }
+        assertEquals(3, state.size(),
+                "maximumRows rejection preserves rows");
+        assertEquals(epoch, state.structuralEpoch(),
+                "maximumRows rejection preserves epoch");
+        expectCode("row_limit_exceeded", new ThrowingRunnable() {
+            @Override public void run() {
+                state.reserve(6);
+            }
+        });
+        assertEquals(3, state.size(),
+                "reserve maximumRows rejection preserves rows");
+        int releasedRows = state.prepareRelease();
+        state.commitRelease(releasedRows);
+    }
+
+    private static void testStringResourceProfile() {
+        assertTrue(StringResourceProfile.unprofiled().status()
+                        == StringResourceProfileStatus.UNPROFILED,
+                "unprofiled String status");
+        StringResourceProfile.Builder profileBuilder =
+                StringResourceProfile.builder()
+                        .averageUtf16CodeUnits(8)
+                        .maximumUtf16CodeUnits(32)
+                        .valueCardinality(100L)
+                        .distinctObjectIdentityEstimate(150L)
+                        .intraTableSharingBasisPoints(2500)
+                        .interTableSharingBasisPoints(1000)
+                        .presenceBasisPoints(9000)
+                        .role(StringResourceRole.PAYLOAD)
+                        .role(StringResourceRole.JOIN)
+                        .simultaneouslyLiveTableCount(2);
+        StringResourceProfile profile = profileBuilder.build();
+        assertTrue(profile.status()
+                        == StringResourceProfileStatus.PROFILED_UNVERIFIED,
+                "profiled String status remains unverified");
+        assertEquals(8400L, profile.estimatedReachableBytes(),
+                "versioned String reachable-byte estimate");
+        assertTrue(profile.roles().contains(StringResourceRole.PAYLOAD)
+                        && profile.roles().contains(StringResourceRole.JOIN),
+                "String field roles");
+        assertEquals(StringResourceProfile.ESTIMATOR_IDENTITY,
+                profile.estimatorIdentity(), "String estimator identity");
+        expectIllegalState(new ThrowingRunnable() {
+            @Override public void run() {
+                profileBuilder.averageUtf16CodeUnits(9);
+            }
+        }, "String profile builder must be one-shot");
+
+        TablePlan profiledTable = TablePlan.builder(
+                        "Strings", RuntimeCompatibility.DENSE_ALGORITHM)
+                .stringCapable(true)
+                .stringResourceProfile(profile)
+                .build();
+        RuntimePlan profiledPlan = RuntimePlan.builder(
+                        "profiled-schema",
+                        RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                        RuntimeCompatibility.GENERATED_PROTOCOL,
+                        RuntimeCompatibility.PLAN_PROTOCOL,
+                        RuntimeCompatibility.ALLOCATION_ESTIMATOR)
+                .addTable(profiledTable)
+                .build();
+        assertEquals(profile.profileIdentity(),
+                profiledPlan.effectiveMetadata()
+                        .requireTable("Strings")
+                        .stringResourceProfile()
+                        .profileIdentity(),
+                "effective metadata preserves String profile identity");
+        try {
+            TablePlan.builder("Primitive",
+                            RuntimeCompatibility.DENSE_ALGORITHM)
+                    .stringResourceProfile(profile)
+                    .build();
+            throw new AssertionError(
+                    "profiled String resource on primitive table must fail");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+        try {
+            StringResourceProfile.builder()
+                    .averageUtf16CodeUnits(1)
+                    .maximumUtf16CodeUnits(1)
+                    .valueCardinality(Long.MAX_VALUE)
+                    .simultaneouslyLiveTableCount(2)
+                    .role(StringResourceRole.PAYLOAD)
+                    .build();
+            throw new AssertionError(
+                    "String cardinality product overflow must fail");
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
     }
 
     private static void testChildPlanIdentity() {
@@ -1087,6 +1324,16 @@ public final class RuntimeCorePhase1Check {
             throw new AssertionError("expected SomaRuntimeException code=" + code);
         } catch (SomaRuntimeException failure) {
             assertEquals(code, failure.code(), "failure code");
+        }
+    }
+
+    private static void expectIllegalState(
+            ThrowingRunnable runnable, String message) {
+        try {
+            runnable.run();
+            throw new AssertionError(message);
+        } catch (IllegalStateException expected) {
+            // expected
         }
     }
 

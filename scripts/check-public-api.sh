@@ -105,6 +105,26 @@ if grep -F 'com.hgtech.soma.runtime.generated.StorageBudget' \
   printf '%s\n' 'public-api-check: internal storage budget leaked into protocol' >&2
   exit 1
 fi
+plan_surface_javap=$evidence_dir/plan-surface.javap.txt
+"$JAVA_HOME/bin/javap" -classpath "$runtime_jar" -public \
+  com.hgtech.soma.runtime.RuntimePlan \
+  'com.hgtech.soma.runtime.RuntimePlan$Builder' \
+  com.hgtech.soma.runtime.TablePlan \
+  'com.hgtech.soma.runtime.TablePlan$Builder' >"$plan_surface_javap"
+if grep -E '^  public static com\.hgtech\.soma\.runtime\.RuntimePlan\$Builder builder\(java\.lang\.String, java\.lang\.String, java\.lang\.String, java\.lang\.String, java\.lang\.String\);$|^  public static com\.hgtech\.soma\.runtime\.TablePlan\$Builder builder\(java\.lang\.String, java\.lang\.String\);$|^  public com\.hgtech\.soma\.runtime\.RuntimePlan\$Builder (addTable|replaceTable|addChild|replaceChild)\(' \
+  "$plan_surface_javap" >/dev/null; then
+  printf '%s\n' 'public-api-check: raw application Plan construction surface leaked' >&2
+  exit 1
+fi
+if grep -E '^  public com\.hgtech\.soma\.runtime\.TablePlan\$Builder (keySpaceStrategy|accessStrategy)\(java\.lang\.String\);$' \
+  "$plan_surface_javap" >/dev/null; then
+  printf '%s\n' 'public-api-check: free-form physical Plan strategy leaked' >&2
+  exit 1
+fi
+grep -F 'public static com.hgtech.soma.runtime.RuntimePlan$Builder builder(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);' \
+  "$actual_javap" >/dev/null
+grep -F 'public com.hgtech.soma.runtime.RuntimePlan$TableEditor table(com.hgtech.soma.runtime.metadata.SomaTableMetadata);' \
+  "$actual_javap" >/dev/null
 bridge_javap=$evidence_dir/generated-column-access.javap.txt
 "$JAVA_HOME/bin/javap" -classpath "$runtime_jar" -public \
   com.hgtech.soma.runtime.GeneratedColumnAccess >"$bridge_javap"

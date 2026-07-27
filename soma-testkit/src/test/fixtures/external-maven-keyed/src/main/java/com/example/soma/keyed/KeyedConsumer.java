@@ -17,9 +17,9 @@ import com.example.soma.keyed.generated.FloatKeyedBatch;
 import com.example.soma.keyed.generated.FloatKeyedTable;
 import com.example.soma.keyed.generated.ShortKeyedBatch;
 import com.example.soma.keyed.generated.ShortKeyedTable;
+import com.example.soma.keyed.generated.SchemaMetadata;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.TablePlan;
 
 import java.lang.management.ManagementFactory;
 import java.util.List;
@@ -205,17 +205,13 @@ public final class KeyedConsumer {
     }
 
     private static void testHashIntGeneratedBinding() {
-        RuntimePlan base = KeyedParticleTable.defaultRuntimePlan();
-        TablePlan hashTable = base.requireTable("KeyedParticle").toBuilder()
-                .keySpaceStrategy("hash-int-v2")
+        RuntimePlan.Builder builder = SchemaMetadata.newPlan()
+                .maximumAggregateStorageBytes(16L * 1024L * 1024L);
+        builder.table("KeyedParticle")
                 .maximumTableStorageBytes(1024L * 1024L)
-                .maximumBulkScratchBytes(1024L * 1024L)
-                .build();
-        RuntimePlan hashPlan = base.toBuilder()
-                .maximumAggregateStorageBytes(16L * 1024L * 1024L)
-                .replaceTable(hashTable)
-                .build();
-        KeyedParticleTable hash = KeyedParticleTable.create(hashPlan);
+                .maximumBulkScratchBytes(1024L * 1024L);
+        KeyedParticleTable hash =
+                KeyedParticleTable.create(builder.build());
         KeyedParticleBatch batch = new KeyedParticleBatch();
         batch.addValues(-1, 10, false, 0);
         batch.addValues(31, 20, true, 7);
@@ -319,12 +315,10 @@ public final class KeyedConsumer {
             batches[id].addValues(id, id, false, 0);
         }
 
-        RuntimePlan base = KeyedParticleTable.defaultRuntimePlan();
-        TablePlan tablePlan = base.requireTable("KeyedParticle").toBuilder()
-                .initialCapacity(16384)
-                .build();
+        RuntimePlan.Builder plan = SchemaMetadata.newPlan();
+        plan.table("KeyedParticle").initialCapacity(16384);
         KeyedParticleTable table = KeyedParticleTable.create(
-                base.toBuilder().replaceTable(tablePlan).build());
+                plan.build());
         for (int index = 0; index < warmup; index++) {
             table.addBatch(batches[index]);
         }

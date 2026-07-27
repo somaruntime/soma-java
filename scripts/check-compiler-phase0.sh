@@ -19,12 +19,14 @@ fi
 
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
-for artifact in "$annotations_jar" "$processor_jar"; do
+runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
+for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' "compiler-phase0-check: missing artifact $artifact; run reactor package first" >&2
     exit 1
   fi
 done
+compile_classpath=$annotations_jar:$processor_jar:$runtime_jar
 
 fixture_root=soma-testkit/src/test/fixtures/compiler
 success_source=$fixture_root/value-success/src
@@ -78,7 +80,7 @@ compile_success() {
     -encoding UTF-8 \
     -source 8 \
     -target 8 \
-    -cp "$annotations_jar:$processor_jar" \
+    -cp "$compile_classpath" \
     -processorpath "$processor_jar:$annotations_jar" \
     -processor com.hgtech.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
@@ -103,7 +105,7 @@ compile_unicode_order() {
     -encoding UTF-8 \
     -source 8 \
     -target 8 \
-    -cp "$annotations_jar:$processor_jar" \
+    -cp "$compile_classpath" \
     -processorpath "$processor_jar:$annotations_jar" \
     -processor com.hgtech.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
@@ -135,7 +137,7 @@ cmp "$expected/OperationKey.javap.txt" "$evidence_dir/OperationKey.javap.txt"
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -d "$missing" \
@@ -149,7 +151,7 @@ grep -F '[SOMA-COMP-001]' "$evidence_dir/missing-plugin.log" >/dev/null
 if "$JAVA_HOME/bin/javac" \
   -XDrawDiagnostics \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -d "$plugin_only" \
   $(find "$plugin_only_source" -type f -name '*.java' | sort) \
@@ -162,7 +164,7 @@ if "$JAVA_HOME/bin/javac" \
   -J-Duser.timezone=Pacific/Kiritimati \
   -XDrawDiagnostics \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -d "$plugin_only_repeat" \
   $(find "$plugin_only_source" -type f -name '*.java' | sort) \
@@ -182,7 +184,7 @@ fi
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -XDcom.hgtech.soma.internal.processor.identity=soma-processor-v1 \
   -d "$plugin_option_spoof" \
@@ -196,7 +198,7 @@ grep -F '[SOMA-COMP-005]' "$evidence_dir/plugin-option-spoof.log" >/dev/null
 if "$JAVA_HOME/bin/javac" \
   -XDrawDiagnostics \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -d "$conflict" \
   $(find "$fixture_root/value-conflict/src" -type f -name '*.java' | sort) \
@@ -221,7 +223,7 @@ grep -F 'compiler.err.cant.assign.val.to.final.var: value' \
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -d "$ignored" \
   $(find "$fixture_root/value-ignore/src" -type f -name '*.java' | sort) \
@@ -233,7 +235,7 @@ grep -F '[SOMA-VALUE-003]' "$evidence_dir/value-ignore.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -d "$generic" \
   $(find "$fixture_root/value-generic/src" -type f -name '*.java' | sort) \
@@ -245,7 +247,7 @@ grep -F '[SOMA-VALUE-001]' "$evidence_dir/value-generic.log" >/dev/null
 
 "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -259,7 +261,7 @@ cmp "$fixture_root/annotation-spoof/expected/NotSoma.javap.txt" \
 
 "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -d "$spoof_only" \
   $(find "$fixture_root/annotation-spoof/src" -type f -name '*.java' | sort)
@@ -270,7 +272,7 @@ cmp "$fixture_root/annotation-spoof/expected/NotSoma.javap.txt" \
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -284,7 +286,7 @@ grep -F '[SOMA-VALUE-007]' "$evidence_dir/value-cycle.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -298,7 +300,7 @@ grep -F '[SOMA-SCHEMA-005]' "$evidence_dir/duplicate-schema.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -312,7 +314,7 @@ grep -F '[SOMA-SCHEMA-002]' "$evidence_dir/schema-injection.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -326,7 +328,7 @@ grep -F '[SOMA-COMP-006]' "$evidence_dir/wildcard-import.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
   -d "$local_value" \
   $(find "$fixture_root/value-local/src" -type f -name '*.java' | sort) \
@@ -338,7 +340,7 @@ grep -F '[SOMA-VALUE-001]' "$evidence_dir/value-local.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -352,7 +354,7 @@ grep -F '[SOMA-SCHEMA-004]' "$evidence_dir/schema-version.log" >/dev/null
 
 if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
-  -cp "$annotations_jar:$processor_jar" \
+  -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
   -processor com.hgtech.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
@@ -385,7 +387,7 @@ if [ -n "${SOMA_UNSUPPORTED_JAVAC:-}" ]; then
   mkdir -p "$unsupported"
   if "$SOMA_UNSUPPORTED_JAVAC" \
     --release 8 \
-    -cp "$annotations_jar:$processor_jar" \
+    -cp "$compile_classpath" \
     -proc:none \
     -Xplugin:SomaValue \
     -d "$unsupported" \

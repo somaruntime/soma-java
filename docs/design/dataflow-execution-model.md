@@ -234,7 +234,7 @@ Definition 使用 canonical、length-prefixed encoding 和 SHA-256；Template id
 generated/runtime  soma-generated-runtime-v6 / soma-runtime-java8-v6
 transformation     soma-transformation-v2
 kernel             soma-kernel-v1
-storage plan       soma-runtime-plan-v3
+storage plan       soma-runtime-plan-v4
 ```
 
 Mismatch 在执行前 fail closed；不提供旧协议双 adapter、反射 fallback 或 best-effort execution。

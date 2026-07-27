@@ -12,14 +12,16 @@ import com.example.soma.child.generated.KeyedChildRowTable;
 import com.example.soma.child.generated.GrandchildRowTable;
 import com.example.soma.child.generated.FloatingParentRowBatch;
 import com.example.soma.child.generated.FloatingParentRowTable;
+import com.example.soma.child.generated.SchemaMetadata;
 import com.hgtech.soma.runtime.ChildPlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.TablePlan;
+import com.hgtech.soma.runtime.StringResourceProfile;
 import com.hgtech.soma.runtime.TableStats;
+import com.hgtech.soma.runtime.generated.GeneratedRuntimePlan;
 import com.hgtech.soma.runtime.generated.MaterializationAllocation;
 
 import java.util.ArrayList;
@@ -36,18 +38,27 @@ public final class ChildConsumer {
         testOwnershipInstanceQuotaAndRetry();
         testRecursiveReplacementPreflightAndRetry();
         final RuntimePlan defaultPlan = ParentRowTable.defaultRuntimePlan();
-        final RuntimePlan extraTablePlan = defaultPlan.toBuilder()
-                .addTable(TablePlan.builder(
-                        "unexpected", defaultPlan.requireTable("parent_rows").algorithm())
-                        .build())
-                .build();
+        RuntimePlan.Builder extraTableBuilder = defaultPlan.toBuilder();
+        GeneratedRuntimePlan.addTable(
+                extraTableBuilder,
+                GeneratedRuntimePlan.table(
+                        "unexpected",
+                        defaultPlan.requireTable("parent_rows").algorithm(),
+                        16, 16, Integer.MAX_VALUE, 3, 2,
+                        268435456L, 268435456L,
+                        268435456L, 268435456L,
+                        "none", "none", false,
+                        StringResourceProfile.unprofiled()));
+        final RuntimePlan extraTablePlan = extraTableBuilder.build();
         expectCode("invalid_runtime_plan", new Action() {
             public void run() { ParentRowTable.create(extraTablePlan); }
         });
-        final RuntimePlan extraChildPlan = defaultPlan.toBuilder()
-                .addChild(ChildPlan.create(
-                        "parent_rows", "unexpected", "child_rows", 1))
-                .build();
+        RuntimePlan.Builder extraChildBuilder = defaultPlan.toBuilder();
+        GeneratedRuntimePlan.addChild(
+                extraChildBuilder,
+                ChildPlan.create(
+                        "parent_rows", "unexpected", "child_rows", 1));
+        final RuntimePlan extraChildPlan = extraChildBuilder.build();
         expectCode("invalid_runtime_plan", new Action() {
             public void run() { ParentRowTable.create(extraChildPlan); }
         });
@@ -253,7 +264,7 @@ public final class ChildConsumer {
 
         MaterializationBudget customDefault = MaterializationBudget.defaults().toBuilder()
                 .maximumRows(77L).build();
-        RuntimePlan customPlan = ParentRowTable.defaultRuntimePlan().toBuilder()
+        RuntimePlan customPlan = SchemaMetadata.newPlan()
                 .defaultMaterializationBudget(customDefault).build();
         ParentRowTable customTable = ParentRowTable.create(customPlan);
         customTable.addBatch(new ParentRowBatch().add(emptyParent(103)));
@@ -545,8 +556,7 @@ public final class ChildConsumer {
     }
 
     private static void testOwnershipInstanceQuotaAndRetry() {
-        RuntimePlan base = ParentRowTable.defaultRuntimePlan();
-        RuntimePlan twoInstances = base.toBuilder()
+        RuntimePlan twoInstances = SchemaMetadata.newPlan()
                 .maximumOwnershipTableInstances(2L).build();
         ParentRowTable table = ParentRowTable.create(twoInstances);
         table.addBatch(new ParentRowBatch()
@@ -572,7 +582,7 @@ public final class ChildConsumer {
                 "instance quota retry succeeds after subtree release");
         table.release();
 
-        RuntimePlan fourInstances = base.toBuilder()
+        RuntimePlan fourInstances = SchemaMetadata.newPlan()
                 .maximumOwnershipTableInstances(4L).build();
         ParentRowTable replacement = ParentRowTable.create(fourInstances);
         replacement.addBatch(new ParentRowBatch().add(parentWithNestedKeyed(303, 5, 51, 501L)));

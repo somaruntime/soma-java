@@ -3,6 +3,7 @@ public final class com.example.soma.access.generated.UniquePositionTable {
   public static com.example.soma.access.generated.UniquePositionTable create();
   public static com.example.soma.access.generated.UniquePositionTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();

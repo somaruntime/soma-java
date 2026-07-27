@@ -1,0 +1,84 @@
+package com.hgtech.soma.runtime.generated;
+
+import com.hgtech.soma.runtime.ChildPlan;
+import com.hgtech.soma.runtime.RuntimePlan;
+import com.hgtech.soma.runtime.StringResourceProfile;
+import com.hgtech.soma.runtime.TablePlan;
+
+/**
+ * Narrow generated-code construction bridge for schema-seeded RuntimePlan。
+ *
+ * <p>Application configuration starts from generated
+ * {@code SchemaMetadata.newPlan()} and never supplies protocol identities。</p>
+ */
+public final class GeneratedRuntimePlan {
+    private GeneratedRuntimePlan() {
+    }
+
+    public static RuntimePlan.Builder builder(
+            String schemaHash,
+            String runtimeCompatibility,
+            String generatedProtocol,
+            String planProtocol,
+            String allocationEstimator) {
+        return RuntimePlan.generatedBuilder(
+                GeneratedPlanToken.INSTANCE,
+                schemaHash,
+                runtimeCompatibility,
+                generatedProtocol,
+                planProtocol,
+                allocationEstimator);
+    }
+
+    public static TablePlan table(
+            String logicalName,
+            String algorithm,
+            int initialCapacity,
+            int planningRows,
+            int maximumRows,
+            int growthNumerator,
+            int growthDenominator,
+            long maximumUpdateScratchBytes,
+            long maximumOperationScratchBytes,
+            long maximumBulkScratchBytes,
+            long maximumTableStorageBytes,
+            String keySpaceStrategy,
+            String accessStrategy,
+            boolean stringCapable,
+            StringResourceProfile stringResourceProfile) {
+        return TablePlan.generatedBuilder(
+                        GeneratedPlanToken.INSTANCE,
+                        logicalName,
+                        algorithm)
+                .initialCapacity(initialCapacity)
+                .planningRows(planningRows)
+                .maximumRows(maximumRows)
+                .growthRatio(growthNumerator, growthDenominator)
+                .maximumUpdateScratchBytes(maximumUpdateScratchBytes)
+                .maximumOperationScratchBytes(maximumOperationScratchBytes)
+                .maximumBulkScratchBytes(maximumBulkScratchBytes)
+                .maximumTableStorageBytes(maximumTableStorageBytes)
+                .generatedKeySpaceStrategy(
+                        GeneratedPlanToken.INSTANCE, keySpaceStrategy)
+                .generatedAccessStrategy(
+                        GeneratedPlanToken.INSTANCE, accessStrategy)
+                .generatedStringCapable(
+                        GeneratedPlanToken.INSTANCE, stringCapable)
+                .stringResourceProfile(stringResourceProfile)
+                .build();
+    }
+
+    public static RuntimePlan.Builder addTable(
+            RuntimePlan.Builder builder, TablePlan table) {
+        if (builder == null) throw new NullPointerException("builder");
+        return builder.generatedAddTable(
+                GeneratedPlanToken.INSTANCE, table);
+    }
+
+    public static RuntimePlan.Builder addChild(
+            RuntimePlan.Builder builder, ChildPlan child) {
+        if (builder == null) throw new NullPointerException("builder");
+        return builder.generatedAddChild(
+                GeneratedPlanToken.INSTANCE, child);
+    }
+}

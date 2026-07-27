@@ -60,6 +60,7 @@ public final class com.example.soma.child.generated.ChildRowTable {
   public static com.example.soma.child.generated.ChildRowTable create();
   public static com.example.soma.child.generated.ChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -198,6 +199,7 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public static com.example.soma.child.generated.DoubleKeyedChildRowTable create();
   public static com.example.soma.child.generated.DoubleKeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -349,6 +351,7 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public static com.example.soma.child.generated.FloatKeyedChildRowTable create();
   public static com.example.soma.child.generated.FloatKeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -469,6 +472,7 @@ public final class com.example.soma.child.generated.FloatingParentRowTable {
   public static com.example.soma.child.generated.FloatingParentRowTable create();
   public static com.example.soma.child.generated.FloatingParentRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -580,6 +584,7 @@ public final class com.example.soma.child.generated.GrandchildRowTable {
   public static com.example.soma.child.generated.GrandchildRowTable create();
   public static com.example.soma.child.generated.GrandchildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -718,6 +723,7 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public static com.example.soma.child.generated.KeyedChildRowTable create();
   public static com.example.soma.child.generated.KeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -840,6 +846,7 @@ public final class com.example.soma.child.generated.ParentRowTable {
   public static com.example.soma.child.generated.ParentRowTable create();
   public static com.example.soma.child.generated.ParentRowTable create(com.hgtech.soma.runtime.RuntimePlan);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
@@ -893,4 +900,12 @@ public final class com.example.soma.child.generated.ParentRowTable {
 Compiled from "ParentRowUpdateCursor.java"
 public interface com.example.soma.child.generated.ParentRowUpdateCursor extends com.example.soma.child.generated.ParentRowCursor {
   public abstract void setId(int);
+}
+## SchemaMetadata
+Compiled from "SchemaMetadata.java"
+public final class com.example.soma.child.generated.SchemaMetadata {
+  public static com.hgtech.soma.runtime.metadata.SomaMetadata metadata();
+  public static com.hgtech.soma.runtime.metadata.SomaSchemaMetadata schema();
+  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static com.hgtech.soma.runtime.RuntimePlan$Builder newPlan();
 }

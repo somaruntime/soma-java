@@ -19,7 +19,11 @@ import com.hgtech.soma.dataflow.ParameterSlot;
 import com.hgtech.soma.dataflow.StringColumnResult;
 import com.hgtech.soma.runtime.EnumColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
+import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
+import com.hgtech.soma.runtime.StringResourceProfile;
+import com.hgtech.soma.runtime.StringResourceProfileStatus;
+import com.hgtech.soma.runtime.StringResourceRole;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
 import com.hgtech.soma.runtime.metadata.SomaColumnMetadata;
@@ -41,10 +45,67 @@ public final class BreadthConsumer {
         verifyDefaultsAndReferenceFields();
         verifyFailedUpdateDoesNotRetainReferences();
         verifyPresenceWordBoundaries();
+        verifyEffectivePlanAndStringProfile();
         verifyStringKeyAndBudgets();
         verifyStringSelectorsAndMetadata();
         verifyStringKeyedChild();
         System.out.println("breadth-phase5-consumer: ok");
+    }
+
+    private static void verifyEffectivePlanAndStringProfile() {
+        StringResourceProfile profile = StringResourceProfile.builder()
+                .averageUtf16CodeUnits(2)
+                .maximumUtf16CodeUnits(8)
+                .valueCardinality(2L)
+                .distinctObjectIdentityEstimate(4L)
+                .intraTableSharingBasisPoints(0)
+                .interTableSharingBasisPoints(0)
+                .presenceBasisPoints(10000)
+                .role(StringResourceRole.INDEX)
+                .role(StringResourceRole.UNIQUE)
+                .role(StringResourceRole.GROUP)
+                .role(StringResourceRole.JOIN)
+                .simultaneouslyLiveTableCount(2)
+                .build();
+        RuntimePlan.Builder builder = SchemaMetadata.newPlan();
+        RuntimePlan.TableEditor editor =
+                builder.table(StringSelectorRowTable.metadata())
+                        .initialCapacity(2)
+                        .planningRows(1)
+                        .maximumRows(2)
+                        .stringResourceProfile(profile);
+        RuntimePlan plan = builder.build();
+        check(plan.effectiveMetadata()
+                        .requireTable("StringSelectorRow")
+                        .stringResourceProfile().status()
+                        == StringResourceProfileStatus.PROFILED_UNVERIFIED
+                        && plan.effectiveMetadata()
+                        .requireTable("StringSelectorRow")
+                        .stringResourceProfile().estimatedReachableBytes()
+                        == 192L,
+                "String profile is an immutable unverified estimate");
+        check(plan.effectiveMetadata()
+                        .requireTable("StringSelectorRow").planningRows() == 1
+                        && plan.effectiveMetadata()
+                        .requireTable("StringSelectorRow").maximumRows() == 2,
+                "effective Plan exposes hint and hard row limit");
+        expectIllegalState(
+                () -> editor.maximumRows(3),
+                "child Plan editor closes with parent");
+
+        StringSelectorRowTable bounded =
+                StringSelectorRowTable.create(plan);
+        bounded.addBatch(new StringSelectorRowBatch()
+                .addValues(1, "Aa")
+                .addValues(2, "BB"));
+        long epoch = bounded.structuralEpoch();
+        expectCode("row_limit_exceeded",
+                () -> bounded.addBatch(
+                        new StringSelectorRowBatch().addValues(3, "Cc")),
+                "maximumRows preflight");
+        check(bounded.size() == 2 && bounded.structuralEpoch() == epoch,
+                "maximumRows rejection preserves rows and epoch");
+        bounded.release();
     }
 
     private static void verifyDefaultsAndReferenceFields() {
@@ -427,6 +488,16 @@ public final class BreadthConsumer {
             throw new AssertionError(message + ": expected NullPointerException");
         } catch (NullPointerException expected) {
             // Expected public null-contract failure.
+        }
+    }
+
+    private static void expectIllegalState(Action action, String message) {
+        try {
+            action.run();
+            throw new AssertionError(
+                    message + ": expected IllegalStateException");
+        } catch (IllegalStateException expected) {
+            // Expected one-shot builder/editor contract.
         }
     }
 

@@ -200,6 +200,7 @@ public final class DenseTableState {
                     "reserve_storage_preflight", tableLogicalName, "reserve");
         }
         int required = Math.max(size, expectedCapacity);
+        requireMaximumRows(required, "reserve");
         boolean willGrow = required > columns.capacity();
         if (willGrow) {
             requireGrowthAvailable("reserve");
@@ -225,6 +226,7 @@ public final class DenseTableState {
             throw new IllegalArgumentException("expectedCapacity must be non-negative");
         }
         int required = Math.max(size, expectedCapacity);
+        requireMaximumRows(required, "reserve");
         boolean willGrow = required > columns.capacity();
         if (willGrow) {
             requireGrowthAvailable("reserve");
@@ -431,6 +433,7 @@ public final class DenseTableState {
             throw internalInvariant(
                     "negative_replace_size", tableLogicalName, "replaceAll");
         }
+        requireMaximumRows(newSize, "replaceAll");
         if (size != 0 || newSize != 0) requireStructuralEpochAvailable("replaceAll");
         if (newSize > columns.capacity()) requireGrowthAvailable("replaceAll");
         if (columns.ensureCapacity(
@@ -445,6 +448,7 @@ public final class DenseTableState {
             throw internalInvariant(
                     "replace_commit_identity", tableLogicalName, "replaceAll");
         }
+        requireMaximumRows(newSize, "replaceAll");
         if (expectedPreviousSize != 0 || newSize != 0) {
             requireStructuralEpochAvailable("replaceAll");
             incrementStructuralEpoch("replaceAll");
@@ -670,6 +674,7 @@ public final class DenseTableState {
             throw internalInvariant(
                     "replace_storage_preflight", tableLogicalName, operation);
         }
+        requireMaximumRows(newSize, operation);
         long proposedExternal = replacePart(
                 externalStorageBytes(), keySpaceCurrentBytes,
                 proposedKeySpaceBytes, operation);
@@ -883,11 +888,19 @@ public final class DenseTableState {
 
     private int checkedSize(int base, int increment, String operation) {
         long proposed = (long) base + (long) increment;
-        if (proposed > Integer.MAX_VALUE) {
-            throw RuntimeFailures.memoryLimitExceeded(
-                    tableLogicalName, operation, Integer.MAX_VALUE, proposed);
-        }
+        requireMaximumRows(proposed, operation);
         return (int) proposed;
+    }
+
+    private void requireMaximumRows(long proposed, String operation) {
+        if (proposed < 0L || proposed > tablePlan.maximumRows()) {
+            throw RuntimeFailures.rowLimitExceeded(
+                    tableLogicalName,
+                    operation,
+                    size,
+                    tablePlan.maximumRows(),
+                    proposed < 0L ? Long.MAX_VALUE : proposed);
+        }
     }
 
     private void record(

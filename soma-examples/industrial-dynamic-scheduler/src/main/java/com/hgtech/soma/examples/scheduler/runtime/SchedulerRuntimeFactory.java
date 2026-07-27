@@ -12,7 +12,6 @@ import com.hgtech.soma.examples.scheduler.schema.generated.SecondaryResourceStat
 import com.hgtech.soma.examples.scheduler.schema.generated.SetupTimeTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeTable;
 import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.TablePlan;
 
 /** 单次 solve 的 RuntimePlan、table graph 与 lifecycle 工厂。 */
 public final class SchedulerRuntimeFactory {
@@ -60,35 +59,31 @@ public final class SchedulerRuntimeFactory {
         .maximumAggregateStorageBytes(Math.max(
             base.maximumAggregateStorageBytes(),
             2L * 1024L * 1024L * 1024L));
-    replaceCapacity(
-        builder, base, "job_definitions", problem.jobs().size());
-    replaceCapacity(builder, base, "operation_definitions",
+    setCapacity(
+        builder, "job_definitions", problem.jobs().size());
+    setCapacity(builder, "operation_definitions",
         problem.operationCount());
-    replaceCapacity(builder, base, "eligible_machines",
+    setCapacity(builder, "eligible_machines",
         RuntimeProjector.eligibleMachineCount(problem));
-    replaceCapacity(builder, base, "machine_runtime_states",
+    setCapacity(builder, "machine_runtime_states",
         problem.machines().size());
-    replaceCapacity(builder, base, "operation_runtime_states",
+    setCapacity(builder, "operation_runtime_states",
         problem.operationCount());
-    replaceCapacity(builder, base, "secondary_resource_states",
+    setCapacity(builder, "secondary_resource_states",
         problem.resources().size());
-    replaceCapacity(builder, base, "setup_times",
+    setCapacity(builder, "setup_times",
         problem.setupTimes().size());
-    replaceCapacity(builder, base, "transport_times",
+    setCapacity(builder, "transport_times",
         problem.transportTimes().size());
-    replaceCapacity(builder, base, "operation_assignments",
+    setCapacity(builder, "operation_assignments",
         problem.operationCount());
     return builder.build();
   }
 
-  private static void replaceCapacity(
+  private static void setCapacity(
       RuntimePlan.Builder builder,
-      RuntimePlan base,
       String table,
       int capacity) {
-    TablePlan replacement = base.requireTable(table).toBuilder()
-        .initialCapacity(Math.max(1, capacity))
-        .build();
-    builder.replaceTable(replacement);
+    builder.table(table).initialCapacity(Math.max(1, capacity));
   }
 }

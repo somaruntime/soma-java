@@ -39,7 +39,7 @@ Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/
 
 - generated/runtime `v6`；
 - transformation `v2`、kernel `v1`；
-- runtime plan仍为 `v3`，Schema hash 语义未变化。
+- runtime plan为 `v4`，Schema hash 语义未变化。
 
 ## 3. 执行叙事
 

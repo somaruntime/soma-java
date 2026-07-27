@@ -19,13 +19,15 @@ fi
 
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
-for artifact in "$annotations_jar" "$processor_jar"; do
+runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
+for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' \
       "value-modifiers-phase5-check: missing artifact $artifact; run reactor package first" >&2
     exit 1
   fi
 done
+compile_classpath=$annotations_jar:$processor_jar:$runtime_jar
 
 fixture_root=soma-testkit/src/test/fixtures/compiler/value-modifiers-phase5
 mkdir -p target
@@ -40,7 +42,7 @@ compile_fixture() {
     -encoding UTF-8 \
     -source 8 \
     -target 8 \
-    -cp "$annotations_jar:$processor_jar" \
+    -cp "$compile_classpath" \
     -processorpath "$processor_jar:$annotations_jar" \
     -processor com.hgtech.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \

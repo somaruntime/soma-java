@@ -225,7 +225,7 @@ final class DenseMetadataSourceEmitter {
 
     private void appendDefaultPlan(SourceBuilder out) {
         out.append("  private static RuntimePlan createDefaultRuntimePlan(){")
-                .append("RuntimePlan.Builder builder=RuntimePlan.builder(")
+                .append("RuntimePlan.Builder builder=GeneratedRuntimePlan.builder(")
                 .append(q(schemaHash))
                 .append(",RuntimeCompatibility.RUNTIME_COMPATIBILITY,")
                 .append("RuntimeCompatibility.GENERATED_PROTOCOL,")
@@ -233,19 +233,24 @@ final class DenseMetadataSourceEmitter {
                 .append("RuntimeCompatibility.ALLOCATION_ESTIMATOR);");
         for (TableModel table : schema.tables.values()) {
             DenseTableCodegenModel.TableSpec spec = table.toGeneratorSpec();
-            out.append("builder.addTable(TablePlan.builder(")
+            int initialCapacity = spec.defaultCapacity < 0
+                    ? 16 : spec.defaultCapacity;
+            out.append("GeneratedRuntimePlan.addTable(builder,GeneratedRuntimePlan.table(")
                     .append(q(spec.logicalName))
-                    .append(",RuntimeCompatibility.DENSE_ALGORITHM).initialCapacity(")
-                    .append(spec.defaultCapacity)
-                    .append(").growthRatio(3,2).maximumUpdateScratchBytes(268435456L)")
-                    .append(".keySpaceStrategy(")
+                    .append(",RuntimeCompatibility.DENSE_ALGORITHM,")
+                    .append(initialCapacity).append(',')
+                    .append(initialCapacity).append(',')
+                    .append(defaultMaximumRows(spec))
+                    .append(",3,2,268435456L,268435456L,268435456L,268435456L,")
                     .append(q(spec.keyed()
                             ? spec.keyField().keySpaceImplementation() : "none"))
-                    .append(')');
-            if (!spec.selectors.isEmpty()) {
-                out.append(".accessStrategy(RuntimeCompatibility.PRIMITIVE_EXACT_HASH)");
-            }
-            out.append(".build());");
+                    .append(',')
+                    .append(spec.selectors.isEmpty()
+                            ? q("none")
+                            : "RuntimeCompatibility.PRIMITIVE_EXACT_HASH")
+                    .append(',')
+                    .append(hasString(spec))
+                    .append(",StringResourceProfile.unprofiled()));");
         }
         for (TableModel owner : schema.tables.values()) {
             for (TableFieldModel field : owner.fields) {
@@ -255,7 +260,7 @@ final class DenseMetadataSourceEmitter {
                 int capacity = field.child.initialCapacity > 0
                         ? field.child.initialCapacity
                         : (child.defaultCapacity < 0 ? 16 : child.defaultCapacity);
-                out.append("builder.addChild(ChildPlan.create(")
+                out.append("GeneratedRuntimePlan.addChild(builder,ChildPlan.create(")
                         .append(q(owner.logicalName)).append(',')
                         .append(q(field.logicalName)).append(',')
                         .append(q(field.child.tableLogicalName)).append(',')
@@ -263,6 +268,50 @@ final class DenseMetadataSourceEmitter {
             }
         }
         out.append("return builder.build();}\n");
+    }
+
+    private static int defaultMaximumRows(
+            DenseTableCodegenModel.TableSpec table) {
+        long bytesPerRow = 0L;
+        for (DenseTableCodegenModel.FieldSpec field : table.fields) {
+            if (field.flattenedValueStorage()) {
+                for (DenseTableCodegenModel.ValueLeafSpec leaf
+                        : field.valueLeaves) {
+                    bytesPerRow += leaf.bytes();
+                }
+            } else {
+                bytesPerRow += field.bytes();
+            }
+            if (field.optional) bytesPerRow++;
+        }
+        if (table.keyed()) {
+            bytesPerRow += "hash-int-v2".equals(
+                    table.keyField().keySpaceImplementation()) ? 18L : 26L;
+        }
+        bytesPerRow += 32L * (long) table.selectors.size();
+        bytesPerRow = Math.max(1L, bytesPerRow);
+        long rows = 268435456L / bytesPerRow;
+        rows = Math.max(
+                table.defaultCapacity < 0
+                        ? 16L : (long) table.defaultCapacity,
+                rows);
+        return rows > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) rows;
+    }
+
+    private static boolean hasString(
+            DenseTableCodegenModel.TableSpec table) {
+        for (DenseTableCodegenModel.FieldSpec field : table.fields) {
+            if ("java.lang.String".equals(field.storagePrimitive)) {
+                return true;
+            }
+            for (DenseTableCodegenModel.ValueLeafSpec leaf
+                    : field.valueLeaves) {
+                if ("java.lang.String".equals(leaf.storagePrimitive)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private void appendMetadataImplementations(SourceBuilder out) {

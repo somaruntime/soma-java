@@ -1,0 +1,23 @@
+package com.hgtech.soma.runtime.metadata;
+
+import com.hgtech.soma.runtime.StringResourceProfile;
+
+/** Immutable effective plan projection for one logical Table。 */
+public interface SomaTableEffectiveMetadata {
+    String logicalName();
+    String algorithmIdentity();
+    SomaStorageLayout storageLayout();
+    SomaPrimaryLocator primaryLocator();
+    SomaExactAccess exactAccess();
+    int initialCapacity();
+    int planningRows();
+    int maximumRows();
+    int growthNumerator();
+    int growthDenominator();
+    long maximumUpdateScratchBytes();
+    long maximumOperationScratchBytes();
+    long maximumBulkScratchBytes();
+    long maximumTableStorageBytes();
+    boolean stringCapable();
+    StringResourceProfile stringResourceProfile();
+}

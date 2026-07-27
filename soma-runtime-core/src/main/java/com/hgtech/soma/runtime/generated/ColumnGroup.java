@@ -260,7 +260,9 @@ public final class ColumnGroup {
         long grown = ((long) capacity * (long) growthNumerator
                 + (long) growthDenominator - 1L) / (long) growthDenominator;
         long target = Math.max((long) required, grown);
-        if (target > Integer.MAX_VALUE) target = Integer.MAX_VALUE;
+        if (target > tablePlan.maximumRows()) {
+            target = tablePlan.maximumRows();
+        }
         return (int) target;
     }
 

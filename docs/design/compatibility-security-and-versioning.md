@@ -79,7 +79,7 @@ Generated artifact、runtime、transformation Template 和 runtime plan 在相�
 - runtime compatibility：`soma-runtime-java8-v6`；
 - transformation protocol：`soma-transformation-v2`；
 - kernel protocol：`soma-kernel-v1`；
-- runtime plan protocol：`soma-runtime-plan-v3`；
+- runtime plan protocol：`soma-runtime-plan-v4`；
 - dense storage algorithm：`dense-soa-v1`；
 - materialization estimator：`soma-materialization-estimator-v1`。
 

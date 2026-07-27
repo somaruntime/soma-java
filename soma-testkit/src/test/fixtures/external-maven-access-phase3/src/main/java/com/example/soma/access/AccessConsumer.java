@@ -17,14 +17,15 @@ import com.example.soma.access.generated.BooleanDoubleAccessTable;
 import com.example.soma.access.generated.MutatorAtomicAccessBatch;
 import com.example.soma.access.generated.MutatorAtomicAccessMutator;
 import com.example.soma.access.generated.MutatorAtomicAccessTable;
+import com.example.soma.access.generated.SchemaMetadata;
 import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.LongColumnView;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.OperationOutcome;
 import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.UpdateResult;
+import com.hgtech.soma.runtime.metadata.SomaExactAccess;
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.dataflow.DataFlowContext;
@@ -48,19 +49,20 @@ public final class AccessConsumer {
                 () -> UniquePositionTable.create().findIndexByPositionKey(null));
 
         RuntimePlan accessDefault = AccessRecordTable.defaultRuntimePlan();
-        TablePlan tinyStorage = accessDefault.requireTable("AccessRecord")
-                .toBuilder().maximumTableStorageBytes(1L).build();
-        expectCode("memory_limit_exceeded", () -> AccessRecordTable.create(
-                accessDefault.toBuilder().replaceTable(tinyStorage).build()));
-        TablePlan invalidStrategy = accessDefault.requireTable("AccessRecord")
-                .toBuilder().accessStrategy("none").build();
-        expectCode("runtime_plan_mismatch", () -> AccessRecordTable.create(
-                accessDefault.toBuilder().replaceTable(invalidStrategy).build()));
+        require(accessDefault.effectiveMetadata()
+                        .requireTable("AccessRecord").exactAccess()
+                        == SomaExactAccess.EXACT_HASH,
+                "generated Plan owns closed exact-access identity");
+        RuntimePlan.Builder tinyStorage = SchemaMetadata.newPlan();
+        tinyStorage.table("AccessRecord").maximumTableStorageBytes(1L);
+        expectCode("memory_limit_exceeded", () ->
+                AccessRecordTable.create(tinyStorage.build()));
 
-        TablePlan boundedPlan = accessDefault.requireTable("AccessRecord")
-                .toBuilder().maximumTableStorageBytes(1024L * 1024L).build();
-        AccessRecordTable boundedAccess = AccessRecordTable.create(
-                accessDefault.toBuilder().replaceTable(boundedPlan).build());
+        RuntimePlan.Builder boundedPlan = SchemaMetadata.newPlan();
+        boundedPlan.table("AccessRecord")
+                .maximumTableStorageBytes(1024L * 1024L);
+        AccessRecordTable boundedAccess =
+                AccessRecordTable.create(boundedPlan.build());
         AccessRecordBatch boundedBatch = new AccessRecordBatch();
         boundedBatch.addValues(1, 1, 1, 1);
         boundedAccess.addBatch(boundedBatch);
@@ -585,10 +587,10 @@ public final class AccessConsumer {
     }
 
     private static RuntimePlan accessPlanWithBulk(long maximumBulkScratchBytes) {
-        RuntimePlan base = AccessRecordTable.defaultRuntimePlan();
-        TablePlan table = base.requireTable("AccessRecord").toBuilder()
-                .maximumBulkScratchBytes(maximumBulkScratchBytes).build();
-        return base.toBuilder().replaceTable(table).build();
+        RuntimePlan.Builder builder = SchemaMetadata.newPlan();
+        builder.table("AccessRecord")
+                .maximumBulkScratchBytes(maximumBulkScratchBytes);
+        return builder.build();
     }
 
     private static void expectMemoryLimit(long limit, long proposed, Action action) {

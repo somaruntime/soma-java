@@ -6,6 +6,7 @@ import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.StatsMode;
+import com.hgtech.soma.runtime.StringResourceProfile;
 import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
@@ -13,6 +14,7 @@ import com.hgtech.soma.runtime.generated.ChildOwnershipRegistry;
 import com.hgtech.soma.runtime.generated.ColumnGroup;
 import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
+import com.hgtech.soma.runtime.generated.GeneratedRuntimePlan;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.runtime.generated.HashIntKeySpace;
 import com.hgtech.soma.runtime.generated.IntColumn;
@@ -1215,19 +1217,25 @@ final class SmokeLaneWorkloads {
         final DenseTableState state;
 
         KernelTable(int rows, String density, StatsMode statsMode, boolean reserve) {
-            TablePlan tablePlan = TablePlan.builder("BenchmarkRows", RuntimeCompatibility.DENSE_ALGORITHM)
-                    .initialCapacity(4)
-                    .growthRatio(3, 2)
-                    .maximumUpdateScratchBytes(16L * 1024L * 1024L)
-                    .maximumOperationScratchBytes(16L * 1024L * 1024L)
-                    .accessStrategy(RuntimeCompatibility.NO_ACCESS_STRATEGY)
-                    .build();
-            RuntimePlan plan = RuntimePlan.builder("benchmark-schema-v1",
-                            RuntimeCompatibility.RUNTIME_COMPATIBILITY,
-                            RuntimeCompatibility.GENERATED_PROTOCOL,
-                            RuntimeCompatibility.PLAN_PROTOCOL,
-                            RuntimeCompatibility.ALLOCATION_ESTIMATOR)
-                    .statsMode(statsMode).addTable(tablePlan).build();
+            TablePlan tablePlan = GeneratedRuntimePlan.table(
+                    "BenchmarkRows", RuntimeCompatibility.DENSE_ALGORITHM,
+                    4, 4, Integer.MAX_VALUE, 3, 2,
+                    16L * 1024L * 1024L,
+                    16L * 1024L * 1024L,
+                    16L * 1024L * 1024L,
+                    256L * 1024L * 1024L,
+                    RuntimeCompatibility.NO_KEY_SPACE,
+                    RuntimeCompatibility.NO_ACCESS_STRATEGY,
+                    false,
+                    StringResourceProfile.unprofiled());
+            RuntimePlan.Builder builder = GeneratedRuntimePlan.builder(
+                    "benchmark-schema-v1",
+                    RuntimeCompatibility.RUNTIME_COMPATIBILITY,
+                    RuntimeCompatibility.GENERATED_PROTOCOL,
+                    RuntimeCompatibility.PLAN_PROTOCOL,
+                    RuntimeCompatibility.ALLOCATION_ESTIMATOR);
+            GeneratedRuntimePlan.addTable(builder, tablePlan);
+            RuntimePlan plan = builder.statsMode(statsMode).build();
             ChildOwnershipRegistry ownership = new ChildOwnershipRegistry();
             state = new DenseTableState("BenchmarkRows", plan, tablePlan,
                     new ColumnGroup("BenchmarkRows", tablePlan, ownership,

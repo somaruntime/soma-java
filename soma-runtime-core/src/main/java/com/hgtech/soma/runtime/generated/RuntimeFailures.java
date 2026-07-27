@@ -274,6 +274,19 @@ public final class RuntimeFailures {
                 table, context, null);
     }
 
+    public static SomaRuntimeException rowLimitExceeded(
+            String table,
+            String operation,
+            long current,
+            long limit,
+            long proposed) {
+        Map<String, String> context = context("current", current);
+        context.put("limit", Long.toString(limit));
+        context.put("proposed", Long.toString(proposed));
+        return create(SomaErrorCategory.RESOURCE, "row_limit_exceeded",
+                operation, table, context, null);
+    }
+
     public static SomaRuntimeException materializationBudgetExceeded(
             String dimension,
             long limit,
