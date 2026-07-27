@@ -109,6 +109,13 @@ public final class DataFlowComponentBenchmark {
                         1,
                         false) {
                     @Override
+                    int warmupIterations(Options current) {
+                        return Math.max(
+                                current.warmupIterations,
+                                2048);
+                    }
+
+                    @Override
                     long run() {
                         NumericFactDataFlow.Source source =
                                 NumericFactDataFlow.source("authoring");
@@ -208,8 +215,10 @@ public final class DataFlowComponentBenchmark {
             BenchmarkEnvironment environment,
             List<LinkedHashMap<String, Object>> records,
             Lane lane) {
+        int warmupIterations =
+                lane.warmupIterations(options);
         for (int iteration = 0;
-             iteration < options.warmupIterations;
+             iteration < warmupIterations;
              iteration++) {
             SINK = mix(SINK, lane.run());
         }
@@ -254,7 +263,7 @@ public final class DataFlowComponentBenchmark {
                 options, environment, lane);
         record.put(
                 "warmupIterations",
-                Integer.valueOf(options.warmupIterations));
+                Integer.valueOf(warmupIterations));
         record.put(
                 "measurementIterations",
                 Integer.valueOf(options.measurementIterations));
@@ -407,6 +416,10 @@ public final class DataFlowComponentBenchmark {
             this.allThreads = allThreads;
         }
 
+        int warmupIterations(Options options) {
+            return options.warmupIterations;
+        }
+
         abstract long run();
     }
 
@@ -461,6 +474,20 @@ public final class DataFlowComponentBenchmark {
             int rank = (int) Math.ceil(
                     percentile * sorted.length);
             return sorted[Math.max(0, rank - 1)];
+        }
+    }
+
+    private static final class FactIndexBefore
+            implements NumericFactScan.Predicate {
+        private final int exclusiveUpperBound;
+
+        FactIndexBefore(int exclusiveUpperBound) {
+            this.exclusiveUpperBound = exclusiveUpperBound;
+        }
+
+        @Override
+        public boolean test(NumericFactCursor fact) {
+            return fact.factIndex() < exclusiveUpperBound;
         }
     }
 
@@ -540,12 +567,7 @@ public final class DataFlowComponentBenchmark {
                         }
                     })
                     .compile();
-            directPredicate = new NumericFactScan.Predicate() {
-                @Override
-                public boolean test(NumericFactCursor fact) {
-                    return fact.factIndex() < selectedRows;
-                }
-            };
+            directPredicate = new FactIndexBefore(selectedRows);
             expectedSum = ((long) selectedRows / GROUPS)
                     * ((GROUPS - 1L) * GROUPS / 2L);
         }

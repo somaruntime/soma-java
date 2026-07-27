@@ -39,6 +39,32 @@ if grep -F 'com.hgtech.soma.examples' \
 fi
 
 classpath="soma-benchmarks/target/classes:soma-dataflow/target/classes:soma-runtime-core/target/classes"
+
+if "$JAVA_HOME/bin/java" -cp "$classpath" \
+    com.hgtech.soma.benchmarks.DataFlowComponentBenchmark --unknown value \
+    >"$evidence_dir/invalid-option.log" 2>&1; then
+  printf '%s\n' \
+    'dataflow-performance-check: unknown CLI option accepted' >&2
+  exit 1
+fi
+
+SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
+  -Xms256m -Xmx512m -cp "$classpath" \
+  com.hgtech.soma.benchmarks.DataFlowComponentBenchmark \
+  --output "$evidence_dir/admission.jsonl" \
+  --commit "$commit" --fork 1 --forks 1 \
+  --warmup 0 --iterations 1
+admission_count=$(wc -l <"$evidence_dir/admission.jsonl" | tr -d ' ')
+if [ "$admission_count" -ne 15 ] \
+    || grep -v -F '"schemaVersion":"soma-dataflow-component-v1"' \
+      "$evidence_dir/admission.jsonl" >/dev/null \
+    || grep -v -F '"claimAllowed":false' \
+      "$evidence_dir/admission.jsonl" >/dev/null; then
+  printf '%s\n' \
+    'dataflow-performance-check: class-load admission failed' >&2
+  exit 1
+fi
+
 fork=1
 while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
@@ -54,14 +80,6 @@ set -- "$evidence_dir"/dataflow-fork-*.jsonl
 "$JAVA_HOME/bin/java" -cp "$classpath" \
   com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
   "$baseline" "$baseline_result" "$@"
-
-if "$JAVA_HOME/bin/java" -cp "$classpath" \
-    com.hgtech.soma.benchmarks.DataFlowComponentBenchmark --unknown value \
-    >"$evidence_dir/invalid-option.log" 2>&1; then
-  printf '%s\n' \
-    'dataflow-performance-check: unknown CLI option accepted' >&2
-  exit 1
-fi
 
 record_count=0
 for artifact in "$@"; do
