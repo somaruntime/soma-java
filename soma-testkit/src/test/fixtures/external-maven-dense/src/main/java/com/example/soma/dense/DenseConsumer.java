@@ -411,16 +411,17 @@ public final class DenseConsumer {
         require(table.size() == 0, "clear");
         final IndexSnapshot releaseSnapshot = table.indexSnapshot();
         IntColumnView releasedView = table.idColumn();
+        expectCode("view_pinned", table::release);
+        releasedView.close();
         table.release();
         table.release();
         require(table.isReleased() && table.statsSnapshot().released(), "release terminal state");
-        expectCode("table_released", new Action() {
+        expectCode("released_view", new Action() {
             @Override
             public void run() {
                 releasedView.getInt(0);
             }
         });
-        releasedView.close();
         expectCode("table_released", new Action() {
             @Override
             public void run() {

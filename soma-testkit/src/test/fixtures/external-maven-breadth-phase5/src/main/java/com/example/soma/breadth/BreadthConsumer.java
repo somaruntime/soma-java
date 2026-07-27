@@ -11,6 +11,9 @@ import com.example.soma.breadth.generated.StringParentTable;
 import com.example.soma.breadth.generated.StringSelectorRowBatch;
 import com.example.soma.breadth.generated.StringSelectorRowTable;
 import com.example.soma.breadth.generated.StringSelectorRowDataFlow;
+import com.example.soma.groupother.generated.OtherRowBatch;
+import com.example.soma.groupother.generated.OtherRowDataFlow;
+import com.example.soma.groupother.generated.OtherRowTable;
 import com.hgtech.soma.dataflow.DataFlowContext;
 import com.hgtech.soma.dataflow.GroupedLongResult;
 import com.hgtech.soma.dataflow.KeyExpression;
@@ -18,8 +21,13 @@ import com.hgtech.soma.dataflow.LongScalarResult;
 import com.hgtech.soma.dataflow.ParameterSlot;
 import com.hgtech.soma.dataflow.StringColumnResult;
 import com.hgtech.soma.runtime.EnumColumnView;
+import com.hgtech.soma.runtime.IntColumnView;
 import com.hgtech.soma.runtime.MaterializationBudget;
 import com.hgtech.soma.runtime.RuntimePlan;
+import com.hgtech.soma.runtime.SomaGroup;
+import com.hgtech.soma.runtime.SomaGroupMemberState;
+import com.hgtech.soma.runtime.SomaGroupPlan;
+import com.hgtech.soma.runtime.SomaGroupState;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.StringResourceProfile;
 import com.hgtech.soma.runtime.StringResourceProfileStatus;
@@ -27,6 +35,7 @@ import com.hgtech.soma.runtime.StringResourceRole;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
 import com.hgtech.soma.runtime.metadata.SomaColumnMetadata;
+import com.hgtech.soma.runtime.metadata.SomaGroupMetadata;
 import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
 import com.hgtech.soma.runtime.metadata.SomaTypeKind;
 
@@ -49,7 +58,190 @@ public final class BreadthConsumer {
         verifyStringKeyAndBudgets();
         verifyStringSelectorsAndMetadata();
         verifyStringKeyedChild();
+        verifySomaGroupCompositionAndLifecycle();
         System.out.println("breadth-phase5-consumer: ok");
+    }
+
+    private static void verifySomaGroupCompositionAndLifecycle() {
+        RuntimePlan breadthPlan = SchemaMetadata.defaultRuntimePlan();
+        RuntimePlan otherPlan =
+                com.example.soma.groupother.generated.SchemaMetadata
+                        .defaultRuntimePlan();
+        SomaGroupPlan.Builder groupBuilder =
+                SomaGroupPlan.builder("breadth-explicit-group")
+                        .member("left",
+                                SchemaMetadata.metadata(),
+                                StringSelectorRowTable.metadata(),
+                                breadthPlan)
+                        .member("leftReplica",
+                                SchemaMetadata.metadata(),
+                                StringSelectorRowTable.metadata(),
+                                breadthPlan)
+                        .member("other",
+                                com.example.soma.groupother.generated
+                                        .SchemaMetadata.metadata(),
+                                OtherRowTable.metadata(),
+                                otherPlan);
+        SomaGroupPlan groupPlan = groupBuilder.build();
+        expectIllegalState(
+                () -> groupBuilder.maximumStructuralBytes(1L),
+                "SomaGroupPlan builder closes after build");
+        SomaGroup group = SomaGroup.create(groupPlan);
+        SomaGroupMetadata planned = group.metadata();
+        check(planned.state() == SomaGroupState.ACTIVE
+                        && planned.membershipEpoch() == 0L
+                        && planned.requireMember("left").state()
+                        == SomaGroupMemberState.PLANNED,
+                "explicit Group starts with frozen unallocated slots");
+
+        StringSelectorRowTable left =
+                StringSelectorRowTable.attach(group, "left");
+        StringSelectorRowTable leftReplica =
+                StringSelectorRowTable.attach(group, "leftReplica");
+        OtherRowTable other = OtherRowTable.attach(group, "other");
+        left.addBatch(new StringSelectorRowBatch().addValues(1, "shared"));
+        leftReplica.addBatch(
+                new StringSelectorRowBatch().addValues(2, "shared"));
+        other.addBatch(new OtherRowBatch().addValues(1L, 7));
+        left.setDataVersion("left-v1");
+        group.setDataVersion("group-v1");
+
+        SomaGroupMetadata attached = group.metadata();
+        long leftAggregate =
+                attached.requireMember("left").aggregateInstanceId();
+        long replicaAggregate =
+                attached.requireMember("leftReplica").aggregateInstanceId();
+        long otherAggregate =
+                attached.requireMember("other").aggregateInstanceId();
+        check(attached.membershipEpoch() == 3L
+                        && leftAggregate > 0L
+                        && replicaAggregate > 0L
+                        && otherAggregate > 0L
+                        && leftAggregate != replicaAggregate
+                        && leftAggregate != otherAggregate
+                        && replicaAggregate != otherAggregate,
+                "same-schema instances and cross-schema root keep independent aggregates");
+        check(attached.requireMember("left").attachmentOrdinal() == 1L
+                        && attached.requireMember("leftReplica")
+                        .attachmentOrdinal() == 2L
+                        && attached.requireMember("other")
+                        .attachmentOrdinal() == 3L
+                        && "left-v1".equals(left.dataVersion())
+                        && "group-v1".equals(group.dataVersion()),
+                "attachment order and independent dataVersion markers");
+        expectCode("group_member_already_attached",
+                () -> StringSelectorRowTable.attach(group, "left"),
+                "stable member slot publishes once");
+        expectCode("group_release_required", left::release,
+                "explicit member cannot release independently");
+
+        StringSelectorRowTable external =
+                StringSelectorRowTable.create();
+        external.addBatch(
+                new StringSelectorRowBatch().addValues(3, "shared"));
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            StringSelectorRowDataFlow.Source leftSource =
+                    StringSelectorRowDataFlow.source(0, "groupLeft");
+            StringSelectorRowDataFlow.Source replicaSource =
+                    StringSelectorRowDataFlow.source(1, "groupReplica");
+            LongScalarResult sameGroup = leftSource.candidates()
+                    .innerJoin(replicaSource.candidates())
+                    .on(leftSource.columns().label(),
+                            replicaSource.columns().label())
+                    .count()
+                    .compile()
+                    .newInvocation(context)
+                    .bind(leftSource, StringSelectorRowDataFlow.bind(left))
+                    .bind(replicaSource,
+                            StringSelectorRowDataFlow.bind(leftReplica))
+                    .execute();
+            check(sameGroup.value() == 1L,
+                    "DataFlow acquires distinct aggregates in one explicit Group");
+
+            StringSelectorRowDataFlow.Source externalSource =
+                    StringSelectorRowDataFlow.source(1, "implicitExternal");
+            LongScalarResult crossGroup = leftSource.candidates()
+                    .innerJoin(externalSource.candidates())
+                    .on(leftSource.columns().label(),
+                            externalSource.columns().label())
+                    .count()
+                    .compile()
+                    .newInvocation(context)
+                    .bind(leftSource, StringSelectorRowDataFlow.bind(left))
+                    .bind(externalSource,
+                            StringSelectorRowDataFlow.bind(external))
+                    .execute();
+            check(crossGroup.value() == 1L,
+                    "DataFlow guard is independent of explicit/implicit Group");
+
+            OtherRowDataFlow.Source otherSource =
+                    OtherRowDataFlow.source(1, "otherSchema");
+            LongScalarResult crossSchema = leftSource.candidates()
+                    .innerJoin(otherSource.candidates())
+                    .on(leftSource.columns().id(),
+                            otherSource.columns().id())
+                    .count()
+                    .compile()
+                    .newInvocation(context)
+                    .bind(leftSource, StringSelectorRowDataFlow.bind(left))
+                    .bind(otherSource, OtherRowDataFlow.bind(other))
+                    .execute();
+            check(crossSchema.value() == 1L,
+                    "DataFlow guard admits cross-schema aggregates");
+        } finally {
+            context.close();
+            external.release();
+        }
+
+        IntColumnView pinned = leftReplica.idColumn();
+        expectCode("view_pinned", group::release,
+                "Group release completes all-member preflight first");
+        check(!left.isReleased() && !leftReplica.isReleased()
+                        && !other.isReleased(),
+                "failed Group release leaves every root live");
+        pinned.close();
+        group.release();
+        group.release();
+        check(group.state() == SomaGroupState.RELEASED
+                        && left.isReleased()
+                        && leftReplica.isReleased()
+                        && other.isReleased()
+                        && group.membershipEpoch() == 4L,
+                "Group release is terminal and idempotent");
+        check(attached.state() == SomaGroupState.ACTIVE
+                        && attached.requireMember("left").state()
+                        == SomaGroupMemberState.ATTACHED
+                        && group.metadata().requireMember("left").state()
+                        == SomaGroupMemberState.RELEASED,
+                "runtime Metadata snapshots are detached historical values");
+        expectCode("group_released",
+                () -> StringSelectorRowTable.attach(group, "left"),
+                "released Group rejects attach");
+
+        RuntimePlan tiny = SchemaMetadata.newPlan()
+                .maximumAggregateStorageBytes(1L)
+                .maximumOwnershipTableInstances(1L)
+                .build();
+        SomaGroup rollbackGroup = SomaGroup.create(
+                SomaGroupPlan.builder("attach-rollback")
+                        .member("tiny",
+                                SchemaMetadata.metadata(),
+                                StringSelectorRowTable.metadata(),
+                                tiny)
+                        .build());
+        expectCode("memory_limit_exceeded",
+                () -> StringSelectorRowTable.attach(
+                        rollbackGroup, "tiny"),
+                "attach resource failure");
+        check(rollbackGroup.state() == SomaGroupState.ACTIVE
+                        && rollbackGroup.membershipEpoch() == 0L
+                        && rollbackGroup.metadata().requireMember("tiny")
+                        .state() == SomaGroupMemberState.PLANNED,
+                "failed attach rolls back membership, ledger and epoch");
+        rollbackGroup.release();
+        check(rollbackGroup.state() == SomaGroupState.RELEASED,
+                "failed attach leaves a releasable empty Group");
     }
 
     private static void verifyEffectivePlanAndStringProfile() {

@@ -123,6 +123,7 @@ Compiled from "FullRowTable.java"
 public final class com.example.soma.breadth.generated.FullRowTable {
   public static com.example.soma.breadth.generated.FullRowTable create();
   public static com.example.soma.breadth.generated.FullRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.breadth.generated.FullRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -130,6 +131,9 @@ public final class com.example.soma.breadth.generated.FullRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.breadth.generated.FullRowBatch);
   public void replaceAll(com.example.soma.breadth.generated.FullRowBatch);
@@ -346,6 +350,7 @@ Compiled from "StringKeyRowTable.java"
 public final class com.example.soma.breadth.generated.StringKeyRowTable {
   public static com.example.soma.breadth.generated.StringKeyRowTable create();
   public static com.example.soma.breadth.generated.StringKeyRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.breadth.generated.StringKeyRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -353,6 +358,9 @@ public final class com.example.soma.breadth.generated.StringKeyRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.breadth.generated.StringKeyRowBatch);
   public void replaceAll(com.example.soma.breadth.generated.StringKeyRowBatch);
@@ -467,6 +475,7 @@ Compiled from "StringParentTable.java"
 public final class com.example.soma.breadth.generated.StringParentTable {
   public static com.example.soma.breadth.generated.StringParentTable create();
   public static com.example.soma.breadth.generated.StringParentTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.breadth.generated.StringParentTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -474,6 +483,9 @@ public final class com.example.soma.breadth.generated.StringParentTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.breadth.generated.StringParentBatch);
   public void replaceAll(com.example.soma.breadth.generated.StringParentBatch);
@@ -579,6 +591,7 @@ Compiled from "StringSelectorRowTable.java"
 public final class com.example.soma.breadth.generated.StringSelectorRowTable {
   public static com.example.soma.breadth.generated.StringSelectorRowTable create();
   public static com.example.soma.breadth.generated.StringSelectorRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.breadth.generated.StringSelectorRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -586,6 +599,9 @@ public final class com.example.soma.breadth.generated.StringSelectorRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.breadth.generated.StringSelectorRowBatch);
   public void replaceAll(com.example.soma.breadth.generated.StringSelectorRowBatch);

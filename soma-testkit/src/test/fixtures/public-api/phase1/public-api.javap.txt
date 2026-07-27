@@ -126,14 +126,18 @@ Compiled from "ChildOwnershipRegistry.java"
 public final class com.hgtech.soma.runtime.generated.ChildOwnershipRegistry {
   public com.hgtech.soma.runtime.generated.ChildOwnershipRegistry();
   public com.hgtech.soma.runtime.generated.ChildOwnershipRegistry(long, long);
+  public static com.hgtech.soma.runtime.generated.ChildOwnershipRegistry generatedCreate(com.hgtech.soma.runtime.generated.GeneratedPlanToken, com.hgtech.soma.runtime.generated.GroupLedger, int, com.hgtech.soma.runtime.generated.GroupMembership);
   public long aggregateInstanceId();
   public java.lang.Object physicalIdentity();
   public void releaseStorage();
+  public void abortUnpublishedConstruction();
+  public void releaseRoot(java.lang.String);
   public void beginMaterialization(java.lang.String);
   public void endMaterialization();
   public void beginDataFlowMaterialization(java.lang.String);
   public void endDataFlowMaterialization(java.lang.String);
   public void preflightMutation(java.lang.String);
+  public void preflightSafePoint(java.lang.String);
   public void preflightTableAccess(java.lang.String);
   public void beginTableScope(java.lang.String);
   public void endTableScope(java.lang.String);
@@ -175,6 +179,9 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public boolean isReleased();
   public boolean hasPinnedBorrow();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public long acquireView(java.lang.String);
   public void releaseView();
   public void checkView(long, int, java.lang.String);
@@ -207,6 +214,8 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void commitClear(int);
   public void commitStructuralRemove(int, int, java.lang.String);
   public int prepareRelease();
+  public void preflightRootRelease(java.lang.String);
+  public void preflightSafePoint(java.lang.String);
   public void commitRelease(int);
   public void markOwned(java.lang.String);
   public boolean isOwned();
@@ -292,6 +301,14 @@ Compiled from "GeneratedPlanToken.java"
 public final class com.hgtech.soma.runtime.generated.GeneratedPlanToken {
   public static void require(com.hgtech.soma.runtime.generated.GeneratedPlanToken);
 }
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedRootFactory
+Compiled from "GeneratedRootFactory.java"
+public interface com.hgtech.soma.runtime.generated.GeneratedRootFactory<T> {
+  public abstract T create(com.hgtech.soma.runtime.RuntimePlan, com.hgtech.soma.runtime.TablePlan, com.hgtech.soma.runtime.generated.ChildOwnershipRegistry);
+  public abstract void preflightRelease(T);
+  public abstract void release(T);
+  public abstract void preflightSafePoint(T, java.lang.String);
+}
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedRuntimePlan
 Compiled from "GeneratedRuntimePlan.java"
 public final class com.hgtech.soma.runtime.generated.GeneratedRuntimePlan {
@@ -324,6 +341,39 @@ public class com.hgtech.soma.runtime.generated.GeneratedScanPlan {
   public final void argument(int, long);
   public final void clear();
   public final java.lang.String sourcePath();
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedSomaGroup
+Compiled from "GeneratedSomaGroup.java"
+public final class com.hgtech.soma.runtime.generated.GeneratedSomaGroup {
+  public static <T> T createImplicit(com.hgtech.soma.runtime.metadata.SomaMetadata, com.hgtech.soma.runtime.metadata.SomaTableMetadata, com.hgtech.soma.runtime.RuntimePlan, com.hgtech.soma.runtime.generated.GeneratedRootFactory<T>);
+  public static <T> T attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String, com.hgtech.soma.runtime.metadata.SomaMetadata, com.hgtech.soma.runtime.metadata.SomaTableMetadata, com.hgtech.soma.runtime.generated.GeneratedRootFactory<T>);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupLedger
+Compiled from "GroupLedger.java"
+public final class com.hgtech.soma.runtime.generated.GroupLedger {
+  public com.hgtech.soma.runtime.generated.GroupLedger(java.lang.String, long, long, java.lang.String[], long[], long[]);
+  public static com.hgtech.soma.runtime.generated.GroupLedger standalone(long, long);
+  public void requireMemberDrained(int, com.hgtech.soma.runtime.generated.ChildOwnershipRegistry, java.lang.String);
+  public void requireDrained(java.lang.String);
+  public long maximumBytes();
+  public long maximumTableInstances();
+  public long retainedBytes();
+  public long transientBytes();
+  public long currentBytes();
+  public long highWaterBytes();
+  public long currentTableInstances();
+  public long highWaterTableInstances();
+  public long memberRetainedBytes(int);
+  public long memberTransientBytes(int);
+  public long memberCurrentTableInstances(int);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupMembership
+Compiled from "GroupMembership.java"
+public interface com.hgtech.soma.runtime.generated.GroupMembership {
+  public abstract void bindAggregate(long);
+  public abstract void preflightAccess(long, java.lang.String);
+  public abstract void aggregateFaulted(long, java.lang.String, java.lang.String);
+  public abstract void releaseRoot(long, java.lang.String);
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupedExactIndex
 Compiled from "GroupedExactIndex.java"
@@ -1730,6 +1780,73 @@ public final class com.hgtech.soma.runtime.SomaErrorCategory extends java.lang.E
   public static com.hgtech.soma.runtime.SomaErrorCategory[] values();
   public static com.hgtech.soma.runtime.SomaErrorCategory valueOf(java.lang.String);
 }
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroup
+Compiled from "SomaGroup.java"
+public final class com.hgtech.soma.runtime.SomaGroup {
+  public static com.hgtech.soma.runtime.SomaGroup create(com.hgtech.soma.runtime.SomaGroupPlan);
+  public com.hgtech.soma.runtime.SomaGroupPlan plan();
+  public long groupInstanceId();
+  public com.hgtech.soma.runtime.SomaGroupState state();
+  public boolean isReleased();
+  public long membershipEpoch();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
+  public com.hgtech.soma.runtime.metadata.SomaGroupMetadata metadata();
+  public <T> T generatedAttach(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String, com.hgtech.soma.runtime.metadata.SomaMetadata, com.hgtech.soma.runtime.metadata.SomaTableMetadata, com.hgtech.soma.runtime.generated.GeneratedRootFactory<T>);
+  public void release();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupMemberPlan
+Compiled from "SomaGroupMemberPlan.java"
+public final class com.hgtech.soma.runtime.SomaGroupMemberPlan {
+  public java.lang.String memberId();
+  public com.hgtech.soma.runtime.metadata.SomaMetadata metadata();
+  public com.hgtech.soma.runtime.metadata.SomaTableMetadata rootTable();
+  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public long maximumStructuralBytes();
+  public long maximumTableInstances();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupMemberState
+Compiled from "SomaGroupMemberState.java"
+public final class com.hgtech.soma.runtime.SomaGroupMemberState extends java.lang.Enum<com.hgtech.soma.runtime.SomaGroupMemberState> {
+  public static final com.hgtech.soma.runtime.SomaGroupMemberState PLANNED;
+  public static final com.hgtech.soma.runtime.SomaGroupMemberState ATTACHED;
+  public static final com.hgtech.soma.runtime.SomaGroupMemberState FAULTED;
+  public static final com.hgtech.soma.runtime.SomaGroupMemberState RELEASED;
+  public static com.hgtech.soma.runtime.SomaGroupMemberState[] values();
+  public static com.hgtech.soma.runtime.SomaGroupMemberState valueOf(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupPlan
+Compiled from "SomaGroupPlan.java"
+public final class com.hgtech.soma.runtime.SomaGroupPlan {
+  public static com.hgtech.soma.runtime.SomaGroupPlan$Builder builder(java.lang.String);
+  public static com.hgtech.soma.runtime.SomaGroupPlan generatedImplicit(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String, java.lang.String, com.hgtech.soma.runtime.metadata.SomaMetadata, com.hgtech.soma.runtime.metadata.SomaTableMetadata, com.hgtech.soma.runtime.RuntimePlan);
+  public java.lang.String logicalGroupId();
+  public boolean explicit();
+  public long maximumStructuralBytes();
+  public long maximumTableInstances();
+  public java.lang.String groupPlanHash();
+  public java.util.List<com.hgtech.soma.runtime.SomaGroupMemberPlan> members();
+  public com.hgtech.soma.runtime.SomaGroupMemberPlan requireMember(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupPlan$Builder
+Compiled from "SomaGroupPlan.java"
+public final class com.hgtech.soma.runtime.SomaGroupPlan$Builder {
+  public com.hgtech.soma.runtime.SomaGroupPlan$Builder maximumStructuralBytes(long);
+  public com.hgtech.soma.runtime.SomaGroupPlan$Builder maximumTableInstances(long);
+  public com.hgtech.soma.runtime.SomaGroupPlan$Builder member(java.lang.String, com.hgtech.soma.runtime.metadata.SomaMetadata, com.hgtech.soma.runtime.metadata.SomaTableMetadata, com.hgtech.soma.runtime.RuntimePlan);
+  public com.hgtech.soma.runtime.SomaGroupPlan build();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupState
+Compiled from "SomaGroupState.java"
+public final class com.hgtech.soma.runtime.SomaGroupState extends java.lang.Enum<com.hgtech.soma.runtime.SomaGroupState> {
+  public static final com.hgtech.soma.runtime.SomaGroupState ACTIVE;
+  public static final com.hgtech.soma.runtime.SomaGroupState DEGRADED;
+  public static final com.hgtech.soma.runtime.SomaGroupState FAULTED;
+  public static final com.hgtech.soma.runtime.SomaGroupState RELEASED;
+  public static com.hgtech.soma.runtime.SomaGroupState[] values();
+  public static com.hgtech.soma.runtime.SomaGroupState valueOf(java.lang.String);
+}
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaRuntimeException
 Compiled from "SomaRuntimeException.java"
 public final class com.hgtech.soma.runtime.SomaRuntimeException extends java.lang.RuntimeException {
@@ -1951,6 +2068,30 @@ public final class com.hgtech.soma.runtime.metadata.SomaExactAccess extends java
   public static final com.hgtech.soma.runtime.metadata.SomaExactAccess EXACT_HASH;
   public static com.hgtech.soma.runtime.metadata.SomaExactAccess[] values();
   public static com.hgtech.soma.runtime.metadata.SomaExactAccess valueOf(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata
+Compiled from "SomaGroupMemberMetadata.java"
+public interface com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata {
+  public abstract java.lang.String memberId();
+  public abstract java.lang.String schemaHash();
+  public abstract java.lang.String rootTable();
+  public abstract java.lang.String runtimePlanHash();
+  public abstract com.hgtech.soma.runtime.SomaGroupMemberState state();
+  public abstract long aggregateInstanceId();
+  public abstract long attachmentOrdinal();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaGroupMetadata
+Compiled from "SomaGroupMetadata.java"
+public interface com.hgtech.soma.runtime.metadata.SomaGroupMetadata {
+  public abstract java.lang.String logicalGroupId();
+  public abstract java.lang.String groupPlanHash();
+  public abstract long groupInstanceId();
+  public abstract boolean explicit();
+  public abstract com.hgtech.soma.runtime.SomaGroupState state();
+  public abstract long membershipEpoch();
+  public abstract java.lang.String dataVersion();
+  public abstract java.util.List<com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata> members();
+  public abstract com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata requireMember(java.lang.String);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaIndexMetadata
 Compiled from "SomaIndexMetadata.java"

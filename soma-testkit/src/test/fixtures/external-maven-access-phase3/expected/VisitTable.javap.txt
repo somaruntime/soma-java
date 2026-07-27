@@ -2,6 +2,7 @@ Compiled from "VisitTable.java"
 public final class com.example.soma.access.generated.VisitTable {
   public static com.example.soma.access.generated.VisitTable create();
   public static com.example.soma.access.generated.VisitTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.access.generated.VisitTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -9,6 +10,9 @@ public final class com.example.soma.access.generated.VisitTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.access.generated.VisitBatch);
   public void replaceAll(com.example.soma.access.generated.VisitBatch);

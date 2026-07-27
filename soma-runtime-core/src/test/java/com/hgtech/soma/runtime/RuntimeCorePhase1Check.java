@@ -6,6 +6,7 @@ import com.hgtech.soma.runtime.generated.DenseTableState;
 import com.hgtech.soma.runtime.generated.GeneratedMetadata;
 import com.hgtech.soma.runtime.generated.GeneratedColumn;
 import com.hgtech.soma.runtime.generated.GeneratedScanPlan;
+import com.hgtech.soma.runtime.generated.GroupTestProtocol;
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.runtime.generated.IndexBuffer;
@@ -16,11 +17,24 @@ import com.hgtech.soma.runtime.generated.PresenceBitmap;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
 import com.hgtech.soma.runtime.generated.OwnedChildTable;
 import com.hgtech.soma.runtime.metadata.SomaEffectiveMetadata;
+import com.hgtech.soma.runtime.metadata.SomaColumnMetadata;
+import com.hgtech.soma.runtime.metadata.SomaDescriptor;
 import com.hgtech.soma.runtime.metadata.SomaExactAccess;
+import com.hgtech.soma.runtime.metadata.SomaIndexMetadata;
+import com.hgtech.soma.runtime.metadata.SomaKeyMetadata;
+import com.hgtech.soma.runtime.metadata.SomaMetadata;
+import com.hgtech.soma.runtime.metadata.SomaOwnershipMetadata;
 import com.hgtech.soma.runtime.metadata.SomaPrimaryLocator;
+import com.hgtech.soma.runtime.metadata.SomaSchemaMetadata;
 import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
 import com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata;
+import com.hgtech.soma.runtime.metadata.SomaTableKind;
+import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
+import com.hgtech.soma.runtime.metadata.SomaUniqueMetadata;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 import java.util.TreeMap;
@@ -38,6 +52,7 @@ public final class RuntimeCorePhase1Check {
         testSchemaSeededPlanBuilderAndEffectiveMetadata();
         testPlanningRowsAndMaximumRows();
         testStringResourceProfile();
+        testSomaGroupCompositionLifecycleAndFaults();
         testUnicodeCodePointOrderAndLosslessCanonicalText();
         testChildPlanIdentity();
         testOwnershipRegistryInitialStorageBoundary();
@@ -132,11 +147,11 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumLeafValues\":50000000,"
                         + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
                         + "\"maximumTableInstances\":100000},"
-                        + "\"generatedProtocol\":\"soma-generated-runtime-v6\","
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v7\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
                         + "\"planProtocol\":\"soma-runtime-plan-v4\","
-                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v6\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v7\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");
@@ -436,6 +451,127 @@ public final class RuntimeCorePhase1Check {
         } catch (UnsupportedOperationException expected) {
             // expected
         }
+    }
+
+    private static void testSomaGroupCompositionLifecycleAndFaults() {
+        RuntimePlan plan = defaultPlan();
+        TestMetadata metadata = new TestMetadata(
+                plan.schemaHash(), "Order");
+        SomaGroupPlan.Builder builder =
+                SomaGroupPlan.builder("runtime-group")
+                        .member("right", metadata, metadata.table(), plan)
+                        .member("left", metadata, metadata.table(), plan);
+        SomaGroupPlan groupPlan = builder.build();
+        assertEquals("left", groupPlan.members().get(0).memberId(),
+                "Group member canonical order");
+        expectIllegalState(new ThrowingRunnable() {
+            @Override public void run() {
+                builder.maximumTableInstances(1L);
+            }
+        }, "Group Plan builder must be one-shot");
+        SomaGroupPlan reverse = SomaGroupPlan.builder("runtime-group")
+                .member("left", metadata, metadata.table(), plan)
+                .member("right", metadata, metadata.table(), plan)
+                .build();
+        assertEquals(groupPlan.groupPlanHash(), reverse.groupPlanHash(),
+                "Group Plan identity ignores builder member order");
+
+        final List<String> releaseOrder = new ArrayList<String>();
+        SomaGroup group = SomaGroup.create(groupPlan);
+        GroupTestProtocol.Root right = GroupTestProtocol.attach(
+                group, "right", metadata, metadata.table(),
+                "right", releaseOrder);
+        GroupTestProtocol.Root left = GroupTestProtocol.attach(
+                group, "left", metadata, metadata.table(),
+                "left", releaseOrder);
+        assertEquals(2L, group.membershipEpoch(),
+                "each successful attach publishes one membership epoch");
+        assertTrue(group.metadata().requireMember("left")
+                        .aggregateInstanceId()
+                        != group.metadata().requireMember("right")
+                        .aggregateInstanceId(),
+                "same descriptor slots keep independent aggregate identity");
+        left.blockPreflight(true);
+        expectCode("view_pinned", new ThrowingRunnable() {
+            @Override public void run() { group.release(); }
+        });
+        assertTrue(releaseOrder.isEmpty(),
+                "Group conflict preflight runs before every release");
+        assertEquals(SomaGroupState.ACTIVE, group.state(),
+                "expected release conflict preserves Group state");
+        left.blockPreflight(false);
+        group.release();
+        assertEquals(2, releaseOrder.size(), "both roots released");
+        assertEquals("left", releaseOrder.get(0),
+                "reverse attachment release first");
+        assertEquals("right", releaseOrder.get(1),
+                "reverse attachment release second");
+        assertEquals(SomaGroupState.RELEASED, group.state(),
+                "successful Group release is terminal");
+        assertEquals(3L, group.membershipEpoch(),
+                "terminal Group release publishes one membership epoch");
+
+        SomaGroup degraded = SomaGroup.create(
+                SomaGroupPlan.builder("runtime-degraded")
+                        .member("faulted", metadata, metadata.table(), plan)
+                        .member("healthy", metadata, metadata.table(), plan)
+                        .build());
+        List<String> degradedOrder = new ArrayList<String>();
+        GroupTestProtocol.Root faulted = GroupTestProtocol.attach(
+                degraded, "faulted", metadata, metadata.table(),
+                "faulted", degradedOrder);
+        GroupTestProtocol.attach(
+                degraded, "healthy", metadata, metadata.table(),
+                "healthy", degradedOrder);
+        GroupTestProtocol.fault(faulted);
+        assertEquals(SomaGroupState.DEGRADED, degraded.state(),
+                "one root fault degrades but does not group-fault");
+        assertEquals(SomaGroupMemberState.FAULTED,
+                degraded.metadata().requireMember("faulted").state(),
+                "fault remains attributed to its root member");
+        assertEquals(SomaGroupMemberState.ATTACHED,
+                degraded.metadata().requireMember("healthy").state(),
+                "other root remains trusted and attached");
+        expectCode("internal_invariant_violation", new ThrowingRunnable() {
+            @Override public void run() {
+                degraded.setDataVersion("not-a-safe-point");
+            }
+        });
+        assertEquals(null, degraded.dataVersion(),
+                "degraded Group cannot publish a composition-wide version");
+        degraded.release();
+        assertEquals(SomaGroupState.RELEASED, degraded.state(),
+                "degraded Group still supports root cleanup");
+
+        SomaGroup cleanup = SomaGroup.create(
+                SomaGroupPlan.builder("runtime-cleanup-failure")
+                        .member("root", metadata, metadata.table(), plan)
+                        .build());
+        List<String> cleanupOrder = new ArrayList<String>();
+        GroupTestProtocol.Root cleanupRoot = GroupTestProtocol.attach(
+                cleanup, "root", metadata, metadata.table(),
+                "root", cleanupOrder);
+        cleanupRoot.failReleaseOnce();
+        try {
+            cleanup.release();
+            throw new AssertionError("cleanup failure expected");
+        } catch (IllegalStateException expected) {
+            // Group-owned cleanup failure is not presented as a recoverable conflict.
+        }
+        assertEquals(SomaGroupState.FAULTED, cleanup.state(),
+                "cleanup failure faults Group publication state");
+        cleanup.release();
+        assertEquals(SomaGroupState.RELEASED, cleanup.state(),
+                "faulted Group permits a bounded cleanup retry");
+
+        final SomaGroupPlan.Builder tooSmall =
+                SomaGroupPlan.builder("too-small")
+                        .member("root", metadata, metadata.table(), plan)
+                        .maximumStructuralBytes(
+                                plan.maximumAggregateStorageBytes() - 1L);
+        expectCode("invalid_group_plan", new ThrowingRunnable() {
+            @Override public void run() { tooSmall.build(); }
+        });
     }
 
     private static void testUnicodeCodePointOrderAndLosslessCanonicalText() {
@@ -1121,9 +1257,16 @@ public final class RuntimeCorePhase1Check {
             }
         });
         state.acquireView("value.column");
+        expectCode("view_pinned", new ThrowingRunnable() {
+            @Override
+            public void run() {
+                state.prepareRelease();
+            }
+        });
+        state.releaseView();
         int releasedSize = state.prepareRelease();
         state.commitRelease(releasedSize);
-        assertEquals(0, state.statsSnapshot().activeViews(), "release invalidates view count");
+        assertEquals(0, state.statsSnapshot().activeViews(), "release preserves closed view count");
         expectCode("table_released", new ThrowingRunnable() {
             @Override
             public void run() {
@@ -1356,6 +1499,93 @@ public final class RuntimeCorePhase1Check {
     private static void assertEquals(long expected, long actual, String message) {
         if (expected != actual) {
             throw new AssertionError(message + ": expected=" + expected + " actual=" + actual);
+        }
+    }
+
+    private static final class TestMetadata implements SomaMetadata {
+        private final TestTable table;
+        private final SomaDescriptor descriptor;
+
+        private TestMetadata(String schemaHash, String tableName) {
+            table = new TestTable(tableName);
+            final TestSchema schema =
+                    new TestSchema(schemaHash, table);
+            descriptor = new SomaDescriptor() {
+                @Override public SomaSchemaMetadata schema() {
+                    return schema;
+                }
+            };
+        }
+
+        @Override public SomaDescriptor descriptor() {
+            return descriptor;
+        }
+
+        private SomaTableMetadata table() {
+            return table;
+        }
+    }
+
+    private static final class TestSchema implements SomaSchemaMetadata {
+        private final String schemaHash;
+        private final SomaTableMetadata table;
+        private final List<SomaTableMetadata> tables;
+
+        private TestSchema(
+                String schemaHash, SomaTableMetadata table) {
+            this.schemaHash = schemaHash;
+            this.table = table;
+            tables = Collections.singletonList(table);
+        }
+
+        @Override public String logicalName() { return "test-schema"; }
+        @Override public String sourcePackage() { return "test"; }
+        @Override public String generatedPackage() { return "test.generated"; }
+        @Override public String version() { return "1"; }
+        @Override public String schemaHash() { return schemaHash; }
+        @Override public List<SomaTableMetadata> tables() { return tables; }
+        @Override public SomaTableMetadata requireTable(String logicalName) {
+            if (table.logicalName().equals(logicalName)) return table;
+            throw new IllegalArgumentException("unknown test table");
+        }
+    }
+
+    private static final class TestTable implements SomaTableMetadata {
+        private final String logicalName;
+
+        private TestTable(String logicalName) {
+            this.logicalName = logicalName;
+        }
+
+        @Override public String logicalName() { return logicalName; }
+        @Override public String carrierType() { return "test.Order"; }
+        @Override public SomaTableKind kind() { return SomaTableKind.DENSE; }
+        @Override public int defaultCapacity() { return 16; }
+        @Override public List<SomaColumnMetadata> columns() {
+            return Collections.emptyList();
+        }
+        @Override public SomaColumnMetadata requireColumn(String logicalPath) {
+            throw new IllegalArgumentException("unknown test column");
+        }
+        @Override public SomaKeyMetadata key() { return null; }
+        @Override public List<SomaUniqueMetadata> uniques() {
+            return Collections.emptyList();
+        }
+        @Override public SomaUniqueMetadata requireUnique(String name) {
+            throw new IllegalArgumentException("unknown test unique");
+        }
+        @Override public List<SomaIndexMetadata> indexes() {
+            return Collections.emptyList();
+        }
+        @Override public SomaIndexMetadata requireIndex(String name) {
+            throw new IllegalArgumentException("unknown test index");
+        }
+        @Override public List<SomaOwnershipMetadata> ownership() {
+            return Collections.emptyList();
+        }
+        @Override public SomaOwnershipMetadata requireOwnership(
+                String logicalPath) {
+            throw new IllegalArgumentException("unknown test ownership");
         }
     }
 

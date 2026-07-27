@@ -59,6 +59,7 @@ Compiled from "ChildRowTable.java"
 public final class com.example.soma.child.generated.ChildRowTable {
   public static com.example.soma.child.generated.ChildRowTable create();
   public static com.example.soma.child.generated.ChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.ChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -66,6 +67,9 @@ public final class com.example.soma.child.generated.ChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.child.generated.ChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.ChildRowBatch);
@@ -198,6 +202,7 @@ Compiled from "DoubleKeyedChildRowTable.java"
 public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public static com.example.soma.child.generated.DoubleKeyedChildRowTable create();
   public static com.example.soma.child.generated.DoubleKeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.DoubleKeyedChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -205,6 +210,9 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.child.generated.DoubleKeyedChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.DoubleKeyedChildRowBatch);
@@ -350,6 +358,7 @@ Compiled from "FloatKeyedChildRowTable.java"
 public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public static com.example.soma.child.generated.FloatKeyedChildRowTable create();
   public static com.example.soma.child.generated.FloatKeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.FloatKeyedChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -357,6 +366,9 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.child.generated.FloatKeyedChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.FloatKeyedChildRowBatch);
@@ -471,6 +483,7 @@ Compiled from "FloatingParentRowTable.java"
 public final class com.example.soma.child.generated.FloatingParentRowTable {
   public static com.example.soma.child.generated.FloatingParentRowTable create();
   public static com.example.soma.child.generated.FloatingParentRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.FloatingParentRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -478,6 +491,9 @@ public final class com.example.soma.child.generated.FloatingParentRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.child.generated.FloatingParentRowBatch);
   public void replaceAll(com.example.soma.child.generated.FloatingParentRowBatch);
@@ -583,6 +599,7 @@ Compiled from "GrandchildRowTable.java"
 public final class com.example.soma.child.generated.GrandchildRowTable {
   public static com.example.soma.child.generated.GrandchildRowTable create();
   public static com.example.soma.child.generated.GrandchildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.GrandchildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -590,6 +607,9 @@ public final class com.example.soma.child.generated.GrandchildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.child.generated.GrandchildRowBatch);
   public void replaceAll(com.example.soma.child.generated.GrandchildRowBatch);
@@ -722,6 +742,7 @@ Compiled from "KeyedChildRowTable.java"
 public final class com.example.soma.child.generated.KeyedChildRowTable {
   public static com.example.soma.child.generated.KeyedChildRowTable create();
   public static com.example.soma.child.generated.KeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.KeyedChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -729,6 +750,9 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.child.generated.KeyedChildRowBatch);
   public void replaceAll(com.example.soma.child.generated.KeyedChildRowBatch);
@@ -845,6 +869,7 @@ Compiled from "ParentRowTable.java"
 public final class com.example.soma.child.generated.ParentRowTable {
   public static com.example.soma.child.generated.ParentRowTable create();
   public static com.example.soma.child.generated.ParentRowTable create(com.hgtech.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.ParentRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
   public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
   public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
   public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
@@ -852,6 +877,9 @@ public final class com.example.soma.child.generated.ParentRowTable {
   public int capacity();
   public long structuralEpoch();
   public boolean isReleased();
+  public java.lang.String dataVersion();
+  public void setDataVersion(java.lang.String);
+  public void clearDataVersion();
   public void reserve(int);
   public void addBatch(com.example.soma.child.generated.ParentRowBatch);
   public void replaceAll(com.example.soma.child.generated.ParentRowBatch);

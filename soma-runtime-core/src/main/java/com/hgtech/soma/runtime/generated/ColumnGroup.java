@@ -11,7 +11,7 @@ public final class ColumnGroup {
     private final GeneratedColumn[] columns;
     private final String table;
     private final TablePlan tablePlan;
-    private final StorageBudget storageBudget;
+    private final TableLedger tableLedger;
     private final ChildOwnershipRegistry ownership;
     private int capacity;
     private long retainedBytes;
@@ -34,40 +34,42 @@ public final class ColumnGroup {
         this.table = table;
         this.tablePlan = tablePlan;
         this.ownership = ownership;
-        this.storageBudget = ownership.storageBudgetInternal();
+        this.tableLedger = ownership.newTableLedgerInternal(table);
         this.columns = columns.clone();
         validateColumns(this.columns);
         long initialBytes = estimatedBytes(initialCapacity);
         requireTableLimit(initialBytes, "table.create");
         long stagingBytes = stagingAllocationBytes(initialBytes);
         requireBulkLimit(stagingBytes, "table.create");
-        storageBudget.reserveTableInstance(table, "table.create");
+        tableLedger.reserveTableInstance("table.create");
         boolean bytesReserved = false;
         boolean transientReserved = false;
         try {
-            storageBudget.reserveBytes(initialBytes, table, "table.create");
+            tableLedger.reserveRetained(initialBytes, "table.create");
             bytesReserved = true;
-            storageBudget.reserveTransientBytes(
-                    stagingCoordinatorBytes(), table, "table.create");
+            tableLedger.reserveTransient(
+                    stagingCoordinatorBytes(), "table.create");
             transientReserved = true;
             stageAndCommit(initialCapacity);
             retainedBytes = initialBytes;
             this.capacity = initialCapacity;
         } catch (RuntimeException failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    stagingCoordinatorBytes(), table, "table.create");
-            if (bytesReserved) storageBudget.releaseBytes(initialBytes, table, "table.create");
-            storageBudget.releaseTableInstance();
+            if (transientReserved) tableLedger.releaseTransient(
+                    stagingCoordinatorBytes(), "table.create");
+            if (bytesReserved) tableLedger.releaseRetained(
+                    initialBytes, "table.create");
+            tableLedger.releaseTableInstance("table.create");
             throw failure;
         } catch (Error failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    stagingCoordinatorBytes(), table, "table.create");
-            if (bytesReserved) storageBudget.releaseBytes(initialBytes, table, "table.create");
-            storageBudget.releaseTableInstance();
+            if (transientReserved) tableLedger.releaseTransient(
+                    stagingCoordinatorBytes(), "table.create");
+            if (bytesReserved) tableLedger.releaseRetained(
+                    initialBytes, "table.create");
+            tableLedger.releaseTableInstance("table.create");
             throw failure;
         }
-        storageBudget.releaseTransientBytes(
-                stagingCoordinatorBytes(), table, "table.create");
+        tableLedger.releaseTransient(
+                stagingCoordinatorBytes(), "table.create");
     }
 
     public int capacity() {
@@ -92,26 +94,26 @@ public final class ColumnGroup {
         requireTableLimit(newBytes, "capacity.grow");
         requireBulkLimit(stagingAllocationBytes(newBytes), "capacity.grow");
         long delta = newBytes - retainedBytes;
-        storageBudget.reserveBytes(delta, table, "capacity.grow");
+        tableLedger.reserveRetained(delta, "capacity.grow");
         long transientBytes = checkedAdd(retainedBytes, stagingCoordinatorBytes());
         boolean transientReserved = false;
         try {
-            storageBudget.reserveTransientBytes(
-                    transientBytes, table, "capacity.grow");
+            tableLedger.reserveTransient(
+                    transientBytes, "capacity.grow");
             transientReserved = true;
             stageAndCommit(newCapacity);
         } catch (RuntimeException failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, table, "capacity.grow");
-            storageBudget.releaseBytes(delta, table, "capacity.grow");
+            if (transientReserved) tableLedger.releaseTransient(
+                    transientBytes, "capacity.grow");
+            tableLedger.releaseRetained(delta, "capacity.grow");
             throw failure;
         } catch (Error failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, table, "capacity.grow");
-            storageBudget.releaseBytes(delta, table, "capacity.grow");
+            if (transientReserved) tableLedger.releaseTransient(
+                    transientBytes, "capacity.grow");
+            tableLedger.releaseRetained(delta, "capacity.grow");
             throw failure;
         }
-        storageBudget.releaseTransientBytes(transientBytes, table, "capacity.grow");
+        tableLedger.releaseTransient(transientBytes, "capacity.grow");
         retainedBytes = newBytes;
         capacity = newCapacity;
         return true;
@@ -145,27 +147,11 @@ public final class ColumnGroup {
             requireBulkLimit(stagingAllocationBytes(proposedColumns), operation);
         }
 
-        long currentOwned = checkedAdd(retainedBytes, externalRetainedBytes);
-        if (currentOwned > storageBudget.currentBytes()) {
-            throw internalInvariant(
-                    "aggregate_storage_accounting", table, operation);
-        }
-        long otherRetained = storageBudget.currentBytes() - currentOwned;
-        long finalRetained = checkedAdd(otherRetained, proposedTable);
-        long finalWithTransient = checkedAdd(finalRetained, storageBudget.transientBytes());
-        if (finalWithTransient > storageBudget.maximumBytes()) {
-            throw RuntimeFailures.memoryLimitExceeded(
-                    table, operation, storageBudget.maximumBytes(), finalWithTransient);
-        }
-        if (required > capacity) {
-            long growthPeak = checkedAdd(
-                    finalWithTransient,
-                    checkedAdd(retainedBytes, stagingCoordinatorBytes()));
-            if (growthPeak > storageBudget.maximumBytes()) {
-                throw RuntimeFailures.memoryLimitExceeded(
-                        table, operation, storageBudget.maximumBytes(), growthPeak);
-            }
-        }
+        long additionalTransient = required > capacity
+                ? checkedAdd(retainedBytes, stagingCoordinatorBytes())
+                : 0L;
+        tableLedger.preflightRetained(
+                proposedTable, additionalTransient, operation);
     }
 
     long retainedBytes() { return retainedBytes; }
@@ -178,9 +164,9 @@ public final class ColumnGroup {
         }
         preflightExternalRetainedBytes(proposed, operation);
         if (proposed > previous) {
-            storageBudget.reserveBytes(proposed - previous, table, operation);
+            tableLedger.reserveRetained(proposed - previous, operation);
         } else if (previous > proposed) {
-            storageBudget.releaseBytes(previous - proposed, table, operation);
+            tableLedger.releaseRetained(previous - proposed, operation);
         }
         externalRetainedBytes = proposed;
     }
@@ -195,15 +181,7 @@ public final class ColumnGroup {
             throw RuntimeFailures.memoryLimitExceeded(
                     table, operation, tablePlan.maximumTableStorageBytes(), tableBytes);
         }
-        long aggregateRetained = proposed >= externalRetainedBytes
-                ? checkedAdd(storageBudget.currentBytes(), proposed - externalRetainedBytes)
-                : storageBudget.currentBytes() - (externalRetainedBytes - proposed);
-        long aggregateProposed = checkedAdd(
-                aggregateRetained, storageBudget.transientBytes());
-        if (aggregateProposed > storageBudget.maximumBytes()) {
-            throw RuntimeFailures.memoryLimitExceeded(
-                    table, operation, storageBudget.maximumBytes(), aggregateProposed);
-        }
+        tableLedger.preflightRetained(tableBytes, 0L, operation);
     }
 
     void reserveTransientBytes(long bytes, String operation) {
@@ -211,11 +189,11 @@ public final class ColumnGroup {
             throw internalInvariant(
                     "table_transient_storage_accounting", table, operation);
         }
-        storageBudget.reserveTransientBytes(bytes, table, operation);
+        tableLedger.reserveTransient(bytes, operation);
     }
 
     void releaseTransientBytes(long bytes, String operation) {
-        storageBudget.releaseTransientBytes(bytes, table, operation);
+        tableLedger.releaseTransient(bytes, operation);
     }
 
     void releaseStorage() {
@@ -225,8 +203,8 @@ public final class ColumnGroup {
                     "table_external_storage_release", table, "release");
         }
         for (int i = 0; i < columns.length; i++) columns[i].releaseStorage();
-        storageBudget.releaseBytes(retainedBytes, table, "release");
-        storageBudget.releaseTableInstance();
+        tableLedger.releaseRetained(retainedBytes, "release");
+        tableLedger.releaseTableInstance("release");
         retainedBytes = 0L;
         capacity = 0;
         released = true;

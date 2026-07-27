@@ -22,9 +22,13 @@ PUBLIC generated-runtime com.hgtech.soma.runtime.generated.FloatColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedColumn
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedMetadata
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedPlanToken
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedRootFactory
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedRuntimePlan
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedScanEvaluation
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedScanPlan
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedSomaGroup
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupLedger
+PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupMembership
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupedExactIndex
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashCompositeKeySpace
 PUBLIC generated-runtime com.hgtech.soma.runtime.generated.HashIntKeySpace
@@ -161,6 +165,12 @@ PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnTraversal
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortColumnView
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.ShortConsumer
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaErrorCategory
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroup
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupMemberPlan
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupMemberState
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupPlan
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupPlan$Builder
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaGroupState
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.SomaRuntimeException
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.StatsMode
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.StringResourceProfile
@@ -176,6 +186,8 @@ PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaColumnRole
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaDescriptor
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaEffectiveMetadata
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaExactAccess
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata
+PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaGroupMetadata
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaIndexMetadata
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaKeyMetadata
 PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaMetadata

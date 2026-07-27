@@ -28,6 +28,7 @@ public final class DenseTableState {
     private String activeOperation = "";
     private boolean callbackActive;
     private String activeCallback = "";
+    private String dataVersion;
     private long growthCount;
     private long updateScratchCurrentBytes;
     private long updateScratchHighWaterBytes;
@@ -87,6 +88,22 @@ public final class DenseTableState {
         return activeViews > 0 || operationActive || materializationActive || callbackActive;
     }
     public RuntimePlan runtimePlan() { return runtimePlan; }
+
+    public String dataVersion() {
+        checkActive("dataVersion");
+        return dataVersion;
+    }
+
+    public void setDataVersion(String value) {
+        if (value == null) throw new NullPointerException("value");
+        preflightSafePoint("setDataVersion");
+        dataVersion = value;
+    }
+
+    public void clearDataVersion() {
+        preflightSafePoint("clearDataVersion");
+        dataVersion = null;
+    }
 
     public long acquireView(String operation) {
         checkActive(operation);
@@ -507,12 +524,42 @@ public final class DenseTableState {
         if (released) {
             return -1;
         }
-        if (operationActive || materializationActive) {
-            throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, "release");
-        }
-        requireNoTransientStorage("release");
-        requireStructuralEpochAvailable("release");
+        preflightRootRelease("release");
         return size;
+    }
+
+    /** Complete local preflight used before an implicit or explicit Group release. */
+    public void preflightRootRelease(String operation) {
+        if (released) return;
+        checkCallbackAccess(operation);
+        if (operationActive || materializationActive || callbackActive) {
+            String active = callbackActive ? activeCallback
+                    : materializationActive ? "materialize" : activeOperation;
+            throw RuntimeFailures.reentrantAccess(
+                    tableLogicalName, active, operation);
+        }
+        if (activeViews > 0) {
+            throw RuntimeFailures.viewPinned(
+                    tableLogicalName, operation, activeViews);
+        }
+        requireNoTransientStorage(operation);
+        requireStructuralEpochAvailable(operation);
+    }
+
+    /** Safe point for runtime marker and parent Group lifecycle coordination. */
+    public void preflightSafePoint(String operation) {
+        checkActive(operation);
+        if (operationActive || materializationActive || callbackActive) {
+            String active = callbackActive ? activeCallback
+                    : materializationActive ? "materialize" : activeOperation;
+            throw RuntimeFailures.reentrantAccess(
+                    tableLogicalName, active, operation);
+        }
+        if (activeViews > 0) {
+            throw RuntimeFailures.viewPinned(
+                    tableLogicalName, operation, activeViews);
+        }
+        requireNoTransientStorage(operation);
     }
 
     public void commitRelease(int expectedPreviousSize) {

@@ -231,7 +231,7 @@ Definition 使用 canonical、length-prefixed encoding 和 SHA-256；Template id
 当前协议：
 
 ```text
-generated/runtime  soma-generated-runtime-v6 / soma-runtime-java8-v6
+generated/runtime  soma-generated-runtime-v7 / soma-runtime-java8-v7
 transformation     soma-transformation-v2
 kernel             soma-kernel-v1
 storage plan       soma-runtime-plan-v4

@@ -16,7 +16,10 @@ public final class ChildOwnershipRegistry {
     private static final int IDENTITY_TOMBSTONE = -1;
     private static final int MAX_CASCADE_DEPTH = 256;
 
-    private final StorageBudget storageBudget;
+    private final GroupLedger groupLedger;
+    private final int memberIndex;
+    private final TableLedger ownershipLedger;
+    private final GroupMembership groupMembership;
     private final long aggregateInstanceId;
     private long retainedBytes;
     private boolean storageReleased;
@@ -57,10 +60,36 @@ public final class ChildOwnershipRegistry {
     }
 
     public ChildOwnershipRegistry(long maximumBytes, long maximumTableInstances) {
+        this(
+                GroupLedger.standalone(maximumBytes, maximumTableInstances),
+                0,
+                StandaloneMembership.INSTANCE);
+    }
+
+    public static ChildOwnershipRegistry generatedCreate(
+            GeneratedPlanToken token,
+            GroupLedger groupLedger,
+            int memberIndex,
+            GroupMembership membership) {
+        GeneratedPlanToken.require(token);
+        return new ChildOwnershipRegistry(
+                groupLedger, memberIndex, membership);
+    }
+
+    private ChildOwnershipRegistry(
+            GroupLedger groupLedger,
+            int memberIndex,
+            GroupMembership membership) {
+        this.groupLedger = Objects.requireNonNull(groupLedger, "groupLedger");
+        this.memberIndex = memberIndex;
+        groupMembership = Objects.requireNonNull(
+                membership, "groupMembership");
         aggregateInstanceId = nextAggregateInstanceId();
-        storageBudget = new StorageBudget(maximumBytes, maximumTableInstances, this);
+        groupMembership.bindAggregate(aggregateInstanceId);
+        ownershipLedger = groupLedger.newTableLedger(
+                memberIndex, "ownership", this);
         long initialBytes = estimatedRetainedBytes(16, 32, 0);
-        storageBudget.reserveBytes(initialBytes, "ownership", "ownership.create");
+        ownershipLedger.reserveRetained(initialBytes, "ownership.create");
         try {
             ownerTokens = new long[16];
             fields = new String[16];
@@ -78,15 +107,20 @@ public final class ChildOwnershipRegistry {
             cascadeOperations = new String[MAX_CASCADE_DEPTH];
             retainedBytes = initialBytes;
         } catch (RuntimeException failure) {
-            storageBudget.releaseBytes(initialBytes, "ownership", "ownership.create");
+            ownershipLedger.releaseRetained(
+                    initialBytes, "ownership.create");
             throw failure;
         } catch (Error failure) {
-            storageBudget.releaseBytes(initialBytes, "ownership", "ownership.create");
+            ownershipLedger.releaseRetained(
+                    initialBytes, "ownership.create");
             throw failure;
         }
     }
 
-    StorageBudget storageBudgetInternal() { return storageBudget; }
+    TableLedger newTableLedgerInternal(String table) {
+        return groupLedger.newTableLedger(
+                memberIndex, table, this);
+    }
 
     public long aggregateInstanceId() {
         return aggregateInstanceId;
@@ -113,6 +147,8 @@ public final class ChildOwnershipRegistry {
         faulted = true;
         firstFaultOperation = Objects.requireNonNull(operation, "operation");
         firstFaultCode = Objects.requireNonNull(code, "code");
+        groupMembership.aggregateFaulted(
+                aggregateInstanceId, operation, code);
     }
 
     void markFaulted(SomaRuntimeException failure, String operation) {
@@ -139,9 +175,11 @@ public final class ChildOwnershipRegistry {
             throw internalInvariant(
                     "cascade_release_scope", "ownership", "release");
         }
-        if (identitySize != 0 || storageBudget.currentTableInstances() != 0L
-                || storageBudget.transientBytes() != 0L
-                || storageBudget.currentBytes() != retainedBytes) {
+        if (identitySize != 0
+                || groupLedger.memberCurrentTableInstances(memberIndex) != 0L
+                || groupLedger.memberTransientBytes(memberIndex) != 0L
+                || groupLedger.memberRetainedBytes(memberIndex)
+                        != retainedBytes) {
             throw internalInvariant(
                     "aggregate_release_drain", "ownership", "release");
         }
@@ -165,9 +203,21 @@ public final class ChildOwnershipRegistry {
         identityUsed = 0;
         nextSlot = 0;
         freeHead = -1;
-        storageBudget.releaseBytes(retainedBytes, "ownership", "release");
+        ownershipLedger.releaseRetained(retainedBytes, "release");
         retainedBytes = 0L;
         storageReleased = true;
+    }
+
+    /** Rolls back a root aggregate that never crossed Group membership publication. */
+    public void abortUnpublishedConstruction() {
+        releaseStorage();
+    }
+
+    /** Delegates direct root release to its implicit/explicit parent Group policy. */
+    public void releaseRoot(String operation) {
+        groupMembership.releaseRoot(
+                aggregateInstanceId,
+                Objects.requireNonNull(operation, "operation"));
     }
 
     /** Starts one aggregate-wide two-pass materialization guard. */
@@ -235,9 +285,27 @@ public final class ChildOwnershipRegistry {
         }
     }
 
+    /** Full aggregate safe-point preflight for Group release and marker changes. */
+    public void preflightSafePoint(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
+        preflightTableAccess(requested);
+        if (materializationActive || dataFlowActive
+                || activeTableScopes != 0 || cascadeDepth != 0) {
+            String active = materializationActive
+                    ? materializationOperation
+                    : dataFlowActive ? dataFlowOperation
+                    : activeTableScopes != 0
+                            ? activeTableScope : "ownership.cascade";
+            throw RuntimeFailures.reentrantAccess(
+                    "ownership", active, requested);
+        }
+    }
+
     /** Rejects application Table access while one aggregate DataFlow guard is active. */
     public void preflightTableAccess(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
+        groupMembership.preflightAccess(
+                aggregateInstanceId, requested);
         if (faulted && !isFaultTolerantOperation(requested)) requireTrusted(requested);
         if (dataFlowActive) {
             throw RuntimeFailures.reentrantAccess(
@@ -335,6 +403,28 @@ public final class ChildOwnershipRegistry {
             if (NEXT_AGGREGATE_INSTANCE_ID.compareAndSet(current, current + 1L)) {
                 return current;
             }
+        }
+    }
+
+    private static final class StandaloneMembership
+            implements GroupMembership {
+        private static final StandaloneMembership INSTANCE =
+                new StandaloneMembership();
+
+        @Override public void bindAggregate(long aggregateInstanceId) {
+        }
+        @Override public void preflightAccess(
+                long aggregateInstanceId, String operation) {
+        }
+        @Override public void aggregateFaulted(
+                long aggregateInstanceId, String operation, String code) {
+        }
+        @Override public void releaseRoot(
+                long aggregateInstanceId, String operation) {
+            throw RuntimeFailures.internalInvariant(
+                    "standalone_root_release",
+                    "ownership",
+                    operation);
         }
     }
 
@@ -713,11 +803,11 @@ public final class ChildOwnershipRegistry {
             transientBytes = checkedAddForStage(
                     transientBytes, 53L * (long) ownerTokens.length);
         }
-        storageBudget.reserveBytes(delta, "ownership", "child.stage");
+        ownershipLedger.reserveRetained(delta, "child.stage");
         boolean transientReserved = false;
         try {
-            storageBudget.reserveTransientBytes(
-                    transientBytes, "ownership", "child.stage");
+            ownershipLedger.reserveTransient(
+                    transientBytes, "child.stage");
             transientReserved = true;
 
             long[] stagedOwnerTokens = ownerTokens;
@@ -764,18 +854,18 @@ public final class ChildOwnershipRegistry {
             if (rebuildIdentity) identityUsed = identitySize;
             retainedBytes = nextBytes;
         } catch (RuntimeException failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, "ownership", "child.stage");
-            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            if (transientReserved) ownershipLedger.releaseTransient(
+                    transientBytes, "child.stage");
+            ownershipLedger.releaseRetained(delta, "child.stage");
             throw failure;
         } catch (Error failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, "ownership", "child.stage");
-            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            if (transientReserved) ownershipLedger.releaseTransient(
+                    transientBytes, "child.stage");
+            ownershipLedger.releaseRetained(delta, "child.stage");
             throw failure;
         }
-        storageBudget.releaseTransientBytes(
-                transientBytes, "ownership", "child.stage");
+        ownershipLedger.releaseTransient(
+                transientBytes, "child.stage");
     }
 
     private static long checkedAddForStage(long left, long right) {
@@ -801,12 +891,12 @@ public final class ChildOwnershipRegistry {
         long nextBytes = estimatedRetainedBytes(
                 ownerTokens.length, next, cascadeHandles.length);
         long delta = nextBytes - retainedBytes;
-        storageBudget.reserveBytes(delta, "ownership", "child.stage");
+        ownershipLedger.reserveRetained(delta, "child.stage");
         long transientBytes = 12L * (long) identitySlots.length;
         boolean transientReserved = false;
         try {
-            storageBudget.reserveTransientBytes(
-                    transientBytes, "ownership", "child.stage");
+            ownershipLedger.reserveTransient(
+                    transientBytes, "child.stage");
             transientReserved = true;
             Object[] stagedChildren = new Object[next];
             int[] stagedSlots = new int[next];
@@ -820,18 +910,18 @@ public final class ChildOwnershipRegistry {
             identityUsed = identitySize;
             retainedBytes = nextBytes;
         } catch (RuntimeException failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, "ownership", "child.stage");
-            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            if (transientReserved) ownershipLedger.releaseTransient(
+                    transientBytes, "child.stage");
+            ownershipLedger.releaseRetained(delta, "child.stage");
             throw failure;
         } catch (Error failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, "ownership", "child.stage");
-            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            if (transientReserved) ownershipLedger.releaseTransient(
+                    transientBytes, "child.stage");
+            ownershipLedger.releaseRetained(delta, "child.stage");
             throw failure;
         }
-        storageBudget.releaseTransientBytes(
-                transientBytes, "ownership", "child.stage");
+        ownershipLedger.releaseTransient(
+                transientBytes, "child.stage");
     }
 
     private void insertIdentity(Object child, int slot) {
@@ -910,12 +1000,12 @@ public final class ChildOwnershipRegistry {
         long nextBytes = estimatedRetainedBytes(
                 next, identitySlots.length, cascadeHandles.length);
         long delta = nextBytes - retainedBytes;
-        storageBudget.reserveBytes(delta, "ownership", "child.stage");
+        ownershipLedger.reserveRetained(delta, "child.stage");
         long transientBytes = 53L * (long) ownerTokens.length;
         boolean transientReserved = false;
         try {
-            storageBudget.reserveTransientBytes(
-                    transientBytes, "ownership", "child.stage");
+            ownershipLedger.reserveTransient(
+                    transientBytes, "child.stage");
             transientReserved = true;
             long[] stagedOwnerTokens = Arrays.copyOf(ownerTokens, next);
             String[] stagedFields = Arrays.copyOf(fields, next);
@@ -935,18 +1025,18 @@ public final class ChildOwnershipRegistry {
             freeNext = stagedFreeNext;
             retainedBytes = nextBytes;
         } catch (RuntimeException failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, "ownership", "child.stage");
-            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            if (transientReserved) ownershipLedger.releaseTransient(
+                    transientBytes, "child.stage");
+            ownershipLedger.releaseRetained(delta, "child.stage");
             throw failure;
         } catch (Error failure) {
-            if (transientReserved) storageBudget.releaseTransientBytes(
-                    transientBytes, "ownership", "child.stage");
-            storageBudget.releaseBytes(delta, "ownership", "child.stage");
+            if (transientReserved) ownershipLedger.releaseTransient(
+                    transientBytes, "child.stage");
+            ownershipLedger.releaseRetained(delta, "child.stage");
             throw failure;
         }
-        storageBudget.releaseTransientBytes(
-                transientBytes, "ownership", "child.stage");
+        ownershipLedger.releaseTransient(
+                transientBytes, "child.stage");
     }
 
     private void ensureCascadeCapacity(int required, String table, String operation) {
@@ -964,27 +1054,27 @@ public final class ChildOwnershipRegistry {
                 ownerTokens.length, identitySlots.length, next);
         long delta = nextBytes - retainedBytes;
         long oldArrayBytes = 8L * (long) cascadeHandles.length;
-        storageBudget.reserveBytes(delta, table, operation);
+        ownershipLedger.reserveRetained(delta, operation);
         boolean transientReserved = false;
         try {
-            storageBudget.reserveTransientBytes(oldArrayBytes, table, operation);
+            ownershipLedger.reserveTransient(oldArrayBytes, operation);
             transientReserved = true;
             cascadeHandles = Arrays.copyOf(cascadeHandles, next);
             retainedBytes = nextBytes;
         } catch (RuntimeException failure) {
             if (transientReserved) {
-                storageBudget.releaseTransientBytes(oldArrayBytes, table, operation);
+                ownershipLedger.releaseTransient(oldArrayBytes, operation);
             }
-            storageBudget.releaseBytes(delta, table, operation);
+            ownershipLedger.releaseRetained(delta, operation);
             throw failure;
         } catch (Error failure) {
             if (transientReserved) {
-                storageBudget.releaseTransientBytes(oldArrayBytes, table, operation);
+                ownershipLedger.releaseTransient(oldArrayBytes, operation);
             }
-            storageBudget.releaseBytes(delta, table, operation);
+            ownershipLedger.releaseRetained(delta, operation);
             throw failure;
         }
-        storageBudget.releaseTransientBytes(oldArrayBytes, table, operation);
+        ownershipLedger.releaseTransient(oldArrayBytes, operation);
     }
 
     private void requireCascade(String operation) {

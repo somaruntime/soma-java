@@ -9,6 +9,7 @@ import com.hgtech.soma.dataflow.BooleanScalarResult;
 import com.hgtech.soma.dataflow.DataFlowContext;
 import com.hgtech.soma.dataflow.DataFlowDefinition;
 import com.hgtech.soma.dataflow.DataFlowInvocation;
+import com.hgtech.soma.dataflow.DataFlowResults;
 import com.hgtech.soma.dataflow.DoubleColumnResult;
 import com.hgtech.soma.dataflow.ExecutionBudget;
 import com.hgtech.soma.dataflow.GeneratedDataFlow;
@@ -19,8 +20,13 @@ import com.hgtech.soma.dataflow.OptionalLongResult;
 import com.hgtech.soma.dataflow.SourceSlot;
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.runtime.IndexSnapshot;
+import com.hgtech.soma.runtime.SomaErrorCategory;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.generated.RuntimeCompatibility;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /** Slice A 的 lazy、shape、order、value、budget 与 current-Index differential。 */
 public final class DataFlowSliceACheck {
@@ -156,6 +162,7 @@ public final class DataFlowSliceACheck {
         }
 
         testProtocolMismatch();
+        testPartialAcquireReleasesInReverseOrder();
         table.release();
         System.out.println("dataflow-slice-a-check: ok");
     }
@@ -202,6 +209,45 @@ public final class DataFlowSliceACheck {
             throw new AssertionError(code + " must fail closed");
         } catch (SomaRuntimeException expected) {
             require(code.equals(expected.code()), code + " failure code");
+        }
+    }
+
+    private static void testPartialAcquireReleasesInReverseOrder() {
+        TrackingSource first = new TrackingSource(0, "first");
+        TrackingSource second = new TrackingSource(1, "second");
+        TrackingSource failing = new TrackingSource(2, "failing");
+        DataFlowDefinition.Builder builder = DataFlowDefinition.builder();
+        builder.output(
+                "first", GeneratedDataFlow.candidates(first).count());
+        builder.output(
+                "second", GeneratedDataFlow.candidates(second).count());
+        builder.output(
+                "failing", GeneratedDataFlow.candidates(failing).count());
+        DataFlowDefinition<DataFlowResults> graph = builder.build();
+        List<String> events = new ArrayList<String>();
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            try {
+                graph.compile().newInvocation(context)
+                        .bind(first, new TrackingBinding(10L, false, events))
+                        .bind(second, new TrackingBinding(20L, false, events))
+                        .bind(failing, new TrackingBinding(30L, true, events))
+                        .execute();
+                throw new AssertionError(
+                        "partial acquire must propagate failure");
+            } catch (SomaRuntimeException expected) {
+                require("test_acquire_failed".equals(expected.code()),
+                        "partial acquire failure code");
+            }
+            require(events.size() == 5
+                            && "acquire-10".equals(events.get(0))
+                            && "acquire-20".equals(events.get(1))
+                            && "acquire-30".equals(events.get(2))
+                            && "release-20".equals(events.get(3))
+                            && "release-10".equals(events.get(4)),
+                    "partial acquire releases acquired aggregates in reverse order");
+        } finally {
+            context.close();
         }
     }
 
@@ -266,6 +312,85 @@ public final class DataFlowSliceACheck {
                 long matched,
                 String failureCode) {
             throw new AssertionError("protocol mismatch must not release");
+        }
+    }
+
+    private static final class TrackingSource
+            extends SourceSlot<TrackingBinding> {
+        private TrackingSource(int ordinal, String alias) {
+            super(ordinal, alias, "tracking-schema", "tracking-table");
+        }
+    }
+
+    private static final class TrackingBinding implements DataFlowBinding {
+        private final long aggregateInstanceId;
+        private final boolean failAcquire;
+        private final List<String> events;
+        private final Object physicalIdentity = new Object();
+
+        private TrackingBinding(
+                long aggregateInstanceId,
+                boolean failAcquire,
+                List<String> events) {
+            this.aggregateInstanceId = aggregateInstanceId;
+            this.failAcquire = failAcquire;
+            this.events = events;
+        }
+
+        @Override public long aggregateInstanceId() {
+            return aggregateInstanceId;
+        }
+        @Override public Object physicalIdentity() { return physicalIdentity; }
+        @Override public String schemaIdentity() { return "tracking-schema"; }
+        @Override public String tableIdentity() { return "tracking-table"; }
+        @Override public String generatedProtocol() {
+            return RuntimeCompatibility.GENERATED_PROTOCOL;
+        }
+        @Override public String transformationProtocol() {
+            return GeneratedDataFlow.TRANSFORMATION_PROTOCOL;
+        }
+        @Override public String kernelProtocol() {
+            return GeneratedDataFlow.KERNEL_PROTOCOL;
+        }
+        @Override public long structuralEpoch() { return 0L; }
+        @Override public int packedSize() { return 0; }
+        @Override public boolean isPresent(int columnOrdinal, int index) {
+            throw new AssertionError("acquire test must not touch data");
+        }
+        @Override public boolean booleanValue(int columnOrdinal, int index) {
+            throw new AssertionError("acquire test must not touch data");
+        }
+        @Override public long longValue(int columnOrdinal, int index) {
+            throw new AssertionError("acquire test must not touch data");
+        }
+        @Override public double doubleValue(int columnOrdinal, int index) {
+            throw new AssertionError("acquire test must not touch data");
+        }
+        @Override public String stringValue(int columnOrdinal, int index) {
+            throw new AssertionError("acquire test must not touch data");
+        }
+        @Override public IndexSnapshot indexSnapshot(int[] indexes, int length) {
+            throw new AssertionError("acquire test must not touch data");
+        }
+        @Override public void acquire(String operation) {
+            events.add("acquire-" + aggregateInstanceId);
+            if (failAcquire) {
+                throw SomaRuntimeException.create(
+                        SomaErrorCategory.CONFLICT,
+                        "test_acquire_failed",
+                        operation,
+                        "tracking",
+                        Collections.<String, String>emptyMap(),
+                        null);
+            }
+        }
+        @Override public void release(
+                String operation,
+                boolean success,
+                long scanned,
+                long matched,
+                String failureCode) {
+            events.add("release-" + aggregateInstanceId);
         }
     }
 
