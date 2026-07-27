@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：P6 target Design 与 production baseline `aea5cc0`
+核对对象：P6 target Design 与 P8 S1 production baseline `7925a10`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -25,14 +25,14 @@ Owner：SOMA Java 一致性审查
 
 | 关注点 | 当前判定 | 依据 | 处置 |
 |---|---|---|---|
-| Java 8 annotation/schema/compiler | 部分一致；target gap | processor/plugin、compile fixtures；当前 String selector reject、generic Object value surface 与四类封闭体系不一致 | 保留 javac 8 pipeline；按 Schema Owner 完成 classifier/String/typed protocol cutover |
+| Java 8 annotation/schema/compiler | 一致且 evidenced | four-kind classifier、arbitrary-object negative、String selector positive、schema/hash clean repeat与 Zulu 8 external consumer | 防止 arbitrary object、generic Object value和String selector reject回归 |
 | deterministic normalization/hash | 一致且 evidenced | schema JSON/hash golden、Unicode fixture | 保持 |
-| Metadata/generated API | target gap | current per-Table default plan、无完整 Descriptor/SchemaMetadata/SomaGroupPlan；public Object/legacy borrow surface仍存在 | 按 Metadata phases 与 breaking matrix原子迁移；不引入 reflection/temporary adapter |
+| Metadata/generated API | 部分一致；target gap | Descriptor hierarchy与schema-scoped generated `SchemaMetadata`已闭合；Plan/Effective/Runtime/Group Metadata和legacy borrow replacement仍缺 | S2/S3继续完整 Metadata phases；不引入 reflection/temporary adapter |
 | packed keyed/dense storage | 部分一致；target gap | 当前 flat SoA、growth/invariant evidence存在；flat-head/segmented-tail 与 Segment publication尚无 production binding | flat保持 baseline；按 plan formula新增受限 Large layout |
-| primary identity 与 exact access | 部分一致；target gap | 当前 V3 locator/exact一致；String selector、compact/segmented locator candidate与新 resource ledger未闭合 | 保持 authoritative equality；补 String、locator formula与 point/rehash/growth evidence |
+| primary identity 与 exact access | 部分一致；target gap | primitive/String Key/Unique/Index collision correctness已闭合；layout/locator formula与新 resource ledger未闭合 | 保持 authoritative equality；补 lifecycle、locator formula与 point/rehash/growth evidence |
 | Access Model 与 Candidate Scan | 部分一致；target gap | 现有 ordered-stage/one-shot evidence；当前主要依赖 universal IndexBuffer | 保留 direct Access；实现 closed Candidate shapes并删除 superseded universal path |
 | Transformation Model | 部分一致；target gap | current Shape/operator/reference differential保留；Group/Join/Delta/Window specialized cost/preflight尚未按新 Design闭合 | 保持 logical semantics；补 fusion/preaggregate/incremental/fail-closed evidence |
-| Typed DataFlow execution | 部分一致；target gap | Definition/Template/Invocation和managed/borrowed基础存在；bounded morsel/vector scheduler、closed-value protocol、unified callback delivery未闭合 | Invocation继续唯一 guard Owner；按一套 lifecycle完成替换 |
+| Typed DataFlow execution | 部分一致；target gap | primitive/String closed-value protocol已切换；bounded morsel/vector scheduler、Invocation ledger和unified callback delivery未闭合 | Invocation继续唯一 guard Owner；按一套 lifecycle完成替换 |
 | 按构造即正确 | 一致且 evidenced | typed immutable expression/result、one-shot Builder/Invocation、stable boundary failures、真实 internal publish guards；contract/property/differential evidence | 生产 Owner 继续承担不变量；测试不重复冻结 private layout |
 | swap-remove 与 candidate execution | 部分一致；target gap | swap-remove一致；IndexBuffer evidence只覆盖当前 baseline | 保持 mutation invariant；Candidate physical多形态需新增 differential |
 | Index / IndexSnapshot caller-responsibility | 一致且 evidenced | detached `IndexSnapshot`、optional `requireCurrent`、wrong/stale consumer tests；正式 Owner 已明确非 stable identity/row snapshot | 保持 raw detached API，不增加强制 hot-path guard |
@@ -56,15 +56,15 @@ String reference baseline、closed Capability Set、受限 layout/Candidate/rela
 bounded scheduler、Eager + callback delivery 与分级 resource/scale qualification。
 这些是 target facts，不是 current support claim。
 
-当前 implementation 保留此前 packed Access/Transformation/DataFlow、ownership、
-failure与三个 application evidence，但与新目标存在 [known gaps](known-gaps.md)：
-完整 Metadata/Group、String/typed closed-value protocol、Large physical plan、
-specialized relation/parallel、unified callback delivery、resource hierarchy与全部
-production-shape qualification均尚未闭合。因此“没有 blocking deviation”的旧结论
-不再适用于本 P6 target。
+P8 S1 已将 Descriptor/SchemaMetadata、four-kind classifier、typed String
+value/access和v6/v2 protocol投影到production，并由external/differential evidence
+关闭对应replacement。仍存在 [known gaps](known-gaps.md)：Plan/Effective/
+Runtime/Group Metadata、String lifecycle/GC、Large physical plan、specialized
+relation/parallel、unified callback delivery、resource hierarchy与全部
+production-shape qualification尚未闭合。
 
-P6 不修改 production，也不关闭任何上述 gap。G6仍因外部发布事实 blocked；Lab/
-local evidence不能改变这一结论。
+S1 结果不外推为后续slice、scale或release readiness。G6仍因外部发布事实 blocked；
+Lab/local evidence不能改变这一结论。
 
 本结论不扩大任何任务授权；Conformance 只记录当前判断与相关 Owner 已作出的处置决定，不表示差距实现已获授权或完成。
 

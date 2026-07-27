@@ -10,7 +10,7 @@ Owner：SOMA executable contract 实现导航
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：commit `dd17071`
+最近实现核对基线：commit `7925a10`
 
 最后审查日期：2026-07-27
 
@@ -30,7 +30,7 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 | handwritten runtime public API | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | [`public-api/phase1/public-api.javap.txt`](../../soma-testkit/src/test/fixtures/public-api/phase1/public-api.javap.txt) |
 | generated public API | generated source/class output；canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child/DataFlow companion/keyed Delta | external dense/keyed/access/child/breadth `javap` golden + compile/run |
 | DataFlow public API | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) 与 generated companion | public `javap`、Slice A–F、external consumer、reference differential |
-| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v5、transformation/kernel v1 | runtime/generated Gate scripts + v4/v5 fail-closed oracle + external consumers |
+| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v6、transformation v2、kernel v1 | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
 | runtime plan/default/stats/error codes | runtime public/internal sources | runtime-core check、diagnostics Gate、external access/child/breadth consumers |
 | benchmark artifact schema | benchmark model/validator | smoke runner、strict validator、negative artifact cases；exact-index incremental lane 与无索引 dense-workspace lane 分开记录 |
 
@@ -42,10 +42,11 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 - internal class/path 可以重构，但 public/generated/protocol/schema identity 的变化按 Compatibility Design 处理；
 - error code、plan field或artifact field一旦成为稳定兼容面，不得在同名下复用为不同语义。
 
-`9114321` 增加 aggregate fault containment，`dd17071` 将健康路径收敛为一个
-predictable trust branch；public/runtime/generated signature、
-annotation Schema、v5 protocol identity 与 golden 均未改变；`check-public-api.sh`
-在未更新 golden 的前提下验证该边界。
+`7925a10` 完成一次有意的 pre-1.0 clean cutover：generated/runtime 升级为 v6、
+transformation 升级为 v2，generic Object value protocol 被 concrete String
+protocol替代，并新增 schema-scoped Metadata projection。Public/generated
+golden、old-protocol fail-closed、compiler diagnostics、clean/repeat external
+consumer和reference differential共同拥有该变更证据。
 
 ## 4. Baseline 约定
 

@@ -10,7 +10,7 @@ Owner：SOMA Java 实现导航
 
 非事实范围：规范性设计、未来计划和实现正确性裁决
 
-最近实现核对基线：commit `b4dc203`
+最近实现核对基线：commit `7925a10`
 
 最后审查日期：2026-07-27
 
@@ -26,7 +26,8 @@ Implementation Map 是当前代码的简短投影。代码变化后，以代码�
 
 普通类、字段和方法清单由代码搜索获得，不在这里维护第二份完整目录。
 
-“实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续 docs/governance-only commit。当前 `b4dc203` 是 aggregate fault containment、
-健康路径性能收敛和 component Gate 稳定性关闭后的实现候选；fault routing 位于
-`9114321`，runtime hot-path 收敛位于 `dd17071`，generated v5/DataFlow 主候选仍可追溯到
-`2aa8c15`。精确提交职责由正式治理 Report 保留，不在各地图重复完整历史。
+“实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续
+docs/governance-only commit。当前 `7925a10` 是 S1 schema-scoped Metadata、
+four-kind classifier、typed String value/access 与 v6/v2 protocol cutover 候选；
+更早的 aggregate fault、runtime hot-path 和 DataFlow 历史仍由正式治理 Report
+追踪，不在各地图重复完整提交链。

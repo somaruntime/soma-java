@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：P6 target promotion baseline `aea5cc0`
+实现核对基线：P8 S1 implementation baseline `7925a10`
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 
@@ -18,8 +18,8 @@ Owner：SOMA Java 一致性审查
 
 | ID | 分类 | 差距 | 影响 | 当前 Owner 处置 |
 |---|---|---|---|---|
-| `CF-009` | Product/runtime contract | 完整 Descriptor/Plan/Effective/Runtime Metadata、generated SchemaMetadata、SomaGroupPlan/SomaGroup 与 atomic attach/parent ledger 尚未实现 | canonical simple/advanced journey、multi-root composition、resource/lifecycle target 未闭合 | 按 Schema、Runtime Plan、Ownership Design 原子实现；保留 cross-Group/schema/instance DataFlow，不引入双 plan/metadata path |
-| `CF-010` | Type/generated protocol | 当前 generic Object value surface仍存在，String selector仍被拒绝，四类 closed type与String完整语义未投影 | arbitrary object边界、String Key/Unique/Index/Group/Join/lifecycle与schema hash不一致 | 迁移 primitive/String/flattened typed protocol，删除 superseded Object path；compile/golden/external/differential/GC closure |
+| `CF-009` | Product/runtime contract | Descriptor hierarchy与generated SchemaMetadata已实现；Plan/Effective/Runtime Metadata、SomaGroupPlan/SomaGroup 与 atomic attach/parent ledger仍缺 | canonical advanced journey、multi-root composition、resource/lifecycle target未闭合 | S2/S3继续 Runtime Plan、Metadata phases 与 Ownership Design；保留 cross-Group/schema/instance DataFlow，不引入双 plan/metadata path |
+| `CF-010` | Type/generated protocol | four-kind classifier、typed String value/access、arbitrary-object rejection与Object-path removal已闭合；String mutation/clear/release/GC和production scale evidence仍缺 | reference retention、String lifecycle/heap口径与规模目标尚不能声明完整支持 | S5/P10补 lifecycle/GC和length/cardinality/sharing/role限定 qualification；不引入 dictionary/arena |
 | `CF-011` | Storage/access | 当前以flat/universal IndexBuffer baseline为主，缺flat-head/segmented-tail、Segment publication、closed Candidate shapes与locator formula qualification | Large可增长性、point tax、retained/transient peak和Small固定税目标未闭合 | Flat保持baseline；新physical binding只在formula与production evidence后启用，禁止universal segmented或full-key duplication |
 | `CF-012` | Transformation/execution/resource | Group/Join/Delta/Window specialization、unknown-bound fail-closed、one bounded morsel/vector scheduler、parent/root/Invocation ledger与module-owned Observation尚未闭合 | 高展开可能缺preflight，中小规模/单Segment并行、资源与诊断不可按新目标解释 | 保持现有logical semantics；实现specialized/cost-model paths与sequential differential，全部resource phase lease可验证 |
 | `CF-013` | Result Delivery | Eager baseline存在，但incumbent Candidate/Value/Group/Join/Window borrow仍保留consumer-in-Definition lifecycle；generated callback facade未实现/qualification | Definition identity、non-escape、cancel/deadline、partial publication与allocation目标不一致 | 统一迁入标准 Definition→Template→Invocation；Eager继续默认；不得保留legacy、Iterator/pull/async path |
@@ -43,7 +43,7 @@ Owner：SOMA Java 一致性审查
 | Candidate plan allocation与best-one snapshot | 已关闭 | compact typed plan、Packed/exact specialization与scalar Index terminal保持component/code-size Gate |
 | Transformation/DataFlow semantic closure | 已关闭 | 全部 admitted Shape/operator/result/effect 由 typed contract、reference differential 和 external consumer 防回归；Candidate Scan 仍是 specialized fast path |
 | DataFlow lifecycle/resource/parallel | 已关闭 | immutable Definition/Template、one-shot Invocation、managed/borrowed ownership、budget/cancel/fixed-order merge 和 sequential fallback 保持 contract evidence |
-| generated v5/Delta/safe point | 已关闭 | 每 Table 一个 companion、protocol fail-closed、keyed ordered Delta 全量 preflight、single-aggregate commit 与 generated fixture closure |
+| generated v6/v2、Delta/safe point | 已关闭 | 每 Schema Metadata + 每 Table DataFlow companion、old protocol fail-closed、keyed ordered Delta 全量 preflight、single-aggregate commit 与 generated fixture closure |
 | reference application portfolio | 已关闭 | industrial、grassing、RTD 各自从 business model 推导 Access/Transformation/DataFlow 最佳实践；互不依赖、不共享领域模型或 evidence |
 | DataFlow application trace | 已关闭 | 独立 RTD 应用拥有 reusable multi-source DataFlow、Join/GroupBy、受控并行、budget/cancel、detached command 与 application commit；industrial 不再承担展示性 coverage |
 | industrial summary responsibility | 已关闭 | `AssignmentSummarizer` 只从 authoritative assignments 单遍推导 detached metrics；primitive frontier、Problem/Result/API/Schema 与三个性能阈值不变 |

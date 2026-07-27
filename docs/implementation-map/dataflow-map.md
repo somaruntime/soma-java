@@ -12,7 +12,7 @@ Owner：SOMA DataFlow 实现导航
 
 非事实范围：规范性 Transformation 语义、完整 public signature 清单和性能结论
 
-最近实现核对基线：commit `2aa8c15`
+最近实现核对基线：commit `7925a10`
 
 最后审查日期：2026-07-27
 
@@ -24,7 +24,7 @@ Owner：SOMA DataFlow 实现导航
 |---|---|
 | Definition/Template/Invocation | [`DataFlowDefinition.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowDefinition.java)、[`DataFlowTemplate.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowTemplate.java)、[`DataFlowInvocation.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowInvocation.java) |
 | Context/policy/resource | [`DataFlowContext.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowContext.java)、[`ExecutionPolicy.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionPolicy.java)、[`ExecutionBudget.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionBudget.java) |
-| typed Shape/Expression | `CandidateFlow`、`*ValueFlow`、`GroupedFlow`、`JoinedFlow`、`WindowedFlow`、`*Expression` |
+| typed Shape/Expression | `CandidateFlow`、primitive/String `*ValueFlow`、`GroupedFlow`、`JoinedFlow`、`WindowedFlow`、primitive/String `*Expression`；无 generic Object value family |
 | result/effect | primitive scalar/columnar、group/join/window/expand result、`DeltaApplyResult`、candidate effect operations |
 | generated bridge | [`com.hgtech.soma.dataflow.generated`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/generated) |
 | diagnostics | [`DataFlowStats.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowStats.java)、[`DataFlowExplain.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowExplain.java) |
@@ -37,8 +37,8 @@ Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/
 
 当前 identity：
 
-- generated/runtime `v5`；
-- transformation/kernel `v1`；
+- generated/runtime `v6`；
+- transformation `v2`、kernel `v1`；
 - runtime plan仍为 `v3`，Schema hash 语义未变化。
 
 ## 3. 执行叙事

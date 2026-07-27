@@ -10,7 +10,7 @@ Owner：SOMA runtime-core 实现导航
 
 事实范围：当前 handwritten runtime、generated-runtime protocol、hot path 和核心验证入口
 
-最近实现核对基线：`dd17071`
+最近实现核对基线：`7925a10`
 
 最后审查日期：2026-07-27
 
@@ -24,12 +24,14 @@ Owner：SOMA runtime-core 实现导航
 | public index snapshot | [`IndexSnapshot.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/IndexSnapshot.java)、[`IndexSnapshots.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/IndexSnapshots.java)；empty shared、single-index inline、multi-index detached array |
 | column access | [`AbstractColumnView.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/AbstractColumnView.java)、[`AbstractColumnTraversal.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/AbstractColumnTraversal.java) 及 typed subclasses |
 | materialization budget | [`MaterializationBudget.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/MaterializationBudget.java) |
+| Descriptor Metadata | [`com.hgtech.soma.runtime.metadata`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/metadata) 中的 `SomaMetadata`、Schema/Table/Column/Type/Key/Unique/Index/Ownership immutable read model |
 
 ## 2. Generated-runtime protocol
 
 Protocol 位于 [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated)，当前主要组合为：
 
-- state/columns：`DenseTableState`、`ColumnGroup`、typed columns、`PresenceBitmap`；
+- state/columns：`DenseTableState`、`ColumnGroup`、primitive typed columns、
+  concrete `StringColumn`、`PresenceBitmap`；
 - primary locator：`IntKeySpace`、`HashIntKeySpace`、`HashLongKeySpace`、`HashCompositeKeySpace`；
 - secondary exact access：`GroupedExactIndex`，row-link与group capacity独立；
 - bulk exact preflight：`ExactGroupCounter`，按selector distinct-group cardinality做primitive计数；
@@ -60,10 +62,10 @@ generated Table/Scan method
 `DenseTableState` 将 internal code 与 raw unexpected failure 路由到共享 aggregate
 fault；`ColumnGroup`、`StorageBudget` 和 ownership registry 在各自 invariant
 事实产生处标记。Faulted normal access 由既有 preflight 拒绝，runtime plan、
-released state、stats snapshot 与 root release 复用既有 operation 名称和 v5
+released state、stats snapshot 与 root release 复用既有 operation 名称和 v6
 protocol，不新增 public fault surface。
 
-Keyed delete 先从 KeySpace 移除目标 key，再对 tail-fill survivor 修复 current Index。Exact index 通过 group/link 增量维护；append/replace按实际distinct groups预检和分配。Candidate Scan source在terminal-time读取current group；source-only exact count可直接读取cardinality并保持logical stats。当前 generated/runtime compatibility 为 v5；runtime-core 只提供窄 DataFlow guard/access bridge，Definition/Template/Invocation 不进入本模块。协议已经没有 `SparseIntKeySpace` 或 `RowPermutationSidecar`；`KeySpace`仅是primary-locator兼容性术语。
+Keyed delete 先从 KeySpace 移除目标 key，再对 tail-fill survivor 修复 current Index。Exact index 通过 group/link 增量维护；append/replace按实际distinct groups预检和分配。Candidate Scan source在terminal-time读取current group；source-only exact count可直接读取cardinality并保持logical stats。当前 generated/runtime compatibility 为 v6；runtime-core 只提供窄 DataFlow guard/access bridge，Definition/Template/Invocation 不进入本模块。协议已经没有 generic `ObjectColumn`、`SparseIntKeySpace` 或 `RowPermutationSidecar`；`KeySpace`仅是primary-locator兼容性术语。
 
 ## 4. 核心检查
 

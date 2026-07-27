@@ -277,3 +277,10 @@ P7已给出：
 
 因此P8可以开始。该判定不表示任何Conformance gap已关闭，也不把Lab/旧Gate外推为
 production evidence。
+
+## 15. P8 execution ledger
+
+| Slice | 状态 | immutable baseline / direct evidence | 尚未外推 |
+|---|---|---|---|
+| S1 Schema/Descriptor/closed type/String protocol | satisfied | `7925a10`；Zulu 8 `mvn clean verify`、public `javap`、compiler diagnostics、generated keyed、breadth clean/repeat/incremental external consumer、DataFlow A–F、reference differential、old protocol fail-closed与old token absence | 不等于 String lifecycle/GC/scale、完整 Metadata、Group、qualification或release readiness |
+| S2–S10 | pending | 必须按本文件顺序继续 | 不得用S1结果关闭后续slice |

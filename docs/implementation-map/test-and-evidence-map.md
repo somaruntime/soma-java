@@ -10,7 +10,7 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：commit `253e383`
+最近实现核对基线：commit `7925a10`
 
 最后审查日期：2026-07-27
 
@@ -22,7 +22,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | compile fixtures | [`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、aggregate fault containment、Candidate sequence、one-shot/retention、unique point 与 v5 identity |
+| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、aggregate fault containment、Candidate sequence、one-shot/retention、unique point 与 v6 identity |
 | DataFlow contract | `check-dataflow-slice-f.sh`、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
@@ -35,6 +35,11 @@ Owner：SOMA 测试与 evidence 实现导航
 [`MaterializedGraphComparator.java`](../../soma-testkit/src/main/java/com/hgtech/soma/testkit/MaterializedGraphComparator.java) 提供 detached materialized graph 的显式内容比较。Compiler fixtures 同时覆盖 spoofing、cycle、invalid selector/child/default、Unicode order、generated-name collision 和外部 Maven 使用。
 
 Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 javac/Maven compile/run 与 `javap` golden；源码字符串断言只适合作为辅助定位。
+
+S1 fixture 进一步覆盖四类 schema classifier、arbitrary object stable-ID
+diagnostic、String Key/Unique/Index hash collision、Metadata hierarchy/default/
+ownership/immutability、generic Object token absence，以及 generated v5/
+transformation v1 对 current protocol 的 bind-time fail-closed。
 
 Codegen admission 额外约束 selector-less Table 的私有 exact-index stage 使用显式
 构造器，防止 javac 8 synthetic access marker 在 clean build 边界漂移；这项断言

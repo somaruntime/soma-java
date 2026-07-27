@@ -64,5 +64,5 @@ Blueprint/Design/Conformance 的替代定义
 | P5 | satisfied | 三路独立审计初始 `CHANGES_REQUIRED`；修正 `f226d56` 经 evidence、production、product 三路差量复核全部 PASS | 保留 cross-Group/cross-schema/multi-instance 能力；消除 evidence 外推与双 Owner |
 | P6 | satisfied | 正式 Blueprint/Design/Conformance/Engineering 与 Report promotion `d5f713d` | 同批登记 `CF-009`–`CF-015`；旧 G1–G5 不外推新 target |
 | P7 | satisfied | [production disposition](production-disposition.md)逐项冻结live predecessor、successor、closure与S1–S10顺序 | 删除必须具备source/generated/protocol/test/evidence replacement closure |
-| P8 | in progress | 按S1→S10 semantic slice clean cutover | 每个slice保持可编译，禁止双canonical path |
+| P8 | in progress | S1 clean cutover `7925a10`；下一步 S2 Plan/Effective/Observation/resource profile | S1 删除generic Object canonical path并以typed String/Metadata/v6-v2 replacement闭合；其余S2–S10不降级 |
 | P9–P11 | pending | 按正式 Owner 和 Goal 执行 | 不得以耗时、token、代码规模或当前实现反向降低目标 |

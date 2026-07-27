@@ -10,7 +10,7 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`9114321`
+最近实现核对基线：`7925a10`
 
 最后审查日期：2026-07-27
 
@@ -29,6 +29,7 @@ Owner：SOMA compiler/codegen 实现导航
 | Table emitter | [`DenseTableSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableSourceEmitter.java) | packed Table implementation |
 | auxiliary emitter | [`DenseAuxiliarySourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseAuxiliarySourceEmitter.java) | Cursor/UpdateCursor/Batch/Mutator/KeyTraversal/Scan facade |
 | DataFlow emitter | [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseDataFlowSourceEmitter.java) | 每 Table 一个 typed Source/Binding/Expression companion |
+| Metadata emitter | [`DenseMetadataSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseMetadataSourceEmitter.java) | 每 Schema 一个 immutable `SchemaMetadata` companion、Descriptor projection 与 default Plan 入口 |
 | exact-index emitter | [`DenseExactIndexSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseExactIndexSourceEmitter.java) | exact-index runtime source片段；保持byte-stable output |
 | selector source support | [`DenseSelectorSourceSupport.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseSelectorSourceSupport.java) | emitter 共享的 source arguments、comparison、change 与 unique support |
 | Scan execution support | [`DenseScanExecutionSourceSupport.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseScanExecutionSourceSupport.java) | 写入 Table artifact 的 Candidate Scan terminal executor source |
@@ -39,10 +40,18 @@ Processor admission 读取 selector codegen model，而不依赖 source emitter 
 
 Candidate Scan 继续生成 typed source plan、small-inline/overflow stage storage 与 terminal executor；public handle不暴露 runtime IR。DataFlow emitter 只投影 schema-specific capability，不复制 analyzer/kernel，也不按 operator 展开 artifact。当前依赖方向由 codegen admission source-shape check 约束，生成契约继续由 clean/repeat source、schema/hash、`javap` golden、external consumer 和 code-size Gate 约束。
 
+`SomaSchemaModel.SchemaStorageKind` 现在显式封闭 primitive-backed、
+reference-backed immutable String、compiler-flattened value 与 owned structured
+state；任意应用对象在 compile boundary 被拒绝并指向 stable ID + sidecar。
+String Key/Unique/Index 由 concrete `StringColumn` 和 typed String DataFlow
+protocol投影，不再生成 generic Object value family。Descriptor 的 immutable
+实现私有嵌入 schema-scoped companion，application 只能读取、不能自行构造
+processor-owned descriptor。
+
 Table artifact 内部生成一组私有 failure-routing helper：structured `INTERNAL`
 进入 aggregate fault，expected structured failure正常关闭 operation，raw
 unexpected failure fail closed。Table、Auxiliary、Scan、Selector 和 Exact emitter
-都投影到这一处规则；helper 只调用既有 runtime v5 protocol，不进入 generated
+都投影到这一处规则；helper 只调用 current runtime v6 protocol，不进入 generated
 public signature。
 
 Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免 Zulu
