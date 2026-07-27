@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：`passed`
+状态：`passed`；P6 promoted at `d5f713d`
 
 Owner：P5 independent design/scope audit
 
@@ -99,8 +99,8 @@ CHANGES_REQUIRED / BLOCKED_FOR_P6
 P5 最终裁决：
 
 ```text
-PASS / READY_FOR_P6
+PASS / PROMOTED_IN_P6
 ```
 
-该裁决只表示设计可以进入正式 promotion，不表示 production 已实现、qualification
-已通过或 G6 readiness 改变。
+该裁决只表示设计通过了正式 promotion 门槛；`d5f713d` 已完成 P6。它不表示
+production 已实现、qualification 已通过或 G6 readiness 改变。

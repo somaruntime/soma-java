@@ -2,15 +2,14 @@
 
 类型：Temporary
 
-状态：validation complete（TV0–TV9 evidence 已收口；等待最终设计消费）
+状态：validation complete（TV0–TV9 evidence 已由 P6 正式 Design 消费）
 
 Owner：SOMA scale architecture standalone technical validation
 
 正式事实源：否
 
-实施授权：允许本专题文档收口、对 SOMA 的只读审计，以及在 `soma_java`
-仓库之外建立独立 Technical Validation Lab；不授权修改 SOMA production、test、
-benchmark、public/generated contract 或构建
+实施授权：本文只记录技术验证阶段的历史协议和 claim boundary；当前 production
+实施授权以 active Codex Goal、正式 Design 与 Conformance 为准，不能由本文扩大
 
 事实范围：本轮讨论形成的 Small/Medium/Large 与 `100M × 100M` 规模包络、完整
 Metadata 验证边界、V1 类型与存储边界、reference-backed String baseline、候选

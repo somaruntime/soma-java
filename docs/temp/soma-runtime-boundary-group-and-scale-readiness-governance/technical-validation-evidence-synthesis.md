@@ -2,14 +2,14 @@
 
 类型：Temporary
 
-状态：TV0–TV9 evidence transfer complete
+状态：TV0–TV9 evidence transfer complete；P6 consumed
 
 Owner：SOMA runtime scale governance evidence synthesis
 
 正式事实源：否
 
-实施授权：本文件只向 integrated final design 转移独立 Lab 的稳定结论；不授权
-直接移植 Lab class/API/constant，不形成 production readiness、支持矩阵或 SLA
+实施授权：本文只保留已由 P6 正式 Owner 消费的独立 Lab 稳定结论；不授权直接
+移植 Lab class/API/constant，也不形成 production readiness、支持矩阵或 SLA
 
 事实范围：TV0–TV9 accepted/rejected/inconclusive、适用 profile、成本来源、
 潜在 Owner 与必须保留的 claim boundary
@@ -21,7 +21,7 @@ G6、release readiness
 
 验证协议：[Scale Architecture 技术假设与验证协议](scale-architecture-technical-validation.md)
 
-设计去向：[系统设计、核心抽象与叙事再审视](system-design-and-narrative-governance.md)
+正式设计去向：[Design 入口](../../design/README.md)
 
 最后审查日期：2026-07-28
 
