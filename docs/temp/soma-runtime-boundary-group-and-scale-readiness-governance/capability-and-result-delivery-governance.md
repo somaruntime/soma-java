@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（P4 Capability/Result Delivery 已进入集成设计；P5 初审修正等待复核）
+状态：active（P4 Capability/Result Delivery 已通过 P5 独立审计）
 
 Owner：SOMA capability model、physical binding 与 result delivery governance
 

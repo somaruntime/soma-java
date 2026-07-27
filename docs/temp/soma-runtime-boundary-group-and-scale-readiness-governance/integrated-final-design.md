@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：`independent_audit_changes_applied`
+状态：`independent_audit_passed_ready_for_formal_promotion`
 
 Owner：SOMA Java Root Design；各细分责任按本文第 18 节进入正式 Owner
 

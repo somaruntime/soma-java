@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（TV0–TV9 与 P4 已完成；P5 初审问题已修正，等待独立复核）
+状态：active（TV0–TV9、P4 与 P5 已完成；等待 P6 原子正式固化）
 
 Owner：SOMA runtime boundary、Group 与 scale-readiness governance
 
@@ -10,7 +10,7 @@ Owner：SOMA runtime boundary、Group 与 scale-readiness governance
 
 实施授权：当前 Goal 已明确授权在 P6 正式固化后，按通过独立审计的最终设计修改
 SOMA production、test、benchmark、public/generated contract、Guide、Report 和
-必要 Example；P5 通过前仍不得开始 P6/P8
+必要 Example；P6 正式固化前仍不得开始 P8
 
 事实范围：本轮讨论形成的产品定位、产品目标形态、运行时责任边界、Group、完整
 Metadata 体系、Capability Model、V1 类型与存储边界、容量、版本、DataFlow、
@@ -56,10 +56,9 @@ columnar Table + DSL
 ```
 
 本 Goal 已先审计当前事实并冻结验证问题，再由独立技术验证提供机械与成本
-evidence；P4 集成设计已经消费这些结论，P5 初审问题已由
-[独立设计与范围审计](independent-design-and-scope-audit.md)跟踪。P5 复核和 P6
-正式固化前，仍不得依据本 Temporary 或单项 Lab 结果直接修改
-production/public/generated contract。
+evidence；P4 集成设计已经消费这些结论，[独立设计与范围审计](independent-design-and-scope-audit.md)
+已给出 P5 `PASS / READY_FOR_P6`。P6 正式固化前，仍不得依据本 Temporary 或
+单项 Lab 结果直接修改 production/public/generated contract。
 
 本轮已经确认、可作为技术验证输入的决策是：
 

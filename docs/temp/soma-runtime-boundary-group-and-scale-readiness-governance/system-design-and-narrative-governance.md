@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（P4 integrated final design 已形成；P5 初审修正等待复核）
+状态：active（P4 integrated final design 已通过 P5 独立审计）
 
 Owner：SOMA system design、core abstraction 与 narrative governance
 

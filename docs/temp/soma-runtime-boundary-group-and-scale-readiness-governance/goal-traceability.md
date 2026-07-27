@@ -61,5 +61,5 @@ Blueprint/Design/Conformance 的替代定义
 | P2 | satisfied | corrected protocol `75fe7a7`；raw evidence `bbc13e8`；独立复核无 blocker | Eager default 保留；callback 只接受 limited read-only pilot；100M 不外推 readiness |
 | P3 | satisfied | TV9 decision `cf322ab`；A21/O27/I14 与本 Temporary evidence transfer | TV0–TV9 只提供设计输入；未修改 production、正式 Design 或 claim |
 | P4 | satisfied | 集成设计 `335a962`；完整 Metadata/Group/Capability/type/storage/relation/scheduler/delivery/resource/qualification target | A01–A21 全部有 Owner/slice；仍只是真实设计候选，不冒充 production |
-| P5 | in-progress | 三路独立审计初始裁决 `CHANGES_REQUIRED`；P5-B01–B09、P5-I01–I11 已应用修正，等待 exact-commit re-audit | 保留 cross-Group/cross-schema/multi-instance 能力；消除 evidence 外推与双 Owner |
+| P5 | satisfied | 三路独立审计初始 `CHANGES_REQUIRED`；修正 `f226d56` 经 evidence、production、product 三路差量复核全部 PASS | 保留 cross-Group/cross-schema/multi-instance 能力；消除 evidence 外推与双 Owner |
 | P6–P11 | pending | P5 通过后按 Goal 执行 | 不得以耗时、token、代码规模或当前实现反向降低目标 |
