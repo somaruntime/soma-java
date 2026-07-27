@@ -218,20 +218,20 @@ if [ "$main_profiles" -ne 1 ] \
 fi
 for resource_profile in correctness large long-run; do
   if [ ! -f \
-      "$application_dir/src/test/resources/config/$resource_profile.properties" ] \
-      || [ ! -f \
-      "$application_dir/src/test/resources/benchmark/$resource_profile.properties" ]; then
+      "$application_dir/src/test/resources/config/$resource_profile.properties" ]; then
     printf '%s\n' \
-      "rtd-rule-engine-check: missing test profile $resource_profile" >&2
+      "rtd-rule-engine-check: missing config profile $resource_profile" >&2
     exit 1
   fi
 done
-if [ ! -f \
-    "$application_dir/src/test/resources/benchmark/default.properties" ]; then
-  printf '%s\n' \
-    'rtd-rule-engine-check: missing default benchmark options' >&2
-  exit 1
-fi
+for benchmark_profile in default large long-run; do
+  if [ ! -f \
+      "$application_dir/src/test/resources/benchmark/$benchmark_profile.properties" ]; then
+    printf '%s\n' \
+      "rtd-rule-engine-check: missing benchmark profile $benchmark_profile" >&2
+    exit 1
+  fi
+done
 
 production_jar=$application_build_dir/$application-1.0.0-SNAPSHOT.jar
 jar_manifest=$evidence_dir/production-jar.txt
