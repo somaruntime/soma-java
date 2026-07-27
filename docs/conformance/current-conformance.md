@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：P6 target Design 与 P8 S2 production baseline `3c8d425`
+核对对象：P6 target Design 与 P8 S3 production baseline `515bf91`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -27,7 +27,7 @@ Owner：SOMA Java 一致性审查
 |---|---|---|---|
 | Java 8 annotation/schema/compiler | 一致且 evidenced | four-kind classifier、arbitrary-object negative、String selector positive、schema/hash clean repeat与 Zulu 8 external consumer | 防止 arbitrary object、generic Object value和String selector reject回归 |
 | deterministic normalization/hash | 一致且 evidenced | schema JSON/hash golden、Unicode fixture | 保持 |
-| Metadata/generated API | 部分一致；target gap | Descriptor、schema-scoped generated `SchemaMetadata`、schema-seeded Plan Builder与Effective Metadata已闭合；Runtime/Group/Observation Metadata和legacy borrow replacement仍缺 | S3/S10继续剩余 Metadata phases；不引入 reflection/temporary adapter |
+| Metadata/generated API | 部分一致；target gap | Descriptor、schema-scoped generated `SchemaMetadata`、schema-seeded Plan Builder、Effective Metadata与detached Group/member Metadata已闭合；Table/Segment/access Runtime Metadata、Observation和legacy borrow replacement仍缺 | S4/S10继续剩余 Metadata phases；不引入 reflection/temporary adapter |
 | packed keyed/dense storage | 部分一致；target gap | 当前 flat SoA、growth/invariant evidence存在；flat-head/segmented-tail 与 Segment publication尚无 production binding | flat保持 baseline；按 plan formula新增受限 Large layout |
 | primary identity 与 exact access | 部分一致；target gap | primitive/String Key/Unique/Index collision correctness已闭合；layout/locator formula与新 resource ledger未闭合 | 保持 authoritative equality；补 lifecycle、locator formula与 point/rehash/growth evidence |
 | Access Model 与 Candidate Scan | 部分一致；target gap | 现有 ordered-stage/one-shot evidence；当前主要依赖 universal IndexBuffer | 保留 direct Access；实现 closed Candidate shapes并删除 superseded universal path |
@@ -36,8 +36,8 @@ Owner：SOMA Java 一致性审查
 | 按构造即正确 | 一致且 evidenced | typed immutable expression/result、one-shot Builder/Invocation、stable boundary failures、真实 internal publish guards；contract/property/differential evidence | 生产 Owner 继续承担不变量；测试不重复冻结 private layout |
 | swap-remove 与 candidate execution | 部分一致；target gap | swap-remove一致；IndexBuffer evidence只覆盖当前 baseline | 保持 mutation invariant；Candidate physical多形态需新增 differential |
 | Index / IndexSnapshot caller-responsibility | 一致且 evidenced | detached `IndexSnapshot`、optional `requireCurrent`、wrong/stale consumer tests；正式 Owner 已明确非 stable identity/row snapshot | 保持 raw detached API，不增加强制 hot-path guard |
-| child ownership/lifecycle | 部分一致；target gap | root/child aggregate evidence保留；SomaGroup/attach/GroupLedger/version/release尚不存在 | 保持 child forest；新增 Group不得合并 root trust/transaction |
-| structured failure/plan/observation | 部分一致；target gap | plan v4、hard maximum rows、Effective Metadata与String `UNPROFILED/PROFILED_UNVERIFIED` profile已闭合；Runtime/Observation/Explain分责和parent/root/Invocation ledger仍缺 | 保留 stable categories；S3/S6/S10实现分级resource和module-owned observation |
+| Group/child ownership/lifecycle | 一致且 evidenced | child forest与独立root trust保留；SomaGroupPlan、stable slots、implicit/explicit Group、atomic attach、GroupLedger/TableLedger、dataVersion、分层fault和reverse release均有runtime/generated/DataFlow evidence | 保持Group只做optional composition；不得合并root trust、transaction或限制cross-Group/schema/instance |
+| structured failure/plan/observation | 部分一致；target gap | plan v4、hard maximum rows、Effective/Group Metadata、String profile与Group/root structural ledger已闭合；Table/Segment/access Runtime Metadata、module-owned Observation/Explain和Invocation phase ledger仍缺 | 保留 stable categories；S4/S6/S10实现剩余runtime topology、Invocation resource与module-owned observation |
 | Result Delivery/materialization | 部分一致；target gap | Eager/materialization与legacy borrowed traversal存在；callback consumer当前进入Definition且无统一generated lifecycle | Eager保持默认；迁移全部 incumbent borrow并禁止Iterator/pull/async |
 | hot-path/scale performance shape | evidence不足于新目标 | 既有component/application baseline只覆盖旧lanes；无Small/Medium String、1M/10M全workload、single/double100M、delivery/soak新qualification | production实现后执行预注册qualification；当前不允许scale/public claim |
 | reference application boundary | 既有一致；待P9复核 | `soma-examples` 三个 independent child与既有evidence仍有效；尚未消费新Metadata/Group/String/delivery contract | P8仅做必要编译迁移；P9独立审计，无偏差则RETAIN |
@@ -56,16 +56,17 @@ String reference baseline、closed Capability Set、受限 layout/Candidate/rela
 bounded scheduler、Eager + callback delivery 与分级 resource/scale qualification。
 这些是 target facts，不是 current support claim。
 
-P8 S1–S2 已将 Descriptor/SchemaMetadata、four-kind classifier、typed String
+P8 S1–S3 已将 Descriptor/SchemaMetadata、four-kind classifier、typed String
 value/access、schema-seeded Plan Builder、Effective Metadata、String resource
-profile、hard maximum rows和v6/v2/plan-v4 protocol投影到production，并由
-external/differential/component evidence关闭对应replacement。仍存在
-[known gaps](known-gaps.md)：Runtime/Group/Observation Metadata、String
-lifecycle/GC、Large physical plan、specialized relation/parallel、unified callback
-delivery、Group/root/Invocation resource hierarchy与全部production-shape
-qualification尚未闭合。
+profile、hard maximum rows、SomaGroupPlan/SomaGroup、Group/member Metadata、
+atomic attach、implicit Group、GroupLedger/TableLedger、分层fault/release和
+v7/v2/plan-v4 protocol投影到production，并由external/differential/component
+evidence关闭对应replacement。仍存在[known gaps](known-gaps.md)：Table/Segment/
+access Runtime Metadata与Observation、String lifecycle/GC、Large physical plan、
+specialized relation/parallel、unified callback delivery、Invocation phase ledger
+与全部production-shape qualification尚未闭合。
 
-S1–S2 结果不外推为后续slice、scale或release readiness。G6仍因外部发布事实 blocked；
+S1–S3 结果不外推为后续slice、scale或release readiness。G6仍因外部发布事实 blocked；
 Lab/local evidence不能改变这一结论。
 
 本结论不扩大任何任务授权；Conformance 只记录当前判断与相关 Owner 已作出的处置决定，不表示差距实现已获授权或完成。

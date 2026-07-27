@@ -10,7 +10,7 @@ Owner：SOMA Java 实现导航
 
 非事实范围：规范性设计、未来计划和实现正确性裁决
 
-最近实现核对基线：commit `3c8d425`
+最近实现核对基线：commit `515bf91`
 
 最后审查日期：2026-07-28
 
@@ -27,9 +27,9 @@ Implementation Map 是当前代码的简短投影。代码变化后，以代码�
 普通类、字段和方法清单由代码搜索获得，不在这里维护第二份完整目录。
 
 “实现核对基线”是最后一次影响对应 surface 的 immutable commit；它可以早于后续
-docs/governance-only commit。当前 `3c8d425` 在 S1 schema-scoped Descriptor
-Metadata、four-kind classifier、typed String value/access 与 v6/v2 protocol
-之上，继续完成 S2 schema-seeded Plan Builder、immutable Effective Metadata、
-String resource profile、hard maximum rows 与 runtime plan v4 clean cutover；
-更早的 aggregate fault、runtime hot-path 和 DataFlow 历史仍由正式治理 Report
-追踪，不在各地图重复完整提交链。
+docs/governance-only commit。当前 `515bf91` 在 S1/S2 的 Descriptor、closed
+String、schema-seeded Plan Builder、Effective Metadata、hard maximum rows与
+plan-v4基础上，继续完成 S3 SomaGroup、stable member plan、atomic attach、
+implicit Group、GroupLedger/TableLedger、分层fault/release与generated/runtime
+v7 clean cutover；更早的runtime hot-path和DataFlow历史仍由正式治理Report追踪，
+不在各地图重复完整提交链。

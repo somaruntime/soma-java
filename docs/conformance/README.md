@@ -10,7 +10,7 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：重新定义设计、直接修改实现或扩大任务授权
 
-实现核对基线：P8 S2 implementation baseline `3c8d425`
+实现核对基线：P8 S3 implementation baseline `515bf91`
 
 最后审查日期：2026-07-28
 

@@ -10,7 +10,7 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`3c8d425`
+最近实现核对基线：`515bf91`
 
 最后审查日期：2026-07-28
 
@@ -56,10 +56,16 @@ capability并默认 `UNPROFILED`。Application只能通过metadata-scoped table 
 覆盖已开放的cold control-plane参数，不能构造raw descriptor或写入free-form
 physical strategy。
 
+Table artifact 现在同时生成 `attach(SomaGroup, memberName)` 与 implicit-Group
+`create(plan)` 路径。前者经 `GeneratedRootFactory`/`GeneratedSomaGroup`完成
+private construction、ledger bind和publish-once；后者复用同一协议建立单槽Group。
+生成 public Table 不泄漏 `GroupLedger`、`TableLedger` 或 `GroupMembership`，
+这些类型只属于generator binding protocol。
+
 Table artifact 内部生成一组私有 failure-routing helper：structured `INTERNAL`
 进入 aggregate fault，expected structured failure正常关闭 operation，raw
 unexpected failure fail closed。Table、Auxiliary、Scan、Selector 和 Exact emitter
-都投影到这一处规则；helper 只调用 current runtime v6 protocol，不进入 generated
+都投影到这一处规则；helper 只调用 current runtime v7 protocol，不进入 generated
 public signature。
 
 Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免 Zulu

@@ -12,7 +12,7 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：runtime-scale P6 target Design；production code baseline `aea5cc0`；
+适用版本：runtime-scale P6 target Design；production code baseline `515bf91`；
 既有 Transformation/DataFlow 与 reference-application evidence 只保留其原 candidate
 范围
 
@@ -36,7 +36,9 @@ packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap
 PASS后，采用design-first两阶段promotion：正式Design已接纳完整Metadata、
 SomaGroup、四类类型/String、受限physical plans、bounded scheduler、Eager+
 callback delivery与production-scale qualification；同批Conformance明确记录
-production仍未实现。此前G1–G5 passed只证明原candidate，不自动证明新target。
+production S1–S3已完成Descriptor/closed String/Plan/Effective/SomaGroup/ledger
+clean cutover，S4–S10与qualification仍未实现。此前G1–G5 passed只证明原candidate，
+不自动证明新target。
 当前必须完成production cutover、Example审计、qualification和fresh Gate后才能
 重新判定G1–G5；G6仍独立blocked。
 
@@ -98,7 +100,7 @@ baseline 候选为 `253e383`，正式结论见
 |---|---|---|
 | 历史 Phase 0–6 candidate | historical passed | 原reports/commits保留其精确candidate evidence，不外推新Design |
 | Runtime-scale P6 target Design | completed | Blueprint/Design/Conformance/Engineering原子固化；P5三路审计PASS |
-| Metadata/Group/String/physical/execution/delivery production cutover | blocked | `CF-009`–`CF-013` 尚未关闭 |
+| Metadata/Group/String/physical/execution/delivery production cutover | in progress | P8 S1–S3已闭合；`CF-009`–`CF-013`剩余S4–S10尚未关闭 |
 | P9 Example最终设计审计 | pending | 三个独立应用按真实偏差RETAIN或治理 |
 | Production-scale qualification / fresh G1–G5 | blocked | `CF-014`/`CF-015`；Small/Medium/1M/10M/single-double100M/String/Delivery/Soak尚无新candidate evidence |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
@@ -125,9 +127,9 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 | Gate | 状态 | 主要报告 |
 |---|---|---|
 | G0 | passed | `reports/java-v1-g0-scope-freeze-report.md` |
-| G1 | blocked | 新四类type/String/Metadata schema target尚未实现；旧report只作历史evidence |
-| G2 | blocked | 新generated SchemaMetadata/typed callback/Object replacement尚未实现 |
-| G3 | blocked | Group/storage/Candidate/relation/scheduler/resource/delivery target尚未实现 |
+| G1 | blocked | 四类type/String/Descriptor与Group Metadata已实现；完整Runtime/Observation Metadata及fresh Gate尚未闭合 |
+| G2 | blocked | generated SchemaMetadata、typed String与Group attach已实现；generated callback/observation和fresh Gate尚未闭合 |
+| G3 | blocked | Group/structural ledger已实现；storage/Candidate/relation/scheduler/Invocation resource/delivery target尚未实现 |
 | G4 | blocked | 新simple/advanced/callback/diagnostics external consumer尚未通过 |
 | G5 | blocked | production-scale qualification与P9 Example审计尚未通过 |
 | G6 | blocked | `reports/java-v1-g6-release-readiness-report.md` |

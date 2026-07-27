@@ -10,7 +10,7 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：commit `3c8d425`
+最近实现核对基线：commit `515bf91`
 
 最后审查日期：2026-07-28
 
@@ -22,7 +22,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | compile fixtures | [`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、aggregate fault containment、Candidate sequence、one-shot/retention、unique point 与 v6 identity |
+| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v7 identity |
 | DataFlow contract | `check-dataflow-slice-f.sh`、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
@@ -49,6 +49,14 @@ free-form strategy absence。Access、Child、Breadth、Keyed与Dense external
 consumer均完成clean/repeat compile/run和受影响`javap`快照。DataFlow component
 baseline只因plan v4迁移authoring identity checksum，allocation/timing/tail/GC
 阈值未放宽，calibration指向`3c8d425`。
+
+S3 fixture覆盖SomaGroupPlan确定性、stable frozen slots、multi-schema与同schema
+多实例、detached Group Metadata、atomic attach rollback、explicit release
+conflict、all-member preflight、reverse release、root fault→DEGRADED、
+Group cleanup fault→FAULTED与bounded retry。Breadth/DataFlow evidence同时覆盖
+same/cross Group、cross schema、self alias以及第三个source acquire失败时对前两个
+root的canonical reverse release。`StorageBudget` source/protocol token已由absence
+scan关闭，generated/runtime identity升级为v7，plan仍为v4。
 
 Codegen admission 额外约束 selector-less Table 的私有 exact-index stage 使用显式
 构造器，防止 javac 8 synthetic access marker 在 clean build 边界漂移；这项断言

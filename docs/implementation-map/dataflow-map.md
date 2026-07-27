@@ -12,7 +12,7 @@ Owner：SOMA DataFlow 实现导航
 
 非事实范围：规范性 Transformation 语义、完整 public signature 清单和性能结论
 
-最近实现核对基线：commit `3c8d425`
+最近实现核对基线：commit `515bf91`
 
 最后审查日期：2026-07-28
 
@@ -37,7 +37,7 @@ Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/
 
 当前 identity：
 
-- generated/runtime `v6`；
+- generated/runtime `v7`；
 - transformation `v2`、kernel `v1`；
 - runtime plan为 `v4`，Schema hash 语义未变化。
 
@@ -54,6 +54,11 @@ typed Definition
 ```
 
 Candidate `skip/limit` 将 selection capacity 上界下推到 streaming selection。Parallel 使用 managed 或 borrowed executor；sequential 是 oracle，default adaptive crossover 当前由 evidence 选择，物理常量不在本地图复制。
+
+Invocation仍按root opaque identity排序并canonical acquire，而不是按Group合并guard。
+因此同一Group内不同root、跨Group、同schema多实例、跨schema和self alias保持同一
+multi-source语义。部分acquire失败时按已获得root逆序释放；Group membership只提供
+composition/lifecycle，不成为Join prerequisite或跨root transaction。
 
 ## 4. 验证入口
 

@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：P8 S2 implementation baseline `3c8d425`
+实现核对基线：P8 S3 implementation baseline `515bf91`
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 
@@ -18,13 +18,13 @@ Owner：SOMA Java 一致性审查
 
 | ID | 分类 | 差距 | 影响 | 当前 Owner 处置 |
 |---|---|---|---|---|
-| `CF-009` | Product/runtime contract | Descriptor、generated SchemaMetadata、schema-seeded Plan Builder与Effective Metadata已实现；Runtime/Group/Observation Metadata、SomaGroupPlan/SomaGroup 与 atomic attach/parent ledger仍缺 | canonical advanced journey、multi-root composition、resource/lifecycle target未闭合 | S3/S10继续剩余 Metadata phases 与 Ownership Design；保留 cross-Group/schema/instance DataFlow，不引入双 plan/metadata path |
+| `CF-009` | Product/runtime contract | Descriptor、generated SchemaMetadata、schema-seeded Plan Builder、Effective Metadata、SomaGroupPlan/SomaGroup、Group/member Metadata与atomic attach已实现；Table/Segment/access Runtime Metadata和Observation仍缺 | multi-root composition与Group lifecycle已闭合；完整runtime topology/observation product journey仍未闭合 | S4/S10继续剩余 Metadata phases；保留唯一metadata/plan path，不引入reflection或temporary adapter |
 | `CF-010` | Type/generated protocol | four-kind classifier、typed String value/access、arbitrary-object rejection、Object-path removal与String `UNPROFILED/PROFILED_UNVERIFIED` resource profile已闭合；String mutation/clear/release/GC和production scale evidence仍缺 | reference retention、String lifecycle/heap口径与规模目标尚不能声明完整支持 | S5/P10补 lifecycle/GC和length/cardinality/sharing/role限定 qualification；不引入 dictionary/arena |
 | `CF-011` | Storage/access | 当前以flat/universal IndexBuffer baseline为主，缺flat-head/segmented-tail、Segment publication、closed Candidate shapes与locator formula qualification | Large可增长性、point tax、retained/transient peak和Small固定税目标未闭合 | Flat保持baseline；新physical binding只在formula与production evidence后启用，禁止universal segmented或full-key duplication |
-| `CF-012` | Transformation/execution/resource | Group/Join/Delta/Window specialization、unknown-bound fail-closed、one bounded morsel/vector scheduler、parent/root/Invocation ledger与module-owned Observation尚未闭合 | 高展开可能缺preflight，中小规模/单Segment并行、资源与诊断不可按新目标解释 | 保持现有logical semantics；实现specialized/cost-model paths与sequential differential，全部resource phase lease可验证 |
+| `CF-012` | Transformation/execution/resource | Group/root structural ledger已由GroupLedger/TableLedger闭合；Group/Join/Delta/Window specialization、unknown-bound fail-closed、Invocation phase ledger、one bounded morsel/vector scheduler与module-owned Observation尚未闭合 | 高展开可能缺preflight，中小规模/单Segment并行、Invocation资源与诊断仍不可按新目标解释 | 保持现有logical semantics；实现specialized/cost-model paths与sequential differential，全部Invocation phase lease可验证 |
 | `CF-013` | Result Delivery | Eager baseline存在，但incumbent Candidate/Value/Group/Join/Window borrow仍保留consumer-in-Definition lifecycle；generated callback facade未实现/qualification | Definition identity、non-escape、cancel/deadline、partial publication与allocation目标不一致 | 统一迁入标准 Definition→Template→Invocation；Eager继续默认；不得保留legacy、Iterator/pull/async path |
 | `CF-014` | Qualification/product evidence | 缺Small/Medium String、1M/10M全workload、single/double100M、String100M、expansion、delivery、Soak production-shape evidence与新Guide fixtures | 不能声明scale readiness、callback supported或完整product journey | 先预注册环境/seed/oracle/budget/timeout/fork/comparator/status，结果保持claimAllowed=false；Guide用external/snippet Gate验收 |
-| `CF-015` | Migration/complexity/examples | 尚未完成exact public/generated/protocol disposition、replacement closure、code/test scale审查与三个Example的最终设计复核 | 可能残留parallel fact、死代码/测试或展示性Example迁移 | P7逐surface RETAIN/MIGRATE/REMOVE；P8只做contract-required migration；P9无偏差则RETAIN，不做装饰性重构 |
+| `CF-015` | Migration/complexity/examples | P7已完成exact public/generated/protocol disposition；P8 S1–S3已关闭Object、raw Plan、StorageBudget等对应replacement，但S4–S10、整体code/test scale审查与三个Example最终设计复核尚未完成 | 后续slice仍可能残留parallel fact、死代码/测试或展示性Example迁移 | P8继续逐slice replacement closure；P9无偏差则RETAIN，不做装饰性重构 |
 | `CF-005` | Evidence | 当前十一份性能 baseline 只覆盖指定 Zulu JDK 8/macOS/aarch64 环境与固定 lanes/workload | 其他环境只能得到 `not-applicable`，不能外推为支持矩阵或普遍性能优势 | 保留环境限定和 `claimAllowed=false`；新增环境需独立校准，public claim 需另行授权 |
 | `CF-006` | Release evidence | G6 所需真实 SCM、ownership、contact、signing/publishing、clean provenance 和支持矩阵不完整 | 禁止 public RC/release-ready/production-ready 声明 | 保持 `blocked`；发布工作不在当前专题范围 |
 
@@ -56,6 +56,7 @@ Owner：SOMA Java 一致性审查
 | `CF-007` 文档候选完整性 | 已关闭 | 32份旧Owner已按迁移审计处置；正式入口、checker与Report已切换，Temporary已删除 |
 | `CF-008` 文档抽象层次与职责混合 | 已关闭 | Design 已建立 `D0/D1/D2/Q`、上位设计和场景追踪；Blueprint 不再承载当前实现盘点、自审或一致性结论；checker 防止结构回退 |
 | aggregate internal/unexpected failure 后可信状态 | 已关闭 | `ChildOwnershipRegistry` 是共享 trust Owner；faulted root/child aggregate 拒绝 normal access，只允许 bounded diagnostics 与 root release；public/API/protocol 不变 |
+| SomaGroup composition 与 structural ledger | 已关闭 | stable slots、multi-schema/multi-instance、atomic attach、implicit Group、GroupLedger唯一hard owner、TableLedger attribution、分层fault/release和cross-Group/schema/self DataFlow不得回退 |
 
 ## 3. 不构成差距的观察
 

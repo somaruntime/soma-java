@@ -10,7 +10,7 @@ Owner：SOMA executable contract 实现导航
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：commit `3c8d425`
+最近实现核对基线：commit `515bf91`
 
 最后审查日期：2026-07-28
 
@@ -30,8 +30,8 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 | handwritten runtime public API | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | [`public-api/phase1/public-api.javap.txt`](../../soma-testkit/src/test/fixtures/public-api/phase1/public-api.javap.txt) |
 | generated public API | generated source/class output；canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child/DataFlow companion/keyed Delta | external dense/keyed/access/child/breadth `javap` golden + compile/run |
 | DataFlow public API | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) 与 generated companion | public `javap`、Slice A–F、external consumer、reference differential |
-| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v6、transformation v2、kernel v1、plan v4 | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
-| runtime plan/default/effective metadata/stats/error codes | runtime public/internal sources；application从generated `SchemaMetadata.newPlan()`进入，raw construction只由generated bridge持有 | runtime-core check、public API absence rule、diagnostics Gate、external access/child/breadth consumers |
+| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v7、transformation v2、kernel v1、plan v4 | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
+| runtime plan/Group/effective metadata/stats/error codes | runtime public/internal sources；application从generated `SchemaMetadata.newPlan()`进入，并通过implicit `create`或显式`attach(SomaGroup, slot)`组合root；raw construction只由generated bridge持有 | runtime-core Group/plan checks、public API absence rule、diagnostics Gate、external dense/access/child/breadth consumers |
 | benchmark artifact schema | benchmark model/validator | smoke runner、strict validator、negative artifact cases；exact-index incremental lane 与无索引 dense-workspace lane 分开记录 |
 
 ## 3. Surface 变更规则
@@ -53,8 +53,17 @@ free-form physical strategy退出authoring surface，generated SchemaMetadata播
 one-shot metadata-scoped builder；plan冻结 immutable Effective Metadata、
 String profile状态与hard maximum rows。Public/generated golden、compiler
 classpath isolation、runtime atomic failure、external access/child/breadth journey
-和DataFlow component baseline共同约束该surface；Runtime/Group/Observation
-Metadata仍是后续Conformance gap。
+和DataFlow component baseline共同约束该surface；该时点尚未实现的Group部分已由
+下一slice关闭，Table/Segment/access Runtime Metadata与Observation仍是后续
+Conformance gap。
+
+`515bf91` 完成 generated/runtime v7 clean cutover：新增 `SomaGroupPlan`、
+`SomaGroup`、Group/member Metadata、atomic explicit attach与implicit Group，
+以 `GroupLedger` 取代 `StorageBudget`，`TableLedger`只作attribution；root与Group
+fault/lifecycle保持分层。Public/generated golden、runtime/child/breadth external
+journey、cross-Group/cross-schema/self DataFlow与partial-acquire reverse-release
+共同约束该surface。Plan protocol仍为v4，因为本slice没有改变plan canonical
+schema或hash语义。
 
 ## 4. Baseline 约定
 

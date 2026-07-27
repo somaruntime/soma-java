@@ -14,7 +14,7 @@ Owner：SOMA runtime scale and productization Goal execution
 
 非事实范围：产品目标、长期设计、当前实现能力、性能 claim 或 release readiness
 
-当前 production 基线：`3c8d425`
+当前 production 基线：`515bf91`
 
 最后审查日期：2026-07-28
 
@@ -48,7 +48,7 @@ Implementation Map 在 P8 production cutover 后按实际代码更新，不提�
 | P5 independent design/scope audit | completed | `f226d56`、`aea5cc0`；三路复核 PASS |
 | P6 formal promotion | completed | `d5f713d`；Design target 与 `CF-009`–`CF-015` 同批固化 |
 | P7 production disposition | completed | [逐项 RETAIN/MIGRATE/REMOVE 与 replacement closure](production-disposition.md) |
-| P8 production implementation | in progress | 按语义 slice clean cutover |
+| P8 production implementation | in progress | S1–S3已clean cutover；下一步S4 storage layout |
 | P9 three-example audit | pending | 先审计；只有真实偏差才修改 |
 | P10 qualification / fresh Gate | pending | production-shape evidence 与完整验证 |
 | P11 closeout / deletion | pending | 自包含 Report、Conformance/Map 收口、删除 Lab 与本目录 |
