@@ -191,6 +191,9 @@ evidence。
 - [SOMA 产品目标形态与长任务执行治理](productization-and-goal-execution-governance.md)：
   记录产品北极星、目标锁、Goal Traceability、防偏航/防打转协议、三个 Example
   后置审计和整体完成定义。
+- [Goal Traceability](goal-traceability.md)：
+  以稳定 Goal ID 连接产品价值、正式 Owner、TV evidence、production slice、验证、
+  Example 和剩余差距，并在 P0–P11 每个阶段关闭时更新。
 
 ## 2. 产品定位候选
 

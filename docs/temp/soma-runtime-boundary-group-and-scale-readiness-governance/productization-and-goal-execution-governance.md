@@ -196,16 +196,27 @@ P0 live baseline / dirty-work attribution
   -> P3 evidence synthesis + Owner Decision Matrix update
   -> P4 product/narrative/capability/metadata integrated final design
   -> P5 independent design and scope audit
-  -> P6 atomic promotion to formal Owners
+  -> P6 accepted design freeze + formal Owner promotion manifest
   -> P7 code/test/doc/evidence disposition
   -> P8 production implementation by semantic slice
   -> P9 three-Example audit and necessary governance
-  -> P10 full production-shape qualification and Gate
-  -> P11 formal closeout, Lab/Temporary deletion
+  -> P10 full production-shape qualification + final evidence audit
+  -> P11 atomic formal promotion, final Gate, Lab/Temporary deletion
 ```
 
 不得在 P4/P5 设计闭合前开始大规模 production refactor；不得等到 P10 才第一次
 核对 public/generated compatibility 或 Example consumer。
+
+P6 只冻结经过独立审计的 accepted design，并形成逐项迁入唯一正式 Owner 的
+promotion manifest；不提前把尚未由 production、test 和 evidence 证明的中间状态
+写入正式 Design。P11 按文档治理要求在一次 closeout 变更中执行：
+
+```text
+promote long-lived facts to formal Owners
+  -> refresh Implementation Map / Conformance / Reports / Guides
+  -> validate references and all applicable Gates
+  -> delete Temporary and the independent Lab
+```
 
 ## 9. 三个 Example 的后置治理
 
