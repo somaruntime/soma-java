@@ -22,6 +22,8 @@ fi
   default 3 "$evidence_dir/industrial-scheduler"
 ./scripts/run-grassing-simulation-performance.sh \
   default 3 "$evidence_dir/grassing-simulation"
+./scripts/run-real-time-dispatch-rule-engine-performance.sh \
+  default 3 "$evidence_dir/rtd-rule-engine"
 
 printf '%s\n' "reference-application-fast-performance: $evidence_dir"
 printf '%s\n' 'reference-application-fast-performance: ok'

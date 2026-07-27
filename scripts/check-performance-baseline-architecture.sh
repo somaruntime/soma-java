@@ -15,6 +15,10 @@ scheduler_long_run_baseline=$scheduler_baseline_dir/performance-baseline-long-ru
 simulation_default_baseline=$simulation_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v2.json
 simulation_large_baseline=$simulation_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v1.json
 simulation_long_run_baseline=$simulation_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v1.json
+rtd_baseline_dir=soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark
+rtd_default_baseline=$rtd_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v1.json
+rtd_large_baseline=$rtd_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v1.json
+rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v1.json
 
 for baseline in \
   "$scan_component_baseline" \
@@ -24,7 +28,10 @@ for baseline in \
   "$scheduler_long_run_baseline" \
   "$simulation_default_baseline" \
   "$simulation_large_baseline" \
-  "$simulation_long_run_baseline"; do
+  "$simulation_long_run_baseline" \
+  "$rtd_default_baseline" \
+  "$rtd_large_baseline" \
+  "$rtd_long_run_baseline"; do
   if [ ! -f "$baseline" ]; then
     printf '%s\n' \
       "performance-baseline-architecture-check: missing baseline $baseline" >&2
@@ -46,11 +53,12 @@ component_baseline_count=$(find \
 application_baseline_count=$(find \
   soma-examples/industrial-dynamic-scheduler/src \
   soma-examples/grassing-individual-simulation/src \
+  soma-examples/real-time-dispatch-rule-engine/src \
   -type f -name 'performance-baseline-*.json' | wc -l | tr -d ' ')
 if [ "$component_baseline_count" -ne 2 ] \
-    || [ "$application_baseline_count" -ne 6 ]; then
+    || [ "$application_baseline_count" -ne 9 ]; then
   printf '%s\n' \
-    "performance-baseline-architecture-check: expected component=2 and application=6, got component=$component_baseline_count application=$application_baseline_count" >&2
+    "performance-baseline-architecture-check: expected component=2 and application=9, got component=$component_baseline_count application=$application_baseline_count" >&2
   exit 1
 fi
 
@@ -107,6 +115,15 @@ check_application_baseline \
 check_application_baseline \
   "$simulation_long_run_baseline" grassing-individual-simulation long-run \
   grassing-simulation-benchmark-v3
+check_application_baseline \
+  "$rtd_default_baseline" real-time-dispatch-rule-engine default \
+  rtd-dispatch-benchmark-v1
+check_application_baseline \
+  "$rtd_large_baseline" real-time-dispatch-rule-engine large \
+  rtd-dispatch-benchmark-v1
+check_application_baseline \
+  "$rtd_long_run_baseline" real-time-dispatch-rule-engine long-run \
+  rtd-dispatch-benchmark-v1
 
 grep -F "$scan_component_baseline" \
   scripts/check-post-cutover-components.sh >/dev/null
@@ -118,17 +135,22 @@ grep -F \
 grep -F \
   'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
   scripts/check-grassing-simulation.sh >/dev/null
+grep -F \
+  'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
+  scripts/check-real-time-dispatch-rule-engine.sh >/dev/null
 for script in \
   scripts/check-post-cutover-components.sh \
   scripts/check-dataflow-performance.sh \
   scripts/check-industrial-scheduler.sh \
-  scripts/check-grassing-simulation.sh; do
+  scripts/check-grassing-simulation.sh \
+  scripts/check-real-time-dispatch-rule-engine.sh; do
   grep -F 'PerformanceBaselineComparator' "$script" >/dev/null
 done
 
 if grep -R -F '<artifactId>soma-benchmarks</artifactId>' \
     soma-examples/industrial-dynamic-scheduler/pom.xml \
-    soma-examples/grassing-individual-simulation/pom.xml >/dev/null \
+    soma-examples/grassing-individual-simulation/pom.xml \
+    soma-examples/real-time-dispatch-rule-engine/pom.xml >/dev/null \
     || grep -R -F 'com.hgtech.soma.examples' \
       soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineDefinition.java \
       soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparator.java \
@@ -139,5 +161,5 @@ if grep -R -F '<artifactId>soma-benchmarks</artifactId>' \
 fi
 
 printf '%s\n' \
-  'performance-baseline-architecture-check: component=2 reference-application=6 public-claim=0'
+  'performance-baseline-architecture-check: component=2 reference-application=9 public-claim=0'
 printf '%s\n' 'performance-baseline-architecture-check: ok'

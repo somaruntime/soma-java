@@ -8,7 +8,7 @@
     "commit": "1af43ac06e7a460b1951983997be313b02398239",
     "date": "2026-07-24",
     "forks": 9,
-    "formula": "allocation=ceil(max*1.05); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25)"
+    "formula": "identity-migration=generated-runtime-v5; thresholds=retained-from-nine-fork-v1-calibration; allocation=ceil(max*1.05); deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25)"
   },
   "environment": {
     "javaVersion": "1.8.0_492-b09",
@@ -32,7 +32,7 @@
     "inputChecksum": "4bf40acea10fb86d2d51ab9b0cb0954b1d8772e81d0c6480ca379f23e4ff2cb3",
     "resultChecksum": "bed7d5edba6e642bdfbc1a49929966e642474b8ef2e9bbabb5ecb842f46cb34a",
     "schemaHash": "fa9980069efd263e0940ca9e3f388144c6a3357d9973518db83a7aa855ddc64d",
-    "runtimePlanHash": "89f0eb773b0ebb13c1f94bc640674d335a756134153538b7327ea80a8feedecc",
+    "runtimePlanHash": "f9fa3fb49fc2397fa9c366bd1de9f10c4e867d8a521e03409751e2f7272d5da1",
     "worldWidth": 400,
     "worldHeight": 225,
     "worldCells": 90000,

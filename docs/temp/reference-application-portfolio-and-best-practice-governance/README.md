@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 4 complete）
+状态：active（Stage 5 complete）
 
 Owner：SOMA reference application portfolio and best-practice governance
 
@@ -129,6 +129,9 @@ Stage 3 实施与非回归结论见
 Stage 4 实施与非回归结论见
 [Industrial DataFlow 责任迁移收口](stage-4-industrial-closeout.md)。
 
+Stage 5 三应用证据与性能非回归结论见
+[Portfolio Evidence 收口](stage-5-portfolio-evidence-closeout.md)。
+
 ## 5. 两个现有应用的治理方法
 
 审计沿少量完整 vertical slice 展开，不逐类套模板：
@@ -250,7 +253,7 @@ Conformance 发现不扩大授权。正式 Design 在最终候选完成并获得
 | 2 | COMPLETE | grassing 一致性治理 | 应用内部候选保持业务语义并通过专项 Gate |
 | 3 | COMPLETE | 独立 RTD rule engine 实现 | canonical journey、DataFlow/parallel/effect evidence 成立 |
 | 4 | COMPLETE | industrial 复审与 DataFlow 责任原子迁移 | `AssignmentSummaryFlow` 删除；Result/性能/coverage 不回归 |
-| 5 | PENDING | 三应用 correctness、scale、soak、parallel 与 portfolio Gate | evidence Owner 唯一；无 coverage 缺口 |
+| 5 | COMPLETE | 三应用 correctness、scale、soak、parallel 与 portfolio Gate | evidence Owner 唯一；无 coverage 缺口 |
 | 6 | PENDING | scope non-regression、完整 Gate、正式固化和 Temporary 退役 | Report/Owner/导航完成；无尾项 |
 
 Stage 1 可以裁决某个局部实现保持现状，但不能取消两个应用的完整复审、第三个应用

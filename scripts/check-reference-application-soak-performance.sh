@@ -22,6 +22,8 @@ fi
   long-run 3 "$evidence_dir/industrial-scheduler"
 ./scripts/run-grassing-simulation-performance.sh \
   long-run 3 "$evidence_dir/grassing-simulation"
+./scripts/run-real-time-dispatch-rule-engine-performance.sh \
+  long-run 3 "$evidence_dir/rtd-rule-engine"
 
 printf '%s\n' "reference-application-soak-performance: $evidence_dir"
 printf '%s\n' 'reference-application-soak-performance: ok'

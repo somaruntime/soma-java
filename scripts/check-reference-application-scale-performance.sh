@@ -22,6 +22,8 @@ fi
   large 3 "$evidence_dir/industrial-scheduler"
 ./scripts/run-grassing-simulation-performance.sh \
   large 3 "$evidence_dir/grassing-simulation"
+./scripts/run-real-time-dispatch-rule-engine-performance.sh \
+  large 3 "$evidence_dir/rtd-rule-engine"
 
 printf '%s\n' "reference-application-scale-performance: $evidence_dir"
 printf '%s\n' 'reference-application-scale-performance: ok'
