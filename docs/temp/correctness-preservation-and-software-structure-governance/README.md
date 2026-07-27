@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（Stage 0 complete）
+状态：active（Stage 2 candidate）
 
 Owner：SOMA correctness preservation and software structure governance
 
@@ -177,8 +177,8 @@ Conformance 发现本身不扩大实施授权。正式 Design 在最终候选获
 | Stage | 当前状态 | 责任 | 退出条件 |
 |---|---|---|---|
 | 0 | COMPLETE | 协议、事实基线、初步风险和候选问题 | Temporary 自洽；现状、边界与 Gate instability 有证据 |
-| 1 | PENDING | 五个 vertical slice 的抽象、叙事和证明链审计 | 问题分级；无逐文件泛化审计 |
-| 2 | PENDING | internal/unexpected failure、fault scope 与可信状态详细设计 | Design candidate 自洽；性能/兼容影响明确 |
+| 1 | COMPLETE | 五个 vertical slice 的抽象、叙事和证明链审计 | 问题分级；无逐文件泛化审计 |
+| 2 | COMPLETE | internal/unexpected failure、fault scope 与可信状态详细设计 | Design candidate 自洽；性能/兼容影响明确 |
 | 3 | PENDING | 证据支持的 production/test 内部实施 | 每个 slice 独立正确、可验证、可保留 |
 | 4 | PENDING | property/differential/contract/E2E 与窄性能验证 | 防线有效；无洪水式重复测试 |
 | 5 | PENDING | scope non-regression、完整 Gate、正式固化和退役 | 唯一 Owner、Report、无 Temporary 尾项 |
