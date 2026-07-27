@@ -8,15 +8,17 @@ Owner：grassing-individual-simulation
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 本应用是独立 Java 8 Maven consumer。它以
 `Config -> Scenario Factory -> Scenario -> Simulator/Session -> Result`
 作为唯一 production journey，并拥有 grasser–grass 模型、system 顺序、配置、
 确定性随机、验证和性能 evidence；SOMA 的产品语义仍由根级 Design 拥有。它只
-依赖 `soma-annotations`、`soma-runtime-core` 和 compile-time
-`soma-processor`，不依赖 root reactor、`soma-testkit`、旧 examples、
-Artemis-odb 或 SOMA internal package。
+依赖 `soma-annotations`、`soma-runtime-core`、生成 companion 所需的
+`soma-dataflow` 和 compile-time `soma-processor`，不依赖 root reactor、
+`soma-testkit`、旧 examples、Artemis-odb 或 SOMA internal package。业务运行
+仍使用 direct Access/Transformation，不为了展示产品能力强行建立 reusable
+DataFlow。
 
 ## 入口
 
@@ -55,4 +57,5 @@ artifact 默认 `claimAllowed=false`。同环境下，版本化 application base
 `not-applicable`。
 
 Default、large、long-run 的专项性能入口分别为 Fast、Scale、Soak，Full 组合三个
-profile 与 scheduler 的对应 profile。每个普通性能 Gate 使用三个独立 JVM fork。
+profile 与 scheduler、RTD 的对应 profile。每个普通性能 Gate 使用三个独立 JVM
+fork。

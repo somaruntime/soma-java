@@ -177,6 +177,7 @@ current_reference_docs=$(find \
   soma-examples/docs \
   soma-examples/industrial-dynamic-scheduler/docs \
   soma-examples/grassing-individual-simulation/docs \
+  soma-examples/real-time-dispatch-rule-engine/docs \
   -type f -name '*.md' -print | sort)
 current_reference_docs="$current_reference_docs
 README.md
@@ -226,7 +227,10 @@ for file in soma-examples/docs/README.md; do
   done
 done
 
-for application in industrial-dynamic-scheduler grassing-individual-simulation; do
+for application in \
+  industrial-dynamic-scheduler \
+  grassing-individual-simulation \
+  real-time-dispatch-rule-engine; do
   application_docs="soma-examples/$application/docs"
   for file in "$application_docs"/*.md; do
     for pattern in '^类型：应用' '^状态：当前$' "^Owner：$application$" '^对 SOMA 产品规范性：否$' '^最后审查日期：'; do
@@ -242,13 +246,29 @@ for application in industrial-dynamic-scheduler grassing-individual-simulation; 
   fi
 done
 
+if grep -F 'AssignmentSummaryFlow' \
+    docs/implementation-map/scenario-and-benchmark-map.md \
+    docs/conformance/current-conformance.md \
+    docs/conformance/known-gaps.md \
+    soma-examples/docs/README.md \
+    soma-examples/industrial-dynamic-scheduler/docs/*.md \
+    reports/current-performance-summary.md >/dev/null 2>&1; then
+  fail 'current reference-application facts retain retired AssignmentSummaryFlow'
+fi
+if ! grep -F 'check-real-time-dispatch-rule-engine.sh' \
+    soma-examples/docs/README.md >/dev/null 2>&1 \
+    || ! grep -F 'reference-application=9' \
+      docs/engineering/benchmark-governance.md >/dev/null 2>&1; then
+  fail 'three-application Gate or nine-profile ownership is not documented'
+fi
+
 product_blueprint_count=$(find docs/blueprints -maxdepth 1 -type f -name '*.md' \
   ! -name README.md | wc -l | tr -d ' ')
 if [ "$product_blueprint_count" -ne 1 ] \
     || [ ! -f docs/blueprints/soma-java-product-blueprint.md ]; then
   fail 'docs/blueprints must contain exactly one SOMA product Blueprint'
 fi
-if grep -E 'industrial-dynamic-scheduler/docs/blueprint|grassing-individual-simulation/docs/blueprint' \
+if grep -E 'industrial-dynamic-scheduler/docs/blueprint|grassing-individual-simulation/docs/blueprint|real-time-dispatch-rule-engine/docs/blueprint' \
     docs/design/README.md >/dev/null 2>&1; then
   fail 'application Blueprint must not enter SOMA Design trace'
 fi
@@ -279,6 +299,7 @@ fi
 for file in \
   reports/java-v1-goal-execution-status.md \
   reports/current-performance-summary.md \
+  reports/2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md \
   reports/2026-07-27-transformation-dataflow-governance-report.md \
   reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md \
   reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md \

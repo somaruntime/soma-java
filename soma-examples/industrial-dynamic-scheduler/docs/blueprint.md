@@ -24,7 +24,7 @@ properties
   -> immutable SchedulingProblem + input checksum
   -> SchedulingSolver
   -> internal Runtime/Schema + event/frontier/commit
-  -> typed Assignment Summary DataFlow
+  -> application-owned single-pass AssignmentSummarizer
   -> detached ScheduleResult
   -> independent domain validation
 ```
@@ -123,40 +123,28 @@ cardinality 对应的 key/unique/point/append 路径。跨事件保存
 只在同步只读批次内使用。Solver 终点才把 `OperationAssignment` schema record
 复制为 `ScheduledOperation`。
 
-同一个 authoritative assignment Table 还通过生成的 typed DataFlow 一次推导
-count、makespan 和 job completion。应用只声明业务变换，SOMA 负责绑定、执行和
-detached result：
+同一个 authoritative assignment Table 通过 direct primitive ColumnView 单遍
+推导 count、makespan 和 per-job completion。当前 Index 只在这次同步只读操作中
+消费，按 job 聚合使用 application-owned primitive scratch，不维护第二份 live
+领域事实：
 
 ```java
-OperationAssignmentDataFlow.Source source =
-    OperationAssignmentDataFlow.source("assignments");
-CandidateFlow<OperationAssignmentDataFlow.Binding> all =
-    source.candidates();
-
-DataFlowDefinition.Builder builder = DataFlowDefinition.builder();
-OutputSlot<LongScalarResult> count =
-    builder.output("assignment-count", all.count());
-OutputSlot<OptionalLongResult> makespan =
-    builder.output("makespan",
-        all.project(source.columns().endMinute()).max());
-DataFlowTemplate<DataFlowResults> template =
-    builder.build().compile();
-
-DataFlowContext context = DataFlowContext.sequential();
-try {
-  DataFlowResults values =
-      template.newInvocation(context)
-          .bind(source,
-              OperationAssignmentDataFlow.bind(assignments))
-          .execute();
-} finally {
-  context.close();
+try (LongColumnView jobIds =
+         assignments.operationKeyJobIdValueColumn();
+     LongColumnView endMinutes = assignments.endMinuteColumn();
+     LongColumnView dueMinutes = assignments.dueMinuteColumn();
+     IntColumnView priorities = assignments.priorityColumn()) {
+  for (int index = 0; index < assignments.size(); index++) {
+    summary.accept(jobIds.getLong(index), endMinutes.getLong(index),
+        dueMinutes.getLong(index), priorities.getInt(index));
+  }
 }
 ```
 
-正式实现还以 `job + due + priority` 分组并取每个 job 的最大 end time，从而在
-Result 边界计算 tardiness。该 summary 不替代 candidate frontier，也不把
-dispatch rule、事件或跨 Table commit 强行放入 DataFlow。
+`AssignmentSummarizer` 对每个 job 取最大 end time，并在 Result 边界计算
+tardiness。它在事实产生处校验 assignment/job 覆盖和 makespan，不替代
+candidate frontier，也不把 dispatch rule、事件或跨 Table commit 强行放进一个
+通用 graph。
 
 Candidate frontier 是可由 Table facts 重建的算法状态，而不是领域事实。应用使用
 固定容量 primitive pool、machine-local group 和每机一个代表项的 indexed
@@ -191,6 +179,6 @@ point/exact-group access、mutation、append、lifecycle 和受控 materializati
 - 四个配置均可重放并通过完整 validator；
 - long-run 持续 mutation 后 frontier 清空且所有 operation 恰好一次 assignment；
 - 多 fork 记录 solve time、allocated bytes、Young/Full GC 和 runtime high-water；
-- correctness Gate 证明真实 generated DataFlow 完成一次 invocation、覆盖全部
-  assignment，并且输出仍与独立领域 validator 一致；
+- correctness Gate 证明 application-owned 单遍 summary 覆盖全部 assignment/job、
+  与 dispatch makespan 一致，并且输出仍与独立领域 validator 一致；
 - 所有结果默认只作为本机应用证据，不形成 release 或普遍性能主张。

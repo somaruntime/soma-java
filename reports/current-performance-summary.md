@@ -11,18 +11,19 @@ Owner：SOMA Java 性能输出
 受众：评估当前 runtime 形状和后续优化价值的维护者
 
 适用版本：Transformation/DataFlow production candidate `2aa8c15`；
-industrial DataFlow baseline identity migration `586d523`；原 application
-threshold candidate `a7d4fde`；其余 reference-application baseline `938b3d5`
+reference-application implementation/evidence candidate `253e383`；原
+scheduler/simulation threshold candidates `a7d4fde` / `938b3d5`
 
 输入事实源：[三层性能基线治理报告](2026-07-24-three-layer-performance-baseline-governance-report.md)、
 [Reference Application 大规模性能基线治理报告](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)、
 [Industrial Dynamic Scheduler 设计与性能治理报告](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)、
 [Transformation/DataFlow 治理报告](2026-07-27-transformation-dataflow-governance-report.md)、
-八份 checked-in baseline、neutral/DataFlow component artifact 和
+[Reference Application Portfolio 治理报告](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)、
+十一份 checked-in baseline、neutral/DataFlow component artifact 和
 Fast/Scale/Soak/Full Gate
 
-事实范围：当前 Candidate Scan 与 DataFlow component、三类 representative
-generated footprint、工业 DataFlow trace 与两个应用六个 profile 的环境感知
+事实范围：当前 Candidate Scan 与 DataFlow component、四类 representative
+generated footprint、三个独立应用九个 profile 的环境感知
 multi-fork regression baseline
 
 非事实范围：跨环境 SLA、正式支持矩阵、普遍性能优势或 G6
@@ -32,10 +33,10 @@ multi-fork regression baseline
 环境：Azul Zulu OpenJDK `1.8.0_492-b09`，macOS `26.5.2`，arm64/aarch64
 
 方法：Candidate Scan component 普通 Gate 5 fork，DataFlow component 3 fork，
-均使用 ThreadMXBean exact allocation；六个应用 profile 普通 Gate 3 fork；
-current baseline 保留既有 9-fork provenance，identity migration 使用一次有界
-5-fork non-regression；scheduler artifact v4 同时记录 hot solve 与 canonical
-end-to-end；三 surface clean code-size
+均使用 ThreadMXBean exact allocation；九个应用 profile 普通 Gate 3 fork；
+scheduler/simulation 保留既有 9-fork provenance，RTD 初始 baseline 使用 5-fork
+校准；scheduler artifact v4 同时记录 hot solve 与 canonical end-to-end；四
+surface clean code-size
 
 ## 1. 当前边界
 
@@ -45,7 +46,7 @@ Access Model 区分 Point、Candidate、Column、Key、Bulk 和 Ownership；Cand
 Scan 保持 specialized lazy one-shot plan。其上新增 transformation/kernel v1：
 typed Definition/Template/Invocation、detached result、safe-point effect 和受控并行。
 
-三层模型区分 component baseline、六个 application-owned profile baseline 与
+三层模型区分 component baseline、九个 application-owned profile baseline 与
 public performance claim。当前前两层已进入回归 Gate，第三层仍为空。全部
 measurement/baseline/result artifact 均为 `claimAllowed=false`，G6 仍 blocked。
 
@@ -127,12 +128,12 @@ Application allocation 是带 JVM 优化噪声的 fitness signal，按跨 fork m
 比较；GC maximum 与 runtime high-water all-equal 分别守住压力和确定性边界。
 单个 allocation maximum 超限不再触发自动 rebaseline。
 
-Typed assignment summary 接入后，三个 profile 使用一次 5-fork identity migration
-确认旧阈值不变：default solve `14.68..15.75 ms`、large
-`1.30..1.33 s`、long-run `47.45..50.91 ms`；hot allocation 分别约
-`4.06 MB`、`121.93..126.59 MB`、`11.86..14.99 MB`，Young/Full GC 为
-`0/0`、`2/0`、`1/0`。input/result/schema identity 不变，仅
-generated-runtime v5 的 RuntimePlan hash 与 provenance 迁移。
+展示性 summary DataFlow 删除并改用 direct ColumnView 单遍
+`AssignmentSummarizer` 后，原三份 baseline 无修改通过普通 3-fork：default
+`14.98 ms / 3.96 MB`、large `1362.22 ms / 118.53 MB`、long-run
+`48.48 ms / 13.09 MB`，均低于既有 timing/allocation envelope。Result、
+validator、Schema、input identity 与阈值不变；DataFlow application coverage
+由独立 RTD 应用接管。
 
 ### 3.2 Grassing individual simulation
 
@@ -150,21 +151,45 @@ Maximum population 为 `1,433 / 158,318 / 13,837`；归一化 median 为
 Long-run 的 10,000 ticks 总 allocation 约 47 MB 且 GC 为零，持续 churn 未形成
 随 tick 累积的临时对象失控。
 
-两应用的 correctness、failure、lifecycle 和 result identity 均在性能数字之前
-通过；Fast、Scale、Soak 分责，Full 组合六个 workload。表中 MB/ms 为可读摘要，
-正式 baseline 保存原始 bytes/nanos。
+Stage 2 没有改变 Schema、input/result 或阈值；三份旧 baseline 只把
+generated/runtime v4 `runtimePlanHash` 迁移到 v5 identity。迁移后的普通 3-fork
+为 default `144.93 ms / 11.43 MB`、large `6161.18 ms / 426.41 MB`、
+long-run `3678.83 ms / 47.36 MB`，全部通过原 envelope。
+
+### 3.3 Real-time dispatch rule engine
+
+RTD baseline 由 5-fork 校准建立，普通 3-fork 结果如下；allocation 只统计同步
+caller thread，GC 为进程范围：
+
+| Profile | Workload | Timing / limit | Caller allocation / limit | Tasks / workers |
+|---|---|---:|---:|---:|
+| default | 1,024 work、32 resources、24 cycles | `70.98 / 114.38 ms` | `17.22 / 21.52 MB` | `228 / 4` |
+| large | 15,000 work、128 resources、20 cycles | `793.82 / 1186.56 ms` | `119.57 / 152.61 MB` | `64 / 4` |
+| long-run | 13,000 work、64 resources、500 cycles | `142.83 / 210.29 ms` | `730.15 / 911.26 MB` | `1504 / 4` |
+
+三个 profile 同时固定 Config、input/result、Schema、RuntimePlan、Definition、
+Template 和 demand identity；plain-Java reference 与 sequential/managed/borrowed
+结果在测量前通过。Long-run 的高 caller allocation 来自 500 次同步 Invocation
+和命令/结果边界，仍在校准 envelope 内；该数字不代表 worker 总 allocation。
+
+三个应用的 correctness、failure、lifecycle/resource ownership 和 result identity
+均在性能数字之前通过；Fast、Scale、Soak 分责，Full 组合九个 workload。表中
+MB/ms 为可读摘要，正式 baseline 保存原始 bytes/nanos。
 
 ## 4. Generated footprint
 
-首个两应用切换候选采用 per-surface fixed candidate + 15% ceiling：
+当前四个 generated surface 采用 per-surface fixed candidate + 15% ceiling：
 
 | Surface | Scan count | Scan source bytes | source lines | Scan family class bytes | nested classes |
 |---|---:|---:|---:|---:|---:|
-| neutral benchmark | 6 | 144,720 | 644 | 203,536 | 45 |
-| industrial scheduler | 9 | 218,605 | 940 | 311,595 | 65 |
-| grassing simulation | 2 | 47,835 | 213 | 68,276 | 15 |
+| neutral benchmark | 6 | 144,108 | 644 | 202,630 | 45 |
+| industrial scheduler | 9 | 217,712 | 940 | 310,199 | 65 |
+| grassing simulation | 2 | 47,662 | 213 | 68,134 | 15 |
+| RTD rule engine | 2 | 47,442 | 211 | 66,869 | 15 |
 
-Checker 同时生成 surface、逐 Scan 与逐 schema footprint，并要求三层汇总闭合。该 Gate 防止同一候选的生成规模无意膨胀；它不是长期容量承诺，也不能证明某个 feature 的单独因果。
+Checker 同时生成 surface、逐 Scan、逐 DataFlow 与逐 schema footprint，并要求
+各层汇总闭合。该 Gate 防止同一候选的生成规模无意膨胀；它不是长期容量承诺，
+也不能证明某个 feature 的单独因果。
 
 每张 Table 还恰好生成一个 DataFlow companion，当前 `+15%` candidate ceiling
 如下：
@@ -172,8 +197,9 @@ Checker 同时生成 surface、逐 Scan 与逐 schema footprint，并要求三�
 | Surface | Table / companion | companion source bytes / lines | family class bytes / nested class |
 |---|---:|---:|---:|
 | neutral benchmark | `6 / 6` | `68,269 / 684` | `232,402 / 61` |
-| industrial scheduler | `9 / 9` | `100,661 / 987` | `363,990 / 91` |
-| grassing simulation | `2 / 2` | `21,780 / 224` | `77,658 / 20` |
+| industrial scheduler | `9 / 9` | `100,661 / 987` | `348,307 / 91` |
+| grassing simulation | `2 / 2` | `21,780 / 224` | `74,410 / 20` |
+| RTD rule engine | `2 / 2` | `22,397 / 226` | `78,944 / 21` |
 
 ## 5. 解释边界
 

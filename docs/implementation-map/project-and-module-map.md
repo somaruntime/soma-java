@@ -10,7 +10,7 @@ Owner：SOMA Java 项目实现导航
 
 事实范围：当前 Maven reactor、模块职责、主要产物和顶层执行入口
 
-最近实现核对基线：commit `2aa8c15`
+最近实现核对基线：commit `253e383`
 
 最后审查日期：2026-07-27
 
@@ -25,10 +25,14 @@ Owner：SOMA Java 项目实现导航
 | `soma-dataflow` | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) | typed Transformation/DataFlow production runtime |
 | `soma-processor` | [`SomaProcessor.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/SomaProcessor.java) | javac plugin、processor、generator |
 | `soma-testkit` | [`MaterializedGraphComparator.java`](../../soma-testkit/src/main/java/com/hgtech/soma/testkit/MaterializedGraphComparator.java) | fixtures/evidence helpers |
-| `soma-examples` | [`pom.xml`](../../soma-examples/pom.xml)、[应用入口](../../soma-examples/docs/README.md) | 两个独立 Java 8 reference consumer 的 aggregator；不产出共享领域 JAR |
+| `soma-examples` | [`pom.xml`](../../soma-examples/pom.xml)、[应用入口](../../soma-examples/docs/README.md) | 三个独立 Java 8 reference consumer 的 aggregator；不产出共享领域 JAR |
 | `soma-benchmarks` | [`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java) | 领域中性 component benchmark runners/artifacts |
 
-完整 production boundary 是 compile-time annotations/processor 与 runtime-core/dataflow；只使用 direct Access 的源码不引用 DataFlow type。Testkit、examples aggregator 和 benchmarks 不应出现在普通 consumer runtime classpath。两个 reference application 是普通 consumer，不是 SOMA runtime artifact。
+完整 production boundary 是 compile-time annotations/processor 与
+runtime-core/dataflow；只使用 direct Access 的源码不引用 DataFlow type。
+Testkit、examples aggregator 和 benchmarks 不应出现在普通 consumer runtime
+classpath。三个 reference application 是相互独立的普通 consumer，不是 SOMA
+runtime artifact。
 
 ## 2. Build 和 Gate 入口
 
@@ -38,7 +42,10 @@ Owner：SOMA Java 项目实现导航
 - package smoke：[`scripts/package-smoke.sh`](../../scripts/package-smoke.sh)；
 - benchmark smoke：[`scripts/check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)。
 
-`check.sh` 顺序执行 docs、Maven verify、build/public API/compiler/codegen/runtime/keyspace/access/child/testkit/breadth/diagnostics/external consumer、两个 reference application、neutral benchmark、integrated multi-fork 与 generated-footprint 检查，最后执行 `git diff --check`。
+`check.sh` 顺序执行 docs、Maven verify、build/public
+API/compiler/codegen/runtime/keyspace/access/child/testkit/breadth/diagnostics/external
+consumer、三个 reference application、neutral benchmark、integrated multi-fork
+与 generated-footprint 检查，最后执行 `git diff --check`。
 
 ## 3. 实现数据流
 

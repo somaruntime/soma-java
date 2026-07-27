@@ -57,10 +57,10 @@ correctness lane 验证：
 - other-table snapshot 作为 wrong source 被拒绝；
 - aggregate release 后访问被拒绝；
 - 反转 materialized result 不改变 checksum。
-- `AssignmentSummaryFlow` 使用真实 generated binding 完成 one-shot Invocation，
-  count/makespan/job completion 覆盖当前 assignment facts；
-- DataFlow Definition/Template/policy identity、source/scanned/output stats 完整，
-  detached metrics 仍通过独立领域 validator。
+- `AssignmentSummarizer` 使用 direct primitive ColumnView 单遍覆盖当前
+  assignment facts 和全部 job；
+- count/makespan/tardiness 在事实产生处完成覆盖与一致性校验，detached metrics
+  仍通过独立领域 validator。
 
 ## 性能 artifact
 
@@ -101,7 +101,7 @@ Application-owned baseline 位于 test resources。每个普通 profile Gate 使
 表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。应用级 allocation
 使用跨 fork 中位数和 `allocation=ceil(p50*1.25)` fitness envelope；timing 使用
 `timing=ceil(max(p50*1.50,p90*1.25))`，不是由目标倒推。Default、large、
-long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部六个应用 workload。
+long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部九个应用 workload。
 Long-run 在首次普通重放中暴露 ThreadMXBean/TLAB allocation 分布超出首轮
 9-fork 最大值，因此不再用 maximum 驱动反复 rebaseline。确定性 high-water
 继续 `all-equal`，GC 继续取 maximum。
@@ -110,19 +110,18 @@ Long-run 在首次普通重放中暴露 ThreadMXBean/TLAB allocation 分布超�
 明确授权的方差诊断或 public claim 准备，不属于普通开发、治理收口或失败后的
 自动重跑。
 
-Typed DataFlow 接入后，default、large、long-run 各执行一次有界 5-fork
-non-regression；没有重新计算或放宽上述阈值。Schema、input/result checksum
-保持不变，generated-runtime protocol 升为 v5 后只迁移 RuntimePlan hash 与
-baseline provenance：
+Stage 4 删除展示性 summary DataFlow、改用单遍 `AssignmentSummarizer` 后，三份
+既有 baseline 没有修改或放宽，并在 Stage 5 普通 3-fork 中全部通过：
 
-| Profile | 5-fork hot solve range | hot allocation range | Young / Full GC |
-|---|---:|---:|---:|
-| default | `14.68..15.75 ms` | `4.06 MB` | `0 / 0` |
-| large | `1.30..1.33 s` | `121.93..126.59 MB` | `2 / 0` |
-| long-run | `47.45..50.91 ms` | `11.86..14.99 MB` | `1 / 0` |
+| Profile | 3-fork hot solve / limit | allocation / limit |
+|---|---:|---:|
+| default | `14.98 / 21.26 ms` | `3.96 / 4.95 MB` |
+| large | `1362.22 / 1930.66 ms` | `118.53 / 143.34 MB` |
+| long-run | `48.48 / 70.57 ms` | `13.09 / 17.27 MB` |
 
-这组证据只证明新增 summary DataFlow 没有破坏既有应用性能包络。它不把应用
-frontier 迁入通用 graph，也不形成跨环境 claim。
+这组证据证明 summary 责任迁移没有改变 Result identity、领域 validator 或既有
+应用性能包络。DataFlow application coverage 已由独立 RTD 应用接管；工业
+frontier 继续保持 application-owned，不形成跨环境 claim。
 
 该校准同时保护两条不同责任的路径：
 

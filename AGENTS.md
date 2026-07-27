@@ -44,7 +44,7 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - `soma-dataflow`：typed Transformation、Definition/Template/Invocation、
   execution context、detached result、controlled effect 与并行执行；
 - `soma-testkit`：compile/golden/invariant/evidence helpers；
-- `soma-examples`：两个独立 Java 8 reference consumer 的聚合边界，不产出领域共享 JAR；
+- `soma-examples`：三个独立 Java 8 reference consumer 的聚合边界，不产出领域共享 JAR；
 - `soma-benchmarks`：领域中性 component benchmark、runner、validator 与 runtime-state lanes。
 
 跨模块长期语义由根级 Design 拥有；模块 `docs/` 中的旧契约已 `superseded`，只保留历史上下文。模块修改前仍应读取对应 `<module>/docs/README.md` 以定位当前实现与历史边界。

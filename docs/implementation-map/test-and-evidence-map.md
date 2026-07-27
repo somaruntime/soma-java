@@ -10,7 +10,7 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：commit `b4dc203`
+最近实现核对基线：commit `253e383`
 
 最后审查日期：2026-07-27
 
@@ -25,8 +25,8 @@ Owner：SOMA 测试与 evidence 实现导航
 | runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、aggregate fault containment、Candidate sequence、one-shot/retention、unique point 与 v5 identity |
 | DataFlow contract | `check-dataflow-slice-f.sh`、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
-| reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 两个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
-| application correctness/evidence | [`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)、[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)、Fast/Scale/Soak/Full performance Gate | versioned config、detached input checksum、oracle/validator、failure/lifecycle，以及六个 profile 的多 fork timing/allocation/GC/high-water |
+| reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
+| application correctness/evidence | [`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)、[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)、[`check-real-time-dispatch-rule-engine.sh`](../../scripts/check-real-time-dispatch-rule-engine.sh)、Fast/Scale/Soak/Full performance Gate | versioned config、detached input checksum、oracle/validator、failure/lifecycle/resource ownership，以及九个 profile 的多 fork timing/allocation/GC/high-water |
 | neutral benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-dataflow-performance.sh`](../../scripts/check-dataflow-performance.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、direct/Candidate/DataFlow cost、parallel crossover、safe-point Effect、cardinality memory 与 generated footprint |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
@@ -52,13 +52,18 @@ admission；其 direct predicate 不捕获 `Workload`，authoring lane 独立记
 
 Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或 lane-specific strict validator 校验。当前 smoke 使用 benchmark-owned `GroupCandidate` 和 `DenseWorkspaceFact` 分别证明 grouped exact access 与无 maintained index 的 `replaceAll + sorted`，禁止把后者误记为 exact-index evidence。
 
-两个 reference application 的 v3 artifact 精确登记 profile、目标规模、heap、
+三个 reference application 的版本化 artifact 精确登记 profile、目标规模、heap、
 fork、Schema/RuntimePlan、result identity、hot-operation 执行次数、归一化指标、
-allocation、GC、growth/high-water 和 `claimAllowed=false`。每个 child 各自拥有
-default、large、long-run 三份 baseline；Fast、Scale、Soak 分责，Full 组合全部
-六个 workload。
+allocation、GC、growth/high-water 或 parallel task，以及
+`claimAllowed=false`。每个 child 各自拥有 default、large、long-run 三份
+baseline；Fast、Scale、Soak 分责，Full 组合全部九个 workload。
 
-Scan code-size evidence 对 neutral benchmark、industrial scheduler 和 grassing simulation 分别保留首个切换候选的 fixed-candidate + 15% ceiling，同时生成 surface、Scan artifact 和 schema footprint；checker要求三层汇总闭合。它用于定位生成规模变化，不是容量承诺或单 feature 因果模型。报告只能引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一 evidence。
+Scan code-size evidence 对 neutral benchmark、industrial scheduler、grassing
+simulation 和 RTD rule engine 分别保留首个切换候选的 fixed-candidate + 15%
+ceiling，同时生成 surface、Scan、DataFlow 和 schema footprint；checker 要求各层
+汇总闭合。它用于定位生成规模变化，不是容量承诺或单 feature 因果模型。报告只能
+引用可追踪到 commit、环境、命令和 artifact 的测量；console 文本不是唯一
+evidence。
 
 ## 4. 维护提示
 

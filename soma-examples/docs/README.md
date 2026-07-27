@@ -8,11 +8,11 @@ Owner：SOMA Java reference applications
 
 受众：SOMA Java application developer
 
-适用版本：`soma-java` `0.2.0-SNAPSHOT`、两个应用 `1.0.0-SNAPSHOT`
+适用版本：`soma-java` `0.2.0-SNAPSHOT`、三个应用 `1.0.0-SNAPSHOT`
 
-输入事实源：两个 child application 的 POM、source、versioned config、validation 与 canonical Gate
+输入事实源：三个 child application 的 POM、source、versioned config、validation 与 canonical Gate
 
-事实范围：当前两个独立参考应用、构建隔离和应用自有 evidence 的导航
+事实范围：当前三个独立参考应用、构建隔离和应用自有 evidence 的导航
 
 非事实范围：SOMA 核心 Design、公共 API、跨环境性能 claim 和 release readiness
 
@@ -24,14 +24,20 @@ Owner：SOMA Java reference applications
 
 - [工业动态调度引擎](../industrial-dynamic-scheduler/docs/README.md)：top-level
   Problem/Factory、canonical Solver/Session、detached Result、动态约束、增量
-  frontier、assignment summary typed DataFlow、production/test 隔离与多 fork
+  frontier、application-owned 单遍 assignment summary、production/test 隔离与多 fork
   evidence；
-- [个体生态仿真](../grassing-individual-simulation/docs/README.md)：grasser–grass systems、确定性随机、AoS oracle、物理顺序独立性与 long-run evidence。
+- [个体生态仿真](../grassing-individual-simulation/docs/README.md)：grasser–grass
+  systems、确定性随机、AoS oracle、物理顺序独立性、fail-stop lifecycle 与
+  long-run evidence；
+- [实时派工规则引擎](../real-time-dispatch-rule-engine/docs/README.md)：detached
+  snapshot/delta、reusable multi-source DataFlow、Join/GroupBy、受控并行、
+  detached command、应用自有提交与独立 reference。
 
 每个应用都把版本化配置和 detached input generation 与 authoritative runtime
-state 分开。工业调度应用通过 Factory/Solver facade 隐藏 runtime lifecycle；
-生态仿真仍使用自有 generator/bootstrap。两者的 hot loop 都不反向调用输入生成器，
-相同配置与 seed 必须产生相同 input checksum。
+state 分开。工业调度应用通过 Factory/Solver facade 隐藏 runtime lifecycle，
+生态仿真通过 Simulator/Session 管理 tick aggregate，RTD 通过 Dispatcher 管理
+有限 horizon。三个应用的运行期都不反向调用输入生成器，相同配置与 seed 必须
+产生相同 input checksum。
 
 ## Canonical Gate
 
@@ -39,13 +45,14 @@ state 分开。工业调度应用通过 Factory/Solver facade 隐藏 runtime lif
 ./scripts/check-reference-applications.sh
 ./scripts/check-industrial-scheduler.sh
 ./scripts/check-grassing-simulation.sh
+./scripts/check-real-time-dispatch-rule-engine.sh
 ./scripts/check-reference-application-fast-performance.sh
 ./scripts/check-reference-application-scale-performance.sh
 ./scripts/check-reference-application-soak-performance.sh
 ./scripts/check-reference-application-full-performance.sh
 ```
 
-前三个 Gate 证明两个 child 是普通 consumer，并分别拥有领域 correctness、架构与
-lifecycle；Fast、Scale、Soak 对应 default、large、long-run 的 3-fork
-performance baseline，Full 组合六个 workload 与三层结构检查。所有本机性能
-artifact 均保持 `claimAllowed=false`。
+前四个 Gate 证明三个 child 是相互独立的普通 consumer，并分别拥有领域
+correctness、架构、lifecycle 与 resource ownership；Fast、Scale、Soak 对应
+default、large、long-run 的 3-fork performance baseline，Full 组合九个 workload
+与三层结构检查。所有本机性能 artifact 均保持 `claimAllowed=false`。

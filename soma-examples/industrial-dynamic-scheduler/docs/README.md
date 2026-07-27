@@ -14,7 +14,9 @@ Owner：industrial-dynamic-scheduler
 `soma-runtime-core`、`soma-dataflow` 和 compile-time `soma-processor`，不依赖
 root reactor、`soma-testkit`、旧 examples 或 internal package。调度 hot loop
 继续使用应用自有 primitive frontier；完成后的 authoritative assignment Table
-由 typed DataFlow 推导 detached Result metrics。
+由 application-owned `AssignmentSummarizer` 通过直接 ColumnView 单遍推导
+detached Result metrics。`soma-dataflow` 只因当前生成 companion 的普通
+compile/runtime graph 保留，不承担本应用的业务规则或产品展示责任。
 
 ## 入口
 
@@ -52,7 +54,7 @@ measurement 配置彼此独立。
 JAR 和 package DAG，执行四个 problem profile、手算 oracle、完整 Result claim
 validator、projection/lifecycle 负路径和默认性能回归。default、large、long-run
 的专项性能入口分别为 Fast、Scale、Soak，Full 组合三个 profile 与 simulation
-的对应 profile。每个普通性能 Gate 使用三个独立 JVM fork，并分别保护 hot solve
+和 RTD 的对应 profile。每个普通性能 Gate 使用三个独立 JVM fork，并分别保护 hot solve
 与 `prepare + solve + close` canonical path。所有性能 artifact 默认
 `claimAllowed=false`；
 同环境下由统一 comparator 判定 `passed/failed`，环境不同且 artifact 合法时明确

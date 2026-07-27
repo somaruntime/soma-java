@@ -18,6 +18,7 @@ Owner：SOMA Java 正式报告输出
 
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
+- [2026-07-27 Reference Application Portfolio 与最佳实践治理](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)（三个独立应用、RTD DataFlow trace、industrial/grassing 复审、九份 application baseline 与 scope non-regression）
 - [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)（generated/runtime v5、transformation/kernel v1、构造契约、reference differential、受控并行、工业应用 trace 与 scope non-regression）
 - [2026-07-27 正确性保持与软件结构治理](2026-07-27-correctness-preservation-and-software-structure-governance-report.md)（aggregate fault containment、五条证明链、CP-001–CP-007、public/API/protocol 与性能非回归）
 - [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)（Problem/Result 契约、Access Pattern→Schema、global frontier、canonical/hot 9-fork evidence 与 scope non-regression）
@@ -25,7 +26,7 @@ Owner：SOMA Java 正式报告输出
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)（component、两个 application baseline、环境感知 comparator、9-fork 校准与 public claim 边界）
 - [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)（Config/Scenario/Simulator/Session/Engine/System/Runtime/Schema/Result分层、source-set与canonical journey）
 - [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)（Problem/Factory/Solver/Runtime/Schema/Result分层、source-set与canonical journey）
-- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（当前 G5 Owner；两个独立参考应用、neutral benchmark 与旧场景退役）
+- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（历史边界基线；当时两个独立参考应用、neutral benchmark 与旧场景退役）
 - [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)（benchmark分责、processor所有权、generated-footprint诊断与runtime保留裁决）
 - [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)（历史/current拓扑、processor/codegen分责、byte-stable与多fork非回归）
 - [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)（当前v4产品模型、正式Owner、实现与scope non-regression结论）
@@ -40,7 +41,7 @@ Owner：SOMA Java 正式报告输出
 | G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；当前 v5 generated DataFlow surface 见[Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md) |
 | G3 | passed | [Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md)、[Access Model / Candidate Scan v4治理](2026-07-23-access-model-candidate-scan-governance-report.md)与[性能证据](2026-07-23-access-model-candidate-scan-performance-report.md) |
 | G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md) |
-| G5 | passed | [Transformation/DataFlow 工业应用 trace](2026-07-27-transformation-dataflow-governance-report.md)、[参考应用边界治理](2026-07-23-reference-application-boundary-governance-report.md)、[大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md) |
+| G5 | passed | [Reference Application Portfolio 治理](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)、[Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md)、[大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md) |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
 Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。
@@ -49,6 +50,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-27 Reference Application Portfolio 与最佳实践治理](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)
 - [2026-07-27 正确性保持与软件结构治理](2026-07-27-correctness-preservation-and-software-structure-governance-report.md)
 - [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)
 - [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)

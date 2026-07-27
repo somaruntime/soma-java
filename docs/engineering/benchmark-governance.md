@@ -17,7 +17,7 @@ Owner：SOMA Java benchmark 过程
 | 层次 | Owner | 回答的问题 | 当前状态 |
 |---|---|---|---|
 | Component Performance Baseline | `soma-benchmarks` | SOMA 领域中性 mechanics 是否回归 | 已建立本机环境基线 |
-| Reference Application Integrated Performance Baseline | 各 child application | 固定真实 workload 的端到端 hot operation 是否回归 | 两个应用各拥有 default、large、long-run 基线 |
+| Reference Application Integrated Performance Baseline | 各 child application | 固定真实 workload 的端到端 hot operation 是否回归 | 三个应用各拥有 default、large、long-run 基线 |
 | Public Performance Evidence / Claim | 经审批的正式 Report | 哪些环境、workload 和统计证据允许对外声明 | 当前不存在 |
 
 前两层可以进入工程回归 Gate；第三层不是自动汇总结果，必须另有环境矩阵、
@@ -72,11 +72,11 @@ metric：
 timing 用 multi-fork median。Component allocation 使用 maximum；带完整 JVM
 执行路径的 application allocation 使用 median fitness envelope，避免 TLAB、
 tiered compilation 或延迟初始化的单个极值触发 rebaseline。Setup/preparation
-可以报告，但不进入当前两个应用的 hot-operation timing Gate。
+可以报告，但不进入当前三个应用的 hot-operation timing Gate。
 
 - Access component 普通 Gate 使用 5 个独立 JVM fork；
 - DataFlow component 使用固定 3 个独立 JVM fork，并记录 invocation p50/p90/p99/max；
-- 六个 application profile 的普通 Gate 各使用 3 个独立 JVM fork；
+- 九个 application profile 的普通 Gate 各使用 3 个独立 JVM fork；
 - 新建或重校 application baseline 通常使用同环境 5 fork；
 - 9 fork 只用于明确授权的方差诊断或 public claim 准备；
 - application allocation limit 为 `ceil(p50 × 1.25)`；
@@ -99,7 +99,7 @@ Admission 失败立即终止，不允许先消耗多个 fork 再发现候选不�
 ## 5. 当前 Owner 与 Gate
 
 - component baseline：`soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/`；
-- scheduler/simulation baseline：各 child `src/test/resources/benchmark/`；
+- scheduler/simulation/RTD baseline：各 child `src/test/resources/benchmark/`；
 - neutral comparator：`PerformanceBaselineDefinition` /
   `PerformanceBaselineComparator`；
 - 三层结构 Gate：`scripts/check-performance-baseline-architecture.sh`；
@@ -110,16 +110,16 @@ Admission 失败立即终止，不允许先消耗多个 fork 再发现候选不�
   `check-reference-application-soak-performance.sh`、
   `check-reference-application-full-performance.sh`；
 - application correctness 与架构 Gate：`check-industrial-scheduler.sh`、
-  `check-grassing-simulation.sh`；
+  `check-grassing-simulation.sh`、`check-real-time-dispatch-rule-engine.sh`；
 - 综合入口：`scripts/check.sh`。
 
 `check-performance-baseline-architecture.sh` 固定验证当前
-component=2、reference-application=6、public-claim=0，以及模块依赖和 Owner
+component=2、reference-application=9、public-claim=0，以及模块依赖和 Owner
 边界。新增环境或 public claim 必须显式修改 Owner、evidence 和 Gate。
 
 `scripts/check.sh` 不再隐式启动 application fork；功能、构建、架构与性能责任
 分开。Fast、Scale、Soak 分别承担 default、large、long-run，Full 只在跨应用
-runner/comparator 变更或明确要求完整性能验真时组合六个 workload。应用内部变更
+runner/comparator 变更或明确要求完整性能验真时组合九个 workload。应用内部变更
 只运行受影响 profile，一次失败进入归因，不自动 rebaseline。运行频率差异不改变
 baseline 的正式性、3-fork 下限、失败含义或 correctness guard。
 

@@ -45,7 +45,7 @@ Java 8 source + SOMA annotations
 | `soma-runtime-core` | storage、lifecycle、plan、errors、diagnostics 和机械性能 primitive | application schema interpretation |
 | `soma-dataflow` | typed expression/result、Definition/Template/Invocation、binding coordination、planner/kernel、资源/并行和 DataFlow diagnostics | annotation interpretation、live storage 或 application control flow |
 | `soma-testkit` | compile/golden/invariant/evidence helpers | production runtime shortcut |
-| `soma-examples` | 聚合两个独立 Java 8 reference consumer；应用各自拥有领域 Blueprint、Design 和 integrated evidence | 产出领域共享 JAR或发明核心语义 |
+| `soma-examples` | 聚合三个独立 Java 8 reference consumer；应用各自拥有领域 Blueprint、Design 和 integrated evidence | 产出领域共享 JAR、共享领域模型或发明核心语义 |
 | `soma-benchmarks` | 领域中性的 component benchmark、runner 和 evidence artifact | 依赖参考应用 schema或用结果反向静默改写设计 |
 
 只使用直接 storage/access 的 production consumer 运行时依赖 `soma-runtime-core`；完整 typed transformation consumer 还依赖 `soma-dataflow`。`soma-annotations` 与 `soma-processor` 参与编译生成；testkit、examples 和 benchmarks 是验证面，不进入生产运行时依赖。

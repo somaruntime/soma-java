@@ -10,7 +10,7 @@ Owner：grassing-individual-simulation
 
 事实范围：config、Scenario/Simulator lifecycle、source-set、AoS oracle、long-run和performance evidence
 
-最后审查日期：2026-07-24
+最后审查日期：2026-07-27
 
 ## 配置责任
 
@@ -34,6 +34,9 @@ resources。
   contract 唯一；
 - package dependency DAG 无环，config/scenario/support 不依赖 SOMA runtime；
 - production 不依赖 test/evidence/oracle，production JAR 不包含其 class/resource；
+- production prepare 不执行 test-only 全量 projection verification；
+- `SimulationSessionLifecycle` 对 ordinary failure 和 unexpected `Error` 都
+  fail-stop，并保留 cleanup suppressed failure；
 - `state`、旧 generator/bootstrap/result/evidence identity 不会恢复；
 - isolated repository、ordinary production classpath、clean/repeat manifest、
   Java major 52 与 generated/schema reproducibility。
@@ -65,8 +68,8 @@ Pipeline、Batch 或 system mutation code。
 correctness 额外验证 invalid config/NaN/duplicate identity、Session one-shot/fail
 stop、partial-create/release closure、primary-key point access、duplicate Batch
 原子拒绝、swap-remove、wrong-source/stale IndexSnapshot、clear 和 release 后访问
-拒绝。Result/Diagnostics 的构造 invariant 和 runtime 关闭后 detached 可消费性也
-由 test 覆盖。
+拒绝。Result/Diagnostics 的构造 invariant、operation-local result accumulator
+和 runtime 关闭后 detached 可消费性也由 test 覆盖。
 
 ## 性能 artifact
 
@@ -101,7 +104,13 @@ Application-owned baseline 位于 test resources。每个普通 profile Gate 使
 | long-run | `693,389 / 332,088 / 121,364 B` | `13,837 / 1` | Young `0/0 ms`，Full `0/0 ms` |
 
 表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。Default、large、
-long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部六个应用 workload。
+long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部九个应用 workload。
+
+Stage 2 没有改变 Schema、input/result checksum 或既有阈值。Stage 5 普通
+3-fork 只把早于 generated/runtime v5 的三个 `runtimePlanHash` 迁移到当前 protocol
+identity，保留原 9-fork calibration provenance 和所有 metric limits；迁移后
+default、large、long-run 分别以 `144.93 ms`、`6161.18 ms`、`3678.83 ms`
+通过 timing envelope。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
 `not-applicable`；invalid schema/shape/claim/fork/identity 仍失败。旧 64 KiB/tick

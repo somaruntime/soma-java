@@ -35,7 +35,7 @@ test fixture / oracle / verification / benchmark
 - `schema/` 只声明 annotation schema；
 - `solver/` 拥有 canonical facade、一次性 session、算法状态机、result
   assembly，以及从 authoritative assignment Table 推导结果指标的
-  `AssignmentSummaryFlow`；
+  `AssignmentSummarizer`；
 - `runtime/` 拥有 RuntimePlan、Table aggregate、Problem projection、
   event queue 和 maintenance calendar；
 - `result/` 只依赖 detached Problem，拥有 immutable Result、checksum 和完整
@@ -78,7 +78,7 @@ benchmark。
 | operation/machine/resource state | primary-key point read/mutation + reused ColumnView | 三张 authoritative state Table |
 | setup/transport | composite primary-key point lookup | `SetupTime` / `TransportTime` |
 | assignment | append、key traversal、bounded materialization | `OperationAssignment` |
-| assignment summary | reusable typed DataFlow、count/max/groupBy、detached scalar | `AssignmentSummaryFlow` |
+| assignment summary | direct ColumnView、单遍 primitive grouping、detached metrics | `AssignmentSummarizer` |
 | candidate frontier | operation-machine key、machine group、global arg-min | application-owned primitive pool + indexed min-heap |
 | event/maintenance/resource lane | priority/calendar operations | application structure |
 
@@ -133,7 +133,7 @@ assignment 是该约束的最终权威事实。
   result/lookup/state/definition 逆序 release；solver session 另外拥有并关闭
   candidate frontier；
 - callback 不重入同一 aggregate，不产生外部副作用；
-- session、dispatch engine 和 pipeline 都是 one-shot。
+- session、dispatch engine 和一次 solve 的 summary operation 都是 one-shot。
 
 ## Index 与物理顺序
 
@@ -147,24 +147,21 @@ runner。
 
 ## Result transformation
 
-调度循环结束后，`AssignmentSummaryFlow` 把当前
-`OperationAssignmentTable` 绑定到一个预编译、无 live state 的 Definition：
+调度循环结束后，`AssignmentSummarizer` 在一个同步只读操作中打开当前
+`OperationAssignmentTable` 的 primitive ColumnView：
 
 ```text
 all assignments
-  -> count
-  -> max(endMinute)
-  -> groupBy(job + due + priority).max(endMinute)
-  -> immediate current-Index column reads for due/priority
+  -> single physical-index pass
+  -> count + max(endMinute)
+  -> application primitive grouping by stable jobId
+  -> max completion + due/priority consistency
   -> detached metrics
 ```
 
-最后一步只在同一同步只读批次消费 group representative Index；它不把 Index 或
-ColumnView 保存进 Result。Tardiness 以每个 job 的 completion 计算，而不是按
-operation 重复累加。Definition/Template 可复用，session 内的 Context 和
-Invocation one-shot；`DispatchEngine` 在 `finally` 中关闭 Context。
-
-Result 指标的完整性由 `AssignmentSummaryFlow.Metrics.validated` 在事实产生处
-负责：assignment cardinality、empty/non-empty makespan、dispatch makespan
-一致性和非负目标值使用真实失败，不依赖断言或 test-only validator。DataFlow
-diagnostics 只进入 package-private `SolveEvidence`，不成为领域 Result。
+ColumnView 只在该批次内消费并关闭；它不把 Index、View 或 primitive scratch
+保存进 Result。Tardiness 以每个 job 的 completion 计算，而不是按 operation
+重复累加。`AssignmentSummarizer.Accumulator.finish` 在事实产生处用真实 failure
+关闭 assignment cardinality、job coverage、dispatch makespan、job fact
+一致性和非负目标值。Schema/runtime-plan 等 execution diagnostics 仍只进入
+package-private `SolveEvidence`，不成为领域 Result。

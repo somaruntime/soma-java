@@ -68,14 +68,25 @@ frontier 的前提下，以真实 assignment summary DataFlow 验证应用闭环
 [Transformation/DataFlow 治理报告](2026-07-27-transformation-dataflow-governance-report.md)。
 该治理不处理也不解除 G6。
 
+2026-07-27 完成 Reference Application Portfolio 与最佳实践治理：两个既有应用按
+抽象、叙事、不变量 Owner 和按构造即正确方法完成复审；新增独立
+`real-time-dispatch-rule-engine` 接管 reusable multi-source DataFlow application
+trace；工业调度删除展示性 `AssignmentSummaryFlow`，由 direct ColumnView 单遍
+`AssignmentSummarizer` 保持 Result 与性能；grassing 关闭 fail-stop lifecycle、
+test-only projection 和 Result accumulator 责任。实现与九份 application
+baseline 候选为 `253e383`，正式结论见
+[Reference Application Portfolio 治理报告](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)。
+该治理不改变 SOMA public/generated API、Schema、Access/Transformation/DataFlow
+语义，也不处理或解除 G6。
+
 ## 1. 当前总进度
 
 | 总体工作 | 状态 | 可核验出口 |
 |---|---|---|
 | Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
-| Phase 6：Access Pattern Cards、两个独立参考应用、benchmark、release mechanics | implementation-complete | core fixtures与external consumer；两个application-owned correctness/long-run/multi-fork Gate；20条neutral benchmark workload；License/POM/source/javadoc/package/security scripts |
-| 集中验证与修复 | passed | `2aa8c15` 的 generated/runtime v5、transformation/kernel v1、既有 Access/Schema 与 reference applications 在 Azul Zulu full JDK 8 得到 `project-check: ok` |
-| G5 reference applications/benchmark gate | passed | core Access/Transformation evidence、neutral/DataFlow component benchmark、两个独立参考应用、六份 profile baseline、Fast/Scale/Soak/Full Gate 与对应治理报告 |
+| Phase 6：Access Pattern Cards、三个独立参考应用、benchmark、release mechanics | implementation-complete | core fixtures与external consumer；三个 application-owned correctness/long-run/multi-fork Gate；20条neutral benchmark workload；License/POM/source/javadoc/package/security scripts |
+| 集中验证与修复 | passed | `253e383` 的三应用实现/evidence、generated/runtime v5、transformation/kernel v1、既有 Access/Schema 在 Azul Zulu full JDK 8 完成专项与最终综合验证 |
+| G5 reference applications/benchmark gate | passed | core Access/Transformation evidence、neutral/DataFlow component benchmark、三个独立参考应用、九份 profile baseline、Fast/Scale/Soak/Full Gate 与对应治理报告 |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
 | V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
 
@@ -111,7 +122,20 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 
 ## 4. 集中验证记录
 
-### 4.1 2026-07-27 Transformation/DataFlow 正式收口
+### 4.1 2026-07-27 Reference Application Portfolio 正式收口
+
+`b893653` 冻结专题协议；`da1950e` 冻结三应用详细设计；`321a5f2`、
+`2d3017e`、`6324004` 分别完成 grassing、RTD 和 industrial 责任迁移；
+`253e383` 建立两份 component 加九份 application baseline 的最终 evidence
+portfolio。RTD 的 sequential/managed/borrowed、Join/GroupBy、budget/cancel、
+detached command、application commit 与 plain-Java reference 闭合；industrial
+三份旧阈值无修改通过；grassing 只迁移 v5 RuntimePlan identity，未重校阈值。
+正式 Owner、应用文档、Conformance、Report、checker 和 Temporary 在 Stage 6
+原子切换；最终候选在 Azul Zulu OpenJDK `1.8.0_492-b09`、Maven `3.9.16`、
+macOS `26.5.2` / Darwin `25.5.0`、`aarch64` 环境中仅运行一次完整
+`./scripts/check.sh`，结果为 `project-check: ok`。G6 保持 blocked。
+
+### 4.2 2026-07-27 Transformation/DataFlow 正式收口
 
 `2aa8c15` 是完整 promotion preflight 使用的 production/public/generated/runtime
 候选；Zulu JDK 8 上完整 `./scripts/check.sh` 返回 `project-check: ok`。
@@ -122,7 +146,7 @@ Index/ownership/lifecycle、单 Table 失败原子性、两个 reference applica
 既有阈值未缩水；grassing 只因 generated companion/protocol 原子迁移而重新编译，
 没有业务 DataFlow 迁移。
 
-### 4.2 2026-07-24 大规模性能基线正式收口
+### 4.3 2026-07-24 大规模性能基线正式收口
 
 `1af43ac`冻结六个目标workload与同语义scheduler内部优化，`938b3d5`建立六份
 9-fork baseline并完成Owner/Gate切换；`c0fa1c9`封闭最终重放发现的JDK 8私有
@@ -132,23 +156,23 @@ architecture、codegen admission、两个应用correctness/architecture与完整
 public-claim=0。目标规模、API/Schema/Access Model/runtime语义和应用领域语义均
 未缩水，详见[大规模性能基线治理报告](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)。
 
-### 4.3 2026-07-23 参考应用边界正式收口
+### 4.4 2026-07-23 参考应用边界正式收口
 
 `955c956`已通过文档、reactor、artifact isolation、两个应用的correctness/default/large/long-run、多fork evidence、20+20条neutral benchmark record、36条negative path、16条allocation、24条memory与三surface generated-footprint Gate，并在immutable commit上得到完整`project-check: ok`。旧四场景已退出current Blueprint/Design/Conformance、共享example JAR和benchmark dependency；正式Owner、引用闭包、Governance Report与Temporary退役均已闭合。详见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)。
 
-### 4.4 2026-07-23 复杂度可持续性正式收口（历史候选事实）
+### 4.5 2026-07-23 复杂度可持续性正式收口（历史候选事实）
 
 `79c0a89`修正compiler/codegen内部责任，`8f685e2`完成benchmark分责与generated-footprint诊断，`75ee658`完成正式Owner、Governance Report、入口/checker与Temporary退役。当时的最终候选在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`；20条benchmark record、36条negative path、222个generated type、782个major-52 class与四场景保持，FJSP 100k allocation/GC Gate无Full GC。该段只记录该治理时点的非回归事实，不拥有当前参考应用边界；详见[后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。
 
-### 4.5 2026-07-23 Access Model / Candidate Scan验证（历史基线）
+### 4.6 2026-07-23 Access Model / Candidate Scan验证（历史基线）
 
 `fd82eba`的production/public API/runtime、external consumers、当时四场景、16条allocation、24条memory、code-size与FJSP多fork证据均已在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`。该段记录v4产品基线的验证来源；旧场景证据现已由core、neutral benchmark和两个参考应用替换。详细环境、artifact与claim边界见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。
 
-### 4.6 2026-07-21 四场景采纳验证（历史 provenance）
+### 4.7 2026-07-21 四场景采纳验证（历史 provenance）
 
 `a137b10`的实现、当前正式文档与退役后 Temporary 已由Zulu JDK 8完整`./scripts/check.sh`重新验证，结果为`project-check: ok`。四场景生成222个type/782个major-52 class，benchmark产生20+20 records且36个negative path全部fail closed，component与FJSP allocation/GC Gate也通过。完整命令、环境、artifact与claim边界见[2026-07-21 专题治理报告](2026-07-21-four-scenario-blueprint-adoption-report.md)。
 
-### 4.7 2026-07-11 专题治理 fresh validation
+### 4.8 2026-07-11 专题治理 fresh validation
 
 实现提交`aa7a466`上执行：
 
@@ -158,7 +182,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home SOMA_UNSUPP
 
 结果`project-check: ok`；20条benchmark lane各聚合2次measurement，36条serialized negative artifact均fail closed。最后一次现存benchmark目录为`target/benchmark-smoke.PJkPCM`。clean package mechanics在`2490406`已通过；`aa7a466`的fresh package重放在项目编译前因Maven Central TLS中断，当前实现内容由Maven verify和多组external Maven consumer覆盖，具体限制不作为G6证据并在专题报告§12披露。
 
-### 4.8 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
+### 4.9 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
 
 完整命令：
 
@@ -181,9 +205,9 @@ Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh`
   `V1-TRANSFORMATION-DATAFLOW`；`V1-RELEASE-EVIDENCE` 因外部发布事实不足继续
   保持 `blocked`。
 - Owner、正式语义与Gate经用户批准按packed/exact v3目标先行迁移，没有为实现捷径反向降低Capability或release claim。
-- 旧四场景只保留历史 provenance；当前 G5 由 core Access Model fixtures、领域中性 component benchmark和两个普通 Java 8 reference consumers共同承担。
-- 两个参考应用分别拥有领域 Blueprint/Design、版本化配置、detached generator、bootstrap、runtime、correctness/long-run/multi-fork evidence；它们不进入 SOMA 产品 Design。
-- 六个 default/large/long-run profile 由 application 自有 Fast/Scale/Soak/Full
+- 旧四场景只保留历史 provenance；当前 G5 由 core Access Model fixtures、领域中性 component benchmark和三个普通 Java 8 reference consumers共同承担。
+- 三个参考应用分别拥有领域 Blueprint/Design、版本化配置、detached generator、runtime、correctness/long-run/multi-fork evidence；它们互不依赖，也不进入 SOMA 产品 Design。
+- 九个 default/large/long-run profile 由 application 自有 Fast/Scale/Soak/Full
   Gate 回归；9-fork calibration、3-fork ordinary comparison 和目标 workload
   均未缩水，且不形成 public claim。
 - Access Model / Candidate Scan v4 clean migration已在首个公开发布前完成；后续功能性能工作应是additive completion或contract-preserving internal refinement，不应再次引入双轨public/generated API、平行事实或temporary canonical hot path。

@@ -310,12 +310,18 @@ materialization 返回 detached object graph，适用于结果导出、测试 or
 
 ## 8. 非规范性参考应用
 
-产品 Blueprint 不拥有任何领域算法或参考应用目标。仓库提供两个独立 Java 8 consumer，用于观察上述通用能力在真实 application boundary 中如何组合：
+产品 Blueprint 不拥有任何领域算法或参考应用目标。仓库提供三个独立 Java 8
+consumer，用于观察上述通用能力怎样从不同 business model 自然投影到真实
+application boundary：
 
-- [工业动态调度引擎](../../soma-examples/industrial-dynamic-scheduler/docs/README.md)；
-- [个体生态仿真](../../soma-examples/grassing-individual-simulation/docs/README.md)。
+- [工业动态调度引擎](../../soma-examples/industrial-dynamic-scheduler/docs/README.md)：direct Access、Candidate Scan 与应用自有 frontier/event loop；
+- [个体生态仿真](../../soma-examples/grassing-individual-simulation/docs/README.md)：packed 迭代状态、exact group、staged mutation 与确定性 lifecycle；
+- [实时派工规则引擎](../../soma-examples/real-time-dispatch-rule-engine/docs/README.md)：reusable multi-source DataFlow、受控并行、detached command 与应用自有提交。
 
-它们各自拥有 application Blueprint、Design、配置、输入生成、正确性和性能 evidence；其代码和文档不能反向定义 SOMA Design，也不能把 SOMA 扩张成 solver、仿真器或 ECS framework。
+它们各自拥有 application Blueprint、Design、配置、输入生成、正确性和性能
+evidence；彼此不共享领域模型或 fixture，也不承担 API kitchen sink 责任。其代码
+和文档不能反向定义 SOMA Design，也不能把 SOMA 扩张成 solver、仿真器、ECS
+framework、MES adapter 或事务引擎。
 
 ## 9. 目标成功标准
 

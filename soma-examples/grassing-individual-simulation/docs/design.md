@@ -10,7 +10,7 @@ Owner：grassing-individual-simulation
 
 事实范围：canonical journey、应用分层、detached Scenario/Result、runtime aggregate、system顺序、随机与失败边界
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-27
 
 ## 责任边界
 
@@ -74,16 +74,20 @@ Cursor、ColumnView、Batch、record 或 mutable array。默认结果不复制�
 - `Index` 只在一个同步只读批次中立即消费；长期引用必须使用 key；
 - 所有 Table 与 scratch 由单个 `SimulationRuntime` aggregate 拥有，并由
   `SimulationSession` 统一 release；
-- `SimulationRuntimeFactory`、`RuntimeProjector` 和
-  `RuntimeProjectionVerifier` 分别拥有 resource creation、一次性投影和投影边界
-  检查。
+- `SimulationRuntimeFactory` 与 `RuntimeProjector` 分别拥有 resource creation
+  和一次性投影；完整逐值投影复核由 test-only
+  `SimulationRuntimeTestAccess.verifyProjection` 承担，不进入 production hot
+  path。
 
 删除使用 swap-remove，不承诺 packed 遍历顺序。结果 checksum 先按 stable ID
 canonicalize 个体，再编码 grass 的固定 cell 顺序。
 
 ## Engine、Mutation 与失败
 
-`SimulationEngine` 只拥有 tick、maximum population、固定编排和 result assembly。
+`SimulationSessionLifecycle` 是 READY/RUNNING/FINISHED/CLOSED 与 fail-stop cleanup
+的唯一 Owner；ordinary `RuntimeException` 和 unexpected `Error` 都会先保留
+primary failure，再以 suppressed 记录 cleanup failure。`SimulationEngine` 只拥有
+tick、maximum population、固定编排和 result assembly。
 六个 package-private Owner 按固定顺序执行：
 
 ```text
@@ -115,6 +119,10 @@ child ID、Batch publish 或 authoritative grass publish 顺序。
 - reproduction：candidate filter，选中 parent 的 stable sort 与 batch append；
 - mode access：`@SomaIndex` exact group；
 - trace/result：低频 stable sort、Column/IndexSnapshot gather 或 materialization。
+
+`SimulationResultAssembler` 的一次 stable-ID traversal 同时推导 energy 与
+individual checksum；mode count 由独立 exact-group pass 产生。所有 accumulator
+都是 operation-local，不在 Runtime 中维护 Result shadow。
 
 配置在装载时一次解析为 typed primitive 字段并缓存 canonical text/checksum，
 hot loop 不重复解析字符串或计算配置 identity。系统 loop 不使用 Java Stream，
