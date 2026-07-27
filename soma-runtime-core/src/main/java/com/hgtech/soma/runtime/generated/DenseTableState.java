@@ -93,7 +93,7 @@ public final class DenseTableState {
         if (operationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
         }
-        ownership.beginTableScope(operation);
+        ownership.beginTableScopePreflighted(operation);
         activeViews++;
         return structuralEpoch;
     }
@@ -245,7 +245,7 @@ public final class DenseTableState {
         if (operationActive || materializationActive) {
             throw RuntimeFailures.reentrantAccess(tableLogicalName, activeOperation, operation);
         }
-        ownership.beginTableScope(operation);
+        ownership.beginTableScopePreflighted(operation);
         operationActive = true;
         activeOperation = operation;
     }

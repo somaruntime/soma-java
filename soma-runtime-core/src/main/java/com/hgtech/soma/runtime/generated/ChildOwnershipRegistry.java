@@ -238,7 +238,7 @@ public final class ChildOwnershipRegistry {
     /** Rejects application Table access while one aggregate DataFlow guard is active. */
     public void preflightTableAccess(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
-        if (!isFaultTolerantOperation(requested)) requireTrusted(requested);
+        if (faulted && !isFaultTolerantOperation(requested)) requireTrusted(requested);
         if (dataFlowActive) {
             throw RuntimeFailures.reentrantAccess(
                     "ownership", dataFlowOperation, requested);
@@ -249,6 +249,11 @@ public final class ChildOwnershipRegistry {
     public void beginTableScope(String operation) {
         String requested = Objects.requireNonNull(operation, "operation");
         preflightTableAccess(requested);
+        beginTableScopePreflighted(requested);
+    }
+
+    void beginTableScopePreflighted(String operation) {
+        String requested = Objects.requireNonNull(operation, "operation");
         if (activeTableScopes == Integer.MAX_VALUE) {
             throw internalInvariant(
                     "aggregate_scope_overflow", "ownership", requested);
