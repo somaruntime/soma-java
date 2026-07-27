@@ -10,7 +10,7 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`2aa8c15`
+最近实现核对基线：`9114321`
 
 最后审查日期：2026-07-27
 
@@ -38,6 +38,12 @@ Owner：SOMA compiler/codegen 实现导航
 Processor admission 读取 selector codegen model，而不依赖 source emitter support；Table/Exact emitters 组合 selector model 与 source support，Table emitter 通过 Scan execution support 写入 terminal executor，不再借用 Auxiliary artifact emitter。`DenseTableSourceEmitter -> DenseExactIndexSourceEmitter` 仍是有意的 artifact-internal composition；exact-index emitter 不反向依赖 orchestrator。
 
 Candidate Scan 继续生成 typed source plan、small-inline/overflow stage storage 与 terminal executor；public handle不暴露 runtime IR。DataFlow emitter 只投影 schema-specific capability，不复制 analyzer/kernel，也不按 operator 展开 artifact。当前依赖方向由 codegen admission source-shape check 约束，生成契约继续由 clean/repeat source、schema/hash、`javap` golden、external consumer 和 code-size Gate 约束。
+
+Table artifact 内部生成一组私有 failure-routing helper：structured `INTERNAL`
+进入 aggregate fault，expected structured failure正常关闭 operation，raw
+unexpected failure fail closed。Table、Auxiliary、Scan、Selector 和 Exact emitter
+都投影到这一处规则；helper 只调用既有 runtime v5 protocol，不进入 generated
+public signature。
 
 Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免 Zulu
 javac 8 在相邻 clean compile 间为私有内部类选择不同 synthetic access marker；

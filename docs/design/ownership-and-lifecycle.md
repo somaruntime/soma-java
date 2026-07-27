@@ -35,7 +35,7 @@ Root table 及其递归 owned children 构成一个 ownership aggregate。每个
 
 ## 2. Handle 与可达性
 
-Parent live column 只保存 opaque child handle/token，不保存 `List`、`Map` 或 public child object。Registry 负责 owner validation、generation、resolve、cascade 和 retained resource accounting。
+Parent live column 只保存 opaque child handle/token，不保存 `List`、`Map` 或 public child object。Registry 负责 owner validation、generation、resolve、cascade 和 retained resource accounting。同一个 Registry 也是 aggregate trust state 的唯一 Owner；root 与所有递归 child 共享该状态，避免 table-local fault 产生半可信 ownership forest。
 
 Raw handle、owner token 和 RowSlot 不进入 public error context、DTO 或 generated public signature。Dangling、wrong-owner 和 cycle 是 invariant failure，不得被当作普通 empty child。
 
@@ -77,6 +77,12 @@ View 约束由 operation 是否会破坏其 binding 决定，不能用“当前�
 - root `release` 递归释放 ownership aggregate 并进入 terminal state；
 - release 后 data access 一律失败，只允许 contract 明确保留的 diagnostics，例如 runtime plan、released state 和 stats snapshot；
 - release/cascade 失败不能留下外部可访问的半释放 forest。
+
+Internal invariant 或无法证明旧 stable state 的 unexpected failure 使整个
+aggregate 单向进入 faulted。此后 normal access fail closed，只允许 bounded
+diagnostics 与 root cleanup attempt；owned child 不能绕过 root 独立恢复或释放。
+Faulted 与 released 是不同状态：fault 表示事实可信度已无法证明，release 是资源
+lifecycle 的 terminal transition。
 
 ## 7. Application 边界
 

@@ -6,8 +6,8 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design、Transformation/DataFlow 与 industrial
-application immutable candidate `2aa8c15`
+核对对象：正式 Blueprint/Design 与 correctness/Gate immutable candidate
+`b4dc203`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -38,7 +38,7 @@ application immutable candidate `2aa8c15`
 | swap-remove 与 IndexBuffer execution | 一致且 evidenced | generated access/remove tests、component benchmark | 保持 |
 | Index / IndexSnapshot caller-responsibility | 一致且 evidenced | detached `IndexSnapshot`、optional `requireCurrent`、wrong/stale consumer tests；正式 Owner 已明确非 stable identity/row snapshot | 保持 raw detached API，不增加强制 hot-path guard |
 | child ownership/lifecycle | 一致且 evidenced | child external consumer、ownership/materialization Gate | 保持 |
-| structured failure/plan/stats | 一致且 evidenced | runtime diagnostics、compatibility/error fixtures | 保持 |
+| structured failure/plan/stats | 一致且 evidenced | shared aggregate trust Owner、runtime diagnostics、generated access/child fixtures、compatibility/error fixtures | internal/unexpected failure 后 normal access fail closed；只保留 bounded diagnostics 与 root release |
 | detached materialization/budget | 一致且 evidenced | child/materialization fixtures、testkit comparator | 保持 |
 | hot-path performance shape | 一致但 evidence 有限 | Access/DataFlow 两份 neutral component 与六个 application profile baseline、统一 comparator、allocation/GC/high-water/tail/timing、generated footprint 和 Fast/Scale/Soak/Full Gate | 结论限制在 baseline 精确环境与 workload；其他环境为 `not-applicable` |
 | reference application boundary | 一致且 evidenced | `soma-examples` 仅聚合两个 independent child；isolated repository/runtime graph/source-shape Gate | 应用只消费 public artifacts，不反向拥有 core Design |
@@ -51,7 +51,9 @@ application immutable candidate `2aa8c15`
 
 ## 3. 当前结论
 
-正式 Design 已原子接纳 Schema-Defined、Compiler-Specialized、JVM Heap-Resident runtime-state computing 定位，以及 Access 之上的 Transformation/DataFlow plane。当前 implementation、generated v5 contract、reference/property/differential evidence 与工业调度 application trace 一致，没有发现 blocking deviation。
+正式 Design 已原子接纳 Schema-Defined、Compiler-Specialized、JVM Heap-Resident runtime-state computing 定位，以及 Access 之上的 Transformation/DataFlow plane。当前 implementation、generated v5 contract、aggregate fault containment、
+reference/property/differential evidence 与工业调度 application trace 一致，没有
+发现 blocking deviation。
 
 Access Model、Candidate Scan、Unique point family、scalar Index terminal、
 Traversal、Index/ownership/lifecycle/atomicity 语义没有缩水。Grassing application
@@ -83,3 +85,4 @@ Traversal、Index/ownership/lifecycle/atomicity 语义没有缩水。Grassing ap
 - [Reference Application 大规模性能基线治理](../../reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
 - [Industrial Dynamic Scheduler 设计与性能治理](../../reports/2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)
 - [Transformation Model 与 Typed DataFlow 产品化治理](../../reports/2026-07-27-transformation-dataflow-governance-report.md)
+- [正确性保持与软件结构治理](../../reports/2026-07-27-correctness-preservation-and-software-structure-governance-report.md)

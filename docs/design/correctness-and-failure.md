@@ -42,6 +42,7 @@ Owner：SOMA runtime correctness 与 failure semantics
 |---|---|---|
 | schema/value/field legality | compiler normalized model | compile-time validation + immutable model |
 | Table stable state | storage/mutation coordinator | preflight/stage/one publish |
+| aggregate 可信状态 | root/child 共享 ownership registry | first internal/unexpected failure 单向进入 faulted |
 | Shape/lineage/operator legality | shape-specific DSL | 类型只暴露合法组合 |
 | Definition graph | one-shot Builder | build 前关闭 source/output/effect/identity 冲突 |
 | Template/Invocation | immutable Template、one-shot Invocation | bind/compatibility/budget/lifecycle/guard 真实校验 |
@@ -92,11 +93,29 @@ Caller 不解析 message 判断恢复策略。Context 必须 deterministic、imm
 | compatibility | artifact/plan/schema 不匹配 | create boundary 不发布 aggregate |
 | resource | 显式 budget/provider/preflight 拒绝 | 旧状态仍可信 |
 | callback | application callback 抛出普通异常 | 按 mutation atomicity 保持旧状态 |
+| unexpected implementation failure | table-owned execution 抛出未分类的 runtime failure 或 raw `Error` | 当前 aggregate faulted |
 | internal | impossible state 或 invariant violation | 当前 aggregate fail fast，不再 normal access |
 
 Application callback 的 cause 保留但不解析 message。已有 SOMA structured exception 原样传播；普通 application runtime exception 可以包装为 callback failure；fatal JVM error 不伪装为 recoverable callback error。
 
 SOMA 的原子性只覆盖 table facts。Callback 已经产生的外部 I/O、日志、其他 root mutation 或 application side effect 不会被 runtime 自动回滚，调用方必须避免或自行补偿。
+
+### 5.1 Faulted aggregate
+
+Root table 与 owned children 共享一个 aggregate trust state。只有能够证明旧 stable
+state 的 expected failure 才允许继续使用；first internal failure 或 table-owned
+unexpected failure 必须在事实产生处或 operation boundary 将整个 aggregate 单向
+标记为 faulted。Child failure 因共享 Owner 自动传播到 root，fault 不提供 reset、
+recovery 或新的 public query。
+
+Faulted aggregate 拒绝 point/Scan/View/Snapshot consumption、mutation、child
+navigation、DataFlow acquire 和 stats reset。只允许读取 runtime plan、released
+state、bounded stats snapshot，以及由 root 尝试 release；这些入口不表示数据重新
+可信，也不清除 fault。Diagnostics 或 cleanup 再次失败时保持 faulted。
+
+普通 callback failure 仍按原子性契约保持 aggregate 可信。只读 DataFlow 的本地
+compute failure 只终止 Invocation；只有 generated Effect commit 触发目标 aggregate
+的 internal/unexpected failure 时，目标 aggregate 才进入 faulted。
 
 ## 6. Reentrancy 与 escape
 

@@ -10,8 +10,7 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：重新定义设计、直接修改实现或扩大任务授权
 
-实现核对基线：Transformation/DataFlow 与 industrial application candidate
-`2aa8c15`
+实现核对基线：correctness/Gate candidate `b4dc203`
 
 最后审查日期：2026-07-27
 

@@ -91,6 +91,11 @@ update-in-place。Rebaseline 必须单独产生候选 artifact/diff，并说明�
 旧/新 identity、环境、至少 5-fork 统计和 correctness 结果；环境变化新增
 baseline，不覆盖旧环境事实。
 
+Runner 在进入 multi-fork 前必须完成所有低成本、确定性的 admission：class-load、
+CLI/input contract、必要的 classfile/descriptor identity 和 correctness smoke。
+Admission 失败立即终止，不允许先消耗多个 fork 再发现候选不可启动，也不允许用
+重复 fork 掩盖 build/class-set 不一致。
+
 ## 5. 当前 Owner 与 Gate
 
 - component baseline：`soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/`；

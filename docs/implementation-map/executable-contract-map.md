@@ -10,7 +10,7 @@ Owner：SOMA executable contract 实现导航
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：commit `2aa8c15`
+最近实现核对基线：commit `dd17071`
 
 最后审查日期：2026-07-27
 
@@ -41,6 +41,11 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 - source、golden、external consumer 三者不一致时，不能只选择其中一个宣布通过；
 - internal class/path 可以重构，但 public/generated/protocol/schema identity 的变化按 Compatibility Design 处理；
 - error code、plan field或artifact field一旦成为稳定兼容面，不得在同名下复用为不同语义。
+
+`9114321` 增加 aggregate fault containment，`dd17071` 将健康路径收敛为一个
+predictable trust branch；public/runtime/generated signature、
+annotation Schema、v5 protocol identity 与 golden 均未改变；`check-public-api.sh`
+在未更新 golden 的前提下验证该边界。
 
 ## 4. Baseline 约定
 

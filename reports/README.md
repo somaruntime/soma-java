@@ -19,6 +19,7 @@ Owner：SOMA Java 正式报告输出
 - [Java V1 Goal execution status](java-v1-goal-execution-status.md)
 - [当前性能摘要](current-performance-summary.md)（适用环境和 claim 边界见报告 metadata）
 - [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)（generated/runtime v5、transformation/kernel v1、构造契约、reference differential、受控并行、工业应用 trace 与 scope non-regression）
+- [2026-07-27 正确性保持与软件结构治理](2026-07-27-correctness-preservation-and-software-structure-governance-report.md)（aggregate fault containment、五条证明链、CP-001–CP-007、public/API/protocol 与性能非回归）
 - [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)（Problem/Result 契约、Access Pattern→Schema、global frontier、canonical/hot 9-fork evidence 与 scope non-regression）
 - [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)（六个 default/large/long-run baseline、Fast/Scale/Soak/Full Gate、性能归因与 scope non-regression）
 - [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)（component、两个 application baseline、环境感知 comparator、9-fork 校准与 public claim 边界）
@@ -48,6 +49,7 @@ Gate报告保留执行当时的Owner路径和术语作为evidence provenance；�
 
 ## 实施 checkpoint 与治理报告
 
+- [2026-07-27 正确性保持与软件结构治理](2026-07-27-correctness-preservation-and-software-structure-governance-report.md)
 - [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)
 - [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)
 - [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)

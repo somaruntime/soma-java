@@ -6,8 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：Transformation/DataFlow 与 industrial application candidate
-`2aa8c15`
+实现核对基线：correctness/Gate candidate `b4dc203`
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 
@@ -46,6 +45,7 @@ Owner：SOMA Java 一致性审查
 | industrial scheduler 语义/Schema/frontier 闭环 | 已关闭 | Problem semantic identity 与 generation provenance 分离；Result 不携带 runtime diagnostics；eligible option 使用 flat exact-group；derived candidate 由 application primitive pool/heap 拥有；hot 与 canonical path 均有 9-fork evidence |
 | `CF-007` 文档候选完整性 | 已关闭 | 32份旧Owner已按迁移审计处置；正式入口、checker与Report已切换，Temporary已删除 |
 | `CF-008` 文档抽象层次与职责混合 | 已关闭 | Design 已建立 `D0/D1/D2/Q`、上位设计和场景追踪；Blueprint 不再承载当前实现盘点、自审或一致性结论；checker 防止结构回退 |
+| aggregate internal/unexpected failure 后可信状态 | 已关闭 | `ChildOwnershipRegistry` 是共享 trust Owner；faulted root/child aggregate 拒绝 normal access，只允许 bounded diagnostics 与 root release；public/API/protocol 不变 |
 
 ## 3. 不构成差距的观察
 

@@ -10,7 +10,7 @@ Owner：SOMA runtime-core 实现导航
 
 事实范围：当前 handwritten runtime、generated-runtime protocol、hot path 和核心验证入口
 
-最近实现核对基线：`2aa8c15`
+最近实现核对基线：`dd17071`
 
 最后审查日期：2026-07-27
 
@@ -35,7 +35,8 @@ Protocol 位于 [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/sr
 - bulk exact preflight：`ExactGroupCounter`，按selector distinct-group cardinality做primitive计数；
 - operation scratch：`IndexBuffer`；
 - Candidate plan/evaluation：`GeneratedScanPlan`、`GeneratedScanEvaluation`；typed source 与 executor 由 generator 提供；
-- ownership：`ChildOwnershipRegistry`、`OwnedChildTable`；
+- ownership/trust：`ChildOwnershipRegistry`、`OwnedChildTable`；共享 registry
+  同时拥有 root/child aggregate 的 first-failure fault state；
 - materialization：`MaterializationTracker`、`MaterializationAllocation`；
 - compatibility/failure：`GeneratedMetadata`、`RuntimeCompatibility`、`RuntimeFailures`；
 - DataFlow lifecycle bridge：aggregate instance identity、canonical acquire/release guard 和 generated candidate/effect access；
@@ -48,12 +49,19 @@ Protocol 位于 [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/sr
 ```text
 generated Table/Scan method
   -> DenseTableState begin/preflight
+  -> ChildOwnershipRegistry aggregate trust preflight
   -> Packed direct path or exact group typed source binding
   -> compact stage plan + generated fused/barrier terminal executor
   -> IndexBuffer/sort/update scratch only when operation shape requires
   -> column / locator / GroupedExactIndex delta
   -> DenseTableState success/failure stats and epoch commit
 ```
+
+`DenseTableState` 将 internal code 与 raw unexpected failure 路由到共享 aggregate
+fault；`ColumnGroup`、`StorageBudget` 和 ownership registry 在各自 invariant
+事实产生处标记。Faulted normal access 由既有 preflight 拒绝，runtime plan、
+released state、stats snapshot 与 root release 复用既有 operation 名称和 v5
+protocol，不新增 public fault surface。
 
 Keyed delete 先从 KeySpace 移除目标 key，再对 tail-fill survivor 修复 current Index。Exact index 通过 group/link 增量维护；append/replace按实际distinct groups预检和分配。Candidate Scan source在terminal-time读取current group；source-only exact count可直接读取cardinality并保持logical stats。当前 generated/runtime compatibility 为 v5；runtime-core 只提供窄 DataFlow guard/access bridge，Definition/Template/Invocation 不进入本模块。协议已经没有 `SparseIntKeySpace` 或 `RowPermutationSidecar`；`KeySpace`仅是primary-locator兼容性术语。
 

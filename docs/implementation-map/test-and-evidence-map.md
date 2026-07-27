@@ -10,7 +10,7 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：commit `2aa8c15`
+最近实现核对基线：commit `b4dc203`
 
 最后审查日期：2026-07-27
 
@@ -22,7 +22,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | compile fixtures | [`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、Candidate sequence、one-shot/retention、unique point 与 v5 identity |
+| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、aggregate fault containment、Candidate sequence、one-shot/retention、unique point 与 v5 identity |
 | DataFlow contract | `check-dataflow-slice-f.sh`、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 两个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
@@ -39,6 +39,14 @@ Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 ja
 Codegen admission 额外约束 selector-less Table 的私有 exact-index stage 使用显式
 构造器，防止 javac 8 synthetic access marker 在 clean build 边界漂移；这项断言
 只保护私有生成字节码的可重复编译。
+
+Aggregate fault evidence 集中覆盖 internal、raw unexpected、expected/callback、
+root/child propagation、normal-access rejection、diagnostics 与 release，不为每个
+forwarding method 重复同一 failure case。Post-cutover component Gate 在 fork 前
+验证 benchmark nested helper 的无参 descriptor 和 class-load smoke，避免把坏
+class set 带入多 fork 测量。DataFlow component Gate 同样先运行完整 15-lane
+admission；其 direct predicate 不捕获 `Workload`，authoring lane 独立记录足以
+越过 tiered-compilation 过渡期的 warmup，再进入固定三 fork。
 
 ## 3. Evidence artifact
 

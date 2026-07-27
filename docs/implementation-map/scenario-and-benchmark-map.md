@@ -12,7 +12,7 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前两个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：DataFlow / industrial application candidate `2aa8c15`
+最近实现核对基线：benchmark/runtime candidate `b4dc203`
 
 最后审查日期：2026-07-27
 
@@ -52,6 +52,16 @@ runtime hot loop 不反向依赖 generator 或 factory。
 - application-integrated evidence：[`SchedulerBenchmark.java`](../../soma-examples/industrial-dynamic-scheduler/src/test/java/com/hgtech/soma/examples/scheduler/benchmark/SchedulerBenchmark.java)、[`SimulationBenchmark.java`](../../soma-examples/grassing-individual-simulation/src/test/java/com/hgtech/soma/examples/grassing/evidence/SimulationBenchmark.java)。
 
 `soma-benchmarks` 不依赖或导入 reference application domain。它只测 SOMA component mechanics；真实应用的 allocation、GC、runtime high-water 和 correctness guard 由 application 自有 runner/Gate 负责。全部 smoke/diagnostic artifact 保持 `claimAllowed=false`。
+
+Post-cutover runner 的 nested accumulator 使用显式无参构造器；Gate 在任何 fork
+前执行 descriptor 与 class-load preflight，再进入既有五 fork baseline。该规则
+只保证 measurement candidate 可启动且 class set 自洽，不改变 lane、阈值或
+performance claim。
+
+DataFlow runner 的 direct predicate 是不捕获 `Workload` 的命名对象，避免 Java 8
+private synthetic accessor；Gate 在固定三 fork 前执行完整 15-lane admission。
+`authoring.compile` 使用独立且写入 artifact 的最小 warmup，避免把 tiered
+compilation 过渡期误记为稳态 p90；workload、fork、阈值和 baseline 不变。
 
 当前八份 checked-in baseline 分别为两份 component baseline 和六份
 application profile baseline：
