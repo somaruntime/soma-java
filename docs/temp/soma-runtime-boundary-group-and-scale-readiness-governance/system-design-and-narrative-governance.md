@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（P4 integrated final design 已形成；等待 P5 独立审计）
+状态：active（P4 integrated final design 已形成；P5 初审修正等待复核）
 
 Owner：SOMA system design、core abstraction 与 narrative governance
 
@@ -194,7 +194,7 @@ runtime registry 或 marker interface 动态判断。
 - String 是否分别报告 SOMA-owned structural bytes、SOMA-retained reachable String
   bytes 与 JVM observed heap，而不是用 reference slots 冒充完整 retained heap；
 - Small/Medium 固定税与 Large/`100M × 100M` bytes moved 是否同时受约束；
-- Segment、Morsel、Execution Block、Candidate shape 和 access path 是否职责正交；
+- Segment、Morsel、Execution Vector、Candidate shape 和 access path 是否职责正交；
 - Explain 是否能说明 physical choice、budget 和 fallback，而不引入 runtime
   wall-clock self-tuning。
 
@@ -220,7 +220,7 @@ runtime registry 或 marker interface 动态判断。
 - Candidate、Transformation Shape、Definition、Template、Invocation；
 - current Index、`IndexSnapshot`、`IndexBuffer`；
 - Result、Effect、Borrow、Materialization；
-- Storage Segment、Parallel Morsel、Execution Block；
+- Storage Segment、Parallel Morsel、Execution Vector；
 - resource budget、stats、explain、version、epoch 和 lifecycle。
 
 每个抽象必须回答：

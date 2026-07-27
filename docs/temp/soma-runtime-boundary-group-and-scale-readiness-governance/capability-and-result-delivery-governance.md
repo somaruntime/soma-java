@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（P4 Capability/Result Delivery 已进入集成设计；等待 P5 独立审计）
+状态：active（P4 Capability/Result Delivery 已进入集成设计；P5 初审修正等待复核）
 
 Owner：SOMA capability model、physical binding 与 result delivery governance
 
@@ -124,15 +124,18 @@ callback-scoped streaming 已被 TV9 接受为唯一 limited read-only Lazy Outp
 
 - 只在明确选择的 read-only terminal/interface 上试点；
 - 同步、one-shot，只在 terminal 调用栈内消费；
-- callback-scoped value/borrow 不得缓存、逃逸或跨 operation 使用；
+- generated Cursor、guard 和 live borrow 不得缓存、逃逸或跨 operation 使用；
+  String getter 返回的 immutable String value 可以由 application 保留；
 - source guard、scratch、budget、cancel 和 cleanup 由 SOMA 在调用范围内关闭；
 - callback failure 必须确定性传播并释放 guard/scratch；
 - callback 已执行的 application side effect 不由 SOMA 回滚；
-- callback consumer 支持有界 early stop；P4 已将首批 generated Candidate visit、
-  boolean consumer 与 `DeliveryResult` signature 冻结为待 P5 审计的候选；
+- callback consumer 支持有界 early stop；P5 已将 generated Candidate visit、
+  boolean consumer、`DeliveryResult` 以及唯一
+  Definition→Template→Invocation lifecycle 冻结；
 - 不用于 mutation、Effect、跨 root commit 或需要完整结果后才能发布的语义；
-- 不把高扩张度关系变成“可支持”：能够预计算为超预算的输出仍应在 source touch
-  或枚举前拒绝。
+- 不把高扩张度关系变成“可支持”：能够证明超预算或无法由 compiler/plan/validated
+  maintained facts 证明 finite bound 的输出，除独立有界 scalar/fused terminal 外，
+  都在 relation enumeration/callback 前拒绝。
 
 ### 5.3 明确排除
 
@@ -144,8 +147,10 @@ callback-scoped streaming 已被 TV9 接受为唯一 limited read-only Lazy Outp
 - Python Generator、`Flow.Publisher`、Reactive Streams 或异步 push；
 - partial detached result publication。
 
-现有 callback-scoped `Cursor` / `UpdateCursor` / Borrow 是 Access 能力，不等于本节
-排除的 closeable pull cursor。最终设计不得因名称相同混淆两者。
+现有 Table callback-scoped `Cursor` / `UpdateCursor` 是 Access 能力，不等于本节
+排除的 closeable pull cursor。现有 DataFlow Candidate/Value/Group/Join/Window
+`borrow(consumer)` 则是 incumbent Result Delivery surface，必须迁入第 5.2 节唯一
+lifecycle 并删除旧 signature，不能重分类成 Access 后双轨保留。
 
 ## 6. TV9：Result Delivery Technical Validation
 
@@ -204,7 +209,8 @@ inconclusive
 2. 哪些是 public/generated typed contract，哪些只属于 internal strategy；
 3. Capability binding 与完整 Metadata/Effective Plan 的关系；
 4. Eager Detached 的默认性和 callback streaming 的显式 opt-in surface；
-5. callback-scoped value、early stop、exception、cancel、guard 和 diagnostics；
+5. callback-scoped Cursor、可保留 String value、early stop、exception、cancel、
+   guard 和 diagnostics；
 6. Result Delivery 与 Materialization、Borrow、Effect、output budget 的非等同边界；
 7. compatibility、migration、test、benchmark 和 Example adoption。
 

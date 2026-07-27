@@ -2,15 +2,15 @@
 
 类型：Temporary
 
-状态：active（TV0–TV9 与 P4 集成设计已完成；等待独立设计审计、正式固化、实施与收口）
+状态：active（TV0–TV9 与 P4 已完成；P5 初审问题已修正，等待独立复核）
 
 Owner：SOMA runtime boundary、Group 与 scale-readiness governance
 
 正式事实源：否
 
-实施授权：仅限本专题文档收口、对 SOMA 的只读审计，以及在 `soma_java`
-仓库之外开展独立技术验证；不授权修改 SOMA production、test、benchmark、
-public/generated contract 或构建
+实施授权：当前 Goal 已明确授权在 P6 正式固化后，按通过独立审计的最终设计修改
+SOMA production、test、benchmark、public/generated contract、Guide、Report 和
+必要 Example；P5 通过前仍不得开始 P6/P8
 
 事实范围：本轮讨论形成的产品定位、产品目标形态、运行时责任边界、Group、完整
 Metadata 体系、Capability Model、V1 类型与存储边界、容量、版本、DataFlow、
@@ -19,8 +19,8 @@ Result Delivery、并行粒度、Snapshot/Restore、规模目标候选、系统�
 Validation Lab 的验证边界
 
 非事实范围：当前正式产品语义、当前实现符合性、任意 String profile 的单表或双表
-一亿行能力、Metadata/Capability/Result Delivery 精确 public/generated API、
-SOMA production 修改授权、已批准的 code/test 删除清单、readiness 和发布声明
+一亿行能力、当前 production conformance、已完成的 code/test replacement closure、
+readiness 和发布声明
 
 原始输入仓库基线：`253e383317a84bacdc164bf105a57a7eb1303987`
 
@@ -56,13 +56,15 @@ columnar Table + DSL
 ```
 
 本 Goal 已先审计当前事实并冻结验证问题，再由独立技术验证提供机械与成本
-evidence；P4 集成设计已经消费这些结论。P5 独立审计和 P6 正式固化前，仍不得依据
-本 Temporary 或单项 Lab 结果直接修改 production/public/generated contract。
+evidence；P4 集成设计已经消费这些结论，P5 初审问题已由
+[独立设计与范围审计](independent-design-and-scope-audit.md)跟踪。P5 复核和 P6
+正式固化前，仍不得依据本 Temporary 或单项 Lab 结果直接修改
+production/public/generated contract。
 
 本轮已经确认、可作为技术验证输入的决策是：
 
 - 建立完整 `SomaMetadata` 心智入口，Descriptor 是其中一个分支；精确 API 已在
-  [P4 集成设计](integrated-final-design.md)形成待独立审计的闭合候选；
+  [P4 集成设计](integrated-final-design.md)形成并应用 P5 初审修正；
 - Metadata Plan 只在对应 create/bind 前受控可变，Effective Metadata 绑定后冻结，
   hot path 不解释 Metadata graph；
 - Result Delivery 是封闭 Capability Model 中的可替换能力；Eager Detached 继续是
@@ -73,7 +75,7 @@ evidence；P4 集成设计已经消费这些结论。P5 独立审计和 P6 正�
   detached publication 不进入本次治理；
 - Scale 不是单一“大表”问题，必须同时覆盖 Small、Medium、Large、single-100M 和
   两个 root Table 各 100M rows 的受约束 Challenge；
-- Storage Segment、Parallel Morsel 和 Execution Block 是三种独立粒度；单 Segment
+- Storage Segment、Parallel Morsel 和 Execution Vector 是三种独立粒度；单 Segment
   可以拆分，多个小 Segment 可以合并，并行按 estimated work 自适应激活；
 - V1 schema storage 只允许四类：primitive-backed scalar、reference-backed
   immutable scalar、compiler-flattened value 与 owned structured state；
@@ -330,7 +332,6 @@ Group、Table、Column、Segment、Access、Plan、Runtime 与 Observation 都�
 SomaMetadata
   -> descriptor
        -> SomaSchemaMetadata
-       -> SomaGroupMetadata
        -> SomaTableMetadata
        -> SomaColumnMetadata
        -> SomaKeyMetadata
@@ -347,10 +348,16 @@ SomaMetadata
        -> SomaLayoutMetadata
        -> SomaCompatibilityMetadata
        -> SomaPlanIdentityMetadata
-  -> observation
-       -> SomaRuntimeMetadata
-       -> SomaStatsMetadata
-       -> SomaExplainMetadata
+
+SomaGroupPlan
+  -> stable group/member plan metadata
+
+SomaGroup.metadata()
+  -> SomaGroupMetadata
+       -> detached runtime topology metadata
+
+observe / explain
+  -> module-owned immutable Observation / Explain
 ```
 
 ### 5.1 Descriptor、Plan、Effective 与 Observation
@@ -364,7 +371,9 @@ SomaMetadata
 | Observation | current、since-reset、high-water、last-operation 和 explain | 对 application 只暴露 immutable snapshot |
 
 `SomaSchemaMetadata` 描述编译期 schema generation unit；`SomaGroupMetadata` 描述
-runtime `SomaGroup` 实例及其 member Table。DataFlow `Grouped` result 不是
+runtime `SomaGroup` 实例及其 member topology snapshot。current/high-water 和
+DataFlow physical decision 分别由 runtime Observation 与 DataFlow
+Explain/Invocation Observation 拥有。DataFlow `Grouped` result 不是
 `SomaGroupMetadata`，也不因此获得长期 identity 或跨 Table transaction。
 
 Column payload、presence、locator bucket、row link、group membership、candidate、
@@ -407,24 +416,31 @@ registry 或 per-row metadata interpreter。
 
 ## 6. SomaGroup 与 canonical API
 
-P4 已接受的 canonical API 骨架为：
+P5 修正后的 canonical API 骨架为：
 
 ```java
-SomaMetadata metadata = SchemaMetadata.metadata();
-RuntimePlan plan = metadata.newPlan().build();
-SomaGroup group = Soma.createGroup(metadata, plan);
+RuntimePlan machinePlan = MachineSchemaMetadata.newPlan().build();
+RuntimePlan candidatePlan = CandidateSchemaMetadata.newPlan().build();
+SomaGroupPlan groupPlan = SomaGroupPlan.builder("dispatch-runtime")
+        .resourceBudget(groupBudget)
+        .member("machines", MachineTable.metadata(), machinePlan)
+        .member("candidates", CandidateTable.metadata(), candidatePlan)
+        .build();
+SomaGroup group = Soma.createGroup(groupPlan);
 
-MachineTable machines = MachineTable.create(group);
-CandidateTable candidates = CandidateTable.create(group);
+MachineTable machines = MachineTable.create(group, "machines");
+CandidateTable candidates = CandidateTable.create(group, "candidates");
 ```
 
 不变量：
 
 - 每个 root Table 从创建到 release 永久属于一个 Group；
 - owned child 继承 root 所属 Group，不独立 reparent；
-- 一个 Group 对同一 logical root Table 最多只有一个实例，第二实例使用另一个
-  Group；
+- 一个 Group 可以组合多个 schema；同一 root descriptor 可由不同 stable member
+  slot 保存多个实例；
 - 一个 JVM 可以存在多个相互独立的 Group；
+- read-only multi-source DataFlow 可以跨 Group/schema/同类型实例，Group 不是 guard
+  acquisition 的必要边界；
 - Group 不提供跨 Table transaction 或隐式一致性；
 - application 可以把不同 Group 解释为 active/staging，但 SOMA 不理解或执行
   双缓存协议；
@@ -574,7 +590,8 @@ MES delta replay 和 Group 发布仍由 application 负责。
 - Eager Detached 是默认路径：完整 scalar、detached columnar、materialized result
   或完整 Effect 构造成功后一次性发布；
 - callback-scoped streaming 是可选 read-only 试点：同步、one-shot、只在 terminal
-  调用栈内消费，callback-scoped value/borrow 不得逃逸；
+  调用栈内消费，Cursor/guard/borrow 不得逃逸；String getter 返回的 immutable value
+  可以保留；
 - callback streaming 的 source guard、scratch、budget、cancel 和 cleanup 必须在
   调用返回前关闭；callback 已产生的 application side effect 不由 SOMA 回滚；
 - 不新增 ordinary `Iterator<T>`、closeable pull cursor、Python Generator、
@@ -604,7 +621,7 @@ peak 并支持 early stop，但不减少逻辑 cardinality、总计算工作或 
 ```text
 Storage Segment
   -> zero / one / many scheduling Morsel
-       -> one or many cache-oriented Execution Block
+       -> one or many cache-oriented Execution Vector
 ```
 
 - 一个大 Segment 在 estimated work 足够时可以拆成多个 disjoint morsel；
@@ -615,7 +632,7 @@ Storage Segment
 - Small/Medium 应存在 sequential fast path；是否并行由 operator、cardinality、
   touched columns、expression/hash cost、selectivity、scratch、worker 和 bandwidth
   共同决定，不能仅由 Segment 数量决定；
-- Segment、Morsel 和 Execution Block 参数分别服务 storage/growth/GC、scheduling
+- Segment、Morsel 和 Execution Vector 参数分别服务 storage/growth/GC、scheduling
   与 cache/JIT，不绑定成一个固定大小。
 
 P7/P8 必须用当前代码和 production allocation evidence 逐项核实并实施这些原则，

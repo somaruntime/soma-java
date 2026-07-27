@@ -38,7 +38,7 @@ Blueprint/Design/Conformance 的替代定义
 | G02 | Schema、Metadata、Plan 与运行数据职责清晰，配置在冻结前可控，执行期无 Metadata interpreter | Schema/Metadata Design；runtime plan | TV0；A01/A02 | annotations、processor、runtime-core；compile/golden/runtime invariant | N/A | pending | 完整 Metadata hierarchy、freeze/effective/observation 与 generated binding |
 | G03 | Runtime 能力可局部替换但语义稳定，hot path 保持 compiler-specialized | 系统架构；Capability/模块边界 Design | TV0–TV9 rejected/accepted 清单 | processor/runtime-core/dataflow；API/codegen/component tests | 三个 Example按需 | pending | 封闭 Capability Set、binding、internal strategy 与 public contract |
 | G04 | V1 类型安全且不允许任意对象绕过 ownership/mutation/index 边界 | Schema/type/storage Design | TV8；现有 value/child evidence | annotations、processor、runtime-core；compile/runtime/external consumer | 三个 Example按需 | conformance-gap | 四类类型正式化；String selector/access/operator/资源能力尚未闭合 |
-| G05 | Group 是多 Table 的所有权、生命周期和一致性边界 | Group/Table/ownership Design | TV4、TV7、TV8 | runtime-core/dataflow；ownership/lifecycle/failure tests | 三个 Example按需 | pending | SomaGroup、parent-owned Table、version/guard/release 与 canonical API |
+| G05 | Group 为需要共同 identity/resource/lifecycle 的 roots 提供可选 composition，不缩减独立 aggregate multi-source | Group/Table/ownership Design | TV4、TV7、TV8；P5 production audit | runtime-core/dataflow；attach/ledger/lifecycle/cross-Group tests | 三个 Example按需 | pending | SomaGroupPlan、atomic attach、parent ledger、version/release 与 Invocation-owned guard |
 | G06 | Small/Medium 无固定税回退，Large 可使用受限 storage/locator physical plan | storage/access/runtime-plan Design | TV1、TV2、TV7、TV8 | runtime-core/processor；component + production-shape benchmark | N/A | pending | flat/head-tail、compact locator、cost formula、resource plan 的 production adoption |
 | G07 | Candidate、Group/Join、Delta、Window 避免无用中间结果与额外 pass | access/transformation/materialization Design | TV3–TV5、TV7 | dataflow/runtime-core；differential/allocation/failure tests | 自然使用者按需 | pending | multi-shape、fusion/preaggregation、staging/incremental 的正式 Owner 与实现 |
 | G08 | 一个 bounded scheduler 同时服务单/多 Segment，并保持确定性、缓存友好和 executor ownership | execution/parallel Design | TV6、TV7 | dataflow execution context；parallel/cancel/determinism benchmark | 按 workload 审计 | pending | split/coalesce/direct fallback、cost formula、managed/borrowed ownership |
@@ -60,4 +60,6 @@ Blueprint/Design/Conformance 的替代定义
 | P1 | satisfied | Goal matrix `e90d2dd`；TV9 experiment brief/workload checkpoint `8927b28` | G01–G17 全部保留；唯一新增独立验证仍为 TV9 |
 | P2 | satisfied | corrected protocol `75fe7a7`；raw evidence `bbc13e8`；独立复核无 blocker | Eager default 保留；callback 只接受 limited read-only pilot；100M 不外推 readiness |
 | P3 | satisfied | TV9 decision `cf322ab`；A21/O27/I14 与本 Temporary evidence transfer | TV0–TV9 只提供设计输入；未修改 production、正式 Design 或 claim |
-| P4–P11 | pending | 按 Goal 执行 | 不得以耗时、token、代码规模或当前实现反向降低目标 |
+| P4 | satisfied | 集成设计 `335a962`；完整 Metadata/Group/Capability/type/storage/relation/scheduler/delivery/resource/qualification target | A01–A21 全部有 Owner/slice；仍只是真实设计候选，不冒充 production |
+| P5 | in-progress | 三路独立审计初始裁决 `CHANGES_REQUIRED`；P5-B01–B09、P5-I01–I11 已应用修正，等待 exact-commit re-audit | 保留 cross-Group/cross-schema/multi-instance 能力；消除 evidence 外推与双 Owner |
+| P6–P11 | pending | P5 通过后按 Goal 执行 | 不得以耗时、token、代码规模或当前实现反向降低目标 |
