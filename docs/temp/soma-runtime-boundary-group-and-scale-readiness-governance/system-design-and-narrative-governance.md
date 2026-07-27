@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（TV0–TV9 evidence 已就绪；等待 integrated final design）
+状态：active（P4 integrated final design 已形成；等待 P5 独立审计）
 
 Owner：SOMA system design、core abstraction 与 narrative governance
 
@@ -18,6 +18,8 @@ V1 类型与存储边界、Capability Model、Result Delivery、抽象裁决方�
 非事实范围：已接受的新系统架构、Metadata 精确 API、现有抽象的删除结论、正式
 Design 修改、production 实施或 readiness
 
+最后审查日期：2026-07-28
+
 上位专题：[SOMA Runtime Boundary、Group 与 Scale Readiness 治理指导](README.md)
 
 技术输入：[Scale Architecture 技术假设与验证协议](scale-architecture-technical-validation.md)
@@ -28,7 +30,7 @@ Design 修改、production 实施或 readiness
 
 能力治理：[Capability Model 与 Result Delivery](capability-and-result-delivery-governance.md)
 
-最后审查日期：2026-07-28
+集成决策：[Runtime Boundary、Group、Scale Readiness 与产品化集成设计](integrated-final-design.md)
 
 产品与执行治理：[产品目标形态与长任务执行](productization-and-goal-execution-governance.md)
 

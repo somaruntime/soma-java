@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（TV0–TV9 已完成；等待最终 SOMA 产品设计、实施与收口）
+状态：active（TV0–TV9 与 P4 集成设计已完成；等待独立设计审计、正式固化、实施与收口）
 
 Owner：SOMA runtime boundary、Group 与 scale-readiness governance
 
@@ -55,14 +55,14 @@ columnar Table + DSL
   -> three reference applications as post-core product acceptance
 ```
 
-下一次治理必须先审计当前事实并冻结验证问题，再由独立技术验证提供机械与成本
-evidence；之后才能完成最终详细设计、影响闭包、实施授权、实现验证和正式固化。
-不得依据本 Temporary 或单项 Lab 结果直接修改 production/public/generated contract。
+本 Goal 已先审计当前事实并冻结验证问题，再由独立技术验证提供机械与成本
+evidence；P4 集成设计已经消费这些结论。P5 独立审计和 P6 正式固化前，仍不得依据
+本 Temporary 或单项 Lab 结果直接修改 production/public/generated contract。
 
 本轮已经确认、可作为技术验证输入的决策是：
 
-- 建立完整 `SomaMetadata` 心智入口，Descriptor 是其中一个分支；精确 API 仍由
-  evidence 和后续 detailed design 裁决；
+- 建立完整 `SomaMetadata` 心智入口，Descriptor 是其中一个分支；精确 API 已在
+  [P4 集成设计](integrated-final-design.md)形成待独立审计的闭合候选；
 - Metadata Plan 只在对应 create/bind 前受控可变，Effective Metadata 绑定后冻结，
   hot path 不解释 Metadata graph；
 - Result Delivery 是封闭 Capability Model 中的可替换能力；Eager Detached 继续是
@@ -186,6 +186,10 @@ Result Delivery 试点。TV9 implementation/raw/decision revision 为
 - [TV0–TV9 技术验证 Evidence Synthesis](technical-validation-evidence-synthesis.md)：
   自包含转移 accepted/rejected/inconclusive、profile、Owner 与 claim boundary，
   供最终设计消费且不依赖 Lab 实验类型；
+- [集成最终设计](integrated-final-design.md)：
+  关闭 canonical narrative、Metadata、SomaGroup、Capability、String、storage/
+  locator、Candidate/Relation、scheduler、Result Delivery、resource/failure、
+  production slices、qualification 和正式 Owner promotion；
 - [SOMA 系统设计、核心抽象与叙事再审视](system-design-and-narrative-governance.md)：
   记录 canonical narrative、抽象审查、Owner 裁决和 evidence 驱动的最终设计问题；
 - [SOMA 代码与测试规模治理](code-and-test-scale-governance.md)：记录 code/test
@@ -403,19 +407,23 @@ registry 或 per-row metadata interpreter。
 
 ## 6. SomaGroup 与 canonical API
 
-候选 canonical API 为：
+P4 已接受的 canonical API 骨架为：
 
 ```java
-SomaGroup group = Soma.createGroup();
+SomaMetadata metadata = SchemaMetadata.metadata();
+RuntimePlan plan = metadata.newPlan().build();
+SomaGroup group = Soma.createGroup(metadata, plan);
 
 MachineTable machines = MachineTable.create(group);
 CandidateTable candidates = CandidateTable.create(group);
 ```
 
-候选不变量：
+不变量：
 
 - 每个 root Table 从创建到 release 永久属于一个 Group；
 - owned child 继承 root 所属 Group，不独立 reparent；
+- 一个 Group 对同一 logical root Table 最多只有一个实例，第二实例使用另一个
+  Group；
 - 一个 JVM 可以存在多个相互独立的 Group；
 - Group 不提供跨 Table transaction 或隐式一致性；
 - application 可以把不同 Group 解释为 active/staging，但 SOMA 不理解或执行
@@ -424,9 +432,8 @@ CandidateTable candidates = CandidateTable.create(group);
 - `Soma` 只作为跨模块根对象的 canonical factory/entry，不成为承载所有操作的
   God Class。
 
-下一次详细设计必须裁决 Group member 的稳定逻辑身份、同一 logical root Table
-能否在一个 Group 中多实例、Group/Table release 关系以及未来 restore 后如何重新
-取得 typed Table handle。
+Group member identity、实例数、implicit/explicit release 和 future restore typed
+handle foundation 已由[集成设计第 5 节](integrated-final-design.md)裁决。
 
 ## 7. Group 与 Table 的 data version
 
@@ -448,10 +455,10 @@ data version      -> application synchronization progress
 - version 可以表示 MES SCN、同步批次或 application logical clock，其业务含义不
   进入 SOMA。
 
-完整 Metadata 的分层和冻结原则由第 5 节记录。下一次详细设计仍需裁决 data
-version 在 `SomaGroupMetadata` / `SomaTableMetadata` 中的精确类型、unset 表示、
-修改 safe point、与单 Table Batch/Delta 的关系，以及 Snapshot/Restore 的持久化
-表示。
+完整 Metadata 的分层和冻结原则由第 5 节记录。P4 进一步冻结 Group/Table
+data version 为相互独立的 optional String application marker，只能在 safe point
+set/clear，不传播、不要求单调，也不修改 structural epoch；未来 Snapshot/Restore
+在 quiescent boundary 保存该值。
 
 ## 8. 单 Table、多 Table 与一致性
 
@@ -611,8 +618,8 @@ Storage Segment
 - Segment、Morsel 和 Execution Block 参数分别服务 storage/growth/GC、scheduling
   与 cache/JIT，不绑定成一个固定大小。
 
-下一次治理必须用当前代码和 allocation evidence 核实这些原则，而不是把候选描述
-当作已实现事实。
+P7/P8 必须用当前代码和 production allocation evidence 逐项核实并实施这些原则，
+不能把 P4 设计或 Lab 方向当作已实现事实。
 
 ## 13. Scale Readiness 候选目标
 

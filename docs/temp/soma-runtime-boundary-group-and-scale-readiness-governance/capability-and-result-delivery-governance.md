@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（TV0–TV9 evidence 已就绪；等待最终 Capability Design）
+状态：active（P4 Capability/Result Delivery 已进入集成设计；等待 P5 独立审计）
 
 Owner：SOMA capability model、physical binding 与 result delivery governance
 
@@ -24,6 +24,8 @@ signature、ordinary Iterator、closeable pull cursor、production 实施或 rea
 设计输入：[SOMA 系统设计、核心抽象与叙事再审视](system-design-and-narrative-governance.md)
 
 技术输入：[Scale Architecture 技术假设与验证协议](scale-architecture-technical-validation.md)
+
+集成决策：[Runtime Boundary、Group、Scale Readiness 与产品化集成设计](integrated-final-design.md)
 
 最后审查日期：2026-07-28
 
@@ -126,7 +128,8 @@ callback-scoped streaming 已被 TV9 接受为唯一 limited read-only Lazy Outp
 - source guard、scratch、budget、cancel 和 cleanup 由 SOMA 在调用范围内关闭；
 - callback failure 必须确定性传播并释放 guard/scratch；
 - callback 已执行的 application side effect 不由 SOMA 回滚；
-- callback consumer 支持有界 early stop；精确 signature 仍由最终设计裁决；
+- callback consumer 支持有界 early stop；P4 已将首批 generated Candidate visit、
+  boolean consumer 与 `DeliveryResult` signature 冻结为待 P5 审计的候选；
 - 不用于 mutation、Effect、跨 root commit 或需要完整结果后才能发布的语义；
 - 不把高扩张度关系变成“可支持”：能够预计算为超预算的输出仍应在 source touch
   或枚举前拒绝。

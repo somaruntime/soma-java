@@ -34,7 +34,7 @@ Blueprint/Design/Conformance 的替代定义
 
 | Goal ID | Product Value | Blueprint / Design Owner | Evidence | Implementation / Validation | Example | Status | Remaining gap |
 |---|---|---|---|---|---|---|---|
-| G01 | 用户能用一句稳定叙事理解 SOMA，并沿一条 canonical journey 完成首次成功 | Product Blueprint；设计宪法；系统架构 | 现有 Blueprint、三个 Example、TV0–TV9 | guides、generated facade、external consumer、docs Gate | 三个 Example | pending | P4/P6 冻结产品叙事与 promotion manifest，P11 原子固化 |
+| G01 | 用户能用一句稳定叙事理解 SOMA，并沿一条 canonical journey 完成首次成功 | Product Blueprint；设计宪法；系统架构 | 现有 Blueprint、三个 Example、TV0–TV9 | guides、generated facade、external consumer、docs Gate | 三个 Example | pending | P4/P5 冻结产品叙事，P6 原子固化目标语义，P8–P11 闭合实现与产品 evidence |
 | G02 | Schema、Metadata、Plan 与运行数据职责清晰，配置在冻结前可控，执行期无 Metadata interpreter | Schema/Metadata Design；runtime plan | TV0；A01/A02 | annotations、processor、runtime-core；compile/golden/runtime invariant | N/A | pending | 完整 Metadata hierarchy、freeze/effective/observation 与 generated binding |
 | G03 | Runtime 能力可局部替换但语义稳定，hot path 保持 compiler-specialized | 系统架构；Capability/模块边界 Design | TV0–TV9 rejected/accepted 清单 | processor/runtime-core/dataflow；API/codegen/component tests | 三个 Example按需 | pending | 封闭 Capability Set、binding、internal strategy 与 public contract |
 | G04 | V1 类型安全且不允许任意对象绕过 ownership/mutation/index 边界 | Schema/type/storage Design | TV8；现有 value/child evidence | annotations、processor、runtime-core；compile/runtime/external consumer | 三个 Example按需 | conformance-gap | 四类类型正式化；String selector/access/operator/资源能力尚未闭合 |
@@ -50,7 +50,7 @@ Blueprint/Design/Conformance 的替代定义
 | G14 | 三个 Example 是相互独立、符合最佳实践的 reference consumers | Product Blueprint；Example portfolio/report | 当前 G5/portfolio evidence | example docs/correctness/performance/full checks | 三个 Example | pending | P9 先审计；无新偏差则 RETAIN/no change |
 | G15 | Small/Medium、1M/10M、单表/双表 100M 与 String 的 claim 均有 production-shape evidence | performance/benchmark/validation governance | TV7/TV8；TV9 synthetic delivery | benchmarks/scripts/reports；Zulu 8 local qualification | N/A | pending | 生产实现后建立 bounded profiles；Lab synthetic delivery 不外推 SLA/support matrix |
 | G16 | G6、release 与支持声明保持诚实，治理通过不冒充 public readiness | compatibility/security/versioning；release governance | reports/conformance/G6 | release Gate/report only | N/A | pending | closeout 更新真实状态；缺失外部事实继续 blocked |
-| G17 | 稳定事实自包含，不依赖一次性 Lab 或 Temporary | documentation governance；各正式 Owner | TV0–TV9 reports + final governance report | docs checks、reference scan、Git closeout | N/A | pending | P6 形成 promotion manifest，P11 原子转移并删除 Lab/Temporary |
+| G17 | 稳定事实自包含，不依赖一次性 Lab 或 Temporary | documentation governance；各正式 Owner | TV0–TV9 reports + final governance report | docs checks、reference scan、Git closeout | N/A | pending | P6 固化目标与差距；P11 固化实现/evidence、删除 Lab/Temporary |
 
 ## 3. 阶段记录
 
