@@ -10,15 +10,17 @@ Owner：SOMA runtime-core 实现导航
 
 事实范围：当前 handwritten runtime、generated-runtime protocol、hot path 和核心验证入口
 
-最近实现核对基线：`7925a10`
+最近实现核对基线：`3c8d425`
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. Handwritten public/runtime types
 
 | 关注点 | 当前入口 |
 |---|---|
-| runtime plan | [`RuntimePlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/RuntimePlan.java)、[`TablePlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/TablePlan.java)、[`ChildPlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/ChildPlan.java) |
+| runtime plan | [`RuntimePlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/RuntimePlan.java)、[`TablePlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/TablePlan.java)、[`ChildPlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/ChildPlan.java)；schema-seeded、one-shot builder/editor，`planningRows` 为 hint、`maximumRows` 为 hard boundary |
+| Effective Metadata | [`EffectiveMetadataProjection.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/EffectiveMetadataProjection.java) 与 `metadata/SomaEffectiveMetadata`、`SomaTableEffectiveMetadata`；只读投影 closed physical identity |
+| String resource profile | [`StringResourceProfile.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/StringResourceProfile.java)、`StringResourceProfileStatus`、`StringResourceRole`；区分 `UNPROFILED` 与 caller-declared `PROFILED_UNVERIFIED` |
 | structured failure | [`SomaRuntimeException.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/SomaRuntimeException.java)、[`SomaErrorCategory.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/SomaErrorCategory.java) |
 | diagnostics/results | [`TableStats.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/TableStats.java)、[`UpdateResult.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/UpdateResult.java)、[`RemoveResult.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/RemoveResult.java) |
 | public index snapshot | [`IndexSnapshot.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/IndexSnapshot.java)、[`IndexSnapshots.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/IndexSnapshots.java)；empty shared、single-index inline、multi-index detached array |
@@ -41,6 +43,9 @@ Protocol 位于 [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/sr
   同时拥有 root/child aggregate 的 first-failure fault state；
 - materialization：`MaterializationTracker`、`MaterializationAllocation`；
 - compatibility/failure：`GeneratedMetadata`、`RuntimeCompatibility`、`RuntimeFailures`；
+- generated Plan bridge：`GeneratedRuntimePlan` + unforgeable
+  `GeneratedPlanToken`；供 processor output绑定 raw plan construction，application
+  authoring入口是 generated `SchemaMetadata.newPlan()`；
 - DataFlow lifecycle bridge：aggregate instance identity、canonical acquire/release guard 和 generated candidate/effect access；
 - resource accounting：`StorageBudget`。
 
@@ -66,6 +71,14 @@ released state、stats snapshot 与 root release 复用既有 operation 名称�
 protocol，不新增 public fault surface。
 
 Keyed delete 先从 KeySpace 移除目标 key，再对 tail-fill survivor 修复 current Index。Exact index 通过 group/link 增量维护；append/replace按实际distinct groups预检和分配。Candidate Scan source在terminal-time读取current group；source-only exact count可直接读取cardinality并保持logical stats。当前 generated/runtime compatibility 为 v6；runtime-core 只提供窄 DataFlow guard/access bridge，Definition/Template/Invocation 不进入本模块。协议已经没有 generic `ObjectColumn`、`SparseIntKeySpace` 或 `RowPermutationSidecar`；`KeySpace`仅是primary-locator兼容性术语。
+
+Runtime plan protocol 为 v4。Application 不能调用 raw builder、`addTable`、
+`replaceTable` 或写入 free-form physical strategy；generated companion先播种全部
+schema Table，再允许按 `SomaTableMetadata` 编辑。Build 后 root builder 与全部
+child editor失效。`DenseTableState` 在 reserve/append/replace preflight 统一执行
+hard `maximumRows`，失败使用 stable `row_limit_exceeded` 且不修改 rows/epoch。
+`planningRows` 不参与 admission。Effective Metadata 是 plan-owned cold snapshot，
+execution hot path不解释 Descriptor/Metadata。
 
 ## 4. 核心检查
 

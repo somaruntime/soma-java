@@ -12,9 +12,9 @@ Owner：SOMA DataFlow 实现导航
 
 非事实范围：规范性 Transformation 语义、完整 public signature 清单和性能结论
 
-最近实现核对基线：commit `7925a10`
+最近实现核对基线：commit `3c8d425`
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. Production module
 

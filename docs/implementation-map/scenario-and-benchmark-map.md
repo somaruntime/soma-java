@@ -12,9 +12,9 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前三个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：reference-application candidate `253e383`
+最近实现核对基线：runtime-plan migration candidate `3c8d425`
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 聚合与应用入口
 
@@ -57,6 +57,11 @@ RTD 把 detached snapshot/delta 投影为 `WorkState`/`ResourceState`，使用�
 `DispatchRulePlan` 重复绑定两张 Table，执行 filter、GroupBy、inner Join、stable
 sort 和受控 parallel；Invocation 后立即复制 detached command，由
 `DispatchCommitter` 使用 stable key 全批次预检并顺序提交两个 root。
+
+三个 reference application 的 runtime factory 已随 S2 迁入各自 generated
+`SchemaMetadata.newPlan()` 与 metadata-scoped table editor；业务模型、算法叙事、
+workload、结果和既有 application baseline均未改变。该迁移只关闭raw plan
+authoring replacement，不表示它们已经完成P9最佳实践审计。
 
 ## 2. Benchmark 入口
 

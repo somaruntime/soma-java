@@ -10,9 +10,9 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：commit `7925a10`
+最近实现核对基线：commit `3c8d425`
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 验证层次
 
@@ -40,6 +40,15 @@ S1 fixture 进一步覆盖四类 schema classifier、arbitrary object stable-ID
 diagnostic、String Key/Unique/Index hash collision、Metadata hierarchy/default/
 ownership/immutability、generic Object token absence，以及 generated v5/
 transformation v1 对 current protocol 的 bind-time fail-closed。
+
+S2 fixture继续覆盖schema-seeded Plan Builder、root/child editor one-shot、
+order-independent canonical hash、Effective Metadata immutability、planning rows
+non-binding、hard maximum rows atomic rejection、String profile
+`UNPROFILED/PROFILED_UNVERIFIED`估算与角色，以及application raw builder/
+free-form strategy absence。Access、Child、Breadth、Keyed与Dense external
+consumer均完成clean/repeat compile/run和受影响`javap`快照。DataFlow component
+baseline只因plan v4迁移authoring identity checksum，allocation/timing/tail/GC
+阈值未放宽，calibration指向`3c8d425`。
 
 Codegen admission 额外约束 selector-less Table 的私有 exact-index stage 使用显式
 构造器，防止 javac 8 synthetic access marker 在 clean build 边界漂移；这项断言

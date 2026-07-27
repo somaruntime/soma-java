@@ -283,4 +283,5 @@ production evidence。
 | Slice | 状态 | immutable baseline / direct evidence | 尚未外推 |
 |---|---|---|---|
 | S1 Schema/Descriptor/closed type/String protocol | satisfied | `7925a10`；Zulu 8 `mvn clean verify`、public `javap`、compiler diagnostics、generated keyed、breadth clean/repeat/incremental external consumer、DataFlow A–F、reference differential、old protocol fail-closed与old token absence | 不等于 String lifecycle/GC/scale、完整 Metadata、Group、qualification或release readiness |
-| S2–S10 | pending | 必须按本文件顺序继续 | 不得用S1结果关闭后续slice |
+| S2 Plan/Effective/resource profile/observation envelope | satisfied | `3c8d425`；Zulu 8 `mvn clean verify`、runtime/public/compiler/generated dense/keyed/access/child/breadth external Gate、三Example compile/repeat、DataFlow differential/component baseline；application raw plan/free-form strategy absence、hard maximum rows atomicity与plan-v4 fail-closed | 当前`TableStats`只保留observation envelope；Runtime/Group/Observation Metadata、Group ledger、String lifecycle/GC/scale尚未外推 |
+| S3–S10 | pending | 必须按本文件顺序继续 | 不得用S1/S2结果关闭后续slice |

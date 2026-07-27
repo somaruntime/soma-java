@@ -10,9 +10,9 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`7925a10`
+最近实现核对基线：`3c8d425`
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 主流程
 
@@ -47,6 +47,14 @@ String Key/Unique/Index 由 concrete `StringColumn` 和 typed String DataFlow
 protocol投影，不再生成 generic Object value family。Descriptor 的 immutable
 实现私有嵌入 schema-scoped companion，application 只能读取、不能自行构造
 processor-owned descriptor。
+
+`SchemaMetadata.newPlan()` 当前通过 generated-only `GeneratedRuntimePlan` bridge
+播种 runtime plan v4。每个 Table 默认使用至少16的有效initial capacity、
+non-binding planning rows、按schema structural bytes估算的保守hard maximum rows、
+closed `FLAT`/locator/exact-access identity；含String column的Table声明String
+capability并默认 `UNPROFILED`。Application只能通过metadata-scoped table editor
+覆盖已开放的cold control-plane参数，不能构造raw descriptor或写入free-form
+physical strategy。
 
 Table artifact 内部生成一组私有 failure-routing helper：structured `INTERNAL`
 进入 aggregate fault，expected structured failure正常关闭 operation，raw

@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：P8 S1 implementation baseline `7925a10`
+实现核对基线：P8 S2 implementation baseline `3c8d425`
 
 事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
 
@@ -18,8 +18,8 @@ Owner：SOMA Java 一致性审查
 
 | ID | 分类 | 差距 | 影响 | 当前 Owner 处置 |
 |---|---|---|---|---|
-| `CF-009` | Product/runtime contract | Descriptor hierarchy与generated SchemaMetadata已实现；Plan/Effective/Runtime Metadata、SomaGroupPlan/SomaGroup 与 atomic attach/parent ledger仍缺 | canonical advanced journey、multi-root composition、resource/lifecycle target未闭合 | S2/S3继续 Runtime Plan、Metadata phases 与 Ownership Design；保留 cross-Group/schema/instance DataFlow，不引入双 plan/metadata path |
-| `CF-010` | Type/generated protocol | four-kind classifier、typed String value/access、arbitrary-object rejection与Object-path removal已闭合；String mutation/clear/release/GC和production scale evidence仍缺 | reference retention、String lifecycle/heap口径与规模目标尚不能声明完整支持 | S5/P10补 lifecycle/GC和length/cardinality/sharing/role限定 qualification；不引入 dictionary/arena |
+| `CF-009` | Product/runtime contract | Descriptor、generated SchemaMetadata、schema-seeded Plan Builder与Effective Metadata已实现；Runtime/Group/Observation Metadata、SomaGroupPlan/SomaGroup 与 atomic attach/parent ledger仍缺 | canonical advanced journey、multi-root composition、resource/lifecycle target未闭合 | S3/S10继续剩余 Metadata phases 与 Ownership Design；保留 cross-Group/schema/instance DataFlow，不引入双 plan/metadata path |
+| `CF-010` | Type/generated protocol | four-kind classifier、typed String value/access、arbitrary-object rejection、Object-path removal与String `UNPROFILED/PROFILED_UNVERIFIED` resource profile已闭合；String mutation/clear/release/GC和production scale evidence仍缺 | reference retention、String lifecycle/heap口径与规模目标尚不能声明完整支持 | S5/P10补 lifecycle/GC和length/cardinality/sharing/role限定 qualification；不引入 dictionary/arena |
 | `CF-011` | Storage/access | 当前以flat/universal IndexBuffer baseline为主，缺flat-head/segmented-tail、Segment publication、closed Candidate shapes与locator formula qualification | Large可增长性、point tax、retained/transient peak和Small固定税目标未闭合 | Flat保持baseline；新physical binding只在formula与production evidence后启用，禁止universal segmented或full-key duplication |
 | `CF-012` | Transformation/execution/resource | Group/Join/Delta/Window specialization、unknown-bound fail-closed、one bounded morsel/vector scheduler、parent/root/Invocation ledger与module-owned Observation尚未闭合 | 高展开可能缺preflight，中小规模/单Segment并行、资源与诊断不可按新目标解释 | 保持现有logical semantics；实现specialized/cost-model paths与sequential differential，全部resource phase lease可验证 |
 | `CF-013` | Result Delivery | Eager baseline存在，但incumbent Candidate/Value/Group/Join/Window borrow仍保留consumer-in-Definition lifecycle；generated callback facade未实现/qualification | Definition identity、non-escape、cancel/deadline、partial publication与allocation目标不一致 | 统一迁入标准 Definition→Template→Invocation；Eager继续默认；不得保留legacy、Iterator/pull/async path |

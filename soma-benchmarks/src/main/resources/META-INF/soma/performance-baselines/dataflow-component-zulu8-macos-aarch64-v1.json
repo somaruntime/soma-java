@@ -5,8 +5,8 @@
   "subject": "typed-dataflow-component",
   "artifactVersion": "soma-java-dataflow-component-v1",
   "calibration": {
-    "commit": "8f939a479224814c84d0f3cff0bd5d6c52cadeae",
-    "date": "2026-07-27",
+    "commit": "3c8d4258548da1415079432ad3161881ba137f6c",
+    "date": "2026-07-28",
     "forks": 3,
     "formula": "checksum=all-equal; allocation=ceil(max*1.15+256); timing=ceil(max(p50*1.50,p90*1.25)); tail=ceil(max(invocation-p90)*1.50)"
   },
@@ -77,7 +77,7 @@
     }
   ],
   "metrics": [
-    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":3304655687781961323},
+    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":-2401516229466252197},
     {"id":"checksum.direct-count","selector":{"lane":"candidate.direct-filter-count.large"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-sequential","selector":{"lane":"candidate.filter-count.large.sequential"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-parallel","selector":{"lane":"candidate.filter-count.large.adaptive-parallel"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},

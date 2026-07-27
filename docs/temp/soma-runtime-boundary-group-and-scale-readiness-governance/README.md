@@ -4,7 +4,7 @@
 
 用途：Goal execution trace
 
-状态：active（P0–P6 已完成；P7 in progress）
+状态：active（P0–P7 已完成；P8 in progress）
 
 Owner：SOMA runtime scale and productization Goal execution
 
@@ -14,7 +14,7 @@ Owner：SOMA runtime scale and productization Goal execution
 
 非事实范围：产品目标、长期设计、当前实现能力、性能 claim 或 release readiness
 
-当前 production 基线：`d5f713d`
+当前 production 基线：`3c8d425`
 
 最后审查日期：2026-07-28
 
