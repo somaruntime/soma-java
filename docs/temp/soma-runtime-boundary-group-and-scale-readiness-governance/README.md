@@ -2,8 +2,7 @@
 
 类型：Temporary
 
-状态：active（TV0–TV8 已完成；新增 Result Delivery TV9 待执行；等待最终 SOMA
-产品设计、实施与收口）
+状态：active（TV0–TV9 已完成；等待最终 SOMA 产品设计、实施与收口）
 
 Owner：SOMA runtime boundary、Group 与 scale-readiness governance
 
@@ -91,6 +90,10 @@ evidence；之后才能完成最终详细设计、影响闭包、实施授权、
 - TV0–TV8 全部在 `soma_java` 仓库之外的独立 Lab 中完成；SOMA 只提供只读事实和
   baseline 形状，不承载实验实现；TV8 只验证 reference-backed String baseline，
   不重新比较字符串后端；
+- TV9 已完成并经过独立复核：callback-scoped streaming
+  `accepted for limited read-only pilot`，Eager Detached 继续是默认；
+  ordinary Iterator/pull cursor/async/mutation/effect/partial publication 仍排除；
+  logical single/double-100M 只证明 delivery surrogate，不是 SOMA readiness；
 - 本专题是重新确认“SOMA 应该如何被理解、如何工作，以及每个核心抽象为什么存在”
   的机会；最终设计必须形成一条 canonical system narrative；
 - SOMA runtime 可以理解为 schema-defined state owner、compiler-bound capability
@@ -169,18 +172,20 @@ TV8 的可转移技术结论是：
 - dictionary、字符 arena、intern、compression 和 arbitrary-object backend 没有
   进入候选，不能描述成被性能实验否决。
 
-TV0–TV8 的原始验证目标已经完成。由于本轮随后重新打开并收窄了 Result Delivery
-问题，整体技术验证新增 TV9：只比较 Eager Detached 与 callback-scoped streaming。
-TV9 不否定 TV3/TV4/TV7 的 eager evidence，也不重新打开 ordinary Iterator、
-closeable cursor 或异步 Publisher；它只为最终 Result Delivery Capability 提供
-Small/Medium、early stop、allocation/GC、failure/cancel/guard 和 bounded relation
-evidence。
+TV0–TV9 已全部完成。TV9 不否定 TV3/TV4/TV7 的 eager evidence，也不重新打开
+ordinary Iterator、closeable cursor 或异步 Publisher；它只支持把同步
+callback-scoped streaming 作为少量 read-only generated typed terminal 的受限
+Result Delivery 试点。TV9 implementation/raw/decision revision 为
+`75fe7a7` / `bbc13e8` / `cf322ab`。
 
 职责拆分：
 
 - [Scale Architecture 技术假设与验证协议](scale-architecture-technical-validation.md)：
   记录独立 Lab 中的大规模存储、索引、中间结果与执行粒度候选，以及在升级为
   SOMA 设计输入前必须取得的技术证据；
+- [TV0–TV9 技术验证 Evidence Synthesis](technical-validation-evidence-synthesis.md)：
+  自包含转移 accepted/rejected/inconclusive、profile、Owner 与 claim boundary，
+  供最终设计消费且不依赖 Lab 实验类型；
 - [SOMA 系统设计、核心抽象与叙事再审视](system-design-and-narrative-governance.md)：
   记录 canonical narrative、抽象审查、Owner 裁决和 evidence 驱动的最终设计问题；
 - [SOMA 代码与测试规模治理](code-and-test-scale-governance.md)：记录 code/test
@@ -684,10 +689,10 @@ manifest、实际预算和判定线：
    external-consumer 与 scope non-regression evidence；
 14. 原子固化正式 Owner 和 Governance Report，删除独立 Lab 与全部 Temporary。
 
-原始 TV0–TV8 与其 Technical Validation Report/Owner Decision Matrix 已完成，即
-上述第 1–6 项已经完成；最新线程决策新增的第 7 项 TV9 尚未开始。整体下一阶段先
-修订验证协议并完成 TV9，再进入 integrated final design。Lab 仍是本次治理的一次性
-evidence 载体；只有正式 Design/Report 完成必要证据转移后才删除。
+TV0–TV9 与其 Technical Validation Report/Owner Decision Matrix 已完成，即上述
+第 1–7 项已经完成。整体下一阶段进入 integrated final design。Lab 仍是本次治理的
+一次性 evidence 载体；只有正式 Design/Report 完成必要证据转移、production
+qualification 收口后才删除。
 
 TV0–TV9 是独立 Lab 的技术验证协议，不是 SOMA 正式性能 Gate。Lab 代码和结果不得
 直接合并或外推为 SOMA readiness；最终 Gate 只能在后续 SOMA adoption/implementation

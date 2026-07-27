@@ -70,7 +70,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 当前 active Temporary topic：
 
-- [SOMA Runtime Boundary、Group 与 Scale Readiness 治理指导](temp/soma-runtime-boundary-group-and-scale-readiness-governance/README.md)：TV0–TV8 独立技术验证已完成，新增 Eager Detached 对 callback-scoped streaming 的 TV9 待执行；专题同时治理 canonical 产品/系统叙事、完整 Metadata、封闭 Capability Model、Group、规模与资源、代码/测试规模及三个 Example 的后置最佳实践审计。后续使用 accepted evidence 完成正式设计与授权实施，治理收口后删除独立 Lab 和全部 Temporary。
+- [SOMA Runtime Boundary、Group 与 Scale Readiness 治理指导](temp/soma-runtime-boundary-group-and-scale-readiness-governance/README.md)：TV0–TV9 独立技术验证已完成；Eager Detached 保持默认，callback-scoped streaming 只接受为 limited read-only pilot。专题继续治理 canonical 产品/系统叙事、完整 Metadata、封闭 Capability Model、Group、规模与资源、代码/测试规模及三个 Example 的后置最佳实践审计。后续使用 accepted evidence 完成最终设计、实施与 production qualification，治理收口后删除独立 Lab 和全部 Temporary。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

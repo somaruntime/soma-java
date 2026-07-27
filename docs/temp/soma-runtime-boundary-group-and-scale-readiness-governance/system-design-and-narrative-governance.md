@@ -2,7 +2,7 @@
 
 类型：Temporary
 
-状态：active（TV0–TV8 evidence 已就绪；Result Delivery TV9 待执行）
+状态：active（TV0–TV9 evidence 已就绪；等待 integrated final design）
 
 Owner：SOMA system design、core abstraction 与 narrative governance
 
@@ -21,6 +21,8 @@ Design 修改、production 实施或 readiness
 上位专题：[SOMA Runtime Boundary、Group 与 Scale Readiness 治理指导](README.md)
 
 技术输入：[Scale Architecture 技术假设与验证协议](scale-architecture-technical-validation.md)
+
+证据综合：[TV0–TV9 技术验证 Evidence Synthesis](technical-validation-evidence-synthesis.md)
 
 配套治理：[代码与测试规模治理](code-and-test-scale-governance.md)
 
@@ -77,17 +79,17 @@ freeze intent / invariants / validation questions
 也不得通过 benchmark 反向定义产品语义；任何候选必须保持已经声明的 ownership、
 lineage、order、lifecycle、failure、determinism 和 application boundary。
 
-TV0–TV8 已完成，后续设计消费的 evidence 入口为独立 Lab 的 Technical Validation
-Report、Owner Decision Matrix 和本 Temporary 已转移的摘要。Result Delivery 决策
-在 TV0–TV8 收口后发生变化，因此 integrated final design 前还必须完成 TV9。尤其
-需要保持三条边界：
+TV0–TV9 已完成，后续设计消费的 evidence 入口为独立 Lab 的 Technical Validation
+Report、Owner Decision Matrix 和本 Temporary 已转移的摘要。TV9 只接受同步
+callback-scoped streaming 的 limited read-only pilot，Eager Detached 保持默认。
+integrated final design 尤其需要保持三条边界：
 
 - reference-backed String 在明确 profile/resource bounds 下已通过机械验证，但
   不能外推为 arbitrary object 或任意 String 100M；
 - Lab 接受的是 mechanics/cost direction，不是 SOMA public API、默认阈值、
   production integration、Gate 或 readiness。
-- TV9 只比较 Eager Detached 与 callback-scoped streaming，不重新打开 ordinary
-  Iterator、closeable pull cursor、Publisher 或 mutation/effect streaming。
+- ordinary Iterator、closeable pull cursor、Publisher、async、
+  mutation/effect streaming 与 partial detached publication 仍不进入。
 
 ## 3. 候选 Canonical SOMA Narrative
 
@@ -280,8 +282,8 @@ OUT_OF_SCOPE
 - 没有 evidence 时不固定 Segment/Morsel/Block、locator、candidate threshold 等参数；
 - 不为追求统一恢复 generic query engine、reflection 或 Metadata interpreter；
 - 不把 Capability Model 扩张为开放 SPI，或把 interface dispatch 留在逐 row hot path；
-- 不在 TV9 前固定 callback streaming public signature，也不把它扩张为 Iterator、
-  closeable cursor、Publisher、mutation 或 Effect；
+- 不因 TV9 接受受限 mechanics 就提前固定 callback public signature，或把它扩张为
+  Iterator、closeable cursor、Publisher、mutation 或 Effect；
 - 不把 G6 发布事实、MES 同步、跨 Table transaction 或 application workflow 纳入；
 - 不用当前实现反向降低 Blueprint，也不为减少代码删除目标能力；
 - 正式 Design 修改、public/generated contract 和 production 实施前必须获得新的

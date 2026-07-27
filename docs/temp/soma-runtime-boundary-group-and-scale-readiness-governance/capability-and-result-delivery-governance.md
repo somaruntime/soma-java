@@ -2,20 +2,21 @@
 
 类型：Temporary
 
-状态：active（TV0–TV8 evidence 已就绪；Result Delivery TV9 待执行）
+状态：active（TV0–TV9 evidence 已就绪；等待最终 Capability Design）
 
 Owner：SOMA capability model、physical binding 与 result delivery governance
 
 正式事实源：否
 
-实施授权：仅限本专题 Temporary 文档收口、对 SOMA 的只读审计，以及在独立 Lab
-中开展 TV9；不授权修改正式 Blueprint/Design、production、test、benchmark、
-public/generated contract 或构建
+实施授权：当前阶段仅限本专题 Temporary 文档收口和对 SOMA 的只读审计；正式
+Blueprint/Design、production、test、benchmark、public/generated contract 与构建
+变更由后续 Goal phase 和 accepted design 控制
 
 事实范围：本专题确认的 capability-first 审查方法、封闭能力集合、能力绑定与替换
-边界、Eager Detached 默认能力、callback-scoped streaming 试点、TV9 问题和停止条件
+边界、Eager Detached 默认能力、callback-scoped streaming 受限试点、TV9 evidence
+与停止条件
 
-非事实范围：已接受的 Capability public API、开放插件/SPI、TV9 结论、精确 callback
+非事实范围：已接受的 Capability public API、开放插件/SPI、精确 callback
 signature、ordinary Iterator、closeable pull cursor、production 实施或 readiness
 
 上位专题：[SOMA Runtime Boundary、Group 与 Scale Readiness 治理指导](README.md)
@@ -117,7 +118,7 @@ Eager Detached 继续是 V1 默认能力：
 
 ### 5.2 callback-scoped streaming
 
-callback-scoped streaming 是唯一 Lazy Output 试点：
+callback-scoped streaming 已被 TV9 接受为唯一 limited read-only Lazy Output 试点：
 
 - 只在明确选择的 read-only terminal/interface 上试点；
 - 同步、one-shot，只在 terminal 调用栈内消费；
@@ -125,8 +126,7 @@ callback-scoped streaming 是唯一 Lazy Output 试点：
 - source guard、scratch、budget、cancel 和 cleanup 由 SOMA 在调用范围内关闭；
 - callback failure 必须确定性传播并释放 guard/scratch；
 - callback 已执行的 application side effect 不由 SOMA 回滚；
-- callback consumer 可以支持有界 early stop，但精确 signature 由 TV9 和最终设计
-  裁决；
+- callback consumer 支持有界 early stop；精确 signature 仍由最终设计裁决；
 - 不用于 mutation、Effect、跨 root commit 或需要完整结果后才能发布的语义；
 - 不把高扩张度关系变成“可支持”：能够预计算为超预算的输出仍应在 source touch
   或枚举前拒绝。
@@ -146,7 +146,7 @@ callback-scoped streaming 是唯一 Lazy Output 试点：
 
 ## 6. TV9：Result Delivery Technical Validation
 
-TV9 继续在现有独立 Lab 中实施，只比较：
+TV9 已在独立 Lab 中完成，只比较：
 
 ```text
 Eager Detached baseline
@@ -180,6 +180,21 @@ rejected
 inconclusive
 ```
 
+实际裁决：
+
+- callback-scoped streaming：
+  `accepted for limited read-only pilot`；
+- Eager Detached：继续作为默认；
+- independent reference、callback-driven early stop、逐项 String value/reference、
+  bounded Group/relation、consumer failure、cancel/deadline、mutation/release
+  conflict、cleanup 与 canonical typed preflight 均通过；
+- 1M primitive / 10M String callback allocation 都是 `184 B`，对应 Eager 为
+  `16,000,240 B` / `200,000,256 B`；
+- logical single/double-100M 只证明 synthetic Result Delivery mechanics，不形成
+  production readiness；
+- implementation/raw/decision revision：
+  `75fe7a7` / `bbc13e8` / `cf322ab`。
+
 ## 7. 最终设计必须关闭
 
 1. Capability 的稳定语义、Owner、lifecycle、invariant 和替换边界；
@@ -193,9 +208,9 @@ inconclusive
 ## 8. 停止条件
 
 - 不因“未来可能替换”制造开放 SPI、公共 physical strategy 或多条永久 canonical path；
-- 不在 TV9 前固定 callback public signature；
+- 不因 TV9 接受受限 mechanics 就提前固定 callback public signature；
 - 不用 streaming 掩盖无界 Join、未知 cardinality 或缺失 budget；
 - 不将 read-only callback 试点扩张为 mutation/effect/transaction；
 - 不因新增 capability layer 引入 per-row dispatch、boxing、generic object 或
   Metadata interpreter；
-- TV9 到达 decision point 即停止，不增加第三种候选。
+- TV9 已到达 decision point，不再增加候选或重复实验。

@@ -2,8 +2,7 @@
 
 类型：Temporary
 
-状态：active validation input（TV0–TV8 evidence 已收口；新增 Result Delivery
-TV9 待执行）
+状态：validation complete（TV0–TV9 evidence 已收口；等待最终设计消费）
 
 Owner：SOMA scale architecture standalone technical validation
 
@@ -61,7 +60,7 @@ replacement closure 与后续实施授权。
 
 ### 1.1 验证载体与隔离约束
 
-TV0–TV8 全部在 `soma_java` repository/workspace 之外的独立 Lab 中实施。本仓库在
+TV0–TV9 全部在 `soma_java` repository/workspace 之外的独立 Lab 中实施。本仓库在
 验证阶段仅提供只读问题来源、baseline 形状和语义约束：
 
 ```text
@@ -103,8 +102,8 @@ Lab 的 TV0–TV7 narrow primitive/numeric 阶段已完成，收口 revision 为
 `591bbab505b14a2261d2700b7f0ffdcdde6cfb1f`。这些 evidence 继续有效，但只证明其
 明确 workload 和类型边界；TV8 reference-backed String raw evidence 已在 revision
 `b2970d2` 收口，不引入新的 String storage backend，也不把 Lab 类型变成 SOMA
-contract。TV0–TV8 综合文档 revision 为 `b70e9a2`。TV9 尚未 preregister 或执行，
-不能被描述为已有 evidence。
+contract。TV0–TV8 综合文档 revision 为 `b70e9a2`。TV9 implementation/raw/
+decision revision 为 `75fe7a7` / `bbc13e8` / `cf322ab`，并已通过独立只读复核。
 
 ## 2. 产品目标与约束
 
@@ -991,6 +990,22 @@ rejected
 inconclusive
 ```
 
+实际裁决：
+
+- callback-scoped streaming：
+  `accepted for limited read-only pilot`；
+- Eager Detached：继续作为默认 Result Delivery；
+- 1M primitive allocation 为 Eager `16,000,240 B` 对 callback `184 B`；
+- 10M String allocation 为 Eager `200,000,256 B` 对 callback `184 B`；
+- early-1K 为 Eager touch 1M 对 callback touch 1,024；
+- `1M → 1,024` bounded Group 与 262,144 bounded relation 通过；
+- `2,457,600,000,000 B` high-expansion semantic output 从 canonical relation
+  entry 在 source guard/touch 前 typed rejection；
+- single/double logical-100M 只是 deterministic delivery surrogate，不是
+  production SOMA Table/Join/Group readiness；
+- public/generated signature、首批 terminal、production crossover 与真实 GC
+  仍由最终设计和 production qualification 裁决。
+
 ## 9. Profile 与指标
 
 ### 9.1 Schema
@@ -1113,23 +1128,20 @@ integrated detailed design 单独裁决。
 
 ## 12. 下一阶段推荐入口
 
-TV0–TV8 已经完成，TV9 尚未开始。后续按以下顺序消费 evidence：
+TV0–TV9 已经完成。后续按以下顺序消费 evidence：
 
 1. 以现有 Technical Validation Report、Owner Decision Matrix 与本 Temporary 中
-   已转移的 evidence 摘要作为 TV0–TV8 输入，不把 Lab 类型当正式事实；
-2. preregister 并完成 TV9，只比较 Eager Detached 与 callback-scoped streaming，
-   更新 Technical Validation Report、accepted/rejected/inconclusive 清单和 Owner
-   Decision Matrix；
-3. 逐项复核 TV0–TV9 的 profile、语义前提和潜在 Owner；
-4. 将裁决和必要 evidence 摘要输入系统设计治理，完成 canonical product/system
+   已转移的 TV0–TV9 evidence 摘要作为输入，不把 Lab 类型当正式事实；
+2. 逐项复核 TV0–TV9 的 profile、语义前提和潜在 Owner；
+3. 将裁决和必要 evidence 摘要输入系统设计治理，完成 canonical product/system
    narrative、Metadata、Capability Model、Result Delivery 及 integrated detailed
    design 的 Owner 裁决；
-5. 依据 accepted Design 审计 SOMA code/test/doc/evidence；只有 replacement
+4. 依据 accepted Design 审计 SOMA code/test/doc/evidence；只有 replacement
    closure 和新的实施授权完成后，才设计 production slices、裁剪不必要代码/测试
    并建立真实 qualification；
-6. core 稳定后审计三个 Example，必要时按最终最佳实践治理；
-7. 将最终决策与必要 evidence 摘要转移到相应正式 Design/Report Owner；
-8. 本次治理完成且正式 Owner 不再依赖 Lab path 后，删除整个独立 Lab；随后按本
+5. core 稳定后审计三个 Example，必要时按最终最佳实践治理；
+6. 将最终决策与必要 evidence 摘要转移到相应正式 Design/Report Owner；
+7. 本次治理完成且正式 Owner 不再依赖 Lab path 后，删除整个独立 Lab；随后按本
    专题退役条件删除 Temporary。
 
 后续工作不得以本文件中的推荐值为 production 修改授权，也不得把完成一个 benchmark
