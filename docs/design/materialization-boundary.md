@@ -1,24 +1,25 @@
-# Materialization 边界设计
+# Result Delivery 与 Materialization 边界设计
 
 类型：Design
 
 状态：正式
 
-Owner：SOMA detached materialization semantics
+Owner：SOMA Result Delivery 与 detached materialization semantics
 
 设计层次：`D2` 能力设计
 
-主要关注点：Detached object graph、预算、递归投影与导出边界
+主要关注点：Eager/callback Result Delivery、Detached object graph、预算、递归投影与导出边界
 
 上位设计：[系统架构](system-architecture.md)
 
 服务蓝图：[SOMA Java 产品蓝图](../blueprints/soma-java-product-blueprint.md)
 
-事实范围：materialized object graph、预算、递归 ownership traversal、allocation admission 和导出边界
+事实范围：Result Delivery modes、materialized object graph、预算、递归 ownership
+traversal、allocation admission 和导出边界
 
 非事实范围：external DTO/wire format、application serializer 和 benchmark 结果
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 定位
 
@@ -34,6 +35,22 @@ SOMA live table
 ```
 
 这三个阶段必须分开计量和归责。
+
+## 1.1 Result Delivery modes
+
+V1 只有两种 terminal delivery：
+
+| mode | semantics |
+|---|---|
+| Eager Detached | 默认；完整构造、publish-once；返回后不持有 source guard；failure/cancel/rejection 不暴露 partial result |
+| Callback Scoped | 显式 opt-in 的 synchronous one-shot read-only visitor；terminal 返回前关闭 guard/scratch/lease |
+
+Callback Scoped 是唯一 Lazy Output，不是新的 execution model。它复用
+[DataFlow 执行模型](dataflow-execution-model.md)的
+Definition→Template→Invocation lifecycle，允许 bounded early stop，但不减少 logical
+cardinality/source work，也不授予 mutation/Effect/transaction/partial publication。
+普通 Iterator、closeable pull cursor、Generator、Publisher、async push 和
+terminal-returned live result 均不支持。
 
 ## 2. 结果语义
 
@@ -59,6 +76,12 @@ SOMA live table
 
 预算 identity 和 estimator identity 进入 diagnostics。Estimated bytes 是版本化、确定的 admission estimate，不宣称等于 JVM profiler/object-layout 实测值。
 
+Detached columnar/callback delivery 也必须在 Invocation budget 中约束 output
+elements/bytes、shared/worker scratch 和 tasks。Known high-expansion output 先 checked
+add/multiply；无法由 compiler/plan/validated maintained facts 证明 finite bound 时，
+除独立有界 scalar/fused terminal 外 fail closed。Callback/early stop 不能替代这一
+preflight。
+
 ## 4. All-or-nothing
 
 Materialization 先遍历/估算并检查 ownership、lifecycle 和 budget，再发布结果。Expected failure 时不返回部分 object graph，也不改变 live table、epoch、view 或 child state。
@@ -83,3 +106,7 @@ Hot loop 优先使用 Candidate Scan、typed Cursor、ColumnView 或 schema-spec
 - correctness oracle 和测试内容比较。
 
 大量递归 export、深 child forest 或高频 per-row materialization 必须单独建模和 benchmark，不能混入 storage hot-path 声明。
+
+Callback delivery 只在能实际降低 retained output 且业务不需要 complete atomic result
+时选择。需要完整 result 后才做业务判断、排序/barrier输出、Effect或跨系统发布时，
+继续使用 Eager Detached。

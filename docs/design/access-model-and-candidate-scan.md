@@ -18,7 +18,7 @@ Owner：SOMA access semantics 与 Candidate Scan
 
 非事实范围：packed/exact 数据结构、精确 generated signature、具体 generator 类布局、benchmark 数值和 application 算法
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 SOMA Access Model 是使用者与 packed columnar Table 交互的完整语义体系。Pipeline 只负责 CandidateAccess；Point、Column、Key、Bulk 和 Ownership 路径不为追求 API 对称而绕入同一个 planner。
 
@@ -54,6 +54,10 @@ SomaTable
 | Batch | detached construction/import staging | publish 后不成为 live storage |
 
 Source 决定初始 sequence：Packed 使用执行时物理顺序，Exact 使用当前 group traversal order，child 使用 child Table 的对应 source order。除显式 `sorted` 外，这些顺序都不是跨 mutation 的业务顺序。
+
+Required String value 可以作为 Primary/Unique/Exact source component，并使用 Java
+String authoritative value equality；optional absence 不进入 selector。reference
+identity、hash/fingerprint 或 intern 状态都不构成 access equality。
 
 ## 3. 组合代数
 
@@ -164,6 +168,19 @@ Callback failure、conflict 或资源拒绝保持旧 stable state。SOMA 的原�
 
 Semantic plan 使用 schema-specific typed source 和 compact ordered stage storage。小 stage 链使用固定 inline slots，溢出只使用 primitive kind/argument arrays 与 callback reference array；不建立 per-stage linked node、Iterator、Java Stream、generic Sink graph 或 per-candidate object。
 
+Candidate physical shape 是 closed internal set：
+
+```text
+Range | SegmentRange | ExactSinglePass | Bitmap | SparseIndexes
+```
+
+选择输入包括 known cardinality、density/contiguity、downstream reuse/random access、
+sort/barrier 与 budget。Contiguous single-pass 使用 Range/SegmentRange；maintained
+exact + scalar/single-pass terminal 直接使用 Exact；ultra-sparse reused candidate
+可以使用 compact indexes；dense reused membership 可以使用 Bitmap；只有
+sort/stable random access/multi-pass 才 materialize。Choice/formula identity进入
+Explain，不公开 live Candidate 或 pull cursor。
+
 Terminal-time executor 按 operation shape 选择：
 
 - Packed zero-stage terminal 走直接路径；
@@ -195,6 +212,11 @@ Terminal-time executor 按 operation shape 选择：
 | append/replace | batch columns + locator/exact/ownership maintenance | Batch + growth/staging |
 
 具体常数、allocation、GC 和 code size 属于 Report；benchmark 方法与 Gate 属于 Engineering。
+
+普通 `Iterator<T>`、closeable pull cursor 或 terminal-returned live Candidate 不进入
+Access Model。Candidate intermediate laziness 与 Result Delivery 是两件事；callback
+Result Delivery 的统一 lifecycle 由 [DataFlow 执行模型](dataflow-execution-model.md)
+和 [Materialization 边界](materialization-boundary.md)共同约束。
 
 ## 11. Java Stream 借鉴边界
 

@@ -18,7 +18,7 @@ Owner：SOMA Java 跨模块 canonical terminology
 
 非事实范围：API behavior、storage algorithm、lifecycle transition 和性能结论
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 限定规则
 
@@ -47,6 +47,15 @@ Owner：SOMA Java 跨模块 canonical terminology
 | DataFlow Definition | immutable、可复用的 schema-bound logical computation | live Table、mutable plan、application rule engine |
 | DataFlow Template | Definition 的 immutable analyzed/static-lowered projection | bound source、executor、current epoch |
 | DataFlow Invocation | 绑定当前 source/parameter/resource 的 one-shot execution | reusable Definition、concurrent Table session |
+| Descriptor Metadata | compiler/generated 固化的 schema/type/access/ownership 逻辑描述 | mutable plan、runtime data |
+| Plan Metadata | create/bind 前可调整、freeze 后形成 Effective Metadata 的配置 | global mutable config、hot-path interpreter |
+| Effective Metadata | validated immutable physical/resource identity | current counters、operation outcome |
+| Runtime Metadata | detached Group/member/Table/Segment/access topology snapshot | payload、stats、DataFlow Explain |
+| Observation | module-owned current/high-water/lifecycle/outcome snapshot | Metadata、planner input、business fact |
+| Explain | analyzed/selected physical decision、formula identity 与 reason | mutable stats、business result |
+| SomaGroup | 可选的 root composition/resource/lifecycle boundary | transaction、DataFlow GroupBy、guard prerequisite |
+| SomaGroupPlan | stable logical Group/member slots 与 Group resource plan | live membership registry、RuntimePlan replacement |
+| Result Delivery | terminal 结果交付方式；默认 Eager，可显式 callback-scoped | Candidate laziness、materialization、Effect |
 | Delta | 以 stable Key 和显式 operation 表达的 detached typed change | live Table state、CDC client、exactly-once log |
 | Detached Columnar Result | typed/primitive heap arrays、presence 和 shape identity 构成的 detached output | live ColumnView、stable source snapshot、object graph materialization |
 
@@ -81,6 +90,7 @@ Application data role 与 table kind、ownership 正交：
 | schema ownership dependency graph | declarations 之间的 type-level owning graph | runtime instances |
 | runtime ownership instance forest | 每个 child instance 恰有一个 owner 的无环 forest | arbitrary object graph/shared DAG |
 | ownership aggregate | 一个 root 及递归 owned children 的事实/lifecycle边界 | 单个 TableStore、跨 root transaction |
+| group member slot | `SomaGroupPlan` 中稳定的 logical root instance identity | schema table name、current Index |
 | `ChildTableHandle` | parent column 中定位 child 的 opaque internal locator | Index、key、public reference |
 | reparent | 把 live child 从一个 owner 转到另一个 owner | 用 detached Batch 新建 subtree |
 | cross-table key reference | non-owning logical relation | ownership edge、自动 join |
@@ -101,7 +111,12 @@ Application data role 与 table kind、ownership 正交：
 | `IndexBuffer` | table-local reusable primitive candidate scratch |
 | lifecycle state | epoch、borrow、active operation、released 和 stats state |
 | `RuntimePlan` | create-time immutable aggregate execution/resource policy |
-| `TableStats` | immutable runtime observation；不拥有 business facts |
+| `TableStats` / Table Observation | immutable runtime observation；不拥有 business facts |
+| Storage Segment | column storage/growth/GC publication unit |
+| Parallel Morsel | bounded scheduler 的 work/cancel/merge unit |
+| Execution Vector | cache/JIT-oriented inner-loop block；不是 task 或 public vector API |
+| GroupLedger | member structural entitlement 与 storage/access transient hard-limit Owner |
+| InvocationLedger | 一次 DataFlow scratch/output/tasks/workers 的 resource Owner |
 
 Transformation internal 的 logical node、physical schedule、kernel 和 worker scratch 不进入本表作为 public 领域概念；其 public 角色与边界由 [DataFlow 执行模型](dataflow-execution-model.md)拥有。
 

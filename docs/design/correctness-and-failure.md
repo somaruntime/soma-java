@@ -18,7 +18,7 @@ Owner：SOMA runtime correctness 与 failure semantics
 
 非事实范围：具体存储算法、日志策略、application 事务和编译期诊断文本
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 稳定状态
 
@@ -31,6 +31,7 @@ Owner：SOMA runtime correctness 与 failure semantics
 - ownership forest 无 dangling/share/cycle；
 - structural epoch、view pin、active operation 和 released state 自洽；
 - stats current facts 不伪造 table state。
+- Group member topology、parent/root ledger 与 membershipEpoch 一致。
 
 测试必须验证这些设计不变量，而不只是复现当前代码行为。
 
@@ -43,6 +44,7 @@ Owner：SOMA runtime correctness 与 failure semantics
 | schema/value/field legality | compiler normalized model | compile-time validation + immutable model |
 | Table stable state | storage/mutation coordinator | preflight/stage/one publish |
 | aggregate 可信状态 | root/child 共享 ownership registry | first internal/unexpected failure 单向进入 faulted |
+| Group attach/release | SomaGroup + parent GroupLedger | reserve/private construct/publish-once 或 reverse cleanup |
 | Shape/lineage/operator legality | shape-specific DSL | 类型只暴露合法组合 |
 | Definition graph | one-shot Builder | build 前关闭 source/output/effect/identity 冲突 |
 | Template/Invocation | immutable Template、one-shot Invocation | bind/compatibility/budget/lifecycle/guard 真实校验 |
@@ -66,6 +68,15 @@ Expected failure 发生时，operation 开始前的 live facts、size、capacity
 Raw `VirtualMachineError` 不包装成可恢复 SOMA error。Growth 必须 stage-before-publish，使 raw allocation failure 前不破坏旧 live state，但 library 不承诺 JVM 在 fatal error 后可继续可靠工作。
 
 DataFlow Effect 先冻结 MutationSet，再 preflight，最后 deterministic commit。Multi-source computation 不获得跨 Table atomicity；detached Delta 只在一个 ownership aggregate 的 safe point apply。
+
+String equal-value different-object mutation 是 no-op，不能改变 access state/epoch或
+偷偷替换 reference。Append、remove、clear、replace、rollback、Delta 和 release必须
+与 locator/exact publication一起维护或清除 reference，避免 dead payload retention。
+
+Group member attach 在发布 slot前完成 identity、maximum structural entitlement、
+initial allocation/transient与root construction；任何失败都rollback parent/local
+ledger和private state，不改变membership/epoch。Explicit Group release先全量
+preflight active operation/view/callback，再开始 reverse attachment cleanup。
 
 ## 4. Error envelope
 
@@ -100,6 +111,17 @@ Application callback 的 cause 保留但不解析 message。已有 SOMA structur
 
 SOMA 的原子性只覆盖 table facts。Callback 已经产生的外部 I/O、日志、其他 root mutation 或 application side effect 不会被 runtime 自动回滚，调用方必须避免或自行补偿。
 
+Eager Result 只有完整构造后才能发布；callback delivery 不发布 partial detached
+Result，consumer 已执行的外部 side effect 不具有 SOMA rollback。Callback exception、
+cancel、deadline、mutation/release conflict 和 cleanup failure 必须确定性传播并
+关闭 guard/lease。
+
+任何 relation/output/scratch size arithmetic 必须 checked。已知超预算，或无法由
+compiler/plan/validated maintained facts 证明 finite upper bound 的 high-expansion
+operation，除独立有界 scalar/fused terminal 外都在 enumeration/allocation/callback
+前以 resource failure拒绝。No-OOM是 admission目标，不是外部 heap pressure 下的
+JVM绝对保证；raw `OutOfMemoryError` 不包装成 recoverable SOMA failure。
+
 ### 5.1 Faulted aggregate
 
 Root table 与 owned children 共享一个 aggregate trust state。只有能够证明旧 stable
@@ -121,6 +143,8 @@ compute failure 只终止 Invocation；只有 generated Effect commit 触发目�
 
 - 同一 aggregate active operation 期间的嵌套访问必须 fail closed；
 - cursor/mutator 不能保存到 callback 外；
+- callback delivery 的 Cursor/guard不能逃逸或跨线程；immutable String getter value
+  可以保留；
 - one-shot Candidate Scan、Traversal 或 mutation 被消费后不能复用；terminal 已接受执行后，即使 begin/preflight/default-budget 失败也保持 consumed；
 - stale view/snapshot/mutator 不能降级为当前 row access；
 - comparator、diagnostics 或 error rendering 不触发 hidden table access。

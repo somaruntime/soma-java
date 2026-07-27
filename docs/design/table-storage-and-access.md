@@ -18,7 +18,7 @@ Owner：SOMA table storage 与 access semantics
 
 非事实范围：ownership lifecycle、公开 IndexSnapshot 消费契约、error envelope、materialization 和具体 hash/sort 实现类
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-28
 
 本 Owner 先定义 Table、identity 与 access 的能力语义，再展开 packed relocation、exact structure 和 candidate scratch 等机制约束。具体 hash/sort 类、数组字段和生成方法是当前实现事实，不在此维护。
 
@@ -43,15 +43,46 @@ live Index = [0, size)
 optional field -> presence bitmap + payload/handle column
 ```
 
-Primitive、enum、semantic scalar 和 `@SomaValue` leaf 尽量使用 primitive columns；String V1 可以使用 `String[]`；child field 只保存 opaque handle，不保存 live Java Collection 或 row object。
+Primitive、enum、date/time、semantic scalar 和对应 `@SomaValue` leaf 使用
+primitive columns；String V1 使用 typed reference columns；child field 只保存
+opaque handle，不保存 live Java Collection 或 row object。完整四类 type semantics
+由 [Schema 与生成 API](schema-and-generated-api.md)拥有。
 
 Capacity growth 必须先 stage 所有相关 column/bitmap/locator storage，再一次 publish。失败时旧 size、capacity、epoch 和 live values 保持一致。
+
+### 2.1 受限 layout 与 Segment publication
+
+一个 logical Table 可以按 Effective Plan 绑定：
+
+- `FLAT`：Small/Medium、point-heavy 或安全 contiguous maximum；
+- `FLAT_HEAD_SEGMENTED_TAIL`：Large scan/growth，保留 flat head，并以 fixed-size
+  tail Segments扩展。
+
+Application 只声明 planning rows、hard maximum、workload profile 与 resource
+bounds，不设置 Segment 魔数。Versioned formula 选择 layout/segment rows并进入
+Effective Metadata/Explain；超过 hard maximum 在 allocation 前拒绝。
+
+Segment 是 storage/growth/GC publication unit。同一个 ordinal 的所有 payload、
+presence、row-link 和 child-handle columns 必须先 private stage，全部 allocation/
+budget admission 成功后一次发布 directory/capacity。失败不改变 visible capacity、
+size、epoch 或 access state。Scan 使用 segment-aware outer loop；point access 使用
+stable row-to-segment formula。`SomaSegmentMetadata` 只描述 topology，不暴露 backing
+array；retained/high-water/lifecycle 属于 Table Observation。
 
 ## 3. Identity 与 exact access
 
 ### 3.1 Primary identity
 
-Keyed table 使用 hash-based primary locator 完成 `key -> current Index`。Locator 必须 collision-safe；hash 命中后仍按 key 的完整 value equality 判断。Dense table不创建 primary locator。
+Keyed table 使用 hash-based primary locator 完成 `key -> current Index`。Locator
+只保存 current row locator 与 compact fingerprint，不复制 full key；hash/fingerprint
+命中后仍回查 authoritative columns 的完整 value equality。Dense table不创建
+primary locator。
+
+Locator backing 是 internal `FLAT/BOUNDED_SEGMENTED` physical candidate，由容量、
+contiguous allocation risk、growth/rehash peak 和 point/probe cost 的 versioned
+formula 选择。Flat compact locator 是 baseline；segmented candidate 只有通过
+production point/collision/rehash/growth evidence 才能启用，不能因 Table storage
+segmented 就自动跟随。
 
 ### 3.2 Secondary exact access
 
@@ -64,6 +95,12 @@ Keyed table 使用 hash-based primary locator 完成 `key -> current Index`。Lo
 V1 不提供 range lookup。用户可以用列式全量 filter 实现范围条件。V1 也不提供 maintained order；跨操作持久顺序由 application 专用结构表达。
 
 Floating key/exact value 必须使用稳定 canonicalization：拒绝 non-finite access value，并将 `-0.0` 与 `+0.0` 归一到同一 identity。普通 floating payload 的业务有效性仍由 application 定义。
+
+Required String leaf 可以参与 Primary、Unique 和 Exact Index；optional selector
+component 非法。String hash 只定位候选，最终以 `String.equals` 回查；order 使用
+`compareTo` 定义的 value order。Equal-value different-object mutation 是 no-op，
+不更新 locator/index/epoch；remove/clear/replace/rollback/release 清除 dead
+reference。
 
 ## 4. Delete 与 compaction
 
@@ -81,7 +118,13 @@ Multi-row remove 使用当前候选 Index 的 primitive scratch，不分配或�
 
 ## 5. IndexBuffer 与 Candidate execution
 
-`IndexBuffer` 是 table-local、可复用、primitive `int[]` scratch。它只保存当前 operation 的候选 Index，不保存 row object：
+`IndexBuffer` 是 table-local、可复用、primitive `int[]` scratch，但只是一种
+Candidate physical shape，不是 universal representation。Candidate 还可以绑定
+Range、SegmentRange、maintained Exact single-pass cursor、Bitmap 或 SparseIndexes；
+精确选择由 Access/DataFlow cost model 拥有。
+
+需要排序、stable random access、复用或 mutation freeze 的 operation 可以使用
+`IndexBuffer`。它只保存当前 operation 的候选 Index，不保存 row object：
 
 ```text
 Packed/exact source     -> L1
@@ -90,7 +133,10 @@ sorted(L2)              -> L3
 terminal(L3)            -> result/update/remove/materialization
 ```
 
-每个 stage 只处理上一个 stage 的候选；exact source 不先生成全表 Index 再过滤；dynamic sort 只排序当前候选。Terminal 结束或失败后 buffer reset 供下一 operation 复用，retained capacity 受 runtime plan 和 memory budget 约束。
+每个 stage 只处理上一个 stage 的候选；exact source 可以被 scalar/single-pass
+terminal 直接消费，不先生成 full-table 或 group-sized Index；dynamic sort 只排序
+当前候选。Terminal 结束或失败后 buffer reset 供下一 operation 复用，retained
+capacity 受 runtime plan 和 memory budget 约束。
 
 Candidate Scan 的组合、one-shot、terminal 与执行约束由 [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md)拥有。本 Owner 只规定 `IndexBuffer` 不保存 schema object、不暴露给 application，且任何 executor 都必须保持 packed/exact structures 与 current Index 一致。
 

@@ -10,7 +10,7 @@ Owner：SOMA Java 系统设计
 
 非事实范围：当前实现位置、验证结果和迁移过程
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层次展开责任、按关注点分配唯一 Owner；层次不是目录结构，关注点也不是重复定义同一事实的理由。
 
@@ -37,9 +37,9 @@ Design 拥有系统应当遵守的长期规范性设计。它同时按抽象层�
 | `D2` | [Access Model 与 Candidate Scan](access-model-and-candidate-scan.md) | 访问族、组合代数、Candidate Scan、terminal、one-shot 与成本边界 |
 | `D2` | [Transformation Model](transformation-model.md) | Logical Shape、Value、Expression、Operator、Result、Effect 与组合合法性 |
 | `D2` | [DataFlow 执行模型](dataflow-execution-model.md) | Definition/Template/Invocation、binding、资源、并行、safe point 与执行 identity |
-| `D2` | [Ownership 与 lifecycle](ownership-and-lifecycle.md) | root/child ownership、view、epoch/currentness 和资源生命周期 |
-| `D2` | [Materialization 边界](materialization-boundary.md) | detached object graph、预算、导出边界和 allocation admission |
-| `D2` | [Runtime Plan 与可观测性](runtime-plan-and-observability.md) | create-time plan、resource admission、plan identity、stats 与诊断副作用边界 |
+| `D2` | [Ownership 与 lifecycle](ownership-and-lifecycle.md) | SomaGroup、root/child ownership、view、epoch/currentness 和资源生命周期 |
+| `D2` | [Result Delivery 与 Materialization 边界](materialization-boundary.md) | Eager/callback delivery、detached object graph、预算、导出与 allocation admission |
+| `D2` | [Runtime Plan 与可观测性](runtime-plan-and-observability.md) | Metadata phases、Runtime/Group Plan、resource hierarchy、Observation/Explain Owner |
 | `Q` | [Correctness 与 failure](correctness-and-failure.md) | 原子性、一致性、结构化错误和失败后的可信状态 |
 | `Q` | [性能模型](performance-model.md) | hot-path 机械形状、成本模型、优化约束与证据要求 |
 | `Q` | [兼容性、安全与版本](compatibility-security-and-versioning.md) | 兼容面、协议身份、输入信任边界、产品与发布身份 |

@@ -12,7 +12,7 @@ Owner：SOMA Java 产品蓝图
 
 设计约束入口：[Design 导航、层次与 Owner](../design/README.md)
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 这份蓝图面向谁
 
@@ -37,23 +37,38 @@ SOMA 的目标不是把业务算法藏进一个通用查询引擎，而是让使
 
 ```text
 annotation schema
-    -> javac 生成 schema-specific API
-    -> application 创建并拥有 table lifecycle
+    -> javac 生成 Descriptor Metadata 与 schema-specific API
+    -> application 直接使用默认 RuntimePlan，或在 freeze 前调整 Plan Builder
+    -> application 创建 implicit single-root Group，或显式创建 SomaGroup
     -> batch 导入 packed columns
     -> 按 Point / Candidate / Column / Key / Bulk / Ownership 选择访问族
     -> Candidate Scan 从 Packed / Exact source 组合有序 stage
     -> 复杂或重复规则可以定义为 immutable typed DataFlow
     -> 每次绑定当前 Table/parameter，执行 one-shot Invocation
-    -> terminal 按需返回 current Index、借用 Cursor、复制 snapshot、
-       detached scalar/columnar result、物化 object 或提交 safe-point mutation
+    -> terminal 默认发布完整 Eager Detached result；受限 read-only callback
+       delivery 只在同步调用栈内按需消费
+    -> observation/explain 说明 effective plan、资源与本次执行
 ```
 
-建模时，使用者只需要依次回答四个问题：
+使用者将 runtime 理解为三个正交轴：
+
+```text
+State / Owner       SomaGroup -> root ownership aggregate -> owned children
+Capability          Schema/Metadata、Storage、Access、Mutation、Relation、
+                    Transformation、Execution、Result Delivery、Resource、
+                    Observation/Failure
+Plan / Lifecycle    Descriptor -> Builder -> Effective Plan ->
+                    Definition -> Template -> Invocation -> Observation
+```
+
+建模时，使用者依次回答：
 
 1. 这份数据是 input fact、working state、frontier/workspace，还是 result fact？
 2. 一行是否具有跨结构变更仍稳定的领域 identity？有则使用 keyed table，没有则使用 dense table。
 3. 这张表是 root，还是严格属于某个 parent row 的 child？
 4. 哪些 value equality access 会稳定、频繁地出现，值得声明为 `@SomaUnique` 或 `@SomaIndex`？
+5. 多个 root 是否需要共同 logical identity、resource envelope 与 release？只有需要时
+   才显式使用 Group；read-only multi-source DataFlow 本身不要求同一 Group。
 
 `@SomaKey` 表示 primary unique identity；`@SomaUnique` 表示 secondary unique access；`@SomaIndex` 表示 secondary non-unique exact access。它们不是 B+ 树、排序索引或 range query 声明。
 
@@ -114,6 +129,7 @@ public final class CandidateFact {
 | 生成形态 | 用户用途 |
 |---|---|
 | `CandidateFactTable` | create、reserve、Point/Candidate/Bulk/ownership access、lifecycle |
+| generated `SchemaMetadata` | immutable Descriptor、default plan 与 mutable-before-freeze Plan Builder |
 | `CandidateFactBatch` | typed bulk import/append staging |
 | `CandidateFactScan` | lazy typed Candidate source/stage/terminal |
 | `CandidateFactCursor` / `CandidateFactUpdateCursor` | callback-scoped read/update access |
@@ -126,6 +142,8 @@ public final class CandidateFact {
 | `DataFlowDefinition` / `DataFlowTemplate` | immutable logical rule 与可复用 compiled template |
 | `DataFlowInvocation` / `DataFlowContext` | one-shot current-state execution 与显式资源/executor lifecycle |
 | scalar / detached-columnar result | 不构造 per-element record graph 的 transformation output |
+| callback delivery facade | 复用 Definition/Template/Invocation lifecycle 的同步 read-only 按需消费 |
+| Group/runtime Metadata 与 Observation | detached topology、effective identity、current/high-water 与 execution explain |
 | typed Delta / `applyDelta` | keyed Table 的 detached ordered change 与 single-aggregate safe-point apply |
 
 这些类型应让 IDE completion、javac type checking 和生成 diagnostics 成为主要使用界面。runtime 内部的 hash slot、relocation link、owner token 和 backing array 不进入 public application model。
@@ -135,10 +153,12 @@ public final class CandidateFact {
 ### 6.1 创建、预留和批量导入
 
 ```java
-RuntimePlan plan = CandidateFactTable.defaultRuntimePlan()
-    .toBuilder()
-    .maximumAggregateStorageBytes(memoryBudget)
-    .build();
+RuntimePlan.Builder planBuilder = SchemaMetadata.newPlan();
+planBuilder.table(CandidateFactTable.metadata())
+    .planningRows(expectedCandidateCount)
+    .maximumRows(maximumCandidateCount);
+planBuilder.resourceBudget(memoryBudget);
+RuntimePlan plan = planBuilder.build();
 
 CandidateFactTable candidates = CandidateFactTable.create(plan);
 candidates.reserve(expectedCandidateCount);
@@ -149,6 +169,12 @@ candidates.addBatch(batch);
 ```
 
 Batch 是一次写入的 typed staging boundary，不是 live row storage。对大型输入，application 可以分批复用导入流程；求解或仿真结束后，由 aggregate owner 调用 `release()`。
+
+单 root convenience 在内部拥有一个 implicit Group，不给普通用户增加配置税。多个
+root 只有在确需共同 composition/lifecycle/resource 时才使用 frozen
+`SomaGroupPlan` 和 stable member slot；同一个 Group 可以组合多个 schema 和同一种
+root 的多个实例。跨 Group、跨 schema、active/staging 与 self-join 的 read-only
+DataFlow 继续通过显式 source binding 工作。
 
 ### 6.2 primary key 与 exact group
 
@@ -284,6 +310,13 @@ Definition/Template 不保存 Table、current Index 或 executor。每次 Invoca
 
 局部只执行一次的简单表达可以直接 build/execute；反复规则显式保留 Template。Definition 是 lazy semantics，只有 Invocation terminal 才读取当前 state。`DataFlowExplain` 和 `DataFlowStats` 是 detached diagnostics，不是业务结果或 planner 的第二事实源。
 
+Eager Detached 是所有 terminal 的默认 Result Delivery：完整构造后一次发布，返回后
+不持有 source guard。callback-scoped streaming 是唯一 Lazy Output 能力，只用于
+明确 opt-in 的同步 one-shot read-only terminal；Cursor/guard 不得逃逸，consumer
+返回 `false` 可以 early stop，外部 side effect 不由 SOMA 回滚。它不提供
+`Iterator`、pull cursor、Publisher、async push 或 partial detached result，也不能
+绕过 high-expansion resource preflight。
+
 ### 6.8 边界物化与释放
 
 ```java
@@ -330,12 +363,21 @@ framework、MES adapter 或事务引擎。
 - annotation 足以表达 table kind、identity、ownership、field 和稳定 exact access；
 - 生成 API 能在普通 Java 8 代码中完成 Point、Candidate、Column、Key、Bulk 与 Ownership access；
 - runtime state 只有一个权威 live storage，不形成 DTO/object graph shadow；
+- V1 field 只属于 primitive-backed scalar、String reference-backed immutable
+  scalar、compiler-flattened `@SomaValue` 或 parent-owned child；application object
+  以 stable ID + sidecar 关联；
 - exact access 在写入时增量维护，读取不触发隐藏的全表重建；
 - candidate stage 只处理上一 stage 的 Index，排序只处理当前候选集；
 - materialization、IndexSnapshot 和 external DTO mapping 都是显式、可预算的成本边界；
 - typed Transformation 覆盖常用 Shape/Operator，且每个大结果都有非 object-graph 的 canonical consumption；
 - ad-hoc DSL 与 reusable DataFlow 共享语义；Definition/Template 可复用，Invocation one-shot；
 - sequential 是 parallel 的语义基准，managed/borrowed executor ownership、budget、cancel 和 safe-point Effect 对 application 可见；
+- 一个 bounded scheduler 把 Storage Segment、Parallel Morsel 与 cache/JIT
+  Execution Vector 分责；Small/Medium 有 direct fast path，单 Segment 也可在成本
+  足够时拆为多个 morsel；
+- Small、Medium、1M、10M、single-100M 和 double-root-100M 均有明确的受约束
+  production-shape qualification；String claim 同时声明长度、cardinality、sharing、
+  field role 与同时存活 Table 数；
 - failure、lifecycle 和跨表责任对 application 可见；
 - 示例、测试、benchmark 和 external consumer 能共同验证这里描述的用户旅程。
 
@@ -346,8 +388,12 @@ SOMA Java V1 不以以下能力为目标：
 - Python、C ABI、native runtime 或跨语言 FFI；
 - 持久化、SQL/query language、分布式执行、数据库同步或事务；
 - off-heap/native 第二存储后端、无限 stream、retained temporal Window 或 automatic incremental view maintenance；
+- dictionary/character arena/intern String backend、任意 Java object/array/DTO/
+  Collection graph 的 live schema storage；
 - full-outer/cross/theta join、任意 flatMap 或通用 DataFrame；
 - 隐式 common pool、无约束并行或并发 Table API；
+- ordinary `Iterator`、closeable pull cursor、Generator、Publisher、async push 或
+  partial detached output；
 - 自动维护任意业务顺序、range tree 或 application event queue；
 - 替 application 决定领域不变量、调度策略、跨表一致性或失败补偿；
 - 通过 materialized Java object graph 充当 live runtime storage；

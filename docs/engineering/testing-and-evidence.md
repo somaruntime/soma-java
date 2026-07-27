@@ -10,7 +10,7 @@ Owner：SOMA Java 测试/evidence 过程
 
 非事实范围：Design 语义本身和当前测试结果
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 原则
 
@@ -53,8 +53,25 @@ Runtime tests 应覆盖 stable state 和 failure boundary，特别是：
 - Shape/lineage/operator legality、outer absence、Join multiplicity、Group/Partition order；
 - sequential/parallel result、order、failure 和 Effect identity；
 - Delta duplicate/presence/epoch/resource preflight 与 safe-point one publish。
+- Descriptor/Plan/Effective/Runtime Metadata identity、freeze、projection Owner和
+  post-release snapshot；
+- SomaGroup multi-schema/multi-instance slot、attach rollback、parent/root ledger、
+  cross-Group guard、fault/degraded/release/version；
+- String payload/Key/Unique/Index/Group/Join、optional/empty、equal-value
+  different-object no-op、`@SomaValue` String leaf、clear/release/reference GC；
+- flat/head-tail Segment publication、compact locator collision/rehash/growth 与
+  closed Candidate shape differential；
+- unknown high-expansion bound在source enumeration/callback前fail closed；
+- Segment/Morsel/Execution Vector direct/parallel deterministic differential、
+  task bound、cancel/deadline visibility与executor ownership；
+- Eager/callback Candidate/Value/Group/Join/Window full/early-stop/exception/
+  conflict/non-escape/use-after/cleanup/resource differential。
 
 Candidate/DataFlow executor优化必须用reference evaluator或等价oracle覆盖声明顺序、absence、callback/failure和Effect语义；source/terminal shortcut不得只靠benchmark结果证明正确。测试不冻结 private helper、internal node 或 backing-array layout，除非该形状本身是明确的 footprint/compatibility contract。Generated命名切换还必须同时验证current public tokens与旧canonical token absence，历史Report/superseded文档除外。
+
+所有 public/generated breaking replacement 必须在同一 evidence set 中证明 new
+surface可用与old canonical token/path缺失。不得用compatibility adapter让两套
+Definition lifecycle、Object value protocol、plan entry或Metadata Owner永久并列。
 
 ## 4. Evidence 质量
 

@@ -18,7 +18,7 @@ Owner：SOMA Transformation semantics
 
 非事实范围：public overload 清单、IR encoding、物理算法、当前代码位置和测量数值
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 定位
 
@@ -78,6 +78,8 @@ Shape 至少回答 element、cardinality、lineage、value state、logical order
 - min/max/reduce 的 empty 使用 explicit absence；count 的 empty 为零；
 - stable comparator 相等时保留 upstream first；
 - generated typed expression 是 canonical optimizable path；
+- String expression 使用 required/optional presence 与 Java value equality/order；
+  reference identity 或 fingerprint 不能成为 logical semantics；
 - registered function/reducer 必须声明 typed signature、semantic identity/version、purity、determinism、thread-safety 和 failure/value semantics；
 - opaque callback 是 sequential、order-sensitive、non-reorderable fence，不分析 bytecode，也不能读取未声明 Table 或 mutable global state。
 
@@ -104,6 +106,27 @@ GroupBy 按 key 首次出现顺序产生 group，group 内保持 upstream order�
 Join 保持 left-driven order 和 duplicate multiplicity。Left outer 的缺失 right 是显式 side absence；semi/anti 保留 left Candidate lineage。Full outer、cross、theta/predicate join 不属于当前产品边界；hash、merge、sort-merge 只是可替换物理策略。
 
 Window 只接受已建立 total order 的 finite input。width/step 必须为正，range key required 且 non-decreasing，区间与 partial policy 显式；retained Window、watermark、late event 和 automatic incremental view maintenance 不在当前模型内。
+
+### 5.1 Relation/Delta/Window specialization boundary
+
+以下 physical specialization 在保持本节 cardinality、order、absence、lineage 和
+failure 语义时合法：
+
+- aggregate-only GroupBy 只维护 key→aggregate state；只有 member callback/
+  snapshot/downstream 明确需要 members 时才建立 membership；
+- N:1、semi/anti/exists 可以使用 maintained Primary/Unique/Exact；bounded 1:N
+  relation→aggregate 可以先对 many side preaggregate；
+- count/exists/semi/anti 与可分解 aggregate 可以 relation-terminal fuse，不能先
+  materialize pair intermediate；
+- Delta staging 与 changed-row cardinality 成正比；超过 versioned crossover 时
+  可以选择 bounded full rebuild，但 publication仍是 single-aggregate atomic；
+- count/sum Window 可以用 running state，min/max 可以用 monotonic deque；algebra、
+  order、frame/absence 不满足时使用 bounded reference fallback。
+
+relation strategy 不是 logical API。Versioned cost formula 至少消费 maintained
+access availability/build/probe cost、fan-out/multiplicity/skew、reuse/pass count、
+preaggregate state、generic hash scratch、output bound、order/barrier 与 touched
+width；choice/rejected reason进入 Explain。
 
 ## 6. Composition Algebra
 
@@ -133,13 +156,20 @@ DSL fast path 可以绕过通用 graph object，但必须与本模型共享语�
 | Result form | 边界 |
 |---|---|
 | Probe / primitive Scalar | 小型直接值和 explicit absence |
-| Borrowed traversal | callback-scoped，terminal 返回即失效 |
+| Callback-scoped delivery | synchronous read-only visitor；Cursor/guard terminal 返回即失效 |
 | IndexSnapshot | 只用于 single-Table Candidate，继续遵守 caller-responsibility |
 | Detached columnar | typed/primitive heap arrays、presence 和 shape identity，受 output budget |
 | Materialized object | 明确承担 object graph 与 materialization budget |
 | MutationSet / Delta / Command | detached effect intent 或 external handoff |
 
 Effect 在 commit 前冻结 candidate/mutation set，并完成 target lineage、resource、access-path 和 conflict preflight。Single-source live lineage 可以 update/remove；multi-source 结果只能 read 或产生 detached command，不获得跨 Table transaction。
+
+Relation/Group/Window/output 必须具有 checked finite scratch/output upper bound。
+Upper bound 可以来自 compiler/plan facts，或 acquire 后读取 validated maintained
+cardinality/multiplicity facts，但必须在 pair enumeration、大 operation-state allocation
+和 callback 启动前完成。无法证明 finite bound 时，除具有独立有界 state 的 scalar/
+fused semantic terminal 外，以 typed resource failure fail closed；streaming/early
+stop 不构成准入证明。
 
 Keyed Delta 使用 stable Key 表达 Insert/Update/Delete：
 

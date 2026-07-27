@@ -18,7 +18,7 @@ Owner：SOMA typed DataFlow execution
 
 非事实范围：Operator 逻辑语义、public overload 清单、内部 IR/数组布局、物理阈值和测量数值
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 一套语义、两种使用形态
 
@@ -45,7 +45,7 @@ Application rule graph、SOMA logical Definition 和 physical schedule 是不同
 | `DataFlowTemplate` | immutable、可复用 | validated graph、static lowering、candidate kernels、protocol identity | current Table state、executor、worker scratch |
 | `DataFlowContext` | application-owned、显式 close | managed/borrowed executor、默认 policy/budget、active accounting | Table registry、Definition、implicit global cache |
 | `DataFlowInvocation` | one-shot、非线程共享 | bound sources/tokens、parameters、policy、budget、scratch | 跨 terminal 复用 |
-| Result/Diagnostics | detached 或明确 borrowed | scalar、columnar/materialized result、stats/explain | 虚假的 source snapshot 稳定性 |
+| Result/Diagnostics | Eager detached 或明确 callback-scoped | scalar、columnar/materialized result、DeliveryResult、stats/explain | 虚假的 source snapshot 稳定性、pull/async result |
 
 Definition/Template 可以共享；Invocation、Cursor 和 mutable scratch 不共享。V1 不提供 Context/global Template cache；application 显式持有 Template，释放引用就是 retention 边界。
 
@@ -76,6 +76,25 @@ NEW -> BINDING -> READY -> RUNNING -> COMMITTING -> COMPLETED
 
 上述 lifecycle、compatibility、budget、ownership 和 publish 条件若失配会破坏语义，必须使用真实 failure，不能依赖可关闭的 assertion。
 
+### 3.1 Callback Result Delivery lifecycle
+
+callback-scoped streaming 是唯一 Lazy Output execution。Generated
+`CallbackDeliveryDefinition/Template/Invocation<V>` 只是标准
+Definition/Template/Invocation 的 typed facade，必须使用相同 analyzer、identity、
+explain、binding、guard、budget、failure 和 one-shot state machine；不得暗中
+compile或创建第三 invocation type。
+
+Visitor 是 typed Invocation parameter，Definition/Template 不持有 consumer，
+consumer instance 不进入其 identity。`false` 表示消费当前 value 后 early stop；
+`DeliveryResult` 只发布 `deliveredElements/completed`。Callback exception、cancel、
+deadline、source conflict 或 cleanup failure 不返回 partial DeliveryResult。
+
+现有 Candidate/Value/Group/Join/Window borrowed traversal 必须迁入这一 lifecycle，
+不保留 legacy consumer-in-Definition path。Cursor/guard/use-after-callback fail
+closed；String getter 的 immutable value可以保留。Join visitor 必须表达 left/right
+Cursor、outer absence、logical order 与共同 callback lifetime。Opaque visitor
+sequential 执行，外部 side effect 不由 SOMA 回滚。
+
 ## 4. Generated Binding 与模块边界
 
 `soma-dataflow` 独立拥有 Definition、Template、Invocation、Context、typed expression/result、analyzer、planner、kernel 和 diagnostics。`soma-runtime-core` 继续拥有 storage/access/lifecycle；processor 为每张 Table 最多生成一个 `<Table>DataFlow` companion，提供 typed Source、column expression、point/exact/owned-child capability 和窄 binding。
@@ -101,13 +120,18 @@ Multi-source bind：
 
 1. 先解析全部 required slot，拒绝 missing/extra/wrong-schema；
 2. 校验 schema、generated/runtime/transformation/kernel protocol；
-3. 同一 physical ownership aggregate 的 logical alias 去重；
+3. 允许同 Group、cross-Group、implicit Group、cross-schema、同 Table descriptor
+   不同 instance 和 self-alias；同一 physical ownership aggregate 的 logical alias
+   去重；
 4. 按 overflow-safe aggregate instance identity 升序取得 guard；
 5. partial acquire failure 反向释放；
 6. Invocation 期间禁止来源 aggregate 的其他 operation；
 7. terminal/cleanup 反向释放并区分 bind、execute、effect、cleanup failure。
 
-这只是 application 独占下的同步 read boundary，不是 snapshot isolation、并发 Table API 或跨 Table transaction。Child 必须经 root binding/owned expansion 解析，不能绕过 parent lifecycle。
+这只是 application 独占下的同步 read boundary，不是 snapshot isolation、并发
+Table API 或跨 Table transaction。Invocation 是 source validation、guard sort/
+acquire/reverse-release 的唯一 Owner；SomaGroup 只提供 stable member/aggregate
+identity。Child 必须经 root binding/owned expansion 解析，不能绕过 parent lifecycle。
 
 ## 6. Lowering 与物理选择
 
@@ -127,7 +151,12 @@ Physical Hash Join、fixed-tree reduction、branchy loop、buffered partition �
 `ExecutionBudget` 与 storage `RuntimePlan` 分离，至少约束 output elements/bytes、invocation/worker scratch、tasks/workers、deadline/cancellation 和 stats/explain。Context default 是 immutable upper bound，Invocation 只能收紧。
 
 - 无可证明上界的 Join expansion、Group、Window、materialization 和 task fan-out必须显式预算；
-- deadline/cancellation 在 partition、barrier、task 和 terminal boundary 检查，避免 per-element 强制分支；
+- compiler/plan 或 validated maintained facts 无法证明 finite scratch/output bound
+  时，除独立有界 scalar/fused terminal 外，在 relation enumeration/state
+  allocation/callback 前以 resource failure拒绝；
+- deadline 使用 monotonic time，cancellation token 对 caller/worker 具有明确
+  cross-thread visibility；在 morsel/vector、barrier、task 和 terminal boundary
+  检查，避免 per-element 强制分支；
 - 失败优先选择 bind/preflight，其次最小 logical partition ordinal，再处理 cancellation/deadline/effect/cleanup；
 - stats 区分 build/analyze/compile/bind/execute/effect/cleanup；
 - explain 说明 shape/lineage/order/barrier/access path/kernel/parallel/fallback/budget，但不输出业务值、Key、callback `toString()` 或 executor detail；
@@ -136,9 +165,13 @@ Physical Hash Join、fixed-tree reduction、branchy loop、buffered partition �
 ## 8. Parallel Execution
 
 ```text
+Storage Segment
+  -> zero / one / many Parallel Morsels
+       -> cache/JIT-oriented Execution Vectors
+
 Sequential
 AdaptiveParallel
-  -> SOMA-managed dedicated ForkJoinPool
+  -> SOMA-managed bounded executor
   -> caller-provided ExecutorService / ForkJoinPool
 ```
 
@@ -148,10 +181,24 @@ AdaptiveParallel
 - borrowed executor 永不由 SOMA shutdown/interrupt；
 - common pool 只有 caller 显式传入时才使用；
 - application 仍必须独占 source aggregate；parallel worker 是一次同步 Invocation 内部细节。
+- Segment 是 storage/growth/GC unit，不是固定 task；大 Segment 可以拆成多个
+  morsel，多个小 Segment 可以合并；
+- Morsel 是 scheduling/cancel/fixed-order merge unit，Execution Vector 是
+  inner-loop block；全部 morsel 进入同一个 bounded scheduler，不建立 nested
+  executor/common-pool fallback；
+- task count 可以大于 workers，但受 `maximumTasks` 约束并按 bounded waves执行；
 
 最低并行能力是 deterministic contiguous partition、pure/fused kernel、fixed-tree mergeable reduction、independent pure branch、parallel stage + deterministic single-source commit。Opaque callback、built-in floating left fold、短路/顺序无法等价的 operator 必须 sequential fallback。
 
-Worker 使用独立 scratch，按 logical partition ordinal merge；stable output、first、skip/limit、tie、Prefix Scan offset 和 failure identity 不依赖完成顺序。Worker 不直接竞争 swap-remove、Index maintenance 或 shared Table write。
+Worker 使用 cache-line-disjoint scratch/stats/partial state，按 logical morsel ordinal
+merge；stable output、first、skip/limit、tie、Prefix Scan offset 和 failure identity
+不依赖完成顺序。Worker 不直接竞争 swap-remove、Index maintenance 或 shared
+Table write。
+
+direct/parallel 使用 versioned deterministic cost formula，至少消费 rows、operator、
+touched width、expression/hash cost、selectivity、scratch、workers 和 memory-
+bandwidth proxy；不能只看 Segment 数或固定 row threshold。Small/Medium 保持
+direct fast path，单 Segment 也可以在 estimated work 足够时拆 morsel。
 
 ## 9. Effect Commit 与 Safe Point
 

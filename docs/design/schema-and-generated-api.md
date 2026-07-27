@@ -18,7 +18,7 @@ Owner：SOMA schema 与 generated contract
 
 非事实范围：runtime 存储算法、具体 generator 类结构和 measured performance
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 本 Owner 先定义 schema 与 generated public capability 的长期语义，再约束实现这些语义所必需的 compiler/codegen 机制。当前 generator 类、精确 signature 和 emission 结构不属于本 Design，由 Implementation Map 与 executable surface 记录。
 
@@ -47,9 +47,30 @@ Schema source 必须显式表达 SOMA field role。普通 Java getter/setter、f
 
 ### 1.2 Type 与 value-state
 
-V1 schema 支持 Java 8 primitive、finite access-role floating leaf、enum、String、显式 semantic scalar、nested `@SomaValue` 以及受控 child `List`/`Map`。Array、raw/wildcard/nested collection、arbitrary object graph、table reference和runtime reflection type不属于 schema storage model。
+V1 schema/storage kind 封闭为四类：
+
+| kind | schema semantics | physical representation |
+|---|---|---|
+| primitive-backed scalar | primitive、enum、date/time、显式 semantic scalar | primitive column；enum 使用 ordinal |
+| reference-backed immutable scalar | 白名单仅 `java.lang.String` | typed reference column，保存 caller reference |
+| compiler-flattened value | `@SomaValue` immutable value semantics | canonical primitive/String leaf columns |
+| owned structured state | parent-owned child `List`/`Map` declaration | child Table handle + ownership registry |
+
+Array、raw/wildcard/nested collection、arbitrary object/DTO graph、table reference和
+runtime reflection type不属于 schema storage model。确需关联 application object
+时，schema 保存 primitive/String/flattened stable ID，对象由 application
+sidecar/registry 管理。
 
 Required、optional absent、schema default、zero、empty string、invalid value、missing key 和 empty result 是不同状态。Ordinary floating payload 可以保存 Java IEEE-754 special value；参与 key/index/unique 的 leaf 必须 finite，并把 negative zero canonicalize 为 positive zero，使 write、lookup、hash 与 full equality 使用同一 identity。
+
+String V1 不复制、不 intern、不 normalize，不引入 dictionary 或 character arena。
+required String 非 null；optional 用 presence 表示 absence，present payload 非 null，
+空字符串是普通 value。payload、Key、Unique、Exact Index、Group/Join、filter、
+order、mutation 与 detached result 使用 Java String value semantics；hash/fingerprint
+只缩小候选，最终 equality 回查 authoritative column。equal-value、
+different-object mutation 是 logical no-op，保留原 reference且不改变 epoch/access；
+append 可以保存 caller 的 equal-value different reference。remove/clear/replace/
+rollback/release 必须清理 dead reference。
 
 Annotation element、target/retention、grammar、default constant 和全部当前 Java signature 属于 executable public surface，由[可执行契约地图](../implementation-map/executable-contract-map.md)定位。Design 规定其语义和演进边界，不复制一份容易漂移的签名表。
 
@@ -78,11 +99,28 @@ Schema hash 表达 schema contract identity；runtime plan hash 表达运行时�
 
 Normalized model 至少保留 schema/table/value identity、logical field/leaf path、type/value-state、key/child/selector role、default、generated naming input 和 compatibility identity。具体序列化字段是当前 processor artifact surface；改变语义、排序或 hash 输入不能只更新 golden 来迁就实现。
 
+### 3.1 Descriptor Metadata 与生成入口
+
+每个 `generatedPackage` 生成唯一 schema-scoped `SchemaMetadata` companion，投影：
+
+- immutable `SomaMetadata` root 与 `SomaSchemaMetadata`；
+- `SomaTableMetadata`、`SomaColumnMetadata`、`SomaKeyMetadata`、
+  `SomaUniqueMetadata`、`SomaIndexMetadata`、`SomaOwnershipMetadata` 和
+  `SomaTypeMetadata`；
+- schema default `RuntimePlan` 与 schema-seeded mutable-before-freeze builder。
+
+Descriptor 类型只允许 processor-populated immutable construction，不开放 arbitrary
+application 构造、global registry、reflection 或 resource scanning。每个 generated
+Table 提供同一 schema Metadata、自己的 Table Metadata 和 default plan convenience；
+raw handwritten plan builder 不作为 canonical application entry。Descriptor field/
+type/optional/default/selector/ownership/schema hash 永不可在运行期修改。
+
 ## 4. Generated facade
 
 生成 API 至少表达：
 
 - schema-specific table create 与 runtime plan binding；
+- generated SchemaMetadata、Table Metadata 与 mutable-before-freeze plan entry；
 - typed batch/import；
 - keyed fetch/contains/mutate/delete，或 dense packed access；
 - Packed source、exact selector source、filter/skip/limit/dynamic sort 和 Candidate terminal；
@@ -93,6 +131,8 @@ Normalized model 至少保留 schema/table/value identity、logical field/leaf p
 - 每张 Table 一个 schema-specific DataFlow companion，提供 typed Source、column/value expression、point/exact/owned-child binding；
 - keyed table 的 typed detached Delta 与 safe-point `applyDelta`；
 - detached row/aggregate materialization与预算；
+- default Eager result 与复用标准 DataFlow lifecycle 的 generated typed callback
+  delivery facade；
 - lifecycle、structured errors 和 compatibility identity。
 
 生成 public signature 不暴露 runtime bucket、RowSlot、raw owner token、primitive backing array 或 internal protocol type。
@@ -125,11 +165,15 @@ Logical Shape、Operator、Result/Effect 语义由 [Transformation Model](transf
 
 - materializing terminal 返回 detached `@SomaTable` object；它不是 live view；
 - Candidate callback 收到 callback-scoped Cursor/UpdateCursor，不能逃逸、缓存或跨 stage 使用；
+- callback-scoped Result Delivery 的 Cursor/guard 同样不得逃逸；String getter 返回的
+  immutable String value 可以保留，不因此延长 Cursor/source guard；
 - Candidate Scan、KeyTraversal、ColumnTraversal、mutation builder、Definition Builder 和 Invocation 是 one-shot；消费后再次调用必须产生 typed lifecycle error；
 - `IndexSnapshot` 是显式复制的 public Index result，只复制数值序列并记录 source table / structural epoch；它不是 stable identity 或 row snapshot；
 - caller只在一个同步只读Index消费批次中立即使用，来源Table任意mutation/lifecycle变化后视为失效；`requireCurrent`只作为可选边界防御，不进入强制hot path；
 - internal candidate scratch 统一称为 `IndexBuffer`，不进入 application data model；
 - callback failure 必须遵守 mutation atomicity，不允许 partially committed row set。
+- callback consumer 是 Invocation parameter，不得被 Definition/Template retain 或
+  写入其 identity。
 
 ## 6. API 演进
 

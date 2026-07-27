@@ -10,7 +10,7 @@ Owner：SOMA Java benchmark 过程
 
 非事实范围：性能设计目标和某次测量数值
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 三层责任
 
@@ -48,6 +48,35 @@ exact shape；缺字段、额外字段或未知 contract 均失败。
 
 Runner/validator/baseline/result schema 都是 evidence compatibility surface；字段
 变化需要版本化、strict parser 和 negative paths。
+
+### 2.1 Runtime-scale production qualification
+
+Runtime boundary/scale governance完成production实现后，必须建立下列独立
+production-shape lanes；它们不能被一个“100M passed”记录替代：
+
+| lane | required scope |
+|---|---|
+| Small/Fast | 0/1/16/256/1K/4K primitive+String；create/point/exact/scan/column/batch/mutate/Group/Join/callback fixed tax |
+| Medium | 32K/64K/256K primitive+String；layout/Candidate/relation/parallel crossover |
+| 1M | Point/Exact/Scan/Column/Batch/Delta/Join/Group/Window；String selector/presence/no-op/GC |
+| 10M | Large growth、low/high-cardinality String、bounded relation/output |
+| 100M Single | actual resident narrow numeric-Key Table、exact reserve、fused bounded aggregate |
+| 100M Double | two simultaneously resident roots、same/cross Group、bounded relation |
+| 100M String | declared narrow shared-reference profile、single/double roots、impossible profile rejection |
+| Expansion | known overflow/over-budget与unknown-unprovable bound均在enumeration/callback前拒绝 |
+| Delivery | Eager与Candidate/Value/Group/Join/Window callback全量/early-stop/failure/cancel/deadline/non-escape/String/GC |
+| Soak | repeated create/load/mutate/Delta/callback/clear/release、executor/fault cleanup、ledger回零 |
+
+每条 lane 运行前冻结 Zulu full JDK 8 build、OS/architecture、JVM args/heap/GC、
+dataset seed、schema/row width、left/right rows、String profile、multiplicity/skew、
+oracle/checksum、resource budget、operational timeout、warmup/measurement/fork、
+baseline+tolerance或structural pass rule，以及
+`passed/failed/inconclusive/not-applicable`判定。Required applicable lane只有
+`passed`才能关闭qualification；`inconclusive`不是通过。
+
+Operational timeout只防止无界执行，不是public latency SLA。所有artifact保持
+`claimAllowed=false`；100M只证明明确profile的correctness/bounded peak/
+completion，不外推任意Schema/String/high-expansion或support matrix。
 
 ## 3. Comparator 状态
 

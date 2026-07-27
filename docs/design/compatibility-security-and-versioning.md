@@ -18,7 +18,7 @@ Owner：SOMA compatibility、security 与 release identity
 
 非事实范围：具体 release 进度、账户/签名配置和某次安全扫描结果
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 本横切 Owner 以“可消费身份如何安全演进”为共同边界：compatibility 分类决定什么可以改变，security 约束输入和协议信任，version/identity 让双方可验证。具体发布进度、账户和签名状态仍由 Engineering 与 Report 拥有。
 
@@ -51,6 +51,26 @@ Owner：SOMA compatibility、security 与 release identity
 
 Pre-1.0 允许有意的 breaking change，但不允许无记录漂移。Breaking change 必须有明确 Owner 决定、migration/重新生成要求、identity/version 变化和 external consumer 证据。已经发布的 public surface若需要移除，应先提供可迁移的 replacement 与 deprecation boundary；内部 package 不因此成为稳定 SPI。
 
+### 1.2 Runtime boundary 治理的 required clean cutover
+
+下列 target 变化属于一个有意、可再生成的 pre-1.0 cutover；production实施必须按
+semantic slice保持可编译，最终不能留下双 protocol/canonical path：
+
+| surface | classification | required replacement/evidence |
+|---|---|---|
+| per-Table default plan emitter / raw plan builder | generated/public breaking | generated schema-scoped `SchemaMetadata.newPlan()`；plan identity bump；golden/external consumer |
+| ambiguous expected maximum | plan breaking | `planningRows` hint + hard `maximumRows`；canonical hash/invalid-plan evidence |
+| explicit Group member create/release | additive + adopted lifecycle breaking | stable Group/member plan；table release conflict；lifecycle/rollback consumer |
+| String selector compile rejection | schema/generated additive | typed String Key/Unique/Index/Group/Join；schema/generated protocol and differential evidence |
+| generic Object value protocol | public/generated breaking | primitive/String/flattened typed carrier；arbitrary object diagnostic；old token absence |
+| DataFlow `borrow(consumer)` retained in Definition | public/dataflow breaking | callback Definition→Template→Invocation facade；consumer invocation parameter；identity/external evidence |
+| locator/layout formula identity | effective-plan internal breaking | versioned formula/choice identity；production qualification before enable |
+| monolithic stats/metadata projection | public additive/replacement | module-owned Runtime Metadata/Observation/Explain components |
+
+P8 consumer migration只修复 frozen contract；P9才决定 Example 是否存在最佳实践偏差。
+任何旧 adapter、temporary public carrier、reflection fallback 或“legacy + new”并行
+事实路径都不满足 cutover。
+
 ## 2. Identity
 
 Generated artifact、runtime、transformation Template 和 runtime plan 在相应 create/execute boundary 互相验证。当前 identity 为：
@@ -64,6 +84,11 @@ Generated artifact、runtime、transformation Template 和 runtime plan 在相�
 - materialization estimator：`soma-materialization-estimator-v1`。
 
 Schema、Definition、function/reducer、transformation、kernel、planner policy、runtime plan 与 bound lifecycle identity 分离。Mismatch 在 aggregate publish 或 Invocation execute 前以 typed compatibility failure 拒绝，不能降级到反射、scan、v4/v5 双 adapter 或 best-effort execution。
+
+Group stable `logicalGroupId`、runtime `groupInstanceId`、member slot、
+membershipEpoch、Table structuralEpoch 与 application dataVersion 是不同 identity。
+String profile/estimator identity进入 Plan；它证明 declared estimate相同，不证明
+actual object sharing/JVM heap相同。
 
 ## 3. Java 与产品身份
 
@@ -83,6 +108,8 @@ Processor 和 runtime 将 schema/source、runtime plan、batch values、keys、c
 - diagnostics 不泄漏 local path、credential、raw handle、full row/table 或 arbitrary payload string；
 - size、capacity、depth、count 和 byte arithmetic 必须 overflow-safe；
 - schema/codegen、runtime storage、scratch 和 materialization 都受明确资源上限或 plan 约束；
+- structural bytes hard-admitted；String reachable profile被标记为 caller-declared
+  unverified estimate，不能冒充 sandbox或hard heap cap；
 - hash collision 不得破坏 full equality、unique 或 key correctness；
 - callback/provider 不能借 reentrancy 观察或修改中间状态；
 - runtime 不执行隐藏网络、文件 I/O、全局 logger 或动态代码加载。

@@ -18,13 +18,24 @@ Owner：SOMA Java 总体设计原则
 
 非事实范围：模块内算法、代码位置、验证结果和 release readiness
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 定位
 
 SOMA Java 是面向 Java 8 的 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 高性能运行时状态计算库。Schema 经过编译期验证和规范化，生成 schema-specific storage、access 与 transformation facade；runtime kernel 不解释 application schema object graph。
 
 SOMA 同时拥有 packed runtime-state plane 和围绕该状态的 typed local-compute plane。Annotation 是当前 Schema authoring surface，不是产品本质；产品不因增加 Transformation/DataFlow 而变成通用查询、DataFrame 或分布式计算平台。
+
+SOMA 的 canonical 系统模型由三个正交轴共同定义：
+
+- `State / Owner`：Group、root ownership aggregate 与 parent-owned child；
+- `Capability`：封闭且 compiler-bound 的 runtime 能力族；
+- `Plan / Lifecycle`：Descriptor、mutable-before-freeze Plan、Effective Metadata、
+  Definition、Template、one-shot Invocation 与 detached Observation。
+
+任一轴都不能单独冒充完整产品。Capability 可以在内部局部替换，但 V1 不建立开放
+SPI/ServiceLoader/plugin registry；binding 只发生在编译期、plan/create、compile/
+bind 或 operation boundary，逐 row hot loop 必须保持 specialized。
 
 设计优先级如下：
 
@@ -45,6 +56,8 @@ SOMA 同时拥有 packed runtime-state plane 和围绕该状态的 typed local-c
 - `@SomaTable` 类型描述 row schema 和 detached materialization shape，不是 live row object；
 - application data role 与 table kind 是不同维度：input/working/result 不决定 keyed/dense，keyed/dense 也不决定 ownership。
 - Logical Definition、Template、Invocation result、Delta 和 diagnostics 都是明确生命周期的语义或派生对象，不能成为与 Table 并行的 live fact source。
+- Descriptor/Plan/Effective/Runtime Metadata 与 payload 分离；Metadata 描述事实与
+  策略，不保存 row、candidate、scratch、result 或 live membership registry。
 
 ### 2.2 存储与 identity
 
@@ -52,6 +65,9 @@ SOMA 同时拥有 packed runtime-state plane 和围绕该状态的 typed local-c
 - keyed table 拥有稳定业务 identity；dense table 不拥有稳定 row identity；
 - Index 只是当前 table state 内的物理位置，结构变化后可以改变；物理遍历顺序不是业务契约；
 - primary identity 与 secondary exact access 是不同责任，不能用二级访问路径冒充稳定 identity；
+- V1 schema storage kind 封闭为 primitive-backed scalar、白名单 String
+  reference-backed immutable scalar、compiler-flattened `@SomaValue` 与
+  parent-owned child；任意 object/array/DTO/Collection graph 不得进入 live field；
 - 声明的读取能力不得依赖隐藏的全表重建；跨 operation 的持久业务顺序由 application 拥有。
 
 具体 annotation 语义由 [Schema 与生成 API](schema-and-generated-api.md)拥有；packed relocation、exact structure 和显式排序机制由 [Table、存储与访问](table-storage-and-access.md)拥有。
@@ -66,6 +82,9 @@ Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [
 - 不允许 share、reparent、dangling child 或绕过 parent 的 owned-child release；
 - 一个 root ownership aggregate 只允许单 owner、同步、非并发访问；
 - SOMA 不提供跨 root/table transaction，application 负责业务提交、回滚或重建。
+- `SomaGroup` 是可选 composition/resource/lifecycle Owner，不是 multi-source
+  transaction 或 guard prerequisite；read-only Invocation 可以跨 Group/schema/
+  instance，并继续由 Invocation 唯一协调 guards。
 - parallel execution 只发生在 application 已独占的 one-shot Invocation 内部，不把 Table 变成 concurrent API，也不授予 worker 长期持有 live state 的权利。
 
 ### 2.4 正确性与边界
@@ -73,6 +92,9 @@ Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [
 - mutation 成功后所有 storage、locator、exact access、ownership 和 epoch 必须一致；
 - expected failure 不得留下部分可见提交；internal invariant failure 必须 fail fast；
 - materialization 只产生 detached object graph，并受显式或 plan-default budget 约束；
+- Eager Detached 是默认 Result Delivery；唯一 lazy 形态是同步、one-shot、
+  read-only、callback-scoped delivery，不能产生 pull/async/partial result 或绕过
+  resource preflight；
 - lifecycle、compatibility 和错误必须可以通过结构化字段判断，不依赖 message parsing；
 - runtime 不产生隐藏 I/O、全局 logger 配置或隐式持久化。
 - 关键抽象必须按构造即正确：不变量由唯一 Owner 在事实产生处通过类型、不可变对象、静态工厂或 one-shot Builder 关闭；可能破坏数据、lineage、lifecycle 或原子性的检查不得依赖可关闭的 assertion。
@@ -83,12 +105,18 @@ Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [
 - 声明的 exact access 在 mutation 成功时已经 current，读取不触发全表 rebuild；
 - 候选操作只处理前序阶段产生的候选，terminal 不得静默扩展回全表；
 - steady-state allocation、retained scratch、GC、working-set bytes 和 boundary materialization 必须分别可观察；
+- structural bytes 使用可执行 hard ledger；reference-backed String reachable bytes
+  只能是 caller-declared versioned estimate，actual dedup/heap 属于 qualification，
+  不得用声明冒充 hard cap；
 - logical operator 不泄漏 Hash Join、Tree Reduction 等物理策略；adaptive parallel 以 sequential 为语义基准并按有界证据回退；
 - 性能优化改变语义、API、determinism、ownership、failure 或兼容性前，先修改对应 Design Owner。
 
 ## 3. 产品边界
 
 V1 只承诺 Java 8 进程内使用，不包含 Python、C ABI、native/off-heap runtime、FFI、持久化、分布式、并发 table access、SQL/query language、无限 stream、automatic incremental view maintenance 或 application 级事务。
+
+V1 也不包含 ordinary Iterator/pull cursor/Publisher/async result、dictionary/
+character arena String backend、arbitrary object storage 或开放 runtime strategy SPI。
 
 专用 priority queue、event heap、grid adapter、solver policy 和 domain cache 可以由 application 持有。SOMA 只吸收被多个目标场景证明为稳定、通用且能保持上述不变量的能力。
 

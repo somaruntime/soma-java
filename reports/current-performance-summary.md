@@ -2,11 +2,11 @@
 
 类型：Report / 性能快照
 
-状态：当前（只限本报告环境与 lanes）
+状态：历史 production baseline（不是 runtime-scale P6 qualification）
 
 Owner：SOMA Java 性能输出
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 受众：评估当前 runtime 形状和后续优化价值的维护者
 
@@ -22,11 +22,13 @@ scheduler/simulation threshold candidates `a7d4fde` / `938b3d5`
 十一份 checked-in baseline、neutral/DataFlow component artifact 和
 Fast/Scale/Soak/Full Gate
 
-事实范围：当前 Candidate Scan 与 DataFlow component、四类 representative
-generated footprint、三个独立应用九个 profile 的环境感知
-multi-fork regression baseline
+事实范围：P6 迁移前 Candidate Scan 与 DataFlow component、四类 representative
+generated footprint、三个独立应用九个 profile 的环境感知 multi-fork regression
+baseline；只用于迁移对照
 
-非事实范围：跨环境 SLA、正式支持矩阵、普遍性能优势或 G6
+非事实范围：runtime-scale P6 target 的性能、Small/Medium 与
+1M/10M/100M qualification、双 100M、String、Result Delivery、跨环境 SLA、
+正式支持矩阵、普遍性能优势或 G6
 
 测量日期：2026-07-24 至 2026-07-27
 
@@ -37,6 +39,12 @@ multi-fork regression baseline
 scheduler/simulation 保留既有 9-fork provenance，RTD 初始 baseline 使用 5-fork
 校准；scheduler artifact v4 同时记录 hot solve 与 canonical end-to-end；四
 surface clean code-size
+
+本报告全部数字都早于 runtime-scale P6 target。它们没有覆盖本轮新增的
+Metadata/Group/String/physical-plan/scheduler/resource/delivery 设计，也不能关闭
+`CF-014` 或作为单 Table 100M、双 Table 100M、String 规模和 production readiness
+结论。P8 production cutover 后必须在不可变 candidate 上重新建立 qualification
+evidence，再决定哪些旧阈值仍可沿用。
 
 ## 1. 当前边界
 

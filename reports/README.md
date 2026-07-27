@@ -10,9 +10,14 @@ Owner：SOMA Java 正式报告输出
 
 非事实范围：Blueprint、Design 或当前代码实现事实
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 `reports/` 保存带时间点的正式审查、验证、benchmark、治理和 release evidence。报告不是 Design；目标、规范和当前实现分别回到 [Blueprint](../docs/blueprints/README.md)、[Design](../docs/design/README.md)和[Implementation Map](../docs/implementation-map/README.md)。
+
+2026-07-28 runtime-scale P6 target 已进入正式 Design，但 production code、generated
+surface、三个 Example 和 production-scale qualification 尚未迁移。下表中的
+G1–G5 因此按新 target 重新置为 `blocked`；旧报告仍是其精确 candidate 的历史
+evidence，不能外推为新 target 已通过。
 
 ## 当前 V1 状态与 Gate
 
@@ -37,11 +42,11 @@ Owner：SOMA Java 正式报告输出
 | Gate | 状态 | 正式报告 |
 |---|---|---|
 | G0 | passed | [scope freeze](java-v1-g0-scope-freeze-report.md) |
-| G1 | passed | [schema processing](../soma-processor/reports/java-v1-g1-schema-processing-report.md)；packed/exact cutover见当前专题报告 |
-| G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)；当前 v5 generated DataFlow surface 见[Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md) |
-| G3 | passed | [Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md)、[Access Model / Candidate Scan v4治理](2026-07-23-access-model-candidate-scan-governance-report.md)与[性能证据](2026-07-23-access-model-candidate-scan-performance-report.md) |
-| G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md) |
-| G5 | passed | [Reference Application Portfolio 治理](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)、[Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md)、[大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md) |
+| G1 | blocked（new target） | [schema processing](../soma-processor/reports/java-v1-g1-schema-processing-report.md)只保留旧 candidate evidence；四类 type、String 与 Metadata admission 待迁移 |
+| G2 | blocked（new target） | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)只保留旧 candidate evidence；generated Metadata、Group 与 callback projection 待迁移 |
+| G3 | blocked（new target） | 旧 [Transformation/DataFlow 治理](2026-07-27-transformation-dataflow-governance-report.md)与[Access Model / Candidate Scan治理](2026-07-23-access-model-candidate-scan-governance-report.md)保留历史 evidence；新 storage、relation、scheduler、resource 与 delivery target 待迁移 |
+| G4 | blocked（new target） | [generated API/package](java-v1-g4-package-smoke-report.md)只保留旧 candidate evidence；新 external-consumer matrix 待通过 |
+| G5 | blocked（new target） | 旧 [Reference Application Portfolio 治理](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)和[大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)只保留历史 evidence；P9 与 production-scale qualification 待通过 |
 | G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
 
 Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。

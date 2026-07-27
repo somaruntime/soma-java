@@ -12,7 +12,7 @@ Owner：SOMA Java 文档过程
 
 采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
 
-最后审查日期：2026-07-23
+最后审查日期：2026-07-28
 
 ## 1. 分类与权威
 
@@ -68,17 +68,37 @@ Report只使用上表已登记入口，不创建`docs/reports/`等平行输出�
 
 1. 理解相关 Blueprint/Design，并用 Implementation Map、代码和测试确认当前事实；
 2. 重大长期设计变化先进入 Temporary，当前正式 Design 在验证前保持稳定；
-3. 在明确授权范围内实现和验证；
-4. 收口时把长期事实原子固化到唯一 Owner，更新必要地图、Conformance 和 Report；
-5. 最终验证后删除 Temporary，并确认没有正式引用指向它。
+3. 通过独立设计审计并取得明确 Owner 授权后，选择下面第4节的一阶段或
+   design-first两阶段 promotion；
+4. 在明确授权范围内实现和验证，并让Conformance持续拥有current gap；
+5. 收口时刷新Implementation Map、Conformance和Report；
+6. 最终验证后删除 Temporary，并确认没有正式引用指向它。
 
 局部实现修复、内部重构或文案勘误若不改变长期设计，可以不创建 Temporary。流程不是固定脚本；不能省略的是权威关系、授权边界、验证和 Temporary 退役。
 
 ## 4. Temporary 生命周期
 
-专题进行期间，Temporary 保持独立，正式 Design 不写入中间状态。完成条件包括候选设计稳定、实现/测试完成、差距裁决、证据通过和切换授权。
+专题进行期间，Temporary 保持独立，正式 Design 不写入未经审计的中间状态。默认
+使用一阶段 cutover：候选设计、实现/测试、差距、证据和切换授权全部闭合后一次
+promote并删除 Temporary。
 
-最后一次变更应按以下顺序原子完成：
+对于“实现必须服务最终 Design”、且目标已由产品 Owner明确授权的大型治理，可以
+使用 design-first 两阶段 promotion：
+
+1. 候选必须先完成独立 design/scope audit；
+2. 第一阶段把完整 target semantics 原子写入唯一 Blueprint/Design/Engineering，
+   同一变更逐项登记未实现 Conformance gap；
+3. 第一阶段不修改current support/readiness claim；Implementation Map继续只描述
+   live code；
+4. Temporary 中的design-bearing内容立即降为execution trace/pointer，不再拥有或
+   重复规范事实；
+5. 第二阶段按正式 Design实施、验证、关闭Conformance，最终迁移Report/Guide/
+   Implementation Map后删除Temporary。
+
+Design-first 不允许把目标写成当前能力，也不允许实现期间维护另一份parallel
+roadmap。任何未实现项必须能从正式Design追踪到Conformance。
+
+一阶段流程或两阶段的最终变更按以下顺序原子完成：
 
 ```text
 promote long-lived facts to Blueprint/Design/Engineering as appropriate

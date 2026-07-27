@@ -10,7 +10,7 @@ Owner：SOMA Java validation gate 过程
 
 非事实范围：产品语义、当前 Gate 结果、具体测试实现和 release 授权
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. Gate 不是阶段折扣
 
@@ -21,11 +21,11 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 | Gate | 证明的边界 |
 |---|---|
 | G0 | Java-only scope、Blueprint/Design/Owner、non-goal 和 claim boundary 已稳定 |
-| G1 | annotation/schema/value/type/ownership/selector/default/hash/diagnostic 语义可编译验证 |
-| G2 | Azul Zulu full JDK 8 integration、normalization、deterministic codegen、generated API 与 negative fixture |
-| G3 | packed storage、locator/exact access、完整 Access Model、Transformation/DataFlow、Candidate/Invocation lifecycle、child、plan、error/stats、safe-point Effect 和性能机械形状 |
-| G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 storage/DataFlow runtime 并执行 package surface |
-| G5 | Access/Transformation mapping、property/reference differential、普通 Java 8 reference consumer、领域 correctness/failure/lifecycle、领域中性 Access/DataFlow component benchmark、应用自有 default/large/long-run integrated evidence 与环境感知 Fast/Scale/Soak/Full Gate 可执行 |
+| G1 | annotation/schema、四类V1 type、String、ownership/selector/default、Metadata/hash/diagnostic 语义可编译验证 |
+| G2 | Azul Zulu full JDK 8 integration、normalization、deterministic codegen、SchemaMetadata/typed String/callback generated API、negative fixture与old-token absence |
+| G3 | Group/ledger/lifecycle、flat/head-tail storage、locator/exact、Candidate shapes、Transformation/DataFlow、bounded scheduler、Result Delivery、plan/observation/failure 和 safe-point Effect |
+| G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 Metadata/Group/storage/DataFlow runtime，并执行simple/advanced/callback/diagnostics journey |
+| G5 | property/reference differential、全部runtime-scale production qualification、领域中性 component benchmark、三个应用审计及各自 correctness/default/large/long-run evidence |
 | G6 | license、SCM/ownership/contact、package/provenance、security、support matrix、publishing 和 sign-off |
 
 V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate。
@@ -36,6 +36,10 @@ V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate
 `not-applicable` 只表示当前环境未覆盖该 baseline，不改变 G5 功能 Gate，也不能被
 表述为性能通过。具体顺序、阈值和更新纪律由
 [Benchmark 治理](benchmark-governance.md)拥有。
+
+Runtime-scale qualification额外允许`inconclusive`记录无法得出结论的合法artifact，
+但required applicable lane的`inconclusive`阻塞G5，不等同passed或waived。
+Single/double100M、String、high-expansion、Delivery与Soak必须分别有artifact。
 
 ## 3. 状态与证据
 
@@ -60,3 +64,7 @@ Gate 状态只表达 `not-started`、`blocked`、`waived`、`passed` 或 `inform
 以下情况至少阻塞对应 Gate：Design/Implementation/Tests 不一致且未裁决；required evidence 缺失或不可重放；unsupported compiler 静默降级；compatibility mismatch 延迟到 hot path；failure path、ownership、resource 或 collision correctness 未覆盖；benchmark 无 correctness guard；本机结果被外推为支持矩阵；release 缺真实 identity、license、contact、signing或publishing facts。
 
 当前状态由 [Report 入口](../../reports/README.md) 陈述。Engineering 只规定怎样形成可信结论，不把历史 passed 自动外推到新 commit。
+
+Design-first promotion只改变target Owner；此前G0–G5 passed记录不自动证明新
+Metadata/Group/String/scale/delivery candidate。Production cutover后必须在精确新
+commit上重放适用Gate并更新Report。

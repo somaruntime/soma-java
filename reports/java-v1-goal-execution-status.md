@@ -2,7 +2,7 @@
 
 类型：Report / Goal 状态
 
-状态：blocked（G6真实发布事实不足；不能完成 Goal）
+状态：blocked（P6 target 尚有 G1–G5 implementation/qualification gaps，且 G6 外部事实不足）
 
 Owner：SOMA Java Goal 状态输出
 
@@ -12,20 +12,33 @@ Owner：SOMA Java Goal 状态输出
 
 非事实范围：重新定义 Blueprint/Design 或授权 release
 
-适用版本：Transformation/DataFlow production candidate `2aa8c15`；
-industrial application trace `586d523`；其余 reference-application baseline
-evidence `938b3d5`
+适用版本：runtime-scale P6 target Design；production code baseline `aea5cc0`；
+既有 Transformation/DataFlow 与 reference-application evidence 只保留其原 candidate
+范围
 
 输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
-更新日期：2026-07-27
-唯一 Codex Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`
-Goal thread：`019f4bf2-6fb4-7d71-ad13-72e1abe9ba03`
+更新日期：2026-07-28
+当前治理 Codex Goal：`完成 SOMA Runtime Boundary、Group、Scale Readiness 与产品化综合治理`
+
+Goal thread：`019fa2d3-a378-75c2-b97b-db7552873250`
+
+该 Goal 完整推进 Java-only V1 产品目标，但不伪造或代替仍需外部事实的 G6
+发布裁决；此前“完整 Java-only V1.0，并通过 G0–G6”的 release Goal 边界继续
+由本报告追踪。
 packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；post-cutover功能/性能尾项代码基线：`b991f4c docs: define keyspace as primary locator`；完整evidence见两份dated专题报告
 
 本文件是中断恢复和进度审计入口，不是 Design。目标与正式语义从 `docs/blueprints/`、`docs/design/` 进入；当前代码由代码本身拥有，并通过 `docs/implementation-map/` 导航。
+
+2026-07-28 runtime boundary/Group/scale governance在TV0–TV9与三路独立设计审计
+PASS后，采用design-first两阶段promotion：正式Design已接纳完整Metadata、
+SomaGroup、四类类型/String、受限physical plans、bounded scheduler、Eager+
+callback delivery与production-scale qualification；同批Conformance明确记录
+production仍未实现。此前G1–G5 passed只证明原candidate，不自动证明新target。
+当前必须完成production cutover、Example审计、qualification和fresh Gate后才能
+重新判定G1–G5；G6仍独立blocked。
 
 2026-07-11专题治理已完成对完整功能V1的无缩水再审计：P0、V1 blocker和required P1均关闭，G0-G5在Zulu JDK 8完整`./scripts/check.sh`上fresh通过，独立reviewer最终PASS。完整findings、Capability矩阵、package重放边界与evidence见[历史专题治理报告](archive/soma-java-v1-topical-governance-report.md)。该专题不替代本文件的原Goal；G6仍blocked。
 
@@ -83,12 +96,13 @@ baseline 候选为 `253e383`，正式结论见
 
 | 总体工作 | 状态 | 可核验出口 |
 |---|---|---|
-| Phase 0–Phase 5：compiler、generated API、runtime 完整 V1 breadth | completed | commits 至 `060a6df`；Phase 0–5、G0–G4 reports；21 项 Capability evidenced |
-| Phase 6：Access Pattern Cards、三个独立参考应用、benchmark、release mechanics | implementation-complete | core fixtures与external consumer；三个 application-owned correctness/long-run/multi-fork Gate；20条neutral benchmark workload；License/POM/source/javadoc/package/security scripts |
-| 集中验证与修复 | passed | `253e383` 的三应用实现/evidence、generated/runtime v5、transformation/kernel v1、既有 Access/Schema 在 Azul Zulu full JDK 8 完成专项与最终综合验证 |
-| G5 reference applications/benchmark gate | passed | core Access/Transformation evidence、neutral/DataFlow component benchmark、三个独立参考应用、九份 profile baseline、Fast/Scale/Soak/Full Gate 与对应治理报告 |
+| 历史 Phase 0–6 candidate | historical passed | 原reports/commits保留其精确candidate evidence，不外推新Design |
+| Runtime-scale P6 target Design | completed | Blueprint/Design/Conformance/Engineering原子固化；P5三路审计PASS |
+| Metadata/Group/String/physical/execution/delivery production cutover | blocked | `CF-009`–`CF-013` 尚未关闭 |
+| P9 Example最终设计审计 | pending | 三个独立应用按真实偏差RETAIN或治理 |
+| Production-scale qualification / fresh G1–G5 | blocked | `CF-014`/`CF-015`；Small/Medium/1M/10M/single-double100M/String/Delivery/Soak尚无新candidate evidence |
 | G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
-| V1 总 Goal | blocked | G6 未通过，禁止标记 completed、公开发布、tag 或声明 release ready |
+| V1 总 Goal | blocked | P8–P10与G6均未闭合，禁止标记completed、公开发布、tag或声明ready |
 
 Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP、Lite、Basic 或缩水后的替代目标。
 
@@ -111,14 +125,16 @@ Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP
 | Gate | 状态 | 主要报告 |
 |---|---|---|
 | G0 | passed | `reports/java-v1-g0-scope-freeze-report.md` |
-| G1 | passed | `soma-processor/reports/java-v1-g1-schema-processing-report.md` |
-| G2 | passed | `soma-processor/reports/java-v1-g2-code-generation-report.md` |
-| G3 | passed | `soma-runtime-core/reports/java-v1-g3-runtime-core-report.md` 与 `reports/2026-07-27-transformation-dataflow-governance-report.md` |
-| G4 | passed | `reports/java-v1-g4-package-smoke-report.md` |
-| G5 | passed | `reports/2026-07-23-reference-application-boundary-governance-report.md`、`reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md`、两份 reference application 架构治理报告与 Access Model 治理 |
+| G1 | blocked | 新四类type/String/Metadata schema target尚未实现；旧report只作历史evidence |
+| G2 | blocked | 新generated SchemaMetadata/typed callback/Object replacement尚未实现 |
+| G3 | blocked | Group/storage/Candidate/relation/scheduler/resource/delivery target尚未实现 |
+| G4 | blocked | 新simple/advanced/callback/diagnostics external consumer尚未通过 |
+| G5 | blocked | production-scale qualification与P9 Example审计尚未通过 |
 | G6 | blocked | `reports/java-v1-g6-release-readiness-report.md` |
 
-因此“完整 V1 功能范围 + G0–G5”的功能 RC 边界已满足；它不是可公开发布的 RC artifact。当前 artifact 是 `0.2.0-SNAPSHOT`，G6 未通过前不得公开分发或声明正式支持矩阵。
+因此当前既不是功能RC，也不是public release candidate。历史G1–G5 evidence仍可
+用于回归对照，但不能覆盖P6新增target gap。当前artifact仍是
+`0.2.0-SNAPSHOT`；G1–G6未重新闭合前不得公开分发或声明支持矩阵。
 
 ## 4. 集中验证记录
 
@@ -201,22 +217,32 @@ Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh`
 
 ## 5. V1 scope non-regression
 
+- P6未删除旧Access/Transformation语义，且明确保留cross-Group/schema/
+  multi-instance/self-join read-only DataFlow；新增目标不能通过实现困难缩水。
 - Capability：23 项 `evidenced`，既有 22 项未回退并新增
-  `V1-TRANSFORMATION-DATAFLOW`；`V1-RELEASE-EVIDENCE` 因外部发布事实不足继续
-  保持 `blocked`。
+  `V1-TRANSFORMATION-DATAFLOW`；这些标签现在只表示历史candidate evidence，
+  新Metadata/Group/String/scale/delivery target由Design+Conformance拥有。
 - Owner、正式语义与Gate经用户批准按packed/exact v3目标先行迁移，没有为实现捷径反向降低Capability或release claim。
 - 旧四场景只保留历史 provenance；当前 G5 由 core Access Model fixtures、领域中性 component benchmark和三个普通 Java 8 reference consumers共同承担。
 - 三个参考应用分别拥有领域 Blueprint/Design、版本化配置、detached generator、runtime、correctness/long-run/multi-fork evidence；它们互不依赖，也不进入 SOMA 产品 Design。
 - 九个 default/large/long-run profile 由 application 自有 Fast/Scale/Soak/Full
   Gate 回归；9-fork calibration、3-fork ordinary comparison 和目标 workload
   均未缩水，且不形成 public claim。
-- Access Model / Candidate Scan v4 clean migration已在首个公开发布前完成；后续功能性能工作应是additive completion或contract-preserving internal refinement，不应再次引入双轨public/generated API、平行事实或temporary canonical hot path。
-- Transformation/DataFlow 以 generated/runtime v5 与 transformation/kernel v1
-  原子 clean break 完成；没有 v4 adapter、generic object executor、隐式 common
-  pool、第二存储后端或未来 rewrite 依赖。
+- P6已批准新的pre-1.0 clean cutover；必须按compatibility matrix原子替换plan/
+  Object/borrow/observation surface，不得引入双轨public/generated API、平行事实或
+  temporary canonical hot path。
+- Transformation/DataFlow v5/v1仍是当前代码baseline；P6 target要求在新protocol
+  中删除generic Object value与consumer-in-Definition borrow，不恢复v4 adapter、
+  隐式common pool或第二存储后端。
 - 复杂度可持续性治理只调整internal implementation/evidence责任与诊断，不改变产品语义；其正式Owner、Report、checker和Temporary退役已在`75ee658`闭环。当前专题只重新划分参考应用与evidence Owner，不反向修改该历史结论。
 - 未引入 temporary public/generated contract、temporary storage/hot path、test-only bypass、未来 migration 或 rewrite。
 
-## 6. 当前唯一剩余工作
+## 6. 当前剩余工作
 
-G6 只能在以下真实事实补齐并在 clean immutable candidate 上重放后关闭：SCM/project/issue URL、真实 maintainer/support/private-security contact、namespace ownership、CODEOWNERS/community policy、Apache-2.0 最终授权确认、非禁用历史身份的公开 Git provenance、签名或 OIDC provenance、publishing endpoint/account，以及经批准的正式支持矩阵。未经明确发布授权不 push、tag 或 publish。
+先关闭Conformance `CF-009`–`CF-015`：完成production/codegen/protocol、tests/
+benchmark/Guide/Report、三个Example审计、全部production-shape qualification与
+fresh G1–G5。随后G6仍只能在真实SCM/project/issue URL、maintainer/support/
+private-security contact、namespace ownership、CODEOWNERS/community policy、
+Apache-2.0最终授权确认、clean public Git provenance、signing/OIDC provenance、
+publishing endpoint/account与批准的支持矩阵补齐后关闭。未经明确发布授权不
+push、tag或publish。

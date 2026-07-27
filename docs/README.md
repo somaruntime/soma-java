@@ -12,7 +12,7 @@ Owner：SOMA Java 文档治理
 
 采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 权威关系
 
@@ -35,7 +35,8 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 - Conformance 识别偏差并记录 Owner 处置，不扩大实施授权；
 - Engineering 拥有可靠推进过程；
 - Report 拥有正式输出或特定时点结论，不反向定义产品能力；
-- Temporary 只承载专题候选设计，收口后必须删除。
+- Temporary 只承载专题候选设计和执行追踪；一旦决策进入正式 Owner，就必须退出
+  事实所有权，专题收口后删除。
 
 ## 2. 正式入口
 
@@ -70,7 +71,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 当前 active Temporary topic：
 
-- [SOMA Runtime Boundary、Group 与 Scale Readiness 治理指导](temp/soma-runtime-boundary-group-and-scale-readiness-governance/README.md)：TV0–TV9 独立技术验证已完成；Eager Detached 保持默认，callback-scoped streaming 只接受为 limited read-only pilot。专题继续治理 canonical 产品/系统叙事、完整 Metadata、封闭 Capability Model、Group、规模与资源、代码/测试规模及三个 Example 的后置最佳实践审计。后续使用 accepted evidence 完成最终设计、实施与 production qualification，治理收口后删除独立 Lab 和全部 Temporary。
+- [SOMA Runtime Boundary、Group 与 Scale Readiness 治理执行追踪](temp/soma-runtime-boundary-group-and-scale-readiness-governance/README.md)：TV0–TV9 与独立设计审计已完成，P6 target 已进入正式 Blueprint、Design、Conformance 和 Engineering。Temporary 现只追踪 P7–P11 的 production disposition、实施、Example 审计、qualification、fresh Gate 与 closeout；不再拥有产品或系统设计事实。治理收口后删除独立 Lab 和全部 Temporary。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

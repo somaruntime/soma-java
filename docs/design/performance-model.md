@@ -18,7 +18,7 @@ Owner：SOMA 跨模块性能设计
 
 非事实范围：某次 benchmark 数值、机器支持声明和永久 Gate 阈值
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. 北极星
 
@@ -36,6 +36,10 @@ SOMA 的性能目标是让目标 runtime-state access pattern 由有效数据工
 - scan/exact lookup/update/remove/sort/materialize 比例；
 - exact group size/selectivity、key distribution/load/collision；
 - child instance count 与 per-child cardinality；
+- physical layout、planning/hard maximum、Segment count 与 growth；
+- String length、value/object cardinality、sharing、presence、field role 与
+  simultaneously-live Table count；
+- relation multiplicity/selectivity/skew、output bound 与 reuse；
 - stats mode、snapshot/export frequency 和 allocation boundary。
 
 没有 Access Pattern 的“换一种数据结构会更快”不构成设计结论。
@@ -77,6 +81,11 @@ Benchmark 必须避免把 setup、input build、external DTO mapping 或 JVM war
 - 每张 Table 最多一个 generated DataFlow companion；shared operator/kernel 不按 `operator × Table` 展开；
 - graph hot path 不创建 per-element generic node/tuple/result object；large result allocation 必须归属于显式 detached output；
 - adaptive parallel 只在稳定证据支持的 cardinality/kernel 上启用，小规模、opaque callback、order-sensitive reduction 和 memory-bound lane 确定性回退。
+- universal segmented storage、universal Candidate buffer/bitmap、locator full-key
+  duplication、fixed default sharding、nested executor 与 shared hot atomic stats
+  均不允许；
+- structural retained、growth transient、Invocation scratch、detached output、
+  reachable String estimate 与 JVM heap 分开计量。
 
 ## 5. 关键路径设计
 
@@ -104,9 +113,27 @@ Selection/Projection 尽量 fuse；GroupBy、Join、Sort、Window、Prefix Scan 
 
 Sequential 是唯一语义基准。Parallel 使用 deterministic partition 和 fixed logical-order merge；只在不改变 floating/order/failure/Effect identity 时准入。Managed executor 由 Context 复用，borrowed executor 不由 SOMA 关闭，默认不隐式使用 common pool。
 
+Storage Segment、Parallel Morsel 与 Execution Vector 分别服务 storage/growth/GC、
+scheduling/cancel/merge 和 cache/JIT inner loop。它们的参数不能绑定成同一个固定
+size。一个 Segment 可以拆成多个 morsel，多个小 Segment 可以合并；所有 work进入
+一个 bounded scheduler。Worker scratch/partial state 必须分离，merge按 logical
+morsel ordinal。
+
+Layout、locator backing、Candidate shape、relation strategy 与 direct/parallel
+choice 都使用 versioned deterministic formula。Formula 消费对应 capacity/
+allocation risk、point/probe、fan-out/skew/reuse、touched width、scratch/output 和
+hardware-independent workload proxy；choice/reason进入 Effective Metadata或
+Explain。TV crossover 常数不是 public contract。
+
 ## 6. Runtime plan 的性能约束
 
 Capacity、memory limit、stats mode、locator/index load 策略、materialization budget 和 estimator identity 由 create-time immutable runtime plan 预绑定。读取 hot path 不解析动态 metadata；plan 变化产生不同 plan hash，不能静默改变既有 table。Plan/Stats 的规范性语义由 [Runtime Plan 与可观测性](runtime-plan-and-observability.md)拥有，本节只拥有其性能约束。
+
+String reference slots属于 exact structural bytes；reachable String bytes只能按
+declared profile估算，actual identity-dedup reachability/JVM heap由 qualification
+观察。任何 String performance/scale结论必须同时声明 length、value cardinality、
+distinct object count、intra/inter-table sharing、presence、field role 与 live
+Table count。
 
 ## 7. Evidence 义务
 
@@ -121,5 +148,20 @@ Capacity、memory limit、stats mode、locator/index load 策略、materializati
 - output checksum 或等价 correctness guard。
 
 Transformation component 还需分别覆盖 direct Access 对照、Definition/Template/Invocation 固定税、operator barrier、parallel crossover、detached output、safe-point Effect 和 generated footprint。性能测试不能替代 reference differential、构造契约或 failure evidence。
+
+Scale readiness 是受约束 profile 集合，不是单一“100M passed”：
+
+- Small/Fast 与 Medium 必须同时覆盖 primitive/String 和 fixed tax；
+- 1M/10M 覆盖 Point/Exact/Scan/Column/Batch/Delta/Join/Group/Window、relation/
+  parallel crossover、clear/release/GC；
+- single-100M 与两个 simultaneously resident 100M roots 覆盖 same/cross Group
+  bounded relation；
+- 100M String 只覆盖明确的 narrow shared-reference profile，并包含 impossible
+  profile/relation preflight；
+- callback delivery 和 long-run Soak 独立覆盖 failure、cleanup、ledger回零和 GC。
+
+100M 是可完成性、bounded peak、correctness 与 honest claim boundary，不是任意
+Schema/String/high-expansion支持或 public latency SLA。Small/Medium 不得为 scale
+architecture 承担未解释的稳定固定税。
 
 单机 diagnostic 只支持对应环境的结论。阈值和 Gate 由 Engineering 拥有；测量结果由 Report 拥有。
