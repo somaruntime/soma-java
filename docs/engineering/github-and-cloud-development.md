@@ -51,11 +51,14 @@ runtime/build、javac 和 Maven 版本 fail-closed。macOS arm64 与 Linux x64
 
 1. 从固定 HTTPS URL 下载 Azul Zulu full JDK 8、ripgrep 与 OSV-Scanner；
 2. 验证发布方 SHA-256，拒绝已存在但不匹配的 bytes；
-3. 把 `JAVA_HOME`、`PATH`、`OSV_SCANNER` 写入后续 agent shell 可读取的
+3. 若 Codex Cloud 暴露平台代理 CA，则把该 CA 合并到 setup 专用的 Zulu
+   truststore 副本，使 Maven 保持完整 TLS 校验；不修改 vendor truststore，
+   不使用 insecure SSL 参数；
+4. 把 `JAVA_HOME`、`PATH`、`OSV_SCANNER` 写入后续 agent shell 可读取的
    environment file，并从 `.bashrc` / `.profile` 引用；
-4. 验证 exact toolchain；
-5. 通过 reactor `verify` 预热后续普通 Maven lifecycle 所需 dependencies；
-6. 在 checkout 之外建立持久 Maven evidence repository，并通过独立 external
+5. 验证 exact toolchain；
+6. 通过 reactor `verify` 预热后续普通 Maven lifecycle 所需 dependencies；
+7. 在 checkout 之外建立持久 Maven evidence repository，并通过独立 external
    consumer path 预取和验证隔离 Gate 所需 build/runtime dependencies 以及
    pinned governance plugin；后续 reactor `clean` 不会删除该缓存。
 
