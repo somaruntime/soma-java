@@ -35,10 +35,12 @@ if [ ! -x "$ripgrep" ]; then
   mv "$extracted_dir" "$install_dir"
 fi
 
-ripgrep_version=$("$ripgrep" --version | sed -n '1p')
-if [ "$ripgrep_version" != 'ripgrep 15.2.0' ]; then
+ripgrep_identity=$("$ripgrep" --version | sed -n '1p')
+ripgrep_version=$(printf '%s\n' "$ripgrep_identity" |
+  sed -n 's/^ripgrep \([0-9][0-9.]*\).*$/\1/p')
+if [ "$ripgrep_version" != '15.2.0' ]; then
   printf '%s\n' \
-    "ripgrep-install: installed identity mismatch: $ripgrep_version" >&2
+    "ripgrep-install: installed identity mismatch: $ripgrep_identity" >&2
   exit 1
 fi
 
