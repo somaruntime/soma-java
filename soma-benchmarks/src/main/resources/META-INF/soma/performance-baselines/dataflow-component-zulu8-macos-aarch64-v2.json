@@ -5,10 +5,10 @@
   "subject": "typed-dataflow-component",
   "artifactVersion": "soma-java-dataflow-component-v1",
   "calibration": {
-    "commit": "6cde5d508c9ce3a1d873d282b1d4808e0334a288",
+    "commit": "f1376b3a3ab3fd94acd23f9cc3180429bf981dc7",
     "date": "2026-07-28",
     "forks": 3,
-    "formula": "trigger=v11-v3-v4-authoring-identity-and-bounded-morsel-invocation-ledger; calibration-evidence=three-fork-20260728; changed-checksum=all-equal; changed-allocation=ceil(max*1.15+256); unaffected-v1-envelopes=preserved"
+    "formula": "trigger=private-source-package-identity-cutover; calibration-evidence=five-fork-20260728; changed-checksum=all-equal; allocation-timing-gc-envelopes=preserved"
   },
   "environment": {
     "javaVersion": "1.8.0_492-b09",
@@ -77,7 +77,7 @@
     }
   ],
   "metrics": [
-    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":-423303372768633623},
+    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":3814779270147881284},
     {"id":"checksum.direct-count","selector":{"lane":"candidate.direct-filter-count.large"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-sequential","selector":{"lane":"candidate.filter-count.large.sequential"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-parallel","selector":{"lane":"candidate.filter-count.large.adaptive-parallel"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
