@@ -114,7 +114,7 @@ mkdir -p "$toolchain_root"
   printf 'export RIPGREP=%s\n' "$RIPGREP"
   printf 'export SOMA_MAVEN_EVIDENCE_REPOSITORY=%s\n' \
     "$SOMA_MAVEN_EVIDENCE_REPOSITORY"
-  printf 'export PATH=\"$JAVA_HOME/bin:%s:$PATH\"\n' "$ripgrep_dir"
+  printf 'export PATH="$JAVA_HOME/bin:%s:$PATH"\n' "$ripgrep_dir"
 } >"$environment_file"
 chmod 0644 "$environment_file"
 
