@@ -74,13 +74,22 @@ checkout 建立平行 Owner。模块修改前仍应读取对应 `<module>/docs/R
 
 ## Release Identity and Validation
 
-- 组织与发布主体为 HGTECH，产品品牌为 SOMA，Maven `groupId` / Java package root 为 `com.hgtech.soma`，artifact 名保持 `soma-*`；
-- HGTECH 只进入真实组织、SCM、POM、publishing 和 provenance 边界，不成为 SOMA annotation、generated API、runtime type、error 或 schema 概念前缀；
+- copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA，GitHub Organization
+  为 `somaruntime`；
+- Maven `groupId` / Java package root 为 `io.github.somaruntime.soma`，artifact
+  名保持 `soma-*`；
+- 当前选择的发布渠道是 private GitHub source repository
+  `somaruntime/soma-java`；public repository 与 Maven Central 未选择、未声明；
+- 个人或组织 identity 只进入真实 copyright、SCM、POM、support 和 provenance
+  边界，不成为 SOMA annotation、generated API、runtime type、error 或 schema
+  概念前缀；
 - release identity 与安全边界以[兼容性、安全与版本](docs/design/compatibility-security-and-versioning.md)为准；过程以[Release 治理](docs/engineering/release-governance.md)和[Validation Gate 治理](docs/engineering/validation-gates.md)为准；
 - Azul Zulu full JDK 8 javac/runtime 是当前唯一 compiler 与 validation authority；新 JDK `--release 8` 不能冒充受支持 transformer；
 - 每次 validation 记录实际 JDK vendor/version/build、Maven、OS、architecture 和命令；本机通过不得外推为支持矩阵；
 - Corretto 或其他 JDK distribution 不属于当前验真或目标支持范围，不要求新增、补跑或维持多 vendor Gate；历史运行记录不构成当前支持声明；
-- G6 support matrix、SCM/contact、signing/publishing 等真实事实不足时保持 `blocked`，不得用 placeholder 或单机 smoke 替代。
+- G6 必须按实际选择的 release profile 判断；private-source readiness、
+  Codex Cloud development readiness 与 public/Maven readiness 分开，任何缺失的
+  SCM/contact/support matrix/provenance 事实不得用 placeholder 或单机 smoke 替代。
 
 ## Documentation Workflow
 

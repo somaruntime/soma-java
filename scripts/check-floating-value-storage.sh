@@ -25,7 +25,7 @@ mkdir -p "$classes" "$generated"
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -s "$generated" -d "$classes" \
   $(find "$fixture/src" -type f -name '*.java' | LC_ALL=C sort)

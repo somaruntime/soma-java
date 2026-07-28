@@ -24,19 +24,19 @@ Owner：SOMA DataFlow 实现导航
 
 | 责任 | 当前入口 |
 |---|---|
-| Definition/Template/Invocation | [`DataFlowDefinition.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowDefinition.java)、[`DataFlowTemplate.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowTemplate.java)、[`DataFlowInvocation.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowInvocation.java) |
-| Context/policy/resource | [`DataFlowContext.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowContext.java)、[`ExecutionPolicy.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionPolicy.java)、[`ExecutionBudget.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionBudget.java)、internal `InvocationLedger` |
+| Definition/Template/Invocation | [`DataFlowDefinition.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowDefinition.java)、[`DataFlowTemplate.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowTemplate.java)、[`DataFlowInvocation.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowInvocation.java) |
+| Context/policy/resource | [`DataFlowContext.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowContext.java)、[`ExecutionPolicy.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/ExecutionPolicy.java)、[`ExecutionBudget.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/ExecutionBudget.java)、internal `InvocationLedger` |
 | typed Shape/Expression | `CandidateFlow`、primitive/String `*ValueFlow`、`GroupedFlow`、`JoinedFlow`、`WindowedFlow`、primitive/String `*Expression`；无 generic Object value family |
 | result/effect | Eager Detached primitive scalar/columnar、group/join/window/expand result、`DeltaApplyResult`、candidate effect operations；callback-scoped `*Visitor` delivery |
-| physical choice | [`CandidatePhysicalFormula.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/CandidatePhysicalFormula.java)、[`RelationStrategyFormula.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/RelationStrategyFormula.java)、[`MorselSchedulerFormula.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/MorselSchedulerFormula.java) |
-| generated bridge | [`com.hgtech.soma.dataflow.generated`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/generated) |
-| diagnostics | [`DataFlowStats.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowStats.java) 的 work/parallel/resource/delivery components 与 [`DataFlowExplain.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowExplain.java) |
+| physical choice | [`CandidatePhysicalFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/CandidatePhysicalFormula.java)、[`RelationStrategyFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/RelationStrategyFormula.java)、[`MorselSchedulerFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/MorselSchedulerFormula.java) |
+| generated bridge | [`io.github.somaruntime.soma.dataflow.generated`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/generated) |
+| diagnostics | [`DataFlowStats.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowStats.java) 的 work/parallel/resource/delivery components 与 [`DataFlowExplain.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowExplain.java) |
 
 当前 public API 以 shape-specific Java types 排除非法组合；内部 `DataFlowProgram`、`CandidateProgram`、parallel execution、group/join/window plan 和 expression node 不作为 SPI。
 
 ## 2. Generated projection
 
-Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseDataFlowSourceEmitter.java) 为每张 Table 生成一个 `<Table>DataFlow` companion；[`DenseTableSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableSourceEmitter.java) 写入 lifecycle/access bridge 和 keyed Delta apply。Generated manifest、`javap` 与 external consumer 拥有精确 surface。
+Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseDataFlowSourceEmitter.java) 为每张 Table 生成一个 `<Table>DataFlow` companion；[`DenseTableSourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseTableSourceEmitter.java) 写入 lifecycle/access bridge 和 keyed Delta apply。Generated manifest、`javap` 与 external consumer 拥有精确 surface。
 
 当前 identity：
 

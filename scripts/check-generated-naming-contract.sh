@@ -28,7 +28,7 @@ mkdir -p "$classes" "$generated"
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -s "$generated" -d "$classes" \
   $(find "$fixture/src" -type f -name '*.java' | sort)
@@ -37,7 +37,7 @@ table_source=$generated/com/example/internalnames/generated/InternalNamesRowTabl
 test -s "$table_source"
 if rg -n '\browIndex\b|rowIndexes\(' "$generated" >/dev/null \
     || rg -n 'public .*\(int rowIndex\)' \
-      soma-runtime-core/src/main/java/com/hgtech/soma/runtime/*ColumnView.java >/dev/null; then
+      soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/*ColumnView.java >/dev/null; then
   printf '%s\n' 'generated-naming-contract: public rowIndex parameter leaked' >&2
   exit 1
 fi

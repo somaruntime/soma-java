@@ -1,8 +1,8 @@
 package com.example.soma.defaults;
 
-import com.hgtech.soma.annotation.SomaDefault;
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaDefault;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable(name = "bad_finite_float_grammar")
 public final class BadFiniteFloatGrammar {

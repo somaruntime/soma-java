@@ -19,7 +19,7 @@ concurrency:
 jobs:
   java-8-governance:
     name: Java 8 governance and reactor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -28,8 +28,13 @@ jobs:
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
         with:
           distribution: zulu
-          java-version: '8'
+          java-version: '8.0.492+9'
+          java-package: jdk
+          architecture: x64
           cache: maven
+
+      - name: Verify exact supported toolchain
+        run: ./scripts/check-toolchain.sh
 
       - name: Run project checks
         run: ./scripts/check.sh

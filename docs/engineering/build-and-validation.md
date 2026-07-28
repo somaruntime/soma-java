@@ -15,7 +15,8 @@ Owner：SOMA Java build/validation 过程
 ## 1. 基线
 
 - 使用项目 Maven Wrapper；
-- V1 compiler/runtime validation 使用 Azul Zulu full JDK 8 javac/runtime；
+- V1 compiler/runtime validation 使用 Azul Zulu 8.94.0.17 full JDK 8
+  （Java `1.8.0_492-b09`、`javac 1.8.0_492`）；
 - 根 Maven reactor 必须在 Java 8 source/target 下构建；
 - Corretto 和其他 JDK distribution 不属于当前验真或目标支持范围，不要求多 vendor 重放；
 - Zulu 本机通过只说明实际记录的 version/build、OS 和 architecture，不自动外推到其他 Zulu update 或平台；
@@ -42,6 +43,9 @@ Canonical build 必须从根 Maven Wrapper进入同一 reactor graph。Productio
 文档、Maven、public API、compiler/codegen、runtime 与 DataFlow capability
 contracts、external consumer、reference applications、smoke，以及三层性能基线
 架构和 Access/DataFlow/application baseline Gate。
+
+GitHub Actions 与 Codex Cloud 的 Linux 环境、exact toolchain 和 setup 入口见
+[GitHub 私有仓库与 Codex Cloud 开发](github-and-cloud-development.md)。
 
 任何脚本拆分或加速都必须保持 fail-closed：跳过、找不到工具、artifact schema 错误和 prerequisite 不满足不得被报告为 passed。
 

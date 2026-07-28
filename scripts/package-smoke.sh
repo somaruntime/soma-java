@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'JAVA_HOME must point to a full JDK 8.' >&2
@@ -43,17 +44,6 @@ first_dir="$work_dir/first"
 second_dir="$work_dir/second"
 mkdir -p "$first_dir" "$second_dir"
 
-checksum_file() {
-  if command -v shasum >/dev/null 2>&1; then
-    shasum -a 256 "$1" | awk '{print $1}'
-  elif command -v sha256sum >/dev/null 2>&1; then
-    sha256sum "$1" | awk '{print $1}'
-  else
-    printf '%s\n' 'Neither shasum nor sha256sum is available.' >&2
-    exit 1
-  fi
-}
-
 collect_artifacts() {
   output_dir=$1
   cp pom.xml "$output_dir/soma-java-parent-$version.pom"
@@ -66,7 +56,7 @@ collect_artifacts() {
   (
     cd "$output_dir"
     for artifact in $(find . -maxdepth 1 -type f ! -name checksums.sha256 -print | LC_ALL=C sort); do
-      printf '%s  %s\n' "$(checksum_file "$artifact")" "${artifact#./}"
+      printf '%s  %s\n' "$(soma_sha256_hex "$artifact")" "${artifact#./}"
     done
   ) > "$output_dir/checksums.sha256"
 }
@@ -115,10 +105,10 @@ validate_artifact_set() {
     for archive in "$binary_jar" "$source_jar"; do
       unzip -Z1 "$archive" | grep -qx 'META-INF/LICENSE'
       unzip -Z1 "$archive" | grep -qx 'META-INF/NOTICE'
-      test "$(unzip -p "$archive" META-INF/LICENSE | shasum -a 256 | awk '{print $1}')" = \
-        "$(checksum_file LICENSE)"
-      test "$(unzip -p "$archive" META-INF/NOTICE | shasum -a 256 | awk '{print $1}')" = \
-        "$(checksum_file NOTICE)"
+      test "$(unzip -p "$archive" META-INF/LICENSE | soma_sha256_hex)" = \
+        "$(soma_sha256_hex LICENSE)"
+      test "$(unzip -p "$archive" META-INF/NOTICE | soma_sha256_hex)" = \
+        "$(soma_sha256_hex NOTICE)"
     done
 
     class_dir="$work_dir/$label-classes/$module"

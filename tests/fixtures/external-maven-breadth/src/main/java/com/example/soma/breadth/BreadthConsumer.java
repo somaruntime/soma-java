@@ -14,31 +14,31 @@ import com.example.soma.breadth.generated.StringSelectorRowDataFlow;
 import com.example.soma.groupother.generated.OtherRowBatch;
 import com.example.soma.groupother.generated.OtherRowDataFlow;
 import com.example.soma.groupother.generated.OtherRowTable;
-import com.hgtech.soma.dataflow.DataFlowContext;
-import com.hgtech.soma.dataflow.GroupedLongResult;
-import com.hgtech.soma.dataflow.KeyExpression;
-import com.hgtech.soma.dataflow.LongScalarResult;
-import com.hgtech.soma.dataflow.ParameterSlot;
-import com.hgtech.soma.dataflow.StringColumnResult;
-import com.hgtech.soma.runtime.EnumColumnView;
-import com.hgtech.soma.runtime.IntColumnView;
-import com.hgtech.soma.runtime.MaterializationBudget;
-import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.SomaGroup;
-import com.hgtech.soma.runtime.SomaGroupMemberState;
-import com.hgtech.soma.runtime.SomaGroupPlan;
-import com.hgtech.soma.runtime.SomaGroupState;
-import com.hgtech.soma.runtime.SomaRuntimeException;
-import com.hgtech.soma.runtime.StringResourceProfile;
-import com.hgtech.soma.runtime.StringResourceProfileStatus;
-import com.hgtech.soma.runtime.StringResourceRole;
-import com.hgtech.soma.runtime.TableStats;
-import com.hgtech.soma.runtime.UpdateResult;
-import com.hgtech.soma.runtime.metadata.SomaColumnMetadata;
-import com.hgtech.soma.runtime.metadata.SomaGroupMetadata;
-import com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout;
-import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
-import com.hgtech.soma.runtime.metadata.SomaTypeKind;
+import io.github.somaruntime.soma.dataflow.DataFlowContext;
+import io.github.somaruntime.soma.dataflow.GroupedLongResult;
+import io.github.somaruntime.soma.dataflow.KeyExpression;
+import io.github.somaruntime.soma.dataflow.LongScalarResult;
+import io.github.somaruntime.soma.dataflow.ParameterSlot;
+import io.github.somaruntime.soma.dataflow.StringColumnResult;
+import io.github.somaruntime.soma.runtime.EnumColumnView;
+import io.github.somaruntime.soma.runtime.IntColumnView;
+import io.github.somaruntime.soma.runtime.MaterializationBudget;
+import io.github.somaruntime.soma.runtime.RuntimePlan;
+import io.github.somaruntime.soma.runtime.SomaGroup;
+import io.github.somaruntime.soma.runtime.SomaGroupMemberState;
+import io.github.somaruntime.soma.runtime.SomaGroupPlan;
+import io.github.somaruntime.soma.runtime.SomaGroupState;
+import io.github.somaruntime.soma.runtime.SomaRuntimeException;
+import io.github.somaruntime.soma.runtime.StringResourceProfile;
+import io.github.somaruntime.soma.runtime.StringResourceProfileStatus;
+import io.github.somaruntime.soma.runtime.StringResourceRole;
+import io.github.somaruntime.soma.runtime.TableStats;
+import io.github.somaruntime.soma.runtime.UpdateResult;
+import io.github.somaruntime.soma.runtime.metadata.SomaColumnMetadata;
+import io.github.somaruntime.soma.runtime.metadata.SomaGroupMetadata;
+import io.github.somaruntime.soma.runtime.metadata.SomaPrimaryLocatorLayout;
+import io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata;
+import io.github.somaruntime.soma.runtime.metadata.SomaTypeKind;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -763,7 +763,7 @@ public final class BreadthConsumer {
                 }
                 if (value != null
                         && value.getClass().getName().equals(
-                        "com.hgtech.soma.runtime.generated.StringColumn")) {
+                        "io.github.somaruntime.soma.runtime.generated.StringColumn")) {
                     for (Field storage : value.getClass().getDeclaredFields()) {
                         if (Modifier.isStatic(storage.getModifiers())) continue;
                         storage.setAccessible(true);

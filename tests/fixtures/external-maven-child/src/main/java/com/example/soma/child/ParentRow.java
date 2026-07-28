@@ -1,9 +1,9 @@
 package com.example.soma.child;
 
-import com.hgtech.soma.annotation.SomaChild;
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaOptional;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaChild;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaOptional;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 import java.util.List;
 import java.util.Map;

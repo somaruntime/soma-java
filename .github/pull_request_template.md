@@ -8,7 +8,9 @@
 - [ ] 已说明 public/generated/schema/runtime-plan/error/release 兼容性影响
 - [ ] 未把 README、Report、Guide、Implementation Map、Temporary 或 superseded 历史文档当作 Design
 - [ ] 未引入未决第三方 dependency 或跨模块反向依赖
-- [ ] HGTECH 只用于组织/发布 metadata，SOMA public/generated/schema/runtime 概念未被组织名侵入；coordinates/artifact identity 未经批准不变
+- [ ] ArthurFeng / `somaruntime` 只用于 copyright、组织、SCM、support 与
+      provenance，SOMA public/generated/schema/runtime 概念未被发布身份侵入；
+      coordinates/artifact identity 未经批准不变
 
 ## V1 防缩水
 

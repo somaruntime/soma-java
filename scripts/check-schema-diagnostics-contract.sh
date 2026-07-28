@@ -27,7 +27,7 @@ compile_failure() {
     -encoding UTF-8 -source 8 -target 8 \
     -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -d "$output" \
     $(find "$fixture_root/$fixture_name/src" -type f -name '*.java' | sort) \
@@ -46,7 +46,7 @@ compile_success() {
     -encoding UTF-8 -source 8 -target 8 \
     -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -d "$output" \
     $(find "$fixture_root/$fixture_name/src" -type f -name '*.java' | sort) \
@@ -80,7 +80,7 @@ grep -F 'selector path is optional and cannot be indexed: optionalValue' \
 grep -F 'cyclic child ownership declaration:' \
   "$evidence_dir/table-child-cycle.log" >/dev/null
 
-if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' \
+if grep -E 'Exception in thread|^[[:space:]]+at (io\.github\.somaruntime|com\.sun\.tools)' \
   "$evidence_dir"/*.log >/dev/null; then
   printf '%s\n' 'schema-diagnostics-contract: diagnostic leaked internal stack' >&2
   exit 1

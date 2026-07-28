@@ -31,7 +31,7 @@ compile/runtime graph 保留，不承担本应用的业务规则或产品展示�
 ```bash
 ./mvnw -f soma-examples/industrial-dynamic-scheduler/pom.xml clean package
 java -cp "<application classes>:<runtime classpath>" \
-  com.hgtech.soma.examples.scheduler.application.SchedulerApplication default
+  io.github.somaruntime.soma.examples.scheduler.application.SchedulerApplication default
 ```
 
 生产资源只提供 `default` problem profile；第一个参数也可以是外部

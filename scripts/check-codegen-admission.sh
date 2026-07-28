@@ -17,7 +17,7 @@ if [ "$java_specification" != '1.8' ]; then
   exit 1
 fi
 
-processor_source=soma-processor/src/main/java/com/hgtech/soma/processor
+processor_source=soma-processor/src/main/java/io/github/somaruntime/soma/processor
 for source in \
   SomaProcessor.java \
   SomaSchemaModel.java \
@@ -36,7 +36,7 @@ for source in \
   fi
 done
 
-grep -F 'import static com.hgtech.soma.processor.SomaSchemaModel.*;' \
+grep -F 'import static io.github.somaruntime.soma.processor.SomaSchemaModel.*;' \
   "$processor_source/SomaProcessor.java" >/dev/null
 grep -F 'static final class SchemaModel' "$processor_source/SomaSchemaModel.java" >/dev/null
 grep -F 'static final class TableSpec' "$processor_source/DenseTableCodegenModel.java" >/dev/null
@@ -97,7 +97,7 @@ write_schema() {
     printf '@SomaSchema(name = "%s", generatedPackage = "%s", version = "1")\n' \
       "$schema_name" "$generated_package"
     printf 'package %s;\n\n' "$package_name"
-    printf 'import com.hgtech.soma.annotation.SomaSchema;\n'
+    printf 'import io.github.somaruntime.soma.annotation.SomaSchema;\n'
   } >"$directory/package-info.java"
 }
 
@@ -113,8 +113,8 @@ generate_value_chain() {
     file=$(printf '%s/Value%02d.java' "$directory" "$index")
     {
       printf 'package %s;\n\n' "$package_name"
-      printf 'import com.hgtech.soma.annotation.SomaField;\n'
-      printf 'import com.hgtech.soma.annotation.SomaValue;\n\n'
+      printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
+      printf 'import io.github.somaruntime.soma.annotation.SomaValue;\n\n'
       printf '@SomaValue\npublic class Value%02d {\n' "$index"
       if [ "$index" -lt "$depth" ]; then
         printf '    @SomaField public Value%02d next;\n' "$next"
@@ -138,8 +138,8 @@ generate_wide_value() {
   file=$directory/$type_name.java
   {
     printf 'package %s;\n\n' "$package_name"
-    printf 'import com.hgtech.soma.annotation.SomaField;\n'
-    printf 'import com.hgtech.soma.annotation.SomaValue;\n\n'
+    printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
+    printf 'import io.github.somaruntime.soma.annotation.SomaValue;\n\n'
     printf '@SomaValue\npublic class %s {\n' "$type_name"
     index=1
     while [ "$index" -le "$count" ]; do
@@ -160,8 +160,8 @@ generate_wide_table() {
   file=$directory/$type_name.java
   {
     printf 'package %s;\n\n' "$package_name"
-    printf 'import com.hgtech.soma.annotation.SomaField;\n'
-    printf 'import com.hgtech.soma.annotation.SomaTable;\n\n'
+    printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
+    printf 'import io.github.somaruntime.soma.annotation.SomaTable;\n\n'
     printf '@SomaTable\npublic final class %s {\n' "$type_name"
     index=1
     while [ "$index" -le "$count" ]; do
@@ -184,11 +184,11 @@ generate_many_tables() {
     file=$(printf '%s/Table%03d.java' "$directory" "$index")
     {
       printf 'package %s;\n\n' "$package_name"
-      printf 'import com.hgtech.soma.annotation.SomaField;\n'
+      printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
       if [ "$selectors" -gt 0 ]; then
-        printf 'import com.hgtech.soma.annotation.SomaIndex;\n'
+        printf 'import io.github.somaruntime.soma.annotation.SomaIndex;\n'
       fi
-      printf 'import com.hgtech.soma.annotation.SomaTable;\n\n'
+      printf 'import io.github.somaruntime.soma.annotation.SomaTable;\n\n'
       printf '@SomaTable\n'
       selector=1
       while [ "$selector" -le "$selectors" ]; do
@@ -213,7 +213,7 @@ run_success() {
     -encoding UTF-8 -source 8 -target 8 -proc:only \
     -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -s "$output/generated" -d "$output/classes" \
     $(find "$source_root" -type f -name '*.java' | LC_ALL=C sort) \
@@ -229,7 +229,7 @@ run_full_success() {
     -encoding UTF-8 -source 8 -target 8 \
     -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -s "$output/generated" -d "$output/classes" \
     $(find "$source_root" -type f -name '*.java' | LC_ALL=C sort) \
@@ -257,7 +257,7 @@ run_failure() {
     -encoding UTF-8 -source 8 -target 8 -proc:only \
     -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -s "$output/generated" -d "$output/classes" \
     $(find "$source_root" -type f -name '*.java' | LC_ALL=C sort) \
@@ -275,7 +275,7 @@ run_failure() {
 # Generated source builder必须接受exact limit并拒绝limit+1。
 "$JAVA_HOME/bin/java" \
   -cp soma-processor/target/test-classes:soma-processor/target/classes \
-  com.hgtech.soma.processor.CodegenAdmissionCheck \
+  io.github.somaruntime.soma.processor.CodegenAdmissionCheck \
   >"$evidence_dir/source-builder.log"
 
 depth32=$sources/depth32
@@ -341,15 +341,15 @@ mkdir -p "$cross_direct/com/example/admission/crossdirect/a" \
   "$cross_direct/com/example/admission/crossdirect/b"
 {
   printf 'package com.example.admission.crossdirect.a;\n'
-  printf 'import com.hgtech.soma.annotation.SomaField;\n'
-  printf 'import com.hgtech.soma.annotation.SomaValue;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaValue;\n'
   printf '@SomaValue public class ExternalValue { @SomaField public int value; }\n'
 } >"$cross_direct/com/example/admission/crossdirect/a/ExternalValue.java"
 {
   printf 'package com.example.admission.crossdirect.b;\n'
   printf 'import com.example.admission.crossdirect.a.ExternalValue;\n'
-  printf 'import com.hgtech.soma.annotation.SomaField;\n'
-  printf 'import com.hgtech.soma.annotation.SomaTable;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaTable;\n'
   printf '@SomaTable public final class DirectTable {\n'
   printf '  @SomaField public ExternalValue value; public DirectTable() {}\n}\n'
 } >"$cross_direct/com/example/admission/crossdirect/b/DirectTable.java"
@@ -364,15 +364,15 @@ mkdir -p "$cross_nested/com/example/admission/crossnested/a" \
   "$cross_nested/com/example/admission/crossnested/b"
 {
   printf 'package com.example.admission.crossnested.a;\n'
-  printf 'import com.hgtech.soma.annotation.SomaField;\n'
-  printf 'import com.hgtech.soma.annotation.SomaValue;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaValue;\n'
   printf '@SomaValue public class ExternalValue { @SomaField public int value; }\n'
 } >"$cross_nested/com/example/admission/crossnested/a/ExternalValue.java"
 {
   printf 'package com.example.admission.crossnested.b;\n'
   printf 'import com.example.admission.crossnested.a.ExternalValue;\n'
-  printf 'import com.hgtech.soma.annotation.SomaField;\n'
-  printf 'import com.hgtech.soma.annotation.SomaValue;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaField;\n'
+  printf 'import io.github.somaruntime.soma.annotation.SomaValue;\n'
   printf '@SomaValue public class LocalValue { @SomaField public ExternalValue nested; }\n'
 } >"$cross_nested/com/example/admission/crossnested/b/LocalValue.java"
 run_failure cross-nested "$cross_nested" SOMA-VALUE-008
@@ -384,7 +384,7 @@ write_schema "$existing_fqn" com.example.admission.existing existing_fqn \
 mkdir -p "$existing_fqn/com/example/admission/existing/generated"
 {
   printf 'package com.example.admission.existing;\n'
-  printf 'import com.hgtech.soma.annotation.*;\n'
+  printf 'import io.github.somaruntime.soma.annotation.*;\n'
   printf '@SomaTable public final class Existing {\n'
   printf '  @SomaField public int value; public Existing() {}\n}\n'
 } >"$existing_fqn/com/example/admission/existing/Existing.java"
@@ -402,7 +402,7 @@ for package_name in a b; do
   mkdir -p "$directory"
   {
     printf 'package com.example.admission.generatedfqn.%s;\n' "$package_name"
-    printf 'import com.hgtech.soma.annotation.*;\n'
+    printf 'import io.github.somaruntime.soma.annotation.*;\n'
     printf '@SomaTable public final class Same {\n'
     printf '  @SomaField public int value; public Same() {}\n}\n'
   } >"$directory/Same.java"
@@ -415,7 +415,7 @@ write_schema "$object_member" com.example.admission.objectmember object_member \
 mkdir -p "$object_member/com/example/admission/objectmember"
 {
   printf 'package com.example.admission.objectmember;\n'
-  printf 'import com.hgtech.soma.annotation.*;\n'
+  printf 'import io.github.somaruntime.soma.annotation.*;\n'
   printf '@SomaTable public final class ObjectMember {\n'
   printf '  @SomaField public int wait; public ObjectMember() {}\n}\n'
 } >"$object_member/com/example/admission/objectmember/ObjectMember.java"
@@ -428,7 +428,7 @@ write_schema "$source_limit" com.example.admission.sourcelimit source_limit \
 mkdir -p "$source_limit/com/example/admission/sourcelimit"
 {
   printf 'package com.example.admission.sourcelimit;\n'
-  printf 'import com.hgtech.soma.annotation.*;\n'
+  printf 'import io.github.somaruntime.soma.annotation.*;\n'
   printf '@SomaTable\n'
   selector=1
   while [ "$selector" -le 5000 ]; do
@@ -462,7 +462,7 @@ mkdir -p "$late_processor_source/com/example/admission/late" "$late_processor_cl
   printf '      JavaFileObject f = processingEnv.getFiler().createSourceFile('
   printf '"com.example.admission.lateinput.LateRow");\n'
   printf '      Writer w = f.openWriter(); w.write('
-  printf '"package com.example.admission.lateinput; import com.hgtech.soma.annotation.*; '
+  printf '"package com.example.admission.lateinput; import io.github.somaruntime.soma.annotation.*; '
   printf '@SomaTable public final class LateRow { @SomaField public int value; public LateRow() {} }");'
   printf ' w.close();\n'
   printf '    } catch (IOException e) { throw new RuntimeException(e); } } return false; }\n'
@@ -480,7 +480,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 -proc:only \
   -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$late_processor_classes:$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor,com.example.admission.late.LateSomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor,com.example.admission.late.LateSomaProcessor \
   -Xplugin:SomaValue -s "$late_output/generated" -d "$late_output/classes" \
   $(find "$late_input" -type f -name '*.java' | LC_ALL=C sort) \
   >"$late_output/compile.log" 2>&1; then
@@ -493,7 +493,7 @@ if find "$late_output/classes/META-INF/soma" -type f -print -quit 2>/dev/null | 
   exit 1
 fi
 
-if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' \
+if grep -E 'Exception in thread|^[[:space:]]+at (io\.github\.somaruntime|com\.sun\.tools)' \
   "$evidence_dir"/*/compile.log >/dev/null 2>&1; then
   printf '%s\n' 'codegen-admission-check: supported diagnostic leaked internal stack' >&2
   exit 1

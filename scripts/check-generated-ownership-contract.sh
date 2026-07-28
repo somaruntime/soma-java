@@ -46,7 +46,7 @@ cmp "$source_fixture/expected-schema.sha256" "$fixture/target/classes/$schema_ha
 parent_source=$fixture/target/generated-sources/annotations/com/example/soma/child/generated/ParentRowTable.java
 child_source=$fixture/target/generated-sources/annotations/com/example/soma/child/generated/KeyedChildRowTable.java
 generated_dir=$fixture/target/generated-sources/annotations/com/example/soma/child/generated
-registry_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/ChildOwnershipRegistry.java
+registry_source=$root_dir/soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated/ChildOwnershipRegistry.java
 grep -F 'LongColumn ownerTokenColumn' "$parent_source" >/dev/null
 grep -F 'LongColumn childrenHandleColumn' "$parent_source" >/dev/null
 grep -F 'ChildOwnershipRegistry ownership' "$parent_source" >/dev/null

@@ -1,6 +1,6 @@
 package com.example.wildcard;
 
-import com.hgtech.soma.annotation.*;
+import io.github.somaruntime.soma.annotation.*;
 
 @SomaValue
 public class WildcardValue {

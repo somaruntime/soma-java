@@ -1,6 +1,6 @@
 package com.example.soma.defaults;
 
-import com.hgtech.soma.annotation.*;
+import io.github.somaruntime.soma.annotation.*;
 import java.util.List;
 
 @SomaTable(name = "bad_child_default")

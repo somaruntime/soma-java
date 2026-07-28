@@ -2,9 +2,9 @@ Compiled from "KeyedParticleKeyTraversal.java"
 public final class com.example.soma.keyed.generated.KeyedParticleKeyTraversal {
   public void forEach(java.util.function.Consumer<java.lang.Integer>);
   public java.util.List<java.lang.Integer> fetchAll();
-  public java.util.List<java.lang.Integer> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<java.lang.Integer> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.Optional<java.lang.Integer> findFirst();
-  public java.util.Optional<java.lang.Integer> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<java.lang.Integer> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.lang.Integer firstOrThrow();
-  public java.lang.Integer firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.lang.Integer firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
 }

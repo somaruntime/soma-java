@@ -141,8 +141,8 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
 runtime_classpath=$application_build_dir/classes:$(cat "$runtime_classpath_file")
 test_classpath=$application_build_dir/test-classes:$runtime_classpath
 
-main_root=$application_dir/src/main/java/com/hgtech/soma/examples/rtd
-test_root=$application_dir/src/test/java/com/hgtech/soma/examples/rtd
+main_root=$application_dir/src/main/java/io/github/somaruntime/soma/examples/rtd
+test_root=$application_dir/src/test/java/io/github/somaruntime/soma/examples/rtd
 for package in config dispatch feed result rule runtime schema support; do
   if [ ! -d "$main_root/$package" ]; then
     printf '%s\n' \
@@ -158,7 +158,7 @@ for package in benchmark evidence reference validation; do
   fi
 done
 
-if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime|dataflow)' \
+if grep -R -E '^import io\.github\.somaruntime\.soma\.(annotation|runtime|dataflow)' \
     "$main_root/config" "$main_root/feed" "$main_root/support" \
     >/dev/null; then
   printf '%s\n' \
@@ -166,7 +166,7 @@ if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime|dataflow)' \
   exit 1
 fi
 if grep -R -E \
-    '^import com\.hgtech\.soma\.(annotation|runtime|dataflow)|^import com\.hgtech\.soma\.examples\.rtd\.(config|dispatch|feed|rule|runtime|schema)' \
+    '^import io\.github\.somaruntime\.soma\.(annotation|runtime|dataflow)|^import io\.github\.somaruntime\.soma\.examples\.rtd\.(config|dispatch|feed|rule|runtime|schema)' \
     "$main_root/result" >/dev/null; then
   printf '%s\n' \
     'rtd-rule-engine-check: detached result depends on SOMA' >&2
@@ -180,7 +180,7 @@ if grep -R -F 'SyntheticDispatchScenarioFactory' \
   exit 1
 fi
 if grep -R -E \
-    '^import com\.hgtech\.soma\.examples\.(scheduler|grassing)' \
+    '^import io\.github\.somaruntime\.soma\.examples\.(scheduler|grassing)' \
     "$application_dir/src" >/dev/null \
     || grep -E \
       '<artifactId>(industrial-dynamic-scheduler|grassing-individual-simulation)</artifactId>' \
@@ -244,9 +244,9 @@ if grep -E \
   exit 1
 fi
 for required in \
-  com/hgtech/soma/examples/rtd/RealTimeDispatchApplication.class \
-  com/hgtech/soma/examples/rtd/schema/generated/WorkStateTable.class \
-  com/hgtech/soma/examples/rtd/schema/generated/ResourceStateTable.class; do
+  io/github/somaruntime/soma/examples/rtd/RealTimeDispatchApplication.class \
+  io/github/somaruntime/soma/examples/rtd/schema/generated/WorkStateTable.class \
+  io/github/somaruntime/soma/examples/rtd/schema/generated/ResourceStateTable.class; do
   if ! grep -F "$required" "$jar_manifest" >/dev/null; then
     printf '%s\n' \
       "rtd-rule-engine-check: production JAR lacks $required" >&2
@@ -259,7 +259,7 @@ verification_log=$evidence_dir/verification.log
 for verification_profile in correctness "$profile"; do
   "$JAVA_HOME/bin/java" -ea -Xms512m -Xmx512m \
     -cp "$test_classpath" \
-    com.hgtech.soma.examples.rtd.evidence.DispatchVerification \
+    io.github.somaruntime.soma.examples.rtd.evidence.DispatchVerification \
     "$verification_profile" >>"$verification_log"
 done
 if [ "$(grep -c '^rtd-dispatch-verification:' \
@@ -272,7 +272,7 @@ fi
 
 "$JAVA_HOME/bin/java" -Xms256m -Xmx256m \
   -cp "$runtime_classpath" \
-  com.hgtech.soma.examples.rtd.RealTimeDispatchApplication \
+  io.github.somaruntime.soma.examples.rtd.RealTimeDispatchApplication \
   default >"$evidence_dir/default-run.txt"
 for field in config.checksum input.checksum result.checksum definition; do
   grep -F "$field=" "$evidence_dir/default-run.txt" >/dev/null
@@ -292,7 +292,7 @@ while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_CPU="$benchmark_cpu" \
   "$JAVA_HOME/bin/java" -Xms"$heap" -Xmx"$heap" \
     -cp "$test_classpath" \
-    com.hgtech.soma.examples.rtd.benchmark.DispatchBenchmark \
+    io.github.somaruntime.soma.examples.rtd.benchmark.DispatchBenchmark \
     "$profile" "$profile" >>"$benchmark_artifact"
   fork=$((fork + 1))
 done
@@ -401,7 +401,7 @@ else
     -pl soma-benchmarks -am test-compile
   "$JAVA_HOME/bin/java" \
     -cp "$root_dir/soma-benchmarks/target/classes" \
-    com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+    io.github.somaruntime.soma.benchmarks.PerformanceBaselineComparator \
     "$baseline" "$baseline_result" "$benchmark_artifact"
 fi
 

@@ -60,8 +60,8 @@ cmp "$expected/ParticleTable.javap.txt" "$evidence_dir/ParticleTable.javap.txt"
 cmp "$expected/ParticleBatch.javap.txt" "$evidence_dir/ParticleBatch.javap.txt"
 scan_source=$fixture/target/generated-sources/annotations/com/example/soma/dense/generated/ParticleScan.java
 table_source=$fixture/target/generated-sources/annotations/com/example/soma/dense/generated/ParticleTable.java
-scan_plan_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/GeneratedScanPlan.java
-column_view_source=$root_dir/soma-runtime-core/src/main/java/com/hgtech/soma/runtime/AbstractColumnView.java
+scan_plan_source=$root_dir/soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated/GeneratedScanPlan.java
+column_view_source=$root_dir/soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/AbstractColumnView.java
 grep -F 'private static final class Inline' "$scan_plan_source" >/dev/null
 grep -F 'private static final class Overflow' "$scan_plan_source" >/dev/null
 grep -F 'plan.isCurrent(generation)' "$scan_source" >/dev/null
@@ -94,7 +94,7 @@ if grep -F 'field + ".column"' "$column_view_source" >/dev/null \
   exit 1
 fi
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar:$local_repository/com/hgtech/soma/soma-dataflow/0.2.0-SNAPSHOT/soma-dataflow-0.2.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:$local_repository/io/github/somaruntime/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar:$local_repository/io/github/somaruntime/soma/soma-dataflow/0.2.0-SNAPSHOT/soma-dataflow-0.2.0-SNAPSHOT.jar" \
   com.example.soma.dense.DenseConsumer
 
 "$JAVA_HOME/bin/java" -version

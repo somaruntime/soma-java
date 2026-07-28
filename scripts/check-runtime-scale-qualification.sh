@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ] \
     || [ ! -x "$JAVA_HOME/bin/javac" ] \
@@ -61,10 +62,10 @@ git ls-files -co --exclude-standard -- \
   LC_ALL=C sort |
   while IFS= read -r source_file; do
     if [ -f "$source_file" ]; then
-      shasum -a 256 "$source_file"
+      soma_sha256 "$source_file"
     fi
   done >"$evidence_dir/source-files.sha256"
-tree_checksum=$(shasum -a 256 "$evidence_dir/source-files.sha256" |
+tree_checksum=$(soma_sha256 "$evidence_dir/source-files.sha256" |
   awk '{print $1}')
 tree_state="content-sha256:$tree_checksum"
 qualification_id="runtime-scale-qualification-20260728-$(printf '%s' "$tree_checksum" | cut -c1-12)"
@@ -75,8 +76,8 @@ if [ -z "$cpu_identity" ]; then
 fi
 
 classpath="soma-benchmarks/target/classes:soma-runtime-core/target/classes:soma-dataflow/target/classes"
-runner=com.hgtech.soma.benchmarks.RuntimeScaleQualificationRunner
-validator=com.hgtech.soma.benchmarks.RuntimeScaleQualificationArtifactValidator
+runner=io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationRunner
+validator=io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationArtifactValidator
 
 run_lane() {
   lane=$1
@@ -180,7 +181,7 @@ for class_name in \
   RuntimeScaleQualificationArtifactValidator; do
   major=$("$JAVA_HOME/bin/javap" \
     -classpath soma-benchmarks/target/classes \
-    -verbose "com.hgtech.soma.benchmarks.$class_name" |
+    -verbose "io.github.somaruntime.soma.benchmarks.$class_name" |
     sed -n 's/^[[:space:]]*major version: //p' | head -n 1)
   if [ "$major" != '52' ]; then
     printf '%s\n' \
@@ -189,7 +190,7 @@ for class_name in \
   fi
 done
 
-shasum -a 256 "$artifact" "$schema" \
+soma_sha256 "$artifact" "$schema" \
   "$evidence_dir/source-files.sha256" \
   >"$evidence_dir/checksums.sha256"
 "$JAVA_HOME/bin/java" -version

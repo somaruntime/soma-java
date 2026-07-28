@@ -19,7 +19,7 @@ public final class ExternalConsumer {
         require(Modifier.isFinal(ExternalId.class.getField("value").getModifiers()),
                 "effective final field");
 
-        requireAbsent("com.hgtech.soma.processor.SomaProcessor");
+        requireAbsent("io.github.somaruntime.soma.processor.SomaProcessor");
     }
 
     private static void requireAbsent(String typeName) {

@@ -29,7 +29,7 @@ one-shot Invocation，再把 detached `DispatchCommand` 交给应用按 stable k
 ```bash
 ./mvnw -f soma-examples/real-time-dispatch-rule-engine/pom.xml clean package
 java -cp "<application classes>:<runtime classpath>" \
-  com.hgtech.soma.examples.rtd.RealTimeDispatchApplication default
+  io.github.somaruntime.soma.examples.rtd.RealTimeDispatchApplication default
 ```
 
 第一个参数可以是 `default` 或外部 `.properties` 文件，后续参数使用

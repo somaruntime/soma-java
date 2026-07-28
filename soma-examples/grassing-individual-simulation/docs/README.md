@@ -33,7 +33,7 @@ DataFlow。
 ```bash
 ./mvnw -f soma-examples/grassing-individual-simulation/pom.xml clean package
 java -cp "<application classes>:<runtime classpath>" \
-  com.hgtech.soma.examples.grassing.SimulationApplication default
+  io.github.somaruntime.soma.examples.grassing.SimulationApplication default
 ```
 
 第一个参数可以是 `default`，也可以是 `.properties` 文件；后续参数使用

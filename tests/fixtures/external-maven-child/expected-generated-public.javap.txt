@@ -45,24 +45,24 @@ public final class com.example.soma.child.generated.ChildRowScan {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.ChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.ChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.ChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.ChildRow firstOrThrow();
-  public com.example.soma.child.ChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.ChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.ChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
+  public java.util.List<com.example.soma.child.ChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.ChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
 }
 ## ChildRowTable
 Compiled from "ChildRowTable.java"
 public final class com.example.soma.child.generated.ChildRowTable {
   public static com.example.soma.child.generated.ChildRowTable create();
-  public static com.example.soma.child.generated.ChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
-  public static com.example.soma.child.generated.ChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
-  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public static com.example.soma.child.generated.ChildRowTable create(io.github.somaruntime.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.ChildRowTable attach(io.github.somaruntime.soma.runtime.SomaGroup, java.lang.String);
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata metadata();
+  public io.github.somaruntime.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -76,9 +76,9 @@ public final class com.example.soma.child.generated.ChildRowTable {
   public void clear();
   public void release();
   public com.example.soma.child.ChildRow fetchAt(int);
-  public com.example.soma.child.ChildRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ChildRow fetchAt(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.ChildRow> materialize();
-  public java.util.List<com.example.soma.child.ChildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.ChildRow> materialize(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.generated.ChildRowMutator mutateAt(int);
   public com.example.soma.child.generated.ChildRowScan filter(com.example.soma.child.generated.ChildRowScan$Predicate);
   public com.example.soma.child.generated.ChildRowScan skip(long);
@@ -91,20 +91,20 @@ public final class com.example.soma.child.generated.ChildRowTable {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.ChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.ChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.ChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.ChildRow firstOrThrow();
-  public com.example.soma.child.ChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.ChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.ChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.hgtech.soma.runtime.IntColumnTraversal valueValues();
-  public com.hgtech.soma.runtime.IntColumnView valueColumn();
-  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public java.util.List<com.example.soma.child.ChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(io.github.somaruntime.soma.runtime.IndexSnapshot);
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.ChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
+  public io.github.somaruntime.soma.runtime.IntColumnTraversal valueValues();
+  public io.github.somaruntime.soma.runtime.IntColumnView valueColumn();
+  public io.github.somaruntime.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
+  public io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## ChildRowUpdateCursor
 Compiled from "ChildRowUpdateCursor.java"
@@ -163,11 +163,11 @@ Compiled from "DoubleKeyedChildRowKeyTraversal.java"
 public final class com.example.soma.child.generated.DoubleKeyedChildRowKeyTraversal {
   public void forEach(java.util.function.Consumer<java.lang.Double>);
   public java.util.List<java.lang.Double> fetchAll();
-  public java.util.List<java.lang.Double> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<java.lang.Double> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.Optional<java.lang.Double> findFirst();
-  public java.util.Optional<java.lang.Double> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<java.lang.Double> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.lang.Double firstOrThrow();
-  public java.lang.Double firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.lang.Double firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
 }
 ## DoubleKeyedChildRowMutator
 Compiled from "DoubleKeyedChildRowMutator.java"
@@ -189,24 +189,24 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowScan {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.DoubleKeyedChildRow firstOrThrow();
-  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.DoubleKeyedChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
+  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.DoubleKeyedChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
 }
 ## DoubleKeyedChildRowTable
 Compiled from "DoubleKeyedChildRowTable.java"
 public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public static com.example.soma.child.generated.DoubleKeyedChildRowTable create();
-  public static com.example.soma.child.generated.DoubleKeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
-  public static com.example.soma.child.generated.DoubleKeyedChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
-  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public static com.example.soma.child.generated.DoubleKeyedChildRowTable create(io.github.somaruntime.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.DoubleKeyedChildRowTable attach(io.github.somaruntime.soma.runtime.SomaGroup, java.lang.String);
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata metadata();
+  public io.github.somaruntime.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -219,18 +219,18 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public void replaceAll(com.example.soma.child.generated.DoubleKeyedChildRowBatch);
   public void clear();
   public void release();
-  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.DoubleKeyedChildRowDelta);
+  public io.github.somaruntime.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.DoubleKeyedChildRowDelta);
   public com.example.soma.child.DoubleKeyedChildRow fetchAt(int);
-  public com.example.soma.child.DoubleKeyedChildRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.DoubleKeyedChildRow fetchAt(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Double, com.example.soma.child.DoubleKeyedChildRow> materialize();
-  public java.util.Map<java.lang.Double, com.example.soma.child.DoubleKeyedChildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<java.lang.Double, com.example.soma.child.DoubleKeyedChildRow> materialize(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public boolean containsKey(double);
   public int findIndex(double);
   public int requireIndex(double);
   public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> find(double);
-  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> find(double, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> find(double, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.DoubleKeyedChildRow fetch(double);
-  public com.example.soma.child.DoubleKeyedChildRow fetch(double, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.DoubleKeyedChildRow fetch(double, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.generated.DoubleKeyedChildRowMutator mutate(double);
   public void delete(double);
   public com.example.soma.child.generated.DoubleKeyedChildRowKeyTraversal keys();
@@ -246,22 +246,22 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.DoubleKeyedChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.DoubleKeyedChildRow firstOrThrow();
-  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.DoubleKeyedChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.DoubleKeyedChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.hgtech.soma.runtime.DoubleColumnTraversal idValues();
-  public com.hgtech.soma.runtime.DoubleColumnView idColumn();
-  public com.hgtech.soma.runtime.IntColumnTraversal valueValues();
-  public com.hgtech.soma.runtime.IntColumnView valueColumn();
-  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public java.util.List<com.example.soma.child.DoubleKeyedChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(io.github.somaruntime.soma.runtime.IndexSnapshot);
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.DoubleKeyedChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
+  public io.github.somaruntime.soma.runtime.DoubleColumnTraversal idValues();
+  public io.github.somaruntime.soma.runtime.DoubleColumnView idColumn();
+  public io.github.somaruntime.soma.runtime.IntColumnTraversal valueValues();
+  public io.github.somaruntime.soma.runtime.IntColumnView valueColumn();
+  public io.github.somaruntime.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
+  public io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## DoubleKeyedChildRowUpdateCursor
 Compiled from "DoubleKeyedChildRowUpdateCursor.java"
@@ -320,11 +320,11 @@ Compiled from "FloatKeyedChildRowKeyTraversal.java"
 public final class com.example.soma.child.generated.FloatKeyedChildRowKeyTraversal {
   public void forEach(java.util.function.Consumer<java.lang.Float>);
   public java.util.List<java.lang.Float> fetchAll();
-  public java.util.List<java.lang.Float> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<java.lang.Float> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.Optional<java.lang.Float> findFirst();
-  public java.util.Optional<java.lang.Float> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<java.lang.Float> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.lang.Float firstOrThrow();
-  public java.lang.Float firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.lang.Float firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
 }
 ## FloatKeyedChildRowMutator
 Compiled from "FloatKeyedChildRowMutator.java"
@@ -346,24 +346,24 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowScan {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.FloatKeyedChildRow firstOrThrow();
-  public com.example.soma.child.FloatKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatKeyedChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatKeyedChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
+  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatKeyedChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
 }
 ## FloatKeyedChildRowTable
 Compiled from "FloatKeyedChildRowTable.java"
 public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public static com.example.soma.child.generated.FloatKeyedChildRowTable create();
-  public static com.example.soma.child.generated.FloatKeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
-  public static com.example.soma.child.generated.FloatKeyedChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
-  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public static com.example.soma.child.generated.FloatKeyedChildRowTable create(io.github.somaruntime.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.FloatKeyedChildRowTable attach(io.github.somaruntime.soma.runtime.SomaGroup, java.lang.String);
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata metadata();
+  public io.github.somaruntime.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -376,18 +376,18 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public void replaceAll(com.example.soma.child.generated.FloatKeyedChildRowBatch);
   public void clear();
   public void release();
-  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.FloatKeyedChildRowDelta);
+  public io.github.somaruntime.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.FloatKeyedChildRowDelta);
   public com.example.soma.child.FloatKeyedChildRow fetchAt(int);
-  public com.example.soma.child.FloatKeyedChildRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatKeyedChildRow fetchAt(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Float, com.example.soma.child.FloatKeyedChildRow> materialize();
-  public java.util.Map<java.lang.Float, com.example.soma.child.FloatKeyedChildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<java.lang.Float, com.example.soma.child.FloatKeyedChildRow> materialize(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public boolean containsKey(float);
   public int findIndex(float);
   public int requireIndex(float);
   public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> find(float);
-  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> find(float, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> find(float, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.FloatKeyedChildRow fetch(float);
-  public com.example.soma.child.FloatKeyedChildRow fetch(float, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatKeyedChildRow fetch(float, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.generated.FloatKeyedChildRowMutator mutate(float);
   public void delete(float);
   public com.example.soma.child.generated.FloatKeyedChildRowKeyTraversal keys();
@@ -403,22 +403,22 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.FloatKeyedChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.FloatKeyedChildRow firstOrThrow();
-  public com.example.soma.child.FloatKeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatKeyedChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatKeyedChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.hgtech.soma.runtime.FloatColumnTraversal idValues();
-  public com.hgtech.soma.runtime.FloatColumnView idColumn();
-  public com.hgtech.soma.runtime.IntColumnTraversal valueValues();
-  public com.hgtech.soma.runtime.IntColumnView valueColumn();
-  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public java.util.List<com.example.soma.child.FloatKeyedChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(io.github.somaruntime.soma.runtime.IndexSnapshot);
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatKeyedChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
+  public io.github.somaruntime.soma.runtime.FloatColumnTraversal idValues();
+  public io.github.somaruntime.soma.runtime.FloatColumnView idColumn();
+  public io.github.somaruntime.soma.runtime.IntColumnTraversal valueValues();
+  public io.github.somaruntime.soma.runtime.IntColumnView valueColumn();
+  public io.github.somaruntime.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
+  public io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## FloatKeyedChildRowUpdateCursor
 Compiled from "FloatKeyedChildRowUpdateCursor.java"
@@ -472,24 +472,24 @@ public final class com.example.soma.child.generated.FloatingParentRowScan {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst();
-  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.FloatingParentRow firstOrThrow();
-  public com.example.soma.child.FloatingParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatingParentRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll();
-  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatingParentRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
+  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatingParentRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
 }
 ## FloatingParentRowTable
 Compiled from "FloatingParentRowTable.java"
 public final class com.example.soma.child.generated.FloatingParentRowTable {
   public static com.example.soma.child.generated.FloatingParentRowTable create();
-  public static com.example.soma.child.generated.FloatingParentRowTable create(com.hgtech.soma.runtime.RuntimePlan);
-  public static com.example.soma.child.generated.FloatingParentRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
-  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public static com.example.soma.child.generated.FloatingParentRowTable create(io.github.somaruntime.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.FloatingParentRowTable attach(io.github.somaruntime.soma.runtime.SomaGroup, java.lang.String);
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata metadata();
+  public io.github.somaruntime.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -507,9 +507,9 @@ public final class com.example.soma.child.generated.FloatingParentRowTable {
   public com.example.soma.child.generated.DoubleKeyedChildRowTable doubleChildren(int);
   public void replaceDoubleChildren(int, com.example.soma.child.generated.DoubleKeyedChildRowBatch);
   public com.example.soma.child.FloatingParentRow fetchAt(int);
-  public com.example.soma.child.FloatingParentRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatingParentRow fetchAt(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.FloatingParentRow> materialize();
-  public java.util.List<com.example.soma.child.FloatingParentRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.FloatingParentRow> materialize(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.generated.FloatingParentRowMutator mutateAt(int);
   public com.example.soma.child.generated.FloatingParentRowScan filter(com.example.soma.child.generated.FloatingParentRowScan$Predicate);
   public com.example.soma.child.generated.FloatingParentRowScan skip(long);
@@ -522,20 +522,20 @@ public final class com.example.soma.child.generated.FloatingParentRowTable {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst();
-  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.FloatingParentRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.FloatingParentRow firstOrThrow();
-  public com.example.soma.child.FloatingParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.FloatingParentRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll();
-  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatingParentRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.hgtech.soma.runtime.IntColumnTraversal idValues();
-  public com.hgtech.soma.runtime.IntColumnView idColumn();
-  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public java.util.List<com.example.soma.child.FloatingParentRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(io.github.somaruntime.soma.runtime.IndexSnapshot);
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.FloatingParentRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
+  public io.github.somaruntime.soma.runtime.IntColumnTraversal idValues();
+  public io.github.somaruntime.soma.runtime.IntColumnView idColumn();
+  public io.github.somaruntime.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
+  public io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## FloatingParentRowUpdateCursor
 Compiled from "FloatingParentRowUpdateCursor.java"
@@ -589,24 +589,24 @@ public final class com.example.soma.child.generated.GrandchildRowScan {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.GrandchildRow firstOrThrow();
-  public com.example.soma.child.GrandchildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.GrandchildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.GrandchildRow> fetchAll();
-  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.GrandchildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
+  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.GrandchildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
 }
 ## GrandchildRowTable
 Compiled from "GrandchildRowTable.java"
 public final class com.example.soma.child.generated.GrandchildRowTable {
   public static com.example.soma.child.generated.GrandchildRowTable create();
-  public static com.example.soma.child.generated.GrandchildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
-  public static com.example.soma.child.generated.GrandchildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
-  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public static com.example.soma.child.generated.GrandchildRowTable create(io.github.somaruntime.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.GrandchildRowTable attach(io.github.somaruntime.soma.runtime.SomaGroup, java.lang.String);
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata metadata();
+  public io.github.somaruntime.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -620,9 +620,9 @@ public final class com.example.soma.child.generated.GrandchildRowTable {
   public void clear();
   public void release();
   public com.example.soma.child.GrandchildRow fetchAt(int);
-  public com.example.soma.child.GrandchildRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.GrandchildRow fetchAt(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.GrandchildRow> materialize();
-  public java.util.List<com.example.soma.child.GrandchildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.GrandchildRow> materialize(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.generated.GrandchildRowMutator mutateAt(int);
   public com.example.soma.child.generated.GrandchildRowScan filter(com.example.soma.child.generated.GrandchildRowScan$Predicate);
   public com.example.soma.child.generated.GrandchildRowScan skip(long);
@@ -635,20 +635,20 @@ public final class com.example.soma.child.generated.GrandchildRowTable {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.GrandchildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.GrandchildRow firstOrThrow();
-  public com.example.soma.child.GrandchildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.GrandchildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.GrandchildRow> fetchAll();
-  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.GrandchildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.hgtech.soma.runtime.LongColumnTraversal amountValues();
-  public com.hgtech.soma.runtime.LongColumnView amountColumn();
-  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public java.util.List<com.example.soma.child.GrandchildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(io.github.somaruntime.soma.runtime.IndexSnapshot);
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.GrandchildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
+  public io.github.somaruntime.soma.runtime.LongColumnTraversal amountValues();
+  public io.github.somaruntime.soma.runtime.LongColumnView amountColumn();
+  public io.github.somaruntime.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
+  public io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## GrandchildRowUpdateCursor
 Compiled from "GrandchildRowUpdateCursor.java"
@@ -707,11 +707,11 @@ Compiled from "KeyedChildRowKeyTraversal.java"
 public final class com.example.soma.child.generated.KeyedChildRowKeyTraversal {
   public void forEach(java.util.function.Consumer<java.lang.Integer>);
   public java.util.List<java.lang.Integer> fetchAll();
-  public java.util.List<java.lang.Integer> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<java.lang.Integer> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.Optional<java.lang.Integer> findFirst();
-  public java.util.Optional<java.lang.Integer> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<java.lang.Integer> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.lang.Integer firstOrThrow();
-  public java.lang.Integer firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.lang.Integer firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
 }
 ## KeyedChildRowMutator
 Compiled from "KeyedChildRowMutator.java"
@@ -733,24 +733,24 @@ public final class com.example.soma.child.generated.KeyedChildRowScan {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.KeyedChildRow firstOrThrow();
-  public com.example.soma.child.KeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.KeyedChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.KeyedChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
+  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.KeyedChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
 }
 ## KeyedChildRowTable
 Compiled from "KeyedChildRowTable.java"
 public final class com.example.soma.child.generated.KeyedChildRowTable {
   public static com.example.soma.child.generated.KeyedChildRowTable create();
-  public static com.example.soma.child.generated.KeyedChildRowTable create(com.hgtech.soma.runtime.RuntimePlan);
-  public static com.example.soma.child.generated.KeyedChildRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
-  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public static com.example.soma.child.generated.KeyedChildRowTable create(io.github.somaruntime.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.KeyedChildRowTable attach(io.github.somaruntime.soma.runtime.SomaGroup, java.lang.String);
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata metadata();
+  public io.github.somaruntime.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -763,20 +763,20 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public void replaceAll(com.example.soma.child.generated.KeyedChildRowBatch);
   public void clear();
   public void release();
-  public com.hgtech.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.KeyedChildRowDelta);
+  public io.github.somaruntime.soma.dataflow.DeltaApplyResult applyDelta(com.example.soma.child.generated.KeyedChildRowDelta);
   public com.example.soma.child.generated.GrandchildRowTable grandchildren(int);
   public void replaceGrandchildren(int, com.example.soma.child.generated.GrandchildRowBatch);
   public com.example.soma.child.KeyedChildRow fetchAt(int);
-  public com.example.soma.child.KeyedChildRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.KeyedChildRow fetchAt(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.Map<java.lang.Integer, com.example.soma.child.KeyedChildRow> materialize();
-  public java.util.Map<java.lang.Integer, com.example.soma.child.KeyedChildRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Map<java.lang.Integer, com.example.soma.child.KeyedChildRow> materialize(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public boolean containsKey(int);
   public int findIndex(int);
   public int requireIndex(int);
   public java.util.Optional<com.example.soma.child.KeyedChildRow> find(int);
-  public java.util.Optional<com.example.soma.child.KeyedChildRow> find(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.KeyedChildRow> find(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.KeyedChildRow fetch(int);
-  public com.example.soma.child.KeyedChildRow fetch(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.KeyedChildRow fetch(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.generated.KeyedChildRowMutator mutate(int);
   public void delete(int);
   public com.example.soma.child.generated.KeyedChildRowKeyTraversal keys();
@@ -792,22 +792,22 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst();
-  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.KeyedChildRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.KeyedChildRow firstOrThrow();
-  public com.example.soma.child.KeyedChildRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.KeyedChildRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll();
-  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.KeyedChildRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.hgtech.soma.runtime.IntColumnTraversal idValues();
-  public com.hgtech.soma.runtime.IntColumnView idColumn();
-  public com.hgtech.soma.runtime.IntColumnTraversal valueValues();
-  public com.hgtech.soma.runtime.IntColumnView valueColumn();
-  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public java.util.List<com.example.soma.child.KeyedChildRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(io.github.somaruntime.soma.runtime.IndexSnapshot);
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.KeyedChildRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
+  public io.github.somaruntime.soma.runtime.IntColumnTraversal idValues();
+  public io.github.somaruntime.soma.runtime.IntColumnView idColumn();
+  public io.github.somaruntime.soma.runtime.IntColumnTraversal valueValues();
+  public io.github.somaruntime.soma.runtime.IntColumnView valueColumn();
+  public io.github.somaruntime.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
+  public io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## KeyedChildRowUpdateCursor
 Compiled from "KeyedChildRowUpdateCursor.java"
@@ -861,24 +861,24 @@ public final class com.example.soma.child.generated.ParentRowScan {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.ParentRow> findFirst();
-  public java.util.Optional<com.example.soma.child.ParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.ParentRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.ParentRow firstOrThrow();
-  public com.example.soma.child.ParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ParentRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.ParentRow> fetchAll();
-  public java.util.List<com.example.soma.child.ParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ParentRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
+  public java.util.List<com.example.soma.child.ParentRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.ParentRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
 }
 ## ParentRowTable
 Compiled from "ParentRowTable.java"
 public final class com.example.soma.child.generated.ParentRowTable {
   public static com.example.soma.child.generated.ParentRowTable create();
-  public static com.example.soma.child.generated.ParentRowTable create(com.hgtech.soma.runtime.RuntimePlan);
-  public static com.example.soma.child.generated.ParentRowTable attach(com.hgtech.soma.runtime.SomaGroup, java.lang.String);
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.metadata.SomaTableMetadata metadata();
-  public com.hgtech.soma.runtime.RuntimePlan runtimePlan();
+  public static com.example.soma.child.generated.ParentRowTable create(io.github.somaruntime.soma.runtime.RuntimePlan);
+  public static com.example.soma.child.generated.ParentRowTable attach(io.github.somaruntime.soma.runtime.SomaGroup, java.lang.String);
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata metadata();
+  public io.github.somaruntime.soma.runtime.RuntimePlan runtimePlan();
   public int size();
   public int capacity();
   public long structuralEpoch();
@@ -901,9 +901,9 @@ public final class com.example.soma.child.generated.ParentRowTable {
   public com.example.soma.child.generated.KeyedChildRowTable keyedChildren(int);
   public void replaceKeyedChildren(int, com.example.soma.child.generated.KeyedChildRowBatch);
   public com.example.soma.child.ParentRow fetchAt(int);
-  public com.example.soma.child.ParentRow fetchAt(int, com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ParentRow fetchAt(int, io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.ParentRow> materialize();
-  public java.util.List<com.example.soma.child.ParentRow> materialize(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.List<com.example.soma.child.ParentRow> materialize(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.generated.ParentRowMutator mutateAt(int);
   public com.example.soma.child.generated.ParentRowScan filter(com.example.soma.child.generated.ParentRowScan$Predicate);
   public com.example.soma.child.generated.ParentRowScan skip(long);
@@ -916,20 +916,20 @@ public final class com.example.soma.child.generated.ParentRowTable {
   public int findIndex();
   public int requireIndex();
   public java.util.Optional<com.example.soma.child.ParentRow> findFirst();
-  public java.util.Optional<com.example.soma.child.ParentRow> findFirst(com.hgtech.soma.runtime.MaterializationBudget);
+  public java.util.Optional<com.example.soma.child.ParentRow> findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public com.example.soma.child.ParentRow firstOrThrow();
-  public com.example.soma.child.ParentRow firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);
+  public com.example.soma.child.ParentRow firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);
   public java.util.List<com.example.soma.child.ParentRow> fetchAll();
-  public java.util.List<com.example.soma.child.ParentRow> fetchAll(com.hgtech.soma.runtime.MaterializationBudget);
-  public com.hgtech.soma.runtime.IndexSnapshot indexSnapshot();
-  public void requireCurrent(com.hgtech.soma.runtime.IndexSnapshot);
-  public com.hgtech.soma.runtime.UpdateResult update(com.example.soma.child.generated.ParentRowScan$Updater);
-  public com.hgtech.soma.runtime.RemoveResult remove();
-  public com.hgtech.soma.runtime.IntColumnTraversal idValues();
-  public com.hgtech.soma.runtime.IntColumnView idColumn();
-  public com.hgtech.soma.runtime.TableStats statsSnapshot();
+  public java.util.List<com.example.soma.child.ParentRow> fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);
+  public io.github.somaruntime.soma.runtime.IndexSnapshot indexSnapshot();
+  public void requireCurrent(io.github.somaruntime.soma.runtime.IndexSnapshot);
+  public io.github.somaruntime.soma.runtime.UpdateResult update(com.example.soma.child.generated.ParentRowScan$Updater);
+  public io.github.somaruntime.soma.runtime.RemoveResult remove();
+  public io.github.somaruntime.soma.runtime.IntColumnTraversal idValues();
+  public io.github.somaruntime.soma.runtime.IntColumnView idColumn();
+  public io.github.somaruntime.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
-  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
+  public io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## ParentRowUpdateCursor
 Compiled from "ParentRowUpdateCursor.java"
@@ -939,8 +939,8 @@ public interface com.example.soma.child.generated.ParentRowUpdateCursor extends 
 ## SchemaMetadata
 Compiled from "SchemaMetadata.java"
 public final class com.example.soma.child.generated.SchemaMetadata {
-  public static com.hgtech.soma.runtime.metadata.SomaMetadata metadata();
-  public static com.hgtech.soma.runtime.metadata.SomaSchemaMetadata schema();
-  public static com.hgtech.soma.runtime.RuntimePlan defaultRuntimePlan();
-  public static com.hgtech.soma.runtime.RuntimePlan$Builder newPlan();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaMetadata metadata();
+  public static io.github.somaruntime.soma.runtime.metadata.SomaSchemaMetadata schema();
+  public static io.github.somaruntime.soma.runtime.RuntimePlan defaultRuntimePlan();
+  public static io.github.somaruntime.soma.runtime.RuntimePlan$Builder newPlan();
 }

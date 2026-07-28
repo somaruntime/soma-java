@@ -12,10 +12,10 @@
     <soma.version>0.2.0-SNAPSHOT</soma.version>
   </properties>
   <dependencies>
-    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-annotations</artifactId><version>${soma.version}</version></dependency>
-    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-runtime-core</artifactId><version>${soma.version}</version></dependency>
-    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-dataflow</artifactId><version>${soma.version}</version></dependency>
-    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-processor</artifactId><version>${soma.version}</version><scope>provided</scope></dependency>
+    <dependency><groupId>io.github.somaruntime.soma</groupId><artifactId>soma-annotations</artifactId><version>${soma.version}</version></dependency>
+    <dependency><groupId>io.github.somaruntime.soma</groupId><artifactId>soma-runtime-core</artifactId><version>${soma.version}</version></dependency>
+    <dependency><groupId>io.github.somaruntime.soma</groupId><artifactId>soma-dataflow</artifactId><version>${soma.version}</version></dependency>
+    <dependency><groupId>io.github.somaruntime.soma</groupId><artifactId>soma-processor</artifactId><version>${soma.version}</version><scope>provided</scope></dependency>
   </dependencies>
   <build><plugins>
     <plugin>
@@ -24,8 +24,8 @@
         <source>1.8</source><target>1.8</target><encoding>UTF-8</encoding>
         <compilerArgs><arg>-Xplugin:SomaValue</arg></compilerArgs>
         <annotationProcessorPaths>
-          <path><groupId>com.hgtech.soma</groupId><artifactId>soma-processor</artifactId><version>${soma.version}</version></path>
-          <path><groupId>com.hgtech.soma</groupId><artifactId>soma-annotations</artifactId><version>${soma.version}</version></path>
+          <path><groupId>io.github.somaruntime.soma</groupId><artifactId>soma-processor</artifactId><version>${soma.version}</version></path>
+          <path><groupId>io.github.somaruntime.soma</groupId><artifactId>soma-annotations</artifactId><version>${soma.version}</version></path>
         </annotationProcessorPaths>
       </configuration>
     </plugin>

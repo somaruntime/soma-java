@@ -1,7 +1,7 @@
 package com.example.tablebad.capacity;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable(defaultCapacity = 0)
 public final class BadTable {

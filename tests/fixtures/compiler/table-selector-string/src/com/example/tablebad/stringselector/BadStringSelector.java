@@ -1,8 +1,8 @@
 package com.example.tablebad.stringselector;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaIndex;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaIndex;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable
 @SomaIndex(name = "by_label", fields = {"label.value"})

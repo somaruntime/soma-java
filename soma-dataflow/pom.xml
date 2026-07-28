@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.hgtech.soma</groupId>
+    <groupId>io.github.somaruntime.soma</groupId>
     <artifactId>soma-java-parent</artifactId>
     <version>0.2.0-SNAPSHOT</version>
   </parent>

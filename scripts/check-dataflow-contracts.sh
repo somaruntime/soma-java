@@ -20,7 +20,7 @@ for check_class in \
   DataFlowShapeAndGraphContractCheck
 do
   "$JAVA_HOME/bin/java" -cp "$classpath" \
-    "com.hgtech.soma.benchmarks.$check_class"
+    "io.github.somaruntime.soma.benchmarks.$check_class"
 done
 
 git diff --check

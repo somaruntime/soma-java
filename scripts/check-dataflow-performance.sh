@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ] \
     || [ ! -x "$JAVA_HOME/bin/javap" ]; then
@@ -30,8 +31,8 @@ baseline_result=$evidence_dir/performance-baseline-result.json
 
 ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
 
-if grep -F 'com.hgtech.soma.examples' \
-    soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/DataFlowComponentBenchmark.java \
+if grep -F 'io.github.somaruntime.soma.examples' \
+    soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/DataFlowComponentBenchmark.java \
     >/dev/null; then
   printf '%s\n' \
     'dataflow-performance-check: example domain import detected' >&2
@@ -40,7 +41,7 @@ fi
 
 classpath="soma-benchmarks/target/classes:soma-dataflow/target/classes:soma-runtime-core/target/classes"
 
-benchmark_type='com.hgtech.soma.benchmarks.DataFlowComponentBenchmark'
+benchmark_type='io.github.somaruntime.soma.benchmarks.DataFlowComponentBenchmark'
 benchmark_descriptor=$("$JAVA_HOME/bin/javap" \
   -classpath soma-benchmarks/target/classes -p "$benchmark_type")
 if printf '%s\n' "$benchmark_descriptor" |
@@ -51,7 +52,7 @@ if printf '%s\n' "$benchmark_descriptor" |
 fi
 
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
-    com.hgtech.soma.benchmarks.DataFlowComponentBenchmark --unknown value \
+    io.github.somaruntime.soma.benchmarks.DataFlowComponentBenchmark --unknown value \
     >"$evidence_dir/invalid-option.log" 2>&1; then
   printf '%s\n' \
     'dataflow-performance-check: unknown CLI option accepted' >&2
@@ -60,7 +61,7 @@ fi
 
 SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
   -Xms256m -Xmx512m -cp "$classpath" \
-  com.hgtech.soma.benchmarks.DataFlowComponentBenchmark \
+  io.github.somaruntime.soma.benchmarks.DataFlowComponentBenchmark \
   --output "$evidence_dir/admission.jsonl" \
   --commit "$commit" --fork 1 --forks 1 \
   --warmup 0 --iterations 1
@@ -79,7 +80,7 @@ fork=1
 while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
     -Xms256m -Xmx512m -cp "$classpath" \
-    com.hgtech.soma.benchmarks.DataFlowComponentBenchmark \
+    io.github.somaruntime.soma.benchmarks.DataFlowComponentBenchmark \
     --output "$evidence_dir/dataflow-fork-$fork.jsonl" \
     --commit "$commit" --fork "$fork" --forks "$forks" \
     --warmup 32 --iterations 64
@@ -88,7 +89,7 @@ done
 
 set -- "$evidence_dir"/dataflow-fork-*.jsonl
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+  io.github.somaruntime.soma.benchmarks.PerformanceBaselineComparator \
   "$baseline" "$baseline_result" "$@"
 
 record_count=0
@@ -109,15 +110,15 @@ if [ "$record_count" -ne $((15 * forks)) ]; then
   exit 1
 fi
 
-shasum -a 256 "$@" "$baseline" "$baseline_result" \
-  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/DataFlowComponentBenchmark.java \
-  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/JvmRuntimeMetrics.java \
-  soma-dataflow/src/main/java/com/hgtech/soma/dataflow/CandidateProgram.java \
+soma_sha256 "$@" "$baseline" "$baseline_result" \
+  soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/DataFlowComponentBenchmark.java \
+  soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/JvmRuntimeMetrics.java \
+  soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/CandidateProgram.java \
   >"$evidence_dir/checksums.sha256"
 
 for class_name in DataFlowComponentBenchmark PerformanceBaselineComparator; do
   major=$($JAVA_HOME/bin/javap -classpath soma-benchmarks/target/classes \
-    -verbose "com.hgtech.soma.benchmarks.$class_name" |
+    -verbose "io.github.somaruntime.soma.benchmarks.$class_name" |
     sed -n 's/^[[:space:]]*major version: //p' | head -n 1)
   if [ "$major" != '52' ]; then
     printf '%s\n' \

@@ -1,0 +1,50 @@
+name: Release qualification
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-qualification-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  private-source-qualification:
+    name: Private-source package and security qualification
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+
+      - name: Set up exact supported JDK
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: zulu
+          java-version: '8.0.492+9'
+          java-package: jdk
+          architecture: x64
+          cache: maven
+
+      - name: Verify exact supported toolchain
+        run: ./scripts/check-toolchain.sh
+
+      - name: Install verified OSV-Scanner
+        env:
+          SOMA_TOOLCHAIN_ROOT: ${{ runner.temp }}/soma-toolchains
+        run: |
+          scanner=$(./scripts/setup/install-osv-scanner.sh)
+          printf 'OSV_SCANNER=%s\n' "$scanner" >> "$GITHUB_ENV"
+
+      - name: Run project checks
+        run: ./scripts/check.sh
+
+      - name: Verify reproducible release-shaped package
+        run: ./scripts/package-smoke.sh
+
+      - name: Run dependency, license and vulnerability scan
+        run: ./scripts/security-release-scan.sh
+
+      - name: Verify generated workspace cleanliness
+        run: git diff --exit-code

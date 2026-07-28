@@ -1,7 +1,7 @@
 package com.example.soma.child;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable(name = "grandchild_rows", defaultCapacity = 2)
 public final class GrandchildRow {

@@ -58,7 +58,7 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 | `soma-annotations` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-annotations/docs/README.md) |
 | `soma-processor` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-processor/docs/README.md) |
 | `soma-runtime-core` | [Runtime Core Map](implementation-map/runtime-core-map.md)、[模块文档入口](../soma-runtime-core/docs/README.md) |
-| `soma-dataflow` | [DataFlow Map](implementation-map/dataflow-map.md) |
+| `soma-dataflow` | [DataFlow Map](implementation-map/dataflow-map.md)、[模块文档入口](../soma-dataflow/docs/README.md) |
 | `soma-examples` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[参考应用输出](../soma-examples/docs/README.md) |
 | `soma-benchmarks` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[模块文档入口](../soma-benchmarks/docs/README.md) |
 
@@ -70,7 +70,11 @@ artifact 和 validator 拥有，并由[可执行契约地图](implementation-map
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前没有 active Temporary topic。
+当前 active Temporary topic：
+
+- [个人发布身份、GitHub 私有发布与 Codex Cloud 就绪治理](temp/personal-github-cloud-readiness/README.md)：
+  承载已授权 identity/namespace cutover、仓库与文档收口、Linux/CI、private
+  GitHub profile、Codex Cloud 验收和最终 promotion 追踪；专题完成后删除。
 
 已完成专题的稳定事实进入对应正式 Owner，Temporary 在 closeout 后删除且不归档。
 

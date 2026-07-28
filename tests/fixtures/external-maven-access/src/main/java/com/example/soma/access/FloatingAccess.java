@@ -1,9 +1,9 @@
 package com.example.soma.access;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaIndex;
-import com.hgtech.soma.annotation.SomaTable;
-import com.hgtech.soma.annotation.SomaUnique;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaIndex;
+import io.github.somaruntime.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaUnique;
 
 @SomaTable
 @SomaIndex(name = "by_metric", fields = {"metric"})

@@ -151,9 +151,9 @@ if grep -R -F '<artifactId>soma-benchmarks</artifactId>' \
     soma-examples/industrial-dynamic-scheduler/pom.xml \
     soma-examples/grassing-individual-simulation/pom.xml \
     soma-examples/real-time-dispatch-rule-engine/pom.xml >/dev/null \
-    || grep -R -F 'com.hgtech.soma.examples' \
-      soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineDefinition.java \
-      soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparator.java \
+    || grep -R -F 'io.github.somaruntime.soma.examples' \
+      soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/PerformanceBaselineDefinition.java \
+      soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/PerformanceBaselineComparator.java \
       >/dev/null; then
   printf '%s\n' \
     'performance-baseline-architecture-check: ownership boundary regressed' >&2

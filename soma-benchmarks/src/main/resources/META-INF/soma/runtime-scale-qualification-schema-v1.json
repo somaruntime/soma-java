@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:hgtech:soma:runtime-scale-qualification:v1",
+  "$id": "urn:somaruntime:soma:runtime-scale-qualification:v1",
   "title": "SOMA Runtime Scale Production Qualification Record v1",
   "type": "object",
   "additionalProperties": false,
-  "x-soma-authoritativeValidator": "com.hgtech.soma.benchmarks.RuntimeScaleQualificationArtifactValidator",
+  "x-soma-authoritativeValidator": "io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationArtifactValidator",
   "x-soma-recordFields": [
     "schemaVersion",
     "artifactVersion",

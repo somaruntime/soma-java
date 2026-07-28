@@ -15,17 +15,17 @@ import java.lang.annotation.Target;
 @interface SomaOptional {
 }
 
-@com.hgtech.soma.annotation.SomaValue
+@io.github.somaruntime.soma.annotation.SomaValue
 public class OrdinaryModifiersValue {
-    @com.hgtech.soma.annotation.SomaField
+    @io.github.somaruntime.soma.annotation.SomaField
     @SomaKey
     long keyed;
 
-    @com.hgtech.soma.annotation.SomaField
+    @io.github.somaruntime.soma.annotation.SomaField
     @SomaChild
     long child;
 
-    @com.hgtech.soma.annotation.SomaField
+    @io.github.somaruntime.soma.annotation.SomaField
     @SomaOptional
     long optional;
 }

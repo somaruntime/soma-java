@@ -30,29 +30,29 @@ actual_javap=$evidence_dir/public-api.javap.txt
 classify_type() {
   type=$1
   case "$type" in
-    com.hgtech.soma.annotation.*)
+    io.github.somaruntime.soma.annotation.*)
       printf '%s\n' "PUBLIC handwritten $type"
       ;;
-    com.hgtech.soma.processor.SomaProcessor|\
-    com.hgtech.soma.processor.javac8.SomaJavacPlugin)
+    io.github.somaruntime.soma.processor.SomaProcessor|\
+    io.github.somaruntime.soma.processor.javac8.SomaJavacPlugin)
       printf '%s\n' "PUBLIC build-provider $type"
       ;;
-    com.hgtech.soma.runtime.generated.*)
+    io.github.somaruntime.soma.runtime.generated.*)
       printf '%s\n' "PUBLIC generated-runtime $type"
       ;;
-    com.hgtech.soma.runtime.GeneratedColumnAccess)
+    io.github.somaruntime.soma.runtime.GeneratedColumnAccess)
       printf '%s\n' "PUBLIC generated-construction-protocol $type"
       ;;
-    com.hgtech.soma.runtime.*)
+    io.github.somaruntime.soma.runtime.*)
       printf '%s\n' "PUBLIC handwritten-runtime $type"
       ;;
-    com.hgtech.soma.dataflow.generated.*)
+    io.github.somaruntime.soma.dataflow.generated.*)
       printf '%s\n' "PUBLIC generated-dataflow-protocol $type"
       ;;
-    com.hgtech.soma.dataflow.*)
+    io.github.somaruntime.soma.dataflow.*)
       printf '%s\n' "PUBLIC handwritten-dataflow $type"
       ;;
-    com.hgtech.soma.processor.internal.*)
+    io.github.somaruntime.soma.processor.internal.*)
       printf '%s\n' "INTERNAL implementation $type"
       ;;
     *)
@@ -80,13 +80,13 @@ while read -r classification role type; do
   if [ "$classification" = 'PUBLIC' ]; then
     printf '%s\n' "## $classification $role $type" >>"$actual_javap"
     case "$type" in
-      com.hgtech.soma.annotation.*)
+      io.github.somaruntime.soma.annotation.*)
         artifact=$annotations_jar
         ;;
-      com.hgtech.soma.runtime.*)
+      io.github.somaruntime.soma.runtime.*)
         artifact=$runtime_jar
         ;;
-      com.hgtech.soma.dataflow.*)
+      io.github.somaruntime.soma.dataflow.*)
         artifact=$dataflow_jar
         ;;
       *)
@@ -100,46 +100,46 @@ done <"$actual_classification"
 
 cmp "$expected/public-api.javap.txt" "$actual_javap"
 
-if grep -F 'com.hgtech.soma.runtime.generated.StorageBudget' \
+if grep -F 'io.github.somaruntime.soma.runtime.generated.StorageBudget' \
   "$actual_classification" "$actual_javap" >/dev/null; then
   printf '%s\n' 'public-api-check: internal storage budget leaked into protocol' >&2
   exit 1
 fi
 plan_surface_javap=$evidence_dir/plan-surface.javap.txt
 "$JAVA_HOME/bin/javap" -classpath "$runtime_jar" -public \
-  com.hgtech.soma.runtime.RuntimePlan \
-  'com.hgtech.soma.runtime.RuntimePlan$Builder' \
-  com.hgtech.soma.runtime.TablePlan \
-  'com.hgtech.soma.runtime.TablePlan$Builder' >"$plan_surface_javap"
-if grep -E '^  public static com\.hgtech\.soma\.runtime\.RuntimePlan\$Builder builder\(java\.lang\.String, java\.lang\.String, java\.lang\.String, java\.lang\.String, java\.lang\.String\);$|^  public static com\.hgtech\.soma\.runtime\.TablePlan\$Builder builder\(java\.lang\.String, java\.lang\.String\);$|^  public com\.hgtech\.soma\.runtime\.RuntimePlan\$Builder (addTable|replaceTable|addChild|replaceChild)\(' \
+  io.github.somaruntime.soma.runtime.RuntimePlan \
+  'io.github.somaruntime.soma.runtime.RuntimePlan$Builder' \
+  io.github.somaruntime.soma.runtime.TablePlan \
+  'io.github.somaruntime.soma.runtime.TablePlan$Builder' >"$plan_surface_javap"
+if grep -E '^  public static io\.github\.somaruntime\.soma\.runtime\.RuntimePlan\$Builder builder\(java\.lang\.String, java\.lang\.String, java\.lang\.String, java\.lang\.String, java\.lang\.String\);$|^  public static io\.github\.somaruntime\.soma\.runtime\.TablePlan\$Builder builder\(java\.lang\.String, java\.lang\.String\);$|^  public io\.github\.somaruntime\.soma\.runtime\.RuntimePlan\$Builder (addTable|replaceTable|addChild|replaceChild)\(' \
   "$plan_surface_javap" >/dev/null; then
   printf '%s\n' 'public-api-check: raw application Plan construction surface leaked' >&2
   exit 1
 fi
-if grep -E '^  public com\.hgtech\.soma\.runtime\.TablePlan\$Builder (keySpaceStrategy|accessStrategy)\(java\.lang\.String\);$' \
+if grep -E '^  public io\.github\.somaruntime\.soma\.runtime\.TablePlan\$Builder (keySpaceStrategy|accessStrategy)\(java\.lang\.String\);$' \
   "$plan_surface_javap" >/dev/null; then
   printf '%s\n' 'public-api-check: free-form physical Plan strategy leaked' >&2
   exit 1
 fi
-grep -F 'public static com.hgtech.soma.runtime.RuntimePlan$Builder builder(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);' \
+grep -F 'public static io.github.somaruntime.soma.runtime.RuntimePlan$Builder builder(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);' \
   "$actual_javap" >/dev/null
-grep -F 'public com.hgtech.soma.runtime.RuntimePlan$TableEditor table(com.hgtech.soma.runtime.metadata.SomaTableMetadata);' \
+grep -F 'public io.github.somaruntime.soma.runtime.RuntimePlan$TableEditor table(io.github.somaruntime.soma.runtime.metadata.SomaTableMetadata);' \
   "$actual_javap" >/dev/null
 bridge_javap=$evidence_dir/generated-column-access.javap.txt
 "$JAVA_HOME/bin/javap" -classpath "$runtime_jar" -public \
-  com.hgtech.soma.runtime.GeneratedColumnAccess >"$bridge_javap"
-if grep -F 'com.hgtech.soma.runtime.generated.' "$bridge_javap" >/dev/null; then
+  io.github.somaruntime.soma.runtime.GeneratedColumnAccess >"$bridge_javap"
+if grep -F 'io.github.somaruntime.soma.runtime.generated.' "$bridge_javap" >/dev/null; then
   printf '%s\n' 'public-api-check: generated construction bridge leaked runtime binding type' >&2
   exit 1
 fi
-if grep -E '^  public com\.hgtech\.soma\.runtime\.(Boolean|Byte|Short|Int|Long|Float|Double|Enum)Column(Traversal|View)\(' \
+if grep -E '^  public io\.github\.somaruntime\.soma\.runtime\.(Boolean|Byte|Short|Int|Long|Float|Double|Enum)Column(Traversal|View)\(' \
   "$actual_javap" >/dev/null; then
   printf '%s\n' 'public-api-check: direct Column Traversal/View constructor leaked' >&2
   exit 1
 fi
 generated_column_javap=$evidence_dir/generated-column.javap.txt
 "$JAVA_HOME/bin/javap" -classpath "$runtime_jar" -public \
-  com.hgtech.soma.runtime.generated.GeneratedColumn >"$generated_column_javap"
+  io.github.somaruntime.soma.runtime.generated.GeneratedColumn >"$generated_column_javap"
 if grep -E '^  public abstract (long (estimatedBytes|retainedBytes)|void releaseStorage)' \
   "$generated_column_javap" >/dev/null; then
   printf '%s\n' 'public-api-check: internal column accounting leaked' >&2

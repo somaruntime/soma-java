@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
 
   <!-- Intentionally independent: this application must build as an ordinary consumer. -->
-  <groupId>com.hgtech.soma.examples</groupId>
+  <groupId>io.github.somaruntime.soma.examples</groupId>
   <artifactId>industrial-dynamic-scheduler</artifactId>
   <version>1.0.0-SNAPSHOT</version>
 
@@ -28,24 +28,24 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-annotations</artifactId>
       <version>${soma.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-runtime-core</artifactId>
       <version>${soma.version}</version>
     </dependency>
     <!-- Full schema generation emits typed DataFlow companions even though
          this application's business path uses direct Access/Transformation. -->
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-dataflow</artifactId>
       <version>${soma.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-processor</artifactId>
       <version>${soma.version}</version>
       <scope>provided</scope>
@@ -68,12 +68,12 @@
           </compilerArgs>
           <annotationProcessorPaths>
             <path>
-              <groupId>com.hgtech.soma</groupId>
+              <groupId>io.github.somaruntime.soma</groupId>
               <artifactId>soma-processor</artifactId>
               <version>${soma.version}</version>
             </path>
             <path>
-              <groupId>com.hgtech.soma</groupId>
+              <groupId>io.github.somaruntime.soma</groupId>
               <artifactId>soma-annotations</artifactId>
               <version>${soma.version}</version>
             </path>

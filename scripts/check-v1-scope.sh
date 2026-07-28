@@ -25,14 +25,16 @@ require_once docs/design/soma-java-design-constitution.md '当前 slice 必须�
 require_once docs/design/soma-java-design-constitution.md 'V1 只承诺 Java 8 进程内使用'
 require_once docs/engineering/validation-gates.md '## 1. Gate 不是阶段折扣'
 require_once docs/engineering/validation-gates.md '## 4. Scope non-regression'
-require_once docs/design/compatibility-security-and-versioning.md '组织与发布主体为 HGTECH，产品品牌为 SOMA'
+require_once docs/design/compatibility-security-and-versioning.md 'copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA'
 require_once docs/design/compatibility-security-and-versioning.md '## 5. Release 边界'
-require_once docs/engineering/build-and-validation.md 'V1 compiler/runtime validation 使用 Azul Zulu full JDK 8 javac/runtime'
+require_once docs/engineering/build-and-validation.md 'V1 compiler/runtime validation 使用 Azul Zulu 8.94.0.17 full JDK 8'
 require_once docs/engineering/documentation-governance.md '重大长期设计变化先进入 Temporary'
 require_once docs/conformance/known-gaps.md '| `CF-006` | Release evidence |'
 require_once AGENTS.md '## Design-driven Scope Preservation'
 require_once .github/pull_request_template.md '## V1 防缩水'
-require_once pom.xml '<name>HGTECH</name>'
+require_once pom.xml '<name>SOMA</name>'
+require_once pom.xml '<connection>scm:git:https://github.com/somaruntime/soma-java.git</connection>'
+require_once pom.xml '<id>ArthurFeng</id>'
 
 excluded_identity=$(printf '%s%s' 'hg' 'cyber')
 excluded_identity_files=$(rg -l -i "$excluded_identity" --glob '!target/**' --glob '!.git/**' . 2>/dev/null | sort || true)

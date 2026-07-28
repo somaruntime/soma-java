@@ -4,8 +4,9 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
-for command_name in jq rg shasum; do
+for command_name in jq rg; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     printf '%s\n' "security-release-scan: required command not found: $command_name" >&2
     exit 1
@@ -43,21 +44,33 @@ fi
 
 scanner_version=$($scanner --version 2>&1)
 printf '%s\n' "$scanner_version" | grep -F 'osv-scanner version: 2.3.8' >/dev/null
-expected_scanner_sha=a8cd6507b06239f463a7642430cfd2d154882f150f6e30cdc0653e28dfc34216
-actual_scanner_sha=$(shasum -a 256 "$scanner" | awk '{print $1}')
+case "$(uname -s):$(uname -m)" in
+  Darwin:arm64)
+    expected_scanner_sha=a8cd6507b06239f463a7642430cfd2d154882f150f6e30cdc0653e28dfc34216
+    ;;
+  Linux:x86_64)
+    expected_scanner_sha=bc98e15319ed0d515e3f9235287ba53cdc5535d576d24fd573978ecfe9ab92dc
+    ;;
+  *)
+    printf '%s\n' \
+      "security-release-scan: unsupported scanner platform $(uname -s):$(uname -m)" >&2
+    exit 1
+    ;;
+esac
+actual_scanner_sha=$(soma_sha256_hex "$scanner")
 if [ "$actual_scanner_sha" != "$expected_scanner_sha" ]; then
   printf '%s\n' "security-release-scan: OSV-Scanner checksum mismatch: $actual_scanner_sha" >&2
   exit 1
 fi
 
 expected_license_sha=cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
-actual_license_sha=$(shasum -a 256 LICENSE | awk '{print $1}')
+actual_license_sha=$(soma_sha256_hex LICENSE)
 if [ "$actual_license_sha" != "$expected_license_sha" ]; then
   printf '%s\n' "security-release-scan: Apache-2.0 text checksum mismatch: $actual_license_sha" >&2
   exit 1
 fi
-expected_notice_sha=30ee2fc6260f43d20ae9c8e062196dc9bddf9f92f565872de70256f61f1070bb
-actual_notice_sha=$(shasum -a 256 NOTICE | awk '{print $1}')
+expected_notice_sha=f7f35459ecb103bbb1b201b2af0a74dc484e4a3767b2a4166fb6c93f10c3879f
+actual_notice_sha=$(soma_sha256_hex NOTICE)
 if [ "$actual_notice_sha" != "$expected_notice_sha" ]; then
   printf '%s\n' "security-release-scan: NOTICE checksum mismatch: $actual_notice_sha" >&2
   exit 1
@@ -116,10 +129,10 @@ jq -r '.components[] | [.group, .name, .version] | @tsv' \
   "$evidence_dir/soma-java-sbom.cdx.json" | LC_ALL=C sort \
   > "$evidence_dir/sbom-components.tsv"
 {
-  printf 'com.hgtech.soma\tsoma-annotations\t%s\n' "$version"
-  printf 'com.hgtech.soma\tsoma-processor\t%s\n' "$version"
-  printf 'com.hgtech.soma\tsoma-runtime-core\t%s\n' "$version"
-  printf 'com.hgtech.soma\tsoma-dataflow\t%s\n' "$version"
+  printf 'io.github.somaruntime.soma\tsoma-annotations\t%s\n' "$version"
+  printf 'io.github.somaruntime.soma\tsoma-processor\t%s\n' "$version"
+  printf 'io.github.somaruntime.soma\tsoma-runtime-core\t%s\n' "$version"
+  printf 'io.github.somaruntime.soma\tsoma-dataflow\t%s\n' "$version"
   printf 'jdk\ttools\t1.8\n'
 } > "$evidence_dir/expected-sbom-components.tsv"
 LC_ALL=C sort "$evidence_dir/expected-sbom-components.tsv" \
@@ -152,9 +165,9 @@ fi
   printf 'osvCommand=OSV_SCANNER=<verified-v2.3.8> security-release-scan.sh; scanner subcommand: scan source --sbom <sbom> --format=json --all-packages\n'
   printf 'licenseTextSha256=%s\n' "$actual_license_sha"
   printf 'noticeTextSha256=%s\n' "$actual_notice_sha"
-  printf 'sbomSha256=%s\n' "$(shasum -a 256 "$evidence_dir/soma-java-sbom.cdx.json" | awk '{print $1}')"
-  printf 'vulnerabilityReportSha256=%s\n' "$(shasum -a 256 "$evidence_dir/osv-vulnerabilities.json" | awk '{print $1}')"
-  printf 'licenseReportSha256=%s\n' "$(shasum -a 256 "$evidence_dir/osv-licenses.json" | awk '{print $1}')"
+  printf 'sbomSha256=%s\n' "$(soma_sha256_hex "$evidence_dir/soma-java-sbom.cdx.json")"
+  printf 'vulnerabilityReportSha256=%s\n' "$(soma_sha256_hex "$evidence_dir/osv-vulnerabilities.json")"
+  printf 'licenseReportSha256=%s\n' "$(soma_sha256_hex "$evidence_dir/osv-licenses.json")"
   printf 'vulnerabilityCount=%s\n' "$vulnerability_count"
   printf 'licenseViolationCount=%s\n' "$license_violation_count"
   printf 'productionRuntimeThirdPartyDependencies=0\n'

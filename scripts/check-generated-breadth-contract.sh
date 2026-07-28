@@ -147,17 +147,17 @@ while IFS= read -r type; do
     "com.example.soma.breadth.generated.$type"
 done <"$types_file" >"$generated_javap"
 cmp "$expected/generated-public.javap.txt" "$generated_javap"
-if grep -E 'com\.hgtech\.soma\.runtime\.generated|DenseTableState|ChildOwnershipRegistry|OwnedChildTable|Handle' \
+if grep -E 'io\.github\.somaruntime\.soma\.runtime\.generated|DenseTableState|ChildOwnershipRegistry|OwnedChildTable|Handle' \
   "$generated_javap" >/dev/null; then
   printf '%s\n' 'generated-breadth-contract: internal runtime protocol leaked into generated public API' >&2
   exit 1
 fi
 grep -F 'public void reserve(int);' "$generated_javap" >/dev/null
-grep -F 'fetchAll(com.hgtech.soma.runtime.MaterializationBudget);' \
+grep -F 'fetchAll(io.github.somaruntime.soma.runtime.MaterializationBudget);' \
   "$generated_javap" >/dev/null
-grep -F 'findFirst(com.hgtech.soma.runtime.MaterializationBudget);' \
+grep -F 'findFirst(io.github.somaruntime.soma.runtime.MaterializationBudget);' \
   "$generated_javap" >/dev/null
-grep -F 'firstOrThrow(com.hgtech.soma.runtime.MaterializationBudget);' \
+grep -F 'firstOrThrow(io.github.somaruntime.soma.runtime.MaterializationBudget);' \
   "$generated_javap" >/dev/null
 
 string_key_source=$generated_dir/StringKeyRowTable.java
@@ -209,9 +209,9 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
   -f "$fixture/pom.xml" "$dependency_plugin":build-classpath \
   -DincludeScope=runtime \
   -Dmdep.outputFile="$runtime_classpath_file"
-grep -F 'com.hgtech.soma:soma-annotations:' "$dependency_tree" >/dev/null
-grep -F 'com.hgtech.soma:soma-runtime-core:' "$runtime_tree" >/dev/null
-if grep -F 'com.hgtech.soma:soma-processor:' "$runtime_tree" >/dev/null \
+grep -F 'io.github.somaruntime.soma:soma-annotations:' "$dependency_tree" >/dev/null
+grep -F 'io.github.somaruntime.soma:soma-runtime-core:' "$runtime_tree" >/dev/null
+if grep -F 'io.github.somaruntime.soma:soma-processor:' "$runtime_tree" >/dev/null \
     || grep -F '/soma-processor/' "$runtime_classpath_file" >/dev/null; then
   printf '%s\n' 'generated-breadth-contract: processor leaked into runtime dependency graph' >&2
   exit 1

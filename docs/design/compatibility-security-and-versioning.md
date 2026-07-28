@@ -97,10 +97,14 @@ actual object sharing/JVM heap相同。
 ## 3. Java 与产品身份
 
 - V1 language/runtime boundary 是 Java 8；当前实现与验真只以 Azul Zulu full JDK 8 javac/runtime 为 authority；Corretto 和其他 JDK distribution 不属于当前验真或目标支持范围；
-- 组织与发布主体为 HGTECH，产品品牌为 SOMA；
-- Maven `groupId` 和 Java package root 为 `com.hgtech.soma`；
+- copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA，GitHub
+  Organization 为 `somaruntime`；
+- Maven `groupId` 和 Java package root 为 `io.github.somaruntime.soma`；
 - artifact 保持 `soma-*`；
-- HGTECH 只进入真实组织、SCM、POM、publishing 和 provenance 边界，不成为 SOMA annotation、generated type、error 或 schema 概念前缀。
+- 当前选择的发布渠道为 private GitHub source repository
+  `somaruntime/soma-java`；public repository 与 Maven Central 未选择、未声明；
+- 个人或组织 identity 只进入真实 copyright、SCM、POM、support 和 provenance
+  边界，不成为 SOMA annotation、generated type、error 或 schema 概念前缀。
 
 Version number、protocol identity、schema hash 和 artifact coordinates 是不同 identity，不能互相替代。
 
@@ -130,10 +134,18 @@ Dependency、plugin、wrapper、build input 和 package metadata 必须可审计
 
 ## 5. Release 边界
 
-功能/性能 evidence 与 public release readiness 分开。只有 package metadata、license/notice、SCM/ownership、support matrix、签名/provenance、security scan 和 external consumer 等发布 Gate 全部形成证据后，才可以声明 public RC/release readiness。
+功能/性能 evidence、selected release profile 与 public release readiness 分开。
+每个 release profile 只有在其 package metadata、license/notice、SCM/ownership、
+support matrix、provenance、security scan 和 external consumer 等适用 Gate
+全部形成证据后，才可以声明 ready。Private source repository 或 Codex Cloud
+development evidence 不得外推为 public RC、Maven Central 或 production readiness。
 
 本 Design 规定必须满足的身份与边界；当前 readiness 由相应 Report 陈述。
 
 Version label、Maven artifact version、schema user version、schema hash、generated/runtime protocol 和 runtime plan hash 分别治理。Snapshot/RC/release 不得靠改名掩盖未满足 Gate；同一已发布坐标不可变。
 
-Release 必须可追溯到 clean immutable commit、可复现 source/binary/javadoc/checksum 和 provenance。发现错误 artifact 或安全问题时，维护者应能够停止分发、标记受影响版本、发布修复/替代并保留审计记录；rollback/withdrawal 不得静默复用原坐标内容。
+Release 必须可追溯到 clean immutable commit、所选渠道实际分发的 source 或
+artifact、适用 checksum 和 provenance。选择 binary/Maven profile 时仍必须提供
+可复现 source/binary/javadoc/checksum。发现错误 source/artifact 或安全问题时，
+维护者应能够停止分发、标记受影响版本、发布修复/替代并保留审计记录；
+rollback/withdrawal 不得静默复用原坐标内容。

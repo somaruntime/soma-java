@@ -26,7 +26,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
 | runtime invariant | [`check-runtime-contracts.sh`](../../scripts/check-runtime-contracts.sh) 与 `check-generated-*-contract.sh` | flat/head-tail storage、atomic segment publication、String reference cleanup、locator current/high-water、完整 Runtime Metadata、lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v11 identity |
 | DataFlow contract | [`check-dataflow-contracts.sh`](../../scripts/check-dataflow-contracts.sh)、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
-| reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
+| reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/io/github/somaruntime/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
 | application correctness/evidence | [`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)、[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)、[`check-real-time-dispatch-rule-engine.sh`](../../scripts/check-real-time-dispatch-rule-engine.sh)、Fast/Scale/Soak/Full performance Gate | versioned config、detached input checksum、oracle/validator、failure/lifecycle/resource ownership，以及九个 profile 的多 fork timing/allocation/GC/high-water |
 | neutral benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-access-performance.sh`](../../scripts/check-access-performance.sh)、[`check-dataflow-performance.sh`](../../scripts/check-dataflow-performance.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、direct/Candidate/DataFlow cost、parallel crossover、safe-point Effect、cardinality memory 与 generated footprint |
@@ -59,7 +59,7 @@ API 迁移完成与否由 current golden、source 和 external consumer 的一�
 
 ## 3. Evidence artifact
 
-Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java) 或 lane-specific strict validator 校验。当前 smoke 使用 benchmark-owned `GroupCandidate` 和 `DenseWorkspaceFact` 分别证明 grouped exact access 与无 maintained index 的 `replaceAll + sorted`，禁止把后者误记为 exact-index evidence。
+Benchmark runner 生成结构化 artifact，并由 [`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/BenchmarkArtifactValidator.java) 或 lane-specific strict validator 校验。当前 smoke 使用 benchmark-owned `GroupCandidate` 和 `DenseWorkspaceFact` 分别证明 grouped exact access 与无 maintained index 的 `replaceAll + sorted`，禁止把后者误记为 exact-index evidence。
 
 三个 reference application 的版本化 artifact 精确登记 profile、目标规模、heap、
 fork、Schema/RuntimePlan、result identity、hot-operation 执行次数、归一化指标、

@@ -44,7 +44,7 @@ compile_fixture() {
     -target 8 \
     -cp "$compile_classpath" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -d "$output" \
     $(find "$fixture_root/$fixture/src" -type f -name '*.java' | sort) \
@@ -88,7 +88,7 @@ grep -F \
   "$evidence_dir/OrdinaryModifiersValue.javap.txt" >/dev/null
 
 for diagnostic_log in "$evidence_dir"/*.log; do
-  if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' \
+  if grep -E 'Exception in thread|^[[:space:]]+at (io\.github\.somaruntime|com\.sun\.tools)' \
     "$diagnostic_log" >/dev/null; then
     printf '%s\n' \
       "value-shape-contract: diagnostic leaked internal stack: $diagnostic_log" >&2

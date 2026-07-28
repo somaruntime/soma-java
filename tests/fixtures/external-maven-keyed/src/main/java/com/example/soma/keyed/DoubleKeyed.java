@@ -1,8 +1,8 @@
 package com.example.soma.keyed;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaKey;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaKey;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable
 public final class DoubleKeyed {

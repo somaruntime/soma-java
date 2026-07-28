@@ -4,4 +4,4 @@
         version = "1")
 package com.example.tablebad.selector;
 
-import com.hgtech.soma.annotation.SomaSchema;
+import io.github.somaruntime.soma.annotation.SomaSchema;

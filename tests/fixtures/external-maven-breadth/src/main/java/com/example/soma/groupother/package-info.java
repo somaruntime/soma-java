@@ -1,4 +1,4 @@
-@com.hgtech.soma.annotation.SomaSchema(
+@io.github.somaruntime.soma.annotation.SomaSchema(
         name = "group_other",
         generatedPackage = "com.example.soma.groupother.generated",
         version = "1")

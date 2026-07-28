@@ -10,7 +10,7 @@ Owner：SOMA Java 项目实现导航
 
 事实范围：当前 Maven reactor、模块职责、主要产物和顶层执行入口
 
-最近实现核对基线：commit `253e383`
+最近实现核对基线：当前 private-source identity cutover candidate
 
 最后审查日期：2026-07-27
 
@@ -20,12 +20,12 @@ Owner：SOMA Java 项目实现导航
 
 | Module | 当前主要代码入口 | 当前产物角色 |
 |---|---|---|
-| `soma-annotations` | [`com.hgtech.soma.annotation`](../../soma-annotations/src/main/java/com/hgtech/soma/annotation) | public schema annotations |
-| `soma-runtime-core` | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | handwritten runtime + generated protocol |
-| `soma-dataflow` | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) | typed Transformation/DataFlow production runtime |
-| `soma-processor` | [`SomaProcessor.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/SomaProcessor.java) | javac plugin、processor、generator |
+| `soma-annotations` | [`io.github.somaruntime.soma.annotation`](../../soma-annotations/src/main/java/io/github/somaruntime/soma/annotation) | public schema annotations |
+| `soma-runtime-core` | [`io.github.somaruntime.soma.runtime`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime) | handwritten runtime + generated protocol |
+| `soma-dataflow` | [`io.github.somaruntime.soma.dataflow`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow) | typed Transformation/DataFlow production runtime |
+| `soma-processor` | [`SomaProcessor.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/SomaProcessor.java) | javac plugin、processor、generator |
 | `soma-examples` | [`pom.xml`](../../soma-examples/pom.xml)、[应用入口](../../soma-examples/docs/README.md) | 三个独立 Java 8 reference consumer 的 aggregator；不产出共享领域 JAR |
-| `soma-benchmarks` | [`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java) | 领域中性 component benchmark runners/artifacts |
+| `soma-benchmarks` | [`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/BenchmarkSmokeRunner.java) | 领域中性 component benchmark runners/artifacts |
 
 完整 production boundary 是 compile-time annotations/processor 与
 runtime-core/dataflow；只使用 direct Access 的源码不引用 DataFlow type。
@@ -37,6 +37,8 @@ runtime artifact。
 ## 2. Build 和 Gate 入口
 
 - Maven Wrapper：[`mvnw`](../../mvnw)；
+- exact toolchain：[`scripts/check-toolchain.sh`](../../scripts/check-toolchain.sh)；
+- Codex Cloud setup：[`scripts/setup/setup-codex-cloud.sh`](../../scripts/setup/setup-codex-cloud.sh)；
 - 全局验证：[`scripts/check.sh`](../../scripts/check.sh)；
 - 文档检查：[`scripts/check-docs.sh`](../../scripts/check-docs.sh)；
 - package smoke：[`scripts/package-smoke.sh`](../../scripts/package-smoke.sh)；

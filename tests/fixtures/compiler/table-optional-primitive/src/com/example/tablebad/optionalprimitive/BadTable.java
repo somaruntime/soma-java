@@ -1,8 +1,8 @@
 package com.example.tablebad.optionalprimitive;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaOptional;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaOptional;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable
 public final class BadTable {

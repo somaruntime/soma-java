@@ -119,8 +119,8 @@ runtime_classpath_file=$evidence_dir/runtime-classpath.txt
   -DincludeScope=runtime -Dmdep.outputFile="$runtime_classpath_file"
 runtime_classpath=$application_build_dir/test-classes:$application_build_dir/classes:$(cat "$runtime_classpath_file")
 
-main_root=$application_dir/src/main/java/com/hgtech/soma/examples/scheduler
-test_root=$application_dir/src/test/java/com/hgtech/soma/examples/scheduler
+main_root=$application_dir/src/main/java/io/github/somaruntime/soma/examples/scheduler
+test_root=$application_dir/src/test/java/io/github/somaruntime/soma/examples/scheduler
 for package in application config problem solver runtime result schema; do
   if [ ! -d "$main_root/$package" ]; then
     printf '%s\n' \
@@ -136,16 +136,16 @@ for package in benchmark fixture oracle verification; do
   fi
 done
 
-if grep -R -E 'com\.hgtech\.soma\.(runtime|examples\.scheduler\.schema\.generated)' \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/scheduler/config" \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/scheduler/problem" \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/scheduler/support" \
+if grep -R -E 'io\.github\.somaruntime\.soma\.(runtime|examples\.scheduler\.schema\.generated)' \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/scheduler/config" \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/scheduler/problem" \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/scheduler/support" \
     >/dev/null; then
   printf '%s\n' 'industrial-scheduler-check: generator/input depends on SOMA runtime' >&2
   exit 1
 fi
 if grep -R -E \
-    '^import com\.hgtech\.soma\.examples\.scheduler\.(runtime|schema)' \
+    '^import io\.github\.somaruntime\.soma\.examples\.scheduler\.(runtime|schema)' \
     "$main_root/application" \
     >/dev/null; then
   printf '%s\n' \
@@ -153,7 +153,7 @@ if grep -R -E \
   exit 1
 fi
 if grep -R -E \
-    '^import com\.hgtech\.soma\.examples\.scheduler\.(benchmark|fixture|oracle|verification)' \
+    '^import io\.github\.somaruntime\.soma\.examples\.scheduler\.(benchmark|fixture|oracle|verification)' \
     "$main_root/runtime" "$main_root/solver" \
     >/dev/null; then
   printf '%s\n' \
@@ -161,19 +161,19 @@ if grep -R -E \
   exit 1
 fi
 if grep -R -E \
-    '^import com\.hgtech\.soma\.examples\.scheduler\.(application|config|result|solver)' \
+    '^import io\.github\.somaruntime\.soma\.examples\.scheduler\.(application|config|result|solver)' \
     "$main_root/runtime" \
     >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.scheduler\.(application|config|runtime|schema|solver)' \
+      '^import io\.github\.somaruntime\.soma\.examples\.scheduler\.(application|config|runtime|schema|solver)' \
       "$main_root/result" \
       >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.scheduler\.(application|benchmark|config|fixture|oracle|verification)' \
+      '^import io\.github\.somaruntime\.soma\.examples\.scheduler\.(application|benchmark|config|fixture|oracle|verification)' \
       "$main_root/solver" \
       >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.scheduler\.(application|config|problem|result|runtime|solver|support)' \
+      '^import io\.github\.somaruntime\.soma\.examples\.scheduler\.(application|config|problem|result|runtime|solver|support)' \
       "$main_root/schema" \
       >/dev/null; then
   printf '%s\n' \
@@ -202,7 +202,7 @@ if find "$main_root" -type f \( \
   exit 1
 fi
 if grep -R -E \
-    'com\.hgtech\.soma\.examples\.scheduler\.state|SchedulerConfig|SchedulingProblemGenerator|SchedulerRuntimeBootstrap|IndustrialScheduler|runtime\.ScheduleResult' \
+    'io\.github\.somaruntime\.soma\.examples\.scheduler\.state|SchedulerConfig|SchedulingProblemGenerator|SchedulerRuntimeBootstrap|IndustrialScheduler|runtime\.ScheduleResult' \
     "$application_dir/src" >/dev/null; then
   printf '%s\n' \
     'industrial-scheduler-check: retired package or type identity remains' >&2
@@ -224,7 +224,7 @@ verification_log=$evidence_dir/verification.log
 : >"$verification_log"
 for verification_profile in correctness "$profile"; do
   "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$runtime_classpath" \
-    com.hgtech.soma.examples.scheduler.verification.SchedulerVerification \
+    io.github.somaruntime.soma.examples.scheduler.verification.SchedulerVerification \
     "$verification_profile" >>"$verification_log"
 done
 if [ "$(grep -c '^scheduler-verification:' "$verification_log")" -ne 2 ] \
@@ -234,7 +234,7 @@ if [ "$(grep -c '^scheduler-verification:' "$verification_log")" -ne 2 ] \
 fi
 
 "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$runtime_classpath" \
-  com.hgtech.soma.examples.scheduler.application.SchedulerApplication default \
+  io.github.somaruntime.soma.examples.scheduler.application.SchedulerApplication default \
   >"$evidence_dir/default-run.txt"
 grep -F 'claimAllowed=false' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'config.checksum=' "$evidence_dir/default-run.txt" >/dev/null
@@ -252,7 +252,7 @@ while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_FORKS="$forks" \
   SOMA_BENCHMARK_CPU="$benchmark_cpu" \
   "$JAVA_HOME/bin/java" -Xms"$heap" -Xmx"$heap" -cp "$runtime_classpath" \
-    com.hgtech.soma.examples.scheduler.benchmark.SchedulerBenchmark \
+    io.github.somaruntime.soma.examples.scheduler.benchmark.SchedulerBenchmark \
     "$profile" "$profile" \
     >>"$benchmark_artifact"
   fork=$((fork + 1))
@@ -342,7 +342,7 @@ else
     -pl soma-benchmarks -am test-compile
   "$JAVA_HOME/bin/java" \
     -cp "$root_dir/soma-benchmarks/target/classes" \
-    com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+    io.github.somaruntime.soma.benchmarks.PerformanceBaselineComparator \
     "$baseline" "$baseline_result" "$benchmark_artifact"
 fi
 

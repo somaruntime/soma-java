@@ -2,7 +2,7 @@ package com.example.soma.access;
 
 import com.example.soma.access.generated.AccessRecordBatch;
 import com.example.soma.access.generated.AccessRecordTable;
-import com.hgtech.soma.runtime.RemoveResult;
+import io.github.somaruntime.soma.runtime.RemoveResult;
 
 import java.util.List;
 import java.util.Random;

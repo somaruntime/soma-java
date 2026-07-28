@@ -23,7 +23,7 @@ for check_class in \
   GroupedExactIndexContractCheck
 do
   "$JAVA_HOME/bin/java" -cp "$classpath" \
-    "com.hgtech.soma.runtime.$check_class"
+    "io.github.somaruntime.soma.runtime.$check_class"
 done
 
 "$JAVA_HOME/bin/java" -version

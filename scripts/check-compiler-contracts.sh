@@ -82,7 +82,7 @@ compile_success() {
     -target 8 \
     -cp "$compile_classpath" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -d "$output" \
     $(find "$success_source" -type f -name '*.java' | sort)
@@ -107,7 +107,7 @@ compile_unicode_order() {
     -target 8 \
     -cp "$compile_classpath" \
     -processorpath "$processor_jar:$annotations_jar" \
-    -processor com.hgtech.soma.processor.SomaProcessor \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
     -Xplugin:SomaValue \
     -d "$output" \
     $(find "$unicode_order_source" -type f -name '*.java' | sort)
@@ -139,7 +139,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -d "$missing" \
   $(find "$success_source" -type f -name '*.java' | sort) \
   >"$evidence_dir/missing-plugin.log" 2>&1; then
@@ -186,7 +186,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -proc:none -Xplugin:SomaValue \
-  -XDcom.hgtech.soma.internal.processor.identity=soma-processor-v1 \
+  -XDio.github.somaruntime.soma.internal.processor.identity=soma-processor-v1 \
   -d "$plugin_option_spoof" \
   $(find "$success_source" -type f -name '*.java' | sort) \
   >"$evidence_dir/plugin-option-spoof.log" 2>&1; then
@@ -249,7 +249,7 @@ grep -F '[SOMA-VALUE-001]' "$evidence_dir/value-generic.log" >/dev/null
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$spoof" \
   $(find "$success_source" "$fixture_root/annotation-spoof/src" \
@@ -274,7 +274,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$cycle" \
   $(find "$fixture_root/value-cycle/src" -type f -name '*.java' | sort) \
@@ -288,7 +288,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$duplicate_schema" \
   $(find "$fixture_root/duplicate-schema/src" -type f -name '*.java' | sort) \
@@ -302,7 +302,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$injection" \
   $(find "$fixture_root/schema-injection/src" -type f -name '*.java' | sort) \
@@ -316,7 +316,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$wildcard" \
   $(find "$fixture_root/wildcard-import/src" -type f -name '*.java' | sort) \
@@ -342,7 +342,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$schema_version" \
   $(find "$fixture_root/schema-version/src" -type f -name '*.java' | sort) \
@@ -356,7 +356,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$compile_classpath" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$field_name" \
   $(find "$fixture_root/field-name/src" -type f -name '*.java' | sort) \
@@ -370,7 +370,7 @@ for diagnostic_log in "$evidence_dir"/*.log; do
   if [ "$(basename "$diagnostic_log")" = 'unsupported-compiler.log' ]; then
     continue
   fi
-  if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' \
+  if grep -E 'Exception in thread|^[[:space:]]+at (io\.github\.somaruntime|com\.sun\.tools)' \
     "$diagnostic_log" >/dev/null; then
     printf '%s\n' \
       "compiler-contracts: supported diagnostic leaked internal stack: $diagnostic_log" >&2

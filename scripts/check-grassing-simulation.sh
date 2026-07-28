@@ -124,7 +124,7 @@ test_classpath=$application_build_dir/test-classes:$runtime_classpath
 
 for package in config scenario simulation result runtime schema support; do
   if [ ! -d \
-      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/$package" ]; then
+      "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/$package" ]; then
     printf '%s\n' \
       "grassing-simulation-check: missing production package $package" >&2
     exit 1
@@ -132,58 +132,58 @@ for package in config scenario simulation result runtime schema support; do
 done
 for retired in model state evidence validation; do
   if find \
-      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/$retired" \
+      "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/$retired" \
       -type f -print 2>/dev/null | grep . >/dev/null; then
     printf '%s\n' \
       "grassing-simulation-check: retired production package remains: $retired" >&2
     exit 1
   fi
 done
-if grep -R -E '^import com\.hgtech\.soma\.(runtime|examples\.grassing\.schema\.generated)' \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/config" \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/scenario" \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/support" \
+if grep -R -E '^import io\.github\.somaruntime\.soma\.(runtime|examples\.grassing\.schema\.generated)' \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/config" \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/scenario" \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/support" \
     >/dev/null; then
   printf '%s\n' \
     'grassing-simulation-check: detached input depends on SOMA runtime' >&2
   exit 1
 fi
 if grep -R -E \
-    '^import com\.hgtech\.soma\.examples\.grassing\.(runtime|schema|simulation|result|scenario)' \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/config" \
+    '^import io\.github\.somaruntime\.soma\.examples\.grassing\.(runtime|schema|simulation|result|scenario)' \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/config" \
     >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.grassing\.(runtime|schema|simulation|result)' \
-      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/scenario" \
+      '^import io\.github\.somaruntime\.soma\.examples\.grassing\.(runtime|schema|simulation|result)' \
+      "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/scenario" \
       >/dev/null \
-    || grep -R -E '^import com\.hgtech\.soma\.' \
-      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/support" \
-      >/dev/null \
-    || grep -R -E \
-      '^import com\.hgtech\.soma\.(runtime|examples\.grassing)' \
-      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/schema" \
+    || grep -R -E '^import io\.github\.somaruntime\.soma\.' \
+      "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/support" \
       >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.grassing\.(application|simulation|evidence|validation)' \
-      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/runtime" \
+      '^import io\.github\.somaruntime\.soma\.(runtime|examples\.grassing)' \
+      "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/schema" \
       >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.grassing\.(config|schema|support|evidence|validation)' \
-      "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/simulation" \
+      '^import io\.github\.somaruntime\.soma\.examples\.grassing\.(application|simulation|evidence|validation)' \
+      "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/runtime" \
+      >/dev/null \
+    || grep -R -E \
+      '^import io\.github\.somaruntime\.soma\.examples\.grassing\.(config|schema|support|evidence|validation)' \
+      "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/simulation" \
       >/dev/null; then
   printf '%s\n' \
     'grassing-simulation-check: production package DAG regressed' >&2
   exit 1
 fi
-if grep -R -E '^import com\.hgtech\.soma\.' \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/result" \
+if grep -R -E '^import io\.github\.somaruntime\.soma\.' \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/result" \
     >/dev/null; then
   printf '%s\n' \
     'grassing-simulation-check: detached result depends on SOMA' >&2
   exit 1
 fi
-if grep -E '^import com\.hgtech\.soma\.examples\.grassing\.(runtime|schema)' \
-    "$application_dir/src/main/java/com/hgtech/soma/examples/grassing/SimulationApplication.java" \
+if grep -E '^import io\.github\.somaruntime\.soma\.examples\.grassing\.(runtime|schema)' \
+    "$application_dir/src/main/java/io/github/somaruntime/soma/examples/grassing/SimulationApplication.java" \
     >/dev/null; then
   printf '%s\n' \
     'grassing-simulation-check: application bypasses the simulation facade' >&2
@@ -239,17 +239,17 @@ if grep -E \
   exit 1
 fi
 if ! grep -F \
-    'com/hgtech/soma/examples/grassing/schema/generated/GrasserStateTable.class' \
+    'io/github/somaruntime/soma/examples/grassing/schema/generated/GrasserStateTable.class' \
     "$jar_manifest" >/dev/null; then
   printf '%s\n' \
     'grassing-simulation-check: production JAR lacks current schema projection' >&2
   exit 1
 fi
 for contract in \
-  com.hgtech.soma.examples.grassing.scenario.SimulationScenario \
-  com.hgtech.soma.examples.grassing.simulation.Simulator \
-  com.hgtech.soma.examples.grassing.simulation.SimulationSession \
-  com.hgtech.soma.examples.grassing.result.SimulationResult; do
+  io.github.somaruntime.soma.examples.grassing.scenario.SimulationScenario \
+  io.github.somaruntime.soma.examples.grassing.simulation.Simulator \
+  io.github.somaruntime.soma.examples.grassing.simulation.SimulationSession \
+  io.github.somaruntime.soma.examples.grassing.result.SimulationResult; do
   "$JAVA_HOME/bin/javap" -classpath "$runtime_classpath" "$contract" \
     >"$evidence_dir/$(printf '%s' "$contract" | tr . _).javap"
 done
@@ -258,7 +258,7 @@ verification_log=$evidence_dir/verification.log
 : >"$verification_log"
 for verification_profile in correctness "$profile"; do
   "$JAVA_HOME/bin/java" -Xms512m -Xmx512m -cp "$test_classpath" \
-    com.hgtech.soma.examples.grassing.evidence.SimulationVerification \
+    io.github.somaruntime.soma.examples.grassing.evidence.SimulationVerification \
     "$verification_profile" >>"$verification_log"
 done
 if [ "$(grep -c '^simulation-verification:' "$verification_log")" -ne 2 ] \
@@ -284,7 +284,7 @@ if [ -z "$population" ] || [ "$population" -le 0 ] \
 fi
 
 "$JAVA_HOME/bin/java" -Xms256m -Xmx256m -cp "$runtime_classpath" \
-  com.hgtech.soma.examples.grassing.SimulationApplication default \
+  io.github.somaruntime.soma.examples.grassing.SimulationApplication default \
   >"$evidence_dir/default-run.txt"
 grep -F 'claimAllowed=false' "$evidence_dir/default-run.txt" >/dev/null
 grep -F 'config.checksum=' "$evidence_dir/default-run.txt" >/dev/null
@@ -302,7 +302,7 @@ while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_FORKS="$forks" \
   SOMA_BENCHMARK_CPU="$benchmark_cpu" \
   "$JAVA_HOME/bin/java" -Xms"$heap" -Xmx"$heap" -cp "$test_classpath" \
-    com.hgtech.soma.examples.grassing.evidence.SimulationBenchmark \
+    io.github.somaruntime.soma.examples.grassing.evidence.SimulationBenchmark \
     "$profile" "$profile" \
     >>"$benchmark_artifact"
   fork=$((fork + 1))
@@ -389,7 +389,7 @@ else
     -pl soma-benchmarks -am test-compile
   "$JAVA_HOME/bin/java" \
     -cp "$root_dir/soma-benchmarks/target/classes" \
-    com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+    io.github.somaruntime.soma.benchmarks.PerformanceBaselineComparator \
     "$baseline" "$baseline_result" "$benchmark_artifact"
 fi
 

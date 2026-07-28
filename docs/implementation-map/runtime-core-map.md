@@ -20,21 +20,21 @@ Owner：SOMA runtime-core 实现导航
 
 | 关注点 | 当前入口 |
 |---|---|
-| runtime plan | [`RuntimePlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/RuntimePlan.java)、[`TablePlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/TablePlan.java)、[`ChildPlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/ChildPlan.java)；schema-seeded、one-shot builder/editor，`planningRows` 为 hint、`maximumRows` 为 hard boundary，`SomaWorkloadProfile` 与 generated structural row width 进入 versioned layout formula |
-| Group composition | [`SomaGroup.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/SomaGroup.java)、[`SomaGroupPlan.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/SomaGroupPlan.java)、`SomaGroupMemberPlan`；stable frozen slots、multi-schema/multi-instance attach、独立 Group/member lifecycle |
-| Effective Metadata | [`EffectiveMetadataProjection.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/EffectiveMetadataProjection.java) 与 `metadata/SomaEffectiveMetadata`、`SomaTableEffectiveMetadata`；只读投影 closed physical identity、workload、formula、row width 与 head/segment rows |
-| String resource profile | [`StringResourceProfile.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/StringResourceProfile.java)、`StringResourceProfileStatus`、`StringResourceRole`；区分 `UNPROFILED` 与 caller-declared `PROFILED_UNVERIFIED` |
-| structured failure | [`SomaRuntimeException.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/SomaRuntimeException.java)、[`SomaErrorCategory.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/SomaErrorCategory.java) |
-| diagnostics/results | [`TableStats.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/TableStats.java)、[`UpdateResult.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/UpdateResult.java)、[`RemoveResult.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/RemoveResult.java) |
-| public index snapshot | [`IndexSnapshot.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/IndexSnapshot.java)、[`IndexSnapshots.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/IndexSnapshots.java)；empty shared、single-index inline、multi-index detached array |
-| column access | [`AbstractColumnView.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/AbstractColumnView.java)、[`AbstractColumnTraversal.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/AbstractColumnTraversal.java) 及 typed subclasses |
-| materialization budget | [`MaterializationBudget.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/MaterializationBudget.java) |
-| Metadata hierarchy | [`com.hgtech.soma.runtime.metadata`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/metadata) 中的 `SomaMetadata`、Schema/Table/Column/Type/Key/Unique/Index/Ownership、`SomaEffectiveMetadata`、`SomaTableRuntimeMetadata`、`SomaSegmentMetadata`、exact/Unique/Index runtime metadata及 `SomaGroupMetadata`/`SomaGroupMemberMetadata` immutable read model |
-| physical formulas | [`DeltaStagingFormula.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/DeltaStagingFormula.java)、[`PrimaryLocatorLayoutFormula.java`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/PrimaryLocatorLayoutFormula.java) 与 storage layout formula；只在freeze/binding boundary选择closed plan |
+| runtime plan | [`RuntimePlan.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/RuntimePlan.java)、[`TablePlan.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/TablePlan.java)、[`ChildPlan.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/ChildPlan.java)；schema-seeded、one-shot builder/editor，`planningRows` 为 hint、`maximumRows` 为 hard boundary，`SomaWorkloadProfile` 与 generated structural row width 进入 versioned layout formula |
+| Group composition | [`SomaGroup.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/SomaGroup.java)、[`SomaGroupPlan.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/SomaGroupPlan.java)、`SomaGroupMemberPlan`；stable frozen slots、multi-schema/multi-instance attach、独立 Group/member lifecycle |
+| Effective Metadata | [`EffectiveMetadataProjection.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/EffectiveMetadataProjection.java) 与 `metadata/SomaEffectiveMetadata`、`SomaTableEffectiveMetadata`；只读投影 closed physical identity、workload、formula、row width 与 head/segment rows |
+| String resource profile | [`StringResourceProfile.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/StringResourceProfile.java)、`StringResourceProfileStatus`、`StringResourceRole`；区分 `UNPROFILED` 与 caller-declared `PROFILED_UNVERIFIED` |
+| structured failure | [`SomaRuntimeException.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/SomaRuntimeException.java)、[`SomaErrorCategory.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/SomaErrorCategory.java) |
+| diagnostics/results | [`TableStats.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/TableStats.java)、[`UpdateResult.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/UpdateResult.java)、[`RemoveResult.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/RemoveResult.java) |
+| public index snapshot | [`IndexSnapshot.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/IndexSnapshot.java)、[`IndexSnapshots.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/IndexSnapshots.java)；empty shared、single-index inline、multi-index detached array |
+| column access | [`AbstractColumnView.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/AbstractColumnView.java)、[`AbstractColumnTraversal.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/AbstractColumnTraversal.java) 及 typed subclasses |
+| materialization budget | [`MaterializationBudget.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/MaterializationBudget.java) |
+| Metadata hierarchy | [`io.github.somaruntime.soma.runtime.metadata`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/metadata) 中的 `SomaMetadata`、Schema/Table/Column/Type/Key/Unique/Index/Ownership、`SomaEffectiveMetadata`、`SomaTableRuntimeMetadata`、`SomaSegmentMetadata`、exact/Unique/Index runtime metadata及 `SomaGroupMetadata`/`SomaGroupMemberMetadata` immutable read model |
+| physical formulas | [`DeltaStagingFormula.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/DeltaStagingFormula.java)、[`PrimaryLocatorLayoutFormula.java`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/PrimaryLocatorLayoutFormula.java) 与 storage layout formula；只在freeze/binding boundary选择closed plan |
 
 ## 2. Generated-runtime protocol
 
-Protocol 位于 [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated)，当前主要组合为：
+Protocol 位于 [`io.github.somaruntime.soma.runtime.generated`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated)，当前主要组合为：
 
 - state/columns：`DenseTableState`、`ColumnGroup`、primitive typed columns、
   concrete `StringColumn`、`PresenceBitmap`；Small/Medium/point-heavy 可绑定
@@ -130,10 +130,10 @@ alias都不被Group拓扑限制。
 - runtime plan/metadata、Group/ownership、storage/access 与 resource/failure：
   [`check-runtime-contracts.sh`](../../scripts/check-runtime-contracts.sh)，其共享
   case library 为
-  [`RuntimeCoreContractCases.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/RuntimeCoreContractCases.java)；
-- layout/publication invariant：[`StorageTestProtocol.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/generated/StorageTestProtocol.java)，覆盖全部typed column、presence、跨Segment copy/clear、stage failure rollback与release；
+  [`RuntimeCoreContractCases.java`](../../soma-runtime-core/src/test/java/io/github/somaruntime/soma/runtime/RuntimeCoreContractCases.java)；
+- layout/publication invariant：[`StorageTestProtocol.java`](../../soma-runtime-core/src/test/java/io/github/somaruntime/soma/runtime/generated/StorageTestProtocol.java)，覆盖全部typed column、presence、跨Segment copy/clear、stage failure rollback与release；
 - primary locator：
-  [`PrimaryLocatorContractCheck.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/PrimaryLocatorContractCheck.java)；
+  [`PrimaryLocatorContractCheck.java`](../../soma-runtime-core/src/test/java/io/github/somaruntime/soma/runtime/PrimaryLocatorContractCheck.java)；
 - generated runtime scripts：[`check-generated-dense-contract.sh`](../../scripts/check-generated-dense-contract.sh)、[`check-generated-keyed-contract.sh`](../../scripts/check-generated-keyed-contract.sh)、[`check-generated-access-contract.sh`](../../scripts/check-generated-access-contract.sh)、[`check-generated-ownership-contract.sh`](../../scripts/check-generated-ownership-contract.sh)；
 - diagnostics：[`check-schema-diagnostics-contract.sh`](../../scripts/check-schema-diagnostics-contract.sh)；
 - floating storage/access：[`check-floating-value-storage.sh`](../../scripts/check-floating-value-storage.sh)。

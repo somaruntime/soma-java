@@ -1,10 +1,10 @@
 package com.example.soma.breadth;
 
-import com.hgtech.soma.annotation.SomaDefault;
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaOptional;
-import com.hgtech.soma.annotation.SomaSemantic;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaDefault;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaOptional;
+import io.github.somaruntime.soma.annotation.SomaSemantic;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable(name = "full_rows")
 public final class FullRow {

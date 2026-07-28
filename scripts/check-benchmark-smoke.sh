@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ] \
     || [ ! -x "$JAVA_HOME/bin/javap" ]; then
@@ -18,7 +19,7 @@ if [ "$java_specification" != '1.8' ]; then
   exit 1
 fi
 
-benchmark_source=soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks
+benchmark_source=soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks
 for owner in \
   SmokeLaneSuite.java \
   SmokeLaneContract.java \
@@ -48,7 +49,7 @@ if grep -F 'SmokeLaneSuite' "$benchmark_source/BenchmarkModel.java" >/dev/null \
   exit 1
 fi
 
-if grep -R -F 'com.hgtech.soma.examples' "$benchmark_source" >/dev/null \
+if grep -R -F 'io.github.somaruntime.soma.examples' "$benchmark_source" >/dev/null \
     || grep -F '<artifactId>soma-examples</artifactId>' \
       soma-benchmarks/pom.xml >/dev/null; then
   printf '%s\n' \
@@ -60,7 +61,7 @@ grep -F '"x-soma-laneBinding": "SmokeLaneSuite.validateLaneRecord"' \
   soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
   >/dev/null
 grep -F \
-  '"x-soma-authoritativeValidator": "com.hgtech.soma.benchmarks.RuntimeScaleQualificationArtifactValidator"' \
+  '"x-soma-authoritativeValidator": "io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationArtifactValidator"' \
   soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v1.json \
   >/dev/null
 
@@ -76,20 +77,20 @@ artifact=$evidence_dir/benchmark-smoke.jsonl
 repeat_artifact=$evidence_dir/benchmark-smoke-repeat.jsonl
 
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.BenchmarkArtifactCheck "$evidence_dir/negative"
+  io.github.somaruntime.soma.benchmarks.BenchmarkArtifactCheck "$evidence_dir/negative"
 SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.BenchmarkSmokeRunner \
+  io.github.somaruntime.soma.benchmarks.BenchmarkSmokeRunner \
   --output "$artifact" --commit "$commit" --scale smoke \
   --rows 128 --seed 1397706049 --warmup 1 --forks 1 --measurements 2
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.BenchmarkArtifactValidator "$artifact"
+  io.github.somaruntime.soma.benchmarks.BenchmarkArtifactValidator "$artifact"
 
 SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.BenchmarkSmokeRunner \
+  io.github.somaruntime.soma.benchmarks.BenchmarkSmokeRunner \
   --output "$repeat_artifact" --commit "$commit" --scale smoke \
   --rows 128 --seed 1397706049 --warmup 1 --forks 1 --measurements 2
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.BenchmarkArtifactValidator "$repeat_artifact"
+  io.github.somaruntime.soma.benchmarks.BenchmarkArtifactValidator "$repeat_artifact"
 
 sed -n 's/.*"lane":"\([^"]*\)".*/\1/p' "$artifact" >"$evidence_dir/lanes.txt"
 sed -n 's/.*"lane":"\([^"]*\)".*/\1/p' "$repeat_artifact" \
@@ -132,13 +133,13 @@ if grep -v -F '"allocatedBytes":null' "$artifact" >/dev/null \
 fi
 
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
-    com.hgtech.soma.benchmarks.BenchmarkSmokeRunner --forks 2 \
+    io.github.somaruntime.soma.benchmarks.BenchmarkSmokeRunner --forks 2 \
     >"$evidence_dir/invalid-forks.log" 2>&1; then
   printf '%s\n' 'benchmark-smoke-check: multi-fork smoke unexpectedly accepted' >&2
   exit 1
 fi
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
-    com.hgtech.soma.benchmarks.BenchmarkSmokeRunner --unknown value \
+    io.github.somaruntime.soma.benchmarks.BenchmarkSmokeRunner --unknown value \
     >"$evidence_dir/invalid-option.log" 2>&1; then
   printf '%s\n' 'benchmark-smoke-check: unknown CLI option unexpectedly accepted' >&2
   exit 1
@@ -149,7 +150,7 @@ qualification_id=runtime-scale-contract-smoke-$(printf '%s' "$commit" |
   cut -c1-12)
 SOMA_BENCHMARK_CPU="$cpu_identity" \
   "$JAVA_HOME/bin/java" -Xms256m -Xmx512m -cp "$classpath" \
-  com.hgtech.soma.benchmarks.RuntimeScaleQualificationRunner \
+  io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationRunner \
   --output "$qualification_artifact" \
   --lane small-fast \
   --qualification-id "$qualification_id" \
@@ -157,7 +158,7 @@ SOMA_BENCHMARK_CPU="$cpu_identity" \
   --tree-state contract-smoke-not-formal-qualification \
   --seed 1397706049
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.RuntimeScaleQualificationArtifactValidator \
+  io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationArtifactValidator \
   "$qualification_artifact"
 if grep -F '"claimAllowed":true' "$qualification_artifact" >/dev/null \
     || grep -v -F '"lane":"small-fast"' "$qualification_artifact" >/dev/null \
@@ -170,7 +171,7 @@ sed 's/"claimAllowed":false/"claimAllowed":true/' \
   "$qualification_artifact" \
   >"$evidence_dir/runtime-scale-invalid-claim.jsonl"
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
-    com.hgtech.soma.benchmarks.RuntimeScaleQualificationArtifactValidator \
+    io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationArtifactValidator \
     "$evidence_dir/runtime-scale-invalid-claim.jsonl" \
     >"$evidence_dir/runtime-scale-invalid-claim.log" 2>&1; then
   printf '%s\n' \
@@ -178,7 +179,7 @@ if "$JAVA_HOME/bin/java" -cp "$classpath" \
   exit 1
 fi
 
-shasum -a 256 "$artifact" \
+soma_sha256 "$artifact" \
   "$qualification_artifact" \
   soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
   soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v1.json \
@@ -193,7 +194,7 @@ printf '%s\n' \
   scripts/check-benchmark-smoke.sh \
   >>"$evidence_dir/implementation-files.txt"
 while IFS= read -r implementation_file; do
-  shasum -a 256 "$implementation_file"
+  soma_sha256 "$implementation_file"
 done <"$evidence_dir/implementation-files.txt" \
   >"$evidence_dir/implementation-checksums.sha256"
 
@@ -209,7 +210,7 @@ for class_name in \
   RuntimeScaleQualificationRunner \
   RuntimeScaleQualificationArtifactValidator; do
   major=$($JAVA_HOME/bin/javap -classpath soma-benchmarks/target/classes -verbose \
-    "com.hgtech.soma.benchmarks.$class_name" |
+    "io.github.somaruntime.soma.benchmarks.$class_name" |
     sed -n 's/^[[:space:]]*major version: //p' | head -n 1)
   if [ "$major" != '52' ]; then
     printf '%s\n' "benchmark-smoke-check: expected Java 8 major 52 for $class_name" >&2

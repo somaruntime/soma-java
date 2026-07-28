@@ -1,10 +1,10 @@
 package com.example.phase5.imported;
 
-import com.hgtech.soma.annotation.SomaChild;
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaKey;
-import com.hgtech.soma.annotation.SomaOptional;
-import com.hgtech.soma.annotation.SomaValue;
+import io.github.somaruntime.soma.annotation.SomaChild;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaKey;
+import io.github.somaruntime.soma.annotation.SomaOptional;
+import io.github.somaruntime.soma.annotation.SomaValue;
 
 @SomaValue
 public class ImportedModifiersValue {

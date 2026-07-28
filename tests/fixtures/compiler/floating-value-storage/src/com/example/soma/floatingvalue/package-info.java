@@ -1,4 +1,4 @@
-@com.hgtech.soma.annotation.SomaSchema(
+@io.github.somaruntime.soma.annotation.SomaSchema(
         name = "floating_value_storage",
         generatedPackage = "com.example.soma.floatingvalue.generated",
         version = "1")

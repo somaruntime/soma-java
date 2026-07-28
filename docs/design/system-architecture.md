@@ -76,11 +76,11 @@ contract，不使用反射解释字段，也不按 `operator × Table` 展开 ex
 
 ### 3.3 Generated-runtime protocol
 
-生成代码通过 `com.hgtech.soma.runtime.generated` 和 `com.hgtech.soma.dataflow.generated` 的窄 typed protocol 绑定 storage kernel 与 transformation execution。它们是 generated artifact 的版本化协议，不是 application API/SPI。
+生成代码通过 `io.github.somaruntime.soma.runtime.generated` 和 `io.github.somaruntime.soma.dataflow.generated` 的窄 typed protocol 绑定 storage kernel 与 transformation execution。它们是 generated artifact 的版本化协议，不是 application API/SPI。
 
 ### 3.4 Internal implementation
 
-`com.hgtech.soma.runtime.internal` 和 processor internal type 可以自由优化，但不能泄漏到 public/generated signature，也不能成为外部扩展点。
+`io.github.somaruntime.soma.runtime.internal` 和 processor internal type 可以自由优化，但不能泄漏到 public/generated signature，也不能成为外部扩展点。
 
 Transformation 的 internal logical/physical plan、kernel、scratch 和 adaptive strategy 同样不进入 public SPI。DSL 是 authoring surface，不是公开 IR。
 

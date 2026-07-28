@@ -29,7 +29,7 @@ if "$JAVA_HOME/bin/javac" \
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -d "$classes" \
   $(find "$fixture/src" -type f -name '*.java' | sort) \
@@ -59,7 +59,7 @@ fi
   -encoding UTF-8 -source 8 -target 8 \
   -cp "$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar" \
   -processorpath "$processor_jar:$annotations_jar" \
-  -processor com.hgtech.soma.processor.SomaProcessor \
+  -processor io.github.somaruntime.soma.processor.SomaProcessor \
   -Xplugin:SomaValue \
   -s "$boundary_generated" \
   -d "$boundary_classes" \
@@ -67,7 +67,7 @@ fi
 "$JAVA_HOME/bin/java" -cp "$boundary_classes:$runtime_jar:$dataflow_jar" \
   com.example.soma.defaultboundary.BoundaryDefaultConsumer
 
-if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' "$log" >/dev/null; then
+if grep -E 'Exception in thread|^[[:space:]]+at (io\.github\.somaruntime|com\.sun\.tools)' "$log" >/dev/null; then
   printf '%s\n' 'default-value-contract: diagnostic leaked internal stack' >&2
   exit 1
 fi

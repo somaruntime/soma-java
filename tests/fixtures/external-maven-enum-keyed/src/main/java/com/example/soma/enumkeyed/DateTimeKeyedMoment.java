@@ -1,9 +1,9 @@
 package com.example.soma.enumkeyed;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaKey;
-import com.hgtech.soma.annotation.SomaSemantic;
-import com.hgtech.soma.annotation.SomaTable;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaKey;
+import io.github.somaruntime.soma.annotation.SomaSemantic;
+import io.github.somaruntime.soma.annotation.SomaTable;
 
 @SomaTable
 public final class DateTimeKeyedMoment {

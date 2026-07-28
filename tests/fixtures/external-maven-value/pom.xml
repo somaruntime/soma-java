@@ -20,22 +20,22 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-annotations</artifactId>
       <version>${soma.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-runtime-core</artifactId>
       <version>${soma.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-dataflow</artifactId>
       <version>${soma.version}</version>
     </dependency>
     <dependency>
-      <groupId>com.hgtech.soma</groupId>
+      <groupId>io.github.somaruntime.soma</groupId>
       <artifactId>soma-processor</artifactId>
       <version>${soma.version}</version>
       <scope>provided</scope>
@@ -57,12 +57,12 @@
           </compilerArgs>
           <annotationProcessorPaths>
             <path>
-              <groupId>com.hgtech.soma</groupId>
+              <groupId>io.github.somaruntime.soma</groupId>
               <artifactId>soma-processor</artifactId>
               <version>${soma.version}</version>
             </path>
             <path>
-              <groupId>com.hgtech.soma</groupId>
+              <groupId>io.github.somaruntime.soma</groupId>
               <artifactId>soma-annotations</artifactId>
               <version>${soma.version}</version>
             </path>

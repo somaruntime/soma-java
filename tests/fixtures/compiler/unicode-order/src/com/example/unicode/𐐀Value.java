@@ -1,7 +1,7 @@
 package com.example.unicode;
 
-import com.hgtech.soma.annotation.SomaField;
-import com.hgtech.soma.annotation.SomaValue;
+import io.github.somaruntime.soma.annotation.SomaField;
+import io.github.somaruntime.soma.annotation.SomaValue;
 
 @SomaValue
 public class 𐐀Value {

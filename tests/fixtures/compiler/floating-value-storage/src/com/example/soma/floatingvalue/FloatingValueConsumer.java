@@ -2,8 +2,8 @@ package com.example.soma.floatingvalue;
 
 import com.example.soma.floatingvalue.generated.FloatingRowBatch;
 import com.example.soma.floatingvalue.generated.FloatingRowTable;
-import com.hgtech.soma.runtime.DoubleColumnView;
-import com.hgtech.soma.runtime.FloatColumnView;
+import io.github.somaruntime.soma.runtime.DoubleColumnView;
+import io.github.somaruntime.soma.runtime.FloatColumnView;
 
 public final class FloatingValueConsumer {
     private FloatingValueConsumer() {

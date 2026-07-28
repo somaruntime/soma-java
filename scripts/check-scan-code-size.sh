@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'scan-code-size-check: JAVA_HOME must point to Azul Zulu JDK 8' >&2
@@ -237,11 +238,11 @@ evidence=$evidence_dir/scan-code-size.properties
   printf 'generatedSourceAdmissionOwner=CodegenLimits.MAXIMUM_GENERATED_SOURCE_LENGTH\n'
   printf 'claimAllowed=false\n'
 } >"$evidence"
-shasum -a 256 "$evidence" "$surface_footprint" "$artifact_footprint" \
+soma_sha256 "$evidence" "$surface_footprint" "$artifact_footprint" \
   "$schema_footprint" "$dataflow_footprint" \
-  soma-processor/src/main/java/com/hgtech/soma/processor/DenseDataFlowSourceEmitter.java \
-  soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/GeneratedScanPlan.java \
-  soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated/GeneratedScanEvaluation.java \
+  soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseDataFlowSourceEmitter.java \
+  soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated/GeneratedScanPlan.java \
+  soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated/GeneratedScanEvaluation.java \
   >"$evidence_dir/checksums.sha256"
 
 printf '%s\n' "scan-code-size-evidence: $evidence_dir"

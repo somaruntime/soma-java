@@ -12,7 +12,7 @@ Owner：SOMA Java 用户输出
 
 非事实范围：重新定义 public/schema/runtime Design 或声明 public release readiness
 
-适用版本：当前仓库 `0.2.0-SNAPSHOT`，最后 implementation-affecting baseline `2aa8c15`
+适用版本：当前仓库 `0.2.0-SNAPSHOT`
 
 输入事实源：[正式文档入口](../docs/README.md)、当前 `pom.xml`、external Maven fixtures 与 Gate reports
 
@@ -28,8 +28,9 @@ version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matri
 
 ## 1. 前置条件
 
-- Azul Zulu 完整 JDK 8，必须同时包含 `java`、`javac` 和 JDK compiler APIs；
-- Maven 3.8.6–3.x；
+- Azul Zulu 8.94.0.17 完整 JDK 8，Java `1.8.0_492-b09`、full
+  `javac 1.8.0_492`，必须包含 JDK compiler APIs；
+- repository Maven Wrapper 3.9.16；
 - UTF-8 source encoding；
 - SOMA 四个同版本 artifact：`soma-annotations`、`soma-processor`、
   `soma-runtime-core`、`soma-dataflow`。
@@ -50,22 +51,22 @@ version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matri
 
 <dependencies>
   <dependency>
-    <groupId>com.hgtech.soma</groupId>
+    <groupId>io.github.somaruntime.soma</groupId>
     <artifactId>soma-annotations</artifactId>
     <version>${soma.version}</version>
   </dependency>
   <dependency>
-    <groupId>com.hgtech.soma</groupId>
+    <groupId>io.github.somaruntime.soma</groupId>
     <artifactId>soma-runtime-core</artifactId>
     <version>${soma.version}</version>
   </dependency>
   <dependency>
-    <groupId>com.hgtech.soma</groupId>
+    <groupId>io.github.somaruntime.soma</groupId>
     <artifactId>soma-dataflow</artifactId>
     <version>${soma.version}</version>
   </dependency>
   <dependency>
-    <groupId>com.hgtech.soma</groupId>
+    <groupId>io.github.somaruntime.soma</groupId>
     <artifactId>soma-processor</artifactId>
     <version>${soma.version}</version>
     <scope>provided</scope>
@@ -87,12 +88,12 @@ version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matri
         </compilerArgs>
         <annotationProcessorPaths>
           <path>
-            <groupId>com.hgtech.soma</groupId>
+            <groupId>io.github.somaruntime.soma</groupId>
             <artifactId>soma-processor</artifactId>
             <version>${soma.version}</version>
           </path>
           <path>
-            <groupId>com.hgtech.soma</groupId>
+            <groupId>io.github.somaruntime.soma</groupId>
             <artifactId>soma-annotations</artifactId>
             <version>${soma.version}</version>
           </path>
@@ -310,7 +311,7 @@ Adaptive Parallel 仍使用同一 logical semantics：
 ```java
 ExecutionPolicy policy = ExecutionPolicy.adaptiveParallel()
         .withMinimumParallelCardinality(32_768)
-        .withStatsMode(com.hgtech.soma.dataflow.StatsMode.DETAILED);
+        .withStatsMode(io.github.somaruntime.soma.dataflow.StatsMode.DETAILED);
 DataFlowContext context = DataFlowContext.managedParallel(
         8, policy, ExecutionBudget.defaults());
 ```

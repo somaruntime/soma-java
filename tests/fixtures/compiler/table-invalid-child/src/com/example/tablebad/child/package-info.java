@@ -1,4 +1,4 @@
-@com.hgtech.soma.annotation.SomaSchema(
+@io.github.somaruntime.soma.annotation.SomaSchema(
         name = "bad_child",
         generatedPackage = "com.example.tablebad.child.generated",
         version = "1")

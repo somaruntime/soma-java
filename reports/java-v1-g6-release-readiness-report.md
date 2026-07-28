@@ -116,4 +116,4 @@ component set、结果摘要与 checksum。
 
 ## 6. 解除阻塞所需真实输入
 
-G6只有在获得并验证以下真实事实后才能关闭：批准的SCM/project/issue/publishing URL；HGTECH对`com.hgtech.soma`的namespace ownership；真实maintainer、support和private-security contact；CoC/CODEOWNERS治理主体；Apache-2.0最终授权/copyright确认；不含禁止身份的clean public history；signing或OIDC provenance；发布账户；经批准并在目标环境执行的正式支持矩阵。随后必须在clean immutable candidate上重跑G0–G6、package、security与external consumer并完成sign-off。
+G6只有在获得并验证以下真实事实后才能关闭：批准的SCM/project/issue/publishing URL；HGTECH对`io.github.somaruntime.soma`的namespace ownership；真实maintainer、support和private-security contact；CoC/CODEOWNERS治理主体；Apache-2.0最终授权/copyright确认；不含禁止身份的clean public history；signing或OIDC provenance；发布账户；经批准并在目标环境执行的正式支持矩阵。随后必须在clean immutable candidate上重跑G0–G6、package、security与external consumer并完成sign-off。

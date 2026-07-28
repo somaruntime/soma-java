@@ -2,7 +2,7 @@ package com.example.soma.valuekeyed;
 
 import com.example.soma.valuekeyed.generated.ValueKeyedMachineBatch;
 import com.example.soma.valuekeyed.generated.ValueKeyedMachineTable;
-import com.hgtech.soma.runtime.SomaRuntimeException;
+import io.github.somaruntime.soma.runtime.SomaRuntimeException;
 
 public final class ValueKeyedConsumer {
     private ValueKeyedConsumer() {

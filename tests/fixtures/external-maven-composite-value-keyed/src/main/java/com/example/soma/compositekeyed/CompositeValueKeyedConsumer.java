@@ -2,8 +2,8 @@ package com.example.soma.compositekeyed;
 
 import com.example.soma.compositekeyed.generated.OperationStateBatch;
 import com.example.soma.compositekeyed.generated.OperationStateTable;
-import com.hgtech.soma.runtime.SomaRuntimeException;
-import com.hgtech.soma.runtime.TableStats;
+import io.github.somaruntime.soma.runtime.SomaRuntimeException;
+import io.github.somaruntime.soma.runtime.TableStats;
 
 import java.util.List;
 import java.util.Map;

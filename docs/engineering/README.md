@@ -14,6 +14,7 @@ Owner：SOMA Java 工程治理
 
 - [文档治理](documentation-governance.md)
 - [构建与验证](build-and-validation.md)
+- [GitHub 私有仓库与 Codex Cloud 开发](github-and-cloud-development.md)
 - [测试与 evidence](testing-and-evidence.md)
 - [Validation Gate 治理](validation-gates.md)
 - [Benchmark 治理](benchmark-governance.md)

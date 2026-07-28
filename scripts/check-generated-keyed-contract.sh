@@ -154,7 +154,7 @@ if ! grep -F ' containsKey(com.example.soma.enumkeyed.LifecycleState);' \
   "$evidence_dir/EnumKeyedJobTable.javap.txt" >/dev/null \
   || ! grep -F ' fetch(com.example.soma.enumkeyed.LifecycleState);' \
   "$evidence_dir/EnumKeyedJobTable.javap.txt" >/dev/null \
-  || ! grep -F 'com.hgtech.soma.runtime.EnumColumnTraversal<com.example.soma.enumkeyed.LifecycleState> stateValues();' \
+  || ! grep -F 'io.github.somaruntime.soma.runtime.EnumColumnTraversal<com.example.soma.enumkeyed.LifecycleState> stateValues();' \
   "$evidence_dir/EnumKeyedJobTable.javap.txt" >/dev/null; then
   printf '%s\n' 'generated-keyed-contract: enum direct API or column binding missing' >&2
   exit 1
@@ -279,7 +279,7 @@ if ! grep -q 'SOMA-TABLE-008' "$evidence_dir/invalid-keyed.log"; then
   exit 1
 fi
 
-runtime_classpath="$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar:$local_repository/com/hgtech/soma/soma-dataflow/0.2.0-SNAPSHOT/soma-dataflow-0.2.0-SNAPSHOT.jar"
+runtime_classpath="$local_repository/io/github/somaruntime/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar:$local_repository/io/github/somaruntime/soma/soma-dataflow/0.2.0-SNAPSHOT/soma-dataflow-0.2.0-SNAPSHOT.jar"
 "$JAVA_HOME/bin/java" \
   -cp "$fixture/target/classes:$runtime_classpath" \
   com.example.soma.keyed.KeyedConsumer

@@ -1,6 +1,6 @@
 package com.example.soma.defaults;
 
-import com.hgtech.soma.annotation.*;
+import io.github.somaruntime.soma.annotation.*;
 
 @SomaTable(name = "bad_enum_default")
 public final class BadEnumDefault {

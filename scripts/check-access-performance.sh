@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ] \
     || [ ! -x "$JAVA_HOME/bin/javap" ]; then
@@ -28,8 +29,8 @@ baseline_result=$evidence_dir/performance-baseline-result.json
 
 ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
 
-if grep -F 'com.hgtech.soma.examples' \
-    soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/AccessComponentBenchmark.java \
+if grep -F 'io.github.somaruntime.soma.examples' \
+    soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/AccessComponentBenchmark.java \
     >/dev/null; then
   printf '%s\n' 'access-component-check: example domain import detected' >&2
   exit 1
@@ -38,13 +39,13 @@ fi
 classpath="soma-benchmarks/target/classes:soma-runtime-core/target/classes"
 classpath="$classpath:soma-dataflow/target/classes"
 
-long_sum_type='com.hgtech.soma.benchmarks.AccessComponentBenchmark$LongSum'
+long_sum_type='io.github.somaruntime.soma.benchmarks.AccessComponentBenchmark$LongSum'
 long_sum_descriptor=$("$JAVA_HOME/bin/javap" \
   -classpath soma-benchmarks/target/classes -p "$long_sum_type")
 if ! printf '%s\n' "$long_sum_descriptor" |
     grep -F 'AccessComponentBenchmark$LongSum();' >/dev/null \
     || printf '%s\n' "$long_sum_descriptor" |
-    grep -F 'AccessComponentBenchmark$LongSum(com.hgtech.soma.benchmarks.AccessComponentBenchmark$LongSum);' \
+    grep -F 'AccessComponentBenchmark$LongSum(io.github.somaruntime.soma.benchmarks.AccessComponentBenchmark$LongSum);' \
       >/dev/null; then
   printf '%s\n' \
     'access-component-check: unstable synthetic LongSum constructor detected' >&2
@@ -52,7 +53,7 @@ if ! printf '%s\n' "$long_sum_descriptor" |
 fi
 
 if "$JAVA_HOME/bin/java" -cp "$classpath" \
-    com.hgtech.soma.benchmarks.AccessComponentBenchmark --unknown value \
+    io.github.somaruntime.soma.benchmarks.AccessComponentBenchmark --unknown value \
     >"$evidence_dir/invalid-option.log" 2>&1; then
   printf '%s\n' 'access-component-check: unknown CLI option accepted' >&2
   exit 1
@@ -62,7 +63,7 @@ fork=1
 while [ "$fork" -le "$forks" ]; do
   SOMA_BENCHMARK_CPU="$cpu_identity" "$JAVA_HOME/bin/java" \
     -Xms256m -Xmx512m -cp "$classpath" \
-    com.hgtech.soma.benchmarks.AccessComponentBenchmark \
+    io.github.somaruntime.soma.benchmarks.AccessComponentBenchmark \
     --output "$evidence_dir/component-fork-$fork.jsonl" \
     --commit "$commit" --fork "$fork" --forks "$forks" \
     --warmup 2000 --iterations 5000
@@ -70,13 +71,13 @@ while [ "$fork" -le "$forks" ]; do
 done
 set -- "$evidence_dir"/component-fork-*.jsonl
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.AccessComponentArtifactValidator "$@"
+  io.github.somaruntime.soma.benchmarks.AccessComponentArtifactValidator "$@"
 "$JAVA_HOME/bin/java" \
   -cp "soma-benchmarks/target/test-classes:$classpath" \
-  com.hgtech.soma.benchmarks.PerformanceBaselineComparatorCheck \
+  io.github.somaruntime.soma.benchmarks.PerformanceBaselineComparatorCheck \
   "$evidence_dir/baseline-negative-paths"
 "$JAVA_HOME/bin/java" -cp "$classpath" \
-  com.hgtech.soma.benchmarks.PerformanceBaselineComparator \
+  io.github.somaruntime.soma.benchmarks.PerformanceBaselineComparator \
   "$baseline" "$baseline_result" "$@"
 
 record_count=0
@@ -121,15 +122,15 @@ for lane in \
   fi
 done
 
-shasum -a 256 "$@" \
+soma_sha256 "$@" \
   "$baseline" "$baseline_result" \
-  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/AccessComponentBenchmark.java \
-  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/AccessComponentArtifactValidator.java \
-  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineDefinition.java \
-  soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparator.java \
-  soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparatorCheck.java \
-  soma-benchmarks/target/classes/META-INF/soma/com.hgtech.soma.benchmarks.schema.schema.json \
-  soma-benchmarks/target/classes/META-INF/soma/com.hgtech.soma.benchmarks.schema.schema.sha256 \
+  soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/AccessComponentBenchmark.java \
+  soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/AccessComponentArtifactValidator.java \
+  soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/PerformanceBaselineDefinition.java \
+  soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/PerformanceBaselineComparator.java \
+  soma-benchmarks/src/test/java/io/github/somaruntime/soma/benchmarks/PerformanceBaselineComparatorCheck.java \
+  soma-benchmarks/target/classes/META-INF/soma/io.github.somaruntime.soma.benchmarks.schema.schema.json \
+  soma-benchmarks/target/classes/META-INF/soma/io.github.somaruntime.soma.benchmarks.schema.schema.sha256 \
   >"$evidence_dir/checksums.sha256"
 
 for class_name in \
@@ -138,7 +139,7 @@ for class_name in \
   PerformanceBaselineComparator \
   PerformanceBaselineDefinition; do
   major=$($JAVA_HOME/bin/javap -classpath soma-benchmarks/target/classes -verbose \
-    "com.hgtech.soma.benchmarks.$class_name" |
+    "io.github.somaruntime.soma.benchmarks.$class_name" |
     sed -n 's/^[[:space:]]*major version: //p' | head -n 1)
   if [ "$major" != '52' ]; then
     printf '%s\n' "access-component-check: expected Java 8 major 52 for $class_name" >&2

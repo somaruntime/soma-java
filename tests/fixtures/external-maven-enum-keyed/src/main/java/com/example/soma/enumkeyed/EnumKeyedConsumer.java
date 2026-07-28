@@ -8,8 +8,8 @@ import com.example.soma.enumkeyed.generated.TimeKeyedTickBatch;
 import com.example.soma.enumkeyed.generated.TimeKeyedTickTable;
 import com.example.soma.enumkeyed.generated.DateTimeKeyedMomentBatch;
 import com.example.soma.enumkeyed.generated.DateTimeKeyedMomentTable;
-import com.hgtech.soma.runtime.EnumColumnView;
-import com.hgtech.soma.runtime.SomaRuntimeException;
+import io.github.somaruntime.soma.runtime.EnumColumnView;
+import io.github.somaruntime.soma.runtime.SomaRuntimeException;
 
 import java.util.function.Consumer;
 

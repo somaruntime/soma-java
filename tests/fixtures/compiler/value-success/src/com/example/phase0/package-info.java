@@ -4,4 +4,4 @@
         version = "1")
 package com.example.phase0;
 
-import com.hgtech.soma.annotation.SomaSchema;
+import io.github.somaruntime.soma.annotation.SomaSchema;

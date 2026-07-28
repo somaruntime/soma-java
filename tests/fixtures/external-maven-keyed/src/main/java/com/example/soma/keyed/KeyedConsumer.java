@@ -18,10 +18,10 @@ import com.example.soma.keyed.generated.FloatKeyedTable;
 import com.example.soma.keyed.generated.ShortKeyedBatch;
 import com.example.soma.keyed.generated.ShortKeyedTable;
 import com.example.soma.keyed.generated.SchemaMetadata;
-import com.hgtech.soma.runtime.SomaRuntimeException;
-import com.hgtech.soma.runtime.RuntimePlan;
-import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
-import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
+import io.github.somaruntime.soma.runtime.SomaRuntimeException;
+import io.github.somaruntime.soma.runtime.RuntimePlan;
+import io.github.somaruntime.soma.runtime.metadata.SomaStorageLayout;
+import io.github.somaruntime.soma.runtime.metadata.SomaWorkloadProfile;
 
 import java.lang.management.ManagementFactory;
 import java.util.List;
@@ -311,7 +311,7 @@ public final class KeyedConsumer {
                 if (live[id] && id % divisor == remainder) expectedRemoved++;
             }
             long epoch = table.structuralEpoch();
-            com.hgtech.soma.runtime.RemoveResult removed = table
+            io.github.somaruntime.soma.runtime.RemoveResult removed = table
                     .filter(row -> row.id() % divisor == remainder)
                     .remove();
             require(removed.removed() == expectedRemoved,

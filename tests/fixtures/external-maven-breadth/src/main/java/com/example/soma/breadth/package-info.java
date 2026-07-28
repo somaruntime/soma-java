@@ -1,4 +1,4 @@
-@com.hgtech.soma.annotation.SomaSchema(
+@io.github.somaruntime.soma.annotation.SomaSchema(
         name = "breadth_phase5",
         generatedPackage = "com.example.soma.breadth.generated",
         version = "1")

@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ] \
     || [ ! -x "$JAVA_HOME/bin/javap" ]; then
@@ -47,34 +48,34 @@ if find soma-examples/src -type f -print 2>/dev/null | grep . >/dev/null \
   printf '%s\n' 'reference-app-check: aggregator or benchmark dependency boundary regressed' >&2
   exit 1
 fi
-if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime)' \
-    soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem \
-    soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/scenario \
-    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/config \
-    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/feed \
+if grep -R -E '^import io\.github\.somaruntime\.soma\.(annotation|runtime)' \
+    soma-examples/industrial-dynamic-scheduler/src/main/java/io/github/somaruntime/soma/examples/scheduler/problem \
+    soma-examples/grassing-individual-simulation/src/main/java/io/github/somaruntime/soma/examples/grassing/scenario \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/io/github/somaruntime/soma/examples/rtd/config \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/io/github/somaruntime/soma/examples/rtd/feed \
     >/dev/null; then
   printf '%s\n' 'reference-app-check: detached input model/generator imports SOMA runtime' >&2
   exit 1
 fi
 if grep -R -E \
     'SyntheticSchedulingProblemFactory|SyntheticSimulationScenarioFactory|SyntheticDispatchScenarioFactory' \
-    soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/runtime \
-    soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/runtime \
-    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/runtime \
-    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/rule \
-    soma-examples/real-time-dispatch-rule-engine/src/main/java/com/hgtech/soma/examples/rtd/dispatch \
+    soma-examples/industrial-dynamic-scheduler/src/main/java/io/github/somaruntime/soma/examples/scheduler/runtime \
+    soma-examples/grassing-individual-simulation/src/main/java/io/github/somaruntime/soma/examples/grassing/runtime \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/io/github/somaruntime/soma/examples/rtd/runtime \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/io/github/somaruntime/soma/examples/rtd/rule \
+    soma-examples/real-time-dispatch-rule-engine/src/main/java/io/github/somaruntime/soma/examples/rtd/dispatch \
     >/dev/null; then
   printf '%s\n' 'reference-app-check: runtime loop refers back to input generator' >&2
   exit 1
 fi
 if grep -R -E \
-    '^import com\.hgtech\.soma\.examples\.(grassing|rtd)' \
+    '^import io\.github\.somaruntime\.soma\.examples\.(grassing|rtd)' \
     soma-examples/industrial-dynamic-scheduler/src >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.(scheduler|rtd)' \
+      '^import io\.github\.somaruntime\.soma\.examples\.(scheduler|rtd)' \
       soma-examples/grassing-individual-simulation/src >/dev/null \
     || grep -R -E \
-      '^import com\.hgtech\.soma\.examples\.(scheduler|grassing)' \
+      '^import io\.github\.somaruntime\.soma\.examples\.(scheduler|grassing)' \
       soma-examples/real-time-dispatch-rule-engine/src >/dev/null; then
   printf '%s\n' \
     'reference-app-check: cross-application source dependency detected' >&2
@@ -113,7 +114,7 @@ for application in \
     exit 1
   fi
   if grep -R -E \
-      'com\.hgtech\.soma\.(processor|runtime\.generated)|com\.hgtech\.soma\.examples\.(fjsp|vrp|simulation|game)' \
+      'io\.github\.somaruntime\.soma\.(processor|runtime\.generated)|io\.github\.somaruntime\.soma\.examples\.(fjsp|vrp|simulation|game)' \
       "$application_dir/src/main/java" >/dev/null; then
     printf '%s\n' "reference-app-check: forbidden source import in $application" >&2
     exit 1
@@ -140,10 +141,10 @@ for application in \
   find "$classes/META-INF/soma" -type f -name '*.schema.*' | LC_ALL=C sort |
     sed "s#^$classes/##" >"$first_dir/schema-manifest.txt"
   while IFS= read -r relative; do
-    shasum -a 256 "$generated/$relative"
+    soma_sha256 "$generated/$relative"
   done <"$first_dir/generated-manifest.txt" >"$first_dir/generated.sha256"
   while IFS= read -r relative; do
-    shasum -a 256 "$classes/$relative"
+    soma_sha256 "$classes/$relative"
   done <"$first_dir/schema-manifest.txt" >"$first_dir/schema.sha256"
 
   runtime_classpath_file=$evidence_dir/$application-runtime-classpath.txt
@@ -181,10 +182,10 @@ for application in \
   cmp "$first_dir/schema-manifest.txt" \
     "$evidence_dir/$application-schema-repeat.txt"
   while IFS= read -r relative; do
-    shasum -a 256 "$repeat_generated/$relative"
+    soma_sha256 "$repeat_generated/$relative"
   done <"$first_dir/generated-manifest.txt" >"$evidence_dir/$application-generated-repeat.sha256"
   while IFS= read -r relative; do
-    shasum -a 256 "$repeat_classes/$relative"
+    soma_sha256 "$repeat_classes/$relative"
   done <"$first_dir/schema-manifest.txt" >"$evidence_dir/$application-schema-repeat.sha256"
   sed "s#$generated/##" "$first_dir/generated.sha256" \
     >"$evidence_dir/$application-generated-first-normalized.sha256"
