@@ -26,7 +26,7 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 | G3 | Group/ledger/lifecycle、flat/head-tail storage、locator/exact、Candidate shapes、Transformation/DataFlow、bounded scheduler、Result Delivery、plan/observation/failure 和 safe-point Effect |
 | G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 Metadata/Group/storage/DataFlow runtime，并执行simple/advanced/callback/diagnostics journey |
 | G5 | property/reference differential、全部runtime-scale production qualification、领域中性 component benchmark、三个应用审计及各自 correctness/default/large/long-run evidence |
-| G6 | license、SCM/ownership/contact、package/provenance、security、support matrix、publishing 和 sign-off |
+| G6 | selected release profile 的 license、SCM/ownership/contact、适用 package/provenance、security、support matrix、distribution/publishing applicability 和 sign-off |
 
 V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate。
 
@@ -61,7 +61,14 @@ Gate 状态只表达 `not-started`、`blocked`、`waived`、`passed` 或 `inform
 
 ## 5. Blocking 与 claim
 
-以下情况至少阻塞对应 Gate：Design/Implementation/Tests 不一致且未裁决；required evidence 缺失或不可重放；unsupported compiler 静默降级；compatibility mismatch 延迟到 hot path；failure path、ownership、resource 或 collision correctness 未覆盖；benchmark 无 correctness guard；本机结果被外推为支持矩阵；release 缺真实 identity、license、contact、signing或publishing facts。
+以下情况至少阻塞对应 Gate：Design/Implementation/Tests 不一致且未裁决；required
+evidence 缺失或不可重放；unsupported compiler 静默降级；compatibility mismatch
+延迟到 hot path；failure path、ownership、resource 或 collision correctness 未覆盖；
+benchmark 无 correctness guard；本机结果被外推为支持矩阵；release 缺 selected
+profile 所需的真实 identity、license、contact、provenance 或 distribution facts。
+Signing/publishing 只在 selected profile 实际分发相应 artifact 时适用；未选择的
+public/Maven profile必须明确保持 `not-selected`，不能借 private-source G6
+冒充通过。
 
 当前状态由 [Report 入口](../../reports/README.md) 陈述。Engineering 只规定怎样形成可信结论，不把历史 passed 自动外推到新 commit。
 

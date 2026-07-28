@@ -6,9 +6,9 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`6cde5d5`；production/evidence source
-`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
+实现核对基线：2026-07-28 private-source candidate（base
+`e68c4e4`；production/evidence source
+`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
 
 事实范围：当前已确认的Blueprint/Design/Code/Evidence差距、关闭依据与Owner处置
 
@@ -21,15 +21,15 @@ Owner：SOMA Java 一致性审查
 | ID | 分类 | 当前差距 | 影响与Owner处置 |
 |---|---|---|---|
 | `CF-005` | Evidence environment | performance与runtime-scale证据只覆盖记录的Azul Zulu 8、macOS/aarch64、Apple M5 Pro及精确workload/profile | 其他环境只能重新校准或得到`not-applicable`；不得外推支持矩阵、SLA或普遍性能优势 |
-| `CF-006` | Release evidence | G6所需真实SCM/ownership/contact、signing/publishing、clean provenance和完整support matrix不足 | G6保持`blocked`；禁止public RC、release-ready、production-ready或publishing声明 |
 
-这两个差距都不能由更多本机benchmark自动关闭，也不在本综合治理的push/release授权
-内。
+`CF-005`不能由private CI或Cloud smoke自动关闭；Linux build/contract support不等于
+Linux性能baseline。扩大环境或性能claim仍需新的预注册qualification。
 
 ## 2. 本专题已关闭差距
 
 | ID | 关闭结论 | Production replacement与evidence |
 |---|---|---|
+| `CF-006` | selected private-source G6已闭合 | ArthurFeng copyright与Apache-2.0授权、`somaruntime/soma-java` private SCM、完整历史、GitHub-attributed identity、真实support/security/CODEOWNERS、clean package/security qualification、macOS/Linux Zulu 8 matrix和CI通过；public GitHub/Maven Central保持未选择，signing/publishing不冒充适用 |
 | `CF-009` | Metadata/runtime contract已闭合 | 完整Metadata hierarchy、schema-seeded Plan、Effective/Runtime Metadata、Table/Segment/access observation、Group member snapshot；external consumer与runtime diagnostics通过 |
 | `CF-010` | V1 type/String已闭合 | four-kind classifier、arbitrary object拒绝、concrete String column/protocol、mutation/epoch/clear/release及actual weak-reference GC；1M/10M/100M profile明确长度/cardinality/共享率/角色/table count |
 | `CF-011` | storage/access已闭合 | flat/head-tail storage、flat-compact locator、closed Candidate shapes、Small固定税、Medium crossover、point/exact/growth与single/double100M本机qualification |
@@ -39,7 +39,8 @@ Owner：SOMA Java 一致性审查
 | `CF-015` | migration/complexity/examples已闭合 | exact disposition与replacement closure；删除generic Object、consumer-in-Definition、平行parallel owner和dead tests；22-Table footprint Gate；三个Example审计后仅把真实multi-root lifecycle偏差迁入explicit Group |
 
 关闭表示正式Design所要求的当前V1 slice不再依赖未来public consumer、临时adapter、
-test-only bypass或canonical hot-path migration。它不改变`CF-005`、`CF-006`。
+test-only bypass或canonical hot-path migration。`CF-006`只关闭selected
+private-source profile；它不选择public/Maven profile，也不改变`CF-005`。
 
 ## 3. 受限目标，不是差距
 

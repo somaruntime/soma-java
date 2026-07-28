@@ -41,8 +41,8 @@ current checkout 维护 archive 或重复叙事。报告不拥有产品语义；
 | G3 | passed | [最新 runtime/DataFlow 重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
 | G4 | passed | [Package evidence](java-v1-g4-package-smoke-report.md)与[最新 external-consumer 重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
 | G5 | passed | [最新 qualification 与 Example 重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
-| G6 | blocked | [Release readiness](java-v1-g6-release-readiness-report.md)与[Support matrix](java-v1-support-matrix-report.md) |
+| G6 | selected `private-github-source` passed | [Release readiness](java-v1-g6-release-readiness-report.md)与[Support matrix](java-v1-support-matrix-report.md) |
 
-G6 通过前不得把本机 `0.2.0-SNAPSHOT`、unsigned/dirty artifact 或单机
-qualification 外推为 public release、正式支持矩阵、production readiness 或公开
-性能承诺。
+G6只对用户选择的private GitHub source profile通过。不得把`0.2.0-SNAPSHOT`、
+unsigned artifact、private CI、Codex Cloud或单机qualification外推为public
+release、Maven Central、production readiness、跨环境性能或公开SLA。

@@ -13,8 +13,8 @@ Owner：SOMA reference application / benchmark 实现导航
 事实范围：当前三个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
 最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`6cde5d5`；production/evidence source
-`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
+`e68c4e4`；production/evidence source
+`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
 
 最后审查日期：2026-07-28
 

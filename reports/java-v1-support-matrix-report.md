@@ -2,46 +2,66 @@
 
 类型：Report / Support Matrix
 
-状态：blocked（Zulu-only vendor边界已裁决，精确version/OS/architecture与正式支持承诺未批准）
+状态：passed for selected private-source build/contract profile；performance受限
 
 Owner：SOMA Java G6 support matrix
 
-受众：SOMA maintainer、release owner 与 platform support reviewer
+受众：SOMA maintainer、private repository consumer 与 platform support reviewer
 
 适用版本：`0.2.0-SNAPSHOT`
 
-输入事实源：实际 Zulu JDK 8 validation metadata 与 release governance
+输入事实源：exact Zulu JDK 8 本机验证与 GitHub Actions evidence
 
-事实范围：observed local validation 与尚未批准的正式支持边界
+事实范围：private-source checkout、build、compiler/generated/runtime contract 与
+记录环境的性能证据
+
+非事实范围：public/Maven release、production SLA 或未列平台
 
 最后审查日期：2026-07-28
 
-Gate：G6
-首次记录日期：2026-07-11
+Gate：G6 selected `private-github-source`
 
-## 1. Observed local validation
+## 1. Selected matrix
 
-| Compiler/runtime | Vendor build | Maven | OS/architecture | 结果 |
-|---|---|---|---|---|
-| full JDK 8 `javac 1.8.0_492` | Azul Zulu 8.94.0.17, OpenJDK `1.8.0_492-b09`, VM `25.492-b09` | Wrapper 3.9.16 | macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | full `./scripts/check.sh`: passed；post-fix benchmark: passed |
+唯一 JDK authority 是 Azul Zulu full JDK 8：
 
-Zulu完整命令：
+- Zulu 8.94.0.17；
+- OpenJDK runtime `1.8.0_492-b09`，VM `25.492-b09`；
+- full `javac 1.8.0_492`；
+- Maven Wrapper / Apache Maven 3.9.16。
 
-```text
-./scripts/check.sh
-./scripts/check-benchmark-smoke.sh
-```
+| OS / architecture | Build与contract support | 性能状态 | 直接 evidence |
+|---|---|---|---|
+| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | passed | 记录的component、application与runtime-scale profile passed | 本机完整`./scripts/check.sh`、既有十lane qualification与三个Example baseline |
+| Ubuntu 24.04, Linux x86_64/amd64 | passed | macOS baseline `not-applicable`；无Linux性能claim | GitHub Actions exact Zulu full check、clean workspace与manual private-source qualification |
+Codex Cloud实验没有完成fresh-container full check，当前为
+`not-selected / not-ready`，不进入支持矩阵。GitHub hosted CI证明记录的Linux
+build/compiler/generated/runtime contract，不把macOS阈值外推到Linux。
 
-## 2. 历史非当前 evidence
+## 2. 支持含义
 
-2026-07-11曾在Amazon Corretto 8.492.09.2上完成旧候选验证。该事实由当时的G5/Phase 6报告保留，只证明历史候选曾运行，不构成当前候选支持或后续重放要求。
+`passed`表示有权限的private repository consumer可以在上述精确组合上：
 
-## 3. Claim boundary
+- 使用Maven Wrapper构建全部production module；
+- 运行Zulu 8 javac plugin/processor并生成Java 8 classfile；
+- 执行public/generated contract、external Maven consumer和三个reference
+  application Gate。
 
-当前目标JDK distribution只包括Azul Zulu。上述结果只证明记录版本的Zulu在同一台macOS arm64机器通过；Windows、Linux、x86_64、其他arm64 OS、其他Zulu update、其他JDK vendor、JDK 9+、ECJ、IDE compiler和非Maven consumer均未进入正式支持矩阵。
+它不表示snapshot artifact已公开发布，不提供production SLA，也不承诺任意schema、
+String profile、100M workload或Linux性能。
 
-正式发布主体尚未批准精确Zulu version/build、OS与architecture组合，也没有目标环境验证基础设施，因此G6 support matrix保持`blocked`。这里的关闭条件不是增加其他JDK vendor；未列组合均为unsupported/untested，不能称为理论支持。
+## 3. 未列环境
 
-## 4. V1 scope non-regression
+Windows、其他macOS/Linux版本、其他architecture、其他Zulu update、其他JDK
+vendor、JDK 9+、ECJ、IDE内置compiler和非Maven build均为
+`unsupported/untested`。早期Corretto结果只属于历史候选，不进入当前支持矩阵，
+也不要求为了“多vendor”重放。
 
-支持矩阵仍是`V1-RELEASE-EVIDENCE`和G6 required evidence，没有用本机smoke替代。Zulu-only是明确的vendor产品边界，不是要求多vendor后再打折；后续只验证获批的Zulu version/build与目标OS/architecture，不改变public/generated API、runtime hot path或consumer contract。
+扩大矩阵必须先选择真实目标环境，再在同一immutable candidate上执行适用Gate；
+不能用理论兼容或`--release 8`替代Zulu 8 javac authority。
+
+## 4. Scope non-regression
+
+本矩阵只新增Linux build/contract证据，没有重跑或降低Small/Medium、
+single/double100M、String、Metadata、parallel、Result Delivery和三个Example的
+产品目标。重型性能仍由预注册、高内存、人工监管qualification拥有。

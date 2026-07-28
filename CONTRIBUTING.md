@@ -33,7 +33,10 @@ Codex Cloud 的可重复 setup、Linux profile 与 GitHub Actions 入口见
 
 V1 compiler integration 只把 full JDK 8 javac 当作 compiler authority；public RC/release 只声明正式 G6 matrix 中有证据的组合。使用新 JDK 的 `--release 8` 不等于 supported javac 8 build。
 
-实施阶段先以当前开发机的完整 JDK 8 javac、Maven Wrapper 和当前 OS/architecture 为验证基线。每次 validation 必须记录实际 JDK vendor/version/build、OS、architecture 和执行命令；本机通过不能外推为正式跨平台支持，G6 support matrix 形成前对应状态保持 `not-started` 或 `blocked`。
+实施阶段先以当前开发机的完整 JDK 8 javac、Maven Wrapper 和当前
+OS/architecture 为验证基线。每次 validation 必须记录实际 JDK
+vendor/version/build、OS、architecture 和执行命令；本机通过不能外推为正式
+跨平台支持，当前正式边界只采用G6 support matrix中列出的组合。
 
 ## 3. Change workflow
 

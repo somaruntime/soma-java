@@ -16,7 +16,7 @@ Owner：SOMA Java 用户输出
 
 输入事实源：[正式文档入口](../docs/README.md)、当前 `pom.xml`、external Maven fixtures 与 Gate reports
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 本指南说明 Java 8 Maven consumer 如何使用 SOMA annotations、compiler
 transformer、annotation processor、runtime-core 和 typed DataFlow。当前项目
@@ -24,7 +24,10 @@ transformer、annotation processor、runtime-core 和 typed DataFlow。当前项
 Corretto 和其他 JDK distribution 均为 untested/unsupported。精确 Zulu
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
-当前代码已通过 G0–G5，但 G6 仍 blocked，artifact 也仍是本地 snapshot。个人项目试用应先在本仓库执行 `./mvnw -B -ntp install`，不得把它描述为 public RC、production-ready 或已发布 artifact。
+当前代码已通过G0–G6 selected private-source profile，但artifact仍是本地
+snapshot。获得private repository访问权的consumer应先在本仓库执行
+`./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、
+Maven Central artifact或已公开发布artifact。
 
 ## 1. 前置条件
 
@@ -410,4 +413,5 @@ External consumer 至少确认：
 - callback 的业务副作用和外部一致性由 application 拥有；SOMA 只保证同步
   invocation lifecycle、取消/期限检查与资源清理；
 - benchmark smoke只证明路径和结构化证据可运行，不代表性能优势；
-- public publishing endpoint、SCM/contact或签名机制未进入正式G6 report前，不得把本地artifact当作公开release。
+- 当前未选择public repository或Maven publishing；private-source G6、SCM和
+  support事实不得被用来把本地artifact称为公开release。

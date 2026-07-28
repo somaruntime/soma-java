@@ -10,9 +10,10 @@ Owner：SOMA Java 项目实现导航
 
 事实范围：当前 Maven reactor、模块职责、主要产物和顶层执行入口
 
-最近实现核对基线：当前 private-source identity cutover candidate
+最近实现核对基线：`e68c4e4` production/evidence identity与当前private-source
+engineering surface
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 1. Reactor
 
@@ -38,11 +39,15 @@ runtime artifact。
 
 - Maven Wrapper：[`mvnw`](../../mvnw)；
 - exact toolchain：[`scripts/check-toolchain.sh`](../../scripts/check-toolchain.sh)；
-- Codex Cloud setup：[`scripts/setup/setup-codex-cloud.sh`](../../scripts/setup/setup-codex-cloud.sh)；
+- Codex Cloud bootstrap：
+  [`scripts/setup/setup-codex-cloud.sh`](../../scripts/setup/setup-codex-cloud.sh)；
 - 全局验证：[`scripts/check.sh`](../../scripts/check.sh)；
 - 文档检查：[`scripts/check-docs.sh`](../../scripts/check-docs.sh)；
 - package smoke：[`scripts/package-smoke.sh`](../../scripts/package-smoke.sh)；
-- benchmark smoke：[`scripts/check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)。
+- benchmark smoke：[`scripts/check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)；
+- GitHub CI：[`ci.yml`](../../.github/workflows/ci.yml)；
+- private-source qualification：
+  [`release-qualification.yml`](../../.github/workflows/release-qualification.yml)。
 
 `check.sh` 顺序执行 docs、Maven verify、build/public
 API/compiler/codegen/runtime/keyspace/access/child/breadth/diagnostics/external

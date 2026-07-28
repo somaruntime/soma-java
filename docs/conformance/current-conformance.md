@@ -8,8 +8,8 @@ Owner：SOMA Java 一致性审查
 
 核对对象：正式 Blueprint/Design 与 2026-07-28 runtime-scale production candidate
 
-实现身份：base `6cde5d5`；production/evidence source
-`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`
+实现身份：base `e68c4e4`；production/evidence source
+`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
@@ -42,7 +42,8 @@ Owner：SOMA Java 一致性审查
 | reference applications | 一致且 evidenced | 三个独立Java 8 consumer均审计；相关root迁入显式SomaGroup，领域模型/算法/Result不变；correctness与九个default/large/long-run baseline通过 |
 | code/test规模 | 一致且 evidenced | replacement closure删除generic Object、legacy borrow、平行parallel executor等旧Owner；neutral/三应用22个Table companion的footprint Gate通过；不以LOC或单调用者机械删除 |
 | G0–G5 | passed | formal Design、compiler/codegen/runtime/external consumer、reference differential、component/application和production-scale证据在综合治理Gate中重放 |
-| G6 public release readiness | blocked | 真实SCM/ownership/contact、signing/publishing、clean provenance与完整support matrix仍不足；本专题未获push/release授权 |
+| G6 selected private-source readiness | 一致且 evidenced | ArthurFeng / `somaruntime` / Apache-2.0身份、private SCM、完整历史、maintainer/support/security、clean package/security provenance、macOS与Linux Zulu 8 matrix及GitHub CI闭合；public/Maven profile未选择 |
+| Codex Cloud development | not-selected / not-ready | setup与部分离线检查事实存在，但未完成可接受时长的fresh-container full check；第二次任务已取消，当前不纳入支持范围 |
 
 ## 3. 当前结论
 
@@ -52,11 +53,16 @@ Compiler-Specialized、JVM Heap-Resident runtime-state computing library”落�
 Metadata/Plan负责cold control plane，specialized Capability负责operation，
 Resource/Failure/Observation负责可预测执行。
 
-`CF-009`–`CF-015`已由production实现、generated/public contract、测试、
-qualification、三个Example审计和代码规模审查关闭。仍开放的只有环境限定
-`CF-005`与public release事实`CF-006`。这意味着当前candidate可以支持本轮正式
-SOMA目标和记录profile的本机工程结论，但不能声称任意String、任意wide schema、
-任意高展开、跨环境SLA、production ready或public release ready。
+`CF-006`已在用户明确选择`private-github-source` profile后，由真实身份、SCM、
+support/security、clean provenance、Linux CI与selected support matrix关闭。
+`CF-009`–`CF-015`仍由production实现、generated/public contract、测试、
+qualification、三个Example审计和代码规模审查闭合。当前仅保留环境/性能外推限制
+`CF-005`；public GitHub与Maven Central是未选择的profile，不是被悄悄降级的
+private-source缺口。
+
+这意味着当前candidate支持本轮正式SOMA目标与private GitHub source协作，但不能
+声称Codex Cloud ready、任意String、任意wide schema、任意高展开、跨环境SLA、
+production ready、public release ready或Maven Central ready。
 
 ## 4. Evidence 入口
 
@@ -64,5 +70,6 @@ SOMA目标和记录profile的本机工程结论，但不能声称任意String、
 - [当前 G0–G6 状态](../../reports/java-v1-goal-execution-status.md)
 - [Implementation Map](../implementation-map/README.md)
 - [Benchmark 治理](../engineering/benchmark-governance.md)
+- [GitHub 私有仓库与 Codex Cloud 开发](../engineering/github-and-cloud-development.md)
 
-本结论不扩大到push、PR、publishing或release授权。
+本结论不授权改变仓库visibility、创建tag、公开发布或向Maven仓库上传artifact。

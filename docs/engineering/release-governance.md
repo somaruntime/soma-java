@@ -10,30 +10,65 @@ Owner：SOMA Java release 过程
 
 非事实范围：当前 readiness、真实账户/联系人和产品语义
 
-最后审查日期：2026-07-19
+最后审查日期：2026-07-28
 
-## 1. Release 与功能完成分离
+## 1. Release profile 与功能完成分离
 
-功能、性能和 package mechanics 通过，不等于可以公开发布。Release candidate 必须来自 clean immutable commit，并在同一 candidate 上重放获批 Gate。
+功能、性能和 package mechanics 通过，不等于任意渠道都可以发布。每次 G6
+必须先声明 selected release profile，再只对该 profile 的适用义务形成证据；
+不适用的 public/publishing 义务不能伪装成已通过，也不能反向阻塞一个严格更窄的
+private-source profile。
 
-## 2. 必需证据类别
+当前长期区分：
 
-- 版本、coordinates、SCM/project/issue metadata；
-- LICENSE/NOTICE 与最终授权；
-- maintainer/support/private-security contact 和 ownership policy；
-- source/binary/javadoc package、checksum、reproducibility；
-- dependency/SBOM/vulnerability/license scan；
-- external consumer；
-- approved JDK/OS/architecture support matrix；
-- signing/OIDC、publishing account/endpoint 和 provenance；
-- clean public history 与 release sign-off。
+| Profile | 含义 | 不自动证明 |
+|---|---|---|
+| private GitHub source | 受控访问者从 private SCM 获取 source 并协作开发 | public community、Maven artifact、production SLA |
+| public GitHub source | 向公众分发 source 并承担公开治理与安全响应 | Maven Central binary distribution |
+| Maven/binary | 通过批准的 artifact repository 分发不可变制品 | 任意未列平台、任意性能或 production suitability |
 
-本地 placeholder、dirty package 或同一机器两个 JDK vendor 不替代真实 Owner 和支持矩阵。
+Codex Cloud development readiness是开发环境结论，不是 release profile，也不能替代
+G6。
 
-## 3. 授权
+## 2. 共同证据与按 profile 适用证据
 
-Push、tag、publish、签名和公开 readiness 声明属于外部状态变更，必须得到明确授权。缺少真实发布事实时状态保持 blocked，不创建虚假 URL、联系人、账户或 approval。
+所有 selected profile 都必须具备：
+
+- 真实 copyright owner、LICENSE/NOTICE 与使用授权；
+- 真实 SCM、project/issue、maintainer、support 和 private-security path；
+- clean immutable source commit 与可追踪 Git provenance；
+- 与 profile 相称的 package/reproducibility、dependency/SBOM/vulnerability/license
+  evidence；
+- external consumer、适用 Gate 与已批准 JDK/OS/architecture support matrix；
+- 明确的 version、claim boundary、withdrawal/rollback 过程和 Owner sign-off。
+
+只有 public GitHub profile 才要求公开 community/CoC enforcement、公开披露路径和
+public source distribution provenance。只有 Maven/binary profile 才要求最终
+binary/source/javadoc/checksum、signing/OIDC、publishing account/endpoint 与
+artifact distribution provenance。未选择的 profile 保持 `not-selected`，不能写成
+ready 或 waived。
+
+本地 placeholder、dirty package、snapshot 名称或同一机器多个 JDK vendor 都不能
+替代真实 Owner、clean candidate 和支持矩阵。
+
+## 3. 授权与平台限制
+
+Push、tag、publish、签名、仓库 visibility 变化和公开 readiness 声明属于外部状态
+变更，必须得到明确授权。缺少真实 profile 事实时状态保持 blocked，不创建虚假
+URL、联系人、账户或 approval。
+
+仓库 plan 不支持某项 branch protection/ruleset 时，Report 必须记录真实平台限制、
+现有控制与残余风险；不得伪造成功配置。只要该控制不是 selected profile 已裁决的
+硬前置，平台限制本身不自动否定其他已经形成的证据。
 
 ## 4. 输出
 
-Release Report 必须区分：当前已实现能力、本机 mechanics、已验证支持、未满足前置条件和禁止声明。正式支持只能来自已批准且重放通过的 matrix。
+Release Report 必须区分：
+
+- selected profile 的 passed/blocked；
+- Codex Cloud development readiness；
+- 未选择的 public/Maven profile；
+- 当前已实现能力、本机 mechanics、已验证支持和禁止声明。
+
+正式支持只能来自已批准且重放通过的 matrix。Private-source G6 passed 不得写成
+public release、Maven Central、production readiness 或公开性能承诺。

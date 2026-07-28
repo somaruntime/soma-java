@@ -47,7 +47,9 @@ JVM Heap-Resident 产品形态可以同时满足：
   Gate。
 
 这是一组 `claimAllowed=false` 的本机 qualification 事实，不是“任意 workload
-都支持 100M”或“已经可以 public release”的声明。G0–G5 passed，G6 仍 blocked。
+都支持 100M”或“已经可以 public release”的声明。Selected private-source G6
+后来已通过，但不改变本报告的性能环境、`claimAllowed=false`和public/Maven
+未选择边界。
 
 ## 2. Runtime-scale qualification
 

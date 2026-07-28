@@ -10,8 +10,8 @@ generation、packed columnar runtime 和 typed DataFlow 支撑进程内状态访
 Java-only V1 的 annotation、compiler/processor、generated API、columnar
 runtime、独立 reference applications 与 benchmark runner 已进入完整实施和
 门禁验证。源码当前由 ArthurFeng 维护在 `somaruntime/soma-java` 私有仓库，
-使用 Apache-2.0；尚未公开发布，也未发布到 Maven Central。正式 G6 profile
-结论以前，不得把 snapshot artifact 称为 public release。
+使用 Apache-2.0。Selected private-source G6 已通过；仓库尚未公开，也未发布到
+Maven Central，snapshot artifact 不能被称为 public release。
 
 ## 开发起步
 
@@ -22,8 +22,7 @@ runtime、独立 reference applications 与 benchmark runner 已进入完整实�
 ./scripts/check.sh
 ```
 
-Codex Cloud Environment 使用
-`./scripts/setup/setup-codex-cloud.sh`；完整 Linux/CI/Cloud 边界见
+GitHub 私有仓库、Linux CI 与未形成就绪结论的 Codex Cloud 实验边界见
 [GitHub 私有仓库与 Codex Cloud 开发](docs/engineering/github-and-cloud-development.md)。
 本地 Maven consumer 配置见
 [Java 8 安装与 consumer 指南](guides/java-v1-install-and-consumer-guide.md)。

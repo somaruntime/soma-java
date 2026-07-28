@@ -20,8 +20,8 @@ SOMA Java 的当前 SCM 是 private GitHub repository
 ArthurFeng 的 GitHub-attributed identity。
 
 Private source、Codex Cloud development、public GitHub release 和 Maven
-publishing 是不同 profile。当前只启用前两项；private CI 通过不能被表达为
-public 或 Maven release readiness。
+publishing 是不同 profile。当前只启用 private source；private CI 通过不能被
+表达为 Cloud、public 或 Maven release readiness。
 
 ## 2. Exact Linux toolchain
 
@@ -41,13 +41,13 @@ runtime/build、javac 和 Maven 版本 fail-closed。macOS arm64 与 Linux x64
 
 ## 3. Codex Cloud setup
 
-在 Codex Cloud Environment 的 Setup script 中配置：
+仓库保留了实验性的 Codex Cloud bootstrap：
 
 ```text
 ./scripts/setup/setup-codex-cloud.sh
 ```
 
-该脚本仅支持 Linux x64，并执行：
+它仅支持 Linux x64，并执行：
 
 1. 从固定 HTTPS URL 下载 Azul Zulu full JDK 8、ripgrep 与 OSV-Scanner；
 2. 验证发布方 SHA-256，拒绝已存在但不匹配的 bytes；
@@ -62,16 +62,16 @@ runtime/build、javac 和 Maven 版本 fail-closed。macOS arm64 与 Linux x64
    consumer path 预取和验证隔离 Gate 所需 build/runtime dependencies 以及
    pinned governance plugin；后续 reactor `clean` 不会删除该缓存。
 
-Setup 不读取或写入 repository secret，不执行 push，不修改产品源码。Agent
-phase 开始后先运行：
+Setup 不读取或写入 repository secret，不执行 push，不修改产品源码。若未来重新
+选择 Cloud profile，Agent phase 应先运行：
 
 ```text
 ./scripts/check-toolchain.sh
 git status --short
 ```
 
-完整验收使用 `./scripts/check.sh`。同一 branch 同一时刻只保留一个 writer；
-Cloud 与本机并行工作使用不同短期 branch/worktree，再通过正常 review 合并。
+完整验收仍需 `./scripts/check.sh`。在完成一次可接受时长的 fresh-container
+验收前，不得声明 Cloud development ready。
 
 ## 4. GitHub Actions
 
@@ -84,3 +84,40 @@ Cloud 与本机并行工作使用不同短期 branch/worktree，再通过正常 
 
 重型 runtime-scale qualification 不进入 hosted CI；它仍由具有足够物理内存的
 显式、人工监管环境运行。
+
+## 5. 当前 GitHub 与 Cloud 控制面
+
+当前实际配置：
+
+- repository为private `somaruntime/soma-java`；
+- `develop`是default development branch，`main`是stable baseline；
+- Issues启用、Wiki关闭，Actions只允许repository workflow声明的只读权限；
+- repository Actions policy要求immutable SHA pinning；
+- `.github/CODEOWNERS`、`SECURITY.md`与`SUPPORT.md`使用真实owner和private
+  repository入口；
+- Organization当前free plan不支持private repository branch protection/
+  ruleset；GitHub API返回upgrade限制，因此不伪造“已保护”。现阶段使用private
+  visibility、单一owner、分支职责、CODEOWNERS、CI与人工review控制风险。
+
+Codex Cloud environment以`develop`全新检出后，setup阶段曾实际验证：
+
+- 平台CA进入Zulu私有truststore副本，Maven保持TLS校验；
+- reactor与external Maven consumer预热成功；
+- 直接`java`、`javac`与Maven解析到记录版本，Git可用；固定的
+  `$RIPGREP`为15.2.0。Codex平台会把自己的`/opt/codex/codex-path/rg`
+  shim置于`PATH`最前，因此普通`rg`可能显示平台版本；两者都必须可用，项目不把
+  平台shim冒充仓库固定binary；
+- `SOMA_MAVEN_EVIDENCE_REPOSITORY`位于checkout之外；
+- agent阶段可以进入离线检查，但没有完成一次可接受时长的完整
+  `./scripts/check.sh`与clean checkout验收。
+
+第一次完整Cloud任务因Maven cache缺口失败；第二次任务在长时间重复setup/check、
+没有形成最终结果时由maintainer取消。当前不再追求Cloud开发，因此Cloud
+development状态为`not-selected / not-ready`，不进入支持矩阵，也不影响已选择的
+private-source G6。
+
+本次还暴露出一个工程效率问题：`check.sh`同时承担日常反馈和最终资格验收，约有
+27个顶层阶段、72次Maven调用、18处隔离repository/cache准备，Cloud setup又会与
+完整检查重复部分工作。本专题只记录该问题，不在closeout中继续重构；若未来重新
+选择Cloud或优化开发反馈，应先独立设计fast feedback与full qualification分层，
+以总耗时和重复Maven调用数作为验收指标。
