@@ -132,40 +132,15 @@ for category_index in \
   fi
 done
 
-superseded_docs=$(find docs soma-*/docs \
-  -type f -name '*.md' -exec grep -l '^状态：superseded$' {} \; | sort)
+if grep -R -l '^状态：superseded$' docs soma-*/docs >/dev/null 2>&1; then
+  fail 'historical Design must live in Git, not as current-checkout tombstones'
+fi
 
-for file in $superseded_docs; do
-  require_once "$file" '^类型：历史设计$'
-  require_once "$file" '^状态：superseded$'
-  require_once "$file" '^Owner：'
-  require_once "$file" '^当前取代者：'
-  require_once "$file" '^历史正文基线：commit `[0-9a-f]{40}` 的 `[^`]+`$'
-
-  history_reference=$(sed -n 's/^历史正文基线：commit `\([0-9a-f][0-9a-f]*\)` 的 `\([^`]*\)`$/\1 \2/p' "$file")
-  history_commit=${history_reference%% *}
-  history_path=${history_reference#* }
-  if [ "$history_path" != "$file" ]; then
-    fail "$file historical provenance path must match its current path"
-  elif ! git cat-file -e "$history_commit:$history_path" 2>/dev/null; then
-    fail "$file historical provenance cannot resolve $history_commit:$history_path"
-  fi
-
-  historical_heading_count=$(grep -c '^## ' "$file" || true)
-  if [ "$historical_heading_count" -ne 1 ] \
-      || ! grep -F '## 历史正文' "$file" >/dev/null 2>&1; then
-    fail "$file must remain a thin historical tombstone"
-  fi
-  if ! grep -F "git show $history_commit:$history_path" "$file" >/dev/null 2>&1; then
-    fail "$file must expose its Git provenance command"
-  fi
-
-  base_name=$(basename "$file")
-  if grep -F "]($base_name)" docs/README.md >/dev/null 2>&1 \
-      || grep -F "]($base_name#" docs/README.md >/dev/null 2>&1; then
-    fail "$file appears in the current docs/README.md navigation"
-  fi
-done
+parallel_module_docs=$(find soma-*/docs -maxdepth 1 -type f -name '*.md' \
+  ! -name README.md -print | sort)
+if [ -n "$parallel_module_docs" ]; then
+  fail "module docs must only navigate root Owners: $parallel_module_docs"
+fi
 
 current_reference_docs=$(find \
   docs/blueprints \
@@ -187,38 +162,9 @@ CONTRIBUTING.md
 reports/README.md"
 
 for current_file in $current_reference_docs; do
-  if grep -nE 'Row Pipeline|Row Cursor|Column Pipeline|\.rows\(|\.rowIndexes\(|findRowIndex\(|rowIndexOf\(|findByMachine|findByOperation|findByRoute|AbstractColumnPipeline|ColumnPipeline' "$current_file" >/dev/null 2>&1; then
-    fail "$current_file contains retired current API vocabulary"
-  fi
-
   if grep -nE '(由|仍由)[[:blank:]]+active[[:blank:]]+Temporary|active[[:blank:]]+Temporary[^。；]*(拥有|负责|裁决)' "$current_file" >/dev/null 2>&1; then
     fail "$current_file treats Temporary as a current fact owner"
   fi
-
-  for historical_file in $superseded_docs; do
-    if grep -F "$historical_file" "$current_file" >/dev/null 2>&1; then
-      fail "$current_file references superseded Design $historical_file as a current path"
-    fi
-  done
-
-  grep -nEo '\]\([^)]*\.md(#[^)]*)?\)' "$current_file" 2>/dev/null |
-  while IFS=: read -r line_no raw_link; do
-    target=$(printf '%s' "$raw_link" | sed -e 's/^](//' -e 's/)$//' -e 's/#.*$//')
-    case "$target" in
-      http://*|https://*|'') continue ;;
-    esac
-
-    target_directory="$(dirname "$current_file")/$(dirname "$target")"
-    [ -d "$target_directory" ] || continue
-    resolved_target="$(CDPATH= cd -- "$target_directory" && pwd -P)/$(basename "$target")"
-
-    for historical_file in $superseded_docs; do
-      if [ "$resolved_target" = "$root_dir/$historical_file" ]; then
-        printf '%s\n' "doc-check: $current_file:$line_no links to superseded Design $historical_file" >&2
-        exit 1
-      fi
-    done
-  done || failed=1
 done
 
 for file in soma-examples/docs/README.md; do
@@ -246,15 +192,6 @@ for application in \
   fi
 done
 
-if grep -F 'AssignmentSummaryFlow' \
-    docs/implementation-map/scenario-and-benchmark-map.md \
-    docs/conformance/current-conformance.md \
-    docs/conformance/known-gaps.md \
-    soma-examples/docs/README.md \
-    soma-examples/industrial-dynamic-scheduler/docs/*.md \
-    reports/current-performance-summary.md >/dev/null 2>&1; then
-  fail 'current reference-application facts retain retired AssignmentSummaryFlow'
-fi
 if ! grep -F 'check-real-time-dispatch-rule-engine.sh' \
     soma-examples/docs/README.md >/dev/null 2>&1 \
     || ! grep -F 'reference-application=9' \
@@ -300,24 +237,8 @@ if ! grep -F 'soma-primary-locator-layout-v1' \
   fail 'compatibility Design must declare primary locator layout formula v1'
 fi
 
-for file in \
-  reports/java-v1-goal-execution-status.md \
-  reports/current-performance-summary.md \
-  reports/2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md \
-  reports/2026-07-27-transformation-dataflow-governance-report.md \
-  reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md \
-  reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md \
-  reports/2026-07-23-reference-application-boundary-governance-report.md \
-  reports/2026-07-23-complexity-sustainability-governance-report.md \
-  reports/2026-07-23-project-complexity-and-maintainability-governance-report.md \
-  reports/2026-07-23-access-model-candidate-scan-governance-report.md \
-  reports/2026-07-23-access-model-candidate-scan-performance-report.md \
-  reports/2026-07-20-document-architecture-governance-report.md \
-  reports/2026-07-20-documentation-framework-cutover-report.md; do
-  if [ ! -f "$file" ]; then
-    fail "missing current Report $file"
-    continue
-  fi
+for file in $(find reports -maxdepth 1 -type f -name '*.md' \
+  ! -name README.md -print | sort); do
   for pattern in '^类型：Report' '^状态：' '^Owner：' '^受众：' '^适用版本：' '^输入事实源：' '^事实范围：' '^最后审查日期：'; do
     require_once "$file" "$pattern"
   done
@@ -325,18 +246,6 @@ for file in \
     fail "$file is not indexed by reports/README.md"
   fi
 done
-
-if [ -e docs-temp ]; then
-  fail 'docs-temp must not exist after the formal cutover'
-fi
-
-if [ -e docs/temp/row-pipeline-execution-and-lazy-plan-governance ]; then
-  fail 'retired Access Model / Candidate Scan Temporary topic must not exist'
-fi
-
-if [ -e docs/temp/soma-transformation-model-governance ]; then
-  fail 'retired Transformation/DataFlow Temporary topic must not exist'
-fi
 
 active_temp_topic_count=0
 if [ -d docs/temp ]; then

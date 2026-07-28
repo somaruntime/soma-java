@@ -5,7 +5,7 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 
-scan_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json
+access_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-zulu8-macos-aarch64-v1.json
 dataflow_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v2.json
 scheduler_baseline_dir=soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark
 simulation_baseline_dir=soma-examples/grassing-individual-simulation/src/test/resources/benchmark
@@ -21,7 +21,7 @@ rtd_large_baseline=$rtd_baseline_dir/performance-baseline-large-zulu8-macos-aarc
 rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v2.json
 
 for baseline in \
-  "$scan_component_baseline" \
+  "$access_component_baseline" \
   "$dataflow_component_baseline" \
   "$scheduler_default_baseline" \
   "$scheduler_large_baseline" \
@@ -62,7 +62,7 @@ if [ "$component_baseline_count" -ne 2 ] \
   exit 1
 fi
 
-grep -F '"layer": "component"' "$scan_component_baseline" >/dev/null
+grep -F '"layer": "component"' "$access_component_baseline" >/dev/null
 grep -F '"layer": "component"' "$dataflow_component_baseline" >/dev/null
 grep -F '"subject": "typed-dataflow-component"' \
   "$dataflow_component_baseline" >/dev/null
@@ -125,8 +125,8 @@ check_application_baseline \
   "$rtd_long_run_baseline" real-time-dispatch-rule-engine long-run \
   rtd-dispatch-benchmark-v1
 
-grep -F "$scan_component_baseline" \
-  scripts/check-post-cutover-components.sh >/dev/null
+grep -F "$access_component_baseline" \
+  scripts/check-access-performance.sh >/dev/null
 grep -F "$dataflow_component_baseline" \
   scripts/check-dataflow-performance.sh >/dev/null
 grep -F \
@@ -139,7 +139,7 @@ grep -F \
   'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
   scripts/check-real-time-dispatch-rule-engine.sh >/dev/null
 for script in \
-  scripts/check-post-cutover-components.sh \
+  scripts/check-access-performance.sh \
   scripts/check-dataflow-performance.sh \
   scripts/check-industrial-scheduler.sh \
   scripts/check-grassing-simulation.sh \

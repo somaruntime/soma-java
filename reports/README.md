@@ -1,4 +1,4 @@
-# soma_java 报告索引
+# SOMA Java 报告入口
 
 类型：Report 入口
 
@@ -6,97 +6,43 @@
 
 Owner：SOMA Java 正式报告输出
 
-事实范围：当前与历史审查、验证、benchmark、治理和 release evidence导航
+事实范围：当前综合结论、当前性能/状态和仍需保留的 Gate/release evidence
 
-非事实范围：Blueprint、Design 或当前代码实现事实
+非事实范围：Blueprint、Design、代码实现事实和历史治理过程
 
 最后审查日期：2026-07-28
 
-`reports/` 保存带时间点的正式审查、验证、benchmark、治理和 release evidence。报告不是 Design；目标、规范和当前实现分别回到 [Blueprint](../docs/blueprints/README.md)、[Design](../docs/design/README.md)和[Implementation Map](../docs/implementation-map/README.md)。
+`reports/` 只保留当前决策所需的综合报告与不可替代 Gate evidence。已经完成事实
+迁移的专题过程、旧 candidate benchmark 和旧治理 checkpoint 由 Git 保存，不在
+current checkout 维护 archive 或重复叙事。报告不拥有产品语义；目标、长期契约和
+当前实现分别从 [Blueprint](../docs/blueprints/README.md)、
+[Design](../docs/design/README.md) 与
+[Implementation Map](../docs/implementation-map/README.md) 进入。
 
-2026-07-28 runtime boundary、Group、scale readiness 与产品化治理已经完成
-Design、production、generated/public surface、三个 Example 和 production-shape
-qualification 的原子闭合。G0–G5 已在新 target 上重放通过；G6 仍因真实 release
-事实不足保持 `blocked`。旧报告继续保存其精确 candidate 的历史 evidence，不覆盖
-当前结论。
+## 当前综合结论
 
-## 当前 V1 状态与 Gate
+- [V1 产品面收敛与仓库瘦身治理](2026-07-28-soma-v1-product-surface-simplification-governance-report.md)：
+  在不降低 Blueprint、Design、规模/String、Capability、Gate 与产品化目标的前提
+  下，完成 production/public、test、benchmark、fixture、script、document、
+  report 和三个 Example 的保留、替换与退役裁决；
+- [Runtime Boundary、Group、Scale Readiness 与产品化综合治理](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)：
+  TV0–TV9、Metadata、String、single/double 100M、Result Delivery、三个
+  reference application、完整 Gate 与 scope non-regression；
+- [Java V1 Goal execution status](java-v1-goal-execution-status.md)；
+- [当前性能与规模摘要](current-performance-summary.md)。
 
-- [2026-07-28 Runtime Boundary、Group、Scale Readiness 与产品化综合治理](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)（TV0–TV9、正式设计、production replacement closure、single/double 100M、String、Result Delivery、三个 Example、代码规模、Gate 与 scope non-regression）
-- [Java V1 Goal execution status](java-v1-goal-execution-status.md)
-- [当前性能摘要](current-performance-summary.md)（当前 production-shape qualification、九个 application baseline 及 claim 边界）
-- [2026-07-27 Reference Application Portfolio 与最佳实践治理](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)（三个独立应用、RTD DataFlow trace、industrial/grassing 复审、九份 application baseline 与 scope non-regression）
-- [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)（generated/runtime v5、transformation/kernel v1、构造契约、reference differential、受控并行、工业应用 trace 与 scope non-regression）
-- [2026-07-27 正确性保持与软件结构治理](2026-07-27-correctness-preservation-and-software-structure-governance-report.md)（aggregate fault containment、五条证明链、CP-001–CP-007、public/API/protocol 与性能非回归）
-- [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)（Problem/Result 契约、Access Pattern→Schema、global frontier、canonical/hot 9-fork evidence 与 scope non-regression）
-- [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)（六个 default/large/long-run baseline、Fast/Scale/Soak/Full Gate、性能归因与 scope non-regression）
-- [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)（component、两个 application baseline、环境感知 comparator、9-fork 校准与 public claim 边界）
-- [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)（Config/Scenario/Simulator/Session/Engine/System/Runtime/Schema/Result分层、source-set与canonical journey）
-- [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)（Problem/Factory/Solver/Runtime/Schema/Result分层、source-set与canonical journey）
-- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)（历史边界基线；当时两个独立参考应用、neutral benchmark 与旧场景退役）
-- [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)（benchmark分责、processor所有权、generated-footprint诊断与runtime保留裁决）
-- [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)（历史/current拓扑、processor/codegen分责、byte-stable与多fork非回归）
-- [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)（当前v4产品模型、正式Owner、实现与scope non-regression结论）
-- [2026-07-23 Access Model / Candidate Scan 性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)（component、JFR、code-size与FJSP多fork A/B）
-- [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)（当前post-cutover功能/性能实现与证据）
-- [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)（当前 v3 实现形态与 `4b6fa43` 重验证入口）
+## Gate 与 release evidence
 
-| Gate | 状态 | 正式报告 |
+| Gate | 当前状态 | 必要 evidence |
 |---|---|---|
-| G0 | passed | [scope freeze](java-v1-g0-scope-freeze-report.md) |
-| G1 | passed | [schema processing](../soma-processor/reports/java-v1-g1-schema-processing-report.md)与[本专题 fresh closure](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
-| G2 | passed | [code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)与[本专题 fresh closure](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
-| G3 | passed | [本专题 runtime/DataFlow fresh closure](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
-| G4 | passed | [generated API/package](java-v1-g4-package-smoke-report.md)与[本专题 external-consumer replay](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
-| G5 | passed | [本专题 qualification、Example 与完整 Gate](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
-| G6 | blocked | [release readiness](java-v1-g6-release-readiness-report.md) |
+| G0 | passed | [Java-only V1 scope freeze](java-v1-g0-scope-freeze-report.md) |
+| G1 | passed | [Schema processing](../soma-processor/reports/java-v1-g1-schema-processing-report.md)与[最新综合重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
+| G2 | passed | [Code generation](../soma-processor/reports/java-v1-g2-code-generation-report.md)与[最新综合重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
+| G3 | passed | [最新 runtime/DataFlow 重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
+| G4 | passed | [Package evidence](java-v1-g4-package-smoke-report.md)与[最新 external-consumer 重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
+| G5 | passed | [最新 qualification 与 Example 重放](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md) |
+| G6 | blocked | [Release readiness](java-v1-g6-release-readiness-report.md)与[Support matrix](java-v1-support-matrix-report.md) |
 
-Gate报告保留执行当时的Owner路径和术语作为evidence provenance；其中旧root/module契约现已`superseded`，当前Design与Engineering必须从[正式文档入口](../docs/README.md)进入。历史路径不因仍可读取而恢复current Owner身份。
-
-- [G6 support matrix evidence](java-v1-support-matrix-report.md)
-
-## 实施 checkpoint 与治理报告
-
-- [2026-07-28 Runtime Boundary、Group、Scale Readiness 与产品化综合治理](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)
-- [2026-07-27 Reference Application Portfolio 与最佳实践治理](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)
-- [2026-07-27 正确性保持与软件结构治理](2026-07-27-correctness-preservation-and-software-structure-governance-report.md)
-- [2026-07-27 Transformation Model 与 Typed DataFlow 产品化治理](2026-07-27-transformation-dataflow-governance-report.md)
-- [2026-07-24 Industrial Dynamic Scheduler 设计与性能治理](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)
-- [2026-07-24 Reference Application 大规模性能基线治理](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
-- [2026-07-24 三层性能基线治理](2026-07-24-three-layer-performance-baseline-governance-report.md)
-- [2026-07-23 个体生态仿真参考应用架构治理](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)
-- [2026-07-23 工业动态调度参考应用架构治理](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)
-- [2026-07-23 参考应用边界与 `soma-examples` 重构治理](2026-07-23-reference-application-boundary-governance-report.md)
-- [2026-07-23 复杂度可持续性后续治理](2026-07-23-complexity-sustainability-governance-report.md)
-- [2026-07-23 项目复杂度与可维护性治理](2026-07-23-project-complexity-and-maintainability-governance-report.md)
-- [2026-07-23 Access Model / Candidate Scan 产品化治理](2026-07-23-access-model-candidate-scan-governance-report.md)
-- [2026-07-23 Access Model / Candidate Scan 性能证据](2026-07-23-access-model-candidate-scan-performance-report.md)
-- [2026-07-20 文档架构专题治理](2026-07-20-document-architecture-governance-report.md)
-- [2026-07-20 设计驱动文档体系正式切换](2026-07-20-documentation-framework-cutover-report.md)
-- [2026-07-20 Packed Exact Index 切换后尾项治理收口](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
-- [2026-07-17 Packed Index / Exact Access / IndexBuffer 重设计实施收口](2026-07-17-packed-exact-index-runtime-redesign-report.md)
-- [2026-07-17 性能优化后 G6 本机诊断](2026-07-17-post-optimization-g6-diagnostic-report.md)
-
-## 历史治理证据（保留原路径）
-
-- [2026-07-21 四场景 Blueprint 采纳专题治理](2026-07-21-four-scenario-blueprint-adoption-report.md)（`a137b10` 时点证据；不再拥有 current G5 或当前示例）
-
-## 历史归档
-
-- [2026-07-11 SOMA Java V1 专题治理收口](archive/soma-java-v1-topical-governance-report.md)
-- [Java V1 Phase 0 compiler/build checkpoint](archive/java-v1-phase-0-compiler-build-report.md)
-- [Java V1 Phase 0 schema carrier construction 设计缺口](archive/java-v1-phase-0-schema-carrier-design-gap.md)
-- [Java V1 Phase 3 access structures](archive/java-v1-phase-3-access-structures-report.md)（v2 历史 checkpoint；已由 packed/exact v3 切换取代）
-- [Java V1 Phase 4 child/materialization](archive/java-v1-phase-4-child-materialization-report.md)
-- [Java-only SOMA V1 Phase 5 full breadth closeout](archive/java-v1-phase-5-full-breadth-report.md)
-- [旧 examples/benchmark G5 Gate](archive/java-v1-g5-examples-benchmark-gate-report.md)
-- [2026-07-10 Implementation-readiness 治理收尾](archive/2026-07-10-implementation-readiness-governance-report.md)
-- [2026-07-10 Compiler integration feasibility](archive/2026-07-10-compiler-integration-spike-report.md)
-- [2026-07-10 文档体系重构收尾报告](archive/2026-07-10-documentation-system-refactor-report.md)
-- [2026-07-10 四个蓝图设计审查](archive/2026-07-10-four-blueprints-design-review-report.md)
-- [2026-07-10 SomaTable 设计治理收尾](archive/2026-07-10-soma-table-design-governance-closeout-report.md)
-- [2026-07-07 FJSP frontier 文档治理](archive/2026-07-07-fjsp-frontier-document-governance-report.md)
-- [2026-07-06 架构设计审查](archive/2026-07-06-architecture-design-review-report.md)
-- [2026-07-06 设计文档治理](archive/2026-07-06-design-document-governance-report.md)
-
-历史报告记录当时的输入、结论和缺口；其中旧文件名与旧 Owner 路径不代表当前文档结构。
+G6 通过前不得把本机 `0.2.0-SNAPSHOT`、unsigned/dirty artifact 或单机
+qualification 外推为 public release、正式支持矩阵、production readiness 或公开
+性能承诺。

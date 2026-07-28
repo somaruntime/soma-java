@@ -22,12 +22,12 @@ dependency_plugin_version=$(sed -n \
   pom.xml | sed -n '1p')
 dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version
 
-fixture_source=$root_dir/soma-testkit/src/test/fixtures/external-maven-value
+fixture_source=$root_dir/tests/fixtures/external-maven-value
 expected=$fixture_source/expected
 mkdir -p target
-evidence_dir=$(mktemp -d "$root_dir/target/phase0-external-consumer.XXXXXX")
+evidence_dir=$(mktemp -d "$root_dir/target/external-consumer-contract.XXXXXX")
 fixture=$evidence_dir/consumer
-local_repository=$root_dir/soma-testkit/target/phase0-m2/repository
+local_repository=$root_dir/target/evidence-m2/repository
 mkdir -p "$fixture" "$local_repository"
 cp "$fixture_source/pom.xml" "$fixture/pom.xml"
 cp -R "$fixture_source/src" "$fixture/src"

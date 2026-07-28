@@ -111,7 +111,7 @@ fi
 repository=$evidence_dir/repository
 application_build_dir=$evidence_dir/application-target
 mkdir -p "$repository"
-seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
+seed_repository=$root_dir/target/evidence-m2/repository
 if [ -d "$seed_repository" ]; then
   cp -R "$seed_repository/." "$repository/"
 fi
@@ -198,7 +198,7 @@ if grep -R -E \
 fi
 if grep -F '<parent>' "$pom" >/dev/null \
     || grep -E \
-      '<artifactId>(soma-testkit|soma-examples|examples-common)</artifactId>' \
+      '<artifactId>(soma-examples|examples-common)</artifactId>' \
       "$pom" >/dev/null; then
   printf '%s\n' \
     'rtd-rule-engine-check: application POM is not independent' >&2

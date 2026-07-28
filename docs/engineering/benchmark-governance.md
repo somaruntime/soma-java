@@ -132,12 +132,9 @@ Admission 失败立即终止，不允许先消耗多个 fork 再发现候选不�
 - neutral comparator：`PerformanceBaselineDefinition` /
   `PerformanceBaselineComparator`；
 - 三层结构 Gate：`scripts/check-performance-baseline-architecture.sh`；
-- component Gate：`check-post-cutover-components.sh`、`check-dataflow-performance.sh`；
+- component Gate：`check-access-performance.sh`、`check-dataflow-performance.sh`；
 - application Fast/Scale/Soak/Full Gate：
-  `check-reference-application-fast-performance.sh`、
-  `check-reference-application-scale-performance.sh`、
-  `check-reference-application-soak-performance.sh`、
-  `check-reference-application-full-performance.sh`；
+  `check-reference-application-performance.sh <fast|scale|soak|full>`；
 - application correctness 与架构 Gate：`check-industrial-scheduler.sh`、
   `check-grassing-simulation.sh`、`check-real-time-dispatch-rule-engine.sh`；
 - runtime-scale model/runner/validator：

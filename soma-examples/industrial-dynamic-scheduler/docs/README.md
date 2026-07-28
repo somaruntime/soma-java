@@ -12,7 +12,7 @@ Owner：industrial-dynamic-scheduler
 
 本应用是一个独立 Java 8 consumer：它只依赖 `soma-annotations`、
 `soma-runtime-core`、`soma-dataflow` 和 compile-time `soma-processor`，不依赖
-root reactor、`soma-testkit`、旧 examples 或 internal package。调度 hot loop
+root reactor、仓库级 evidence helper、旧 examples 或 internal package。调度 hot loop
 继续使用应用自有 primitive frontier；完成后的 authoritative assignment Table
 由 application-owned `AssignmentSummarizer` 通过直接 ColumnView 单遍推导
 detached Result metrics。`soma-dataflow` 只因当前生成 companion 的普通

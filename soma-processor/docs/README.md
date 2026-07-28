@@ -4,4 +4,4 @@
 
 当前 implementation、fixture、golden 和 Gate 从 [Compiler 与 codegen Map](../../docs/implementation-map/compiler-and-codegen-map.md)、[可执行契约地图](../../docs/implementation-map/executable-contract-map.md)和[测试与 evidence Map](../../docs/implementation-map/test-and-evidence-map.md)进入。
 
-旧契约路径仅作为未进入 current 导航的 tombstone 保留，不再拥有正文或当前 Design。
+历史契约由 Git 保存，不在 current checkout 维持平行 Design 或链接 tombstone。

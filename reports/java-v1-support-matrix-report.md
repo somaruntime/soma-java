@@ -1,10 +1,23 @@
 # Java-only SOMA V1 support matrix report
 
+类型：Report / Support Matrix
+
 状态：blocked（Zulu-only vendor边界已裁决，精确version/OS/architecture与正式支持承诺未批准）
-日期：2026-07-11
-最后审查日期：2026-07-23
-Owner：root
+
+Owner：SOMA Java G6 support matrix
+
+受众：SOMA maintainer、release owner 与 platform support reviewer
+
+适用版本：`0.2.0-SNAPSHOT`
+
+输入事实源：实际 Zulu JDK 8 validation metadata 与 release governance
+
+事实范围：observed local validation 与尚未批准的正式支持边界
+
+最后审查日期：2026-07-28
+
 Gate：G6
+首次记录日期：2026-07-11
 
 ## 1. Observed local validation
 

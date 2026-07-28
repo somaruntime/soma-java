@@ -93,8 +93,8 @@ Generated source 在 consumer/module 的 `target/generated-sources/annotations` 
 ## 3. 验证入口
 
 - codegen admission unit check：[`CodegenAdmissionCheck.java`](../../soma-processor/src/test/java/com/hgtech/soma/processor/CodegenAdmissionCheck.java)；
-- compiler/schema fixtures：[`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler)；
-- public/generated golden、DataFlow companion/Delta surface 与 external Maven consumers：[`soma-testkit/src/test/fixtures`](../../soma-testkit/src/test/fixtures)；
-- compiler Gate scripts：[`check-compiler-phase0.sh`](../../scripts/check-compiler-phase0.sh)、[`check-codegen-admission.sh`](../../scripts/check-codegen-admission.sh)、[`check-value-modifiers-phase5.sh`](../../scripts/check-value-modifiers-phase5.sh)、[`check-defaults-phase5.sh`](../../scripts/check-defaults-phase5.sh)。
+- compiler/schema fixtures：[`tests/fixtures/compiler`](../../tests/fixtures/compiler)；
+- public/generated golden、DataFlow companion/Delta surface 与 external Maven consumers：[`tests/fixtures`](../../tests/fixtures)；
+- compiler Gate scripts：[`check-compiler-contracts.sh`](../../scripts/check-compiler-contracts.sh)、[`check-codegen-admission.sh`](../../scripts/check-codegen-admission.sh)、[`check-value-shape-contract.sh`](../../scripts/check-value-shape-contract.sh)、[`check-default-value-contract.sh`](../../scripts/check-default-value-contract.sh)。
 
 修改 annotation、normalization/hash、generated public method 或 protocol binding 时，必须沿 source → generated artifact → external consumer 追踪，而不能只运行 processor 单元测试。

@@ -24,14 +24,14 @@ Owner：SOMA Java 项目实现导航
 | `soma-runtime-core` | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | handwritten runtime + generated protocol |
 | `soma-dataflow` | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) | typed Transformation/DataFlow production runtime |
 | `soma-processor` | [`SomaProcessor.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/SomaProcessor.java) | javac plugin、processor、generator |
-| `soma-testkit` | [`MaterializedGraphComparator.java`](../../soma-testkit/src/main/java/com/hgtech/soma/testkit/MaterializedGraphComparator.java) | fixtures/evidence helpers |
 | `soma-examples` | [`pom.xml`](../../soma-examples/pom.xml)、[应用入口](../../soma-examples/docs/README.md) | 三个独立 Java 8 reference consumer 的 aggregator；不产出共享领域 JAR |
 | `soma-benchmarks` | [`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java) | 领域中性 component benchmark runners/artifacts |
 
 完整 production boundary 是 compile-time annotations/processor 与
 runtime-core/dataflow；只使用 direct Access 的源码不引用 DataFlow type。
-Testkit、examples aggregator 和 benchmarks 不应出现在普通 consumer runtime
-classpath。三个 reference application 是相互独立的普通 consumer，不是 SOMA
+仓库级 [`tests/fixtures`](../../tests/fixtures)、examples aggregator 和 benchmarks
+不应出现在普通 consumer runtime classpath。fixtures 不属于 reactor、不产出
+artifact；三个 reference application 是相互独立的普通 consumer，不是 SOMA
 runtime artifact。
 
 ## 2. Build 和 Gate 入口
@@ -43,7 +43,7 @@ runtime artifact。
 - benchmark smoke：[`scripts/check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)。
 
 `check.sh` 顺序执行 docs、Maven verify、build/public
-API/compiler/codegen/runtime/keyspace/access/child/testkit/breadth/diagnostics/external
+API/compiler/codegen/runtime/keyspace/access/child/breadth/diagnostics/external
 consumer、三个 reference application、neutral benchmark、integrated multi-fork
 与 generated-footprint 检查，最后执行 `git diff --check`。
 

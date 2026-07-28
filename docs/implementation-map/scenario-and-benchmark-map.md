@@ -70,13 +70,13 @@ factory分别建立稳定冻结的显式 `SomaGroupPlan`：
 
 Runtime aggregate唯一拥有Group并通过`runtimeMetadata()`公开detached
 `SomaGroupMetadata`；partial-create、normal/fault cleanup和release均走Group
-协议。业务模型、算法、Result、workload与领域correctness未改变；其余已经符合
-最终设计的应用分层保留，不做展示性迁移。
+协议。业务模型、算法、Result、workload与领域correctness保持各应用的
+canonical 产品叙事，不为展示效果增加平行 adapter 或共享领域层。
 
 ## 2. Benchmark 入口
 
 - smoke runner / validator：[`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java)、[`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java)；
-- neutral component runner / validator：[`PostCutoverComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java)、[`PostCutoverComponentArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java)；
+- neutral component runner / validator：[`AccessComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/AccessComponentBenchmark.java)、[`AccessComponentArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/AccessComponentArtifactValidator.java)；
 - DataFlow component runner：[`DataFlowComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/DataFlowComponentBenchmark.java)；
 - runtime-scale qualification runner/model/validator：
   [`RuntimeScaleQualificationRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/RuntimeScaleQualificationRunner.java)、
@@ -89,7 +89,7 @@ Runtime aggregate唯一拥有Group并通过`runtimeMetadata()`公开detached
 
 `soma-benchmarks` 不依赖或导入 reference application domain。它只测 SOMA component mechanics；真实应用的 allocation、GC、runtime high-water 和 correctness guard 由 application 自有 runner/Gate 负责。全部 smoke/diagnostic artifact 保持 `claimAllowed=false`。
 
-Post-cutover runner 的 nested accumulator 使用显式无参构造器；Gate 在任何 fork
+Access component runner 的 nested accumulator 使用显式无参构造器；Gate 在任何 fork
 前执行 descriptor 与 class-load preflight，再进入既有五 fork baseline。该规则
 只保证 measurement candidate 可启动且 class set 自洽，不改变 lane、阈值或
 performance claim。
@@ -102,7 +102,7 @@ compilation 过渡期误记为稳态 p90；workload、fork、阈值和 baseline 
 当前十一份 checked-in baseline 分别为两份 component baseline 和九份
 application profile baseline：
 
-- [`Access component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json)；
+- [`Access component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-zulu8-macos-aarch64-v1.json)；
 - [`DataFlow component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v2.json)；
 - scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v5.json)、
   [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v4.json)、
@@ -118,18 +118,33 @@ Comparator 只拥有领域中性协议。三个应用各自拥有 workload ident
 test-resource baseline，POM 不依赖 `soma-benchmarks`；baseline 不进入 production
 JAR。当前没有 public performance claim。
 
+当前 benchmark family 的唯一责任为：
+
+| Family | 唯一 evidence |
+|---|---|
+| Smoke，20 required lanes | 低成本 executable artifact、Access Pattern Card、strict invariant |
+| Access component | direct/Candidate stage、point/key/column、allocation 与 exact cardinality |
+| DataFlow component | direct 对照、固定税、parallel crossover、Effect、delivery 与 stats |
+| Runtime scale，10 required lanes | Small/Medium、1M/10M、single/double 100M、String、Expansion、Delivery、Soak |
+| 3 applications × 3 profiles | 三种领域叙事的 default/large/long-run integrated evidence |
+| Generated footprint | compiler specialization 的 source/class family size |
+
+每个 family 都拥有其他 family 不能替代的 claim，因此当前没有待删除的重复 lane。
+新增 lane 必须说明新的 design decision/claim、oracle、profile、通过规则与退役条件；
+只复用 setup、environment、artifact parser 等 mechanics 不能构成第二个 evidence
+Owner。
+
 ## 3. Gate
 
 - artifact isolation：[`check-reference-applications.sh`](../../scripts/check-reference-applications.sh)；
 - scheduler correctness/long-run/multi-fork：[`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)；
 - simulation oracle/long-run/multi-fork：[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)；
 - RTD reference/parallel/budget/commit/multi-fork：[`check-real-time-dispatch-rule-engine.sh`](../../scripts/check-real-time-dispatch-rule-engine.sh)；
-- neutral smoke/component：[`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)；
+- neutral smoke/component：[`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-access-performance.sh`](../../scripts/check-access-performance.sh)；
 - DataFlow semantic/component：[`check-dataflow-reference.sh`](../../scripts/check-dataflow-reference.sh)、[`check-dataflow-performance.sh`](../../scripts/check-dataflow-performance.sh)；
-- application Fast/Scale/Soak/Full：[`check-reference-application-fast-performance.sh`](../../scripts/check-reference-application-fast-performance.sh)、
-  [`check-reference-application-scale-performance.sh`](../../scripts/check-reference-application-scale-performance.sh)、
-  [`check-reference-application-soak-performance.sh`](../../scripts/check-reference-application-soak-performance.sh)、
-  [`check-reference-application-full-performance.sh`](../../scripts/check-reference-application-full-performance.sh)；
+- application Fast/Scale/Soak/Full：
+  [`check-reference-application-performance.sh`](../../scripts/check-reference-application-performance.sh)
+  的 `fast`、`scale`、`soak`、`full` mode；
 - baseline Owner/层次防回归：[`check-performance-baseline-architecture.sh`](../../scripts/check-performance-baseline-architecture.sh)；
 - generated footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
 - runtime-scale qualification：

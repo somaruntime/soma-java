@@ -57,7 +57,7 @@ checksum_file() {
 collect_artifacts() {
   output_dir=$1
   cp pom.xml "$output_dir/soma-java-parent-$version.pom"
-  for module in soma-annotations soma-processor soma-runtime-core; do
+  for module in soma-annotations soma-processor soma-runtime-core soma-dataflow; do
     cp "$module/pom.xml" "$output_dir/$module-$version.pom"
     cp "$module/target/$module-$version.jar" "$output_dir/"
     cp "$module/target/$module-$version-sources.jar" "$output_dir/"
@@ -75,7 +75,7 @@ write_expected_artifact_set() {
   output_file=$1
   {
     printf 'soma-java-parent-%s.pom\n' "$version"
-    for module in soma-annotations soma-processor soma-runtime-core; do
+    for module in soma-annotations soma-processor soma-runtime-core soma-dataflow; do
       printf '%s-%s-javadoc.jar\n' "$module" "$version"
       printf '%s-%s-sources.jar\n' "$module" "$version"
       printf '%s-%s.jar\n' "$module" "$version"
@@ -93,7 +93,7 @@ validate_artifact_set() {
     -exec basename {} \; | LC_ALL=C sort > "$actual_set"
   diff -u "$expected_set" "$actual_set" > "$work_dir/$label-artifact-set.diff"
 
-  for module in soma-annotations soma-processor soma-runtime-core; do
+  for module in soma-annotations soma-processor soma-runtime-core soma-dataflow; do
     binary_jar="$artifact_dir/$module-$version.jar"
     source_jar="$artifact_dir/$module-$version-sources.jar"
     javadoc_jar="$artifact_dir/$module-$version-javadoc.jar"
@@ -143,7 +143,7 @@ EOF
 build_release_shape() {
   local_repository=$1
   build_log=$2
-  seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
+  seed_repository=${3:-$root_dir/target/evidence-m2/repository}
   mkdir -p "$local_repository"
   if [ -d "$seed_repository" ]; then
     # 只预热已校验的 plugin/dependency bytes；两次 clean build 仍写入彼此独占仓库。
@@ -164,7 +164,10 @@ build_release_shape "$work_dir/repository-first" "$work_dir/build-first.log"
 collect_artifacts "$first_dir"
 validate_artifact_set "$first_dir" first
 
-build_release_shape "$work_dir/repository-second" "$work_dir/build-second.log"
+# 第二轮仍写入独立 repository；只复用第一轮已经解析的 plugin/dependency bytes，
+# 避免重复网络解析成为 byte-for-byte reproducibility evidence 的不稳定前置。
+build_release_shape "$work_dir/repository-second" "$work_dir/build-second.log" \
+  "$work_dir/repository-first"
 collect_artifacts "$second_dir"
 validate_artifact_set "$second_dir" second
 
@@ -192,7 +195,7 @@ commit=$(git rev-parse HEAD)
   printf 'commit=%s\n' "$commit"
   printf 'dirty=%s\n' "$dirty"
   printf 'artifactVersion=%s\n' "$version"
-  printf 'artifactSet=parent-pom-plus-three-module-pom-binary-source-javadoc\n'
+  printf 'artifactSet=parent-pom-plus-four-module-pom-binary-source-javadoc\n'
   printf 'classfileMajor=52\n'
   printf 'licenseNotice=binary-and-source-jars-exact-root-content\n'
   printf 'buildCommand=./mvnw -B -ntp -Prelease-artifacts -Dmaven.repo.local=<isolated> -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow -am clean package\n'

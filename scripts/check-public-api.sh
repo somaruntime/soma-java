@@ -14,7 +14,7 @@ annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
 dataflow_jar=soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar
-expected=soma-testkit/src/test/fixtures/public-api/phase1
+expected=tests/fixtures/public-api/current
 for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar" "$dataflow_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' "public-api-check: missing artifact $artifact" >&2
@@ -23,7 +23,7 @@ for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar" "$dataflow_ja
 done
 
 mkdir -p target
-evidence_dir=$(mktemp -d "$root_dir/target/phase1-public-api.XXXXXX")
+evidence_dir=$(mktemp -d "$root_dir/target/public-api-contract.XXXXXX")
 actual_classification=$evidence_dir/classification.txt
 actual_javap=$evidence_dir/public-api.javap.txt
 

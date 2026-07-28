@@ -26,7 +26,6 @@
     <module>soma-runtime-core</module>
     <module>soma-dataflow</module>
     <module>soma-processor</module>
-    <module>soma-testkit</module>
     <module>soma-examples</module>
     <module>soma-benchmarks</module>
   </modules>
@@ -66,11 +65,6 @@
       <dependency>
         <groupId>${project.groupId}</groupId>
         <artifactId>soma-dataflow</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-      <dependency>
-        <groupId>${project.groupId}</groupId>
-        <artifactId>soma-testkit</artifactId>
         <version>${project.version}</version>
       </dependency>
     </dependencies>

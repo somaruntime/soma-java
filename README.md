@@ -17,9 +17,11 @@ Java-only V1 的 annotation、compiler/processor、generated API、columnar runt
 | `soma-processor` | [docs](soma-processor/docs/README.md) |
 | `soma-runtime-core` | [docs](soma-runtime-core/docs/README.md) |
 | `soma-dataflow` | [DataFlow 实现地图](docs/implementation-map/dataflow-map.md) |
-| `soma-testkit` | [docs](soma-testkit/docs/README.md) |
 | `soma-examples` | [docs](soma-examples/docs/README.md) |
 | `soma-benchmarks` | [docs](soma-benchmarks/docs/README.md) |
+
+Compiler、golden 与独立 consumer 验证资产位于
+[`tests/fixtures`](tests/fixtures)，不产出 Maven artifact。
 
 ## 其他入口
 

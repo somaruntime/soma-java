@@ -43,11 +43,34 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - `soma-runtime-core`：TableStore、lifecycle、runtime plan、errors/diagnostics、runtime性能实现；
 - `soma-dataflow`：typed Transformation、Definition/Template/Invocation、
   execution context、detached result、controlled effect 与并行执行；
-- `soma-testkit`：compile/golden/invariant/evidence helpers；
 - `soma-examples`：三个独立 Java 8 reference consumer 的聚合边界，不产出领域共享 JAR；
 - `soma-benchmarks`：领域中性 component benchmark、runner、validator 与 runtime-state lanes。
 
-跨模块长期语义由根级 Design 拥有；模块 `docs/` 中的旧契约已 `superseded`，只保留历史上下文。模块修改前仍应读取对应 `<module>/docs/README.md` 以定位当前实现与历史边界。
+仓库级 compile/golden/external-consumer fixture 位于 `tests/fixtures/`，它不是
+Maven module，不产出 artifact，也不得成为 production 或 reference application
+依赖。
+
+跨模块长期语义由根级 Design 拥有；历史模块契约由 Git 保存，不在 current
+checkout 建立平行 Owner。模块修改前仍应读取对应 `<module>/docs/README.md`
+以定位当前实现与边界。
+
+## Repository Surface Discipline
+
+- 新增 production type、接口、module、测试、benchmark lane、脚本或正式文档前，
+  必须说明独立 Capability/语义/失败域/evidence、consumer、生命周期，以及为何
+  当前 Owner 不能承载；
+- replacement 必须在同一变更中列出并退出 predecessor、旧入口和 migration-only
+  checker；不保留“新旧并行，稍后清理”；
+- 测试和 benchmark 按 Capability、cross-capability journey、external consumer、
+  reference application、qualification 组织，不以 phase/slice/治理批次作为
+  canonical taxonomy；
+- current Map/Report 只描述当前事实；已完成迁移和旧 checkpoint 由 Git 保存，
+  不累计 tombstone、旧 token blacklist 或历史路径枚举；
+- 不以 LOC、文件数、单实现、单调用者或浅层 unused scan 删除抽象；必须追踪
+  Design intent、完整调用链、不变量与 replacement closure；
+- 专题 closeout 报告 production/public/test/fixture/benchmark/script/doc surface
+  delta，并确认 parallel Owner、migration artifact、未退役专题目录和未裁决
+  `UNKNOWN` 为零。
 
 ## Release Identity and Validation
 

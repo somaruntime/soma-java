@@ -177,7 +177,7 @@ JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home \
   ./scripts/check-runtime-scale-qualification.sh
 
 JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home \
-  ./scripts/check-reference-application-full-performance.sh
+  ./scripts/check-reference-application-performance.sh full
 ```
 
 普通 `./scripts/check.sh` 负责 fresh build、public/generated/external consumer、

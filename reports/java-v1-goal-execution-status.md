@@ -26,6 +26,15 @@ TV0–TV9、最终设计、正式Owner、production、generated/public API、测
 benchmark、Guide、三个Example、代码规模、production qualification和closeout均
 闭合。`CF-009`–`CF-015`已关闭。
 
+随后完成的
+[V1产品面收敛与仓库瘦身治理](2026-07-28-soma-v1-product-surface-simplification-governance-report.md)
+没有改变上述production candidate：四个production module主源码、224/2
+public/internal executable分类、三个Example、全部benchmark claim和规模/String
+目标保持不变；无consumer的testkit artifact、历史编排与重复文档退出，package和
+security evidence补齐dataflow。该治理以
+`d3f2e354fd553b3d2923cc2c145413930e06ba8c`为仓库surface基线，不替换下列
+production content identity。
+
 当前production/evidence source identity为：
 
 ```text

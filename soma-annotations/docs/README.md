@@ -4,4 +4,5 @@
 
 当前实现从 [Compiler 与 codegen Map](../../docs/implementation-map/compiler-and-codegen-map.md) 进入。
 
-本目录不再拥有独立 Design。旧契约路径仅作为未进入 current 导航的 tombstone 保留；当前事实与根级 Design 冲突时，修改实现或正式 Owner，不建立平行 Owner。
+本目录不再拥有独立 Design；历史契约由 Git 保存。当前事实与根级 Design 冲突时，
+修改实现或正式 Owner，不建立平行 Owner。

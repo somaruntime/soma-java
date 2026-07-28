@@ -1,9 +1,0 @@
-INTERNAL implementation com.hgtech.soma.processor.internal.CompilerProtocol
-INTERNAL implementation com.hgtech.soma.processor.internal.CompilerProtocol$Session
-PUBLIC build-provider com.hgtech.soma.processor.SomaProcessor
-PUBLIC build-provider com.hgtech.soma.processor.javac8.SomaJavacPlugin
-PUBLIC handwritten com.hgtech.soma.annotation.SomaField
-PUBLIC handwritten com.hgtech.soma.annotation.SomaIgnore
-PUBLIC handwritten com.hgtech.soma.annotation.SomaSchema
-PUBLIC handwritten com.hgtech.soma.annotation.SomaSemantic
-PUBLIC handwritten com.hgtech.soma.annotation.SomaValue

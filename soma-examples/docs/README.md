@@ -44,6 +44,12 @@ owner仍由手工创建/逆序释放表达。现在三个runtime分别拥有稳�
 SomaGroup，partial-create、fault cleanup和release由Group收口，并通过detached
 Group Runtime Metadata进入evidence；领域模型、算法和Result没有装饰性改写。
 
+三个 child 的 test source 各自保留小型 `BenchmarkEnvironment`、
+`BenchmarkOptions` 与 `JvmMetrics`。这些 mechanics 形状相似，但合并会引入第四个
+example test artifact 或跨 child source dependency，削弱“普通 consumer 独立性”
+证据；因此不建立共享 example runtime/testkit。只有通用协议由 SOMA production
+module 或领域中性 benchmark Owner 提供。
+
 ## Canonical Gate
 
 ```sh
@@ -51,10 +57,10 @@ Group Runtime Metadata进入evidence；领域模型、算法和Result没有装�
 ./scripts/check-industrial-scheduler.sh
 ./scripts/check-grassing-simulation.sh
 ./scripts/check-real-time-dispatch-rule-engine.sh
-./scripts/check-reference-application-fast-performance.sh
-./scripts/check-reference-application-scale-performance.sh
-./scripts/check-reference-application-soak-performance.sh
-./scripts/check-reference-application-full-performance.sh
+./scripts/check-reference-application-performance.sh fast
+./scripts/check-reference-application-performance.sh scale
+./scripts/check-reference-application-performance.sh soak
+./scripts/check-reference-application-performance.sh full
 ```
 
 前四个 Gate 证明三个 child 是相互独立的普通 consumer，并分别拥有领域

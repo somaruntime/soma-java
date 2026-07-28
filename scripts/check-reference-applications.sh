@@ -47,15 +47,6 @@ if find soma-examples/src -type f -print 2>/dev/null | grep . >/dev/null \
   printf '%s\n' 'reference-app-check: aggregator or benchmark dependency boundary regressed' >&2
   exit 1
 fi
-for retired in \
-  scripts/check-examples-phase6.sh \
-  scripts/check-fjsp-allocation-gc.sh \
-  scripts/run-fjsp-100k-benchmark.sh; do
-  if [ -e "$retired" ]; then
-    printf '%s\n' "reference-app-check: retired current path remains: $retired" >&2
-    exit 1
-  fi
-done
 if grep -R -E '^import com\.hgtech\.soma\.(annotation|runtime)' \
     soma-examples/industrial-dynamic-scheduler/src/main/java/com/hgtech/soma/examples/scheduler/problem \
     soma-examples/grassing-individual-simulation/src/main/java/com/hgtech/soma/examples/grassing/scenario \
@@ -94,7 +85,7 @@ mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/reference-applications.XXXXXX")
 repository=$evidence_dir/repository
 mkdir -p "$repository"
-seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
+seed_repository=$root_dir/target/evidence-m2/repository
 if [ -d "$seed_repository" ]; then
   cp -R "$seed_repository/." "$repository/"
 fi
@@ -109,7 +100,7 @@ for application in \
   application_dir=$root_dir/soma-examples/$application
   pom=$application_dir/pom.xml
   if grep -F '<parent>' "$pom" >/dev/null \
-      || grep -E '<artifactId>(soma-testkit|soma-examples|examples-common)</artifactId>' \
+      || grep -E '<artifactId>(soma-examples|examples-common)</artifactId>' \
         "$pom" >/dev/null; then
     printf '%s\n' "reference-app-check: non-isolated POM dependency in $application" >&2
     exit 1
@@ -122,7 +113,7 @@ for application in \
     exit 1
   fi
   if grep -R -E \
-      'com\.hgtech\.soma\.(processor|testkit|runtime\.generated)|com\.hgtech\.soma\.examples\.(fjsp|vrp|simulation|game)' \
+      'com\.hgtech\.soma\.(processor|runtime\.generated)|com\.hgtech\.soma\.examples\.(fjsp|vrp|simulation|game)' \
       "$application_dir/src/main/java" >/dev/null; then
     printf '%s\n' "reference-app-check: forbidden source import in $application" >&2
     exit 1
@@ -160,7 +151,7 @@ for application in \
     "$dependency_plugin":build-classpath -DincludeScope=runtime \
     -Dmdep.outputFile="$runtime_classpath_file"
   grep -F '/soma-runtime-core/' "$runtime_classpath_file" >/dev/null
-  if grep -E '/(soma-processor|soma-testkit|soma-examples)/' \
+  if grep -E '/(soma-processor|soma-examples)/' \
       "$runtime_classpath_file" >/dev/null; then
     printf '%s\n' "reference-app-check: build/test artifact leaked into $application runtime" >&2
     exit 1

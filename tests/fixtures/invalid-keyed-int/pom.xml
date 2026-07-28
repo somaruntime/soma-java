@@ -1,0 +1,15 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example.soma</groupId><artifactId>invalid-keyed-int-consumer</artifactId><version>1.0.0-SNAPSHOT</version>
+  <properties><maven.compiler.source>1.8</maven.compiler.source><maven.compiler.target>1.8</maven.compiler.target><soma.version>0.2.0-SNAPSHOT</soma.version></properties>
+  <dependencies>
+    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-annotations</artifactId><version>${soma.version}</version></dependency>
+    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-runtime-core</artifactId><version>${soma.version}</version></dependency>
+    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-dataflow</artifactId><version>${soma.version}</version></dependency>
+    <dependency><groupId>com.hgtech.soma</groupId><artifactId>soma-processor</artifactId><version>${soma.version}</version><scope>provided</scope></dependency>
+  </dependencies>
+  <build><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.11.0</version><configuration><source>1.8</source><target>1.8</target><compilerArgs><arg>-Xplugin:SomaValue</arg></compilerArgs><annotationProcessorPaths>
+    <path><groupId>com.hgtech.soma</groupId><artifactId>soma-processor</artifactId><version>${soma.version}</version></path>
+    <path><groupId>com.hgtech.soma</groupId><artifactId>soma-annotations</artifactId><version>${soma.version}</version></path>
+  </annotationProcessorPaths></configuration></plugin></plugins></build>
+</project>

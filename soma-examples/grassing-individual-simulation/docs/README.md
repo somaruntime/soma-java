@@ -16,7 +16,7 @@ Owner：grassing-individual-simulation
 确定性随机、验证和性能 evidence；SOMA 的产品语义仍由根级 Design 拥有。它只
 依赖 `soma-annotations`、`soma-runtime-core`、生成 companion 所需的
 `soma-dataflow` 和 compile-time `soma-processor`，不依赖 root reactor、
-`soma-testkit`、旧 examples、Artemis-odb 或 SOMA internal package。业务运行
+仓库级 evidence helper、旧 examples、Artemis-odb 或 SOMA internal package。业务运行
 仍使用 direct Access/Transformation，不为了展示产品能力强行建立 reusable
 DataFlow。
 

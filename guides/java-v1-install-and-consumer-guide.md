@@ -115,7 +115,7 @@ version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matri
 
 三个正式参考应用位于 `soma-examples` 的独立 child projects；独立于 reactor
 parent 的完整 core consumer fixture 位于
-`soma-testkit/src/test/fixtures/external-maven-breadth-phase5`。
+`tests/fixtures/external-maven-breadth`。
 
 ## 4. 建模顺序与关键语义
 

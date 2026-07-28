@@ -85,7 +85,9 @@ composition/lifecycle，不成为Join prerequisite或跨root transaction。
 
 ## 4. 验证入口
 
-- semantic vertical slices：[`check-dataflow-slice-f.sh`](../../scripts/check-dataflow-slice-f.sh)；
+- capability contracts：[`check-dataflow-contracts.sh`](../../scripts/check-dataflow-contracts.sh)，
+  一次编译后分别验证 Invocation、Selection/Value、Relation、Mutation、
+  Execution、Point/Delivery 与 Shape/Graph；
 - property/reference differential：[`check-dataflow-reference.sh`](../../scripts/check-dataflow-reference.sh)；
 - external/generated/golden：既有 public、codegen、dense/keyed/access/child/breadth 和 external consumer Gates；
 - footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)；

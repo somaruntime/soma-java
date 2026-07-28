@@ -127,16 +127,20 @@ alias都不被Group拓扑限制。
 
 ## 4. 核心检查
 
-- handwritten kernel：[`RuntimeCorePhase1Check.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/RuntimeCorePhase1Check.java)；
+- runtime plan/metadata、Group/ownership、storage/access 与 resource/failure：
+  [`check-runtime-contracts.sh`](../../scripts/check-runtime-contracts.sh)，其共享
+  case library 为
+  [`RuntimeCoreContractCases.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/RuntimeCoreContractCases.java)；
 - layout/publication invariant：[`StorageTestProtocol.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/generated/StorageTestProtocol.java)，覆盖全部typed column、presence、跨Segment copy/clear、stage failure rollback与release；
-- key space：[`KeySpacePhase2Check.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/KeySpacePhase2Check.java)；
-- generated runtime scripts：[`check-generated-dense-phase1.sh`](../../scripts/check-generated-dense-phase1.sh)、[`check-generated-keyed-phase2.sh`](../../scripts/check-generated-keyed-phase2.sh)、[`check-access-phase3.sh`](../../scripts/check-access-phase3.sh)、[`check-child-phase4.sh`](../../scripts/check-child-phase4.sh)；
-- diagnostics：[`check-table-diagnostics-phase1.sh`](../../scripts/check-table-diagnostics-phase1.sh)；
+- primary locator：
+  [`PrimaryLocatorContractCheck.java`](../../soma-runtime-core/src/test/java/com/hgtech/soma/runtime/PrimaryLocatorContractCheck.java)；
+- generated runtime scripts：[`check-generated-dense-contract.sh`](../../scripts/check-generated-dense-contract.sh)、[`check-generated-keyed-contract.sh`](../../scripts/check-generated-keyed-contract.sh)、[`check-generated-access-contract.sh`](../../scripts/check-generated-access-contract.sh)、[`check-generated-ownership-contract.sh`](../../scripts/check-generated-ownership-contract.sh)；
+- diagnostics：[`check-schema-diagnostics-contract.sh`](../../scripts/check-schema-diagnostics-contract.sh)；
 - floating storage/access：[`check-floating-value-storage.sh`](../../scripts/check-floating-value-storage.sh)。
-- Candidate allocation/code size：[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
+- Candidate allocation/code size：[`check-access-performance.sh`](../../scripts/check-access-performance.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
 - Group composition/ledger：runtime-core `GroupTestProtocol`，以及
-  `check-generated-dense-phase1.sh`、`check-child-phase4.sh`、
-  `check-breadth-phase5.sh`、`check-dataflow-slice-a.sh` 中的显式/隐式 Group、
+  `check-generated-dense-contract.sh`、`check-generated-ownership-contract.sh`、
+  `check-generated-breadth-contract.sh`、`check-dataflow-contracts.sh` 中的显式/隐式 Group、
   multi-schema/multi-instance、rollback/release 与 canonical acquire evidence。
 
 修改 protocol method、storage invariant 或 generated binding 时，需要同时核对 runtime-core 与 processor-generated consumer，单边测试不足以证明 conformance。

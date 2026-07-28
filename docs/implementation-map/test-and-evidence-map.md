@@ -21,82 +21,41 @@ Owner：SOMA 测试与 evidence 实现导航
 | 层次 | 当前实现入口 | 主要证明 |
 |---|---|---|
 | Maven tests | 各 module `src/test` + root `mvnw verify` | handwritten unit/invariant |
-| compile fixtures | [`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler) | positive/negative compiler behavior |
+| compile fixtures | [`tests/fixtures/compiler`](../../tests/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | flat/head-tail storage、atomic segment publication、String reference cleanup、locator current/high-water、完整 Runtime Metadata、lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v11 identity |
-| DataFlow contract | `check-dataflow-slice-f.sh`、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
+| runtime invariant | [`check-runtime-contracts.sh`](../../scripts/check-runtime-contracts.sh) 与 `check-generated-*-contract.sh` | flat/head-tail storage、atomic segment publication、String reference cleanup、locator current/high-water、完整 Runtime Metadata、lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v11 identity |
+| DataFlow contract | [`check-dataflow-contracts.sh`](../../scripts/check-dataflow-contracts.sh)、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
 | application correctness/evidence | [`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)、[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)、[`check-real-time-dispatch-rule-engine.sh`](../../scripts/check-real-time-dispatch-rule-engine.sh)、Fast/Scale/Soak/Full performance Gate | versioned config、detached input checksum、oracle/validator、failure/lifecycle/resource ownership，以及九个 profile 的多 fork timing/allocation/GC/high-water |
-| neutral benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-post-cutover-components.sh`](../../scripts/check-post-cutover-components.sh)、[`check-dataflow-performance.sh`](../../scripts/check-dataflow-performance.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、direct/Candidate/DataFlow cost、parallel crossover、safe-point Effect、cardinality memory 与 generated footprint |
+| neutral benchmark | [`check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)、[`check-access-performance.sh`](../../scripts/check-access-performance.sh)、[`check-dataflow-performance.sh`](../../scripts/check-dataflow-performance.sh)、[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh) | artifact integrity、direct/Candidate/DataFlow cost、parallel crossover、safe-point Effect、cardinality memory 与 generated footprint |
 | package/security | [`package-smoke.sh`](../../scripts/package-smoke.sh) 及 security/release scripts | distribution boundary |
 
-## 2. Testkit
+## 2. Repository-owned fixtures
 
-[`MaterializedGraphComparator.java`](../../soma-testkit/src/main/java/com/hgtech/soma/testkit/MaterializedGraphComparator.java) 提供 detached materialized graph 的显式内容比较。Compiler fixtures 同时覆盖 spoofing、cycle、invalid selector/child/default、Unicode order、generated-name collision 和外部 Maven 使用。
+[`tests/fixtures`](../../tests/fixtures) 保存 compiler、public/generated golden 与
+独立 Maven consumer 输入；它不是 module，不产出 artifact。Compiler fixtures
+覆盖 spoofing、cycle、invalid selector/child/default、Unicode order、
+generated-name collision 和外部 Maven 使用。
 
 Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 javac/Maven compile/run 与 `javap` golden；源码字符串断言只适合作为辅助定位。
 
-S1 fixture 进一步覆盖四类 schema classifier、arbitrary object stable-ID
-diagnostic、String Key/Unique/Index hash collision、Metadata hierarchy/default/
-ownership/immutability、generic Object token absence，以及 generated v5/
-transformation v1 对 current protocol 的 bind-time fail-closed。
+当前 fixture/evidence 组合按能力覆盖：
 
-S2 fixture继续覆盖schema-seeded Plan Builder、root/child editor one-shot、
-order-independent canonical hash、Effective Metadata immutability、planning rows
-non-binding、hard maximum rows atomic rejection、String profile
-`UNPROFILED/PROFILED_UNVERIFIED`估算与角色，以及application raw builder/
-free-form strategy absence。Access、Child、Breadth、Keyed与Dense external
-consumer均完成clean/repeat compile/run和受影响`javap`快照。DataFlow component
-baseline只因plan v4迁移authoring identity checksum，allocation/timing/tail/GC
-阈值未放宽，calibration指向`3c8d425`。
+- schema classifier、arbitrary object stable-ID diagnostic、String
+  Key/Unique/Index collision、Metadata hierarchy/default/ownership/immutability
+  与 generated-name collision；
+- plan canonical identity、Group lifecycle/fault、atomic segment publication、
+  primitive/String/presence boundary、locator repair/high-water 与 dead-reference
+  cleanup；
+- Candidate/Group/Join/Window/Delta、unknown-bound fail-closed、sequential/
+  parallel equivalence、callback delivery、Effect 与 diagnostics；
+- clean/repeat external Maven consumer、current public/generated `javap`、
+  schema JSON/hash、reference differential 和 bounded qualification。
 
-S3 fixture覆盖SomaGroupPlan确定性、stable frozen slots、multi-schema与同schema
-多实例、detached Group Metadata、atomic attach rollback、explicit release
-conflict、all-member preflight、reverse release、root fault→DEGRADED、
-Group cleanup fault→FAULTED与bounded retry。Breadth/DataFlow evidence同时覆盖
-same/cross Group、cross schema、self alias以及第三个source acquire失败时对前两个
-root的canonical reverse release。`StorageBudget` source/protocol token已由absence
-scan关闭，generated/runtime identity升级为v7，plan仍为v4。
-
-S4 fixture覆盖workload/row-width formula、Small/Medium与point-heavy flat选择、
-Large flat-head/fixed-tail选择、全部primitive/String/presence跨32K boundary、
-column-group stage failure不发布、跨Segment overlap copy、segment-wise clear/release，
-以及generated dense scan、keyed swap-remove locator repair和parent-owned child
-handle relocation。Public/generated identity升级为v8、plan为v5；这些是功能与
-协议evidence，不外推1M/10M/100M性能或支持声明。
-
-S5 runtime/keyed/breadth fixture覆盖locator formula fail-closed、flat-compact
-Effective Metadata、locator retained/high-water、String caller-reference identity、
-equal-value different-object no-op、replace/failed append/delete/clear/release cleanup，
-并以layout-independent reflection oracle证明dead reference不再由SOMA生成结构强
-引用。Public/generated identity升级为v9、plan为v6。该oracle是deterministic
-retention evidence；实际JVM GC和规模结论由最终qualification补齐。
-
-最终slice把Candidate closed physical shapes、Group/Join/Window specialization、
-Delta staging、unknown-bound fail-closed、bounded morsel scheduler、Invocation
-phase ledger、Eager + callback-scoped delivery、component stats和完整
-Table/Segment/access Runtime Metadata投影到v11/v3/v4协议。Slice A–F、48-trial
-reference differential、public/generated golden、dense/keyed/access/child/breadth
-external consumer和old-token absence共同证明clean replacement；不保留
-consumer-in-Definition、ordinary Iterator、平行parallel executor或generic Object
-后端。DataFlow component baseline因authoring identity及bounded morsel/
-Invocation ledger固定成本版本化为v2：三fork execution checksum全部保持，只有
-authoring checksum和两个受影响parallel allocation envelope按既有公式重校，
-其余v1 timing、tail、GC、sequential和materializing envelope原样保留。
-
-Codegen admission 额外约束 selector-less Table 的私有 exact-index stage 使用显式
-构造器，防止 javac 8 synthetic access marker 在 clean build 边界漂移；这项断言
-只保护私有生成字节码的可重复编译。
-
-Aggregate fault evidence 集中覆盖 internal、raw unexpected、expected/callback、
-root/child propagation、normal-access rejection、diagnostics 与 release，不为每个
-forwarding method 重复同一 failure case。Post-cutover component Gate 在 fork 前
-验证 benchmark nested helper 的无参 descriptor 和 class-load smoke，避免把坏
-class set 带入多 fork 测量。DataFlow component Gate 同样先运行完整 15-lane
-admission；其 direct predicate 不捕获 `Workload`，authoring lane 独立记录足以
-越过 tiered-compilation 过渡期的 warmup，再进入固定三 fork。
+API 迁移完成与否由 current golden、source 和 external consumer 的一致性证明，
+不再用旧 token 黑名单或逐 forwarding-method 重复测试代替能力契约。
 
 ## 3. Evidence artifact
 

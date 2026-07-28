@@ -56,11 +56,10 @@ ServiceLoader、开放 SPI 或 application-supplied physical strategy。
 | `soma-processor` | javac 8 integration、validation、normalization、hash、generation | live runtime state |
 | `soma-runtime-core` | metadata/plan control plane、Group、storage、lifecycle、errors、runtime observation 和机械性能 primitive | application schema interpretation、DataFlow strategy |
 | `soma-dataflow` | typed expression/result、Definition/Template/Invocation、binding/guard coordination、planner/kernel、Invocation resource/并行和 DataFlow diagnostics | annotation interpretation、live storage、Group topology 或 application control flow |
-| `soma-testkit` | compile/golden/invariant/evidence helpers | production runtime shortcut |
 | `soma-examples` | 聚合三个独立 Java 8 reference consumer；应用各自拥有领域 Blueprint、Design 和 integrated evidence | 产出领域共享 JAR、共享领域模型或发明核心语义 |
 | `soma-benchmarks` | 领域中性的 component benchmark、runner 和 evidence artifact | 依赖参考应用 schema或用结果反向静默改写设计 |
 
-只使用直接 storage/access 的 production consumer 运行时依赖 `soma-runtime-core`；完整 typed transformation consumer 还依赖 `soma-dataflow`。`soma-annotations` 与 `soma-processor` 参与编译生成；testkit、examples 和 benchmarks 是验证面，不进入生产运行时依赖。
+只使用直接 storage/access 的 production consumer 运行时依赖 `soma-runtime-core`；完整 typed transformation consumer 还依赖 `soma-dataflow`。`soma-annotations` 与 `soma-processor` 参与编译生成；`tests/fixtures`、examples 和 benchmarks 是验证面，不进入生产运行时依赖。`tests/fixtures` 是仓库级证据资产，不是 module 或可发布 artifact。
 
 ## 3. 接口分层
 
@@ -120,7 +119,7 @@ instance；Invocation 是 alias de-dup、guard 排序/acquire/release 的唯一 
   Result Delivery type；dataflow 只组合 runtime observation component，禁止反向
   模块依赖；
 - reference applications/benchmarks 可以消费 production modules；production modules 不反向依赖它们，benchmark 也不依赖 reference application domain；
-- testkit 只能提供验证能力，不得让 production path 在测试环境下拥有额外语义；
+- `tests/fixtures` 只能提供验证输入与 golden，不得让 production path 在测试环境下拥有额外语义；
 - 未经正式设计，不增加第三方 runtime 依赖。
 
 ## 6. 应用边界

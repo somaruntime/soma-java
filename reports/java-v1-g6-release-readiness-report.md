@@ -1,10 +1,23 @@
 # Java-only SOMA V1 G6 release readiness report
 
+类型：Report / Release Readiness
+
 状态：blocked
+
+Owner：SOMA Java G6 release readiness
+
+受众：SOMA maintainer、release owner 与 public release reviewer
+
+适用版本：`0.2.0-SNAPSHOT`
+
+输入事实源：release governance、package/security evidence、support matrix 与真实 external facts
+
+事实范围：当前 G6 blocker、允许声明和禁止声明
+
+最后审查日期：2026-07-28
+
 Gate：G6 release readiness gate
-Owner：root
-执行日期：2026-07-11
-最后审查日期：2026-07-23
+执行日期：2026-07-28
 执行人：Codex
 Capability：`V1-RELEASE-EVIDENCE` → `blocked`
 Goal：`完成完整 Java-only SOMA V1.0，并通过 G0–G6。`（当前 blocked，不是 completed）
@@ -32,14 +45,19 @@ G6 未通过。完整 V1 功能与 G0–G5 已通过，本地 License/package/re
 SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh
 ```
 
-结果：passed。Evidence：`target/package-smoke.f8IUL8`。
+结果：passed。诊断目录属于可清理的 `target/` output；当前报告保留结果摘要与
+checksum，不把本机临时目录冒充长期 provenance。
 
 - 两个完全独立 local Maven repository 分别执行 clean release-shape build；
-- exact artifact set 共13项：parent POM，以及3个publishable module各自POM、binary、source、javadoc；
+- exact artifact set 共17项：parent POM，以及4个publishable module
+  `soma-annotations`、`soma-processor`、`soma-runtime-core`、`soma-dataflow`
+  各自POM、binary、source、javadoc；
 - binary/source/javadoc shape、binary/source内License/NOTICE exact hash、全部classfile major 52通过；
 - 两次所有artifact SHA-256逐字节一致，`reproducibility.diff`为空；
-- release checksum manifest SHA-256：`82873a8565be73da68dc64db7cf8d8bed3a0dcb4421fe395e2301cb029d46f27`；
-- provenance明确记录`commit=a991a51...`、`dirty=true`、`signature=not-performed`，所以只属于local diagnostic，不能作为clean/signed G6 provenance。
+- release checksum manifest SHA-256：`0961db9114214834d11178c6152a23303694ed14643e323a862723f11916a8d4`；
+- provenance明确记录`commit=d3f2e354...`、`dirty=true`、
+  `signature=not-performed`，所以只属于local diagnostic，不能作为clean/signed
+  G6 provenance。
 
 ### 2.3 Dependency、SBOM、known-vulnerability与declared-license diagnostic
 
@@ -49,13 +67,16 @@ SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh
 OSV_SCANNER=/tmp/osv-scanner-v2.3.8-darwin-arm64 ./scripts/security-release-scan.sh
 ```
 
-结果：passed。Evidence：`target/security-release-scan.3iyUxx`。
+结果：passed。诊断目录属于可清理的 `target/` output；当前报告保留 exact
+component set、结果摘要与 checksum。
 
 - 固定OSV-Scanner 2.3.8及其SHA-256；CycloneDX Maven plugin 2.9.1；
-- exact SBOM component set：3个SOMA release module + JDK 8 `tools` compiler input；
+- exact SBOM component set：4个SOMA release module
+  （annotations、processor、runtime-core、dataflow）+ JDK 8 `tools` compiler input；
 - known published vulnerability：0；declared-license violation：0；production runtime第三方依赖：0；
-- SBOM SHA-256：`cfb4f909ba6137071112fbace895c8c2ceba1e1b15ef22e4c1cd390cdc9e50f5`；
-- dependency tree与build-plugin inventory已记录；OSV不能证明不存在未公开漏洞，build plugin也不属于SOMA runtime artifact；
+- SBOM SHA-256：`b7d959f44e45288993e28fbe9a07f7390083fb298aa6879b73c70c6ad1844a22`；
+- dependency tree与pinned effective build-plugin configuration已记录；OSV不能
+  证明不存在未公开漏洞，build plugin也不属于SOMA runtime artifact；
 - summary同样记录`dirty=true`，不构成public-release security sign-off。
 
 ## 3. G6 required evidence 状态

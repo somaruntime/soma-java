@@ -94,7 +94,7 @@ fi
 repository=$evidence_dir/repository
 mkdir -p "$repository"
 application_build_dir=$evidence_dir/application-target
-seed_repository=$root_dir/soma-testkit/target/phase0-m2/repository
+seed_repository=$root_dir/target/evidence-m2/repository
 if [ -d "$seed_repository" ]; then
   cp -R "$seed_repository/." "$repository/"
 fi

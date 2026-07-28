@@ -113,19 +113,23 @@ promote long-lived facts to Blueprint/Design/Engineering as appropriate
 
 修改分类、权威关系、目录映射或框架版本属于文档体系变更，必须先在Temporary中完成候选、事实迁移审计和明确授权，再在一个可审查变更中同步入口、Owner、链接、checker和旧文档处置。禁止让两套current入口或Owner长期并列。
 
-旧文档若因历史链接需要保留，必须标记 `superseded`、声明当前取代者，并从所有 current 入口移除；它不再拥有正式事实。Temporary 不使用 superseded/archive 逃避删除义务。
+完成事实迁移后，旧 Design 正文和旧 canonical path 由 Git 保存，不在 current
+checkout 维持平行 Owner 或链接 tombstone。只有已经存在明确外部链接兼容性承诺
+时，才能另行设计兼容入口；Temporary 不使用 superseded/archive 逃避删除义务。
 
 ## 6. 可执行文档门禁
 
 正式文档检查至少 fail closed 地验证：
 
 - 所有受治理文档的 required metadata 和分类特有 metadata；
-- 每个 current 文档被唯一入口索引，superseded 文档不出现在 current 导航；
+- 每个 current 文档被唯一入口索引，模块 docs 不重新拥有根级 Design；
 - relative links 可解析，current/Design/Engineering 不引用 Temporary 作为事实源；
 - Design Owner 无重复，Implementation Map 有对应 Design和实现基线，Report 有受众/输入事实源/适用版本，snapshot Report另有日期/commit/环境/方法；
 - Design 层次值合法、上位关系和 Blueprint 追踪入口存在；Blueprint 有设计约束入口且不承载当前实现盘点、自审或一致性判定栏目；
 - `docs/temp/` 只包含 active topic，topic 有 README、授权边界和退役条件；
-- current Blueprint/Design/Map/Conformance/Engineering、Guide 与 registered current-executable Report 不得继续使用已完成 clean cutover 的旧 canonical API/术语；历史 Report 和 superseded Design 保留 provenance；
-- 历史报告可以链接 superseded input，但必须通过 current index 区分历史与当前结论。
+- current Blueprint/Design/Map/Conformance/Engineering、Guide 与 registered
+  current-executable Report 只描述当前 canonical surface；API 兼容性由
+  public/golden/external-consumer Gate 证明，不用旧 token 黑名单代替；
+- 历史 Report 保留当时事实，当前结论由 current index 明确区分。
 
 目录或 metadata 规则变化必须先更新本 Owner，再更新 checker；checker 通过不能替代事实迁移审查。

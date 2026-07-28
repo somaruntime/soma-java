@@ -14,7 +14,7 @@ annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
 dataflow_jar=soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar
-fixture=soma-testkit/src/test/fixtures/compiler/floating-value-storage
+fixture=tests/fixtures/compiler/floating-value-storage
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/floating-value-storage.XXXXXX")
 classes=$evidence_dir/classes

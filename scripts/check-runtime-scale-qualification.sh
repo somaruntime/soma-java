@@ -54,7 +54,6 @@ git ls-files -co --exclude-standard -- \
   'soma-runtime-core/pom.xml' 'soma-runtime-core/src/**' \
   'soma-dataflow/pom.xml' 'soma-dataflow/src/**' \
   'soma-processor/pom.xml' 'soma-processor/src/**' \
-  'soma-testkit/pom.xml' 'soma-testkit/src/**' \
   'soma-benchmarks/pom.xml' 'soma-benchmarks/src/**' \
   'soma-examples/pom.xml' 'soma-examples/*/pom.xml' \
   'soma-examples/*/src/**' \

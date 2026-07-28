@@ -10,28 +10,26 @@ cd "$root_dir"
 ./mvnw -B -ntp verify
 ./scripts/check-build-governance.sh
 ./scripts/check-public-api.sh
-./scripts/check-compiler-phase0.sh
+./scripts/check-compiler-contracts.sh
 ./scripts/check-codegen-admission.sh
-./scripts/check-internal-names-phase6.sh
-./scripts/check-runtime-core-phase1.sh
-./scripts/check-keyspace-phase2.sh
-./scripts/check-generated-keyed-phase2.sh
-./scripts/check-access-phase3.sh
-./scripts/check-child-phase4.sh
-./scripts/check-testkit-phase4.sh
-./scripts/check-value-modifiers-phase5.sh
-./scripts/check-defaults-phase5.sh
+./scripts/check-generated-naming-contract.sh
+./scripts/check-runtime-contracts.sh
+./scripts/check-generated-keyed-contract.sh
+./scripts/check-generated-access-contract.sh
+./scripts/check-generated-ownership-contract.sh
+./scripts/check-value-shape-contract.sh
+./scripts/check-default-value-contract.sh
 ./scripts/check-floating-value-storage.sh
-./scripts/check-breadth-phase5.sh
-./scripts/check-table-diagnostics-phase1.sh
-./scripts/check-generated-dense-phase1.sh
+./scripts/check-generated-breadth-contract.sh
+./scripts/check-schema-diagnostics-contract.sh
+./scripts/check-generated-dense-contract.sh
 ./scripts/check-external-consumer.sh
 ./scripts/check-reference-applications.sh
-./scripts/check-dataflow-slice-f.sh
+./scripts/check-dataflow-contracts.sh
 ./scripts/check-dataflow-reference.sh
 ./scripts/check-scan-code-size.sh
 ./scripts/check-benchmark-smoke.sh
-./scripts/check-post-cutover-components.sh
+./scripts/check-access-performance.sh
 ./scripts/check-dataflow-performance.sh
 git diff --check
 

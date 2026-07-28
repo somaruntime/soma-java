@@ -59,18 +59,20 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 | `soma-processor` | [Compiler 与 codegen Map](implementation-map/compiler-and-codegen-map.md)、[模块文档入口](../soma-processor/docs/README.md) |
 | `soma-runtime-core` | [Runtime Core Map](implementation-map/runtime-core-map.md)、[模块文档入口](../soma-runtime-core/docs/README.md) |
 | `soma-dataflow` | [DataFlow Map](implementation-map/dataflow-map.md) |
-| `soma-testkit` | [测试与 evidence Map](implementation-map/test-and-evidence-map.md)、[模块文档入口](../soma-testkit/docs/README.md) |
 | `soma-examples` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[参考应用输出](../soma-examples/docs/README.md) |
 | `soma-benchmarks` | [参考应用与 benchmark Map](implementation-map/scenario-and-benchmark-map.md)、[模块文档入口](../soma-benchmarks/docs/README.md) |
 
-模块 `docs/` 中保留的旧契约路径均为 `superseded` tombstone，只提供历史链接稳定性和 Git provenance，不再拥有正文或当前事实。精确 public/generated/schema/protocol surface 由代码、golden、artifact 和 validator 拥有，并由[可执行契约地图](implementation-map/executable-contract-map.md)登记。
+模块历史契约由 Git 保存，不在 current checkout 维持平行 Owner 或链接
+tombstone。精确 public/generated/schema/protocol surface 由代码、golden、
+artifact 和 validator 拥有，并由[可执行契约地图](implementation-map/executable-contract-map.md)登记。
 
 ## 4. Temporary 与历史材料
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前没有 active Temporary topic。已完成专题的稳定事实进入对应正式 Owner，
-Temporary 在 closeout 后删除且不归档。
+当前没有 active Temporary topic。
+
+已完成专题的稳定事实进入对应正式 Owner，Temporary 在 closeout 后删除且不归档。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

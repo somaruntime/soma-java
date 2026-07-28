@@ -64,7 +64,5 @@ SOMA目标和记录profile的本机工程结论，但不能声称任意String、
 - [当前 G0–G6 状态](../../reports/java-v1-goal-execution-status.md)
 - [Implementation Map](../implementation-map/README.md)
 - [Benchmark 治理](../engineering/benchmark-governance.md)
-- [Reference Application Portfolio治理](../../reports/2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)
-- [Transformation/DataFlow治理](../../reports/2026-07-27-transformation-dataflow-governance-report.md)
 
 本结论不扩大到push、PR、publishing或release授权。

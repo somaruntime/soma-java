@@ -8,7 +8,7 @@
 `soma-benchmark-smoke-v4` JSONL，并由独立 validator 按 checked-in schema 与
 required-lane manifest 复核；所有 smoke record 固定 `claimAllowed=false`。
 
-Component baseline 入口：`../scripts/check-post-cutover-components.sh`。该 Gate
+Access component baseline 入口：`../scripts/check-access-performance.sh`。该 Gate
 使用 5 个独立 JVM fork，并由领域中性的
 `PerformanceBaselineComparator` 读取环境绑定、只读的
 `soma-performance-baseline-v1`。Comparator 也作为工程工具服务两个应用，但不
