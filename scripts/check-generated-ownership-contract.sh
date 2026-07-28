@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/external-evidence.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'generated-ownership-contract: JAVA_HOME must point to a full JDK 8' >&2
@@ -11,8 +12,7 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
 fi
 
 source_fixture=$root_dir/tests/fixtures/external-maven-child
-local_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
-mkdir -p target "$local_repository"
+mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/generated-ownership-contract.XXXXXX")
 fixture=$evidence_dir/consumer
 repeat_fixture=$evidence_dir/repeat-consumer
@@ -22,12 +22,11 @@ cp -R "$source_fixture/src" "$fixture/src"
 cp "$source_fixture/pom.xml" "$repeat_fixture/pom.xml"
 cp -R "$source_fixture/src" "$repeat_fixture/src"
 
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+soma_require_or_install_external_artifacts
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" clean package
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
-  ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+  soma_external_mvn -B -ntp \
   -f "$repeat_fixture/pom.xml" clean package
 
 diff -r "$fixture/target/generated-sources/annotations" \

@@ -1,20 +1,20 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "grassing-simulation-long-run-zulu8-macos-aarch64-v2",
+  "baselineId": "industrial-scheduler-long-run-corretto8-macos-aarch64-v5",
   "layer": "reference-application",
-  "subject": "grassing-individual-simulation",
-  "artifactVersion": "grassing-simulation-benchmark-v3",
+  "subject": "industrial-dynamic-scheduler",
+  "artifactVersion": "industrial-scheduler-benchmark-v4",
   "calibration": {
-    "commit": "6cde5d508c9ce3a1d873d282b1d4808e0334a288",
-    "date": "2026-07-28",
+    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "date": "2026-07-29",
     "forks": 5,
-    "formula": "trigger=runtime-capability-and-explicit-group-governance; candidate-source=content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
+    "formula": "trigger=corretto-jdk-authority-and-stale-identity-correction; candidate-source=content-sha256:7a0347c8f0123a39f86cd99aa345405e63c118dac64c8d08314ab85327776c73; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
   },
   "environment": {
-    "javaVersion": "1.8.0_492-b09",
-    "javaVendor": "Azul Systems, Inc.",
+    "javaVersion": "1.8.0_502-b07",
+    "javaVendor": "Amazon.com Inc.",
     "javaVmName": "OpenJDK 64-Bit Server VM",
-    "javaVmVersion": "25.492-b09",
+    "javaVmVersion": "25.502-b07",
     "jvmArgs": [
       "-Xms256m",
       "-Xmx256m"
@@ -29,18 +29,20 @@
   "identity": {
     "schemaVersion": "soma-reference-application-benchmark-v1",
     "profile": "long-run",
-    "inputChecksum": "4bf40acea10fb86d2d51ab9b0cb0954b1d8772e81d0c6480ca379f23e4ff2cb3",
-    "resultChecksum": "bed7d5edba6e642bdfbc1a49929966e642474b8ef2e9bbabb5ecb842f46cb34a",
-    "schemaHash": "fa9980069efd263e0940ca9e3f388144c6a3357d9973518db83a7aa855ddc64d",
-    "runtimePlanHash": "f01ef3250785a371c5a857015fce7406e16cbf6ce47dce06aa071f68ef297e58",
-    "worldWidth": 400,
-    "worldHeight": 225,
-    "worldCells": 90000,
-    "ticks": 10000,
-    "initialPopulation": 10000,
+    "configChecksum": "84f4d7edc714facd02b830ca5163706bc481968f742b3a05e3b73506530f7ca1",
+    "generatorVersion": 1,
+    "seed": 1704,
+    "inputChecksum": "76670f9e33f38902b51b080c0429fe8114f6fc6f7ccc0f93b432eb7c6b461cc3",
+    "resultChecksum": "72332e1116ab7f78c4901dcf698dcf25e08dfe9ee8e5ba681f6cda702dd78108",
+    "schemaHash": "2c3b913fb28ad87a9c9caae01e805a0f2581048f3e5e4a2660c4084ea97146d5",
+    "runtimePlanHash": "bd44cec8074ff9a7d5807714df243177d29a198ac7880026e73fa95204b9395a",
+    "jobs": 100,
+    "operations": 10000,
+    "machines": 100,
+    "candidatesPerOperation": 3,
     "warmup": 1,
     "measurements": 1,
-    "tickExecutions": 10000
+    "operationExecutions": 10000
   },
   "recordShapes": [
     {
@@ -63,26 +65,30 @@
         "cpu",
         "maxHeapBytes",
         "profile",
+        "configChecksum",
+        "generatorVersion",
+        "seed",
         "inputChecksum",
         "resultChecksum",
         "schemaHash",
         "runtimePlanHash",
-        "worldWidth",
-        "worldHeight",
-        "worldCells",
-        "ticks",
-        "initialPopulation",
-        "maximumPopulation",
+        "jobs",
+        "operations",
+        "machines",
+        "candidatesPerOperation",
         "warmup",
         "measurements",
-        "tickExecutions",
-        "setupNanos",
-        "tickNanos",
-        "minimumTickNanos",
-        "maximumTickNanos",
-        "tickNanosPerTick",
+        "operationExecutions",
+        "preparationNanos",
+        "solveNanos",
+        "endToEndNanos",
+        "minimumSolveNanos",
+        "maximumSolveNanos",
+        "solveNanosPerOperation",
         "allocatedBytes",
-        "allocatedBytesPerTick",
+        "allocatedBytesPerOperation",
+        "endToEndAllocatedBytes",
+        "endToEndAllocatedBytesPerOperation",
         "youngGcCount",
         "youngGcPauseMillis",
         "fullGcCount",
@@ -90,27 +96,43 @@
         "exactIndexHighWaterBytes",
         "updateScratchHighWaterBytes",
         "operationScratchHighWaterBytes",
-        "populationGrowthCount",
+        "frontierCapacity",
         "claimAllowed"
       ]
     }
   ],
   "metrics": [
     {
-      "id": "allocation.integrated-run",
+      "id": "allocation.hot-solve",
       "selector": {},
       "field": "allocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 59967560
+      "reference": 15374160
     },
     {
-      "id": "timing.integrated-run",
+      "id": "allocation.end-to-end",
       "selector": {},
-      "field": "tickNanos",
+      "field": "endToEndAllocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 5372043626
+      "reference": 40671230
+    },
+    {
+      "id": "timing.hot-solve",
+      "selector": {},
+      "field": "solveNanos",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 89828187
+    },
+    {
+      "id": "timing.end-to-end",
+      "selector": {},
+      "field": "endToEndNanos",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 129993626
     },
     {
       "id": "gc.young-count",
@@ -118,7 +140,7 @@
       "field": "youngGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 2
     },
     {
       "id": "gc.young-pause",
@@ -126,7 +148,7 @@
       "field": "youngGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 4
     },
     {
       "id": "gc.full-count",
@@ -150,7 +172,7 @@
       "field": "exactIndexHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 693389
+      "reference": 1162144
     },
     {
       "id": "high-water.update-scratch",
@@ -158,7 +180,7 @@
       "field": "updateScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 332088
+      "reference": 0
     },
     {
       "id": "high-water.operation-scratch",
@@ -166,23 +188,15 @@
       "field": "operationScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 121364
+      "reference": 48544
     },
     {
-      "id": "population.maximum",
+      "id": "frontier.capacity",
       "selector": {},
-      "field": "maximumPopulation",
+      "field": "frontierCapacity",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 13837
-    },
-    {
-      "id": "population.growth-count",
-      "selector": {},
-      "field": "populationGrowthCount",
-      "aggregation": "all-equal",
-      "comparison": "equal",
-      "reference": 1
+      "reference": 300
     }
   ],
   "claimAllowed": false

@@ -10,7 +10,7 @@ Owner：SOMA Java validation gate 过程
 
 非事实范围：产品语义、当前 Gate 结果、具体测试实现和 release 授权
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. Gate 不是阶段折扣
 
@@ -22,7 +22,7 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 |---|---|
 | G0 | Java-only scope、Blueprint/Design/Owner、non-goal 和 claim boundary 已稳定 |
 | G1 | annotation/schema、四类V1 type、String、ownership/selector/default、Metadata/hash/diagnostic 语义可编译验证 |
-| G2 | Azul Zulu full JDK 8 integration、normalization、deterministic codegen、SchemaMetadata/typed String/callback generated API、negative fixture与old-token absence |
+| G2 | Amazon Corretto full JDK 8 integration、normalization、deterministic codegen、SchemaMetadata/typed String/callback generated API、negative fixture与old-token absence |
 | G3 | Group/ledger/lifecycle、flat/head-tail storage、locator/exact、Candidate shapes、Transformation/DataFlow、bounded scheduler、Result Delivery、plan/observation/failure 和 safe-point Effect |
 | G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 Metadata/Group/storage/DataFlow runtime，并执行simple/advanced/callback/diagnostics journey |
 | G5 | property/reference differential、全部runtime-scale production qualification、领域中性 component benchmark、三个应用审计及各自 correctness/default/large/long-run evidence |
@@ -30,7 +30,11 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 
 V1 不增加 Python、C ABI、native package 或其他产品边界之外的 Gate。
 
-当前 JDK Gate 只要求在记录版本的 Azul Zulu full JDK 8 上重放；不要求 Corretto 或其他 distribution 的并行验真。其他 distribution 的历史运行结果只属于当时 evidence，不扩展当前支持范围。
+当前JDK Gate只要求在记录版本的Amazon Corretto full JDK 8上重放；不要求Zulu或
+其他distribution的并行验真。其他distribution的历史运行结果只属于当时
+evidence，不扩展当前支持范围。JDK authority迁移会使依赖旧vendor的support、
+performance与qualification evidence失去当前适用性，必须显式重新取证或将相应
+Gate标为blocked，不能靠改名baseline维持passed。
 
 性能 baseline 结果使用 `passed`、`failed`、`not-applicable` 子状态：
 `not-applicable` 只表示当前环境未覆盖该 baseline，不改变 G5 功能 Gate，也不能被

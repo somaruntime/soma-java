@@ -5,29 +5,9 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 . "$root_dir/scripts/lib/sha256.sh"
+. "$root_dir/scripts/lib/supported-jdk.sh"
 
-if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ] \
-    || [ ! -x "$JAVA_HOME/bin/javac" ] \
-    || [ ! -x "$JAVA_HOME/bin/javap" ]; then
-  printf '%s\n' \
-    'runtime-scale-qualification: JAVA_HOME must point to Azul Zulu full JDK 8' >&2
-  exit 1
-fi
-
-java_properties=$("$JAVA_HOME/bin/java" -XshowSettings:properties -version 2>&1)
-java_specification=$(printf '%s\n' "$java_properties" |
-  sed -n 's/^[[:space:]]*java.specification.version = //p' | head -n 1)
-java_vendor=$(printf '%s\n' "$java_properties" |
-  sed -n 's/^[[:space:]]*java.vendor = //p' | head -n 1)
-java_runtime=$(printf '%s\n' "$java_properties" |
-  sed -n 's/^[[:space:]]*java.runtime.version = //p' | head -n 1)
-if [ "$java_specification" != '1.8' ] \
-    || [ "$java_vendor" != 'Azul Systems, Inc.' ] \
-    || [ "$java_runtime" != '1.8.0_492-b09' ]; then
-  printf '%s\n' \
-    "runtime-scale-qualification: expected Zulu 1.8.0_492-b09, got $java_vendor $java_runtime" >&2
-  exit 1
-fi
+soma_require_supported_jdk runtime-scale-qualification
 
 physical_memory_gb=$(system_profiler SPHardwareDataType 2>/dev/null |
   sed -n 's/^[[:space:]]*Memory: \([0-9][0-9]*\) GB$/\1/p' |

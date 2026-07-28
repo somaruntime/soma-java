@@ -5,28 +5,10 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 . "$root_dir/scripts/lib/sha256.sh"
+. "$root_dir/scripts/lib/external-evidence.sh"
+. "$root_dir/scripts/lib/supported-jdk.sh"
 
-if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ] \
-    || [ ! -x "$JAVA_HOME/bin/javap" ]; then
-  printf '%s\n' 'reference-app-check: JAVA_HOME must point to Azul Zulu JDK 8' >&2
-  exit 1
-fi
-
-java_specification=$($JAVA_HOME/bin/java -XshowSettings:properties -version 2>&1 |
-  sed -n 's/^[[:space:]]*java.specification.version = //p' | head -n 1)
-java_vendor=$($JAVA_HOME/bin/java -XshowSettings:properties -version 2>&1 |
-  sed -n 's/^[[:space:]]*java.vendor = //p' | head -n 1)
-if [ "$java_specification" != '1.8' ]; then
-  printf '%s\n' "reference-app-check: expected Java 8, got $java_specification" >&2
-  exit 1
-fi
-case "$java_vendor" in
-  *Azul*) ;;
-  *)
-    printf '%s\n' "reference-app-check: expected Azul Zulu JDK, got $java_vendor" >&2
-    exit 1
-    ;;
-esac
+soma_require_supported_jdk reference-app-check
 
 root_version=$(sed -n \
   's:.*<version>\([^<]*\)</version>.*:\1:p' pom.xml | sed -n '1p')
@@ -84,15 +66,7 @@ fi
 
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/reference-applications.XXXXXX")
-repository=$evidence_dir/repository
-mkdir -p "$repository"
-seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
-if [ -d "$seed_repository" ]; then
-  cp -R "$seed_repository/." "$repository/"
-fi
-
-./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
+soma_require_or_install_external_artifacts
 
 for application in \
   industrial-dynamic-scheduler \
@@ -122,7 +96,7 @@ for application in \
 
   first_build=$evidence_dir/$application-first-target
   repeat_build=$evidence_dir/$application-repeat-target
-  ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+  soma_external_mvn -B -ntp \
     -Dsoma.build.directory="$first_build" \
     -f "$pom" clean package
 
@@ -148,7 +122,7 @@ for application in \
   done <"$first_dir/schema-manifest.txt" >"$first_dir/schema.sha256"
 
   runtime_classpath_file=$evidence_dir/$application-runtime-classpath.txt
-  ./mvnw -B -ntp -Dmaven.repo.local="$repository" -f "$pom" \
+  soma_external_mvn -B -ntp -f "$pom" \
     "$dependency_plugin":build-classpath -DincludeScope=runtime \
     -Dmdep.outputFile="$runtime_classpath_file"
   grep -F '/soma-runtime-core/' "$runtime_classpath_file" >/dev/null
@@ -158,7 +132,7 @@ for application in \
     exit 1
   fi
 
-  ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+  soma_external_mvn -B -ntp \
     -Dsoma.build.directory="$repeat_build" \
     -f "$pom" clean package
 

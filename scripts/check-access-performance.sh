@@ -24,10 +24,22 @@ evidence_dir=$(mktemp -d "$root_dir/target/access-components.XXXXXX")
 commit=$(git rev-parse HEAD)
 cpu_identity=$(./scripts/benchmark-cpu-identity.sh)
 forks=5
-baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-zulu8-macos-aarch64-v1.json
+baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-corretto8-macos-aarch64-v1.json
 baseline_result=$evidence_dir/performance-baseline-result.json
 
-./mvnw -B -ntp -pl soma-benchmarks -am test-compile
+if [ "${SOMA_BENCHMARKS_PREPARED:-false}" = 'true' ]; then
+  for class_file in \
+    soma-benchmarks/target/classes/io/github/somaruntime/soma/benchmarks/AccessComponentBenchmark.class \
+    soma-benchmarks/target/test-classes/io/github/somaruntime/soma/benchmarks/PerformanceBaselineComparatorCheck.class; do
+    if [ ! -s "$class_file" ]; then
+      printf '%s\n' \
+        "access-component-check: prepared class missing: $class_file" >&2
+      exit 1
+    fi
+  done
+else
+  ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
+fi
 
 if grep -F 'io.github.somaruntime.soma.examples' \
     soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/AccessComponentBenchmark.java \

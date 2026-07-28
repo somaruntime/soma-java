@@ -67,7 +67,8 @@ production-shape lanes；它们不能被一个“100M passed”记录替代：
 | Delivery | Eager与Candidate/Value/Group/Join/Window callback全量/early-stop/failure/cancel/deadline/non-escape/String/GC |
 | Soak | repeated create/load/mutate/Delta/callback/clear/release、executor/fault cleanup、ledger回零 |
 
-每条 lane 运行前冻结 Zulu full JDK 8 build、OS/architecture、JVM args/heap/GC、
+每条lane运行前冻结当前authority Amazon Corretto full JDK 8 build、
+OS/architecture、JVM args/heap/GC、
 dataset seed、schema/row width、left/right rows、String profile、multiplicity/skew、
 oracle/checksum、resource budget、operational timeout、warmup/measurement/fork、
 baseline+tolerance或structural pass rule，以及
@@ -125,6 +126,11 @@ CLI/input contract、必要的 classfile/descriptor identity 和 correctness smo
 Admission 失败立即终止，不允许先消耗多个 fork 再发现候选不可启动，也不允许用
 重复 fork 掩盖 build/class-set 不一致。
 
+JDK vendor/build变化属于environment identity变化。旧vendor baseline只保留其
+历史evidence含义并由Git保存，不得在新authority下改名复用；current checkout中的
+新baseline必须由新环境的真实multi-fork artifact校准。在新baseline或重型
+qualification形成前，`not-applicable`与`blocked`保持其真实含义。
+
 ## 5. 当前 Owner 与 Gate
 
 - component baseline：`soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/`；
@@ -159,6 +165,10 @@ component=2、reference-application=9、public-claim=0，以及模块依赖和 O
 runner/comparator 变更或明确要求完整性能验真时组合九个 workload。应用内部变更
 只运行受影响 profile，一次失败进入归因，不自动 rebaseline。运行频率差异不改变
 baseline 的正式性、3-fork 下限、失败含义或 correctness guard。
+
+综合Full只准备一次benchmark class set，smoke、Access与DataFlow复用同一已校验
+输入；三个执行阶段仍保持串行，不能与其他功能Gate或彼此并行。各独立脚本直接
+运行时仍自行完成build prerequisite，不依赖编排器的隐式状态。
 
 ## 6. 对照与 claim
 

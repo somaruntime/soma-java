@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/external-evidence.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'external-consumer-check: JAVA_HOME must point to a full JDK 8' >&2
@@ -27,20 +28,15 @@ expected=$fixture_source/expected
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/external-consumer-contract.XXXXXX")
 fixture=$evidence_dir/consumer
-local_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
-mkdir -p "$fixture" "$local_repository"
+mkdir -p "$fixture"
 cp "$fixture_source/pom.xml" "$fixture/pom.xml"
 cp -R "$fixture_source/src" "$fixture/src"
 
 # Install repository artifacts in published shape. The consumer below is a separate
 # Maven project and neither inherits the root parent nor receives reactor classpaths.
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-dataflow,soma-processor -am \
-  install -DskipTests
+soma_require_or_install_external_artifacts
 
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" clean package
 
 schema=META-INF/soma/com.example.soma.external.schema.json
@@ -61,8 +57,7 @@ cmp "$expected/com.example.soma.external.schema.sha256" \
 cp "$fixture_source/variants/schema-renamed/package-info.java" \
   "$fixture/src/main/java/com/example/soma/external/package-info.java"
 touch "$fixture/src/main/java/com/example/soma/external/package-info.java"
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" compile \
   >"$evidence_dir/incremental-renamed.log"
 grep -F 'Compiling ' "$evidence_dir/incremental-renamed.log" >/dev/null
@@ -81,8 +76,7 @@ fi
 cp "$fixture_source/src/main/java/com/example/soma/external/package-info.java" \
   "$fixture/src/main/java/com/example/soma/external/package-info.java"
 touch "$fixture/src/main/java/com/example/soma/external/package-info.java"
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" compile \
   >"$evidence_dir/incremental-restored.log"
 grep -F 'Compiling ' "$evidence_dir/incremental-restored.log" >/dev/null
@@ -99,8 +93,7 @@ cmp "$expected/ExternalId.javap.txt" "$evidence_dir/ExternalId.javap.txt"
 
 # Maven runtime graph must contain runtime-core and must exclude the build-only processor.
 runtime_classpath_file=$evidence_dir/runtime-classpath.txt
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" \
   "$dependency_plugin":build-classpath \
   -DincludeScope=runtime \

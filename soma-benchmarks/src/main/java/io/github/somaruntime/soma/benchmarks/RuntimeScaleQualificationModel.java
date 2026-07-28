@@ -415,11 +415,11 @@ final class RuntimeScaleQualificationModel {
             nonEmpty(string(environment, field), "environment." + field);
         }
         require(string(environment, "javaRuntimeVersion")
-                        .startsWith("1.8.0_492-b09"),
-                "Zulu Java runtime build");
-        require("Azul Systems, Inc.".equals(
+                        .startsWith("1.8.0_502-b07"),
+                "Corretto Java runtime build");
+        require("Amazon.com Inc.".equals(
                         string(environment, "javaVendor")),
-                "Zulu Java vendor");
+                "Corretto Java vendor");
         list(environment, "jvmArgs");
         nonNegative(number(environment, "processors"), "processors");
         positive(number(environment, "maxHeapBytes"), "maxHeapBytes");

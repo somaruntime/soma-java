@@ -5,6 +5,8 @@ implementation/release-readiness 阶段，尚未公开发布；设计事实已�
 Owner 体系，copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA，
 GitHub Organization 为 `somaruntime`。当前只选择 private GitHub source
 repository，不声明 public repository、Maven Central 或 production readiness。
+当前G5等待Corretto runtime-scale重验，selected private-source G6等待Corretto
+Linux和release qualification。
 外部贡献在开始前仍应先与 repository owner 协调，不能假设提交即自动获得合并或
 公开发布许可。
 
@@ -17,8 +19,8 @@ repository，不声明 public repository、Maven Central 或 production readines
 
 ## 2. Build prerequisites
 
-- Azul Zulu 8.94.0.17 full JDK 8（Java `1.8.0_492-b09`、
-  `javac 1.8.0_492`）；
+- Amazon Corretto 8.502.07.1 full JDK 8（Java `1.8.0_502-b07`、
+  `javac 1.8.0_502`）；macOS推荐`brew install --cask corretto@8`；
 - POSIX shell（Windows 使用 `mvnw.cmd`）；
 - Git。
 
@@ -31,7 +33,9 @@ Maven 由 repository wrapper 固定，不要求预装相同 Maven 版本：
 Codex Cloud 的可重复 setup、Linux profile 与 GitHub Actions 入口见
 [GitHub 私有仓库与 Codex Cloud 开发](docs/engineering/github-and-cloud-development.md)。
 
-V1 compiler integration 只把 full JDK 8 javac 当作 compiler authority；public RC/release 只声明正式 G6 matrix 中有证据的组合。使用新 JDK 的 `--release 8` 不等于 supported javac 8 build。
+V1 compiler integration 只把正式版本的 Corretto full JDK 8 javac 当作 compiler
+authority；public RC/release 只声明正式 G6 matrix 中有证据的组合。使用新 JDK
+的 `--release 8` 不等于 supported javac 8 build。
 
 实施阶段先以当前开发机的完整 JDK 8 javac、Maven Wrapper 和当前
 OS/architecture 为验证基线。每次 validation 必须记录实际 JDK
@@ -57,21 +61,28 @@ vendor/version/build、OS、architecture 和执行命令；本机通过不能外
 
 ## 5. Required checks
 
-所有变更至少运行：
+日常开发先运行快速反馈：
 
 ```text
-./scripts/check.sh
+./scripts/check.sh fast
 ```
 
-该入口依次执行文档治理、Maven reactor verify 和 `git diff --check`。
+它执行exact toolchain、文档/范围、baseline架构、Maven reactor verify和
+`git diff --check`。Markdown-only可以只运行`./scripts/check-docs.sh`与
+`git diff --check`。跨模块变更、PR最终候选和专题收口再运行一次默认的完整
+`./scripts/check.sh`；release qualification仍使用独立手动workflow。
 
-按变更 surface 追加：
+快速反馈之后按变更surface追加：
 
 - compiler/processor：compile fixture、golden、external consumer、unsupported compiler negative case；
 - runtime：invariant、failure atomicity、error path、allocation/performance-shape evidence；
 - public API：API/generated diff 和 compatibility case；
 - benchmark：遵守 [Benchmark 治理](docs/engineering/benchmark-governance.md)，不把 smoke 写成性能 claim；
 - release：G0-G6、reproducibility、checksum、migration/rollback 和 security/license evidence。
+
+Full Gate的独立功能检查默认最多4路并行，但performance、package、security和
+qualification始终串行。相同失败只有在输入、假设或验证目标改变后才允许重试；
+不得用固定间隔sleep或重复轮询代替诊断。
 
 ## 6. Pull request quality
 
@@ -93,5 +104,6 @@ Repository 长期分支只使用 `main`、`develop`、`release`。常规设计�
 项目所有者 ArthurFeng 已确认 Apache License 2.0、`somaruntime/soma-java` 与
 `io.github.somaruntime.soma` 身份基线。Private-source profile 使用真实 SCM、
 maintainer、support、security、CODEOWNERS、CI 与 provenance；public RC/Maven
-profile 仍需在未来单独补齐其 publishing/signing/community 义务。任何 profile
-都不得用 placeholder 绕过真实边界。
+profile 仍需在未来单独补齐其 publishing/signing/community 义务。当前Corretto
+Linux/qualification尚未形成，因此private-source G6保持blocked。任何profile都
+不得用placeholder绕过真实边界。

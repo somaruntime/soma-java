@@ -70,7 +70,20 @@ evidence_dir=$(mktemp -d "$root_dir/target/benchmark-smoke.XXXXXX")
 commit=$(git rev-parse HEAD)
 cpu_identity=$(uname -m)
 
-./mvnw -B -ntp -pl soma-benchmarks -am clean test-compile
+if [ "${SOMA_BENCHMARKS_PREPARED:-false}" = 'true' ]; then
+  for class_file in \
+    soma-benchmarks/target/classes/io/github/somaruntime/soma/benchmarks/BenchmarkSmokeRunner.class \
+    soma-benchmarks/target/classes/io/github/somaruntime/soma/benchmarks/RuntimeScaleQualificationRunner.class \
+    soma-benchmarks/target/test-classes/io/github/somaruntime/soma/benchmarks/BenchmarkArtifactCheck.class; do
+    if [ ! -s "$class_file" ]; then
+      printf '%s\n' \
+        "benchmark-smoke-check: prepared class missing: $class_file" >&2
+      exit 1
+    fi
+  done
+else
+  ./mvnw -B -ntp -pl soma-benchmarks -am clean test-compile
+fi
 
 classpath="soma-benchmarks/target/classes:soma-benchmarks/target/test-classes:soma-runtime-core/target/classes:soma-dataflow/target/classes"
 artifact=$evidence_dir/benchmark-smoke.jsonl

@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/external-evidence.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'generated-keyed-contract: JAVA_HOME must point to a full JDK 8' >&2
@@ -16,8 +17,7 @@ value_fixture_source=$root_dir/tests/fixtures/external-maven-value-keyed
 composite_fixture_source=$root_dir/tests/fixtures/external-maven-composite-value-keyed
 invalid_source=$root_dir/tests/fixtures/invalid-keyed-int
 expected=$fixture_source/expected
-local_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
-mkdir -p target "$local_repository"
+mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/generated-keyed-contract.XXXXXX")
 fixture=$evidence_dir/consumer
 repeat_fixture=$evidence_dir/repeat-consumer
@@ -48,45 +48,34 @@ cp -R "$composite_fixture_source/src" "$composite_repeat_fixture/src"
 cp "$invalid_source/pom.xml" "$invalid_fixture/pom.xml"
 cp -R "$invalid_source/src" "$invalid_fixture/src"
 
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-dataflow,soma-processor -am \
-  install -DskipTests
+soma_require_or_install_external_artifacts
 
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" clean package
 
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
-  ./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+  soma_external_mvn -B -ntp \
   -f "$repeat_fixture/pom.xml" clean package
 
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$enum_fixture/pom.xml" clean package
 
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
-  ./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+  soma_external_mvn -B -ntp \
   -f "$enum_repeat_fixture/pom.xml" clean package
 
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$value_fixture/pom.xml" clean package
 
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
-  ./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+  soma_external_mvn -B -ntp \
   -f "$value_repeat_fixture/pom.xml" clean package
 
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$composite_fixture/pom.xml" clean package
 
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
-  ./mvnw -B -ntp \
-  -Dmaven.repo.local="$local_repository" \
+  soma_external_mvn -B -ntp \
   -f "$composite_repeat_fixture/pom.xml" clean package
 
 diff -r "$fixture/target/generated-sources/annotations" \
@@ -268,7 +257,7 @@ if grep -E 'java\.util\.stream|Integer\[|java\.util\.Iterator|new (ArrayList|Lin
   exit 1
 fi
 
-if ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+if soma_external_mvn -B -ntp \
   -f "$invalid_fixture/pom.xml" clean compile >"$evidence_dir/invalid-keyed.log" 2>&1; then
   printf '%s\n' 'generated-keyed-contract: unsupported keyed breadth unexpectedly compiled' >&2
   exit 1
@@ -279,7 +268,9 @@ if ! grep -q 'SOMA-TABLE-008' "$evidence_dir/invalid-keyed.log"; then
   exit 1
 fi
 
-runtime_classpath="$local_repository/io/github/somaruntime/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar:$local_repository/io/github/somaruntime/soma/soma-dataflow/0.2.0-SNAPSHOT/soma-dataflow-0.2.0-SNAPSHOT.jar"
+runtime_classpath_file=$evidence_dir/runtime-classpath.txt
+soma_write_runtime_classpath "$fixture/pom.xml" "$runtime_classpath_file"
+runtime_classpath=$(sed -n '1p' "$runtime_classpath_file")
 "$JAVA_HOME/bin/java" \
   -cp "$fixture/target/classes:$runtime_classpath" \
   com.example.soma.keyed.KeyedConsumer

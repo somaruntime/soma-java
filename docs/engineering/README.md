@@ -10,7 +10,32 @@ Owner：SOMA Java 工程治理
 
 非事实范围：产品语义、当前能力和某次验证结果
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-29
+
+## 工程体系目标
+
+SOMA V1 的工程体系负责把产品意图变成可持续交付的闭环：
+
+```text
+Blueprint / Design / Capability
+        -> compiler / runtime / DataFlow / examples
+        -> test / consumer / benchmark / qualification evidence
+        -> compatibility / security / package / release decision
+        -> Conformance 与下一次受控演进
+```
+
+Maven lifecycle是构建与artifact graph的权威；脚本只承担跨Maven边界的
+admission、编排和evidence适配；CI按变更风险选择成比例反馈；Report与
+Conformance只陈述已形成的当前证据。工程体系应同时满足：
+
+- 产品事实从Blueprint到release claim可追踪，任何缺口有唯一Owner；
+- Capability可以内部替换，但public/generated/schema/runtime语义不漂移；
+- Fast、Full和Qualification证据分层，失败关闭且成本与风险相称；
+- source、artifact、support、安全、版本和撤回路径达到可发布产品要求；
+- 测试、benchmark、脚本、文档和Example围绕核心抽象与叙事增长，replacement
+  同时退役predecessor，不累计治理噪声。
+
+下列文档分别拥有闭环中的过程细节，不在本入口重复定义。
 
 - [文档治理](documentation-governance.md)
 - [构建与验证](build-and-validation.md)

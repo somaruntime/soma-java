@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/external-evidence.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'generated-breadth-contract: JAVA_HOME must point to a full JDK 8' >&2
@@ -27,13 +28,7 @@ mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/generated-breadth-contract.XXXXXX")
 fixture=$evidence_dir/consumer
 repeat_fixture=$evidence_dir/repeat-consumer
-local_repository=$evidence_dir/repository
-mkdir -p "$fixture" "$repeat_fixture" "$local_repository"
-seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
-if [ -d "$seed_repository" ]; then
-  # 只用共享仓库预热 Maven/plugin cache；本次 project artifact 随后重新 install。
-  cp -R "$seed_repository/." "$local_repository/"
-fi
+mkdir -p "$fixture" "$repeat_fixture"
 cp "$fixture_source/pom.xml" "$fixture/pom.xml"
 cp -R "$fixture_source/src" "$fixture/src"
 cp "$fixture_source/pom.xml" "$repeat_fixture/pom.xml"
@@ -44,13 +39,12 @@ if grep -F '<parent>' "$fixture/pom.xml" >/dev/null; then
   exit 1
 fi
 
-# 将发布形态 artifact 安装到本次 evidence 独占仓库；consumer 不继承 reactor classpath。
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
-  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+# Consumer从标准Maven local repository解析已安装artifact，不继承reactor classpath。
+soma_require_or_install_external_artifacts
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" clean package
 MAVEN_OPTS='-Duser.language=tr -Duser.country=TR -Duser.timezone=Pacific/Kiritimati' \
-  ./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+  soma_external_mvn -B -ntp \
   -f "$repeat_fixture/pom.xml" clean package
 
 # 同一source的non-clean recompilation必须与clean输出逐文件等价；不能依赖stale generated artifact。
@@ -58,7 +52,7 @@ cp -R "$fixture/target/classes" "$evidence_dir/clean-classes"
 cp -R "$fixture/target/generated-sources/annotations" \
   "$evidence_dir/clean-generated-sources"
 touch "$fixture/src/main/java/com/example/soma/breadth/FullRow.java"
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" package
 diff -r "$evidence_dir/clean-classes" "$fixture/target/classes"
 diff -r "$evidence_dir/clean-generated-sources" \
@@ -141,11 +135,43 @@ printf '%s\n' \
 cmp "$evidence_dir/expected-generated-types.txt" "$types_file"
 
 generated_javap=$evidence_dir/generated-public.javap.txt
+generated_javap_raw=$evidence_dir/generated-public.raw.txt
+set --
 while IFS= read -r type; do
-  printf '## %s\n' "$type"
-  "$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public \
-    "com.example.soma.breadth.generated.$type"
-done <"$types_file" >"$generated_javap"
+  set -- "$@" "com.example.soma.breadth.generated.$type"
+done <"$types_file"
+"$JAVA_HOME/bin/javap" -classpath "$fixture/target/classes" -public "$@" \
+  >"$generated_javap_raw"
+awk '
+  /^Compiled from / {
+    compiled = $0
+    next
+  }
+  compiled != "" {
+    type = ""
+    if ($1 == "public") {
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^com\.example\.soma\.breadth\.generated\./) {
+          type = $i
+          sub(/[<{].*$/, "", type)
+          sub(/^.*\./, "", type)
+          break
+        }
+      }
+    }
+    if (type == "") {
+      print "generated-breadth-contract: cannot bind batched javap declaration: " \
+        $0 >"/dev/stderr"
+      exit 2
+    }
+    print "## " type
+    print compiled
+    compiled = ""
+  }
+  {
+    print
+  }
+' "$generated_javap_raw" >"$generated_javap"
 cmp "$expected/generated-public.javap.txt" "$generated_javap"
 if grep -E 'io\.github\.somaruntime\.soma\.runtime\.generated|DenseTableState|ChildOwnershipRegistry|OwnedChildTable|Handle' \
   "$generated_javap" >/dev/null; then
@@ -184,28 +210,28 @@ class_major=$evidence_dir/class-major.txt
 class_files=$evidence_dir/class-files.txt
 find "$fixture/target/classes" -type f -name '*.class' | LC_ALL=C sort >"$class_files"
 while IFS= read -r class_file; do
-  major=$($JAVA_HOME/bin/javap -verbose "$class_file" |
-    sed -n 's/^[[:space:]]*major version: //p' | head -n 1)
+  major_hex=$(od -An -tx1 -j6 -N2 "$class_file" | tr -d ' ')
   relative=${class_file#"$fixture/target/classes/"}
-  printf '%s %s\n' "$major" "$relative"
-  if [ "$major" != '52' ]; then
-    printf '%s\n' "generated-breadth-contract: expected class major 52: $relative=$major" >&2
+  if [ "$major_hex" != '0034' ]; then
+    printf '%s\n' \
+      "generated-breadth-contract: expected class major 52: $relative=0x$major_hex" >&2
     exit 1
   fi
+  printf '%s %s\n' '52' "$relative"
 done <"$class_files" >"$class_major"
 
 # 完整 dependency graph 留在 evidence；runtime graph 必须有 core 且没有 build-only processor。
 dependency_tree=$evidence_dir/dependency-tree.txt
 runtime_tree=$evidence_dir/runtime-dependency-tree.txt
 runtime_classpath_file=$evidence_dir/runtime-classpath.txt
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" "$dependency_plugin":tree \
   -DoutputFile="$dependency_tree"
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" "$dependency_plugin":tree \
   -Dscope=runtime \
   -DoutputFile="$runtime_tree"
-./mvnw -B -ntp -Dmaven.repo.local="$local_repository" \
+soma_external_mvn -B -ntp \
   -f "$fixture/pom.xml" "$dependency_plugin":build-classpath \
   -DincludeScope=runtime \
   -Dmdep.outputFile="$runtime_classpath_file"

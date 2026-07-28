@@ -10,17 +10,25 @@ generation、packed columnar runtime 和 typed DataFlow 支撑进程内状态访
 Java-only V1 的 annotation、compiler/processor、generated API、columnar
 runtime、独立 reference applications 与 benchmark runner 已进入完整实施和
 门禁验证。源码当前由 ArthurFeng 维护在 `somaruntime/soma-java` 私有仓库，
-使用 Apache-2.0。Selected private-source G6 已通过；仓库尚未公开，也未发布到
-Maven Central，snapshot artifact 不能被称为 public release。
+使用 Apache-2.0。Amazon Corretto 8本机G0–G4与component/application evidence
+已通过；G5等待runtime-scale重验，selected private-source G6等待Corretto Linux
+和release qualification。仓库尚未公开，也未发布到Maven Central，snapshot
+artifact不能被称为public release。
 
 ## 开发起步
 
-本仓库使用 Azul Zulu 8.94.0.17 full JDK 8 和固定的 Maven Wrapper：
+本仓库使用 Amazon Corretto 8.502.07.1 full JDK 8 和固定的 Maven Wrapper。
+macOS 推荐通过 Homebrew 安装，便于跟踪安全更新：
 
 ```text
+brew install --cask corretto@8
+export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
 ./scripts/check-toolchain.sh
-./scripts/check.sh
+./scripts/check.sh fast
 ```
+
+跨模块、PR候选和专题收口使用默认的完整`./scripts/check.sh`；release、安全、
+规模与重型性能qualification保持独立人工触发。
 
 GitHub 私有仓库、Linux CI 与未形成就绪结论的 Codex Cloud 实验边界见
 [GitHub 私有仓库与 Codex Cloud 开发](docs/engineering/github-and-cloud-development.md)。

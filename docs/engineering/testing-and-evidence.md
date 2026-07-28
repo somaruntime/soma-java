@@ -10,7 +10,7 @@ Owner：SOMA Java 测试/evidence 过程
 
 非事实范围：Design 语义本身和当前测试结果
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 原则
 
@@ -78,6 +78,11 @@ Definition lifecycle、Object value protocol、plan entry或Metadata Owner永久
 Evidence 必须可追踪到 Design capability、commit、命令和 artifact。Report 只使用 validator 接受的结构化 artifact或可复现直接输出；不得把“测试类存在”“脚本打印 ok”或无 checksum 的手工摘录当成充分证据。
 
 发现 flaky、环境跳过或网络依赖失败时，明确标记未验证；不能把以前的 passed 自动外推到新 commit。
+
+编排器可以复用同一run中已通过的reactor、installed artifact和benchmark classes，
+但consumer Gate仍必须检查实际输入存在、从普通Maven解析路径构建，并执行自己的
+oracle。共享准备减少重复构建，不合并Capability、failure domain或evidence
+Owner；找不到prepared输入必须fail closed。
 
 Performance baseline 还必须验证 measurement/baseline/result 三种 artifact 的
 schema、exact record shape、`claimAllowed=false`、fork 连续性、workload identity

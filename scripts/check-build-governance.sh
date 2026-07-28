@@ -26,27 +26,33 @@ dependency_plugin=org.apache.maven.plugins:maven-dependency-plugin:$dependency_p
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/build-governance.XXXXXX")
 effective_pom=$evidence_dir/effective-pom.xml
-repository=$evidence_dir/repository
-seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
-mkdir -p "$repository"
-if [ -d "$seed_repository" ]; then
-  # 只预热已校验的 Maven/plugin bytes；本次解析仍写入独占仓库并使用 exact goal 坐标。
-  cp -R "$seed_repository/." "$repository/"
-fi
-./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+./mvnw -B -ntp \
   org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom \
   -Doutput="$effective_pom"
 
 grep -A3 -F '<artifactId>maven-dependency-plugin</artifactId>' "$effective_pom" \
   | grep -F "<version>$dependency_plugin_version</version>" >/dev/null
+grep -A6 -F '<requireJavaVendor>' "$effective_pom" \
+  | grep -F '<include>Amazon.com Inc.</include>' >/dev/null
 
 if rg -n '(^|[[:space:]])dependency:(tree|build-classpath|resolve-plugins)([[:space:]\\]|$)' \
     scripts -g '*.sh' >"$evidence_dir/unpinned-dependency-plugin.txt"; then
   printf '%s\n' 'build-governance-check: unpinned Maven dependency plugin prefix found' >&2
   exit 1
 fi
+if rg -n 'maven\.repo\.local' scripts/check*.sh scripts/lib \
+    >"$evidence_dir/ordinary-private-repository.txt"; then
+  printf '%s\n' \
+    'build-governance-check: ordinary check bypasses the standard Maven local repository' >&2
+  exit 1
+fi
+for resolver_policy in \
+  'aether.syncContext.named.factory=file-lock' \
+  'aether.syncContext.named.nameMapper=file-gav'; do
+  grep -F -- "$resolver_policy" scripts/lib/external-evidence.sh >/dev/null
+done
 
-./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+./mvnw -B -ntp \
   -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow \
   "$dependency_plugin":tree -Dscope=runtime \
   >"$evidence_dir/runtime-dependency-tree.txt"

@@ -26,10 +26,19 @@ evidence_dir=$(mktemp -d "$root_dir/target/dataflow-performance.XXXXXX")
 commit=$(git rev-parse HEAD)
 cpu_identity=$(./scripts/benchmark-cpu-identity.sh)
 forks=3
-baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v2.json
+baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-corretto8-macos-aarch64-v3.json
 baseline_result=$evidence_dir/performance-baseline-result.json
 
-./mvnw -B -ntp -pl soma-benchmarks -am test-compile
+if [ "${SOMA_BENCHMARKS_PREPARED:-false}" = 'true' ]; then
+  class_file=soma-benchmarks/target/classes/io/github/somaruntime/soma/benchmarks/DataFlowComponentBenchmark.class
+  if [ ! -s "$class_file" ]; then
+    printf '%s\n' \
+      "dataflow-performance-check: prepared class missing: $class_file" >&2
+    exit 1
+  fi
+else
+  ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
+fi
 
 if grep -F 'io.github.somaruntime.soma.examples' \
     soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/DataFlowComponentBenchmark.java \

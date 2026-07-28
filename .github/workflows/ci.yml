@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -23,12 +23,52 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
+        with:
+          fetch-depth: 0
+
+      - name: Select validation profile
+        id: validation
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BASE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          profile=full
+          base_sha=
+          case "$EVENT_NAME" in
+            pull_request)
+              base_sha=$PR_BASE_SHA
+              ;;
+            push)
+              base_sha=$PUSH_BASE_SHA
+              ;;
+          esac
+          if [[ -n "$base_sha" \
+              && "$base_sha" != 0000000000000000000000000000000000000000 ]] \
+              && git cat-file -e "$base_sha^{commit}"; then
+            profile=docs
+            changed_count=0
+            while IFS= read -r changed_path; do
+              changed_count=$((changed_count + 1))
+              if [[ "$changed_path" != *.md ]]; then
+                profile=full
+                break
+              fi
+            done < <(git diff --name-only "$base_sha" "$GITHUB_SHA")
+            if [[ "$changed_count" -eq 0 ]]; then
+              profile=full
+            fi
+          fi
+          printf 'profile=%s\n' "$profile" | tee -a "$GITHUB_OUTPUT"
 
       - name: Set up full JDK 8
+        if: steps.validation.outputs.profile == 'full'
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
         with:
-          distribution: zulu
-          java-version: '8.0.492+9'
+          distribution: corretto
+          java-version: '8.0.502+7'
           java-package: jdk
           architecture: x64
           cache: maven
@@ -41,10 +81,18 @@ jobs:
           dirname "$ripgrep" >> "$GITHUB_PATH"
 
       - name: Verify exact supported toolchain
+        if: steps.validation.outputs.profile == 'full'
         run: ./scripts/check-toolchain.sh
 
-      - name: Run project checks
+      - name: Run full project checks
+        if: steps.validation.outputs.profile == 'full'
         run: ./scripts/check.sh
+
+      - name: Run documentation checks
+        if: steps.validation.outputs.profile == 'docs'
+        run: |
+          ./scripts/check-docs.sh
+          git diff --check
 
       - name: Verify generated workspace cleanliness
         run: git diff --exit-code

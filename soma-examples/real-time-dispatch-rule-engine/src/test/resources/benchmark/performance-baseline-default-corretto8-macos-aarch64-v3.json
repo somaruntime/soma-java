@@ -1,20 +1,20 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "rtd-rule-engine-default-zulu8-macos-aarch64-v2",
+  "baselineId": "rtd-rule-engine-default-corretto8-macos-aarch64-v3",
   "layer": "reference-application",
   "subject": "real-time-dispatch-rule-engine",
   "artifactVersion": "rtd-dispatch-benchmark-v1",
   "calibration": {
-    "commit": "6cde5d508c9ce3a1d873d282b1d4808e0334a288",
-    "date": "2026-07-28",
+    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "date": "2026-07-29",
     "forks": 5,
-    "formula": "trigger=runtime-capability-and-explicit-group-governance; candidate-source=content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
+    "formula": "trigger=corretto-jdk-authority-and-stale-identity-correction; candidate-source=content-sha256:ca4269c4c16bcb515034e63c9256e7188f554a7d80b19074251880d2ad898a09; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
   },
   "environment": {
-    "javaVersion": "1.8.0_492-b09",
-    "javaVendor": "Azul Systems, Inc.",
+    "javaVersion": "1.8.0_502-b07",
+    "javaVendor": "Amazon.com Inc.",
     "javaVmName": "OpenJDK 64-Bit Server VM",
-    "javaVmVersion": "25.492-b09",
+    "javaVmVersion": "25.502-b07",
     "jvmArgs": [
       "-Xms256m",
       "-Xmx256m"
@@ -34,10 +34,10 @@
     "seed": 20260727,
     "inputChecksum": "67a8f58f2da410f6a6cec5ff4ce302210db29b18c499030bac982bcb2e9f24f2",
     "resultChecksum": "837f1e23f8906ee4246b21b27be25c3912dc4813f24728bfe0ef6772a48c2a9a",
-    "schemaHash": "a7d58522dd286199036887b1807f6ac4d77578bbf12bc3579711042060cbb177",
-    "runtimePlanHash": "acf26a2ec4b39cfa68418348ec98dce9cf907ca6f97edf7dcb400ee1eb873662",
-    "definitionIdentity": "7b5c8b8a0e87ea505aa4cdea4a73530dd85196305f5a2f80439b9c7097bec1b7",
-    "templateIdentity": "d3a2859bdbaff8735a4d7ff26707eac091277420581927c9f9f4ab6a5c057cd5",
+    "schemaHash": "ac572b661a323e7a9f29f744e169bbe163f4093cf1032065f548cae614c1ddae",
+    "runtimePlanHash": "4eb6f72da3e03a32b44582e8cf484d18a9560c40c6e4a70517e8068adba22aae",
+    "definitionIdentity": "b1abfdadbf16148550689244c5280625b1acc293be4116b8931f6f1e22c30295",
+    "templateIdentity": "f5406f0698090ae45ef27c51181104d748f0270bacb2fd594a2bd2d8d35f7f3d",
     "demandChecksum": "fea5a66728a04aca898379492100bdca0db1b36794f91c5b7f81c721060c3203",
     "initialWork": 256,
     "arrivalsPerCycle": 32,
@@ -120,7 +120,7 @@
       "field": "callerAllocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 10430910
+      "reference": 10429430
     },
     {
       "id": "timing.dispatch",
@@ -128,7 +128,7 @@
       "field": "dispatchNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 92416062
+      "reference": 95301063
     },
     {
       "id": "gc.young-count",

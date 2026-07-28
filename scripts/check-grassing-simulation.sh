@@ -4,34 +4,16 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/external-evidence.sh"
+. "$root_dir/scripts/lib/supported-jdk.sh"
 
-if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
-  printf '%s\n' 'grassing-simulation-check: JAVA_HOME must point to Zulu JDK 8' >&2
-  exit 1
-fi
-java_specification=$($JAVA_HOME/bin/java -XshowSettings:properties -version 2>&1 |
-  sed -n 's/^[[:space:]]*java.specification.version = //p' | head -n 1)
-java_vendor=$($JAVA_HOME/bin/java -XshowSettings:properties -version 2>&1 |
-  sed -n 's/^[[:space:]]*java.vendor = //p' | head -n 1)
-if [ "$java_specification" != '1.8' ]; then
-  printf '%s\n' \
-    "grassing-simulation-check: expected Java 8, got $java_specification" >&2
-  exit 1
-fi
-case "$java_vendor" in
-  *Azul*) ;;
-  *)
-    printf '%s\n' \
-      "grassing-simulation-check: expected Azul Zulu, got $java_vendor" >&2
-    exit 1
-    ;;
-esac
+soma_require_supported_jdk grassing-simulation-check
 
 profile=${1:-default}
 case "$profile" in
   default)
     heap=256m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=3
     expected_width=128
     expected_height=72
@@ -40,7 +22,7 @@ case "$profile" in
     ;;
   large)
     heap=256m
-    baseline_version=v2
+    baseline_version=v3
     expected_measurements=1
     expected_width=1280
     expected_height=720
@@ -49,7 +31,7 @@ case "$profile" in
     ;;
   long-run)
     heap=256m
-    baseline_version=v2
+    baseline_version=v3
     expected_measurements=1
     expected_width=400
     expected_height=225
@@ -91,24 +73,17 @@ if [ "$#" -ge 3 ]; then
 else
   evidence_dir=$(mktemp -d "$root_dir/target/grassing-simulation.XXXXXX")
 fi
-repository=$evidence_dir/repository
-mkdir -p "$repository"
 application_build_dir=$evidence_dir/application-target
-seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
-if [ -d "$seed_repository" ]; then
-  cp -R "$seed_repository/." "$repository/"
-fi
 
-./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-  -pl soma-runtime-core,soma-dataflow,soma-processor -am install -DskipTests
-./mvnw -B -ntp -Dmaven.repo.local="$repository" \
+soma_require_or_install_external_artifacts
+soma_external_mvn -B -ntp \
   -Dsoma.build.directory="$application_build_dir" \
   -f "$pom" clean package
 if grep -R -a -F 'Unresolved compilation problem' \
     "$application_build_dir/classes" "$application_build_dir/test-classes" \
     >/dev/null; then
   printf '%s\n' \
-    'grassing-simulation-check: compiler-error stub found in isolated build' >&2
+      'grassing-simulation-check: compiler-error stub found in external build' >&2
   exit 1
 fi
 
@@ -116,7 +91,7 @@ dependency_plugin_version=$(sed -n \
   's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
   "$pom")
 runtime_classpath_file=$evidence_dir/runtime-classpath.txt
-./mvnw -B -ntp -Dmaven.repo.local="$repository" -f "$pom" \
+soma_external_mvn -B -ntp -f "$pom" \
   "org.apache.maven.plugins:maven-dependency-plugin:$dependency_plugin_version:build-classpath" \
   -DincludeScope=runtime -Dmdep.outputFile="$runtime_classpath_file"
 runtime_classpath=$application_build_dir/classes:$(cat "$runtime_classpath_file")
@@ -380,13 +355,20 @@ while IFS= read -r record; do
   fi
 done <"$benchmark_artifact"
 
-baseline=$application_dir/src/test/resources/benchmark/performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json
+baseline=$application_dir/src/test/resources/benchmark/performance-baseline-$profile-corretto8-macos-aarch64-$baseline_version.json
 if [ "${SOMA_APPLICATION_PERFORMANCE_MODE:-compare}" = calibration ]; then
   baseline_result=
 else
   baseline_result=$evidence_dir/performance-baseline-result.json
-  ./mvnw -B -ntp -Dmaven.repo.local="$repository" \
-    -pl soma-benchmarks -am test-compile
+  if [ "${SOMA_BENCHMARKS_PREPARED:-false}" != 'true' ]; then
+    ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
+  fi
+  comparator_class=$root_dir/soma-benchmarks/target/classes/io/github/somaruntime/soma/benchmarks/PerformanceBaselineComparator.class
+  if [ ! -s "$comparator_class" ]; then
+    printf '%s\n' \
+      "grassing-simulation-check: comparator class missing: $comparator_class" >&2
+    exit 1
+  fi
   "$JAVA_HOME/bin/java" \
     -cp "$root_dir/soma-benchmarks/target/classes" \
     io.github.somaruntime.soma.benchmarks.PerformanceBaselineComparator \

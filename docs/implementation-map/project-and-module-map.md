@@ -41,7 +41,8 @@ runtime artifact。
 - exact toolchain：[`scripts/check-toolchain.sh`](../../scripts/check-toolchain.sh)；
 - Codex Cloud bootstrap：
   [`scripts/setup/setup-codex-cloud.sh`](../../scripts/setup/setup-codex-cloud.sh)；
-- 全局验证：[`scripts/check.sh`](../../scripts/check.sh)；
+- 快速反馈与全局验证：[`scripts/check.sh`](../../scripts/check.sh)
+  （`fast` / 默认`full`）；
 - 文档检查：[`scripts/check-docs.sh`](../../scripts/check-docs.sh)；
 - package smoke：[`scripts/package-smoke.sh`](../../scripts/package-smoke.sh)；
 - benchmark smoke：[`scripts/check-benchmark-smoke.sh`](../../scripts/check-benchmark-smoke.sh)；
@@ -49,10 +50,10 @@ runtime artifact。
 - private-source qualification：
   [`release-qualification.yml`](../../.github/workflows/release-qualification.yml)。
 
-`check.sh` 顺序执行 docs、Maven verify、build/public
-API/compiler/codegen/runtime/keyspace/access/child/breadth/diagnostics/external
-consumer、三个 reference application、neutral benchmark、integrated multi-fork
-与 generated-footprint 检查，最后执行 `git diff --check`。
+`check.sh`先串行形成toolchain、docs、reactor和共享artifact，再以最多4路执行
+独立public/compiler/generated/external consumer Gate；DataFlow、code-size、
+neutral benchmark与Access/DataFlow component multi-fork保持有序，性能阶段串行，
+最后执行`git diff --check`。每个阶段输出稳定状态与duration。
 
 ## 3. 实现数据流
 

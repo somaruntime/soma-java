@@ -15,7 +15,7 @@ done
 
 toolchain_root=${SOMA_TOOLCHAIN_ROOT:-"$HOME/.cache/soma-java/toolchains"}
 export SOMA_TOOLCHAIN_ROOT=$toolchain_root
-java_home=$(./scripts/setup/install-zulu8-linux-x64.sh)
+java_home=$(./scripts/setup/install-corretto8-linux-x64.sh)
 osv_scanner=$(./scripts/setup/install-osv-scanner.sh)
 ripgrep=$(./scripts/setup/install-ripgrep-linux-x64.sh)
 evidence_repository=$toolchain_root/maven-evidence/repository
@@ -27,7 +27,7 @@ ripgrep_dir=$(dirname -- "$RIPGREP")
 export PATH=$JAVA_HOME/bin:$ripgrep_dir:$PATH
 
 # Codex Cloud exposes its network proxy CA through SSL_CERT_FILE. The downloaded
-# Zulu JDK has an independent truststore, so merge the platform-controlled CA
+# Corretto JDK has an independent truststore, so merge the platform-controlled CA
 # bundle into a private copy for setup-phase Maven traffic. TLS verification
 # remains enabled and the vendor truststore remains unchanged.
 cloud_ca_bundle=
@@ -45,7 +45,7 @@ if [ -n "$cloud_ca_bundle" ]; then
   if [ ! -r "$vendor_trust_store" ] \
     || [ ! -x "$JAVA_HOME/bin/keytool" ]; then
     printf '%s\n' \
-      'codex-cloud-setup: Zulu truststore or keytool is unavailable.' >&2
+      'codex-cloud-setup: Corretto truststore or keytool is unavailable.' >&2
     exit 1
   fi
 
@@ -102,7 +102,7 @@ if [ -n "$cloud_ca_bundle" ]; then
     "codex-cloud-java-trust: imported $certificate_count platform certificate(s)"
 else
   printf '%s\n' \
-    'codex-cloud-java-trust: platform CA bundle not present; using Zulu defaults'
+    'codex-cloud-java-trust: platform CA bundle not present; using Corretto defaults'
 fi
 
 environment_file=$toolchain_root/codex-cloud-environment.sh

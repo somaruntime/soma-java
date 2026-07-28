@@ -5,27 +5,9 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 . "$root_dir/scripts/lib/sha256.sh"
+. "$root_dir/scripts/lib/supported-jdk.sh"
 
-if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
-  printf '%s\n' 'scan-code-size-check: JAVA_HOME must point to Azul Zulu JDK 8' >&2
-  exit 1
-fi
-
-java_specification=$($JAVA_HOME/bin/java -XshowSettings:properties -version 2>&1 |
-  sed -n 's/^[[:space:]]*java.specification.version = //p' | head -n 1)
-java_vendor=$($JAVA_HOME/bin/java -XshowSettings:properties -version 2>&1 |
-  sed -n 's/^[[:space:]]*java.vendor = //p' | head -n 1)
-if [ "$java_specification" != '1.8' ]; then
-  printf '%s\n' "scan-code-size-check: expected Java 8, got $java_specification" >&2
-  exit 1
-fi
-case "$java_vendor" in
-  *Azul*) ;;
-  *)
-    printf '%s\n' "scan-code-size-check: expected Azul Zulu JDK, got $java_vendor" >&2
-    exit 1
-    ;;
-esac
+soma_require_supported_jdk scan-code-size-check
 
 start_millis=$(perl -MTime::HiRes=time -e 'printf "%.0f", time() * 1000')
 ./mvnw -B -ntp \

@@ -11,9 +11,10 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/java" ]; then
   exit 1
 fi
 
-./mvnw -B -ntp -pl soma-runtime-core -am test-compile
-
 classpath="soma-runtime-core/target/classes:soma-runtime-core/target/test-classes"
+if [ "${SOMA_REACTOR_PREPARED:-false}" != 'true' ]; then
+  ./mvnw -B -ntp -pl soma-runtime-core -am test-compile
+fi
 for check_class in \
   RuntimePlanAndMetadataContractCheck \
   RuntimeGroupAndOwnershipContractCheck \
@@ -22,6 +23,12 @@ for check_class in \
   PrimaryLocatorContractCheck \
   GroupedExactIndexContractCheck
 do
+  class_file=soma-runtime-core/target/test-classes/io/github/somaruntime/soma/runtime/$check_class.class
+  if [ ! -s "$class_file" ]; then
+    printf '%s\n' \
+      "runtime-contracts: required test class missing: $class_file" >&2
+    exit 1
+  fi
   "$JAVA_HOME/bin/java" -cp "$classpath" \
     "io.github.somaruntime.soma.runtime.$check_class"
 done

@@ -2,8 +2,9 @@
 
 `soma_java` 是 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 的
 Java 8 columnar runtime-state computing 项目。当前功能与性能状态以
-Conformance 和 Report 为准；selected private-source G6 不得外推为public、
-Maven或production readiness。
+Conformance 和 Report 为准；当前G5/G6因Corretto规模与Linux/release evidence
+待补而blocked，不得沿用历史Zulu结论或外推为public、Maven或production
+readiness。
 
 ## 必读入口
 
@@ -85,9 +86,9 @@ checkout 建立平行 Owner。模块修改前仍应读取对应 `<module>/docs/R
   边界，不成为 SOMA annotation、generated API、runtime type、error 或 schema
   概念前缀；
 - release identity 与安全边界以[兼容性、安全与版本](docs/design/compatibility-security-and-versioning.md)为准；过程以[Release 治理](docs/engineering/release-governance.md)和[Validation Gate 治理](docs/engineering/validation-gates.md)为准；
-- Azul Zulu full JDK 8 javac/runtime 是当前唯一 compiler 与 validation authority；新 JDK `--release 8` 不能冒充受支持 transformer；
+- Amazon Corretto 8.502.07.1 full JDK 8 javac/runtime 是当前唯一 compiler 与 validation authority；新 JDK `--release 8` 不能冒充受支持 transformer；
 - 每次 validation 记录实际 JDK vendor/version/build、Maven、OS、architecture 和命令；本机通过不得外推为支持矩阵；
-- Corretto 或其他 JDK distribution 不属于当前验真或目标支持范围，不要求新增、补跑或维持多 vendor Gate；历史运行记录不构成当前支持声明；
+- Zulu 或其他 JDK distribution 不属于当前验真或目标支持范围，不要求新增、补跑或维持多 vendor Gate；历史运行记录不构成当前支持声明；
 - G6 必须按实际选择的 release profile 判断；private-source readiness、
   Codex Cloud development readiness 与 public/Maven readiness 分开，任何缺失的
   SCM/contact/support matrix/provenance 事实不得用 placeholder 或单机 smoke 替代。
@@ -103,7 +104,14 @@ checkout 建立平行 Owner。模块修改前仍应读取对应 `<module>/docs/R
 
 ## Validation and Git
 
-- 修改后运行 `./scripts/check.sh`；窄反馈至少运行 `./scripts/check-docs.sh`、`git diff --check` 和与 surface 相称的验证；
+- 日常反馈运行 `./scripts/check.sh fast` 和与变更 surface 相称的直接 Gate；
+  Markdown-only 只要求 `./scripts/check-docs.sh`、`git diff --check` 与链接/Owner
+  自审；跨模块、专题收口或明确要求时才运行一次默认的完整 `./scripts/check.sh`；
+- Full Gate 的独立功能检查默认最大并行度为4，并自动受可用处理器数约束；
+  performance、package、security和qualification保持串行；
+- 重复高成本动作前必须说明输入、假设或目标发生了什么变化以及将获得什么新
+  evidence；无变化时禁止重跑、固定间隔sleep或盲目轮询，已通过且输入未变化的
+  evidence直接复用；
 - 使用 `rg` / `rg --files` 搜索，使用 `apply_patch` 编辑；
 - 保留用户现有未提交修改，不覆盖无关内容；
 - Java 保持 Java 8；

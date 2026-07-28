@@ -91,20 +91,24 @@ bootstrap 和 tick-0 trace；measurement 只覆盖 tick systems。
 - initial/maximum population 与 population table growth count；
 - `claimAllowed=false`。
 
-Application-owned baseline位于test resources，当前版本为default v3、large v2、
-long-run v2。显式Group与v11 protocol使用同一Zulu 8本机5-fork重新校准：
+Application-owned baseline位于test resources，当前版本为default v4、large v3、
+long-run v3。Amazon Corretto 8成为唯一JDK authority后，三个profile均在同一
+Corretto 8本机以5-fork candidate重新校准；旧Zulu baseline只由Git保存其历史
+evidence含义：
 
 | Profile | RuntimePlan | time limit | allocated limit | Young/Full GC envelope |
 |---|---|---:|---:|---|
-| default | `e9d7a1…` | `221,718,938 ns` | `14,491,310 B` | `0/0 ms；0/0 ms` |
-| large | `b9d86b…` | `8,658,417,938 ns` | `533,067,510 B` | `16/14 ms；2/37 ms` |
-| long-run | `f01ef3…` | `5,372,043,626 ns` | `59,967,560 B` | `0/0 ms；0/0 ms` |
+| default | `6005f0…` | `225,824,688 ns` | `14,494,170 B` | `0/0 ms；0/0 ms` |
+| large | `01703a…` | `8,986,689,750 ns` | `533,070,360 B` | `16/14 ms；2/39 ms` |
+| long-run | `9c21c5…` | `5,452,954,251 ns` | `59,967,160 B` | `0/0 ms；0/0 ms` |
 
-校准source为
-`content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef`。
+校准commit为`092617b67247cbaed354857daed9d6e1457b876e`，每个baseline
+登记自己的candidate content checksum。
 Allocation按应用级`median + 25%`治理，不再混用maximum；timing、deterministic
 high-water与GC规则与正式Benchmark治理一致。Schema、config/input/result、
-population/growth和AoS oracle identity保持，RuntimePlan/Group identity显式变化。
+population/growth和AoS oracle identity保持。旧baseline的Schema/RuntimePlan
+identity已落后于当前生成物；旧Zulu与新Corretto对同一当前source生成结果一致，
+因此这是evidence漂移修正，不是JDK不确定性。
 Default、large、long-run分别由Fast、Scale、Soak承担，Full组合全部九个workload。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为

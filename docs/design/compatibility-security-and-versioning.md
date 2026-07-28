@@ -18,7 +18,7 @@ Owner：SOMA compatibility、security 与 release identity
 
 非事实范围：具体 release 进度、账户/签名配置和某次安全扫描结果
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 本横切 Owner 以“可消费身份如何安全演进”为共同边界：compatibility 分类决定什么可以改变，security 约束输入和协议信任，version/identity 让双方可验证。具体发布进度、账户和签名状态仍由 Engineering 与 Report 拥有。
 
@@ -96,7 +96,9 @@ actual object sharing/JVM heap相同。
 
 ## 3. Java 与产品身份
 
-- V1 language/runtime boundary 是 Java 8；当前实现与验真只以 Azul Zulu full JDK 8 javac/runtime 为 authority；Corretto 和其他 JDK distribution 不属于当前验真或目标支持范围；
+- V1 language/runtime boundary 是 Java 8；当前实现与验真只以 Amazon
+  Corretto 8.502.07.1 full JDK 8 javac/runtime 为 authority；Zulu和其他JDK
+  distribution不属于当前验真或目标支持范围；
 - copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA，GitHub
   Organization 为 `somaruntime`；
 - Maven `groupId` 和 Java package root 为 `io.github.somaruntime.soma`；

@@ -7,7 +7,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Locale;
 
-/** Zulu JDK 8 当前线程 allocation 与 young/full GC 快照。 */
+/** Corretto JDK 8 当前线程 allocation 与 young/full GC 快照。 */
 final class JvmMetrics {
   private static final java.lang.management.ThreadMXBean THREAD_BEAN =
       ManagementFactory.getThreadMXBean();
@@ -80,7 +80,7 @@ final class JvmMetrics {
       return type.getMethod(name, parameterTypes);
     } catch (Exception failure) {
       throw new IllegalStateException(
-          "Zulu JDK allocation API is unavailable: " + name, failure);
+          "Corretto JDK allocation API is unavailable: " + name, failure);
     }
   }
 

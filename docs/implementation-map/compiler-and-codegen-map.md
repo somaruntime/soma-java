@@ -79,7 +79,7 @@ unexpected failure fail closed。Table、Auxiliary、Scan、Selector 和 Exact e
 都投影到这一处规则；helper 只调用 current runtime v11 protocol，不进入 generated
 public signature。
 
-Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免 Zulu
+Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免JDK 8 javac
 javac 8 在相邻 clean compile 间为私有内部类选择不同 synthetic access marker；
 codegen admission 同时校验生成源码形状和完整编译。该形状不进入 public/generated
 contract。

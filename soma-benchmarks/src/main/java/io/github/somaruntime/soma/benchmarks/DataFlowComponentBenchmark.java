@@ -293,7 +293,7 @@ public final class DataFlowComponentBenchmark {
         record.put(
                 "knownLimitations",
                 BenchmarkModel.limitations(
-                        "local Zulu JDK 8 diagnostic component evidence",
+                        "local supported JDK 8 diagnostic component evidence",
                         lane.allThreads
                                 ? "allocation covers live Java threads; dead-thread allocation is not recoverable"
                                 : "allocation covers the benchmark thread",

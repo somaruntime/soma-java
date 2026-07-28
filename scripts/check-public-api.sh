@@ -26,6 +26,11 @@ mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/public-api-contract.XXXXXX")
 actual_classification=$evidence_dir/classification.txt
 actual_javap=$evidence_dir/public-api.javap.txt
+artifact_classpath=$annotations_jar:$processor_jar:$runtime_jar:$dataflow_jar
+all_types=$evidence_dir/all-types.txt
+all_javap=$evidence_dir/all-types.javap.txt
+public_types=$evidence_dir/public-types.txt
+public_javap=$evidence_dir/public-types.javap.txt
 
 classify_type() {
   type=$1
@@ -62,41 +67,70 @@ classify_type() {
 }
 
 for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar" "$dataflow_jar"; do
-  "$JAVA_HOME/bin/jar" tf "$artifact" | sed -n '/\.class$/p' | while IFS= read -r entry; do
-    type=$(printf '%s' "$entry" | sed 's#/#.#g; s#\.class$##')
-    declaration=$(
-      "$JAVA_HOME/bin/javap" -classpath "$artifact" -public "$type" 2>/dev/null |
-        sed -n '/^public /p' | head -n 1
-    )
-    if [ -n "$declaration" ]; then
-      classify_type "$type"
-    fi
-  done
-done | sort >"$actual_classification"
+  "$JAVA_HOME/bin/jar" tf "$artifact" |
+    sed -n '/\.class$/p' |
+    sed 's#/#.#g; s#\.class$##'
+done | LC_ALL=C sort -u >"$all_types"
+
+set -- $(cat "$all_types")
+"$JAVA_HOME/bin/javap" -classpath "$artifact_classpath" -public "$@" \
+  >"$all_javap"
+awk '
+  /^public / {
+    for (i = 1; i <= NF; i++) {
+      if ($i ~ /^io\.github\.somaruntime\.soma\./) {
+        type = $i
+        sub(/[<{].*$/, "", type)
+        print type
+        break
+      }
+    }
+  }
+' "$all_javap" | LC_ALL=C sort -u | while IFS= read -r type; do
+  classify_type "$type"
+done | LC_ALL=C sort >"$actual_classification"
 
 cmp "$expected/classification.txt" "$actual_classification"
 
-while read -r classification role type; do
-  if [ "$classification" = 'PUBLIC' ]; then
-    printf '%s\n' "## $classification $role $type" >>"$actual_javap"
-    case "$type" in
-      io.github.somaruntime.soma.annotation.*)
-        artifact=$annotations_jar
-        ;;
-      io.github.somaruntime.soma.runtime.*)
-        artifact=$runtime_jar
-        ;;
-      io.github.somaruntime.soma.dataflow.*)
-        artifact=$dataflow_jar
-        ;;
-      *)
-        artifact=$processor_jar
-        ;;
-    esac
-    "$JAVA_HOME/bin/javap" -classpath "$artifact" -public "$type" \
-      >>"$actual_javap"
-  fi
-done <"$actual_classification"
+awk '$1 == "PUBLIC" { print $3 }' "$actual_classification" >"$public_types"
+set -- $(cat "$public_types")
+"$JAVA_HOME/bin/javap" -classpath "$artifact_classpath" -public "$@" \
+  >"$public_javap"
+awk '
+  FNR == NR {
+    if ($1 == "PUBLIC") {
+      header[$3] = $0
+    }
+    next
+  }
+  /^Compiled from / {
+    compiled = $0
+    next
+  }
+  compiled != "" {
+    type = ""
+    if ($1 == "public") {
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^io\.github\.somaruntime\.soma\./) {
+          type = $i
+          sub(/[<{].*$/, "", type)
+          break
+        }
+      }
+    }
+    if (type == "" || !(type in header)) {
+      print "public-api-check: cannot bind batched javap declaration: " $0 \
+        >"/dev/stderr"
+      exit 2
+    }
+    print "## " header[type]
+    print compiled
+    compiled = ""
+  }
+  {
+    print
+  }
+' "$actual_classification" "$public_javap" >"$actual_javap"
 
 cmp "$expected/public-api.javap.txt" "$actual_javap"
 

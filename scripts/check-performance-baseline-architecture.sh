@@ -5,20 +5,20 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 
-access_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-zulu8-macos-aarch64-v1.json
-dataflow_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v2.json
+access_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-corretto8-macos-aarch64-v1.json
+dataflow_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-corretto8-macos-aarch64-v3.json
 scheduler_baseline_dir=soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark
 simulation_baseline_dir=soma-examples/grassing-individual-simulation/src/test/resources/benchmark
-scheduler_default_baseline=$scheduler_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v5.json
-scheduler_large_baseline=$scheduler_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v4.json
-scheduler_long_run_baseline=$scheduler_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v4.json
-simulation_default_baseline=$simulation_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v3.json
-simulation_large_baseline=$simulation_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v2.json
-simulation_long_run_baseline=$simulation_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v2.json
+scheduler_default_baseline=$scheduler_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v6.json
+scheduler_large_baseline=$scheduler_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v5.json
+scheduler_long_run_baseline=$scheduler_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v5.json
+simulation_default_baseline=$simulation_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v4.json
+simulation_large_baseline=$simulation_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v3.json
+simulation_long_run_baseline=$simulation_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v3.json
 rtd_baseline_dir=soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark
-rtd_default_baseline=$rtd_baseline_dir/performance-baseline-default-zulu8-macos-aarch64-v2.json
-rtd_large_baseline=$rtd_baseline_dir/performance-baseline-large-zulu8-macos-aarch64-v2.json
-rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-zulu8-macos-aarch64-v2.json
+rtd_default_baseline=$rtd_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v3.json
+rtd_large_baseline=$rtd_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v3.json
+rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v3.json
 
 for baseline in \
   "$access_component_baseline" \
@@ -130,13 +130,13 @@ grep -F "$access_component_baseline" \
 grep -F "$dataflow_component_baseline" \
   scripts/check-dataflow-performance.sh >/dev/null
 grep -F \
-  'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
+  'performance-baseline-$profile-corretto8-macos-aarch64-$baseline_version.json' \
   scripts/check-industrial-scheduler.sh >/dev/null
 grep -F \
-  'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
+  'performance-baseline-$profile-corretto8-macos-aarch64-$baseline_version.json' \
   scripts/check-grassing-simulation.sh >/dev/null
 grep -F \
-  'performance-baseline-$profile-zulu8-macos-aarch64-$baseline_version.json' \
+  'performance-baseline-$profile-corretto8-macos-aarch64-$baseline_version.json' \
   scripts/check-real-time-dispatch-rule-engine.sh >/dev/null
 for script in \
   scripts/check-access-performance.sh \

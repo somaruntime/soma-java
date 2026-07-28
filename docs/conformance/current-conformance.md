@@ -6,70 +6,69 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式 Blueprint/Design 与 2026-07-28 runtime-scale production candidate
+核对对象：正式Blueprint/Design与2026-07-29 Corretto engineering candidate
 
-实现身份：base `e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`
-
-事实范围：主要设计能力的一致性判断和直接依据
+事实范围：主要设计能力的一致性判断、当前evidence适用性与直接依据
 
 非事实范围：public release授权、跨环境支持矩阵或任意Schema性能承诺
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 判定口径
 
-- **一致且 evidenced**：代码、生成物、测试和适用 Gate 与正式 Design 一致；
+- **一致且 evidenced**：代码、生成物、测试和当前JDK authority下的适用Gate一致；
 - **一致但 evidence 有限**：未发现设计偏差，但测量只在记录环境/profile成立；
-- **blocked**：缺少必需外部事实或未获对应授权；
-- 本机 `passed` 不自动成为 public claim，受限profile不得外推为任意输入。
+- **blocked**：目标仍保留，但当前authority/环境缺少必需evidence；
+- 历史`passed`不自动外推到新JDK authority或新candidate。
 
 ## 2. 能力矩阵
 
 | 关注点 | 当前判定 | 直接依据与边界 |
 |---|---|---|
-| Java 8 schema/compiler/type system | 一致且 evidenced | four-kind classifier、arbitrary-object negative、String selector、`@SomaValue` flatten、owned child、schema/hash repeat与Zulu 8 external consumer |
-| Metadata control plane | 一致且 evidenced | Descriptor属于完整`SomaMetadata`；schema-seeded mutable builder在创建前freeze为Effective Plan；generated Table/Group投影detached Table/Segment/locator/Unique/Index Runtime Metadata；hot path不解释Metadata |
-| Group/Table ownership | 一致且 evidenced | explicit/implicit Group、stable slots、multi-schema/multi-instance、atomic attach、GroupLedger、分层fault、all-member preflight与reverse release；Group不冒充transaction或root trust |
-| storage/layout/locator | 一致且 evidenced；profile有限 | `FLAT`与`FLAT_HEAD_SEGMENTED_TAIL`、atomic column-group publication、`FLAT_COMPACT` locator、current/high-water observation、跨32K relocation和100M窄表qualification |
-| Access/Candidate | 一致且 evidenced | point/exact/column保持natural path；Candidate closed range/segment/exact/sparse形态与sequential differential闭合，不再以universal buffer解释全部terminal |
+| Java 8 schema/compiler/type system | 一致且 evidenced | Corretto 8 exact toolchain、four-kind classifier、arbitrary-object negative、String selector、`@SomaValue` flatten、owned child、schema/hash repeat与external consumer |
+| Metadata control plane | 一致且 evidenced | Descriptor属于完整`SomaMetadata`；schema-seeded mutable builder在创建前freeze为Effective Plan；generated Table/Group投影detached Runtime Metadata；hot path不解释Metadata |
+| Group/Table ownership | 一致且 evidenced | explicit/implicit Group、stable slots、multi-schema/multi-instance、atomic attach、GroupLedger、分层fault、all-member preflight与reverse release |
+| storage/layout/locator | 一致；当前scale evidence blocked | `FLAT`、`FLAT_HEAD_SEGMENTED_TAIL`、atomic publication、`FLAT_COMPACT` locator及contract通过；100M证据仍绑定历史Zulu candidate |
+| Access/Candidate | 一致且 evidenced | point/exact/column保持natural path；Candidate closed range/segment/exact/sparse形态与sequential differential闭合 |
 | Transformation/relation | 一致且 evidenced | Group/Join/Window specialized strategy、Delta staging、bounded output及known/overflow/unknown cardinality分配前拒绝 |
-| DataFlow execution/parallel | 一致且 evidenced | Definition→Template→one-shot Invocation；一个bounded adaptive morsel scheduler区分Segment/vector/morsel，支持单Segment中型并行和deterministic merge；Invocation phase ledger最终归零 |
-| Result Delivery | 一致且 evidenced | Eager Detached继续默认；Candidate/Value/Group/Join/Window只试点同步callback-scoped visitor，覆盖early stop、consumer failure、cancel/deadline、non-escape和cleanup；无Iterator/pull/Publisher/async路径 |
-| String V1 | 一致且 evidenced；profile有限 | 唯一reference-backed immutable scalar后端；payload、Key/Unique/Index、Group/Join、presence/null、no-op、mutation/epoch、clear/release、实际GC和三层memory accounting均闭合；无dictionary/arena |
-| Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow detached stats/explain |
-| runtime-scale qualification | 一致且 evidence有限 | Small/Medium、1M、10M、单表100M、两个同时驻留100M root、shared-reference String双100M、Expansion、Delivery、100次Soak十条required lane全部passed；只适用于预注册本机profile，全部`claimAllowed=false` |
-| reference applications | 一致且 evidenced | 三个独立Java 8 consumer均审计；相关root迁入显式SomaGroup，领域模型/算法/Result不变；correctness与九个default/large/long-run baseline通过 |
-| code/test规模 | 一致且 evidenced | replacement closure删除generic Object、legacy borrow、平行parallel executor等旧Owner；neutral/三应用22个Table companion的footprint Gate通过；不以LOC或单调用者机械删除 |
-| G0–G5 | passed | formal Design、compiler/codegen/runtime/external consumer、reference differential、component/application和production-scale证据在综合治理Gate中重放 |
-| G6 selected private-source readiness | 一致且 evidenced | ArthurFeng / `somaruntime` / Apache-2.0身份、private SCM、完整历史、maintainer/support/security、clean package/security provenance、macOS与Linux Zulu 8 matrix及GitHub CI闭合；public/Maven profile未选择 |
-| Codex Cloud development | not-selected / not-ready | setup与部分离线检查事实存在，但未完成可接受时长的fresh-container full check；第二次任务已取消，当前不纳入支持范围 |
+| DataFlow execution/parallel | 一致且 evidenced | Definition→Template→one-shot Invocation；一个bounded adaptive morsel scheduler区分Segment/vector/morsel，支持单Segment中型并行和deterministic merge |
+| Result Delivery | 一致且 evidenced；scale待重放 | Eager Detached默认；Candidate/Value/Group/Join/Window同步callback-scoped visitor contract通过；历史Delivery scale lane待Corretto重放 |
+| String V1 | 一致；当前scale evidence blocked | 唯一reference-backed immutable scalar后端及mutation/lifecycle contract成立；1M/10M/双100M String规模与actual GC仍绑定历史Zulu candidate |
+| Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow stats/explain |
+| component performance | 一致且 evidence有限 | Corretto/macOS/aarch64 Access与DataFlow baseline通过；不外推其他环境 |
+| runtime-scale qualification | blocked | 历史Zulu十lane全部passed且保留；当前Corretto authority尚未重跑Small/Medium、1M/10M、single/double100M、String、Expansion、Delivery、Soak |
+| reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness与Corretto 9 profile baseline通过；相关root由显式SomaGroup拥有 |
+| code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
+| G0–G4 | passed | Corretto compiler/codegen/runtime/external consumer与工程Full evidence |
+| G5 | blocked | component/application已通过，Corretto runtime-scale qualification未完成 |
+| G6 selected private-source | blocked | identity/SCM/support/security事实仍成立；Corretto Linux、clean package/security provenance与当前CI evidence未完成 |
+| Codex Cloud development | not-selected / not-ready | 不再作为当前工程目标；未完成fresh-container Full，不进入支持矩阵 |
 
 ## 3. 当前结论
 
-本轮治理没有降低SOMA Java V1目标，而是把“Schema-Defined、
-Compiler-Specialized、JVM Heap-Resident runtime-state computing library”落实为
-一套可替换但封闭的Capability组合：State/Owner负责事实与生命周期，
-Metadata/Plan负责cold control plane，specialized Capability负责operation，
-Resource/Failure/Observation负责可预测执行。
+SOMA Java V1仍按“Schema-Defined、Compiler-Specialized、JVM Heap-Resident
+runtime-state computing library”理解，并由State/Owner、Metadata/Plan、closed
+Capability、Resource/Failure/Observation组成。工程体系已收敛为
+Fast→Full→Qualification，使用Maven标准local repository、一次准备多项取证、
+最多四路安全并行和fail-closed阶段状态。
 
-`CF-006`已在用户明确选择`private-github-source` profile后，由真实身份、SCM、
-support/security、clean provenance、Linux CI与selected support matrix关闭。
-`CF-009`–`CF-015`仍由production实现、generated/public contract、测试、
-qualification、三个Example审计和代码规模审查闭合。当前仅保留环境/性能外推限制
-`CF-005`；public GitHub与Maven Central是未选择的profile，不是被悄悄降级的
-private-source缺口。
+JDK authority迁移属于支持与evidence变化，不是产品语义变化。Corretto本机
+compiler/runtime/component/application evidence已形成；Zulu runtime-scale与
+Linux release evidence保持历史事实，但不再作为当前passed依据。因此`CF-006`
+重新打开，并新增`CF-016`承担Corretto规模重验；`CF-009`–`CF-015`的实现闭合不
+因此回退。
 
-这意味着当前candidate支持本轮正式SOMA目标与private GitHub source协作，但不能
-声称Codex Cloud ready、任意String、任意wide schema、任意高展开、跨环境SLA、
-production ready、public release ready或Maven Central ready。
+当前candidate可继续本地开发，但不能声明Corretto下的100M qualification、Linux
+support、private-source G6、Codex Cloud、production、public release或Maven
+Central readiness。
 
 ## 4. Evidence 入口
 
-- [Runtime Boundary、Group、Scale Readiness 综合治理报告](../../reports/2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)
-- [当前 G0–G6 状态](../../reports/java-v1-goal-execution-status.md)
+- [当前G0–G6状态](../../reports/java-v1-goal-execution-status.md)
+- [工程体系治理报告](../../reports/2026-07-29-soma-v1-engineering-system-governance-report.md)
+- [当前性能与规模摘要](../../reports/current-performance-summary.md)
 - [Implementation Map](../implementation-map/README.md)
 - [Benchmark 治理](../engineering/benchmark-governance.md)
-- [GitHub 私有仓库与 Codex Cloud 开发](../engineering/github-and-cloud-development.md)
+- [Validation Gate治理](../engineering/validation-gates.md)
 
-本结论不授权改变仓库visibility、创建tag、公开发布或向Maven仓库上传artifact。
+本结论不授权改变仓库visibility、创建tag、公开发布或上传Maven artifact。

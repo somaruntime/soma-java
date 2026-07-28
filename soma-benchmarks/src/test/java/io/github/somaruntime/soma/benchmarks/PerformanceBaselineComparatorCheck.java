@@ -23,8 +23,8 @@ public final class PerformanceBaselineComparatorCheck {
         }
         File baseline = new File(directory, "baseline.json");
         File artifacts = new File(directory, "artifacts.jsonl");
-        write(baseline, baseline("Zulu", 12.0d, 2));
-        writeRecords(artifacts, records("Zulu", false, 10L, 2));
+        write(baseline, baseline("TestVendor", 12.0d, 2));
+        writeRecords(artifacts, records("TestVendor", false, 10L, 2));
 
         PerformanceBaselineDefinition definition =
                 PerformanceBaselineDefinition.load(baseline);
@@ -42,40 +42,44 @@ public final class PerformanceBaselineComparatorCheck {
                 "environment mismatch must be not-applicable");
 
         File regression = new File(directory, "regression.jsonl");
-        writeRecords(regression, records("Zulu", false, 13L, 2));
+        writeRecords(regression, records("TestVendor", false, 13L, 2));
         PerformanceBaselineComparator.Evaluation failed =
                 PerformanceBaselineComparator.evaluate(
                         definition, Arrays.asList(regression));
         require("failed".equals(failed.status), "metric regression must fail");
 
         File badClaim = new File(directory, "bad-claim.jsonl");
-        writeRecords(badClaim, records("Zulu", true, 10L, 2));
+        writeRecords(badClaim, records("TestVendor", true, 10L, 2));
         expectInvalid(definition, badClaim, "claimAllowed=true");
 
         File missingFork = new File(directory, "missing-fork.jsonl");
-        writeRecords(missingFork, records("Zulu", false, 10L, 1));
+        writeRecords(missingFork, records("TestVendor", false, 10L, 1));
         expectInvalid(definition, missingFork, "configured/observed fork mismatch");
 
         File wrongIdentity = new File(directory, "wrong-identity.jsonl");
-        List<LinkedHashMap<String, Object>> wrong = records("Zulu", false, 10L, 2);
+        List<LinkedHashMap<String, Object>> wrong =
+                records("TestVendor", false, 10L, 2);
         wrong.get(0).put("profile", "other");
         writeRecords(wrongIdentity, wrong);
         expectInvalid(definition, wrongIdentity, "identity mismatch");
 
         File unbalanced = new File(directory, "unbalanced.jsonl");
-        List<LinkedHashMap<String, Object>> uneven = records("Zulu", false, 10L, 2);
-        uneven.add(record("Zulu", false, 10L, 1));
+        List<LinkedHashMap<String, Object>> uneven =
+                records("TestVendor", false, 10L, 2);
+        uneven.add(record("TestVendor", false, 10L, 1));
         writeRecords(unbalanced, uneven);
         expectInvalid(definition, unbalanced, "unbalanced selector/fork coverage");
 
         File extraField = new File(directory, "extra-field.jsonl");
-        List<LinkedHashMap<String, Object>> extra = records("Zulu", false, 10L, 2);
+        List<LinkedHashMap<String, Object>> extra =
+                records("TestVendor", false, 10L, 2);
         extra.get(0).put("unexpected", Long.valueOf(1L));
         writeRecords(extraField, extra);
         expectInvalid(definition, extraField, "extra record field");
 
         File badBaseline = new File(directory, "bad-baseline.json");
-        LinkedHashMap<String, Object> invalidDefinition = baseline("Zulu", 12.0d, 2);
+        LinkedHashMap<String, Object> invalidDefinition =
+                baseline("TestVendor", 12.0d, 2);
         invalidDefinition.put("claimAllowed", Boolean.TRUE);
         write(badBaseline, invalidDefinition);
         try {

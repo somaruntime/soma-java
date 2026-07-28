@@ -79,22 +79,25 @@ correctness lane 验证：
 - maximum frontier capacity；
 - `claimAllowed=false`。
 
-Application-owned baseline位于test resources，当前版本为default v5、large v4、
-long-run v4。显式Group和v11 protocol改变了RuntimePlan/ownership identity，因此
-使用同一Zulu 8本机的5-fork candidate重校，而不是修改旧baseline：
+Application-owned baseline位于test resources，当前版本为default v6、large v5、
+long-run v5。Amazon Corretto 8成为唯一JDK authority后，三个profile均在同一
+Corretto 8本机以5-fork candidate重新校准；旧Zulu baseline只由Git保存其历史
+evidence含义：
 
 | Profile | RuntimePlan | hot time/allocated limit | end-to-end time/allocated limit | Young/Full GC envelope |
 |---|---|---:|---:|---|
-| default | `e75d41…` | `25,286,123 ns / 4,957,340 B` | `40,576,560 ns / 10,976,650 B` | `0/0 ms；0/0 ms` |
-| large | `d4a3bd…` | `3,436,878,500 ns / 145,684,850 B` | `3,496,476,626 ns / 293,768,630 B` | `3/10 ms；0/0 ms` |
-| long-run | `3f2183…` | `88,084,439 ns / 15,372,260 B` | `126,019,439 ns / 40,669,390 B` | `2/3 ms；0/0 ms` |
+| default | `97b691…` | `25,213,563 ns / 4,959,510 B` | `40,426,248 ns / 10,978,790 B` | `0/0 ms；0/0 ms` |
+| large | `bf1327…` | `3,488,431,001 ns / 148,686,770 B` | `3,549,411,188 ns / 303,741,530 B` | `3/10 ms；0/0 ms` |
+| long-run | `bd44ce…` | `89,828,187 ns / 15,374,160 B` | `129,993,626 ns / 40,671,230 B` | `2/4 ms；0/0 ms` |
 
-校准source为
-`content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef`；
+校准commit为`092617b67247cbaed354857daed9d6e1457b876e`，每个baseline
+登记自己的candidate content checksum；
 allocation使用`ceil(p50×1.25)`，timing使用
 `ceil(max(p50×1.50,p90×1.25))`，确定性high-water仍为`all-equal`，GC取maximum
-包络。Config/input/result、Schema和领域validator identity均保持；变化只属于
-RuntimePlan/Group protocol与实际cost。
+包络。Config/input/result和领域validator identity保持。校准时还发现旧baseline
+的Schema/RuntimePlan identity已落后于当前生成物；在旧Zulu和新Corretto上对同一
+当前source独立生成得到相同新identity，因此该变化归因于旧evidence漂移，而不是
+JDK不确定性。
 
 日常Gate固定3 fork；Fast、Scale、Soak分别承担三个profile，Full组合九个应用
 workload。5-fork用于新baseline，9-fork只用于明确方差诊断或public claim准备，
@@ -117,7 +120,7 @@ option 的受控 flat access path，不是未界定的临时对象。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
 `not-applicable`；无论结果如何，invalid schema/shape/claim/fork/identity 都失败。
-它证明该 workload 在记录的 Zulu JDK 8 本机可回归比较，不证明 SOMA 普遍优于其他
+它证明该 workload 在记录的 Corretto JDK 8 本机可回归比较，不证明 SOMA 普遍优于其他
 存储，也不外推为支持矩阵或 public claim。
 
 Gate 还要求：

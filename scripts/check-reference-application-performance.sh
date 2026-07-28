@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/external-evidence.sh"
 
 if [ "$#" -lt 1 ] || [ "$#" -gt 2 ]; then
   printf '%s\n' \
@@ -39,6 +40,15 @@ if [ "$#" -eq 2 ]; then
 else
   evidence_dir=$(mktemp -d \
     "$root_dir/target/reference-performance-$mode.XXXXXX")
+fi
+
+soma_require_or_install_external_artifacts
+SOMA_EXTERNAL_ARTIFACTS_PREPARED=true
+export SOMA_EXTERNAL_ARTIFACTS_PREPARED
+if [ "${SOMA_BENCHMARKS_PREPARED:-false}" != 'true' ]; then
+  ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
+  SOMA_BENCHMARKS_PREPARED=true
+  export SOMA_BENCHMARKS_PREPARED
 fi
 
 if [ "$mode" = full ]; then

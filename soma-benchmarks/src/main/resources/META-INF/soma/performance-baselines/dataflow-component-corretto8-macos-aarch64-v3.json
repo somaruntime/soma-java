@@ -1,20 +1,20 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "dataflow-component-zulu8-macos-aarch64-v2",
+  "baselineId": "dataflow-component-corretto8-macos-aarch64-v3",
   "layer": "component",
   "subject": "typed-dataflow-component",
   "artifactVersion": "soma-java-dataflow-component-v1",
   "calibration": {
-    "commit": "f1376b3a3ab3fd94acd23f9cc3180429bf981dc7",
-    "date": "2026-07-28",
+    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "date": "2026-07-29",
     "forks": 3,
-    "formula": "trigger=private-source-package-identity-cutover; calibration-evidence=five-fork-20260728; changed-checksum=all-equal; allocation-timing-gc-envelopes=preserved"
+    "formula": "trigger=jdk-authority-cutover; candidate=corretto-three-fork-20260729; previous checksum/allocation/timing/tail/gc envelope retained without relaxation"
   },
   "environment": {
-    "javaVersion": "1.8.0_492-b09",
-    "javaVendor": "Azul Systems, Inc.",
+    "javaVersion": "1.8.0_502-b07",
+    "javaVendor": "Amazon.com Inc.",
     "javaVmName": "OpenJDK 64-Bit Server VM",
-    "javaVmVersion": "25.492-b09",
+    "javaVmVersion": "25.502-b07",
     "jvmArgs": [
       "-Xms256m",
       "-Xmx512m"

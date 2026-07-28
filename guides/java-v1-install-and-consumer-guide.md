@@ -16,29 +16,33 @@ Owner：SOMA Java 用户输出
 
 输入事实源：[正式文档入口](../docs/README.md)、当前 `pom.xml`、external Maven fixtures 与 Gate reports
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 本指南说明 Java 8 Maven consumer 如何使用 SOMA annotations、compiler
 transformer、annotation processor、runtime-core 和 typed DataFlow。当前项目
-只以 Azul Zulu JDK 8 作为 compiler/runtime 验真与目标支持 distribution；
-Corretto 和其他 JDK distribution 均为 untested/unsupported。精确 Zulu
+只以Amazon Corretto JDK 8作为compiler/runtime验真与目标支持distribution；
+Zulu和其他JDK distribution均为untested/unsupported。精确Corretto
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
-当前代码已通过G0–G6 selected private-source profile，但artifact仍是本地
+当前Corretto本机G0–G4已通过；G5等待runtime-scale重验，selected
+private-source G6等待Corretto Linux和release qualification。artifact仍是本地
 snapshot。获得private repository访问权的consumer应先在本仓库执行
 `./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、
 Maven Central artifact或已公开发布artifact。
 
 ## 1. 前置条件
 
-- Azul Zulu 8.94.0.17 完整 JDK 8，Java `1.8.0_492-b09`、full
-  `javac 1.8.0_492`，必须包含 JDK compiler APIs；
+- Amazon Corretto 8.502.07.1完整JDK 8，Java `1.8.0_502-b07`、full
+  `javac 1.8.0_502`，必须包含JDK compiler APIs；macOS推荐通过
+  `brew install --cask corretto@8`安装；
 - repository Maven Wrapper 3.9.16；
 - UTF-8 source encoding；
 - SOMA 四个同版本 artifact：`soma-annotations`、`soma-processor`、
   `soma-runtime-core`、`soma-dataflow`。
 
-不能用新 JDK 的 `--release 8` 代替 Zulu full JDK 8 compiler。Corretto、其他 JDK distribution、ECJ、JDK 9+ javac 或未进入正式矩阵的 IDE incremental compiler 不能被视为支持环境。
+不能用新JDK的`--release 8`代替Corretto full JDK 8 compiler。Zulu、其他JDK
+distribution、ECJ、JDK 9+ javac或未进入正式矩阵的IDE incremental compiler
+不能被视为支持环境。
 
 ## 2. Maven 配置
 
@@ -405,7 +409,7 @@ External consumer 至少确认：
 ## 12. Known limitations
 
 - Java-only；不提供Python、C ABI、native runtime或跨语言FFI；
-- 只支持正式G6 matrix列出的Azul Zulu full JDK 8 javac/runtime组合；
+- 只支持正式G6 matrix列出的Amazon Corretto full JDK 8 javac/runtime组合；
 - runtime 不是跨 table transaction、ORM、ECS、SQL/query engine 或
   persistence layer；
 - DataFlow 只处理有限、typed、heap-resident 的 transformation；不提供无限流、

@@ -10,13 +10,26 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   exit 1
 fi
 
-./mvnw -B -ntp -pl soma-processor -am package -DskipTests
-./mvnw -B -ntp -pl soma-dataflow -am package -DskipTests
-
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
 runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
 dataflow_jar=soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar
+if [ "${SOMA_REACTOR_PREPARED:-false}" != 'true' ]; then
+  ./mvnw -B -ntp \
+    -pl soma-processor,soma-dataflow -am package -DskipTests
+fi
+for artifact in \
+  "$annotations_jar" \
+  "$processor_jar" \
+  "$runtime_jar" \
+  "$dataflow_jar"; do
+  if [ ! -s "$artifact" ]; then
+    printf '%s\n' \
+      "generated-naming-contract: required reactor artifact missing: $artifact" >&2
+    exit 1
+  fi
+done
+
 fixture=tests/fixtures/compiler/internal-names
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/generated-naming-contract.XXXXXX")

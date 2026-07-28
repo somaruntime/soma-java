@@ -1,20 +1,20 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "access-component-zulu8-macos-aarch64-v1",
+  "baselineId": "access-component-corretto8-macos-aarch64-v1",
   "layer": "component",
   "subject": "access-component",
   "artifactVersion": "soma-java-access-component-v1",
   "calibration": {
-    "commit": "66b7f6a40428d91a5d3f8c1260e2e9039f2e33b9",
-    "date": "2026-07-24",
-    "forks": 9,
-    "formula": "allocation=preserved-envelope; deterministic=all-equal; timing=ceil(max(p50*1.50,p90*1.25))"
+    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "date": "2026-07-29",
+    "forks": 5,
+    "formula": "trigger=jdk-authority-cutover; candidate=corretto-five-fork-20260729; previous deterministic/allocation/timing/gc/memory envelope retained without relaxation"
   },
   "environment": {
-    "javaVersion": "1.8.0_492-b09",
-    "javaVendor": "Azul Systems, Inc.",
+    "javaVersion": "1.8.0_502-b07",
+    "javaVendor": "Amazon.com Inc.",
     "javaVmName": "OpenJDK 64-Bit Server VM",
-    "javaVmVersion": "25.492-b09",
+    "javaVmVersion": "25.502-b07",
     "jvmArgs": [
       "-Xms256m",
       "-Xmx512m"
