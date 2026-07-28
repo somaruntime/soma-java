@@ -137,6 +137,21 @@ command -v rg >/dev/null 2>&1
 # path used by isolated Gate scripts. Reactor clean cannot remove this cache.
 ./scripts/check-external-consumer.sh
 
+# The complete Gate exercises several independent Maven fixtures. They do not
+# inherit the reactor's plugin management, so Maven may select different
+# default-lifecycle plugin versions for them. Resolve every fixture's complete
+# dependency and plugin graph while setup networking is available; the agent
+# phase can then execute those fixtures from the persistent repository without
+# falling back to Maven Central.
+for fixture_pom in \
+  tests/fixtures/external-maven-*/pom.xml \
+  tests/fixtures/invalid-keyed-int/pom.xml; do
+  ./mvnw -B -ntp \
+    -Dmaven.repo.local="$SOMA_MAVEN_EVIDENCE_REPOSITORY" \
+    -f "$fixture_pom" \
+    org.apache.maven.plugins:maven-dependency-plugin:3.8.1:go-offline
+done
+
 # Build governance uses a pinned help-plugin goal in a fresh repository seeded
 # from this cache, so resolve its complete plugin graph during networked setup.
 setup_effective_pom=$toolchain_root/setup-effective-pom.xml
