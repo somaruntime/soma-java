@@ -137,6 +137,15 @@ command -v rg >/dev/null 2>&1
 # path used by isolated Gate scripts. Reactor clean cannot remove this cache.
 ./scripts/check-external-consumer.sh
 
+# Several Gate lanes seed a fresh Maven repository from the persistent evidence
+# cache and then invoke the reactor clean lifecycle. Resolve that lifecycle as a
+# whole during networked setup so the agent phase does not discover one missing
+# core plugin at a time.
+./mvnw -B -ntp \
+  -Dmaven.repo.local="$SOMA_MAVEN_EVIDENCE_REPOSITORY" \
+  -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow -am \
+  clean package -DskipTests
+
 # The complete Gate exercises several independent Maven fixtures. They do not
 # inherit the reactor's plugin management, so Maven may select different
 # default-lifecycle plugin versions for them. Resolve every fixture's complete
