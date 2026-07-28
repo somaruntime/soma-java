@@ -133,7 +133,7 @@ EOF
 build_release_shape() {
   local_repository=$1
   build_log=$2
-  seed_repository=${3:-$root_dir/target/evidence-m2/repository}
+  seed_repository=${3:-${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}}
   mkdir -p "$local_repository"
   if [ -d "$seed_repository" ]; then
     # 只预热已校验的 plugin/dependency bytes；两次 clean build 仍写入彼此独占仓库。

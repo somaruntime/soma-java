@@ -29,7 +29,7 @@ fixture=$evidence_dir/consumer
 repeat_fixture=$evidence_dir/repeat-consumer
 local_repository=$evidence_dir/repository
 mkdir -p "$fixture" "$repeat_fixture" "$local_repository"
-seed_repository=$root_dir/target/evidence-m2/repository
+seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
 if [ -d "$seed_repository" ]; then
   # 只用共享仓库预热 Maven/plugin cache；本次 project artifact 随后重新 install。
   cp -R "$seed_repository/." "$local_repository/"

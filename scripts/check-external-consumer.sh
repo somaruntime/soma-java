@@ -27,7 +27,7 @@ expected=$fixture_source/expected
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/external-consumer-contract.XXXXXX")
 fixture=$evidence_dir/consumer
-local_repository=$root_dir/target/evidence-m2/repository
+local_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
 mkdir -p "$fixture" "$local_repository"
 cp "$fixture_source/pom.xml" "$fixture/pom.xml"
 cp -R "$fixture_source/src" "$fixture/src"

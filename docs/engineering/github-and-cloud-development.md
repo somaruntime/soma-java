@@ -53,8 +53,10 @@ runtime/build、javac 和 Maven 版本 fail-closed。macOS arm64 与 Linux x64
 3. 把 `JAVA_HOME`、`PATH`、`OSV_SCANNER` 写入后续 agent shell 可读取的
    environment file，并从 `.bashrc` / `.profile` 引用；
 4. 验证 exact toolchain；
-5. 通过独立 external Maven consumer path 预取和验证 build/runtime
-   dependencies。
+5. 通过 reactor `verify` 预热后续普通 Maven lifecycle 所需 dependencies；
+6. 在 checkout 之外建立持久 Maven evidence repository，并通过独立 external
+   consumer path 预取和验证隔离 Gate 所需 build/runtime dependencies 以及
+   pinned governance plugin；后续 reactor `clean` 不会删除该缓存。
 
 Setup 不读取或写入 repository secret，不执行 push，不修改产品源码。Agent
 phase 开始后先运行：

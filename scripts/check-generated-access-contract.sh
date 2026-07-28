@@ -12,7 +12,7 @@ fi
 
 fixture_source=$root_dir/tests/fixtures/external-maven-access
 expected=$fixture_source/expected
-local_repository=$root_dir/target/evidence-m2/repository
+local_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
 mkdir -p target "$local_repository"
 evidence_dir=$(mktemp -d "$root_dir/target/generated-access-contract.XXXXXX")
 fixture=$evidence_dir/consumer

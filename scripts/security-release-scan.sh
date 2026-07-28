@@ -84,7 +84,7 @@ fi
 mkdir -p "$root_dir/target"
 evidence_dir=$(mktemp -d "$root_dir/target/security-release-scan.XXXXXX")
 repository="$evidence_dir/repository"
-seed_repository=$root_dir/target/evidence-m2/repository
+seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
 mkdir -p "$repository"
 if [ -d "$seed_repository" ]; then
   # 隔离本次写入，同时复用项目 evidence Gate 已解析的 plugin/dependency bytes。

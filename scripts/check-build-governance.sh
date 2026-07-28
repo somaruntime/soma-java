@@ -27,7 +27,7 @@ mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/build-governance.XXXXXX")
 effective_pom=$evidence_dir/effective-pom.xml
 repository=$evidence_dir/repository
-seed_repository=$root_dir/target/evidence-m2/repository
+seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
 mkdir -p "$repository"
 if [ -d "$seed_repository" ]; then
   # 只预热已校验的 Maven/plugin bytes；本次解析仍写入独占仓库并使用 exact goal 坐标。

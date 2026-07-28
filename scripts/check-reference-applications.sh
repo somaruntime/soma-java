@@ -86,7 +86,7 @@ mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/reference-applications.XXXXXX")
 repository=$evidence_dir/repository
 mkdir -p "$repository"
-seed_repository=$root_dir/target/evidence-m2/repository
+seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
 if [ -d "$seed_repository" ]; then
   cp -R "$seed_repository/." "$repository/"
 fi
