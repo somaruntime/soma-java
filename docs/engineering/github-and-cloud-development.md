@@ -30,6 +30,7 @@ public 或 Maven release readiness。
 - Ubuntu 24.04 x64；
 - Azul Zulu 8.94.0.17，Java `1.8.0_492-b09`，full `javac 1.8.0_492`；
 - Maven Wrapper 3.9.16，distribution SHA-256 固定在 wrapper properties；
+- ripgrep 15.2.0 Linux x64 static binary，使用发布 asset SHA-256 验证；
 - OSV-Scanner 2.3.8，只在 release qualification 中使用经过平台 checksum
   验证的 binary。
 
@@ -48,7 +49,7 @@ runtime/build、javac 和 Maven 版本 fail-closed。macOS arm64 与 Linux x64
 
 该脚本仅支持 Linux x64，并执行：
 
-1. 从固定 HTTPS URL 下载 Azul Zulu full JDK 8 与 OSV-Scanner；
+1. 从固定 HTTPS URL 下载 Azul Zulu full JDK 8、ripgrep 与 OSV-Scanner；
 2. 验证发布方 SHA-256，拒绝已存在但不匹配的 bytes；
 3. 把 `JAVA_HOME`、`PATH`、`OSV_SCANNER` 写入后续 agent shell 可读取的
    environment file，并从 `.bashrc` / `.profile` 引用；

@@ -33,6 +33,13 @@ jobs:
           architecture: x64
           cache: maven
 
+      - name: Install verified ripgrep
+        env:
+          SOMA_TOOLCHAIN_ROOT: ${{ runner.temp }}/soma-toolchains
+        run: |
+          ripgrep=$(./scripts/setup/install-ripgrep-linux-x64.sh)
+          dirname "$ripgrep" >> "$GITHUB_PATH"
+
       - name: Verify exact supported toolchain
         run: ./scripts/check-toolchain.sh
 

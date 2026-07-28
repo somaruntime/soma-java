@@ -5,7 +5,7 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root_dir"
 
-for command_name in curl git rg tar; do
+for command_name in curl git tar; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
     printf '%s\n' \
       "codex-cloud-setup: required command not found: $command_name" >&2
@@ -17,11 +17,14 @@ toolchain_root=${SOMA_TOOLCHAIN_ROOT:-"$HOME/.cache/soma-java/toolchains"}
 export SOMA_TOOLCHAIN_ROOT=$toolchain_root
 java_home=$(./scripts/setup/install-zulu8-linux-x64.sh)
 osv_scanner=$(./scripts/setup/install-osv-scanner.sh)
+ripgrep=$(./scripts/setup/install-ripgrep-linux-x64.sh)
 evidence_repository=$toolchain_root/maven-evidence/repository
 export JAVA_HOME=$java_home
 export OSV_SCANNER=$osv_scanner
+export RIPGREP=$ripgrep
 export SOMA_MAVEN_EVIDENCE_REPOSITORY=$evidence_repository
-export PATH=$JAVA_HOME/bin:$PATH
+ripgrep_dir=$(dirname -- "$RIPGREP")
+export PATH=$JAVA_HOME/bin:$ripgrep_dir:$PATH
 
 environment_file=$toolchain_root/codex-cloud-environment.sh
 mkdir -p "$toolchain_root"
@@ -29,9 +32,10 @@ mkdir -p "$toolchain_root"
   printf 'export SOMA_TOOLCHAIN_ROOT=%s\n' "$toolchain_root"
   printf 'export JAVA_HOME=%s\n' "$JAVA_HOME"
   printf 'export OSV_SCANNER=%s\n' "$OSV_SCANNER"
+  printf 'export RIPGREP=%s\n' "$RIPGREP"
   printf 'export SOMA_MAVEN_EVIDENCE_REPOSITORY=%s\n' \
     "$SOMA_MAVEN_EVIDENCE_REPOSITORY"
-  printf 'export PATH=\"$JAVA_HOME/bin:$PATH\"\n'
+  printf 'export PATH=\"$JAVA_HOME/bin:%s:$PATH\"\n' "$ripgrep_dir"
 } >"$environment_file"
 chmod 0644 "$environment_file"
 
@@ -43,6 +47,7 @@ for shell_profile in "$HOME/.bashrc" "$HOME/.profile"; do
   fi
 done
 
+command -v rg >/dev/null 2>&1
 ./scripts/check-toolchain.sh
 
 # Prewarm the normal Maven repository for reactor, clean/package and benchmark
