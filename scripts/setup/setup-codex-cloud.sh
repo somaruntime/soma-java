@@ -61,11 +61,7 @@ if [ -n "$cloud_ca_bundle" ]; then
   awk -v output_dir="$certificates_dir" '
     /-----BEGIN CERTIFICATE-----/ {
       certificate_count++
-      output_file = sprintf(
-        "%s/certificate-%04d.pem",
-        output_dir,
-        certificate_count
-      )
+      output_file = sprintf("%s/certificate-%04d.pem", output_dir, certificate_count)
     }
     output_file != "" {
       print > output_file
