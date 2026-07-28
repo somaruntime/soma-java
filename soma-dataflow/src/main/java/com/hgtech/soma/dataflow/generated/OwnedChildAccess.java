@@ -11,5 +11,11 @@ public interface OwnedChildAccess<
         P extends DataFlowBinding, C extends DataFlowBinding> {
     C childBinding(P parentBinding, int parentIndex);
 
+    /**
+     * Validated finite upper bound for one owned child Table, or {@code -1}
+     * when the generated binding cannot prove one.
+     */
+    int maximumChildRows(P parentBinding);
+
     String identity();
 }

@@ -192,22 +192,36 @@ public final class KeySpacePhase2Check {
                 longKeys.collisionCount(), longKeys.rehashCount(), "long");
         int intCapacity = intKeys.capacity();
         int longCapacity = longKeys.capacity();
+        long intHighWater = intKeys.storageHighWaterBytes();
+        long longHighWater = longKeys.storageHighWaterBytes();
+        assertEquals(intKeys.retainedBytes(), intHighWater,
+                "int high-water follows monotonic growth");
+        assertEquals(longKeys.retainedBytes(), longHighWater,
+                "long high-water follows monotonic growth");
         intKeys.resetMetrics();
         longKeys.resetMetrics();
         assertEquals(0L, intKeys.probeCount(), "int probe reset");
         assertEquals(0L, intKeys.collisionCount(), "int collision reset");
         assertEquals(0L, intKeys.rehashCount(), "int rehash reset");
         assertEquals(intCapacity, intKeys.capacity(), "int reset preserves capacity");
+        assertEquals(intHighWater, intKeys.storageHighWaterBytes(),
+                "int reset preserves storage high-water");
         assertEquals(0L, longKeys.probeCount(), "long probe reset");
         assertEquals(0L, longKeys.collisionCount(), "long collision reset");
         assertEquals(0L, longKeys.rehashCount(), "long rehash reset");
         assertEquals(longCapacity, longKeys.capacity(), "long reset preserves capacity");
-        intKeys.addMetrics(3L, 2L, 1L);
+        assertEquals(longHighWater, longKeys.storageHighWaterBytes(),
+                "long reset preserves storage high-water");
+        intKeys.inheritMetrics(3L, 2L, 1L, intHighWater + 9L);
         assertEquals(3L, intKeys.probeCount(), "int carried probes");
         assertEquals(2L, intKeys.collisionCount(), "int carried collisions");
         assertEquals(1L, intKeys.rehashCount(), "int carried rehashes");
+        assertEquals(intHighWater + 9L, intKeys.storageHighWaterBytes(),
+                "int carried storage high-water");
         assertIllegalArgument(new Runnable() {
-            @Override public void run() { intKeys.addMetrics(1L, 2L, 0L); }
+            @Override public void run() {
+                intKeys.inheritMetrics(1L, 2L, 0L, 0L);
+            }
         }, "invalid carried metrics");
         assertEquals(3L, intKeys.probeCount(), "invalid metric carry is atomic");
         intKeys.resetMetrics();
@@ -247,12 +261,20 @@ public final class KeySpacePhase2Check {
         assertHashMetrics(compositeKeys.capacity(), compositeKeys.probeCount(),
                 compositeKeys.collisionCount(), compositeKeys.rehashCount(), "composite");
         int compositeCapacity = compositeKeys.capacity();
+        long compositeHighWater = compositeKeys.storageHighWaterBytes();
+        assertEquals(compositeKeys.retainedBytes(), compositeHighWater,
+                "composite high-water follows monotonic growth");
         compositeKeys.resetMetrics();
         assertEquals(0L, compositeKeys.probeCount(), "composite probe reset");
         assertEquals(0L, compositeKeys.collisionCount(), "composite collision reset");
         assertEquals(0L, compositeKeys.rehashCount(), "composite rehash reset");
         assertEquals(compositeCapacity, compositeKeys.capacity(),
                 "composite reset preserves capacity");
+        compositeKeys.releaseStorage();
+        assertEquals(0L, compositeKeys.retainedBytes(),
+                "composite release clears current storage");
+        assertEquals(compositeHighWater, compositeKeys.storageHighWaterBytes(),
+                "composite release preserves storage high-water");
     }
 
     private static void testCapacityOverflowGuards() {

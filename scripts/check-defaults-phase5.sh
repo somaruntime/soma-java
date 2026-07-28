@@ -64,7 +64,7 @@ fi
   -s "$boundary_generated" \
   -d "$boundary_classes" \
   $(find "$boundary_fixture/src" -type f -name '*.java' | sort)
-"$JAVA_HOME/bin/java" -cp "$boundary_classes:$runtime_jar" \
+"$JAVA_HOME/bin/java" -cp "$boundary_classes:$runtime_jar:$dataflow_jar" \
   com.example.soma.defaultboundary.BoundaryDefaultConsumer
 
 if grep -E 'Exception in thread|^[[:space:]]+at (com\.hgtech|com\.sun\.tools)' "$log" >/dev/null; then

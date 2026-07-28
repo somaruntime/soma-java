@@ -69,9 +69,8 @@ Temporary  ->  candidate decision  ->  atomic promotion or deletion
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前 active Temporary topic：
-
-- [SOMA Runtime Boundary、Group 与 Scale Readiness 治理执行追踪](temp/soma-runtime-boundary-group-and-scale-readiness-governance/README.md)：TV0–TV9 与独立设计审计已完成，P6 target 已进入正式 Blueprint、Design、Conformance 和 Engineering。Temporary 现只追踪 P7–P11 的 production disposition、实施、Example 审计、qualification、fresh Gate 与 closeout；不再拥有产品或系统设计事实。治理收口后删除独立 Lab 和全部 Temporary。
+当前没有 active Temporary topic。已完成专题的稳定事实进入对应正式 Owner，
+Temporary 在 closeout 后删除且不归档。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

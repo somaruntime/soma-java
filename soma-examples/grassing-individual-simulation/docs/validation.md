@@ -10,7 +10,7 @@ Owner：grassing-individual-simulation
 
 事实范围：config、Scenario/Simulator lifecycle、source-set、AoS oracle、long-run和performance evidence
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 配置责任
 
@@ -71,6 +71,9 @@ stop、partial-create/release closure、primary-key point access、duplicate Bat
 拒绝。Result/Diagnostics 的构造 invariant、operation-local result accumulator
 和 runtime 关闭后 detached 可消费性也由 test 覆盖。
 
+两槽SomaGroup在create后报告2个active member/Table，release后member、Table和
+structural resources归零；partial-create不遗留单独root。
+
 ## 性能 artifact
 
 Benchmark setup 完成配置解析、initial-state generation、checksum、校验、
@@ -88,29 +91,21 @@ bootstrap 和 tick-0 trace；measurement 只覆盖 tick systems。
 - initial/maximum population 与 population table growth count；
 - `claimAllowed=false`。
 
-Application-owned baseline 位于 test resources。每个普通 profile Gate 使用
-3 fork；9-fork 校准候选为 `1af43ac`：
+Application-owned baseline位于test resources，当前版本为default v3、large v2、
+long-run v2。显式Group与v11 protocol使用同一Zulu 8本机5-fork重新校准：
 
-| Profile | 9-fork hot operation range / median | Timing limit | Allocation range / limit |
-|---|---:|---:|---:|
-| default | `145.689..165.054 / 146.905 ms` | `220.357 ms` | `11.530..11.531 / 12.108 MB` |
-| large | `5.913..6.080 / 5.948 s` | `8.922 s` | `426.403 / 447.723 MB` |
-| long-run | `3.577..3.649 / 3.604 s` | `5.406 s` | `47.352..47.358 / 49.726 MB` |
+| Profile | RuntimePlan | time limit | allocated limit | Young/Full GC envelope |
+|---|---|---:|---:|---|
+| default | `e9d7a1…` | `221,718,938 ns` | `14,491,310 B` | `0/0 ms；0/0 ms` |
+| large | `b9d86b…` | `8,658,417,938 ns` | `533,067,510 B` | `16/14 ms；2/37 ms` |
+| long-run | `f01ef3…` | `5,372,043,626 ns` | `59,967,560 B` | `0/0 ms；0/0 ms` |
 
-| Profile | exact/update/operation high-water | Maximum population / growth | 校准最大 GC / baseline envelope |
-|---|---:|---:|---|
-| default | `67,933 / 34,392 / 12,776 B` | `1,433 / 1` | Young `0/0 ms`，Full `0/0 ms` |
-| large | `9,152,156 / 3,799,632 / 1,659,040 B` | `158,318 / 2` | Young `15/11 ms -> 16/14 ms`，Full `1/28 ms -> 2/35 ms` |
-| long-run | `693,389 / 332,088 / 121,364 B` | `13,837 / 1` | Young `0/0 ms`，Full `0/0 ms` |
-
-表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。Default、large、
-long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部九个应用 workload。
-
-Stage 2 没有改变 Schema、input/result checksum 或既有阈值。Stage 5 普通
-3-fork 只把早于 generated/runtime v5 的三个 `runtimePlanHash` 迁移到当前 protocol
-identity，保留原 9-fork calibration provenance 和所有 metric limits；迁移后
-default、large、long-run 分别以 `144.93 ms`、`6161.18 ms`、`3678.83 ms`
-通过 timing envelope。
+校准source为
+`content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef`。
+Allocation按应用级`median + 25%`治理，不再混用maximum；timing、deterministic
+high-water与GC规则与正式Benchmark治理一致。Schema、config/input/result、
+population/growth和AoS oracle identity保持，RuntimePlan/Group identity显式变化。
+Default、large、long-run分别由Fast、Scale、Soak承担，Full组合全部九个workload。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
 `not-applicable`；invalid schema/shape/claim/fork/identity 仍失败。旧 64 KiB/tick

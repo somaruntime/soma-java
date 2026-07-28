@@ -27,6 +27,18 @@ public interface DataFlowBinding {
 
     int packedSize();
 
+    default boolean segmentedStorage() {
+        return false;
+    }
+
+    default int flatHeadRows() {
+        return 0;
+    }
+
+    default int segmentRows() {
+        return 0;
+    }
+
     boolean isPresent(int columnOrdinal, int index);
 
     boolean booleanValue(int columnOrdinal, int index);

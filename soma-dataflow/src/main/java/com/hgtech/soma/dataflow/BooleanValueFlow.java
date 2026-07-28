@@ -22,13 +22,12 @@ public final class BooleanValueFlow<B extends DataFlowBinding> {
                 new BooleanColumnOperation<B>(program, expression));
     }
 
-    public DataFlowDefinition<LongScalarResult> borrow(
-            BooleanValueConsumer consumer) {
-        if (consumer == null) {
-            throw new NullPointerException("consumer");
-        }
-        return DataFlowDefinition.of(
-                new BooleanValueBorrowOperation<B>(
-                        program, expression, consumer));
+    public CallbackDeliveryDefinition<BooleanValueVisitor> deliver() {
+        ParameterSlot<BooleanValueVisitor> visitor =
+                ParameterSlot.callback(BooleanValueVisitor.class);
+        return CallbackDeliveryDefinition.of(
+                new BooleanValueDeliveryOperation<B>(
+                        program, expression, visitor),
+                visitor);
     }
 }

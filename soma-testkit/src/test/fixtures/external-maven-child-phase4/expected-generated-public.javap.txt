@@ -104,6 +104,7 @@ public final class com.example.soma.child.generated.ChildRowTable {
   public com.hgtech.soma.runtime.IntColumnView valueColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## ChildRowUpdateCursor
 Compiled from "ChildRowUpdateCursor.java"
@@ -260,6 +261,7 @@ public final class com.example.soma.child.generated.DoubleKeyedChildRowTable {
   public com.hgtech.soma.runtime.IntColumnView valueColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## DoubleKeyedChildRowUpdateCursor
 Compiled from "DoubleKeyedChildRowUpdateCursor.java"
@@ -416,6 +418,7 @@ public final class com.example.soma.child.generated.FloatKeyedChildRowTable {
   public com.hgtech.soma.runtime.IntColumnView valueColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## FloatKeyedChildRowUpdateCursor
 Compiled from "FloatKeyedChildRowUpdateCursor.java"
@@ -532,6 +535,7 @@ public final class com.example.soma.child.generated.FloatingParentRowTable {
   public com.hgtech.soma.runtime.IntColumnView idColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## FloatingParentRowUpdateCursor
 Compiled from "FloatingParentRowUpdateCursor.java"
@@ -644,6 +648,7 @@ public final class com.example.soma.child.generated.GrandchildRowTable {
   public com.hgtech.soma.runtime.LongColumnView amountColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## GrandchildRowUpdateCursor
 Compiled from "GrandchildRowUpdateCursor.java"
@@ -802,6 +807,7 @@ public final class com.example.soma.child.generated.KeyedChildRowTable {
   public com.hgtech.soma.runtime.IntColumnView valueColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## KeyedChildRowUpdateCursor
 Compiled from "KeyedChildRowUpdateCursor.java"
@@ -923,6 +929,7 @@ public final class com.example.soma.child.generated.ParentRowTable {
   public com.hgtech.soma.runtime.IntColumnView idColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## ParentRowUpdateCursor
 Compiled from "ParentRowUpdateCursor.java"

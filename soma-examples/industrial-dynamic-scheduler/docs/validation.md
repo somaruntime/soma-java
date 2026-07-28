@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 配置责任
 
@@ -61,6 +61,8 @@ correctness lane 验证：
   assignment facts 和全部 job；
 - count/makespan/tardiness 在事实产生处完成覆盖与一致性校验，detached metrics
   仍通过独立领域 validator。
+- 九槽SomaGroup在create后报告9个active member/Table，release后member、
+  Table和structural resources全部归零；partial-create只关闭Group一次。
 
 ## 性能 artifact
 
@@ -77,51 +79,27 @@ correctness lane 验证：
 - maximum frontier capacity；
 - `claimAllowed=false`。
 
-Application-owned baseline 位于 test resources。每个普通 profile Gate 使用
-3 fork；原始阈值来自 9-fork immutable calibration candidate `a7d4fde`：
+Application-owned baseline位于test resources，当前版本为default v5、large v4、
+long-run v4。显式Group和v11 protocol改变了RuntimePlan/ownership identity，因此
+使用同一Zulu 8本机的5-fork candidate重校，而不是修改旧baseline：
 
-| Profile | hot solve range / median | Timing limit | hot allocation range / limit |
-|---|---:|---:|---:|
-| default | `13.459..15.522 / 14.174 ms` | `21.261 ms` | `3.956 / 4.946 MB` |
-| large | `1.278..1.295 / 1.287 s` | `1.931 s` | `111.032..117.538 / 143.338 MB` |
-| long-run | `44.056..49.702 / 47.050 ms` | `70.575 ms` | `11.008..15.022 / 17.270 MB` |
+| Profile | RuntimePlan | hot time/allocated limit | end-to-end time/allocated limit | Young/Full GC envelope |
+|---|---|---:|---:|---|
+| default | `e75d41…` | `25,286,123 ns / 4,957,340 B` | `40,576,560 ns / 10,976,650 B` | `0/0 ms；0/0 ms` |
+| large | `d4a3bd…` | `3,436,878,500 ns / 145,684,850 B` | `3,496,476,626 ns / 293,768,630 B` | `3/10 ms；0/0 ms` |
+| long-run | `3f2183…` | `88,084,439 ns / 15,372,260 B` | `126,019,439 ns / 40,669,390 B` | `2/3 ms；0/0 ms` |
 
-| Profile | canonical end-to-end range / median | Timing limit | end-to-end allocation range / limit |
-|---|---:|---:|---:|
-| default | `22.255..24.496 / 22.830 ms` | `34.245 ms` | `8.097..8.098 / 10.123 MB` |
-| large | `1.318..1.335 / 1.327 s` | `1.990 s` | `227.001..241.513 / 288.904 MB` |
-| long-run | `70.904..77.993 / 73.962 ms` | `110.943 ms` | `31.035..35.049 / 42.303 MB` |
+校准source为
+`content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef`；
+allocation使用`ceil(p50×1.25)`，timing使用
+`ceil(max(p50×1.50,p90×1.25))`，确定性high-water仍为`all-equal`，GC取maximum
+包络。Config/input/result、Schema和领域validator identity均保持；变化只属于
+RuntimePlan/Group protocol与实际cost。
 
-| Profile | exact/update/operation high-water | Frontier | 校准最大 GC / baseline envelope |
-|---|---:|---:|---|
-| default | `106,384 / 0 / 4,256 B` | `30` | Young `0/0 ms`，Full `0/0 ms` |
-| large | `11,832,761 / 0 / 553,012 B` | `3,000` | Young `2/8 ms -> 3/10 ms`，Full `0/0 ms` |
-| long-run | `1,162,144 / 0 / 48,544 B` | `300` | Young `1/3 ms -> 2/4 ms`，Full `0/0 ms` |
-
-表中 MB/ms 仅用于阅读，baseline 保存原始整数 bytes/nanos。应用级 allocation
-使用跨 fork 中位数和 `allocation=ceil(p50*1.25)` fitness envelope；timing 使用
-`timing=ceil(max(p50*1.50,p90*1.25))`，不是由目标倒推。Default、large、
-long-run 分别由 Fast、Scale、Soak Gate 承担，Full 组合全部九个应用 workload。
-Long-run 在首次普通重放中暴露 ThreadMXBean/TLAB allocation 分布超出首轮
-9-fork 最大值，因此不再用 maximum 驱动反复 rebaseline。确定性 high-water
-继续 `all-equal`，GC 继续取 maximum。
-
-日常应用性能 Gate 固定 3 fork。新 baseline 通常使用 5 fork；9 fork 只用于获得
-明确授权的方差诊断或 public claim 准备，不属于普通开发、治理收口或失败后的
-自动重跑。
-
-Stage 4 删除展示性 summary DataFlow、改用单遍 `AssignmentSummarizer` 后，三份
-既有 baseline 没有修改或放宽，并在 Stage 5 普通 3-fork 中全部通过：
-
-| Profile | 3-fork hot solve / limit | allocation / limit |
-|---|---:|---:|
-| default | `14.98 / 21.26 ms` | `3.96 / 4.95 MB` |
-| large | `1362.22 / 1930.66 ms` | `118.53 / 143.34 MB` |
-| long-run | `48.48 / 70.57 ms` | `13.09 / 17.27 MB` |
-
-这组证据证明 summary 责任迁移没有改变 Result identity、领域 validator 或既有
-应用性能包络。DataFlow application coverage 已由独立 RTD 应用接管；工业
-frontier 继续保持 application-owned，不形成跨环境 claim。
+日常Gate固定3 fork；Fast、Scale、Soak分别承担三个profile，Full组合九个应用
+workload。5-fork用于新baseline，9-fork只用于明确方差诊断或public claim准备，
+不能在失败后自动升级fork或循环放宽阈值。DataFlow application coverage由独立
+RTD拥有；工业frontier继续application-owned。
 
 该校准同时保护两条不同责任的路径：
 

@@ -22,13 +22,12 @@ public final class StringValueFlow<B extends DataFlowBinding> {
                 new StringColumnOperation<B>(program, expression));
     }
 
-    public DataFlowDefinition<LongScalarResult> borrow(
-            StringValueConsumer consumer) {
-        if (consumer == null) {
-            throw new NullPointerException("consumer");
-        }
-        return DataFlowDefinition.of(
-                new StringValueBorrowOperation<B>(
-                        program, expression, consumer));
+    public CallbackDeliveryDefinition<StringValueVisitor> deliver() {
+        ParameterSlot<StringValueVisitor> visitor =
+                ParameterSlot.callback(StringValueVisitor.class);
+        return CallbackDeliveryDefinition.of(
+                new StringValueDeliveryOperation<B>(
+                        program, expression, visitor),
+                visitor);
     }
 }

@@ -91,9 +91,9 @@ public final class DataFlowSliceDCheck {
                         && parallelCount.result.value() == 8000L,
                 "parallel count identity");
         require(sequentialCount.stats.tasks() == 1
-                        && parallelCount.stats.tasks() == 4
+                        && parallelCount.stats.tasks() == 8
                         && parallelCount.stats.workers() == 4,
-                "parallel count stats");
+                "single storage segment splits into bounded morsels");
 
         DataFlowDefinition<LongColumnResult> longProjection =
                 source.candidates()
@@ -108,7 +108,8 @@ public final class DataFlowSliceDCheck {
                 execute(longProjection, source, table, parallel);
         LongColumnResult parallelLong = parallelLongRun.result;
         require(sequentialLong.size() == parallelLong.size()
-                        && parallelLongRun.stats.tasks() == 8,
+                        && parallelLongRun.stats.tasks() == 16
+                        && parallelLongRun.stats.workers() == 4,
                 "parallel long projection shape");
         for (int index = 0; index < sequentialLong.size(); index++) {
             require(sequentialLong.valueAt(index)
@@ -171,7 +172,8 @@ public final class DataFlowSliceDCheck {
                 execute(sum, source, table, parallel);
         require(execute(sum, source, table, sequential).result.value()
                         == parallelSum.result.value()
-                        && parallelSum.stats.tasks() == 4,
+                        && parallelSum.stats.tasks() == 8
+                        && parallelSum.stats.workers() == 4,
                 "fixed-tree long sum identity");
         require(execute(max, source, table, sequential).result.value()
                         == execute(max, source, table, parallel).result.value(),
@@ -234,7 +236,8 @@ public final class DataFlowSliceDCheck {
         Run<UpdateResult> run =
                 execute(update, source, table, parallel);
         require(run.result.matched() == 2048L
-                        && run.stats.tasks() == 8
+                        && run.stats.tasks() == 16
+                        && run.stats.workers() == 4
                         && table.fetchAt(0).scale == 2.0d
                         && table.fetchAt(2048).scale == 1.0d,
                 "parallel freeze and deterministic effect commit");

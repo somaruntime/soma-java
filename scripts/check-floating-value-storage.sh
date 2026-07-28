@@ -36,7 +36,7 @@ if grep -E 'strict(Float|Double)(Storage|Key)' "$generated_table" >/dev/null; th
   exit 1
 fi
 
-"$JAVA_HOME/bin/java" -cp "$classes:$runtime_jar" \
+"$JAVA_HOME/bin/java" -cp "$classes:$runtime_jar:$dataflow_jar" \
   com.example.soma.floatingvalue.FloatingValueConsumer
 printf '%s\n' "floating-value-storage-evidence: $evidence_dir"
 printf '%s\n' 'floating-value-storage-check: ok'

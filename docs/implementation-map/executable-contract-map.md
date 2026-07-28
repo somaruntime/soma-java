@@ -10,7 +10,9 @@ Owner：SOMA executable contract 实现导航
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：commit `515bf91`
+最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
+`6cde5d5`；production/evidence source
+`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
 
 最后审查日期：2026-07-28
 
@@ -30,9 +32,10 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 | handwritten runtime public API | [`com.hgtech.soma.runtime`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime) | [`public-api/phase1/public-api.javap.txt`](../../soma-testkit/src/test/fixtures/public-api/phase1/public-api.javap.txt) |
 | generated public API | generated source/class output；canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child/DataFlow companion/keyed Delta | external dense/keyed/access/child/breadth `javap` golden + compile/run |
 | DataFlow public API | [`com.hgtech.soma.dataflow`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow) 与 generated companion | public `javap`、Slice A–F、external consumer、reference differential |
-| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v7、transformation v2、kernel v1、plan v4 | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
-| runtime plan/Group/effective metadata/stats/error codes | runtime public/internal sources；application从generated `SchemaMetadata.newPlan()`进入，并通过implicit `create`或显式`attach(SomaGroup, slot)`组合root；raw construction只由generated bridge持有 | runtime-core Group/plan checks、public API absence rule、diagnostics Gate、external dense/access/child/breadth consumers |
-| benchmark artifact schema | benchmark model/validator | smoke runner、strict validator、negative artifact cases；exact-index incremental lane 与无索引 dense-workspace lane 分开记录 |
+| generated-runtime protocol | [`com.hgtech.soma.runtime.generated`](../../soma-runtime-core/src/main/java/com/hgtech/soma/runtime/generated) 与 generator binding；compatibility v11、transformation v3、kernel v4、planner v4、plan v6及全部physical formula identity | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
+| runtime plan/Group/Metadata/stats/error codes | runtime public/internal sources；application从generated `SchemaMetadata.newPlan()`进入，并通过implicit `create`或显式`attach(SomaGroup, slot)`组合root；generated Table和Group公开detached runtime metadata，raw construction只由generated bridge持有 | runtime-core Group/plan/metadata checks、public API absence rule、diagnostics Gate、external dense/access/child/breadth consumers |
+| Result Delivery | `ResultDeliveryMode`、typed `*Visitor`、callback Definition/Template/Invocation与generated delivery binding | public/golden、Slice F、reference differential、delivery qualification |
+| benchmark artifact schema | benchmark model/validator及`runtime-scale-qualification-schema-v1.json` | smoke runner、strict validator、negative artifact cases、十条required production lanes |
 
 ## 3. Surface 变更规则
 
@@ -64,6 +67,24 @@ fault/lifecycle保持分层。Public/generated golden、runtime/child/breadth ex
 journey、cross-Group/cross-schema/self DataFlow与partial-acquire reverse-release
 共同约束该surface。Plan protocol仍为v4，因为本slice没有改变plan canonical
 schema或hash语义。
+
+`6cde5d5` 完成 generated/runtime v8、plan v5 与 storage-layout formula v1
+clean cutover：generated Metadata冻结structural row width，application只声明
+planning/hard maximum/workload，Effective Metadata投影最终layout；runtime以
+`FLAT`或flat-head/fixed-tail columns、bitmap和child handle执行atomic growth。
+Public `javap`、runtime stage-failure oracle、dense/keyed/child跨32K boundary
+consumer与compiler clean/repeat共同约束该surface；本slice不改变Schema hash、
+row identity、String后端、locator或DataFlow logical semantics。
+
+2026-07-28 working-tree candidate完成generated/runtime v11、transformation v3、
+kernel/planner v4 clean cutover：closed Candidate/relation策略、bounded morsel
+scheduler、Invocation phase ledger、Eager + callback-scoped delivery、完整
+Table/Segment/access Runtime Metadata与component stats进入唯一协议。旧consumer-in-
+Definition、generic Object、平行parallel executor和universal borrow surface均已
+删除；public `javap`、runtime/generated/external consumer、reference
+differential、三个Example和production-scale qualification共同约束该surface。
+String仍只有reference-backed后端；实际GC及三层memory accounting已在限定
+profile的qualification中闭合，不外推任意String或public claim。
 
 ## 4. Baseline 约定
 

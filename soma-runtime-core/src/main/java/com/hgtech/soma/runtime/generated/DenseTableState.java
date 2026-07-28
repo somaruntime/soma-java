@@ -525,6 +525,15 @@ public final class DenseTableState {
         size = newSize;
     }
 
+    /**
+     * Publishes one non-structural changed-row Delta as one structural epoch.
+     */
+    public void commitDeltaUpdate(String operation) {
+        requireActiveOperation(operation);
+        requireStructuralEpochAvailable(operation);
+        incrementStructuralEpoch(operation);
+    }
+
     public int prepareRelease() {
         if (released) {
             return -1;

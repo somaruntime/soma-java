@@ -113,7 +113,7 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
             if ((position & 1023) == 0) {
                 frame.checkBoundary("dataflow.groupBy");
             }
-            int candidate = selected.indexes[position];
+            int candidate = selected.indexAt(position);
             long hash = key.hash(frame, binding, candidate);
             int bucket = ((int) (hash ^ (hash >>> 32))) & mask;
             int group = buckets[bucket];
@@ -147,7 +147,7 @@ abstract class GroupOperation<B extends DataFlowBinding, R>
                 frame.newScratchIndexes(cardinality, "dataflow.groupBy");
         for (int position = 0; position < cardinality; position++) {
             int group = groupByPosition[position];
-            members[write[group]++] = selected.indexes[position];
+            members[write[group]++] = selected.indexAt(position);
         }
         GroupPrepared<B> prepared = new GroupPrepared<B>(
                 selected,
@@ -282,30 +282,45 @@ final class ActiveGroupCursor implements GroupCursor {
     }
 }
 
-final class GroupBorrowOperation<B extends DataFlowBinding>
-        extends GroupOperation<B, LongScalarResult> {
-    private final GroupConsumer consumer;
-    private final long opaqueIdentity;
+final class GroupDeliveryOperation<B extends DataFlowBinding>
+        extends GroupOperation<B, DeliveryResult> {
+    private final ParameterSlot<GroupVisitor> visitorSlot;
 
-    GroupBorrowOperation(
+    GroupDeliveryOperation(
             CandidateProgram<B> program,
             KeyExpression<B> key,
             GroupShapePlan<B> shape,
-            GroupConsumer consumer) {
-        super(program, key, shape);
-        this.consumer = consumer;
-        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
+            ParameterSlot<GroupVisitor> visitorSlot) {
+        super(
+                program,
+                key,
+                shape,
+                Collections.<ParameterSlot<?>>singletonList(visitorSlot));
+        this.visitorSlot = visitorSlot;
     }
 
     @Override
     String terminal() {
-        return "borrow(opaque-instance-" + opaqueIdentity + ")";
+        return "deliver(group-cursor)";
     }
 
     @Override
-    public ExecutionOutcome<LongScalarResult> execute(ExecutionFrame frame) {
+    public ResultDeliveryMode resultDeliveryMode() {
+        return ResultDeliveryMode.CALLBACK_SCOPED;
+    }
+
+    @Override
+    public ExecutionOutcome<DeliveryResult> execute(ExecutionFrame frame) {
+        int maximum = program.maximumCardinality(frame.binding(source));
+        frame.preflightDelivery(
+                maximum,
+                (long) maximum * 8L,
+                "dataflow.group.deliver");
         GroupPrepared<B> prepared = prepare(frame);
+        GroupVisitor visitor = frame.parameter(visitorSlot);
         ActiveGroupCursor cursor = new ActiveGroupCursor();
+        int delivered = 0;
+        boolean completed = true;
         for (int group = 0; group < prepared.groupCount; group++) {
             cursor.open(
                     group,
@@ -313,25 +328,28 @@ final class GroupBorrowOperation<B extends DataFlowBinding>
                     prepared.offsets,
                     prepared.members);
             try {
-                consumer.accept(cursor);
+                delivered++;
+                if (!visitor.visit(cursor)) {
+                    completed = false;
+                    break;
+                }
             } catch (SomaRuntimeException failure) {
                 throw failure;
             } catch (RuntimeException failure) {
                 throw DataFlowFailures.callback(
-                        "dataflow_group_consumer_failed",
+                        "dataflow_group_delivery_callback",
                         source.alias(),
-                        "dataflow.group.borrow",
+                        "dataflow.group.deliver",
                         failure);
             } finally {
                 cursor.close();
             }
         }
-        frame.reserveOutput(1L, 8L, "dataflow.group.borrow");
-        return new ExecutionOutcome<LongScalarResult>(
-                new LongScalarResult(prepared.groupCount),
+        return new ExecutionOutcome<DeliveryResult>(
+                new DeliveryResult(delivered, completed),
                 prepared.selected.scanned,
                 prepared.memberCount,
-                1L,
+                delivered,
                 1,
                 1);
     }
@@ -406,57 +424,103 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
 
     @Override
     public ExecutionOutcome<GroupedLongResult> execute(ExecutionFrame frame) {
-        GroupPrepared<B> prepared = prepare(frame);
-        frame.reserveOutput(
-                prepared.groupCount,
-                (long) prepared.groupCount * 12L,
-                "dataflow.groupBy.aggregate");
-        int[] representatives = Arrays.copyOf(
-                prepared.representatives, prepared.groupCount);
-        long[] values = new long[prepared.groupCount];
-        if (kind == COUNT) {
-            for (int group = 0; group < prepared.groupCount; group++) {
-                values[group] = prepared.offsets[group + 1]
-                        - prepared.offsets[group];
+        CandidateSelection selected =
+                program.select(frame, "dataflow.groupBy.aggregate");
+        DataFlowBinding binding = frame.binding(source);
+        int cardinality = selected.size;
+        int capacity = bucketCapacity(cardinality);
+        int[] buckets = frame.newScratchIndexes(
+                capacity, "dataflow.groupBy.aggregate.hash");
+        int[] next = frame.newScratchIndexes(
+                cardinality, "dataflow.groupBy.aggregate.hash");
+        int[] representatives = frame.newScratchIndexes(
+                cardinality, "dataflow.groupBy.aggregate");
+        int[] sizes = frame.newScratchIndexes(
+                cardinality, "dataflow.groupBy.aggregate");
+        long[] aggregates = frame.newScratchLongs(
+                cardinality, "dataflow.groupBy.aggregate");
+        Arrays.fill(buckets, -1);
+        int mask = capacity - 1;
+        int groups = 0;
+        for (int position = 0; position < cardinality; position++) {
+            if ((position & 1023) == 0) {
+                frame.checkBoundary("dataflow.groupBy.aggregate");
             }
-        } else {
-            for (int group = 0; group < prepared.groupCount; group++) {
-                int start = prepared.offsets[group];
-                int end = prepared.offsets[group + 1];
-                long aggregate = expression.evaluate(
-                        frame,
-                        prepared.binding,
-                        prepared.members[start]);
+            int candidate = selected.indexAt(position);
+            long hash = key.hash(frame, binding, candidate);
+            int bucket = ((int) (hash ^ (hash >>> 32))) & mask;
+            int group = buckets[bucket];
+            while (group >= 0 && !key.equal(
+                    frame,
+                    binding,
+                    candidate,
+                    key,
+                    binding,
+                    representatives[group])) {
+                group = next[group];
+            }
+            if (group < 0) {
+                group = groups++;
+                representatives[group] = candidate;
+                next[group] = buckets[bucket];
+                buckets[bucket] = group;
+                if (kind != COUNT) {
+                    aggregates[group] =
+                            expression.evaluate(frame, binding, candidate);
+                }
+            }
+            sizes[group]++;
+            if (kind == COUNT) {
+                aggregates[group]++;
+            } else {
+                long value = expression.evaluate(frame, binding, candidate);
                 if (kind == SUM) {
-                    aggregate = 0L;
-                }
-                for (int position = start; position < end; position++) {
-                    long value = expression.evaluate(
-                            frame,
-                            prepared.binding,
-                            prepared.members[position]);
-                    if (kind == SUM) {
-                        aggregate += value;
-                    } else if (kind == MIN && value < aggregate) {
-                        aggregate = value;
-                    } else if (kind == MAX && value > aggregate) {
-                        aggregate = value;
+                    if (sizes[group] == 1) {
+                        aggregates[group] = value;
+                    } else {
+                        aggregates[group] += value;
                     }
+                } else if (kind == MIN && value < aggregates[group]) {
+                    aggregates[group] = value;
+                } else if (kind == MAX && value > aggregates[group]) {
+                    aggregates[group] = value;
                 }
-                values[group] = aggregate;
             }
+        }
+        GroupOrdinalSelection selection =
+                shape.select(frame, sizes, groups);
+        frame.reserveOutput(
+                selection.size,
+                (long) selection.size * 12L,
+                "dataflow.groupBy.aggregate");
+        int[] outputRepresentatives = new int[selection.size];
+        long[] outputValues = new long[selection.size];
+        for (int output = 0; output < selection.size; output++) {
+            int group = selection.sourceOrdinal(output);
+            outputRepresentatives[output] = representatives[group];
+            outputValues[output] = aggregates[group];
         }
         GroupedLongResult result = new GroupedLongResult(
                 source.alias(),
-                prepared.binding.structuralEpoch(),
-                representatives,
-                values);
+                binding.structuralEpoch(),
+                outputRepresentatives,
+                outputValues);
         return new ExecutionOutcome<GroupedLongResult>(
                 result,
-                prepared.selected.scanned,
-                prepared.memberCount,
-                prepared.groupCount,
+                selected.scanned,
+                cardinality,
+                selection.size,
                 1,
                 1);
+    }
+
+    private static int bucketCapacity(int size) {
+        int target = size >= (1 << 29)
+                ? 1 << 30 : Math.max(4, size * 2);
+        int capacity = 1;
+        while (capacity < target) {
+            capacity <<= 1;
+        }
+        return capacity;
     }
 }

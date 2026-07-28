@@ -35,7 +35,9 @@ final class DenseTableSourceEmitter {
         SourceBuilder out = new SourceBuilder(header());
         out.append("import com.hgtech.soma.runtime.*;\n")
                 .append("import com.hgtech.soma.runtime.generated.*;\n")
+                .append("import com.hgtech.soma.runtime.metadata.*;\n")
                 .append("import com.hgtech.soma.dataflow.DeltaApplyResult;\n")
+                .append("import com.hgtech.soma.dataflow.generated.CandidateDeliverySession;\n")
                 .append("import java.util.ArrayList;\nimport java.util.Arrays;\nimport java.util.List;\nimport java.util.Optional;\n\n")
                 .append("public final class ").append(name).append(" {\n")
                 .append("  private static final String TABLE=").append(q(table.logicalName)).append(";\n")
@@ -53,7 +55,9 @@ final class DenseTableSourceEmitter {
                 .append(name)
                 .append(" root){root.releaseRootFromGroup();}public void preflightSafePoint(")
                 .append(name)
-                .append(" root,String operation){root.preflightRootSafePoint(operation);}};\n");
+                .append(" root,String operation){root.preflightRootSafePoint(operation);}public SomaTableRuntimeMetadata runtimeMetadata(")
+                .append(name)
+                .append(" root){return root.runtimeMetadata();}};\n");
         for (FieldSpec field : table.fields) {
             if (field.enumType != null) {
                 out.append("  private static final ").append(field.enumType).append("[] ")
@@ -106,6 +110,7 @@ final class DenseTableSourceEmitter {
                     .append(i).append("Index;\n");
         }
         out.append("  private final DenseTableState state;\n")
+                .append("  private final TablePlan tablePlan;\n")
                 .append("  private final ChildOwnershipRegistry ownership;\n")
                 .append("  private final boolean owned;\n")
                 .append("  private final Object indexSnapshotOwner=new Object();\n")
@@ -131,7 +136,7 @@ final class DenseTableSourceEmitter {
                     .append(updatePresenceScratch(fieldIndex)).append("=new boolean[0];\n");
         }
         out.append("\n  private ").append(name).append("(RuntimePlan plan,TablePlan tablePlan,ChildOwnershipRegistry ownership,boolean owned,String ownershipPath){\n")
-                .append("    this.ownership=ownership;this.owned=owned;\n");
+                .append("    this.tablePlan=tablePlan;this.ownership=ownership;this.owned=owned;\n");
         for (ChildSpec child : table.children) {
             out.append("    this.").append(child.javaName)
                     .append("TablePlan=effectiveChildTablePlan(plan,")
@@ -213,7 +218,7 @@ final class DenseTableSourceEmitter {
             out.append("  public void addBatch(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"addBatch\");state.prepareAppend(0);int count=batch.size();if(count==0)return;")
                     .append("validateSelectorAppend(batch);validateUniqueAppend(batch);validateAppendKeys(batch);ensureAppendKeyCapacity(count,\"addBatch\");ensureExactIndexAppendCapacity(size()+count,batch,\"addBatch\");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count);}catch(RuntimeException failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);observeFailure(failure,\"addBatch\");throw failure;}catch(Error failure){if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count);observeFailure(failure,\"addBatch\");throw failure;}}\n")
                     .append("  public void replaceAll(").append(table.name("Batch")).append(" batch){if(batch==null)throw new NullPointerException(\"batch\");ownership.preflightMutation(\"replaceAll\");state.prepareReplace(0);")
-                    .append("validateSelectorReplacement(batch);validateUniqueReplacement(batch);").append(keySpaceType).append(" staged=stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);publishKeySpace(staged,\"replaceAll\");staged=null;stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}catch(Error failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}}\n")
+                    .append("validateSelectorReplacement(batch);validateUniqueReplacement(batch);").append(keySpaceType).append(" staged=stageReplacementKeys(batch);staged.inheritMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount(),keySpace.storageHighWaterBytes());ExactIndexStage stagedIndexes=stageExactIndexes(batch,\"replaceAll\");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),\"replaceAll\");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count);if(previous>count)clearColumns(count,previous);publishKeySpace(staged,\"replaceAll\");staged=null;stagedIndexes.publish(\"replaceAll\");stagedIndexes=null;state.commitReplace(previous,count);}catch(RuntimeException failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}catch(Error failure){discardKeySpace(staged,\"replaceAll\");if(stagedIndexes!=null)stagedIndexes.discard(\"replaceAll\");observeFailure(failure,\"replaceAll\");throw failure;}}\n")
                     .append("  public void clear(){ownership.preflightMutation(\"clear\");int previous=state.prepareClear();try{clearColumns(0,previous);keySpace.clear();clearExactIndexes();state.commitClear(previous);}catch(RuntimeException failure){observeFailure(failure,\"clear\");throw failure;}catch(Error failure){observeFailure(failure,\"clear\");throw failure;}}\n")
                     .append("  public void release(){state.rejectOwnedRelease(\"release\");ownership.releaseRoot(\"release\");}\n\n");
         } else if (table.children.isEmpty()) {
@@ -429,11 +434,12 @@ final class DenseTableSourceEmitter {
         if (table.keyed()) {
             out.append("  public TableStats statsSnapshot(){state.checkCallbackAccess(\"statsSnapshot\");TableStats base=TableStats.withKeySpace(state.statsSnapshot(subtreeChildInstanceCount(),subtreeDescendantRowCount()-state.size()),")
                     .append(q(table.keyField().keySpaceImplementation()))
-                    .append(",keySpace.capacity(),keySpace.used(),keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());return exactIndexStats(base);}\n")
+                    .append(",keySpace.capacity(),keySpace.used(),keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount(),keySpace.retainedBytes(),keySpace.storageHighWaterBytes());return exactIndexStats(base);}\n")
                     .append("  public void resetStats(){ownership.preflightMutation(\"resetStats\");state.resetStats();keySpace.resetMetrics();resetExactIndexMetrics();}\n\n");
         } else {
             out.append("  public TableStats statsSnapshot(){state.checkCallbackAccess(\"statsSnapshot\");return exactIndexStats(state.statsSnapshot(subtreeChildInstanceCount(),subtreeDescendantRowCount()-state.size()));}\n  public void resetStats(){ownership.preflightMutation(\"resetStats\");state.resetStats();resetExactIndexMetrics();}\n\n");
         }
+        appendRuntimeMetadata(out, table);
         out
                 .append("  void begin(String operation){state.beginOperation(operation);}\n  void beginCallback(String callback){state.beginCallback(callback);}\n  void endCallback(String callback){state.endCallback(callback);}\n  void endSuccess(String operation,long scanned,long matched,long changed){state.endOperationSuccess(operation,scanned,matched,changed);}\n  void endFailure(String operation,long scanned,long matched,String code){state.endOperationFailure(operation,scanned,matched,code);}\n  void endFailure(String operation,long scanned,long matched,SomaRuntimeException failure){state.endOperationFailure(operation,scanned,matched,failure.category()==SomaErrorCategory.INTERNAL?\"internal_invariant_violation\":failure.code());}\n  void abort(String operation){state.abortOperation(operation);}\n  void observeFailure(Throwable failure,String operation){if(failure instanceof SomaRuntimeException){if(((SomaRuntimeException)failure).category()==SomaErrorCategory.INTERNAL)state.endOperationFailure(operation,0L,0L,\"internal_invariant_violation\");}else state.abortOperation(operation);}\n  SomaRuntimeException internalInvariant(String invariant,String path,String operation){state.endOperationFailure(operation,0L,0L,\"internal_invariant_violation\");return RuntimeFailures.internalInvariant(invariant,path,operation);}\n  UpdateResult updateResult(long scanned,long matched,long changed){return state.updateResult(scanned,matched,changed);}\n  IndexSnapshot indexSnapshot(int[] indexes,int count){return IndexSnapshots.copyOf(indexSnapshotOwner,structuralEpoch(),indexes,count);}\n")
                 .append("  void requireDataFlowRootSource(){state.checkActive(\"dataflow.bind\");if(owned)throw RuntimeFailures.ownedDataFlowSource(TABLE,\"dataflow.bind\");}\n")
@@ -441,6 +447,9 @@ final class DenseTableSourceEmitter {
                 .append("  Object dataFlowPhysicalIdentity(){return ownership.physicalIdentity();}\n")
                 .append("  long dataFlowStructuralEpoch(){return state.structuralEpoch();}\n")
                 .append("  int dataFlowPackedSize(){return state.size();}\n")
+                .append("  boolean dataFlowSegmentedStorage(){return tablePlan.storageLayout()==com.hgtech.soma.runtime.metadata.SomaStorageLayout.FLAT_HEAD_SEGMENTED_TAIL;}\n")
+                .append("  int dataFlowFlatHeadRows(){return tablePlan.flatHeadRows();}\n")
+                .append("  int dataFlowSegmentRows(){return tablePlan.segmentRows();}\n")
                 .append("  IndexSnapshot dataFlowIndexSnapshot(int[] indexes,int length){return IndexSnapshots.copyOf(indexSnapshotOwner,state.structuralEpoch(),indexes,length);}\n")
                 .append("  void acquireDataFlow(String operation){state.checkActive(operation);ownership.beginDataFlow(operation);}\n")
                 .append("  void releaseDataFlow(String operation){ownership.endDataFlow(operation);}\n")
@@ -478,21 +487,87 @@ final class DenseTableSourceEmitter {
         return out.append("}\n").toString();
     }
 
+    private static void appendRuntimeMetadata(
+            SourceBuilder out, TableSpec table) {
+        out.append("  public SomaTableRuntimeMetadata runtimeMetadata(){state.checkCallbackAccess(\"runtimeMetadata\");return GeneratedRuntimeMetadata.table(metadata(),tablePlan,statsSnapshot(),runtimeIndexMetadata(),runtimeUniqueMetadata());}\n")
+                .append("  private SomaIndexRuntimeMetadata[] runtimeIndexMetadata(){return new SomaIndexRuntimeMetadata[]{");
+        boolean first = true;
+        for (int index = 0; index < table.selectors.size(); index++) {
+            SelectorSpec selector = table.selectors.get(index);
+            if (!"index".equals(selector.kind)) continue;
+            if (!first) out.append(',');
+            first = false;
+            out.append("GeneratedRuntimeMetadata.index(metadata().requireIndex(")
+                    .append(q(selector.name)).append("),selector")
+                    .append(index)
+                    .append("Index.entryCount(),selector")
+                    .append(index)
+                    .append("Index.groupCount(),selector")
+                    .append(index)
+                    .append("Index.probeCount(),selector")
+                    .append(index)
+                    .append("Index.collisionCount(),selector")
+                    .append(index)
+                    .append("Index.rehashCount(),selector")
+                    .append(index)
+                    .append("Index.retainedBytes(),selector")
+                    .append(index)
+                    .append("Index.storageHighWaterBytes())");
+        }
+        out.append("};}\n  private SomaUniqueRuntimeMetadata[] runtimeUniqueMetadata(){return new SomaUniqueRuntimeMetadata[]{");
+        first = true;
+        for (int index = 0; index < table.selectors.size(); index++) {
+            SelectorSpec selector = table.selectors.get(index);
+            if (!"unique".equals(selector.kind)) continue;
+            if (!first) out.append(',');
+            first = false;
+            out.append("GeneratedRuntimeMetadata.unique(metadata().requireUnique(")
+                    .append(q(selector.name)).append("),selector")
+                    .append(index)
+                    .append("Index.entryCount(),selector")
+                    .append(index)
+                    .append("Index.groupCount(),selector")
+                    .append(index)
+                    .append("Index.probeCount(),selector")
+                    .append(index)
+                    .append("Index.collisionCount(),selector")
+                    .append(index)
+                    .append("Index.rehashCount(),selector")
+                    .append(index)
+                    .append("Index.retainedBytes(),selector")
+                    .append(index)
+                    .append("Index.storageHighWaterBytes())");
+        }
+        out.append("};}\n\n");
+    }
+
     private static void appendDataFlowAccessRuntime(
             SourceBuilder out, TableSpec table) {
         String scan = table.name("Scan");
         out.append("  int dataFlowCurrentIndex(int index){return state.checkGuardedRowIndex(index,\"dataflow.point\");}\n")
                 .append("  void dataFlowRequireCurrent(IndexSnapshot snapshot){if(snapshot==null)throw new NullPointerException(\"snapshot\");if(!IndexSnapshots.isOwnedBy(snapshot,indexSnapshotOwner))throw RuntimeFailures.indexSnapshotWrongTable(TABLE,\"dataflow.gather\");long current=state.structuralEpoch();if(snapshot.structuralEpoch()!=current)throw RuntimeFailures.staleIndexSnapshot(TABLE,snapshot.structuralEpoch(),current,\"dataflow.gather\");for(int i=0;i<snapshot.size();i++)state.checkGuardedRowIndex(snapshot.indexAt(i),\"dataflow.gather\");}\n")
-                .append("  void dataFlowBorrow(int[] rows,int count,")
+                .append("  CandidateDeliverySession dataFlowDeliverySession(")
                 .append(scan)
-                .append(".Consumer consumer){if(consumer==null)throw new NullPointerException(\"consumer\");")
-                .append(scan).append(".Cursor cursor=new ").append(scan)
-                .append(".Cursor(this);for(int i=0;i<count;i++){cursor.open(rows[i]);state.beginCallback(\"dataflow.borrow.consumer\");try{consumer.accept(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(TABLE,\"dataflow.borrow\",\"consumer\",callback);}finally{state.endCallback(\"dataflow.borrow.consumer\");cursor.close();}}}\n")
+                .append(".Visitor visitor){if(visitor==null)throw new NullPointerException(\"visitor\");return new DataFlowDeliverySession(this,visitor);}\n")
+                .append("  private static final class DataFlowDeliverySession implements CandidateDeliverySession{private ")
+                .append(table.name("Table")).append(" table;private ")
+                .append(scan).append(".Visitor visitor;private ")
+                .append(scan).append(".Cursor cursor;private boolean closed;private DataFlowDeliverySession(")
+                .append(table.name("Table")).append(" table,")
+                .append(scan).append(".Visitor visitor){this.table=table;this.visitor=visitor;this.cursor=new ")
+                .append(scan).append(".Cursor(table);}public boolean visit(int row){if(closed)throw table.internalInvariant(\"closed_delivery_session\",TABLE,\"dataflow.deliver\");cursor.open(row);table.state.beginCallback(\"dataflow.deliver.visitor\");try{return visitor.visit(cursor);}catch(SomaRuntimeException failure){throw failure;}catch(RuntimeException callback){throw RuntimeFailures.callbackFailed(TABLE,\"dataflow.deliver\",\"visitor\",callback);}finally{table.state.endCallback(\"dataflow.deliver.visitor\");cursor.close();}}public void close(){if(closed)return;closed=true;cursor.close();cursor=null;visitor=null;table=null;}}\n")
                 .append("  List<").append(table.carrierType)
                 .append("> dataFlowMaterializeRows(int[] rows,int count,MaterializationBudget budget){if(budget==null)throw new NullPointerException(\"budget\");String operation=\"dataflow.materialize\";ownership.beginDataFlowMaterialization(operation);MaterializationTracker tracker=null;try{tracker=new MaterializationTracker(budget,TABLE);tracker.enterOwnership(this,TABLE);tracker.checkOwnershipDepth(0,TABLE);tracker.addTableInstances(1L,TABLE);tracker.addRows(count,TABLE);tracker.addListAllocation(count,TABLE);for(int i=0;i<count;i++)accountRowRecursive(tracker,rows[i],0,TABLE);tracker.exitOwnership(this,TABLE);MaterializationAllocation.preflight(operation,tracker.estimatedBytes(),TABLE);List<")
                 .append(table.carrierType).append("> result=new ArrayList<")
                 .append(table.carrierType)
                 .append(">(count);for(int i=0;i<count;i++)result.add(carrierRecursive(rows[i],0,TABLE));return result;}finally{ownership.endDataFlowMaterialization(operation);}}\n");
+        for (ChildSpec child : table.children) {
+            out.append("  int dataFlow")
+                    .append(cap(child.javaName))
+                    .append("MaximumRows(){return state.runtimePlan().requireTable(")
+                    .append(q(child.tableLogicalName))
+                    .append(").maximumRows();}\n");
+        }
         if (!table.keyed()) {
             return;
         }
@@ -540,7 +615,7 @@ final class DenseTableSourceEmitter {
         out.append("}\n");
     }
 
-    private static void appendDeltaApply(
+    private void appendDeltaApply(
             SourceBuilder out, TableSpec table) {
         String delta = table.name("Delta");
         String batch = table.name("Batch");
@@ -549,23 +624,133 @@ final class DenseTableSourceEmitter {
                 .append(" delta){if(delta==null)throw new NullPointerException(\"delta\");")
                 .append(delta).append(" detached=delta.copy();ownership.preflightMutation(\"delta.apply\");")
                 .append("long beforeEpoch=state.structuralEpoch();if(detached.hasExpectedStructuralEpoch()&&detached.expectedStructuralEpoch()!=beforeEpoch)throw RuntimeFailures.staleDelta(TABLE,detached.expectedStructuralEpoch(),beforeEpoch,\"delta.apply\");")
-                .append("for(int right=1;right<detached.size();right++)for(int left=0;left<right;left++)if(detached.sameKey(left,right))throw RuntimeFailures.duplicateDeltaTarget(TABLE,left,right,\"delta.apply\");")
                 .append("int beforeSize=state.size();if(detached.size()==0)return DeltaApplyResult.committed(0L,0L,0L,beforeSize,beforeSize,beforeEpoch,beforeEpoch);")
-                .append(batch).append(" working=").append(batch)
-                .append(".snapshotOf(this);long inserted=0L,updated=0L,deleted=0L;")
-                .append("for(int entry=0;entry<detached.size();entry++){int row=deltaRow(working,detached.keyAt(entry));byte kind=detached.kindAt(entry);")
+                .append(batch).append(" deltaKeys=new ").append(batch)
+                .append("(detached.size());for(int entry=0;entry<detached.size();entry++)deltaKeys.appendKeyOnly(detached.keyAt(entry));validateDistinctDeltaKeys(deltaKeys);")
+                .append("int[] targetRows=new int[detached.size()];Arrays.fill(targetRows,-1);long inserted=0L,updated=0L,deleted=0L;byte homogeneous=detached.kindAt(0);")
+                .append("for(int entry=0;entry<detached.size();entry++){byte kind=detached.kindAt(entry);if(kind!=homogeneous)homogeneous=0;int row=deltaTableRow(detached.keyAt(entry));targetRows[entry]=row;")
                 .append("if(kind==").append(delta)
-                .append(".INSERT){if(row>=0)throw RuntimeFailures.deltaInsertTargetPresent(TABLE,entry,\"delta.apply\");working.appendFrom(detached.rows(),detached.valueIndexAt(entry));inserted++;}")
+                .append(".INSERT){if(row>=0)throw RuntimeFailures.deltaInsertTargetPresent(TABLE,entry,\"delta.apply\");inserted++;}")
                 .append("else if(kind==").append(delta)
-                .append(".UPDATE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");working.replaceFrom(row,detached.rows(),detached.valueIndexAt(entry));updated++;}")
+                .append(".UPDATE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");updated++;}")
                 .append("else if(kind==").append(delta)
-                .append(".DELETE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");working.swapRemove(row);deleted++;}")
+                .append(".DELETE){if(row<0)throw RuntimeFailures.deltaTargetAbsent(TABLE,entry,\"delta.apply\");deleted++;}")
+                .append("else throw internalInvariant(\"delta_operation\",TABLE,\"delta.apply\");}")
+                .append("boolean changedRows=DeltaStagingFormula.useChangedRows(beforeSize,detached.size());")
+                .append("if(changedRows&&homogeneous==").append(delta)
+                .append(".INSERT){addBatch(detached.rows());return DeltaApplyResult.committed(inserted,updated,deleted,beforeSize,state.size(),beforeEpoch,state.structuralEpoch());}")
+                .append("if(changedRows&&homogeneous==").append(delta)
+                .append(".DELETE){state.beginOperation(\"delta.apply\");try{removeSelected(targetRows,targetRows.length,targetRows.length,\"delta.apply\");state.endOperationSuccess(\"delta.apply\",targetRows.length,targetRows.length,targetRows.length);}catch(SomaRuntimeException failure){endFailure(\"delta.apply\",targetRows.length,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"delta.apply\");throw failure;}catch(Error failure){state.abortOperation(\"delta.apply\");throw failure;}return DeltaApplyResult.committed(inserted,updated,deleted,beforeSize,state.size(),beforeEpoch,state.structuralEpoch());}");
+        if (table.children.isEmpty()) {
+            out.append("if(changedRows&&homogeneous==").append(delta)
+                    .append(".UPDATE)return applyChangedRowDeltaUpdates(detached,targetRows,beforeSize,beforeEpoch,inserted,updated,deleted);");
+        }
+        out.append(batch).append(" working=").append(batch)
+                .append(".snapshotOf(this);int[] entryByRow=new int[beforeSize];Arrays.fill(entryByRow,-1);for(int entry=0;entry<detached.size();entry++)if(targetRows[entry]>=0)entryByRow[targetRows[entry]]=entry;")
+                .append("for(int entry=0;entry<detached.size();entry++){byte kind=detached.kindAt(entry);int row=targetRows[entry];")
+                .append("if(kind==").append(delta)
+                .append(".INSERT){working.appendFrom(detached.rows(),detached.valueIndexAt(entry));}")
+                .append("else if(kind==").append(delta)
+                .append(".UPDATE){working.replaceFrom(row,detached.rows(),detached.valueIndexAt(entry));if(row<beforeSize)entryByRow[row]=-1;}")
+                .append("else if(kind==").append(delta)
+                .append(".DELETE){int last=working.size()-1,moved=last<beforeSize?entryByRow[last]:-1;if(row<beforeSize)entryByRow[row]=-1;if(last<beforeSize)entryByRow[last]=-1;if(row!=last&&moved>=0){targetRows[moved]=row;entryByRow[row]=moved;}working.swapRemove(row);}")
                 .append("else throw internalInvariant(\"delta_operation\",TABLE,\"delta.apply\");}")
                 .append("long publishEpoch=state.structuralEpoch();if(publishEpoch!=beforeEpoch)throw RuntimeFailures.staleDelta(TABLE,beforeEpoch,publishEpoch,\"delta.apply\");")
                 .append("replaceAll(working);return DeltaApplyResult.committed(inserted,updated,deleted,beforeSize,state.size(),beforeEpoch,state.structuralEpoch());}\n")
-                .append("  private int deltaRow(").append(batch).append(" rows,")
-                .append(key.primitive)
-                .append(" key){for(int row=0;row<rows.size();row++)if(rows.keyMatches(row,key))return row;return -1;}\n");
+                .append("  private int deltaTableRow(").append(key.primitive)
+                .append(" key){return ");
+        if (key.compositeKey()) {
+            out.append("compositeLookup(key,\"delta.apply\")");
+        } else {
+            out.append("keySpace.rowOf(")
+                    .append(key.keySpaceValue("key", "delta.apply"))
+                    .append(')');
+        }
+        out.append(";}\n");
+        appendDeltaDistinctValidation(out, table, key);
+        if (table.children.isEmpty()) {
+            appendChangedRowDeltaUpdate(out, table);
+        }
+    }
+
+    private void appendDeltaDistinctValidation(
+            SourceBuilder out, TableSpec table, FieldSpec key) {
+        String batch = table.name("Batch");
+        out.append("  private void validateDistinctDeltaKeys(")
+                .append(batch).append(" batch){");
+        if (key.compositeKey()) {
+            out.append("HashCompositeKeySpace staged=newAppendValidationKeySpace(batch.size(),\"delta.apply\");try{for(int row=0;row<batch.size();row++){long hash=");
+            if (key.stringKey()) {
+                out.append("stringKeyHash(batch.").append(key.javaName)
+                        .append("Value(row))");
+            } else {
+                appendCompositeBatchHash(
+                        out, key, "batch", "row", "\"delta.apply\"");
+            }
+            out.append(";int duplicate=compositeBatchSlot(staged,hash,batch,row");
+            if (!key.stringKey()) {
+                out.append(",\"delta.apply\"");
+            }
+            out.append(");if(duplicate>=0)throw RuntimeFailures.duplicateDeltaTarget(TABLE,staged.rowAt(duplicate),row,\"delta.apply\");staged.putAt(compositeInsertionSlot(staged,hash),hash,row);}}finally{discardAppendValidationKeySpace(staged,\"delta.apply\");}}\n");
+            return;
+        }
+        out.append(key.appendValidationKeySpaceType())
+                .append(" staged=newAppendValidationKeySpace(batch.size(),\"delta.apply\");try{for(int row=0;row<batch.size();row++){")
+                .append(key.valueBacked()
+                        ? key.storagePrimitive : key.primitive)
+                .append(" key=batch.").append(key.javaName)
+                .append(key.valueBacked()
+                        ? "StorageValue(row);" : "Value(row);")
+                .append(key.keySpaceValueType()).append(" keySlot=")
+                .append(key.valueBacked()
+                        ? key.keySpaceValueFromStorage(
+                        "key", "delta.apply")
+                        : key.keySpaceValue("key", "delta.apply"))
+                .append(';')
+                .append(key.requireInsertKey(
+                        "staged", "keySlot", "delta.apply"))
+                .append("int duplicate=staged.rowOf(keySlot);if(duplicate>=0)throw RuntimeFailures.duplicateDeltaTarget(TABLE,duplicate,row,\"delta.apply\");staged.put(keySlot,row);}}finally{discardAppendValidationKeySpace(staged,\"delta.apply\");}}\n");
+    }
+
+    private static void appendChangedRowDeltaUpdate(
+            SourceBuilder out, TableSpec table) {
+        String delta = table.name("Delta");
+        String batch = table.name("Batch");
+        out.append("  private DeltaApplyResult applyChangedRowDeltaUpdates(")
+                .append(delta)
+                .append(" detached,int[] targetRows,int beforeSize,long beforeEpoch,long inserted,long updated,long deleted){state.beginOperation(\"delta.apply\");boolean staged=false;try{int count=targetRows.length;prepareUpdateScratch(count);staged=true;loadUpdateScratch(targetRows,count);")
+                .append(batch).append(" rows=detached.rows();for(int entry=0;entry<count;entry++){int valueRow=detached.valueIndexAt(entry);");
+        for (int fieldIndex = 0;
+             fieldIndex < table.fields.size();
+             fieldIndex++) {
+            FieldSpec field = table.fields.get(fieldIndex);
+            if (field.key) {
+                continue;
+            }
+            if (field.flattenedValueStorage()) {
+                for (int leafIndex = 0;
+                     leafIndex < field.valueLeaves.size();
+                     leafIndex++) {
+                    ValueLeafSpec leaf = field.valueLeaves.get(leafIndex);
+                    out.append(updateScratch(fieldIndex, leafIndex))
+                            .append("[entry]=rows.")
+                            .append(leaf.physicalName(field))
+                            .append("StorageValue(valueRow);");
+                }
+            } else {
+                out.append(updateScratch(fieldIndex))
+                        .append("[entry]=rows.")
+                        .append(field.javaName)
+                        .append("StorageValue(valueRow);");
+            }
+            if (field.optional) {
+                out.append(updatePresenceScratch(fieldIndex))
+                        .append("[entry]=rows.")
+                        .append(field.javaName)
+                        .append("Present(valueRow);");
+            }
+        }
+        out.append("}long changed=publishUpdate(targetRows,count);state.commitDeltaUpdate(\"delta.apply\");state.endOperationSuccess(\"delta.apply\",count,count,changed);return DeltaApplyResult.committed(inserted,updated,deleted,beforeSize,state.size(),beforeEpoch,state.structuralEpoch());}catch(SomaRuntimeException failure){endFailure(\"delta.apply\",targetRows.length,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"delta.apply\");throw failure;}catch(Error failure){state.abortOperation(\"delta.apply\");throw failure;}finally{if(staged)clearUpdateScratch(targetRows.length);}}\n");
     }
 
     private void appendChildStructuralMethods(SourceBuilder out, TableSpec table) {
@@ -579,7 +764,7 @@ final class DenseTableSourceEmitter {
                 ? "if(keysAppended)rollbackAppendKeys(batch,start);" : "";
         String replacementKeys = table.keyed()
                 ? table.keyField().keySpaceType() + " stagedKeys=stageReplacementKeys(batch);"
-                    + "stagedKeys.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());"
+                    + "stagedKeys.inheritMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount(),keySpace.storageHighWaterBytes());"
                 : "";
         String publishReplacementKeys = table.keyed()
                 ? "publishKeySpace(stagedKeys,\"replaceAll\");stagedKeys=null;" : "";
@@ -1704,7 +1889,7 @@ final class DenseTableSourceEmitter {
             if (field.optional) different = field.javaName + "Present(row)!=mutation."
                     + field.javaName + "Present()||(" + field.javaName
                     + "Present(row)&&(" + different + "))";
-            out.append("    if(").append(different).append(")changed=true;\n");
+            out.append("    if(").append(different).append("){changed=true;\n");
             if (field.optional) {
                 out.append("    if(mutation.").append(field.javaName)
                         .append("Present()){");
@@ -1743,6 +1928,7 @@ final class DenseTableSourceEmitter {
                 }
                 out.append(field.javaName).append("Presence.clearPresent(row);}\n");
             }
+            out.append("    }\n");
             out.append("    }\n");
         }
         out.append("    publishMutatorExactIndexes(row,mutation);state.endOperationSuccess(\"mutator.commit\",1L,1L,changed?1L:0L);}catch(SomaRuntimeException failure){endFailure(\"mutator.commit\",0L,0L,failure);throw failure;}catch(RuntimeException failure){state.abortOperation(\"mutator.commit\");throw failure;}catch(Error failure){state.abortOperation(\"mutator.commit\");throw failure;}}\n");
@@ -1851,7 +2037,7 @@ final class DenseTableSourceEmitter {
             if (field.optional) different = field.javaName + "Present(row)!="
                     + updatePresenceScratch(fieldIndex) + "[i]||(" + field.javaName
                     + "Present(row)&&(" + different + "))";
-            out.append("    if(").append(different).append(")rowChanged=true;\n");
+            out.append("    if(").append(different).append("){rowChanged=true;\n");
             if (field.optional) {
                 out.append("    if(").append(updatePresenceScratch(fieldIndex)).append("[i]){");
             }
@@ -1890,6 +2076,7 @@ final class DenseTableSourceEmitter {
                 }
                 out.append(field.javaName).append("Presence.clearPresent(row);}\n");
             }
+            out.append("    }\n");
         }
         out.append("    if(rowChanged)changed++;}publishUpdateExactIndexes(rows,count);return changed;}\n")
                 .append("  private void releaseRetainedScratch(){candidateScratch.release();pipelineScratch.release();sortScratch.release();updateScratchCapacity=0;");

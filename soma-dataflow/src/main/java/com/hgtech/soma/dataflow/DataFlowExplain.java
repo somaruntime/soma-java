@@ -14,6 +14,10 @@ public final class DataFlowExplain {
     private final String fallbackReason;
     private final String parameterSummary;
     private final String budgetSummary;
+    private final String candidatePhysicalFormulaIdentity;
+    private final String relationStrategyFormulaIdentity;
+    private final String schedulerFormulaIdentity;
+    private final String invocationLedgerIdentity;
 
     DataFlowExplain(
             String definitionIdentity,
@@ -61,6 +65,12 @@ public final class DataFlowExplain {
         this.fallbackReason = fallbackReason;
         this.parameterSummary = parameterSummary;
         this.budgetSummary = budgetSummary;
+        candidatePhysicalFormulaIdentity =
+                CandidatePhysicalFormula.IDENTITY;
+        relationStrategyFormulaIdentity =
+                RelationStrategyFormula.IDENTITY;
+        schedulerFormulaIdentity = MorselSchedulerFormula.IDENTITY;
+        invocationLedgerIdentity = InvocationLedger.IDENTITY;
     }
 
     public String definitionIdentity() { return definitionIdentity; }
@@ -75,4 +85,16 @@ public final class DataFlowExplain {
     public String fallbackReason() { return fallbackReason; }
     public String parameterSummary() { return parameterSummary; }
     public String budgetSummary() { return budgetSummary; }
+    public String candidatePhysicalFormulaIdentity() {
+        return candidatePhysicalFormulaIdentity;
+    }
+    public String relationStrategyFormulaIdentity() {
+        return relationStrategyFormulaIdentity;
+    }
+    public String schedulerFormulaIdentity() {
+        return schedulerFormulaIdentity;
+    }
+    public String invocationLedgerIdentity() {
+        return invocationLedgerIdentity;
+    }
 }

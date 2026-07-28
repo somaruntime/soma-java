@@ -65,4 +65,5 @@ public final class com.example.soma.access.generated.VisitTable {
   public com.hgtech.soma.runtime.IntColumnView payloadColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }

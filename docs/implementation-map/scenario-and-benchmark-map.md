@@ -12,7 +12,9 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前三个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：runtime-plan migration candidate `3c8d425`
+最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
+`6cde5d5`；production/evidence source
+`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
 
 最后审查日期：2026-07-28
 
@@ -58,16 +60,28 @@ RTD 把 detached snapshot/delta 投影为 `WorkState`/`ResourceState`，使用�
 sort 和受控 parallel；Invocation 后立即复制 detached command，由
 `DispatchCommitter` 使用 stable key 全批次预检并顺序提交两个 root。
 
-三个 reference application 的 runtime factory 已随 S2 迁入各自 generated
-`SchemaMetadata.newPlan()` 与 metadata-scoped table editor；业务模型、算法叙事、
-workload、结果和既有 application baseline均未改变。该迁移只关闭raw plan
-authoring replacement，不表示它们已经完成P9最佳实践审计。
+三个 reference application 均已完成最终设计审计。真实偏差是同一运行期内相关
+root Table 共享 lifecycle/resource owner，却由应用手工创建和逆序释放。当前
+factory分别建立稳定冻结的显式 `SomaGroupPlan`：
+
+- industrial scheduler：`industrial-scheduler-solve`，九个root slot；
+- grassing simulation：`grassing-simulation-session`，两个root slot；
+- RTD：`real-time-dispatch-horizon`，两个root slot。
+
+Runtime aggregate唯一拥有Group并通过`runtimeMetadata()`公开detached
+`SomaGroupMetadata`；partial-create、normal/fault cleanup和release均走Group
+协议。业务模型、算法、Result、workload与领域correctness未改变；其余已经符合
+最终设计的应用分层保留，不做展示性迁移。
 
 ## 2. Benchmark 入口
 
 - smoke runner / validator：[`BenchmarkSmokeRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkSmokeRunner.java)、[`BenchmarkArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/BenchmarkArtifactValidator.java)；
 - neutral component runner / validator：[`PostCutoverComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentBenchmark.java)、[`PostCutoverComponentArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PostCutoverComponentArtifactValidator.java)；
 - DataFlow component runner：[`DataFlowComponentBenchmark.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/DataFlowComponentBenchmark.java)；
+- runtime-scale qualification runner/model/validator：
+  [`RuntimeScaleQualificationRunner.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/RuntimeScaleQualificationRunner.java)、
+  [`RuntimeScaleQualificationModel.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/RuntimeScaleQualificationModel.java)、
+  [`RuntimeScaleQualificationArtifactValidator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/RuntimeScaleQualificationArtifactValidator.java)；
 - baseline parser / comparator：[`PerformanceBaselineDefinition.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineDefinition.java)、[`PerformanceBaselineComparator.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/PerformanceBaselineComparator.java)；
 - lane contract、workload、evidence 与 aggregation：[`SmokeLaneContract.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneContract.java)、[`SmokeLaneWorkloads.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneWorkloads.java)、[`SmokeLaneEvidence.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneEvidence.java)、[`SmokeLaneAggregation.java`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/SmokeLaneAggregation.java)；
 - neutral schema：[`schema`](../../soma-benchmarks/src/main/java/com/hgtech/soma/benchmarks/schema)；
@@ -89,16 +103,16 @@ compilation 过渡期误记为稳态 p90；workload、fork、阈值和 baseline 
 application profile baseline：
 
 - [`Access component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/post-cutover-component-zulu8-macos-aarch64-v1.json)；
-- [`DataFlow component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v1.json)；
-- scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v4.json)、
-  [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v3.json)、
-  [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v3.json)；
-- simulation [`default`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v2.json)、
-  [`large`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v1.json)、
-  [`long-run`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v1.json)；
-- RTD [`default`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v1.json)、
-  [`large`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v1.json)、
-  [`long-run`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v1.json)。
+- [`DataFlow component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v2.json)；
+- scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v5.json)、
+  [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v4.json)、
+  [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v4.json)；
+- simulation [`default`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v3.json)、
+  [`large`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v2.json)、
+  [`long-run`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v2.json)；
+- RTD [`default`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-default-zulu8-macos-aarch64-v2.json)、
+  [`large`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-large-zulu8-macos-aarch64-v2.json)、
+  [`long-run`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-long-run-zulu8-macos-aarch64-v2.json)。
 
 Comparator 只拥有领域中性协议。三个应用各自拥有 workload identity、阈值和
 test-resource baseline，POM 不依赖 `soma-benchmarks`；baseline 不进入 production
@@ -118,6 +132,8 @@ JAR。当前没有 public performance claim。
   [`check-reference-application-full-performance.sh`](../../scripts/check-reference-application-full-performance.sh)；
 - baseline Owner/层次防回归：[`check-performance-baseline-architecture.sh`](../../scripts/check-performance-baseline-architecture.sh)；
 - generated footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)。
+- runtime-scale qualification：
+  [`check-runtime-scale-qualification.sh`](../../scripts/check-runtime-scale-qualification.sh)；
 
 全部 profile runner 都调用同一 comparator；Access component 普通 Gate 为 5
 fork，DataFlow component 为固定 3 fork，九个应用 profile 各为 3 fork，新

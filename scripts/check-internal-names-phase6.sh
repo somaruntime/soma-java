@@ -11,7 +11,7 @@ if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
 fi
 
 ./mvnw -B -ntp -pl soma-processor -am package -DskipTests
-./mvnw -B -ntp -pl soma-runtime-core package -DskipTests
+./mvnw -B -ntp -pl soma-dataflow -am package -DskipTests
 
 annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
 processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
@@ -61,7 +61,7 @@ if grep -E 'private int\[\] update(Capacity|ScratchCapacity|UpdateScratchCapacit
   exit 1
 fi
 
-"$JAVA_HOME/bin/java" -cp "$classes:$runtime_jar" \
+"$JAVA_HOME/bin/java" -cp "$classes:$runtime_jar:$dataflow_jar" \
   com.example.internalnames.InternalNamesConsumer
 "$JAVA_HOME/bin/java" -version
 "$JAVA_HOME/bin/javac" -version

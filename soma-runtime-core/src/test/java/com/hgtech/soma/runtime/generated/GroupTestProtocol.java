@@ -5,6 +5,7 @@ import com.hgtech.soma.runtime.SomaGroup;
 import com.hgtech.soma.runtime.TablePlan;
 import com.hgtech.soma.runtime.metadata.SomaMetadata;
 import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
+import com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata;
 
 import java.util.List;
 
@@ -34,6 +35,7 @@ public final class GroupTestProtocol {
 
     public static final class Root {
         private final ChildOwnershipRegistry ownership;
+        private final TableLedger rootLedger;
         private final String releaseMarker;
         private final List<String> releaseOrder;
         private boolean blockPreflight;
@@ -41,9 +43,11 @@ public final class GroupTestProtocol {
 
         private Root(
                 ChildOwnershipRegistry ownership,
+                TableLedger rootLedger,
                 String releaseMarker,
                 List<String> releaseOrder) {
             this.ownership = ownership;
+            this.rootLedger = rootLedger;
             this.releaseMarker = releaseMarker;
             this.releaseOrder = releaseOrder;
         }
@@ -74,7 +78,12 @@ public final class GroupTestProtocol {
                 RuntimePlan runtimePlan,
                 TablePlan tablePlan,
                 ChildOwnershipRegistry ownership) {
-            return new Root(ownership, releaseMarker, releaseOrder);
+            TableLedger rootLedger =
+                    ownership.newTableLedgerInternal(
+                            tablePlan.tableLogicalName());
+            rootLedger.reserveTableInstance("test.group.root.create");
+            return new Root(
+                    ownership, rootLedger, releaseMarker, releaseOrder);
         }
 
         @Override
@@ -92,12 +101,19 @@ public final class GroupTestProtocol {
                 throw new IllegalStateException(
                         "intentional group cleanup failure");
             }
+            root.rootLedger.releaseTableInstance(
+                    "test.group.root.release");
             root.releaseOrder.add(root.releaseMarker);
         }
 
         @Override
         public void preflightSafePoint(Root root, String operation) {
             root.ownership.preflightSafePoint(operation);
+        }
+
+        @Override
+        public SomaTableRuntimeMetadata runtimeMetadata(Root root) {
+            return null;
         }
     }
 }

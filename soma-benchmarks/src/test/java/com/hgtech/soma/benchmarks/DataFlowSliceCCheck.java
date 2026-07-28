@@ -25,6 +25,7 @@ import com.hgtech.soma.dataflow.DataFlowContext;
 import com.hgtech.soma.dataflow.DataFlowDefinition;
 import com.hgtech.soma.dataflow.DeltaApplyResult;
 import com.hgtech.soma.dataflow.DoubleColumnResult;
+import com.hgtech.soma.runtime.DeltaStagingFormula;
 import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.UpdateResult;
@@ -150,6 +151,38 @@ public final class DataFlowSliceCCheck {
                 "delta exact index publication");
 
         long stableEpoch = table.structuralEpoch();
+        DeltaApplyResult updateOnly = table.applyDelta(
+                new GroupCandidateDelta()
+                        .update(row(2L, 0L, 222L)));
+        require(updateOnly.updated() == 1L
+                        && table.fetch(key(2L, 0L)).metric0 == 222L
+                        && table.structuralEpoch() == stableEpoch + 1L,
+                "changed-row update stages only touched rows");
+        stableEpoch = table.structuralEpoch();
+
+        DeltaApplyResult insertOnly = table.applyDelta(
+                new GroupCandidateDelta()
+                        .insert(row(4L, 0L, 444L)));
+        require(insertOnly.inserted() == 1L
+                        && table.findIndex(key(4L, 0L)) >= 0
+                        && table.structuralEpoch() == stableEpoch + 1L,
+                "changed-row insert publishes once");
+        stableEpoch = table.structuralEpoch();
+
+        DeltaApplyResult deleteOnly = table.applyDelta(
+                new GroupCandidateDelta().delete(key(3L, 1L)));
+        require(deleteOnly.deleted() == 1L
+                        && table.findIndex(key(3L, 1L)) < 0
+                        && table.structuralEpoch() == stableEpoch + 1L,
+                "changed-row delete publishes once");
+        stableEpoch = table.structuralEpoch();
+
+        require(DeltaStagingFormula.useChangedRows(1_000, 64)
+                        && !DeltaStagingFormula.useChangedRows(8, 65)
+                        && DeltaStagingFormula.IDENTITY
+                        .equals("soma-delta-staging-v1"),
+                "versioned deterministic Delta crossover");
+
         GroupCandidateDelta duplicate = new GroupCandidateDelta()
                 .update(row(0L, 0L, 111L))
                 .delete(key(0L, 0L));

@@ -17,6 +17,7 @@ public final class HashLongKeySpace {
     private long probeCount;
     private long collisionCount;
     private long rehashCount;
+    private long storageHighWaterBytes;
 
     public HashLongKeySpace(int expectedSize) {
         if (expectedSize < 0) {
@@ -26,6 +27,7 @@ public final class HashLongKeySpace {
         keys = new long[capacity];
         rows = new int[capacity];
         states = new byte[capacity];
+        storageHighWaterBytes = retainedBytes();
     }
 
     public int size() { return size; }
@@ -33,6 +35,8 @@ public final class HashLongKeySpace {
     public int capacity() { return states.length; }
 
     public long retainedBytes() { return 13L * (long) states.length; }
+
+    public long storageHighWaterBytes() { return storageHighWaterBytes; }
 
     /** LIVE + DELETED buckets retained by the current probe table. */
     public int used() { return used; }
@@ -50,8 +54,13 @@ public final class HashLongKeySpace {
     }
 
     /** Carries since-reset metrics across an atomic staged KeySpace replacement. */
-    public void addMetrics(long probes, long collisions, long rehashes) {
-        if (probes < 0L || collisions < 0L || collisions > probes || rehashes < 0L) {
+    public void inheritMetrics(
+            long probes,
+            long collisions,
+            long rehashes,
+            long previousStorageHighWaterBytes) {
+        if (probes < 0L || collisions < 0L || collisions > probes
+                || rehashes < 0L || previousStorageHighWaterBytes < 0L) {
             throw new IllegalArgumentException("invalid key space metrics");
         }
         long nextProbes = checkedMetricAdd(probeCount, probes);
@@ -60,6 +69,9 @@ public final class HashLongKeySpace {
         probeCount = nextProbes;
         collisionCount = nextCollisions;
         rehashCount = nextRehashes;
+        if (previousStorageHighWaterBytes > storageHighWaterBytes) {
+            storageHighWaterBytes = previousStorageHighWaterBytes;
+        }
     }
 
     public boolean contains(long key) { return rowOf(key) >= 0; }
@@ -222,6 +234,7 @@ public final class HashLongKeySpace {
         probeCount = committedProbeCount;
         collisionCount = committedCollisionCount;
         rehashCount = committedRehashCount;
+        updateHighWater();
     }
 
     private int locate(long key) {
@@ -270,6 +283,11 @@ public final class HashLongKeySpace {
             throw new IllegalStateException("key space metric overflow");
         }
         return current + delta;
+    }
+
+    private void updateHighWater() {
+        long current = retainedBytes();
+        if (current > storageHighWaterBytes) storageHighWaterBytes = current;
     }
 
     private static int mix(long value) {

@@ -51,7 +51,9 @@ public final class ChildConsumer {
                         16, 16, Integer.MAX_VALUE, 3, 2,
                         268435456L, 268435456L,
                         268435456L, 268435456L,
-                        "none", "none",
+                        "none",
+                        RuntimeCompatibility.PRIMARY_LOCATOR_LAYOUT_FORMULA,
+                        "none",
                         RuntimeCompatibility.STORAGE_LAYOUT_FORMULA, 1,
                         false,
                         StringResourceProfile.unprofiled()));

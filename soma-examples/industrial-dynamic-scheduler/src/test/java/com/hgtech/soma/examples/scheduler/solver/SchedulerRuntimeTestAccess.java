@@ -5,6 +5,7 @@ import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntime;
 import com.hgtech.soma.examples.scheduler.runtime.SchedulerRuntimeFactory;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTable;
 import com.hgtech.soma.runtime.IndexSnapshot;
+import com.hgtech.soma.runtime.SomaGroupState;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 
 /** application aggregate 内部的 Index/lifecycle 负路径证据。 */
@@ -17,6 +18,10 @@ public final class SchedulerRuntimeTestAccess {
         new SchedulerRuntimeFactory().create(problem);
     boolean closed = false;
     try {
+      require(runtime.runtimeMetadata().explicit()
+              && runtime.runtimeMetadata().members().size() == 9
+              && runtime.runtimeMetadata().currentTableInstances() == 9L,
+          "scheduler explicit Group topology");
       final OperationAssignmentTable assignments = runtime.assignments();
       IndexSnapshot beforeMutation =
           assignments.indexSnapshot();
@@ -39,6 +44,11 @@ public final class SchedulerRuntimeTestAccess {
       }, "wrong-source snapshot");
       runtime.close();
       closed = true;
+      require(runtime.runtimeMetadata().state()
+              == SomaGroupState.RELEASED
+              && runtime.runtimeMetadata().currentStructuralBytes() == 0L
+              && runtime.runtimeMetadata().currentTableInstances() == 0L,
+          "scheduler Group terminal snapshot");
       expectRuntimeFailure(new Action() {
         @Override
         public void run() {
@@ -60,6 +70,10 @@ public final class SchedulerRuntimeTestAccess {
     if (!rejected) {
       throw new IllegalStateException(label + " was accepted");
     }
+  }
+
+  private static void require(boolean condition, String message) {
+    if (!condition) throw new IllegalStateException(message);
   }
 
   private interface Action {

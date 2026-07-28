@@ -2,16 +2,19 @@ package com.hgtech.soma.runtime.generated;
 
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.TablePlan;
+import com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout;
 
 /** Generated source 与 runtime-core 的 create-time compatibility authority。 */
 public final class RuntimeCompatibility {
     public static final String GENERATED_TARGET = "java8-columnar";
     public static final String COMPILER_IDENTITY = "soma-value-javac8-v1";
-    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v8";
-    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v8";
-    public static final String PLAN_PROTOCOL = "soma-runtime-plan-v5";
+    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v11";
+    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v11";
+    public static final String PLAN_PROTOCOL = "soma-runtime-plan-v6";
     public static final String STORAGE_LAYOUT_FORMULA =
             "soma-storage-layout-v1";
+    public static final String PRIMARY_LOCATOR_LAYOUT_FORMULA =
+            "soma-primary-locator-layout-v1";
     public static final String DENSE_ALGORITHM = "dense-soa-v1";
     public static final String NO_ACCESS_STRATEGY = "none";
     public static final String NO_KEY_SPACE = "none";
@@ -64,6 +67,17 @@ public final class RuntimeCompatibility {
     public static TablePlan verifyKeySpace(TablePlan plan, String expectedStrategy) {
         require("runtime_plan_mismatch", expectedStrategy, plan.keySpaceStrategy(),
                 plan.tableLogicalName() + ".keySpaceStrategy");
+        require("runtime_plan_mismatch", PRIMARY_LOCATOR_LAYOUT_FORMULA,
+                plan.primaryLocatorLayoutFormula(),
+                plan.tableLogicalName() + ".primaryLocatorLayoutFormula");
+        SomaPrimaryLocatorLayout expectedLayout = NO_KEY_SPACE.equals(expectedStrategy)
+                ? SomaPrimaryLocatorLayout.NONE
+                : SomaPrimaryLocatorLayout.FLAT_COMPACT;
+        if (plan.primaryLocatorLayout() != expectedLayout) {
+            throw RuntimeFailures.invalidRuntimePlan(
+                    plan.tableLogicalName() + ".primaryLocatorLayout",
+                    "expected " + expectedLayout.name());
+        }
         return plan;
     }
 

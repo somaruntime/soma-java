@@ -183,21 +183,20 @@ public final class JoinedFlow<
                         stages));
     }
 
-    public DataFlowDefinition<LongScalarResult> borrow(
-            JoinedIndexConsumer consumer) {
-        requireJoinedShape("dataflow.join.borrow");
-        if (consumer == null) {
-            throw new NullPointerException("consumer");
-        }
-        return DataFlowDefinition.of(
-                new JoinBorrowOperation<L, R>(
+    public CallbackDeliveryDefinition<JoinedIndexVisitor> deliver() {
+        requireJoinedShape("dataflow.join.deliver");
+        ParameterSlot<JoinedIndexVisitor> visitor =
+                ParameterSlot.callback(JoinedIndexVisitor.class);
+        return CallbackDeliveryDefinition.of(
+                new JoinDeliveryOperation<L, R>(
                         left,
                         right,
                         leftKey,
                         rightKey,
                         type,
                         stages,
-                        consumer));
+                        visitor),
+                visitor);
     }
 
     public DataFlowDefinition<LongColumnResult> projectLeft(

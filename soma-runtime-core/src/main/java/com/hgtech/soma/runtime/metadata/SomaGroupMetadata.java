@@ -13,6 +13,14 @@ public interface SomaGroupMetadata {
     SomaGroupState state();
     long membershipEpoch();
     String dataVersion();
+    long maximumStructuralBytes();
+    long retainedStructuralBytes();
+    long transientStructuralBytes();
+    long currentStructuralBytes();
+    long structuralHighWaterBytes();
+    long maximumTableInstances();
+    long currentTableInstances();
+    long tableInstanceHighWater();
     List<SomaGroupMemberMetadata> members();
     SomaGroupMemberMetadata requireMember(String memberId);
 }

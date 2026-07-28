@@ -309,13 +309,36 @@ public final class GroupLedger {
         requireMemberIndex(memberIndex);
         return memberRetainedBytes[memberIndex];
     }
+    public long memberMaximumBytes(int memberIndex) {
+        requireMemberIndex(memberIndex);
+        return memberMaximumBytes[memberIndex];
+    }
     public long memberTransientBytes(int memberIndex) {
         requireMemberIndex(memberIndex);
         return memberTransientBytes[memberIndex];
     }
+    public long memberCurrentBytes(int memberIndex) {
+        requireMemberIndex(memberIndex);
+        long retained = memberRetainedBytes[memberIndex];
+        long transientBytes = memberTransientBytes[memberIndex];
+        return retained > Long.MAX_VALUE - transientBytes
+                ? Long.MAX_VALUE : retained + transientBytes;
+    }
+    public long memberHighWaterBytes(int memberIndex) {
+        requireMemberIndex(memberIndex);
+        return memberHighWaterBytes[memberIndex];
+    }
+    public long memberMaximumTableInstances(int memberIndex) {
+        requireMemberIndex(memberIndex);
+        return memberMaximumTableInstances[memberIndex];
+    }
     public long memberCurrentTableInstances(int memberIndex) {
         requireMemberIndex(memberIndex);
         return memberCurrentTableInstances[memberIndex];
+    }
+    public long memberHighWaterTableInstances(int memberIndex) {
+        requireMemberIndex(memberIndex);
+        return memberHighWaterTableInstances[memberIndex];
     }
 
     private void requireByteLimits(

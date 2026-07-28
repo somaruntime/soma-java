@@ -189,7 +189,7 @@ measure_surface() {
 
 # Baselines are the current immutable application candidates plus 15%.
 measure_surface neutral-benchmark soma-benchmarks \
-  6 166428 740 234066 51 78510 787 267263 71
+  9 247729 1086 352175 89 117038 1224 401731 106
 measure_surface industrial-scheduler \
   soma-examples/industrial-dynamic-scheduler \
   9 251396 1081 358335 75 115761 1136 418589 105
@@ -212,7 +212,7 @@ dataflow_tables=$(awk -F '	' 'NR > 1 {sum += $2} END {print sum + 0}' \
   "$dataflow_footprint")
 dataflow_types=$(awk -F '	' 'NR > 1 {sum += $3} END {print sum + 0}' \
   "$dataflow_footprint")
-if [ "$total_scans" -ne 19 ] \
+if [ "$total_scans" -ne 22 ] \
     || [ "$artifact_scans" -ne "$total_scans" ] \
     || [ "$schema_tables" -ne "$total_scans" ] \
     || [ "$schema_scans" -ne "$total_scans" ] \

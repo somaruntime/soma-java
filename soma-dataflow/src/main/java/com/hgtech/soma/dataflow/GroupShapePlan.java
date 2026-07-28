@@ -2,6 +2,20 @@ package com.hgtech.soma.dataflow;
 
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 
+final class GroupOrdinalSelection {
+    final int[] ordinals;
+    final int size;
+
+    GroupOrdinalSelection(int[] ordinals, int size) {
+        this.ordinals = ordinals;
+        this.size = size;
+    }
+
+    int sourceOrdinal(int outputOrdinal) {
+        return ordinals == null ? outputOrdinal : ordinals[outputOrdinal];
+    }
+}
+
 final class GroupShapePlan<B extends DataFlowBinding> {
     private static final int NONE = 0;
     private static final int ASCENDING = 1;
@@ -65,43 +79,33 @@ final class GroupShapePlan<B extends DataFlowBinding> {
         if (isIdentity()) {
             return input;
         }
-        int[] ordinals = frame.newScratchIndexes(
+        int[] sizes = frame.newScratchIndexes(
                 input.groupCount, "dataflow.group.shape");
-        int retained = 0;
         for (int group = 0; group < input.groupCount; group++) {
-            long size = input.offsets[group + 1] - input.offsets[group];
-            if (size >= minimumCount && size <= maximumCount) {
-                ordinals[retained++] = group;
-            }
+            sizes[group] = input.offsets[group + 1] - input.offsets[group];
         }
-        if (countOrder != NONE) {
-            int[] orderScratch = frame.newScratchIndexes(
-                    retained, "dataflow.group.shape.sort");
-            stableSortByCount(
-                    ordinals,
-                    orderScratch,
-                    retained,
-                    input.offsets,
-                    countOrder == DESCENDING);
-        }
+        GroupOrdinalSelection selection =
+                select(frame, sizes, input.groupCount);
+        int[] ordinals = selection.ordinals;
+        int retained = selection.size;
         int[] representatives = frame.newScratchIndexes(
                 retained, "dataflow.group.shape");
         int[] offsets = frame.newScratchIndexes(
                 retained + 1, "dataflow.group.shape");
         int members = 0;
         for (int output = 0; output < retained; output++) {
-            int source = ordinals[output];
+            int source = selection.sourceOrdinal(output);
             representatives[output] = input.representatives[source];
-            members += input.offsets[source + 1] - input.offsets[source];
+            members += sizes[source];
             offsets[output + 1] = members;
         }
         int[] selectedMembers = frame.newScratchIndexes(
                 members, "dataflow.group.shape");
         int write = 0;
         for (int output = 0; output < retained; output++) {
-            int source = ordinals[output];
+            int source = selection.sourceOrdinal(output);
             int start = input.offsets[source];
-            int size = input.offsets[source + 1] - start;
+            int size = sizes[source];
             System.arraycopy(
                     input.members,
                     start,
@@ -120,11 +124,38 @@ final class GroupShapePlan<B extends DataFlowBinding> {
                 members);
     }
 
+    GroupOrdinalSelection select(
+            ExecutionFrame frame, int[] sizes, int groupCount) {
+        if (isIdentity()) {
+            return new GroupOrdinalSelection(null, groupCount);
+        }
+        int[] ordinals = frame.newScratchIndexes(
+                groupCount, "dataflow.group.shape");
+        int retained = 0;
+        for (int group = 0; group < groupCount; group++) {
+            long size = sizes[group];
+            if (size >= minimumCount && size <= maximumCount) {
+                ordinals[retained++] = group;
+            }
+        }
+        if (countOrder != NONE) {
+            int[] orderScratch = frame.newScratchIndexes(
+                    retained, "dataflow.group.shape.sort");
+            stableSortByCount(
+                    ordinals,
+                    orderScratch,
+                    retained,
+                    sizes,
+                    countOrder == DESCENDING);
+        }
+        return new GroupOrdinalSelection(ordinals, retained);
+    }
+
     private static void stableSortByCount(
             int[] ordinals,
             int[] scratch,
             int size,
-            int[] offsets,
+            int[] sizes,
             boolean descending) {
         for (int width = 1; width < size; width = nextWidth(width, size)) {
             int block = width > Integer.MAX_VALUE / 2
@@ -142,7 +173,7 @@ final class GroupShapePlan<B extends DataFlowBinding> {
                             || (left < middle && compare(
                             ordinals[left],
                             ordinals[right],
-                            offsets,
+                            sizes,
                             descending) <= 0);
                     scratch[output++] =
                             takeLeft ? ordinals[left++] : ordinals[right++];
@@ -159,10 +190,10 @@ final class GroupShapePlan<B extends DataFlowBinding> {
     private static int compare(
             int left,
             int right,
-            int[] offsets,
+            int[] sizes,
             boolean descending) {
-        int leftSize = offsets[left + 1] - offsets[left];
-        int rightSize = offsets[right + 1] - offsets[right];
+        int leftSize = sizes[left];
+        int rightSize = sizes[right];
         int compared = Integer.compare(leftSize, rightSize);
         return descending ? -compared : compared;
     }

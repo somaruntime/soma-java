@@ -3,6 +3,7 @@ package com.hgtech.soma.runtime;
 import com.hgtech.soma.runtime.metadata.SomaEffectiveMetadata;
 import com.hgtech.soma.runtime.metadata.SomaExactAccess;
 import com.hgtech.soma.runtime.metadata.SomaPrimaryLocator;
+import com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout;
 import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
 import com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata;
 import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
@@ -104,6 +105,12 @@ final class EffectiveMetadataProjection implements SomaEffectiveMetadata {
         }
         @Override public SomaPrimaryLocator primaryLocator() {
             return plan.primaryLocator();
+        }
+        @Override public SomaPrimaryLocatorLayout primaryLocatorLayout() {
+            return plan.primaryLocatorLayout();
+        }
+        @Override public String primaryLocatorLayoutFormulaIdentity() {
+            return plan.primaryLocatorLayoutFormula();
         }
         @Override public SomaExactAccess exactAccess() {
             return plan.exactAccess();

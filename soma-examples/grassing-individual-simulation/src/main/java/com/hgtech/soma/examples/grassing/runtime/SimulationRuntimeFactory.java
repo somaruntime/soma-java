@@ -3,55 +3,60 @@ package com.hgtech.soma.examples.grassing.runtime;
 import com.hgtech.soma.examples.grassing.config.SimulationConfig;
 import com.hgtech.soma.examples.grassing.scenario.SimulationScenario;
 import com.hgtech.soma.examples.grassing.schema.generated.GrasserStateTable;
+import com.hgtech.soma.examples.grassing.schema.generated.SchemaMetadata;
 import com.hgtech.soma.examples.grassing.schema.generated.TraceSampleTable;
 import com.hgtech.soma.runtime.RuntimePlan;
+import com.hgtech.soma.runtime.SomaGroup;
+import com.hgtech.soma.runtime.SomaGroupPlan;
 
 /** 创建并完整投影一个 live SOMA runtime aggregate。 */
 public final class SimulationRuntimeFactory {
   public SimulationRuntime create(SimulationScenario scenario) {
     if (scenario == null) throw new NullPointerException("scenario");
     RuntimePlan plan = plan(scenario.config(), scenario.population());
-    GrasserStateTable grassers = null;
-    TraceSampleTable traces = null;
+    SomaGroup group = SomaGroup.create(groupPlan(plan));
     SimulationRuntime runtime = null;
     try {
-      grassers = GrasserStateTable.create(plan);
-      traces = TraceSampleTable.create(plan);
+      GrasserStateTable grassers =
+          GrasserStateTable.attach(group, "grasser-states");
+      TraceSampleTable traces =
+          TraceSampleTable.attach(group, "trace-samples");
       runtime = new SimulationRuntime(
           scenario.config(), scenario.checksum(),
-          grassers, traces, scenario.grassCopy());
+          group, grassers, traces, scenario.grassCopy());
       RuntimeProjector.project(scenario, runtime);
       return runtime;
     } catch (RuntimeException failure) {
-      cleanup(runtime, traces, grassers, failure);
+      cleanup(runtime, group, failure);
       throw failure;
     } catch (Error failure) {
-      cleanup(runtime, traces, grassers, failure);
+      cleanup(runtime, group, failure);
       throw failure;
     }
   }
 
   private static void cleanup(
       SimulationRuntime runtime,
-      TraceSampleTable traces,
-      GrasserStateTable grassers,
+      SomaGroup group,
       Throwable failure) {
     try {
       if (runtime != null) {
         runtime.close();
-        return;
+      } else {
+        group.release();
       }
-      if (traces != null) traces.release();
     } catch (Throwable cleanupFailure) {
       failure.addSuppressed(cleanupFailure);
     }
-    if (runtime == null && grassers != null) {
-      try {
-        grassers.release();
-      } catch (Throwable cleanupFailure) {
-        failure.addSuppressed(cleanupFailure);
-      }
-    }
+  }
+
+  private static SomaGroupPlan groupPlan(RuntimePlan plan) {
+    return SomaGroupPlan.builder("grassing-simulation-session")
+        .member("grasser-states", SchemaMetadata.metadata(),
+            GrasserStateTable.metadata(), plan)
+        .member("trace-samples", SchemaMetadata.metadata(),
+            TraceSampleTable.metadata(), plan)
+        .build();
   }
 
   private static RuntimePlan plan(

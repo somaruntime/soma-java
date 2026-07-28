@@ -1225,6 +1225,7 @@ final class SmokeLaneWorkloads {
                     16L * 1024L * 1024L,
                     256L * 1024L * 1024L,
                     RuntimeCompatibility.NO_KEY_SPACE,
+                    RuntimeCompatibility.PRIMARY_LOCATOR_LAYOUT_FORMULA,
                     RuntimeCompatibility.NO_ACCESS_STRATEGY,
                     RuntimeCompatibility.STORAGE_LAYOUT_FORMULA,
                     5,

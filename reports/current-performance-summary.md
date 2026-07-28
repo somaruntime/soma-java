@@ -1,219 +1,186 @@
-# 当前性能摘要
+# 当前性能与规模摘要
 
-类型：Report / 性能快照
+类型：Report / Performance / Qualification Snapshot
 
-状态：历史 production baseline（不是 runtime-scale P6 qualification）
+状态：当前本机 production-shape evidence（不是 public performance claim）
 
-Owner：SOMA Java 性能输出
+Owner：SOMA Java 性能与规模 evidence
 
 最后审查日期：2026-07-28
 
-受众：评估当前 runtime 形状和后续优化价值的维护者
+受众：SOMA maintainer、runtime/compiler/DataFlow 开发者和产品决策者
 
-适用版本：Transformation/DataFlow production candidate `2aa8c15`；
-reference-application implementation/evidence candidate `253e383`；原
-scheduler/simulation threshold candidates `a7d4fde` / `938b3d5`
+适用版本：`soma-java` `0.2.0-SNAPSHOT`，production source content
+`sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`
 
-输入事实源：[三层性能基线治理报告](2026-07-24-three-layer-performance-baseline-governance-report.md)、
-[Reference Application 大规模性能基线治理报告](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)、
-[Industrial Dynamic Scheduler 设计与性能治理报告](2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)、
-[Transformation/DataFlow 治理报告](2026-07-27-transformation-dataflow-governance-report.md)、
-[Reference Application Portfolio 治理报告](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)、
-十一份 checked-in baseline、neutral/DataFlow component artifact 和
-Fast/Scale/Soak/Full Gate
+输入事实源：[Runtime Boundary、Group、Scale Readiness 与产品化综合治理报告](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)、
+runtime-scale strict qualification artifact、九份 checked-in application baseline
+及 Fast/Scale/Soak/Full Gate
 
-事实范围：P6 迁移前 Candidate Scan 与 DataFlow component、四类 representative
-generated footprint、三个独立应用九个 profile 的环境感知 multi-fork regression
-baseline；只用于迁移对照
+事实范围：当前 production shape 的 Small/Medium、1M、10M、single/double 100M、
+String、Expansion、Result Delivery、Soak、三个 reference application 和 generated
+footprint 本机证据
 
-非事实范围：runtime-scale P6 target 的性能、Small/Medium 与
-1M/10M/100M qualification、双 100M、String、Result Delivery、跨环境 SLA、
-正式支持矩阵、普遍性能优势或 G6
+非事实范围：跨环境 SLA、任意 Schema/String 的 100M 承诺、production telemetry、
+正式支持矩阵、public release readiness 或 G6
 
-测量日期：2026-07-24 至 2026-07-27
+测量日期：2026-07-28
 
-环境：Azul Zulu OpenJDK `1.8.0_492-b09`，macOS `26.5.2`，arm64/aarch64
+环境：Azul Zulu OpenJDK `1.8.0_492-b09`，Maven `3.9.16`，macOS `26.5.2` /
+Darwin `25.5.0`，`aarch64`，Apple M5 Pro 18 processors，48 GB，G1 GC
 
-方法：Candidate Scan component 普通 Gate 5 fork，DataFlow component 3 fork，
-均使用 ThreadMXBean exact allocation；九个应用 profile 普通 Gate 3 fork；
-scheduler/simulation 保留既有 9-fork provenance，RTD 初始 baseline 使用 5-fork
-校准；scheduler artifact v4 同时记录 hot solve 与 canonical end-to-end；四
-surface clean code-size
+方法：production module 编译和 generated code；required lane 预注册；strict
+schema、complete-set、checksum、negative artifact 与 classfile major 52 验证；
+application baseline 使用 5-fork 校准和 3-fork comparator
 
-本报告全部数字都早于 runtime-scale P6 target。它们没有覆盖本轮新增的
-Metadata/Group/String/physical-plan/scheduler/resource/delivery 设计，也不能关闭
-`CF-014` 或作为单 Table 100M、双 Table 100M、String 规模和 production readiness
-结论。P8 production cutover 后必须在不可变 candidate 上重新建立 qualification
-evidence，再决定哪些旧阈值仍可沿用。
+## 1. 当前判断
 
-## 1. 当前边界
+当前 candidate 已证明 SOMA 的 Java 8、Schema-Defined、Compiler-Specialized、
+JVM Heap-Resident 产品形态可以同时满足：
 
-Runtime 使用 packed `[0,size)`、keyed/dense swap-remove、eager grouped exact
-index、table-local `IndexBuffer` 与 generated/runtime compatibility v5。完整
-Access Model 区分 Point、Candidate、Column、Key、Bulk 和 Ownership；Candidate
-Scan 保持 specialized lazy one-shot plan。其上新增 transformation/kernel v1：
-typed Definition/Template/Invocation、detached result、safe-point effect 和受控并行。
+- Small/Medium 不被 fixed tax 或“只有一个 Segment”锁死；
+- 1M/10M 覆盖完整 operation family、mutation、relation、Window、String 与 GC；
+- single 100M 以及两个 100M root 同时驻留能够在明确窄 profile 下完成；
+- impossible high-expansion 在 child enumeration、callback 和巨量 allocation 前拒绝；
+- Eager Detached 默认与 callback-scoped delivery 共享同一 lifecycle/resource 边界；
+- 三个独立 reference application 在显式 Group owner 下保持结果正确并通过完整性能
+  Gate。
 
-三层模型区分 component baseline、九个 application-owned profile baseline 与
-public performance claim。当前前两层已进入回归 Gate，第三层仍为空。全部
-measurement/baseline/result artifact 均为 `claimAllowed=false`，G6 仍 blocked。
+这是一组 `claimAllowed=false` 的本机 qualification 事实，不是“任意 workload
+都支持 100M”或“已经可以 public release”的声明。G0–G5 passed，G6 仍 blocked。
 
-## 2. Component evidence
+## 2. Runtime-scale qualification
 
-### 2.1 Candidate Scan
+Qualification ID：
+`runtime-scale-qualification-20260728-dfe8fa98b2a4`。
 
-普通 Gate 每次执行 5 个独立 JVM fork，每 fork 产生 16 条 allocation 与 24 条
-exact-index memory record。Strict validator、9 个 comparator negative paths 和
-当前环境 baseline 均通过。代表性 baseline：
+Artifact identity：
 
-| Lane | 当前 allocation B/op | allocation 上限 | median timing 上限 ns/op |
-|---|---:|---:|---:|
-| packed zero-stage count | 4.4928 | 16 | 84 |
-| exact zero-stage count | 88.0928 | 89 | 140 |
-| exact one-filter count | 192.0736 | 193 | 867 |
-| exact three-stage count | 240.0736 | 241 | 1,105 |
-| exact five-stage overflow count | 464.0736 | 465 | 1,552 |
-| exact filter-sort scalar Index | 272.0736 | 273 | 1,112 |
-| long ColumnTraversal | 44.5968 | 160 | 1,601 |
+- production source content：
+  `dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`；
+- combined artifact：
+  `71f332598b897f9319afe08dbf12ba6292e44e52f64e7cf053b1c37e79d89e63`；
+- strict schema：
+  `b124a985cc6581ba25e41dd3aabbbfbd906d76c955f2bf04770f3a50f534c8ea`。
 
-24 条 memory lane 的 `retainedBytes` 使用全等值 Gate；cardinality-aware exact-index
-primitive payload 相对 right-sized estimate 的 retained slack 为 `0..63 bytes`。
-Snapshot、materialization、plan/handle 和 table-retained scratch 分开计量。
+| Lane | 状态 / 耗时 | 当前 production-shape 事实 |
+|---|---:|---|
+| Small/Fast | passed / 56.1 ms | 0、1、16、256、1K、4K；primitive 与 String；create/point/exact/scan/column/batch/mutate/Group/Join/callback fixed-tax matrix |
+| Medium | passed / 108.2 ms | 32K、64K、256K；sequential/parallel 都触发；1/2/8 storage segments 与 1/8/16 tasks 证明 Segment 和 morsel 分离 |
+| 1M | passed / 639.9 ms | Point/Exact/Scan/Column/Batch/Delta/Join/Group/Window、String selector/presence/no-op 及实际 weak-reference GC |
+| 10M | passed / 1.220 s | segmented growth、fused aggregate、bounded relation、4,096-cardinality shared String 与 10M distinct String objects |
+| 100M Single | passed / 5.185 s | 实际 100,000,000 行；`long Key + int groupId + long metric`；structural high-water 5,493,306,072 B |
+| 100M Double | passed / 10.352 s | 两个 root 各 100,000,000 行同时 resident；same-Group 65,536 与 cross-Group 4,096 bounded join；structural high-water 10,983,204,272 B |
+| 100M String | passed / 2.422 s | 两个 100M root；长度 18..34、cardinality 1,024、跨表 100% 共享对象；structural 4,027,622,496 B、reachable String model 90,112 B |
+| Expansion | passed / 41.0 ms | known over-budget、checked overflow、unknown-unprovable 均提前拒绝；`childBindingCallsBeforeReject=0` |
+| Delivery | passed / 57.3 ms | Eager 及 Candidate/Value/Group/Join/Window/String 共 7 种；early stop、failure、cancel、deadline、non-escape、GC、ledger 归零 |
+| Soak | passed / 136.7 ms | 100 次完整 lifecycle；100 个 String weak reference 清除；Group/Invocation ledger 归零；managed executor 关闭 |
 
-### 2.2 Typed DataFlow
+十条 required lane 均满足 `applicable=true`、`status=passed`、
+`claimAllowed=false`。validator 还拒绝缩小后的伪 double-100M、非法 claim、
+缺失 required lane 和 extra field，避免“artifact 看起来通过”取代实际验真。
 
-DataFlow baseline 使用 3 个独立 fork、固定 checksum 与 p90/all-equal Gate。代表性
-中位数如下；allocation 为 B/op，timing 为 ns/op：
+DataFlow component baseline 同步版本化为 v2。全部 execution checksum 保持；
+authoring checksum随 v11/v3/v4 canonical identity变化。bounded morsel 把 task
+和 worker 解耦，Invocation ledger增加显式phase accounting后，count与large-sum
+parallel allocation在三fork中逐字节稳定为`3,252.125`和`3,706.875 B/op`，按既有
+`ceil(max * 1.15 + 256)`公式设置`3,996`和`4,519 B/op` ceiling。其余v1
+allocation、timing、tail、GC、sequential和materializing envelope全部保留。
 
-| Lane | Sequential allocation / timing | Parallel allocation / timing |
-|---|---:|---:|
-| filter count | `1,670 / 254,589` | `2,092 / 90,023` |
-| sum 4,096 | `1,750 / 35,389` | `2,222 / 87,158` |
-| sum 65,536 | `1,750 / 366,600` | `2,211 / 109,320` |
-| primitive projection | `526,006 / 446,294` | `264,761 / 184,826` |
+## 3. String 结论与内存口径
 
-Barrier-heavy representative lanes：GroupBy `2,104,102 B / 1,037,352 ns`，
-inner Join `1,312,550 B / 847,900 ns`，Window
-`329,382 B / 399,043 ns`，shared graph `528,171 B / 488,512 ns`。one-row
-Effect 为 `1,838 B / 8,349 ns`。15 lanes 的 checksum 在 sequential/parallel
-和三 fork 间一致；最大 Young GC 为 2，Full/unknown GC 为 0。
+V1 正式支持 reference-backed immutable `String` baseline：
 
-默认 adaptive crossover 为 `65,536` candidates，只对 eligible branchy primitive
-kernel 使用 managed/borrowed executor；小规模继续 sequential。full-source
-Effect scratch 已由 streaming selection bound 消除，`limit(1)` effect 从约
-264 KiB 降至约 1.8 KiB。上述数字是当前环境的回归证据，不是跨机器 SLA。
+- 保存 caller reference，不 copy、intern 或 normalize；
+- Key/Unique/Index/Group/Join 使用 authoritative value equality/hash/order；
+- required null 拒绝，optional absence 与 empty String 分离；
+- equal-value different-object update 是 no-op，不替换引用或推进 epoch；
+- replace/failure/remove/clear/release 后，dead reference 不再由 SOMA 结构保留。
 
-## 3. Application integrated lanes
+任何 String 规模结论必须同时声明 UTF-16 长度、value cardinality、distinct object
+identity、共享率、presence、字段角色和同时 live Table 数量。资源报告必须分开：
 
-### 3.1 Industrial dynamic scheduler
+1. SOMA-owned structural bytes；
+2. SOMA-retained reachable String bytes/model；
+3. JVM observed heap。
 
-| Profile | Workload | 9-fork hot solve range / median | Timing limit | Allocation range / limit |
+当前双 100M profile 是高共享 payload profile；10M lane 另行覆盖 distinct String
+objects。高 cardinality String Key、多 String 列、长文本和 mutation-heavy 100M
+不能由这两条 lane 外推。
+
+## 4. 三个 reference application
+
+三应用均保留原业务模型、算法叙事、Schema、detached Result 和领域 validator，只把
+相关 root Table 的 lifecycle/resource owner 收敛到显式 `SomaGroup`。九份 baseline
+因 RuntimePlan/Group protocol identity 改变而按同一正式公式重新校准：
+
+| 应用 / profile | baseline | timing 上限 | allocation 上限 | GC 上限 |
 |---|---|---:|---:|---:|
-| default | 1,000 operations、10 machines、3 candidates/op | `13.459..15.522 / 14.174 ms` | `21.261 ms` | `3.956 / 4.946 MB` |
-| large | 100,000 operations、100 machines、3 candidates/op | `1.278..1.295 / 1.287 s` | `1.931 s` | `111.032..117.538 / 143.338 MB` |
-| long-run | 10,000 operations、100 machines、3 candidates/op | `44.056..49.702 / 47.050 ms` | `70.575 ms` | `11.008..15.022 / 17.270 MB` |
+| industrial default | v5 | hot 25,286,123 ns；E2E 40,576,560 ns | hot 4,957,340 B；E2E 10,976,650 B | young/full 0 |
+| industrial large | v4 | hot 3,436,878,500 ns；E2E 3,496,476,626 ns | hot 145,684,850 B；E2E 293,768,630 B | young 3 / 10 ms；full 0 |
+| industrial long-run | v4 | hot 88,084,439 ns；E2E 126,019,439 ns | hot 15,372,260 B；E2E 40,669,390 B | young 2 / 3 ms；full 0 |
+| grassing default | v3 | 221,718,938 ns | 14,491,310 B | young/full 0 |
+| grassing large | v2 | 8,658,417,938 ns | 533,067,510 B | young 16 / 14 ms；full 2 / 37 ms |
+| grassing long-run | v2 | 5,372,043,626 ns | 59,967,560 B | young/full 0 |
+| RTD default | v2 | 92,416,062 ns | 10,430,910 B | young/full 0 |
+| RTD large | v2 | 1,146,275,750 ns | 100,465,780 B | young/full 0 |
+| RTD long-run | v2 | 91,788,876 ns | 34,894,600 B | young/full 0 |
 
-| Profile | canonical end-to-end range / median | Timing limit | Allocation range / limit |
-|---|---:|---:|---:|
-| default | `22.255..24.496 / 22.830 ms` | `34.245 ms` | `8.097..8.098 / 10.123 MB` |
-| large | `1.318..1.335 / 1.327 s` | `1.990 s` | `227.001..241.513 / 288.904 MB` |
-| long-run | `70.904..77.993 / 73.962 ms` | `110.943 ms` | `31.035..35.049 / 42.303 MB` |
+校准源 content checksum 为
+`1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef`。
+allocation 使用 `ceil(p50 * 1.25)`，timing 使用
+`ceil(max(p50 * 1.50, p90 * 1.25))`，确定性字段 all-equal；Fast、Scale、Soak
+和 Full 3-fork comparator 全部通过。
 
-Default、large、long-run 的 frontier 分别为 `30 / 3,000 / 300`。hot solve
-归一化 median 为 `4,725 / 12,871 / 4,637 ns/operation` 和
-`1,319 / 1,147 / 1,382 B/operation`。Global selection 使用每机一个代表项的
-indexed min-heap；machine/resource version 只使相关 root group 增量重算，不再
-每次对全量 candidate 动态排序。Large 校准最大 Young GC 为 `2/8 ms`、
-Full GC 为零；long-run 为 `1/3 ms`、Full GC 为零。
+## 5. Generated footprint 与 fixed tax
 
-早期治理候选暴露逐 operation owned child Table 导致 large canonical path 约
-`718..724 MB` allocation 且 3/9 fork 出现 Full GC。最终 flat
-eligible-machine exact-group projection 将其降至 `227.001..241.513 MB`，
-9/9 fork 均无 Full GC；这是 application Schema/access 归因，不是 SOMA core
-缺陷。
+当前有 22 张 generated Table，每张恰有一个 Scan 和一个 DataFlow companion。
+qualification 新增三张 neutral schema Table 后，neutral fixed candidate 从 6
+变为 9；code-size Gate 已在首个完整 production candidate 上重新建立 15% ceiling。
 
-Application allocation 是带 JVM 优化噪声的 fitness signal，按跨 fork median
-比较；GC maximum 与 runtime high-water all-equal 分别守住压力和确定性边界。
-单个 allocation maximum 超限不再触发自动 rebaseline。
-
-展示性 summary DataFlow 删除并改用 direct ColumnView 单遍
-`AssignmentSummarizer` 后，原三份 baseline 无修改通过普通 3-fork：default
-`14.98 ms / 3.96 MB`、large `1362.22 ms / 118.53 MB`、long-run
-`48.48 ms / 13.09 MB`，均低于既有 timing/allocation envelope。Result、
-validator、Schema、input identity 与阈值不变；DataFlow application coverage
-由独立 RTD 应用接管。
-
-### 3.2 Grassing individual simulation
-
-| Profile | Workload | 9-fork hot operation range / median | Timing limit | Allocation range / limit |
-|---|---|---:|---:|---:|
-| default | 1,000 individuals × 1,000 ticks、128 × 72 | `145.689..165.054 / 146.905 ms` | `220.357 ms` | `11.530..11.531 / 12.108 MB` |
-| large | 100,000 individuals × 1,000 ticks、1280 × 720 | `5.913..6.080 / 5.948 s` | `8.922 s` | `426.403 / 447.723 MB` |
-| long-run | 10,000 individuals × 10,000 ticks、400 × 225 | `3.577..3.649 / 3.604 s` | `5.406 s` | `47.352..47.358 / 49.726 MB` |
-
-Maximum population 为 `1,433 / 158,318 / 13,837`；归一化 median 为
-`48,969 / 5,948,031 / 360,405 ns/tick` 和
-`3,844 / 426,403 / 4,736 B/tick`。Large 的 live population 约为 default 的
-110 倍，timing 与 scratch high-water 同阶增长。其每 fork 均出现一次 Full GC，
-最大 pause `28 ms`，不足 hot operation 的 `0.5%`，没有 GC thrash 证据。
-Long-run 的 10,000 ticks 总 allocation 约 47 MB 且 GC 为零，持续 churn 未形成
-随 tick 累积的临时对象失控。
-
-Stage 2 没有改变 Schema、input/result 或阈值；三份旧 baseline 只把
-generated/runtime v4 `runtimePlanHash` 迁移到 v5 identity。迁移后的普通 3-fork
-为 default `144.93 ms / 11.43 MB`、large `6161.18 ms / 426.41 MB`、
-long-run `3678.83 ms / 47.36 MB`，全部通过原 envelope。
-
-### 3.3 Real-time dispatch rule engine
-
-RTD baseline 由 5-fork 校准建立，普通 3-fork 结果如下；allocation 只统计同步
-caller thread，GC 为进程范围：
-
-| Profile | Workload | Timing / limit | Caller allocation / limit | Tasks / workers |
-|---|---|---:|---:|---:|
-| default | 1,024 work、32 resources、24 cycles | `70.98 / 114.38 ms` | `17.22 / 21.52 MB` | `228 / 4` |
-| large | 15,000 work、128 resources、20 cycles | `793.82 / 1186.56 ms` | `119.57 / 152.61 MB` | `64 / 4` |
-| long-run | 13,000 work、64 resources、500 cycles | `142.83 / 210.29 ms` | `730.15 / 911.26 MB` | `1504 / 4` |
-
-三个 profile 同时固定 Config、input/result、Schema、RuntimePlan、Definition、
-Template 和 demand identity；plain-Java reference 与 sequential/managed/borrowed
-结果在测量前通过。Long-run 的高 caller allocation 来自 500 次同步 Invocation
-和命令/结果边界，仍在校准 envelope 内；该数字不代表 worker 总 allocation。
-
-三个应用的 correctness、failure、lifecycle/resource ownership 和 result identity
-均在性能数字之前通过；Fast、Scale、Soak 分责，Full 组合九个 workload。表中
-MB/ms 为可读摘要，正式 baseline 保存原始 bytes/nanos。
-
-## 4. Generated footprint
-
-当前四个 generated surface 采用 per-surface fixed candidate + 15% ceiling：
-
-| Surface | Scan count | Scan source bytes | source lines | Scan family class bytes | nested classes |
+| Surface | Tables | Table source bytes / lines | Table family bytes / nested | DataFlow source bytes / lines | DataFlow family bytes / nested |
 |---|---:|---:|---:|---:|---:|
-| neutral benchmark | 6 | 144,108 | 644 | 202,630 | 45 |
-| industrial scheduler | 9 | 217,712 | 940 | 310,199 | 65 |
-| grassing simulation | 2 | 47,662 | 213 | 68,134 | 15 |
-| RTD rule engine | 2 | 47,442 | 211 | 66,869 | 15 |
+| neutral | 9 | 215,416 / 944 | 306,239 / 77 | 101,772 / 1,064 | 349,331 / 92 |
+| industrial | 9 | 218,411 / 949 | 315,029 / 74 | 100,071 / 1,024 | 359,855 / 91 |
+| grassing | 2 | 47,807 / 215 | 69,151 / 17 | 22,266 / 235 | 77,965 / 20 |
+| RTD | 2 | 47,586 / 213 | 67,775 / 17 | 22,682 / 236 | 78,726 / 21 |
 
-Checker 同时生成 surface、逐 Scan、逐 DataFlow 与逐 schema footprint，并要求
-各层汇总闭合。该 Gate 防止同一候选的生成规模无意膨胀；它不是长期容量承诺，
-也不能证明某个 feature 的单独因果。
+这些指标控制 compiler specialization 的产品成本，但不允许仅凭 LOC、单实现或单
+调用者删除具有设计意图和完整 replacement chain 的能力。
 
-每张 Table 还恰好生成一个 DataFlow companion，当前 `+15%` candidate ceiling
-如下：
+## 6. 声明边界
 
-| Surface | Table / companion | companion source bytes / lines | family class bytes / nested class |
-|---|---:|---:|---:|
-| neutral benchmark | `6 / 6` | `68,269 / 684` | `232,402 / 61` |
-| industrial scheduler | `9 / 9` | `100,661 / 987` | `348,307 / 91` |
-| grassing simulation | `2 / 2` | `21,780 / 224` | `74,410 / 20` |
-| RTD rule engine | `2 / 2` | `22,397 / 226` | `78,944 / 21` |
+当前可以确认：
 
-## 5. 解释边界
+- Java 8 production implementation 支撑 Metadata/Group/closed Capability 产品叙事；
+- Small/Medium adaptive execution、single/double 100M 窄 numeric profile、
+  明确 String profile和两种 Result Delivery 在记录环境成立；
+- impossible expansion 可 fail-closed；
+- 三个 reference application 与完整本机 Gate 成立。
 
-component、Fast、Scale、Soak 和 Full comparator Gate 在精确匹配环境中为
-`passed`；其他环境只能在 artifact 完全合法后得到 `not-applicable`。旧 FJSP
-100k A/B 仍是历史证据，其约 262 ms 的 machine-local arg-min 不包含当前
-scheduler 的 global total order、secondary resource、maintenance、transport
-和 dynamic delay 语义，不能直接比较。当前数据不能外推到其他机器、workload、
-production SLA、支持矩阵或 public release claim。
+扩大下列声明前仍需新的预注册 qualification：
+
+- 其他 CPU/JDK build/OS 和正式 support matrix；
+- wide schema、composite Key、mutation-heavy 100M；
+- 更长、更多列或高 cardinality Key 的 String；
+- 新 relation multiplicity/skew、global materialization/sort/window；
+- 更高强度 soak、production telemetry 与 public performance claim。
+
+当前必须保持的较低声明是：100M 只代表明确 schema/workload/resource profile；
+String 只代表白名单 immutable value；Lazy Output 只代表同步 read-only
+callback-scoped delivery；不可证明展开上界时拒绝执行；G6 不因本机技术成功而改变。
+
+## 7. 重放入口
+
+```bash
+JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home \
+  ./scripts/check-runtime-scale-qualification.sh
+
+JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home \
+  ./scripts/check-reference-application-full-performance.sh
+```
+
+普通 `./scripts/check.sh` 负责 fresh build、public/generated/external consumer、
+correctness、component、Fast application、文档和静态 Gate；重型 scale
+qualification 与 Full application performance 保持显式入口，防止日常反馈被大规模
+workload 淹没。所有结果仍必须按报告 metadata 和 `claimAllowed` 边界解释。

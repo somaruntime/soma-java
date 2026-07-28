@@ -231,10 +231,16 @@ Definition 使用 canonical、length-prefixed encoding 和 SHA-256；Template id
 当前协议：
 
 ```text
-generated/runtime  soma-generated-runtime-v8 / soma-runtime-java8-v8
-transformation     soma-transformation-v2
-kernel             soma-kernel-v1
-storage plan       soma-runtime-plan-v5 / soma-storage-layout-v1
+generated/runtime  soma-generated-runtime-v11 / soma-runtime-java8-v11
+transformation     soma-transformation-v3
+kernel             soma-kernel-v4
+storage plan       soma-runtime-plan-v6
+storage formula    soma-storage-layout-v1
+locator formula    soma-primary-locator-layout-v1
+candidate formula  soma-candidate-physical-v1
+relation formula   soma-relation-strategy-v1
+scheduler formula  soma-morsel-scheduler-v1
+invocation ledger  soma-invocation-ledger-v1
 ```
 
 Mismatch 在执行前 fail closed；不提供旧协议双 adapter、反射 fallback 或 best-effort execution。

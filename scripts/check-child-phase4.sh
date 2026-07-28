@@ -40,7 +40,7 @@ cmp "$source_fixture/expected-schema.json" "$fixture/target/classes/$schema"
 cmp "$source_fixture/expected-schema.sha256" "$fixture/target/classes/$schema_hash"
 
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar:soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar" \
   com.example.soma.child.ChildConsumer
 
 parent_source=$fixture/target/generated-sources/annotations/com/example/soma/child/generated/ParentRowTable.java

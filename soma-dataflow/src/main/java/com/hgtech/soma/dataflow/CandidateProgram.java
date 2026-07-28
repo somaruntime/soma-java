@@ -104,15 +104,84 @@ final class CandidateVisit {
     }
 }
 
+enum CandidatePhysicalShape {
+    CONTIGUOUS_RANGE,
+    SEGMENT_RANGE,
+    EXACT_SINGLE_PASS,
+    POINT_SINGLE,
+    SPARSE_INDEXES
+}
+
 final class CandidateSelection {
-    final int[] indexes;
+    final CandidatePhysicalShape shape;
+    private final int start;
+    private final int[] indexes;
     final int size;
     final long scanned;
 
     CandidateSelection(int[] indexes, int size, long scanned) {
+        this(CandidatePhysicalShape.SPARSE_INDEXES, 0, indexes, size, scanned);
+    }
+
+    private CandidateSelection(
+            CandidatePhysicalShape shape,
+            int start,
+            int[] indexes,
+            int size,
+            long scanned) {
+        this.shape = shape;
+        this.start = start;
         this.indexes = indexes;
         this.size = size;
         this.scanned = scanned;
+    }
+
+    static CandidateSelection range(
+            DataFlowBinding binding, int start, int size, long scanned) {
+        return new CandidateSelection(
+                binding.segmentedStorage()
+                        ? CandidatePhysicalShape.SEGMENT_RANGE
+                        : CandidatePhysicalShape.CONTIGUOUS_RANGE,
+                start,
+                null,
+                size,
+                scanned);
+    }
+
+    static CandidateSelection point(int index, long scanned) {
+        return index < 0
+                ? new CandidateSelection(
+                        CandidatePhysicalShape.POINT_SINGLE,
+                        0,
+                        null,
+                        0,
+                        scanned)
+                : new CandidateSelection(
+                        CandidatePhysicalShape.POINT_SINGLE,
+                        index,
+                        null,
+                        1,
+                        scanned);
+    }
+
+    int indexAt(int position) {
+        if (position < 0 || position >= size) {
+            throw new IndexOutOfBoundsException(
+                    "candidate position out of range");
+        }
+        return shape == CandidatePhysicalShape.SPARSE_INDEXES
+                ? indexes[position] : start + position;
+    }
+
+    int[] materializedIndexes(ExecutionFrame frame, String operation) {
+        if (shape == CandidatePhysicalShape.SPARSE_INDEXES) {
+            return indexes;
+        }
+        int[] result = frame.newScratchIndexes(size, operation);
+        for (int position = 0; position < size; position++) {
+            result[position] = start + position;
+        }
+        return result;
     }
 }
 
@@ -133,6 +202,10 @@ interface CandidateInput<B extends DataFlowBinding> {
     boolean supportsStreaming();
 
     String canonical();
+
+    default String physicalForm() {
+        return "sparse-indexes";
+    }
 
     default List<ParameterSlot<?>> requiredParameters() {
         return Collections.emptyList();
@@ -171,12 +244,10 @@ final class PackedCandidateInput<B extends DataFlowBinding>
 
     @Override
     public CandidateSelection select(ExecutionFrame frame, String operation) {
-        int cardinality = frame.binding(source).packedSize();
-        int[] indexes = frame.newScratchIndexes(cardinality, operation);
-        for (int index = 0; index < cardinality; index++) {
-            indexes[index] = index;
-        }
-        return new CandidateSelection(indexes, cardinality, cardinality);
+        DataFlowBinding binding = frame.binding(source);
+        int cardinality = binding.packedSize();
+        return CandidateSelection.range(
+                binding, 0, cardinality, cardinality);
     }
 
     @Override
@@ -192,6 +263,11 @@ final class PackedCandidateInput<B extends DataFlowBinding>
     @Override
     public String canonical() {
         return "packed";
+    }
+
+    @Override
+    public String physicalForm() {
+        return "range[storage-layout-aware]";
     }
 }
 
@@ -291,6 +367,11 @@ final class ExactCandidateInput<B extends DataFlowBinding>
         return "exact(" + access.identity() + ")";
     }
 
+    @Override
+    public String physicalForm() {
+        return "exact-single-pass";
+    }
+
     @SuppressWarnings("unchecked")
     private B binding(ExecutionFrame frame) {
         return (B) frame.binding(source);
@@ -326,12 +407,7 @@ final class PointCandidateInput<B extends DataFlowBinding>
     @Override
     public CandidateSelection select(ExecutionFrame frame, String operation) {
         int index = locate(frame);
-        int count = index < 0 ? 0 : 1;
-        int[] indexes = frame.newScratchIndexes(count, operation);
-        if (count != 0) {
-            indexes[0] = index;
-        }
-        return new CandidateSelection(indexes, count, 1L);
+        return CandidateSelection.point(index, 1L);
     }
 
     @Override
@@ -347,6 +423,11 @@ final class PointCandidateInput<B extends DataFlowBinding>
     @Override
     public String canonical() {
         return "point(" + access.identity() + ")";
+    }
+
+    @Override
+    public String physicalForm() {
+        return "point-single";
     }
 
     @SuppressWarnings("unchecked")
@@ -470,7 +551,7 @@ final class CombinedCandidateInput<B extends DataFlowBinding>
                 frame.checkBoundary(operation);
             }
             visited++;
-            if (!visitor.accept(selected.indexes[position], position)) {
+            if (!visitor.accept(selected.indexAt(position), position)) {
                 break;
             }
         }
@@ -490,8 +571,12 @@ final class CombinedCandidateInput<B extends DataFlowBinding>
                     Long.toString(total));
         }
         int[] indexes = frame.newScratchIndexes((int) total, operation);
-        System.arraycopy(left.indexes, 0, indexes, 0, left.size);
-        System.arraycopy(right.indexes, 0, indexes, left.size, right.size);
+        for (int position = 0; position < left.size; position++) {
+            indexes[position] = left.indexAt(position);
+        }
+        for (int position = 0; position < right.size; position++) {
+            indexes[left.size + position] = right.indexAt(position);
+        }
         return new CandidateSelection(
                 indexes,
                 (int) total,
@@ -559,6 +644,11 @@ final class ProgramCandidateInput<B extends DataFlowBinding>
     @Override
     public String canonical() {
         return program.canonical();
+    }
+
+    @Override
+    public String physicalForm() {
+        return program.physicalForm();
     }
 
     @Override
@@ -692,6 +782,11 @@ final class CandidateProgram<B extends DataFlowBinding> {
         return canonical;
     }
 
+    String physicalForm() {
+        return requiresBarrier()
+                ? "sparse-indexes" : input.physicalForm();
+    }
+
     CandidateVisit visit(
             ExecutionFrame frame, CandidateVisitor visitor, String operation) {
         if (hasSort || !input.supportsStreaming()) {
@@ -702,7 +797,7 @@ final class CandidateProgram<B extends DataFlowBinding> {
                     frame.checkBoundary(operation);
                 }
                 visited++;
-                if (!visitor.accept(selected.indexes[position], position)) {
+                if (!visitor.accept(selected.indexAt(position), position)) {
                     break;
                 }
             }
@@ -743,7 +838,7 @@ final class CandidateProgram<B extends DataFlowBinding> {
                     frame, operation, boundedCardinality);
         }
         CandidateSelection base = input.select(frame, operation);
-        int[] indexes = base.indexes;
+        int[] indexes = base.materializedIndexes(frame, operation);
         int size = base.size;
         int[] auxiliary = null;
         for (int stage = 0; stage < kinds.length; stage++) {

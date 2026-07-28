@@ -9,48 +9,82 @@ import com.hgtech.soma.examples.scheduler.schema.generated.OperationAssignmentTa
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationDefinitionTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.OperationRuntimeStateTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.SecondaryResourceStateTable;
+import com.hgtech.soma.examples.scheduler.schema.generated.SchemaMetadata;
 import com.hgtech.soma.examples.scheduler.schema.generated.SetupTimeTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeTable;
 import com.hgtech.soma.runtime.RuntimePlan;
+import com.hgtech.soma.runtime.SomaGroup;
+import com.hgtech.soma.runtime.SomaGroupPlan;
 
 /** 单次 solve 的 RuntimePlan、table graph 与 lifecycle 工厂。 */
 public final class SchedulerRuntimeFactory {
   public SchedulerRuntime create(SchedulingProblem problem) {
     if (problem == null) throw new NullPointerException("problem");
     RuntimePlan plan = plan(problem);
-    JobDefinitionTable jobs = JobDefinitionTable.create(plan);
-    OperationDefinitionTable operations =
-        OperationDefinitionTable.create(plan);
-    EligibleMachineTable eligibleMachines =
-        EligibleMachineTable.create(plan);
-    MachineRuntimeStateTable machineStates =
-        MachineRuntimeStateTable.create(plan);
-    OperationRuntimeStateTable operationStates =
-        OperationRuntimeStateTable.create(plan);
-    SecondaryResourceStateTable resources =
-        SecondaryResourceStateTable.create(plan);
-    SetupTimeTable setups = SetupTimeTable.create(plan);
-    TransportTimeTable transports = TransportTimeTable.create(plan);
-    OperationAssignmentTable assignments =
-        OperationAssignmentTable.create(plan);
-    MachineCalendar[] machineCalendars =
-        new MachineCalendar[problem.machines().size()];
-    for (int index = 0; index < machineCalendars.length; index++) {
-      MachineSpec machine = problem.machines().get(index);
-      machineCalendars[index] = new MachineCalendar(machine.maintenance);
-    }
-    SchedulerRuntime runtime = new SchedulerRuntime(
-        problem, jobs, operations, eligibleMachines, machineStates,
-        operationStates, resources, setups, transports,
-        assignments, machineCalendars);
-    boolean complete = false;
+    SomaGroup group = SomaGroup.create(groupPlan(plan));
+    SchedulerRuntime runtime = null;
     try {
+      JobDefinitionTable jobs =
+          JobDefinitionTable.attach(group, "job-definitions");
+      OperationDefinitionTable operations =
+          OperationDefinitionTable.attach(group, "operation-definitions");
+      EligibleMachineTable eligibleMachines =
+          EligibleMachineTable.attach(group, "eligible-machines");
+      MachineRuntimeStateTable machineStates =
+          MachineRuntimeStateTable.attach(group, "machine-states");
+      OperationRuntimeStateTable operationStates =
+          OperationRuntimeStateTable.attach(group, "operation-states");
+      SecondaryResourceStateTable resources =
+          SecondaryResourceStateTable.attach(group, "resource-states");
+      SetupTimeTable setups =
+          SetupTimeTable.attach(group, "setup-times");
+      TransportTimeTable transports =
+          TransportTimeTable.attach(group, "transport-times");
+      OperationAssignmentTable assignments =
+          OperationAssignmentTable.attach(group, "assignments");
+      MachineCalendar[] machineCalendars =
+          new MachineCalendar[problem.machines().size()];
+      for (int index = 0; index < machineCalendars.length; index++) {
+        MachineSpec machine = problem.machines().get(index);
+        machineCalendars[index] =
+            new MachineCalendar(machine.maintenance);
+      }
+      runtime = new SchedulerRuntime(
+          problem, group, jobs, operations, eligibleMachines,
+          machineStates, operationStates, resources, setups,
+          transports, assignments, machineCalendars);
       new RuntimeProjector().project(problem, runtime);
-      complete = true;
       return runtime;
-    } finally {
-      if (!complete) runtime.close();
+    } catch (RuntimeException failure) {
+      cleanup(runtime, group, failure);
+      throw failure;
+    } catch (Error failure) {
+      cleanup(runtime, group, failure);
+      throw failure;
     }
+  }
+
+  private static SomaGroupPlan groupPlan(RuntimePlan plan) {
+    return SomaGroupPlan.builder("industrial-scheduler-solve")
+        .member("job-definitions", SchemaMetadata.metadata(),
+            JobDefinitionTable.metadata(), plan)
+        .member("operation-definitions", SchemaMetadata.metadata(),
+            OperationDefinitionTable.metadata(), plan)
+        .member("eligible-machines", SchemaMetadata.metadata(),
+            EligibleMachineTable.metadata(), plan)
+        .member("machine-states", SchemaMetadata.metadata(),
+            MachineRuntimeStateTable.metadata(), plan)
+        .member("operation-states", SchemaMetadata.metadata(),
+            OperationRuntimeStateTable.metadata(), plan)
+        .member("resource-states", SchemaMetadata.metadata(),
+            SecondaryResourceStateTable.metadata(), plan)
+        .member("setup-times", SchemaMetadata.metadata(),
+            SetupTimeTable.metadata(), plan)
+        .member("transport-times", SchemaMetadata.metadata(),
+            TransportTimeTable.metadata(), plan)
+        .member("assignments", SchemaMetadata.metadata(),
+            OperationAssignmentTable.metadata(), plan)
+        .build();
   }
 
   private static RuntimePlan plan(SchedulingProblem problem) {
@@ -85,5 +119,20 @@ public final class SchedulerRuntimeFactory {
       String table,
       int capacity) {
     builder.table(table).initialCapacity(Math.max(1, capacity));
+  }
+
+  private static void cleanup(
+      SchedulerRuntime runtime,
+      SomaGroup group,
+      Throwable primary) {
+    try {
+      if (runtime != null) {
+        runtime.close();
+      } else {
+        group.release();
+      }
+    } catch (Throwable cleanup) {
+      if (cleanup != primary) primary.addSuppressed(cleanup);
+    }
   }
 }

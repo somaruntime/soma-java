@@ -43,6 +43,7 @@ public final class GeneratedRuntimePlan {
             long maximumBulkScratchBytes,
             long maximumTableStorageBytes,
             String keySpaceStrategy,
+            String primaryLocatorLayoutFormula,
             String accessStrategy,
             String storageLayoutFormula,
             int structuralBytesPerRow,
@@ -62,6 +63,9 @@ public final class GeneratedRuntimePlan {
                 .maximumTableStorageBytes(maximumTableStorageBytes)
                 .generatedKeySpaceStrategy(
                         GeneratedPlanToken.INSTANCE, keySpaceStrategy)
+                .generatedPrimaryLocatorLayoutFormula(
+                        GeneratedPlanToken.INSTANCE,
+                        primaryLocatorLayoutFormula)
                 .generatedAccessStrategy(
                         GeneratedPlanToken.INSTANCE, accessStrategy)
                 .generatedStorageLayoutFormula(

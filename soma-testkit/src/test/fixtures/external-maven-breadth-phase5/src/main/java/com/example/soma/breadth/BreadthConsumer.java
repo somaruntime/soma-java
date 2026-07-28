@@ -36,6 +36,7 @@ import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
 import com.hgtech.soma.runtime.metadata.SomaColumnMetadata;
 import com.hgtech.soma.runtime.metadata.SomaGroupMetadata;
+import com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout;
 import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
 import com.hgtech.soma.runtime.metadata.SomaTypeKind;
 
@@ -43,6 +44,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +59,7 @@ public final class BreadthConsumer {
         verifyEffectivePlanAndStringProfile();
         verifyStringKeyAndBudgets();
         verifyStringSelectorsAndMetadata();
+        verifyStringReferenceLifecycle();
         verifyStringKeyedChild();
         verifySomaGroupCompositionAndLifecycle();
         System.out.println("breadth-phase5-consumer: ok");
@@ -91,7 +94,9 @@ public final class BreadthConsumer {
         check(planned.state() == SomaGroupState.ACTIVE
                         && planned.membershipEpoch() == 0L
                         && planned.requireMember("left").state()
-                        == SomaGroupMemberState.PLANNED,
+                        == SomaGroupMemberState.PLANNED
+                        && planned.requireMember("left")
+                                .rootTableRuntimeMetadata() == null,
                 "explicit Group starts with frozen unallocated slots");
 
         StringSelectorRowTable left =
@@ -129,6 +134,15 @@ public final class BreadthConsumer {
                         && "left-v1".equals(left.dataVersion())
                         && "group-v1".equals(group.dataVersion()),
                 "attachment order and independent dataVersion markers");
+        check(attached.requireMember("left")
+                        .rootTableRuntimeMetadata() != null
+                        && attached.requireMember("left")
+                        .rootTableRuntimeMetadata().rows() == 1
+                        && attached.requireMember("left")
+                        .rootTableRuntimeMetadata().indexes().size() == 1
+                        && attached.requireMember("left")
+                        .rootTableRuntimeMetadata().uniques().size() == 1,
+                "Group member projects detached Table/access Runtime Metadata");
         expectCode("group_member_already_attached",
                 () -> StringSelectorRowTable.attach(group, "left"),
                 "stable member slot publishes once");
@@ -213,7 +227,11 @@ public final class BreadthConsumer {
                         && attached.requireMember("left").state()
                         == SomaGroupMemberState.ATTACHED
                         && group.metadata().requireMember("left").state()
-                        == SomaGroupMemberState.RELEASED,
+                        == SomaGroupMemberState.RELEASED
+                        && !attached.requireMember("left")
+                                .rootTableRuntimeMetadata().released()
+                        && group.metadata().requireMember("left")
+                                .rootTableRuntimeMetadata().released(),
                 "runtime Metadata snapshots are detached historical values");
         expectCode("group_released",
                 () -> StringSelectorRowTable.attach(group, "left"),
@@ -281,6 +299,19 @@ public final class BreadthConsumer {
                         && plan.effectiveMetadata()
                         .requireTable("StringSelectorRow").maximumRows() == 2,
                 "effective Plan exposes hint and hard row limit");
+        check(plan.effectiveMetadata()
+                        .requireTable("string_key_rows")
+                        .primaryLocatorLayout()
+                        == SomaPrimaryLocatorLayout.FLAT_COMPACT
+                        && "soma-primary-locator-layout-v1".equals(
+                        plan.effectiveMetadata()
+                                .requireTable("string_key_rows")
+                                .primaryLocatorLayoutFormulaIdentity())
+                        && plan.effectiveMetadata()
+                                .requireTable("StringSelectorRow")
+                                .primaryLocatorLayout()
+                                == SomaPrimaryLocatorLayout.NONE,
+                "effective Plan exposes the validated flat locator formula");
         expectIllegalState(
                 () -> editor.maximumRows(3),
                 "child Plan editor closes with parent");
@@ -448,7 +479,10 @@ public final class BreadthConsumer {
                         && keyStats.keySpaceCapacity() > 0
                         && keyStats.keySpaceUsed() >= keyed.size()
                         && keyStats.keySpaceProbeCount() > 0L
-                        && keyStats.keySpaceCollisionCount() > 0L,
+                        && keyStats.keySpaceCollisionCount() > 0L
+                        && keyStats.keySpaceStorageCurrentBytes() > 0L
+                        && keyStats.keySpaceStorageHighWaterBytes()
+                        >= keyStats.keySpaceStorageCurrentBytes(),
                 "String KeySpace capacity/probe/collision stats");
         int keyCapacity = keyStats.keySpaceCapacity();
         int keyUsed = keyStats.keySpaceUsed();
@@ -613,6 +647,84 @@ public final class BreadthConsumer {
         table.release();
     }
 
+    private static void verifyStringReferenceLifecycle() {
+        String originalLabel = new String("lifecycle-label");
+        String equalLabel = new String("lifecycle-label");
+        StringSelectorRowTable selectors = StringSelectorRowTable.create();
+        selectors.addBatch(new StringSelectorRowBatch()
+                .addValues(1, originalLabel));
+        check(selectors.fetchAt(0).label == originalLabel,
+                "String append preserves the caller reference");
+        assertGeneratedTableRetains(selectors, originalLabel, true);
+
+        long beforeNoOpEpoch = selectors.structuralEpoch();
+        selectors.mutateAt(0).setLabel(equalLabel).commit();
+        check(selectors.fetchAt(0).label == originalLabel
+                        && selectors.structuralEpoch() == beforeNoOpEpoch
+                        && selectors.statsSnapshot().lastChanged() == 0L,
+                "equal-value different-object String mutation is a no-op");
+        assertGeneratedTableRetains(selectors, equalLabel, false);
+
+        String replacementLabel = new String("replacement-label");
+        selectors.replaceAll(new StringSelectorRowBatch()
+                .addValues(2, replacementLabel));
+        check(selectors.fetchByUniqueLabel("replacement-label").label
+                        == replacementLabel,
+                "String replacement publishes the caller reference");
+        assertGeneratedTableRetains(selectors, originalLabel, false);
+        assertGeneratedTableRetains(selectors, replacementLabel, true);
+
+        String failedDuplicate = new String("replacement-label");
+        expectCode("unique_constraint_violation",
+                () -> selectors.addBatch(new StringSelectorRowBatch()
+                        .addValues(3, failedDuplicate)),
+                "failed String append does not publish a reference");
+        assertGeneratedTableRetains(selectors, failedDuplicate, false);
+
+        selectors.deleteByUniqueLabel(new String("replacement-label"));
+        assertGeneratedTableRetains(selectors, replacementLabel, false);
+
+        String clearedLabel = new String("clear-label");
+        selectors.addBatch(new StringSelectorRowBatch()
+                .addValues(4, clearedLabel));
+        selectors.clear();
+        assertGeneratedTableRetains(selectors, clearedLabel, false);
+
+        String releasedLabel = new String("release-label");
+        selectors.addBatch(new StringSelectorRowBatch()
+                .addValues(5, releasedLabel));
+        selectors.release();
+        assertGeneratedTableRetains(selectors, releasedLabel, false);
+
+        String keyReference = new String("key-reference");
+        String noteReference = new String("note-reference");
+        StringKeyRowTable keyed = StringKeyRowTable.create();
+        keyed.addBatch(new StringKeyRowBatch()
+                .addValues(keyReference, 1, true, noteReference));
+        StringKeyRow materialized = keyed.fetch(keyReference);
+        check(materialized.id == keyReference
+                        && materialized.note == noteReference,
+                "String Key/payload columns preserve caller references");
+        assertGeneratedTableRetains(keyed, keyReference, true);
+        assertGeneratedTableRetains(keyed, noteReference, true);
+        keyed.delete(new String("key-reference"));
+        assertGeneratedTableRetains(keyed, keyReference, false);
+        assertGeneratedTableRetains(keyed, noteReference, false);
+
+        String replacedKey = new String("replaced-key");
+        String replacedNote = new String("replaced-note");
+        keyed.addBatch(new StringKeyRowBatch()
+                .addValues(replacedKey, 2, true, replacedNote));
+        String nextKey = new String("next-key");
+        keyed.replaceAll(new StringKeyRowBatch()
+                .addValues(nextKey, 3, false, null));
+        assertGeneratedTableRetains(keyed, replacedKey, false);
+        assertGeneratedTableRetains(keyed, replacedNote, false);
+        assertGeneratedTableRetains(keyed, nextKey, true);
+        keyed.release();
+        assertGeneratedTableRetains(keyed, nextKey, false);
+    }
+
     private static void verifyFailedUpdateDoesNotRetainReferences() {
         FullRowBatch batch = new FullRowBatch();
         for (int index = 0; index < 2; index++) {
@@ -633,36 +745,54 @@ public final class BreadthConsumer {
         check("original-0".equals(table.fetchAt(0).name)
                         && "original-1".equals(table.fetchAt(1).name),
                 "failed update must not publish detached references");
-        assertGeneratedTableDoesNotRetain(table, sentinel);
+        assertGeneratedTableRetains(table, sentinel, false);
         table.release();
     }
 
-    private static void assertGeneratedTableDoesNotRetain(Object table, Object sentinel) {
+    private static void assertGeneratedTableRetains(
+            Object table, Object sentinel, boolean expected) {
         try {
+            boolean retained = false;
             for (Field field : table.getClass().getDeclaredFields()) {
+                if (Modifier.isStatic(field.getModifiers())) continue;
                 field.setAccessible(true);
                 Object value = field.get(table);
-                if (value instanceof String[]) {
-                    assertArrayDoesNotRetain((Object[]) value, sentinel, field.getName());
-                } else if (value != null
+                if (containsIdentity(value, sentinel)) {
+                    retained = true;
+                    break;
+                }
+                if (value != null
                         && value.getClass().getName().equals(
                         "com.hgtech.soma.runtime.generated.StringColumn")) {
-                    Field values = value.getClass().getDeclaredField("values");
-                    values.setAccessible(true);
-                    assertArrayDoesNotRetain((Object[]) values.get(value), sentinel,
-                            field.getName() + ".values");
+                    for (Field storage : value.getClass().getDeclaredFields()) {
+                        if (Modifier.isStatic(storage.getModifiers())) continue;
+                        storage.setAccessible(true);
+                        if (containsIdentity(storage.get(value), sentinel)) {
+                            retained = true;
+                            break;
+                        }
+                    }
+                }
+                if (retained) {
+                    break;
                 }
             }
+            check(retained == expected,
+                    expected
+                            ? "expected generated String storage to retain sentinel"
+                            : "generated String storage retained dead sentinel");
         } catch (ReflectiveOperationException failure) {
             throw new AssertionError("retained-reference oracle could not inspect storage", failure);
         }
     }
 
-    private static void assertArrayDoesNotRetain(
-            Object[] values, Object sentinel, String path) {
-        for (Object value : values) {
-            check(value != sentinel, "failed reference retained at " + path);
+    private static boolean containsIdentity(Object value, Object sentinel) {
+        if (value == sentinel) return true;
+        if (!(value instanceof Object[])) return false;
+        for (Object element : (Object[]) value) {
+            if (containsIdentity(element, sentinel)) return true;
         }
+        return false;
     }
 
     private static void expectCode(String code, Action action, String message) {

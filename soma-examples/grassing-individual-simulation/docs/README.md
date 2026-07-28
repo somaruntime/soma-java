@@ -8,7 +8,7 @@ Owner：grassing-individual-simulation
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 本应用是独立 Java 8 Maven consumer。它以
 `Config -> Scenario Factory -> Scenario -> Simulator/Session -> Result`

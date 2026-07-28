@@ -82,6 +82,49 @@ final class ExpandedProgram<
                 parents, childSource, access, combined);
     }
 
+    long maximumCardinality(ExecutionFrame frame, String operation) {
+        @SuppressWarnings("unchecked")
+        P parentBinding = (P) frame.binding(parents.source());
+        int maximumChildRows = access.maximumChildRows(parentBinding);
+        if (maximumChildRows < 0) {
+            throw DataFlowFailures.resource(
+                    "dataflow_unprovable_cardinality",
+                    parents.source().alias(),
+                    operation,
+                    access.identity());
+        }
+        long maximumParents =
+                parents.maximumCardinality(parentBinding);
+        if (maximumChildRows != 0
+                && maximumParents
+                > Long.MAX_VALUE / maximumChildRows) {
+            throw DataFlowFailures.resource(
+                    "dataflow_cardinality_overflow",
+                    parents.source().alias(),
+                    operation,
+                    access.identity());
+        }
+        return maximumParents * maximumChildRows;
+    }
+
+    void preflightOutput(
+            ExecutionFrame frame,
+            long bytesPerElement,
+            String operation) {
+        long maximum = maximumCardinality(frame, operation);
+        if (bytesPerElement < 0L
+                || bytesPerElement != 0L
+                && maximum > Long.MAX_VALUE / bytesPerElement) {
+            throw DataFlowFailures.resource(
+                    "dataflow_cardinality_overflow",
+                    parents.source().alias(),
+                    operation,
+                    access.identity());
+        }
+        frame.preflightDelivery(
+                maximum, maximum * bytesPerElement, operation);
+    }
+
     ExpandedVisit visit(
             ExecutionFrame frame,
             final ExpandedVisitor<C> visitor,
@@ -242,6 +285,8 @@ final class ExpandedIndexOperation<
     @Override
     public ExecutionOutcome<ExpandedIndexResult> execute(
             final ExecutionFrame frame) {
+        program.preflightOutput(
+                frame, 8L, "dataflow.expand.indexes.preflight");
         ExpandedVisit counted = program.visit(
                 frame,
                 new ExpandedVisitor<C>() {
@@ -323,6 +368,8 @@ final class ExpandedLongColumnOperation<
     @Override
     public ExecutionOutcome<LongColumnResult> execute(
             final ExecutionFrame frame) {
+        program.preflightOutput(
+                frame, 8L, "dataflow.expand.longColumn.preflight");
         ExpandedVisit counted = program.visit(
                 frame,
                 new ExpandedVisitor<C>() {

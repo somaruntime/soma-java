@@ -26,6 +26,7 @@ import com.hgtech.soma.runtime.RemoveResult;
 import com.hgtech.soma.runtime.RuntimePlan;
 import com.hgtech.soma.runtime.UpdateResult;
 import com.hgtech.soma.runtime.metadata.SomaExactAccess;
+import com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata;
 import com.hgtech.soma.runtime.generated.GroupedExactIndex;
 import com.hgtech.soma.runtime.generated.HashCompositeKeySpace;
 import com.hgtech.soma.dataflow.DataFlowContext;
@@ -39,6 +40,7 @@ public final class AccessConsumer {
 
     public static void main(String[] args) {
         verifyDataFlowConsumer();
+        verifyRuntimeMetadata();
         verifyUniqueBulkScratchBoundaries();
         verifyUniquePointFamily();
         expectCode("invalid_floating_access_value",
@@ -454,6 +456,43 @@ public final class AccessConsumer {
                 "composite unique point mutation failure is atomic");
 
         AccessOracleCheck.run();
+    }
+
+    private static void verifyRuntimeMetadata() {
+        AccessRecordTable table = AccessRecordTable.create();
+        table.addBatch(new AccessRecordBatch(2)
+                .addValues(10, 1, 7, 100)
+                .addValues(20, 2, 7, 200));
+        SomaTableRuntimeMetadata snapshot = table.runtimeMetadata();
+        require(snapshot.descriptor() == AccessRecordTable.metadata()
+                        && snapshot.rows() == 2
+                        && snapshot.indexes().size() == 2
+                        && snapshot.uniques().size() == 1
+                        && snapshot.requireIndex("by_state").entryCount() == 2L
+                        && snapshot.requireIndex("by_group").groupCount() == 1L
+                        && snapshot.requireUnique("by_code").entryCount() == 2L
+                        && snapshot.requireUnique("by_code")
+                                .retainedStructuralBytes() > 0L,
+                "Runtime Metadata exposes per-access physical bindings");
+        table.addBatch(new AccessRecordBatch(1)
+                .addValues(30, 3, 8, 300));
+        require(snapshot.rows() == 2
+                        && snapshot.requireIndex("by_state").entryCount() == 2L
+                        && table.runtimeMetadata().rows() == 3
+                        && table.runtimeMetadata().requireIndex("by_state")
+                                .entryCount() == 3L,
+                "Runtime Metadata access snapshots are detached historical values");
+        table.release();
+        SomaTableRuntimeMetadata terminal = table.runtimeMetadata();
+        require(terminal.released()
+                        && terminal.rows() == 0
+                        && terminal.capacity() == 0
+                        && terminal.segments().isEmpty()
+                        && terminal.requireUnique("by_code")
+                                .retainedStructuralBytes() == 0L
+                        && terminal.requireUnique("by_code")
+                                .structuralHighWaterBytes() > 0L,
+                "Runtime Metadata remains available after release");
     }
 
     private static void verifyDataFlowConsumer() {

@@ -90,7 +90,7 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
     @SuppressWarnings("unchecked")
     public ExecutionOutcome<R> execute(ExecutionFrame frame) {
         ExecutionOutcome<R> parallel =
-                ParallelCandidateExecution.longReduction(
+                CandidateParallelKernels.longReduction(
                         program, expression, kind, frame);
         if (parallel != null) {
             return parallel;
@@ -419,18 +419,20 @@ final class RegisteredLongReductionOperation<B extends DataFlowBinding>
         final DataFlowBinding binding = frame.binding(source);
         int cardinality = program.supportsContiguousParallel()
                 ? program.contiguousCardinality(binding) : 0;
-        ParallelPlan plan = ParallelExecution.plan(
+        MorselPlan plan = BoundedMorselScheduler.plan(
                 frame,
                 cardinality,
                 parallelEligible && program.supportsContiguousParallel(),
                 16L,
                 1,
+                binding.segmentRows(),
                 "dataflow.registeredLongReduce");
         if (plan.parallel()) {
-            List<RegisteredLongPartial> partials = ParallelExecution.run(
+            List<RegisteredLongPartial> partials =
+                    BoundedMorselScheduler.run(
                     frame,
                     plan,
-                    new ParallelWork<RegisteredLongPartial>() {
+                    new MorselWork<RegisteredLongPartial>() {
                         @Override
                         public RegisteredLongPartial execute(
                                 int partition,

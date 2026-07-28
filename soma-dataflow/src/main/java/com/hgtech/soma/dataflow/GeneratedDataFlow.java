@@ -6,7 +6,7 @@ import com.hgtech.soma.dataflow.generated.CandidateEffectAccess;
 import com.hgtech.soma.dataflow.generated.OwnedChildAccess;
 import com.hgtech.soma.dataflow.generated.PointIndexAccess;
 import com.hgtech.soma.dataflow.generated.SnapshotGatherAccess;
-import com.hgtech.soma.dataflow.generated.CandidateBorrowAccess;
+import com.hgtech.soma.dataflow.generated.CandidateDeliveryAccess;
 import com.hgtech.soma.dataflow.generated.CandidateMaterializationAccess;
 import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.MaterializationBudget;
@@ -23,8 +23,8 @@ import java.util.List;
  * protocol directly.</p>
  */
 public final class GeneratedDataFlow {
-    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v2";
-    public static final String KERNEL_PROTOCOL = "soma-kernel-v1";
+    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v3";
+    public static final String KERNEL_PROTOCOL = "soma-kernel-v4";
 
     private GeneratedDataFlow() {
     }
@@ -74,19 +74,22 @@ public final class GeneratedDataFlow {
                                 source, snapshot, access)));
     }
 
-    public static <B extends DataFlowBinding>
-    DataFlowDefinition<LongScalarResult> borrow(
+    public static <B extends DataFlowBinding, V>
+    CallbackDeliveryDefinition<V> deliver(
             SourceSlot<B> source,
             CandidateFlow<B> candidates,
-            CandidateBorrowAccess<B> access,
-            Object consumer) {
+            CandidateDeliveryAccess<B, V> access,
+            Class<V> visitorType) {
         CandidateProgram<B> program =
-                requireCandidateSource(source, candidates, "borrow");
-        return DataFlowDefinition.of(
-                new CandidateBorrowOperation<B>(
+                requireCandidateSource(source, candidates, "deliver");
+        ParameterSlot<V> visitor =
+                ParameterSlot.callback(required(visitorType, "visitorType"));
+        return CallbackDeliveryDefinition.of(
+                new CandidateDeliveryOperation<B, V>(
                         program,
                         required(access, "access"),
-                        required(consumer, "consumer")));
+                        visitor),
+                visitor);
     }
 
     public static <B extends DataFlowBinding, T>

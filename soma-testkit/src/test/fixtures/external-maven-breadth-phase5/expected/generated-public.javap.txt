@@ -206,6 +206,7 @@ public final class com.example.soma.breadth.generated.FullRowTable {
   public com.hgtech.soma.runtime.IntColumnView optionalScalarValueColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## FullRowUpdateCursor
 Compiled from "FullRowUpdateCursor.java"
@@ -406,6 +407,7 @@ public final class com.example.soma.breadth.generated.StringKeyRowTable {
   public com.hgtech.soma.runtime.IntColumnView valueColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## StringKeyRowUpdateCursor
 Compiled from "StringKeyRowUpdateCursor.java"
@@ -522,6 +524,7 @@ public final class com.example.soma.breadth.generated.StringParentTable {
   public com.hgtech.soma.runtime.IntColumnView idColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## StringParentUpdateCursor
 Compiled from "StringParentUpdateCursor.java"
@@ -647,6 +650,7 @@ public final class com.example.soma.breadth.generated.StringSelectorRowTable {
   public com.hgtech.soma.runtime.IntColumnView idColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }
 ## StringSelectorRowUpdateCursor
 Compiled from "StringSelectorRowUpdateCursor.java"

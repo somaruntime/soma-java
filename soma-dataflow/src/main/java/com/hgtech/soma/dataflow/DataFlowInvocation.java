@@ -228,6 +228,10 @@ public final class DataFlowInvocation<R> {
         long output = 0L;
         int tasks = 0;
         int workers = 0;
+        ResultDeliveryMode deliveryMode =
+                template.definition().operation().resultDeliveryMode();
+        long deliveredElements = 0L;
+        boolean deliveryCompleted = false;
         String failureCode = "";
         String failurePhase = "";
         String currentPhase = "bind";
@@ -261,6 +265,14 @@ public final class DataFlowInvocation<R> {
             tasks = outcome.tasks;
             workers = outcome.workers;
             R result = outcome.result;
+            if (result instanceof DeliveryResult) {
+                DeliveryResult delivered = (DeliveryResult) result;
+                deliveredElements = delivered.deliveredElements();
+                deliveryCompleted = delivered.completed();
+            } else {
+                deliveredElements = output;
+                deliveryCompleted = true;
+            }
             if (outcome.effect != null) {
                 currentPhase = "effect-preflight";
                 SomaRuntimeException releaseFailure =
@@ -322,6 +334,13 @@ public final class DataFlowInvocation<R> {
                     cleanup = append(cleanup, failure);
                 }
             }
+            if (frame != null) {
+                try {
+                    frame.closeLedger();
+                } catch (SomaRuntimeException failure) {
+                    cleanup = append(cleanup, failure);
+                }
+            }
             if (cleanup != null) {
                 if (primary != null) {
                     primary.addSuppressed(cleanup);
@@ -341,7 +360,12 @@ public final class DataFlowInvocation<R> {
                     failureCode,
                     failurePhase,
                     tasks,
-                    workers);
+                    workers,
+                    deliveryMode,
+                    state == State.COMPLETED
+                            ? deliveredElements : 0L,
+                    state == State.COMPLETED
+                            && deliveryCompleted);
             if (cleanup != null && primary == null) {
                 throw cleanup;
             }
@@ -513,7 +537,10 @@ public final class DataFlowInvocation<R> {
             String failureCode,
             String failurePhase,
             int tasks,
-            int workers) {
+            int workers,
+            ResultDeliveryMode deliveryMode,
+            long deliveredElements,
+            boolean deliveryCompleted) {
         StatsMode mode = policy.statsMode();
         if (mode == StatsMode.OFF) {
             return null;
@@ -534,11 +561,25 @@ public final class DataFlowInvocation<R> {
                 outcome,
                 failureCode,
                 failurePhase,
-                frame == null ? 0L : frame.scratchBytes(),
-                frame == null ? 0L : frame.outputBytes(),
+                InvocationLedger.IDENTITY,
+                frame == null ? 0L : frame.sharedScratchCurrentBytes(),
+                frame == null ? 0L : frame.sharedScratchHighWaterBytes(),
+                frame == null ? 0L : frame.workerScratchCurrentBytes(),
+                frame == null ? 0L : frame.workerScratchHighWaterBytes(),
+                frame == null ? 0L : frame.outputCurrentBytes(),
+                frame == null ? 0L : frame.outputHighWaterBytes(),
+                frame == null ? 0L : frame.outputCurrentElements(),
+                frame == null ? 0L : frame.outputHighWaterElements(),
+                frame == null ? 0 : frame.taskCurrent(),
+                frame == null ? 0 : frame.taskHighWater(),
+                frame == null ? 0 : frame.workerCurrent(),
+                frame == null ? 0 : frame.workerHighWater(),
                 budget.maximumInvocationScratchBytes(),
                 budget.maximumOutputBytes(),
-                budget.maximumOutputElements());
+                budget.maximumOutputElements(),
+                deliveryMode,
+                deliveredElements,
+                deliveryCompleted);
     }
 
     private String parameterSummary() {

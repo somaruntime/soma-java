@@ -18,9 +18,14 @@ import com.hgtech.soma.benchmarks.schema.generated.NumericFactDataFlow;
 import com.hgtech.soma.benchmarks.schema.generated.NumericFactScan;
 import com.hgtech.soma.benchmarks.schema.generated.NumericFactTable;
 import com.hgtech.soma.dataflow.BooleanScalarResult;
+import com.hgtech.soma.dataflow.CallbackDeliveryDefinition;
+import com.hgtech.soma.dataflow.CallbackDeliveryInvocation;
 import com.hgtech.soma.dataflow.DataFlowContext;
 import com.hgtech.soma.dataflow.DataFlowDefinition;
 import com.hgtech.soma.dataflow.DataFlowInvocation;
+import com.hgtech.soma.dataflow.DeliveryResult;
+import com.hgtech.soma.dataflow.ResultDeliveryMode;
+import com.hgtech.soma.dataflow.ExecutionBudget;
 import com.hgtech.soma.dataflow.LongScalarResult;
 import com.hgtech.soma.dataflow.ParameterSlot;
 import com.hgtech.soma.runtime.IndexSnapshot;
@@ -29,7 +34,7 @@ import com.hgtech.soma.runtime.SomaRuntimeException;
 
 import java.util.List;
 
-/** Stage 4 Slice E 的 Point、gather、borrow 与 materialize evidence。 */
+/** Stage 4 Slice E 的 Point、gather、callback delivery 与 materialize evidence。 */
 public final class DataFlowSliceECheck {
     private DataFlowSliceECheck() {
     }
@@ -54,22 +59,52 @@ public final class DataFlowSliceECheck {
                 "current Index point shape");
 
         final long[] borrowed = new long[1];
-        LongScalarResult borrowedCount = execute(
-                source.borrow(
+        final CallbackDeliveryDefinition<NumericFactScan.Visitor> delivery =
+                source.deliver(
                         source.candidates()
                                 .filter(source.columns().factIndex()
-                                        .greaterThanOrEqualTo(5L)),
-                        new NumericFactScan.Consumer() {
-                            @Override
-                            public void accept(NumericFactCursor candidate) {
-                                borrowed[0] += candidate.entityId();
-                            }
-                        }),
+                                        .greaterThanOrEqualTo(5L)));
+        CallbackDeliveryDefinition<NumericFactScan.Visitor> equivalent =
+                source.deliver(
+                        source.candidates()
+                                .filter(source.columns().factIndex()
+                                        .greaterThanOrEqualTo(5L)));
+        require(delivery.identity().equals(equivalent.identity()),
+                "visitor instance is excluded from Definition identity");
+        DeliveryResult borrowedCount = executeDelivery(
+                delivery,
                 source,
-                table);
-        require(borrowedCount.value() == 3L
+                table,
+                new NumericFactScan.Visitor() {
+                    @Override
+                    public boolean visit(NumericFactCursor candidate) {
+                        borrowed[0] += candidate.entityId();
+                        return true;
+                    }
+                });
+        require(borrowedCount.deliveredElements() == 3L
+                        && borrowedCount.completed()
                         && borrowed[0] == 105L + 106L + 107L,
-                "generated cursor borrowed traversal");
+                "generated cursor callback delivery");
+
+        DeliveryResult stopped = executeDelivery(
+                delivery,
+                source,
+                table,
+                new NumericFactScan.Visitor() {
+                    @Override
+                    public boolean visit(NumericFactCursor candidate) {
+                        return false;
+                    }
+                });
+        require(stopped.deliveredElements() == 1L && !stopped.completed(),
+                "callback delivery early stop");
+        expectDeliveryPreflight(delivery, source, table);
+        expectMissingVisitor(delivery, source, table);
+        expectDeliveryFailureCleanup(delivery, source, table);
+        verifyStreamingLedger(delivery, source, table);
+        require(table.size() == 8,
+                "callback failure releases cursor, Table guard and Invocation");
 
         List<com.hgtech.soma.benchmarks.schema.NumericFact> materialized =
                 execute(
@@ -206,6 +241,144 @@ public final class DataFlowSliceECheck {
                     .newInvocation(context)
                     .bind(source, NumericFactDataFlow.bind(table))
                     .execute();
+        } finally {
+            context.close();
+        }
+    }
+
+    private static DeliveryResult executeDelivery(
+            CallbackDeliveryDefinition<NumericFactScan.Visitor> definition,
+            NumericFactDataFlow.Source source,
+            NumericFactTable table,
+            NumericFactScan.Visitor visitor) {
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            return definition.compile()
+                    .newInvocation(context)
+                    .bind(source, NumericFactDataFlow.bind(table))
+                    .visitor(visitor)
+                    .execute();
+        } finally {
+            context.close();
+        }
+    }
+
+    private static void expectDeliveryPreflight(
+            CallbackDeliveryDefinition<NumericFactScan.Visitor> definition,
+            NumericFactDataFlow.Source source,
+            NumericFactTable table) {
+        final int[] callbacks = new int[1];
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            CallbackDeliveryInvocation<NumericFactScan.Visitor> invocation =
+                    definition.compile().newInvocation(context)
+                            .bind(source, NumericFactDataFlow.bind(table))
+                            .visitor(new NumericFactScan.Visitor() {
+                                @Override
+                                public boolean visit(
+                                        NumericFactCursor candidate) {
+                                    callbacks[0]++;
+                                    return true;
+                                }
+                            })
+                            .budget(ExecutionBudget.defaults().toBuilder()
+                                    .maximumOutputElements(2L)
+                                    .build());
+            try {
+                invocation.execute();
+                throw new AssertionError(
+                        "delivery budget must fail before callback");
+            } catch (SomaRuntimeException expected) {
+                require("dataflow_output_budget_exceeded".equals(
+                                expected.code())
+                                && callbacks[0] == 0,
+                        "delivery preflight precedes callback");
+            }
+        } finally {
+            context.close();
+        }
+    }
+
+    private static void expectMissingVisitor(
+            CallbackDeliveryDefinition<NumericFactScan.Visitor> definition,
+            NumericFactDataFlow.Source source,
+            NumericFactTable table) {
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            try {
+                definition.compile().newInvocation(context)
+                        .bind(source, NumericFactDataFlow.bind(table))
+                        .execute();
+                throw new AssertionError("missing visitor must fail");
+            } catch (SomaRuntimeException expected) {
+                require("dataflow_parameter_cardinality".equals(
+                                expected.code()),
+                        "visitor is a required Invocation parameter");
+            }
+        } finally {
+            context.close();
+        }
+    }
+
+    private static void expectDeliveryFailureCleanup(
+            CallbackDeliveryDefinition<NumericFactScan.Visitor> definition,
+            NumericFactDataFlow.Source source,
+            NumericFactTable table) {
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            try {
+                definition.compile().newInvocation(context)
+                        .bind(source, NumericFactDataFlow.bind(table))
+                        .visitor(new NumericFactScan.Visitor() {
+                            @Override
+                            public boolean visit(
+                                    NumericFactCursor candidate) {
+                                throw new IllegalStateException("boom");
+                            }
+                        })
+                        .execute();
+                throw new AssertionError("callback failure must propagate");
+            } catch (SomaRuntimeException expected) {
+                require("callback_failed".equals(expected.code()),
+                        "generated callback failure identity");
+            }
+        } finally {
+            context.close();
+        }
+    }
+
+    private static void verifyStreamingLedger(
+            CallbackDeliveryDefinition<NumericFactScan.Visitor> definition,
+            NumericFactDataFlow.Source source,
+            NumericFactTable table) {
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            CallbackDeliveryInvocation<NumericFactScan.Visitor> invocation =
+                    definition.compile().newInvocation(context)
+                            .bind(source, NumericFactDataFlow.bind(table))
+                            .visitor(new NumericFactScan.Visitor() {
+                                @Override
+                                public boolean visit(
+                                        NumericFactCursor candidate) {
+                                    return true;
+                                }
+                            });
+            invocation.execute();
+            require(invocation.stats().sharedScratchHighWaterBytes() == 0L
+                            && invocation.stats()
+                                    .workerScratchHighWaterBytes() == 0L
+                            && invocation.stats().outputHighWaterBytes() == 0L
+                            && invocation.stats().taskCurrent() == 0
+                            && invocation.stats().workerCurrent() == 0
+                            && invocation.stats().delivery().mode()
+                            == ResultDeliveryMode.CALLBACK_SCOPED
+                            && invocation.stats().delivery()
+                                    .deliveredElements() == 3L
+                            && invocation.stats().delivery().completed()
+                            && invocation.stats().resources()
+                                    .invocationLedgerIdentity()
+                                    .equals("soma-invocation-ledger-v1"),
+                    "streaming Candidate delivery avoids universal vector");
         } finally {
             context.close();
         }

@@ -10,7 +10,9 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：`515bf91`
+最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
+`6cde5d5`；production/evidence source
+`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
 
 最后审查日期：2026-07-28
 
@@ -29,7 +31,7 @@ Owner：SOMA compiler/codegen 实现导航
 | Table emitter | [`DenseTableSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseTableSourceEmitter.java) | packed Table implementation |
 | auxiliary emitter | [`DenseAuxiliarySourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseAuxiliarySourceEmitter.java) | Cursor/UpdateCursor/Batch/Mutator/KeyTraversal/Scan facade |
 | DataFlow emitter | [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseDataFlowSourceEmitter.java) | 每 Table 一个 typed Source/Binding/Expression companion |
-| Metadata emitter | [`DenseMetadataSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseMetadataSourceEmitter.java) | 每 Schema 一个 immutable `SchemaMetadata` companion、Descriptor projection 与 default Plan 入口 |
+| Metadata emitter | [`DenseMetadataSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseMetadataSourceEmitter.java) | 每 Schema 一个 immutable `SchemaMetadata` companion、完整 Descriptor projection 与 default Plan 入口 |
 | exact-index emitter | [`DenseExactIndexSourceEmitter.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseExactIndexSourceEmitter.java) | exact-index runtime source片段；保持byte-stable output |
 | selector source support | [`DenseSelectorSourceSupport.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseSelectorSourceSupport.java) | emitter 共享的 source arguments、comparison、change 与 unique support |
 | Scan execution support | [`DenseScanExecutionSourceSupport.java`](../../soma-processor/src/main/java/com/hgtech/soma/processor/DenseScanExecutionSourceSupport.java) | 写入 Table artifact 的 Candidate Scan terminal executor source |
@@ -49,10 +51,12 @@ protocol投影，不再生成 generic Object value family。Descriptor 的 immut
 processor-owned descriptor。
 
 `SchemaMetadata.newPlan()` 当前通过 generated-only `GeneratedRuntimePlan` bridge
-播种 runtime plan v4。每个 Table 默认使用至少16的有效initial capacity、
+播种 runtime plan v6。每个 Table 默认使用至少16的有效initial capacity、
 non-binding planning rows、按schema structural bytes估算的保守hard maximum rows、
-closed `FLAT`/locator/exact-access identity；含String column的Table声明String
-capability并默认 `UNPROFILED`。Application只能通过metadata-scoped table editor
+closed locator/exact-access identity，以及由generated structural row width、
+application workload与planning rows解析的storage-layout formula和只产生
+`NONE`/`FLAT_COMPACT`的primary-locator layout formula；含String
+column的Table声明String capability并默认 `UNPROFILED`。Application只能通过metadata-scoped table editor
 覆盖已开放的cold control-plane参数，不能构造raw descriptor或写入free-form
 physical strategy。
 
@@ -62,10 +66,17 @@ private construction、ledger bind和publish-once；后者复用同一协议建�
 生成 public Table 不泄漏 `GroupLedger`、`TableLedger` 或 `GroupMembership`，
 这些类型只属于generator binding protocol。
 
+每个 generated Table 同时公开 detached `runtimeMetadata()`，把 Descriptor、
+Effective Plan、当前 Table/Segment topology、primary locator、Unique/Index、
+structural current/high-water、rows/epoch/lifecycle投影为完整 Metadata read model。
+生成器在 binding 时冻结 owned-child maximum rows，Expand 的资源 admission 不在
+执行期重入 public `runtimePlan()`。Metadata 只在operation boundary投影，逐行
+access/scan/mutation不解释Metadata。
+
 Table artifact 内部生成一组私有 failure-routing helper：structured `INTERNAL`
 进入 aggregate fault，expected structured failure正常关闭 operation，raw
 unexpected failure fail closed。Table、Auxiliary、Scan、Selector 和 Exact emitter
-都投影到这一处规则；helper 只调用 current runtime v7 protocol，不进入 generated
+都投影到这一处规则；helper 只调用 current runtime v11 protocol，不进入 generated
 public signature。
 
 Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免 Zulu

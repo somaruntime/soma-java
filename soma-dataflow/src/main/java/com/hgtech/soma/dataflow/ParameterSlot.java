@@ -11,8 +11,9 @@ public final class ParameterSlot<T> {
     private final String name;
     private final Class<T> type;
 
-    private ParameterSlot(int ordinal, String name, Class<T> type) {
-        if (ordinal < 0) {
+    private ParameterSlot(
+            int ordinal, String name, Class<T> type, boolean internal) {
+        if (ordinal < 0 && !internal) {
             throw new IllegalArgumentException("ordinal must be non-negative");
         }
         this.ordinal = ordinal;
@@ -25,7 +26,12 @@ public final class ParameterSlot<T> {
 
     public static <T> ParameterSlot<T> of(
             int ordinal, String name, Class<T> type) {
-        return new ParameterSlot<T>(ordinal, name, type);
+        return new ParameterSlot<T>(ordinal, name, type, false);
+    }
+
+    static <T> ParameterSlot<T> callback(Class<T> type) {
+        return new ParameterSlot<T>(
+                -1, "delivery.visitor", type, true);
     }
 
     public int ordinal() {

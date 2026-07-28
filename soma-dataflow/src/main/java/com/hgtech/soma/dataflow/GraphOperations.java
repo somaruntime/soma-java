@@ -251,12 +251,20 @@ final class GraphOperation implements DataFlowOperation<DataFlowResults> {
             final ExecutionFrame frame) {
         final Object[] values = frame.newOutputObjects(
                 outputs.size(), "dataflow.graph.results");
-        ParallelPlan plan = ParallelPlan.create(
-                uniqueOperations.size(), uniqueOperations.size());
-        List<ExecutionOutcome<?>> outcomes = ParallelExecution.run(
+        int workers = Math.min(
+                uniqueOperations.size(),
+                Math.min(
+                        frame.context().workers(),
+                        frame.budget().maximumWorkers()));
+        MorselPlan plan = MorselPlan.create(
+                uniqueOperations.size(),
+                uniqueOperations.size(),
+                workers,
+                0L);
+        List<ExecutionOutcome<?>> outcomes = BoundedMorselScheduler.run(
                 frame,
                 plan,
-                new ParallelWork<ExecutionOutcome<?>>() {
+                new MorselWork<ExecutionOutcome<?>>() {
                     @Override
                     public ExecutionOutcome<?> execute(
                             int partition,

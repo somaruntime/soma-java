@@ -701,7 +701,7 @@ final class DenseAuxiliarySourceEmitter {
                 .append("  private String sourcePath(){return plan.sourcePath();}\n")
                 .append("  static class Source extends GeneratedScanPlan{private ").append(table.name("Table")).append(" table;Source(").append(table.name("Table")).append(" table,String sourcePath){super(sourcePath);this.table=table;}final ").append(table.name("Table")).append(" table(){return table;}int size(){return table.size();}int rowAt(int position){return position;}protected void clearSource(){table=null;}}\n");
         appendScanSources(out, table);
-        out.append("  public interface Predicate{boolean test(").append(row).append(" candidate);}\n  public interface Consumer{void accept(").append(row).append(" candidate);}\n  public interface Updater{void update(").append(mutable).append(" candidate);}\n  public interface Comparator{int compare(").append(row).append(" left,").append(row).append(" right);}\n")
+        out.append("  public interface Predicate{boolean test(").append(row).append(" candidate);}\n  public interface Consumer{void accept(").append(row).append(" candidate);}\n  public interface Visitor{boolean visit(").append(row).append(" candidate);}\n  public interface Updater{void update(").append(mutable).append(" candidate);}\n  public interface Comparator{int compare(").append(row).append(" left,").append(row).append(" right);}\n")
                 .append("  static final class Cursor implements ").append(row).append(" {\n    protected final ").append(table.name("Table")).append(" table;protected int row;protected boolean active;Cursor(").append(table.name("Table")).append(" table){this.table=table;}void open(int row){this.row=row;active=true;}void close(){active=false;}void valid(){if(!active)throw table.internalInvariant(\"escaped_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
         appendCursorMethods(out, table, false);
         out.append("  }\n\n  static final class MutableCursor implements ").append(mutable).append(" {\n    private final ").append(table.name("Table")).append(" table; private int scratch,row; private boolean active; MutableCursor(").append(table.name("Table")).append(" table){this.table=table;} void open(int scratch,int row){this.scratch=scratch;this.row=row;active=true;} void close(){active=false;} void valid(){if(!active)throw table.internalInvariant(\"escaped_update_cursor\",").append(q(table.logicalName)).append(",\"cursor\");}\n");
@@ -945,7 +945,15 @@ final class DenseAuxiliarySourceEmitter {
                     .append("Present[size]=").append(child.javaName)
                     .append("IsPresent;");
         }
-        out.append("size++;}\n")
+        out.append("size++;}\n");
+        if (table.keyed()) {
+            FieldSpec key = table.keyField();
+            out.append("  void appendKeyOnly(")
+                    .append(key.primitive).append(" key){ensureOne();set")
+                    .append(cap(key.javaName))
+                    .append("(size,key);size++;}\n");
+        }
+        out
                 .append("  void appendFrom(").append(batch)
                 .append(" source,int sourceRow){checkSourceRow(source,sourceRow);ensureOne();copyRow(source,sourceRow,size,true);size++;}\n")
                 .append("  void replaceFrom(int targetRow,").append(batch)

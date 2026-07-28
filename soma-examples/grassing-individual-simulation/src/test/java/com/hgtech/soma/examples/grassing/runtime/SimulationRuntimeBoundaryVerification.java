@@ -5,6 +5,7 @@ import com.hgtech.soma.examples.grassing.schema.BehaviourMode;
 import com.hgtech.soma.examples.grassing.schema.GrasserId;
 import com.hgtech.soma.examples.grassing.schema.generated.GrasserStateBatch;
 import com.hgtech.soma.runtime.IndexSnapshot;
+import com.hgtech.soma.runtime.SomaGroupState;
 
 /** reference application 边界上的 key、Index 与 lifecycle 负路径。 */
 public final class SimulationRuntimeBoundaryVerification {
@@ -15,6 +16,10 @@ public final class SimulationRuntimeBoundaryVerification {
     SimulationRuntime runtime =
         new SimulationRuntimeFactory().create(scenario);
     try {
+      require(runtime.runtimeMetadata().explicit()
+              && runtime.runtimeMetadata().members().size() == 2
+              && runtime.runtimeMetadata().currentTableInstances() == 2L,
+          "simulation explicit Group topology");
       SimulationRuntimeTestAccess.verifyProjection(scenario, runtime);
       SimulationEngine engine = new SimulationEngine(runtime);
       IndexSnapshot current = runtime.grassers.indexSnapshot();
@@ -62,6 +67,10 @@ public final class SimulationRuntimeBoundaryVerification {
     } finally {
       runtime.close();
     }
+    require(runtime.runtimeMetadata().state() == SomaGroupState.RELEASED
+            && runtime.runtimeMetadata().currentStructuralBytes() == 0L
+            && runtime.runtimeMetadata().currentTableInstances() == 0L,
+        "simulation Group terminal snapshot");
     expectFailure(new Action() {
       @Override
       public void run() {

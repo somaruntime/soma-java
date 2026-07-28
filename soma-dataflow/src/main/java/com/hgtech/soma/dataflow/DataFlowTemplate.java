@@ -6,7 +6,7 @@ package com.hgtech.soma.dataflow;
  * <p>A template is reusable and remains unbound to live Table state.</p>
  */
 public final class DataFlowTemplate<R> {
-    static final String PLANNER_POLICY = "soma-planner-v1";
+    static final String PLANNER_POLICY = "soma-planner-v4";
 
     private final DataFlowDefinition<R> definition;
     private final String identity;
@@ -18,7 +18,11 @@ public final class DataFlowTemplate<R> {
                         + definition.identity() + "\n"
                         + GeneratedDataFlow.TRANSFORMATION_PROTOCOL + "\n"
                         + GeneratedDataFlow.KERNEL_PROTOCOL + "\n"
-                        + PLANNER_POLICY + "\n");
+                        + PLANNER_POLICY + "\n"
+                        + CandidatePhysicalFormula.IDENTITY + "\n"
+                        + RelationStrategyFormula.IDENTITY + "\n"
+                        + MorselSchedulerFormula.IDENTITY + "\n"
+                        + InvocationLedger.IDENTITY + "\n");
     }
 
     public String identity() {

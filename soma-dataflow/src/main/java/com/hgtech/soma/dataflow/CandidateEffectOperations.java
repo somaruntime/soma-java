@@ -83,7 +83,7 @@ final class CandidateUpdateOperation<B extends DataFlowBinding>
     public ExecutionOutcome<UpdateResult> execute(
             ExecutionFrame frame) {
         ParallelCandidateSelection parallel =
-                ParallelCandidateExecution.select(
+                CandidateParallelKernels.select(
                         program, frame, "dataflow.update.freeze");
         CandidateSelection selected = parallel == null
                 ? program.select(frame, "dataflow.update.freeze")
@@ -93,7 +93,8 @@ final class CandidateUpdateOperation<B extends DataFlowBinding>
                         parallel.scanned);
         final B binding = binding(frame);
         final long expectedEpoch = binding.structuralEpoch();
-        final int[] indexes = selected.indexes;
+        final int[] indexes = selected.materializedIndexes(
+                frame, "dataflow.update.indexes");
         final int count = selected.size;
         return ExecutionOutcome.effect(
                 new DeferredEffect<UpdateResult>() {
@@ -149,7 +150,7 @@ final class CandidateRemoveOperation<B extends DataFlowBinding>
     public ExecutionOutcome<RemoveResult> execute(
             ExecutionFrame frame) {
         ParallelCandidateSelection parallel =
-                ParallelCandidateExecution.select(
+                CandidateParallelKernels.select(
                         program, frame, "dataflow.remove.freeze");
         CandidateSelection selected = parallel == null
                 ? program.select(frame, "dataflow.remove.freeze")
@@ -159,7 +160,8 @@ final class CandidateRemoveOperation<B extends DataFlowBinding>
                         parallel.scanned);
         final B binding = binding(frame);
         final long expectedEpoch = binding.structuralEpoch();
-        final int[] indexes = selected.indexes;
+        final int[] indexes = selected.materializedIndexes(
+                frame, "dataflow.remove.indexes");
         final int count = selected.size;
         return ExecutionOutcome.effect(
                 new DeferredEffect<RemoveResult>() {

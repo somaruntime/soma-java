@@ -73,14 +73,14 @@ final class JoinPrepared<
             if ((leftPosition & 1023) == 0) {
                 frame.checkBoundary("dataflow.join");
             }
-            int leftIndex = left.indexes[leftPosition];
+            int leftIndex = left.indexAt(leftPosition);
             int bucket = bucket(
                     leftKey.hash(frame, leftBinding, leftIndex), mask);
             boolean matched = false;
             for (int rightPosition = buckets[bucket];
                  rightPosition >= 0;
                  rightPosition = next[rightPosition]) {
-                int rightIndex = right.indexes[rightPosition];
+                int rightIndex = right.indexAt(rightPosition);
                 if (!leftKey.equal(
                         frame,
                         leftBinding,
@@ -218,7 +218,8 @@ abstract class JoinOperation<
     @Override
     public final String physicalPlan() {
         return "left-driven-hash-join[stable-right-chain,"
-                + (stages.isEmpty() ? "stream" : "joined-stage-buffer")
+                + (stages.hasSort()
+                ? "sort-barrier" : "stage-fused-stream")
                 + "," + terminal() + "]";
     }
 
@@ -239,7 +240,7 @@ abstract class JoinOperation<
         Arrays.fill(buckets, -1);
         int mask = bucketCapacity - 1;
         for (int position = rightSelection.size - 1; position >= 0; position--) {
-            int index = rightSelection.indexes[position];
+            int index = rightSelection.indexAt(position);
             long hash = rightKey.hash(frame, rightBinding, index);
             int bucket = ((int) (hash ^ (hash >>> 32))) & mask;
             next[position] = buckets[bucket];
@@ -511,32 +512,36 @@ final class JoinLeftIndexOperation<
     }
 }
 
-final class JoinBorrowOperation<
+final class JoinDeliveryOperation<
         L extends DataFlowBinding, R extends DataFlowBinding>
-        extends JoinOperation<L, R, LongScalarResult> {
-    private final JoinedIndexConsumer consumer;
-    private final long opaqueIdentity;
+        extends JoinOperation<L, R, DeliveryResult> {
+    private final ParameterSlot<JoinedIndexVisitor> visitorSlot;
 
-    JoinBorrowOperation(
+    JoinDeliveryOperation(
             CandidateProgram<L> left,
             CandidateProgram<R> right,
             KeyExpression<L> leftKey,
             KeyExpression<R> rightKey,
             JoinType type,
-            JoinedIndexConsumer consumer) {
-        super(left, right, leftKey, rightKey, type);
-        this.consumer = consumer;
-        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
+            ParameterSlot<JoinedIndexVisitor> visitorSlot) {
+        super(
+                left,
+                right,
+                leftKey,
+                rightKey,
+                type,
+                Collections.<ParameterSlot<?>>singletonList(visitorSlot));
+        this.visitorSlot = visitorSlot;
     }
 
-    JoinBorrowOperation(
+    JoinDeliveryOperation(
             CandidateProgram<L> left,
             CandidateProgram<R> right,
             KeyExpression<L> leftKey,
             KeyExpression<R> rightKey,
             JoinType type,
             JoinedStagePlan<L, R> stages,
-            JoinedIndexConsumer consumer) {
+            ParameterSlot<JoinedIndexVisitor> visitorSlot) {
         super(
                 left,
                 right,
@@ -544,19 +549,42 @@ final class JoinBorrowOperation<
                 rightKey,
                 type,
                 stages,
-                Collections.<ParameterSlot<?>>emptyList());
-        this.consumer = consumer;
-        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
+                Collections.<ParameterSlot<?>>singletonList(visitorSlot));
+        this.visitorSlot = visitorSlot;
     }
 
     @Override
     String terminal() {
-        return "borrow(opaque-instance-" + opaqueIdentity + ")";
+        return "deliver(joined-index)";
     }
 
     @Override
-    public ExecutionOutcome<LongScalarResult> execute(ExecutionFrame frame) {
+    public ResultDeliveryMode resultDeliveryMode() {
+        return ResultDeliveryMode.CALLBACK_SCOPED;
+    }
+
+    @Override
+    public ExecutionOutcome<DeliveryResult> execute(ExecutionFrame frame) {
+        long leftMaximum =
+                left.maximumCardinality(frame.binding(left.source()));
+        long rightMaximum =
+                right.maximumCardinality(frame.binding(right.source()));
+        long maximum = type == JoinType.LEFT_SEMI
+                || type == JoinType.LEFT_ANTI
+                ? leftMaximum
+                : multiplySaturated(
+                        leftMaximum,
+                        type == JoinType.LEFT_OUTER
+                                ? Math.max(1L, rightMaximum)
+                                : rightMaximum);
+        maximum = stages.upperBound(maximum);
+        frame.preflightDelivery(
+                maximum,
+                multiplySaturated(maximum, 9L),
+                "dataflow.join.deliver");
         JoinPrepared<L, R> prepared = prepare(frame);
+        final JoinedIndexVisitor visitor = frame.parameter(visitorSlot);
+        final boolean[] completed = new boolean[] {true};
         long count = prepared.enumerate(
                 frame,
                 new JoinMatchConsumer() {
@@ -566,28 +594,35 @@ final class JoinBorrowOperation<
                             boolean rightPresent,
                             int rightIndex) {
                         try {
-                            consumer.accept(
+                            boolean more = visitor.visit(
                                     leftIndex, rightPresent, rightIndex);
-                            return true;
+                            if (!more) completed[0] = false;
+                            return more;
                         } catch (SomaRuntimeException failure) {
                             throw failure;
                         } catch (RuntimeException failure) {
                             throw DataFlowFailures.callback(
-                                    "dataflow_join_consumer_failed",
+                                    "dataflow_join_delivery_callback",
                                     "joined",
-                                    "dataflow.join.borrow",
+                                    "dataflow.join.deliver",
                                     failure);
                         }
                     }
                 });
-        frame.reserveOutput(1L, 8L, "dataflow.join.borrow");
-        return new ExecutionOutcome<LongScalarResult>(
-                new LongScalarResult(count),
+        return new ExecutionOutcome<DeliveryResult>(
+                new DeliveryResult(count, completed[0]),
                 prepared.scanned(),
                 count,
-                1L,
+                count,
                 1,
                 1);
+    }
+
+    private static long multiplySaturated(long first, long second) {
+        return first == 0L || second == 0L
+                ? 0L
+                : first > Long.MAX_VALUE / second
+                ? Long.MAX_VALUE : first * second;
     }
 }
 
@@ -811,79 +846,65 @@ final class JoinLeftGroupCountOperation<
     public ExecutionOutcome<GroupedLongResult> execute(
             final ExecutionFrame frame) {
         final JoinPrepared<L, R> prepared = prepare(frame);
-        long cardinality = prepared.enumerate(
-                frame, JoinPrepared.COUNTER);
-        if (cardinality > Integer.MAX_VALUE) {
-            throw DataFlowFailures.resource(
-                    "dataflow_cardinality_overflow",
-                    left.source().alias(),
-                    "dataflow.join.groupByLeft",
-                    Long.toString(cardinality));
-        }
-        final int size = (int) cardinality;
-        final int[] leftIndexes = frame.newScratchIndexes(
-                size, "dataflow.join.groupByLeft");
-        final int[] write = new int[1];
-        prepared.enumerate(frame, new JoinMatchConsumer() {
-            @Override
-            public boolean accept(
-                    int leftIndex,
-                    boolean rightPresent,
-                    int rightIndex) {
-                leftIndexes[write[0]++] = leftIndex;
-                return true;
-            }
-        });
-
-        int capacity = bucketCapacity(size);
-        int[] buckets = frame.newScratchIndexes(
+        int maximumGroups = prepared.left.size;
+        int capacity = bucketCapacity(maximumGroups);
+        final int[] buckets = frame.newScratchIndexes(
                 capacity, "dataflow.join.groupByLeft");
-        int[] next = frame.newScratchIndexes(
-                size, "dataflow.join.groupByLeft");
-        int[] representatives = frame.newScratchIndexes(
-                size, "dataflow.join.groupByLeft");
-        long[] counts = frame.newScratchLongs(
-                size, "dataflow.join.groupByLeft");
+        final int[] next = frame.newScratchIndexes(
+                maximumGroups, "dataflow.join.groupByLeft");
+        final int[] representatives = frame.newScratchIndexes(
+                maximumGroups, "dataflow.join.groupByLeft");
+        final long[] counts = frame.newScratchLongs(
+                maximumGroups, "dataflow.join.groupByLeft");
         Arrays.fill(buckets, -1);
-        int mask = capacity - 1;
-        int groups = 0;
-        for (int position = 0; position < size; position++) {
-            int candidate = leftIndexes[position];
-            long hash = groupKey.hash(
-                    frame, prepared.leftBinding, candidate);
-            int bucket = ((int) (hash ^ (hash >>> 32))) & mask;
-            int group = buckets[bucket];
-            while (group >= 0 && !groupKey.equal(
-                    frame,
-                    prepared.leftBinding,
-                    candidate,
-                    groupKey,
-                    prepared.leftBinding,
-                    representatives[group])) {
-                group = next[group];
-            }
-            if (group < 0) {
-                group = groups++;
-                representatives[group] = candidate;
-                next[group] = buckets[bucket];
-                buckets[bucket] = group;
-            }
-            counts[group]++;
-        }
+        final int mask = capacity - 1;
+        final int[] groups = new int[1];
+        long cardinality = prepared.enumerate(
+                frame,
+                new JoinMatchConsumer() {
+                    @Override
+                    public boolean accept(
+                            int leftIndex,
+                            boolean rightPresent,
+                            int rightIndex) {
+                        long hash = groupKey.hash(
+                                frame, prepared.leftBinding, leftIndex);
+                        int bucket =
+                                ((int) (hash ^ (hash >>> 32))) & mask;
+                        int group = buckets[bucket];
+                        while (group >= 0 && !groupKey.equal(
+                                frame,
+                                prepared.leftBinding,
+                                leftIndex,
+                                groupKey,
+                                prepared.leftBinding,
+                                representatives[group])) {
+                            group = next[group];
+                        }
+                        if (group < 0) {
+                            group = groups[0]++;
+                            representatives[group] = leftIndex;
+                            next[group] = buckets[bucket];
+                            buckets[bucket] = group;
+                        }
+                        counts[group]++;
+                        return true;
+                    }
+                });
         frame.reserveOutput(
-                groups,
-                (long) groups * 12L,
+                groups[0],
+                (long) groups[0] * 12L,
                 "dataflow.join.groupByLeft");
         GroupedLongResult result = new GroupedLongResult(
                 left.source().alias(),
                 prepared.leftBinding.structuralEpoch(),
-                Arrays.copyOf(representatives, groups),
-                Arrays.copyOf(counts, groups));
+                Arrays.copyOf(representatives, groups[0]),
+                Arrays.copyOf(counts, groups[0]));
         return new ExecutionOutcome<GroupedLongResult>(
                 result,
                 prepared.scanned(),
-                size,
-                groups,
+                cardinality,
+                groups[0],
                 1,
                 1);
     }

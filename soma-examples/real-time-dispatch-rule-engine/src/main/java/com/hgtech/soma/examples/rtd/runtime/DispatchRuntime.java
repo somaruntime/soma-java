@@ -8,6 +8,8 @@ import com.hgtech.soma.examples.rtd.schema.WorkStatus;
 import com.hgtech.soma.examples.rtd.schema.generated.ResourceStateTable;
 import com.hgtech.soma.examples.rtd.schema.generated.WorkStateDelta;
 import com.hgtech.soma.examples.rtd.schema.generated.WorkStateTable;
+import com.hgtech.soma.runtime.SomaGroup;
+import com.hgtech.soma.runtime.metadata.SomaGroupMetadata;
 
 /** 一次 dispatch horizon 的两张 live Table 与 fail-stop lifecycle Owner。 */
 public final class DispatchRuntime implements AutoCloseable {
@@ -16,6 +18,7 @@ public final class DispatchRuntime implements AutoCloseable {
   private static final int CLOSED = 2;
 
   private final String inputChecksum;
+  private final SomaGroup group;
   private final WorkStateTable workStates;
   private final ResourceStateTable resourceStates;
   private int state = OPEN;
@@ -23,16 +26,19 @@ public final class DispatchRuntime implements AutoCloseable {
 
   DispatchRuntime(
       String inputChecksum,
+      SomaGroup group,
       WorkStateTable workStates,
       ResourceStateTable resourceStates) {
     if (inputChecksum == null) {
       throw new NullPointerException("inputChecksum");
     }
+    if (group == null) throw new NullPointerException("group");
     if (workStates == null) throw new NullPointerException("workStates");
     if (resourceStates == null) {
       throw new NullPointerException("resourceStates");
     }
     this.inputChecksum = inputChecksum;
+    this.group = group;
     this.workStates = workStates;
     this.resourceStates = resourceStates;
   }
@@ -83,6 +89,9 @@ public final class DispatchRuntime implements AutoCloseable {
   }
 
   public String inputChecksum() { return inputChecksum; }
+  public SomaGroupMetadata runtimeMetadata() {
+    return group.metadata();
+  }
   public long currentMinute() {
     requireOpen();
     return currentMinute;
@@ -102,18 +111,9 @@ public final class DispatchRuntime implements AutoCloseable {
     if (state == CLOSED) return;
     Throwable failure = null;
     try {
-      resourceStates.release();
+      group.release();
     } catch (Throwable releaseFailure) {
       failure = releaseFailure;
-    }
-    try {
-      workStates.release();
-    } catch (Throwable releaseFailure) {
-      if (failure == null) {
-        failure = releaseFailure;
-      } else if (failure != releaseFailure) {
-        failure.addSuppressed(releaseFailure);
-      }
     } finally {
       state = CLOSED;
     }

@@ -12,16 +12,21 @@ import com.hgtech.soma.dataflow.DataFlowExplain;
 import com.hgtech.soma.dataflow.DataFlowInvocation;
 import com.hgtech.soma.dataflow.DataFlowResults;
 import com.hgtech.soma.dataflow.DataFlowStats;
+import com.hgtech.soma.dataflow.CallbackDeliveryDefinition;
+import com.hgtech.soma.dataflow.DeliveryResult;
 import com.hgtech.soma.dataflow.DeltaApplyResult;
 import com.hgtech.soma.dataflow.ExecutionBudget;
 import com.hgtech.soma.dataflow.ExecutionPolicy;
 import com.hgtech.soma.dataflow.AbsenceOrder;
+import com.hgtech.soma.dataflow.GroupCursor;
+import com.hgtech.soma.dataflow.GroupVisitor;
 import com.hgtech.soma.dataflow.GroupedLongResult;
 import com.hgtech.soma.dataflow.JoinedFlow;
+import com.hgtech.soma.dataflow.JoinedIndexVisitor;
 import com.hgtech.soma.dataflow.KeyExpression;
 import com.hgtech.soma.dataflow.LongColumnResult;
 import com.hgtech.soma.dataflow.LongScalarResult;
-import com.hgtech.soma.dataflow.LongValueConsumer;
+import com.hgtech.soma.dataflow.LongValueVisitor;
 import com.hgtech.soma.dataflow.OpaqueLongFunction;
 import com.hgtech.soma.dataflow.OptionalLongColumnResult;
 import com.hgtech.soma.dataflow.OutputSlot;
@@ -30,6 +35,8 @@ import com.hgtech.soma.dataflow.PartialWindowPolicy;
 import com.hgtech.soma.dataflow.RegisteredLongFunction;
 import com.hgtech.soma.dataflow.RegisteredLongReducer;
 import com.hgtech.soma.dataflow.StatsMode;
+import com.hgtech.soma.dataflow.WindowCursor;
+import com.hgtech.soma.dataflow.WindowVisitor;
 import com.hgtech.soma.runtime.IndexSnapshot;
 import com.hgtech.soma.runtime.SomaRuntimeException;
 import com.hgtech.soma.runtime.UpdateResult;
@@ -85,21 +92,24 @@ public final class DataFlowSliceFCheck {
                 "arg-min/max preserve current Index lineage");
 
         final long[] borrowed = new long[1];
-        LongScalarResult borrowCount = execute(
+        DeliveryResult borrowCount = executeDelivery(
                 source.candidates()
                         .filter(source.columns().factIndex().lessThan(3L))
                         .project(source.columns().entityId())
-                        .borrow(new LongValueConsumer() {
-                            @Override
-                            public void accept(long value) {
-                                borrowed[0] += value;
-                            }
-                        }),
+                        .deliver(),
                 source,
-                table);
-        require(borrowCount.value() == 3L
+                table,
+                new LongValueVisitor() {
+                            @Override
+                            public boolean visit(long value) {
+                                borrowed[0] += value;
+                                return true;
+                            }
+                        });
+        require(borrowCount.deliveredElements() == 3L
+                        && borrowCount.completed()
                         && borrowed[0] == 100L + 101L + 102L,
-                "projected borrowed traversal");
+                "projected callback delivery");
 
         KeyExpression<NumericFactDataFlow.Binding> kind =
                 KeyExpression.of(source.columns().entityKind());
@@ -141,6 +151,22 @@ public final class DataFlowSliceFCheck {
                         && largestGroup.size() == 1
                         && largestGroup.valueAt(0) == 3L,
                 "group having and stable aggregate ordering");
+        final long[] deliveredMembers = new long[1];
+        DeliveryResult deliveredGroups = executeDelivery(
+                source.candidates().groupBy(kind).deliver(),
+                source,
+                table,
+                new GroupVisitor() {
+                    @Override
+                    public boolean visit(GroupCursor group) {
+                        deliveredMembers[0] += group.size();
+                        return true;
+                    }
+                });
+        require(deliveredGroups.deliveredElements() == 2L
+                        && deliveredGroups.completed()
+                        && deliveredMembers[0] == 8L,
+                "group callback delivery preserves cursor fence");
 
         GroupedLongResult booleanGroups = execute(
                 source.candidates()
@@ -210,6 +236,25 @@ public final class DataFlowSliceFCheck {
                         && tailWindow.size() == 1
                         && tailWindow.valueAt(0) == 2L,
                 "window selection and aggregate closure");
+        final long[] deliveredWindowMembers = new long[1];
+        DeliveryResult deliveredWindows = executeDelivery(
+                source.candidates()
+                        .windowByCount(
+                                3, 2, PartialWindowPolicy.INCLUDE_PARTIAL)
+                        .deliver(),
+                source,
+                table,
+                new WindowVisitor() {
+                    @Override
+                    public boolean visit(WindowCursor window) {
+                        deliveredWindowMembers[0] += window.size();
+                        return true;
+                    }
+                });
+        require(deliveredWindows.deliveredElements() == 4L
+                        && deliveredWindows.completed()
+                        && deliveredWindowMembers[0] == 11L,
+                "window callback delivery preserves logical membership");
 
         NumericFactDataFlow.Source left =
                 NumericFactDataFlow.source(0, "left");
@@ -253,6 +298,26 @@ public final class DataFlowSliceFCheck {
                                         .lessThan(4L)))
                         .on(left.columns().entityId(),
                                 right.columns().entityId());
+        final long[] absentRight = new long[1];
+        DeliveryResult deliveredJoin = executeDelivery(
+                joined.deliver(),
+                left,
+                right,
+                table,
+                new JoinedIndexVisitor() {
+                    @Override
+                    public boolean visit(
+                            int leftIndex,
+                            boolean rightPresent,
+                            int rightIndex) {
+                        if (!rightPresent) absentRight[0]++;
+                        return true;
+                    }
+                });
+        require(deliveredJoin.deliveredElements() == 8L
+                        && deliveredJoin.completed()
+                        && absentRight[0] == 4L,
+                "join callback delivery preserves explicit outer absence");
         LongScalarResult absentCount = execute(
                 joined.filter(joined.rightAbsent()).count(),
                 left,
@@ -560,6 +625,15 @@ public final class DataFlowSliceFCheck {
                                     .contains("<redacted>")
                             && !explain.parameterSummary().contains("=3"),
                     "bound explain is observed, detached and redacted");
+            require(explain.candidatePhysicalFormulaIdentity()
+                            .equals("soma-candidate-physical-v1")
+                            && explain.relationStrategyFormulaIdentity()
+                                    .equals("soma-relation-strategy-v1")
+                            && explain.schedulerFormulaIdentity()
+                                    .equals("soma-morsel-scheduler-v1")
+                            && explain.invocationLedgerIdentity()
+                                    .equals("soma-invocation-ledger-v1"),
+                    "Explain owns versioned physical formula identities");
             require(invocation.execute().value() == 5L,
                     "bound explain does not consume invocation");
             DataFlowStats basic = invocation.stats();
@@ -585,8 +659,23 @@ public final class DataFlowSliceFCheck {
             detailed.execute();
             require(detailed.stats().statsMode() == StatsMode.DETAILED
                             && detailed.stats().tasks() == 2
-                            && detailed.stats().workers() == 2,
-                    "DETAILED stats expose physical task counters");
+                            && detailed.stats().workers() == 2
+                            && "soma-invocation-ledger-v1".equals(
+                                    detailed.stats()
+                                            .invocationLedgerIdentity())
+                            && detailed.stats().taskCurrent() == 0
+                            && detailed.stats().workerCurrent() == 0
+                            && detailed.stats().taskHighWater() == 2
+                            && detailed.stats().workerHighWater() == 2,
+                    "DETAILED stats expose closed phase ledger counters");
+            require(detailed.stats().work().scanned() == 8L
+                            && detailed.stats().parallel().tasks() == 2
+                            && detailed.stats().parallel()
+                                    .schedulerFormulaIdentity()
+                                    .equals("soma-morsel-scheduler-v1")
+                            && detailed.stats().resources()
+                                    .outputCurrentBytes() == 0L,
+                    "Stats compose module-owned work, scheduler and resource facts");
         } finally {
             detailedContext.close();
         }
@@ -731,6 +820,22 @@ public final class DataFlowSliceFCheck {
         }
     }
 
+    private static <V> DeliveryResult executeDelivery(
+            CallbackDeliveryDefinition<V> definition,
+            NumericFactDataFlow.Source source,
+            NumericFactTable table,
+            V visitor) {
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            return definition.compile().newInvocation(context)
+                    .bind(source, NumericFactDataFlow.bind(table))
+                    .visitor(visitor)
+                    .execute();
+        } finally {
+            context.close();
+        }
+    }
+
     private static <R, T> R execute(
             DataFlowDefinition<R> definition,
             NumericFactDataFlow.Source source,
@@ -758,6 +863,24 @@ public final class DataFlowSliceFCheck {
             return definition.compile().newInvocation(context)
                     .bind(left, NumericFactDataFlow.bind(table))
                     .bind(right, NumericFactDataFlow.bind(table))
+                    .execute();
+        } finally {
+            context.close();
+        }
+    }
+
+    private static <V> DeliveryResult executeDelivery(
+            CallbackDeliveryDefinition<V> definition,
+            NumericFactDataFlow.Source left,
+            NumericFactDataFlow.Source right,
+            NumericFactTable table,
+            V visitor) {
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            return definition.compile().newInvocation(context)
+                    .bind(left, NumericFactDataFlow.bind(table))
+                    .bind(right, NumericFactDataFlow.bind(table))
+                    .visitor(visitor)
                     .execute();
         } finally {
             context.close();

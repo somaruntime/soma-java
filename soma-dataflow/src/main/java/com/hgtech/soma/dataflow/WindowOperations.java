@@ -139,7 +139,7 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
         }
         LongExpression<B> order = flow.orderKey();
         long first = order.evaluate(
-                frame, binding, selected.indexes[0]);
+                frame, binding, selected.indexAt(0));
         if (flow.origin() > first) {
             throw DataFlowFailures.invalidInput(
                     "dataflow_window_origin_after_first",
@@ -149,7 +149,7 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
         long previous = first;
         for (int position = 1; position < cardinality; position++) {
             long value = order.evaluate(
-                    frame, binding, selected.indexes[position]);
+                    frame, binding, selected.indexAt(position));
             if (value < previous) {
                 throw DataFlowFailures.invalidInput(
                         "dataflow_window_order_not_monotonic",
@@ -195,7 +195,7 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
                     && order.evaluate(
                     frame,
                     binding,
-                    selected.indexes[startPosition]) < anchor) {
+                    selected.indexAt(startPosition)) < anchor) {
                 startPosition++;
             }
             if (endPosition < startPosition) {
@@ -205,7 +205,7 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
                     && order.evaluate(
                     frame,
                     binding,
-                    selected.indexes[endPosition]) < endKey) {
+                    selected.indexAt(endPosition)) < endKey) {
                 endPosition++;
             }
             boolean partial = endKey > last
@@ -280,7 +280,7 @@ final class WindowIndexOperation<B extends DataFlowBinding>
             for (int position = prepared.starts[window];
                  position < prepared.ends[window];
                  position++) {
-                indexes[output++] = prepared.selected.indexes[position];
+                indexes[output++] = prepared.selected.indexAt(position);
             }
         }
         offsets[prepared.windowCount] = output;
@@ -303,10 +303,14 @@ final class ActiveWindowCursor implements WindowCursor {
     private int ordinal;
     private int start;
     private int end;
-    private int[] selected;
+    private CandidateSelection selected;
     private boolean active;
 
-    void open(int ordinal, int start, int end, int[] selected) {
+    void open(
+            int ordinal,
+            int start,
+            int end,
+            CandidateSelection selected) {
         this.ordinal = ordinal;
         this.start = start;
         this.end = end;
@@ -337,7 +341,7 @@ final class ActiveWindowCursor implements WindowCursor {
         if (position < 0 || position >= end - start) {
             throw new IndexOutOfBoundsException("window position out of range");
         }
-        return selected[start + position];
+        return selected.indexAt(start + position);
     }
 
     private void requireActive() {
@@ -351,52 +355,69 @@ final class ActiveWindowCursor implements WindowCursor {
     }
 }
 
-final class WindowBorrowOperation<B extends DataFlowBinding>
-        extends WindowOperation<B, LongScalarResult> {
-    private final WindowConsumer consumer;
-    private final long opaqueIdentity;
+final class WindowDeliveryOperation<B extends DataFlowBinding>
+        extends WindowOperation<B, DeliveryResult> {
+    private final ParameterSlot<WindowVisitor> visitorSlot;
 
-    WindowBorrowOperation(WindowedFlow<B> flow, WindowConsumer consumer) {
-        super(flow);
-        this.consumer = consumer;
-        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
+    WindowDeliveryOperation(
+            WindowedFlow<B> flow,
+            ParameterSlot<WindowVisitor> visitorSlot) {
+        super(
+                flow,
+                Collections.<ParameterSlot<?>>singletonList(visitorSlot));
+        this.visitorSlot = visitorSlot;
     }
 
     @Override
     String terminal() {
-        return "borrow(opaque-instance-" + opaqueIdentity + ")";
+        return "deliver(window-cursor)";
     }
 
     @Override
-    public ExecutionOutcome<LongScalarResult> execute(ExecutionFrame frame) {
+    public ResultDeliveryMode resultDeliveryMode() {
+        return ResultDeliveryMode.CALLBACK_SCOPED;
+    }
+
+    @Override
+    public ExecutionOutcome<DeliveryResult> execute(ExecutionFrame frame) {
         WindowPrepared<B> prepared = prepare(frame);
+        frame.preflightDelivery(
+                prepared.windowCount,
+                (long) prepared.windowCount * 8L,
+                "dataflow.window.deliver");
+        WindowVisitor visitor = frame.parameter(visitorSlot);
         ActiveWindowCursor cursor = new ActiveWindowCursor();
+        int delivered = 0;
+        boolean completed = true;
         for (int window = 0; window < prepared.windowCount; window++) {
             cursor.open(
                     window,
                     prepared.starts[window],
                     prepared.ends[window],
-                    prepared.selected.indexes);
+                    prepared.selected);
             try {
-                consumer.accept(cursor);
+                delivered++;
+                if (!visitor.visit(cursor)) {
+                    completed = false;
+                    break;
+                }
             } catch (SomaRuntimeException failure) {
                 throw failure;
             } catch (RuntimeException failure) {
                 throw DataFlowFailures.callback(
-                        "dataflow_window_consumer_failed",
+                        "dataflow_window_delivery_callback",
                         source.alias(),
-                        "dataflow.window.borrow",
+                        "dataflow.window.deliver",
                         failure);
             } finally {
                 cursor.close();
             }
         }
-        frame.reserveOutput(1L, 8L, "dataflow.window.borrow");
-        return new ExecutionOutcome<LongScalarResult>(
-                new LongScalarResult(prepared.windowCount),
+        return new ExecutionOutcome<DeliveryResult>(
+                new DeliveryResult(delivered, completed),
                 prepared.selected.scanned,
                 prepared.selected.size,
-                1L,
+                delivered,
                 1,
                 1);
     }
@@ -459,34 +480,17 @@ final class WindowLongAggregationOperation<B extends DataFlowBinding>
         WindowPrepared<B> prepared = prepare(frame);
         long[] values = frame.newOutputLongs(
                 prepared.windowCount, "dataflow.window.aggregate");
-        for (int window = 0; window < prepared.windowCount; window++) {
-            int start = prepared.starts[window];
-            int end = prepared.ends[window];
-            if (kind == COUNT) {
-                values[window] = end - start;
-                continue;
+        if (kind == COUNT) {
+            for (int window = 0;
+                 window < prepared.windowCount;
+                 window++) {
+                values[window] = prepared.ends[window]
+                        - prepared.starts[window];
             }
-            long aggregate = expression.evaluate(
-                    frame,
-                    prepared.binding,
-                    prepared.selected.indexes[start]);
-            if (kind == SUM) {
-                aggregate = 0L;
-            }
-            for (int position = start; position < end; position++) {
-                long value = expression.evaluate(
-                        frame,
-                        prepared.binding,
-                        prepared.selected.indexes[position]);
-                if (kind == SUM) {
-                    aggregate += value;
-                } else if (kind == MIN && value < aggregate) {
-                    aggregate = value;
-                } else if (kind == MAX && value > aggregate) {
-                    aggregate = value;
-                }
-            }
-            values[window] = aggregate;
+        } else if (kind == SUM) {
+            aggregateSums(frame, prepared, values);
+        } else {
+            aggregateExtrema(frame, prepared, values);
         }
         return new ExecutionOutcome<LongColumnResult>(
                 new LongColumnResult(values, prepared.windowCount),
@@ -495,5 +499,82 @@ final class WindowLongAggregationOperation<B extends DataFlowBinding>
                 prepared.windowCount,
                 1,
                 1);
+    }
+
+    private void aggregateSums(
+            ExecutionFrame frame,
+            WindowPrepared<B> prepared,
+            long[] values) {
+        int currentStart = 0;
+        int currentEnd = 0;
+        long aggregate = 0L;
+        for (int window = 0; window < prepared.windowCount; window++) {
+            int start = prepared.starts[window];
+            int end = prepared.ends[window];
+            if (start > currentEnd) {
+                aggregate = 0L;
+                currentStart = start;
+                currentEnd = start;
+            } else {
+                while (currentStart < start) {
+                    aggregate -= evaluate(
+                            frame, prepared, currentStart++);
+                }
+            }
+            while (currentEnd < end) {
+                aggregate += evaluate(frame, prepared, currentEnd++);
+            }
+            values[window] = aggregate;
+        }
+    }
+
+    private void aggregateExtrema(
+            ExecutionFrame frame,
+            WindowPrepared<B> prepared,
+            long[] values) {
+        int[] positions = frame.newScratchIndexes(
+                prepared.selected.size, "dataflow.window.extrema");
+        long[] candidates = frame.newScratchLongs(
+                prepared.selected.size, "dataflow.window.extrema");
+        int head = 0;
+        int tail = 0;
+        int currentEnd = 0;
+        for (int window = 0; window < prepared.windowCount; window++) {
+            int start = prepared.starts[window];
+            int end = prepared.ends[window];
+            if (start > currentEnd) {
+                head = tail;
+                currentEnd = start;
+            }
+            while (head < tail && positions[head] < start) {
+                head++;
+            }
+            while (currentEnd < end) {
+                long value = evaluate(frame, prepared, currentEnd);
+                while (tail > head && dominated(
+                        candidates[tail - 1], value)) {
+                    tail--;
+                }
+                positions[tail] = currentEnd;
+                candidates[tail] = value;
+                tail++;
+                currentEnd++;
+            }
+            values[window] = candidates[head];
+        }
+    }
+
+    private long evaluate(
+            ExecutionFrame frame,
+            WindowPrepared<B> prepared,
+            int position) {
+        return expression.evaluate(
+                frame,
+                prepared.binding,
+                prepared.selected.indexAt(position));
+    }
+
+    private boolean dominated(long existing, long next) {
+        return kind == MIN ? existing >= next : existing <= next;
     }
 }

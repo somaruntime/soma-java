@@ -6,62 +6,59 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：P8 S3 implementation baseline `515bf91`
+实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
+`6cde5d5`；production/evidence source
+`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
 
-事实范围：当前已确认的 Blueprint/Design/Code/Evidence 差距、分类与 Owner 处置
+事实范围：当前已确认的Blueprint/Design/Code/Evidence差距、关闭依据与Owner处置
 
-非事实范围：自动授权实施、未来 roadmap 或重新定义 Design
+非事实范围：自动授权release、扩大支持矩阵或重新定义Design
 
 最后审查日期：2026-07-28
 
 ## 1. 未闭合差距
 
-| ID | 分类 | 差距 | 影响 | 当前 Owner 处置 |
-|---|---|---|---|---|
-| `CF-009` | Product/runtime contract | Descriptor、generated SchemaMetadata、schema-seeded Plan Builder、Effective Metadata、SomaGroupPlan/SomaGroup、Group/member Metadata与atomic attach已实现；Table/Segment/access Runtime Metadata和Observation仍缺 | multi-root composition与Group lifecycle已闭合；完整runtime topology/observation product journey仍未闭合 | S4/S10继续剩余 Metadata phases；保留唯一metadata/plan path，不引入reflection或temporary adapter |
-| `CF-010` | Type/generated protocol | four-kind classifier、typed String value/access、arbitrary-object rejection、Object-path removal与String `UNPROFILED/PROFILED_UNVERIFIED` resource profile已闭合；String mutation/clear/release/GC和production scale evidence仍缺 | reference retention、String lifecycle/heap口径与规模目标尚不能声明完整支持 | S5/P10补 lifecycle/GC和length/cardinality/sharing/role限定 qualification；不引入 dictionary/arena |
-| `CF-011` | Storage/access | 当前以flat/universal IndexBuffer baseline为主，缺flat-head/segmented-tail、Segment publication、closed Candidate shapes与locator formula qualification | Large可增长性、point tax、retained/transient peak和Small固定税目标未闭合 | Flat保持baseline；新physical binding只在formula与production evidence后启用，禁止universal segmented或full-key duplication |
-| `CF-012` | Transformation/execution/resource | Group/root structural ledger已由GroupLedger/TableLedger闭合；Group/Join/Delta/Window specialization、unknown-bound fail-closed、Invocation phase ledger、one bounded morsel/vector scheduler与module-owned Observation尚未闭合 | 高展开可能缺preflight，中小规模/单Segment并行、Invocation资源与诊断仍不可按新目标解释 | 保持现有logical semantics；实现specialized/cost-model paths与sequential differential，全部Invocation phase lease可验证 |
-| `CF-013` | Result Delivery | Eager baseline存在，但incumbent Candidate/Value/Group/Join/Window borrow仍保留consumer-in-Definition lifecycle；generated callback facade未实现/qualification | Definition identity、non-escape、cancel/deadline、partial publication与allocation目标不一致 | 统一迁入标准 Definition→Template→Invocation；Eager继续默认；不得保留legacy、Iterator/pull/async path |
-| `CF-014` | Qualification/product evidence | 缺Small/Medium String、1M/10M全workload、single/double100M、String100M、expansion、delivery、Soak production-shape evidence与新Guide fixtures | 不能声明scale readiness、callback supported或完整product journey | 先预注册环境/seed/oracle/budget/timeout/fork/comparator/status，结果保持claimAllowed=false；Guide用external/snippet Gate验收 |
-| `CF-015` | Migration/complexity/examples | P7已完成exact public/generated/protocol disposition；P8 S1–S3已关闭Object、raw Plan、StorageBudget等对应replacement，但S4–S10、整体code/test scale审查与三个Example最终设计复核尚未完成 | 后续slice仍可能残留parallel fact、死代码/测试或展示性Example迁移 | P8继续逐slice replacement closure；P9无偏差则RETAIN，不做装饰性重构 |
-| `CF-005` | Evidence | 当前十一份性能 baseline 只覆盖指定 Zulu JDK 8/macOS/aarch64 环境与固定 lanes/workload | 其他环境只能得到 `not-applicable`，不能外推为支持矩阵或普遍性能优势 | 保留环境限定和 `claimAllowed=false`；新增环境需独立校准，public claim 需另行授权 |
-| `CF-006` | Release evidence | G6 所需真实 SCM、ownership、contact、signing/publishing、clean provenance 和支持矩阵不完整 | 禁止 public RC/release-ready/production-ready 声明 | 保持 `blocked`；发布工作不在当前专题范围 |
+| ID | 分类 | 当前差距 | 影响与Owner处置 |
+|---|---|---|---|
+| `CF-005` | Evidence environment | performance与runtime-scale证据只覆盖记录的Azul Zulu 8、macOS/aarch64、Apple M5 Pro及精确workload/profile | 其他环境只能重新校准或得到`not-applicable`；不得外推支持矩阵、SLA或普遍性能优势 |
+| `CF-006` | Release evidence | G6所需真实SCM/ownership/contact、signing/publishing、clean provenance和完整support matrix不足 | G6保持`blocked`；禁止public RC、release-ready、production-ready或publishing声明 |
 
-以上差距都已有正式 Design Owner 和用户对当前综合治理 Goal 的明确实施授权；这不
-表示它们已完成，也不允许 Conformance 自行改变目标、扩大到 release 或降低 Gate。
+这两个差距都不能由更多本机benchmark自动关闭，也不在本综合治理的push/release授权
+内。
 
-## 2. 已关闭但需防回归的差距
+## 2. 本专题已关闭差距
 
-| 主题 | 当前状态 | 防回归点 |
+| ID | 关闭结论 | Production replacement与evidence |
 |---|---|---|
-| Sparse Set / dirty selector / maintained order | 已由 V3 packed exact cutover关闭 | 不恢复读时全表 rebuild、稳定物理顺序或 Sparse Set public model |
-| dense stable compaction 假设 | 已关闭 | keyed/dense 均保持 swap-remove；未排序 terminal 不承诺顺序 |
-| public row-index list | 已由 caller-responsibility `IndexSnapshot` + internal `IndexBuffer` 取代 | snapshot只在同步只读批次立即消费；跨operation使用`@SomaKey`，不把内部scratch或Index冒充stable identity |
-| Row-oriented generated access vocabulary | 已由 Access Model / Candidate Scan clean cutover关闭 | current surface保持 Table/Scan/Cursor/UpdateCursor/Traversal、`findIndex/requireIndex/indexSnapshot`；不恢复双轨alias |
-| group-shaped secondary unique access | 已关闭 | Unique优先保持0..1 point family；只有需要stage时使用`scanByX` bridge |
-| Candidate plan allocation与best-one snapshot | 已关闭 | compact typed plan、Packed/exact specialization与scalar Index terminal保持component/code-size Gate |
-| Transformation/DataFlow semantic closure | 已关闭 | 全部 admitted Shape/operator/result/effect 由 typed contract、reference differential 和 external consumer 防回归；Candidate Scan 仍是 specialized fast path |
-| DataFlow lifecycle/resource/parallel | 已关闭 | immutable Definition/Template、one-shot Invocation、managed/borrowed ownership、budget/cancel/fixed-order merge 和 sequential fallback 保持 contract evidence |
-| generated v6/v2、Delta/safe point | 已关闭 | 每 Schema Metadata + 每 Table DataFlow companion、old protocol fail-closed、keyed ordered Delta 全量 preflight、single-aggregate commit 与 generated fixture closure |
-| reference application portfolio | 已关闭 | industrial、grassing、RTD 各自从 business model 推导 Access/Transformation/DataFlow 最佳实践；互不依赖、不共享领域模型或 evidence |
-| DataFlow application trace | 已关闭 | 独立 RTD 应用拥有 reusable multi-source DataFlow、Join/GroupBy、受控并行、budget/cancel、detached command 与 application commit；industrial 不再承担展示性 coverage |
-| industrial summary responsibility | 已关闭 | `AssignmentSummarizer` 只从 authoritative assignments 单遍推导 detached metrics；primitive frontier、Problem/Result/API/Schema 与三个性能阈值不变 |
-| application-owned priority structure | 已关闭 | SOMA 只拥有 Table facts；应用长期 queue/heap 保存 stable domain identity，不保存 current Index |
-| reference application ownership | 已关闭 | 应用 Blueprint/Design/correctness/integrated evidence 由 child project 自有，不进入 SOMA Design trace |
-| config/factory/solver/runtime/result lifecycle | 已关闭 | Problem config 与 benchmark options 分离；detached Factory 先产生可重放 input；canonical Solver/Session 独占 Runtime 并返回 detached Result；hot loop 不反向依赖 Factory |
-| reference application production/test 边界 | 已关闭 | industrial scheduler production JAR 不含 fixture/oracle/verification/benchmark；source-shape 与 JAR Gate 防止 evidence 回流生产 |
-| performance baseline 可持续性 | 已关闭 | component=2、reference application=9、public claim=0；baseline 只读、环境感知、strict shape，统一 comparator 不拥有应用 workload |
-| industrial scheduler 语义/Schema/frontier 闭环 | 已关闭 | Problem semantic identity 与 generation provenance 分离；Result 不携带 runtime diagnostics；eligible option 使用 flat exact-group；derived candidate 由 application primitive pool/heap 拥有；hot 与 canonical path 均有 9-fork evidence |
-| `CF-007` 文档候选完整性 | 已关闭 | 32份旧Owner已按迁移审计处置；正式入口、checker与Report已切换，Temporary已删除 |
-| `CF-008` 文档抽象层次与职责混合 | 已关闭 | Design 已建立 `D0/D1/D2/Q`、上位设计和场景追踪；Blueprint 不再承载当前实现盘点、自审或一致性结论；checker 防止结构回退 |
-| aggregate internal/unexpected failure 后可信状态 | 已关闭 | `ChildOwnershipRegistry` 是共享 trust Owner；faulted root/child aggregate 拒绝 normal access，只允许 bounded diagnostics 与 root release；public/API/protocol 不变 |
-| SomaGroup composition 与 structural ledger | 已关闭 | stable slots、multi-schema/multi-instance、atomic attach、implicit Group、GroupLedger唯一hard owner、TableLedger attribution、分层fault/release和cross-Group/schema/self DataFlow不得回退 |
+| `CF-009` | Metadata/runtime contract已闭合 | 完整Metadata hierarchy、schema-seeded Plan、Effective/Runtime Metadata、Table/Segment/access observation、Group member snapshot；external consumer与runtime diagnostics通过 |
+| `CF-010` | V1 type/String已闭合 | four-kind classifier、arbitrary object拒绝、concrete String column/protocol、mutation/epoch/clear/release及actual weak-reference GC；1M/10M/100M profile明确长度/cardinality/共享率/角色/table count |
+| `CF-011` | storage/access已闭合 | flat/head-tail storage、flat-compact locator、closed Candidate shapes、Small固定税、Medium crossover、point/exact/growth与single/double100M本机qualification |
+| `CF-012` | transformation/execution/resource已闭合 | specialized Group/Join/Window、Delta staging、unknown-bound fail-closed、一个bounded morsel scheduler、Invocation phase ledger、component stats/explain及sequential differential |
+| `CF-013` | Result Delivery已闭合 | Eager Detached默认；统一callback Definition→Template→Invocation；Candidate/Value/Group/Join/Window full/early/failure/cancel/deadline/non-escape/GC验证；legacy borrow删除 |
+| `CF-014` | product qualification已闭合 | strict v1 schema/validator、Small/Medium、1M/10M、single/double100M、String100M、Expansion、Delivery、Soak十条required applicable lane全部passed，全部`claimAllowed=false` |
+| `CF-015` | migration/complexity/examples已闭合 | exact disposition与replacement closure；删除generic Object、consumer-in-Definition、平行parallel owner和dead tests；22-Table footprint Gate；三个Example审计后仅把真实multi-root lifecycle偏差迁入explicit Group |
 
-## 3. 不构成差距的观察
+关闭表示正式Design所要求的当前V1 slice不再依赖未来public consumer、临时adapter、
+test-only bypass或canonical hot-path migration。它不改变`CF-005`、`CF-006`。
 
-Generator 规模、测试文件颗粒度、内部命名或可选性能优化可以是 maintainability/optimization 候选，但在没有证据表明违反 Design 前，不应被 Conformance 伪装成语义偏差。此类问题应进入独立审查或 Temporary，而不是借本表扩大实施范围。
+## 3. 受限目标，不是差距
 
-## 4. 关闭规则
+- String V1只支持白名单immutable `String`引用；不保存任意Java object，不引入
+  dictionary、arena或自动intern；
+- 100M只支持已qualification的窄schema与bounded workload；双100M指两张root同时
+  驻留，不代表任意双wide Table或无界N:M relation；
+- callback-scoped streaming是唯一Lazy Output试点；普通`Iterator<T>`、
+  closeable pull cursor、Generator、Publisher、async push均不在本次surface；
+- Group只拥有composition、resource和lifecycle，不提供跨Table transaction、
+  snapshot isolation或合并root trust；
+- runtime是JVM heap-resident library，不是database、ORM、workflow engine、
+  distributed runtime或persistence layer。
 
-差距只有在相关 Owner 已作出决定、实现和测试完成、必要 evidence 通过、Implementation Map 已核对后才能关闭。若 Owner 决定修改 Blueprint/Design，应先在 Temporary 形成候选并获得授权；Conformance 自身不做该决定。
+这些边界来自正式Blueprint/Design，不能用“未来可能扩展”反向标成当前缺陷。
+
+## 4. 防回归入口
+
+- 当前判断：[当前一致性基线](current-conformance.md)；
+- 完整闭合证据：[综合治理报告](../../reports/2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)；
+- executable位置：[Implementation Map](../implementation-map/README.md)；
+- Gate规则：[Validation Gate治理](../engineering/validation-gates.md)。

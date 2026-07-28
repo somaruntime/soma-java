@@ -10,7 +10,7 @@ Owner：grassing-individual-simulation
 
 事实范围：canonical journey、应用分层、detached Scenario/Result、runtime aggregate、system顺序、随机与失败边界
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 责任边界
 
@@ -72,12 +72,16 @@ Cursor、ColumnView、Batch、record 或 mutable array。默认结果不复制�
 - `TraceSampleTable` 只保存低频 summary，不参与 system 决策；
 - `double[] grass` 是二维 world 的 row-major authoritative field；
 - `Index` 只在一个同步只读批次中立即消费；长期引用必须使用 key；
-- 所有 Table 与 scratch 由单个 `SimulationRuntime` aggregate 拥有，并由
-  `SimulationSession` 统一 release；
+- 两张root Table由`grassing-simulation-session`显式SomaGroup组合，连同scratch
+  由单个`SimulationRuntime` aggregate拥有，并由`SimulationSession`统一release；
 - `SimulationRuntimeFactory` 与 `RuntimeProjector` 分别拥有 resource creation
   和一次性投影；完整逐值投影复核由 test-only
   `SimulationRuntimeTestAccess.verifyProjection` 承担，不进入 production hot
   path。
+
+Factory先创建冻结Group并atomic attach两张root；partial-create或projection失败只
+关闭Group一次。`SimulationRuntime.runtimeMetadata()`返回detached
+`SomaGroupMetadata`供lifecycle/evidence读取，不参与system hot loop。
 
 删除使用 swap-remove，不承诺 packed 遍历顺序。结果 checksum 先按 stable ID
 canonicalize 个体，再编码 grass 的固定 cell 顺序。

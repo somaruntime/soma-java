@@ -10,7 +10,9 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：commit `515bf91`
+最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
+`6cde5d5`；production/evidence source
+`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
 
 最后审查日期：2026-07-28
 
@@ -22,7 +24,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | compile fixtures | [`soma-testkit/src/test/fixtures/compiler`](../../soma-testkit/src/test/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | storage/lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v7 identity |
+| runtime invariant | `check-runtime-*`、`check-generated-*`、`check-access-*`、`check-child-*` | flat/head-tail storage、atomic segment publication、String reference cleanup、locator current/high-water、完整 Runtime Metadata、lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v11 identity |
 | DataFlow contract | `check-dataflow-slice-f.sh`、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/com/hgtech/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
@@ -58,6 +60,32 @@ same/cross Group、cross schema、self alias以及第三个source acquire失败�
 root的canonical reverse release。`StorageBudget` source/protocol token已由absence
 scan关闭，generated/runtime identity升级为v7，plan仍为v4。
 
+S4 fixture覆盖workload/row-width formula、Small/Medium与point-heavy flat选择、
+Large flat-head/fixed-tail选择、全部primitive/String/presence跨32K boundary、
+column-group stage failure不发布、跨Segment overlap copy、segment-wise clear/release，
+以及generated dense scan、keyed swap-remove locator repair和parent-owned child
+handle relocation。Public/generated identity升级为v8、plan为v5；这些是功能与
+协议evidence，不外推1M/10M/100M性能或支持声明。
+
+S5 runtime/keyed/breadth fixture覆盖locator formula fail-closed、flat-compact
+Effective Metadata、locator retained/high-water、String caller-reference identity、
+equal-value different-object no-op、replace/failed append/delete/clear/release cleanup，
+并以layout-independent reflection oracle证明dead reference不再由SOMA生成结构强
+引用。Public/generated identity升级为v9、plan为v6。该oracle是deterministic
+retention evidence；实际JVM GC和规模结论由最终qualification补齐。
+
+最终slice把Candidate closed physical shapes、Group/Join/Window specialization、
+Delta staging、unknown-bound fail-closed、bounded morsel scheduler、Invocation
+phase ledger、Eager + callback-scoped delivery、component stats和完整
+Table/Segment/access Runtime Metadata投影到v11/v3/v4协议。Slice A–F、48-trial
+reference differential、public/generated golden、dense/keyed/access/child/breadth
+external consumer和old-token absence共同证明clean replacement；不保留
+consumer-in-Definition、ordinary Iterator、平行parallel executor或generic Object
+后端。DataFlow component baseline因authoring identity及bounded morsel/
+Invocation ledger固定成本版本化为v2：三fork execution checksum全部保持，只有
+authoring checksum和两个受影响parallel allocation envelope按既有公式重校，
+其余v1 timing、tail、GC、sequential和materializing envelope原样保留。
+
 Codegen admission 额外约束 selector-less Table 的私有 exact-index stage 使用显式
 构造器，防止 javac 8 synthetic access marker 在 clean build 边界漂移；这项断言
 只保护私有生成字节码的可重复编译。
@@ -79,6 +107,13 @@ fork、Schema/RuntimePlan、result identity、hot-operation 执行次数、归�
 allocation、GC、growth/high-water 或 parallel task，以及
 `claimAllowed=false`。每个 child 各自拥有 default、large、long-run 三份
 baseline；Fast、Scale、Soak 分责，Full 组合全部九个 workload。
+
+Runtime-scale qualification使用独立strict schema、runner和validator，十条required
+lane分别拥有预注册workload、环境、预算、timeout、oracle、memory accounting、
+status与`claimAllowed=false`。Small/Medium、1M/10M、single/double100M、
+shared-reference String 100M、Expansion、Delivery和Soak不得合并成一个模糊
+“100M passed”结论；`check-benchmark-smoke.sh`只运行small-fast contract smoke，
+完整重型入口是`check-runtime-scale-qualification.sh`。
 
 Scan code-size evidence 对 neutral benchmark、industrial scheduler、grassing
 simulation 和 RTD rule engine 分别保留首个切换候选的 fixed-candidate + 15%

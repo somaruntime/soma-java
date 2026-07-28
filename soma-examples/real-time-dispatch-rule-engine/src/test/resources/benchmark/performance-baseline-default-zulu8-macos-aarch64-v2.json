@@ -1,0 +1,183 @@
+{
+  "schemaVersion": "soma-performance-baseline-v1",
+  "baselineId": "rtd-rule-engine-default-zulu8-macos-aarch64-v2",
+  "layer": "reference-application",
+  "subject": "real-time-dispatch-rule-engine",
+  "artifactVersion": "rtd-dispatch-benchmark-v1",
+  "calibration": {
+    "commit": "6cde5d508c9ce3a1d873d282b1d4808e0334a288",
+    "date": "2026-07-28",
+    "forks": 5,
+    "formula": "trigger=runtime-capability-and-explicit-group-governance; candidate-source=content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
+  },
+  "environment": {
+    "javaVersion": "1.8.0_492-b09",
+    "javaVendor": "Azul Systems, Inc.",
+    "javaVmName": "OpenJDK 64-Bit Server VM",
+    "javaVmVersion": "25.492-b09",
+    "jvmArgs": [
+      "-Xms256m",
+      "-Xmx256m"
+    ],
+    "osName": "Mac OS X",
+    "osVersion": "26.5.2",
+    "architecture": "aarch64",
+    "cpu": "Apple M5 Pro",
+    "maxHeapBytes": 257425408
+  },
+  "minimumForks": 3,
+  "identity": {
+    "schemaVersion": "soma-reference-application-benchmark-v1",
+    "profile": "default",
+    "configChecksum": "6685e76ed05e5945c69901084d25615f9e872f57ff982e3c972a368275713096",
+    "generatorVersion": 1,
+    "seed": 20260727,
+    "inputChecksum": "67a8f58f2da410f6a6cec5ff4ce302210db29b18c499030bac982bcb2e9f24f2",
+    "resultChecksum": "837f1e23f8906ee4246b21b27be25c3912dc4813f24728bfe0ef6772a48c2a9a",
+    "schemaHash": "a7d58522dd286199036887b1807f6ac4d77578bbf12bc3579711042060cbb177",
+    "runtimePlanHash": "acf26a2ec4b39cfa68418348ec98dce9cf907ca6f97edf7dcb400ee1eb873662",
+    "definitionIdentity": "7b5c8b8a0e87ea505aa4cdea4a73530dd85196305f5a2f80439b9c7097bec1b7",
+    "templateIdentity": "d3a2859bdbaff8735a4d7ff26707eac091277420581927c9f9f4ab6a5c057cd5",
+    "demandChecksum": "fea5a66728a04aca898379492100bdca0db1b36794f91c5b7f81c721060c3203",
+    "initialWork": 256,
+    "arrivalsPerCycle": 32,
+    "cycles": 24,
+    "totalWork": 1024,
+    "resources": 32,
+    "capabilities": 8,
+    "configuredWorkers": 4,
+    "dispatchedWork": 768,
+    "pendingWork": 256,
+    "warmup": 1,
+    "measurements": 3,
+    "workExecutions": 3072,
+    "admittedProcessingMinutes": 4695
+  },
+  "recordShapes": [
+    {
+      "id": "integrated-run",
+      "selector": {},
+      "fields": [
+        "schemaVersion",
+        "artifactVersion",
+        "commit",
+        "fork",
+        "configuredForks",
+        "javaVersion",
+        "javaVendor",
+        "javaVmName",
+        "javaVmVersion",
+        "jvmArgs",
+        "osName",
+        "osVersion",
+        "architecture",
+        "cpu",
+        "maxHeapBytes",
+        "profile",
+        "configChecksum",
+        "generatorVersion",
+        "seed",
+        "inputChecksum",
+        "resultChecksum",
+        "schemaHash",
+        "runtimePlanHash",
+        "definitionIdentity",
+        "templateIdentity",
+        "demandChecksum",
+        "initialWork",
+        "arrivalsPerCycle",
+        "cycles",
+        "totalWork",
+        "resources",
+        "capabilities",
+        "configuredWorkers",
+        "dispatchedWork",
+        "pendingWork",
+        "warmup",
+        "measurements",
+        "workExecutions",
+        "dispatchNanos",
+        "minimumDispatchNanos",
+        "maximumDispatchNanos",
+        "dispatchNanosPerWork",
+        "callerAllocatedBytes",
+        "callerAllocatedBytesPerWork",
+        "youngGcCount",
+        "youngGcPauseMillis",
+        "fullGcCount",
+        "fullGcPauseMillis",
+        "tasks",
+        "maximumWorkers",
+        "admittedProcessingMinutes",
+        "claimAllowed"
+      ]
+    }
+  ],
+  "metrics": [
+    {
+      "id": "allocation.caller-thread",
+      "selector": {},
+      "field": "callerAllocatedBytes",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 10430910
+    },
+    {
+      "id": "timing.dispatch",
+      "selector": {},
+      "field": "dispatchNanos",
+      "aggregation": "median",
+      "comparison": "at-most",
+      "reference": 92416062
+    },
+    {
+      "id": "gc.young-count",
+      "selector": {},
+      "field": "youngGcCount",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.young-pause",
+      "selector": {},
+      "field": "youngGcPauseMillis",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.full-count",
+      "selector": {},
+      "field": "fullGcCount",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "gc.full-pause",
+      "selector": {},
+      "field": "fullGcPauseMillis",
+      "aggregation": "maximum",
+      "comparison": "at-most",
+      "reference": 0
+    },
+    {
+      "id": "parallel.tasks",
+      "selector": {},
+      "field": "tasks",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 222
+    },
+    {
+      "id": "parallel.maximum-workers",
+      "selector": {},
+      "field": "maximumWorkers",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 2
+    }
+  ],
+  "claimAllowed": false
+}

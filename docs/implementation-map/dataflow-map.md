@@ -12,7 +12,9 @@ Owner：SOMA DataFlow 实现导航
 
 非事实范围：规范性 Transformation 语义、完整 public signature 清单和性能结论
 
-最近实现核对基线：commit `515bf91`
+最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
+`6cde5d5`；production/evidence source
+`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`）
 
 最后审查日期：2026-07-28
 
@@ -23,11 +25,12 @@ Owner：SOMA DataFlow 实现导航
 | 责任 | 当前入口 |
 |---|---|
 | Definition/Template/Invocation | [`DataFlowDefinition.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowDefinition.java)、[`DataFlowTemplate.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowTemplate.java)、[`DataFlowInvocation.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowInvocation.java) |
-| Context/policy/resource | [`DataFlowContext.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowContext.java)、[`ExecutionPolicy.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionPolicy.java)、[`ExecutionBudget.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionBudget.java) |
+| Context/policy/resource | [`DataFlowContext.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowContext.java)、[`ExecutionPolicy.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionPolicy.java)、[`ExecutionBudget.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/ExecutionBudget.java)、internal `InvocationLedger` |
 | typed Shape/Expression | `CandidateFlow`、primitive/String `*ValueFlow`、`GroupedFlow`、`JoinedFlow`、`WindowedFlow`、primitive/String `*Expression`；无 generic Object value family |
-| result/effect | primitive scalar/columnar、group/join/window/expand result、`DeltaApplyResult`、candidate effect operations |
+| result/effect | Eager Detached primitive scalar/columnar、group/join/window/expand result、`DeltaApplyResult`、candidate effect operations；callback-scoped `*Visitor` delivery |
+| physical choice | [`CandidatePhysicalFormula.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/CandidatePhysicalFormula.java)、[`RelationStrategyFormula.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/RelationStrategyFormula.java)、[`MorselSchedulerFormula.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/MorselSchedulerFormula.java) |
 | generated bridge | [`com.hgtech.soma.dataflow.generated`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/generated) |
-| diagnostics | [`DataFlowStats.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowStats.java)、[`DataFlowExplain.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowExplain.java) |
+| diagnostics | [`DataFlowStats.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowStats.java) 的 work/parallel/resource/delivery components 与 [`DataFlowExplain.java`](../../soma-dataflow/src/main/java/com/hgtech/soma/dataflow/DataFlowExplain.java) |
 
 当前 public API 以 shape-specific Java types 排除非法组合；内部 `DataFlowProgram`、`CandidateProgram`、parallel execution、group/join/window plan 和 expression node 不作为 SPI。
 
@@ -37,9 +40,11 @@ Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/
 
 当前 identity：
 
-- generated/runtime `v7`；
-- transformation `v2`、kernel `v1`；
-- runtime plan为 `v4`，Schema hash 语义未变化。
+- generated/runtime `v11`；
+- transformation `v3`、kernel `v4`、planner `v4`；
+- runtime plan为 `v6`，storage与primary-locator layout formula均为`v1`，
+  Candidate/relation/morsel/Invocation ledger formula均为`v1`，Schema hash语义
+  未变化。
 
 ## 3. 执行叙事
 
@@ -48,12 +53,30 @@ typed Definition
   -> immutable Template
   -> one-shot Invocation
   -> generated source binding / canonical aggregate guards
-  -> candidate specialization or graph barriers
-  -> sequential / adaptive parallel execution
-  -> detached Result or single-source safe-point Effect
+  -> typed cardinality/resource preflight
+  -> closed candidate/relation specialization or explicit graph barrier
+  -> one bounded adaptive morsel scheduler
+  -> Eager Detached / callback-scoped delivery / safe-point Effect
+  -> phase leases drained and detached component stats
 ```
 
-Candidate `skip/limit` 将 selection capacity 上界下推到 streaming selection。Parallel 使用 managed 或 borrowed executor；sequential 是 oracle，default adaptive crossover 当前由 evidence 选择，物理常量不在本地图复制。
+Candidate closed shapes为contiguous range、segment-aware range、exact
+single-pass和sparse indexes；universal IndexBuffer不再是全部terminal的默认物理
+表示。Group/Join/Window按closed strategy预聚合、probe或bounded enumeration，
+Expand的known overflow、over-budget及unknown-unprovable cardinality均在枚举和
+callback前拒绝。Candidate `skip/limit` 将selection capacity上界下推到streaming
+selection。
+Packed callback scan按 Effective Plan 的物理 Segment 使用外层 loop；这不改变
+Candidate logical sequence。Parallel使用managed或borrowed executor；storage
+Segment、execution vector和parallel morsel相互独立，单Segment中型输入也可拆成
+morsel。Sequential是oracle，formula基于cardinality/cost/budget/workers选择
+crossover；opaque callback保持sequential。
+
+`ResultDeliveryMode.EAGER_DETACHED`仍是默认；Candidate/Value/Group/Join/Window
+只通过同步callback-scoped visitor提供惰性试点。Visitor只在Invocation read
+scope内有效，支持bounded early stop、consumer failure、cancel/deadline和
+non-escape guard；普通`Iterator`、pull cursor、Publisher、async push与partial
+detached output没有进入surface。
 
 Invocation仍按root opaque identity排序并canonical acquire，而不是按Group合并guard。
 因此同一Group内不同root、跨Group、同schema多实例、跨schema和self alias保持同一
@@ -67,4 +90,5 @@ composition/lifecycle，不成为Join prerequisite或跨root transaction。
 - external/generated/golden：既有 public、codegen、dense/keyed/access/child/breadth 和 external consumer Gates；
 - footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)；
 - component performance：[`check-dataflow-performance.sh`](../../scripts/check-dataflow-performance.sh)；
-- industrial application trace：[`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh) 及 application profile Gates。
+- application trace：[`check-real-time-dispatch-rule-engine.sh`](../../scripts/check-real-time-dispatch-rule-engine.sh)及三个reference application profile Gates；
+- production-scale：[`check-runtime-scale-qualification.sh`](../../scripts/check-runtime-scale-qualification.sh)的relation、parallel、expansion、delivery与soak lanes。

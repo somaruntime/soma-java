@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:hgtech:soma:runtime-scale-qualification:v1",
+  "title": "SOMA Runtime Scale Production Qualification Record v1",
+  "type": "object",
+  "additionalProperties": false,
+  "x-soma-authoritativeValidator": "com.hgtech.soma.benchmarks.RuntimeScaleQualificationArtifactValidator",
+  "x-soma-recordFields": [
+    "schemaVersion",
+    "artifactVersion",
+    "qualificationId",
+    "lane",
+    "profile",
+    "required",
+    "applicable",
+    "status",
+    "claimAllowed",
+    "sourceIdentity",
+    "environment",
+    "preregistration",
+    "workload",
+    "timing",
+    "resource",
+    "observation",
+    "checksum",
+    "limitations",
+    "failureReason"
+  ],
+  "required": [
+    "schemaVersion",
+    "artifactVersion",
+    "qualificationId",
+    "lane",
+    "profile",
+    "required",
+    "applicable",
+    "status",
+    "claimAllowed",
+    "sourceIdentity",
+    "environment",
+    "preregistration",
+    "workload",
+    "timing",
+    "resource",
+    "observation",
+    "checksum",
+    "limitations",
+    "failureReason"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "soma-runtime-scale-qualification-v1"
+    },
+    "artifactVersion": {
+      "const": "soma-runtime-scale-qualification-runner-v1"
+    },
+    "qualificationId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "lane": {
+      "enum": [
+        "small-fast",
+        "medium",
+        "1m",
+        "10m",
+        "100m-single",
+        "100m-double",
+        "100m-string",
+        "expansion",
+        "delivery",
+        "soak"
+      ]
+    },
+    "profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "required": {
+      "const": true
+    },
+    "applicable": {
+      "const": true
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "failed",
+        "inconclusive",
+        "not-applicable"
+      ]
+    },
+    "claimAllowed": {
+      "const": false
+    },
+    "sourceIdentity": {
+      "type": "object"
+    },
+    "environment": {
+      "type": "object"
+    },
+    "preregistration": {
+      "type": "object"
+    },
+    "workload": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "timing": {
+      "type": "object"
+    },
+    "resource": {
+      "type": "object"
+    },
+    "observation": {
+      "type": "object",
+      "minProperties": 1
+    },
+    "checksum": {
+      "type": "string",
+      "minLength": 1
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "failureReason": {
+      "type": "string"
+    }
+  }
+}

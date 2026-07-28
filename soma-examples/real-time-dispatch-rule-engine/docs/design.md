@@ -10,7 +10,7 @@ Owner：real-time-dispatch-rule-engine
 
 事实范围：应用分层、领域不变量、DataFlow execution、提交和 lifecycle
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 责任与依赖方向
 
@@ -29,7 +29,8 @@ test benchmark / evidence / reference / validation
 - `config` 拥有严格 key 集、范围预检、canonical text 和 checksum；
 - `feed` 拥有 immutable snapshot、delta、cycle、scenario 和 synthetic Factory；
 - `schema` 只声明 `WorkState`、`ResourceState` 与 stable identity；
-- `runtime` 拥有两张 live Table、snapshot/delta projection 和 fail-stop lifecycle；
+- `runtime` 拥有`real-time-dispatch-horizon`显式SomaGroup、两张live Table、
+  snapshot/delta projection和fail-stop lifecycle；
 - `rule` 拥有 reusable Definition/Template、one-shot Invocation 和立即消费的
   joined Index；
 - `dispatch` 拥有 horizon 编排、全批次预检和跨 Table 顺序提交；
@@ -86,3 +87,7 @@ SOMA 只保证单次 Table operation 的失败原子性。跨 Work/Resource 的�
 managed Context 由应用在 composition root 关闭；borrowed executor 始终归调用者。
 Result/Diagnostics 不保存 Table、Index、IndexSnapshot、Cursor、ColumnView、
 binding、executor 或 mutable collection。
+
+Runtime factory先创建冻结Group并atomic attachWork/Resource root；partial-create、
+projection failure和fail-stop cleanup统一由Group收口。`runtimeMetadata()`只公开
+detached `SomaGroupMetadata`，不进入rule identity、command或领域Result。

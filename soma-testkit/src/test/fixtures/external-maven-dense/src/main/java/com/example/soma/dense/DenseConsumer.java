@@ -28,6 +28,8 @@ import com.hgtech.soma.runtime.ShortConsumer;
 import com.hgtech.soma.runtime.TableStats;
 import com.hgtech.soma.runtime.UpdateResult;
 import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
+import com.hgtech.soma.runtime.metadata.SomaSegmentKind;
+import com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata;
 import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 import com.hgtech.soma.dataflow.DataFlowContext;
 import com.hgtech.soma.dataflow.LongScalarResult;
@@ -470,6 +472,21 @@ public final class DenseConsumer {
         }
         ParticleTable table = ParticleTable.create(plan);
         table.addBatch(batch);
+        SomaTableRuntimeMetadata loadedMetadata = table.runtimeMetadata();
+        require(loadedMetadata.rows() == 32770
+                        && loadedMetadata.capacity() == 65536
+                        && loadedMetadata.segments().size() == 2
+                        && loadedMetadata.segments().get(0).kind()
+                                == SomaSegmentKind.FLAT_HEAD
+                        && loadedMetadata.segments().get(0).startRowInclusive() == 0
+                        && loadedMetadata.segments().get(0).endRowExclusive() == 32768
+                        && loadedMetadata.segments().get(0).liveRows() == 32768
+                        && loadedMetadata.segments().get(1).kind()
+                                == SomaSegmentKind.SEGMENTED_TAIL
+                        && loadedMetadata.segments().get(1).startRowInclusive() == 32768
+                        && loadedMetadata.segments().get(1).endRowExclusive() == 65536
+                        && loadedMetadata.segments().get(1).liveRows() == 2,
+                "Runtime Metadata exposes detached head-tail topology");
         require(table.capacity() == 65536 && table.size() == 32770,
                 "generated head-tail publication capacity");
         require(table.fetchAt(32767).id == 32767
@@ -496,7 +513,19 @@ public final class DenseConsumer {
         table.clear();
         require(table.size() == 0 && table.capacity() == 65536,
                 "clear retains admitted segmented capacity");
+        require(loadedMetadata.rows() == 32770
+                        && table.runtimeMetadata().rows() == 0
+                        && table.runtimeMetadata().segments().size() == 2,
+                "Runtime Metadata snapshots remain detached across clear");
         table.release();
+        SomaTableRuntimeMetadata releasedMetadata = table.runtimeMetadata();
+        require(releasedMetadata.released()
+                        && releasedMetadata.rows() == 0
+                        && releasedMetadata.capacity() == 0
+                        && releasedMetadata.segments().isEmpty()
+                        && releasedMetadata.observation()
+                                .updateScratchHighWaterBytes() >= 0L,
+                "release retains terminal observation without live topology");
     }
 
     private static void testAllPrimitiveAndPresenceBindings() {

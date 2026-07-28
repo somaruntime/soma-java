@@ -52,7 +52,7 @@ final class CandidateCountOperation<B extends DataFlowBinding>
     @Override
     public ExecutionOutcome<LongScalarResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<LongScalarResult> parallel =
-                ParallelCandidateExecution.count(program, frame);
+                CandidateParallelKernels.count(program, frame);
         if (parallel != null) {
             return parallel;
         }
@@ -195,7 +195,7 @@ final class CandidateIndexSnapshotOperation<B extends DataFlowBinding>
     @Override
     public ExecutionOutcome<IndexSnapshot> execute(ExecutionFrame frame) {
         ParallelCandidateSelection parallel =
-                ParallelCandidateExecution.select(
+                CandidateParallelKernels.select(
                         program, frame, "dataflow.indexSnapshot");
         CandidateSelection selected = parallel == null
                 ? program.select(frame, "dataflow.indexSnapshot")
@@ -208,7 +208,10 @@ final class CandidateIndexSnapshotOperation<B extends DataFlowBinding>
                 (long) selected.size * 4L,
                 "dataflow.indexSnapshot");
         IndexSnapshot result = frame.binding(source)
-                .indexSnapshot(selected.indexes, selected.size);
+                .indexSnapshot(
+                        selected.materializedIndexes(
+                                frame, "dataflow.indexSnapshot"),
+                        selected.size);
         return new ExecutionOutcome<IndexSnapshot>(
                 result,
                 selected.scanned,
@@ -283,7 +286,7 @@ final class LongColumnOperation<B extends DataFlowBinding>
     @Override
     public ExecutionOutcome<LongColumnResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<LongColumnResult> parallel =
-                ParallelCandidateExecution.longColumn(
+                CandidateParallelKernels.longColumn(
                         program, expression, frame);
         if (parallel != null) {
             return parallel;
@@ -296,7 +299,7 @@ final class LongColumnOperation<B extends DataFlowBinding>
                     frame.newOutputLongs(selected.size, "dataflow.longColumn");
             for (int index = 0; index < selected.size; index++) {
                 values[index] = expression.evaluate(
-                        frame, binding, selected.indexes[index]);
+                        frame, binding, selected.indexAt(index));
             }
             return new ExecutionOutcome<LongColumnResult>(
                     new LongColumnResult(values, selected.size),
@@ -365,7 +368,7 @@ final class DoubleColumnOperation<B extends DataFlowBinding>
     @Override
     public ExecutionOutcome<DoubleColumnResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<DoubleColumnResult> parallel =
-                ParallelCandidateExecution.doubleColumn(
+                CandidateParallelKernels.doubleColumn(
                         program, expression, frame);
         if (parallel != null) {
             return parallel;
@@ -380,7 +383,7 @@ final class DoubleColumnOperation<B extends DataFlowBinding>
         if (selected != null) {
             for (int index = 0; index < selected.size; index++) {
                 values[index] = expression.evaluate(
-                        frame, binding, selected.indexes[index]);
+                        frame, binding, selected.indexAt(index));
             }
             return new ExecutionOutcome<DoubleColumnResult>(
                     new DoubleColumnResult(values, selected.size),
@@ -446,7 +449,7 @@ final class BooleanColumnOperation<B extends DataFlowBinding>
     @Override
     public ExecutionOutcome<BooleanColumnResult> execute(ExecutionFrame frame) {
         ExecutionOutcome<BooleanColumnResult> parallel =
-                ParallelCandidateExecution.booleanColumn(
+                CandidateParallelKernels.booleanColumn(
                         program, expression, frame);
         if (parallel != null) {
             return parallel;

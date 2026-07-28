@@ -4,7 +4,9 @@ import com.hgtech.soma.examples.grassing.config.SimulationConfig;
 import com.hgtech.soma.examples.grassing.result.SimulationDiagnostics;
 import com.hgtech.soma.examples.grassing.schema.generated.GrasserStateTable;
 import com.hgtech.soma.examples.grassing.schema.generated.TraceSampleTable;
+import com.hgtech.soma.runtime.SomaGroup;
 import com.hgtech.soma.runtime.TableStats;
+import com.hgtech.soma.runtime.metadata.SomaGroupMetadata;
 
 import java.util.Arrays;
 
@@ -12,6 +14,7 @@ import java.util.Arrays;
 public final class SimulationRuntime implements AutoCloseable {
   final SimulationConfig config;
   final String inputChecksum;
+  final SomaGroup group;
   final GrasserStateTable grassers;
   final TraceSampleTable traces;
   final double[] grass;
@@ -22,11 +25,13 @@ public final class SimulationRuntime implements AutoCloseable {
   private boolean closed;
 
   SimulationRuntime(SimulationConfig config, String inputChecksum,
+                    SomaGroup group,
                     GrasserStateTable grassers,
                     TraceSampleTable traces,
                     double[] grass) {
     this.config = config;
     this.inputChecksum = inputChecksum;
+    this.group = group;
     this.grassers = grassers;
     this.traces = traces;
     this.grass = grass;
@@ -70,6 +75,10 @@ public final class SimulationRuntime implements AutoCloseable {
         stateStats.capacity(), traceStats.capacity());
   }
 
+  public SomaGroupMetadata runtimeMetadata() {
+    return group.metadata();
+  }
+
   private void ensureOpen() {
     if (closed) throw new IllegalStateException("simulation runtime is closed");
   }
@@ -80,18 +89,9 @@ public final class SimulationRuntime implements AutoCloseable {
     closed = true;
     Throwable failure = null;
     try {
-      traces.release();
+      group.release();
     } catch (Throwable releaseFailure) {
       failure = releaseFailure;
-    }
-    try {
-      grassers.release();
-    } catch (Throwable releaseFailure) {
-      if (failure == null) {
-        failure = releaseFailure;
-      } else {
-        failure.addSuppressed(releaseFailure);
-      }
     } finally {
       Arrays.fill(grass, 0.0);
       Arrays.fill(cellPopulation, 0);

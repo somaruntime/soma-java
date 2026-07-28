@@ -1,6 +1,7 @@
 package com.hgtech.soma.dataflow;
 
-import com.hgtech.soma.dataflow.generated.CandidateBorrowAccess;
+import com.hgtech.soma.dataflow.generated.CandidateDeliveryAccess;
+import com.hgtech.soma.dataflow.generated.CandidateDeliverySession;
 import com.hgtech.soma.dataflow.generated.CandidateMaterializationAccess;
 import com.hgtech.soma.dataflow.generated.DataFlowBinding;
 import com.hgtech.soma.runtime.MaterializationBudget;
@@ -55,58 +56,98 @@ final class PointExistsOperation<B extends DataFlowBinding>
     }
 }
 
-final class CandidateBorrowOperation<B extends DataFlowBinding>
-        extends SingleSourceOperation<LongScalarResult> {
+final class CandidateDeliveryOperation<
+        B extends DataFlowBinding, V>
+        extends SingleSourceOperation<DeliveryResult> {
     private final CandidateProgram<B> program;
-    private final CandidateBorrowAccess<B> access;
-    private final Object consumer;
-    private final long opaqueIdentity;
+    private final CandidateDeliveryAccess<B, V> access;
+    private final ParameterSlot<V> visitorSlot;
 
-    CandidateBorrowOperation(
+    CandidateDeliveryOperation(
             CandidateProgram<B> program,
-            CandidateBorrowAccess<B> access,
-            Object consumer) {
-        super(program);
+            CandidateDeliveryAccess<B, V> access,
+            ParameterSlot<V> visitorSlot) {
+        super(
+                program,
+                java.util.Collections
+                        .<ParameterSlot<?>>singletonList(visitorSlot));
         this.program = program;
         this.access = access;
-        this.consumer = consumer;
-        opaqueIdentity = DataFlowSupport.nextOpaqueIdentity();
+        this.visitorSlot = visitorSlot;
     }
 
     @Override
     public String canonicalForm() {
-        return program.canonical() + "->borrow("
-                + access.identity() + ",opaque-instance-"
-                + opaqueIdentity + ")";
+        return program.canonical() + "->deliver("
+                + access.identity() + ")";
     }
 
     @Override
     public String logicalShape() {
-        return "Candidate -> BorrowedTraversal";
+        return "Candidate -> CallbackDelivery";
     }
 
     @Override
     public String logicalPlan() {
-        return program.canonical() + " -> Borrow(cursor-fence)";
+        return program.canonical()
+                + " -> Deliver(generated-cursor-fence)";
     }
 
     @Override
     public String physicalPlan() {
-        return "candidate-selection-vector[generated-cursor-borrow]";
+        return program.requiresBarrier()
+                ? "candidate-selection[" + program.physicalForm()
+                        + ",generated-cursor-callback-delivery]"
+                : "candidate-stream[" + program.physicalForm()
+                        + ",generated-cursor-callback-delivery]";
     }
 
     @Override
-    public ExecutionOutcome<LongScalarResult> execute(ExecutionFrame frame) {
-        CandidateSelection selected =
-                program.select(frame, "dataflow.borrow");
+    public ResultDeliveryMode resultDeliveryMode() {
+        return ResultDeliveryMode.CALLBACK_SCOPED;
+    }
+
+    @Override
+    public ExecutionOutcome<DeliveryResult> execute(ExecutionFrame frame) {
+        int maximum = program.maximumCardinality(frame.binding(source));
+        frame.preflightDelivery(
+                maximum,
+                (long) maximum * 8L,
+                "dataflow.deliver");
         @SuppressWarnings("unchecked")
         B binding = (B) frame.binding(source);
-        access.borrow(binding, selected.indexes, selected.size, consumer);
-        return new ExecutionOutcome<LongScalarResult>(
-                new LongScalarResult(selected.size),
-                selected.scanned,
-                selected.size,
-                1L,
+        final CandidateDeliverySession session =
+                access.open(binding, frame.parameter(visitorSlot));
+        if (session == null) {
+            throw DataFlowFailures.internal(
+                    "dataflow_delivery_session_missing",
+                    source.alias(),
+                    "dataflow.deliver",
+                    access.identity());
+        }
+        final boolean[] completed = new boolean[] {true};
+        CandidateVisit visit;
+        try {
+            visit = program.visit(
+                    frame,
+                    new CandidateVisitor() {
+                        @Override
+                        public boolean accept(
+                                int index, int outputPosition) {
+                            boolean more = session.visit(index);
+                            if (!more) completed[0] = false;
+                            return more;
+                        }
+                    },
+                    "dataflow.deliver");
+        } finally {
+            session.close();
+        }
+        return new ExecutionOutcome<DeliveryResult>(
+                new DeliveryResult(visit.matched, completed[0]),
+                visit.scanned,
+                visit.matched,
+                visit.matched,
                 1,
                 1);
     }
@@ -164,7 +205,11 @@ final class CandidateMaterializeOperation<
         @SuppressWarnings("unchecked")
         B binding = (B) frame.binding(source);
         List<T> result = access.materialize(
-                binding, selected.indexes, selected.size, budget);
+                binding,
+                selected.materializedIndexes(
+                        frame, "dataflow.materialize.indexes"),
+                selected.size,
+                budget);
         return new ExecutionOutcome<List<T>>(
                 result,
                 selected.scanned,

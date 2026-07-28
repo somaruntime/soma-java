@@ -140,7 +140,18 @@ Admission 失败立即终止，不允许先消耗多个 fork 再发现候选不�
   `check-reference-application-full-performance.sh`；
 - application correctness 与架构 Gate：`check-industrial-scheduler.sh`、
   `check-grassing-simulation.sh`、`check-real-time-dispatch-rule-engine.sh`；
+- runtime-scale model/runner/validator：
+  `RuntimeScaleQualificationModel`、`RuntimeScaleQualificationRunner`、
+  `RuntimeScaleQualificationArtifactValidator`与
+  `META-INF/soma/runtime-scale-qualification-schema-v1.json`；
+- runtime-scale完整Gate：`scripts/check-runtime-scale-qualification.sh`；
 - 综合入口：`scripts/check.sh`。
+
+普通benchmark smoke只运行runtime-scale `small-fast` contract smoke、strict
+validator、negative claim和Java major 52检查；它不分配100M数据。完整十lane
+qualification是有至少40GiB物理内存前置条件的显式重型Gate，不隐式放入普通
+`check.sh`。其source identity只绑定可执行产品/evidence源码，最终Report或
+Temporary清理不会反向改变被验真的candidate。
 
 `check-performance-baseline-architecture.sh` 固定验证当前
 component=2、reference-application=9、public-claim=0，以及模块依赖和 Owner

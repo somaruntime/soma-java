@@ -78,11 +78,16 @@ Keyed table 使用 hash-based primary locator 完成 `key -> current Index`。Lo
 命中后仍回查 authoritative columns 的完整 value equality。Dense table不创建
 primary locator。
 
-Locator backing 是 internal `FLAT/BOUNDED_SEGMENTED` physical candidate，由容量、
-contiguous allocation risk、growth/rehash peak 和 point/probe cost 的 versioned
-formula 选择。Flat compact locator 是 baseline；segmented candidate 只有通过
-production point/collision/rehash/growth evidence 才能启用，不能因 Table storage
-segmented 就自动跟随。
+V1 使用 `soma-primary-locator-layout-v1` 公式把无主定位器的 Table 解析为
+`NONE`，把任意已支持主定位器解析为 `FLAT_COMPACT`。该公式、结果与 locator
+identity进入 Effective Metadata 和 Plan identity；runtime create 必须 fail closed
+验证。紧凑平面定位器是当前唯一生产实现，不能因 Table storage segmented 就自动
+跟随分段。
+
+`BOUNDED_SEGMENTED` 只保留为未来 physical candidate：只有在
+production point/collision/rehash/growth evidence 证明收益且无语义退化后，才能
+通过新的 formula identity 和 compatibility cutover 纳入；当前 V1 Metadata 枚举和
+公式不提供该值，避免未经验证的实现成为隐含承诺。
 
 ### 3.2 Secondary exact access
 

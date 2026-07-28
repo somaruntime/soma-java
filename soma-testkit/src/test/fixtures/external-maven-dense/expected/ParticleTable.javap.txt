@@ -53,4 +53,5 @@ public final class com.example.soma.dense.generated.ParticleTable {
   public com.hgtech.soma.runtime.IntColumnView energyColumn();
   public com.hgtech.soma.runtime.TableStats statsSnapshot();
   public void resetStats();
+  public com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata();
 }

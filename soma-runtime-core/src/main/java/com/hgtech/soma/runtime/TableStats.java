@@ -40,6 +40,8 @@ public final class TableStats {
     private final long keySpaceProbeCount;
     private final long keySpaceCollisionCount;
     private final long keySpaceRehashCount;
+    private final long keySpaceStorageCurrentBytes;
+    private final long keySpaceStorageHighWaterBytes;
 
     private final int exactIndexCount;
     private final long exactIndexEntryCount;
@@ -87,6 +89,8 @@ public final class TableStats {
             long keySpaceProbeCount,
             long keySpaceCollisionCount,
             long keySpaceRehashCount,
+            long keySpaceStorageCurrentBytes,
+            long keySpaceStorageHighWaterBytes,
             int exactIndexCount,
             long exactIndexEntryCount,
             long exactIndexGroupCount,
@@ -132,6 +136,8 @@ public final class TableStats {
         this.keySpaceProbeCount = keySpaceProbeCount;
         this.keySpaceCollisionCount = keySpaceCollisionCount;
         this.keySpaceRehashCount = keySpaceRehashCount;
+        this.keySpaceStorageCurrentBytes = keySpaceStorageCurrentBytes;
+        this.keySpaceStorageHighWaterBytes = keySpaceStorageHighWaterBytes;
         this.exactIndexCount = exactIndexCount;
         this.exactIndexEntryCount = exactIndexEntryCount;
         this.exactIndexGroupCount = exactIndexGroupCount;
@@ -181,7 +187,7 @@ public final class TableStats {
                 lastOperation, lastOutcome, lastErrorCode,
                 lastScanned, lastMatched, lastChanged,
                 0L, 0L, 0L, 0L, "", 0, 0L, 0L, 0L, 0L,
-                0L, 0L, "", 0, 0, 0L, 0L, 0L,
+                0L, 0L, "", 0, 0, 0L, 0L, 0L, 0L, 0L,
                 0, 0L, 0L, 0L, 0L, 0L, 0L, 0L);
     }
 
@@ -224,6 +230,8 @@ public final class TableStats {
                 base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
                 base.keySpaceProbeCount, base.keySpaceCollisionCount,
                 base.keySpaceRehashCount,
+                base.keySpaceStorageCurrentBytes,
+                base.keySpaceStorageHighWaterBytes,
                 base.exactIndexCount, base.exactIndexEntryCount,
                 base.exactIndexGroupCount, base.exactIndexProbeCount,
                 base.exactIndexCollisionCount, base.exactIndexRehashCount,
@@ -252,6 +260,8 @@ public final class TableStats {
                 base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
                 base.keySpaceProbeCount, base.keySpaceCollisionCount,
                 base.keySpaceRehashCount,
+                base.keySpaceStorageCurrentBytes,
+                base.keySpaceStorageHighWaterBytes,
                 base.exactIndexCount, base.exactIndexEntryCount,
                 base.exactIndexGroupCount, base.exactIndexProbeCount,
                 base.exactIndexCollisionCount, base.exactIndexRehashCount,
@@ -266,7 +276,9 @@ public final class TableStats {
             int keySpaceUsed,
             long keySpaceProbeCount,
             long keySpaceCollisionCount,
-            long keySpaceRehashCount) {
+            long keySpaceRehashCount,
+            long keySpaceStorageCurrentBytes,
+            long keySpaceStorageHighWaterBytes) {
         requireBase(base);
         if (keySpaceImplementation == null) {
             throw new NullPointerException("keySpaceImplementation");
@@ -276,9 +288,13 @@ public final class TableStats {
                 || keySpaceProbeCount < 0L || keySpaceCollisionCount < 0L
                 || keySpaceCollisionCount > keySpaceProbeCount
                 || keySpaceRehashCount < 0L
+                || keySpaceStorageCurrentBytes < 0L
+                || keySpaceStorageHighWaterBytes < keySpaceStorageCurrentBytes
                 || (absent && (keySpaceCapacity != 0 || keySpaceUsed != 0
                 || keySpaceProbeCount != 0L || keySpaceCollisionCount != 0L
-                || keySpaceRehashCount != 0L))) {
+                || keySpaceRehashCount != 0L
+                || keySpaceStorageCurrentBytes != 0L
+                || keySpaceStorageHighWaterBytes != 0L))) {
             throw new IllegalArgumentException("invalid key-space stats");
         }
         return copy(base,
@@ -292,6 +308,7 @@ public final class TableStats {
                 base.operationScratchCurrentBytes, base.operationScratchHighWaterBytes,
                 keySpaceImplementation, keySpaceCapacity, keySpaceUsed,
                 keySpaceProbeCount, keySpaceCollisionCount, keySpaceRehashCount,
+                keySpaceStorageCurrentBytes, keySpaceStorageHighWaterBytes,
                 base.exactIndexCount, base.exactIndexEntryCount,
                 base.exactIndexGroupCount, base.exactIndexProbeCount,
                 base.exactIndexCollisionCount, base.exactIndexRehashCount,
@@ -338,6 +355,8 @@ public final class TableStats {
                 base.keySpaceImplementation, base.keySpaceCapacity, base.keySpaceUsed,
                 base.keySpaceProbeCount, base.keySpaceCollisionCount,
                 base.keySpaceRehashCount,
+                base.keySpaceStorageCurrentBytes,
+                base.keySpaceStorageHighWaterBytes,
                 exactIndexCount, exactIndexEntryCount, exactIndexGroupCount,
                 exactIndexProbeCount, exactIndexCollisionCount, exactIndexRehashCount,
                 exactIndexStorageCurrentBytes, exactIndexStorageHighWaterBytes);
@@ -363,6 +382,8 @@ public final class TableStats {
             long keySpaceProbeCount,
             long keySpaceCollisionCount,
             long keySpaceRehashCount,
+            long keySpaceStorageCurrentBytes,
+            long keySpaceStorageHighWaterBytes,
             int exactIndexCount,
             long exactIndexEntryCount,
             long exactIndexGroupCount,
@@ -388,6 +409,7 @@ public final class TableStats {
                 operationScratchCurrentBytes, operationScratchHighWaterBytes,
                 keySpaceImplementation, keySpaceCapacity, keySpaceUsed,
                 keySpaceProbeCount, keySpaceCollisionCount, keySpaceRehashCount,
+                keySpaceStorageCurrentBytes, keySpaceStorageHighWaterBytes,
                 exactIndexCount, exactIndexEntryCount, exactIndexGroupCount,
                 exactIndexProbeCount, exactIndexCollisionCount, exactIndexRehashCount,
                 exactIndexStorageCurrentBytes, exactIndexStorageHighWaterBytes);
@@ -441,6 +463,12 @@ public final class TableStats {
     public long keySpaceProbeCount() { return keySpaceProbeCount; }
     public long keySpaceCollisionCount() { return keySpaceCollisionCount; }
     public long keySpaceRehashCount() { return keySpaceRehashCount; }
+    public long keySpaceStorageCurrentBytes() {
+        return keySpaceStorageCurrentBytes;
+    }
+    public long keySpaceStorageHighWaterBytes() {
+        return keySpaceStorageHighWaterBytes;
+    }
     public int exactIndexCount() { return exactIndexCount; }
     public long exactIndexEntryCount() { return exactIndexEntryCount; }
     public long exactIndexGroupCount() { return exactIndexGroupCount; }

@@ -2,7 +2,6 @@ package com.hgtech.soma.runtime.generated;
 
 /** Generated int-key table的primitive primary-locator协议；KeySpace不表示Sparse Set。 */
 public interface IntKeySpace {
-    String implementation();
     int size();
     int capacity();
     int used();
@@ -10,8 +9,13 @@ public interface IntKeySpace {
     long collisionCount();
     long rehashCount();
     long retainedBytes();
+    long storageHighWaterBytes();
     void resetMetrics();
-    void addMetrics(long probes, long collisions, long rehashes);
+    void inheritMetrics(
+            long probes,
+            long collisions,
+            long rehashes,
+            long previousStorageHighWaterBytes);
     boolean contains(int key);
     int rowOf(int key);
     void requireInsertKey(int key, String table, String keyField, String operation);

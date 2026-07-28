@@ -37,6 +37,7 @@ final class DenseDataFlowSourceEmitter {
                         + generatedPackage + ";\n\n");
         out.append("import com.hgtech.soma.dataflow.BooleanExpression;\n")
                 .append("import com.hgtech.soma.dataflow.CandidateFlow;\n")
+                .append("import com.hgtech.soma.dataflow.CallbackDeliveryDefinition;\n")
                 .append("import com.hgtech.soma.dataflow.DataFlowDefinition;\n")
                 .append("import com.hgtech.soma.dataflow.DoubleExpression;\n")
                 .append("import com.hgtech.soma.dataflow.ExpandedFlow;\n")
@@ -46,7 +47,8 @@ final class DenseDataFlowSourceEmitter {
                 .append("import com.hgtech.soma.dataflow.ParameterSlot;\n")
                 .append("import com.hgtech.soma.dataflow.PointFlow;\n")
                 .append("import com.hgtech.soma.dataflow.SourceSlot;\n")
-                .append("import com.hgtech.soma.dataflow.generated.CandidateBorrowAccess;\n")
+                .append("import com.hgtech.soma.dataflow.generated.CandidateDeliveryAccess;\n")
+                .append("import com.hgtech.soma.dataflow.generated.CandidateDeliverySession;\n")
                 .append("import com.hgtech.soma.dataflow.generated.CandidateIndexAccess;\n")
                 .append("import com.hgtech.soma.dataflow.generated.CandidateEffectAccess;\n")
                 .append("import com.hgtech.soma.dataflow.generated.CandidateMaterializationAccess;\n")
@@ -100,9 +102,23 @@ final class DenseDataFlowSourceEmitter {
         appendAccessTypes(out, table);
         out.append("  private static String identityComponent(Object value){String text=String.valueOf(value);return text.length()+\":\"+text;}\n\n")
                 .append("  public static final class Binding implements DataFlowBinding{\n")
-                .append("    private final ").append(tableType).append(" table;\n")
+                .append("    private final ").append(tableType).append(" table;\n");
+        for (ChildSpec child : table.children) {
+            out.append("    private final int ")
+                    .append(child.javaName)
+                    .append("MaximumRows;\n");
+        }
+        out
                 .append("    private Binding(").append(tableType)
-                .append(" table,boolean requireRoot){if(table==null)throw new NullPointerException(\"table\");if(requireRoot)table.requireDataFlowRootSource();this.table=table;}\n")
+                .append(" table,boolean requireRoot){if(table==null)throw new NullPointerException(\"table\");if(requireRoot)table.requireDataFlowRootSource();this.table=table;");
+        for (ChildSpec child : table.children) {
+            out.append("this.")
+                    .append(child.javaName)
+                    .append("MaximumRows=table.dataFlow")
+                    .append(cap(child.javaName))
+                    .append("MaximumRows();");
+        }
+        out.append("}\n")
                 .append("    public long aggregateInstanceId(){return table.dataFlowAggregateInstanceId();}\n")
                 .append("    public Object physicalIdentity(){return table.dataFlowPhysicalIdentity();}\n")
                 .append("    public String schemaIdentity(){return SCHEMA_IDENTITY;}\n")
@@ -112,6 +128,9 @@ final class DenseDataFlowSourceEmitter {
                 .append("    public String kernelProtocol(){return GeneratedDataFlow.KERNEL_PROTOCOL;}\n")
                 .append("    public long structuralEpoch(){return table.dataFlowStructuralEpoch();}\n")
                 .append("    public int packedSize(){return table.dataFlowPackedSize();}\n");
+        out.append("    public boolean segmentedStorage(){return table.dataFlowSegmentedStorage();}\n")
+                .append("    public int flatHeadRows(){return table.dataFlowFlatHeadRows();}\n")
+                .append("    public int segmentRows(){return table.dataFlowSegmentRows();}\n");
         appendBindingAccess(out, table);
         out.append("    public IndexSnapshot indexSnapshot(int[] indexes,int length){return table.dataFlowIndexSnapshot(indexes,length);}\n")
                 .append("    public void acquire(String operation){table.acquireDataFlow(operation);}\n")
@@ -129,9 +148,9 @@ final class DenseDataFlowSourceEmitter {
         out.append("    public PointFlow<Binding,").append(carrier)
                 .append("> pointAt(int index){return GeneratedDataFlow.point(this,new CurrentIndexAccess(index),new MaterializationAccess());}\n")
                 .append("    public CandidateFlow<Binding> gather(ParameterSlot<IndexSnapshot> snapshot){return GeneratedDataFlow.gather(this,snapshot,new GatherAccess());}\n")
-                .append("    public DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(CandidateFlow<Binding> candidates,")
-                .append(scan)
-                .append(".Consumer consumer){return GeneratedDataFlow.borrow(this,candidates,new BorrowAccess(),consumer);}\n")
+                .append("    public CallbackDeliveryDefinition<").append(scan)
+                .append(".Visitor> deliver(CandidateFlow<Binding> candidates){return GeneratedDataFlow.deliver(this,candidates,new DeliveryAccess(),")
+                .append(scan).append(".Visitor.class);}\n")
                 .append("    public DataFlowDefinition<java.util.List<")
                 .append(carrier)
                 .append(">> materialize(CandidateFlow<Binding> candidates,MaterializationBudget budget){return GeneratedDataFlow.materialize(this,candidates,new MaterializationAccess(),budget);}\n");
@@ -148,9 +167,11 @@ final class DenseDataFlowSourceEmitter {
         String scan = table.name("Scan");
         out.append("  private static final class CurrentIndexAccess implements PointIndexAccess<Binding>{private final int index;private CurrentIndexAccess(int index){this.index=index;}public int index(Binding binding){return binding.table.dataFlowCurrentIndex(index);}public String identity(){return TABLE_IDENTITY+\":current-index:\"+index;}}\n")
                 .append("  private static final class GatherAccess implements SnapshotGatherAccess<Binding>{public void requireCurrent(Binding binding,IndexSnapshot snapshot){binding.table.dataFlowRequireCurrent(snapshot);}public String identity(){return TABLE_IDENTITY+\":index-snapshot-gather-v1\";}}\n")
-                .append("  private static final class BorrowAccess implements CandidateBorrowAccess<Binding>{public void borrow(Binding binding,int[] indexes,int count,Object consumer){binding.table.dataFlowBorrow(indexes,count,(")
+                .append("  private static final class DeliveryAccess implements CandidateDeliveryAccess<Binding,")
                 .append(scan)
-                .append(".Consumer)consumer);}public String identity(){return TABLE_IDENTITY+\":candidate-borrow-v1\";}}\n")
+                .append(".Visitor>{public CandidateDeliverySession open(Binding binding,")
+                .append(scan)
+                .append(".Visitor visitor){return binding.table.dataFlowDeliverySession(visitor);}public String identity(){return TABLE_IDENTITY+\":candidate-delivery-v1\";}}\n")
                 .append("  private static final class MaterializationAccess implements CandidateMaterializationAccess<Binding,")
                 .append(table.carrierType)
                 .append(">{public java.util.List<").append(table.carrierType)
@@ -220,6 +241,9 @@ final class DenseDataFlowSourceEmitter {
                     .append(cap(child.javaName))
                     .append("At(parentIndex);return child==null?null:")
                     .append(childDataFlow).append(".bindOwned(child);}\n")
+                    .append("    public int maximumChildRows(Binding parentBinding){return parentBinding.")
+                    .append(child.javaName)
+                    .append("MaximumRows;}\n")
                     .append("    public String identity(){return ")
                     .append(q(table.logicalName + "." + child.logicalName))
                     .append(";}\n")

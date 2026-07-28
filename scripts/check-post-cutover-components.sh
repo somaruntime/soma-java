@@ -36,6 +36,7 @@ if grep -F 'com.hgtech.soma.examples' \
 fi
 
 classpath="soma-benchmarks/target/classes:soma-runtime-core/target/classes"
+classpath="$classpath:soma-dataflow/target/classes"
 
 long_sum_type='com.hgtech.soma.benchmarks.PostCutoverComponentBenchmark$LongSum'
 long_sum_descriptor=$("$JAVA_HOME/bin/javap" \

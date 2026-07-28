@@ -11,4 +11,16 @@ public interface SomaGroupMemberMetadata {
     SomaGroupMemberState state();
     long aggregateInstanceId();
     long attachmentOrdinal();
+    long maximumStructuralBytes();
+    long retainedStructuralBytes();
+    long transientStructuralBytes();
+    long currentStructuralBytes();
+    long structuralHighWaterBytes();
+    long maximumTableInstances();
+    long currentTableInstances();
+    long tableInstanceHighWater();
+    /**
+     * Attached root snapshot；planned or unpublished member returns {@code null}。
+     */
+    SomaTableRuntimeMetadata rootTableRuntimeMetadata();
 }

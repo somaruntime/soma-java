@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 责任方向
 
@@ -36,8 +36,8 @@ test fixture / oracle / verification / benchmark
 - `solver/` 拥有 canonical facade、一次性 session、算法状态机、result
   assembly，以及从 authoritative assignment Table 推导结果指标的
   `AssignmentSummarizer`；
-- `runtime/` 拥有 RuntimePlan、Table aggregate、Problem projection、
-  event queue 和 maintenance calendar；
+- `runtime/` 拥有 RuntimePlan、九槽`industrial-scheduler-solve` SomaGroup、
+  Table aggregate、Problem projection、event queue 和 maintenance calendar；
 - `result/` 只依赖 detached Problem，拥有 immutable Result、checksum 和完整
   domain validator；
 - 完整 projection verification、fixture、oracle、execution evidence bridge、
@@ -124,14 +124,17 @@ assignment 是该约束的最终权威事实。
 ## Failure 与 lifecycle
 
 - problem 在首次 Table mutation 前完成 identity/reference/range/matrix/event 预检；
-- runtime factory/projection 失败会关闭整个尚未发布的 aggregate；
+- runtime factory先创建冻结SomaGroup，再atomic attach九张root Table；
+  partial-create/projection失败统一关闭尚未发布的Group；
 - 单 Table operation 保持 SOMA 失败原子性；
 - SOMA V1 没有跨 Table transaction；authoritative write 后失败使 solve fail-stop；
 - derived candidate frontier、event queue 与 resource calendar 可以从
   input/assignment 重建；
-- `SchedulerRuntime` 是 Table aggregate 的唯一 owner，按
-  result/lookup/state/definition 逆序 release；solver session 另外拥有并关闭
-  candidate frontier；
+- `SchedulerRuntime` 是九张root Table及其Group的唯一owner；Group负责stable
+  slot、ledger、all-member preflight与reverse release，solver session另外拥有并
+  关闭candidate frontier；
+- `runtimeMetadata()`只返回detached `SomaGroupMetadata`用于evidence/diagnostics，
+  不进入调度决策或领域Result；
 - callback 不重入同一 aggregate，不产生外部副作用；
 - session、dispatch engine 和一次 solve 的 summary operation 都是 one-shot。
 

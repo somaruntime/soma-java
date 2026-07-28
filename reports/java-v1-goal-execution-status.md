@@ -1,250 +1,118 @@
-# Java-only SOMA V1 Goal execution status
+# SOMA Java V1 Goal execution status
 
-类型：Report / Goal 状态
+类型：Report / Status
 
-状态：blocked（P6 target 尚有 G1–G5 implementation/qualification gaps，且 G6 外部事实不足）
+状态：G0–G5 passed；G6 blocked
 
-Owner：SOMA Java Goal 状态输出
+Owner：SOMA Java Goal execution
 
-受众：项目 Owner、维护者与 Gate reviewer
+受众：SOMA maintainer、Gate owner、release owner
 
-事实范围：完整 Java-only V1 Goal、功能/Gate状态、验证记录和当前阻塞
+适用版本：`0.2.0-SNAPSHOT` 2026-07-28 runtime-scale production candidate
 
-非事实范围：重新定义 Blueprint/Design 或授权 release
+输入事实源：正式Blueprint/Design/Conformance/Engineering、executable source、
+generated/public consumers、runtime-scale qualification、三个Example和Gate输出
 
-适用版本：runtime-scale P6 target Design；production code baseline `515bf91`；
-既有 Transformation/DataFlow 与 reference-application evidence 只保留其原 candidate
-范围
+事实范围：当前G0–G6状态、最新candidate identity、剩余blocker与claim boundary
 
-输入事实源：当前 Gate reports、专题治理 reports与可重放验证输出
+非事实范围：public release授权、未执行环境的支持或任意workload性能承诺
 
 最后审查日期：2026-07-28
 
-更新日期：2026-07-28
-当前治理 Codex Goal：`完成 SOMA Runtime Boundary、Group、Scale Readiness 与产品化综合治理`
+## 1. 当前结论
 
-Goal thread：`019fa2d3-a378-75c2-b97b-db7552873250`
+Runtime Boundary、Group、Scale Readiness与产品化综合治理已完成其授权范围：
+TV0–TV9、最终设计、正式Owner、production、generated/public API、测试、
+benchmark、Guide、三个Example、代码规模、production qualification和closeout均
+闭合。`CF-009`–`CF-015`已关闭。
 
-该 Goal 完整推进 Java-only V1 产品目标，但不伪造或代替仍需外部事实的 G6
-发布裁决；此前“完整 Java-only V1.0，并通过 G0–G6”的 release Goal 边界继续
-由本报告追踪。
-packed/exact v3切换提交：`4b6fa43 perf: adopt packed exact indexes and swap removal`；post-cutover功能/性能尾项代码基线：`b991f4c docs: define keyspace as primary locator`；完整evidence见两份dated专题报告
-
-本文件是中断恢复和进度审计入口，不是 Design。目标与正式语义从 `docs/blueprints/`、`docs/design/` 进入；当前代码由代码本身拥有，并通过 `docs/implementation-map/` 导航。
-
-2026-07-28 runtime boundary/Group/scale governance在TV0–TV9与三路独立设计审计
-PASS后，采用design-first两阶段promotion：正式Design已接纳完整Metadata、
-SomaGroup、四类类型/String、受限physical plans、bounded scheduler、Eager+
-callback delivery与production-scale qualification；同批Conformance明确记录
-production S1–S3已完成Descriptor/closed String/Plan/Effective/SomaGroup/ledger
-clean cutover，S4–S10与qualification仍未实现。此前G1–G5 passed只证明原candidate，
-不自动证明新target。
-当前必须完成production cutover、Example审计、qualification和fresh Gate后才能
-重新判定G1–G5；G6仍独立blocked。
-
-2026-07-11专题治理已完成对完整功能V1的无缩水再审计：P0、V1 blocker和required P1均关闭，G0-G5在Zulu JDK 8完整`./scripts/check.sh`上fresh通过，独立reviewer最终PASS。完整findings、Capability矩阵、package重放边界与evidence见[历史专题治理报告](archive/soma-java-v1-topical-governance-report.md)。该专题不替代本文件的原Goal；G6仍blocked。
-
-2026-07-17经用户明确批准，项目完成首个公开发布前的Packed Index / Exact Access / IndexBuffer breaking cutover：删除Sparse Set、maintained order与dirty selector rebuild，keyed/dense统一swap-remove，exact index改为mutation-boundary eager incremental维护，public row-index sequence改为epoch-bearing `IndexSnapshot`，runtime/generated/plan protocol升为v3。正式Owner、consumer、Schema/hash/golden、examples、benchmark与Gate同步迁移；当前事实与evidence见[`2026-07-17-packed-exact-index-runtime-redesign-report.md`](2026-07-17-packed-exact-index-runtime-redesign-report.md)。该迁移不处理也不解除G6。
-
-2026-07-20完成post-cutover尾项治理：固化caller-responsibility Index契约，按distinct-group cardinality收紧exact-index容量，优化single snapshot，FJSP machine selection改为application-owned indexed heap，拆分exact-index source emitter，并保留/澄清`KeySpace` primary-locator术语。当前实现与component/FJSP A/B evidence见[`2026-07-20-packed-exact-index-post-cutover-closeout-report.md`](2026-07-20-packed-exact-index-post-cutover-closeout-report.md)。该治理不处理也不解除G6。
-
-2026-07-20正式启用设计驱动文档体系：Blueprint、Design、Implementation Map、Conformance与Engineering成为当前入口；32份旧Owner按迁移审计标记superseded或改为current-executable Report。该切换只改变文档权威与导航，不改变代码、能力、Gate或G6状态；详见[`2026-07-20-documentation-framework-cutover-report.md`](2026-07-20-documentation-framework-cutover-report.md)。
-
-2026-07-21完成四场景 Blueprint canonical journey 采纳：FJSP、VRP、Simulation和Game的data role、identity、ordering、failure与performance boundary同步到当时的 executable examples，phase-6 fixtures、benchmark lane、Implementation Map、Conformance和developer Report一并重绑。实现基线为`a137b10 feat(examples): adopt four scenario blueprints`；该时点证据见[`2026-07-21-four-scenario-blueprint-adoption-report.md`](2026-07-21-four-scenario-blueprint-adoption-report.md)。该报告现只保留历史 provenance，不再拥有 current G5 或当前示例。
-
-2026-07-23完成Access Model / Candidate Scan产品化治理：建立Point/Candidate/Column/Key/Bulk/Ownership完整访问模型，generated API clean cutover到Table/Scan/Cursor/UpdateCursor/Traversal与Unique point family，runtime采用compact typed plan、source/terminal specialization和stable arg-min；compatibility升级到v4、development version升级到`0.2.0-SNAPSHOT`。实现基线为`fd82eba feat: implement Stage 2 access model`；正式Owner、scope non-regression与证据见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。该治理不处理也不解除G6。
-
-2026-07-23随后完成项目复杂度与可维护性治理及后续可持续性审计：processor selector/admission与Table source helper责任核对到`79c0a89`，benchmark lane分责和generated-footprint evidence核对到`8f685e2`，最终正式收口为`75ee658`。该治理在其候选时点保持generated Java、schema/hash、public/generated API、runtime语义、四场景和Gate不变；结论与证据见[项目复杂度与可维护性治理报告](2026-07-23-project-complexity-and-maintainability-governance-report.md)和[复杂度可持续性后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。
-
-2026-07-23参考应用边界治理进一步解除旧四场景与SOMA产品设计的所有权耦合：`soma-examples`成为工业动态调度与个体生态仿真两个普通Java 8 consumer的聚合器，输入生成与运行时状态严格分离；component benchmark完成领域中性化，应用integrated evidence回到各应用。旧四场景产品Owner、共享JAR、源码/测试/golden/脚本和benchmark dependency已在`955c956`原子退出，所需G0–G5责任由core fixtures、neutral benchmark与两个应用接管。`955c956`已在Azul Zulu full JDK 8重跑完整`./scripts/check.sh`并得到`project-check: ok`；正式Owner、报告、引用闭包与Temporary退役在`f6c3646`收口。当前结论见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)，G6不在本专题范围内。
-
-2026-07-23工业动态调度参考应用进一步完成应用架构治理：建立Problem/Factory/Solver/Runtime/Schema/Result责任和唯一canonical journey，detached Result在runtime关闭后仍可消费，fixture/oracle/verification/benchmark全部退出production source-set，production JAR与package DAG由专项Gate保护。实现候选为`69e5dc6`，正式文档切换为`6ae9eb6`；四profile、10,000-operation long-run、三fork allocation/GC/high-water、isolated clean/repeat与完整`./scripts/check.sh`均通过。该治理不改变SOMA产品语义或G6状态，详见[工业动态调度参考应用架构治理报告](2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)。
-
-2026-07-23个体生态仿真参考应用完成同等架构治理：建立Config/Scenario Factory/Simulator/Session/Engine/System/Runtime/Schema/Result责任和唯一canonical journey，detached Result在runtime关闭后仍可消费，oracle/verification/benchmark及非default profile全部退出production source-set，production JAR、package DAG与retired identity由专项Gate保护。实现候选为`287350d`，正式文档切换为`8ca1ab2`；四profile、2,000-tick long-run、逐tick AoS位级等价、物理顺序独立性、三fork allocation/GC/high-water、isolated clean/repeat与完整`./scripts/check.sh`均通过。该治理不改变SOMA产品语义或G6状态，详见[个体生态仿真参考应用架构治理报告](2026-07-23-grassing-individual-simulation-architecture-governance-report.md)。
-
-2026-07-24完成Reference Application大规模性能基线治理：scheduler 建立
-1,000/100,000/10,000 operations，simulation 建立
-1,000×1,000/100,000×1,000/10,000×10,000 individuals/ticks 的六份
-application-owned baseline；每份使用9-fork校准和3-fork普通比较，并由
-Fast/Scale/Soak/Full Gate分责。实现候选为`1af43ac`，baseline切换为
-`938b3d5`。归因只发现measurement与scheduler应用内部加速问题，没有core defect
-证据；最终重放发现的JDK 8私有生成构造器不稳定性由`c0fa1c9`以不改变公开契约
-和runtime语义的方式封闭。正式结论见[大规模性能基线治理报告](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)。
-
-2026-07-27 完成 Transformation Model 与 Typed DataFlow 产品化治理：Access
-Model 之上建立 Shape/Expression/Operator/Result/Effect 语义，新增独立
-`soma-dataflow`、generated `<Table>DataFlow`/keyed Delta、Definition/Template/
-one-shot Invocation、safe-point effect 和 managed/borrowed parallel。production
-candidate 为 `2aa8c15`；工业调度在不改变 Schema、Solver API 或 primitive
-frontier 的前提下，以真实 assignment summary DataFlow 验证应用闭环。构造契约、
-48-trial reference differential、external consumer、generated footprint、
-3-fork component baseline、三个 profile 5-fork non-regression 与完整
-`./scripts/check.sh` 均通过；正式结论见
-[Transformation/DataFlow 治理报告](2026-07-27-transformation-dataflow-governance-report.md)。
-该治理不处理也不解除 G6。
-
-2026-07-27 完成 Reference Application Portfolio 与最佳实践治理：两个既有应用按
-抽象、叙事、不变量 Owner 和按构造即正确方法完成复审；新增独立
-`real-time-dispatch-rule-engine` 接管 reusable multi-source DataFlow application
-trace；工业调度删除展示性 `AssignmentSummaryFlow`，由 direct ColumnView 单遍
-`AssignmentSummarizer` 保持 Result 与性能；grassing 关闭 fail-stop lifecycle、
-test-only projection 和 Result accumulator 责任。实现与九份 application
-baseline 候选为 `253e383`，正式结论见
-[Reference Application Portfolio 治理报告](2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)。
-该治理不改变 SOMA public/generated API、Schema、Access/Transformation/DataFlow
-语义，也不处理或解除 G6。
-
-## 1. 当前总进度
-
-| 总体工作 | 状态 | 可核验出口 |
-|---|---|---|
-| 历史 Phase 0–6 candidate | historical passed | 原reports/commits保留其精确candidate evidence，不外推新Design |
-| Runtime-scale P6 target Design | completed | Blueprint/Design/Conformance/Engineering原子固化；P5三路审计PASS |
-| Metadata/Group/String/physical/execution/delivery production cutover | in progress | P8 S1–S3已闭合；`CF-009`–`CF-013`剩余S4–S10尚未关闭 |
-| P9 Example最终设计审计 | pending | 三个独立应用按真实偏差RETAIN或治理 |
-| Production-scale qualification / fresh G1–G5 | blocked | `CF-014`/`CF-015`；Small/Medium/1M/10M/single-double100M/String/Delivery/Soak尚无新candidate evidence |
-| G6 release readiness | blocked | 本地 release mechanics 已落地；真实 SCM/contact、namespace ownership、signing/publishing provenance、clean public history 与最终授权仍缺失 |
-| V1 总 Goal | blocked | P8–P10与G6均未闭合，禁止标记completed、公开发布、tag或声明ready |
-
-Phase 0–Phase 6 只是同一 V1 Goal 的实施顺序。这里没有 v0.x、MVP、Lite、Basic 或缩水后的替代目标。
-
-## 2. 历史 Capability evidence inventory
-
-以下ID保留为既有实施/Gate evidence的追踪标签，不再构成当前Design、路线图或平行能力事实源；当前目标、规范和差距分别由Blueprint、Design和Conformance拥有。
-
-23 项为 `evidenced`：
-
-- `V1-ANNOTATION-SCHEMA`、`V1-COMPILER-LOWERING`、`V1-PROCESSING-MODEL`、`V1-SCHEMA-HASH`、`V1-PUBLIC-COMPATIBILITY`；
-- `V1-GENERATED-API`、`V1-DENSE-STORAGE`、`V1-ROW-PIPELINE`、`V1-COLUMN-ACCESS`、`V1-KEYED-IDENTITY`、`V1-ACCESS-STRUCTURES`、`V1-MUTATION`；
-- `V1-CHILD-OWNERSHIP`、`V1-MATERIALIZATION`、`V1-RUNTIME-LIFECYCLE`、`V1-RUNTIME-ERRORS`、`V1-RUNTIME-PLAN`、`V1-PERFORMANCE-SHAPE`、`V1-SECURITY-INTEGRITY`；
-- `V1-EVIDENCE-TOOLING`、`V1-CONSUMER-PACKAGE`、`V1-SCENARIO-BENCHMARK`。
-- `V1-TRANSFORMATION-DATAFLOW`。
-
-`V1-RELEASE-EVIDENCE` 为 `blocked`：本地 package/reproducibility/SBOM/security/license mechanics 已实施，但真实组织发布边界和 clean immutable public provenance 未满足。该 Capability 仍完整保留在 V1，不是 optional、dropped 或 deferred。
-
-## 3. Gate 状态
-
-| Gate | 状态 | 主要报告 |
-|---|---|---|
-| G0 | passed | `reports/java-v1-g0-scope-freeze-report.md` |
-| G1 | blocked | 四类type/String/Descriptor与Group Metadata已实现；完整Runtime/Observation Metadata及fresh Gate尚未闭合 |
-| G2 | blocked | generated SchemaMetadata、typed String与Group attach已实现；generated callback/observation和fresh Gate尚未闭合 |
-| G3 | blocked | Group/structural ledger已实现；storage/Candidate/relation/scheduler/Invocation resource/delivery target尚未实现 |
-| G4 | blocked | 新simple/advanced/callback/diagnostics external consumer尚未通过 |
-| G5 | blocked | production-scale qualification与P9 Example审计尚未通过 |
-| G6 | blocked | `reports/java-v1-g6-release-readiness-report.md` |
-
-因此当前既不是功能RC，也不是public release candidate。历史G1–G5 evidence仍可
-用于回归对照，但不能覆盖P6新增target gap。当前artifact仍是
-`0.2.0-SNAPSHOT`；G1–G6未重新闭合前不得公开分发或声明支持矩阵。
-
-## 4. 集中验证记录
-
-### 4.1 2026-07-27 Reference Application Portfolio 正式收口
-
-`b893653` 冻结专题协议；`da1950e` 冻结三应用详细设计；`321a5f2`、
-`2d3017e`、`6324004` 分别完成 grassing、RTD 和 industrial 责任迁移；
-`253e383` 建立两份 component 加九份 application baseline 的最终 evidence
-portfolio。RTD 的 sequential/managed/borrowed、Join/GroupBy、budget/cancel、
-detached command、application commit 与 plain-Java reference 闭合；industrial
-三份旧阈值无修改通过；grassing 只迁移 v5 RuntimePlan identity，未重校阈值。
-正式 Owner、应用文档、Conformance、Report、checker 和 Temporary 在 Stage 6
-原子切换；最终候选在 Azul Zulu OpenJDK `1.8.0_492-b09`、Maven `3.9.16`、
-macOS `26.5.2` / Darwin `25.5.0`、`aarch64` 环境中仅运行一次完整
-`./scripts/check.sh`，结果为 `project-check: ok`。G6 保持 blocked。
-
-### 4.2 2026-07-27 Transformation/DataFlow 正式收口
-
-`2aa8c15` 是完整 promotion preflight 使用的 production/public/generated/runtime
-候选；Zulu JDK 8 上完整 `./scripts/check.sh` 返回 `project-check: ok`。
-Transformation contract、reference differential、external consumer、
-generated footprint、DataFlow 3-fork component baseline、工业调度
-correctness/5-fork identity migration 均通过。annotation Schema、Access Model、
-Index/ownership/lifecycle、单 Table 失败原子性、两个 reference application 和
-既有阈值未缩水；grassing 只因 generated companion/protocol 原子迁移而重新编译，
-没有业务 DataFlow 迁移。
-
-### 4.3 2026-07-24 大规模性能基线正式收口
-
-`1af43ac`冻结六个目标workload与同语义scheduler内部优化，`938b3d5`建立六份
-9-fork baseline并完成Owner/Gate切换；`c0fa1c9`封闭最终重放发现的JDK 8私有
-生成构造器不稳定性。独立3-fork Fast、Scale、Soak、Full、performance
-architecture、codegen admission、两个应用correctness/architecture与完整
-`./scripts/check.sh`均通过；当前结构为component=1、reference-application=6、
-public-claim=0。目标规模、API/Schema/Access Model/runtime语义和应用领域语义均
-未缩水，详见[大规模性能基线治理报告](2026-07-24-reference-application-scale-performance-baseline-governance-report.md)。
-
-### 4.4 2026-07-23 参考应用边界正式收口
-
-`955c956`已通过文档、reactor、artifact isolation、两个应用的correctness/default/large/long-run、多fork evidence、20+20条neutral benchmark record、36条negative path、16条allocation、24条memory与三surface generated-footprint Gate，并在immutable commit上得到完整`project-check: ok`。旧四场景已退出current Blueprint/Design/Conformance、共享example JAR和benchmark dependency；正式Owner、引用闭包、Governance Report与Temporary退役均已闭合。详见[参考应用边界治理报告](2026-07-23-reference-application-boundary-governance-report.md)。
-
-### 4.5 2026-07-23 复杂度可持续性正式收口（历史候选事实）
-
-`79c0a89`修正compiler/codegen内部责任，`8f685e2`完成benchmark分责与generated-footprint诊断，`75ee658`完成正式Owner、Governance Report、入口/checker与Temporary退役。当时的最终候选在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`；20条benchmark record、36条negative path、222个generated type、782个major-52 class与四场景保持，FJSP 100k allocation/GC Gate无Full GC。该段只记录该治理时点的非回归事实，不拥有当前参考应用边界；详见[后续治理报告](2026-07-23-complexity-sustainability-governance-report.md)。
-
-### 4.6 2026-07-23 Access Model / Candidate Scan验证（历史基线）
-
-`fd82eba`的production/public API/runtime、external consumers、当时四场景、16条allocation、24条memory、code-size与FJSP多fork证据均已在Azul Zulu full JDK 8通过完整`./scripts/check.sh`，结果为`project-check: ok`。该段记录v4产品基线的验证来源；旧场景证据现已由core、neutral benchmark和两个参考应用替换。详细环境、artifact与claim边界见[治理报告](2026-07-23-access-model-candidate-scan-governance-report.md)和[性能报告](2026-07-23-access-model-candidate-scan-performance-report.md)。
-
-### 4.7 2026-07-21 四场景采纳验证（历史 provenance）
-
-`a137b10`的实现、当前正式文档与退役后 Temporary 已由Zulu JDK 8完整`./scripts/check.sh`重新验证，结果为`project-check: ok`。四场景生成222个type/782个major-52 class，benchmark产生20+20 records且36个negative path全部fail closed，component与FJSP allocation/GC Gate也通过。完整命令、环境、artifact与claim边界见[2026-07-21 专题治理报告](2026-07-21-four-scenario-blueprint-adoption-report.md)。
-
-### 4.8 2026-07-11 专题治理 fresh validation
-
-实现提交`aa7a466`上执行：
+当前production/evidence source identity为：
 
 ```text
-JAVA_HOME=/Library/Java/JavaVirtualMachines/zulu-8.jdk/Contents/Home SOMA_UNSUPPORTED_JAVAC=/opt/homebrew/opt/openjdk/bin/javac ./scripts/check.sh
+base commit: 6cde5d508c9ce3a1d873d282b1d4808e0334a288
+content-sha256: dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69
 ```
 
-结果`project-check: ok`；20条benchmark lane各聚合2次measurement，36条serialized negative artifact均fail closed。最后一次现存benchmark目录为`target/benchmark-smoke.PJkPCM`。clean package mechanics在`2490406`已通过；`aa7a466`的fresh package重放在项目编译前因Maven Central TLS中断，当前实现内容由Maven verify和多组external Maven consumer覆盖，具体限制不作为G6证据并在专题报告§12披露。
+该identity明确表示含未提交后续slice的working-tree candidate，不冒充immutable
+commit。正式证据见
+[综合治理报告](2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)。
 
-### 4.9 Phase 6 原集中验证记录（历史，不构成当前JDK支持范围）
+## 2. G0–G6
 
-完整命令：
+| Gate | 状态 | 当前直接证据 |
+|---|---|---|
+| G0 | passed | Java 8产品边界、单一Blueprint/Design Owner、Capability/claim boundary与scope checker |
+| G1 | passed | four-kind schema、String、Metadata hierarchy、compiler diagnostics、schema/hash clean repeat |
+| G2 | passed | Zulu full JDK 8 integration、generated Metadata/Group/callback、v11/v3/v4协议、golden和old-token absence |
+| G3 | passed | storage/locator/Candidate/relation/Delta/Window、bounded scheduler、Invocation ledger、Result Delivery、failure/observation |
+| G4 | passed | dense/keyed/access/child/breadth external Maven consumers、public API golden、Java major 52 |
+| G5 | passed | reference differential、component/footprint、十lane runtime-scale qualification、三个Example audit/correctness及九profile Full Gate |
+| G6 | blocked | SCM/ownership/contact、signing/publishing、clean release provenance与完整support matrix仍不足 |
 
-```text
-./scripts/check.sh
-env JAVA_HOME=/tmp/corretto8-soma/Contents/Home PATH=/tmp/corretto8-soma/Contents/Home/bin:/usr/bin:/bin:/usr/sbin:/sbin ./scripts/check.sh
-```
+G1–G5的`passed`只证明上述精确candidate与记录环境，不自动发布artifact，也不改变
+G6。
 
-Zulu 环境：Azul Zulu OpenJDK `1.8.0_492-b09`、`javac 1.8.0_492`、Maven Wrapper `3.9.16`、macOS `26.5.2` / Darwin `25.5.0`、arm64/aarch64。最终结果`project-check: ok`。Phase 6 examples：`target/phase6-examples.Wt58xz`；post-fix benchmark：`target/benchmark-smoke.LY9fqL`。
+## 3. 综合治理阶段
 
-Corretto 环境：Amazon Corretto `1.8.0_492-b09` / `8.492.09.2`、`javac 1.8.0_492`、Maven Wrapper `3.9.16`、macOS `26.5.2` / Darwin `25.5.0`、arm64/aarch64。完整结果`project-check: ok`；examples：`target/phase6-examples.BxKJHi`；post-fix focused benchmark：`target/benchmark-smoke.YL4tuu`，20+20 records、12 negative通过。
+| 阶段 | 状态 | 结果 |
+|---|---|---|
+| P0 baseline/governance checkpoint | completed | live branch/dirty attribution与docs contract建立 |
+| P1 traceability/TV9 preregistration | completed | G01–G17与TV9语义/预算/退出条件冻结 |
+| P2 TV9 | completed | callback-scoped read-only pilot accepted；Eager保持默认 |
+| P3 synthesis/Owner decisions | completed | TV0–TV9 accepted/rejected/inconclusive原子综合 |
+| P4 final product/design | completed | 产品叙事、Capability、Metadata、type、ownership、physical、execution、delivery、resource/failure闭合 |
+| P5 independent audit | completed | scope、design与production-shape独立审计通过 |
+| P6 formal promotion | completed | Blueprint/Design/Conformance/Engineering原子固化 |
+| P7 disposition | completed | exact retain/replace/delete/evidence矩阵建立 |
+| P8 production | completed | v11/v3/v4、完整Metadata、closed physical paths、scheduler/ledger/delivery |
+| P9 examples | completed | 三应用真实multi-root lifecycle偏差迁入explicit Group；其余最佳实践保留 |
+| P10 qualification/Gates | completed | Small/Medium/1M/10M/single+double100M/String/Expansion/Delivery/Soak及完整Gate |
+| P11 closeout | completed | formal Report/Map/Conformance、Lab与Temporary退役、scope non-regression |
 
-两次均验证 compiler fixtures、schema/hash、public/generated API、runtime invariants、external Maven consumer、四场景、错误/生命周期/stats、20 条 benchmark workload、JSONL strict validator、Java 8 class major 52 和 `git diff --check`。这些内容只记录当时基线的执行事实；当前项目只以Azul Zulu full JDK 8作为验真与目标支持distribution，不再要求Corretto重放，也不把这次历史结果外推为当前支持承诺。
+## 4. Scale 与String边界
 
-Release diagnostics：`SOMA_PACKAGE_ALLOW_DIRTY=true ./scripts/package-smoke.sh` passed，evidence `target/package-smoke.f8IUL8`；`OSV_SCANNER=/tmp/osv-scanner-v2.3.8-darwin-arm64 ./scripts/security-release-scan.sh` passed，evidence `target/security-release-scan.3iyUxx`。两者明确dirty/unsigned，不替代G6。
+Qualification ID：
+`runtime-scale-qualification-20260728-dfe8fa98b2a4`。
+十条required applicable lane全部`passed`并保持`claimAllowed=false`。100M结论
+只覆盖：
 
-## 5. V1 scope non-regression
+- 单root 100M窄numeric-Key Table；
+- 两个100M窄numeric-Key root同时驻留并做bounded same/cross Group relation；
+- 两个100M String payload root，UTF-16 18..34、cardinality 1,024、跨表100%
+  object sharing、payload/group/join角色。
 
-- P6未删除旧Access/Transformation语义，且明确保留cross-Group/schema/
-  multi-instance/self-join read-only DataFlow；新增目标不能通过实现困难缩水。
-- Capability：23 项 `evidenced`，既有 22 项未回退并新增
-  `V1-TRANSFORMATION-DATAFLOW`；这些标签现在只表示历史candidate evidence，
-  新Metadata/Group/String/scale/delivery target由Design+Conformance拥有。
-- Owner、正式语义与Gate经用户批准按packed/exact v3目标先行迁移，没有为实现捷径反向降低Capability或release claim。
-- 旧四场景只保留历史 provenance；当前 G5 由 core Access Model fixtures、领域中性 component benchmark和三个普通 Java 8 reference consumers共同承担。
-- 三个参考应用分别拥有领域 Blueprint/Design、版本化配置、detached generator、runtime、correctness/long-run/multi-fork evidence；它们互不依赖，也不进入 SOMA 产品 Design。
-- 九个 default/large/long-run profile 由 application 自有 Fast/Scale/Soak/Full
-  Gate 回归；9-fork calibration、3-fork ordinary comparison 和目标 workload
-  均未缩水，且不形成 public claim。
-- P6已批准新的pre-1.0 clean cutover；必须按compatibility matrix原子替换plan/
-  Object/borrow/observation surface，不得引入双轨public/generated API、平行事实或
-  temporary canonical hot path。
-- Transformation/DataFlow v5/v1仍是当前代码baseline；P6 target要求在新protocol
-  中删除generic Object value与consumer-in-Definition borrow，不恢复v4 adapter、
-  隐式common pool或第二存储后端。
-- 复杂度可持续性治理只调整internal implementation/evidence责任与诊断，不改变产品语义；其正式Owner、Report、checker和Temporary退役已在`75ee658`闭环。当前专题只重新划分参考应用与evidence Owner，不反向修改该历史结论。
-- 未引入 temporary public/generated contract、temporary storage/hot path、test-only bypass、未来 migration 或 rewrite。
+String仍为caller-reference backend，不引入dictionary/arena；10M high-cardinality
+payload与1M actual GC另有独立lane。任意wide schema、high-cardinality String Key、
+unbounded expansion或其他环境不得由row count外推。
 
-## 6. 当前剩余工作
+## 5. Reference application 与baseline
 
-先关闭Conformance `CF-009`–`CF-015`：完成production/codegen/protocol、tests/
-benchmark/Guide/Report、三个Example审计、全部production-shape qualification与
-fresh G1–G5。随后G6仍只能在真实SCM/project/issue URL、maintainer/support/
-private-security contact、namespace ownership、CODEOWNERS/community policy、
-Apache-2.0最终授权确认、clean public Git provenance、signing/OIDC provenance、
-publishing endpoint/account与批准的支持矩阵补齐后关闭。未经明确发布授权不
-push、tag或publish。
+三个独立Java 8 consumer各自拥有显式Group、detached Runtime Metadata、领域
+correctness和三个profile：
+
+- industrial scheduler：default v5、large v4、long-run v4；
+- grassing simulation：default v3、large v2、long-run v2；
+- RTD：default/large/long-run均v2。
+
+九份baseline由同一5-fork治理公式重校，普通Full Gate按每profile 3 fork全部通过。
+所有application artifact保持`claimAllowed=false`。
+
+## 6. 当前仍开放
+
+Conformance只保留：
+
+- `CF-005`：环境/profile evidence有限；
+- `CF-006`：G6 release事实不足。
+
+若产品要扩大到其他环境、wide/composite/mutation-heavy 100M、其他String profile或
+public performance claim，应建立新的预注册qualification。当前没有以future/MVP/
+optional改名掩盖的production gap，也没有本专题内仍待实现的canonical migration。
+
+## 7. Claim boundary
+
+允许陈述：当前candidate在记录的Zulu 8/macOS/aarch64环境通过完整功能、
+application与受限scale qualification。
+
+不允许陈述：任意Schema 100M、任意String 100M、跨环境SLA、production-ready、
+release-ready、public RC或已发布。最终release status仍由
+[G6报告](java-v1-g6-release-readiness-report.md)拥有。

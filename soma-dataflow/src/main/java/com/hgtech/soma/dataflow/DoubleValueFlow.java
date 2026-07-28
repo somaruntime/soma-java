@@ -42,13 +42,12 @@ public final class DoubleValueFlow<B extends DataFlowBinding> {
                 DoubleReductionOperation.max(program, expression));
     }
 
-    public DataFlowDefinition<LongScalarResult> borrow(
-            DoubleValueConsumer consumer) {
-        if (consumer == null) {
-            throw new NullPointerException("consumer");
-        }
-        return DataFlowDefinition.of(
-                new DoubleValueBorrowOperation<B>(
-                        program, expression, consumer));
+    public CallbackDeliveryDefinition<DoubleValueVisitor> deliver() {
+        ParameterSlot<DoubleValueVisitor> visitor =
+                ParameterSlot.callback(DoubleValueVisitor.class);
+        return CallbackDeliveryDefinition.of(
+                new DoubleValueDeliveryOperation<B>(
+                        program, expression, visitor),
+                visitor);
     }
 }

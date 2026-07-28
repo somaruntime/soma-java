@@ -9,6 +9,7 @@ import com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata;
 import com.hgtech.soma.runtime.metadata.SomaGroupMetadata;
 import com.hgtech.soma.runtime.metadata.SomaMetadata;
 import com.hgtech.soma.runtime.metadata.SomaTableMetadata;
+import com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -438,6 +439,7 @@ public final class SomaGroup {
     private static boolean isCleanupOrDiagnostic(String operation) {
         return "release".equals(operation)
                 || "runtimePlan".equals(operation)
+                || "runtimeMetadata".equals(operation)
                 || "isReleased".equals(operation)
                 || "statsSnapshot".equals(operation);
     }
@@ -543,6 +545,10 @@ public final class SomaGroup {
         private void preflightSafePoint(String operation) {
             factory.preflightSafePoint(root, operation);
         }
+
+        private SomaTableRuntimeMetadata runtimeMetadata() {
+            return factory.runtimeMetadata(root);
+        }
     }
 
     private final class MemberContext implements GroupMembership {
@@ -594,6 +600,14 @@ public final class SomaGroup {
         private final SomaGroupState state;
         private final long membershipEpoch;
         private final String dataVersion;
+        private final long maximumStructuralBytes;
+        private final long retainedStructuralBytes;
+        private final long transientStructuralBytes;
+        private final long currentStructuralBytes;
+        private final long structuralHighWaterBytes;
+        private final long maximumTableInstances;
+        private final long currentTableInstances;
+        private final long tableInstanceHighWater;
         private final List<SomaGroupMemberMetadata> members;
         private final TreeMap<String, SomaGroupMemberMetadata> membersById =
                 new TreeMap<String, SomaGroupMemberMetadata>(
@@ -607,8 +621,18 @@ public final class SomaGroup {
             state = group.state;
             membershipEpoch = group.membershipEpoch;
             dataVersion = group.dataVersion;
-            for (MemberRuntime member : group.members) {
-                MemberMetadata snapshot = new MemberMetadata(member);
+            maximumStructuralBytes = group.ledger.maximumBytes();
+            retainedStructuralBytes = group.ledger.retainedBytes();
+            transientStructuralBytes = group.ledger.transientBytes();
+            currentStructuralBytes = group.ledger.currentBytes();
+            structuralHighWaterBytes = group.ledger.highWaterBytes();
+            maximumTableInstances = group.ledger.maximumTableInstances();
+            currentTableInstances = group.ledger.currentTableInstances();
+            tableInstanceHighWater =
+                    group.ledger.highWaterTableInstances();
+            for (int index = 0; index < group.members.length; index++) {
+                MemberMetadata snapshot = new MemberMetadata(
+                        group.members[index], group.ledger, index);
                 membersById.put(snapshot.memberId(), snapshot);
             }
             members = Collections.unmodifiableList(
@@ -623,6 +647,30 @@ public final class SomaGroup {
         @Override public SomaGroupState state() { return state; }
         @Override public long membershipEpoch() { return membershipEpoch; }
         @Override public String dataVersion() { return dataVersion; }
+        @Override public long maximumStructuralBytes() {
+            return maximumStructuralBytes;
+        }
+        @Override public long retainedStructuralBytes() {
+            return retainedStructuralBytes;
+        }
+        @Override public long transientStructuralBytes() {
+            return transientStructuralBytes;
+        }
+        @Override public long currentStructuralBytes() {
+            return currentStructuralBytes;
+        }
+        @Override public long structuralHighWaterBytes() {
+            return structuralHighWaterBytes;
+        }
+        @Override public long maximumTableInstances() {
+            return maximumTableInstances;
+        }
+        @Override public long currentTableInstances() {
+            return currentTableInstances;
+        }
+        @Override public long tableInstanceHighWater() {
+            return tableInstanceHighWater;
+        }
         @Override public List<SomaGroupMemberMetadata> members() {
             return members;
         }
@@ -652,8 +700,20 @@ public final class SomaGroup {
         private final SomaGroupMemberState state;
         private final long aggregateInstanceId;
         private final long attachmentOrdinal;
+        private final long maximumStructuralBytes;
+        private final long retainedStructuralBytes;
+        private final long transientStructuralBytes;
+        private final long currentStructuralBytes;
+        private final long structuralHighWaterBytes;
+        private final long maximumTableInstances;
+        private final long currentTableInstances;
+        private final long tableInstanceHighWater;
+        private final SomaTableRuntimeMetadata rootTableRuntimeMetadata;
 
-        private MemberMetadata(MemberRuntime member) {
+        private MemberMetadata(
+                MemberRuntime member,
+                GroupLedger ledger,
+                int memberIndex) {
             memberId = member.plan.memberId();
             schemaHash = member.plan.runtimePlan().schemaHash();
             rootTable = member.plan.rootTable().logicalName();
@@ -662,6 +722,24 @@ public final class SomaGroup {
             state = member.state;
             aggregateInstanceId = member.aggregateInstanceId;
             attachmentOrdinal = member.attachmentOrdinal;
+            maximumStructuralBytes =
+                    ledger.memberMaximumBytes(memberIndex);
+            retainedStructuralBytes =
+                    ledger.memberRetainedBytes(memberIndex);
+            transientStructuralBytes =
+                    ledger.memberTransientBytes(memberIndex);
+            currentStructuralBytes =
+                    ledger.memberCurrentBytes(memberIndex);
+            structuralHighWaterBytes =
+                    ledger.memberHighWaterBytes(memberIndex);
+            maximumTableInstances =
+                    ledger.memberMaximumTableInstances(memberIndex);
+            currentTableInstances =
+                    ledger.memberCurrentTableInstances(memberIndex);
+            tableInstanceHighWater =
+                    ledger.memberHighWaterTableInstances(memberIndex);
+            rootTableRuntimeMetadata = member.binding == null
+                    ? null : member.binding.runtimeMetadata();
         }
 
         @Override public String memberId() { return memberId; }
@@ -674,6 +752,34 @@ public final class SomaGroup {
         }
         @Override public long attachmentOrdinal() {
             return attachmentOrdinal;
+        }
+        @Override public long maximumStructuralBytes() {
+            return maximumStructuralBytes;
+        }
+        @Override public long retainedStructuralBytes() {
+            return retainedStructuralBytes;
+        }
+        @Override public long transientStructuralBytes() {
+            return transientStructuralBytes;
+        }
+        @Override public long currentStructuralBytes() {
+            return currentStructuralBytes;
+        }
+        @Override public long structuralHighWaterBytes() {
+            return structuralHighWaterBytes;
+        }
+        @Override public long maximumTableInstances() {
+            return maximumTableInstances;
+        }
+        @Override public long currentTableInstances() {
+            return currentTableInstances;
+        }
+        @Override public long tableInstanceHighWater() {
+            return tableInstanceHighWater;
+        }
+        @Override public SomaTableRuntimeMetadata
+                rootTableRuntimeMetadata() {
+            return rootTableRuntimeMetadata;
         }
     }
 }

@@ -243,7 +243,7 @@ if grep -F 'stageAppendKeys' "$table_source" "$composite_table_source" >/dev/nul
   || ! grep -F 'validateAppendKeys(batch);ensureAppendKeyCapacity(count,"addBatch");ensureExactIndexAppendCapacity(size()+count,batch,"addBatch");int start=state.prepareAppend(count);boolean keysAppended=false;try{copyBatch(batch,0,start,count);appendKeys(batch,start);keysAppended=true;linkExactIndexRows(start,count);state.commitAppend(start,count)' "$composite_table_source" >/dev/null \
   || ! grep -F 'if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count)' "$table_source" >/dev/null \
   || ! grep -F 'if(keysAppended)rollbackAppendKeys(batch,start);clearColumns(start,start+count)' "$composite_table_source" >/dev/null \
-  || ! grep -F 'stageReplacementKeys(batch);staged.addMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount());ExactIndexStage stagedIndexes=stageExactIndexes(batch,"replaceAll");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),"replaceAll");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count)' "$composite_table_source" >/dev/null \
+  || ! grep -F 'stageReplacementKeys(batch);staged.inheritMetrics(keySpace.probeCount(),keySpace.collisionCount(),keySpace.rehashCount(),keySpace.storageHighWaterBytes());ExactIndexStage stagedIndexes=stageExactIndexes(batch,"replaceAll");int count=batch.size();try{state.preflightReplaceStorage(count,staged.retainedBytes(),stagedIndexes.retainedBytes(),"replaceAll");int previous=state.prepareReplace(count);copyBatch(batch,0,0,count)' "$composite_table_source" >/dev/null \
   || ! grep -F 'publishKeySpace(staged,"replaceAll");staged=null;stagedIndexes.publish("replaceAll");stagedIndexes=null;state.commitReplace(previous,count)' "$composite_table_source" >/dev/null \
   || ! grep -F 'discardKeySpace(staged,"replaceAll");if(stagedIndexes!=null)stagedIndexes.discard("replaceAll")' "$composite_table_source" >/dev/null; then
   printf '%s\n' 'generated-keyed-phase2-check: incremental append/replacement atomicity shape missing' >&2
@@ -279,20 +279,21 @@ if ! grep -q 'SOMA-TABLE-008' "$evidence_dir/invalid-keyed.log"; then
   exit 1
 fi
 
+runtime_classpath="$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar:$local_repository/com/hgtech/soma/soma-dataflow/0.2.0-SNAPSHOT/soma-dataflow-0.2.0-SNAPSHOT.jar"
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:$runtime_classpath" \
   com.example.soma.keyed.KeyedConsumer
 
 "$JAVA_HOME/bin/java" \
-  -cp "$enum_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
+  -cp "$enum_fixture/target/classes:$runtime_classpath" \
   com.example.soma.enumkeyed.EnumKeyedConsumer
 
 "$JAVA_HOME/bin/java" \
-  -cp "$value_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
+  -cp "$value_fixture/target/classes:$runtime_classpath" \
   com.example.soma.valuekeyed.ValueKeyedConsumer
 
 "$JAVA_HOME/bin/java" \
-  -cp "$composite_fixture/target/classes:$local_repository/com/hgtech/soma/soma-runtime-core/0.2.0-SNAPSHOT/soma-runtime-core-0.2.0-SNAPSHOT.jar" \
+  -cp "$composite_fixture/target/classes:$runtime_classpath" \
   com.example.soma.compositekeyed.CompositeValueKeyedConsumer
 
 "$JAVA_HOME/bin/java" -version

@@ -63,13 +63,12 @@ public final class LongValueFlow<B extends DataFlowBinding> {
                 LongPrefixOperation.exclusive(program, expression, seed));
     }
 
-    public DataFlowDefinition<LongScalarResult> borrow(
-            LongValueConsumer consumer) {
-        if (consumer == null) {
-            throw new NullPointerException("consumer");
-        }
-        return DataFlowDefinition.of(
-                new LongValueBorrowOperation<B>(
-                        program, expression, consumer));
+    public CallbackDeliveryDefinition<LongValueVisitor> deliver() {
+        ParameterSlot<LongValueVisitor> visitor =
+                ParameterSlot.callback(LongValueVisitor.class);
+        return CallbackDeliveryDefinition.of(
+                new LongValueDeliveryOperation<B>(
+                        program, expression, visitor),
+                visitor);
     }
 }

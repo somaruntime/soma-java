@@ -245,6 +245,7 @@ final class DenseMetadataSourceEmitter {
                     .append(q(spec.keyed()
                             ? spec.keyField().keySpaceImplementation() : "none"))
                     .append(',')
+                    .append("RuntimeCompatibility.PRIMARY_LOCATOR_LAYOUT_FORMULA,")
                     .append(spec.selectors.isEmpty()
                             ? q("none")
                             : "RuntimeCompatibility.PRIMITIVE_EXACT_HASH")

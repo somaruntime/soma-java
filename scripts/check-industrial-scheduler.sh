@@ -29,7 +29,7 @@ profile=${1:-default}
 case "$profile" in
   default)
     heap=256m
-    baseline_version=v4
+    baseline_version=v5
     expected_measurements=3
     expected_jobs=10
     expected_operations=1000
@@ -38,7 +38,7 @@ case "$profile" in
     ;;
   large)
     heap=512m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=1
     expected_jobs=1000
     expected_operations=100000
@@ -47,7 +47,7 @@ case "$profile" in
     ;;
   long-run)
     heap=256m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=1
     expected_jobs=100
     expected_operations=10000

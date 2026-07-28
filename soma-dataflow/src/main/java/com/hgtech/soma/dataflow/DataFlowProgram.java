@@ -32,6 +32,10 @@ interface DataFlowOperation<R> {
     default boolean parallelBranchSafe() {
         return false;
     }
+
+    default ResultDeliveryMode resultDeliveryMode() {
+        return ResultDeliveryMode.EAGER_DETACHED;
+    }
 }
 
 interface DeferredEffect<R> {
@@ -113,7 +117,7 @@ final class ExecutionFrame {
     private final ExecutionPolicy policy;
     private final ExecutionBudget budget;
     private final CancellationToken cancellationToken;
-    private final ExecutionAccounting accounting;
+    private final InvocationLedger ledger;
 
     ExecutionFrame(
             DataFlowContext context,
@@ -129,7 +133,7 @@ final class ExecutionFrame {
                 policy,
                 budget,
                 cancellationToken,
-                new ExecutionAccounting(budget));
+                new InvocationLedger(budget));
     }
 
     private ExecutionFrame(
@@ -139,14 +143,14 @@ final class ExecutionFrame {
             ExecutionPolicy policy,
             ExecutionBudget budget,
             CancellationToken cancellationToken,
-            ExecutionAccounting accounting) {
+            InvocationLedger ledger) {
         this.context = context;
         this.bindings = bindings;
         this.parameters = parameters;
         this.policy = policy;
         this.budget = budget;
         this.cancellationToken = cancellationToken;
-        this.accounting = accounting;
+        this.ledger = ledger;
     }
 
     DataFlowBinding binding(SourceSlot<?> source) {
@@ -186,15 +190,17 @@ final class ExecutionFrame {
     }
 
     long scratchBytes() {
-        return accounting.scratchBytes();
+        return saturatedAdd(
+                ledger.sharedScratchHighWaterBytes(),
+                ledger.workerScratchHighWaterBytes());
     }
 
     long outputBytes() {
-        return accounting.outputBytes();
+        return ledger.outputHighWaterBytes();
     }
 
     long outputElements() {
-        return accounting.outputElements();
+        return ledger.outputHighWaterElements();
     }
 
     ExecutionFrame sequentialChild() {
@@ -206,7 +212,7 @@ final class ExecutionFrame {
                         .withStatsMode(policy.statsMode()),
                 budget,
                 cancellationToken,
-                accounting);
+                ledger);
     }
 
     void checkBoundary(String operation) {
@@ -285,11 +291,76 @@ final class ExecutionFrame {
     }
 
     void reserveOutput(long elements, long bytes, String operation) {
-        accounting.reserveOutput(elements, bytes, operation);
+        ledger.reserveOutput(elements, bytes, operation);
+    }
+
+    void preflightDelivery(long elements, long bytes, String operation) {
+        ledger.preflightDelivery(elements, bytes, operation);
+    }
+
+    InvocationPhaseLease beginParallel(
+            int tasks,
+            int workers,
+            long perWorkerScratchBytes,
+            String operation) {
+        return ledger.beginParallel(
+                tasks, workers, perWorkerScratchBytes, operation);
+    }
+
+    void closeLedger() {
+        ledger.close();
+    }
+
+    long sharedScratchCurrentBytes() {
+        return ledger.sharedScratchCurrentBytes();
+    }
+
+    long sharedScratchHighWaterBytes() {
+        return ledger.sharedScratchHighWaterBytes();
+    }
+
+    long workerScratchCurrentBytes() {
+        return ledger.workerScratchCurrentBytes();
+    }
+
+    long workerScratchHighWaterBytes() {
+        return ledger.workerScratchHighWaterBytes();
+    }
+
+    long outputCurrentBytes() {
+        return ledger.outputCurrentBytes();
+    }
+
+    long outputHighWaterBytes() {
+        return ledger.outputHighWaterBytes();
+    }
+
+    long outputCurrentElements() {
+        return ledger.outputCurrentElements();
+    }
+
+    long outputHighWaterElements() {
+        return ledger.outputHighWaterElements();
+    }
+
+    int taskCurrent() {
+        return ledger.taskCurrent();
+    }
+
+    int taskHighWater() {
+        return ledger.taskHighWater();
+    }
+
+    int workerCurrent() {
+        return ledger.workerCurrent();
+    }
+
+    int workerHighWater() {
+        return ledger.workerHighWater();
     }
 
     private void reserveScratch(long bytes, String operation) {
-        accounting.reserveScratch(bytes, operation);
+        ledger.reserveShared(bytes, operation);
     }
 
     private static long multiply(int count, long width, String operation) {
@@ -302,72 +373,10 @@ final class ExecutionFrame {
         }
         return (long) count * width;
     }
-}
 
-final class ExecutionAccounting {
-    private final ExecutionBudget budget;
-    private long scratchBytes;
-    private long outputBytes;
-    private long outputElements;
-
-    ExecutionAccounting(ExecutionBudget budget) {
-        this.budget = budget;
-    }
-
-    synchronized long scratchBytes() {
-        return scratchBytes;
-    }
-
-    synchronized long outputBytes() {
-        return outputBytes;
-    }
-
-    synchronized long outputElements() {
-        return outputElements;
-    }
-
-    synchronized void reserveOutput(
-            long elements, long bytes, String operation) {
-        if (elements < 0L || bytes < 0L
-                || outputElements > Long.MAX_VALUE - elements
-                || outputBytes > Long.MAX_VALUE - bytes) {
-            throw DataFlowFailures.resource(
-                    "dataflow_output_budget_exceeded",
-                    "invocation.output",
-                    operation,
-                    "overflow");
-        }
-        long nextElements = outputElements + elements;
-        long nextBytes = outputBytes + bytes;
-        if (nextElements > budget.maximumOutputElements()
-                || nextBytes > budget.maximumOutputBytes()) {
-            throw DataFlowFailures.resource(
-                    "dataflow_output_budget_exceeded",
-                    "invocation.output",
-                    operation,
-                    nextElements + "/" + nextBytes);
-        }
-        outputElements = nextElements;
-        outputBytes = nextBytes;
-    }
-
-    synchronized void reserveScratch(long bytes, String operation) {
-        if (bytes < 0L || scratchBytes > Long.MAX_VALUE - bytes) {
-            throw DataFlowFailures.resource(
-                    "dataflow_scratch_budget_exceeded",
-                    "invocation.scratch",
-                    operation,
-                    "overflow");
-        }
-        long next = scratchBytes + bytes;
-        if (next > budget.maximumInvocationScratchBytes()) {
-            throw DataFlowFailures.resource(
-                    "dataflow_scratch_budget_exceeded",
-                    "invocation.scratch",
-                    operation,
-                    Long.toString(next));
-        }
-        scratchBytes = next;
+    private static long saturatedAdd(long first, long second) {
+        return first > Long.MAX_VALUE - second
+                ? Long.MAX_VALUE : first + second;
     }
 }
 

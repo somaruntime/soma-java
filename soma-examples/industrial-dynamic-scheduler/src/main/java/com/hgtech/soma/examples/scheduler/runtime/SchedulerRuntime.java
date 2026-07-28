@@ -14,7 +14,9 @@ import com.hgtech.soma.examples.scheduler.schema.generated.SecondaryResourceStat
 import com.hgtech.soma.examples.scheduler.schema.generated.SetupTimeTable;
 import com.hgtech.soma.examples.scheduler.schema.generated.TransportTimeTable;
 import com.hgtech.soma.runtime.MaterializationBudget;
+import com.hgtech.soma.runtime.SomaGroup;
 import com.hgtech.soma.runtime.TableStats;
+import com.hgtech.soma.runtime.metadata.SomaGroupMetadata;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -27,6 +29,7 @@ public final class SchedulerRuntime implements AutoCloseable {
   final int jobCount;
   final int operationCount;
   final int frontierCapacity;
+  final SomaGroup group;
   final JobDefinitionTable jobs;
   final OperationDefinitionTable operationDefinitions;
   final EligibleMachineTable eligibleMachines;
@@ -43,6 +46,7 @@ public final class SchedulerRuntime implements AutoCloseable {
 
   SchedulerRuntime(
       SchedulingProblem problem,
+      SomaGroup group,
       JobDefinitionTable jobs,
       OperationDefinitionTable operationDefinitions,
       EligibleMachineTable eligibleMachines,
@@ -56,6 +60,7 @@ public final class SchedulerRuntime implements AutoCloseable {
     this.jobCount = problem.jobs().size();
     this.operationCount = problem.operationCount();
     this.frontierCapacity = problem.frontierCapacity();
+    this.group = group;
     this.jobs = jobs;
     this.operationDefinitions = operationDefinitions;
     this.eligibleMachines = eligibleMachines;
@@ -97,6 +102,10 @@ public final class SchedulerRuntime implements AutoCloseable {
   public String runtimePlanHash() {
     ensureOpen();
     return assignments.runtimePlan().runtimePlanHash();
+  }
+
+  public SomaGroupMetadata runtimeMetadata() {
+    return group.metadata();
   }
 
   public int assignmentKeyCount() {
@@ -260,18 +269,26 @@ public final class SchedulerRuntime implements AutoCloseable {
   public void close() {
     if (closed) return;
     closed = true;
-    assignments.release();
-    transportTimes.release();
-    setupTimes.release();
-    resourceStates.release();
-    operationStates.release();
-    machineStates.release();
-    eligibleMachines.release();
-    operationDefinitions.release();
-    jobs.release();
-    events.clear();
-    Arrays.fill(machineCalendars, null);
-    jobGates.clear();
+    Throwable failure = null;
+    try {
+      group.release();
+    } catch (Throwable releaseFailure) {
+      failure = releaseFailure;
+    } finally {
+      events.clear();
+      Arrays.fill(machineCalendars, null);
+      jobGates.clear();
+    }
+    rethrow(failure);
+  }
+
+  private static void rethrow(Throwable failure) {
+    if (failure == null) return;
+    if (failure instanceof RuntimeException) {
+      throw (RuntimeException) failure;
+    }
+    if (failure instanceof Error) throw (Error) failure;
+    throw new IllegalStateException("runtime release failed", failure);
   }
 
   public static final class RuntimeEvidence {

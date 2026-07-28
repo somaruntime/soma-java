@@ -25,7 +25,7 @@ evidence_dir=$(mktemp -d "$root_dir/target/dataflow-performance.XXXXXX")
 commit=$(git rev-parse HEAD)
 cpu_identity=$(./scripts/benchmark-cpu-identity.sh)
 forks=3
-baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v1.json
+baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-zulu8-macos-aarch64-v2.json
 baseline_result=$evidence_dir/performance-baseline-result.json
 
 ./mvnw -B -ntp -pl soma-benchmarks -am test-compile

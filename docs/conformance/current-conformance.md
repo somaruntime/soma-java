@@ -6,90 +6,65 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：P6 target Design 与 P8 S3 production baseline `515bf91`
+核对对象：正式 Blueprint/Design 与 2026-07-28 runtime-scale production candidate
+
+实现身份：base `6cde5d5`；production/evidence source
+`content-sha256:dfe8fa98b2a411708359a378e05f22e2ad89a7b900c70d1f71e8dd1a6b7f8e69`
 
 事实范围：主要设计能力的一致性判断和直接依据
 
-非事实范围：授权修复、重新定义 Design 或声明 public release readiness
+非事实范围：public release授权、跨环境支持矩阵或任意Schema性能承诺
 
 最后审查日期：2026-07-28
 
 ## 1. 判定口径
 
-- **一致且 evidenced**：代码形态与正式 Design 一致，并有对应 Gate/consumer evidence；
-- **一致但 evidence 有限**：没有发现设计偏差，但结论只在当前测量/环境成立；
-- **目标差距**：Blueprint 目标形态尚未完整投影到当前示例；不等同于 core Design 失败；
-- **blocked**：明确目标尚缺必需外部事实或 evidence。
+- **一致且 evidenced**：代码、生成物、测试和适用 Gate 与正式 Design 一致；
+- **一致但 evidence 有限**：未发现设计偏差，但测量只在记录环境/profile成立；
+- **blocked**：缺少必需外部事实或未获对应授权；
+- 本机 `passed` 不自动成为 public claim，受限profile不得外推为任意输入。
 
 ## 2. 能力矩阵
 
-| 关注点 | 当前判定 | 依据 | 处置 |
-|---|---|---|---|
-| Java 8 annotation/schema/compiler | 一致且 evidenced | four-kind classifier、arbitrary-object negative、String selector positive、schema/hash clean repeat与 Zulu 8 external consumer | 防止 arbitrary object、generic Object value和String selector reject回归 |
-| deterministic normalization/hash | 一致且 evidenced | schema JSON/hash golden、Unicode fixture | 保持 |
-| Metadata/generated API | 部分一致；target gap | Descriptor、schema-scoped generated `SchemaMetadata`、schema-seeded Plan Builder、Effective Metadata与detached Group/member Metadata已闭合；Table/Segment/access Runtime Metadata、Observation和legacy borrow replacement仍缺 | S4/S10继续剩余 Metadata phases；不引入 reflection/temporary adapter |
-| packed keyed/dense storage | 部分一致；target gap | 当前 flat SoA、growth/invariant evidence存在；flat-head/segmented-tail 与 Segment publication尚无 production binding | flat保持 baseline；按 plan formula新增受限 Large layout |
-| primary identity 与 exact access | 部分一致；target gap | primitive/String Key/Unique/Index collision correctness已闭合；layout/locator formula与新 resource ledger未闭合 | 保持 authoritative equality；补 lifecycle、locator formula与 point/rehash/growth evidence |
-| Access Model 与 Candidate Scan | 部分一致；target gap | 现有 ordered-stage/one-shot evidence；当前主要依赖 universal IndexBuffer | 保留 direct Access；实现 closed Candidate shapes并删除 superseded universal path |
-| Transformation Model | 部分一致；target gap | current Shape/operator/reference differential保留；Group/Join/Delta/Window specialized cost/preflight尚未按新 Design闭合 | 保持 logical semantics；补 fusion/preaggregate/incremental/fail-closed evidence |
-| Typed DataFlow execution | 部分一致；target gap | primitive/String closed-value protocol已切换；bounded morsel/vector scheduler、Invocation ledger和unified callback delivery未闭合 | Invocation继续唯一 guard Owner；按一套 lifecycle完成替换 |
-| 按构造即正确 | 一致且 evidenced | typed immutable expression/result、one-shot Builder/Invocation、stable boundary failures、真实 internal publish guards；contract/property/differential evidence | 生产 Owner 继续承担不变量；测试不重复冻结 private layout |
-| swap-remove 与 candidate execution | 部分一致；target gap | swap-remove一致；IndexBuffer evidence只覆盖当前 baseline | 保持 mutation invariant；Candidate physical多形态需新增 differential |
-| Index / IndexSnapshot caller-responsibility | 一致且 evidenced | detached `IndexSnapshot`、optional `requireCurrent`、wrong/stale consumer tests；正式 Owner 已明确非 stable identity/row snapshot | 保持 raw detached API，不增加强制 hot-path guard |
-| Group/child ownership/lifecycle | 一致且 evidenced | child forest与独立root trust保留；SomaGroupPlan、stable slots、implicit/explicit Group、atomic attach、GroupLedger/TableLedger、dataVersion、分层fault和reverse release均有runtime/generated/DataFlow evidence | 保持Group只做optional composition；不得合并root trust、transaction或限制cross-Group/schema/instance |
-| structured failure/plan/observation | 部分一致；target gap | plan v4、hard maximum rows、Effective/Group Metadata、String profile与Group/root structural ledger已闭合；Table/Segment/access Runtime Metadata、module-owned Observation/Explain和Invocation phase ledger仍缺 | 保留 stable categories；S4/S6/S10实现剩余runtime topology、Invocation resource与module-owned observation |
-| Result Delivery/materialization | 部分一致；target gap | Eager/materialization与legacy borrowed traversal存在；callback consumer当前进入Definition且无统一generated lifecycle | Eager保持默认；迁移全部 incumbent borrow并禁止Iterator/pull/async |
-| hot-path/scale performance shape | evidence不足于新目标 | 既有component/application baseline只覆盖旧lanes；无Small/Medium String、1M/10M全workload、single/double100M、delivery/soak新qualification | production实现后执行预注册qualification；当前不允许scale/public claim |
-| reference application boundary | 既有一致；待P9复核 | `soma-examples` 三个 independent child与既有evidence仍有效；尚未消费新Metadata/Group/String/delivery contract | P8仅做必要编译迁移；P9独立审计，无偏差则RETAIN |
-| industrial dynamic scheduler | 一致且 evidenced | Problem/Solver/Result/frontier/完整约束闭环；`AssignmentSummarizer` 从 authoritative assignment Table 直接单遍推导 count/makespan/job completion/tardiness，三个既有 baseline 无修改通过 | 保持 primitive frontier 为 dispatch hot-path Owner；summary 使用 application-owned primitive grouping，不再承担 DataFlow 展示责任 |
-| grassing individual simulation | 一致且 evidenced | Config/Scenario Factory/Simulator/Session/Result canonical journey、Engine/System/Runtime/Schema 分责、test-only projection verification、fail-stop lifecycle、operation-local Result accumulator、AoS逐tick等价、order independence，以及 1k×1k/100k×1k/10k×10k 的 multi-fork baseline | 保持 direct Access/Transformation、应用分层和唯一 canonical journey；不强行引入 reusable DataFlow |
-| real-time dispatch rule engine | 一致且 evidenced | 独立 Config/Scenario/Runtime/Rule/Dispatch/Result；reusable Definition/Template/Invocation、多 Source Join、GroupBy、sequential/managed/borrowed、budget/cancel、detached command/result、application commit、plain-Java reference 与三个 profile baseline | 作为 DataFlow application coverage 的唯一 portfolio Owner；不扩张到 MES/JDBC/transaction/distributed execution |
-| G0–G5 历史功能与 package Gate | 历史 candidate passed；新 target未重放 | 当前 [报告入口](../../reports/README.md) | P6 Design promotion不自动继承为新candidate通过；P10重跑适用Gate |
-| G6 public release evidence | blocked | SCM/ownership/signing/publishing/support matrix 等真实事实不足 | 保持 blocked，不得误报 release ready |
-| 设计驱动文档体系 | target已固化；implementation/evidence gap显式 | P6 Design与本Conformance同批更新 | P8/P10关闭gap；P11删除Temporary/Lab |
-| 项目复杂度与可维护性 | 一致且 evidenced | historical/current拓扑、processor/codegen与benchmark责任拆分、normalized generated-footprint诊断、byte-stable generation、完整Gate与多fork对照 | 继续使用软触发器和责任Gate，不设置LOC配额 |
+| 关注点 | 当前判定 | 直接依据与边界 |
+|---|---|---|
+| Java 8 schema/compiler/type system | 一致且 evidenced | four-kind classifier、arbitrary-object negative、String selector、`@SomaValue` flatten、owned child、schema/hash repeat与Zulu 8 external consumer |
+| Metadata control plane | 一致且 evidenced | Descriptor属于完整`SomaMetadata`；schema-seeded mutable builder在创建前freeze为Effective Plan；generated Table/Group投影detached Table/Segment/locator/Unique/Index Runtime Metadata；hot path不解释Metadata |
+| Group/Table ownership | 一致且 evidenced | explicit/implicit Group、stable slots、multi-schema/multi-instance、atomic attach、GroupLedger、分层fault、all-member preflight与reverse release；Group不冒充transaction或root trust |
+| storage/layout/locator | 一致且 evidenced；profile有限 | `FLAT`与`FLAT_HEAD_SEGMENTED_TAIL`、atomic column-group publication、`FLAT_COMPACT` locator、current/high-water observation、跨32K relocation和100M窄表qualification |
+| Access/Candidate | 一致且 evidenced | point/exact/column保持natural path；Candidate closed range/segment/exact/sparse形态与sequential differential闭合，不再以universal buffer解释全部terminal |
+| Transformation/relation | 一致且 evidenced | Group/Join/Window specialized strategy、Delta staging、bounded output及known/overflow/unknown cardinality分配前拒绝 |
+| DataFlow execution/parallel | 一致且 evidenced | Definition→Template→one-shot Invocation；一个bounded adaptive morsel scheduler区分Segment/vector/morsel，支持单Segment中型并行和deterministic merge；Invocation phase ledger最终归零 |
+| Result Delivery | 一致且 evidenced | Eager Detached继续默认；Candidate/Value/Group/Join/Window只试点同步callback-scoped visitor，覆盖early stop、consumer failure、cancel/deadline、non-escape和cleanup；无Iterator/pull/Publisher/async路径 |
+| String V1 | 一致且 evidenced；profile有限 | 唯一reference-backed immutable scalar后端；payload、Key/Unique/Index、Group/Join、presence/null、no-op、mutation/epoch、clear/release、实际GC和三层memory accounting均闭合；无dictionary/arena |
+| Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow detached stats/explain |
+| runtime-scale qualification | 一致且 evidence有限 | Small/Medium、1M、10M、单表100M、两个同时驻留100M root、shared-reference String双100M、Expansion、Delivery、100次Soak十条required lane全部passed；只适用于预注册本机profile，全部`claimAllowed=false` |
+| reference applications | 一致且 evidenced | 三个独立Java 8 consumer均审计；相关root迁入显式SomaGroup，领域模型/算法/Result不变；correctness与九个default/large/long-run baseline通过 |
+| code/test规模 | 一致且 evidenced | replacement closure删除generic Object、legacy borrow、平行parallel executor等旧Owner；neutral/三应用22个Table companion的footprint Gate通过；不以LOC或单调用者机械删除 |
+| G0–G5 | passed | formal Design、compiler/codegen/runtime/external consumer、reference differential、component/application和production-scale证据在综合治理Gate中重放 |
+| G6 public release readiness | blocked | 真实SCM/ownership/contact、signing/publishing、clean provenance与完整support matrix仍不足；本专题未获push/release授权 |
 
 ## 3. 当前结论
 
-正式 Design 已原子接纳完整 Metadata control plane、SomaGroup、四类 V1 类型、
-String reference baseline、closed Capability Set、受限 layout/Candidate/relation、
-bounded scheduler、Eager + callback delivery 与分级 resource/scale qualification。
-这些是 target facts，不是 current support claim。
+本轮治理没有降低SOMA Java V1目标，而是把“Schema-Defined、
+Compiler-Specialized、JVM Heap-Resident runtime-state computing library”落实为
+一套可替换但封闭的Capability组合：State/Owner负责事实与生命周期，
+Metadata/Plan负责cold control plane，specialized Capability负责operation，
+Resource/Failure/Observation负责可预测执行。
 
-P8 S1–S3 已将 Descriptor/SchemaMetadata、four-kind classifier、typed String
-value/access、schema-seeded Plan Builder、Effective Metadata、String resource
-profile、hard maximum rows、SomaGroupPlan/SomaGroup、Group/member Metadata、
-atomic attach、implicit Group、GroupLedger/TableLedger、分层fault/release和
-v7/v2/plan-v4 protocol投影到production，并由external/differential/component
-evidence关闭对应replacement。仍存在[known gaps](known-gaps.md)：Table/Segment/
-access Runtime Metadata与Observation、String lifecycle/GC、Large physical plan、
-specialized relation/parallel、unified callback delivery、Invocation phase ledger
-与全部production-shape qualification尚未闭合。
-
-S1–S3 结果不外推为后续slice、scale或release readiness。G6仍因外部发布事实 blocked；
-Lab/local evidence不能改变这一结论。
-
-本结论不扩大任何任务授权；Conformance 只记录当前判断与相关 Owner 已作出的处置决定，不表示差距实现已获授权或完成。
+`CF-009`–`CF-015`已由production实现、generated/public contract、测试、
+qualification、三个Example审计和代码规模审查关闭。仍开放的只有环境限定
+`CF-005`与public release事实`CF-006`。这意味着当前candidate可以支持本轮正式
+SOMA目标和记录profile的本机工程结论，但不能声称任意String、任意wide schema、
+任意高展开、跨环境SLA、production ready或public release ready。
 
 ## 4. Evidence 入口
 
+- [Runtime Boundary、Group、Scale Readiness 综合治理报告](../../reports/2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)
 - [当前 G0–G6 状态](../../reports/java-v1-goal-execution-status.md)
-- [Packed Index / Exact Access / IndexBuffer 收口](../../reports/2026-07-17-packed-exact-index-runtime-redesign-report.md)
-- [Packed Exact Index 切换后尾项治理](../../reports/2026-07-20-packed-exact-index-post-cutover-closeout-report.md)
-- [G5 examples/benchmark Gate](../../reports/archive/java-v1-g5-examples-benchmark-gate-report.md)
-- [性能优化后本机诊断](../../reports/2026-07-17-post-optimization-g6-diagnostic-report.md)
-- [设计驱动文档体系正式切换](../../reports/2026-07-20-documentation-framework-cutover-report.md)
-- [文档架构专题治理](../../reports/2026-07-20-document-architecture-governance-report.md)
-- [四场景 Blueprint 采纳治理（历史 provenance）](../../reports/2026-07-21-four-scenario-blueprint-adoption-report.md)
-- [Access Model / Candidate Scan 正式切换治理](../../reports/2026-07-23-access-model-candidate-scan-governance-report.md)
-- [Access Model / Candidate Scan 性能证据](../../reports/2026-07-23-access-model-candidate-scan-performance-report.md)
-- [项目复杂度与可维护性治理](../../reports/2026-07-23-project-complexity-and-maintainability-governance-report.md)
-- [复杂度可持续性后续治理](../../reports/2026-07-23-complexity-sustainability-governance-report.md)
-- [工业动态调度参考应用架构治理](../../reports/2026-07-23-industrial-dynamic-scheduler-architecture-governance-report.md)
-- [个体生态仿真参考应用架构治理](../../reports/2026-07-23-grassing-individual-simulation-architecture-governance-report.md)
-- [三层性能基线治理](../../reports/2026-07-24-three-layer-performance-baseline-governance-report.md)
-- [Reference Application 大规模性能基线治理](../../reports/2026-07-24-reference-application-scale-performance-baseline-governance-report.md)
-- [Industrial Dynamic Scheduler 设计与性能治理](../../reports/2026-07-24-industrial-scheduler-design-and-performance-governance-report.md)
-- [Transformation Model 与 Typed DataFlow 产品化治理](../../reports/2026-07-27-transformation-dataflow-governance-report.md)
-- [正确性保持与软件结构治理](../../reports/2026-07-27-correctness-preservation-and-software-structure-governance-report.md)
-- [Reference Application Portfolio 与最佳实践治理](../../reports/2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)
+- [Implementation Map](../implementation-map/README.md)
+- [Benchmark 治理](../engineering/benchmark-governance.md)
+- [Reference Application Portfolio治理](../../reports/2026-07-27-reference-application-portfolio-and-best-practice-governance-report.md)
+- [Transformation/DataFlow治理](../../reports/2026-07-27-transformation-dataflow-governance-report.md)
+
+本结论不扩大到push、PR、publishing或release授权。

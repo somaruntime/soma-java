@@ -101,12 +101,12 @@ public final class WindowedFlow<B extends DataFlowBinding> {
         return with(shape.havingAtMost(count));
     }
 
-    public DataFlowDefinition<LongScalarResult> borrow(WindowConsumer consumer) {
-        if (consumer == null) {
-            throw new NullPointerException("consumer");
-        }
-        return DataFlowDefinition.of(
-                new WindowBorrowOperation<B>(this, consumer));
+    public CallbackDeliveryDefinition<WindowVisitor> deliver() {
+        ParameterSlot<WindowVisitor> visitor =
+                ParameterSlot.callback(WindowVisitor.class);
+        return CallbackDeliveryDefinition.of(
+                new WindowDeliveryOperation<B>(this, visitor),
+                visitor);
     }
 
     public DataFlowDefinition<LongColumnResult> sum(

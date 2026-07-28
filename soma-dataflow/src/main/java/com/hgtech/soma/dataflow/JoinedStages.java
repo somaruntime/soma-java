@@ -82,6 +82,15 @@ final class JoinedStagePlan<
         return kinds.length == 0;
     }
 
+    boolean hasSort() {
+        for (byte kind : kinds) {
+            if (kind == SORT) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     List<ParameterSlot<?>> parameters() {
         return parameters;
     }
@@ -90,10 +99,25 @@ final class JoinedStagePlan<
         return canonical;
     }
 
+    long upperBound(long cardinality) {
+        long result = cardinality;
+        for (int stage = 0; stage < kinds.length; stage++) {
+            if (kinds[stage] == SKIP) {
+                result = Math.max(0L, result - arguments[stage]);
+            } else if (kinds[stage] == LIMIT) {
+                result = Math.min(result, arguments[stage]);
+            }
+        }
+        return result;
+    }
+
     long enumerate(
             ExecutionFrame frame,
             JoinPrepared<L, R> prepared,
             JoinMatchConsumer consumer) {
+        if (!hasSort()) {
+            return enumerateStreaming(frame, prepared, consumer);
+        }
         long cardinality = prepared.enumerateRaw(
                 frame, JoinPrepared.COUNTER);
         if (cardinality > Integer.MAX_VALUE) {
@@ -192,6 +216,55 @@ final class JoinedStagePlan<
             }
         }
         return size;
+    }
+
+    private long enumerateStreaming(
+            final ExecutionFrame frame,
+            final JoinPrepared<L, R> prepared,
+            final JoinMatchConsumer consumer) {
+        final long[] stageCounts = new long[kinds.length];
+        final long[] delivered = new long[1];
+        prepared.enumerateRaw(
+                frame,
+                new JoinMatchConsumer() {
+                    @Override
+                    public boolean accept(
+                            int leftIndex,
+                            boolean rightPresent,
+                            int rightIndex) {
+                        for (int stage = 0; stage < kinds.length; stage++) {
+                            byte kind = kinds[stage];
+                            if (kind == FILTER) {
+                                @SuppressWarnings("unchecked")
+                                JoinedPredicate<L, R> predicate =
+                                        (JoinedPredicate<L, R>) operands[stage];
+                                if (!predicate.evaluate(
+                                        frame,
+                                        prepared.leftBinding,
+                                        leftIndex,
+                                        prepared.rightBinding,
+                                        rightPresent,
+                                        rightIndex)) {
+                                    return true;
+                                }
+                            } else if (kind == SKIP) {
+                                if (stageCounts[stage] < arguments[stage]) {
+                                    stageCounts[stage]++;
+                                    return true;
+                                }
+                            } else if (kind == LIMIT) {
+                                if (stageCounts[stage] >= arguments[stage]) {
+                                    return false;
+                                }
+                                stageCounts[stage]++;
+                            }
+                        }
+                        delivered[0]++;
+                        return consumer.accept(
+                                leftIndex, rightPresent, rightIndex);
+                    }
+                });
+        return delivered[0];
     }
 
     private JoinedStagePlan<L, R> append(

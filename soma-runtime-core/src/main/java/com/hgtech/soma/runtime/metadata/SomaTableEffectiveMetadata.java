@@ -13,6 +13,8 @@ public interface SomaTableEffectiveMetadata {
     int flatHeadRows();
     int segmentRows();
     SomaPrimaryLocator primaryLocator();
+    SomaPrimaryLocatorLayout primaryLocatorLayout();
+    String primaryLocatorLayoutFormulaIdentity();
     SomaExactAccess exactAccess();
     int initialCapacity();
     int planningRows();

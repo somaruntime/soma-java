@@ -3,6 +3,7 @@ package com.hgtech.soma.examples.rtd.runtime;
 import com.hgtech.soma.examples.rtd.feed.DispatchCycle;
 import com.hgtech.soma.examples.rtd.feed.DispatchScenario;
 import com.hgtech.soma.examples.rtd.schema.WorkStatus;
+import com.hgtech.soma.runtime.SomaGroupState;
 
 /** Snapshot/Delta projection与 release 的代表性边界证据。 */
 public final class DispatchRuntimeBoundaryVerification {
@@ -12,6 +13,10 @@ public final class DispatchRuntimeBoundaryVerification {
   public static void verify(DispatchScenario scenario) {
     DispatchRuntime runtime =
         new DispatchRuntimeFactory().create(scenario);
+    require(runtime.runtimeMetadata().explicit()
+            && runtime.runtimeMetadata().members().size() == 2
+            && runtime.runtimeMetadata().currentTableInstances() == 2L,
+        "dispatch explicit Group topology");
     require(
         runtime.workStates().size()
             == scenario.initial().workCount(),
@@ -34,6 +39,10 @@ public final class DispatchRuntimeBoundaryVerification {
                 + first.arrivals().size(),
         "delta projection");
     runtime.close();
+    require(runtime.runtimeMetadata().state() == SomaGroupState.RELEASED
+            && runtime.runtimeMetadata().currentStructuralBytes() == 0L
+            && runtime.runtimeMetadata().currentTableInstances() == 0L,
+        "dispatch Group terminal snapshot");
     boolean rejected = false;
     try {
       runtime.workStates();

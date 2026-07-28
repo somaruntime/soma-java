@@ -26,6 +26,7 @@ import com.hgtech.soma.runtime.metadata.SomaKeyMetadata;
 import com.hgtech.soma.runtime.metadata.SomaMetadata;
 import com.hgtech.soma.runtime.metadata.SomaOwnershipMetadata;
 import com.hgtech.soma.runtime.metadata.SomaPrimaryLocator;
+import com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout;
 import com.hgtech.soma.runtime.metadata.SomaSchemaMetadata;
 import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
 import com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata;
@@ -129,7 +130,11 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumRows\":2147483647,"
                         + "\"maximumTableStorageBytes\":14,"
                         + "\"maximumUpdateScratchBytes\":11,"
-                        + "\"planningRows\":16,\"storageLayout\":\"flat\","
+                        + "\"planningRows\":16,"
+                        + "\"primaryLocatorLayout\":\"flat_compact\","
+                        + "\"primaryLocatorLayoutFormula\":"
+                        + "\"soma-primary-locator-layout-v1\","
+                        + "\"storageLayout\":\"flat\","
                         + "\"storageLayoutFormula\":\"soma-storage-layout-v1\","
                         + "\"structuralBytesPerRow\":1,"
                         + "\"flatHeadRows\":0,\"segmentRows\":0,"
@@ -154,11 +159,11 @@ public final class RuntimeCorePhase1Check {
                         + "\"maximumLeafValues\":50000000,"
                         + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
                         + "\"maximumTableInstances\":100000},"
-                        + "\"generatedProtocol\":\"soma-generated-runtime-v8\","
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v11\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
-                        + "\"planProtocol\":\"soma-runtime-plan-v5\","
-                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v8\","
+                        + "\"planProtocol\":\"soma-runtime-plan-v6\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v11\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");
@@ -237,6 +242,12 @@ public final class RuntimeCorePhase1Check {
                 "effective layout");
         assertTrue(table.primaryLocator() == SomaPrimaryLocator.HASH_INT,
                 "effective primary locator");
+        assertTrue(table.primaryLocatorLayout()
+                        == SomaPrimaryLocatorLayout.FLAT_COMPACT,
+                "effective primary locator layout");
+        assertEquals(RuntimeCompatibility.PRIMARY_LOCATOR_LAYOUT_FORMULA,
+                table.primaryLocatorLayoutFormulaIdentity(),
+                "effective primary locator layout formula");
         assertTrue(table.exactAccess() == SomaExactAccess.EXACT_HASH,
                 "effective exact access");
         try {
@@ -362,6 +373,22 @@ public final class RuntimeCorePhase1Check {
                 "tail segment formula");
         assertEquals(RuntimeCompatibility.STORAGE_LAYOUT_FORMULA,
                 large.storageLayoutFormula(), "layout formula identity");
+
+        TablePlan dense = TablePlan.builder(
+                        "Dense", RuntimeCompatibility.DENSE_ALGORITHM)
+                .build();
+        assertTrue(dense.primaryLocatorLayout()
+                        == SomaPrimaryLocatorLayout.NONE,
+                "dense table has no primary locator backing");
+        expectIllegalArgument(new ThrowingRunnable() {
+            @Override public void run() {
+                TablePlan.builder(
+                                "InvalidLocatorFormula",
+                                RuntimeCompatibility.DENSE_ALGORITHM)
+                        .primaryLocatorLayoutFormula("unknown-locator-formula")
+                        .build();
+            }
+        }, "unknown primary locator formula must fail closed");
 
         RuntimePlan runtime = RuntimePlan.builder(
                         "storage-layout-schema",
@@ -569,6 +596,26 @@ public final class RuntimeCorePhase1Check {
                         != group.metadata().requireMember("right")
                         .aggregateInstanceId(),
                 "same descriptor slots keep independent aggregate identity");
+        assertTrue(group.metadata().retainedStructuralBytes() > 0L
+                        && group.metadata().currentStructuralBytes()
+                        == group.metadata().retainedStructuralBytes()
+                        + group.metadata().transientStructuralBytes()
+                        && group.metadata().structuralHighWaterBytes()
+                        >= group.metadata().currentStructuralBytes()
+                        && group.metadata().currentTableInstances() > 0L
+                        && group.metadata().tableInstanceHighWater()
+                        >= group.metadata().currentTableInstances(),
+                "Group metadata exposes one resource-ledger snapshot");
+        assertTrue(group.metadata().requireMember("left")
+                        .retainedStructuralBytes() > 0L
+                        && group.metadata().requireMember("left")
+                        .structuralHighWaterBytes()
+                        >= group.metadata().requireMember("left")
+                        .currentStructuralBytes()
+                        && group.metadata().requireMember("left")
+                        .maximumStructuralBytes()
+                        == plan.maximumAggregateStorageBytes(),
+                "member metadata exposes attributed resource facts");
         left.blockPreflight(true);
         expectCode("view_pinned", new ThrowingRunnable() {
             @Override public void run() { group.release(); }
@@ -588,6 +635,12 @@ public final class RuntimeCorePhase1Check {
                 "successful Group release is terminal");
         assertEquals(3L, group.membershipEpoch(),
                 "terminal Group release publishes one membership epoch");
+        assertEquals(0L, group.metadata().retainedStructuralBytes(),
+                "released Group retained ledger drains");
+        assertEquals(0L, group.metadata().currentTableInstances(),
+                "released Group table-instance ledger drains");
+        assertTrue(group.metadata().structuralHighWaterBytes() > 0L,
+                "released Group preserves detached resource high-water");
 
         SomaGroup degraded = SomaGroup.create(
                 SomaGroupPlan.builder("runtime-degraded")
@@ -1554,6 +1607,16 @@ public final class RuntimeCorePhase1Check {
             runnable.run();
             throw new AssertionError(message);
         } catch (IllegalStateException expected) {
+            // expected
+        }
+    }
+
+    private static void expectIllegalArgument(
+            ThrowingRunnable runnable, String message) {
+        try {
+            runnable.run();
+            throw new AssertionError(message);
+        } catch (IllegalArgumentException expected) {
             // expected
         }
     }

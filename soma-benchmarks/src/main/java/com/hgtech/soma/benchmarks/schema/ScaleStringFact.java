@@ -1,0 +1,16 @@
+package com.hgtech.soma.benchmarks.schema;
+
+import com.hgtech.soma.annotation.SomaField;
+import com.hgtech.soma.annotation.SomaOptional;
+import com.hgtech.soma.annotation.SomaTable;
+
+/**
+ * Reference-backed String payload shape used by scale Group/Join/lifecycle
+ * qualification.
+ */
+@SomaTable(name = "scale_string_facts", defaultCapacity = 4096)
+public final class ScaleStringFact {
+    @SomaField public int ordinal;
+    @SomaField public String label;
+    @SomaField @SomaOptional public String note;
+}

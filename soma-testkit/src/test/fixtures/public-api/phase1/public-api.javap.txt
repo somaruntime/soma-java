@@ -32,11 +32,17 @@ public final class com.hgtech.soma.runtime.GeneratedColumnAccess {
   public static com.hgtech.soma.runtime.DoubleColumnView doubleView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
   public static <E extends java.lang.Enum<E>> com.hgtech.soma.runtime.EnumColumnView<E> enumView(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String, E[]);
 }
-## PUBLIC generated-dataflow-protocol com.hgtech.soma.dataflow.generated.CandidateBorrowAccess
-Compiled from "CandidateBorrowAccess.java"
-public interface com.hgtech.soma.dataflow.generated.CandidateBorrowAccess<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
-  public abstract void borrow(B, int[], int, java.lang.Object);
+## PUBLIC generated-dataflow-protocol com.hgtech.soma.dataflow.generated.CandidateDeliveryAccess
+Compiled from "CandidateDeliveryAccess.java"
+public interface com.hgtech.soma.dataflow.generated.CandidateDeliveryAccess<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding, V> {
+  public abstract com.hgtech.soma.dataflow.generated.CandidateDeliverySession open(B, V);
   public abstract java.lang.String identity();
+}
+## PUBLIC generated-dataflow-protocol com.hgtech.soma.dataflow.generated.CandidateDeliverySession
+Compiled from "CandidateDeliverySession.java"
+public interface com.hgtech.soma.dataflow.generated.CandidateDeliverySession extends java.lang.AutoCloseable {
+  public abstract boolean visit(int);
+  public abstract void close();
 }
 ## PUBLIC generated-dataflow-protocol com.hgtech.soma.dataflow.generated.CandidateEffectAccess
 Compiled from "CandidateEffectAccess.java"
@@ -72,6 +78,9 @@ public interface com.hgtech.soma.dataflow.generated.DataFlowBinding {
   public abstract java.lang.String kernelProtocol();
   public abstract long structuralEpoch();
   public abstract int packedSize();
+  public boolean segmentedStorage();
+  public int flatHeadRows();
+  public int segmentRows();
   public abstract boolean isPresent(int, int);
   public abstract boolean booleanValue(int, int);
   public abstract long longValue(int, int);
@@ -85,6 +94,7 @@ public interface com.hgtech.soma.dataflow.generated.DataFlowBinding {
 Compiled from "OwnedChildAccess.java"
 public interface com.hgtech.soma.dataflow.generated.OwnedChildAccess<P extends com.hgtech.soma.dataflow.generated.DataFlowBinding, C extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
   public abstract C childBinding(P, int);
+  public abstract int maximumChildRows(P);
   public abstract java.lang.String identity();
 }
 ## PUBLIC generated-dataflow-protocol com.hgtech.soma.dataflow.generated.PointIndexAccess
@@ -214,6 +224,7 @@ public final class com.hgtech.soma.runtime.generated.DenseTableState {
   public void commitChildChange(java.lang.String);
   public void commitClear(int);
   public void commitStructuralRemove(int, int, java.lang.String);
+  public void commitDeltaUpdate(java.lang.String);
   public int prepareRelease();
   public void preflightRootRelease(java.lang.String);
   public void preflightSafePoint(java.lang.String);
@@ -309,12 +320,20 @@ public interface com.hgtech.soma.runtime.generated.GeneratedRootFactory<T> {
   public abstract void preflightRelease(T);
   public abstract void release(T);
   public abstract void preflightSafePoint(T, java.lang.String);
+  public abstract com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata runtimeMetadata(T);
+}
+## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedRuntimeMetadata
+Compiled from "GeneratedRuntimeMetadata.java"
+public final class com.hgtech.soma.runtime.generated.GeneratedRuntimeMetadata {
+  public static com.hgtech.soma.runtime.metadata.SomaIndexRuntimeMetadata index(com.hgtech.soma.runtime.metadata.SomaIndexMetadata, long, long, long, long, long, long, long);
+  public static com.hgtech.soma.runtime.metadata.SomaUniqueRuntimeMetadata unique(com.hgtech.soma.runtime.metadata.SomaUniqueMetadata, long, long, long, long, long, long, long);
+  public static com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata table(com.hgtech.soma.runtime.metadata.SomaTableMetadata, com.hgtech.soma.runtime.TablePlan, com.hgtech.soma.runtime.TableStats, com.hgtech.soma.runtime.metadata.SomaIndexRuntimeMetadata[], com.hgtech.soma.runtime.metadata.SomaUniqueRuntimeMetadata[]);
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GeneratedRuntimePlan
 Compiled from "GeneratedRuntimePlan.java"
 public final class com.hgtech.soma.runtime.generated.GeneratedRuntimePlan {
   public static com.hgtech.soma.runtime.RuntimePlan$Builder builder(java.lang.String, java.lang.String, java.lang.String, java.lang.String, java.lang.String);
-  public static com.hgtech.soma.runtime.TablePlan table(java.lang.String, java.lang.String, int, int, int, int, int, long, long, long, long, java.lang.String, java.lang.String, java.lang.String, int, boolean, com.hgtech.soma.runtime.StringResourceProfile);
+  public static com.hgtech.soma.runtime.TablePlan table(java.lang.String, java.lang.String, int, int, int, int, int, long, long, long, long, java.lang.String, java.lang.String, java.lang.String, java.lang.String, int, boolean, com.hgtech.soma.runtime.StringResourceProfile);
   public static com.hgtech.soma.runtime.RuntimePlan$Builder addTable(com.hgtech.soma.runtime.RuntimePlan$Builder, com.hgtech.soma.runtime.TablePlan);
   public static com.hgtech.soma.runtime.RuntimePlan$Builder addChild(com.hgtech.soma.runtime.RuntimePlan$Builder, com.hgtech.soma.runtime.ChildPlan);
 }
@@ -365,8 +384,13 @@ public final class com.hgtech.soma.runtime.generated.GroupLedger {
   public long currentTableInstances();
   public long highWaterTableInstances();
   public long memberRetainedBytes(int);
+  public long memberMaximumBytes(int);
   public long memberTransientBytes(int);
+  public long memberCurrentBytes(int);
+  public long memberHighWaterBytes(int);
+  public long memberMaximumTableInstances(int);
   public long memberCurrentTableInstances(int);
+  public long memberHighWaterTableInstances(int);
 }
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.GroupMembership
 Compiled from "GroupMembership.java"
@@ -416,12 +440,13 @@ public final class com.hgtech.soma.runtime.generated.HashCompositeKeySpace {
   public int size();
   public int capacity();
   public long retainedBytes();
+  public long storageHighWaterBytes();
   public int used();
   public long probeCount();
   public long collisionCount();
   public long rehashCount();
   public void resetMetrics();
-  public void addMetrics(long, long, long);
+  public void inheritMetrics(long, long, long, long);
   public void ensureInsertCapacity();
   public long retainedBytesAfterEnsureAdditional(int);
   public long allocationBytesDuringEnsureAdditional(int);
@@ -443,15 +468,15 @@ Compiled from "HashIntKeySpace.java"
 public final class com.hgtech.soma.runtime.generated.HashIntKeySpace implements com.hgtech.soma.runtime.generated.IntKeySpace {
   public com.hgtech.soma.runtime.generated.HashIntKeySpace(int);
   public int size();
-  public java.lang.String implementation();
   public int capacity();
   public long retainedBytes();
+  public long storageHighWaterBytes();
   public int used();
   public long probeCount();
   public long collisionCount();
   public long rehashCount();
   public void resetMetrics();
-  public void addMetrics(long, long, long);
+  public void inheritMetrics(long, long, long, long);
   public boolean contains(int);
   public int rowOf(int);
   public void requireInsertKey(int, java.lang.String, java.lang.String, java.lang.String);
@@ -471,12 +496,13 @@ public final class com.hgtech.soma.runtime.generated.HashLongKeySpace {
   public int size();
   public int capacity();
   public long retainedBytes();
+  public long storageHighWaterBytes();
   public int used();
   public long probeCount();
   public long collisionCount();
   public long rehashCount();
   public void resetMetrics();
-  public void addMetrics(long, long, long);
+  public void inheritMetrics(long, long, long, long);
   public boolean contains(long);
   public int rowOf(long);
   public long retainedBytesAfterEnsureAdditional(int);
@@ -519,7 +545,6 @@ public final class com.hgtech.soma.runtime.generated.IntColumn extends com.hgtec
 ## PUBLIC generated-runtime com.hgtech.soma.runtime.generated.IntKeySpace
 Compiled from "IntKeySpace.java"
 public interface com.hgtech.soma.runtime.generated.IntKeySpace {
-  public abstract java.lang.String implementation();
   public abstract int size();
   public abstract int capacity();
   public abstract int used();
@@ -527,8 +552,9 @@ public interface com.hgtech.soma.runtime.generated.IntKeySpace {
   public abstract long collisionCount();
   public abstract long rehashCount();
   public abstract long retainedBytes();
+  public abstract long storageHighWaterBytes();
   public abstract void resetMetrics();
-  public abstract void addMetrics(long, long, long);
+  public abstract void inheritMetrics(long, long, long, long);
   public abstract boolean contains(int);
   public abstract int rowOf(int);
   public abstract void requireInsertKey(int, java.lang.String, java.lang.String, java.lang.String);
@@ -634,6 +660,7 @@ public final class com.hgtech.soma.runtime.generated.RuntimeCompatibility {
   public static final java.lang.String RUNTIME_COMPATIBILITY;
   public static final java.lang.String PLAN_PROTOCOL;
   public static final java.lang.String STORAGE_LAYOUT_FORMULA;
+  public static final java.lang.String PRIMARY_LOCATOR_LAYOUT_FORMULA;
   public static final java.lang.String DENSE_ALGORITHM;
   public static final java.lang.String NO_ACCESS_STRATEGY;
   public static final java.lang.String NO_KEY_SPACE;
@@ -847,17 +874,45 @@ Compiled from "BooleanScalarResult.java"
 public final class com.hgtech.soma.dataflow.BooleanScalarResult {
   public boolean value();
 }
-## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.BooleanValueConsumer
-Compiled from "BooleanValueConsumer.java"
-public interface com.hgtech.soma.dataflow.BooleanValueConsumer {
-  public abstract void accept(boolean);
-}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.BooleanValueFlow
 Compiled from "BooleanValueFlow.java"
 public final class com.hgtech.soma.dataflow.BooleanValueFlow<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
   public com.hgtech.soma.dataflow.CandidateFlow<B> candidates();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.BooleanColumnResult> toColumn();
-  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.BooleanValueConsumer);
+  public com.hgtech.soma.dataflow.CallbackDeliveryDefinition<com.hgtech.soma.dataflow.BooleanValueVisitor> deliver();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.BooleanValueVisitor
+Compiled from "BooleanValueVisitor.java"
+public interface com.hgtech.soma.dataflow.BooleanValueVisitor {
+  public abstract boolean visit(boolean);
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.CallbackDeliveryDefinition
+Compiled from "CallbackDeliveryDefinition.java"
+public final class com.hgtech.soma.dataflow.CallbackDeliveryDefinition<V> {
+  public java.lang.String identity();
+  public com.hgtech.soma.dataflow.CallbackDeliveryTemplate<V> compile();
+  public com.hgtech.soma.dataflow.DataFlowExplain explain();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.CallbackDeliveryInvocation
+Compiled from "CallbackDeliveryInvocation.java"
+public final class com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> {
+  public <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> bind(com.hgtech.soma.dataflow.SourceSlot<B>, B);
+  public <T> com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> parameter(com.hgtech.soma.dataflow.ParameterSlot<T>, T);
+  public com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> visitor(V);
+  public com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> policy(com.hgtech.soma.dataflow.ExecutionPolicy);
+  public com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> budget(com.hgtech.soma.dataflow.ExecutionBudget);
+  public com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> cancellationToken(com.hgtech.soma.dataflow.CancellationToken);
+  public com.hgtech.soma.dataflow.DataFlowExplain explain();
+  public com.hgtech.soma.dataflow.DeliveryResult execute();
+  public com.hgtech.soma.dataflow.DataFlowStats stats();
+  public java.lang.String state();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.CallbackDeliveryTemplate
+Compiled from "CallbackDeliveryTemplate.java"
+public final class com.hgtech.soma.dataflow.CallbackDeliveryTemplate<V> {
+  public java.lang.String identity();
+  public com.hgtech.soma.dataflow.CallbackDeliveryInvocation<V> newInvocation(com.hgtech.soma.dataflow.DataFlowContext);
+  public com.hgtech.soma.dataflow.DataFlowExplain explain();
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.CancellationToken
 Compiled from "CancellationToken.java"
@@ -903,6 +958,11 @@ public final class com.hgtech.soma.dataflow.CandidateOrder<B extends com.hgtech.
   public com.hgtech.soma.dataflow.CandidateOrder<B> then(com.hgtech.soma.dataflow.CandidateOrder<B>);
   public java.lang.String identity();
 }
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.CandidatePhysicalFormula
+Compiled from "CandidatePhysicalFormula.java"
+public final class com.hgtech.soma.dataflow.CandidatePhysicalFormula {
+  public static final java.lang.String IDENTITY;
+}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowContext
 Compiled from "DataFlowContext.java"
 public final class com.hgtech.soma.dataflow.DataFlowContext implements java.lang.AutoCloseable {
@@ -931,6 +991,13 @@ public final class com.hgtech.soma.dataflow.DataFlowDefinition$Builder {
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.DataFlowResults> build();
   public java.lang.String state();
 }
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowDeliveryStats
+Compiled from "DataFlowDeliveryStats.java"
+public final class com.hgtech.soma.dataflow.DataFlowDeliveryStats {
+  public com.hgtech.soma.dataflow.ResultDeliveryMode mode();
+  public long deliveredElements();
+  public boolean completed();
+}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowExplain
 Compiled from "DataFlowExplain.java"
 public final class com.hgtech.soma.dataflow.DataFlowExplain {
@@ -946,6 +1013,10 @@ public final class com.hgtech.soma.dataflow.DataFlowExplain {
   public java.lang.String fallbackReason();
   public java.lang.String parameterSummary();
   public java.lang.String budgetSummary();
+  public java.lang.String candidatePhysicalFormulaIdentity();
+  public java.lang.String relationStrategyFormulaIdentity();
+  public java.lang.String schedulerFormulaIdentity();
+  public java.lang.String invocationLedgerIdentity();
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowInvocation
 Compiled from "DataFlowInvocation.java"
@@ -960,6 +1031,34 @@ public final class com.hgtech.soma.dataflow.DataFlowInvocation<R> {
   public com.hgtech.soma.dataflow.DataFlowStats stats();
   public java.lang.String state();
 }
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowParallelStats
+Compiled from "DataFlowParallelStats.java"
+public final class com.hgtech.soma.dataflow.DataFlowParallelStats {
+  public java.lang.String schedulerFormulaIdentity();
+  public int tasks();
+  public int workers();
+  public int taskCurrent();
+  public int taskHighWater();
+  public int workerCurrent();
+  public int workerHighWater();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowResourceStats
+Compiled from "DataFlowResourceStats.java"
+public final class com.hgtech.soma.dataflow.DataFlowResourceStats {
+  public java.lang.String invocationLedgerIdentity();
+  public long scratchHighWaterBytes();
+  public long sharedScratchCurrentBytes();
+  public long sharedScratchHighWaterBytes();
+  public long workerScratchCurrentBytes();
+  public long workerScratchHighWaterBytes();
+  public long outputCurrentBytes();
+  public long outputHighWaterBytes();
+  public long outputCurrentElements();
+  public long outputHighWaterElements();
+  public long maximumScratchBytes();
+  public long maximumOutputBytes();
+  public long maximumOutputElements();
+}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowResults
 Compiled from "DataFlowResults.java"
 public final class com.hgtech.soma.dataflow.DataFlowResults {
@@ -973,6 +1072,10 @@ public final class com.hgtech.soma.dataflow.DataFlowStats {
   public java.lang.String templateIdentity();
   public java.lang.String policyIdentity();
   public com.hgtech.soma.dataflow.StatsMode statsMode();
+  public com.hgtech.soma.dataflow.DataFlowWorkStats work();
+  public com.hgtech.soma.dataflow.DataFlowParallelStats parallel();
+  public com.hgtech.soma.dataflow.DataFlowResourceStats resources();
+  public com.hgtech.soma.dataflow.DataFlowDeliveryStats delivery();
   public long boundSources();
   public long scanned();
   public long matched();
@@ -985,6 +1088,19 @@ public final class com.hgtech.soma.dataflow.DataFlowStats {
   public java.lang.String failurePhase();
   public long scratchBytes();
   public long outputBytes();
+  public java.lang.String invocationLedgerIdentity();
+  public long sharedScratchCurrentBytes();
+  public long sharedScratchHighWaterBytes();
+  public long workerScratchCurrentBytes();
+  public long workerScratchHighWaterBytes();
+  public long outputCurrentBytes();
+  public long outputHighWaterBytes();
+  public long outputCurrentElements();
+  public long outputHighWaterElements();
+  public int taskCurrent();
+  public int taskHighWater();
+  public int workerCurrent();
+  public int workerHighWater();
   public long maximumScratchBytes();
   public long maximumOutputBytes();
   public long maximumOutputElements();
@@ -995,6 +1111,24 @@ public final class com.hgtech.soma.dataflow.DataFlowTemplate<R> {
   public java.lang.String identity();
   public com.hgtech.soma.dataflow.DataFlowInvocation<R> newInvocation(com.hgtech.soma.dataflow.DataFlowContext);
   public com.hgtech.soma.dataflow.DataFlowExplain explain();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DataFlowWorkStats
+Compiled from "DataFlowWorkStats.java"
+public final class com.hgtech.soma.dataflow.DataFlowWorkStats {
+  public long boundSources();
+  public long scanned();
+  public long matched();
+  public long outputElements();
+  public long elapsedNanos();
+  public java.lang.String outcome();
+  public java.lang.String failureCode();
+  public java.lang.String failurePhase();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DeliveryResult
+Compiled from "DeliveryResult.java"
+public final class com.hgtech.soma.dataflow.DeliveryResult {
+  public long deliveredElements();
+  public boolean completed();
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DeltaApplyResult
 Compiled from "DeltaApplyResult.java"
@@ -1051,11 +1185,6 @@ Compiled from "DoubleScalarResult.java"
 public final class com.hgtech.soma.dataflow.DoubleScalarResult {
   public double value();
 }
-## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DoubleValueConsumer
-Compiled from "DoubleValueConsumer.java"
-public interface com.hgtech.soma.dataflow.DoubleValueConsumer {
-  public abstract void accept(double);
-}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DoubleValueFlow
 Compiled from "DoubleValueFlow.java"
 public final class com.hgtech.soma.dataflow.DoubleValueFlow<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
@@ -1065,7 +1194,12 @@ public final class com.hgtech.soma.dataflow.DoubleValueFlow<B extends com.hgtech
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.OptionalDoubleResult> average();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.OptionalDoubleResult> min();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.OptionalDoubleResult> max();
-  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.DoubleValueConsumer);
+  public com.hgtech.soma.dataflow.CallbackDeliveryDefinition<com.hgtech.soma.dataflow.DoubleValueVisitor> deliver();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.DoubleValueVisitor
+Compiled from "DoubleValueVisitor.java"
+public interface com.hgtech.soma.dataflow.DoubleValueVisitor {
+  public abstract boolean visit(double);
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.ExecutionBudget
 Compiled from "ExecutionBudget.java"
@@ -1137,7 +1271,7 @@ public final class com.hgtech.soma.dataflow.GeneratedDataFlow {
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.CandidateFlow<B> exactCandidates(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.generated.CandidateIndexAccess<B>);
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding, T> com.hgtech.soma.dataflow.PointFlow<B, T> point(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.generated.PointIndexAccess<B>, com.hgtech.soma.dataflow.generated.CandidateMaterializationAccess<B, T>);
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.CandidateFlow<B> gather(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.ParameterSlot<com.hgtech.soma.runtime.IndexSnapshot>, com.hgtech.soma.dataflow.generated.SnapshotGatherAccess<B>);
-  public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.CandidateFlow<B>, com.hgtech.soma.dataflow.generated.CandidateBorrowAccess<B>, java.lang.Object);
+  public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding, V> com.hgtech.soma.dataflow.CallbackDeliveryDefinition<V> deliver(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.CandidateFlow<B>, com.hgtech.soma.dataflow.generated.CandidateDeliveryAccess<B, V>, java.lang.Class<V>);
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding, T> com.hgtech.soma.dataflow.DataFlowDefinition<java.util.List<T>> materialize(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.CandidateFlow<B>, com.hgtech.soma.dataflow.generated.CandidateMaterializationAccess<B, T>, com.hgtech.soma.runtime.MaterializationBudget);
   public static <P extends com.hgtech.soma.dataflow.generated.DataFlowBinding, C extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.ExpandedFlow<P, C> ownedChildren(com.hgtech.soma.dataflow.SourceSlot<P>, com.hgtech.soma.dataflow.CandidateFlow<P>, com.hgtech.soma.dataflow.SourceSlot<C>, com.hgtech.soma.dataflow.generated.OwnedChildAccess<P, C>);
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.runtime.UpdateResult> update(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.CandidateFlow<B>, com.hgtech.soma.dataflow.generated.CandidateEffectAccess<B>, java.lang.Object);
@@ -1154,11 +1288,6 @@ public final class com.hgtech.soma.dataflow.GeneratedDataFlow {
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.StringExpression<B> requiredString(com.hgtech.soma.dataflow.SourceSlot<B>, int, java.lang.String);
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.StringExpression<B> optionalString(com.hgtech.soma.dataflow.SourceSlot<B>, int, java.lang.String);
   public static <B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> com.hgtech.soma.dataflow.StringExpression<B> stringParameter(com.hgtech.soma.dataflow.SourceSlot<B>, com.hgtech.soma.dataflow.ParameterSlot<java.lang.String>);
-}
-## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.GroupConsumer
-Compiled from "GroupConsumer.java"
-public interface com.hgtech.soma.dataflow.GroupConsumer {
-  public abstract void accept(com.hgtech.soma.dataflow.GroupCursor);
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.GroupCursor
 Compiled from "GroupCursor.java"
@@ -1179,6 +1308,11 @@ public final class com.hgtech.soma.dataflow.GroupIndexResult {
   public int indexAt(int, int);
   public int[] representativeIndexes();
 }
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.GroupVisitor
+Compiled from "GroupVisitor.java"
+public interface com.hgtech.soma.dataflow.GroupVisitor {
+  public abstract boolean visit(com.hgtech.soma.dataflow.GroupCursor);
+}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.GroupedFlow
 Compiled from "GroupedFlow.java"
 public final class com.hgtech.soma.dataflow.GroupedFlow<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
@@ -1187,7 +1321,7 @@ public final class com.hgtech.soma.dataflow.GroupedFlow<B extends com.hgtech.som
   public com.hgtech.soma.dataflow.GroupedFlow<B> sortedByCountAscending();
   public com.hgtech.soma.dataflow.GroupedFlow<B> sortedByCountDescending();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.GroupIndexResult> indexSnapshot();
-  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.GroupConsumer);
+  public com.hgtech.soma.dataflow.CallbackDeliveryDefinition<com.hgtech.soma.dataflow.GroupVisitor> deliver();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.GroupedLongResult> counts();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.GroupedLongResult> sum(com.hgtech.soma.dataflow.LongExpression<B>);
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.GroupedLongResult> min(com.hgtech.soma.dataflow.LongExpression<B>);
@@ -1237,16 +1371,11 @@ public final class com.hgtech.soma.dataflow.JoinedFlow<L extends com.hgtech.soma
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> count();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.JoinedIndexResult> indexSnapshot();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.runtime.IndexSnapshot> leftIndexSnapshot();
-  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.JoinedIndexConsumer);
+  public com.hgtech.soma.dataflow.CallbackDeliveryDefinition<com.hgtech.soma.dataflow.JoinedIndexVisitor> deliver();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongColumnResult> projectLeft(com.hgtech.soma.dataflow.LongExpression<L>);
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.OptionalLongColumnResult> projectRight(com.hgtech.soma.dataflow.LongExpression<R>);
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.GroupedLongResult> groupCountsByLeft(com.hgtech.soma.dataflow.KeyExpression<L>);
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongColumnResult> windowCounts(int, int, com.hgtech.soma.dataflow.PartialWindowPolicy);
-}
-## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.JoinedIndexConsumer
-Compiled from "JoinedIndexConsumer.java"
-public interface com.hgtech.soma.dataflow.JoinedIndexConsumer {
-  public abstract void accept(int, boolean, int);
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.JoinedIndexResult
 Compiled from "JoinedIndexResult.java"
@@ -1261,6 +1390,11 @@ public final class com.hgtech.soma.dataflow.JoinedIndexResult {
   public int rightIndexAt(int);
   public int[] leftIndexes();
   public int[] rightIndexes();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.JoinedIndexVisitor
+Compiled from "JoinedIndexVisitor.java"
+public interface com.hgtech.soma.dataflow.JoinedIndexVisitor {
+  public abstract boolean visit(int, boolean, int);
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.JoinedOrder
 Compiled from "JoinedOrder.java"
@@ -1343,11 +1477,6 @@ Compiled from "LongScalarResult.java"
 public final class com.hgtech.soma.dataflow.LongScalarResult {
   public long value();
 }
-## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.LongValueConsumer
-Compiled from "LongValueConsumer.java"
-public interface com.hgtech.soma.dataflow.LongValueConsumer {
-  public abstract void accept(long);
-}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.LongValueFlow
 Compiled from "LongValueFlow.java"
 public final class com.hgtech.soma.dataflow.LongValueFlow<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
@@ -1360,7 +1489,17 @@ public final class com.hgtech.soma.dataflow.LongValueFlow<B extends com.hgtech.s
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> reduce(com.hgtech.soma.dataflow.RegisteredLongReducer);
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongColumnResult> inclusivePrefixSum();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongColumnResult> exclusivePrefixSum(long);
-  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.LongValueConsumer);
+  public com.hgtech.soma.dataflow.CallbackDeliveryDefinition<com.hgtech.soma.dataflow.LongValueVisitor> deliver();
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.LongValueVisitor
+Compiled from "LongValueVisitor.java"
+public interface com.hgtech.soma.dataflow.LongValueVisitor {
+  public abstract boolean visit(long);
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.MorselSchedulerFormula
+Compiled from "MorselSchedulerFormula.java"
+public final class com.hgtech.soma.dataflow.MorselSchedulerFormula {
+  public static final java.lang.String IDENTITY;
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.OpaqueLongFunction
 Compiled from "OpaqueLongFunction.java"
@@ -1451,6 +1590,19 @@ public interface com.hgtech.soma.dataflow.RegisteredLongReducer {
   public abstract boolean deterministic();
   public abstract boolean threadSafe();
 }
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.RelationStrategyFormula
+Compiled from "RelationStrategyFormula.java"
+public final class com.hgtech.soma.dataflow.RelationStrategyFormula {
+  public static final java.lang.String IDENTITY;
+}
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.ResultDeliveryMode
+Compiled from "ResultDeliveryMode.java"
+public final class com.hgtech.soma.dataflow.ResultDeliveryMode extends java.lang.Enum<com.hgtech.soma.dataflow.ResultDeliveryMode> {
+  public static final com.hgtech.soma.dataflow.ResultDeliveryMode EAGER_DETACHED;
+  public static final com.hgtech.soma.dataflow.ResultDeliveryMode CALLBACK_SCOPED;
+  public static com.hgtech.soma.dataflow.ResultDeliveryMode[] values();
+  public static com.hgtech.soma.dataflow.ResultDeliveryMode valueOf(java.lang.String);
+}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.SourceSlot
 Compiled from "SourceSlot.java"
 public class com.hgtech.soma.dataflow.SourceSlot<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
@@ -1489,22 +1641,17 @@ public final class com.hgtech.soma.dataflow.StringExpression<B extends com.hgtec
   public com.hgtech.soma.dataflow.CandidateOrder<B> descending(java.util.Comparator<? super java.lang.String>);
   public java.lang.String identity();
 }
-## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.StringValueConsumer
-Compiled from "StringValueConsumer.java"
-public interface com.hgtech.soma.dataflow.StringValueConsumer {
-  public abstract void accept(java.lang.String);
-}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.StringValueFlow
 Compiled from "StringValueFlow.java"
 public final class com.hgtech.soma.dataflow.StringValueFlow<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
   public com.hgtech.soma.dataflow.CandidateFlow<B> candidates();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.StringColumnResult> toColumn();
-  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.StringValueConsumer);
+  public com.hgtech.soma.dataflow.CallbackDeliveryDefinition<com.hgtech.soma.dataflow.StringValueVisitor> deliver();
 }
-## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.WindowConsumer
-Compiled from "WindowConsumer.java"
-public interface com.hgtech.soma.dataflow.WindowConsumer {
-  public abstract void accept(com.hgtech.soma.dataflow.WindowCursor);
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.StringValueVisitor
+Compiled from "StringValueVisitor.java"
+public interface com.hgtech.soma.dataflow.StringValueVisitor {
+  public abstract boolean visit(java.lang.String);
 }
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.WindowCursor
 Compiled from "WindowCursor.java"
@@ -1522,13 +1669,18 @@ public final class com.hgtech.soma.dataflow.WindowIndexResult {
   public int windowSize(int);
   public int indexAt(int, int);
 }
+## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.WindowVisitor
+Compiled from "WindowVisitor.java"
+public interface com.hgtech.soma.dataflow.WindowVisitor {
+  public abstract boolean visit(com.hgtech.soma.dataflow.WindowCursor);
+}
 ## PUBLIC handwritten-dataflow com.hgtech.soma.dataflow.WindowedFlow
 Compiled from "WindowedFlow.java"
 public final class com.hgtech.soma.dataflow.WindowedFlow<B extends com.hgtech.soma.dataflow.generated.DataFlowBinding> {
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.WindowIndexResult> indexSnapshot();
   public com.hgtech.soma.dataflow.WindowedFlow<B> havingCountAtLeast(long);
   public com.hgtech.soma.dataflow.WindowedFlow<B> havingCountAtMost(long);
-  public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongScalarResult> borrow(com.hgtech.soma.dataflow.WindowConsumer);
+  public com.hgtech.soma.dataflow.CallbackDeliveryDefinition<com.hgtech.soma.dataflow.WindowVisitor> deliver();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongColumnResult> sum(com.hgtech.soma.dataflow.LongExpression<B>);
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongColumnResult> counts();
   public com.hgtech.soma.dataflow.DataFlowDefinition<com.hgtech.soma.dataflow.LongColumnResult> min(com.hgtech.soma.dataflow.LongExpression<B>);
@@ -1576,6 +1728,12 @@ public final class com.hgtech.soma.runtime.ChildPlan {
   public java.lang.String childField();
   public java.lang.String childTable();
   public int initialCapacity();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DeltaStagingFormula
+Compiled from "DeltaStagingFormula.java"
+public final class com.hgtech.soma.runtime.DeltaStagingFormula {
+  public static final java.lang.String IDENTITY;
+  public static boolean useChangedRows(int, int);
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.DoubleColumnTraversal
 Compiled from "DoubleColumnTraversal.java"
@@ -1947,6 +2105,8 @@ public final class com.hgtech.soma.runtime.TablePlan {
   public java.lang.String keySpaceStrategy();
   public java.lang.String accessStrategy();
   public com.hgtech.soma.runtime.metadata.SomaPrimaryLocator primaryLocator();
+  public com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout primaryLocatorLayout();
+  public java.lang.String primaryLocatorLayoutFormula();
   public com.hgtech.soma.runtime.metadata.SomaExactAccess exactAccess();
   public boolean stringCapable();
   public com.hgtech.soma.runtime.StringResourceProfile stringResourceProfile();
@@ -1966,6 +2126,7 @@ public final class com.hgtech.soma.runtime.TablePlan$Builder {
   public com.hgtech.soma.runtime.TablePlan$Builder stringResourceProfile(com.hgtech.soma.runtime.StringResourceProfile);
   public com.hgtech.soma.runtime.TablePlan$Builder generatedKeySpaceStrategy(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String);
   public com.hgtech.soma.runtime.TablePlan$Builder generatedAccessStrategy(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String);
+  public com.hgtech.soma.runtime.TablePlan$Builder generatedPrimaryLocatorLayoutFormula(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String);
   public com.hgtech.soma.runtime.TablePlan$Builder generatedStorageLayoutFormula(com.hgtech.soma.runtime.generated.GeneratedPlanToken, java.lang.String, int);
   public com.hgtech.soma.runtime.TablePlan$Builder generatedStringCapable(com.hgtech.soma.runtime.generated.GeneratedPlanToken, boolean);
   public com.hgtech.soma.runtime.TablePlan build();
@@ -1976,7 +2137,7 @@ public final class com.hgtech.soma.runtime.TableStats {
   public static com.hgtech.soma.runtime.TableStats create(java.lang.String, java.lang.String, java.lang.String, com.hgtech.soma.runtime.StatsMode, int, int, long, boolean, int, long, long, long, java.lang.String, com.hgtech.soma.runtime.OperationOutcome, java.lang.String, long, long, long);
   public static com.hgtech.soma.runtime.TableStats withOwnershipAndMaterialization(com.hgtech.soma.runtime.TableStats, long, long, long, long, java.lang.String, int, long, long, long, long);
   public static com.hgtech.soma.runtime.TableStats withOperationScratch(com.hgtech.soma.runtime.TableStats, long, long);
-  public static com.hgtech.soma.runtime.TableStats withKeySpace(com.hgtech.soma.runtime.TableStats, java.lang.String, int, int, long, long, long);
+  public static com.hgtech.soma.runtime.TableStats withKeySpace(com.hgtech.soma.runtime.TableStats, java.lang.String, int, int, long, long, long, long, long);
   public static com.hgtech.soma.runtime.TableStats withExactIndexes(com.hgtech.soma.runtime.TableStats, int, long, long, long, long, long, long, long);
   public java.lang.String schemaHash();
   public java.lang.String runtimeCompatibility();
@@ -2014,6 +2175,8 @@ public final class com.hgtech.soma.runtime.TableStats {
   public long keySpaceProbeCount();
   public long keySpaceCollisionCount();
   public long keySpaceRehashCount();
+  public long keySpaceStorageCurrentBytes();
+  public long keySpaceStorageHighWaterBytes();
   public int exactIndexCount();
   public long exactIndexEntryCount();
   public long exactIndexGroupCount();
@@ -2079,6 +2242,19 @@ public final class com.hgtech.soma.runtime.metadata.SomaExactAccess extends java
   public static com.hgtech.soma.runtime.metadata.SomaExactAccess[] values();
   public static com.hgtech.soma.runtime.metadata.SomaExactAccess valueOf(java.lang.String);
 }
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaExactAccessRuntimeMetadata
+Compiled from "SomaExactAccessRuntimeMetadata.java"
+public interface com.hgtech.soma.runtime.metadata.SomaExactAccessRuntimeMetadata {
+  public abstract java.lang.String name();
+  public abstract java.lang.String implementationIdentity();
+  public abstract long entryCount();
+  public abstract long groupCount();
+  public abstract long probeCount();
+  public abstract long collisionCount();
+  public abstract long rehashCount();
+  public abstract long retainedStructuralBytes();
+  public abstract long structuralHighWaterBytes();
+}
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata
 Compiled from "SomaGroupMemberMetadata.java"
 public interface com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata {
@@ -2089,6 +2265,15 @@ public interface com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata {
   public abstract com.hgtech.soma.runtime.SomaGroupMemberState state();
   public abstract long aggregateInstanceId();
   public abstract long attachmentOrdinal();
+  public abstract long maximumStructuralBytes();
+  public abstract long retainedStructuralBytes();
+  public abstract long transientStructuralBytes();
+  public abstract long currentStructuralBytes();
+  public abstract long structuralHighWaterBytes();
+  public abstract long maximumTableInstances();
+  public abstract long currentTableInstances();
+  public abstract long tableInstanceHighWater();
+  public abstract com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata rootTableRuntimeMetadata();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaGroupMetadata
 Compiled from "SomaGroupMetadata.java"
@@ -2100,6 +2285,14 @@ public interface com.hgtech.soma.runtime.metadata.SomaGroupMetadata {
   public abstract com.hgtech.soma.runtime.SomaGroupState state();
   public abstract long membershipEpoch();
   public abstract java.lang.String dataVersion();
+  public abstract long maximumStructuralBytes();
+  public abstract long retainedStructuralBytes();
+  public abstract long transientStructuralBytes();
+  public abstract long currentStructuralBytes();
+  public abstract long structuralHighWaterBytes();
+  public abstract long maximumTableInstances();
+  public abstract long currentTableInstances();
+  public abstract long tableInstanceHighWater();
   public abstract java.util.List<com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata> members();
   public abstract com.hgtech.soma.runtime.metadata.SomaGroupMemberMetadata requireMember(java.lang.String);
 }
@@ -2108,6 +2301,11 @@ Compiled from "SomaIndexMetadata.java"
 public interface com.hgtech.soma.runtime.metadata.SomaIndexMetadata {
   public abstract java.lang.String name();
   public abstract java.util.List<java.lang.String> leafPaths();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaIndexRuntimeMetadata
+Compiled from "SomaIndexRuntimeMetadata.java"
+public interface com.hgtech.soma.runtime.metadata.SomaIndexRuntimeMetadata extends com.hgtech.soma.runtime.metadata.SomaExactAccessRuntimeMetadata {
+  public abstract com.hgtech.soma.runtime.metadata.SomaIndexMetadata descriptor();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaKeyMetadata
 Compiled from "SomaKeyMetadata.java"
@@ -2139,6 +2337,14 @@ public final class com.hgtech.soma.runtime.metadata.SomaPrimaryLocator extends j
   public static com.hgtech.soma.runtime.metadata.SomaPrimaryLocator[] values();
   public static com.hgtech.soma.runtime.metadata.SomaPrimaryLocator valueOf(java.lang.String);
 }
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout
+Compiled from "SomaPrimaryLocatorLayout.java"
+public final class com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout extends java.lang.Enum<com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout> {
+  public static final com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout NONE;
+  public static final com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout FLAT_COMPACT;
+  public static com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout[] values();
+  public static com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout valueOf(java.lang.String);
+}
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaSchemaMetadata
 Compiled from "SomaSchemaMetadata.java"
 public interface com.hgtech.soma.runtime.metadata.SomaSchemaMetadata {
@@ -2149,6 +2355,25 @@ public interface com.hgtech.soma.runtime.metadata.SomaSchemaMetadata {
   public abstract java.lang.String schemaHash();
   public abstract java.util.List<com.hgtech.soma.runtime.metadata.SomaTableMetadata> tables();
   public abstract com.hgtech.soma.runtime.metadata.SomaTableMetadata requireTable(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaSegmentKind
+Compiled from "SomaSegmentKind.java"
+public final class com.hgtech.soma.runtime.metadata.SomaSegmentKind extends java.lang.Enum<com.hgtech.soma.runtime.metadata.SomaSegmentKind> {
+  public static final com.hgtech.soma.runtime.metadata.SomaSegmentKind FLAT;
+  public static final com.hgtech.soma.runtime.metadata.SomaSegmentKind FLAT_HEAD;
+  public static final com.hgtech.soma.runtime.metadata.SomaSegmentKind SEGMENTED_TAIL;
+  public static com.hgtech.soma.runtime.metadata.SomaSegmentKind[] values();
+  public static com.hgtech.soma.runtime.metadata.SomaSegmentKind valueOf(java.lang.String);
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaSegmentMetadata
+Compiled from "SomaSegmentMetadata.java"
+public interface com.hgtech.soma.runtime.metadata.SomaSegmentMetadata {
+  public abstract int ordinal();
+  public abstract com.hgtech.soma.runtime.metadata.SomaSegmentKind kind();
+  public abstract int startRowInclusive();
+  public abstract int endRowExclusive();
+  public abstract int capacityRows();
+  public abstract int liveRows();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaStorageLayout
 Compiled from "SomaStorageLayout.java"
@@ -2170,6 +2395,8 @@ public interface com.hgtech.soma.runtime.metadata.SomaTableEffectiveMetadata {
   public abstract int flatHeadRows();
   public abstract int segmentRows();
   public abstract com.hgtech.soma.runtime.metadata.SomaPrimaryLocator primaryLocator();
+  public abstract com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout primaryLocatorLayout();
+  public abstract java.lang.String primaryLocatorLayoutFormulaIdentity();
   public abstract com.hgtech.soma.runtime.metadata.SomaExactAccess exactAccess();
   public abstract int initialCapacity();
   public abstract int planningRows();
@@ -2208,6 +2435,27 @@ public interface com.hgtech.soma.runtime.metadata.SomaTableMetadata {
   public abstract java.util.List<com.hgtech.soma.runtime.metadata.SomaOwnershipMetadata> ownership();
   public abstract com.hgtech.soma.runtime.metadata.SomaOwnershipMetadata requireOwnership(java.lang.String);
 }
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata
+Compiled from "SomaTableRuntimeMetadata.java"
+public interface com.hgtech.soma.runtime.metadata.SomaTableRuntimeMetadata {
+  public abstract com.hgtech.soma.runtime.metadata.SomaTableMetadata descriptor();
+  public abstract java.lang.String logicalName();
+  public abstract java.lang.String runtimePlanHash();
+  public abstract com.hgtech.soma.runtime.metadata.SomaStorageLayout storageLayout();
+  public abstract com.hgtech.soma.runtime.metadata.SomaPrimaryLocator primaryLocator();
+  public abstract com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout primaryLocatorLayout();
+  public abstract java.lang.String primaryLocatorImplementationIdentity();
+  public abstract int rows();
+  public abstract int capacity();
+  public abstract long structuralEpoch();
+  public abstract boolean released();
+  public abstract java.util.List<com.hgtech.soma.runtime.metadata.SomaSegmentMetadata> segments();
+  public abstract java.util.List<com.hgtech.soma.runtime.metadata.SomaIndexRuntimeMetadata> indexes();
+  public abstract com.hgtech.soma.runtime.metadata.SomaIndexRuntimeMetadata requireIndex(java.lang.String);
+  public abstract java.util.List<com.hgtech.soma.runtime.metadata.SomaUniqueRuntimeMetadata> uniques();
+  public abstract com.hgtech.soma.runtime.metadata.SomaUniqueRuntimeMetadata requireUnique(java.lang.String);
+  public abstract com.hgtech.soma.runtime.TableStats observation();
+}
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaTypeKind
 Compiled from "SomaTypeKind.java"
 public final class com.hgtech.soma.runtime.metadata.SomaTypeKind extends java.lang.Enum<com.hgtech.soma.runtime.metadata.SomaTypeKind> {
@@ -2232,6 +2480,11 @@ Compiled from "SomaUniqueMetadata.java"
 public interface com.hgtech.soma.runtime.metadata.SomaUniqueMetadata {
   public abstract java.lang.String name();
   public abstract java.util.List<java.lang.String> leafPaths();
+}
+## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaUniqueRuntimeMetadata
+Compiled from "SomaUniqueRuntimeMetadata.java"
+public interface com.hgtech.soma.runtime.metadata.SomaUniqueRuntimeMetadata extends com.hgtech.soma.runtime.metadata.SomaExactAccessRuntimeMetadata {
+  public abstract com.hgtech.soma.runtime.metadata.SomaUniqueMetadata descriptor();
 }
 ## PUBLIC handwritten-runtime com.hgtech.soma.runtime.metadata.SomaWorkloadProfile
 Compiled from "SomaWorkloadProfile.java"

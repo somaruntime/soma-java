@@ -3,6 +3,7 @@ package com.hgtech.soma.runtime;
 import com.hgtech.soma.runtime.generated.GeneratedPlanToken;
 import com.hgtech.soma.runtime.metadata.SomaExactAccess;
 import com.hgtech.soma.runtime.metadata.SomaPrimaryLocator;
+import com.hgtech.soma.runtime.metadata.SomaPrimaryLocatorLayout;
 import com.hgtech.soma.runtime.metadata.SomaStorageLayout;
 import com.hgtech.soma.runtime.metadata.SomaWorkloadProfile;
 
@@ -30,6 +31,8 @@ public final class TablePlan {
     private final long maximumBulkScratchBytes;
     private final long maximumTableStorageBytes;
     private final SomaPrimaryLocator primaryLocator;
+    private final SomaPrimaryLocatorLayout primaryLocatorLayout;
+    private final String primaryLocatorLayoutFormula;
     private final SomaExactAccess exactAccess;
     private final boolean stringCapable;
     private final StringResourceProfile stringResourceProfile;
@@ -59,6 +62,9 @@ public final class TablePlan {
         maximumBulkScratchBytes = builder.maximumBulkScratchBytes;
         maximumTableStorageBytes = builder.maximumTableStorageBytes;
         primaryLocator = builder.primaryLocator;
+        primaryLocatorLayoutFormula = builder.primaryLocatorLayoutFormula;
+        primaryLocatorLayout = PrimaryLocatorLayoutFormula.resolve(
+                primaryLocatorLayoutFormula, primaryLocator);
         exactAccess = builder.exactAccess;
         stringCapable = builder.stringCapable;
         stringResourceProfile = builder.stringResourceProfile;
@@ -87,6 +93,7 @@ public final class TablePlan {
                 .maximumBulkScratchBytes(maximumBulkScratchBytes)
                 .maximumTableStorageBytes(maximumTableStorageBytes)
                 .primaryLocator(primaryLocator)
+                .primaryLocatorLayoutFormula(primaryLocatorLayoutFormula)
                 .exactAccess(exactAccess)
                 .workloadProfile(workloadProfile)
                 .storageLayoutFormula(
@@ -126,6 +133,12 @@ public final class TablePlan {
                 ? "primitive-exact-hash-v1" : "none";
     }
     public SomaPrimaryLocator primaryLocator() { return primaryLocator; }
+    public SomaPrimaryLocatorLayout primaryLocatorLayout() {
+        return primaryLocatorLayout;
+    }
+    public String primaryLocatorLayoutFormula() {
+        return primaryLocatorLayoutFormula;
+    }
     public SomaExactAccess exactAccess() { return exactAccess; }
     public boolean stringCapable() { return stringCapable; }
     public StringResourceProfile stringResourceProfile() {
@@ -147,6 +160,11 @@ public final class TablePlan {
                 + ",\"maximumTableStorageBytes\":" + maximumTableStorageBytes
                 + ",\"maximumUpdateScratchBytes\":" + maximumUpdateScratchBytes
                 + ",\"planningRows\":" + planningRows
+                + ",\"primaryLocatorLayout\":"
+                + CanonicalSupport.quote(
+                        primaryLocatorLayout.name().toLowerCase(Locale.ROOT))
+                + ",\"primaryLocatorLayoutFormula\":"
+                + CanonicalSupport.quote(primaryLocatorLayoutFormula)
                 + ",\"storageLayout\":"
                 + CanonicalSupport.quote(
                         storageLayout.name().toLowerCase(Locale.ROOT))
@@ -182,6 +200,8 @@ public final class TablePlan {
         private long maximumBulkScratchBytes = 256L * 1024L * 1024L;
         private long maximumTableStorageBytes = 256L * 1024L * 1024L;
         private SomaPrimaryLocator primaryLocator = SomaPrimaryLocator.NONE;
+        private String primaryLocatorLayoutFormula =
+                PrimaryLocatorLayoutFormula.IDENTITY;
         private SomaExactAccess exactAccess = SomaExactAccess.NONE;
         private boolean stringCapable;
         private StringResourceProfile stringResourceProfile =
@@ -308,6 +328,19 @@ public final class TablePlan {
             return accessStrategy(value);
         }
 
+        Builder primaryLocatorLayoutFormula(String identity) {
+            requireOpen();
+            primaryLocatorLayoutFormula = CanonicalSupport.required(
+                    identity, "primaryLocatorLayoutFormula");
+            return this;
+        }
+
+        public Builder generatedPrimaryLocatorLayoutFormula(
+                GeneratedPlanToken token, String identity) {
+            GeneratedPlanToken.require(token);
+            return primaryLocatorLayoutFormula(identity);
+        }
+
         Builder storageLayoutFormula(String identity, int bytesPerRow) {
             requireOpen();
             storageLayoutFormula = CanonicalSupport.required(
@@ -370,6 +403,8 @@ public final class TablePlan {
                     workloadProfile,
                     planningRows,
                     structuralBytesPerRow);
+            PrimaryLocatorLayoutFormula.resolve(
+                    primaryLocatorLayoutFormula, primaryLocator);
             if (!stringCapable
                     && stringResourceProfile.status()
                     != StringResourceProfileStatus.UNPROFILED) {

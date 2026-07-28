@@ -54,13 +54,13 @@ public final class GroupedFlow<B extends DataFlowBinding> {
                 new GroupIndexOperation<B>(program, key, shape));
     }
 
-    public DataFlowDefinition<LongScalarResult> borrow(GroupConsumer consumer) {
-        if (consumer == null) {
-            throw new NullPointerException("consumer");
-        }
-        return DataFlowDefinition.of(
-                new GroupBorrowOperation<B>(
-                        program, key, shape, consumer));
+    public CallbackDeliveryDefinition<GroupVisitor> deliver() {
+        ParameterSlot<GroupVisitor> visitor =
+                ParameterSlot.callback(GroupVisitor.class);
+        return CallbackDeliveryDefinition.of(
+                new GroupDeliveryOperation<B>(
+                        program, key, shape, visitor),
+                visitor);
     }
 
     public DataFlowDefinition<GroupedLongResult> counts() {

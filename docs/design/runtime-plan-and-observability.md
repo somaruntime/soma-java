@@ -34,7 +34,8 @@ Plan 至少覆盖以下维度：
 
 - schema/generated/runtime protocol identity；
 - root table 与所有 reachable child table 的有效 table plan；
-- initial capacity、growth、primary locator 与 secondary exact-access policy；
+- initial capacity、growth、primary locator、locator physical layout formula 与
+  secondary exact-access policy；
 - aggregate storage、bulk scratch、retained scratch 和 materialization budget；
 - stats mode 与诊断采集级别；
 - estimator、algorithm 和 plan protocol identity。
@@ -171,6 +172,12 @@ Stats 是 immutable observation，不是业务事实。Snapshot 必须区分：
 Candidate Scan 的 source/cardinality shortcut 可以减少 physical traversal，但 `scanned/matched/changed` 仍按公开 operation 的 logical reference semantics 发布；physical loop、comparison 和 allocation 进入 benchmark evidence，不混入业务统计。Caller-owned Scan plan/handle 不是 Table retained storage，不计入 TableStats；Table-owned `IndexBuffer`、sort/update scratch 仍进入 current/high-water accounting。
 
 `resetStats()` 只重置明确允许重置的观测窗口；不能修改 table rows、capacity、epoch、ownership、plan、lifecycle 或 lifetime high-water。Snapshot 不返回 live mutable counter view。
+
+Keyed Table 的主定位器必须分别报告 current retained structural bytes 与 lifetime
+high-water bytes。rehash、staged replace、clear、stats reset 和 release 不能伪造
+high-water 回落；release 可以把 current bytes 降为零。该数值只计算 SOMA-owned
+locator arrays，不包含 authoritative columns 中可达的 String object bytes，也不
+等同于 JVM observed heap。
 
 ## 7. 采集模式与副作用
 

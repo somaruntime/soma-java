@@ -16,7 +16,7 @@ Owner：SOMA Java reference applications
 
 非事实范围：SOMA 核心 Design、公共 API、跨环境性能 claim 和 release readiness
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 `soma-examples` 只聚合参考应用，不再拥有一个共享领域 runtime、场景套件或产品能力事实。SOMA 的目标和长期语义分别由[产品 Blueprint](../../docs/blueprints/soma-java-product-blueprint.md)和[Design](../../docs/design/README.md)拥有；当前代码与 Gate 从[参考应用与 benchmark Map](../../docs/implementation-map/scenario-and-benchmark-map.md)进入。
 
@@ -38,6 +38,11 @@ state 分开。工业调度应用通过 Factory/Solver facade 隐藏 runtime lif
 生态仿真通过 Simulator/Session 管理 tick aggregate，RTD 通过 Dispatcher 管理
 有限 horizon。三个应用的运行期都不反向调用输入生成器，相同配置与 seed 必须
 产生相同 input checksum。
+
+最终设计审计确认三个应用唯一需要治理的共同偏差是相关root Table的lifecycle
+owner仍由手工创建/逆序释放表达。现在三个runtime分别拥有稳定冻结的显式
+SomaGroup，partial-create、fault cleanup和release由Group收口，并通过detached
+Group Runtime Metadata进入evidence；领域模型、算法和Result没有装饰性改写。
 
 ## Canonical Gate
 

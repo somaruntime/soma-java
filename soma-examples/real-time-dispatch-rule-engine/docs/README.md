@@ -8,7 +8,7 @@ Owner：real-time-dispatch-rule-engine
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 本应用是独立 Java 8 consumer。它从可重放的 detached runtime snapshot/delta
 开始，把两张 SOMA Table 绑定到可复用 dispatch-rule DataFlow，每个周期创建一次

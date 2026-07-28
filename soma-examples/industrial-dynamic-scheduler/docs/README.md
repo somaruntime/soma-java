@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 本应用是一个独立 Java 8 consumer：它只依赖 `soma-annotations`、
 `soma-runtime-core`、`soma-dataflow` 和 compile-time `soma-processor`，不依赖

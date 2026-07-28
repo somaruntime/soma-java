@@ -10,7 +10,7 @@ Owner：real-time-dispatch-rule-engine
 
 事实范围：配置、正确性、架构、并行、规模和性能 evidence
 
-最后审查日期：2026-07-27
+最后审查日期：2026-07-28
 
 ## 配置责任
 
@@ -40,18 +40,25 @@ production resources 只包含 default。problem profile 与
 - isolated repository、ordinary runtime graph、production JAR purity、Java 8
   classfile、generated/schema clean-repeat reproducibility；
 - 不依赖 industrial/grassing application，不包含 JDBC/MES/transaction 能力。
+- 两槽SomaGroup在create后报告2个active member/Table，release后全部资源归零；
+  partial-create与fail-stop cleanup不遗留单独root。
 
 ## 性能 evidence
 
-三份 application-owned baseline 使用同一 Zulu JDK 8/macOS/aarch64 环境的 5-fork
-校准建立；普通 Gate 固定 3 fork。allocation 是同步 caller thread 指标，GC 是
-进程指标，不把 caller allocation 冒充全部 worker allocation。
+三份application-owned baseline当前均为v2，使用同一Zulu JDK 8/macOS/aarch64
+环境的5-fork校准建立；普通Gate固定3 fork。allocation是同步caller thread指标，
+GC是进程指标，不把caller allocation冒充全部worker allocation。
 
-| Profile | 3-fork timing / limit | caller allocation / limit | tasks / workers |
-|---|---:|---:|---:|
-| default | `70.98 / 114.38 ms` | `17.22 / 21.52 MB` | `228 / 4` |
-| large | `793.82 / 1186.56 ms` | `119.57 / 152.61 MB` | `64 / 4` |
-| long-run | `142.83 / 210.29 ms` | `730.15 / 911.26 MB` | `1504 / 4` |
+| Profile | RuntimePlan | timing limit | caller allocation limit | tasks / workers |
+|---|---|---:|---:|---:|
+| default | `acf26a…` | `92,416,062 ns` | `10,430,910 B` | `222 / 2` |
+| large | `826938…` | `1,146,275,750 ns` | `100,465,780 B` | `75 / 4` |
+| long-run | `9e1a8c…` | `91,788,876 ns` | `34,894,600 B` | `1,513 / 4` |
+
+三个profile的Template identity均保持`d3a285…`，GC上限均为零。校准source为
+`content-sha256:1ce64235908394ff8c12e99d678aa55f9d356b109d5c025335113516bc060eef`；
+config/input/result、Schema、Definition/Template/demand identity保持，
+RuntimePlan/Group protocol按真实变化重新登记。
 
 Baseline 同时固定 config/input/result、Schema、RuntimePlan、Definition、Template
 和 demand identity。Comparator 在精确环境/workload 下给出 `passed/failed`，
