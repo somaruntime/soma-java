@@ -25,10 +25,11 @@ Zulu和其他JDK distribution均为untested/unsupported。精确Corretto
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
 当前Corretto本机G0–G4已通过；G5等待runtime-scale重验，selected
-private-source G6等待Corretto Linux和release qualification。artifact仍是本地
-snapshot。获得private repository访问权的consumer应先在本仓库执行
-`./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、
-Maven Central artifact或已公开发布artifact。
+private-source G6已形成Ubuntu x64 Corretto Full，仍等待同一最终candidate的
+package/security qualification与matrix sign-off。artifact仍是本地snapshot。
+获得private repository访问权的consumer应先在本仓库执行
+`./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、Maven
+Central artifact或已公开发布artifact。
 
 ## 1. 前置条件
 
