@@ -24,10 +24,11 @@ contract；transformation/kernel protocol已分别升级为v5/v6。
 
 上一精确candidate的同SHA Full、package/reproducibility、security/provenance与
 support-matrix artifact仍可追溯，但不能外推到当前successor candidate。Successor
-DataFlow v5已在clean executable commit完成固定3-fork且未放宽threshold。当前剩余
-的是Evidence closure：必须以最终clean immutable SHA完成Full、application与
-runtime-scale G5、independent consumer、package/security、support matrix和remote
-qualification，条件式G6 sign-off才生效。
+DataFlow v5已在clean executable commit完成固定3-fork且未放宽threshold。Evidence
+closure不在source中预写passed：本报告所在最终clean immutable SHA只有在Full、
+application与runtime-scale G5、independent consumer、package/security、support
+matrix、remote qualification和下载bundle checksum全部通过后，条件式G6
+sign-off才生效；任一缺失或失败即blocked。
 
 已关闭差距由Git和当时Report保存，不在current Conformance维护历史清单。新的真实
 差距必须重新登记，不能用placeholder、旧vendor、working-tree hash、smoke或

@@ -1,11 +1,12 @@
 # Changelog
 
 本文件记录 SOMA Java 的用户可见变化。当前条目以 `1.0.0` 为 release candidate
-坐标；上一candidate的selected private-source G6 evidence仍可追溯。Integral
-overflow policy已裁决并实现为fail-closed checked semantics，当前successor仍因
-最终同SHA Gate与qualification未完成而保持blocked。Tag、GitHub Release、
-repository visibility与publishing仍未获得授权，因此本条目保持`Unreleased`，
-不构成公开发布声明。
+坐标；integral overflow policy已裁决并实现为fail-closed checked semantics，
+source-side replacement closure已完成。Selected private-source G6由最终同一
+clean SHA的retained Gate/qualification bundle解析：全部条件通过时Owner
+sign-off生效，任一缺失或失败时仍为blocked。Tag、GitHub Release、repository
+visibility与publishing仍未获得授权，因此本条目保持`Unreleased`，不构成公开
+发布声明。
 
 ## [Unreleased] — 1.0.0
 

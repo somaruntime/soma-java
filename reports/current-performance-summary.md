@@ -2,7 +2,7 @@
 
 类型：Report / Performance / Qualification Snapshot
 
-状态：successor DataFlow component已重验；其余G5待最终candidate
+状态：DataFlow v5 calibrated；final same-SHA G5 artifact resolves
 
 Owner：SOMA Java 性能与规模 evidence
 
@@ -160,12 +160,12 @@ G5，成功也不能升级为任意Schema/String或public SLA。
 - formula-bound Bitmap与primitive Join runtime filter的production Java实现未在
   本轮修改；closed numeric kernel、sum/average、prefix、Group、Window与Expanded
   已切换到fail-closed checked/exact-wide路径，DataFlow component v5的固定3-fork
-  已通过，scale与application集成面仍待最终candidate；
+  已通过；scale与application集成面的正式状态由最终同SHA artifact解析；
 - checked-in component/application baseline仍是当前重放的唯一baseline Owner。
 
-当前`1.0.0` successor的完整G5仍不能陈述为passed：DataFlow component已闭合，
-但上一candidate的runtime-scale/application evidence只能绑定上述clean commit、
-source closure、环境与profile；最终successor仍须形成新的精确candidate evidence。
+DataFlow component已闭合。完整G5只在本报告所在最终clean SHA形成三个application
+与8条required runtime-scale的精确artifact且全部通过时成立；任一缺失或失败即
+blocked。Source report不复制会漂移的运行状态。
 
 扩大下列声明前仍需新的预注册qualification：
 

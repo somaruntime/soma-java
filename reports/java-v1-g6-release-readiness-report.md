@@ -2,7 +2,7 @@
 
 类型：Report / Release Readiness
 
-状态：selected `private-github-source` profile blocked for successor candidate
+状态：selected `private-github-source` conditional sign-off；bundle resolves result
 
 Owner：SOMA Java G6 release readiness
 
@@ -26,12 +26,13 @@ Gate：G6 selected release profile
 `private-github-source`仍是当前唯一selected release profile。上一精确candidate
 的`1.0.0`坐标、identity、license/brand、private SCM/support、exact Corretto 8
 authority、macOS qualification、Ubuntu同SHA Full、可复现package、
-security/provenance、support matrix和Owner sign-off evidence仍可追溯；当前
-successor candidate的G6为`blocked`。
+security/provenance、support matrix和Owner sign-off evidence仍可追溯。当前
+successor使用条件式G6：同一clean SHA的全部required evidence通过即`passed`，
+任一缺失或失败即`blocked`；Report不复制会漂移的workflow状态。
 
 冻结前审计发现的integral overflow policy已由Product Owner裁决为fail-closed
 checked semantics，并完成Design、实现、protocol与contract replacement closure；
-successor还包含compiler、DataFlow与workflow修复。必须以新的clean immutable SHA
+successor还包含compiler、DataFlow与workflow修复。新的clean immutable SHA必须
 重放适用Full、G5、package/security、support matrix和manual qualification，
 条件式Owner sign-off才会生效。
 
@@ -53,9 +54,9 @@ AI Skill的Codex positive consumer已经真实compile/run。Product Owner于
 | maintainer / support | passed | ArthurFeng / GitHub `@283586450`；普通问题进入private repository Issues |
 | security / ownership | passed | private Security Advisory优先；`.github/CODEOWNERS`为`* @283586450`；Actions最小权限与immutable SHA pin |
 | JDK authority | passed | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
-| macOS qualification | successor component passed；remaining pending | DataFlow v5固定3-fork已在clean successor executable commit通过；canonical Full与runtime-scale 8条required lane仍须绑定最终SHA，性能/规模claim保持environment/profile bounded |
-| Ubuntu same-SHA qualification | predecessor passed；successor pending | 上一signed-off commit的private CI Full与manual qualification通过；当前successor须形成新同SHA evidence，Linux只形成build/contract claim |
-| package / security / provenance | predecessor passed；successor pending | 上一candidate的17件release-shaped artifact双构建一致、classfile 52、License/NOTICE、SBOM、OSV、license与runtime dependency边界通过；当前successor须重放 |
+| macOS qualification | same-SHA evidence-resolved | DataFlow v5固定3-fork已绑定clean executable commit；最终SHA的canonical Full、application与runtime-scale 8条required lane必须通过，性能/规模claim保持environment/profile bounded |
+| Ubuntu same-SHA qualification | same-SHA evidence-resolved | 最终SHA的private CI Full与manual qualification必须通过；Linux只形成build/contract claim |
+| package / security / provenance | same-SHA evidence-resolved | 最终SHA必须形成17件release-shaped artifact双构建、classfile 52、License/NOTICE、SBOM、OSV、license与runtime dependency evidence |
 | AI consumer Skill | passed with V1 waiver | canonical instruction-only Skill、结构/drift Gate、Codex positive consumer通过；剩余behavior/multi-host evidence被Owner waive，不声明multi-tool support |
 
 Organization plan不支持private repository branch protection/ruleset。当前控制为
@@ -66,8 +67,8 @@ admission和人工sign-off；这是已记录的残余平台风险，不伪造平
 
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
-| private GitHub source | blocked for successor candidate | 产品语义已闭合；等待新SHA的同SHA Full、G5、package/security/provenance、matrix与Owner sign-off |
-| local macOS development | successor prequalification in progress | 新arithmetic/DataFlow contract、独立consumer预检、Fast与DataFlow v5 clean 3-fork通过；canonical Full、runtime-scale、application与package/security仍待最终SHA |
+| private GitHub source | conditional sign-off | 同SHA Full、G5、package/security/provenance、matrix、private CI、manual qualification与下载bundle checksum全部成功即passed，否则blocked |
+| local macOS development | same-SHA evidence-resolved | 新arithmetic/DataFlow contract与DataFlow v5 clean 3-fork已闭合；最终clean SHA artifact决定Full、runtime-scale、application与package/security状态 |
 | public GitHub source | not-selected | repository保持private |
 | Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，不分发binary |
 | Codex Cloud development | not release-scoped | 不进入当前支持矩阵，也不替代private-source G6 |
@@ -96,7 +97,9 @@ distribution，也不替代未来可能另行授权的tag或GitHub Release。
 Product Owner于2026-07-29确认条件式G6 sign-off：successor必须包含最终
 Owner/Conformance/Report、AI waiver、当前全部已验证修复和Temporary退役，并在
 同一clean immutable commit上完成private CI、manual qualification与下载bundle
-checksum，G6 sign-off才生效。当前尚未满足这些条件。
+checksum，G6 sign-off才生效。Retained bundle中的`candidate.properties`、
+package/security summary与`evidence-checksums.sha256`共同解析结果；任一缺失、
+commit/version/dirty不一致或Gate失败都保持`blocked`。
 
 Push与workflow运行已获本轮授权。Tag、GitHub Release、repository visibility、
 signing和publishing仍需另行明确授权；G6 passed不执行或暗示这些动作，也不声明
@@ -112,5 +115,5 @@ public、Maven或production readiness。
 - public Java type、module与runtime dependency增量均为零；package-private
   production type增加`IntegralArithmetic`与嵌套`ExactSum`，由同一DataFlow
   arithmetic Owner承载；active Temporary与未裁决产品语义均为零；
-- G6保持blocked，不能用上一candidate evidence、明确waiver或条件式sign-off
-  降低产品目标。
+- G6不能用上一candidate evidence、明确waiver或条件式文本伪造passed；只接受
+  本报告所在同一SHA的retained bundle解析结果。

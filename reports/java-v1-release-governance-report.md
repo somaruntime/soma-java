@@ -2,7 +2,7 @@
 
 类型：Report / Release Governance
 
-状态：`1.0.0` freeze audit active；successor G6 blocked
+状态：`1.0.0` source candidate assembled；same-SHA evidence resolves sign-off
 
 Owner：SOMA Java V1 release governance
 
@@ -25,10 +25,11 @@ non-regression与selected profile claim
 
 上一轮已把完整SOMA Java产品推进到V1 `1.0.0`的selected
 `private-github-source` sign-off。本轮冻结前产品目标审计发现并关闭了integral
-overflow语义偏差，同时验证了compiler、DataFlow与workflow修复；当前successor
-仍因最终同SHA evidence尚未形成而未签署。治理仍不把release解释为public
-repository、Maven Central或production readiness，也不通过缩小Blueprint、
-Design或Gate关闭差距。
+overflow语义偏差，同时验证了compiler、DataFlow与workflow修复，形成新的
+source-side candidate。Report不预写尚未执行的动态workflow状态：本报告所在clean
+SHA只有在本节规定的同SHA evidence全部通过后才签署，否则保持blocked。治理仍不
+把release解释为public repository、Maven Central或production readiness，也不
+通过缩小Blueprint、Design或Gate关闭差距。
 
 | 事实 | 当前值 |
 |---|---|
@@ -50,18 +51,18 @@ Tag、GitHub Release、visibility与publishing仍是外部授权边界。POM中�
 
 | Blueprint目标 | Design / executable surface | 当前evidence | 当前结论 |
 |---|---|---|---|
-| Java 8 Schema-Defined、Compiler-Specialized | annotation、javac 8 plugin/processor、schema-specific generated facade | compiler/default/Unicode contract已覆盖本轮literal escaping修复；最终Full与external consumer待新SHA重放 | 目标保留；successor待最终evidence |
-| State / Owner + Capability + Plan / Lifecycle | SomaGroup/root/owned-child、Metadata/Plan、Table/DataFlow lifecycle | 上一candidate runtime/ownership/consumer evidence保留，本轮未发现并行Owner或live object graph回归 | 一致；待最终回归 |
+| Java 8 Schema-Defined、Compiler-Specialized | annotation、javac 8 plugin/processor、schema-specific generated facade | compiler/default/Unicode contract覆盖本轮literal escaping修复；最终同SHA Full/external consumer是生效条件 | 目标一致；由同SHA evidence解析 |
+| State / Owner + Capability + Plan / Lifecycle | SomaGroup/root/owned-child、Metadata/Plan、Table/DataFlow lifecycle | 未发现并行Owner或live object graph回归；最终同SHA lifecycle/consumer Gate是生效条件 | 目标一致；由同SHA evidence解析 |
 | packed columnar runtime-state data plane | primitive/String columns、exact access、Candidate、无DTO/Collection hot storage | public/generated surface与runtime dependency无变化；代码审查未发现reflection/metadata interpreter或隐藏I/O进入hot path | 一致 |
-| typed local Transformation / DataFlow | expression、aggregation、Group/Join/Window/Expanded、bounded scheduler | integral arithmetic已按Owner裁决改为fail-closed checked semantics；raw/closed、scalar/parallel、prefix、Group、Window、Expanded contract与clean 3-fork component通过 | 目标一致；其余G5待最终candidate |
-| predictable resource / failure / observation | ExecutionBudget、structured failure、ledger、detached/callback result | window count与detached expansion在分配/枚举前稳定拒绝；现有lifecycle/failure contracts通过 | 一致但须随最终candidate重验 |
-| 普通Java 8 consumer可用 | 四个同版本artifact、processor build-only、generated API、三个reference application | 上一candidate external/三个application通过；最终独立consumer journey待immutable SHA | predecessor evidence retained |
-| 性能与规模不过度外推 | Small/Medium、单/双1M、String、Expansion、Delivery、Soak；10M/100M research | successor DataFlow v5在clean commit固定3-fork通过且threshold不放宽；runtime-scale与application仍待最终SHA | successor G5 partially closed |
-| selected private-source release诚实可追溯 | clean SHA、Full、package/security/provenance、matrix、conditional sign-off | claim已纠正为blocked；最终CI/manual workflow/bundle checksum尚未产生 | successor G6 pending |
+| typed local Transformation / DataFlow | expression、aggregation、Group/Join/Window/Expanded、bounded scheduler | integral arithmetic已按Owner裁决改为fail-closed checked semantics；raw/closed、scalar/parallel、prefix、Group、Window、Expanded contract与clean 3-fork component通过 | 目标一致；最终G5由同SHA evidence解析 |
+| predictable resource / failure / observation | ExecutionBudget、structured failure、ledger、detached/callback result | window count与detached expansion在分配/枚举前稳定拒绝；最终同SHA lifecycle/failure Gate是生效条件 | 目标一致；由同SHA evidence解析 |
+| 普通Java 8 consumer可用 | 四个同版本artifact、processor build-only、generated API、三个reference application | public/generated与独立consumer入口已覆盖；最终同SHA consumer/application Gate是生效条件 | 目标一致；由同SHA evidence解析 |
+| 性能与规模不过度外推 | Small/Medium、单/双1M、String、Expansion、Delivery、Soak；10M/100M research | DataFlow v5在clean commit固定3-fork通过且threshold不放宽；最终application/runtime-scale artifact决定完整G5 | 目标一致；由同SHA evidence解析 |
+| selected private-source release诚实可追溯 | clean SHA、Full、package/security/provenance、matrix、conditional sign-off | 最终private CI、manual qualification与下载bundle checksum是唯一动态状态Owner | conditional sign-off |
 
-因此当前尚未达到“可冻结的V1产品”目标。产品语义偏差、Temporary与未裁决
-`UNKNOWN`已经归零；剩余必要闭环是在同一immutable candidate上验证真实consumer
-与全部受影响evidence，并确认没有平行claim或遗漏。
+产品语义偏差、Temporary与未裁决`UNKNOWN`已经归零，source-side候选与产品目标
+一致。是否达到“可冻结的V1产品”不由此静态文本预判，而由同一immutable candidate
+的真实consumer、全部适用Gate、qualification与bundle checksum按下节规则解析。
 
 ## 3. 候选与 Gate
 
@@ -75,9 +76,9 @@ qualification bundle中的`candidate.properties`和package/security provenance
 | Gate | 状态 | 直接依据与边界 |
 |---|---|---|
 | G0 | passed | Java-only scope、正式Owner、claim boundary与核心抽象叙事规则稳定 |
-| G1–G4 | predecessor evidence retained | 上一clean candidate的canonical Full与同SHA Ubuntu Full通过；当前successor须重新绑定最终SHA |
-| G5 | successor component passed；remaining pending | DataFlow v5 clean 3-fork与新arithmetic/differential contract通过；三个application、runtime-scale 8条required lane与最终Full仍须绑定最终SHA |
-| G6 | blocked for successor candidate | 产品语义已闭合；等待同SHA package/reproducibility、security/provenance、sealed evidence、support matrix与条件式Owner sign-off |
+| G1–G4 | same-SHA evidence-resolved | 本报告所在clean SHA的canonical Full与private CI Full都必须通过；任一缺失或失败即blocked |
+| G5 | same-SHA evidence-resolved | DataFlow v5 clean calibration已闭合；最终SHA的三个application与8条required runtime-scale lane必须全部passed |
+| G6 | conditional Owner sign-off | 同SHA package/reproducibility、security/provenance、sealed bundle、support matrix、private CI、manual qualification与下载checksum全部成功即passed，否则blocked |
 
 旧vendor、旧candidate或单机结果只解释其原环境，不替代当前evidence。
 
@@ -146,7 +147,7 @@ AI工具support profile时必须重新完成发现、安装、触发和行为验
 - workflow checkout关闭credential persistence；
 - DataFlow benchmark workload/threshold、schema identity、generated/runtime
   protocol、public signature和artifact coordinate未改变；baseline从v4原位替换为
-  绑定clean successor的v5，只更新versioned authoring identity；
+  绑定clean successor的v5，只更新versioned authoring identity。
 
 没有temporary public/generated API、parallel Design Owner、test-only bypass、
 新第三方production dependency、migration artifact、active Temporary或未裁决
@@ -156,7 +157,9 @@ AI工具support profile时必须重新完成发现、安装、触发和行为验
 
 Product Owner于2026-07-29确认条件式G6 sign-off：本报告所在successor最终commit
 只有在产品语义偏差关闭、Temporary退役、private CI、manual qualification和下载
-bundle checksum全部成功后才生效为`passed`。当前条件尚未满足。
+bundle checksum全部成功后才生效为`passed`。Source checkout故意不复制会漂移的
+run状态；retained `candidate.properties`、package/security provenance与
+`evidence-checksums.sha256`共同解析该条件，任一缺失或失败即`blocked`。
 
 Tag、GitHub Release、repository visibility、signing、publishing和公开发布仍未
 授权；本轮不执行这些动作。Private-source G6 passed也不构成production SLA、
