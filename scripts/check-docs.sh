@@ -242,6 +242,13 @@ else
       || [ -d "$skill_dir/scripts" ]; then
     fail 'use-soma-java must remain instruction-only without broad tool grants'
   fi
+  if grep -R -nE '\]\((\.\./){3,}(docs|guides)/' \
+      "$skill_dir" >/dev/null 2>&1; then
+    fail 'use-soma-java must not contain source-repository-relative links that break after project-scoped installation'
+  fi
+  grep -F '上述跨仓库路径始终相对于安装时固定的 SOMA source tree' \
+    "$skill_file" >/dev/null 2>&1 \
+    || fail 'use-soma-java installed-source ownership boundary is missing'
 fi
 
 skill_directory_count=$(find . -path './.git' -prune -o \

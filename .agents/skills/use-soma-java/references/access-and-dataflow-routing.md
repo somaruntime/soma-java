@@ -4,10 +4,12 @@
 
 正式 Owner：
 
-- [Access Model 与 Candidate Scan](../../../../docs/design/access-model-and-candidate-scan.md)
-- [Transformation Model](../../../../docs/design/transformation-model.md)
-- [DataFlow 执行模型](../../../../docs/design/dataflow-execution-model.md)
-- [Table、存储与访问](../../../../docs/design/table-storage-and-access.md)
+以下路径相对于安装来源固定的 SOMA source ref：
+
+- `docs/design/access-model-and-candidate-scan.md`
+- `docs/design/transformation-model.md`
+- `docs/design/dataflow-execution-model.md`
+- `docs/design/table-storage-and-access.md`
 
 本参考帮助选择能力族；精确 generated type/method 仍从当前编译结果读取。
 

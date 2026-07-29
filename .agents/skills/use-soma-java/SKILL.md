@@ -15,13 +15,18 @@ consumer evidence 获取精确 surface。
 本 Skill 只拥有 AI consumer workflow，不拥有 SOMA 语义。发生冲突时按以下顺序
 裁决：
 
-1. [Blueprint](../../../docs/blueprints/soma-java-product-blueprint.md) 与
-   [Design](../../../docs/design/README.md) 决定产品语义和边界；
+1. 固定 SOMA source ref 中的
+   `docs/blueprints/soma-java-product-blueprint.md` 与 `docs/design/README.md`
+   决定产品语义和边界；
 2. 当前版本的源码、POM、generated source/class、golden 与 external consumer
    决定精确 API；
-3. [Consumer Guide](../../../guides/java-v1-install-and-consumer-guide.md) 决定
-   安装和普通 Maven consumer 流程；
+3. 同一 source ref 的 `guides/java-v1-install-and-consumer-guide.md` 决定安装和
+   普通 Maven consumer 流程；
 4. 本 Skill 只负责把这些事实转化为可靠的 consumer 工作步骤。
+
+上述跨仓库路径始终相对于安装时固定的 SOMA source tree，不是 consumer repository
+路径。若工具无法读取该 source ref，先请求访问权或 source location，不把
+consumer 中同名文件当作 SOMA Owner。
 
 如果任务是修改 SOMA processor/runtime、治理 Design、执行 release 或处理无关的
 Java Collection、ORM、SQL、数据库问题，不要触发本 Skill。

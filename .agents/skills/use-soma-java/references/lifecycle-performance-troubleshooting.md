@@ -4,11 +4,13 @@
 
 正式 Owner：
 
-- [Runtime Plan 与可观测性](../../../../docs/design/runtime-plan-and-observability.md)
-- [Ownership 与 lifecycle](../../../../docs/design/ownership-and-lifecycle.md)
-- [性能模型](../../../../docs/design/performance-model.md)
-- [Correctness 与 failure](../../../../docs/design/correctness-and-failure.md)
-- [Result Delivery 与 Materialization](../../../../docs/design/materialization-boundary.md)
+以下路径相对于安装来源固定的 SOMA source ref：
+
+- `docs/design/runtime-plan-and-observability.md`
+- `docs/design/ownership-and-lifecycle.md`
+- `docs/design/performance-model.md`
+- `docs/design/correctness-and-failure.md`
+- `docs/design/materialization-boundary.md`
 
 ## Lifecycle 与资源
 

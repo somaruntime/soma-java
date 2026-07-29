@@ -4,10 +4,12 @@
 
 正式 Owner：
 
-- [Java 8 安装与 Maven consumer 指南](../../../../guides/java-v1-install-and-consumer-guide.md)
-- [Schema 与生成 API](../../../../docs/design/schema-and-generated-api.md)
-- [Compiler 与 codegen map](../../../../docs/implementation-map/compiler-and-codegen-map.md)
-- [测试与 evidence map](../../../../docs/implementation-map/test-and-evidence-map.md)
+以下路径相对于安装来源固定的 SOMA source ref：
+
+- `guides/java-v1-install-and-consumer-guide.md`
+- `docs/design/schema-and-generated-api.md`
+- `docs/implementation-map/compiler-and-codegen-map.md`
+- `docs/implementation-map/test-and-evidence-map.md`
 
 精确坐标、plugin 参数和方法名必须从 consumer 所固定版本的 POM、指南与生成结果
 读取；本参考不保存第二份完整 API。
