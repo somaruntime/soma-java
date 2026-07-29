@@ -219,6 +219,92 @@ for file in guides/java-v1-install-and-consumer-guide.md guides/development-guid
   fi
 done
 
+skill_dir=.agents/skills/use-soma-java
+skill_file=$skill_dir/SKILL.md
+skill_reference_dir=$skill_dir/references
+skill_metadata=$skill_dir/agents/openai.yaml
+if [ ! -f "$skill_file" ] \
+    || [ ! -f "$skill_metadata" ]; then
+  fail 'canonical use-soma-java Skill or UI metadata is missing'
+else
+  grep -Fqx 'name: use-soma-java' "$skill_file" \
+    || fail 'use-soma-java Skill name drifted'
+  grep -F 'description: Use when ' "$skill_file" >/dev/null 2>&1 \
+    || fail 'use-soma-java positive trigger is missing'
+  grep -F 'Do not use for unrelated Java or database work' \
+    "$skill_file" >/dev/null 2>&1 \
+    || fail 'use-soma-java negative trigger is missing'
+  grep -F 'default_prompt: "Use $use-soma-java ' \
+    "$skill_metadata" >/dev/null 2>&1 \
+    || fail 'use-soma-java UI invocation metadata drifted'
+  if grep -E '^(dependencies|policy):' "$skill_metadata" >/dev/null 2>&1 \
+      || grep -R -n '^allowed-tools:' "$skill_dir" >/dev/null 2>&1 \
+      || [ -d "$skill_dir/scripts" ]; then
+    fail 'use-soma-java must remain instruction-only without broad tool grants'
+  fi
+fi
+
+skill_directory_count=$(find . -path './.git' -prune -o \
+  -path './target' -prune -o -type d -name use-soma-java -print |
+  wc -l | tr -d ' ')
+if [ "$skill_directory_count" -ne 1 ]; then
+  fail "use-soma-java must have one canonical directory, got $skill_directory_count"
+fi
+
+expected_skill_references=$(printf '%s\n' \
+  access-and-dataflow-routing.md \
+  generated-api-workflow.md \
+  lifecycle-performance-troubleshooting.md \
+  modeling-and-ownership.md)
+actual_skill_references=$(find "$skill_reference_dir" -maxdepth 1 \
+  -type f -name '*.md' -exec basename {} \; | LC_ALL=C sort)
+if [ "$actual_skill_references" != "$expected_skill_references" ]; then
+  fail 'use-soma-java reference set drifted'
+fi
+
+root_version=$(sed -n \
+  's:.*<version>\([^<]*\)</version>.*:\1:p' pom.xml | sed -n '1p')
+skill_series=$(printf '%s\n' "$root_version" |
+  awk -F. '{ print $1 "." $2 ".x" }')
+for skill_reference in "$skill_reference_dir"/*.md; do
+  grep -F "适用 SOMA 版本：\`$skill_series\`" \
+    "$skill_reference" >/dev/null 2>&1 \
+    || fail "$skill_reference does not match reactor series $skill_series"
+  grep -F '正式 Owner：' "$skill_reference" >/dev/null 2>&1 \
+    || fail "$skill_reference does not declare formal Owners"
+done
+
+skill_protocol_reference=$skill_reference_dir/generated-api-workflow.md
+for protocol_identity in \
+  soma-generated-runtime-v12 \
+  soma-runtime-java8-v12 \
+  soma-runtime-plan-v6 \
+  soma-transformation-v4 \
+  soma-kernel-v5; do
+  grep -F "$protocol_identity" \
+    docs/design/compatibility-security-and-versioning.md >/dev/null 2>&1 \
+    || fail "compatibility Design is missing $protocol_identity"
+  grep -F "$protocol_identity" "$skill_protocol_reference" >/dev/null 2>&1 \
+    || fail "use-soma-java compatibility anchor is missing $protocol_identity"
+done
+
+for consumer_skill_entry in \
+  '.agents/skills/use-soma-java/SKILL.md' \
+  'project-scoped' \
+  'immutable commit SHA'; do
+  grep -F "$consumer_skill_entry" README.md >/dev/null 2>&1 \
+    || fail "README AI Skill entry is missing $consumer_skill_entry"
+done
+for consumer_skill_boundary in \
+  'project-scoped' \
+  '升级时' \
+  '卸载只删除' \
+  '不执行 bundled script'; do
+  grep -F "$consumer_skill_boundary" \
+    guides/java-v1-install-and-consumer-guide.md >/dev/null 2>&1 \
+    || fail "Consumer Guide AI Skill boundary is missing $consumer_skill_boundary"
+done
+
 for file in \
   docs/design/transformation-model.md \
   docs/design/dataflow-execution-model.md \

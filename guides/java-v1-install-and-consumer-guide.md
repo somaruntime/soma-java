@@ -12,7 +12,7 @@ Owner：SOMA Java 用户输出
 
 非事实范围：重新定义 public/schema/runtime Design 或声明 public release readiness
 
-适用版本：当前仓库 `0.2.0-SNAPSHOT`
+适用版本：当前仓库 `1.0.0`
 
 输入事实源：[正式文档入口](../docs/README.md)、当前 `pom.xml`、external Maven fixtures 与 Gate reports
 
@@ -24,9 +24,11 @@ transformer、annotation processor、runtime-core 和 typed DataFlow。当前项
 Zulu和其他JDK distribution均为untested/unsupported。精确Corretto
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
-当前Corretto本机G0–G5已通过；selected private-source G6已形成Ubuntu x64
-Corretto Full，仍等待同一最终candidate的
-package/security qualification与matrix sign-off。artifact仍是本地snapshot。
+历史Corretto candidate已形成G0–G5与Ubuntu x64 Full，但最终`1.0.0` clean
+candidate仍在重放G1–G5；selected private-source G6继续等待同一candidate的
+package/security qualification与matrix sign-off。`1.0.0`是当前
+release-shaped source/artifact candidate，尚未因此自动形成tag、public release或
+Maven发布。
 获得private repository访问权的consumer应先在本仓库执行
 `./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、Maven
 Central artifact或已公开发布artifact。
@@ -47,14 +49,16 @@ distribution、ECJ、JDK 9+ javac或未进入正式矩阵的IDE incremental comp
 
 ## 2. Maven 配置
 
-当前本地试用使用 `0.2.0-SNAPSHOT`；未来正式发布后再把 `${soma.version}` 替换为对应 release version。`soma-processor` 只属于 build path，不应进入 application runtime graph。
+当前 V1 candidate 使用 `1.0.0`；private-source consumer 先从同一固定 source
+ref执行本地 install。`soma-processor`只属于build path，不应进入application
+runtime graph。
 
 ```xml
 <properties>
   <maven.compiler.source>1.8</maven.compiler.source>
   <maven.compiler.target>1.8</maven.compiler.target>
   <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-  <soma.version>0.2.0-SNAPSHOT</soma.version>
+  <soma.version>1.0.0</soma.version>
 </properties>
 
 <dependencies>
@@ -112,7 +116,36 @@ distribution、ECJ、JDK 9+ javac或未进入正式矩阵的IDE incremental comp
 </build>
 ```
 
-## 3. Schema 与 generated API
+## 3. AI coding tools Skill
+
+Canonical Skill 位于
+[`use-soma-java`](../.agents/skills/use-soma-java/SKILL.md)，兼容
+SOMA Java `1.0.x`。它是独立 developer-tooling source，不进入 Maven JAR，也不
+会被 consumer 自动发现。
+
+安装时必须：
+
+1. 从 `somaruntime/soma-java` 的 consumer 对应 release tag 或明确提供的 immutable
+   commit SHA 读取 `.agents/skills/use-soma-java/`；
+2. 安装前核对 source ref、文件树、frontmatter、兼容范围、目标目录和权限；
+3. 把完整目录复制到当前 AI coding tool 支持的 **consumer project-scoped**
+   Agent Skills 目录；不同宿主路径不同，不能把某一工具的预览路径冒充通用标准；
+4. 不执行 bundled script、不授予宽泛工具权限；V1 Skill 本身没有 `scripts/` 或
+   `allowed-tools`；
+5. 验证宿主能够发现 `use-soma-java`，用一个 SOMA consumer 请求验证正向触发，
+   再用无关 Java/数据库或 SOMA 内部治理请求验证不会误触发；
+6. 记录 source ref、destination、宿主版本、发现/触发/行为结果和限制。
+
+若宿主不支持自动安装，手动创建其 project-scoped Skill 目录并复制 canonical
+目录，保持 `SKILL.md`、`references/` 与可选 `agents/` metadata 的相对结构；预览
+内容后重启或刷新宿主，再执行发现验证。不要默认写入用户全局 Skill 目录。
+
+升级时从新的固定 SOMA ref 原子替换整个 project-scoped `use-soma-java` 目录，不
+合并两个版本的 reference。卸载只删除 consumer 项目中的该副本，不删除 SOMA
+source、不改用户全局配置。宿主支持状态必须来自真实发现、trigger、blind behavior
+和 anti-pattern eval；仅能读取 open-format 文件不等于受支持。
+
+## 4. Schema 与 generated API
 
 1. 在 `package-info.java` 声明 `@SomaSchema`；
 2. 使用 `@SomaTable`、`@SomaValue`、`@SomaField`、`@SomaKey`、`@SomaIndex`、`@SomaUnique`、`@SomaChild` 等定义 logical schema；`@SomaIndex` 提供 exact-group `scanByX`，`@SomaUnique` 优先提供 0..1 point family，业务顺序在 Candidate Scan 上显式调用 `sorted(totalComparator)`；
@@ -126,7 +159,7 @@ distribution、ECJ、JDK 9+ javac或未进入正式矩阵的IDE incremental comp
 parent 的完整 core consumer fixture 位于
 `tests/fixtures/external-maven-breadth`。
 
-## 4. 建模顺序与关键语义
+## 5. 建模顺序与关键语义
 
 1. 先区分 input facts、working state 和 result facts；
 2. 有稳定业务 identity 的 row 使用 `@SomaKey` keyed table；只依赖 packed traversal/current Index 的 row 使用 dense table；
@@ -149,7 +182,7 @@ DataFlow 的 Definition/Template 不持有 live Table；每次 Invocation one-sh
 并行执行只在 Invocation 独占的只读/受控 Effect 边界内发生。外部状态同步先形成
 detached Batch/Delta，再在 application safe point 提交。
 
-## 5. Metadata、RuntimePlan 与 SomaGroup
+## 6. Metadata、RuntimePlan 与 SomaGroup
 
 SOMA 把 Metadata control plane 与 live payload 分开。Generated
 `SchemaMetadata` 是 schema 入口：
@@ -202,7 +235,7 @@ aggregate identity。Group 统一 composition、resource ledger、metadata snaps
 和 reverse-order release，但不提供跨 Table transaction 或 snapshot isolation。
 简单 `Table.create(plan)` 等价于只有一个 root 的 implicit Group。
 
-## 6. V1 类型与 String 资源边界
+## 7. V1 类型与 String 资源边界
 
 V1 schema field 只接受四类语义：
 
@@ -259,7 +292,7 @@ UTF-16 长度、value cardinality、distinct object identity、共享率、prese
 - SOMA-retained reachable String model bytes；
 - JVM observed heap/GC。
 
-## 7. DataFlow、Result Delivery 与并行
+## 8. DataFlow、Result Delivery 与并行
 
 先创建 typed Source 和可复用 Template，再为每次执行创建 one-shot Invocation：
 
@@ -340,7 +373,7 @@ scratch 和 worker budget 决定 sequential/parallel，不要求 application 选
 和 fallback reason；`DataFlowStats` 分为 work、parallel、resources、delivery
 四个组件。Stats/Explain 是 detached diagnostics，不是业务事实。
 
-## 8. Mutation、失败与生命周期
+## 9. Mutation、失败与生命周期
 
 - Batch/Delta 是 detached staging；commit 前完成 target、duplicate、capacity、
   Unique/Index/child 和 resource preflight；
@@ -367,7 +400,7 @@ schema + Metadata
   -> clear or release at explicit lifecycle boundary
 ```
 
-## 9. 规模使用边界
+## 10. 规模使用边界
 
 SOMA 的规模能力按 profile 判断，不按 row count 单独判断。Small/Medium 要优先避免
 固定调用、对象和plan tax；单/双1M要同时控制retained bytes、完整数据遍数、
@@ -391,7 +424,7 @@ reference-backed String角色Table，以及Expansion、Delivery与Soak。
 Application 仍负责 working-set projection、数据分片/驱逐、双缓存、外部一致性和
 整个 JVM 的总预算；SOMA 不是数据库、持久化层或分布式执行系统。
 
-## 10. 验证安装
+## 11. 验证安装
 
 Repository contributor 使用：
 
@@ -408,7 +441,7 @@ External consumer 至少确认：
 - schema hash、runtime plan identity与runtime stats可读取；
 - duplicate/missing/stale/released/view-pinned/materialization-budget错误可观察。
 
-## 11. Upgrade、rollback 与 withdrawal
+## 12. Upgrade、rollback 与 withdrawal
 
 - annotation、processor、runtime-core 和 dataflow 必须使用同一 artifact family
   version；
@@ -419,7 +452,7 @@ External consumer 至少确认：
 - 如果某version被标记withdrawn，停止新部署并迁移到公告指定的修复版本；
 - SOMA V1不提供持久化schema migration，detached object/wire/database迁移由application adapter拥有。
 
-## 12. Known limitations
+## 13. Known limitations
 
 - Java-only；不提供Python、C ABI、native runtime或跨语言FFI；
 - 只支持正式G6 matrix列出的Amazon Corretto full JDK 8 javac/runtime组合；

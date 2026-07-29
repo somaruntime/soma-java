@@ -5,8 +5,9 @@ implementation/release-readiness 阶段，尚未公开发布；设计事实已�
 Owner 体系，copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA，
 GitHub Organization 为 `somaruntime`。当前只选择 private GitHub source
 repository，不声明 public repository、Maven Central 或 production readiness。
-当前G5等待Corretto runtime-scale重验，selected private-source G6等待Corretto
-Linux和release qualification。
+当前 V1 坐标为 `1.0.0`；最终 Gate 状态只从
+[Reports](reports/README.md)读取，selected private-source G6 不得用本机或历史
+vendor evidence替代同一候选的release qualification。
 外部贡献在开始前仍应先与 repository owner 协调，不能假设提交即自动获得合并或
 公开发布许可。
 
@@ -104,6 +105,6 @@ Repository 长期分支只使用 `main`、`develop`、`release`。常规设计�
 项目所有者 ArthurFeng 已确认 Apache License 2.0、`somaruntime/soma-java` 与
 `io.github.somaruntime.soma` 身份基线。Private-source profile 使用真实 SCM、
 maintainer、support、security、CODEOWNERS、CI 与 provenance；public RC/Maven
-profile 仍需在未来单独补齐其 publishing/signing/community 义务。当前Corretto
-Linux/qualification尚未形成，因此private-source G6保持blocked。任何profile都
-不得用placeholder绕过真实边界。
+profile 仍需在未来单独补齐其 publishing/signing/community 义务。Private-source
+G6的当前状态从release readiness与support matrix读取；任何profile都不得用
+placeholder、旧vendor或未固定candidate绕过真实边界。

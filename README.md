@@ -10,10 +10,9 @@ Application 声明稳定的数据形态和访问路径；SOMA 在编译期生成
 运行期提供 packed columnar storage、精确访问、typed transformation、受控并行与
 显式资源边界。Application 继续拥有业务规则、event loop、I/O、跨表提交与恢复。
 
-> 当前版本为 `0.2.0-SNAPSHOT`。G0–G5 已通过；selected private-source G6
-> 等待同一最终
-> candidate 的 package/security/manual qualification 与 sign-off。仓库尚未公开，
-> 也未发布到 Maven Central。
+> 当前 V1 release candidate 坐标为 `1.0.0`。G0 已稳定；最终 clean candidate 的
+> G1–G5 正在重放，selected private-source G6 仍 blocked。仓库尚未公开，也未发布
+> 到 Maven Central。
 
 ## 为什么使用 SOMA
 
@@ -84,7 +83,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
 ./scripts/check-toolchain.sh
 ```
 
-当前 artifact 仍是 private repository 中的 `0.2.0-SNAPSHOT`。在 SOMA
+当前 artifact 仍只来自 private repository 中的 `1.0.0` source candidate。在 SOMA
 仓库根目录使用固定的 Maven Wrapper 将其安装到本机 Maven repository：
 
 ```sh
@@ -110,7 +109,7 @@ export JAVA_HOME=$(/usr/libexec/java_home -v 1.8)
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <maven.compiler.source>1.8</maven.compiler.source>
     <maven.compiler.target>1.8</maven.compiler.target>
-    <soma.version>0.2.0-SNAPSHOT</soma.version>
+    <soma.version>1.0.0</soma.version>
   </properties>
 
   <dependencies>
@@ -269,6 +268,31 @@ Key、Unique、Index、Group、RuntimePlan、typed DataFlow 与 String 等完整
 可执行的外部 consumer coverage 位于
 [`tests/fixtures/`](tests/fixtures/)。
 
+## 使用 AI coding tools
+
+V1 source 在
+[`use-soma-java` Agent Skill](.agents/skills/use-soma-java/SKILL.md)
+提供唯一 canonical 的 AI consumer workflow。它帮助工具完成 Maven/Schema 建模、
+generated API 取证、Access/DataFlow 路由、lifecycle/resource 检查和真实 consumer
+验证，但不重新定义 SOMA Design。
+
+将下面提示词交给 AI coding tool；当前 repository 为 private 时，工具和用户都
+必须已经拥有访问权：
+
+> 从 SOMA Java 官方仓库 `somaruntime/soma-java` 获取当前 consumer 所用版本对应
+> 的 release tag；若该 tag 尚不可用，只接受由我提供的 immutable commit SHA。
+> 安装前先展示 source ref、`.agents/skills/use-soma-java/` 文件树、`SKILL.md`
+> 内容摘要、`1.0.x` 兼容范围、目标 project-scoped Skill 目录和所需权限。不要
+> 运行 bundled script、不要安装到全局目录、不要授予宽泛 Shell/Git/网络权限，
+> 直到我确认。确认后按当前工具支持的 Agent Skills 方式复制完整目录并验证
+> `use-soma-java` 可被发现；若不支持自动安装，给出等价的手动复制和验证步骤。
+> 最后报告固定来源、目标路径、验证结果和限制。
+
+首版 Skill 为 instruction-only，没有 bundled script 或宽泛 `allowed-tools`。
+手动 fallback、project/global scope、升级和卸载边界见
+[Consumer Guide](guides/java-v1-install-and-consumer-guide.md#3-ai-coding-tools-skill)。
+未经过真实宿主发现、触发和行为验证的工具不作支持声明。
+
 ## 参考应用
 
 三个相互独立的 Java 8 consumer 展示相同能力怎样进入不同 application boundary：
@@ -287,18 +311,18 @@ Key、Unique、Index、Group、RuntimePlan、typed DataFlow 与 String 等完整
 
 | Gate | 状态 | 当前边界 |
 |---|---|---|
-| G0–G4 | passed | 产品边界、schema/compiler、generated/runtime contract 与 external consumer 已在 Corretto authority 下验证 |
-| G5 | passed | component、九个 application profile与Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak已在当前Corretto/macOS/aarch64 profile通过 |
-| G6 | blocked | identity、SCM、support/security 与 Ubuntu x64 Corretto Full 已形成；等待 clean package/security provenance、最终 matrix sign-off 与 manual qualification |
+| G0 | passed | Java-only产品边界、正式Owner、claim boundary与核心抽象叙事规则稳定 |
+| G1–G4 | blocked | production Java surface未改变，但最终`1.0.0` clean candidate仍需canonical Full |
+| G5 | blocked | 旧Corretto evidence只解释旧candidate；等待精确commit的DataFlow 3-fork与8-lane required qualification |
+| G6 | blocked | 等待同一最终candidate的Full、package/security provenance、matrix与Owner sign-off |
 
-当前结论允许进入V1 Release Candidate评估并继续受控本地和GitHub Linux CI开发，
-但不声明10M/100M guarantee、Linux性能/规模、private-source ready、public release、
-Maven Central 或 production readiness。
+当前结论允许继续受控形成V1候选，但不声明10M/100M guarantee、Linux性能/规模、
+private-source ready、public release、Maven Central或production readiness。
 
 最新事实从以下入口读取：
 
 - [当前 Conformance](docs/conformance/current-conformance.md)
-- [G0–G6 状态](reports/java-v1-goal-execution-status.md)
+- [V1 release governance](reports/java-v1-release-governance-report.md)
 - [性能与规模摘要](reports/current-performance-summary.md)
 - [G6 release readiness](reports/java-v1-g6-release-readiness-report.md)
 

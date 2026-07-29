@@ -1,0 +1,30 @@
+# Runtime-scale qualification 的可执行源码闭包。
+#
+# 每个非注释行都是 Git pathspec，且必须解析到至少一个 tracked file。这里只登记构建
+# 输入、production module 与 runtime-scale runner/validator/workload 闭包；测试、
+# examples、reports、无关 benchmark lane 与无关 baseline 不属于该候选身份。
+
+pom.xml
+mvnw
+.mvn/wrapper/maven-wrapper.properties
+
+soma-annotations/pom.xml
+soma-annotations/src/main/**
+soma-processor/pom.xml
+soma-processor/src/main/**
+soma-runtime-core/pom.xml
+soma-runtime-core/src/main/**
+soma-dataflow/pom.xml
+soma-dataflow/src/main/**
+
+soma-benchmarks/pom.xml
+soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/BenchmarkModel.java
+soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/JvmRuntimeMetrics.java
+soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/RuntimeScaleQualification*.java
+soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/schema/**
+soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v2.json
+
+scripts/check-runtime-scale-qualification.sh
+scripts/lib/sha256.sh
+scripts/lib/supported-jdk.sh
+scripts/manifests/runtime-scale-qualification-sources.txt

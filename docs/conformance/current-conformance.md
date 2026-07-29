@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-核对对象：正式Blueprint/Design与2026-07-29 Corretto engineering candidate
+核对对象：正式Blueprint/Design与`1.0.0` release candidate preparation
 
 事实范围：主要设计能力的一致性判断、当前evidence适用性与直接依据
 
@@ -36,13 +36,14 @@ Owner：SOMA Java 一致性审查
 | String V1 | 一致且 evidenced | reference-backed immutable scalar、Key/Unique/Index、Group/Join、不同长度mutation、equal-value no-op、clear/release/actual GC成立；length只为非约束profile |
 | Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow stats/explain |
 | component performance | 一致且 evidence有限 | Corretto/macOS/aarch64 Access与DataFlow baseline通过；不外推其他环境 |
-| runtime-scale qualification | passed / environment-bounded | Corretto/macOS/aarch64 v2 strict artifact的8条required lane全部passed；source identity为`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`；10M/100M仅为非阻塞research/stress |
+| runtime-scale qualification | blocked pending exact candidate | 旧Corretto/macOS/aarch64 v2 artifact的8条required lane可作回归诊断，但recorded commit不是当前clean immutable candidate；10M/100M仍仅为非阻塞research/stress |
 | reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness与Corretto 9 profile baseline通过；相关root由显式SomaGroup拥有 |
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
-| G0–G4 | passed | Corretto compiler/codegen/runtime/external consumer与工程Full evidence |
-| G5 | passed | reference differential、component、三个application审计/evidence与Corretto 8-lane runtime-scale qualification成立 |
-| G6 selected private-source | blocked | identity/SCM/support/security与Corretto Linux Full已形成；clean package/security provenance、最终matrix sign-off和manual qualification未完成 |
-| Codex Cloud development | candidate / qualification-blocked | 产品/工程形状适合隔离Linux开发，setup已退出重复evidence/release预热；尚未完成Corretto fresh-container setup、Fast、Full与clean-worktree验收，不进入支持矩阵 |
+| G0 | passed | Java-only scope、Owner、claim boundary与抽象叙事闭环稳定 |
+| G1–G4 | blocked pending final Full | production Java surface未改变；`1.0.0`最终clean commit仍需canonical Full |
+| G5 | blocked pending exact qualification | 需要clean commit的DataFlow 3-fork provenance与8-lane required artifact |
+| G6 selected private-source | blocked | 需要同一最终candidate的Full、clean package/security provenance、matrix与Owner sign-off |
+| Codex Cloud development | not release-scoped | 当前用户目标不要求Cloud qualification；它不进入支持矩阵，也不替代private-source G6 |
 
 ## 3. 当前结论
 
@@ -52,23 +53,17 @@ Capability、Resource/Failure/Observation组成。工程体系已收敛为
 Fast→Full→Qualification，使用Maven标准local repository、一次准备多项取证、
 最多四路安全并行和fail-closed阶段状态。
 
-JDK authority迁移属于支持与evidence变化，不是产品语义变化。Corretto本机
-compiler/runtime/component/application/runtime-scale以及Ubuntu x64 build/contract
-evidence已形成；Zulu runtime-scale与release qualification保持历史事实，但不再
-作为当前passed依据。`CF-016`已经由v2完整qualification关闭，D1–D8 production
-cutover也关闭`CF-018`；`CF-009`–`CF-015`的实现闭合不因此回退。
+JDK authority迁移属于支持与evidence变化，不是产品语义变化。旧Corretto本机
+compiler/runtime/component/application/runtime-scale及Ubuntu x64 build/contract
+仍可定位回归，但正式Gate必须绑定新的clean immutable candidate。Zulu evidence
+只属于历史。
 
-当前candidate已经达到G5并可进入V1 Release Candidate评估，但仍不能把本机
-qualification外推为Linux性能/规模、private-source G6、Codex Cloud ready、
-production、public release或Maven Central readiness。G6仍需同一最终candidate的
-clean package/security provenance、support-matrix sign-off与manual release
-qualification。
+当前`1.0.0`候选正在形成，不能提前写成G5或private-source G6 passed，也不能把
+本机evidence外推为Linux性能/规模、production、public release或Maven Central。
 
 ## 4. Evidence 入口
 
-- [当前G0–G6状态](../../reports/java-v1-goal-execution-status.md)
-- [工程体系治理报告](../../reports/2026-07-29-soma-v1-engineering-system-governance-report.md)
-- [逻辑语义与执行引擎治理报告](../../reports/2026-07-29-soma-logical-semantics-and-execution-engine-governance-report.md)
+- [V1 release governance](../../reports/java-v1-release-governance-report.md)
 - [当前性能与规模摘要](../../reports/current-performance-summary.md)
 - [Implementation Map](../implementation-map/README.md)
 - [Benchmark 治理](../engineering/benchmark-governance.md)

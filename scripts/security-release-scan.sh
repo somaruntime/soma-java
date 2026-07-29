@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/project-version.sh"
 . "$root_dir/scripts/lib/sha256.sh"
 
 for command_name in jq rg; do
@@ -26,11 +27,14 @@ case "$javac_version" in
     ;;
 esac
 
-version=$(sed -n 's:.*<version>\([^<]*\)</version>.*:\1:p' pom.xml | sed -n '1p')
-if [ -z "$version" ]; then
-  printf '%s\n' 'security-release-scan: unable to read reactor version' >&2
-  exit 1
-fi
+version=$(soma_project_version)
+case "$version" in
+  *-SNAPSHOT)
+    printf '%s\n' \
+      "security-release-scan requires a release version, found $version" >&2
+    exit 1
+    ;;
+esac
 dependency_plugin_version=$(sed -n \
   's:.*<maven.dependency.plugin.version>\([^<]*\)</maven.dependency.plugin.version>.*:\1:p' \
   pom.xml | sed -n '1p')
@@ -80,10 +84,18 @@ dirty=false
 if [ -n "$(git status --porcelain)" ]; then
   dirty=true
 fi
+if [ "$dirty" = true ] \
+    && [ "${SOMA_SECURITY_ALLOW_DIRTY:-false}" != true ]; then
+  printf '%s\n' \
+    'security-release-scan requires a clean commit; set SOMA_SECURITY_ALLOW_DIRTY=true only for non-G6 diagnostic runs.' >&2
+  exit 1
+fi
 
-mkdir -p "$root_dir/target"
-evidence_dir=$(mktemp -d "$root_dir/target/security-release-scan.XXXXXX")
-repository="$evidence_dir/repository"
+evidence_root=${SOMA_RELEASE_EVIDENCE_ROOT:-$root_dir/target}
+mkdir -p "$evidence_root"
+evidence_dir=$(mktemp -d "$evidence_root/security-release-scan.XXXXXX")
+work_dir=$(mktemp -d "${TMPDIR:-/tmp}/soma-java-security-release-scan.XXXXXX")
+repository="$work_dir/repository"
 seed_repository=${SOMA_MAVEN_EVIDENCE_REPOSITORY:-$root_dir/target/evidence-m2/repository}
 mkdir -p "$repository"
 if [ -d "$seed_repository" ]; then
@@ -161,6 +173,7 @@ fi
   printf 'sbomGenerator=org.cyclonedx:cyclonedx-maven-plugin:2.9.1\n'
   printf 'commit=%s\n' "$(git rev-parse HEAD)"
   printf 'dirty=%s\n' "$dirty"
+  printf 'artifactVersion=%s\n' "$version"
   printf 'cycloneDxCommand=./mvnw -B -ntp -Dmaven.repo.local=<isolated> -DskipTests -DincludeTestScope=false -DoutputFormat=json -DoutputName=soma-java-sbom org.cyclonedx:cyclonedx-maven-plugin:2.9.1:makeAggregateBom\n'
   printf 'osvCommand=OSV_SCANNER=<verified-v2.3.8> security-release-scan.sh; scanner subcommand: scan source --sbom <sbom> --format=json --all-packages\n'
   printf 'licenseTextSha256=%s\n' "$actual_license_sha"

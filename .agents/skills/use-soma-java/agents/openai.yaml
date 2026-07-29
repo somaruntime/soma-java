@@ -1,0 +1,4 @@
+interface:
+  display_name: "Use SOMA Java"
+  short_description: "Build and verify safe SOMA Java consumers"
+  default_prompt: "Use $use-soma-java to build and verify a Java 8 SOMA consumer."

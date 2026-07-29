@@ -17,6 +17,6 @@ Owner：SOMA Java 一致性审查
 最后审查日期：2026-07-29
 
 - [当前一致性基线](current-conformance.md)：按主要能力给出一致、受限证据或blocked判断；
-- [已知差距与处置](known-gaps.md)：记录仍开放的环境外推差距及已关闭release/治理差距的依据。
+- [已知差距与处置](known-gaps.md)：只记录当前仍开放的candidate/release/AI consumer evidence差距；历史关闭项由Git保存。
 
 Conformance 结论本身不授权修改代码、测试或正式 Design。新的差距必须交由相应 Owner 裁决；没有差距时不创建空的专题报告。

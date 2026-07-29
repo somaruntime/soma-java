@@ -21,7 +21,7 @@
     <maven.enforcer.plugin.version>3.5.0</maven.enforcer.plugin.version>
     <maven.jar.plugin.version>3.4.2</maven.jar.plugin.version>
     <maven.surefire.plugin.version>3.2.5</maven.surefire.plugin.version>
-    <soma.version>0.2.0-SNAPSHOT</soma.version>
+    <soma.version>1.0.0</soma.version>
     <soma.build.directory>${project.basedir}/target</soma.build.directory>
     <maven.deploy.skip>true</maven.deploy.skip>
   </properties>

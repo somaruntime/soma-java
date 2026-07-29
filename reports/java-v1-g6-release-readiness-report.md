@@ -8,12 +8,12 @@ Owner：SOMA Java G6 release readiness
 
 受众：SOMA maintainer、private repository consumer与release profile reviewer
 
-适用版本：`0.2.0-SNAPSHOT`
+适用版本：`1.0.0`
 
-输入事实源：release governance、private SCM、CI配置、package/security历史
-qualification与current support matrix
+输入事实源：release governance、private SCM、CI/workflow、package/security
+scripts、current support matrix与AI consumer Skill
 
-事实范围：selected private-source G6、有效事实、缺失evidence和claim boundary
+事实范围：selected private-source G6、已形成事实、缺失evidence与claim boundary
 
 非事实范围：public GitHub、Maven Central、production SLA或公开性能声明
 
@@ -23,24 +23,22 @@ Gate：G6 selected release profile
 
 ## 1. 结论
 
-`private-github-source`仍是当前唯一selected release profile，但Amazon Corretto 8
-取代Zulu 8成为唯一JDK authority后，G6重新成为`blocked`。
+`private-github-source`是当前唯一selected release profile，G6保持`blocked`。
+`1.0.0`坐标与planned SCM tag已经进入POM，但final clean commit尚未冻结，不能把
+坐标写入误表述为release passed。
 
-下列长期事实仍成立：SOMA Java由ArthurFeng拥有并以Apache-2.0授权；private
-repository为`somaruntime/soma-java`且保留完整Git历史；SCM、maintainer、
-support、security与CODEOWNERS均有真实Owner。
+旧HEAD `844d74d`的GitHub Actions run `30440373950`在Ubuntu 24.04 x64 exact
+Corretto 8上完成canonical Full。该run证明当时source的Linux build/contract，
+不自动证明新的`1.0.0` candidate，也没有保留package/security artifact。
 
-当前authority已经在implementation commit `dddf62b`的GitHub Actions run
-`30410355517`形成Ubuntu x64 exact Corretto 8 Full。下列release evidence仍未在
-同一最终candidate形成：
+当前仍需在同一最终candidate形成：
 
-- clean release-shaped package与byte-for-byte reproducibility；
-- SBOM、known-vulnerability、declared-license与security qualification；
-- 最终clean workspace、artifact checksum与macOS/Linux Corretto matrix sign-off。
-
-因此当前允许继续受控本地与GitHub Linux CI开发，但不允许表述“private GitHub
-source profile ready”。旧Zulu qualification结果是历史candidate证据，不能改名
-或外推为Corretto release passed。
+- canonical Full；
+- release-shaped package、byte-for-byte reproducibility与checksums；
+- SBOM、known-vulnerability、declared-license与security evidence；
+- workflow留存的candidate/package/security/checksum bundle；
+- macOS/Linux support matrix和release Owner sign-off；
+- V1 `use-soma-java` Skill的blind behavior、anti-pattern与两个独立宿主验证。
 
 ## 2. Identity、SCM 与治理事实
 
@@ -48,62 +46,65 @@ source profile ready”。旧Zulu qualification结果是历史candidate证据，
 |---|---|---|
 | copyright / license | passed | copyright owner与`NOTICE`为ArthurFeng；Apache-2.0 |
 | product / namespace | passed | SOMA；Organization `somaruntime`；Maven/Java root `io.github.somaruntime.soma`；artifact保持`soma-*` |
-| SCM | passed | private `https://github.com/somaruntime/soma-java`；完整历史；`develop`为开发分支，`main`为稳定基线 |
+| SCM | passed | private `https://github.com/somaruntime/soma-java`；`develop`为默认开发分支，`main`为稳定基线 |
 | maintainer / support | passed | ArthurFeng / GitHub `@283586450`；普通问题进入private repository Issues |
 | security / ownership | passed | private Security Advisory优先；`.github/CODEOWNERS`为`* @283586450`；Actions最小权限与SHA pin |
-| JDK authority | passed local + CI | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
-| Linux build/contract | passed | Ubuntu 24.04 x64，commit `dddf62b`，CI run `30410355517`，Full 7分46秒 |
-| package/security evidence | blocked | 尚未在同一最终candidate执行manual release qualification |
+| JDK authority | passed as policy | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
+| final candidate Full | blocked | `844d74d` run `30440373950`是前序成功证据；`1.0.0` final commit尚未运行 |
+| package/security evidence | blocked | scripts/workflow已修正同SHA/version与evidence retention，尚未在final commit执行 |
+| AI consumer Skill | blocked | canonical instruction-only Skill与结构Gate已通过；行为/第二宿主未完成 |
 
-Organization plan不支持private repository branch protection/ruleset的历史限制仍按
-真实事实记录，不伪造已配置状态。若扩大协作者或公开仓库，需要重新裁决。
+Organization plan不支持private repository branch protection/ruleset。当前控制为
+private access、CODEOWNERS、长期分支约束、SHA-pinned workflow、clean candidate
+admission和人工sign-off；Report保留未强制保护分支的残余风险，不伪造平台能力。
 
-## 3. 历史evidence与当前适用性
-
-2026-07-28 Zulu manual `Release qualification`曾完成Full、两个隔离Maven
-repository的package/reproducibility、security扫描与clean workspace。这证明旧
-Zulu candidate在当时profile下成立；JDK authority迁移后，它不再关闭当前G6。
-
-本机Corretto已完成：
-
-- exact toolchain及Zulu negative probe；
-- reactor/public/generated/external consumer/runtime/DataFlow contract；
-- Access/DataFlow component baseline；
-- 三个Example correctness与九profile application performance；
-- v2 Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak qualification。
-
-本机证据不能代替clean package/security；Linux build/contract已由上述
-commit-bound CI evidence补齐。
-
-## 4. Profile状态
+## 3. Profile状态
 
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
-| private GitHub source | blocked | Corretto Linux Full已通过；等待同一最终candidate的manual release qualification与sign-off |
-| local macOS development | passed for recorded environment | Corretto build/contract/component/application/runtime-scale；不外推其他环境 |
-| Codex Cloud development | candidate / qualification-blocked | setup已收敛；等待fresh-container setup/Fast/Full/clean-worktree有界验收；不是release profile |
+| private GitHub source | blocked | 等待同一`1.0.0` final candidate的Full、package/security、matrix与sign-off |
+| local macOS development | previous-candidate evidence | Corretto build/contract/component/application/runtime-scale可作回归参照，不自动关闭final candidate |
 | public GitHub source | not-selected | repository保持private |
-| Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，未上传artifact |
+| Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，不分发binary |
+| Codex Cloud development | not release-scoped | 用户未把Cloud qualification设为本轮必要目标 |
 | production readiness / SLA | not-claimed | 需要具体部署、workload与运营证据 |
 
-## 5. 重新关闭条件
+Private-source profile仍要求package/security mechanics，因为它们验证source能生成
+一致、可审计的release-shaped artifact与dependency/provenance边界；这不等于选择
+Maven distribution，也不要求signing/publishing。
 
-G6 Owner只在同一clean immutable commit上获得下列全部证据后重新标记passed：
+## 4. Evidence retention
 
-1. Ubuntu x64 exact Corretto 8的`./scripts/check.sh full`；
-2. release qualification的隔离package/reproducibility和security evidence；
-3. `git diff --exit-code`与artifact checksum；
-4. Support Matrix、Conformance和本报告同步更新。
+Manual release workflow现在：
 
-当前`dddf62b`只关闭了条件1；条件2–4仍阻塞最终release candidate。
+1. 固定exact Corretto和toolchain；
+2. 写入candidate SHA/ref/version/profile；
+3. 运行Full、两次隔离package build与security scan；
+4. 校验package/security summary都是同一SHA、`dirty=false`和同一version；
+5. 对evidence bundle生成SHA-256；
+6. 使用SHA-pinned `actions/upload-artifact`保留90天。
 
-这些条件不得用macOS smoke、旧Zulu run、Cloud部分日志、placeholder或waive替代。
-Public/Maven profile仍保持`not-selected`，无需为了关闭private-source G6扩大
-发布范围。
+最终长期审计记录仍应在获得外部release授权后绑定immutable tag/release；90天CI
+artifact不是public distribution，也不能替代tag授权。
+
+## 5. 关闭条件与授权边界
+
+G6 Owner只在同一clean immutable commit上获得下列全部证据后标记passed：
+
+1. Ubuntu x64 exact Corretto 8 canonical Full；
+2. package/reproducibility、security、clean workspace与sealed checksums；
+3. macOS exact candidate的G5 qualification和Support Matrix更新；
+4. AI Skill V1 DoD；
+5. Conformance、performance、support matrix与release governance原子校准；
+6. release Owner sign-off。
+
+Push、tag、GitHub Release、repository visibility、signing和publishing属于外部状态
+变更，必须另行获得明确授权。G6技术通过本身不执行这些动作，也不声明public、
+Maven或production readiness。
 
 ## 6. Scope non-regression
 
-- JDK authority迁移不改变public/schema/runtime语义或第三方production依赖；
-- G0–G5已通过；`CF-016`由当前Corretto v2 qualification关闭；
-- G6 blocked是evidence诚实性，不是降低产品目标；
-- 未创建tag、未公开仓库、未上传artifact、未声明production/public readiness。
+- Java 8、public/schema/runtime语义和production dependency没有因release治理改变；
+- public/Maven保持`not-selected`，10M/100M保持non-blocking research；
+- AI Skill不进入Maven JAR，也不成为Design或API Owner；
+- 当前blocked来自exact candidate evidence，不是降低产品目标。

@@ -108,6 +108,9 @@ Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [
 - lifecycle、compatibility 和错误必须可以通过结构化字段判断，不依赖 message parsing；
 - runtime 不产生隐藏 I/O、全局 logger 配置或隐式持久化。
 - 关键抽象必须按构造即正确：不变量由唯一 Owner 在事实产生处通过类型、不可变对象、静态工厂或 one-shot Builder 关闭；可能破坏数据、lineage、lifecycle 或原子性的检查不得依赖可关闭的 assertion。
+- 每个核心抽象必须能沿 [Why / Owns / Not / Relationships / Lowering /
+  Lifecycle / Resource / Failure / Evidence / Evolution](README.md#4-核心抽象叙事闭环)
+  完成可追踪叙事；缺失维度必须有明确的不适用理由，不能由实现偶然性或名称猜测补足。
 
 ### 2.5 性能形状
 

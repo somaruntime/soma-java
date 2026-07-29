@@ -67,6 +67,57 @@ grep -F \
 
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/benchmark-smoke.XXXXXX")
+qualification_source_manifest=scripts/manifests/runtime-scale-qualification-sources.txt
+for required_source_pattern in \
+  'soma-annotations/src/main/**' \
+  'soma-processor/src/main/**' \
+  'soma-runtime-core/src/main/**' \
+  'soma-dataflow/src/main/**' \
+  'soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/RuntimeScaleQualification*.java' \
+  'soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v2.json' \
+  'scripts/check-runtime-scale-qualification.sh' \
+  'scripts/lib/sha256.sh' \
+  'scripts/lib/supported-jdk.sh' \
+  'scripts/manifests/runtime-scale-qualification-sources.txt'; do
+  if ! grep -Fqx "$required_source_pattern" "$qualification_source_manifest"; then
+    printf '%s\n' \
+      "benchmark-smoke-check: qualification source owner is missing $required_source_pattern" >&2
+    exit 1
+  fi
+done
+
+qualification_source_paths=$evidence_dir/runtime-scale-source-paths.txt
+: >"$qualification_source_paths"
+while IFS= read -r source_pattern; do
+  case "$source_pattern" in
+    ''|'#'*) continue ;;
+  esac
+  matching_paths=$(git ls-files -- "$source_pattern")
+  if [ -z "$matching_paths" ]; then
+    printf '%s\n' \
+      "benchmark-smoke-check: qualification pathspec matched no tracked file: $source_pattern" >&2
+    exit 1
+  fi
+  printf '%s\n' "$matching_paths" >>"$qualification_source_paths"
+done <"$qualification_source_manifest"
+LC_ALL=C sort -u "$qualification_source_paths" \
+  >"$qualification_source_paths.sorted"
+mv "$qualification_source_paths.sorted" "$qualification_source_paths"
+
+if grep -E '(^|/)src/test/|^soma-examples/|performance-baselines|benchmark-smoke-schema' \
+    "$qualification_source_paths" >/dev/null; then
+  printf '%s\n' \
+    'benchmark-smoke-check: qualification source owner includes non-executable evidence surface' >&2
+  exit 1
+fi
+if grep '^soma-benchmarks/src/' "$qualification_source_paths" |
+    grep -Ev \
+      '^soma-benchmarks/src/main/java/io/github/somaruntime/soma/benchmarks/(BenchmarkModel|JvmRuntimeMetrics|RuntimeScaleQualification[^/]*|schema/.*)\.java$|^soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v2\.json$' \
+      >/dev/null; then
+  printf '%s\n' \
+    'benchmark-smoke-check: qualification source owner includes unrelated benchmark implementation' >&2
+  exit 1
+fi
 commit=$(git rev-parse HEAD)
 cpu_identity=$(uname -m)
 

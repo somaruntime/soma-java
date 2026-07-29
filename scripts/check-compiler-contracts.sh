@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/project-version.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'compiler-contracts: JAVA_HOME must point to a full JDK 8' >&2
@@ -17,9 +18,10 @@ if [ "$java_specification" != '1.8' ]; then
   exit 1
 fi
 
-annotations_jar=soma-annotations/target/soma-annotations-0.2.0-SNAPSHOT.jar
-processor_jar=soma-processor/target/soma-processor-0.2.0-SNAPSHOT.jar
-runtime_jar=soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar
+project_version=$(soma_project_version)
+annotations_jar=soma-annotations/target/soma-annotations-$project_version.jar
+processor_jar=soma-processor/target/soma-processor-$project_version.jar
+runtime_jar=soma-runtime-core/target/soma-runtime-core-$project_version.jar
 for artifact in "$annotations_jar" "$processor_jar" "$runtime_jar"; do
   if [ ! -f "$artifact" ]; then
     printf '%s\n' "compiler-contracts: missing artifact $artifact; run reactor package first" >&2

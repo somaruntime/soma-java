@@ -14,6 +14,8 @@ jobs:
   private-source-qualification:
     name: Private-source package and security qualification
     runs-on: ubuntu-24.04
+    env:
+      SOMA_RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/soma-java-release-evidence
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -48,6 +50,23 @@ jobs:
       - name: Verify exact supported toolchain
         run: ./scripts/check-toolchain.sh
 
+      - name: Initialize immutable candidate evidence
+        run: |
+          test -z "$(git status --porcelain --untracked-files=all)"
+          mkdir -p "$SOMA_RELEASE_EVIDENCE_ROOT"
+          . ./scripts/lib/project-version.sh
+          version=$(soma_project_version)
+          {
+            printf 'format=soma-java-private-source-candidate-v1\n'
+            printf 'releaseProfile=private-github-source\n'
+            printf 'repository=%s\n' "$GITHUB_REPOSITORY"
+            printf 'commit=%s\n' "$GITHUB_SHA"
+            printf 'ref=%s\n' "$GITHUB_REF"
+            printf 'runId=%s\n' "$GITHUB_RUN_ID"
+            printf 'runAttempt=%s\n' "$GITHUB_RUN_ATTEMPT"
+            printf 'version=%s\n' "$version"
+          } >"$SOMA_RELEASE_EVIDENCE_ROOT/candidate.properties"
+
       - name: Install verified OSV-Scanner
         env:
           SOMA_TOOLCHAIN_ROOT: ${{ runner.temp }}/soma-toolchains
@@ -66,3 +85,35 @@ jobs:
 
       - name: Verify generated workspace cleanliness
         run: git diff --exit-code
+
+      - name: Seal private-source qualification evidence
+        run: |
+          package_dir=$(find "$SOMA_RELEASE_EVIDENCE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'package-smoke.*')
+          security_dir=$(find "$SOMA_RELEASE_EVIDENCE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'security-release-scan.*')
+          test "$(printf '%s\n' "$package_dir" | sed '/^$/d' | wc -l)" -eq 1
+          test "$(printf '%s\n' "$security_dir" | sed '/^$/d' | wc -l)" -eq 1
+          . ./scripts/lib/project-version.sh
+          version=$(soma_project_version)
+          grep -Fqx "commit=$GITHUB_SHA" "$SOMA_RELEASE_EVIDENCE_ROOT/candidate.properties"
+          grep -Fqx "commit=$GITHUB_SHA" "$package_dir/provenance.properties"
+          grep -Fqx 'dirty=false' "$package_dir/provenance.properties"
+          grep -Fqx "artifactVersion=$version" "$package_dir/provenance.properties"
+          grep -Fqx "commit=$GITHUB_SHA" "$security_dir/summary.properties"
+          grep -Fqx 'dirty=false' "$security_dir/summary.properties"
+          grep -Fqx "artifactVersion=$version" "$security_dir/summary.properties"
+          (
+            cd "$SOMA_RELEASE_EVIDENCE_ROOT"
+            find . -type f ! -name evidence-checksums.sha256 -print |
+              LC_ALL=C sort |
+              while IFS= read -r evidence_file; do
+                sha256sum "$evidence_file"
+              done >evidence-checksums.sha256
+          )
+
+      - name: Retain private-source qualification evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: private-source-qualification-${{ github.sha }}
+          path: ${{ runner.temp }}/soma-java-release-evidence
+          if-no-files-found: error
+          retention-days: 90

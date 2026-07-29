@@ -2,17 +2,17 @@
 
 类型：Report / Performance / Qualification Snapshot
 
-状态：当前 Corretto component、application 与 runtime-scale evidence
+状态：`1.0.0` candidate qualification blocked；保留上一候选诊断基线
 
 Owner：SOMA Java 性能与规模 evidence
 
 受众：SOMA maintainer、runtime/compiler/DataFlow 开发者和产品决策者
 
-适用版本：`soma-java` `0.2.0-SNAPSHOT`
+适用版本：`soma-java` `1.0.0`
 
-输入事实源：[逻辑语义与执行引擎治理报告](2026-07-29-soma-logical-semantics-and-execution-engine-governance-report.md)、
-strict runtime-scale artifact、两份component baseline与九份reference application
-baseline
+输入事实源：[V1 release governance](java-v1-release-governance-report.md)、
+上一候选strict runtime-scale artifact、两份component baseline与九份reference
+application baseline
 
 事实范围：当前 Corretto production shape 的 component、三个 reference
 application、Small/Medium/单1M/双1M/String/Expansion/Delivery/Soak evidence
@@ -28,7 +28,7 @@ telemetry、G6、public release 或 Maven Central readiness
 
 ## 1. 当前结论
 
-当前candidate在记录环境下已经证明：
+上一Corretto executable candidate在记录环境下已经证明：
 
 - Small/Fast没有被统一planner、DataFlow lifecycle或scale architecture的固定税
   锁死；
@@ -46,9 +46,10 @@ telemetry、G6、public release 或 Maven Central readiness
 - 两个component和三个application的九个profile仍在各自checked-in baseline内。
 
 这些是`claimAllowed=false`的单机qualification与回归事实，不是public latency
-SLA、跨环境支持矩阵或任意wide Schema保证。
+SLA、跨环境支持矩阵或任意wide Schema保证。当前`1.0.0`候选尚未在clean
+immutable commit上重放，因此这些数值只作回归诊断，当前G5保持blocked。
 
-## 2. Runtime-scale qualification v2
+## 2. 上一候选 Runtime-scale qualification v2
 
 Qualification ID：
 `runtime-scale-qualification-20260729-d90e8499d51f`。
@@ -75,7 +76,9 @@ Artifact identity：
 
 八条required lane全部满足`applicable=true`、`status=passed`、
 `claimAllowed=false`。Validator拒绝非法claim、缩小1M、extra field以及不完整或
-重复lane；runner/validator classfile为Java 8 major 52。
+重复lane；runner/validator classfile为Java 8 major 52。但artifact记录的commit
+早于当时executable worktree，旧source closure又过宽且漏掉两个shell library，
+所以它不能关闭当前`1.0.0`候选的G5。
 
 ## 3. String 结论与内存口径
 
@@ -106,7 +109,7 @@ String profile的替代证据。
 当前checked-in baseline为：
 
 - Access component Corretto v1；
-- DataFlow component Corretto v3；
+- DataFlow component Corretto v4；
 - industrial default/large/long-run：v6/v5/v5；
 - grassing default/large/long-run：v4/v3/v3；
 - RTD default/large/long-run：v3/v3/v3。
@@ -136,11 +139,14 @@ G5，成功也不能升级为任意Schema/String或public SLA。
 
 当前可以确认：
 
-- G5所需Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak在当前
-  Corretto/macOS/aarch64环境成立；
+- 上一候选的Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak在记录
+  Corretto/macOS/aarch64环境成立，可作为`1.0.0`重放的回归参照；
 - logical type facade、closed numeric kernel、formula-bound Bitmap与primitive
-  Join runtime filter在production contract和qualification中成立；
-- 三个reference application的correctness与当前baseline成立。
+  Join runtime filter的production Java实现未在本轮修改；
+- checked-in component/application baseline仍是当前重放的唯一baseline Owner。
+
+在新的clean commit、DataFlow 3-fork与8-lane artifact形成前，不允许陈述当前
+`1.0.0` G5 passed。
 
 扩大下列声明前仍需新的预注册qualification：
 

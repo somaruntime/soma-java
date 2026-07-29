@@ -35,5 +35,5 @@ formula-bound Bitmap、primitive join runtime filter、受限 storage/locator/
 Candidate/relation、bounded morsel scheduler、Invocation resource ledger、
 Eager + callback-scoped delivery、runtime observation、三个 Example 审计和
 Corretto runtime-scale qualification。精确 executable identity 与 Gate 结果由
-各地图及[本轮治理报告](../../reports/2026-07-29-soma-logical-semantics-and-execution-engine-governance-report.md)
+各地图及[V1 release governance](../../reports/java-v1-release-governance-report.md)
 追踪；更早 slice 提交链不在地图中重复。

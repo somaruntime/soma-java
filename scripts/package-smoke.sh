@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
+. "$root_dir/scripts/lib/project-version.sh"
 . "$root_dir/scripts/lib/sha256.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
@@ -20,9 +21,18 @@ case "$javac_version" in
     ;;
 esac
 
-version=$(sed -n 's:.*<version>\([^<]*\)</version>.*:\1:p' pom.xml | sed -n '1p')
-if [ -z "$version" ]; then
-  printf '%s\n' 'Unable to read reactor version.' >&2
+version=$(soma_project_version)
+case "$version" in
+  *-SNAPSHOT)
+    printf '%s\n' \
+      "package-smoke requires a release version, found $version" >&2
+    exit 1
+    ;;
+esac
+scm_tag=$(sed -n 's:.*<tag>\([^<]*\)</tag>.*:\1:p' pom.xml | sed -n '1p')
+if [ "$scm_tag" != "v$version" ]; then
+  printf '%s\n' \
+    "package-smoke requires SCM tag v$version, found ${scm_tag:-missing}" >&2
   exit 1
 fi
 dependency_plugin_version=$(sed -n \
@@ -167,8 +177,9 @@ diff -u "$first_dir/checksums.sha256" "$second_dir/checksums.sha256" > "$work_di
   -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow "$dependency_plugin":tree \
   -Dscope=runtime > "$work_dir/runtime-dependency-tree.txt"
 
-mkdir -p "$root_dir/target"
-evidence_dir=$(mktemp -d "$root_dir/target/package-smoke.XXXXXX")
+evidence_root=${SOMA_RELEASE_EVIDENCE_ROOT:-$root_dir/target}
+mkdir -p "$evidence_root"
+evidence_dir=$(mktemp -d "$evidence_root/package-smoke.XXXXXX")
 cp -R "$first_dir" "$evidence_dir/first"
 cp -R "$second_dir" "$evidence_dir/second"
 cp "$work_dir"/build-*.log "$evidence_dir/"

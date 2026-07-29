@@ -17,6 +17,12 @@ if [ "$#" -gt 1 ] \
   exit 2
 fi
 
+if [ -n "$(git status --porcelain --untracked-files=all)" ]; then
+  printf '%s\n' \
+    "runtime-scale-$mode: a clean immutable commit is required" >&2
+  exit 1
+fi
+
 physical_memory_bytes=''
 if command -v sysctl >/dev/null 2>&1; then
   physical_memory_bytes=$(sysctl -n hw.memsize 2>/dev/null || true)
@@ -52,7 +58,7 @@ if [ -z "$physical_memory_gb" ] \
   exit 1
 fi
 
-./mvnw -B -ntp -pl soma-benchmarks -am clean test-compile
+./mvnw -B -ntp -pl soma-benchmarks -am clean compile
 
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/runtime-scale-qualification.XXXXXX")
@@ -60,29 +66,38 @@ records_dir=$evidence_dir/records
 mkdir -p "$records_dir"
 
 commit=$(git rev-parse HEAD)
-# Bind qualification identity to the executable product/evidence surface. Reports,
-# Temporary governance notes and unrelated repository files may be finalized after
-# the run without retroactively changing which implementation was qualified.
-git ls-files -co --exclude-standard -- \
-  pom.xml mvnw '.mvn/**' \
-  'soma-annotations/pom.xml' 'soma-annotations/src/**' \
-  'soma-runtime-core/pom.xml' 'soma-runtime-core/src/**' \
-  'soma-dataflow/pom.xml' 'soma-dataflow/src/**' \
-  'soma-processor/pom.xml' 'soma-processor/src/**' \
-  'soma-benchmarks/pom.xml' 'soma-benchmarks/src/**' \
-  'soma-examples/pom.xml' 'soma-examples/*/pom.xml' \
-  'soma-examples/*/src/**' \
-  scripts/check-runtime-scale-qualification.sh |
-  LC_ALL=C sort |
-  while IFS= read -r source_file; do
-    if [ -f "$source_file" ]; then
-      soma_sha256 "$source_file"
-    fi
-  done >"$evidence_dir/source-files.sha256"
+source_manifest=scripts/manifests/runtime-scale-qualification-sources.txt
+source_paths=$evidence_dir/source-paths.txt
+: >"$source_paths"
+while IFS= read -r source_pattern; do
+  case "$source_pattern" in
+    ''|'#'*) continue ;;
+  esac
+  matching_paths=$(git ls-files -- "$source_pattern")
+  if [ -z "$matching_paths" ]; then
+    printf '%s\n' \
+      "runtime-scale-$mode: source pathspec matched no tracked file: $source_pattern" >&2
+    exit 1
+  fi
+  printf '%s\n' "$matching_paths" >>"$source_paths"
+done <"$source_manifest"
+LC_ALL=C sort -u "$source_paths" >"$source_paths.sorted"
+mv "$source_paths.sorted" "$source_paths"
+
+while IFS= read -r source_file; do
+  if [ ! -f "$source_file" ]; then
+    printf '%s\n' \
+      "runtime-scale-$mode: source identity file is missing: $source_file" >&2
+    exit 1
+  fi
+  soma_sha256 "$source_file"
+done <"$source_paths" >"$evidence_dir/source-files.sha256"
 tree_checksum=$(soma_sha256 "$evidence_dir/source-files.sha256" |
   awk '{print $1}')
 tree_state="content-sha256:$tree_checksum"
-qualification_id="runtime-scale-$mode-20260729-$(printf '%s' "$tree_checksum" | cut -c1-12)"
+commit_prefix=$(printf '%s' "$commit" | cut -c1-12)
+tree_prefix=$(printf '%s' "$tree_checksum" | cut -c1-12)
+qualification_id="runtime-scale-$mode-$commit_prefix-$tree_prefix"
 cpu_identity=''
 if command -v system_profiler >/dev/null 2>&1; then
   cpu_identity=$(system_profiler SPHardwareDataType 2>/dev/null |
@@ -234,6 +249,8 @@ for class_name in \
 done
 
 soma_sha256 "$artifact" "$schema" \
+  "$source_manifest" \
+  "$evidence_dir/source-paths.txt" \
   "$evidence_dir/source-files.sha256" \
   >"$evidence_dir/checksums.sha256"
 "$JAVA_HOME/bin/java" -version

@@ -8,7 +8,7 @@ Owner：SOMA Java reference applications
 
 受众：SOMA Java application developer
 
-适用版本：`soma-java` `0.2.0-SNAPSHOT`、三个应用 `1.0.0-SNAPSHOT`
+适用版本：`soma-java` `1.0.0`、三个应用 `1.0.0-SNAPSHOT`
 
 输入事实源：三个 child application 的 POM、source、versioned config、validation 与 canonical Gate
 

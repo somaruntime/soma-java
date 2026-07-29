@@ -5,6 +5,7 @@ set -eu
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 . "$root_dir/scripts/lib/external-evidence.sh"
+. "$root_dir/scripts/lib/project-version.sh"
 
 if [ -z "${JAVA_HOME:-}" ] || [ ! -x "$JAVA_HOME/bin/javac" ]; then
   printf '%s\n' 'generated-ownership-contract: JAVA_HOME must point to a full JDK 8' >&2
@@ -38,8 +39,9 @@ cmp "$fixture/target/classes/$schema_hash" "$repeat_fixture/target/classes/$sche
 cmp "$source_fixture/expected-schema.json" "$fixture/target/classes/$schema"
 cmp "$source_fixture/expected-schema.sha256" "$fixture/target/classes/$schema_hash"
 
+project_version=$(soma_project_version)
 "$JAVA_HOME/bin/java" \
-  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-0.2.0-SNAPSHOT.jar:soma-dataflow/target/soma-dataflow-0.2.0-SNAPSHOT.jar" \
+  -cp "$fixture/target/classes:soma-runtime-core/target/soma-runtime-core-$project_version.jar:soma-dataflow/target/soma-dataflow-$project_version.jar" \
   com.example.soma.child.ChildConsumer
 
 parent_source=$fixture/target/generated-sources/annotations/com/example/soma/child/generated/ParentRowTable.java
