@@ -24,10 +24,9 @@ Gate：G6 selected release profile
 ## 1. 结论
 
 `private-github-source`是当前唯一selected release profile，G6保持`blocked`。
-`1.0.0`坐标与planned SCM tag已经进入POM，macOS clean-candidate DataFlow与
-runtime-scale qualification已经通过；canonical Full、package/security、Ubuntu
-同SHA evidence和最终sign-off尚未形成，不能把坐标或局部Gate误表述为release
-passed。
+`1.0.0`坐标与planned SCM tag已经进入POM，macOS clean-candidate G0–G5、
+package/reproducibility与security已经通过；Ubuntu同SHA qualification、AI第二
+宿主、最终matrix和sign-off尚未形成，不能把本地Gate误表述为release passed。
 
 旧HEAD `844d74d`的GitHub Actions run `30440373950`在Ubuntu 24.04 x64 exact
 Corretto 8上完成canonical Full。该run证明当时source的Linux build/contract，
@@ -35,10 +34,7 @@ Corretto 8上完成canonical Full。该run证明当时source的Linux build/contr
 
 当前仍需在同一最终candidate形成：
 
-- canonical Full；
-- release-shaped package、byte-for-byte reproducibility与checksums；
-- SBOM、known-vulnerability、declared-license与security evidence；
-- workflow留存的candidate/package/security/checksum bundle；
+- Ubuntu workflow留存的Full、candidate/package/security/checksum bundle；
 - macOS/Linux support matrix和release Owner sign-off；
 - V1 `use-soma-java` Skill的negative/anti-pattern behavior与第二独立宿主验证。
 
@@ -52,9 +48,9 @@ Corretto 8上完成canonical Full。该run证明当时source的Linux build/contr
 | maintainer / support | passed | ArthurFeng / GitHub `@283586450`；普通问题进入private repository Issues |
 | security / ownership | passed | private Security Advisory优先；`.github/CODEOWNERS`为`* @283586450`；Actions最小权限与SHA pin |
 | JDK authority | passed as policy | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
-| macOS qualification | passed on clean executable candidate | DataFlow固定3-fork与runtime-scale 8条required lane通过；后者绑定`bd25e119…`/`5669bf68ddf5…` |
-| final candidate Full | blocked | `844d74d` run `30440373950`是前序成功证据；`1.0.0` final candidate尚未运行 |
-| package/security evidence | blocked | scripts/workflow已修正同SHA/version与evidence retention，尚未在final commit执行 |
+| macOS qualification | passed | unique canonical Full、DataFlow固定3-fork与runtime-scale 8条required lane通过 |
+| local package/security evidence | passed | clean `ac433ff…`的17件artifact双构建一致；SBOM/OSV/license与runtime dependency边界通过 |
+| Ubuntu same-SHA qualification | blocked | `844d74d` run `30440373950`是前序成功证据；等待授权push最终candidate并运行manual workflow |
 | AI consumer Skill | blocked | canonical instruction-only Skill、结构Gate、Codex blind positive与真实consumer通过；negative/anti-pattern及第二宿主未完成 |
 
 Organization plan不支持private repository branch protection/ruleset。当前控制为
@@ -65,8 +61,8 @@ admission和人工sign-off；Report保留未强制保护分支的残余风险，
 
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
-| private GitHub source | blocked | 等待同一`1.0.0` final candidate的Full、package/security、matrix与sign-off |
-| local macOS development | qualification partial passed | exact Corretto DataFlow/runtime-scale已通过；build/contract仍等待canonical Full |
+| private GitHub source | blocked | 本地证据已通过；等待Ubuntu同SHA bundle、AI第二宿主、matrix与sign-off |
+| local macOS development | passed for recorded candidate | exact Corretto build/contract/component/application/runtime-scale与package/security通过 |
 | public GitHub source | not-selected | repository保持private |
 | Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，不分发binary |
 | Codex Cloud development | not release-scoped | 用户未把Cloud qualification设为本轮必要目标 |
@@ -95,8 +91,9 @@ artifact不是public distribution，也不能替代tag授权。
 G6 Owner只在同一clean immutable commit上获得下列全部证据后标记passed：
 
 1. Ubuntu x64 exact Corretto 8 canonical Full；
-2. package/reproducibility、security、clean workspace与sealed checksums；
-3. macOS exact candidate的G5 qualification和Support Matrix更新；
+2. Ubuntu workflow的package/reproducibility、security、clean workspace与sealed
+   checksums；
+3. macOS已通过evidence与Ubuntu run identity进入Support Matrix；
 4. AI Skill V1 DoD；
 5. Conformance、performance、support matrix与release governance原子校准；
 6. release Owner sign-off。

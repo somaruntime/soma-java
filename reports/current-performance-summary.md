@@ -2,7 +2,7 @@
 
 类型：Report / Performance / Qualification Snapshot
 
-状态：`1.0.0` clean-candidate qualification passed；G5等待canonical Full
+状态：`1.0.0` G5 passed
 
 Owner：SOMA Java 性能与规模 evidence
 
@@ -47,8 +47,8 @@ telemetry、G6、public release 或 Maven Central readiness
 
 这些是`claimAllowed=false`的单机qualification与回归事实，不是public latency
 SLA、跨环境支持矩阵或任意wide Schema保证。Runtime-scale与DataFlow的精确
-clean-commit证据已形成；G5仍等待同一候选的canonical Full覆盖其余component、
-reference application与contract Gate。
+clean-commit证据已形成；canonical Full又覆盖其余component、reference
+application与contract Gate，因此当前G5为passed。
 
 ## 2. 当前 Runtime-scale qualification v2
 
@@ -126,8 +126,10 @@ DataFlow v4在clean commit
 `733db714f0b5f1edc41ada0ddf86352187b989bd`完成固定3-fork重放；workload与
 threshold未改变，result hash为
 `270704b7e42fb5d7d7160de09df3f4edb02465768982f84455697e46b33e00d5`。
-其后候选只改变baseline provenance checker与文档，不改变DataFlow executable
-source；canonical Full仍会对最终候选执行相同baseline。
+其后候选只改变baseline provenance checker、文档与G6 NOTICE checksum，不改变
+DataFlow executable source；clean commit
+`fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full已再次执行并通过
+相同baseline。
 
 ## 5. 10M/100M 的当前定位
 
@@ -155,7 +157,8 @@ G5，成功也不能升级为任意Schema/String或public SLA。
   Join runtime filter的production Java实现未在本轮修改；
 - checked-in component/application baseline仍是当前重放的唯一baseline Owner。
 
-在canonical Full形成前，不允许陈述当前`1.0.0` G5 passed。
+当前`1.0.0` G5可以陈述为passed，但只能绑定上述clean commit、source closure、
+环境与profile。
 
 扩大下列声明前仍需新的预注册qualification：
 

@@ -2,7 +2,7 @@
 
 类型：Report / Support Matrix
 
-状态：`1.0.0` macOS qualification passed；final build/contract matrix blocked
+状态：`1.0.0` macOS passed；Ubuntu final-candidate qualification blocked
 
 Owner：SOMA Java G6 support matrix
 
@@ -43,7 +43,7 @@ source closure的项目才可写成passed；previous-candidate evidence只证明
 
 | OS / architecture | V1 build 与 contract | V1 性能/规模 | 当前证据 |
 |---|---|---|---|
-| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | blocked pending final Full | passed，environment/profile bounded | DataFlow clean 3-fork；runtime-scale `runtime-scale-qualification-bd25e1194931-5669bf68ddf5`，8/8 required passed、`claimAllowed=false` |
+| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | passed | passed，environment/profile bounded | canonical Full `fa934c2…`；current `ac433ff…`仅直接验证的G6 checker修复；DataFlow clean 3-fork；runtime-scale `runtime-scale-qualification-bd25e1194931-5669bf68ddf5`，8/8 required passed、`claimAllowed=false`；本地package/security passed |
 | Ubuntu 24.04, Linux x86_64/amd64 | blocked pending final private CI Full | 不选择 Linux 性能/规模 claim | 旧 clean commit `844d74d` 的 private CI Full run `30440373950`已通过；final candidate 尚未重放 |
 
 Codex Cloud development readiness 不属于 selected release support matrix；Windows、

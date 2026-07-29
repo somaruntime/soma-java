@@ -2,7 +2,7 @@
 
 类型：Report / Release Governance
 
-状态：`1.0.0` clean-candidate qualification ready；G5/G6 blocked
+状态：`1.0.0` G0–G5 passed；selected private-source G6 blocked
 
 Owner：SOMA Java V1 release governance
 
@@ -51,14 +51,17 @@ runtime-scale source closure、Skill与文档治理变更。DataFlow固定3-fork
 clean commit `733db714…`通过；runtime-scale 8条required lane已在clean commit
 `bd25e119…`及精确executable source tree `5669bf68ddf5…`通过。其后只更新正式
 Report/Conformance，不改变production Java、public/generated surface或该
-qualification source closure。
+qualification source closure。随后clean commit `fa934c24996f37367843e2e2a1ac06cb97c7affd`
+的唯一canonical Full通过；当前`ac433ff9bb57880e5e5964cb26b630ded39db800`
+只修复其后发现的G6 NOTICE checksum drift，并由直接hash检查与完整security Gate
+覆盖。
 
 | Gate | 当前状态 | 关闭条件 |
 |---|---|---|
 | G0 | passed | Java-only scope、正式 Owner、claim boundary 与核心抽象叙事规则稳定 |
-| G1–G4 | blocked | production Java surface 未改变，但仍需在最终 clean commit 的 canonical Full 重放 |
-| G5 | blocked | clean-commit DataFlow 3-fork与8-lane required qualification已通过；等待最终candidate的canonical Full |
-| G6 | blocked | 需要同一 final candidate 的 Full、package/reproducibility、security/provenance、support matrix 与 Owner sign-off |
+| G1–G4 | passed | clean-candidate canonical Full通过；后续G6 checker单行修复不改变其输入 |
+| G5 | passed | differential、component、三个application、DataFlow 3-fork与8-lane required qualification通过 |
+| G6 | blocked | macOS本地package/security通过；等待Ubuntu同SHA qualification、AI第二宿主、support matrix与Owner sign-off |
 
 旧 Corretto/macOS component/application/runtime-scale 和旧 Corretto/Linux Full
 只能解释各自历史 candidate。它们可用于定位回归，不能自动关闭新的 `1.0.0`
@@ -68,12 +71,26 @@ candidate。
 
 | 尾项 | 当前处置 |
 |---|---|
-| canonical Full | 旧 HEAD `844d74d` 的 GitHub Full 已通过；最终候选仍只运行一次 canonical Full |
+| canonical Full | closed：clean commit `fa934c2…`唯一Full以exit 0完成，profile=`full`、jobs=4、duration=144s；后续仅G6 checker直接修复 |
 | exact qualification provenance | closed：`runtime-scale-qualification-bd25e1194931-5669bf68ddf5`绑定clean commit、唯一source manifest与8条required record |
 | source identity 边界 | 由唯一 manifest 精确包含 production/build/runner closure，排除 tests、Examples、无关 benchmark/baseline，并纳入两个实际 shell library |
 | DataFlow baseline provenance | closed：clean commit `733db714…`固定3-fork通过，workload/threshold不变；checker拒绝working-tree、dirty或relaxed calibration |
 | 抽象叙事闭环 | Design Index 已制度化 Why/Owns/Not/Relationships/Lowering/Lifecycle/Resource/Failure/Evidence/Evolution |
 | release evidence 留存 | package/security 接受独立 evidence root；manual workflow 校验同一 SHA/version、封存 checksums，并用 SHA-pinned upload action 保留 |
+| NOTICE drift | closed：追溯`6bd260c`的ArthurFeng品牌边界后同步security checksum；未修改NOTICE或降低fail-closed强度 |
+
+本地G6 evidence已在clean commit `ac433ff9bb57880e5e5964cb26b630ded39db800`
+形成：
+
+- package：17件parent/module POM、binary/source/javadoc artifact，classfile major
+  52，License/NOTICE精确，两个隔离build byte-for-byte一致；
+- release checksums清单SHA-256：
+  `a726b5059a3dc8fba0396fd67b3eff5f1c54db54975511a75dd1a1a780772d1d`；
+- security：OSV-Scanner 2.3.8 binary
+  `a8cd6507b06239f463a7642430cfd2d154882f150f6e30cdc0653e28dfc34216`，
+  SBOM `d85be0fbddb5f9978dd50b2688b1e8b9694ee88db416bb04473a3f3166f3b8ca`；
+- known vulnerability、declared-license violation与production runtime第三方依赖
+  均为0；结果只代表执行时OSV.dev已知事实，不是public security certification。
 
 Runtime-scale required qualification仍只运行 Small、Medium、单1M、双1M、String、
 Expansion、Delivery 与 Soak；10M/100M research 不进入本轮 release blocker，也不
@@ -127,8 +144,8 @@ migration artifact、tool-specific semantic copy与未裁决产品`UNKNOWN`均�
 ## 6. 下一证据
 
 1. 完成AI Skill negative/anti-pattern与第二独立宿主行为验证；
-2. 固化当前Report/Conformance后运行窄Gate与唯一canonical Full；
-3. 在同一clean candidate运行private-source package/security provenance；
-4. 获得Ubuntu private CI Full、support matrix与release Owner sign-off；
-5. 原子校准最终Owner并删除Temporary。未经另行授权不push、不创建tag、
+2. 获得push/workflow授权，在最终candidate运行Ubuntu private-source
+   qualification并保留90天sealed bundle；
+3. 完成support matrix与release Owner sign-off；
+4. 原子校准最终Owner并删除Temporary。未经另行授权不push、不创建tag、
    GitHub Release或发布artifact。

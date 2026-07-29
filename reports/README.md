@@ -38,8 +38,8 @@ Owner：SOMA Java 正式报告输出
 | Gate | 当前状态 | Owner |
 |---|---|---|
 | G0 | passed | [V1 release governance](java-v1-release-governance-report.md) |
-| G1–G4 | blocked pending final Full | [V1 release governance](java-v1-release-governance-report.md) |
-| G5 | blocked pending final Full；clean-candidate qualification passed | [性能与规模](current-performance-summary.md) |
+| G1–G4 | passed | [V1 release governance](java-v1-release-governance-report.md) |
+| G5 | passed | [性能与规模](current-performance-summary.md) |
 | G6 | selected `private-github-source` blocked | [Release readiness](java-v1-g6-release-readiness-report.md) 与 [Support matrix](java-v1-support-matrix-report.md) |
 
 当前 `1.0.0` 坐标、unsigned local artifact、private CI、Codex Cloud、历史

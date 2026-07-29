@@ -55,8 +55,8 @@ module 或领域中性 benchmark Owner 提供。
 exact source、primitive typed expression、reusable Definition/Template及bounded
 Join/Group。三者都没有raw logical `LongExpression`、旧protocol adapter、
 Iterator/lazy pull、generic object storage或临时API，因此本轮无需装饰性production
-改写。前序candidate的reference-applications Gate已通过；最终`1.0.0` candidate
-仍由本轮唯一canonical Full重放，不从旧结果自动继承。
+改写。最终`1.0.0` clean candidate已由本轮唯一canonical Full重新生成、编译并
+运行三个reference applications；该结论不从旧candidate自动继承。
 
 ## Canonical Gate
 

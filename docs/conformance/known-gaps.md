@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：`1.0.0` release candidate preparation
+实现核对基线：`1.0.0` clean release candidate
 
 事实范围：当前仍开放的Blueprint/Design/Code/Evidence差距与Owner处置
 
@@ -18,11 +18,10 @@ Owner：SOMA Java 一致性审查
 
 | ID | 分类 | 当前差距 | 影响与Owner处置 |
 |---|---|---|---|
-| `CF-006` | Release readiness | selected `private-github-source`尚未在同一`1.0.0` clean candidate形成Full、package/security provenance、最终matrix和sign-off | G6保持`blocked`；只在同一candidate形成完整evidence后更新Support Matrix和release report |
-| `CF-019` | Candidate qualification | clean-commit DataFlow 3-fork与8-lane required qualification已形成，但最终candidate的canonical Full尚未通过 | G1–G5不得自动继承；只运行一次canonical Full并核对同一candidate与Gate结果 |
+| `CF-006` | Release readiness | macOS Full/qualification与本地package/security已通过，但selected `private-github-source`尚缺Ubuntu同SHA qualification、最终matrix和Owner sign-off | G6保持`blocked`；获得外部授权后push并运行manual workflow，只在同一candidate完整evidence后sign-off |
 | `CF-020` | AI consumer evidence | canonical Skill、README/Guide与结构/drift Gate已形成；Codex blind positive与真实consumer compile/run通过，但negative/anti-pattern和第二独立宿主验证未完成 | 不声明multi-tool support；完成负向行为与第二宿主的发现/触发/行为验证 |
 
-已关闭差距由Git和当时Report保存，不在current Conformance维护历史清单。上述三项
+已关闭差距由Git和当时Report保存，不在current Conformance维护历史清单。上述两项
 不得用placeholder、旧vendor、working-tree hash、smoke或单一宿主的文本输出替代。
 
 ## 2. 受限目标，不是差距
