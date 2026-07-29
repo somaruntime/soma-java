@@ -12,7 +12,7 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：public release授权、跨环境支持矩阵或任意Schema性能承诺
 
-最后审查日期：2026-07-29
+最后审查日期：2026-07-30
 
 ## 1. 判定口径
 
@@ -37,10 +37,10 @@ Owner：SOMA Java 一致性审查
 | DataFlow execution/parallel | 一致且 evidenced | Definition→Template→one-shot Invocation；一个bounded adaptive morsel scheduler区分Segment/vector/morsel，支持单Segment中型并行和deterministic merge |
 | Result Delivery | 一致且 evidenced | Eager Detached默认；Candidate/Value/Group/Join/Window同步callback-scoped visitor contract及Corretto Delivery/Soak lane通过 |
 | String V1 | 一致且 evidenced | reference-backed immutable scalar、Key/Unique/Index、Group/Join、不同长度mutation、equal-value no-op、clear/release/actual GC成立；length只为非约束profile |
-| Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow stats/explain |
+| Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow stats/explain；generated scratch几何增长仍受Plan/ledger约束，preferred不可接纳时exact fallback |
 | component performance | 一致且 evidence有限 | Corretto/macOS/aarch64 Access v1 baseline保持；DataFlow v5已在clean commit固定3-fork通过且threshold不放宽；不外推其他环境 |
 | runtime-scale qualification | 一致且 evidence有限；final evidence-resolved | 最终candidate必须产生同SHA、精确source tree的8条required lane且全部`passed`、`claimAllowed=false`；10M/100M仍仅为非阻塞research/stress |
-| reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness成立；Corretto下九个profile完成identity calibration，八个profile threshold不变；RTD long-run只按可重复的1 ms young-GC边界校正count/pause envelope，allocation/timing/full-GC不变；最终同SHA replay由G5 artifact解析 |
+| reference applications | 一致且 evidence有限；final evidence-resolved | 三个独立Java 8 consumer的correctness成立；九个profile在clean executable commit完成3-fork Full。Grassing三个baseline基于各5-fork原位replacement并收紧allocation envelope、保留更严格timing Gate；Industrial同group读取优化保持checksum；RTD stable-order未做无证据改写；最终同SHA replay由G5 artifact解析 |
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
 | G0 | passed | Java-only scope、Owner、claim boundary与抽象叙事闭环稳定 |
 | G1–G4 | same-SHA evidence-resolved | 本报告所在clean SHA的canonical Full与private CI Full必须通过 |
@@ -63,10 +63,14 @@ compiler/runtime/component/application及Ubuntu x64 build/contract只用于定�
 同一clean commit与精确source tree；Zulu evidence只属于历史。
 
 本次冻结前产品目标审计发现的integral overflow policy已由Product Owner裁决并
-完成Design/Code/contract replacement closure；successor还包含新的compiler、
-DataFlow与workflow修复。Source-side产品一致性已闭合，freeze-ready结果由本报告
-所在clean immutable SHA的适用Gate、qualification与retained bundle解析；source
-文本不预写动态passed状态。
+完成Design/Code/contract replacement closure；successor还包含compiler、
+DataFlow与workflow修复。三个reference application随后分别完成CPU/allocation/GC/
+thread profiling与1M或10倍规模诊断：generated scratch allocation和Industrial
+重复refresh读取已经关闭，RTD stable sort与Industrial frontier scaling保留为
+明确的应用边界。没有因此新增public/generated surface、依赖或并行Owner。
+
+Source-side产品一致性已闭合，freeze-ready结果由本报告所在clean immutable SHA的
+适用Gate、qualification与retained bundle解析；source文本不预写动态passed状态。
 
 即使新的candidate最终通过，也不能把本机evidence外推为Linux性能/规模、
 production、public release或Maven Central；AI behavior waiver也不能外推为

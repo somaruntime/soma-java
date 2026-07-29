@@ -10,7 +10,7 @@ Owner：SOMA Java 正式报告输出
 
 非事实范围：Blueprint、Design、代码实现事实和历史治理过程
 
-最后审查日期：2026-07-29
+最后审查日期：2026-07-30
 
 `reports/` 只保留当前决策所需的综合报告与不可替代 release evidence。已经完成的
 专题过程、旧 vendor/candidate benchmark 和阶段 Gate checkpoint 由 Git 保存，
@@ -27,7 +27,8 @@ Owner：SOMA Java 正式报告输出
   candidate identity、G0–G6、上轮尾项、AI Skill、scope non-regression 与当前
   freeze closeout；
 - [当前性能与规模摘要](current-performance-summary.md)：component、application、
-  runtime-scale 和 environment-bounded claim；
+  runtime-scale、三个example profiling/规模优化、最佳使用方法和
+  environment-bounded claim；
 - [G6 release readiness](java-v1-g6-release-readiness-report.md)：selected
   private-source package/security/provenance 与授权边界；
 - [Support matrix](java-v1-support-matrix-report.md)：唯一 JDK authority、已验证
@@ -39,7 +40,7 @@ Owner：SOMA Java 正式报告输出
 |---|---|---|
 | G0 | passed | [V1 release governance](java-v1-release-governance-report.md) |
 | G1–G4 | final same-SHA Full evidence-resolved | [V1 release governance](java-v1-release-governance-report.md) |
-| G5 | final same-SHA application/runtime-scale evidence-resolved | [性能与规模](current-performance-summary.md) |
+| G5 | profiling/优化已闭合；final same-SHA application/runtime-scale evidence-resolved | [性能与规模](current-performance-summary.md) |
 | G6 | conditional sign-off；same-SHA retained bundle resolves passed/blocked | [Release readiness](java-v1-g6-release-readiness-report.md) 与 [Support matrix](java-v1-support-matrix-report.md) |
 
 当前 `1.0.0` 坐标、unsigned local artifact、private CI、Codex Cloud、历史

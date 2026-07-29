@@ -8,7 +8,7 @@ Owner：industrial-dynamic-scheduler
 
 对 SOMA 产品规范性：否
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-30
 
 ## 配置责任
 
@@ -79,19 +79,20 @@ correctness lane 验证：
 - maximum frontier capacity；
 - `claimAllowed=false`。
 
-Application-owned baseline位于test resources，当前版本为default v6、large v5、
-long-run v5。Amazon Corretto 8成为唯一JDK authority后，三个profile均在同一
+Application-owned baseline位于test resources，当前版本为default v7、large v6、
+long-run v6。Amazon Corretto 8成为唯一JDK authority后，三个profile均在同一
 Corretto 8本机以5-fork candidate重新校准；旧Zulu baseline只由Git保存其历史
 evidence含义：
 
 | Profile | RuntimePlan | hot time/allocated limit | end-to-end time/allocated limit | Young/Full GC envelope |
 |---|---|---:|---:|---|
-| default | `97b691…` | `25,213,563 ns / 4,959,510 B` | `40,426,248 ns / 10,978,790 B` | `0/0 ms；0/0 ms` |
-| large | `bf1327…` | `3,488,431,001 ns / 148,686,770 B` | `3,549,411,188 ns / 303,741,530 B` | `3/10 ms；0/0 ms` |
-| long-run | `bd44ce…` | `89,828,187 ns / 15,374,160 B` | `129,993,626 ns / 40,671,230 B` | `2/4 ms；0/0 ms` |
+| default | `cd8095…` | `25,213,563 ns / 4,959,510 B` | `40,426,248 ns / 10,978,790 B` | `0/0 ms；0/0 ms` |
+| large | `3eddfd…` | `3,488,431,001 ns / 148,686,770 B` | `3,549,411,188 ns / 303,741,530 B` | `3/10 ms；0/0 ms` |
+| long-run | `9b56e4…` | `89,828,187 ns / 15,374,160 B` | `129,993,626 ns / 40,671,230 B` | `2/4 ms；0/0 ms` |
 
-校准commit为`092617b67247cbaed354857daed9d6e1457b876e`，每个baseline
-登记自己的candidate content checksum；
+当前identity replacement的校准commit为
+`a24bb4d48eec430d6188cb0588b28300a407da6d`，每个baseline登记自己的candidate
+content checksum；
 allocation使用`ceil(p50×1.25)`，timing使用
 `ceil(max(p50×1.50,p90×1.25))`，确定性high-water仍为`all-equal`，GC取maximum
 包络。Config/input/result和领域validator identity保持。校准时还发现旧baseline
@@ -103,6 +104,14 @@ JDK不确定性。
 workload。5-fork用于新baseline，9-fork只用于明确方差诊断或public claim准备，
 不能在失败后自动升级fork或循环放宽阈值。DataFlow application coverage由独立
 RTD拥有；工业frontier继续application-owned。
+
+冻结前profiling进一步发现`CandidateFrontier`在同一machine candidate group内
+重复读取不会变化的machine version/family/availability。`b189d1130055…`把这些
+authoritative ColumnView读取提升到group边界，并把已读取snapshot传入refresh；
+没有跨mutation保存current Index或View。100K diagnostic solve约下降8.9%，1M
+fixed-100-machine diagnostic约下降30.7%，随后九profile Full在`eac9b60fdbbb…`
+全部通过且Industrial baseline无需放宽。1M单位成本仍约为100K的6.4倍，因此
+application-owned frontier的非线性规模边界保持公开，不外推为任意调度模型SLA。
 
 该校准同时保护两条不同责任的路径：
 

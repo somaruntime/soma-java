@@ -18,7 +18,7 @@ Owner：SOMA Java G6 support matrix
 
 非事实范围：public/Maven release、production SLA、未列平台与跨环境性能外推
 
-最后审查日期：2026-07-29
+最后审查日期：2026-07-30
 
 Gate：G6 selected `private-github-source`
 
@@ -39,7 +39,7 @@ java/runtime/javac/javap 精确版本。Zulu 和其他 distribution 不属于当
 
 | OS / architecture | V1 build 与 contract | V1 性能/规模 | 当前证据 |
 |---|---|---|---|
-| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | final same-SHA Full required | DataFlow v5 calibrated；final same-SHA application/runtime-scale required | DataFlow v5已在clean executable commit固定3-fork通过且threshold不放宽；本报告所在最终SHA的Full、application、8/8 required runtime-scale与package/security artifact共同解析matrix |
+| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | final same-SHA Full required | DataFlow v5与九个application profile已有clean多fork证据；final same-SHA application/runtime-scale required | 三example profiling/规模优化保持checksum与claim boundary；本报告所在最终SHA的Full、application、8/8 required runtime-scale与package/security artifact共同解析matrix |
 | Ubuntu 24.04, Linux x86_64/amd64 | final same-SHA private CI/manual Full required | not-selected | 本报告所在最终SHA必须产生private CI与manual qualification retained bundle；Linux只形成build/contract claim |
 
 Codex Cloud development readiness不属于selected release support matrix；Windows、
@@ -74,7 +74,8 @@ Corretto 8 javac authority。
 
 successor矩阵的条件式签署依据为：
 
-1. macOS/aarch64 canonical Full、DataFlow 3-fork与required runtime-scale通过；
+1. macOS/aarch64 canonical Full、DataFlow/application 3-fork与required
+   runtime-scale通过；
 2. package/reproducibility、security/provenance evidence可校验；
 3. Ubuntu 24.04/x64 private CI Full与manual qualification在signed-off commit通过；
 4. retained evidence中的commit、version、dirty state、JDK、OS/architecture和

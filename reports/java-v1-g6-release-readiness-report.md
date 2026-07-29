@@ -17,7 +17,7 @@ scripts、current support matrix、retained qualification artifact与AI consumer
 
 非事实范围：public GitHub、Maven Central、production SLA或公开性能声明
 
-最后审查日期：2026-07-29
+最后审查日期：2026-07-30
 
 Gate：G6 selected release profile
 
@@ -31,10 +31,12 @@ successor使用条件式G6：同一clean SHA的全部required evidence通过即`
 任一缺失或失败即`blocked`；Report不复制会漂移的workflow状态。
 
 冻结前审计发现的integral overflow policy已由Product Owner裁决为fail-closed
-checked semantics，并完成Design、实现、protocol与contract replacement closure；
-successor还包含compiler、DataFlow与workflow修复。新的clean immutable SHA必须
-重放适用Full、G5、package/security、support matrix和manual qualification，
-条件式Owner sign-off才会生效。
+checked semantics，并完成Design、实现、protocol与contract replacement closure。
+随后三个reference application的profiling/规模专题修复了generated update scratch
+allocation与Industrial重复refresh读取，保留了RTD stable-order和Industrial
+frontier scaling的声明边界；successor还包含compiler、DataFlow与workflow修复。
+新的clean immutable SHA必须重放适用Full、G5、package/security、support matrix和
+manual qualification，条件式Owner sign-off才会生效。
 
 上一candidate的精确SHA、workflow run、attempt、ref、version、package/security
 provenance与bundle checksum由其同SHA retained qualification artifact唯一记录，
@@ -54,7 +56,7 @@ AI Skill的Codex positive consumer已经真实compile/run。Product Owner于
 | maintainer / support | passed | ArthurFeng / GitHub `@283586450`；普通问题进入private repository Issues |
 | security / ownership | passed | private Security Advisory优先；`.github/CODEOWNERS`为`* @283586450`；Actions最小权限与immutable SHA pin |
 | JDK authority | passed | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
-| macOS qualification | same-SHA evidence-resolved | DataFlow v5固定3-fork已绑定clean executable commit；最终SHA的canonical Full、application与runtime-scale 8条required lane必须通过，性能/规模claim保持environment/profile bounded |
+| macOS qualification | same-SHA evidence-resolved | DataFlow v5与九个application profile已有clean多fork证据；最终SHA的canonical Full、application与runtime-scale 8条required lane必须通过，性能/规模claim保持environment/profile bounded |
 | Ubuntu same-SHA qualification | same-SHA evidence-resolved | 最终SHA的private CI Full与manual qualification必须通过；Linux只形成build/contract claim |
 | package / security / provenance | same-SHA evidence-resolved | 最终SHA必须形成17件release-shaped artifact双构建、classfile 52、License/NOTICE、SBOM、OSV、license与runtime dependency evidence |
 | AI consumer Skill | passed with V1 waiver | canonical instruction-only Skill、结构/drift Gate、Codex positive consumer通过；剩余behavior/multi-host evidence被Owner waive，不声明multi-tool support |
@@ -68,7 +70,7 @@ admission和人工sign-off；这是已记录的残余平台风险，不伪造平
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
 | private GitHub source | conditional sign-off | 同SHA Full、G5、package/security/provenance、matrix、private CI、manual qualification与下载bundle checksum全部成功即passed，否则blocked |
-| local macOS development | same-SHA evidence-resolved | 新arithmetic/DataFlow contract与DataFlow v5 clean 3-fork已闭合；最终clean SHA artifact决定Full、runtime-scale、application与package/security状态 |
+| local macOS development | same-SHA evidence-resolved | arithmetic/DataFlow contract、DataFlow v5、三example profiling/优化与九profile clean 3-fork已闭合；最终clean SHA artifact决定Full、runtime-scale、application与package/security状态 |
 | public GitHub source | not-selected | repository保持private |
 | Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，不分发binary |
 | Codex Cloud development | not release-scoped | 不进入当前支持矩阵，也不替代private-source G6 |
@@ -110,6 +112,11 @@ public、Maven或production readiness。
 - Java 8、public/generated signature和production dependency未改变；integral
   observable semantics已按Owner授权改为fail closed，transformation/kernel
   protocol分别升级为v5/v6；
+- generated update scratch改为Plan/ledger约束的几何增长并在preferred capacity
+  不可接纳时退回exact required；Industrial只在现有type内提升同group不变读取；
+  没有新增public surface或并行事实Owner；
+- Grassing三个baseline原位replacement为v6/v5/v5，allocation envelope收紧且
+  timing Gate未放宽；九个application baseline总数仍为9；
 - public/Maven保持`not-selected`，10M/100M保持non-blocking research；
 - AI Skill不进入Maven JAR，也不成为Design或API Owner；
 - public Java type、module与runtime dependency增量均为零；package-private

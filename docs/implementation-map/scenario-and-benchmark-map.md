@@ -15,7 +15,7 @@ Owner：SOMA reference application / benchmark 实现导航
 最近实现核对基线：包含本文件的 V1 `1.0.0` private-source sign-off commit；
 精确commit由Git与同SHA qualification artifact记录
 
-最后审查日期：2026-07-29
+最后审查日期：2026-07-30
 
 ## 1. 聚合与应用入口
 

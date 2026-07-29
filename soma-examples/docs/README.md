@@ -16,7 +16,7 @@ Owner：SOMA Java reference applications
 
 非事实范围：SOMA 核心 Design、公共 API、跨环境性能 claim 和 release readiness
 
-最后审查日期：2026-07-29
+最后审查日期：2026-07-30
 
 `soma-examples` 只聚合参考应用，不再拥有一个共享领域 runtime、场景套件或产品能力事实。SOMA 的目标和长期语义分别由[产品 Blueprint](../../docs/blueprints/soma-java-product-blueprint.md)和[Design](../../docs/design/README.md)拥有；当前代码与 Gate 从[参考应用与 benchmark Map](../../docs/implementation-map/scenario-and-benchmark-map.md)进入。
 
@@ -54,9 +54,10 @@ module 或领域中性 benchmark Owner 提供。
 继续使用canonical direct/exact/Candidate与显式Group；RTD继续使用generated enum
 exact source、primitive typed expression、reusable Definition/Template及bounded
 Join/Group。三者都没有raw logical `LongExpression`、旧protocol adapter、
-Iterator/lazy pull、generic object storage或临时API，因此本轮无需装饰性production
-改写。最终`1.0.0` clean candidate已由本轮唯一canonical Full重新生成、编译并
-运行三个reference applications；该结论不从旧candidate自动继承。
+Iterator/lazy pull、generic object storage或临时API，因此无需装饰性production
+改写。性能successor `eac9b60fdbbb…`已由application Full重新生成、编译并以九个
+profile各3 forks运行三个reference applications；最终release candidate仍必须
+在其自身clean immutable SHA重放，该结论不从旧candidate自动继承。
 
 ## 从三个应用归纳的性能用法
 

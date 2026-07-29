@@ -2,7 +2,8 @@
 
 类型：Report / Performance / Qualification Snapshot
 
-状态：DataFlow v5 calibrated；final same-SHA G5 artifact resolves
+状态：三个 reference application profiling 与规模优化已闭合；final same-SHA G5
+artifact resolves
 
 Owner：SOMA Java 性能与规模 evidence
 
@@ -11,188 +12,201 @@ Owner：SOMA Java 性能与规模 evidence
 适用版本：`soma-java` `1.0.0`
 
 输入事实源：[V1 release governance](java-v1-release-governance-report.md)、
-当前strict runtime-scale artifact、两份component baseline与九份reference
-application baseline
+component/application baseline、runtime-scale qualification、固定 workload 的
+CPU/allocation/GC profiling 与 correctness checksum
 
 事实范围：当前 Corretto production shape 的 component、三个 reference
-application、Small/Medium/单1M/双1M/String/Expansion/Delivery/Soak evidence
+application、Small/Medium/单1M/双1M/String/Expansion/Delivery/Soak evidence，
+以及本轮100K/1M application diagnostic
 
 非事实范围：跨环境 SLA、任意 Schema/String row-count 承诺、production
-telemetry、G6、public release 或 Maven Central readiness
+telemetry、public release、Maven Central readiness或任意业务模型性能保证
 
-最后审查日期：2026-07-29
+最后审查日期：2026-07-30
 
 测量环境：Amazon Corretto `1.8.0_502-b07`、Maven `3.9.16`、macOS
-`26.5.2` / Darwin `25.5.0`、`aarch64`、Apple M5 Pro、48 GiB；runtime-scale
-使用G1 GC和lane-specific heap。
+`26.5.2` / Darwin `25.5.0`、`aarch64`、Apple M5 Pro。物理机为48 GiB，
+本专题限制为最多16核、32 GiB总资源；正式与diagnostic JVM均保持在该上限内，
+required runtime-scale lane最大`-Xmx6g`且串行执行。
 
 ## 1. 当前结论
 
-上一clean Corretto executable candidate在记录环境下已经证明：
+本轮没有把“小 workload 跑得快”当作规模结论，而是先对三个真实 reference
+application分别采集CPU、allocation、GC和thread evidence，再以1M或10倍工作量
+检验热点是否随规模放大。结果形成三个不同裁决：
 
-- Small/Fast没有被统一planner、DataFlow lifecycle或scale architecture的固定税
-  锁死；
-- Medium覆盖32K/64K/256K、FLAT与segmented layout、sequential与bounded
-  parallel crossover；
-- 一张实际resident的1M narrow numeric-Key root可完成Point、Exact、Scan、
-  Column、Batch、Delta、Join、Group、Window与closed numeric kernel；
-- 两个同时resident的1M narrow numeric roots可完成双侧aggregate、min/max filter、
-  Bloom filter、dense fallback与same/cross Group bounded relation；
-- 两张1M String角色Table可同时覆盖payload、Key、Unique、Index、Group、Join、
-  mutation、presence、clear、release和actual GC；
-- high-expansion在不可接受的enumeration/allocation前fail closed；
-- Eager Detached与callback-scoped delivery、100次lifecycle soak均能清理ledger、
-  executor和String reference；
-- 两个component和三个application的九个profile仍在各自checked-in baseline内。
+1. Grassing的主要浪费来自generated update scratch按每次新cardinality精确扩容，
+   动态population使五组primitive array被反复复制。Processor现改为受
+   `maximumUpdateScratchBytes`与Group ledger共同约束的有界几何增长；preferred
+   capacity不被Plan接纳时自动退回exact required capacity，保持fail closed。
+2. Industrial的主要浪费来自同一machine candidate group内重复读取不变的
+   version/family/availability以及重复lifecycle guard。Example现按group边界只读
+   一次authoritative SOMA事实，并把已读取snapshot传入refresh；没有缓存跨mutation
+   的current Index或绕过SOMA owner。
+3. RTD的主要CPU成本是稳定顺序join所需的primitive sort barrier。Worker大部分
+   时间parked是bounded executor等待，不是锁争用；在没有新语义或稳定profile证明
+   前，不以不稳定排序、额外索引或并发Table改写换取局部数字。
 
-这些是`claimAllowed=false`的单机qualification与回归事实，不是public latency
-SLA、跨环境支持矩阵或任意wide Schema保证。Runtime-scale与DataFlow的精确
-clean-commit证据已形成；canonical Full又覆盖其余component、reference
-application与contract Gate，因此上一candidate的G5为passed。当前successor修改
-了processor与DataFlow executable source；integral overflow policy已裁决为
-fail-closed checked semantics。DataFlow component已在新的clean executable
-commit完成固定3-fork重放且全部旧threshold保持不变；runtime-scale、application
-与canonical Full仍必须绑定最终candidate，上一candidate的规模数字不能外推。
+优化保持Schema、输入、runtime plan、业务结果checksum与failure/resource语义不变。
+没有新增public/generated API、module、production dependency或parallel Owner。
 
-## 2. Retained Runtime-scale qualification v2
+## 2. Profiling 与优化结果
 
-Qualification ID：
-`runtime-scale-qualification-bd25e1194931-5669bf68ddf5`。
+下表是同一Corretto/macOS/aarch64环境中的固定workload diagnostic。它用于解释
+因果，不是checked-in baseline或公开性能声明；百分比由单次before/after测量计算，
+正式回归仍以多fork baseline为准。
 
-Artifact identity：
+| Application / workload | 优化前 | 优化后 | 直接结论 |
+|---|---:|---:|---|
+| Grassing 100K initial × 1,000 ticks allocation | 426.45 MB | 61.14 MB | 下降约85.7%；generated scratch allocation sample从275降到1 |
+| Grassing 1M initial × 100 ticks allocation | 2.229 GB | 308.18 MB | 下降约86.2%；Young GC 3→0，Full GC保持0 |
+| Grassing 1M tick time | 15.260 s | 15.521 s | +1.7%，属于单fork诊断波动；没有用放宽timing Gate换取allocation结果 |
+| Grassing 100K update scratch high-water | 3,799,632 B | 5,400,048 B | retained增加约42.1%，但有Plan hard limit、ledger与exact fallback |
+| Industrial 100K operations solve | 2.329 s | 2.122 s | 下降约8.9%；candidate refresh CPU sample占比22.56%→9.63% |
+| Industrial 1M operations / fixed 100 machines solve | 196.020 s | 135.892 s | 下降约30.7%；Full GC保持0，业务checksum不变 |
+| RTD 15K work dispatch | 约0.779 s | 未改实现 | stable long sort约占CPU sample的66.8%；没有发现值得修复的锁瓶颈 |
+| RTD 150K work diagnostic | 10.814 s | 未改实现 | 符合stable sort主导的非线性增长；作为应用算法边界保留 |
 
-- clean commit：
-  `bd25e1194931df2a9869c2164df658839449785d`；
-- executable source tree：
-  `content-sha256:5669bf68ddf502495b4a323743f9251a4fab9a3f2c73b4f73fb7eb3a919e5f81`；
-- combined artifact：
-  `6d52d2ae4bd0ec4472604fb17d39375a90b39ac55e4da031f5df43c992449e32`；
-- strict schema v2：
-  `eeb8eb1e0f5beda9b3970746b796eb0c5e58a7b8ccd5a9f7cc21dbafc98b4ce2`。
+Grassing几何增长把动态数组copy从“每个新size一次”降为摊销增长。它有意用少量
+bounded retained bytes换取显著更低的transient allocation/GC；这不是silent
+unbounded growth。External Maven dense consumer覆盖4→5几何增长、继续消费retained
+tail以及Plan只容纳exact capacity时的fallback。实现过程中一次draft曾只更新
+capacity accounting而仍按required复制，真实Grassing回放立即触发越界；最终实现
+与回归已同步修复，失败草稿未进入候选。
 
-| Lane | 状态 / 诊断耗时 | Structural high-water | JVM heap peak | 直接结论 |
-|---|---:|---:|---:|---|
-| Small/Fast | passed / 54.8 ms | 1,118,912 B | 15,728,640 B | 0、1、16、256、1K、4K primitive/String fixed-tax matrix |
-| Medium | passed / 109.6 ms | 27,568,936 B | 75,497,840 B | 32K、64K、256K；1/2/8 segments与1/8/16 tasks |
-| 1M Single | passed / 133.7 ms | 50,993,056 B | 124,519,032 B | actual resident 1M root与完整operation family |
-| 1M Double | passed / 209.6 ms | 98,578,240 B | 238,848,744 B | 两个actual resident 1M roots；三种Join filter/fallback与cross-Group |
-| String | passed / 668.5 ms | 168,252,058 B | 566,284,160 B | 两张1M角色Table；reachable String model 192,753,664 B；release后heap 3,330,040 B |
-| Expansion | passed / 38.2 ms | 0 | 7,875,872 B | over-budget、overflow、unknown-unprovable均提前拒绝 |
-| Delivery | passed / 47.0 ms | 600,992 B | 11,534,336 B | 7种delivery与early-stop/failure/cancel/deadline/non-escape |
-| Soak | passed / 140.3 ms | 600,992 B | 51,642,368 B | 100次lifecycle、100个weak reference、ledger/executor归零 |
+Industrial优化仍读取SOMA column作为authoritative source，只把同一次
+`recomputeMachine`中不会变化的machine snapshot提升到group边界。1M固定100
+machine的单位耗时仍约为100K workload的6.4倍，说明`CandidateFrontier`随
+machine candidate集合重算的应用级复杂度仍存在；本轮没有把局部读取优化误写成
+全局scaling closure。
 
-八条required lane全部满足`applicable=true`、`status=passed`、
-`claimAllowed=false`。Validator拒绝非法claim、缩小1M、extra field以及不完整或
-重复lane；runner/validator classfile为Java 8 major 52。唯一source manifest覆盖
-实际production/build/runner closure并包含两个shell library；commit、source tree、
-schema与combined artifact均已封存为上列identity。
-
-## 3. String 结论与内存口径
-
-V1正式支持reference-backed immutable `String`：
-
-- 保存caller reference，不copy、intern、normalize、dictionary encode或进入arena；
-- Key/Unique/Index/Group/Join使用authoritative Java value equality/hash/order；
-- required null拒绝，optional absence与empty String分离；
-- 不同长度mutation只替换reference slot，不改变column layout；
-- equal-value different-object mutation是no-op，不替换reference；
-- clear/release后tracked reference实际可被GC回收。
-
-String lane必须同时解释长度、value cardinality、distinct object identity、共享率、
-presence、字段角色和同时live Table数。本次payload为长度12..48、cardinality
-4,096、高共享；access角色包含1M-cardinality Key/Unique与高共享Index。
-
-资源口径始终分开：
-
-1. SOMA-owned structural bytes；
-2. SOMA-retained reachable String bytes/model；
-3. JVM observed heap。
-
-上述长度和共享只属于workload/evidence profile，不是Schema约束、hard cap或其他
-String profile的替代证据。
-
-## 4. Component 与三个 reference application
+## 3. 三应用正式回归
 
 当前checked-in baseline为：
 
 - Access component Corretto v1；
 - DataFlow component Corretto v5；
-- industrial default/large/long-run：v7/v6/v6；
-- grassing default/large/long-run：v5/v4/v4；
+- Industrial default/large/long-run：v7/v6/v6；
+- Grassing default/large/long-run：v6/v5/v5；
 - RTD default/large/long-run：v4/v4/v5。
 
-九个application baseline在clean executable commit
-`a24bb4d48eec430d6188cb0588b28300a407da6d`各完成5-fork calibration。
-Schema、输入、业务结果与全部deterministic workload identity保持不变；只替换
-transformation v5 / kernel v6引起的canonical plan identity。八个profile的全部
-threshold保持不变。RTD long-run在两组5-fork calibration与一次3-fork final
-replay的13个独立JVM中有两个出现单次1 ms young GC；caller allocation中位数
-27,948,568 bytes、dispatch中位数63,297,417 ns，业务checksum、task/worker数与
-full GC均稳定。按既有`max+1`/`ceil(max*1.25)`公式只把young-GC count/pause
-envelope从0校正为2；allocation、timing与full-GC Gate不变。
+Grassing baseline replacement来自clean executable commit `b189d1130055…`上的
+default/large/long-run各5个独立JVM calibration。每个profile的schema、input、
+result、runtime-plan identity与deterministic high-water在fork间一致：
 
-Component覆盖direct/Candidate、fixed tax、parallel crossover、Effect、delivery、
-allocation与stats；九个application profile覆盖三种领域叙事的default、large和
-long-run integrated correctness、allocation、GC和high-water。Baseline只服务本
-环境回归，不形成public claim。
+- default allocation固定`5,924,176 B`，update scratch `36,024 B`；
+- large allocation固定约`61.145 MB`，update scratch `5,400,048 B`；
+- long-run allocation约`27.531 MB`，update scratch `360,024 B`。
 
-DataFlow v5在clean executable commit
-`a2914918f356d5d7bd889b4ead9cb14e7d717a9c`完成固定3-fork重放。v5只因
-transformation/kernel v5/v6 canonical identity更新authoring checksum；其余执行
-checksum与全部allocation/timing/tail/GC threshold保持不变并通过，result hash为
-`dbb42e23ee8cd87dd7f148c658aa9671e59f28c8edc7eb38c4c8e258c87f1b69`。
-Group exact sum在真实越界时才从checked `long`提升到wide state，正常benchmark
-路径没有承担无用high-array allocation。该baseline仍是本机回归证据，不是公开
-性能声明；最终candidate的canonical Full仍须重放它。
+新的allocation envelope分别收紧为`7,405,220 B`、`76,431,180 B`与
+`34,417,510 B`。Large/long-run继续保留旧的、更严格timing limit，没有借本轮
+calibration放宽时间Gate；Full GC envelope保持0。
 
-## 5. 10M/100M 的当前定位
+九个application profile随后在clean commit
+`eac9b60fdbbbc1c71713e09be2d7c9f74a84ce29`各以3 forks重放并全部通过。
+三个scale profile的中位数为：
 
-2026-07-28旧Zulu candidate曾完成1M/10M/single-double100M和高共享String
-100M。这些仍是历史research事实，但不属于当前JDK authority，也不再是V1
-readiness Gate。
+| Profile | 时间中位数 | allocation中位数 | GC边界 |
+|---|---:|---:|---:|
+| Industrial large / 100K operations | 2.061 s；20,611 ns/op | 118,949,080 B | Young最多2；Full 0 |
+| Grassing large / 100K × 1,000 ticks | 5.901 s；5,900,939 ns/tick | 61,147,760 B | Young最多1；Full 0 |
+| RTD large / 15K work | 0.795 s；52,992 ns/work | 80,374,456 B | Young 0；Full 0 |
 
-当前artifact v2保留以下`required=false`、`research-stress-v1`入口：
+上述artifact的`claimAllowed=false`；最终release candidate仍必须在其自身clean
+immutable SHA重放application Full。Source Report不复制易漂移的最终artifact
+目录，由同SHA benchmark JSONL解析passed/blocked。
 
-- `10m-research`；
-- `100m-single-stress`；
-- `100m-double-stress`；
-- `100m-string-stress`。
+## 4. Runtime-scale 与声明边界
 
-它们只回答明确的可完成性、扩展曲线和资源问题；缺失、失败或inconclusive不阻塞
-G5，成功也不能升级为任意Schema/String或public SLA。
+V1 required runtime-scale仍由八条production-exact lane组成：
 
-## 6. 声明边界
+- Small/Fast；
+- Medium；
+- 单1M narrow numeric root；
+- 两个同时resident的1M narrow numeric roots；
+- 两张1M String角色Table；
+- high-expansion fail-closed；
+- Result Delivery；
+- 100次lifecycle Soak。
 
-当前可以确认：
+本轮processor generated source发生变化，因此上一candidate的8/8 retained
+qualification只能作为回归参照，不能自动外推到当前candidate。最终clean SHA必须
+重新生成精确source manifest、逐lane record、schema/checksum与combined artifact，
+且八条记录都满足`status=passed`、`required=true`、
+`profile=production-exact-v1`、`claimAllowed=false`，G5才成立。
 
-- 上一clean executable candidate的Small/Medium、单1M、双1M、String、
-  Expansion、Delivery、Soak在记录Corretto/macOS/aarch64环境成立；
-- formula-bound Bitmap与primitive Join runtime filter的production Java实现未在
-  本轮修改；closed numeric kernel、sum/average、prefix、Group、Window与Expanded
-  已切换到fail-closed checked/exact-wide路径，DataFlow component v5的固定3-fork
-  已通过；scale与application集成面的正式状态由最终同SHA artifact解析；
-- checked-in component/application baseline仍是当前重放的唯一baseline Owner。
+`10m-research`、`100m-single-stress`、`100m-double-stress`与
+`100m-string-stress`继续是`required=false` research入口。用户给出的32 GiB专题
+上限不足以运行全部预注册100M lane，且这些lane不是V1 blocker；本轮没有用高成本
+research代替更贴近真实application的1M/10倍诊断。
 
-DataFlow component已闭合。完整G5只在本报告所在最终clean SHA形成三个application
-与8条required runtime-scale的精确artifact且全部通过时成立；任一缺失或失败即
-blocked。Source report不复制会漂移的运行状态。
+即使required qualification全部通过，仍不得扩大为：
 
-扩大下列声明前仍需新的预注册qualification：
+- 其他CPU/JDK build/OS/architecture支持；
+- 任意wide schema、String length/cardinality/sharing或relation skew；
+- Industrial任意machine/frontier规模的线性复杂度承诺；
+- RTD任意工作量的stable-order SLA；
+- production telemetry、public performance claim或公开发布。
 
-- 其他CPU/JDK build/OS及正式support matrix；
-- wide schema、composite Key、不同relation multiplicity/skew；
-- 其他String长度/cardinality/sharing/column-role组合；
-- 全局materialization/sort/window、高强度soak或production telemetry；
-- public performance claim或公开发布。
+## 5. 从三个应用归纳的最佳使用方法
+
+1. **先区分authoritative state与derived structure。** Live业务事实留在SOMA
+   Table；application heap/frontier/calendar只保存可重建的派生调度结构，不把DTO、
+   `List<Row>`或Collection graph变成并行事实Owner。
+2. **在语义稳定边界提升重复读取。** 同一group/version内只获取一次
+   `ColumnView`值或snapshot；不跨mutation保存current Index、view、cursor或
+   callback对象。
+3. **按增长形状规划scratch。** 不只看最终row count，还要申报population/frontier
+   growth pattern、`maximumUpdateScratchBytes`、Group retained上限和transient
+   heap余量；同时观察retained high-water与JVM allocation/GC。
+4. **只在语义允许处并行。** 重用DataFlow Definition/Template/Context，让
+   Invocation保持one-shot；stable order、deterministic merge与Effect safe point
+   是真实barrier，不因线程空闲就删除。
+5. **优化必须绑定correctness guard。** 至少固定schema/input/config/runtime plan/
+   result checksum，并同时看CPU、allocation、Young/Full GC、scratch/high-water；
+   单次最好值不校准baseline。
+6. **先修形状，再调JVM。** DTO materialization、逐row对象、反射、Stream、boxing
+   collection、candidate扩回全表、exact read隐藏rebuild/sort、无界scratch或跨
+   lifecycle对象逃逸都应先回到Schema/Access/Plan/Owner处理。
+
+这些规则已经进入[soma-examples开发者报告入口](../soma-examples/docs/README.md)，
+但不替代各应用自己的领域建模与恢复责任。
+
+## 6. Scope non-regression 与冻结判断
+
+本专题相对进入profiling前的candidate：
+
+- production public/generated type delta：0；
+- module与production dependency delta：0；
+- processor内部generated scratch growth策略：1处contract-preserving refinement；
+- example production实现：Industrial 2个已有type内部优化；RTD与Grassing领域代码
+  不变；
+- external consumer regression：增加1个resource/growth journey；
+- application baseline：3个Grassing文件原位版本化replacement，baseline总数仍为9；
+- script：只更新这3个replacement路径；没有新增benchmark lane或migration checker；
+- 文档：更新唯一scenario map、Grassing validation、example最佳实践与本Report；
+- active performance Temporary、parallel Owner与未裁决`UNKNOWN`：0。
+
+当前结果是Design-consistent internal refinement，不依赖未来public API、核心事实
+迁移或test-only bypass才成立。就“进入真实项目试用前的V1性能冻结”而言，三个
+reference application已提供足够的不同形状证据，SOMA generated scratch的明确
+浪费已修复，另一个高价值应用热点已优化，RTD风险性改写已被证据否决。
+
+冻结仍有两个诚实边界：Industrial frontier不是任意规模线性算法；真实项目尚未
+提供production telemetry。二者是下一阶段使用profile与业务建模输入，不是当前
+SOMA V1 Design/Code差距。最终freeze-ready状态由同一clean SHA的canonical Full、
+application Full、runtime-scale required qualification以及G6 retained
+package/security/CI bundle共同解析。
 
 ## 7. 重放入口
 
 ```sh
-./scripts/check-runtime-scale-qualification.sh qualification
-./scripts/check-runtime-scale-qualification.sh research
+./scripts/check.sh
 ./scripts/check-reference-application-performance.sh full
+./scripts/check-runtime-scale-qualification.sh qualification
+./scripts/package-smoke.sh
+OSV_SCANNER=<verified-v2.3.8> ./scripts/security-release-scan.sh
 ```
 
-普通`./scripts/check.sh`负责fresh build、public/generated/external consumer、
-correctness、component、Fast application、文档和静态Gate。Qualification仅在
-source、环境、假设或证据目标变化时重跑。
+高成本qualification只在source、环境、假设或证据目标变化时重跑；同一immutable
+输入已通过的artifact直接复用。
