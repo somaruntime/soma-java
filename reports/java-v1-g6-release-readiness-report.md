@@ -24,8 +24,10 @@ Gate：G6 selected release profile
 ## 1. 结论
 
 `private-github-source`是当前唯一selected release profile，G6保持`blocked`。
-`1.0.0`坐标与planned SCM tag已经进入POM，但final clean commit尚未冻结，不能把
-坐标写入误表述为release passed。
+`1.0.0`坐标与planned SCM tag已经进入POM，macOS clean-candidate DataFlow与
+runtime-scale qualification已经通过；canonical Full、package/security、Ubuntu
+同SHA evidence和最终sign-off尚未形成，不能把坐标或局部Gate误表述为release
+passed。
 
 旧HEAD `844d74d`的GitHub Actions run `30440373950`在Ubuntu 24.04 x64 exact
 Corretto 8上完成canonical Full。该run证明当时source的Linux build/contract，
@@ -38,7 +40,7 @@ Corretto 8上完成canonical Full。该run证明当时source的Linux build/contr
 - SBOM、known-vulnerability、declared-license与security evidence；
 - workflow留存的candidate/package/security/checksum bundle；
 - macOS/Linux support matrix和release Owner sign-off；
-- V1 `use-soma-java` Skill的blind behavior、anti-pattern与两个独立宿主验证。
+- V1 `use-soma-java` Skill的negative/anti-pattern behavior与第二独立宿主验证。
 
 ## 2. Identity、SCM 与治理事实
 
@@ -50,9 +52,10 @@ Corretto 8上完成canonical Full。该run证明当时source的Linux build/contr
 | maintainer / support | passed | ArthurFeng / GitHub `@283586450`；普通问题进入private repository Issues |
 | security / ownership | passed | private Security Advisory优先；`.github/CODEOWNERS`为`* @283586450`；Actions最小权限与SHA pin |
 | JDK authority | passed as policy | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
-| final candidate Full | blocked | `844d74d` run `30440373950`是前序成功证据；`1.0.0` final commit尚未运行 |
+| macOS qualification | passed on clean executable candidate | DataFlow固定3-fork与runtime-scale 8条required lane通过；后者绑定`bd25e119…`/`5669bf68ddf5…` |
+| final candidate Full | blocked | `844d74d` run `30440373950`是前序成功证据；`1.0.0` final candidate尚未运行 |
 | package/security evidence | blocked | scripts/workflow已修正同SHA/version与evidence retention，尚未在final commit执行 |
-| AI consumer Skill | blocked | canonical instruction-only Skill与结构Gate已通过；行为/第二宿主未完成 |
+| AI consumer Skill | blocked | canonical instruction-only Skill、结构Gate、Codex blind positive与真实consumer通过；negative/anti-pattern及第二宿主未完成 |
 
 Organization plan不支持private repository branch protection/ruleset。当前控制为
 private access、CODEOWNERS、长期分支约束、SHA-pinned workflow、clean candidate
@@ -63,7 +66,7 @@ admission和人工sign-off；Report保留未强制保护分支的残余风险，
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
 | private GitHub source | blocked | 等待同一`1.0.0` final candidate的Full、package/security、matrix与sign-off |
-| local macOS development | previous-candidate evidence | Corretto build/contract/component/application/runtime-scale可作回归参照，不自动关闭final candidate |
+| local macOS development | qualification partial passed | exact Corretto DataFlow/runtime-scale已通过；build/contract仍等待canonical Full |
 | public GitHub source | not-selected | repository保持private |
 | Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，不分发binary |
 | Codex Cloud development | not release-scoped | 用户未把Cloud qualification设为本轮必要目标 |

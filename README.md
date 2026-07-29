@@ -10,9 +10,9 @@ Application 声明稳定的数据形态和访问路径；SOMA 在编译期生成
 运行期提供 packed columnar storage、精确访问、typed transformation、受控并行与
 显式资源边界。Application 继续拥有业务规则、event loop、I/O、跨表提交与恢复。
 
-> 当前 V1 release candidate 坐标为 `1.0.0`。G0 已稳定；最终 clean candidate 的
-> G1–G5 正在重放，selected private-source G6 仍 blocked。仓库尚未公开，也未发布
-> 到 Maven Central。
+> 当前 V1 release candidate 坐标为 `1.0.0`。G0 与clean-candidate
+> DataFlow/runtime-scale qualification已通过；G1–G5仍等待一次canonical Full，
+> selected private-source G6仍blocked。仓库尚未公开，也未发布到Maven Central。
 
 ## 为什么使用 SOMA
 
@@ -313,7 +313,7 @@ generated API 取证、Access/DataFlow 路由、lifecycle/resource 检查和真�
 |---|---|---|
 | G0 | passed | Java-only产品边界、正式Owner、claim boundary与核心抽象叙事规则稳定 |
 | G1–G4 | blocked | production Java surface未改变，但最终`1.0.0` clean candidate仍需canonical Full |
-| G5 | blocked | 旧Corretto evidence只解释旧candidate；等待精确commit的DataFlow 3-fork与8-lane required qualification |
+| G5 | blocked | clean-commit DataFlow 3-fork与8-lane required qualification已通过；等待canonical Full |
 | G6 | blocked | 等待同一最终candidate的Full、package/security provenance、matrix与Owner sign-off |
 
 当前结论允许继续受控形成V1候选，但不声明10M/100M guarantee、Linux性能/规模、

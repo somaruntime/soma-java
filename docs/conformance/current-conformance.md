@@ -36,12 +36,12 @@ Owner：SOMA Java 一致性审查
 | String V1 | 一致且 evidenced | reference-backed immutable scalar、Key/Unique/Index、Group/Join、不同长度mutation、equal-value no-op、clear/release/actual GC成立；length只为非约束profile |
 | Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow stats/explain |
 | component performance | 一致且 evidence有限 | Corretto/macOS/aarch64 Access与DataFlow baseline通过；不外推其他环境 |
-| runtime-scale qualification | blocked pending exact candidate | 旧Corretto/macOS/aarch64 v2 artifact的8条required lane可作回归诊断，但recorded commit不是当前clean immutable candidate；10M/100M仍仅为非阻塞research/stress |
+| runtime-scale qualification | 一致且 evidence有限 | clean commit `bd25e1194931df2a9869c2164df658839449785d`与source tree `5669bf68ddf5…`的8条required lane全部passed且`claimAllowed=false`；10M/100M仍仅为非阻塞research/stress |
 | reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness与Corretto 9 profile baseline通过；相关root由显式SomaGroup拥有 |
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
 | G0 | passed | Java-only scope、Owner、claim boundary与抽象叙事闭环稳定 |
 | G1–G4 | blocked pending final Full | production Java surface未改变；`1.0.0`最终clean commit仍需canonical Full |
-| G5 | blocked pending exact qualification | 需要clean commit的DataFlow 3-fork provenance与8-lane required artifact |
+| G5 | blocked pending final Full | clean-commit DataFlow 3-fork与8-lane required qualification已通过；其余component/application/contract等待canonical Full |
 | G6 selected private-source | blocked | 需要同一最终candidate的Full、clean package/security provenance、matrix与Owner sign-off |
 | Codex Cloud development | not release-scoped | 当前用户目标不要求Cloud qualification；它不进入支持矩阵，也不替代private-source G6 |
 
@@ -54,12 +54,13 @@ Fast→Full→Qualification，使用Maven标准local repository、一次准备�
 最多四路安全并行和fail-closed阶段状态。
 
 JDK authority迁移属于支持与evidence变化，不是产品语义变化。旧Corretto本机
-compiler/runtime/component/application/runtime-scale及Ubuntu x64 build/contract
-仍可定位回归，但正式Gate必须绑定新的clean immutable candidate。Zulu evidence
-只属于历史。
+compiler/runtime/component/application及Ubuntu x64 build/contract仍可定位回归，
+但正式Gate必须绑定新的clean immutable candidate。当前macOS runtime-scale已绑定
+clean commit与精确source tree；Zulu evidence只属于历史。
 
-当前`1.0.0`候选正在形成，不能提前写成G5或private-source G6 passed，也不能把
-本机evidence外推为Linux性能/规模、production、public release或Maven Central。
+当前`1.0.0`候选的G5 qualification部分已形成，仍不能在canonical Full前写成
+G5 passed，也不能把本机evidence外推为Linux性能/规模、production、public
+release或Maven Central。
 
 ## 4. Evidence 入口
 

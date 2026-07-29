@@ -24,9 +24,9 @@ transformer、annotation processor、runtime-core 和 typed DataFlow。当前项
 Zulu和其他JDK distribution均为untested/unsupported。精确Corretto
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
-历史Corretto candidate已形成G0–G5与Ubuntu x64 Full，但最终`1.0.0` clean
-candidate仍在重放G1–G5；selected private-source G6继续等待同一candidate的
-package/security qualification与matrix sign-off。`1.0.0`是当前
+当前`1.0.0` clean candidate已形成DataFlow 3-fork与8-lane required
+qualification，G1–G5仍等待canonical Full；selected private-source G6继续等待
+同一candidate的package/security、Ubuntu Full与matrix sign-off。`1.0.0`是当前
 release-shaped source/artifact candidate，尚未因此自动形成tag、public release或
 Maven发布。
 获得private repository访问权的consumer应先在本仓库执行

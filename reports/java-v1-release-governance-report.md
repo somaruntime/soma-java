@@ -2,7 +2,7 @@
 
 类型：Report / Release Governance
 
-状态：`1.0.0` candidate preparation；G5/G6 blocked
+状态：`1.0.0` clean-candidate qualification ready；G5/G6 blocked
 
 Owner：SOMA Java V1 release governance
 
@@ -46,16 +46,18 @@ Push、tag、GitHub Release、visibility 与 publishing 仍是外部授权边界
 
 ## 2. 当前候选与 Gate
 
-当前 working tree 已完成 `1.0.0` 坐标、release evidence workflow、
-runtime-scale source closure、Skill 与文档治理变更，并通过一次
-`./scripts/check.sh fast`。该结果仍不是 clean immutable candidate evidence；
-因此不得沿用旧 candidate 的 G5/G6 passed 表述。
+当前clean candidate已完成`1.0.0`坐标、release evidence workflow、
+runtime-scale source closure、Skill与文档治理变更。DataFlow固定3-fork已在
+clean commit `733db714…`通过；runtime-scale 8条required lane已在clean commit
+`bd25e119…`及精确executable source tree `5669bf68ddf5…`通过。其后只更新正式
+Report/Conformance，不改变production Java、public/generated surface或该
+qualification source closure。
 
 | Gate | 当前状态 | 关闭条件 |
 |---|---|---|
 | G0 | passed | Java-only scope、正式 Owner、claim boundary 与核心抽象叙事规则稳定 |
 | G1–G4 | blocked | production Java surface 未改变，但仍需在最终 clean commit 的 canonical Full 重放 |
-| G5 | blocked | 需要 clean immutable commit 的 DataFlow 3-fork provenance 与 8-lane required qualification |
+| G5 | blocked | clean-commit DataFlow 3-fork与8-lane required qualification已通过；等待最终candidate的canonical Full |
 | G6 | blocked | 需要同一 final candidate 的 Full、package/reproducibility、security/provenance、support matrix 与 Owner sign-off |
 
 旧 Corretto/macOS component/application/runtime-scale 和旧 Corretto/Linux Full
@@ -67,9 +69,9 @@ candidate。
 | 尾项 | 当前处置 |
 |---|---|
 | canonical Full | 旧 HEAD `844d74d` 的 GitHub Full 已通过；最终候选仍只运行一次 canonical Full |
-| exact qualification provenance | runner 现在要求 clean commit，ID 绑定 commit 与 executable content hash；最终 artifact 待重放 |
+| exact qualification provenance | closed：`runtime-scale-qualification-bd25e1194931-5669bf68ddf5`绑定clean commit、唯一source manifest与8条required record |
 | source identity 边界 | 由唯一 manifest 精确包含 production/build/runner closure，排除 tests、Examples、无关 benchmark/baseline，并纳入两个实际 shell library |
-| DataFlow baseline provenance | 禁止继续使用 `working-tree candidate`；在 clean commit 上重放固定 3 fork 后更新 calibration |
+| DataFlow baseline provenance | closed：clean commit `733db714…`固定3-fork通过，workload/threshold不变；checker拒绝working-tree、dirty或relaxed calibration |
 | 抽象叙事闭环 | Design Index 已制度化 Why/Owns/Not/Relationships/Lowering/Lifecycle/Resource/Failure/Evidence/Evolution |
 | release evidence 留存 | package/security 接受独立 evidence root；manual workflow 校验同一 SHA/version、封存 checksums，并用 SHA-pinned upload action 保留 |
 
@@ -93,9 +95,14 @@ Expansion、Delivery 与 Soak；10M/100M research 不进入本轮 release blocke
   和卸载说明；
 - instruction-only，无 `scripts/`、无 `allowed-tools`、无全局静默安装；
 - `skill-creator` `quick_validate.py` 与 repository link/drift Gate 已通过。
+- Codex在未显式点名Skill的positive consumer任务中完成发现与触发，生成并运行
+  Java 8 keyed inventory consumer；父任务独立重验offline compile/run、runtime
+  dependency tree和classfile major 52；
+- 当前Codex沙箱阻止目标项目自动创建`.agents`目录，按安全提示人工复制后六个
+  canonical文件blob hash一致；不把该限制伪装为自动安装通过。
 
-Blind behavior、anti-pattern 与至少两个独立宿主的真实发现/触发/行为验证仍未完成；
-因此当前不声明 multi-tool support，也不能关闭 V1 Skill DoD。
+Negative/anti-pattern behavior与第二独立宿主的真实发现/触发/行为验证仍未完成；
+因此当前不声明multi-tool support，也不能关闭V1 Skill DoD。
 
 ## 5. Scope non-regression 与 surface delta
 
@@ -111,16 +118,17 @@ contract-preserving governance refinement：
 - scripts/workflow：版本 Owner、evidence retention 与 clean-candidate admission；
 - docs/report：V1 identity、AI consumer入口、抽象叙事和当前 evidence 诚实性。
 
-没有 temporary public/generated API、parallel Design Owner、test-only bypass、
-canonical hot-path migration 或新的第三方 production dependency。最终 closeout
-仍需确认 migration artifact、active Temporary、tool-specific semantic copy 和未
-裁决 `UNKNOWN` 为零。
+没有temporary public/generated API、parallel Design Owner、test-only bypass、
+canonical hot-path migration或新的第三方production dependency。RC surface审计
+确认production/public Java delta、module delta、runtime dependency delta、
+migration artifact、tool-specific semantic copy与未裁决产品`UNKNOWN`均为零；
+唯一active Temporary将在最终稳定事实固化后删除。
 
 ## 6. 下一证据
 
-1. 完成 RC surface 审计并提交 clean implementation/evidence candidate；
-2. 在该 commit 上重放 DataFlow 3 fork 与 runtime-scale required qualification；
-3. 固化 baseline/evidence/Conformance/Report，形成 final candidate；
-4. 运行窄 Gate、一次 canonical Full 与 private-source package/security；
-5. 更新 support matrix 与本报告后重验文档/clean workspace；
-6. 删除 Temporary。未经另行授权不创建 tag、GitHub Release 或发布 artifact。
+1. 完成AI Skill negative/anti-pattern与第二独立宿主行为验证；
+2. 固化当前Report/Conformance后运行窄Gate与唯一canonical Full；
+3. 在同一clean candidate运行private-source package/security provenance；
+4. 获得Ubuntu private CI Full、support matrix与release Owner sign-off；
+5. 原子校准最终Owner并删除Temporary。未经另行授权不push、不创建tag、
+   GitHub Release或发布artifact。

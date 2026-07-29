@@ -2,7 +2,7 @@
 
 类型：Report / Performance / Qualification Snapshot
 
-状态：`1.0.0` candidate qualification blocked；保留上一候选诊断基线
+状态：`1.0.0` clean-candidate qualification passed；G5等待canonical Full
 
 Owner：SOMA Java 性能与规模 evidence
 
@@ -11,7 +11,7 @@ Owner：SOMA Java 性能与规模 evidence
 适用版本：`soma-java` `1.0.0`
 
 输入事实源：[V1 release governance](java-v1-release-governance-report.md)、
-上一候选strict runtime-scale artifact、两份component baseline与九份reference
+当前strict runtime-scale artifact、两份component baseline与九份reference
 application baseline
 
 事实范围：当前 Corretto production shape 的 component、三个 reference
@@ -28,7 +28,7 @@ telemetry、G6、public release 或 Maven Central readiness
 
 ## 1. 当前结论
 
-上一Corretto executable candidate在记录环境下已经证明：
+当前clean Corretto executable candidate在记录环境下已经证明：
 
 - Small/Fast没有被统一planner、DataFlow lifecycle或scale architecture的固定税
   锁死；
@@ -46,39 +46,42 @@ telemetry、G6、public release 或 Maven Central readiness
 - 两个component和三个application的九个profile仍在各自checked-in baseline内。
 
 这些是`claimAllowed=false`的单机qualification与回归事实，不是public latency
-SLA、跨环境支持矩阵或任意wide Schema保证。当前`1.0.0`候选尚未在clean
-immutable commit上重放，因此这些数值只作回归诊断，当前G5保持blocked。
+SLA、跨环境支持矩阵或任意wide Schema保证。Runtime-scale与DataFlow的精确
+clean-commit证据已形成；G5仍等待同一候选的canonical Full覆盖其余component、
+reference application与contract Gate。
 
-## 2. 上一候选 Runtime-scale qualification v2
+## 2. 当前 Runtime-scale qualification v2
 
 Qualification ID：
-`runtime-scale-qualification-20260729-d90e8499d51f`。
+`runtime-scale-qualification-bd25e1194931-5669bf68ddf5`。
 
 Artifact identity：
 
-- production/evidence source：
-  `d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`；
+- clean commit：
+  `bd25e1194931df2a9869c2164df658839449785d`；
+- executable source tree：
+  `content-sha256:5669bf68ddf502495b4a323743f9251a4fab9a3f2c73b4f73fb7eb3a919e5f81`；
 - combined artifact：
-  `4bdc5b51407aaec838af0a95de81249c717e8beab9fea78e1cbf4db8a4abbbef`；
+  `6d52d2ae4bd0ec4472604fb17d39375a90b39ac55e4da031f5df43c992449e32`；
 - strict schema v2：
   `eeb8eb1e0f5beda9b3970746b796eb0c5e58a7b8ccd5a9f7cc21dbafc98b4ce2`。
 
 | Lane | 状态 / 诊断耗时 | Structural high-water | JVM heap peak | 直接结论 |
 |---|---:|---:|---:|---|
-| Small/Fast | passed / 55.0 ms | 1,118,912 B | 16,254,968 B | 0、1、16、256、1K、4K primitive/String fixed-tax matrix |
-| Medium | passed / 111.5 ms | 27,568,936 B | 75,497,840 B | 32K、64K、256K；1/2/8 segments与1/8/16 tasks |
-| 1M Single | passed / 133.9 ms | 50,993,056 B | 124,519,032 B | actual resident 1M root与完整operation family |
-| 1M Double | passed / 230.2 ms | 98,578,240 B | 238,783,192 B | 两个actual resident 1M roots；三种Join filter/fallback与cross-Group |
-| String | passed / 647.0 ms | 168,252,058 B | 573,617,648 B | 两张1M角色Table；reachable String model 192,753,664 B；release后heap 3,330,024 B |
-| Expansion | passed / 37.0 ms | 0 | 7,867,400 B | over-budget、overflow、unknown-unprovable均提前拒绝 |
-| Delivery | passed / 51.8 ms | 600,992 B | 12,060,664 B | 7种delivery与early-stop/failure/cancel/deadline/non-escape |
-| Soak | passed / 136.5 ms | 600,992 B | 50,200,584 B | 100次lifecycle、100个weak reference、ledger/executor归零 |
+| Small/Fast | passed / 54.8 ms | 1,118,912 B | 15,728,640 B | 0、1、16、256、1K、4K primitive/String fixed-tax matrix |
+| Medium | passed / 109.6 ms | 27,568,936 B | 75,497,840 B | 32K、64K、256K；1/2/8 segments与1/8/16 tasks |
+| 1M Single | passed / 133.7 ms | 50,993,056 B | 124,519,032 B | actual resident 1M root与完整operation family |
+| 1M Double | passed / 209.6 ms | 98,578,240 B | 238,848,744 B | 两个actual resident 1M roots；三种Join filter/fallback与cross-Group |
+| String | passed / 668.5 ms | 168,252,058 B | 566,284,160 B | 两张1M角色Table；reachable String model 192,753,664 B；release后heap 3,330,040 B |
+| Expansion | passed / 38.2 ms | 0 | 7,875,872 B | over-budget、overflow、unknown-unprovable均提前拒绝 |
+| Delivery | passed / 47.0 ms | 600,992 B | 11,534,336 B | 7种delivery与early-stop/failure/cancel/deadline/non-escape |
+| Soak | passed / 140.3 ms | 600,992 B | 51,642,368 B | 100次lifecycle、100个weak reference、ledger/executor归零 |
 
 八条required lane全部满足`applicable=true`、`status=passed`、
 `claimAllowed=false`。Validator拒绝非法claim、缩小1M、extra field以及不完整或
-重复lane；runner/validator classfile为Java 8 major 52。但artifact记录的commit
-早于当时executable worktree，旧source closure又过宽且漏掉两个shell library，
-所以它不能关闭当前`1.0.0`候选的G5。
+重复lane；runner/validator classfile为Java 8 major 52。唯一source manifest覆盖
+实际production/build/runner closure并包含两个shell library；commit、source tree、
+schema与combined artifact均已封存为上列identity。
 
 ## 3. String 结论与内存口径
 
@@ -119,6 +122,13 @@ allocation与stats；九个application profile覆盖三种领域叙事的default
 long-run integrated correctness、allocation、GC和high-water。Baseline只服务本
 环境回归，不形成public claim。
 
+DataFlow v4在clean commit
+`733db714f0b5f1edc41ada0ddf86352187b989bd`完成固定3-fork重放；workload与
+threshold未改变，result hash为
+`270704b7e42fb5d7d7160de09df3f4edb02465768982f84455697e46b33e00d5`。
+其后候选只改变baseline provenance checker与文档，不改变DataFlow executable
+source；canonical Full仍会对最终候选执行相同baseline。
+
 ## 5. 10M/100M 的当前定位
 
 2026-07-28旧Zulu candidate曾完成1M/10M/single-double100M和高共享String
@@ -139,14 +149,13 @@ G5，成功也不能升级为任意Schema/String或public SLA。
 
 当前可以确认：
 
-- 上一候选的Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak在记录
-  Corretto/macOS/aarch64环境成立，可作为`1.0.0`重放的回归参照；
+- 当前clean executable candidate的Small/Medium、单1M、双1M、String、
+  Expansion、Delivery、Soak在记录Corretto/macOS/aarch64环境成立；
 - logical type facade、closed numeric kernel、formula-bound Bitmap与primitive
   Join runtime filter的production Java实现未在本轮修改；
 - checked-in component/application baseline仍是当前重放的唯一baseline Owner。
 
-在新的clean commit、DataFlow 3-fork与8-lane artifact形成前，不允许陈述当前
-`1.0.0` G5 passed。
+在canonical Full形成前，不允许陈述当前`1.0.0` G5 passed。
 
 扩大下列声明前仍需新的预注册qualification：
 

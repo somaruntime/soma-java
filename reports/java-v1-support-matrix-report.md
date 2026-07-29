@@ -2,7 +2,7 @@
 
 类型：Report / Support Matrix
 
-状态：`1.0.0` final candidate qualification blocked
+状态：`1.0.0` macOS qualification passed；final build/contract matrix blocked
 
 Owner：SOMA Java G6 support matrix
 
@@ -37,12 +37,13 @@ java/runtime/javac/javap 精确版本。Zulu 和其他 distribution 均不属于
 
 ## 2. Selected matrix
 
-当前表只列出 selected V1 profile 需要验真的组合。`previous-candidate evidence`
-可以证明验证通道存在，但在 final immutable candidate 重放前不能写成 V1 passed。
+当前表只列出selected V1 profile需要验真的组合。只有绑定clean commit与精确
+source closure的项目才可写成passed；previous-candidate evidence只证明验证通道
+存在。
 
 | OS / architecture | V1 build 与 contract | V1 性能/规模 | 当前证据 |
 |---|---|---|---|
-| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | blocked pending final Full | blocked pending final DataFlow/runtime-scale qualification | 旧 Corretto artifact `runtime-scale-qualification-20260729-d90e8499d51f`及 component/application baseline 仅为 previous-candidate diagnostic |
+| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | blocked pending final Full | passed，environment/profile bounded | DataFlow clean 3-fork；runtime-scale `runtime-scale-qualification-bd25e1194931-5669bf68ddf5`，8/8 required passed、`claimAllowed=false` |
 | Ubuntu 24.04, Linux x86_64/amd64 | blocked pending final private CI Full | 不选择 Linux 性能/规模 claim | 旧 clean commit `844d74d` 的 private CI Full run `30440373950`已通过；final candidate 尚未重放 |
 
 Codex Cloud development readiness 不属于 selected release support matrix；Windows、
