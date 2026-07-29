@@ -52,6 +52,7 @@ public final class DenseConsumer {
         testColumnViewAllocationShape();
         testColumnViewAcquisitionAllocation();
         testCandidateScanAllocationShape();
+        testUpdateScratchGrowthAndLimitFallback();
         testEscapedCursorFaultsAggregate();
         testSegmentedGeneratedJourney();
 
@@ -905,6 +906,44 @@ public final class DenseConsumer {
                 "faulted aggregate keeps bounded diagnostics");
         table.release();
         require(table.isReleased(), "faulted aggregate remains releasable");
+    }
+
+    private static void testUpdateScratchGrowthAndLimitFallback() {
+        ParticleBatch batch = new ParticleBatch(8);
+        for (int index = 0; index < 8; index++) {
+            batch.addValues(index, index, (float) index, false, 0);
+        }
+
+        ParticleTable geometric = ParticleTable.create();
+        geometric.addBatch(batch);
+        updatePrefix(geometric, 4);
+        require(geometric.statsSnapshot().updateScratchCurrentBytes() == 84L,
+                "first update scratch capacity matches required rows");
+        updatePrefix(geometric, 5);
+        require(geometric.statsSnapshot().updateScratchCurrentBytes() == 147L,
+                "growing update scratch uses bounded geometric capacity");
+        updatePrefix(geometric, 6);
+        require(geometric.statsSnapshot().updateScratchCurrentBytes() == 147L,
+                "update scratch consumes retained geometric tail safely");
+        geometric.release();
+
+        RuntimePlan.Builder builder =
+                ParticleTable.defaultRuntimePlan().toBuilder();
+        builder.table(ParticleTable.metadata())
+                .maximumUpdateScratchBytes(110L);
+        ParticleTable limited = ParticleTable.create(builder.build());
+        limited.addBatch(batch);
+        updatePrefix(limited, 4);
+        updatePrefix(limited, 5);
+        require(limited.statsSnapshot().updateScratchCurrentBytes() == 105L,
+                "geometric growth falls back to exact capacity at the plan limit");
+        limited.release();
+    }
+
+    private static void updatePrefix(
+            ParticleTable table, final int endExclusive) {
+        table.filter(row -> row.id() < endExclusive)
+                .update(row -> row.setTicks(row.ticks() + 1L));
     }
 
     private static long allocatedTraversalBytes(

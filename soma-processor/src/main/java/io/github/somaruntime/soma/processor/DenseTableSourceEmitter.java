@@ -1948,7 +1948,7 @@ final class DenseTableSourceEmitter {
 
     private void appendUpdateScratch(SourceBuilder out, TableSpec table) {
         out.append("  int[] prepareCandidateScratch(){int required=size();long bytes=candidateScratch.retainedBytesAfterEnsure(required)+updateBytes(updateScratchCapacity);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"scan.update\",limit,bytes);state.preflightUpdateScratch(bytes,\"scan.update\");candidateScratch.ensureCapacity(required);state.updateScratch(candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity),candidateScratch.retainedBytes()+updateBytes(updateScratchCapacity));return candidateScratch.prepare(required);}\n")
-                .append("  void prepareUpdateScratch(int required){if(required<=updateScratchCapacity)return;long bytes=candidateScratch.retainedBytes()+updateBytes(required);long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"scan.update\",limit,bytes);state.preflightUpdateScratch(bytes,\"scan.update\");\n");
+                .append("  void prepareUpdateScratch(int required){if(required<=updateScratchCapacity)return;long limit=runtimePlan().requireTable(TABLE).maximumUpdateScratchBytes();int target=required;long preferred=(long)updateScratchCapacity+(long)(updateScratchCapacity>>>1)+1L;if(preferred>(long)required&&preferred<=(long)(Integer.MAX_VALUE-8)){int preferredCapacity=(int)preferred;long preferredBytes=candidateScratch.retainedBytes()+updateBytes(preferredCapacity);if(preferredBytes<=limit){try{state.preflightUpdateScratch(preferredBytes,\"scan.update\");target=preferredCapacity;}catch(SomaRuntimeException failure){if(!\"memory_limit_exceeded\".equals(failure.code()))throw failure;}}}long bytes=candidateScratch.retainedBytes()+updateBytes(target);if(bytes>limit)throw RuntimeFailures.memoryLimitExceeded(TABLE,\"scan.update\",limit,bytes);state.preflightUpdateScratch(bytes,\"scan.update\");\n");
         for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
             FieldSpec field = table.fields.get(fieldIndex);
             if (field.key) {
@@ -1960,16 +1960,16 @@ final class DenseTableSourceEmitter {
                     out.append("    ").append(leaf.storagePrimitive).append("[] newField")
                             .append(fieldIndex).append("Leaf").append(leafIndex)
                             .append("=Arrays.copyOf(").append(updateScratch(fieldIndex, leafIndex))
-                            .append(",required);\n");
+                            .append(",target);\n");
                 }
             } else {
                 out.append("    ").append(field.storagePrimitive).append("[] newField")
                         .append(fieldIndex).append("=Arrays.copyOf(")
-                        .append(updateScratch(fieldIndex)).append(",required);\n");
+                        .append(updateScratch(fieldIndex)).append(",target);\n");
             }
             if (field.optional) out.append("    boolean[] newField").append(fieldIndex)
                     .append("Present=Arrays.copyOf(").append(updatePresenceScratch(fieldIndex))
-                    .append(",required);\n");
+                    .append(",target);\n");
         }
         for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {
             FieldSpec field = table.fields.get(fieldIndex);
@@ -1989,7 +1989,7 @@ final class DenseTableSourceEmitter {
             if (field.optional) out.append("    ").append(updatePresenceScratch(fieldIndex))
                     .append("=newField").append(fieldIndex).append("Present;\n");
         }
-        out.append("    updateScratchCapacity=required;state.updateScratch(bytes,bytes);}\n")
+        out.append("    updateScratchCapacity=target;state.updateScratch(bytes,bytes);}\n")
                 .append("  private long updateBytes(int scratchLength){return (long)scratchLength*").append(table.updateWidth()).append("L;}\n")
                 .append("  void loadUpdateScratch(int[] rows,int count){for(int i=0;i<count;i++){int row=rows[i];\n");
         for (int fieldIndex = 0; fieldIndex < table.fields.size(); fieldIndex++) {

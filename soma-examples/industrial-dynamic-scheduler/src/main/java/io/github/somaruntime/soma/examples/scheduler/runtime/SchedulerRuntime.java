@@ -242,7 +242,6 @@ public final class SchedulerRuntime implements AutoCloseable {
   }
 
   private MachineCalendar requireMachineCalendar(int machineIndex) {
-    ensureOpen();
     if (machineIndex < 0 || machineIndex >= machineCalendars.length) {
       throw new IllegalArgumentException("unknown machine Index");
     }

@@ -264,6 +264,10 @@ final class CandidateFrontier implements AutoCloseable {
   private void recomputeMachine(
       int machineIndex, long machineId) {
     machineBest.clear();
+    long machineVersion = machineVersions.getLong(machineIndex);
+    long machineFamily = 0L;
+    long machineAvailableMinute = 0L;
+    boolean machineSnapshotLoaded = false;
     for (int slot = candidates.firstByMachine(machineIndex);
          slot >= 0; slot = candidates.nextByMachine(slot)) {
       candidateScratch.clear();
@@ -271,20 +275,35 @@ final class CandidateFrontier implements AutoCloseable {
       require(candidateScratch.machineId == machineId,
           "machine candidate group contains the wrong machine");
       int resourceIndex = candidates.resourceIndex(slot);
-      long machineVersion = machineVersions.getLong(machineIndex);
       long resourceVersion =
           resourceVersions.getLong(resourceIndex);
       boolean refreshed = false;
       if (candidateScratch.machineVersion != machineVersion) {
+        if (!machineSnapshotLoaded) {
+          machineFamily = machineFamilies.getLong(machineIndex);
+          machineAvailableMinute =
+              machineAvailable.getLong(machineIndex);
+          machineSnapshotLoaded = true;
+        }
         refreshCandidate(
-            candidateScratch, machineIndex, resourceIndex);
+            candidateScratch, machineIndex, resourceIndex,
+            machineVersion, resourceVersion,
+            machineFamily, machineAvailableMinute);
         refreshed = true;
       } else if (candidateScratch.resourceVersion
           != resourceVersion) {
         if (!advanceResourceVersionWithoutScoreChange(
             candidateScratch, resourceIndex, resourceVersion)) {
+          if (!machineSnapshotLoaded) {
+            machineFamily = machineFamilies.getLong(machineIndex);
+            machineAvailableMinute =
+                machineAvailable.getLong(machineIndex);
+            machineSnapshotLoaded = true;
+          }
           refreshCandidate(
-              candidateScratch, machineIndex, resourceIndex);
+              candidateScratch, machineIndex, resourceIndex,
+              machineVersion, resourceVersion,
+              machineFamily, machineAvailableMinute);
         }
         refreshed = true;
       }
@@ -308,16 +327,31 @@ final class CandidateFrontier implements AutoCloseable {
       int resourceIndex) {
     long machineVersion = machineVersions.getLong(machineIndex);
     long resourceVersion = resourceVersions.getLong(resourceIndex);
+    refreshCandidate(
+        candidate, machineIndex, resourceIndex,
+        machineVersion, resourceVersion,
+        machineFamilies.getLong(machineIndex),
+        machineAvailable.getLong(machineIndex));
+  }
+
+  private void refreshCandidate(
+      SelectedCandidate candidate,
+      int machineIndex,
+      int resourceIndex,
+      long machineVersion,
+      long resourceVersion,
+      long machineFamily,
+      long machineAvailableMinute) {
     long setup = setupValues.getLong(
         runtime.setupTimes().requireIndex(
             candidate.machineId,
-            machineFamilies.getLong(machineIndex),
+            machineFamily,
             candidate.targetSetupFamily));
     long resourceReady = resourceReadyMinute(
         resourceIndex, candidate.resourceUnits);
     long earliestSetup = Math.max(
         candidate.baseReadyMinute,
-        machineAvailable.getLong(machineIndex));
+        machineAvailableMinute);
     earliestSetup = Math.max(earliestSetup,
         Math.max(0L, Math.subtractExact(resourceReady, setup)));
     long setupStart = runtime.fitMachineInterval(
