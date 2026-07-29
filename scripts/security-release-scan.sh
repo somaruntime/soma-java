@@ -73,7 +73,7 @@ if [ "$actual_license_sha" != "$expected_license_sha" ]; then
   printf '%s\n' "security-release-scan: Apache-2.0 text checksum mismatch: $actual_license_sha" >&2
   exit 1
 fi
-expected_notice_sha=f7f35459ecb103bbb1b201b2af0a74dc484e4a3767b2a4166fb6c93f10c3879f
+expected_notice_sha=bec11e5bc62b17b14119b29248d3803af0ddb4e8bedba20b933b7594619581f0
 actual_notice_sha=$(soma_sha256_hex NOTICE)
 if [ "$actual_notice_sha" != "$expected_notice_sha" ]; then
   printf '%s\n' "security-release-scan: NOTICE checksum mismatch: $actual_notice_sha" >&2
