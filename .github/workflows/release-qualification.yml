@@ -14,13 +14,16 @@ jobs:
   private-source-qualification:
     name: Private-source package and security qualification
     runs-on: ubuntu-24.04
-    env:
-      SOMA_RELEASE_EVIDENCE_ROOT: ${{ github.workspace }}/target/release-evidence
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
         with:
           fetch-depth: 0
+
+      - name: Configure qualification evidence root
+        run: |
+          printf 'SOMA_RELEASE_EVIDENCE_ROOT=%s\n' \
+            "$RUNNER_TEMP/soma-java-release-evidence" >> "$GITHUB_ENV"
 
       # setup-java's Corretto provider only accepts a major version. The
       # repository installer pins and verifies the exact archive first.
@@ -116,6 +119,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: private-source-qualification-${{ github.sha }}
-          path: ${{ github.workspace }}/target/release-evidence
+          path: ${{ runner.temp }}/soma-java-release-evidence
           if-no-files-found: error
           retention-days: 90
