@@ -12,11 +12,11 @@ Owner：SOMA DataFlow 实现导航
 
 非事实范围：规范性 Transformation 语义、完整 public signature 清单和性能结论
 
-最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. Production module
 
@@ -26,9 +26,9 @@ Owner：SOMA DataFlow 实现导航
 |---|---|
 | Definition/Template/Invocation | [`DataFlowDefinition.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowDefinition.java)、[`DataFlowTemplate.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowTemplate.java)、[`DataFlowInvocation.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowInvocation.java) |
 | Context/policy/resource | [`DataFlowContext.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowContext.java)、[`ExecutionPolicy.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/ExecutionPolicy.java)、[`ExecutionBudget.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/ExecutionBudget.java)、internal `InvocationLedger` |
-| typed Shape/Expression | `CandidateFlow`、primitive/String `*ValueFlow`、`GroupedFlow`、`JoinedFlow`、`WindowedFlow`、primitive/String `*Expression`；无 generic Object value family |
+| typed Shape/Expression | `CandidateFlow`、primitive/String `*ValueFlow`、`GroupedFlow`、`JoinedFlow`、`WindowedFlow`；raw numeric/boolean/String与logical `EnumExpression`/`DateExpression`/`TimeExpression`/`InstantExpression`；无 generic Object value family |
 | result/effect | Eager Detached primitive scalar/columnar、group/join/window/expand result、`DeltaApplyResult`、candidate effect operations；callback-scoped `*Visitor` delivery |
-| physical choice | [`CandidatePhysicalFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/CandidatePhysicalFormula.java)、[`RelationStrategyFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/RelationStrategyFormula.java)、[`MorselSchedulerFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/MorselSchedulerFormula.java) |
+| physical choice | [`CandidatePhysicalFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/CandidatePhysicalFormula.java)、[`RelationStrategyFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/RelationStrategyFormula.java)、[`MorselSchedulerFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/MorselSchedulerFormula.java)、internal `ClosedNumericKernel` 与 `JoinRuntimeFilter` |
 | generated bridge | [`io.github.somaruntime.soma.dataflow.generated`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/generated) |
 | diagnostics | [`DataFlowStats.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowStats.java) 的 work/parallel/resource/delivery components 与 [`DataFlowExplain.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowExplain.java) |
 
@@ -40,11 +40,11 @@ Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/
 
 当前 identity：
 
-- generated/runtime `v11`；
-- transformation `v3`、kernel `v4`、planner `v4`；
+- generated/runtime `v12`；
+- transformation `v4`、kernel `v5`、planner `v4`；
 - runtime plan为 `v6`，storage与primary-locator layout formula均为`v1`，
-  Candidate/relation/morsel/Invocation ledger formula均为`v1`，Schema hash语义
-  未变化。
+  Candidate/relation formula为`v2`，morsel/Invocation ledger formula为`v1`，
+  Schema hash语义未变化。
 
 ## 3. 执行叙事
 
@@ -61,8 +61,11 @@ typed Definition
 ```
 
 Candidate closed shapes为contiguous range、segment-aware range、exact
-single-pass和sparse indexes；universal IndexBuffer不再是全部terminal的默认物理
-表示。Group/Join/Window按closed strategy预聚合、probe或bounded enumeration，
+single-pass、formula-bound bitmap intersection和sparse indexes；universal
+IndexBuffer不再是全部terminal的默认物理表示。Required long-column constant
+arithmetic/comparison common chain可由closed whole-loop kernel直接执行packed
+visit/count/select；reference graph保留oracle与fallback。Group/Join/Window按
+closed strategy预聚合、probe或bounded enumeration，
 Expand的known overflow、over-budget及unknown-unprovable cardinality均在枚举和
 callback前拒绝。Candidate `skip/limit` 将selection capacity上界下推到streaming
 selection。
@@ -82,6 +85,11 @@ Invocation仍按root opaque identity排序并canonical acquire，而不是按Gro
 因此同一Group内不同root、跨Group、同schema多实例、跨schema和self alias保持同一
 multi-source语义。部分acquire失败时按已获得root逆序释放；Group membership只提供
 composition/lifecycle，不成为Join prerequisite或跨root transaction。
+
+Primitive单分量Join可在一次Invocation内建立min/max或Bloom build-side filter；
+filter只排除确定不匹配的probe，所有保留候选仍经过hash/full equality。String、
+复合Key、dense/high-hit或收益不足形态直接使用baseline relation path，filter
+scratch由Invocation ledger计量并在结束时释放。
 
 ## 4. 验证入口
 

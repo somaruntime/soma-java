@@ -12,7 +12,7 @@ Owner：SOMA Java 文档治理
 
 采用框架：设计驱动项目文档框架 `1.0.0-rc.2`
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 权威关系
 
@@ -70,8 +70,13 @@ artifact 和 validator 拥有，并由[可执行契约地图](implementation-map
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前没有 active Temporary topic。已完成专题的稳定事实进入对应正式Owner，
-Temporary在closeout后删除且不归档。
+当前 active Temporary topic：
+
+- [SOMA V1 Release 治理交接](temp/soma-v1-release-transition-handoff/README.md)：
+  保留本轮逻辑语义与执行引擎治理的目标、成果、关键线程裁决、审计尾项和下一轮
+  V1 release 治理入口；稳定事实统一收口后删除。
+
+已完成专题的稳定事实进入对应正式Owner，Temporary在closeout后删除且不归档。
 
 新的重大设计变化必须建立独立 topic，不能复用已退役专题作为平行事实源。
 

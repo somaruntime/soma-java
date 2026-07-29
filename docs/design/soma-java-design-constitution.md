@@ -18,13 +18,19 @@ Owner：SOMA Java 总体设计原则
 
 非事实范围：模块内算法、代码位置、验证结果和 release readiness
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 定位
 
 SOMA Java 是面向 Java 8 的 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 高性能运行时状态计算库。Schema 经过编译期验证和规范化，生成 schema-specific storage、access 与 transformation facade；runtime kernel 不解释 application schema object graph。
 
 SOMA 同时拥有 packed runtime-state plane 和围绕该状态的 typed local-compute plane。Annotation 是当前 Schema authoring surface，不是产品本质；产品不因增加 Transformation/DataFlow 而变成通用查询、DataFrame 或分布式计算平台。
+
+SOMA 的设计同时使用两个互补视角：`State / Owner + Capability + Plan /
+Lifecycle` 解释核心抽象为何存在、谁拥有事实以及怎样演进；`Logical semantics ->
+Java carrier/generated capability -> JVM/OS/CPU physical strategy` 解释一次能力怎样
+从易用、类型安全的逻辑契约降低为高性能执行。前者不能被数据库分类替代，后者也
+不能把 primitive carrier 或某个物理算法误当成逻辑类型。
 
 SOMA 的 canonical 系统模型由三个正交轴共同定义：
 
@@ -68,6 +74,10 @@ bind 或 operation boundary，逐 row hot loop 必须保持 specialized。
 - V1 schema storage kind 封闭为 primitive-backed scalar、白名单 String
   reference-backed immutable scalar、compiler-flattened `@SomaValue` 与
   parent-owned child；任意 object/array/DTO/Collection graph 不得进入 live field；
+- primitive/enum/date/time/instant 等 logical type 通过 generated type-specific
+  operation capability 暴露合法运算；内部可以共享 primitive carrier，但 carrier
+  不得把不合法运算泄漏为 public logical API，也不引入 `SomaInt`/`SomaLong`
+  row wrapper；
 - 声明的读取能力不得依赖隐藏的全表重建；跨 operation 的持久业务顺序由 application 拥有。
 
 具体 annotation 语义由 [Schema 与生成 API](schema-and-generated-api.md)拥有；packed relocation、exact structure 和显式排序机制由 [Table、存储与访问](table-storage-and-access.md)拥有。
@@ -109,6 +119,9 @@ Point、Candidate、Column、Key、Bulk 与 Ownership 的完整访问语义由 [
   只能是 caller-declared versioned estimate，actual dedup/heap 属于 qualification，
   不得用声明冒充 hard cap；
 - logical operator 不泄漏 Hash Join、Tree Reduction 等物理策略；adaptive parallel 以 sequential 为语义基准并按有界证据回退；
+- numeric common-chain 可以降低为 closed whole-loop kernel；低基数 Bitmap 和
+  primitive Join runtime filter 只能由 versioned formula 在适用域内选择，并保留
+  authoritative equality、reference fallback、budget 与 Explain；
 - 性能优化改变语义、API、determinism、ownership、failure 或兼容性前，先修改对应 Design Owner。
 
 ## 3. 产品边界
@@ -117,6 +130,9 @@ V1 只承诺 Java 8 进程内使用，不包含 Python、C ABI、native/off-heap
 
 V1 也不包含 ordinary Iterator/pull cursor/Publisher/async result、dictionary/
 character arena String backend、arbitrary object storage 或开放 runtime strategy SPI。
+
+SQL execution/type/constraint 设计可以作为输入，但 V1 不增加 SQL/DDL/DML/DQL
+兼容面、foreign key、table reference、runtime schema mutation 或通用数据库 API。
 
 专用 priority queue、event heap、grid adapter、solver policy 和 domain cache 可以由 application 持有。SOMA 只吸收被多个目标场景证明为稳定、通用且能保持上述不变量的能力。
 

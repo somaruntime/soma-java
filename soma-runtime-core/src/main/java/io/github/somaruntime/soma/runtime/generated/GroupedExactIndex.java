@@ -27,6 +27,10 @@ public final class GroupedExactIndex {
     private int[] rowGroups;
     private int[] rowPrevious;
     private int[] rowNext;
+    private long[] groupBitmaps;
+    private int bitmapWordsPerGroup;
+    private final boolean bitmapEligible;
+    private boolean bitmapLayout;
 
     private int groupCount;
     private int entryCount;
@@ -39,19 +43,33 @@ public final class GroupedExactIndex {
     private long storageHighWaterBytes;
 
     public GroupedExactIndex(int expectedRows) {
-        this(expectedRows, expectedRows);
+        this(expectedRows, expectedRows, false);
     }
 
     /**
      * 分别建立row-link storage与预期exact-group容量，避免把table capacity解释为一行一group。
      */
     public GroupedExactIndex(int expectedRows, int expectedGroups) {
+        this(expectedRows, expectedGroups, false);
+    }
+
+    /**
+     * 为符合公式约束的单字段primitive index启用内部link/bitmap物理选择。
+     *
+     * <p>eligibility只表示该selector允许参与选择；实际布局仍由row/group capacity
+     * 与retained-byte公式确定，不是公开cardinality契约。</p>
+     */
+    public GroupedExactIndex(
+            int expectedRows, int expectedGroups, boolean bitmapEligible) {
         if (expectedRows < 0 || expectedGroups < 0 || expectedGroups > expectedRows) {
             throw new IllegalArgumentException("invalid expected exact-index capacity");
         }
+        this.bitmapEligible = bitmapEligible;
         int rowCapacity = expectedRows;
         int groupCapacity = expectedGroups == 0 ? 4 : expectedGroups;
         int bucketCapacity = bucketCapacityFor(expectedGroups);
+        bitmapLayout = bitmapPreferred(
+                bitmapEligible, rowCapacity, groupCapacity);
         bucketHeads = new int[bucketCapacity];
         groupHashes = new long[groupCapacity];
         nextHashGroups = new int[groupCapacity];
@@ -59,23 +77,43 @@ public final class GroupedExactIndex {
         groupSizes = new int[groupCapacity];
         groupStates = new byte[groupCapacity];
         rowGroups = new int[rowCapacity];
-        rowPrevious = new int[rowCapacity];
-        rowNext = new int[rowCapacity];
+        if (bitmapLayout) {
+            bitmapWordsPerGroup = wordsForRows(rowCapacity);
+            groupBitmaps = new long[bitmapLongCount(
+                    rowCapacity, groupCapacity)];
+            rowPrevious = EMPTY_INTS;
+            rowNext = EMPTY_INTS;
+        } else {
+            groupBitmaps = EMPTY_LONGS;
+            rowPrevious = new int[rowCapacity];
+            rowNext = new int[rowCapacity];
+        }
         Arrays.fill(bucketHeads, NONE);
         Arrays.fill(nextHashGroups, NONE);
         Arrays.fill(groupHeadRows, NONE);
         Arrays.fill(rowGroups, NONE);
-        Arrays.fill(rowPrevious, NONE);
-        Arrays.fill(rowNext, NONE);
+        if (!bitmapLayout) {
+            Arrays.fill(rowPrevious, NONE);
+            Arrays.fill(rowNext, NONE);
+        }
         storageHighWaterBytes = retainedBytes();
     }
 
     public static long estimatedRetainedBytes(int rows, int groups) {
+        return estimatedRetainedBytes(rows, groups, false);
+    }
+
+    public static long estimatedRetainedBytes(
+            int rows, int groups, boolean bitmapEligible) {
         if (rows < 0 || groups < 0 || groups > rows) {
             throw new IllegalArgumentException("invalid exact-index estimate");
         }
         int groupCapacity = groups == 0 ? 4 : groups;
-        return retainedBytes(rows, groupCapacity, bucketCapacityFor(groups));
+        return retainedBytes(
+                rows,
+                groupCapacity,
+                bucketCapacityFor(groups),
+                bitmapPreferred(bitmapEligible, rows, groupCapacity));
     }
 
     public int entryCount() {
@@ -99,7 +137,11 @@ public final class GroupedExactIndex {
     }
 
     public long retainedBytes() {
-        return retainedBytes(rowGroups.length, groupHashes.length, bucketHeads.length);
+        return retainedBytes(
+                rowGroups.length,
+                groupHashes.length,
+                bucketHeads.length,
+                bitmapLayout);
     }
 
     public long storageHighWaterBytes() {
@@ -108,10 +150,13 @@ public final class GroupedExactIndex {
 
     public long retainedBytesAfterEnsure(int requiredRows, int additionalGroups) {
         validateCapacityRequest(requiredRows, additionalGroups);
+        int rows = targetRowCapacity(requiredRows);
+        int groups = targetGroupCapacity(additionalGroups);
         return retainedBytes(
-                targetRowCapacity(requiredRows),
-                targetGroupCapacity(additionalGroups),
-                targetBucketCapacity(additionalGroups));
+                rows,
+                groups,
+                targetBucketCapacity(additionalGroups),
+                bitmapPreferred(bitmapEligible, rows, groups));
     }
 
     /**
@@ -125,23 +170,20 @@ public final class GroupedExactIndex {
         boolean growRows = targetRows != rowGroups.length;
         boolean growGroups = targetGroups != groupHashes.length;
         boolean growBuckets = targetBuckets != bucketHeads.length;
-        if (!growRows && !growGroups && !growBuckets) return;
+        boolean targetBitmap = bitmapPreferred(
+                bitmapEligible, targetRows, targetGroups);
+        boolean changeLayout = targetBitmap != bitmapLayout;
+        if (!growRows && !growGroups && !growBuckets && !changeLayout) return;
 
         int[] newRowGroups = growRows
                 ? Arrays.copyOf(rowGroups, targetRows) : rowGroups;
-        int[] newRowPrevious = growRows
-                ? Arrays.copyOf(rowPrevious, targetRows) : rowPrevious;
-        int[] newRowNext = growRows
-                ? Arrays.copyOf(rowNext, targetRows) : rowNext;
         if (growRows) {
             Arrays.fill(newRowGroups, rowGroups.length, targetRows, NONE);
-            Arrays.fill(newRowPrevious, rowPrevious.length, targetRows, NONE);
-            Arrays.fill(newRowNext, rowNext.length, targetRows, NONE);
         }
 
         long[] newGroupHashes = growGroups
                 ? Arrays.copyOf(groupHashes, targetGroups) : groupHashes;
-        int[] newGroupHeads = growGroups
+        int[] newGroupHeads = growGroups || targetBitmap || bitmapLayout
                 ? Arrays.copyOf(groupHeadRows, targetGroups) : groupHeadRows;
         int[] newGroupSizes = growGroups
                 ? Arrays.copyOf(groupSizes, targetGroups) : groupSizes;
@@ -152,6 +194,70 @@ public final class GroupedExactIndex {
         if (growGroups) {
             Arrays.fill(newGroupHeads, groupHeadRows.length, targetGroups, NONE);
             Arrays.fill(newNextGroups, nextHashGroups.length, targetGroups, NONE);
+        }
+
+        int[] newRowPrevious;
+        int[] newRowNext;
+        long[] newGroupBitmaps;
+        int newBitmapWords;
+        if (targetBitmap) {
+            newBitmapWords = wordsForRows(targetRows);
+            newGroupBitmaps = new long[bitmapLongCount(
+                    targetRows, targetGroups)];
+            Arrays.fill(newGroupHeads, NONE);
+            for (int row = 0; row < newRowGroups.length; row++) {
+                int group = newRowGroups[row];
+                if (group == NONE) continue;
+                setBitmap(
+                        newGroupBitmaps,
+                        newBitmapWords,
+                        group,
+                        row);
+                if (newGroupHeads[group] == NONE) {
+                    newGroupHeads[group] = row;
+                }
+            }
+            newRowPrevious = EMPTY_INTS;
+            newRowNext = EMPTY_INTS;
+        } else {
+            newBitmapWords = 0;
+            newGroupBitmaps = EMPTY_LONGS;
+            if (!bitmapLayout) {
+                newRowPrevious = growRows
+                        ? Arrays.copyOf(rowPrevious, targetRows)
+                        : rowPrevious;
+                newRowNext = growRows
+                        ? Arrays.copyOf(rowNext, targetRows)
+                        : rowNext;
+                if (growRows) {
+                    Arrays.fill(
+                            newRowPrevious,
+                            rowPrevious.length,
+                            targetRows,
+                            NONE);
+                    Arrays.fill(
+                            newRowNext,
+                            rowNext.length,
+                            targetRows,
+                            NONE);
+                }
+            } else {
+                newRowPrevious = new int[targetRows];
+                newRowNext = new int[targetRows];
+                Arrays.fill(newRowPrevious, NONE);
+                Arrays.fill(newRowNext, NONE);
+                Arrays.fill(newGroupHeads, NONE);
+                for (int row = targetRows - 1; row >= 0; row--) {
+                    int group = newRowGroups[row];
+                    if (group == NONE) continue;
+                    int previousHead = newGroupHeads[group];
+                    newRowNext[row] = previousHead;
+                    if (previousHead != NONE) {
+                        newRowPrevious[previousHead] = row;
+                    }
+                    newGroupHeads[group] = row;
+                }
+            }
         }
 
         int[] newBucketHeads = bucketHeads;
@@ -169,6 +275,9 @@ public final class GroupedExactIndex {
         rowGroups = newRowGroups;
         rowPrevious = newRowPrevious;
         rowNext = newRowNext;
+        groupBitmaps = newGroupBitmaps;
+        bitmapWordsPerGroup = newBitmapWords;
+        bitmapLayout = targetBitmap;
         groupHashes = newGroupHashes;
         groupHeadRows = newGroupHeads;
         groupSizes = newGroupSizes;
@@ -262,7 +371,29 @@ public final class GroupedExactIndex {
 
     public int nextRow(int row) {
         requireLinkedRow(row);
+        if (bitmapLayout) {
+            return nextBitmapRow(rowGroups[row], row + 1);
+        }
         return rowNext[row];
+    }
+
+    public boolean bitmapLayout() {
+        return bitmapLayout;
+    }
+
+    public int bitmapWordCount() {
+        return bitmapLayout ? bitmapWordsPerGroup : 0;
+    }
+
+    public long bitmapWord(int group, int word) {
+        requireLiveGroup(group);
+        if (!bitmapLayout) {
+            throw new IllegalStateException("exact-index is not bitmap-backed");
+        }
+        if (word < 0 || word >= bitmapWordsPerGroup) {
+            throw new IllegalArgumentException("bitmap word is outside exact-index capacity");
+        }
+        return groupBitmaps[group * bitmapWordsPerGroup + word];
     }
 
     /** Returns whether the packed Index currently participates in this exact index. */
@@ -279,10 +410,17 @@ public final class GroupedExactIndex {
         }
         int previousHead = groupHeadRows[group];
         rowGroups[row] = group;
-        rowPrevious[row] = NONE;
-        rowNext[row] = previousHead;
-        if (previousHead != NONE) rowPrevious[previousHead] = row;
-        groupHeadRows[group] = row;
+        if (bitmapLayout) {
+            setBitmap(groupBitmaps, bitmapWordsPerGroup, group, row);
+            if (previousHead == NONE || row < previousHead) {
+                groupHeadRows[group] = row;
+            }
+        } else {
+            rowPrevious[row] = NONE;
+            rowNext[row] = previousHead;
+            if (previousHead != NONE) rowPrevious[previousHead] = row;
+            groupHeadRows[group] = row;
+        }
         groupSizes[group]++;
         entryCount++;
     }
@@ -290,11 +428,18 @@ public final class GroupedExactIndex {
     public void unlink(int row) {
         requireLinkedRow(row);
         int group = rowGroups[row];
-        int previous = rowPrevious[row];
-        int next = rowNext[row];
-        if (previous == NONE) groupHeadRows[group] = next;
-        else rowNext[previous] = next;
-        if (next != NONE) rowPrevious[next] = previous;
+        if (bitmapLayout) {
+            clearBitmap(groupBitmaps, bitmapWordsPerGroup, group, row);
+            if (groupHeadRows[group] == row) {
+                groupHeadRows[group] = nextBitmapRow(group, row + 1);
+            }
+        } else {
+            int previous = rowPrevious[row];
+            int next = rowNext[row];
+            if (previous == NONE) groupHeadRows[group] = next;
+            else rowNext[previous] = next;
+            if (next != NONE) rowPrevious[next] = previous;
+        }
         clearRowLink(row);
         groupSizes[group]--;
         entryCount--;
@@ -310,14 +455,23 @@ public final class GroupedExactIndex {
             throw new IllegalArgumentException("relocation destination is linked");
         }
         int group = rowGroups[from];
-        int previous = rowPrevious[from];
-        int next = rowNext[from];
-        rowGroups[to] = group;
-        rowPrevious[to] = previous;
-        rowNext[to] = next;
-        if (previous == NONE) groupHeadRows[group] = to;
-        else rowNext[previous] = to;
-        if (next != NONE) rowPrevious[next] = to;
+        if (bitmapLayout) {
+            clearBitmap(groupBitmaps, bitmapWordsPerGroup, group, from);
+            setBitmap(groupBitmaps, bitmapWordsPerGroup, group, to);
+            rowGroups[to] = group;
+            if (groupHeadRows[group] == from || to < groupHeadRows[group]) {
+                groupHeadRows[group] = nextBitmapRow(group, 0);
+            }
+        } else {
+            int previous = rowPrevious[from];
+            int next = rowNext[from];
+            rowGroups[to] = group;
+            rowPrevious[to] = previous;
+            rowNext[to] = next;
+            if (previous == NONE) groupHeadRows[group] = to;
+            else rowNext[previous] = to;
+            if (next != NONE) rowPrevious[next] = to;
+        }
         clearRowLink(from);
     }
 
@@ -328,8 +482,12 @@ public final class GroupedExactIndex {
         Arrays.fill(groupHeadRows, NONE);
         Arrays.fill(groupSizes, 0);
         Arrays.fill(rowGroups, NONE);
-        Arrays.fill(rowPrevious, NONE);
-        Arrays.fill(rowNext, NONE);
+        if (bitmapLayout) {
+            Arrays.fill(groupBitmaps, 0L);
+        } else {
+            Arrays.fill(rowPrevious, NONE);
+            Arrays.fill(rowNext, NONE);
+        }
         groupCount = 0;
         entryCount = 0;
         nextGroupSlot = 0;
@@ -370,6 +528,9 @@ public final class GroupedExactIndex {
         rowGroups = EMPTY_INTS;
         rowPrevious = EMPTY_INTS;
         rowNext = EMPTY_INTS;
+        groupBitmaps = EMPTY_LONGS;
+        bitmapWordsPerGroup = 0;
+        bitmapLayout = false;
         groupCount = 0;
         entryCount = 0;
         nextGroupSlot = 0;
@@ -433,8 +594,10 @@ public final class GroupedExactIndex {
 
     private void clearRowLink(int row) {
         rowGroups[row] = NONE;
-        rowPrevious[row] = NONE;
-        rowNext[row] = NONE;
+        if (!bitmapLayout) {
+            rowPrevious[row] = NONE;
+            rowNext[row] = NONE;
+        }
     }
 
     private void requireLinkedRow(int row) {
@@ -461,15 +624,85 @@ public final class GroupedExactIndex {
         if (current > storageHighWaterBytes) storageHighWaterBytes = current;
     }
 
-    private static long retainedBytes(int rows, int groups, int buckets) {
+    private static long retainedBytes(
+            int rows, int groups, int buckets, boolean bitmap) {
         long groupBytes = 21L * (long) groups;
-        long rowBytes = 12L * (long) rows;
+        long rowBytes = 4L * (long) rows;
+        if (bitmap) {
+            long bitmapBytes = bitmapBytes(rows, groups);
+            if (bitmapBytes == Long.MAX_VALUE
+                    || Long.MAX_VALUE - rowBytes < bitmapBytes) {
+                return Long.MAX_VALUE;
+            }
+            rowBytes += bitmapBytes;
+        } else {
+            rowBytes += 8L * (long) rows;
+        }
         long bucketBytes = 4L * (long) buckets;
         if (Long.MAX_VALUE - groupBytes < rowBytes
                 || Long.MAX_VALUE - groupBytes - rowBytes < bucketBytes) {
             return Long.MAX_VALUE;
         }
         return groupBytes + rowBytes + bucketBytes;
+    }
+
+    private int nextBitmapRow(int group, int fromInclusive) {
+        if (fromInclusive < 0) fromInclusive = 0;
+        if (fromInclusive >= rowGroups.length) return NONE;
+        int word = fromInclusive >>> 6;
+        long bits = groupBitmaps[group * bitmapWordsPerGroup + word]
+                & (-1L << (fromInclusive & 63));
+        while (true) {
+            if (bits != 0L) {
+                int row = (word << 6) + Long.numberOfTrailingZeros(bits);
+                return row < rowGroups.length ? row : NONE;
+            }
+            word++;
+            if (word >= bitmapWordsPerGroup) return NONE;
+            bits = groupBitmaps[group * bitmapWordsPerGroup + word];
+        }
+    }
+
+    private static boolean bitmapPreferred(
+            boolean eligible, int rows, int groups) {
+        if (!eligible || rows <= 0 || groups <= 0) return false;
+        long words = (long) wordsForRows(rows);
+        long bitmapLongs = words * (long) groups;
+        if (bitmapLongs > Integer.MAX_VALUE - 8L) return false;
+        long bitmapBytes = bitmapLongs * 8L;
+        long linkMembershipBytes = 8L * (long) rows;
+        long tailAllowance = 8L * (long) groups;
+        return bitmapBytes <= linkMembershipBytes + tailAllowance;
+    }
+
+    private static long bitmapBytes(int rows, int groups) {
+        long count = (long) wordsForRows(rows) * (long) groups;
+        return count > Long.MAX_VALUE / 8L
+                ? Long.MAX_VALUE : count * 8L;
+    }
+
+    private static int bitmapLongCount(int rows, int groups) {
+        long count = (long) wordsForRows(rows) * (long) groups;
+        if (count > Integer.MAX_VALUE - 8L) {
+            throw new IllegalArgumentException("exact-index bitmap capacity exhausted");
+        }
+        return (int) count;
+    }
+
+    private static int wordsForRows(int rows) {
+        return (int) (((long) rows + 63L) >>> 6);
+    }
+
+    private static void setBitmap(
+            long[] bitmap, int words, int group, int row) {
+        int offset = group * words + (row >>> 6);
+        bitmap[offset] |= 1L << (row & 63);
+    }
+
+    private static void clearBitmap(
+            long[] bitmap, int words, int group, int row) {
+        int offset = group * words + (row >>> 6);
+        bitmap[offset] &= ~(1L << (row & 63));
     }
 
     private static int grownCapacity(int current, int required, boolean minimumFour) {

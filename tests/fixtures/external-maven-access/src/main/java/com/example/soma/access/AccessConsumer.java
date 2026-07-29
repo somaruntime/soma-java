@@ -30,7 +30,9 @@ import io.github.somaruntime.soma.runtime.metadata.SomaTableRuntimeMetadata;
 import io.github.somaruntime.soma.runtime.generated.GroupedExactIndex;
 import io.github.somaruntime.soma.runtime.generated.HashCompositeKeySpace;
 import io.github.somaruntime.soma.dataflow.DataFlowContext;
+import io.github.somaruntime.soma.dataflow.DataFlowDefinition;
 import io.github.somaruntime.soma.dataflow.LongColumnResult;
+import io.github.somaruntime.soma.dataflow.LongScalarResult;
 
 import java.util.List;
 
@@ -506,6 +508,27 @@ public final class AccessConsumer {
                     .addValues(40, 2, 2, 20));
             AccessRecordDataFlow.Source source =
                     AccessRecordDataFlow.source("records");
+            DataFlowDefinition<LongScalarResult> intersection =
+                    source.candidatesByState(2)
+                            .filter(source.columns().group().equalTo(1L))
+                            .count();
+            require(intersection.compile().explain().physicalPlan()
+                            .contains("bitmap-intersection-or-exact-filter"),
+                    "exact equality intersection enters physical formula");
+            require(intersection.compile()
+                            .newInvocation(context)
+                            .bind(source, AccessRecordDataFlow.bind(table))
+                            .execute().value() == 2L,
+                    "bitmap exact equality intersection");
+            require(source.candidatesByState(2)
+                            .filter(source.columns().group()
+                                    .equalTo(Long.MAX_VALUE))
+                            .count()
+                            .compile()
+                            .newInvocation(context)
+                            .bind(source, AccessRecordDataFlow.bind(table))
+                            .execute().value() == 0L,
+                    "out-of-carrier-range exact equality remains empty");
             LongColumnResult result = source.candidates()
                     .filter(source.columns().state().equalTo(2L))
                     .sortedBy(source.columns().score().descending()

@@ -8,8 +8,8 @@ import io.github.somaruntime.soma.runtime.metadata.SomaPrimaryLocatorLayout;
 public final class RuntimeCompatibility {
     public static final String GENERATED_TARGET = "java8-columnar";
     public static final String COMPILER_IDENTITY = "soma-value-javac8-v1";
-    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v11";
-    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v11";
+    public static final String GENERATED_PROTOCOL = "soma-generated-runtime-v12";
+    public static final String RUNTIME_COMPATIBILITY = "soma-runtime-java8-v12";
     public static final String PLAN_PROTOCOL = "soma-runtime-plan-v6";
     public static final String STORAGE_LAYOUT_FORMULA =
             "soma-storage-layout-v1";

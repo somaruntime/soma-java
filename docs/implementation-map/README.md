@@ -10,11 +10,11 @@ Owner：SOMA Java 实现导航
 
 非事实范围：规范性设计、未来计划和实现正确性裁决
 
-最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 Implementation Map 是当前代码的简短投影。代码变化后，以代码为当前事实并更新这里；不得为保持本地图“正确”而扭曲实现。
 
@@ -30,9 +30,10 @@ Implementation Map 是当前代码的简短投影。代码变化后，以代码�
 
 “实现核对基线”通常是最后一次影响对应 surface 的 immutable commit；working-tree
 candidate 必须显式标注 base 和内容身份，不能冒充 commit。当前 candidate 已完成
-Metadata/Group/String、受限 storage/locator/Candidate/relation、bounded morsel
-scheduler、Invocation resource ledger、Eager + callback-scoped delivery、
-runtime observation、三个 Example Group ownership 和 runtime-scale qualification。
-精确 executable identity 与 Gate 结果由各地图及
-[综合治理报告](../../reports/2026-07-28-runtime-boundary-group-scale-readiness-governance-report.md)
+Metadata/Group/String、logical type facade、numeric closed kernel、
+formula-bound Bitmap、primitive join runtime filter、受限 storage/locator/
+Candidate/relation、bounded morsel scheduler、Invocation resource ledger、
+Eager + callback-scoped delivery、runtime observation、三个 Example 审计和
+Corretto runtime-scale qualification。精确 executable identity 与 Gate 结果由
+各地图及[本轮治理报告](../../reports/2026-07-29-soma-logical-semantics-and-execution-engine-governance-report.md)
 追踪；更早 slice 提交链不在地图中重复。

@@ -89,15 +89,17 @@ final class RuntimeScaleQualificationWorkloads {
             String lane, QualificationConfig config) {
         if ("small-fast".equals(lane)) return smallFast(config);
         if ("medium".equals(lane)) return medium(config);
-        if ("1m".equals(lane)) return million(config);
-        if ("10m".equals(lane)) return tenMillion(config);
-        if ("100m-single".equals(lane)) {
+        if ("1m-single".equals(lane)) return millionSingle(config);
+        if ("1m-double".equals(lane)) return millionDouble(config);
+        if ("string".equals(lane)) return stringQualification(config);
+        if ("10m-research".equals(lane)) return tenMillion(config);
+        if ("100m-single-stress".equals(lane)) {
             return hundredMillionSingle(config);
         }
-        if ("100m-double".equals(lane)) {
+        if ("100m-double-stress".equals(lane)) {
             return hundredMillionDouble(config);
         }
-        if ("100m-string".equals(lane)) {
+        if ("100m-string-stress".equals(lane)) {
             return hundredMillionString(config);
         }
         if ("expansion".equals(lane)) return expansion(config);
@@ -304,56 +306,42 @@ final class RuntimeScaleQualificationWorkloads {
         return result;
     }
 
-    private static QualificationObservation million(
+    private static QualificationObservation millionSingle(
             QualificationConfig config) {
         final int rows = 1_000_000;
         QualificationObservation result =
-                begin("1m", "production-exact-v1", rows, rows);
-        result.structuralBytesPerRow = 73;
-        result.stringProfile =
-                "payload:length=12..28,cardinality=4096,sharing=high;"
-                        + "access:length=10..32,cardinality=1000000,"
-                        + "sharing=key/unique-low,index-high;"
-                        + "roles=payload,key,unique,index,group,join";
+                begin("1m-single", "production-exact-v1", rows, 0);
+        result.structuralBytesPerRow = 20;
+        result.stringProfile = "not-applicable";
         result.timeoutSeconds = 1_200L;
-        result.retainedReachableStringBytesModel = checkedAdd(
-                payloadProfile(4_096, 1, false)
-                        .estimatedReachableBytes(),
-                accessProfile(rows).estimatedReachableBytes());
         Probe probe = new Probe();
         RuntimePlan plan = plan(
-                rows, rows, rows,
-                3L * GIB, 6L * GIB,
-                payloadProfile(4_096, 1, false),
-                accessProfile(rows));
+                rows, 1, 1,
+                2L * GIB, 4L * GIB,
+                payloadProfile(1, 1, false),
+                accessProfile(1));
         ScaleSet set = ScaleSet.create(
-                "million", plan, true, true, true);
+                "million-single", plan, true, false, false);
         long checksum = 0L;
-        boolean weakReferenceCleared;
         int windowCount;
         try {
             set.numeric.reserve(rows);
-            set.strings.reserve(rows);
-            set.access.reserve(rows);
             loadNumeric(set.numeric, rows, 0L);
-            loadSharedStrings(
-                    set.strings, rows, stringPool(4_096, "million"));
-            loadStringAccess(set.access, rows, "million", 4_096);
 
             require(set.numeric.containsKey(999_999L),
-                    "1m point");
-            require(set.access.containsKey("million-id-999999")
-                            && set.access.containsByUniqueAlias(
-                            "million-alias-999999")
-                            && set.access.scanByBucket(
-                            "million-bucket-4095").count() > 0L,
-                    "1m String exact selectors");
+                    "single 1m point");
 
             DataFlowContext context = DataFlowContext.managedParallel(4);
             try {
                 NumericRun sum = numericSum(set.numeric, context);
                 require(sum.value == expectedMetricSum(rows),
-                        "1m sum");
+                        "single 1m closed numeric sum");
+                require(sum.stats.resources().outputCurrentBytes() == 0L
+                                && sum.stats.resources()
+                                .sharedScratchCurrentBytes() == 0L
+                                && sum.stats.resources()
+                                .workerScratchCurrentBytes() == 0L,
+                        "single 1m invocation ledger drained");
                 checksum = mix(checksum, sum.value);
             } finally {
                 context.close();
@@ -377,47 +365,246 @@ final class RuntimeScaleQualificationWorkloads {
             set.numeric.applyDelta(delta);
             require(set.numeric.fetch(999_999L).metric == 9_999L
                             && set.numeric.structuralEpoch() == epoch + 1L,
-                    "1m changed-row Delta");
+                    "single 1m changed-row Delta");
             checksum = mix(checksum, set.numeric.fetch(999_999L).metric);
-
-            int middle = rows / 2;
-            String retained = set.strings.fetchAt(middle).label;
-            long stringEpoch = set.strings.structuralEpoch();
-            set.strings.mutateAt(middle)
-                    .setLabel(new String(retained)).commit();
-            require(set.strings.structuralEpoch() == stringEpoch,
-                    "1m String no-op");
-            require(set.strings.fetchAt(1).note != null
-                            && set.strings.fetchAt(0).note == null,
-                    "1m String presence");
             observeGroup(result, set.group.metadata());
         } finally {
             releaseAndObserve(result, set.group);
         }
-        WeakReference<String> released = releasedStringReference();
-        weakReferenceCleared = awaitCollected(released, 16);
-        require(weakReferenceCleared,
-                "1m String actual JVM GC observation");
         result.workload = BenchmarkModel.object(
-                "identity", "one-million-production-shape-v1",
+                "identity", "one-million-single-numeric-root-v1",
                 "operations", Arrays.asList(
                         "point", "exact", "scan", "column", "batch",
                         "delta", "join", "group", "window",
-                        "string-selector", "string-presence",
-                        "string-noop", "string-gc"),
+                        "closed-numeric-kernel", "release"),
                 "rows", Integer.valueOf(rows));
         result.observation = BenchmarkModel.object(
                 "windowCount", Integer.valueOf(windowCount),
-                "weakReferenceCleared",
-                Boolean.valueOf(weakReferenceCleared),
-                "stringBackend", "reference-backed-v1",
                 "deltaFormula",
-                io.github.somaruntime.soma.runtime.DeltaStagingFormula.IDENTITY);
+                io.github.somaruntime.soma.runtime.DeltaStagingFormula.IDENTITY,
+                "singleActualResidentRoot", Boolean.TRUE);
         result.checksum = hex(checksum);
         result.limitations = BenchmarkModel.limitations(
                 LOCAL_LIMITATION,
-                "String reachable bytes are declared/modelled separately "
-                        + "from observed JVM heap");
+                "1M guarantee is bounded to this narrow numeric-Key "
+                        + "production shape");
+        probe.finish(result);
+        return result;
+    }
+
+    private static QualificationObservation millionDouble(
+            QualificationConfig config) {
+        final int rows = 1_000_000;
+        QualificationObservation result =
+                begin("1m-double", "production-exact-v1", rows, rows);
+        result.structuralBytesPerRow = 20;
+        result.stringProfile = "not-applicable";
+        result.timeoutSeconds = 1_800L;
+        result.resourceBudget =
+                "Xmx>=4GiB;two simultaneous 1M numeric roots;"
+                        + "bounded relation <=65536 candidates";
+        Probe probe = new Probe();
+        RuntimePlan plan = plan(
+                rows, 1, 1,
+                2L * GIB, 4L * GIB,
+                payloadProfile(1, 1, false),
+                accessProfile(1));
+        NumericPair pair = NumericPair.create(
+                "million-double", plan);
+        long checksum = 0L;
+        long leftSum;
+        long rightSum;
+        long minMaxJoin;
+        long bloomJoin;
+        long fallbackJoin;
+        long crossGroupJoin;
+        try {
+            pair.left.reserve(rows);
+            pair.right.reserve(rows);
+            loadNumeric(pair.left, rows, 0L);
+            loadNumeric(pair.right, rows, 0L);
+            require(pair.left.size() == rows
+                            && pair.right.size() == rows,
+                    "two Tables are actually 1M");
+            DataFlowContext context =
+                    DataFlowContext.managedParallel(4);
+            try {
+                leftSum = numericSum(pair.left, context).value;
+                rightSum = numericSum(pair.right, context).value;
+            } finally {
+                context.close();
+            }
+            require(leftSum == expectedMetricSum(rows)
+                            && rightSum == expectedMetricSum(rows),
+                    "double 1m aggregate oracle");
+            minMaxJoin = numericMinMaxJoin(
+                    pair.left, pair.right, 8_192L);
+            require(minMaxJoin == 8_192L,
+                    "double 1m min/max-filtered relation");
+            bloomJoin = numericBloomJoin(
+                    pair.left, pair.right, 127L);
+            require(bloomJoin == (rows + 127L) / 128L,
+                    "double 1m Bloom-filtered relation");
+            fallbackJoin = numericJoin(
+                    pair.left, pair.right, 65_536);
+            require(fallbackJoin == 65_536L,
+                    "double 1m dense fallback relation");
+            RuntimePlan smallPlan = plan(
+                    4_096, 1, 1,
+                    512L * MIB, 1L * GIB,
+                    payloadProfile(1, 1, false),
+                    accessProfile(1));
+            ScaleSet external = ScaleSet.create(
+                    "million-double-cross-group",
+                    smallPlan, true, false, false);
+            try {
+                loadNumeric(external.numeric, 4_096, 0L);
+                crossGroupJoin = numericJoin(
+                        pair.left, external.numeric, 4_096);
+                require(crossGroupJoin == 4_096L,
+                        "double 1m cross-Group bounded relation");
+            } finally {
+                external.group.release();
+            }
+            checksum = mix(checksum, leftSum);
+            checksum = mix(checksum, rightSum);
+            checksum = mix(checksum, minMaxJoin);
+            checksum = mix(checksum, bloomJoin);
+            checksum = mix(checksum, fallbackJoin);
+            checksum = mix(checksum, crossGroupJoin);
+            observeGroup(result, pair.group.metadata());
+        } finally {
+            releaseAndObserve(result, pair.group);
+        }
+        result.workload = BenchmarkModel.object(
+                "identity", "one-million-double-numeric-root-v1",
+                "leftRows", Integer.valueOf(rows),
+                "rightRows", Integer.valueOf(rows),
+                "operations", Arrays.asList(
+                        "reserve-both", "load-both",
+                        "closed-numeric-sum-both",
+                        "minmax-filtered-join",
+                        "bloom-filtered-join",
+                        "dense-fallback-join",
+                        "cross-group-bounded-join", "release"));
+        result.observation = BenchmarkModel.object(
+                "bothActualResident", Boolean.TRUE,
+                "leftSum", Long.valueOf(leftSum),
+                "rightSum", Long.valueOf(rightSum),
+                "minMaxJoinRows", Long.valueOf(minMaxJoin),
+                "bloomJoinRows", Long.valueOf(bloomJoin),
+                "fallbackJoinRows", Long.valueOf(fallbackJoin),
+                "crossGroupJoinRows", Long.valueOf(crossGroupJoin));
+        result.checksum = hex(checksum);
+        result.limitations = BenchmarkModel.limitations(
+                LOCAL_LIMITATION,
+                "double-1M guarantee is bounded to two simultaneous "
+                        + "narrow numeric roots");
+        probe.finish(result);
+        return result;
+    }
+
+    private static QualificationObservation stringQualification(
+            QualificationConfig config) {
+        final int rows = 1_000_000;
+        final int cardinality = 4_096;
+        QualificationObservation result =
+                begin("string", "production-exact-v1", rows, rows);
+        result.structuralBytesPerRow = 73;
+        result.stringProfile =
+                "payload:length=12..48,cardinality=4096,sharing=high;"
+                        + "access:length=10..32,cardinality=1000000,"
+                        + "sharing=key/unique-low,index-high;"
+                        + "roles=payload,key,unique,index,group,join;"
+                        + "simultaneouslyLiveTables=2";
+        result.timeoutSeconds = 1_800L;
+        result.retainedReachableStringBytesModel = checkedAdd(
+                payloadProfile(cardinality, 1, false)
+                        .estimatedReachableBytes(),
+                accessProfile(rows).estimatedReachableBytes());
+        Probe probe = new Probe();
+        RuntimePlan plan = plan(
+                1, rows, rows,
+                3L * GIB, 6L * GIB,
+                payloadProfile(cardinality, 1, false),
+                accessProfile(rows));
+        ScaleSet set = ScaleSet.create(
+                "string-qualification", plan, false, true, true);
+        long checksum = 0L;
+        boolean weakReferenceCleared;
+        WeakReference<String> retainedString;
+        long relationRows;
+        int groups;
+        try {
+            set.strings.reserve(rows);
+            set.access.reserve(rows);
+            String[] pool = stringPool(
+                    cardinality, "string-qualification");
+            loadSharedStrings(set.strings, rows, pool);
+            loadStringAccess(
+                    set.access, rows, "string-qualification", cardinality);
+            require(set.access.containsKey(
+                                    "string-qualification-id-999999")
+                            && set.access.containsByUniqueAlias(
+                                    "string-qualification-alias-999999")
+                            && set.access.scanByBucket(
+                                    "string-qualification-bucket-4095")
+                            .count() > 0L,
+                    "String Key/Unique/Index");
+            require(stringCount(set.strings) == rows
+                            && stringEqualsCount(
+                            set.strings, pool[0]) > 0L,
+                    "String payload scan/equality");
+            relationRows =
+                    verifyStringRelation(set.strings, cardinality);
+            groups = verifyStringGroup(
+                    set.strings, cardinality);
+            require(relationRows > 0L
+                            && groups == cardinality,
+                    "String Group/Join");
+
+            retainedString = mutateTrackedString(
+                    set.strings, rows / 2);
+            require(set.strings.fetchAt(1).note != null
+                            && set.strings.fetchAt(0).note == null,
+                    "String presence");
+            checksum = mix(checksum, relationRows);
+            checksum = mix(checksum, groups);
+            checksum = mix(checksum, set.access.size());
+            set.strings.clear();
+            set.access.clear();
+            require(set.strings.size() == 0
+                            && set.access.size() == 0,
+                    "String clear");
+            observeGroup(result, set.group.metadata());
+        } finally {
+            releaseAndObserve(result, set.group);
+        }
+        weakReferenceCleared = awaitCollected(retainedString, 16);
+        require(weakReferenceCleared,
+                "actual 1M String Table release JVM GC observation");
+        result.workload = BenchmarkModel.object(
+                "identity", "one-million-reference-string-v1",
+                "payloadRows", Integer.valueOf(rows),
+                "accessRows", Integer.valueOf(rows),
+                "operations", Arrays.asList(
+                        "payload", "key", "unique", "index",
+                        "group", "join", "arbitrary-length-mutation",
+                        "equal-value-noop", "presence",
+                        "clear", "release", "gc"));
+        result.observation = BenchmarkModel.object(
+                "stringBackend", "reference-backed-v1",
+                "relationRows", Long.valueOf(relationRows),
+                "groups", Integer.valueOf(groups),
+                "weakReferenceCleared",
+                Boolean.valueOf(weakReferenceCleared),
+                "profileEstimator",
+                StringResourceProfile.ESTIMATOR_IDENTITY);
+        result.checksum = hex(checksum);
+        result.limitations = BenchmarkModel.limitations(
+                LOCAL_LIMITATION,
+                "String object bytes remain JVM-owned and are modelled "
+                        + "separately from SOMA structural bytes");
         probe.finish(result);
         return result;
     }
@@ -426,7 +613,7 @@ final class RuntimeScaleQualificationWorkloads {
             QualificationConfig config) {
         final int rows = 10_000_000;
         QualificationObservation result =
-                begin("10m", "production-exact-v1", rows, 65_536);
+                begin("10m-research", "research-stress-v1", rows, 65_536);
         result.structuralBytesPerRow = 41;
         result.stringProfile =
                 "low:length=12..28,cardinality=4096,sharing=high;"
@@ -534,7 +721,7 @@ final class RuntimeScaleQualificationWorkloads {
             QualificationConfig config) {
         final int rows = 100_000_000;
         QualificationObservation result =
-                begin("100m-single", "production-exact-v1", rows, 0);
+                begin("100m-single-stress", "research-stress-v1", rows, 0);
         result.structuralBytesPerRow = 20;
         result.stringProfile = "not-applicable";
         result.timeoutSeconds = 5_400L;
@@ -620,7 +807,7 @@ final class RuntimeScaleQualificationWorkloads {
             QualificationConfig config) {
         final int rows = 100_000_000;
         QualificationObservation result =
-                begin("100m-double", "production-exact-v1", rows, rows);
+                begin("100m-double-stress", "research-stress-v1", rows, rows);
         result.structuralBytesPerRow = 20;
         result.stringProfile = "not-applicable";
         result.timeoutSeconds = 7_200L;
@@ -724,7 +911,7 @@ final class RuntimeScaleQualificationWorkloads {
         final int rows = 100_000_000;
         final int cardinality = 1_024;
         QualificationObservation result =
-                begin("100m-string", "production-exact-v1", rows, rows);
+                begin("100m-string-stress", "research-stress-v1", rows, rows);
         result.structuralBytesPerRow = 21;
         result.stringProfile =
                 "length=18..34;cardinality=1024;"
@@ -973,6 +1160,7 @@ final class RuntimeScaleQualificationWorkloads {
         int earlyStops = 0;
         int typedFailures = 0;
         boolean escapedRejected;
+        WeakReference<String> deliveryString;
         try {
             loadNumeric(set.numeric, rows, 0L);
             loadSharedStrings(
@@ -1185,13 +1373,13 @@ final class RuntimeScaleQualificationWorkloads {
             checksum = mix(checksum, valueChecksum[0]);
             checksum = mix(checksum, callbackModes);
             checksum = mix(checksum, typedFailures);
+            deliveryString = mutateTrackedString(
+                    set.strings, rows / 2);
             observeGroup(result, set.group.metadata());
         } finally {
             releaseAndObserve(result, set.group);
         }
-        WeakReference<String> stringReference =
-                releasedStringReference();
-        boolean stringGc = awaitCollected(stringReference, 16);
+        boolean stringGc = awaitCollected(deliveryString, 16);
         require(stringGc, "delivery String release/GC");
         result.workload = BenchmarkModel.object(
                 "identity", "result-delivery-capability-matrix-v1",
@@ -1797,6 +1985,67 @@ final class RuntimeScaleQualificationWorkloads {
         }
     }
 
+    private static long numericMinMaxJoin(
+            ScaleNumericFactTable leftTable,
+            ScaleNumericFactTable rightTable,
+            long buildExclusive) {
+        ScaleNumericFactDataFlow.Source left =
+                ScaleNumericFactDataFlow.source(0, "minMaxLeft");
+        ScaleNumericFactDataFlow.Source right =
+                ScaleNumericFactDataFlow.source(1, "minMaxRight");
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            return execute(
+                    left.candidates()
+                            .innerJoin(
+                                    right.candidates().filter(
+                                            right.columns().id()
+                                                    .lessThan(buildExclusive)))
+                            .on(
+                                    left.columns().id(),
+                                    right.columns().id())
+                            .count(),
+                    left,
+                    ScaleNumericFactDataFlow.bind(leftTable),
+                    right,
+                    ScaleNumericFactDataFlow.bind(rightTable),
+                    context).value();
+        } finally {
+            context.close();
+        }
+    }
+
+    private static long numericBloomJoin(
+            ScaleNumericFactTable leftTable,
+            ScaleNumericFactTable rightTable,
+            long mask) {
+        ScaleNumericFactDataFlow.Source left =
+                ScaleNumericFactDataFlow.source(0, "bloomLeft");
+        ScaleNumericFactDataFlow.Source right =
+                ScaleNumericFactDataFlow.source(1, "bloomRight");
+        DataFlowContext context = DataFlowContext.sequential();
+        try {
+            return execute(
+                    left.candidates()
+                            .innerJoin(
+                                    right.candidates().filter(
+                                            right.columns().id()
+                                                    .bitwiseAnd(mask)
+                                                    .equalTo(0L)))
+                            .on(
+                                    left.columns().id(),
+                                    right.columns().id())
+                            .count(),
+                    left,
+                    ScaleNumericFactDataFlow.bind(leftTable),
+                    right,
+                    ScaleNumericFactDataFlow.bind(rightTable),
+                    context).value();
+        } finally {
+            context.close();
+        }
+    }
+
     private static int verifyNumericWindow(
             ScaleNumericFactTable table, int limit) {
         ScaleNumericFactDataFlow.Source source =
@@ -2264,27 +2513,24 @@ final class RuntimeScaleQualificationWorkloads {
                 observation.heapUsedPeakBytes, heapUsed());
     }
 
-    private static WeakReference<String> releasedStringReference() {
-        RuntimePlan plan = plan(
-                1, 1, 1,
-                64L * MIB, 256L * MIB,
-                payloadProfile(1, 1, false),
-                accessProfile(1));
-        ScaleSet set = ScaleSet.create(
-                "weak-reference", plan, false, true, false);
+    private static WeakReference<String> mutateTrackedString(
+            ScaleStringFactTable table, int index) {
         String value = new String(
-                "qualification-dead-string-"
-                        + System.nanoTime());
+                "qualification-retained-string-with-different-length");
+        long epoch = table.structuralEpoch();
+        table.mutateAt(index).setLabel(value).commit();
+        require(table.structuralEpoch() == epoch
+                        && table.fetchAt(index).label == value,
+                "String arbitrary-length mutation");
+        long changedEpoch = table.structuralEpoch();
+        table.mutateAt(index)
+                .setLabel(new String(value)).commit();
+        require(table.structuralEpoch() == changedEpoch
+                        && table.fetchAt(index).label == value,
+                "String equal-value no-op retains original reference");
         WeakReference<String> reference =
                 new WeakReference<String>(value);
-        ScaleStringFactBatch batch =
-                new ScaleStringFactBatch(1)
-                        .addValues(1, value, true, value);
-        set.strings.addBatch(batch);
-        batch.clear();
         value = null;
-        set.strings.clear();
-        set.group.release();
         return reference;
     }
 

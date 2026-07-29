@@ -12,11 +12,11 @@ Owner：SOMA reference application / benchmark 实现导航
 
 事实范围：当前三个独立参考应用、领域中性 benchmark 和各自 evidence 的代码入口
 
-最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 聚合与应用入口
 
@@ -103,7 +103,7 @@ compilation 过渡期误记为稳态 p90；workload、fork、阈值和 baseline 
 application profile baseline：
 
 - [`Access component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-corretto8-macos-aarch64-v1.json)；
-- [`DataFlow component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-corretto8-macos-aarch64-v3.json)；
+- [`DataFlow component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-corretto8-macos-aarch64-v4.json)；
 - scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-corretto8-macos-aarch64-v6.json)、
   [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-corretto8-macos-aarch64-v5.json)、
   [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v5.json)；
@@ -125,7 +125,7 @@ JAR。当前没有 public performance claim。
 | Smoke，20 required lanes | 低成本 executable artifact、Access Pattern Card、strict invariant |
 | Access component | direct/Candidate stage、point/key/column、allocation 与 exact cardinality |
 | DataFlow component | direct 对照、固定税、parallel crossover、Effect、delivery 与 stats |
-| Runtime scale，10 required lanes | Small/Medium、1M/10M、single/double 100M、String、Expansion、Delivery、Soak |
+| Runtime scale，8 required + 4 research lanes | required：Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak；research：10M及single/double/String 100M stress |
 | 3 applications × 3 profiles | 三种领域叙事的 default/large/long-run integrated evidence |
 | Generated footprint | compiler specialization 的 source/class family size |
 

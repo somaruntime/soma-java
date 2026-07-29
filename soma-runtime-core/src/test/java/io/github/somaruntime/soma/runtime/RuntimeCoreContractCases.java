@@ -167,11 +167,11 @@ final class RuntimeCoreContractCases {
                         + "\"maximumLeafValues\":50000000,"
                         + "\"maximumOwnershipDepth\":32,\"maximumRows\":1000000,"
                         + "\"maximumTableInstances\":100000},"
-                        + "\"generatedProtocol\":\"soma-generated-runtime-v11\","
+                        + "\"generatedProtocol\":\"soma-generated-runtime-v12\","
                         + "\"maximumAggregateStorageBytes\":16,"
                         + "\"maximumOwnershipTableInstances\":17,"
                         + "\"planProtocol\":\"soma-runtime-plan-v6\","
-                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v11\","
+                        + "\"runtimeCompatibility\":\"soma-runtime-java8-v12\","
                         + "\"schemaHash\":\"schema-v1\",\"statsMode\":\"summary\","
                         + "\"tables\":[" + table.toCanonicalJson() + "]}",
                 plan.toCanonicalJson(), "runtime resource plan canonical order");

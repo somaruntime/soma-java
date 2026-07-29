@@ -12,7 +12,7 @@ Owner：SOMA Java 产品蓝图
 
 设计约束入口：[Design 导航、层次与 Owner](../design/README.md)
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 这份蓝图面向谁
 
@@ -375,9 +375,10 @@ framework、MES adapter 或事务引擎。
 - 一个 bounded scheduler 把 Storage Segment、Parallel Morsel 与 cache/JIT
   Execution Vector 分责；Small/Medium 有 direct fast path，单 Segment 也可在成本
   足够时拆为多个 morsel；
-- Small、Medium、1M、10M、single-100M 和 double-root-100M 均有明确的受约束
-  production-shape qualification；String claim 同时声明长度、cardinality、sharing、
-  field role 与同时存活 Table 数；
+- Small、Medium、单表 1M 和两个同时驻留的 1M root 均有明确的受约束
+  production-shape qualification；10M/100M 继续作为非阻塞 research/stress
+  profile，用于发现扩展性与资源边界，但不构成 V1 readiness 前置条件；
+  String claim 同时声明长度、cardinality、sharing、field role 与同时存活 Table 数；
 - failure、lifecycle 和跨表责任对 application 可见；
 - 示例、测试、benchmark 和 external consumer 能共同验证这里描述的用户旅程。
 
@@ -387,6 +388,9 @@ SOMA Java V1 不以以下能力为目标：
 
 - Python、C ABI、native runtime 或跨语言 FFI；
 - 持久化、SQL/query language、分布式执行、数据库同步或事务；
+- SQL/DDL/DML/DQL 兼容层、foreign key、table reference 或通用数据库接口；现代
+  SQL 系统只作为逻辑语义、类型、约束和执行引擎设计的参考，不改变 SOMA 的
+  schema-specific typed Java 产品定义；
 - off-heap/native 第二存储后端、无限 stream、retained temporal Window 或 automatic incremental view maintenance；
 - dictionary/character arena/intern String backend、任意 Java object/array/DTO/
   Collection graph 的 live schema storage；

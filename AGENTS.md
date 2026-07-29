@@ -2,9 +2,10 @@
 
 `soma_java` 是 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 的
 Java 8 columnar runtime-state computing 项目。当前功能与性能状态以
-Conformance 和 Report 为准；当前G5/G6因Corretto规模与Linux/release evidence
-待补而blocked，不得沿用历史Zulu结论或外推为public、Maven或production
-readiness。
+Conformance 和 Report 为准；当前G0–G5已在记录的Corretto/macOS/aarch64
+profile通过，G6仍因同一最终candidate的clean package/security provenance、
+support-matrix sign-off与manual release qualification而blocked。不得沿用历史
+Zulu结论，也不得把单机evidence外推为public、Maven或production readiness。
 
 ## 必读入口
 

@@ -10,10 +10,11 @@ Owner：SOMA Java 项目实现导航
 
 事实范围：当前 Maven reactor、模块职责、主要产物和顶层执行入口
 
-最近实现核对基线：`e68c4e4` production/evidence identity与当前private-source
-engineering surface
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. Reactor
 

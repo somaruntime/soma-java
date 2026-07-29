@@ -19,7 +19,7 @@ Group/resource admission、plan identity、stats/observation/explain 边界
 
 非事实范围：Java builder 的当前完整方法清单、内部计数器字段、某次统计结果和 benchmark 阈值
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 本 Owner 把 plan 与 observability 放在同一能力边界：plan 决定实例创建时准入哪些资源和观测成本，observability 只能暴露该实例已选择的模式，不能反向引入隐藏策略。当前 builder 方法和计数器布局属于实现事实。
 
@@ -127,6 +127,12 @@ distinct object identity estimate、intra/inter-table sharing、presence ratio�
 payload/Key/Unique/Index/Group/Join role、simultaneously-live Table count 与
 estimator identity。Plan freeze/attach只验证这些声明和checked estimate；profile
 真实性由application负责，qualification负责核对。
+
+该 profile 不是 Schema length、fixed-width layout 或 mutation admission。它在
+Plan freeze 前可修改，freeze 后只描述 caller 预计 workload；append/update 可以
+保存任意合法长度的 String reference。实际长度/cardinality/sharing 偏离 profile
+时，Observation 标明 claim 不适用或需重新 qualification，不得拒绝 value、搬迁
+String payload 或暗中改变 storage backend。
 
 ## 4. Identity 与兼容性
 

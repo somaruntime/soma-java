@@ -179,6 +179,7 @@ final class DenseTableCodegenModel {
     static final class FieldSpec {
         final String javaName;
         final String logicalName;
+        final String semantic;
         /** public/generated Java type；primitive 保持 primitive，enum 保持 FQN。 */
         final String primitive;
         final String boxed;
@@ -195,7 +196,8 @@ final class DenseTableCodegenModel {
         final boolean key;
         final String defaultExpression;
 
-        FieldSpec(String javaName, String logicalName, String primitive,
+        FieldSpec(String javaName, String logicalName, String semantic,
+                  String primitive,
                   String boxed, String storagePrimitive, String columnType,
                   String enumType, String valueType, String valueLeafJavaName,
                   String valueConstructionTemplate, List<ValueLeafSpec> valueLeaves,
@@ -203,6 +205,7 @@ final class DenseTableCodegenModel {
                   boolean optional, boolean key, String defaultExpression) {
             this.javaName = javaName;
             this.logicalName = logicalName;
+            this.semantic = semantic;
             this.primitive = primitive;
             this.boxed = boxed;
             this.storagePrimitive = storagePrimitive;
@@ -287,6 +290,11 @@ final class DenseTableCodegenModel {
             if ("java.lang.String".equals(storagePrimitive)) {
                 return "RuntimeFailures.requiredValue(TABLE," + q(logicalName) + ","
                         + expression + "," + q(operation) + ")";
+            }
+            if ("TIME".equals(semantic)) {
+                return "RuntimeFailures.validTimeNanos(TABLE,"
+                        + q(logicalName) + "," + expression + ","
+                        + q(operation) + ")";
             }
             if ("float".equals(primitive)) {
                 return key ? "KeyCanonicalization.strictFloatStorage(TABLE,"
@@ -626,6 +634,11 @@ final class DenseTableCodegenModel {
             }
             if ("java.lang.String".equals(storagePrimitive)) {
                 return "RuntimeFailures.requiredValue(TABLE,"
+                        + q(owner.logicalName + "." + logicalName) + ","
+                        + expression + "," + q(operation) + ")";
+            }
+            if ("TIME".equals(semantic)) {
+                return "RuntimeFailures.validTimeNanos(TABLE,"
                         + q(owner.logicalName + "." + logicalName) + ","
                         + expression + "," + q(operation) + ")";
             }

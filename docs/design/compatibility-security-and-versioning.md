@@ -66,6 +66,8 @@ semantic slice保持可编译，最终不能留下双 protocol/canonical path：
 | DataFlow `borrow(consumer)` retained in Definition | public/dataflow breaking | callback Definition→Template→Invocation facade；consumer invocation parameter；identity/external evidence |
 | locator/layout formula identity | effective-plan internal breaking | versioned formula/choice identity；production qualification before enable |
 | monolithic stats/metadata projection | public additive/replacement | module-owned Runtime Metadata/Observation/Explain components |
+| enum/date/time/instant 从 raw `LongExpression` 切换为 logical facade | public/generated breaking | clean cutover、旧 signature absence、negative compile、golden/external consumer 与 protocol bump |
+| numeric closed kernel、Bitmap、primitive join runtime filter | internal physical + protocol | reference differential、formula/Explain、budget/lifecycle、fallback 与 kernel/candidate/relation identity bump |
 
 P8 consumer migration只修复 frozen contract；P9才决定 Example 是否存在最佳实践偏差。
 任何旧 adapter、temporary public carrier、reflection fallback 或“legacy + new”并行
@@ -75,14 +77,15 @@ P8 consumer migration只修复 frozen contract；P9才决定 Example 是否存�
 
 Generated artifact、runtime、transformation Template 和 runtime plan 在相应 create/execute boundary 互相验证。当前 identity 为：
 
-- generated protocol：`soma-generated-runtime-v11`；
-- runtime compatibility：`soma-runtime-java8-v11`；
-- transformation protocol：`soma-transformation-v3`；
-- kernel protocol：`soma-kernel-v4`；
+- generated protocol：`soma-generated-runtime-v12`；
+- runtime compatibility：`soma-runtime-java8-v12`；
+- transformation protocol：`soma-transformation-v4`；
+- kernel protocol：`soma-kernel-v5`；
 - runtime plan protocol：`soma-runtime-plan-v6`；
 - storage layout formula：`soma-storage-layout-v1`；
 - primary locator layout formula：`soma-primary-locator-layout-v1`；
-- Candidate physical formula：`soma-candidate-physical-v1`；
+- Candidate physical formula：`soma-candidate-physical-v2`；
+- relation strategy formula：`soma-relation-strategy-v2`；
 - Invocation ledger：`soma-invocation-ledger-v1`；
 - dense storage algorithm：`dense-soa-v1`；
 - materialization estimator：`soma-materialization-estimator-v1`。

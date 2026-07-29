@@ -9,12 +9,46 @@ cd "$root_dir"
 
 soma_require_supported_jdk runtime-scale-qualification
 
-physical_memory_gb=$(system_profiler SPHardwareDataType 2>/dev/null |
-  sed -n 's/^[[:space:]]*Memory: \([0-9][0-9]*\) GB$/\1/p' |
-  head -n 1)
-if [ -z "$physical_memory_gb" ] || [ "$physical_memory_gb" -lt 40 ]; then
+mode=${1:-qualification}
+if [ "$#" -gt 1 ] \
+    || { [ "$mode" != 'qualification' ] && [ "$mode" != 'research' ]; }; then
   printf '%s\n' \
-    "runtime-scale-qualification: at least 40GiB physical memory is required, got ${physical_memory_gb:-unknown}GiB" >&2
+    'usage: scripts/check-runtime-scale-qualification.sh [qualification|research]' >&2
+  exit 2
+fi
+
+physical_memory_bytes=''
+if command -v sysctl >/dev/null 2>&1; then
+  physical_memory_bytes=$(sysctl -n hw.memsize 2>/dev/null || true)
+fi
+if [ -z "$physical_memory_bytes" ] && [ -r /proc/meminfo ]; then
+  physical_memory_kib=$(sed -n \
+    's/^MemTotal:[[:space:]]*\([0-9][0-9]*\)[[:space:]]*kB$/\1/p' \
+    /proc/meminfo | head -n 1)
+  if [ -n "$physical_memory_kib" ]; then
+    physical_memory_bytes=$((physical_memory_kib * 1024))
+  fi
+fi
+if [ -z "$physical_memory_bytes" ] \
+    && command -v getconf >/dev/null 2>&1; then
+  physical_pages=$(getconf _PHYS_PAGES 2>/dev/null || true)
+  page_size=$(getconf PAGE_SIZE 2>/dev/null || true)
+  if [ -n "$physical_pages" ] && [ -n "$page_size" ]; then
+    physical_memory_bytes=$((physical_pages * page_size))
+  fi
+fi
+physical_memory_gb=''
+if [ -n "$physical_memory_bytes" ]; then
+  physical_memory_gb=$((physical_memory_bytes / 1073741824))
+fi
+minimum_memory_gb=12
+if [ "$mode" = 'research' ]; then
+  minimum_memory_gb=40
+fi
+if [ -z "$physical_memory_gb" ] \
+    || [ "$physical_memory_gb" -lt "$minimum_memory_gb" ]; then
+  printf '%s\n' \
+    "runtime-scale-$mode: at least ${minimum_memory_gb}GiB physical memory is required, got ${physical_memory_gb:-unknown}GiB" >&2
   exit 1
 fi
 
@@ -48,9 +82,17 @@ git ls-files -co --exclude-standard -- \
 tree_checksum=$(soma_sha256 "$evidence_dir/source-files.sha256" |
   awk '{print $1}')
 tree_state="content-sha256:$tree_checksum"
-qualification_id="runtime-scale-qualification-20260728-$(printf '%s' "$tree_checksum" | cut -c1-12)"
-cpu_identity=$(system_profiler SPHardwareDataType 2>/dev/null |
-  sed -n 's/^[[:space:]]*Chip: //p' | head -n 1)
+qualification_id="runtime-scale-$mode-20260729-$(printf '%s' "$tree_checksum" | cut -c1-12)"
+cpu_identity=''
+if command -v system_profiler >/dev/null 2>&1; then
+  cpu_identity=$(system_profiler SPHardwareDataType 2>/dev/null |
+    sed -n 's/^[[:space:]]*Chip: //p' | head -n 1)
+fi
+if [ -z "$cpu_identity" ] && [ -r /proc/cpuinfo ]; then
+  cpu_identity=$(sed -n \
+    's/^model name[[:space:]]*:[[:space:]]*//p' \
+    /proc/cpuinfo | head -n 1)
+fi
 if [ -z "$cpu_identity" ]; then
   cpu_identity=$(uname -m)
 fi
@@ -80,52 +122,70 @@ run_lane() {
   "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$output"
 }
 
-run_lane small-fast 512m 2g 300
-run_lane medium 1g 3g 600
-run_lane 1m 2g 6g 1200
-run_lane 10m 4g 10g 2400
-run_lane 100m-single 4g 24g 5400
-run_lane 100m-double 4g 28g 7200
-run_lane 100m-string 4g 12g 7200
-run_lane expansion 512m 2g 300
-run_lane delivery 512m 2g 600
-run_lane soak 512m 2g 1800
+if [ "$mode" = 'qualification' ]; then
+  lanes='small-fast medium 1m-single 1m-double string expansion delivery soak'
+  run_lane small-fast 512m 2g 300
+  run_lane medium 1g 3g 600
+  run_lane 1m-single 1g 4g 1200
+  run_lane 1m-double 1g 4g 1800
+  run_lane string 2g 6g 1800
+  run_lane expansion 512m 2g 300
+  run_lane delivery 512m 2g 600
+  run_lane soak 512m 2g 1800
+else
+  lanes='10m-research 100m-single-stress 100m-double-stress 100m-string-stress'
+  run_lane 10m-research 4g 10g 2400
+  run_lane 100m-single-stress 4g 24g 5400
+  run_lane 100m-double-stress 4g 28g 7200
+  run_lane 100m-string-stress 4g 12g 7200
+fi
 
-artifact=$evidence_dir/runtime-scale-qualification.jsonl
-for lane in \
-  small-fast \
-  medium \
-  1m \
-  10m \
-  100m-single \
-  100m-double \
-  100m-string \
-  expansion \
-  delivery \
-  soak; do
+artifact=$evidence_dir/runtime-scale-$mode.jsonl
+for lane in $lanes; do
   sed -n '1p' "$records_dir/$lane.jsonl"
 done >"$artifact"
 
-"$JAVA_HOME/bin/java" -cp "$classpath" "$validator" \
-  --complete "$artifact"
+if [ "$mode" = 'qualification' ]; then
+  "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" \
+    --complete "$artifact"
+else
+  "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$artifact"
+fi
 
 record_count=$(wc -l <"$artifact" | tr -d ' ')
-if [ "$record_count" -ne 10 ]; then
+expected_records=8
+if [ "$mode" = 'research' ]; then
+  expected_records=4
+fi
+if [ "$record_count" -ne "$expected_records" ]; then
   printf '%s\n' \
-    "runtime-scale-qualification: expected 10 records, got $record_count" >&2
+    "runtime-scale-$mode: expected $expected_records records, got $record_count" >&2
   exit 1
 fi
-if grep -F '"claimAllowed":true' "$artifact" >/dev/null \
-    || grep -v -F '"status":"passed"' "$artifact" >/dev/null \
-    || grep -v -F '"profile":"production-exact-v1"' "$artifact" >/dev/null; then
+if grep -F '"claimAllowed":true' "$artifact" >/dev/null; then
   printf '%s\n' \
-    'runtime-scale-qualification: claim/status/profile boundary violated' >&2
+    "runtime-scale-$mode: claim boundary violated" >&2
+  exit 1
+fi
+if [ "$mode" = 'qualification' ]; then
+  if grep -v -F '"status":"passed"' "$artifact" >/dev/null \
+      || grep -v -F '"profile":"production-exact-v1"' "$artifact" >/dev/null \
+      || grep -v -F '"required":true' "$artifact" >/dev/null; then
+    printf '%s\n' \
+      'runtime-scale-qualification: status/profile/required boundary violated' >&2
+    exit 1
+  fi
+elif grep -v -F '"profile":"research-stress-v1"' "$artifact" >/dev/null \
+    || grep -v -F '"required":false' "$artifact" >/dev/null; then
+  printf '%s\n' \
+    'runtime-scale-research: profile/required boundary violated' >&2
   exit 1
 fi
 
 negative_claim=$evidence_dir/negative-claim.jsonl
 sed 's/"claimAllowed":false/"claimAllowed":true/' \
-  "$records_dir/small-fast.jsonl" >"$negative_claim"
+  "$records_dir/$(printf '%s' "$lanes" | awk '{print $1}').jsonl" \
+  >"$negative_claim"
 if "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$negative_claim" \
     >"$evidence_dir/negative-claim.out" 2>&1; then
   printf '%s\n' \
@@ -133,19 +193,22 @@ if "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$negative_claim" \
   exit 1
 fi
 
-negative_scale=$evidence_dir/negative-scale.jsonl
-sed 's/"leftRows":100000000/"leftRows":99999999/' \
-  "$records_dir/100m-single.jsonl" >"$negative_scale"
-if "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$negative_scale" \
-    >"$evidence_dir/negative-scale.out" 2>&1; then
-  printf '%s\n' \
-    'runtime-scale-qualification: shrunken 100M profile was accepted' >&2
-  exit 1
+if [ "$mode" = 'qualification' ]; then
+  negative_scale=$evidence_dir/negative-scale.jsonl
+  sed 's/"leftRows":1000000/"leftRows":999999/' \
+    "$records_dir/1m-single.jsonl" >"$negative_scale"
+  if "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$negative_scale" \
+      >"$evidence_dir/negative-scale.out" 2>&1; then
+    printf '%s\n' \
+      'runtime-scale-qualification: shrunken 1M profile was accepted' >&2
+    exit 1
+  fi
 fi
 
 negative_extra=$evidence_dir/negative-extra-field.jsonl
 sed 's/"failureReason":""}/"failureReason":"","extra":1}/' \
-  "$records_dir/delivery.jsonl" >"$negative_extra"
+  "$records_dir/$(printf '%s' "$lanes" | awk '{print $1}').jsonl" \
+  >"$negative_extra"
 if "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$negative_extra" \
     >"$evidence_dir/negative-extra-field.out" 2>&1; then
   printf '%s\n' \
@@ -153,9 +216,9 @@ if "$JAVA_HOME/bin/java" -cp "$classpath" "$validator" "$negative_extra" \
   exit 1
 fi
 
-schema=soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v1.json
+schema=soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v2.json
 cmp "$schema" \
-  soma-benchmarks/target/classes/META-INF/soma/runtime-scale-qualification-schema-v1.json
+  soma-benchmarks/target/classes/META-INF/soma/runtime-scale-qualification-schema-v2.json
 for class_name in \
   RuntimeScaleQualificationRunner \
   RuntimeScaleQualificationArtifactValidator; do
@@ -178,6 +241,6 @@ soma_sha256 "$artifact" "$schema" \
 ./mvnw -version
 uname -srm
 printf '%s\n' \
-  "runtime-scale-qualification-evidence: $evidence_dir"
+  "runtime-scale-$mode-evidence: $evidence_dir"
 printf '%s\n' \
-  'runtime-scale-qualification: ok'
+  "runtime-scale-$mode: ok"

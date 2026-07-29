@@ -69,7 +69,8 @@ Zulu candidate在当时profile下成立；JDK authority迁移后，它不再关�
 - exact toolchain及Zulu negative probe；
 - reactor/public/generated/external consumer/runtime/DataFlow contract；
 - Access/DataFlow component baseline；
-- 三个Example correctness与九profile application performance。
+- 三个Example correctness与九profile application performance；
+- v2 Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak qualification。
 
 本机证据不能代替clean package/security；Linux build/contract已由上述
 commit-bound CI evidence补齐。
@@ -79,7 +80,7 @@ commit-bound CI evidence补齐。
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
 | private GitHub source | blocked | Corretto Linux Full已通过；等待同一最终candidate的manual release qualification与sign-off |
-| local macOS development | passed for recorded environment | Corretto build/contract/component/application；不含当前runtime-scale |
+| local macOS development | passed for recorded environment | Corretto build/contract/component/application/runtime-scale；不外推其他环境 |
 | Codex Cloud development | candidate / qualification-blocked | setup已收敛；等待fresh-container setup/Fast/Full/clean-worktree有界验收；不是release profile |
 | public GitHub source | not-selected | repository保持private |
 | Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，未上传artifact |
@@ -103,6 +104,6 @@ Public/Maven profile仍保持`not-selected`，无需为了关闭private-source G
 ## 6. Scope non-regression
 
 - JDK authority迁移不改变public/schema/runtime语义或第三方production依赖；
-- G0–G4及component/application能力保持；G5规模目标由`CF-016`完整保留；
+- G0–G5已通过；`CF-016`由当前Corretto v2 qualification关闭；
 - G6 blocked是evidence诚实性，不是降低产品目标；
 - 未创建tag、未公开仓库、未上传artifact、未声明production/public readiness。

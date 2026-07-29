@@ -38,8 +38,8 @@ java/runtime/javac/javap精确版本。旧Zulu和其他distribution均不属于�
 
 | OS / architecture | Build与contract | 性能/规模 | 当前证据 |
 |---|---|---|---|
-| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | passed | Access/DataFlow component与九application profile passed；runtime-scale blocked | 本机Corretto Full、component baseline、application 5-fork calibration与3-fork回放 |
-| Ubuntu 24.04, Linux x86_64/amd64 | passed | 无Linux性能claim；runtime-scale blocked | SHA-256校验的Corretto 8.502.07.1 archive经`jdkfile`安装；commit `dddf62b`的CI Full run `30410355517`在7分46秒通过 |
+| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | passed | Access/DataFlow component、九application profile与8-lane runtime-scale passed | 本机Corretto Full、component/application baseline与qualification `runtime-scale-qualification-20260729-d90e8499d51f` |
+| Ubuntu 24.04, Linux x86_64/amd64 | passed | 无Linux性能/规模claim | SHA-256校验的Corretto 8.502.07.1 archive经`jdkfile`安装；commit `dddf62b`的CI Full run `30410355517`在7分46秒通过 |
 
 2026-07-28的Zulu/macOS runtime-scale和Zulu/Linux CI仍是历史candidate事实，但
 不能进入当前Corretto passed矩阵。Codex Cloud为development
@@ -55,8 +55,8 @@ java/runtime/javac/javap精确版本。旧Zulu和其他distribution均不属于�
   component与三个reference application Gate。macOS行还拥有表中单独列出的
   component/application性能evidence；Linux没有。
 
-它不表示snapshot artifact已公开发布，不提供production SLA，也不承诺当前
-Corretto下的100M qualification、任意schema/String profile或Linux性能/规模。
+它不表示snapshot artifact已公开发布，不提供production SLA，也不承诺
+10M/100M、任意schema/String profile或Linux性能/规模。
 
 ## 4. 未列环境
 
@@ -70,9 +70,9 @@ javac authority。
 
 Selected private-source release只有在同一最终clean commit完成manual package/
 security qualification、checksum与sign-off后才能关闭。macOS/Linux runtime-scale
-只有在原十lane qualification按相同schema/validator/预算于各自选择环境重放后
-才能改为passed。
+只有在当前v2 schema/validator/预算于目标环境重放后才能进入该环境的性能/规模
+支持声明；Linux build/contract不需要伪装成performance evidence。
 
-本矩阵没有降低Small/Medium、single/double100M、String、Metadata、parallel、
-Result Delivery和三个Example目标；重型性能继续由预注册、高内存、人工监管
-qualification拥有。
+本矩阵保持Small/Medium、单/双1M、String、Metadata、parallel、Result Delivery
+和三个Example正式目标；10M/100M research/stress继续由预注册、高内存、人工监管
+入口拥有。

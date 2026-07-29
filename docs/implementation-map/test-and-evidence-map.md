@@ -10,11 +10,11 @@ Owner：SOMA 测试与 evidence 实现导航
 
 事实范围：当前测试层次、fixture、Gate 和 evidence artifact 入口
 
-最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 验证层次
 
@@ -24,7 +24,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | compile fixtures | [`tests/fixtures/compiler`](../../tests/fixtures/compiler) | positive/negative compiler behavior |
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
-| runtime invariant | [`check-runtime-contracts.sh`](../../scripts/check-runtime-contracts.sh) 与 `check-generated-*-contract.sh` | flat/head-tail storage、atomic segment publication、String reference cleanup、locator current/high-water、完整 Runtime Metadata、lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v11 identity |
+| runtime invariant | [`check-runtime-contracts.sh`](../../scripts/check-runtime-contracts.sh) 与 `check-generated-*-contract.sh` | flat/head-tail storage、atomic segment publication、String reference cleanup、TIME range、locator current/high-water、link/bitmap exact maintenance、完整 Runtime Metadata、lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v12 identity |
 | DataFlow contract | [`check-dataflow-contracts.sh`](../../scripts/check-dataflow-contracts.sh)、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/io/github/somaruntime/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
@@ -50,7 +50,9 @@ Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 ja
   primitive/String/presence boundary、locator repair/high-water 与 dead-reference
   cleanup；
 - Candidate/Group/Join/Window/Delta、unknown-bound fail-closed、sequential/
-  parallel equivalence、callback delivery、Effect 与 diagnostics；
+  parallel equivalence、logical type negative compile、numeric closed kernel、
+  bitmap intersection、primitive minmax/Bloom/fallback Join、callback delivery、
+  Effect 与 diagnostics；
 - clean/repeat external Maven consumer、current public/generated `javap`、
   schema JSON/hash、reference differential 和 bounded qualification。
 
@@ -67,12 +69,12 @@ allocation、GC、growth/high-water 或 parallel task，以及
 `claimAllowed=false`。每个 child 各自拥有 default、large、long-run 三份
 baseline；Fast、Scale、Soak 分责，Full 组合全部九个 workload。
 
-Runtime-scale qualification使用独立strict schema、runner和validator，十条required
-lane分别拥有预注册workload、环境、预算、timeout、oracle、memory accounting、
-status与`claimAllowed=false`。Small/Medium、1M/10M、single/double100M、
-shared-reference String 100M、Expansion、Delivery和Soak不得合并成一个模糊
-“100M passed”结论；`check-benchmark-smoke.sh`只运行small-fast contract smoke，
-完整重型入口是`check-runtime-scale-qualification.sh`。
+Runtime-scale qualification使用独立strict v2 schema、runner和validator。八条
+required lane分别覆盖Small/Medium、单1M、双1M、String、Expansion、Delivery和
+Soak，并拥有预注册workload、环境、预算、timeout、oracle、三层memory accounting、
+status与`claimAllowed=false`。10M与三条100M lane只属于`research`模式的
+`required=false` stress evidence；`check-benchmark-smoke.sh`只运行small-fast
+contract smoke，完整显式入口是`check-runtime-scale-qualification.sh`。
 
 Scan code-size evidence 对 neutral benchmark、industrial scheduler、grassing
 simulation 和 RTD rule engine 分别保留首个切换候选的 fixed-candidate + 15%

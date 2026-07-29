@@ -18,7 +18,7 @@ Owner：SOMA table storage 与 access semantics
 
 非事实范围：ownership lifecycle、公开 IndexSnapshot 消费契约、error envelope、materialization 和具体 hash/sort 实现类
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 本 Owner 先定义 Table、identity 与 access 的能力语义，再展开 packed relocation、exact structure 和 candidate scratch 等机制约束。具体 hash/sort 类、数组字段和生成方法是当前实现事实，不在此维护。
 
@@ -106,6 +106,13 @@ component 非法。String hash 只定位候选，最终以 `String.equals` 回�
 `compareTo` 定义的 value order。Equal-value different-object mutation 是 no-op，
 不更新 locator/index/epoch；remove/clear/replace/rollback/release 清除 dead
 reference。
+
+低基数 Bitmap 不是新的 Schema annotation 或第二份 authoritative index。只有
+多个单字段 primitive `@SomaIndex` 具备 equality-intersection 消费形态时，
+generated exact substrate 才可由 `soma-candidate-physical-v2` 在 link 与 bitmap
+布局间确定性选择。Bitmap 必须同步维护 append/update/remove/packed relocation/
+clear/release，保留 group hash/full-equality 回查，并把 retained/high-water 纳入
+Table ledger；不适用时 Exact links 是 canonical fallback。
 
 ## 4. Delete 与 compaction
 

@@ -17,6 +17,7 @@ public final class GroupedExactIndexContractCheck {
     public static void main(String[] args) {
         testExactGroupCounter();
         testCapacityLifecycleAndFailureBoundaries();
+        testFormulaBoundBitmapLifecycle();
         testSameHashFullEqualityChain();
         testRandomizedAppendRegroupSwapRemoveAndReuse();
         System.out.println("grouped-exact-index-contract: ok");
@@ -129,6 +130,67 @@ public final class GroupedExactIndexContractCheck {
         oracle.clear();
         oracle.append(20);
         oracle.verify("collision-chain-clear-reuse");
+    }
+
+    private static void testFormulaBoundBitmapLifecycle() {
+        GroupedExactIndex index =
+                new GroupedExactIndex(128, 8, true);
+        assertTrue(index.bitmapLayout(),
+                "low-cardinality eligible index selects bitmap");
+        assertEquals(
+                GroupedExactIndex.estimatedRetainedBytes(
+                        128, 8, true),
+                index.retainedBytes(),
+                "bitmap estimator matches construction");
+        int[] groups = new int[8];
+        for (int value = 0; value < groups.length; value++) {
+            groups[value] = index.createGroup(value);
+        }
+        for (int row = 0; row < 128; row++) {
+            index.link(groups[row & 7], row);
+        }
+        for (int group = 0; group < groups.length; group++) {
+            int expected = group;
+            for (int row = index.firstRow(groups[group]);
+                 row >= 0;
+                 row = index.nextRow(row)) {
+                assertEquals(expected, row,
+                        "bitmap rows retain ascending exact-source sequence");
+                expected += 8;
+            }
+            assertEquals(group + 128, expected,
+                    "bitmap group traversal is complete");
+        }
+
+        index.unlink(3);
+        index.relocate(127, 3);
+        assertFalse(index.isLinked(127),
+                "bitmap relocation clears packed tail");
+        assertTrue(index.isLinked(3),
+                "bitmap relocation links destination");
+        assertEquals(groups[7], index.firstGroup(7L),
+                "bitmap relocation keeps authoritative group");
+
+        index.ensureCapacity(1024, 128);
+        assertFalse(index.bitmapLayout(),
+                "formula falls back to links when bitmap bytes lose");
+        assertTrue(index.isLinked(3),
+                "layout fallback retains relocated membership");
+        int linked = 0;
+        for (int row = index.firstRow(groups[7]);
+             row >= 0;
+             row = index.nextRow(row)) {
+            linked++;
+        }
+        assertEquals(16, linked,
+                "link fallback retains complete group");
+
+        GroupedExactIndex highCardinality =
+                new GroupedExactIndex(4096, 1024, true);
+        assertFalse(highCardinality.bitmapLayout(),
+                "high-cardinality eligible index remains link-backed");
+        highCardinality.release();
+        index.release();
     }
 
     private static void testRandomizedAppendRegroupSwapRemoveAndReuse() {

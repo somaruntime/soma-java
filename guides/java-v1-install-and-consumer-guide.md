@@ -24,8 +24,8 @@ transformer、annotation processor、runtime-core 和 typed DataFlow。当前项
 Zulu和其他JDK distribution均为untested/unsupported。精确Corretto
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
-当前Corretto本机G0–G4已通过；G5等待runtime-scale重验，selected
-private-source G6已形成Ubuntu x64 Corretto Full，仍等待同一最终candidate的
+当前Corretto本机G0–G5已通过；selected private-source G6已形成Ubuntu x64
+Corretto Full，仍等待同一最终candidate的
 package/security qualification与matrix sign-off。artifact仍是本地snapshot。
 获得private repository访问权的consumer应先在本仓库执行
 `./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、Maven
@@ -215,6 +215,12 @@ V1 schema field 只接受四类语义：
 field。需要关联 application object 时，在 SOMA 保存稳定 ID，在 application
 sidecar/registry 保存对象。
 
+Generated DataFlow 对raw primitive返回numeric/boolean capability，对enum、date、
+time、instant分别返回type-specific logical expression。Enum不能做算术，date/time/
+instant只能使用各自合法比较与plus/minus操作；内部primitive carrier不授权跨类型
+比较。TIME storage使用nano-of-day，合法范围为
+`[0, 86_400_000_000_000)`。
+
 String column 保存 caller 提供的 reference，不复制、不 intern、不 normalize。
 Key/Unique/Index/Group/Join 使用完整 value equality/hash/order；required String
 拒绝 `null`，optional absence 与 empty String 不同。Equal-value、
@@ -243,8 +249,9 @@ builder.table(ScaleStringFactTable.metadata())
 RuntimePlan plan = builder.build();
 ```
 
-Profile 是 caller-declared、`PROFILED_UNVERIFIED` 的可达内存估算，不是 runtime
-读取 String internals 得到的 hard cap。任何 String 规模结论都必须同时声明
+Profile 是 caller-declared、`PROFILED_UNVERIFIED` 的可达内存估算，不是Schema
+长度约束、mutation admission或runtime读取String internals得到的hard cap。
+不同长度mutation只替换reference slot。任何String规模结论都必须同时声明
 UTF-16 长度、value cardinality、distinct object identity、共享率、presence、
 字段角色和同时存活 Table 数，并分别报告：
 
@@ -363,18 +370,23 @@ schema + Metadata
 ## 9. 规模使用边界
 
 SOMA 的规模能力按 profile 判断，不按 row count 单独判断。Small/Medium 要优先避免
-固定调用、对象和 plan tax；Large/100M 要优先控制 retained bytes、完整数据遍数、
-scratch/output peak、memory bandwidth 和 GC。
+固定调用、对象和plan tax；单/双1M要同时控制retained bytes、完整数据遍数、
+scratch/output peak、memory bandwidth和GC。
 
-“100M 支持”只可用于通过 production qualification 的窄 schema/workload：
+V1当前正式qualification覆盖Small/Fast、Medium、一张actual resident 1M narrow
+numeric-Key root、两个同时resident的1M narrow numeric roots、两张1M
+reference-backed String角色Table，以及Expansion、Delivery与Soak。
 
-- 单表 100M 与两个同时驻留 root 各 100M 必须分别验证；
+任何1M声明都必须：
 - 声明 schema bytes/row、locator/exact access、touched columns、selectivity、
   skew、multiplicity、output bound、heap/GC、workers 和 timeout；
 - String 另带完整 profile 和三层 memory accounting；
 - arbitrary wide schema、high-cardinality String key、无界 N:M expansion、
   global materialization/sort/window 都不能从窄 profile 外推；
 - 不可行 profile 应被 resource admission 确定性拒绝，而不是尝试到 OOM。
+
+10M/100M只属于可选research/stress。它们的成功不升级为V1 guarantee，缺失、
+失败或inconclusive也不阻塞G5。
 
 Application 仍负责 working-set projection、数据分片/驱逐、双缓存、外部一致性和
 整个 JVM 的总预算；SOMA 不是数据库、持久化层或分布式执行系统。

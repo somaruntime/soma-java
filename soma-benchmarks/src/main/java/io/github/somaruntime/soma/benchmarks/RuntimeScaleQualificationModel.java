@@ -32,22 +32,37 @@ import java.util.Set;
  */
 final class RuntimeScaleQualificationModel {
     static final String SCHEMA_VERSION =
-            "soma-runtime-scale-qualification-v1";
+            "soma-runtime-scale-qualification-v2";
     static final String ARTIFACT_VERSION =
-            "soma-runtime-scale-qualification-runner-v1";
+            "soma-runtime-scale-qualification-runner-v2";
 
     static final List<String> REQUIRED_LANES =
             Collections.unmodifiableList(Arrays.asList(
                     "small-fast",
                     "medium",
-                    "1m",
-                    "10m",
-                    "100m-single",
-                    "100m-double",
-                    "100m-string",
+                    "1m-single",
+                    "1m-double",
+                    "string",
                     "expansion",
                     "delivery",
                     "soak"));
+
+    static final List<String> RESEARCH_LANES =
+            Collections.unmodifiableList(Arrays.asList(
+                    "10m-research",
+                    "100m-single-stress",
+                    "100m-double-stress",
+                    "100m-string-stress"));
+
+    static final List<String> SUPPORTED_LANES;
+
+    static {
+        ArrayList<String> lanes =
+                new ArrayList<String>(REQUIRED_LANES);
+        lanes.addAll(RESEARCH_LANES);
+        SUPPORTED_LANES =
+                Collections.unmodifiableList(lanes);
+    }
 
     static final List<String> FIELDS =
             Collections.unmodifiableList(Arrays.asList(
@@ -155,7 +170,10 @@ final class RuntimeScaleQualificationModel {
         result.put("qualificationId", config.qualificationId);
         result.put("lane", observation.lane);
         result.put("profile", observation.profile);
-        result.put("required", Boolean.TRUE);
+        result.put(
+                "required",
+                Boolean.valueOf(REQUIRED_LANES.contains(
+                        observation.lane)));
         result.put("applicable", Boolean.TRUE);
         result.put("status", observation.status);
         result.put("claimAllowed", Boolean.FALSE);
@@ -324,7 +342,7 @@ final class RuntimeScaleQualificationModel {
                 throw new IllegalArgumentException(
                         "duplicate qualification lane: " + lane);
             }
-            if (!REQUIRED_LANES.contains(lane)) {
+            if (!SUPPORTED_LANES.contains(lane)) {
                 throw new IllegalArgumentException(
                         "unknown qualification lane: " + lane);
             }
@@ -362,12 +380,16 @@ final class RuntimeScaleQualificationModel {
                     cpu,
                     string(environment, "cpu"),
                     "cpu");
-            require(Boolean.TRUE.equals(record.get("required")),
-                    "lane must be required: " + lane);
+            boolean required = REQUIRED_LANES.contains(lane);
+            require(Boolean.valueOf(required).equals(
+                            record.get("required")),
+                    "lane required classification: " + lane);
             require(Boolean.TRUE.equals(record.get("applicable")),
                     "lane must be applicable: " + lane);
-            require("passed".equals(record.get("status")),
-                    "required applicable lane must pass: " + lane);
+            if (required) {
+                require("passed".equals(record.get("status")),
+                        "required applicable lane must pass: " + lane);
+            }
         }
         if (complete) {
             require(lanes.size() == REQUIRED_LANES.size(),
@@ -386,10 +408,11 @@ final class RuntimeScaleQualificationModel {
                 "artifactVersion");
         nonEmpty(string(record, "qualificationId"), "qualificationId");
         String lane = string(record, "lane");
-        require(REQUIRED_LANES.contains(lane), "lane");
-        require("production-exact-v1".equals(
-                        string(record, "profile")),
-                "profile must be production-exact-v1");
+        require(SUPPORTED_LANES.contains(lane), "lane");
+        String expectedProfile = REQUIRED_LANES.contains(lane)
+                ? "production-exact-v1" : "research-stress-v1";
+        require(expectedProfile.equals(string(record, "profile")),
+                "profile must match lane classification");
         require(record.get("required") instanceof Boolean, "required");
         require(record.get("applicable") instanceof Boolean, "applicable");
         String status = string(record, "status");
@@ -518,17 +541,21 @@ final class RuntimeScaleQualificationModel {
                     workload.get("rowPoints"),
                     new long[] {32_768L, 65_536L, 262_144L},
                     "medium rowPoints");
-        } else if ("1m".equals(lane)) {
+        } else if ("1m-single".equals(lane)) {
+            expectedLeft = 1_000_000L;
+            expectedRight = 0L;
+        } else if ("1m-double".equals(lane)
+                || "string".equals(lane)) {
             expectedLeft = 1_000_000L;
             expectedRight = 1_000_000L;
-        } else if ("10m".equals(lane)) {
+        } else if ("10m-research".equals(lane)) {
             expectedLeft = 10_000_000L;
             expectedRight = 65_536L;
-        } else if ("100m-single".equals(lane)) {
+        } else if ("100m-single-stress".equals(lane)) {
             expectedLeft = 100_000_000L;
             expectedRight = 0L;
-        } else if ("100m-double".equals(lane)
-                || "100m-string".equals(lane)) {
+        } else if ("100m-double-stress".equals(lane)
+                || "100m-string-stress".equals(lane)) {
             expectedLeft = 100_000_000L;
             expectedRight = 100_000_000L;
         } else if ("expansion".equals(lane)) {

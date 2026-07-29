@@ -62,7 +62,7 @@ grep -F '"x-soma-laneBinding": "SmokeLaneSuite.validateLaneRecord"' \
   >/dev/null
 grep -F \
   '"x-soma-authoritativeValidator": "io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationArtifactValidator"' \
-  soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v1.json \
+  soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v2.json \
   >/dev/null
 
 mkdir -p target
@@ -195,7 +195,7 @@ fi
 soma_sha256 "$artifact" \
   "$qualification_artifact" \
   soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
-  soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v1.json \
+  soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v2.json \
   >"$evidence_dir/checksums.sha256"
 find soma-benchmarks/src -type f | LC_ALL=C sort >"$evidence_dir/implementation-files.txt"
 printf '%s\n' \
@@ -214,8 +214,8 @@ done <"$evidence_dir/implementation-files.txt" \
 cmp soma-benchmarks/src/main/resources/META-INF/soma/benchmark-smoke-schema-v4.json \
   soma-benchmarks/target/classes/META-INF/soma/benchmark-smoke-schema-v4.json
 cmp \
-  soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v1.json \
-  soma-benchmarks/target/classes/META-INF/soma/runtime-scale-qualification-schema-v1.json
+  soma-benchmarks/src/main/resources/META-INF/soma/runtime-scale-qualification-schema-v2.json \
+  soma-benchmarks/target/classes/META-INF/soma/runtime-scale-qualification-schema-v2.json
 
 for class_name in \
   BenchmarkSmokeRunner \

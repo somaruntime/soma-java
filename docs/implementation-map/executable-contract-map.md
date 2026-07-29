@@ -10,11 +10,11 @@ Owner：SOMA executable contract 实现导航
 
 事实范围：当前精确 public/generated/schema/protocol surface 的代码、golden、fixture 和 Gate 位置
 
-最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 为什么单独登记
 
@@ -32,14 +32,14 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 | handwritten runtime public API | [`io.github.somaruntime.soma.runtime`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime) | [`public-api/current/public-api.javap.txt`](../../tests/fixtures/public-api/current/public-api.javap.txt) |
 | generated public API | generated source/class output；canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child/DataFlow companion/keyed Delta | external dense/keyed/access/child/breadth `javap` golden + compile/run |
 | DataFlow public API | [`io.github.somaruntime.soma.dataflow`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow) 与 generated companion | public `javap`、capability contracts、external consumer、reference differential |
-| generated-runtime protocol | [`io.github.somaruntime.soma.runtime.generated`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated) 与 generator binding；compatibility v11、transformation v3、kernel v4、planner v4、plan v6及全部physical formula identity | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
+| generated-runtime protocol | [`io.github.somaruntime.soma.runtime.generated`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated) 与 generator binding；compatibility v12、transformation v4、kernel v5、planner v4、plan v6及全部physical formula identity | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
 | runtime plan/Group/Metadata/stats/error codes | runtime public/internal sources；application从generated `SchemaMetadata.newPlan()`进入，并通过implicit `create`或显式`attach(SomaGroup, slot)`组合root；generated Table和Group公开detached runtime metadata，raw construction只由generated bridge持有 | runtime-core Group/plan/metadata checks、public API absence rule、diagnostics Gate、external dense/access/child/breadth consumers |
 | Result Delivery | `ResultDeliveryMode`、typed `*Visitor`、callback Definition/Template/Invocation与generated delivery binding | public/golden、Point/Delivery 与 Shape/Graph contracts、reference differential、delivery qualification |
-| benchmark artifact schema | benchmark model/validator及`runtime-scale-qualification-schema-v1.json` | smoke runner、strict validator、negative artifact cases、十条required production lanes |
+| benchmark artifact schema | benchmark model/validator及`runtime-scale-qualification-schema-v2.json` | smoke runner、strict validator、negative artifact cases、八条required production lanes与四条optional research/stress lanes |
 
-当前 executable golden 登记 224 个 `PUBLIC`、2 个 `INTERNAL` entry：
-annotations 14、build provider 2、handwritten runtime 77、handwritten dataflow 83、
-generated runtime 38、generated DataFlow protocol 9、generated construction
+当前 executable golden 登记 229 个 `PUBLIC`、2 个 `INTERNAL` entry：
+annotations 14、build provider 2、handwritten runtime 77、handwritten dataflow 87、
+generated runtime 38、generated DataFlow protocol 10、generated construction
 protocol 1。这里的 `PUBLIC` 表示 JVM 可执行可见性；generated bridge 因 consumer
 class 位于 application package 而必须跨 package 调用，不等同于 application
 authoring API，也不能用普通 source 的直接引用数判定为 dead code。
@@ -52,11 +52,13 @@ authoring API，也不能用普通 source 的直接引用数判定为 dead code�
 - internal class/path 可以重构，但 public/generated/protocol/schema identity 的变化按 Compatibility Design 处理；
 - error code、plan field或artifact field一旦成为稳定兼容面，不得在同名下复用为不同语义。
 
-当前 canonical identity 为 generated/runtime v11、transformation v3、
-kernel/planner v4 与 plan v6。当前 surface 包含 closed Candidate/relation
-strategy、bounded morsel scheduling、Invocation phase ledger、Eager +
-callback-scoped delivery 和完整 Table/Segment/access Runtime Metadata；
-String 仍只有 reference-backed 后端。其正确性由 public/golden、
+当前 canonical identity 为 generated/runtime v12、transformation v4、kernel v5、
+planner v4 与 plan v6；Candidate/relation formula为v2。当前 surface包含logical
+enum/date/time/instant facade、closed numeric kernel、formula-bound Bitmap、
+primitive join runtime filter、closed Candidate/relation strategy、bounded morsel
+scheduling、Invocation phase ledger、Eager + callback-scoped delivery 和完整
+Table/Segment/access Runtime Metadata；String仍只有reference-backed后端。其
+正确性由 public/golden、
 runtime/generated contracts、external consumer、reference differential、三个
 Example 与限定 profile qualification 共同约束，不外推任意 String 或 public
 performance claim。

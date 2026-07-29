@@ -16,5 +16,18 @@ public interface CandidateIndexAccess<B extends DataFlowBinding> {
 
     int next(B binding, int currentIndex);
 
+    default boolean bitmap(B binding, int group) {
+        return false;
+    }
+
+    default int bitmapWordCount(B binding, int group) {
+        return 0;
+    }
+
+    default long bitmapWord(B binding, int group, int word) {
+        throw new IllegalStateException(
+                "candidate exact access is not bitmap-backed");
+    }
+
     String identity();
 }

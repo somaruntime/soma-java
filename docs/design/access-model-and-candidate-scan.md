@@ -18,7 +18,7 @@ Owner：SOMA access semantics 与 Candidate Scan
 
 非事实范围：packed/exact 数据结构、精确 generated signature、具体 generator 类布局、benchmark 数值和 application 算法
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 SOMA Access Model 是使用者与 packed columnar Table 交互的完整语义体系。Pipeline 只负责 CandidateAccess；Point、Column、Key、Bulk 和 Ownership 路径不为追求 API 对称而绕入同一个 planner。
 
@@ -181,6 +181,13 @@ exact + scalar/single-pass terminal 直接使用 Exact；ultra-sparse reused can
 sort/stable random access/multi-pass 才 materialize。Choice/formula identity进入
 Explain，不公开 live Candidate 或 pull cursor。
 
+Bitmap 只用于至少两个单字段 exact-equality source/predicate 的重复交集，并由
+`planningRows/current rows × current distinct groups × retained bytes × expected
+word work` 的 versioned formula 选择；不规定 public cardinality 常数，不适用于
+Unique、String/composite selector 或 universal candidate buffer。Exact selector 的
+hash/full-equality 与 authoritative column 保持 correctness Owner；公式、预算、
+布局或 mutation 条件不满足时回退 ExactSinglePass + filter，不得漏行。
+
 Terminal-time executor 按 operation shape 选择：
 
 - Packed zero-stage terminal 走直接路径；
@@ -202,6 +209,7 @@ Terminal-time executor 按 operation shape 选择：
 | current Index | `O(1)` | 无 materialization 时为常量 |
 | primary/unique point | `O(P)` | maintained locator/index retained cost |
 | exact group | `O(P + G)` | group/link retained cost |
+| bitmap exact intersection | `O(words + matches)` | 仅公式选择的 maintained primitive words；否则为零 |
 | filter/skip/limit | `O(M)` 或短路边界 | fused counters/primitive scratch |
 | full sort | `O(M log M)` | `O(M)` reusable primitive scratch |
 | best-one | `O(M)` | 常量或 single-index scratch |

@@ -48,6 +48,43 @@ public final class KeyExpression<B extends DataFlowBinding> {
                 expression.parallelSafe);
     }
 
+    public static <
+            B extends DataFlowBinding,
+            E extends Enum<E>> KeyExpression<B> of(
+            EnumExpression<B, E> expression) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        LongExpression<B> carrier = expression.carrier();
+        requireRequired(carrier.required(), carrier.path);
+        return new KeyExpression<B>(
+                carrier.source,
+                new KeyComponent[] {
+                        new LongKeyComponent(
+                                carrier, "enum:" + expressionType(expression))
+                },
+                carrier.parameters,
+                carrier.parallelSafe);
+    }
+
+    public static <B extends DataFlowBinding> KeyExpression<B> of(
+            DateExpression<B> expression) {
+        return logicalLong(expression == null ? null : expression.carrier(),
+                "date");
+    }
+
+    public static <B extends DataFlowBinding> KeyExpression<B> of(
+            TimeExpression<B> expression) {
+        return logicalLong(expression == null ? null : expression.carrier(),
+                "time");
+    }
+
+    public static <B extends DataFlowBinding> KeyExpression<B> of(
+            InstantExpression<B> expression) {
+        return logicalLong(expression == null ? null : expression.carrier(),
+                "instant");
+    }
+
     public static <B extends DataFlowBinding> KeyExpression<B> of(
             StringExpression<B> expression) {
         if (expression == null) {
@@ -97,6 +134,36 @@ public final class KeyExpression<B extends DataFlowBinding> {
                 new LongKeyComponent(expression),
                 expression.parameters,
                 expression.parallelSafe);
+    }
+
+    public <E extends Enum<E>> KeyExpression<B> then(
+            EnumExpression<B, E> expression) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        LongExpression<B> carrier = expression.carrier();
+        requireSource(carrier.source);
+        requireRequired(carrier.required(), carrier.path);
+        return append(
+                new LongKeyComponent(
+                        carrier, "enum:" + expressionType(expression)),
+                carrier.parameters,
+                carrier.parallelSafe);
+    }
+
+    public KeyExpression<B> then(DateExpression<B> expression) {
+        return thenLogical(
+                expression == null ? null : expression.carrier(), "date");
+    }
+
+    public KeyExpression<B> then(TimeExpression<B> expression) {
+        return thenLogical(
+                expression == null ? null : expression.carrier(), "time");
+    }
+
+    public KeyExpression<B> then(InstantExpression<B> expression) {
+        return thenLogical(
+                expression == null ? null : expression.carrier(), "instant");
     }
 
     public KeyExpression<B> then(StringExpression<B> expression) {
@@ -151,6 +218,23 @@ public final class KeyExpression<B extends DataFlowBinding> {
         return parallelSafe;
     }
 
+    boolean singleLongCarrier() {
+        return components.length == 1
+                && components[0] instanceof LongKeyComponent;
+    }
+
+    long singleLongValue(
+            ExecutionFrame frame,
+            DataFlowBinding binding,
+            int index) {
+        if (!singleLongCarrier()) {
+            throw new IllegalStateException(
+                    "key is not a single long carrier");
+        }
+        return ((LongKeyComponent) components[0]).value(
+                frame, binding, index);
+    }
+
     long hash(
             ExecutionFrame frame, DataFlowBinding binding, int index) {
         long hash = 1469598103934665603L;
@@ -193,7 +277,9 @@ public final class KeyExpression<B extends DataFlowBinding> {
                     "dataflow.key");
         }
         for (int index = 0; index < components.length; index++) {
-            if (components[index].kind() != other.components[index].kind()) {
+            if (components[index].kind() != other.components[index].kind()
+                    || !components[index].logicalType().equals(
+                            other.components[index].logicalType())) {
                 throw DataFlowFailures.invalidInput(
                         "dataflow_key_carrier_mismatch",
                         source.alias(),
@@ -214,6 +300,38 @@ public final class KeyExpression<B extends DataFlowBinding> {
                 next,
                 DataFlowSupport.unionParameters(parameters, addedParameters),
                 parallelSafe && addedParallelSafe);
+    }
+
+    private static <B extends DataFlowBinding> KeyExpression<B> logicalLong(
+            LongExpression<B> expression, String logicalType) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        requireRequired(expression.required(), expression.path);
+        return new KeyExpression<B>(
+                expression.source,
+                new KeyComponent[] {
+                        new LongKeyComponent(expression, logicalType)
+                },
+                expression.parameters,
+                expression.parallelSafe);
+    }
+
+    private KeyExpression<B> thenLogical(
+            LongExpression<B> expression, String logicalType) {
+        if (expression == null) {
+            throw new NullPointerException("expression");
+        }
+        requireSource(expression.source);
+        requireRequired(expression.required(), expression.path);
+        return append(
+                new LongKeyComponent(expression, logicalType),
+                expression.parameters,
+                expression.parallelSafe);
+    }
+
+    private static String expressionType(EnumExpression<?, ?> expression) {
+        return expression.enumTypeName();
     }
 
     private void requireSource(SourceSlot<?> candidate) {
@@ -243,6 +361,8 @@ interface KeyComponent {
 
     int kind();
 
+    String logicalType();
+
     long hash(
             ExecutionFrame frame, DataFlowBinding binding, int index);
 
@@ -259,9 +379,15 @@ interface KeyComponent {
 
 final class LongKeyComponent implements KeyComponent {
     private final LongExpression<?> expression;
+    private final String logicalType;
 
     LongKeyComponent(LongExpression<?> expression) {
+        this(expression, "numeric");
+    }
+
+    LongKeyComponent(LongExpression<?> expression, String logicalType) {
         this.expression = expression;
+        this.logicalType = logicalType;
     }
 
     @Override
@@ -270,10 +396,20 @@ final class LongKeyComponent implements KeyComponent {
     }
 
     @Override
+    public String logicalType() {
+        return logicalType;
+    }
+
+    @Override
     public long hash(
             ExecutionFrame frame, DataFlowBinding binding, int index) {
-        long value = expression.evaluate(frame, binding, index);
+        long value = value(frame, binding, index);
         return value ^ (value >>> 32);
+    }
+
+    long value(
+            ExecutionFrame frame, DataFlowBinding binding, int index) {
+        return expression.evaluate(frame, binding, index);
     }
 
     @Override
@@ -291,7 +427,7 @@ final class LongKeyComponent implements KeyComponent {
 
     @Override
     public String canonical() {
-        return "long(" + expression.identity() + ")";
+        return "long[" + logicalType + "](" + expression.identity() + ")";
     }
 }
 
@@ -305,6 +441,11 @@ final class StringKeyComponent implements KeyComponent {
     @Override
     public int kind() {
         return STRING;
+    }
+
+    @Override
+    public String logicalType() {
+        return "string";
     }
 
     @Override
@@ -346,6 +487,11 @@ final class DoubleKeyComponent implements KeyComponent {
     }
 
     @Override
+    public String logicalType() {
+        return "floating";
+    }
+
+    @Override
     public long hash(
             ExecutionFrame frame, DataFlowBinding binding, int index) {
         long bits = Double.doubleToLongBits(
@@ -383,6 +529,11 @@ final class BooleanKeyComponent implements KeyComponent {
     @Override
     public int kind() {
         return BOOLEAN;
+    }
+
+    @Override
+    public String logicalType() {
+        return "boolean";
     }
 
     @Override

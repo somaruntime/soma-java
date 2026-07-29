@@ -6,10 +6,20 @@ root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$root_dir"
 
 classpath="soma-benchmarks/target/classes:soma-benchmarks/target/test-classes"
-classpath="$classpath:soma-dataflow/target/classes:soma-runtime-core/target/classes"
+classpath="$classpath:soma-dataflow/target/classes:soma-dataflow/target/test-classes"
+classpath="$classpath:soma-runtime-core/target/classes"
 if [ "${SOMA_BENCHMARKS_PREPARED:-false}" != 'true' ]; then
   ./mvnw -B -ntp -pl soma-benchmarks -am test-compile
 fi
+
+filter_check_class=soma-dataflow/target/test-classes/io/github/somaruntime/soma/dataflow/JoinRuntimeFilterContractCheck.class
+if [ ! -s "$filter_check_class" ]; then
+  printf '%s\n' \
+    "dataflow-contracts: required test class missing: $filter_check_class" >&2
+  exit 1
+fi
+"$JAVA_HOME/bin/java" -cp "$classpath" \
+  io.github.somaruntime.soma.dataflow.JoinRuntimeFilterContractCheck
 
 for check_class in \
   DataFlowInvocationContractCheck \

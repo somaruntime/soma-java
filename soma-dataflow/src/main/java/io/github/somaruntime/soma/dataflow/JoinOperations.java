@@ -31,6 +31,7 @@ final class JoinPrepared<
     final JoinType type;
     final int[] buckets;
     final int[] next;
+    final JoinRuntimeFilter runtimeFilter;
     final JoinedStagePlan<L, R> stages;
 
     JoinPrepared(
@@ -43,6 +44,7 @@ final class JoinPrepared<
             JoinType type,
             int[] buckets,
             int[] next,
+            JoinRuntimeFilter runtimeFilter,
             JoinedStagePlan<L, R> stages) {
         this.left = left;
         this.right = right;
@@ -53,6 +55,7 @@ final class JoinPrepared<
         this.type = type;
         this.buckets = buckets;
         this.next = next;
+        this.runtimeFilter = runtimeFilter;
         this.stages = stages;
     }
 
@@ -74,6 +77,19 @@ final class JoinPrepared<
                 frame.checkBoundary("dataflow.join");
             }
             int leftIndex = left.indexAt(leftPosition);
+            if (runtimeFilter != null
+                    && !runtimeFilter.mightContain(
+                            leftKey.singleLongValue(
+                                    frame, leftBinding, leftIndex))) {
+                if (type == JoinType.LEFT_OUTER
+                        || type == JoinType.LEFT_ANTI) {
+                    output++;
+                    if (!consumer.accept(leftIndex, false, -1)) {
+                        return output;
+                    }
+                }
+                continue;
+            }
             int bucket = bucket(
                     leftKey.hash(frame, leftBinding, leftIndex), mask);
             boolean matched = false;
@@ -218,6 +234,9 @@ abstract class JoinOperation<
     @Override
     public final String physicalPlan() {
         return "left-driven-hash-join[stable-right-chain,"
+                + "runtime-filter="
+                + RelationStrategyFormula.IDENTITY
+                + "(primitive-minmax|primitive-bloom|fallback),"
                 + (stages.hasSort()
                 ? "sort-barrier" : "stage-fused-stream")
                 + "," + terminal() + "]";
@@ -246,6 +265,12 @@ abstract class JoinOperation<
             next[position] = buckets[bucket];
             buckets[bucket] = position;
         }
+        JoinRuntimeFilter runtimeFilter = JoinRuntimeFilter.build(
+                frame,
+                leftSelection,
+                rightSelection,
+                rightKey,
+                rightBinding);
         return new JoinPrepared<L, R>(
                 leftSelection,
                 rightSelection,
@@ -256,6 +281,7 @@ abstract class JoinOperation<
                 type,
                 buckets,
                 next,
+                runtimeFilter,
                 stages);
     }
 

@@ -228,9 +228,9 @@ for file in \
   fi
 done
 
-if ! grep -F 'soma-generated-runtime-v11' \
+if ! grep -F 'soma-generated-runtime-v12' \
     docs/design/compatibility-security-and-versioning.md >/dev/null 2>&1; then
-  fail 'compatibility Design must declare generated/runtime v11'
+  fail 'compatibility Design must declare generated/runtime v12'
 fi
 if ! grep -F 'soma-primary-locator-layout-v1' \
     docs/design/compatibility-security-and-versioning.md >/dev/null 2>&1; then

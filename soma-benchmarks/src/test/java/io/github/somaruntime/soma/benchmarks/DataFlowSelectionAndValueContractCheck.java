@@ -44,9 +44,19 @@ public final class DataFlowSelectionAndValueContractCheck {
         DataFlowDefinition<LongScalarResult> lazyCount = source.candidates()
                 .filter(source.columns().entityId().greaterThanOrEqualTo(102L))
                 .count();
+        DataFlowDefinition<LongScalarResult> closedNumericCount =
+                source.candidates()
+                        .filter(source.columns().factIndex()
+                                .plus(1L)
+                                .multipliedBy(2L)
+                                .bitwiseAnd(15L)
+                                .greaterThan(4L))
+                        .count();
         table.addBatch(batch());
         require(execute(lazyCount, source, table).value() == 6L,
                 "lazy selection count");
+        require(execute(closedNumericCount, source, table).value() == 5L,
+                "closed numeric expression chain");
 
         DoubleColumnResult projected = execute(
                 source.candidates()
@@ -137,6 +147,9 @@ public final class DataFlowSelectionAndValueContractCheck {
         require(lazyCount.compile().explain().physicalPlan()
                         .contains("candidate-adaptive"),
                 "physical explain");
+        require(closedNumericCount.compile().explain().physicalPlan()
+                        .contains("closed-numeric-kernel"),
+                "closed numeric kernel explain");
 
         DataFlowContext context = DataFlowContext.sequential();
         try {

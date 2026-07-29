@@ -108,6 +108,7 @@ enum CandidatePhysicalShape {
     CONTIGUOUS_RANGE,
     SEGMENT_RANGE,
     EXACT_SINGLE_PASS,
+    BITMAP,
     POINT_SINGLE,
     SPARSE_INDEXES
 }
@@ -160,8 +161,18 @@ final class CandidateSelection {
                         CandidatePhysicalShape.POINT_SINGLE,
                         index,
                         null,
-                        1,
-                        scanned);
+                1,
+                scanned);
+    }
+
+    static CandidateSelection bitmap(
+            int[] indexes, int size, long scanned) {
+        return new CandidateSelection(
+                CandidatePhysicalShape.BITMAP,
+                0,
+                indexes,
+                size,
+                scanned);
     }
 
     int indexAt(int position) {
@@ -170,11 +181,13 @@ final class CandidateSelection {
                     "candidate position out of range");
         }
         return shape == CandidatePhysicalShape.SPARSE_INDEXES
+                || shape == CandidatePhysicalShape.BITMAP
                 ? indexes[position] : start + position;
     }
 
     int[] materializedIndexes(ExecutionFrame frame, String operation) {
-        if (shape == CandidatePhysicalShape.SPARSE_INDEXES) {
+        if (shape == CandidatePhysicalShape.SPARSE_INDEXES
+                || shape == CandidatePhysicalShape.BITMAP) {
             return indexes;
         }
         int[] result = frame.newScratchIndexes(size, operation);
@@ -370,6 +383,10 @@ final class ExactCandidateInput<B extends DataFlowBinding>
     @Override
     public String physicalForm() {
         return "exact-single-pass";
+    }
+
+    CandidateIndexAccess<B> access() {
+        return access;
     }
 
     @SuppressWarnings("unchecked")
@@ -672,6 +689,8 @@ final class CandidateProgram<B extends DataFlowBinding> {
     private final boolean hasSort;
     private final boolean contiguousParallelSafe;
     private final boolean branchParallelSafe;
+    private final ClosedBooleanKernel closedNumericKernel;
+    private final CandidateIndexAccess<B> bitmapPredicateAccess;
     private final List<ParameterSlot<?>> requiredParameters;
     private final String canonical;
 
@@ -688,6 +707,8 @@ final class CandidateProgram<B extends DataFlowBinding> {
         boolean sorting = false;
         boolean parallelSafe = input instanceof PackedCandidateInput<?>;
         boolean branchSafe = true;
+        boolean closedNumeric = input instanceof PackedCandidateInput<?>;
+        ClosedBooleanKernel numericKernel = null;
         List<ParameterSlot<?>> parameters = input.requiredParameters();
         StringBuilder identity = new StringBuilder(input.canonical());
         for (int index = 0; index < kinds.length; index++) {
@@ -698,6 +719,13 @@ final class CandidateProgram<B extends DataFlowBinding> {
                 parallelSafe = parallelSafe
                         && expression.parallelSafe;
                 branchSafe = branchSafe && expression.parallelSafe;
+                if (expression.closedKernel == null) {
+                    closedNumeric = false;
+                } else {
+                    numericKernel = numericKernel == null
+                            ? expression.closedKernel
+                            : numericKernel.and(expression.closedKernel);
+                }
                 parameters = DataFlowSupport.unionParameters(
                         parameters, expression.parameters);
                 identity.append("->filter(")
@@ -705,15 +733,18 @@ final class CandidateProgram<B extends DataFlowBinding> {
                         .append(')');
             } else if (kind == SKIP) {
                 parallelSafe = false;
+                closedNumeric = false;
                 identity.append("->skip(").append(arguments[index]).append(')');
             } else if (kind == LIMIT) {
                 parallelSafe = false;
+                closedNumeric = false;
                 identity.append("->limit(").append(arguments[index]).append(')');
             } else if (kind == SORT) {
                 CandidateOrder<?> order =
                         (CandidateOrder<?>) operands[index];
                 sorting = true;
                 parallelSafe = false;
+                closedNumeric = false;
                 branchSafe = branchSafe && order.parallelSafe;
                 parameters = DataFlowSupport.unionParameters(
                         parameters, order.parameters);
@@ -725,6 +756,18 @@ final class CandidateProgram<B extends DataFlowBinding> {
         hasSort = sorting;
         contiguousParallelSafe = parallelSafe;
         branchParallelSafe = branchSafe;
+        closedNumericKernel =
+                closedNumeric && numericKernel != null ? numericKernel : null;
+        CandidateIndexAccess<B> bitmapAccess = null;
+        if (input instanceof ExactCandidateInput<?>
+                && kinds.length == 1
+                && kinds[0] == FILTER) {
+            @SuppressWarnings("unchecked")
+            BooleanExpression<B> expression =
+                    (BooleanExpression<B>) operands[0];
+            bitmapAccess = expression.exactEqualityAccess;
+        }
+        bitmapPredicateAccess = bitmapAccess;
         requiredParameters = parameters;
         canonical = identity.toString();
     }
@@ -767,6 +810,9 @@ final class CandidateProgram<B extends DataFlowBinding> {
             throw new IllegalStateException(
                     "candidate program is not contiguous-parallel safe");
         }
+        if (closedNumericKernel != null) {
+            return closedNumericKernel.test(binding, index);
+        }
         for (int stage = 0; stage < kinds.length; stage++) {
             @SuppressWarnings("unchecked")
             BooleanExpression<B> expression =
@@ -783,12 +829,33 @@ final class CandidateProgram<B extends DataFlowBinding> {
     }
 
     String physicalForm() {
+        if (closedNumericKernel != null) {
+            return "closed-numeric-kernel[packed-range]";
+        }
+        if (bitmapPredicateAccess != null) {
+            return "bitmap-intersection-or-exact-filter["
+                    + "soma-candidate-physical-v2]";
+        }
         return requiresBarrier()
                 ? "sparse-indexes" : input.physicalForm();
     }
 
     CandidateVisit visit(
             ExecutionFrame frame, CandidateVisitor visitor, String operation) {
+        if (closedNumericKernel != null) {
+            DataFlowBinding binding = frame.binding(source);
+            return closedNumericKernel.visitPacked(
+                    frame,
+                    binding,
+                    binding.packedSize(),
+                    visitor,
+                    operation);
+        }
+        BitmapIntersection<B> bitmap = bitmapIntersection(frame);
+        if (bitmap != null) {
+            return visitBitmapIntersection(
+                    frame, bitmap, visitor, operation);
+        }
         if (hasSort || !input.supportsStreaming()) {
             CandidateSelection selected = select(frame, operation);
             int visited = 0;
@@ -829,6 +896,33 @@ final class CandidateProgram<B extends DataFlowBinding> {
 
     CandidateSelection select(ExecutionFrame frame, String operation) {
         DataFlowBinding binding = frame.binding(source);
+        if (closedNumericKernel != null) {
+            return closedNumericKernel.selectPacked(
+                    frame,
+                    binding,
+                    binding.packedSize(),
+                    operation);
+        }
+        BitmapIntersection<B> bitmap = bitmapIntersection(frame);
+        if (bitmap != null) {
+            int capacity = Math.min(bitmap.leftSize, bitmap.rightSize);
+            final int[] indexes =
+                    frame.newScratchIndexes(capacity, operation);
+            CandidateVisit visited = visitBitmapIntersection(
+                    frame,
+                    bitmap,
+                    new CandidateVisitor() {
+                        @Override
+                        public boolean accept(
+                                int index, int outputPosition) {
+                            indexes[outputPosition] = index;
+                            return true;
+                        }
+                    },
+                    operation);
+            return CandidateSelection.bitmap(
+                    indexes, visited.matched, visited.scanned);
+        }
         int inputCardinality = input.selectionCardinality(frame);
         int boundedCardinality = upperBound(inputCardinality);
         if (!hasSort
@@ -931,6 +1025,105 @@ final class CandidateProgram<B extends DataFlowBinding> {
         return upperBound(input.maximumCardinality(binding));
     }
 
+    CandidateVisit count(ExecutionFrame frame, String operation) {
+        if (closedNumericKernel == null) {
+            return visit(
+                    frame,
+                    new CandidateVisitor() {
+                        @Override
+                        public boolean accept(
+                                int index, int outputPosition) {
+                            return true;
+                        }
+                    },
+                    operation);
+        }
+        DataFlowBinding binding = frame.binding(source);
+        return closedNumericKernel.countPacked(
+                frame,
+                binding,
+                binding.packedSize(),
+                operation);
+    }
+
+    @SuppressWarnings("unchecked")
+    private BitmapIntersection<B> bitmapIntersection(
+            ExecutionFrame frame) {
+        if (bitmapPredicateAccess == null
+                || !(input instanceof ExactCandidateInput<?>)) {
+            return null;
+        }
+        ExactCandidateInput<B> exact = (ExactCandidateInput<B>) input;
+        B binding = (B) frame.binding(source);
+        CandidateIndexAccess<B> leftAccess = exact.access();
+        int leftGroup = leftAccess.group(binding);
+        int rightGroup = bitmapPredicateAccess.group(binding);
+        if (leftGroup < 0 || rightGroup < 0) {
+            return BitmapIntersection.empty(
+                    binding,
+                    leftAccess,
+                    bitmapPredicateAccess);
+        }
+        if (!leftAccess.bitmap(binding, leftGroup)
+                || !bitmapPredicateAccess.bitmap(binding, rightGroup)) {
+            return null;
+        }
+        int leftWords =
+                leftAccess.bitmapWordCount(binding, leftGroup);
+        int rightWords =
+                bitmapPredicateAccess.bitmapWordCount(
+                        binding, rightGroup);
+        if (leftWords <= 0 || leftWords != rightWords) {
+            return null;
+        }
+        return new BitmapIntersection<B>(
+                binding,
+                leftAccess,
+                bitmapPredicateAccess,
+                leftGroup,
+                rightGroup,
+                leftWords,
+                leftAccess.size(binding, leftGroup),
+                bitmapPredicateAccess.size(binding, rightGroup));
+    }
+
+    private CandidateVisit visitBitmapIntersection(
+            ExecutionFrame frame,
+            BitmapIntersection<B> bitmap,
+            CandidateVisitor visitor,
+            String operation) {
+        if (bitmap.words == 0) {
+            return new CandidateVisit(0L, 0);
+        }
+        long scanned = 0L;
+        int matched = 0;
+        for (int word = 0; word < bitmap.words; word++) {
+            if ((word & 1023) == 0) {
+                frame.checkBoundary(operation);
+            }
+            long left = bitmap.left.bitmapWord(
+                    bitmap.binding, bitmap.leftGroup, word);
+            long common = left & bitmap.right.bitmapWord(
+                    bitmap.binding, bitmap.rightGroup, word);
+            long remainingLeft = left;
+            while (common != 0L) {
+                int bit = Long.numberOfTrailingZeros(common);
+                long through = bit == 63
+                        ? -1L : (1L << (bit + 1)) - 1L;
+                scanned += Long.bitCount(remainingLeft & through);
+                remainingLeft &= ~through;
+                int index = (word << 6) + bit;
+                int outputPosition = matched++;
+                if (!visitor.accept(index, outputPosition)) {
+                    return new CandidateVisit(scanned, matched);
+                }
+                common &= common - 1L;
+            }
+            scanned += Long.bitCount(remainingLeft);
+        }
+        return new CandidateVisit(scanned, matched);
+    }
+
     private long[] initialRemaining() {
         if (kinds.length == 0) {
             return EMPTY_REMAINING;
@@ -1019,5 +1212,43 @@ final class CandidateProgram<B extends DataFlowBinding> {
                 System.arraycopy(auxiliary, start, indexes, start, end - start);
             }
         }
+    }
+}
+
+final class BitmapIntersection<B extends DataFlowBinding> {
+    final B binding;
+    final CandidateIndexAccess<B> left;
+    final CandidateIndexAccess<B> right;
+    final int leftGroup;
+    final int rightGroup;
+    final int words;
+    final int leftSize;
+    final int rightSize;
+
+    BitmapIntersection(
+            B binding,
+            CandidateIndexAccess<B> left,
+            CandidateIndexAccess<B> right,
+            int leftGroup,
+            int rightGroup,
+            int words,
+            int leftSize,
+            int rightSize) {
+        this.binding = binding;
+        this.left = left;
+        this.right = right;
+        this.leftGroup = leftGroup;
+        this.rightGroup = rightGroup;
+        this.words = words;
+        this.leftSize = leftSize;
+        this.rightSize = rightSize;
+    }
+
+    static <B extends DataFlowBinding> BitmapIntersection<B> empty(
+            B binding,
+            CandidateIndexAccess<B> left,
+            CandidateIndexAccess<B> right) {
+        return new BitmapIntersection<B>(
+                binding, left, right, -1, -1, 0, 0, 0);
     }
 }

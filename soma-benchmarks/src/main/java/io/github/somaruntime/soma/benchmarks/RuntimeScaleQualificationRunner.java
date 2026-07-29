@@ -77,7 +77,7 @@ public final class RuntimeScaleQualificationRunner {
                         "--output, --lane, --qualification-id, "
                                 + "--commit and --tree-state are required");
             }
-            if (!RuntimeScaleQualificationModel.REQUIRED_LANES
+            if (!RuntimeScaleQualificationModel.SUPPORTED_LANES
                     .contains(result.lane)) {
                 throw new IllegalArgumentException(
                         "unknown qualification lane: " + result.lane);

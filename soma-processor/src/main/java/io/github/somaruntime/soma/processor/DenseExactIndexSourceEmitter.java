@@ -20,6 +20,7 @@ import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.ap
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.appendSelectorRowBatchEquality;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.appendSelectorValueArguments;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.appendUniqueValidationRuntime;
+import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.bitmapEligible;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.hasMutableSelectors;
 import static io.github.somaruntime.soma.processor.DenseSourceNames.q;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.selectorBinding;
@@ -285,7 +286,9 @@ final class DenseExactIndexSourceEmitter {
                     .append("  private GroupedExactIndex buildSelector").append(i)
                     .append("Index(").append(table.name("Batch"))
                     .append(" batch,String operation){int distinct=(int)(selector").append(i)
-                    .append("BatchGroups(batch,false)>>>32);GroupedExactIndex staged=new GroupedExactIndex(batch.size(),distinct);for(int row=0;row<batch.size();row++){long hash=selector")
+                    .append("BatchGroups(batch,false)>>>32);GroupedExactIndex staged=new GroupedExactIndex(batch.size(),distinct,")
+                    .append(Boolean.toString(bitmapEligible(table, selector)))
+                    .append(");for(int row=0;row<batch.size();row++){long hash=selector")
                     .append(i).append("HashBatch(batch,row);int group=staged.firstGroup(hash);while(group>=0&&!selector")
                     .append(i).append("BatchEqual(batch,staged.representativeRow(group),row)){staged.recordCollision();group=staged.nextHashGroup(group);}");
             if ("unique".equals(selector.kind)) {

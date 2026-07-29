@@ -10,8 +10,8 @@ Application 声明稳定的数据形态和访问路径；SOMA 在编译期生成
 运行期提供 packed columnar storage、精确访问、typed transformation、受控并行与
 显式资源边界。Application 继续拥有业务规则、event loop、I/O、跨表提交与恢复。
 
-> 当前版本为 `0.2.0-SNAPSHOT`。G0–G4 已通过；G5 等待 Amazon Corretto 8
-> runtime-scale qualification；selected private-source G6 等待同一最终
+> 当前版本为 `0.2.0-SNAPSHOT`。G0–G5 已通过；selected private-source G6
+> 等待同一最终
 > candidate 的 package/security/manual qualification 与 sign-off。仓库尚未公开，
 > 也未发布到 Maven Central。
 
@@ -288,11 +288,11 @@ Key、Unique、Index、Group、RuntimePlan、typed DataFlow 与 String 等完整
 | Gate | 状态 | 当前边界 |
 |---|---|---|
 | G0–G4 | passed | 产品边界、schema/compiler、generated/runtime contract 与 external consumer 已在 Corretto authority 下验证 |
-| G5 | blocked | component 与九个 application profile 已通过；Small/Medium、1M/10M、single/double 100M、String、Expansion、Delivery、Soak 仍需在 Corretto 下完成重型 qualification |
+| G5 | passed | component、九个 application profile与Small/Medium、单1M、双1M、String、Expansion、Delivery、Soak已在当前Corretto/macOS/aarch64 profile通过 |
 | G6 | blocked | identity、SCM、support/security 与 Ubuntu x64 Corretto Full 已形成；等待 clean package/security provenance、最终 matrix sign-off 与 manual qualification |
 
-当前结论允许继续受控本地和 GitHub Linux CI 开发，但不声明 Corretto 100M
-qualification、Linux 性能/规模、private-source ready、public release、
+当前结论允许进入V1 Release Candidate评估并继续受控本地和GitHub Linux CI开发，
+但不声明10M/100M guarantee、Linux性能/规模、private-source ready、public release、
 Maven Central 或 production readiness。
 
 最新事实从以下入口读取：

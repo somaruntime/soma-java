@@ -626,9 +626,9 @@ public final class DataFlowShapeAndGraphContractCheck {
                             && !explain.parameterSummary().contains("=3"),
                     "bound explain is observed, detached and redacted");
             require(explain.candidatePhysicalFormulaIdentity()
-                            .equals("soma-candidate-physical-v1")
+                            .equals("soma-candidate-physical-v2")
                             && explain.relationStrategyFormulaIdentity()
-                                    .equals("soma-relation-strategy-v1")
+                                    .equals("soma-relation-strategy-v2")
                             && explain.schedulerFormulaIdentity()
                                     .equals("soma-morsel-scheduler-v1")
                             && explain.invocationLedgerIdentity()

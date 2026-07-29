@@ -18,7 +18,7 @@ Owner：SOMA Transformation semantics
 
 非事实范围：public overload 清单、IR encoding、物理算法、当前代码位置和测量数值
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 定位
 
@@ -32,7 +32,7 @@ Effect Model          怎样消费、物化、修改或交付结果
 
 Candidate Scan 是 `Candidate` 的线性、lazy、one-shot 特化，不代表全部 Access 或 Transformation。Point、Column、Key、Bulk 和 Ownership 保持 canonical 独立路径，也可以作为 typed Definition 的 Source。
 
-SOMA 只接受 schema-bound、有限、进程内的 typed computation。字符串 query、动态 schema、任意对象 source、SQL、分布式 job graph、无限 stream 和 application control flow 不属于本模型。
+SOMA 只接受 schema-bound、有限、进程内的 typed computation。字符串 query、动态 schema、任意对象 source、SQL、分布式 job graph、无限 stream 和 application control flow 不属于本模型。SQL 系统对类型、约束与执行 lowering 的经验只作为设计输入，不建立第二套 DDL/DML/DQL 叙事或通用 planner。
 
 ## 2. 事实、推导与状态变化
 
@@ -78,6 +78,9 @@ Shape 至少回答 element、cardinality、lineage、value state、logical order
 - min/max/reduce 的 empty 使用 explicit absence；count 的 empty 为零；
 - stable comparator 相等时保留 upstream first；
 - generated typed expression 是 canonical optimizable path；
+- logical expression capability 由 schema type 决定：raw numeric、boolean、
+  enum、date、time、instant 与 String 只暴露各自合法运算；内部 primitive carrier
+  共享不构成跨类型比较或算术授权；
 - String expression 使用 required/optional presence 与 Java value equality/order；
   reference identity 或 fingerprint 不能成为 logical semantics；
 - registered function/reducer 必须声明 typed signature、semantic identity/version、purity、determinism、thread-safety 和 failure/value semantics；
@@ -127,6 +130,12 @@ relation strategy 不是 logical API。Versioned cost formula 至少消费 maint
 access availability/build/probe cost、fan-out/multiplicity/skew、reuse/pass count、
 preaggregate state、generic hash scratch、output bound、order/barrier 与 touched
 width；choice/rejected reason进入 Explain。
+
+Primitive 单分量 equi-join 可以在一次 Invocation 的 build/probe boundary 建立
+min/max 或 Bloom runtime filter。Filter 只减少不可能命中的 probe，最终
+authoritative key equality 必须执行；scratch checked、Invocation 结束即释放，
+dense/high-hit 或公式不利时回退 baseline hash。String 与复合 key V1 不启用该
+filter。
 
 ## 6. Composition Algebra
 

@@ -5,13 +5,6 @@ import io.github.somaruntime.soma.runtime.IndexSnapshot;
 
 final class CandidateCountOperation<B extends DataFlowBinding>
         extends SingleSourceOperation<LongScalarResult> {
-    private static final CandidateVisitor NOOP = new CandidateVisitor() {
-        @Override
-        public boolean accept(int index, int outputPosition) {
-            return true;
-        }
-    };
-
     private final CandidateProgram<B> program;
 
     CandidateCountOperation(CandidateProgram<B> program) {
@@ -37,11 +30,14 @@ final class CandidateCountOperation<B extends DataFlowBinding>
     @Override
     public String physicalPlan() {
         if (program.supportsContiguousParallel()) {
-            return "candidate-adaptive[contiguous-filter,count]";
+            return "candidate-adaptive["
+                    + program.physicalForm() + ",count]";
         }
         return program.requiresBarrier()
-                ? "candidate-barrier[stable-sort,count]"
-                : "candidate-stream[filter-skip-limit,count]";
+                ? "candidate-barrier["
+                        + program.physicalForm() + ",count]"
+                : "candidate-stream["
+                        + program.physicalForm() + ",count]";
     }
 
     @Override
@@ -57,7 +53,7 @@ final class CandidateCountOperation<B extends DataFlowBinding>
             return parallel;
         }
         CandidateVisit visit =
-                program.visit(frame, NOOP, "dataflow.count");
+                program.count(frame, "dataflow.count");
         frame.reserveOutput(1L, 8L, "dataflow.count");
         return new ExecutionOutcome<LongScalarResult>(
                 new LongScalarResult(visit.matched),

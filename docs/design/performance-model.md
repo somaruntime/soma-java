@@ -18,7 +18,7 @@ Owner：SOMA 跨模块性能设计
 
 非事实范围：某次 benchmark 数值、机器支持声明和永久 Gate 阈值
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 北极星
 
@@ -95,9 +95,19 @@ Benchmark 必须避免把 setup、input build、external DTO mapping 或 JVM war
 
 Packed zero-stage 与 exact source-only terminal 应有直接执行路径。短 stage 链不得为每个 stage 建立 linked node 或复制完整 stage arrays；overflow 表示也必须保持 primitive kind/argument 与 callback reference 分离。
 
+Required numeric column + constant arithmetic/comparison 的 common chain 可以由
+closed whole-loop kernel直接消费 Range/Exact/Sparse candidate；reference graph
+保留 differential oracle/fallback。String、optional presence、registered/opaque
+callback 或未关闭的 expression shape 不进入 V1 fusion claim。
+
 ### 5.2 Exact lookup
 
 Exact access 的 read cost 与命中 group 相关；write cost显式承担 hash probe、group/link delta 和 compaction relocation。必须同时测 lookup throughput 与 mutation maintenance，不能只展示单边收益。
+
+低基数 Bitmap 只比较 repeated two-predicate equality intersection 的总成本。
+Versioned formula 同时比较 link/bitmap retained bytes、word traversal、group
+cardinality、mutation/relocation 和 fallback；不能把 TV 的 8/64/1024 或任何
+crossover 常数提升为 public contract。
 
 ### 5.3 Dynamic sort
 
@@ -125,6 +135,11 @@ allocation risk、point/probe、fan-out/skew/reuse、touched width、scratch/out
 hardware-independent workload proxy；choice/reason进入 Effective Metadata或
 Explain。TV crossover 常数不是 public contract。
 
+Primitive 单分量 join 的 relation formula可以选择 build-side min/max、Bloom 或
+baseline。Min/max服务窄连续域，Bloom服务稀疏低命中域，dense/high-hit禁用收益
+不足的 filter；所有 candidate hit 仍进入 hash/full equality。String runtime
+filter在 V1 明确禁用。
+
 ## 6. Runtime plan 的性能约束
 
 Capacity、memory limit、stats mode、locator/index load 策略、materialization budget 和 estimator identity 由 create-time immutable runtime plan 预绑定。读取 hot path 不解析动态 metadata；plan 变化产生不同 plan hash，不能静默改变既有 table。Plan/Stats 的规范性语义由 [Runtime Plan 与可观测性](runtime-plan-and-observability.md)拥有，本节只拥有其性能约束。
@@ -149,19 +164,18 @@ Table count。
 
 Transformation component 还需分别覆盖 direct Access 对照、Definition/Template/Invocation 固定税、operator barrier、parallel crossover、detached output、safe-point Effect 和 generated footprint。性能测试不能替代 reference differential、构造契约或 failure evidence。
 
-Scale readiness 是受约束 profile 集合，不是单一“100M passed”：
+V1 Scale readiness 是受约束 profile 集合，不是单一 row-count claim：
 
 - Small/Fast 与 Medium 必须同时覆盖 primitive/String 和 fixed tax；
-- 1M/10M 覆盖 Point/Exact/Scan/Column/Batch/Delta/Join/Group/Window、relation/
+- 单表 1M 覆盖 Point/Exact/Scan/Column/Batch/Delta/Join/Group/Window、relation/
   parallel crossover、clear/release/GC；
-- single-100M 与两个 simultaneously resident 100M roots 覆盖 same/cross Group
-  bounded relation；
-- 100M String 只覆盖明确的 narrow shared-reference profile，并包含 impossible
-  profile/relation preflight；
+- 两个 simultaneously resident 1M roots 覆盖 same/cross Group bounded relation、
+  primitive runtime filter、String reference baseline 与 peak heap；
 - callback delivery 和 long-run Soak 独立覆盖 failure、cleanup、ledger回零和 GC。
 
-100M 是可完成性、bounded peak、correctness 与 honest claim boundary，不是任意
-Schema/String/high-expansion支持或 public latency SLA。Small/Medium 不得为 scale
-architecture 承担未解释的稳定固定税。
+10M/100M 保留为非阻塞 research/stress profile，用于观察可完成性、扩展曲线、
+bounded peak 和下一版本方向；其成功或缺失都不改变 V1 qualification Gate，
+也不得被表述为任意 Schema/String/high-expansion支持或 public latency SLA。
+Small/Medium 不得为规模能力承担未解释的稳定固定税。
 
 单机 diagnostic 只支持对应环境的结论。阈值和 Gate 由 Engineering 拥有；测量结果由 Report 拥有。

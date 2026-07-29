@@ -1,6 +1,8 @@
 package io.github.somaruntime.soma.dataflow;
 
 import io.github.somaruntime.soma.dataflow.generated.DataFlowBinding;
+import io.github.somaruntime.soma.dataflow.generated.CandidateIndexAccess;
+import io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess;
 import io.github.somaruntime.soma.runtime.SomaRuntimeException;
 
 import java.util.Collections;
@@ -14,6 +16,8 @@ public final class LongExpression<B extends DataFlowBinding> {
     final String path;
     final List<ParameterSlot<?>> parameters;
     final boolean parallelSafe;
+    final ClosedLongExpression closedExpression;
+    final CandidateLongEqualityAccess<B> equalityAccess;
     private final String identity;
 
     LongExpression(
@@ -27,7 +31,8 @@ public final class LongExpression<B extends DataFlowBinding> {
                 presence,
                 path,
                 Collections.<ParameterSlot<?>>emptyList(),
-                true);
+                true,
+                null);
     }
 
     LongExpression(
@@ -37,12 +42,53 @@ public final class LongExpression<B extends DataFlowBinding> {
             String path,
             List<ParameterSlot<?>> parameters,
             boolean parallelSafe) {
+        this(
+                source,
+                node,
+                presence,
+                path,
+                parameters,
+                parallelSafe,
+                null,
+                null);
+    }
+
+    LongExpression(
+            SourceSlot<B> source,
+            LongNode node,
+            BooleanNode presence,
+            String path,
+            List<ParameterSlot<?>> parameters,
+            boolean parallelSafe,
+            ClosedLongExpression closedExpression) {
+        this(
+                source,
+                node,
+                presence,
+                path,
+                parameters,
+                parallelSafe,
+                closedExpression,
+                null);
+    }
+
+    LongExpression(
+            SourceSlot<B> source,
+            LongNode node,
+            BooleanNode presence,
+            String path,
+            List<ParameterSlot<?>> parameters,
+            boolean parallelSafe,
+            ClosedLongExpression closedExpression,
+            CandidateLongEqualityAccess<B> equalityAccess) {
         this.source = source;
         this.node = node;
         this.presence = presence;
         this.path = path;
         this.parameters = parameters;
         this.parallelSafe = parallelSafe;
+        this.closedExpression = closedExpression;
+        this.equalityAccess = equalityAccess;
         StringBuilder canonical =
                 new StringBuilder("long-expression-v1");
         DataFlowSupport.appendCanonical(
@@ -109,6 +155,10 @@ public final class LongExpression<B extends DataFlowBinding> {
 
     public LongExpression<B> dividedBy(final long value) {
         return unary("divide", value, 3);
+    }
+
+    public LongExpression<B> bitwiseAnd(final long value) {
+        return unary("bitwise-and", value, 4);
     }
 
     public LongExpression<B> plus(LongExpression<B> other) {
@@ -300,7 +350,8 @@ public final class LongExpression<B extends DataFlowBinding> {
                         if (kind == 0) return value + right;
                         if (kind == 1) return value - right;
                         if (kind == 2) return value * right;
-                        return value / right;
+                        if (kind == 3) return value / right;
+                        return value & right;
                     }
 
                     @Override
@@ -311,7 +362,8 @@ public final class LongExpression<B extends DataFlowBinding> {
                 presence,
                 path + "." + operation,
                 parameters,
-                parallelSafe);
+                parallelSafe,
+                closedUnary(kind, right));
     }
 
     private LongExpression<B> binary(
@@ -351,6 +403,9 @@ public final class LongExpression<B extends DataFlowBinding> {
     private BooleanExpression<B> compare(final long right, final int kind) {
         final LongNode left = node;
         final BooleanNode available = presence;
+        CandidateIndexAccess<B> exact =
+                kind == 0 && equalityAccess != null
+                        ? equalityAccess.equalTo(right) : null;
         return new BooleanExpression<B>(
                 source,
                 new BooleanNode() {
@@ -379,7 +434,13 @@ public final class LongExpression<B extends DataFlowBinding> {
                 ExpressionNodes.alwaysPresent(),
                 "boolean",
                 parameters,
-                parallelSafe);
+                parallelSafe,
+                closedExpression == null
+                        ? null
+                        : ClosedBooleanKernel.predicate(
+                                new ClosedNumericPredicate(
+                                        closedExpression, right, kind)),
+                exact);
     }
 
     private BooleanExpression<B> compare(
@@ -432,5 +493,16 @@ public final class LongExpression<B extends DataFlowBinding> {
                     source.alias(),
                     "dataflow.expression");
         }
+    }
+
+    private ClosedLongExpression closedUnary(int kind, long operand) {
+        if (closedExpression == null) return null;
+        byte operation;
+        if (kind == 0) operation = ClosedLongExpression.ADD;
+        else if (kind == 1) operation = ClosedLongExpression.SUBTRACT;
+        else if (kind == 2) operation = ClosedLongExpression.MULTIPLY;
+        else if (kind == 3) operation = ClosedLongExpression.DIVIDE;
+        else operation = ClosedLongExpression.BITWISE_AND;
+        return closedExpression.append(operation, operand);
     }
 }

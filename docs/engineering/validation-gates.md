@@ -21,9 +21,9 @@ Gate 是完整目标的验证 checkpoint，不是缩小产品范围的版本。�
 | Gate | 证明的边界 |
 |---|---|
 | G0 | Java-only scope、Blueprint/Design/Owner、non-goal 和 claim boundary 已稳定 |
-| G1 | annotation/schema、四类V1 type、String、ownership/selector/default、Metadata/hash/diagnostic 语义可编译验证 |
-| G2 | Amazon Corretto full JDK 8 integration、normalization、deterministic codegen、SchemaMetadata/typed String/callback generated API、negative fixture与old-token absence |
-| G3 | Group/ledger/lifecycle、flat/head-tail storage、locator/exact、Candidate shapes、Transformation/DataFlow、bounded scheduler、Result Delivery、plan/observation/failure 和 safe-point Effect |
+| G1 | annotation/schema、四类V1 storage kind、closed logical type catalog、String、ownership/selector/default、Metadata/hash/diagnostic 语义可编译验证 |
+| G2 | Amazon Corretto full JDK 8 integration、normalization、deterministic codegen、SchemaMetadata/logical enum-date-time-instant/String/callback generated API、negative fixture与old-token absence |
+| G3 | Group/ledger/lifecycle、flat/head-tail storage、locator/exact、formula-bound Bitmap、Candidate shapes、numeric closed kernel、primitive join runtime filter、Transformation/DataFlow、bounded scheduler、Result Delivery、plan/observation/failure 和 safe-point Effect |
 | G4 | 普通 external Maven Java 8 consumer 能生成、编译、绑定 Metadata/Group/storage/DataFlow runtime，并执行simple/advanced/callback/diagnostics journey |
 | G5 | property/reference differential、全部runtime-scale production qualification、领域中性 component benchmark、三个应用审计及各自 correctness/default/large/long-run evidence |
 | G6 | selected release profile 的 license、SCM/ownership/contact、适用 package/provenance、security、support matrix、distribution/publishing applicability 和 sign-off |
@@ -43,7 +43,10 @@ Gate标为blocked，不能靠改名baseline维持passed。
 
 Runtime-scale qualification额外允许`inconclusive`记录无法得出结论的合法artifact，
 但required applicable lane的`inconclusive`阻塞G5，不等同passed或waived。
-Single/double100M、String、high-expansion、Delivery与Soak必须分别有artifact。
+Required runtime-scale artifact 至少分别覆盖 Small、Medium、单表1M、两个同时驻留
+1M root、String、high-expansion、Delivery与Soak。10M/100M可以作为
+`informational research/stress` lane运行，但其缺失、失败或inconclusive不阻塞V1
+G5；它们不得混入required通过率或改名为V1 guarantee。
 
 ## 3. 状态与证据
 

@@ -529,7 +529,7 @@ final class SomaSchemaModel {
                         group.firstLeaf, group.leafCount, group.directFieldCount));
             }
             return new DenseTableCodegenModel.FieldSpec(
-                    javaName, logicalName, type.publicType,
+                    javaName, logicalName, semantic, type.publicType,
                     type.boxedName, type.storagePrimitiveName, type.columnType,
                     type.enumJavaType, type.valueJavaType, type.valueLeafJavaName,
                     type.valueConstructionTemplate, leaves, groups, optional, key,

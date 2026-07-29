@@ -5,6 +5,7 @@ import static io.github.somaruntime.soma.processor.DenseSourceNames.cap;
 import static io.github.somaruntime.soma.processor.DenseSelectorCodegenModel.selectorParameters;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.appendSelectorParameters;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.appendSourceLeafArguments;
+import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.bitmapEligible;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.selectorHashBits;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.selectorParameterArgument;
 import static io.github.somaruntime.soma.processor.DenseSelectorSourceSupport.selectorSuffix;
@@ -39,17 +40,22 @@ final class DenseDataFlowSourceEmitter {
                 .append("import io.github.somaruntime.soma.dataflow.CandidateFlow;\n")
                 .append("import io.github.somaruntime.soma.dataflow.CallbackDeliveryDefinition;\n")
                 .append("import io.github.somaruntime.soma.dataflow.DataFlowDefinition;\n")
+                .append("import io.github.somaruntime.soma.dataflow.DateExpression;\n")
                 .append("import io.github.somaruntime.soma.dataflow.DoubleExpression;\n")
+                .append("import io.github.somaruntime.soma.dataflow.EnumExpression;\n")
                 .append("import io.github.somaruntime.soma.dataflow.ExpandedFlow;\n")
                 .append("import io.github.somaruntime.soma.dataflow.GeneratedDataFlow;\n")
+                .append("import io.github.somaruntime.soma.dataflow.InstantExpression;\n")
                 .append("import io.github.somaruntime.soma.dataflow.LongExpression;\n")
                 .append("import io.github.somaruntime.soma.dataflow.StringExpression;\n")
+                .append("import io.github.somaruntime.soma.dataflow.TimeExpression;\n")
                 .append("import io.github.somaruntime.soma.dataflow.ParameterSlot;\n")
                 .append("import io.github.somaruntime.soma.dataflow.PointFlow;\n")
                 .append("import io.github.somaruntime.soma.dataflow.SourceSlot;\n")
                 .append("import io.github.somaruntime.soma.dataflow.generated.CandidateDeliveryAccess;\n")
                 .append("import io.github.somaruntime.soma.dataflow.generated.CandidateDeliverySession;\n")
                 .append("import io.github.somaruntime.soma.dataflow.generated.CandidateIndexAccess;\n")
+                .append("import io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess;\n")
                 .append("import io.github.somaruntime.soma.dataflow.generated.CandidateEffectAccess;\n")
                 .append("import io.github.somaruntime.soma.dataflow.generated.CandidateMaterializationAccess;\n")
                 .append("import io.github.somaruntime.soma.dataflow.generated.DataFlowBinding;\n")
@@ -328,6 +334,17 @@ final class DenseDataFlowSourceEmitter {
 
     private static void appendExactAccessTypes(
             SourceBuilder out, TableSpec table) {
+        boolean hasBitmapResolver = false;
+        for (SelectorSpec selector : table.selectors) {
+            if (bitmapEligible(table, selector)) {
+                hasBitmapResolver = true;
+                break;
+            }
+        }
+        if (hasBitmapResolver) {
+            out.append("  private static final CandidateIndexAccess<Binding> MISSING_LONG_EXACT_ACCESS=new MissingLongExactAccess();\n")
+                    .append("  private static final class MissingLongExactAccess implements CandidateIndexAccess<Binding>{public int group(Binding binding){return -1;}public int size(Binding binding,int group){return 0;}public int first(Binding binding,int group){return -1;}public int next(Binding binding,int currentIndex){return -1;}public String identity(){return \"missing-long-equality\";}}\n\n");
+        }
         for (int selectorIndex = 0;
              selectorIndex < table.selectors.size();
              selectorIndex++) {
@@ -381,11 +398,41 @@ final class DenseDataFlowSourceEmitter {
                     .append(selectorIndex).append("SourceFirst(group);}\n")
                     .append("    public int next(Binding binding,int currentIndex){return binding.table.selector")
                     .append(selectorIndex).append("SourceNext(currentIndex);}\n")
+                    .append("    public boolean bitmap(Binding binding,int group){return binding.table.selector")
+                    .append(selectorIndex).append("SourceBitmap();}\n")
+                    .append("    public int bitmapWordCount(Binding binding,int group){return binding.table.selector")
+                    .append(selectorIndex).append("SourceBitmapWords();}\n")
+                    .append("    public long bitmapWord(Binding binding,int group,int word){return binding.table.selector")
+                    .append(selectorIndex).append("SourceBitmapWord(group,word);}\n")
                     .append("unique".equals(selector.kind)
                             ? "    public int index(Binding binding){int group=group(binding);return group<0?-1:first(binding,group);}\n"
                             : "")
                     .append("    public String identity(){return identity;}\n")
                     .append("  }\n\n");
+            if (bitmapEligible(table, selector)) {
+                SelectorLeafSpec leaf = selector.leaves.get(0);
+                out.append("  private static final class LongEqualityAccess")
+                        .append(selectorIndex)
+                        .append(" implements CandidateLongEqualityAccess<Binding>{\n")
+                        .append("    public CandidateIndexAccess<Binding> equalTo(long value){");
+                if ("byte".equals(leaf.storageType)) {
+                    out.append("if(value<Byte.MIN_VALUE||value>Byte.MAX_VALUE)return MISSING_LONG_EXACT_ACCESS;");
+                } else if ("short".equals(leaf.storageType)) {
+                    out.append("if(value<Short.MIN_VALUE||value>Short.MAX_VALUE)return MISSING_LONG_EXACT_ACCESS;");
+                } else if ("int".equals(leaf.storageType)) {
+                    out.append("if(value<Integer.MIN_VALUE||value>Integer.MAX_VALUE)return MISSING_LONG_EXACT_ACCESS;");
+                }
+                out.append(leaf.storageType).append(" sourceLeaf0=")
+                        .append("long".equals(leaf.storageType) ? "value" : "(" + leaf.storageType + ")value")
+                        .append(";long hash=1469598103934665603L;hash=(hash^")
+                        .append(selectorHashBits(leaf.storageType, "sourceLeaf0"))
+                        .append(")*1099511628211L;return new ExactAccess")
+                        .append(selectorIndex)
+                        .append("(hash,sourceLeaf0);}\n")
+                        .append("    public String identity(){return ")
+                        .append(q(selectorIdentity + ":long-equality"))
+                        .append(";}\n  }\n\n");
+            }
         }
     }
 
@@ -399,20 +446,33 @@ final class DenseDataFlowSourceEmitter {
                             out,
                             leaf.stem(field),
                             field.logicalName + "." + leaf.logicalName,
-                            expressionType(
-                                    leaf.primitive, leaf.enumType, null),
+                            expressionKind(
+                                    leaf.primitive,
+                                    leaf.enumType,
+                                    leaf.semantic,
+                                    null),
+                            leaf.enumType,
                             field.optional,
-                            ordinal++);
+                            ordinal++,
+                            bitmapSelectorIndex(
+                                    table,
+                                    field.logicalName + "."
+                                            + leaf.logicalName));
                 }
             } else {
                 appendExpressionMethod(
                         out,
                         field.javaName,
                         field.logicalName,
-                        expressionType(
-                                field.primitive, field.enumType, null),
+                        expressionKind(
+                                field.primitive,
+                                field.enumType,
+                                field.semantic,
+                                null),
+                        field.enumType,
                         field.optional,
-                        ordinal++);
+                        ordinal++,
+                        bitmapSelectorIndex(table, field.logicalName));
             }
         }
     }
@@ -421,15 +481,50 @@ final class DenseDataFlowSourceEmitter {
             SourceBuilder out,
             String method,
             String path,
-            String expressionType,
+            String expressionKind,
+            String enumType,
             boolean optional,
-            int ordinal) {
+            int ordinal,
+            int bitmapSelector) {
+        boolean indexed = !optional
+                && bitmapSelector >= 0
+                && ("Long".equals(expressionKind)
+                || "Enum".equals(expressionKind)
+                || "Date".equals(expressionKind)
+                || "Time".equals(expressionKind)
+                || "Instant".equals(expressionKind));
         out.append("    public ");
-        out.append(expressionType).append("Expression<Binding>");
+        out.append(expressionKind).append("Expression<Binding");
+        if ("Enum".equals(expressionKind)) {
+            out.append(',').append(enumType);
+        }
+        out.append('>');
         out.append(' ').append(method).append("(){return GeneratedDataFlow.")
-                .append(optional ? "optional" : "required")
-                .append(expressionType).append("(source,")
-                .append(ordinal).append(',').append(q(path)).append(");}\n");
+                .append(optional
+                        ? "optional"
+                        : indexed ? "requiredIndexed" : "required")
+                .append(expressionKind).append("(source,")
+                .append(ordinal).append(',').append(q(path));
+        if ("Enum".equals(expressionKind)) {
+            out.append(',').append(enumType).append(".class");
+        }
+        if (indexed) {
+            out.append(",new LongEqualityAccess")
+                    .append(bitmapSelector).append("()");
+        }
+        out.append(");}\n");
+    }
+
+    private static int bitmapSelectorIndex(
+            TableSpec table, String path) {
+        for (int index = 0; index < table.selectors.size(); index++) {
+            SelectorSpec selector = table.selectors.get(index);
+            if (bitmapEligible(table, selector)
+                    && selector.leaves.get(0).path.equals(path)) {
+                return index;
+            }
+        }
+        return -1;
     }
 
     private static void appendBindingAccess(
@@ -480,7 +575,7 @@ final class DenseDataFlowSourceEmitter {
         for (FieldSpec field : table.fields) {
             if (field.valueBacked()) {
                 for (ValueLeafSpec leaf : field.valueLeaves) {
-                    String type = expressionType(
+                    String type = carrierType(
                             leaf.primitive, leaf.enumType, null);
                     if (carrier.equals(type)) {
                         appendCarrierCase(
@@ -493,7 +588,7 @@ final class DenseDataFlowSourceEmitter {
                     ordinal++;
                 }
             } else {
-                String type = expressionType(
+                String type = carrierType(
                         field.primitive, field.enumType, null);
                 if (carrier.equals(type)) {
                     appendCarrierCase(
@@ -532,7 +627,23 @@ final class DenseDataFlowSourceEmitter {
         return "Long".equals(carrier) ? "(long)" : "";
     }
 
-    private static String expressionType(
+    private static String expressionKind(
+            String primitive,
+            String enumType,
+            String semantic,
+            String valueType) {
+        if (valueType != null) {
+            throw new IllegalArgumentException(
+                    "compiler-flattened value has no object expression");
+        }
+        if (enumType != null) return "Enum";
+        if ("DATE".equals(semantic)) return "Date";
+        if ("TIME".equals(semantic)) return "Time";
+        if ("DATE_TIME".equals(semantic)) return "Instant";
+        return carrierType(primitive, enumType, valueType);
+    }
+
+    private static String carrierType(
             String primitive, String enumType, String valueType) {
         if (valueType != null) {
             throw new IllegalArgumentException(

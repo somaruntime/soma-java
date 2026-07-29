@@ -171,12 +171,18 @@ final class DenseTableSourceEmitter {
         if (!table.selectors.isEmpty()) {
             out.append("    long estimatedExactIndexBytes=0L;");
             for (int i = 0; i < table.selectors.size(); i++) {
-                out.append("estimatedExactIndexBytes=addExactMetric(estimatedExactIndexBytes,GroupedExactIndex.estimatedRetainedBytes(tablePlan.initialCapacity(),0));");
+                out.append("estimatedExactIndexBytes=addExactMetric(estimatedExactIndexBytes,GroupedExactIndex.estimatedRetainedBytes(tablePlan.initialCapacity(),0,")
+                        .append(Boolean.toString(bitmapEligible(
+                                table, table.selectors.get(i))))
+                        .append("));");
             }
             out.append("state.preflightExactIndexStorage(estimatedExactIndexBytes,\"table.create\");try{");
             for (int i = 0; i < table.selectors.size(); i++) {
                 out.append("selector").append(i)
-                        .append("Index=new GroupedExactIndex(tablePlan.initialCapacity(),0);");
+                        .append("Index=new GroupedExactIndex(tablePlan.initialCapacity(),0,")
+                        .append(Boolean.toString(bitmapEligible(
+                                table, table.selectors.get(i))))
+                        .append(");");
             }
             out.append("long actualExactIndexBytes=exactIndexRetainedBytes();if(actualExactIndexBytes!=estimatedExactIndexBytes)throw internalInvariant(\"exact_index_estimator\",TABLE,\"table.create\");state.commitExactIndexStorage(0L,actualExactIndexBytes,\"table.create\");}catch(RuntimeException failure){");
             for (int i = 0; i < table.selectors.size(); i++) {
@@ -1325,7 +1331,13 @@ final class DenseTableSourceEmitter {
                 .append("SourceNext(int row){return selector").append(index)
                 .append("Index.nextRow(row);}\n  int selector").append(index)
                 .append("SourceSize(int group){return selector").append(index)
-                .append("Index.groupSize(group);}\n");
+                .append("Index.groupSize(group);}\n  boolean selector").append(index)
+                .append("SourceBitmap(){return selector").append(index)
+                .append("Index.bitmapLayout();}\n  int selector").append(index)
+                .append("SourceBitmapWords(){return selector").append(index)
+                .append("Index.bitmapWordCount();}\n  long selector").append(index)
+                .append("SourceBitmapWord(int group,int word){return selector")
+                .append(index).append("Index.bitmapWord(group,word);}\n");
     }
 
     private void appendUniquePointMethods(

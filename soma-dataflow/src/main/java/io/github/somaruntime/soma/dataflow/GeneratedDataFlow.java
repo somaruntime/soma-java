@@ -2,6 +2,7 @@ package io.github.somaruntime.soma.dataflow;
 
 import io.github.somaruntime.soma.dataflow.generated.DataFlowBinding;
 import io.github.somaruntime.soma.dataflow.generated.CandidateIndexAccess;
+import io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess;
 import io.github.somaruntime.soma.dataflow.generated.CandidateEffectAccess;
 import io.github.somaruntime.soma.dataflow.generated.OwnedChildAccess;
 import io.github.somaruntime.soma.dataflow.generated.PointIndexAccess;
@@ -23,8 +24,8 @@ import java.util.List;
  * protocol directly.</p>
  */
 public final class GeneratedDataFlow {
-    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v3";
-    public static final String KERNEL_PROTOCOL = "soma-kernel-v4";
+    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v4";
+    public static final String KERNEL_PROTOCOL = "soma-kernel-v5";
 
     private GeneratedDataFlow() {
     }
@@ -198,7 +199,27 @@ public final class GeneratedDataFlow {
                 source,
                 ExpressionNodes.longField(columnOrdinal, path),
                 ExpressionNodes.alwaysPresent(),
-                path);
+                path,
+                Collections.<ParameterSlot<?>>emptyList(),
+                true,
+                ClosedLongExpression.column(columnOrdinal));
+    }
+
+    public static <B extends DataFlowBinding> LongExpression<B>
+    requiredIndexedLong(
+            SourceSlot<B> source,
+            int columnOrdinal,
+            String path,
+            CandidateLongEqualityAccess<B> equalityAccess) {
+        return new LongExpression<B>(
+                source,
+                ExpressionNodes.longField(columnOrdinal, path),
+                ExpressionNodes.alwaysPresent(),
+                path,
+                Collections.<ParameterSlot<?>>emptyList(),
+                true,
+                ClosedLongExpression.column(columnOrdinal),
+                required(equalityAccess, "equalityAccess"));
     }
 
     public static <B extends DataFlowBinding> LongExpression<B> longParameter(
@@ -234,6 +255,118 @@ public final class GeneratedDataFlow {
                 ExpressionNodes.longField(columnOrdinal, path),
                 ExpressionNodes.present(columnOrdinal, path),
                 path);
+    }
+
+    public static <
+            B extends DataFlowBinding,
+            E extends Enum<E>> EnumExpression<B, E> requiredEnum(
+            SourceSlot<B> source,
+            int columnOrdinal,
+            String path,
+            Class<E> enumType) {
+        return new EnumExpression<B, E>(
+                requiredLong(source, columnOrdinal, path),
+                required(enumType, "enumType"));
+    }
+
+    public static <
+            B extends DataFlowBinding,
+            E extends Enum<E>> EnumExpression<B, E> requiredIndexedEnum(
+            SourceSlot<B> source,
+            int columnOrdinal,
+            String path,
+            Class<E> enumType,
+            CandidateLongEqualityAccess<B> equalityAccess) {
+        return new EnumExpression<B, E>(
+                requiredIndexedLong(
+                        source,
+                        columnOrdinal,
+                        path,
+                        equalityAccess),
+                required(enumType, "enumType"));
+    }
+
+    public static <
+            B extends DataFlowBinding,
+            E extends Enum<E>> EnumExpression<B, E> optionalEnum(
+            SourceSlot<B> source,
+            int columnOrdinal,
+            String path,
+            Class<E> enumType) {
+        return new EnumExpression<B, E>(
+                optionalLong(source, columnOrdinal, path),
+                required(enumType, "enumType"));
+    }
+
+    public static <B extends DataFlowBinding> DateExpression<B> requiredDate(
+            SourceSlot<B> source, int columnOrdinal, String path) {
+        return new DateExpression<B>(
+                requiredLong(source, columnOrdinal, path));
+    }
+
+    public static <B extends DataFlowBinding> DateExpression<B>
+    requiredIndexedDate(
+            SourceSlot<B> source,
+            int columnOrdinal,
+            String path,
+            CandidateLongEqualityAccess<B> equalityAccess) {
+        return new DateExpression<B>(
+                requiredIndexedLong(
+                        source, columnOrdinal, path, equalityAccess));
+    }
+
+    public static <B extends DataFlowBinding> DateExpression<B> optionalDate(
+            SourceSlot<B> source, int columnOrdinal, String path) {
+        return new DateExpression<B>(
+                optionalLong(source, columnOrdinal, path));
+    }
+
+    public static <B extends DataFlowBinding> TimeExpression<B> requiredTime(
+            SourceSlot<B> source, int columnOrdinal, String path) {
+        return new TimeExpression<B>(
+                requiredLong(source, columnOrdinal, path));
+    }
+
+    public static <B extends DataFlowBinding> TimeExpression<B>
+    requiredIndexedTime(
+            SourceSlot<B> source,
+            int columnOrdinal,
+            String path,
+            CandidateLongEqualityAccess<B> equalityAccess) {
+        return new TimeExpression<B>(
+                requiredIndexedLong(
+                        source, columnOrdinal, path, equalityAccess));
+    }
+
+    public static <B extends DataFlowBinding> TimeExpression<B> optionalTime(
+            SourceSlot<B> source, int columnOrdinal, String path) {
+        return new TimeExpression<B>(
+                optionalLong(source, columnOrdinal, path));
+    }
+
+    public static <B extends DataFlowBinding> InstantExpression<B>
+    requiredInstant(
+            SourceSlot<B> source, int columnOrdinal, String path) {
+        return new InstantExpression<B>(
+                requiredLong(source, columnOrdinal, path));
+    }
+
+    public static <B extends DataFlowBinding> InstantExpression<B>
+    requiredIndexedInstant(
+            SourceSlot<B> source,
+            int columnOrdinal,
+            String path,
+            CandidateLongEqualityAccess<B> equalityAccess) {
+        return new InstantExpression<B>(
+                requiredIndexedLong(
+                        source, columnOrdinal, path, equalityAccess));
+    }
+
+    public static <B extends DataFlowBinding> InstantExpression<B>
+    optionalInstant(
+            SourceSlot<B> source, int columnOrdinal, String path) {
+        return new InstantExpression<B>(
+                optionalLong(source, columnOrdinal, path));
     }
 
     public static <B extends DataFlowBinding> DoubleExpression<B> requiredDouble(

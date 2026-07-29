@@ -202,6 +202,20 @@ public final class RuntimeFailures {
         return value;
     }
 
+    public static long validTimeNanos(
+            String table, String field, long value, String operation) {
+        if (value < 0L || value >= 86_400_000_000_000L) {
+            throw create(
+                    SomaErrorCategory.INVALID_INPUT,
+                    "invalid_time_value",
+                    operation,
+                    table + "." + field,
+                    context("nanoOfDay", value),
+                    null);
+        }
+        return value;
+    }
+
     public static SomaRuntimeException missingRequiredField(String table, String field, String operation) {
         return create(SomaErrorCategory.INVALID_INPUT, "missing_required_field", operation,
                 table + "." + field, empty(), null);

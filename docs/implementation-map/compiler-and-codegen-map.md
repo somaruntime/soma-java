@@ -10,11 +10,11 @@ Owner：SOMA compiler/codegen 实现导航
 
 事实范围：当前 javac integration、processor、normalization、hash、generation 与 fixture 入口
 
-最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 主流程
 
@@ -30,7 +30,7 @@ Owner：SOMA compiler/codegen 实现导航
 | artifact orchestration | [`DenseTableSourceGenerator.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseTableSourceGenerator.java) | deterministic generated artifact 清单与发布顺序 |
 | Table emitter | [`DenseTableSourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseTableSourceEmitter.java) | packed Table implementation |
 | auxiliary emitter | [`DenseAuxiliarySourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseAuxiliarySourceEmitter.java) | Cursor/UpdateCursor/Batch/Mutator/KeyTraversal/Scan facade |
-| DataFlow emitter | [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseDataFlowSourceEmitter.java) | 每 Table 一个 typed Source/Binding/Expression companion |
+| DataFlow emitter | [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseDataFlowSourceEmitter.java) | 每 Table 一个 typed Source/Binding/logical Expression companion；primitive indexed equality bridge |
 | Metadata emitter | [`DenseMetadataSourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseMetadataSourceEmitter.java) | 每 Schema 一个 immutable `SchemaMetadata` companion、完整 Descriptor projection 与 default Plan 入口 |
 | exact-index emitter | [`DenseExactIndexSourceEmitter.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseExactIndexSourceEmitter.java) | exact-index runtime source片段；保持byte-stable output |
 | selector source support | [`DenseSelectorSourceSupport.java`](../../soma-processor/src/main/java/io/github/somaruntime/soma/processor/DenseSelectorSourceSupport.java) | emitter 共享的 source arguments、comparison、change 与 unique support |
@@ -49,6 +49,14 @@ String Key/Unique/Index 由 concrete `StringColumn` 和 typed String DataFlow
 protocol投影，不再生成 generic Object value family。Descriptor 的 immutable
 实现私有嵌入 schema-scoped companion，application 只能读取、不能自行构造
 processor-owned descriptor。
+
+DataFlow companion 对 enum、date、time、instant 分别投影
+`EnumExpression`、`DateExpression`、`TimeExpression`、`InstantExpression`，
+不再泄漏 raw `LongExpression` 算术；对应 Key/Join overload 保持 logical type。
+Required primitive single-field Index 可生成 `CandidateLongEqualityAccess`
+bridge，供 DataFlow 在公式许可时读取 maintained bitmap word。TIME 的 Batch、
+replace、Mutator、Delta 和 flattened-value 写入统一调用 nano-of-day range
+validation，不能从某条生成路径绕过。
 
 `SchemaMetadata.newPlan()` 当前通过 generated-only `GeneratedRuntimePlan` bridge
 播种 runtime plan v6。每个 Table 默认使用至少16的有效initial capacity、
@@ -76,7 +84,7 @@ access/scan/mutation不解释Metadata。
 Table artifact 内部生成一组私有 failure-routing helper：structured `INTERNAL`
 进入 aggregate fault，expected structured failure正常关闭 operation，raw
 unexpected failure fail closed。Table、Auxiliary、Scan、Selector 和 Exact emitter
-都投影到这一处规则；helper 只调用 current runtime v11 protocol，不进入 generated
+都投影到这一处规则；helper 只调用 current runtime v12 protocol，不进入 generated
 public signature。
 
 Selector-less Table 的私有 `ExactIndexStage` 显式声明无参构造器，避免JDK 8 javac

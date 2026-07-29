@@ -17,7 +17,7 @@ Owner：SOMA Java G0 scope freeze
 
 非事实范围：G1–G6 结果、跨环境支持、public release readiness
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 执行日期：2026-07-28
 
@@ -53,8 +53,9 @@ Heap-Resident 的 runtime-state computing library。
   arbitrary Object 或 Java Collection graph；
 - Eager Detached 是默认 Result Delivery；唯一 lazy 形态是同步、read-only、
   callback-scoped delivery；
-- Small/Medium、单表与双表 100M、String profile、bounded intermediate/output
-  与 adaptive parallel 均保留在正式性能目标；
+- Small/Medium、单表1M、两个同时驻留的1M root、String profile、bounded
+  intermediate/output与adaptive parallel属于正式V1 qualification；10M/100M
+  保留为非阻塞research/stress；
 - 三个 reference application 是独立普通 Java 8 consumer，不拥有 core Design；
 - Java 8 之外的 JVM、native/C ABI、Python、持久化、分布式执行、开放 runtime
   strategy SPI 不属于 V1。

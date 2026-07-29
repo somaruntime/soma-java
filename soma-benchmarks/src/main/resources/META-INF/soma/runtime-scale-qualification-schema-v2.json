@@ -1,10 +1,26 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:somaruntime:soma:runtime-scale-qualification:v1",
-  "title": "SOMA Runtime Scale Production Qualification Record v1",
+  "$id": "urn:somaruntime:soma:runtime-scale-qualification:v2",
+  "title": "SOMA Runtime Scale Qualification Record v2",
   "type": "object",
   "additionalProperties": false,
   "x-soma-authoritativeValidator": "io.github.somaruntime.soma.benchmarks.RuntimeScaleQualificationArtifactValidator",
+  "x-soma-requiredLanes": [
+    "small-fast",
+    "medium",
+    "1m-single",
+    "1m-double",
+    "string",
+    "expansion",
+    "delivery",
+    "soak"
+  ],
+  "x-soma-researchLanes": [
+    "10m-research",
+    "100m-single-stress",
+    "100m-double-stress",
+    "100m-string-stress"
+  ],
   "x-soma-recordFields": [
     "schemaVersion",
     "artifactVersion",
@@ -49,10 +65,10 @@
   ],
   "properties": {
     "schemaVersion": {
-      "const": "soma-runtime-scale-qualification-v1"
+      "const": "soma-runtime-scale-qualification-v2"
     },
     "artifactVersion": {
-      "const": "soma-runtime-scale-qualification-runner-v1"
+      "const": "soma-runtime-scale-qualification-runner-v2"
     },
     "qualificationId": {
       "type": "string",
@@ -62,22 +78,26 @@
       "enum": [
         "small-fast",
         "medium",
-        "1m",
-        "10m",
-        "100m-single",
-        "100m-double",
-        "100m-string",
+        "1m-single",
+        "1m-double",
+        "string",
         "expansion",
         "delivery",
-        "soak"
+        "soak",
+        "10m-research",
+        "100m-single-stress",
+        "100m-double-stress",
+        "100m-string-stress"
       ]
     },
     "profile": {
-      "type": "string",
-      "minLength": 1
+      "enum": [
+        "production-exact-v1",
+        "research-stress-v1"
+      ]
     },
     "required": {
-      "const": true
+      "type": "boolean"
     },
     "applicable": {
       "const": true

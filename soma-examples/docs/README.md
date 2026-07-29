@@ -16,7 +16,7 @@ Owner：SOMA Java reference applications
 
 非事实范围：SOMA 核心 Design、公共 API、跨环境性能 claim 和 release readiness
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 `soma-examples` 只聚合参考应用，不再拥有一个共享领域 runtime、场景套件或产品能力事实。SOMA 的目标和长期语义分别由[产品 Blueprint](../../docs/blueprints/soma-java-product-blueprint.md)和[Design](../../docs/design/README.md)拥有；当前代码与 Gate 从[参考应用与 benchmark Map](../../docs/implementation-map/scenario-and-benchmark-map.md)进入。
 
@@ -49,6 +49,13 @@ Group Runtime Metadata进入evidence；领域模型、算法和Result没有装�
 example test artifact 或跨 child source dependency，削弱“普通 consumer 独立性”
 证据；因此不建立共享 example runtime/testkit。只有通用协议由 SOMA production
 module 或领域中性 benchmark Owner 提供。
+
+2026-07-29 logical/execution cutover后再次审计三个consumer：工业调度与生态仿真
+继续使用canonical direct/exact/Candidate与显式Group；RTD继续使用generated enum
+exact source、primitive typed expression、reusable Definition/Template及bounded
+Join/Group。三者都没有raw logical `LongExpression`、旧protocol adapter、
+Iterator/lazy pull、generic object storage或临时API，因此本轮无需装饰性production
+改写；本轮Full Gate的reference-applications阶段已完成重新生成、编译和运行。
 
 ## Canonical Gate
 

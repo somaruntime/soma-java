@@ -25,6 +25,39 @@ final class DenseSelectorSourceSupport {
         return false;
     }
 
+    /**
+     * Bitmap只是多个不同primitive exact selector之间的内部交集布局候选。
+     * Unique、optional、String/floating/composite以及单独存在的index保持links。
+     */
+    static boolean bitmapEligible(
+            TableSpec table, SelectorSpec candidate) {
+        if (!basicBitmapEligible(table, candidate)) return false;
+        String path = candidate.leaves.get(0).path;
+        for (SelectorSpec other : table.selectors) {
+            if (other == candidate || !basicBitmapEligible(table, other)) {
+                continue;
+            }
+            if (!path.equals(other.leaves.get(0).path)) return true;
+        }
+        return false;
+    }
+
+    private static boolean basicBitmapEligible(
+            TableSpec table, SelectorSpec selector) {
+        if (!"index".equals(selector.kind)
+                || selector.leaves.size() != 1) {
+            return false;
+        }
+        SelectorLeafSpec leaf = selector.leaves.get(0);
+        SelectorBinding binding = selectorBinding(table, leaf);
+        if (binding.field.optional) return false;
+        String storage = leaf.storageType;
+        return "byte".equals(storage)
+                || "short".equals(storage)
+                || "int".equals(storage)
+                || "long".equals(storage);
+    }
+
     static void appendNoMutableSelectorChange(
             SourceBuilder out, TableSpec table, String prefix) {
         boolean emitted = false;
@@ -126,7 +159,10 @@ final class DenseSelectorSourceSupport {
                 .append(table.name("Batch"))
                 .append(" batch,String operation){long scratch=0L;");
         for (int i = 0; i < table.selectors.size(); i++) {
-            out.append("scratch=addExactMetric(scratch,GroupedExactIndex.estimatedRetainedBytes(batch.size(),batch.size()));");
+            out.append("scratch=addExactMetric(scratch,GroupedExactIndex.estimatedRetainedBytes(batch.size(),batch.size(),")
+                    .append(Boolean.toString(bitmapEligible(
+                            table, table.selectors.get(i))))
+                    .append("));");
         }
         out.append("state.reserveBulkScratch(scratch,operation);ExactIndexStage stage=new ExactIndexStage(scratch);try{");
         for (int i = 0; i < table.selectors.size(); i++) {

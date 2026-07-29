@@ -18,7 +18,7 @@ Owner：SOMA typed DataFlow execution
 
 非事实范围：Operator 逻辑语义、public overload 清单、内部 IR/数组布局、物理阈值和测量数值
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 一套语义、两种使用形态
 
@@ -137,6 +137,13 @@ identity。Child 必须经 root binding/owned expansion 解析，不能绕过 pa
 
 Analyzer 是 Value、Shape、operator、failure legality 的唯一执行语义 Owner。Candidate single-source region 降低为 compact candidate program，并复用 zero-stage、exact、streaming、best-one 和 mutation specialization；只有 Projection、multi-source 或 barrier 才进入 graph schedule。
 
+Required numeric column、constant arithmetic 与 comparison 组成的 common chain
+可以降低为 closed whole-loop kernel，由 kernel 拥有 outer candidate loop、
+boundary check 与 primitive evaluation；reference expression graph 继续作为
+correctness oracle 和不适用形态的 fallback。Optional presence、registered/opaque
+callback、cross-column 或 String chain 在未证明等价前保持 reference path，不能用
+另一层逐 row virtual wrapper冒充 fusion。
+
 Template 只保存静态候选。Bind-time 可以根据 cardinality、group/distinct/selectivity、actual order、available access path、budget 和 policy，在预先兼容的 kernel 中确定性选择；不能：
 
 - 修改共享 Template；
@@ -144,7 +151,11 @@ Template 只保存静态候选。Bind-time 可以根据 cardinality、group/dist
 - 依赖 hash iteration、worker completion 或跨 Invocation 隐式学习；
 - 改变 logical result、order、failure 或 Effect。
 
-Physical Hash Join、fixed-tree reduction、branchy loop、buffered partition 和 scalar/parallel crossover 都是内部选择，不进入 logical API。
+Physical Hash Join、primitive min/max/Bloom runtime filter、low-cardinality Bitmap
+intersection、fixed-tree reduction、branchy loop、buffered partition 和
+scalar/parallel crossover 都是内部选择，不进入 logical API。Runtime filter 和
+Bitmap 必须由 versioned formula 确定、受 Invocation/storage budget 约束、进入
+Explain，并保留 authoritative equality 与 deterministic fallback。
 
 ## 7. Resource、Cancellation 与 Diagnostics
 
@@ -231,14 +242,14 @@ Definition 使用 canonical、length-prefixed encoding 和 SHA-256；Template id
 当前协议：
 
 ```text
-generated/runtime  soma-generated-runtime-v11 / soma-runtime-java8-v11
-transformation     soma-transformation-v3
-kernel             soma-kernel-v4
+generated/runtime  soma-generated-runtime-v12 / soma-runtime-java8-v12
+transformation     soma-transformation-v4
+kernel             soma-kernel-v5
 storage plan       soma-runtime-plan-v6
 storage formula    soma-storage-layout-v1
 locator formula    soma-primary-locator-layout-v1
-candidate formula  soma-candidate-physical-v1
-relation formula   soma-relation-strategy-v1
+candidate formula  soma-candidate-physical-v2
+relation formula   soma-relation-strategy-v2
 scheduler formula  soma-morsel-scheduler-v1
 invocation ledger  soma-invocation-ledger-v1
 ```

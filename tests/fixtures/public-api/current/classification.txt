@@ -7,6 +7,7 @@ PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated
 PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.CandidateDeliverySession
 PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.CandidateEffectAccess
 PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.CandidateIndexAccess
+PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess
 PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.CandidateMaterializationAccess
 PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.DataFlowBinding
 PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.OwnedChildAccess
@@ -89,6 +90,7 @@ PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DataFlowResults
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DataFlowStats
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DataFlowTemplate
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DataFlowWorkStats
+PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DateExpression
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DeliveryResult
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DeltaApplyResult
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DoubleColumnResult
@@ -96,6 +98,7 @@ PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DoubleExpression
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DoubleScalarResult
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DoubleValueFlow
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DoubleValueVisitor
+PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.EnumExpression
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.ExecutionBudget
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.ExecutionBudget$Builder
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.ExecutionPolicy
@@ -108,6 +111,7 @@ PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.GroupIndexResult
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.GroupVisitor
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.GroupedFlow
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.GroupedLongResult
+PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.InstantExpression
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.JoinBuilder
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.JoinType
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.JoinedFlow
@@ -143,6 +147,7 @@ PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.StringColumnResu
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.StringExpression
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.StringValueFlow
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.StringValueVisitor
+PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.TimeExpression
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.WindowCursor
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.WindowIndexResult
 PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.WindowVisitor

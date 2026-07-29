@@ -7,7 +7,7 @@ package io.github.somaruntime.soma.dataflow;
  * sparse indexes；新增形态必须更换 identity 并重新验真。</p>
  */
 public final class CandidatePhysicalFormula {
-    public static final String IDENTITY = "soma-candidate-physical-v1";
+    public static final String IDENTITY = "soma-candidate-physical-v2";
 
     private CandidatePhysicalFormula() {
     }

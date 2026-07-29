@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "dataflow-component-corretto8-macos-aarch64-v3",
+  "baselineId": "dataflow-component-corretto8-macos-aarch64-v4",
   "layer": "component",
   "subject": "typed-dataflow-component",
   "artifactVersion": "soma-java-dataflow-component-v1",
   "calibration": {
-    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "commit": "6bd260ccbf7c36a518fa84503450be6f3727bbfc",
     "date": "2026-07-29",
     "forks": 3,
-    "formula": "trigger=jdk-authority-cutover; candidate=corretto-three-fork-20260729; previous checksum/allocation/timing/tail/gc envelope retained without relaxation"
+    "formula": "trigger=transformation-v4-kernel-v5-authoring-identity; candidate=logical-execution-governance-working-tree; authoring checksum changed across three equal forks; all execution checksums and previous allocation/timing/tail/gc envelopes retained without relaxation"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -77,7 +77,7 @@
     }
   ],
   "metrics": [
-    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":3814779270147881284},
+    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":1064084655879852845},
     {"id":"checksum.direct-count","selector":{"lane":"candidate.direct-filter-count.large"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-sequential","selector":{"lane":"candidate.filter-count.large.sequential"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-parallel","selector":{"lane":"candidate.filter-count.large.adaptive-parallel"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},

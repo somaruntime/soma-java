@@ -16,6 +16,7 @@ enum_fixture_source=$root_dir/tests/fixtures/external-maven-enum-keyed
 value_fixture_source=$root_dir/tests/fixtures/external-maven-value-keyed
 composite_fixture_source=$root_dir/tests/fixtures/external-maven-composite-value-keyed
 invalid_source=$root_dir/tests/fixtures/invalid-keyed-int
+logical_type_invalid_source=$enum_fixture_source/invalid/LogicalTypeBoundaryInvalid.java
 expected=$fixture_source/expected
 mkdir -p target
 evidence_dir=$(mktemp -d "$root_dir/target/generated-keyed-contract.XXXXXX")
@@ -271,6 +272,29 @@ fi
 runtime_classpath_file=$evidence_dir/runtime-classpath.txt
 soma_write_runtime_classpath "$fixture/pom.xml" "$runtime_classpath_file"
 runtime_classpath=$(sed -n '1p' "$runtime_classpath_file")
+logical_type_invalid=$evidence_dir/logical-type-invalid
+mkdir -p "$logical_type_invalid"
+if "$JAVA_HOME/bin/javac" \
+  -XDrawDiagnostics \
+  -encoding UTF-8 -source 8 -target 8 -proc:none \
+  -cp "$enum_fixture/target/classes:$runtime_classpath" \
+  -d "$logical_type_invalid" \
+  "$logical_type_invalid_source" \
+  >"$evidence_dir/logical-type-invalid.log" 2>&1; then
+  printf '%s\n' \
+    'generated-keyed-contract: logical/raw type mismatch unexpectedly compiled' >&2
+  exit 1
+fi
+if [ "$(grep -c 'compiler.err' "$evidence_dir/logical-type-invalid.log")" -lt 4 ] \
+    || ! grep -F 'EnumExpression' "$evidence_dir/logical-type-invalid.log" >/dev/null \
+    || ! grep -F 'DateExpression' "$evidence_dir/logical-type-invalid.log" >/dev/null \
+    || ! grep -F 'TimeExpression' "$evidence_dir/logical-type-invalid.log" >/dev/null \
+    || ! grep -F 'InstantExpression' "$evidence_dir/logical-type-invalid.log" >/dev/null; then
+  cat "$evidence_dir/logical-type-invalid.log" >&2
+  printf '%s\n' \
+    'generated-keyed-contract: logical/raw compile-negative evidence incomplete' >&2
+  exit 1
+fi
 "$JAVA_HOME/bin/java" \
   -cp "$fixture/target/classes:$runtime_classpath" \
   com.example.soma.keyed.KeyedConsumer

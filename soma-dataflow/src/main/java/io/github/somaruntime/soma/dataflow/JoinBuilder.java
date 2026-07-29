@@ -29,6 +29,30 @@ public final class JoinBuilder<
         return on(KeyExpression.of(leftKey), KeyExpression.of(rightKey));
     }
 
+    public <E extends Enum<E>> JoinedFlow<L, R> on(
+            EnumExpression<L, E> leftKey,
+            EnumExpression<R, E> rightKey) {
+        return on(KeyExpression.of(leftKey), KeyExpression.of(rightKey));
+    }
+
+    public JoinedFlow<L, R> on(
+            DateExpression<L> leftKey,
+            DateExpression<R> rightKey) {
+        return on(KeyExpression.of(leftKey), KeyExpression.of(rightKey));
+    }
+
+    public JoinedFlow<L, R> on(
+            TimeExpression<L> leftKey,
+            TimeExpression<R> rightKey) {
+        return on(KeyExpression.of(leftKey), KeyExpression.of(rightKey));
+    }
+
+    public JoinedFlow<L, R> on(
+            InstantExpression<L> leftKey,
+            InstantExpression<R> rightKey) {
+        return on(KeyExpression.of(leftKey), KeyExpression.of(rightKey));
+    }
+
     public JoinedFlow<L, R> on(
             KeyExpression<L> leftKey, KeyExpression<R> rightKey) {
         if (leftKey == null || rightKey == null) {

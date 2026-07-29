@@ -18,7 +18,7 @@ Owner：SOMA schema 与 generated contract
 
 非事实范围：runtime 存储算法、具体 generator 类结构和 measured performance
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 本 Owner 先定义 schema 与 generated public capability 的长期语义，再约束实现这些语义所必需的 compiler/codegen 机制。当前 generator 类、精确 signature 和 emission 结构不属于本 Design，由 Implementation Map 与 executable surface 记录。
 
@@ -71,6 +71,39 @@ order、mutation 与 detached result 使用 Java String value semantics；hash/f
 different-object mutation 是 logical no-op，保留原 reference且不改变 epoch/access；
 append 可以保存 caller 的 equal-value different reference。remove/clear/replace/
 rollback/release 必须清理 dead reference。
+
+Schema 不声明、固定或限制 String 长度。不同长度 String 的 append/update 只替换
+reference slot，不改变 SOMA column layout，也不触发 SOMA-owned payload
+reallocation；`StringResourceProfile` 中的长度只属于 create 前可修改的
+workload/resource estimate。Plan freeze 后实际 value 偏离该 profile 时，失效的是
+相应 resource/scale claim，不是 value 合法性，mutation admission 不得据此拒绝。
+
+### 1.3 Logical type 与 generated operation capability
+
+V1 logical type catalog 在生成边界 fail closed：
+
+| logical type | Java authoring/value | hot carrier | generated expression capability |
+|---|---|---|---|
+| raw integral | `byte/short/int/long` | `long` expression carrier | numeric arithmetic、equality、order |
+| raw floating | `float/double` | `double` expression carrier | numeric arithmetic、equality、order |
+| boolean | `boolean` | boolean carrier | presence、boolean algebra、equality、order |
+| enum | 具体 `E extends Enum<E>` | ordinal `long` carrier | 同一 enum 的 presence、equality、order |
+| date | `int` + `@SomaSemantic(DATE)`；logical value 为 `LocalDate` | epoch-day long carrier | presence、date equality/order、checked plus/minus days |
+| time | `long` + `@SomaSemantic(TIME)`；logical value 为 `LocalTime` | nano-of-day long carrier | presence、time equality/order、modular plus/minus nanos |
+| instant | `long` + `@SomaSemantic(DATE_TIME)`；logical value 为 `Instant` | epoch-millis long carrier | presence、instant equality/order、checked plus/minus millis |
+| String | `String` | reference carrier | presence、Java value equality/order |
+
+Raw primitive 不增加 `SomaInt`、`SomaLong` 等 wrapper/alias。Enum/date/time/instant
+必须返回 type-specific generated facade，不能继续把 public authoring surface
+投影为可执行任意 long arithmetic 的 `LongExpression`。这些 facade 可以在内部
+委托同一个 primitive carrier；logical API、compiler diagnostics 与 golden 必须
+证明非法跨类型比较和算术无法编译。
+
+TIME storage value 必须位于 `[0, 86_400_000_000_000)`，所有 generated
+append/replace/mutation/Delta 路径在 publish 前使用同一校验；超出范围是 typed
+invalid value。Time plus/minus 采用 24 小时 modular arithmetic，并允许任意
+`long` delta；Date/Instant plus/minus 的 carrier overflow 必须 fail closed，不能
+静默 wrap。
 
 Annotation element、target/retention、grammar、default constant 和全部当前 Java signature 属于 executable public surface，由[可执行契约地图](../implementation-map/executable-contract-map.md)定位。Design 规定其语义和演进边界，不复制一份容易漂移的签名表。
 
@@ -129,6 +162,9 @@ type/optional/default/selector/ownership/schema hash 永不可在运行期修改
 - keyed KeyTraversal 与 secondary-unique point family；
 - parent-owned child facade；
 - 每张 Table 一个 schema-specific DataFlow companion，提供 typed Source、column/value expression、point/exact/owned-child binding；
+- DataFlow companion 对 enum/date/time/instant 返回 logical type-specific
+  expression facade；raw primitive 继续返回 numeric capability，不生成 wrapper
+  scalar；
 - keyed table 的 typed detached Delta 与 safe-point `applyDelta`；
 - detached row/aggregate materialization与预算；
 - default Eager result 与复用标准 DataFlow lifecycle 的 generated typed callback
@@ -147,7 +183,7 @@ type/optional/default/selector/ownership/schema hash 永不可在运行期修改
 | dense access | current Index 只在当前 table state 有效，不是 stable identity |
 | exact source | 从 eager maintained group 产生当前候选，不做 read-time rebuild/scan fallback |
 | Candidate Scan | lazy intermediate、one-shot、同步、非重入；stage 只消费前一 candidate set |
-| DataFlow companion | 生成 typed Source/Binding/Expression access；不保存 Template/Invocation，不生成 per-operator executor |
+| DataFlow companion | 生成 typed Source/Binding/logical Expression access；primitive carrier 留在窄 generated-runtime binding，不保存 Template/Invocation，不生成 per-operator executor |
 | Definition/Template/Invocation | logical/reusable、compiled/reusable、bound/one-shot 三种 lifecycle 不能合并 |
 | keyed Delta/apply | detached ordered Insert/Update/Delete；整批 preflight 后在 single-aggregate safe point 原子 publish |
 | update/remove | 只作用于当前候选，维护 columns、locator、exact access、ownership 和 epoch 原子一致 |

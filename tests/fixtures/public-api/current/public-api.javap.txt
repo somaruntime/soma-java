@@ -58,6 +58,15 @@ public interface io.github.somaruntime.soma.dataflow.generated.CandidateIndexAcc
   public abstract int size(B, int);
   public abstract int first(B, int);
   public abstract int next(B, int);
+  public boolean bitmap(B, int);
+  public int bitmapWordCount(B, int);
+  public long bitmapWord(B, int, int);
+  public abstract java.lang.String identity();
+}
+## PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess
+Compiled from "CandidateLongEqualityAccess.java"
+public interface io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess<B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> {
+  public abstract io.github.somaruntime.soma.dataflow.generated.CandidateIndexAccess<B> equalTo(long);
   public abstract java.lang.String identity();
 }
 ## PUBLIC generated-dataflow-protocol io.github.somaruntime.soma.dataflow.generated.CandidateMaterializationAccess
@@ -405,7 +414,9 @@ Compiled from "GroupedExactIndex.java"
 public final class io.github.somaruntime.soma.runtime.generated.GroupedExactIndex {
   public io.github.somaruntime.soma.runtime.generated.GroupedExactIndex(int);
   public io.github.somaruntime.soma.runtime.generated.GroupedExactIndex(int, int);
+  public io.github.somaruntime.soma.runtime.generated.GroupedExactIndex(int, int, boolean);
   public static long estimatedRetainedBytes(int, int);
+  public static long estimatedRetainedBytes(int, int, boolean);
   public int entryCount();
   public int groupCount();
   public long probeCount();
@@ -423,6 +434,9 @@ public final class io.github.somaruntime.soma.runtime.generated.GroupedExactInde
   public int groupSize(int);
   public int firstRow(int);
   public int nextRow(int);
+  public boolean bitmapLayout();
+  public int bitmapWordCount();
+  public long bitmapWord(int, int);
   public boolean isLinked(int);
   public void link(int, int);
   public void unlink(int);
@@ -711,6 +725,7 @@ public final class io.github.somaruntime.soma.runtime.generated.RuntimeFailures 
   public static io.github.somaruntime.soma.runtime.SomaRuntimeException invalidNullValue(java.lang.String, java.lang.String, java.lang.String);
   public static <E extends java.lang.Enum<E>> E requiredEnumValue(java.lang.String, java.lang.String, E, java.lang.String);
   public static <T> T requiredValue(java.lang.String, java.lang.String, T, java.lang.String);
+  public static long validTimeNanos(java.lang.String, java.lang.String, long, java.lang.String);
   public static io.github.somaruntime.soma.runtime.SomaRuntimeException missingRequiredField(java.lang.String, java.lang.String, java.lang.String);
   public static io.github.somaruntime.soma.runtime.SomaRuntimeException tableReleased(java.lang.String, java.lang.String);
   public static io.github.somaruntime.soma.runtime.SomaRuntimeException releasedView(java.lang.String, java.lang.String);
@@ -1124,6 +1139,30 @@ public final class io.github.somaruntime.soma.dataflow.DataFlowWorkStats {
   public java.lang.String failureCode();
   public java.lang.String failurePhase();
 }
+## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DateExpression
+Compiled from "DateExpression.java"
+public final class io.github.somaruntime.soma.dataflow.DateExpression<B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> {
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isPresent();
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isAbsent();
+  public io.github.somaruntime.soma.dataflow.DateExpression<B> coalesce(java.time.LocalDate);
+  public io.github.somaruntime.soma.dataflow.DateExpression<B> plusDays(long);
+  public io.github.somaruntime.soma.dataflow.DateExpression<B> minusDays(long);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(java.time.LocalDate);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(java.time.LocalDate);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> before(java.time.LocalDate);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> beforeOrEqualTo(java.time.LocalDate);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> after(java.time.LocalDate);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> afterOrEqualTo(java.time.LocalDate);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> before(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> beforeOrEqualTo(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> after(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> afterOrEqualTo(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> ascending();
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> descending();
+  public java.lang.String identity();
+}
 ## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.DeliveryResult
 Compiled from "DeliveryResult.java"
 public final class io.github.somaruntime.soma.dataflow.DeliveryResult {
@@ -1201,6 +1240,28 @@ Compiled from "DoubleValueVisitor.java"
 public interface io.github.somaruntime.soma.dataflow.DoubleValueVisitor {
   public abstract boolean visit(double);
 }
+## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.EnumExpression
+Compiled from "EnumExpression.java"
+public final class io.github.somaruntime.soma.dataflow.EnumExpression<B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding, E extends java.lang.Enum<E>> {
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isPresent();
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isAbsent();
+  public io.github.somaruntime.soma.dataflow.EnumExpression<B, E> coalesce(E);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(E);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(E);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> lessThan(E);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> lessThanOrEqualTo(E);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> greaterThan(E);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> greaterThanOrEqualTo(E);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> lessThan(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> lessThanOrEqualTo(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> greaterThan(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> greaterThanOrEqualTo(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> ascending();
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> descending();
+  public java.lang.String identity();
+}
 ## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.ExecutionBudget
 Compiled from "ExecutionBudget.java"
 public final class io.github.somaruntime.soma.dataflow.ExecutionBudget {
@@ -1277,8 +1338,21 @@ public final class io.github.somaruntime.soma.dataflow.GeneratedDataFlow {
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DataFlowDefinition<io.github.somaruntime.soma.runtime.UpdateResult> update(io.github.somaruntime.soma.dataflow.SourceSlot<B>, io.github.somaruntime.soma.dataflow.CandidateFlow<B>, io.github.somaruntime.soma.dataflow.generated.CandidateEffectAccess<B>, java.lang.Object);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DataFlowDefinition<io.github.somaruntime.soma.runtime.RemoveResult> remove(io.github.somaruntime.soma.dataflow.SourceSlot<B>, io.github.somaruntime.soma.dataflow.CandidateFlow<B>, io.github.somaruntime.soma.dataflow.generated.CandidateEffectAccess<B>);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.LongExpression<B> requiredLong(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.LongExpression<B> requiredIndexedLong(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String, io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess<B>);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.LongExpression<B> longParameter(io.github.somaruntime.soma.dataflow.SourceSlot<B>, io.github.somaruntime.soma.dataflow.ParameterSlot<java.lang.Long>);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.LongExpression<B> optionalLong(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding, E extends java.lang.Enum<E>> io.github.somaruntime.soma.dataflow.EnumExpression<B, E> requiredEnum(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String, java.lang.Class<E>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding, E extends java.lang.Enum<E>> io.github.somaruntime.soma.dataflow.EnumExpression<B, E> requiredIndexedEnum(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String, java.lang.Class<E>, io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess<B>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding, E extends java.lang.Enum<E>> io.github.somaruntime.soma.dataflow.EnumExpression<B, E> optionalEnum(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String, java.lang.Class<E>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DateExpression<B> requiredDate(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DateExpression<B> requiredIndexedDate(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String, io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess<B>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DateExpression<B> optionalDate(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.TimeExpression<B> requiredTime(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.TimeExpression<B> requiredIndexedTime(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String, io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess<B>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.TimeExpression<B> optionalTime(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.InstantExpression<B> requiredInstant(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.InstantExpression<B> requiredIndexedInstant(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String, io.github.somaruntime.soma.dataflow.generated.CandidateLongEqualityAccess<B>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.InstantExpression<B> optionalInstant(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DoubleExpression<B> requiredDouble(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DoubleExpression<B> optionalDouble(io.github.somaruntime.soma.dataflow.SourceSlot<B>, int, java.lang.String);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.DoubleExpression<B> doubleParameter(io.github.somaruntime.soma.dataflow.SourceSlot<B>, io.github.somaruntime.soma.dataflow.ParameterSlot<java.lang.Double>);
@@ -1337,11 +1411,39 @@ public final class io.github.somaruntime.soma.dataflow.GroupedLongResult {
   public long valueAt(int);
   public long[] values();
 }
+## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.InstantExpression
+Compiled from "InstantExpression.java"
+public final class io.github.somaruntime.soma.dataflow.InstantExpression<B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> {
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isPresent();
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isAbsent();
+  public io.github.somaruntime.soma.dataflow.InstantExpression<B> coalesce(java.time.Instant);
+  public io.github.somaruntime.soma.dataflow.InstantExpression<B> plusMillis(long);
+  public io.github.somaruntime.soma.dataflow.InstantExpression<B> minusMillis(long);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(java.time.Instant);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(java.time.Instant);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> before(java.time.Instant);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> beforeOrEqualTo(java.time.Instant);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> after(java.time.Instant);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> afterOrEqualTo(java.time.Instant);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> before(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> beforeOrEqualTo(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> after(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> afterOrEqualTo(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> ascending();
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> descending();
+  public java.lang.String identity();
+}
 ## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.JoinBuilder
 Compiled from "JoinBuilder.java"
 public final class io.github.somaruntime.soma.dataflow.JoinBuilder<L extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding, R extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> {
   public io.github.somaruntime.soma.dataflow.JoinedFlow<L, R> on(io.github.somaruntime.soma.dataflow.LongExpression<L>, io.github.somaruntime.soma.dataflow.LongExpression<R>);
   public io.github.somaruntime.soma.dataflow.JoinedFlow<L, R> on(io.github.somaruntime.soma.dataflow.StringExpression<L>, io.github.somaruntime.soma.dataflow.StringExpression<R>);
+  public <E extends java.lang.Enum<E>> io.github.somaruntime.soma.dataflow.JoinedFlow<L, R> on(io.github.somaruntime.soma.dataflow.EnumExpression<L, E>, io.github.somaruntime.soma.dataflow.EnumExpression<R, E>);
+  public io.github.somaruntime.soma.dataflow.JoinedFlow<L, R> on(io.github.somaruntime.soma.dataflow.DateExpression<L>, io.github.somaruntime.soma.dataflow.DateExpression<R>);
+  public io.github.somaruntime.soma.dataflow.JoinedFlow<L, R> on(io.github.somaruntime.soma.dataflow.TimeExpression<L>, io.github.somaruntime.soma.dataflow.TimeExpression<R>);
+  public io.github.somaruntime.soma.dataflow.JoinedFlow<L, R> on(io.github.somaruntime.soma.dataflow.InstantExpression<L>, io.github.somaruntime.soma.dataflow.InstantExpression<R>);
   public io.github.somaruntime.soma.dataflow.JoinedFlow<L, R> on(io.github.somaruntime.soma.dataflow.KeyExpression<L>, io.github.somaruntime.soma.dataflow.KeyExpression<R>);
 }
 ## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.JoinType
@@ -1412,10 +1514,18 @@ public final class io.github.somaruntime.soma.dataflow.JoinedPredicate<L extends
 Compiled from "KeyExpression.java"
 public final class io.github.somaruntime.soma.dataflow.KeyExpression<B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> {
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.LongExpression<B>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding, E extends java.lang.Enum<E>> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.StringExpression<B>);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.DoubleExpression<B>);
   public static <B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> io.github.somaruntime.soma.dataflow.KeyExpression<B> of(io.github.somaruntime.soma.dataflow.BooleanExpression<B>);
   public io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.LongExpression<B>);
+  public <E extends java.lang.Enum<E>> io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.EnumExpression<B, E>);
+  public io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.DateExpression<B>);
+  public io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.InstantExpression<B>);
   public io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.StringExpression<B>);
   public io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.DoubleExpression<B>);
   public io.github.somaruntime.soma.dataflow.KeyExpression<B> then(io.github.somaruntime.soma.dataflow.BooleanExpression<B>);
@@ -1450,6 +1560,7 @@ public final class io.github.somaruntime.soma.dataflow.LongExpression<B extends 
   public io.github.somaruntime.soma.dataflow.LongExpression<B> minus(long);
   public io.github.somaruntime.soma.dataflow.LongExpression<B> multipliedBy(long);
   public io.github.somaruntime.soma.dataflow.LongExpression<B> dividedBy(long);
+  public io.github.somaruntime.soma.dataflow.LongExpression<B> bitwiseAnd(long);
   public io.github.somaruntime.soma.dataflow.LongExpression<B> plus(io.github.somaruntime.soma.dataflow.LongExpression<B>);
   public io.github.somaruntime.soma.dataflow.LongExpression<B> minus(io.github.somaruntime.soma.dataflow.LongExpression<B>);
   public io.github.somaruntime.soma.dataflow.LongExpression<B> multipliedBy(io.github.somaruntime.soma.dataflow.LongExpression<B>);
@@ -1652,6 +1763,30 @@ public final class io.github.somaruntime.soma.dataflow.StringValueFlow<B extends
 Compiled from "StringValueVisitor.java"
 public interface io.github.somaruntime.soma.dataflow.StringValueVisitor {
   public abstract boolean visit(java.lang.String);
+}
+## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.TimeExpression
+Compiled from "TimeExpression.java"
+public final class io.github.somaruntime.soma.dataflow.TimeExpression<B extends io.github.somaruntime.soma.dataflow.generated.DataFlowBinding> {
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isPresent();
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> isAbsent();
+  public io.github.somaruntime.soma.dataflow.TimeExpression<B> coalesce(java.time.LocalTime);
+  public io.github.somaruntime.soma.dataflow.TimeExpression<B> plusNanos(long);
+  public io.github.somaruntime.soma.dataflow.TimeExpression<B> minusNanos(long);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(java.time.LocalTime);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(java.time.LocalTime);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> before(java.time.LocalTime);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> beforeOrEqualTo(java.time.LocalTime);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> after(java.time.LocalTime);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> afterOrEqualTo(java.time.LocalTime);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> equalTo(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> notEqualTo(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> before(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> beforeOrEqualTo(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> after(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public io.github.somaruntime.soma.dataflow.BooleanExpression<B> afterOrEqualTo(io.github.somaruntime.soma.dataflow.TimeExpression<B>);
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> ascending();
+  public io.github.somaruntime.soma.dataflow.CandidateOrder<B> descending();
+  public java.lang.String identity();
 }
 ## PUBLIC handwritten-dataflow io.github.somaruntime.soma.dataflow.WindowCursor
 Compiled from "WindowCursor.java"

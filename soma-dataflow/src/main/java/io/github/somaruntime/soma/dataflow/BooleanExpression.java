@@ -1,6 +1,7 @@
 package io.github.somaruntime.soma.dataflow;
 
 import io.github.somaruntime.soma.dataflow.generated.DataFlowBinding;
+import io.github.somaruntime.soma.dataflow.generated.CandidateIndexAccess;
 
 import java.util.Collections;
 import java.util.List;
@@ -13,6 +14,8 @@ public final class BooleanExpression<B extends DataFlowBinding> {
     final String path;
     final boolean parallelSafe;
     final List<ParameterSlot<?>> parameters;
+    final ClosedBooleanKernel closedKernel;
+    final CandidateIndexAccess<B> exactEqualityAccess;
     private final String identity;
 
     BooleanExpression(SourceSlot<B> source, BooleanNode node) {
@@ -22,7 +25,8 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 ExpressionNodes.alwaysPresent(),
                 "boolean",
                 Collections.<ParameterSlot<?>>emptyList(),
-                true);
+                true,
+                null);
     }
 
     BooleanExpression(
@@ -36,7 +40,8 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 presence,
                 path,
                 Collections.<ParameterSlot<?>>emptyList(),
-                true);
+                true,
+                null);
     }
 
     BooleanExpression(
@@ -51,7 +56,8 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 presence,
                 path,
                 Collections.<ParameterSlot<?>>emptyList(),
-                parallelSafe);
+                parallelSafe,
+                null);
     }
 
     BooleanExpression(
@@ -61,12 +67,53 @@ public final class BooleanExpression<B extends DataFlowBinding> {
             String path,
             List<ParameterSlot<?>> parameters,
             boolean parallelSafe) {
+        this(
+                source,
+                node,
+                presence,
+                path,
+                parameters,
+                parallelSafe,
+                null,
+                null);
+    }
+
+    BooleanExpression(
+            SourceSlot<B> source,
+            BooleanNode node,
+            BooleanNode presence,
+            String path,
+            List<ParameterSlot<?>> parameters,
+            boolean parallelSafe,
+            ClosedBooleanKernel closedKernel) {
+        this(
+                source,
+                node,
+                presence,
+                path,
+                parameters,
+                parallelSafe,
+                closedKernel,
+                null);
+    }
+
+    BooleanExpression(
+            SourceSlot<B> source,
+            BooleanNode node,
+            BooleanNode presence,
+            String path,
+            List<ParameterSlot<?>> parameters,
+            boolean parallelSafe,
+            ClosedBooleanKernel closedKernel,
+            CandidateIndexAccess<B> exactEqualityAccess) {
         this.source = source;
         this.node = node;
         this.presence = presence;
         this.path = path;
         this.parallelSafe = parallelSafe;
         this.parameters = parameters;
+        this.closedKernel = closedKernel;
+        this.exactEqualityAccess = exactEqualityAccess;
         StringBuilder canonical =
                 new StringBuilder("boolean-expression-v1");
         DataFlowSupport.appendCanonical(
@@ -129,7 +176,9 @@ public final class BooleanExpression<B extends DataFlowBinding> {
                 path + ".and",
                 DataFlowSupport.unionParameters(
                         parameters, other.parameters),
-                parallelSafe && other.parallelSafe);
+                parallelSafe && other.parallelSafe,
+                closedKernel == null || other.closedKernel == null
+                        ? null : closedKernel.and(other.closedKernel));
     }
 
     public BooleanExpression<B> or(BooleanExpression<B> other) {

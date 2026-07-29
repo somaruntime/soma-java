@@ -10,11 +10,11 @@ Owner：SOMA runtime-core 实现导航
 
 事实范围：当前 handwritten runtime、generated-runtime protocol、hot path 和核心验证入口
 
-最近实现核对基线：2026-07-28 runtime-scale working-tree candidate（base
-`e68c4e4`；production/evidence source
-`content-sha256:509ea5aa50e50a97b1461900f0063adb50b781dba5012cd203be702e89d0b7c6`）
+最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
+`6bd260c`；production/evidence source
+`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. Handwritten public/runtime types
 
@@ -44,6 +44,8 @@ Protocol 位于 [`io.github.somaruntime.soma.runtime.generated`](../../soma-runt
   `HashCompositeKeySpace`；当前只绑定`FLAT_COMPACT`，并发布current retained、
   lifetime high-water、capacity/probe/growth observation；
 - secondary exact access：`GroupedExactIndex`，row-link与group capacity独立；
+  对公式许可的单字段 primitive Index 在 link/bitmap 间选择并维护 group words，
+  其他 selector 保持 link fallback；
 - bulk exact preflight：`ExactGroupCounter`，按selector distinct-group cardinality做primitive计数；
 - operation scratch：`IndexBuffer`；
 - Candidate plan/evaluation：`GeneratedScanPlan`、`GeneratedScanEvaluation`；typed source 与 executor 由 generator 提供；
@@ -55,6 +57,7 @@ Protocol 位于 [`io.github.somaruntime.soma.runtime.generated`](../../soma-runt
   `TableLedger` 只保留 member attribution；`StorageBudget` 已退出协议；
 - materialization：`MaterializationTracker`、`MaterializationAllocation`；
 - compatibility/failure：`GeneratedMetadata`、`RuntimeCompatibility`、`RuntimeFailures`；
+  v12 handshake 与 TIME nano-of-day统一写入校验；
 - runtime observation：`GeneratedRuntimeMetadata`在safe operation boundary组合
   Table/Segment/locator/exact/Unique/Index的detached immutable snapshot；
 - generated Plan bridge：`GeneratedRuntimePlan` + unforgeable
@@ -86,14 +89,15 @@ fault；`ColumnGroup`、`GroupLedger` 和 ownership registry 在各自 invariant
 事实产生处标记。Root fault使显式 Group进入 `DEGRADED`；Group cleanup/invariant
 failure进入 `FAULTED`，并允许 bounded release retry。Faulted normal access由
 既有preflight拒绝，runtime plan、released state、stats snapshot与root/group
-release复用既有operation名称和v11 protocol。
+release复用既有operation名称和v12 protocol。
 
 Keyed delete 先从 KeySpace 移除目标 key，再对 tail-fill survivor 修复 current Index。
-Exact index 通过 group/link 增量维护；append/replace按实际distinct groups预检和
-分配。Candidate Scan source在terminal-time读取current group；source-only exact
+Exact index 通过 group/link 或 maintained bitmap 增量维护；append/replace按实际
+distinct groups、row capacity与layout预检和分配，update/remove/relocation同步
+更新对应bit。Candidate Scan source在terminal-time读取current group；source-only exact
 count可直接读取cardinality并保持logical stats。Packed callback scan按当前物理
 Segment使用外层loop，point access保持stable shift/mask mapping。当前
-generated/runtime compatibility为v11；runtime-core只提供窄DataFlow
+generated/runtime compatibility为v12；runtime-core只提供窄DataFlow
 guard/access/delivery binding，Definition/Template/Invocation不进入本模块。协议
 已经没有generic `ObjectColumn`、`SparseIntKeySpace`、
 `RowPermutationSidecar`或`StorageBudget`；`KeySpace`仅是primary-locator

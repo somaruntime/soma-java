@@ -159,7 +159,7 @@ public final class DataFlowReferenceDifferentialCheck {
         LongColumnResult actual = execute(
                 source.candidates()
                         .partition(source.columns().entityKind()
-                                .equalTo(EntityKind.PRIMARY.ordinal()))
+                                .equalTo(EntityKind.PRIMARY))
                         .combine()
                         .project(source.columns().factIndex())
                         .toColumn(),

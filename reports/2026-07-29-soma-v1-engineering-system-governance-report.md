@@ -219,16 +219,17 @@ Full没有形成单次全绿的性能证据；该边界不外推为新的perform
 JDK authority变化不会自动继承旧vendor的support/performance evidence：
 
 - G0–G4在当前Corretto本机Full闭合；
-- G5保持`blocked`：十lane runtime-scale尚未在Corretto重跑；
+- 后续逻辑语义与执行引擎治理已以v2八条required lane关闭`CF-016`，当前G5
+  `passed`；详见[对应治理报告](2026-07-29-soma-logical-semantics-and-execution-engine-governance-report.md)；
 - G6 selected `private-github-source`保持`blocked`：Corretto Linux Full已通过，
   clean package/security、最终matrix sign-off与manual release qualification未完成；
 - public GitHub与Maven Central保持`not-selected`；
 - Codex Cloud成为有界development candidate，但fresh-container setup/Fast/Full
   尚未重放，保持`qualification-blocked`。
 
-旧Zulu runtime-scale和Linux release evidence仍是历史candidate事实，但不进入
-当前passed声明。后续重验不得缩小Small/Medium、single/double100M、String、
-Expansion、Delivery或Soak目标。
+旧Zulu runtime-scale和Linux release evidence仍是历史candidate事实；当前
+Small/Medium、单/双1M、String、Expansion、Delivery与Soak由Corretto v2 artifact
+拥有，10M/100M转为非阻塞research/stress。
 
 ## 9. Surface delta与scope non-regression
 
@@ -262,6 +263,6 @@ governance plugin。Cloud readiness仍由实际fresh-container evidence裁决。
 package/security/runtime-scale仍保留其独立oracle。
 
 本专题工程治理实现已经完成；本次Full唯一失败被定位为不可重复的单fork性能抖动，
-定向复验和剩余diff阶段通过，原始失败仍如实保留。G5/G6的Corretto重型evidence
-作为明确Conformance差距留给独立、人工监管任务；Cloud由`CF-017`承担一次有界
-验收，不以本次治理名义暗中执行、反复轮询或降低目标。
+定向复验和剩余diff阶段通过，原始失败仍如实保留。后续专题已经关闭G5
+Corretto规模evidence；G6仍由独立、人工监管release qualification承担，Cloud由
+`CF-017`承担一次有界验收，不以工程治理名义暗中执行、反复轮询或降低目标。

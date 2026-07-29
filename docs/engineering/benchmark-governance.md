@@ -10,7 +10,7 @@ Owner：SOMA Java benchmark 过程
 
 非事实范围：性能设计目标和某次测量数值
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-29
 
 ## 1. 三层责任
 
@@ -58,14 +58,17 @@ production-shape lanes；它们不能被一个“100M passed”记录替代：
 |---|---|
 | Small/Fast | 0/1/16/256/1K/4K primitive+String；create/point/exact/scan/column/batch/mutate/Group/Join/callback fixed tax |
 | Medium | 32K/64K/256K primitive+String；layout/Candidate/relation/parallel crossover |
-| 1M | Point/Exact/Scan/Column/Batch/Delta/Join/Group/Window；String selector/presence/no-op/GC |
-| 10M | Large growth、low/high-cardinality String、bounded relation/output |
-| 100M Single | actual resident narrow numeric-Key Table、exact reserve、fused bounded aggregate |
-| 100M Double | two simultaneously resident roots、same/cross Group、bounded relation |
-| 100M String | declared narrow shared-reference profile、single/double roots、impossible profile rejection |
+| 1M Single | 一张实际驻留的1M narrow numeric-Key Table；Point/Exact/Scan/Column/Batch/Delta/Join/Group/Window、closed numeric kernel与ledger归零 |
+| 1M Double | 两个同时驻留的1M narrow numeric roots；双侧aggregate、same/cross Group bounded relation与整体release |
+| String | 两张同时驻留的1M reference-backed String角色Table；payload、Key/Unique/Index、Group/Join、任意长度mutation、no-op、presence、clear/release/GC |
 | Expansion | known overflow/over-budget与unknown-unprovable bound均在enumeration/callback前拒绝 |
 | Delivery | Eager与Candidate/Value/Group/Join/Window callback全量/early-stop/failure/cancel/deadline/non-escape/String/GC |
 | Soak | repeated create/load/mutate/Delta/callback/clear/release、executor/fault cleanup、ledger回零 |
+
+`10M Research`、`100M Single Stress`、`100M Double Stress`和`100M String
+Stress`保留为显式、非阻塞的research/stress lanes。它们使用
+`research-stress-v1`、`required=false`，不能关闭或阻塞V1 qualification，也不能
+替代上述1M保证。
 
 每条lane运行前冻结当前authority Amazon Corretto full JDK 8 build、
 OS/architecture、JVM args/heap/GC、
@@ -76,8 +79,8 @@ baseline+tolerance或structural pass rule，以及
 `passed`才能关闭qualification；`inconclusive`不是通过。
 
 Operational timeout只防止无界执行，不是public latency SLA。所有artifact保持
-`claimAllowed=false`；100M只证明明确profile的correctness/bounded peak/
-completion，不外推任意Schema/String/high-expansion或support matrix。
+`claimAllowed=false`；1M保证和可选10M/100M observation都只适用于明确profile，
+不外推任意Schema/String/high-expansion或support matrix。
 
 ## 3. Comparator 状态
 
@@ -118,8 +121,9 @@ tiered compilation 或延迟初始化的单个极值触发 rebaseline。Setup/pr
 异常样本、热降频或后台噪声明显时应先记录为 methodology finding，不得自动循环
 重跑或用单个异常结果放宽 baseline。普通 Gate 只读 checked-in baseline，不提供
 update-in-place。Rebaseline 必须单独产生候选 artifact/diff，并说明触发原因、
-旧/新 identity、环境、至少 5-fork 统计和 correctness 结果；环境变化新增
-baseline，不覆盖旧环境事实。
+旧/新 identity、环境、correctness 结果以及对应层级的固定 fork 证据：Access
+component为5 fork，DataFlow component为3 fork，application至少为5 fork。环境
+变化新增baseline，不覆盖旧环境事实。
 
 Runner 在进入 multi-fork 前必须完成所有低成本、确定性的 admission：class-load、
 CLI/input contract、必要的 classfile/descriptor identity 和 correctness smoke。
@@ -146,15 +150,16 @@ qualification形成前，`not-applicable`与`blocked`保持其真实含义。
 - runtime-scale model/runner/validator：
   `RuntimeScaleQualificationModel`、`RuntimeScaleQualificationRunner`、
   `RuntimeScaleQualificationArtifactValidator`与
-  `META-INF/soma/runtime-scale-qualification-schema-v1.json`；
+  `META-INF/soma/runtime-scale-qualification-schema-v2.json`；
 - runtime-scale完整Gate：`scripts/check-runtime-scale-qualification.sh`；
 - 综合入口：`scripts/check.sh`。
 
 普通benchmark smoke只运行runtime-scale `small-fast` contract smoke、strict
-validator、negative claim和Java major 52检查；它不分配100M数据。完整十lane
-qualification是有至少40GiB物理内存前置条件的显式重型Gate，不隐式放入普通
-`check.sh`。其source identity只绑定可执行产品/evidence源码，最终Report或
-Temporary清理不会反向改变被验真的candidate。
+validator、negative claim和Java major 52检查。完整八条required lane的
+qualification是至少12GiB物理内存的显式重型Gate，不隐式放入普通`check.sh`；
+`research`模式要求至少40GiB并仍不构成release blocker。其source identity只绑定
+可执行产品/evidence源码，最终Report或Temporary清理不会反向改变被验真的
+candidate。
 
 `check-performance-baseline-architecture.sh` 固定验证当前
 component=2、reference-application=9、public-claim=0，以及模块依赖和 Owner
