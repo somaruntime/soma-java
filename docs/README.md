@@ -73,8 +73,8 @@ artifact 和 validator 拥有，并由[可执行契约地图](implementation-map
 当前 active Temporary topic：
 
 - [SOMA V1 Release 治理交接](temp/soma-v1-release-transition-handoff/README.md)：
-  保留本轮逻辑语义与执行引擎治理的目标、成果、关键线程裁决、审计尾项和下一轮
-  V1 release 治理入口；稳定事实统一收口后删除。
+  保留本轮逻辑语义与执行引擎治理的目标、稳定认知与工程方法、成果、关键线程
+  裁决、审计尾项和下一轮 V1 release 治理入口；稳定事实统一收口后删除。
 
 已完成专题的稳定事实进入对应正式Owner，Temporary在closeout后删除且不归档。
 
