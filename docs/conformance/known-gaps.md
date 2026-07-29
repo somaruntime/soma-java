@@ -19,12 +19,13 @@ Owner：SOMA Java 一致性审查
 | ID | 分类 | 当前差距 | 影响与Owner处置 |
 |---|---|---|---|
 | `CF-005` | Evidence environment | 当前性能evidence只覆盖Amazon Corretto 8.502.07.1、macOS/aarch64、Apple M5 Pro与精确component/application profile；runtime-scale为旧Zulu历史evidence | 其他环境只能重新校准或得到`not-applicable`；不得外推支持矩阵、SLA或普遍性能优势 |
-| `CF-006` | Release readiness | selected `private-github-source`的identity/SCM/support/security已成立，但JDK authority迁移后缺当前immutable commit的Corretto Linux CI、clean package/security provenance与matrix sign-off | G6保持`blocked`；在GitHub Actions完成Corretto Full与manual release qualification后，由G6 Owner更新Support Matrix和release report |
+| `CF-006` | Release readiness | selected `private-github-source`的identity/SCM/support/security与Corretto Linux Full已成立，但缺clean package/security provenance、最终matrix sign-off与manual release qualification | G6保持`blocked`；在同一最终candidate完成manual release qualification后，由G6 Owner更新Support Matrix和release report |
 | `CF-016` | Runtime-scale evidence | Small/Medium、1M/10M、single/double100M、String、Expansion、Delivery、Soak只在旧Zulu authority下通过，尚未在Corretto 8重放 | G5保持`blocked`；按原十lane schema/预算/validator人工运行，不得缩小100M、双表100M或String目标，也不得改名旧artifact冒充当前结果 |
 | `CF-017` | Cloud development evidence | Cloud setup已收敛为exact toolchain、标准Maven cache和最小dependency预取，但没有当前Corretto fresh-container的setup/Fast/Full/clean-worktree evidence | Cloud保持`candidate / qualification-blocked`；按10分钟setup、60秒Fast、10分钟Full预算做一次有界验收，异常时停止诊断，不反复setup/check |
 
-`CF-005`不能由private CI或Cloud smoke自动关闭；Linux build/contract support不等于
-Linux性能baseline。`CF-016`是JDK evidence适用性差距，不是production实现回退。
+`CF-005`不能由private CI或Cloud smoke自动关闭；当前Linux build/contract通过不
+等于Linux性能baseline。`CF-016`是JDK evidence适用性差距，不是production实现
+回退。
 
 ## 2. 已关闭差距
 

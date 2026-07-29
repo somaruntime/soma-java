@@ -202,7 +202,12 @@ telemetry名称为空。执行立即终止；`run_stage`改用独立变量后，
   前两fork为402/414微秒，第三fork为685微秒，超过674微秒ceiling约1.6%，但
   checksum、allocation、median、GC及其他全部规则passed；
 - 改变证据目标后只做一次定向复验，三fork为401–416微秒并passed。没有重跑Full、
-  放宽baseline或修改统计语义来掩盖异常。
+  放宽baseline或修改统计语义来掩盖异常；
+- 首次推送CI run `30410121571`在JDK setup阶段立即失败，直接暴露
+  `actions/setup-java`的Corretto provider只支持major version；没有改用漂移的
+  `8`，而是让installer校验精确archive并通过`jdkfile`安装；
+- 修复后的implementation commit `dddf62b`在Ubuntu 24.04 x64 CI run
+  `30410355517`完整passed，总耗时7分46秒，低于10分钟预算。
 
 本次Full中，Public API为1秒、codegen admission为50秒、generated keyed为30秒、
 reference applications为25秒、隔离code-size clean oracle为10秒；所有stage均输出
@@ -215,8 +220,8 @@ JDK authority变化不会自动继承旧vendor的support/performance evidence：
 
 - G0–G4在当前Corretto本机Full闭合；
 - G5保持`blocked`：十lane runtime-scale尚未在Corretto重跑；
-- G6 selected `private-github-source`保持`blocked`：当前commit尚无Corretto Linux
-  Full、clean package/security与manual release qualification；
+- G6 selected `private-github-source`保持`blocked`：Corretto Linux Full已通过，
+  clean package/security、最终matrix sign-off与manual release qualification未完成；
 - public GitHub与Maven Central保持`not-selected`；
 - Codex Cloud成为有界development candidate，但fresh-container setup/Fast/Full
   尚未重放，保持`qualification-blocked`。

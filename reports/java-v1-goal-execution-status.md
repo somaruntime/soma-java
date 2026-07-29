@@ -42,11 +42,12 @@ profile。九份application baseline使用同环境5 fork重新校准，并以�
 全部回放通过。旧baseline的Schema/RuntimePlan identity漂移在Zulu和Corretto上
 生成结果一致，已经确认不是JDK不确定性。
 
-2026-07-28十lane runtime-scale qualification和Linux package/security/CI只在旧
+2026-07-28十lane runtime-scale qualification和Linux package/security只在旧
 Zulu authority下形成。它们仍是相应历史candidate的有效证据，但不再证明当前
-Corretto candidate。因此G5保持`blocked`直至Corretto重型qualification完成，
-G6 selected `private-github-source`保持`blocked`直至当前immutable commit的
-Corretto Linux CI与release qualification完成。
+Corretto candidate。Corretto Ubuntu x64 Full已在implementation commit
+`dddf62b`的CI run `30410355517`通过；因此G5保持`blocked`直至Corretto重型
+qualification完成，G6 selected `private-github-source`保持`blocked`直至同一最终
+candidate的release qualification与sign-off完成。
 
 ## 2. G0–G6
 
@@ -58,7 +59,7 @@ Corretto Linux CI与release qualification完成。
 | G3 | passed | storage/access/relation/DataFlow/scheduler/ledger/delivery/failure/observation在Corretto contract与component evidence通过 |
 | G4 | passed | dense/keyed/access/child/breadth external Maven consumers、public API与Java major 52通过 |
 | G5 | blocked | component与九application profile通过；Small/Medium、1M/10M、single/double100M、String、Expansion、Delivery、Soak尚未在Corretto authority下重跑 |
-| G6 | blocked for selected private-source | identity/SCM/support/security仍成立；Corretto Linux build/contract、clean package/security provenance与CI尚无当前commit evidence |
+| G6 | blocked for selected private-source | identity/SCM/support/security与Corretto Linux build/contract已通过；clean package/security provenance、最终matrix sign-off与manual qualification未完成 |
 
 `blocked`是evidence适用性判断，不是产品目标删除、waive或实现回退。
 
@@ -112,8 +113,8 @@ correctness和三个profile。当前Corretto baseline为：
 ## 6. 当前开放项
 
 - `CF-005`：性能evidence只适用于精确环境/profile；
-- `CF-006`：selected private-source G6在Corretto Linux/qualification重新取证前
-  重新打开；
+- `CF-006`：Corretto Linux Full已形成；selected private-source G6仍等待同一最终
+  candidate的package/security qualification与sign-off；
 - `CF-016`：Corretto runtime-scale十lane重型qualification待执行。
 - `CF-017`：Codex Cloud setup已收敛，但fresh-container setup/Fast/Full与
   clean-worktree有界验收待执行。
@@ -125,8 +126,9 @@ public GitHub与Maven Central保持`not-selected`；Codex Cloud为
 ## 7. Claim boundary
 
 允许陈述：当前Corretto macOS candidate通过G0–G4、component和九application
-profile；SOMA V1设计与production能力目标没有回退。
+profile，Corretto Ubuntu x64通过build/contract Full；SOMA V1设计与production
+能力目标没有回退。
 
 不允许陈述：当前Corretto candidate已通过100M/双表100M/String 100M
-qualification、Linux support、private-source G6、Codex Cloud ready、任意Schema
-100M、跨环境SLA、production-ready、public RC或Maven Central ready。
+qualification、Linux性能/规模、private-source G6、Codex Cloud ready、任意
+Schema 100M、跨环境SLA、production-ready、public RC或Maven Central ready。

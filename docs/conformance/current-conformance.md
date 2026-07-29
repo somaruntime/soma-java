@@ -41,7 +41,7 @@ Owner：SOMA Java 一致性审查
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
 | G0–G4 | passed | Corretto compiler/codegen/runtime/external consumer与工程Full evidence |
 | G5 | blocked | component/application已通过，Corretto runtime-scale qualification未完成 |
-| G6 selected private-source | blocked | identity/SCM/support/security事实仍成立；Corretto Linux、clean package/security provenance与当前CI evidence未完成 |
+| G6 selected private-source | blocked | identity/SCM/support/security与Corretto Linux Full已形成；clean package/security provenance、最终matrix sign-off和manual qualification未完成 |
 | Codex Cloud development | candidate / qualification-blocked | 产品/工程形状适合隔离Linux开发，setup已退出重复evidence/release预热；尚未完成Corretto fresh-container setup、Fast、Full与clean-worktree验收，不进入支持矩阵 |
 
 ## 3. 当前结论
@@ -53,14 +53,14 @@ Fast→Full→Qualification，使用Maven标准local repository、一次准备�
 最多四路安全并行和fail-closed阶段状态。
 
 JDK authority迁移属于支持与evidence变化，不是产品语义变化。Corretto本机
-compiler/runtime/component/application evidence已形成；Zulu runtime-scale与
-Linux release evidence保持历史事实，但不再作为当前passed依据。因此`CF-006`
-重新打开，并新增`CF-016`承担Corretto规模重验；`CF-009`–`CF-015`的实现闭合不
-因此回退。
+compiler/runtime/component/application以及Ubuntu x64 build/contract evidence已
+形成；Zulu runtime-scale与release qualification保持历史事实，但不再作为当前
+passed依据。因此`CF-006`仍保持打开，并由`CF-016`承担Corretto规模重验；
+`CF-009`–`CF-015`的实现闭合不因此回退。
 
-当前candidate可继续本地开发，但不能声明Corretto下的100M qualification、Linux
-support、private-source G6、Codex Cloud ready、production、public release或Maven
-Central readiness。
+当前candidate可继续本地与GitHub Linux CI开发，但不能声明Corretto下的100M
+qualification、Linux性能/规模、private-source G6、Codex Cloud ready、
+production、public release或Maven Central readiness。
 
 ## 4. Evidence 入口
 

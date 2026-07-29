@@ -30,16 +30,17 @@ Gate：G6 selected release profile
 repository为`somaruntime/soma-java`且保留完整Git历史；SCM、maintainer、
 support、security与CODEOWNERS均有真实Owner。
 
-下列evidence尚未在当前authority和immutable commit形成：
+当前authority已经在implementation commit `dddf62b`的GitHub Actions run
+`30410355517`形成Ubuntu x64 exact Corretto 8 Full。下列release evidence仍未在
+同一最终candidate形成：
 
-- GitHub Actions Ubuntu x64上的exact Corretto 8 Full；
 - clean release-shaped package与byte-for-byte reproducibility；
 - SBOM、known-vulnerability、declared-license与security qualification；
-- macOS/Linux Corretto support matrix sign-off。
+- 最终clean workspace、artifact checksum与macOS/Linux Corretto matrix sign-off。
 
-因此当前只允许继续受控本地开发，不允许表述“private GitHub source profile
-ready”。旧Zulu workflow结果是历史candidate证据，不能改名或外推为Corretto
-passed。
+因此当前允许继续受控本地与GitHub Linux CI开发，但不允许表述“private GitHub
+source profile ready”。旧Zulu qualification结果是历史candidate证据，不能改名
+或外推为Corretto release passed。
 
 ## 2. Identity、SCM 与治理事实
 
@@ -50,8 +51,9 @@ passed。
 | SCM | passed | private `https://github.com/somaruntime/soma-java`；完整历史；`develop`为开发分支，`main`为稳定基线 |
 | maintainer / support | passed | ArthurFeng / GitHub `@283586450`；普通问题进入private repository Issues |
 | security / ownership | passed | private Security Advisory优先；`.github/CODEOWNERS`为`* @283586450`；Actions最小权限与SHA pin |
-| JDK authority | passed locally | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
-| Linux/CI/package/security evidence | blocked | workflow已切到Corretto；当前commit尚无成功外部run与manual qualification |
+| JDK authority | passed local + CI | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
+| Linux build/contract | passed | Ubuntu 24.04 x64，commit `dddf62b`，CI run `30410355517`，Full 7分46秒 |
+| package/security evidence | blocked | 尚未在同一最终candidate执行manual release qualification |
 
 Organization plan不支持private repository branch protection/ruleset的历史限制仍按
 真实事实记录，不伪造已配置状态。若扩大协作者或公开仓库，需要重新裁决。
@@ -69,13 +71,14 @@ Zulu candidate在当时profile下成立；JDK authority迁移后，它不再关�
 - Access/DataFlow component baseline；
 - 三个Example correctness与九profile application performance。
 
-本机证据不能代替Linux、clean package/security或GitHub commit-bound evidence。
+本机证据不能代替clean package/security；Linux build/contract已由上述
+commit-bound CI evidence补齐。
 
 ## 4. Profile状态
 
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
-| private GitHub source | blocked | 等待当前commit的Corretto Linux Full和manual release qualification |
+| private GitHub source | blocked | Corretto Linux Full已通过；等待同一最终candidate的manual release qualification与sign-off |
 | local macOS development | passed for recorded environment | Corretto build/contract/component/application；不含当前runtime-scale |
 | Codex Cloud development | candidate / qualification-blocked | setup已收敛；等待fresh-container setup/Fast/Full/clean-worktree有界验收；不是release profile |
 | public GitHub source | not-selected | repository保持private |
@@ -90,6 +93,8 @@ G6 Owner只在同一clean immutable commit上获得下列全部证据后重新�
 2. release qualification的隔离package/reproducibility和security evidence；
 3. `git diff --exit-code`与artifact checksum；
 4. Support Matrix、Conformance和本报告同步更新。
+
+当前`dddf62b`只关闭了条件1；条件2–4仍阻塞最终release candidate。
 
 这些条件不得用macOS smoke、旧Zulu run、Cloud部分日志、placeholder或waive替代。
 Public/Maven profile仍保持`not-selected`，无需为了关闭private-source G6扩大
