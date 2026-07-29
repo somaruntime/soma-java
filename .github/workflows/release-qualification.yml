@@ -15,7 +15,7 @@ jobs:
     name: Private-source package and security qualification
     runs-on: ubuntu-24.04
     env:
-      SOMA_RELEASE_EVIDENCE_ROOT: ${{ runner.temp }}/soma-java-release-evidence
+      SOMA_RELEASE_EVIDENCE_ROOT: ${{ github.workspace }}/target/release-evidence
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
@@ -114,6 +114,6 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: private-source-qualification-${{ github.sha }}
-          path: ${{ runner.temp }}/soma-java-release-evidence
+          path: ${{ github.workspace }}/target/release-evidence
           if-no-files-found: error
           retention-days: 90
