@@ -5,10 +5,10 @@
   "subject": "typed-dataflow-component",
   "artifactVersion": "soma-java-dataflow-component-v1",
   "calibration": {
-    "commit": "6bd260ccbf7c36a518fa84503450be6f3727bbfc",
+    "commit": "733db714f0b5f1edc41ada0ddf86352187b989bd",
     "date": "2026-07-29",
     "forks": 3,
-    "formula": "trigger=transformation-v4-kernel-v5-authoring-identity; candidate=logical-execution-governance-working-tree; authoring checksum changed across three equal forks; all execution checksums and previous allocation/timing/tail/gc envelopes retained without relaxation"
+    "formula": "trigger=transformation-v4-kernel-v5-authoring-identity; replay=clean-immutable-candidate-three-equal-forks; thresholds=unchanged; all execution checksums and allocation/timing/tail/gc envelopes passed without relaxation"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",

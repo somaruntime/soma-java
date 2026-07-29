@@ -10,9 +10,8 @@ Owner：SOMA Java 实现导航
 
 非事实范围：规范性设计、未来计划和实现正确性裁决
 
-最近实现核对基线：2026-07-29 logical/execution working-tree candidate（base
-`6bd260c`；production/evidence source
-`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
+最近实现核对基线：V1 candidate preparation commit
+`542cbd2fd90d555f533ba9b70b0204adb3896fe2`
 
 最后审查日期：2026-07-29
 
@@ -29,11 +28,11 @@ Implementation Map 是当前代码的简短投影。代码变化后，以代码�
 普通类、字段和方法清单由代码搜索获得，不在这里维护第二份完整目录。
 
 “实现核对基线”通常是最后一次影响对应 surface 的 immutable commit；working-tree
-candidate 必须显式标注 base 和内容身份，不能冒充 commit。当前 candidate 已完成
+candidate 必须显式标注 base 和内容身份，不能冒充 commit。当前实现已形成
 Metadata/Group/String、logical type facade、numeric closed kernel、
 formula-bound Bitmap、primitive join runtime filter、受限 storage/locator/
 Candidate/relation、bounded morsel scheduler、Invocation resource ledger、
-Eager + callback-scoped delivery、runtime observation、三个 Example 审计和
-Corretto runtime-scale qualification。精确 executable identity 与 Gate 结果由
+Eager + callback-scoped delivery、runtime observation和三个 Example。当前
+candidate 的精确 executable identity、runtime-scale qualification 与 Gate 结果由
 各地图及[V1 release governance](../../reports/java-v1-release-governance-report.md)
-追踪；更早 slice 提交链不在地图中重复。
+追踪，不能由本地图的能力清单自动推导；更早 slice 提交链不在地图中重复。

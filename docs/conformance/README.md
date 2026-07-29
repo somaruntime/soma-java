@@ -10,9 +10,8 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：重新定义设计、直接修改实现或扩大任务授权
 
-实现核对基线：2026-07-29 logical/execution working-tree candidate（base
-`6bd260c`；production/evidence source
-`content-sha256:d90e8499d51f7477db3959033895853e223bd692794e25eb8bdf234492e3c2ba`）
+实现核对基线：V1 candidate preparation commit
+`542cbd2fd90d555f533ba9b70b0204adb3896fe2`
 
 最后审查日期：2026-07-29
 

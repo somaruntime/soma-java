@@ -75,6 +75,28 @@ if [ "$dataflow_calibration_forks" != 3 ]; then
     'performance-baseline-architecture-check: DataFlow calibration must use exactly 3 bounded forks' >&2
   exit 1
 fi
+dataflow_calibration_commit=$(sed -n \
+  's/^[[:space:]]*"commit": "\([0-9a-f][0-9a-f]*\)",$/\1/p' \
+  "$dataflow_component_baseline" | head -n 1)
+if ! printf '%s\n' "$dataflow_calibration_commit" |
+    grep -E '^[0-9a-f]{40}$' >/dev/null 2>&1; then
+  printf '%s\n' \
+    'performance-baseline-architecture-check: DataFlow calibration must name a full immutable commit' >&2
+  exit 1
+fi
+if ! git cat-file -e "$dataflow_calibration_commit^{commit}" 2>/dev/null; then
+  printf '%s\n' \
+    "performance-baseline-architecture-check: DataFlow calibration commit is unavailable: $dataflow_calibration_commit" >&2
+  exit 1
+fi
+if grep -E -i 'working-tree|dirty-candidate|thresholds=(relaxed|expanded)' \
+    "$dataflow_component_baseline" >/dev/null 2>&1 \
+    || ! grep -F 'thresholds=unchanged' \
+      "$dataflow_component_baseline" >/dev/null 2>&1; then
+  printf '%s\n' \
+    'performance-baseline-architecture-check: DataFlow calibration provenance is mutable or relaxes thresholds' >&2
+  exit 1
+fi
 
 check_application_baseline() {
   baseline=$1
