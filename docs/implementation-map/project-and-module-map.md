@@ -55,6 +55,12 @@ runtime artifact。
 neutral benchmark与Access/DataFlow component multi-fork保持有序，性能阶段串行，
 最后执行`git diff --check`。每个阶段输出稳定状态与duration。
 
+Code-size Gate把当前source复制到系统临时目录后执行clean compile，测量完成即删除
+隔离build output；主checkout的prepared classes和project-check日志不受其
+`clean`影响。Cloud bootstrap使用标准Maven local repository完成一次reactor
+install、一个代表性external fixture和pinned governance plugin预取，不建立第二份
+日常dependency cache。
+
 ## 3. 实现数据流
 
 ```text

@@ -24,7 +24,7 @@ current checkout 维护 archive 或重复叙事。报告不拥有产品语义；
 - [SOMA V1 工程体系治理](2026-07-29-soma-v1-engineering-system-governance-report.md)：
   Amazon Corretto 8 authority、Maven lifecycle/local repository、Fast/Full/
   Qualification、最多四路安全并行、一次准备多项取证、CI、测试/Benchmark/
-  Example evidence与异常处置；
+  Example evidence、code-size隔离、Cloud development candidate与异常处置；
 - [V1 产品面收敛与仓库瘦身治理](2026-07-28-soma-v1-product-surface-simplification-governance-report.md)：
   在不降低 Blueprint、Design、规模/String、Capability、Gate 与产品化目标的前提
   下，完成 production/public、test、benchmark、fixture、script、document、

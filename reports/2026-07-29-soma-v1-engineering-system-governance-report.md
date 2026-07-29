@@ -110,8 +110,7 @@ resolution消费相同artifact。
 
 - `package-smoke.sh`：两个全新repository证明release-shaped package与
   reproducibility；
-- `security-release-scan.sh`：隔离dependency/SBOM/security evidence；
-- Cloud setup：若未来重新选择Cloud，使用独立evidence cache。
+- `security-release-scan.sh`：隔离dependency/SBOM/security evidence。
 
 这些隔离不进入Fast/Full日常路径。
 
@@ -137,8 +136,11 @@ prepare stage显式返回真实Maven退出码。
 - reactor verify后设置`SOMA_REACTOR_PREPARED`，runtime/naming contract复用产物并
   检查required class/JAR存在；
 - external install后设置`SOMA_EXTERNAL_ARTIFACTS_PREPARED`，全部consumer共享；
-- benchmark test-compile后设置`SOMA_BENCHMARKS_PREPARED`，contract、reference、
-  smoke与component performance复用；
+- reactor verify形成benchmark class后同时设置`SOMA_BENCHMARKS_PREPARED`，
+  contract、reference、smoke与component performance复用；
+- code-size在临时source copy中执行clean compile，Full以主checkout sentinel证明
+  prepared classes、evidence和orchestrator log未被删除，旧的补偿性benchmark
+  rebuild已经退出；
 - Public API把全部type交给一次批量`javap`并重新绑定golden header；
 - generated breadth同样批量`javap`，classfile major直接读取class header
   `0x0034`；
@@ -163,7 +165,7 @@ CI按实际diff选择：
 
 - stage显著慢于其职责、同一build重复出现、输出长期不变化、环境identity不一致、
   baseline identity先于performance comparison失败，都必须立即诊断；
-- 同一失败只有在输入或实现已改变后重试一次；
+- 同一失败只有在输入、假设、实现或证据目标已改变后定向重试一次；
 - 连续两次没有新状态或证据就停止轮询并检查process/log/资源；
 - 禁止固定间隔sleep轮询和用重复执行掩盖failure；
 - performance与qualification发现异常样本时先形成methodology finding，不自动
@@ -189,11 +191,21 @@ telemetry名称为空。执行立即终止；`run_stage`改用独立变量后，
 - baseline architecture：2个component、9个application、0个public claim；
 - shell syntax、workflow YAML和`git diff --check`：passed；
 - `./scripts/check.sh fast`：passed，warm local 10秒（jobs=4）；
-- `./scripts/check.sh full`：passed，warm local 149秒（jobs=4）。
+- 上一轮Corretto authority收口的`./scripts/check.sh full`：passed，warm local
+  149秒（jobs=4）；
+- 本次code-size/Cloud收尾的Full：运行147秒，在倒数第二个
+  `dataflow-performance`阶段因单个fork的`tail.window`抖动停止；此前所有阶段
+  passed，最后尚未进入的`diff`已单独passed；
+- 同一HEAD、JDK和机器上，历史三fork `tail.window.p90`为394–404微秒；失败样本的
+  前两fork为402/414微秒，第三fork为685微秒，超过674微秒ceiling约1.6%，但
+  checksum、allocation、median、GC及其他全部规则passed；
+- 改变证据目标后只做一次定向复验，三fork为401–416微秒并passed。没有重跑Full、
+  放宽baseline或修改统计语义来掩盖异常。
 
-最终Full中，Public API为1秒、codegen admission为50秒、generated keyed为30秒、
-reference applications为24秒、code-size clean oracle为12秒；所有stage均输出
-非空名称、状态与duration。
+本次Full中，Public API为1秒、codegen admission为50秒、generated keyed为30秒、
+reference applications为25秒、隔离code-size clean oracle为10秒；所有stage均输出
+非空名称、状态与duration。当前结果证明本次实现与功能证据闭合，但这次交互式本机
+Full没有形成单次全绿的性能证据；该边界不外推为新的performance或release claim。
 
 ## 8. Gate与未完成evidence
 
@@ -203,7 +215,9 @@ JDK authority变化不会自动继承旧vendor的support/performance evidence：
 - G5保持`blocked`：十lane runtime-scale尚未在Corretto重跑；
 - G6 selected `private-github-source`保持`blocked`：当前commit尚无Corretto Linux
   Full、clean package/security与manual release qualification；
-- public GitHub、Maven Central与Codex Cloud保持`not-selected`。
+- public GitHub与Maven Central保持`not-selected`；
+- Codex Cloud成为有界development candidate，但fresh-container setup/Fast/Full
+  尚未重放，保持`qualification-blocked`。
 
 旧Zulu runtime-scale和Linux release evidence仍是历史candidate事实，但不进入
 当前passed声明。后续重验不得缩小Small/Medium、single/double100M、String、
@@ -228,11 +242,19 @@ application baseline成为唯一current Owner，旧事实由Git保存。无新mo
 production type、无parallel Owner、无migration-only checker、无test-only
 bypass、无未退役Temporary。
 
+最终收尾没有新增脚本或长期Owner：`check-scan-code-size.sh`在既有Gate内取得隔离
+build output，`check.sh`删除旧的`prepare-benchmarks`补偿路径；
+`setup-codex-cloud.sh`删除第二Maven cache、逐fixture重复预取和release-only
+OSV准备，收敛到exact toolchain、标准Maven cache、一个代表fixture与一个pinned
+governance plugin。Cloud readiness仍由实际fresh-container evidence裁决。
+
 ## 10. 结论
 
 本次治理把“9分钟的大脚本”改造成由产品Capability驱动、具备分层反馈、标准Maven
 缓存、可控并行、明确耗时和异常退出条件的工程系统。性能提速没有删除证据，
 package/security/runtime-scale仍保留其独立oracle。
 
-最终Full通过后，本专题工程治理完成；G5/G6的Corretto重型evidence作为明确
-Conformance差距留给独立、人工监管任务，不以本次治理名义暗中执行或降低目标。
+本专题工程治理实现已经完成；本次Full唯一失败被定位为不可重复的单fork性能抖动，
+定向复验和剩余diff阶段通过，原始失败仍如实保留。G5/G6的Corretto重型evidence
+作为明确Conformance差距留给独立、人工监管任务；Cloud由`CF-017`承担一次有界
+验收，不以本次治理名义暗中执行、反复轮询或降低目标。

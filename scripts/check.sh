@@ -39,18 +39,20 @@ fi
 
 mkdir -p target
 check_started_at=$(date +%s)
-check_run_dir=$(mktemp -d "$root_dir/target/project-check.XXXXXX")
+check_temp_root=${TMPDIR:-/tmp}
+check_run_dir=$(mktemp -d "$check_temp_root/soma-java-project-check.XXXXXX")
 
 finish_check() {
   status=$?
   finished_at=$(date +%s)
   duration_seconds=$((finished_at - check_started_at))
   if [ "$status" -eq 0 ]; then
+    rm -rf -- "$check_run_dir"
     printf '%s\n' \
       "project-check: ok profile=$profile jobs=$parallel_jobs durationSeconds=$duration_seconds"
   else
     printf '%s\n' \
-      "project-check: failed profile=$profile jobs=$parallel_jobs durationSeconds=$duration_seconds status=$status" >&2
+      "project-check: failed profile=$profile jobs=$parallel_jobs durationSeconds=$duration_seconds status=$status logs=$check_run_dir" >&2
   fi
 }
 trap finish_check 0
@@ -168,16 +170,27 @@ prepare_external_artifacts() {
   export SOMA_EXTERNAL_ARTIFACTS_PREPARED
 }
 
-prepare_benchmarks() {
-  if ! ./mvnw -B -ntp -pl soma-benchmarks -am test-compile; then
-    return 1
-  fi
-  SOMA_BENCHMARKS_PREPARED=true
-  export SOMA_BENCHMARKS_PREPARED
-}
-
 check_diff() {
   git diff --check
+}
+
+check_code_size_isolation() {
+  root_sentinel=$root_dir/target/.code-size-isolation.$$
+  benchmark_sentinel=$root_dir/soma-benchmarks/target/.code-size-isolation.$$
+  mkdir -p "$root_dir/target" "$root_dir/soma-benchmarks/target"
+  printf '%s\n' 'preserve' >"$root_sentinel"
+  printf '%s\n' 'preserve' >"$benchmark_sentinel"
+
+  code_size_status=0
+  ./scripts/check-scan-code-size.sh || code_size_status=$?
+  if [ "$code_size_status" -eq 0 ] \
+      && { [ ! -f "$root_sentinel" ] || [ ! -f "$benchmark_sentinel" ]; }; then
+    printf '%s\n' \
+      'project-check: code-size Gate mutated shared checkout target output' >&2
+    code_size_status=1
+  fi
+  rm -f -- "$root_sentinel" "$benchmark_sentinel"
+  return "$code_size_status"
 }
 
 run_stage toolchain ./scripts/check-toolchain.sh
@@ -186,8 +199,10 @@ run_stage performance-baseline-architecture \
   ./scripts/check-performance-baseline-architecture.sh
 run_stage reactor-verify ./mvnw -B -ntp verify
 SOMA_REACTOR_PREPARED=true
+SOMA_BENCHMARKS_PREPARED=true
 SOMA_VALIDATION_CONTEXT_RECORDED=true
 export SOMA_REACTOR_PREPARED
+export SOMA_BENCHMARKS_PREPARED
 export SOMA_VALIDATION_CONTEXT_RECORDED
 
 if [ "$profile" = 'fast' ]; then
@@ -221,9 +236,8 @@ run_parallel_group integration-consumers \
   external-consumer ./scripts/check-external-consumer.sh \
   reference-applications ./scripts/check-reference-applications.sh
 
-run_stage code-size ./scripts/check-scan-code-size.sh
+run_stage code-size check_code_size_isolation
 
-run_stage prepare-benchmarks prepare_benchmarks
 run_stage dataflow-contracts ./scripts/check-dataflow-contracts.sh
 run_stage dataflow-reference ./scripts/check-dataflow-reference.sh
 run_stage benchmark-smoke ./scripts/check-benchmark-smoke.sh

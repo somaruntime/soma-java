@@ -86,11 +86,13 @@ effective POM和dependency topology只校验声明及解析结果，使用标准
 - 不复制或手工拼装Maven repository内部layout。并行Maven进程共享同一repository
   时使用Resolver file lock与GAV name mapper，且只并行独立consumer；
 - 同一check run中reactor `verify`、external artifact `install`和benchmark
-  `test-compile`各准备一次，后续Gate验证prepared class/artifact存在后复用；
+  class各准备一次，后续Gate验证prepared class/artifact存在后复用；
 - `clean`只在clean-build、生成确定性、package shape或repeat-build oracle确实
   需要时使用，不作为每个脚本的习惯性前缀；
-- package reproducibility、security evidence和Cloud隔离准备可以使用专用
-  repository，但必须说明其独立oracle；它们不成为日常Fast/Full缓存策略。
+- code-size clean oracle在临时source copy中产生build output，不删除或复用主
+  checkout的`target/`；Full以sentinel验证这一隔离不变量；
+- package reproducibility与security evidence可以使用专用repository，但必须说明
+  其独立oracle；Cloud日常开发继续使用平台cache中的标准Maven local repository。
 
 ## 5. Reproducibility 与 repository hygiene
 

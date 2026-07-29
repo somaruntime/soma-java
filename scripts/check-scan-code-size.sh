@@ -9,10 +9,49 @@ cd "$root_dir"
 
 soma_require_supported_jdk scan-code-size-check
 
+candidate_commit=$(git rev-parse HEAD)
+isolation_root=${TMPDIR:-/tmp}
+case "$isolation_root" in
+  /) ;;
+  */) isolation_root=${isolation_root%/} ;;
+esac
+isolated_workspace=$(mktemp -d "$isolation_root/soma-java-code-size.XXXXXX")
+isolated_source=$isolated_workspace/source
+isolated_archive=$isolated_workspace/source.tar
+
+cleanup_isolated_workspace() {
+  case "$isolated_workspace" in
+    "$isolation_root"/soma-java-code-size.*)
+      rm -rf -- "$isolated_workspace"
+      ;;
+    *)
+      printf '%s\n' \
+        "scan-code-size-check: refusing to clean unexpected path $isolated_workspace" >&2
+      ;;
+  esac
+}
+trap cleanup_isolated_workspace 0
+
+mkdir -p "$isolated_source"
+tar -cf "$isolated_archive" \
+  --exclude='target' \
+  --exclude='*/target' \
+  .mvn LICENSE NOTICE mvnw pom.xml \
+  soma-annotations soma-runtime-core soma-dataflow soma-processor \
+  soma-examples soma-benchmarks
+(
+  cd "$isolated_source"
+  tar -xf "$isolated_archive"
+)
+rm -f -- "$isolated_archive"
+
 start_millis=$(perl -MTime::HiRes=time -e 'printf "%.0f", time() * 1000')
-./mvnw -B -ntp \
-  -pl soma-benchmarks,soma-examples/industrial-dynamic-scheduler,soma-examples/grassing-individual-simulation,soma-examples/real-time-dispatch-rule-engine \
-  -am -DskipTests clean compile
+(
+  cd "$isolated_source"
+  ./mvnw -B -ntp \
+    -pl soma-benchmarks,soma-examples/industrial-dynamic-scheduler,soma-examples/grassing-individual-simulation,soma-examples/real-time-dispatch-rule-engine \
+    -am -DskipTests clean compile
+)
 end_millis=$(perl -MTime::HiRes=time -e 'printf "%.0f", time() * 1000')
 compile_wall_millis=$((end_millis - start_millis))
 
@@ -171,16 +210,16 @@ measure_surface() {
 }
 
 # Baselines are the current immutable application candidates plus 15%.
-measure_surface neutral-benchmark soma-benchmarks \
+measure_surface neutral-benchmark "$isolated_source/soma-benchmarks" \
   9 247729 1086 352175 89 117038 1224 401731 106
 measure_surface industrial-scheduler \
-  soma-examples/industrial-dynamic-scheduler \
+  "$isolated_source/soma-examples/industrial-dynamic-scheduler" \
   9 251396 1081 358335 75 115761 1136 418589 105
 measure_surface grassing-simulation \
-  soma-examples/grassing-individual-simulation \
+  "$isolated_source/soma-examples/grassing-individual-simulation" \
   2 55010 244 78517 17 25047 258 89307 23
 measure_surface rtd-rule-engine \
-  soma-examples/real-time-dispatch-rule-engine \
+  "$isolated_source/soma-examples/real-time-dispatch-rule-engine" \
   2 54559 243 76900 18 25757 260 90786 25
 
 total_scans=$(awk -F '	' 'NR > 1 {sum += $2} END {print sum + 0}' \
@@ -207,10 +246,12 @@ fi
 
 evidence=$evidence_dir/scan-code-size.properties
 {
-  printf 'commit=%s\n' "$(git rev-parse HEAD)"
+  printf 'commit=%s\n' "$candidate_commit"
   printf 'javaVersion=%s\n' "$($JAVA_HOME/bin/java -version 2>&1 | head -n 1)"
   printf 'javacVersion=%s\n' "$($JAVA_HOME/bin/javac -version 2>&1)"
   printf 'compileWallMillis=%s\n' "$compile_wall_millis"
+  printf 'buildIsolation=temporary-source-copy\n'
+  printf 'sharedCheckoutTargetMutated=false\n'
   printf 'surfaceCount=4\n'
   printf 'scanCount=%s\n' "$total_scans"
   printf 'dataFlowCompanionCount=%s\n' "$dataflow_types"

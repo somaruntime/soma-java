@@ -77,7 +77,7 @@ Zulu candidate在当时profile下成立；JDK authority迁移后，它不再关�
 |---|---|---|
 | private GitHub source | blocked | 等待当前commit的Corretto Linux Full和manual release qualification |
 | local macOS development | passed for recorded environment | Corretto build/contract/component/application；不含当前runtime-scale |
-| Codex Cloud development | not-selected / not-ready | 不再作为当前工程目标 |
+| Codex Cloud development | candidate / qualification-blocked | setup已收敛；等待fresh-container setup/Fast/Full/clean-worktree有界验收；不是release profile |
 | public GitHub source | not-selected | repository保持private |
 | Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，未上传artifact |
 | production readiness / SLA | not-claimed | 需要具体部署、workload与运营证据 |

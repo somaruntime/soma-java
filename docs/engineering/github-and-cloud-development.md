@@ -42,37 +42,62 @@ runtime/build、javac 和 Maven 版本 fail-closed。macOS arm64 与 Linux x64
 
 ## 3. Codex Cloud setup
 
-仓库保留了实验性的 Codex Cloud bootstrap：
+SOMA的Java 8/Maven Wrapper、无外部服务依赖、确定性生成和Fast/Full分层适合
+Codex Cloud的隔离Linux环境。仓库因此把Cloud选为**有界开发验收候选**，但在
+fresh-container evidence形成前仍为`not-ready`。
+
+Codex Cloud官方执行模型会先checkout目标commit，再在有网络的setup阶段运行脚本；
+setup中的普通`export`不会自动进入后续agent shell，container cache最长保留约
+12小时，恢复cache时可以运行maintenance script。仓库使用以下bootstrap：
 
 ```text
 ./scripts/setup/setup-codex-cloud.sh
 ```
 
-它仅支持 Linux x64，并执行：
+它仅支持Linux x64，并执行：
 
-1. 从固定HTTPS URL下载Amazon Corretto full JDK 8、ripgrep与OSV-Scanner；
+1. 从固定HTTPS URL下载Amazon Corretto full JDK 8与ripgrep；
 2. 验证发布方 SHA-256，拒绝已存在但不匹配的 bytes；
 3. 若Codex Cloud暴露平台代理CA，则把该CA合并到setup专用的Corretto
    truststore 副本，使 Maven 保持完整 TLS 校验；不修改 vendor truststore，
    不使用 insecure SSL 参数；
-4. 把 `JAVA_HOME`、`PATH`、`OSV_SCANNER` 写入后续 agent shell 可读取的
-   environment file，并从 `.bashrc` / `.profile` 引用；
+4. 把`JAVA_HOME`、`PATH`及必要的Maven trust options写入后续agent shell可读取的
+   environment file，并从`.bashrc` / `.profile`引用；
 5. 验证 exact toolchain；
-6. 通过 reactor `verify` 预热后续普通 Maven lifecycle 所需 dependencies；
-7. 在 checkout 之外建立持久 Maven evidence repository，并通过独立 external
-   consumer path 预取和验证隔离 Gate 所需 build/runtime dependencies 以及
-   pinned governance plugin；后续 reactor `clean` 不会删除该缓存。
+6. 使用标准Maven local repository执行一次`install -DskipTests`，同时准备reactor
+   artifact和普通lifecycle依赖；
+7. 只对plugin surface最完整的独立external fixture执行一次`go-offline`，再显式
+   解析build-governance使用的pinned help plugin。
 
-Setup 不读取或写入 repository secret，不执行 push，不修改产品源码。若未来重新
-选择 Cloud profile，Agent phase 应先运行：
+Cloud setup不运行Fast/Full、不建立第二份Maven evidence repository，也不下载
+只属于release qualification的OSV-Scanner。package reproducibility、security和
+runtime-scale继续由其独立Gate拥有，不能混入日常Cloud环境准备。
+
+Setup不读取或写入repository secret，不执行push，不修改产品源码。在Codex
+environment settings中，initial setup与可选maintenance均可使用同一个幂等命令；
+修改setup、环境变量或JDK/dependency authority后应让平台重建cache：
+
+```text
+./scripts/setup/setup-codex-cloud.sh
+```
+
+Agent phase首次进入checkout时只运行：
 
 ```text
 ./scripts/check-toolchain.sh
 git status --short
+./scripts/check.sh fast
 ```
 
-完整验收仍需 `./scripts/check.sh`。在完成一次可接受时长的 fresh-container
-验收前，不得声明 Cloud development ready。
+普通任务按surface运行直接Gate；只有跨模块或专题收口才运行一次
+`./scripts/check.sh`。Cloud agent internet保持默认关闭；若agent阶段发现缺失
+dependency/plugin，应把它识别为setup cache gap，修正现有setup Owner后重建cache，
+不得反复联网重试。
+
+Fresh-container验收预算为setup不超过10分钟、Fast不超过60秒、Full不超过10分钟；
+cached maintenance目标不超过2分钟。超出预算、同一Maven缺失重复出现或阶段无新增
+输出都是异常信号，必须停止并诊断。在一次fresh-container完成setup、Fast、Full
+与clean-worktree检查前，不得声明Cloud development ready。
 
 ## 4. GitHub Actions
 
@@ -108,17 +133,22 @@ git status --short
 - 直接`java`、`javac`与Maven解析到记录版本，Git可用；固定的
   `$RIPGREP`为15.2.0。Codex平台会把自己的`/opt/codex/codex-path/rg`
   shim置于`PATH`最前，因此普通`rg`可能显示平台版本；两者都必须可用，项目不把
-  平台shim冒充仓库固定binary；
-- `SOMA_MAVEN_EVIDENCE_REPOSITORY`位于checkout之外；
+   平台shim冒充仓库固定binary；
 - agent阶段可以进入离线检查，但没有完成一次可接受时长的完整
   `./scripts/check.sh`与clean checkout验收。
 
 第一次完整Cloud任务因Maven cache缺口失败；第二次任务在长时间重复setup/check、
 没有形成最终结果时由maintainer取消。Corretto installer与setup路径已经完成
-静态迁移，但没有重新选择或重放Cloud验收，因此Cloud development仍为
-`not-selected / not-ready`，不进入支持矩阵。
+静态迁移；旧的“独立evidence repository + 每fixture重复预取 + release tool”
+setup已经退出。
 
 2026-07-29工程体系治理已把普通开发验证改为Fast/Full分层，默认使用Maven标准
 local repository、一次准备多次消费、最多4路安全并行及逐阶段耗时/fail-closed
-输出；package/security/qualification仍保持独立串行。该变化改善本地与CI反馈，
-不把尚未重放的Cloud环境写成ready。
+输出；code-size clean build也已移入临时source copy，不再破坏checkout的prepared
+output。上述形状使SOMA成为可实际验收的Cloud development candidate，但当前状态
+仍是`candidate / qualification-blocked`，不进入支持矩阵，也不外推为release
+readiness。
+
+Codex Cloud环境行为以OpenAI官方
+[Cloud environments](https://learn.chatgpt.com/docs/environments/cloud-environment.md)
+为外部事实入口；本页只拥有SOMA仓库内setup、预算与验收边界。

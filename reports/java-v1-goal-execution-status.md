@@ -70,6 +70,8 @@ Corretto Linux CI与release qualification完成。
 - 普通开发使用Maven标准用户local repository与Resolver锁，不再为每项证据创建
   隔离仓库或直接复制repository布局；
 - reactor/external artifacts/benchmark classes一次准备、多项consumer复用；
+- code-size clean build在临时source copy中执行，不再删除主checkout的prepared
+  output或orchestrator logs；
 - public API `javap`和classfile major验证批量执行，消除逐class JVM启动；
 - CI按变更选择docs-only或Full，使用Maven cache；同workflow/同SHA的重叠运行
   通过concurrency取消；
@@ -113,9 +115,12 @@ correctness和三个profile。当前Corretto baseline为：
 - `CF-006`：selected private-source G6在Corretto Linux/qualification重新取证前
   重新打开；
 - `CF-016`：Corretto runtime-scale十lane重型qualification待执行。
+- `CF-017`：Codex Cloud setup已收敛，但fresh-container setup/Fast/Full与
+  clean-worktree有界验收待执行。
 
-public GitHub与Maven Central保持`not-selected`；Codex Cloud保持
-`not-selected / not-ready`。它们没有被改名为passed，也不阻塞本地继续开发。
+public GitHub与Maven Central保持`not-selected`；Codex Cloud为
+`candidate / qualification-blocked`。它没有被改名为ready，也不阻塞本地继续
+开发。
 
 ## 7. Claim boundary
 

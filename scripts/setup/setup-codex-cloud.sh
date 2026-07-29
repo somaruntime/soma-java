@@ -4,6 +4,7 @@ set -eu
 
 root_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 cd "$root_dir"
+cloud_setup_started_at=$(date +%s)
 
 for command_name in awk cp curl git mktemp mv tar; do
   if ! command -v "$command_name" >/dev/null 2>&1; then
@@ -13,16 +14,53 @@ for command_name in awk cp curl git mktemp mv tar; do
   fi
 done
 
+run_cloud_setup_stage() {
+  cloud_setup_stage_name=$1
+  shift
+  cloud_setup_stage_started_at=$(date +%s)
+  printf '%s\n' \
+    "codex-cloud-stage: start name=$cloud_setup_stage_name"
+  if "$@"; then
+    cloud_setup_stage_finished_at=$(date +%s)
+    printf '%s\n' \
+      "codex-cloud-stage: passed name=$cloud_setup_stage_name durationSeconds=$((cloud_setup_stage_finished_at - cloud_setup_stage_started_at))"
+  else
+    cloud_setup_stage_status=$?
+    cloud_setup_stage_finished_at=$(date +%s)
+    printf '%s\n' \
+      "codex-cloud-stage: failed name=$cloud_setup_stage_name durationSeconds=$((cloud_setup_stage_finished_at - cloud_setup_stage_started_at)) status=$cloud_setup_stage_status" >&2
+    return "$cloud_setup_stage_status"
+  fi
+}
+
+run_cloud_setup_path_stage() {
+  cloud_path_stage_name=$1
+  shift
+  cloud_path_stage_started_at=$(date +%s)
+  printf '%s\n' \
+    "codex-cloud-stage: start name=$cloud_path_stage_name" >&2
+  if cloud_path_stage_output=$("$@"); then
+    cloud_path_stage_finished_at=$(date +%s)
+    printf '%s\n' \
+      "codex-cloud-stage: passed name=$cloud_path_stage_name durationSeconds=$((cloud_path_stage_finished_at - cloud_path_stage_started_at))" >&2
+    printf '%s\n' "$cloud_path_stage_output"
+  else
+    cloud_path_stage_status=$?
+    cloud_path_stage_finished_at=$(date +%s)
+    printf '%s\n' \
+      "codex-cloud-stage: failed name=$cloud_path_stage_name durationSeconds=$((cloud_path_stage_finished_at - cloud_path_stage_started_at)) status=$cloud_path_stage_status" >&2
+    return "$cloud_path_stage_status"
+  fi
+}
+
 toolchain_root=${SOMA_TOOLCHAIN_ROOT:-"$HOME/.cache/soma-java/toolchains"}
 export SOMA_TOOLCHAIN_ROOT=$toolchain_root
-java_home=$(./scripts/setup/install-corretto8-linux-x64.sh)
-osv_scanner=$(./scripts/setup/install-osv-scanner.sh)
-ripgrep=$(./scripts/setup/install-ripgrep-linux-x64.sh)
-evidence_repository=$toolchain_root/maven-evidence/repository
+java_home=$(run_cloud_setup_path_stage install-corretto \
+  ./scripts/setup/install-corretto8-linux-x64.sh)
+ripgrep=$(run_cloud_setup_path_stage install-ripgrep \
+  ./scripts/setup/install-ripgrep-linux-x64.sh)
 export JAVA_HOME=$java_home
-export OSV_SCANNER=$osv_scanner
 export RIPGREP=$ripgrep
-export SOMA_MAVEN_EVIDENCE_REPOSITORY=$evidence_repository
 ripgrep_dir=$(dirname -- "$RIPGREP")
 export PATH=$JAVA_HOME/bin:$ripgrep_dir:$PATH
 
@@ -110,11 +148,12 @@ mkdir -p "$toolchain_root"
 {
   printf 'export SOMA_TOOLCHAIN_ROOT=%s\n' "$toolchain_root"
   printf 'export JAVA_HOME=%s\n' "$JAVA_HOME"
-  printf 'export OSV_SCANNER=%s\n' "$OSV_SCANNER"
   printf 'export RIPGREP=%s\n' "$RIPGREP"
-  printf 'export SOMA_MAVEN_EVIDENCE_REPOSITORY=%s\n' \
-    "$SOMA_MAVEN_EVIDENCE_REPOSITORY"
   printf 'export PATH="$JAVA_HOME/bin:%s:$PATH"\n' "$ripgrep_dir"
+  if [ -n "${trust_store:-}" ]; then
+    printf 'export MAVEN_OPTS="${MAVEN_OPTS:+$MAVEN_OPTS }-Djavax.net.ssl.trustStore=%s -Djavax.net.ssl.trustStorePassword=changeit -Djavax.net.ssl.trustStoreType=JKS"\n' \
+      "$trust_store"
+  fi
 } >"$environment_file"
 chmod 0644 "$environment_file"
 
@@ -127,47 +166,32 @@ for shell_profile in "$HOME/.bashrc" "$HOME/.profile"; do
 done
 
 command -v rg >/dev/null 2>&1
-./scripts/check-toolchain.sh
 
-# Prewarm the normal Maven repository for reactor, clean/package and benchmark
-# goals. The later agent phase can then run the full Gate without network access.
-./mvnw -B -ntp verify
+run_cloud_setup_stage toolchain ./scripts/check-toolchain.sh
 
-# Populate a repository outside the checkout through the same external-consumer
-# path used by isolated Gate scripts. Reactor clean cannot remove this cache.
-./scripts/check-external-consumer.sh
+# Setup has network access; prepare the normal Maven repository once. Ordinary
+# Cloud development then uses the same repository and lifecycle as local/CI
+# development instead of duplicating every dependency in an evidence cache.
+run_cloud_setup_stage reactor-cache \
+  ./mvnw -B -ntp install -DskipTests
 
-# Several Gate lanes seed a fresh Maven repository from the persistent evidence
-# cache and then invoke the reactor clean lifecycle. Resolve that lifecycle as a
-# whole during networked setup so the agent phase does not discover one missing
-# core plugin at a time.
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$SOMA_MAVEN_EVIDENCE_REPOSITORY" \
-  -pl soma-annotations,soma-processor,soma-runtime-core,soma-dataflow -am \
-  clean package -DskipTests
-
-# The complete Gate exercises several independent Maven fixtures. They do not
-# inherit the reactor's plugin management, so Maven may select different
-# default-lifecycle plugin versions for them. Resolve every fixture's complete
-# dependency and plugin graph while setup networking is available; the agent
-# phase can then execute those fixtures from the persistent repository without
-# falling back to Maven Central.
-for fixture_pom in \
-  tests/fixtures/external-maven-*/pom.xml \
-  tests/fixtures/invalid-keyed-int/pom.xml; do
+# The independent external fixture with the broadest plugin surface resolves the
+# compiler, clean, jar, surefire and dependency plugin graph shared by the other
+# fixtures. SOMA reactor artifacts were installed by the preceding stage.
+run_cloud_setup_stage external-fixture-cache \
   ./mvnw -B -ntp \
-    -Dmaven.repo.local="$SOMA_MAVEN_EVIDENCE_REPOSITORY" \
-    -f "$fixture_pom" \
+    -f tests/fixtures/external-maven-value/pom.xml \
     org.apache.maven.plugins:maven-dependency-plugin:3.8.1:go-offline
-done
 
-# Build governance uses a pinned help-plugin goal in a fresh repository seeded
-# from this cache, so resolve its complete plugin graph during networked setup.
+# Build governance invokes one pinned help-plugin goal outside the normal
+# lifecycle, so resolve it explicitly while setup networking is available.
 setup_effective_pom=$toolchain_root/setup-effective-pom.xml
-./mvnw -B -ntp \
-  -Dmaven.repo.local="$SOMA_MAVEN_EVIDENCE_REPOSITORY" \
-  org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom \
-  -Doutput="$setup_effective_pom"
+run_cloud_setup_stage build-governance-cache \
+  ./mvnw -B -ntp \
+    org.apache.maven.plugins:maven-help-plugin:3.5.1:effective-pom \
+    -Doutput="$setup_effective_pom"
 
+cloud_setup_finished_at=$(date +%s)
 printf '%s\n' "codex-cloud-environment: $environment_file"
-printf '%s\n' 'codex-cloud-setup: ok'
+printf '%s\n' \
+  "codex-cloud-setup: ok durationSeconds=$((cloud_setup_finished_at - cloud_setup_started_at))"

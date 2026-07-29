@@ -41,7 +41,8 @@ java/runtime/javac/javap精确版本。旧Zulu和其他distribution均不属于�
 | Ubuntu 24.04, Linux x86_64/amd64 | blocked | 无Linux性能claim | workflow已配置`corretto` 8.0.502+7；当前immutable commit尚无成功Full/package/security run |
 
 2026-07-28的Zulu/macOS runtime-scale和Zulu/Linux CI仍是历史candidate事实，但
-不能进入当前Corretto passed矩阵。Codex Cloud为`not-selected / not-ready`。
+不能进入当前Corretto passed矩阵。Codex Cloud为development
+`candidate / qualification-blocked`，不进入支持矩阵。
 
 ## 3. 支持含义
 

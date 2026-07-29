@@ -42,7 +42,7 @@ Owner：SOMA Java 一致性审查
 | G0–G4 | passed | Corretto compiler/codegen/runtime/external consumer与工程Full evidence |
 | G5 | blocked | component/application已通过，Corretto runtime-scale qualification未完成 |
 | G6 selected private-source | blocked | identity/SCM/support/security事实仍成立；Corretto Linux、clean package/security provenance与当前CI evidence未完成 |
-| Codex Cloud development | not-selected / not-ready | 不再作为当前工程目标；未完成fresh-container Full，不进入支持矩阵 |
+| Codex Cloud development | candidate / qualification-blocked | 产品/工程形状适合隔离Linux开发，setup已退出重复evidence/release预热；尚未完成Corretto fresh-container setup、Fast、Full与clean-worktree验收，不进入支持矩阵 |
 
 ## 3. 当前结论
 
@@ -59,7 +59,7 @@ Linux release evidence保持历史事实，但不再作为当前passed依据。�
 因此回退。
 
 当前candidate可继续本地开发，但不能声明Corretto下的100M qualification、Linux
-support、private-source G6、Codex Cloud、production、public release或Maven
+support、private-source G6、Codex Cloud ready、production、public release或Maven
 Central readiness。
 
 ## 4. Evidence 入口
