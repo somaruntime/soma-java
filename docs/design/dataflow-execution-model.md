@@ -243,8 +243,8 @@ Definition 使用 canonical、length-prefixed encoding 和 SHA-256；Template id
 
 ```text
 generated/runtime  soma-generated-runtime-v12 / soma-runtime-java8-v12
-transformation     soma-transformation-v4
-kernel             soma-kernel-v5
+transformation     soma-transformation-v5
+kernel             soma-kernel-v6
 storage plan       soma-runtime-plan-v6
 storage formula    soma-storage-layout-v1
 locator formula    soma-primary-locator-layout-v1

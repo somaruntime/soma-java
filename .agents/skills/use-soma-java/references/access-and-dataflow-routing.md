@@ -71,7 +71,9 @@ Invocation 不能复用；parallel 只发生在 application 已独占的执行�
 - 不增加 Iterator、pull cursor、Publisher、async lazy 或 partial result；
 - primitive join runtime filter、Bitmap 等是内部策略，不进入 consumer 逻辑；
 - String/composite Key 不因内部策略存在而获得未声明的 filter/ordering 保证；
-- application 的 comparator、tie-break、unit 与 overflow policy必须显式。
+- built-in integral arithmetic固定为fail-closed checked semantics；application
+  仍必须显式拥有 comparator、tie-break、unit、业务值域，以及registered
+  function/reducer自行声明的value/failure semantics。
 
 路由完成后，用 reference/differential 或小型 oracle 验证结果、顺序、cardinality、
 failure 和 lifecycle，而不只验证“能运行”。

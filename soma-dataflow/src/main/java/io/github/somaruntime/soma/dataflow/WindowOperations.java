@@ -166,14 +166,15 @@ abstract class WindowOperation<B extends DataFlowBinding, R>
                     source.alias(),
                     "dataflow.window");
         }
-        long estimated = span / flow.step() + 1L;
-        if (estimated > Integer.MAX_VALUE) {
+        long completedSteps = span / flow.step();
+        if (completedSteps >= Integer.MAX_VALUE) {
             throw DataFlowFailures.resource(
                     "dataflow_window_count_overflow",
                     source.alias(),
                     "dataflow.window",
-                    Long.toString(estimated));
+                    ">" + Integer.MAX_VALUE);
         }
+        long estimated = completedSteps + 1L;
         int[] starts =
                 frame.newScratchIndexes((int) estimated, "dataflow.window");
         int[] ends =
@@ -472,7 +473,7 @@ final class WindowLongAggregationOperation<B extends DataFlowBinding>
 
     @Override
     String terminal() {
-        return "long-aggregate(" + kind + ")";
+        return "long-aggregate-v2(" + kind + ")";
     }
 
     @Override
@@ -507,24 +508,27 @@ final class WindowLongAggregationOperation<B extends DataFlowBinding>
             long[] values) {
         int currentStart = 0;
         int currentEnd = 0;
-        long aggregate = 0L;
+        IntegralArithmetic.ExactSum aggregate =
+                new IntegralArithmetic.ExactSum();
         for (int window = 0; window < prepared.windowCount; window++) {
             int start = prepared.starts[window];
             int end = prepared.ends[window];
             if (start > currentEnd) {
-                aggregate = 0L;
+                aggregate.reset();
                 currentStart = start;
                 currentEnd = start;
             } else {
                 while (currentStart < start) {
-                    aggregate -= evaluate(
-                            frame, prepared, currentStart++);
+                    aggregate.subtract(evaluate(
+                            frame, prepared, currentStart++));
                 }
             }
             while (currentEnd < end) {
-                aggregate += evaluate(frame, prepared, currentEnd++);
+                aggregate.add(evaluate(
+                        frame, prepared, currentEnd++));
             }
-            values[window] = aggregate;
+            values[window] = aggregate.longValue(
+                    expression.path, "dataflow.window.aggregate");
         }
     }
 

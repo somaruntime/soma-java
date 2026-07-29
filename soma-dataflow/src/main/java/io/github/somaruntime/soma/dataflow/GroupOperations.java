@@ -419,7 +419,7 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
 
     @Override
     String terminal() {
-        return "long-aggregate(" + kind + ")";
+        return "long-aggregate-v2(" + kind + ")";
     }
 
     @Override
@@ -439,6 +439,10 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
                 cardinality, "dataflow.groupBy.aggregate");
         long[] aggregates = frame.newScratchLongs(
                 cardinality, "dataflow.groupBy.aggregate");
+        long[] aggregateHighs = kind == SUM
+                ? frame.newScratchLongs(
+                        cardinality, "dataflow.groupBy.aggregate")
+                : null;
         Arrays.fill(buckets, -1);
         int mask = capacity - 1;
         int groups = 0;
@@ -464,27 +468,23 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
                 representatives[group] = candidate;
                 next[group] = buckets[bucket];
                 buckets[bucket] = group;
-                if (kind != COUNT) {
-                    aggregates[group] =
-                            expression.evaluate(frame, binding, candidate);
-                }
             }
+            long value = kind == COUNT
+                    ? 0L
+                    : expression.evaluate(frame, binding, candidate);
+            boolean first = sizes[group] == 0;
             sizes[group]++;
             if (kind == COUNT) {
                 aggregates[group]++;
-            } else {
-                long value = expression.evaluate(frame, binding, candidate);
-                if (kind == SUM) {
-                    if (sizes[group] == 1) {
-                        aggregates[group] = value;
-                    } else {
-                        aggregates[group] += value;
-                    }
-                } else if (kind == MIN && value < aggregates[group]) {
-                    aggregates[group] = value;
-                } else if (kind == MAX && value > aggregates[group]) {
-                    aggregates[group] = value;
-                }
+            } else if (kind == SUM) {
+                IntegralArithmetic.addTo(
+                        aggregateHighs, aggregates, group, value);
+            } else if (first) {
+                aggregates[group] = value;
+            } else if (kind == MIN && value < aggregates[group]) {
+                aggregates[group] = value;
+            } else if (kind == MAX && value > aggregates[group]) {
+                aggregates[group] = value;
             }
         }
         GroupOrdinalSelection selection =
@@ -498,7 +498,13 @@ final class GroupLongAggregationOperation<B extends DataFlowBinding>
         for (int output = 0; output < selection.size; output++) {
             int group = selection.sourceOrdinal(output);
             outputRepresentatives[output] = representatives[group];
-            outputValues[output] = aggregates[group];
+            outputValues[output] = kind == SUM
+                    ? IntegralArithmetic.longValue(
+                            aggregateHighs[group],
+                            aggregates[group],
+                            expression.path,
+                            "dataflow.groupBy.aggregate")
+                    : aggregates[group];
         }
         GroupedLongResult result = new GroupedLongResult(
                 source.alias(),

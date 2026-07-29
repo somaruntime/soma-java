@@ -24,8 +24,8 @@ import java.util.List;
  * protocol directly.</p>
  */
 public final class GeneratedDataFlow {
-    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v4";
-    public static final String KERNEL_PROTOCOL = "soma-kernel-v5";
+    public static final String TRANSFORMATION_PROTOCOL = "soma-transformation-v5";
+    public static final String KERNEL_PROTOCOL = "soma-kernel-v6";
 
     private GeneratedDataFlow() {
     }

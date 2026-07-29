@@ -286,8 +286,8 @@ for protocol_identity in \
   soma-generated-runtime-v12 \
   soma-runtime-java8-v12 \
   soma-runtime-plan-v6 \
-  soma-transformation-v4 \
-  soma-kernel-v5; do
+  soma-transformation-v5 \
+  soma-kernel-v6; do
   grep -F "$protocol_identity" \
     docs/design/compatibility-security-and-versioning.md >/dev/null 2>&1 \
     || fail "compatibility Design is missing $protocol_identity"

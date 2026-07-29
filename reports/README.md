@@ -24,8 +24,8 @@ Owner：SOMA Java 正式报告输出
 ## 当前报告
 
 - [V1 release governance](java-v1-release-governance-report.md)：`1.0.0`
-  candidate identity、G0–G6、上轮尾项、AI Skill、scope non-regression 与最终
-  closeout；
+  candidate identity、G0–G6、上轮尾项、AI Skill、scope non-regression 与当前
+  freeze closeout；
 - [当前性能与规模摘要](current-performance-summary.md)：component、application、
   runtime-scale 和 environment-bounded claim；
 - [G6 release readiness](java-v1-g6-release-readiness-report.md)：selected
@@ -38,9 +38,9 @@ Owner：SOMA Java 正式报告输出
 | Gate | 当前状态 | Owner |
 |---|---|---|
 | G0 | passed | [V1 release governance](java-v1-release-governance-report.md) |
-| G1–G4 | passed | [V1 release governance](java-v1-release-governance-report.md) |
-| G5 | passed | [性能与规模](current-performance-summary.md) |
-| G6 | selected `private-github-source` passed | [Release readiness](java-v1-g6-release-readiness-report.md) 与 [Support matrix](java-v1-support-matrix-report.md) |
+| G1–G4 | predecessor evidence retained；successor待重验 | [V1 release governance](java-v1-release-governance-report.md) |
+| G5 | predecessor evidence retained；受影响lane待重验 | [性能与规模](current-performance-summary.md) |
+| G6 | selected `private-github-source` blocked for successor candidate | [Release readiness](java-v1-g6-release-readiness-report.md) 与 [Support matrix](java-v1-support-matrix-report.md) |
 
 当前 `1.0.0` 坐标、unsigned local artifact、private CI、Codex Cloud、历史
 qualification 或单机 evidence 均不能外推为 public release、Maven Central、

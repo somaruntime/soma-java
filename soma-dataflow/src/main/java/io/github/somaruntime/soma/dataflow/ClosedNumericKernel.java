@@ -20,26 +20,54 @@ final class ClosedLongExpression {
     private final int column;
     private final byte[] operations;
     private final long[] operands;
+    private final String[] failurePaths;
+    private final String[] failureOperations;
 
     private ClosedLongExpression(
-            int column, byte[] operations, long[] operands) {
+            int column,
+            byte[] operations,
+            long[] operands,
+            String[] failurePaths,
+            String[] failureOperations) {
         this.column = column;
         this.operations = operations;
         this.operands = operands;
+        this.failurePaths = failurePaths;
+        this.failureOperations = failureOperations;
     }
 
     static ClosedLongExpression column(int column) {
-        return new ClosedLongExpression(column, new byte[0], new long[0]);
+        return new ClosedLongExpression(
+                column,
+                new byte[0],
+                new long[0],
+                new String[0],
+                new String[0]);
     }
 
-    ClosedLongExpression append(byte operation, long operand) {
+    ClosedLongExpression append(
+            byte operation,
+            long operand,
+            String failurePath,
+            String failureOperation) {
         byte[] nextOperations = Arrays.copyOf(
                 operations, operations.length + 1);
         long[] nextOperands = Arrays.copyOf(
                 operands, operands.length + 1);
+        String[] nextFailurePaths = Arrays.copyOf(
+                failurePaths, failurePaths.length + 1);
+        String[] nextFailureOperations = Arrays.copyOf(
+                failureOperations, failureOperations.length + 1);
         nextOperations[operations.length] = operation;
         nextOperands[operands.length] = operand;
-        return new ClosedLongExpression(column, nextOperations, nextOperands);
+        nextFailurePaths[failurePaths.length] = failurePath;
+        nextFailureOperations[failureOperations.length] = failureOperation;
+        return new ClosedLongExpression(
+                column,
+                nextOperations,
+                nextOperands,
+                nextFailurePaths,
+                nextFailureOperations);
     }
 
     long evaluate(DataFlowBinding binding, int index) {
@@ -47,10 +75,34 @@ final class ClosedLongExpression {
         for (int operation = 0; operation < operations.length; operation++) {
             long operand = operands[operation];
             switch (operations[operation]) {
-                case ADD: value += operand; break;
-                case SUBTRACT: value -= operand; break;
-                case MULTIPLY: value *= operand; break;
-                case DIVIDE: value /= operand; break;
+                case ADD:
+                    value = IntegralArithmetic.add(
+                            value,
+                            operand,
+                            failurePaths[operation],
+                            failureOperations[operation]);
+                    break;
+                case SUBTRACT:
+                    value = IntegralArithmetic.subtract(
+                            value,
+                            operand,
+                            failurePaths[operation],
+                            failureOperations[operation]);
+                    break;
+                case MULTIPLY:
+                    value = IntegralArithmetic.multiply(
+                            value,
+                            operand,
+                            failurePaths[operation],
+                            failureOperations[operation]);
+                    break;
+                case DIVIDE:
+                    value = IntegralArithmetic.divide(
+                            value,
+                            operand,
+                            failurePaths[operation],
+                            failureOperations[operation]);
+                    break;
                 case BITWISE_AND: value &= operand; break;
                 default:
                     throw new IllegalStateException(

@@ -109,6 +109,10 @@ public final class WindowedFlow<B extends DataFlowBinding> {
                 visitor);
     }
 
+    /**
+     * Uses exact sliding integral state and fails if any emitted window sum
+     * is not representable as a long.
+     */
     public DataFlowDefinition<LongColumnResult> sum(
             LongExpression<B> expression) {
         requireSource(expression);

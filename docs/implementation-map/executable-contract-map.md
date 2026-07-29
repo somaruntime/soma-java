@@ -31,7 +31,7 @@ Design 规定长期语义、边界和演进规则；代码与可执行产物拥�
 | handwritten runtime public API | [`io.github.somaruntime.soma.runtime`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime) | [`public-api/current/public-api.javap.txt`](../../tests/fixtures/public-api/current/public-api.javap.txt) |
 | generated public API | generated source/class output；canonical family 为 Table/Batch/Scan/Cursor/UpdateCursor/KeyTraversal/ColumnTraversal/View/child/DataFlow companion/keyed Delta | external dense/keyed/access/child/breadth `javap` golden + compile/run |
 | DataFlow public API | [`io.github.somaruntime.soma.dataflow`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow) 与 generated companion | public `javap`、capability contracts、external consumer、reference differential |
-| generated-runtime protocol | [`io.github.somaruntime.soma.runtime.generated`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated) 与 generator binding；compatibility v12、transformation v4、kernel v5、planner v4、plan v6及全部physical formula identity | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
+| generated-runtime protocol | [`io.github.somaruntime.soma.runtime.generated`](../../soma-runtime-core/src/main/java/io/github/somaruntime/soma/runtime/generated) 与 generator binding；compatibility v12、transformation v5、kernel v6、planner v4、plan v6及全部physical formula identity | runtime/generated Gate scripts + old-protocol fail-closed oracle + external consumers |
 | runtime plan/Group/Metadata/stats/error codes | runtime public/internal sources；application从generated `SchemaMetadata.newPlan()`进入，并通过implicit `create`或显式`attach(SomaGroup, slot)`组合root；generated Table和Group公开detached runtime metadata，raw construction只由generated bridge持有 | runtime-core Group/plan/metadata checks、public API absence rule、diagnostics Gate、external dense/access/child/breadth consumers |
 | Result Delivery | `ResultDeliveryMode`、typed `*Visitor`、callback Definition/Template/Invocation与generated delivery binding | public/golden、Point/Delivery 与 Shape/Graph contracts、reference differential、delivery qualification |
 | benchmark artifact schema | benchmark model/validator及`runtime-scale-qualification-schema-v2.json` | smoke runner、strict validator、negative artifact cases、八条required production lanes与四条optional research/stress lanes |
@@ -51,7 +51,7 @@ authoring API，也不能用普通 source 的直接引用数判定为 dead code�
 - internal class/path 可以重构，但 public/generated/protocol/schema identity 的变化按 Compatibility Design 处理；
 - error code、plan field或artifact field一旦成为稳定兼容面，不得在同名下复用为不同语义。
 
-当前 canonical identity 为 generated/runtime v12、transformation v4、kernel v5、
+当前 canonical identity 为 generated/runtime v12、transformation v5、kernel v6、
 planner v4 与 plan v6；Candidate/relation formula为v2。当前 surface包含logical
 enum/date/time/instant facade、closed numeric kernel、formula-bound Bitmap、
 primitive join runtime filter、closed Candidate/relation strategy、bounded morsel

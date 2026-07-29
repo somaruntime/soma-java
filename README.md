@@ -10,8 +10,10 @@ Application 声明稳定的数据形态和访问路径；SOMA 在编译期生成
 运行期提供 packed columnar storage、精确访问、typed transformation、受控并行与
 显式资源边界。Application 继续拥有业务规则、event loop、I/O、跨表提交与恢复。
 
-> 当前 V1 坐标为 `1.0.0`，G0–G6已按selected `private-github-source`
-> profile签署。仓库仍为private source，尚未创建`v1.0.0` tag、GitHub Release，
+> 当前 V1 坐标为 `1.0.0`。上一精确候选的G0–G6 evidence仍可追溯；冻结前
+> 产品目标审计发现的integral overflow policy已裁决并实现为fail-closed checked
+> semantics；当前successor仍等待最终同SHA Gate与qualification，因此尚不是
+> freeze-ready。仓库仍为private source，尚未创建`v1.0.0` tag、GitHub Release，
 > 也未发布到Maven Central。
 
 ## 为什么使用 SOMA
@@ -312,12 +314,13 @@ generated API 取证、Access/DataFlow 路由、lifecycle/resource 检查和真�
 | Gate | 状态 | 当前边界 |
 |---|---|---|
 | G0 | passed | Java-only产品边界、正式Owner、claim boundary与核心抽象叙事规则稳定 |
-| G1–G4 | passed | canonical Full在clean candidate通过；后续只改变G6 checker/workflow与文档，并由最终同SHA Full重放 |
-| G5 | passed | clean-commit DataFlow/component/application Full与8-lane required qualification通过 |
-| G6 | passed | selected private-source同SHA Full、package/reproducibility、security/provenance、matrix与Owner sign-off闭合 |
+| G1–G4 | predecessor evidence retained | 上一clean candidate的canonical Full通过；当前successor含compiler与DataFlow修复，必须重新绑定最终clean SHA |
+| G5 | predecessor evidence retained | 上一候选的DataFlow/component/application与8-lane required qualification可追溯；受影响路径必须在最终候选重放 |
+| G6 | blocked for successor candidate | overflow policy与本轮实现已闭合；仍须完成最终同SHA Full、G5、package/reproducibility、security/provenance、matrix与条件式Owner sign-off |
 
-当前结论只声明private-source readiness，不声明10M/100M guarantee、Linux性能/
-规模、public release、Maven Central或production readiness。AI Skill剩余
+当前结论不声明successor candidate的private-source readiness，也不声明
+10M/100M guarantee、Linux性能/规模、public release、Maven Central或production
+readiness。AI Skill剩余
 negative/anti-pattern与第二宿主行为验证已由Product Owner对V1明确waive，因此
 不声明multi-tool support。
 

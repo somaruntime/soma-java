@@ -23,11 +23,16 @@ public final class LongValueFlow<B extends DataFlowBinding> {
                 new LongColumnOperation<B>(program, expression));
     }
 
+    /**
+     * Sums through exact wide state and fails if the final long is not
+     * representable.
+     */
     public DataFlowDefinition<LongScalarResult> sum() {
         return DataFlowDefinition.of(
                 LongReductionOperation.sum(program, expression));
     }
 
+    /** Computes a double average from the exact integral total. */
     public DataFlowDefinition<OptionalDoubleResult> average() {
         return DataFlowDefinition.of(
                 LongReductionOperation.average(program, expression));
@@ -53,11 +58,18 @@ public final class LongValueFlow<B extends DataFlowBinding> {
                         program, expression, reducer));
     }
 
+    /**
+     * Produces inclusive sums and fails at the first unrepresentable prefix.
+     */
     public DataFlowDefinition<LongColumnResult> inclusivePrefixSum() {
         return DataFlowDefinition.of(
                 LongPrefixOperation.inclusive(program, expression));
     }
 
+    /**
+     * Produces exclusive sums and fails at the first unrepresentable emitted
+     * prefix.
+     */
     public DataFlowDefinition<LongColumnResult> exclusivePrefixSum(long seed) {
         return DataFlowDefinition.of(
                 LongPrefixOperation.exclusive(program, expression, seed));

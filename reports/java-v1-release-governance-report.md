@@ -2,7 +2,7 @@
 
 类型：Report / Release Governance
 
-状态：`1.0.0` G0–G6 passed for selected private-source
+状态：`1.0.0` freeze audit active；successor G6 blocked
 
 Owner：SOMA Java V1 release governance
 
@@ -23,10 +23,12 @@ non-regression与selected profile claim
 
 ## 1. 治理目标与 release identity
 
-本轮已把完整SOMA Java产品推进到V1 `1.0.0`的selected
-`private-github-source` sign-off，没有把release解释为public repository、
-Maven Central或production readiness，也没有通过缩小Blueprint、Design或Gate
-关闭差距。
+上一轮已把完整SOMA Java产品推进到V1 `1.0.0`的selected
+`private-github-source` sign-off。本轮冻结前产品目标审计发现并关闭了integral
+overflow语义偏差，同时验证了compiler、DataFlow与workflow修复；当前successor
+仍因最终同SHA evidence尚未形成而未签署。治理仍不把release解释为public
+repository、Maven Central或production readiness，也不通过缩小Blueprint、
+Design或Gate关闭差距。
 
 | 事实 | 当前值 |
 |---|---|
@@ -42,25 +44,43 @@ Maven Central或production readiness，也没有通过缩小Blueprint、Design�
 Tag、GitHub Release、visibility与publishing仍是外部授权边界。POM中的`v1.0.0`
 只定义planned release identity，不证明tag已存在。
 
-## 2. 候选与 Gate
+## 2. 产品目标核对
+
+本轮先核对产品目标，再判断release mechanics。当前链路如下：
+
+| Blueprint目标 | Design / executable surface | 当前evidence | 当前结论 |
+|---|---|---|---|
+| Java 8 Schema-Defined、Compiler-Specialized | annotation、javac 8 plugin/processor、schema-specific generated facade | compiler/default/Unicode contract已覆盖本轮literal escaping修复；最终Full与external consumer待新SHA重放 | 目标保留；successor待最终evidence |
+| State / Owner + Capability + Plan / Lifecycle | SomaGroup/root/owned-child、Metadata/Plan、Table/DataFlow lifecycle | 上一candidate runtime/ownership/consumer evidence保留，本轮未发现并行Owner或live object graph回归 | 一致；待最终回归 |
+| packed columnar runtime-state data plane | primitive/String columns、exact access、Candidate、无DTO/Collection hot storage | public/generated surface与runtime dependency无变化；代码审查未发现reflection/metadata interpreter或隐藏I/O进入hot path | 一致 |
+| typed local Transformation / DataFlow | expression、aggregation、Group/Join/Window/Expanded、bounded scheduler | integral arithmetic已按Owner裁决改为fail-closed checked semantics；raw/closed、scalar/parallel、prefix、Group、Window、Expanded contract通过 | 目标一致；最终G5待重放 |
+| predictable resource / failure / observation | ExecutionBudget、structured failure、ledger、detached/callback result | window count与detached expansion在分配/枚举前稳定拒绝；现有lifecycle/failure contracts通过 | 一致但须随最终candidate重验 |
+| 普通Java 8 consumer可用 | 四个同版本artifact、processor build-only、generated API、三个reference application | 上一candidate external/三个application通过；最终独立consumer journey待immutable SHA | predecessor evidence retained |
+| 性能与规模不过度外推 | Small/Medium、单/双1M、String、Expansion、Delivery、Soak；10M/100M research | 上一clean candidate的限定环境evidence可追溯；DataFlow source变化后不能沿用pass claim | successor G5 pending |
+| selected private-source release诚实可追溯 | clean SHA、Full、package/security/provenance、matrix、conditional sign-off | claim已纠正为blocked；最终CI/manual workflow/bundle checksum尚未产生 | successor G6 pending |
+
+因此当前尚未达到“可冻结的V1产品”目标。产品语义偏差、Temporary与未裁决
+`UNKNOWN`已经归零；剩余必要闭环是在同一immutable candidate上验证真实consumer
+与全部受影响evidence，并确认没有平行claim或遗漏。
+
+## 3. 候选与 Gate
 
 DataFlow固定3-fork在clean commit `733db714…`通过；runtime-scale 8条required
-lane在clean commit `bd25e119…`和精确source tree `5669bf68ddf5…`通过。
-canonical local Full、local package/security以及最终signed-off commit的Ubuntu
-CI与manual qualification共同形成当前evidence closure。最终动态身份由
-qualification bundle中的`candidate.properties`和package/security provenance
-唯一拥有。
+lane在clean commit `bd25e119…`和精确source tree `5669bf68ddf5…`通过。这些是
+上一candidate的retained evidence，不覆盖当前successor。新的最终动态身份必须由
+successor qualification bundle中的`candidate.properties`和package/security
+provenance唯一拥有。
 
 | Gate | 状态 | 直接依据与边界 |
 |---|---|---|
 | G0 | passed | Java-only scope、正式Owner、claim boundary与核心抽象叙事规则稳定 |
-| G1–G4 | passed | clean-candidate canonical Full与最终同SHA Ubuntu Full通过 |
-| G5 | passed | differential、component、三个application、DataFlow 3-fork与8-lane required qualification通过 |
-| G6 | passed | 同SHA package/reproducibility、security/provenance、sealed evidence、support matrix与条件式Owner sign-off闭合 |
+| G1–G4 | predecessor evidence retained | 上一clean candidate的canonical Full与同SHA Ubuntu Full通过；当前successor须重新绑定最终SHA |
+| G5 | predecessor evidence retained | 上一candidate的differential、component、三个application、DataFlow 3-fork与8-lane required qualification通过；受影响路径须重放 |
+| G6 | blocked for successor candidate | 产品语义已闭合；等待同SHA package/reproducibility、security/provenance、sealed evidence、support matrix与条件式Owner sign-off |
 
 旧vendor、旧candidate或单机结果只解释其原环境，不替代当前evidence。
 
-## 3. 上轮尾项闭环
+## 4. 上轮尾项闭环
 
 | 尾项 | 最终处置 |
 |---|---|
@@ -77,9 +97,9 @@ qualification bundle中的`candidate.properties`和package/security provenance
 Runtime-scale required qualification只运行Small、Medium、单1M、双1M、String、
 Expansion、Delivery与Soak；10M/100M research不进入V1 blocker，也没有被删除。
 
-## 4. G6 package、security 与 provenance
+## 5. G6 package、security 与 provenance
 
-同一signed-off commit的manual workflow验证：
+上一signed-off commit的manual workflow验证：
 
 - 17件parent/module POM、binary/source/javadoc artifact；
 - Java classfile major 52、License/NOTICE精确；
@@ -93,7 +113,7 @@ Expansion、Delivery与Soak；10M/100M research不进入V1 blocker，也没有�
 OSV结果只代表执行时已发布的已知advisory，不是public security certification。
 Unsigned artifact符合当前private-source profile；Maven/publishing/signing未选择。
 
-## 5. AI consumer Skill
+## 6. AI consumer Skill
 
 唯一canonical Skill为`.agents/skills/use-soma-java/`，只拥有AI consumer
 workflow。Blueprint/Design继续拥有长期语义，POM/generated source/class/golden/
@@ -108,27 +128,33 @@ Product Owner于2026-07-29明确决定V1暂不把canonical Skill和测试prompt�
 `waived for V1`，不是伪造passed；影响是不得声明multi-tool support。未来选择新的
 AI工具support profile时必须重新完成发现、安装、触发和行为验证。
 
-## 6. Scope non-regression 与 surface delta
+## 7. Scope non-regression 与 surface delta
 
-本轮没有修改production Java、public/generated fixture或protocol identity：
+当前successor相对上一signed-off commit的已验证变更为：
 
-- production/public Java type delta：0；
+- public Java type delta：0；package-private production type delta：+2
+  （`IntegralArithmetic`与其invocation-local `ExactSum`）；
 - module delta：0；production artifact仍为四个；
 - runtime dependency delta：0；
-- tests/fixtures只同步SOMA consumer version；
-- benchmark不改workload/threshold，只修qualification identity；
-- scripts/workflow只收口version Owner、evidence retention和clean-candidate admission；
-- docs/report只固化V1 identity、AI consumer入口、抽象叙事和current evidence。
+- processor内部统一generated Java literal escaping，并扩充String default fixture；
+- DataFlow修复time-window count overflow，并使Expanded scalar cardinality保持
+  `long`、detached terminal在枚举前拒绝不可表示array cardinality；
+- integral raw/closed expression、scalar/parallel reduction、prefix、Group、
+  Window与Expanded统一为fail-closed checked semantics；transformation/kernel
+  protocol分别升级为v5/v6，并增加一个canonical arithmetic contract；
+- workflow checkout关闭credential persistence；
+- benchmark workload/threshold、schema identity、generated/runtime protocol、
+  public signature和artifact coordinate未改变。
 
 没有temporary public/generated API、parallel Design Owner、test-only bypass、
-canonical hot-path migration、新第三方production dependency、migration artifact、
-未退役Temporary或未裁决产品`UNKNOWN`。
+新第三方production dependency、migration artifact、active Temporary或未裁决
+产品语义。
 
-## 7. 最终授权边界
+## 8. 最终授权边界
 
-Product Owner于2026-07-29给出条件式G6 sign-off：本报告所在最终commit只有在
-private CI、manual qualification和下载bundle checksum全部成功后才生效为
-`passed`。Push与workflow运行已获授权。
+Product Owner于2026-07-29确认条件式G6 sign-off：本报告所在successor最终commit
+只有在产品语义偏差关闭、Temporary退役、private CI、manual qualification和下载
+bundle checksum全部成功后才生效为`passed`。当前条件尚未满足。
 
 Tag、GitHub Release、repository visibility、signing、publishing和公开发布仍未
 授权；本轮不执行这些动作。Private-source G6 passed也不构成production SLA、

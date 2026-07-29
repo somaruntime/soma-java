@@ -2,7 +2,7 @@
 
 类型：Report / Performance / Qualification Snapshot
 
-状态：`1.0.0` G5 passed
+状态：上一candidate G5 evidence retained；successor待重验
 
 Owner：SOMA Java 性能与规模 evidence
 
@@ -28,7 +28,7 @@ telemetry、G6、public release 或 Maven Central readiness
 
 ## 1. 当前结论
 
-当前clean Corretto executable candidate在记录环境下已经证明：
+上一clean Corretto executable candidate在记录环境下已经证明：
 
 - Small/Fast没有被统一planner、DataFlow lifecycle或scale architecture的固定税
   锁死；
@@ -48,9 +48,13 @@ telemetry、G6、public release 或 Maven Central readiness
 这些是`claimAllowed=false`的单机qualification与回归事实，不是public latency
 SLA、跨环境支持矩阵或任意wide Schema保证。Runtime-scale与DataFlow的精确
 clean-commit证据已形成；canonical Full又覆盖其余component、reference
-application与contract Gate，因此当前G5为passed。
+application与contract Gate，因此上一candidate的G5为passed。当前successor修改
+了processor与DataFlow executable source；integral overflow policy已裁决为
+fail-closed checked semantics，exact wide reduction增加了受控constant-factor
+工作。这些数字和pass状态不能外推到successor，最终candidate必须重放受影响
+component、application与runtime-scale evidence。
 
-## 2. 当前 Runtime-scale qualification v2
+## 2. Retained Runtime-scale qualification v2
 
 Qualification ID：
 `runtime-scale-qualification-bd25e1194931-5669bf68ddf5`。
@@ -151,14 +155,16 @@ G5，成功也不能升级为任意Schema/String或public SLA。
 
 当前可以确认：
 
-- 当前clean executable candidate的Small/Medium、单1M、双1M、String、
+- 上一clean executable candidate的Small/Medium、单1M、双1M、String、
   Expansion、Delivery、Soak在记录Corretto/macOS/aarch64环境成立；
-- logical type facade、closed numeric kernel、formula-bound Bitmap与primitive
-  Join runtime filter的production Java实现未在本轮修改；
+- formula-bound Bitmap与primitive Join runtime filter的production Java实现未在
+  本轮修改；closed numeric kernel、sum/average、prefix、Group、Window与Expanded
+  已切换到fail-closed checked/exact-wide路径，属于必须重放的受影响性能面；
 - checked-in component/application baseline仍是当前重放的唯一baseline Owner。
 
-当前`1.0.0` G5可以陈述为passed，但只能绑定上述clean commit、source closure、
-环境与profile。
+当前`1.0.0` successor的G5不能陈述为passed。上一candidate的G5只能绑定上述
+clean commit、source closure、环境与profile；最终successor须形成新的精确
+candidate evidence。
 
 扩大下列声明前仍需新的预注册qualification：
 

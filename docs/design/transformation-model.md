@@ -73,7 +73,18 @@ Shape 至少回答 element、cardinality、lineage、value state、logical order
 ## 4. Value 与 Expression
 
 - required、optional absent、default、zero、empty、invalid 和 missing 是不同状态；
-- integer arithmetic 的 overflow policy 显式定义；不能用 wraparound 偶然行为作为业务语义；
+- built-in integral add/subtract/multiply 使用 signed `long` checked arithmetic；
+  `Long.MIN_VALUE / -1`按overflow拒绝，division by zero独立拒绝；两者均在
+  Invocation内以`INVALID_INPUT` structured failure fail closed，稳定code分别为
+  `dataflow_integral_overflow`与`dataflow_integral_division_by_zero`；
+- built-in integral sum/average使用至少覆盖V1有限cardinality的exact signed wide
+  state，不因遍历顺序、partition或merge发生中间wraparound。Sum的每个public
+  `long`输出必须可表示；average从exact total计算；sequential、parallel、Group、
+  Window与Expanded对同一数学输入返回相同结果或相同structured failure；
+- integral prefix sum的每个实际输出prefix都必须可表示，首个不可表示prefix
+  fail closed；未输出的exclusive尾部状态不虚构额外结果；
+- bitwise、Time的显式日内modular运算，以及声明自有value/failure semantics的
+  registered function/reducer不被built-in integral policy暗中改写；
 - built-in floating sum/average 与 order-sensitive reducer 使用 canonical left fold；
 - min/max/reduce 的 empty 使用 explicit absence；count 的 empty 为零；
 - stable comparator 相等时保留 upstream first；

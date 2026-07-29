@@ -27,7 +27,7 @@ Owner：SOMA DataFlow 实现导航
 | Context/policy/resource | [`DataFlowContext.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowContext.java)、[`ExecutionPolicy.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/ExecutionPolicy.java)、[`ExecutionBudget.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/ExecutionBudget.java)、internal `InvocationLedger` |
 | typed Shape/Expression | `CandidateFlow`、primitive/String `*ValueFlow`、`GroupedFlow`、`JoinedFlow`、`WindowedFlow`；raw numeric/boolean/String与logical `EnumExpression`/`DateExpression`/`TimeExpression`/`InstantExpression`；无 generic Object value family |
 | result/effect | Eager Detached primitive scalar/columnar、group/join/window/expand result、`DeltaApplyResult`、candidate effect operations；callback-scoped `*Visitor` delivery |
-| physical choice | [`CandidatePhysicalFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/CandidatePhysicalFormula.java)、[`RelationStrategyFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/RelationStrategyFormula.java)、[`MorselSchedulerFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/MorselSchedulerFormula.java)、internal `ClosedNumericKernel` 与 `JoinRuntimeFilter` |
+| physical choice | [`CandidatePhysicalFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/CandidatePhysicalFormula.java)、[`RelationStrategyFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/RelationStrategyFormula.java)、[`MorselSchedulerFormula.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/MorselSchedulerFormula.java)、internal `ClosedNumericKernel`、`IntegralArithmetic` 与 `JoinRuntimeFilter` |
 | generated bridge | [`io.github.somaruntime.soma.dataflow.generated`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/generated) |
 | diagnostics | [`DataFlowStats.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowStats.java) 的 work/parallel/resource/delivery components 与 [`DataFlowExplain.java`](../../soma-dataflow/src/main/java/io/github/somaruntime/soma/dataflow/DataFlowExplain.java) |
 
@@ -40,7 +40,7 @@ Processor 的 [`DenseDataFlowSourceEmitter.java`](../../soma-processor/src/main/
 当前 identity：
 
 - generated/runtime `v12`；
-- transformation `v4`、kernel `v5`、planner `v4`；
+- transformation `v5`、kernel `v6`、planner `v4`；
 - runtime plan为 `v6`，storage与primary-locator layout formula均为`v1`，
   Candidate/relation formula为`v2`，morsel/Invocation ledger formula为`v1`，
   Schema hash语义未变化。
@@ -63,7 +63,10 @@ Candidate closed shapes为contiguous range、segment-aware range、exact
 single-pass、formula-bound bitmap intersection和sparse indexes；universal
 IndexBuffer不再是全部terminal的默认物理表示。Required long-column constant
 arithmetic/comparison common chain可由closed whole-loop kernel直接执行packed
-visit/count/select；reference graph保留oracle与fallback。Group/Join/Window按
+visit/count/select；raw与closed integral arithmetic共享stable checked failure。
+Built-in sum/average、prefix、Group、Window与Expanded使用两个`long`的exact signed
+wide state，在public `long`输出处统一验证可表示性；不产生per-row object或装箱
+collection。Reference graph保留oracle与fallback。Group/Join/Window按
 closed strategy预聚合、probe或bounded enumeration，
 Expand的known overflow、over-budget及unknown-unprovable cardinality均在枚举和
 callback前拒绝。Candidate `skip/limit` 将selection capacity上界下推到streaming
@@ -94,7 +97,7 @@ scratch由Invocation ledger计量并在结束时释放。
 
 - capability contracts：[`check-dataflow-contracts.sh`](../../scripts/check-dataflow-contracts.sh)，
   一次编译后分别验证 Invocation、Selection/Value、Relation、Mutation、
-  Execution、Point/Delivery 与 Shape/Graph；
+  Execution、Integral Arithmetic、Point/Delivery 与 Shape/Graph；
 - property/reference differential：[`check-dataflow-reference.sh`](../../scripts/check-dataflow-reference.sh)；
 - external/generated/golden：既有 public、codegen、dense/keyed/access/child/breadth 和 external consumer Gates；
 - footprint：[`check-scan-code-size.sh`](../../scripts/check-scan-code-size.sh)；

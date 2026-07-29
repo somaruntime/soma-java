@@ -21,6 +21,10 @@ public final class LongExpandedValueFlow<
                         program, expression));
     }
 
+    /**
+     * Uses exact integral state and fails if the expanded sum is not
+     * representable as a long.
+     */
     public DataFlowDefinition<LongScalarResult> sum() {
         return DataFlowDefinition.of(
                 new ExpandedLongSumOperation<P, C>(

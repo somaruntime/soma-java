@@ -57,13 +57,7 @@ final class DenseSourceNames {
     }
 
     static String q(String value) {
-        StringBuilder out = new StringBuilder(value.length() + 2).append('"');
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c == '"' || c == '\\') out.append('\\');
-            out.append(c);
-        }
-        return out.append('"').toString();
+        return SomaSchemaJson.quote(value);
     }
 
 }

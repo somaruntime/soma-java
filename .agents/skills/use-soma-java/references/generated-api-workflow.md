@@ -18,7 +18,7 @@
 
 本 Skill 的 `1.0.x` 行为校准到 `soma-generated-runtime-v12`、
 `soma-runtime-java8-v12`、`soma-runtime-plan-v6`、
-`soma-transformation-v4` 与 `soma-kernel-v5`。这些 token 只用于发现
+`soma-transformation-v5` 与 `soma-kernel-v6`。这些 token 只用于发现
 generated/runtime/compiler 代际漂移，不授权 consumer 直接构造或覆盖 protocol。
 任一 identity 变化时必须重新审查本 Skill、external consumer 和行为 eval。
 

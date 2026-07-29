@@ -369,14 +369,6 @@ final class DenseMetadataSourceEmitter {
     }
 
     private static String q(String value) {
-        StringBuilder result = new StringBuilder("\"");
-        for (int index = 0; index < value.length(); index++) {
-            char current = value.charAt(index);
-            if (current == '\\' || current == '"') {
-                result.append('\\');
-            }
-            result.append(current);
-        }
-        return result.append('"').toString();
+        return SomaSchemaJson.quote(value);
     }
 }

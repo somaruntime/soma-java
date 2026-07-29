@@ -27,6 +27,7 @@ for check_class in \
   DataFlowRelationContractCheck \
   DataFlowMutationContractCheck \
   DataFlowExecutionContractCheck \
+  DataFlowIntegralArithmeticContractCheck \
   DataFlowPointAndDeliveryContractCheck \
   DataFlowShapeAndGraphContractCheck
 do

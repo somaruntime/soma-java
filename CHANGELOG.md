@@ -1,9 +1,11 @@
 # Changelog
 
 本文件记录 SOMA Java 的用户可见变化。当前条目以 `1.0.0` 为 release candidate
-坐标；selected private-source G6已经签署，但tag、GitHub Release、repository
-visibility与publishing仍未获得授权，因此本条目保持`Unreleased`，不构成公开
-发布声明。
+坐标；上一candidate的selected private-source G6 evidence仍可追溯。Integral
+overflow policy已裁决并实现为fail-closed checked semantics，当前successor仍因
+最终同SHA Gate与qualification未完成而保持blocked。Tag、GitHub Release、
+repository visibility与publishing仍未获得授权，因此本条目保持`Unreleased`，
+不构成公开发布声明。
 
 ## [Unreleased] — 1.0.0
 
@@ -42,7 +44,16 @@ visibility与publishing仍未获得授权，因此本条目保持`Unreleased`，
 - 首个 V1 候选中发现的 schema validation、generated naming、locator/exact
   currentness、ownership cascade、failure atomicity、resource accounting、
   logical type、DataFlow identity 与 result delivery 问题均进入对应 executable
-  regression evidence。
+  regression evidence；
+- generated Java source统一使用canonical literal escaping，String default中的
+  newline、tab、quote、backslash与Unicode边界不再破坏生成源码或Metadata值；
+- finite time Window在window count不可表示时以structured resource failure拒绝，
+  不再因`long`加法回绕产生空结果；
+- owned-child Expanded scalar cardinality保持`long`，detached array terminal在
+  不可表示cardinality时于child enumeration前fail closed；
+- raw/closed integral expression、sum/average、prefix、Group、Window与Expanded
+  统一为fail-closed checked semantics；built-in聚合使用exact signed wide state，
+  transformation/kernel protocol分别升级为v5/v6。
 
 ### Security
 

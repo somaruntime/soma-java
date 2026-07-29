@@ -8,7 +8,16 @@ import io.github.somaruntime.soma.runtime.SomaRuntimeException;
 import java.util.Collections;
 import java.util.List;
 
-/** Immutable schema-bound integral expression with a long carrier. */
+/**
+ * Immutable schema-bound integral expression with a signed {@code long}
+ * carrier.
+ *
+ * <p>Built-in addition, subtraction and multiplication fail an Invocation
+ * with {@code dataflow_integral_overflow}. Division uses the same overflow
+ * code for {@code Long.MIN_VALUE / -1} and
+ * {@code dataflow_integral_division_by_zero} for a zero divisor. Bitwise and
+ * registered-function value semantics remain independently owned.</p>
+ */
 public final class LongExpression<B extends DataFlowBinding> {
     final SourceSlot<B> source;
     final LongNode node;
@@ -90,7 +99,7 @@ public final class LongExpression<B extends DataFlowBinding> {
         this.closedExpression = closedExpression;
         this.equalityAccess = equalityAccess;
         StringBuilder canonical =
-                new StringBuilder("long-expression-v1");
+                new StringBuilder("long-expression-v2");
         DataFlowSupport.appendCanonical(
                 canonical, "source", source.alias());
         DataFlowSupport.appendCanonical(
@@ -338,6 +347,9 @@ public final class LongExpression<B extends DataFlowBinding> {
     private LongExpression<B> unary(
             final String operation, final long right, final int kind) {
         final LongNode left = node;
+        final String resultPath = path + "." + operation;
+        final String failureOperation =
+                "dataflow.expression." + operation;
         return new LongExpression<B>(
                 source,
                 new LongNode() {
@@ -347,10 +359,34 @@ public final class LongExpression<B extends DataFlowBinding> {
                             DataFlowBinding binding,
                             int index) {
                         long value = left.evaluate(frame, binding, index);
-                        if (kind == 0) return value + right;
-                        if (kind == 1) return value - right;
-                        if (kind == 2) return value * right;
-                        if (kind == 3) return value / right;
+                        if (kind == 0) {
+                            return IntegralArithmetic.add(
+                                    value,
+                                    right,
+                                    resultPath,
+                                    failureOperation);
+                        }
+                        if (kind == 1) {
+                            return IntegralArithmetic.subtract(
+                                    value,
+                                    right,
+                                    resultPath,
+                                    failureOperation);
+                        }
+                        if (kind == 2) {
+                            return IntegralArithmetic.multiply(
+                                    value,
+                                    right,
+                                    resultPath,
+                                    failureOperation);
+                        }
+                        if (kind == 3) {
+                            return IntegralArithmetic.divide(
+                                    value,
+                                    right,
+                                    resultPath,
+                                    failureOperation);
+                        }
                         return value & right;
                     }
 
@@ -360,10 +396,11 @@ public final class LongExpression<B extends DataFlowBinding> {
                     }
                 },
                 presence,
-                path + "." + operation,
+                resultPath,
                 parameters,
                 parallelSafe,
-                closedUnary(kind, right));
+                closedUnary(
+                        kind, right, resultPath, failureOperation));
     }
 
     private LongExpression<B> binary(
@@ -371,6 +408,9 @@ public final class LongExpression<B extends DataFlowBinding> {
         requireSameSource(other);
         final LongNode left = node;
         final LongNode right = other.node;
+        final String resultPath = path + "." + operation;
+        final String failureOperation =
+                "dataflow.expression." + operation;
         return new LongExpression<B>(
                 source,
                 new LongNode() {
@@ -381,10 +421,32 @@ public final class LongExpression<B extends DataFlowBinding> {
                             int index) {
                         long a = left.evaluate(frame, binding, index);
                         long b = right.evaluate(frame, binding, index);
-                        if (kind == 0) return a + b;
-                        if (kind == 1) return a - b;
-                        if (kind == 2) return a * b;
-                        return a / b;
+                        if (kind == 0) {
+                            return IntegralArithmetic.add(
+                                    a,
+                                    b,
+                                    resultPath,
+                                    failureOperation);
+                        }
+                        if (kind == 1) {
+                            return IntegralArithmetic.subtract(
+                                    a,
+                                    b,
+                                    resultPath,
+                                    failureOperation);
+                        }
+                        if (kind == 2) {
+                            return IntegralArithmetic.multiply(
+                                    a,
+                                    b,
+                                    resultPath,
+                                    failureOperation);
+                        }
+                        return IntegralArithmetic.divide(
+                                a,
+                                b,
+                                resultPath,
+                                failureOperation);
                     }
 
                     @Override
@@ -394,7 +456,7 @@ public final class LongExpression<B extends DataFlowBinding> {
                     }
                 },
                 ExpressionNodes.andPresence(presence, other.presence),
-                path + "." + operation,
+                resultPath,
                 DataFlowSupport.unionParameters(
                         parameters, other.parameters),
                 parallelSafe && other.parallelSafe);
@@ -495,7 +557,11 @@ public final class LongExpression<B extends DataFlowBinding> {
         }
     }
 
-    private ClosedLongExpression closedUnary(int kind, long operand) {
+    private ClosedLongExpression closedUnary(
+            int kind,
+            long operand,
+            String resultPath,
+            String failureOperation) {
         if (closedExpression == null) return null;
         byte operation;
         if (kind == 0) operation = ClosedLongExpression.ADD;
@@ -503,6 +569,7 @@ public final class LongExpression<B extends DataFlowBinding> {
         else if (kind == 2) operation = ClosedLongExpression.MULTIPLY;
         else if (kind == 3) operation = ClosedLongExpression.DIVIDE;
         else operation = ClosedLongExpression.BITWISE_AND;
-        return closedExpression.append(operation, operand);
+        return closedExpression.append(
+                operation, operand, resultPath, failureOperation);
     }
 }

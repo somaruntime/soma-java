@@ -204,6 +204,15 @@ public final class DataFlowSelectionAndValueContractCheck {
                             GeneratedDataFlow.KERNEL_PROTOCOL),
                     context,
                     "dataflow_transformation_protocol_mismatch");
+            expectProtocolCode(
+                    count,
+                    source,
+                    new ProtocolBinding(
+                            RuntimeCompatibility.GENERATED_PROTOCOL,
+                            GeneratedDataFlow.TRANSFORMATION_PROTOCOL,
+                            "soma-kernel-v5"),
+                    context,
+                    "dataflow_kernel_protocol_mismatch");
         } finally {
             context.close();
         }

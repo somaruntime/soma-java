@@ -69,6 +69,10 @@ public final class GroupedFlow<B extends DataFlowBinding> {
                         program, key, shape));
     }
 
+    /**
+     * Uses exact per-group integral state and fails if any emitted group sum
+     * is not representable as a long.
+     */
     public DataFlowDefinition<GroupedLongResult> sum(
             LongExpression<B> expression) {
         requireSource(expression);

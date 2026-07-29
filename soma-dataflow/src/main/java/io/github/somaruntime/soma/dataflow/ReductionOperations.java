@@ -56,7 +56,7 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
 
     @Override
     public String canonicalForm() {
-        return program.canonical() + "->long-reduce(" + kind + ","
+        return program.canonical() + "->long-reduce-v2(" + kind + ","
                 + expression.identity() + ")";
     }
 
@@ -73,11 +73,12 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
     @Override
     public String physicalPlan() {
         if (program.supportsContiguousParallel()) {
-            return "candidate-adaptive[contiguous-filter,fixed-tree-long-reduce]";
+            return "candidate-adaptive[contiguous-filter,"
+                    + "fixed-tree-exact-long-reduce]";
         }
         return program.requiresBarrier()
-                ? "candidate-barrier[stable-sort,left-fold]"
-                : "candidate-stream[fused-left-fold]";
+                ? "candidate-barrier[stable-sort,exact-left-fold]"
+                : "candidate-stream[fused-exact-left-fold]";
     }
 
     @Override
@@ -97,6 +98,8 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
         }
         final DataFlowBinding binding = frame.binding(source);
         final long[] accumulator = new long[1];
+        final IntegralArithmetic.ExactSum exactSum =
+                new IntegralArithmetic.ExactSum();
         final int[] count = new int[1];
         CandidateVisit visit = program.visit(
                 frame,
@@ -106,7 +109,7 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
                         long value = expression.evaluate(
                                 frame, binding, index);
                         if (kind == SUM || kind == AVERAGE) {
-                            accumulator[0] += value;
+                            exactSum.add(value);
                         } else if (count[0] == 0
                                 || (kind == MIN
                                 ? value < accumulator[0]
@@ -120,12 +123,13 @@ final class LongReductionOperation<B extends DataFlowBinding, R>
                 "dataflow.longReduce");
         Object result;
         if (kind == SUM) {
-            result = new LongScalarResult(accumulator[0]);
+            result = new LongScalarResult(exactSum.longValue(
+                    expression.path, "dataflow.longReduce"));
         } else if (kind == AVERAGE) {
             result = count[0] == 0
                     ? OptionalDoubleResult.empty()
                     : OptionalDoubleResult.of(
-                    (double) accumulator[0] / (double) count[0]);
+                    exactSum.doubleValue() / (double) count[0]);
         } else {
             result = count[0] == 0
                     ? OptionalLongResult.empty()
@@ -301,7 +305,7 @@ final class LongPrefixOperation<B extends DataFlowBinding>
 
     @Override
     public String canonicalForm() {
-        return program.canonical() + "->prefix("
+        return program.canonical() + "->prefix-v2("
                 + (inclusive ? "inclusive" : "exclusive") + ","
                 + seed + "," + expression.identity() + ")";
     }
@@ -319,7 +323,7 @@ final class LongPrefixOperation<B extends DataFlowBinding>
 
     @Override
     public String physicalPlan() {
-        return "candidate-stream[ordered-prefix-left-fold]";
+        return "candidate-stream[ordered-prefix-exact-left-fold]";
     }
 
     @Override
@@ -328,7 +332,9 @@ final class LongPrefixOperation<B extends DataFlowBinding>
         int capacity = program.maximumCardinality(binding);
         final long[] values =
                 frame.newOutputLongs(capacity, "dataflow.prefix");
-        final long[] accumulator = new long[] {seed};
+        final IntegralArithmetic.ExactSum accumulator =
+                new IntegralArithmetic.ExactSum();
+        accumulator.add(seed);
         CandidateVisit visit = program.visit(
                 frame,
                 new CandidateVisitor() {
@@ -337,11 +343,17 @@ final class LongPrefixOperation<B extends DataFlowBinding>
                         long value = expression.evaluate(
                                 frame, binding, index);
                         if (inclusive) {
-                            accumulator[0] += value;
-                            values[outputPosition] = accumulator[0];
+                            accumulator.add(value);
+                            values[outputPosition] =
+                                    accumulator.longValue(
+                                            expression.path,
+                                            "dataflow.prefix");
                         } else {
-                            values[outputPosition] = accumulator[0];
-                            accumulator[0] += value;
+                            values[outputPosition] =
+                                    accumulator.longValue(
+                                            expression.path,
+                                            "dataflow.prefix");
+                            accumulator.add(value);
                         }
                         return true;
                     }

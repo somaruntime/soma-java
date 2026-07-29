@@ -24,7 +24,7 @@ Owner：SOMA 测试与 evidence 实现导航
 | generated golden | fixtures 中 `expected/*.javap.txt`、schema JSON/hash | generated/schema compatibility |
 | external consumers | `external-maven-*` fixtures + [`check-external-consumer.sh`](../../scripts/check-external-consumer.sh) | 普通 consumer compile/run |
 | runtime invariant | [`check-runtime-contracts.sh`](../../scripts/check-runtime-contracts.sh) 与 `check-generated-*-contract.sh` | flat/head-tail storage、atomic segment publication、String reference cleanup、TIME range、locator current/high-water、link/bitmap exact maintenance、完整 Runtime Metadata、lifecycle/access correctness、root/Group fault containment、atomic attach/release、Candidate sequence、one-shot/retention、unique point 与 v12 identity |
-| DataFlow contract | [`check-dataflow-contracts.sh`](../../scripts/check-dataflow-contracts.sh)、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect |
+| DataFlow contract | [`check-dataflow-contracts.sh`](../../scripts/check-dataflow-contracts.sh)、[`DataFlowIntegralArithmeticContractCheck.java`](../../soma-benchmarks/src/test/java/io/github/somaruntime/soma/benchmarks/DataFlowIntegralArithmeticContractCheck.java)、public/generated golden | Definition/Template/Invocation、Shape/operator legality、binding/resource/parallel/effect，以及raw/closed、sequential/parallel、prefix/Group/Window/Expanded的fail-closed integral arithmetic |
 | reference differential | [`DataFlowReferenceDifferentialCheck.java`](../../soma-benchmarks/src/test/java/io/github/somaruntime/soma/benchmarks/DataFlowReferenceDifferentialCheck.java) | plain-array oracle 与 fast path/graph、sequential/parallel 的通用语义等价 |
 | reference application isolation | [`check-reference-applications.sh`](../../scripts/check-reference-applications.sh) | 三个 child 在 evidence-local repository 中独立 clean/repeat build、schema/hash/generated manifest、runtime graph 与 Java 8 classfile |
 | application correctness/evidence | [`check-industrial-scheduler.sh`](../../scripts/check-industrial-scheduler.sh)、[`check-grassing-simulation.sh`](../../scripts/check-grassing-simulation.sh)、[`check-real-time-dispatch-rule-engine.sh`](../../scripts/check-real-time-dispatch-rule-engine.sh)、Fast/Scale/Soak/Full performance Gate | versioned config、detached input checksum、oracle/validator、failure/lifecycle/resource ownership，以及九个 profile 的多 fork timing/allocation/GC/high-water |
@@ -50,8 +50,9 @@ Generated API 的最直接 compatibility evidence 是外部 fixture 的实际 ja
   cleanup；
 - Candidate/Group/Join/Window/Delta、unknown-bound fail-closed、sequential/
   parallel equivalence、logical type negative compile、numeric closed kernel、
-  bitmap intersection、primitive minmax/Bloom/fallback Join、callback delivery、
-  Effect 与 diagnostics；
+  exact-wide integral reduction与stable overflow/division failure、bitmap
+  intersection、primitive minmax/Bloom/fallback Join、callback delivery、Effect
+  与 diagnostics；
 - clean/repeat external Maven consumer、current public/generated `javap`、
   schema JSON/hash、reference differential 和 bounded qualification。
 

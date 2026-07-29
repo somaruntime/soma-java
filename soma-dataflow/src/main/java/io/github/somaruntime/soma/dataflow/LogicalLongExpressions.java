@@ -12,6 +12,7 @@ final class LogicalLongExpressions {
     static <B extends DataFlowBinding> LongExpression<B> checkedAdd(
             LongExpression<B> source, final long delta, final String operation) {
         final LongNode upstream = source.node;
+        final String resultPath = source.path + "." + operation;
         return new LongExpression<B>(
                 source.source,
                 new LongNode() {
@@ -20,9 +21,11 @@ final class LogicalLongExpressions {
                             ExecutionFrame frame,
                             DataFlowBinding binding,
                             int index) {
-                        return Math.addExact(
+                        return IntegralArithmetic.add(
                                 upstream.evaluate(frame, binding, index),
-                                delta);
+                                delta,
+                                resultPath,
+                                "dataflow.expression." + operation);
                     }
 
                     @Override
@@ -32,7 +35,7 @@ final class LogicalLongExpressions {
                     }
                 },
                 source.presence,
-                source.path + "." + operation,
+                resultPath,
                 source.parameters,
                 source.parallelSafe);
     }
@@ -40,6 +43,7 @@ final class LogicalLongExpressions {
     static <B extends DataFlowBinding> LongExpression<B> checkedSubtract(
             LongExpression<B> source, final long delta, final String operation) {
         final LongNode upstream = source.node;
+        final String resultPath = source.path + "." + operation;
         return new LongExpression<B>(
                 source.source,
                 new LongNode() {
@@ -48,9 +52,11 @@ final class LogicalLongExpressions {
                             ExecutionFrame frame,
                             DataFlowBinding binding,
                             int index) {
-                        return Math.subtractExact(
+                        return IntegralArithmetic.subtract(
                                 upstream.evaluate(frame, binding, index),
-                                delta);
+                                delta,
+                                resultPath,
+                                "dataflow.expression." + operation);
                     }
 
                     @Override
@@ -60,7 +66,7 @@ final class LogicalLongExpressions {
                     }
                 },
                 source.presence,
-                source.path + "." + operation,
+                resultPath,
                 source.parameters,
                 source.parallelSafe);
     }

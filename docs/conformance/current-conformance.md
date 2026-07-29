@@ -31,7 +31,7 @@ Owner：SOMA Java 一致性审查
 | Group/Table ownership | 一致且 evidenced | explicit/implicit Group、stable slots、multi-schema/multi-instance、atomic attach、GroupLedger、分层fault、all-member preflight与reverse release |
 | storage/layout/locator | 一致且 evidenced | `FLAT`、`FLAT_HEAD_SEGMENTED_TAIL`、atomic publication、`FLAT_COMPACT` locator及单/双1M qualification通过；10M/100M只保留research/stress，不影响V1 Gate |
 | Access/Candidate | 一致且 evidenced | point/exact/column保持natural path；formula-bound primitive low-cardinality Bitmap intersection、link fallback、mutation/relocation、budget与differential contract通过 |
-| Transformation/relation | 一致且 evidenced | 既有Group/Join/Window/Delta语义保留；numeric closed whole-loop kernel与primitive min/max/Bloom/fallback Join通过reference differential、contract与双1M lane；String filter禁用 |
+| Transformation/relation | 一致；successor evidence pending | integral arithmetic已按Owner裁决统一为fail-closed checked semantics，raw/closed、scalar/parallel、prefix、Group、Window与Expanded canonical contract通过；既有Group/Join/Delta与primitive min/max/Bloom/fallback Join保持，最终reference/performance/scale仍待新SHA重放 |
 | DataFlow execution/parallel | 一致且 evidenced | Definition→Template→one-shot Invocation；一个bounded adaptive morsel scheduler区分Segment/vector/morsel，支持单Segment中型并行和deterministic merge |
 | Result Delivery | 一致且 evidenced | Eager Detached默认；Candidate/Value/Group/Join/Window同步callback-scoped visitor contract及Corretto Delivery/Soak lane通过 |
 | String V1 | 一致且 evidenced | reference-backed immutable scalar、Key/Unique/Index、Group/Join、不同长度mutation、equal-value no-op、clear/release/actual GC成立；length只为非约束profile |
@@ -41,9 +41,9 @@ Owner：SOMA Java 一致性审查
 | reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness与Corretto下九个profile baseline通过；相关root由显式SomaGroup拥有 |
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
 | G0 | passed | Java-only scope、Owner、claim boundary与抽象叙事闭环稳定 |
-| G1–G4 | passed | clean commit `fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full通过；后续只改变G6 checker/workflow与文档，并由最终同SHA Full重放 |
-| G5 | passed | Full中的differential、component、三个application及clean-commit DataFlow 3-fork与8-lane required qualification全部通过 |
-| G6 selected private-source | passed | 同SHA Ubuntu Full、package/reproducibility、security/provenance、90天sealed bundle与support matrix闭合；Product Owner条件式sign-off在最终workflow success后生效 |
+| G1–G4 | predecessor evidence retained | clean commit `fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full通过；当前successor包含compiler与DataFlow修复，必须在最终同SHA重新绑定Full evidence |
+| G5 | predecessor evidence retained | 上一candidate的differential、component、三个application、clean-commit DataFlow 3-fork与8-lane required qualification通过；当前successor的受影响DataFlow与性能路径必须重放 |
+| G6 selected private-source | blocked for successor candidate | 上一精确candidate的同SHA Ubuntu Full、package/reproducibility、security/provenance、90天sealed bundle与support matrix evidence仍可追溯；当前successor已闭合产品语义与实现，仍须以新的clean immutable SHA重放全部适用evidence，Product Owner条件式sign-off才会生效 |
 | AI multi-tool behavior evidence | waived for V1 | Codex positive consumer已真实compile/run；negative/anti-pattern与第二宿主验证由Product Owner明确waive，不声明multi-tool support |
 | Codex Cloud development | not release-scoped | 当前用户目标不要求Cloud qualification；它不进入支持矩阵，也不替代private-source G6 |
 
@@ -60,9 +60,15 @@ compiler/runtime/component/application及Ubuntu x64 build/contract仍可定位�
 但正式Gate必须绑定新的clean immutable candidate。当前macOS runtime-scale已绑定
 clean commit与精确source tree；Zulu evidence只属于历史。
 
-当前`1.0.0`候选G0–G6已按selected private-source profile通过。该结论仍不能把
-本机evidence外推为Linux性能/规模、production、public release或Maven Central；
-AI behavior waiver也不能外推为multi-tool support。
+上一精确`1.0.0`候选的G0–G6 evidence仍按selected private-source profile保留，
+本次冻结前产品目标审计发现的integral overflow policy已由Product Owner裁决并
+完成Design/Code/contract replacement closure；successor还包含新的compiler、
+DataFlow与workflow修复。因此当前仍不是freeze-ready，必须绑定新的clean
+immutable SHA重放适用Gate与qualification，条件式Owner sign-off才生效。
+
+即使新的candidate最终通过，也不能把本机evidence外推为Linux性能/规模、
+production、public release或Maven Central；AI behavior waiver也不能外推为
+multi-tool support。
 
 ## 4. Evidence 入口
 

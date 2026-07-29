@@ -79,8 +79,8 @@ Generated artifact、runtime、transformation Template 和 runtime plan 在相�
 
 - generated protocol：`soma-generated-runtime-v12`；
 - runtime compatibility：`soma-runtime-java8-v12`；
-- transformation protocol：`soma-transformation-v4`；
-- kernel protocol：`soma-kernel-v5`；
+- transformation protocol：`soma-transformation-v5`；
+- kernel protocol：`soma-kernel-v6`；
 - runtime plan protocol：`soma-runtime-plan-v6`；
 - storage layout formula：`soma-storage-layout-v1`；
 - primary locator layout formula：`soma-primary-locator-layout-v1`；

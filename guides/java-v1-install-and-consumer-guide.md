@@ -24,13 +24,16 @@ transformer、annotation processor、runtime-core 和 typed DataFlow。当前项
 Zulu和其他JDK distribution均为untested/unsupported。精确Corretto
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
-当前`1.0.0` clean candidate的G0–G6已按selected private-source profile签署；
-同SHA Ubuntu Full、package/reproducibility、security/provenance与support matrix
-已闭合。AI Skill的第二宿主及negative/anti-pattern行为验证已由Product Owner
-对V1明确waive，因此不声明multi-tool support。`1.0.0`仍只是当前
-release-shaped source/artifact candidate，尚未因此自动形成tag、public release
-或Maven发布。
-获得private repository访问权的consumer应先在本仓库执行
+上一精确`1.0.0` candidate的G0–G6 evidence、同SHA Ubuntu Full、
+package/reproducibility、security/provenance与support matrix仍可追溯；冻结前
+审计发现的integral overflow policy已由Product Owner裁决为fail-closed checked
+semantics，并进入正式Design、实现和contract；当前successor仍等待最终Full、
+性能、package/security与远端同SHAqualification，不能用上一SHA的evidence替代。
+AI Skill的第二宿主及negative/anti-pattern行为验证已由Product Owner对V1明确
+waive，因此不声明multi-tool support。`1.0.0`仍只是当前release-shaped
+source/artifact坐标，尚未因此自动形成tag、public release或Maven发布。
+当前审计与修复期间不应把移动中的`develop`当作试用基线。最终immutable source
+ref签署后，获得private repository访问权的consumer再在该固定ref执行
 `./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、Maven
 Central artifact或已公开发布artifact。
 
@@ -320,6 +323,20 @@ try {
 }
 ```
 
+Built-in integral arithmetic不是Java `long` wraparound语义：
+
+- raw/closed add、subtract、multiply溢出，以及`Long.MIN_VALUE / -1`，以
+  `INVALID_INPUT` / `dataflow_integral_overflow`拒绝；
+- division by zero以`dataflow_integral_division_by_zero`独立拒绝；
+- sum/average使用exact wide total；sum、Group/Window/Expanded sum只有在最终
+  `long`可表示时发布，average从exact total计算；
+- inclusive/exclusive prefix在首个实际输出且不可表示的prefix处拒绝；
+- sequential与adaptive-parallel必须得到相同结果或相同stable failure code；
+- bitwise、TIME日内modular运算和registered function/reducer仍由各自语义拥有。
+
+Consumer应捕获`SomaRuntimeException`并按`category()`、`code()`、`operation()`
+处理，不解析message，也不能把overflow吞掉后继续提交业务副作用。
+
 Eager Detached 是默认 delivery：结果完整计算、通过预算并在 source
 guard/scratch 清理后一次发布。高展开结果必须给出可证明上界和
 `ExecutionBudget`；无法证明或超过预算时，会在 relation enumeration、output
@@ -442,7 +459,50 @@ External consumer 至少确认：
 - schema hash、runtime plan identity与runtime stats可读取；
 - duplicate/missing/stale/released/view-pinned/materialization-budget错误可观察。
 
-## 12. Upgrade、rollback 与 withdrawal
+## 12. 真实项目试用准入、观察与退出
+
+真实项目试用只能绑定已经完成条件式G6签署的clean immutable source ref；移动中的
+`develop`、dirty worktree、本机临时artifact或上一candidate evidence都不能成为
+试用基线。首次试用应选择可重放、非关键、规模有界且能代表主要访问形态的一个
+业务journey，不直接替换system of record或不可逆外部提交路径。
+
+试用前至少固定并记录：
+
+- source commit、四个artifact version、schema hash、runtime plan identity；
+- Corretto/Javac/Maven、OS/architecture、JVM heap与GC参数；
+- 实际row count、schema宽度、String长度/cardinality/sharing、relation
+  multiplicity、并行度与resource budget；
+- 现有实现或reference oracle、允许的差异、成功阈值和停止条件；
+- authoritative input的重建方式，以及不依赖SOMA live heap的回退入口。
+
+建议先以shadow/dual-run方式让现有实现与SOMA消费同一份detached input，比较业务
+结果、排序/tie-break、matched/changed counters和关键checksum；SOMA输出在通过
+oracle前不驱动不可逆外部side effect。随后再观察实际latency/throughput、
+structural high-water、JVM heap/GC、allocation、failure code、clear/release与
+长时间soak。Benchmark基线只帮助识别回归，不能替代真实业务正确性。
+
+出现以下任一情况应停止扩大试用并回退：
+
+- 业务结果、顺序、identity、absence/default或mutation语义与oracle不一致；
+- 出现未建模的generic/internal failure、部分外部提交或无法解释的stale/lifecycle
+  状态；
+- 实际shape超出已声明budget，出现持续GC、不可接受tail latency或资源无法在
+  clear/release后回落；
+- 需要unsupported JDK、跨Table transaction、持久化、无限流、任意object
+  storage或其他正式边界之外的能力；
+- 不能从authoritative input确定性重建SOMA state。
+
+回退时先停止新的SOMA mutation/Invocation并完成当前同步边界，释放Group/Table/
+DataFlowContext，再切回application原有实现；若回退artifact版本，则四个artifact
+一起回退、清理并重新生成consumer source/class，随后从authoritative input重建
+内存状态并重放业务checksum。不得复用已释放Table、旧generated class、旧
+IndexSnapshot或跨版本runtime plan。
+
+试用反馈至少包含immutable SHA、schema hash、精确环境、workload shape、稳定
+error code或最小可复现journey；不得在普通日志或Issue中附带credential、敏感业务
+row或完整heap dump。
+
+## 13. Upgrade、rollback 与 withdrawal
 
 - annotation、processor、runtime-core 和 dataflow 必须使用同一 artifact family
   version；
@@ -453,7 +513,7 @@ External consumer 至少确认：
 - 如果某version被标记withdrawn，停止新部署并迁移到公告指定的修复版本；
 - SOMA V1不提供持久化schema migration，detached object/wire/database迁移由application adapter拥有。
 
-## 13. Known limitations
+## 14. Known limitations
 
 - Java-only；不提供Python、C ABI、native runtime或跨语言FFI；
 - 只支持正式G6 matrix列出的Amazon Corretto full JDK 8 javac/runtime组合；

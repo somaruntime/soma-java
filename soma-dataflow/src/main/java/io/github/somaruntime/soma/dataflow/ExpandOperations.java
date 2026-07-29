@@ -11,14 +11,14 @@ interface ExpandedVisitor<C extends DataFlowBinding> {
             int parentIndex,
             C childBinding,
             int childIndex,
-            int outputPosition);
+            long outputPosition);
 }
 
 final class ExpandedVisit {
     final long scanned;
-    final int matched;
+    final long matched;
 
-    ExpandedVisit(long scanned, int matched) {
+    ExpandedVisit(long scanned, long matched) {
         this.scanned = scanned;
         this.matched = matched;
     }
@@ -121,8 +121,37 @@ final class ExpandedProgram<
                     operation,
                     access.identity());
         }
+        if (maximum > Integer.MAX_VALUE) {
+            throw DataFlowFailures.resource(
+                    "dataflow_cardinality_overflow",
+                    parents.source().alias(),
+                    operation,
+                    Long.toString(maximum));
+        }
         frame.preflightDelivery(
                 maximum, maximum * bytesPerElement, operation);
+    }
+
+    int materializedCardinality(long cardinality, String operation) {
+        if (cardinality < 0L || cardinality > Integer.MAX_VALUE) {
+            throw DataFlowFailures.resource(
+                    "dataflow_cardinality_overflow",
+                    parents.source().alias(),
+                    operation,
+                    Long.toString(cardinality));
+        }
+        return (int) cardinality;
+    }
+
+    int outputIndex(long outputPosition, int length, String operation) {
+        if (outputPosition < 0L || outputPosition >= length) {
+            throw DataFlowFailures.internal(
+                    "dataflow_expand_cardinality_changed",
+                    parents.source().alias(),
+                    operation,
+                    outputPosition + "/" + length);
+        }
+        return (int) outputPosition;
     }
 
     ExpandedVisit visit(
@@ -133,7 +162,7 @@ final class ExpandedProgram<
         final P parentBinding =
                 (P) frame.binding(parents.source());
         final long[] childScanned = new long[1];
-        final int[] matched = new int[1];
+        final long[] matched = new long[1];
         CandidateVisit parentVisit = parents.visit(
                 frame,
                 new CandidateVisitor() {
@@ -155,7 +184,7 @@ final class ExpandedProgram<
                                     frame, childBinding, childIndex)) {
                                 continue;
                             }
-                            int expandedPosition = matched[0]++;
+                            long expandedPosition = matched[0]++;
                             if (!visitor.accept(
                                     parentIndex,
                                     childBinding,
@@ -217,7 +246,7 @@ final class ExpandedCountOperation<
                         int parentIndex,
                         DataFlowBinding childBinding,
                         int childIndex,
-                        int outputPosition) {
+                        long outputPosition) {
                     return true;
                 }
             };
@@ -295,15 +324,17 @@ final class ExpandedIndexOperation<
                             int parentIndex,
                             C childBinding,
                             int childIndex,
-                            int outputPosition) {
+                            long outputPosition) {
                         return true;
                     }
                 },
                 "dataflow.expand.indexes.preflight");
+        final int cardinality = program.materializedCardinality(
+                counted.matched, "dataflow.expand.indexes");
         final int[] parents = frame.newOutputIndexes(
-                counted.matched, "dataflow.expand.indexes");
+                cardinality, "dataflow.expand.indexes");
         final int[] children = frame.newOutputIndexes(
-                counted.matched, "dataflow.expand.indexes");
+                cardinality, "dataflow.expand.indexes");
         ExpandedVisit filled = program.visit(
                 frame,
                 new ExpandedVisitor<C>() {
@@ -312,9 +343,13 @@ final class ExpandedIndexOperation<
                             int parentIndex,
                             C childBinding,
                             int childIndex,
-                            int outputPosition) {
-                        parents[outputPosition] = parentIndex;
-                        children[outputPosition] = childIndex;
+                            long outputPosition) {
+                        int output = program.outputIndex(
+                                outputPosition,
+                                cardinality,
+                                "dataflow.expand.indexes");
+                        parents[output] = parentIndex;
+                        children[output] = childIndex;
                         return true;
                     }
                 },
@@ -328,7 +363,7 @@ final class ExpandedIndexOperation<
         }
         return new ExecutionOutcome<ExpandedIndexResult>(
                 new ExpandedIndexResult(
-                        parents, children, filled.matched),
+                        parents, children, cardinality),
                 filled.scanned,
                 filled.matched,
                 filled.matched,
@@ -378,13 +413,15 @@ final class ExpandedLongColumnOperation<
                             int parentIndex,
                             C childBinding,
                             int childIndex,
-                            int outputPosition) {
+                            long outputPosition) {
                         return true;
                     }
                 },
                 "dataflow.expand.longColumn.preflight");
-        final long[] values = frame.newOutputLongs(
+        final int cardinality = program.materializedCardinality(
                 counted.matched, "dataflow.expand.longColumn");
+        final long[] values = frame.newOutputLongs(
+                cardinality, "dataflow.expand.longColumn");
         ExpandedVisit filled = program.visit(
                 frame,
                 new ExpandedVisitor<C>() {
@@ -393,8 +430,12 @@ final class ExpandedLongColumnOperation<
                             int parentIndex,
                             C childBinding,
                             int childIndex,
-                            int outputPosition) {
-                        values[outputPosition] =
+                            long outputPosition) {
+                        int output = program.outputIndex(
+                                outputPosition,
+                                cardinality,
+                                "dataflow.expand.longColumn");
+                        values[output] =
                                 expression.evaluate(
                                         frame, childBinding, childIndex);
                         return true;
@@ -409,7 +450,7 @@ final class ExpandedLongColumnOperation<
                     counted.matched + "/" + filled.matched);
         }
         return new ExecutionOutcome<LongColumnResult>(
-                new LongColumnResult(values, filled.matched),
+                new LongColumnResult(values, cardinality),
                 filled.scanned,
                 filled.matched,
                 filled.matched,
@@ -432,7 +473,7 @@ final class ExpandedLongSumOperation<
 
     @Override
     public String canonicalForm() {
-        return program.canonical() + "->long-sum("
+        return program.canonical() + "->long-sum-v2("
                 + expression.identity() + ")";
     }
 
@@ -449,7 +490,8 @@ final class ExpandedLongSumOperation<
     @Override
     public ExecutionOutcome<LongScalarResult> execute(
             final ExecutionFrame frame) {
-        final long[] sum = new long[1];
+        final IntegralArithmetic.ExactSum sum =
+                new IntegralArithmetic.ExactSum();
         ExpandedVisit visit = program.visit(
                 frame,
                 new ExpandedVisitor<C>() {
@@ -458,16 +500,18 @@ final class ExpandedLongSumOperation<
                             int parentIndex,
                             C childBinding,
                             int childIndex,
-                            int outputPosition) {
-                        sum[0] += expression.evaluate(
-                                frame, childBinding, childIndex);
+                            long outputPosition) {
+                        sum.add(expression.evaluate(
+                                frame, childBinding, childIndex));
                         return true;
                     }
                 },
                 "dataflow.expand.longSum");
         frame.reserveOutput(1L, 8L, "dataflow.expand.longSum");
         return new ExecutionOutcome<LongScalarResult>(
-                new LongScalarResult(sum[0]),
+                new LongScalarResult(sum.longValue(
+                        expression.path,
+                        "dataflow.expand.longSum")),
                 visit.scanned,
                 visit.matched,
                 1L,

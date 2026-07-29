@@ -31,6 +31,7 @@ import io.github.somaruntime.soma.dataflow.LongScalarResult;
 import io.github.somaruntime.soma.dataflow.PartialWindowPolicy;
 import io.github.somaruntime.soma.dataflow.WindowIndexResult;
 import io.github.somaruntime.soma.runtime.IndexSnapshot;
+import io.github.somaruntime.soma.runtime.SomaRuntimeException;
 
 /** Partition/Combine、GroupBy、Join 与 finite Window 关系能力契约。 */
 public final class DataFlowRelationContractCheck {
@@ -227,9 +228,55 @@ public final class DataFlowRelationContractCheck {
         table.requireCurrent(antiIndexes);
 
         table.release();
+        verifyTimeWindowCountOverflow();
         verifyExactSource();
         verifyOwnedChildExpand();
         System.out.println("dataflow-relation-contract: ok");
+    }
+
+    private static void verifyTimeWindowCountOverflow() {
+        NumericFactBatch batch = new NumericFactBatch(2);
+        batch.addValues(
+                0,
+                EntityKind.PRIMARY,
+                0L,
+                VariableKind.VALUE,
+                0L,
+                0.0d,
+                1.0d);
+        batch.addValues(
+                1,
+                EntityKind.PRIMARY,
+                Long.MAX_VALUE,
+                VariableKind.VALUE,
+                1L,
+                0.0d,
+                1.0d);
+        NumericFactTable table = NumericFactTable.create();
+        table.addBatch(batch);
+        NumericFactDataFlow.Source source =
+                NumericFactDataFlow.source("time-overflow");
+        boolean rejected = false;
+        try {
+            execute(
+                    source.candidates()
+                            .windowByTime(
+                                    source.columns().entityId(),
+                                    1L,
+                                    1L,
+                                    0L,
+                                    PartialWindowPolicy.INCLUDE_PARTIAL)
+                            .indexSnapshot(),
+                    source,
+                    table);
+        } catch (SomaRuntimeException expected) {
+            rejected = true;
+            require("dataflow_window_count_overflow".equals(expected.code()),
+                    "time window count overflow failure code");
+        } finally {
+            table.release();
+        }
+        require(rejected, "time window count overflow must fail closed");
     }
 
     private static void verifyExactSource() {

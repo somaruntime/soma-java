@@ -289,7 +289,7 @@ final class CandidateParallelKernels {
                 frame,
                 cardinality,
                 program.supportsContiguousParallel(),
-                16L,
+                24L,
                 1,
                 binding.segmentRows(),
                 "dataflow.longReduce");
@@ -304,6 +304,8 @@ final class CandidateParallelKernels {
                     public LongPartial execute(
                             int partition, int start, int end) {
                         long value = 0L;
+                        IntegralArithmetic.ExactSum exactSum =
+                                new IntegralArithmetic.ExactSum();
                         int count = 0;
                         for (int index = start; index < end; index++) {
                             if ((index & 1023) == 0) {
@@ -315,7 +317,7 @@ final class CandidateParallelKernels {
                             long next = expression.evaluate(
                                     frame, binding, index);
                             if (kind == LONG_SUM || kind == LONG_AVERAGE) {
-                                value += next;
+                                exactSum.add(next);
                             } else if (count == 0
                                     || (kind == LONG_MIN
                                     ? next < value : next > value)) {
@@ -323,17 +325,30 @@ final class CandidateParallelKernels {
                             }
                             count++;
                         }
-                        return new LongPartial(value, count);
+                        return new LongPartial(
+                                value,
+                                exactSum.highBits(),
+                                exactSum.lowBits(),
+                                count);
                     }
                 },
                 "dataflow.longReduce");
         long[] values = frame.newScratchLongs(
                 plan.tasks(), "dataflow.longReduce");
+        long[] highs = kind == LONG_SUM || kind == LONG_AVERAGE
+                ? frame.newScratchLongs(
+                        plan.tasks(), "dataflow.longReduce")
+                : null;
         int[] counts = frame.newScratchIndexes(
                 plan.tasks(), "dataflow.longReduce");
         for (int partition = 0; partition < plan.tasks(); partition++) {
             LongPartial partial = partials.get(partition);
-            values[partition] = partial.value;
+            if (kind == LONG_SUM || kind == LONG_AVERAGE) {
+                highs[partition] = partial.high;
+                values[partition] = partial.low;
+            } else {
+                values[partition] = partial.value;
+            }
             counts[partition] = partial.count;
         }
         for (int width = 1; width < plan.tasks(); width *= 2) {
@@ -343,7 +358,12 @@ final class CandidateParallelKernels {
                     continue;
                 }
                 if (kind == LONG_SUM || kind == LONG_AVERAGE) {
-                    values[left] += values[right];
+                    IntegralArithmetic.addTo(
+                            highs,
+                            values,
+                            left,
+                            highs[right],
+                            values[right]);
                 } else if (counts[right] != 0
                         && (counts[left] == 0
                         || (kind == LONG_MIN
@@ -356,12 +376,19 @@ final class CandidateParallelKernels {
         }
         Object result;
         if (kind == LONG_SUM) {
-            result = new LongScalarResult(values[0]);
+            result = new LongScalarResult(
+                    IntegralArithmetic.longValue(
+                            highs[0],
+                            values[0],
+                            expression.path,
+                            "dataflow.longReduce"));
         } else if (kind == LONG_AVERAGE) {
             result = counts[0] == 0
                     ? OptionalDoubleResult.empty()
                     : OptionalDoubleResult.of(
-                            (double) values[0] / (double) counts[0]);
+                            IntegralArithmetic.doubleValue(
+                                    highs[0], values[0])
+                                    / (double) counts[0]);
         } else {
             result = counts[0] == 0
                     ? OptionalLongResult.empty()
@@ -459,10 +486,14 @@ final class CandidateParallelKernels {
 
     private static final class LongPartial {
         final long value;
+        final long high;
+        final long low;
         final int count;
 
-        LongPartial(long value, int count) {
+        LongPartial(long value, long high, long low, int count) {
             this.value = value;
+            this.high = high;
+            this.low = low;
             this.count = count;
         }
     }

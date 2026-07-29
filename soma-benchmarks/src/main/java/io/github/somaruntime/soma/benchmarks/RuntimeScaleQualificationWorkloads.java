@@ -1048,21 +1048,29 @@ final class RuntimeScaleQualificationWorkloads {
                 Integer.MAX_VALUE,
                 Integer.MAX_VALUE,
                 Long.MAX_VALUE, false);
+        ExpansionProbe materializedCardinality = runSyntheticExpansion(
+                Integer.MAX_VALUE,
+                2,
+                Long.MAX_VALUE, false);
         ExpansionProbe unknown = runSyntheticExpansion(
                 8, -1, Long.MAX_VALUE, false);
         require("dataflow_output_budget_exceeded".equals(
                                 overBudget.code)
                         && "dataflow_cardinality_overflow".equals(
                                 overflow.code)
+                        && "dataflow_cardinality_overflow".equals(
+                                materializedCardinality.code)
                         && "dataflow_unprovable_cardinality".equals(
                                 unknown.code),
                 "expansion typed rejection codes");
         require(overBudget.childBindingCalls == 0
                         && overflow.childBindingCalls == 0
+                        && materializedCardinality.childBindingCalls == 0
                         && unknown.childBindingCalls == 0,
                 "expansion rejection before enumeration");
         require(overBudget.releaseCalls == 1
                         && overflow.releaseCalls == 1
+                        && materializedCardinality.releaseCalls == 1
                         && unknown.releaseCalls == 1,
                 "expansion preflight cleanup");
 

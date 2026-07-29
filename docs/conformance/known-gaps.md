@@ -6,9 +6,9 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：包含本文件的`1.0.0` private-source sign-off commit
+实现核对基线：当前`1.0.0` successor candidate
 
-事实范围：当前open-gap zero state、受限目标与Owner处置
+事实范围：当前open gap、受限目标与Owner处置
 
 非事实范围：历史已关闭差距、自动授权release、扩大支持矩阵或重新定义Design
 
@@ -16,10 +16,17 @@ Owner：SOMA Java 一致性审查
 
 ## 1. 未闭合差距
 
-当前没有已知且未裁决的 Blueprint/Design/Code/Evidence 差距。Release readiness
-已经由同SHA Full、package/reproducibility、security/provenance、support matrix与
-条件式Owner sign-off闭合；精确candidate和run由retained qualification artifact
-记录。
+当前没有未裁决的Blueprint/Design/Code差距。冻结前审计发现的DataFlow integral
+overflow policy已由Product Owner选择fail-closed checked arithmetic，并已固化到
+Transformation Design、raw/closed expression、scalar/parallel reduction、
+prefix、Group、Window、Expanded、public Javadoc、consumer Guide与canonical
+contract；transformation/kernel protocol已分别升级为v5/v6。
+
+上一精确candidate的同SHA Full、package/reproducibility、security/provenance与
+support-matrix artifact仍可追溯，但不能外推到当前successor candidate。当前剩余
+的是Evidence closure：必须以新的clean immutable SHA完成Full、受影响G5、
+independent consumer、package/security、support matrix和remote qualification，
+条件式G6 sign-off才生效。
 
 已关闭差距由Git和当时Report保存，不在current Conformance维护历史清单。新的真实
 差距必须重新登记，不能用placeholder、旧vendor、working-tree hash、smoke或

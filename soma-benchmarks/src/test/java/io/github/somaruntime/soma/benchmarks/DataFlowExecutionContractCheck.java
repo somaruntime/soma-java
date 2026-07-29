@@ -21,6 +21,7 @@ import io.github.somaruntime.soma.dataflow.LongScalarResult;
 import io.github.somaruntime.soma.dataflow.OptionalDoubleResult;
 import io.github.somaruntime.soma.dataflow.OptionalLongResult;
 import io.github.somaruntime.soma.dataflow.StatsMode;
+import io.github.somaruntime.soma.runtime.SomaErrorCategory;
 import io.github.somaruntime.soma.runtime.SomaRuntimeException;
 import io.github.somaruntime.soma.runtime.UpdateResult;
 
@@ -258,7 +259,11 @@ public final class DataFlowExecutionContractCheck {
                     parallel);
             throw new AssertionError("parallel worker failure expected");
         } catch (SomaRuntimeException expected) {
-            require("dataflow_unexpected_failure".equals(expected.code()),
+            require(expected.category() == SomaErrorCategory.INVALID_INPUT
+                            && "dataflow_integral_division_by_zero".equals(
+                            expected.code())
+                            && "dataflow.expression.divide".equals(
+                            expected.operation()),
                     "parallel worker failure typing");
         }
         require(execute(
