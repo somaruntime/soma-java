@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "grassing-simulation-default-corretto8-macos-aarch64-v5",
+  "baselineId": "grassing-simulation-default-corretto8-macos-aarch64-v6",
   "layer": "reference-application",
   "subject": "grassing-individual-simulation",
   "artifactVersion": "grassing-simulation-benchmark-v3",
   "calibration": {
-    "commit": "a24bb4d48eec430d6188cb0588b28300a407da6d",
-    "date": "2026-07-29",
+    "commit": "b189d1130055c51602162fb761ddd727d3d91718",
+    "date": "2026-07-30",
     "forks": 5,
-    "formula": "trigger=transformation-v5-kernel-v6-canonical-identity; replay=clean-immutable-candidate-five-forks; thresholds=unchanged; deterministic-business-checksums=unchanged; only-canonical-plan-identity=updated"
+    "formula": "trigger=generated-update-scratch-geometric-retention; replay=clean-immutable-candidate-five-forks; allocation=ceil-p50-times-1.25; timing=ceil-max-p50-times-1.50-p90-times-1.25; gc=calibrated-envelope; deterministic-business-checksums=unchanged; deterministic-update-scratch-high-water=updated"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -102,7 +102,7 @@
       "field": "allocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 14494170
+      "reference": 7405220
     },
     {
       "id": "timing.integrated-run",
@@ -110,7 +110,7 @@
       "field": "tickNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 225824688
+      "reference": 225127374
     },
     {
       "id": "gc.young-count",
@@ -158,7 +158,7 @@
       "field": "updateScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 34392
+      "reference": 36024
     },
     {
       "id": "high-water.operation-scratch",

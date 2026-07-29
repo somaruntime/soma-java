@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "grassing-simulation-large-corretto8-macos-aarch64-v4",
+  "baselineId": "grassing-simulation-long-run-corretto8-macos-aarch64-v5",
   "layer": "reference-application",
   "subject": "grassing-individual-simulation",
   "artifactVersion": "grassing-simulation-benchmark-v3",
   "calibration": {
-    "commit": "a24bb4d48eec430d6188cb0588b28300a407da6d",
-    "date": "2026-07-29",
+    "commit": "b189d1130055c51602162fb761ddd727d3d91718",
+    "date": "2026-07-30",
     "forks": 5,
-    "formula": "trigger=transformation-v5-kernel-v6-canonical-identity; replay=clean-immutable-candidate-five-forks; thresholds=unchanged; deterministic-business-checksums=unchanged; only-canonical-plan-identity=updated"
+    "formula": "trigger=generated-update-scratch-geometric-retention; replay=clean-immutable-candidate-five-forks; allocation=ceil-p50-times-1.25; timing=prior-stricter-envelope-retained; gc=calibrated-envelope; deterministic-business-checksums=unchanged; deterministic-update-scratch-high-water=updated"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -28,19 +28,19 @@
   "minimumForks": 3,
   "identity": {
     "schemaVersion": "soma-reference-application-benchmark-v1",
-    "profile": "large",
-    "inputChecksum": "032896d9f993e3bffec20fe38288f6963875f0bb15d946a526f9afc968ad3369",
-    "resultChecksum": "4235f222e4eec85d238928e6c91c2c5426c935ae8b59542a484378980ad97fb5",
+    "profile": "long-run",
+    "inputChecksum": "4bf40acea10fb86d2d51ab9b0cb0954b1d8772e81d0c6480ca379f23e4ff2cb3",
+    "resultChecksum": "bed7d5edba6e642bdfbc1a49929966e642474b8ef2e9bbabb5ecb842f46cb34a",
     "schemaHash": "575172bfe1addda70cbab383ccf57ce95a56e59c5917726a8c46a4b7b5fc85e4",
-    "runtimePlanHash": "0e0bef251ad0a04325a7828a9750367a3340549360dc6e90baf497abf6d848d0",
-    "worldWidth": 1280,
-    "worldHeight": 720,
-    "worldCells": 921600,
-    "ticks": 1000,
-    "initialPopulation": 100000,
+    "runtimePlanHash": "248dbba67abb3360be81b7601f1683371bd941e01e9f3c0605eaf142fbf0ebe0",
+    "worldWidth": 400,
+    "worldHeight": 225,
+    "worldCells": 90000,
+    "ticks": 10000,
+    "initialPopulation": 10000,
     "warmup": 1,
     "measurements": 1,
-    "tickExecutions": 1000
+    "tickExecutions": 10000
   },
   "recordShapes": [
     {
@@ -102,7 +102,7 @@
       "field": "allocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 533070360
+      "reference": 34417510
     },
     {
       "id": "timing.integrated-run",
@@ -110,7 +110,7 @@
       "field": "tickNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 8986689750
+      "reference": 5452954251
     },
     {
       "id": "gc.young-count",
@@ -118,7 +118,7 @@
       "field": "youngGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 16
+      "reference": 2
     },
     {
       "id": "gc.young-pause",
@@ -126,7 +126,7 @@
       "field": "youngGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 14
+      "reference": 2
     },
     {
       "id": "gc.full-count",
@@ -134,7 +134,7 @@
       "field": "fullGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 2
+      "reference": 0
     },
     {
       "id": "gc.full-pause",
@@ -142,7 +142,7 @@
       "field": "fullGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 39
+      "reference": 0
     },
     {
       "id": "high-water.exact-index",
@@ -150,7 +150,7 @@
       "field": "exactIndexHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 9152156
+      "reference": 693389
     },
     {
       "id": "high-water.update-scratch",
@@ -158,7 +158,7 @@
       "field": "updateScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 3799632
+      "reference": 360024
     },
     {
       "id": "high-water.operation-scratch",
@@ -166,7 +166,7 @@
       "field": "operationScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 1659040
+      "reference": 121364
     },
     {
       "id": "population.maximum",
@@ -174,7 +174,7 @@
       "field": "maximumPopulation",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 158318
+      "reference": 13837
     },
     {
       "id": "population.growth-count",
@@ -182,7 +182,7 @@
       "field": "populationGrowthCount",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 2
+      "reference": 1
     }
   ],
   "claimAllowed": false

@@ -58,6 +58,24 @@ Iterator/lazy pull、generic object storage或临时API，因此本轮无需装�
 改写。最终`1.0.0` clean candidate已由本轮唯一canonical Full重新生成、编译并
 运行三个reference applications；该结论不从旧candidate自动继承。
 
+## 从三个应用归纳的性能用法
+
+- SOMA Table保存authoritative runtime state；跨轮次候选、优先队列和resource
+  calendar等可重建算法状态使用application-owned primitive结构，不把它们伪装成
+  通用Table事实。
+- ColumnView适合在一个明确lifecycle内连续读取，但调用者仍应在machine group、
+  resource group等自然边界提升不变读取；不要在每个candidate上重复读取同一row
+  的version、family或availability。
+- 动态cardinality update应复用generated primitive scratch，并同时规划
+  `maximumUpdateScratchBytes`和预期high-water。评估时必须把retained scratch与
+  transient allocation分开；为省少量留存而逐步精确扩容通常会放大数组复制和GC。
+- DataFlow的Definition、Template、Context按生命周期复用；遇到stable sort、
+  ordered merge等语义barrier时先测量barrier占比和worker状态，不能只因为存在
+  parallel入口就假定整个调用可并行加速。
+- 优化证据至少保持相同input/result/schema/runtime-plan identity，并同时观察
+  CPU、allocation、GC和SOMA high-water。单次更快但checksum、failure或lifecycle
+  变化不构成优化。
+
 ## Canonical Gate
 
 ```sh

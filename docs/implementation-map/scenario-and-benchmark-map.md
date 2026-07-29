@@ -106,9 +106,9 @@ application profile baseline：
 - scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-corretto8-macos-aarch64-v7.json)、
   [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-corretto8-macos-aarch64-v6.json)、
   [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v6.json)；
-- simulation [`default`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-default-corretto8-macos-aarch64-v5.json)、
-  [`large`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-large-corretto8-macos-aarch64-v4.json)、
-  [`long-run`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v4.json)；
+- simulation [`default`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-default-corretto8-macos-aarch64-v6.json)、
+  [`large`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-large-corretto8-macos-aarch64-v5.json)、
+  [`long-run`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v5.json)；
 - RTD [`default`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-default-corretto8-macos-aarch64-v4.json)、
   [`large`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-large-corretto8-macos-aarch64-v4.json)、
   [`long-run`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v5.json)。

@@ -10,7 +10,7 @@ Owner：grassing-individual-simulation
 
 事实范围：config、Scenario/Simulator lifecycle、source-set、AoS oracle、long-run和performance evidence
 
-最后审查日期：2026-07-28
+最后审查日期：2026-07-30
 
 ## 配置责任
 
@@ -91,24 +91,23 @@ bootstrap 和 tick-0 trace；measurement 只覆盖 tick systems。
 - initial/maximum population 与 population table growth count；
 - `claimAllowed=false`。
 
-Application-owned baseline位于test resources，当前版本为default v4、large v3、
-long-run v3。Amazon Corretto 8成为唯一JDK authority后，三个profile均在同一
-Corretto 8本机以5-fork candidate重新校准；旧Zulu baseline只由Git保存其历史
-evidence含义：
+Application-owned baseline位于test resources，当前版本为default v6、large v5、
+long-run v5。generated update scratch切换为受plan limit约束的几何留存后，三个
+profile在同一Amazon Corretto 8本机以clean immutable
+`b189d1130055c51602162fb761ddd727d3d91718`各完成5-fork重校；旧版本只由Git保存：
 
 | Profile | RuntimePlan | time limit | allocated limit | Young/Full GC envelope |
 |---|---|---:|---:|---|
-| default | `6005f0…` | `225,824,688 ns` | `14,494,170 B` | `0/0 ms；0/0 ms` |
-| large | `01703a…` | `8,986,689,750 ns` | `533,070,360 B` | `16/14 ms；2/39 ms` |
-| long-run | `9c21c5…` | `5,452,954,251 ns` | `59,967,160 B` | `0/0 ms；0/0 ms` |
+| default | `85bda3…` | `225,127,374 ns` | `7,405,220 B` | `0/0 ms；0/0 ms` |
+| large | `0e0bef…` | `8,986,689,750 ns` | `76,431,180 B` | `2/3 ms；0/0 ms` |
+| long-run | `248dbb…` | `5,452,954,251 ns` | `34,417,510 B` | `2/2 ms；0/0 ms` |
 
-校准commit为`092617b67247cbaed354857daed9d6e1457b876e`，每个baseline
-登记自己的candidate content checksum。
-Allocation按应用级`median + 25%`治理，不再混用maximum；timing、deterministic
-high-water与GC规则与正式Benchmark治理一致。Schema、config/input/result、
-population/growth和AoS oracle identity保持。旧baseline的Schema/RuntimePlan
-identity已落后于当前生成物；旧Zulu与新Corretto对同一当前source生成结果一致，
-因此这是evidence漂移修正，不是JDK不确定性。
+Allocation继续按应用级`ceil(p50 × 1.25)`治理。Default timing按既定公式收紧；
+large与long-run的旧timing envelope比本轮公式结果更严格且五个新fork全部通过，
+因此保持原上限，不因校准噪声放宽。GC按新五fork最大值形成envelope；exact、
+operation scratch、population、growth和全部业务checksum保持全等。
+update scratch high-water因用有界留存换取更少的反复复制而分别更新为
+`36,024 B`、`5,400,048 B`和`360,024 B`。
 Default、large、long-run分别由Fast、Scale、Soak承担，Full组合全部九个workload。
 
 Comparator 在 exact environment/workload 下判断 `passed/failed`，环境不同时为
