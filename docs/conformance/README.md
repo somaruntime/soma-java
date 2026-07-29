@@ -10,12 +10,12 @@ Owner：SOMA Java 一致性审查
 
 非事实范围：重新定义设计、直接修改实现或扩大任务授权
 
-实现核对基线：V1 candidate preparation commit
-`542cbd2fd90d555f533ba9b70b0204adb3896fe2`
+实现核对基线：包含本文件的 V1 `1.0.0` private-source sign-off commit；
+精确commit由Git与同SHA qualification artifact记录
 
 最后审查日期：2026-07-29
 
-- [当前一致性基线](current-conformance.md)：按主要能力给出一致、受限证据或blocked判断；
-- [已知差距与处置](known-gaps.md)：只记录当前仍开放的candidate/release/AI consumer evidence差距；历史关闭项由Git保存。
+- [当前一致性基线](current-conformance.md)：按主要能力给出一致、受限证据或Gate判断；
+- [已知差距与处置](known-gaps.md)：记录当前open-gap zero state与仍受限但不构成差距的目标；历史关闭项由Git保存。
 
 Conformance 结论本身不授权修改代码、测试或正式 Design。新的差距必须交由相应 Owner 裁决；没有差距时不创建空的专题报告。

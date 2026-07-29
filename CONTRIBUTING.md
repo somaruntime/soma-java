@@ -1,13 +1,13 @@
 # Contributing to soma_java
 
-感谢关注 SOMA Java。项目目前处于 V1 private-source
-implementation/release-readiness 阶段，尚未公开发布；设计事实已经形成正式
+感谢关注 SOMA Java。项目当前已完成 V1 selected private-source readiness
+签署，但尚未公开发布；设计事实已经形成正式
 Owner 体系，copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA，
 GitHub Organization 为 `somaruntime`。当前只选择 private GitHub source
 repository，不声明 public repository、Maven Central 或 production readiness。
 当前 V1 坐标为 `1.0.0`；最终 Gate 状态只从
-[Reports](reports/README.md)读取，selected private-source G6 不得用本机或历史
-vendor evidence替代同一候选的release qualification。
+[Reports](reports/README.md)读取，selected private-source G6只由同一候选的
+release qualification与support matrix证明。
 外部贡献在开始前仍应先与 repository owner 协调，不能假设提交即自动获得合并或
 公开发布许可。
 

@@ -70,11 +70,8 @@ artifact 和 validator 拥有，并由[可执行契约地图](implementation-map
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前 active Temporary topic：
-
-- [SOMA V1 Release 治理交接](temp/soma-v1-release-transition-handoff/README.md)：
-  保留本轮逻辑语义与执行引擎治理的目标、稳定认知与工程方法、成果、关键线程
-  裁决、审计尾项和下一轮 V1 release 治理入口；稳定事实统一收口后删除。
+当前没有 active Temporary topic。本轮 V1 release transition 的稳定事实已经进入
+正式 Owner，过程材料由 Git 历史保存，不在 current checkout 保留归档副本。
 
 已完成专题的稳定事实进入对应正式Owner，Temporary在closeout后删除且不归档。
 

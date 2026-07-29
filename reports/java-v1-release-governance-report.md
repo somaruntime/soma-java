@@ -2,7 +2,7 @@
 
 类型：Report / Release Governance
 
-状态：`1.0.0` G0–G5 passed；selected private-source G6 blocked
+状态：`1.0.0` G0–G6 passed for selected private-source
 
 Owner：SOMA Java V1 release governance
 
@@ -11,24 +11,22 @@ Owner：SOMA Java V1 release governance
 适用版本：`1.0.0`
 
 输入事实源：正式 Blueprint/Design/Engineering、当前 POM/source/generated
-surface、Conformance、Gate scripts、private SCM/CI 与 release evidence
+surface、Conformance、Gate scripts、private SCM/CI与retained release evidence
 
 事实范围：当前候选身份、G0–G6、上轮尾项、AI consumer Skill、scope
-non-regression 与 selected profile claim
+non-regression与selected profile claim
 
-非事实范围：tag/release授权、public GitHub、Maven Central、production SLA 或
+非事实范围：tag/release授权、public GitHub、Maven Central、production SLA或
 未列环境支持
 
 最后审查日期：2026-07-29
 
 ## 1. 治理目标与 release identity
 
-本轮目标是把完整 SOMA Java 产品推进到 V1 `1.0.0` 的 selected
-`private-github-source` release sign-off，不把 release 解释为 public repository、
-Maven Central 或 production readiness，也不通过缩小 Blueprint/Design/Gate
+本轮已把完整SOMA Java产品推进到V1 `1.0.0`的selected
+`private-github-source` sign-off，没有把release解释为public repository、
+Maven Central或production readiness，也没有通过缩小Blueprint、Design或Gate
 关闭差距。
-
-当前身份：
 
 | 事实 | 当前值 |
 |---|---|
@@ -41,111 +39,97 @@ Maven Central 或 production readiness，也不通过缩小 Blueprint/Design/Gat
 | selected profile | private GitHub source |
 | not-selected | public GitHub、Maven/binary publishing |
 
-Push、tag、GitHub Release、visibility 与 publishing 仍是外部授权边界。POM 中的
-`v1.0.0` 是 release identity，不证明 tag 已存在。
+Tag、GitHub Release、visibility与publishing仍是外部授权边界。POM中的`v1.0.0`
+只定义planned release identity，不证明tag已存在。
 
-## 2. 当前候选与 Gate
+## 2. 候选与 Gate
 
-当前clean candidate已完成`1.0.0`坐标、release evidence workflow、
-runtime-scale source closure、Skill与文档治理变更。DataFlow固定3-fork已在
-clean commit `733db714…`通过；runtime-scale 8条required lane已在clean commit
-`bd25e119…`及精确executable source tree `5669bf68ddf5…`通过。其后只更新正式
-Report/Conformance，不改变production Java、public/generated surface或该
-qualification source closure。随后clean commit `fa934c24996f37367843e2e2a1ac06cb97c7affd`
-的唯一canonical Full通过；当前`ac433ff9bb57880e5e5964cb26b630ded39db800`
-只修复其后发现的G6 NOTICE checksum drift，并由直接hash检查与完整security Gate
-覆盖。
+DataFlow固定3-fork在clean commit `733db714…`通过；runtime-scale 8条required
+lane在clean commit `bd25e119…`和精确source tree `5669bf68ddf5…`通过。
+canonical local Full、local package/security以及最终signed-off commit的Ubuntu
+CI与manual qualification共同形成当前evidence closure。最终动态身份由
+qualification bundle中的`candidate.properties`和package/security provenance
+唯一拥有。
 
-| Gate | 当前状态 | 关闭条件 |
+| Gate | 状态 | 直接依据与边界 |
 |---|---|---|
-| G0 | passed | Java-only scope、正式 Owner、claim boundary 与核心抽象叙事规则稳定 |
-| G1–G4 | passed | clean-candidate canonical Full通过；后续G6 checker单行修复不改变其输入 |
+| G0 | passed | Java-only scope、正式Owner、claim boundary与核心抽象叙事规则稳定 |
+| G1–G4 | passed | clean-candidate canonical Full与最终同SHA Ubuntu Full通过 |
 | G5 | passed | differential、component、三个application、DataFlow 3-fork与8-lane required qualification通过 |
-| G6 | blocked | macOS本地package/security通过；等待Ubuntu同SHA qualification、AI第二宿主、support matrix与Owner sign-off |
+| G6 | passed | 同SHA package/reproducibility、security/provenance、sealed evidence、support matrix与条件式Owner sign-off闭合 |
 
-旧 Corretto/macOS component/application/runtime-scale 和旧 Corretto/Linux Full
-只能解释各自历史 candidate。它们可用于定位回归，不能自动关闭新的 `1.0.0`
-candidate。
+旧vendor、旧candidate或单机结果只解释其原环境，不替代当前evidence。
 
 ## 3. 上轮尾项闭环
 
-| 尾项 | 当前处置 |
+| 尾项 | 最终处置 |
 |---|---|
-| canonical Full | closed：clean commit `fa934c2…`唯一Full以exit 0完成，profile=`full`、jobs=4、duration=144s；后续仅G6 checker直接修复 |
-| exact qualification provenance | closed：`runtime-scale-qualification-bd25e1194931-5669bf68ddf5`绑定clean commit、唯一source manifest与8条required record |
-| source identity 边界 | 由唯一 manifest 精确包含 production/build/runner closure，排除 tests、Examples、无关 benchmark/baseline，并纳入两个实际 shell library |
-| DataFlow baseline provenance | closed：clean commit `733db714…`固定3-fork通过，workload/threshold不变；checker拒绝working-tree、dirty或relaxed calibration |
-| 抽象叙事闭环 | Design Index 已制度化 Why/Owns/Not/Relationships/Lowering/Lifecycle/Resource/Failure/Evidence/Evolution |
-| release evidence 留存 | package/security 接受独立 evidence root；manual workflow 校验同一 SHA/version、封存 checksums，并用 SHA-pinned upload action 保留 |
-| NOTICE drift | closed：追溯`6bd260c`的ArthurFeng品牌边界后同步security checksum；未修改NOTICE或降低fail-closed强度 |
+| canonical Full | closed：clean candidate的唯一canonical Full exit 0；最终Ubuntu同SHA Full再次通过 |
+| exact qualification provenance | closed：runtime-scale绑定clean commit、唯一source manifest与8条required record |
+| source identity 边界 | closed：manifest精确包含production/build/runner closure，排除tests、Examples与无关baseline，并纳入实际shell library |
+| DataFlow baseline provenance | closed：clean commit固定3-fork，workload/threshold不变；checker拒绝working-tree、dirty或relaxed calibration |
+| 抽象叙事闭环 | closed：Design Index制度化Why/Owns/Not/Relationships/Lowering/Lifecycle/Resource/Failure/Evidence/Evolution |
+| release evidence 留存 | closed：同SHA identity、package/security、checksums与90天artifact由manual workflow保留 |
+| NOTICE drift | closed：品牌边界与security checksum一致，未降低fail-closed强度 |
+| AI consumer Skill | closed with waiver：canonical Skill、结构/drift、Codex positive consumer通过；剩余behavior/multi-host evidence由Owner对V1 waive |
+| Temporary | closed：稳定事实进入正式Owner，专题目录删除且不归档 |
 
-本地G6 evidence已在clean commit `ac433ff9bb57880e5e5964cb26b630ded39db800`
-形成：
+Runtime-scale required qualification只运行Small、Medium、单1M、双1M、String、
+Expansion、Delivery与Soak；10M/100M research不进入V1 blocker，也没有被删除。
 
-- package：17件parent/module POM、binary/source/javadoc artifact，classfile major
-  52，License/NOTICE精确，两个隔离build byte-for-byte一致；
-- release checksums清单SHA-256：
-  `a726b5059a3dc8fba0396fd67b3eff5f1c54db54975511a75dd1a1a780772d1d`；
-- security：OSV-Scanner 2.3.8 binary
-  `a8cd6507b06239f463a7642430cfd2d154882f150f6e30cdc0653e28dfc34216`，
-  SBOM `d85be0fbddb5f9978dd50b2688b1e8b9694ee88db416bb04473a3f3166f3b8ca`；
-- known vulnerability、declared-license violation与production runtime第三方依赖
-  均为0；结果只代表执行时OSV.dev已知事实，不是public security certification。
+## 4. G6 package、security 与 provenance
 
-Runtime-scale required qualification仍只运行 Small、Medium、单1M、双1M、String、
-Expansion、Delivery 与 Soak；10M/100M research 不进入本轮 release blocker，也不
-因本轮治理被删除。
+同一signed-off commit的manual workflow验证：
 
-## 4. AI consumer Skill
+- 17件parent/module POM、binary/source/javadoc artifact；
+- Java classfile major 52、License/NOTICE精确；
+- 两个隔离build byte-for-byte一致；
+- SBOM、OSV known-vulnerability与declared-license诊断；
+- production runtime第三方依赖为0；
+- package/security summary的commit、`dirty=false`和`artifactVersion=1.0.0`
+  与candidate一致；
+- 完整bundle生成`evidence-checksums.sha256`并保留90天。
 
-唯一 canonical Skill 为
-`.agents/skills/use-soma-java/`，只拥有 AI consumer workflow。Blueprint/Design
-继续拥有长期语义，POM/generated source/class/golden/external consumer继续拥有
-精确 surface。
+OSV结果只代表执行时已发布的已知advisory，不是public security certification。
+Unsigned artifact符合当前private-source profile；Maven/publishing/signing未选择。
 
-当前已形成：
+## 5. AI consumer Skill
 
-- 最小跨工具 frontmatter、四份按需 reference 和非语义 UI metadata；
-- positive/negative trigger、禁止猜 API、禁止 object graph/stable Index/
-  cross-table transaction/Iterator-lazy/Stream-reflection hot path 的边界；
-- README 安全安装提示词，以及 Consumer Guide 的 project scope、固定来源、升级
-  和卸载说明；
-- instruction-only，无 `scripts/`、无 `allowed-tools`、无全局静默安装；
-- `skill-creator` `quick_validate.py` 与 repository link/drift Gate 已通过。
-- Codex在未显式点名Skill的positive consumer任务中完成发现与触发，生成并运行
-  Java 8 keyed inventory consumer；父任务独立重验offline compile/run、runtime
-  dependency tree和classfile major 52；
-- 当前Codex沙箱阻止目标项目自动创建`.agents`目录，按安全提示人工复制后六个
-  canonical文件blob hash一致；不把该限制伪装为自动安装通过。
+唯一canonical Skill为`.agents/skills/use-soma-java/`，只拥有AI consumer
+workflow。Blueprint/Design继续拥有长期语义，POM/generated source/class/golden/
+external consumer继续拥有精确surface。
 
-Negative/anti-pattern behavior与第二独立宿主的真实发现/触发/行为验证仍未完成；
-因此当前不声明multi-tool support，也不能关闭V1 Skill DoD。
+已形成最小portable frontmatter、四份按需reference、安全project-scoped安装提示、
+手动fallback、无scripts/allowed-tools的instruction-only bundle、结构/drift Gate
+以及Codex positive real-consumer compile/run evidence。
 
-## 5. Scope non-regression 与 surface delta
+Product Owner于2026-07-29明确决定V1暂不把canonical Skill和测试prompt提交给
+第二独立AI宿主，也不执行剩余negative/anti-pattern宿主行为验证。该项状态为
+`waived for V1`，不是伪造passed；影响是不得声明multi-tool support。未来选择新的
+AI工具support profile时必须重新完成发现、安装、触发和行为验证。
 
-当前候选不修改 production Java、public/generated fixture 或 protocol identity。
-变更类型为 release identity、consumer tooling、evidence boundary 和
-contract-preserving governance refinement：
+## 6. Scope non-regression 与 surface delta
+
+本轮没有修改production Java、public/generated fixture或protocol identity：
 
 - production/public Java type delta：0；
 - module delta：0；production artifact仍为四个；
 - runtime dependency delta：0；
-- tests/fixtures：只同步 SOMA consumer version；
-- benchmark：不改 workload/threshold，只修 qualification source identity；
-- scripts/workflow：版本 Owner、evidence retention 与 clean-candidate admission；
-- docs/report：V1 identity、AI consumer入口、抽象叙事和当前 evidence 诚实性。
+- tests/fixtures只同步SOMA consumer version；
+- benchmark不改workload/threshold，只修qualification identity；
+- scripts/workflow只收口version Owner、evidence retention和clean-candidate admission；
+- docs/report只固化V1 identity、AI consumer入口、抽象叙事和current evidence。
 
 没有temporary public/generated API、parallel Design Owner、test-only bypass、
-canonical hot-path migration或新的第三方production dependency。RC surface审计
-确认production/public Java delta、module delta、runtime dependency delta、
-migration artifact、tool-specific semantic copy与未裁决产品`UNKNOWN`均为零；
-唯一active Temporary将在最终稳定事实固化后删除。
+canonical hot-path migration、新第三方production dependency、migration artifact、
+未退役Temporary或未裁决产品`UNKNOWN`。
 
-## 6. 下一证据
+## 7. 最终授权边界
 
-1. 完成AI Skill negative/anti-pattern与第二独立宿主行为验证；
-2. 获得push/workflow授权，在最终candidate运行Ubuntu private-source
-   qualification并保留90天sealed bundle；
-3. 完成support matrix与release Owner sign-off；
-4. 原子校准最终Owner并删除Temporary。未经另行授权不push、不创建tag、
-   GitHub Release或发布artifact。
+Product Owner于2026-07-29给出条件式G6 sign-off：本报告所在最终commit只有在
+private CI、manual qualification和下载bundle checksum全部成功后才生效为
+`passed`。Push与workflow运行已获授权。
+
+Tag、GitHub Release、repository visibility、signing、publishing和公开发布仍未
+授权；本轮不执行这些动作。Private-source G6 passed也不构成production SLA、
+public availability或真实业务项目适配结论。

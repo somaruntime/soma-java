@@ -6,9 +6,9 @@
 
 Owner：SOMA Java 一致性审查
 
-实现核对基线：`1.0.0` clean release candidate
+实现核对基线：包含本文件的`1.0.0` private-source sign-off commit
 
-事实范围：当前仍开放的Blueprint/Design/Code/Evidence差距与Owner处置
+事实范围：当前open-gap zero state、受限目标与Owner处置
 
 非事实范围：历史已关闭差距、自动授权release、扩大支持矩阵或重新定义Design
 
@@ -16,13 +16,14 @@ Owner：SOMA Java 一致性审查
 
 ## 1. 未闭合差距
 
-| ID | 分类 | 当前差距 | 影响与Owner处置 |
-|---|---|---|---|
-| `CF-006` | Release readiness | macOS Full/qualification与本地package/security已通过，但selected `private-github-source`尚缺Ubuntu同SHA qualification、最终matrix和Owner sign-off | G6保持`blocked`；获得外部授权后push并运行manual workflow，只在同一candidate完整evidence后sign-off |
-| `CF-020` | AI consumer evidence | canonical Skill、README/Guide与结构/drift Gate已形成；Codex blind positive与真实consumer compile/run通过，但negative/anti-pattern和第二独立宿主验证未完成 | 不声明multi-tool support；完成负向行为与第二宿主的发现/触发/行为验证 |
+当前没有已知且未裁决的 Blueprint/Design/Code/Evidence 差距。Release readiness
+已经由同SHA Full、package/reproducibility、security/provenance、support matrix与
+条件式Owner sign-off闭合；精确candidate和run由retained qualification artifact
+记录。
 
-已关闭差距由Git和当时Report保存，不在current Conformance维护历史清单。上述两项
-不得用placeholder、旧vendor、working-tree hash、smoke或单一宿主的文本输出替代。
+已关闭差距由Git和当时Report保存，不在current Conformance维护历史清单。新的真实
+差距必须重新登记，不能用placeholder、旧vendor、working-tree hash、smoke或
+单一环境文本输出替代。
 
 ## 2. 受限目标，不是差距
 
@@ -38,6 +39,9 @@ Owner：SOMA Java 一致性审查
   persistence或distributed runtime；
 - public GitHub与Maven Central保持`not-selected`；Codex Cloud development不是
   当前release目标。
+- AI Skill的negative/anti-pattern与第二独立宿主行为验证已由Product Owner对V1
+  明确waive；这不构成当前release gap，但禁止声明multi-tool support，未来扩大
+  support前必须重新获得真实宿主证据。
 
 ## 3. 防回归入口
 

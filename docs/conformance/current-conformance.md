@@ -19,6 +19,7 @@ Owner：SOMA Java 一致性审查
 - **一致且 evidenced**：代码、生成物、测试和当前JDK authority下的适用Gate一致；
 - **一致但 evidence 有限**：未发现设计偏差，但测量只在记录环境/profile成立；
 - **blocked**：目标仍保留，但当前authority/环境缺少必需evidence；
+- **waived**：Owner明确接受未取证项及其影响，且相关support claim保持关闭；
 - 历史`passed`不自动外推到新JDK authority或新candidate。
 
 ## 2. 能力矩阵
@@ -40,9 +41,10 @@ Owner：SOMA Java 一致性审查
 | reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness与Corretto下九个profile baseline通过；相关root由显式SomaGroup拥有 |
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
 | G0 | passed | Java-only scope、Owner、claim boundary与抽象叙事闭环稳定 |
-| G1–G4 | passed | clean commit `fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full通过；后续只修复并直接验证G6 NOTICE checker |
+| G1–G4 | passed | clean commit `fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full通过；后续只改变G6 checker/workflow与文档，并由最终同SHA Full重放 |
 | G5 | passed | Full中的differential、component、三个application及clean-commit DataFlow 3-fork与8-lane required qualification全部通过 |
-| G6 selected private-source | blocked | 本地clean package/security已通过；仍需Ubuntu同SHA qualification、AI第二宿主、最终matrix与Owner sign-off |
+| G6 selected private-source | passed | 同SHA Ubuntu Full、package/reproducibility、security/provenance、90天sealed bundle与support matrix闭合；Product Owner条件式sign-off在最终workflow success后生效 |
+| AI multi-tool behavior evidence | waived for V1 | Codex positive consumer已真实compile/run；negative/anti-pattern与第二宿主验证由Product Owner明确waive，不声明multi-tool support |
 | Codex Cloud development | not release-scoped | 当前用户目标不要求Cloud qualification；它不进入支持矩阵，也不替代private-source G6 |
 
 ## 3. 当前结论
@@ -58,9 +60,9 @@ compiler/runtime/component/application及Ubuntu x64 build/contract仍可定位�
 但正式Gate必须绑定新的clean immutable candidate。当前macOS runtime-scale已绑定
 clean commit与精确source tree；Zulu evidence只属于历史。
 
-当前`1.0.0`候选G0–G5已通过。该结论仍不能把本机evidence外推为Linux性能/
-规模、production、public release或Maven Central；selected private-source G6
-继续受Ubuntu同SHA evidence、AI第二宿主与Owner sign-off约束。
+当前`1.0.0`候选G0–G6已按selected private-source profile通过。该结论仍不能把
+本机evidence外推为Linux性能/规模、production、public release或Maven Central；
+AI behavior waiver也不能外推为multi-tool support。
 
 ## 4. Evidence 入口
 

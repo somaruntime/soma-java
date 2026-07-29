@@ -126,8 +126,8 @@ DataFlow v4在clean commit
 `733db714f0b5f1edc41ada0ddf86352187b989bd`完成固定3-fork重放；workload与
 threshold未改变，result hash为
 `270704b7e42fb5d7d7160de09df3f4edb02465768982f84455697e46b33e00d5`。
-其后候选只改变baseline provenance checker、文档与G6 NOTICE checksum，不改变
-DataFlow executable source；clean commit
+其后候选只改变baseline provenance checker、release evidence workflow、文档与
+G6 NOTICE checksum，不改变DataFlow executable source；clean commit
 `fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full已再次执行并通过
 相同baseline。
 
@@ -166,7 +166,7 @@ G5，成功也不能升级为任意Schema/String或public SLA。
 - wide schema、composite Key、不同relation multiplicity/skew；
 - 其他String长度/cardinality/sharing/column-role组合；
 - 全局materialization/sort/window、高强度soak或production telemetry；
-- public performance claim、private-source G6或公开发布。
+- public performance claim或公开发布。
 
 ## 7. 重放入口
 

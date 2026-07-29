@@ -1,8 +1,9 @@
 # Changelog
 
 本文件记录 SOMA Java 的用户可见变化。当前条目以 `1.0.0` 为 release candidate
-坐标；在 selected private-source G6 完成且外部 release 操作获得明确授权前，它
-仍保持 `Unreleased`，不构成 tag、GitHub Release 或公开发布声明。
+坐标；selected private-source G6已经签署，但tag、GitHub Release、repository
+visibility与publishing仍未获得授权，因此本条目保持`Unreleased`，不构成公开
+发布声明。
 
 ## [Unreleased] — 1.0.0
 

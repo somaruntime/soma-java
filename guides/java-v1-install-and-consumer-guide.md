@@ -24,11 +24,12 @@ transformer、annotation processor、runtime-core 和 typed DataFlow。当前项
 Zulu和其他JDK distribution均为untested/unsupported。精确Corretto
 version/build、OS 与 architecture 边界仍只能引用 G6 compatibility matrix。
 
-当前`1.0.0` clean candidate的G0–G5与本地package/security已通过；selected
-private-source G6继续等待Ubuntu同SHA qualification、AI第二宿主与matrix
-sign-off。`1.0.0`是当前
-release-shaped source/artifact candidate，尚未因此自动形成tag、public release或
-Maven发布。
+当前`1.0.0` clean candidate的G0–G6已按selected private-source profile签署；
+同SHA Ubuntu Full、package/reproducibility、security/provenance与support matrix
+已闭合。AI Skill的第二宿主及negative/anti-pattern行为验证已由Product Owner
+对V1明确waive，因此不声明multi-tool support。`1.0.0`仍只是当前
+release-shaped source/artifact candidate，尚未因此自动形成tag、public release
+或Maven发布。
 获得private repository访问权的consumer应先在本仓库执行
 `./mvnw -B -ntp install`；不得把它描述为public RC、production-ready、Maven
 Central artifact或已公开发布artifact。

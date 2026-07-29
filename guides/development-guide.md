@@ -12,8 +12,8 @@ Owner：SOMA Java 开发者输出
 
 非事实范围：重新定义 Design、自动授权实现或声明 release readiness
 
-适用版本：`1.0.0`；最后 implementation-affecting baseline
-`542cbd2fd90d555f533ba9b70b0204adb3896fe2`
+适用版本：`1.0.0`；当前核对基线为包含本文件的private-source sign-off
+commit，精确commit由Git与同SHA qualification artifact记录
 
 输入事实源：正式文档体系、当前代码、scripts 和 Gate reports
 

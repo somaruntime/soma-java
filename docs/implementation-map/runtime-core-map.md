@@ -10,8 +10,8 @@ Owner：SOMA runtime-core 实现导航
 
 事实范围：当前 handwritten runtime、generated-runtime protocol、hot path 和核心验证入口
 
-最近实现核对基线：V1 candidate preparation commit
-`542cbd2fd90d555f533ba9b70b0204adb3896fe2`
+最近实现核对基线：包含本文件的 V1 `1.0.0` private-source sign-off commit；
+精确commit由Git与同SHA qualification artifact记录
 
 最后审查日期：2026-07-29
 
