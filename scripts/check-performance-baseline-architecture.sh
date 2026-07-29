@@ -9,16 +9,16 @@ access_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/perfo
 dataflow_component_baseline=soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-corretto8-macos-aarch64-v5.json
 scheduler_baseline_dir=soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark
 simulation_baseline_dir=soma-examples/grassing-individual-simulation/src/test/resources/benchmark
-scheduler_default_baseline=$scheduler_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v6.json
-scheduler_large_baseline=$scheduler_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v5.json
-scheduler_long_run_baseline=$scheduler_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v5.json
-simulation_default_baseline=$simulation_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v4.json
-simulation_large_baseline=$simulation_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v3.json
-simulation_long_run_baseline=$simulation_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v3.json
+scheduler_default_baseline=$scheduler_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v7.json
+scheduler_large_baseline=$scheduler_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v6.json
+scheduler_long_run_baseline=$scheduler_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v6.json
+simulation_default_baseline=$simulation_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v5.json
+simulation_large_baseline=$simulation_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v4.json
+simulation_long_run_baseline=$simulation_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v4.json
 rtd_baseline_dir=soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark
-rtd_default_baseline=$rtd_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v3.json
-rtd_large_baseline=$rtd_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v3.json
-rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v3.json
+rtd_default_baseline=$rtd_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v4.json
+rtd_large_baseline=$rtd_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v4.json
+rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v4.json
 
 for baseline in \
   "$access_component_baseline" \

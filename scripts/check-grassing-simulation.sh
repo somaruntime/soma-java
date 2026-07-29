@@ -13,7 +13,7 @@ profile=${1:-default}
 case "$profile" in
   default)
     heap=256m
-    baseline_version=v4
+    baseline_version=v5
     expected_measurements=3
     expected_width=128
     expected_height=72
@@ -22,7 +22,7 @@ case "$profile" in
     ;;
   large)
     heap=256m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=1
     expected_width=1280
     expected_height=720
@@ -31,7 +31,7 @@ case "$profile" in
     ;;
   long-run)
     heap=256m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=1
     expected_width=400
     expected_height=225

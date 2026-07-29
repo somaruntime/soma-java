@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "rtd-rule-engine-long-run-corretto8-macos-aarch64-v3",
+  "baselineId": "rtd-rule-engine-long-run-corretto8-macos-aarch64-v4",
   "layer": "reference-application",
   "subject": "real-time-dispatch-rule-engine",
   "artifactVersion": "rtd-dispatch-benchmark-v1",
   "calibration": {
-    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "commit": "a24bb4d48eec430d6188cb0588b28300a407da6d",
     "date": "2026-07-29",
     "forks": 5,
-    "formula": "trigger=corretto-jdk-authority-and-stale-identity-correction; candidate-source=content-sha256:f1d0a0aa4fbbf4ca1905e686b477aaf209e29020bb7805a0c66061e5f5eb553b; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
+    "formula": "trigger=transformation-v5-kernel-v6-canonical-identity; replay=clean-immutable-candidate-five-forks-plus-bounded-five-fork-gc-confirmation; thresholds=unchanged; deterministic-business-checksums=unchanged; canonical-plan-definition-template-identity=updated; zero-gc-thresholds=retained"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -35,9 +35,9 @@
     "inputChecksum": "5ef89ad656b820569ac22df20fdaf3dc7d713941b1367ffa5746eca4f06f1cfa",
     "resultChecksum": "883628295871782915c96f74e14c9007a3c5398922d62c742caad19504e1f37b",
     "schemaHash": "ac572b661a323e7a9f29f744e169bbe163f4093cf1032065f548cae614c1ddae",
-    "runtimePlanHash": "78fa2e34ee0c42100308294e9d3f375bf428d2eacc6c72085c37423d62246b67",
-    "definitionIdentity": "b1abfdadbf16148550689244c5280625b1acc293be4116b8931f6f1e22c30295",
-    "templateIdentity": "f5406f0698090ae45ef27c51181104d748f0270bacb2fd594a2bd2d8d35f7f3d",
+    "runtimePlanHash": "f23b6ebe09e88ac7ee6f9b522d0b0f340f82fd916b5d0e9a7a4e272e63717b0d",
+    "definitionIdentity": "0ee7266c783769696c0b0bbe181c7c0d27b21570b3a7376689ab6bd30b8f84fe",
+    "templateIdentity": "674e321a6eb8c0203651f0bb69e6160df32274bc5cae94c5d9db938f0d1dd848",
     "demandChecksum": "bf7ba2f61f142733a3d3295ff4d60fed1483f60198c3c09e9e3082397c39bee4",
     "initialWork": 500,
     "arrivalsPerCycle": 25,

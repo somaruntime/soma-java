@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "rtd-rule-engine-default-corretto8-macos-aarch64-v3",
+  "baselineId": "rtd-rule-engine-default-corretto8-macos-aarch64-v4",
   "layer": "reference-application",
   "subject": "real-time-dispatch-rule-engine",
   "artifactVersion": "rtd-dispatch-benchmark-v1",
   "calibration": {
-    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "commit": "a24bb4d48eec430d6188cb0588b28300a407da6d",
     "date": "2026-07-29",
     "forks": 5,
-    "formula": "trigger=corretto-jdk-authority-and-stale-identity-correction; candidate-source=content-sha256:ca4269c4c16bcb515034e63c9256e7188f554a7d80b19074251880d2ad898a09; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
+    "formula": "trigger=transformation-v5-kernel-v6-canonical-identity; replay=clean-immutable-candidate-five-forks; thresholds=unchanged; deterministic-business-checksums=unchanged; canonical-plan-definition-template-identity=updated"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -35,9 +35,9 @@
     "inputChecksum": "67a8f58f2da410f6a6cec5ff4ce302210db29b18c499030bac982bcb2e9f24f2",
     "resultChecksum": "837f1e23f8906ee4246b21b27be25c3912dc4813f24728bfe0ef6772a48c2a9a",
     "schemaHash": "ac572b661a323e7a9f29f744e169bbe163f4093cf1032065f548cae614c1ddae",
-    "runtimePlanHash": "4eb6f72da3e03a32b44582e8cf484d18a9560c40c6e4a70517e8068adba22aae",
-    "definitionIdentity": "b1abfdadbf16148550689244c5280625b1acc293be4116b8931f6f1e22c30295",
-    "templateIdentity": "f5406f0698090ae45ef27c51181104d748f0270bacb2fd594a2bd2d8d35f7f3d",
+    "runtimePlanHash": "f0edf1f8d99b6bd404a740d144b902cc9d91829b80c9e005ec8c3ad4de525926",
+    "definitionIdentity": "0ee7266c783769696c0b0bbe181c7c0d27b21570b3a7376689ab6bd30b8f84fe",
+    "templateIdentity": "674e321a6eb8c0203651f0bb69e6160df32274bc5cae94c5d9db938f0d1dd848",
     "demandChecksum": "fea5a66728a04aca898379492100bdca0db1b36794f91c5b7f81c721060c3203",
     "initialWork": 256,
     "arrivalsPerCycle": 32,

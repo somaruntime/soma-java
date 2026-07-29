@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "industrial-scheduler-large-corretto8-macos-aarch64-v5",
+  "baselineId": "grassing-simulation-large-corretto8-macos-aarch64-v4",
   "layer": "reference-application",
-  "subject": "industrial-dynamic-scheduler",
-  "artifactVersion": "industrial-scheduler-benchmark-v4",
+  "subject": "grassing-individual-simulation",
+  "artifactVersion": "grassing-simulation-benchmark-v3",
   "calibration": {
-    "commit": "092617b67247cbaed354857daed9d6e1457b876e",
+    "commit": "a24bb4d48eec430d6188cb0588b28300a407da6d",
     "date": "2026-07-29",
     "forks": 5,
-    "formula": "trigger=corretto-jdk-authority-and-stale-identity-correction; candidate-source=content-sha256:0c47b1174c66e289a5df1e64783f76fd2ec182cacbc32d999095266684ff2966; allocation=ceil(p50*1.25); timing=ceil(max(p50*1.50,p90*1.25)), p90=nearest-rank; gc-count=0-if-zero-else-max+1; gc-pause=0-if-zero-else-ceil(max*1.25); deterministic=all-equal"
+    "formula": "trigger=transformation-v5-kernel-v6-canonical-identity; replay=clean-immutable-candidate-five-forks; thresholds=unchanged; deterministic-business-checksums=unchanged; only-canonical-plan-identity=updated"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -16,33 +16,31 @@
     "javaVmName": "OpenJDK 64-Bit Server VM",
     "javaVmVersion": "25.502-b07",
     "jvmArgs": [
-      "-Xms512m",
-      "-Xmx512m"
+      "-Xms256m",
+      "-Xmx256m"
     ],
     "osName": "Mac OS X",
     "osVersion": "26.5.2",
     "architecture": "aarch64",
     "cpu": "Apple M5 Pro",
-    "maxHeapBytes": 514850816
+    "maxHeapBytes": 257425408
   },
   "minimumForks": 3,
   "identity": {
     "schemaVersion": "soma-reference-application-benchmark-v1",
     "profile": "large",
-    "configChecksum": "fda0e3c4a880271b08c534b07f6f7ed113479633592193fb204397f91fcc039e",
-    "generatorVersion": 1,
-    "seed": 1703,
-    "inputChecksum": "f944f3818b1028d80e37eaf352bbfb68db30a6b2ac40262480687613904144b5",
-    "resultChecksum": "ab0d9c3d7e7d4d3b79a520b8016b0676deec2aae5ae6e34ada872d0a2adad32a",
-    "schemaHash": "2c3b913fb28ad87a9c9caae01e805a0f2581048f3e5e4a2660c4084ea97146d5",
-    "runtimePlanHash": "bf1327df73f610f0f4f0bd2a69b9ad4b011aface142068e4da37e63785ac8f71",
-    "jobs": 1000,
-    "operations": 100000,
-    "machines": 100,
-    "candidatesPerOperation": 3,
+    "inputChecksum": "032896d9f993e3bffec20fe38288f6963875f0bb15d946a526f9afc968ad3369",
+    "resultChecksum": "4235f222e4eec85d238928e6c91c2c5426c935ae8b59542a484378980ad97fb5",
+    "schemaHash": "575172bfe1addda70cbab383ccf57ce95a56e59c5917726a8c46a4b7b5fc85e4",
+    "runtimePlanHash": "0e0bef251ad0a04325a7828a9750367a3340549360dc6e90baf497abf6d848d0",
+    "worldWidth": 1280,
+    "worldHeight": 720,
+    "worldCells": 921600,
+    "ticks": 1000,
+    "initialPopulation": 100000,
     "warmup": 1,
     "measurements": 1,
-    "operationExecutions": 100000
+    "tickExecutions": 1000
   },
   "recordShapes": [
     {
@@ -65,30 +63,26 @@
         "cpu",
         "maxHeapBytes",
         "profile",
-        "configChecksum",
-        "generatorVersion",
-        "seed",
         "inputChecksum",
         "resultChecksum",
         "schemaHash",
         "runtimePlanHash",
-        "jobs",
-        "operations",
-        "machines",
-        "candidatesPerOperation",
+        "worldWidth",
+        "worldHeight",
+        "worldCells",
+        "ticks",
+        "initialPopulation",
+        "maximumPopulation",
         "warmup",
         "measurements",
-        "operationExecutions",
-        "preparationNanos",
-        "solveNanos",
-        "endToEndNanos",
-        "minimumSolveNanos",
-        "maximumSolveNanos",
-        "solveNanosPerOperation",
+        "tickExecutions",
+        "setupNanos",
+        "tickNanos",
+        "minimumTickNanos",
+        "maximumTickNanos",
+        "tickNanosPerTick",
         "allocatedBytes",
-        "allocatedBytesPerOperation",
-        "endToEndAllocatedBytes",
-        "endToEndAllocatedBytesPerOperation",
+        "allocatedBytesPerTick",
         "youngGcCount",
         "youngGcPauseMillis",
         "fullGcCount",
@@ -96,43 +90,27 @@
         "exactIndexHighWaterBytes",
         "updateScratchHighWaterBytes",
         "operationScratchHighWaterBytes",
-        "frontierCapacity",
+        "populationGrowthCount",
         "claimAllowed"
       ]
     }
   ],
   "metrics": [
     {
-      "id": "allocation.hot-solve",
+      "id": "allocation.integrated-run",
       "selector": {},
       "field": "allocatedBytes",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 148686770
+      "reference": 533070360
     },
     {
-      "id": "allocation.end-to-end",
+      "id": "timing.integrated-run",
       "selector": {},
-      "field": "endToEndAllocatedBytes",
+      "field": "tickNanos",
       "aggregation": "median",
       "comparison": "at-most",
-      "reference": 303741530
-    },
-    {
-      "id": "timing.hot-solve",
-      "selector": {},
-      "field": "solveNanos",
-      "aggregation": "median",
-      "comparison": "at-most",
-      "reference": 3488431001
-    },
-    {
-      "id": "timing.end-to-end",
-      "selector": {},
-      "field": "endToEndNanos",
-      "aggregation": "median",
-      "comparison": "at-most",
-      "reference": 3549411188
+      "reference": 8986689750
     },
     {
       "id": "gc.young-count",
@@ -140,7 +118,7 @@
       "field": "youngGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 3
+      "reference": 16
     },
     {
       "id": "gc.young-pause",
@@ -148,7 +126,7 @@
       "field": "youngGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 10
+      "reference": 14
     },
     {
       "id": "gc.full-count",
@@ -156,7 +134,7 @@
       "field": "fullGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 2
     },
     {
       "id": "gc.full-pause",
@@ -164,7 +142,7 @@
       "field": "fullGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 39
     },
     {
       "id": "high-water.exact-index",
@@ -172,7 +150,7 @@
       "field": "exactIndexHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 11832761
+      "reference": 9152156
     },
     {
       "id": "high-water.update-scratch",
@@ -180,7 +158,7 @@
       "field": "updateScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 0
+      "reference": 3799632
     },
     {
       "id": "high-water.operation-scratch",
@@ -188,15 +166,23 @@
       "field": "operationScratchHighWaterBytes",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 553012
+      "reference": 1659040
     },
     {
-      "id": "frontier.capacity",
+      "id": "population.maximum",
       "selector": {},
-      "field": "frontierCapacity",
+      "field": "maximumPopulation",
       "aggregation": "all-equal",
       "comparison": "equal",
-      "reference": 3000
+      "reference": 158318
+    },
+    {
+      "id": "population.growth-count",
+      "selector": {},
+      "field": "populationGrowthCount",
+      "aggregation": "all-equal",
+      "comparison": "equal",
+      "reference": 2
     }
   ],
   "claimAllowed": false

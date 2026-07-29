@@ -13,7 +13,7 @@ profile=${1:-default}
 case "$profile" in
   default)
     heap=256m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=3
     expected_initial_work=256
     expected_arrivals=32
@@ -25,7 +25,7 @@ case "$profile" in
     ;;
   large)
     heap=512m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=1
     expected_initial_work=5000
     expected_arrivals=500
@@ -37,7 +37,7 @@ case "$profile" in
     ;;
   long-run)
     heap=512m
-    baseline_version=v3
+    baseline_version=v4
     expected_measurements=1
     expected_initial_work=500
     expected_arrivals=25
