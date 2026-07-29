@@ -31,18 +31,18 @@ Owner：SOMA Java 一致性审查
 | Group/Table ownership | 一致且 evidenced | explicit/implicit Group、stable slots、multi-schema/multi-instance、atomic attach、GroupLedger、分层fault、all-member preflight与reverse release |
 | storage/layout/locator | 一致且 evidenced | `FLAT`、`FLAT_HEAD_SEGMENTED_TAIL`、atomic publication、`FLAT_COMPACT` locator及单/双1M qualification通过；10M/100M只保留research/stress，不影响V1 Gate |
 | Access/Candidate | 一致且 evidenced | point/exact/column保持natural path；formula-bound primitive low-cardinality Bitmap intersection、link fallback、mutation/relocation、budget与differential contract通过 |
-| Transformation/relation | 一致；successor evidence pending | integral arithmetic已按Owner裁决统一为fail-closed checked semantics，raw/closed、scalar/parallel、prefix、Group、Window与Expanded canonical contract通过；既有Group/Join/Delta与primitive min/max/Bloom/fallback Join保持，最终reference/performance/scale仍待新SHA重放 |
+| Transformation/relation | 一致；successor evidence partially closed | integral arithmetic已按Owner裁决统一为fail-closed checked semantics，raw/closed、scalar/parallel、prefix、Group、Window与Expanded canonical contract及DataFlow v5 clean 3-fork通过；既有Group/Join/Delta与primitive min/max/Bloom/fallback Join保持，最终reference/scale仍待新SHA重放 |
 | DataFlow execution/parallel | 一致且 evidenced | Definition→Template→one-shot Invocation；一个bounded adaptive morsel scheduler区分Segment/vector/morsel，支持单Segment中型并行和deterministic merge |
 | Result Delivery | 一致且 evidenced | Eager Detached默认；Candidate/Value/Group/Join/Window同步callback-scoped visitor contract及Corretto Delivery/Soak lane通过 |
 | String V1 | 一致且 evidenced | reference-backed immutable scalar、Key/Unique/Index、Group/Join、不同长度mutation、equal-value no-op、clear/release/actual GC成立；length只为非约束profile |
 | Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow stats/explain |
-| component performance | 一致且 evidence有限 | Corretto/macOS/aarch64 Access与DataFlow baseline通过；不外推其他环境 |
+| component performance | 一致且 evidence有限 | Corretto/macOS/aarch64 Access predecessor baseline可追溯；successor DataFlow v5已在clean commit固定3-fork通过且threshold不放宽；不外推其他环境 |
 | runtime-scale qualification | 一致且 evidence有限 | clean commit `bd25e1194931df2a9869c2164df658839449785d`与source tree `5669bf68ddf5…`的8条required lane全部passed且`claimAllowed=false`；10M/100M仍仅为非阻塞research/stress |
 | reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness与Corretto下九个profile baseline通过；相关root由显式SomaGroup拥有 |
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
 | G0 | passed | Java-only scope、Owner、claim boundary与抽象叙事闭环稳定 |
 | G1–G4 | predecessor evidence retained | clean commit `fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full通过；当前successor包含compiler与DataFlow修复，必须在最终同SHA重新绑定Full evidence |
-| G5 | predecessor evidence retained | 上一candidate的differential、component、三个application、clean-commit DataFlow 3-fork与8-lane required qualification通过；当前successor的受影响DataFlow与性能路径必须重放 |
+| G5 | successor component passed；remaining pending | 新arithmetic/differential contract与DataFlow v5 clean 3-fork通过；三个application、runtime-scale 8-lane required qualification与最终Full仍须绑定最终SHA |
 | G6 selected private-source | blocked for successor candidate | 上一精确candidate的同SHA Ubuntu Full、package/reproducibility、security/provenance、90天sealed bundle与support matrix evidence仍可追溯；当前successor已闭合产品语义与实现，仍须以新的clean immutable SHA重放全部适用evidence，Product Owner条件式sign-off才会生效 |
 | AI multi-tool behavior evidence | waived for V1 | Codex positive consumer已真实compile/run；negative/anti-pattern与第二宿主验证由Product Owner明确waive，不声明multi-tool support |
 | Codex Cloud development | not release-scoped | 当前用户目标不要求Cloud qualification；它不进入支持矩阵，也不替代private-source G6 |

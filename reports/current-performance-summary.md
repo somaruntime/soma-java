@@ -2,7 +2,7 @@
 
 类型：Report / Performance / Qualification Snapshot
 
-状态：上一candidate G5 evidence retained；successor待重验
+状态：successor DataFlow component已重验；其余G5待最终candidate
 
 Owner：SOMA Java 性能与规模 evidence
 
@@ -50,9 +50,9 @@ SLA、跨环境支持矩阵或任意wide Schema保证。Runtime-scale与DataFlow
 clean-commit证据已形成；canonical Full又覆盖其余component、reference
 application与contract Gate，因此上一candidate的G5为passed。当前successor修改
 了processor与DataFlow executable source；integral overflow policy已裁决为
-fail-closed checked semantics，exact wide reduction增加了受控constant-factor
-工作。这些数字和pass状态不能外推到successor，最终candidate必须重放受影响
-component、application与runtime-scale evidence。
+fail-closed checked semantics。DataFlow component已在新的clean executable
+commit完成固定3-fork重放且全部旧threshold保持不变；runtime-scale、application
+与canonical Full仍必须绑定最终candidate，上一candidate的规模数字不能外推。
 
 ## 2. Retained Runtime-scale qualification v2
 
@@ -116,7 +116,7 @@ String profile的替代证据。
 当前checked-in baseline为：
 
 - Access component Corretto v1；
-- DataFlow component Corretto v4；
+- DataFlow component Corretto v5；
 - industrial default/large/long-run：v6/v5/v5；
 - grassing default/large/long-run：v4/v3/v3；
 - RTD default/large/long-run：v3/v3/v3。
@@ -126,14 +126,14 @@ allocation与stats；九个application profile覆盖三种领域叙事的default
 long-run integrated correctness、allocation、GC和high-water。Baseline只服务本
 环境回归，不形成public claim。
 
-DataFlow v4在clean commit
-`733db714f0b5f1edc41ada0ddf86352187b989bd`完成固定3-fork重放；workload与
-threshold未改变，result hash为
-`270704b7e42fb5d7d7160de09df3f4edb02465768982f84455697e46b33e00d5`。
-其后候选只改变baseline provenance checker、release evidence workflow、文档与
-G6 NOTICE checksum，不改变DataFlow executable source；clean commit
-`fa934c24996f37367843e2e2a1ac06cb97c7affd`的canonical Full已再次执行并通过
-相同baseline。
+DataFlow v5在clean executable commit
+`a2914918f356d5d7bd889b4ead9cb14e7d717a9c`完成固定3-fork重放。v5只因
+transformation/kernel v5/v6 canonical identity更新authoring checksum；其余执行
+checksum与全部allocation/timing/tail/GC threshold保持不变并通过，result hash为
+`dbb42e23ee8cd87dd7f148c658aa9671e59f28c8edc7eb38c4c8e258c87f1b69`。
+Group exact sum在真实越界时才从checked `long`提升到wide state，正常benchmark
+路径没有承担无用high-array allocation。该baseline仍是本机回归证据，不是公开
+性能声明；最终candidate的canonical Full仍须重放它。
 
 ## 5. 10M/100M 的当前定位
 
@@ -159,12 +159,13 @@ G5，成功也不能升级为任意Schema/String或public SLA。
   Expansion、Delivery、Soak在记录Corretto/macOS/aarch64环境成立；
 - formula-bound Bitmap与primitive Join runtime filter的production Java实现未在
   本轮修改；closed numeric kernel、sum/average、prefix、Group、Window与Expanded
-  已切换到fail-closed checked/exact-wide路径，属于必须重放的受影响性能面；
+  已切换到fail-closed checked/exact-wide路径，DataFlow component v5的固定3-fork
+  已通过，scale与application集成面仍待最终candidate；
 - checked-in component/application baseline仍是当前重放的唯一baseline Owner。
 
-当前`1.0.0` successor的G5不能陈述为passed。上一candidate的G5只能绑定上述
-clean commit、source closure、环境与profile；最终successor须形成新的精确
-candidate evidence。
+当前`1.0.0` successor的完整G5仍不能陈述为passed：DataFlow component已闭合，
+但上一candidate的runtime-scale/application evidence只能绑定上述clean commit、
+source closure、环境与profile；最终successor仍须形成新的精确candidate evidence。
 
 扩大下列声明前仍需新的预注册qualification：
 

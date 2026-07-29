@@ -53,7 +53,7 @@ AI Skill的Codex positive consumer已经真实compile/run。Product Owner于
 | maintainer / support | passed | ArthurFeng / GitHub `@283586450`；普通问题进入private repository Issues |
 | security / ownership | passed | private Security Advisory优先；`.github/CODEOWNERS`为`* @283586450`；Actions最小权限与immutable SHA pin |
 | JDK authority | passed | Amazon Corretto 8.502.07.1、`1.8.0_502-b07`、`javac 1.8.0_502` |
-| macOS qualification | predecessor passed；successor pending | 上一candidate的canonical Full、DataFlow固定3-fork与runtime-scale 8条required lane通过；当前successor须重放，性能/规模claim保持environment/profile bounded |
+| macOS qualification | successor component passed；remaining pending | DataFlow v5固定3-fork已在clean successor executable commit通过；canonical Full与runtime-scale 8条required lane仍须绑定最终SHA，性能/规模claim保持environment/profile bounded |
 | Ubuntu same-SHA qualification | predecessor passed；successor pending | 上一signed-off commit的private CI Full与manual qualification通过；当前successor须形成新同SHA evidence，Linux只形成build/contract claim |
 | package / security / provenance | predecessor passed；successor pending | 上一candidate的17件release-shaped artifact双构建一致、classfile 52、License/NOTICE、SBOM、OSV、license与runtime dependency边界通过；当前successor须重放 |
 | AI consumer Skill | passed with V1 waiver | canonical instruction-only Skill、结构/drift Gate、Codex positive consumer通过；剩余behavior/multi-host evidence被Owner waive，不声明multi-tool support |
@@ -67,7 +67,7 @@ admission和人工sign-off；这是已记录的残余平台风险，不伪造平
 | Profile / claim | 状态 | 边界 |
 |---|---|---|
 | private GitHub source | blocked for successor candidate | 产品语义已闭合；等待新SHA的同SHA Full、G5、package/security/provenance、matrix与Owner sign-off |
-| local macOS development | predecessor evidence retained | 上一SHA的exact Corretto build/contract/component/application/runtime-scale与package/security通过；当前successor只拥有已明确列出的窄门与Fast evidence |
+| local macOS development | successor prequalification in progress | 新arithmetic/DataFlow contract、独立consumer预检、Fast与DataFlow v5 clean 3-fork通过；canonical Full、runtime-scale、application与package/security仍待最终SHA |
 | public GitHub source | not-selected | repository保持private |
 | Maven Central / binary publishing | not-selected | 未配置signing/OIDC/publishing，不分发binary |
 | Codex Cloud development | not release-scoped | 不进入当前支持矩阵，也不替代private-source G6 |

@@ -102,7 +102,7 @@ compilation 过渡期误记为稳态 p90；workload、fork、阈值和 baseline 
 application profile baseline：
 
 - [`Access component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/access-component-corretto8-macos-aarch64-v1.json)；
-- [`DataFlow component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-corretto8-macos-aarch64-v4.json)；
+- [`DataFlow component baseline`](../../soma-benchmarks/src/main/resources/META-INF/soma/performance-baselines/dataflow-component-corretto8-macos-aarch64-v5.json)；
 - scheduler [`default`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-default-corretto8-macos-aarch64-v6.json)、
   [`large`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-large-corretto8-macos-aarch64-v5.json)、
   [`long-run`](../../soma-examples/industrial-dynamic-scheduler/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v5.json)；

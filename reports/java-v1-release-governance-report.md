@@ -53,10 +53,10 @@ Tag、GitHub Release、visibility与publishing仍是外部授权边界。POM中�
 | Java 8 Schema-Defined、Compiler-Specialized | annotation、javac 8 plugin/processor、schema-specific generated facade | compiler/default/Unicode contract已覆盖本轮literal escaping修复；最终Full与external consumer待新SHA重放 | 目标保留；successor待最终evidence |
 | State / Owner + Capability + Plan / Lifecycle | SomaGroup/root/owned-child、Metadata/Plan、Table/DataFlow lifecycle | 上一candidate runtime/ownership/consumer evidence保留，本轮未发现并行Owner或live object graph回归 | 一致；待最终回归 |
 | packed columnar runtime-state data plane | primitive/String columns、exact access、Candidate、无DTO/Collection hot storage | public/generated surface与runtime dependency无变化；代码审查未发现reflection/metadata interpreter或隐藏I/O进入hot path | 一致 |
-| typed local Transformation / DataFlow | expression、aggregation、Group/Join/Window/Expanded、bounded scheduler | integral arithmetic已按Owner裁决改为fail-closed checked semantics；raw/closed、scalar/parallel、prefix、Group、Window、Expanded contract通过 | 目标一致；最终G5待重放 |
+| typed local Transformation / DataFlow | expression、aggregation、Group/Join/Window/Expanded、bounded scheduler | integral arithmetic已按Owner裁决改为fail-closed checked semantics；raw/closed、scalar/parallel、prefix、Group、Window、Expanded contract与clean 3-fork component通过 | 目标一致；其余G5待最终candidate |
 | predictable resource / failure / observation | ExecutionBudget、structured failure、ledger、detached/callback result | window count与detached expansion在分配/枚举前稳定拒绝；现有lifecycle/failure contracts通过 | 一致但须随最终candidate重验 |
 | 普通Java 8 consumer可用 | 四个同版本artifact、processor build-only、generated API、三个reference application | 上一candidate external/三个application通过；最终独立consumer journey待immutable SHA | predecessor evidence retained |
-| 性能与规模不过度外推 | Small/Medium、单/双1M、String、Expansion、Delivery、Soak；10M/100M research | 上一clean candidate的限定环境evidence可追溯；DataFlow source变化后不能沿用pass claim | successor G5 pending |
+| 性能与规模不过度外推 | Small/Medium、单/双1M、String、Expansion、Delivery、Soak；10M/100M research | successor DataFlow v5在clean commit固定3-fork通过且threshold不放宽；runtime-scale与application仍待最终SHA | successor G5 partially closed |
 | selected private-source release诚实可追溯 | clean SHA、Full、package/security/provenance、matrix、conditional sign-off | claim已纠正为blocked；最终CI/manual workflow/bundle checksum尚未产生 | successor G6 pending |
 
 因此当前尚未达到“可冻结的V1产品”目标。产品语义偏差、Temporary与未裁决
@@ -65,17 +65,18 @@ Tag、GitHub Release、visibility与publishing仍是外部授权边界。POM中�
 
 ## 3. 候选与 Gate
 
-DataFlow固定3-fork在clean commit `733db714…`通过；runtime-scale 8条required
-lane在clean commit `bd25e119…`和精确source tree `5669bf68ddf5…`通过。这些是
-上一candidate的retained evidence，不覆盖当前successor。新的最终动态身份必须由
-successor qualification bundle中的`candidate.properties`和package/security
-provenance唯一拥有。
+Successor DataFlow v5固定3-fork已在clean executable commit `a2914918…`
+通过，workload与threshold均未放宽。Runtime-scale 8条required lane仍只有上一
+candidate的clean commit `bd25e119…`和精确source tree `5669bf68ddf5…`
+retained evidence，不覆盖当前successor。新的最终动态身份必须由successor
+qualification bundle中的`candidate.properties`和package/security provenance
+唯一拥有。
 
 | Gate | 状态 | 直接依据与边界 |
 |---|---|---|
 | G0 | passed | Java-only scope、正式Owner、claim boundary与核心抽象叙事规则稳定 |
 | G1–G4 | predecessor evidence retained | 上一clean candidate的canonical Full与同SHA Ubuntu Full通过；当前successor须重新绑定最终SHA |
-| G5 | predecessor evidence retained | 上一candidate的differential、component、三个application、DataFlow 3-fork与8-lane required qualification通过；受影响路径须重放 |
+| G5 | successor component passed；remaining pending | DataFlow v5 clean 3-fork与新arithmetic/differential contract通过；三个application、runtime-scale 8条required lane与最终Full仍须绑定最终SHA |
 | G6 | blocked for successor candidate | 产品语义已闭合；等待同SHA package/reproducibility、security/provenance、sealed evidence、support matrix与条件式Owner sign-off |
 
 旧vendor、旧candidate或单机结果只解释其原环境，不替代当前evidence。
@@ -87,7 +88,7 @@ provenance唯一拥有。
 | canonical Full | closed：clean candidate的唯一canonical Full exit 0；最终Ubuntu同SHA Full再次通过 |
 | exact qualification provenance | closed：runtime-scale绑定clean commit、唯一source manifest与8条required record |
 | source identity 边界 | closed：manifest精确包含production/build/runner closure，排除tests、Examples与无关baseline，并纳入实际shell library |
-| DataFlow baseline provenance | closed：clean commit固定3-fork，workload/threshold不变；checker拒绝working-tree、dirty或relaxed calibration |
+| DataFlow baseline provenance | closed for successor：v5绑定clean `a2914918…`固定3-fork，workload/threshold不变；v4由Git保存且current checkout只保留v5 |
 | 抽象叙事闭环 | closed：Design Index制度化Why/Owns/Not/Relationships/Lowering/Lifecycle/Resource/Failure/Evidence/Evolution |
 | release evidence 留存 | closed：同SHA identity、package/security、checksums与90天artifact由manual workflow保留 |
 | NOTICE drift | closed：品牌边界与security checksum一致，未降低fail-closed强度 |
@@ -143,8 +144,9 @@ AI工具support profile时必须重新完成发现、安装、触发和行为验
   Window与Expanded统一为fail-closed checked semantics；transformation/kernel
   protocol分别升级为v5/v6，并增加一个canonical arithmetic contract；
 - workflow checkout关闭credential persistence；
-- benchmark workload/threshold、schema identity、generated/runtime protocol、
-  public signature和artifact coordinate未改变。
+- DataFlow benchmark workload/threshold、schema identity、generated/runtime
+  protocol、public signature和artifact coordinate未改变；baseline从v4原位替换为
+  绑定clean successor的v5，只更新versioned authoring identity；
 
 没有temporary public/generated API、parallel Design Owner、test-only bypass、
 新第三方production dependency、migration artifact、active Temporary或未裁决

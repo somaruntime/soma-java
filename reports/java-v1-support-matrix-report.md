@@ -39,7 +39,7 @@ java/runtime/javac/javap 精确版本。Zulu 和其他 distribution 不属于当
 
 | OS / architecture | V1 build 与 contract | V1 性能/规模 | 当前证据 |
 |---|---|---|---|
-| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | predecessor passed；successor pending | predecessor passed，environment/profile bounded | 上一candidate的canonical Full、DataFlow clean 3-fork、runtime-scale `runtime-scale-qualification-bd25e1194931-5669bf68ddf5` 8/8 required与本地package/security可追溯；当前successor待重验 |
+| macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | predecessor passed；successor pending | successor DataFlow v5 passed；runtime-scale pending | DataFlow v5已在clean successor executable commit固定3-fork通过且threshold不放宽；上一candidate的canonical Full、runtime-scale `runtime-scale-qualification-bd25e1194931-5669bf68ddf5` 8/8 required与本地package/security可追溯，最终successor仍待其余重验 |
 | Ubuntu 24.04, Linux x86_64/amd64 | predecessor passed；successor pending | not-selected | 上一signed-off commit的private CI Full与manual package/security/provenance通过；当前successor必须产生新的retained bundle |
 
 Codex Cloud development readiness不属于selected release support matrix；Windows、

@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "dataflow-component-corretto8-macos-aarch64-v4",
+  "baselineId": "dataflow-component-corretto8-macos-aarch64-v5",
   "layer": "component",
   "subject": "typed-dataflow-component",
   "artifactVersion": "soma-java-dataflow-component-v1",
   "calibration": {
-    "commit": "733db714f0b5f1edc41ada0ddf86352187b989bd",
+    "commit": "a2914918f356d5d7bd889b4ead9cb14e7d717a9c",
     "date": "2026-07-29",
     "forks": 3,
-    "formula": "trigger=transformation-v4-kernel-v5-authoring-identity; replay=clean-immutable-candidate-three-equal-forks; thresholds=unchanged; all execution checksums and allocation/timing/tail/gc envelopes passed without relaxation"
+    "formula": "trigger=transformation-v5-kernel-v6-authoring-identity-and-fail-closed-integral-semantics; replay=clean-immutable-candidate-three-equal-forks; thresholds=unchanged; authoring checksum updated for versioned canonical identity; all execution checksums and allocation/timing/tail/gc envelopes passed without relaxation"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -77,7 +77,7 @@
     }
   ],
   "metrics": [
-    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":1064084655879852845},
+    {"id":"checksum.authoring","selector":{"lane":"authoring.compile"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":-3899002967338317126},
     {"id":"checksum.direct-count","selector":{"lane":"candidate.direct-filter-count.large"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-sequential","selector":{"lane":"candidate.filter-count.large.sequential"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},
     {"id":"checksum.count-parallel","selector":{"lane":"candidate.filter-count.large.adaptive-parallel"},"field":"checksum","aggregation":"all-equal","comparison":"equal","reference":7025632223327946660},

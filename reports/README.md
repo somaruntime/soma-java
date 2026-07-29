@@ -39,7 +39,7 @@ Owner：SOMA Java 正式报告输出
 |---|---|---|
 | G0 | passed | [V1 release governance](java-v1-release-governance-report.md) |
 | G1–G4 | predecessor evidence retained；successor待重验 | [V1 release governance](java-v1-release-governance-report.md) |
-| G5 | predecessor evidence retained；受影响lane待重验 | [性能与规模](current-performance-summary.md) |
+| G5 | successor DataFlow v5 passed；application/runtime-scale待最终SHA | [性能与规模](current-performance-summary.md) |
 | G6 | selected `private-github-source` blocked for successor candidate | [Release readiness](java-v1-g6-release-readiness-report.md) 与 [Support matrix](java-v1-support-matrix-report.md) |
 
 当前 `1.0.0` 坐标、unsigned local artifact、private CI、Codex Cloud、历史
