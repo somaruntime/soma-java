@@ -40,7 +40,7 @@ Owner：SOMA Java 一致性审查
 | Resource/failure/observation | 一致且 evidenced | plan hard boundaries、typed preflight、structural/reachable-String/JVM heap分层、stable failure envelope、Table/Group/DataFlow stats/explain |
 | component performance | 一致且 evidence有限 | Corretto/macOS/aarch64 Access v1 baseline保持；DataFlow v5已在clean commit固定3-fork通过且threshold不放宽；不外推其他环境 |
 | runtime-scale qualification | 一致且 evidence有限；final evidence-resolved | 最终candidate必须产生同SHA、精确source tree的8条required lane且全部`passed`、`claimAllowed=false`；10M/100M仍仅为非阻塞research/stress |
-| reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness成立；Corretto下九个profile已各完成5-fork identity calibration且threshold不放宽，相关root由显式SomaGroup拥有；最终同SHA replay由G5 artifact解析 |
+| reference applications | 一致且 evidenced | 三个独立Java 8 consumer的correctness成立；Corretto下九个profile完成identity calibration，八个profile threshold不变；RTD long-run只按可重复的1 ms young-GC边界校正count/pause envelope，allocation/timing/full-GC不变；最终同SHA replay由G5 artifact解析 |
 | code/test规模 | 一致且 evidenced | replacement closure与footprint Gate保留；测试、benchmark和脚本按Capability/journey/evidence分层，不以治理批次形成平行Owner |
 | G0 | passed | Java-only scope、Owner、claim boundary与抽象叙事闭环稳定 |
 | G1–G4 | same-SHA evidence-resolved | 本报告所在clean SHA的canonical Full与private CI Full必须通过 |

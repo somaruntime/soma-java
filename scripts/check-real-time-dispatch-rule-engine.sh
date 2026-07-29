@@ -37,7 +37,7 @@ case "$profile" in
     ;;
   long-run)
     heap=512m
-    baseline_version=v4
+    baseline_version=v5
     expected_measurements=1
     expected_initial_work=500
     expected_arrivals=25

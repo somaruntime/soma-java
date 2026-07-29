@@ -119,14 +119,17 @@ String profile的替代证据。
 - DataFlow component Corretto v5；
 - industrial default/large/long-run：v7/v6/v6；
 - grassing default/large/long-run：v5/v4/v4；
-- RTD default/large/long-run：v4/v4/v4。
+- RTD default/large/long-run：v4/v4/v5。
 
 九个application baseline在clean executable commit
 `a24bb4d48eec430d6188cb0588b28300a407da6d`各完成5-fork calibration。
 Schema、输入、业务结果与全部deterministic workload identity保持不变；只替换
-transformation v5 / kernel v6引起的canonical plan identity，所有
-allocation/timing/GC threshold保持不变。RTD long-run首轮5-fork曾有一个JVM出现
-一次1 ms young GC，额外bounded 5-fork复验全部为零，因此没有放宽zero-GC Gate。
+transformation v5 / kernel v6引起的canonical plan identity。八个profile的全部
+threshold保持不变。RTD long-run在两组5-fork calibration与一次3-fork final
+replay的13个独立JVM中有两个出现单次1 ms young GC；caller allocation中位数
+27,948,568 bytes、dispatch中位数63,297,417 ns，业务checksum、task/worker数与
+full GC均稳定。按既有`max+1`/`ceil(max*1.25)`公式只把young-GC count/pause
+envelope从0校正为2；allocation、timing与full-GC Gate不变。
 
 Component覆盖direct/Candidate、fixed tax、parallel crossover、Effect、delivery、
 allocation与stats；九个application profile覆盖三种领域叙事的default、large和

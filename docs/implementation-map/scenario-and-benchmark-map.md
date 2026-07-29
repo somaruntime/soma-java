@@ -111,7 +111,7 @@ application profile baseline：
   [`long-run`](../../soma-examples/grassing-individual-simulation/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v4.json)；
 - RTD [`default`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-default-corretto8-macos-aarch64-v4.json)、
   [`large`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-large-corretto8-macos-aarch64-v4.json)、
-  [`long-run`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v4.json)。
+  [`long-run`](../../soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark/performance-baseline-long-run-corretto8-macos-aarch64-v5.json)。
 
 Comparator 只拥有领域中性协议。三个应用各自拥有 workload identity、阈值和
 test-resource baseline，POM 不依赖 `soma-benchmarks`；baseline 不进入 production

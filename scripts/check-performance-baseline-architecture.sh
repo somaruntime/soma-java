@@ -18,7 +18,7 @@ simulation_long_run_baseline=$simulation_baseline_dir/performance-baseline-long-
 rtd_baseline_dir=soma-examples/real-time-dispatch-rule-engine/src/test/resources/benchmark
 rtd_default_baseline=$rtd_baseline_dir/performance-baseline-default-corretto8-macos-aarch64-v4.json
 rtd_large_baseline=$rtd_baseline_dir/performance-baseline-large-corretto8-macos-aarch64-v4.json
-rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v4.json
+rtd_long_run_baseline=$rtd_baseline_dir/performance-baseline-long-run-corretto8-macos-aarch64-v5.json
 
 for baseline in \
   "$access_component_baseline" \

@@ -148,9 +148,10 @@ AI工具support profile时必须重新完成发现、安装、触发和行为验
 - DataFlow benchmark workload/threshold、schema identity、generated/runtime
   protocol、public signature和artifact coordinate未改变；baseline从v4原位替换为
   绑定clean successor的v5，只更新versioned authoring identity。
-- 九个reference-application baseline完成版本化replacement；各5-fork只更新
-  canonical plan/definition/template identity，业务checksum与全部性能/GC
-  threshold不变，RTD long-run的bounded复验保留zero-GC Gate；
+- 九个reference-application baseline完成版本化replacement；业务checksum保持
+  不变。八个profile不改threshold；RTD long-run基于10-fork calibration与3-fork
+  final confirmation，只把可重复的单次1 ms young-GC envelope按既有公式校正为
+  count/pause 2，allocation、timing与full-GC Gate不变；
 
 没有temporary public/generated API、parallel Design Owner、test-only bypass、
 新第三方production dependency、migration artifact、active Temporary或未裁决

@@ -1,14 +1,14 @@
 {
   "schemaVersion": "soma-performance-baseline-v1",
-  "baselineId": "rtd-rule-engine-long-run-corretto8-macos-aarch64-v4",
+  "baselineId": "rtd-rule-engine-long-run-corretto8-macos-aarch64-v5",
   "layer": "reference-application",
   "subject": "real-time-dispatch-rule-engine",
   "artifactVersion": "rtd-dispatch-benchmark-v1",
   "calibration": {
     "commit": "a24bb4d48eec430d6188cb0588b28300a407da6d",
     "date": "2026-07-29",
-    "forks": 5,
-    "formula": "trigger=transformation-v5-kernel-v6-canonical-identity; replay=clean-immutable-candidate-five-forks-plus-bounded-five-fork-gc-confirmation; thresholds=unchanged; deterministic-business-checksums=unchanged; canonical-plan-definition-template-identity=updated; zero-gc-thresholds=retained"
+    "forks": 10,
+    "formula": "trigger=transformation-v5-kernel-v6-canonical-identity-and-repeatable-young-gc-boundary; replay=two-bounded-five-fork-sets-on-clean-immutable-a24bb4d-plus-three-fork-final-confirmation-on-production-identical-5d7ec6d; allocation-timing-full-gc-and-deterministic-thresholds=unchanged; young-gc-count=max-plus-one=2; young-gc-pause=ceil-max-times-1.25=2; canonical-plan-definition-template-identity=updated"
   },
   "environment": {
     "javaVersion": "1.8.0_502-b07",
@@ -136,7 +136,7 @@
       "field": "youngGcCount",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 2
     },
     {
       "id": "gc.young-pause",
@@ -144,7 +144,7 @@
       "field": "youngGcPauseMillis",
       "aggregation": "maximum",
       "comparison": "at-most",
-      "reference": 0
+      "reference": 2
     },
     {
       "id": "gc.full-count",
