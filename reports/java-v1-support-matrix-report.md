@@ -38,7 +38,7 @@ java/runtime/javac/javap精确版本。旧Zulu和其他distribution均不属于�
 | OS / architecture | Build与contract | 性能/规模 | 当前证据 |
 |---|---|---|---|
 | macOS 26.5.2 / Darwin 25.5.0, arm64/aarch64 | passed | Access/DataFlow component与九application profile passed；runtime-scale blocked | 本机Corretto Full、component baseline、application 5-fork calibration与3-fork回放 |
-| Ubuntu 24.04, Linux x86_64/amd64 | blocked | 无Linux性能claim | workflow已配置`corretto` 8.0.502+7；当前immutable commit尚无成功Full/package/security run |
+| Ubuntu 24.04, Linux x86_64/amd64 | blocked | 无Linux性能claim | workflow已配置SHA-256校验的Corretto 8.502.07.1 archive与`jdkfile`；当前immutable commit尚无成功Full/package/security run |
 
 2026-07-28的Zulu/macOS runtime-scale和Zulu/Linux CI仍是历史candidate事实，但
 不能进入当前Corretto passed矩阵。Codex Cloud为development

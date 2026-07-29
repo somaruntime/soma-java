@@ -63,11 +63,24 @@ jobs:
           fi
           printf 'profile=%s\n' "$profile" | tee -a "$GITHUB_OUTPUT"
 
-      - name: Set up full JDK 8
+      # setup-java's Corretto provider only accepts a major version. Download
+      # and checksum the exact authority first, then use its jdkfile path so
+      # setup-java can still own JAVA_HOME and the standard Maven cache.
+      - name: Download verified exact Corretto JDK
+        if: steps.validation.outputs.profile == 'full'
+        id: corretto
+        env:
+          SOMA_TOOLCHAIN_ROOT: ${{ runner.temp }}/soma-toolchains
+        run: |
+          archive=$(./scripts/setup/install-corretto8-linux-x64.sh --archive-only)
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Set up exact supported JDK and Maven cache
         if: steps.validation.outputs.profile == 'full'
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
         with:
-          distribution: corretto
+          distribution: jdkfile
+          jdkFile: ${{ steps.corretto.outputs.archive }}
           java-version: '8.0.502+7'
           java-package: jdk
           architecture: x64

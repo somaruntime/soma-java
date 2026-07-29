@@ -102,8 +102,9 @@ cached maintenance目标不超过2分钟。超出预算、同一Maven缺失重�
 ## 4. GitHub Actions
 
 - `CI`：Markdown-only diff只执行文档/范围/diff检查；其他pull request以及
-  `main`、`develop`、`release` push执行exact Corretto/Linux toolchain和完整
-  `./scripts/check.sh`；并发key使用commit SHA，同一SHA的并发run只保留一个；
+  `main`、`develop`、`release` push先由仓库installer下载并校验exact Corretto
+  archive，再通过`setup-java`的`jdkfile`路径设置JDK和标准Maven cache，最后执行
+  完整`./scripts/check.sh`；并发key使用commit SHA，同一SHA的并发run只保留一个；
 - `Release qualification`：仅手动触发，额外执行 clean package
   reproducibility 与 OSV/SBOM/license scan；
 - action 使用 immutable commit SHA，runner image 与 JDK update 不使用

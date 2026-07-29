@@ -18,10 +18,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7
 
-      - name: Set up exact supported JDK
+      # setup-java's Corretto provider only accepts a major version. The
+      # repository installer pins and verifies the exact archive first.
+      - name: Download verified exact Corretto JDK
+        id: corretto
+        env:
+          SOMA_TOOLCHAIN_ROOT: ${{ runner.temp }}/soma-toolchains
+        run: |
+          archive=$(./scripts/setup/install-corretto8-linux-x64.sh --archive-only)
+          printf 'archive=%s\n' "$archive" >> "$GITHUB_OUTPUT"
+
+      - name: Set up exact supported JDK and Maven cache
         uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
         with:
-          distribution: corretto
+          distribution: jdkfile
+          jdkFile: ${{ steps.corretto.outputs.archive }}
           java-version: '8.0.502+7'
           java-package: jdk
           architecture: x64

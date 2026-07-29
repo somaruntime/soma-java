@@ -84,10 +84,11 @@ javac 1.8.0_502
 ```
 
 Root Maven Enforcer验证Java 8与`Amazon.com Inc.` vendor；
-`scripts/lib/supported-jdk.sh`验证java、javac、javap和精确build。CI使用
-`actions/setup-java`的`corretto` distribution，Linux安装脚本固定官方版本与
-SHA-256。Zulu positive path已退出；迁移时保留一次negative probe，证明旧vendor
-会被toolchain和Maven双重拒绝。
+`scripts/lib/supported-jdk.sh`验证java、javac、javap和精确build。由于
+`actions/setup-java`的Corretto provider只接受major version，CI/Release先由
+Linux installer固定并校验官方archive与SHA-256，再通过action的`jdkfile`路径设置
+JDK和标准Maven cache。Zulu positive path已退出；迁移时保留一次negative probe，
+证明旧vendor会被toolchain和Maven双重拒绝。
 
 ### 3.2 Maven local repository
 
@@ -157,7 +158,8 @@ CI按实际diff选择：
 
 - 纯Markdown变更：documentation check；
 - 空diff、无法解析base、代码/配置/脚本变更：fail-closed到Full；
-- Maven dependency cache由`setup-java`管理；
+- Maven dependency cache由`setup-java`管理，JDK bytes由仓库installer精确校验后
+  交给其`jdkfile`路径；
 - 同workflow/同SHA的重叠run通过concurrency取消；
 - final workspace必须`git diff --exit-code`。
 

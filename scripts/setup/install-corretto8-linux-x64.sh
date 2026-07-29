@@ -12,6 +12,16 @@ if [ "$(uname -s)" != 'Linux' ] || [ "$(uname -m)" != 'x86_64' ]; then
   exit 1
 fi
 
+mode=${1:-install}
+case "$mode" in
+  install|--archive-only) ;;
+  *)
+    printf '%s\n' \
+      'usage: install-corretto8-linux-x64.sh [--archive-only]' >&2
+    exit 2
+    ;;
+esac
+
 toolchain_root=${SOMA_TOOLCHAIN_ROOT:-"$HOME/.cache/soma-java/toolchains"}
 package_name=amazon-corretto-8.502.07.1-linux-x64.tar.gz
 package_url=https://corretto.aws/downloads/resources/8.502.07.1/$package_name
@@ -22,6 +32,11 @@ java_home=$toolchain_root/amazon-corretto-8.502.07.1-linux-x64
 
 mkdir -p "$toolchain_root" "$archive_dir"
 soma_download_verified "$package_url" "$package_sha256" "$archive"
+
+if [ "$mode" = '--archive-only' ]; then
+  printf '%s\n' "$archive"
+  exit 0
+fi
 
 if [ ! -x "$java_home/bin/javac" ]; then
   extraction_dir=$(mktemp -d "$toolchain_root/corretto8-extract.XXXXXX")
