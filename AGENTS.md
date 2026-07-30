@@ -2,20 +2,22 @@
 
 `soma_java` 是 Schema-Defined、Compiler-Specialized、JVM Heap-Resident 的
 Java 8 columnar runtime-state computing 项目。当前功能与性能状态以
-Conformance 和 Report 为准；当前G0–G6已按selected
-`private-github-source` profile签署，精确candidate、run与checksum由同SHA
-qualification artifact记录。不得沿用历史Zulu结论，也不得把private-source或
-单机evidence外推为public、Maven、跨环境性能或production readiness。
+Conformance 和 Report 为准；当前successor的G0为passed，G1–G5由最终同SHA
+evidence解析，G6是selected `private-github-source` conditional sign-off。
+精确candidate、run与checksum只能由该SHA qualification artifact记录。不得沿用
+历史candidate或Zulu结论，也不得把private-source或单机evidence外推为public、
+Maven、跨环境性能或production readiness。
 
 ## 必读入口
 
-- 文档权威关系与全部正式入口：[docs/README.md](docs/README.md)；
-- 目标形态：[Blueprint](docs/blueprints/README.md)；
-- 长期规范性语义：[Design](docs/design/README.md)；
-- 当前代码导航：[Implementation Map](docs/implementation-map/README.md)；
-- 已知偏差：[Conformance](docs/conformance/README.md)；
-- 构建、测试、benchmark、release 与文档过程：[Engineering](docs/engineering/README.md)；
-- 当前 Gate、性能和治理结论：[reports/README.md](reports/README.md)。
+- 完整项目事实与权威关系：[project/README.md](project/README.md)；
+- 目标形态：[Blueprint](project/blueprint/README.md)；
+- 长期规范性语义：[Design](project/design/README.md)；
+- 当前代码导航：[Implementation Map](project/implementation-map/README.md)；
+- 已知偏差：[Conformance](project/conformance/README.md)；
+- 构建、测试、benchmark、release 与文档过程：[Process](project/process/README.md)；
+- 当前 Gate、性能和治理结论：[Reports](project/reports/README.md)；
+- 用户、选型和集成信息投影：[Product Docs](docs/README.md)。
 
 README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都不重新定义 Design。代码、配置和可执行产物拥有当前实现事实，但当前实现不因此天然正确。
 
@@ -26,7 +28,7 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - 不在正式 Design 决策前增加第三方依赖；
 - 实现不得把 schema object、DTO、Java Collection graph 或 metadata interpreter 变成 runtime hot storage/path。
 
-完整边界以 [SOMA Java 设计宪法](docs/design/soma-java-design-constitution.md)和[系统架构](docs/design/system-architecture.md)为准。
+完整边界以 [SOMA Java 设计宪法](project/design/soma-java-design-constitution.md)和[系统架构](project/design/system-architecture.md)为准。
 
 ## Design-driven Scope Preservation
 
@@ -35,7 +37,7 @@ README、AGENTS、Guide、Report、Implementation Map 和模块历史文档都�
 - 当前 slice 必须是最终设计的有效子集，不得依赖未来 public consumer、核心事实或 canonical hot-path migration 才成立；
 - 不得用 temporary public/generated API、`List<Row>`/DTO live storage、reflection/metadata interpreter、Java Stream hot path、share/reparent child、generic error 或 test-only bypass 代替正式语义；
 - 未实现或不一致的目标进入 Conformance，并由相关 Owner 裁决；不维护用 future/MVP/optional 掩盖差距的平行 roadmap；
-- 修改 Blueprint、Design、public/schema/runtime semantics、最终 Gate 或 release claim 前必须停止并请求用户明确决定；重大长期设计先在 `docs/temp/<topic>/` 形成独立 Temporary；
+- 修改 Blueprint、Design、public/schema/runtime semantics、最终 Gate 或 release claim 前必须停止并请求用户明确决定；重大长期设计先在 `project/temp/<topic>/` 形成独立 Temporary；
 - Conformance 结论本身不扩大实施授权；
 - closeout 必须包含 scope non-regression：受影响 Design、实际 evidence、仍存在的偏差、Owner/Gate变化，以及结果是否只需 additive completion/internal refinement。
 
@@ -54,8 +56,8 @@ Maven module，不产出 artifact，也不得成为 production 或 reference app
 依赖。
 
 跨模块长期语义由根级 Design 拥有；历史模块契约由 Git 保存，不在 current
-checkout 建立平行 Owner。模块修改前仍应读取对应 `<module>/docs/README.md`
-以定位当前实现与边界。
+checkout 建立平行 Owner。模块修改前应读取
+`project/modules/<module>/README.md` 以定位当前实现与边界。
 
 ## Repository Surface Discipline
 
@@ -86,7 +88,7 @@ checkout 建立平行 Owner。模块修改前仍应读取对应 `<module>/docs/R
 - 个人或组织 identity 只进入真实 copyright、SCM、POM、support 和 provenance
   边界，不成为 SOMA annotation、generated API、runtime type、error 或 schema
   概念前缀；
-- release identity 与安全边界以[兼容性、安全与版本](docs/design/compatibility-security-and-versioning.md)为准；过程以[Release 治理](docs/engineering/release-governance.md)和[Validation Gate 治理](docs/engineering/validation-gates.md)为准；
+- release identity 与安全边界以[兼容性、安全与版本](project/design/compatibility-security-and-versioning.md)为准；过程以[Release 治理](project/process/release-governance.md)和[Validation Gate 治理](project/process/validation-gates.md)为准；
 - Amazon Corretto 8.502.07.1 full JDK 8 javac/runtime 是当前唯一 compiler 与 validation authority；新 JDK `--release 8` 不能冒充受支持 transformer；
 - 每次 validation 记录实际 JDK vendor/version/build、Maven、OS、architecture 和命令；本机通过不得外推为支持矩阵；
 - Zulu 或其他 JDK distribution 不属于当前验真或目标支持范围，不要求新增、补跑或维持多 vendor Gate；历史运行记录不构成当前支持声明；
@@ -97,11 +99,13 @@ checkout 建立平行 Owner。模块修改前仍应读取对应 `<module>/docs/R
 ## Documentation Workflow
 
 - 文档、报告和代码注释默认使用中文；
-- Blueprint、Design、Implementation Map、Conformance 和 Engineering 位于 `docs/` 对应分类；
-- 用户/开发者输出进入 `guides/`，性能、治理、Gate 和 release evidence进入 `reports/`；
-- `soma-examples/docs/` 是 reference application developer Report 入口；child application docs 各自拥有领域事实，但不拥有 core Design；
+- Blueprint、Design、Modules、Implementation Map、Conformance、Process、Report
+  和 Temporary 位于 `project/` 对应分类；
+- 用户、技术选型和集成投影进入 `docs/`，根 README 只承担产品与角色入口；
+- reference application 的用户运行说明位于各 child 根 README，应用 Blueprint、
+  Design 和 Validation 位于 `project/modules/soma-examples/`；
 - Temporary 只在 active topic 期间存在，稳定事实原子固化后删除，不归档；
-- 文档规则以[文档治理](docs/engineering/documentation-governance.md)为准。
+- 文档规则以[文档治理](project/process/documentation-governance.md)为准。
 
 ## Validation and Git
 

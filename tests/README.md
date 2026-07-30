@@ -2,7 +2,7 @@
 
 `tests/fixtures/` 保存 compiler positive/negative case、public/generated `javap`
 golden、schema JSON/hash golden 与独立 Maven consumer。它们由
-[测试与 evidence Map](../docs/implementation-map/test-and-evidence-map.md)登记，
+[测试与 evidence Map](../project/implementation-map/test-and-evidence-map.md)登记，
 通过 `scripts/` 下的能力 Gate 消费。
 
 该目录不是 Maven module，不产出 artifact，也不得成为 production 或 reference

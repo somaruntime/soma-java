@@ -6,10 +6,10 @@
 
 以下路径相对于安装来源固定的 SOMA source ref：
 
-- `docs/design/access-model-and-candidate-scan.md`
-- `docs/design/transformation-model.md`
-- `docs/design/dataflow-execution-model.md`
-- `docs/design/table-storage-and-access.md`
+- `project/design/access-model-and-candidate-scan.md`
+- `project/design/transformation-model.md`
+- `project/design/dataflow-execution-model.md`
+- `project/design/table-storage-and-access.md`
 
 本参考帮助选择能力族；精确 generated type/method 仍从当前编译结果读取。
 

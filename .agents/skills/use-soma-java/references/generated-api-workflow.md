@@ -6,10 +6,10 @@
 
 以下路径相对于安装来源固定的 SOMA source ref：
 
-- `guides/java-v1-install-and-consumer-guide.md`
-- `docs/design/schema-and-generated-api.md`
-- `docs/implementation-map/compiler-and-codegen-map.md`
-- `docs/implementation-map/test-and-evidence-map.md`
+- `docs/getting-started/java-v1-install-and-consumer-guide.md`
+- `project/design/schema-and-generated-api.md`
+- `project/implementation-map/compiler-and-codegen-map.md`
+- `project/implementation-map/test-and-evidence-map.md`
 
 精确坐标、plugin 参数和方法名必须从 consumer 所固定版本的 POM、指南与生成结果
 读取；本参考不保存第二份完整 API。

@@ -6,9 +6,9 @@
 
 以下路径相对于安装来源固定的 SOMA source ref：
 
-- `docs/blueprints/soma-java-product-blueprint.md`
-- `docs/design/schema-and-generated-api.md`
-- `docs/design/ownership-and-lifecycle.md`
+- `project/blueprint/soma-java-product-blueprint.md`
+- `project/design/schema-and-generated-api.md`
+- `project/design/ownership-and-lifecycle.md`
 
 本参考只给 AI consumer 决策顺序，不重新定义上述语义。
 

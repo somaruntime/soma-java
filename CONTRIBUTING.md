@@ -1,22 +1,28 @@
 # Contributing to soma_java
 
-感谢关注 SOMA Java。项目当前已完成 V1 selected private-source readiness
-签署，但尚未公开发布；设计事实已经形成正式
-Owner 体系，copyright owner 与发布主体为 ArthurFeng，产品品牌为 SOMA，
-GitHub Organization 为 `somaruntime`。当前只选择 private GitHub source
-repository，不声明 public repository、Maven Central 或 production readiness。
+感谢关注 SOMA Java。项目当前正在形成 V1 selected private-source successor
+candidate：G0为passed，G1–G5由最终同SHA evidence解析，G6为conditional
+sign-off，尚未公开发布。设计事实已经形成正式Owner体系，copyright owner 与
+发布主体为 ArthurFeng，产品品牌为 SOMA，GitHub Organization 为
+`somaruntime`。当前只选择 private GitHub source repository，不声明 public
+repository、Maven Central 或 production readiness。
 当前 V1 坐标为 `1.0.0`；最终 Gate 状态只从
-[Reports](reports/README.md)读取，selected private-source G6只由同一候选的
+[Reports](project/reports/README.md)读取，selected private-source G6只由同一候选的
 release qualification与support matrix证明。
 外部贡献在开始前仍应先与 repository owner 协调，不能假设提交即自动获得合并或
 公开发布许可。
 
 ## 1. 先读事实源
 
-- 目标与正式设计从 [docs/README.md](docs/README.md) 进入；
-- 文档分类和 Owner 遵守 [文档治理](docs/engineering/documentation-governance.md)；
-- 修改前先读相关 Blueprint/Design，再通过 [Implementation Map](docs/implementation-map/README.md)和对应 `<module>/docs/README.md` 定位代码；
-- README、AGENTS、Guide、Report、Implementation Map 和 superseded 历史文档都不重新定义 Design。
+- 完整事实从 [project/README.md](project/README.md) 进入，产品使用信息从
+  [docs/README.md](docs/README.md) 进入；
+- 信息分类和 Owner 遵守
+  [项目信息与文档治理](project/process/documentation-governance.md)；
+- 修改前先读相关 Blueprint/Design，再通过
+  [Implementation Map](project/implementation-map/README.md)和对应
+  `project/modules/<module>/README.md` 定位代码；
+- README、AGENTS、Product Projection、Report 和 Implementation Map 都不重新
+  定义 Design。
 
 ## 2. Build prerequisites
 
@@ -32,7 +38,7 @@ Maven 由 repository wrapper 固定，不要求预装相同 Maven 版本：
 ```
 
 Codex Cloud 的可重复 setup、Linux profile 与 GitHub Actions 入口见
-[GitHub 私有仓库与 Codex Cloud 开发](docs/engineering/github-and-cloud-development.md)。
+[GitHub 私有仓库与 Codex Cloud 开发](project/process/github-and-cloud-development.md)。
 
 V1 compiler integration 只把正式版本的 Corretto full JDK 8 javac 当作 compiler
 authority；public RC/release 只声明正式 G6 matrix 中有证据的组合。使用新 JDK
@@ -54,7 +60,7 @@ vendor/version/build、OS、architecture 和执行命令；本机通过不能外
 5. 原子固化正式事实并删除 Temporary；
 6. 完成整体一致性复核。
 
-实现必须服务 [Design](docs/design/README.md)，不能为了局部速度把未实现目标改写成 future、optional、MVP 或永久非目标。真实偏差进入 [Conformance](docs/conformance/README.md)，Conformance 不自动授权修改。
+实现必须服务 [Design](project/design/README.md)，不能为了局部速度把未实现目标改写成 future、optional、MVP 或永久非目标。真实偏差进入 [Conformance](project/conformance/README.md)，Conformance 不自动授权修改。
 
 ## 4. Dependency changes
 
@@ -78,7 +84,7 @@ vendor/version/build、OS、architecture 和执行命令；本机通过不能外
 - compiler/processor：compile fixture、golden、external consumer、unsupported compiler negative case；
 - runtime：invariant、failure atomicity、error path、allocation/performance-shape evidence；
 - public API：API/generated diff 和 compatibility case；
-- benchmark：遵守 [Benchmark 治理](docs/engineering/benchmark-governance.md)，不把 smoke 写成性能 claim；
+- benchmark：遵守 [Benchmark 治理](project/process/benchmark-governance.md)，不把 smoke 写成性能 claim；
 - release：G0-G6、reproducibility、checksum、migration/rollback 和 security/license evidence。
 
 Full Gate的独立功能检查默认最多4路并行，但performance、package、security和

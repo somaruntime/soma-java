@@ -86,6 +86,9 @@ jobs:
       - name: Verify reproducible release-shaped package
         run: ./scripts/package-smoke.sh
 
+      - name: Verify curated source package
+        run: ./scripts/source-package-smoke.sh
+
       - name: Run dependency, license and vulnerability scan
         run: ./scripts/security-release-scan.sh
 
@@ -95,8 +98,10 @@ jobs:
       - name: Seal private-source qualification evidence
         run: |
           package_dir=$(find "$SOMA_RELEASE_EVIDENCE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'package-smoke.*')
+          source_dir=$(find "$SOMA_RELEASE_EVIDENCE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'source-package-smoke.*')
           security_dir=$(find "$SOMA_RELEASE_EVIDENCE_ROOT" -mindepth 1 -maxdepth 1 -type d -name 'security-release-scan.*')
           test "$(printf '%s\n' "$package_dir" | sed '/^$/d' | wc -l)" -eq 1
+          test "$(printf '%s\n' "$source_dir" | sed '/^$/d' | wc -l)" -eq 1
           test "$(printf '%s\n' "$security_dir" | sed '/^$/d' | wc -l)" -eq 1
           . ./scripts/lib/project-version.sh
           version=$(soma_project_version)
@@ -104,6 +109,13 @@ jobs:
           grep -Fqx "commit=$GITHUB_SHA" "$package_dir/provenance.properties"
           grep -Fqx 'dirty=false' "$package_dir/provenance.properties"
           grep -Fqx "artifactVersion=$version" "$package_dir/provenance.properties"
+          grep -Fqx "commit=$GITHUB_SHA" "$source_dir/provenance.properties"
+          grep -Fqx 'dirty=false' "$source_dir/provenance.properties"
+          grep -Fqx "artifactVersion=$version" "$source_dir/provenance.properties"
+          grep -Fqx 'projectFactsIncluded=false' "$source_dir/provenance.properties"
+          grep -Fqx 'rawEvidenceIncluded=false' "$source_dir/provenance.properties"
+          grep -Fqx 'agentSkillIncluded=false' "$source_dir/provenance.properties"
+          grep -Fqx 'archiveBuildVerified=true' "$source_dir/provenance.properties"
           grep -Fqx "commit=$GITHUB_SHA" "$security_dir/summary.properties"
           grep -Fqx 'dirty=false' "$security_dir/summary.properties"
           grep -Fqx "artifactVersion=$version" "$security_dir/summary.properties"

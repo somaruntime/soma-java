@@ -16,11 +16,11 @@ consumer evidence 获取精确 surface。
 裁决：
 
 1. 固定 SOMA source ref 中的
-   `docs/blueprints/soma-java-product-blueprint.md` 与 `docs/design/README.md`
+   `project/blueprint/soma-java-product-blueprint.md` 与 `project/design/README.md`
    决定产品语义和边界；
 2. 当前版本的源码、POM、generated source/class、golden 与 external consumer
    决定精确 API；
-3. 同一 source ref 的 `guides/java-v1-install-and-consumer-guide.md` 决定安装和
+3. 同一 source ref 的 `docs/getting-started/java-v1-install-and-consumer-guide.md` 决定安装和
    普通 Maven consumer 流程；
 4. 本 Skill 只负责把这些事实转化为可靠的 consumer 工作步骤。
 
