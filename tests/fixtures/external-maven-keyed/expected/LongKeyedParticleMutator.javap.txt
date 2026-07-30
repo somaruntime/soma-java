@@ -1,5 +1,0 @@
-Compiled from "LongKeyedParticleMutator.java"
-public final class com.example.soma.keyed.generated.LongKeyedParticleMutator {
-  public com.example.soma.keyed.generated.LongKeyedParticleMutator setEnergy(long);
-  public void commit();
-}

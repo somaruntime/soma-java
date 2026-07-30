@@ -1,7 +1,0 @@
-Compiled from "KeyedParticleMutator.java"
-public final class com.example.soma.keyed.generated.KeyedParticleMutator {
-  public com.example.soma.keyed.generated.KeyedParticleMutator setEnergy(int);
-  public com.example.soma.keyed.generated.KeyedParticleMutator setPriority(int);
-  public com.example.soma.keyed.generated.KeyedParticleMutator clearPriority();
-  public void commit();
-}

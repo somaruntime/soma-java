@@ -1,94 +1,95 @@
-# SOMA Java 项目事实入口
+# SOMA Java 项目状态
 
-类型：Project Facts Entry
+类型：Project Entry
 
-状态：正式
+状态：产品重新定义中
 
-Owner：SOMA Java 项目治理
+Owner：SOMA Java 当前项目事实与文档路由
 
-事实范围：项目事实分类、角色入口、目录映射、权威关系和 selected delivery profile
+最后审查日期：2026-07-31
 
-非事实范围：替代各 Blueprint、Design、代码、Report 或发布证据的具体内容
+## 当前事实
 
-采用框架：面向角色与场景的项目组织框架 `2.0.0-rc.1`
+SOMA Java 已在同一个仓库和产品身份下建立 clean-slate 起点。当前 active checkout：
 
-最后审查日期：2026-07-30
+- 没有 production source；
+- 没有 Maven reactor 或 artifact；
+- 没有 generated API；
+- 没有 test、benchmark 或 example；
+- 没有 CI、release qualification 或 package workflow；
+- 没有正式 Blueprint、Design、Conformance、Report 或 Product Docs；
+- 不声明可用性、兼容性、性能、支持矩阵或 release readiness。
 
-## 1. 项目组织
+这些缺失是有意的。项目先闭合产品语义，再让模块和实现从已批准的 capability
+自然产生。
 
-`project/` 保存 SOMA 怎样被设计、实现、验证和演进的完整事实体系。代码、配置、
-schema、测试和可执行产物继续拥有当前实现事实；`docs/`、README、白皮书和示例是
-针对角色与场景的信息投影。
+## 当前事实入口
+
+| 需要了解的内容 | 唯一入口 |
+|---|---|
+| 候选产品模型、确认方向和未决问题 | [产品基础决策](temp/soma-product-foundation/README.md) |
+| 候选 generated API 与用户示例 | [逻辑层 API 草稿](temp/soma-product-foundation/logical-api-draft.md) |
+| 产品介绍 | [根 README](../README.md) |
+| 品牌资产与权利 | [Assets](../assets/README.md)、[NOTICE](../NOTICE) |
+| 安全报告方式 | [Security Policy](../SECURITY.md) |
+
+产品基础决策是当前 Temporary 中的候选事实 Owner。逻辑层草稿只能投影这些决策，
+不能独立增加产品语义。
+
+## 固定产品身份
+
+- 品牌：SOMA；
+- GitHub Organization：`somaruntime`；
+- repository：`somaruntime/soma-java`；
+- owner / maintainer：ArthurFeng；
+- Java package / Maven group 基线：`io.github.somaruntime.soma`；
+- 语言方向：Java 8；
+- License：Apache License 2.0。
+
+上述身份不等于 artifact、版本、module、annotation 或 release profile 已经决定。
+
+## Predecessor 边界
+
+重启前的完整项目由 annotated Git tag
+`archive/pre-product-reset-2026-07-31` 固定，对应 commit
+`b69477432b44c4bc75c5f62fff741a729a33def2`。
+
+该 ref：
+
+- 是历史 provenance 和恢复点；
+- 包含旧设计、代码、测试、example、benchmark、报告和两份完整讨论稿；
+- 不是 release tag；
+- 不是当前支持或 qualification 证据；
+- 不能作为新产品 API 或实现 Owner。
+
+active checkout 不建立 legacy 目录、历史文档副本或 compatibility surface。
+
+## 后续治理顺序
 
 ```text
-Blueprint -> Design -> Code / Config / Tests
-                  \        /
-Implementation Map -- maps
-Conformance ------- compares
-Process ----------- governs evidence and delivery
-Current facts + evidence -> Reports
-Temporary -> candidate decision -> promotion or deletion
+产品基础 Temporary
+    -> 未决问题逐项裁决
+        -> 独立一致性审查
+            -> 按职责建立正式 Blueprint / Design
+                -> 最小 generated Java 8 consumer 验证
+                    -> capability-driven module 与实现
+                        -> correctness / performance / release evidence
+                            -> 删除 Temporary
 ```
 
-同一正式事实只有一个 Owner。Implementation Map 不重新定义代码，Conformance
-不自动授权修改，Report 不发明产品能力，产品文档不反向改变 Design。
+在正式 Blueprint/Design 建立前，不应创建 production module、公开 API 或大规模
+实现。设计成立后也不得一次性恢复旧项目结构；每个 surface 必须由独立 capability、
+consumer、lifecycle、failure boundary 和 evidence 证明。
 
-## 2. 正式事实入口
+## 当前验证边界
 
-| 分类 | 回答的问题 | 入口 |
-|---|---|---|
-| Blueprint | SOMA 最终希望成为什么、怎样被使用？ | [Blueprint](blueprint/README.md) |
-| Design | 系统长期必须遵守什么？ | [Design](design/README.md) |
-| Modules | 每个模块承担什么，如何进入实现和验证？ | [Modules](modules/README.md) |
-| Implementation Map | 当前代码、测试、数据流和 hot path 在哪里？ | [Implementation Map](implementation-map/README.md) |
-| Conformance | Blueprint、Design、实现和 evidence 是否一致？ | [Conformance](conformance/README.md) |
-| Process | 项目怎样构建、验证、benchmark、发布和治理？ | [Process](process/README.md) |
-| Report | 当前性能、Gate、support 和 release 结论是什么？ | [Reports](reports/README.md) |
+当前只需要验证：
 
-当前 active Temporary：
+- active checkout surface 与本页声明一致；
+- Markdown 相对链接有效；
+- 品牌和法律资产完整；
+- predecessor tag 可解析到精确 commit；
+- Git diff 无 whitespace error；
+- 没有旧 release、version、module 或 capability claim 泄漏到当前入口。
 
-- [项目组织框架 2.0 迁移](temp/project-organization-v2/README.md)；
-- [SOMA V1 产品心智模型与 API 重构](temp/soma-v1-product-api-reset/README.md)。
-
-Temporary 完成事实 promotion、验证和切换后必须删除；没有 active topic 时不保留
-空目录或“当前没有内容”的占位文件。
-
-## 3. 角色入口
-
-| 当前角色 | 默认入口 |
-|---|---|
-| 使用者、集成者、技术选型者 | [产品文档](../docs/README.md) |
-| 贡献者 | [CONTRIBUTING](../CONTRIBUTING.md)、[Modules](modules/README.md)、[Process](process/README.md) |
-| Owner、维护者、release reviewer | 本页和全部正式事实入口 |
-| Agent | [AGENTS.md](../AGENTS.md)及当前任务对应 Owner |
-
-Agent 不因能够搜索整个仓库而自动获得维护者授权。
-
-## 4. 项目目录映射
-
-| 逻辑表面 | 当前物理位置 |
-|---|---|
-| 产品信息投影 | `README.md`、`docs/`、examples、`SUPPORT.md`、`SECURITY.md` |
-| 完整项目事实 | `project/` |
-| 生产实现 | 四个 `soma-*` production Maven module |
-| 普通 reference consumers | `soma-examples/` |
-| benchmark 与可执行 evidence source | `soma-benchmarks/`、`tests/`、`scripts/` |
-| Agent consumer workflow | `.agents/skills/use-soma-java/` |
-| 原始或可重建 evidence | `target/`、CI artifact 或批准的外部 evidence store |
-
-模块根 README 因 GitHub 和源码导航保留为薄入口；模块内部不再维护平行 `docs/`
-事实体系。
-
-## 5. Delivery profile
-
-当前 selected profile 是 `private-github-source`：
-
-- 完整 Git repository 包含 `project/`，用于版本、审查和 release evidence 追踪；
-- Maven release-shaped artifacts 只包含 parent/module POM 与四个 production
-  module 的 binary、sources、Javadoc JAR；
-- 精简源码交付物由显式 allowlist 生成，不默认打包整个 checkout；
-- public GitHub 与 Maven Central 仍是 `not-selected`，不得从 private CI 或本机
-  evidence 外推。
-
-具体过程见 [Release 治理](process/release-governance.md)和
-[G6 readiness](reports/java-v1-g6-release-readiness-report.md)。
+代码、编译、consumer、性能和 release Gate 将在相应 surface 真正出现时建立。

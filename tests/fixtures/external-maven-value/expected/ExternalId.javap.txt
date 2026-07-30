@@ -1,9 +1,0 @@
-Compiled from "ExternalId.java"
-public final class com.example.soma.external.ExternalId {
-  public final long value;
-  public static com.example.soma.external.ExternalId of(long);
-  public com.example.soma.external.ExternalId(long);
-  public boolean equals(java.lang.Object);
-  public int hashCode();
-  public java.lang.String toString();
-}

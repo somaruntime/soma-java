@@ -1,5 +1,0 @@
-Compiled from "NotSoma.java"
-public class com.example.fake.NotSoma {
-  public int mutable;
-  public com.example.fake.NotSoma();
-}

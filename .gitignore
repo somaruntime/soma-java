@@ -12,9 +12,6 @@ target/
 # OS files
 .DS_Store
 
-# Local brand source/reference
-/assets/soma-original.png
-
 # Local temp
 *.log
 .tmp/
