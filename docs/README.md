@@ -70,7 +70,10 @@ artifact 和 validator 拥有，并由[可执行契约地图](implementation-map
 
 重大长期设计变化在 `docs/temp/<topic>/` 中保持独立，直到实现、验证和授权完成后原子固化；最后删除 Temporary，不归档。
 
-当前没有 active Temporary topic。
+当前 active Temporary topic：
+
+- [SOMA Java 项目组织框架 2.0 迁移](temp/project-organization-v2/README.md)：
+  将完整项目事实迁入 `project/`，重构角色投影和交付边界；不改变产品语义。
 
 已完成专题的稳定事实进入对应正式Owner，Temporary在closeout后删除且不归档。
 
