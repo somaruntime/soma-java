@@ -2,12 +2,13 @@
 
 # SOMA Java
 
-SOMA Java 正在从一个干净起点重新定义。产品身份、仓库和 Java 8 方向保持不变，
-旧实现、旧模块和旧公开 API 不再约束新产品。
+SOMA Java 正在同一个产品和仓库身份下从干净起点重新定义。正式 V1 Blueprint、
+Design 和 Conformance baseline 已经建立；旧实现、旧模块和旧公开 API 不再约束新
+产品。
 
-当前阶段只有产品基础设计，没有可构建的 SOMA library、可用 API、发布版本、
-兼容性承诺或性能声明。仓库暂时不提供 `pom.xml`，这是为了避免在产品模型闭合前
-预设模块和 artifact 结构。
+当前仍没有 production SOMA library、可用 consumer API、Maven artifact、Example、
+性能承诺或发布版本。仓库根目录不提供 `pom.xml`。正式设计说明系统应当是什么，
+不等于 implementation、qualification 或 release 已经完成。
 
 ## 目标方向
 
@@ -15,7 +16,7 @@ SOMA 面向 Java application 中大规模、频繁变化的进程内状态。App
 普通 Java 对象、注解和 generated typed API 表达业务语义；SOMA 在内部通过
 编译生成、列式存储和专门化执行获得性能。
 
-当前候选模型是：
+V1 产品模型是：
 
 ```text
 用户语义层
@@ -28,16 +29,20 @@ SOMA 面向 Java application 中大规模、频繁变化的进程内状态。App
 多个中间操作，由 Query、Update 或 Remove terminal 结束。physical Column、
 scratch、plan 和 scheduler 不进入普通用户 API。
 
+1:M 与 N:M 通过普通 Table、endpoint ID 和 Index 表达。SOMA 不引入 ChildTable、
+Table ownership graph、隐式 cascade 或 cross-Table transaction。
+
 ## 当前入口
 
 - [项目状态与事实边界](project/README.md)
-- [产品基础决策](project/temp/soma-product-foundation/README.md)
-- [逻辑层 API 草稿](project/temp/soma-product-foundation/logical-api-draft.md)
+- [SOMA Java V1 产品蓝图](project/blueprint/README.md)
+- [正式 Design 总览](project/design/README.md)
+- [当前 Conformance 与证据边界](project/conformance/README.md)
 - [品牌资产](assets/README.md)
 - [安全报告方式](SECURITY.md)
 
-上述两份产品文档仍是 Temporary，不是正式 Blueprint 或 Design，也不构成实施或
-发布证明。
+产品使用文档、Quick Start 和可执行 Examples 将在 production surface 真正建立并
+通过 Conformance Gate 后提供；现在不会用伪示例制造“已经可用”的印象。
 
 ## 历史边界
 
