@@ -2,7 +2,8 @@
 
 ## 当前状态
 
-SOMA Java 已从 clean-slate 起点建立正式 V1 Blueprint、Design 与 Conformance baseline。
+SOMA Java 已从 clean-slate 起点建立正式 V1 Blueprint、Design、Engineering 与
+Conformance baseline，实施准备结论为 `READY_FOR_IMPLEMENTATION`。
 当前 active checkout 不包含 production source、production Maven reactor、generated
 consumer API、benchmark、Example、CI/release workflow 或 package。正式 Design 不等于
 implementation、performance 或 release 已经成立。
@@ -12,6 +13,7 @@ implementation、performance 或 release 已经成立。
 - [项目状态](project/README.md)；
 - [SOMA Java V1 产品蓝图](project/blueprint/README.md)；
 - [Design 总览](project/design/README.md)；
+- [V1 Implementation Plan](project/engineering/v1-implementation-plan.md)；
 - [Conformance 与证据边界](project/conformance/README.md)。
 
 随后只读取与任务直接相关的 Design Owner；不要把全部项目事实加载成每次任务的默认
@@ -45,7 +47,9 @@ release profile。
 - V1 `@SomaTable` 不接受 `name` identity；package-private `.schema` declaration type
   决定父 package generated object、`XxxTable` 和 `xxxTable()`；
 - application API 不泄漏 schema declaration type；
-- 未经明确 implementation authorization，不创建 production module/public API。
+- production topology 已固定为 `soma-runtime` + `soma-processor`，但未经明确
+  implementation authorization 仍不创建 production module/public API；授权后只从 I0
+  开始，不并行铺开全部 slice。
 
 ## 正式事实与文档
 
@@ -78,7 +82,7 @@ Owner 裁决。
 
 ## 当前阶段验证
 
-当前是 formal Design baseline、pre-implementation 阶段。文档与 repository-surface
+当前是 implementation-ready、pre-implementation 阶段。文档与 repository-surface
 变更至少执行：
 
 - 使用 `rg` / `rg --files` 搜索；
@@ -97,8 +101,9 @@ release evidence。
 
 Production surface 出现后，按
 [V1 Implementation Conformance Gates](project/conformance/v1-implementation-gates.md)
-建立相称的 compile、consumer、negative、runtime、concurrency、performance、build
-和 release Gate。
+建立相称的 compile、consumer、negative、runtime、concurrency、performance、build、
+security、packaging 和 release Gate，并按唯一
+[Implementation Plan](project/engineering/v1-implementation-plan.md)一次推进一个 slice。
 
 ## Git
 

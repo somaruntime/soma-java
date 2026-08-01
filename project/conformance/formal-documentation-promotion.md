@@ -10,6 +10,11 @@ Owner：产品基础 Temporary 到正式 Blueprint/Design/Conformance 的 replac
 
 审查日期：2026-08-01
 
+后续状态：本记录只保存当时的 Temporary replacement 结论；其中标记为 implementation
+Gate 的 exact signature/metadata/architecture 已由后续
+[Implementation Readiness Review](v1-implementation-readiness-review.md)关闭，当前状态以
+后者和 Design 总览为准。
+
 ## 1. 审查目标
 
 本次审查验证三类 Temporary 内容是否全部获得唯一正式去向，并防止把原文整体改名后

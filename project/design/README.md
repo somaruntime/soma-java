@@ -26,8 +26,10 @@ predecessor 恢复模块或代码。
 | [Schema 与编译生成](schema-and-generation.md) | composition、annotation、declaration、generated identity/object、命名、编译诊断与 full-regeneration support contract | BP-1、BP-2、BP-3、BP-10 |
 | [数据模型与存储](data-model-and-storage.md) | Group/Table identity、logical Field、leaf storage、null/type、Key/Index、关系 Table、order、capacity 与 GC lifecycle | BP-3、BP-4、BP-8、BP-9 |
 | [逻辑层 API](logical-api.md) | generated navigation、Table direct operation、source、Stream capability、terminal、cursor/View、materialization 与 metadata surface | BP-1、BP-2、BP-4、BP-5、BP-8 |
+| [Generated Java API Signature](generated-api-signatures.md) | public/shared/generated Java 8 exact signature、type family、operation property、metadata carrier 与 compatibility boundary | BP-1、BP-2、BP-5、BP-7、BP-8 |
 | [执行、并发与并行](execution-and-concurrency.md) | pipeline binding、admission、currentness、atomic publish、sequential/parallel scheduling、determinism 与 resource boundary | BP-5、BP-6、BP-8、BP-9 |
 | [结果与失败](results-and-failures.md) | normal result、failure carrier/code、mapping、precedence、sanitization 与失败后状态保证 | BP-7、BP-10 |
+| [Production Implementation Architecture](implementation-architecture.md) | artifact/build topology、runtime component boundary、storage/Index/admission/publish/scheduler baseline algorithm | BP-4、BP-5、BP-6、BP-8、BP-10 |
 
 同一语义只能由表中一个文档拥有。其他文档可以摘要并链接，但不得复制出第二套规则。
 
@@ -45,6 +47,10 @@ Blueprint
         -> operation semantics and publication
     -> Results and Failures
         -> observable outcome
+    -> Generated Signature
+        -> exact Java projection
+    -> Production Implementation Architecture
+        -> artifact/build/internal mechanism
             -> Code / Tests / Build
                 -> Conformance
 ```
@@ -52,7 +58,11 @@ Blueprint
 关键边界：
 
 - Schema Design 决定“生成什么”，Logical API Design 决定“用户能够表达什么”；
+- Signature Design 把已经成立的用户能力机械投影成 exact Java 8 surface，不重新发明
+  语义；
 - Storage Design 决定 authoritative state，Execution Design 只能暂存、读取和发布；
+- Implementation Architecture 决定怎样承载合同，不能把 internal baseline 上升为第二套
+  用户模型；
 - Logical API 决定 capability 是否存在，Failure Design 不能用 runtime
   `UNSUPPORTED_OPERATION` 代替 compile-time absence；
 - Execution Design 决定 operation phase，Failure Design拥有 phase 对外怎样仲裁；
@@ -77,20 +87,19 @@ Blueprint
 
 ## 5. 当前正式程度
 
-本 Design 集合晋升的是已经由 Product Owner 裁决、并经过独立一致性审查的 V1 合同。
-它仍保留以下实现前 Gate，而不把它们伪装成已实现能力：
+本 Design 集合已经关闭进入实现前必须由设计决定的 V1 产品语义、exact Java surface、
+production topology 与 baseline mechanism。仍待 production evidence 证明，而不是待
+实现者自行裁决的内容包括：
 
-- production module/artifact 与 dependency topology；
-- annotation processor 的完整 diagnostic catalog 和 binary compatibility policy；
-- metadata carrier 的 exact Java type shape；
-- storage、Index、atomic publish 与 parallel scheduler 的 production algorithm；
-- Maven/IDE full-regeneration 的真实 build integration；
-- 未来可能支持的 Gradle incremental path；
-- correctness、performance、packaging 与 release Gate。
+- annotation processor 的完整 diagnostic 实例与 generated golden；
+- Maven/IDE full-regeneration 的真实 integration/stale cleanup；
+- storage、Index、atomic publish 与 scheduler 的代码正确性和 fault injection；
+- correctness、performance、security、packaging 与 release Gate；
+- 未来可能支持但当前明确排除的 Gradle incremental path。
 
-这些是下游技术 Design/Conformance 工作，不重新打开已经固定的产品语义。任何方案若
-需要改变 Blueprint 或本目录的 public contract，必须建立新的 Temporary 专题并由
-Product Owner 裁决。
+这些属于[实施计划](../engineering/v1-implementation-plan.md)和 Conformance，不重新打开
+已经固定的产品语义。若实施证明某项合同不可成立，必须建立新的 Temporary 专题并由
+相应 Owner 裁决，不能在代码中静默选择。
 
 ## 6. 明确不恢复的 predecessor surface
 
@@ -105,5 +114,5 @@ manual `release()`、secondary unique、generic join 或 compatibility adapter�
 - 当前 active checkout 是否实现这些 Design；
 - P2 Java 8 feasibility evidence 的正式结论与边界；
 - production 实施前必须建立的 compile、consumer、negative、runtime、performance
-  与 build Gate；
+  build、security 与 packaging Gate；
 - 已知差异是否阻断 implementation/release claim。

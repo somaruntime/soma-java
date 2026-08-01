@@ -2,7 +2,7 @@
 
 类型：Project Entry
 
-状态：正式 V1 Design baseline 已建立；production implementation 尚未开始
+状态：`READY_FOR_IMPLEMENTATION`；production implementation 尚未开始
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -10,8 +10,9 @@ Owner：SOMA Java 当前项目事实与文档路由
 
 ## 当前事实
 
-SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产品基础治理，
-建立正式 Blueprint、五份分责 Design、Conformance 和 implementation Gate。当前
+SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产品基础治理与
+实施准备收口，建立正式 Blueprint、七份分责 Design、Engineering plan、Conformance
+和 implementation Gate。当前
 active checkout：
 
 - 有正式产品 Blueprint、Design 和 Conformance；
@@ -22,6 +23,10 @@ active checkout：
 - 没有 CI、release qualification 或 package workflow；
 - 没有可用性、兼容性、性能、支持矩阵或 release readiness 声明；
 - 没有 active Temporary 或 parallel current fact Owner。
+
+实施准备审查结论为 `READY_FOR_IMPLEMENTATION`：产品语义、exact Java surface、
+two-artifact/full-regeneration architecture、baseline mechanism、量化 performance/security Gate 和
+I0-I7 实施计划已经关闭。它不等于 production capability；开始 I0 仍需下一项明确授权。
 
 此前 P2 Java 8 validation spike 已完成使命并退役。成立的 generated type-shape、
 cursor/View、typed array、primitive、owner guard 和 full-regeneration 边界已经分别
@@ -37,8 +42,12 @@ P2 只解除 selected feasibility risk，不等于 production capability。
 | Schema、annotation、generated object 与 full regeneration | [Schema 与编译生成](design/schema-and-generation.md) |
 | Group/Table、存储、Field type、Key/Index、关系与 lifecycle | [数据模型与存储](design/data-model-and-storage.md) |
 | Generated hierarchy、Table/Field/Stream API 与 metadata | [逻辑层 API](design/logical-api.md) |
+| Exact annotation/shared/generated Java 8 signature | [Generated API Signature](design/generated-api-signatures.md) |
 | Currentness、admission、mutation、并发与 parallel execution | [执行、并发与并行](design/execution-and-concurrency.md) |
 | Result、failure code、mapping、precedence 与状态保证 | [Result 与 Structured Failure](design/results-and-failures.md) |
+| Artifact/build/runtime/storage/Index/publish baseline | [Production Implementation Architecture](design/implementation-architecture.md) |
+| I0-I7 实施顺序、exit 与 stop rule | [V1 Implementation Plan](engineering/v1-implementation-plan.md) |
+| 实施准备审查结论 | [Implementation Readiness Review](conformance/v1-implementation-readiness-review.md) |
 | 当前实现差距、P2 evidence 与 production Gate | [Conformance](conformance/README.md) |
 | 产品与角色入口 | [根 README](../README.md) |
 | 品牌资产与权利 | [Assets](../assets/README.md)、[NOTICE](../NOTICE) |
@@ -72,10 +81,11 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/` |
 | Design | `project/design/` |
+| Engineering | `project/engineering/`；I0-I7 ready/not started |
 | Conformance | `project/conformance/` |
 | Temporary | `project/temp/`；当前无 active topic |
 | Product Docs | 尚未建立；等待 production surface |
-| Modules/Implementation Map/Process/Reports | 尚无独立 capability，不创建空目录 |
+| Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
 
 Selected delivery profile 尚未建立；未来 package/source bundle 必须采用明确 allowlist，
 不能把整个 checkout 默认交付给 library consumer。
@@ -111,21 +121,17 @@ release profile。
 
 ```text
 Formal Blueprint/Design baseline（已完成）
-    -> capability/module surface admission
-        -> production compiler/runtime implementation authorization
-            -> compile/consumer/negative/runtime correctness Gate
-                -> reference scenario correctness/performance profile
-                    -> packaging/release process and qualification
+    -> implementation readiness（已完成）
+        -> production implementation authorization
+            -> I0 build spine
+                -> I1-I6 compiler/runtime slices and Gate
+                    -> I7 reference scenario/performance/security/package qualification
 ```
 
-下一阶段不是恢复 predecessor reactor，也不是一次性建立所有 module。每个新 surface
-必须说明 capability/consumer、Owner、lifecycle、failure boundary、现有 surface 为何
-不足，以及成立所需 evidence。
-
-Metadata exact Java carrier、完整 compiler diagnostic、production module topology 和
-build handshake carrier 等技术空白已在 Design/Conformance 中明确拥有；它们不得由
-实现静默决定。如果 implementation proposal 需要改变产品语义，必须建立新的
-Temporary，并由 Product Owner 裁决后再推进。
+下一阶段不是继续补写 Blueprint、恢复 predecessor reactor，或一次性铺开所有 module；
+收到明确授权后只从 I0 开始。Exact signature、diagnostic、module topology、handshake、
+storage/Index/publish/scheduler baseline 已由正式 Design 固定。若 evidence 迫使改变产品
+语义，必须停止 slice、建立新的 Temporary，并由 Product Owner 裁决。
 
 ## 当前验证边界
 

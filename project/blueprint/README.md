@@ -128,6 +128,43 @@ ChildTable、Table ownership graph、foreign key、implicit cascade 或 cross-Ta
 transaction。统一关系模型用少量 endpoint storage 换取单一 Table lifecycle 和单一
 执行模型。
 
+### 5.5 与 Java Collections / Stream 的关系
+
+SOMA 学习 Java Stream 的用户认知，不把自己叙述为 Stream replacement 或“任何场景都
+更快的 Stream”。两者的根本差异是：
+
+| 维度 | Java Collections / Stream | SOMA |
+|---|---|---|
+| Authoritative state | 任意 collection/source 由 application 持有 | schema-defined Table 由 SOMA Group 持有 |
+| 元素模型 | 通用 object/primitive stream element | Record selection、logical Field、Index 和 flattened leaf |
+| 类型形成 | library generic + application lambda | processor 依据 schema 生成 exact typed capability |
+| Access path | iterator/spliterator 与 application structure | whole Table、Key、non-unique Index、Field projection |
+| Mutation | Stream pipeline 通常不维护 source structure | Table direct add/point operation；Record selection 可 atomic Update/Remove |
+| Storage | 不规定 collection 物理表示 | data-oriented primitive/reference leaf arrays |
+| 并发边界 | 由 source/collector/application共同决定 | Table-local admission + library-wide bounded parallel terminal |
+| 失败 | Java exception 与 source-specific behavior | stable structured failure + zero partial publication |
+
+SOMA 应坚持从 Java Stream 借鉴：
+
+- `source -> intermediate -> terminal -> result` 的单一主线；
+- lazy、finite、one-shot pipeline；
+- familiar 的 `filter/map/sorted/skip/limit/findFirst/min/max/toList/toArray` 命名；
+- sequential 默认、parallel 显式 opt-in；
+- intermediate 与 terminal 的清晰边界；
+- 尽量用类型缺席表达不支持，而不是 runtime surprise。
+
+SOMA 不复制 Java Stream 的 universal `Stream<T>`、arbitrary source/Spliterator、Collector
+生态、generic reduce/flatMap 或“pipeline 只读”假设。SOMA 的额外复杂度必须只来自它
+真正拥有的 Table storage、Key/Index、mutation atomicity 和 predictable execution，不能
+向用户暴露另一套 planner/Column/runtime 心智模型。
+
+因此 V1 的产品叙事是：
+
+> 当 application 需要长期持有、反复索引/扫描/更新大量进程内状态时，SOMA 用 schema
+> 和编译生成把自然 Java 业务模型 lowering 为紧凑、类型安全、可预测的 Table 执行；
+> 对小集合、一次性转换、任意对象流、数据库查询或跨 Table transaction，继续使用
+> Java Collections/Stream、数据库或 application OOP 更合适。
+
 ## 6. V1 Blueprint requirements
 
 | ID | 必须成立的产品能力 |
@@ -249,7 +286,7 @@ Blueprint 只有在下列事实同时成立时才能投影为“可用产品”�
 1. 正式 Design 对 BP-1 至 BP-10 都有唯一 Owner；
 2. production compiler/runtime surface 经过独立 surface admission；
 3. generated Java 8 consumer、negative capability、runtime correctness、concurrency、
-   failure 与 build integration Gate 通过；
+   failure、build integration 与 security/supply-chain Gate 通过；
 4. 三个 reference scenario 证明表达力与性能适用边界；
 5. 用户文档、Examples、包内容和 release claim 与正式事实一致；
 6. Conformance 没有未裁决或未披露的阻断差异。
@@ -263,6 +300,9 @@ artifact 或 release readiness。
 - [Schema 与编译生成](../design/schema-and-generation.md)
 - [数据模型与存储](../design/data-model-and-storage.md)
 - [逻辑层 API](../design/logical-api.md)
+- [Generated Java API Signature](../design/generated-api-signatures.md)
 - [执行、并发与并行](../design/execution-and-concurrency.md)
 - [结果与失败](../design/results-and-failures.md)
+- [Production Implementation Architecture](../design/implementation-architecture.md)
+- [Production Implementation Plan](../engineering/v1-implementation-plan.md)
 - [Conformance](../conformance/README.md)

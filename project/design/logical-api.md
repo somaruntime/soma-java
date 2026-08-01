@@ -109,6 +109,10 @@ int capacity = table.capacity();
 ```
 
 `reserve` 返回 `void`，不增加 Record。V1 不提供 `trimToSize()`。
+`expectedRows < 0` 为 `INVALID_ARGUMENT`；`expectedRows <= capacity` 是 no-op。
+新 Table facade 的 `size/capacity` 均为 0；`defaultCapacity` 在第一次 positive
+`reserve/add` 时作为 initial allocation hint 生效，不在 accessor/Group creation 时隐藏
+分配 payload。
 
 ### 5.2 Add
 
@@ -206,6 +210,11 @@ machineEvents.byMachineId(machineId).parallelStream();
 `parallelStream()`，不直接复制 `filter/count/update/remove` terminal。Index 值可
 重复，selection 为 `0..N` ordered Record subset。
 
+`IndexSelection` 是 immutable、reusable source descriptor，不是 one-shot Pipeline；它
+保存 typed exact-match value 和 Table owner，每次 `stream()/parallelStream()` 创建新的
+linked-chain Pipeline，并在 terminal-start late-bind current Index state。构造 selection
+不取得 Table admission，也不缓存 record slots/live cursor。
+
 Key 不生成 `byKey(key).stream()`。Point query/update/remove 只使用 Table direct API；
 Key logical Field 仍可以只读 stream/project。
 
@@ -267,7 +276,8 @@ Intermediate operation：
 | Record | `map/mapToInt/mapToLong/mapToDouble` | Mapped | 是 | 否 | 否 |
 | Field | `filter/sorted/skip/limit` | Field | 是 | 保持原能力 | 否 |
 | Field | `distinct` | Mapped value | 是 | 否 | 否 |
-| Field | `map/mapToXxx` | Mapped | 是 | 否 | 否 |
+| reference/Value Field | `map/mapToInt/mapToLong/mapToDouble` | Mapped | 是 | 否 | 否 |
+| primitive Field | `map/mapToObj/mapToXxx` | Mapped | 是 | 否 | 否 |
 | Mapped | `filter/sorted/distinct/skip/limit/map/mapToXxx` | Mapped | 是 | 否 | 否 |
 
 `select(field)` 是 typed logical projection，不是 `map(Function)` 的别名。它保留 Field
@@ -288,8 +298,8 @@ Field update。
 `Table.Record` 是 callback-scoped read-only cursor；`Table.Editor extends Record` 是
 Update callback 的 staged-mutation cursor。
 
-- sequential terminal 复用 O(1) cursor；
-- parallel terminal 每个 active participant 最多一个，总量 O(P)；
+- sequential terminal 复用常数个 cursor/View；
+- parallel terminal 每个 active participant 使用常数个，总量 O(P)；
 - 不得跨 callback、terminal、Table、thread/participant 或 execution 使用；
 - 不得从 mapper 返回、保存为业务对象或用 identity/equality 表达 Record；
 - 当前 callback dynamic scope 内同步 helper 使用合法；
@@ -309,23 +319,20 @@ Java 8 无法区分同 execution、同 participant 中同一 reusable object 的
 ### 8.2 Flattened Value View
 
 完整 Value Field callback 不按 Record materialize immutable Value。Generated shape
-分离 reusable callback View `W` 与 detached Value `V`：
+分离 reusable callback `V.View` 与 detached Value `V`：
 
 ```java
-ReadOnlyValueFieldStream<MachinePairKeyView, MachinePairKey> pairs =
-    table.machinePair.stream();
-
-pairs.forEach(view -> {
+table.machinePair.stream().forEach(view -> {
     long from = view.fromMachine().value();
     MachinePairKey stable = view.fetch();
     consume(from, stable);
 });
 ```
 
-- `filter/map/forEach` 接收 `W`；
+- `filter/map/forEach` 接收 `V.View`；
 - `findFirst/toList/toArray` 返回 stable `V`；
-- `W.fetch()` 只在当前 callback 内调用并显式 materialize；
-- mutable Value Field update 使用 `Function<W,V>`；
+- `V.View.fetch()` 只在当前 callback 内调用并显式 materialize；
+- mutable Value Field update 使用 `Function<V.View,V>`；
 - nested Record navigation 和 View getter 直接访问 flattened leaves。
 
 不得退回 generic `ValueFieldStream<V>` 并隐藏 O(N) DTO allocation。
@@ -348,8 +355,10 @@ long[] ids = table.stream()
 
 任何 map 产生 detached value，终止 Record/Field identity 与 mutation lineage。
 Reference mapper 可以返回 null；`filter/count/forEach/toList/toArray/distinct` 能处理
-null，natural `sorted/min/max` 遇到 null fail closed。Reference `findFirst` 选中 null
-为 `NULL_VALUE_UNSUPPORTED`，因为 V1 不引入 nullable Optional。
+null，explicit Comparator `sorted/min/max` 如何比较 null 由 application comparator
+决定。任何 reference `findFirst/min/max` 的 logical selected result 为 null 时产生
+`NULL_VALUE_UNSUPPORTED`，因为 V1 不引入 nullable Optional；`sorted/toList/toArray`
+仍可包含 null。Arbitrary mapped reference 不提供 no-arg natural order。
 
 Mapped reference `distinct` 使用 Java `equals/hashCode`，primitive distinct 使用
 primitive value。Application 必须保证 mapped object 在 terminal 期间的
@@ -362,10 +371,11 @@ equality/hash/order non-interfering。
 | `count`、`anyMatch/allMatch/noneMatch`、`findFirst`、`forEach` | 是 | 是 | 是 |
 | `toList` / legal typed `toArray` | 是 | 是 | 是 |
 | type-eligible `sum/average/min/max` | 否 | 是 | 是 |
-| explicit Comparator `minBy/maxBy` | 是 | 是 | 是 |
+| explicit Comparator `min/max` | 是 | 是 | 是 |
 
 V1 只保留 `findFirst`，不提供 `getFirst`。Empty selection 使用对应 Optional shape；
-Record `findFirst` 返回 detached Table object。
+Record `findFirst` 返回 detached Table object。`min/max` 对 comparator/natural-order equal
+values 返回 canonical encounter order 中第一个，顺序/并行一致。
 
 `parallelStream().forEach` callback side-effect order 不保证；严格 encounter order 使用
 `stream().forEach`。V1 不提供 `forEachOrdered`。
@@ -465,7 +475,7 @@ Minimum information contract：
 |---|---|---|
 | Soma | composition identity、Table schema enumeration | parallel backend/config state snapshot |
 | Group | composition、是否 default | 无 |
-| Table | declared/generated identity、Field tree、optional Key、Index Fields、default capacity | immutable `size/capacity` snapshot |
+| Table | declaration/object/Table identity、Field tree、optional Key、Index Fields、default capacity | immutable `size/capacity` snapshot |
 | Field | local name、logical path、declared logical type、role、nullability、nested Fields | 无 |
 
 Metadata 是 stable、read-only facade/snapshot：
@@ -487,9 +497,9 @@ Metadata 是 stable、read-only facade/snapshot：
 array header、reference slot 与 shared referent；不能把 Java Object graph/GC 行为包装
 成 exact retained-memory promise。
 
-Exact metadata Java carrier、enum/descriptor/path representation 和 snapshot method 是
-production API Design Gate；实现必须在本信息集合内完成，不能自行扩张 public
-runtime surface。
+Exact carrier、enum、path representation 与 snapshot method 由
+[Generated Java API Signature Design](generated-api-signatures.md)固定；实现不能自行
+改名、增加 carrier 或扩张 public runtime surface。
 
 ## 15. API absence contract
 
@@ -528,13 +538,15 @@ UpdateResult replaced = times.update(new TransportTime(pair, 24L));
 
 OptionalLong shortest = times.stream()
         .filter(record ->
-            record.machinePair().fromMachine().equals(fromMachine))
+            record.machinePair().fromMachine().value()
+                == fromMachine.value())
         .select(times.transportMinutes)
         .min();
 
 UpdateResult delayed = times.stream()
         .filter(record ->
-            record.machinePair().fromMachine().equals(fromMachine))
+            record.machinePair().fromMachine().value()
+                == fromMachine.value())
         .select(times.transportMinutes)
         .update(minutes -> Math.addExact(minutes, disruptionDelay));
 
@@ -559,8 +571,11 @@ Production generated API 必须用 generated source、`javap`、independent Java
 - typed array/runtime component contract；
 - cross-Group Field owner guard；
 - metadata exact carrier；
+- exact Java signature 与 operation property matrix；
 - one-shot、currentness、concurrency、mutation/failure runtime behavior；
 - three reference scenario expression and profile。
 
 现有可行性结论见
 [P2 Generated API Conformance](../conformance/p2-generated-api-feasibility.md)。
+精确 projection 见
+[Generated Java API Signature Design](generated-api-signatures.md)。

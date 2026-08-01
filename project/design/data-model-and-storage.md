@@ -47,6 +47,12 @@ SomaGroup backup = Soma.createGroup();
 assert active.transportTimeTable() != backup.transportTimeTable();
 ```
 
+Group 创建时生成并持有每种 Table 的唯一 lightweight facade 与 Field endpoint，但不分配
+payload/Key/Index arrays。新 Table 的 `size()==0 && capacity()==0`；第一次 positive
+`reserve` 或 `add` 才按 `max(defaultCapacity, requiredRows)` 建立 storage。这样 Table
+identity/accessor 不成为可能分配大数组的隐藏 operation，`defaultCapacity` 仍只是首次
+allocation hint。
+
 ## 3. Authoritative Table state
 
 一张 Table 的 authoritative live state 只有：
@@ -81,7 +87,9 @@ Table state，失败时丢弃 staging。
 
 ### 4.2 Reference leaf
 
-- 使用声明类型对应的 Java reference array；
+- 使用声明类型可安全访问的 Java reference array；String/Enum 使用 typed array，ordinary
+  或 parameterized Object 的 internal representation 可以是可 reify declared array 或
+  `Object[]`，但不得向 generated/public surface 泄漏 universal Object model；
 - 普通 payload 允许 null；
 - 保存 reference slot，不 deep-copy referent；
 - Field update 替换 slot，不观察 referent 内部 mutation；
@@ -175,6 +183,11 @@ Ordinary Java Object 只作为 nullable opaque payload：
 - referent 内部 mutation 不递增 Table currentness，不触发 Index maintenance；
 - 第三方 immutable/Comparable type 也不会自动升级为 exact-value Field。
 
+Parameterized reference（例如 `List<String>`）在 generated source signature 中保留 declared
+generic type，但 physical slot 只保存 Java reference。SOMA 不扫描、复制或 runtime-validate
+type argument/collection element；raw/heap-pollution 后果仍属于 application/Java type
+boundary。因为 component type 不可 reify，该 Field 不生成 array terminal。
+
 日期、时间、时区全部由 application 拥有。`java.time.*`、`java.util.Date` 和
 `java.sql.*` 不特殊 lowering；直接存入时只是 opaque reference。需要 hot scan、
 order、aggregate、Key 或 Index 时，application 转换成具有明确单位/epoch 的 primitive
@@ -227,8 +240,10 @@ records 一致。
 - nested-subfield、cross-Field tuple、prefix/range 和 Value 内部 Index 不支持；
 - secondary unique 不支持。
 
-Index implementation 可以使用 hash、sorted structure 或其他内部方案，但必须保持
-exact equality、logical order、atomic maintenance 和 failure contract。
+产品语义不暴露 Index implementation；V1 production baseline 使用 generated hash
+structure。未来若替换为 sorted/其他内部方案，仍必须保持 exact equality、logical
+order、atomic maintenance、complexity 与 failure contract，并通过 Architecture 的
+替换准入。
 
 ## 10. 关系 Table
 
@@ -271,6 +286,11 @@ eligibilities.byMachineId(machineId).stream();
 `List<T>`、array 或普通 object reference 不具有 relationship declaration 语义。作为
 `@SomaField` 时只是 opaque nullable payload，不创建或维护另一个 Table。
 
+这里的 `T` 必须是 ordinary application type；compiler-only `@SomaTable/@SomaValue`
+declaration 不能被放入 container/array。需要 container of values 时，application 使用
+自己拥有的 ordinary Java type；需要 SOMA relationship 时使用 endpoint ID + relation
+Table。
+
 ## 11. Capacity 与 canonical order
 
 Table 提供：
@@ -299,6 +319,8 @@ Field projection 继承来源 Record order。更高层 operation 的 order contr
 用户 API 不提供 `release()`、`close()`、`AutoCloseable` 或 ownership token：
 
 - default Group 由 generated static reference 持有；
+- default Group 的 Table capacity 因而具有 ClassLoader-lifetime high-water 特征；需要
+  整组替换、回收大数组或双缓存时使用 explicit Group，并让旧 Group 失去可达性；
 - 显式 Group 及其 Table、Field 和 arrays 不再可达时由 GC 回收；
 - runtime 不得用 global live registry、后台 thread、永久 ThreadLocal 或 metadata
   observation 意外保留显式 Group；
@@ -345,3 +367,8 @@ Production storage/runtime 出现前必须证明：
 - ordinary Object slot boundary；
 - 1:M/N:M 双向 Index journey；
 - 大规模 memory footprint、allocation 和 throughput profile。
+
+Dense root、Key/Index、deterministic swap-compaction 与 journal/candidate publication 的 production
+baseline 由
+[Production Implementation Architecture](implementation-architecture.md)拥有；本 Design
+仍唯一拥有其必须保持的 storage semantics。

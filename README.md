@@ -3,18 +3,23 @@
 # SOMA Java
 
 SOMA Java 正在同一个产品和仓库身份下从干净起点重新定义。正式 V1 Blueprint、
-Design 和 Conformance baseline 已经建立；旧实现、旧模块和旧公开 API 不再约束新
-产品。
+Design、Engineering plan 和 Conformance baseline 已经建立，实施准备审查结论为
+`READY_FOR_IMPLEMENTATION`；旧实现、旧模块和旧公开 API 不再约束新产品。
 
 当前仍没有 production SOMA library、可用 consumer API、Maven artifact、Example、
 性能承诺或发布版本。仓库根目录不提供 `pom.xml`。正式设计说明系统应当是什么，
-不等于 implementation、qualification 或 release 已经完成。
+实施准备说明可以开始做什么；二者都不等于 implementation、qualification 或 release
+已经完成。
 
 ## 目标方向
 
 SOMA 面向 Java application 中大规模、频繁变化的进程内状态。Application 使用
 普通 Java 对象、注解和 generated typed API 表达业务语义；SOMA 在内部通过
 编译生成、列式存储和专门化执行获得性能。
+
+SOMA 借鉴 Java Stream 的 pipeline 心智，但不是 Stream replacement：它额外拥有
+Table state、Key/Index、data-oriented storage 和受控 mutation；小集合、一次性对象
+转换、数据库查询或跨 Table transaction 仍应使用更合适的 Java/application 工具。
 
 V1 产品模型是：
 
@@ -37,6 +42,8 @@ Table ownership graph、隐式 cascade 或 cross-Table transaction。
 - [项目状态与事实边界](project/README.md)
 - [SOMA Java V1 产品蓝图](project/blueprint/README.md)
 - [正式 Design 总览](project/design/README.md)
+- [Production Implementation Plan](project/engineering/v1-implementation-plan.md)
+- [Implementation Readiness Review](project/conformance/v1-implementation-readiness-review.md)
 - [当前 Conformance 与证据边界](project/conformance/README.md)
 - [品牌资产](assets/README.md)
 - [安全报告方式](SECURITY.md)

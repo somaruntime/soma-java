@@ -32,8 +32,18 @@ Source
 Pipeline 是 lazy、finite、single-source、one-shot：
 
 - 创建时保存 Table identity 和 operation definition，不绑定 payload state；
-- 第一个 terminal 成功进入 invocation 后消费 pipeline；
-- 第二个 terminal 产生 `STREAM_ALREADY_CONSUMED`；
+- Java Stream 同形的 linked-chain：一次 successful intermediate call 把 upstream object
+  标记为 linked，并返回唯一 downstream tail；upstream 不能再 branch、terminal 或追加
+  operation；
+- tail 的第一个 terminal 在 argument/reentrancy/nested-parallel validation 后、admission
+  前原子标记整条
+  chain consumed；无论后续 terminal success/failure 都不能重用；
+- 对 linked/consumed object 再调用 intermediate/terminal 产生
+  `STREAM_ALREADY_CONSUMED`；argument validation 失败且尚未成功 link/进入 terminal 的
+  object 保持可用；
+- concurrent calls on the same Stream object are not a composition API；implementation 以
+  atomic link/consume state 保证最多一个合法调用获胜，其余稳定失败，不能形成双 terminal
+  或损坏 plan；
 - terminal 完成后不保留 iterator、live cursor、worker 或 Table lease；
 - V1 不提供 async/Future、Publisher、infinite source 或 Pipeline mode switching。
 
@@ -59,12 +69,22 @@ Ordinary Object referent 的内部 state 不属于该 snapshot，仍由 applicat
 
 ## 4. Internal state version
 
-V1 内部可以使用 unified `stateVersion` 支撑 currentness：
+V1 baseline 使用 unified non-negative `stateVersion` 支撑 currentness：
 
-- successful add、effective update/remove 和 actual capacity growth 各递增一次；
+- 每个成功且实际改变 logical state 或 capacity 的 user operation 恰好递增一次；add
+  即使同时触发 capacity growth 也只递增一次，effective update/remove 与 actual-growth
+  reserve 各递增一次；
 - missing remove、logical no-op update/reserve 和 failed operation 不递增；
 - version 不进入普通 API 或 V1 metadata；
 - implementation 可以内部拆分 content/access/layout version，但不得改变用户语义。
+- version increment 使用 checked arithmetic；理论耗尽时 operation 以
+  `ARITHMETIC_OVERFLOW` zero-publication 失败。
+
+Next-version check 只能在 operation 已知自己会实际 publish 后、authoritative commit 前
+执行。Add/reserve 可在 effect preflight 后检查；Update 必须先完成 callback/staging 并确认
+`changed > 0`，Remove 必须先确认 final selection non-empty。于是 logical no-op 即使当前
+version 已到上限也仍正常返回且不失败；callback-dependent mutation 中，先发生的 callback
+failure 可以早于 change-dependent version overflow，但 Table 仍 zero publication。
 
 不存在 public stale/currentness token 或 `CURRENTNESS_FAILURE`。Late binding、admission
 和 no-live-handle contract 已消除用户管理 stale iterator 的需要。
@@ -123,9 +143,10 @@ table.stream().forEach(record -> {
 的 direct operation 或 sequential terminal，但只取得目标 Table 自身 admission，
 可能独立失败，不形成 cross-Table atomicity。
 
-任何 SOMA callback 内启动 parallel terminal 都禁止，即使目标是另一张 Table；违反
-时为 `NESTED_PARALLEL_OPERATION`。这避免 shared pool starvation、resource
-amplification 和 nested failure arbitration。
+任何 SOMA callback 内启动 parallel terminal 或调用 `Soma.setParallelExecutor` 都禁止，
+即使目标是另一张 Table；违反时为 `NESTED_PARALLEL_OPERATION`（configuration call 的
+operation kind 为 `CONFIGURE_PARALLEL`）。这避免 shared pool starvation、resource
+amplification、global configuration interference 和 nested failure arbitration。
 
 ## 8. Table-local mutation protocol
 
@@ -194,14 +215,22 @@ Pool state machine：
 ```text
 UNINITIALIZED
     -> setParallelExecutor(custom) -> CUSTOM_FIXED
-    -> first parallel terminal     -> COMMON_POOL_FIXED
+    -> first parallel terminal reaching Executor preflight
+                                      -> COMMON_POOL_FIXED
 ```
 
 - custom pool 必须在第一次 parallel terminal 前设置；
-- 未设置时第一次 parallel terminal 固定 `ForkJoinPool.commonPool()`；
+- 未设置时，第一次通过 argument/reentrancy/admission 并到达 Executor preflight 的
+  parallel terminal 固定 `ForkJoinPool.commonPool()`；更早 phase 失败不改变 configuration；
 - fixed 后重复设置同一 instance 是 idempotent no-op；
-- fixed 后设置不同 instance、`null` 或 reset 为
+- `null` 始终是 `INVALID_ARGUMENT`；fixed 后设置不同 instance 为
   `PARALLEL_CONFIGURATION_CONFLICT`；
+- state transition 使用 linearizable compare-and-set；`setParallelExecutor(custom)` 与
+  首次 fallback terminal 并发时只有一个 transition 获胜：custom 获胜则 terminal 使用
+  custom，common 获胜则 setter 按 different-instance conflict 失败；不得覆盖或双重提交；
+- callback 内 configuration 仍服从 Failure phase precedence：null argument 先得到
+  `INVALID_ARGUMENT`；其他有效 pool argument 在 configuration state 前得到
+  `NESTED_PARALLEL_OPERATION`，不能因 same-instance idempotence 绕过 callback boundary；
 - V1 不支持 runtime replacement；
 - application-owned pool 由 application shutdown；SOMA 不关闭；
 - common pool 由 JVM 管理。
@@ -214,7 +243,9 @@ UNINITIALIZED
 Effective pool parallelism 记为 `P`：
 
 - 一次 terminal active SOMA callback 不超过 `P`；
-- 调用线程参与时计入 P，不能形成 `P + 1`；
+- 所有 parallel callback 都在 effective pool worker 上运行；普通 external caller 只负责
+  admission/wait/merge/publish，不执行 callback；若 caller 本身已经是该 pool worker，
+  可以作为 participant，且计入 P；
 - `P == 1` 合法；
 - 小 selection 或成本模型判断不值得时可以只用一个 participant；
 - `parallelStream()` 表达“最多 P”，不承诺多线程或加速；
@@ -239,6 +270,13 @@ Custom pool 用于与 application 其他 CPU work 隔离。Common pool 下 SOMA 
 Terminal 返回或失败后不得仍有 callback 在后台运行。V1 不返回 Future，也不把
 quiescence 交给用户管理。
 
+Caller interruption 不构成 V1 cancellation API：parallel terminal 使用 uninterruptible
+quiescent join，保留/恢复 caller interrupt status 后再返回 logical result/failure。Pool 在
+terminal 期间被 application shutdown/cancel 时，operation 仍等待已提交 work quiescent；
+若全部 required work 已被接受并正常完成，随后发生的 graceful shutdown 不反向使结果
+失败。只有 shutdown/rejection/cancellation 实际阻止 required work 接受或完成时才以
+`PARALLEL_EXECUTOR_UNAVAILABLE` 结束；mutation zero publication。
+
 ## 14. Callback contract
 
 Parallel callback 可以并发且 thread identity、invocation/completion order 无语义。
@@ -249,6 +287,19 @@ Predicate、mapper、comparator、updater 和 consumer 必须：
 - 若要确定结果，对相同 input deterministic；
 - 不依赖调用次数、thread identity 或 wall-clock completion order；
 - 不让 callback-scoped Record/Editor/View 逃逸。
+
+Comparator 还必须在 terminal 期间提供 stable、transitive、antisymmetric total order；
+Mapped `equals/hashCode` 必须满足 Java equality/hash contract。SOMA 不承诺检测所有
+contract violation；由此导致的 non-determinism 是 application defect。若这些方法直接
+抛 RuntimeException，仍按 `CALLBACK_FAILED` 处理。
+
+V1 不因为 terminal 结果表面上不需要 value 而跳过 user callback-bearing stage：例如
+`map(...).count()` 仍调用 mapper，`sorted(...).count()` 仍执行 comparator/sort。Generated
+pure projection 可以 fuse，但不能以 Java Stream `count` elision 改变 callback failure
+contract。Sequential 非 short-circuit stage 对每个到达元素调用一次 predicate/mapper/
+updater；Comparator 调用次数取决于 stable sort algorithm。Parallel short-circuit 允许
+decisive frontier 之后的 bounded speculative callback，因此 application 仍不能依赖调用
+次数或 side effect。
 
 SOMA atomicity 不包含 callback 对日志、network、file 或 ordinary referent 的 external
 side effect。Parallel update callback 应只通过 Editor/Field updater 表达 Table
@@ -268,6 +319,12 @@ change。
 Reduction 使用与 worker completion 无关的 canonical merge plan。Parallel short
 circuit 可以 speculative evaluation，但 canonical encounter order 中的 decisive
 frontier 决定 result/failure；frontier 之后 speculative failure 不能覆盖顺序语义。
+
+Numeric baseline：byte/short/int 先在 `long` 中精确累加并验证目标 `int` range；long
+使用 signed 128-bit accumulator 后验证 long range；float/double 按固定 1024-element
+canonical block 与固定 pairwise tree 归并。Sequential 和 parallel 必须执行同一 plan，
+不能按 participant 数或 completion order 改变浮点结果。Exact algorithm 由
+[Production Implementation Architecture](implementation-architecture.md)拥有。
 
 Parallel `forEach` external side-effect order 不保证。需要 ordered side effect 时使用
 sequential `stream().forEach`；V1 不提供 `forEachOrdered`。
@@ -294,6 +351,16 @@ Custom pool fixed 后若 shutdown、terminating、reject 或不能完成 admissi
 - 不静默 sequential；
 - 不自动 retry；
 - mutation zero publication。
+
+Availability 的线性边界是 Executor preflight、每次 required task acceptance 与 task
+completion。全部 required tasks 已 accepted 并正常完成后，concurrent graceful shutdown
+不撤销成功；forceful cancellation、rejection 或缺失 completion 则失败并等待已提交 task
+quiescent。后续 terminal 观察到 fixed pool shutdown 后继续稳定失败，不能 replacement。
+
+V1 没有 Executor timeout、deadline 或 starvation detector。Pool 仍 active 但被 application
+其他 work 长期占满时，synchronous terminal 继续等待；SOMA 不把“慢”猜成 unavailable，
+也不创建补偿 thread、inline external caller 或切换 pool。需要 CPU isolation 时由
+application 在首次 parallel 前配置专用 ForkJoinPool。
 
 Common pool fallback 只发生在第一次 `UNINITIALIZED -> COMMON_POOL_FIXED`。
 
@@ -348,10 +415,14 @@ Production runtime 必须用 deterministic、blocking/concurrent 和 fault-injec
 - Read/Read、Read/Write、Write/Write fail-fast admission；
 - source Table reentrancy 与 cross-Table boundary；
 - selection Update/Remove whole-selection atomicity；
-- canonical order、stable sort/distinct/remove；
+- canonical order、stable sort/distinct、deterministic remove；
 - P==1、小/大 selection、bounded participation/task fan-out；
 - custom/common pool freeze、idempotence、conflict、shutdown/rejection；
 - sequential/parallel result/mutation/order/failure equivalence；
 - short-circuit decisive frontier 与 deterministic worker arbitration；
 - callback/Error/resource/overflow zero publication；
 - ordinary referent/external side-effect boundary。
+
+Admission CAS、bounded range partition、candidate-root publish 与 cursor scope token 的
+production baseline 见
+[Production Implementation Architecture](implementation-architecture.md)。

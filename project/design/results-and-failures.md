@@ -90,11 +90,28 @@ public final class SomaFailureContext {
 }
 ```
 
-`table`/`fieldPath` 是 sanitized logical identity，可为不适用 operation 使用明确的
-absence representation；不能自动调用任意 Key/Object `toString()`。若 production
+`table`/`fieldPath` 都必须 non-null；不适用 operation 使用唯一 absence representation
+empty String `""`。合法 Table/Field logical identity 不为空，因此没有二义性。不能自动
+调用任意 Key/Object `toString()`。
+
+Stable identity contract：
+
+- `table()` 使用 generated Table facade FQCN，不使用 schema declaration name、短名或
+  physical identity；
+- `fieldPath()` 使用 Table-relative dot-separated logical path；
+- composition/global operation 为 `("", "")`，Table-level operation 的 Field path 为空；
+- failure 精确归属于一个 Field 时使用该 path；candidate 同时存在多个 Field failure 时，
+  按 schema source order 选择最早的 invalid logical Field；无法诚实归属单个 Field 时
+  保持 empty，不能猜测；
+- record position、Key value 和 Index bucket 不进入 context。
+
+若 production
 implementation 证明需要额外 stable bound/count/position，必须先变更本 Design 和
 consumer compatibility Gate，不能通过 message 或 implementation-specific Map
 偷偷扩张。
+
+Exact constructor/package/enum projection 见
+[Generated Java API Signature Design](generated-api-signatures.md)。
 
 ## 5. Operation kinds
 
@@ -102,6 +119,7 @@ V1 stable enum：
 
 ```text
 CONFIGURE_PARALLEL
+RESERVE
 ADD
 FIND
 GET
@@ -112,6 +130,11 @@ QUERY
 
 Operation kind 表达 user operation family，不泄漏 internal phase、kernel、worker 或
 storage algorithm。
+
+`size/capacity/_metadata`、Index/pipeline construction 与所有 read-only Stream terminal
+使用 `QUERY`；`reserve` 使用 `RESERVE`；Update/Remove terminal method 自身的 argument
+failure 使用对应 terminal kind。Parallel pool failure 保持当前 terminal 的 operation
+kind，而不是另造 internal scheduler kind。
 
 ## 6. Failure codes
 
@@ -127,7 +150,7 @@ storage algorithm。
 | `CONCURRENT_TABLE_OPERATION` | Table shared/exclusive admission conflict |
 | `REENTRANT_TABLE_OPERATION` | callback 重入来源 Table direct operation/terminal |
 | `NESTED_PARALLEL_OPERATION` | 任意 SOMA callback 内启动 parallel terminal |
-| `PARALLEL_CONFIGURATION_CONFLICT` | fixed pool 被 reset、null 或 different instance 替换 |
+| `PARALLEL_CONFIGURATION_CONFLICT` | fixed pool 被 different instance 替换 |
 | `PARALLEL_EXECUTOR_UNAVAILABLE` | fixed pool shutdown/reject/unavailable |
 | `STREAM_ALREADY_CONSUMED` | one-shot pipeline 被再次 terminal |
 | `CALLBACK_SCOPE_VIOLATION` | 可检测 Record/Editor/View callback scope、Table、execution、participant/thread 越界 |
@@ -140,6 +163,28 @@ Enum 不包含 `CURRENTNESS_FAILURE` 或 `UNSUPPORTED_OPERATION`：
 
 新增、删除、重命名 code 是 public compatibility change，必须通过 Design change、
 consumer Gate 和 release policy。
+
+### 6.1 Invocation mapping matrix
+
+| Trigger | Stable code |
+|---|---|
+| null Table input/key/callback/comparator/mapper/updater；negative reserve/skip/limit；foreign endpoint；invalid `toArray` component | `INVALID_ARGUMENT` |
+| detached/callback candidate 的 non-null Value/Key leaf、declared reference type 或 schema constraint 失败 | `INVALID_VALUE` |
+| natural String/Enum order 观察 null；reference `findFirst/min/max` 最终选中 null | `NULL_VALUE_UNSUPPORTED` |
+| point required Key absent / keyed add duplicate | `MISSING_KEY` / `DUPLICATE_KEY` |
+| `setParallelExecutor(null)` | `INVALID_ARGUMENT` |
+| fixed parallel config 被 different instance 替换 | `PARALLEL_CONFIGURATION_CONFLICT` |
+| SOMA-owned integer result/size/version/offset overflow | `ARITHMETIC_OVERFLOW` |
+| known array/cardinality/scratch/task bound 不能表示或满足 | `RESOURCE_LIMIT_EXCEEDED` |
+
+Generated immutable Value/shared Result/failure carrier 的 public constructor 在没有 Table
+operation context 时违反自身前置条件，使用普通 `IllegalArgumentException`；一旦进入
+SOMA Table/Pipeline operation，则只使用上表 structured mapping。Generated detached
+Table object 的 constructor/setter 允许暂时不完整，validation 延迟到 add/update boundary。
+
+Application callback 自己抛出的 `ClassCastException` 是 `CALLBACK_FAILED`；callback 已
+正常返回后，generated reifiable return-boundary 检查发现 raw/generic heap pollution 才是
+`INVALID_VALUE`。Parameterized ordinary Object 只检查 erasure，不扫描 type argument。
 
 ## 7. Context sanitization
 
@@ -157,6 +202,9 @@ Message 可以提供人类诊断，但不得成为唯一可执行信息，也不
 
 - Application callback 抛普通 `RuntimeException`：映射为 `CALLBACK_FAILED`，原异常
   作为 cause；
+- Mapped reference `distinct/sorted/min/max` 调用 application object 的
+  `equals/hashCode` 或 Comparator，视为 callback phase；其 RuntimeException 同样映射为
+  `CALLBACK_FAILED`；
 - callback 中 application `Math.addExact` 的 `ArithmeticException` 也属于
   `CALLBACK_FAILED`，因为 arithmetic 不由 SOMA 实现；
 - callback 合法访问另一张 Table/顺序 operation 得到的 `SomaOperationException`
@@ -188,6 +236,15 @@ fact，SOMA 不猜测。需要 application-side checked arithmetic 时使用 `Ma
 最早 phase 获胜。Direct operation 的 detached input 若必须先验证才能确定 operation
 identity/Key，其基础 argument/value validation 属于 phase 1；phase 7 是 callback/
 staging candidate 的 publish-before validation。
+
+Phase 1 内部固定为：basic null/range/type/owner validation，随后才检查 linked/consumed
+Stream state。因此对已经 consumed 的 pipeline 传入 null callback，结果仍是
+`INVALID_ARGUMENT`；合法 argument 才得到 `STREAM_ALREADY_CONSUMED`。Argument/
+reentrancy validation 尚未成功时不消费 fresh pipeline。
+
+只有 effect 已知后才能成立的 next-stateVersion overflow 在 publish-before validation
+检查：Update 必须先确定 `changed > 0`，Remove 必须先确定 non-empty selection。它不让
+logical no-op 失败；为确定 effect 已执行的 callback failure 可以按实际 phase 更早获胜。
 
 同一 parallel phase：
 

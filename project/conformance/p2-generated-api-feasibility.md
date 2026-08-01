@@ -2,7 +2,7 @@
 
 类型：Conformance Evidence Record
 
-状态：Active Historical Evidence
+状态：Historical / Non-Replayable
 
 正式事实源：是（仅拥有本次 evidence 结论与边界）
 
@@ -43,8 +43,10 @@ Snapshot：
 
 Tree digest 的计算输入为：按 path 排序的 55 个非-`target` file SHA-256 清单，再对清单
 做 SHA-256。它用于识别本次 evidence snapshot，不把 fixture 变成永久测试 surface。
-Historical command 在当前 checkout 中不再可执行；未来若需要重验，必须从正式
-Design 重新准入新的 bounded fixture，不能把本文当作隐藏 executable test。
+Historical command 在当前 checkout 中不再可执行，snapshot source 也不位于任何
+normal product/build ref；digest 只能识别已经审查过的历史快照，不能从当前仓库重建它。
+未来若需要重验，必须在 production topology 中建立新的 bounded/long-lived test，不能
+把本文当作隐藏 executable test 或当前 readiness proof。
 
 ## 3. Surface admission boundary
 
@@ -161,8 +163,9 @@ Evidence slices：
 
 因此 Product Owner 采用 composition-scoped full regeneration。Build integration
 拥有 complete source set、schema change detection 与 stale cleanup；processor 验证
-handshake 和 visible compilation facts。Exact production handshake carrier 未由 P2
-固定。
+handshake 和 visible compilation facts。P2 没有固定 production carrier；此后正式
+Design 已将它固定为 `-Asoma.fullSourceSet=true` 和 build-only composition manifest，
+该新合同仍必须由 production Gate 重验。
 
 相关 platform contract 参考：
 
@@ -179,7 +182,8 @@ P2 consumer fixed minimal Java 8 shape in `io.github.somaruntime.soma.api`：
 - `RemoveResult(int removed)`；
 - `SomaOperationException` with code/operation/context；
 - fifteen `SomaFailureCode` enum values；
-- seven `SomaOperationKind` enum values；
+- 当时的 seven `SomaOperationKind` minimal witness（后续正式 Design 为 `reserve` 增加
+  `RESERVE`，P2 不证明该新增 value）；
 - immutable `SomaFailureContext(String table, String fieldPath)`。
 
 这些 shapes 已晋升到[Result 与 Structured Failure Design](../design/results-and-failures.md)。
@@ -198,11 +202,13 @@ P2 不证明：
 - package/release readiness。
 
 因此所有 Design surface 在 [Conformance 总览](README.md)中仍为
-`NOT_IMPLEMENTED`。P2 只解除 Java 8 可表达性和 selected mechanism 风险。
+`NOT_IMPLEMENTED`。P2 只降低 Java 8 可表达性和 selected mechanism 风险；由于 fixture
+已退役，它不能单独让任何 implementation-readiness 或 production Gate PASS。
 
 ## 12. Temporary retirement
 
-P2 成立的长期事实已经进入五份 Design Owner；证据范围、环境、结果、限制和 snapshot
-fingerprint 由本文拥有。原 fixture 没有成为 production module、永久 test suite 或
-第二套 API；所有入口迁移并验证后，其 Temporary source 和 ignored build output 已按
-项目文档框架整体删除。
+P2 成立的长期事实当时进入五份 semantic Design Owner；后续 exact Signature 与
+Implementation Architecture 继续收口这些合同，但没有扩大 P2 evidence。证据范围、
+环境、结果、限制和 snapshot fingerprint 由本文拥有。原 fixture 没有成为 production
+module、永久 test suite 或第二套 API；所有入口迁移并验证后，其 Temporary source 和
+ignored build output 已按项目文档框架整体删除。
