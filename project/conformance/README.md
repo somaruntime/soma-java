@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0 `COMPLETE`；G1 `PASS`
+Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；G1 `PASS`
 
 正式事实源：是
 
@@ -32,9 +32,9 @@ Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
 Production source/reactor      I0 QUALIFIED
-Generated consumer API         ABSENT
-Active slice                   NONE (I1 NOT_STARTED)
-G1-G10                         G1 PASS; G2/G10 IN_PROGRESS; others NOT_RUN
+Generated consumer API         I1 primitive keyed Table qualified (bounded fixture)
+Active slice                   NONE (I1 COMPLETE; I2 NOT_STARTED)
+G1-G10                         G1 PASS; G2-G5 I1_SCOPE_PASS; G10 IN_PROGRESS; others NOT_RUN
 Package/release                NOT_QUALIFIED
 ```
 
@@ -47,12 +47,12 @@ Package/release                NOT_QUALIFIED
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
 | Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | I0 aggregating carrier/full-regeneration qualified | I0_SCOPE_PASS |
-| Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | no production runtime state | NOT_IMPLEMENTED |
-| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | no generated API | NOT_IMPLEMENTED |
-| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | bounded fixtures only | NOT_IMPLEMENTED |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | no production planner/interpreter | NOT_IMPLEMENTED |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | no engine/scheduler/admission | NOT_IMPLEMENTED |
-| Result/failure | [Failure](../design/results-and-failures.md) | I0 shared failure/config carrier qualified；operation mapping未实施 | PARTIAL |
+| Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | I1 primitive long-key/long-payload backend；breadth/compression未实施 | I1_SCOPE_PASS |
+| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | I1 generated Table/find/get/filter/update bounded surface；Join未实施 | I1_SCOPE_PASS |
+| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I1 generated Soma/Group/Table/View/Editor/Field bounded fixture | I1_SCOPE_PASS |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | I1 typed expression carrier/evaluator；planner/oracle未实施 | I1_SCOPE_PASS |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | I1 Group guard/scope/point mutation；parallel/resource admission未实施 | I1_SCOPE_PASS |
+| Result/failure | [Failure](../design/results-and-failures.md) | I1 UpdateResult、failure mapping与scope/duplicate/missing/overflow bounded | I1_SCOPE_PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven build qualified | I0_PASS |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
 | Security/package/release | G10 | no artifact/workflow | NOT_EVALUABLE |
@@ -70,6 +70,8 @@ Package/release                NOT_QUALIFIED
 - [V1 Implementation Gates](v1-implementation-gates.md)：G1-G10最低production evidence。
 - [I0 Build Spine Qualification](i0-build-spine-qualification.md)：I0 exit、G1 PASS 与 G2/G10
   范围边界。
+- [I1 Primitive Keyed Table Qualification](i1-primitive-keyed-table-qualification.md)：I1
+  bounded vertical slice、独立审查与 scope-limited G2-G5 evidence。
 
 Historical inputs：
 
@@ -87,10 +89,10 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | Gate | Status |
 |---|---|
 | G1 Artifact/build/full regeneration | PASS |
-| G2 Schema/generated surface | IN_PROGRESS — I0_SCOPE_PASS |
-| G3 Storage/Key/Index | NOT_RUN |
-| G4 Query/IR/optimizer | NOT_RUN |
-| G5 Mutation/resource/failure | NOT_RUN |
+| G2 Schema/generated surface | IN_PROGRESS — I1_SCOPE_PASS |
+| G3 Storage/Key/Index | IN_PROGRESS — I1_SCOPE_PASS |
+| G4 Query/IR/optimizer | IN_PROGRESS — I1_SCOPE_PASS |
+| G5 Mutation/resource/failure | IN_PROGRESS — I1_SCOPE_PASS |
 | G6 Group/Join | NOT_RUN |
 | G7 Parallel | NOT_RUN |
 | G8 Compression/metadata | NOT_RUN |

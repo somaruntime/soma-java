@@ -1,6 +1,6 @@
 # I1 实施临时记录
 
-状态：ACTIVE；仅记录当前 I1 slice 的实现边界，不改写正式 Blueprint/Design。
+状态：ARCHIVED AFTER I1 EXIT；仅保留 I1 provenance，不改写正式 Blueprint/Design。
 
 ## 自主裁决
 

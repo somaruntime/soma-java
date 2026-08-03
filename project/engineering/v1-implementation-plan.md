@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 NOT_STARTED
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 NOT_STARTED
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -42,7 +42,7 @@ production class名，也不是每个commit的强制清单。
 | Slice | Name | Status | Primary Gates |
 |---|---|---|---|
 | I0 | Build spine、artifact与full-regeneration carrier | COMPLETE | G1、G2、G10 |
-| I1 | Primitive keyed Table vertical slice | NOT_STARTED | G1-G5 |
+| I1 | Primitive keyed Table vertical slice | COMPLETE (I1_SCOPE) | G1-G5 |
 | I2 | Schema/type/chunk/Key/Index breadth | NOT_STARTED | G2-G4 |
 | I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |
 | I4 | Selection mutation、failure与resource admission | NOT_STARTED | G5 |
