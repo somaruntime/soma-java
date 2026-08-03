@@ -16,8 +16,8 @@ Owner：SOMA Java V1 正式 Design 路由、职责边界与权威关系
 规范性合同。Design服务Blueprint；code/config/tests在出现后实现Design；
 [Conformance](../conformance/README.md)记录二者是否一致。
 
-本目录不构成implementation、performance或release声明。当前没有production source、
-build、generated consumer API或benchmark。
+本目录不构成implementation、performance或release声明；current executable fact 与 Gate 状态
+统一由[Conformance](../conformance/README.md)记录，不在 Design 中复制易漂移的实现清单。
 
 ## 2. 唯一 Owner 地图
 

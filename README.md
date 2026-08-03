@@ -18,6 +18,8 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 - Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
 - readiness 结论为 `READY_FOR_IMPLEMENTATION`；
 - Product Owner 已于 2026-08-03 授权按 I0-I8 与 G1-G10 自主实施；当前只推进 I0；
+- I0 build/full-regeneration implementation candidate 已进入 active checkout；正式 Gate 结论仍等待
+  独立审查、Conformance 更新与干净提交；
 - 当前尚没有通过 Gate 的 production library、Maven artifact、consumer API、Example、benchmark、
   workflow、package 或 release；
 - G1-G10 尚无 production PASS 结论，因此没有可用性、性能、兼容性或 release readiness 声明。

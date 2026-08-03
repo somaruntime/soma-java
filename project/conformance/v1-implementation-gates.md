@@ -2,7 +2,7 @@
 
 类型：Conformance Gate Definition
 
-状态：Active；G1-G10全部`NOT_RUN`
+状态：Active；I0 candidate 已出现，G1-G10 尚无正式 PASS
 
 正式事实源：是（production evidence最低集合）
 
@@ -13,7 +13,8 @@ Owner：SOMA Java V1 implementation、qualification与release claim Gate
 ## 1. Gate原则
 
 - Design定义系统应当是什么；Gate证明implementation实际符合；
-- 当前无production code/build/API，G1-G10均不能标PASS；
+- implementation surface 出现不自动产生 Gate PASS；I0 candidate 仍需绑定 commit、独立审查与
+  Conformance evidence；
 - feasibility fixture只降低selected design risk，不可替代production Gate；
 - 每个Gate evidence必须绑定commit、JDK/OS/arch、command、input、result与artifact；
 - deterministic evidence可重放；performance事实标明machine/JVM/heap/workload；

@@ -17,8 +17,9 @@ Owner：SOMA Java implementation sequence、work-unit与engineering evidence rou
 Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization；I0 是唯一 active
 slice，I1-I8 全部`NOT_STARTED`。
 
-`READY_FOR_IMPLEMENTATION`只表示设计、计划与Gate足以接受单独实施授权，不表示compiler、
-runtime、API、performance、package或release已经存在。
+I0 implementation candidate 已建立真实 build/runtime/processor/consumer boundary，但 slice 仍在
+等待独立审查、Conformance 晋升与干净提交。`READY_FOR_IMPLEMENTATION`本身不表示 compiler、
+runtime、API、performance、package或release已经成立。
 
 ## 唯一计划
 
@@ -60,5 +61,6 @@ I0 build/full-regeneration
 - Current readiness verdict：[Final Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)
 - Architecture skeleton：[Core Abstractions and Narratives](../design/core-abstractions-and-narratives.md)
 
-I0将建立第一条production build/test command。Documentation Gate不能替代Java 8
-compile/runtime/performance/package Gate。
+I0 candidate 已建立第一条 production qualification command：`./scripts/check-i0.sh`。
+Documentation Gate 不能替代 Java 8 compile/runtime/performance/package Gate；该命令的本地
+`PASS`只有完成独立审查并进入Conformance后，才成为正式 slice evidence。

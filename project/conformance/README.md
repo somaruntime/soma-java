@@ -31,7 +31,7 @@ Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
-Production source/reactor      ABSENT
+Production source/reactor      I0 CANDIDATE / REVIEW_PENDING
 Generated consumer API         ABSENT
 Active slice                   I0 IN_PROGRESS
 G1-G10                         NO PASS YET
@@ -46,14 +46,14 @@ Package/release                NOT_QUALIFIED
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
-| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | no production processor/build | NOT_IMPLEMENTED |
+| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | I0 aggregating carrier candidate；formal review pending | I0_CANDIDATE |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | no production runtime state | NOT_IMPLEMENTED |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | no generated API | NOT_IMPLEMENTED |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | bounded fixtures only | NOT_IMPLEMENTED |
 | IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | no production planner/interpreter | NOT_IMPLEMENTED |
 | Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | no engine/scheduler/admission | NOT_IMPLEMENTED |
-| Result/failure | [Failure](../design/results-and-failures.md) | no production carrier/mapping | NOT_IMPLEMENTED |
-| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | no Maven reactor/artifact | NOT_IMPLEMENTED |
+| Result/failure | [Failure](../design/results-and-failures.md) | I0 shared failure/config carrier candidate；operation mapping未实施 | PARTIAL_CANDIDATE |
+| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven candidate；formal review pending | I0_CANDIDATE |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
 | Security/package/release | G10 | no artifact/workflow | NOT_EVALUABLE |
 

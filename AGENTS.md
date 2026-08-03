@@ -9,12 +9,14 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 
 2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
 为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。Product Owner 已于 2026-08-03 明确授予
-完整 V1 implementation authorization；当前 I0 是唯一 active slice，I1-I8 为`NOT_STARTED`，
-G1-G10 尚无 production PASS 结论。
+完整 V1 implementation authorization；当前 I0 是唯一 active slice，I1-I8 为`NOT_STARTED`。
+I0 production candidate、Maven reactor、processor/runtime carrier、test 与 independent consumer
+已经进入 active checkout，并通过本地可重放资格命令；独立审查、Conformance 晋升与干净提交
+尚未闭合，因此 G1-G10 仍无正式 production PASS 结论。
 
-Active checkout 不包含 production source、Maven reactor/module、generated consumer API、
-test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
-readiness不等于implementation、performance、compatibility或release已成立。核心抽象候选已经
+Active checkout 仍不包含 I1+ generated public consumer API、Table runtime、benchmark、Example、
+CI/release workflow、package 或 committed build artifact。I0 candidate 不等于完整
+implementation、performance、compatibility或release已成立。核心抽象候选已经
 正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
 Temporary replacement closure已完成；当前没有active Temporary。
 
@@ -119,7 +121,7 @@ Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须�
 - 运行 `git diff --check`；
 - 检查 Markdown 相对链接与 current route；
 - 检查每项事实的唯一 Owner 和 Blueprint↔Design↔Engineering↔Conformance traceability；
-- 确认 active checkout 没有 predecessor code、legacy API、build artifact 或 release claim；
+- 确认 active checkout 没有 predecessor code、legacy API、committed build artifact 或 release claim；
 - 记录但不外推本机环境事实。
 
 P2 feasibility spike 已退役；只有当前

@@ -24,14 +24,18 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
 - Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0 是唯一 active
   slice，I1-I8 为`NOT_STARTED`；
-- G1-G10 尚无 production PASS 结论。
+- I0 build/full-regeneration implementation candidate、Maven reactor、runtime/processor carrier、
+  qualification script 与 independent consumer 已进入 active checkout；
+- 当前本地资格命令为 `PASS`，但独立审查、Conformance 晋升与干净提交尚未闭合，因此
+  G1-G10 仍无正式 production PASS 结论。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前 active checkout 没有 production source、Maven reactor/module、generated consumer API、
-test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
-readiness 不等于 implementation、performance、compatibility、artifact 或 release 已成立。
+当前 active checkout 只有 I0 范围的 production/build/test candidate；没有 I1+ generated public
+consumer API、Table runtime、benchmark、Example、CI/release workflow、package 或 committed
+build artifact。I0 candidate、正式 Design 与 readiness 都不等于完整 implementation、
+performance、compatibility、artifact publication 或 release 已成立。
 
 此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
 type-shape/mechanism evidence 仍是设计可行性输入；它不是 production test 或 runtime evidence。

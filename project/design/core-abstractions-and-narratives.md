@@ -139,9 +139,9 @@ Untrusted schema / application input
 | `REVISED` | evidence 已证明旧候选需被新候选替换 | 必须关闭旧路径与旧叙事 |
 | `RETIRED` | 不再拥有 current 语义或 production responsibility | 不得继续被调用、测试或文档依赖 |
 
-当前没有 production implementation，因此本文中只有正式上游语义可标
-`SEMANTIC_BASELINE`；其余架构节点最多为 `CANDIDATE_CORE` 或
-`IMPLEMENTATION_HYPOTHESIS`。
+`SEMANTIC_BASELINE`只由正式上游语义授予；implementation node 只有在相称证据进入
+Conformance 后才能标为`EVIDENCE_VALIDATED`。尚未获得该证据的架构节点最多为
+`CANDIDATE_CORE`或`IMPLEMENTATION_HYPOTHESIS`。
 
 `SEMANTIC_BASELINE`只表示该抽象引用的产品语义已经由正式Owner拥有；本文对它的卡片分组、
 primary-parent表达和内部协作分解仍是candidate，可以经审慎review修改，不能反向降低或覆盖
