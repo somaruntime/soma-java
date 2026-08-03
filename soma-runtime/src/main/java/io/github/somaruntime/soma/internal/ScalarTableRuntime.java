@@ -23,6 +23,9 @@ import java.util.function.LongPredicate;
 public final class ScalarTableRuntime {
     private static final int DEFAULT_CHUNK_SIZE = 1024;
     private static final int PAGE_SIZE = 256;
+    private static final int MAX_INDEX_LENGTH = 1 << 30;
+    private static final int INDEX_SHARD_COUNT = 16;
+    private static final int INITIAL_SHARD_LENGTH = 8;
     private static final ThreadLocal<Boolean> PARALLEL_WORKER = new ThreadLocal<Boolean>();
     private static final ThreadLocal<Query> PARALLEL_QUERY = new ThreadLocal<Query>();
 
@@ -124,7 +127,8 @@ public final class ScalarTableRuntime {
                     "a Table has zero or one key", null);
         }
         this.chunkSize = configuredChunkSize();
-        this.current = new AtomicReference<StateRoot>(StateRoot.empty(chunkSize, specs));
+        this.current = new AtomicReference<StateRoot>(StateRoot.empty(chunkSize, specs,
+                keyIndex >= 0 && specs[keyIndex].kind == FieldKind.LONG));
     }
 
     public long size() {
@@ -504,7 +508,7 @@ public final class ScalarTableRuntime {
             }
             Directory directory = root.directory.withCapacity(expectedRows, specs, chunkSize);
             publish(root, new StateRoot(root.size, directory.capacity, nextVersion(root.version,
-                    SomaOperation.RESERVE), directory), SomaOperation.RESERVE);
+                    SomaOperation.RESERVE), directory, root.index), SomaOperation.RESERVE);
         } finally {
             guard.close();
         }
@@ -526,7 +530,7 @@ public final class ScalarTableRuntime {
         validateKeyArgument(key, SomaOperation.UPDATE);
         PrimitiveLongTableRuntime.GroupRuntime.Guard guard = group.enter(SomaOperation.UPDATE);
         StateRoot root = current.get();
-        long locator = root.directory.findKey(key, specs, keyIndex, root.size);
+        long locator = findLocator(root, key);
         if (locator < 0L) {
             guard.close();
             return PointUpdate.missing();
@@ -539,13 +543,17 @@ public final class ScalarTableRuntime {
         PrimitiveLongTableRuntime.GroupRuntime.Guard guard = group.enter(SomaOperation.REMOVE);
         try {
             StateRoot root = current.get();
-            long locator = root.directory.findKey(key, specs, keyIndex, root.size);
+            long locator = findLocator(root, key);
             if (locator < 0L) {
                 return SomaRuntimeAccess.removeResult(0L);
             }
             Directory next = root.directory.withoutRow(locator, root.size, specs, chunkSize);
+            LongKeyIndex index = root.index;
+            if (index != null) {
+                index = LongKeyIndex.rebuild(next, root.size - 1L, keyIndex);
+            }
             StateRoot candidate = new StateRoot(root.size - 1L, root.capacity,
-                    nextVersion(root.version, SomaOperation.REMOVE), next);
+                    nextVersion(root.version, SomaOperation.REMOVE), next, index);
             publish(root, candidate, SomaOperation.REMOVE);
             return SomaRuntimeAccess.removeResult(1L);
         } finally {
@@ -560,18 +568,47 @@ public final class ScalarTableRuntime {
         }
     }
 
+    private long findLocator(StateRoot root, Object key) {
+        if (keyIndex < 0 || key == null) {
+            return -1L;
+        }
+        if (root.index != null) {
+            if (!(key instanceof Long)) {
+                return -1L;
+            }
+            return root.index.find(((Long) key).longValue());
+        }
+        return root.directory.findKey(key, specs, keyIndex, root.size);
+    }
+
     private void append(Append append) {
         append.ensureOpen();
         StateRoot root = append.root;
+        long nextSize = checkedAdd(root.size, 1L, SomaOperation.ADD);
+        long nextStateVersion = nextVersion(root.version, SomaOperation.ADD);
+        LongKeyIndex index = root.index;
+        LongKeyIndex candidateIndex = index;
+        long longKey = 0L;
         if (keyIndex >= 0) {
-            Object key = append.valueObject(keyIndex);
-            if (key == null && specs[keyIndex].kind == FieldKind.REFERENCE) {
-                throw failure(SomaFailureCode.NULL_VALUE_UNSUPPORTED, SomaOperation.ADD,
-                        "Key fields cannot be null", null);
-            }
-            if (root.directory.findKey(key, specs, keyIndex, root.size) >= 0L) {
-                throw failure(SomaFailureCode.DUPLICATE_KEY, SomaOperation.ADD,
-                        "key already exists", null);
+            if (index != null) {
+                // The generated long-key path stays primitive in the append hot loop.
+                longKey = append.longs[keyIndex];
+                if (index.find(longKey) >= 0L) {
+                    throw failure(SomaFailureCode.DUPLICATE_KEY, SomaOperation.ADD,
+                            "key already exists", null);
+                }
+                // Any required shard replacement is prepared without changing the live root.
+                candidateIndex = index.preparePut(longKey);
+            } else {
+                Object key = append.valueObject(keyIndex);
+                if (key == null && specs[keyIndex].kind == FieldKind.REFERENCE) {
+                    throw failure(SomaFailureCode.NULL_VALUE_UNSUPPORTED, SomaOperation.ADD,
+                            "Key fields cannot be null", null);
+                }
+                if (findLocator(root, key) >= 0L) {
+                    throw failure(SomaFailureCode.DUPLICATE_KEY, SomaOperation.ADD,
+                            "key already exists", null);
+                }
             }
         }
         long target = root.size == root.capacity
@@ -581,10 +618,30 @@ public final class ScalarTableRuntime {
         if (target > root.capacity) {
             directory = directory.withCapacity(target, specs, chunkSize);
         }
-        Directory next = directory.withRow(root.size, specs, append);
-        StateRoot candidate = new StateRoot(checkedAdd(root.size, 1L, SomaOperation.ADD),
-                directory.capacity, nextVersion(root.version, SomaOperation.ADD), next);
-        publish(root, candidate, SomaOperation.ADD);
+        // Append targets an unoccupied slot under the exclusive Group guard.  All checked
+        // arithmetic and index capacity/resource checks have completed before physical mutation.
+        StateRoot candidate = new StateRoot(nextSize, directory.capacity, nextStateVersion,
+                directory, candidateIndex);
+        boolean wrotePayload = true;
+        boolean indexed = false;
+        try {
+            directory.appendRowInPlace(root.size, specs, append);
+            if (candidateIndex != null) {
+                candidateIndex.putAfterCapacity(longKey, root.size);
+                indexed = true;
+            }
+            publish(root, candidate, SomaOperation.ADD);
+        } catch (RuntimeException exception) {
+            if (indexed) {
+                if (candidateIndex == root.index) {
+                    candidateIndex.remove(longKey);
+                }
+            }
+            if (wrotePayload && directory == root.directory) {
+                directory.clearRow(root.size, specs);
+            }
+            throw exception;
+        }
         append.closed = true;
         append.guard.close();
     }
@@ -599,7 +656,7 @@ public final class ScalarTableRuntime {
         Directory next = update.root.directory.withUpdatedRow(
                 update.locator, specs, update);
         update.prepared = new StateRoot(update.root.size, update.root.capacity,
-                nextVersion(update.root.version, SomaOperation.UPDATE), next);
+                nextVersion(update.root.version, SomaOperation.UPDATE), next, update.root.index);
     }
 
     private void commit(PointUpdate update) {
@@ -749,7 +806,16 @@ public final class ScalarTableRuntime {
         }
         public long size() { ensureReadable(); return root.size; }
         public Object keyAt(long locator) { ensureReadable(); return valueAt(keyIndex, locator); }
-        public long findLocator(Object key) { ensureReadable(); return root.directory.findKey(key, specs, keyIndex, root.size); }
+        public long findLocator(Object key) {
+            ensureReadable();
+            if (keyIndex < 0 || key == null) {
+                return -1L;
+            }
+            if (root.index != null) {
+                return key instanceof Long ? root.index.find(((Long) key).longValue()) : -1L;
+            }
+            return root.directory.findKey(key, specs, keyIndex, root.size);
+        }
         public boolean matches(int field, long locator, Object value) { ensureReadable(); return ScalarTableRuntime.matches(valueAt(field, locator), value, specs[field].kind); }
         public boolean booleanAt(int field, long locator) { ensureReadable(); return root.directory.booleans(field, locator); }
         public byte byteAt(int field, long locator) { ensureReadable(); return root.directory.bytes(field, locator); }
@@ -870,8 +936,15 @@ public final class ScalarTableRuntime {
 
     private static final class StateRoot {
         final long size; final long capacity; final long version; final Directory directory;
-        StateRoot(long size, long capacity, long version, Directory directory) { this.size = size; this.capacity = capacity; this.version = version; this.directory = directory; }
-        static StateRoot empty(int chunkSize, FieldSpec[] specs) { return new StateRoot(0L, 0L, 0L, Directory.empty(chunkSize, specs)); }
+        final LongKeyIndex index;
+        StateRoot(long size, long capacity, long version, Directory directory, LongKeyIndex index) {
+            this.size = size; this.capacity = capacity; this.version = version;
+            this.directory = directory; this.index = index;
+        }
+        static StateRoot empty(int chunkSize, FieldSpec[] specs, boolean longKey) {
+            return new StateRoot(0L, 0L, 0L, Directory.empty(chunkSize, specs),
+                    longKey ? LongKeyIndex.empty() : null);
+        }
     }
 
     private static final class Directory {
@@ -922,19 +995,22 @@ public final class ScalarTableRuntime {
             return new Directory(next, chunkSize, capacity, specs);
         }
 
-        Directory withRow(long row, FieldSpec[] specs, Append append) {
-            return replace(row, specs, new RowSource() {
-                public Object value(int field) { return append.valueObject(field); }
-                public boolean bool(int f) { return append.booleans[f]; }
-                public byte byt(int f) { return append.bytes[f]; }
-                public short sht(int f) { return append.shorts[f]; }
-                public char chr(int f) { return append.chars[f]; }
-                public int integer(int f) { return append.ints[f]; }
-                public long lng(int f) { return append.longs[f]; }
-                public float flt(int f) { return append.floats[f]; }
-                public double dbl(int f) { return append.doubles[f]; }
-                public Object ref(int f) { return append.references[f]; }
-            });
+        void appendRowInPlace(long row, FieldSpec[] specs, Append append) {
+            if (row < 0L || row >= capacity) {
+                throw failure(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, SomaOperation.ADD,
+                        "append row is outside directory capacity", null);
+            }
+            Chunk target = chunk(row);
+            int offset = (int) (row % chunkSize);
+            for (int field = 0; field < specs.length; field++) {
+                target.setFromAppend(field, offset, specs[field].kind, append);
+            }
+        }
+
+        void clearRow(long row, FieldSpec[] specs) {
+            Chunk target = chunk(row);
+            int offset = (int) (row % chunkSize);
+            target.clear(offset, specs);
         }
 
         Directory withUpdatedRow(long row, FieldSpec[] specs, final PointUpdate update) {
@@ -1147,5 +1223,183 @@ public final class ScalarTableRuntime {
         private Chunk(Chunk other) { int n = other.booleans.length; booleans = new boolean[n][]; bytes = new byte[n][]; shorts = new short[n][]; chars = new char[n][]; ints = new int[n][]; longs = new long[n][]; floats = new float[n][]; doubles = new double[n][]; references = new Object[n][]; for (int i = 0; i < n; i++) { if (other.booleans[i] != null) booleans[i] = other.booleans[i].clone(); if (other.bytes[i] != null) bytes[i] = other.bytes[i].clone(); if (other.shorts[i] != null) shorts[i] = other.shorts[i].clone(); if (other.chars[i] != null) chars[i] = other.chars[i].clone(); if (other.ints[i] != null) ints[i] = other.ints[i].clone(); if (other.longs[i] != null) longs[i] = other.longs[i].clone(); if (other.floats[i] != null) floats[i] = other.floats[i].clone(); if (other.doubles[i] != null) doubles[i] = other.doubles[i].clone(); if (other.references[i] != null) references[i] = other.references[i].clone(); } }
         Chunk copy() { return new Chunk(this); }
         void set(int f,int o,FieldKind kind,RowSource s){switch(kind){case BOOLEAN:booleans[f][o]=s.bool(f);break;case BYTE:bytes[f][o]=s.byt(f);break;case SHORT:shorts[f][o]=s.sht(f);break;case CHAR:chars[f][o]=s.chr(f);break;case INT:ints[f][o]=s.integer(f);break;case LONG:longs[f][o]=s.lng(f);break;case FLOAT:floats[f][o]=s.flt(f);break;case DOUBLE:doubles[f][o]=s.dbl(f);break;default:references[f][o]=s.ref(f);break;}}
+        void setFromAppend(int f,int o,FieldKind kind,Append append){switch(kind){case BOOLEAN:booleans[f][o]=append.booleans[f];break;case BYTE:bytes[f][o]=append.bytes[f];break;case SHORT:shorts[f][o]=append.shorts[f];break;case CHAR:chars[f][o]=append.chars[f];break;case INT:ints[f][o]=append.ints[f];break;case LONG:longs[f][o]=append.longs[f];break;case FLOAT:floats[f][o]=append.floats[f];break;case DOUBLE:doubles[f][o]=append.doubles[f];break;default:references[f][o]=append.references[f];break;}}
+        void clear(int o,FieldSpec[] specs){for(int f=0;f<specs.length;f++){switch(specs[f].kind){case BOOLEAN:booleans[f][o]=false;break;case BYTE:bytes[f][o]=0;break;case SHORT:shorts[f][o]=0;break;case CHAR:chars[f][o]=0;break;case INT:ints[f][o]=0;break;case LONG:longs[f][o]=0L;break;case FLOAT:floats[f][o]=0.0f;break;case DOUBLE:doubles[f][o]=0.0d;break;default:references[f][o]=null;break;}}}
+    }
+
+    /**
+     * Mutable long-key sidecar used only while the owning Group guard is held.  The data and
+     * sidecar are published together by StateRoot; GroupRuntime serializes all operations, so an
+     * active query cannot observe an append in progress.  Non-long keys retain the reference
+     * directory scan until their specialized index is admitted by a later slice.
+     */
+    private static final class LongKeyIndex {
+        private final Shard[] shards;
+
+        private LongKeyIndex(Shard[] shards) {
+            this.shards = shards;
+        }
+
+        private static LongKeyIndex empty() {
+            Shard[] shards = new Shard[INDEX_SHARD_COUNT];
+            for (int i = 0; i < shards.length; i++) {
+                shards[i] = new Shard(INITIAL_SHARD_LENGTH);
+            }
+            return new LongKeyIndex(shards);
+        }
+
+        private long find(long key) {
+            return shards[shardFor(key)].find(key);
+        }
+
+        private LongKeyIndex preparePut(long key) {
+            int shardIndex = shardFor(key);
+            Shard shard = shards[shardIndex];
+            if (!shard.needsResize()) {
+                return this;
+            }
+            if (shard.keys.length >= MAX_INDEX_LENGTH) {
+                throw failure(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                        SomaOperation.ADD, "key index shard exceeds addressable capacity", null);
+            }
+            Shard[] nextShards = shards.clone();
+            nextShards[shardIndex] = shard.resizedCopy(shard.keys.length << 1);
+            return new LongKeyIndex(nextShards);
+        }
+
+        private void putAfterCapacity(long key, long locator) {
+            int shardIndex = shardFor(key);
+            shards[shardIndex].putDirect(key, locator);
+        }
+
+        private void put(long key, long locator) {
+            int shardIndex = shardFor(key);
+            shards[shardIndex].put(key, locator);
+        }
+
+        private boolean remove(long key) {
+            boolean removed = shards[shardFor(key)].remove(key);
+            return removed;
+        }
+
+        private static LongKeyIndex rebuild(Directory directory, long size, int keyIndex) {
+            LongKeyIndex index = empty();
+            for (long row = 0L; row < size; row++) {
+                index.put(directory.longs(keyIndex, row), row);
+            }
+            return index;
+        }
+
+        private static int shardFor(long key) {
+            return mix(key) & (INDEX_SHARD_COUNT - 1);
+        }
+
+        private static int mix(long value) {
+            long mixed = value ^ (value >>> 33);
+            mixed *= 0xff51afd7ed558ccdl;
+            mixed ^= mixed >>> 33;
+            mixed *= 0xc4ceb9fe1a85ec53l;
+            mixed ^= mixed >>> 33;
+            return (int) mixed;
+        }
+
+        private static final class Shard {
+            private long[] keys;
+            private long[] locators;
+            private boolean[] occupied;
+            private int size;
+
+            private Shard(int length) {
+                keys = new long[length];
+                locators = new long[length];
+                occupied = new boolean[length];
+            }
+
+            private long find(long key) {
+                int mask = keys.length - 1;
+                int slot = (mix(key) >>> 4) & mask;
+                for (int probes = 0; probes < keys.length; probes++) {
+                    if (!occupied[slot]) {
+                        return -1L;
+                    }
+                    if (keys[slot] == key) {
+                        return locators[slot];
+                    }
+                    slot = (slot + 1) & mask;
+                }
+                return -1L;
+            }
+
+            private boolean needsResize() {
+                return (size + 1) * 2 >= keys.length;
+            }
+
+            private Shard resizedCopy(int length) {
+                Shard rebuilt = new Shard(length);
+                for (int i = 0; i < keys.length; i++) {
+                    if (occupied[i]) {
+                        rebuilt.putDirect(keys[i], locators[i]);
+                    }
+                }
+                return rebuilt;
+            }
+
+            private void put(long key, long locator) {
+                ensurePutCapacity();
+                putDirect(key, locator);
+            }
+
+            private void ensurePutCapacity() {
+                if (needsResize()) {
+                    if (keys.length >= MAX_INDEX_LENGTH) {
+                        throw failure(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                                SomaOperation.ADD, "key index shard exceeds addressable capacity", null);
+                    }
+                    Shard rebuilt = resizedCopy(keys.length << 1);
+                    keys = rebuilt.keys;
+                    locators = rebuilt.locators;
+                    occupied = rebuilt.occupied;
+                    size = rebuilt.size;
+                }
+            }
+
+            private boolean remove(long key) {
+                int mask = keys.length - 1;
+                int slot = (mix(key) >>> 4) & mask;
+                for (int probes = 0; probes < keys.length; probes++) {
+                    if (!occupied[slot]) {
+                        return false;
+                    }
+                    if (keys[slot] == key) {
+                        occupied[slot] = false;
+                        size--;
+                        slot = (slot + 1) & mask;
+                        while (occupied[slot]) {
+                            long displacedKey = keys[slot];
+                            long displacedLocator = locators[slot];
+                            occupied[slot] = false;
+                            size--;
+                            putDirect(displacedKey, displacedLocator);
+                            slot = (slot + 1) & mask;
+                        }
+                        return true;
+                    }
+                    slot = (slot + 1) & mask;
+                }
+                return false;
+            }
+
+            private void putDirect(long key, long locator) {
+                int mask = keys.length - 1;
+                int slot = (mix(key) >>> 4) & mask;
+                while (occupied[slot]) {
+                    slot = (slot + 1) & mask;
+                }
+                keys[slot] = key;
+                locators[slot] = locator;
+                occupied[slot] = true;
+                size++;
+            }
+        }
     }
 }

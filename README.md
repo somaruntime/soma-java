@@ -20,8 +20,8 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 - Product Owner 已于 2026-08-03 授权按 I0-I8 与 G1-G10 自主实施；
 - [I0 build/full-regeneration qualification](project/conformance/i0-build-spine-qualification.md)
   已`PASS`，G1 为`PASS`；G2/G10 只有 I0 范围证据，整体仍`IN_PROGRESS`；
-- I1-I7 已按 bounded scope 完成，I8 已完成 package/security boundary sub-slice；当前仍没有
-  三场景 performance qualification、完整 G9/G10、workflow、published package 或 release；
+- I1-I7 已按 bounded scope 完成，I8 已完成 package/security boundary 与 narrow-scale smoke
+  sub-slices；当前仍没有三场景 performance qualification、完整 G9/G10、workflow、published package 或 release；
 - I0/G1 结论不构成完整可用性、性能、兼容性或 release readiness 声明。
 
 正式设计说明产品应当是什么；它不等于代码和证据已经存在。

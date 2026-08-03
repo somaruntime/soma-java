@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 COMPLETE (I6_SCOPE) / I7 COMPLETE (I7_SCOPE) / I8 IN_PROGRESS (I8_BOUNDARY_PASS)
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 COMPLETE (I6_SCOPE) / I7 COMPLETE (I7_SCOPE) / I8 IN_PROGRESS (I8_BOUNDARY_PASS, I8_SCALE_SMOKE_PASS)
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -50,7 +50,7 @@ production class名，也不是每个commit的强制清单。
 | I5 | GroupBy与binary Equality/Cross Join | COMPLETE (I5_SCOPE) | G6 |
 | I6 | Bounded ForkJoin parallel execution | COMPLETE (I6_SCOPE) | G7 |
 | I7 | Compression、metadata/explain与surface closure | COMPLETE (I7_SCOPE) | G8 |
-| I8 | Reference scenarios、performance、security、package/release qualification | IN_PROGRESS (I8_BOUNDARY_PASS) | G9、G10 |
+| I8 | Reference scenarios、performance、security、package/release qualification | IN_PROGRESS (I8_BOUNDARY_PASS, I8_SCALE_SMOKE_PASS) | G9、G10 |
 
 任何slice只有其exit evidence进入Conformance后才能进入下一slice。允许在同一commit交付相邻
 mechanism，但Gate不能因实现方便合并消失。
