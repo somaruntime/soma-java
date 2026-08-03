@@ -2,7 +2,7 @@
 
 类型：Engineering Entry
 
-状态：Implementation Authorized / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2-I8 NOT_STARTED
+状态：Implementation Authorized / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3-I8 NOT_STARTED
 
 正式事实源：是（实施计划与工程路由）
 
@@ -15,7 +15,8 @@ Owner：SOMA Java implementation sequence、work-unit与engineering evidence rou
 新的大规模编译式Table引擎Blueprint/Design与核心抽象专题已经正式晋升，并通过
 [实施前最终全局一致性审核](../conformance/v1-final-pre-implementation-global-consistency-review.md)。
 Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization；I0 已`COMPLETE`，
-I1 已完成 bounded primitive keyed Table slice，I2-I8 仍`NOT_STARTED`，当前没有 active implementation slice。
+I1 已完成 bounded primitive keyed Table slice，I2 已完成 bounded scalar type/storage breadth slice，
+I3-I8 仍`NOT_STARTED`，当前没有 active implementation slice。
 
 I0 已建立真实 build/runtime/processor/consumer boundary，I1 又完成了 bounded generated Table
 runtime，并分别通过 [I0 Qualification](../conformance/i0-build-spine-qualification.md) 与
@@ -31,7 +32,7 @@ type breadth、performance、package与release。
 ```text
 I0 build/full-regeneration
     -> I1 primitive Table vertical slice
-        -> I2 schema/type/chunk/Key/Index breadth
+    -> I2 scalar type/storage breadth (bounded)
             -> I3 direct query/IR/reference interpreter
                 -> I4 Selection mutation/failure/resource
                     -> I5 Group/Join
