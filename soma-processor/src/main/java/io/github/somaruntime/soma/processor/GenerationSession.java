@@ -126,26 +126,41 @@ final class GenerationSession {
                 new ArrayList<SchemaModel.GeneratedOutput>();
         for (SchemaModel.Composition composition : compositions) {
             String source = render(composition);
+            List<SchemaModel.GeneratedFile> files =
+                    new ArrayList<SchemaModel.GeneratedFile>();
+            files.add(new SchemaModel.GeneratedFile(
+                    composition.generatedFqn, source, sha256(source)));
+            if (composition.i1ApiEligible) {
+                files.addAll(I1ApiRenderer.render(composition));
+            }
+            for (SchemaModel.GeneratedFile file : files) {
+                TypeElement occupied = elements.getTypeElement(file.generatedFqn);
+                if (occupied != null && !file.generatedFqn.equals(composition.generatedFqn)) {
+                    error("0301", "generated API FQN is already occupied", occupied);
+                }
+            }
             outputs.add(new SchemaModel.GeneratedOutput(
-                    composition, source, sha256(source)));
+                    composition, source, sha256(source), files));
         }
         if (failed) {
             return Collections.emptyList();
         }
         for (SchemaModel.GeneratedOutput output : outputs) {
-            try {
-                JavaFileObject file = filer.createSourceFile(
-                        output.composition.generatedFqn,
-                        output.composition.originatingElements());
-                Writer writer = file.openWriter();
+            for (SchemaModel.GeneratedFile generatedFile : output.files) {
                 try {
-                    writer.write(output.source);
-                } finally {
-                    writer.close();
+                    JavaFileObject file = filer.createSourceFile(
+                            generatedFile.generatedFqn,
+                            output.composition.originatingElements());
+                    Writer writer = file.openWriter();
+                    try {
+                        writer.write(generatedFile.source);
+                    } finally {
+                        writer.close();
+                    }
+                } catch (IOException exception) {
+                    error("0105", "generated source output could not be committed");
+                    return Collections.emptyList();
                 }
-            } catch (IOException exception) {
-                error("0105", "generated source output could not be committed");
-                return Collections.emptyList();
             }
         }
         return Collections.unmodifiableList(outputs);
@@ -270,6 +285,10 @@ final class GenerationSession {
                         schemaPackages.get(packageName));
                 continue;
             }
+            validateGeneratedSymbols(generatedNamespace, tables);
+            if (failed) {
+                continue;
+            }
             String fingerprint = fingerprint(
                     packageName, generatedNamespace, tables, reachableValues);
             SchemaModel.Composition composition = new SchemaModel.Composition(
@@ -278,7 +297,8 @@ final class GenerationSession {
                     generatedNamespace,
                     tables,
                     reachableValues,
-                    fingerprint);
+                    fingerprint,
+                    isI1ApiEligible(tables));
             TypeElement occupied = elements.getTypeElement(composition.generatedFqn);
             if (occupied != null) {
                 error("0301", "generated composition carrier FQN is already occupied", occupied);
@@ -287,6 +307,76 @@ final class GenerationSession {
             compositions.add(composition);
         }
         return compositions;
+    }
+
+    private boolean isI1ApiEligible(List<SchemaModel.Type> tables) {
+        if (tables.size() != 1) {
+            return false;
+        }
+        SchemaModel.Type table = tables.get(0);
+        SchemaModel.Field key = null;
+        SchemaModel.Field payload = null;
+        for (SchemaModel.Field field : table.fields) {
+            if (field.role == SchemaModel.FieldRole.KEY) {
+                key = field;
+            } else if (field.role == SchemaModel.FieldRole.FIELD) {
+                if (payload != null) {
+                    return false;
+                }
+                payload = field;
+            } else {
+                return false;
+            }
+        }
+        return key != null
+                && payload != null
+                && "long".equals(key.type)
+                && "long".equals(payload.type);
+    }
+
+    /** Rejects source names that would collide with the first generated API surface. */
+    private void validateGeneratedSymbols(
+            String generatedNamespace,
+            List<SchemaModel.Type> tables) {
+        Set<String> topLevel = new HashSet<String>();
+        topLevel.add("Soma");
+        topLevel.add("SomaGroup");
+        for (SchemaModel.Type table : tables) {
+            String objectName = table.simpleName;
+            String tableName = objectName + "Table";
+            if (!topLevel.add(objectName) || !topLevel.add(tableName)) {
+                error("0303", "schema type collides with generated SOMA top-level API", null);
+            }
+            if (table.fields.size() == 0) {
+                continue;
+            }
+            Set<String> endpointNames = new HashSet<String>();
+            for (SchemaModel.Field field : table.fields) {
+                String endpoint = upperFirstCodePoint(field.name) + "Field";
+                if (!endpointNames.add(endpoint)) {
+                    error("0303", "schema fields collide after generated endpoint naming", null);
+                }
+                if ("runtime".equals(field.name)
+                        || "expressionOwner".equals(field.name)
+                        || "selectAll".equals(field.name)
+                        || "filter".equals(field.name)
+                        || "size".equals(field.name)
+                        || "capacity".equals(field.name)
+                        || "reserve".equals(field.name)
+                        || "add".equals(field.name)
+                        || "find".equals(field.name)
+                        || "get".equals(field.name)
+                        || "update".equals(field.name)) {
+                    error("0303", "schema field collides with generated Table member", null);
+                }
+            }
+        }
+    }
+
+    private static String upperFirstCodePoint(String value) {
+        int codePoint = value.codePointAt(0);
+        return new String(Character.toChars(Character.toUpperCase(codePoint)))
+                + value.substring(Character.charCount(codePoint));
     }
 
     private boolean validateSchemaPackage(String packageName, PackageElement element) {
@@ -664,9 +754,11 @@ final class GenerationSession {
         StringBuilder moduleCanonical = new StringBuilder();
         for (SchemaModel.GeneratedOutput output : sorted) {
             moduleCanonical.append(output.composition.schemaPackage).append('|')
-                    .append(output.composition.fingerprint).append('|')
-                    .append(output.composition.generatedFqn).append('|')
-                    .append(output.sourceSha256).append('\n');
+                    .append(output.composition.fingerprint).append('\n');
+            for (SchemaModel.GeneratedFile file : output.files) {
+                moduleCanonical.append(file.generatedFqn).append('|')
+                        .append(file.sourceSha256).append('\n');
+            }
         }
         StringBuilder manifest = new StringBuilder();
         property(manifest, "manifestFormatVersion", "1");
@@ -685,6 +777,15 @@ final class GenerationSession {
                     output.composition.fingerprint);
             property(manifest, prefix + "generatedFqn", output.composition.generatedFqn);
             property(manifest, prefix + "generatedSourceSha256", output.sourceSha256);
+            property(manifest, prefix + "generatedFile.count",
+                    Integer.toString(output.files.size()));
+            for (int fileIndex = 0; fileIndex < output.files.size(); fileIndex++) {
+                SchemaModel.GeneratedFile file = output.files.get(fileIndex);
+                property(manifest, prefix + "generatedFile." + fileIndex + ".fqn",
+                        file.generatedFqn);
+                property(manifest, prefix + "generatedFile." + fileIndex + ".sha256",
+                        file.sourceSha256);
+            }
             property(manifest, prefix + "table.count",
                     Integer.toString(output.composition.tables.size()));
             for (int tableIndex = 0;

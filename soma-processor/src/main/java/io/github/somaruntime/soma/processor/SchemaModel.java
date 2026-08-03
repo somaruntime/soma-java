@@ -63,6 +63,7 @@ final class SchemaModel {
         final List<Type> values;
         final String fingerprint;
         final String generatedFqn;
+        final boolean i1ApiEligible;
 
         Composition(
                 PackageElement packageElement,
@@ -70,13 +71,15 @@ final class SchemaModel {
                 String generatedNamespace,
                 List<Type> tables,
                 List<Type> values,
-                String fingerprint) {
+                String fingerprint,
+                boolean i1ApiEligible) {
             this.packageElement = packageElement;
             this.schemaPackage = schemaPackage;
             this.generatedNamespace = generatedNamespace;
             this.tables = Collections.unmodifiableList(new ArrayList<Type>(tables));
             this.values = Collections.unmodifiableList(new ArrayList<Type>(values));
             this.fingerprint = fingerprint;
+            this.i1ApiEligible = i1ApiEligible;
             this.generatedFqn = generatedNamespace + ".internal."
                     + ProcessorContract.GENERATED_CARRIER_SIMPLE_NAME;
         }
@@ -98,9 +101,27 @@ final class SchemaModel {
         final Composition composition;
         final String source;
         final String sourceSha256;
+        final List<GeneratedFile> files;
 
-        GeneratedOutput(Composition composition, String source, String sourceSha256) {
+        GeneratedOutput(
+                Composition composition,
+                String source,
+                String sourceSha256,
+                List<GeneratedFile> files) {
             this.composition = composition;
+            this.source = source;
+            this.sourceSha256 = sourceSha256;
+            this.files = Collections.unmodifiableList(new ArrayList<GeneratedFile>(files));
+        }
+    }
+
+    static final class GeneratedFile {
+        final String generatedFqn;
+        final String source;
+        final String sourceSha256;
+
+        GeneratedFile(String generatedFqn, String source, String sourceSha256) {
+            this.generatedFqn = generatedFqn;
             this.source = source;
             this.sourceSha256 = sourceSha256;
         }

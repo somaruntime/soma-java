@@ -5,6 +5,8 @@ import io.github.somaruntime.soma.SomaConfiguration;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
+import io.github.somaruntime.soma.SomaExpression;
+import io.github.somaruntime.soma.UpdateResult;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -20,6 +22,7 @@ public final class SomaRuntimeAccess {
     private static final AtomicReference<RuntimeState> STATE =
             new AtomicReference<RuntimeState>(UNFROZEN);
     private static volatile FailureFactory failureFactory;
+    private static volatile UpdateResultFactory updateResultFactory;
 
     private SomaRuntimeAccess() {
     }
@@ -33,6 +36,11 @@ public final class SomaRuntimeAccess {
                 Throwable cause);
     }
 
+    /** Trusted factory installed by the result carrier's class initializer. */
+    public interface UpdateResultFactory {
+        UpdateResult create(long matched, long changed);
+    }
+
     /** 安装唯一的 ClassLoader-local structured-failure factory。 */
     public static void installFailureFactory(FailureFactory factory) {
         if (factory == null) {
@@ -44,6 +52,100 @@ public final class SomaRuntimeAccess {
             }
             failureFactory = factory;
         }
+    }
+
+    /** Installs the one class-local factory used by generated mutation code. */
+    public static void installUpdateResultFactory(UpdateResultFactory factory) {
+        if (factory == null) {
+            throw new NullPointerException("factory");
+        }
+        synchronized (SomaRuntimeAccess.class) {
+            if (updateResultFactory != null && updateResultFactory != factory) {
+                throw new IllegalStateException("SOMA update-result factory is already installed");
+            }
+            updateResultFactory = factory;
+        }
+    }
+
+    /** Creates a structured result through the trusted result carrier. */
+    public static UpdateResult updateResult(long matched, long changed) {
+        UpdateResultFactory factory = updateResultFactory;
+        if (factory == null) {
+            SomaConfiguration.builder();
+            factory = updateResultFactory;
+        }
+        if (factory == null) {
+            throw new IllegalStateException("SOMA update-result factory is unavailable");
+        }
+        return factory.create(matched, changed);
+    }
+
+    /** Creates a stable structured operation failure for internal owners. */
+    public static SomaOperationException failure(
+            SomaFailureCode code,
+            SomaOperation operation,
+            String context,
+            Throwable cause) {
+        FailureFactory factory = failureFactory;
+        if (factory == null) {
+            SomaConfiguration.builder();
+            factory = failureFactory;
+        }
+        if (factory == null) {
+            throw new IllegalStateException("SOMA failure factory is unavailable");
+        }
+        return factory.create(code, operation, context, cause);
+    }
+
+    /** Creates a typed expression node owned by generated source. */
+    public static <T> SomaExpression<T> expression(
+            io.github.somaruntime.soma.internal.SomaExpressionNode.Evaluator<T> evaluator) {
+        return new SomaExpressionNode<T>(evaluator, null);
+    }
+
+    /** Creates a generated expression bound to one composition/table owner. */
+    public static <T> SomaExpression<T> expression(
+            Object owner,
+            io.github.somaruntime.soma.internal.SomaExpressionNode.Evaluator<T> evaluator) {
+        if (owner == null) {
+            throw invalidExpression();
+        }
+        return new SomaExpressionNode<T>(evaluator, owner);
+    }
+
+    /** Evaluates a processor-issued expression without exposing its evaluator contract. */
+    public static <T> boolean evaluate(SomaExpression<T> expression, T value) {
+        return evaluate(expression, value, null);
+    }
+
+    /** Evaluates an expression only when its generated owner matches the receiver. */
+    public static <T> boolean evaluate(SomaExpression<T> expression, T value, Object owner) {
+        if (!(expression instanceof SomaExpressionNode)) {
+            throw invalidExpression();
+        }
+        @SuppressWarnings("unchecked")
+        SomaExpressionNode<T> node = (SomaExpressionNode<T>) expression;
+        if (!node.ownedBy(owner)) {
+            throw invalidExpression();
+        }
+        return node.evaluate(value);
+    }
+
+    /** Validates expression provenance before a linked pipeline receiver is claimed. */
+    public static void validate(SomaExpression<?> expression, Object owner) {
+        if (!(expression instanceof SomaExpressionNode)
+                || !((SomaExpressionNode<?>) expression).ownedBy(owner)) {
+            throw invalidExpression();
+        }
+    }
+
+    /** Internal stable failure for an application-supplied foreign expression. */
+    public static SomaOperationException invalidExpression() {
+        return failure(
+                SomaFailureCode.INVALID_ARGUMENT,
+                SomaOperation.QUERY,
+                "foreign or replayed SOMA expression",
+                null);
     }
 
     /** 注册一份不可变 configuration instance 的 opaque values。 */

@@ -16,6 +16,12 @@ public final class SomaConfiguration {
                 return SomaOperationException.create(code, operation, context, cause);
             }
         });
+        SomaRuntimeAccess.installUpdateResultFactory(new SomaRuntimeAccess.UpdateResultFactory() {
+            @Override
+            public UpdateResult create(long matched, long changed) {
+                return UpdateResult.trustedCreate(matched, changed);
+            }
+        });
     }
 
     private SomaConfiguration(
