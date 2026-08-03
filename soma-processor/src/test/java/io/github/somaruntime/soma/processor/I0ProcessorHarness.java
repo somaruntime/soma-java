@@ -2,6 +2,7 @@ package io.github.somaruntime.soma.processor;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -11,7 +12,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
+import java.util.Properties;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.RoundEnvironment;
@@ -43,6 +46,7 @@ public final class I0ProcessorHarness {
         I0ProcessorHarness harness = new I0ProcessorHarness(
                 new File(arguments[0]).toPath().toAbsolutePath().normalize());
         harness.positiveAndDeterministic();
+        harness.unicodeManifestRoundTrip();
         harness.coexistsWithUnrelatedProcessor();
         harness.missingHandshake();
         harness.emptyComposition();
@@ -87,6 +91,47 @@ public final class I0ProcessorHarness {
                 || source.indexOf("private SomaGeneratedComposition()") < 0
                 || source.indexOf(System.getProperty("user.dir")) >= 0) {
             throw new AssertionError("generated carrier shape or sanitization is invalid");
+        }
+    }
+
+    private void unicodeManifestRoundTrip() throws Exception {
+        String schemaPackage = "com.example.\u8c03\u5ea6.schema";
+        String tableName = "\u673a\u5668";
+        Compilation compilation = compile(
+                "unicode-manifest",
+                Arrays.asList(
+                        packageInfo(schemaPackage),
+                        source("com/example/\u8c03\u5ea6/schema/\u673a\u5668.java",
+                                "package " + schemaPackage + ";\n"
+                                + "@io.github.somaruntime.soma.SomaTable\n"
+                                + "final class " + tableName + " {\n"
+                                + "  @io.github.somaruntime.soma.SomaField long \u7f16\u53f7;\n"
+                                + "}\n")),
+                true,
+                Collections.<AbstractProcessor>singletonList(new SomaProcessor()),
+                runtimeClasses);
+        expectSuccess(compilation);
+        Path manifest = compilation.classes.resolve(
+                "META-INF/soma/composition-manifest.properties");
+        assertExists(manifest);
+
+        Properties properties = new Properties();
+        InputStream input = Files.newInputStream(manifest);
+        try {
+            properties.load(input);
+        } finally {
+            input.close();
+        }
+        if (!schemaPackage.equals(properties.getProperty("composition.0.schemaPackage"))
+                || !(schemaPackage + "." + tableName).equals(properties.getProperty(
+                        "composition.0.table.0.qualifiedName"))) {
+            throw new AssertionError("Unicode manifest does not round-trip through Properties");
+        }
+        String rawManifest = read(manifest);
+        if (rawManifest.indexOf("\\u") < 0
+                || rawManifest.indexOf("\u8c03\u5ea6") >= 0
+                || rawManifest.indexOf(tableName) >= 0) {
+            throw new AssertionError("manifest is not a deterministic ASCII properties file");
         }
     }
 
@@ -402,10 +447,22 @@ public final class I0ProcessorHarness {
 
     private void assertNoValidComposition(Compilation compilation) {
         assertNoSuccessManifest(compilation);
-        Path carrier = compilation.generated.resolve(
-                "com/example/scheduler/soma/internal/SomaGeneratedComposition.java");
-        if (Files.exists(carrier)) {
-            throw new AssertionError("validation failure wrote a composition carrier");
+        if (!Files.exists(compilation.generated)) {
+            return;
+        }
+        try {
+            Stream<Path> paths = Files.walk(compilation.generated);
+            try {
+                if (paths.anyMatch(path -> path.getFileName().toString()
+                        .equals("SomaGeneratedComposition.java"))) {
+                    throw new AssertionError(
+                            "validation failure wrote a composition carrier");
+                }
+            } finally {
+                paths.close();
+            }
+        } catch (IOException exception) {
+            throw new AssertionError("cannot inspect failed generation output", exception);
         }
     }
 

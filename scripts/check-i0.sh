@@ -7,6 +7,7 @@ I0_LOCAL_REPOSITORY="${SOMA_I0_MAVEN_REPOSITORY:-}"
 I0_REGEN_CONSUMER="$I0_TMP_ROOT/regeneration-consumer"
 I0_RUNTIME_SWAP_CLASSES="$I0_TMP_ROOT/runtime-swap-classes"
 I0_RUNTIME_SWAP_PROBE_CLASSES="$I0_TMP_ROOT/runtime-swap-probe-classes"
+I0_PROCESSOR_HARNESS_TMP="$I0_TMP_ROOT/processor-harness"
 I0_REPORT_DIRECTORY="$I0_REPO_ROOT/target/i0-qualification"
 I0_REPORT_FILE="$I0_REPORT_DIRECTORY/report.txt"
 I0_RUNTIME_JAR="$I0_REPO_ROOT/soma-runtime/target/soma-runtime-1.0.0-SNAPSHOT.jar"
@@ -61,6 +62,15 @@ reject_jar_entry() {
     local I0_ENTRY="$2"
     if jar tf "$I0_JAR" | grep -Fx "$I0_ENTRY" >/dev/null; then
         fail_i0 "unexpected $I0_ENTRY in $I0_JAR"
+    fi
+}
+
+reject_jar_prefix() {
+    local I0_JAR="$1"
+    local I0_PREFIX="$2"
+    if jar tf "$I0_JAR" | awk -v prefix="$I0_PREFIX" \
+            'index($0, prefix) == 1 { found = 1 } END { exit(found ? 0 : 1) }'; then
+        fail_i0 "unexpected path prefix $I0_PREFIX in $I0_JAR"
     fi
 }
 
@@ -227,7 +237,8 @@ for I0_MODE in \
         io.github.somaruntime.soma.internal.RuntimeConfigurationProbe "$I0_MODE"
 done
 
-java -cp \
+mkdir -p "$I0_PROCESSOR_HARNESS_TMP"
+java "-Djava.io.tmpdir=$I0_PROCESSOR_HARNESS_TMP" -cp \
     "$I0_REPO_ROOT/soma-processor/target/test-classes:$I0_REPO_ROOT/soma-processor/target/classes:$I0_TOOLS_JAR" \
     io.github.somaruntime.soma.processor.I0ProcessorHarness \
     "$I0_REPO_ROOT/soma-runtime/target/classes"
@@ -301,6 +312,9 @@ reject_jar_entry "$I0_RUNTIME_JAR" \
 require_jar_entry "$I0_PROCESSOR_JAR" "META-INF/soma/processor-contract.properties"
 require_jar_entry "$I0_PROCESSOR_JAR" "META-INF/services/javax.annotation.processing.Processor"
 reject_jar_entry "$I0_PROCESSOR_JAR" "io/github/somaruntime/soma/SomaSchema.class"
+reject_jar_prefix \
+    "$I0_REPO_ROOT/soma-runtime/target/soma-runtime-1.0.0-SNAPSHOT-javadoc.jar" \
+    "io/github/somaruntime/soma/internal/"
 
 require_jar_text "$I0_RUNTIME_JAR" "META-INF/MANIFEST.MF" \
     "Automatic-Module-Name: io.github.somaruntime.soma"
