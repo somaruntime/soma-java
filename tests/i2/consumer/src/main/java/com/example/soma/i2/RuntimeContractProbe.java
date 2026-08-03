@@ -36,5 +36,18 @@ public final class RuntimeContractProbe {
                 throw new AssertionError("unstable overflow failure: " + failure.code(), failure);
             }
         }
+        ScalarTableRuntime.CheckedLongAccumulator cancellation =
+                new ScalarTableRuntime.CheckedLongAccumulator();
+        cancellation.add(Long.MAX_VALUE);
+        cancellation.add(1L);
+        cancellation.add(-1L);
+        if (!cancellation.fitsLong() || cancellation.value() != Long.MAX_VALUE) {
+            throw new AssertionError("two-limb cancellation");
+        }
+        ScalarTableRuntime.CheckedLongAccumulator overflow =
+                new ScalarTableRuntime.CheckedLongAccumulator();
+        overflow.add(Long.MAX_VALUE);
+        overflow.add(1L);
+        if (overflow.fitsLong()) throw new AssertionError("two-limb overflow accepted");
     }
 }

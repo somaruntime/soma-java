@@ -5,6 +5,7 @@ import com.example.soma.i2.soma.ScalarRecordTable;
 import com.example.soma.i2.soma.Soma;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.UpdateResult;
+import java.util.List;
 import java.util.Optional;
 
 public final class Application {
@@ -37,6 +38,41 @@ public final class Application {
         if (table.filter(table.state.eq(StateCode.DONE)).count() != 1L) throw new AssertionError("enum");
         if (table.byMachine(7).count() != 2L) throw new AssertionError("int index");
         if (table.byLabel(null).count() != 1L) throw new AssertionError("null index");
+        if (!table.selectAll().anyMatch(view -> view.id() == 2L)) throw new AssertionError("anyMatch");
+        if (!table.selectAll().allMatch(view -> view.id() > 0L)) throw new AssertionError("allMatch");
+        if (!table.selectAll().noneMatch(view -> view.id() < 0L)) throw new AssertionError("noneMatch");
+        List<String> labels = table.selectAll().filter(table.label.isNotNull())
+                .map(view -> view.label()).toList();
+        if (labels.size() != 2 || !"alpha".equals(labels.get(0))) throw new AssertionError("mapped list");
+        String[] labelArray = table.selectAll().filter(table.label.isNotNull())
+                .map(view -> view.label()).toArray(String.class);
+        if (labelArray.length != 2 || !"beta".equals(labelArray[1])) throw new AssertionError("mapped array");
+        long mappedSum = table.selectAll().mapToLong(view -> view.count()).sum();
+        if (mappedSum != 60L) throw new AssertionError("mapToLong");
+        ScalarRecordTable overflow = Soma.createGroup().scalarRecordTable();
+        overflow.add(new ScalarRecord(100L, 1, "x", true, (byte) 0, (short) 0, 'X', Integer.MAX_VALUE,
+                0.0f, 0.0d, null, StateCode.READY));
+        overflow.add(new ScalarRecord(101L, 1, "y", true, (byte) 0, (short) 0, 'Y', Integer.MAX_VALUE,
+                0.0f, 0.0d, null, StateCode.READY));
+        long cancelledSum = overflow.selectAll().mapToLong(view -> view.id() == 100L
+                ? Long.MAX_VALUE : -1L).sum();
+        if (cancelledSum != Long.MAX_VALUE - 1L) throw new AssertionError("extended sum");
+        try {
+            table.selectAll().filter(view -> { throw new IllegalStateException("boom"); }).findFirst();
+            throw new AssertionError("findFirst callback escaped");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.CALLBACK_FAILED) {
+                throw new AssertionError("findFirst callback mapping");
+            }
+        }
+        try {
+            table.selectAll().filter(view -> { throw new IllegalStateException("boom"); }).toList();
+            throw new AssertionError("toList callback escaped");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.CALLBACK_FAILED) {
+                throw new AssertionError("toList callback mapping");
+            }
+        }
         UpdateResult update = table.update(1L, editor -> editor.count(editor.count() + 5));
         if (update.matched() != 1L || update.changed() != 1L || table.get(1L).count() != 15) {
             throw new AssertionError("point update");

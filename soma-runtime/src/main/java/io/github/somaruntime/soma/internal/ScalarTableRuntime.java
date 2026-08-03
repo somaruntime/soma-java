@@ -18,6 +18,32 @@ public final class ScalarTableRuntime {
         BOOLEAN, BYTE, SHORT, CHAR, INT, LONG, FLOAT, DOUBLE, REFERENCE
     }
 
+    /** Fixed-width two-limb signed accumulator used by the reference numeric path. */
+    public static final class CheckedLongAccumulator {
+        private long high;
+        private long low;
+
+        public void add(long value) {
+            long previousLow = low;
+            long nextLow = previousLow + value;
+            long unsignedCarry = Long.compareUnsigned(nextLow, previousLow) < 0L ? 1L : 0L;
+            long signExtension = value < 0L ? -1L : 0L;
+            high = high + signExtension + unsignedCarry;
+            low = nextLow;
+        }
+
+        public boolean fitsLong() {
+            return (high == 0L && low >= 0L) || (high == -1L && low < 0L);
+        }
+
+        public long value() {
+            if (!fitsLong()) {
+                throw new ArithmeticException("128-bit accumulator does not fit long");
+            }
+            return low;
+        }
+    }
+
     public static final class FieldSpec {
         public final FieldKind kind;
         public final boolean key;

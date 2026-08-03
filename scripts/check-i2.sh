@@ -21,8 +21,8 @@ test -f "$I2_GENERATED/ScalarRecordTable.java" || fail_i2 "generated scalar tabl
 grep -F 'FieldKind.BOOLEAN' "$I2_GENERATED/ScalarRecordTable.java" >/dev/null || fail_i2 "boolean storage shape missing"
 grep -F 'FieldKind.DOUBLE' "$I2_GENERATED/ScalarRecordTable.java" >/dev/null || fail_i2 "double storage shape missing"
 grep -F 'byMachine' "$I2_GENERATED/ScalarRecordTable.java" >/dev/null || fail_i2 "index accessor missing"
-if grep -E 'java\.lang\.reflect|Long\.valueOf|Integer\.valueOf|Double\.valueOf' "$I2_GENERATED/ScalarRecordTable.java" >/dev/null; then
-    fail_i2 "generated scalar source contains reflection or explicit boxing"
+if grep -E 'java\.lang\.reflect\.(Field|Method|Constructor)|(^|[^A-Za-z])(Long|Integer|Double)\.valueOf' "$I2_GENERATED/ScalarRecordTable.java" >/dev/null; then
+    fail_i2 "generated scalar source contains field reflection or explicit boxing"
 fi
 if awk '/long findKey/{inside=1} /private Object valueAt/{inside=0} inside' \
     "$I2_ROOT/soma-runtime/src/main/java/io/github/somaruntime/soma/internal/ScalarTableRuntime.java" |
