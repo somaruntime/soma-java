@@ -22,6 +22,12 @@ public final class SomaConfiguration {
                 return UpdateResult.trustedCreate(matched, changed);
             }
         });
+        SomaRuntimeAccess.installRemoveResultFactory(new SomaRuntimeAccess.RemoveResultFactory() {
+            @Override
+            public RemoveResult create(long removed) {
+                return RemoveResult.trustedCreate(removed);
+            }
+        });
     }
 
     private SomaConfiguration(

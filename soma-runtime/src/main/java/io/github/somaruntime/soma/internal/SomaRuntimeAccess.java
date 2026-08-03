@@ -7,6 +7,7 @@ import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.UpdateResult;
+import io.github.somaruntime.soma.RemoveResult;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -23,6 +24,7 @@ public final class SomaRuntimeAccess {
             new AtomicReference<RuntimeState>(UNFROZEN);
     private static volatile FailureFactory failureFactory;
     private static volatile UpdateResultFactory updateResultFactory;
+    private static volatile RemoveResultFactory removeResultFactory;
 
     private SomaRuntimeAccess() {
     }
@@ -39,6 +41,10 @@ public final class SomaRuntimeAccess {
     /** Trusted factory installed by the result carrier's class initializer. */
     public interface UpdateResultFactory {
         UpdateResult create(long matched, long changed);
+    }
+
+    public interface RemoveResultFactory {
+        RemoveResult create(long removed);
     }
 
     /** 安装唯一的 ClassLoader-local structured-failure factory。 */
@@ -67,6 +73,18 @@ public final class SomaRuntimeAccess {
         }
     }
 
+    public static void installRemoveResultFactory(RemoveResultFactory factory) {
+        if (factory == null) {
+            throw new NullPointerException("factory");
+        }
+        synchronized (SomaRuntimeAccess.class) {
+            if (removeResultFactory != null && removeResultFactory != factory) {
+                throw new IllegalStateException("SOMA remove-result factory is already installed");
+            }
+            removeResultFactory = factory;
+        }
+    }
+
     /** Creates a structured result through the trusted result carrier. */
     public static UpdateResult updateResult(long matched, long changed) {
         UpdateResultFactory factory = updateResultFactory;
@@ -78,6 +96,18 @@ public final class SomaRuntimeAccess {
             throw new IllegalStateException("SOMA update-result factory is unavailable");
         }
         return factory.create(matched, changed);
+    }
+
+    public static RemoveResult removeResult(long removed) {
+        RemoveResultFactory factory = removeResultFactory;
+        if (factory == null) {
+            SomaConfiguration.builder();
+            factory = removeResultFactory;
+        }
+        if (factory == null) {
+            throw new IllegalStateException("SOMA remove-result factory is unavailable");
+        }
+        return factory.create(removed);
     }
 
     /** Creates a stable structured operation failure for internal owners. */

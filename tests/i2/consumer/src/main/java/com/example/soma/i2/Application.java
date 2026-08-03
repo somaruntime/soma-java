@@ -4,6 +4,7 @@ import com.example.soma.i2.soma.ScalarRecord;
 import com.example.soma.i2.soma.ScalarRecordTable;
 import com.example.soma.i2.soma.Soma;
 import io.github.somaruntime.soma.SomaOperationException;
+import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.UpdateResult;
 import java.util.List;
 import java.util.Optional;
@@ -12,6 +13,7 @@ public final class Application {
     private Application() { }
 
     public static void main(String[] args) {
+        System.setProperty("soma.test.chunkSize", "2");
         ScalarRecordTable table = Soma.scalarRecordTable();
         if (table.size() != 0L || table.capacity() != 0L) throw new AssertionError("lazy empty");
         table.reserve(3L);
@@ -76,6 +78,31 @@ public final class Application {
         UpdateResult update = table.update(1L, editor -> editor.count(editor.count() + 5));
         if (update.matched() != 1L || update.changed() != 1L || table.get(1L).count() != 15) {
             throw new AssertionError("point update");
+        }
+        long capacityBeforeRemove = table.capacity();
+        RemoveResult removed = table.remove(2L);
+        if (removed.removed() != 1L || table.size() != 2L || table.capacity() != capacityBeforeRemove) {
+            throw new AssertionError("point remove");
+        }
+        ScalarRecord survivor = table.get(3L);
+        if (survivor.id() != 3L || survivor.machine() != 8 || survivor.label() != null
+                || !survivor.enabled() || survivor.small() != 3 || survivor.medium() != 4
+                || survivor.marker() != 'C' || survivor.count() != 30
+                || Float.compare(survivor.ratio(), 1.0f) != 0
+                || Double.compare(survivor.score(), 2.0d) != 0
+                || survivor.state() != StateCode.DONE || !"other".equals(survivor.note())) {
+            throw new AssertionError("compaction survivor fields");
+        }
+        if (table.byMachine(7).count() != 1L) throw new AssertionError("index after compaction");
+        RemoveResult missingRemove = table.remove(2L);
+        if (missingRemove.removed() != 0L || table.size() != 2L) throw new AssertionError("missing remove");
+        try {
+            table.get(2L);
+            throw new AssertionError("removed key still present");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.MISSING_KEY) {
+                throw new AssertionError("removed key failure");
+            }
         }
         try {
             table.add(new ScalarRecord(1L, 1, "duplicate", false, (byte) 0, (short) 0, 'D', 0,

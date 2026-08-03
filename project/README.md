@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4-I8 `NOT_STARTED`
+implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5-I8 `NOT_STARTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -26,14 +26,15 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [I0 build/full-regeneration qualification](conformance/i0-build-spine-qualification.md)已`PASS`，
   G1 为`PASS`；G2/G10 的 I0 baseline 已通过但整体仍`IN_PROGRESS`；
 - I0 为`COMPLETE`，I1 已完成其 bounded primitive keyed Table vertical slice，I2 已完成其
-  bounded scalar type/storage breadth slice，I3 已完成其 bounded direct query/reference slice；
-  I4-I8 仍为`NOT_STARTED`；当前没有 active implementation slice，下一项从 I4 开始。
+  bounded scalar type/storage breadth slice，I3 已完成其 bounded direct query/reference slice，
+  I4 已完成其 bounded point-remove slice；I5-I8 仍为`NOT_STARTED`；当前没有 active implementation
+  slice，下一项从 I5 开始。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前 active checkout 已有 I1、I2 与 I3 范围的 qualified generated consumer API 与 primitive/scalar
-Table runtime；仍没有 I4+ breadth、benchmark、Example、CI/release workflow、package 或
+当前 active checkout 已有 I1、I2、I3 与 I4 范围的 qualified generated consumer API 与 primitive/scalar
+Table runtime；仍没有 I5+ breadth、benchmark、Example、CI/release workflow、package 或
 committed build artifact。
 I1 completion、正式 Design 与 readiness 都不等于完整 implementation、
 performance、compatibility、artifact publication 或 release 已成立。
@@ -93,8 +94,8 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0/I1/I2/I3 bounded slice complete，I4-I8 not started |
-| Conformance | `project/conformance/`；G1 PASS，G2-G5 I3 scope pass，G10 in progress |
+| Engineering | `project/engineering/`；I0/I1/I2/I3/I4 bounded slice complete，I5-I8 not started |
+| Conformance | `project/conformance/`；G1 PASS，G2-G5 I4 scope pass，G10 in progress |
 | Temporary | 当前无active topic；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
@@ -137,7 +138,7 @@ I0 build/full-regeneration spine
                         -> separate release authorization
 ```
 
-I0/I1/I2/I3 exit evidence已经闭合；下一项从I4开始。当前授权同时允许每个 slice 证据闭合后的干净
+I0/I1/I2/I3/I4 exit evidence已经闭合；下一项从I5开始。当前授权同时允许每个 slice 证据闭合后的干净
 commit 与`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
 
 ## 当前验证边界

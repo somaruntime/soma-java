@@ -174,6 +174,7 @@ public final class ScalarTableRuntime {
     }
 
     public PointUpdate beginUpdate(Object key) {
+        validateKeyArgument(key, SomaOperation.UPDATE);
         PrimitiveLongTableRuntime.GroupRuntime.Guard guard = group.enter(SomaOperation.UPDATE);
         StateRoot root = current.get();
         long locator = root.directory.findKey(key, specs, keyIndex, root.size);
@@ -182,6 +183,32 @@ public final class ScalarTableRuntime {
             return PointUpdate.missing();
         }
         return new PointUpdate(this, guard, root, locator, specs, keyIndex);
+    }
+
+    public io.github.somaruntime.soma.RemoveResult remove(Object key) {
+        validateKeyArgument(key, SomaOperation.REMOVE);
+        PrimitiveLongTableRuntime.GroupRuntime.Guard guard = group.enter(SomaOperation.REMOVE);
+        try {
+            StateRoot root = current.get();
+            long locator = root.directory.findKey(key, specs, keyIndex, root.size);
+            if (locator < 0L) {
+                return SomaRuntimeAccess.removeResult(0L);
+            }
+            Directory next = root.directory.withoutRow(locator, root.size, specs, chunkSize);
+            StateRoot candidate = new StateRoot(root.size - 1L, root.capacity,
+                    nextVersion(root.version, SomaOperation.REMOVE), next);
+            publish(root, candidate, SomaOperation.REMOVE);
+            return SomaRuntimeAccess.removeResult(1L);
+        } finally {
+            guard.close();
+        }
+    }
+
+    private void validateKeyArgument(Object key, SomaOperation operation) {
+        if (keyIndex >= 0 && key == null) {
+            throw failure(SomaFailureCode.INVALID_ARGUMENT, operation,
+                    "key must not be null", null);
+        }
     }
 
     private void append(Append append) {
@@ -569,6 +596,37 @@ public final class ScalarTableRuntime {
                 public double dbl(int f) { return update.doubles[f]; }
                 public Object ref(int f) { return update.references[f]; }
             });
+        }
+
+        Directory withoutRow(final long removedRow, long size, FieldSpec[] specs, int chunkSize) {
+            Directory next = Directory.empty(chunkSize, specs).withCapacity(capacity, specs, chunkSize);
+            long destination = 0L;
+            for (long sourceRow = 0L; sourceRow < size; sourceRow++) {
+                if (sourceRow == removedRow) continue;
+                next.copyRowFrom(this, sourceRow, destination++, specs);
+            }
+            return next;
+        }
+
+        private void copyRowFrom(Directory source, long sourceRow, long destinationRow,
+                FieldSpec[] specs) {
+            Chunk sourceChunk = source.chunk(sourceRow);
+            Chunk destinationChunk = chunk(destinationRow);
+            int sourceOffset = (int) (sourceRow % chunkSize);
+            int destinationOffset = (int) (destinationRow % chunkSize);
+            for (int field = 0; field < specs.length; field++) {
+                switch (specs[field].kind) {
+                    case BOOLEAN: destinationChunk.booleans[field][destinationOffset] = sourceChunk.booleans[field][sourceOffset]; break;
+                    case BYTE: destinationChunk.bytes[field][destinationOffset] = sourceChunk.bytes[field][sourceOffset]; break;
+                    case SHORT: destinationChunk.shorts[field][destinationOffset] = sourceChunk.shorts[field][sourceOffset]; break;
+                    case CHAR: destinationChunk.chars[field][destinationOffset] = sourceChunk.chars[field][sourceOffset]; break;
+                    case INT: destinationChunk.ints[field][destinationOffset] = sourceChunk.ints[field][sourceOffset]; break;
+                    case LONG: destinationChunk.longs[field][destinationOffset] = sourceChunk.longs[field][sourceOffset]; break;
+                    case FLOAT: destinationChunk.floats[field][destinationOffset] = sourceChunk.floats[field][sourceOffset]; break;
+                    case DOUBLE: destinationChunk.doubles[field][destinationOffset] = sourceChunk.doubles[field][sourceOffset]; break;
+                    default: destinationChunk.references[field][destinationOffset] = sourceChunk.references[field][sourceOffset]; break;
+                }
+            }
         }
 
         private Directory replace(long row, FieldSpec[] specs, RowSource source) {

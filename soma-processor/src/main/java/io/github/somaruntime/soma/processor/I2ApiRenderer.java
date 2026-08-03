@@ -172,6 +172,7 @@ final class I2ApiRenderer {
             source.append("        if (!state.matched()) return io.github.somaruntime.soma.internal.SomaRuntimeAccess.updateResult(0L, 0L);\n");
             source.append("        Editor editor = new Editor(state);\n        try { updater.accept(editor); state.prepare(); state.commit(); return io.github.somaruntime.soma.internal.SomaRuntimeAccess.updateResult(1L, state.changed() ? 1L : 0L);\n");
             source.append("        } catch (io.github.somaruntime.soma.SomaOperationException failure) { state.abort(); throw failure; } catch (Throwable failure) { state.abort(); if (failure instanceof Error) throw (Error) failure; throw io.github.somaruntime.soma.internal.SomaRuntimeAccess.failure(io.github.somaruntime.soma.SomaFailureCode.CALLBACK_FAILED, io.github.somaruntime.soma.SomaOperation.UPDATE, \"update callback failed\", failure); }\n    }\n\n");
+            source.append("    public io.github.somaruntime.soma.RemoveResult remove(").append(typeName(key)).append(" key) { return runtime.remove(key); }\n\n");
         }
         source.append("    public Selection selectAll() { return new Selection(null, null, null, -1, null); }\n");
         source.append("    public Selection filter(io.github.somaruntime.soma.SomaExpression<View> expression) { return selectAll().filter(expression); }\n");

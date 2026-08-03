@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；G1 `PASS`
+Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；G1 `PASS`
 
 正式事实源：是
 
@@ -32,9 +32,9 @@ Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
 Production source/reactor      I0 QUALIFIED
-Generated consumer API         I1 primitive keyed + I2 scalar breadth + I3 direct query qualified (bounded fixtures)
-Active slice                   NONE (I3 COMPLETE; I4 NOT_STARTED)
-G1-G10                         G1 PASS; G2-G5 I3_SCOPE_PASS; G10 IN_PROGRESS; others NOT_RUN
+Generated consumer API         I1 primitive keyed + I2 scalar breadth + I3 direct query + I4 point mutation qualified (bounded fixtures)
+Active slice                   NONE (I4 COMPLETE; I5 NOT_STARTED)
+G1-G10                         G1 PASS; G2-G5 I4_SCOPE_PASS; G10 IN_PROGRESS; others NOT_RUN
 Package/release                NOT_QUALIFIED
 ```
 
@@ -76,6 +76,8 @@ Package/release                NOT_QUALIFIED
   bounded scalar breadth slice、Java 8 consumer 与 scope-limited G2-G5 evidence。
 - [I3 Direct Query Qualification](i3-direct-query-qualification.md)：I3
   bounded direct query/reference interpreter slice 与 scope-limited G4 evidence。
+- [I4 Point Mutation Qualification](i4-point-mutation-qualification.md)：I4
+  bounded point-remove slice 与 scope-limited G5 evidence。
 
 Historical inputs：
 
