@@ -33,6 +33,7 @@ Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
 Production source/reactor      I0 QUALIFIED
 Generated consumer API         I1 primitive keyed + I2 scalar breadth + I3 direct query + I4 point mutation + I5 GroupBy + I6 typed parallel count + I7 metadata/plain baseline qualified (bounded fixtures)
+Examples workspace              I8_EXAMPLES_WORKSPACE_PASS (three non-published Java 8 consumers; no multi-table/Join claim)
 Active slice                   NONE (I8 boundary + narrow-scale smoke sub-slices closed; remaining I8 product qualification)
 G1-G10                         G1 PASS; G2-G8 scope pass; G9/G10 IN_PROGRESS
 Package/release                NOT_QUALIFIED
@@ -54,7 +55,7 @@ Package/release                NOT_QUALIFIED
 | Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | I1/I2 Group guard/scope/point mutation；I6 bounded typed parallel count；full resource admission未实施 | I6_SCOPE_PASS |
 | Result/failure | [Failure](../design/results-and-failures.md) | I1/I2 UpdateResult、failure mapping与scope/duplicate/missing/overflow bounded | I2_SCOPE_PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven build qualified | I0_PASS |
-| Performance/scenarios | BP-15 + G9 | narrow-scale smoke telemetry only; approved scenarios/thresholds absent | I8_SCALE_SMOKE_PASS / NOT_EVALUABLE |
+| Performance/scenarios | BP-15 + G9 | examples correctness smoke and narrow-scale telemetry only; approved performance thresholds absent | I8_EXAMPLES_WORKSPACE_PASS + I8_SCALE_SMOKE_PASS / NOT_EVALUABLE |
 | Security/package/release | G10 | I8 boundary package/security baseline; full qualification/workflow未实施 | I8_BOUNDARY_PASS |
 
 `NOT_IMPLEMENTED`不是Design contradiction；它是clean-slate implementation gap。Documentation
@@ -88,6 +89,8 @@ Package/release                NOT_QUALIFIED
   G9 与完整 G10 仍未关闭。
 - [I8 Narrow-Scale Smoke Qualification](i8-scale-smoke-qualification.md)：1M-row correctness/telemetry
   smoke；不构成 G9 performance qualification。
+- [I8 Examples Workspace Qualification](i8-examples-qualification.md)：三个非发布、独立 Java 8
+  scenario consumer 的生成/编译/运行证据；不构成 G9/G10 或 multi-table/Join 资格。
 
 Historical inputs：
 

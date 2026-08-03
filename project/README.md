@@ -29,7 +29,7 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
   bounded scalar type/storage breadth slice，I3 已完成其 bounded direct query/reference slice，
   I4 已完成其 bounded point-remove slice，I5 已完成其 bounded integer-key GroupBy slice；I6 已完成其
   bounded typed parallel-count slice；I7 已完成 metadata/PLAIN representation bounded slice；I8 已完成
-  package/security boundary 与 narrow-scale smoke sub-slices，三场景与正式性能 qualification 待继续；当前没有 active implementation
+  package/security boundary、narrow-scale smoke 与非发布 examples workspace sub-slices，三场景与正式性能 qualification 待继续；当前没有 active implementation
   slice。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
@@ -37,7 +37,7 @@ closure与targeted readiness delta review已完成。`project/temp/i7-implementa
 I7 bounded supplemental boundary，不拥有current product fact。
 
 当前 active checkout 已有 I1、I2、I3、I4、I5、I6 与 I7 范围的 qualified generated consumer API 与 primitive/scalar
-Table runtime，并有 I8 narrow-scale smoke harness；仍没有 approved I8 scenarios/performance benchmark、Example、CI/release workflow、package 或
+Table runtime，并有 I8 narrow-scale smoke harness 与非发布 examples workspace；仍没有 approved I8 performance benchmark、CI/release workflow、package 或
 committed build artifact。
 I1 completion、正式 Design 与 readiness 都不等于完整 implementation、
 performance、compatibility、artifact publication 或 release 已成立。
@@ -101,6 +101,7 @@ Blueprint
 | Conformance | `project/conformance/`；G1 PASS，G2-G8 scope pass，G9/G10 remain open |
 | Temporary | I7/I8 supplemental boundary/provenance；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
+| Examples | `soma-examples/`；三个非发布 scenario consumer，见 [I8 Examples Qualification](conformance/i8-examples-qualification.md) |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
 
 Selected delivery profile 尚未建立；未来 package/source bundle 必须采用明确 allowlist，不能把
