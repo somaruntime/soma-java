@@ -19,15 +19,42 @@ final class SchemaModel {
         INDEX
     }
 
+    enum StorageKind {
+        BOOLEAN,
+        BYTE,
+        SHORT,
+        CHAR,
+        INT,
+        LONG,
+        FLOAT,
+        DOUBLE,
+        REFERENCE,
+        VALUE,
+        UNSUPPORTED
+    }
+
     static final class Field {
         final String name;
         final String type;
+        final String qualifiedType;
+        final StorageKind storageKind;
+        final boolean enumType;
         final FieldRole role;
         final long sourcePosition;
 
-        Field(String name, String type, FieldRole role, long sourcePosition) {
+        Field(
+                String name,
+                String type,
+                String qualifiedType,
+                StorageKind storageKind,
+                boolean enumType,
+                FieldRole role,
+                long sourcePosition) {
             this.name = name;
             this.type = type;
+            this.qualifiedType = qualifiedType;
+            this.storageKind = storageKind;
+            this.enumType = enumType;
             this.role = role;
             this.sourcePosition = sourcePosition;
         }
@@ -64,6 +91,7 @@ final class SchemaModel {
         final String fingerprint;
         final String generatedFqn;
         final boolean i1ApiEligible;
+        final boolean i2ApiEligible;
 
         Composition(
                 PackageElement packageElement,
@@ -72,7 +100,8 @@ final class SchemaModel {
                 List<Type> tables,
                 List<Type> values,
                 String fingerprint,
-                boolean i1ApiEligible) {
+                boolean i1ApiEligible,
+                boolean i2ApiEligible) {
             this.packageElement = packageElement;
             this.schemaPackage = schemaPackage;
             this.generatedNamespace = generatedNamespace;
@@ -80,6 +109,7 @@ final class SchemaModel {
             this.values = Collections.unmodifiableList(new ArrayList<Type>(values));
             this.fingerprint = fingerprint;
             this.i1ApiEligible = i1ApiEligible;
+            this.i2ApiEligible = i2ApiEligible;
             this.generatedFqn = generatedNamespace + ".internal."
                     + ProcessorContract.GENERATED_CARRIER_SIMPLE_NAME;
         }

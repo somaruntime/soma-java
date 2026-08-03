@@ -132,6 +132,8 @@ final class GenerationSession {
                     composition.generatedFqn, source, sha256(source)));
             if (composition.i1ApiEligible) {
                 files.addAll(I1ApiRenderer.render(composition));
+            } else if (composition.i2ApiEligible) {
+                files.addAll(I2ApiRenderer.render(composition));
             }
             for (SchemaModel.GeneratedFile file : files) {
                 TypeElement occupied = elements.getTypeElement(file.generatedFqn);
@@ -298,7 +300,8 @@ final class GenerationSession {
                     tables,
                     reachableValues,
                     fingerprint,
-                    isI1ApiEligible(tables));
+                    isI1ApiEligible(tables),
+                    isI2ApiEligible(tables));
             TypeElement occupied = elements.getTypeElement(composition.generatedFqn);
             if (occupied != null) {
                 error("0301", "generated composition carrier FQN is already occupied", occupied);
@@ -332,6 +335,36 @@ final class GenerationSession {
                 && payload != null
                 && "long".equals(key.type)
                 && "long".equals(payload.type);
+    }
+
+    /**
+     * I2's first executable breadth slice deliberately admits one direct scalar Table.
+     * Values, nested fields and cross-table planning remain separate slices; rejecting them
+     * here prevents a generated facade from claiming a capability it cannot execute yet.
+     */
+    private boolean isI2ApiEligible(List<SchemaModel.Type> tables) {
+        if (tables.size() != 1) {
+            return false;
+        }
+        SchemaModel.Type table = tables.get(0);
+        if (table.fields.isEmpty()) {
+            return false;
+        }
+        boolean hasBreadthBeyondLong = false;
+        for (SchemaModel.Field field : table.fields) {
+            if (field.storageKind == SchemaModel.StorageKind.VALUE
+                    || field.storageKind == SchemaModel.StorageKind.UNSUPPORTED) {
+                return false;
+            }
+            if (field.storageKind == SchemaModel.StorageKind.REFERENCE
+                    && !isScalarReference(field)) {
+                return false;
+            }
+            if (field.storageKind != SchemaModel.StorageKind.LONG) {
+                hasBreadthBeyondLong = true;
+            }
+        }
+        return hasBreadthBeyondLong;
     }
 
     /** Rejects source names that would collide with the first generated API surface. */
@@ -459,6 +492,9 @@ final class GenerationSession {
             fieldModels.add(new SchemaModel.Field(
                     field.getSimpleName().toString(),
                     field.asType().toString(),
+                    qualifiedType(field.asType()),
+                    storageKind(field.asType()),
+                    isEnumType(field.asType()),
                     role,
                     position));
         }
@@ -517,6 +553,66 @@ final class GenerationSession {
         return key
                 ? SchemaModel.FieldRole.KEY
                 : index ? SchemaModel.FieldRole.INDEX : SchemaModel.FieldRole.FIELD;
+    }
+
+    private String qualifiedType(TypeMirror mirror) {
+        if (mirror.getKind() != TypeKind.DECLARED) {
+            return mirror.toString();
+        }
+        Element element = ((DeclaredType) mirror).asElement();
+        if (element instanceof TypeElement) {
+            return ((TypeElement) element).getQualifiedName().toString();
+        }
+        return mirror.toString();
+    }
+
+    private boolean isEnumType(TypeMirror mirror) {
+        if (mirror.getKind() != TypeKind.DECLARED) {
+            return false;
+        }
+        Element element = ((DeclaredType) mirror).asElement();
+        return element != null && element.getKind() == ElementKind.ENUM;
+    }
+
+    private boolean isScalarReference(SchemaModel.Field field) {
+        return "java.lang.String".equals(field.qualifiedType) || field.enumType;
+    }
+
+    private SchemaModel.StorageKind storageKind(TypeMirror mirror) {
+        switch (mirror.getKind()) {
+            case BOOLEAN:
+                return SchemaModel.StorageKind.BOOLEAN;
+            case BYTE:
+                return SchemaModel.StorageKind.BYTE;
+            case SHORT:
+                return SchemaModel.StorageKind.SHORT;
+            case CHAR:
+                return SchemaModel.StorageKind.CHAR;
+            case INT:
+                return SchemaModel.StorageKind.INT;
+            case LONG:
+                return SchemaModel.StorageKind.LONG;
+            case FLOAT:
+                return SchemaModel.StorageKind.FLOAT;
+            case DOUBLE:
+                return SchemaModel.StorageKind.DOUBLE;
+            case DECLARED:
+                Element declared = ((DeclaredType) mirror).asElement();
+                if (declared instanceof TypeElement) {
+                    TypeElement type = (TypeElement) declared;
+                    if (hasAnnotation(type, ProcessorContract.SOMA_VALUE)) {
+                        return SchemaModel.StorageKind.VALUE;
+                    }
+                    if (type.getQualifiedName().contentEquals("java.lang.String")
+                            || type.getKind() == ElementKind.ENUM) {
+                        return SchemaModel.StorageKind.REFERENCE;
+                    }
+                    return SchemaModel.StorageKind.REFERENCE;
+                }
+                return SchemaModel.StorageKind.UNSUPPORTED;
+            default:
+                return SchemaModel.StorageKind.UNSUPPORTED;
+        }
     }
 
     private List<SchemaModel.Type> reachableValues(
@@ -700,7 +796,9 @@ final class GenerationSession {
             canonical.append("FIELD|")
                     .append(field.name).append('|')
                     .append(field.role.name()).append('|')
-                    .append(field.type).append('\n');
+                    .append(field.type).append('|')
+                    .append(field.qualifiedType).append('|')
+                    .append(field.storageKind.name()).append('\n');
         }
     }
 
