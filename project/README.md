@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7-I8 `NOT_STARTED`
+implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7 `COMPLETE (I7_SCOPE)`；I8 `NOT_STARTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -28,14 +28,15 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - I0 为`COMPLETE`，I1 已完成其 bounded primitive keyed Table vertical slice，I2 已完成其
   bounded scalar type/storage breadth slice，I3 已完成其 bounded direct query/reference slice，
   I4 已完成其 bounded point-remove slice，I5 已完成其 bounded integer-key GroupBy slice；I6 已完成其
-  bounded typed parallel-count slice；I7-I8仍为`NOT_STARTED`；当前没有 active implementation
-  slice，下一项从 I7 开始。
+  bounded typed parallel-count slice；I7 已完成 metadata/PLAIN representation bounded slice；I8仍为
+  `NOT_STARTED`；当前没有 active implementation slice，下一项从 I8 开始。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
-closure与targeted readiness delta review已完成。当前没有active Temporary。
+closure与targeted readiness delta review已完成。`project/temp/i7-implementation-decisions.md` 仅保留本次
+I7 bounded supplemental boundary，不拥有current product fact。
 
-当前 active checkout 已有 I1、I2、I3、I4、I5 与 I6 范围的 qualified generated consumer API 与 primitive/scalar
-Table runtime；仍没有 I7+ breadth、benchmark、Example、CI/release workflow、package 或
+当前 active checkout 已有 I1、I2、I3、I4、I5、I6 与 I7 范围的 qualified generated consumer API 与 primitive/scalar
+Table runtime；仍没有 I8 scenarios/benchmark、Example、CI/release workflow、package 或
 committed build artifact。
 I1 completion、正式 Design 与 readiness 都不等于完整 implementation、
 performance、compatibility、artifact publication 或 release 已成立。
@@ -95,9 +96,9 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0/I1/I2/I3/I4/I5/I6 bounded slice complete，I7-I8 not started |
-| Conformance | `project/conformance/`；G1 PASS，G2-G7 scope pass，G10 in progress |
-| Temporary | 当前无active topic；目录不拥有current事实 |
+| Engineering | `project/engineering/`；I0/I1/I2/I3/I4/I5/I6/I7 bounded slice complete，I8 not started |
+| Conformance | `project/conformance/`；G1 PASS，G2-G8 scope pass，G9/G10 in progress |
+| Temporary | I7 supplemental boundary/provenance；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
 
@@ -139,7 +140,7 @@ I0 build/full-regeneration spine
                         -> separate release authorization
 ```
 
-I0/I1/I2/I3/I4/I5/I6 exit evidence已经闭合；下一项从I7开始。当前授权同时允许每个 slice 证据闭合后的干净
+I0/I1/I2/I3/I4/I5/I6/I7 exit evidence已经闭合；下一项从I8开始。当前授权同时允许每个 slice 证据闭合后的干净
 commit 与`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
 
 ## 当前验证边界

@@ -35,6 +35,46 @@ public final class SomaConfiguration {
                         return IntGroupedLongResult.trustedCreate(keys, values);
                     }
                 });
+        SomaRuntimeAccess.installMetadataFactory(new SomaRuntimeAccess.MetadataFactory() {
+            @Override
+            public SomaMetadata soma(
+                    String configurationState,
+                    long budget,
+                    SomaCompression compression) {
+                return SomaMetadata.trustedCreate(configurationState, budget, compression);
+            }
+
+            @Override
+            public GroupMetadata group(boolean defaultGroup, long tableCount) {
+                return GroupMetadata.trustedCreate(defaultGroup, tableCount);
+            }
+
+            @Override
+            public TableMetadata table(
+                    String logicalName,
+                    long size,
+                    long capacity,
+                    long stateVersion,
+                    long payloadBytes,
+                    long representationBytes,
+                    boolean encodedRepresentation,
+                    SomaCompression compression) {
+                return TableMetadata.trustedCreate(
+                        logicalName, size, capacity, stateVersion, payloadBytes,
+                        representationBytes, encodedRepresentation, compression);
+            }
+
+            @Override
+            public FieldMetadata field(
+                    String logicalPath,
+                    String logicalType,
+                    boolean nullable,
+                    boolean key,
+                    boolean indexed) {
+                return FieldMetadata.trustedCreate(
+                        logicalPath, logicalType, nullable, key, indexed);
+            }
+        });
     }
 
     private SomaConfiguration(

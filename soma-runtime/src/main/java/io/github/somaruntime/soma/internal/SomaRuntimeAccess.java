@@ -9,6 +9,10 @@ import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.UpdateResult;
 import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.IntGroupedLongResult;
+import io.github.somaruntime.soma.SomaMetadata;
+import io.github.somaruntime.soma.GroupMetadata;
+import io.github.somaruntime.soma.TableMetadata;
+import io.github.somaruntime.soma.FieldMetadata;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -27,6 +31,7 @@ public final class SomaRuntimeAccess {
     private static volatile UpdateResultFactory updateResultFactory;
     private static volatile RemoveResultFactory removeResultFactory;
     private static volatile IntGroupedLongResultFactory intGroupedLongResultFactory;
+    private static volatile MetadataFactory metadataFactory;
 
     private SomaRuntimeAccess() {
     }
@@ -51,6 +56,26 @@ public final class SomaRuntimeAccess {
 
     public interface IntGroupedLongResultFactory {
         IntGroupedLongResult create(int[] keys, long[] values);
+    }
+
+    public interface MetadataFactory {
+        SomaMetadata soma(String configurationState, long budget, SomaCompression compression);
+        GroupMetadata group(boolean defaultGroup, long tableCount);
+        TableMetadata table(
+                String logicalName,
+                long size,
+                long capacity,
+                long stateVersion,
+                long payloadBytes,
+                long representationBytes,
+                boolean encodedRepresentation,
+                SomaCompression compression);
+        FieldMetadata field(
+                String logicalPath,
+                String logicalType,
+                boolean nullable,
+                boolean key,
+                boolean indexed);
     }
 
     /** 安装唯一的 ClassLoader-local structured-failure factory。 */
@@ -101,6 +126,63 @@ public final class SomaRuntimeAccess {
             }
             intGroupedLongResultFactory = factory;
         }
+    }
+
+    public static void installMetadataFactory(MetadataFactory factory) {
+        if (factory == null) {
+            throw new NullPointerException("factory");
+        }
+        synchronized (SomaRuntimeAccess.class) {
+            if (metadataFactory != null && metadataFactory != factory) {
+                throw new IllegalStateException("SOMA metadata factory is already installed");
+            }
+            metadataFactory = factory;
+        }
+    }
+
+    public static SomaMetadata somaMetadata() {
+        MetadataFactory factory = metadataFactory();
+        return factory.soma(
+                configurationState(), effectiveMemoryBudgetBytes(), effectiveCompression());
+    }
+
+    public static GroupMetadata groupMetadata(boolean defaultGroup, long tableCount) {
+        return metadataFactory().group(defaultGroup, tableCount);
+    }
+
+    public static TableMetadata tableMetadata(
+            String logicalName,
+            long size,
+            long capacity,
+            long stateVersion,
+            long payloadBytes,
+            long representationBytes,
+            boolean encodedRepresentation,
+            SomaCompression compression) {
+        return metadataFactory().table(
+                logicalName, size, capacity, stateVersion, payloadBytes, representationBytes,
+                encodedRepresentation, compression);
+    }
+
+    public static FieldMetadata fieldMetadata(
+            String logicalPath,
+            String logicalType,
+            boolean nullable,
+            boolean key,
+            boolean indexed) {
+        return metadataFactory().field(logicalPath, logicalType, nullable, key, indexed);
+    }
+
+    private static MetadataFactory metadataFactory() {
+        MetadataFactory factory = metadataFactory;
+        if (factory == null) {
+            SomaConfiguration.builder();
+            factory = metadataFactory;
+        }
+        if (factory == null) {
+            throw new IllegalStateException("SOMA metadata factory is unavailable");
+        }
+        return factory;
     }
 
     /** Creates a structured result through the trusted result carrier. */

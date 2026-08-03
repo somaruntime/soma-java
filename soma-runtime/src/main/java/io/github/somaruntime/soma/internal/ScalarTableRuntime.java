@@ -154,6 +154,70 @@ public final class ScalarTableRuntime {
         }
     }
 
+    /** Returns the last atomically published plain representation snapshot. */
+    public io.github.somaruntime.soma.TableMetadata metadata(String logicalName) {
+        if (logicalName == null) {
+            throw failure(SomaFailureCode.INVALID_ARGUMENT, SomaOperation.QUERY,
+                    "logical table name must not be null", null);
+        }
+        StateRoot root = current.get();
+        long payloadBytes = checkedBytes(root.size, specs, SomaOperation.QUERY);
+        long representationBytes = checkedBytes(root.capacity, specs, SomaOperation.QUERY);
+        return SomaRuntimeAccess.tableMetadata(
+                logicalName,
+                root.size,
+                root.capacity,
+                root.version,
+                payloadBytes,
+                representationBytes,
+                false,
+                SomaRuntimeAccess.effectiveCompression());
+    }
+
+    /** Returns a detached logical Field snapshot; physical columns remain hidden. */
+    public io.github.somaruntime.soma.FieldMetadata fieldMetadata(
+            int field,
+            String logicalPath,
+            String logicalType,
+            boolean nullable) {
+        if (field < 0 || field >= specs.length || logicalPath == null || logicalType == null) {
+            throw failure(SomaFailureCode.INVALID_ARGUMENT, SomaOperation.QUERY,
+                    "field metadata arguments are invalid", null);
+        }
+        FieldSpec spec = specs[field];
+        return SomaRuntimeAccess.fieldMetadata(
+                logicalPath, logicalType, nullable, spec.key, spec.indexed);
+    }
+
+    private static long checkedBytes(long rows, FieldSpec[] specs, SomaOperation operation) {
+        try {
+            long bytes = 0L;
+            for (FieldSpec spec : specs) {
+                bytes = Math.addExact(bytes, Math.multiplyExact(rows, bytesPerValue(spec.kind)));
+            }
+            return bytes;
+        } catch (ArithmeticException overflow) {
+            throw failure(SomaFailureCode.ARITHMETIC_OVERFLOW, operation,
+                    "metadata byte estimate overflow", overflow);
+        }
+    }
+
+    private static long bytesPerValue(FieldKind kind) {
+        switch (kind) {
+            case BOOLEAN:
+            case BYTE:
+                return 1L;
+            case SHORT:
+            case CHAR:
+                return 2L;
+            case INT:
+            case FLOAT:
+                return 4L;
+            default:
+                return 8L;
+        }
+    }
+
     /** Bounded reference GroupBy path used by the I5 generated integer-key slice. */
     public io.github.somaruntime.soma.IntGroupedLongResult groupIntLong(
             int keyField, int valueField, boolean sum) {

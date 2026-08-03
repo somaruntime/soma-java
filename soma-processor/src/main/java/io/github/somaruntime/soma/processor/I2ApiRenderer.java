@@ -44,9 +44,12 @@ final class I2ApiRenderer {
         source.append("        SomaGroup group = DEFAULT_GROUP;\n");
         source.append("        if (group == null) { synchronized (Soma.class) {\n");
         source.append("            group = DEFAULT_GROUP;\n");
-        source.append("            if (group == null) { group = SomaGroup.create(TOKEN); DEFAULT_GROUP = group; }\n");
+        source.append("            if (group == null) { group = SomaGroup.create(TOKEN, true); DEFAULT_GROUP = group; }\n");
         source.append("        } }\n        return group;\n    }\n\n");
-        source.append("    public static SomaGroup createGroup() { return SomaGroup.create(TOKEN); }\n\n");
+        source.append("    public static SomaGroup createGroup() { return SomaGroup.create(TOKEN, false); }\n\n");
+        source.append("    public static io.github.somaruntime.soma.SomaMetadata _metadata() {\n");
+        source.append("        return io.github.somaruntime.soma.internal.SomaRuntimeAccess.somaMetadata();\n");
+        source.append("    }\n\n");
         source.append("    public static ").append(tableType).append(' ').append(accessor)
                 .append("() { return defaultGroup().").append(accessor).append("(); }\n\n");
         source.append("    public static void configure(io.github.somaruntime.soma.SomaConfiguration configuration) {\n");
@@ -60,18 +63,23 @@ final class I2ApiRenderer {
         StringBuilder source = new StringBuilder(header(namespace));
         source.append("public final class SomaGroup {\n");
         source.append("    private final io.github.somaruntime.soma.internal.PrimitiveLongTableRuntime.GroupRuntime runtime;\n");
-        source.append("    private final ").append(tableType).append(" table;\n\n");
-        source.append("    private SomaGroup(Soma.Token token) {\n");
+        source.append("    private final ").append(tableType).append(" table;\n");
+        source.append("    private final boolean defaultGroup;\n\n");
+        source.append("    private SomaGroup(Soma.Token token, boolean defaultGroup) {\n");
         source.append("        io.github.somaruntime.soma.internal.SomaRuntimeAccess.freezeForRuntimeAccess();\n");
+        source.append("        this.defaultGroup = defaultGroup;\n");
         source.append("        runtime = new io.github.somaruntime.soma.internal.PrimitiveLongTableRuntime.GroupRuntime();\n");
         source.append("        table = ").append(tableType).append(".create(token, runtime);\n    }\n\n");
-        source.append("    static SomaGroup create(Soma.Token token) {\n");
+        source.append("    static SomaGroup create(Soma.Token token, boolean defaultGroup) {\n");
         source.append("        if (token == null) throw io.github.somaruntime.soma.internal.SomaRuntimeAccess.failure(\n");
         source.append("            io.github.somaruntime.soma.SomaFailureCode.INVALID_ARGUMENT, io.github.somaruntime.soma.SomaOperation.CONFIGURE,\n");
         source.append("            \"composition capability is required\", null);\n");
-        source.append("        return new SomaGroup(token);\n    }\n\n");
+        source.append("        return new SomaGroup(token, defaultGroup);\n    }\n\n");
         source.append("    public ").append(tableType).append(' ').append(accessor)
                 .append("() { return table; }\n");
+        source.append("    public io.github.somaruntime.soma.GroupMetadata _metadata() {\n");
+        source.append("        return io.github.somaruntime.soma.internal.SomaRuntimeAccess.groupMetadata(defaultGroup, 1L);\n");
+        source.append("    }\n");
         source.append("}\n");
         return source.toString();
     }
@@ -140,6 +148,9 @@ final class I2ApiRenderer {
         source.append("    public long size() { return runtime.size(); }\n");
         source.append("    public long capacity() { return runtime.capacity(); }\n");
         source.append("    public void reserve(long expectedRows) { runtime.reserve(expectedRows); }\n\n");
+        source.append("    public io.github.somaruntime.soma.TableMetadata _metadata() {\n");
+        source.append("        return runtime.metadata(\"").append(table.simpleName).append("\");\n");
+        source.append("    }\n\n");
         source.append("    public void add(").append(objectType).append(" value) {\n");
         source.append("        if (value == null) throw io.github.somaruntime.soma.internal.SomaRuntimeAccess.failure(\n");
         source.append("            io.github.somaruntime.soma.SomaFailureCode.INVALID_ARGUMENT, io.github.somaruntime.soma.SomaOperation.ADD,\n");
@@ -308,6 +319,13 @@ final class I2ApiRenderer {
                 .append(isKeyable(field) ? "SomaKeyableField" : "SomaFieldEndpoint")
                 .append("<View, ").append(boxedType(field)).append("> {\n");
         source.append("        private ").append(className).append("() { }\n");
+        source.append("        public io.github.somaruntime.soma.FieldMetadata _metadata() {\n");
+        source.append("            return runtime.fieldMetadata(").append(index).append(", \"")
+                .append(javaString(field.name)).append("\", \"")
+                .append(javaString(field.qualifiedType)).append("\", ")
+                .append(field.storageKind == SchemaModel.StorageKind.REFERENCE ? "true" : "false")
+                .append(");\n");
+        source.append("        }\n");
         String[] ops = {"eq", "ne", "lt", "le", "gt", "ge"};
         for (String op : ops) {
             if (field.storageKind == SchemaModel.StorageKind.BOOLEAN
@@ -414,6 +432,9 @@ final class I2ApiRenderer {
     private static int findRoleIndex(SchemaModel.Type table, SchemaModel.FieldRole role) { for (int i = 0; i < table.fields.size(); i++) if (table.fields.get(i).role == role) return i; return -1; }
 
     private static String header(String namespace) { return "package " + namespace + ";\n\n// Generated by SOMA; do not edit.\n"; }
+    private static String javaString(String value) {
+        return value.replace("\\", "\\\\").replace("\"", "\\\"");
+    }
     private static String lowerFirst(String value) { int cp = value.codePointAt(0); return new String(Character.toChars(Character.toLowerCase(cp))) + value.substring(Character.charCount(cp)); }
     private static String capital(String value) { int cp = value.codePointAt(0); return new String(Character.toChars(Character.toUpperCase(cp))) + value.substring(Character.charCount(cp)); }
     private static String sha256(String value) { try { byte[] bytes = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8)); StringBuilder result = new StringBuilder(); for (byte item : bytes) result.append(String.format("%02x", Integer.valueOf(item & 0xff))); return result.toString(); } catch (NoSuchAlgorithmException exception) { throw new AssertionError(exception); } }

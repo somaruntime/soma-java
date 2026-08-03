@@ -9,6 +9,10 @@ import io.github.somaruntime.soma.IntGroupedLongEntry;
 import io.github.somaruntime.soma.IntGroupedLongResult;
 import io.github.somaruntime.soma.SomaConfiguration;
 import io.github.somaruntime.soma.UpdateResult;
+import io.github.somaruntime.soma.SomaMetadata;
+import io.github.somaruntime.soma.GroupMetadata;
+import io.github.somaruntime.soma.TableMetadata;
+import io.github.somaruntime.soma.FieldMetadata;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
@@ -22,12 +26,45 @@ public final class Application {
 
     public static void main(String[] args) {
         System.setProperty("soma.test.chunkSize", "2");
+        SomaMetadata preConfigurationMetadata = Soma._metadata();
+        if (!"UNFROZEN".equals(preConfigurationMetadata.configurationState())
+                || preConfigurationMetadata.effectiveMemoryBudgetBytes() != -1L
+                || preConfigurationMetadata.compression() != null) {
+            throw new AssertionError("pre-configuration metadata must not freeze runtime");
+        }
         ForkJoinPool parallelPool = new ForkJoinPool(2);
         Soma.configure(SomaConfiguration.builder().parallelExecutor(parallelPool).build());
+        SomaMetadata somaMetadata = Soma._metadata();
+        if (!"EXPLICIT".equals(somaMetadata.configurationState())
+                || somaMetadata.effectiveMemoryBudgetBytes() <= 0L
+                || somaMetadata.compression() != io.github.somaruntime.soma.SomaCompression.AUTO) {
+            throw new AssertionError("Soma metadata");
+        }
         ScalarRecordTable table = Soma.scalarRecordTable();
+        GroupMetadata groupMetadata = Soma.defaultGroup()._metadata();
+        if (!groupMetadata.defaultGroup() || groupMetadata.tableCount() != 1L) {
+            throw new AssertionError("default Group metadata");
+        }
         if (table.size() != 0L || table.capacity() != 0L) throw new AssertionError("lazy empty");
         table.reserve(3L);
         if (table.capacity() < 3L) throw new AssertionError("reserve");
+        TableMetadata tableMetadata = table._metadata();
+        if (!"ScalarRecord".equals(tableMetadata.logicalName())
+                || tableMetadata.size() != 0L
+                || tableMetadata.capacity() < 3L
+                || tableMetadata.representationBytes() <= 0L
+                || tableMetadata.encodedRepresentation()) {
+            throw new AssertionError("Table metadata");
+        }
+        long emptyVersion = tableMetadata.stateVersion();
+        FieldMetadata machineMetadata = table.machine._metadata();
+        if (!"machine".equals(machineMetadata.logicalPath())
+                || !"int".equals(machineMetadata.logicalType())
+                || machineMetadata.nullable()
+                || machineMetadata.key()
+                || !machineMetadata.indexed()) {
+            throw new AssertionError("Field metadata");
+        }
         table.add(new ScalarRecord(1L, 7, "alpha", true, (byte) 1, (short) 2, 'A', 10,
                 0.5f, 1.5d, null, StateCode.READY));
         table.add(new ScalarRecord(2L, 7, "beta", false, (byte) 2, (short) 3, 'B', 20,
@@ -35,6 +72,16 @@ public final class Application {
         table.add(new ScalarRecord(3L, 8, null, true, (byte) 3, (short) 4, 'C', 30,
                 1.0f, 2.0d, "other", StateCode.DONE));
         if (table.size() != 3L) throw new AssertionError("size");
+        TableMetadata populatedMetadata = table._metadata();
+        if (populatedMetadata.size() != 3L
+                || populatedMetadata.capacity() != tableMetadata.capacity()
+                || populatedMetadata.stateVersion() <= emptyVersion
+                || populatedMetadata.payloadBytes() <= tableMetadata.payloadBytes()) {
+            throw new AssertionError("published table metadata");
+        }
+        if (tableMetadata.size() != 0L || tableMetadata.stateVersion() != emptyVersion) {
+            throw new AssertionError("table metadata was not detached");
+        }
         Optional<ScalarRecord> found = table.find(2L);
         if (!found.isPresent() || found.get().machine() != 7 || !Float.isNaN(found.get().ratio())) {
             throw new AssertionError("typed find");
@@ -235,6 +282,12 @@ public final class Application {
         RemoveResult removed = table.remove(2L);
         if (removed.removed() != 1L || table.size() != 2L || table.capacity() != capacityBeforeRemove) {
             throw new AssertionError("point remove");
+        }
+        TableMetadata removedMetadata = table._metadata();
+        if (removedMetadata.size() != 2L
+                || removedMetadata.stateVersion() <= populatedMetadata.stateVersion()
+                || removedMetadata.payloadBytes() >= populatedMetadata.payloadBytes()) {
+            throw new AssertionError("removed table metadata");
         }
         if (totals.size() != 2L || totals.toArray()[0].value() != 35L) {
             throw new AssertionError("detached group result");
