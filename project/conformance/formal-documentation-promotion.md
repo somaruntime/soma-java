@@ -2,7 +2,7 @@
 
 类型：Conformance Review
 
-状态：Passed
+状态：`HISTORICAL_PASS`；已被 2026-08-03 V1 baseline supersede
 
 正式事实源：是（仅拥有本次 replacement/conformance 结论）
 
@@ -10,10 +10,11 @@ Owner：产品基础 Temporary 到正式 Blueprint/Design/Conformance 的 replac
 
 审查日期：2026-08-01
 
-后续状态：本记录只保存当时的 Temporary replacement 结论；其中标记为 implementation
-Gate 的 exact signature/metadata/architecture 已由后续
-[Implementation Readiness Review](v1-implementation-readiness-review.md)关闭，当前状态以
-后者和 Design 总览为准。
+后续状态：本记录只保存 2026-08-01 baseline 的 Temporary replacement provenance，不再
+拥有 current readiness 或 Design。当前状态以
+[大规模引擎正式晋升记录](large-scale-engine-formal-promotion.md)、
+[实施前最终全局一致性审核](v1-final-pre-implementation-global-consistency-review.md)和
+[Design 总览](../design/README.md)为准。
 
 ## 1. 审查目标
 

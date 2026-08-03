@@ -1,406 +1,333 @@
-# Schema 与编译生成 Design
+# SOMA Java V1 Schema 与编译生成 Design
 
 类型：Design
 
-状态：Active Baseline
+状态：Active V1 Baseline
 
 正式事实源：是
 
-Owner：SOMA Java V1 schema composition、annotation、generated identity/object、编译边界与 schema build contract
+Owner：Schema composition、annotation/type contract、generated identity/object、命名、
+diagnostic 与 full-regeneration support
 
-上游：[SOMA Java V1 产品蓝图](../blueprint/README.md)
-
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
 ## 1. 设计目标
 
-Compiler layer 把声明式 `.schema` source 转换为父 package 中的自然 Java object 和
-typed SOMA API。它必须在编译期关闭非法类型、命名和 capability，不修改 existing
-application type，也不把 schema declaration 或 runtime reflection 泄漏给 consumer。
+Schema只描述application希望长期持有的Table结构。Processor在Java 8编译期验证完整
+composition并生成唯一typed surface；runtime不使用reflection重新发现schema。
 
-本 Design 主要承接 BP-1、BP-2、BP-3 和 BP-10。
+本Design不拥有Table运行状态、API operation semantics、planner rewrite或artifact topology。
 
 ## 2. Composition declaration
 
-一个 composition 由专用 `.schema` package 中的无参数 package-level
-`@SomaSchema` 声明：
+Composition由无参数package-level `@SomaSchema`声明：
 
 ```java
 @SomaSchema
 package com.example.scheduler.soma.schema;
-
-import io.github.somaruntime.soma.annotation.SomaSchema;
 ```
 
-Composition contract：
+规则：
 
-- schema package 必须以 `.schema` 结尾；
-- generated namespace 是去掉最后一级 `.schema` 后的父 package；
-- 映射结果不能是 default package；
-- generated namespace 本身不能再以 `.schema` 结尾，也不能等于同一 compilation 中
-  另一 composition 的 schema package；例如 `com.example.schema.schema` 非法，不能把
-  generated application API 写回 `com.example.schema` declaration namespace；
-- processor 只收集 exact schema package 直接包含的 package-private 顶层
-  `@SomaTable`；
-- 不扫描 subpackage 或 dependency classpath；
-- 同 package 中所有 `@SomaTable` 自动进入 composition，不维护 `rootTables` 清单；
-- composition 必须至少包含一张 Table；
-- nested/local `@SomaTable`、没有 `@SomaSchema` 的 Table、跨 composition Table 或
-  多个 composition 映射到同一 generated package 都编译失败；
-- source、filesystem 或 annotation-processing encounter order 没有语义；Table 按
-  canonical type identity 规范化。
+- processor只收集该exact package直接包含的package-private top-level `@SomaTable`；
+- 不扫描subpackage、filesystem或dependency classpath；
+- package名必须以`.schema`结尾，其父package是generated API namespace；
+- generated namespace不能等于或位于`io.github.somaruntime.soma` shared/internal namespace之下，
+  也不能位于platform-reserved `java.*`、`javax.*`、`jdk.*`或`sun.*` namespace；违反时使用
+  stable composition diagnostic；
+- composition至少包含一张Table；同package所有Table自动进入同一个`SomaGroup`；
+- `@SomaValue`从Table Field递归发现，不作为root显式列举；
+- schema declaration type不进入application public signature；
+- 一个generated namespace只能对应一个composition；collision为compile failure。
 
-Composition 内没有 root/child Table category。所有 Table 平等进入 generated
-`SomaGroup`，Table 间关系由普通 endpoint Field/Index 表达。
+Child ownership graph已经退出产品，因此没有root/child Table推导；所有Table在Group中平等。
 
-## 3. Annotation inventory 与 retention
+## 3. Annotation inventory
 
-V1 只有以下 public schema annotations：
+V1只有六个`RetentionPolicy.CLASS` annotation：
 
 ```text
-@SomaSchema
-@SomaTable
-@SomaValue
-@SomaField
-@SomaKey
-@SomaIndex
+@SomaSchema  @SomaTable  @SomaValue
+@SomaField   @SomaKey    @SomaIndex
 ```
 
-全部显式使用 `RetentionPolicy.CLASS`。它们是 compiler/build metadata，不是
-runtime reflection API：
+六个annotation均使用`@Documented`，不使用`@Inherited`。
 
-- compiler 和受支持 build integration 可以跨 classfile boundary 识别；
-- runtime 不通过 `Class.getAnnotation` 或 metadata interpreter 重建 schema；
-- `CLASS` retention 不扩大 Table discovery；
-- processor 可以沿已声明 Field type relation 解析 `@SomaValue`，不得全局扫描
-  package/classpath。
+| Annotation | Target | 作用 |
+|---|---|---|
+| `@SomaSchema` | PACKAGE | 声明一个composition |
+| `@SomaTable` | TYPE | 声明Table schema与initial capacity hint |
+| `@SomaValue` | TYPE | 声明可递归flatten的logical value |
+| `@SomaField` | FIELD | 声明普通logical Field/value leaf |
+| `@SomaKey` | FIELD | 声明可选唯一point identity，同时隐含Field |
+| `@SomaIndex` | FIELD | 声明non-unique exact-match access path，同时隐含Field |
 
-V1 删除 `@SomaOptional`、`@SomaDefault`、`@SomaIgnore`、`@SomaChild`、
-`@SomaUnique` 和 `SomaSemantic`。不得生成兼容 alias 或 legacy diagnostic category。
+正式annotation：
 
-## 4. Compiler-only declaration shape
+```java
+public @interface SomaTable {
+    long defaultCapacity() default 16L;
+}
+```
 
-Schema declaration 是 package-private 顶层 type，只表达 Field order、role、type 和
-Table configuration：
+`defaultCapacity < 0`编译失败。它是initial capacity hint，不是maximum、立即分配承诺或
+chunk geometry。
 
-- application 不实例化、持有、导入或在 public signature 中使用 declaration；
-- `.schema` package 不放普通 application code；
-- declaration 必须是 package-private `final class`，不能是 interface/enum/annotation、
-  abstract、nested/local、generic、继承非 `Object` superclass 或实现 interface；
-- 不允许显式 constructor、method、initializer block、nested type、static Field 或未标注
-  instance Field；
-- schema Field 必须是 package-private、non-static、non-final instance Field；Field source
-  declaration order 是 generated constructor/Field tree 的 canonical order；
-- Table 与 Value 都至少有一个 storage Field；
-- `@SomaValue` Field 只能使用 `@SomaField`，Value dependency 必须 acyclic；
-- `@SomaValue` 只从 composition Table Field 递归发现；未被引用的 Value 不因此成为
-  public generated type；
-- reachable `@SomaValue` 必须是同一 exact schema package、同一 full source set 中的
-  package-private top-level declaration；不复用 dependency classpath 或另一 composition
-  的 Value declaration；
-- 任意 Field 不能直接、array component 或 generic type argument 引用 `@SomaTable`
-  declaration；`@SomaValue` declaration 只能作为 direct logical Field/nested Value，不能
-  包在 array/Collection/generic argument 中伪装 opaque payload；
-- ordinary reference Field 的完整 declared type（enclosing/component/type argument）必须
-  能合法出现在 generated parent package 的 public signature；inaccessible/local/anonymous
-  type、wildcard bound leak 或 unresolved/error type 编译失败；
-- ordinary javac 仍可能生成 declaration `.class`；“compiler-only”表示 application
-  与 runtime contract 不依赖它，不能虚构 JSR 269 阻止 classfile 生成。
+Accessor创建Table facade时`capacity()==0`且不分配payload。第一次positive `reserve(n)`以
+`n`为required target；未reserve而第一次`add`时，growth至少满足一行，并可以用
+`defaultCapacity`作为initial growth hint。`defaultCapacity==0`合法，表示不额外预留；它不
+改变add的可用性。Hint不是reservation requirement：若完整hint不适合current managed budget，
+runtime可降低到满足本次add的whole-Chunk target；不能仅因hint过大让一个otherwise feasible add
+失败。Explicit `reserve(n)`才要求成功后`capacity>=n`或fail closed。
 
-Standard javac 仍会生成 declaration `.class`。V1 packaging 明确允许它出现在 consumer
-artifact；它没有 public accessibility，runtime 也不得依赖或反射它。V1 不增加专用
-post-compile deletion/plugin 只为隐藏该 classfile。
+`@SomaOptional`、`@SomaDefault`、`@SomaIgnore`、`@SomaChild`、`@SomaUnique`、
+`SomaSemantic`和`@SomaTable(name=...)`不存在，也不生成compatibility alias。
 
-## 5. Identity 与 naming
+## 4. Declaration shape
 
-固定映射：
+- `@SomaTable/@SomaValue`必须是exact schema package中的package-private top-level final class；
+- declaration只有instance Field和annotation，不声明constructor、method、initializer、
+  inheritance或generic type parameter；
+- 每个`@SomaTable/@SomaValue`至少声明一个有SOMA role的direct instance Field；空Table/Value
+  编译失败，不为no-arg/canonical constructor collision建立特殊形态；
+- Field不是`static/final/transient/volatile`，没有initializer；
+- Field名必须是合法、稳定且不以`_`开头；
+- schema package segment、Table/Value simple name与Field name必须是NFC、可见的Java identifier：
+  拒绝`$`、identifier-ignorable/Unicode FORMAT或control code point、bidi override/isolate及非NFC
+  spelling；中文等可见Unicode identifier合法；processor不静默normalize/rename；
+- processor不修改用户class，不依赖Lombok、bytecode weaving或reflection。
+
+## 5. Field role
+
+每个direct Table Field必须且只能有一个role：
+
+| Role | 数量 | 合同 |
+|---|---:|---|
+| `@SomaKey` | `0..1` | unique point identity；发布后immutable |
+| `@SomaIndex` | `0..N` | non-unique exact-match Index |
+| `@SomaField` | `0..N` | ordinary payload |
+
+`@SomaKey/@SomaIndex`隐含Field，不能叠加`@SomaField`。Table可以keyless。Composite Key使用
+一个完整`@SomaValue`，不把多个direct Field分别标Key。
+
+`@SomaValue`内部的每个direct Field必须且只能使用`@SomaField`；`@SomaKey/@SomaIndex`只允许
+出现在direct Table Field。Key/Index不能标在Value或nested leaf上，也不能通过flattening传播。
+
+Index只标direct logical Field，生成`by<FieldName>(value)`；V1不声明tuple、nested-subfield、
+range、prefix或secondary unique Index。
+
+## 6. Field type system
+
+Processor在生成任何source前，把每个Field映射为最终public/generated signature type。除会映射为
+generated counterpart的`@SomaValue`外，Enum、ordinary Object、array component、parameterized
+raw type及其所有bound/type argument必须按Java 8 source access rule从generated parent namespace
+可引用；否则composition以stable SOMA diagnostic整体失败。不能把inaccessible `.schema`
+package-private helper type留给后续javac报普通access error，也不能擦除成`Object`规避。允许
+package-private type的前提是它本来就在generated parent package并可由generated source合法引用；
+其application可见性仍沿用Java自身规则。
+
+| 类型 | Schema null | Equality/order capability | Key/Index |
+|---|---|---|---|
+| 八种primitive | non-null，未提供时零值 | exact primitive；numeric/order按type | float/double不可，其余可 |
+| `String` | nullable | content equality / natural order | 可 |
+| Enum | nullable | constant identity / declaration order | 可 |
+| `@SomaValue` | outer non-null；reference leaf可null | structural equality；无implicit order | 仅recursively keyable Value可 |
+| ordinary Object/temporal | nullable | 仅callback/explicit Comparator | 不可 |
+
+float/double equality使用wrapper canonical semantics：NaN canonical equal，`+0.0`与`-0.0`
+不同；natural order使用`Float.compare/Double.compare`。它们可filter/distinct/sort，不作为
+Key/Index。
+
+Date/Time/Instant没有特殊lowering。Application需要hot scan/order/aggregate/Index时必须
+显式编码成带单位primitive或Value；否则作为ordinary reference。
+
+`@SomaValue`要求：
+
+- 可递归包含primitive、String、Enum或其他eligible Value；
+- graph必须acyclic；
+- ordinary Object不能出现在Value中；
+- structural equality/hash由全部leaf按declaration encounter order组成；nullable reference leaf按
+  `Objects.equals/hashCode`，因此null leaf与null leaf structural equal；
+- outer Value与nested Value non-null；nullable只发生在允许的reference leaf。
+
+“Recursively keyable Value”要求全部leaf最终只属于boolean/byte/short/char/int/long、String或
+Enum；任何float/double leaf都会让完整Value仍可存储、filter、distinct与materialize，但不能
+标为Key/Index，也不能用作GroupBy key或Equality Join component。把float/double包进Value不能
+绕过direct float/double identity限制；需要稳定业务身份时由application显式编码为long或其他
+keyable Value。
+
+## 7. Generated identity
+
+`.schema`父package生成：
 
 ```text
-com.example.scheduler.soma.schema.MachineId
-    -> com.example.scheduler.soma.MachineId
-
-com.example.scheduler.soma.schema.TransportTime
-    -> com.example.scheduler.soma.TransportTime
-    -> com.example.scheduler.soma.TransportTimeTable
-    -> SomaGroup.transportTimeTable()
-    -> Soma.transportTimeTable()
+Soma
+SomaGroup
+Xxx                         detached application object/value
+XxxTable                    Table facade
+XxxTable.View / Editor / Stream / Selection / ReadStream / IndexSelection
+typed Field endpoints and composition support
 ```
 
-V1 `@SomaTable` 不接受 `name`，`@SomaSchema` 不接受 `outputPackage`。Canonical schema
-declaration type 是唯一 identity source；移动、重命名或改变 type 都是 schema 和
-generated API 变化。
+Identity唯一来自schema declaration simple name：
 
-`@SomaTable` 只接受 storage/configuration 参数；V1 当前唯一参数是
-`defaultCapacity`。Exact declaration 为 `int defaultCapacity() default 16`；合法范围是
-`0..Integer.MAX_VALUE`。它是初始 capacity hint，不是 identity、maximum、segment size
-或 allocation promise。Negative value 必须在 compiler validation 中失败，合法 value
-仍可能在 runtime resource boundary 被拒绝。
+- `TransportTime` -> `TransportTime`、`TransportTimeTable`、`transportTimeTable()`；
+- `@SomaIndex MachineId machineId` -> `byMachineId(MachineId)`；
+- no pluralization、name override、suffix guessing或runtime registry。
 
-Processor 在父 package 为 composition 生成唯一 public `Soma`、`SomaGroup`、
-detached application object 与 typed Table/Field/Stream API。所有 generated public
-signature 必须把 schema type 映射成父 package generated type，不泄漏 `.schema`
-FQCN。
+Exact transformation只处理首个Unicode code point并使用locale-independent
+`Character.toLowerCase/toUpperCase(int)`：
 
-Generated application object 不重新携带 `@SomaValue`/`@SomaTable` 并参与 composition
-discovery，否则会形成第二份 schema input。若需要 generation provenance，只能使用不
-参与产品 schema 的 standard/internal marker。
+```text
+Table object       = <SchemaSimpleName>
+Table facade       = <SchemaSimpleName> + "Table"
+Table accessor     = lowerFirstCodePoint(<SchemaSimpleName>) + "Table"
+Index accessor     = "by" + upperFirstCodePoint(<FieldName>)
+```
 
-Generated name、reserved system namespace、Field/nested path、Index accessor 或
-用户已有 type/member 发生 collision 时必须稳定编译失败，不能增加后缀或静默改名。
-以 `_` 开头的 generated namespace 保留给 SOMA system surface；V1 当前只有
-`_metadata()`。
+不采用JavaBeans acronym规则；例如`URL`机械得到`URLTable`与`uRLTable()`。Schema名本身以
+`Table`结尾时仍机械追加`Table`，不猜测或去重。所有不自然结果都允许application通过选择更自然
+的schema/Field名解决；processor不增加override。完整symbol table在写source前拒绝collision。
 
-Schema type/Field identifier 不得以 `_` 开头。Reserved member 由
-[Exact Signature Design](generated-api-signatures.md)机械推导：若 schema name 会在同一
-generated owner scope 与 system Field/method/nested type 或 inherited `Object` member
-重名，即使 Java 语法允许 field/method 同名，也按 semantic collision 失败。Processor
-不维护另一份可能漂移的手写 reserved-word list。
+同composition/ClassLoader只有一个generated `Soma`与`SomaGroup`。
 
-完整 diagnostic code/message catalog 与 binary compatibility policy 是 production
-compiler surface admission 的 Gate；实现不能因此改变 fail-closed collision 语义。
+## 7.1 Canonical schema encounter order
 
-## 6. Generated Value object
+每个Table/Value的direct Field按Java source declaration order形成canonical encounter order；Value
+flattening按该顺序depth-first递归。Canonical全参constructor参数、generated Field/member顺序、
+fetch/materialization、Value structural equality/hash、diagnostic排序与generated source都使用这
+一顺序；不能使用hash iteration、filesystem、processor round或classloader order。Processor只
+处理完整source composition，并以golden验证javac/qualified build host提供的direct enclosed
+source order；无法获得稳定source order时composition整体编译失败。
 
-对于：
+## 8. Generated application object
+
+### 8.1 Value
+
+`@SomaValue`生成immutable detached object：
+
+- private final fields；
+- public canonical全参constructor；
+- 同名getter；
+- structural `equals/hashCode`；
+- 没有default constructor、setter或mutable builder。
+
+### 8.2 Table object
+
+`@SomaTable`生成mutable detached application object：
+
+- private fields；
+- public no-arg与canonical全参constructor；
+- 同名getter和`void` setter；
+- 不生成JavaBean alias或structural equality；
+- storage不保存carrier object；`add`复制leaf/reference slot。
+
+No-arg Table object是application-owned mutable carrier，可以处于尚未完整赋值的状态；这不是
+SOMA Table中的published record。`add`在读取carrier后、任何publication前验证全部schema
+约束：primitive缺省为Java零值，reference payload可null，Key与outer/nested Value必须non-null。
+验证失败为structured failure，Table不改变。Processor不把no-arg constructor解释成合法
+domain default，也不为Value生成no-arg object。
+
+### 8.3 Borrowed support types
+
+`XxxTable.View`、`Editor`与Value View是callback-scoped reusable borrowed view；constructor
+不属于application surface。稳定保存必须`fetch()`为detached object。Generated nested support
+type必须使用private constructor，不能依赖Java隐式default/package constructor；generated
+application package不是访问控制边界。Top-level Group/Table有效创建必须经过不可伪造的
+composition capability token，不能只依赖package-private constructor。
+
+## 9. Reference schema
 
 ```java
 @SomaValue
 final class MachineId {
     @SomaField long value;
 }
+
+@SomaValue
+final class MachinePairKey {
+    @SomaField MachineId fromMachine;
+    @SomaField MachineId toMachine;
+}
+
+@SomaTable(defaultCapacity = 4_096L)
+final class TransportTime {
+    @SomaKey MachinePairKey machinePair;
+    @SomaField long transportMinutes;
+}
+
+@SomaTable(defaultCapacity = 65_536L)
+final class MachineEvent {
+    @SomaIndex MachineId machineId;
+    @SomaField long eventMinute;
+}
 ```
 
-父 package 生成同名 immutable application value。它必须具有：
+## 10. Full-regeneration contract
 
-- `public final` type；
-- private final Fields；
-- 按 schema source order 的 canonical 全字段 constructor；
-- 同名只读 accessor；
-- stable structural `equals/hashCode` 与 human-readable `toString`；
-- 无默认 constructor；
-- nested Value 使用父 package 对应 generated type。
+Processor是composition-level aggregating processor。Correctness contract是full regeneration：
 
-Processor 新建 type，不修改 annotated declaration，不依赖 Lombok、javac internal
-AST、reflection、`Unsafe` 或 post-compile bytecode patch。
+1. build host提供完整schema source set；
+2. processor option包含`-Asoma.fullSourceSet=true`；
+3. generated output在每次compile前被完整替换或clean；
+4. processor等待round稳定后一次生成完整composition；
+5. schema删除/重命名后旧generated source不能残留；
+6. 不支持raw partial javac、Gradle isolating incremental或IDE自有partial processor path。
 
-Generated Value 是 detached immutable object，不是 live row 或 storage Owner。它不
-通过 setter/object mutation 复用；需要减少 allocation 时，应避免 materialization
-或使用 callback-scoped Value View，而不是削弱 Value invariant。
+标准Maven compile与IDE delegated Maven build是V1 support path。未来incremental support必须
+另建Temporary并证明完整性，不是processor猜测partial input。
 
-## 7. Generated Table object
+## 11. Naming与reserved surface
 
-对于 schema `TransportTime`，processor 生成两个不同角色：
+Processor先构建完整generated symbol table，再写任何source。Collision涉及：
 
-```text
-schema.TransportTime       compiler-only declaration
-TransportTime              mutable detached application object
-TransportTimeTable         authoritative live Table facade
-```
+- Java/Object member；
+- `Soma/SomaGroup/Table` direct operation；
+- Field child、Index accessor、nested type；
+- stream/expression/join/group/metadata/explain member；
+- generated file/class和case-folded filesystem name；
+- NFC/case-folded logical/generated name；
+- generated exact FQN已由当前source set或dependency classpath中的type占用。Processor不扫描
+  dependency寻找schema，但必须对自己将要生成的有限FQN集合执行exact lookup。
 
-Generated detached `TransportTime` 必须具有：
-
-- private instance Fields；
-- 按 schema source order 的 public 全字段 constructor；
-- public 默认无参 constructor；
-- 每个 Field 的同名 getter 与 `void` setter；
-- 不生成 public mutable Field；
-- 不同时生成 JavaBean `getXxx/setXxx`；
-- 不生成 structural `equals/hashCode`。
-
-```java
-MachinePairKey pair = detached.machinePair();
-detached.machinePair(updatedPair);
-
-long minutes = detached.transportMinutes();
-detached.transportMinutes(24L);
-```
-
-无参 constructor 使用 Java zero initialization。对象只有在 `add` 或 point `update`
-boundary 通过完整 schema validation 后才能发布。Key 在 detached object 上仍可写；
-immutability 只约束已经发布的 live Record。
-
-Generated Table object 只承担 add/update input 与 point/stream/fetch materialization；
-Table 不保存 carrier object。Primitive/Value leaf 按值复制，String/Enum/ordinary
-Object 复制 reference slot。
-
-## 8. Field role declaration
-
-每个 direct Table storage Field 必须且只能声明一种角色：
-
-| Annotation | 数量 | Schema 语义 |
-|---|---:|---|
-| `@SomaKey` | `0..1` | optional unique business identity 与 point path |
-| `@SomaIndex` | `0..N` | non-unique exact-match access path |
-| `@SomaField` | `0..N` | 无 access structure 的 payload |
-
-`@SomaKey`/`@SomaIndex` 已隐含 storage Field，不能再叠加 `@SomaField` 或彼此重复。
-未标注的非-static instance Field 不会隐式进入 schema，必须产生编译 diagnostic。
-
-一个 composite Key 使用一个完整 `@SomaValue` Field；不能把多个 sibling Field 分别
-标为 Key。`@SomaIndex` 是无参数 direct-Field marker，生成
-`by<FieldName>(value)`，例如 `machineId -> byMachineId(machineId)`。
-
-Nested-subfield、cross-Field tuple、Value 内部 Index、prefix、range 和 secondary
-unique 不进入 V1。超出范围的查询通过 scan/filter 或 application-owned OOP structure
-表达。
-
-合法 Field type、null、Key/Index equality 和 storage lowering 由
-[数据模型与存储 Design](data-model-and-storage.md)拥有；generated endpoint 与
-capability 由[逻辑层 API Design](logical-api.md)拥有。
-
-## 9. Generated construction boundary
-
-`SomaGroup` 与 `XxxTable` constructor 不是 public API。有效 instance 只能由 generated
-`Soma` factory/navigation 创建：
-
-```java
-SomaGroup group = Soma.createGroup();
-TransportTimeTable table = group.transportTimeTable();
-```
-
-Java 8 top-level package-private 并不能阻止同 package application 调用 signature，
-因此 Production generator 使用 package-private、identity-token-gated constructor：
-same-package source 可能编译到 constructor，但不能伪造 generated `Soma` 私有持有的
-有效 token；null/arbitrary token 必须在分配 Table storage 前以 `INVALID_ARGUMENT`
-失败。P2 已证明该 mechanism 可行；exact internal carrier 可以优化，但不能让普通
-application 得到有效 instance，也不能公开无 guard constructor：
-
-```java
-new SomaGroup();
-new TransportTimeTable();
-TransportTimeTable.create();
-```
-
-这条边界不适用于 detached Table object；`new TransportTime()` 和全字段 constructor
-明确是 public application surface。
-
-## 10. Full-regeneration build support contract
-
-Composition correctness 的唯一语义基准是完整 `.schema` source set。Schema
-add/remove/rename/move/change 时，受支持 build integration 必须：
-
-1. 识别受影响 composition；
-2. 替换或清理该 composition 专属 generated-source/generated-class output；
-3. 向 processor 提交完整 `.schema` source set；
-4. 显式声明当前 invocation 满足 full-source contract；
-5. 生成结果与 clean full compilation 等价且不存在 stale type/member。
-
-责任边界：
-
-| Owner | 责任 |
-|---|---|
-| Build integration | source-set completeness、schema-change detection、generated output ownership 与 stale cleanup |
-| Processor | 验证 host/mode handshake、验证当前 compilation 可见事实、canonical aggregation 与 late-round fail closed |
-
-Handshake 是 build Owner assertion，不是 source-set oracle。Standard JSR 269 processor
-不能从 partial invocation 推断未提交 source。缺少 handshake 时 composition generation
-必须在发布任何 generated composition source 前失败；错误配置的 host 对 partial
-source 伪报完整性属于 build contract violation。
-
-V1 支持边界：
-
-- Maven 与 IDE 最初只承诺 composition-scoped full regeneration；
-- raw partial `javac` 不受支持；
-- ordinary application-only change 不因此禁止增量编译；
-- Gradle incremental 只有通过真实 add/change/delete、stale cleanup 和 clean-full
-  equivalence Gate 后，才能成为额外受支持路径；
-- `aggregating` descriptor 只是协议注册，不是通过证据；
-- processor 不得 best-effort 扫描 filesystem/classpath 猜测 partial source set。
-
-正式 handshake 使用 processor option：
-
-```text
--Asoma.fullSourceSet=true
-```
-
-Processor 同时生成 build-only composition manifest 以支持 stale/equivalence evidence；
-option 仍只是 build Owner assertion，不是 source-set oracle。P2 的
-`-Asoma.p2.fullSourceSet=true` 只是一项 historical witness，不能进入 production。
-精确 Maven/IDE 支持矩阵由
-[Production Implementation Architecture](implementation-architecture.md)拥有。
-
-## 11. Annotation-processing round boundary
-
-Processor 在一个 compilation 内必须按 aggregating processor 工作，并在 processing
-round 结束前形成完整 exact-package composition。如果后续 round 新增相关 Table 而
-会使已生成 composition 不完整，必须 stable diagnostic fail closed；不能先发布一份
-partial `Soma/SomaGroup` 再静默接受过期 surface。
-
-Generated source 必须通过标准 `Filer` 创建，不覆盖 existing application source，
-不依赖 compiler-specific internal API。Input order 不得影响 generated output。
+发生collision时composition整体失败，不加数字/suffix自动消歧。
 
 ## 12. Compiler failure boundary
 
-以下至少在编译期失败：
+Stable diagnostic使用`[SOMA-xxxx]`前缀，至少覆盖：
 
-- invalid composition/package mapping；
-- nested `.schema.schema` 或 generated namespace/schema namespace collision；
-- missing/duplicate Field role；
-- invalid `@SomaValue` leaf；
-- invalid Key/Index type or nullability contract；
-- duplicate Key declaration；
-- schema/public generated signature leak；
-- generated type/member/path/index accessor collision；
-- unsupported declaration shape；
-- late-round composition incompleteness；
-- missing full-source handshake。
+- composition/package/full-source-set；
+- reserved shared/internal/JVM package namespace；
+- annotation target、declaration modifier与Field role；
+- empty Table/Value declaration；
+- unsupported/cyclic type；
+- Key/Index eligibility与数量；
+- long defaultCapacity range；
+- generated name/reserved collision；
+- unsafe/invisible/non-NFC/`$`/bidi identifier；
+- expression capability/literal mismatch；
+- Join `on/and` Field type/composition compatibility；
+- late round、duplicate generation、stale output与version handshake。
 
-Compiler failure 不发布可被 consumer 误用的 partial composition。Diagnostic 必须以
-logical schema identity 表达，不暴露本机 path、内部 stack 或 compiler object。
+Diagnostic不得泄漏绝对path、内部stack或nondeterministic round order。Compiler不生成partial
+composition；schema input order不改变generated source。
 
-### 12.1 Stable diagnostic catalog
+## 13. Artifact/version boundary
 
-每条 processor error 以 `[SOMA-xxxx]` code 开头；code 是 build/negative-test contract，
-message wording 供人阅读但不作 machine parsing。V1 catalog：
+Generated source只依赖同版本runtime public/internal linkage。Processor与runtime version不匹配
+必须在compile或initial linkage阶段稳定失败；upgrade要求full regenerate/recompile，不承诺
+generated class binary compatibility。
 
-| Code | Category |
-|---|---|
-| `SOMA-1001` | missing/duplicate/invalid `@SomaSchema` package composition |
-| `SOMA-1002` | schema package mapping/default package/cross-composition conflict |
-| `SOMA-1101` | invalid Table/Value declaration shape or member |
-| `SOMA-1102` | empty declaration、unmarked Field or invalid Field modifier |
-| `SOMA-1103` | Value dependency cycle |
-| `SOMA-1201` | missing/overlapping/invalid Field role |
-| `SOMA-1202` | unsupported Field/leaf/null type contract |
-| `SOMA-1203` | invalid/duplicate Key declaration or Key type |
-| `SOMA-1204` | invalid Index declaration or Index type |
-| `SOMA-1301` | generated type/member/reserved-name collision |
-| `SOMA-1302` | logical Field path/Index accessor collision |
-| `SOMA-1401` | missing/invalid full-source handshake |
-| `SOMA-1402` | late-round composition change/incomplete aggregation |
-| `SOMA-1403` | generated output ownership/Filer conflict |
-| `SOMA-1501` | processor/runtime generated-contract version mismatch detectable at compile time |
-| `SOMA-1901` | processor internal invariant failure |
+Artifact topology由[Implementation Architecture](implementation-architecture.md)拥有，exact
+method grammar由[Generated Signature](generated-api-signatures.md)拥有。
 
-同一 source fact 只报告最具体 code；由一个根因引发的 downstream generation error 不
-级联刷屏。`SOMA-1901` 必须包含 sanitized schema identity 和 processor version，但不
-把 stack trace 作为唯一 diagnostic；它始终是 implementation defect，不是用户错误。
+## 14. Evidence Gate
 
-## 13. 明确排除
+Implementation必须证明：
 
-- 修改 existing annotated class；
-- runtime reflection schema discovery；
-- package/classpath Table scan；
-- `rootTables`、`name` 或 `outputPackage` 字符串 identity；
-- generated compatibility alias；
-- `@SomaChild` ownership graph；
-- unproven multi-host incremental claim；
-- processor 猜测 build host 没有提交的 source；
-- schema declaration 进入 application public API。
-
-## 14. Implementation admission Gates
-
-Production compiler surface 出现前必须补齐：
-
-1. 每个 stable diagnostic code 的 positive/negative fixture；
-2. deterministic source/golden 与 `javap -v` signature Gate；
-3. independent Java 8 consumer 和 compile-negative matrix；
-4. Maven/IDE full-regeneration build integration 与 stale cleanup；
-5. schema add/remove/rename/move/change 的 clean-full equivalence；
-6. 若声明 Gradle incremental，必须另行取得真实 Gate。
-
-当前 P2 evidence 只证明部分 Java 8 type shape、runtime mechanism 和 build boundary
-可行，详见[正式 Conformance 记录](../conformance/p2-generated-api-feasibility.md)。
-Exact public/generated signature 与 artifact/version policy 已分别由
-[Generated Java API Signature](generated-api-signatures.md)和
-[Production Implementation Architecture](implementation-architecture.md)关闭。
+- valid/invalid annotation matrix与stable diagnostic golden；
+- late-round、100+Table/Field、name collision、deletion/rename stale cleanup；
+- deterministic generated source与provenance marker；
+- Java 8 independent consumer、`javap`、constructor visibility；
+- processor/runtime mismatch与malformed schema security negatives；
+- Maven clean/full build和IDE delegated build。

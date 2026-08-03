@@ -1,253 +1,274 @@
 # SOMA Java V1 Implementation Conformance Gates
 
-类型：Conformance Contract
+类型：Conformance Gate Definition
 
-状态：Active
+状态：Active；G1-G10全部`NOT_RUN`
 
-正式事实源：是
+正式事实源：是（production evidence最低集合）
 
-Owner：从正式 Design 到 production implementation、性能与 release claim 的最低证据集合
+Owner：SOMA Java V1 implementation、qualification与release claim Gate
 
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
-## 1. 使用规则
+## 1. Gate原则
 
-本清单合并并去重了产品基础 Temporary 中的 Design/API 成立条件。它定义“必须证明
-什么”，不预先选择 module、test framework、benchmark harness 或 CI workflow。
+- Design定义系统应当是什么；Gate证明implementation实际符合；
+- 当前无production code/build/API，G1-G10均不能标PASS；
+- feasibility fixture只降低selected design risk，不可替代production Gate；
+- 每个Gate evidence必须绑定commit、JDK/OS/arch、command、input、result与artifact；
+- deterministic evidence可重放；performance事实标明machine/JVM/heap/workload；
+- failed/skipped Gate不能由README措辞变成通过；
+- implementation readiness只检查这些Gate是否可执行、Owner是否完整，不执行未来Gate。
 
-每项 Gate 在相应 production surface 真正准入后，必须补充：Owner、command、input、
-environment、artifact/report path、pass/fail semantics 和适用 commit/version。P2
-feasibility 只能标记明确覆盖的子项，不能整组判定通过。
+Gate按[核心抽象与叙事Design](../design/core-abstractions-and-narratives.md)的A0-A27、N1-N8与
+INV-01..19路由证明责任；ID用于attention与coverage，不替代分责Design的精确合同。
 
-## 2. G1 Schema 与 generated surface
+## 2. G1 — Artifact、Build 与 Full Regeneration
 
-- 最小真实 `.schema` declaration 生成父 package 同名 immutable Value、mutable
-  detached Table object、`Soma/SomaGroup`、typed Table/Field/Stream，public signature
-  不泄漏 declaration type；
-- 无参数 `@SomaSchema`、exact-package collection、`.schema -> parent package` 映射，
-  每个 direct top-level Table 都生成 Group/default Group accessor；
-- declaration package-private、non-generic、无 application API leakage；
-- annotation 使用 `CLASS` retention，runtime 不依赖 reflection；
-- constructor/accessor、Record/Editor/View `fetch()`、typed Field/arrays 和 shared
-  Result/failure carrier 由 generated source、`javap -v`/golden 固定；
-- independent Java 8 Maven consumer clean compile/run 和普通 lambda inference；
-- reserved name、generated type/member/path、Index accessor、composition mapping
-  collision 的 compile-negative；
-- nested `.schema.schema`、generated namespace 写回另一 schema namespace 的
-  compile-negative；
-- Table/Value add/remove/rename/move/change 通过 full regeneration 替换 composition
-  output，与 clean full equivalent，无 stale source/class；
-- missing handshake、late round、partial invocation fail closed；
-- future incremental path 单独通过 add/change/delete/stale-cleanup/clean-full
-  equivalence；
-- final surface 不含 `SomaSemantic`、`@SomaOptional`、`@SomaDefault`、`@SomaIgnore`、
-  `@SomaChild`、`@SomaUnique` compatibility alias，`@SomaTable` 不接受 `name`。
+必须证明：
 
-## 3. G2 Identity、storage、Key/Index 与关系
+- exactly `soma-runtime` + `soma-processor` production artifact；
+- standard Maven clean reactor在qualified Java 8通过；
+- independent consumer分离classpath/processorpath编译运行；
+- composition full-source-set handshake、manifest、late round、deletion/rename stale cleanup；
+- processor/runtime exact version match与mismatch negative；
+- generated source不committed、不受input order影响；
+- source/javadoc jar、LICENSE/NOTICE、manifest/provenance baseline；
+- no legacy/predecessor/third production module。
 
-- default Group identity、explicit Group isolation、同 Group 每种 Table type 唯一；
-- default Group 不通过 generic live registry 泄漏/保留 explicit Group；
-- Group/Table/Field metadata observation 不改变 lifecycle 或 retention；
-- primitive/reference leaf、Value flatten/unflatten 与 detached materialization；
-- keyless Table 不生成 point API；keyed Table add/find/get/update/remove；
-- missing、duplicate Key、zero Key、Key non-null/immutable/no rekey；
-- duplicate Index selection、String/Enum null bucket、Value outer/Key-leaf null；
-- ordinary Object/temporal/float/double Key/Index compile rejection；
-- invalid Value leaf、reference slot semantics 与 ordinary referent mutation boundary；
-- whole Table、Index ordered subsequence、Field projection 与 deterministic survivor
-  order；
-- 1:M/N:M normal relation Table 的双向 Index journey；无 referential integrity、
-  cascade、owner-scoped Table 或 cross-Table atomicity；
-- size/capacity/growth checked arithmetic、resource refusal 与 invariants；
-- final runtime surface 无 Segment、public Column、row identity 或 reflection interpreter。
+## 3. G2 — Schema、Diagnostics 与 Generated Surface
 
-## 4. G3 Logical API capability
+必须证明：
 
-- default/explicit Group、Table/Field/metadata、point、Query、Update、Remove complete
-  journey；
-- Record-first 与 Field-first projection lowering 到同一 plan；cross-Group owner guard；
-- Record/Field/Mapped Stream 的 compile-positive/negative capability matrix；
-- Key root/nested Field read-only；non-Key Field lineage update；
-- `IndexSelection` 只有 `stream()/parallelStream()`；
-- Record `distinct`、Field `remove`、Mapped mutation、`getFirst`、direct `clear`、
-  materialization budget overload、AddResult 的 absence；
-- Field/Mapped distinct、reference-null map、primitive `map/mapToObj`、
-  `mapToInt/mapToLong/mapToDouble`；
-- boolean/byte/short/char/int/long/float/double generated specialization；
-- primitive array/aggregate hot path no boxing，primitive `toList()` 只在 result boundary
-  boxing；
-- Record/runtime-reifiable Field noarg typed array；Mapped reference
-  `toArray(Class<A>)`；parameterized Field `toList()` only；
-- mapped noarg Object array、array-factory overload、`TypeToken` absence；
-- parent/Object/empty/all-null/null/primitive/incompatible component cases；
-- checked sizing、detached complete result、no partial materialization，`limit(n)` 表达
-  application bound。
+- six annotation exact retention/target/signature；
+- package composition、declaration modifier、Field role/type/Key/Index matrix；
+- Enum/Object/array/parameterized signature type的generated-parent accessibility与stable diagnostic；
+- Key/Index只允许direct Table Field，Value/nested role misuse compile-negative；
+- empty Table/Value stable diagnostic与constructor non-collision；
+- Value/Table object constructor/getter/setter/equals shape；
+- source declaration encounter order对constructor/flatten/fetch/hash/diagnostic/source的一致投影；
+- Table/object/facade/accessor与Index accessor首code-point命名、acronym/Unicode/`Table` suffix
+  golden及collision negative；
+- generated exact FQN与current source/dependency type占用的stable collision negative；
+- all non-application-created carrier/configuration/exception/summary/Tuple explicit private
+  constructor与no implicit public constructor；
+- direct source、View/Editor/Stream/Selection/ReadStream/Field/Join/Group exact source；
+- generated `Soma` class initialization不急切freeze/materialize default Group，configure-first与
+  default-first consumer ordering；
+- recursively keyable Field marker、typed Field projection/callback overload，以及float/double/
+  non-keyable Value/ordinary Object capability exclusion；
+- application-authored expression/Field/keyable/Order marker、foreign composition与replayed
+  provenance negatives；不得泄漏`ClassCastException`或进入planner；
+- reserved `io.github.somaruntime.soma`及其descendant shared/internal namespace，以及
+  `java.*`/`javax.*`/`jdk.*`/`sun.*` generated namespace negatives；
+- reserved collision与stable `[SOMA-xxxx]` diagnostic；
+- visible Unicode/NFC positive及`$`/ignorable/FORMAT/control/bidi/non-NFC name injection negatives；
+- nested support private constructor、top-level Group/Table private construction linkage、same-package
+  fake/null/foreign capability-token negatives；
+- 100+Table/Field/Index/Join surface compile time、class/method/constant-pool与IDE usability；
+- all explicit absence compile-negative，包括`stream()`、Record、Batch、Right/non-equality Join、
+  arbitrary ExecutorService、Outer typed select、Pair materialization与Join kind after intermediate。
 
-## 5. G4 Cursor、currentness 与 atomicity
+## 4. G3 — Long-domain Storage、Key 与 Index
 
-- Pipeline terminal-start late binding，在 admission 期间观察固定 SOMA-owned state；
-- linked-chain no-branch one-shot、argument-failure reuse 和
-  `STREAM_ALREADY_CONSUMED`；
-- Record/Editor O(1)/O(P) reuse，Value View 无 per-record DTO；
-- `Record.fetch()` detached、`Editor.fetch()` staged candidate、View fetch explicit
-  materialization；
-- callback-end/foreign Table/thread/execution/participant、direct mapper-result 的
-  `CALLBACK_SCOPE_VIOLATION`；
-- callback/terminal exit 清除 cursor root/Table strong reference，失效 borrowed object 不
-  accidental-retain explicit Group；
-- 同 participant old alias 明确为 unsupported stateful callback，不虚构完全检测；
-- hot path 无 Field/constructor reflection、metadata interpretation、boxing collection；
-- concurrent Read/Read、Read/Write、Write/Write admission，conflict fail-fast，无等待/
-  retry/partial progress；
-- source Table direct operation/terminal reentrancy failure；
-- cross-Table sequential access 独立 admission、无 cross-Table atomicity；
-- selection Update/Remove all-or-nothing；parallel mutation staging/validation/one
-  publish；worker failure zero progress；
-- point/selection no-match、logical no-op、real change/remove、stateVersion 规则；
-- max-stateVersion 下 add/reserve/effective mutation overflow 与 no-op success；
-- external callback side effect 不属于 rollback。
+必须证明：
 
-## 6. G5 Sequential 与 parallel execution
+- paged Chunk directory、long size/capacity/locator/cardinality；
+- tiny-Chunk cross-boundary、million real、near-int/long virtual arithmetic；
+- all primitive/reference/Value flattening/null/equality/order；
+- String content-vs-reference identity、Enum constant identity与ordinary referent identity；
+- String PLAIN external body vs copied dictionary managed-byte accounting boundary；
+- reserve/growth/add/remove compaction与GC reference clearing；
+- default/explicit Group的same-type accessor sequential/concurrent identity、safe publication与无
+  losing live Table；
+- payload capacity monotonic、remove不隐式shrink；
+- Key duplicate/zero/null/collision/immutable/update absence；
+- non-unique Index null/repeated/collision/move/rebuild/canonical order；
+- payload/Key/all Index/accounting same atomic logical generation；
+- candidate-root swap与prevalidated bounded final-commit publication equivalence；
+- explicit Group GC后Phantom/ReferenceQueue accounting release，无strong retention/double release；
+- no single-array/int Table boundary、reflection或primitive boxing hot path；
+- structural/retained byte accounting。
 
-- `stream()` callback 只在 caller thread 顺序执行；
-- Table/Index/Field `parallelStream()` 共享唯一 library-wide `ForkJoinPool`，不接受
-  arbitrary Executor，不创建 per-Pipeline pool；
-- custom/common-pool freeze、same-instance idempotence、different-instance conflict、null
-  invalid argument、
-  SOMA 不 shutdown application pool；
-- concurrent setter/first-terminal CAS linearization；argument/reentrancy/admission early
-  failure 不提前固定 common pool；callback configuration 的 phase precedence；
-- read-only metadata observation 不返回 raw pool；
-- P==1、小/大 selection，active callbacks 不超过 P；parallel callback 只在 effective
-  pool worker 上执行；普通 external caller 不执行，already-worker caller 可参与且计入 P；
-- task fan-out 有界，terminal return/failure 前 all workers quiescent；
-- callback thread-safety/non-interference contract；parallel `forEach` side-effect order
-  unspecified，sequential保持 encounter order，`forEachOrdered` absent；
-- deterministic callback 下 sequential/parallel Query result、order、reduction、
-  short-circuit frontier、mutation state 和 non-resource failure equivalent；
-- worker failure canonical position/work-unit arbitration；
-- custom pool shutdown/rejection 无 common fallback、sequential downgrade 或 retry；
-- all-required-work accepted/completed 与 concurrent graceful/forceful shutdown 的
-  linearization；
-- active-but-starved pool 不误报 unavailable、不 fallback/补偿/inline，且没有隐藏 timeout；
-- callback nested parallel/configuration failure；cross-Table direct/sequential operation
-  保持独立；
-- parallel Update/Remove failure zero publication 与 deterministic survivor order。
+## 5. G4 — Direct Query、IR、Optimizer 与 Materialization
 
-## 7. G6 Result 与 failure
+必须证明：
 
-- `void add`、`UpdateResult.matched()/changed()`、`RemoveResult.removed()` exact
-  signatures；
-- normal Optional/no-match/no-op 与 contract failure matrix；
-- `SomaOperationException`、`SomaFailureCode`、operation/context/cause exact Java
-  shape/package；
-- context Table facade FQCN、Table-relative Field path、empty/global representation 与
-  multi-Field canonical selection；
-- 每个 stable code 的 positive/negative trigger；
-- context immutable/sanitized，无 arbitrary Key/Object stringify 或 physical state；
-- fixed phase precedence；parallel canonical arbitration；short-circuit decisive frontier；
-- same-phase argument/consumed-stream sub-order 与 effect-dependent version-overflow order；
-- one primary failure、无 nondeterministic suppressed worker failures；
-- structured failure 后 payload/Key/Index/size/capacity/version 可信且 workers quiescent；
-- application `Math.addExact` -> `CALLBACK_FAILED` + cause；nested SOMA failure 不二次
-  包装；JVM Error 不伪装；
-- no AddResult、public currentness/unsupported code、string/message parsing、checked
-  hierarchy 或 live Result handle。
+- Table/Index/Field direct source与one-shot pipeline lifecycle；
+- intermediate atomic claim/no-branch、validation-before-claim与terminal post-validation permanent
+  consumption；
+- Stream/Selection/ReadStream capability narrowing；
+- typed expression vs callback overload与owner/dependency negative；
+- foreign/application-authored/replayed typed-node provenance在claim/guard前稳定失败；
+- all intermediate/terminal operation-property matrix；
+- adjacent filter normalization、barrier、leaf pruning、fusion；
+- Key/Index substitution保持duplicate/order/null/failure；
+- reference interpreter vs optimized sequential differential；
+- checked integer与floating strictfp/NaN/Infinity/total-order canonical numeric；
+- typed Table/Field/primitive array与mapped `toArray(Class)`；
+- null/reference/container/array/resource boundary；
+- between逆区间、empty/duplicate/null `in`、nullable order placement、lexicographic tie-break、empty
+  match、mapped reference distinct/null与modifiable detached List；
+- literal-only eager expression validation、`in` defensive snapshot与no config/guard/pipeline consume；
+- expression/literal snapshot application-retained ownership、checked construction/OOME no-publication
+  与terminal normalized/hash scratch managed admission；
+- skip/limit/top zero/oversize/stable-sort equivalence与optimized top differential；
+- element callback successful full-traversal once、short-circuit canonical prefix，以及Comparator/
+  equals/hashCode可重复调用的canonical caller-thread barrier；
+- `_explain()`不执行callback/data kernel。
 
-## 8. G7 Performance 与 reference scenarios
+## 6. G5 — Mutation、Resource 与 Structured Failure
 
-### 8.1 Baseline 与 scale
+必须证明：
 
-每个 reference scenario 都使用相同 input/semantics 比较：
+- configuration class-load/metadata/configure/default-first ordering、cross-composition freeze race、
+  repeated configure与stable effective policy；
 
-1. `HAND_TUNED`：直接 primitive/reference arrays + application-owned hash structure，作为
-   机制上限/成本下限；
-2. `IDIOMATIC_JAVA`：detached POJO、ArrayList/HashMap 和 JDK Stream/loop，作为用户现实
-   替代方案；
-3. `SOMA`：只使用 production public/generated API，不调用 internal benchmark hook。
+- all direct/point/terminal same-Group fail-fast guard、pipeline-construction non-admission、
+  reentrancy与metadata last-published exception；
+- point reserve/add/update/remove与Selection update/remove；
+- point update missing不执行callback且返回matched=changed=0；
+- View/Editor callback scope/currentness；
+- every recoverable validation/allocation/hash/codec/publish fault point；
+- Update/Remove result invariants与no-op version；
+- ordinary referent identity changed/no-op与referent-internal mutation boundary；
+- zero partial Result/root/payload/Key/Index/accounting；
+- failure code/operation/context mapping、phase precedence与sanitization；
+- callback current-runtime provenance保留、application replay/foreign exception wrapping与JVM Error
+  passthrough；
+- arbitrary mapped distinct application equals/hashCode exception/reentrancy/provenance boundary；
+- auto/explicit effective memory budget、retained/temporary peak accounting；
+- opaque selection mutation按bound upper peak在任何callback前完成conservative admission；
+- point update missing零admission/callback，命中后worst-case peak先于Editor callback；
+- explicit Group PhantomReference/ReferenceQueue accounting release；
+- all failure paths release lease/guard and quiesce workers。
 
-“相同 semantics”包括 Key/Index equality、encounter order、duplicate/missing handling、
-mutation publication 和 materialized result；不能让 baseline 少做 validation。Structural
-bytes 用同一 retained-heap method 在 full GC 后测量，包含 Table/POJO/collection/array/
-Key/Index infrastructure，排除三方共同引用的 input 与 ordinary referent payload 本体。
+## 7. G6 — GroupBy 与 Relation
 
-规模至少覆盖 `10k / 100k / 1M` live records；双缓存场景覆盖两个同时可达的 1M Group。
-Saturation 在 32 GB machine 上逐级增大到 logical workload 完成、estimated live set 达
-最大 heap 70%，或 10M records，以先到者为准。不得依赖 swap 形成“通过”。最多使用 16
-cores；报告 effective pool parallelism。
+必须证明：
 
-### 8.2 V1 qualification thresholds
+- Group key type/null/equality/order与typed result；
+- count/numeric/summary aggregate与checked resource；
+- Join `on/and` inference、same composition compile、same Group runtime；
+- float/double、non-keyable Value与ordinary Object GroupBy/Join exclusion，以及keyable marker；
+- Inner/Left/Full/Semi/Anti/Cross semantics；
+- null-never-match、outer MISSING truth、duplicate Cartesian、encounter order；
+- Semi/Anti left existence、right-duplicate non-amplification与nullable-component behavior；
+- Semi/Anti left ReadStream与right/mutation compile-negative；
+- Pair scope、projection/materialization boundary；
+- Inner/Cross typed select与Outer explicit missing mapping；
+- typed predicate pushdown/residual/Index substitution per Join kind；
+- lookup/hash/other admittedalgorithm vs reference differential；
+- checked output cardinality/maxOutputRows/peak budget；
+- no multi-way/Right/range/as-of/interval/non-equality surface。
+- no relation alias/self-Join/self-Cross surface。
 
-以下是 implementation go/no-go threshold，不是对所有业务 workload 的营销承诺：
+## 8. G7 — Bounded Parallel Execution
 
-- correctness、logical result/order/failure 和 sequential/parallel equivalence 必须 100%
-  通过；任何差异直接失败；
-- non-materializing primitive/flattened-Value Query 在 warm state 不得有随 record count
-  线性增长的 allocation；Record/Value View 保持 O(1)/O(P)；
-- 1M primitive-dominant Table 的 SOMA-owned steady structural bytes 不高于等价
-  `IDIOMATIC_JAVA` live structural bytes 的 70%；ordinary referent payload 本体不计入双方；
-- 主要 sequential scan throughput 不低于 `HAND_TUNED` 的 65%；三个 scenario 中至少两个
-  primary hot path 达到 `IDIOMATIC_JAVA` 的 1.25x；未达到 1.25x 的路径不能同时比
-  `IDIOMATIC_JAVA` 慢 20% 以上且占用更多 structural memory；
-- Key lookup 与 non-unique Index selection throughput 分别不低于对应 HashMap/multimap
-  baseline 的 70%，同时保持正式 order、null 和 atomic-maintenance semantics；
-- 在 selection 足够大且 callback cost 合理的 eligible kernel 上，P>=4 的 parallel
-  throughput 至少在两个 reference scenario 达到同一 SOMA sequential path 的 1.5x；
-  cheap/stateful pipeline 可以不加速，但不能违反 task/allocation bound；
-- repeated add ingestion throughput 不低于等价 `ArrayList + Key/Index map` baseline 的
-  70%；否则触发 public Batch 边界复审，不得以隐藏 Batch 改语义；
-- candidate-root mutation peak SOMA-owned bytes 不超过该 Table steady owned bytes 的
-  2.5x，且 dual-1M reference scenario 在 32 GB 内保留至少 30% max-heap headroom；
-- p95 latency、GC pause/allocation、task count 和 retained Group profile 不得出现随 N/P
-  超出正式 complexity bound 的增长。
+必须证明：
 
-### 8.3 Evidence protocol
+- sequential default、explicit `parallel()`；
+- application-owned custom/common `ForkJoinPool`；
+- P=1/2/4/16、small/large selection；
+- caller + P-1 participant、bounded ranges/tasks/scratch；
+- saturated same-pool progress/start gate/no partial callback；
+- shutdown/rejection/nested/interrupt/cancellation/quiescence；
+- no new/closed/alternate pool、no arbitrary ExecutorService；
+- sequential/parallel result/order/numeric/mutation/non-resource failure exact equivalence；
+- pool/resource/interrupt mode-specific failure稳定、quiescent、no alternate logical result；
+- canonical failure frontier与forEachOrdered；
+- parallel forEach partial external-effect boundary，以及forEachOrdered caller-thread ordered stop；
+- opaque callback-bearing short-circuit/Comparator caller-thread barrier与typed-only speculation；
+- different-Group application concurrency/global manager safety。
 
-- 调度、仿真、实时派工三个 scenario 分别验证 expression、correctness、memory、CPU、
-  allocation 和 wall-clock throughput；
-- 记录 scenario input/digest、规模、warmup、fork/sample、JVM/GC、heap、hardware、OS、
-  commit、artifact、profile 与 baseline source；
-- 报告 median、p95 与方差；先运行 correctness，再运行 profile/benchmark；
-- threshold miss 必须定位到 Design/implementation Owner；在无新 evidence 时停止重复跑；
-- 没有 production implementation 前，G7 为 `NOT_EVALUABLE`，不得复用 predecessor
-  benchmark 或 P2 kernel 作产品性能 claim。
+## 9. G8 — Compression、Metadata 与 Diagnostic Closure
 
-## 9. G8 Security、packaging 与 provenance
+必须证明：
 
-- processor 只读取 javac model/options，写入本 compilation 的 Filer-owned output；不扫描
-  arbitrary filesystem/classpath、不访问 network、不启动 process、不加载/执行
-  application class initializer；
-- adversarial/edge schema identifier、generic type、diagnostic payload、collision 和
-  generated source escaping 不能形成 source injection、path traversal、host path/secret
-  disclosure 或覆盖 existing source；
-- runtime 不使用 `Unsafe`、native/off-heap、serialization gadget、setAccessible reflection、
-  background service/thread 或未准入 SPI；
-- production dependency allowlist、license compatibility、vulnerability review、SBOM 和
-  runtime transitive dependency tree 有 evidence；默认目标为 runtime zero third-party
-  dependency，偏离必须单独 surface admission；
-- packaged runtime/processor/source/javadoc 中不含 schema fixture、benchmark input、
-  Temporary、local path、credential、IDE/build output 或 predecessor material；
-- independent consumer 从实际 packaged artifact 验证 checksum、coordinate、manifest、
-  generated-contract/version mismatch、LICENSE/NOTICE；
-- future CI/release workflow 使用 least privilege、pinned action/reference、protected secret、
-  reproducible command 和 artifact checksum/provenance；
-- [SECURITY.md](../../SECURITY.md) 与实际 supported/release scope 一致；公开发布前完成
-  dependency/code/security review 与 Owner sign-off。
+- PLAIN + every admitted codec forced correctness；
+- AUTO/OFF choice与benefit/peak/update-rate policy；
+- sealed/affected-Chunk bounded work、no whole-Table/background rewrite；
+- sparse overlay/rebuild/Index atomicity；
+- compressed/uncompressed query/Group/Join/mutation equivalence；
+- codec dispatch/no per-record virtual/boxing regression；
+- final stable Soma/Group/Table/Field metadata carrier/API diff/independent consumer；
+- nested logical Field `_metadata()`存在且不泄漏physical leaf/Column；
+- Table/Field plain-equivalent/current-representation/savings summary与accounting同源，不泄漏codec/
+  per-Chunk detail；
+- metadata/explain information boundary与no physical mutable leak；
+- effective budget/accounting/explain peak一致。
 
-没有 production artifact/workflow 前，G8 为 `NOT_EVALUABLE`；本 Gate 不授权创建
-workflow、publish 或宣称 supply-chain security 已成立。
+## 10. G9 — Reference Scenarios 与 Performance
 
-## 10. Gate status
+Qualification必须在approved machine/JVM/heap记录：
 
-| Gate | 当前状态 | Evidence |
+- 调度、仿真、实时派工三个public API scenario correctness；
+- Narrow、Medium、Reference-mixed million-row data；
+- reserve + repeated add ingestion；
+- Key/Index point/selection；
+- scan/filter/map/numeric/materialization；
+- Group/Join/sort/top；
+- mutation、parallel saturation与compression；
+- allocation/GC/managed peak/retained bytes；
+- ArrayList+HashMap与合理manual column baseline；
+- warm/cold、multiple JVM runs、variance与result fingerprint。
+
+16 core/32 GB是qualification envelope；不外推为minimum/maximum。Exact thresholds在I8前由
+profile proposal + Product Owner批准后写入同一Gate appendix；一亿行仍是future architecture
+vision，不在未测量时拍硬数。
+
+Loader trigger：如果repeated add是dominant bottleneck且无法通过internal优化达到approved
+manual baseline threshold，G9阻断并建立Loader Temporary；不得引入 hidden Batch。
+
+## 11. G10 — Security、Package 与 Release Qualification
+
+必须证明：
+
+- malformed/large schema、name/code injection、diagnostic/path sanitization；
+- arithmetic/cardinality/allocation abuse与bounded failure；
+- no schema/member/constructor reflection；mapped array reification只使用validated component type；
+- callback/context/ordinary referent不泄密；
+- dependency tree、license、SBOM、known vulnerability与processor trust boundary；
+- documented same-JVM trust boundary：supported source construction/token negatives与runtime
+  null/foreign validation成立，不虚假声明可隔离`setAccessible`/`Unsafe`/agent/modified bytecode；
+- generated provenance、source/javadoc、LICENSE/NOTICE、manifest、checksum；
+- packaged artifact independent consumer smoke；
+- CI clean Java 8 matrix与release qualification workflow；
+- version/Changelog/support matrix/claim review；
+- no predecessor/temporary/internal file in delivery allowlist。
+
+GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10 PASS不自动发布。
+
+## 12. Gate status matrix
+
+| Gate | Current | First owning slice |
 |---|---|---|
-| G1 | PARTIAL_FEASIBILITY_ONLY | P2 selected generated shapes/full-regeneration boundary |
-| G2 | NOT_IMPLEMENTED | 无 production storage/Index |
-| G3 | PARTIAL_FEASIBILITY_ONLY | P2 selected consumer/negative/type shape |
-| G4 | PARTIAL_MECHANISM_ONLY | P2 bounded cursor/View/owner harness |
-| G5 | NOT_IMPLEMENTED | 无 production scheduler/admission |
-| G6 | PARTIAL_SHAPE_ONLY | P2 minimal carrier shape；无 runtime mapping |
-| G7 | NOT_EVALUABLE | 无 production implementation |
-| G8 | NOT_EVALUABLE | 无 production artifact/workflow |
+| G1 Build/full regeneration | NOT_RUN | I0 |
+| G2 Schema/generated surface | NOT_RUN | I0-I2 |
+| G3 Storage/Key/Index | NOT_RUN | I1-I2 |
+| G4 Query/IR/optimizer | NOT_RUN | I1-I3 |
+| G5 Mutation/resource/failure | NOT_RUN | I1、I4 |
+| G6 Group/Join | NOT_RUN | I5 |
+| G7 Parallel | NOT_RUN | I6 |
+| G8 Compression/metadata | NOT_RUN | I7 |
+| G9 Scenarios/performance | NOT_RUN | I8 |
+| G10 Security/package/release | NOT_RUN | I0、I8 |
 
-任何上表状态变化都必须链接可重放 command/report 和适用 commit，不能只修改文字。
+## 13. Evidence record format
+
+每次Gate更新至少记录：
+
+```text
+gate + scope
+commit / dirty-state policy
+JDK / OS / arch / CPU / memory / heap
+command and configuration
+input/workload fingerprint
+result and artifact path
+limitations/skips
+claim boundary
+reviewer/date
+```
+
+Generated artifact、benchmark output与temporary build result不进入source bundle；正式record只保存
+必要摘要、fingerprint与可重放入口。

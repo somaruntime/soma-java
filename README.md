@@ -2,69 +2,70 @@
 
 # SOMA Java
 
-SOMA Java 正在同一个产品和仓库身份下从干净起点重新定义。正式 V1 Blueprint、
-Design、Engineering plan 和 Conformance baseline 已经建立，实施准备审查结论为
-`READY_FOR_IMPLEMENTATION`；旧实现、旧模块和旧公开 API 不再约束新产品。
+SOMA 是嵌入 Java application、运行在单 JVM 进程内、面向 schema-known mutable Tables 的
+编译式列式计算引擎。Application 使用自然 Java object、generated typed API 与 Stream-like
+operation 表达 point、scan、aggregate、GroupBy 和 binary relation；SOMA 通过编译生成、
+long-domain chunked storage、typed IR 与专门化执行获得可预测的性能与资源边界。
 
-当前仍没有 production SOMA library、可用 consumer API、Maven artifact、Example、
-性能承诺或发布版本。仓库根目录不提供 `pom.xml`。正式设计说明系统应当是什么，
-实施准备说明可以开始做什么；二者都不等于 implementation、qualification 或 release
-已经完成。
+长期 North Star 是“一亿行以上、编译式、支持关系计算的单进程 Table 引擎”。一亿行是
+架构不得封死的愿景，不是当前性能承诺；第一阶段以百万行数据上的高效、低分配、资源受控
+操作建立资格证据。
 
-## 目标方向
+## 当前状态
 
-SOMA 面向 Java application 中大规模、频繁变化的进程内状态。Application 使用
-普通 Java 对象、注解和 generated typed API 表达业务语义；SOMA 在内部通过
-编译生成、列式存储和专门化执行获得性能。
+SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终全局一致性审核：
 
-SOMA 借鉴 Java Stream 的 pipeline 心智，但不是 Stream replacement：它额外拥有
-Table state、Key/Index、data-oriented storage 和受控 mutation；小集合、一次性对象
-转换、数据库查询或跨 Table transaction 仍应使用更合适的 Java/application 工具。
+- Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
+- readiness 结论为 `READY_FOR_IMPLEMENTATION`；
+- production implementation 尚未授权，I0-I8 全部未开始；
+- 当前没有 production library、Maven artifact、consumer API、Example、benchmark、workflow、
+  package 或 release；
+- G1-G10 全部 `NOT_RUN`，因此没有可用性、性能、兼容性或 release readiness 声明。
 
-V1 产品模型是：
+正式设计说明产品应当是什么；它不等于代码和证据已经存在。
+
+## 产品模型
 
 ```text
-用户语义层
-    -> 编译生成层
-        -> 存储层
-            -> 执行层
+Object-oriented application boundary
+    -> compiler-generated typed surface
+        -> logical IR and semantics-preserving optimizer
+            -> specialized execution over data-oriented state
 ```
 
-用户操作从一个 Table、record selection 或 logical Field source 开始，经过零个或
-多个中间操作，由 Query、Update 或 Remove terminal 结束。physical Column、
-scratch、plan 和 scheduler 不进入普通用户 API。
+SOMA 借鉴 Java Stream 的 source/intermediate/terminal、lazy、one-shot、熟悉命名、sequential
+default 与 explicit parallel，但不是 Stream replacement。它额外拥有 Table identity、Key/
+Index、mutable authoritative state、relation planning、atomic publication 与 structured failure。
 
-1:M 与 N:M 通过普通 Table、endpoint ID 和 Index 表达。SOMA 不引入 ChildTable、
-Table ownership graph、隐式 cascade 或 cross-Table transaction。
+普通用户不需要操作 physical Column、Chunk、row position、scratch、planner、worker 或
+storage backend。1:M/N:M 使用普通 Table、endpoint ID 与 Index 表达；SOMA 不提供 ChildTable、
+cross-Table transaction、persistence 或 distributed execution。
 
-## 当前入口
+## 正式入口
 
 - [项目状态与事实边界](project/README.md)
 - [SOMA Java V1 产品蓝图](project/blueprint/README.md)
 - [正式 Design 总览](project/design/README.md)
-- [Production Implementation Plan](project/engineering/v1-implementation-plan.md)
-- [Implementation Readiness Review](project/conformance/v1-implementation-readiness-review.md)
-- [当前 Conformance 与证据边界](project/conformance/README.md)
+- [核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)
+- [V1 Production Implementation Plan](project/engineering/v1-implementation-plan.md)
+- [实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
+- [当前 Conformance 与 G1-G10](project/conformance/README.md)
 - [品牌资产](assets/README.md)
 - [安全报告方式](SECURITY.md)
 
-产品使用文档、Quick Start 和可执行 Examples 将在 production surface 真正建立并
-通过 Conformance Gate 后提供；现在不会用伪示例制造“已经可用”的印象。
+产品使用手册、Quick Start 与可执行 Examples 将在 production surface 真正建立并通过相应
+Conformance Gate 后提供；当前不使用伪示例制造“已经可用”的印象。
 
-## 历史边界
+## Clean-slate 与产品身份
 
-重启前的 SOMA Java predecessor 已固定在 Git ref
-`archive/pre-product-reset-2026-07-31`，对应 commit
-`b69477432b44c4bc75c5f62fff741a729a33def2`。该 ref 仅用于历史追溯，不是 release、
-support 或 qualification 声明。active checkout 不保留 legacy 目录、兼容层或两套
-canonical API。
-
-## 产品身份
+重启前的 predecessor 固定在 Git ref `archive/pre-product-reset-2026-07-31`，仅用于历史追溯，
+不拥有当前 API/implementation。Active checkout 不保留 legacy module、compatibility layer 或
+两套 canonical API。
 
 - 产品品牌：SOMA；
 - 仓库：`somaruntime/soma-java`；
 - 发布主体与维护者：ArthurFeng；
-- Java package / Maven group 基线：`io.github.somaruntime.soma`；
+- Java package / Maven group baseline：`io.github.somaruntime.soma`；
 - 语言方向：Java 8；
 - 许可证：[Apache License 2.0](LICENSE)。
 

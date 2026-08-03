@@ -2,53 +2,60 @@
 
 类型：Project Entry
 
-状态：`READY_FOR_IMPLEMENTATION`；production implementation 尚未开始
+状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
+implementation authorization `NOT_GRANTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
 ## 当前事实
 
-SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产品基础治理与
-实施准备收口，建立正式 Blueprint、七份分责 Design、Engineering plan、Conformance
-和 implementation Gate。当前
-active checkout：
+SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产品重新定义，并于
+2026-08-03 完成“大规模编译式 Table 引擎候选设计收口、正式晋升与实施准入审查”：
 
-- 有正式产品 Blueprint、Design 和 Conformance；
-- 没有 production source；
-- 没有 production Maven reactor、module 或 artifact；
-- 没有 production generated API；
-- 没有 production test、benchmark 或 Example；
-- 没有 CI、release qualification 或 package workflow；
-- 没有可用性、兼容性、性能、支持矩阵或 release readiness 声明；
-- 没有 active Temporary 或 parallel current fact Owner。
+- Product Owner 确认当前 V1 North Star 为“一亿行以上、编译式、支持关系计算的单进程
+  Table 引擎”；
+- 一亿行以上是 long-domain/chunked 架构愿景，不是当前硬 Release Gate；
+- 第一阶段以百万行数据上的高效、低分配、资源受控操作建立 qualification；
+- 正式 Blueprint、九个分责 Design Owner、I0-I8 Implementation Plan 与 G1-G10 Gate 已生效；
+- [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
+- [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
+  为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
+- implementation authorization 仍为 `NOT_GRANTED`，I0-I8 全部 `NOT_STARTED`；
+- G1-G10 全部 `NOT_RUN`。
 
-实施准备审查结论为 `READY_FOR_IMPLEMENTATION`：产品语义、exact Java surface、
-two-artifact/full-regeneration architecture、baseline mechanism、量化 performance/security Gate 和
-I0-I7 实施计划已经关闭。它不等于 production capability；开始 I0 仍需下一项明确授权。
+“核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
+closure与targeted readiness delta review已完成。当前没有active Temporary。开始I0仍需要
+Product Owner单独明确implementation authorization。
 
-此前 P2 Java 8 validation spike 已完成使命并退役。成立的 generated type-shape、
-cursor/View、typed array、primitive、owner guard 和 full-regeneration 边界已经分别
-进入正式 Design；环境、结果、限制和 snapshot fingerprint 进入正式 Conformance。
-P2 只解除 selected feasibility risk，不等于 production capability。
+当前 active checkout 没有 production source、Maven reactor/module、generated consumer API、
+test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
+readiness 不等于 implementation、performance、compatibility、artifact 或 release 已成立。
+
+此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
+type-shape/mechanism evidence 仍是设计可行性输入；它不是 production test 或 runtime evidence。
 
 ## 当前事实入口
 
 | 需要了解的内容 | 唯一入口 |
 |---|---|
-| 产品意图、用户模型、能力边界与成功标准 | [SOMA Java V1 产品蓝图](blueprint/README.md) |
-| 正式 Design Owner、权威关系与实施前技术空白 | [Design 总览](design/README.md) |
+| 产品定义、用户模型、North Star、能力边界与成功标准 | [SOMA Java V1 产品蓝图](blueprint/README.md) |
+| 正式 Design Owner、权威关系与跨 Design 不变量 | [Design 总览](design/README.md) |
+| A0-A27核心抽象、N1-N8主叙事、INV-01..19证明链与M0-M2变更协议 | [核心抽象与叙事](design/core-abstractions-and-narratives.md) |
 | Schema、annotation、generated object 与 full regeneration | [Schema 与编译生成](design/schema-and-generation.md) |
-| Group/Table、存储、Field type、Key/Index、关系与 lifecycle | [数据模型与存储](design/data-model-and-storage.md) |
-| Generated hierarchy、Table/Field/Stream API 与 metadata | [逻辑层 API](design/logical-api.md) |
-| Exact annotation/shared/generated Java 8 signature | [Generated API Signature](design/generated-api-signatures.md) |
-| Currentness、admission、mutation、并发与 parallel execution | [执行、并发与并行](design/execution-and-concurrency.md) |
-| Result、failure code、mapping、precedence 与状态保证 | [Result 与 Structured Failure](design/results-and-failures.md) |
-| Artifact/build/runtime/storage/Index/publish baseline | [Production Implementation Architecture](design/implementation-architecture.md) |
-| I0-I7 实施顺序、exit 与 stop rule | [V1 Implementation Plan](engineering/v1-implementation-plan.md) |
-| 实施准备审查结论 | [Implementation Readiness Review](conformance/v1-implementation-readiness-review.md) |
-| 当前实现差距、P2 evidence 与 production Gate | [Conformance](conformance/README.md) |
+| Group/Table、long-domain storage、Field type、Key/Index 与 compression | [数据模型与存储](design/data-model-and-storage.md) |
+| Direct source、Table/Field operation、View、Group/Join 与 metadata | [逻辑层 API](design/logical-api.md) |
+| Exact annotation/shared/generated Java 8 surface | [Generated API Signature](design/generated-api-signatures.md) |
+| Typed IR、rewrite、Index substitution、Join/Group planning 与 reference oracle | [规划与优化](design/planning-and-optimization.md) |
+| Currentness、Group guard、mutation、parallel 与 resource admission | [执行、并发与并行](design/execution-and-concurrency.md) |
+| Result、failure code、mapping、precedence 与 failed-state guarantee | [Result 与 Structured Failure](design/results-and-failures.md) |
+| Artifact/build/runtime/storage/Index/compression/scheduler baseline | [Implementation Architecture](design/implementation-architecture.md) |
+| I0-I8 实施顺序、exit、stop 与 change protocol | [V1 Implementation Plan](engineering/v1-implementation-plan.md) |
+| G1-G10 最低 production evidence | [V1 Implementation Gates](conformance/v1-implementation-gates.md) |
+| 候选来源、晋升矩阵与 replacement closure | [Formal Promotion](conformance/large-scale-engine-formal-promotion.md) |
+| 当前实施准入结论、findings closure与授权边界 | [最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md) |
+| 当前实现差距与 evidence 状态 | [Conformance](conformance/README.md) |
 | 产品与角色入口 | [根 README](../README.md) |
 | 品牌资产与权利 | [Assets](../assets/README.md)、[NOTICE](../NOTICE) |
 | 安全报告方式 | [Security Policy](../SECURITY.md) |
@@ -65,30 +72,30 @@ Blueprint
 
 - Blueprint 拥有产品最终希望成为什么；
 - Design 拥有系统长期必须遵守的规范性合同；
-- code/config/tests 拥有当前可执行事实；
-- Conformance 记录二者是否一致及证据边界；
+- code/config/tests 在出现后拥有当前 executable fact；
+- Conformance 记录 implementation 与 Design 是否一致及证据边界；
 - README、未来 Manual/White Paper/Examples 是投影，不得成为第二份 Design；
-- 新的重大设计变化必须在新的 Temporary topic 中形成 candidate，不能静默覆盖正式
-  Owner。
+- 新的重大长期变化先进入 bounded Temporary，经裁决、验证、晋升和 replacement closure 后
+  删除；当前没有active Temporary。
 
-## 文档框架采用
+## 项目组织框架映射
 
-本项目采用《面向角色与场景的项目组织框架》`2.0.0-rc.1`，当前映射：
+本项目采用《面向项目生命周期、角色与场景的项目组织框架》`2.0.0-rc.2`：
 
 | Framework role | SOMA Java path/status |
 |---|---|
 | Product/role entry | `README.md` |
 | Project entry | `project/README.md` |
-| Blueprint | `project/blueprint/` |
-| Design | `project/design/` |
-| Engineering | `project/engineering/`；I0-I7 ready/not started |
-| Conformance | `project/conformance/` |
-| Temporary | `project/temp/`；当前无 active topic |
-| Product Docs | 尚未建立；等待 production surface |
+| Blueprint | `project/blueprint/`；Active V1 Baseline |
+| Design | `project/design/`；九个 active Owner |
+| Engineering | `project/engineering/`；I0-I8 planned，尚未授权 |
+| Conformance | `project/conformance/`；readiness PASS，G1-G10 NOT_RUN |
+| Temporary | 当前无active topic；目录不拥有current事实 |
+| Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
 
-Selected delivery profile 尚未建立；未来 package/source bundle 必须采用明确 allowlist，
-不能把整个 checkout 默认交付给 library consumer。
+Selected delivery profile 尚未建立；未来 package/source bundle 必须采用明确 allowlist，不能把
+整个 checkout 默认交付给 library consumer。
 
 ## 固定产品身份
 
@@ -100,8 +107,7 @@ Selected delivery profile 尚未建立；未来 package/source bundle 必须采�
 - 语言方向：Java 8；
 - License：Apache License 2.0。
 
-这些身份事实不预先决定 artifact、version、module、dependency、runtime algorithm 或
-release profile。
+这些身份事实不预先证明 artifact、version、dependency、runtime algorithm 或 release profile。
 
 ## Predecessor 边界
 
@@ -109,42 +115,31 @@ release profile。
 `archive/pre-product-reset-2026-07-31` 固定，对应 commit
 `b69477432b44c4bc75c5f62fff741a729a33def2`。
 
-该 ref：
-
-- 是历史 provenance 和恢复点；
-- 包含旧设计、代码、测试、Example、benchmark 和报告；
-- 不是 release tag 或 qualification evidence；
-- 不是当前 API/implementation Owner；
-- 不能被 copy、cherry-pick、wrapper 或 compatibility layer 方式恢复为新产品。
+该 ref 是历史 provenance 和恢复点，不是 release/qualification/API Owner。不得复制、
+cherry-pick、包装或通过 compatibility layer 恢复 predecessor source。
 
 ## 下一阶段
 
+大规模引擎与核心抽象候选都已收口、正式晋升并通过最终实施前审核。下一阶段不是自动开始
+编码，而是请求独立的implementation authorization：
+
 ```text
-Formal Blueprint/Design baseline（已完成）
-    -> implementation readiness（已完成）
-        -> production implementation authorization
-            -> I0 build spine
-                -> I1-I6 compiler/runtime slices and Gate
-                    -> I7 reference scenario/performance/security/package qualification
+explicit implementation authorization
+    -> I0 build/full-regeneration spine
+        -> one active slice at a time
+            -> matching Conformance evidence
+                -> stop or next slice
+                    -> I8 product qualification
+                        -> separate release authorization
 ```
 
-下一阶段不是继续补写 Blueprint、恢复 predecessor reactor，或一次性铺开所有 module；
-收到明确授权后只从 I0 开始。Exact signature、diagnostic、module topology、handshake、
-storage/Index/publish/scheduler baseline 已由正式 Design 固定。若 evidence 迫使改变产品
-语义，必须停止 slice、建立新的 Temporary，并由 Product Owner 裁决。
+明确授权后只从I0开始；I0 exit evidence未通过前不得进入I1。
+Implementation、commit、push、workflow、Release 与 Package 是彼此独立的授权，不得相互推断。
 
 ## 当前验证边界
 
-Repository/documentation Gate：
+本次已执行 repository/documentation Gate：唯一 Owner、Blueprint→Design→Plan→Gate 双向追溯、
+Markdown link、current route、historical status、repository inventory 与 whitespace。
 
-- formal Blueprint/Design/Conformance 相对链接有效；
-- 每项长期事实只有一个 Owner；
-- active checkout 没有 predecessor code、legacy surface 或 release claim；
-- root/project/agent entry 与正式 Owner 一致；
-- predecessor tag 解析到精确 commit；
-- Git diff 无 whitespace error；
-- no active Temporary、build artifact 或失效 current route。
-
-Production compile/runtime/performance/release Gate 只有在相应 surface 出现后才能执行，
-完整最低证据集合见
-[V1 Implementation Conformance Gates](conformance/v1-implementation-gates.md)。
+Production compile/runtime/performance/security/package/release Gate 只能在相应 surface 出现后
+执行；当前 G1-G10 全部 `NOT_RUN`，不得用 documentation readiness 替代。

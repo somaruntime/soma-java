@@ -2,11 +2,22 @@
 
 ## 当前状态
 
-SOMA Java 已从 clean-slate 起点建立正式 V1 Blueprint、Design、Engineering 与
-Conformance baseline，实施准备结论为 `READY_FOR_IMPLEMENTATION`。
-当前 active checkout 不包含 production source、production Maven reactor、generated
-consumer API、benchmark、Example、CI/release workflow 或 package。正式 Design 不等于
-implementation、performance 或 release 已经成立。
+SOMA Java 已从 clean-slate 起点建立当前正式V1 Blueprint、九个分责Design Owner、
+I0-I8 Engineering Plan 与 G1-G10 Conformance Gates。Product Owner 已确认当前 V1 North
+Star 为“一亿行以上、编译式、支持关系计算的单进程 Table 引擎”；一亿行以上是架构愿景，
+第一阶段以百万行数据的高效、低分配、资源受控操作建立资格证据。
+
+2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
+为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。这只表示设计、计划与Gate足以接受单独
+实施授权；当前
+implementation authorization 为 `NOT_GRANTED`，I0-I8 全部 `NOT_STARTED`，G1-G10 全部
+`NOT_RUN`。
+
+Active checkout 不包含 production source、Maven reactor/module、generated consumer API、
+test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
+readiness不等于implementation、performance、compatibility或release已成立。核心抽象候选已经
+正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
+Temporary replacement closure已完成；当前没有active Temporary。
 
 开始工作前必须读取：
 
@@ -16,8 +27,14 @@ implementation、performance 或 release 已经成立。
 - [V1 Implementation Plan](project/engineering/v1-implementation-plan.md)；
 - [Conformance 与证据边界](project/conformance/README.md)。
 
-随后只读取与任务直接相关的 Design Owner；不要把全部项目事实加载成每次任务的默认
-前置。
+随后只读取与任务直接相关的 Design Owner；涉及 typed IR、optimizer、Join/Group physical
+planning 或 reference differential 时读取
+[规划与优化 Design](project/design/planning-and-optimization.md)。不要把全部项目事实加载成
+每次任务的默认前置。
+
+实施slice或跨Design审查还必须读取
+[核心抽象与叙事Design](project/design/core-abstractions-and-narratives.md)中与该slice对应的A/N/INV
+章节；不要求为局部文档任务默认加载全文。
 
 ## 固定身份与边界
 
@@ -29,46 +46,45 @@ implementation、performance 或 release 已经成立。
 - License 为 Apache License 2.0；
 - 品牌资产和权利边界由 `assets/` 与 `NOTICE` 拥有。
 
-这些身份事实不预先决定 module、artifact、version、dependency、runtime algorithm 或
-release profile。
+这些身份事实不预先证明 artifact、version、dependency、runtime algorithm 或 release profile。
 
 ## Clean-slate 约束
 
 - predecessor 只存在于 Git ref `archive/pre-product-reset-2026-07-31`；
 - 不复制、cherry-pick、包装或恢复 predecessor source；
-- 不保留 legacy 目录、compatibility layer、双 API、migration adapter 或 `v2` 平行
-  module；
+- 不保留 legacy 目录、compatibility layer、双 API、migration adapter 或 `v2` 平行 module；
 - 不因为旧 type/test/benchmark 存在就要求新 Design 兼容；
 - 需要历史经验时，只提取问题、约束和 evidence，并从当前 Design 重新推导实现；
-- `DataFlow`、`Transformation`、`Candidate`、public `Batch`、public physical
-  `Column`、`Segment` 和 manual `release()` 不属于 V1；
+- predecessor public `DataFlow`、`Transformation`、`Candidate` model、public `Batch`、public physical `Column`、
+  `Segment` 和 manual `release()` 不属于 V1；
 - ChildTable、`@SomaChild`、ownership graph、per-owner Table、implicit cascade 和
   cross-Table transaction 不属于 V1；1:M/N:M 使用普通 Table、endpoint ID、Index；
-- V1 `@SomaTable` 不接受 `name` identity；package-private `.schema` declaration type
-  决定父 package generated object、`XxxTable` 和 `xxxTable()`；
+- V1 `@SomaTable` 不接受 `name` identity；package-private `.schema` declaration type 决定父
+  package generated object、`XxxTable` 和 `xxxTable()`；
 - application API 不泄漏 schema declaration type；
-- production topology 已固定为 `soma-runtime` + `soma-processor`，但未经明确
-  implementation authorization 仍不创建 production module/public API；授权后只从 I0
-  开始，不并行铺开全部 slice。
+- formal production topology 为 exactly `soma-runtime` + `soma-processor`；新的 readiness 与
+  明确 implementation authorization 前不创建 production module/public API，不启动 I0。
 
 ## 正式事实与文档
 
 - [Blueprint](project/blueprint/README.md)拥有产品意图、边界和成功标准；
 - [Design](project/design/README.md)按关注点拥有长期规范性合同；
+- [核心抽象与叙事](project/design/core-abstractions-and-narratives.md)拥有跨Design skeleton、主叙事、
+  proof-chain routing与M0-M2变更协议，不覆盖精确Design；
 - code/config/tests 在出现后拥有当前 executable fact；
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/` 只承载 active candidate topic，当前无 active Temporary；
-- 新的重大长期变化先进入新的 Temporary，经 Product Owner 裁决和验证后晋升，随后
-  删除 Temporary；不得直接在正式 Design 中掩盖未裁决变化。
+- `project/temp/`当前没有active topic；新的重大长期变化先进入bounded Temporary，经Product
+  Owner裁决和验证后晋升，再删除Temporary；不得直接在正式Design中掩盖未裁决变化；
+- 历史 Conformance 只保存 provenance，不能覆盖 current Blueprint/Design/readiness。
 
 默认使用中文编写 Design、Report 和代码注释。
 
 ## Surface admission
 
-新增 module、production type、public/generated API、dependency、test taxonomy、
-benchmark、script、workflow、Process 或正式文档前，必须说明：
+新增 module、production type、public/generated API、dependency、test taxonomy、benchmark、
+script、workflow、Process 或正式文档前，必须说明：
 
 1. 独立 capability 与 consumer；
 2. Owner、lifecycle 和 failure boundary；
@@ -77,33 +93,37 @@ benchmark、script、workflow、Process 或正式文档前，必须说明：
 5. 需要什么 evidence 才能成立。
 
 不要为未来可能性预建空目录、interface、abstraction、module 或 compatibility layer。
-Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须停下并请求 Product
-Owner 裁决。
+Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须停下并请求 Product Owner
+裁决。
+
+## 实施准入与推进
+
+- 未获得明确 implementation authorization 时，不创建 production source/module/public API，
+  不运行 I0；
+- 获得授权后只从 I0 开始，一次只推进一个 active slice；
+- 每个 slice 按 [Implementation Plan](project/engineering/v1-implementation-plan.md)交付
+  positive、negative、failed-state 与 Conformance evidence；
+- 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
+- reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
+- stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；
+- I0 exit 未通过前不进入 I1，documentation Gate 不替代 production Gate。
 
 ## 当前阶段验证
 
-当前是 implementation-ready、pre-implementation 阶段。文档与 repository-surface
-变更至少执行：
+当前仍是 pre-implementation 阶段。文档与 repository-surface 变更至少执行：
 
 - 使用 `rg` / `rg --files` 搜索；
 - 使用 `apply_patch` 编辑；
 - 运行 `git diff --check`；
 - 检查 Markdown 相对链接与 current route；
-- 检查每项事实的唯一 Owner 和 Blueprint↔Design↔Conformance traceability；
-- 确认 active checkout 没有 predecessor code、legacy API、build artifact 或 release
-  claim；
+- 检查每项事实的唯一 Owner 和 Blueprint↔Design↔Engineering↔Conformance traceability；
+- 确认 active checkout 没有 predecessor code、legacy API、build artifact 或 release claim；
 - 记录但不外推本机环境事实。
 
-P2 feasibility spike 已退役；其正式结论与限制由
-[P2 Conformance record](project/conformance/p2-generated-api-feasibility.md)拥有。不得
-把该 historical evidence 当成可运行 production test、完整 runtime、performance 或
-release evidence。
-
-Production surface 出现后，按
-[V1 Implementation Conformance Gates](project/conformance/v1-implementation-gates.md)
-建立相称的 compile、consumer、negative、runtime、concurrency、performance、build、
-security、packaging 和 release Gate，并按唯一
-[Implementation Plan](project/engineering/v1-implementation-plan.md)一次推进一个 slice。
+P2 feasibility spike 已退役；只有当前
+[正式晋升记录](project/conformance/large-scale-engine-formal-promotion.md)明确重新采纳的结论可
+作为 bounded input。不得把 historical evidence 当成可运行 production test、完整 runtime、
+performance 或 release evidence。
 
 ## Git
 

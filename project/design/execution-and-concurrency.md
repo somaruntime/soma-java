@@ -1,428 +1,352 @@
-# 执行、并发与并行 Design
+# SOMA Java V1 执行、并发与并行 Design
 
 类型：Design
 
-状态：Active Baseline
+状态：Active V1 Baseline
 
 正式事实源：是
 
-Owner：SOMA Java V1 pipeline lifecycle、currentness、Table admission、atomic publish、sequential/parallel execution 与 determinism
+Owner：Pipeline binding、Group operation guard、currentness、mutation publication、sequential/
+parallel scheduling、configuration、resource admission、cancellation与quiescence
 
-上游：[SOMA Java V1 产品蓝图](../blueprint/README.md)
-
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
 ## 1. 设计目标
 
-本 Design 定义一条逻辑 operation 怎样绑定 Table state、取得资源、执行 callback、
-产生结果或原子发布 mutation。它承接 BP-5、BP-6、BP-8 和 BP-9。
+SOMA对用户表现为同步、顺序语义明确的抽象机。`parallel()`只改变本次terminal内部如何分片
+执行，不改变logical result。Application明确知道同一Group外部operation严格串行；不同Group
+可由application并发。
 
-用户只看见 `stream()/parallelStream()` 与 synchronous terminal，不直接操作 runtime、
-task、lock、lease、version、staging 或 publish protocol。
+本文不拥有optimizer rewrite、storage layout或failure code表。
 
-## 2. Pipeline model
+## 2. Pipeline lifecycle
 
-```text
-Source
-    -> zero or more intermediate operations
-        -> one terminal
-            -> detached result or Table-local controlled mutation
-```
+- Table/Field/IndexSelection是reusable source；
+- intermediate linked pipeline lazy、one-shot、不能branch；
+- pipeline construction不持有StateRoot或Group guard；
+- terminal-start统一validate/consume/admit/bind/plan/execute/publish/quiesce；
+- linked pipeline对每次intermediate或terminal invocation先做argument/owner/state validation；
+  validation失败不claim尚open receiver；成功后原子claim receiver；
+- intermediate成功claim predecessor并只创建一个open child，因此同一receiver不能产生两个
+  branch；terminal成功claim后，在reentrancy/Group admission前标记consumed，随后无论busy、
+  resource、callback、execution或publish outcome都不能复用；
+- 对已claimed/consumed linked pipeline再次调用intermediate或terminal均为
+  `PIPELINE_ALREADY_CONSUMED`；Table/Field/IndexSelection reusable source不被claim，可重新构建。
 
-Pipeline 是 lazy、finite、single-source、one-shot：
+Typed expression自身的literal-only validation/snapshot在expression construction完成，不进入
+Group operation或pipeline claim；intermediate的negative limit/top等参数在claim receiver前验证。
 
-- 创建时保存 Table identity 和 operation definition，不绑定 payload state；
-- Java Stream 同形的 linked-chain：一次 successful intermediate call 把 upstream object
-  标记为 linked，并返回唯一 downstream tail；upstream 不能再 branch、terminal 或追加
-  operation；
-- tail 的第一个 terminal 在 argument/reentrancy/nested-parallel validation 后、admission
-  前原子标记整条
-  chain consumed；无论后续 terminal success/failure 都不能重用；
-- 对 linked/consumed object 再调用 intermediate/terminal 产生
-  `STREAM_ALREADY_CONSUMED`；argument validation 失败且尚未成功 link/进入 terminal 的
-  object 保持可用；
-- concurrent calls on the same Stream object are not a composition API；implementation 以
-  atomic link/consume state 保证最多一个合法调用获胜，其余稳定失败，不能形成双 terminal
-  或损坏 plan；
-- terminal 完成后不保留 iterator、live cursor、worker 或 Table lease；
-- V1 不提供 async/Future、Publisher、infinite source 或 Pipeline mode switching。
+## 3. Terminal-start binding
 
-## 3. Terminal-start late binding
+Terminal取得Group guard后，同时绑定本次operation参与的全部Table current StateRoot与
+statistics。Pipeline创建后、terminal开始前发生的合法mutation对terminal可见；terminal不
+持有历史root。
 
-Terminal admission 时才绑定 current Table state。因此 Pipeline 创建后、terminal 前
-成功发布的 mutation 对该 terminal 可见：
+一次bound operation中的root直到quiescence稳定。Join按stable Table identity绑定same Group
+多个Table；Group guard已消除同Group外部overlap，不需要跨Tablelock ordering或transaction。
 
-```java
-TransportTimeTable.Stream pipeline =
-    table.stream().filter(predicate);
+## 4. Group operation guard
 
-table.add(new TransportTime(laterPair, 18L));
+每个Group只有一个non-blocking operation guard：
 
-long count = pipeline.count();
-```
+- `size/capacity/find/get/reserve/add/update/remove`等direct/point operation，以及source terminal、
+  Join、GroupBy与Selection mutation进入时CAS acquire；
+- source/intermediate pipeline construction与generated accessor不读取bound Table state，因此不
+  acquire；四级`_metadata()`是第5节唯一state-observation exception；
+- guard已占用立即`CONCURRENT_GROUP_OPERATION`，不排队；
+- callback内再次进入same Group为`REENTRANT_GROUP_OPERATION`；
+- internal parallel worker共享caller取得的execution token，不各自acquire；
+- different Group可以并发，但global memory manager与shared ForkJoinPool必须thread-safe。
 
-Terminal 运行期间观察固定 SOMA-owned logical state：payload/reference slots、Key、
-Index、size、capacity 和 canonical order 不被其他 application operation 改变。实现
-不必复制整张 Table；固定性由 Table-local admission 保证。
+这个合同意味着SOMA不负责application external concurrency consistency。Application若要并发
+计算同一业务状态，必须使用不同Group/state copy或在SOMA外串行化。
 
-Ordinary Object referent 的内部 state 不属于该 snapshot，仍由 application 同步。
+## 5. Metadata exception
 
-## 4. Internal state version
+`Soma/Group/Table/Field._metadata()`读取最近atomic-published immutable snapshot，不取得Group
+guard：
 
-V1 baseline 使用 unified non-negative `stateVersion` 支撑 currentness：
+- 可以在operation期间看到last complete state；
+- 不会看到partial mutation；
+- multi-Table metadata不承诺cross-Table same instant；
+- metadata不freeze configuration或创建default Group。
 
-- 每个成功且实际改变 logical state 或 capacity 的 user operation 恰好递增一次；add
-  即使同时触发 capacity growth 也只递增一次，effective update/remove 与 actual-growth
-  reserve 各递增一次；
-- missing remove、logical no-op update/reserve 和 failed operation 不递增；
-- version 不进入普通 API 或 V1 metadata；
-- implementation 可以内部拆分 content/access/layout version，但不得改变用户语义。
-- version increment 使用 checked arithmetic；理论耗尽时 operation 以
-  `ARITHMETIC_OVERFLOW` zero-publication 失败。
+`_explain()`会bind/plan并取得guard，因为它依赖current roots与statistics。
 
-Next-version check 只能在 operation 已知自己会实际 publish 后、authoritative commit 前
-执行。Add/reserve 可在 effect preflight 后检查；Update 必须先完成 callback/staging 并确认
-`changed > 0`，Remove 必须先确认 final selection non-empty。于是 logical no-op 即使当前
-version 已到上限也仍正常返回且不失败；callback-dependent mutation 中，先发生的 callback
-failure 可以早于 change-dependent version overflow，但 Table 仍 zero publication。
+## 6. Currentness 与 borrowed scope
 
-不存在 public stale/currentness token 或 `CURRENTNESS_FAILURE`。Late binding、admission
-和 no-live-handle contract 已消除用户管理 stale iterator 的需要。
+View/Editor保存owner、execution token、participant/thread与callback epoch。Runtime在可检测时
+拒绝：
 
-## 5. Canonical encounter order
+- callback结束后访问；
+- wrong Table/Group/terminal；
+- foreign participant/thread；
+- terminal结束后访问。
 
-每个 terminal-start state 有一个 canonical Record order：
+Failure为`CALLBACK_SCOPE_VIOLATION`。Java 8无法检测same participant后续callback复用对象时
+保存的旧alias；该行为明确illegal/unsupported。Stable data只能`fetch()`。
 
-- whole Table 使用完整 order；
-- Index selection 是命中 Record 的 ordered subsequence；
-- Field-first 与 Record-first projection 继承来源 order；
-- `filter/select/map` 保持 order；
-- `skip/limit/findFirst` 消费 order；
-- stable `sorted` 对 comparator-equal element 保持 upstream order；
-- `distinct` 保留 first encounter value；
-- structural remove 可以确定性重排 survivors，但顺序/并行路径必须相同。
+## 7. Sequential execution
 
-Logical order 与 worker scheduling/completion order 无关。Physical array position、hash
-bucket 或 work partition 不能成为 public order。
+- 默认source/pipeline sequential；
+- callback在calling thread执行；
+- 不使用parallel pool、hidden worker或background task；
+- terminal同步完成并在返回前释放temporary lease与Group guard；
+- canonical encounter order由bound StateRoot/operation定义。
 
-## 6. Table-local admission
+## 8. Parallel public contract
 
-用户不管理 lock/lease。每个 Table 使用 fail-fast shared-read/exclusive-write admission：
-
-| Class | Operation | Admission |
-|---|---|---|
-| Read | `find/get`、Query terminal、`size/capacity`、runtime metadata snapshot | shared |
-| Write | `add/reserve`、point update/remove、selection Update/Remove | exclusive |
-
-多个 Read 可以并发；Write 与任何 active Read/Write 冲突。Conflict 立即以
-`CONCURRENT_TABLE_OPERATION` fail closed：
-
-- 不阻塞；
-- 不隐藏等待；
-- 不自动重试；
-- 不发布 partial progress。
-
-Pipeline construction 不 admission；terminal 才 admission。一次 parallel terminal
-的全部 workers 共用一次 operation admission，不能每个 worker 重新竞争。
-
-不同 Table 独立 admission；不存在 Group lock、multi-Table snapshot 或 cross-Table
-transaction。
-
-## 7. Reentrancy
-
-Callback 只能使用当前 Record/Editor/Value View，不得重入来源 Table 的 direct
-operation 或启动另一 terminal：
+Parallel必须显式：
 
 ```java
-table.stream().forEach(record -> {
-    table.add(...); // REENTRANT_TABLE_OPERATION
-});
+table.parallel()...
+field.parallel()...
+table.join(other).on(...).parallel()...
 ```
 
-当前 terminal 自己控制的 Editor/Field update 合法。Callback 可以访问另一张 Table
-的 direct operation 或 sequential terminal，但只取得目标 Table 自身 admission，
-可能独立失败，不形成 cross-Table atomicity。
+- `parallel()`表示最多P个SOMA participants，不承诺加速或一定多线程；
+- terminal仍同步；
+- result/order/numeric/failure与sequential contract等价；
+- no per-operation pool、no per-record task、no hidden parallel from sequential source；
+- `forEach`side-effect order不保证，failure前可能已有其他range side effect；
+- `forEachOrdered`的upstream可并行，但final action由calling thread按canonical order串行delivery，
+  buffer先admit，首个action failure后停止后续delivery。
 
-任何 SOMA callback 内启动 parallel terminal 或调用 `Soma.setParallelExecutor` 都禁止，
-即使目标是另一张 Table；违反时为 `NESTED_PARALLEL_OPERATION`（configuration call 的
-operation kind 为 `CONFIGURE_PARALLEL`）。这避免 shared pool starvation、resource
-amplification、global configuration interference 和 nested failure arbitration。
+Predicate/mapper/match/Comparator遵守Logical Design的non-interfering behavioral callback合同。
+含opaque callback的short-circuit segment在caller thread按canonical order运行；typed-only
+short-circuit可以由worker内部speculate，但不执行application callback，frontier外internal
+failure不成为operation failure。Editor mutation callback不short-circuit，对每个frozen selected
+membership恰好一次。Opaque Comparator-based sort/top/min/max stage也使用canonical caller-thread
+schedule；arbitrary mapped reference distinct的application `equals/hashCode`同样是caller-thread
+barrier与callback/reentrancy/provenance boundary；Comparator/equals/hashCode可由canonical algorithm
+多次调用，不承诺per-element调用次数；
+`parallel()`不承诺每个stage都并行。
 
-## 8. Table-local mutation protocol
+## 9. Executor configuration
 
-Selection Update/Remove 是 whole-selection all-or-nothing：
-
-```text
-success -> final selection becomes visible once
-failure -> zero records published
-```
-
-内部 protocol：
-
-```text
-one exclusive Write admission and terminal-start binding
-    -> invocation/state/resource preflight
-        -> freeze final selection
-            -> candidate/worker-local staging
-                -> deterministic merge
-                    -> schema/Key/Index validation
-                        -> one atomic publish
-```
-
-Worker/callback 在 publish 前不得写 authoritative payload、Key 或 Index。Pool
-rejection、callback、validation、resource 或 worker failure 丢弃 staging。Publish
-开始前必须完成所有可恢复 validation，不能产生 partial structured outcome。
-
-Point add/update/remove 遵守相同 Table-local publication boundary；多个 repeated add
-仍是多个独立 operations。
-
-## 9. Logical no-op
-
-Update 在 terminal-start logical equality 下计算 `changed`：
-
-- callback 修改后恢复原值是 no-op；
-- all controlled slots unchanged 时不 publish、不递增 stateVersion；
-- opaque Object slot 使用 reference identity；referent internal mutation 不计入；
-- Key 不参与 normal update；rekey 使用 remove + add。
-
-## 10. Sequential execution
-
-`stream()` 严格在调用线程执行 callback，不使用 SOMA parallel pool。Sequential
-callback 按 canonical encounter order 调用；`forEach` side effect 因此有确定顺序。
-
-Sequential implementation 仍必须 checked resource/arithmetic、one-shot、admission、
-staging、failure mapping 和 worker-free completion；不能把“单线程”解释为弱化
-correctness contract。
-
-## 11. Parallel configuration
-
-所有 Table、IndexSelection 和 Field 提供显式 `parallelStream()`。并行 resource 是
-ClassLoader-scoped、library-wide internal Owner，不属于 composition/Group/Table/
-Pipeline，也不形成 public `SomaExecutionRuntime`。
-
-V1 只接受 `ForkJoinPool`：
+V1只接受 application-owned `ForkJoinPool`：
 
 ```java
-ForkJoinPool somaPool = new ForkJoinPool(8);
-Soma.setParallelExecutor(somaPool);
+Soma.configure(
+    SomaConfiguration.builder()
+        .parallelExecutor(pool)
+        .memoryBudgetBytes(bytes)
+        .compression(SomaCompression.AUTO)
+        .build());
 ```
 
-所有 generated composition 的 `Soma` 入口代理到同一个 ClassLoader-wide setting。
-所有 parallel terminal 共享 effective pool；SOMA 不为每个 Stream 创建/销毁 pool。
+- 未配置pool时使用`ForkJoinPool.commonPool()`；
+- SOMA不创建、不关闭application pool；
+- 不接受generic ExecutorService、fixed/cached pool adapter或per-stream Executor；
+- 不提供独立setParallelism；effective P来自pool parallelism并受operation/chunk限制；
+- shutdown/rejection为`PARALLEL_EXECUTOR_UNAVAILABLE`，不fallback sequential或其他pool。
 
-Pool state machine：
+## 10. One-time configuration
 
-```text
-UNINITIALIZED
-    -> setParallelExecutor(custom) -> CUSTOM_FIXED
-    -> first parallel terminal reaching Executor preflight
-                                      -> COMMON_POOL_FIXED
-```
+Configuration是same ClassLoader中runtime library-wide、one-time：
 
-- custom pool 必须在第一次 parallel terminal 前设置；
-- 未设置时，第一次通过 argument/reentrancy/admission 并到达 Executor preflight 的
-  parallel terminal 固定 `ForkJoinPool.commonPool()`；更早 phase 失败不改变 configuration；
-- fixed 后重复设置同一 instance 是 idempotent no-op；
-- `null` 始终是 `INVALID_ARGUMENT`；fixed 后设置不同 instance 为
-  `PARALLEL_CONFIGURATION_CONFLICT`；
-- state transition 使用 linearizable compare-and-set；`setParallelExecutor(custom)` 与
-  首次 fallback terminal 并发时只有一个 transition 获胜：custom 获胜则 terminal 使用
-  custom，common 获胜则 setter 按 different-instance conflict 失败；不得覆盖或双重提交；
-- callback 内 configuration 仍服从 Failure phase precedence：null argument 先得到
-  `INVALID_ARGUMENT`；其他有效 pool argument 在 configuration state 前得到
-  `NESTED_PARALLEL_OPERATION`，不能因 same-instance idempotence 绕过 callback boundary；
-- V1 不支持 runtime replacement；
-- application-owned pool 由 application shutdown；SOMA 不关闭；
-- common pool 由 JVM 管理。
+- 第一次successful `Soma.configure`立即freeze；
+- 未显式configure时，第一个`createGroup/defaultGroup/Table shortcut`冻结default；
+- class loading/linking、取得`Soma.class`或执行generated `Soma`的无状态static initialization本身
+  不freeze，也不创建default Group；`Soma.configure(...)`必须能够成为该class的第一次真实调用；
+- `_metadata()`只观察、不freeze；
+- freeze后configure为`CONFIGURATION_FROZEN`；
+- all composition代理到同一runtime configuration owner；
+- builder-local invalid argument用ordinary `IllegalArgumentException`；进入Soma runtime后的
+  contract failure使用structured exception。
 
-未来 replacement 若有真实需求，必须是独立 quiescent maintenance protocol，不能把
-普通 setter 变成 hot swap。
+Public option只有ForkJoinPool、optional positive memory budget、AUTO/OFF compression。
 
-## 12. Bounded participation
+实现必须把configuration CAS与default Group/Table materialization分离（例如lazy holder或等价
+机制），不能让eager static field initialization反转上述顺序；具体holder shape不是public合同。
 
-Effective pool parallelism 记为 `P`：
+Freeze前只有`Soma._metadata()`可被调用；它报告configuration为UNFROZEN，effective budget尚不存在，
+且不为了填充数值而创建default Group或计算/冻结automatic policy。Explicit configure或first
+runtime access完成freeze后，metadata才报告稳定effective budget。Exact optional carrier由I7准入。
 
-- 一次 terminal active SOMA callback 不超过 `P`；
-- 所有 parallel callback 都在 effective pool worker 上运行；普通 external caller 只负责
-  admission/wait/merge/publish，不执行 callback；若 caller 本身已经是该 pool worker，
-  可以作为 participant，且计入 P；
-- `P == 1` 合法；
-- 小 selection 或成本模型判断不值得时可以只用一个 participant；
-- `parallelStream()` 表达“最多 P”，不承诺多线程或加速；
-- task fan-out 相对 P 有界，不为每个 Record 创建 task；
-- 不建立无界 per-terminal queue；
-- SOMA 不直接创建 worker thread，lifecycle 由 effective ForkJoinPool 管理。
+## 11. Automatic memory budget
 
-Custom pool 用于与 application 其他 CPU work 隔离。Common pool 下 SOMA 只能约束
-自身 callbacks，不能控制 pool 中其他 application task。
+未显式配置时，freeze依据stable JVM heap boundary与versioned conservative policy得到
+effective budget。Public contract：
 
-## 13. Synchronous terminal and quiescence
+- positive且不超过JVM可表达stable heap upper bound；
+- freeze后不变；
+- `_metadata()`显示effective value；
+- retained与temporary reservation共用该budget；
+- exact ratio/headroom/min/max是profile-driven internal policy；
+- 不使用`Runtime.freeMemory()`作承诺；
+- application需要确定边界时显式`memoryBudgetBytes(long)`。
 
-所有 terminal 同步完成：
+Design不固定50%或其他比例。Budget不能消除真实JVM OOME，但任何SOMA publication仍遵守
+zero-partial-state。
 
-1. admission/state binding；
-2. resource preflight；
-3. execute/cancel/merge；
-4. optional atomic publish；
-5. wait for all workers quiescent；
-6. return result or throw primary failure。
+Automatic effective budget只依赖stable JVM/ClassLoader-wide facts与runtime policy version，不依赖
+哪个composition先触发freeze，也不扫描schema。Schema/representation差异只进入后续per-operation
+conservative byte estimate。
 
-Terminal 返回或失败后不得仍有 callback 在后台运行。V1 不返回 Future，也不把
-quiescence 交给用户管理。
+## 12. Global resource admission
 
-Caller interruption 不构成 V1 cancellation API：parallel terminal 使用 uninterruptible
-quiescent join，保留/恢复 caller interrupt status 后再返回 logical result/failure。Pool 在
-terminal 期间被 application shutdown/cancel 时，operation 仍等待已提交 work quiescent；
-若全部 required work 已被接受并正常完成，随后发生的 graceful shutdown 不反向使结果
-失败。只有 shutdown/rejection/cancellation 实际阻止 required work 接受或完成时才以
-`PARALLEL_EXECUTOR_UNAVAILABLE` 结束；mutation zero publication。
+Global manager 为所有 Groups 提供 atomic retained reservation 与 temporary lease。计入：
 
-## 14. Callback contract
+- Table Chunk/directory/Key/Index/compression/statistics；
+- candidate root与mutation staging；
+- sort/hash/group/join/materialization scratch；
+- tasks/result construction peak；
+- 返回前仍由SOMA持有的detached result。
 
-Parallel callback 可以并发且 thread identity、invocation/completion order 无语义。
-Predicate、mapper、comparator、updater 和 consumer 必须：
+不计ordinary referent、application长期持有detached result、已返回并由application持有的
+expression/pipeline graph与literal snapshot、thread stack或callback allocation。
+String PLAIN input object/content body同样不做deep accounting；codec实际复制成SOMA-owned
+dictionary storage后才计入。Effective budget因此是engine-owned memory boundary，不是JVM总heap
+上限；真实OOME边界仍受application/referent分配影响。
 
-- thread-safe；
-- non-interfering；
-- 若要确定结果，对相同 input deterministic；
-- 不依赖调用次数、thread identity 或 wall-clock completion order；
-- 不让 callback-scoped Record/Editor/View 逃逸。
+Known peak在不可逆work/callback前admit：old + candidate + scratch + result。Budget不足为
+`RESOURCE_LIMIT_EXCEEDED`，无partial result/state。Representation estimate必须conservative并
+由实测校准。
 
-Comparator 还必须在 terminal 期间提供 stable、transitive、antisymmetric total order；
-Mapped `equals/hashCode` 必须满足 Java equality/hash contract。SOMA 不承诺检测所有
-contract violation；由此导致的 non-determinism 是 application defect。若这些方法直接
-抛 RuntimeException，仍按 `CALLBACK_FAILED` 处理。
+显式Group没有manual close。每个Group注册一个不反向引用Group/Table的accounting token与
+`PhantomReference`；global manager同步drain `ReferenceQueue`后exactly-once释放该Group的
+retained reservation。Drain发生在每次resource admission、configuration和global metadata
+读取入口，不启动background cleaner。Default Group按ClassLoader lifetime保留。实现必须证明
+phantom/token/global set不形成strong-retention cycle、并发drain不double release，且GC尚未投递
+queue时仍保守计费。
 
-V1 不因为 terminal 结果表面上不需要 value 而跳过 user callback-bearing stage：例如
-`map(...).count()` 仍调用 mapper，`sorted(...).count()` 仍执行 comparator/sort。Generated
-pure projection 可以 fuse，但不能以 Java Stream `count` elision 改变 callback failure
-contract。Sequential 非 short-circuit stage 对每个到达元素调用一次 predicate/mapper/
-updater；Comparator 调用次数取决于 stable sort algorithm。Parallel short-circuit 允许
-decisive frontier 之后的 bounded speculative callback，因此 application 仍不能依赖调用
-次数或 side effect。
+## 13. Bounded participation
 
-SOMA atomicity 不包含 callback 对日志、network、file 或 ordinary referent 的 external
-side effect。Parallel update callback 应只通过 Editor/Field updater 表达 Table
-change。
+Parallel terminal把canonical input划分为fixed ordinal contiguous ranges：
 
-## 15. Sequential/parallel equivalence
+- task/range count受P与Chunk数限制；
+- caller是participant，最多提交`P-1`个drainer；
+- worker从operation-local queue领取range；
+- caller参与保证从saturated same ForkJoinPool调用时仍可前进；
+- drainer在all submission成功前停在start gate；rejection不执行callback；
+- active participants不超过effective P；
+- result按range ordinal/canonical merge tree合并，不按completion race。
 
-对相同 terminal-start state 和 deterministic callback，顺序与并行必须产生相同：
+ForkJoin work stealing可用，但不能改变range ordinal、floating tree、order或failure arbitration。
 
-- logical Query result；
-- canonical order/materialization；
-- Table mutation/survivor order；
-- checked arithmetic result/overflow；
-- 非资源型 primary failure；
-- no-partial-publication guarantee。
+## 14. Nested parallel 与 reentrancy
 
-Reduction 使用与 worker completion 无关的 canonical merge plan。Parallel short
-circuit 可以 speculative evaluation，但 canonical encounter order 中的 decisive
-frontier 决定 result/failure；frontier 之后 speculative failure 不能覆盖顺序语义。
+任何SOMA callback内启动新的parallel terminal为`NESTED_PARALLEL_OPERATION`。Same-Group nested
+operation更早按reentrancy失败。Callback访问另一个Group只有application保证目标Group无overlap
+且不形成nested parallel时才合法；SOMA不提供跨Groupdeadlock协调。
 
-Numeric baseline：byte/short/int 先在 `long` 中精确累加并验证目标 `int` range；long
-使用 signed 128-bit accumulator 后验证 long range；float/double 按固定 1024-element
-canonical block 与固定 pairwise tree 归并。Sequential 和 parallel 必须执行同一 plan，
-不能按 participant 数或 completion order 改变浮点结果。Exact algorithm 由
-[Production Implementation Architecture](implementation-architecture.md)拥有。
+## 15. Mutation protocol
 
-Parallel `forEach` external side-effect order 不保证。需要 ordered side effect 时使用
-sequential `stream().forEach`；V1 不提供 `forEachOrdered`。
+### 15.1 Point add
 
-## 16. Parallel failure arbitration
+Validate carrier/Key/duplicate/resource/header -> stage payload/sidecars/compression -> complete all
+throwing work -> final non-throwing commit/root publish。
 
-Execution 中多个 worker 失败时不选择 wall-clock first：
+### 15.2 Point update
 
-- Record/Field work 选择 canonical encounter position 最早的有效 failure；
-- sort/merge 等无单一 element position 的 phase 使用固定 phase/work-unit order；
-- remaining work best-effort cancel；
-- terminal 等全部 worker quiescent 后抛一个 primary failure；
-- 不附加时序不稳定的 worker suppressed failure。
+Key lookup -> missing normal return或conservative single-record staging/candidate/sidecar/codec peak
+admission -> callback-scoped Editor stage -> validate changed leaves -> build admitted Index/compression
+candidate -> publish。Missing返回`matched=0, changed=0`、不admit、不调用callback且version不变；
+logical no-op返回`matched=1, changed=0`且version不变并释放lease。不得先执行Editor callback再因
+可预见的SOMA-owned update peak不足失败。
 
-Cross-category phase precedence 与 public mapping 由
-[结果与失败 Design](results-and-failures.md)拥有。
+### 15.3 Point remove
 
-## 17. Pool unavailable
+Missing返回0；命中后freeze locator/compaction mapping -> stage payload/sidecars -> publish。
 
-Custom pool fixed 后若 shutdown、terminating、reject 或不能完成 admission，产生
-`PARALLEL_EXECUTOR_UNAVAILABLE`：
+### 15.4 Selection update/remove
 
-- 不 fallback common pool；
-- 不静默 sequential；
-- 不自动 retry；
-- mutation zero publication。
+一次Group operation内all-or-nothing：
 
-Availability 的线性边界是 Executor preflight、每次 required task acceptance 与 task
-completion。全部 required tasks 已 accepted 并正常完成后，concurrent graceful shutdown
-不撤销成功；forceful cancellation、rejection 或缺失 completion 则失败并等待已提交 task
-quiescent。后续 terminal 观察到 fixed pool shutdown 后继续稳定失败，不能 replacement。
+1. bind/plan并依据input cardinality upper bound预留selection、callback staging、candidate、scratch
+   与result的conservative worst-case peak；
+2. evaluate pipeline并freeze final locator selection；
+3. run all mutation callbacks into already admitted staging；
+4. validate schema/Index/compression/version并完成recoverable allocation/hash；
+5. bounded non-callback commit或root swap；
+6. publish Result、quiesce、release。
 
-V1 没有 Executor timeout、deadline 或 starvation detector。Pool 仍 active 但被 application
-其他 work 长期占满时，synchronous terminal 继续等待；SOMA 不把“慢”猜成 unavailable，
-也不创建补偿 thread、inline external caller 或切换 pool。需要 CPU isolation 时由
-application 在首次 parallel 前配置专用 ForkJoinPool。
+Sequential Selection Editor callback在calling thread按frozen selection order运行；显式parallel
+时可由caller/workers处理不同range，不保证wall-clock callback/外部side-effect order。每个selected
+membership最多一次，任一failure使Table zero publication，但已经发生的application side effect
+不回滚；需要有序外部效果时不得用parallel mutation callback承载。
 
-Common pool fallback 只发生在第一次 `UNINITIALIZED -> COMMON_POOL_FIXED`。
+若opaque predicate使exact matched cardinality在callback前未知，admission使用bound input upper
+bound；允许conservative rejection，不允许先运行有副作用callback再因可预见的SOMA staging/
+candidate budget失败。Callback自己分配的application object不计入managed budget，仍由
+application负责。
 
-## 18. Resource and arithmetic boundary
+Large selection不能为减少scratch而partial batch publish；预算不足必须publish前失败。
+Implementation可用small journal或large candidate root，但共享selection/order/failure/Result。
 
-执行层对以下值使用 checked arithmetic：
+“small journal”不允许边写边验证。所有可能抛出的application code、allocation、hash/codec、
+journal capacity和sidecar decision必须先完成；exclusive final commit只执行bounded、经证明
+non-throwing的physical writes，然后一次发布新的header/statistics/accounting descriptor。
+Structural/large mutation使用独立candidate root swap。Metadata在commit window仍只读取上一次
+完整发布的header projection；普通same-Group operation被guard排除。两条路径具有同一zero-
+publication observable contract。
 
-- selection/materialization cardinality；
-- primitive integer aggregate；
-- array length、capacity growth、byte size；
-- scratch/task/work-unit sizing；
-- canonical merge offsets。
+## 16. Atomicity boundary
 
-SOMA-owned integer overflow 为 `ARITHMETIC_OVERFLOW`；已知 representation/resource
-bound 不可满足为 `RESOURCE_LIMIT_EXCEEDED`。用户 callback 中的 `Math.addExact`
-属于 callback exception，由 Failure Design 映射。Application 在调用前使用 Java `+`
-产生的 silent wrap 已丢失事实，SOMA 不猜测。
+SOMA atomicity只覆盖一次Table-local mutation及其payload/Key/Index/compression/accounting。
+它不覆盖：
 
-JVM `OutOfMemoryError` 等 `Error` 不包装成普通 structured failure，但若发生在
-publish 前仍不得留下 partial Table state。
+- multiple sequential add；
+- multiple Tables；
+- application referent mutation；
+- callback side effect；
+- external I/O/transaction/compensation。
 
-## 19. Metadata observation
+Join/Group都是query-only。Application必须在query terminal结束、guard释放后执行cross-Table
+point mutation与补偿。
 
-`Soma._metadata()` 可以只读观察 parallel backend/config state；Table metadata 可以
-作为 shared Read 获取 self-consistent size/capacity snapshot。Metadata 不能返回 raw
-pool、lock、version、task、staging 或 planner，也不能触发 lazy initialization/
-Index rebuild。
+## 17. Failure arbitration、cancellation 与 interrupt
 
-## 20. 明确排除
+- parallel worker failure按operation phase、canonical element/work-unit ordinal仲裁，不取
+  wall-clock first；
+- short-circuit只承认canonical decisive frontier内failure；
+- no nondeterministic suppressed failure API；
+- submission rejection/shutdown/cancel为`PARALLEL_EXECUTOR_UNAVAILABLE`；
+- caller interrupt触发best-effort cancel，等待quiescence，恢复interrupt flag后抛
+  `OPERATION_CANCELLED`；
+- no timeout/starvation detector；
+- any structured failure返回前worker quiescent、temporary lease释放、Group guard释放。
 
-- public Execution Runtime；
-- arbitrary Executor/ExecutorService；
-- per-Group/Table/Stream pool；
-- per-pipeline pool create/destroy；
-- `parallelStream(int/executor)`；
-- Pipeline `.parallel()`/`.sequential()`；
-- hidden parallel execution from `stream()`；
-- async terminal/Future；
-- unbounded tasks or per-Record task；
-- blocking contention、automatic retry 或 sequential fallback；
-- callback nested parallel；
-- cross-Table transaction/snapshot；
-- public lock/lease/stateVersion；
-- external side-effect rollback guarantee。
+## 18. Sequential/parallel equivalence
 
-## 21. Implementation admission Gates
+对same bound state与deterministic callback，必须相同：
 
-Production runtime 必须用 deterministic、blocking/concurrent 和 fault-injection tests
-证明：
+- selected membership与encounter order；
+- filter/map/aggregate/Group/Join result；
+- integer overflow与floating bit contract；
+- Update/Remove matched/changed/removed与published state；
+- non-resource failure code/operation/context；
+- no partial publication。
 
-- terminal late binding、one-shot 与 worker quiescence；
-- Read/Read、Read/Write、Write/Write fail-fast admission；
-- source Table reentrancy 与 cross-Table boundary；
-- selection Update/Remove whole-selection atomicity；
-- canonical order、stable sort/distinct、deterministic remove；
-- P==1、小/大 selection、bounded participation/task fan-out；
-- custom/common pool freeze、idempotence、conflict、shutdown/rejection；
-- sequential/parallel result/mutation/order/failure equivalence；
-- short-circuit decisive frontier 与 deterministic worker arbitration；
-- callback/Error/resource/overflow zero publication；
-- ordinary referent/external side-effect boundary。
+Resource availability、pool rejection与interrupt可以产生mode-specific resource failure，但不得
+伪装成不同logical result。
 
-Admission CAS、bounded range partition、candidate-root publish 与 cursor scope token 的
-production baseline 见
-[Production Implementation Architecture](implementation-architecture.md)。
+## 19. Explicit absence
+
+- blocking queue/lock acquisition；
+- concurrent same-Group reads；
+- snapshot retained across terminal；
+- arbitrary ExecutorService、per-stream pool、runtime pool replacement；
+- async/Future/timeout；
+- hidden sequential fallback、spill、background compressor；
+- cross-Table transaction或callback reentrancy；
+- manual release/close。
+
+## 20. Evidence Gate
+
+Implementation必须覆盖：
+
+- terminal-start binding与same-Group fail-fast admission；
+- Soma/Group/Table/Field metadata lock-free last-published observation；
+- View/Editor scope/currentness；
+- point/selection mutation every recoverable failure point与zero publication；
+- P=1/2/4/16、small/large selection、task/participant bound；
+- custom/common/shutdown/rejection/saturated/nested/interrupt/quiescence；
+- sequential/parallel result/order/numeric/mutation/non-resource failure equivalence，以及
+  pool/resource/interrupt mode-specific failure的stable fail-closed、quiescence与no alternate result；
+- retained/temporary accounting与peak admission；
+- explicit Group PhantomReference/ReferenceQueue accounting release、无strong retention或double
+  release；
+- auto-budget policy evidence acrossqualified heap/JVM range；
+- different-Group application concurrency与global manager safety。

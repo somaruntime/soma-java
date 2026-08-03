@@ -1,581 +1,460 @@
-# 逻辑层 API Design
+# SOMA Java V1 逻辑层 API Design
 
 类型：Design
 
-状态：Active Baseline
+状态：Active V1 Baseline
 
 正式事实源：是
 
-Owner：SOMA Java V1 generated user hierarchy、Table/Field/Stream capability、terminal、cursor/materialization 与 metadata surface
+Owner：Generated hierarchy、direct source、Table operation、pipeline capability、View、
+aggregate/Group/Join、materialization与advanced metadata/explain surface
 
-上游：[SOMA Java V1 产品蓝图](../blueprint/README.md)
-
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
 ## 1. 设计目标
 
-普通 Java 用户应通过自然、类型安全、接近 Java Stream 心智的 API 操作 SOMA Table，
-同时清楚区分 Table direct operation、Record selection、logical Field projection 和
-detached result。本 Design 承接 BP-1、BP-2、BP-4、BP-5 和 BP-8。
+用户通过一条主线完成工作：
 
-Generated API 必须用 type shape 表达合法 capability；不得生成万能 Stream 后在
-runtime 抛 `UnsupportedOperationException`。
-
-## 2. 最短普通路径
-
-```java
-TransportTimeTable transportTimes = Soma.transportTimeTable();
-
-transportTimes.add(new TransportTime(pair, 18L));
-
-Optional<TransportTime> found = transportTimes.find(pair);
-TransportTime required = transportTimes.get(pair);
-
-long count = transportTimes.stream()
-        .filter(record -> record.transportMinutes() > 30L)
-        .count();
-
-UpdateResult delayed = transportTimes.stream()
-        .filter(record -> record.transportMinutes() > 30L)
-        .update(editor ->
-            editor.transportMinutes(
-                Math.addExact(editor.transportMinutes(), 5L)));
+```text
+Soma / Group / Table / Field / Index
+    -> direct reusable source or point operation
+        -> lazy typed pipeline
+            -> terminal
+                -> detached result or Table-local atomic publication
 ```
 
-普通 lambda 自动推断 nested `Record`/`Editor`/Stream types；用户不接触 Column、row
-index、cursor、plan、transaction 或 release。
+API借鉴Java Stream naming，但source是SOMA Table/Field/Index/relation，且Selection可以更新
+authoritative Table。Physical Column、Chunk、plan、row position与Executor不进入普通API。
 
-## 3. Generated hierarchy
+Exact Java declaration由[Generated Signature](generated-api-signatures.md)拥有。
+
+## 2. Generated hierarchy
 
 ```text
 Soma
     -> SomaGroup
-        -> TransportTimeTable
-            -> machinePair
-                -> fromMachine
-                    -> value
-            -> transportMinutes
+        -> XxxTable
+            -> logical Field
+                -> nested Field
 ```
 
-| Generated shape | 用户语义 |
-|---|---|
-| `Soma` | composition 根、default Group/Table shortcut、Group factory、parallel configuration、metadata |
-| `SomaGroup` | composition 中每种 Table 的唯一 instance navigation |
-| `XxxTable` | capacity、add、optional point operation、Record source、Field、Index、metadata |
-| `XxxTable.Record` | callback-scoped read-only logical record |
-| `XxxTable.Editor` | Update callback 中的 staged logical editor |
-| `XxxTable.Stream` | finite、single-source、one-shot Record pipeline |
-| generated typed Field | Field/nested Field navigation、Field source、projection 与 metadata |
-| generated Value/Table object | stable detached application value/carrier |
-
-`table.machinePair.fromMachine.value` 代表整张 Table 上的 logical Field，不是某条
-Record 的实际值，也不是 physical array。
-
-## 4. Group 与 default Group
-
-显式 Group：
+候选普通入口已经正式化：
 
 ```java
+TransportTimeTable times = Soma.transportTimeTable();
+
 SomaGroup active = Soma.createGroup();
-SomaGroup backup = Soma.createGroup();
-
 TransportTimeTable activeTimes = active.transportTimeTable();
-MachineStateTable activeMachines = active.machineStateTable();
-TransportTimeTable backupTimes = backup.transportTimeTable();
+
+assert times == Soma.defaultGroup().transportTimeTable();
 ```
 
-Default Group：
+同一Group accessor重复调用返回同一instance；不同Group隔离。没有public Group/Table
+constructor或manual release。
+
+## 3. Direct source
+
+Table、Field与IndexSelection直接是reusable source；普通路径不提供`stream()`或
+`parallelStream()`。Sequential默认，parallel必须在source/relation pipeline入口显式选择：
 
 ```java
-TransportTimeTable first = Soma.transportTimeTable();
-TransportTimeTable second = Soma.transportTimeTable();
+long count = times
+        .filter(times.transportMinutes.gt(30L))
+        .count();
 
-assert first == second;
-assert first == Soma.defaultGroup().transportTimeTable();
+long total = times.transportMinutes
+        .filter(value -> value > 30L)
+        .sum();
+
+long parallel = times
+        .parallel()
+        .filter(times.transportMinutes.gt(30L))
+        .mapToLong(times.transportMinutes)
+        .sum();
 ```
 
-API 不包含 direct Group/Table construction、`XxxTable.create()`、default Group setter
-或 reset。不同 Group 的同型 Table/Field endpoint 不可混用；Java type system 无法
-编码 instance identity 时，execution 必须以 `INVALID_ARGUMENT` 拒绝 foreign owner。
+Source可重复使用；intermediate产生的linked pipeline lazy、one-shot，不能分叉或重复terminal。
 
-## 5. Table direct operations
+## 4. Table direct operation
 
-### 5.1 Capacity
+每张generated Table提供：
 
 ```java
-table.reserve(expectedRows);
-int size = table.size();
-int capacity = table.capacity();
+long size();
+long capacity();
+void reserve(long expectedRows);
+void add(Xxx value);
 ```
 
-`reserve` 返回 `void`，不增加 Record。V1 不提供 `trimToSize()`。
-`expectedRows < 0` 为 `INVALID_ARGUMENT`；`expectedRows <= capacity` 是 no-op。
-新 Table facade 的 `size/capacity` 均为 0；`defaultCapacity` 在第一次 positive
-`reserve/add` 时作为 initial allocation hint 生效，不在 accessor/Group creation 时隐藏
-分配 payload。
-
-### 5.2 Add
+Keyed Table额外提供：
 
 ```java
-transportTimes.add(new TransportTime(pair, 18L));
+Optional<Xxx> find(Key key);
+Xxx get(Key key);
+UpdateResult update(Key key, Consumer<? super Editor> updater);
+RemoveResult remove(Key key);
 ```
 
-`add` 返回 `void`。Operation 同步读取并校验 detached input、展开 Value、复制 leaf/
-reference slot、完成 resource/Key/Index preflight 后发布一条 Record；Table 不保存
-carrier object。Duplicate Key 产生 `DUPLICATE_KEY`，zero publication。
+合同：
 
-批量导入只使用 `reserve + repeated add`；V1 不提供 public Batch。每次 add 独立
-atomic，第 N 次失败不回滚前 N-1 次成功 Record。
+- keyless Table不生成point methods；
+- `find` missing为空；`get` missing为structured `MISSING_KEY`；
+- `add`复制carrier leaf/reference，不保存object；duplicate Key失败；
+- point update只使用Key + Editor，不接受replacement object；Key没有setter；
+- point update missing返回`matched == 0 && changed == 0`，不调用callback且不改变version；
+- point remove missing返回`removed == 0`；
+- `reserve(n <= capacity)`为no-op；negative失败；
+- capacity在Table/Group生命周期内只随growth增加；remove不隐式shrink；
+- V1无clear/trim/release/Loader/Batch。
 
-Application 可以复用 mutable detached Table object：
+Repeated add每次独立atomic；第N次失败不回滚此前成功add。高吞吐Loader只有profile触发新的
+surface admission后才可进入。
+
+## 5. Stream、Selection 与 lineage
+
+`XxxTable.Stream`表示携带Table row lineage的query pipeline，本身没有mutation terminal。
+`XxxTable.Selection`表示显式形成的Table-local row selection，并继承Stream query operation。
+
+产生Selection：
+
+- `table.selectAll()`；
+- Table/Stream的`filter/sorted/sortedBy/skip/limit/top`；
+- IndexSelection；
+- 对Selection继续执行保留lineage的operation。
+
+只有Selection生成：
 
 ```java
-TransportTime reusable = new TransportTime();
-for (InputTransportTime input : inputs) {
-    reusable.machinePair(input.machinePair());
-    reusable.transportMinutes(input.transportMinutes());
-    transportTimes.add(reusable);
-}
+UpdateResult update(Consumer<? super Editor> updater);
+RemoveResult remove();
 ```
-
-这不是 live row/object-pool contract。Immutable generated Value 不能通过 mutation
-复用。
-
-### 5.3 Point query
-
-只有 keyed Table 生成：
 
 ```java
-Optional<TransportTime> found = transportTimes.find(pair);
-TransportTime required = transportTimes.get(pair);
+table.filter(...).update(...);       // legal
+table.byMachineId(id).remove();      // legal
+table.selectAll().remove();          // legal and explicit
+
+table.remove();                      // absent
+table.map(...).update(...);          // absent
+table.field.remove();                // absent
+table.join(other).on(...).remove();  // absent
 ```
 
-`find` 以 `Optional.empty()` 表达 absence；`get` missing 为 `MISSING_KEY`。两者返回
-detached object，`get` 不插入 zero-value Record。
+`selectAll()`是optimizer-visible logical node，不创建恒真callback。Filter/order/slice operation
+只选择或重排同一Table的row identity，因此保留mutation lineage；`map`、Field projection、Join、
+Group与materialization终止mutation lineage。
 
-### 5.4 Point update
+## 6. View、Editor 与 Value View
+
+Table callback使用borrowed `XxxTable.View`；mutation callback使用`Editor`。完整Value Field
+callback使用borrowed `V.View`。
+
+- View/Editor保存owner、execution token、participant/thread与callback epoch；
+- callback结束、foreign Table/Group/thread或terminal结束后访问为
+  `CALLBACK_SCOPE_VIOLATION`；
+- sequential每participant复用O(1)个View，parallel总量O(P)；
+- Java 8不能保证检测同participant后续callback中的旧alias；该alias escape明确unsupported；
+- 稳定保存必须`fetch()`为detached application object；
+- View identity/equality不是row identity；application不得保存、返回或跨线程使用。
+
+Runtime直接拒绝mapper返回值本身是View/Value.View/JoinPair；它不反射或深扫描application
+container、lambda closure或ordinary Object graph。把borrowed value嵌入这些对象同样违反合同，
+后续可检测访问为`CALLBACK_SCOPE_VIOLATION`；唯一稳定路径仍是callback内`fetch()`。
+
+Editor只公开当前staged value与non-Key setter；validation/publish完成前不改变Table。
+
+## 7. Field endpoint
+
+Nested logical endpoint全部保留：
 
 ```java
-UpdateResult result =
-    transportTimes.update(new TransportTime(pair, 24L));
+times.machinePair
+times.machinePair.fromMachine
+times.machinePair.fromMachine.value
 ```
 
-- replacement Key 定位 existing Record；
-- missing 为 `MISSING_KEY`，不 upsert；
-- Key 不修改；全部非-Key Field 构成一次 Table-local atomic replacement；
-- point no-op 返回 `matched() == 1 && changed() == 0`；
-- real replacement 返回 `1/1`。
+完整Value与leaf endpoint都是logical Field，不是physical Column。Field直接是query source，
+没有update/remove terminal。
 
-不提供 `transportTimes.find(pair).update(...)`；`find` 是标准 Optional，控制流由
-application 显式表达。
+Field-first从whole Table domain开始；Selection-first projection继承已有Selection。二者lowering到
+同一logical Field access，不复制数据。
 
-### 5.5 Point remove
+## 8. Field 与 Relation expression
+
+Field比较产生immutable typed expression：
+
+```text
+eq / ne
+lt / le / gt / ge
+between / in
+isNull / isNotNull
+and / or / not
+asc / desc
+```
+
+Capability由type决定：nullable reference才有`isNull`，natural-order Field才有order/
+between/asc/desc，intrinsic-equality Field才有in/distinct。Ordinary Object只有null test与
+callback/Comparator。
+
+只依赖literal的argument validation在expression construction立即执行：null `eq/ne`、逆
+`between`、null varargs/element等直接以QUERY/`INVALID_ARGUMENT`失败，不freeze configuration、
+不取得Group guard。`in(...)`复制并按正式equality去重literal array，使expression不受调用方随后
+修改原array影响；空array形成immutable constant FALSE。Owner/dependency/current-state/resource
+validation仍在pipeline composition或terminal相应阶段完成。
+
+Expression/pipeline node及成功返回时已包含的literal snapshot是application-retained detached Java
+object，不属于Group retained或terminal temporary lease；clone/normalize前仍必须检查array
+length/byte arithmetic，失败不发布任何Table state，真实OOME按JVM `Error`边界传播。Terminal为
+Index/hash/scan形成的operation scratch另行进入managed budget。`in`只作为finite literal
+convenience；大规模动态membership应建普通Table + Index/Equality Join，不能用超大literal
+绕过relation/resource模型。
 
 ```java
-RemoveResult result = transportTimes.remove(pair);
+pipeline.filter(table.enabled.eq(true));        // typed IR
+pipeline.filter(view -> applicationCheck(view)); // opaque callback
 ```
 
-Missing 是 normal no-op：`removed() == 0`；命中并成功删除为 `1`。Keyless Table 不
-生成 point API，也不使用 physical row index 替代。
-
-### 5.6 Clear absence
-
-所有 Table 都不生成 direct `clear()`。清空的 canonical 表达是：
+连续typed filter是顶层AND canonical style：
 
 ```java
-table.stream().remove();
+.filter(A)
+.filter(B)
 ```
 
-执行层可以识别 whole-Table selection 并优化，但不能增加第二套同义 API。
+`A.and(B)`用于括号/复杂表达式；`or/not`保留。`eq(null)`无效；null selection使用
+`isNull()`。Typed expression可重排；callback是optimization barrier。
 
-## 6. Stream sources
+Behavioral callback contract借鉴Java Stream：predicate、mapper、match callback、Comparator与
+arbitrary mapped reference `equals/hashCode`必须non-interfering，并且其结果只由参数与application
+稳定事实决定；Comparator还必须满足一致的total-order contract，equals/hashCode必须满足Java
+equivalence/hash consistency。Full-traversal parallel stage不保证这些callback的wall-clock顺序；含opaque
+callback的short-circuit segment则按canonical caller-thread schedule执行，不进行application
+callback speculation。所有opaque Comparator-based sort/top/min/max也使用canonical caller-thread
+schedule。显式side effect使用`forEach/forEachOrdered`；
+Table state修改只使用Editor mutation terminal。违反non-interference时，logical equivalence不受
+支持，但任何已发生的Table publication仍必须遵守zero-partial-state。
 
-### 6.1 Whole Table
+边界语义：
+
+- `between(lower, upper)`两端inclusive；`lower > upper`为`INVALID_ARGUMENT`；
+- primitive/reference `in()`的空参数匹配nothing；重复literal按集合语义去重，不改变order；
+- nullable reference的`in(...)`不接受null element，null selection仍只用`isNull()`；
+- nullable natural-order Field的ascending order是null-first，descending是null-last；
+- `field.asc().then(other.asc())`形成lexicographic tie-break，owner必须属于同一row/relation
+  element；
+- empty stream的`anyMatch=false`、`allMatch=true`、`noneMatch=true`，与Java Stream一致。
+
+## 9. Query operation set
+
+Formal naming：
+
+```text
+filter
+map / mapToInt / mapToLong / mapToDouble
+distinct
+sorted / sortedBy
+skip / limit / top
+count / anyMatch / allMatch / noneMatch / findFirst
+min / max / sum / average / summaryStatistics
+forEach / forEachOrdered
+toList / toArray
+groupBy
+join / crossJoin
+```
+
+Rules：
+
+- Table source无`distinct()`；每条published membership独立；需要value distinct先Field/map；
+- `filter/map`保序，`distinct`保留first encounter，`sorted`stable；
+- mapped reference `distinct`按`Objects.equals/hashCode`，包括至多保留一个null；
+- arbitrary mapped reference `distinct`的application `equals/hashCode`按canonical caller-thread
+  encounter schedule调用，并作为完整callback boundary适用non-interference、reentrancy、failure
+  wrapping与provenance；schema-known String/Enum/Value distinct才可使用specialized parallel path；
+- `skip/limit/top`使用long；negative为`INVALID_ARGUMENT`；
+- `skip(n)`丢弃前`min(n,count)`个，`limit(n)`保留前`min(n,count)`个；`n==0`分别为identity/
+  empty；
+- `top(n, order)`语义等价于stable `sortedBy(order).limit(n)`；`n==0`为空，`n>=count`返回全部
+  stable-sorted membership；optimizer可以使用bounded heap但必须保持该语义与failure schedule；
+- `findFirst/min/max`tie取canonical first；业务依赖first必须显式sort；
+- sequential `forEach`按encounter order；parallel `forEach`不保证side-effect order；
+- parallel `forEach`的action可在caller/workers执行；某个action失败时，已经开始的其他range可能已
+  产生外部side effect，SOMA只cancel/quiesce而不声称回滚；
+- `forEachOrdered`把final action固定在calling thread按encounter order串行交付；上游可并行，
+  buffer/merge peak先admit；ordinal k action失败后不再向k之后交付；
+- predicate、mapper、match与forEach这类element callback对每次logical element/stage invocation
+  至多调用一次；successful full traversal对每个到达该stage的element恰好一次，short-circuit或
+  failure只覆盖其canonical reached prefix；
+- Comparator以及arbitrary mapped reference distinct触发的application `equals/hashCode`是
+  comparison/hash callback，不适用“每element一次”；它们可以按canonical algorithm多次调用，
+  application不得依赖调用次数或把副作用写入其中；
+- 含behavioral callback的short-circuit segment在caller thread按canonical order运行；typed-only
+  short-circuit可以内部speculate，但不执行application callback；
+- `peek`不存在；diagnostic使用`_explain()`，side effect使用terminal；
+- generic `reduce/collect/flatMap`、window、approximate、prepared query不存在。
+
+Capability matrix：
+
+| Capability | Table/Selection | Field | Mapped | Join | Group result |
+|---|---|---|---|---|---|
+| filter/map/mapTo* | 是 | 是 | 是 | 是 | 否 |
+| distinct | membership缺席 | eligible | 是 | Pair缺席；projection后 | 否 |
+| sort/skip/limit/top | 是 | eligible | eligible | projection后 | 否 |
+| scalar/match | 是 | 是 | 是 | count/match；无findFirst | aggregate决定 |
+| materialize | 是 | 是 | 是 | projection后 | 是 |
+| update/remove | Selection only | 否 | 否 | 否 | 否 |
+| groupBy | Table/Selection | 否 | 否 | 否 | terminal |
+| join | Table only | 否 | 否 | binary only | 否 |
+
+Join Pair是borrowed callback carrier，因此不直接排序、截断、`findFirst`或materialize；先用
+`map/mapTo*/select`形成detached element，再使用Mapped/primitive stream能力。
+
+## 10. Numeric contract
+
+- byte/short/int sum返回checked long；long sum返回checked long；
+- integer accumulator只按最终result range判断overflow；long使用signed 128-bit two-limb；
+- float/double sum与average返回double；
+- sequential/parallel使用相同canonical 1024-element block + pairwise strictfp tree；
+- integer overflow为`ARITHMETIC_OVERFLOW`；callback `Math.addExact`为`CALLBACK_FAILED`；
+- floating遵循Java IEEE-754：NaN/Infinity是normal numeric value，aggregate overflow可产生signed
+  Infinity而不是`ARITHMETIC_OVERFLOW`；min/max/order使用`Float.compare/Double.compare` total
+  order，不使用会改变NaN语义的`Math.min/max`；
+- summary至少包含long count、typed min/max、sum与double average。
+
+## 11. Materialization
+
+所有materialized result detached，不保留pipeline、View、row position或backing storage。
+
+- Table/Selection `toArray()`返回generated detached `Xxx[]`；
+- schema-known reference Field `toArray()`返回typed reference array；
+- primitive Field/mapped stream返回primitive array；
+- arbitrary reference `MappedStream<R>`提供`toList()`与`<A> A[] toArray(Class<A>)`；
+- reference mapped stream没有no-arg `Object[] toArray()`或array-factory overload；
+- ordinary无budget `toList()/toArray()`保留；若结果超过Java container/array或managed budget，
+  分配前`RESOURCE_LIMIT_EXCEEDED`。
+
+`toList()`返回新的、application-owned、structurally modifiable container。Table/Value element
+已经detached；ordinary Object reference保持原referent identity，不做deep copy；String只保证
+content equality，dictionary可改变reference identity；Enum保持constant identity。修改container
+或detached element不改变SOMA state。
+
+Reference mapped value可null。若`findFirst/min/max`最终selected reference为null，因为Java 8
+`Optional`不能表达nullable present，返回`NULL_VALUE_UNSUPPORTED`。
+
+## 12. GroupBy
 
 ```java
-transportTimes.stream();
-transportTimes.parallelStream();
+GroupedLongResult<MachineId> totals = times
+        .groupBy(times.machinePair.fromMachine)
+        .sum(times.transportMinutes);
 ```
 
-Whole Table 从完整 Record domain 开始。
+- group key必须是keyable Field；nullable String/Enum key的null形成正常group；float/double及包含
+  float/double leaf的Value虽有明确filter/distinct equality，但不是Group key；
+- group order是key在bound snapshot首次出现order；
+- 一个terminal只产生一个aggregate；无dynamic multi-aggregate varargs；
+- terminal为`count`及numeric Field的`sum/min/max/average/summaryStatistics`；
+- result detached、typed、read-only，不返回`Map<Object,Object>`；
+- reference key使用typed Grouped result；primitive key有specialized family与unboxed consumer；
+- `toList/toArray`返回typed Entry carrier。
 
-### 6.2 Index selection
+## 13. Equality Join
 
 ```java
-machineEvents.byMachineId(machineId).stream();
-machineEvents.byMachineId(machineId).parallelStream();
+times.join(states)
+        .on(times.machinePair.fromMachine, states.machineId)
+        .inner()
+        .filter(states.enabled.eq(true));
 ```
 
-`by<FieldName>` 返回 generated Table-local `IndexSelection`。它只提供 `stream()` 和
-`parallelStream()`，不直接复制 `filter/count/update/remove` terminal。Index 值可
-重复，selection 为 `0..N` ordered Record subset。
+- `on(leftField,rightField)`默认Inner；`.and(...)`增加equality component；
+- kind：Inner/Left/Full/Semi/Anti；无Right convenience，交换左右使用Left；
+- only same composition、different generated Table type生成overload；runtime只允许same Group；
+- V1没有relation alias或self-Join/self-Cross；同一Group每种Table type只有一个instance，不能用
+  同type的隐式左右角色制造歧义；
+- equality component支持boolean/byte/short/char/int/long、String、Enum与recursively keyable
+  Value；float/double及包含float/double leaf的Value不进入Join；null永不match；
+- “null永不match”指整个nullable String/Enum Field value为null；outer non-null Value仍按完整
+  structural equality比较，其中允许的reference leaf null是Value内容的一部分；
+- Ordinary Object Field在Java type层不是equality endpoint，不能作为GroupBy key、Join
+  component、Key或Index；
+- repeated value产生完整Cartesian matches，不去重；
+- Inner/Left按left order，同一left的right match按right order；Full再输出unmatched right；
+- Semi对存在至少一个right match的每个left membership恰好输出一次；Anti对不存在任何right
+  match的每个left membership恰好输出一次；两者保持left order，right duplicate不放大left；
+  nullable Join component因null永不match而使该left进入Anti而非Semi；
+- Semi/Anti返回左侧query-only `ReadStream`，无Pair/missing/mutation capability；
+- Inner/Left/Full callback接收borrowed `JoinPair<L,R>`，通过`hasLeft/hasRight/left/right`；
+- missing side accessor为`MISSING_RELATION_SIDE`；
+- Pair不能materialize；先map/select成detached value/Tuple；
+- `select(leftField,rightField)`只存在于Inner/Cross matched stream；Outer必须先用callback与
+  `hasLeft/hasRight`形成显式missing representation；
+- Join result不继续join；V1没有multi-way/range/as-of/interval/arbitrary non-equality Join。
 
-`IndexSelection` 是 immutable、reusable source descriptor，不是 one-shot Pipeline；它
-保存 typed exact-match value 和 Table owner，每次 `stream()/parallelStream()` 创建新的
-linked-chain Pipeline，并在 terminal-start late-bind current Index state。构造 selection
-不取得 Table admission，也不缓存 record slots/live cursor。
+Join filter沿用typed `filter`，不增加`filterLeft/filterRight`。Optimizer负责安全pushdown与
+Index substitution；callback永不下推。Outer missing使用TRUE/FALSE/MISSING relation truth，
+filter只保留TRUE；missing不是Field null。
 
-Key 不生成 `byKey(key).stream()`。Point query/update/remove 只使用 Table direct API；
-Key logical Field 仍可以只读 stream/project。
+## 14. Cross Join
 
-### 6.3 Field-first 与 Record-first
-
-以下两个入口同时生成，并 lowering 为同一个 canonical Field plan：
+Cross必须显式并携带hard result budget：
 
 ```java
-table.transportMinutes.stream();
-
-table.stream()
-    .select(table.transportMinutes);
+table.crossJoin(other, maxOutputRows);
 ```
 
-Field-first 固定 whole-Table Record domain；Record-first 继承已有 selection。两者必须
-保持相同 Field identity、owner、encounter order 和 currentness。
+Missing condition不能隐式Cross。Checked product超过budget/long/resource时在callback/
+materialization前失败。
 
-Nested Field 同样可用：
+## 15. Metadata 与 Explain
 
-```java
-table.machinePair.stream();
-table.machinePair.fromMachine.stream();
-table.machinePair.fromMachine.value.stream();
-```
+`_`表示semi-hidden advanced/debug surface。
 
-Projection endpoint 必须属于来源 Stream 的同一 Table instance；foreign Group/Table
-endpoint fail closed。
+`Soma / SomaGroup / Table / Field`四级都提供`_metadata()`；`_`表示它是面向高级用户和调试的
+semi-hidden surface，不是普通业务路径。Field层级覆盖完整Value Field及每个nested logical
+Field endpoint，不覆盖physical Column。
 
-### 6.4 Relation Table
+`_metadata()`返回immutable detached snapshot，只固定信息类别：
 
-Relation Table 没有专用 navigation/source：
+- composition/schema与logical Table/Field/Key/Index；
+- configuration freeze、effective memory budget、AUTO/OFF；
+- Table size/capacity/managed-byte estimate；
+- Table/Field的plain-equivalent payload estimate、current payload representation bytes、savings与
+  是否存在encoded representation；
+- Group default identity、global retained/temporary bytes。
 
-```java
-JobOperationTable operations = group.jobOperationTable();
-JobMachineEligibilityTable eligibilities = group.jobMachineEligibilityTable();
+Field metadata至少稳定表达logical path、logical type/nullability、Key/Index role与可用能力类别；
+完整/nested Field可以聚合或投影上述compression summary，但不得返回flattened leaf编号、array、
+codec name/token、per-Chunk layout或mutable runtime handle。Plain-equivalent只估算SOMA-owned
+payload representation，不包含ordinary referent body。Exact carrier/getter topology仍按下述I7
+evidence admission固定。
 
-operations.byJobId(jobId).stream();
-eligibilities.byJobId(jobId).stream();
-eligibilities.byMachineId(machineId).stream();
-```
+Freeze前的global metadata明确表达UNFROZEN，effective budget为absent；读取它不计算policy、
+freeze configuration或创建default Group。Exact absence carrier在I7经consumer evidence固定。
 
-不生成 owner-scoped child Table accessor，也不通过 detached entity object 导航 live
-state。
+Exact carrier在implementation阶段经Java 8 consumer与compatibility evidence固定。Metadata不返回
+raw Executor、Chunk、array、address、Class/reflection或mutable statistics。
 
-## 7. Stream kinds 与 capability narrowing
+`_explain()`是消费one-shot pipeline的diagnostic terminal，取得Group guard并完成planning，
+但不运行callback/data kernel；返回human-readable text，展示logical stages、predicate
+dependency、pushdown/residual、callback barrier、Index/Join/codec choice、order与peak estimate。
+Text不稳定，application不得parse驱动业务。
 
-| Stream kind | 保留的 SOMA identity/lineage | Query | Update | Remove |
-|---|---|---:|---:|---:|
-| Record | Record membership | 是 | 是 | 是 |
-| Field | logical Field slot 与 source Record | 是 | 非 Key root | 否 |
-| Mapped | 无 live identity | 是 | 否 | 否 |
+## 16. Explicit absence
 
-Intermediate operation：
+API不包含：direct clear/trim/release、Batch/Loader、Field remove、Mapped mutation、Table
+distinct、Pair materialization、Right/multi-way/non-equality Join、generic reduce/collect/flatMap、
+peek、async/Future、per-stream Executor、public Column/Chunk/row identity、runtime schema或
+compatibility alias。
 
-| 输入 | Operation | 输出 | Query | Update | Remove |
-|---|---|---|---:|---:|---:|
-| Record | `filter/sorted/skip/limit` | Record | 是 | 是 | 是 |
-| Record | `select(field)` | Field | 是 | 按 Field root role | 否 |
-| Record | `map/mapToInt/mapToLong/mapToDouble` | Mapped | 是 | 否 | 否 |
-| Field | `filter/sorted/skip/limit` | Field | 是 | 保持原能力 | 否 |
-| Field | `distinct` | Mapped value | 是 | 否 | 否 |
-| reference/Value Field | `map/mapToInt/mapToLong/mapToDouble` | Mapped | 是 | 否 | 否 |
-| primitive Field | `map/mapToObj/mapToXxx` | Mapped | 是 | 否 | 否 |
-| Mapped | `filter/sorted/distinct/skip/limit/map/mapToXxx` | Mapped | 是 | 否 | 否 |
+## 17. Evidence Gate
 
-`select(field)` 是 typed logical projection，不是 `map(Function)` 的别名。它保留 Field
-slot lineage，丢弃 Record removal capability。
+Implementation必须证明：
 
-Record Stream 不提供 `distinct()`；Record membership 本身不重复，按 payload 合并会
-让 equality 与后续 mutation membership 含混。Field `distinct()` 只对具有 intrinsic
-distinct 的 type 生成，并立刻变成 query-only Mapped Stream。
-
-Key root 及全部 nested Fields 永远 read-only；它们的 generated Stream 不包含
-`update()`。普通 `@SomaField`/`@SomaIndex` 在 lineage 未被 distinct/map 破坏时可以
-Field update。
-
-## 8. Record、Editor 与 Value View
-
-### 8.1 Record/Editor cursor
-
-`Table.Record` 是 callback-scoped read-only cursor；`Table.Editor extends Record` 是
-Update callback 的 staged-mutation cursor。
-
-- sequential terminal 复用常数个 cursor/View；
-- parallel terminal 每个 active participant 使用常数个，总量 O(P)；
-- 不得跨 callback、terminal、Table、thread/participant 或 execution 使用；
-- 不得从 mapper 返回、保存为业务对象或用 identity/equality 表达 Record；
-- 当前 callback dynamic scope 内同步 helper 使用合法；
-- 需要 stable object 时调用 `fetch()`。
-
-`Record.fetch()` 返回当前 Record 的 detached generated Table object；`Editor.fetch()`
-返回包含当前 staged modifications 的 detached candidate，不触发 publish。
-
-Runtime 必须检测 callback/terminal 已结束、foreign Table/thread/participant/execution、
-inactive cursor 和可识别 direct mapper-result escape，并以
-`CALLBACK_SCOPE_VIOLATION` fail closed。
-
-Java 8 无法区分同 execution、同 participant 中同一 reusable object 的旧 alias。保存
-旧引用并在后续 callback 使用属于非法 stateful/interfering callback，不承诺检测；
-需要保存数据只能 `fetch()`。SOMA 不虚构 Java borrow checker。
-
-### 8.2 Flattened Value View
-
-完整 Value Field callback 不按 Record materialize immutable Value。Generated shape
-分离 reusable callback `V.View` 与 detached Value `V`：
-
-```java
-table.machinePair.stream().forEach(view -> {
-    long from = view.fromMachine().value();
-    MachinePairKey stable = view.fetch();
-    consume(from, stable);
-});
-```
-
-- `filter/map/forEach` 接收 `V.View`；
-- `findFirst/toList/toArray` 返回 stable `V`；
-- `V.View.fetch()` 只在当前 callback 内调用并显式 materialize；
-- mutable Value Field update 使用 `Function<V.View,V>`；
-- nested Record navigation 和 View getter 直接访问 flattened leaves。
-
-不得退回 generic `ValueFieldStream<V>` 并隐藏 O(N) DTO allocation。
-
-## 9. Mapped Stream
-
-`map(Function)` 是 lazy、one-to-one、stateless reference mapping；primitive 使用
-`mapToInt/mapToLong/mapToDouble`：
-
-```java
-String[] routes = table.stream()
-        .map(record -> calculateRoute(record))
-        .toArray(String.class);
-
-long[] ids = table.stream()
-        .mapToLong(record -> record.machinePair().fromMachine().value())
-        .distinct()
-        .toArray();
-```
-
-任何 map 产生 detached value，终止 Record/Field identity 与 mutation lineage。
-Reference mapper 可以返回 null；`filter/count/forEach/toList/toArray/distinct` 能处理
-null，explicit Comparator `sorted/min/max` 如何比较 null 由 application comparator
-决定。任何 reference `findFirst/min/max` 的 logical selected result 为 null 时产生
-`NULL_VALUE_UNSUPPORTED`，因为 V1 不引入 nullable Optional；`sorted/toList/toArray`
-仍可包含 null。Arbitrary mapped reference 不提供 no-arg natural order。
-
-Mapped reference `distinct` 使用 Java `equals/hashCode`，primitive distinct 使用
-primitive value。Application 必须保证 mapped object 在 terminal 期间的
-equality/hash/order non-interfering。
-
-## 10. Query terminals
-
-| Terminal family | Record | Field | Mapped |
-|---|---:|---:|---:|
-| `count`、`anyMatch/allMatch/noneMatch`、`findFirst`、`forEach` | 是 | 是 | 是 |
-| `toList` / legal typed `toArray` | 是 | 是 | 是 |
-| type-eligible `sum/average/min/max` | 否 | 是 | 是 |
-| explicit Comparator `min/max` | 是 | 是 | 是 |
-
-V1 只保留 `findFirst`，不提供 `getFirst`。Empty selection 使用对应 Optional shape；
-Record `findFirst` 返回 detached Table object。`min/max` 对 comparator/natural-order equal
-values 返回 canonical encounter order 中第一个，顺序/并行一致。
-
-`parallelStream().forEach` callback side-effect order 不保证；严格 encounter order 使用
-`stream().forEach`。V1 不提供 `forEachOrdered`。
-
-## 11. Materialization 与 arrays
-
-所有 terminal result detached；没有结果保留 Stream、Record、row position 或 backing
-storage。
-
-| Stream | V1 array API |
-|---|---|
-| Record | 无参 `Xxx[] toArray()`，返回 detached Table object array |
-| runtime-reifiable typed reference Field | 无参 typed `toArray()` |
-| primitive Field/Mapped | 无参 primitive `toArray()` |
-| arbitrary reference `MappedStream<R>` | `<A> A[] toArray(Class<A> componentType)` |
-| parameterized reference Field，例如 `List<String>` | `toList()`；不提供伪 typed array |
-
-Reference Mapped Stream 不提供无参 `Object[] toArray()`、
-`toArray(IntFunction<A[]>)` 或 `map(Class, Function)`。`toArray(Class<A>)`：
-
-- 允许 exact type、父类型和 `Object.class`；
-- empty/all-null 仍返回正确 JVM component type；
-- null element 可进入 reference array；
-- null/primitive component type 或 incompatible non-null value 为 `INVALID_ARGUMENT`；
-- 不泄漏 `ClassCastException`/`ArrayStoreException`；
-- 只用 `Array.newInstance` 分配，不做 schema/object reflection；
-- 顺序/并行结果 type、content 和 encounter order 等价。
-
-普通 API 只提供无预算 `toList()`/`toArray()`；需要业务上限时 pipeline 使用
-`limit(n)`。Implementation 必须 checked cardinality、array length、growth 和 byte
-arithmetic；representation boundary 为 `RESOURCE_LIMIT_EXCEEDED`。真实 OOME 保持 JVM
-`OutOfMemoryError`。
-
-Primitive `toList()` 只在 terminal result boundary 显式 boxing，不能把 boxing 提前
-到 scan/filter/map/aggregate hot path。
-
-## 12. Update terminal
-
-Record update：
-
-```java
-UpdateResult result = table.stream()
-        .filter(record -> record.transportMinutes() > 0L)
-        .update(editor -> {
-            long updated = Math.addExact(editor.transportMinutes(), delay);
-            editor.transportMinutes(updated);
-        });
-```
-
-Field update：
-
-```java
-UpdateResult result = table.stream()
-        .filter(record -> predicate(record))
-        .select(table.transportMinutes)
-        .update(value -> Math.addExact(value, delay));
-```
-
-两者 lowering 到 Table-local staged mutation。Key Field 没有 updater；callback 不
-直接写 authoritative storage。`matched()` 是 selection size，`changed()` 是至少一个
-受控 slot 按 logical equality 真正变化的 Record 数；`0 <= changed <= matched`。
-
-Logical no-op 不 publish，也不递增 internal version。Opaque Object slot 使用
-reference identity 判断 changed；referent 内部 mutation不属于 Table change。
-
-## 13. Remove terminal
-
-只有 Record Stream 可以删除 Record：
-
-```java
-RemoveResult result = table.stream()
-        .filter(record -> record.transportMinutes() <= 0L)
-        .remove();
-```
-
-Field Stream 不提供 `remove()`/`removeRows()`；Field 管理值的 query/update，不拥有
-Record membership。按 Field 条件删除时，从 Table/Index Record source 开始并使用
-Record predicate。
-
-## 14. Metadata namespace
-
-Soma、Group、Table 和 Field 都提供 advanced public `_metadata()`：
-
-```java
-Soma._metadata();
-group._metadata();
-table._metadata();
-table.machinePair.fromMachine.value._metadata();
-```
-
-前导 `_` 是“非日常业务入口”的视觉标记，不是 access control、experimental 或
-unstable。Generated `_` namespace 由 SOMA 保留；V1 当前只使用 `_metadata()`。
-
-Minimum information contract：
-
-| Entry | Schema/identity information | Runtime information |
-|---|---|---|
-| Soma | composition identity、Table schema enumeration | parallel backend/config state snapshot |
-| Group | composition、是否 default | 无 |
-| Table | declaration/object/Table identity、Field tree、optional Key、Index Fields、default capacity | immutable `size/capacity` snapshot |
-| Field | local name、logical path、declared logical type、role、nullability、nested Fields | 无 |
-
-Metadata 是 stable、read-only facade/snapshot：
-
-- schema metadata 可以 immutable/cache；runtime metadata 是一次自洽观察；
-- Table metadata 同一 snapshot 中的 `size/capacity` 必须自洽；`size` 与 direct
-  `table.size()` 表达同一事实，不另起 `rows/rowCount`；
-- observation side-effect free，不创建 Table、lazy initialize、rebuild Index 或保留
-  可 GC object；
-- Soma metadata 不返回、替换或关闭 raw ForkJoinPool；
-- 不暴露 physical Column/ordinal、row/cursor/array、mutable runtime、planner、
-  `stateVersion`、exact retained heap、`retainedBytes`、`estimated owned storage` 或
-  Index statistics；
-- 当前不提供 schema/API version、schema fingerprint 或 generated Index accessor
-  name；
-- 各层不为了形式对称强制生成空 `schema()`/`runtime()` facade。
-
-若未来 profiling/tooling 证明需要 owned-storage estimate，必须另行定义是否包含
-array header、reference slot 与 shared referent；不能把 Java Object graph/GC 行为包装
-成 exact retained-memory promise。
-
-Exact carrier、enum、path representation 与 snapshot method 由
-[Generated Java API Signature Design](generated-api-signatures.md)固定；实现不能自行
-改名、增加 carrier 或扩张 public runtime surface。
-
-## 15. API absence contract
-
-Generated surface 不包含：
-
-- `XxxTable.create()`、public Group/Table constructor、default Group setter/reset；
-- `AddResult`、direct `clear()`、`trimToSize()`、public Batch；
-- keyless point API、`byKey` selection、rekey；
-- `@SomaUnique`/secondary unique；
-- Field remove、Mapped update/remove、Record distinct；
-- `getFirst`、`findAny`、`unordered`、`forEachOrdered`；
-- `peek`、generic `flatMap`、join、concat/union、Collector、`generate/iterate`、
-  async/Future/infinite source；
-- Pipeline `.parallel()`/`.sequential()`、per-Stream pool/parallelism overload；
-- public Column、row identity、cursor construction或 live Record result；
-- mapped noarg Object array、array-factory overload、`TypeToken` container；
-- runtime `UNSUPPORTED_OPERATION` 代替 compile-time absence。
-
-## 16. Complete reference journey
-
-```java
-SomaGroup group = Soma.createGroup();
-TransportTimeTable times = group.transportTimeTable();
-
-times.reserve(4096);
-for (InputTransportTime input : inputs) {
-    times.add(new TransportTime(
-            input.machinePair(),
-            input.transportMinutes()));
-}
-
-TransportTime current = times.get(pair);
-Optional<TransportTime> maybe = times.find(optionalPair);
-
-UpdateResult replaced = times.update(new TransportTime(pair, 24L));
-
-OptionalLong shortest = times.stream()
-        .filter(record ->
-            record.machinePair().fromMachine().value()
-                == fromMachine.value())
-        .select(times.transportMinutes)
-        .min();
-
-UpdateResult delayed = times.stream()
-        .filter(record ->
-            record.machinePair().fromMachine().value()
-                == fromMachine.value())
-        .select(times.transportMinutes)
-        .update(minutes -> Math.addExact(minutes, disruptionDelay));
-
-RemoveResult removed = times.stream()
-        .filter(record -> record.transportMinutes() <= 0L)
-        .remove();
-```
-
-Cross-Table composition remains ordinary Java control flow; each operation keeps its own Table
-admission and atomicity.
-
-## 17. Implementation admission Gates
-
-Production generated API 必须用 generated source、`javap`、independent Java 8 consumer
-和 compile-negative matrix 固定：
-
-- constructor/accessor/nested type signature 与 lambda inference；
-- default/explicit Group identity 和 construction boundary；
-- Key/Index/Field/Stream method existence and absence；
-- Record/Editor/Value View O(1)/O(P)、`fetch()` 与 scope failure；
-- primitive specialization/no boxing；
-- typed array/runtime component contract；
-- cross-Group Field owner guard；
-- metadata exact carrier；
-- exact Java signature 与 operation property matrix；
-- one-shot、currentness、concurrency、mutation/failure runtime behavior；
-- three reference scenario expression and profile。
-
-现有可行性结论见
-[P2 Generated API Conformance](../conformance/p2-generated-api-feasibility.md)。
-精确 projection 见
-[Generated Java API Signature Design](generated-api-signatures.md)。
+- direct source与Stream/Selection/ReadStream compile narrowing；
+- typed expression/callback overload与wrong-owner negatives；
+- View/Editor O(1)/O(P)、scope failure与fetch；
+- operation/capability matrix的positive/negative generated source；
+- materialization type/null/resource boundary；
+- Group/Join kind/null/duplicate/order/cardinality；
+- numeric sequential/parallel bit/equality；
+- three reference journeys只使用public surface。

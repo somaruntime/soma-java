@@ -1,374 +1,303 @@
-# 数据模型与存储 Design
+# SOMA Java V1 数据模型与存储 Design
 
 类型：Design
 
-状态：Active Baseline
+状态：Active V1 Baseline
 
 正式事实源：是
 
-Owner：SOMA Java V1 Group/Table identity、logical data model、authoritative storage、Key/Index、order 与 lifecycle
+Owner：Group/Table identity、logical Field、authoritative StateRoot/Chunk、leaf/null、Key/Index、
+capacity/order、compression、reference ownership与future backend seam
 
-上游：[SOMA Java V1 产品蓝图](../blueprint/README.md)
-
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
 ## 1. 设计目标
 
-本 Design 定义 SOMA 长期 live state 是什么、如何用统一 Table 模型表达业务数据，以及
-哪些值可以安全承担 Key/Index。它承接 BP-3、BP-4、BP-8 和 BP-9。
-
-存储实现可以改变 array growth、Index algorithm 或 layout，只要不改变本文的 logical
-value、order、identity、null、currentness 和 publication contract。
+SOMA把schema-known mutable Tables保存为long-domain、chunked、data-oriented authoritative
+state，同时保持用户面对logical Table/Field/Value。Storage不拥有用户operation naming、
+optimizer rewrite、parallel scheduling或failure presentation。
 
 ## 2. Group 与 Table identity
 
-- 每个 Table instance 必须属于一个 `SomaGroup`；
-- 一个 Group 可以包含 composition 中多个不同 Table type；
-- 同一 Group 中每个 generated Table type 恰好一个 instance；
-- 同一 accessor 重复调用返回相同 instance；
-- 不同 Group 可以拥有同一种 Table，状态完全隔离；
-- 同一 Group 不按业务 owner/name 创建同类型多实例；
-- Table 之间没有 SOMA-managed parent/child ownership 或隐藏 lifecycle。
-
-Generated `Soma` 拥有每个 composition、每个 ClassLoader 一个 stable default Group。
-普通单 ClassLoader application 中表现为 JVM-global composition singleton：
-
-```java
-Soma.transportTimeTable()
-    == Soma.defaultGroup().transportTimeTable();
+```text
+Soma
+    -> SomaGroup
+        -> each generated Table type exactly once
 ```
 
-需要双缓存或两份同型状态时创建显式 Group：
+- 每个Group对composition中每种Table type恰好一个instance；
+- repeated accessor返回同一instance；不同Group状态完全隔离；
+- generated accessor不取得Group operation guard，因此首次/重复并发访问也必须安全发布并返回
+  同一instance；可以eager构造或使用per-type CAS/lazy holder，但不能形成losing live Table；
+- default Group是每composition/ClassLoader singleton；
+- `Soma.xxxTable() == Soma.defaultGroup().xxxTable()`；
+- `Soma.createGroup()`创建显式Group；没有public Group/Table constructor；
+- Group/Table依赖Java reachability与GC，没有close/release/AutoCloseable；
+- default Group是ClassLoader-lifetime high-water state；需要整体回收或双缓存时使用显式Group；
+- runtime不使用global live-Group registry、后台线程或永久ThreadLocal意外保留Group。
 
-```java
-SomaGroup active = Soma.defaultGroup();
-SomaGroup backup = Soma.createGroup();
+显式Group的retained-byte accounting使用Java 8 `PhantomReference + ReferenceQueue`：global
+manager只持有不反向引用Group/Table的accounting token，检测到Group不可达后exactly-once释放
+retained reservation。Queue在operation admission、configuration与global metadata读取时同步
+drain；不建立cleaner/background thread。GC与queue delivery不承诺即时，因此application不能把
+“最后一个强引用消失”当成同步release；需要可预测复用时应保留并重用显式Group。
 
-assert active.transportTimeTable() != backup.transportTimeTable();
+## 3. Authoritative StateRoot
+
+每张Table只通过一个atomic current state descriptor发布live state：
+
+```text
+StateRoot
+    PublishedHeader(size, capacity, stateVersion)
+    paged ChunkDirectory
+        Chunk 0..N
+            primitive/reference leaf representations
+            null/encoding statistics
+    optional Key sidecar
+    zero or more Index sidecars
+    managed-byte accounting
 ```
 
-Group 创建时生成并持有每种 Table 的唯一 lightweight facade 与 Field endpoint，但不分配
-payload/Key/Index arrays。新 Table 的 `size()==0 && capacity()==0`；第一次 positive
-`reserve` 或 `add` 才按 `max(defaultCapacity, requiredRows)` 建立 storage。这样 Table
-identity/accessor 不成为可能分配大数组的隐藏 operation，`defaultCapacity` 仍只是首次
-allocation hint。
+- `size/capacity/stateVersion`使用non-negative checked `long`；
+- read/query operation binding后的logical state在terminal/quiescence期间稳定；
+- root swap或non-throwing final descriptor/header publish是唯一可见线性化点；
+- detached object、View/Editor、logical plan、callback、scratch与temporary result不是
+  authoritative state；
+- `stateVersion`是internal currentness，不进入ordinary API。
 
-## 3. Authoritative Table state
+这里的“root”是authoritative facts的原子composition，不要求所有物理array在整个Table生命期
+永久immutable。Mutation publication有两种等价mechanism：
 
-一张 Table 的 authoritative live state 只有：
+1. structural/large mutation构造独立candidate root，最后atomic swap；
+2. bounded point/small mutation在exclusive Group guard下，先完成全部可能抛出的callback、
+   validation、allocation、hash/codec与journal准备，再执行经证明non-throwing的bounded physical
+   writes，最后atomic publish新的immutable header/statistics/accounting descriptor。
 
-- primitive payload leaf arrays；
-- typed Java reference leaf arrays；
-- optional Key access structure；
-- zero or more non-unique Index access structures；
-- logical size、allocated capacity、canonical encounter order；
-- 内部 operation currentness/state version。
+普通operation不能在commit window并发读取同一Group；lock-free metadata只读取上一次完整发布
+的detached header projection，不读取正在修改的payload。任何operation都不能观察partial
+payload/sidecar组合。若某个mechanism在final writes后仍可能产生可恢复failure，它不合法。
 
-以下都不是 authoritative storage：
+## 4. Chunk geometry
 
-- `.schema` declaration；
-- generated detached Table object；
-- Java Collection/object graph；
-- callback-scoped Record/Editor/Value View；
-- execution scratch、candidate staging 或 materialized terminal result。
+- Table logical position、size、capacity、count、cardinality使用`long`；
+- Chunk local offset使用`int`；opaque locator使用`long`；
+- Chunk directory本身分页，不能用单个reference array重新形成`int`上限；
+- 同一Table所有Field的同一Chunk具有相同row span，logical row不跨Chunk；
+- generated facade/IR不保存Java array identity；kernel每Chunk dispatch，不做per-element
+  virtual backend call。
 
-Execution 可以为一次 operation 建立 bounded staging，但成功后只发布一份 canonical
-Table state，失败时丢弃 staging。
+建议初值依据plain row width把single Chunk payload目标设为约2 MiB，row count取
+`[4096,65536]`中的2次幂。该值是profile-tuned internal mechanism，不是public config或
+compatibility contract；internal tiny-Chunk test必须可强制跨Chunk路径。
 
-## 4. 两类 physical leaf
+## 5. Logical Field 与 leaf storage
 
-### 4.1 Primitive leaf
-
-- 使用对应 primitive scalar array；
-- 不允许 null；
-- 未显式赋值时使用 Java zero value；
-- zero 始终是合法 value，不隐式表示 missing；
-- canonical scan/filter/map/aggregate/storage path 不得 boxing。
-
-### 4.2 Reference leaf
-
-- 使用声明类型可安全访问的 Java reference array；String/Enum 使用 typed array，ordinary
-  或 parameterized Object 的 internal representation 可以是可 reify declared array 或
-  `Object[]`，但不得向 generated/public surface 泄漏 universal Object model；
-- 普通 payload 允许 null；
-- 保存 reference slot，不 deep-copy referent；
-- Field update 替换 slot，不观察 referent 内部 mutation；
-- referent invariant、thread safety、identity 和 lifecycle 由 application 负责。
-
-String、Enum、generated Value 虽然在 Java 中是 reference type，但它们具有 SOMA
-明确定义的 value semantics；ordinary Object 仍是 opaque reference。
-
-V1 不引入 Segment。Capacity growth、copy、Index rebuild 和 publish 围绕 flat arrays
-设计，不能增加普通用户可见的 segment identity。
-
-## 5. `@SomaValue` flattening
-
-Nested `@SomaValue` 在 storage 中递归展开为 leaf arrays，在用户语义中仍保持一个
-logical Field/value：
-
-```java
-@SomaValue
-final class MachinePairKey {
-    @SomaField MachineId fromMachine;
-    @SomaField MachineId toMachine;
-}
+```text
+Table membership selection
+    -> logical Field/Value projection
+        -> one or more physical leaf representations
 ```
 
-例如两个 `MachineId.long value` 最终可以 lowering 为两个 `long[]`，但用户仍通过
-`table.machinePair`、`fromMachine` 和 `value` 导航。Physical leaf count、ordinal 和
-backing array 不进入 public API。
+只有两类authoritative leaf：
 
-Value outer 与每层 nested Value 都 non-null。`add`/`update` candidate 中的 outer
-null 必须在 publish 前稳定失败，不能折叠成 all-zero leaves，也不为此增加 optional
-presence column。
+1. exact primitive leaves；
+2. ordinary Java reference leaves。
 
-Value leaf 只允许 primitive、String、Enum 和 nested Value；ordinary Object 或
-temporal reference leaf 非法。普通 Value/Index 的 String/Enum leaf 可以 null；作为
-Key 时所有 reference leaf 递归 non-null。
+`@SomaValue`递归flatten为leaf，但仍是一个logical Field。Public API不暴露leaf index、Column、
+array、Chunk或encoding token。
 
-## 6. Field type system
+| Logical type | Physical baseline | Null |
+|---|---|---|
+| primitive | exact primitive leaf | 不可null，默认零值 |
+| String | reference或transparent dictionary leaf | nullable |
+| Enum | reference/ordinal representation | nullable |
+| `@SomaValue` | recursively flattened leaves | outer/nested non-null；eligible reference leaf nullable |
+| ordinary Object/temporal | reference leaf | nullable |
 
-### 6.1 Exact-value eligible types
+## 6. Equality、order 与 null
 
-只有 compiler 能确认 stable exact-value semantics 的完整 logical Field 可以承担
-Key/Index：
+- primitive按exact type contract；
+- float/double使用wrapper canonical equality与`Float/Double.compare` natural order；
+- String按content且不承诺保存input reference identity；dictionary/rebuild可返回任意content-equal
+  String referent；Enum按constant identity/declaration order；
+- Value按全部leaf structural equality/hash；
+- ordinary Object没有SOMA intrinsic equality/order；
+- relation missing side不是Field null，二者合同分离；
+- reference mapped value可以null，但Key/Value outer按Schema合同non-null。
 
-- boolean、byte、short、char、int、long；
-- String；
-- Enum；
-- 只由 eligible leaf 与 nested Value 组成的 `@SomaValue`。
+详细operation eligibility由Logical/Signature Design拥有。
 
-`float`/`double` 可以作为 payload，但 V1 不允许其承担 Key/Index。Ordinary Object、
-temporal reference 和 parameterized object graph 不允许作为 Key/Index。
+## 7. Key contract
 
-### 6.2 String
+- 每Table `0..1` direct Key；keyless合法；
+- Key是stable business identity，zero primitive合法且不作sentinel；
+- reference/Value Key non-null；float/double、包含float/double leaf的Value与ordinary Object不可
+  作Key；
+- Key发布后完全immutable，Editor不生成setter；
+- 修改Key必须remove后add；没有rekey；
+- duplicate add在publication前稳定失败；
+- Key point access为expected O(1)，不生成`byKey(...).stream()`。
 
-- canonical storage 为 `String[]`；
-- 保存原引用，不 copy、intern 或 dictionary encode；
-- exact equality/Index 使用区分大小写的内容相等；
-- non-null natural order 使用 `String.compareTo`；
-- Field/Index 允许 null，Key 不允许 null；empty String 合法；
-- `distinct` 按 content 合并重复值，并把多个 null 视为一个 equivalence class；
-- natural-order operation 遇到 null fail closed；nullable order 必须使用 application
-  提供的 null-aware Comparator；
-- Locale/case normalization 通过 application-owned normalized Field 表达。
+Physical baseline是sharded open-addressed hash，bucket保存opaque long locator；shard/bucket
+array保持安全int范围，Table整体不受一个巨大hash array限制。Hash mixing/load factor/shard
+count是versioned internal mechanism。
 
-### 6.3 Enum
+## 8. Index contract
 
-- canonical storage 为对应 typed Enum array，不 lowering 为 ordinal `int[]`；
-- exact equality 使用 constant identity；
-- non-null natural order 使用 declaration order；
-- Field/Index 允许 null，Key 不允许 null；
-- 增删或重排 constant 是 application schema change，需要重新编译并以新 state 启动；
-  V1 不做 live migration。
+- `0..N` non-unique exact-match Index；
+- Index声明在direct logical Field；
+- Index返回`0..N` selection并按bound StateRoot canonical order规范化；
+- repeated value不去重；nullable String/Enum Index有normal null bucket；
+- Index不提供range/prefix/tuple/secondary unique；
+- ordinary Object、float/double及包含float/double leaf的Value不可Index；
+- Index memory计入managed budget，metadata可观察其basic cardinality与memory cost。
 
-String/Enum natural-order operation 遇到 null 都必须 fail closed；SOMA 不暗中选择
-nulls-first/nulls-last。
+Physical baseline是sharded exact-value dictionary + per-record chunked next locator。Index
+expresses logical value而不是compression token。Add可增量维护；update/remove可按evidence选择
+journal或candidate rebuild，但payload与全部sidecar必须一次发布。
 
-### 6.4 Float 与 double
+## 9. 关系 Table
 
-- payload equality/distinct 使用 Java wrapper canonical bit equality；
-- natural order 使用 Java total order；
-- numeric aggregate 遵守 IEEE-754；
-- 不承担 Key/Index；
-- 包含它们的 Value 可以做 payload，但整个 Value 不再 eligible for Key/Index。
+SOMA不提供ChildTable。1:M使用many-side Table保存one-side ID；N:M使用composition Table保存
+两端ID；按真实访问方向建立Index。
 
-### 6.5 Ordinary Object 与时间类型
-
-Ordinary Java Object 只作为 nullable opaque payload：
-
-- SOMA 不根据任意 `equals/hashCode/Comparable` 或 reference identity 自动建立
-  distinct/order/Key/Index；
-- application 可以在 callback 中执行普通 OOP operation；
-- referent 内部 mutation 不递增 Table currentness，不触发 Index maintenance；
-- 第三方 immutable/Comparable type 也不会自动升级为 exact-value Field。
-
-Parameterized reference（例如 `List<String>`）在 generated source signature 中保留 declared
-generic type，但 physical slot 只保存 Java reference。SOMA 不扫描、复制或 runtime-validate
-type argument/collection element；raw/heap-pollution 后果仍属于 application/Java type
-boundary。因为 component type 不可 reify，该 Field 不生成 array terminal。
-
-日期、时间、时区全部由 application 拥有。`java.time.*`、`java.util.Date` 和
-`java.sql.*` 不特殊 lowering；直接存入时只是 opaque reference。需要 hot scan、
-order、aggregate、Key 或 Index 时，application 转换成具有明确单位/epoch 的 primitive
-或 primitive-backed Value。
-
-## 7. Type-level capability
-
-| Field type | Intrinsic distinct | Natural order | Numeric aggregate | Key/Index |
-|---|---|---|---|---|
-| `boolean` | 是 | 否 | 否 | 是 |
-| `byte/short/int/long` | 是 | 是 | checked | 是 |
-| `char` | 是 | 是 | 否 | 是 |
-| `float/double` | wrapper canonical equality | Java total order | IEEE-754 | 否 |
-| String | content equality | `String.compareTo` | 否 | 是 |
-| Enum | constant identity | declaration order | 否 | 是 |
-| eligible Value | structural equality | 无 implicit order | 否 | 是 |
-| opaque Object/temporal | 无 intrinsic distinct | explicit Comparator only | 否 | 否 |
-
-Value structural equality/hash 递归使用 primitive value、String content、Enum identity
-和 nested Value；float/double 使用 wrapper canonical bit semantics。Field declaration
-order 不自动成为 composite Value business order。
-
-不支持的 intrinsic operation 由 generated type 在编译期排除，不能依赖 runtime
-`UnsupportedOperationException`。
-
-## 8. Key contract
-
-- Table 可以 keyless，也最多一个 direct `@SomaKey` Field；
-- composite Key 使用一个完整 Value；
-- Key 是 stable business identity，不是 physical row position；
-- primitive zero 或全零 Value 是合法 Key；
-- Key outer 和 reference leaves non-null；
-- Key 发布后 immutable；
-- 不提供 `rekey`，改变 identity 必须 remove 后 add；
-- duplicate add fail closed 且不发布 record；
-- Key 提供 `0..1` point access，不产生 `byKey(...).stream()` selection。
-
-Key access structure 与 payload/Index 一起维护；任何 failure 后必须仍与 authoritative
-records 一致。
-
-## 9. Index contract
-
-- 一个 Table 可以有多个 direct `@SomaIndex` Field；
-- Index 是 non-unique exact-match access path，返回 `0..N` Record selection；
-- generated accessor 使用 `by<FieldName>`；
-- Index selection 保持 Table canonical order 的有序子序列，不暴露 bucket order；
-- String/Enum Index 允许 normal null bucket；
-- Value Index outer non-null，String/Enum leaf null 作为 structural component；
-- complete Value 可以 lowering 为多个 leaf 的复合物理结构；
-- nested-subfield、cross-Field tuple、prefix/range 和 Value 内部 Index 不支持；
-- secondary unique 不支持。
-
-产品语义不暴露 Index implementation；V1 production baseline 使用 generated hash
-structure。未来若替换为 sorted/其他内部方案，仍必须保持 exact equality、logical
-order、atomic maintenance、complexity 与 failure contract，并通过 Architecture 的
-替换准入。
-
-## 10. 关系 Table
-
-SOMA 不提供 ChildTable。1:M 使用 many-side Table 保存 one-side ID；N:M 使用 relation
-Table 保存两端 ID，并按需要在每个 direction 建 Index：
-
-```java
-@SomaTable(defaultCapacity = 65536)
-final class JobOperation {
-    @SomaKey OperationId operationId;
-    @SomaIndex JobId jobId;
-    @SomaField long processingMinutes;
-}
-
-@SomaTable(defaultCapacity = 65536)
-final class JobMachineEligibility {
-    @SomaIndex JobId jobId;
-    @SomaIndex MachineId machineId;
-    @SomaField long processingMinutes;
-}
+```text
+Job(jobId)
+Machine(machineId)
+ProcessingOption(jobId indexed, machineId indexed, processingMinutes)
 ```
 
-```java
-operations.byJobId(jobId).stream();
-eligibilities.byJobId(jobId).stream();
-eligibilities.byMachineId(machineId).stream();
+Storage不验证endpoint存在、不cascade、不提供cross-Table transaction。Application拥有引用
+完整性、mutation顺序、补偿与业务lifecycle。Equality Join读取同一Group中多个Table，但不
+改变任何Table ownership。
+
+## 10. Capacity 与 growth
+
+- initial accessor不分配payload；首次positive reserve/add才materialize Chunk；
+- first add可把schema defaultCapacity作为preferred target，但hint可向下收缩到本次required
+  whole-Chunk capacity；explicit reserve target不可静默收缩；
+- `capacity()`是不再次growth可容纳的logical record数；
+- `reserve(n)`成功保证`capacity >= n`且size/order不变；
+- `n <= capacity`为no-op，negative为`INVALID_ARGUMENT`；
+- growth按whole Chunk，所有long/byte arithmetic checked；
+- candidate directory/chunk/sidecar全部成功后一次root swap；
+- V1没有trim/shrink；payload capacity在Table/Group生命周期内单调不减，structural remove不释放
+  尾部Chunk。它必须清空失去logical reachability的reference slot；Key/Index/compression等derived
+  sidecar可按new state释放不再需要的internal bytes，但不能借此改变payload capacity。
+
+建议growth target为`max(required, old + old/2)`后向上取整到Chunk boundary；它是internal
+mechanism。超managed budget、locator/directory或Java array representation时分配前fail closed。
+
+## 11. Canonical encounter order
+
+Current root的internal order是Chunk ordinal + live local slot order：
+
+- add append到末尾；update不改变当前order；
+- structural remove使用预先计算的deterministic dense compaction，把末尾survivor填入最早hole；
+- 同一bound snapshot上的point/sequential/parallel路径得到相同order；
+- structural mutation后order可以改变；Table不承诺insertion/business order；
+- IndexSelection是bound order的ordered subsequence；
+- 依赖first、tie或发布顺序的业务必须显式sort。
+
+Compaction mapping在authoritative write前冻结；payload、Key、Index与compression overlay重放
+同一mapping。Public API不暴露slot、locator、tombstone或order key。
+
+## 12. Reference ownership
+
+Reference leaf保存普通Java reference，读取时是普通reference read；SOMA不复制、不冻结、
+深扫描referent。Referent内部mutation不改变Table stateVersion/Index；application维护referent
+不变性与线程安全。Remove/root replacement必须清空unreachable reference slot，防止retention。
+
+这一referent-identity合同只属于ordinary Object/reference payload；String是schema-known content
+type，transparent dictionary允许canonicalize相同content，application不得依赖String `==`。Enum
+始终返回对应constant identity。
+
+Editor/no-op detection对ordinary Object payload只比较reference identity `==`；SOMA不调用其
+`equals/hashCode`推断Table mutation。不同referent是logical change，同一referent的内部变化仍是
+application side effect。
+
+SOMA-owned structural/index/compression bytes计入budget；referent对象本身与application长期
+持有的detached result不计入。
+
+String PLAIN representation保留的input String对象及其内部content body也按external referent处理，
+不做不可靠deep-size accounting；若dictionary codec复制content到SOMA-owned byte/char structure，
+该复制结构全部计入managed budget。Metadata的payload estimate只声明SOMA-owned representation
+范围，不能投影为JVM total retained heap。
+
+## 13. Compression representation
+
+V1 compression policy默认`AUTO`，用户可显式`OFF`，不直接指定codec。AUTO表示允许runtime
+按收益选择表示，不保证一定压缩。
+
+Chunk leaf representation seam至少允许：
+
+```text
+PLAIN
+BIT_PACKED / FRAME_OF_REFERENCE
+DELTA
+RLE
+DICTIONARY
+PLAIN_OR_ENCODED + SPARSE_OVERLAY
 ```
 
-边界：
+合同：
 
-- endpoint ID 的重复存储与 Index sidecar 是可接受成本；
-- SOMA 不验证 endpoint 是否存在；
-- 删除 entity 不自动删除 relation record；
-- 多张 Table 的 operation 独立 atomic，不是 transaction；
-- application 决定顺序、补偿和业务一致性；
-- Index 不推出 endpoint pair uniqueness；
-- 若 pair 是 Value Key，可以 point access，但 V1 不同时索引 nested endpoints；
-- 同时需要双向 Index 与 pair uniqueness 时，唯一性由 application 维护。
+- active tail/hot Chunk默认PLAIN；full/sealed Chunk在同步operation boundary评估AUTO；
+- codec dispatch每Chunk一次；ordinary Object reference只PLAIN；Value按leaf独立表示；
+- encoded Chunk sparse update进入bounded overlay；超过internal threshold时在candidate中rebuild；
+- add/update/remove只处理本次触及、刚sealed或因本次mutation失效的Chunk，不触发无界whole-
+  Table recompression；
+- selection mutation可以处理全部affected Chunk，但执行前完成work/resource admission；
+- Index表达logical value，与overlay/compression一起atomic publish；
+- 无background compressor、隐式线程或async rewrite；
+- AUTO可因收益、update rate、Index或peak memory选择PLAIN；
+- compression不能改变null、equality、order、callback或failure；
+- old + candidate + scratch peak必须纳入budget。
 
-`List<T>`、array 或普通 object reference 不具有 relationship declaration 语义。作为
-`@SomaField` 时只是 opaque nullable payload，不创建或维护另一个 Table。
+Codec、threshold、sampling与overlay density是profile-driven internal choices；forced codec
+correctness与AUTO cost-model必须分别验证。
 
-这里的 `T` 必须是 ordinary application type；compiler-only `@SomaTable/@SomaValue`
-declaration 不能被放入 container/array。需要 container of values 时，application 使用
-自己拥有的 ordinary Java type；需要 SOMA relationship 时使用 endpoint ID + relation
-Table。
+Last-published compression statistics向metadata提供plain-equivalent payload bytes、current
+representation bytes、savings与是否存在encoded representation；它们与managed accounting同源，
+但不含ordinary referent body。Codec name、per-Chunk token/layout与threshold不是stable metadata
+ABI，只能进入不稳定`_explain()`。
 
-## 11. Capacity 与 canonical order
+## 14. Future backend seam
 
-Table 提供：
+V1只有on-heap implementation。Off-heap/mmap没有public configuration、backend interface或
+qualification claim。
 
-```java
-table.reserve(expectedRows);
-int size = table.size();
-int capacity = table.capacity();
-```
+扩展seam是`Chunk representation + chunk-level specialized kernel + StateRoot directory`。
+Generated API、logical IR、Key equality、Result与failure不依赖Java array identity。未来
+backend必须单独解决Java 8 lifecycle、cleaner、failure、安全、serialization与performance；
+ordinary Object reference不能假装可直接mmap/persist。
 
-- `reserve` 不增加 logical record；
-- V1 不提供 `trimToSize()`；
-- capacity growth 使用 checked arithmetic，成功后一次发布；
-- `add` 把新 Record 放到当前 canonical order 末尾；
-- ordinary update 与不发生 growth 的 reserve 保持 order；
-- structural remove 可以确定性重排 survivors，不承诺永久 insertion order；
-- 相同起始 state 与 remove selection 的顺序/并行路径发布相同 survivor order；
-- physical row index/internal order key 不进入 public identity。
+## 15. Storage invariants
 
-Whole Table source 使用完整 order；Index source 是命中 records 的 ordered subsequence；
-Field projection 继承来源 Record order。更高层 operation 的 order contract由
-[执行 Design](execution-and-concurrency.md)拥有。
+1. Published header、payload、Key、Index、compression与managed accounting属于同一atomic
+   logical state；
+2. bound read state在operation期间稳定；mutation只在exclusive final commit窗口修改并一次发布；
+3. failure不改变current root/version；
+4. no-op mutation不改变version；
+5. stale View/locator不能访问新root；
+6. all growth/cardinality/byte arithmetic checked；
+7. no public array/Chunk/locator identity；
+8. reference slot在失去logical reachability后清空；
+9. compression/backend选择不改变logical value；
+10. Table没有稳定业务顺序。
+11. global accounting token不强引用Group/Table，Group GC后retained bytes最终exactly-once释放。
+12. payload capacity除growth外不变；remove不隐式shrink。
 
-## 12. Lifecycle 与 GC
+## 16. Evidence Gate
 
-用户 API 不提供 `release()`、`close()`、`AutoCloseable` 或 ownership token：
+Implementation必须覆盖：
 
-- default Group 由 generated static reference 持有；
-- default Group 的 Table capacity 因而具有 ClassLoader-lifetime high-water 特征；需要
-  整组替换、回收大数组或双缓存时使用 explicit Group，并让旧 Group 失去可达性；
-- 显式 Group 及其 Table、Field 和 arrays 不再可达时由 GC 回收；
-- runtime 不得用 global live registry、后台 thread、永久 ThreadLocal 或 metadata
-  observation 意外保留显式 Group；
-- GC 回收时机不属于 SOMA promise；
-- application-owned ordinary referent 与 custom ForkJoinPool 由 application 管理。
-
-## 13. Storage invariants
-
-任何可观察 operation boundary 都必须满足：
-
-1. `0 <= size <= capacity`；
-2. 所有 payload leaf、Key 和 Index 表示同一 record set；
-3. Key uniqueness 与 non-null contract 成立；
-4. Index 对每个 record/value 恰好表达其 exact-match membership；
-5. canonical encounter order 对 whole Table/Index/Field 一致；
-6. failed operation 不改变 payload、Key、Index、size、capacity 或 internal version；
-7. detached result/cursor 不成为 authoritative state；
-8. ordinary referent 内部 mutation 不被误记为 Table mutation。
-
-## 14. 明确排除
-
-- Segment、page 或 public partition identity；
-- optional presence column；
-- physical Column API；
-- row-position identity；
-- Java object graph 作为 canonical storage；
-- ChildTable、ownership graph、cascade 和 child handle；
-- foreign key、secondary unique、join 或 cross-Table transaction；
-- automatic temporal/third-party immutable lowering；
-- runtime reflection/metadata interpreter hot path；
-- live schema migration。
-
-## 15. Implementation admission Gates
-
-Production storage/runtime 出现前必须证明：
-
-- flatten/unflatten 与 detached materialization correctness；
-- all primitive paths 无 hidden boxing；
-- Key/Index add/update/remove 与 rollback-equivalent zero publication；
-- null/equality/order matrix；
-- checked size/capacity/byte arithmetic；
-- deterministic structural remove order；
-- Group GC reachability 无 accidental retention；
-- ordinary Object slot boundary；
-- 1:M/N:M 双向 Index journey；
-- 大规模 memory footprint、allocation 和 throughput profile。
-
-Dense root、Key/Index、deterministic swap-compaction 与 journal/candidate publication 的 production
-baseline 由
-[Production Implementation Architecture](implementation-architecture.md)拥有；本 Design
-仍唯一拥有其必须保持的 storage semantics。
+- 全部 type/null/flatten/unflatten/detached materialization；
+- tiny Chunk cross-boundary、million real与near-int/long virtual arithmetic；
+- reserve/growth/remove/compaction/GC retention；
+- explicit Group reachability、ReferenceQueue accounting release、无strong-retention/double-release；
+- Key/Index collision、duplicate、null、move/rebuild与ordered selection；
+- primitive no-boxing hot path与structural byte accounting；
+- forced codec、AUTO choice、overlay/Index interaction与peak budget；
+- backend seam不泄漏array identity；
+- no release/trim/ChildTable/secondary unique/public Column surface。

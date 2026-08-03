@@ -2,88 +2,113 @@
 
 类型：Blueprint
 
-状态：Active Baseline
+状态：Active V1 Baseline
 
 正式事实源：是
 
 Owner：SOMA Java V1 产品意图、用户模型、能力边界与成功标准
 
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
 ## 1. 文档责任
 
-本文回答：SOMA Java V1 最终希望成为什么、面向谁、怎样被使用，以及哪些边界必须
-长期保持。它是正式 Design 的上游，不拥有具体存储算法、generated Java signature、
-并行调度实现或构建命令。
+本文回答：SOMA V1 最终希望成为什么、面向谁、怎样被使用、哪些能力必须共同成立，
+以及什么证据出现后才可以声称产品可用。它不拥有 exact Java signature、存储算法、
+optimizer rewrite、并行调度或构建命令。
 
-精确合同由[正式 Design 体系](../design/README.md)拥有；实现与 Design 的符合程度由
-[Conformance](../conformance/README.md)拥有。根 README、未来开发手册、白皮书和
-Examples 都是面向角色的投影，不得重新定义本文。
+精确合同由[正式 Design](../design/README.md)分责拥有；当前实现与合同的一致程度由
+[Conformance](../conformance/README.md)拥有。README、未来 Manual、White Paper 与
+Examples 都是角色投影，不得成为第二份 Blueprint 或 Design。
 
-## 2. 产品意图
+## 2. 产品定义
 
-SOMA 是面向 Java application 中大规模、频繁变化的进程内 runtime state 的
-schema-defined、compiler-specialized Table library。
+SOMA 是嵌入 Java application、运行在单 JVM 进程内、面向 schema-known mutable
+Tables 的编译式列式计算引擎：
 
-Application 使用自然的 Java 值、对象、注解和 generated typed API 表达业务语义；
-SOMA 在内部把 logical Table/Field lowering 为 data-oriented storage 和专门化执行。
+> Application 使用自然 Java object、generated Table/Field/Index API 和 Stream-like
+> pipeline 表达 point、scan、aggregate、group 与 binary relation；processor 把 schema
+> 转换为类型安全的专门化 API；runtime 把 pipeline lowering 为 logical plan，经优化后
+> 在 chunked column storage、Key/Index 与压缩表示上执行。
 
 ```text
 Object-oriented application boundary
-    -> compiler-generated lowering
-        -> data-oriented SOMA storage and execution
+    -> compiler-generated typed surface
+        -> logical IR and semantics-preserving optimizer
+            -> specialized execution over data-oriented state
 ```
 
-SOMA 要解决的核心矛盾是：高性能计算希望获得紧凑、可预测、适合扫描和索引的内存
-布局，而 application developer 仍希望在业务边界使用类型安全、可理解的 Java API，
-不直接管理物理 Column、row position、cursor、scratch 或调度器。
+SOMA 解决的核心矛盾是：高性能计算需要紧凑、可预测、适合扫描、索引和关系计算的
+内存布局，而 application developer 仍希望使用自然、类型安全的 Java API，不直接管理
+physical Column、row position、Chunk、scratch、planner 或 worker。
 
-## 3. 目标用户与场景
+## 3. North Star 与阶段目标
 
-V1 优先服务以下 Java 8 进程内场景：
+- 长期 North Star：一亿行以上、编译式、支持关系计算的单进程 Table 引擎；
+- 第一阶段资格目标：百万行数据上的高效、低分配、资源受控操作；
+- 一亿行是架构不得封死的愿景，不是没有 implementation/profile 时预先承诺的 Release
+  Gate；
+- 所有 logical size、capacity、position、count 与 cardinality 使用 `long`；
+- 第一条 production storage 路径就必须是 chunked、long-domain、IR-driven，不能先用
+  flat `int` engine 再承诺重写；
+- 量化吞吐、内存与规模 Gate 只能由真实 implementation、reference scenario 和 profile
+  固定。
 
-- 调度与优化算法维护的大规模动态状态；
-- 仿真过程中高频读取、筛选和更新的实体状态；
-- 实时派工、规则计算和其他对内存布局及 CPU 使用敏感的状态计算；
-- 需要 exact Key、non-unique Index、typed Field traversal 和受控并行执行的
-  application。
+## 4. 目标用户与场景
 
-SOMA 面向 library consumer，而不是要求用户把业务逻辑迁入 SOMA。算法、业务规则、
-跨 Table 编排、补偿和外部对象不变量仍属于 application。
+V1 优先服务 Java 8 进程内场景：
 
-## 4. 四层产品模型
+1. 调度与优化算法维护的大规模动态状态；
+2. 仿真中的事件、实体状态与确定性步骤；
+3. 实时派工中的高频 point lookup、Index candidate selection 与关系计算；
+4. 其他结构稳定、值频繁变化、对 CPU/内存边界敏感的 runtime-state computation。
 
-### 4.1 用户语义层
+SOMA 面向 library consumer，不要求用户把完整业务逻辑迁入 SOMA。Application 仍拥有：
 
-用户只需要理解：
+- 跨 Table 编排、顺序与补偿；
+- ordinary Object referent 的不变性与线程安全；
+- 日期/时间到 primitive/Value 的业务编码；
+- 外部 I/O、side effect、transaction 与业务状态机。
 
-- Java schema declaration；
-- generated `Soma`、`SomaGroup`、Table、Field 与 typed Stream；
-- Table direct operation；
-- `source -> intermediate operations -> terminal -> result/state change`；
-- detached result、structured failure 和可选的 library-wide parallel execution。
+Application是同一JVM中的受信任参与者，SOMA不是sandbox。正式封装合同约束supported Java
+source/API与未篡改的generated/runtime artifact；使用`setAccessible`、`Unsafe`、instrumentation/
+agent或自造/改写bytecode突破Java访问控制，不属于SOMA的进程内隔离承诺。
 
-### 4.2 编译生成层
+## 5. 四层产品模型
 
-Compiler 负责验证 schema、生成 typed API、展开 logical Value、选择合法 capability，
-并把逻辑操作 lowering 为 storage/execution access。非法类型、命名冲突和不支持的
-capability 应尽可能在编译期失败，而不是依赖 reflection 或运行期万能接口。
+### 5.1 用户语义层
 
-### 4.3 存储层
+普通用户只需要理解：
 
-Table 的 authoritative live state 由 primitive/reference leaf arrays、Key、Index、
-size、capacity 和内部 currentness 组成。Detached Java object、Collection graph、
-callback cursor 和执行 scratch 都不是长期 authoritative state。
+- schema declaration；
+- generated `Soma`、`SomaGroup`、Table、Field、Index 与 typed pipeline；
+- direct source、point operation、intermediate、terminal 与 detached result；
+- sequential default、显式 `parallel()`；
+- structured failure 与 advanced `_metadata()` / `_explain()`。
 
-### 4.4 执行层
+### 5.2 编译生成层
 
-执行层拥有 selection、intermediate operation、terminal、resource admission、
-sequential/bounded-parallel scheduling、mutation staging、atomic publish 和 stable
-failure mapping。执行细节不能成为普通用户必须操作的第二套模型。
+Compiler 负责 schema discovery、类型/命名验证、generated object/API、Value flattening、
+expression node、Key/Index equality/hash 与 runtime linkage。非法能力应尽可能从 generated
+type 缺席，不依赖 reflection 或 runtime universal dispatch。Java 8不能seal跨package generated
+marker；application手写的foreign marker/IR实现不是SPI，必须在operation lifecycle开始前由hidden
+owner/provenance验证拒绝。
 
-## 5. 核心认知模型
+### 5.3 存储层
 
-### 5.1 对象层级
+Table authoritative state 由 long-domain StateRoot、chunked primitive/reference leaves、
+Key、Index、compression representation、size/capacity/version 与 managed-memory accounting
+组成。Detached object、Collection graph、callback View 与 scratch 不是长期 authoritative
+state。
+
+### 5.4 执行层
+
+执行层拥有 pipeline binding、logical planning、resource admission、sequential/bounded
+parallel scheduling、mutation staging、atomic publish 与 failure arbitration。内部实现不能
+成为普通用户必须操作的第二套模型。
+
+## 6. 核心认知模型
+
+### 6.1 对象层级
 
 ```text
 Soma
@@ -93,216 +118,221 @@ Soma
                 -> nested Field
 ```
 
-一个 Group 可以包含多个 Table；同一 Group 中每种 generated Table type 恰好一个
-instance。Default Group 为普通场景提供最短路径，显式 Group 用于双缓存或多份隔离
-状态。
+同一 Group 中每种 generated Table type 恰好一个 instance；不同 Group 状态隔离。Default
+Group 提供普通场景最短路径，显式 Group 用于双缓存或独立状态副本。
 
-### 5.2 单一执行模型
-
-```text
-数据源
-    -> 零个或多个中间操作
-        -> 一个终止操作
-            -> detached 结果或受控 Table-local 状态变化
-```
-
-这个模型借鉴 Java Stream 的 lazy pipeline、中间操作和 terminal，但 SOMA 的 source
-是 Table record selection 或 logical Field，且 Update/Remove 可以修改来源 Table。
-
-### 5.3 Source 与 Field
+### 6.2 单一执行主线
 
 ```text
-Record Selection
-    -> Logical Field/Value Projection
-        -> Physical Column Access
+reusable source
+    -> zero or more lazy intermediate operations
+        -> one terminal
+            -> detached result or controlled Table-local publication
 ```
 
-Whole Table 和 Index 产生 Record selection；Field-first 与 Record-first 都是 logical
-projection；physical Column 完全退出普通用户 API。Composite Value 即使在内部展开
-为多个 leaf arrays，用户仍把它作为一个 logical Field 使用。
+Table、Field、IndexSelection 直接是 reusable source，不要求先调用 `stream()`。一旦产生
+linked pipeline，它就是 lazy、finite、one-shot；terminal-start 时绑定当前 published
+state。
 
-### 5.4 Table 间关系
+### 6.3 Logical 与 physical
 
-1:M 和 N:M 使用普通 composition Table、endpoint ID 和 Index 表达。SOMA 不建立
-ChildTable、Table ownership graph、foreign key、implicit cascade 或 cross-Table
-transaction。统一关系模型用少量 endpoint storage 换取单一 Table lifecycle 和单一
-执行模型。
+```text
+Table membership selection
+    -> logical Field/Value projection
+        -> typed logical IR
+            -> physical leaf/chunk kernel
+```
 
-### 5.5 与 Java Collections / Stream 的关系
+Composite Value 即使在内部展开为多个 leaf，用户仍把它作为一个 logical Field。Physical
+Column、Chunk、locator 与 codec 不进入普通 API。
 
-SOMA 学习 Java Stream 的用户认知，不把自己叙述为 Stream replacement 或“任何场景都
-更快的 Stream”。两者的根本差异是：
+### 6.4 关系模型
+
+1:M/N:M 使用普通 Table、endpoint ID 与双向 Index 表达。SOMA 不建立 ChildTable、ownership
+graph、foreign key、cascade 或 cross-Table transaction。
+
+V1正式支持同一Group两个不同generated Table type的typed Equality Join与typed GroupBy；不形成
+arbitrary multi-way planner，也不提供relation alias/self-Join。关系计算是query-only，跨Table
+mutation仍由application编排。
+
+## 7. 与 Java Stream 的关系
+
+SOMA 学习 Java Stream 的 source/intermediate/terminal、lazy、one-shot、familiar naming、
+sequential default 与 explicit parallel，但不是 Stream replacement。
 
 | 维度 | Java Collections / Stream | SOMA |
 |---|---|---|
-| Authoritative state | 任意 collection/source 由 application 持有 | schema-defined Table 由 SOMA Group 持有 |
-| 元素模型 | 通用 object/primitive stream element | Record selection、logical Field、Index 和 flattened leaf |
-| 类型形成 | library generic + application lambda | processor 依据 schema 生成 exact typed capability |
-| Access path | iterator/spliterator 与 application structure | whole Table、Key、non-unique Index、Field projection |
-| Mutation | Stream pipeline 通常不维护 source structure | Table direct add/point operation；Record selection 可 atomic Update/Remove |
-| Storage | 不规定 collection 物理表示 | data-oriented primitive/reference leaf arrays |
-| 并发边界 | 由 source/collector/application共同决定 | Table-local admission + library-wide bounded parallel terminal |
-| 失败 | Java exception 与 source-specific behavior | stable structured failure + zero partial publication |
+| Authoritative state | application collection/source | `SomaGroup` 持有 schema-defined Tables |
+| 元素 | 通用 object/primitive element | Table View、logical Field、Index、Join Pair |
+| 类型形成 | generic library + lambda | processor 依据 schema 生成 exact capability |
+| 访问路径 | iterator/spliterator | Table、Key、Index、Field、relation |
+| 存储 | 不规定 | chunked data-oriented primitive/reference leaves |
+| Mutation | pipeline 通常不维护 source structure | point operation 与 Selection atomic mutation |
+| Planning | library/source specific | typed IR、Predicate IR、optimizer、reference oracle |
+| 并行 | source/pool/collector共同决定 | Group guard、resource admission、bounded participation |
+| 失败 | Java/source-specific exception | stable structured failure + zero publication |
 
-SOMA 应坚持从 Java Stream 借鉴：
+SOMA 不复制 universal `Stream<T>`、arbitrary Spliterator、Collector/reduce ecosystem、
+generic `flatMap` 或“pipeline 永远只读”的假设。额外复杂度只能来自 SOMA 真正拥有的
+Table state、Index、relation、resource 与 atomicity。
 
-- `source -> intermediate -> terminal -> result` 的单一主线；
-- lazy、finite、one-shot pipeline；
-- familiar 的 `filter/map/sorted/skip/limit/findFirst/min/max/toList/toArray` 命名；
-- sequential 默认、parallel 显式 opt-in；
-- intermediate 与 terminal 的清晰边界；
-- 尽量用类型缺席表达不支持，而不是 runtime surprise。
-
-SOMA 不复制 Java Stream 的 universal `Stream<T>`、arbitrary source/Spliterator、Collector
-生态、generic reduce/flatMap 或“pipeline 只读”假设。SOMA 的额外复杂度必须只来自它
-真正拥有的 Table storage、Key/Index、mutation atomicity 和 predictable execution，不能
-向用户暴露另一套 planner/Column/runtime 心智模型。
-
-因此 V1 的产品叙事是：
-
-> 当 application 需要长期持有、反复索引/扫描/更新大量进程内状态时，SOMA 用 schema
-> 和编译生成把自然 Java 业务模型 lowering 为紧凑、类型安全、可预测的 Table 执行；
-> 对小集合、一次性转换、任意对象流、数据库查询或跨 Table transaction，继续使用
-> Java Collections/Stream、数据库或 application OOP 更合适。
-
-## 6. V1 Blueprint requirements
+## 8. V1 Blueprint requirements
 
 | ID | 必须成立的产品能力 |
 |---|---|
-| BP-1 | Application 在普通路径只面对自然 Java object、generated typed API 和 Stream-like operation，不面对 physical storage/protocol |
-| BP-2 | Schema 在编译期决定合法类型、Field role、Key/Index 和 generated capability；非法能力从 API 缺席 |
-| BP-3 | Group/Table identity 单一且可预测：同 Group 每种 Table type 一个 instance，不同 Group 完全隔离 |
-| BP-4 | Table 使用 data-oriented authoritative state，并支持 whole Table、Index、Field 和 point access 的统一 lowering |
-| BP-5 | Query、Update 和 Remove 使用 finite、single-source、one-shot pipeline；mutation 保持 Table-local all-or-nothing |
-| BP-6 | Sequential 是明确默认；parallel 是显式 opt-in、资源有界、同步完成且与顺序路径逻辑等价 |
-| BP-7 | 正常 absence/no-op 与 contract failure 分离；失败具有稳定、machine-readable、fail-closed 语义 |
-| BP-8 | Primitive hot path 不因统一抽象被迫 boxing；Record/Editor/Value View 对象规模保持 O(1)/O(P) 而非 O(N) |
-| BP-9 | Application 拥有跨 Table 编排、ordinary Object referent、日期时间编码和外部 side effect；SOMA 不伪装拥有这些状态 |
-| BP-10 | 实现、性能和发布声明必须由相称 evidence 证明；Design 本身不构成 production/release claim |
+| BP-1 | 普通路径只暴露自然 Java object、generated typed API 与 Stream-like operation，不暴露 physical storage/runtime protocol |
+| BP-2 | Package schema 在编译期决定合法 Field role、type、Key/Index、generated object 与 capability；非法能力从generated type缺席，手写foreign marker/IR不能绕过owner/provenance validation |
+| BP-3 | 同一 Group 每种 Table type 一个 instance；default/explicit Group 身份明确且不同 Group 隔离 |
+| BP-4 | Authoritative Table state 使用 long-domain chunked data-oriented storage，不被单个 Java array 或 `int` row domain 限制 |
+| BP-5 | Table/Field/Index 是 direct reusable source；linked pipeline lazy、finite、one-shot，terminal-start binding |
+| BP-6 | Point mutation 与 Selection mutation保持单 Table all-or-nothing、zero partial publication；Key immutable |
+| BP-7 | 提供 typed aggregate、GroupBy 与 same-Group binary Equality Join，并保持明确 null、duplicate、order 与 cardinality合同 |
+| BP-8 | Typed Field/Relation expression进入 Logical IR；optimizer只能做语义等价 rewrite，并由 sequential reference interpreter 差分裁判 |
+| BP-9 | Sequential 是默认；`parallel()`显式、同步、资源有界，并与sequential保持相同logical result、order、numeric、mutation与non-resource failure semantics；parallel-specific resource/interrupt failure必须显式fail closed |
+| BP-10 | Global managed-memory admission覆盖 retained 与 temporary peak；compression透明、默认 AUTO、无隐式 spill |
+| BP-11 | Normal absence/no-op 与 contract failure 分离；failure stable、machine-readable、fail-closed、worker quiescent |
+| BP-12 | Primitive hot path不因统一抽象被迫boxing；View/Editor数量为 O(1)/O(P)，不是 O(N) |
+| BP-13 | Application拥有跨 Table transaction、ordinary referent、external side effect 与业务补偿；SOMA不伪装拥有它们 |
+| BP-14 | Processor/runtime采用明确artifact与full-regeneration合同；不存在stale/partial composition或reflection fallback |
+| BP-15 | 可用性、性能、兼容性与release声明必须由相称implementation、scenario、security、package evidence证明 |
 
-## 7. V1 reference user experience
-
-Schema 由专用 `.schema` package 声明，application 使用 processor 在父 package
-生成的 public object 与 Table API：
+## 9. Reference user experience
 
 ```java
-@SomaTable(defaultCapacity = 4096)
+@SomaTable(defaultCapacity = 4_096L)
 final class TransportTime {
     @SomaKey MachinePairKey machinePair;
     @SomaField long transportMinutes;
 }
 ```
 
-普通使用路径应保持紧凑：
-
 ```java
 TransportTimeTable times = Soma.transportTimeTable();
+MachineStateTable states = Soma.machineStateTable();
 
+times.reserve(1_000_000L);
 times.add(new TransportTime(pair, 18L));
 
 Optional<TransportTime> found = times.find(pair);
-TransportTime required = times.get(pair);
 
-long count = times.stream()
-        .filter(record -> record.transportMinutes() > 30L)
+long count = times
+        .filter(times.transportMinutes.gt(30L))
         .count();
 
-UpdateResult delayed = times.stream()
-        .filter(record -> record.transportMinutes() > 30L)
-        .update(editor ->
-            editor.transportMinutes(
+UpdateResult delayed = times
+        .filter(times.transportMinutes.gt(30L))
+        .update(editor -> editor.transportMinutes(
                 Math.addExact(editor.transportMinutes(), 5L)));
+
+GroupedLongResult<MachineId> totals = times
+        .groupBy(times.machinePair.fromMachine)
+        .sum(times.transportMinutes);
+
+long combined = times
+        .join(states)
+        .on(times.machinePair.fromMachine, states.machineId)
+        .inner()
+        .filter(states.enabled.eq(true))
+        .mapToLong(pairView -> Math.addExact(
+                pairView.left().transportMinutes(),
+                pairView.right().availableMinute()))
+        .sum();
 ```
 
-普通用户不需要显式书写 generated `Record`、`Editor` 或 Stream type，也不需要释放
-Group/Table、持有 iterator、选择物理 Index implementation 或管理 per-stream pool。
+SOMA-owned aggregate/arithmetic按Numeric合同checked；application callback中的Java算术仍由
+application拥有，因此参考用法在需要fail-closed时显式使用`Math.addExact`。其异常按
+`CALLBACK_FAILED`保留safe cause，不伪装成SOMA-owned `ARITHMETIC_OVERFLOW`。
 
-## 8. V1 capability boundary
+普通用户不需要显式管理 physical Column、View constructor、row position、planner、pool、
+Chunk 或 release token。
+
+## 10. V1 capability boundary
 
 V1 包含：
 
-- package-scoped schema composition；
-- generated immutable Value 与 mutable detached Table object；
-- default/explicit Group；
-- optional unique Key 与多个 non-unique exact-match Index；
-- whole Table、Index、Field source；
-- Record、Field、Mapped Stream capability narrowing；
-- Query、Table-local Update 与 Record-selection Remove；
-- explicit sequential/parallel source；
-- typed detached materialization；
-- stable Result 与 structured failure；
-- advanced、read-only `_metadata()` namespace。
+- package-level `@SomaSchema` composition 与 full regeneration；
+- generated immutable Value、mutable detached Table object 与 typed facade；
+- default/explicit Group；optional Key 与多个 non-unique exact Index；
+- direct Table/Index/Field source、typed expression 与 callback；
+- point add/find/get/update/remove、Selection update/remove；
+- query operation、typed aggregate、GroupBy、Equality/Cross Join；
+- sequential/explicit parallel；
+- long-domain chunked on-heap storage、transparent AUTO/OFF compression；
+- detached materialization、structured failure、`_metadata()` 与 `_explain()`。
 
 V1 明确不包含：
 
-- ORM、数据库、SQL/DataFrame 或 distributed execution；
-- ChildTable、`@SomaChild`、foreign key、cascade 或 cross-Table transaction；
-- generic join/binary relation、Batch、Segment、public physical Column；
-- Transformation/DataFlow model、workflow or solver VM；
-- generic `flatMap`、Collector、async/Future、infinite source；
-- per-Stream Executor、runtime pool replacement 或隐藏并行；
-- reflection-driven runtime schema；
-- manual `release()`/`close()`；
-- predecessor compatibility layer、legacy module 或双 API。
+- database service、ORM、SQL/DataFrame、persistence、WAL 或 distributed execution；
+- ChildTable、`@SomaChild`、foreign key、cascade、cross-Table transaction；
+- generic multi-way/non-equality/range/as-of/interval Join 或 Right Join convenience；
+- Batch/Loader、Segment、public Column、backend SPI、off-heap/mmap implementation；
+- implicit spill、background compression 或 hidden parallel；
+- generic reduce/collect/flatMap、window、approximate aggregate、prepared query；
+- per-pipeline Executor、runtime pool replacement、manual release/close；
+- predecessor compatibility layer、legacy module或predecessor public
+  `DataFlow`/`Transformation`/`Candidate` model。
 
-详细的 API absence 与技术边界由各 Design Owner 定义。
+Loader、off-heap 与 mmap 只保留未来 additive seam；没有 public placeholder。
 
-## 9. 质量属性
+## 11. 质量属性
 
-### 9.1 类型安全与可理解性
+### 11.1 可理解与类型安全
 
-Generated type 应表达合法 capability；普通 Java 用户通过 familiar 的 object、Field
-和 Stream-like API 完成工作。不能为了内部通用性把 storage/execution abstraction
-泄漏到用户层。
+Generated type表达合法 capability；不支持的操作缺席。普通用户不需要同时理解逻辑模型与
+physical execution model。
 
-### 9.2 性能可预测性
+### 11.2 可预测资源
 
-V1 优先避免 hot-path reflection、per-record DTO、primitive boxing collection、
-per-record task 和无界 scratch/task growth。真实性能必须在 production implementation
-出现后通过调度、仿真和实时派工 reference scenario profile 证明。
+已知 cardinality、memory、array/container、arithmetic 与 task peak在不可逆工作前准入。
+默认memory budget由freeze时的versioned conservative policy自动决定，不把固定比例写成
+兼容合同；生产环境可显式配置。
 
-### 9.3 确定性
+### 11.3 确定性
 
-相同 terminal-start state 与 deterministic callback 下，顺序和并行路径应得到相同
-logical result、order、mutation 和非资源型 failure。并行不得把 worker completion
-race 变成产品语义。
+相同terminal-start state与deterministic callback下，sequential/parallel产生相同result、
+order、mutation与非资源型failure。Table没有稳定业务顺序；依赖first/tie的业务必须显式
+sort。
 
-### 9.4 Fail closed
+### 11.4 Fail closed
 
-Schema、resource、arithmetic、concurrency、callback 或 publish 失败时，不得留下
-partial Result、partial Table state 或损坏的 Key/Index。真实 JVM `Error` 不被伪装为
-普通可恢复 failure。
+Schema、resource、arithmetic、concurrency、callback、planner或publish失败不留下partial
+Result、partial Table state或损坏Index。真实JVM `Error`不伪装为普通failure。
 
-### 9.5 生命周期与资源边界
+### 11.5 可持续优化
 
-Group/Table 由 Java reachability 与 GC 管理；SOMA parallel resource 为 library-wide
-且只接受 `ForkJoinPool`。Application-owned pool 和 ordinary Object referent 的生命
-周期仍由 application 管理。
+Public API不依赖array identity、codec、hash、build side或backend。Optimizer/codec/scheduler
+可依据profile演进，但不能改变logical contract。
 
-## 10. 成功标准
+## 12. 三个产品旅程
 
-Blueprint 只有在下列事实同时成立时才能投影为“可用产品”：
+正式实施与资格验证必须覆盖：
 
-1. 正式 Design 对 BP-1 至 BP-10 都有唯一 Owner；
-2. production compiler/runtime surface 经过独立 surface admission；
-3. generated Java 8 consumer、negative capability、runtime correctness、concurrency、
-   failure、build integration 与 security/supply-chain Gate 通过；
-4. 三个 reference scenario 证明表达力与性能适用边界；
-5. 用户文档、Examples、包内容和 release claim 与正式事实一致；
-6. Conformance 没有未裁决或未披露的阻断差异。
+1. **调度**：Job/Machine/Option关系、Key/双向Index、typed Join、候选选择与分阶段状态发布；
+2. **仿真**：显式事件顺序、detached decision、point mutation与已消费事件删除；
+3. **实时派工**：小批待派工Job、Index缩窄、Predicate IR/Join、低分配决策循环与application
+   compensation。
 
-当前仓库尚无 production implementation，因此本文不声明 API 可用、性能达标、兼容性、
-artifact 或 release readiness。
+如果任一场景不能只用公开API自然表达，必须回到Design治理，不能增加example-only hidden API。
 
-## 11. 下游事实入口
+## 13. 成功标准
+
+只有以下事实同时成立，SOMA 才可投影为“可用产品”：
+
+1. BP-1至BP-15均有唯一Design Owner；
+2. production compiler/runtime完成surface admission并在真实Java 8独立consumer中工作；
+3. generated API、negative capability、storage、optimizer、mutation、parallel、failure、
+   security与package Gate通过；
+4. reference interpreter与optimized sequential/parallel差分成立；
+5. 三个产品旅程达到经profile固定的百万行资格目标；
+6. documentation、Examples、package与release claim不超过evidence；
+7. Conformance无未披露blocking deviation。
+
+当前仓库没有production implementation，因此本Blueprint不声明API可用、性能达标、artifact、
+compatibility或release readiness。
+
+## 14. 下游入口
 
 - [Design 总览](../design/README.md)
-- [Schema 与编译生成](../design/schema-and-generation.md)
-- [数据模型与存储](../design/data-model-and-storage.md)
-- [逻辑层 API](../design/logical-api.md)
-- [Generated Java API Signature](../design/generated-api-signatures.md)
-- [执行、并发与并行](../design/execution-and-concurrency.md)
-- [结果与失败](../design/results-and-failures.md)
-- [Production Implementation Architecture](../design/implementation-architecture.md)
+- [核心抽象、叙事与不变量证明链](../design/core-abstractions-and-narratives.md)
 - [Production Implementation Plan](../engineering/v1-implementation-plan.md)
 - [Conformance](../conformance/README.md)

@@ -2,220 +2,287 @@
 
 类型：Engineering Plan
 
-状态：Ready / Not Started
+状态：Active Baseline / NOT_STARTED / Awaiting Implementation Authorization
 
-正式事实源：是（实施顺序与完成定义）
+正式事实源：是（实施顺序、slice exit与stop rule）
 
-Owner：SOMA Java V1 production implementation slices、依赖顺序与阶段性 Definition of Done
+Owner：SOMA Java V1 production implementation slices、依赖顺序与Definition of Done
 
-最后审查日期：2026-08-01
+最后审查日期：2026-08-03
 
-## 1. 目标与终点
+## 1. 目标与授权边界
 
-目标是在不重新解释产品语义的前提下，把正式 Blueprint/Design 转化为可验证的 Java 8
-compiler/runtime 产品。最终终点不是“代码写完”，而是 G1-G8 取得可重放 evidence、
-三个 reference scenario 成立、package/release claim 与事实一致。
+本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。它不授权implementation；
+只有Product Owner单独批准后才开始I0。当前所有slice为`NOT_STARTED`。
 
-本计划不是继续写 Blueprint。Blueprint 与核心 Design 已经完成；后续只在实现证据发现
-真实矛盾时才通过 Temporary + Product Owner 裁决修改它们。
+“纵向slice”只表示实施顺序，不缩减V1 scope。禁止先实现flat-int/boxed/reflection MVP，再把
+chunk、IR、specialization、failure或relation当成未来补丁。
 
-## 2. 全局 Definition of Done
+## 2. Global Definition of Done
 
-V1 production implementation 只有同时满足以下条件才完成：
+V1 production implementation只有同时满足以下条件才完成：
 
-1. 两个 production artifact 与 independent Java 8 consumer clean build/run；
-2. exact generated/shared signature、positive/negative capability 与 full regeneration
-   contract 通过；
-3. storage/Key/Index/order/null/materialization invariants 通过；
-4. point/selection mutation、admission、failure injection 与 zero publication 通过；
-5. sequential/parallel callback、result、order、numeric、failure、quiescence 等价；
-6. G7 三个 reference scenario 在 16 core/32 GB 上达到正式 qualification target；
-7. package smoke、license/NOTICE/source/javadoc、SBOM/依赖与 release workflow 通过；
-8. Conformance 无未披露 blocker，用户文档不含超出 evidence 的 claim。
+1. two artifact + independent Java 8 consumer clean build/run；
+2. schema/full-regeneration/diagnostic/generated exact surface通过；
+3. long-domain chunked storage、Key/Index、order/null/materialization通过；
+4. typed IR、reference interpreter与optimized sequential/parallel differential通过；
+5. point/Selection mutation every fault point zero publication；
+6. Group/Equality/Cross Join的kind/null/duplicate/order/cardinality/resource通过；
+7. bounded parallel、AUTO/OFF compression、global memory admission通过；
+8. three million-row reference scenarios达到profile后批准的qualification target；
+9. security/dependency/SBOM/package/license/provenance/release workflow通过；
+10. Conformance无undisclosed blocker，documentation/Examples/claim不超过evidence。
 
-## 3. Slice 状态
+## 3. Slice map
 
-| Slice | 名称 | 状态 | 主要 Gate |
+每个slice同时使用[核心抽象与叙事Design](../design/core-abstractions-and-narratives.md)的
+A/N/INV fill map作为attention/proof routing；精确合同仍以对应分责Design为准。A/N/INV不是
+production class名，也不是每个commit的强制清单。
+
+| Slice | Name | Status | Primary Gates |
 |---|---|---|---|
-| I0 | Build spine 与 artifact boundary | NOT_STARTED | G1、G6、G8 |
-| I1 | 最小 compiler-to-runtime 纵向闭环 | NOT_STARTED | G1-G4、G6 |
-| I2 | Schema/type/storage/Key/Index breadth | NOT_STARTED | G1、G2、G4 |
-| I3 | Query Stream capability breadth | NOT_STARTED | G3-G5 |
-| I4 | Atomic mutation、admission 与 failure | NOT_STARTED | G4、G6 |
-| I5 | Bounded parallel execution | NOT_STARTED | G5、G6 |
-| I6 | Metadata、build host 与 exact surface closure | NOT_STARTED | G1、G3、G6、G8 |
-| I7 | Reference scenarios、performance、package/release qualification | NOT_STARTED | G7、G8 + release |
+| I0 | Build spine、artifact与full-regeneration carrier | NOT_STARTED | G1、G2、G10 |
+| I1 | Primitive keyed Table vertical slice | NOT_STARTED | G1-G5 |
+| I2 | Schema/type/chunk/Key/Index breadth | NOT_STARTED | G2-G4 |
+| I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |
+| I4 | Selection mutation、failure与resource admission | NOT_STARTED | G5 |
+| I5 | GroupBy与binary Equality/Cross Join | NOT_STARTED | G6 |
+| I6 | Bounded ForkJoin parallel execution | NOT_STARTED | G7 |
+| I7 | Compression、metadata/explain与surface closure | NOT_STARTED | G8 |
+| I8 | Reference scenarios、performance、security、package/release qualification | NOT_STARTED | G9、G10 |
 
-## 4. I0 — Build spine 与 artifact boundary
+任何slice只有其exit evidence进入Conformance后才能进入下一slice。允许在同一commit交付相邻
+mechanism，但Gate不能因实现方便合并消失。
+
+## 4. I0 — Build spine
 
 ### Capability
 
-建立标准 Maven reactor、`soma-runtime`、`soma-processor` 和最小 independent consumer
-fixture，使后续每一行 production code 都处于真实 Java 8 dependency/build boundary。
+建立standard Maven reactor、`soma-runtime`、`soma-processor`与independent consumer fixture，
+使后续代码处在真实Java 8 classpath/processorpath/version/package boundary。
 
-### 准入 surface
+### Surface admission
 
-- root `pom.xml` 和两个 module；
-- Java 8 compiler/toolchain policy；
-- unit/consumer/compile-negative test taxonomy；
-- exact version linkage 与 generated-contract handshake；
-- license/NOTICE/source/javadoc 的最小 package policy。
+- root Maven reactor与wrapper policy；
+- exactly two production modules；
+- Java 8 compiler/toolchain enforcement；
+- unit/golden/compile-negative/consumer/integration test taxonomy；
+- full-source-set handshake、generated manifest与stale cleanup；
+- runtime/processor exact version linkage；
+- LICENSE/NOTICE/source/javadoc/SBOM/provenance baseline。
 
-### Exit evidence
+### Exit
 
-- clean reactor 在真实 Java 8 编译；
-- consumer 分离 classpath/processorpath；
-- processor/runtime version mismatch negative；
-- dependency tree 只有经 admission 的依赖，并建立 G8 processor/runtime security negatives；
-- 不存在空 module、legacy source 或第三个 artifact。
+- clean reactor与independent consumer在qualified Java 8编译运行；
+- classpath/processorpath分离；
+- empty/invalid schema、version mismatch、partial source set negatives；
+- class-load/`Soma.class`/metadata不freeze，configure-first与default-first ordering成立；
+- dependency tree only admitted；
+- no third artifact、legacy source或production placeholder package。
 
-## 5. I1 — 最小 compiler-to-runtime 纵向闭环
+## 5. I1 — Primitive keyed Table vertical slice
 
-### Journey
-
-一个 composition，包含一个 primitive Value、一个 keyed Table、一个 non-Key primitive
-Field，贯通：
+Journey：
 
 ```text
-schema -> processor -> generated Soma/Table/object
-       -> add -> find/get -> stream/filter/count
-       -> field update -> structured failure
+one schema
+    -> generated Soma/Group/Table/object/View/Editor/Field
+        -> chunked PLAIN StateRoot
+            -> reserve/add/find/get
+                -> typed filter/count
+                    -> point update
+                        -> structured failure
 ```
 
-### 目的
+第一条storage必须已经支持paged Chunk directory、long domain、Group guard、one-shot pipeline、
+scope token与atomic publish；不能用single `int[]`/Object[] universal engine。
 
-尽早同时验证 JSR 269、generated surface、runtime root、admission、cursor、failure 与
-consumer usability。这里的“最小”只限定实施顺序，不缩减 V1 scope，也不允许把薄实现
-固化成 universal boxed/reflection engine。
+Exit：generated/javap golden、consumer positive/negative、tiny-Chunk boundary、no reflection/boxing、
+add/find/query/update success/failure、point update missing/no-callback、candidate-root与prevalidated
+final-commit两条publication mechanism的root/version invariant。
 
-### Exit evidence
+## 6. I2 — Schema/type/storage breadth
 
-- generated source + `javap -v` golden；
-- independent consumer positive/negative；
-- no reflection/boxing hot path inspection；
-- add/find/query/update success/failure state invariant；
-- P2 结论在 production topology 中首次重验证。
+覆盖：
 
-## 6. I2 — Schema/type/storage/Key/Index breadth
+- 全部 primitive、String、Enum、Value flattening、ordinary/parameterized Object；
+- Enum/Object/array/parameterized type从generated parent namespace的Java 8 source accessibility；
+- keyless/keyed、multiple Index、nullable reference、float/double canonical semantics；
+- multiple Group/default Group、long reserve/growth/remove compaction/GC；
+- default/explicit Group中same-type accessor首次并发的single identity与safe publication；
+- generated constructor/naming/collision/full regeneration breadth；
+- 1:M/N:M relation Table与双向Index journey。
 
-覆盖全部 primitive、String、Enum、Value flattening、ordinary/parameterized Object、
-keyless/keyed、多 Index、null/equality/collision、Group/default Group、capacity、关系 Table
-journey。
+Exit包括全部 annotation/type diagnostic、cross-Chunk tests、Key/Index collision/null/order/rebuild、
+reference clearing、ordinary Object不具Equality/Key/Index/GroupBy/Join capability的compile-negative、
+structural bytes/allocation baseline与100+Table generated-surface profile。
 
-Exit 必须包含：
+## 7. I3 — Query IR 与 reference interpreter
 
-- annotation/declaration/collision diagnostic catalog；
-- all leaf generated/access/materialization matrix；
-- Key/Index collision、duplicate、null、ordered subsequence；
-- reserve/growth/remove compaction 与 GC reachability；
-- 1:M/N:M 双向 Index consumer journey；
-- storage structural bytes 和 allocation baseline。
+覆盖：
 
-## 7. I3 — Query Stream capability breadth
+- direct Table/Index/Field source；
+- Stream/Selection/ReadStream type-state；
+- Field/Relation expression与callback barrier；
+- filter/map/mapTo*/distinct/sort/top/skip/limit；
+- scalar/match/materialization/numeric；
+- typed Logical IR、fixed optimization phases；
+- sequential reference interpreter与optimized sequential differential；
+- `_explain()`logical-only baseline。
 
-覆盖 Record/Field/Mapped/八种 primitive Stream 的完整 operation-property matrix：
-filter/select/map/mapToXxx/distinct/sorted/skip/limit、match/find/forEach、min/max、
-sum/average、toList/toArray。
+Exit：operation-property compile matrix、expression/callback overload、wrong-owner negative、View
+O(1)、mapped `toArray(Class)`、integer/floating contract、normalization/barrier/Index substitution
+golden与reference differential。还必须覆盖between逆区间、empty/duplicate/null `in`、nullable
+order placement、lexicographic tie-break、empty match、mapped reference distinct/null与detached
+modifiable List合同，以及behavioral callback non-interference/canonical short-circuit/Comparator
+barrier；`in` defensive snapshot的checked construction/application-retained ownership与terminal
+scratch admission边界。
 
-Exit 必须包含：
+## 8. I4 — Selection mutation、failure与resource
 
-- 每个应存在/缺席 signature 的 compile probe；
-- stateful operation canonical order 与 stable tie；
-- mapped `toArray(Class<A>)` 全部正反例；
-- integer exact overflow、float/double canonical tree bit result；
-- Record/Value View O(1) allocation 与 scope-negative；
-- no unbudgeted internal task/scratch growth。
+覆盖point add/update/remove/reserve与Selection update/remove：
 
-## 8. I4 — Atomic mutation、admission 与 failure
+- frozen selection/compaction；
+- Editor staging；
+- payload/Key/all Index/accounting atomicity；
+- small journal/large candidate paths；
+- failure phase precedence；
+- retained/temporary global admission；
+- explicit Group `PhantomReference/ReferenceQueue` retained accounting release；
+- automatic/explicit effective memory budget；
+- metadata last-published observation。
 
-覆盖 point add/update/remove/reserve 与 selection update/remove，完成 fail-fast
-Read/Write admission、reentrancy、phase precedence、fault injection、sanitization 和
-zero-publication proof。
+Exit必须在payload、allocation、Key、each Index、callback、validation、publish前所有可恢复point
+注入失败，并证明old root/version完整、worker/lease/guard释放。Callback failure evidence必须区分
+current runtime provenance（保留scope/missing/reentry code）与application replay/foreign provenance
+（`CALLBACK_FAILED`）。Opaque selection mutation必须证明bound-upper resource admission发生在任何
+callback前；point update必须证明existing-row worst-case admission发生在Editor callback前而missing
+不admit/callback；GC accounting必须证明无strong-retention cycle与double release。
 
-Exit 必须在 payload、Key、每个 Index、allocation、callback、merge、validation、publish
-前的所有可恢复 failure point 注入失败，并证明 old root/stateVersion 完整。Repeated add
-必须取得 G7 ingestion baseline；若触发 Batch stop rule，本 slice 停止等待产品裁决。
+Repeated add在本slice取得million-row ingestion profile。若其成为dominant bottleneck且internal
+优化无法达到合理manual column baseline的approved threshold，停止并建立Loader Temporary；
+不得引入 hidden Batch。
 
-## 9. I5 — Bounded parallel execution
+## 9. I5 — Group 与 relation
 
-在 sequential correctness baseline 上加入 library-wide `ForkJoinPool`、fixed
-configuration、bounded partition/task、worker token、deterministic merge/cancellation 和
-quiescence。
+### Group
 
-Exit 必须覆盖 P=1/2/4/16、小/大 selection、custom/common/shutdown/rejection、nested
-parallel、active callback <= P、task count bound，以及所有 deterministic operation 的
-sequential/parallel result/order/numeric/failure/mutation 等价。
+- all eligible key type/null group；
+- count与numeric aggregate；
+- typed primitive/reference result；
+- key-first order、checked cardinality与resource。
 
-## 10. I6 — Metadata、build host 与 exact surface closure
+### Join
 
-完成 immutable metadata carrier、无副作用 observation、Maven clean-full
-regeneration、IDE delegated build 说明、manifest/stale cleanup、完整 golden/javap 与 API
-diff。重新运行独立 consumer，而不是使用 processor module 的同-reactor偶然可见性。
+- same-Group typed `on/and`；
+- recursively keyable Field marker与float/double/ordinary Object compile-time exclusion；
+- Inner/Left/Full/Semi/Anti/Cross；
+- null-never-match、duplicate Cartesian、missing truth；
+- Pair/ReadStream/materialization narrowing；
+- Predicate IR pushdown/residual/Index substitution；
+- lookup/hash baseline与physical-order independence。
 
-Exit 时 G1、G3、G6 除 production performance/release 依赖外必须全部 PASS。
+Exit：reference-vs-optimized algorithm differential、全部 kind/order/null/cardinality/failure、extreme
+checked budget、Join type-state negative（kind after intermediate、Outer select、Pair materialization、
+foreign/ordinary-Object Field）、`_explain()` plan与调度journey paper program。
 
-## 11. I7 — Reference scenarios、performance 与发布资格
+## 10. I6 — Parallel execution
 
-### Reference scenarios
+在 optimized sequential correctness 上加入 application-owned `ForkJoinPool`：
 
-1. 调度：Job/Operation/Machine/Eligibility relation、Key/双向 Index、筛选和状态更新；
-2. 仿真：大规模事件/实体状态、sequential deterministic step 与 bounded parallel query；
-3. 实时派工：高频 point lookup、Index candidate selection、低分配决策循环。
+- caller + P-1 bounded drainers；
+- ordinal range queue/start gate/caller progress；
+- deterministic merge/floating tree/failure frontier；
+- synchronous cancellation/interrupt/quiescence；
+- no hidden fallback/nested parallel。
 
-### 工作顺序
+Opaque callback-bearing short-circuit与Comparator stage按Design在caller thread canonical执行；
+typed-only stage才可speculate。
 
-correctness journey -> deterministic workload -> profile -> identify owner -> narrow
-optimization -> equivalence rerun -> scale/saturation -> package/release qualification。
+Exit覆盖P=1/2/4/16、small/large、custom/common/shutdown/rejection/saturated/nested/interrupt、
+active participant/task bound，以及sequential/parallel result/order/numeric/mutation/non-resource
+failure exact equivalence；parallel-specific resource/interrupt failure单独验证fail-closed与no
+alternate result。
 
-不得为 benchmark 修改产品语义、降低校验或引入 example-only hidden API。若三个场景中
-任何一个不能以公开 API 自然表达，先回到 Blueprint/Design 审查。
+## 11. I7 — Compression 与 diagnostic closure
 
-### Exit evidence
+实现AUTO/OFF与Chunk representation：
 
-- G7 qualification report；
-- 16 core/32 GB scale 与 saturation evidence；
-- Examples 仅使用 public surface；
-- package smoke、consumer from packaged artifact、source/javadoc/license/NOTICE；
-- dependency/security/SBOM/checksum/provenance review；
-- CI/release workflow 和版本/Changelog/claim review；
-- Owner sign-off 后才允许 GitHub Release/Package。
+- PLAIN、eligible integer/boolean/Enum encoding、String dictionary；
+- sparse overlay与affected-Chunk rebuild；
+- generated/specialized kernels；
+- Index/compression atomicity；
+- forced codec correctness、AUTO cost/peak；
+- final Soma/Group/Table/Field `_metadata()` carrier admission与API diff；
+- full `_explain()` pushdown/residual/Index/Join/codec/peak；
+- complete generated signature/IDE navigation/full regeneration rerun。
 
-## 12. Traceability matrix
+Exit时除scenario/performance/package/release外，G1至G8必须PASS。
 
-| Blueprint | Primary Design | Implementation slices | Primary Gate |
+## 12. I8 — Product qualification
+
+### Three scenarios
+
+1. 调度：Job/Machine/Option、Key/双向Index、Join、candidate与compensated publish；
+2. 仿真：event order、detached decision、state update与event remove；
+3. 实时派工：pending Index、Predicate IR/Join、low-allocation decision loop。
+
+### Profile sequence
+
+```text
+correctness
+    -> deterministic workload
+        -> profile and allocation/memory attribution
+            -> narrow owner optimization
+                -> reference/parallel equivalence rerun
+                    -> scale/saturation
+                        -> package/security/release qualification
+```
+
+Datasets至少覆盖Narrow、Medium、Reference-mixed million-row；16 core/32 GB是qualification
+resource envelope，不是runtime maximum。比较ArrayList+HashMap与合理manual column baseline，
+但不以牺牲contract获得benchmark。
+
+Exit：approved G9 performance report与G10 qualification、public API Examples、package consumer smoke、source/javadoc/license/
+NOTICE/SBOM/checksum/provenance、CI/release workflow与Owner sign-off。GitHub Release/Package需
+单独发布授权。
+
+## 13. Gate traceability
+
+| Blueprint | Primary Design | Slices | Gate |
 |---|---|---|---|
-| BP-1 | Schema、Logical、Signature | I0-I3、I6 | G1、G3 |
-| BP-2 | Schema、Signature | I1-I3、I6 | G1、G3 |
-| BP-3 | Storage、Schema | I1-I2 | G2 |
-| BP-4 | Storage、Logical、Architecture | I1-I3 | G2、G3 |
-| BP-5 | Logical、Execution、Architecture | I1、I3-I5 | G3、G4 |
-| BP-6 | Execution、Architecture | I5 | G5 |
-| BP-7 | Failure、Signature | I1、I4-I6 | G6 |
-| BP-8 | Storage、Logical、Architecture | I2-I5、I7 | G3-G5、G7 |
-| BP-9 | Blueprint、Storage、Execution | I2、I4、I7 | G2、G4、G7 |
-| BP-10 | 全部 + Conformance | I0-I7 | G1-G8 |
+| BP-1/BP-2/BP-14 | Schema、Signature、Architecture | I0-I3、I7 | G1、G2、G10 |
+| BP-3/BP-4 | Storage、Execution | I1-I2、I4 | G3、G5 |
+| BP-5/BP-8 | Logical、Planning | I1、I3、I5 | G4、G6 |
+| BP-6/BP-11 | Execution、Failure | I1、I4、I6 | G5、G7 |
+| BP-7 | Logical、Planning、Storage | I5 | G6 |
+| BP-9/BP-10/BP-12 | Execution、Architecture | I3-I8 | G4、G5、G7-G9 |
+| BP-13 | Blueprint、Storage、Execution | I2、I4-I8 | G3、G5-G7、G9 |
+| BP-15 | All + Conformance | I0-I8 | G1-G10 |
 
-## 13. Stop rules
+## 14. Stop rules
 
-任一条件出现时停止当前 slice，不继续堆代码：
+立即停止当前slice并建立bounded Temporary，如果：
 
-- public/generated signature 需要偏离正式 Design；
-- correctness 只能依靠 reflection/boxing/unbounded allocation 或 hidden blocking；
-- sequential/parallel 无法产生同一 logical result/failure；
-- mutation failure 不能证明 zero publication；
-- full regeneration 不能在标准 Maven/IDE delegated path 重放；
-- repeated add、memory peak 或核心 hot path未达 G7 stop threshold；
-- 连续验证不产生新 evidence，只是在重复相同失败；
-- 新 artifact/type/dependency/workflow 找不到独立 capability Owner。
+- public/generated signature需要偏离Design；
+- correctness依赖reflection/boxing/unbounded allocation/hidden blocking；
+- storage退化到single array/int domain；
+- reference与optimized/parallel不能得到相同logical result或non-resource failure semantics；
+- mutation failure无法证明zero publication；
+- full regeneration/stale cleanup不能重放；
+- Join rewrite无法证明Outer/missing/order等价；
+- tasks/scratch/memory peak无法bound；
+- Loader/off-heap/mmap/third artifact/dependency没有surface admission；
+- repeated validation不产生新evidence；
+- new public type/operation找不到Blueprint/Owner/lifecycle/failure/evidence。
 
-停止后只建立一个 bounded Temporary：反例、影响的 Blueprint/Design、候选方案、所需
-裁决与恢复条件。未经 Product Owner 裁决，不把 workaround 固化成产品事实。
+Stop不等于缩小产品scope。必须记录反例、受影响Owner、候选修正、恢复条件与Product Owner
+裁决。
 
-## 14. Change protocol
+## 15. Change protocol
 
-- 技术实现细节在不改变合同且 evidence 更好时，可通过 Architecture Design 审查替换；
-- public capability、用户心智模型、failure/numeric/order/lifecycle 变化必须回到 Product
-  Owner；
-- 计划中的状态变化必须链接 Conformance record 与适用 commit；
-- release 后才启用 compatibility/deprecation policy；pre-release 实施不保留失败草案的
-  compatibility alias。
+- Internal mechanism可凭evidence替换，但不改变contract；
+- public capability、order/null/failure/lifecycle/resource visibility变化回到Product Owner；
+- 每个slice status变化链接Conformance evidence与commit；
+- pre-release不保留失败草案compatibility alias；
+- implementation authorization、commit/push、release/package各自需要明确授权，互不推断。
