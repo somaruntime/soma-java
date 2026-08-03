@@ -8,10 +8,9 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 第一阶段以百万行数据的高效、低分配、资源受控操作建立资格证据。
 
 2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
-为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。这只表示设计、计划与Gate足以接受单独
-实施授权；当前
-implementation authorization 为 `NOT_GRANTED`，I0-I8 全部 `NOT_STARTED`，G1-G10 全部
-`NOT_RUN`。
+为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。Product Owner 已于 2026-08-03 明确授予
+完整 V1 implementation authorization；当前 I0 是唯一 active slice，I1-I8 为`NOT_STARTED`，
+G1-G10 尚无 production PASS 结论。
 
 Active checkout 不包含 production source、Maven reactor/module、generated consumer API、
 test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
@@ -62,8 +61,8 @@ planning 或 reference differential 时读取
 - V1 `@SomaTable` 不接受 `name` identity；package-private `.schema` declaration type 决定父
   package generated object、`XxxTable` 和 `xxxTable()`；
 - application API 不泄漏 schema declaration type；
-- formal production topology 为 exactly `soma-runtime` + `soma-processor`；新的 readiness 与
-  明确 implementation authorization 前不创建 production module/public API，不启动 I0。
+- formal production topology 为 exactly `soma-runtime` + `soma-processor`；当前授权只允许按
+  I0-I8 顺序建立正式 surface，不允许为未来 slice 预建 placeholder。
 
 ## 正式事实与文档
 
@@ -98,19 +97,22 @@ Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须�
 
 ## 实施准入与推进
 
-- 未获得明确 implementation authorization 时，不创建 production source/module/public API，
-  不运行 I0；
-- 获得授权后只从 I0 开始，一次只推进一个 active slice；
+- 当前 implementation authorization 覆盖 I0-I8 的自主实现；一次只推进一个 active slice，
+  当前只允许推进 I0；
 - 每个 slice 按 [Implementation Plan](project/engineering/v1-implementation-plan.md)交付
-  positive、negative、failed-state 与 Conformance evidence；
+  positive、negative、failed-state、独立审查与 Conformance evidence；
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
 - reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；
 - I0 exit 未通过前不进入 I1，documentation Gate 不替代 production Gate。
+- 允许 subagent 进行独立分析、测试与审查；不得让多个 Agent 并行修改同一核心 surface；
+- Blueprint/Design 语义变化、权限扩张、新 dependency、第三 artifact、证明链无法闭合或
+  性能与正确性取舍必须停止并等待 Product Owner；
+- 每个 slice 只有在 exit evidence、独立审查、Conformance 更新和干净提交完成后才可进入下一项。
 
 ## 当前阶段验证
 
-当前仍是 pre-implementation 阶段。文档与 repository-surface 变更至少执行：
+当前是 I0 implementation 阶段。文档与 repository-surface 变更至少执行：
 
 - 使用 `rg` / `rg --files` 搜索；
 - 使用 `apply_patch` 编辑；
@@ -130,6 +132,7 @@ performance 或 release evidence。
 - 长期分支只使用 `main`、`develop`、`release`；
 - 常规工作在 `develop`；
 - 保留用户现有修改；
-- 未经明确授权不提交、不推送、不发布、不创建 GitHub Release 或 Package；
+- 当前授权允许在每个 slice 证据闭合后提交并推送`develop`；
+- 当前授权不包含 GitHub Release、Package、签名、正式发布声明或其他分支发布动作；
 - destructive 操作必须先解析精确、可恢复 target；
 - 不使用 destructive reset/checkout 覆盖用户 worktree。

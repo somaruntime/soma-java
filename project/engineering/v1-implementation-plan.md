@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / NOT_STARTED / Awaiting Implementation Authorization
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 IN_PROGRESS
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -12,8 +12,8 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 
 ## 1. 目标与授权边界
 
-本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。它不授权implementation；
-只有Product Owner单独批准后才开始I0。当前所有slice为`NOT_STARTED`。
+本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
+2026-08-03 单独授予完整 V1 implementation authorization；当前 I0 是唯一 active slice。
 
 “纵向slice”只表示实施顺序，不缩减V1 scope。禁止先实现flat-int/boxed/reflection MVP，再把
 chunk、IR、specialization、failure或relation当成未来补丁。
@@ -41,7 +41,7 @@ production class名，也不是每个commit的强制清单。
 
 | Slice | Name | Status | Primary Gates |
 |---|---|---|---|
-| I0 | Build spine、artifact与full-regeneration carrier | NOT_STARTED | G1、G2、G10 |
+| I0 | Build spine、artifact与full-regeneration carrier | IN_PROGRESS | G1、G2、G10 |
 | I1 | Primitive keyed Table vertical slice | NOT_STARTED | G1-G5 |
 | I2 | Schema/type/chunk/Key/Index breadth | NOT_STARTED | G2-G4 |
 | I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |
@@ -76,9 +76,31 @@ mechanism，但Gate不能因实现方便合并消失。
 - clean reactor与independent consumer在qualified Java 8编译运行；
 - classpath/processorpath分离；
 - empty/invalid schema、version mismatch、partial source set negatives；
-- class-load/`Soma.class`/metadata不freeze，configure-first与default-first ordering成立；
+- shared configuration owner的class-load/internal observation不freeze，configure-first与首次
+  runtime access ordering carrier成立；公开`Soma`/default Group/Table ordering在I1真实纵向
+  闭环出现后验证，公开metadata observation在I7 exact carrier admission后验证；
 - dependency tree only admitted；
 - no third artifact、legacy source或production placeholder package。
+
+### I0 M1 slice-boundary clarification（2026-08-03）
+
+I0负责build host、processor、generation manifest/version/config carrier，但不生成无真实后端的
+公开`Soma`/`SomaGroup`/Table facade，也不提前冻结I7 metadata getter topology。这样保持最终
+Blueprint/Design语义不变，并关闭两个implementation归属冲突：
+
+- 第一套完整公开composition root与primitive Table vertical slice在I1一次出现；I0只生成不承诺
+  用户capability的internal composition/provenance carrier，并由independent schema consumer验证；
+- I0通过runtime内部同源证据验证configuration CAS与freeze ordering；公开`Soma.class`、
+  `defaultGroup()`/Table-first与`_metadata()` observation证据分别在I1/I7补齐；
+- I0的failed-state合同是“所有source先验证并内存render、success manifest最后写；失败输出不可
+  形成valid composition，下一次qualified lifecycle先完整清理”，不声称JSR 269 `Filer`能让
+  任意I/O失败后的物理目录绝对为空；
+- `-Asoma.fullSourceSet=true`是build host assertion，不是processor能够独立证明的filesystem
+  oracle；伪造该option的raw partial javac明确不属于support path。
+
+该记录属于核心抽象变更协议的M1定位修正：不改变public/generated signature、V1 capability、
+result/order/null/failure或资源语义；若实现反例要求改变这些SEMANTIC_BASELINE，立即升级M2并
+等待Product Owner。
 
 ## 5. I1 — Primitive keyed Table vertical slice
 
@@ -285,4 +307,5 @@ Stop不等于缩小产品scope。必须记录反例、受影响Owner、候选修
 - public capability、order/null/failure/lifecycle/resource visibility变化回到Product Owner；
 - 每个slice status变化链接Conformance evidence与commit；
 - pre-release不保留失败草案compatibility alias；
-- implementation authorization、commit/push、release/package各自需要明确授权，互不推断。
+- 当前Product Owner授权覆盖I0-I8 implementation以及每个slice闭合后的commit/`develop` push；
+  release/package/signing仍需独立授权，其他权限不得由本授权推断。

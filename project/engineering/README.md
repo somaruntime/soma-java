@@ -2,7 +2,7 @@
 
 类型：Engineering Entry
 
-状态：Implementation Planned / Final Global Review PASS / Awaiting Product Owner Authorization
+状态：Implementation Authorized / I0 IN_PROGRESS
 
 正式事实源：是（实施计划与工程路由）
 
@@ -14,7 +14,8 @@ Owner：SOMA Java implementation sequence、work-unit与engineering evidence rou
 
 新的大规模编译式Table引擎Blueprint/Design与核心抽象专题已经正式晋升，并通过
 [实施前最终全局一致性审核](../conformance/v1-final-pre-implementation-global-consistency-review.md)。
-Production implementation尚未授权、尚未开始；I0-I8全部`NOT_STARTED`。
+Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization；I0 是唯一 active
+slice，I1-I8 全部`NOT_STARTED`。
 
 `READY_FOR_IMPLEMENTATION`只表示设计、计划与Gate足以接受单独实施授权，不表示compiler、
 runtime、API、performance、package或release已经存在。
@@ -46,7 +47,10 @@ I0 build/full-regeneration
 - 不恢复predecessor source、module、test、benchmark或compatibility layer；
 - new surface必须通过AGENTS.md的surface admission；
 - stop rule触发时回到Temporary/Owner，不在code中静默选择；
-- implementation、commit、push、release/package分别需要明确授权。
+- 当前授权允许实现、验证、独立审查以及每个 slice 闭合后的 commit/`develop` push；
+- Blueprint/Design语义变化、stop rule、权限扩张、新dependency、第三artifact、证明链无法闭合
+  或性能与正确性取舍必须暂停等待Product Owner；
+- GitHub Release、Package、签名和正式发布声明仍需独立授权。
 
 ## Evidence route
 
@@ -56,5 +60,5 @@ I0 build/full-regeneration
 - Current readiness verdict：[Final Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)
 - Architecture skeleton：[Core Abstractions and Narratives](../design/core-abstractions-and-narratives.md)
 
-在I0出现前，没有production build/test command可运行。Documentation Gate不能替代未来Java 8
+I0将建立第一条production build/test command。Documentation Gate不能替代Java 8
 compile/runtime/performance/package Gate。

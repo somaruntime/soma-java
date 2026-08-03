@@ -8,7 +8,10 @@ Design/Plan readiness：`READY_FOR_IMPLEMENTATION`
 
 下一治理动作：`READY_TO_REQUEST_IMPLEMENTATION_AUTHORIZATION`
 
-Implementation authorization：`NOT_GRANTED`
+Review-time implementation authorization：`NOT_GRANTED`
+
+Post-review disposition：Product Owner 于 2026-08-03 单独授予`GRANTED`；current status 由
+[Conformance](README.md)拥有。
 
 Production G1-G10：全部`NOT_RUN`
 
@@ -36,8 +39,8 @@ implementation按既定位置建立机制与证据，而不再临场发明普通
 7. repository仍是干净的pre-implementation product boundary，没有production source、build、
    artifact、workflow或release claim。
 
-因此Design/Plan已经`READY_FOR_IMPLEMENTATION`，但本审核不等于Product Owner的实施授权。
-下一步可以请求单独的implementation authorization；获得授权后只能从I0开始。
+因此Design/Plan已经`READY_FOR_IMPLEMENTATION`；本审核本身不等于Product Owner的实施授权。
+审核完成后，Product Owner已单独授权从I0开始，见current Conformance。
 
 ## 2. Frozen audit input
 
@@ -347,7 +350,8 @@ Core abstraction promotion          PASS
 Temporary replacement closure       PASS
 Blueprint/Design/Plan/Gate closure  PASS
 Design/Plan readiness               READY_FOR_IMPLEMENTATION
-Implementation authorization        NOT_GRANTED
+Review-time implementation auth     NOT_GRANTED
+Post-review implementation auth     GRANTED (2026-08-03; see current Conformance)
 Production implementation           ABSENT
 Production G1-G10                   NOT_RUN
 Product/package/release readiness   NOT_QUALIFIED

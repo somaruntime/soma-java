@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `NOT_GRANTED`
+implementation authorization `GRANTED`；I0 `IN_PROGRESS`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -22,12 +22,12 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
 - [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
-- implementation authorization 仍为 `NOT_GRANTED`，I0-I8 全部 `NOT_STARTED`；
-- G1-G10 全部 `NOT_RUN`。
+- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0 是唯一 active
+  slice，I1-I8 为`NOT_STARTED`；
+- G1-G10 尚无 production PASS 结论。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
-closure与targeted readiness delta review已完成。当前没有active Temporary。开始I0仍需要
-Product Owner单独明确implementation authorization。
+closure与targeted readiness delta review已完成。当前没有active Temporary。
 
 当前 active checkout 没有 production source、Maven reactor/module、generated consumer API、
 test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
@@ -88,8 +88,8 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0-I8 planned，尚未授权 |
-| Conformance | `project/conformance/`；readiness PASS，G1-G10 NOT_RUN |
+| Engineering | `project/engineering/`；I0 active，I1-I8 not started |
+| Conformance | `project/conformance/`；readiness PASS，implementation authorized，Gates待运行 |
 | Temporary | 当前无active topic；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
@@ -120,12 +120,11 @@ cherry-pick、包装或通过 compatibility layer 恢复 predecessor source。
 
 ## 下一阶段
 
-大规模引擎与核心抽象候选都已收口、正式晋升并通过最终实施前审核。下一阶段不是自动开始
-编码，而是请求独立的implementation authorization：
+大规模引擎与核心抽象候选都已收口、正式晋升并通过最终实施前审核。Product Owner 已授予
+implementation authorization；当前执行路径为：
 
 ```text
-explicit implementation authorization
-    -> I0 build/full-regeneration spine
+I0 build/full-regeneration spine
         -> one active slice at a time
             -> matching Conformance evidence
                 -> stop or next slice
@@ -133,8 +132,8 @@ explicit implementation authorization
                         -> separate release authorization
 ```
 
-明确授权后只从I0开始；I0 exit evidence未通过前不得进入I1。
-Implementation、commit、push、workflow、Release 与 Package 是彼此独立的授权，不得相互推断。
+I0 exit evidence未通过前不得进入I1。当前授权同时允许每个 slice 证据闭合后的干净 commit 与
+`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
 
 ## 当前验证边界
 
@@ -142,4 +141,4 @@ Implementation、commit、push、workflow、Release 与 Package 是彼此独立�
 Markdown link、current route、historical status、repository inventory 与 whitespace。
 
 Production compile/runtime/performance/security/package/release Gate 只能在相应 surface 出现后
-执行；当前 G1-G10 全部 `NOT_RUN`，不得用 documentation readiness 替代。
+执行；当前尚无 Gate PASS，不得用 documentation readiness 替代。

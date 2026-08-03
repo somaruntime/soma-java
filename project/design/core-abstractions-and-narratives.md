@@ -1371,4 +1371,5 @@ commit的官僚性清单。
   正式产品语义；
 - 本次最终全局一致性审核关闭了已识别P1语义空洞，没有留下需要implementation自行裁决的
   已知P0/P1；
-- 本文完成并不授权I0；implementation authorization仍必须由Product Owner单独给出。
+- 本文完成本身不授权I0；Product Owner 已于 2026-08-03 在本文之外单独授予完整 V1
+  implementation authorization，current状态由Conformance拥有。

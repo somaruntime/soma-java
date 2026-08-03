@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `NOT_GRANTED`；Production G1-G10 `NOT_RUN`
+Implementation authorization `GRANTED`；I0 `IN_PROGRESS`
 
 正式事实源：是
 
@@ -30,16 +30,16 @@ Formal promotion              PASS
 Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
-Implementation authorization  NOT_GRANTED
+Implementation authorization  GRANTED (2026-08-03)
 Production source/reactor      ABSENT
 Generated consumer API         ABSENT
-G1-G10                         NOT_RUN
+Active slice                   I0 IN_PROGRESS
+G1-G10                         NO PASS YET
 Package/release                NOT_QUALIFIED
 ```
 
-`READY_FOR_IMPLEMENTATION`只表示：Product Owner若单独授权，可以按I0开始，并且implementation
-不需要临场发明已知P0/P1产品语义。它不表示任何runtime capability已经成立，也不能推断commit、
-push或release authorization。
+`READY_FOR_IMPLEMENTATION`与独立授权共同允许按I0-I8实施，但不表示任何runtime capability已经
+成立。当前授权允许每个slice闭合后的commit与`develop` push，不包含release/package/signing。
 
 ## 3. Conformance matrix
 
@@ -63,7 +63,8 @@ push或release authorization。
 ## 4. Active records
 
 - [Final pre-implementation global consistency review](v1-final-pre-implementation-global-consistency-review.md)：
-  当前唯一readiness、findings closure、core promotion与authorization boundary Owner；
+  readiness、findings closure、core promotion与review-time authorization boundary Owner；当前
+  post-review authorization状态由本文第6节拥有；
 - [Large-scale engine formal promotion](large-scale-engine-formal-promotion.md)：候选source
   fingerprint、promotion matrix、evidence boundary与Temporary replacement closure；
 - [V1 Implementation Gates](v1-implementation-gates.md)：G1-G10最低production evidence。
@@ -96,19 +97,29 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 
 Gate不能在对应production surface出现前运行或标PASS。
 
-## 6. Implementation entry contract
+## 6. Implementation authorization contract
 
-核心抽象promotion与targeted readiness delta review已经关闭。开始I0仍需要Product Owner明确
-implementation authorization。授权不自动包含：
+核心抽象promotion与targeted readiness delta review已经关闭。Product Owner 于 2026-08-03
+明确授权 Codex 按当前 Blueprint、九个 Design Owner、I0-I8 Plan 与 G1-G10 自主完成 V1。
 
-- commit/push；
+授权要求：
+
+- 一次只推进一个active slice；
+- 每个slice只有在exit evidence、独立审查、Conformance更新和干净提交完成后才进入下一项；
+- 允许自主编写code/test/benchmark/docs并提交推送`develop`；
+- subagent只用于独立分析、测试与审查，不并行修改同一核心surface；
+- Blueprint/Design语义变化、stop rule、权限扩张、新dependency、第三artifact、证明链无法闭合
+  或性能与正确性取舍必须暂停等待Product Owner。
+
+授权不包含：
+
 - dependency/download beyond admitted build；
 - GitHub workflow/release/package；
 - benchmark claim；
 - publication/signing。
 
-每个slice必须更新本Conformance matrix与Gate evidence；stop rule触发时建立Temporary并阻断后续
-slice。
+当前I0只允许使用Design已准入的standard Maven/JDK build surface；任何新的dependency仍需停下
+裁决。GitHub Release、Package、签名和正式发布声明均不在授权内。
 
 ## 7. Release claim boundary
 
