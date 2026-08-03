@@ -19,6 +19,8 @@ published artifact。
 ./scripts/check-i0.sh
 ```
 
+正式结果见[I0 Build Spine Qualification](../../project/conformance/i0-build-spine-qualification.md)。
+
 脚本要求完整 JDK 8、standard Maven 与公共 Maven Central。默认复用当前 Java user home 下的
 Maven local cache，避免把重复下载 build-plugin graph 误当成产品正确性 Gate；若要单独验证空
 cache 的 repository provenance，可用 `SOMA_I0_MAVEN_REPOSITORY` 指向新目录。脚本运行后删除

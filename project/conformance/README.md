@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0 `IN_PROGRESS`
+Implementation authorization `GRANTED`；I0 `COMPLETE`；G1 `PASS`
 
 正式事实源：是
 
@@ -31,10 +31,10 @@ Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
-Production source/reactor      I0 CANDIDATE / REVIEW_PENDING
+Production source/reactor      I0 QUALIFIED
 Generated consumer API         ABSENT
-Active slice                   I0 IN_PROGRESS
-G1-G10                         NO PASS YET
+Active slice                   NONE (I1 NOT_STARTED)
+G1-G10                         G1 PASS; G2/G10 IN_PROGRESS; others NOT_RUN
 Package/release                NOT_QUALIFIED
 ```
 
@@ -46,14 +46,14 @@ Package/release                NOT_QUALIFIED
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
-| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | I0 aggregating carrier candidate；formal review pending | I0_CANDIDATE |
+| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | I0 aggregating carrier/full-regeneration qualified | I0_SCOPE_PASS |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | no production runtime state | NOT_IMPLEMENTED |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | no generated API | NOT_IMPLEMENTED |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | bounded fixtures only | NOT_IMPLEMENTED |
 | IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | no production planner/interpreter | NOT_IMPLEMENTED |
 | Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | no engine/scheduler/admission | NOT_IMPLEMENTED |
-| Result/failure | [Failure](../design/results-and-failures.md) | I0 shared failure/config carrier candidate；operation mapping未实施 | PARTIAL_CANDIDATE |
-| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven candidate；formal review pending | I0_CANDIDATE |
+| Result/failure | [Failure](../design/results-and-failures.md) | I0 shared failure/config carrier qualified；operation mapping未实施 | PARTIAL |
+| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven build qualified | I0_PASS |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
 | Security/package/release | G10 | no artifact/workflow | NOT_EVALUABLE |
 
@@ -68,6 +68,8 @@ Package/release                NOT_QUALIFIED
 - [Large-scale engine formal promotion](large-scale-engine-formal-promotion.md)：候选source
   fingerprint、promotion matrix、evidence boundary与Temporary replacement closure；
 - [V1 Implementation Gates](v1-implementation-gates.md)：G1-G10最低production evidence。
+- [I0 Build Spine Qualification](i0-build-spine-qualification.md)：I0 exit、G1 PASS 与 G2/G10
+  范围边界。
 
 Historical inputs：
 
@@ -84,8 +86,8 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 
 | Gate | Status |
 |---|---|
-| G1 Artifact/build/full regeneration | NOT_RUN |
-| G2 Schema/generated surface | NOT_RUN |
+| G1 Artifact/build/full regeneration | PASS |
+| G2 Schema/generated surface | IN_PROGRESS — I0_SCOPE_PASS |
 | G3 Storage/Key/Index | NOT_RUN |
 | G4 Query/IR/optimizer | NOT_RUN |
 | G5 Mutation/resource/failure | NOT_RUN |
@@ -93,7 +95,7 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | G7 Parallel | NOT_RUN |
 | G8 Compression/metadata | NOT_RUN |
 | G9 Scenarios/performance | NOT_RUN |
-| G10 Security/package/release | NOT_RUN |
+| G10 Security/package/release | IN_PROGRESS — I0_BASELINE_PASS |
 
 Gate不能在对应production surface出现前运行或标PASS。
 
@@ -118,8 +120,8 @@ Gate不能在对应production surface出现前运行或标PASS。
 - benchmark claim；
 - publication/signing。
 
-当前I0只允许使用Design已准入的standard Maven/JDK build surface；任何新的dependency仍需停下
-裁决。GitHub Release、Package、签名和正式发布声明均不在授权内。
+I0 已在Design准入的standard Maven/JDK build surface闭合；任何新的dependency仍需停下裁决。
+GitHub Release、Package、签名和正式发布声明均不在授权内。
 
 ## 7. Release claim boundary
 

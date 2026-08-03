@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0 `IN_PROGRESS`
+implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `NOT_STARTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -22,19 +22,18 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
 - [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
-- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0 是唯一 active
-  slice，I1-I8 为`NOT_STARTED`；
-- I0 build/full-regeneration implementation candidate、Maven reactor、runtime/processor carrier、
-  qualification script 与 independent consumer 已进入 active checkout；
-- 当前本地资格命令为 `PASS`，但独立审查、Conformance 晋升与干净提交尚未闭合，因此
-  G1-G10 仍无正式 production PASS 结论。
+- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；
+- [I0 build/full-regeneration qualification](conformance/i0-build-spine-qualification.md)已`PASS`，
+  G1 为`PASS`；G2/G10 的 I0 baseline 已通过但整体仍`IN_PROGRESS`；
+- I0 为`COMPLETE`，I1-I8 为`NOT_STARTED`；当前没有 active implementation slice，下一项从 I1
+  开始。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前 active checkout 只有 I0 范围的 production/build/test candidate；没有 I1+ generated public
+当前 active checkout 只有 I0 范围的 qualified production/build/test spine；没有 I1+ generated public
 consumer API、Table runtime、benchmark、Example、CI/release workflow、package 或 committed
-build artifact。I0 candidate、正式 Design 与 readiness 都不等于完整 implementation、
+build artifact。I0 completion、正式 Design 与 readiness 都不等于完整 implementation、
 performance、compatibility、artifact publication 或 release 已成立。
 
 此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
@@ -92,8 +91,8 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0 active，I1-I8 not started |
-| Conformance | `project/conformance/`；readiness PASS，implementation authorized，Gates待运行 |
+| Engineering | `project/engineering/`；I0 complete，I1-I8 not started |
+| Conformance | `project/conformance/`；G1 PASS，G2/G10 in progress，其余未运行 |
 | Temporary | 当前无active topic；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
@@ -136,13 +135,14 @@ I0 build/full-regeneration spine
                         -> separate release authorization
 ```
 
-I0 exit evidence未通过前不得进入I1。当前授权同时允许每个 slice 证据闭合后的干净 commit 与
-`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
+I0 exit evidence已经闭合；下一项从I1开始。当前授权同时允许每个 slice 证据闭合后的干净
+commit 与`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
 
 ## 当前验证边界
 
 本次已执行 repository/documentation Gate：唯一 Owner、Blueprint→Design→Plan→Gate 双向追溯、
 Markdown link、current route、historical status、repository inventory 与 whitespace。
 
-Production compile/runtime/performance/security/package/release Gate 只能在相应 surface 出现后
-执行；当前尚无 Gate PASS，不得用 documentation readiness 替代。
+I0 Java 8 build/full-regeneration production evidence 已执行并形成 G1 PASS；其余 runtime、
+performance、security/package/release Gate 只能在相应 surface 出现后执行，不得用 I0 或
+documentation readiness 替代。

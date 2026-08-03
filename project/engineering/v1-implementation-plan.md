@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 IN_PROGRESS
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 NOT_STARTED
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -13,7 +13,7 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization；当前 I0 是唯一 active slice。
+2026-08-03 单独授予完整 V1 implementation authorization；I0 已完成，I1 尚未开始。
 
 “纵向slice”只表示实施顺序，不缩减V1 scope。禁止先实现flat-int/boxed/reflection MVP，再把
 chunk、IR、specialization、failure或relation当成未来补丁。
@@ -41,7 +41,7 @@ production class名，也不是每个commit的强制清单。
 
 | Slice | Name | Status | Primary Gates |
 |---|---|---|---|
-| I0 | Build spine、artifact与full-regeneration carrier | IN_PROGRESS | G1、G2、G10 |
+| I0 | Build spine、artifact与full-regeneration carrier | COMPLETE | G1、G2、G10 |
 | I1 | Primitive keyed Table vertical slice | NOT_STARTED | G1-G5 |
 | I2 | Schema/type/chunk/Key/Index breadth | NOT_STARTED | G2-G4 |
 | I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |

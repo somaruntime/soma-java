@@ -2,7 +2,7 @@
 
 类型：Engineering Entry
 
-状态：Implementation Authorized / I0 IN_PROGRESS
+状态：Implementation Authorized / I0 COMPLETE / I1 NOT_STARTED
 
 正式事实源：是（实施计划与工程路由）
 
@@ -14,12 +14,12 @@ Owner：SOMA Java implementation sequence、work-unit与engineering evidence rou
 
 新的大规模编译式Table引擎Blueprint/Design与核心抽象专题已经正式晋升，并通过
 [实施前最终全局一致性审核](../conformance/v1-final-pre-implementation-global-consistency-review.md)。
-Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization；I0 是唯一 active
-slice，I1-I8 全部`NOT_STARTED`。
+Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization；I0 已`COMPLETE`，
+I1-I8 全部`NOT_STARTED`，当前没有 active implementation slice。
 
-I0 implementation candidate 已建立真实 build/runtime/processor/consumer boundary，但 slice 仍在
-等待独立审查、Conformance 晋升与干净提交。`READY_FOR_IMPLEMENTATION`本身不表示 compiler、
-runtime、API、performance、package或release已经成立。
+I0 已建立真实 build/runtime/processor/consumer boundary，并通过
+[I0 Qualification](../conformance/i0-build-spine-qualification.md)。这只证明 build/generation
+carrier；runtime Table API、performance、package与release仍未成立。
 
 ## 唯一计划
 
@@ -61,6 +61,6 @@ I0 build/full-regeneration
 - Current readiness verdict：[Final Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)
 - Architecture skeleton：[Core Abstractions and Narratives](../design/core-abstractions-and-narratives.md)
 
-I0 candidate 已建立第一条 production qualification command：`./scripts/check-i0.sh`。
-Documentation Gate 不能替代 Java 8 compile/runtime/performance/package Gate；该命令的本地
-`PASS`只有完成独立审查并进入Conformance后，才成为正式 slice evidence。
+I0 的正式可重放 qualification command 是`./scripts/check-i0.sh`；其结果已绑定 commit、独立
+审查并进入 Conformance。输入未变化时复用该证据，不机械重复完整 qualification；后续 slice
+仍需运行与自身变更 surface 相称的 Gate。
