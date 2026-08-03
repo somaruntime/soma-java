@@ -189,6 +189,7 @@ final class I2ApiRenderer {
         renderEditor(source, table);
         renderSelection(source, table);
         renderIndexSelection(source);
+        renderGroupBy(source, table);
         for (int i = 0; i < table.fields.size(); i++) {
             renderField(source, table, i);
         }
@@ -265,11 +266,39 @@ final class I2ApiRenderer {
         source.append("    public final class IndexSelection { private final int field; private final Object value; private IndexSelection(int field, Object value) { this.field = field; this.value = value; } public long count() { return new Selection(null, null, null, field, value).count(); } public Selection filter(io.github.somaruntime.soma.SomaExpression<View> expression) { return new Selection(null, null, null, field, value).filter(expression); } public Selection filter(io.github.somaruntime.soma.SomaPredicate<? super View> callback) { return new Selection(null, null, null, field, value).filter(callback); } }\n\n");
     }
 
+    private static void renderGroupBy(StringBuilder source, SchemaModel.Type table) {
+        boolean hasInt = false;
+        for (SchemaModel.Field field : table.fields) {
+            if (field.storageKind == SchemaModel.StorageKind.INT && isKeyable(field)) {
+                hasInt = true;
+                source.append("    public IntGroupBy groupBy(").append(capital(field.name))
+                        .append("Field field) { if (field == null || field != ").append(field.name)
+                        .append(") throw io.github.somaruntime.soma.internal.SomaRuntimeAccess.failure(io.github.somaruntime.soma.SomaFailureCode.INVALID_ARGUMENT, io.github.somaruntime.soma.SomaOperation.QUERY, \"GroupBy key field has a foreign owner\", null); return new IntGroupBy(")
+                        .append(findFieldIndex(table, field.name)).append("); }\n");
+            }
+        }
+        if (!hasInt) {
+            return;
+        }
+        source.append("    public final class IntGroupBy { private final int keyField; private final AtomicBoolean claimed = new AtomicBoolean(); private IntGroupBy(int keyField) { this.keyField = keyField; }\n");
+        source.append("        public io.github.somaruntime.soma.IntGroupedLongResult count() { claim(); return runtime.groupIntLong(keyField, -1, false); }\n");
+        for (SchemaModel.Field field : table.fields) {
+            if (field.storageKind == SchemaModel.StorageKind.INT) {
+                source.append("        public io.github.somaruntime.soma.IntGroupedLongResult sum(")
+                        .append(capital(field.name)).append("Field field) { if (field == null || field != ")
+                        .append(field.name).append(") throw io.github.somaruntime.soma.internal.SomaRuntimeAccess.failure(io.github.somaruntime.soma.SomaFailureCode.INVALID_ARGUMENT, io.github.somaruntime.soma.SomaOperation.QUERY, \"GroupBy sum field belongs to another endpoint\", null); claim(); return runtime.groupIntLong(keyField, ")
+                        .append(findFieldIndex(table, field.name)).append(", true); }\n");
+            }
+        }
+        source.append("        private void claim() { if (!claimed.compareAndSet(false, true)) throw io.github.somaruntime.soma.internal.SomaRuntimeAccess.failure(io.github.somaruntime.soma.SomaFailureCode.PIPELINE_ALREADY_CONSUMED, io.github.somaruntime.soma.SomaOperation.QUERY, \"GroupBy builder already consumed\", null); }\n");
+        source.append("    }\n\n");
+    }
+
     private static void renderField(StringBuilder source, SchemaModel.Type table, int index) {
         SchemaModel.Field field = table.fields.get(index);
         String className = capital(field.name) + "Field";
         source.append("    public final class ").append(className).append(" implements io.github.somaruntime.soma.")
-                .append(field.role == SchemaModel.FieldRole.KEY ? "SomaKeyableField" : "SomaFieldEndpoint")
+                .append(isKeyable(field) ? "SomaKeyableField" : "SomaFieldEndpoint")
                 .append("<View, ").append(boxedType(field)).append("> {\n");
         source.append("        private ").append(className).append("() { }\n");
         String[] ops = {"eq", "ne", "lt", "le", "gt", "ge"};
@@ -361,6 +390,19 @@ final class I2ApiRenderer {
         }
     }
     private static int keyIndex(SchemaModel.Type table) { return findRoleIndex(table, SchemaModel.FieldRole.KEY); }
+    private static boolean isKeyable(SchemaModel.Field field) {
+        switch (field.storageKind) {
+            case FLOAT:
+            case DOUBLE:
+            case VALUE:
+            case UNSUPPORTED:
+                return false;
+            case REFERENCE:
+                return isString(field) || field.enumType;
+            default:
+                return true;
+        }
+    }
     private static int findFieldIndex(SchemaModel.Type table, String name) { for (int i = 0; i < table.fields.size(); i++) if (table.fields.get(i).name.equals(name)) return i; return -1; }
     private static int findRoleIndex(SchemaModel.Type table, SchemaModel.FieldRole role) { for (int i = 0; i < table.fields.size(); i++) if (table.fields.get(i).role == role) return i; return -1; }
 

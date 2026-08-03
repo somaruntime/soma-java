@@ -4,6 +4,7 @@ import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
 import java.util.Objects;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -137,6 +138,68 @@ public final class ScalarTableRuntime {
         PrimitiveLongTableRuntime.GroupRuntime.Guard guard = group.enter(SomaOperation.QUERY);
         try {
             return current.get().version;
+        } finally {
+            guard.close();
+        }
+    }
+
+    /** Bounded reference GroupBy path used by the I5 generated integer-key slice. */
+    public io.github.somaruntime.soma.IntGroupedLongResult groupIntLong(
+            int keyField, int valueField, boolean sum) {
+        if (keyField < 0 || keyField >= specs.length
+                || specs[keyField].kind != FieldKind.INT) {
+            throw failure(SomaFailureCode.INVALID_ARGUMENT, SomaOperation.QUERY,
+                    "GroupBy key must be an int field", null);
+        }
+        if (sum && (valueField < 0 || valueField >= specs.length
+                || specs[valueField].kind != FieldKind.INT)) {
+            throw failure(SomaFailureCode.INVALID_ARGUMENT, SomaOperation.QUERY,
+                    "GroupBy sum field must be an int field", null);
+        }
+        PrimitiveLongTableRuntime.GroupRuntime.Guard guard = group.enter(SomaOperation.QUERY);
+        try {
+            StateRoot root = current.get();
+            int[] keys = new int[16];
+            CheckedLongAccumulator[] accumulators = new CheckedLongAccumulator[16];
+            int groups = 0;
+            for (long row = 0L; row < root.size; row++) {
+                int key = root.directory.ints(keyField, row);
+                int groupIndex = -1;
+                for (int i = 0; i < groups; i++) {
+                    if (keys[i] == key) {
+                        groupIndex = i;
+                        break;
+                    }
+                }
+                if (groupIndex < 0) {
+                    if (groups == keys.length) {
+                        int nextLength;
+                        try {
+                            nextLength = Math.multiplyExact(keys.length, 2);
+                        } catch (ArithmeticException overflow) {
+                            throw failure(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, SomaOperation.QUERY,
+                                    "GroupBy cardinality exceeds Java array range", overflow);
+                        }
+                        keys = Arrays.copyOf(keys, nextLength);
+                        accumulators = Arrays.copyOf(accumulators, nextLength);
+                    }
+                    groupIndex = groups++;
+                    keys[groupIndex] = key;
+                    accumulators[groupIndex] = new CheckedLongAccumulator();
+                }
+                long contribution = sum ? (long) root.directory.ints(valueField, row) : 1L;
+                accumulators[groupIndex].add(contribution);
+            }
+            long[] values = new long[groups];
+            for (int i = 0; i < groups; i++) {
+                if (!accumulators[i].fitsLong()) {
+                    throw failure(SomaFailureCode.ARITHMETIC_OVERFLOW, SomaOperation.QUERY,
+                            "checked GroupBy aggregate overflow", null);
+                }
+                values[i] = accumulators[i].value();
+            }
+            return SomaRuntimeAccess.intGroupedLongResult(
+                Arrays.copyOf(keys, groups), Arrays.copyOf(values, groups));
         } finally {
             guard.close();
         }

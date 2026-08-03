@@ -28,6 +28,13 @@ public final class SomaConfiguration {
                 return RemoveResult.trustedCreate(removed);
             }
         });
+        SomaRuntimeAccess.installIntGroupedLongResultFactory(
+                new SomaRuntimeAccess.IntGroupedLongResultFactory() {
+                    @Override
+                    public IntGroupedLongResult create(int[] keys, long[] values) {
+                        return IntGroupedLongResult.trustedCreate(keys, values);
+                    }
+                });
     }
 
     private SomaConfiguration(

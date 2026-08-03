@@ -8,6 +8,7 @@ import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.UpdateResult;
 import io.github.somaruntime.soma.RemoveResult;
+import io.github.somaruntime.soma.IntGroupedLongResult;
 import java.util.Collections;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -25,6 +26,7 @@ public final class SomaRuntimeAccess {
     private static volatile FailureFactory failureFactory;
     private static volatile UpdateResultFactory updateResultFactory;
     private static volatile RemoveResultFactory removeResultFactory;
+    private static volatile IntGroupedLongResultFactory intGroupedLongResultFactory;
 
     private SomaRuntimeAccess() {
     }
@@ -45,6 +47,10 @@ public final class SomaRuntimeAccess {
 
     public interface RemoveResultFactory {
         RemoveResult create(long removed);
+    }
+
+    public interface IntGroupedLongResultFactory {
+        IntGroupedLongResult create(int[] keys, long[] values);
     }
 
     /** 安装唯一的 ClassLoader-local structured-failure factory。 */
@@ -85,6 +91,18 @@ public final class SomaRuntimeAccess {
         }
     }
 
+    public static void installIntGroupedLongResultFactory(IntGroupedLongResultFactory factory) {
+        if (factory == null) {
+            throw new NullPointerException("factory");
+        }
+        synchronized (SomaRuntimeAccess.class) {
+            if (intGroupedLongResultFactory != null && intGroupedLongResultFactory != factory) {
+                throw new IllegalStateException("SOMA grouped-result factory is already installed");
+            }
+            intGroupedLongResultFactory = factory;
+        }
+    }
+
     /** Creates a structured result through the trusted result carrier. */
     public static UpdateResult updateResult(long matched, long changed) {
         UpdateResultFactory factory = updateResultFactory;
@@ -108,6 +126,18 @@ public final class SomaRuntimeAccess {
             throw new IllegalStateException("SOMA remove-result factory is unavailable");
         }
         return factory.create(removed);
+    }
+
+    public static IntGroupedLongResult intGroupedLongResult(int[] keys, long[] values) {
+        IntGroupedLongResultFactory factory = intGroupedLongResultFactory;
+        if (factory == null) {
+            SomaConfiguration.builder();
+            factory = intGroupedLongResultFactory;
+        }
+        if (factory == null) {
+            throw new IllegalStateException("SOMA grouped-result factory is unavailable");
+        }
+        return factory.create(keys, values);
     }
 
     /** Creates a stable structured operation failure for internal owners. */

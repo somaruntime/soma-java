@@ -5,6 +5,8 @@ import com.example.soma.i2.soma.ScalarRecordTable;
 import com.example.soma.i2.soma.Soma;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.RemoveResult;
+import io.github.somaruntime.soma.IntGroupedLongEntry;
+import io.github.somaruntime.soma.IntGroupedLongResult;
 import io.github.somaruntime.soma.UpdateResult;
 import java.util.List;
 import java.util.Optional;
@@ -79,10 +81,62 @@ public final class Application {
         if (update.matched() != 1L || update.changed() != 1L || table.get(1L).count() != 15) {
             throw new AssertionError("point update");
         }
+        IntGroupedLongResult totals = table.groupBy(table.machine).sum(table.count);
+        IntGroupedLongEntry[] totalEntries = totals.toArray();
+        if (totals.size() != 2L || totalEntries.length != 2
+                || totalEntries[0].key() != 7 || totalEntries[0].value() != 35L
+                || totalEntries[1].key() != 8 || totalEntries[1].value() != 30L) {
+            throw new AssertionError("group sum/order");
+        }
+        try {
+            totals.forEach(null);
+            throw new AssertionError("null group consumer accepted");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.INVALID_ARGUMENT) {
+                throw new AssertionError("null group consumer failure");
+            }
+        }
+        try {
+            totals.forEach((key, value) -> { throw new IllegalStateException("group callback"); });
+            throw new AssertionError("group callback escaped");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.CALLBACK_FAILED) {
+                throw new AssertionError("group callback failure");
+            }
+        }
+        IntGroupedLongResult counts = table.groupBy(table.machine).count();
+        if (counts.size() != 2L || counts.toList().get(0).value() != 2L
+                || counts.toList().get(1).value() != 1L) {
+            throw new AssertionError("group count");
+        }
+        IntGroupedLongResult payloadKeyCounts = table.groupBy(table.count).count();
+        if (payloadKeyCounts.size() != 3L) throw new AssertionError("field capability GroupBy");
+        ScalarRecordTable.IntGroupBy oneShot = table.groupBy(table.machine);
+        oneShot.count();
+        try {
+            oneShot.sum(table.count);
+            throw new AssertionError("reused GroupBy builder accepted");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.PIPELINE_ALREADY_CONSUMED) {
+                throw new AssertionError("GroupBy one-shot failure");
+            }
+        }
+        ScalarRecordTable foreignTable = Soma.createGroup().scalarRecordTable();
+        try {
+            table.groupBy(foreignTable.machine);
+            throw new AssertionError("foreign GroupBy field accepted");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.INVALID_ARGUMENT) {
+                throw new AssertionError("foreign GroupBy failure");
+            }
+        }
         long capacityBeforeRemove = table.capacity();
         RemoveResult removed = table.remove(2L);
         if (removed.removed() != 1L || table.size() != 2L || table.capacity() != capacityBeforeRemove) {
             throw new AssertionError("point remove");
+        }
+        if (totals.size() != 2L || totals.toArray()[0].value() != 35L) {
+            throw new AssertionError("detached group result");
         }
         ScalarRecord survivor = table.get(3L);
         if (survivor.id() != 3L || survivor.machine() != 8 || survivor.label() != null
