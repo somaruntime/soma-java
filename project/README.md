@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7 `COMPLETE (I7_SCOPE)`；I8 `NOT_STARTED`
+implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7 `COMPLETE (I7_SCOPE)`；I8 `IN_PROGRESS (I8_BOUNDARY_PASS)`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -28,8 +28,9 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - I0 为`COMPLETE`，I1 已完成其 bounded primitive keyed Table vertical slice，I2 已完成其
   bounded scalar type/storage breadth slice，I3 已完成其 bounded direct query/reference slice，
   I4 已完成其 bounded point-remove slice，I5 已完成其 bounded integer-key GroupBy slice；I6 已完成其
-  bounded typed parallel-count slice；I7 已完成 metadata/PLAIN representation bounded slice；I8仍为
-  `NOT_STARTED`；当前没有 active implementation slice，下一项从 I8 开始。
+  bounded typed parallel-count slice；I7 已完成 metadata/PLAIN representation bounded slice；I8 已完成
+  package/security boundary sub-slice，三场景与性能 qualification 待继续；当前没有 active implementation
+  slice。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。`project/temp/i7-implementation-decisions.md` 仅保留本次
@@ -84,7 +85,7 @@ Blueprint
 - Conformance 记录 implementation 与 Design 是否一致及证据边界；
 - README、未来 Manual/White Paper/Examples 是投影，不得成为第二份 Design；
 - 新的重大长期变化先进入 bounded Temporary，经裁决、验证、晋升和 replacement closure 后
-  删除；当前没有active Temporary。
+  删除；I7/I8 supplemental notes 仅保留本次 bounded implementation boundary，不拥有current事实。
 
 ## 项目组织框架映射
 
@@ -96,9 +97,9 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0/I1/I2/I3/I4/I5/I6/I7 bounded slice complete，I8 not started |
+| Engineering | `project/engineering/`；I0/I1/I2/I3/I4/I5/I6/I7 bounded slice complete，I8 boundary sub-slice pass |
 | Conformance | `project/conformance/`；G1 PASS，G2-G8 scope pass，G9/G10 in progress |
-| Temporary | I7 supplemental boundary/provenance；目录不拥有current事实 |
+| Temporary | I7/I8 supplemental boundary/provenance；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
 

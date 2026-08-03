@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 COMPLETE (I6_SCOPE) / I7 COMPLETE (I7_SCOPE) / I8 NOT_STARTED
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 COMPLETE (I6_SCOPE) / I7 COMPLETE (I7_SCOPE) / I8 IN_PROGRESS (I8_BOUNDARY_PASS)
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -13,7 +13,8 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization；I0 已完成，I1 尚未开始。
+2026-08-03 单独授予完整 V1 implementation authorization；I0-I7 bounded slices 已完成，I8 已
+完成 package/security boundary sub-slice，三场景与性能 qualification 待继续。
 
 “纵向slice”只表示实施顺序，不缩减V1 scope。禁止先实现flat-int/boxed/reflection MVP，再把
 chunk、IR、specialization、failure或relation当成未来补丁。
@@ -49,7 +50,7 @@ production class名，也不是每个commit的强制清单。
 | I5 | GroupBy与binary Equality/Cross Join | COMPLETE (I5_SCOPE) | G6 |
 | I6 | Bounded ForkJoin parallel execution | COMPLETE (I6_SCOPE) | G7 |
 | I7 | Compression、metadata/explain与surface closure | COMPLETE (I7_SCOPE) | G8 |
-| I8 | Reference scenarios、performance、security、package/release qualification | NOT_STARTED | G9、G10 |
+| I8 | Reference scenarios、performance、security、package/release qualification | IN_PROGRESS (I8_BOUNDARY_PASS) | G9、G10 |
 
 任何slice只有其exit evidence进入Conformance后才能进入下一slice。允许在同一commit交付相邻
 mechanism，但Gate不能因实现方便合并消失。

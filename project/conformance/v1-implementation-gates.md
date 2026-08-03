@@ -253,7 +253,7 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 | G7 Parallel | IN_PROGRESS — I6_SCOPE_PASS | I6 |
 | G8 Compression/metadata | IN_PROGRESS — I7_SCOPE_PASS | I7 |
 | G9 Scenarios/performance | NOT_RUN | I8 |
-| G10 Security/package/release | IN_PROGRESS — I0_BASELINE_PASS | I0、I8 |
+| G10 Security/package/release | IN_PROGRESS — I8_BOUNDARY_PASS | I0、I8 |
 
 ## 13. Evidence record format
 

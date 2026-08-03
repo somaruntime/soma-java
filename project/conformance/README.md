@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7 `COMPLETE (I7_SCOPE)`；G1 `PASS`
+Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7 `COMPLETE (I7_SCOPE)`；I8 `IN_PROGRESS (I8_BOUNDARY_PASS)`；G1 `PASS`
 
 正式事实源：是
 
@@ -33,8 +33,8 @@ Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
 Production source/reactor      I0 QUALIFIED
 Generated consumer API         I1 primitive keyed + I2 scalar breadth + I3 direct query + I4 point mutation + I5 GroupBy + I6 typed parallel count + I7 metadata/plain baseline qualified (bounded fixtures)
-Active slice                   NONE (I7 COMPLETE; I8 NOT_STARTED)
-G1-G10                         G1 PASS; G2-G8 scope pass; G9/G10 IN_PROGRESS; others NOT_RUN
+Active slice                   NONE (I8 boundary sub-slice closed; remaining I8 product qualification)
+G1-G10                         G1 PASS; G2-G8 scope pass; G9/G10 IN_PROGRESS
 Package/release                NOT_QUALIFIED
 ```
 
@@ -55,7 +55,7 @@ Package/release                NOT_QUALIFIED
 | Result/failure | [Failure](../design/results-and-failures.md) | I1/I2 UpdateResult、failure mapping与scope/duplicate/missing/overflow bounded | I2_SCOPE_PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven build qualified | I0_PASS |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
-| Security/package/release | G10 | no artifact/workflow | NOT_EVALUABLE |
+| Security/package/release | G10 | I8 boundary package/security baseline; full qualification/workflow未实施 | I8_BOUNDARY_PASS |
 
 `NOT_IMPLEMENTED`不是Design contradiction；它是clean-slate implementation gap。Documentation
 不得把bounded fixture改写为production capability。
@@ -84,6 +84,8 @@ Package/release                NOT_QUALIFIED
   scope-limited G7 evidence。
 - [I7 Metadata Qualification](i7-metadata-qualification.md)：I7 metadata/PLAIN representation baseline 与
   scope-limited G8 evidence。
+- [I8 Boundary Qualification](i8-boundary-qualification.md)：I8 package/security boundary baseline；
+  G9 与完整 G10 仍未关闭。
 
 Historical inputs：
 
@@ -110,7 +112,7 @@ Historical record不能覆盖current Blueprint/Design/Readiness。I7 supplementa
 | G7 Parallel | IN_PROGRESS — I6_SCOPE_PASS |
 | G8 Compression/metadata | IN_PROGRESS — I7_SCOPE_PASS |
 | G9 Scenarios/performance | NOT_RUN |
-| G10 Security/package/release | IN_PROGRESS — I0_BASELINE_PASS |
+| G10 Security/package/release | IN_PROGRESS — I8_BOUNDARY_PASS |
 
 Gate不能在对应production surface出现前运行或标PASS。
 
