@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 NOT_STARTED
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 COMPLETE (I6_SCOPE) / I7 NOT_STARTED
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -47,7 +47,7 @@ production class名，也不是每个commit的强制清单。
 | I3 | Direct query、Predicate IR与reference interpreter | COMPLETE (I3_SCOPE) | G4 |
 | I4 | Selection mutation、failure与resource admission | COMPLETE (I4_SCOPE) | G5 |
 | I5 | GroupBy与binary Equality/Cross Join | COMPLETE (I5_SCOPE) | G6 |
-| I6 | Bounded ForkJoin parallel execution | NOT_STARTED | G7 |
+| I6 | Bounded ForkJoin parallel execution | COMPLETE (I6_SCOPE) | G7 |
 | I7 | Compression、metadata/explain与surface closure | NOT_STARTED | G8 |
 | I8 | Reference scenarios、performance、security、package/release qualification | NOT_STARTED | G9、G10 |
 

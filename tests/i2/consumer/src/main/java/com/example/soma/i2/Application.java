@@ -7,15 +7,23 @@ import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.IntGroupedLongEntry;
 import io.github.somaruntime.soma.IntGroupedLongResult;
+import io.github.somaruntime.soma.SomaConfiguration;
 import io.github.somaruntime.soma.UpdateResult;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ForkJoinPool;
 
 public final class Application {
     private Application() { }
 
     public static void main(String[] args) {
         System.setProperty("soma.test.chunkSize", "2");
+        ForkJoinPool parallelPool = new ForkJoinPool(2);
+        Soma.configure(SomaConfiguration.builder().parallelExecutor(parallelPool).build());
         ScalarRecordTable table = Soma.scalarRecordTable();
         if (table.size() != 0L || table.capacity() != 0L) throw new AssertionError("lazy empty");
         table.reserve(3L);
@@ -32,6 +40,99 @@ public final class Application {
             throw new AssertionError("typed find");
         }
         if (table.filter(table.enabled.eq(true)).count() != 2L) throw new AssertionError("boolean");
+        if (table.selectAll().filter(table.machine.eq(7)).parallel().count() != 2L) {
+            throw new AssertionError("parallel typed count");
+        }
+        final CountDownLatch blockerStarted = new CountDownLatch(1);
+        final CountDownLatch blockerRelease = new CountDownLatch(1);
+        final AtomicBoolean blockerReleased = new AtomicBoolean(false);
+        java.util.concurrent.Future<?> blocker = parallelPool.submit(new Runnable() {
+            @Override public void run() {
+                blockerStarted.countDown();
+                try {
+                    blockerRelease.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        Thread watchdog = new Thread(new Runnable() {
+            @Override public void run() {
+                try {
+                    Thread.sleep(5000L);
+                    if (blockerReleased.compareAndSet(false, true)) {
+                        blockerRelease.countDown();
+                    }
+                } catch (InterruptedException ignored) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        });
+        watchdog.setDaemon(true);
+        watchdog.start();
+        try {
+            blockerStarted.await();
+            Long saturatedCount = parallelPool.submit(new java.util.concurrent.Callable<Long>() {
+                @Override public Long call() {
+                    return table.selectAll().filter(table.machine.eq(7)).parallel().count();
+                }
+            }).get(10L, TimeUnit.SECONDS);
+            if (blockerReleased.get()) {
+                throw new AssertionError("caller did not drain saturated pool");
+            }
+            if (saturatedCount.longValue() != 2L) throw new AssertionError("saturated pool progress");
+        } catch (Exception failure) {
+            throw new AssertionError("saturated pool progress failed", failure);
+        } finally {
+            blockerReleased.set(true);
+            blockerRelease.countDown();
+            try {
+                blocker.get();
+            } catch (Exception failure) {
+                throw new AssertionError("saturated blocker cleanup failed", failure);
+            }
+        }
+        if (table.selectAll().filter(view -> view.machine() == 7).parallel().count() != 2L) {
+            throw new AssertionError("parallel callback barrier");
+        }
+        final AtomicReference<SomaOperationException> foreignReadFailure =
+                new AtomicReference<SomaOperationException>();
+        table.selectAll().filter(view -> {
+            Thread foreign = new Thread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        view.machine();
+                    } catch (SomaOperationException failure) {
+                        foreignReadFailure.set(failure);
+                    }
+                }
+            });
+            foreign.start();
+            try {
+                foreign.join();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(interrupted);
+            }
+            return true;
+        }).count();
+        if (foreignReadFailure.get() == null
+                || foreignReadFailure.get().code()
+                != io.github.somaruntime.soma.SomaFailureCode.CALLBACK_SCOPE_VIOLATION) {
+            throw new AssertionError("foreign view read escaped");
+        }
+        ScalarRecordTable.Selection unsupportedParallel = table.selectAll().parallel();
+        try {
+            unsupportedParallel.findFirst();
+            throw new AssertionError("unsupported parallel terminal accepted");
+        } catch (SomaOperationException failure) {
+            if (failure.code() != io.github.somaruntime.soma.SomaFailureCode.INVALID_ARGUMENT) {
+                throw new AssertionError("wrong unsupported parallel failure");
+            }
+        }
+        if (unsupportedParallel.count() != 3L) {
+            throw new AssertionError("unsupported terminal consumed selection");
+        }
         if (table.filter(table.small.gt((byte) 1)).count() != 2L) throw new AssertionError("byte");
         if (table.filter(table.medium.ge((short) 3)).count() != 2L) throw new AssertionError("short");
         if (table.filter(table.marker.eq('B')).count() != 1L) throw new AssertionError("char");
@@ -169,5 +270,6 @@ public final class Application {
         ScalarRecord detached = table.get(1L);
         detached.count(1000);
         if (table.get(1L).count() != 15) throw new AssertionError("detached result");
+        parallelPool.shutdown();
     }
 }

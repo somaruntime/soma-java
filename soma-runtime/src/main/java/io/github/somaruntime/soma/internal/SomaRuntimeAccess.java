@@ -272,6 +272,23 @@ public final class SomaRuntimeAccess {
         return STATE.get().compression;
     }
 
+    /** Returns the frozen application-owned/common ForkJoinPool for explicit parallel terminals. */
+    public static ForkJoinPool parallelExecutor() {
+        RuntimeState state = STATE.get();
+        if (!state.frozen) {
+            freezeForRuntimeAccess();
+            state = STATE.get();
+        }
+        if (state.executor == null || state.executor.isShutdown()) {
+            throw failure(
+                    SomaFailureCode.PARALLEL_EXECUTOR_UNAVAILABLE,
+                    SomaOperation.QUERY,
+                    "configured parallel executor is unavailable",
+                    null);
+        }
+        return state.executor;
+    }
+
     /** 在使用 generated capability 前验证精确的 processor/runtime linkage。 */
     public static void verifyGeneratedArtifact(
             String expectedArtifactVersion,

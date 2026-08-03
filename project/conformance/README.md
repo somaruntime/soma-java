@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；G1 `PASS`
+Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；G1 `PASS`
 
 正式事实源：是
 
@@ -32,9 +32,9 @@ Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
 Production source/reactor      I0 QUALIFIED
-Generated consumer API         I1 primitive keyed + I2 scalar breadth + I3 direct query + I4 point mutation + I5 GroupBy qualified (bounded fixtures)
-Active slice                   NONE (I5 COMPLETE; I6 NOT_STARTED)
-G1-G10                         G1 PASS; G2-G6 I5_SCOPE_PASS; G10 IN_PROGRESS; others NOT_RUN
+Generated consumer API         I1 primitive keyed + I2 scalar breadth + I3 direct query + I4 point mutation + I5 GroupBy + I6 typed parallel count qualified (bounded fixtures)
+Active slice                   NONE (I6 COMPLETE; I7 NOT_STARTED)
+G1-G10                         G1 PASS; G2-G7 scope pass; G10 IN_PROGRESS; others NOT_RUN
 Package/release                NOT_QUALIFIED
 ```
 
@@ -51,7 +51,7 @@ Package/release                NOT_QUALIFIED
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | I1/I2 generated Table/find/get/filter/update bounded surfaces；Join未实施 | I2_SCOPE_PASS |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I1/I2 generated Soma/Group/Table/View/Editor/Field bounded fixtures | I2_SCOPE_PASS |
 | IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | I1/I2 typed expression carrier/evaluator；planner/oracle未实施 | I2_SCOPE_PASS |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | I1/I2 Group guard/scope/point mutation；parallel/resource admission未实施 | I2_SCOPE_PASS |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | I1/I2 Group guard/scope/point mutation；I6 bounded typed parallel count；full resource admission未实施 | I6_SCOPE_PASS |
 | Result/failure | [Failure](../design/results-and-failures.md) | I1/I2 UpdateResult、failure mapping与scope/duplicate/missing/overflow bounded | I2_SCOPE_PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven build qualified | I0_PASS |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
@@ -80,6 +80,8 @@ Package/release                NOT_QUALIFIED
   bounded point-remove slice 与 scope-limited G5 evidence。
 - [I5 GroupBy Qualification](i5-groupby-qualification.md)：I5 bounded integer-key GroupBy slice 与
   scope-limited G6 evidence。
+- [I6 Parallel Qualification](i6-parallel-qualification.md)：I6 bounded typed parallel-count slice 与
+  scope-limited G7 evidence。
 
 Historical inputs：
 
@@ -101,8 +103,8 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | G3 Storage/Key/Index | IN_PROGRESS — I2_SCOPE_PASS |
 | G4 Query/IR/optimizer | IN_PROGRESS — I2_SCOPE_PASS |
 | G5 Mutation/resource/failure | IN_PROGRESS — I2_SCOPE_PASS |
-| G6 Group/Join | NOT_RUN |
-| G7 Parallel | NOT_RUN |
+| G6 Group/Join | IN_PROGRESS — I5_SCOPE_PASS |
+| G7 Parallel | IN_PROGRESS — I6_SCOPE_PASS |
 | G8 Compression/metadata | NOT_RUN |
 | G9 Scenarios/performance | NOT_RUN |
 | G10 Security/package/release | IN_PROGRESS — I0_BASELINE_PASS |

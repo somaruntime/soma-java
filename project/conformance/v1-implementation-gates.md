@@ -250,7 +250,7 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 | G4 Query/IR/optimizer | NOT_RUN | I1-I3 |
 | G5 Mutation/resource/failure | NOT_RUN | I1、I4 |
 | G6 Group/Join | NOT_RUN | I5 |
-| G7 Parallel | NOT_RUN | I6 |
+| G7 Parallel | IN_PROGRESS — I6_SCOPE_PASS | I6 |
 | G8 Compression/metadata | NOT_RUN | I7 |
 | G9 Scenarios/performance | NOT_RUN | I8 |
 | G10 Security/package/release | IN_PROGRESS — I0_BASELINE_PASS | I0、I8 |

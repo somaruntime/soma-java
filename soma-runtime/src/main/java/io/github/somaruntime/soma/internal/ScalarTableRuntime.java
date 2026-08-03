@@ -3,9 +3,18 @@ package io.github.somaruntime.soma.internal;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
-import java.util.Objects;
 import java.util.Arrays;
+import java.util.Objects;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.ForkJoinWorkerThread;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongPredicate;
 
 /**
  * I2 scalar-column backend.  It deliberately keeps the physical representation typed while the
@@ -14,6 +23,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public final class ScalarTableRuntime {
     private static final int DEFAULT_CHUNK_SIZE = 1024;
     private static final int PAGE_SIZE = 256;
+    private static final ThreadLocal<Boolean> PARALLEL_WORKER = new ThreadLocal<Boolean>();
+    private static final ThreadLocal<Query> PARALLEL_QUERY = new ThreadLocal<Query>();
 
     public enum FieldKind {
         BOOLEAN, BYTE, SHORT, CHAR, INT, LONG, FLOAT, DOUBLE, REFERENCE
@@ -202,6 +213,217 @@ public final class ScalarTableRuntime {
                 Arrays.copyOf(keys, groups), Arrays.copyOf(values, groups));
         } finally {
             guard.close();
+        }
+    }
+
+    /**
+     * Bounded typed predicate count using the frozen shared ForkJoinPool.
+     * The calling thread is participant zero; only the remaining participants are submitted.
+     */
+    public long parallelCount(long size, final LongPredicate predicate) {
+        return parallelCount(size, predicate, null);
+    }
+
+    /**
+     * Internal form that releases participant-local callback state when each participant exits.
+     */
+    public long parallelCount(long size, final LongPredicate predicate,
+            final Runnable participantCleanup) {
+        if (size < 0L || predicate == null) {
+            throw failure(SomaFailureCode.INVALID_ARGUMENT, SomaOperation.QUERY,
+                    "parallel count arguments are invalid", null);
+        }
+        if (size == 0L) {
+            return 0L;
+        }
+        final ForkJoinPool pool = SomaRuntimeAccess.parallelExecutor();
+        int participants = pool.getParallelism();
+        if (participants < 1) {
+            participants = 1;
+        }
+        if (size < participants) {
+            participants = (int) size;
+        }
+        final int rangeCount = participants;
+        final long[] counts = new long[rangeCount];
+        final AtomicReference<Throwable> failure = new AtomicReference<Throwable>();
+        final AtomicBoolean aborted = new AtomicBoolean(false);
+        final AtomicInteger nextRange = new AtomicInteger(0);
+        final CountDownLatch startGate = new CountDownLatch(1);
+        final ForkJoinTask<?>[] tasks = new ForkJoinTask<?>[rangeCount - 1];
+        final long stride = (size / rangeCount)
+                + (size % rangeCount == 0L ? 0L : 1L);
+        int submitted = 0;
+        try {
+            for (int i = 1; i < rangeCount; i++) {
+                final Runnable rangeTask = new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            startGate.await();
+                            if (aborted.get()) {
+                                return;
+                            }
+                            PARALLEL_WORKER.set(Boolean.TRUE);
+                            while (!aborted.get()) {
+                                int slot = nextRange.getAndIncrement();
+                                if (slot >= rangeCount) {
+                                    return;
+                                }
+                                long start = Math.min(size, stride * slot);
+                                long end = Math.min(size, start + stride);
+                                long matched = 0L;
+                                for (long row = start; row < end && !aborted.get(); row++) {
+                                    if (predicate.test(row)) {
+                                        matched = Math.addExact(matched, 1L);
+                                    }
+                                }
+                                if (aborted.get()) {
+                                    return;
+                                }
+                                counts[slot] = matched;
+                            }
+                        } catch (InterruptedException interrupted) {
+                            Thread.currentThread().interrupt();
+                            aborted.set(true);
+                            failure.compareAndSet(null, interrupted);
+                        } catch (Throwable throwable) {
+                            aborted.set(true);
+                            failure.compareAndSet(null, throwable);
+                        } finally {
+                            try {
+                                if (participantCleanup != null) {
+                                    participantCleanup.run();
+                                }
+                            } catch (Throwable cleanupFailure) {
+                                aborted.set(true);
+                                failure.compareAndSet(null, cleanupFailure);
+                            } finally {
+                                PARALLEL_QUERY.remove();
+                                PARALLEL_WORKER.remove();
+                            }
+                        }
+                    }
+                };
+                ForkJoinTask<?> task = ForkJoinTask.adapt(rangeTask);
+                tasks[i - 1] = task;
+                if (Thread.currentThread() instanceof ForkJoinWorkerThread
+                        && ((ForkJoinWorkerThread) Thread.currentThread()).getPool() == pool) {
+                    task.fork();
+                } else {
+                    pool.execute(task);
+                }
+                submitted++;
+            }
+        } catch (RejectedExecutionException rejected) {
+            aborted.set(true);
+            startGate.countDown();
+            for (int i = 0; i < submitted; i++) {
+                joinAfterAbort(tasks[i]);
+            }
+            throw failure(SomaFailureCode.PARALLEL_EXECUTOR_UNAVAILABLE, SomaOperation.QUERY,
+                    "parallel executor rejected a range", rejected);
+        }
+
+        startGate.countDown();
+        try {
+            PARALLEL_WORKER.set(Boolean.TRUE);
+            while (!aborted.get()) {
+                int slot = nextRange.getAndIncrement();
+                if (slot >= rangeCount) {
+                    break;
+                }
+                long start = Math.min(size, stride * slot);
+                long end = Math.min(size, start + stride);
+                long matched = 0L;
+                for (long row = start; row < end && !aborted.get(); row++) {
+                    if (Thread.currentThread().isInterrupted()) {
+                        aborted.set(true);
+                        failure.compareAndSet(null,
+                                new InterruptedException("parallel operation interrupted"));
+                        break;
+                    }
+                    if (predicate.test(row)) {
+                        matched = Math.addExact(matched, 1L);
+                    }
+                }
+                if (aborted.get()) {
+                    break;
+                }
+                counts[slot] = matched;
+            }
+        } catch (Throwable throwable) {
+            aborted.set(true);
+            failure.compareAndSet(null, throwable);
+        } finally {
+            try {
+                if (participantCleanup != null) {
+                    participantCleanup.run();
+                }
+            } catch (Throwable cleanupFailure) {
+                aborted.set(true);
+                failure.compareAndSet(null, cleanupFailure);
+            } finally {
+                PARALLEL_QUERY.remove();
+                PARALLEL_WORKER.remove();
+            }
+        }
+        for (ForkJoinTask<?> task : tasks) {
+            joinAfterAbort(task);
+        }
+        Throwable workerFailure = failure.get();
+        if (workerFailure != null) {
+            if (workerFailure instanceof InterruptedException
+                    || workerFailure instanceof CancellationException) {
+                Thread.currentThread().interrupt();
+                throw failure(SomaFailureCode.OPERATION_CANCELLED, SomaOperation.QUERY,
+                        "parallel operation was interrupted", workerFailure);
+            }
+            if (workerFailure instanceof Error) {
+                throw (Error) workerFailure;
+            }
+            if (workerFailure instanceof SomaOperationException) {
+                throw (SomaOperationException) workerFailure;
+            }
+            throw failure(SomaFailureCode.CALLBACK_FAILED, SomaOperation.QUERY,
+                    "typed parallel predicate failed", workerFailure);
+        }
+        long total = 0L;
+        try {
+            for (long count : counts) {
+                total = Math.addExact(total, count);
+            }
+            return total;
+        } catch (ArithmeticException overflow) {
+            throw failure(SomaFailureCode.ARITHMETIC_OVERFLOW, SomaOperation.QUERY,
+                    "parallel count overflow", overflow);
+        }
+    }
+
+    private static void joinAfterAbort(ForkJoinTask<?> task) {
+        if (task == null) {
+            return;
+        }
+        try {
+            task.join();
+        } catch (CancellationException ignored) {
+            // A task cancelled before the start gate is quiescent and has no callback side effect.
+        }
+    }
+
+    /** Internal token used only by generated typed parallel callbacks. */
+    public static void enterParallelRead(Query query) {
+        if (query == null || !Boolean.TRUE.equals(PARALLEL_WORKER.get())) {
+            throw failure(SomaFailureCode.CALLBACK_SCOPE_VIOLATION, SomaOperation.QUERY,
+                    "parallel read token is not active", null);
+        }
+        PARALLEL_QUERY.set(query);
+    }
+
+    /** Clears the generated callback's worker-local read token. */
+    public static void exitParallelRead(Query query) {
+        if (PARALLEL_QUERY.get() == query) {
+            PARALLEL_QUERY.remove();
         }
     }
 
@@ -461,19 +683,19 @@ public final class ScalarTableRuntime {
             this.guard = guard; this.root = root; this.specs = specs; this.keyIndex = keyIndex;
             this.owner = Thread.currentThread();
         }
-        public long size() { ensureOpen(); return root.size; }
-        public Object keyAt(long locator) { ensureOpen(); return valueAt(keyIndex, locator); }
-        public long findLocator(Object key) { ensureOpen(); return root.directory.findKey(key, specs, keyIndex, root.size); }
-        public boolean matches(int field, long locator, Object value) { ensureOpen(); return ScalarTableRuntime.matches(valueAt(field, locator), value, specs[field].kind); }
-        public boolean booleanAt(int field, long locator) { ensureOpen(); return root.directory.booleans(field, locator); }
-        public byte byteAt(int field, long locator) { ensureOpen(); return root.directory.bytes(field, locator); }
-        public short shortAt(int field, long locator) { ensureOpen(); return root.directory.shorts(field, locator); }
-        public char charAt(int field, long locator) { ensureOpen(); return root.directory.chars(field, locator); }
-        public int intAt(int field, long locator) { ensureOpen(); return root.directory.ints(field, locator); }
-        public long longAt(int field, long locator) { ensureOpen(); return root.directory.longs(field, locator); }
-        public float floatAt(int field, long locator) { ensureOpen(); return root.directory.floats(field, locator); }
-        public double doubleAt(int field, long locator) { ensureOpen(); return root.directory.doubles(field, locator); }
-        public Object referenceAt(int field, long locator) { ensureOpen(); return root.directory.references(field, locator); }
+        public long size() { ensureReadable(); return root.size; }
+        public Object keyAt(long locator) { ensureReadable(); return valueAt(keyIndex, locator); }
+        public long findLocator(Object key) { ensureReadable(); return root.directory.findKey(key, specs, keyIndex, root.size); }
+        public boolean matches(int field, long locator, Object value) { ensureReadable(); return ScalarTableRuntime.matches(valueAt(field, locator), value, specs[field].kind); }
+        public boolean booleanAt(int field, long locator) { ensureReadable(); return root.directory.booleans(field, locator); }
+        public byte byteAt(int field, long locator) { ensureReadable(); return root.directory.bytes(field, locator); }
+        public short shortAt(int field, long locator) { ensureReadable(); return root.directory.shorts(field, locator); }
+        public char charAt(int field, long locator) { ensureReadable(); return root.directory.chars(field, locator); }
+        public int intAt(int field, long locator) { ensureReadable(); return root.directory.ints(field, locator); }
+        public long longAt(int field, long locator) { ensureReadable(); return root.directory.longs(field, locator); }
+        public float floatAt(int field, long locator) { ensureReadable(); return root.directory.floats(field, locator); }
+        public double doubleAt(int field, long locator) { ensureReadable(); return root.directory.doubles(field, locator); }
+        public Object referenceAt(int field, long locator) { ensureReadable(); return root.directory.references(field, locator); }
         private Object valueAt(int field, long locator) {
             if (field < 0) return null;
             switch (specs[field].kind) {
@@ -489,7 +711,12 @@ public final class ScalarTableRuntime {
             }
         }
         @Override public void close() { if (!closed) { closed = true; guard.close(); } }
-        private void ensureOpen() { if (closed || Thread.currentThread() != owner) throw failure(SomaFailureCode.CALLBACK_SCOPE_VIOLATION, SomaOperation.QUERY, "query is outside its operation scope", null); }
+        private void ensureReadable() {
+            if (closed || (Thread.currentThread() != owner && PARALLEL_QUERY.get() != this)) {
+                throw failure(SomaFailureCode.CALLBACK_SCOPE_VIOLATION, SomaOperation.QUERY,
+                        "query is outside its operation scope", null);
+            }
+        }
     }
 
     public static final class PointUpdate {
