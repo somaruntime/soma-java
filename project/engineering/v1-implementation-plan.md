@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / NO_ACTIVE_SLICE / I0-I8 NOT_STARTED
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETED / NO_ACTIVE_SLICE / NEXT I1
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -13,8 +13,9 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization；本轮被否决的 implementation 已从
-active checkout 移除，当前没有 active slice，下一项只允许从 I0 开始。
+2026-08-03 单独授予完整 V1 implementation authorization。I0 已于2026-08-04完成并通过
+[正式资格](../conformance/i0-build-spine-qualification.md)；当前没有 active slice，下一项只
+允许从 I1 开始。
 
 当前授权同时覆盖repository-local CI/non-publishing release qualification workflow、local/internal
 benchmark与profile、local Maven package qualification，以及JUnit Jupiter 5.x test-only stack。
@@ -47,7 +48,7 @@ production class名，也不是每个commit的强制清单。
 
 | Slice | Name | Status | Primary Gates |
 |---|---|---|---|
-| I0 | Build spine、artifact与full-regeneration carrier | NOT_STARTED | G1、G2、G10 |
+| I0 | Build spine、artifact与full-regeneration carrier | COMPLETED | G1、G2、G10 |
 | I1 | Primitive keyed Table vertical slice | NOT_STARTED | G1-G5 |
 | I2 | Schema/type/chunk/Key/Index breadth | NOT_STARTED | G2-G4 |
 | I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |

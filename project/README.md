@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；implementation reset `COMPLETE`；I0-I8 `NOT_STARTED`
+implementation authorization `GRANTED`；I0 `COMPLETED`；I1-I8 `NOT_STARTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -22,17 +22,18 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
 - [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
-- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；本轮被否决的
-  implementation 已于 2026-08-04 从 active checkout 移除；当前没有 active slice，I0-I8
-  均为`NOT_STARTED`，下一项从 I0 开始；
-- G1-G10 尚无 production PASS 结论。
+- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0 build spine已于
+  2026-08-04完成并通过[正式资格](conformance/i0-build-spine-qualification.md)；
+- 当前没有active slice，I1-I8为`NOT_STARTED`，下一项从I1开始；
+- G1为`PASS`；G2/G10为I0范围`PASS`但整体仍`IN_PROGRESS`；G3-G9为`NOT_RUN`。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前 active checkout 没有 production source、Maven reactor/module、generated consumer API、
-test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
-readiness 不等于 implementation、performance、compatibility、artifact 或 release 已成立。
+当前active checkout已有I0 production source、Maven reactor、恰好两个production artifact的
+源码、测试与资格脚本；没有I1+公开generated consumer API、Table runtime、benchmark、Example、
+CI/release workflow、remote package或committed build artifact。I0完成不等于完整
+implementation、performance、compatibility或release成立。
 
 此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
 type-shape/mechanism evidence 仍是设计可行性输入；它不是 production test 或 runtime evidence。
@@ -54,6 +55,7 @@ type-shape/mechanism evidence 仍是设计可行性输入；它不是 production
 | Artifact/build/runtime/storage/Index/compression/scheduler baseline | [Implementation Architecture](design/implementation-architecture.md) |
 | I0-I8 实施顺序、exit、stop 与 change protocol | [V1 Implementation Plan](engineering/v1-implementation-plan.md) |
 | G1-G10 最低 production evidence | [V1 Implementation Gates](conformance/v1-implementation-gates.md) |
+| I0 implementation、artifact与qualification evidence | [I0 Build Spine Qualification](conformance/i0-build-spine-qualification.md) |
 | 候选来源、晋升矩阵与 replacement closure | [Formal Promotion](conformance/large-scale-engine-formal-promotion.md) |
 | 当前实施准入结论、findings closure与授权边界 | [最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md) |
 | 当前实现差距与 evidence 状态 | [Conformance](conformance/README.md) |
@@ -89,8 +91,8 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；当前无 active slice，I0-I8 not started，下一项 I0 |
-| Conformance | `project/conformance/`；readiness PASS，implementation authorized，Gates待运行 |
+| Engineering | `project/engineering/`；I0 completed，当前无active slice，下一项I1 |
+| Conformance | `project/conformance/`；G1 PASS，G2/G10 I0-scope PASS且整体IN_PROGRESS |
 | Temporary | 当前无active topic；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
@@ -125,24 +127,24 @@ cherry-pick、包装或通过 compatibility layer 恢复 predecessor source。
 implementation authorization；当前执行路径为：
 
 ```text
-I0 build/full-regeneration spine
-        -> one active slice at a time
+I0 build/full-regeneration spine (COMPLETED)
+        -> I1 primitive keyed Table vertical slice
+            -> one active slice at a time
             -> matching Conformance evidence
                 -> stop or next slice
                     -> I8 product qualification
                         -> separate release authorization
 ```
 
-下一项只允许从I0开始；I0 exit evidence未通过前不得进入I1。当前授权同时允许每个slice证据
-闭合后的干净commit与`develop` push，以及
+I0 exit evidence已经闭合；下一项只允许从I1开始。当前授权同时允许每个slice证据闭合后的
+干净commit与`develop` push，以及
 [Conformance authorization contract](conformance/README.md#6-implementation-authorization-contract)
 限定的CI、internal benchmark/profile、local package qualification和JUnit Jupiter 5.x
 test-only stack；不包含remote artifact publication、签名或正式发布声明。
 
 ## 当前验证边界
 
-本次已执行 repository/documentation Gate：唯一 Owner、Blueprint→Design→Plan→Gate 双向追溯、
-Markdown link、current route、historical status、repository inventory 与 whitespace。
-
-Production compile/runtime/performance/security/package/release Gate 只能在相应 surface 出现后
-执行；当前尚无 Gate PASS，不得用 documentation readiness 替代。
+I0已执行Java 8 clean build、processor/full-regeneration、independent consumer、failed-state、
+artifact/dependency/security baseline与独立审查；详细边界见
+[I0 Qualification](conformance/i0-build-spine-qualification.md)。I1-I8的runtime、performance、
+package和release Gate只能在相应surface出现后执行，不得用I0或documentation evidence替代。

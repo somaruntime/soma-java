@@ -9,13 +9,14 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 
 2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
 为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。Product Owner 已于 2026-08-03 明确授予
-完整 V1 implementation authorization；本轮被否决的 implementation 已从 active checkout 移除，
-当前没有 active implementation slice，I0-I8 均为`NOT_STARTED`，下一项只允许从 I0 开始；
-G1-G10 尚无 production PASS 结论。
+完整 V1 implementation authorization。I0 build spine 已完成并通过独立审查与
+[正式资格证据](project/conformance/i0-build-spine-qualification.md)：G1为`PASS`，G2/G10为
+I0范围`PASS`但整体仍`IN_PROGRESS`；I1-I8为`NOT_STARTED`，当前没有active implementation
+slice，下一项只允许从I1开始。
 
-Active checkout 不包含 production source、Maven reactor/module、generated consumer API、
-test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
-readiness不等于implementation、performance、compatibility或release已成立。核心抽象候选已经
+Active checkout仍不包含I1+ generated public consumer API、Table runtime、benchmark、Example、
+CI/release workflow、package或committed build artifact。I0 completion不等于完整
+implementation、performance、compatibility或release已成立。核心抽象候选已经
 正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
 Temporary replacement closure已完成；当前没有active Temporary。
 
@@ -96,15 +97,15 @@ script、workflow、Process 或正式文档前，必须说明：
 Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须停下并请求 Product Owner
 裁决。
 
-Product Owner 已预先准入JUnit Jupiter 5.x作为I0唯一third-party test framework；具体版本必须
-由I0固定并证明Java 8 compatibility、license、known vulnerability、dependency tree与无
-production artifact leakage。JUnit/JUnit Platform只允许test scope，不准入Vintage；该裁决不
-授权其他dependency或plugin expansion。
+I0已固定JUnit Jupiter `5.11.4`作为唯一third-party test framework，并证明Java 8
+compatibility、license、2026-08-04时点known-vulnerability、dependency tree与无production
+artifact leakage。JUnit/JUnit Platform只允许test scope，不准入Vintage；该裁决不授权其他
+dependency或plugin expansion。
 
 ## 实施准入与推进
 
 - 当前 implementation authorization 覆盖 I0-I8 的自主实现；一次只推进一个 active slice；
-  当前没有 active slice，下一项只允许从 I0 开始；
+  I0已关闭，当前没有active slice，下一项只允许从I1开始；
 - 当前授权覆盖repository-local CI与non-publishing release qualification workflow、local/internal
   benchmark与profile、local Maven package qualification，以及上述JUnit test-only stack；精确
   边界由[Conformance authorization contract](project/conformance/README.md#6-implementation-authorization-contract)
@@ -114,7 +115,8 @@ production artifact leakage。JUnit/JUnit Platform只允许test scope，不准�
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
 - reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；
-- I0 exit 未通过前不进入 I1，documentation Gate 不替代 production Gate。
+- I0 exit已通过；I1仍需按本计划单独建立production vertical slice，documentation Gate不替代
+  production Gate。
 - 允许 subagent 进行独立分析、测试与审查；不得让多个 Agent 并行修改同一核心 surface；
 - Blueprint/Design 语义变化、权限扩张、已准入test stack以外的新dependency、第三production
   artifact、证明链无法闭合或性能与正确性取舍必须停止并等待 Product Owner；
@@ -122,14 +124,14 @@ production artifact leakage。JUnit/JUnit Platform只允许test scope，不准�
 
 ## 当前阶段验证
 
-当前是 implementation reset 后、I0 开始前阶段。文档与 repository-surface 变更至少执行：
+当前是post-I0 / pre-I1阶段。文档与repository-surface变更至少执行：
 
 - 使用 `rg` / `rg --files` 搜索；
 - 使用 `apply_patch` 编辑；
 - 运行 `git diff --check`；
 - 检查 Markdown 相对链接与 current route；
 - 检查每项事实的唯一 Owner 和 Blueprint↔Design↔Engineering↔Conformance traceability；
-- 确认 active checkout 没有 predecessor code、legacy API、build artifact 或 release claim；
+- 确认active checkout没有predecessor code、legacy API、committed build artifact或release claim；
 - 记录但不外推本机环境事实。
 
 P2 feasibility spike 已退役；只有当前

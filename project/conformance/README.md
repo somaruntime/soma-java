@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；implementation reset `COMPLETE`；I0-I8 `NOT_STARTED`
+Implementation authorization `GRANTED`；I0 `COMPLETED`；I1-I8 `NOT_STARTED`
 
 正式事实源：是
 
@@ -31,32 +31,34 @@ Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
-Production source/reactor      ABSENT
-Generated consumer API         ABSENT
-Active slice                   NONE (next: I0)
-G1-G10                         NO PASS YET
+Production source/reactor      PRESENT (I0 scope)
+Generated consumer API         INTERNAL I0 CARRIER ONLY; PUBLIC API ABSENT
+Active slice                   NONE (next: I1)
+G1                             PASS
+G2 / G10                       I0_SCOPE_PASS / OVERALL IN_PROGRESS
+G3-G9                          NOT_RUN
 Package/release                NOT_QUALIFIED
 ```
 
-`READY_FOR_IMPLEMENTATION`与独立授权共同允许按I0-I8实施，但不表示任何runtime capability已经
-成立。当前授权允许每个slice闭合后的commit与`develop` push，以及下文第6节限定的内部资格
-验证；不包含远端artifact发布、签名或正式release声明。
+I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立，
+不表示I1-I8 runtime capability已经成立。当前授权允许每个slice闭合后的commit与`develop`
+push，以及下文第6节限定的内部资格验证；不包含远端artifact发布、签名或正式release声明。
 
 ## 3. Conformance matrix
 
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
-| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | no production processor/build | NOT_IMPLEMENTED |
+| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、internal carrier与full regeneration已建立；公开generated surface待I1-I2 | I0_SCOPE_PASS / IN_PROGRESS |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | no production runtime state | NOT_IMPLEMENTED |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | no generated API | NOT_IMPLEMENTED |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | bounded fixtures only | NOT_IMPLEMENTED |
 | IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | no production planner/interpreter | NOT_IMPLEMENTED |
 | Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | no engine/scheduler/admission | NOT_IMPLEMENTED |
 | Result/failure | [Failure](../design/results-and-failures.md) | no production carrier/mapping | NOT_IMPLEMENTED |
-| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | no Maven reactor/artifact | NOT_IMPLEMENTED |
+| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8 qualification通过 | I0_COMPLETED |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
-| Security/package/release | G10 | no artifact/workflow | NOT_EVALUABLE |
+| Security/package/release | G10 | dependency/license/OSV/legal/checksum/reproducibility baseline成立；workflow与完整package/release待I8 | I0_SCOPE_PASS / IN_PROGRESS |
 
 `NOT_IMPLEMENTED`不是Design contradiction；它是clean-slate implementation gap。Documentation
 不得把bounded fixture改写为production capability。
@@ -69,6 +71,8 @@ Package/release                NOT_QUALIFIED
 - [Large-scale engine formal promotion](large-scale-engine-formal-promotion.md)：候选source
   fingerprint、promotion matrix、evidence boundary与Temporary replacement closure；
 - [V1 Implementation Gates](v1-implementation-gates.md)：G1-G10最低production evidence。
+- [I0 Build Spine Qualification](i0-build-spine-qualification.md)：I0 implementation commit、
+  Java 8环境、full-regeneration、linkage、dependency/security与artifact provenance Owner。
 
 Historical inputs：
 
@@ -85,8 +89,8 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 
 | Gate | Status |
 |---|---|
-| G1 Artifact/build/full regeneration | NOT_RUN |
-| G2 Schema/generated surface | NOT_RUN |
+| G1 Artifact/build/full regeneration | PASS |
+| G2 Schema/generated surface | I0_SCOPE_PASS / IN_PROGRESS |
 | G3 Storage/Key/Index | NOT_RUN |
 | G4 Query/IR/optimizer | NOT_RUN |
 | G5 Mutation/resource/failure | NOT_RUN |
@@ -94,9 +98,10 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | G7 Parallel | NOT_RUN |
 | G8 Compression/metadata | NOT_RUN |
 | G9 Scenarios/performance | NOT_RUN |
-| G10 Security/package/release | NOT_RUN |
+| G10 Security/package/release | I0_SCOPE_PASS / IN_PROGRESS |
 
-Gate不能在对应production surface出现前运行或标PASS。
+Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`只关闭该slice拥有的证据，
+不等于整个Gate已经完成。
 
 ## 6. Implementation authorization contract
 
@@ -129,11 +134,11 @@ Gate不能在对应production surface出现前运行或标PASS。
 - 未通过G9及claim review的对外性能claim；
 - signing与正式release声明。
 
-下一项I0只允许使用Design已准入的standard Maven/JDK build surface与上述JUnit Jupiter 5.x
-test-only stack。该准入关闭测试框架选择，不预先证明具体版本、dependency tree、license、
-security或Java 8执行证据；这些仍由I0/G10验证。CI/release qualification workflow可以建立和
-运行，但必须保持non-publishing。GitHub Release、Package publication、签名和正式发布声明均不
-在授权内。
+I0已经以standard Maven/JDK build surface与JUnit Jupiter `5.11.4` test-only stack完成资格；
+具体版本、dependency tree、license、2026-08-04时点known-vulnerability、Java 8执行与artifact
+隔离证据见[I0记录](i0-build-spine-qualification.md)。下一项只允许从I1开始。CI/release
+qualification workflow可以在其所属slice建立和运行，但必须保持non-publishing。GitHub
+Release、Package publication、签名和正式发布声明均不在授权内。
 
 ## 7. Release claim boundary
 
