@@ -1,6 +1,5 @@
 # Maven / Java build output
 target/
-**/target/
 *.class
 
 # IDE state

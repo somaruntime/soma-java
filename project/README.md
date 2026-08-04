@@ -3,11 +3,11 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7 `COMPLETE (I7_SCOPE)`；I8 `IN_PROGRESS (I8_BOUNDARY_PASS, I8_SCALE_SMOKE_PASS)`
+implementation authorization `GRANTED`；implementation reset `COMPLETE`；I0-I8 `NOT_STARTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-04
 
 ## 当前事实
 
@@ -22,25 +22,17 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
 - [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
-- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；
-- [I0 build/full-regeneration qualification](conformance/i0-build-spine-qualification.md)已`PASS`，
-  G1 为`PASS`；G2/G10 的 I0 baseline 已通过但整体仍`IN_PROGRESS`；
-- I0 为`COMPLETE`，I1 已完成其 bounded primitive keyed Table vertical slice，I2 已完成其
-  bounded scalar type/storage breadth slice，I3 已完成其 bounded direct query/reference slice，
-  I4 已完成其 bounded point-remove slice，I5 已完成其 bounded integer-key GroupBy slice；I6 已完成其
-  bounded typed parallel-count slice；I7 已完成 metadata/PLAIN representation bounded slice；I8 已完成
-  package/security boundary、narrow-scale smoke 与非发布 examples workspace sub-slices，三场景与正式性能 qualification 待继续；当前没有 active implementation
-  slice。
+- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；本轮被否决的
+  implementation 已于 2026-08-04 从 active checkout 移除；当前没有 active slice，I0-I8
+  均为`NOT_STARTED`，下一项从 I0 开始；
+- G1-G10 尚无 production PASS 结论。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
-closure与targeted readiness delta review已完成。`project/temp/i7-implementation-decisions.md` 仅保留本次
-I7 bounded supplemental boundary，不拥有current product fact。
+closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前 active checkout 已有 I1、I2、I3、I4、I5、I6 与 I7 范围的 qualified generated consumer API 与 primitive/scalar
-Table runtime，并有 I8 narrow-scale smoke harness 与非发布 examples workspace；仍没有 approved I8 performance benchmark、CI/release workflow、package 或
-committed build artifact。
-I1 completion、正式 Design 与 readiness 都不等于完整 implementation、
-performance、compatibility、artifact publication 或 release 已成立。
+当前 active checkout 没有 production source、Maven reactor/module、generated consumer API、
+test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
+readiness 不等于 implementation、performance、compatibility、artifact 或 release 已成立。
 
 此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
 type-shape/mechanism evidence 仍是设计可行性输入；它不是 production test 或 runtime evidence。
@@ -85,7 +77,7 @@ Blueprint
 - Conformance 记录 implementation 与 Design 是否一致及证据边界；
 - README、未来 Manual/White Paper/Examples 是投影，不得成为第二份 Design；
 - 新的重大长期变化先进入 bounded Temporary，经裁决、验证、晋升和 replacement closure 后
-  删除；I7/I8 supplemental notes 仅保留本次 bounded implementation boundary，不拥有current事实。
+  删除；当前没有active Temporary。
 
 ## 项目组织框架映射
 
@@ -97,11 +89,10 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0/I1/I2/I3/I4/I5/I6/I7 bounded slice complete，I8 boundary + narrow-scale smoke sub-slice pass |
-| Conformance | `project/conformance/`；G1 PASS，G2-G8 scope pass，G9/G10 remain open |
-| Temporary | I7/I8 supplemental boundary/provenance；目录不拥有current事实 |
+| Engineering | `project/engineering/`；当前无 active slice，I0-I8 not started，下一项 I0 |
+| Conformance | `project/conformance/`；readiness PASS，implementation authorized，Gates待运行 |
+| Temporary | 当前无active topic；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
-| Examples | `soma-examples/`；三个非发布 scenario consumer，见 [I8 Examples Qualification](conformance/i8-examples-qualification.md) |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
 
 Selected delivery profile 尚未建立；未来 package/source bundle 必须采用明确 allowlist，不能把
@@ -142,14 +133,13 @@ I0 build/full-regeneration spine
                         -> separate release authorization
 ```
 
-I0/I1/I2/I3/I4/I5/I6/I7 exit evidence已经闭合；下一项从I8开始。当前授权同时允许每个 slice 证据闭合后的干净
-commit 与`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
+下一项只允许从 I0 开始；I0 exit evidence未通过前不得进入I1。当前授权同时允许每个 slice 证据闭合后的干净 commit 与
+`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
 
 ## 当前验证边界
 
 本次已执行 repository/documentation Gate：唯一 Owner、Blueprint→Design→Plan→Gate 双向追溯、
 Markdown link、current route、historical status、repository inventory 与 whitespace。
 
-I0 Java 8 build/full-regeneration production evidence 已执行并形成 G1 PASS；其余 runtime、
-performance、security/package/release Gate 只能在相应 surface 出现后执行，不得用 I0 或
-documentation readiness 替代。
+Production compile/runtime/performance/security/package/release Gate 只能在相应 surface 出现后
+执行；当前尚无 Gate PASS，不得用 documentation readiness 替代。

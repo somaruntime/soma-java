@@ -3,13 +3,13 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0 `COMPLETE`；I1 `COMPLETE (I1_SCOPE)`；I2 `COMPLETE (I2_SCOPE)`；I3 `COMPLETE (I3_SCOPE)`；I4 `COMPLETE (I4_SCOPE)`；I5 `COMPLETE (I5_SCOPE)`；I6 `COMPLETE (I6_SCOPE)`；I7 `COMPLETE (I7_SCOPE)`；I8 `IN_PROGRESS (I8_BOUNDARY_PASS, I8_SCALE_SMOKE_PASS)`；G1 `PASS`
+Implementation authorization `GRANTED`；implementation reset `COMPLETE`；I0-I8 `NOT_STARTED`
 
 正式事实源：是
 
 Owner：SOMA Java Blueprint、Design、implementation与evidence的一致性状态
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-04
 
 ## 1. 文档责任
 
@@ -31,11 +31,10 @@ Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
-Production source/reactor      I0 QUALIFIED
-Generated consumer API         I1 primitive keyed + I2 scalar breadth + I3 direct query + I4 point mutation + I5 GroupBy + I6 typed parallel count + I7 metadata/plain baseline qualified (bounded fixtures)
-Examples workspace              I8_EXAMPLES_WORKSPACE_PASS (three non-published Java 8 consumers; no multi-table/Join claim)
-Active slice                   NONE (I8 boundary + narrow-scale smoke sub-slices closed; remaining I8 product qualification)
-G1-G10                         G1 PASS; G2-G8 scope pass; G9/G10 IN_PROGRESS
+Production source/reactor      ABSENT
+Generated consumer API         ABSENT
+Active slice                   NONE (next: I0)
+G1-G10                         NO PASS YET
 Package/release                NOT_QUALIFIED
 ```
 
@@ -47,16 +46,16 @@ Package/release                NOT_QUALIFIED
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
-| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | I0 aggregating carrier/full-regeneration qualified | I0_SCOPE_PASS |
-| Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | I1 primitive backend + I2 scalar typed columns/index semantics + I7 plain metadata baseline；sidecar/codec未实施 | I7_SCOPE_PASS |
-| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | I1/I2 generated Table/find/get/filter/update bounded surfaces；Join未实施 | I2_SCOPE_PASS |
-| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I1/I2 generated Soma/Group/Table/View/Editor/Field + I7 metadata carriers bounded fixtures | I7_SCOPE_PASS |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | I1/I2 typed expression carrier/evaluator；planner/oracle未实施 | I2_SCOPE_PASS |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | I1/I2 Group guard/scope/point mutation；I6 bounded typed parallel count；full resource admission未实施 | I6_SCOPE_PASS |
-| Result/failure | [Failure](../design/results-and-failures.md) | I1/I2 UpdateResult、failure mapping与scope/duplicate/missing/overflow bounded | I2_SCOPE_PASS |
-| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | I0 two-artifact Maven build qualified | I0_PASS |
-| Performance/scenarios | BP-15 + G9 | examples correctness smoke and narrow-scale telemetry only; approved performance thresholds absent | I8_EXAMPLES_WORKSPACE_PASS + I8_SCALE_SMOKE_PASS / NOT_EVALUABLE |
-| Security/package/release | G10 | I8 boundary package/security baseline; full qualification/workflow未实施 | I8_BOUNDARY_PASS |
+| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | no production processor/build | NOT_IMPLEMENTED |
+| Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | no production runtime state | NOT_IMPLEMENTED |
+| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | no generated API | NOT_IMPLEMENTED |
+| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | bounded fixtures only | NOT_IMPLEMENTED |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | no production planner/interpreter | NOT_IMPLEMENTED |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | no engine/scheduler/admission | NOT_IMPLEMENTED |
+| Result/failure | [Failure](../design/results-and-failures.md) | no production carrier/mapping | NOT_IMPLEMENTED |
+| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | no Maven reactor/artifact | NOT_IMPLEMENTED |
+| Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
+| Security/package/release | G10 | no artifact/workflow | NOT_EVALUABLE |
 
 `NOT_IMPLEMENTED`不是Design contradiction；它是clean-slate implementation gap。Documentation
 不得把bounded fixture改写为production capability。
@@ -69,28 +68,6 @@ Package/release                NOT_QUALIFIED
 - [Large-scale engine formal promotion](large-scale-engine-formal-promotion.md)：候选source
   fingerprint、promotion matrix、evidence boundary与Temporary replacement closure；
 - [V1 Implementation Gates](v1-implementation-gates.md)：G1-G10最低production evidence。
-- [I0 Build Spine Qualification](i0-build-spine-qualification.md)：I0 exit、G1 PASS 与 G2/G10
-  范围边界。
-- [I1 Primitive Keyed Table Qualification](i1-primitive-keyed-table-qualification.md)：I1
-  bounded vertical slice、独立审查与 scope-limited G2-G5 evidence。
-- [I2 Scalar Type/Storage Qualification](i2-scalar-type-storage-qualification.md)：I2
-  bounded scalar breadth slice、Java 8 consumer 与 scope-limited G2-G5 evidence。
-- [I3 Direct Query Qualification](i3-direct-query-qualification.md)：I3
-  bounded direct query/reference interpreter slice 与 scope-limited G4 evidence。
-- [I4 Point Mutation Qualification](i4-point-mutation-qualification.md)：I4
-  bounded point-remove slice 与 scope-limited G5 evidence。
-- [I5 GroupBy Qualification](i5-groupby-qualification.md)：I5 bounded integer-key GroupBy slice 与
-  scope-limited G6 evidence。
-- [I6 Parallel Qualification](i6-parallel-qualification.md)：I6 bounded typed parallel-count slice 与
-  scope-limited G7 evidence。
-- [I7 Metadata Qualification](i7-metadata-qualification.md)：I7 metadata/PLAIN representation baseline 与
-  scope-limited G8 evidence。
-- [I8 Boundary Qualification](i8-boundary-qualification.md)：I8 package/security boundary baseline；
-  G9 与完整 G10 仍未关闭。
-- [I8 Narrow-Scale Smoke Qualification](i8-scale-smoke-qualification.md)：1M-row correctness/telemetry
-  smoke；不构成 G9 performance qualification。
-- [I8 Examples Workspace Qualification](i8-examples-qualification.md)：三个非发布、独立 Java 8
-  scenario consumer 的生成/编译/运行证据；不构成 G9/G10 或 multi-table/Join 资格。
 
 Historical inputs：
 
@@ -101,23 +78,22 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。I7 supplemental note 位于
-`../temp/i7-implementation-decisions.md`，不拥有current事实。
+Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active Temporary。
 
 ## 5. Gate status
 
 | Gate | Status |
 |---|---|
-| G1 Artifact/build/full regeneration | PASS |
-| G2 Schema/generated surface | IN_PROGRESS — I2_SCOPE_PASS |
-| G3 Storage/Key/Index | IN_PROGRESS — I2_SCOPE_PASS |
-| G4 Query/IR/optimizer | IN_PROGRESS — I2_SCOPE_PASS |
-| G5 Mutation/resource/failure | IN_PROGRESS — I2_SCOPE_PASS |
-| G6 Group/Join | IN_PROGRESS — I5_SCOPE_PASS |
-| G7 Parallel | IN_PROGRESS — I6_SCOPE_PASS |
-| G8 Compression/metadata | IN_PROGRESS — I7_SCOPE_PASS |
-| G9 Scenarios/performance | NOT_RUN (I8_SCALE_SMOKE_PASS telemetry only) |
-| G10 Security/package/release | IN_PROGRESS — I8_BOUNDARY_PASS |
+| G1 Artifact/build/full regeneration | NOT_RUN |
+| G2 Schema/generated surface | NOT_RUN |
+| G3 Storage/Key/Index | NOT_RUN |
+| G4 Query/IR/optimizer | NOT_RUN |
+| G5 Mutation/resource/failure | NOT_RUN |
+| G6 Group/Join | NOT_RUN |
+| G7 Parallel | NOT_RUN |
+| G8 Compression/metadata | NOT_RUN |
+| G9 Scenarios/performance | NOT_RUN |
+| G10 Security/package/release | NOT_RUN |
 
 Gate不能在对应production surface出现前运行或标PASS。
 
@@ -142,8 +118,8 @@ Gate不能在对应production surface出现前运行或标PASS。
 - benchmark claim；
 - publication/signing。
 
-I0 已在Design准入的standard Maven/JDK build surface闭合；任何新的dependency仍需停下裁决。
-GitHub Release、Package、签名和正式发布声明均不在授权内。
+下一项 I0 只允许使用Design已准入的standard Maven/JDK build surface；任何新的dependency仍需停下
+裁决。GitHub Release、Package、签名和正式发布声明均不在授权内。
 
 ## 7. Release claim boundary
 

@@ -2,7 +2,7 @@
 
 类型：Conformance Gate Definition
 
-状态：Active；I0 `COMPLETE`；G1 `PASS`
+状态：Active；G1-G10全部`NOT_RUN`
 
 正式事实源：是（production evidence最低集合）
 
@@ -13,8 +13,7 @@ Owner：SOMA Java V1 implementation、qualification与release claim Gate
 ## 1. Gate原则
 
 - Design定义系统应当是什么；Gate证明implementation实际符合；
-- implementation surface 出现不自动产生 Gate PASS；I0 已绑定 commit、独立审查与
-  [Conformance evidence](i0-build-spine-qualification.md)；
+- 当前无production code/build/API，G1-G10均不能标PASS；
 - feasibility fixture只降低selected design risk，不可替代production Gate；
 - 每个Gate evidence必须绑定commit、JDK/OS/arch、command、input、result与artifact；
 - deterministic evidence可重放；performance事实标明machine/JVM/heap/workload；
@@ -244,16 +243,16 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 
 | Gate | Current | First owning slice |
 |---|---|---|
-| G1 Build/full regeneration | PASS | I0 |
-| G2 Schema/generated surface | IN_PROGRESS — I0_SCOPE_PASS | I0-I2 |
+| G1 Build/full regeneration | NOT_RUN | I0 |
+| G2 Schema/generated surface | NOT_RUN | I0-I2 |
 | G3 Storage/Key/Index | NOT_RUN | I1-I2 |
 | G4 Query/IR/optimizer | NOT_RUN | I1-I3 |
 | G5 Mutation/resource/failure | NOT_RUN | I1、I4 |
 | G6 Group/Join | NOT_RUN | I5 |
-| G7 Parallel | IN_PROGRESS — I6_SCOPE_PASS | I6 |
-| G8 Compression/metadata | IN_PROGRESS — I7_SCOPE_PASS | I7 |
+| G7 Parallel | NOT_RUN | I6 |
+| G8 Compression/metadata | NOT_RUN | I7 |
 | G9 Scenarios/performance | NOT_RUN | I8 |
-| G10 Security/package/release | IN_PROGRESS — I8_BOUNDARY_PASS | I0、I8 |
+| G10 Security/package/release | NOT_RUN | I0、I8 |
 
 ## 13. Evidence record format
 

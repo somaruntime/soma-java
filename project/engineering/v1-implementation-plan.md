@@ -2,19 +2,19 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 COMPLETE (I6_SCOPE) / I7 COMPLETE (I7_SCOPE) / I8 IN_PROGRESS (I8_BOUNDARY_PASS, I8_SCALE_SMOKE_PASS)
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / NO_ACTIVE_SLICE / I0-I8 NOT_STARTED
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
 Owner：SOMA Java V1 production implementation slices、依赖顺序与Definition of Done
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-04
 
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization；I0-I7 bounded slices 已完成，I8 已
-完成 package/security boundary sub-slice，三场景与性能 qualification 待继续。
+2026-08-03 单独授予完整 V1 implementation authorization；本轮被否决的 implementation 已从
+active checkout 移除，当前没有 active slice，下一项只允许从 I0 开始。
 
 “纵向slice”只表示实施顺序，不缩减V1 scope。禁止先实现flat-int/boxed/reflection MVP，再把
 chunk、IR、specialization、failure或relation当成未来补丁。
@@ -42,15 +42,15 @@ production class名，也不是每个commit的强制清单。
 
 | Slice | Name | Status | Primary Gates |
 |---|---|---|---|
-| I0 | Build spine、artifact与full-regeneration carrier | COMPLETE | G1、G2、G10 |
-| I1 | Primitive keyed Table vertical slice | COMPLETE (I1_SCOPE) | G1-G5 |
-| I2 | Schema/type/chunk/Key/Index breadth | COMPLETE (I2_SCOPE) | G2-G4 |
-| I3 | Direct query、Predicate IR与reference interpreter | COMPLETE (I3_SCOPE) | G4 |
-| I4 | Selection mutation、failure与resource admission | COMPLETE (I4_SCOPE) | G5 |
-| I5 | GroupBy与binary Equality/Cross Join | COMPLETE (I5_SCOPE) | G6 |
-| I6 | Bounded ForkJoin parallel execution | COMPLETE (I6_SCOPE) | G7 |
-| I7 | Compression、metadata/explain与surface closure | COMPLETE (I7_SCOPE) | G8 |
-| I8 | Reference scenarios、performance、security、package/release qualification | IN_PROGRESS (I8_BOUNDARY_PASS, I8_SCALE_SMOKE_PASS) | G9、G10 |
+| I0 | Build spine、artifact与full-regeneration carrier | NOT_STARTED | G1、G2、G10 |
+| I1 | Primitive keyed Table vertical slice | NOT_STARTED | G1-G5 |
+| I2 | Schema/type/chunk/Key/Index breadth | NOT_STARTED | G2-G4 |
+| I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |
+| I4 | Selection mutation、failure与resource admission | NOT_STARTED | G5 |
+| I5 | GroupBy与binary Equality/Cross Join | NOT_STARTED | G6 |
+| I6 | Bounded ForkJoin parallel execution | NOT_STARTED | G7 |
+| I7 | Compression、metadata/explain与surface closure | NOT_STARTED | G8 |
+| I8 | Reference scenarios、performance、security、package/release qualification | NOT_STARTED | G9、G10 |
 
 任何slice只有其exit evidence进入Conformance后才能进入下一slice。允许在同一commit交付相邻
 mechanism，但Gate不能因实现方便合并消失。
@@ -228,9 +228,6 @@ failure exact equivalence；parallel-specific resource/interrupt failure单独�
 alternate result。
 
 ## 11. I7 — Compression 与 diagnostic closure
-
-当前 `I7_SCOPE` exit 只准入 metadata carrier 与 PLAIN representation baseline；codec、完整
-`_explain()`、global resource admission 与其余 G8 证据仍未完成，不能由该 scope status 外推。
 
 实现AUTO/OFF与Chunk representation：
 

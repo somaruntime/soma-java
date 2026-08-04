@@ -17,13 +17,11 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 
 - Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
 - readiness 结论为 `READY_FOR_IMPLEMENTATION`；
-- Product Owner 已于 2026-08-03 授权按 I0-I8 与 G1-G10 自主实施；
-- [I0 build/full-regeneration qualification](project/conformance/i0-build-spine-qualification.md)
-  已`PASS`，G1 为`PASS`；G2/G10 只有 I0 范围证据，整体仍`IN_PROGRESS`；
-- I1-I7 已按 bounded scope 完成，I8 已完成 package/security boundary、narrow-scale smoke 与
-  非发布 examples workspace sub-slices；当前仍没有三场景 performance qualification、完整
-  G9/G10、workflow、published package 或 release；
-- I0/G1 结论不构成完整可用性、性能、兼容性或 release readiness 声明。
+- Product Owner 已于 2026-08-03 授权按 I0-I8 与 G1-G10 自主实施；当前没有 active slice，
+  I0-I8 均未开始，下一项从 I0 开始；
+- 当前尚没有通过 Gate 的 production library、Maven artifact、consumer API、Example、benchmark、
+  workflow、package 或 release；
+- G1-G10 尚无 production PASS 结论，因此没有可用性、性能、兼容性或 release readiness 声明。
 
 正式设计说明产品应当是什么；它不等于代码和证据已经存在。
 
@@ -56,9 +54,8 @@ cross-Table transaction、persistence 或 distributed execution。
 - [品牌资产](assets/README.md)
 - [安全报告方式](SECURITY.md)
 
-产品使用手册、Quick Start 与正式发布投影仍等待相应 Gate；当前的
-[soma-examples workspace](soma-examples/README.md) 是三个严肃的本地 consumer 场景，已通过
-生成/编译/确定性运行 smoke，但不构成性能、Join、package 或 release 声明。
+产品使用手册、Quick Start 与可执行 Examples 将在 production surface 真正建立并通过相应
+Conformance Gate 后提供；当前不使用伪示例制造“已经可用”的印象。
 
 ## Clean-slate 与产品身份
 

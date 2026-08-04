@@ -2,26 +2,24 @@
 
 类型：Engineering Entry
 
-状态：Implementation Authorized / I0 COMPLETE / I1 COMPLETE (I1_SCOPE) / I2 COMPLETE (I2_SCOPE) / I3 COMPLETE (I3_SCOPE) / I4 COMPLETE (I4_SCOPE) / I5 COMPLETE (I5_SCOPE) / I6 COMPLETE (I6_SCOPE) / I7 COMPLETE (I7_SCOPE) / I8 IN_PROGRESS (I8_BOUNDARY_PASS, I8_SCALE_SMOKE_PASS)
+状态：Implementation Authorized / NO ACTIVE SLICE / I0-I8 NOT_STARTED
 
 正式事实源：是（实施计划与工程路由）
 
 Owner：SOMA Java implementation sequence、work-unit与engineering evidence route
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-04
 
 ## 当前状态
 
 新的大规模编译式Table引擎Blueprint/Design与核心抽象专题已经正式晋升，并通过
 [实施前最终全局一致性审核](../conformance/v1-final-pre-implementation-global-consistency-review.md)。
-Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization；I0 已`COMPLETE`，
-I1 已完成 bounded primitive keyed Table slice，I2 已完成 bounded scalar type/storage breadth slice，
-I3 已完成 bounded direct query/reference slice，I4 已完成 bounded point-remove slice，I5 已完成 bounded integer-key GroupBy slice，I6 已完成 bounded typed parallel-count slice，I7 已完成 metadata/PLAIN baseline，I8 已完成 package/security boundary 与 narrow-scale smoke sub-slices；三场景与正式性能 qualification 待继续，当前没有 active implementation slice。
+Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization；本轮被否决的
+implementation 已从 active checkout 移除。当前没有 active slice，I0-I8 全部`NOT_STARTED`，
+下一项只允许从 I0 开始。
 
-I0 已建立真实 build/runtime/processor/consumer boundary，I1 又完成了 bounded generated Table
-runtime，并分别通过 [I0 Qualification](../conformance/i0-build-spine-qualification.md) 与
-[I1 Qualification](../conformance/i1-primitive-keyed-table-qualification.md)。这仍不证明完整
-type breadth、performance、package与release。
+`READY_FOR_IMPLEMENTATION`只表示设计、计划与Gate足以接受单独实施授权，不表示compiler、
+runtime、API、performance、package或release已经存在。
 
 ## 唯一计划
 
@@ -32,7 +30,7 @@ type breadth、performance、package与release。
 ```text
 I0 build/full-regeneration
     -> I1 primitive Table vertical slice
-    -> I2 scalar type/storage breadth (bounded)
+        -> I2 schema/type/chunk/Key/Index breadth
             -> I3 direct query/IR/reference interpreter
                 -> I4 Selection mutation/failure/resource
                     -> I5 Group/Join
@@ -63,6 +61,5 @@ I0 build/full-regeneration
 - Current readiness verdict：[Final Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)
 - Architecture skeleton：[Core Abstractions and Narratives](../design/core-abstractions-and-narratives.md)
 
-I0 的正式可重放 qualification command 是`./scripts/check-i0.sh`；其结果已绑定 commit、独立
-审查并进入 Conformance。输入未变化时复用该证据，不机械重复完整 qualification；后续 slice
-仍需运行与自身变更 surface 相称的 Gate。
+I0将建立第一条production build/test command。Documentation Gate不能替代Java 8
+compile/runtime/performance/package Gate。

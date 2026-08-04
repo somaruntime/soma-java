@@ -9,14 +9,13 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 
 2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
 为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。Product Owner 已于 2026-08-03 明确授予
-完整 V1 implementation authorization。I0 build spine 已完成并通过独立审查与
-[正式资格证据](project/conformance/i0-build-spine-qualification.md)：G1 为`PASS`，G2/G10 为
-I0 范围`PASS`但整体仍`IN_PROGRESS`；I1-I8 为`NOT_STARTED`，当前没有 active implementation
-slice，下一项只允许从 I1 开始。
+完整 V1 implementation authorization；本轮被否决的 implementation 已从 active checkout 移除，
+当前没有 active implementation slice，I0-I8 均为`NOT_STARTED`，下一项只允许从 I0 开始；
+G1-G10 尚无 production PASS 结论。
 
-Active checkout 仍不包含 I1+ generated public consumer API、Table runtime、benchmark、Example、
-CI/release workflow、package 或 committed build artifact。I0 completion 不等于完整
-implementation、performance、compatibility或release已成立。核心抽象候选已经
+Active checkout 不包含 production source、Maven reactor/module、generated consumer API、
+test、benchmark、Example、CI/release workflow、package 或 build artifact。正式 Design 与
+readiness不等于implementation、performance、compatibility或release已成立。核心抽象候选已经
 正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
 Temporary replacement closure已完成；当前没有active Temporary。
 
@@ -99,15 +98,14 @@ Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须�
 
 ## 实施准入与推进
 
-- 当前 implementation authorization 覆盖 I0-I8 的自主实现；一次只推进一个 active slice；I0
-  已关闭，下一项只允许从 I1 开始；
+- 当前 implementation authorization 覆盖 I0-I8 的自主实现；一次只推进一个 active slice；
+  当前没有 active slice，下一项只允许从 I0 开始；
 - 每个 slice 按 [Implementation Plan](project/engineering/v1-implementation-plan.md)交付
   positive、negative、failed-state、独立审查与 Conformance evidence；
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
 - reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；
-- I0 exit 已通过；I1 仍需按本计划单独建立 production vertical slice，documentation Gate 不替代
-  production Gate。
+- I0 exit 未通过前不进入 I1，documentation Gate 不替代 production Gate。
 - 允许 subagent 进行独立分析、测试与审查；不得让多个 Agent 并行修改同一核心 surface；
 - Blueprint/Design 语义变化、权限扩张、新 dependency、第三 artifact、证明链无法闭合或
   性能与正确性取舍必须停止并等待 Product Owner；
@@ -115,14 +113,14 @@ Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须�
 
 ## 当前阶段验证
 
-当前是 post-I0 / pre-I1 阶段。文档与 repository-surface 变更至少执行：
+当前是 implementation reset 后、I0 开始前阶段。文档与 repository-surface 变更至少执行：
 
 - 使用 `rg` / `rg --files` 搜索；
 - 使用 `apply_patch` 编辑；
 - 运行 `git diff --check`；
 - 检查 Markdown 相对链接与 current route；
 - 检查每项事实的唯一 Owner 和 Blueprint↔Design↔Engineering↔Conformance traceability；
-- 确认 active checkout 没有 predecessor code、legacy API、committed build artifact 或 release claim；
+- 确认 active checkout 没有 predecessor code、legacy API、build artifact 或 release claim；
 - 记录但不外推本机环境事实。
 
 P2 feasibility spike 已退役；只有当前
