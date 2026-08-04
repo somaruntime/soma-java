@@ -9,14 +9,17 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 
 2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
 为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。Product Owner 已于 2026-08-03 明确授予
-完整 V1 implementation authorization。I0 build spine 已完成并通过独立审查与
-[正式资格证据](project/conformance/i0-build-spine-qualification.md)：G1为`PASS`，G2/G10为
-I0范围`PASS`但整体仍`IN_PROGRESS`；I1-I8为`NOT_STARTED`，当前没有active implementation
-slice，下一项只允许从I1开始。
+完整 V1 implementation authorization。I0 build spine与I1 primitive keyed Table slice已完成并
+分别通过独立审查与[I0资格](project/conformance/i0-build-spine-qualification.md)、
+[I1资格](project/conformance/i1-primitive-keyed-table-qualification.md)：G1为`PASS`，G2-G5为
+I0/I1范围`PASS`但整体仍`IN_PROGRESS`，G10为I0范围`PASS`但整体仍`IN_PROGRESS`；I2-I8为
+`NOT_STARTED`，当前没有active implementation slice，下一项只允许从I2开始。
 
-Active checkout仍不包含I1+ generated public consumer API、Table runtime、benchmark、Example、
-CI/release workflow、package或committed build artifact。I0 completion不等于完整
-implementation、performance、compatibility或release已成立。核心抽象候选已经
+Active checkout已包含I1 generated public long-keyed Table API、paged PLAIN storage、primitive
+Key、typed filter/count、point update与structured failure；仍不包含I2+ type/Index breadth、完整
+IR/optimizer、Join/parallel/compression、benchmark、Example、CI/release workflow、package或
+committed build artifact。I1 completion不等于完整implementation、performance、compatibility或
+release已成立。核心抽象候选已经
 正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
 Temporary replacement closure已完成；当前没有active Temporary。
 
@@ -105,7 +108,7 @@ dependency或plugin expansion。
 ## 实施准入与推进
 
 - 当前 implementation authorization 覆盖 I0-I8 的自主实现；一次只推进一个 active slice；
-  I0已关闭，当前没有active slice，下一项只允许从I1开始；
+  I0-I1已关闭，当前没有active slice，下一项只允许从I2开始；
 - 当前授权覆盖repository-local CI与non-publishing release qualification workflow、local/internal
   benchmark与profile、local Maven package qualification，以及上述JUnit test-only stack；精确
   边界由[Conformance authorization contract](project/conformance/README.md#6-implementation-authorization-contract)
@@ -115,8 +118,8 @@ dependency或plugin expansion。
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
 - reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；
-- I0 exit已通过；I1仍需按本计划单独建立production vertical slice，documentation Gate不替代
-  production Gate。
+- I0-I1 exit已通过；I2仍需按本计划单独建立schema/type/storage breadth，I1 scoped Gate不替代
+  I2 production Gate。
 - 允许 subagent 进行独立分析、测试与审查；不得让多个 Agent 并行修改同一核心 surface；
 - Blueprint/Design 语义变化、权限扩张、已准入test stack以外的新dependency、第三production
   artifact、证明链无法闭合或性能与正确性取舍必须停止并等待 Product Owner；
@@ -124,7 +127,7 @@ dependency或plugin expansion。
 
 ## 当前阶段验证
 
-当前是post-I0 / pre-I1阶段。文档与repository-surface变更至少执行：
+当前是post-I1 / pre-I2阶段。文档与repository-surface变更至少执行：
 
 - 使用 `rg` / `rg --files` 搜索；
 - 使用 `apply_patch` 编辑；

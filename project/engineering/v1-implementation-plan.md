@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0 COMPLETED / NO_ACTIVE_SLICE / NEXT I1
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0-I1 COMPLETED / NO_ACTIVE_SLICE / NEXT I2
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -13,9 +13,10 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization。I0 已于2026-08-04完成并通过
-[正式资格](../conformance/i0-build-spine-qualification.md)；当前没有 active slice，下一项只
-允许从 I1 开始。
+2026-08-03 单独授予完整 V1 implementation authorization。I0与I1已于2026-08-04完成并分别通过
+[I0正式资格](../conformance/i0-build-spine-qualification.md)与
+[I1正式资格](../conformance/i1-primitive-keyed-table-qualification.md)；当前没有active slice，
+下一项只允许从I2开始。
 
 当前授权同时覆盖repository-local CI/non-publishing release qualification workflow、local/internal
 benchmark与profile、local Maven package qualification，以及JUnit Jupiter 5.x test-only stack。
@@ -49,7 +50,7 @@ production class名，也不是每个commit的强制清单。
 | Slice | Name | Status | Primary Gates |
 |---|---|---|---|
 | I0 | Build spine、artifact与full-regeneration carrier | COMPLETED | G1、G2、G10 |
-| I1 | Primitive keyed Table vertical slice | NOT_STARTED | G1-G5 |
+| I1 | Primitive keyed Table vertical slice | COMPLETED | G1-G5 |
 | I2 | Schema/type/chunk/Key/Index breadth | NOT_STARTED | G2-G4 |
 | I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |
 | I4 | Selection mutation、failure与resource admission | NOT_STARTED | G5 |
@@ -131,6 +132,10 @@ scope token与atomic publish；不能用single `int[]`/Object[] universal engine
 Exit：generated/javap golden、consumer positive/negative、tiny-Chunk boundary、no reflection/boxing、
 add/find/query/update success/failure、point update missing/no-callback、candidate-root与prevalidated
 final-commit两条publication mechanism的root/version invariant。
+
+Implementation status：`COMPLETED`；implementation commit
+`3ef250b7ca50ebc4e598f0e09a02d5e9d44876bf`；完整evidence与claim boundary见
+[I1 Qualification](../conformance/i1-primitive-keyed-table-qualification.md)。
 
 ## 6. I2 — Schema/type/storage breadth
 

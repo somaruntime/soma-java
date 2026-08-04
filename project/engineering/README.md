@@ -2,7 +2,7 @@
 
 类型：Engineering Entry
 
-状态：Implementation Authorized / I0 COMPLETED / NO ACTIVE SLICE / NEXT I1
+状态：Implementation Authorized / I0-I1 COMPLETED / NO ACTIVE SLICE / NEXT I2
 
 正式事实源：是（实施计划与工程路由）
 
@@ -14,13 +14,15 @@ Owner：SOMA Java implementation sequence、work-unit与engineering evidence rou
 
 新的大规模编译式Table引擎Blueprint/Design与核心抽象专题已经正式晋升，并通过
 [实施前最终全局一致性审核](../conformance/v1-final-pre-implementation-global-consistency-review.md)。
-Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization。I0 build spine 已于
-2026-08-04完成并通过[正式资格](../conformance/i0-build-spine-qualification.md)：G1为`PASS`，
-G2/G10为I0范围`PASS`且整体仍`IN_PROGRESS`。当前没有active slice，I1-I8为`NOT_STARTED`，
-下一项只允许从I1开始。
+Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization。I0 build spine与I1
+primitive keyed Table slice已于2026-08-04完成，并分别通过
+[I0资格](../conformance/i0-build-spine-qualification.md)与
+[I1资格](../conformance/i1-primitive-keyed-table-qualification.md)：G1为`PASS`，G2-G5为相应
+I0/I1范围`PASS`且整体仍`IN_PROGRESS`，G10为I0范围`PASS`且整体仍`IN_PROGRESS`。当前没有
+active slice，I2-I8为`NOT_STARTED`，下一项只允许从I2开始。
 
-`READY_FOR_IMPLEMENTATION`只表示设计、计划与Gate足以接受单独实施授权，不表示compiler、
-runtime、API、performance、package或release已经存在。
+`READY_FOR_IMPLEMENTATION`只拥有实施前准入事实；当前compiler/runtime/API能力以I0-I1资格记录
+为边界，不能外推I2-I8、performance、package或release已经成立。
 
 ## 唯一计划
 
@@ -29,8 +31,8 @@ runtime、API、performance、package或release已经存在。
 计划顺序：
 
 ```text
-I0 build/full-regeneration
-    -> I1 primitive Table vertical slice
+I0 build/full-regeneration (COMPLETED)
+    -> I1 primitive Table vertical slice (COMPLETED)
         -> I2 schema/type/chunk/Key/Index breadth
             -> I3 direct query/IR/reference interpreter
                 -> I4 Selection mutation/failure/resource
@@ -62,8 +64,11 @@ I0 build/full-regeneration
 - Design contract：[Design](../design/README.md)
 - Gate definition：[V1 Implementation Gates](../conformance/v1-implementation-gates.md)
 - Current conformity：[Conformance](../conformance/README.md)
+- I0 qualification：[I0 Build Spine](../conformance/i0-build-spine-qualification.md)
+- I1 qualification：[I1 Primitive Keyed Table](../conformance/i1-primitive-keyed-table-qualification.md)
 - Current readiness verdict：[Final Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)
 - Architecture skeleton：[Core Abstractions and Narratives](../design/core-abstractions-and-narratives.md)
 
-I0已经建立第一条production build/test command：`./scripts/check.sh`。它只证明I0 build、
-generation与artifact边界；不能替代I1-I8的runtime、performance、package或release Gate。
+当前production qualification command为`./scripts/check.sh`。它回归I0 build/artifact并证明I1
+primitive keyed Table scoped capability；不能替代I2-I8的type/Index、optimizer、relation、parallel、
+performance、package或release Gate。
