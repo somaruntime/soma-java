@@ -1,0 +1,39 @@
+package io.github.somaruntime.soma;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
+import org.junit.jupiter.api.Test;
+
+class PublicCarrierContractTest {
+
+    @Test
+    void configurationAndResultCarriersHaveNoApplicationConstructor() {
+        assertAllConstructorsPrivate(SomaConfiguration.class);
+        assertAllConstructorsPrivate(SomaConfiguration.Builder.class);
+        assertAllConstructorsPrivate(UpdateResult.class);
+        assertAllConstructorsPrivate(SomaOperationException.class);
+
+        SomaConfiguration automatic = SomaConfiguration.builder().build();
+        assertNotNull(automatic);
+
+        SomaConfiguration explicit = SomaConfiguration.builder()
+                .memoryBudgetBytes(4096L)
+                .build();
+        assertNotNull(explicit);
+        assertThrows(IllegalArgumentException.class,
+                () -> SomaConfiguration.builder().memoryBudgetBytes(0L));
+    }
+
+    private static void assertAllConstructorsPrivate(Class<?> type) {
+        Constructor<?>[] constructors = type.getDeclaredConstructors();
+        assertTrue(constructors.length > 0);
+        for (Constructor<?> constructor : constructors) {
+            assertTrue(Modifier.isPrivate(constructor.getModifiers()), constructor.toString());
+        }
+    }
+}

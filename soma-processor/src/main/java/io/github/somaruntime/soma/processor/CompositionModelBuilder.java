@@ -31,8 +31,6 @@ import javax.tools.Diagnostic;
 
 final class CompositionModelBuilder {
 
-    private static final String GENERATED_TYPE = "SomaCompositionLinkage";
-
     private final Elements elements;
     private final Messager messager;
 
@@ -68,6 +66,8 @@ final class CompositionModelBuilder {
         List<TypeElement> sortedValues = sortedTypes(
                 new ArrayList<TypeElement>(reachableValues.values()));
         List<String> lines = new ArrayList<String>();
+        List<CompositionModel.TableModel> tableModels =
+                new ArrayList<CompositionModel.TableModel>();
         List<Element> origins = new ArrayList<Element>();
         origins.add(schemaPackage);
         lines.add("schema=" + schemaName);
@@ -85,6 +85,7 @@ final class CompositionModelBuilder {
                 valid = false;
             }
             valid &= appendFields(lines, table, true);
+            tableModels.add(tableModel(table, annotation));
             lines.add("table=" + table.getQualifiedName()
                     + "|defaultCapacity="
                     + (annotation == null ? "?" : Long.toString(annotation.defaultCapacity())));
@@ -97,17 +98,11 @@ final class CompositionModelBuilder {
             origins.add(value);
         }
 
-        String generatedTypeName = generatedPackage + "." + GENERATED_TYPE;
-        TypeElement collision = elements.getTypeElement(generatedTypeName);
-        if (collision != null) {
-            error(collision, "[SOMA-1007] Generated type already exists: " + generatedTypeName + ".");
-            valid = false;
-        }
         if (!valid) {
             return null;
         }
 
-        return new CompositionModel(
+        CompositionModel model = new CompositionModel(
                 schemaName,
                 generatedPackage,
                 ProcessorBuildInfo.artifactVersion(),
@@ -115,7 +110,39 @@ final class CompositionModelBuilder {
                 ProcessorBuildInfo.runtimeBuildIdentity(),
                 sha256(lines),
                 lines,
+                tableModels,
                 origins);
+        if (!new GeneratedSymbolTable(elements, messager, schemaPackage).validate(model)) {
+            return null;
+        }
+        return model;
+    }
+
+    private CompositionModel.TableModel tableModel(
+            TypeElement table,
+            SomaTable annotation) {
+        List<CompositionModel.FieldModel> fields =
+                new ArrayList<CompositionModel.FieldModel>();
+        for (VariableElement field : ElementFilter.fieldsIn(table.getEnclosedElements())) {
+            fields.add(new CompositionModel.FieldModel(
+                    field.getSimpleName().toString(),
+                    field.asType().toString(),
+                    fieldRole(field)));
+        }
+        return new CompositionModel.TableModel(
+                table.getSimpleName().toString(),
+                annotation == null ? 16L : annotation.defaultCapacity(),
+                fields);
+    }
+
+    private static CompositionModel.FieldRole fieldRole(VariableElement field) {
+        if (field.getAnnotation(SomaKey.class) != null) {
+            return CompositionModel.FieldRole.KEY;
+        }
+        if (field.getAnnotation(SomaIndex.class) != null) {
+            return CompositionModel.FieldRole.INDEX;
+        }
+        return CompositionModel.FieldRole.FIELD;
     }
 
     private boolean discoverReachableValues(
@@ -195,6 +222,7 @@ final class CompositionModelBuilder {
 
         boolean valid = true;
         int roleFields = 0;
+        int keys = 0;
         for (VariableElement field : fields) {
             int roles = roleCount(field);
             if (roles != 1) {
@@ -207,6 +235,9 @@ final class CompositionModelBuilder {
                 error(field, "[SOMA-1009] @SomaValue fields only support @SomaField.");
                 valid = false;
             }
+            if (table && field.getAnnotation(SomaKey.class) != null) {
+                keys++;
+            }
             roleFields++;
             lines.add("field=" + type.getQualifiedName()
                     + "#" + field.getSimpleName()
@@ -215,6 +246,10 @@ final class CompositionModelBuilder {
         }
         if (roleFields == 0) {
             error(type, "[SOMA-1005] SOMA schema type must declare at least one SOMA field.");
+            valid = false;
+        }
+        if (table && keys > 1) {
+            error(type, "[SOMA-1016] @SomaTable supports at most one @SomaKey Field.");
             valid = false;
         }
         return valid;

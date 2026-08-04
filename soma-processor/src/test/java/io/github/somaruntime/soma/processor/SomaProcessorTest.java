@@ -15,6 +15,58 @@ import org.junit.jupiter.api.Test;
 class SomaProcessorTest {
 
     @Test
+    void i1LongKeyedCompositionGeneratesAndCompilesTypedVerticalSlice() throws Exception {
+        Map<String, String> sources = new LinkedHashMap<String, String>();
+        sources.put("example/entity/schema/package-info.java",
+                "@io.github.somaruntime.soma.SomaSchema\n"
+                        + "package example.entity.schema;\n");
+        sources.put("example/entity/schema/Entity.java",
+                "package example.entity.schema;\n"
+                        + "import io.github.somaruntime.soma.*;\n"
+                        + "@SomaTable(defaultCapacity = 4L) final class Entity {\n"
+                        + "  @SomaKey long id;\n"
+                        + "  @SomaField long value;\n"
+                        + "}\n");
+        sources.put("example/entity/Consumer.java",
+                "package example.entity;\n"
+                        + "import io.github.somaruntime.soma.*;\n"
+                        + "final class Consumer {\n"
+                        + "  static long use() {\n"
+                        + "    EntityTable table = Soma.entityTable();\n"
+                        + "    table.add(new Entity(1L, 10L));\n"
+                        + "    Entity value = table.get(1L);\n"
+                        + "    table.update(1L, editor -> editor.value(11L));\n"
+                        + "    return table.filter(table.value.ge(value.value())).count();\n"
+                        + "  }\n"
+                        + "}\n");
+
+        try (CompilerTestSupport.Compilation compilation = CompilerTestSupport.compile(
+                sources, true, new SomaProcessor())) {
+            assertTrue(compilation.success(), compilation.diagnostics().toString());
+            String soma = compilation.generatedSource("example/entity/Soma.java");
+            String group = compilation.generatedSource("example/entity/SomaGroup.java");
+            String object = compilation.generatedSource("example/entity/Entity.java");
+            String table = compilation.generatedSource("example/entity/EntityTable.java");
+            assertTrue(soma.contains("public static EntityTable entityTable()"));
+            assertTrue(group.contains("public EntityTable entityTable()"));
+            assertTrue(object.contains("public Entity(long id, long value)"));
+            assertTrue(table.contains(
+                    "implements io.github.somaruntime.soma.SomaKeyableField<"
+                            + "View, java.lang.Long>"));
+            assertTrue(table.contains(
+                    "public io.github.somaruntime.soma.UpdateResult update("));
+            assertFalse(table.contains("parallel("));
+            assertFalse(table.contains("remove("));
+            assertFalse(table.contains("filter(SomaPredicate"));
+
+            String manifest = compilation.classOutput(
+                    "META-INF/soma/example.entity.schema.properties");
+            assertTrue(manifest.contains("example.entity.Soma"));
+            assertTrue(manifest.contains("example.entity.EntityTable"));
+        }
+    }
+
+    @Test
     void validCompositionProducesDeterministicCarrierAndManifest() throws Exception {
         Map<String, String> firstOrder = validSources(false);
         Map<String, String> reverseOrder = validSources(true);
@@ -85,6 +137,100 @@ class SomaProcessorTest {
             assertFalse(compilation.success());
             assertDiagnostic(compilation, "[SOMA-1004]");
             assertNoPublishedComposition(compilation, "example/invalid");
+        }
+    }
+
+    @Test
+    void multipleKeysFailSchemaValidationBeforeAnyCompositionOutput() throws Exception {
+        Map<String, String> sources = i1Sources(
+                "example.multikey",
+                "Invalid",
+                "  @SomaKey long first;\n"
+                        + "  @SomaKey long second;\n"
+                        + "  @SomaField long value;\n");
+        try (CompilerTestSupport.Compilation compilation = CompilerTestSupport.compile(
+                sources, true, new SomaProcessor())) {
+            assertFalse(compilation.success());
+            assertDiagnostic(compilation, "[SOMA-1016]");
+            assertNoPublishedComposition(compilation, "example/multikey");
+        }
+    }
+
+    @Test
+    void generatedSymbolCollisionsFailBeforeAnyCompositionOutput() throws Exception {
+        Map<String, String> somaType = i1Sources(
+                "example.collision.soma",
+                "Soma",
+                "  @SomaKey long id;\n  @SomaField long value;\n");
+
+        Map<String, String> tableType = i1Sources(
+                "example.collision.table",
+                "Order",
+                "  @SomaKey long id;\n  @SomaField long value;\n");
+        tableType.put(
+                "example/collision/table/schema/OrderTable.java",
+                schemaType(
+                        "example.collision.table",
+                        "OrderTable",
+                        "  @SomaKey long id;\n  @SomaField long value;\n"));
+
+        Map<String, String> endpointType = i1Sources(
+                "example.collision.endpoint",
+                "Entity",
+                "  @SomaKey long id;\n"
+                        + "  @SomaField long Id;\n"
+                        + "  @SomaField long value;\n");
+
+        Map<String, String> directMember = i1Sources(
+                "example.collision.member",
+                "Entity",
+                "  @SomaKey long id;\n"
+                        + "  @SomaField long runtime;\n");
+
+        assertSymbolCollision(somaType, "example/collision/soma");
+        assertSymbolCollision(tableType, "example/collision/table");
+        assertSymbolCollision(endpointType, "example/collision/endpoint");
+        assertSymbolCollision(directMember, "example/collision/member");
+    }
+
+    @Test
+    void infrastructureAndJavaLangSimpleNamesCannotShadowGeneratedDependencies()
+            throws Exception {
+        Map<String, String> sources = new LinkedHashMap<String, String>();
+        String generatedPackage = "example.shadow";
+        String packagePath = generatedPackage.replace('.', '/');
+        sources.put(
+                packagePath + "/schema/package-info.java",
+                "@io.github.somaruntime.soma.SomaSchema\n"
+                        + "package " + generatedPackage + ".schema;\n");
+        for (String tableName : new String[] {
+                "Optional", "GeneratedLong", "Object", "String",
+                "Long", "View", "Consumer", "Override"
+        }) {
+            sources.put(
+                    packagePath + "/schema/" + tableName + ".java",
+                    schemaType(
+                            generatedPackage,
+                            tableName,
+                            "  @SomaKey long id;\n  @SomaField long value;\n"));
+        }
+
+        try (CompilerTestSupport.Compilation compilation = CompilerTestSupport.compile(
+                sources, true, new SomaProcessor())) {
+            assertTrue(compilation.success(), compilation.diagnostics().toString());
+            String soma = compilation.generatedSource("example/shadow/Soma.java");
+            String optionalTable = compilation.generatedSource(
+                    "example/shadow/OptionalTable.java");
+            String generatedLongTable = compilation.generatedSource(
+                    "example/shadow/GeneratedLongTable.java");
+            String viewTable = compilation.generatedSource(
+                    "example/shadow/ViewTable.java");
+            assertTrue(soma.contains("java.lang.Object CAPABILITY"));
+            assertTrue(optionalTable.contains(
+                    "java.util.Optional<example.shadow.Optional>"));
+            assertTrue(generatedLongTable.contains(
+                    "io.github.somaruntime.soma.internal.GeneratedLongTable runtime"));
+            assertTrue(viewTable.contains("example.shadow.View fetch()"));
         }
     }
 
@@ -229,6 +375,44 @@ class SomaProcessorTest {
             sources.put("example/order/schema/OrphanValue.java", orphanValue);
         }
         return sources;
+    }
+
+    private static Map<String, String> i1Sources(
+            String generatedPackage,
+            String tableName,
+            String fields) {
+        LinkedHashMap<String, String> sources = new LinkedHashMap<String, String>();
+        String packagePath = generatedPackage.replace('.', '/');
+        sources.put(
+                packagePath + "/schema/package-info.java",
+                "@io.github.somaruntime.soma.SomaSchema\n"
+                        + "package " + generatedPackage + ".schema;\n");
+        sources.put(
+                packagePath + "/schema/" + tableName + ".java",
+                schemaType(generatedPackage, tableName, fields));
+        return sources;
+    }
+
+    private static String schemaType(
+            String generatedPackage,
+            String tableName,
+            String fields) {
+        return "package " + generatedPackage + ".schema;\n"
+                + "import io.github.somaruntime.soma.*;\n"
+                + "@SomaTable final class " + tableName + " {\n"
+                + fields
+                + "}\n";
+    }
+
+    private static void assertSymbolCollision(
+            Map<String, String> sources,
+            String generatedPackagePath) throws Exception {
+        try (CompilerTestSupport.Compilation compilation = CompilerTestSupport.compile(
+                sources, true, new SomaProcessor())) {
+            assertFalse(compilation.success());
+            assertDiagnostic(compilation, "[SOMA-1015]");
+            assertNoPublishedComposition(compilation, generatedPackagePath);
+        }
     }
 
     private static void assertDiagnostic(

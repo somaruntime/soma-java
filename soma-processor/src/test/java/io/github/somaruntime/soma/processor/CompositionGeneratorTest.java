@@ -52,6 +52,20 @@ class CompositionGeneratorTest {
     }
 
     @Test
+    void anyI1PublicSourceFailureCannotStartManifestPublication() {
+        for (int failedSource = 1; failedSource <= 5; failedSource++) {
+            RecordingFiler filer = new RecordingFiler(failedSource, 0);
+            CompositionGenerator generator = new CompositionGenerator(filer);
+
+            assertThrows(IOException.class, () -> generator.generateAll(
+                    generator.renderAll(Collections.singletonList(
+                            i1Model("example.i1failure")))));
+            assertFalse(filer.events.stream()
+                    .anyMatch(event -> event.startsWith("resource:")));
+        }
+    }
+
+    @Test
     void manifestFailurePropagatesToTheCompilationBoundary() {
         RecordingFiler filer = new RecordingFiler(0, 1);
         CompositionGenerator generator = new CompositionGenerator(filer);
@@ -73,6 +87,27 @@ class CompositionGeneratorTest {
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
                 Collections.singletonList("schema=" + generatedPackage + ".schema"),
+                Collections.<Element>emptyList());
+    }
+
+    private static CompositionModel i1Model(String generatedPackage) {
+        CompositionModel.TableModel table = new CompositionModel.TableModel(
+                "Entity",
+                4L,
+                Arrays.asList(
+                        new CompositionModel.FieldModel(
+                                "id", "long", CompositionModel.FieldRole.KEY),
+                        new CompositionModel.FieldModel(
+                                "value", "long", CompositionModel.FieldRole.FIELD)));
+        return new CompositionModel(
+                generatedPackage + ".schema",
+                generatedPackage,
+                "1.0.0-SNAPSHOT",
+                "1",
+                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                Collections.singletonList("schema=" + generatedPackage + ".schema"),
+                Collections.singletonList(table),
                 Collections.<Element>emptyList());
     }
 
