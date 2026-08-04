@@ -96,10 +96,19 @@ script、workflow、Process 或正式文档前，必须说明：
 Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须停下并请求 Product Owner
 裁决。
 
+Product Owner 已预先准入JUnit Jupiter 5.x作为I0唯一third-party test framework；具体版本必须
+由I0固定并证明Java 8 compatibility、license、known vulnerability、dependency tree与无
+production artifact leakage。JUnit/JUnit Platform只允许test scope，不准入Vintage；该裁决不
+授权其他dependency或plugin expansion。
+
 ## 实施准入与推进
 
 - 当前 implementation authorization 覆盖 I0-I8 的自主实现；一次只推进一个 active slice；
   当前没有 active slice，下一项只允许从 I0 开始；
+- 当前授权覆盖repository-local CI与non-publishing release qualification workflow、local/internal
+  benchmark与profile、local Maven package qualification，以及上述JUnit test-only stack；精确
+  边界由[Conformance authorization contract](project/conformance/README.md#6-implementation-authorization-contract)
+  拥有；
 - 每个 slice 按 [Implementation Plan](project/engineering/v1-implementation-plan.md)交付
   positive、negative、failed-state、独立审查与 Conformance evidence；
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
@@ -107,8 +116,8 @@ Implementation proposal 若需要改变 Blueprint/Design 产品语义，必须�
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；
 - I0 exit 未通过前不进入 I1，documentation Gate 不替代 production Gate。
 - 允许 subagent 进行独立分析、测试与审查；不得让多个 Agent 并行修改同一核心 surface；
-- Blueprint/Design 语义变化、权限扩张、新 dependency、第三 artifact、证明链无法闭合或
-  性能与正确性取舍必须停止并等待 Product Owner；
+- Blueprint/Design 语义变化、权限扩张、已准入test stack以外的新dependency、第三production
+  artifact、证明链无法闭合或性能与正确性取舍必须停止并等待 Product Owner；
 - 每个 slice 只有在 exit evidence、独立审查、Conformance 更新和干净提交完成后才可进入下一项。
 
 ## 当前阶段验证
@@ -134,6 +143,6 @@ performance 或 release evidence。
 - 常规工作在 `develop`；
 - 保留用户现有修改；
 - 当前授权允许在每个 slice 证据闭合后提交并推送`develop`；
-- 当前授权不包含 GitHub Release、Package、签名、正式发布声明或其他分支发布动作；
+- 当前授权不包含remote artifact publication、签名、正式发布声明或其他分支发布动作；
 - destructive 操作必须先解析精确、可恢复 target；
 - 不使用 destructive reset/checkout 覆盖用户 worktree。

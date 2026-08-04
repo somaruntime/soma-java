@@ -48,10 +48,13 @@ I0 build/full-regeneration
 - 不恢复predecessor source、module、test、benchmark或compatibility layer；
 - new surface必须通过AGENTS.md的surface admission；
 - stop rule触发时回到Temporary/Owner，不在code中静默选择；
-- 当前授权允许实现、验证、独立审查以及每个 slice 闭合后的 commit/`develop` push；
-- Blueprint/Design语义变化、stop rule、权限扩张、新dependency、第三artifact、证明链无法闭合
-  或性能与正确性取舍必须暂停等待Product Owner；
-- GitHub Release、Package、签名和正式发布声明仍需独立授权。
+- 当前授权允许实现、验证、独立审查、每个slice闭合后的commit/`develop` push，以及
+  [Conformance authorization contract](../conformance/README.md#6-implementation-authorization-contract)
+  限定的CI、internal benchmark/profile、local package qualification和JUnit Jupiter 5.x
+  test-only stack；
+- Blueprint/Design语义变化、stop rule、权限扩张、已准入test stack以外的新dependency、第三
+  production artifact、证明链无法闭合或性能与正确性取舍必须暂停等待Product Owner；
+- remote artifact publication、签名和正式发布声明仍需独立授权。
 
 ## Evidence route
 

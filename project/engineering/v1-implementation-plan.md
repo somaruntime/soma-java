@@ -16,6 +16,11 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 2026-08-03 单独授予完整 V1 implementation authorization；本轮被否决的 implementation 已从
 active checkout 移除，当前没有 active slice，下一项只允许从 I0 开始。
 
+当前授权同时覆盖repository-local CI/non-publishing release qualification workflow、local/internal
+benchmark与profile、local Maven package qualification，以及JUnit Jupiter 5.x test-only stack。
+精确边界由[Conformance authorization contract](../conformance/README.md#6-implementation-authorization-contract)
+拥有；远端artifact发布、签名和正式release声明仍未授权。
+
 “纵向slice”只表示实施顺序，不缩减V1 scope。禁止先实现flat-int/boxed/reflection MVP，再把
 chunk、IR、specialization、failure或relation当成未来补丁。
 
@@ -68,6 +73,8 @@ mechanism，但Gate不能因实现方便合并消失。
 - exactly two production modules；
 - Java 8 compiler/toolchain enforcement；
 - unit/golden/compile-negative/consumer/integration test taxonomy；
+- JUnit Jupiter 5.x test-only stack：I0固定官方支持Java 8的版本，验证license、known
+  vulnerability、dependency tree与无production artifact leakage；
 - full-source-set handshake、generated manifest与stale cleanup；
 - runtime/processor exact version linkage；
 - LICENSE/NOTICE/source/javadoc/SBOM/provenance baseline。
@@ -308,5 +315,7 @@ Stop不等于缩小产品scope。必须记录反例、受影响Owner、候选修
 - public capability、order/null/failure/lifecycle/resource visibility变化回到Product Owner；
 - 每个slice status变化链接Conformance evidence与commit；
 - pre-release不保留失败草案compatibility alias；
-- 当前Product Owner授权覆盖I0-I8 implementation以及每个slice闭合后的commit/`develop` push；
-  release/package/signing仍需独立授权，其他权限不得由本授权推断。
+- 当前Product Owner授权覆盖I0-I8 implementation、每个slice闭合后的commit/`develop` push，
+  以及Conformance第6节限定的CI、internal benchmark/profile、local package qualification和
+  JUnit Jupiter 5.x test-only stack；remote artifact publication、signing与正式release声明仍需
+  独立授权，其他权限不得由本授权推断。

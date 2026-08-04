@@ -39,7 +39,8 @@ Package/release                NOT_QUALIFIED
 ```
 
 `READY_FOR_IMPLEMENTATION`与独立授权共同允许按I0-I8实施，但不表示任何runtime capability已经
-成立。当前授权允许每个slice闭合后的commit与`develop` push，不包含release/package/signing。
+成立。当前授权允许每个slice闭合后的commit与`develop` push，以及下文第6节限定的内部资格
+验证；不包含远端artifact发布、签名或正式release声明。
 
 ## 3. Conformance matrix
 
@@ -107,19 +108,32 @@ Gate不能在对应production surface出现前运行或标PASS。
 - 一次只推进一个active slice；
 - 每个slice只有在exit evidence、独立审查、Conformance更新和干净提交完成后才进入下一项；
 - 允许自主编写code/test/benchmark/docs并提交推送`develop`；
+- 允许创建、修改、提交并验证repository-local GitHub Actions CI与non-publishing release
+  qualification workflow；允许由`develop` push触发这些验证；
+- 允许运行local/internal benchmark与profile，并将可重放入口、环境、fingerprint和有边界的
+  结论写入Conformance；G9 threshold仍按Gate要求由profile proposal与Product Owner批准；
+- 允许运行local Maven package qualification，包括source/javadoc、LICENSE/NOTICE、SBOM、
+  checksum、provenance与independent consumer smoke；
+- 预先准入JUnit Jupiter 5.x作为I0建立的唯一third-party test framework。它及其JUnit Platform
+  test runtime必须只处于test scope；I0需固定一个官方支持Java 8的具体版本，并记录dependency
+  tree、license、known-vulnerability、Java 8 compatibility与artifact leakage证据；不得引入
+  Vintage或把JUnit传递到`soma-runtime`、`soma-processor`及consumer runtime；
 - subagent只用于独立分析、测试与审查，不并行修改同一核心surface；
-- Blueprint/Design语义变化、stop rule、权限扩张、新dependency、第三artifact、证明链无法闭合
-  或性能与正确性取舍必须暂停等待Product Owner。
+- Blueprint/Design语义变化、stop rule、权限扩张、上述JUnit test stack以外的新dependency、
+  第三production artifact、证明链无法闭合或性能与正确性取舍必须暂停等待Product Owner。
 
 授权不包含：
 
-- dependency/download beyond admitted build；
-- GitHub workflow/release/package；
-- benchmark claim；
-- publication/signing。
+- 上述JUnit test stack与standard Maven/JDK build surface以外的dependency或plugin expansion；
+- GitHub Release、GitHub Packages、Maven repository或其他remote artifact publication；
+- 未通过G9及claim review的对外性能claim；
+- signing与正式release声明。
 
-下一项 I0 只允许使用Design已准入的standard Maven/JDK build surface；任何新的dependency仍需停下
-裁决。GitHub Release、Package、签名和正式发布声明均不在授权内。
+下一项I0只允许使用Design已准入的standard Maven/JDK build surface与上述JUnit Jupiter 5.x
+test-only stack。该准入关闭测试框架选择，不预先证明具体版本、dependency tree、license、
+security或Java 8执行证据；这些仍由I0/G10验证。CI/release qualification workflow可以建立和
+运行，但必须保持non-publishing。GitHub Release、Package publication、签名和正式发布声明均不
+在授权内。
 
 ## 7. Release claim boundary
 

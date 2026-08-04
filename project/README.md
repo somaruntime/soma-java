@@ -133,8 +133,11 @@ I0 build/full-regeneration spine
                         -> separate release authorization
 ```
 
-下一项只允许从 I0 开始；I0 exit evidence未通过前不得进入I1。当前授权同时允许每个 slice 证据闭合后的干净 commit 与
-`develop` push；不包含 workflow、Release、Package、签名或正式发布声明。
+下一项只允许从I0开始；I0 exit evidence未通过前不得进入I1。当前授权同时允许每个slice证据
+闭合后的干净commit与`develop` push，以及
+[Conformance authorization contract](conformance/README.md#6-implementation-authorization-contract)
+限定的CI、internal benchmark/profile、local package qualification和JUnit Jupiter 5.x
+test-only stack；不包含remote artifact publication、签名或正式发布声明。
 
 ## 当前验证边界
 
