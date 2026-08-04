@@ -142,11 +142,11 @@ Primitive callback family只生成grammar实际需要的Java 8 public `@Function
 Logical Field shared view：
 
 ```java
-public interface SomaField<R, V> {
+public interface SomaFieldEndpoint<R, V> {
     // logical Field identity/source marker；generated endpoint按V能力投影comparison/order/null
 }
 
-public interface SomaKeyableField<R, V> extends SomaField<R, V> {
+public interface SomaKeyableField<R, V> extends SomaFieldEndpoint<R, V> {
     // Key/Index/GroupBy/Equality-Join eligible Field marker
 }
 
@@ -160,11 +160,16 @@ Application通常不显式书写这些接口；generated endpoint有更窄、typ
 该Field已经声明为`@SomaKey/@SomaIndex`，也不表示physical hash。Float/double endpoint仍可拥有
 明确`eq/distinct/order`，但不实现该marker；包含float/double leaf的Value endpoint同样不实现。
 
-`SomaField/SomaKeyableField`同样不是SPI。它们必须由generated endpoint携带hidden
+`SomaFieldEndpoint/SomaKeyableField`同样不是SPI。它们必须由generated endpoint携带hidden
 composition/Table/logical-path identity；application手写marker、foreign composition endpoint或
 replayed owner不能成为合法projection/GroupBy/Join component。Java generic type只承担normal
 source-level narrowing，runtime provenance validation承担Java 8开放interface的防伪失败边界。
 `SomaOrder.then`机械形成lexicographic tie-break order；null placement由Logical Design拥有。
+
+Schema annotation `@SomaField`与generic marker是两个不同概念。Annotation保留
+`io.github.somaruntime.soma.SomaField`；marker固定为
+`io.github.somaruntime.soma.SomaFieldEndpoint<R,V>`，不能使用同名generic type、nested alias或
+compatibility alias。
 
 ## 6. Result 与 failure signatures
 
@@ -428,7 +433,7 @@ times.transportMinutes                  TransportTimeTable.TransportMinutesField
 acronym或locale猜测。Collision由Schema完整symbol-table validation拒绝，不自动加suffix。
 Direct endpoint是Table的public final member；nested endpoint是parent endpoint的public final member。
 Endpoint class为public final non-static nested class、constructor private且owner不可伪造。每个
-endpoint实现`SomaField<View,V>`；只有recursively keyable endpoint额外实现
+endpoint实现`SomaFieldEndpoint<View,V>`；只有recursively keyable endpoint额外实现
 `SomaKeyableField<View,V>`。Concrete endpoint type拥有该Field精确允许的comparison、order、
 source/intermediate/terminal member，因此不存在runtime capability switch。每个endpoint（包括
 nested Value endpoint）都提供`FieldMetadata _metadata()`；它返回该logical path的detached
@@ -464,7 +469,7 @@ Endpoint family规则：
   materialize detached Value；
 - nested Value endpoint继续使用stable logical path，不暴露flattened leaf编号；
 - keyable endpoint实现`SomaKeyableField<R,V>`；float/double、含float/double leaf的Value与
-  ordinary Object endpoint只实现`SomaField<R,V>`，因此不能传给`groupBy/on/and`。
+  ordinary Object endpoint只实现`SomaFieldEndpoint<R,V>`，因此不能传给`groupBy/on/and`。
 
 ## 11. Row pipeline grammar
 
@@ -733,8 +738,8 @@ public interface SomaMatchedJoinStream<L, R> extends SomaPairStream<L, R> {
             SomaPredicate<? super JoinPair<L, R>> callback);
 
     <A, B> MappedStream<SomaTuple2<A, B>> select(
-            SomaField<L, A> left,
-            SomaField<R, B> right);
+            SomaFieldEndpoint<L, A> left,
+            SomaFieldEndpoint<R, B> right);
 }
 
 public interface SomaOuterJoinStream<L, R> extends SomaPairStream<L, R> {

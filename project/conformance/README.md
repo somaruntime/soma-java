@@ -73,6 +73,9 @@ push，以及下文第6节限定的内部资格验证；不包含远端artifact�
 - [V1 Implementation Gates](v1-implementation-gates.md)：G1-G10最低production evidence。
 - [I0 Build Spine Qualification](i0-build-spine-qualification.md)：I0 implementation commit、
   Java 8环境、full-regeneration、linkage、dependency/security与artifact provenance Owner。
+- [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
+  `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
+  closure Owner。
 
 Historical inputs：
 
