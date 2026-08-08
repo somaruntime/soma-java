@@ -33,6 +33,7 @@ public final class example.i1.EntityTable {
   public java.util.Optional<example.i1.Entity> find(long);
   public example.i1.Entity get(long);
   public io.github.somaruntime.soma.UpdateResult update(long, java.util.function.Consumer<? super example.i1.EntityTable$Editor>);
+  public io.github.somaruntime.soma.RemoveResult remove(long);
   public long count();
   public example.i1.EntityTable$Selection selectAll();
   public example.i1.EntityTable$Selection filter(io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View>);
@@ -61,22 +62,22 @@ Compiled from "EntityTable.java"
 public final class example.i1.EntityTable$IdField implements io.github.somaruntime.soma.SomaKeyableField<example.i1.EntityTable$View, java.lang.Long> {
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> eq(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> ne(long);
+  public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> in(long...);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> lt(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> le(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> gt(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> ge(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> between(long, long);
-  public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> in(long...);
 }
 ===== example.i1.EntityTable$ValueField =====
 Compiled from "EntityTable.java"
 public final class example.i1.EntityTable$ValueField implements io.github.somaruntime.soma.SomaKeyableField<example.i1.EntityTable$View, java.lang.Long> {
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> eq(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> ne(long);
+  public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> in(long...);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> lt(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> le(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> gt(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> ge(long);
   public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> between(long, long);
-  public io.github.somaruntime.soma.SomaExpression<example.i1.EntityTable$View> in(long...);
 }

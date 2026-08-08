@@ -33,7 +33,15 @@ class CompositionGeneratorTest {
 
         assertEquals(Arrays.asList(
                 "source:example.alpha.SomaCompositionLinkage",
+                "source:example.alpha.Soma",
+                "source:example.alpha.SomaGroup",
+                "source:example.alpha.Entity",
+                "source:example.alpha.EntityTable",
                 "source:example.beta.SomaCompositionLinkage",
+                "source:example.beta.Soma",
+                "source:example.beta.SomaGroup",
+                "source:example.beta.Entity",
+                "source:example.beta.EntityTable",
                 "resource:META-INF/soma/example.alpha.schema.properties",
                 "resource:META-INF/soma/example.beta.schema.properties"),
                 filer.events);
@@ -52,14 +60,14 @@ class CompositionGeneratorTest {
     }
 
     @Test
-    void anyI1PublicSourceFailureCannotStartManifestPublication() {
+    void anyPublicSourceFailureCannotStartManifestPublication() {
         for (int failedSource = 1; failedSource <= 5; failedSource++) {
             RecordingFiler filer = new RecordingFiler(failedSource, 0);
             CompositionGenerator generator = new CompositionGenerator(filer);
 
             assertThrows(IOException.class, () -> generator.generateAll(
                     generator.renderAll(Collections.singletonList(
-                            i1Model("example.i1failure")))));
+                            model("example.failure")))));
             assertFalse(filer.events.stream()
                     .anyMatch(event -> event.startsWith("resource:")));
         }
@@ -74,31 +82,36 @@ class CompositionGeneratorTest {
                 generator.renderAll(Collections.singletonList(model("example.alpha")))));
         assertEquals(Arrays.asList(
                 "source:example.alpha.SomaCompositionLinkage",
+                "source:example.alpha.Soma",
+                "source:example.alpha.SomaGroup",
+                "source:example.alpha.Entity",
+                "source:example.alpha.EntityTable",
                 "resource:META-INF/soma/example.alpha.schema.properties"),
                 filer.events);
     }
 
     private static CompositionModel model(String generatedPackage) {
-        return new CompositionModel(
-                generatedPackage + ".schema",
-                generatedPackage,
-                "1.0.0-SNAPSHOT",
-                "1",
-                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-                "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
-                Collections.singletonList("schema=" + generatedPackage + ".schema"),
-                Collections.<Element>emptyList());
-    }
-
-    private static CompositionModel i1Model(String generatedPackage) {
+        CompositionModel.TypeModel longType = new CompositionModel.TypeModel(
+                CompositionModel.LogicalKind.LONG,
+                "long",
+                "java.lang.Long",
+                Collections.singletonList(new CompositionModel.LeafModel(
+                        CompositionModel.LeafKind.LONG,
+                        CompositionModel.EqualityKind.LONG,
+                        "long")),
+                null,
+                true,
+                true,
+                true,
+                false);
         CompositionModel.TableModel table = new CompositionModel.TableModel(
                 "Entity",
                 4L,
                 Arrays.asList(
                         new CompositionModel.FieldModel(
-                                "id", "long", CompositionModel.FieldRole.KEY),
+                                "id", longType, CompositionModel.FieldRole.KEY, 0),
                         new CompositionModel.FieldModel(
-                                "value", "long", CompositionModel.FieldRole.FIELD)));
+                                "value", longType, CompositionModel.FieldRole.FIELD, 1)));
         return new CompositionModel(
                 generatedPackage + ".schema",
                 generatedPackage,
@@ -107,6 +120,7 @@ class CompositionGeneratorTest {
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                 "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
                 Collections.singletonList("schema=" + generatedPackage + ".schema"),
+                Collections.<CompositionModel.ValueModel>emptyList(),
                 Collections.singletonList(table),
                 Collections.<Element>emptyList());
     }

@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.somaruntime.soma.SomaConfiguration;
+import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.UpdateResult;
 import org.junit.jupiter.api.Test;
 
@@ -29,5 +30,10 @@ class InternalCarrierFactoryTest {
         assertEquals(2L, result.changed());
         assertThrows(AssertionError.class,
                 () -> SomaSharedSecrets.updateResultAccess().create(1L, 2L));
+
+        RemoveResult removed = SomaSharedSecrets.removeResultAccess().create(3L);
+        assertEquals(3L, removed.removed());
+        assertThrows(AssertionError.class,
+                () -> SomaSharedSecrets.removeResultAccess().create(-1L));
     }
 }

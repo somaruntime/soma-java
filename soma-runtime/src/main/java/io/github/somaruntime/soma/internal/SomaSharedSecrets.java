@@ -5,6 +5,7 @@ import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.UpdateResult;
+import io.github.somaruntime.soma.RemoveResult;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -17,6 +18,8 @@ public final class SomaSharedSecrets {
             new AtomicReference<ConfigurationAccess>();
     private static final AtomicReference<UpdateResultAccess> UPDATE_RESULT =
             new AtomicReference<UpdateResultAccess>();
+    private static final AtomicReference<RemoveResultAccess> REMOVE_RESULT =
+            new AtomicReference<RemoveResultAccess>();
     private static final AtomicReference<FailureAccess> FAILURE =
             new AtomicReference<FailureAccess>();
 
@@ -39,6 +42,15 @@ public final class SomaSharedSecrets {
     static UpdateResultAccess updateResultAccess() {
         initialize(UpdateResult.class);
         return required(UPDATE_RESULT.get(), "UpdateResult");
+    }
+
+    public static void setRemoveResultAccess(RemoveResultAccess access) {
+        install(REMOVE_RESULT, access, RemoveResult.class);
+    }
+
+    static RemoveResultAccess removeResultAccess() {
+        initialize(RemoveResult.class);
+        return required(REMOVE_RESULT.get(), "RemoveResult");
     }
 
     public static void setFailureAccess(FailureAccess access) {
@@ -85,6 +97,10 @@ public final class SomaSharedSecrets {
 
     public interface UpdateResultAccess {
         UpdateResult create(long matched, long changed);
+    }
+
+    public interface RemoveResultAccess {
+        RemoveResult create(long removed);
     }
 
     public interface FailureAccess {

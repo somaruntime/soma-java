@@ -8,6 +8,9 @@ interface MutationFaultInjector {
 }
 
 enum MutationFaultPoint {
+    BEFORE_KEY_REBUILD,
+    BEFORE_INDEX_REBUILD,
+    BEFORE_SIDECAR_ACCOUNTING,
     BEFORE_CANDIDATE_PUBLISH,
     BEFORE_FINAL_COMMIT
 }

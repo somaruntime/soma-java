@@ -37,16 +37,15 @@ public final class GeneratedGroup {
         return new GeneratedGroup(memoryManager, generatedPackage, capability);
     }
 
-    public GeneratedLongTable createLongTable(
+    public GeneratedTable createTable(
             MethodHandles.Lookup caller,
             Object candidateCapability,
             String logicalName,
-            long defaultCapacity,
-            int fieldCount,
-            int keyFieldIndex) {
+            GeneratedTableLayout layout) {
         if (caller == null
                 || candidateCapability != capability
                 || logicalName == null
+                || layout == null
                 || (caller.lookupModes() & MethodHandles.Lookup.PRIVATE) == 0
                 || !caller.lookupClass().getName().equals(
                         generatedPackage + "." + logicalName + "Table")) {
@@ -54,12 +53,7 @@ public final class GeneratedGroup {
                     SomaOperation.CONFIGURE,
                     "generated Table construction capability is invalid");
         }
-        return new GeneratedLongTable(
-                this,
-                logicalName,
-                defaultCapacity,
-                fieldCount,
-                keyFieldIndex);
+        return new GeneratedTable(this, layout);
     }
 
     public void requireCapability(Object candidateCapability) {

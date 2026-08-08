@@ -36,6 +36,17 @@ final class CheckedLong {
         return add(value, 1L, operation, provenance);
     }
 
+    static long subtract(
+            long left,
+            long right,
+            SomaOperation operation,
+            Object provenance) {
+        if (left < 0L || right < 0L || right > left) {
+            throw new AssertionError("SOMA managed subtraction is invalid");
+        }
+        return left - right;
+    }
+
     private static RuntimeException overflow(
             SomaOperation operation,
             Object provenance) {

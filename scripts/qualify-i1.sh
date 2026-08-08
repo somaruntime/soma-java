@@ -175,8 +175,6 @@ expect_compile_failure "$negative_root/KeyEditorNegative.java" \
     'id|cannot be applied'
 expect_compile_failure "$negative_root/FutureSurfaceNegative.java" \
     'parallel'
-expect_compile_failure "$negative_root/PointRemoveNegative.java" \
-    'remove'
 expect_compile_failure "$negative_root/CallbackFilterNegative.java" \
     'filter|SomaExpression'
 expect_compile_failure "$negative_root/SelectionUpdateNegative.java" \
@@ -225,7 +223,8 @@ grep -q 'public io.github.somaruntime.soma.UpdateResult update' \
 grep -q 'public void value(long);' "$work_root/editor-public.txt"
 ! grep -q 'void id(long)' "$work_root/editor-public.txt"
 ! grep -q 'parallel' "$work_root/entity-table-public.txt"
-! grep -q 'remove' "$work_root/entity-table-public.txt"
+grep -q 'public io.github.somaruntime.soma.RemoveResult remove(long);' \
+    "$work_root/entity-table-public.txt"
 ! grep -q 'EntityTable();' "$work_root/entity-table-public.txt"
 ! grep -q 'Soma();' "$work_root/soma-public.txt"
 
@@ -261,6 +260,7 @@ test -f "$generated/example/i1/EntityTable.java"
 grep -q 'implements io.github.somaruntime.soma.SomaKeyableField<View, java.lang.Long>' \
     "$generated/example/i1/EntityTable.java"
 ! grep -q 'parallel(' "$generated/example/i1/EntityTable.java"
-! grep -q 'remove(' "$generated/example/i1/EntityTable.java"
+grep -q 'public io.github.somaruntime.soma.RemoveResult remove(long key)' \
+    "$generated/example/i1/EntityTable.java"
 
 printf '%s\n' 'i1-qualification: ok'

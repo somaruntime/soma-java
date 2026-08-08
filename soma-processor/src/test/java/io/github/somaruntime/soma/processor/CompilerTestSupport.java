@@ -2,6 +2,8 @@ package io.github.somaruntime.soma.processor;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -71,7 +73,11 @@ final class CompilerTestSupport {
             boolean success = Boolean.TRUE.equals(task.call());
             List<String> messages = new ArrayList<String>();
             for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-                messages.add(diagnostic.getKind() + ":" + diagnostic.getMessage(null));
+                String sourceName = diagnostic.getSource() == null
+                        ? "<no-source>"
+                        : diagnostic.getSource().getName();
+                messages.add(diagnostic.getKind() + ":" + sourceName + ":"
+                        + diagnostic.getLineNumber() + ":" + diagnostic.getMessage(null));
             }
             return new Compilation(root, classRoot, generatedRoot, success, messages);
         } finally {
@@ -86,6 +92,7 @@ final class CompilerTestSupport {
         private final Path generatedRoot;
         private final boolean success;
         private final List<String> diagnostics;
+        private URLClassLoader classLoader;
 
         private Compilation(
                 Path root,
@@ -129,8 +136,54 @@ final class CompilerTestSupport {
             return Files.exists(classRoot.resolve(relativePath));
         }
 
+        List<byte[]> classFilesUnder(String relativeDirectory) throws IOException {
+            Path directory = classRoot.resolve(relativeDirectory);
+            final List<byte[]> result = new ArrayList<byte[]>();
+            Files.walkFileTree(directory, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs)
+                        throws IOException {
+                    if (file.getFileName().toString().endsWith(".class")) {
+                        result.add(Files.readAllBytes(file));
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            return result;
+        }
+
+        long generatedSourceBytes() throws IOException {
+            final long[] result = {0L};
+            Files.walkFileTree(generatedRoot, new SimpleFileVisitor<Path>() {
+                @Override
+                public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
+                    if (file.getFileName().toString().endsWith(".java")) {
+                        result[0] += attrs.size();
+                    }
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            return result[0];
+        }
+
+        synchronized Class<?> loadClass(String qualifiedName)
+                throws IOException, ClassNotFoundException {
+            if (!success) {
+                throw new IllegalStateException("cannot load a failed compilation");
+            }
+            if (classLoader == null) {
+                classLoader = new URLClassLoader(
+                        new URL[] {classRoot.toUri().toURL()},
+                        CompilerTestSupport.class.getClassLoader());
+            }
+            return classLoader.loadClass(qualifiedName);
+        }
+
         @Override
         public void close() throws IOException {
+            if (classLoader != null) {
+                classLoader.close();
+            }
             deleteRecursively(root);
         }
     }

@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 class SomaProcessorTest {
 
     @Test
-    void i1LongKeyedCompositionGeneratesAndCompilesTypedVerticalSlice() throws Exception {
+    void longKeyedCompositionGeneratesAndCompilesTypedVerticalSlice() throws Exception {
         Map<String, String> sources = new LinkedHashMap<String, String>();
         sources.put("example/entity/schema/package-info.java",
                 "@io.github.somaruntime.soma.SomaSchema\n"
@@ -55,8 +55,9 @@ class SomaProcessorTest {
                             + "View, java.lang.Long>"));
             assertTrue(table.contains(
                     "public io.github.somaruntime.soma.UpdateResult update("));
+            assertTrue(table.contains(
+                    "public io.github.somaruntime.soma.RemoveResult remove(long key)"));
             assertFalse(table.contains("parallel("));
-            assertFalse(table.contains("remove("));
             assertFalse(table.contains("filter(SomaPredicate"));
 
             String manifest = compilation.classOutput(
@@ -84,6 +85,11 @@ class SomaProcessorTest {
             assertEquals(firstSource, secondSource);
             assertFalse(firstSource.contains("public class SomaCompositionLinkage"));
             assertTrue(firstSource.contains("final class SomaCompositionLinkage"));
+            assertTrue(firstSource.contains(
+                    "static java.lang.String schemaPackage()"));
+            assertTrue(firstSource.contains(
+                    "private static final java.lang.String SCHEMA_PACKAGE = "
+                            + "\"example.order.schema\""));
 
             String firstManifest = first.classOutput(
                     "META-INF/soma/example.order.schema.properties");
@@ -191,6 +197,62 @@ class SomaProcessorTest {
         assertSymbolCollision(tableType, "example/collision/table");
         assertSymbolCollision(endpointType, "example/collision/endpoint");
         assertSymbolCollision(directMember, "example/collision/member");
+
+        Map<String, String> indexAccessor = i1Sources(
+                "example.collision.indexaccessor",
+                "Entity",
+                "  @SomaIndex long machineId;\n"
+                        + "  @SomaField long byMachineId;\n");
+
+        Map<String, String> valueView = new LinkedHashMap<String, String>();
+        valueView.put(
+                "example/collision/valueview/schema/package-info.java",
+                "@io.github.somaruntime.soma.SomaSchema\n"
+                        + "package example.collision.valueview.schema;\n");
+        valueView.put(
+                "example/collision/valueview/schema/BadValue.java",
+                "package example.collision.valueview.schema;\n"
+                        + "import io.github.somaruntime.soma.*;\n"
+                        + "@SomaValue final class BadValue { @SomaField long fetch; }\n");
+        valueView.put(
+                "example/collision/valueview/schema/Entity.java",
+                schemaType(
+                        "example.collision.valueview",
+                        "Entity",
+                        "  @SomaField BadValue value;\n"));
+
+        assertSymbolCollision(indexAccessor, "example/collision/indexaccessor");
+        assertSymbolCollision(valueView, "example/collision/valueview");
+    }
+
+    @Test
+    void acronymAndTableSuffixNamesUseOnlyTheFirstUnicodeCodePoint() throws Exception {
+        Map<String, String> sources = new LinkedHashMap<String, String>();
+        sources.put("example/mechanical/schema/package-info.java",
+                "@io.github.somaruntime.soma.SomaSchema\n"
+                        + "package example.mechanical.schema;\n");
+        sources.put("example/mechanical/schema/URL.java",
+                schemaType(
+                        "example.mechanical",
+                        "URL",
+                        "  @SomaIndex long uRL;\n"));
+        sources.put("example/mechanical/schema/AuditTable.java",
+                schemaType(
+                        "example.mechanical",
+                        "AuditTable",
+                        "  @SomaField long value;\n"));
+
+        try (CompilerTestSupport.Compilation compilation = CompilerTestSupport.compile(
+                sources, true, new SomaProcessor())) {
+            assertTrue(compilation.success(), compilation.diagnostics().toString());
+            String soma = compilation.generatedSource("example/mechanical/Soma.java");
+            String url = compilation.generatedSource("example/mechanical/URLTable.java");
+            assertTrue(soma.contains("URLTable uRLTable()"));
+            assertTrue(soma.contains("AuditTableTable auditTableTable()"));
+            assertTrue(url.contains("IndexSelection byURL(long value)"));
+            assertTrue(compilation.generatedSourceExists(
+                    "example/mechanical/AuditTableTable.java"));
+        }
     }
 
     @Test
@@ -229,7 +291,7 @@ class SomaProcessorTest {
             assertTrue(optionalTable.contains(
                     "java.util.Optional<example.shadow.Optional>"));
             assertTrue(generatedLongTable.contains(
-                    "io.github.somaruntime.soma.internal.GeneratedLongTable runtime"));
+                    "io.github.somaruntime.soma.internal.GeneratedTable runtime"));
             assertTrue(viewTable.contains("example.shadow.View fetch()"));
         }
     }

@@ -1,0 +1,14 @@
+package example.i2.schema;
+
+import io.github.somaruntime.soma.SomaField;
+import io.github.somaruntime.soma.SomaValue;
+
+@SomaValue
+final class FloatingValue {
+
+    @SomaField
+    float ratio;
+
+    @SomaField
+    double weight;
+}

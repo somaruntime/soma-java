@@ -23,9 +23,10 @@ final class GlobalMemoryManager {
         if (bytes < 0L) {
             throw new AssertionError("negative retained reservation");
         }
+        RetainedReservation reservation = new RetainedReservation(this, bytes);
         admit(bytes, operation, provenance);
         retainedBytes += bytes;
-        return new RetainedReservation(this, bytes);
+        return reservation;
     }
 
     synchronized TemporaryLease leaseTemporary(
@@ -35,9 +36,10 @@ final class GlobalMemoryManager {
         if (bytes < 0L) {
             throw new AssertionError("negative temporary lease");
         }
+        TemporaryLease lease = new TemporaryLease(this, bytes);
         admit(bytes, operation, provenance);
         temporaryBytes += bytes;
-        return new TemporaryLease(this, bytes);
+        return lease;
     }
 
     synchronized long retainedBytes() {
@@ -46,6 +48,13 @@ final class GlobalMemoryManager {
 
     long budgetBytes() {
         return budgetBytes;
+    }
+
+    synchronized void releasePublished(long bytes) {
+        if (bytes < 0L || bytes > retainedBytes) {
+            throw new AssertionError("invalid published retained release");
+        }
+        retainedBytes -= bytes;
     }
 
     private void admit(long requested, SomaOperation operation, Object provenance) {

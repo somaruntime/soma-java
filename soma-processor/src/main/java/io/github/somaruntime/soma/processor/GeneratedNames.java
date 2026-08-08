@@ -18,6 +18,10 @@ final class GeneratedNames {
         return transformFirst(fieldName, true) + "Field";
     }
 
+    static String indexAccessor(String fieldName) {
+        return "by" + transformFirst(fieldName, true);
+    }
+
     private static String transformFirst(String value, boolean upper) {
         int codePoint = value.codePointAt(0);
         int transformed = upper

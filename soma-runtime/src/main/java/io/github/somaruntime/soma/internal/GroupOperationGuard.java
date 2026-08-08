@@ -11,8 +11,9 @@ final class GroupOperationGuard {
 
     Lease acquire(SomaOperation operation) {
         OperationToken candidate = new OperationToken(operation, Thread.currentThread());
+        Lease lease = new Lease(this, candidate);
         if (current.compareAndSet(null, candidate)) {
-            return new Lease(this, candidate);
+            return lease;
         }
 
         OperationToken active = current.get();

@@ -16,6 +16,7 @@ class PublicCarrierContractTest {
         assertAllConstructorsPrivate(SomaConfiguration.class);
         assertAllConstructorsPrivate(SomaConfiguration.Builder.class);
         assertAllConstructorsPrivate(UpdateResult.class);
+        assertAllConstructorsPrivate(RemoveResult.class);
         assertAllConstructorsPrivate(SomaOperationException.class);
 
         SomaConfiguration automatic = SomaConfiguration.builder().build();
