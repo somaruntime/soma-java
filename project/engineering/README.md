@@ -2,27 +2,28 @@
 
 类型：Engineering Entry
 
-状态：Implementation Authorized / I0-I1 COMPLETED / NO ACTIVE SLICE / NEXT I2
+状态：Implementation Authorized / I0-I2 COMPLETED / NO ACTIVE SLICE / NEXT I3
 
 正式事实源：是（实施计划与工程路由）
 
 Owner：SOMA Java implementation sequence、work-unit与engineering evidence route
 
-最后审查日期：2026-08-04
+最后审查日期：2026-08-08
 
 ## 当前状态
 
 新的大规模编译式Table引擎Blueprint/Design与核心抽象专题已经正式晋升，并通过
 [实施前最终全局一致性审核](../conformance/v1-final-pre-implementation-global-consistency-review.md)。
-Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization。I0 build spine与I1
-primitive keyed Table slice已于2026-08-04完成，并分别通过
-[I0资格](../conformance/i0-build-spine-qualification.md)与
-[I1资格](../conformance/i1-primitive-keyed-table-qualification.md)：G1为`PASS`，G2-G5为相应
-I0/I1范围`PASS`且整体仍`IN_PROGRESS`，G10为I0范围`PASS`且整体仍`IN_PROGRESS`。当前没有
-active slice，I2-I8为`NOT_STARTED`，下一项只允许从I2开始。
+Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization。I0-I2已经完成，并分别通过
+[I0资格](../conformance/i0-build-spine-qualification.md)、
+[I1资格](../conformance/i1-primitive-keyed-table-qualification.md)、
+[I2资格](../conformance/i2-schema-type-storage-breadth-qualification.md)：G1为`PASS`，G2-G3为I2范围
+`PASS`，G4为I1/I2 direct-source范围`PASS`，G5为I1范围`PASS`，且这些Gate整体仍
+`IN_PROGRESS`；G10为I0范围`PASS`且整体仍`IN_PROGRESS`。当前没有active slice，I3-I8为
+`NOT_STARTED`，下一项只允许从I3开始。
 
-`READY_FOR_IMPLEMENTATION`只拥有实施前准入事实；当前compiler/runtime/API能力以I0-I1资格记录
-为边界，不能外推I2-I8、performance、package或release已经成立。
+`READY_FOR_IMPLEMENTATION`只拥有实施前准入事实；当前compiler/runtime/API能力以I0-I2资格记录
+为边界，不能外推I3-I8、performance、package或release已经成立。
 
 ## 唯一计划
 
@@ -33,8 +34,8 @@ active slice，I2-I8为`NOT_STARTED`，下一项只允许从I2开始。
 ```text
 I0 build/full-regeneration (COMPLETED)
     -> I1 primitive Table vertical slice (COMPLETED)
-        -> I2 schema/type/chunk/Key/Index breadth
-            -> I3 direct query/IR/reference interpreter
+        -> I2 schema/type/chunk/Key/Index breadth (COMPLETED)
+            -> I3 direct query/IR/reference interpreter (NEXT)
                 -> I4 Selection mutation/failure/resource
                     -> I5 Group/Join
                         -> I6 bounded parallel
@@ -66,9 +67,10 @@ I0 build/full-regeneration (COMPLETED)
 - Current conformity：[Conformance](../conformance/README.md)
 - I0 qualification：[I0 Build Spine](../conformance/i0-build-spine-qualification.md)
 - I1 qualification：[I1 Primitive Keyed Table](../conformance/i1-primitive-keyed-table-qualification.md)
+- I2 qualification：[I2 Schema、Type 与 Storage Breadth](../conformance/i2-schema-type-storage-breadth-qualification.md)
 - Current readiness verdict：[Final Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)
 - Architecture skeleton：[Core Abstractions and Narratives](../design/core-abstractions-and-narratives.md)
 
-当前production qualification command为`./scripts/check.sh`。它回归I0 build/artifact并证明I1
-primitive keyed Table scoped capability；不能替代I2-I8的type/Index、optimizer、relation、parallel、
+当前production qualification command为`./scripts/check.sh`。它回归I0-I1并证明I2
+schema/type/storage/Key/Index scoped capability；不能替代I3-I8的optimizer、relation、parallel、
 performance、package或release Gate。

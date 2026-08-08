@@ -3,11 +3,11 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0-I1 `COMPLETED`；I2-I8 `NOT_STARTED`
+implementation authorization `GRANTED`；I0-I2 `COMPLETED`；I3-I8 `NOT_STARTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
-最后审查日期：2026-08-04
+最后审查日期：2026-08-08
 
 ## 当前事实
 
@@ -22,23 +22,24 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
 - [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
-- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0 build spine与I1
-  primitive keyed Table slice已于2026-08-04完成并分别通过
+- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0-I2已经完成并分别通过
   [I0资格](conformance/i0-build-spine-qualification.md)与
-  [I1资格](conformance/i1-primitive-keyed-table-qualification.md)；
-- 当前没有active slice，I2-I8为`NOT_STARTED`，下一项从I2开始；
-- G1为`PASS`；G2-G5为相应I0/I1范围`PASS`但整体仍`IN_PROGRESS`；G10为I0范围
+  [I1资格](conformance/i1-primitive-keyed-table-qualification.md)、
+  [I2资格](conformance/i2-schema-type-storage-breadth-qualification.md)；
+- 当前没有active slice，I3-I8为`NOT_STARTED`，下一项从I3开始；
+- G1为`PASS`；G2-G3为I2范围、G4为I1/I2 direct-source范围、G5为I1范围`PASS`，但整体仍
+  `IN_PROGRESS`；G10为I0范围
   `PASS`但整体仍`IN_PROGRESS`；G6-G9为`NOT_RUN`。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前active checkout已有I0-I1 production source、Maven reactor、恰好两个production artifact、
-第一套公开generated long-keyed Table API、paged PLAIN storage、primitive Key、typed filter/count、
-point update与structured failure的源码、测试和资格脚本；没有I2+ type/Index breadth、完整
-IR/optimizer、Join、parallel、compression、benchmark、Example、CI/release workflow、remote package
-或committed build artifact。I1完成不等于完整implementation、performance、compatibility或release
-成立。
+当前active checkout已有I0-I2 production source、Maven reactor、恰好两个production artifact、
+完整I2 generated schema/type/Key/Index API breadth、paged primitive/reference PLAIN storage、Value
+flattening、multiple Index、direct selection与point add/update/remove的源码、测试和资格脚本；没有
+I3+完整IR/reference/optimizer、Join、parallel、compression、benchmark、Example、CI/release
+workflow、remote package或committed build artifact。I2完成不等于完整implementation、performance、
+compatibility或release成立。
 
 此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
 type-shape/mechanism evidence 仍是设计可行性输入；它不是 production test 或 runtime evidence。
@@ -62,6 +63,7 @@ type-shape/mechanism evidence 仍是设计可行性输入；它不是 production
 | G1-G10 最低 production evidence | [V1 Implementation Gates](conformance/v1-implementation-gates.md) |
 | I0 implementation、artifact与qualification evidence | [I0 Build Spine Qualification](conformance/i0-build-spine-qualification.md) |
 | I1 primitive keyed Table、runtime与qualification evidence | [I1 Primitive Keyed Table Qualification](conformance/i1-primitive-keyed-table-qualification.md) |
+| I2 schema/type/storage/Key/Index breadth与qualification evidence | [I2 Schema、Type 与 Storage Breadth Qualification](conformance/i2-schema-type-storage-breadth-qualification.md) |
 | 候选来源、晋升矩阵与 replacement closure | [Formal Promotion](conformance/large-scale-engine-formal-promotion.md) |
 | 当前实施准入结论、findings closure与授权边界 | [最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md) |
 | 当前实现差距与 evidence 状态 | [Conformance](conformance/README.md) |
@@ -97,7 +99,7 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0-I1 completed，当前无active slice，下一项I2 |
+| Engineering | `project/engineering/`；I0-I2 completed，当前无active slice，下一项I3 |
 | Conformance | `project/conformance/`；G1 PASS，G2-G5/G10 scoped PASS且整体IN_PROGRESS |
 | Temporary | 当前无active topic；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
@@ -135,15 +137,16 @@ implementation authorization；当前执行路径为：
 ```text
 I0 build/full-regeneration spine (COMPLETED)
         -> I1 primitive keyed Table vertical slice (COMPLETED)
-            -> I2 schema/type/storage breadth
-                -> one active slice at a time
+            -> I2 schema/type/storage breadth (COMPLETED)
+                -> I3 direct query/IR/reference interpreter (NEXT)
+                    -> one active slice at a time
                     -> matching Conformance evidence
                         -> stop or next slice
                             -> I8 product qualification
                                 -> separate release authorization
 ```
 
-I0-I1 exit evidence已经闭合；下一项只允许从I2开始。当前授权同时允许每个slice证据闭合后的
+I0-I2 exit evidence已经闭合；下一项只允许从I3开始。当前授权同时允许每个slice证据闭合后的
 干净commit与`develop` push，以及
 [Conformance authorization contract](conformance/README.md#6-implementation-authorization-contract)
 限定的CI、internal benchmark/profile、local package qualification和JUnit Jupiter 5.x
@@ -151,9 +154,11 @@ test-only stack；不包含remote artifact publication、签名或正式发布�
 
 ## 当前验证边界
 
-I0已执行Java 8 build/artifact/full-regeneration基线；I1已执行第一套generated public API、paged
-storage、primitive Key、typed query、point mutation、resource/failure与独立consumer资格；精确边界
-分别见[I0 Qualification](conformance/i0-build-spine-qualification.md)与
-[I1 Qualification](conformance/i1-primitive-keyed-table-qualification.md)。I2-I8的完整type/Index、
-optimizer、relation、parallel、performance、package和release Gate只能在相应surface出现后执行，
-不得用I0-I1 scoped evidence替代。
+I0已执行Java 8 build/artifact/full-regeneration基线；I1建立第一套generated Table纵向闭环；I2已执行
+完整schema/type/Key/Index breadth、paged primitive/reference storage、point mutation、failed-state、
+独立consumer和百万行functional/scale journey；精确边界分别见
+[I0 Qualification](conformance/i0-build-spine-qualification.md)、
+[I1 Qualification](conformance/i1-primitive-keyed-table-qualification.md)与
+[I2 Qualification](conformance/i2-schema-type-storage-breadth-qualification.md)。I3-I8的完整
+IR/optimizer、relation、parallel、performance、package和release Gate只能在相应surface出现后执行，
+不得用I0-I2 scoped evidence替代。

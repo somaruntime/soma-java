@@ -17,15 +17,16 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 
 - Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
 - readiness 结论为 `READY_FOR_IMPLEMENTATION`；
-- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0 build/generation spine与
-  I1 primitive keyed Table vertical slice已经完成并通过正式资格，当前没有active slice，下一项
-  从I2开始；
+- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I2已经完成并通过正式资格，
+  当前没有active slice，下一项从I3开始；
 - active checkout已有Java 8 Maven reactor、`soma-runtime`与`soma-processor`两项production
-  artifact源码、processor/full-regeneration baseline、generated long-keyed Table API、paged
-  PLAIN storage、primitive Key、typed filter/count、point update、structured failure与资格测试；
-- 尚没有I2+ type/Index breadth、完整IR/optimizer、Join/parallel/compression、Example、benchmark、
+  artifact源码、processor/full-regeneration baseline、I2 generated schema/type/Key/Index API、paged
+  primitive/reference PLAIN storage、Value flattening、direct selection、point add/update/remove、
+  structured failure与资格测试；
+- 尚没有I3+完整IR/reference/optimizer、Join/parallel/compression、Example、benchmark、
   CI/release workflow或remote package；
-- G1为`PASS`；G2-G5/G10仅相应I0/I1范围`PASS`且整体仍`IN_PROGRESS`，因此没有完整可用性、
+- G1为`PASS`；G2-G3为I2范围、G4为I1/I2 direct-source范围、G5为I1范围、G10为I0范围
+  `PASS`且整体仍`IN_PROGRESS`，因此没有完整可用性、
   性能、兼容性或release readiness声明。
 
 正式设计说明产品应当是什么；它不等于代码和证据已经存在。
@@ -57,6 +58,7 @@ cross-Table transaction、persistence 或 distributed execution。
 - [实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
 - [I0 Build Spine Qualification](project/conformance/i0-build-spine-qualification.md)
 - [I1 Primitive Keyed Table Qualification](project/conformance/i1-primitive-keyed-table-qualification.md)
+- [I2 Schema、Type 与 Storage Breadth Qualification](project/conformance/i2-schema-type-storage-breadth-qualification.md)
 - [当前 Conformance 与 G1-G10](project/conformance/README.md)
 - [品牌资产](assets/README.md)
 - [安全报告方式](SECURITY.md)
@@ -66,16 +68,16 @@ Conformance Gate 后提供；当前不使用伪示例制造“已经可用”的
 
 ## 当前构建入口
 
-当前I1 canonical qualification要求Java 8与Maven 3.9.x：
+当前I2 canonical qualification要求Java 8与Maven 3.9.x：
 
 ```sh
 ./scripts/check.sh
 ```
 
-该命令回归I0两个artifact/build baseline，并验证I1 generated public surface、paged storage、
-primitive Key、typed query、point update、structured failure、independent consumer与failed-state；
+该命令回归I0-I1，并验证I2 schema/type/Key/Index generated surface、paged primitive/reference
+storage、point mutation、structured failure、independent consumer、full regeneration与failed-state；
 它不是完整V1使用或性能资格入口。精确环境、结果与claim boundary见
-[I1资格记录](project/conformance/i1-primitive-keyed-table-qualification.md)。
+[I2资格记录](project/conformance/i2-schema-type-storage-breadth-qualification.md)。
 
 ## Clean-slate 与产品身份
 
