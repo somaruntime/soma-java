@@ -94,7 +94,7 @@ GitHub Release、GitHub Package 或 Maven Central artifact，因此当前使用�
 | [`soma-processor/`](soma-processor/README.md) | Library user | schema compiler 与 generated source processor |
 | [`soma-examples/`](soma-examples/README.md) | Library user | 三个严肃的 reference application |
 | `docs/` | Library user | 用户文档入口；当前仅占位，后续独立治理 |
-| [`benchmarks/`](benchmarks/README.md) | Maintainer | 三个真实场景的长期性能与正确性基线；不进入 production artifact |
+| [`benchmarks/`](benchmarks/README.md) | Maintainer | 三个真实场景的长期基线与 benchmark-only type-kernel 资格；不进入 production artifact |
 | [`scripts/`](https://github.com/somaruntime/soma-java/tree/develop/scripts) | Maintainer / CI | 稳定的检查、资格与本地打包入口 |
 
 项目蓝图、正式 Design、实施记录和 Conformance 属于设计与维护视角，集中在

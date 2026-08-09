@@ -603,7 +603,12 @@ public final class GeneratedGrouping {
 
         private double[] floatingSums() {
             double[] result = new double[size];
-            double[] scratch = new double[valueSize];
+            int maximumGroupSize = 0;
+            for (int group = 0; group < size; group++) {
+                maximumGroupSize = Math.max(
+                        maximumGroupSize, (int) counts[group]);
+            }
+            double[] scratch = new double[maximumGroupSize];
             for (int group = 0; group < size; group++) {
                 int count = 0;
                 for (int link = valueHeads[group]; link != 0; link = valueNext[link - 1]) {

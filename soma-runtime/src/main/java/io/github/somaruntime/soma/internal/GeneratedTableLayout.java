@@ -277,6 +277,19 @@ public final class GeneratedTableLayout {
                 Math.addExact(leafAllowance, fieldAllowance));
     }
 
+    /**
+     * Conservative size of one schema-known Field materialization. The allowance
+     * covers a recursively rebuilt Value; ordinary referenced objects are reused,
+     * so this intentionally remains conservative for String, Enum and Object.
+     */
+    long detachedFieldEstimateBytes(int fieldIndex) {
+        long leaves = fieldLeafCount(fieldIndex);
+        long leafAllowance = Math.multiplyExact(leaves, 96L);
+        return Math.addExact(
+                Math.addExact(128L, fieldWidthBytes(fieldIndex)),
+                leafAllowance);
+    }
+
     long hashField(TableChunkDirectory directory, long locator, int fieldIndex) {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);

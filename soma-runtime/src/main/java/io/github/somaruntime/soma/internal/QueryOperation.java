@@ -177,12 +177,26 @@ final class QueryOperation {
     static <R> List<R> toList(
             LogicalRowPlan logical,
             final GeneratedCallbacks.RowMapper<R> materializer) {
+        return toList(
+                logical,
+                materializer,
+                logical.owner().layout().detachedRowEstimateBytes());
+    }
+
+    static <R> List<R> toList(
+            LogicalRowPlan logical,
+            final GeneratedCallbacks.RowMapper<R> materializer,
+            final long detachedElementEstimateBytes) {
         return execute(logical, new BoundWork<List<R>>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
                 return addScratch(
                         rowExecutionScratch(bound),
-                        materializationScratch(bound, bound.outputUpperBound(), 48L),
+                        materializationScratch(
+                                bound,
+                                bound.outputUpperBound(),
+                                detachedElementEstimateBytes,
+                                48L),
                         bound.provenance);
             }
 
@@ -210,12 +224,28 @@ final class QueryOperation {
             LogicalRowPlan logical,
             final GeneratedCallbacks.RowMapper<R> materializer,
             final Class<R> componentType) {
+        return toArray(
+                logical,
+                materializer,
+                componentType,
+                logical.owner().layout().detachedRowEstimateBytes());
+    }
+
+    static <R> R[] toArray(
+            LogicalRowPlan logical,
+            final GeneratedCallbacks.RowMapper<R> materializer,
+            final Class<R> componentType,
+            final long detachedElementEstimateBytes) {
         return execute(logical, new BoundWork<R[]>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
                 return addScratch(
                         rowExecutionScratch(bound),
-                        materializationScratch(bound, bound.outputUpperBound(), 56L),
+                        materializationScratch(
+                                bound,
+                                bound.outputUpperBound(),
+                                detachedElementEstimateBytes,
+                                56L),
                         bound.provenance);
             }
 
@@ -503,8 +533,20 @@ final class QueryOperation {
             BoundRowPlan bound,
             long elements,
             long containerBytesPerElement) {
-        long bytesPerElement = addScratch(
+        return materializationScratch(
+                bound,
+                elements,
                 bound.logical.owner().layout().detachedRowEstimateBytes(),
+                containerBytesPerElement);
+    }
+
+    private static long materializationScratch(
+            BoundRowPlan bound,
+            long elements,
+            long detachedElementEstimateBytes,
+            long containerBytesPerElement) {
+        long bytesPerElement = addScratch(
+                detachedElementEstimateBytes,
                 containerBytesPerElement,
                 bound.provenance);
         return RowExecutionSupport.arrayBytes(

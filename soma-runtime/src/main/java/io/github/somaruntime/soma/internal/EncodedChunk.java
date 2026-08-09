@@ -14,6 +14,7 @@ final class EncodedChunk implements TableChunk {
     private static final long CHUNK_HEADER_BYTES = 128L;
     private static final long COLUMN_HEADER_BYTES = 48L;
     private static final long ARRAY_HEADER_BYTES = 32L;
+    private static final int RLE_MIN_AVERAGE_RUN_LENGTH = 4;
 
     private final int rows;
     private final PrimitiveColumn[] booleans;
@@ -336,7 +337,11 @@ final class EncodedChunk implements TableChunk {
             long width) {
         RleColumn rle = RleColumn.create(values, rows);
         long plainBytes = COLUMN_HEADER_BYTES + ARRAY_HEADER_BYTES + width * rows;
-        return rle.managedBytes() < plainBytes
+        // RLE lookup is logarithmic in run count. Marginal byte savings from
+        // two- or three-element long runs do not repay that random-access tax.
+        boolean sufficientlyLongRuns = (long) rle.runCount()
+                * RLE_MIN_AVERAGE_RUN_LENGTH <= rows;
+        return sufficientlyLongRuns && rle.managedBytes() < plainBytes
                 ? rle : PlainIntegralColumn.create(values, kind, rows);
     }
 
@@ -477,6 +482,10 @@ final class EncodedChunk implements TableChunk {
         @Override public long managedBytes() {
             return COLUMN_HEADER_BYTES + 2L * ARRAY_HEADER_BYTES
                     + 12L * values.length;
+        }
+
+        int runCount() {
+            return values.length;
         }
     }
 

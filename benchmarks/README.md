@@ -17,6 +17,18 @@ three reference applications
 - `simulation`：Narrow shape，覆盖 ingest、scan、Key/Index、stable top 和 remove；
 - `real-time-dispatch`：Reference-mixed shape，覆盖 ordinary Object、scan、Key/Index、Join 和 remove。
 
+此外，`type-kernel` 是 benchmark-only synthetic consumer，用于覆盖 byte/short/char/int/long、
+float/double、String、Enum、nested Value、ordinary Object，以及 cardinality/selectivity/null/skew
+等物理内核。它不是第四个 Example 或 production artifact：
+
+```sh
+SOMA_BENCHMARK_WORKLOAD=kernel \
+SOMA_BENCHMARK_SCENARIOS=type-kernel \
+SOMA_BENCHMARK_ROWS=1000000 \
+SOMA_BENCHMARK_PARALLELISM=16 \
+./scripts/benchmark.sh
+```
+
 默认 `core` workload 保持 release qualification 使用的百万行长期基线。显式 `composed` workload
 面向固定千万行治理，在同一真实场景中组合 filter、Index、projection、stateful operation、GroupBy、
 多种 Join、parallel 与 mutation；它不改变默认资格成本：
@@ -62,6 +74,8 @@ run count；Smoke 只证明测量链可运行，不能证明性能提升。当�
 [性能与正确性联合治理记录](../project/conformance/v1-performance-correctness-governance.md)。
 固定10M的Design、Execution、Memory、CPU四维归因、GroupBy/Relation优化和当前parallel架构边界见
 [四维性能架构治理记录](../project/conformance/v1-four-dimensional-performance-architecture-governance.md)。
+Operator × Type × Distribution 矩阵、cost-aware RLE、Bound cardinality、Field materialization 与固定
+1M/10M证据见[类型与分布性能资格记录](../project/conformance/v1-operator-type-distribution-performance-qualification.md)。
 
 同一环境的 before/after 摘要可用比较器建立回归 ratchet：
 

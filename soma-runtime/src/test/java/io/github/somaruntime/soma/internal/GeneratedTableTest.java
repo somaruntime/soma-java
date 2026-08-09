@@ -89,6 +89,23 @@ class GeneratedTableTest {
     }
 
     @Test
+    void autoCompressionRejectsMarginalShortRunRleForRandomAccess() {
+        GeneratedTable table = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20)),
+                rleCostLayout(), 4096, MutationFaultInjector.NONE);
+        for (long index = 0L; index < 4096L; index++) {
+            try (GeneratedRow row = table.beginAdd()) {
+                row.putLong(0, index + 1L);
+                row.putLong(1, index / 2L);
+                row.add();
+            }
+        }
+
+        assertFalse(table.metadata().encoded());
+        assertEquals(4096L, table.count());
+    }
+
+    @Test
     void parallelModeUsesBoundedCustomPoolAndPreservesCanonicalResults() {
         TrackingForkJoinPool pool = new TrackingForkJoinPool(4);
         try {
@@ -1494,6 +1511,60 @@ class GeneratedTableTest {
     }
 
     @Test
+    void boundPlanUsesPublishedIndexCardinalityForFieldDistinct() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 128L; key++) {
+            add(table, key, "bucket-" + key % 3L, (int) key, new Object());
+        }
+
+        LogicalRowPlan distinct = LogicalRowPlan.tableScan(table)
+                .distinctField(1)
+                .sortedBy((GeneratedOrder<?>) table.<Object>asc(1));
+        BoundRowPlan bound = new BoundRowPlan(
+                distinct,
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        assertEquals(3L, bound.outputUpperBound());
+
+        GeneratedProbe bucket = table.newProbe(1);
+        bucket.putReference(1, "bucket-1");
+        BoundRowPlan selection = new BoundRowPlan(
+                LogicalRowPlan.indexSelection(table, 0, bucket.seal()),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        assertEquals(43L, selection.outputUpperBound());
+    }
+
+    @Test
+    void fieldMaterializationUsesFieldShapeResourceEstimate() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 128L; key++) {
+            add(table, key, "bucket", (int) key, new Object());
+        }
+
+        long fieldEstimate = testLayout().detachedFieldEstimateBytes(3);
+        long rowEstimate = testLayout().detachedRowEstimateBytes();
+        assertTrue(fieldEstimate < rowEstimate);
+        long required = RowExecutionSupport.arrayBytes(
+                128L, fieldEstimate + 56L, new Object());
+        GeneratedFieldPipeline field = table.fieldSource(3);
+        try (GlobalMemoryManager.TemporaryLease pressure = memory.leaseTemporary(
+                memory.budgetBytes() - memory.retainedBytes() - required,
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object())) {
+            Object[] values = field.toArray(
+                    () -> table.queryCursor().viewReference(3),
+                    Object.class);
+            assertEquals(128, values.length);
+        }
+        assertEquals(0L, memory.temporaryBytes());
+    }
+
+    @Test
     void nestedRowMappedPrimitiveScratchIsAdmittedBeforeCallbacks() {
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
         GeneratedTable table = new GeneratedTable(
@@ -1862,6 +1933,25 @@ class GeneratedTableTest {
                 new boolean[] {false, true, false, true},
                 0,
                 new int[] {1});
+    }
+
+    private static GeneratedTableLayout rleCostLayout() {
+        return GeneratedTableLayout.create(
+                "RleCost",
+                4L,
+                new byte[] {
+                        GeneratedTableLayout.LONG,
+                        GeneratedTableLayout.LONG
+                },
+                new byte[] {
+                        GeneratedTableLayout.EQ_LONG,
+                        GeneratedTableLayout.EQ_LONG
+                },
+                new int[] {0, 1},
+                new int[] {1, 1},
+                new boolean[] {false, false},
+                0,
+                new int[0]);
     }
 
     private static GeneratedTableLayout dualIndexLayout() {

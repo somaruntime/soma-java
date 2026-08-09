@@ -158,13 +158,18 @@ public final class GeneratedFieldPipeline {
     }
 
     public <R> List<R> toList(GeneratedCallbacks.RowMapper<R> materializer) {
-        return rows.toList(materializer);
+        return rows.toList(
+                materializer,
+                owner.layout().detachedFieldEstimateBytes(fieldIndex));
     }
 
     public <R> R[] toArray(
             GeneratedCallbacks.RowMapper<R> materializer,
             Class<R> componentType) {
-        return rows.toArray(materializer, componentType);
+        return rows.toArray(
+                materializer,
+                componentType,
+                owner.layout().detachedFieldEstimateBytes(fieldIndex));
     }
 
     public String explain() {

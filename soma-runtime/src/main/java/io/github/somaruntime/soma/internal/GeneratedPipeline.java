@@ -222,6 +222,15 @@ public final class GeneratedPipeline {
         return QueryOperation.toList(plan, materializer);
     }
 
+    <R> List<R> toList(
+            GeneratedCallbacks.RowMapper<R> materializer,
+            long detachedElementEstimateBytes) {
+        requireArgument(materializer, "materializer");
+        claim();
+        return QueryOperation.toList(
+                plan, materializer, detachedElementEstimateBytes);
+    }
+
     public <R> R[] toArray(
             GeneratedCallbacks.RowMapper<R> materializer,
             Class<R> componentType) {
@@ -229,6 +238,20 @@ public final class GeneratedPipeline {
         requireArgument(componentType, "componentType");
         claim();
         return QueryOperation.toArray(plan, materializer, componentType);
+    }
+
+    <R> R[] toArray(
+            GeneratedCallbacks.RowMapper<R> materializer,
+            Class<R> componentType,
+            long detachedElementEstimateBytes) {
+        requireArgument(materializer, "materializer");
+        requireArgument(componentType, "componentType");
+        claim();
+        return QueryOperation.toArray(
+                plan,
+                materializer,
+                componentType,
+                detachedElementEstimateBytes);
     }
 
     public String explain() {

@@ -53,6 +53,28 @@ final class BoundRowPlan {
     }
 
     long outputUpperBound() {
-        return logical.outputUpperBound(root.size);
+        long sourceUpperBound = root.size;
+        if (relationSource != null) {
+            sourceUpperBound = relationSource.size();
+        } else if (logical.sourceKind() == LogicalRowPlan.SourceKind.INDEX_SELECTION) {
+            sourceUpperBound = root.indexes[logical.indexOrdinal()].count(
+                    root.directory, logical.indexProbe());
+        }
+        return logical.outputUpperBound(
+                sourceUpperBound,
+                new LogicalRowPlan.CardinalityStatistics() {
+                    @Override
+                    public long distinctUpperBound(int fieldIndex) {
+                        int ordinal = logical.owner().layout()
+                                .indexOrdinalForField(fieldIndex);
+                        if (ordinal >= 0) {
+                            return root.indexes[ordinal].distinctCount();
+                        }
+                        if (logical.owner().layout().fieldKey(fieldIndex)) {
+                            return root.size;
+                        }
+                        return -1L;
+                    }
+                });
     }
 }

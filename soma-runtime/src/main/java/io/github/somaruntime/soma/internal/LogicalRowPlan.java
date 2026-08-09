@@ -7,6 +7,10 @@ import java.util.List;
 /** Immutable linked logical row plan; it never binds a TableStateRoot. */
 final class LogicalRowPlan {
 
+    interface CardinalityStatistics {
+        long distinctUpperBound(int fieldIndex);
+    }
+
     enum SourceKind {
         TABLE_SCAN,
         INDEX_SELECTION,
@@ -262,12 +266,22 @@ final class LogicalRowPlan {
     }
 
     long outputUpperBound(long sourceUpperBound) {
+        return outputUpperBound(sourceUpperBound, null);
+    }
+
+    long outputUpperBound(
+            long sourceUpperBound,
+            CardinalityStatistics statistics) {
         long result = sourceUpperBound;
         for (Stage current : stages()) {
             if (current.kind == StageKind.SKIP) {
                 result = current.count >= result ? 0L : result - current.count;
             } else if (current.kind == StageKind.LIMIT && current.count < result) {
                 result = current.count;
+            } else if (current.kind == StageKind.DISTINCT_FIELD
+                    && statistics != null) {
+                long distinct = statistics.distinctUpperBound((int) current.count);
+                if (distinct >= 0L && distinct < result) result = distinct;
             }
         }
         return result;

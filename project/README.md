@@ -22,6 +22,8 @@ implementation 与 qualification：
   benchmark、相对回归判定与当前最佳实践已经建立；
 - [四维性能架构治理](conformance/v1-four-dimensional-performance-architecture-governance.md)已`PASS`，
   Design、Execution、Memory、CPU因果模型与本轮GroupBy/Relation优化已经闭合；
+- [Operator × Type × Distribution 性能资格](conformance/v1-operator-type-distribution-performance-qualification.md)
+  已`PASS`，类型/分布 kernel、cost-aware RLE、Bound cardinality 与 Field materialization 已闭合；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -51,6 +53,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | 性能、正确性与长期 benchmark 治理 | [Performance and correctness governance](conformance/v1-performance-correctness-governance.md) |
 | 千万行组合负载、资源与优化证据 | [Ten-million composed workload governance](conformance/v1-ten-million-composed-workload-governance.md) |
 | Design/Execution/Memory/CPU 四维归因与优化 | [Four-dimensional performance architecture governance](conformance/v1-four-dimensional-performance-architecture-governance.md) |
+| Operator × Type × Distribution 性能资格 | [Type and distribution performance qualification](conformance/v1-operator-type-distribution-performance-qualification.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -72,7 +75,7 @@ Blueprint
 - `build-support/`：linkage、codegen、qualification 和 delivery machinery；
 - `scripts/`：`check`、`qualify`、`benchmark`、`package-local` 四个稳定入口；
 - `docs/`：仅占位，等待独立用户文档专题；
-- `benchmarks/`：三个 reference application 的长期非 production 性能与正确性 benchmark；
+- `benchmarks/`：三个 reference application 与 benchmark-only type-kernel 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
 - `temp/`：只服务 active bounded topic；当前为空。
 

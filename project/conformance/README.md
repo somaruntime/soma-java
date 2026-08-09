@@ -46,7 +46,7 @@ G9                             PASS
 G10                            PASS
 Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORIZED
 Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
-Performance/correctness       FOUR_DIMENSIONAL_GOVERNANCE_PASS / LONG_TERM_BENCHMARK_PRESENT
+Performance/correctness       TYPE_DISTRIBUTION_QUALIFIED / FOUR_DIMENSIONAL_GOVERNANCE_PASS
 Active bounded topic          NONE
 ```
 
@@ -124,6 +124,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [V1 Four-dimensional Performance Architecture Governance](v1-four-dimensional-performance-architecture-governance.md)：
   Design、Execution、Memory、CPU因果模型，GroupBy/Relation内部优化、10M before/after、低CPU利用率
   归因与剩余parallel架构边界Owner。
+- [V1 Operator × Type × Distribution Performance Qualification](v1-operator-type-distribution-performance-qualification.md)：
+  benchmark-only type matrix、数据分布、cost-aware RLE、Bound cardinality、Field materialization、
+  1M before/after与10M资格Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -142,6 +145,7 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 [正式Conformance记录](v1-performance-correctness-governance.md)完成治理和replacement closure；
 千万行组合负载的扩展证据见[对应记录](v1-ten-million-composed-workload-governance.md)；四维性能架构
 收口见[对应记录](v1-four-dimensional-performance-architecture-governance.md)；
+类型、operator与distribution kernel资格见[对应记录](v1-operator-type-distribution-performance-qualification.md)；
 交付导向仓库治理见[对应记录](v1-delivery-centered-repository-governance.md)。
 
 ## 5. Gate status
