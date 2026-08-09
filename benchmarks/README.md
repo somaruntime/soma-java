@@ -40,3 +40,16 @@ CPU 归因使用 `SOMA_BENCHMARK_PROFILER=async`；allocation 归因再增加
 正式比较必须使用相同 commit/source、JDK/JVM、workload、row count、parallelism 和 fresh-JVM
 run count；Smoke 只证明测量链可运行，不能证明性能提升。完整证据合同与当前专题边界见
 [`project/temp/soma-v1-performance-correctness-governance`](../project/temp/soma-v1-performance-correctness-governance/README.md)。
+
+同一环境的 before/after 摘要可用比较器建立回归 ratchet：
+
+```sh
+python3 benchmarks/tools/compare.py \
+  --baseline /path/to/baseline/summary.json \
+  --candidate /path/to/candidate/summary.json \
+  --implementation soma-auto
+```
+
+默认只有同时超过 15% 和 2 ms 的退化才失败，以隔离微小指标和日常噪声；阈值可以显式调整。
+比较器同时要求 workload identity 与逻辑 fingerprint 一致。它用于相同环境的相对比较，不把某台
+机器的绝对数值提升为 SOMA 的兼容合同或性能 SLA。
