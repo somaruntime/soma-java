@@ -58,7 +58,11 @@ final class CompositionSourceRenderer {
                 .append("    public static SomaGroup createGroup() {\n")
                 .append("        io.github.somaruntime.soma.internal.GeneratedRuntime.freezeConfiguration(\n")
                 .append("                java.lang.invoke.MethodHandles.lookup(), CAPABILITY);\n")
-                .append("        return newGroup();\n    }\n\n");
+                .append("        return newGroup(false);\n    }\n\n")
+                .append("    public static io.github.somaruntime.soma.SomaMetadata _metadata() {\n")
+                .append("        return io.github.somaruntime.soma.internal.GeneratedRuntime.metadata(\n")
+                .append("                java.lang.invoke.MethodHandles.lookup(), CAPABILITY);\n")
+                .append("    }\n\n");
         for (CompositionModel.TableModel table : model.tables()) {
             String tableType = GeneratedNames.tableType(table.simpleName());
             String accessor = GeneratedNames.tableAccessor(table.simpleName());
@@ -69,13 +73,13 @@ final class CompositionSourceRenderer {
         }
         source.append("    static boolean accepts(java.lang.Object candidate) {\n")
                 .append("        return candidate == CAPABILITY;\n    }\n\n")
-                .append("    private static SomaGroup newGroup() {\n")
+                .append("    private static SomaGroup newGroup(boolean defaultGroup) {\n")
                 .append("        io.github.somaruntime.soma.internal.GeneratedGroup runtime = ")
                 .append("io.github.somaruntime.soma.internal.GeneratedRuntime.createGroup(\n")
                 .append("                java.lang.invoke.MethodHandles.lookup(), CAPABILITY);\n")
-                .append("        return SomaGroup.create(CAPABILITY, runtime);\n    }\n\n")
+                .append("        return SomaGroup.create(CAPABILITY, runtime, defaultGroup);\n    }\n\n")
                 .append("    private static final class DefaultGroupHolder {\n")
-                .append("        private static final SomaGroup INSTANCE = newGroup();\n")
+                .append("        private static final SomaGroup INSTANCE = newGroup(true);\n")
                 .append("    }\n")
                 .append("}\n");
         return source.toString();
@@ -85,7 +89,8 @@ final class CompositionSourceRenderer {
         StringBuilder source = header(model, 4800);
         source.append("public final class SomaGroup {\n\n")
                 .append("    private final java.lang.Object capability;\n")
-                .append("    private final io.github.somaruntime.soma.internal.GeneratedGroup runtime;\n");
+                .append("    private final io.github.somaruntime.soma.internal.GeneratedGroup runtime;\n")
+                .append("    private final boolean defaultGroup;\n");
         for (CompositionModel.TableModel table : model.tables()) {
             source.append("    private volatile ")
                     .append(GeneratedNames.tableType(table.simpleName())).append(' ')
@@ -93,16 +98,22 @@ final class CompositionSourceRenderer {
         }
         source.append("\n    private SomaGroup(\n")
                 .append("            java.lang.Object capability,\n")
-                .append("            io.github.somaruntime.soma.internal.GeneratedGroup runtime) {\n")
+                .append("            io.github.somaruntime.soma.internal.GeneratedGroup runtime,\n")
+                .append("            boolean defaultGroup) {\n")
                 .append("        if (runtime == null) throw new java.lang.AssertionError(")
                 .append("\"generated runtime Group is missing\");\n")
                 .append("        runtime.requireCapability(capability);\n")
                 .append("        this.capability = capability;\n")
-                .append("        this.runtime = runtime;\n    }\n\n")
+                .append("        this.runtime = runtime;\n")
+                .append("        this.defaultGroup = defaultGroup;\n    }\n\n")
                 .append("    static SomaGroup create(\n")
                 .append("            java.lang.Object capability,\n")
-                .append("            io.github.somaruntime.soma.internal.GeneratedGroup runtime) {\n")
-                .append("        return new SomaGroup(capability, runtime);\n    }\n\n");
+                .append("            io.github.somaruntime.soma.internal.GeneratedGroup runtime,\n")
+                .append("            boolean defaultGroup) {\n")
+                .append("        return new SomaGroup(capability, runtime, defaultGroup);\n    }\n\n")
+                .append("    public io.github.somaruntime.soma.GroupMetadata _metadata() {\n")
+                .append("        return runtime.metadata(defaultGroup);\n")
+                .append("    }\n\n");
         for (CompositionModel.TableModel table : model.tables()) {
             String tableType = GeneratedNames.tableType(table.simpleName());
             String accessor = GeneratedNames.tableAccessor(table.simpleName());
@@ -386,7 +397,9 @@ final class CompositionSourceRenderer {
                 .append("    public ").append(objectType)
                 .append("[] toArray() { return selectAll().toArray(); }\n\n")
                 .append("    public java.lang.String _explain() {\n")
-                .append("        return runtime.selectAll().explain();\n    }\n\n");
+                .append("        return runtime.selectAll().explain();\n    }\n\n")
+                .append("    public io.github.somaruntime.soma.TableMetadata _metadata() {\n")
+                .append("        return runtime.metadata();\n    }\n\n");
 
         appendRowProjectionMethods(
                 source,
@@ -1229,6 +1242,15 @@ final class CompositionSourceRenderer {
             EndpointPlan endpoint,
             String indent) {
         CompositionModel.TypeModel type = endpoint.field.type();
+        source.append(indent)
+                .append("public io.github.somaruntime.soma.FieldMetadata _metadata() {\n")
+                .append(indent).append("    return runtime.fieldMetadata(")
+                .append(endpoint.planIndex).append(", \"")
+                .append(endpoint.logicalPath()).append("\", \"")
+                .append(endpoint.field.typeName()).append("\", ")
+                .append(type.intrinsicEquality()).append(", ")
+                .append(type.naturalOrder()).append(");\n")
+                .append(indent).append("}\n\n");
         if (type.intrinsicEquality()) {
             appendComparisonMethod(source, endpoint, indent, "eq");
             appendComparisonMethod(source, endpoint, indent, "ne");
@@ -2163,6 +2185,12 @@ final class CompositionSourceRenderer {
             return valueExpression
                     .replace("borrowedView", owner)
                     .replace("()", "");
+        }
+
+        private String logicalPath() {
+            return parent == null
+                    ? field.name()
+                    : parent.logicalPath() + "." + field.name();
         }
 
         private String compareValueExpression() {

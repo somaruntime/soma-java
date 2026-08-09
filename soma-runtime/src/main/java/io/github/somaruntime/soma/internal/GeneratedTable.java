@@ -7,6 +7,8 @@ import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.SomaOrder;
 import io.github.somaruntime.soma.UpdateResult;
+import io.github.somaruntime.soma.TableMetadata;
+import io.github.somaruntime.soma.FieldMetadata;
 import java.util.Arrays;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
@@ -71,6 +73,61 @@ public final class GeneratedTable {
         }
     }
 
+    public TableMetadata metadata() {
+        TableStateRoot root = current.get();
+        Object provenance = root;
+        long plain = root.directory.plainEquivalentBytes(
+                SomaOperation.QUERY, provenance);
+        long representation = root.directory.chunkManagedBytes(
+                SomaOperation.QUERY, provenance);
+        return SomaSharedSecrets.tableMetadataAccess().create(
+                layout.logicalName(),
+                root.size,
+                root.capacity,
+                root.managedBytes,
+                plain,
+                representation,
+                root.directory.encodedChunkCount());
+    }
+
+    public FieldMetadata fieldMetadata(
+            int fieldIndex,
+            String logicalPath,
+            String logicalType,
+            boolean equalityComparable,
+            boolean ordered) {
+        layout.fieldStart(fieldIndex);
+        if (logicalPath == null || logicalType == null) {
+            throw new AssertionError("generated Field metadata identity is missing");
+        }
+        TableStateRoot root = current.get();
+        Object provenance = root;
+        long plain = root.directory.fieldPlainEquivalentBytes(
+                fieldIndex, SomaOperation.QUERY, provenance);
+        long representation = root.directory.fieldRepresentationBytes(
+                fieldIndex, SomaOperation.QUERY, provenance);
+        return SomaSharedSecrets.fieldMetadataAccess().create(
+                logicalPath,
+                logicalType,
+                layout.fieldNullable(fieldIndex),
+                layout.fieldKey(fieldIndex),
+                layout.fieldIndexed(fieldIndex),
+                equalityComparable,
+                ordered,
+                plain,
+                representation,
+                representation < plain);
+    }
+
+    String compressionExplain(TableStateRoot root) {
+        return "compression=" + group.compression()
+                + " encodedChunks=" + root.directory.encodedChunkCount()
+                + " representationBytes="
+                + root.directory.chunkManagedBytes(SomaOperation.QUERY, root)
+                + " plainEquivalentBytes="
+                + root.directory.plainEquivalentBytes(SomaOperation.QUERY, root);
+    }
+
     public void reserve(long expectedRows) {
         if (expectedRows < 0L) {
             throw SomaFailures.invalid(
@@ -82,15 +139,18 @@ public final class GeneratedTable {
             if (expectedRows <= root.capacity) return;
             long target = roundedCapacity(
                     expectedRows, SomaOperation.RESERVE, operation.provenance());
-            long finalManaged = managedBytes(
+            long conservativeManaged = managedBytes(
                     target,
                     sidecarBytes(root, SomaOperation.RESERVE, operation.provenance()),
                     SomaOperation.RESERVE,
                     operation.provenance());
-            long delta = finalManaged - root.managedBytes;
+            long reservedDelta = Math.max(
+                    0L, conservativeManaged - root.managedBytes);
             try (GlobalMemoryManager.RetainedReservation retained =
                          group.reserveRetained(
-                                 delta, SomaOperation.RESERVE, operation.provenance());
+                                 reservedDelta,
+                                 SomaOperation.RESERVE,
+                                 operation.provenance());
                  GlobalMemoryManager.TemporaryLease temporary =
                          group.leaseTemporary(
                                  root.managedBytes,
@@ -98,6 +158,14 @@ public final class GeneratedTable {
                                  operation.provenance())) {
                 TableChunkDirectory candidate = TableChunkDirectory.grow(
                         root.directory, target / chunkRows, layout);
+                long finalManaged = managedBytes(
+                        candidate,
+                        sidecarBytes(
+                                root,
+                                SomaOperation.RESERVE,
+                                operation.provenance()),
+                        SomaOperation.RESERVE,
+                        operation.provenance());
                 inject(
                         MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH,
                         SomaOperation.RESERVE,
@@ -114,6 +182,16 @@ public final class GeneratedTable {
                         root.key,
                         root.indexes));
                 retained.commit();
+                long surplus = CheckedLong.subtract(
+                        CheckedLong.add(
+                                root.managedBytes,
+                                reservedDelta,
+                                SomaOperation.RESERVE,
+                                operation.provenance()),
+                        finalManaged,
+                        SomaOperation.RESERVE,
+                        operation.provenance());
+                if (surplus > 0L) group.releasePublished(surplus);
             }
         }
     }
@@ -452,7 +530,12 @@ public final class GeneratedTable {
         }
         long newVersion = CheckedLong.increment(
                 root.stateVersion, SomaOperation.UPDATE, provenance);
-        if (!indexChanged) {
+        long chunkOrdinal = locator / chunkRows;
+        long chunkStart = CheckedLong.multiply(
+                chunkOrdinal, chunkRows, SomaOperation.UPDATE, provenance);
+        boolean completeChunk = root.size - chunkStart >= chunkRows;
+        if (!indexChanged && !completeChunk
+                && !root.directory.chunk(chunkOrdinal).hasEncodedRepresentation()) {
             UpdateResult result = updateResult(1L, 1L);
             TableStateRoot committed = new TableStateRoot(
                     root.size,
@@ -469,15 +552,22 @@ public final class GeneratedTable {
         }
 
         TableChunkDirectory candidate = root.directory.copyForUpdate(locator, staged);
-        IdentityHashIndex[] indexes = rebuildIndexes(
-                candidate, root.size, SomaOperation.UPDATE, provenance);
+        candidate.finishTouched(
+                root.size,
+                group.compression(),
+                SomaOperation.UPDATE,
+                provenance);
+        IdentityHashIndex[] indexes = indexChanged
+                ? rebuildIndexes(
+                        candidate, root.size, SomaOperation.UPDATE, provenance)
+                : root.indexes;
         inject(
                 MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
                 SomaOperation.UPDATE,
                 provenance);
         long sidecars = sidecarBytes(root.key, indexes, SomaOperation.UPDATE, provenance);
         long finalManaged = managedBytes(
-                root.capacity, sidecars, SomaOperation.UPDATE, provenance);
+                candidate, sidecars, SomaOperation.UPDATE, provenance);
         UpdateResult result = updateResult(1L, 1L);
         publishCandidate(
                 root,
@@ -505,6 +595,11 @@ public final class GeneratedTable {
                              root.managedBytes, SomaOperation.REMOVE, provenance)) {
             long newSize = root.size - 1L;
             TableChunkDirectory candidate = root.directory.copyForRemove(locator, root.size);
+            candidate.finishTouched(
+                    newSize,
+                    group.compression(),
+                    SomaOperation.REMOVE,
+                    provenance);
             inject(
                     MutationFaultPoint.BEFORE_KEY_REBUILD,
                     SomaOperation.REMOVE,
@@ -526,7 +621,7 @@ public final class GeneratedTable {
                     provenance);
             long sidecars = sidecarBytes(key, indexes, SomaOperation.REMOVE, provenance);
             long finalManaged = managedBytes(
-                    root.capacity, sidecars, SomaOperation.REMOVE, provenance);
+                    candidate, sidecars, SomaOperation.REMOVE, provenance);
             RemoveResult result = removeResult(1L);
             publishCandidate(
                     root,
@@ -614,6 +709,11 @@ public final class GeneratedTable {
             long matched,
             long changed,
             Object provenance) {
+        candidateDirectory.finishTouched(
+                oldRoot.size,
+                group.compression(),
+                SomaOperation.UPDATE,
+                provenance);
         IdentityHashIndex[] indexes = rebuildIndexes(
                 candidateDirectory,
                 oldRoot.size,
@@ -626,7 +726,7 @@ public final class GeneratedTable {
         long sidecars = sidecarBytes(
                 oldRoot.key, indexes, SomaOperation.UPDATE, provenance);
         long finalManaged = managedBytes(
-                oldRoot.capacity, sidecars, SomaOperation.UPDATE, provenance);
+                candidateDirectory, sidecars, SomaOperation.UPDATE, provenance);
         publishCandidate(
                 oldRoot,
                 new TableStateRoot(
@@ -651,6 +751,11 @@ public final class GeneratedTable {
             long removed,
             Object provenance) {
         long newSize = oldRoot.size - removed;
+        candidateDirectory.finishTouched(
+                newSize,
+                group.compression(),
+                SomaOperation.REMOVE,
+                provenance);
         inject(
                 MutationFaultPoint.BEFORE_KEY_REBUILD,
                 SomaOperation.REMOVE,
@@ -675,7 +780,7 @@ public final class GeneratedTable {
         long sidecars = sidecarBytes(
                 key, indexes, SomaOperation.REMOVE, provenance);
         long finalManaged = managedBytes(
-                oldRoot.capacity, sidecars, SomaOperation.REMOVE, provenance);
+                candidateDirectory, sidecars, SomaOperation.REMOVE, provenance);
         publishCandidate(
                 oldRoot,
                 new TableStateRoot(
@@ -805,21 +910,35 @@ public final class GeneratedTable {
                     SomaOperation.ADD,
                     provenance);
         }
-        long finalManaged = managedBytes(
+        long conservativeManaged = managedBytes(
                 targetCapacity, sidecarBytes, SomaOperation.ADD, provenance);
-        long delta = finalManaged - root.managedBytes;
+        long reservedDelta = Math.max(
+                0L, conservativeManaged - root.managedBytes);
+        boolean growth = targetCapacity > root.capacity;
+        boolean sealsChunk = newSize % chunkRows == 0L;
+        boolean candidateRequired = growth || sealsChunk;
         try (GlobalMemoryManager.RetainedReservation retained =
                      group.reserveRetained(
-                             delta, SomaOperation.ADD, provenance);
+                             reservedDelta, SomaOperation.ADD, provenance);
              GlobalMemoryManager.TemporaryLease temporary =
                      group.leaseTemporary(
-                             targetCapacity > root.capacity ? root.managedBytes : 0L,
+                             candidateRequired ? root.managedBytes : 0L,
                              SomaOperation.ADD,
                              provenance)) {
-            TableChunkDirectory directory = targetCapacity > root.capacity
+            TableChunkDirectory directory = growth
                     ? TableChunkDirectory.grow(
                             root.directory, targetCapacity / chunkRows, layout)
                     : root.directory;
+            if (sealsChunk) {
+                directory = directory.copyForUpdate(root.size, row);
+                directory.finishTouched(
+                        newSize,
+                        group.compression(),
+                        SomaOperation.ADD,
+                        provenance);
+            }
+            long finalManaged = managedBytes(
+                    directory, sidecarBytes, SomaOperation.ADD, provenance);
             TableStateRoot committed = new TableStateRoot(
                     newSize,
                     targetCapacity,
@@ -829,16 +948,26 @@ public final class GeneratedTable {
                     root.key,
                     root.indexes);
             inject(
-                    targetCapacity > root.capacity
+                    candidateRequired
                             ? MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH
                             : MutationFaultPoint.BEFORE_FINAL_COMMIT,
                     SomaOperation.ADD,
                     provenance);
-            directory.write(root.size, row);
+            if (!sealsChunk) directory.write(root.size, row);
             if (keyAdd != null) keyAdd.commit();
             for (IdentityHashIndex.PreparedAdd add : indexAdds) add.commit();
             current.set(committed);
             retained.commit();
+            long surplus = CheckedLong.subtract(
+                    CheckedLong.add(
+                            root.managedBytes,
+                            reservedDelta,
+                            SomaOperation.ADD,
+                            provenance),
+                    finalManaged,
+                    SomaOperation.ADD,
+                    provenance);
+            if (surplus > 0L) group.releasePublished(surplus);
         }
     }
 
@@ -942,6 +1071,30 @@ public final class GeneratedTable {
                         CheckedLong.add(
                                 CheckedLong.add(payload, chunkHeaders, operation, provenance),
                                 directory,
+                                operation,
+                                provenance),
+                        ROOT_HEADER_BYTES,
+                        operation,
+                        provenance),
+                sidecars,
+                operation,
+                provenance);
+    }
+
+    private long managedBytes(
+            TableChunkDirectory directory,
+            long sidecars,
+            SomaOperation operation,
+            Object provenance) {
+        if (directory.chunkCount() == 0L && sidecars == 0L) return 0L;
+        long chunks = directory.chunkManagedBytes(operation, provenance);
+        long directoryBytes = TableChunkDirectory.estimatedDirectoryBytes(
+                directory.chunkCount(), operation, provenance);
+        return CheckedLong.add(
+                CheckedLong.add(
+                        CheckedLong.add(
+                                chunks,
+                                directoryBytes,
                                 operation,
                                 provenance),
                         ROOT_HEADER_BYTES,

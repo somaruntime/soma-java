@@ -1,5 +1,7 @@
 package io.github.somaruntime.soma.internal;
 
 enum ChunkRepresentation {
-    PLAIN
+    PLAIN,
+    ENCODED,
+    ENCODED_WITH_OVERLAY
 }

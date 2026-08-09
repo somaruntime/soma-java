@@ -1,6 +1,7 @@
 package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaConfiguration;
+import io.github.somaruntime.soma.SomaCompression;
 import java.util.concurrent.ForkJoinPool;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
@@ -10,6 +11,10 @@ import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.SomaLongSummary;
 import io.github.somaruntime.soma.SomaDoubleSummary;
 import io.github.somaruntime.soma.SomaTuple2;
+import io.github.somaruntime.soma.SomaMetadata;
+import io.github.somaruntime.soma.GroupMetadata;
+import io.github.somaruntime.soma.TableMetadata;
+import io.github.somaruntime.soma.FieldMetadata;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -32,6 +37,14 @@ public final class SomaSharedSecrets {
             new AtomicReference<DoubleSummaryAccess>();
     private static final AtomicReference<Tuple2Access> TUPLE2 =
             new AtomicReference<Tuple2Access>();
+    private static final AtomicReference<SomaMetadataAccess> SOMA_METADATA =
+            new AtomicReference<SomaMetadataAccess>();
+    private static final AtomicReference<GroupMetadataAccess> GROUP_METADATA =
+            new AtomicReference<GroupMetadataAccess>();
+    private static final AtomicReference<TableMetadataAccess> TABLE_METADATA =
+            new AtomicReference<TableMetadataAccess>();
+    private static final AtomicReference<FieldMetadataAccess> FIELD_METADATA =
+            new AtomicReference<FieldMetadataAccess>();
 
     private SomaSharedSecrets() {
     }
@@ -99,6 +112,42 @@ public final class SomaSharedSecrets {
         return required(TUPLE2.get(), "SomaTuple2");
     }
 
+    public static void setSomaMetadataAccess(SomaMetadataAccess access) {
+        install(SOMA_METADATA, access, SomaMetadata.class);
+    }
+
+    static SomaMetadataAccess somaMetadataAccess() {
+        initialize(SomaMetadata.class);
+        return required(SOMA_METADATA.get(), "SomaMetadata");
+    }
+
+    public static void setGroupMetadataAccess(GroupMetadataAccess access) {
+        install(GROUP_METADATA, access, GroupMetadata.class);
+    }
+
+    static GroupMetadataAccess groupMetadataAccess() {
+        initialize(GroupMetadata.class);
+        return required(GROUP_METADATA.get(), "GroupMetadata");
+    }
+
+    public static void setTableMetadataAccess(TableMetadataAccess access) {
+        install(TABLE_METADATA, access, TableMetadata.class);
+    }
+
+    static TableMetadataAccess tableMetadataAccess() {
+        initialize(TableMetadata.class);
+        return required(TABLE_METADATA.get(), "TableMetadata");
+    }
+
+    public static void setFieldMetadataAccess(FieldMetadataAccess access) {
+        install(FIELD_METADATA, access, FieldMetadata.class);
+    }
+
+    static FieldMetadataAccess fieldMetadataAccess() {
+        initialize(FieldMetadata.class);
+        return required(FIELD_METADATA.get(), "FieldMetadata");
+    }
+
     private static <T> void install(
             AtomicReference<T> destination,
             T access,
@@ -132,6 +181,8 @@ public final class SomaSharedSecrets {
         long memoryBudgetBytes(SomaConfiguration configuration);
 
         ForkJoinPool parallelExecutor(SomaConfiguration configuration);
+
+        SomaCompression compression(SomaConfiguration configuration);
     }
 
     public interface UpdateResultAccess {
@@ -164,5 +215,50 @@ public final class SomaSharedSecrets {
 
     public interface Tuple2Access {
         <A, B> SomaTuple2<A, B> create(A first, B second);
+    }
+
+    public interface SomaMetadataAccess {
+        SomaMetadata create(
+                String composition,
+                boolean frozen,
+                long effectiveBudget,
+                SomaCompression compression,
+                long retained,
+                long temporary);
+    }
+
+    public interface GroupMetadataAccess {
+        GroupMetadata create(
+                boolean defaultGroup,
+                long retained,
+                long globalRetained,
+                long globalTemporary,
+                long effectiveBudget,
+                SomaCompression compression);
+    }
+
+    public interface TableMetadataAccess {
+        TableMetadata create(
+                String logicalName,
+                long size,
+                long capacity,
+                long managed,
+                long plainEquivalent,
+                long representation,
+                long encodedChunks);
+    }
+
+    public interface FieldMetadataAccess {
+        FieldMetadata create(
+                String path,
+                String type,
+                boolean nullable,
+                boolean key,
+                boolean indexed,
+                boolean equality,
+                boolean ordered,
+                long plainEquivalent,
+                long representation,
+                boolean encoded);
     }
 }

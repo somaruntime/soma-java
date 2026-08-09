@@ -1,6 +1,8 @@
 package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaOperation;
+import io.github.somaruntime.soma.SomaCompression;
+import io.github.somaruntime.soma.GroupMetadata;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.ForkJoinPool;
 
@@ -10,6 +12,7 @@ public final class GeneratedGroup {
     private final GlobalMemoryManager memoryManager;
     private final GlobalMemoryManager.GroupToken accountingToken;
     private final ForkJoinPool parallelExecutor;
+    private final SomaCompression compression;
     private final String generatedPackage;
     private final Object capability;
     private final GroupOperationGuard operationGuard = new GroupOperationGuard();
@@ -17,11 +20,13 @@ public final class GeneratedGroup {
     private GeneratedGroup(
             GlobalMemoryManager memoryManager,
             ForkJoinPool parallelExecutor,
+            SomaCompression compression,
             String generatedPackage,
             Object capability) {
         this.memoryManager = memoryManager;
         this.accountingToken = memoryManager.newGroupToken();
         this.parallelExecutor = parallelExecutor;
+        this.compression = compression;
         this.generatedPackage = generatedPackage;
         this.capability = capability;
     }
@@ -30,7 +35,17 @@ public final class GeneratedGroup {
             GlobalMemoryManager memoryManager,
             String generatedPackage,
             Object capability) {
-        this(memoryManager, ForkJoinPool.commonPool(), generatedPackage, capability);
+        this(memoryManager, ForkJoinPool.commonPool(), SomaCompression.AUTO,
+                generatedPackage, capability);
+    }
+
+    private GeneratedGroup(
+            GlobalMemoryManager memoryManager,
+            ForkJoinPool parallelExecutor,
+            String generatedPackage,
+            Object capability) {
+        this(memoryManager, parallelExecutor, SomaCompression.AUTO,
+                generatedPackage, capability);
     }
 
     static GeneratedGroup create(
@@ -42,6 +57,7 @@ public final class GeneratedGroup {
                 factoryAccess,
                 memoryManager,
                 ForkJoinPool.commonPool(),
+                SomaCompression.AUTO,
                 generatedPackage,
                 capability);
     }
@@ -52,9 +68,26 @@ public final class GeneratedGroup {
             ForkJoinPool parallelExecutor,
             String generatedPackage,
             Object capability) {
+        return create(
+                factoryAccess,
+                memoryManager,
+                parallelExecutor,
+                SomaCompression.AUTO,
+                generatedPackage,
+                capability);
+    }
+
+    static GeneratedGroup create(
+            Object factoryAccess,
+            GlobalMemoryManager memoryManager,
+            ForkJoinPool parallelExecutor,
+            SomaCompression compression,
+            String generatedPackage,
+            Object capability) {
         if (!GeneratedRuntime.acceptsGroupFactoryAccess(factoryAccess)
                 || memoryManager == null
                 || parallelExecutor == null
+                || compression == null
                 || generatedPackage == null
                 || generatedPackage.isEmpty()
                 || capability == null) {
@@ -63,7 +96,7 @@ public final class GeneratedGroup {
                     "generated Group construction capability is invalid");
         }
         GeneratedGroup group = new GeneratedGroup(
-                memoryManager, parallelExecutor, generatedPackage, capability);
+                memoryManager, parallelExecutor, compression, generatedPackage, capability);
         memoryManager.registerGroup(group, group.accountingToken);
         return group;
     }
@@ -105,6 +138,20 @@ public final class GeneratedGroup {
 
     ForkJoinPool parallelExecutor() {
         return parallelExecutor;
+    }
+
+    SomaCompression compression() {
+        return compression;
+    }
+
+    public GroupMetadata metadata(boolean defaultGroup) {
+        return SomaSharedSecrets.groupMetadataAccess().create(
+                defaultGroup,
+                memoryManager.retainedBytes(accountingToken),
+                memoryManager.retainedBytes(),
+                memoryManager.temporaryBytes(),
+                memoryManager.budgetBytes(),
+                compression);
     }
 
     GlobalMemoryManager.RetainedReservation reserveRetained(

@@ -299,7 +299,9 @@ final class QueryOperation {
                 .append(" inMembershipLiterals=")
                 .append(logical.inLiteralCount())
                 .append(" order=canonical estimatedTemporaryPeakBytes=")
-                .append(rowExecutionScratch(bound));
+                .append(rowExecutionScratch(bound))
+                .append(' ')
+                .append(logical.owner().compressionExplain(bound.root));
         return result.toString();
     }
 

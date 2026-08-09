@@ -12,8 +12,10 @@ import io.github.somaruntime.soma.GroupedLongResult;
 import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaExpression;
+import io.github.somaruntime.soma.SomaCompression;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.SomaOrder;
+import io.github.somaruntime.soma.TableMetadata;
 import io.github.somaruntime.soma.UpdateResult;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
@@ -32,6 +34,56 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class GeneratedTableTest {
+
+    @Test
+    void autoCompressionPreservesNormalQueryIndexAndMutationSemantics() {
+        GeneratedTable table = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20)),
+                testLayout(), 4096, MutationFaultInjector.NONE);
+        Object shared = new Object();
+        for (long key = 1L; key <= 4096L; key++) {
+            add(table, key, "repeated", 7, shared);
+        }
+
+        TableMetadata compressed = table.metadata();
+        assertTrue(compressed.encoded());
+        assertTrue(compressed.representationBytes()
+                < compressed.plainEquivalentBytes());
+        assertEquals(4096L, table.count());
+        assertEquals(4096L, indexCount(table, "repeated"));
+        assertRow(table, 10L, "repeated", 7, shared);
+
+        UpdateResult payload = update(table, 10L, "repeated", 12, shared);
+        assertEquals(1L, payload.changed());
+        assertRow(table, 10L, "repeated", 12, shared);
+        assertTrue(table.metadata().encoded());
+
+        UpdateResult indexed = update(table, 10L, "moved", 12, shared);
+        assertEquals(1L, indexed.changed());
+        assertEquals(4095L, indexCount(table, "repeated"));
+        assertEquals(1L, indexCount(table, "moved"));
+
+        assertEquals(1L, remove(table, 10L).removed());
+        assertMissing(table, 10L);
+        assertEquals(4095L, table.size());
+        assertTrue(table.selectAll().explain().contains("compression=AUTO"));
+    }
+
+    @Test
+    void compressionOffKeepsCompleteChunksPlain() {
+        GeneratedTable table = new GeneratedTable(
+                testGroup(
+                        new GlobalMemoryManager(64L << 20),
+                        SomaCompression.OFF),
+                testLayout(), 4096, MutationFaultInjector.NONE);
+        Object shared = new Object();
+        for (long key = 1L; key <= 4096L; key++) {
+            add(table, key, "repeated", 7, shared);
+        }
+        assertFalse(table.metadata().encoded());
+        assertEquals(4096L, table.count());
+        assertRow(table, 4096L, "repeated", 7, shared);
+    }
 
     @Test
     void parallelModeUsesBoundedCustomPoolAndPreservesCanonicalResults() {
@@ -1815,6 +1867,29 @@ class GeneratedTableTest {
             return constructor.newInstance(
                     memoryManager,
                     parallelExecutor,
+                    "test.generated",
+                    new Object());
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    private static GeneratedGroup testGroup(
+            GlobalMemoryManager memoryManager,
+            SomaCompression compression) {
+        try {
+            Constructor<GeneratedGroup> constructor = GeneratedGroup.class
+                    .getDeclaredConstructor(
+                            GlobalMemoryManager.class,
+                            ForkJoinPool.class,
+                            SomaCompression.class,
+                            String.class,
+                            Object.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(
+                    memoryManager,
+                    ForkJoinPool.commonPool(),
+                    compression,
                     "test.generated",
                     new Object());
         } catch (ReflectiveOperationException failure) {

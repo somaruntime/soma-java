@@ -43,7 +43,7 @@ final class TableStateRoot {
                 0L,
                 0L,
                 0L,
-                TableChunkDirectory.empty(chunkRows),
+                TableChunkDirectory.empty(chunkRows, layout),
                 key,
                 indexes);
     }

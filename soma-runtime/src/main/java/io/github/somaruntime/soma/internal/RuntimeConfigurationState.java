@@ -1,5 +1,6 @@
 package io.github.somaruntime.soma.internal;
 
+import io.github.somaruntime.soma.SomaCompression;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
@@ -47,15 +48,26 @@ final class RuntimeConfigurationState {
         private final long memoryBudgetBytes;
         private final String policyIdentity;
         private final ForkJoinPool parallelExecutor;
+        private final SomaCompression compression;
 
         Snapshot(long memoryBudgetBytes, String policyIdentity) {
-            this(memoryBudgetBytes, policyIdentity, ForkJoinPool.commonPool());
+            this(memoryBudgetBytes, policyIdentity, ForkJoinPool.commonPool(),
+                    SomaCompression.AUTO);
         }
 
         Snapshot(
                 long memoryBudgetBytes,
                 String policyIdentity,
                 ForkJoinPool parallelExecutor) {
+            this(memoryBudgetBytes, policyIdentity, parallelExecutor,
+                    SomaCompression.AUTO);
+        }
+
+        Snapshot(
+                long memoryBudgetBytes,
+                String policyIdentity,
+                ForkJoinPool parallelExecutor,
+                SomaCompression compression) {
             if (memoryBudgetBytes <= 0L) {
                 throw new IllegalArgumentException("memoryBudgetBytes must be positive");
             }
@@ -63,6 +75,7 @@ final class RuntimeConfigurationState {
             this.policyIdentity = Objects.requireNonNull(policyIdentity, "policyIdentity");
             this.parallelExecutor = Objects.requireNonNull(
                     parallelExecutor, "parallelExecutor");
+            this.compression = Objects.requireNonNull(compression, "compression");
         }
 
         long memoryBudgetBytes() {
@@ -75,6 +88,10 @@ final class RuntimeConfigurationState {
 
         ForkJoinPool parallelExecutor() {
             return parallelExecutor;
+        }
+
+        SomaCompression compression() {
+            return compression;
         }
     }
 

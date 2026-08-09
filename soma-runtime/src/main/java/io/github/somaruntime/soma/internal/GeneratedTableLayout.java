@@ -199,6 +199,30 @@ public final class GeneratedTableLayout {
         return fieldCounts[fieldIndex];
     }
 
+    boolean fieldNullable(int fieldIndex) {
+        requireField(fieldIndex);
+        return fieldNullables[fieldIndex];
+    }
+
+    boolean fieldKey(int fieldIndex) {
+        requireField(fieldIndex);
+        return fieldIndex == keyFieldIndex;
+    }
+
+    boolean fieldIndexed(int fieldIndex) {
+        return indexOrdinalForField(fieldIndex) >= 0;
+    }
+
+    long fieldWidthBytes(int fieldIndex) {
+        int start = fieldStart(fieldIndex);
+        int count = fieldLeafCount(fieldIndex);
+        long result = 0L;
+        for (int leaf = start; leaf < start + count; leaf++) {
+            result = Math.addExact(result, width(leafKinds[leaf]));
+        }
+        return result;
+    }
+
     byte leafKind(int leaf) {
         requireLeaf(leaf);
         return leafKinds[leaf];
@@ -212,6 +236,16 @@ public final class GeneratedTableLayout {
     int leafSlot(int leaf) {
         requireLeaf(leaf);
         return leafSlots[leaf];
+    }
+
+    int leafForSlot(byte kind, int slot) {
+        if (slot < 0 || slot >= kindCount(kind)) {
+            throw new AssertionError("invalid generated leaf slot");
+        }
+        for (int leaf = 0; leaf < leafKinds.length; leaf++) {
+            if (leafKinds[leaf] == kind && leafSlots[leaf] == slot) return leaf;
+        }
+        throw new AssertionError("missing generated leaf slot");
     }
 
     int kindCount(byte kind) {
@@ -247,7 +281,7 @@ public final class GeneratedTableLayout {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);
         long hash = 1L;
-        PlainChunk chunk = directory.plainChunk(locator / directory.chunkRows());
+        TableChunk chunk = directory.chunk(locator / directory.chunkRows());
         int offset = (int) (locator % directory.chunkRows());
         for (int leaf = start; leaf < start + count; leaf++) {
             hash = mixPart(hash, hashStored(chunk, offset, leaf));
@@ -272,7 +306,7 @@ public final class GeneratedTableLayout {
             int fieldIndex) {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);
-        PlainChunk chunk = directory.plainChunk(locator / directory.chunkRows());
+        TableChunk chunk = directory.chunk(locator / directory.chunkRows());
         int offset = (int) (locator % directory.chunkRows());
         for (int leaf = start; leaf < start + count; leaf++) {
             if (!leafEquals(chunk, offset, values, leaf)) {
@@ -289,43 +323,43 @@ public final class GeneratedTableLayout {
             int fieldIndex) {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);
-        PlainChunk left = directory.plainChunk(leftLocator / directory.chunkRows());
-        PlainChunk right = directory.plainChunk(rightLocator / directory.chunkRows());
+        TableChunk left = directory.chunk(leftLocator / directory.chunkRows());
+        TableChunk right = directory.chunk(rightLocator / directory.chunkRows());
         int leftOffset = (int) (leftLocator % directory.chunkRows());
         int rightOffset = (int) (rightLocator % directory.chunkRows());
         for (int leaf = start; leaf < start + count; leaf++) {
             int slot = leafSlots[leaf];
             switch (leafKinds[leaf]) {
                 case BOOLEAN:
-                    if (left.booleans(slot)[leftOffset] != right.booleans(slot)[rightOffset]) return false;
+                    if (left.booleanValue(slot, leftOffset) != right.booleanValue(slot, rightOffset)) return false;
                     break;
                 case BYTE:
-                    if (left.bytes(slot)[leftOffset] != right.bytes(slot)[rightOffset]) return false;
+                    if (left.byteValue(slot, leftOffset) != right.byteValue(slot, rightOffset)) return false;
                     break;
                 case SHORT:
-                    if (left.shorts(slot)[leftOffset] != right.shorts(slot)[rightOffset]) return false;
+                    if (left.shortValue(slot, leftOffset) != right.shortValue(slot, rightOffset)) return false;
                     break;
                 case CHAR:
-                    if (left.chars(slot)[leftOffset] != right.chars(slot)[rightOffset]) return false;
+                    if (left.charValue(slot, leftOffset) != right.charValue(slot, rightOffset)) return false;
                     break;
                 case INT:
-                    if (left.ints(slot)[leftOffset] != right.ints(slot)[rightOffset]) return false;
+                    if (left.intValue(slot, leftOffset) != right.intValue(slot, rightOffset)) return false;
                     break;
                 case LONG:
-                    if (left.longs(slot)[leftOffset] != right.longs(slot)[rightOffset]) return false;
+                    if (left.longValue(slot, leftOffset) != right.longValue(slot, rightOffset)) return false;
                     break;
                 case FLOAT:
-                    if (Float.floatToIntBits(left.floats(slot)[leftOffset])
-                            != Float.floatToIntBits(right.floats(slot)[rightOffset])) return false;
+                    if (Float.floatToIntBits(left.floatValue(slot, leftOffset))
+                            != Float.floatToIntBits(right.floatValue(slot, rightOffset))) return false;
                     break;
                 case DOUBLE:
-                    if (Double.doubleToLongBits(left.doubles(slot)[leftOffset])
-                            != Double.doubleToLongBits(right.doubles(slot)[rightOffset])) return false;
+                    if (Double.doubleToLongBits(left.doubleValue(slot, leftOffset))
+                            != Double.doubleToLongBits(right.doubleValue(slot, rightOffset))) return false;
                     break;
                 case REFERENCE:
                     if (!referenceEquals(
-                            left.references(slot)[leftOffset],
-                            right.references(slot)[rightOffset],
+                            left.referenceValue(slot, leftOffset),
+                            right.referenceValue(slot, rightOffset),
                             equalityKinds[leaf])) return false;
                     break;
                 default:
@@ -372,9 +406,9 @@ public final class GeneratedTableLayout {
         int count = fieldLeafCount(leftFieldIndex);
         int leftStart = fieldStart(leftFieldIndex);
         int rightStart = rightLayout.fieldStart(rightFieldIndex);
-        PlainChunk left = leftDirectory.plainChunk(
+        TableChunk left = leftDirectory.chunk(
                 leftLocator / leftDirectory.chunkRows());
-        PlainChunk right = rightDirectory.plainChunk(
+        TableChunk right = rightDirectory.chunk(
                 rightLocator / rightDirectory.chunkRows());
         int leftOffset = (int) (leftLocator % leftDirectory.chunkRows());
         int rightOffset = (int) (rightLocator % rightDirectory.chunkRows());
@@ -385,33 +419,33 @@ public final class GeneratedTableLayout {
             int rightSlot = rightLayout.leafSlots[rightLeaf];
             switch (leafKinds[leftLeaf]) {
                 case BOOLEAN:
-                    if (left.booleans(leftSlot)[leftOffset]
-                            != right.booleans(rightSlot)[rightOffset]) return false;
+                    if (left.booleanValue(leftSlot, leftOffset)
+                            != right.booleanValue(rightSlot, rightOffset)) return false;
                     break;
                 case BYTE:
-                    if (left.bytes(leftSlot)[leftOffset]
-                            != right.bytes(rightSlot)[rightOffset]) return false;
+                    if (left.byteValue(leftSlot, leftOffset)
+                            != right.byteValue(rightSlot, rightOffset)) return false;
                     break;
                 case SHORT:
-                    if (left.shorts(leftSlot)[leftOffset]
-                            != right.shorts(rightSlot)[rightOffset]) return false;
+                    if (left.shortValue(leftSlot, leftOffset)
+                            != right.shortValue(rightSlot, rightOffset)) return false;
                     break;
                 case CHAR:
-                    if (left.chars(leftSlot)[leftOffset]
-                            != right.chars(rightSlot)[rightOffset]) return false;
+                    if (left.charValue(leftSlot, leftOffset)
+                            != right.charValue(rightSlot, rightOffset)) return false;
                     break;
                 case INT:
-                    if (left.ints(leftSlot)[leftOffset]
-                            != right.ints(rightSlot)[rightOffset]) return false;
+                    if (left.intValue(leftSlot, leftOffset)
+                            != right.intValue(rightSlot, rightOffset)) return false;
                     break;
                 case LONG:
-                    if (left.longs(leftSlot)[leftOffset]
-                            != right.longs(rightSlot)[rightOffset]) return false;
+                    if (left.longValue(leftSlot, leftOffset)
+                            != right.longValue(rightSlot, rightOffset)) return false;
                     break;
                 case REFERENCE:
                     if (!referenceEquals(
-                            left.references(leftSlot)[leftOffset],
-                            right.references(rightSlot)[rightOffset],
+                            left.referenceValue(leftSlot, leftOffset),
+                            right.referenceValue(rightSlot, rightOffset),
                             equalityKinds[leftLeaf])) return false;
                     break;
                 default:
@@ -452,8 +486,7 @@ public final class GeneratedTableLayout {
         requireField(fieldIndex);
         if (!fieldNullables[fieldIndex]) return false;
         int leaf = fieldStart(fieldIndex);
-        PlainChunk chunk = directory.plainChunk(locator / directory.chunkRows());
-        return chunk.references(leafSlot(leaf))[(int) (locator % directory.chunkRows())] == null;
+        return directory.referenceValue(locator, leafSlot(leaf)) == null;
     }
 
     int compareStored(
@@ -465,26 +498,24 @@ public final class GeneratedTableLayout {
             throw new AssertionError("only scalar ordered Fields are comparable");
         }
         int leaf = fieldStart(fieldIndex);
-        PlainChunk chunk = directory.plainChunk(locator / directory.chunkRows());
-        int offset = (int) (locator % directory.chunkRows());
         int slot = leafSlot(leaf);
         switch (leafKinds[leaf]) {
             case BYTE:
-                return Byte.compare(chunk.bytes(slot)[offset], literal.byteValue(slot));
+                return Byte.compare(directory.byteValue(locator, slot), literal.byteValue(slot));
             case SHORT:
-                return Short.compare(chunk.shorts(slot)[offset], literal.shortValue(slot));
+                return Short.compare(directory.shortValue(locator, slot), literal.shortValue(slot));
             case CHAR:
-                return Character.compare(chunk.chars(slot)[offset], literal.charValue(slot));
+                return Character.compare(directory.charValue(locator, slot), literal.charValue(slot));
             case INT:
-                return Integer.compare(chunk.ints(slot)[offset], literal.intValue(slot));
+                return Integer.compare(directory.intValue(locator, slot), literal.intValue(slot));
             case LONG:
-                return Long.compare(chunk.longs(slot)[offset], literal.longValue(slot));
+                return Long.compare(directory.longValue(locator, slot), literal.longValue(slot));
             case FLOAT:
-                return Float.compare(chunk.floats(slot)[offset], literal.floatValue(slot));
+                return Float.compare(directory.floatValue(locator, slot), literal.floatValue(slot));
             case DOUBLE:
-                return Double.compare(chunk.doubles(slot)[offset], literal.doubleValue(slot));
+                return Double.compare(directory.doubleValue(locator, slot), literal.doubleValue(slot));
             case REFERENCE:
-                Object left = chunk.references(slot)[offset];
+                Object left = directory.referenceValue(locator, slot);
                 Object right = literal.reference(slot);
                 if (left == null || right == null) {
                     return left == right ? 0 : left == null ? -1 : 1;
@@ -508,8 +539,8 @@ public final class GeneratedTableLayout {
             int fieldIndex) {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);
-        PlainChunk left = directory.plainChunk(leftLocator / directory.chunkRows());
-        PlainChunk right = directory.plainChunk(rightLocator / directory.chunkRows());
+        TableChunk left = directory.chunk(leftLocator / directory.chunkRows());
+        TableChunk right = directory.chunk(rightLocator / directory.chunkRows());
         int leftOffset = (int) (leftLocator % directory.chunkRows());
         int rightOffset = (int) (rightLocator % directory.chunkRows());
         for (int leaf = start; leaf < start + count; leaf++) {
@@ -521,40 +552,40 @@ public final class GeneratedTableLayout {
     }
 
     private int compareLeaf(
-            PlainChunk left,
+            TableChunk left,
             int leftOffset,
-            PlainChunk right,
+            TableChunk right,
             int rightOffset,
             int leaf) {
         int slot = leafSlot(leaf);
         switch (leafKinds[leaf]) {
             case BOOLEAN:
                 return Boolean.compare(
-                        left.booleans(slot)[leftOffset], right.booleans(slot)[rightOffset]);
+                        left.booleanValue(slot, leftOffset), right.booleanValue(slot, rightOffset));
             case BYTE:
                 return Byte.compare(
-                        left.bytes(slot)[leftOffset], right.bytes(slot)[rightOffset]);
+                        left.byteValue(slot, leftOffset), right.byteValue(slot, rightOffset));
             case SHORT:
                 return Short.compare(
-                        left.shorts(slot)[leftOffset], right.shorts(slot)[rightOffset]);
+                        left.shortValue(slot, leftOffset), right.shortValue(slot, rightOffset));
             case CHAR:
                 return Character.compare(
-                        left.chars(slot)[leftOffset], right.chars(slot)[rightOffset]);
+                        left.charValue(slot, leftOffset), right.charValue(slot, rightOffset));
             case INT:
                 return Integer.compare(
-                        left.ints(slot)[leftOffset], right.ints(slot)[rightOffset]);
+                        left.intValue(slot, leftOffset), right.intValue(slot, rightOffset));
             case LONG:
                 return Long.compare(
-                        left.longs(slot)[leftOffset], right.longs(slot)[rightOffset]);
+                        left.longValue(slot, leftOffset), right.longValue(slot, rightOffset));
             case FLOAT:
                 return Float.compare(
-                        left.floats(slot)[leftOffset], right.floats(slot)[rightOffset]);
+                        left.floatValue(slot, leftOffset), right.floatValue(slot, rightOffset));
             case DOUBLE:
                 return Double.compare(
-                        left.doubles(slot)[leftOffset], right.doubles(slot)[rightOffset]);
+                        left.doubleValue(slot, leftOffset), right.doubleValue(slot, rightOffset));
             case REFERENCE:
-                Object leftValue = left.references(slot)[leftOffset];
-                Object rightValue = right.references(slot)[rightOffset];
+                Object leftValue = left.referenceValue(slot, leftOffset);
+                Object rightValue = right.referenceValue(slot, rightOffset);
                 if (leftValue == null || rightValue == null) {
                     return leftValue == rightValue ? 0 : leftValue == null ? -1 : 1;
                 }
@@ -613,29 +644,29 @@ public final class GeneratedTableLayout {
         }
     }
 
-    private long hashStored(PlainChunk chunk, int offset, int leaf) {
+    private long hashStored(TableChunk chunk, int offset, int leaf) {
         int slot = leafSlots[leaf];
         switch (leafKinds[leaf]) {
             case BOOLEAN:
-                return chunk.booleans(slot)[offset] ? 1231L : 1237L;
+                return chunk.booleanValue(slot, offset) ? 1231L : 1237L;
             case BYTE:
-                return chunk.bytes(slot)[offset];
+                return chunk.byteValue(slot, offset);
             case SHORT:
-                return chunk.shorts(slot)[offset];
+                return chunk.shortValue(slot, offset);
             case CHAR:
-                return chunk.chars(slot)[offset];
+                return chunk.charValue(slot, offset);
             case INT:
-                return chunk.ints(slot)[offset];
+                return chunk.intValue(slot, offset);
             case LONG:
-                long longValue = chunk.longs(slot)[offset];
+                long longValue = chunk.longValue(slot, offset);
                 return longValue ^ longValue >>> 32;
             case FLOAT:
-                return Float.floatToIntBits(chunk.floats(slot)[offset]);
+                return Float.floatToIntBits(chunk.floatValue(slot, offset));
             case DOUBLE:
-                long doubleBits = Double.doubleToLongBits(chunk.doubles(slot)[offset]);
+                long doubleBits = Double.doubleToLongBits(chunk.doubleValue(slot, offset));
                 return doubleBits ^ doubleBits >>> 32;
             case REFERENCE:
-                return referenceHash(chunk.references(slot)[offset], equalityKinds[leaf]);
+                return referenceHash(chunk.referenceValue(slot, offset), equalityKinds[leaf]);
             default:
                 throw new AssertionError("unknown leaf kind");
         }
@@ -670,33 +701,33 @@ public final class GeneratedTableLayout {
     }
 
     private boolean leafEquals(
-            PlainChunk chunk,
+            TableChunk chunk,
             int offset,
             TypedValues values,
             int leaf) {
         int slot = leafSlots[leaf];
         switch (leafKinds[leaf]) {
             case BOOLEAN:
-                return chunk.booleans(slot)[offset] == values.booleanValue(slot);
+                return chunk.booleanValue(slot, offset) == values.booleanValue(slot);
             case BYTE:
-                return chunk.bytes(slot)[offset] == values.byteValue(slot);
+                return chunk.byteValue(slot, offset) == values.byteValue(slot);
             case SHORT:
-                return chunk.shorts(slot)[offset] == values.shortValue(slot);
+                return chunk.shortValue(slot, offset) == values.shortValue(slot);
             case CHAR:
-                return chunk.chars(slot)[offset] == values.charValue(slot);
+                return chunk.charValue(slot, offset) == values.charValue(slot);
             case INT:
-                return chunk.ints(slot)[offset] == values.intValue(slot);
+                return chunk.intValue(slot, offset) == values.intValue(slot);
             case LONG:
-                return chunk.longs(slot)[offset] == values.longValue(slot);
+                return chunk.longValue(slot, offset) == values.longValue(slot);
             case FLOAT:
-                return Float.floatToIntBits(chunk.floats(slot)[offset])
+                return Float.floatToIntBits(chunk.floatValue(slot, offset))
                         == Float.floatToIntBits(values.floatValue(slot));
             case DOUBLE:
-                return Double.doubleToLongBits(chunk.doubles(slot)[offset])
+                return Double.doubleToLongBits(chunk.doubleValue(slot, offset))
                         == Double.doubleToLongBits(values.doubleValue(slot));
             case REFERENCE:
                 return referenceEquals(
-                        chunk.references(slot)[offset],
+                        chunk.referenceValue(slot, offset),
                         values.reference(slot),
                         equalityKinds[leaf]);
             default:

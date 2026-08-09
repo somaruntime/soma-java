@@ -77,6 +77,11 @@ final class GlobalMemoryManager {
         return temporaryBytes;
     }
 
+    synchronized long retainedBytes(GroupToken token) {
+        requireLive(token);
+        return token.retainedBytes;
+    }
+
     long budgetBytes() {
         return budgetBytes;
     }

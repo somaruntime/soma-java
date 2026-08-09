@@ -24,17 +24,25 @@ public final class SomaConfiguration {
                             SomaConfiguration configuration) {
                         return configuration.parallelExecutor;
                     }
+
+                    @Override
+                    public SomaCompression compression(
+                            SomaConfiguration configuration) {
+                        return configuration.compression;
+                    }
                 });
     }
 
     private final boolean hasMemoryBudget;
     private final long memoryBudgetBytes;
     private final ForkJoinPool parallelExecutor;
+    private final SomaCompression compression;
 
     private SomaConfiguration(Builder builder) {
         this.hasMemoryBudget = builder.hasMemoryBudget;
         this.memoryBudgetBytes = builder.memoryBudgetBytes;
         this.parallelExecutor = builder.parallelExecutor;
+        this.compression = builder.compression;
     }
 
     public static Builder builder() {
@@ -51,6 +59,7 @@ public final class SomaConfiguration {
         private boolean hasMemoryBudget;
         private long memoryBudgetBytes;
         private ForkJoinPool parallelExecutor;
+        private SomaCompression compression = SomaCompression.AUTO;
 
         private Builder() {
         }
@@ -73,6 +82,14 @@ public final class SomaConfiguration {
                 throw new IllegalArgumentException("parallelExecutor is null");
             }
             this.parallelExecutor = executor;
+            return this;
+        }
+
+        public Builder compression(SomaCompression compression) {
+            if (compression == null) {
+                throw new IllegalArgumentException("compression is null");
+            }
+            this.compression = compression;
             return this;
         }
 

@@ -3,6 +3,7 @@ package io.github.somaruntime.soma.internal;
 import io.github.somaruntime.soma.SomaConfiguration;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
+import io.github.somaruntime.soma.SomaMetadata;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ForkJoinPool;
@@ -44,7 +45,8 @@ public final class GeneratedRuntime {
                                 : "automatic-v1",
                         access.parallelExecutor(configuration) == null
                                 ? ForkJoinPool.commonPool()
-                                : access.parallelExecutor(configuration));
+                                : access.parallelExecutor(configuration),
+                        access.compression(configuration));
         RuntimeConfigurationState.Snapshot configured;
         try {
             configured = RuntimeConfigurationOwner.configure(candidate);
@@ -65,7 +67,8 @@ public final class GeneratedRuntime {
         environment(RuntimeConfigurationOwner.freezeDefault(
                 () -> new RuntimeConfigurationState.Snapshot(
                         automaticBudget(), "automatic-v1",
-                        ForkJoinPool.commonPool())));
+                        ForkJoinPool.commonPool(),
+                        io.github.somaruntime.soma.SomaCompression.AUTO)));
     }
 
     public static GeneratedGroup createGroup(
@@ -76,13 +79,34 @@ public final class GeneratedRuntime {
                 RuntimeConfigurationOwner.freezeDefault(
                         () -> new RuntimeConfigurationState.Snapshot(
                                 automaticBudget(), "automatic-v1",
-                                ForkJoinPool.commonPool()));
+                                ForkJoinPool.commonPool(),
+                                io.github.somaruntime.soma.SomaCompression.AUTO));
         return GeneratedGroup.create(
                 GROUP_FACTORY_ACCESS,
                 environment(snapshot).memoryManager,
                 snapshot.parallelExecutor(),
+                snapshot.compression(),
                 generatedPackage,
                 capability);
+    }
+
+    public static SomaMetadata metadata(
+            MethodHandles.Lookup caller,
+            Object capability) {
+        String composition = requireGeneratedSoma(caller, capability);
+        RuntimeConfigurationState.Observation observation =
+                RuntimeConfigurationOwner.observe();
+        RuntimeConfigurationState.Snapshot snapshot = observation.snapshot();
+        Environment environment = ENVIRONMENT.get();
+        return SomaSharedSecrets.somaMetadataAccess().create(
+                composition,
+                observation.isFrozen(),
+                snapshot == null ? 0L : snapshot.memoryBudgetBytes(),
+                snapshot == null ? null : snapshot.compression(),
+                environment == null ? 0L
+                        : environment.memoryManager.retainedBytes(),
+                environment == null ? 0L
+                        : environment.memoryManager.temporaryBytes());
     }
 
     static boolean acceptsGroupFactoryAccess(Object candidate) {
