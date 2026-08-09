@@ -20,6 +20,8 @@ implementation 与 qualification：
 - 当前没有 active implementation slice 或 bounded Temporary；
 - [性能与正确性联合治理](conformance/v1-performance-correctness-governance.md)已`PASS`，长期
   benchmark、相对回归判定与当前最佳实践已经建立；
+- [四维性能架构治理](conformance/v1-four-dimensional-performance-architecture-governance.md)已`PASS`，
+  Design、Execution、Memory、CPU因果模型与本轮GroupBy/Relation优化已经闭合；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -48,6 +50,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | 仓库交付结构治理 | [Delivery-centered governance](conformance/v1-delivery-centered-repository-governance.md) |
 | 性能、正确性与长期 benchmark 治理 | [Performance and correctness governance](conformance/v1-performance-correctness-governance.md) |
 | 千万行组合负载、资源与优化证据 | [Ten-million composed workload governance](conformance/v1-ten-million-composed-workload-governance.md) |
+| Design/Execution/Memory/CPU 四维归因与优化 | [Four-dimensional performance architecture governance](conformance/v1-four-dimensional-performance-architecture-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact

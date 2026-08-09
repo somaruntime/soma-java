@@ -10,6 +10,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.somaruntime.soma.GroupedLongEntry;
 import io.github.somaruntime.soma.GroupedLongResult;
+import io.github.somaruntime.soma.LongGroupedLongEntry;
+import io.github.somaruntime.soma.LongGroupedLongResult;
 import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaExpression;
@@ -1007,6 +1009,19 @@ class GeneratedTableTest {
         assertGroupedEquals(
                 optimizedGroups.toArray(), referenceGroups.toArray());
 
+        GeneratedCallbacks.RowMapper<Long> primitiveKey =
+                () -> Long.valueOf(left.queryCursor().viewLong(0));
+        LongGroupedLongResult optimizedPrimitiveGroups =
+                (LongGroupedLongResult) left.groupBy(
+                        0, GeneratedGrouping.KEY_LONG, primitiveKey).count();
+        LongGroupedLongResult referencePrimitiveGroups =
+                (LongGroupedLongResult) left.groupBy(
+                        0, GeneratedGrouping.KEY_LONG, primitiveKey)
+                        .countReferenceForTesting();
+        assertPrimitiveGroupedEquals(
+                optimizedPrimitiveGroups.toArray(),
+                referencePrimitiveGroups.toArray());
+
         GeneratedRelation optimized = GeneratedRelation
                 .equality(left, right)
                 .on(1, 1)
@@ -1731,6 +1746,16 @@ class GeneratedTableTest {
     private static void assertGroupedEquals(
             GroupedLongEntry<Object>[] optimized,
             GroupedLongEntry<Object>[] reference) {
+        assertEquals(optimized.length, reference.length);
+        for (int index = 0; index < optimized.length; index++) {
+            assertEquals(optimized[index].key(), reference[index].key());
+            assertEquals(optimized[index].value(), reference[index].value());
+        }
+    }
+
+    private static void assertPrimitiveGroupedEquals(
+            LongGroupedLongEntry[] optimized,
+            LongGroupedLongEntry[] reference) {
         assertEquals(optimized.length, reference.length);
         for (int index = 0; index < optimized.length; index++) {
             assertEquals(optimized[index].key(), reference[index].key());

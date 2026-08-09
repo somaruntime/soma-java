@@ -51,14 +51,17 @@ SOMA_BENCHMARK_PARALLELISM=8 \
 ./scripts/benchmark.sh
 ```
 
-默认使用可移植的 process wall-time 采集。需要在允许读取操作系统进程统计的本机采集 peak RSS
-时，可显式设置 `SOMA_BENCHMARK_TIME_MODE=extended`；该模式不是 correctness 的前置条件。
+默认使用可移植的 process wall-time 采集。需要同时采集 peak RSS、process user/system CPU、平均
+占用 core、minor/major page fault 与 voluntary/involuntary context switch 时，可显式设置
+`SOMA_BENCHMARK_TIME_MODE=extended`；该模式不是 correctness 的前置条件。
 CPU 归因使用 `SOMA_BENCHMARK_PROFILER=async`；allocation 归因再增加
 `SOMA_BENCHMARK_ASYNC_EVENT=alloc`。两者都保留 JFR、collapsed stack 与 flame graph。
 
 正式比较必须使用相同 commit/source、JDK/JVM、workload、row count、parallelism 和 fresh-JVM
 run count；Smoke 只证明测量链可运行，不能证明性能提升。当前证据、scale/memory边界与使用准则见
 [性能与正确性联合治理记录](../project/conformance/v1-performance-correctness-governance.md)。
+固定10M的Design、Execution、Memory、CPU四维归因、GroupBy/Relation优化和当前parallel架构边界见
+[四维性能架构治理记录](../project/conformance/v1-four-dimensional-performance-architecture-governance.md)。
 
 同一环境的 before/after 摘要可用比较器建立回归 ratchet：
 

@@ -33,6 +33,8 @@ Release/Package、签名或正式release声明。核心抽象候选已经
 [正式Conformance记录](project/conformance/v1-ten-million-composed-workload-governance.md)拥有；交付导向仓库治理由
 [正式Conformance记录](project/conformance/v1-delivery-centered-repository-governance.md)拥有；
 [性能与正确性联合治理](project/conformance/v1-performance-correctness-governance.md)已`PASS`，
+且[四维性能架构治理](project/conformance/v1-four-dimensional-performance-architecture-governance.md)已
+`PASS`；
 `benchmarks/`现为长期非production性能与场景正确性证据，`docs/`仍只保留placeholder。
 
 开始工作前必须读取：

@@ -45,6 +45,42 @@ def main() -> None:
     if wall:
         result["wallNanos"] = int(float(wall.group(1)) * 1_000_000_000)
 
+    darwin_cpu = re.search(
+        r"^\s*([0-9.]+)\s+real\s+([0-9.]+)\s+user\s+([0-9.]+)\s+sys\s*$",
+        time_text,
+        re.M,
+    )
+    portable_user = re.search(r"^\s*user\s+([0-9.]+)\s*$", time_text, re.M)
+    portable_sys = re.search(r"^\s*sys\s+([0-9.]+)\s*$", time_text, re.M)
+    if darwin_cpu:
+        user_seconds = float(darwin_cpu.group(2))
+        system_seconds = float(darwin_cpu.group(3))
+    elif portable_user and portable_sys:
+        user_seconds = float(portable_user.group(1))
+        system_seconds = float(portable_sys.group(1))
+    else:
+        user_seconds = None
+        system_seconds = None
+    if user_seconds is not None and system_seconds is not None:
+        result["processUserNanos"] = int(user_seconds * 1_000_000_000)
+        result["processSystemNanos"] = int(system_seconds * 1_000_000_000)
+        result["processCpuNanos"] = result["processUserNanos"] + result["processSystemNanos"]
+        if result.get("wallNanos", 0) > 0:
+            result["cpuCoreEquivalentMilli"] = (
+                result["processCpuNanos"] * 1000 // result["wallNanos"]
+            )
+
+    counters = {
+        "minorPageFaults": r"^\s*(\d+)\s+minor page faults\s*$",
+        "majorPageFaults": r"^\s*(\d+)\s+major page faults\s*$",
+        "voluntaryContextSwitches": r"^\s*(\d+)\s+voluntary context switches\s*$",
+        "involuntaryContextSwitches": r"^\s*(\d+)\s+involuntary context switches\s*$",
+    }
+    for name, pattern in counters.items():
+        match = re.search(pattern, time_text, re.M)
+        if match:
+            result[name] = int(match.group(1))
+
     print(json.dumps(result, separators=(",", ":"), ensure_ascii=False))
 
 

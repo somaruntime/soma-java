@@ -106,8 +106,9 @@ public final class GeneratedGrouping {
             final boolean reference) {
         final int upper = RowExecutionSupport.arrayLength(
                 bound.outputUpperBound(), bound.provenance);
+        final int expectedGroups = expectedGroups(bound, upper);
         final GroupState state = new GroupState(
-                upper, aggregate, bound.provenance);
+                upper, expectedGroups, keyKind, aggregate, bound.provenance);
         visitRows(
                 bound,
                 new OptimizedSequentialRowExecutor.LocatorVisitor() {
@@ -132,6 +133,16 @@ public final class GeneratedGrouping {
         Object values = state.finish(aggregate, bound.provenance);
         return GeneratedGroupedResults.create(
                 keyKind, aggregate.valueKind, keys, values, state.size);
+    }
+
+    private int expectedGroups(BoundRowPlan bound, int upper) {
+        if (upper == 0) return 0;
+        GeneratedTableLayout layout = plan.owner().layout();
+        if (layout.keyFieldIndex() == keyFieldIndex) return upper;
+        int index = layout.indexOrdinalForField(keyFieldIndex);
+        if (index < 0) return Math.min(upper, GroupState.INITIAL_CAPACITY);
+        long distinct = bound.root.indexes[index].distinctCount();
+        return (int) Math.min((long) upper, distinct);
     }
 
     private static void visitRows(
@@ -233,38 +244,53 @@ public final class GeneratedGrouping {
     }
 
     private static final class GroupState {
-        final long[] representatives;
-        final int[] buckets;
-        final int[] hashNext;
-        final long[] counts;
-        final long[] lows;
-        final long[] highs;
-        final long[] integralMins;
-        final long[] integralMaxs;
-        final double[] floatingExtrema;
-        final int[] valueHeads;
-        final int[] valueTails;
-        final int[] valueNext;
-        final double[] floatingValues;
+        private static final int INITIAL_CAPACITY = 1024;
+
+        long[] representatives;
+        long[] primitiveKeys;
+        int[] buckets;
+        int[] hashNext;
+        long[] counts;
+        long[] lows;
+        long[] highs;
+        long[] integralMins;
+        long[] integralMaxs;
+        double[] floatingExtrema;
+        int[] valueHeads;
+        int[] valueTails;
+        int[] valueNext;
+        double[] floatingValues;
+        final int upper;
+        final Object provenance;
         int size;
         int valueSize;
 
-        GroupState(int upper, AggregateSpec aggregate, Object provenance) {
-            representatives = new long[upper];
-            hashNext = new int[upper];
-            counts = new long[upper];
-            int bucketCount = bucketCount(upper, provenance);
+        GroupState(
+                int upper,
+                int expectedGroups,
+                int keyKind,
+                AggregateSpec aggregate,
+                Object provenance) {
+            this.upper = upper;
+            this.provenance = provenance;
+            int initial = Math.min(upper, expectedGroups);
+            representatives = new long[initial];
+            primitiveKeys = keyKind == KEY_REFERENCE ? null : new long[initial];
+            hashNext = new int[initial];
+            counts = new long[initial];
+            int bucketCount = bucketCount(initial, provenance);
             buckets = new int[bucketCount];
-            lows = aggregate.longMapper == null ? null : new long[upper];
-            highs = aggregate.longMapper == null ? null : new long[upper];
-            integralMins = aggregate.longMapper == null ? null : new long[upper];
-            integralMaxs = aggregate.longMapper == null ? null : new long[upper];
-            floatingExtrema = aggregate.doubleMapper == null ? null : new double[upper];
+            lows = aggregate.longMapper == null ? null : new long[initial];
+            highs = aggregate.longMapper == null ? null : new long[initial];
+            integralMins = aggregate.longMapper == null ? null : new long[initial];
+            integralMaxs = aggregate.longMapper == null ? null : new long[initial];
+            floatingExtrema = aggregate.doubleMapper == null
+                    ? null : new double[initial];
             if (aggregate.needsFloatingSequence()) {
-                valueHeads = new int[upper];
-                valueTails = new int[upper];
-                valueNext = new int[upper];
-                floatingValues = new double[upper];
+                valueHeads = new int[initial];
+                valueTails = new int[initial];
+                valueNext = new int[initial];
+                floatingValues = new double[initial];
             } else {
                 valueHeads = null;
                 valueTails = null;
@@ -278,6 +304,9 @@ public final class GeneratedGrouping {
                 GeneratedTableLayout layout,
                 int fieldIndex,
                 long locator) {
+            if (primitiveKeys != null) {
+                return groupForPrimitive(directory, layout, fieldIndex, locator);
+            }
             int bucket = ((int) mix(layout.hashField(
                     directory, locator, fieldIndex))) & (buckets.length - 1);
             for (int link = buckets[bucket]; link != 0; link = hashNext[link - 1]) {
@@ -290,8 +319,33 @@ public final class GeneratedGrouping {
                     return candidate;
                 }
             }
+            ensureGroupCapacity(
+                    directory, layout, fieldIndex, true);
+            bucket = ((int) mix(layout.hashField(
+                    directory, locator, fieldIndex))) & (buckets.length - 1);
             int created = size++;
             representatives[created] = locator;
+            hashNext[created] = buckets[bucket];
+            buckets[bucket] = created + 1;
+            return created;
+        }
+
+        private int groupForPrimitive(
+                TableChunkDirectory directory,
+                GeneratedTableLayout layout,
+                int fieldIndex,
+                long locator) {
+            long key = primitiveKey(directory, layout, fieldIndex, locator);
+            int bucket = ((int) mix(key)) & (buckets.length - 1);
+            for (int link = buckets[bucket]; link != 0; link = hashNext[link - 1]) {
+                int candidate = link - 1;
+                if (primitiveKeys[candidate] == key) return candidate;
+            }
+            ensureGroupCapacity(directory, layout, fieldIndex, true);
+            bucket = ((int) mix(key)) & (buckets.length - 1);
+            int created = size++;
+            representatives[created] = locator;
+            primitiveKeys[created] = key;
             hashNext[created] = buckets[bucket];
             buckets[bucket] = created + 1;
             return created;
@@ -309,6 +363,8 @@ public final class GeneratedGrouping {
                         locator,
                         fieldIndex)) return candidate;
             }
+            ensureGroupCapacity(
+                    directory, layout, fieldIndex, false);
             int created = size++;
             representatives[created] = locator;
             return created;
@@ -444,11 +500,105 @@ public final class GeneratedGrouping {
         }
 
         private void appendFloating(int group, double value) {
+            ensureValueCapacity();
             int entry = valueSize++;
             floatingValues[entry] = value;
             if (valueHeads[group] == 0) valueHeads[group] = entry + 1;
             else valueNext[valueTails[group] - 1] = entry + 1;
             valueTails[group] = entry + 1;
+        }
+
+        private void ensureGroupCapacity(
+                TableChunkDirectory directory,
+                GeneratedTableLayout layout,
+                int fieldIndex,
+                boolean hashed) {
+            if (size < representatives.length) return;
+            int next = nextCapacity(representatives.length, upper, provenance);
+            representatives = Arrays.copyOf(representatives, next);
+            if (primitiveKeys != null) {
+                primitiveKeys = Arrays.copyOf(primitiveKeys, next);
+            }
+            hashNext = Arrays.copyOf(hashNext, next);
+            counts = Arrays.copyOf(counts, next);
+            if (lows != null) {
+                lows = Arrays.copyOf(lows, next);
+                highs = Arrays.copyOf(highs, next);
+                integralMins = Arrays.copyOf(integralMins, next);
+                integralMaxs = Arrays.copyOf(integralMaxs, next);
+            }
+            if (floatingExtrema != null) {
+                floatingExtrema = Arrays.copyOf(floatingExtrema, next);
+            }
+            if (valueHeads != null) {
+                valueHeads = Arrays.copyOf(valueHeads, next);
+                valueTails = Arrays.copyOf(valueTails, next);
+            }
+            if (!hashed) return;
+            int[] nextBuckets = new int[bucketCount(next, provenance)];
+            for (int group = 0; group < size; group++) {
+                long hash = primitiveKeys == null
+                        ? layout.hashField(
+                                directory,
+                                representatives[group],
+                                fieldIndex)
+                        : primitiveKeys[group];
+                int bucket = ((int) mix(hash)) & (nextBuckets.length - 1);
+                hashNext[group] = nextBuckets[bucket];
+                nextBuckets[bucket] = group + 1;
+            }
+            buckets = nextBuckets;
+        }
+
+        private static long primitiveKey(
+                TableChunkDirectory directory,
+                GeneratedTableLayout layout,
+                int fieldIndex,
+                long locator) {
+            if (layout.fieldLeafCount(fieldIndex) != 1) {
+                throw new AssertionError("primitive GroupBy Field is not scalar");
+            }
+            int leaf = layout.fieldStart(fieldIndex);
+            int slot = layout.leafSlot(leaf);
+            switch (layout.leafKind(leaf)) {
+                case GeneratedTableLayout.BOOLEAN:
+                    return directory.booleanValue(locator, slot) ? 1L : 0L;
+                case GeneratedTableLayout.BYTE:
+                    return directory.byteValue(locator, slot);
+                case GeneratedTableLayout.SHORT:
+                    return directory.shortValue(locator, slot);
+                case GeneratedTableLayout.CHAR:
+                    return directory.charValue(locator, slot);
+                case GeneratedTableLayout.INT:
+                    return directory.intValue(locator, slot);
+                case GeneratedTableLayout.LONG:
+                    return directory.longValue(locator, slot);
+                default:
+                    throw new AssertionError("unsupported primitive GroupBy Field");
+            }
+        }
+
+        private void ensureValueCapacity() {
+            if (valueSize < floatingValues.length) return;
+            int next = nextCapacity(floatingValues.length, upper, provenance);
+            floatingValues = Arrays.copyOf(floatingValues, next);
+            valueNext = Arrays.copyOf(valueNext, next);
+        }
+
+        private static int nextCapacity(
+                int current,
+                int limit,
+                Object provenance) {
+            if (current >= limit) {
+                throw SomaFailures.failure(
+                        SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                        SomaOperation.QUERY,
+                        "GroupBy cardinality exceeds bound input cardinality",
+                        provenance);
+            }
+            if (current == 0) return Math.min(limit, INITIAL_CAPACITY);
+            long doubled = (long) current << 1;
+            return (int) Math.min((long) limit, doubled);
         }
 
         private double[] floatingSums() {

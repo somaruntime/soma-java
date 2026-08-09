@@ -89,7 +89,7 @@ final class GeneratedRelationPrimitivePipeline {
         @Override public OptionalInt findFirst(){claim();Buffer b=values(plan);return b.size==0?OptionalInt.empty():OptionalInt.of((int)b.values[0]);}
         @Override public OptionalInt min(){claim();Buffer b=values(plan);return b.size==0?OptionalInt.empty():OptionalInt.of((int)extremum(b,Kind.INT,false));}
         @Override public OptionalInt max(){claim();Buffer b=values(plan);return b.size==0?OptionalInt.empty():OptionalInt.of((int)extremum(b,Kind.INT,true));}
-        @Override public long sum(){claim();return integral(values(plan)).longValue(new Object());}
+        @Override public long sum(){claim();return integralSum(plan).longValue(new Object());}
         @Override public OptionalDouble average(){claim();Buffer b=values(plan);if(b.size==0)return OptionalDouble.empty();return OptionalDouble.of(integral(b).doubleValue()/b.size);}
         @Override public SomaLongSummary summaryStatistics(){claim();return longSummary(values(plan),Kind.INT);}
         @Override public void forEach(SomaIntConsumer a){require(a,"action");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)acceptInt(a,(int)b.values[i]);}
@@ -117,7 +117,7 @@ final class GeneratedRelationPrimitivePipeline {
         @Override public OptionalLong findFirst(){claim();Buffer b=values(plan);return b.size==0?OptionalLong.empty():OptionalLong.of(b.values[0]);}
         @Override public OptionalLong min(){claim();Buffer b=values(plan);return b.size==0?OptionalLong.empty():OptionalLong.of(extremum(b,Kind.LONG,false));}
         @Override public OptionalLong max(){claim();Buffer b=values(plan);return b.size==0?OptionalLong.empty():OptionalLong.of(extremum(b,Kind.LONG,true));}
-        @Override public long sum(){claim();return integral(values(plan)).longValue(new Object());}
+        @Override public long sum(){claim();return integralSum(plan).longValue(new Object());}
         @Override public OptionalDouble average(){claim();Buffer b=values(plan);if(b.size==0)return OptionalDouble.empty();return OptionalDouble.of(integral(b).doubleValue()/b.size);}
         @Override public SomaLongSummary summaryStatistics(){claim();return longSummary(values(plan),Kind.LONG);}
         @Override public void forEach(SomaLongConsumer a){require(a,"action");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)acceptLong(a,b.values[i]);}
@@ -174,6 +174,40 @@ final class GeneratedRelationPrimitivePipeline {
         }
         applyStages(root,plan);
         return root;
+    }
+
+    /**
+     * 融合常见的 Relation 直接整数求和路径。直接 mapper 不包含 primitive stage，
+     * 因此不存在有状态或顺序 barrier；同一个精确 128-bit accumulator 可以按
+     * canonical relation encounter order 消费结果，无需先物化整个 Join 输出。
+     */
+    private static Signed128Accumulator integralSum(final Plan plan) {
+        if (plan.relation == null || plan.stages.length != 0
+                || (plan.rootKind != Kind.INT && plan.rootKind != Kind.LONG)) {
+            return integral(values(plan));
+        }
+        return plan.relation.terminal(
+                new GeneratedRelation.PairWork<Signed128Accumulator>() {
+                    @Override
+                    public Signed128Accumulator run(
+                            GeneratedRelation.RelationBinding binding) {
+                        final Signed128Accumulator accumulator =
+                                new Signed128Accumulator();
+                        plan.relation.visitBound(
+                                binding,
+                                true,
+                                new GeneratedRelation.PairVisitor() {
+                                    @Override
+                                    public boolean visit(long left, long right) {
+                                        accumulator.add(directValue(plan));
+                                        return true;
+                                    }
+                                });
+                        return accumulator;
+                    }
+                },
+                true,
+                0L);
     }
 
     private static long directValue(Plan plan) {

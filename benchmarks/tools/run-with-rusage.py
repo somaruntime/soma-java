@@ -55,6 +55,16 @@ def main() -> int:
             "Maximum resident set size (kbytes): {}".format(usage.ru_maxrss),
             file=sys.stderr,
         )
+    print("{} minor page faults".format(usage.ru_minflt), file=sys.stderr)
+    print("{} major page faults".format(usage.ru_majflt), file=sys.stderr)
+    print(
+        "{} voluntary context switches".format(usage.ru_nvcsw),
+        file=sys.stderr,
+    )
+    print(
+        "{} involuntary context switches".format(usage.ru_nivcsw),
+        file=sys.stderr,
+    )
 
     if os.WIFEXITED(status):
         return os.WEXITSTATUS(status)

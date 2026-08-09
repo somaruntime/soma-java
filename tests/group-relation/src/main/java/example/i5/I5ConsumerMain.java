@@ -92,6 +92,13 @@ public final class I5ConsumerMain {
         require(Arrays.equals(order,
                         new long[] {1101L, 1102L, 2101L, 2102L, 3103L}),
                 "Inner Join canonical left/right order");
+        long joinedSum = events.join(states)
+                .on(events.machineId, states.machineId)
+                .mapToLong(pair -> pair.left().eventId() * 1000L
+                        + pair.right().stateId())
+                .sum();
+        require(joinedSum == 9509L,
+                "Inner Join fused integral aggregate");
         require(events.join(states)
                         .on(events.machineId, states.machineId)
                         .and(events.route, states.route)

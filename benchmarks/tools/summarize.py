@@ -106,6 +106,20 @@ def summarize(groups: Dict[GroupKey, List[Dict[str, Any]]]) -> List[Dict[str, An
             for name in numeric_names
         }
         rss = [int(record["maxRssBytes"]) for record in records if "maxRssBytes" in record]
+        process_names = (
+            "cpuCoreEquivalentMilli",
+            "minorPageFaults",
+            "majorPageFaults",
+            "voluntaryContextSwitches",
+            "involuntaryContextSwitches",
+        )
+        process_metrics = {
+            name: integer_median(
+                int(record[name]) for record in records if name in record
+            )
+            for name in process_names
+            if any(name in record for record in records)
+        }
         summaries.append(
             {
                 "scenario": key[0],
@@ -117,6 +131,7 @@ def summarize(groups: Dict[GroupKey, List[Dict[str, Any]]]) -> List[Dict[str, An
                 "fingerprint": int(records[0]["fingerprint"]),
                 "sharedFingerprint": int(records[0]["sharedFingerprint"]),
                 "maxRssBytes": integer_median(rss) if rss else None,
+                "processMetrics": process_metrics,
                 "metrics": metrics,
             }
         )
@@ -193,6 +208,32 @@ def render_markdown(summaries: List[Dict[str, Any]]) -> str:
                     **summary,
                     metric=name,
                     value=milliseconds(summary, name),
+                )
+            )
+    process_summaries = [summary for summary in summaries if summary["processMetrics"]]
+    if process_summaries:
+        lines.extend(
+            [
+                "",
+                "## Process resource metrics",
+                "",
+                "CPU core equivalent is total process user+system CPU time divided by process wall time; 1.000 means one core was busy on average.",
+                "",
+                "| Scenario | Workload | Implementation | CPU cores | Minor faults | Major faults | Voluntary ctx | Involuntary ctx |",
+                "|---|---|---|---:|---:|---:|---:|---:|",
+            ]
+        )
+        for summary in process_summaries:
+            process = summary["processMetrics"]
+            cores = process.get("cpuCoreEquivalentMilli")
+            lines.append(
+                "| {scenario} | {workload} | {implementation} | {cores} | {minor} | {major} | {voluntary} | {involuntary} |".format(
+                    **summary,
+                    cores="-" if cores is None else "{:.3f}".format(cores / 1000.0),
+                    minor=process.get("minorPageFaults", "-"),
+                    major=process.get("majorPageFaults", "-"),
+                    voluntary=process.get("voluntaryContextSwitches", "-"),
+                    involuntary=process.get("involuntaryContextSwitches", "-"),
                 )
             )
     lines.append("")

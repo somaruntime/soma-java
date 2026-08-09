@@ -108,6 +108,16 @@ final class IdentityHashIndex {
         return managedBytes;
     }
 
+    /** 当前 immutable sidecar 中 logical equality bucket 的精确数量。 */
+    long distinctCount() {
+        if (shards == null) return 0L;
+        long result = 0L;
+        for (Shard shard : shards) {
+            if (shard != null) result += shard.size;
+        }
+        return result;
+    }
+
     PreparedAdd prepareAdd(
             TableChunkDirectory directory,
             TypedValues probe,
