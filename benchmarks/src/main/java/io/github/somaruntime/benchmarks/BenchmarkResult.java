@@ -12,6 +12,7 @@ public final class BenchmarkResult {
         put("scenario", scenario);
         put("model", model);
         put("implementation", implementation);
+        put("workload", BenchmarkSupport.workload());
         put("rows", rows);
         put("parallelism", BenchmarkSupport.parallelism());
         put("run", BenchmarkSupport.runNumber());

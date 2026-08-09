@@ -204,6 +204,8 @@ final class IdentityHashIndex {
             SomaOperation operation,
             Object provenance) {
         long hash = layout.hashField(directory, locator, fieldIndex);
+        long priorLinksBytes = unique
+                ? 0L : links.managedBytes(operation, provenance);
         if (shards == null) {
             shards = new Shard[SHARD_COUNT];
             managedBytes = CONTAINER_BYTES;
@@ -240,29 +242,14 @@ final class IdentityHashIndex {
             if (!unique) links = links.ensureLocator(locator);
         }
         if (!unique) {
-            long shardOnly = managedBytesWithoutLinks(operation, provenance);
+            long shardOnly = CheckedLong.subtract(
+                    managedBytes, priorLinksBytes, operation, provenance);
             managedBytes = CheckedLong.add(
                     shardOnly,
                     links.managedBytes(operation, provenance),
                     operation,
                     provenance);
         }
-    }
-
-    private long managedBytesWithoutLinks(
-            SomaOperation operation,
-            Object provenance) {
-        if (unique || links == null) return managedBytes;
-        long result = shards == null ? 0L : CONTAINER_BYTES;
-        if (shards != null) {
-            for (Shard shard : shards) {
-                if (shard != null) {
-                    result = CheckedLong.add(
-                            result, shard.managedBytes, operation, provenance);
-                }
-            }
-        }
-        return result;
     }
 
     private static int shardOrdinal(long hash) {

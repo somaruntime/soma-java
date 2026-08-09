@@ -35,6 +35,7 @@ final class MutationOperation {
                         bound.root.directory.copyForUpdates(selected);
                 GeneratedSelectionEditor editor = table.selectionEditor();
                 long changed = 0L;
+                boolean indexedValueChanged = false;
                 editor.begin(bound.root, bound.provenance);
                 try {
                     for (int index = 0; index < selected.size(); index++) {
@@ -44,6 +45,7 @@ final class MutationOperation {
                         try {
                             updater.accept();
                             if (editor.changed()) {
+                                indexedValueChanged |= editor.indexedValueChanged();
                                 candidate.write(locator, editor);
                                 changed++;
                             }
@@ -61,7 +63,12 @@ final class MutationOperation {
                     return table.selectionUpdateResult(matched, 0L);
                 }
                 return table.publishSelectionUpdate(
-                        bound.root, candidate, matched, changed, bound.provenance);
+                        bound.root,
+                        candidate,
+                        matched,
+                        changed,
+                        indexedValueChanged,
+                        bound.provenance);
             }
         }
     }

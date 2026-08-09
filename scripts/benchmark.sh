@@ -20,7 +20,15 @@ test -x "$java_cmd" || {
 rows=${SOMA_BENCHMARK_ROWS:-1000000}
 runs=${SOMA_BENCHMARK_RUNS:-3}
 parallelism=${SOMA_BENCHMARK_PARALLELISM:-8}
-implementations=${SOMA_BENCHMARK_IMPLEMENTATIONS:-"manual soma-auto"}
+workload=${SOMA_BENCHMARK_WORKLOAD:-core}
+scenarios=${SOMA_BENCHMARK_SCENARIOS:-"scheduling simulation real-time-dispatch"}
+if [ -n "${SOMA_BENCHMARK_IMPLEMENTATIONS:-}" ]; then
+    implementations=$SOMA_BENCHMARK_IMPLEMENTATIONS
+elif [ "$workload" = composed ]; then
+    implementations="soma-auto"
+else
+    implementations="manual soma-auto"
+fi
 profiler=${SOMA_BENCHMARK_PROFILER:-jfr}
 async_event=${SOMA_BENCHMARK_ASYNC_EVENT:-cpu}
 time_mode=${SOMA_BENCHMARK_TIME_MODE:-portable}
@@ -46,6 +54,7 @@ test "$memory_budget" -ge 1 && test "$memory_budget" -le 34359738368
 case "$profiler" in none|jfr|async) ;; *) echo "benchmark: invalid profiler" >&2; exit 1 ;; esac
 case "$async_event" in cpu|alloc) ;; *) echo "benchmark: invalid async event" >&2; exit 1 ;; esac
 case "$time_mode" in portable|extended) ;; *) echo "benchmark: invalid time mode" >&2; exit 1 ;; esac
+case "$workload" in core|composed) ;; *) echo "benchmark: invalid workload" >&2; exit 1 ;; esac
 test -n "$implementations"
 for implementation in $implementations; do
     case "$implementation" in
@@ -53,8 +62,17 @@ for implementation in $implementations; do
         *) echo "benchmark: invalid implementation: $implementation" >&2; exit 1 ;;
     esac
 done
+test -n "$scenarios"
+for scenario in $scenarios; do
+    case "$scenario" in
+        scheduling|simulation|real-time-dispatch) ;;
+        *) echo "benchmark: invalid scenario: $scenario" >&2; exit 1 ;;
+    esac
+done
 test "$(printf '%s\n' $implementations | LC_ALL=C sort -u | wc -l | tr -d ' ')" \
     -eq "$(printf '%s\n' $implementations | wc -l | tr -d ' ')"
+test "$(printf '%s\n' $scenarios | LC_ALL=C sort -u | wc -l | tr -d ' ')" \
+    -eq "$(printf '%s\n' $scenarios | wc -l | tr -d ' ')"
 
 if [ "$profiler" = jfr ]; then
     test -x "$jfr_cmd" || {
@@ -90,7 +108,13 @@ for module in scheduling simulation real-time-dispatch; do
 done
 
 benchmark_classpath="$repo_root/benchmarks/target/classes:$repo_root/soma-examples/scheduling/target/classes:$repo_root/soma-examples/simulation/target/classes:$repo_root/soma-examples/real-time-dispatch/target/classes:$runtime_jar"
-output_root="$repo_root/target/benchmark"
+if [ -n "${SOMA_BENCHMARK_OUTPUT_ROOT:-}" ]; then
+    output_root=$SOMA_BENCHMARK_OUTPUT_ROOT
+elif [ "$workload" = composed ]; then
+    output_root="$repo_root/target/benchmark/composed"
+else
+    output_root="$repo_root/target/benchmark"
+fi
 mkdir -p "$output_root"
 raw_results="$output_root/results.jsonl"
 rm -f "$output_root/summary.json" "$output_root/summary.md"
@@ -101,6 +125,8 @@ rm -f "$output_root/summary.json" "$output_root/summary.md"
     echo "rows=$rows"
     echo "runs=$runs"
     echo "parallelism=$parallelism"
+    echo "workload=$workload"
+    echo "scenarios=$scenarios"
     echo "implementations=$implementations"
     echo "profiler=$profiler"
     echo "asyncEvent=$async_event"
@@ -143,6 +169,7 @@ run_benchmark() {
         -XX:+UseParallelGC \
         -XX:+PrintGCDetails -XX:+PrintGCDateStamps "-Xloggc:$gc_log" \
         "-Dsoma.benchmark.parallelism=$parallelism" \
+        "-Dsoma.benchmark.workload=$workload" \
         "-Dsoma.benchmark.run=$run_number" \
         "-Dsoma.benchmark.innerWarmups=$inner_warmups" \
         "-Dsoma.benchmark.innerSamples=$inner_samples" \
@@ -160,10 +187,9 @@ run_benchmark() {
     set +e
     if [ "$time_mode" = portable ]; then
         /usr/bin/time -p "$@" > "$stdout_log" 2> "$time_log"
-    elif [ "$(uname -s)" = Darwin ]; then
-        /usr/bin/time -l "$@" > "$stdout_log" 2> "$time_log"
     else
-        /usr/bin/time -v "$@" > "$stdout_log" 2> "$time_log"
+        python3 benchmarks/tools/run-with-rusage.py -- "$@" \
+            > "$stdout_log" 2> "$time_log"
     fi
     run_status=$?
     set -e
@@ -189,32 +215,44 @@ run_benchmark() {
     fi
 }
 
+run_named_scenario() {
+    scenario=$1
+    implementation=$2
+    run_number=$3
+    case "$scenario" in
+        scheduling)
+            run_benchmark scheduling \
+                io.github.somaruntime.benchmarks.scheduling.SchedulingBenchmarkMain \
+                "$implementation" "$run_number"
+            ;;
+        simulation)
+            run_benchmark simulation \
+                io.github.somaruntime.benchmarks.simulation.SimulationBenchmarkMain \
+                "$implementation" "$run_number"
+            ;;
+        real-time-dispatch)
+            run_benchmark real-time-dispatch \
+                io.github.somaruntime.benchmarks.realtimedispatch.RealTimeDispatchBenchmarkMain \
+                "$implementation" "$run_number"
+            ;;
+    esac
+}
+
 run_scenarios_forward() {
     implementation=$1
     run_number=$2
-    run_benchmark scheduling \
-        io.github.somaruntime.benchmarks.scheduling.SchedulingBenchmarkMain \
-        "$implementation" "$run_number"
-    run_benchmark simulation \
-        io.github.somaruntime.benchmarks.simulation.SimulationBenchmarkMain \
-        "$implementation" "$run_number"
-    run_benchmark real-time-dispatch \
-        io.github.somaruntime.benchmarks.realtimedispatch.RealTimeDispatchBenchmarkMain \
-        "$implementation" "$run_number"
+    for scenario in $scenarios; do
+        run_named_scenario "$scenario" "$implementation" "$run_number"
+    done
 }
 
 run_scenarios_reverse() {
     implementation=$1
     run_number=$2
-    run_benchmark real-time-dispatch \
-        io.github.somaruntime.benchmarks.realtimedispatch.RealTimeDispatchBenchmarkMain \
-        "$implementation" "$run_number"
-    run_benchmark simulation \
-        io.github.somaruntime.benchmarks.simulation.SimulationBenchmarkMain \
-        "$implementation" "$run_number"
-    run_benchmark scheduling \
-        io.github.somaruntime.benchmarks.scheduling.SchedulingBenchmarkMain \
-        "$implementation" "$run_number"
+    reversed_scenarios=$(printf '%s\n' $scenarios | awk '{ value[NR] = $0 } END { for (position = NR; position >= 1; position--) print value[position] }')
+    for scenario in $reversed_scenarios; do
+        run_named_scenario "$scenario" "$implementation" "$run_number"
+    done
 }
 
 run_number=1

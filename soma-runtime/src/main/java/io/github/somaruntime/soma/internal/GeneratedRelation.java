@@ -449,15 +449,49 @@ public final class GeneratedRelation {
             TableStateRoot leftRoot,
             TableStateRoot rightRoot,
             Object provenance) {
-        if (kind == SEMI || kind == ANTI) return leftRoot.size;
+        return outputUpperBound(leftRoot.size, rightRoot.size, provenance);
+    }
+
+    private long outputUpperBound(
+            long leftRows,
+            long rightRows,
+            Object provenance) {
+        if (kind == SEMI || kind == ANTI) return leftRows;
+        if (kind != CROSS) {
+            boolean leftUnique = joinsKey(left.layout(), leftFields);
+            boolean rightUnique = joinsKey(right.layout(), rightFields);
+            if (kind == INNER) {
+                if (leftUnique && rightUnique) return Math.min(leftRows, rightRows);
+                if (rightUnique) return leftRows;
+                if (leftUnique) return rightRows;
+            } else if (rightUnique && kind == LEFT) {
+                return leftRows;
+            } else if (leftUnique || rightUnique) {
+                return CheckedLong.add(
+                        leftRows, rightRows, SomaOperation.QUERY, provenance);
+            }
+        }
         long product = CheckedLong.multiply(
-                leftRoot.size, rightRoot.size, SomaOperation.QUERY, provenance);
+                leftRows, rightRows, SomaOperation.QUERY, provenance);
         if (kind == INNER || kind == CROSS) return product;
         long result = CheckedLong.add(
-                product, leftRoot.size, SomaOperation.QUERY, provenance);
+                product, leftRows, SomaOperation.QUERY, provenance);
         return kind == FULL
-                ? CheckedLong.add(result, rightRoot.size, SomaOperation.QUERY, provenance)
+                ? CheckedLong.add(result, rightRows, SomaOperation.QUERY, provenance)
                 : result;
+    }
+
+    private static boolean joinsKey(
+            GeneratedTableLayout layout,
+            int[] fields) {
+        int key = layout.keyFieldIndex();
+        if (key < 0) return false;
+        for (int field : fields) if (field == key) return true;
+        return false;
+    }
+
+    long outputUpperBoundForTesting(long leftRows, long rightRows) {
+        return outputUpperBound(leftRows, rightRows, new Object());
     }
 
     private long scratchBytes(long rightRows, Object provenance) {

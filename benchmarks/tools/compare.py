@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 
-GroupKey = Tuple[str, str, int, int]
+GroupKey = Tuple[str, str, str, int, int]
 DEFAULT_METRICS = (
     "ingestNanos",
     "scanMedianNanos",
@@ -38,6 +38,7 @@ def key(group: Dict[str, Any]) -> GroupKey:
     return (
         str(group["scenario"]),
         str(group["implementation"]),
+        str(group.get("workload", "core")),
         int(group["rows"]),
         int(group["parallelism"]),
     )
@@ -83,8 +84,8 @@ def main() -> None:
 
     metrics: List[str] = args.metric or list(DEFAULT_METRICS)
     regressions: List[str] = []
-    print("| Scenario | Implementation | Metric | Baseline ms | Candidate ms | Delta |")
-    print("|---|---|---|---:|---:|---:|")
+    print("| Scenario | Workload | Implementation | Metric | Baseline ms | Candidate ms | Delta |")
+    print("|---|---|---|---|---:|---:|---:|")
     for group_key in sorted(baseline):
         before = baseline[group_key]
         after = candidate[group_key]
@@ -100,8 +101,9 @@ def main() -> None:
             delta = candidate_value - baseline_value
             percent = (delta * 100.0 / baseline_value) if baseline_value else 0.0
             print(
-                "| {} | {} | {} | {:.3f} | {:.3f} | {:+.1f}% |".format(
+                "| {} | {} | {} | {} | {:.3f} | {:.3f} | {:+.1f}% |".format(
                     group_key[0],
+                    group_key[2],
                     group_key[1],
                     metric,
                     baseline_value / 1_000_000.0,

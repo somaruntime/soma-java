@@ -29,7 +29,8 @@ IR和I2 schema/type/Key/Index。I8记录拥有对应remote workflow历史证据�
 repository治理已通过本地`./scripts/check.sh`且没有committed build artifact。没有GitHub
 Release/Package、签名或正式release声明。核心抽象候选已经
 正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
-此前 Temporary replacement closure已完成；当前没有active bounded topic。交付导向仓库治理由
+此前 Temporary replacement closure已完成；当前没有 active bounded topic。千万行组合负载治理由
+[正式Conformance记录](project/conformance/v1-ten-million-composed-workload-governance.md)拥有；交付导向仓库治理由
 [正式Conformance记录](project/conformance/v1-delivery-centered-repository-governance.md)拥有；
 [性能与正确性联合治理](project/conformance/v1-performance-correctness-governance.md)已`PASS`，
 `benchmarks/`现为长期非production性能与场景正确性证据，`docs/`仍只保留placeholder。
@@ -90,7 +91,7 @@ planning 或 reference differential 时读取
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前为空；新的重大长期变化先进入bounded Temporary，经Product Owner裁决和验证后
+- `project/temp/`当前没有active topic；新的重大长期变化先进入bounded Temporary，经Product Owner裁决和验证后
   晋升，再删除Temporary；不得直接在正式Design中掩盖未裁决变化；
 - 历史 Conformance 只保存 provenance，不能覆盖 current Blueprint/Design/readiness。
 

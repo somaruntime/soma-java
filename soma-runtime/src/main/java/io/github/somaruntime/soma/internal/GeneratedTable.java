@@ -708,17 +708,20 @@ public final class GeneratedTable {
             TableChunkDirectory candidateDirectory,
             long matched,
             long changed,
+            boolean indexedValueChanged,
             Object provenance) {
         candidateDirectory.finishTouched(
                 oldRoot.size,
                 group.compression(),
                 SomaOperation.UPDATE,
                 provenance);
-        IdentityHashIndex[] indexes = rebuildIndexes(
-                candidateDirectory,
-                oldRoot.size,
-                SomaOperation.UPDATE,
-                provenance);
+        IdentityHashIndex[] indexes = indexedValueChanged
+                ? rebuildIndexes(
+                        candidateDirectory,
+                        oldRoot.size,
+                        SomaOperation.UPDATE,
+                        provenance)
+                : oldRoot.indexes;
         inject(
                 MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
                 SomaOperation.UPDATE,

@@ -17,6 +17,25 @@ three reference applications
 - `simulation`：Narrow shape，覆盖 ingest、scan、Key/Index、stable top 和 remove；
 - `real-time-dispatch`：Reference-mixed shape，覆盖 ordinary Object、scan、Key/Index、Join 和 remove。
 
+默认 `core` workload 保持 release qualification 使用的百万行长期基线。显式 `composed` workload
+面向固定千万行治理，在同一真实场景中组合 filter、Index、projection、stateful operation、GroupBy、
+多种 Join、parallel 与 mutation；它不改变默认资格成本：
+
+```sh
+SOMA_BENCHMARK_WORKLOAD=composed \
+SOMA_BENCHMARK_ROWS=10000000 \
+SOMA_BENCHMARK_PARALLELISM=16 \
+SOMA_BENCHMARK_XMS=8g \
+SOMA_BENCHMARK_XMX=24g \
+SOMA_BENCHMARK_MEMORY_BUDGET_BYTES=17179869184 \
+./scripts/benchmark.sh
+```
+
+诊断时可用 `SOMA_BENCHMARK_SCENARIOS="scheduling"`（或 `simulation`、
+`real-time-dispatch`）只重放一个 fresh JVM。`composed` 默认只运行 `soma-auto`；压缩归因时显式设置
+`SOMA_BENCHMARK_IMPLEMENTATIONS="soma-auto soma-off"`。治理合同、固定环境、优化证据和当前边界见
+[千万行组合负载 Conformance](../project/conformance/v1-ten-million-composed-workload-governance.md)。
+
 从 repository root 运行：
 
 ```sh

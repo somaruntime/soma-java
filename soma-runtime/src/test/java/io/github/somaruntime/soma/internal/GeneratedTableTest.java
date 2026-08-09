@@ -2,6 +2,7 @@ package io.github.somaruntime.soma.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -147,6 +148,8 @@ class GeneratedTableTest {
         GeneratedProbe selected = table.newProbe(1);
         selected.putReference(1, "selected");
         long before = table.stateVersionForTesting();
+        IdentityHashIndex[] indexesBeforePayloadUpdate =
+                table.rootForTesting().indexes;
         UpdateResult result = table.indexSelection(0, selected.seal()).update(() -> {
             GeneratedSelectionEditor editor = table.selectionEditor();
             editor.editInt(2, editor.viewInt(2) + 5);
@@ -159,6 +162,19 @@ class GeneratedTableTest {
         assertRow(table, 2L, "selected", 25, second);
         assertRow(table, 3L, "other", 30, untouched);
         assertEquals(2L, indexCount(table, "selected"));
+        assertSame(indexesBeforePayloadUpdate, table.rootForTesting().indexes);
+
+        GeneratedProbe selectedForMove = table.newProbe(1);
+        selectedForMove.putReference(1, "selected");
+        IdentityHashIndex[] indexesBeforeIndexedUpdate =
+                table.rootForTesting().indexes;
+        UpdateResult moved = table.indexSelection(0, selectedForMove.seal()).update(() ->
+                table.selectionEditor().editReference(1, "moved"));
+        assertEquals(2L, moved.matched());
+        assertEquals(2L, moved.changed());
+        assertNotSame(indexesBeforeIndexedUpdate, table.rootForTesting().indexes);
+        assertEquals(0L, indexCount(table, "selected"));
+        assertEquals(2L, indexCount(table, "moved"));
 
         long published = table.stateVersionForTesting();
         UpdateResult noOp = table.selectAll().update(() -> {
@@ -224,7 +240,9 @@ class GeneratedTableTest {
 
     @Test
     void selectionRemoveUsesDeterministicDenseCompactionAndRebuildsSidecars() {
-        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4, MutationFaultInjector.NONE);
         Object[] references = new Object[5];
         for (int index = 0; index < references.length; index++) {
             references[index] = new Object();
@@ -249,6 +267,7 @@ class GeneratedTableTest {
         assertMissing(table, 4L);
         assertEquals(3L, indexCount(table, "bucket-1"));
         assertEquals(0L, indexCount(table, "bucket-0"));
+        assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
     }
 
     @Test
@@ -1017,6 +1036,46 @@ class GeneratedTableTest {
     }
 
     @Test
+    void equalityJoinCardinalityUsesKeyUniquenessForResourceAdmission() {
+        GeneratedGroup group = testGroup(new GlobalMemoryManager(64L << 20));
+        GeneratedTableLayout layout = joinBoundLayout();
+        GeneratedTable left = new GeneratedTable(
+                group, layout, 4, MutationFaultInjector.NONE);
+        GeneratedTable right = new GeneratedTable(
+                group, layout, 4, MutationFaultInjector.NONE);
+
+        assertEquals(7L, GeneratedRelation.equality(left, right)
+                .on(0, 0).kind(GeneratedRelation.INNER)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(10L, GeneratedRelation.equality(left, right)
+                .on(1, 0).kind(GeneratedRelation.INNER)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(7L, GeneratedRelation.equality(left, right)
+                .on(0, 1).kind(GeneratedRelation.INNER)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(70L, GeneratedRelation.equality(left, right)
+                .on(1, 1).kind(GeneratedRelation.INNER)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(10L, GeneratedRelation.equality(left, right)
+                .on(1, 0).kind(GeneratedRelation.LEFT)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(17L, GeneratedRelation.equality(left, right)
+                .on(0, 1).kind(GeneratedRelation.LEFT)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(17L, GeneratedRelation.equality(left, right)
+                .on(1, 0).kind(GeneratedRelation.FULL)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(87L, GeneratedRelation.equality(left, right)
+                .on(1, 1).kind(GeneratedRelation.FULL)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(10L, GeneratedRelation.equality(left, right)
+                .on(1, 1).kind(GeneratedRelation.SEMI)
+                .outputUpperBoundForTesting(10L, 7L));
+        assertEquals(70L, GeneratedRelation.cross(left, right, 70L)
+                .outputUpperBoundForTesting(10L, 7L));
+    }
+
+    @Test
     void primitivePlansDifferAgainstIndependentBoxedReferenceAlgorithms() {
         GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
         for (long key = 0L; key < 32L; key++) {
@@ -1736,6 +1795,25 @@ class GeneratedTableTest {
         return new GeneratedTable(
                 testGroup(new GlobalMemoryManager(64L << 20)), layout, 4,
                 MutationFaultInjector.NONE);
+    }
+
+    private static GeneratedTableLayout joinBoundLayout() {
+        return GeneratedTableLayout.create(
+                "JoinBound",
+                4L,
+                new byte[] {
+                        GeneratedTableLayout.LONG,
+                        GeneratedTableLayout.LONG
+                },
+                new byte[] {
+                        GeneratedTableLayout.EQ_LONG,
+                        GeneratedTableLayout.EQ_LONG
+                },
+                new int[] {0, 1},
+                new int[] {1, 1},
+                new boolean[] {false, false},
+                0,
+                new int[0]);
     }
 
     private static GeneratedTableLayout testLayout() {

@@ -51,6 +51,17 @@ final class GeneratedSelectionEditor extends TypedValues
         return !layout.logicalRowEquals(original, this);
     }
 
+    boolean indexedValueChanged() {
+        requireActive();
+        for (int ordinal = 0; ordinal < layout.indexCount(); ordinal++) {
+            if (!layout.fieldEquals(
+                    original, this, layout.indexFieldIndex(ordinal))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     void leave() {
         requireActive();
         active = false;

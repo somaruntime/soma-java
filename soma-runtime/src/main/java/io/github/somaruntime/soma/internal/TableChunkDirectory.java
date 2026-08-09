@@ -17,6 +17,13 @@ final class TableChunkDirectory {
     private final GeneratedTableLayout layout;
     private BranchNode root;
     private long chunkCount;
+    /*
+     * Chunk representations change only on candidate-directory construction.
+     * Ordinary append writes populate an already allocated PlainChunk, so its
+     * managed size is stable.  Cache the aggregate on the directory generation
+     * instead of walking every chunk after every atomic add.
+     */
+    private volatile long cachedChunkManagedBytes = -1L;
     private long[] touched = new long[0];
     private int touchedCount;
 
@@ -253,6 +260,8 @@ final class TableChunkDirectory {
     }
 
     long chunkManagedBytes(SomaOperation operation, Object provenance) {
+        long cached = cachedChunkManagedBytes;
+        if (cached >= 0L) return cached;
         long result = 0L;
         for (long ordinal = 0L; ordinal < chunkCount; ordinal++) {
             result = CheckedLong.add(
@@ -261,6 +270,7 @@ final class TableChunkDirectory {
                     operation,
                     provenance);
         }
+        cachedChunkManagedBytes = result;
         return result;
     }
 
@@ -330,6 +340,7 @@ final class TableChunkDirectory {
         for (long ordinal = 0L; ordinal < chunkCount; ordinal++) {
             result.append(get(ordinal));
         }
+        result.cachedChunkManagedBytes = cachedChunkManagedBytes;
         return result;
     }
 
@@ -375,6 +386,7 @@ final class TableChunkDirectory {
         }
         leaf.chunks[digit(ordinal, 0)] = chunk;
         chunkCount++;
+        cachedChunkManagedBytes = -1L;
     }
 
     private void replaceTouched(long ordinal, TableChunk replacement) {
@@ -391,6 +403,7 @@ final class TableChunkDirectory {
             branch = branch.branches[digit(ordinal, level)];
         }
         branch.leaves[digit(ordinal, 1)].chunks[digit(ordinal, 0)] = replacement;
+        cachedChunkManagedBytes = -1L;
     }
 
     private void markTouched(long ordinal) {

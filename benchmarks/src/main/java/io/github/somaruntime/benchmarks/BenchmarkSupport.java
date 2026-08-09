@@ -43,12 +43,17 @@ public final class BenchmarkSupport {
     public static long fingerprint(long... values) {
         long hash = 0xcbf29ce484222325L;
         for (long value : values) {
-            for (int shift = 0; shift < Long.SIZE; shift += Byte.SIZE) {
-                hash ^= (value >>> shift) & 0xffL;
-                hash *= 0x100000001b3L;
-            }
+            hash = mix(hash, value);
         }
         blackhole ^= hash;
+        return hash;
+    }
+
+    public static long mix(long hash, long value) {
+        for (int shift = 0; shift < Long.SIZE; shift += Byte.SIZE) {
+            hash ^= (value >>> shift) & 0xffL;
+            hash *= 0x100000001b3L;
+        }
         return hash;
     }
 
@@ -64,6 +69,17 @@ public final class BenchmarkSupport {
                         || "manual".equals(value),
                 "unknown benchmark implementation");
         return value;
+    }
+
+    public static String workload() {
+        String value = System.getProperty("soma.benchmark.workload", "core");
+        require("core".equals(value) || "composed".equals(value),
+                "unknown benchmark workload");
+        return value;
+    }
+
+    public static boolean composedWorkload() {
+        return "composed".equals(workload());
     }
 
     public static int parallelism() {

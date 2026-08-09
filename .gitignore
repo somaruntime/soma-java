@@ -14,4 +14,6 @@ target/
 
 # Local temp
 *.log
+*.pyc
+__pycache__/
 .tmp/

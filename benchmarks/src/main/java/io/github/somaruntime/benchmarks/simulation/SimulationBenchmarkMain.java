@@ -14,10 +14,14 @@ import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.SomaCompression;
 import io.github.somaruntime.soma.SomaConfiguration;
 import io.github.somaruntime.soma.TableMetadata;
+import io.github.somaruntime.soma.UpdateResult;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.PriorityQueue;
 import java.util.concurrent.ForkJoinPool;
 
 /** Narrow event-state benchmark and scenario correctness consumer. */
@@ -99,21 +103,29 @@ public final class SimulationBenchmarkMain {
                     .findFirst().get().eventId());
             BenchmarkSupport.require(top.value(), expected.firstEvent, "simulation top");
 
+            ComposedMetrics composed = BenchmarkSupport.composedWorkload()
+                    ? runComposed(events, expected.composed)
+                    : null;
+
             long removeKey = Math.max(1L, rows / 2L);
             RemoveResult remove = events.remove(removeKey);
             BenchmarkSupport.require(remove.removed(), 1L, "simulation remove result");
             BenchmarkSupport.require(!events.find(removeKey).isPresent(),
                     "simulation removed Key is still present");
-            BenchmarkSupport.require(events.size(), rows - 1L, "simulation remove size");
+            long composedRemoved = composed == null ? 0L : composed.removed;
+            BenchmarkSupport.require(events.size(), rows - composedRemoved - 1L,
+                    "simulation remove size");
 
             TableMetadata metadata = events._metadata();
-            BenchmarkSupport.require(metadata.size(), rows - 1L, "simulation metadata size");
+            BenchmarkSupport.require(metadata.size(), rows - composedRemoved - 1L,
+                    "simulation metadata size");
             long sharedFingerprint = BenchmarkSupport.fingerprint(rows, scan.value(), key.value());
             long fingerprint = BenchmarkSupport.fingerprint(
                     sharedFingerprint,
                     index.value(), top.value(), remove.removed(), metadata.size());
 
-            new BenchmarkResult("simulation", "NARROW", implementation, rows)
+            BenchmarkResult result = new BenchmarkResult(
+                    "simulation", "NARROW", implementation, rows)
                     .put("correctness", true)
                     .put("compression", compression.name())
                     .put("ingestNanos", ingestNanos)
@@ -126,8 +138,11 @@ public final class SimulationBenchmarkMain {
                     .put("representationBytes", metadata.representationBytes())
                     .put("plainEquivalentBytes", metadata.plainEquivalentBytes())
                     .put("sharedFingerprint", sharedFingerprint)
-                    .put("fingerprint", fingerprint)
-                    .print();
+                    .put("fingerprint", composed == null
+                            ? fingerprint
+                            : BenchmarkSupport.fingerprint(fingerprint, composed.fingerprint));
+            if (composed != null) composed.appendTo(result);
+            result.print();
         } finally {
             executor.shutdown();
         }
@@ -206,7 +221,187 @@ public final class SimulationBenchmarkMain {
             long id = (index * 7_919L) % rows + 1L;
             key += (id - 1L) % 97L;
         }
-        return new Expected(entities, selectedEntity, scan, key, indexCount, firstEvent);
+        return new Expected(
+                entities, selectedEntity, scan, key, indexCount, firstEvent,
+                BenchmarkSupport.composedWorkload()
+                        ? composedExpected(rows, entities, selectedEntity) : null);
+    }
+
+    private static ComposedExpected composedExpected(
+            int rows,
+            int entities,
+            long selectedEntity) {
+        boolean[] values = new boolean[97];
+        PriorityQueue<ExpectedEvent> top = new PriorityQueue<ExpectedEvent>(
+                1_024, Collections.reverseOrder(ExpectedEvent.ORDER));
+        long updateCount = 0L;
+        long updateAllSum = 0L;
+        long removeCount = 0L;
+        long removedSelectedEntity = 0L;
+        for (int index = 0; index < rows; index++) {
+            long eventId = index + 1L;
+            long entityId = index % entities + 1L;
+            int minute = index % 100_000;
+            int priority = index % 8;
+            long delta = index % 97;
+            boolean add = (index & 1) == 0;
+            if (add && priority >= 4 && delta % 3L == 0L) {
+                values[(int) delta] = true;
+            }
+            ExpectedEvent candidate = new ExpectedEvent(eventId, minute, priority);
+            if (top.size() < 1_024) top.add(candidate);
+            else if (ExpectedEvent.ORDER.compare(candidate, top.peek()) < 0) {
+                top.poll();
+                top.add(candidate);
+            }
+            if (add && priority >= 6) {
+                updateAllSum += delta;
+                if (updateCount < 10_000L) updateCount++;
+            }
+            if (!add && priority <= 1 && removeCount < 10_000L) {
+                removeCount++;
+                if (entityId == selectedEntity) removedSelectedEntity++;
+            }
+        }
+
+        long primitiveFingerprint = 0xcbf29ce484222325L;
+        int emitted = 0;
+        int available = 0;
+        for (boolean present : values) if (present) available++;
+        int selected = Math.max(0, Math.min(16, available - 1));
+        primitiveFingerprint = BenchmarkSupport.mix(primitiveFingerprint, selected);
+        for (int value = 0; value < values.length && emitted < 17; value++) {
+            if (!values[value]) continue;
+            if (emitted++ == 0) continue;
+            if (emitted > 17) break;
+            primitiveFingerprint = BenchmarkSupport.mix(primitiveFingerprint, value);
+        }
+
+        List<ExpectedEvent> orderedTop = new ArrayList<ExpectedEvent>(top);
+        Collections.sort(orderedTop, ExpectedEvent.ORDER);
+        long topFingerprint = 0xcbf29ce484222325L;
+        topFingerprint = BenchmarkSupport.mix(topFingerprint, orderedTop.size());
+        for (ExpectedEvent event : orderedTop) {
+            topFingerprint = BenchmarkSupport.mix(topFingerprint, event.eventId);
+            topFingerprint = BenchmarkSupport.mix(topFingerprint, event.minute);
+            topFingerprint = BenchmarkSupport.mix(topFingerprint, event.priority);
+        }
+        return new ComposedExpected(
+                primitiveFingerprint,
+                topFingerprint,
+                updateCount,
+                updateAllSum + updateCount,
+                removeCount,
+                rows - removeCount,
+                ((rows - 1L - (selectedEntity - 1L)) / entities + 1L)
+                        - removedSelectedEntity,
+                selectedEntity);
+    }
+
+    private static ComposedMetrics runComposed(
+            EventTable events,
+            ComposedExpected expected) {
+        LongMeasurement primitive = BenchmarkSupport.measure(() -> {
+            long[] values = events
+                    .filter(events.eventType.eq(EventType.ADD))
+                    .filter(events.priority.ge(4))
+                    .mapToLong(events.delta)
+                    .filter(value -> value % 3L == 0L)
+                    .distinct()
+                    .sorted()
+                    .skip(1L)
+                    .limit(16L)
+                    .toArray();
+            long hash = 0xcbf29ce484222325L;
+            hash = BenchmarkSupport.mix(hash, values.length);
+            for (long value : values) hash = BenchmarkSupport.mix(hash, value);
+            return hash;
+        });
+        BenchmarkSupport.require(primitive.value(), expected.primitiveFingerprint,
+                "simulation composed primitive pipeline");
+
+        LongMeasurement primitiveParallel = BenchmarkSupport.measure(() -> {
+            long[] values = events.parallel()
+                    .filter(events.eventType.eq(EventType.ADD))
+                    .filter(events.priority.ge(4))
+                    .mapToLong(events.delta)
+                    .filter(value -> value % 3L == 0L)
+                    .distinct()
+                    .sorted()
+                    .skip(1L)
+                    .limit(16L)
+                    .toArray();
+            long hash = 0xcbf29ce484222325L;
+            hash = BenchmarkSupport.mix(hash, values.length);
+            for (long value : values) hash = BenchmarkSupport.mix(hash, value);
+            return hash;
+        });
+        BenchmarkSupport.require(primitiveParallel.value(), expected.primitiveFingerprint,
+                "simulation composed parallel primitive pipeline");
+
+        LongMeasurement materializedTop = BenchmarkSupport.measure(() -> {
+            Event[] values = events
+                    .top(1_024L, events.eventMinute.asc()
+                            .then(events.priority.desc())
+                            .then(events.eventId.asc()))
+                    .toArray();
+            long hash = 0xcbf29ce484222325L;
+            hash = BenchmarkSupport.mix(hash, values.length);
+            for (Event value : values) {
+                hash = BenchmarkSupport.mix(hash, value.eventId());
+                hash = BenchmarkSupport.mix(hash, value.eventMinute());
+                hash = BenchmarkSupport.mix(hash, value.priority());
+            }
+            return hash;
+        });
+        BenchmarkSupport.require(materializedTop.value(), expected.topFingerprint,
+                "simulation composed top materialization");
+
+        long updateStarted = System.nanoTime();
+        UpdateResult update = events
+                .filter(events.eventType.eq(EventType.ADD))
+                .filter(events.priority.ge(6))
+                .limit(10_000L)
+                .update(editor -> editor.delta(Math.addExact(editor.delta(), 1L)));
+        long updateNanos = System.nanoTime() - updateStarted;
+        BenchmarkSupport.require(update.matched(), expected.updateCount,
+                "simulation composed update matched");
+        BenchmarkSupport.require(update.changed(), expected.updateCount,
+                "simulation composed update changed");
+        long updatedSum = events
+                .filter(events.eventType.eq(EventType.ADD))
+                .filter(events.priority.ge(6))
+                .mapToLong(events.delta)
+                .sum();
+        BenchmarkSupport.require(updatedSum, expected.updatedSum,
+                "simulation composed updated sum");
+
+        long removeStarted = System.nanoTime();
+        RemoveResult remove = events
+                .filter(events.eventType.eq(EventType.SUBTRACT))
+                .filter(events.priority.le(1))
+                .limit(10_000L)
+                .remove();
+        long removeNanos = System.nanoTime() - removeStarted;
+        BenchmarkSupport.require(remove.removed(), expected.removeCount,
+                "simulation composed remove count");
+        BenchmarkSupport.require(events.size(), expected.postMutationSize,
+                "simulation composed post-mutation size");
+        long postIndex = events.byEntityId(expected.selectedEntity).count();
+        BenchmarkSupport.require(postIndex, expected.postMutationIndexCount,
+                "simulation composed post-mutation Index");
+
+        long mutationFingerprint = BenchmarkSupport.fingerprint(
+                update.matched(), update.changed(), updatedSum,
+                remove.removed(), events.size(), postIndex);
+        return new ComposedMetrics(
+                primitive,
+                primitiveParallel,
+                materializedTop,
+                updateNanos,
+                removeNanos,
+                remove.removed(),
+                mutationFingerprint);
     }
 
     private static final class Expected {
@@ -216,6 +411,7 @@ public final class SimulationBenchmarkMain {
         final long key;
         final long indexCount;
         final long firstEvent;
+        final ComposedExpected composed;
 
         Expected(
                 int entities,
@@ -223,13 +419,105 @@ public final class SimulationBenchmarkMain {
                 long scan,
                 long key,
                 long indexCount,
-                long firstEvent) {
+                long firstEvent,
+                ComposedExpected composed) {
             this.entities = entities;
             this.selectedEntity = selectedEntity;
             this.scan = scan;
             this.key = key;
             this.indexCount = indexCount;
             this.firstEvent = firstEvent;
+            this.composed = composed;
+        }
+    }
+
+    private static final class ComposedExpected {
+        final long primitiveFingerprint;
+        final long topFingerprint;
+        final long updateCount;
+        final long updatedSum;
+        final long removeCount;
+        final long postMutationSize;
+        final long postMutationIndexCount;
+        final long selectedEntity;
+
+        ComposedExpected(
+                long primitiveFingerprint,
+                long topFingerprint,
+                long updateCount,
+                long updatedSum,
+                long removeCount,
+                long postMutationSize,
+                long postMutationIndexCount,
+                long selectedEntity) {
+            this.primitiveFingerprint = primitiveFingerprint;
+            this.topFingerprint = topFingerprint;
+            this.updateCount = updateCount;
+            this.updatedSum = updatedSum;
+            this.removeCount = removeCount;
+            this.postMutationSize = postMutationSize;
+            this.postMutationIndexCount = postMutationIndexCount;
+            this.selectedEntity = selectedEntity;
+        }
+    }
+
+    private static final class ComposedMetrics {
+        final LongMeasurement primitive;
+        final LongMeasurement primitiveParallel;
+        final LongMeasurement materializedTop;
+        final long updateNanos;
+        final long removeNanos;
+        final long removed;
+        final long fingerprint;
+
+        ComposedMetrics(
+                LongMeasurement primitive,
+                LongMeasurement primitiveParallel,
+                LongMeasurement materializedTop,
+                long updateNanos,
+                long removeNanos,
+                long removed,
+                long mutationFingerprint) {
+            this.primitive = primitive;
+            this.primitiveParallel = primitiveParallel;
+            this.materializedTop = materializedTop;
+            this.updateNanos = updateNanos;
+            this.removeNanos = removeNanos;
+            this.removed = removed;
+            this.fingerprint = BenchmarkSupport.fingerprint(
+                    primitive.value(), primitiveParallel.value(),
+                    materializedTop.value(), mutationFingerprint);
+        }
+
+        void appendTo(BenchmarkResult result) {
+            result.put("composedPrimitive", primitive)
+                    .put("composedPrimitiveParallel", primitiveParallel)
+                    .put("composedMaterializedTop", materializedTop)
+                    .put("composedUpdateNanos", updateNanos)
+                    .put("composedRemoveNanos", removeNanos)
+                    .put("composedRemoved", removed)
+                    .put("composedFingerprint", fingerprint);
+        }
+    }
+
+    private static final class ExpectedEvent {
+        static final Comparator<ExpectedEvent> ORDER = new Comparator<ExpectedEvent>() {
+            @Override public int compare(ExpectedEvent left, ExpectedEvent right) {
+                int minute = Integer.compare(left.minute, right.minute);
+                if (minute != 0) return minute;
+                int priority = Integer.compare(right.priority, left.priority);
+                return priority != 0 ? priority : Long.compare(left.eventId, right.eventId);
+            }
+        };
+
+        final long eventId;
+        final int minute;
+        final int priority;
+
+        ExpectedEvent(long eventId, int minute, int priority) {
+            this.eventId = eventId;
+            this.minute = minute;
+            this.priority = priority;
         }
     }
 

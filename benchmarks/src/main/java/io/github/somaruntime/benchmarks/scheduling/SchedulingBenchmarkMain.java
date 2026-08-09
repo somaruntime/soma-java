@@ -13,11 +13,15 @@ import io.github.somaruntime.examples.scheduling.Soma;
 import io.github.somaruntime.examples.scheduling.SomaGroup;
 import io.github.somaruntime.examples.scheduling.schema.JobStatus;
 import io.github.somaruntime.soma.LongGroupedLongResult;
+import io.github.somaruntime.soma.BooleanGroupedLongEntry;
+import io.github.somaruntime.soma.BooleanGroupedLongResult;
 import io.github.somaruntime.soma.SomaCompression;
 import io.github.somaruntime.soma.SomaConfiguration;
 import io.github.somaruntime.soma.TableMetadata;
 import io.github.somaruntime.soma.UpdateResult;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -128,6 +132,10 @@ public final class SchedulingBenchmarkMain {
             BenchmarkSupport.require(grouping.value(), expected.groupCount,
                     "scheduling GroupBy");
 
+            ComposedMetrics composed = BenchmarkSupport.composedWorkload()
+                    ? runComposed(options, machines, expected.composed)
+                    : null;
+
             long updateKey = Math.max(1L, rows / 2L);
             long oldSetup = options.get(updateKey).setupMinutes();
             UpdateResult update = options.update(updateKey, editor ->
@@ -145,7 +153,8 @@ public final class SchedulingBenchmarkMain {
                     index.value(), join.value(), top.value(), grouping.value(),
                     update.matched(), update.changed(), metadata.size());
 
-            new BenchmarkResult("scheduling", "MEDIUM", implementation, rows)
+            BenchmarkResult result = new BenchmarkResult(
+                    "scheduling", "MEDIUM", implementation, rows)
                     .put("correctness", true)
                     .put("compression", compression.name())
                     .put("ingestNanos", ingestNanos)
@@ -160,8 +169,11 @@ public final class SchedulingBenchmarkMain {
                     .put("representationBytes", metadata.representationBytes())
                     .put("plainEquivalentBytes", metadata.plainEquivalentBytes())
                     .put("sharedFingerprint", sharedFingerprint)
-                    .put("fingerprint", fingerprint)
-                    .print();
+                    .put("fingerprint", composed == null
+                            ? fingerprint
+                            : BenchmarkSupport.fingerprint(fingerprint, composed.fingerprint));
+            if (composed != null) composed.appendTo(result);
+            result.print();
         } finally {
             executor.shutdown();
         }
@@ -243,7 +255,162 @@ public final class SchedulingBenchmarkMain {
             key += 5L + (id - 1L) % 120L;
         }
         return new Expected(jobCount, machineCount, selectedJob, scan, key,
-                indexCount, joinCount, bestOption, jobCount);
+                indexCount, joinCount, bestOption, jobCount,
+                BenchmarkSupport.composedWorkload()
+                        ? composedExpected(rows, jobCount, machineCount) : null);
+    }
+
+    private static ComposedExpected composedExpected(
+            int rows,
+            int jobCount,
+            int machineCount) {
+        long selectiveSum = 0L;
+        long broadJoinSum = 0L;
+        long disabledCount = 0L;
+        long enabledCount = 0L;
+        long[] jobSums = new long[jobCount];
+        List<ExpectedOption> indexed = new ArrayList<ExpectedOption>();
+        long selectedMachine = Math.min(42L, machineCount);
+        for (int index = 0; index < rows; index++) {
+            long optionId = index + 1L;
+            long jobId = index % jobCount + 1L;
+            long machineId = index % machineCount + 1L;
+            long processing = 5L + index % 120;
+            boolean enabled = (index & 7) != 0;
+            if (enabled) enabledCount++; else disabledCount++;
+            if (enabled && processing >= 32L && processing <= 96L) {
+                selectiveSum += processing;
+            }
+            jobSums[(int) jobId - 1] += processing;
+            boolean machineEnabled = (((machineId - 1L) & 15L) != 0L);
+            if (enabled && machineEnabled) {
+                broadJoinSum += processing + (machineId - 1L) % 2_000L;
+            }
+            if (machineId == selectedMachine && enabled) {
+                indexed.add(new ExpectedOption(optionId, processing));
+            }
+        }
+        Collections.sort(indexed, new Comparator<ExpectedOption>() {
+            @Override public int compare(ExpectedOption left, ExpectedOption right) {
+                int duration = Long.compare(left.processing, right.processing);
+                return duration != 0 ? duration : Long.compare(left.optionId, right.optionId);
+            }
+        });
+        long indexTopFingerprint = 0xcbf29ce484222325L;
+        int topSize = Math.min(128, indexed.size());
+        for (int index = 0; index < topSize; index++) {
+            ExpectedOption option = indexed.get(index);
+            indexTopFingerprint = BenchmarkSupport.mix(indexTopFingerprint, option.optionId);
+            indexTopFingerprint = BenchmarkSupport.mix(indexTopFingerprint, option.processing);
+        }
+
+        long highGroupFingerprint = 0xcbf29ce484222325L;
+        for (int index = 0; index < jobSums.length; index++) {
+            highGroupFingerprint = BenchmarkSupport.mix(highGroupFingerprint, index + 1L);
+            highGroupFingerprint = BenchmarkSupport.mix(highGroupFingerprint, jobSums[index]);
+        }
+        long lowGroupFingerprint = BenchmarkSupport.fingerprint(
+                2L, 0L, disabledCount, 1L, enabledCount);
+        return new ComposedExpected(
+                selectiveSum,
+                indexTopFingerprint,
+                lowGroupFingerprint,
+                highGroupFingerprint,
+                broadJoinSum,
+                jobCount);
+    }
+
+    private static ComposedMetrics runComposed(
+            ProcessingOptionTable options,
+            MachineStateTable machines,
+            ComposedExpected expected) {
+        LongMeasurement selective = BenchmarkSupport.measure(() -> options
+                .filter(options.enabled.eq(true))
+                .filter(options.processingMinutes.between(32L, 96L))
+                .mapToLong(options.processingMinutes)
+                .sum());
+        BenchmarkSupport.require(selective.value(), expected.selectiveSum,
+                "scheduling composed selective pipeline");
+
+        LongMeasurement selectiveParallel = BenchmarkSupport.measure(() -> options.parallel()
+                .filter(options.enabled.eq(true))
+                .filter(options.processingMinutes.between(32L, 96L))
+                .mapToLong(options.processingMinutes)
+                .sum());
+        BenchmarkSupport.require(selectiveParallel.value(), expected.selectiveSum,
+                "scheduling composed selective parallel pipeline");
+
+        long selectedMachine = Math.min(42L, machines.size());
+        LongMeasurement indexTop = BenchmarkSupport.measure(() -> {
+            ProcessingOption[] values = options.byMachineId(selectedMachine)
+                    .filter(options.enabled.eq(true))
+                    .top(128L, options.processingMinutes.asc().then(options.optionId.asc()))
+                    .toArray();
+            long hash = 0xcbf29ce484222325L;
+            for (ProcessingOption value : values) {
+                hash = BenchmarkSupport.mix(hash, value.optionId());
+                hash = BenchmarkSupport.mix(hash, value.processingMinutes());
+            }
+            return hash;
+        });
+        BenchmarkSupport.require(indexTop.value(), expected.indexTopFingerprint,
+                "scheduling composed Index residual/top/materialization");
+
+        LongMeasurement lowGroup = BenchmarkSupport.measure(() -> {
+            BooleanGroupedLongResult grouped = options.groupBy(options.enabled).count();
+            BooleanGroupedLongEntry[] entries = grouped.toArray();
+            long hash = 0xcbf29ce484222325L;
+            hash = BenchmarkSupport.mix(hash, grouped.size());
+            for (BooleanGroupedLongEntry entry : entries) {
+                hash = BenchmarkSupport.mix(hash, entry.key() ? 1L : 0L);
+                hash = BenchmarkSupport.mix(hash, entry.value());
+            }
+            return hash;
+        });
+        BenchmarkSupport.require(lowGroup.value(), expected.lowGroupFingerprint,
+                "scheduling composed low-cardinality GroupBy");
+
+        LongMeasurement highGroup = BenchmarkSupport.measure(() -> {
+            LongGroupedLongResult grouped = options.groupBy(options.jobId)
+                    .sum(options.processingMinutes);
+            final long[] hash = {0xcbf29ce484222325L};
+            grouped.forEach((key, value) -> {
+                hash[0] = BenchmarkSupport.mix(hash[0], key);
+                hash[0] = BenchmarkSupport.mix(hash[0], value);
+            });
+            BenchmarkSupport.require(grouped.size(), expected.highGroupCount,
+                    "scheduling composed high-cardinality GroupBy size");
+            return hash[0];
+        });
+        BenchmarkSupport.require(highGroup.value(), expected.highGroupFingerprint,
+                "scheduling composed high-cardinality GroupBy");
+
+        LongMeasurement broadJoin = BenchmarkSupport.measure(() -> options.join(machines)
+                .on(options.machineId, machines.machineId)
+                .inner()
+                .filter(options.enabled.eq(true))
+                .filter(machines.enabled.eq(true))
+                .mapToLong(pair -> pair.left().processingMinutes()
+                        + pair.right().availableMinute())
+                .sum());
+        BenchmarkSupport.require(broadJoin.value(), expected.broadJoinSum,
+                "scheduling composed broad Join");
+
+        LongMeasurement broadJoinParallel = BenchmarkSupport.measure(() -> options.join(machines)
+                .on(options.machineId, machines.machineId)
+                .parallel()
+                .inner()
+                .filter(options.enabled.eq(true))
+                .filter(machines.enabled.eq(true))
+                .mapToLong(pair -> pair.left().processingMinutes()
+                        + pair.right().availableMinute())
+                .sum());
+        BenchmarkSupport.require(broadJoinParallel.value(), expected.broadJoinSum,
+                "scheduling composed broad parallel Join");
+
+        return new ComposedMetrics(
+                selective, selectiveParallel, indexTop, lowGroup, highGroup,
+                broadJoin, broadJoinParallel);
     }
 
     private static final class Expected {
@@ -256,6 +423,7 @@ public final class SchedulingBenchmarkMain {
         final long joinCount;
         final long bestOption;
         final long groupCount;
+        final ComposedExpected composed;
 
         Expected(
                 int jobCount,
@@ -266,7 +434,8 @@ public final class SchedulingBenchmarkMain {
                 long indexCount,
                 long joinCount,
                 long bestOption,
-                long groupCount) {
+                long groupCount,
+                ComposedExpected composed) {
             this.jobCount = jobCount;
             this.machineCount = machineCount;
             this.selectedJob = selectedJob;
@@ -276,6 +445,84 @@ public final class SchedulingBenchmarkMain {
             this.joinCount = joinCount;
             this.bestOption = bestOption;
             this.groupCount = groupCount;
+            this.composed = composed;
+        }
+    }
+
+    private static final class ComposedExpected {
+        final long selectiveSum;
+        final long indexTopFingerprint;
+        final long lowGroupFingerprint;
+        final long highGroupFingerprint;
+        final long broadJoinSum;
+        final long highGroupCount;
+
+        ComposedExpected(
+                long selectiveSum,
+                long indexTopFingerprint,
+                long lowGroupFingerprint,
+                long highGroupFingerprint,
+                long broadJoinSum,
+                long highGroupCount) {
+            this.selectiveSum = selectiveSum;
+            this.indexTopFingerprint = indexTopFingerprint;
+            this.lowGroupFingerprint = lowGroupFingerprint;
+            this.highGroupFingerprint = highGroupFingerprint;
+            this.broadJoinSum = broadJoinSum;
+            this.highGroupCount = highGroupCount;
+        }
+    }
+
+    private static final class ComposedMetrics {
+        final LongMeasurement selective;
+        final LongMeasurement selectiveParallel;
+        final LongMeasurement indexTop;
+        final LongMeasurement lowGroup;
+        final LongMeasurement highGroup;
+        final LongMeasurement broadJoin;
+        final LongMeasurement broadJoinParallel;
+        final long fingerprint;
+
+        ComposedMetrics(
+                LongMeasurement selective,
+                LongMeasurement selectiveParallel,
+                LongMeasurement indexTop,
+                LongMeasurement lowGroup,
+                LongMeasurement highGroup,
+                LongMeasurement broadJoin,
+                LongMeasurement broadJoinParallel) {
+            this.selective = selective;
+            this.selectiveParallel = selectiveParallel;
+            this.indexTop = indexTop;
+            this.lowGroup = lowGroup;
+            this.highGroup = highGroup;
+            this.broadJoin = broadJoin;
+            this.broadJoinParallel = broadJoinParallel;
+            this.fingerprint = BenchmarkSupport.fingerprint(
+                    selective.value(), selectiveParallel.value(), indexTop.value(),
+                    lowGroup.value(), highGroup.value(), broadJoin.value(),
+                    broadJoinParallel.value());
+        }
+
+        void appendTo(BenchmarkResult result) {
+            result.put("composedSelective", selective)
+                    .put("composedSelectiveParallel", selectiveParallel)
+                    .put("composedIndexTop", indexTop)
+                    .put("composedLowGroup", lowGroup)
+                    .put("composedHighGroup", highGroup)
+                    .put("composedBroadJoin", broadJoin)
+                    .put("composedBroadJoinParallel", broadJoinParallel)
+                    .put("composedFingerprint", fingerprint);
+        }
+    }
+
+    private static final class ExpectedOption {
+        final long optionId;
+        final long processing;
+
+        ExpectedOption(long optionId, long processing) {
+            this.optionId = optionId;
+            this.processing = processing;
         }
     }
 

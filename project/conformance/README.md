@@ -47,6 +47,7 @@ G10                            PASS
 Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORIZED
 Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
 Performance/correctness       GOVERNANCE_PASS / LONG_TERM_BENCHMARK_PRESENT
+Active bounded topic          NONE
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -117,6 +118,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [V1 Performance and Correctness Governance](v1-performance-correctness-governance.md)：
   三个reference application长期benchmark、正常路径正确性复核、profile驱动优化、scale/memory边界、
   相对回归ratchet与最佳实践Owner。
+- [V1 Ten-million Composed Workload Governance](v1-ten-million-composed-workload-governance.md)：
+  三个10M组合场景、正常路径正确性、Key-aware Join资源上界、mutation/accounting优化、AUTO/OFF与
+  fixed-host性能/内存边界Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -131,8 +135,9 @@ Historical inputs：
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
 Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
-`docs/`仍是用户文档placeholder。`benchmarks/`的长期非production性能与正确性证据已由
+`docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
 [正式Conformance记录](v1-performance-correctness-governance.md)完成治理和replacement closure；
+千万行组合负载的扩展证据见[对应记录](v1-ten-million-composed-workload-governance.md)；
 交付导向仓库治理见[对应记录](v1-delivery-centered-repository-governance.md)。
 
 ## 5. Gate status

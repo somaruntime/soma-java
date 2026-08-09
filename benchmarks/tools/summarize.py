@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 
-GroupKey = Tuple[str, str, int, int]
+GroupKey = Tuple[str, str, str, int, int]
 
 
 def parse_args() -> argparse.Namespace:
@@ -50,17 +50,18 @@ def load(path: Path) -> List[Dict[str, Any]]:
 
 def validate(records: List[Dict[str, Any]], expected_runs: int) -> Dict[GroupKey, List[Dict[str, Any]]]:
     groups: Dict[GroupKey, List[Dict[str, Any]]] = defaultdict(list)
-    shared: Dict[Tuple[str, int], set] = defaultdict(set)
-    soma: Dict[Tuple[str, int], set] = defaultdict(set)
+    shared: Dict[Tuple[str, str, int], set] = defaultdict(set)
+    soma: Dict[Tuple[str, str, int], set] = defaultdict(set)
     for record in records:
         key = (
             str(record["scenario"]),
             str(record["implementation"]),
+            str(record.get("workload", "core")),
             int(record["rows"]),
             int(record["parallelism"]),
         )
         groups[key].append(record)
-        scenario_key = (key[0], key[2])
+        scenario_key = (key[0], key[2], key[3])
         shared[scenario_key].add(int(record["sharedFingerprint"]))
         if key[1].startswith("soma-"):
             soma[scenario_key].add(int(record["fingerprint"]))
@@ -109,8 +110,9 @@ def summarize(groups: Dict[GroupKey, List[Dict[str, Any]]]) -> List[Dict[str, An
             {
                 "scenario": key[0],
                 "implementation": key[1],
-                "rows": key[2],
-                "parallelism": key[3],
+                "workload": key[2],
+                "rows": key[3],
+                "parallelism": key[4],
                 "runs": len(records),
                 "fingerprint": int(records[0]["fingerprint"]),
                 "sharedFingerprint": int(records[0]["sharedFingerprint"]),
@@ -134,14 +136,14 @@ def render_markdown(summaries: List[Dict[str, Any]]) -> str:
         "",
         "All rows passed scenario correctness and fingerprint validation.",
         "",
-        "| Scenario | Implementation | Rows | P | Runs | Ingest ms | Scan ms | Parallel scan ms | Key 10k ms | Index ms | Join ms | Top ms | Group ms | RSS MiB |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| Scenario | Workload | Implementation | Rows | P | Runs | Ingest ms | Scan ms | Parallel scan ms | Key 10k ms | Index ms | Join ms | Top ms | Group ms | RSS MiB |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for summary in summaries:
         rss = summary["maxRssBytes"]
         rss_text = "-" if rss is None else "{:.1f}".format(rss / 1024.0 / 1024.0)
         lines.append(
-            "| {scenario} | {implementation} | {rows} | {parallelism} | {runs} | {ingest} | {scan} | {parallel_scan} | {key} | {index} | {join} | {top} | {group} | {rss} |".format(
+            "| {scenario} | {workload} | {implementation} | {rows} | {parallelism} | {runs} | {ingest} | {scan} | {parallel_scan} | {key} | {index} | {join} | {top} | {group} | {rss} |".format(
                 **summary,
                 ingest=milliseconds(summary, "ingestNanos"),
                 scan=milliseconds(summary, "scanMedianNanos"),
@@ -154,6 +156,45 @@ def render_markdown(summaries: List[Dict[str, Any]]) -> str:
                 rss=rss_text,
             )
         )
+    canonical = {
+        "ingestNanos",
+        "scanMedianNanos",
+        "parallelScanMedianNanos",
+        "key10kMedianNanos",
+        "indexMedianNanos",
+        "joinMedianNanos",
+        "topMedianNanos",
+        "groupMedianNanos",
+    }
+    additional = []
+    for summary in summaries:
+        metric_names = set(summary["metrics"])
+        for name in sorted(metric_names):
+            if name in canonical or name.endswith("MinNanos") or name.endswith("MaxNanos"):
+                continue
+            if name.endswith("Nanos") and not name.endswith("MedianNanos"):
+                measured_prefix = name[: -len("Nanos")]
+                if measured_prefix + "MedianNanos" in metric_names:
+                    continue
+            additional.append((summary, name))
+    if additional:
+        lines.extend(
+            [
+                "",
+                "## Additional workload metrics",
+                "",
+                "| Scenario | Workload | Implementation | Metric | Median ms |",
+                "|---|---|---|---|---:|",
+            ]
+        )
+        for summary, name in additional:
+            lines.append(
+                "| {scenario} | {workload} | {implementation} | {metric} | {value} |".format(
+                    **summary,
+                    metric=name,
+                    value=milliseconds(summary, name),
+                )
+            )
     lines.append("")
     return "\n".join(lines)
 

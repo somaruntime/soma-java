@@ -47,6 +47,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | I0–I8 历史实施资格 | [Conformance records](conformance/README.md#4-active-records) |
 | 仓库交付结构治理 | [Delivery-centered governance](conformance/v1-delivery-centered-repository-governance.md) |
 | 性能、正确性与长期 benchmark 治理 | [Performance and correctness governance](conformance/v1-performance-correctness-governance.md) |
+| 千万行组合负载、资源与优化证据 | [Ten-million composed workload governance](conformance/v1-ten-million-composed-workload-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
