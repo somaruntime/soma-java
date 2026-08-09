@@ -205,7 +205,7 @@ while [ "$run_number" -le "$runs" ]; do
     if [ $((run_number % 2)) -eq 1 ]; then
         mode_order=$implementations
     else
-        mode_order=$(printf '%s\n' $implementations | awk '{ value[NR] = $0 } END { for (index = NR; index >= 1; index--) print value[index] }')
+        mode_order=$(printf '%s\n' $implementations | awk '{ value[NR] = $0 } END { for (position = NR; position >= 1; position--) print value[position] }')
     fi
     for implementation in $mode_order; do
         if [ $((run_number % 2)) -eq 1 ]; then
