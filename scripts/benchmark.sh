@@ -10,6 +10,7 @@ if [ -z "${JAVA_HOME:-}" ]; then
 fi
 java_cmd="$JAVA_HOME/bin/java"
 jfr_cmd="$JAVA_HOME/bin/jfr"
+jfrconv_cmd="$JAVA_HOME/bin/jfrconv"
 test -x "$java_cmd" || {
     echo "benchmark: Java 8 java tool is required" >&2
     exit 1
@@ -61,8 +62,8 @@ if [ "$profiler" = jfr ]; then
 fi
 async_library="$JAVA_HOME/lib/libasyncProfiler.dylib"
 if [ "$profiler" = async ]; then
-    test -f "$async_library" || {
-        echo "benchmark: selected JDK does not provide bundled async-profiler" >&2
+    test -f "$async_library" && test -x "$jfrconv_cmd" || {
+        echo "benchmark: selected JDK does not provide bundled async-profiler tools" >&2
         exit 1
     }
 fi
@@ -126,8 +127,11 @@ run_benchmark() {
     time_log="$run_root.time.log"
     gc_log="$run_root.gc.log"
     jfr_file="$run_root.jfr"
-    async_file="$run_root-cpu.html"
-    rm -f "$stdout_log" "$time_log" "$gc_log" "$jfr_file" "$async_file" \
+    async_jfr="$run_root-cpu.jfr"
+    async_collapsed="$run_root-cpu.collapsed"
+    async_html="$run_root-cpu.html"
+    rm -f "$stdout_log" "$time_log" "$gc_log" "$jfr_file" \
+        "$async_jfr" "$async_collapsed" "$async_html" \
         "$run_root.jfr-summary.txt"
 
     set -- "$java_cmd" \
@@ -144,7 +148,7 @@ run_benchmark() {
             set -- "$@" -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
                 "-XX:StartFlightRecording=filename=$jfr_file,dumponexit=true,settings=profile"
         elif [ "$profiler" = async ]; then
-            set -- "$@" "-agentpath:$async_library=start,event=cpu,file=$async_file"
+            set -- "$@" "-agentpath:$async_library=start,event=cpu,file=$async_jfr"
         fi
     fi
     set -- "$@" -cp "$benchmark_classpath" "$main_class" "$rows" "$implementation"
@@ -169,6 +173,10 @@ run_benchmark() {
         --stdout "$stdout_log" --time "$time_log" >> "$raw_results"
     if [ -s "$jfr_file" ]; then
         "$jfr_cmd" summary "$jfr_file" > "$run_root.jfr-summary.txt"
+    fi
+    if [ -s "$async_jfr" ]; then
+        "$jfrconv_cmd" --cpu -o collapsed "$async_jfr" "$async_collapsed"
+        "$jfrconv_cmd" --cpu -o html "$async_jfr" "$async_html"
     fi
 }
 
