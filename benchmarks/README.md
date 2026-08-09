@@ -38,8 +38,8 @@ CPU 归因使用 `SOMA_BENCHMARK_PROFILER=async`；allocation 归因再增加
 `SOMA_BENCHMARK_ASYNC_EVENT=alloc`。两者都保留 JFR、collapsed stack 与 flame graph。
 
 正式比较必须使用相同 commit/source、JDK/JVM、workload、row count、parallelism 和 fresh-JVM
-run count；Smoke 只证明测量链可运行，不能证明性能提升。完整证据合同与当前专题边界见
-[`project/temp/soma-v1-performance-correctness-governance`](../project/temp/soma-v1-performance-correctness-governance/README.md)。
+run count；Smoke 只证明测量链可运行，不能证明性能提升。当前证据、scale/memory边界与使用准则见
+[性能与正确性联合治理记录](../project/conformance/v1-performance-correctness-governance.md)。
 
 同一环境的 before/after 摘要可用比较器建立回归 ratchet：
 
