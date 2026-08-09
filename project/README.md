@@ -17,7 +17,8 @@ implementation 与 qualification：
 - Java 8 下的两项 production artifact、generated API、chunked storage、Key/Index、query/optimizer、
   mutation、GroupBy/Join、parallel、compression/metadata、三个 reference application 和本地交付链已建立；
 - G1–G10 当前为 `PASS`；百万行证据是同机 qualification，不是一亿行承诺或跨硬件 SLA；
-- 当前没有 active implementation slice，也没有 active Temporary；
+- 当前没有 active implementation slice；当前 bounded Temporary 是
+  [性能与正确性联合治理](temp/soma-v1-performance-correctness-governance/README.md)；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -64,9 +65,10 @@ Blueprint
 - `tests/`：按长期 capability 组织的跨 artifact executable evidence；
 - `build-support/`：linkage、codegen、qualification 和 delivery machinery；
 - `scripts/`：`check`、`qualify`、`benchmark`、`package-local` 四个稳定入口；
-- `docs/`、`benchmarks/`：仅占位，分别等待独立用户文档与性能专题；
+- `docs/`：仅占位，等待独立用户文档专题；
+- `benchmarks/`：由当前性能与正确性联合治理建立长期非 production benchmark；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务 active bounded topic，当前为空。
+- `temp/`：只服务 active bounded topic；当前仅包含性能与正确性联合治理。
 
 日常检查使用：
 
@@ -97,5 +99,6 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
+当前 active topic 为[性能与正确性联合治理](temp/soma-v1-performance-correctness-governance/README.md)。
 新的重大长期变化先进入 `project/temp/<topic>/`。Temporary 只拥有候选与协调事实；裁决和验证
 完成后，稳定结论必须晋升到唯一 Owner，并删除 Temporary，不能把它变成平行 Design 或历史档案。

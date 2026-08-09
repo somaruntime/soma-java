@@ -15,8 +15,10 @@ project。它们只使用 SOMA public/generated Java 8 API，并展示 applicati
 ```text
 src/main/java/.../schema/        schema declaration
 src/main/java/.../application/   service、decision、业务协议与 Main
-src/test/java/.../profile/       非发布的规模/profile harness
 ```
+
+Example 自身只保留可阅读、可运行的 application。规模测量、profiler 和跨实现正确性对照由独立的
+[`benchmarks/`](../benchmarks/README.md) 工程承载，避免把开发期测量职责混入用户示例。
 
 从 repository root 构建：
 
@@ -38,7 +40,7 @@ java -cp 'soma-examples/scheduling/target/classes:soma-runtime/target/*' \
 scheduling-reference: PASS
 ```
 
-三个 project 不进入 SOMA 的两项 production artifact，也不拥有新的产品语义。完整资格和 profile
+三个 project 不进入 SOMA 的两项 production artifact，也不拥有新的产品语义。完整资格和 benchmark
 分别由 [`scripts/qualify.sh`](https://github.com/somaruntime/soma-java/blob/develop/scripts/qualify.sh)
 与 [`scripts/benchmark.sh`](https://github.com/somaruntime/soma-java/blob/develop/scripts/benchmark.sh)
 统一管理。

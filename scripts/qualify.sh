@@ -41,7 +41,8 @@ fi
 # Install exactly the just-built SNAPSHOT pair so the three projects are true
 # downstream consumers with an isolated processorpath rather than reactor internals.
 mvn install -Dmaven.install.skip=false -DskipTests
-mvn -f soma-examples/pom.xml clean package -DskipTests
+mvn -f soma-examples/pom.xml clean install -DskipTests
+mvn -f benchmarks/pom.xml clean package -DskipTests
 
 runtime_jar=
 processor_jar=
@@ -111,7 +112,7 @@ find soma-examples/scheduling/src/main/java "$generated" \
 archive=
 for candidate in "$package_root"/soma-java-*-source-bundle.tar.gz; do archive=$candidate; done
 test -s "$archive"
-if tar -tzf "$archive" | grep -E '(^|/)(project|tests|scripts|target|\.git)(/|$)|(^|/)build-support/(codegen|delivery|qualification)(/|$)|/src/test/'; then
+if tar -tzf "$archive" | grep -E '(^|/)(benchmarks|project|tests|scripts|target|\.git)(/|$)|(^|/)build-support/(codegen|delivery|qualification)(/|$)|/src/test/'; then
     echo "qualification: source delivery contains internal evidence" >&2
     exit 1
 fi

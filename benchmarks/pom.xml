@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.somaruntime.soma.build</groupId>
+    <artifactId>soma-benchmarks</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>SOMA Benchmarks</name>
+    <description>Non-published benchmark consumers for the SOMA reference applications.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>8</maven.compiler.release>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
+        <maven.enforcer.plugin.version>3.5.0</maven.enforcer.plugin.version>
+        <maven.install.skip>true</maven.install.skip>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.somaruntime.examples</groupId>
+            <artifactId>soma-example-scheduling</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.somaruntime.examples</groupId>
+            <artifactId>soma-example-simulation</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.somaruntime.examples</groupId>
+            <artifactId>soma-example-real-time-dispatch</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven.enforcer.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-qualified-benchmark-runtime</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion><version>[1.8,1.9)</version></requireJavaVersion>
+                                <requireMavenVersion><version>[3.9,4.0)</version></requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>${maven.compiler.plugin.version}</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                    <source>${maven.compiler.source}</source>
+                    <target>${maven.compiler.target}</target>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

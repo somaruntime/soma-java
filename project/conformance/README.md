@@ -126,8 +126,9 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active Temporary；
-`docs/`与`benchmarks/`只建立placeholder，分别等待独立用户文档与性能专题。交付导向仓库治理
+Historical record不能覆盖current Blueprint/Design/Readiness。当前active bounded Temporary为
+[性能与正确性联合治理](../temp/soma-v1-performance-correctness-governance/README.md)；`docs/`仍是
+用户文档placeholder，`benchmarks/`由该专题建立长期非production性能证据。交付导向仓库治理
 已晋升为[正式Conformance记录](v1-delivery-centered-repository-governance.md)并完成replacement closure。
 
 ## 5. Gate status
