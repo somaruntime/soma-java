@@ -17,19 +17,17 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 
 - Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
 - readiness 结论为 `READY_FOR_IMPLEMENTATION`；
-- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I7已经完成并通过正式资格，
-  当前没有active slice，下一项从I8开始；
+- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I8已经完成本地
+  implementation与qualification，当前没有active implementation slice；
 - active checkout已有Java 8 Maven reactor、`soma-runtime`与`soma-processor`两项production
   artifact源码、processor/full-regeneration baseline、I2 generated schema/type/Key/Index API、paged
   primitive/reference PLAIN storage、Value flattening、direct selection、point add/update/remove、
   sequential query、typed IR、reference/optimized sequential execution、Selection mutation、atomic
   StateRoot/Group accounting、GroupBy、binary Equality/Cross Join、bounded parallel execution、
-  AUTO/OFF compression、四级metadata、structured failure与资格测试；
-- 尚没有Example、benchmark、
-  CI/release workflow或remote package；
-- G1-G8为`PASS`；G9未运行、G10为I0范围
-  `PASS`且整体仍`IN_PROGRESS`，因此没有完整可用性、
-  性能、兼容性或release readiness声明。
+  AUTO/OFF compression、四级metadata、structured failure与资格测试，以及三个reference
+  application、million-row profile、package/SBOM/provenance、CI与non-publishing release workflow；
+- G1-G9为`PASS`；G10为`LOCAL_PASS / REMOTE_QUALIFICATION_PENDING`；本地package已完成资格但
+  未远端发布，因此没有GitHub Release/Package、签名或正式release声明。
 
 正式设计说明产品应当是什么；它不等于代码和证据已经存在。
 
@@ -66,25 +64,25 @@ cross-Table transaction、persistence 或 distributed execution。
 - [I5 GroupBy 与 Relation Qualification](project/conformance/i5-group-relation-qualification.md)
 - [I6 Bounded Parallel Execution Qualification](project/conformance/i6-parallel-execution-qualification.md)
 - [I7 Compression 与 Metadata Qualification](project/conformance/i7-compression-metadata-qualification.md)
+- [I8 Product Qualification](project/conformance/i8-product-qualification.md)
 - [当前 Conformance 与 G1-G10](project/conformance/README.md)
 - [品牌资产](assets/README.md)
 - [安全报告方式](SECURITY.md)
 
-产品使用手册、Quick Start 与可执行 Examples 将在 production surface 真正建立并通过相应
-Conformance Gate 后提供；当前不使用伪示例制造“已经可用”的印象。
+三个可执行reference application位于[`soma-examples`](soma-examples/README.md)，按独立下游项目
+构建并展示正常SOMA使用路径；它们是角色投影，不是第二份Design。
 
 ## 当前构建入口
 
-当前I7 canonical qualification要求Java 8与Maven 3.9.x：
+当前I8 canonical qualification要求Java 8与Maven 3.9.x：
 
 ```sh
 ./scripts/check.sh
 ```
 
-该命令回归I0-I7，并验证AUTO/OFF representation、四级metadata、generated final functional surface、
-independent consumer、full regeneration与structured failure；
-它不是完整V1使用或性能资格入口。精确环境、结果与claim boundary见
-[I7资格记录](project/conformance/i7-compression-metadata-qualification.md)。
+该命令回归I0-I8，并验证三个Examples、million-row profile、package/SBOM/checksum/provenance、
+independent packaged consumer与non-publishing release boundary。精确环境、结果、approved threshold
+与claim boundary见[I8资格记录](project/conformance/i8-product-qualification.md)。
 
 ## Clean-slate 与产品身份
 

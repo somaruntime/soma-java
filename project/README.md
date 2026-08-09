@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0-I7 `COMPLETED`；I8 `NOT_STARTED`
+implementation authorization `GRANTED`；I0-I8 `COMPLETED_LOCALLY`；远端G10待验证
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -22,7 +22,8 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
 - [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
-- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0-I7已经完成并分别通过
+- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0-I8已经完成本地
+  implementation与qualification；I0-I7分别通过
   [I0资格](conformance/i0-build-spine-qualification.md)与
   [I1资格](conformance/i1-primitive-keyed-table-qualification.md)、
   [I2资格](conformance/i2-schema-type-storage-breadth-qualification.md)与
@@ -30,20 +31,22 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
   [I4资格](conformance/i4-selection-mutation-resource-qualification.md)、
   [I5资格](conformance/i5-group-relation-qualification.md)与
   [I6资格](conformance/i6-parallel-execution-qualification.md)与
-  [I7资格](conformance/i7-compression-metadata-qualification.md)；
-- 当前没有active slice，I8为`NOT_STARTED`，下一项从I8开始；
-- G1-G8为`PASS`；G10为I0范围`PASS`但整体仍`IN_PROGRESS`；G9为`NOT_RUN`。
+  [I7资格](conformance/i7-compression-metadata-qualification.md)，I8通过
+  [产品资格与G9 Owner sign-off](conformance/i8-product-qualification.md)；
+- 当前没有active implementation slice；只剩`develop`远端workflow完成G10闭环；
+- G1-G9为`PASS`；G10为`LOCAL_PASS / REMOTE_QUALIFICATION_PENDING`。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前active checkout已有I0-I7 production source、Maven reactor、恰好两个production artifact、
+当前active checkout已有I0-I8 production source、Maven reactor、恰好两个production artifact、
 完整I2 generated schema/type/Key/Index API breadth、paged primitive/reference PLAIN/encoded/overlay storage、Value
 flattening、multiple Index、direct selection与point add/update/remove，以及sequential query、typed IR、
 reference interpreter、optimized sequential execution、Selection mutation、Group accounting、GroupBy、
-binary Equality/Cross Join、bounded parallel execution、AUTO/OFF compression与四级metadata的源码、测试和资格脚本；
-没有benchmark、Example、CI/release workflow、remote package或committed build artifact。I7完成不等于完整implementation、performance、
-compatibility或release成立。
+binary Equality/Cross Join、bounded parallel execution、AUTO/OFF compression与四级metadata的源码、测试和资格脚本，
+以及三个reference application、million-row profile、package/SBOM/provenance、CI与non-publishing
+release qualification workflow。Package只在本地完成资格且没有committed build artifact；远端workflow尚未验证，
+也没有GitHub Release/Package、签名或正式release声明。
 
 此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
 type-shape/mechanism evidence 仍是设计可行性输入；它不是 production test 或 runtime evidence。
@@ -73,6 +76,7 @@ type-shape/mechanism evidence 仍是设计可行性输入；它不是 production
 | I5 GroupBy、binary Equality/Cross Join与G6 evidence | [I5 GroupBy 与 Relation Qualification](conformance/i5-group-relation-qualification.md) |
 | I6 bounded parallel execution与G7 evidence | [I6 Bounded Parallel Execution Qualification](conformance/i6-parallel-execution-qualification.md) |
 | I7 compression、metadata/explain与G8 evidence | [I7 Compression 与 Metadata Qualification](conformance/i7-compression-metadata-qualification.md) |
+| I8 Examples、performance、package与G9/G10 evidence | [I8 Product Qualification](conformance/i8-product-qualification.md) |
 | 候选来源、晋升矩阵与 replacement closure | [Formal Promotion](conformance/large-scale-engine-formal-promotion.md) |
 | 当前实施准入结论、findings closure与授权边界 | [最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md) |
 | 当前实现差距与 evidence 状态 | [Conformance](conformance/README.md) |
@@ -108,14 +112,14 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0-I7 completed，当前无active slice，下一项I8 |
-| Conformance | `project/conformance/`；G1-G8 PASS，G9未运行，G10 scoped PASS且整体IN_PROGRESS |
+| Engineering | `project/engineering/`；I0-I8 locally completed，当前无active implementation slice |
+| Conformance | `project/conformance/`；G1-G9 PASS，G10 local PASS且remote qualification pending |
 | Temporary | 当前无active topic；目录不拥有current事实 |
-| Product Docs | 尚未建立；等待 production surface 与 Gate |
-| Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
+| Product Docs | 三个reference application已建立；Manual/White Paper不在本次implementation scope |
+| Modules/Implementation Map/Process/Reports | production module与资格入口由root/project README和Conformance路由，不创建重复Owner |
 
-Selected delivery profile 尚未建立；未来 package/source bundle 必须采用明确 allowlist，不能把
-整个 checkout 默认交付给 library consumer。
+Selected source delivery profile已经建立明确allowlist；package/source bundle不会把整个checkout
+默认交付给library consumer。
 
 ## 固定产品身份
 
@@ -155,11 +159,13 @@ I0 build/full-regeneration spine (COMPLETED)
                     -> one active slice at a time
                     -> matching Conformance evidence
                         -> stop or next slice
-                            -> I8 product qualification
-                                -> separate release authorization
+                            -> I8 product qualification (COMPLETED LOCALLY)
+                                -> remote G10 qualification
+                                    -> separate release authorization
 ```
 
-I0-I7 exit evidence已经闭合；下一项只允许从I8开始。当前授权同时允许每个slice证据闭合后的
+I0-I8本地exit evidence已经闭合；当前只剩`develop`远端CI与non-publishing release qualification。
+当前授权同时允许每个slice证据闭合后的
 干净commit与`develop` push，以及
 [Conformance authorization contract](conformance/README.md#6-implementation-authorization-contract)
 限定的CI、internal benchmark/profile、local package qualification和JUnit Jupiter 5.x
@@ -177,6 +183,6 @@ I0已执行Java 8 build/artifact/full-regeneration基线；I1建立第一套gene
 [I4 Qualification](conformance/i4-selection-mutation-resource-qualification.md)与
 [I5 Qualification](conformance/i5-group-relation-qualification.md)与
 [I6 Qualification](conformance/i6-parallel-execution-qualification.md)与
-[I7 Qualification](conformance/i7-compression-metadata-qualification.md)。I8的performance、
-package和release Gate只能在相应surface出现后执行，不得用I0-I7 scoped
-evidence替代。
+[I7 Qualification](conformance/i7-compression-metadata-qualification.md)与
+[I8 Qualification](conformance/i8-product-qualification.md)。G9同机threshold不是跨硬件SLA或
+一亿行性能承诺；G10本地PASS也不替代远端workflow或独立release authorization。

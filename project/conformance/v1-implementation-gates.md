@@ -2,8 +2,8 @@
 
 类型：Conformance Gate Definition
 
-状态：Active；G1-G8 `PASS`；G9 `NOT_RUN`；
-G10 `I0_SCOPE_PASS / IN_PROGRESS`
+状态：Active；G1-G9 `PASS`；
+G10 `LOCAL_PASS / REMOTE_QUALIFICATION_PENDING`
 
 正式事实源：是（production evidence最低集合）
 
@@ -219,9 +219,28 @@ Qualification必须在approved machine/JVM/heap记录：
 - ArrayList+HashMap与合理manual column baseline；
 - warm/cold、multiple JVM runs、variance与result fingerprint。
 
-16 core/32 GB是qualification envelope；不外推为minimum/maximum。Exact thresholds在I8前由
-profile proposal + Product Owner批准后写入同一Gate appendix；一亿行仍是future architecture
-vision，不在未测量时拍硬数。
+16 core/32 GB是qualification envelope；不外推为minimum/maximum。一亿行仍是future architecture
+vision，不属于本次V1硬Gate。
+
+### 10.1 Approved I8 qualification threshold
+
+Product Owner于2026-08-09批准以下同一环境/同一fixture资格阈值：
+
+| Dimension | Approved threshold |
+|---|---|
+| Correctness | 三次fresh JVM fingerprint稳定；sequential/parallel结果相同 |
+| Dataset | Narrow、Medium、Reference-mixed各至少1,000,000 primary rows |
+| Peak RSS | 每个场景不超过2.5 GiB |
+| Ingest | Scheduling ≤1.25 s；Simulation ≤1.10 s；Dispatch ≤2.25 s |
+| Scan | sequential与parallel均≤75 ms |
+| Lookup/relation | 10k Key≤30 ms；Index≤25 ms；Join≤75 ms |
+| Stateful | 当前Top/GroupBy阶段≤300 ms |
+| Variance | 非零核心阶段三次运行`max/min ≤1.30` |
+| Representation | 当前三类compressible fixture均不大于plain-equivalent bytes |
+
+正式环境、结果、限制与claim boundary见
+[I8 Product Qualification](i8-product-qualification.md)。这些阈值用于发现同机回归，不是公开
+性能承诺或跨硬件SLA。
 
 Loader trigger：如果repeated add是dominant bottleneck且无法通过internal优化达到approved
 manual baseline threshold，G9阻断并建立Loader Temporary；不得引入 hidden Batch。
@@ -257,8 +276,8 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 | G6 Group/Join | PASS | I5 |
 | G7 Parallel | PASS | I6 |
 | G8 Compression/metadata | PASS | I7 |
-| G9 Scenarios/performance | NOT_RUN | I8 |
-| G10 Security/package/release | I0_SCOPE_PASS / IN_PROGRESS | I0、I8 |
+| G9 Scenarios/performance | PASS | I8 |
+| G10 Security/package/release | LOCAL_PASS / REMOTE_QUALIFICATION_PENDING | I0、I8 |
 
 I0的artifact/build baseline见
 [I0 Build Spine Qualification](i0-build-spine-qualification.md)；I1的公开generated surface、paged
@@ -276,7 +295,9 @@ GroupBy、binary Equality/Cross Join、reference differential与G6 closure见
 parallel surface、application-owned/common pool、bounded caller participation、canonical order与G7 closure；
 [I7 Compression 与 Metadata Qualification](i7-compression-metadata-qualification.md)记录Chunk
 representation、AUTO/OFF、overlay、四级metadata、explain、最终generated surface与G2-G3/G8 closure。
-G10仍等待I8 CI、完整SBOM、package consumer与release qualification。
+[I8 Product Qualification](i8-product-qualification.md)记录三个reference application、百万行profile、
+approved G9 threshold、SBOM、package consumer与本地release qualification。G10只剩`develop`推送后的
+远端CI与non-publishing release qualification结果。
 
 ## 13. Evidence record format
 

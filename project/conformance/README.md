@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0-I7 `COMPLETED`；I8 `NOT_STARTED`
+Implementation authorization `GRANTED`；I0-I8 `COMPLETED_LOCALLY`；远端G10待验证
 
 正式事实源：是
 
@@ -31,9 +31,9 @@ Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
-Production source/reactor      PRESENT (I0-I7 scope)
-Generated consumer API         PRESENT (I7 final functional/generated surface)
-Active slice                   NONE (next: I8)
+Production source/reactor      PRESENT (I0-I8 scope)
+Generated consumer API         PRESENT (V1 final functional/generated surface)
+Active slice                   NONE (implementation complete)
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -42,9 +42,9 @@ G5                             PASS
 G6                             PASS
 G7                             PASS
 G8                             PASS
-G9                             NOT_RUN
-G10                            I0_SCOPE_PASS / OVERALL IN_PROGRESS
-Package/release                NOT_QUALIFIED
+G9                             PASS
+G10                            LOCAL_PASS / REMOTE_QUALIFICATION_PENDING
+Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORIZED
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -56,14 +56,16 @@ interpreter与optimized execution成立；I4
 Group accounting成立；I5 [正式资格](i5-group-relation-qualification.md)证明GroupBy、binary
 Equality/Cross Join与G6成立；I6 [正式资格](i6-parallel-execution-qualification.md)证明bounded
 parallel execution与G7成立；I7 [正式资格](i7-compression-metadata-qualification.md)证明Chunk
-compression、四级metadata、final generated surface与G8成立，不表示I8 capability已经成立。当前授权允许每个slice闭合后的commit与`develop`
-push，以及下文第6节限定的内部资格验证；不包含远端artifact发布、签名或正式release声明。
+compression、四级metadata、final generated surface与G8成立；I8
+[正式资格](i8-product-qualification.md)证明三个reference application、approved百万行performance
+threshold、package/SBOM/provenance与本地non-publishing release qualification成立。当前只剩
+`develop`远端workflow结果；授权不包含远端artifact发布、签名或正式release声明。
 
 ## 3. Conformance matrix
 
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
-| Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
+| Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal Design已由I0-I8 implementation与Gate evidence承接 | PASS |
 | Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I7 final generated surface与full regeneration已建立 | PASS |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | paged PLAIN/encoded/overlay storage、Key/Index、atomic StateRoot与Group retained accounting已建立 | PASS |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query、Selection mutation、GroupBy、binary Equality/Cross Join、explicit parallel与四级metadata已建立 | PASS |
@@ -71,12 +73,11 @@ push，以及下文第6节限定的内部资格验证；不包含远端artifact�
 | IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | typed logical IR、row/relation/group reference oracle、normalized/optimized sequential、predicate pushdown与Index substitution已建立 | PASS |
 | Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | binding、single/binary Group guard、point/Selection mutation、bounded admission、GC accounting与caller-participating ForkJoin parallel已建立 | PASS |
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
-| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8 qualification通过 | I0_COMPLETED |
-| Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
-| Security/package/release | G10 | dependency/license/OSV/legal/checksum/reproducibility baseline成立；workflow与完整package/release待I8 | I0_SCOPE_PASS / IN_PROGRESS |
+| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8/package qualification通过 | PASS |
+| Performance/scenarios | BP-15 + G9 | 三个reference application与三类百万行profile达到approved threshold | PASS |
+| Security/package/release | G10 | dependency/license/SBOM/checksum/provenance、package consumer与本地workflow qualification成立；远端workflow待运行 | LOCAL_PASS / REMOTE_PENDING |
 
-`NOT_IMPLEMENTED`不是Design contradiction；它是clean-slate implementation gap。Documentation
-不得把bounded fixture改写为production capability。
+Documentation不得把同机qualification阈值改写为跨硬件SLA、正式release或一亿行性能承诺。
 
 ## 4. Active records
 
@@ -106,6 +107,8 @@ push，以及下文第6节限定的内部资格验证；不包含远端artifact�
   implementation commit、generated parallel surface、bounded scheduler、custom/common pool、order与G7 Owner。
 - [I7 Compression 与 Metadata Qualification](i7-compression-metadata-qualification.md)：I7
   implementation commit、Chunk representation、AUTO/OFF、overlay、四级metadata、explain与G8 Owner。
+- [I8 Product Qualification](i8-product-qualification.md)：I8 implementation commit、三个reference
+  application、million-row profile、approved G9 threshold、package/SBOM/provenance与G10 local Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -133,8 +136,8 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | G6 Group/Join | PASS |
 | G7 Parallel | PASS |
 | G8 Compression/metadata | PASS |
-| G9 Scenarios/performance | NOT_RUN |
-| G10 Security/package/release | I0_SCOPE_PASS / IN_PROGRESS |
+| G9 Scenarios/performance | PASS |
+| G10 Security/package/release | LOCAL_PASS / REMOTE_QUALIFICATION_PENDING |
 
 Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`只关闭相应slice拥有的证据，
 不等于整个Gate已经完成。
@@ -180,8 +183,9 @@ I0已经以standard Maven/JDK build surface与JUnit Jupiter `5.11.4` test-only s
 [I4记录](i4-selection-mutation-resource-qualification.md)和
 [I5记录](i5-group-relation-qualification.md)和
 [I6记录](i6-parallel-execution-qualification.md)和
-[I7记录](i7-compression-metadata-qualification.md)；下一项只允许从I8开始。CI/release
-qualification workflow可以在其所属slice建立和运行，但必须保持non-publishing。GitHub
+[I7记录](i7-compression-metadata-qualification.md)与
+[I8记录](i8-product-qualification.md)。I0-I8本地implementation slice均已关闭；只剩远端CI/release
+qualification workflow结果，且必须保持non-publishing。GitHub
 Release、Package publication、签名和正式发布声明均不在授权内。
 
 ## 7. Release claim boundary

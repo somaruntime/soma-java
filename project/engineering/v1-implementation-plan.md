@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0-I7 COMPLETED / NO_ACTIVE_SLICE / NEXT I8
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0-I8 LOCALLY COMPLETED / REMOTE G10 PENDING
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -13,7 +13,8 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization。I0-I7已经完成并分别通过
+2026-08-03 单独授予完整 V1 implementation authorization。I0-I8已经完成本地implementation与
+qualification；I0-I7分别通过
 [I0正式资格](../conformance/i0-build-spine-qualification.md)与
 [I1正式资格](../conformance/i1-primitive-keyed-table-qualification.md)、
 [I2正式资格](../conformance/i2-schema-type-storage-breadth-qualification.md)、
@@ -21,8 +22,9 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 [I4正式资格](../conformance/i4-selection-mutation-resource-qualification.md)、
 [I5正式资格](../conformance/i5-group-relation-qualification.md)与
 [I6正式资格](../conformance/i6-parallel-execution-qualification.md)与
-[I7正式资格](../conformance/i7-compression-metadata-qualification.md)；当前没有active slice，
-下一项只允许从I8开始。
+[I7正式资格](../conformance/i7-compression-metadata-qualification.md)，I8通过
+[本地产品资格与G9 Owner sign-off](../conformance/i8-product-qualification.md)。当前没有active
+implementation slice；只剩`develop`远端CI与non-publishing release qualification完成G10闭环。
 
 当前授权同时覆盖repository-local CI/non-publishing release qualification workflow、local/internal
 benchmark与profile、local Maven package qualification，以及JUnit Jupiter 5.x test-only stack。
@@ -63,7 +65,7 @@ production class名，也不是每个commit的强制清单。
 | I5 | GroupBy与binary Equality/Cross Join | COMPLETED | G6 |
 | I6 | Bounded ForkJoin parallel execution | COMPLETED | G7 |
 | I7 | Compression、metadata/explain与surface closure | COMPLETED | G8 |
-| I8 | Reference scenarios、performance、security、package/release qualification | NEXT | G9、G10 |
+| I8 | Reference scenarios、performance、security、package/release qualification | COMPLETED_LOCALLY / REMOTE_G10_PENDING | G9、G10 |
 
 任何slice只有其exit evidence进入Conformance后才能进入下一slice。允许在同一commit交付相邻
 mechanism，但Gate不能因实现方便合并消失。
@@ -297,6 +299,11 @@ resource envelope，不是runtime maximum。比较ArrayList+HashMap与合理manu
 Exit：approved G9 performance report与G10 qualification、public API Examples、package consumer smoke、source/javadoc/license/
 NOTICE/SBOM/checksum/provenance、CI/release workflow与Owner sign-off。GitHub Release/Package需
 单独发布授权。
+
+Implementation status：`COMPLETED_LOCALLY / REMOTE_G10_PENDING`；implementation commit
+`cd0d476ad4f3d1e3db978534c7942d49604876a9`；Product Owner已于2026-08-09批准G9 threshold并完成
+本地I8 sign-off；完整证据与claim boundary见
+[I8 Product Qualification](../conformance/i8-product-qualification.md)。
 
 ## 13. Gate traceability
 
