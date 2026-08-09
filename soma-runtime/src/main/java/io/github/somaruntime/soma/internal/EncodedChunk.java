@@ -144,6 +144,33 @@ final class EncodedChunk implements TableChunk {
         return references[slot].value(offset);
     }
 
+    @Override public boolean visitPrimitive(
+            byte kind,
+            int slot,
+            int logicalRows,
+            PrimitiveVisitor visitor) {
+        switch (kind) {
+            case GeneratedTableLayout.BOOLEAN:
+                return booleans[slot].visit(logicalRows, visitor);
+            case GeneratedTableLayout.BYTE:
+                return bytes[slot].visit(logicalRows, visitor);
+            case GeneratedTableLayout.SHORT:
+                return shorts[slot].visit(logicalRows, visitor);
+            case GeneratedTableLayout.CHAR:
+                return chars[slot].visit(logicalRows, visitor);
+            case GeneratedTableLayout.INT:
+                return ints[slot].visit(logicalRows, visitor);
+            case GeneratedTableLayout.LONG:
+                return longs[slot].visit(logicalRows, visitor);
+            case GeneratedTableLayout.FLOAT:
+                return floats[slot].visit(logicalRows, visitor);
+            case GeneratedTableLayout.DOUBLE:
+                return doubles[slot].visit(logicalRows, visitor);
+            default:
+                throw new AssertionError("not a primitive leaf kind");
+        }
+    }
+
     @Override public void read(
             int offset,
             TypedValues destination,
@@ -348,6 +375,12 @@ final class EncodedChunk implements TableChunk {
     private interface PrimitiveColumn {
         long raw(int offset);
         long managedBytes();
+        default boolean visit(int logicalRows, PrimitiveVisitor visitor) {
+            for (int offset = 0; offset < logicalRows; offset++) {
+                if (!visitor.visit(raw(offset))) return false;
+            }
+            return true;
+        }
     }
 
     private static final class BitBooleanColumn implements PrimitiveColumn {
@@ -486,6 +519,21 @@ final class EncodedChunk implements TableChunk {
 
         int runCount() {
             return values.length;
+        }
+
+        @Override public boolean visit(
+                int logicalRows,
+                PrimitiveVisitor visitor) {
+            int start = 0;
+            for (int run = 0; run < values.length && start < logicalRows; run++) {
+                int end = Math.min(ends[run], logicalRows);
+                long value = values[run];
+                for (int offset = start; offset < end; offset++) {
+                    if (!visitor.visit(value)) return false;
+                }
+                start = end;
+            }
+            return true;
         }
     }
 

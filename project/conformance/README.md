@@ -9,7 +9,7 @@ Implementation authorization `FULFILLED`；I0-I8 `COMPLETED`；G1-G10 `PASS`
 
 Owner：SOMA Java Blueprint、Design、implementation与evidence的一致性状态
 
-最后审查日期：2026-08-09
+最后审查日期：2026-08-10
 
 ## 1. 文档责任
 
@@ -47,7 +47,7 @@ G10                            PASS
 Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORIZED
 Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
 Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DISTRIBUTION_QUALIFIED /
-                              FOUR_DIMENSIONAL_GOVERNANCE_PASS
+                              FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
 Active bounded topic          NONE
 ```
 
@@ -79,7 +79,7 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 | Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | binding、single/binary Group guard、point/Selection mutation、bounded admission、GC accounting与caller-participating ForkJoin parallel已建立 | PASS |
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8/package qualification通过 | PASS |
-| Performance/scenarios | BP-15 + G9 | 三个reference application与三类百万行profile达到approved threshold | PASS |
+| Performance/scenarios | BP-15 + G9 | 三个reference application、10K/1M/10M frontier matrix、profile优化与fixed-host memory attribution通过 | PASS |
 | Security/package/release | G10 | dependency/license/SBOM/checksum/provenance、package consumer、本地与远端non-publishing workflow qualification成立 | PASS |
 
 Documentation不得把同机qualification阈值改写为跨硬件SLA、正式release或一亿行性能承诺。
@@ -131,6 +131,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [V1 Memory Attribution and Low-allocation Execution Governance](v1-memory-attribution-low-allocation-governance.md)：
   retained、temporary reservation、participant allocation、heap/RSS边界，正常路径低分配优化、
   controlled A/B与fixed 10M资格Owner。
+- [V1 Performance Frontier Qualification](v1-performance-frontier-qualification.md)：Table、Field、
+  IndexSelection与mapped/stateful/Group/Relation/mutation矩阵，10K/1M/10M、CPU/allocation profile、
+  accepted optimization、固定主机memory attribution、最佳实践与剩余性能边界Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -151,6 +154,7 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 收口见[对应记录](v1-four-dimensional-performance-architecture-governance.md)；
 类型、operator与distribution kernel资格见[对应记录](v1-operator-type-distribution-performance-qualification.md)；
 内存归因与低分配执行资格见[对应记录](v1-memory-attribution-low-allocation-governance.md)；
+全面source/operator/composition性能前沿资格见[对应记录](v1-performance-frontier-qualification.md)；
 交付导向仓库治理见[对应记录](v1-delivery-centered-repository-governance.md)。
 
 ## 5. Gate status

@@ -50,35 +50,35 @@ public final class GeneratedFieldPipeline {
 
     public GeneratedPrimitiveValuePipeline primitiveBoolean(
             GeneratedCallbacks.RowToBooleanMapper mapper) {
-        return rows.primitiveBoolean(mapper);
+        return rows.primitiveBoolean(mapper, fieldIndex);
     }
     public GeneratedPrimitiveValuePipeline primitiveByte(
             GeneratedCallbacks.RowToByteMapper mapper) {
-        return rows.primitiveByte(mapper);
+        return rows.primitiveByte(mapper, fieldIndex);
     }
     public GeneratedPrimitiveValuePipeline primitiveShort(
             GeneratedCallbacks.RowToShortMapper mapper) {
-        return rows.primitiveShort(mapper);
+        return rows.primitiveShort(mapper, fieldIndex);
     }
     public GeneratedPrimitiveValuePipeline primitiveChar(
             GeneratedCallbacks.RowToCharMapper mapper) {
-        return rows.primitiveChar(mapper);
+        return rows.primitiveChar(mapper, fieldIndex);
     }
     public GeneratedPrimitiveValuePipeline primitiveInt(
             GeneratedCallbacks.RowToIntMapper mapper) {
-        return rows.primitiveInt(mapper);
+        return rows.primitiveInt(mapper, fieldIndex);
     }
     public GeneratedPrimitiveValuePipeline primitiveLong(
             GeneratedCallbacks.RowToLongMapper mapper) {
-        return rows.primitiveLong(mapper);
+        return rows.primitiveLong(mapper, fieldIndex);
     }
     public GeneratedPrimitiveValuePipeline primitiveFloat(
             GeneratedCallbacks.RowToFloatMapper mapper) {
-        return rows.primitiveFloat(mapper);
+        return rows.primitiveFloat(mapper, fieldIndex);
     }
     public GeneratedPrimitiveValuePipeline primitiveDouble(
             GeneratedCallbacks.RowToDoubleMapper mapper) {
-        return rows.primitiveDouble(mapper);
+        return rows.primitiveDouble(mapper, fieldIndex);
     }
 
     public GeneratedFieldPipeline distinct() {

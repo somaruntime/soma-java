@@ -29,6 +29,35 @@ SOMA_BENCHMARK_PARALLELISM=16 \
 ./scripts/benchmark.sh
 ```
 
+`frontier` workload 是更广泛的性能前沿矩阵。它以同一确定性 schema/distribution 分离四个
+fresh-JVM family，并让每个 timed operation 在发布结果前验证独立期望值：
+
+| Family | Direct source / derived shape | 主要操作 |
+|---|---|---|
+| `frontier-source` | Table、Field、IndexSelection、mapped primitive/reference | count、typed/callback filter、sum、Key lookup、Index residual、map、materialize、sequential/parallel |
+| `frontier-stateful` | Table、primitive/reference Field | distinct、stable sort/limit、top、skip/limit、sequential/parallel |
+| `frontier-relation` | Table-derived Group/Relation | low/high-cardinality GroupBy、Equality/Semi/Anti Join、typed predicate、sequential/parallel |
+| `frontier-mutation` | point Table、mutable Selection | point update、selection update/remove、post-publication Table/Index verification |
+
+默认只运行 `soma-auto`。`frontier-source` 与 `frontier-stateful` 可显式加入 `manual` 和
+`java-stream`，用于同语义 raw-array/Java Stream 相对基线；只有 Java Stream baseline 输出 parallel
+字段，manual 只拥有 sequential hardware-near 下界。Relation 与 mutation 没有伪造的通用 baseline。
+10K 用于 breadth，1M 用于 profile/throughput，10M 用于 bandwidth/memory/capacity，三者
+不是可以相互替代的规模曲线：
+
+```sh
+SOMA_BENCHMARK_WORKLOAD=frontier \
+SOMA_BENCHMARK_SCENARIOS="frontier-source frontier-stateful" \
+SOMA_BENCHMARK_IMPLEMENTATIONS="manual java-stream soma-auto" \
+SOMA_BENCHMARK_ROWS=1000000 \
+SOMA_BENCHMARK_PARALLELISM=16 \
+./scripts/benchmark.sh
+```
+
+Relation/mutation 或 10M 重路径应显式只选择需要的 family，避免把不相关 setup、Profile 和 JVM
+生命周期混进同一次结果。当前正式结论与 claim boundary 在治理关闭后由 Conformance 拥有；本节只
+定义 executable harness。
+
 默认 `core` workload 保持 release qualification 使用的百万行长期基线。显式 `composed` workload
 面向固定千万行治理，在同一真实场景中组合 filter、Index、projection、stateful operation、GroupBy、
 多种 Join、parallel 与 mutation；它不改变默认资格成本：
@@ -103,6 +132,9 @@ run count；Smoke 只证明测量链可运行，不能证明性能提升。当�
 [四维性能架构治理记录](../project/conformance/v1-four-dimensional-performance-architecture-governance.md)。
 Operator × Type × Distribution 矩阵、cost-aware RLE、Bound cardinality、Field materialization 与固定
 1M/10M证据见[类型与分布性能资格记录](../project/conformance/v1-operator-type-distribution-performance-qualification.md)。
+Table、Field、IndexSelection与主要派生operation的10K/1M/10M矩阵、最终Profile优化、fixed-host
+memory attribution、使用准则和剩余边界见
+[全面性能前沿资格记录](../project/conformance/v1-performance-frontier-qualification.md)。
 
 同一环境的 before/after 摘要可用比较器建立回归 ratchet：
 

@@ -234,6 +234,20 @@ final class LogicalRowPlan {
         return parallel;
     }
 
+    boolean isDirectFieldProjection(int fieldIndex) {
+        if (sourceKind != SourceKind.TABLE_SCAN) return false;
+        List<Stage> current = stages();
+        return current.size() == 1
+                && current.get(0).kind == StageKind.FIELD_PROJECT
+                && current.get(0).count == fieldIndex;
+    }
+
+    boolean beginsWithTypedFilter() {
+        List<Stage> current = stages();
+        return !current.isEmpty()
+                && current.get(0).kind == StageKind.TYPED_FILTER;
+    }
+
     List<Stage> stages() {
         ArrayList<Stage> reversed = new ArrayList<Stage>();
         for (LogicalRowPlan cursor = this; cursor != null; cursor = cursor.parent) {

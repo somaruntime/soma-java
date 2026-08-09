@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
-最后审查日期：2026-08-09
+最后审查日期：2026-08-10
 
 ## 当前结论
 
@@ -17,7 +17,7 @@ implementation 与 qualification：
 - Java 8 下的两项 production artifact、generated API、chunked storage、Key/Index、query/optimizer、
   mutation、GroupBy/Join、parallel、compression/metadata、三个 reference application 和本地交付链已建立；
 - G1–G10 当前为 `PASS`；百万行证据是同机 qualification，不是一亿行承诺或跨硬件 SLA；
-- 当前没有 active implementation slice 或 bounded Temporary；
+- 当前没有 active implementation slice，也没有 active bounded Temporary；
 - [性能与正确性联合治理](conformance/v1-performance-correctness-governance.md)已`PASS`，长期
   benchmark、相对回归判定与当前最佳实践已经建立；
 - [四维性能架构治理](conformance/v1-four-dimensional-performance-architecture-governance.md)已`PASS`，
@@ -26,6 +26,9 @@ implementation 与 qualification：
   已`PASS`，类型/分布 kernel、cost-aware RLE、Bound cardinality 与 Field materialization 已闭合；
 - [内存归因与低分配执行治理](conformance/v1-memory-attribution-low-allocation-governance.md)已`PASS`，
   retained、temporary reservation、Java allocation、heap/RSS 已分责归因，正常路径低分配优化已闭合；
+- [全面性能前沿资格](conformance/v1-performance-frontier-qualification.md)已`PASS`，Table、Field、
+  IndexSelection 与主要派生 operation 在 10K/1M/10M 下完成固定主机资格，三轮 profile-driven
+  优化、最终 memory attribution、reference application 与 composed journey 已闭合；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -57,6 +60,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Design/Execution/Memory/CPU 四维归因与优化 | [Four-dimensional performance architecture governance](conformance/v1-four-dimensional-performance-architecture-governance.md) |
 | Operator × Type × Distribution 性能资格 | [Type and distribution performance qualification](conformance/v1-operator-type-distribution-performance-qualification.md) |
 | 内存归因与低分配执行资格 | [Memory attribution and low-allocation governance](conformance/v1-memory-attribution-low-allocation-governance.md) |
+| 全面性能前沿、10K/1M/10M、Profile 与剩余边界 | [Performance frontier qualification](conformance/v1-performance-frontier-qualification.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -78,7 +82,7 @@ Blueprint
 - `build-support/`：linkage、codegen、qualification 和 delivery machinery；
 - `scripts/`：`check`、`qualify`、`benchmark`、`package-local` 四个稳定入口；
 - `docs/`：仅占位，等待独立用户文档专题；
-- `benchmarks/`：三个 reference application 与 benchmark-only type-kernel 的长期非 production 证据；
+- `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
 - `temp/`：只服务 active bounded topic；当前为空。
 
@@ -111,6 +115,7 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前没有 active topic。新的重大长期变化先进入 `project/temp/<topic>/`。Temporary 只拥有候选与
-协调事实；裁决和验证完成后，稳定结论必须晋升到唯一 Owner，并删除 Temporary，不能把它变成
-平行 Design 或历史档案。
+当前没有 active topic。最近一次性能前沿 Temporary 已将稳定实现事实晋升到 code/test/benchmark，
+将固定主机结论与 claim boundary 晋升到
+[正式 Conformance 记录](conformance/v1-performance-frontier-qualification.md)，随后完成 replacement
+closure 并退役。未来 Temporary 仍只服务 active topic，不能变成平行 Design 或历史档案。

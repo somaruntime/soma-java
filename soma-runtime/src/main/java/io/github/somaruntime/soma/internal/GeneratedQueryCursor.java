@@ -5,7 +5,7 @@ import io.github.somaruntime.soma.SomaOperation;
 import java.util.IdentityHashMap;
 
 /** Reusable operation-scoped cursor behind one generated query View. */
-public final class GeneratedQueryCursor extends TypedValues implements GeneratedRowAccess {
+public final class GeneratedQueryCursor implements GeneratedRowAccess {
 
     private final GeneratedTableLayout layout;
     private final IdentityHashMap<Object, Boolean> borrowedViews =
@@ -14,11 +14,13 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
     private SomaOperation operation;
     private Object provenance;
     private Thread participant;
+    private TableChunk chunk;
+    private int offset;
     private boolean accessActive;
 
     GeneratedQueryCursor(GeneratedTableLayout layout) {
-        super(layout);
         this.layout = layout;
+        this.offset = -1;
     }
 
     @Override
@@ -45,8 +47,9 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
         operation = operationKind;
         provenance = operationProvenance;
         participant = Thread.currentThread();
+        chunk = null;
+        offset = -1;
         accessActive = false;
-        clearReferences();
     }
 
     void enter(long locator) {
@@ -54,7 +57,9 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
         if (accessActive || locator < 0L || locator >= root.size) {
             throw new AssertionError("invalid query cursor locator");
         }
-        root.directory.read(locator, this);
+        TableChunkDirectory directory = root.directory;
+        chunk = directory.chunk(locator / directory.chunkRows());
+        offset = (int) (locator % directory.chunkRows());
         accessActive = true;
     }
 
@@ -62,13 +67,15 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
         requireOperation();
         if (!accessActive) throw new AssertionError("query cursor access is not active");
         accessActive = false;
-        clearReferences();
+        chunk = null;
+        offset = -1;
     }
 
     void end() {
         if (root == null) return;
         accessActive = false;
-        clearReferences();
+        chunk = null;
+        offset = -1;
         root = null;
         operation = null;
         provenance = null;
@@ -78,55 +85,55 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
     @Override
     public boolean viewBoolean(int leaf) {
         requireView(leaf, GeneratedTableLayout.BOOLEAN);
-        return booleanValue(layout.leafSlot(leaf));
+        return chunk.booleanValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public byte viewByte(int leaf) {
         requireView(leaf, GeneratedTableLayout.BYTE);
-        return byteValue(layout.leafSlot(leaf));
+        return chunk.byteValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public short viewShort(int leaf) {
         requireView(leaf, GeneratedTableLayout.SHORT);
-        return shortValue(layout.leafSlot(leaf));
+        return chunk.shortValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public char viewChar(int leaf) {
         requireView(leaf, GeneratedTableLayout.CHAR);
-        return charValue(layout.leafSlot(leaf));
+        return chunk.charValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public int viewInt(int leaf) {
         requireView(leaf, GeneratedTableLayout.INT);
-        return intValue(layout.leafSlot(leaf));
+        return chunk.intValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public long viewLong(int leaf) {
         requireView(leaf, GeneratedTableLayout.LONG);
-        return longValue(layout.leafSlot(leaf));
+        return chunk.longValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public float viewFloat(int leaf) {
         requireView(leaf, GeneratedTableLayout.FLOAT);
-        return floatValue(layout.leafSlot(leaf));
+        return chunk.floatValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public double viewDouble(int leaf) {
         requireView(leaf, GeneratedTableLayout.DOUBLE);
-        return doubleValue(layout.leafSlot(leaf));
+        return chunk.doubleValue(layout.leafSlot(leaf), offset);
     }
 
     @Override
     public Object viewReference(int leaf) {
         requireView(leaf, GeneratedTableLayout.REFERENCE);
-        return reference(layout.leafSlot(leaf));
+        return chunk.referenceValue(layout.leafSlot(leaf), offset);
     }
 
     private void requireView(int leaf, byte kind) {

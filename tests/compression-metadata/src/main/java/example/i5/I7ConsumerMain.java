@@ -70,9 +70,13 @@ public final class I7ConsumerMain {
         events.update(10L, editor -> editor.duration(9L));
         require(events.get(10L).duration() == 9L,
                 "sparse update over encoded Chunk");
+        require(events.duration.sum() == 32768L * 7L + 2L,
+                "Field query over encoded Chunk with overlay");
         events.remove(10L);
         require(events.size() == 32767L && !events.find(10L).isPresent(),
                 "remove and tail materialization");
+        require(events.duration.sum() == 32767L * 7L,
+                "Field query after encoded tail materialization");
         require(defaultGroup._metadata().retainedBytes() > 0L,
                 "Group retained accounting");
     }

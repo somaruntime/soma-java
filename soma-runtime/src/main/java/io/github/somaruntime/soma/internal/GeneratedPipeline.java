@@ -90,58 +90,90 @@ public final class GeneratedPipeline {
 
     GeneratedPrimitiveValuePipeline primitiveBoolean(
             GeneratedCallbacks.RowToBooleanMapper mapper) {
+        return primitiveBoolean(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveBoolean(
+            GeneratedCallbacks.RowToBooleanMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.BOOLEAN, mapper, false));
+                plan, PrimitivePlan.ValueKind.BOOLEAN, mapper, false, fieldIndex));
     }
 
     GeneratedPrimitiveValuePipeline primitiveByte(
             GeneratedCallbacks.RowToByteMapper mapper) {
+        return primitiveByte(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveByte(
+            GeneratedCallbacks.RowToByteMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.BYTE, mapper, false));
+                plan, PrimitivePlan.ValueKind.BYTE, mapper, false, fieldIndex));
     }
 
     GeneratedPrimitiveValuePipeline primitiveShort(
             GeneratedCallbacks.RowToShortMapper mapper) {
+        return primitiveShort(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveShort(
+            GeneratedCallbacks.RowToShortMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.SHORT, mapper, false));
+                plan, PrimitivePlan.ValueKind.SHORT, mapper, false, fieldIndex));
     }
 
     GeneratedPrimitiveValuePipeline primitiveChar(
             GeneratedCallbacks.RowToCharMapper mapper) {
+        return primitiveChar(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveChar(
+            GeneratedCallbacks.RowToCharMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.CHAR, mapper, false));
+                plan, PrimitivePlan.ValueKind.CHAR, mapper, false, fieldIndex));
     }
 
     GeneratedPrimitiveValuePipeline primitiveInt(
             GeneratedCallbacks.RowToIntMapper mapper) {
+        return primitiveInt(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveInt(
+            GeneratedCallbacks.RowToIntMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.INT, mapper, false));
+                plan, PrimitivePlan.ValueKind.INT, mapper, false, fieldIndex));
     }
 
     GeneratedPrimitiveValuePipeline primitiveLong(
             GeneratedCallbacks.RowToLongMapper mapper) {
+        return primitiveLong(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveLong(
+            GeneratedCallbacks.RowToLongMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.LONG, mapper, false));
+                plan, PrimitivePlan.ValueKind.LONG, mapper, false, fieldIndex));
     }
 
     GeneratedPrimitiveValuePipeline primitiveFloat(
             GeneratedCallbacks.RowToFloatMapper mapper) {
+        return primitiveFloat(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveFloat(
+            GeneratedCallbacks.RowToFloatMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.FLOAT, mapper, false));
+                plan, PrimitivePlan.ValueKind.FLOAT, mapper, false, fieldIndex));
     }
 
     GeneratedPrimitiveValuePipeline primitiveDouble(
             GeneratedCallbacks.RowToDoubleMapper mapper) {
+        return primitiveDouble(mapper, -1);
+    }
+    GeneratedPrimitiveValuePipeline primitiveDouble(
+            GeneratedCallbacks.RowToDoubleMapper mapper, int fieldIndex) {
         requireArgument(mapper, "mapper"); claim();
         return new GeneratedPrimitiveValuePipeline(PrimitivePlan.row(
-                plan, PrimitivePlan.ValueKind.DOUBLE, mapper, false));
+                plan, PrimitivePlan.ValueKind.DOUBLE, mapper, false, fieldIndex));
     }
 
     public GeneratedPipeline sorted(GeneratedCallbacks.RowComparator comparator) {

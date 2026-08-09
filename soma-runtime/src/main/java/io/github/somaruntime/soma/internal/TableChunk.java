@@ -6,6 +6,10 @@ import io.github.somaruntime.soma.SomaOperation;
 /** Representation-independent physical Chunk contract. */
 interface TableChunk {
 
+    interface PrimitiveVisitor {
+        boolean visit(long raw);
+    }
+
     ChunkRepresentation representation();
 
     boolean booleanValue(int slot, int offset);
@@ -17,6 +21,16 @@ interface TableChunk {
     float floatValue(int slot, int offset);
     double doubleValue(int slot, int offset);
     Object referenceValue(int slot, int offset);
+
+    /**
+     * Representation-aware sequential primitive traversal. The physical
+     * representation owns decoding; the execution engine owns the operation.
+     */
+    boolean visitPrimitive(
+            byte kind,
+            int slot,
+            int logicalRows,
+            PrimitiveVisitor visitor);
 
     void read(int offset, TypedValues destination, GeneratedTableLayout layout);
 

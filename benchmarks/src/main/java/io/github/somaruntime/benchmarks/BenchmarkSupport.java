@@ -110,7 +110,7 @@ public final class BenchmarkSupport {
     public static String implementation(String[] args) {
         String value = args.length < 2 ? "soma-auto" : args[1];
         require("soma-auto".equals(value) || "soma-off".equals(value)
-                        || "manual".equals(value),
+                        || "manual".equals(value) || "java-stream".equals(value),
                 "unknown benchmark implementation");
         return value;
     }
@@ -118,7 +118,7 @@ public final class BenchmarkSupport {
     public static String workload() {
         String value = System.getProperty("soma.benchmark.workload", "core");
         require("core".equals(value) || "composed".equals(value)
-                        || "kernel".equals(value),
+                        || "kernel".equals(value) || "frontier".equals(value),
                 "unknown benchmark workload");
         return value;
     }

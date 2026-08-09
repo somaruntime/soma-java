@@ -12,6 +12,7 @@ import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Optional;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /** Unboxed execution of arbitrary primitive mapper chains. */
@@ -475,13 +476,45 @@ strictfp final class PrimitivePlanOperation {
 
     private static void visitRoot(BoundRowPlan bound, PrimitivePlan plan, Visitor visitor) {
         if (plan.rootKind == PrimitivePlan.RootKind.ROW) {
-            RowExecutor.visit(bound, locator -> visitor.visit(rowRoot(bound, plan, locator)));
+            if (plan.rootFieldIndex >= 0
+                    && plan.rows.isDirectFieldProjection(plan.rootFieldIndex)) {
+                if (plan.rows.isParallel()) {
+                    ParallelRowScheduler.requireAvailable(bound);
+                }
+                GeneratedTableLayout layout = plan.rows.owner().layout();
+                int leaf = layout.fieldStart(plan.rootFieldIndex);
+                if (layout.fieldLeafCount(plan.rootFieldIndex) != 1) {
+                    throw new AssertionError(
+                            "primitive Field must have one physical leaf");
+                }
+                int slot = layout.leafSlot(leaf);
+                byte kind = layout.leafKind(leaf);
+                TableChunkDirectory directory = bound.root.directory;
+                int chunkRows = directory.chunkRows();
+                long remaining = bound.root.size;
+                for (long ordinal = 0L;
+                        ordinal < directory.chunkCount() && remaining > 0L;
+                        ordinal++) {
+                    TableChunk chunk = directory.chunk(ordinal);
+                    int logicalRows = (int) Math.min((long) chunkRows, remaining);
+                    if (!chunk.visitPrimitive(
+                            kind, slot, logicalRows, visitor)) return;
+                    remaining -= logicalRows;
+                }
+            } else {
+                RowExecutor.visit(
+                        bound,
+                        locator -> visitor.visit(rowRoot(bound, plan, locator)));
+            }
         } else {
             MappedQueryOperation.visitBound(bound, plan.mapped, value -> visitor.visit(mappedRoot(bound, plan, value)));
         }
     }
 
     private static long rowRoot(BoundRowPlan bound, PrimitivePlan plan, long locator) {
+        if (plan.rootFieldIndex >= 0) {
+            return directFieldRoot(bound, plan, locator);
+        }
         switch (plan.rootValueKind) {
             case BOOLEAN: return RowExecutionSupport.callbackMapBoolean(bound, locator, (GeneratedCallbacks.RowToBooleanMapper) plan.rootMapper, plan.rootApplicationCallback) ? 1L : 0L;
             case BYTE: return RowExecutionSupport.callbackMapByte(bound, locator, (GeneratedCallbacks.RowToByteMapper) plan.rootMapper, plan.rootApplicationCallback);
@@ -492,6 +525,40 @@ strictfp final class PrimitivePlanOperation {
             case FLOAT: return Float.floatToIntBits(RowExecutionSupport.callbackMapFloat(bound, locator, (GeneratedCallbacks.RowToFloatMapper) plan.rootMapper, plan.rootApplicationCallback));
             case DOUBLE: return Double.doubleToLongBits(RowExecutionSupport.callbackMapDouble(bound, locator, (GeneratedCallbacks.RowToDoubleMapper) plan.rootMapper, plan.rootApplicationCallback));
             default: throw new AssertionError();
+        }
+    }
+
+    private static long directFieldRoot(
+            BoundRowPlan bound,
+            PrimitivePlan plan,
+            long locator) {
+        GeneratedTableLayout layout = plan.rows.owner().layout();
+        int leaf = layout.fieldStart(plan.rootFieldIndex);
+        if (layout.fieldLeafCount(plan.rootFieldIndex) != 1) {
+            throw new AssertionError("primitive Field must have one physical leaf");
+        }
+        int slot = layout.leafSlot(leaf);
+        switch (plan.rootValueKind) {
+            case BOOLEAN:
+                return bound.root.directory.booleanValue(locator, slot) ? 1L : 0L;
+            case BYTE:
+                return bound.root.directory.byteValue(locator, slot);
+            case SHORT:
+                return bound.root.directory.shortValue(locator, slot);
+            case CHAR:
+                return bound.root.directory.charValue(locator, slot);
+            case INT:
+                return bound.root.directory.intValue(locator, slot);
+            case LONG:
+                return bound.root.directory.longValue(locator, slot);
+            case FLOAT:
+                return Float.floatToIntBits(
+                        bound.root.directory.floatValue(locator, slot));
+            case DOUBLE:
+                return Double.doubleToLongBits(
+                        bound.root.directory.doubleValue(locator, slot));
+            default:
+                throw new AssertionError();
         }
     }
 
@@ -630,6 +697,11 @@ strictfp final class PrimitivePlanOperation {
     }
     private static void sort(LongLocatorBuffer values, PrimitivePlan.ValueKind kind) {
         if (values.size() < 2) return;
+        if (kind != PrimitivePlan.ValueKind.FLOAT
+                && kind != PrimitivePlan.ValueKind.DOUBLE) {
+            Arrays.sort(values.backing(), 0, values.size());
+            return;
+        }
         long[] scratch = new long[values.size()];
         mergeSort(values.backing(), scratch, 0, values.size(), kind);
     }
@@ -798,7 +870,7 @@ strictfp final class PrimitivePlanOperation {
         return values[start];
     }
 
-    interface Visitor { boolean visit(long value); }
+    interface Visitor extends TableChunk.PrimitiveVisitor {}
     interface Terminal<T> { T run(BoundRowPlan bound, PrimitivePlan plan); }
     private static final class FloatingResult { final long count; final double min, max, sum; FloatingResult(long count, double min, double max, double sum) { this.count = count; this.min = min; this.max = max; this.sum = sum; } }
 }

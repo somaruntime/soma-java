@@ -55,11 +55,17 @@ class GeneratedTableTest {
         assertEquals(4096L, table.count());
         assertEquals(4096L, indexCount(table, "repeated"));
         assertRow(table, 10L, "repeated", 7, shared);
+        assertEquals(4096L * 7L, table.fieldSource(2)
+                .primitiveInt(() -> table.queryCursor().viewInt(2))
+                .sumIntegral());
 
         UpdateResult payload = update(table, 10L, "repeated", 12, shared);
         assertEquals(1L, payload.changed());
         assertRow(table, 10L, "repeated", 12, shared);
         assertTrue(table.metadata().encoded());
+        assertEquals(4096L * 7L + 5L, table.fieldSource(2)
+                .primitiveInt(() -> table.queryCursor().viewInt(2))
+                .sumIntegral());
 
         UpdateResult indexed = update(table, 10L, "moved", 12, shared);
         assertEquals(1L, indexed.changed());
@@ -1145,6 +1151,40 @@ class GeneratedTableTest {
                         .filter((io.github.somaruntime.soma.SomaIntPredicate) value -> (value & 1) == 0)
                         .map((io.github.somaruntime.soma.SomaIntUnaryOperator) value -> value + 10)
                         .distinct().sorted().skip(1L).limit(3L))));
+    }
+
+    @Test
+    void primitiveIntegralNaturalSortPreservesSignedValueOrder() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        int[] input = new int[] {
+                Integer.MAX_VALUE, -1, 0, Integer.MIN_VALUE, 7, -7
+        };
+        for (int index = 0; index < input.length; index++) {
+            add(table, index, "bucket", input[index], new Object());
+        }
+        GeneratedCallbacks.RowToIntMapper root =
+                () -> table.queryCursor().viewInt(2);
+        PrimitivePlan optimized = PrimitivePlan
+                .row(LogicalRowPlan.tableScan(table),
+                        PrimitivePlan.ValueKind.INT, root, true, 2)
+                .sorted();
+        PrimitivePlan reference = PrimitivePlan
+                .row(LogicalRowPlan.tableScan(table),
+                        PrimitivePlan.ValueKind.INT, root, true)
+                .sorted();
+
+        assertTrue(Arrays.equals(
+                new long[] {
+                        Integer.MIN_VALUE, -7L, -1L, 0L, 7L,
+                        Integer.MAX_VALUE
+                },
+                PrimitivePlanOperation.valuesForTesting(optimized)));
+        assertTrue(Arrays.equals(
+                ReferencePrimitiveInterpreter.valuesForTesting(reference),
+                PrimitivePlanOperation.valuesForTesting(PrimitivePlan
+                        .row(LogicalRowPlan.tableScan(table),
+                                PrimitivePlan.ValueKind.INT, root, true, 2)
+                        .sorted())));
     }
 
     @Test

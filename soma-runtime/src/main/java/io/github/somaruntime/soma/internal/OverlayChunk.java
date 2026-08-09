@@ -91,6 +91,46 @@ final class OverlayChunk implements TableChunk {
                 : override.reference(slot);
     }
 
+    @Override public boolean visitPrimitive(
+            byte kind,
+            int slot,
+            int logicalRows,
+            PrimitiveVisitor visitor) {
+        for (int offset = 0; offset < logicalRows; offset++) {
+            long raw;
+            switch (kind) {
+                case GeneratedTableLayout.BOOLEAN:
+                    raw = booleanValue(slot, offset) ? 1L : 0L;
+                    break;
+                case GeneratedTableLayout.BYTE:
+                    raw = byteValue(slot, offset);
+                    break;
+                case GeneratedTableLayout.SHORT:
+                    raw = shortValue(slot, offset);
+                    break;
+                case GeneratedTableLayout.CHAR:
+                    raw = charValue(slot, offset);
+                    break;
+                case GeneratedTableLayout.INT:
+                    raw = intValue(slot, offset);
+                    break;
+                case GeneratedTableLayout.LONG:
+                    raw = longValue(slot, offset);
+                    break;
+                case GeneratedTableLayout.FLOAT:
+                    raw = Float.floatToIntBits(floatValue(slot, offset));
+                    break;
+                case GeneratedTableLayout.DOUBLE:
+                    raw = Double.doubleToLongBits(doubleValue(slot, offset));
+                    break;
+                default:
+                    throw new AssertionError("not a primitive leaf kind");
+            }
+            if (!visitor.visit(raw)) return false;
+        }
+        return true;
+    }
+
     @Override public void read(
             int offset,
             TypedValues destination,

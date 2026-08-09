@@ -28,6 +28,7 @@ final class PrimitivePlan {
     final MappedPlan<?> mapped;
     final Object rootMapper;
     final boolean rootApplicationCallback;
+    final int rootFieldIndex;
     final ValueKind rootValueKind;
     final ValueKind valueKind;
     final List<Stage> stages;
@@ -35,11 +36,13 @@ final class PrimitivePlan {
     private PrimitivePlan(
             LogicalRowPlan rows, RootKind rootKind, MappedPlan<?> mapped,
             Object rootMapper, boolean rootApplicationCallback,
+            int rootFieldIndex,
             ValueKind rootValueKind, ValueKind valueKind,
             List<Stage> stages) {
         this.rows = rows; this.rootKind = rootKind; this.mapped = mapped;
         this.rootMapper = rootMapper; this.rootValueKind = rootValueKind;
         this.rootApplicationCallback = rootApplicationCallback;
+        this.rootFieldIndex = rootFieldIndex;
         this.valueKind = valueKind; this.stages = stages;
     }
 
@@ -48,14 +51,23 @@ final class PrimitivePlan {
             ValueKind kind,
             Object mapper,
             boolean applicationCallback) {
+        return row(rows, kind, mapper, applicationCallback, -1);
+    }
+
+    static PrimitivePlan row(
+            LogicalRowPlan rows,
+            ValueKind kind,
+            Object mapper,
+            boolean applicationCallback,
+            int fieldIndex) {
         return new PrimitivePlan(rows, RootKind.ROW, null, mapper,
-                applicationCallback, kind, kind,
+                applicationCallback, fieldIndex, kind, kind,
                 Collections.<Stage>emptyList());
     }
 
     static PrimitivePlan mapped(MappedPlan<?> mapped, ValueKind kind, Object mapper) {
         return new PrimitivePlan(mapped.rows, RootKind.MAPPED, mapped, mapper,
-                true, kind, kind,
+                true, -1, kind, kind,
                 Collections.<Stage>emptyList());
     }
 
@@ -85,7 +97,8 @@ final class PrimitivePlan {
         MappedPlan<?> nextMapped = mapped == null ? null : mapped.parallel();
         return new PrimitivePlan(
                 rows.parallel(), rootKind, nextMapped, rootMapper,
-                rootApplicationCallback, rootValueKind, valueKind, stages);
+                rootApplicationCallback, rootFieldIndex,
+                rootValueKind, valueKind, stages);
     }
     boolean hasStatefulStage() {
         if (rows.hasStatefulStage() || mapped != null && mapped.hasStatefulStage()) return true;
@@ -116,7 +129,7 @@ final class PrimitivePlan {
         ArrayList<Stage> next = new ArrayList<Stage>(stages.size() + 1);
         next.addAll(stages); next.add(stage);
         return new PrimitivePlan(rows, rootKind, mapped, rootMapper,
-                rootApplicationCallback, rootValueKind,
+                rootApplicationCallback, rootFieldIndex, rootValueKind,
                 stage.output, Collections.unmodifiableList(next));
     }
 }

@@ -24,6 +24,8 @@ workload=${SOMA_BENCHMARK_WORKLOAD:-core}
 scenarios=${SOMA_BENCHMARK_SCENARIOS:-"scheduling simulation real-time-dispatch"}
 if [ -n "${SOMA_BENCHMARK_IMPLEMENTATIONS:-}" ]; then
     implementations=$SOMA_BENCHMARK_IMPLEMENTATIONS
+elif [ "$workload" = frontier ]; then
+    implementations="soma-auto"
 elif [ "$workload" = composed ] || [ "$workload" = kernel ]; then
     implementations="soma-auto"
 else
@@ -56,19 +58,33 @@ test "$memory_budget" -ge 1 && test "$memory_budget" -le 34359738368
 case "$profiler" in none|jfr|async) ;; *) echo "benchmark: invalid profiler" >&2; exit 1 ;; esac
 case "$async_event" in cpu|alloc) ;; *) echo "benchmark: invalid async event" >&2; exit 1 ;; esac
 case "$time_mode" in portable|extended) ;; *) echo "benchmark: invalid time mode" >&2; exit 1 ;; esac
-case "$workload" in core|composed|kernel) ;; *) echo "benchmark: invalid workload" >&2; exit 1 ;; esac
+case "$workload" in core|composed|kernel|frontier) ;; *) echo "benchmark: invalid workload" >&2; exit 1 ;; esac
 test -n "$implementations"
 for implementation in $implementations; do
     case "$implementation" in
-        manual|soma-auto|soma-off) ;;
+        manual|java-stream|soma-auto|soma-off) ;;
         *) echo "benchmark: invalid implementation: $implementation" >&2; exit 1 ;;
     esac
 done
 test -n "$scenarios"
 for scenario in $scenarios; do
     case "$scenario" in
-        scheduling|simulation|real-time-dispatch|type-kernel) ;;
+        scheduling|simulation|real-time-dispatch|type-kernel|frontier-source|frontier-stateful|frontier-relation|frontier-mutation) ;;
         *) echo "benchmark: invalid scenario: $scenario" >&2; exit 1 ;;
+    esac
+done
+for implementation in $implementations; do
+    case "$implementation" in
+        manual|java-stream)
+            for scenario in $scenarios; do
+                case "$scenario" in
+                    frontier-relation|frontier-mutation)
+                        echo "benchmark: $implementation baseline is not defined for $scenario" >&2
+                        exit 1
+                        ;;
+                esac
+            done
+            ;;
     esac
 done
 test "$(printf '%s\n' $implementations | LC_ALL=C sort -u | wc -l | tr -d ' ')" \
@@ -116,6 +132,8 @@ elif [ "$workload" = composed ]; then
     output_root="$repo_root/target/benchmark/composed"
 elif [ "$workload" = kernel ]; then
     output_root="$repo_root/target/benchmark/kernel"
+elif [ "$workload" = frontier ]; then
+    output_root="$repo_root/target/benchmark/frontier"
 else
     output_root="$repo_root/target/benchmark"
 fi
@@ -175,6 +193,7 @@ run_benchmark() {
         -XX:+PrintGCDetails -XX:+PrintGCDateStamps "-Xloggc:$gc_log" \
         "-Dsoma.benchmark.parallelism=$parallelism" \
         "-Dsoma.benchmark.workload=$workload" \
+        "-Dsoma.benchmark.scenario=$scenario" \
         "-Dsoma.benchmark.run=$run_number" \
         "-Dsoma.benchmark.innerWarmups=$inner_warmups" \
         "-Dsoma.benchmark.innerSamples=$inner_samples" \
@@ -246,6 +265,11 @@ run_named_scenario() {
         type-kernel)
             run_benchmark type-kernel \
                 io.github.somaruntime.benchmarks.kernel.TypeKernelBenchmarkMain \
+                "$implementation" "$run_number"
+            ;;
+        frontier-source|frontier-stateful|frontier-relation|frontier-mutation)
+            run_benchmark "$scenario" \
+                io.github.somaruntime.benchmarks.kernel.FrontierBenchmarkMain \
                 "$implementation" "$run_number"
             ;;
     esac

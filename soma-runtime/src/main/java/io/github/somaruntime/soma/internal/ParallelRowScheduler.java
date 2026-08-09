@@ -16,18 +16,7 @@ final class ParallelRowScheduler {
 
     static BoundRowPlan prepare(BoundRowPlan bound) {
         if (!bound.logical.isParallel()) return bound;
-        if (CallbackExecutionScope.isActive()) {
-            throw SomaFailures.failure(
-                    SomaFailureCode.NESTED_PARALLEL_OPERATION,
-                    bound.operation,
-                    "parallel terminal started inside a SOMA callback",
-                    bound.provenance);
-        }
-
-        ForkJoinPool pool = bound.logical.owner().parallelExecutor();
-        if (pool.isShutdown() || pool.isTerminated()) {
-            throw unavailable(bound, null);
-        }
+        ForkJoinPool pool = requireAvailable(bound);
 
         NormalizedRowPlan plan = RowOptimizer.optimize(bound);
         if (plan.sourceKind != NormalizedRowPlan.SourceKind.TABLE_SCAN
@@ -80,8 +69,25 @@ final class ParallelRowScheduler {
         return bound.withParallelSource(merge(work, bound));
     }
 
+    static ForkJoinPool requireAvailable(BoundRowPlan bound) {
+        if (CallbackExecutionScope.isActive()) {
+            throw SomaFailures.failure(
+                    SomaFailureCode.NESTED_PARALLEL_OPERATION,
+                    bound.operation,
+                    "parallel terminal started inside a SOMA callback",
+                    bound.provenance);
+        }
+
+        ForkJoinPool pool = bound.logical.owner().parallelExecutor();
+        if (pool.isShutdown() || pool.isTerminated()) {
+            throw unavailable(bound, null);
+        }
+        return pool;
+    }
+
     static boolean requiresMembershipBuffer(BoundRowPlan bound) {
         if (!bound.logical.isParallel() || bound.root.size == 0L) return false;
+        if (!bound.logical.beginsWithTypedFilter()) return false;
         NormalizedRowPlan plan = RowOptimizer.optimize(bound);
         if (plan.sourceKind != NormalizedRowPlan.SourceKind.TABLE_SCAN
                 || !hasTypedPrefix(plan)) return false;

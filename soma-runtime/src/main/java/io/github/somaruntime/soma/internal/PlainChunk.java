@@ -98,6 +98,73 @@ final class PlainChunk implements TableChunk {
         return references[slot][offset];
     }
 
+    @Override public boolean visitPrimitive(
+            byte kind,
+            int slot,
+            int logicalRows,
+            PrimitiveVisitor visitor) {
+        switch (kind) {
+            case GeneratedTableLayout.BOOLEAN: {
+                boolean[] values = booleans[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(values[i] ? 1L : 0L)) return false;
+                }
+                return true;
+            }
+            case GeneratedTableLayout.BYTE: {
+                byte[] values = bytes[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(values[i])) return false;
+                }
+                return true;
+            }
+            case GeneratedTableLayout.SHORT: {
+                short[] values = shorts[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(values[i])) return false;
+                }
+                return true;
+            }
+            case GeneratedTableLayout.CHAR: {
+                char[] values = chars[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(values[i])) return false;
+                }
+                return true;
+            }
+            case GeneratedTableLayout.INT: {
+                int[] values = ints[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(values[i])) return false;
+                }
+                return true;
+            }
+            case GeneratedTableLayout.LONG: {
+                long[] values = longs[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(values[i])) return false;
+                }
+                return true;
+            }
+            case GeneratedTableLayout.FLOAT: {
+                float[] values = floats[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(Float.floatToIntBits(values[i]))) return false;
+                }
+                return true;
+            }
+            case GeneratedTableLayout.DOUBLE: {
+                double[] values = doubles[slot];
+                for (int i = 0; i < logicalRows; i++) {
+                    if (!visitor.visit(Double.doubleToLongBits(values[i]))) return false;
+                }
+                return true;
+            }
+            default:
+                throw new AssertionError("not a primitive leaf kind");
+        }
+    }
+
     @Override public void read(
             int offset,
             TypedValues destination,
