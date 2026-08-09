@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+reject_match() {
+    set +e
+    "$@"
+    status=$?
+    set -e
+    case "$status" in
+        0) echo "i0-qualification: forbidden surface detected" >&2; exit 1 ;;
+        1) return 0 ;;
+        *) exit "$status" ;;
+    esac
+}
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
@@ -131,9 +143,9 @@ mvn -f "$stale_root/pom.xml" clean compile
 test ! -e "$stale_root/target/classes/example/stale/schema/Alpha.class"
 test -f "$stale_root/target/classes/example/stale/schema/Gamma.class"
 test -f "$stale_root/target/generated-sources/annotations/example/stale/SomaCompositionLinkage.java"
-! grep -q 'table=example.stale.schema.Alpha' "$stale_manifest"
+reject_match grep -q 'table=example.stale.schema.Alpha' "$stale_manifest"
 grep -q 'table=example.stale.schema.Gamma' "$stale_manifest"
-! cmp -s "$work_root/initial-stale-manifest.properties" "$stale_manifest"
+reject_match cmp -s "$work_root/initial-stale-manifest.properties" "$stale_manifest"
 
 "$jar_cmd" tf "$runtime_jar" > "$work_root/runtime-jar.txt"
 "$jar_cmd" tf "$processor_jar" > "$work_root/processor-jar.txt"

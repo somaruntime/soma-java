@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+reject_match() {
+    set +e
+    "$@"
+    status=$?
+    set -e
+    case "$status" in
+        0) echo "i3-qualification: forbidden surface detected" >&2; exit 1 ;;
+        1) return 0 ;;
+        *) exit "$status" ;;
+    esac
+}
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
@@ -302,15 +314,15 @@ grep -q 'filter(io.github.somaruntime.soma.SomaPredicate' \
 grep -q 'mapToLong(example.i3.EventTable\$AmountField)' \
     "$work_root/event-table-public.txt"
 grep -q 'public long sum();' "$work_root/amount-field-public.txt"
-! grep -q ' sum();' "$work_root/payload-field-public.txt"
+reject_match grep -q ' sum();' "$work_root/payload-field-public.txt"
 if [ "$qualification_stage" = i4 ]; then
     grep -q ' update(' "$work_root/selection-public.txt"
     grep -q ' remove(' "$work_root/selection-public.txt"
 else
-    ! grep -q ' remove(' "$work_root/selection-public.txt"
+    reject_match grep -q ' remove(' "$work_root/selection-public.txt"
 fi
-! grep -q ' parallel(' "$work_root/event-table-public.txt"
-! grep -Rq 'class ReadStream' "$generated"
+reject_match grep -q ' parallel(' "$work_root/event-table-public.txt"
+reject_match grep -Rq 'class ReadStream' "$generated"
 
 # Recheck full-regeneration cleanup using the already admitted relation/value
 # breadth fixture, but compile it directly against the current two artifacts so
@@ -342,9 +354,9 @@ runtime_inventory="$work_root/runtime-jar.txt"
 processor_inventory="$work_root/processor-jar.txt"
 "$jar_cmd" tf "$runtime_jar" > "$runtime_inventory"
 "$jar_cmd" tf "$processor_jar" > "$processor_inventory"
-! grep -q '^org/junit/' "$runtime_inventory"
-! grep -q '^org/junit/' "$processor_inventory"
-! grep -q 'io/github/somaruntime/soma/ReadStream.class' "$runtime_inventory"
+reject_match grep -q '^org/junit/' "$runtime_inventory"
+reject_match grep -q '^org/junit/' "$processor_inventory"
+reject_match grep -q 'io/github/somaruntime/soma/ReadStream.class' "$runtime_inventory"
 
 # Freeze the complete shared public runtime ABI, not only generated nested
 # classes. This makes every new callback/stream/summary carrier observable.

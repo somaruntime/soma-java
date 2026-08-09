@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+reject_match() {
+    set +e
+    "$@"
+    status=$?
+    set -e
+    case "$status" in
+        0) echo "i2-qualification: forbidden surface detected" >&2; exit 1 ;;
+        1) return 0 ;;
+        *) exit "$status" ;;
+    esac
+}
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
@@ -208,7 +220,7 @@ done
 grep -q 'public IndexSelection byBucket(int value)' "$stale_generated/GammaTable.java"
 grep -q 'public IndexSelection bySourceCode(example.i2stale.RenamedCode value)' \
     "$stale_generated/RenamedRelationTable.java"
-! grep -Eq 'example\.i2stale\.(Code|Alpha|Relation)' "$stale_manifest"
+reject_match grep -Eq 'example\.i2stale\.(Code|Alpha|Relation)' "$stale_manifest"
 grep -q 'example.i2stale.GammaTable' "$stale_manifest"
 grep -q 'example.i2stale.RenamedRelationTable' "$stale_manifest"
 
@@ -260,23 +272,23 @@ grep -q 'public example.i2.AllTypesTable$IndexSelection byMachineId(example.i2.M
 grep -q 'implements io.github.somaruntime.soma.SomaFieldEndpoint' \
     "$work_root/payload-field-public.txt"
 grep -q 'isNull();' "$work_root/payload-field-public.txt"
-! grep -q ' eq(' "$work_root/payload-field-public.txt"
-! grep -q 'void key(' "$work_root/editor-public.txt"
-! grep -q ' find(' "$work_root/keyless-public.txt"
-! grep -q ' remove(' "$work_root/keyless-public.txt"
+reject_match grep -q ' eq(' "$work_root/payload-field-public.txt"
+reject_match grep -q 'void key(' "$work_root/editor-public.txt"
+reject_match grep -q ' find(' "$work_root/keyless-public.txt"
+reject_match grep -q ' remove(' "$work_root/keyless-public.txt"
 
 grep -q 'public MachinePair(example.i2.MachineId' \
     "$generated/example/i2/MachinePair.java"
-! grep -q 'public MachinePair()' "$generated/example/i2/MachinePair.java"
+reject_match grep -q 'public MachinePair()' "$generated/example/i2/MachinePair.java"
 grep -q 'implements io.github.somaruntime.soma.SomaFieldEndpoint' \
     "$generated/example/i2/AllTypesTable.java"
-! grep -Rq 'GeneratedLongTable' "$generated"
+reject_match grep -Rq 'GeneratedLongTable' "$generated"
 
 runtime_classes="$work_root/runtime-classes.txt"
 "$JAVA_HOME/bin/jar" tf "$runtime_jar" \
     | sed -n '/^io\/github\/somaruntime\/soma\/internal\/.*\.class$/p' \
     | sed 's#/#.#g; s#\.class$##' > "$runtime_classes"
-! grep -Eq 'GeneratedLong|LongChunk|LongStateRoot|PlainLongChunk' "$runtime_classes"
+reject_match grep -Eq 'GeneratedLong|LongChunk|LongStateRoot|PlainLongChunk' "$runtime_classes"
 
 : > "$work_root/runtime-bytecode.txt"
 while IFS= read -r runtime_class; do

@@ -22,7 +22,9 @@ done
 "$javac_cmd" -version 2>&1 | grep -q '^javac 1\.8\.'
 
 python3 scripts/generate-grouped-api.py --check
-mvn clean package
+if [ "${SOMA_I7_REUSE_BUILD:-0}" != 1 ]; then
+    mvn clean package
+fi
 
 runtime_jar=
 for candidate in "$repo_root"/soma-runtime/target/soma-runtime-*.jar; do
@@ -119,8 +121,11 @@ grep -q 'boolean encoded()' "$runtime_public"
 
 "$jar_cmd" tf "$runtime_jar" > "$work_root/runtime-jar.txt"
 "$jar_cmd" tf "$processor_jar" > "$work_root/processor-jar.txt"
-! grep -q '^org/junit/' "$work_root/runtime-jar.txt"
-! grep -q '^org/junit/' "$work_root/processor-jar.txt"
+if grep -q '^org/junit/' "$work_root/runtime-jar.txt" \
+        || grep -q '^org/junit/' "$work_root/processor-jar.txt"; then
+    echo "i7-qualification: JUnit leaked into a production artifact" >&2
+    exit 1
+fi
 grep -q '^io/github/somaruntime/soma/internal/EncodedChunk.class$' \
     "$work_root/runtime-jar.txt"
 grep -q '^io/github/somaruntime/soma/TableMetadata.class$' \

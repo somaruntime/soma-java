@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>io.github.somaruntime.examples.build</groupId>
+    <artifactId>soma-examples</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>SOMA Reference Applications</name>
+    <description>Non-published reactor for the three SOMA V1 reference applications.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>8</maven.compiler.release>
+        <maven.compiler.source>8</maven.compiler.source>
+        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.plugin.version>3.13.0</maven.compiler.plugin.version>
+        <maven.enforcer.plugin.version>3.5.0</maven.enforcer.plugin.version>
+    </properties>
+
+    <modules>
+        <module>scheduling</module>
+        <module>simulation</module>
+        <module>real-time-dispatch</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>io.github.somaruntime.soma</groupId>
+                <artifactId>soma-runtime</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.somaruntime.soma</groupId>
+                <artifactId>soma-processor</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven.compiler.plugin.version}</version>
+                    <configuration>
+                        <release>${maven.compiler.release}</release>
+                        <source>${maven.compiler.source}</source>
+                        <target>${maven.compiler.target}</target>
+                        <encoding>${project.build.sourceEncoding}</encoding>
+                        <showWarnings>true</showWarnings>
+                        <generatedSourcesDirectory>${project.build.directory}/generated-sources/unused</generatedSourcesDirectory>
+                        <compilerArgs>
+                            <arg>-Asoma.fullSourceSet=true</arg>
+                        </compilerArgs>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>io.github.somaruntime.soma</groupId>
+                                <artifactId>soma-processor</artifactId>
+                                <version>${project.version}</version>
+                            </path>
+                            <path>
+                                <groupId>io.github.somaruntime.soma</groupId>
+                                <artifactId>soma-runtime</artifactId>
+                                <version>${project.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>soma-full-regeneration</id>
+                            <phase>generate-sources</phase>
+                            <goals><goal>compile</goal></goals>
+                            <configuration>
+                                <proc>only</proc>
+                                <generatedSourcesDirectory>${project.build.directory}/generated-sources/soma</generatedSourcesDirectory>
+                                <includes>
+                                    <include>**/schema/*.java</include>
+                                    <include>**/domain/*.java</include>
+                                </includes>
+                            </configuration>
+                        </execution>
+                        <execution>
+                            <id>default-compile</id>
+                            <configuration><proc>none</proc></configuration>
+                        </execution>
+                        <execution>
+                            <id>default-testCompile</id>
+                            <configuration><proc>none</proc></configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>${maven.enforcer.plugin.version}</version>
+                <executions>
+                    <execution>
+                        <id>enforce-java-8</id>
+                        <goals><goal>enforce</goal></goals>
+                        <configuration>
+                            <rules>
+                                <requireJavaVersion><version>[1.8,1.9)</version></requireJavaVersion>
+                                <requireMavenVersion><version>[3.9,4.0)</version></requireMavenVersion>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>

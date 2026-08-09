@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+reject_match() {
+    set +e
+    "$@"
+    status=$?
+    set -e
+    case "$status" in
+        0) echo "i5-qualification: forbidden surface detected" >&2; exit 1 ;;
+        1) return 0 ;;
+        *) exit "$status" ;;
+    esac
+}
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
@@ -154,8 +166,8 @@ grep -q 'crossJoin(example.i5.MachineStateTable, long)' \
     "$work_root/event-table-public.txt"
 grep -q 'mapToLong(example.i5.MachineEventTable\$EventIdField)' \
     "$work_root/read-stream-public.txt"
-! grep -q ' parallel(' "$work_root/event-table-public.txt"
-! grep -q ' toList(' "$work_root/pair-stream-public.txt"
+reject_match grep -q ' parallel(' "$work_root/event-table-public.txt"
+reject_match grep -q ' toList(' "$work_root/pair-stream-public.txt"
 if grep -q 'io.github.somaruntime.soma.internal' \
         "$work_root/event-table-public.txt"; then
     echo "i5-qualification: generated public signature leaks internal type" >&2
@@ -166,8 +178,8 @@ runtime_inventory="$work_root/runtime-jar.txt"
 processor_inventory="$work_root/processor-jar.txt"
 "$jar_cmd" tf "$runtime_jar" > "$runtime_inventory"
 "$jar_cmd" tf "$processor_jar" > "$processor_inventory"
-! grep -q '^org/junit/' "$runtime_inventory"
-! grep -q '^org/junit/' "$processor_inventory"
+reject_match grep -q '^org/junit/' "$runtime_inventory"
+reject_match grep -q '^org/junit/' "$processor_inventory"
 grep -q '^io/github/somaruntime/soma/GroupedLongResult.class$' \
     "$runtime_inventory"
 grep -q '^io/github/somaruntime/soma/SomaJoinOnBuilder.class$' \

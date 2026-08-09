@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+reject_match() {
+    set +e
+    "$@"
+    status=$?
+    set -e
+    case "$status" in
+        0) echo "i1-qualification: forbidden surface detected" >&2; exit 1 ;;
+        1) return 0 ;;
+        *) exit "$status" ;;
+    esac
+}
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
@@ -134,7 +146,7 @@ test -f "$stale_generated/Gamma.java"
 test -f "$stale_generated/GammaTable.java"
 test -f "$stale_classes/Gamma.class"
 test -f "$stale_classes/GammaTable.class"
-! grep -q 'example.i1stale.Alpha' "$stale_manifest"
+reject_match grep -q 'example.i1stale.Alpha' "$stale_manifest"
 grep -q 'example.i1stale.GammaTable' "$stale_manifest"
 
 negative_output="$work_root/negative.txt"
@@ -221,12 +233,12 @@ grep -q 'public java.util.Optional<example.i1.Entity> find(long);' \
 grep -q 'public io.github.somaruntime.soma.UpdateResult update' \
     "$work_root/entity-table-public.txt"
 grep -q 'public void value(long);' "$work_root/editor-public.txt"
-! grep -q 'void id(long)' "$work_root/editor-public.txt"
-! grep -q 'parallel' "$work_root/entity-table-public.txt"
+reject_match grep -q 'void id(long)' "$work_root/editor-public.txt"
+reject_match grep -q 'parallel' "$work_root/entity-table-public.txt"
 grep -q 'public io.github.somaruntime.soma.RemoveResult remove(long);' \
     "$work_root/entity-table-public.txt"
-! grep -q 'EntityTable();' "$work_root/entity-table-public.txt"
-! grep -q 'Soma();' "$work_root/soma-public.txt"
+reject_match grep -q 'EntityTable();' "$work_root/entity-table-public.txt"
+reject_match grep -q 'Soma();' "$work_root/soma-public.txt"
 
 runtime_classes="$work_root/runtime-classes.txt"
 "$JAVA_HOME/bin/jar" tf "$runtime_jar" \
@@ -259,7 +271,7 @@ test -f "$generated/example/i1/Entity.java"
 test -f "$generated/example/i1/EntityTable.java"
 grep -q 'implements io.github.somaruntime.soma.SomaKeyableField<View, java.lang.Long>' \
     "$generated/example/i1/EntityTable.java"
-! grep -q 'parallel(' "$generated/example/i1/EntityTable.java"
+reject_match grep -q 'parallel(' "$generated/example/i1/EntityTable.java"
 grep -q 'public io.github.somaruntime.soma.RemoveResult remove(long key)' \
     "$generated/example/i1/EntityTable.java"
 

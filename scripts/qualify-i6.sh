@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
 
+reject_match() {
+    set +e
+    "$@"
+    status=$?
+    set -e
+    case "$status" in
+        0) echo "i6-qualification: forbidden surface detected" >&2; exit 1 ;;
+        1) return 0 ;;
+        *) exit "$status" ;;
+    esac
+}
+
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
@@ -109,7 +121,7 @@ grep -q 'MachineEventTable\$ReadStream parallel()' "$work_root/read-stream.txt"
 grep -q 'parallelExecutor(java.util.concurrent.ForkJoinPool)' \
     "$work_root/configuration-builder.txt"
 grep -q ' parallel()' "$work_root/shared-streams.txt"
-! grep -q ' sequential(' "$work_root/shared-streams.txt"
+reject_match grep -q ' sequential(' "$work_root/shared-streams.txt"
 
 if grep -q 'io.github.somaruntime.soma.internal' \
         "$work_root/table.txt" "$work_root/stream.txt" \
@@ -120,8 +132,8 @@ fi
 
 "$jar_cmd" tf "$runtime_jar" > "$work_root/runtime-jar.txt"
 "$jar_cmd" tf "$processor_jar" > "$work_root/processor-jar.txt"
-! grep -q '^org/junit/' "$work_root/runtime-jar.txt"
-! grep -q '^org/junit/' "$work_root/processor-jar.txt"
+reject_match grep -q '^org/junit/' "$work_root/runtime-jar.txt"
+reject_match grep -q '^org/junit/' "$work_root/processor-jar.txt"
 grep -q '^io/github/somaruntime/soma/internal/ParallelRowScheduler.class$' \
     "$work_root/runtime-jar.txt"
 
