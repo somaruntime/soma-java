@@ -688,6 +688,15 @@ class GeneratedTableTest {
                 QueryOperation.optimizedLocatorsForTesting(
                         LogicalRowPlan.tableScan(table)
                                 .top(2L, (GeneratedOrder<?>) table.<Object>asc(2)))));
+        LogicalRowPlan bounded = LogicalRowPlan.tableScan(table)
+                .top(2L, (GeneratedOrder<?>) table.<Object>asc(2));
+        assertTrue(QueryOperation.explain(bounded).contains("boundedTop=true"));
+        LogicalRowPlan parallel = LogicalRowPlan.tableScan(table)
+                .top(2L, (GeneratedOrder<?>) table.<Object>asc(2))
+                .parallel();
+        assertTrue(Arrays.equals(
+                QueryOperation.referenceLocatorsForTesting(parallel),
+                QueryOperation.optimizedLocatorsForTesting(parallel)));
 
         LogicalRowPlan failing = LogicalRowPlan.tableScan(table)
                 .callbackFilter(() -> {
@@ -702,6 +711,55 @@ class GeneratedTableTest {
         assertEquals(SomaFailureCode.CALLBACK_FAILED, reference.code());
         assertEquals(reference.code(), optimized.code());
         assertEquals(reference.operation(), optimized.operation());
+    }
+
+    @Test
+    void boundedTypedTopMatchesStableOracleAcrossThresholdAndParallelPaths() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 257L; key++) {
+            add(table, key, "bucket", (int) ((key * 37L) % 31L), new Object());
+        }
+        GeneratedProbe minimum = table.newProbe(2);
+        minimum.putInt(2, 5);
+        PredicateIr eligible = table.requireOwnedExpression(table.ge(minimum.seal()));
+        for (long count : new long[] {0L, 1L, 2L, 17L, 64L, 65L, 512L}) {
+            LogicalRowPlan plan = LogicalRowPlan.tableScan(table)
+                    .typedFilter(eligible)
+                    .top(count, (GeneratedOrder<?>) table.<Object>asc(2))
+                    .skip(1L);
+            assertTrue(Arrays.equals(
+                    QueryOperation.referenceLocatorsForTesting(plan),
+                    QueryOperation.optimizedLocatorsForTesting(plan)),
+                    "top count=" + count);
+        }
+
+        LogicalRowPlan parallel = LogicalRowPlan.tableScan(table)
+                .typedFilter(eligible)
+                .top(17L, (GeneratedOrder<?>) table.<Object>desc(2))
+                .parallel();
+        assertTrue(Arrays.equals(
+                QueryOperation.referenceLocatorsForTesting(parallel),
+                QueryOperation.optimizedLocatorsForTesting(parallel)));
+
+        final int[] referenceCalls = new int[1];
+        LogicalRowPlan reference = LogicalRowPlan.tableScan(table)
+                .callbackFilter(() -> {
+                    referenceCalls[0]++;
+                    return table.queryCursor().viewLong(0) % 3L != 0L;
+                })
+                .top(17L, (GeneratedOrder<?>) table.<Object>asc(2));
+        final int[] optimizedCalls = new int[1];
+        LogicalRowPlan optimized = LogicalRowPlan.tableScan(table)
+                .callbackFilter(() -> {
+                    optimizedCalls[0]++;
+                    return table.queryCursor().viewLong(0) % 3L != 0L;
+                })
+                .top(17L, (GeneratedOrder<?>) table.<Object>asc(2));
+        assertTrue(Arrays.equals(
+                QueryOperation.referenceLocatorsForTesting(reference),
+                QueryOperation.optimizedLocatorsForTesting(optimized)));
+        assertEquals(257, referenceCalls[0]);
+        assertEquals(referenceCalls[0], optimizedCalls[0]);
     }
 
     @Test

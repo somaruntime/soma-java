@@ -43,11 +43,31 @@ final class OptimizedSequentialRowExecutor {
     private static LongLocatorBuffer locators(
             BoundRowPlan bound,
             NormalizedRowPlan plan) {
-        LongLocatorBuffer result = new LongLocatorBuffer(
-                bound.root.size, bound.operation, bound.provenance);
         int firstStateful = nextStateful(plan.stages, 0);
-        collectSourceSegment(bound, plan, 0, firstStateful, result);
-        int position = firstStateful;
+        int boundedTopLimit = boundedTypedTopLimitPosition(
+                bound, plan, firstStateful);
+        LongLocatorBuffer result;
+        int position;
+        if (boundedTopLimit >= 0) {
+            long count = plan.stages.get(boundedTopLimit).count;
+            result = collectBoundedTypedTop(
+                    bound,
+                    plan,
+                    0,
+                    firstStateful,
+                    plan.stages.get(firstStateful),
+                    count);
+            int next = nextStateful(plan.stages, boundedTopLimit + 1);
+            compactSegment(
+                    bound, result, plan.stages, firstStateful + 1, next,
+                    plan.membership);
+            position = next;
+        } else {
+            result = new LongLocatorBuffer(
+                    sourceUpperBound(bound), bound.operation, bound.provenance);
+            collectSourceSegment(bound, plan, 0, firstStateful, result);
+            position = firstStateful;
+        }
         while (position < plan.stages.size()) {
             LogicalRowPlan.Stage stage = plan.stages.get(position);
             switch (stage.kind) {
@@ -68,6 +88,71 @@ final class OptimizedSequentialRowExecutor {
             position = next;
         }
         return result;
+    }
+
+    static boolean usesBoundedTypedTop(
+            BoundRowPlan bound,
+            NormalizedRowPlan plan) {
+        int firstStateful = nextStateful(plan.stages, 0);
+        return boundedTypedTopLimitPosition(bound, plan, firstStateful) >= 0;
+    }
+
+    private static int boundedTypedTopLimitPosition(
+            BoundRowPlan bound,
+            NormalizedRowPlan plan,
+            int orderPosition) {
+        if (orderPosition >= plan.stages.size()
+                || plan.stages.get(orderPosition).kind
+                != LogicalRowPlan.StageKind.TYPED_ORDER) {
+            return -1;
+        }
+        int limitPosition = orderPosition + 1;
+        if (limitPosition >= plan.stages.size()
+                || plan.stages.get(limitPosition).kind
+                != LogicalRowPlan.StageKind.LIMIT) {
+            return -1;
+        }
+        long count = plan.stages.get(limitPosition).count;
+        long source = sourceUpperBound(bound);
+        if (count >= source) return -1;
+        return count <= 64L || count <= source / 4L
+                ? limitPosition
+                : -1;
+    }
+
+    private static long sourceUpperBound(BoundRowPlan bound) {
+        if (bound.parallelSource != null) return bound.parallelSource.size();
+        if (bound.relationSource != null) return bound.relationSource.size();
+        return bound.root.size;
+    }
+
+    private static LongLocatorBuffer collectBoundedTypedTop(
+            final BoundRowPlan bound,
+            final NormalizedRowPlan plan,
+            final int from,
+            final int to,
+            final LogicalRowPlan.Stage order,
+            long count) {
+        final long[] counters = new long[to - from];
+        final StableTopLocatorHeap heap = new StableTopLocatorHeap(
+                bound, order, count);
+        final long[] nextOrdinal = new long[1];
+        visitSource(bound, plan, new LocatorVisitor() {
+            @Override public boolean visit(long locator) {
+                if (segmentLimitReached(plan.stages, from, to, counters)) return false;
+                int decision = evaluateStateless(
+                        bound, locator, plan.stages, from, to, counters,
+                        plan.membership);
+                if (decision > 0 && heap.hasCapacity()) {
+                    heap.offer(locator, nextOrdinal[0]);
+                    nextOrdinal[0] = CheckedLong.increment(
+                            nextOrdinal[0], bound.operation, bound.provenance);
+                }
+                return decision >= 0 && !segmentLimitReached(
+                        plan.stages, from, to, counters);
+            }
+        });
+        return heap.finish();
     }
 
     private static void collectSourceSegment(

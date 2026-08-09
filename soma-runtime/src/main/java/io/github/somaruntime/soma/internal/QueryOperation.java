@@ -296,6 +296,9 @@ final class QueryOperation {
                         < logical.owner().layout().leafCount())
                 .append(" statelessFusion=")
                 .append(hasStatelessFusion(optimized.stages))
+                .append(" boundedTop=")
+                .append(OptimizedSequentialRowExecutor.usesBoundedTypedTop(
+                        bound, optimized))
                 .append(" inMembershipLiterals=")
                 .append(logical.inLiteralCount())
                 .append(" order=canonical estimatedTemporaryPeakBytes=")
