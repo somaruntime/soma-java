@@ -39,6 +39,20 @@ public final class BenchmarkResult {
         put(name + "MinNanos", measurement.minimumNanos());
         put(name + "MedianNanos", measurement.medianNanos());
         put(name + "MaxNanos", measurement.maximumNanos());
+        MemoryMeasurement memory = measurement.memory();
+        if (memory != null) {
+            put(name + "AllocatedBytes", memory.allocatedBytes());
+            put(name + "RetainedBeforeBytes", memory.retainedBeforeBytes());
+            put(name + "RetainedAfterBytes", memory.retainedAfterBytes());
+            put(name + "PeakTemporaryBytes", memory.peakTemporaryBytes());
+            put(name + "PeakManagedBytes", memory.peakManagedBytes());
+            put(name + "HeapUsedBeforeBytes", memory.heapUsedBeforeBytes());
+            put(name + "HeapUsedAfterBytes", memory.heapUsedAfterBytes());
+            put(name + "PeakHeapUsedBytes", memory.peakHeapUsedBytes());
+            put(name + "PeakHeapCommittedBytes", memory.peakHeapCommittedBytes());
+            put(name + "GarbageCollections", memory.garbageCollections());
+            put(name + "GarbageCollectionMillis", memory.garbageCollectionMillis());
+        }
         return this;
     }
 

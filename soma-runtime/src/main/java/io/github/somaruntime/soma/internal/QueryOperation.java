@@ -266,6 +266,7 @@ final class QueryOperation {
                                 return true;
                             }
                         });
+                if (size[0] == upper) return staging;
                 @SuppressWarnings("unchecked")
                 R[] result = (R[]) Array.newInstance(componentType, size[0]);
                 System.arraycopy(staging, 0, result, 0, size[0]);
@@ -514,7 +515,7 @@ final class QueryOperation {
                             literals, 256L, bound.provenance),
                     bound.provenance);
         }
-        if (bound.logical.isParallel()) {
+        if (ParallelRowScheduler.requiresMembershipBuffer(bound)) {
             result = addScratch(
                     result,
                     RowExecutionSupport.arrayBytes(

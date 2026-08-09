@@ -31,6 +31,8 @@ public final class GeneratedTable {
     private final GeneratedSelectionEditor selectionEditor;
     private final GeneratedQueryCursor primaryQueryCursor;
     private final GeneratedQueryCursor secondaryQueryCursor;
+    private final IdentityHashIndex.PreparedAdd keyAddScratch;
+    private final IdentityHashIndex.PreparedAdd[] indexAddScratch;
     private final AtomicReference<TableStateRoot> current;
 
     GeneratedTable(GeneratedGroup group, GeneratedTableLayout layout) {
@@ -57,6 +59,12 @@ public final class GeneratedTable {
         this.selectionEditor = new GeneratedSelectionEditor(layout);
         this.primaryQueryCursor = new GeneratedQueryCursor(layout);
         this.secondaryQueryCursor = new GeneratedQueryCursor(layout);
+        this.keyAddScratch = layout.keyFieldIndex() < 0
+                ? null : new IdentityHashIndex.PreparedAdd();
+        this.indexAddScratch = new IdentityHashIndex.PreparedAdd[layout.indexCount()];
+        for (int ordinal = 0; ordinal < indexAddScratch.length; ordinal++) {
+            indexAddScratch[ordinal] = new IdentityHashIndex.PreparedAdd();
+        }
         this.current = new AtomicReference<TableStateRoot>(
                 TableStateRoot.empty(layout, chunkRows));
     }
@@ -885,92 +893,99 @@ public final class GeneratedTable {
             long newSize,
             long newVersion,
             Object provenance) {
-        IdentityHashIndex.PreparedAdd keyAdd = root.key == null
-                ? null
-                : root.key.prepareAdd(
+        IdentityHashIndex.PreparedAdd keyAdd = root.key == null ? null : keyAddScratch;
+        IdentityHashIndex.PreparedAdd[] indexAdds = indexAddScratch;
+        try {
+            if (keyAdd != null) {
+                root.key.prepareAdd(
+                        keyAdd,
                         root.directory,
                         row,
                         root.size,
                         SomaOperation.ADD,
                         provenance,
                         layout.logicalName());
-        IdentityHashIndex.PreparedAdd[] indexAdds =
-                new IdentityHashIndex.PreparedAdd[root.indexes.length];
-        for (int ordinal = 0; ordinal < indexAdds.length; ordinal++) {
-            indexAdds[ordinal] = root.indexes[ordinal].prepareAdd(
-                    root.directory,
-                    row,
-                    root.size,
-                    SomaOperation.ADD,
-                    provenance,
-                    layout.logicalName());
-        }
-        long sidecarBytes = keyAdd == null ? 0L : keyAdd.managedBytesAfter();
-        for (IdentityHashIndex.PreparedAdd add : indexAdds) {
-            sidecarBytes = CheckedLong.add(
-                    sidecarBytes,
-                    add.managedBytesAfter(),
-                    SomaOperation.ADD,
-                    provenance);
-        }
-        long conservativeManaged = managedBytes(
-                targetCapacity, sidecarBytes, SomaOperation.ADD, provenance);
-        long reservedDelta = Math.max(
-                0L, conservativeManaged - root.managedBytes);
-        boolean growth = targetCapacity > root.capacity;
-        boolean sealsChunk = newSize % chunkRows == 0L;
-        boolean candidateRequired = growth || sealsChunk;
-        try (GlobalMemoryManager.RetainedReservation retained =
-                     group.reserveRetained(
-                             reservedDelta, SomaOperation.ADD, provenance);
-             GlobalMemoryManager.TemporaryLease temporary =
-                     group.leaseTemporary(
-                             candidateRequired ? root.managedBytes : 0L,
-                             SomaOperation.ADD,
-                             provenance)) {
-            TableChunkDirectory directory = growth
-                    ? TableChunkDirectory.grow(
-                            root.directory, targetCapacity / chunkRows, layout)
-                    : root.directory;
-            if (sealsChunk) {
-                directory = directory.copyForUpdate(root.size, row);
-                directory.finishTouched(
-                        newSize,
-                        group.compression(),
+            }
+            for (int ordinal = 0; ordinal < indexAdds.length; ordinal++) {
+                root.indexes[ordinal].prepareAdd(
+                        indexAdds[ordinal],
+                        root.directory,
+                        row,
+                        root.size,
+                        SomaOperation.ADD,
+                        provenance,
+                        layout.logicalName());
+            }
+            long sidecarBytes = keyAdd == null ? 0L : keyAdd.managedBytesAfter();
+            for (IdentityHashIndex.PreparedAdd add : indexAdds) {
+                sidecarBytes = CheckedLong.add(
+                        sidecarBytes,
+                        add.managedBytesAfter(),
                         SomaOperation.ADD,
                         provenance);
             }
-            long finalManaged = managedBytes(
-                    directory, sidecarBytes, SomaOperation.ADD, provenance);
-            TableStateRoot committed = new TableStateRoot(
-                    newSize,
-                    targetCapacity,
-                    newVersion,
-                    finalManaged,
-                    directory,
-                    root.key,
-                    root.indexes);
-            inject(
-                    candidateRequired
-                            ? MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH
-                            : MutationFaultPoint.BEFORE_FINAL_COMMIT,
-                    SomaOperation.ADD,
-                    provenance);
-            if (!sealsChunk) directory.write(root.size, row);
-            if (keyAdd != null) keyAdd.commit();
-            for (IdentityHashIndex.PreparedAdd add : indexAdds) add.commit();
-            current.set(committed);
-            retained.commit();
-            long surplus = CheckedLong.subtract(
-                    CheckedLong.add(
-                            root.managedBytes,
-                            reservedDelta,
+            long conservativeManaged = managedBytes(
+                    targetCapacity, sidecarBytes, SomaOperation.ADD, provenance);
+            long reservedDelta = Math.max(
+                    0L, conservativeManaged - root.managedBytes);
+            boolean growth = targetCapacity > root.capacity;
+            boolean sealsChunk = newSize % chunkRows == 0L;
+            boolean candidateRequired = growth || sealsChunk;
+            try (GlobalMemoryManager.RetainedReservation retained =
+                         group.reserveRetained(
+                                 reservedDelta, SomaOperation.ADD, provenance);
+                 GlobalMemoryManager.TemporaryLease temporary =
+                         group.leaseTemporary(
+                                 candidateRequired ? root.managedBytes : 0L,
+                                 SomaOperation.ADD,
+                                 provenance)) {
+                TableChunkDirectory directory = growth
+                        ? TableChunkDirectory.grow(
+                                root.directory, targetCapacity / chunkRows, layout)
+                        : root.directory;
+                if (sealsChunk) {
+                    directory = directory.copyForUpdate(root.size, row);
+                    directory.finishTouched(
+                            newSize,
+                            group.compression(),
                             SomaOperation.ADD,
-                            provenance),
-                    finalManaged,
-                    SomaOperation.ADD,
-                    provenance);
-            if (surplus > 0L) group.releasePublished(surplus);
+                            provenance);
+                }
+                long finalManaged = managedBytes(
+                        directory, sidecarBytes, SomaOperation.ADD, provenance);
+                TableStateRoot committed = new TableStateRoot(
+                        newSize,
+                        targetCapacity,
+                        newVersion,
+                        finalManaged,
+                        directory,
+                        root.key,
+                        root.indexes);
+                inject(
+                        candidateRequired
+                                ? MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH
+                                : MutationFaultPoint.BEFORE_FINAL_COMMIT,
+                        SomaOperation.ADD,
+                        provenance);
+                if (!sealsChunk) directory.write(root.size, row);
+                if (keyAdd != null) keyAdd.commit();
+                for (IdentityHashIndex.PreparedAdd add : indexAdds) add.commit();
+                current.set(committed);
+                retained.commit();
+                long surplus = CheckedLong.subtract(
+                        CheckedLong.add(
+                                root.managedBytes,
+                                reservedDelta,
+                                SomaOperation.ADD,
+                                provenance),
+                        finalManaged,
+                        SomaOperation.ADD,
+                        provenance);
+                if (surplus > 0L) group.releasePublished(surplus);
+            }
+        } finally {
+            if (keyAdd != null) keyAdd.clear();
+            for (IdentityHashIndex.PreparedAdd add : indexAdds) add.clear();
         }
     }
 

@@ -37,6 +37,7 @@ inner_samples=${SOMA_BENCHMARK_INNER_SAMPLES:-5}
 heap_initial=${SOMA_BENCHMARK_XMS:-2g}
 heap_maximum=${SOMA_BENCHMARK_XMX:-8g}
 memory_budget=${SOMA_BENCHMARK_MEMORY_BUDGET_BYTES:-6442450944}
+memory_attribution=${SOMA_BENCHMARK_MEMORY_ATTRIBUTION:-0}
 
 case "$rows" in *[!0-9]*|'') echo "benchmark: invalid row count" >&2; exit 1 ;; esac
 case "$runs" in *[!0-9]*|'') echo "benchmark: invalid run count" >&2; exit 1 ;; esac
@@ -44,6 +45,7 @@ case "$parallelism" in *[!0-9]*|'') echo "benchmark: invalid parallelism" >&2; e
 case "$inner_warmups" in *[!0-9]*|'') echo "benchmark: invalid inner warmups" >&2; exit 1 ;; esac
 case "$inner_samples" in *[!0-9]*|'') echo "benchmark: invalid inner samples" >&2; exit 1 ;; esac
 case "$memory_budget" in *[!0-9]*|'') echo "benchmark: invalid memory budget" >&2; exit 1 ;; esac
+case "$memory_attribution" in 0|1) ;; *) echo "benchmark: invalid memory attribution flag" >&2; exit 1 ;; esac
 test "$rows" -ge 10000 && test "$rows" -le 20000000
 test "$runs" -ge 1 && test "$runs" -le 7
 test "$parallelism" -ge 1 && test "$parallelism" -le 16
@@ -138,6 +140,7 @@ rm -f "$output_root/summary.json" "$output_root/summary.md"
     echo "xms=$heap_initial"
     echo "xmx=$heap_maximum"
     echo "memoryBudgetBytes=$memory_budget"
+    echo "memoryAttribution=$memory_attribution"
     echo "os=$(uname -a)"
     "$java_cmd" -version 2>&1
     mvn -version
@@ -176,6 +179,9 @@ run_benchmark() {
         "-Dsoma.benchmark.innerWarmups=$inner_warmups" \
         "-Dsoma.benchmark.innerSamples=$inner_samples" \
         "-Dsoma.benchmark.memoryBudgetBytes=$memory_budget"
+    if [ "$memory_attribution" = 1 ]; then
+        set -- "$@" -Dsoma.benchmark.memoryAttribution=true
+    fi
     if [ "$implementation" = soma-auto ] && [ "$run_number" -eq 1 ]; then
         if [ "$profiler" = jfr ]; then
             set -- "$@" -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \

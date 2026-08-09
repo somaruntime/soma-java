@@ -69,6 +69,33 @@ SOMA_BENCHMARK_PARALLELISM=8 \
 CPU 归因使用 `SOMA_BENCHMARK_PROFILER=async`；allocation 归因再增加
 `SOMA_BENCHMARK_ASYNC_EVENT=alloc`。两者都保留 JFR、collapsed stack 与 flame graph。
 
+需要按 type-kernel operation 记录 JVM Java allocation、SOMA observed temporary high-water、heap
+used/committed 与 GC delta 时，显式设置 `SOMA_BENCHMARK_MEMORY_ATTRIBUTION=1`。该模式会在计时完成后
+额外重放一次相同 query，并以 1 ms 采样 managed-memory snapshot；只用于诊断，不进入默认 latency
+基线，也不把 allocation bytes 解释成 live memory：
+
+```sh
+SOMA_BENCHMARK_WORKLOAD=kernel \
+SOMA_BENCHMARK_SCENARIOS=type-kernel \
+SOMA_BENCHMARK_MEMORY_ATTRIBUTION=1 \
+./scripts/benchmark.sh
+```
+
+内存字段按以下边界解释：
+
+- `AllocatedBytes` 是 caller 与 SOMA `ForkJoinPool-*` participant thread 的累计 Java allocation
+  traffic，不是同时存活对象，也不包含 JIT/compiler 与 sampler thread；
+- `PeakTemporaryBytes` 是 SOMA resource admission 的保守 reservation high-water，不等于 JVM 实际
+  创建了同量对象；
+- `HeapUsed*` 是未强制 full GC 的瞬时 heap usage，`HeapCommitted*` 是 JVM 已提交容量，两者都不是
+  Table retained size；
+- process RSS 还包含 JVM/native/code cache/thread stack/JFR 等，不得用 `RSS - retainedBytes` 推导
+  temporary object；
+- ingest 是 one-shot mutation journey；query 的 attribution 是计时完成后的等价 replay。
+
+正式归因合同、10M evidence、低分配优化与剩余边界见
+[内存归因与低分配执行治理记录](../project/conformance/v1-memory-attribution-low-allocation-governance.md)。
+
 正式比较必须使用相同 commit/source、JDK/JVM、workload、row count、parallelism 和 fresh-JVM
 run count；Smoke 只证明测量链可运行，不能证明性能提升。当前证据、scale/memory边界与使用准则见
 [性能与正确性联合治理记录](../project/conformance/v1-performance-correctness-governance.md)。

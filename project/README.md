@@ -24,6 +24,8 @@ implementation 与 qualification：
   Design、Execution、Memory、CPU因果模型与本轮GroupBy/Relation优化已经闭合；
 - [Operator × Type × Distribution 性能资格](conformance/v1-operator-type-distribution-performance-qualification.md)
   已`PASS`，类型/分布 kernel、cost-aware RLE、Bound cardinality 与 Field materialization 已闭合；
+- [内存归因与低分配执行治理](conformance/v1-memory-attribution-low-allocation-governance.md)已`PASS`，
+  retained、temporary reservation、Java allocation、heap/RSS 已分责归因，正常路径低分配优化已闭合；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -54,6 +56,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | 千万行组合负载、资源与优化证据 | [Ten-million composed workload governance](conformance/v1-ten-million-composed-workload-governance.md) |
 | Design/Execution/Memory/CPU 四维归因与优化 | [Four-dimensional performance architecture governance](conformance/v1-four-dimensional-performance-architecture-governance.md) |
 | Operator × Type × Distribution 性能资格 | [Type and distribution performance qualification](conformance/v1-operator-type-distribution-performance-qualification.md) |
+| 内存归因与低分配执行资格 | [Memory attribution and low-allocation governance](conformance/v1-memory-attribution-low-allocation-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact

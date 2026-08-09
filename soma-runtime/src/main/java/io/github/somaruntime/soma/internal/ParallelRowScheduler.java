@@ -34,6 +34,7 @@ final class ParallelRowScheduler {
                 || bound.root.size == 0L) {
             return bound;
         }
+        if (!hasTypedPrefix(plan)) return bound;
 
         int participants = Math.max(1, pool.getParallelism());
         long chunks = 1L + (bound.root.size - 1L)
@@ -77,6 +78,23 @@ final class ParallelRowScheduler {
             throw new AssertionError("parallel internal range failed", failure);
         }
         return bound.withParallelSource(merge(work, bound));
+    }
+
+    static boolean requiresMembershipBuffer(BoundRowPlan bound) {
+        if (!bound.logical.isParallel() || bound.root.size == 0L) return false;
+        NormalizedRowPlan plan = RowOptimizer.optimize(bound);
+        if (plan.sourceKind != NormalizedRowPlan.SourceKind.TABLE_SCAN
+                || !hasTypedPrefix(plan)) return false;
+        int participants = Math.max(
+                1, bound.logical.owner().parallelExecutor().getParallelism());
+        long chunks = 1L + (bound.root.size - 1L)
+                / bound.root.directory.chunkRows();
+        return Math.min((long) participants, chunks) > 1L;
+    }
+
+    private static boolean hasTypedPrefix(NormalizedRowPlan plan) {
+        return !plan.stages.isEmpty()
+                && plan.stages.get(0).kind == LogicalRowPlan.StageKind.TYPED_FILTER;
     }
 
     private static Range[] ranges(

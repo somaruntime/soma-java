@@ -3,6 +3,7 @@ package io.github.somaruntime.benchmarks.kernel;
 import io.github.somaruntime.benchmarks.BenchmarkResult;
 import io.github.somaruntime.benchmarks.BenchmarkSupport;
 import io.github.somaruntime.benchmarks.LongMeasurement;
+import io.github.somaruntime.benchmarks.MemoryObserver;
 import io.github.somaruntime.benchmarks.kernel.domain.KernelPayload;
 import io.github.somaruntime.benchmarks.kernel.schema.KernelStatus;
 import io.github.somaruntime.soma.GroupedDoubleResult;
@@ -11,8 +12,6 @@ import io.github.somaruntime.soma.SomaCompression;
 import io.github.somaruntime.soma.SomaConfiguration;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.concurrent.ForkJoinPool;
 
 /** Synthetic physical-kernel qualification without introducing a fourth Example. */
@@ -44,6 +43,17 @@ public final class TypeKernelBenchmarkMain {
             SomaGroup group = Soma.createGroup();
             KernelRecordTable records = group.kernelRecordTable();
             RouteWeightTable weights = group.routeWeightTable();
+            BenchmarkSupport.observeMemory(new MemoryObserver() {
+                @Override
+                public long retainedBytes() {
+                    return group._metadata().globalRetainedBytes();
+                }
+
+                @Override
+                public long temporaryBytes() {
+                    return group._metadata().globalTemporaryBytes();
+                }
+            });
             records.reserve(rows);
 
             int routeCount = Math.min(262_144, Math.max(1_024, rows / 4));
@@ -60,43 +70,49 @@ public final class TypeKernelBenchmarkMain {
                 weights.add(new RouteWeight(id + 1L, routes[index], 2L, (index & 7) != 0));
             }
 
-            Expected expected = new Expected(rows, routes);
-            long ingestStarted = System.nanoTime();
-            for (int index = 0; index < rows; index++) {
-                int routeIndex = index % routeCount;
-                String tenant = index % 97 == 0 ? null : tenants[index % tenants.length];
-                KernelStatus status = index % 53 == 0 ? null : statuses[index & 3];
-                byte code = (byte) (index % 16 - 8);
-                short laneNumber = (short) (index % 1_024);
-                char category = (char) ('A' + index % 26);
-                int quantity = index % 1_000;
-                long amount = 1L + index % 100;
-                float ratio = (float) (index % 32 - 16);
-                double score = (index % 128 - 64) * 0.5d;
-                String label = index % 211 == 0 ? null : labels[index % labels.length];
-                KernelPayload payload = index % 101 == 0
-                        ? null : payloads[index % payloads.length];
-                records.add(new KernelRecord(
-                        index + 1L,
-                        routes[routeIndex],
-                        tenant,
-                        status,
-                        code,
-                        laneNumber,
-                        category,
-                        quantity,
-                        amount,
-                        ratio,
-                        score,
-                        label,
-                        payload));
-                expected.accept(
-                        routeIndex, tenant, status, code, laneNumber, category,
-                        quantity, amount, ratio, score, label, payload);
-            }
-            long ingestNanos = System.nanoTime() - ingestStarted;
-            expected.finish();
-            BenchmarkSupport.require(records.size(), rows, "kernel ingest size");
+            Expected expected = new Expected(rows, routes, labels, tenants);
+            KernelRecord input = new KernelRecord();
+            LongMeasurement ingest = BenchmarkSupport.measureOnce(() -> {
+                for (int index = 0; index < rows; index++) {
+                    int routeIndex = index % routeCount;
+                    int tenantSlot = index % 97 == 0
+                            ? tenants.length : index % tenants.length;
+                    String tenant = tenantSlot == tenants.length ? null : tenants[tenantSlot];
+                    KernelStatus status = index % 53 == 0 ? null : statuses[index & 3];
+                    byte code = (byte) (index % 16 - 8);
+                    short laneNumber = (short) (index % 1_024);
+                    char category = (char) ('A' + index % 26);
+                    int quantity = index % 1_000;
+                    long amount = 1L + index % 100;
+                    float ratio = (float) (index % 32 - 16);
+                    double score = (index % 128 - 64) * 0.5d;
+                    int labelSlot = index % 211 == 0
+                            ? labels.length : index % labels.length;
+                    String label = labelSlot == labels.length ? null : labels[labelSlot];
+                    KernelPayload payload = index % 101 == 0
+                            ? null : payloads[index % payloads.length];
+                    input.recordId(index + 1L);
+                    input.route(routes[routeIndex]);
+                    input.tenant(tenant);
+                    input.status(status);
+                    input.code(code);
+                    input.laneNumber(laneNumber);
+                    input.category(category);
+                    input.quantity(quantity);
+                    input.amount(amount);
+                    input.ratio(ratio);
+                    input.score(score);
+                    input.label(label);
+                    input.payload(payload);
+                    records.add(input);
+                    expected.accept(
+                            routeIndex, tenantSlot, status, code, laneNumber, category,
+                            quantity, amount, ratio, score, labelSlot, payload);
+                }
+                expected.finish();
+                return records.size();
+            });
+            BenchmarkSupport.require(ingest.value(), rows, "kernel ingest size");
 
             LongMeasurement integral = BenchmarkSupport.measure(() ->
                     BenchmarkSupport.fingerprint(
@@ -205,7 +221,8 @@ public final class TypeKernelBenchmarkMain {
             new BenchmarkResult("type-kernel", "KERNEL_MATRIX", implementation, rows)
                     .put("correctness", true)
                     .put("compression", compression.name())
-                    .put("ingestNanos", ingestNanos)
+                    .put("ingestNanos", ingest.medianNanos())
+                    .put("ingest", ingest)
                     .put("integral", integral)
                     .put("floating", floating)
                     .put("parallelFloating", parallelFloating)
@@ -316,45 +333,13 @@ public final class TypeKernelBenchmarkMain {
         return BenchmarkSupport.mix(hash, value == null ? -1L : value.hashCode());
     }
 
-    private static void add(LinkedHashMap<String, Long> values, String key, long value) {
-        Long previous = values.get(key);
-        values.put(key, Long.valueOf(previous == null ? value : previous.longValue() + value));
-    }
-
-    private static void addDouble(
-            LinkedHashMap<String, Double> values,
-            String key,
-            double value) {
-        Double previous = values.get(key);
-        values.put(key, Double.valueOf(previous == null ? value : previous.doubleValue() + value));
-    }
-
-    private static long expectedStringLong(LinkedHashMap<String, Long> values) {
-        long hash = BenchmarkSupport.mix(HASH_SEED, values.size());
-        for (Map.Entry<String, Long> entry : values.entrySet()) {
-            hash = mixNullable(hash, entry.getKey());
-            hash = BenchmarkSupport.mix(hash, entry.getValue().longValue());
-        }
-        return hash;
-    }
-
-    private static long expectedStringDouble(LinkedHashMap<String, Double> values) {
-        long hash = BenchmarkSupport.mix(HASH_SEED, values.size());
-        for (Map.Entry<String, Double> entry : values.entrySet()) {
-            hash = mixNullable(hash, entry.getKey());
-            hash = BenchmarkSupport.mix(
-                    hash, Double.doubleToLongBits(entry.getValue().doubleValue()));
-        }
-        return hash;
-    }
-
     private static final class Expected {
         private final int rows;
         private final RouteKey[] routes;
-        private final LinkedHashMap<String, Long> sparse = new LinkedHashMap<String, Long>();
-        private final LinkedHashMap<String, Long> medium = new LinkedHashMap<String, Long>();
-        private final LinkedHashMap<String, Long> dense = new LinkedHashMap<String, Long>();
-        private final LinkedHashMap<String, Double> floating = new LinkedHashMap<String, Double>();
+        private final OrderedStringLong sparse;
+        private final OrderedStringLong medium;
+        private final OrderedStringLong dense;
+        private final OrderedStringDouble floating;
         private long codeSum;
         private long laneSum;
         private long categorySum;
@@ -379,15 +364,19 @@ public final class TypeKernelBenchmarkMain {
         private long denseGroupFingerprint;
         private long floatingGroupFingerprint;
 
-        Expected(int rows, RouteKey[] routes) {
+        Expected(int rows, RouteKey[] routes, String[] labels, String[] tenants) {
             this.rows = rows;
             this.routes = routes;
+            this.sparse = new OrderedStringLong(labels);
+            this.medium = new OrderedStringLong(labels);
+            this.dense = new OrderedStringLong(labels);
+            this.floating = new OrderedStringDouble(tenants);
             payloadFingerprint = BenchmarkSupport.mix(payloadFingerprint, rows);
         }
 
         void accept(
                 int routeIndex,
-                String tenant,
+                int tenantSlot,
                 KernelStatus status,
                 byte code,
                 short laneNumber,
@@ -396,7 +385,7 @@ public final class TypeKernelBenchmarkMain {
                 long amount,
                 float ratio,
                 double score,
-                String label,
+                int labelSlot,
                 KernelPayload payload) {
             codeSum += code;
             laneSum += laneNumber;
@@ -406,16 +395,16 @@ public final class TypeKernelBenchmarkMain {
             ratioSum += ratio;
             scoreSum += score;
             if (routeIndex == 7) routeProbeCount++;
-            if ("TENANT-7".equals(tenant)) tenantProbeCount++;
+            if (tenantSlot == 7) tenantProbeCount++;
             if (status == KernelStatus.READY) statusProbeCount++;
-            if (tenant == null) nullTenantCount++;
+            if (tenantSlot == floating.nullSlot()) nullTenantCount++;
             if (status == null) nullStatusCount++;
             payloadFingerprint = BenchmarkSupport.mix(
                     payloadFingerprint, payload == null ? -1L : payload.identity());
-            if (quantity < 10) add(sparse, label, amount);
-            if (quantity < 500) add(medium, label, amount);
-            if (quantity < 990) add(dense, label, amount);
-            addDouble(floating, tenant, score);
+            if (quantity < 10) sparse.add(labelSlot, amount);
+            if (quantity < 500) medium.add(labelSlot, amount);
+            if (quantity < 990) dense.add(labelSlot, amount);
+            floating.add(tenantSlot, score);
             joinSum += amount + 1L;
             if ((routeIndex & 7) != 0) joinSum += amount + 2L;
         }
@@ -441,10 +430,10 @@ public final class TypeKernelBenchmarkMain {
             };
             referenceFingerprint = referenceFingerprint(tenantValues, statusValues);
             routeGroupFingerprint = expectedRouteGroups();
-            sparseGroupFingerprint = expectedStringLong(sparse);
-            mediumGroupFingerprint = expectedStringLong(medium);
-            denseGroupFingerprint = expectedStringLong(dense);
-            floatingGroupFingerprint = expectedStringDouble(floating);
+            sparseGroupFingerprint = sparse.fingerprint();
+            mediumGroupFingerprint = medium.fingerprint();
+            denseGroupFingerprint = dense.fingerprint();
+            floatingGroupFingerprint = floating.fingerprint();
         }
 
         private long expectedRouteGroups() {
@@ -457,6 +446,79 @@ public final class TypeKernelBenchmarkMain {
                 hash = BenchmarkSupport.mix(hash, key.destination());
                 hash = mixNullable(hash, key.lane());
                 hash = BenchmarkSupport.mix(hash, quotient + (index < remainder ? 1L : 0L));
+            }
+            return hash;
+        }
+    }
+
+    private abstract static class OrderedStringGroups {
+        final String[] keys;
+        final boolean[] present;
+        final int[] order;
+        int size;
+
+        OrderedStringGroups(String[] keys) {
+            this.keys = keys;
+            this.present = new boolean[keys.length + 1];
+            this.order = new int[keys.length + 1];
+        }
+
+        final int nullSlot() { return keys.length; }
+
+        final void admit(int slot) {
+            if (slot < 0 || slot > keys.length) throw new AssertionError("invalid expected key");
+            if (!present[slot]) {
+                present[slot] = true;
+                order[size++] = slot;
+            }
+        }
+
+        final String key(int slot) { return slot == keys.length ? null : keys[slot]; }
+    }
+
+    private static final class OrderedStringLong extends OrderedStringGroups {
+        private final long[] values;
+
+        OrderedStringLong(String[] keys) {
+            super(keys);
+            values = new long[keys.length + 1];
+        }
+
+        void add(int slot, long value) {
+            admit(slot);
+            values[slot] += value;
+        }
+
+        long fingerprint() {
+            long hash = BenchmarkSupport.mix(HASH_SEED, size);
+            for (int index = 0; index < size; index++) {
+                int slot = order[index];
+                hash = mixNullable(hash, key(slot));
+                hash = BenchmarkSupport.mix(hash, values[slot]);
+            }
+            return hash;
+        }
+    }
+
+    private static final class OrderedStringDouble extends OrderedStringGroups {
+        private final double[] values;
+
+        OrderedStringDouble(String[] keys) {
+            super(keys);
+            values = new double[keys.length + 1];
+        }
+
+        void add(int slot, double value) {
+            admit(slot);
+            values[slot] += value;
+        }
+
+        long fingerprint() {
+            long hash = BenchmarkSupport.mix(HASH_SEED, size);
+            for (int index = 0; index < size; index++) {
+                int slot = order[index];
+                hash = mixNullable(hash, key(slot));
+                hash = BenchmarkSupport.mix(hash, Double.doubleToLongBits(values[slot]));
             }
             return hash;
         }

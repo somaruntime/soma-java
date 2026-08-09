@@ -329,6 +329,9 @@ class GeneratedTableTest {
                 () -> add(table, 0L, "different", 99, new Object()));
         assertEquals(SomaFailureCode.DUPLICATE_KEY, duplicate.code());
         assertEquals(3L, table.size());
+        Object fourthObject = new Object();
+        add(table, 3L, "three", 40, fourthObject);
+        assertRow(table, 3L, "three", 40, fourthObject);
 
         UpdateResult changed = update(table, 1L, null, 25, secondObject);
         assertEquals(1L, changed.matched());
@@ -1634,6 +1637,8 @@ class GeneratedTableTest {
         assertEquals(0L, table.size());
 
         fault.point.set(null);
+        add(table, 1L, "one", 1, new Object());
+        assertEquals(1L, table.size());
         Object beforeOverflow = table.rootIdentityForTesting();
         SomaOperationException overflow = assertThrows(
                 SomaOperationException.class,

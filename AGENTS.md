@@ -35,7 +35,9 @@ Release/Package、签名或正式release声明。核心抽象候选已经
 [性能与正确性联合治理](project/conformance/v1-performance-correctness-governance.md)已`PASS`，
 且[四维性能架构治理](project/conformance/v1-four-dimensional-performance-architecture-governance.md)已
 `PASS`；[Operator × Type × Distribution 性能资格](project/conformance/v1-operator-type-distribution-performance-qualification.md)
-也已`PASS`，cost-aware RLE、Bound cardinality 与 Field materialization 已闭合；`benchmarks/`现为
+也已`PASS`，cost-aware RLE、Bound cardinality 与 Field materialization 已闭合；
+[内存归因与低分配执行治理](project/conformance/v1-memory-attribution-low-allocation-governance.md)已
+`PASS`，retained、temporary reservation、Java allocation、heap/RSS 分层观测与正常路径低分配优化已闭合；`benchmarks/`现为
 长期nonproduction性能与场景正确性证据，`docs/`仍只保留placeholder。
 
 开始工作前必须读取：

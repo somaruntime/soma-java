@@ -48,6 +48,7 @@ final class GlobalMemoryManager {
         if (bytes < 0L) {
             throw new AssertionError("negative retained reservation");
         }
+        if (bytes == 0L) return RetainedReservation.NOOP;
         admit(bytes, operation, provenance);
         retainedBytes += bytes;
         token.retainedBytes += bytes;
@@ -62,6 +63,7 @@ final class GlobalMemoryManager {
         if (bytes < 0L) {
             throw new AssertionError("negative temporary lease");
         }
+        if (bytes == 0L) return TemporaryLease.NOOP;
         admit(bytes, operation, provenance);
         temporaryBytes += bytes;
         return new TemporaryLease(this, bytes);
@@ -175,11 +177,19 @@ final class GlobalMemoryManager {
 
     static final class RetainedReservation implements AutoCloseable {
 
+        private static final RetainedReservation NOOP = new RetainedReservation();
+
         private final GlobalMemoryManager owner;
         private final GroupToken token;
         private final long bytes;
         private boolean committed;
         private boolean closed;
+
+        private RetainedReservation() {
+            this.owner = null;
+            this.token = null;
+            this.bytes = 0L;
+        }
 
         private RetainedReservation(
                 GlobalMemoryManager owner,
@@ -191,11 +201,13 @@ final class GlobalMemoryManager {
         }
 
         void commit() {
+            if (owner == null) return;
             committed = true;
         }
 
         @Override
         public void close() {
+            if (owner == null) return;
             if (!closed) {
                 closed = true;
                 if (!committed) owner.releaseRetained(token, bytes);
@@ -205,9 +217,16 @@ final class GlobalMemoryManager {
 
     static final class TemporaryLease implements AutoCloseable {
 
+        private static final TemporaryLease NOOP = new TemporaryLease();
+
         private final GlobalMemoryManager owner;
         private final long bytes;
         private boolean closed;
+
+        private TemporaryLease() {
+            this.owner = null;
+            this.bytes = 0L;
+        }
 
         private TemporaryLease(GlobalMemoryManager owner, long bytes) {
             this.owner = owner;
@@ -216,6 +235,7 @@ final class GlobalMemoryManager {
 
         @Override
         public void close() {
+            if (owner == null) return;
             if (!closed) {
                 closed = true;
                 owner.releaseTemporary(bytes);

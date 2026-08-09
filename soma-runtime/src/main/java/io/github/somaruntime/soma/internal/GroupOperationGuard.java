@@ -6,17 +6,15 @@ import java.util.concurrent.atomic.AtomicReference;
 
 final class GroupOperationGuard {
 
-    private final AtomicReference<OperationToken> current =
-            new AtomicReference<OperationToken>();
+    private final AtomicReference<Lease> current = new AtomicReference<Lease>();
 
     Lease acquire(SomaOperation operation) {
-        OperationToken candidate = new OperationToken(operation, Thread.currentThread());
-        Lease lease = new Lease(this, candidate);
+        Lease candidate = new Lease(this, operation, Thread.currentThread());
         if (current.compareAndSet(null, candidate)) {
-            return lease;
+            return candidate;
         }
 
-        OperationToken active = current.get();
+        Lease active = current.get();
         boolean reentrant = active != null && active.thread == Thread.currentThread();
         throw SomaFailures.failure(
                 reentrant
@@ -29,8 +27,8 @@ final class GroupOperationGuard {
                 reentrant ? active : candidate);
     }
 
-    private void release(OperationToken token) {
-        if (!current.compareAndSet(token, null)) {
+    private void release(Lease lease) {
+        if (!current.compareAndSet(lease, null)) {
             throw new AssertionError("SOMA Group guard ownership was lost");
         }
     }
@@ -38,35 +36,33 @@ final class GroupOperationGuard {
     static final class Lease implements AutoCloseable {
 
         private final GroupOperationGuard owner;
-        private final OperationToken token;
+        private final SomaOperation operation;
+        private final Thread thread;
         private boolean closed;
 
-        private Lease(GroupOperationGuard owner, OperationToken token) {
+        private Lease(
+                GroupOperationGuard owner,
+                SomaOperation operation,
+                Thread thread) {
             this.owner = owner;
-            this.token = token;
+            this.operation = operation;
+            this.thread = thread;
         }
 
         Object provenance() {
-            return token;
+            return this;
         }
 
         @Override
         public void close() {
             if (!closed) {
                 closed = true;
-                owner.release(token);
+                try {
+                    owner.release(this);
+                } finally {
+                    CallbackExecutionScope.clearIfInactive();
+                }
             }
-        }
-    }
-
-    private static final class OperationToken {
-
-        private final SomaOperation operation;
-        private final Thread thread;
-
-        private OperationToken(SomaOperation operation, Thread thread) {
-            this.operation = operation;
-            this.thread = thread;
         }
 
         @Override

@@ -118,7 +118,8 @@ final class IdentityHashIndex {
         return result;
     }
 
-    PreparedAdd prepareAdd(
+    void prepareAdd(
+            PreparedAdd target,
             TableChunkDirectory directory,
             TypedValues probe,
             long locator,
@@ -184,7 +185,7 @@ final class IdentityHashIndex {
                 linksBytes,
                 operation,
                 provenance);
-        return new PreparedAdd(
+        target.prepare(
                 this,
                 shardOrdinal,
                 currentShard,
@@ -268,19 +269,22 @@ final class IdentityHashIndex {
 
     static final class PreparedAdd {
 
-        private final IdentityHashIndex owner;
-        private final int shardOrdinal;
-        private final Shard currentShard;
-        private final Shard replacement;
-        private final Shard[] container;
-        private final int slot;
-        private final boolean existing;
-        private final long hash;
-        private final long locator;
-        private final PagedLongLinks linksAfter;
-        private final long managedBytesAfter;
+        private IdentityHashIndex owner;
+        private int shardOrdinal;
+        private Shard currentShard;
+        private Shard replacement;
+        private Shard[] container;
+        private int slot;
+        private boolean existing;
+        private long hash;
+        private long locator;
+        private PagedLongLinks linksAfter;
+        private long managedBytesAfter;
 
-        private PreparedAdd(
+        PreparedAdd() {
+        }
+
+        private void prepare(
                 IdentityHashIndex owner,
                 int shardOrdinal,
                 Shard currentShard,
@@ -292,6 +296,9 @@ final class IdentityHashIndex {
                 long locator,
                 PagedLongLinks linksAfter,
                 long managedBytesAfter) {
+            if (this.owner != null) {
+                throw new AssertionError("Index add scratch is already prepared");
+            }
             this.owner = owner;
             this.shardOrdinal = shardOrdinal;
             this.currentShard = currentShard;
@@ -306,10 +313,12 @@ final class IdentityHashIndex {
         }
 
         long managedBytesAfter() {
+            if (owner == null) throw new AssertionError("Index add scratch is not prepared");
             return managedBytesAfter;
         }
 
         void commit() {
+            if (owner == null) throw new AssertionError("Index add scratch is not prepared");
             Shard target;
             if (container != null) {
                 owner.shards = container;
@@ -334,6 +343,14 @@ final class IdentityHashIndex {
                 owner.links = linksAfter;
             }
             owner.managedBytes = managedBytesAfter;
+        }
+
+        void clear() {
+            owner = null;
+            currentShard = null;
+            replacement = null;
+            container = null;
+            linksAfter = null;
         }
     }
 
