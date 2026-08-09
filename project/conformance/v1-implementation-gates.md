@@ -2,9 +2,9 @@
 
 类型：Conformance Gate Definition
 
-状态：Active；G1、G4-G6 `PASS`；G2 `I5_SCOPE_PASS / IN_PROGRESS`；
+状态：Active；G1、G4-G7 `PASS`；G2 `I6_SCOPE_PASS / IN_PROGRESS`；
 G3 `I4_ACCOUNTING_SCOPE_PASS / IN_PROGRESS`；
-G10 `I0_SCOPE_PASS / IN_PROGRESS`；G7-G9 `NOT_RUN`
+G10 `I0_SCOPE_PASS / IN_PROGRESS`；G8-G9 `NOT_RUN`
 
 正式事实源：是（production evidence最低集合）
 
@@ -251,12 +251,12 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 | Gate | Current | First owning slice |
 |---|---|---|
 | G1 Build/full regeneration | PASS | I0 |
-| G2 Schema/generated surface | I5_SCOPE_PASS / IN_PROGRESS | I0-I2 |
+| G2 Schema/generated surface | I6_SCOPE_PASS / IN_PROGRESS | I0-I2 |
 | G3 Storage/Key/Index | I4_ACCOUNTING_SCOPE_PASS / IN_PROGRESS | I1-I2 |
 | G4 Query/IR/optimizer | PASS | I1-I3 |
 | G5 Mutation/resource/failure | PASS | I1、I4 |
 | G6 Group/Join | PASS | I5 |
-| G7 Parallel | NOT_RUN | I6 |
+| G7 Parallel | PASS | I6 |
 | G8 Compression/metadata | NOT_RUN | I7 |
 | G9 Scenarios/performance | NOT_RUN | I8 |
 | G10 Security/package/release | I0_SCOPE_PASS / IN_PROGRESS | I0、I8 |
@@ -273,6 +273,8 @@ Selection mutation、atomic publication、resource与Group accounting closure见
 [I4 Selection Mutation 与 Resource Qualification](i4-selection-mutation-resource-qualification.md)；I5的
 GroupBy、binary Equality/Cross Join、reference differential与G6 closure见
 [I5 GroupBy 与 Relation Qualification](i5-group-relation-qualification.md)。
+[I6 Bounded Parallel Execution Qualification](i6-parallel-execution-qualification.md)记录generated
+parallel surface、application-owned/common pool、bounded caller participation、canonical order与G7 closure。
 G10仍等待I8 CI、完整SBOM、package consumer与release qualification。
 
 ## 13. Evidence record format

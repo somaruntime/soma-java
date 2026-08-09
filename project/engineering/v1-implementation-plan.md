@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0-I5 COMPLETED / NO_ACTIVE_SLICE / NEXT I6
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0-I6 COMPLETED / NO_ACTIVE_SLICE / NEXT I7
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
@@ -13,14 +13,15 @@ Owner：SOMA Java V1 production implementation slices、依赖顺序与Definitio
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization。I0-I5已经完成并分别通过
+2026-08-03 单独授予完整 V1 implementation authorization。I0-I6已经完成并分别通过
 [I0正式资格](../conformance/i0-build-spine-qualification.md)与
 [I1正式资格](../conformance/i1-primitive-keyed-table-qualification.md)、
 [I2正式资格](../conformance/i2-schema-type-storage-breadth-qualification.md)、
 [I3正式资格](../conformance/i3-query-ir-reference-qualification.md)、
-[I4正式资格](../conformance/i4-selection-mutation-resource-qualification.md)与
-[I5正式资格](../conformance/i5-group-relation-qualification.md)；当前没有active slice，
-下一项只允许从I6开始。
+[I4正式资格](../conformance/i4-selection-mutation-resource-qualification.md)、
+[I5正式资格](../conformance/i5-group-relation-qualification.md)与
+[I6正式资格](../conformance/i6-parallel-execution-qualification.md)；当前没有active slice，
+下一项只允许从I7开始。
 
 当前授权同时覆盖repository-local CI/non-publishing release qualification workflow、local/internal
 benchmark与profile、local Maven package qualification，以及JUnit Jupiter 5.x test-only stack。
@@ -59,7 +60,7 @@ production class名，也不是每个commit的强制清单。
 | I3 | Direct query、Predicate IR与reference interpreter | COMPLETED | G4 |
 | I4 | Selection mutation、failure与resource admission | COMPLETED | G5 |
 | I5 | GroupBy与binary Equality/Cross Join | COMPLETED | G6 |
-| I6 | Bounded ForkJoin parallel execution | NOT_STARTED | G7 |
+| I6 | Bounded ForkJoin parallel execution | COMPLETED | G7 |
 | I7 | Compression、metadata/explain与surface closure | NOT_STARTED | G8 |
 | I8 | Reference scenarios、performance、security、package/release qualification | NOT_STARTED | G9、G10 |
 

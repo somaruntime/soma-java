@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：最终全局一致性审核`PASS`；正式baseline `READY_FOR_IMPLEMENTATION`；
-implementation authorization `GRANTED`；I0-I5 `COMPLETED`；I6-I8 `NOT_STARTED`
+implementation authorization `GRANTED`；I0-I6 `COMPLETED`；I7-I8 `NOT_STARTED`
 
 Owner：SOMA Java 当前项目事实与文档路由
 
@@ -22,26 +22,27 @@ SOMA Java 已在同一个 repository/product identity 下完成 clean-slate 产�
 - [Formal Promotion](conformance/large-scale-engine-formal-promotion.md)为 `PASS`；
 - [实施前最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md)
   为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`；
-- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0-I5已经完成并分别通过
+- Product Owner 于 2026-08-03 授予完整 V1 implementation authorization；I0-I6已经完成并分别通过
   [I0资格](conformance/i0-build-spine-qualification.md)与
   [I1资格](conformance/i1-primitive-keyed-table-qualification.md)、
   [I2资格](conformance/i2-schema-type-storage-breadth-qualification.md)与
   [I3资格](conformance/i3-query-ir-reference-qualification.md)与
-  [I4资格](conformance/i4-selection-mutation-resource-qualification.md)与
-  [I5资格](conformance/i5-group-relation-qualification.md)；
-- 当前没有active slice，I6-I8为`NOT_STARTED`，下一项从I6开始；
-- G1、G4-G6为`PASS`；G2为I5范围、G3为I4 accounting范围，整体仍`IN_PROGRESS`；G10为I0范围
-  `PASS`但整体仍`IN_PROGRESS`；G7-G9为`NOT_RUN`。
+  [I4资格](conformance/i4-selection-mutation-resource-qualification.md)、
+  [I5资格](conformance/i5-group-relation-qualification.md)与
+  [I6资格](conformance/i6-parallel-execution-qualification.md)；
+- 当前没有active slice，I7-I8为`NOT_STARTED`，下一项从I7开始；
+- G1、G4-G7为`PASS`；G2为I6范围、G3为I4 accounting范围，整体仍`IN_PROGRESS`；G10为I0范围
+  `PASS`但整体仍`IN_PROGRESS`；G8-G9为`NOT_RUN`。
 
 “核心抽象、叙事与不变量证明链”已经正式晋升为第九个Design Owner；Temporary replacement
 closure与targeted readiness delta review已完成。当前没有active Temporary。
 
-当前active checkout已有I0-I5 production source、Maven reactor、恰好两个production artifact、
+当前active checkout已有I0-I6 production source、Maven reactor、恰好两个production artifact、
 完整I2 generated schema/type/Key/Index API breadth、paged primitive/reference PLAIN storage、Value
 flattening、multiple Index、direct selection与point add/update/remove，以及sequential query、typed IR、
-reference interpreter、optimized sequential execution、Selection mutation、Group accounting、GroupBy与
-binary Equality/Cross Join的源码、测试和资格脚本；没有I6+ parallel、compression、benchmark、Example、
-CI/release workflow、remote package或committed build artifact。I5完成不等于完整implementation、performance、
+reference interpreter、optimized sequential execution、Selection mutation、Group accounting、GroupBy、
+binary Equality/Cross Join与bounded parallel execution的源码、测试和资格脚本；没有I7+ compression/
+metadata、benchmark、Example、CI/release workflow、remote package或committed build artifact。I6完成不等于完整implementation、performance、
 compatibility或release成立。
 
 此前 P2 Java 8 feasibility spike 已退役。只有被当前正式晋升记录重新采纳的 bounded
@@ -70,6 +71,7 @@ type-shape/mechanism evidence 仍是设计可行性输入；它不是 production
 | I3 sequential query、IR、reference/optimized execution与qualification evidence | [I3 Query IR 与 Reference Execution Qualification](conformance/i3-query-ir-reference-qualification.md) |
 | I4 Selection mutation、atomic publication、resource与Group accounting evidence | [I4 Selection Mutation 与 Resource Qualification](conformance/i4-selection-mutation-resource-qualification.md) |
 | I5 GroupBy、binary Equality/Cross Join与G6 evidence | [I5 GroupBy 与 Relation Qualification](conformance/i5-group-relation-qualification.md) |
+| I6 bounded parallel execution与G7 evidence | [I6 Bounded Parallel Execution Qualification](conformance/i6-parallel-execution-qualification.md) |
 | 候选来源、晋升矩阵与 replacement closure | [Formal Promotion](conformance/large-scale-engine-formal-promotion.md) |
 | 当前实施准入结论、findings closure与授权边界 | [最终全局一致性审核](conformance/v1-final-pre-implementation-global-consistency-review.md) |
 | 当前实现差距与 evidence 状态 | [Conformance](conformance/README.md) |
@@ -105,8 +107,8 @@ Blueprint
 | Project entry | `project/README.md` |
 | Blueprint | `project/blueprint/`；Active V1 Baseline |
 | Design | `project/design/`；九个 active Owner |
-| Engineering | `project/engineering/`；I0-I5 completed，当前无active slice，下一项I6 |
-| Conformance | `project/conformance/`；G1/G4-G6 PASS，G2/G3/G10 scoped PASS且整体IN_PROGRESS |
+| Engineering | `project/engineering/`；I0-I6 completed，当前无active slice，下一项I7 |
+| Conformance | `project/conformance/`；G1/G4-G7 PASS，G2/G3/G10 scoped PASS且整体IN_PROGRESS |
 | Temporary | 当前无active topic；目录不拥有current事实 |
 | Product Docs | 尚未建立；等待 production surface 与 Gate |
 | Modules/Implementation Map/Process/Reports | production 尚未出现，不创建假 map/空目录 |
@@ -147,7 +149,8 @@ I0 build/full-regeneration spine (COMPLETED)
                 -> I3 direct query/IR/reference interpreter (COMPLETED)
                     -> I4 selection mutation/resource/failure (COMPLETED)
                         -> I5 GroupBy/relation (COMPLETED)
-                            -> I6 bounded parallel execution (NEXT)
+                            -> I6 bounded parallel execution (COMPLETED)
+                                -> I7 compression/metadata closure (NEXT)
                     -> one active slice at a time
                     -> matching Conformance evidence
                         -> stop or next slice
@@ -155,7 +158,7 @@ I0 build/full-regeneration spine (COMPLETED)
                                 -> separate release authorization
 ```
 
-I0-I5 exit evidence已经闭合；下一项只允许从I6开始。当前授权同时允许每个slice证据闭合后的
+I0-I6 exit evidence已经闭合；下一项只允许从I7开始。当前授权同时允许每个slice证据闭合后的
 干净commit与`develop` push，以及
 [Conformance authorization contract](conformance/README.md#6-implementation-authorization-contract)
 限定的CI、internal benchmark/profile、local package qualification和JUnit Jupiter 5.x
@@ -171,6 +174,7 @@ I0已执行Java 8 build/artifact/full-regeneration基线；I1建立第一套gene
 [I2 Qualification](conformance/i2-schema-type-storage-breadth-qualification.md)与
 [I3 Qualification](conformance/i3-query-ir-reference-qualification.md)与
 [I4 Qualification](conformance/i4-selection-mutation-resource-qualification.md)与
-[I5 Qualification](conformance/i5-group-relation-qualification.md)。I6-I8的parallel、performance、
-package和release Gate只能在相应surface出现后执行，不得用I0-I5 scoped
+[I5 Qualification](conformance/i5-group-relation-qualification.md)与
+[I6 Qualification](conformance/i6-parallel-execution-qualification.md)。I7-I8的compression、performance、
+package和release Gate只能在相应surface出现后执行，不得用I0-I6 scoped
 evidence替代。
