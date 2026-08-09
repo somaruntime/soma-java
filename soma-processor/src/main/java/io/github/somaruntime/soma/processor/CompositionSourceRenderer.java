@@ -194,7 +194,8 @@ final class CompositionSourceRenderer {
                 .append("    private final io.github.somaruntime.soma.internal.GeneratedTable runtime;\n")
                 .append("    private final View borrowedView;\n")
                 .append("    private final View borrowedCompareView;\n")
-                .append("    private final Editor borrowedEditor;\n");
+                .append("    private final Editor borrowedEditor;\n")
+                .append("    private final Editor borrowedSelectionEditor;\n");
         for (EndpointPlan endpoint : shape.roots) {
             source.append("    public final ").append(endpoint.typeName()).append(' ')
                     .append(endpoint.field.name()).append(";\n");
@@ -211,6 +212,8 @@ final class CompositionSourceRenderer {
                 .append("        this.borrowedCompareView = new View(capability, ")
                 .append("runtime.secondaryQueryCursor());\n")
                 .append("        this.borrowedEditor = new Editor(capability, runtime.borrowedRow());\n");
+        source.append("        this.borrowedSelectionEditor = new Editor(capability, ")
+                .append("runtime.borrowedSelectionEditor());\n");
         for (EndpointPlan endpoint : shape.roots) {
             source.append("        this.").append(endpoint.field.name()).append(" = new ")
                     .append(endpoint.typeName()).append("();\n");
@@ -544,9 +547,9 @@ final class CompositionSourceRenderer {
         }
         source.append(");\n        }\n    }\n\n")
                 .append("    public static final class Editor extends View {\n")
-                .append("        private final io.github.somaruntime.soma.internal.GeneratedRow row;\n\n")
+                .append("        private final io.github.somaruntime.soma.internal.GeneratedEditorAccess row;\n\n")
                 .append("        private Editor(java.lang.Object capability, ")
-                .append("io.github.somaruntime.soma.internal.GeneratedRow row) {\n")
+                .append("io.github.somaruntime.soma.internal.GeneratedEditorAccess row) {\n")
                 .append("            super(capability, row);\n            this.row = row;\n        }\n\n");
         for (CompositionModel.FieldModel field : table.fields()) {
             if (field.role() == CompositionModel.FieldRole.KEY) continue;
@@ -701,6 +704,14 @@ final class CompositionSourceRenderer {
                 .append("            return pipeline.toArray(() -> owner.borrowedView.fetch(), ")
                 .append(objectType).append(".class);\n        }\n\n")
                 .append("        public java.lang.String _explain() { return pipeline.explain(); }\n")
+                .append("\n        public io.github.somaruntime.soma.UpdateResult update(\n")
+                .append("                java.util.function.Consumer<? super Editor> updater) {\n")
+                .append("            owner.runtime.requireArgument(updater, ")
+                .append("io.github.somaruntime.soma.SomaOperation.UPDATE, \"updater\");\n")
+                .append("            return pipeline.update(() -> ")
+                .append("updater.accept(owner.borrowedSelectionEditor));\n        }\n\n")
+                .append("        public io.github.somaruntime.soma.RemoveResult remove() {\n")
+                .append("            return pipeline.remove();\n        }\n")
                 .append("    }\n\n")
                 .append("    public static final class IndexSelection {\n")
                 .append("        private final ").append(tableType).append(" owner;\n")
@@ -769,6 +780,14 @@ final class CompositionSourceRenderer {
                 .append("            return selection.toArray(() -> owner.borrowedView.fetch(), ")
                 .append(objectType).append(".class);\n        }\n\n")
                 .append("        public java.lang.String _explain() { return selection.explain(); }\n")
+                .append("\n        public io.github.somaruntime.soma.UpdateResult update(\n")
+                .append("                java.util.function.Consumer<? super Editor> updater) {\n")
+                .append("            owner.runtime.requireArgument(updater, ")
+                .append("io.github.somaruntime.soma.SomaOperation.UPDATE, \"updater\");\n")
+                .append("            return selection.update(() -> ")
+                .append("updater.accept(owner.borrowedSelectionEditor));\n        }\n\n")
+                .append("        public io.github.somaruntime.soma.RemoveResult remove() {\n")
+                .append("            return selection.remove();\n        }\n")
                 .append("    }\n\n");
     }
 

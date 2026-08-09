@@ -25,6 +25,7 @@ public final class GeneratedTable {
     private final int chunkRows;
     private final MutationFaultInjector faultInjector;
     private final GeneratedRow operationRow;
+    private final GeneratedSelectionEditor selectionEditor;
     private final GeneratedQueryCursor primaryQueryCursor;
     private final GeneratedQueryCursor secondaryQueryCursor;
     private final AtomicReference<TableStateRoot> current;
@@ -50,6 +51,7 @@ public final class GeneratedTable {
         this.chunkRows = chunkRows;
         this.faultInjector = faultInjector;
         this.operationRow = new GeneratedRow(this, layout);
+        this.selectionEditor = new GeneratedSelectionEditor(layout);
         this.primaryQueryCursor = new GeneratedQueryCursor(layout);
         this.secondaryQueryCursor = new GeneratedQueryCursor(layout);
         this.current = new AtomicReference<TableStateRoot>(
@@ -86,10 +88,10 @@ public final class GeneratedTable {
                     operation.provenance());
             long delta = finalManaged - root.managedBytes;
             try (GlobalMemoryManager.RetainedReservation retained =
-                         group.memoryManager().reserveRetained(
+                         group.reserveRetained(
                                  delta, SomaOperation.RESERVE, operation.provenance());
                  GlobalMemoryManager.TemporaryLease temporary =
-                         group.memoryManager().leaseTemporary(
+                         group.leaseTemporary(
                                  root.managedBytes,
                                  SomaOperation.RESERVE,
                                  operation.provenance())) {
@@ -123,6 +125,10 @@ public final class GeneratedTable {
 
     public GeneratedRow borrowedRow() {
         return operationRow;
+    }
+
+    public GeneratedEditorAccess borrowedSelectionEditor() {
+        return selectionEditor;
     }
 
     public GeneratedQueryCursor queryCursor() {
@@ -398,7 +404,7 @@ public final class GeneratedTable {
                         chunkPayloadBytes(SomaOperation.UPDATE, provenance),
                         SomaOperation.UPDATE,
                         provenance);
-        return group.memoryManager().leaseTemporary(
+        return group.leaseTemporary(
                 candidate, SomaOperation.UPDATE, provenance);
     }
 
@@ -476,7 +482,7 @@ public final class GeneratedTable {
         if (locator < 0L) return removeResult(0L);
 
         try (GlobalMemoryManager.TemporaryLease ignored =
-                     group.memoryManager().leaseTemporary(
+                     group.leaseTemporary(
                              root.managedBytes, SomaOperation.REMOVE, provenance)) {
             long newSize = root.size - 1L;
             TableChunkDirectory candidate = root.directory.copyForRemove(locator, root.size);
@@ -550,7 +556,119 @@ public final class GeneratedTable {
     GlobalMemoryManager.TemporaryLease leaseQueryTemporary(
             long bytes,
             Object provenance) {
-        return group.memoryManager().leaseTemporary(bytes, SomaOperation.QUERY, provenance);
+        return group.leaseTemporary(bytes, SomaOperation.QUERY, provenance);
+    }
+
+    GroupOperationGuard.Lease acquireMutation(SomaOperation operation) {
+        if (operation != SomaOperation.UPDATE && operation != SomaOperation.REMOVE) {
+            throw new AssertionError("invalid Selection mutation operation");
+        }
+        return group.acquire(operation);
+    }
+
+    GlobalMemoryManager.TemporaryLease leaseMutationTemporary(
+            long bytes,
+            SomaOperation operation,
+            Object provenance) {
+        return group.leaseTemporary(bytes, operation, provenance);
+    }
+
+    GeneratedSelectionEditor selectionEditor() {
+        return selectionEditor;
+    }
+
+    UpdateResult selectionUpdateResult(long matched, long changed) {
+        return updateResult(matched, changed);
+    }
+
+    RemoveResult selectionRemoveResult(long removed) {
+        return removeResult(removed);
+    }
+
+    UpdateResult publishSelectionUpdate(
+            TableStateRoot oldRoot,
+            TableChunkDirectory candidateDirectory,
+            long matched,
+            long changed,
+            Object provenance) {
+        IdentityHashIndex[] indexes = rebuildIndexes(
+                candidateDirectory,
+                oldRoot.size,
+                SomaOperation.UPDATE,
+                provenance);
+        inject(
+                MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
+                SomaOperation.UPDATE,
+                provenance);
+        long sidecars = sidecarBytes(
+                oldRoot.key, indexes, SomaOperation.UPDATE, provenance);
+        long finalManaged = managedBytes(
+                oldRoot.capacity, sidecars, SomaOperation.UPDATE, provenance);
+        publishCandidate(
+                oldRoot,
+                new TableStateRoot(
+                        oldRoot.size,
+                        oldRoot.capacity,
+                        CheckedLong.increment(
+                                oldRoot.stateVersion,
+                                SomaOperation.UPDATE,
+                                provenance),
+                        finalManaged,
+                        candidateDirectory,
+                        oldRoot.key,
+                        indexes),
+                SomaOperation.UPDATE,
+                provenance);
+        return updateResult(matched, changed);
+    }
+
+    RemoveResult publishSelectionRemove(
+            TableStateRoot oldRoot,
+            TableChunkDirectory candidateDirectory,
+            long removed,
+            Object provenance) {
+        long newSize = oldRoot.size - removed;
+        inject(
+                MutationFaultPoint.BEFORE_KEY_REBUILD,
+                SomaOperation.REMOVE,
+                provenance);
+        IdentityHashIndex key = layout.keyFieldIndex() < 0
+                ? null
+                : IdentityHashIndex.rebuild(
+                        layout,
+                        layout.keyFieldIndex(),
+                        true,
+                        chunkRows,
+                        candidateDirectory,
+                        newSize,
+                        SomaOperation.REMOVE,
+                        provenance);
+        IdentityHashIndex[] indexes = rebuildIndexes(
+                candidateDirectory, newSize, SomaOperation.REMOVE, provenance);
+        inject(
+                MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
+                SomaOperation.REMOVE,
+                provenance);
+        long sidecars = sidecarBytes(
+                key, indexes, SomaOperation.REMOVE, provenance);
+        long finalManaged = managedBytes(
+                oldRoot.capacity, sidecars, SomaOperation.REMOVE, provenance);
+        publishCandidate(
+                oldRoot,
+                new TableStateRoot(
+                        newSize,
+                        oldRoot.capacity,
+                        CheckedLong.increment(
+                                oldRoot.stateVersion,
+                                SomaOperation.REMOVE,
+                                provenance),
+                        finalManaged,
+                        candidateDirectory,
+                        key,
+                        indexes),
+                SomaOperation.REMOVE,
+                provenance);
+        return removeResult(removed);
     }
 
     GeneratedPipeline indexPipeline(int indexOrdinal, GeneratedProbe probe) {
@@ -668,10 +786,10 @@ public final class GeneratedTable {
                 targetCapacity, sidecarBytes, SomaOperation.ADD, provenance);
         long delta = finalManaged - root.managedBytes;
         try (GlobalMemoryManager.RetainedReservation retained =
-                     group.memoryManager().reserveRetained(
+                     group.reserveRetained(
                              delta, SomaOperation.ADD, provenance);
              GlobalMemoryManager.TemporaryLease temporary =
-                     group.memoryManager().leaseTemporary(
+                     group.leaseTemporary(
                              targetCapacity > root.capacity ? root.managedBytes : 0L,
                              SomaOperation.ADD,
                              provenance)) {
@@ -730,14 +848,14 @@ public final class GeneratedTable {
         long delta = candidate.managedBytes - oldRoot.managedBytes;
         long positive = Math.max(0L, delta);
         try (GlobalMemoryManager.RetainedReservation retained =
-                     group.memoryManager().reserveRetained(
+                     group.reserveRetained(
                              positive, operation, provenance)) {
             inject(MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH, operation, provenance);
             current.set(candidate);
             retained.commit();
         }
         if (delta < 0L) {
-            group.memoryManager().releasePublished(-delta);
+            group.releasePublished(-delta);
         }
     }
 

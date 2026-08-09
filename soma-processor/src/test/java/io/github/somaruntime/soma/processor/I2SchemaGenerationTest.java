@@ -48,10 +48,15 @@ class I2SchemaGenerationTest {
                     "public IndexSelection byMachineId(example.i2.MachineId value)"));
 
             String keyless = compilation.generatedSource("example/i2/LogEntryTable.java");
-            assertFalse(keyless.contains("java.util.Optional<example.i2.LogEntry> find("));
-            assertFalse(keyless.contains("public example.i2.LogEntry get("));
-            assertFalse(keyless.contains("public io.github.somaruntime.soma.UpdateResult update("));
-            assertFalse(keyless.contains("public io.github.somaruntime.soma.RemoveResult remove("));
+            String keylessTable = keyless.substring(
+                    0, keyless.indexOf("public static class View"));
+            assertFalse(keylessTable.contains(
+                    "java.util.Optional<example.i2.LogEntry> find("));
+            assertFalse(keylessTable.contains("public example.i2.LogEntry get("));
+            assertFalse(keylessTable.contains(
+                    "public io.github.somaruntime.soma.UpdateResult update("));
+            assertFalse(keylessTable.contains(
+                    "public io.github.somaruntime.soma.RemoveResult remove("));
 
             Class<?> consumer = compilation.loadClass("example.i2.Consumer");
             Method run = consumer.getDeclaredMethod("run");

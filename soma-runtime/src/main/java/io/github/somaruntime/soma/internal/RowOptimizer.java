@@ -11,22 +11,28 @@ final class RowOptimizer {
     }
 
     static NormalizedRowPlan optimize(BoundRowPlan bound) {
-        return optimize(bound.logical, bound.provenance, true);
+        return optimize(
+                bound.logical, bound.operation, bound.provenance, true);
     }
 
     static NormalizedRowPlan describe(LogicalRowPlan logical) {
-        return optimize(logical, new Object(), false);
+        return optimize(
+                logical,
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object(),
+                false);
     }
 
     private static NormalizedRowPlan optimize(
             LogicalRowPlan logical,
+            io.github.somaruntime.soma.SomaOperation operation,
             Object provenance,
             boolean prepareMembership) {
         List<LogicalRowPlan.Stage> normalized = normalizeAdjacentTypedFilters(logical.stages());
         PredicateMembership membership = prepareMembership
                 && logical.inLiteralCount() != 0L
                 ? PredicateMembership.prepare(
-                        logical.owner().layout(), normalized, provenance)
+                        logical.owner().layout(), normalized, operation, provenance)
                 : null;
         if (logical.sourceKind() == LogicalRowPlan.SourceKind.INDEX_SELECTION) {
             return new NormalizedRowPlan(

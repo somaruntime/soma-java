@@ -17,7 +17,6 @@ class I3QuerySurfaceTest {
         assertRejected("booleanSum", "table.enabled.sum();");
         assertRejected("fieldMutation", "table.amount.remove();");
         assertRejected("mappedMutation", "table.map(v -> v.label()).remove();");
-        assertRejected("selectionMutation", "table.filter(table.id.eq(1L)).remove();");
         assertRejected("parallelBeforeI6", "table.parallel();");
         assertRejected("sequential", "table.map(v -> v.label()).sequential();");
         assertRejected("mappedArrayFactory", "table.map(v -> v.label()).toArray(String[]::new);");

@@ -35,7 +35,8 @@ final class ReferenceRowInterpreter {
     }
 
     static LongLocatorBuffer locators(BoundRowPlan bound) {
-        LongLocatorBuffer result = new LongLocatorBuffer(bound.root.size, bound.provenance);
+        LongLocatorBuffer result = new LongLocatorBuffer(
+                bound.root.size, bound.operation, bound.provenance);
         List<LogicalRowPlan.Stage> stages = bound.logical.stages();
         int firstStateful = referenceNextStateful(stages, 0);
         referenceCollectSourceSegment(bound, stages, 0, firstStateful, result);

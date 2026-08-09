@@ -11,6 +11,7 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
     private final IdentityHashMap<Object, Boolean> borrowedViews =
             new IdentityHashMap<Object, Boolean>();
     private TableStateRoot root;
+    private SomaOperation operation;
     private Object provenance;
     private Thread participant;
     private boolean accessActive;
@@ -32,11 +33,16 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
         return borrowedViews.containsKey(view);
     }
 
-    void begin(TableStateRoot boundRoot, Object operationProvenance) {
-        if (root != null || boundRoot == null || operationProvenance == null) {
+    void begin(
+            TableStateRoot boundRoot,
+            SomaOperation operationKind,
+            Object operationProvenance) {
+        if (root != null || boundRoot == null || operationKind == null
+                || operationProvenance == null) {
             throw new AssertionError("query cursor operation overlap");
         }
         root = boundRoot;
+        operation = operationKind;
         provenance = operationProvenance;
         participant = Thread.currentThread();
         accessActive = false;
@@ -64,6 +70,7 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
         accessActive = false;
         clearReferences();
         root = null;
+        operation = null;
         provenance = null;
         participant = null;
     }
@@ -127,7 +134,7 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
         if (!accessActive) {
             throw SomaFailures.failure(
                     SomaFailureCode.CALLBACK_SCOPE_VIOLATION,
-                    SomaOperation.QUERY,
+                    operation,
                     "borrowed View is outside its callback scope",
                     provenance);
         }
@@ -140,7 +147,7 @@ public final class GeneratedQueryCursor extends TypedValues implements Generated
         if (root == null || participant != Thread.currentThread()) {
             throw SomaFailures.failure(
                     SomaFailureCode.CALLBACK_SCOPE_VIOLATION,
-                    SomaOperation.QUERY,
+                    operation == null ? SomaOperation.QUERY : operation,
                     "borrowed View is outside its query operation",
                     provenance == null ? new Object() : provenance);
         }

@@ -4,6 +4,8 @@ import io.github.somaruntime.soma.SomaOrder;
 import io.github.somaruntime.soma.SomaDoubleStream;
 import io.github.somaruntime.soma.SomaIntStream;
 import io.github.somaruntime.soma.SomaLongStream;
+import io.github.somaruntime.soma.RemoveResult;
+import io.github.somaruntime.soma.UpdateResult;
 import java.util.List;
 import java.util.Optional;
 
@@ -110,6 +112,19 @@ public final class GeneratedIndexSelection {
 
     public String explain() {
         return pipeline().explain();
+    }
+
+    public UpdateResult update(GeneratedCallbacks.EditorAction updater) {
+        if (updater == null) {
+            throw SomaFailures.invalid(
+                    io.github.somaruntime.soma.SomaOperation.UPDATE,
+                    "updater is null");
+        }
+        return pipeline().update(updater);
+    }
+
+    public RemoveResult remove() {
+        return pipeline().remove();
     }
 
     private GeneratedPipeline pipeline() {

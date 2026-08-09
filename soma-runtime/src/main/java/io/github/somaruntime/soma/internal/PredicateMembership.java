@@ -21,12 +21,13 @@ final class PredicateMembership {
     static PredicateMembership prepare(
             GeneratedTableLayout layout,
             List<LogicalRowPlan.Stage> stages,
+            SomaOperation operation,
             Object provenance) {
         IdentityHashMap<PredicateIr, ProbeSet> sets =
                 new IdentityHashMap<PredicateIr, ProbeSet>();
         for (LogicalRowPlan.Stage stage : stages) {
             if (stage.kind == LogicalRowPlan.StageKind.TYPED_FILTER) {
-                collect(layout, stage.predicate, sets, provenance);
+                collect(layout, stage.predicate, sets, operation, provenance);
             }
         }
         return new PredicateMembership(layout, sets);
@@ -36,6 +37,7 @@ final class PredicateMembership {
             GeneratedTableLayout layout,
             PredicateIr predicate,
             IdentityHashMap<PredicateIr, ProbeSet> sets,
+            SomaOperation operation,
             Object provenance) {
         switch (predicate.kind) {
             case IN:
@@ -44,16 +46,17 @@ final class PredicateMembership {
                             layout,
                             predicate.fieldIndex,
                             predicate.literals,
+                            operation,
                             provenance));
                 }
                 return;
             case AND:
             case OR:
-                collect(layout, predicate.left, sets, provenance);
-                collect(layout, predicate.right, sets, provenance);
+                collect(layout, predicate.left, sets, operation, provenance);
+                collect(layout, predicate.right, sets, operation, provenance);
                 return;
             case NOT:
-                collect(layout, predicate.left, sets, provenance);
+                collect(layout, predicate.left, sets, operation, provenance);
                 return;
             default:
                 return;
@@ -81,9 +84,10 @@ final class PredicateMembership {
                 GeneratedTableLayout layout,
                 int fieldIndex,
                 GeneratedProbe[] literals,
+                SomaOperation operation,
                 Object provenance) {
             this.fieldIndex = fieldIndex;
-            int capacity = capacity(literals.length, provenance);
+            int capacity = capacity(literals.length, operation, provenance);
             this.probes = new GeneratedProbe[capacity];
             this.occupied = new byte[capacity];
             this.mask = capacity - 1;
@@ -126,12 +130,15 @@ final class PredicateMembership {
             return ((int) (hash ^ (hash >>> 32))) & mask;
         }
 
-        private static int capacity(int expected, Object provenance) {
+        private static int capacity(
+                int expected,
+                SomaOperation operation,
+                Object provenance) {
             if (expected <= 1) return 2;
             if (expected > (1 << 29)) {
                 throw SomaFailures.failure(
                         SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
-                        SomaOperation.QUERY,
+                        operation,
                         "IN membership exceeds Java array boundary",
                         provenance);
             }

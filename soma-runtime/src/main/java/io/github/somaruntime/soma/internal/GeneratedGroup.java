@@ -7,6 +7,7 @@ import java.lang.invoke.MethodHandles;
 public final class GeneratedGroup {
 
     private final GlobalMemoryManager memoryManager;
+    private final GlobalMemoryManager.GroupToken accountingToken;
     private final String generatedPackage;
     private final Object capability;
     private final GroupOperationGuard operationGuard = new GroupOperationGuard();
@@ -16,6 +17,7 @@ public final class GeneratedGroup {
             String generatedPackage,
             Object capability) {
         this.memoryManager = memoryManager;
+        this.accountingToken = memoryManager.newGroupToken();
         this.generatedPackage = generatedPackage;
         this.capability = capability;
     }
@@ -34,7 +36,10 @@ public final class GeneratedGroup {
                     SomaOperation.CONFIGURE,
                     "generated Group construction capability is invalid");
         }
-        return new GeneratedGroup(memoryManager, generatedPackage, capability);
+        GeneratedGroup group = new GeneratedGroup(
+                memoryManager, generatedPackage, capability);
+        memoryManager.registerGroup(group, group.accountingToken);
+        return group;
     }
 
     public GeneratedTable createTable(
@@ -70,5 +75,24 @@ public final class GeneratedGroup {
 
     GlobalMemoryManager memoryManager() {
         return memoryManager;
+    }
+
+    GlobalMemoryManager.RetainedReservation reserveRetained(
+            long bytes,
+            SomaOperation operation,
+            Object provenance) {
+        return memoryManager.reserveRetained(
+                accountingToken, bytes, operation, provenance);
+    }
+
+    GlobalMemoryManager.TemporaryLease leaseTemporary(
+            long bytes,
+            SomaOperation operation,
+            Object provenance) {
+        return memoryManager.leaseTemporary(bytes, operation, provenance);
+    }
+
+    void releasePublished(long bytes) {
+        memoryManager.releasePublished(accountingToken, bytes);
     }
 }

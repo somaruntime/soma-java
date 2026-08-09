@@ -6,7 +6,7 @@ import io.github.somaruntime.soma.UpdateResult;
 
 /** Reusable operation-scoped exact-typed row staging owned by one generated Table. */
 public final class GeneratedRow extends TypedValues
-        implements AutoCloseable, GeneratedRowAccess {
+        implements AutoCloseable, GeneratedEditorAccess {
 
     static final int ADD = 1;
     static final int FIND = 2;

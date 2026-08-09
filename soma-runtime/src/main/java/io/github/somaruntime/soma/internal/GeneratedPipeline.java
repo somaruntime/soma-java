@@ -4,6 +4,8 @@ import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOrder;
+import io.github.somaruntime.soma.RemoveResult;
+import io.github.somaruntime.soma.UpdateResult;
 import java.util.List;
 import java.util.Optional;
 import io.github.somaruntime.soma.SomaDoubleStream;
@@ -218,6 +220,17 @@ public final class GeneratedPipeline {
         return QueryOperation.explain(plan);
     }
 
+    public UpdateResult update(GeneratedCallbacks.EditorAction updater) {
+        requireArgument(updater, SomaOperation.UPDATE, "updater");
+        claim(SomaOperation.UPDATE);
+        return MutationOperation.update(plan, updater);
+    }
+
+    public RemoveResult remove() {
+        claim(SomaOperation.REMOVE);
+        return MutationOperation.remove(plan);
+    }
+
     long referenceCountForTesting() {
         claim();
         return QueryOperation.referenceCountForTesting(plan);
@@ -228,19 +241,30 @@ public final class GeneratedPipeline {
     }
 
     private void claim() {
+        claim(SomaOperation.QUERY);
+    }
+
+    private void claim(SomaOperation operation) {
         if (!consumed.compareAndSet(false, true)) {
             throw SomaFailures.failure(
                     SomaFailureCode.PIPELINE_ALREADY_CONSUMED,
-                    SomaOperation.QUERY,
+                    operation,
                     "linked pipeline has already been consumed",
                     new Object());
         }
     }
 
     private static void requireArgument(Object value, String category) {
+        requireArgument(value, SomaOperation.QUERY, category);
+    }
+
+    private static void requireArgument(
+            Object value,
+            SomaOperation operation,
+            String category) {
         if (value == null) {
             throw SomaFailures.invalid(
-                    SomaOperation.QUERY, category + " is null");
+                    operation, category + " is null");
         }
     }
 

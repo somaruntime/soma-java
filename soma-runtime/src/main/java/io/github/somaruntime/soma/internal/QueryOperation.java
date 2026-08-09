@@ -505,11 +505,13 @@ final class QueryOperation {
         GeneratedTable table = logical.owner();
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
             BoundRowPlan bound = new BoundRowPlan(
-                    logical, table.currentRoot(), operation.provenance());
+                    logical, table.currentRoot(),
+                    io.github.somaruntime.soma.SomaOperation.QUERY,
+                    operation.provenance());
             long scratch = work.scratchBytes(bound);
             try (GlobalMemoryManager.TemporaryLease ignored =
                          table.leaseQueryTemporary(scratch, bound.provenance)) {
-                beginCursors(table, bound.root, bound.provenance);
+                beginCursors(table, bound.root, bound.operation, bound.provenance);
                 try {
                     return work.run(bound);
                 } finally {
@@ -522,10 +524,11 @@ final class QueryOperation {
     private static void beginCursors(
             GeneratedTable table,
             TableStateRoot root,
+            io.github.somaruntime.soma.SomaOperation operation,
             Object provenance) {
-        table.queryCursor().begin(root, provenance);
+        table.queryCursor().begin(root, operation, provenance);
         try {
-            table.secondaryQueryCursor().begin(root, provenance);
+            table.secondaryQueryCursor().begin(root, operation, provenance);
         } catch (RuntimeException failure) {
             table.queryCursor().end();
             throw failure;

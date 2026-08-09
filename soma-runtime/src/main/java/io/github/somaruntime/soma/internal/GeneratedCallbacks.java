@@ -22,6 +22,11 @@ public final class GeneratedCallbacks {
     }
 
     @FunctionalInterface
+    public interface EditorAction {
+        void accept();
+    }
+
+    @FunctionalInterface
     public interface RowMapper<R> {
         R apply();
     }

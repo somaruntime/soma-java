@@ -13,7 +13,9 @@ import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.SomaOrder;
 import io.github.somaruntime.soma.UpdateResult;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -25,6 +27,140 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class GeneratedTableTest {
+
+    @Test
+    void selectionUpdatePublishesOneGenerationAndNoOpPublishesNothing() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        Object first = new Object();
+        Object second = new Object();
+        Object untouched = new Object();
+        add(table, 1L, "selected", 10, first);
+        add(table, 2L, "selected", 20, second);
+        add(table, 3L, "other", 30, untouched);
+
+        GeneratedProbe selected = table.newProbe(1);
+        selected.putReference(1, "selected");
+        long before = table.stateVersionForTesting();
+        UpdateResult result = table.indexSelection(0, selected.seal()).update(() -> {
+            GeneratedSelectionEditor editor = table.selectionEditor();
+            editor.editInt(2, editor.viewInt(2) + 5);
+        });
+
+        assertEquals(2L, result.matched());
+        assertEquals(2L, result.changed());
+        assertEquals(before + 1L, table.stateVersionForTesting());
+        assertRow(table, 1L, "selected", 15, first);
+        assertRow(table, 2L, "selected", 25, second);
+        assertRow(table, 3L, "other", 30, untouched);
+        assertEquals(2L, indexCount(table, "selected"));
+
+        long published = table.stateVersionForTesting();
+        UpdateResult noOp = table.selectAll().update(() -> {
+            GeneratedSelectionEditor editor = table.selectionEditor();
+            editor.editInt(2, editor.viewInt(2));
+        });
+        assertEquals(3L, noOp.matched());
+        assertEquals(0L, noOp.changed());
+        assertEquals(published, table.stateVersionForTesting());
+    }
+
+    @Test
+    void selectionUpdateFailureAndResourceRejectionPublishNothing() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4, MutationFaultInjector.NONE);
+        Object first = new Object();
+        Object second = new Object();
+        add(table, 1L, "selected", 10, first);
+        add(table, 2L, "selected", 20, second);
+
+        Object root = table.rootIdentityForTesting();
+        long version = table.stateVersionForTesting();
+        final int[] editorCalls = new int[1];
+        SomaOperationException failed = assertThrows(
+                SomaOperationException.class,
+                () -> table.selectAll().update(() -> {
+                    GeneratedSelectionEditor editor = table.selectionEditor();
+                    editor.editInt(2, editor.viewInt(2) + 1);
+                    if (++editorCalls[0] == 2) {
+                        throw new IllegalStateException("application failure");
+                    }
+                }));
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, failed.code());
+        assertEquals(io.github.somaruntime.soma.SomaOperation.UPDATE, failed.operation());
+        assertSame(root, table.rootIdentityForTesting());
+        assertEquals(version, table.stateVersionForTesting());
+        assertRow(table, 1L, "selected", 10, first);
+        assertRow(table, 2L, "selected", 20, second);
+        assertEquals(0L, memory.temporaryBytes());
+
+        final int[] predicateCalls = new int[1];
+        final int[] rejectedEditorCalls = new int[1];
+        GeneratedPipeline rejectedPipeline = table.selectAll().filter(() -> {
+            predicateCalls[0]++;
+            return true;
+        });
+        try (GlobalMemoryManager.TemporaryLease pressure = memory.leaseTemporary(
+                memory.budgetBytes() - memory.retainedBytes(),
+                io.github.somaruntime.soma.SomaOperation.UPDATE,
+                new Object())) {
+            SomaOperationException rejected = assertThrows(
+                    SomaOperationException.class,
+                    () -> rejectedPipeline.update(() -> rejectedEditorCalls[0]++));
+            assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+            assertEquals(0, predicateCalls[0]);
+            assertEquals(0, rejectedEditorCalls[0]);
+        }
+        assertSame(root, table.rootIdentityForTesting());
+        assertEquals(version, table.stateVersionForTesting());
+        assertEquals(0L, memory.temporaryBytes());
+    }
+
+    @Test
+    void selectionRemoveUsesDeterministicDenseCompactionAndRebuildsSidecars() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        Object[] references = new Object[5];
+        for (int index = 0; index < references.length; index++) {
+            references[index] = new Object();
+            add(table, index + 1L, "bucket-" + ((index + 1) & 1), index + 1,
+                    references[index]);
+        }
+
+        long capacity = table.capacity();
+        long version = table.stateVersionForTesting();
+        RemoveResult result = table.selectAll()
+                .filter(() -> (table.queryCursor().viewInt(2) & 1) == 0)
+                .remove();
+
+        assertEquals(2L, result.removed());
+        assertEquals(3L, table.size());
+        assertEquals(capacity, table.capacity());
+        assertEquals(version + 1L, table.stateVersionForTesting());
+        assertRow(table, 1L, "bucket-1", 1, references[0]);
+        assertRow(table, 5L, "bucket-1", 5, references[4]);
+        assertRow(table, 3L, "bucket-1", 3, references[2]);
+        assertMissing(table, 2L);
+        assertMissing(table, 4L);
+        assertEquals(3L, indexCount(table, "bucket-1"));
+        assertEquals(0L, indexCount(table, "bucket-0"));
+    }
+
+    @Test
+    void collectedExplicitGroupReleasesItsRetainedAccounting() throws Exception {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        WeakReference<GeneratedGroup> group = createCollectableGroup(memory);
+        assertTrue(memory.retainedBytes() > 0L);
+
+        for (int attempt = 0; attempt < 100 && group.get() != null; attempt++) {
+            System.gc();
+            System.runFinalization();
+            memory.drainCollectedGroups();
+            Thread.sleep(5L);
+        }
+
+        assertNull(group.get());
+        assertEquals(0L, memory.retainedBytes());
+    }
 
     @Test
     void exactStorageKeyAndMultipleIndexPathIsPayloadBacked() {
@@ -271,7 +407,10 @@ class GeneratedTableTest {
         assertEquals(SomaFailureCode.CALLBACK_SCOPE_VIOLATION, before.code());
 
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
-            cursor.begin(table.currentRoot(), operation.provenance());
+            cursor.begin(
+                    table.currentRoot(),
+                    io.github.somaruntime.soma.SomaOperation.QUERY,
+                    operation.provenance());
             SomaOperationException inactive = assertThrows(
                     SomaOperationException.class, () -> cursor.viewLong(0));
             assertEquals(SomaFailureCode.CALLBACK_SCOPE_VIOLATION, inactive.code());
@@ -491,21 +630,20 @@ class GeneratedTableTest {
                 QueryOperation.referenceLocatorsForTesting(plan),
                 QueryOperation.optimizedLocatorsForTesting(plan)));
 
-        long requiredScratch = 64L * 256L;
-        GlobalMemoryManager.RetainedReservation pressure = memory.reserveRetained(
-                memory.budgetBytes() - memory.retainedBytes()
-                        - (requiredScratch - 1L),
-                io.github.somaruntime.soma.SomaOperation.RESERVE,
-                new Object());
-        pressure.commit();
         String explain = QueryOperation.explain(plan);
         assertTrue(explain.contains("inMembershipLiterals=64"));
         assertTrue(explain.contains("estimatedTemporaryPeakBytes="));
-        assertEquals(0L, memory.temporaryBytes());
-        SomaOperationException rejected = assertThrows(
-                SomaOperationException.class,
-                () -> QueryOperation.optimizedCount(plan));
-        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+        long requiredScratch = 64L * 256L;
+        try (GlobalMemoryManager.TemporaryLease pressure = memory.leaseTemporary(
+                memory.budgetBytes() - memory.retainedBytes()
+                        - (requiredScratch - 1L),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object())) {
+            SomaOperationException rejected = assertThrows(
+                    SomaOperationException.class,
+                    () -> QueryOperation.optimizedCount(plan));
+            assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+        }
         assertEquals(0L, memory.temporaryBytes());
     }
 
@@ -1012,25 +1150,25 @@ class GeneratedTableTest {
         }
         long requiredScratch = 4L
                 * (testLayout().detachedRowEstimateBytes() + 48L);
-        GlobalMemoryManager.RetainedReservation pressure = memory.reserveRetained(
-                memory.budgetBytes() - memory.retainedBytes()
-                        - (requiredScratch - 1L),
-                io.github.somaruntime.soma.SomaOperation.RESERVE,
-                new Object());
-        pressure.commit();
         final int[] callbacks = new int[1];
         GeneratedPipeline pipeline = table.selectAll();
-        SomaOperationException rejected = assertThrows(
-                SomaOperationException.class,
-                () -> pipeline.toList(() -> {
-                    callbacks[0]++;
-                    return table.queryCursor().viewInt(2);
-                }));
-        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
-        assertEquals(0, callbacks[0]);
-        SomaOperationException consumed = assertThrows(
-                SomaOperationException.class, pipeline::count);
-        assertEquals(SomaFailureCode.PIPELINE_ALREADY_CONSUMED, consumed.code());
+        try (GlobalMemoryManager.TemporaryLease pressure = memory.leaseTemporary(
+                memory.budgetBytes() - memory.retainedBytes()
+                        - (requiredScratch - 1L),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object())) {
+            SomaOperationException rejected = assertThrows(
+                    SomaOperationException.class,
+                    () -> pipeline.toList(() -> {
+                        callbacks[0]++;
+                        return table.queryCursor().viewInt(2);
+                    }));
+            assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+            assertEquals(0, callbacks[0]);
+            SomaOperationException consumed = assertThrows(
+                    SomaOperationException.class, pipeline::count);
+            assertEquals(SomaFailureCode.PIPELINE_ALREADY_CONSUMED, consumed.code());
+        }
         assertEquals(0L, memory.temporaryBytes());
     }
 
@@ -1089,16 +1227,16 @@ class GeneratedTableTest {
                 .distinct()
                 .sorted();
 
-        GlobalMemoryManager.RetainedReservation pressure = memory.reserveRetained(
+        try (GlobalMemoryManager.TemporaryLease pressure = memory.leaseTemporary(
                 memory.budgetBytes() - memory.retainedBytes(),
-                io.github.somaruntime.soma.SomaOperation.RESERVE,
-                new Object());
-        pressure.commit();
-        SomaOperationException rejected = assertThrows(
-                SomaOperationException.class,
-                () -> PrimitivePlanOperation.toIntArray(primitive));
-        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
-        assertEquals(0, callbacks[0]);
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object())) {
+            SomaOperationException rejected = assertThrows(
+                    SomaOperationException.class,
+                    () -> PrimitivePlanOperation.toIntArray(primitive));
+            assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+            assertEquals(0, callbacks[0]);
+        }
         assertEquals(0L, memory.temporaryBytes());
     }
 
@@ -1503,6 +1641,26 @@ class GeneratedTableTest {
             constructor.setAccessible(true);
             return constructor.newInstance(
                     memoryManager, "test.generated", new Object());
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    private static WeakReference<GeneratedGroup> createCollectableGroup(
+            GlobalMemoryManager memoryManager) {
+        try {
+            Field accessField = GeneratedRuntime.class
+                    .getDeclaredField("GROUP_FACTORY_ACCESS");
+            accessField.setAccessible(true);
+            GeneratedGroup group = GeneratedGroup.create(
+                    accessField.get(null),
+                    memoryManager,
+                    "test.generated",
+                    new Object());
+            GeneratedTable table = new GeneratedTable(
+                    group, testLayout(), 4, MutationFaultInjector.NONE);
+            add(table, 1L, "retained", 1, new Object());
+            return new WeakReference<GeneratedGroup>(group);
         } catch (ReflectiveOperationException failure) {
             throw new AssertionError(failure);
         }

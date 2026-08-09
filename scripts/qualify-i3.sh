@@ -4,8 +4,14 @@ set -eu
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$repo_root"
 
+qualification_stage=${SOMA_QUALIFICATION_STAGE:-i3}
+case "$qualification_stage" in
+    i3|i4) ;;
+    *) echo "invalid qualification stage: $qualification_stage" >&2; exit 1 ;;
+esac
+
 if [ -z "${JAVA_HOME:-}" ]; then
-    echo "i3-qualification: JAVA_HOME must select the qualified Java 8 JDK" >&2
+    echo "$qualification_stage-qualification: JAVA_HOME must select the qualified Java 8 JDK" >&2
     exit 1
 fi
 
@@ -15,19 +21,18 @@ javap_cmd="$JAVA_HOME/bin/javap"
 jar_cmd="$JAVA_HOME/bin/jar"
 for tool in "$java_cmd" "$javac_cmd" "$javap_cmd" "$jar_cmd"; do
     if [ ! -x "$tool" ]; then
-        echo "i3-qualification: missing JDK tool: $tool" >&2
+        echo "$qualification_stage-qualification: missing JDK tool: $tool" >&2
         exit 1
     fi
 done
 if ! "$java_cmd" -version 2>&1 | grep -q 'version "1\.8\.' \
         || ! "$javac_cmd" -version 2>&1 | grep -q '^javac 1\.8\.'; then
-    echo "i3-qualification: JAVA_HOME is not a Java 8 JDK" >&2
+    echo "$qualification_stage-qualification: JAVA_HOME is not a Java 8 JDK" >&2
     exit 1
 fi
 
-# This is the current qualification owner. Historical I0-I2 scripts preserve
-# their point-in-time surface goldens and therefore are not recursively called
-# after I3 has legitimately admitted callback filters and query operations.
+# This is the cumulative I3/I4 qualification harness. Historical I0-I2 scripts
+# preserve their point-in-time surface goldens and are not recursively called.
 mvn clean package
 
 runtime_jar=
@@ -45,15 +50,15 @@ for candidate in "$repo_root"/soma-processor/target/soma-processor-*.jar; do
     esac
 done
 if [ -z "$runtime_jar" ] || [ -z "$processor_jar" ]; then
-    echo "i3-qualification: production artifacts not found" >&2
+    echo "$qualification_stage-qualification: production artifacts not found" >&2
     exit 1
 fi
 
-work_root=$(mktemp -d "${TMPDIR:-/tmp}/soma-i3-qualification.XXXXXX")
+work_root=$(mktemp -d "${TMPDIR:-/tmp}/soma-$qualification_stage-qualification.XXXXXX")
 cleanup() {
     case "$work_root" in
-        */soma-i3-qualification.*) rm -rf -- "$work_root" ;;
-        *) echo "i3-qualification: refusing unsafe cleanup target" >&2 ;;
+        */soma-i3-qualification.*|*/soma-i4-qualification.*) rm -rf -- "$work_root" ;;
+        *) echo "$qualification_stage-qualification: refusing unsafe cleanup target" >&2 ;;
     esac
 }
 trap cleanup EXIT HUP INT TERM
@@ -93,6 +98,13 @@ compile_schema "$second_classes" "$second_generated" \
     "$reverse_schema_sources"
 diff -qr "$generated" "$second_generated"
 
+set -- \
+    "$repo_root/tests/i3-consumer/src/main/java/example/i3/I3ConsumerMain.java" \
+    "$repo_root/tests/i3-consumer/src/main/java/example/i3/I3PlanGoldenMain.java"
+if [ "$qualification_stage" = i4 ]; then
+    set -- "$@" \
+        "$repo_root/tests/i4-consumer/src/main/java/example/i3/I4ConsumerMain.java"
+fi
 "$javac_cmd" \
     -source 8 \
     -target 8 \
@@ -100,8 +112,7 @@ diff -qr "$generated" "$second_generated"
     -proc:none \
     -classpath "$classes:$runtime_jar" \
     -d "$classes" \
-    "$repo_root/tests/i3-consumer/src/main/java/example/i3/I3ConsumerMain.java" \
-    "$repo_root/tests/i3-consumer/src/main/java/example/i3/I3PlanGoldenMain.java"
+    "$@"
 
 hash_file() {
     if command -v sha256sum >/dev/null 2>&1; then
@@ -173,7 +184,7 @@ while IFS= read -r generated_class; do
 done < "$generated_public_classes"
 grep -q 'major version: 52' "$generated_verbose_javap"
 if grep -q 'io.github.somaruntime.soma.internal' "$generated_public_javap"; then
-    echo "i3-qualification: generated public signature leaks internal type" >&2
+    echo "$qualification_stage-qualification: generated public signature leaks internal type" >&2
     exit 1
 fi
 generated_public_count=$(wc -l < "$generated_public_classes" | tr -d ' ')
@@ -200,6 +211,10 @@ diff -u \
 
 "$java_cmd" -Xms128m -Xmx1g -classpath "$classes:$runtime_jar" \
     example.i3.I3ConsumerMain
+if [ "$qualification_stage" = i4 ]; then
+    "$java_cmd" -Xms128m -Xmx1g -classpath "$classes:$runtime_jar" \
+        example.i3.I4ConsumerMain
+fi
 "$java_cmd" -Xms128m -Xmx1g -classpath "$classes:$runtime_jar" \
     example.i3.I3PlanGoldenMain > "$work_root/optimizer-plans.txt"
 diff -u "$repo_root/tests/i3-consumer/golden/optimizer-plans.txt" \
@@ -249,11 +264,11 @@ expect_compile_failure() {
             -classpath "$classes:$runtime_jar" \
             -d "$negative_classes" \
             "$source_file" > "$negative_output" 2>&1; then
-        echo "i3-qualification: expected compile failure: $source_file" >&2
+        echo "$qualification_stage-qualification: expected compile failure: $source_file" >&2
         exit 1
     fi
     if ! grep -Eq "$expected_pattern" "$negative_output"; then
-        echo "i3-qualification: expected diagnostic pattern missing: $expected_pattern" >&2
+        echo "$qualification_stage-qualification: expected diagnostic pattern missing: $expected_pattern" >&2
         cat "$negative_output" >&2
         exit 1
     fi
@@ -262,7 +277,9 @@ expect_compile_failure() {
 negative_root="$repo_root/tests/i3-consumer/src/negative/java/example/i3"
 expect_compile_failure "$negative_root/TableDistinctNegative.java" 'distinct'
 expect_compile_failure "$negative_root/FieldMutationNegative.java" 'remove'
-expect_compile_failure "$negative_root/SelectionMutationNegative.java" 'remove'
+if [ "$qualification_stage" = i3 ]; then
+    expect_compile_failure "$negative_root/SelectionMutationNegative.java" 'remove'
+fi
 expect_compile_failure "$negative_root/MappedNoArgArrayNegative.java" 'toArray'
 expect_compile_failure "$negative_root/MappedArrayFactoryNegative.java" 'toArray'
 expect_compile_failure "$negative_root/ObjectEqualityNegative.java" 'eq'
@@ -286,7 +303,12 @@ grep -q 'mapToLong(example.i3.EventTable\$AmountField)' \
     "$work_root/event-table-public.txt"
 grep -q 'public long sum();' "$work_root/amount-field-public.txt"
 ! grep -q ' sum();' "$work_root/payload-field-public.txt"
-! grep -q ' remove(' "$work_root/selection-public.txt"
+if [ "$qualification_stage" = i4 ]; then
+    grep -q ' update(' "$work_root/selection-public.txt"
+    grep -q ' remove(' "$work_root/selection-public.txt"
+else
+    ! grep -q ' remove(' "$work_root/selection-public.txt"
+fi
 ! grep -q ' parallel(' "$work_root/event-table-public.txt"
 ! grep -Rq 'class ReadStream' "$generated"
 
@@ -364,7 +386,7 @@ while IFS= read -r runtime_class; do
 done < "$runtime_public_classes"
 grep -q 'major version: 52' "$runtime_verbose_javap"
 if grep -q 'io.github.somaruntime.soma.internal' "$runtime_public_javap"; then
-    echo "i3-qualification: runtime public signature leaks internal type" >&2
+    echo "$qualification_stage-qualification: runtime public signature leaks internal type" >&2
     exit 1
 fi
 runtime_public_count=$(wc -l < "$runtime_public_classes" | tr -d ' ')
@@ -400,7 +422,7 @@ while IFS= read -r processor_class; do
 done < "$processor_classes"
 if grep -Eq 'java/lang/reflect|java/lang/Class\.forName' \
         "$work_root/processor-bytecode.txt"; then
-    echo "i3-qualification: processor depends on reflection" >&2
+    echo "$qualification_stage-qualification: processor depends on reflection" >&2
     exit 1
 fi
 
@@ -413,4 +435,4 @@ for report in \
     grep -q 'errors="0"' "$report"
 done
 
-printf '%s\n' 'i3-qualification: ok'
+printf '%s-qualification: ok\n' "$qualification_stage"

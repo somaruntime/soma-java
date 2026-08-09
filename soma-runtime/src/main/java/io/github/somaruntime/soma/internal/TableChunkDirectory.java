@@ -1,6 +1,7 @@
 package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaOperation;
+import java.util.Arrays;
 
 /** Sparse eight-level radix directory over exact-typed PLAIN Table chunks. */
 final class TableChunkDirectory {
@@ -45,6 +46,74 @@ final class TableChunkDirectory {
         PlainChunk replacement = get(ordinal).copy();
         result.replace(ordinal, replacement);
         write(replacement, offset, values);
+        return result;
+    }
+
+    TableChunkDirectory copyForUpdates(LongLocatorBuffer locators) {
+        TableChunkDirectory result = shallowCopy();
+        long[] sorted = Arrays.copyOf(locators.backing(), locators.size());
+        Arrays.sort(sorted);
+        long previousOrdinal = -1L;
+        for (long locator : sorted) {
+            long ordinal = locator / chunkRows;
+            if (ordinal == previousOrdinal) continue;
+            result.replace(ordinal, get(ordinal).copy());
+            previousOrdinal = ordinal;
+        }
+        return result;
+    }
+
+    TableChunkDirectory copyForSelectionRemove(
+            LongLocatorBuffer selection,
+            long size,
+            TypedValues scratch,
+            Object provenance) {
+        int selected = selection.size();
+        long newSize = size - selected;
+        long[] removed = Arrays.copyOf(selection.backing(), selected);
+        Arrays.sort(removed);
+        for (int index = 0; index < removed.length; index++) {
+            if (removed[index] < 0L || removed[index] >= size
+                    || (index != 0 && removed[index] == removed[index - 1])) {
+                throw new AssertionError("invalid frozen Selection membership");
+            }
+        }
+
+        int affectedLength = RowExecutionSupport.arrayLength(
+                CheckedLong.multiply(
+                        selected, 2L, SomaOperation.REMOVE, provenance),
+                SomaOperation.REMOVE,
+                provenance);
+        long[] affectedChunks = new long[affectedLength];
+        int affected = 0;
+        for (long locator : removed) {
+            affectedChunks[affected++] = locator / chunkRows;
+        }
+        for (long locator = newSize; locator < size; locator++) {
+            affectedChunks[affected++] = locator / chunkRows;
+        }
+        Arrays.sort(affectedChunks);
+
+        TableChunkDirectory result = shallowCopy();
+        long previousOrdinal = -1L;
+        for (long ordinal : affectedChunks) {
+            if (ordinal == previousOrdinal) continue;
+            result.replace(ordinal, get(ordinal).copy());
+            previousOrdinal = ordinal;
+        }
+
+        long tail = size - 1L;
+        for (long hole : removed) {
+            if (hole >= newSize) break;
+            while (Arrays.binarySearch(removed, tail) >= 0) tail--;
+            read(tail, scratch);
+            result.write(hole, scratch);
+            tail--;
+        }
+        for (long locator = newSize; locator < size; locator++) {
+            result.clear(locator);
+        }
+        scratch.clearReferences();
         return result;
     }
 
@@ -109,6 +178,10 @@ final class TableChunkDirectory {
 
     void write(long locator, TypedValues source) {
         write(get(locator / chunkRows), (int) (locator % chunkRows), source);
+    }
+
+    private void clear(long locator) {
+        clearRow(get(locator / chunkRows), (int) (locator % chunkRows));
     }
 
     PlainChunk plainChunk(long ordinal) {

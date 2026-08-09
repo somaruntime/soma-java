@@ -19,7 +19,7 @@ final class RowExecutionSupport {
             return callback.test();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
-                    SomaOperation.QUERY, failure, bound.provenance);
+                    bound.operation, failure, bound.provenance);
         } finally {
             cursor.leave();
         }
@@ -35,7 +35,7 @@ final class RowExecutionSupport {
             callback.accept();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
-                    SomaOperation.QUERY, failure, bound.provenance);
+                    bound.operation, failure, bound.provenance);
         } finally {
             cursor.leave();
         }
@@ -58,7 +58,7 @@ final class RowExecutionSupport {
                 throw new AssertionError("generated materializer threw checked failure", failure);
             }
             throw SomaFailures.callbackFailure(
-                    SomaOperation.QUERY, failure, bound.provenance);
+                    bound.operation, failure, bound.provenance);
         } finally {
             cursor.leave();
         }
@@ -213,7 +213,7 @@ final class RowExecutionSupport {
             return stage.comparator.compare();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
-                    SomaOperation.QUERY, failure, bound.provenance);
+                    bound.operation, failure, bound.provenance);
         } finally {
             rightCursor.leave();
             leftCursor.leave();
@@ -264,11 +264,18 @@ final class RowExecutionSupport {
     }
 
     static int arrayLength(long value, Object provenance) {
+        return arrayLength(value, SomaOperation.QUERY, provenance);
+    }
+
+    static int arrayLength(
+            long value,
+            SomaOperation operation,
+            Object provenance) {
         if (value < 0L || value > Integer.MAX_VALUE) {
             throw SomaFailures.failure(
                     SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
-                    SomaOperation.QUERY,
-                    "query result exceeds Java array/container boundary",
+                    operation,
+                    "operation result exceeds Java array/container boundary",
                     provenance);
         }
         return (int) value;

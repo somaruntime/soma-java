@@ -43,7 +43,8 @@ final class OptimizedSequentialRowExecutor {
     private static LongLocatorBuffer locators(
             BoundRowPlan bound,
             NormalizedRowPlan plan) {
-        LongLocatorBuffer result = new LongLocatorBuffer(bound.root.size, bound.provenance);
+        LongLocatorBuffer result = new LongLocatorBuffer(
+                bound.root.size, bound.operation, bound.provenance);
         int firstStateful = nextStateful(plan.stages, 0);
         collectSourceSegment(bound, plan, 0, firstStateful, result);
         int position = firstStateful;
@@ -268,7 +269,7 @@ final class OptimizedSequentialRowExecutor {
         GeneratedTableLayout layout = bound.logical.owner().layout();
         FieldLocatorSet seen = new FieldLocatorSet(
                 values.size(), layout, bound.root.directory,
-                fieldIndex, bound.provenance);
+                fieldIndex, bound.operation, bound.provenance);
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
             long candidate = values.get(input);
@@ -294,8 +295,9 @@ final class OptimizedSequentialRowExecutor {
                 GeneratedTableLayout layout,
                 TableChunkDirectory directory,
                 int fieldIndex,
+                io.github.somaruntime.soma.SomaOperation operation,
                 Object provenance) {
-            int capacity = distinctCapacity(expected, provenance);
+            int capacity = distinctCapacity(expected, operation, provenance);
             this.layout = layout;
             this.directory = directory;
             this.fieldIndex = fieldIndex;
@@ -320,12 +322,15 @@ final class OptimizedSequentialRowExecutor {
         }
     }
 
-    private static int distinctCapacity(int expected, Object provenance) {
+    private static int distinctCapacity(
+            int expected,
+            io.github.somaruntime.soma.SomaOperation operation,
+            Object provenance) {
         if (expected <= 1) return 2;
         if (expected > (1 << 29)) {
             throw SomaFailures.failure(
                     io.github.somaruntime.soma.SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
-                    io.github.somaruntime.soma.SomaOperation.QUERY,
+                    operation,
                     "distinct hash table exceeds Java array boundary",
                     provenance);
         }

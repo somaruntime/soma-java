@@ -1,5 +1,7 @@
 package io.github.somaruntime.soma.internal;
 
+import io.github.somaruntime.soma.SomaOperation;
+
 /** Bounded primitive locator buffer used only after managed-memory admission. */
 final class LongLocatorBuffer {
 
@@ -7,7 +9,15 @@ final class LongLocatorBuffer {
     private int size;
 
     LongLocatorBuffer(long upperBound, Object provenance) {
-        values = new long[RowExecutionSupport.arrayLength(upperBound, provenance)];
+        this(upperBound, SomaOperation.QUERY, provenance);
+    }
+
+    LongLocatorBuffer(
+            long upperBound,
+            SomaOperation operation,
+            Object provenance) {
+        values = new long[RowExecutionSupport.arrayLength(
+                upperBound, operation, provenance)];
     }
 
     void add(long value) {
