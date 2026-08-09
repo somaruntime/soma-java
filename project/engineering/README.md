@@ -2,75 +2,61 @@
 
 类型：Engineering Entry
 
-状态：Implementation Authorized / I0-I2 COMPLETED / NO ACTIVE SLICE / NEXT I3
+状态：I0–I8 `COMPLETED`；当前无 active implementation slice
 
-正式事实源：是（实施计划与工程路由）
+Owner：SOMA Java implementation sequence、work unit 与 engineering evidence route
 
-Owner：SOMA Java implementation sequence、work-unit与engineering evidence route
-
-最后审查日期：2026-08-08
+最后审查日期：2026-08-09
 
 ## 当前状态
 
-新的大规模编译式Table引擎Blueprint/Design与核心抽象专题已经正式晋升，并通过
-[实施前最终全局一致性审核](../conformance/v1-final-pre-implementation-global-consistency-review.md)。
-Product Owner 已于 2026-08-03 授予完整 V1 implementation authorization。I0-I2已经完成，并分别通过
-[I0资格](../conformance/i0-build-spine-qualification.md)、
-[I1资格](../conformance/i1-primitive-keyed-table-qualification.md)、
-[I2资格](../conformance/i2-schema-type-storage-breadth-qualification.md)：G1为`PASS`，G2-G3为I2范围
-`PASS`，G4为I1/I2 direct-source范围`PASS`，G5为I1范围`PASS`，且这些Gate整体仍
-`IN_PROGRESS`；G10为I0范围`PASS`且整体仍`IN_PROGRESS`。当前没有active slice，I3-I8为
-`NOT_STARTED`，下一项只允许从I3开始。
+Product Owner 已授权并完成当前 V1 的 I0–I8 implementation。每个 slice 的实现、exit、独立审查
+与 Conformance 已闭合，G1–G10 为 `PASS`。这不授权 GitHub Release/Package、Maven publication、
+签名或正式 release 声明。
 
-`READY_FOR_IMPLEMENTATION`只拥有实施前准入事实；当前compiler/runtime/API能力以I0-I2资格记录
-为边界，不能外推I3-I8、performance、package或release已经成立。
-
-## 唯一计划
-
-- [V1 Production Implementation Plan](v1-implementation-plan.md)
-
-计划顺序：
+唯一规范性计划为 [V1 Production Implementation Plan](v1-implementation-plan.md)。阶段状态：
 
 ```text
-I0 build/full-regeneration (COMPLETED)
-    -> I1 primitive Table vertical slice (COMPLETED)
-        -> I2 schema/type/chunk/Key/Index breadth (COMPLETED)
-            -> I3 direct query/IR/reference interpreter (NEXT)
-                -> I4 Selection mutation/failure/resource
-                    -> I5 Group/Join
-                        -> I6 bounded parallel
-                            -> I7 compression/diagnostic closure
-                                -> I8 scenarios/performance/security/package/release
+I0 build/full-regeneration
+ -> I1 primitive Table
+ -> I2 schema/type/storage breadth
+ -> I3 query/IR/reference interpreter
+ -> I4 mutation/resource/failure
+ -> I5 Group/Join
+ -> I6 bounded parallel
+ -> I7 compression/metadata
+ -> I8 scenarios/performance/security/package
+COMPLETED
 ```
 
-## Engineering rules
+I0–I8 名称继续存在于计划和 Conformance 中，作为历史实施与证明链；当前 executable tests 和
+qualification internals 已按长期 capability 组织，不再把实施 chronology 当作仓库主结构。
+I2–I4 的 point-in-time consumer/golden snapshot 保存在 [`history/`](history/README.md)，不作为
+current qualification 或 compatibility target。
 
-- 一次只推进一个active slice；
-- 每个slice同时交付positive、negative、failed-state与Conformance evidence；
-- 第一条production路径已经是chunked、long-domain、IR-driven；
-- reference interpreter先成为correctness oracle，再增加optimization/parallel；
-- 不恢复predecessor source、module、test、benchmark或compatibility layer；
-- new surface必须通过AGENTS.md的surface admission；
-- stop rule触发时回到Temporary/Owner，不在code中静默选择；
-- 当前授权允许实现、验证、独立审查、每个slice闭合后的commit/`develop` push，以及
-  [Conformance authorization contract](../conformance/README.md#6-implementation-authorization-contract)
-  限定的CI、internal benchmark/profile、local package qualification和JUnit Jupiter 5.x
-  test-only stack；
-- Blueprint/Design语义变化、stop rule、权限扩张、已准入test stack以外的新dependency、第三
-  production artifact、证明链无法闭合或性能与正确性取舍必须暂停等待Product Owner；
-- remote artifact publication、签名和正式发布声明仍需独立授权。
+## 当前工程入口
+
+- 日常 correctness 与 local delivery：`./scripts/check.sh`；
+- 完整 non-publishing qualification：`./scripts/qualify.sh`；
+- 独立 profile：`./scripts/benchmark.sh`；
+- 本地 package：`./scripts/package-local.sh`；
+- 能力级 fixtures：[tests](../../tests/README.md)；
+- qualification/build internals：[build-support](../../build-support/README.md)。
+
+## 规则
+
+- 新 surface 必须满足根 `AGENTS.md` 的 surface admission；
+- Blueprint/Design 语义变化先回到 Owner 或 bounded Temporary；
+- code/build-support/tests 拥有 current executable fact，Conformance 记录证据与 claim boundary；
+- reference interpreter 仍是 optimizer/parallel correctness oracle；
+- 不恢复 predecessor 或增加 compatibility layer、第三 production artifact；
+- benchmark、package 或 workflow PASS 不自动构成 release authorization。
 
 ## Evidence route
 
-- Design contract：[Design](../design/README.md)
-- Gate definition：[V1 Implementation Gates](../conformance/v1-implementation-gates.md)
-- Current conformity：[Conformance](../conformance/README.md)
-- I0 qualification：[I0 Build Spine](../conformance/i0-build-spine-qualification.md)
-- I1 qualification：[I1 Primitive Keyed Table](../conformance/i1-primitive-keyed-table-qualification.md)
-- I2 qualification：[I2 Schema、Type 与 Storage Breadth](../conformance/i2-schema-type-storage-breadth-qualification.md)
-- Current readiness verdict：[Final Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)
-- Architecture skeleton：[Core Abstractions and Narratives](../design/core-abstractions-and-narratives.md)
-
-当前production qualification command为`./scripts/check.sh`。它回归I0-I1并证明I2
-schema/type/storage/Key/Index scoped capability；不能替代I3-I8的optimizer、relation、parallel、
-performance、package或release Gate。
+- [Design](../design/README.md)
+- [Core abstractions](../design/core-abstractions-and-narratives.md)
+- [Implementation Plan](v1-implementation-plan.md)
+- [G1–G10](../conformance/v1-implementation-gates.md)
+- [Current Conformance](../conformance/README.md)
+- [I0–I8 qualification records](../conformance/README.md#4-active-records)

@@ -19,7 +19,5 @@ jobs:
           distribution: corretto
           java-version: '8'
           cache: maven
-      - name: Qualify implementation and package without scale run
-        env:
-          SOMA_I8_SKIP_BENCHMARK: '1'
-        run: ./scripts/qualify-i8.sh
+      - name: Check
+        run: ./scripts/check.sh

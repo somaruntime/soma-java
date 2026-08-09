@@ -45,6 +45,7 @@ G8                             PASS
 G9                             PASS
 G10                            PASS
 Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORIZED
+Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -110,6 +111,8 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
   implementation commit、Chunk representation、AUTO/OFF、overlay、四级metadata、explain与G8 Owner。
 - [I8 Product Qualification](i8-product-qualification.md)：I8 implementation commit、三个reference
   application、million-row profile、approved G9 threshold、package/SBOM/provenance与G10 local Owner。
+- [V1 Delivery-centered Repository Governance](v1-delivery-centered-repository-governance.md)：
+  user-first入口、capability-based tests/qualification、build-support与source-delivery迁移Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -123,7 +126,9 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active Temporary。
+Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active Temporary；
+`docs/`与`benchmarks/`只建立placeholder，分别等待独立用户文档与性能专题。交付导向仓库治理
+已晋升为[正式Conformance记录](v1-delivery-centered-repository-governance.md)并完成replacement closure。
 
 ## 5. Gate status
 

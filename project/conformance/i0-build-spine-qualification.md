@@ -66,7 +66,7 @@ production module或未来 slice placeholder。
 | Repository route | public Maven Central mirror；company-internal Nexus disabled in user settings |
 
 I0 不提交 Maven Wrapper。当前可重放合同是 system Maven `3.9.x` + qualified Java 8，并由
-Maven Enforcer 与 `scripts/qualify-i0.sh`拒绝其他 major/minor contract。它证明当前环境与已固定
+Maven Enforcer 与 `build-support/qualification/artifact-build.sh`拒绝其他 major/minor contract。它证明当前环境与已固定
 plugin 组合，不声称所有 Maven 3.9 patch/JDK 8 distribution 已经形成支持矩阵。
 
 ## 4. 可重放入口与结果
@@ -77,7 +77,7 @@ Canonical command：
 ./scripts/check.sh
 ```
 
-`check.sh`解析并固定 Java 8 `JAVA_HOME` 后进入 `scripts/qualify-i0.sh`。最终执行结果：
+`check.sh`解析并固定 Java 8 `JAVA_HOME` 后进入 `build-support/qualification/artifact-build.sh`。最终执行结果：
 
 ```text
 soma-runtime tests:   8 run, 0 failures, 0 errors, 0 skipped
@@ -117,7 +117,7 @@ i0-qualification: ok
 
 ### 5.2 Exact runtime linkage
 
-`config/linkage/linkage.properties`是processor/runtime contract version的唯一repository Owner。
+`build-support/linkage/linkage.properties`是processor/runtime contract version的唯一repository Owner。
 Runtime从自身defining artifact读取该resource，并对自身JAR或排序后的class directory计算
 SHA-256；processor把所编译runtime的version、contract和artifact identity写入internal carrier。
 Carrier class initialization自动调用linkage check，不依赖application手动验证。

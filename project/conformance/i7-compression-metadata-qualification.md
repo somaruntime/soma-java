@@ -54,7 +54,7 @@ Implementation commit：`609a1c0`（`feat: complete I7 compression and metadata`
 正式入口：
 
 ```sh
-./scripts/qualify-i7.sh
+./build-support/qualification/compression-metadata.sh
 ```
 
 最终结果：

@@ -2,4 +2,5 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-exec "$repo_root/scripts/qualify-i8.sh"
+SOMA_QUALIFY_SKIP_BENCHMARK=1 \
+    exec "$repo_root/scripts/qualify.sh"

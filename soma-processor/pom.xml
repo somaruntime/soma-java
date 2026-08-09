@@ -58,7 +58,7 @@
                 <filtering>false</filtering>
             </resource>
             <resource>
-                <directory>${project.basedir}/../config/linkage</directory>
+                <directory>${project.basedir}/../build-support/linkage</directory>
                 <targetPath>META-INF/soma</targetPath>
                 <filtering>true</filtering>
                 <includes>

@@ -43,7 +43,8 @@ release qualification；这些仍分别属于I4-I8。
 |---|---|
 | Repository / branch | `somaruntime/soma-java` / `develop` |
 | I3 implementation commit | `62ad28c` |
-| Canonical qualification | `scripts/check.sh -> scripts/qualify-i3.sh` |
+| Historical qualification | I3 implementation commit上的`scripts/qualify-i3.sh`；snapshot已移入Engineering history |
+| Current route | current module tests、cumulative consumer与`scripts/check.sh` |
 | JDK | Amazon Corretto `1.8.0_502-b07`，class major 52 |
 | Maven | Apache Maven `3.9.16` |
 | OS / arch | macOS `26.6.1` / `arm64` |
@@ -57,7 +58,7 @@ Blueprint或Design。
 最终运行：
 
 ```sh
-./scripts/qualify-i3.sh
+./scripts/qualify-i3.sh  # historical command at the recorded implementation commit
 ```
 
 结果：

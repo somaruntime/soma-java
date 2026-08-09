@@ -45,7 +45,7 @@ Table + Table in one SomaGroup
 - primitive key使用unboxed result/consumer family，reference key使用typed generic result；所有结果均detached；
 - count、sum、min、max、average与summaryStatistics复用同一aggregate Owner；integer sum使用exact
   signed-128 accumulation，floating sum复用固定1024-element deterministic tree；
-- `scripts/generate-grouped-api.py`是shared Grouped result grammar的唯一机械Owner，qualification先执行
+- `build-support/codegen/generate-grouped-api.py`是shared Grouped result grammar的唯一机械Owner，qualification先执行
   `--check`，不手工维护平行API家族；
 - correctness oracle使用同一个bound logical plan，但以reference row traversal与线性group lookup执行，
   不作为production fallback。
@@ -72,7 +72,7 @@ Implementation commit：`6ac3256`（`feat: complete I5 group and relation execut
 正式入口：
 
 ```sh
-./scripts/qualify-i5.sh
+./build-support/qualification/group-relation.sh
 ```
 
 最终结果：

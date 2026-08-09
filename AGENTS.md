@@ -25,10 +25,13 @@ Active checkout已包含I8三个reference application、million-row profile、pa
 non-publishing release qualification workflow，以及I7 AUTO/OFF compression、PLAIN/encoded/overlay representation、四级typed metadata
 与safe explain，以及I6 generated parallel surface、application-owned/common `ForkJoinPool`与bounded
 caller-participating scheduler、I5 GroupBy与binary Equality/Cross Join、I4 Selection mutation、I3 typed
-IR和I2 schema/type/Key/Index。Package与`develop@a6e8400`远端workflow均完成资格且没有committed
-build artifact；没有GitHub Release/Package、签名或正式release声明。核心抽象候选已经
+IR和I2 schema/type/Key/Index。I8记录拥有对应remote workflow历史证据；当前delivery-centered
+repository治理已通过本地`./scripts/check.sh`且没有committed build artifact。没有GitHub
+Release/Package、签名或正式release声明。核心抽象候选已经
 正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
-Temporary replacement closure已完成；当前没有active Temporary。
+此前 Temporary replacement closure已完成；当前没有active Temporary。交付导向仓库治理由
+[正式Conformance记录](project/conformance/v1-delivery-centered-repository-governance.md)拥有；
+`docs/`与`benchmarks/`只保留placeholder，内容分别等待独立用户文档与性能专题。
 
 开始工作前必须读取：
 
@@ -49,7 +52,7 @@ planning 或 reference differential 时读取
 
 ## 固定身份与边界
 
-- 产品品牌为 SOMA；
+- 产品品牌为 SOMA（State-Oriented Memory Architecture）；
 - repository 为 `somaruntime/soma-java`；
 - copyright owner、publishing identity 和 maintainer 为 ArthurFeng；
 - Java package / Maven group baseline 为 `io.github.somaruntime.soma`；
@@ -73,8 +76,8 @@ planning 或 reference differential 时读取
 - V1 `@SomaTable` 不接受 `name` identity；package-private `.schema` declaration type 决定父
   package generated object、`XxxTable` 和 `xxxTable()`；
 - application API 不泄漏 schema declaration type；
-- formal production topology 为 exactly `soma-runtime` + `soma-processor`；当前授权只允许按
-  I0-I8 顺序建立正式 surface，不允许为未来 slice 预建 placeholder。
+- formal production topology 为 exactly `soma-runtime` + `soma-processor`；不得增加第三production
+  artifact，也不得为未来 capability 预建 placeholder。
 
 ## 正式事实与文档
 
@@ -82,7 +85,7 @@ planning 或 reference differential 时读取
 - [Design](project/design/README.md)按关注点拥有长期规范性合同；
 - [核心抽象与叙事](project/design/core-abstractions-and-narratives.md)拥有跨Design skeleton、主叙事、
   proof-chain routing与M0-M2变更协议，不覆盖精确Design；
-- code/config/tests 在出现后拥有当前 executable fact；
+- code/build-support/tests 在出现后拥有当前 executable fact；
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
@@ -143,6 +146,10 @@ dependency或plugin expansion。
 - 检查每项事实的唯一 Owner 和 Blueprint↔Design↔Engineering↔Conformance traceability；
 - 确认active checkout没有predecessor code、legacy API、committed build artifact或release claim；
 - 记录但不外推本机环境事实。
+
+稳定命令入口为`./scripts/check.sh`、`./scripts/qualify.sh`、`./scripts/benchmark.sh`与
+`./scripts/package-local.sh`；能力级qualification和fixtures分别位于`build-support/qualification/`
+与`tests/`。
 
 P2 feasibility spike 已退役；只有当前
 [正式晋升记录](project/conformance/large-scale-engine-formal-promotion.md)明确重新采纳的结论可

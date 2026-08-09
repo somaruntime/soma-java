@@ -54,9 +54,9 @@ annotation processor path，不泄漏为 application runtime dependency。三个
 
 ### 2.2 Qualification 与 delivery surface
 
-- `scripts/benchmark-i8.sh`：三个场景、三次 fresh JVM、JFR/GC/RSS/计时/fingerprint；
-- `scripts/package-i8.sh`：明确 source delivery allowlist、两项 production artifact、SBOM、checksum、provenance；
-- `scripts/qualify-i8.sh`：I0-I7回归、Examples、profile、package、独立 packaged consumer 与安全边界；
+- `scripts/benchmark.sh`：三个场景、三次 fresh JVM、JFR/GC/RSS/计时/fingerprint；
+- `scripts/package-local.sh`：明确 source delivery allowlist、两项 production artifact、SBOM、checksum、provenance；
+- `scripts/qualify.sh`：I0-I7回归、Examples、profile、package、独立 packaged consumer 与安全边界；
 - `.github/workflows/ci.yml`：clean Java 8 CI；
 - `.github/workflows/release-qualification.yml`：`develop`上的 non-publishing qualification；
 - `scripts/check.sh`：当前本地 canonical qualification 入口。
@@ -70,10 +70,10 @@ claim。
 
 ```sh
 JAVA_HOME=/Library/Java/JavaVirtualMachines/amazon-corretto-8.jdk/Contents/Home \
-SOMA_I8_ROWS=1000000 \
-SOMA_I8_RUNS=3 \
-SOMA_I8_PARALLELISM=8 \
-./scripts/qualify-i8.sh
+SOMA_BENCHMARK_ROWS=1000000 \
+SOMA_BENCHMARK_RUNS=3 \
+SOMA_BENCHMARK_PARALLELISM=8 \
+./scripts/qualify.sh
 ```
 
 最终结果：

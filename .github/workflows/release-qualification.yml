@@ -21,9 +21,9 @@ jobs:
           cache: maven
       - name: Run non-publishing release qualification
         env:
-          SOMA_I8_ROWS: '1000000'
-          SOMA_I8_RUNS: '1'
-          SOMA_I8_PARALLELISM: '8'
-        run: ./scripts/qualify-i8.sh
+          SOMA_BENCHMARK_ROWS: '1000000'
+          SOMA_BENCHMARK_RUNS: '1'
+          SOMA_BENCHMARK_PARALLELISM: '8'
+        run: ./scripts/qualify.sh
       - name: Confirm no publication surface
-        run: grep -q '^publication=none$' target/i8-package/provenance.properties
+        run: grep -q '^publication=none$' target/package/provenance.properties

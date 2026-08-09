@@ -44,7 +44,8 @@ surface；这些仍属于I5-I8。
 |---|---|
 | Repository / branch | `somaruntime/soma-java` / `develop` |
 | I4 implementation commit | `f93a2c2` |
-| Canonical qualification | `scripts/check.sh -> scripts/qualify-i4.sh` |
+| Historical qualification | I4 implementation commit上的`scripts/qualify-i4.sh`；snapshot已移入Engineering history |
+| Current route | current module tests、cumulative consumer与`scripts/check.sh` |
 | JDK | Amazon Corretto `1.8.0_502-b07`，class major 52 |
 | Maven | Apache Maven `3.9.16` |
 | OS / arch | macOS `26.6.1` / `arm64` |
@@ -58,7 +59,7 @@ Blueprint或Design。
 最终运行：
 
 ```sh
-./scripts/qualify-i4.sh
+./scripts/qualify-i4.sh  # historical command at the recorded implementation commit
 ```
 
 结果：

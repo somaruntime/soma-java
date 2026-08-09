@@ -59,7 +59,7 @@ Implementation commit：`2d53336`（`feat: complete I6 bounded parallel executio
 正式入口：
 
 ```sh
-./scripts/qualify-i6.sh
+./build-support/qualification/parallel-execution.sh
 ```
 
 最终结果：

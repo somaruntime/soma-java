@@ -47,7 +47,8 @@ interpreter/optimizer、Join/GroupBy、parallel、compression、metadata、milli
 | I1 base | `1242e5121f980e4169779b2bd04782d392d0242d` |
 | I1 implementation commit | `3ef250b7ca50ebc4e598f0e09a02d5e9d44876bf` |
 | Production topology | 恰好`io.github.somaruntime.soma:soma-runtime`与`io.github.somaruntime.soma:soma-processor` |
-| Canonical qualification | `scripts/check.sh -> scripts/qualify-i1.sh -> scripts/qualify-i0.sh` |
+| Historical qualification | I1 时点的 `scripts/qualify-i1.sh`；slice-only replay 已在交付导向治理中退役 |
+| Current cumulative route | module tests、current cumulative consumer、`build-support/qualification/artifact-build.sh`、`scripts/check.sh` |
 | Dirty-state policy | 最终资格在implementation bytes暂存后执行；随后的implementation commit未改变这些bytes；本记录与状态路由由独立Conformance commit拥有 |
 | Generated output policy | generated source/class只存在于`target/`或资格临时目录，不提交 |
 

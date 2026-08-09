@@ -22,7 +22,7 @@ Examples 都是角色投影，不得成为第二份 Blueprint 或 Design。
 
 ## 2. 产品定义
 
-SOMA 是嵌入 Java application、运行在单 JVM 进程内、面向 schema-known mutable
+SOMA（State-Oriented Memory Architecture）是嵌入 Java application、运行在单 JVM 进程内、面向 schema-known mutable
 Tables 的编译式列式计算引擎：
 
 > Application 使用自然 Java object、generated Table/Field/Index API 和 Stream-like

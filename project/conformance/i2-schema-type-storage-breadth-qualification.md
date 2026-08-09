@@ -50,7 +50,8 @@ threshold或产品性能承诺。
 | I2 implementation commit | `3fa61a0d29d48cf96e66bb18a79739119c9e3d76` |
 | Production topology | 恰好`io.github.somaruntime.soma:soma-runtime`与`io.github.somaruntime.soma:soma-processor` |
 | Qualified source-set digest | `c7326ba6fa8619c1aeef886583ae28de186c598740d90354892f5ce718ec25b7` |
-| Canonical qualification | `scripts/check.sh -> scripts/qualify-i2.sh -> I1 -> I0 regression` |
+| Historical qualification | I2 时点的 `scripts/qualify-i2.sh`；阶段wrapper已退役 |
+| Current route | 当前module tests与`scripts/check.sh`；I2 consumer/regeneration snapshot移入`project/engineering/history/` |
 | Dirty-state policy | 完整文件集在资格前后使用同一digest冻结；2026-08-08提交前重新计算仍逐字节一致 |
 | Generated output policy | generated source/class只存在于`target/`或资格临时目录，不提交 |
 
