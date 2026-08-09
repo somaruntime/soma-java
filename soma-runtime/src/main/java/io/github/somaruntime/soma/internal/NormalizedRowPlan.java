@@ -7,6 +7,7 @@ final class NormalizedRowPlan {
 
     enum SourceKind {
         TABLE_SCAN,
+        RELATION_LEFT,
         INDEX_SELECTION,
         KEY_LOOKUP,
         INDEX_LOOKUP

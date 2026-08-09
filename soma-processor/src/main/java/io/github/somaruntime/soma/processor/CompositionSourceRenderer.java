@@ -191,11 +191,13 @@ final class CompositionSourceRenderer {
         source.append("public final class ").append(tableType).append(" {\n\n")
                 .append("    private static final io.github.somaruntime.soma.internal")
                 .append(".GeneratedTableLayout LAYOUT = createLayout();\n\n")
+                .append("    private final java.lang.Object capability;\n")
                 .append("    private final io.github.somaruntime.soma.internal.GeneratedTable runtime;\n")
                 .append("    private final View borrowedView;\n")
                 .append("    private final View borrowedCompareView;\n")
                 .append("    private final Editor borrowedEditor;\n")
                 .append("    private final Editor borrowedSelectionEditor;\n");
+        source.append("    private final RelationAdapter relationAdapter;\n");
         for (EndpointPlan endpoint : shape.roots) {
             source.append("    public final ").append(endpoint.typeName()).append(' ')
                     .append(endpoint.field.name()).append(";\n");
@@ -205,6 +207,7 @@ final class CompositionSourceRenderer {
                 .append("            io.github.somaruntime.soma.internal.GeneratedGroup group) {\n")
                 .append("        if (group == null) throw new java.lang.AssertionError(")
                 .append("\"generated Group is missing\");\n")
+                .append("        this.capability = capability;\n")
                 .append("        this.runtime = group.createTable(\n")
                 .append("                java.lang.invoke.MethodHandles.lookup(), capability, \"")
                 .append(table.simpleName()).append("\", LAYOUT);\n")
@@ -214,6 +217,7 @@ final class CompositionSourceRenderer {
                 .append("        this.borrowedEditor = new Editor(capability, runtime.borrowedRow());\n");
         source.append("        this.borrowedSelectionEditor = new Editor(capability, ")
                 .append("runtime.borrowedSelectionEditor());\n");
+        source.append("        this.relationAdapter = new RelationAdapter();\n");
         for (EndpointPlan endpoint : shape.roots) {
             source.append("        this.").append(endpoint.field.name()).append(" = new ")
                     .append(endpoint.typeName()).append("();\n");
@@ -226,7 +230,9 @@ final class CompositionSourceRenderer {
                 .append("    }\n\n");
         appendLayout(source, table, shape);
         appendTableOperations(source, table, shape, objectType);
+        appendRelationOperations(source, model, table, shape, tableType);
         appendTableViewEditor(source, table, objectType);
+        appendGroupBuilders(source, tableType, shape);
         appendSelectionTypes(source, tableType, objectType, shape);
         for (EndpointPlan endpoint : shape.roots) {
             appendEndpoint(source, endpoint, "    ");
@@ -387,6 +393,8 @@ final class CompositionSourceRenderer {
                 "runtime.selectAll()",
                 "borrowedView",
                 "runtime");
+        appendGroupByMethods(
+                source, shape, "    ", "this", "runtime", "runtime");
 
         for (int ordinal = 0; ordinal < shape.indexes.size(); ordinal++) {
             EndpointPlan endpoint = shape.indexes.get(ordinal);
@@ -419,6 +427,154 @@ final class CompositionSourceRenderer {
             source.append(materialize(field.type(), "row", "read", field.firstLeaf()));
         }
         source.append(");\n    }\n\n");
+    }
+
+    private static void appendRelationOperations(
+            StringBuilder source,
+            CompositionModel model,
+            CompositionModel.TableModel table,
+            TableShape shape,
+            String tableType) {
+        source.append("    io.github.somaruntime.soma.internal.GeneratedTable ")
+                .append("relationRuntime(java.lang.Object candidate) {\n")
+                .append("        if (!Soma.accepts(candidate)) throw runtime.invalidQuery(\"relation capability\");\n")
+                .append("        return runtime;\n    }\n\n")
+                .append("    View relationView(java.lang.Object candidate) {\n")
+                .append("        if (!Soma.accepts(candidate)) throw runtime.invalidQuery(\"relation capability\");\n")
+                .append("        return borrowedView;\n    }\n\n")
+                .append("    int relationKeyableFieldIndex(java.lang.Object candidate, ")
+                .append("io.github.somaruntime.soma.SomaKeyableField<View, ?> field) {\n")
+                .append("        if (!Soma.accepts(candidate)) throw runtime.invalidQuery(\"relation capability\");\n");
+        for (EndpointPlan endpoint : shape.all) {
+            if (endpoint.field.type().keyable()) {
+                source.append("        if (field == ")
+                        .append(endpoint.memberExpression("this"))
+                        .append(") return ").append(endpoint.planIndex).append(";\n");
+            }
+        }
+        source.append("        throw runtime.invalidQuery(\"relation Field\");\n")
+                .append("    }\n\n")
+                .append("    int relationFieldIndex(java.lang.Object candidate, ")
+                .append("io.github.somaruntime.soma.SomaFieldEndpoint<View, ?> field) {\n")
+                .append("        if (!Soma.accepts(candidate)) throw runtime.invalidQuery(\"relation capability\");\n");
+        for (EndpointPlan endpoint : shape.all) {
+            source.append("        if (field == ")
+                    .append(endpoint.memberExpression("this"))
+                    .append(") return ").append(endpoint.planIndex).append(";\n");
+        }
+        source.append("        throw runtime.invalidQuery(\"relation Field\");\n")
+                .append("    }\n\n")
+                .append("    java.lang.Object relationFieldValue(int field) {\n")
+                .append("        switch (field) {\n");
+        for (EndpointPlan endpoint : shape.all) {
+            source.append("            case ").append(endpoint.planIndex).append(": return ")
+                    .append(detachedEndpointValue(endpoint)).append(";\n");
+        }
+        source.append("            default: throw new java.lang.AssertionError(\"unknown relation Field\");\n")
+                .append("        }\n    }\n\n");
+
+        source.append("    io.github.somaruntime.soma.internal.GeneratedRelationAdapter<View, ReadStream> ")
+                .append("relationAdapter(java.lang.Object candidate) {\n")
+                .append("        if (!Soma.accepts(candidate)) throw runtime.invalidQuery(\"relation capability\");\n")
+                .append("        return relationAdapter;\n    }\n\n")
+                .append("    private final class RelationAdapter implements ")
+                .append("io.github.somaruntime.soma.internal.GeneratedRelationAdapter<View, ReadStream> {\n")
+                .append("        public io.github.somaruntime.soma.internal.GeneratedTable table() { return runtime; }\n")
+                .append("        public View view() { return borrowedView; }\n")
+                .append("        public int keyableFieldIndex(io.github.somaruntime.soma.SomaKeyableField<View, ?> field) { return relationKeyableFieldIndex(capability, field); }\n")
+                .append("        public int fieldIndex(io.github.somaruntime.soma.SomaFieldEndpoint<View, ?> field) { return relationFieldIndex(capability, field); }\n")
+                .append("        public java.lang.Object fieldValue(int field) { return relationFieldValue(field); }\n")
+                .append("        public ReadStream readStream(io.github.somaruntime.soma.internal.GeneratedRelation relation) { return new ReadStream(relation); }\n")
+                .append("    }\n\n");
+
+        appendReadStream(source, table, shape, tableType, model.generatedPackage());
+
+        for (CompositionModel.TableModel other : model.tables()) {
+            if (other == table) continue;
+            appendJoinToTable(
+                    source,
+                    GeneratedNames.tableType(other.simpleName()));
+        }
+    }
+
+    private static void appendReadStream(
+            StringBuilder source,
+            CompositionModel.TableModel table,
+            TableShape shape,
+            String tableType,
+            String generatedPackage) {
+        appendPipelineReadStream(
+                source, table, shape, tableType, generatedPackage);
+    }
+
+    private static void appendPipelineReadStream(
+            StringBuilder source,
+            CompositionModel.TableModel table,
+            TableShape shape,
+            String tableType,
+            String generatedPackage) {
+        String objectType = generatedPackage + "." + table.simpleName();
+        source.append("    public final class ReadStream {\n")
+                .append("        private final io.github.somaruntime.soma.internal.GeneratedPipeline pipeline;\n\n")
+                .append("        private ReadStream(io.github.somaruntime.soma.internal.GeneratedRelation relation) { this(relation.leftPipeline()); }\n")
+                .append("        private ReadStream(io.github.somaruntime.soma.internal.GeneratedPipeline pipeline) { this.pipeline = pipeline; }\n\n");
+        appendRowProjectionMethods(
+                source,
+                shape,
+                "        ",
+                tableType + ".this",
+                "pipeline",
+                "borrowedView",
+                "runtime");
+        source.append("        public ReadStream filter(io.github.somaruntime.soma.SomaExpression<View> expression) { return new ReadStream(pipeline.filter(expression)); }\n\n")
+                .append("        public ReadStream filter(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) { runtime.requireArgument(predicate,io.github.somaruntime.soma.SomaOperation.QUERY,\"predicate\");return new ReadStream(pipeline.filter(() -> predicate.test(borrowedView))); }\n\n")
+                .append("        public ReadStream sorted(java.util.Comparator<? super View> comparator) { runtime.requireArgument(comparator,io.github.somaruntime.soma.SomaOperation.QUERY,\"comparator\");return new ReadStream(pipeline.sorted(() -> comparator.compare(borrowedView,borrowedCompareView))); }\n\n")
+                .append("        public ReadStream sortedBy(io.github.somaruntime.soma.SomaOrder<View> order) { return new ReadStream(pipeline.sortedBy(order)); }\n\n")
+                .append("        public ReadStream skip(long count) { return new ReadStream(pipeline.skip(count)); }\n\n")
+                .append("        public ReadStream limit(long count) { return new ReadStream(pipeline.limit(count)); }\n\n")
+                .append("        public ReadStream top(long count,io.github.somaruntime.soma.SomaOrder<View> order) { return new ReadStream(pipeline.top(count,order)); }\n\n")
+                .append("        public long count() { return pipeline.count(); }\n\n")
+                .append("        public boolean anyMatch(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) { runtime.requireArgument(predicate,io.github.somaruntime.soma.SomaOperation.QUERY,\"predicate\");return pipeline.anyMatch(() -> predicate.test(borrowedView)); }\n\n")
+                .append("        public boolean allMatch(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) { runtime.requireArgument(predicate,io.github.somaruntime.soma.SomaOperation.QUERY,\"predicate\");return pipeline.allMatch(() -> predicate.test(borrowedView)); }\n\n")
+                .append("        public boolean noneMatch(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) { runtime.requireArgument(predicate,io.github.somaruntime.soma.SomaOperation.QUERY,\"predicate\");return pipeline.noneMatch(() -> predicate.test(borrowedView)); }\n\n")
+                .append("        public java.util.Optional<").append(objectType).append("> findFirst() { return pipeline.findFirst(() -> borrowedView.fetch()); }\n\n")
+                .append("        public void forEach(java.util.function.Consumer<? super View> action) { runtime.requireArgument(action,io.github.somaruntime.soma.SomaOperation.QUERY,\"action\");pipeline.forEach(() -> action.accept(borrowedView)); }\n\n")
+                .append("        public void forEachOrdered(java.util.function.Consumer<? super View> action) { forEach(action); }\n\n")
+                .append("        public java.util.List<").append(objectType).append("> toList() { return pipeline.toList(() -> borrowedView.fetch()); }\n\n")
+                .append("        public ").append(objectType).append("[] toArray() { return pipeline.toArray(() -> borrowedView.fetch(),").append(objectType).append(".class); }\n\n")
+                .append("        public java.lang.String _explain() { return pipeline.explain(); }\n")
+                .append("    }\n\n");
+    }
+
+    private static void appendJoinToTable(
+            StringBuilder source,
+            String rightType) {
+        appendSharedJoinToTable(source, rightType);
+    }
+
+    private static void appendSharedJoinToTable(
+            StringBuilder source,
+            String rightType) {
+        source.append("    public io.github.somaruntime.soma.SomaJoinOnBuilder<")
+                .append("View, ").append(rightType).append(".View, ReadStream> join(")
+                .append(rightType).append(" other) {\n")
+                .append("        runtime.requireArgument(other, io.github.somaruntime.soma.SomaOperation.QUERY, \"Join Table\");\n")
+                .append("        return io.github.somaruntime.soma.internal.GeneratedJoinCarriers")
+                .append(".equality(relationAdapter, other.relationAdapter(capability));\n")
+                .append("    }\n\n")
+                .append("    public io.github.somaruntime.soma.SomaMatchedJoinStream<")
+                .append("View, ").append(rightType).append(".View> crossJoin(")
+                .append(rightType).append(" other, long maxOutputRows) {\n")
+                .append("        runtime.requireArgument(other, io.github.somaruntime.soma.SomaOperation.QUERY, \"Cross Join Table\");\n")
+                .append("        return io.github.somaruntime.soma.internal.GeneratedJoinCarriers")
+                .append(".cross(relationAdapter, other.relationAdapter(capability), maxOutputRows);\n")
+                .append("    }\n\n");
+    }
+
+    private static String detachedEndpointValue(EndpointPlan endpoint) {
+        return endpoint.field.type().kind() == CompositionModel.LogicalKind.VALUE
+                ? endpoint.valueExpression + ".fetch()"
+                : endpoint.valueExpression;
     }
 
     private static void appendKeyMethod(
@@ -617,6 +773,169 @@ final class CompositionSourceRenderer {
                 .append(indent).append("}\n\n");
     }
 
+    private static void appendGroupByMethods(
+            StringBuilder source,
+            TableShape shape,
+            String indent,
+            String owner,
+            String receiver,
+            String runtime) {
+        for (EndpointPlan key : shape.all) {
+            if (!key.field.type().keyable()) continue;
+            source.append(indent).append("public ").append(groupBuilderName(key))
+                    .append(" groupBy(").append(key.qualifiedTypeName()).append(" field) {\n")
+                    .append(indent).append("    if (field != ")
+                    .append(key.memberExpression(owner)).append(") throw ")
+                    .append(runtime).append(".invalidQuery(\"group key field\");\n")
+                    .append(indent).append("    return ");
+            if ("owner".equals(owner)) source.append("owner.new ");
+            else source.append("new ");
+            source.append(groupBuilderName(key)).append('(')
+                    .append(receiver).append(".groupBy(")
+                    .append(key.planIndex).append(", ")
+                    .append("io.github.somaruntime.soma.internal.GeneratedGrouping.")
+                    .append(groupKeyConstant(key.field.type().kind())).append(", () -> ")
+                    .append(groupKeyMaterializer(key, owner)).append("));\n")
+                    .append(indent).append("}\n\n");
+        }
+    }
+
+    private static void appendGroupBuilders(
+            StringBuilder source,
+            String tableType,
+            TableShape shape) {
+        for (EndpointPlan key : shape.all) {
+            if (!key.field.type().keyable()) continue;
+            source.append("    public final class ").append(groupBuilderName(key)).append(" {\n")
+                    .append("        private final io.github.somaruntime.soma.internal")
+                    .append(".GeneratedGrouping grouping;\n\n")
+                    .append("        private ").append(groupBuilderName(key)).append('(')
+                    .append("io.github.somaruntime.soma.internal.GeneratedGrouping grouping) {\n")
+                    .append("            this.grouping = grouping;\n")
+                    .append("        }\n\n")
+                    .append("        public ").append(groupResultType(key, "Long"))
+                    .append(" count() {\n")
+                    .append("            return (").append(groupResultType(key, "Long"))
+                    .append(") grouping.count();\n")
+                    .append("        }\n\n");
+            for (EndpointPlan value : shape.all) {
+                if (!isNumeric(value.field.type().kind())) continue;
+                appendGroupAggregate(source, tableType, key, value, "sum");
+                appendGroupAggregate(source, tableType, key, value, "min");
+                appendGroupAggregate(source, tableType, key, value, "max");
+                appendGroupAggregate(source, tableType, key, value, "average");
+                appendGroupAggregate(
+                        source, tableType, key, value, "summaryStatistics");
+            }
+            source.append("    }\n\n");
+        }
+    }
+
+    private static void appendGroupAggregate(
+            StringBuilder source,
+            String tableType,
+            EndpointPlan key,
+            EndpointPlan value,
+            String method) {
+        CompositionModel.LogicalKind kind = value.field.type().kind();
+        boolean floating = kind == CompositionModel.LogicalKind.FLOAT
+                || kind == CompositionModel.LogicalKind.DOUBLE;
+        String valueToken;
+        String aggregateConstant;
+        if ("sum".equals(method)) {
+            valueToken = floating ? "Double" : "Long";
+            aggregateConstant = "SUM";
+        } else if ("min".equals(method) || "max".equals(method)) {
+            valueToken = floating ? "Double"
+                    : kind == CompositionModel.LogicalKind.LONG ? "Long" : "Int";
+            aggregateConstant = method.toUpperCase();
+        } else if ("average".equals(method)) {
+            valueToken = "Double";
+            aggregateConstant = "AVERAGE";
+        } else {
+            valueToken = floating ? "DoubleSummary" : "LongSummary";
+            aggregateConstant = "SUMMARY";
+        }
+        String resultType = groupResultType(key, valueToken);
+        source.append("        public ").append(resultType).append(' ')
+                .append(method).append('(').append(value.qualifiedTypeName())
+                .append(" field) {\n")
+                .append("            if (field != ")
+                .append(value.memberExpression(tableType + ".this"))
+                .append(") throw runtime.invalidQuery(\"aggregate field\");\n")
+                .append("            return (").append(resultType).append(") grouping.")
+                .append(floating ? "aggregateDouble" : "aggregateLong")
+                .append("(io.github.somaruntime.soma.internal.GeneratedGrouping.")
+                .append(aggregateConstant).append(", ")
+                .append("io.github.somaruntime.soma.internal.GeneratedGrouping.VALUE_")
+                .append(camelConstant(valueToken)).append(", ")
+                .append(value.planIndex).append(", () -> ")
+                .append(value.valueExpression).append(");\n")
+                .append("        }\n\n");
+    }
+
+    private static String groupBuilderName(EndpointPlan endpoint) {
+        return endpoint.qualifiedTypeName().replace(".", "") + "Group";
+    }
+
+    private static String groupResultType(EndpointPlan key, String valueToken) {
+        String prefix = primitiveGroupKeyToken(key.field.type().kind());
+        if (prefix != null) {
+            return "io.github.somaruntime.soma." + prefix + "Grouped"
+                    + valueToken + "Result";
+        }
+        return "io.github.somaruntime.soma.Grouped" + valueToken
+                + "Result<" + key.field.type().boxedTypeName() + ">";
+    }
+
+    private static String groupKeyMaterializer(
+            EndpointPlan key,
+            String owner) {
+        String expression = key.valueExpression.replace(
+                "borrowedView", "owner".equals(owner)
+                        ? "owner.borrowedView" : "borrowedView");
+        return key.field.type().kind() == CompositionModel.LogicalKind.VALUE
+                ? expression + ".fetch()"
+                : expression;
+    }
+
+    private static String groupKeyConstant(CompositionModel.LogicalKind kind) {
+        String token = primitiveGroupKeyToken(kind);
+        return token == null ? "KEY_REFERENCE" : "KEY_" + token.toUpperCase();
+    }
+
+    private static String primitiveGroupKeyToken(CompositionModel.LogicalKind kind) {
+        switch (kind) {
+            case BOOLEAN: return "Boolean";
+            case BYTE: return "Byte";
+            case SHORT: return "Short";
+            case CHAR: return "Char";
+            case INT: return "Int";
+            case LONG: return "Long";
+            default: return null;
+        }
+    }
+
+    private static boolean isNumeric(CompositionModel.LogicalKind kind) {
+        return kind == CompositionModel.LogicalKind.BYTE
+                || kind == CompositionModel.LogicalKind.SHORT
+                || kind == CompositionModel.LogicalKind.CHAR
+                || kind == CompositionModel.LogicalKind.INT
+                || kind == CompositionModel.LogicalKind.LONG
+                || kind == CompositionModel.LogicalKind.FLOAT
+                || kind == CompositionModel.LogicalKind.DOUBLE;
+    }
+
+    private static String camelConstant(String token) {
+        StringBuilder result = new StringBuilder(token.length() + 4);
+        for (int index = 0; index < token.length(); index++) {
+            char current = token.charAt(index);
+            if (index != 0 && Character.isUpperCase(current)) result.append('_');
+            result.append(Character.toUpperCase(current));
+        }
+        return result.toString();
+    }
+
     private static String rowProjectionMethod(CompositionModel.LogicalKind kind) {
         switch (kind) {
             case BYTE:
@@ -654,6 +973,8 @@ final class CompositionSourceRenderer {
                 "pipeline",
                 "owner.borrowedView",
                 "owner.runtime");
+        appendGroupByMethods(
+                source, shape, "        ", "owner", "pipeline", "owner.runtime");
         source
                 .append("        public Selection filter(")
                 .append("io.github.somaruntime.soma.SomaExpression<View> expression) {\n")

@@ -46,6 +46,17 @@ public final class GeneratedPipeline {
                 new GeneratedPipeline(owner, plan.fieldProjection(fieldIndex)));
     }
 
+    public GeneratedGrouping groupBy(
+            int fieldIndex,
+            int keyKind,
+            GeneratedCallbacks.RowMapper<?> keyMaterializer) {
+        owner.layout().fieldStart(fieldIndex);
+        requireArgument(keyMaterializer, "group key materializer");
+        claim();
+        return new GeneratedGrouping(
+                plan, fieldIndex, keyKind, keyMaterializer);
+    }
+
     public <R> GeneratedMappedPipeline<R> map(
             GeneratedCallbacks.RowMapper<R> mapper) {
         requireArgument(mapper, "mapper");

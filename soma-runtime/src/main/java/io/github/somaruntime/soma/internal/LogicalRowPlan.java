@@ -9,7 +9,8 @@ final class LogicalRowPlan {
 
     enum SourceKind {
         TABLE_SCAN,
-        INDEX_SELECTION
+        INDEX_SELECTION,
+        RELATION_LEFT
     }
 
     enum StageKind {
@@ -94,6 +95,7 @@ final class LogicalRowPlan {
     private final SourceKind sourceKind;
     private final int indexOrdinal;
     private final GeneratedProbe indexProbe;
+    private final GeneratedRelation relation;
     private final LogicalRowPlan parent;
     private final Stage stage;
 
@@ -102,19 +104,21 @@ final class LogicalRowPlan {
             SourceKind sourceKind,
             int indexOrdinal,
             GeneratedProbe indexProbe,
+            GeneratedRelation relation,
             LogicalRowPlan parent,
             Stage stage) {
         this.owner = owner;
         this.sourceKind = sourceKind;
         this.indexOrdinal = indexOrdinal;
         this.indexProbe = indexProbe;
+        this.relation = relation;
         this.parent = parent;
         this.stage = stage;
     }
 
     static LogicalRowPlan tableScan(GeneratedTable owner) {
         return new LogicalRowPlan(
-                owner, SourceKind.TABLE_SCAN, -1, null, null, null);
+                owner, SourceKind.TABLE_SCAN, -1, null, null, null, null);
     }
 
     static LogicalRowPlan indexSelection(
@@ -122,7 +126,17 @@ final class LogicalRowPlan {
             int indexOrdinal,
             GeneratedProbe probe) {
         return new LogicalRowPlan(
-                owner, SourceKind.INDEX_SELECTION, indexOrdinal, probe, null, null);
+                owner, SourceKind.INDEX_SELECTION, indexOrdinal, probe, null, null, null);
+    }
+
+    static LogicalRowPlan relationLeft(
+            GeneratedTable owner,
+            GeneratedRelation relation) {
+        if (owner == null || relation == null) {
+            throw new AssertionError("invalid relation row source");
+        }
+        return new LogicalRowPlan(
+                owner, SourceKind.RELATION_LEFT, -1, null, relation, null, null);
     }
 
     LogicalRowPlan typedFilter(PredicateIr predicate) {
@@ -168,6 +182,7 @@ final class LogicalRowPlan {
                 sourceKind,
                 indexOrdinal,
                 indexProbe,
+                relation,
                 this,
                 next);
     }
@@ -186,6 +201,10 @@ final class LogicalRowPlan {
 
     GeneratedProbe indexProbe() {
         return indexProbe;
+    }
+
+    GeneratedRelation relation() {
+        return relation;
     }
 
     List<Stage> stages() {

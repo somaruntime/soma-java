@@ -182,6 +182,19 @@ public final class GeneratedTable {
         return new GeneratedPipeline(this, LogicalRowPlan.tableScan(this));
     }
 
+    public GeneratedGrouping groupBy(
+            int fieldIndex,
+            int keyKind,
+            GeneratedCallbacks.RowMapper<?> keyMaterializer) {
+        layout.fieldStart(fieldIndex);
+        requireQueryCallback(keyMaterializer, "group key materializer");
+        return new GeneratedGrouping(
+                LogicalRowPlan.tableScan(this),
+                fieldIndex,
+                keyKind,
+                keyMaterializer);
+    }
+
     public GeneratedFieldPipeline fieldSource(int fieldIndex) {
         layout.fieldStart(fieldIndex);
         return new GeneratedFieldPipeline(
@@ -551,6 +564,9 @@ public final class GeneratedTable {
     }
 
     GeneratedTableLayout layout() { return layout; }
+    boolean sharesGroup(GeneratedTable other) {
+        return other != null && group == other.group;
+    }
     TableStateRoot currentRoot() { return current.get(); }
     GroupOperationGuard.Lease acquireQuery() { return group.acquire(SomaOperation.QUERY); }
     GlobalMemoryManager.TemporaryLease leaseQueryTemporary(

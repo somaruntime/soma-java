@@ -502,6 +502,9 @@ final class QueryOperation {
     static <T> T execute(
             LogicalRowPlan logical,
             BoundWork<T> work) {
+        if (logical.sourceKind() == LogicalRowPlan.SourceKind.RELATION_LEFT) {
+            return logical.relation().executeLeft(logical, work);
+        }
         GeneratedTable table = logical.owner();
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
             BoundRowPlan bound = new BoundRowPlan(

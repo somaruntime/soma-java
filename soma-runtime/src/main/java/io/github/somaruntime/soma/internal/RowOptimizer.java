@@ -42,6 +42,14 @@ final class RowOptimizer {
                     logical.indexProbe(),
                     membership);
         }
+        if (logical.sourceKind() == LogicalRowPlan.SourceKind.RELATION_LEFT) {
+            return new NormalizedRowPlan(
+                    normalized,
+                    NormalizedRowPlan.SourceKind.RELATION_LEFT,
+                    -1,
+                    null,
+                    membership);
+        }
 
         GeneratedTable table = logical.owner();
         for (LogicalRowPlan.Stage stage : normalized) {

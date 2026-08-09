@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.somaruntime.soma.GroupedLongEntry;
+import io.github.somaruntime.soma.GroupedLongResult;
 import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaExpression;
@@ -795,6 +797,64 @@ class GeneratedTableTest {
     }
 
     @Test
+    void groupAndRelationOptimizersMatchIndependentReferenceAlgorithms() {
+        GeneratedGroup group = testGroup(new GlobalMemoryManager(64L << 20));
+        GeneratedTable left = new GeneratedTable(
+                group, testLayout(), 4, MutationFaultInjector.NONE);
+        GeneratedTable right = new GeneratedTable(
+                group, testLayout(), 4, MutationFaultInjector.NONE);
+        add(left, 1L, "A", 10, new Object());
+        add(left, 2L, "A", 20, new Object());
+        add(left, 3L, "B", 30, new Object());
+        add(left, 4L, null, 40, new Object());
+        add(right, 101L, "A", 100, new Object());
+        add(right, 102L, "A", 200, new Object());
+        add(right, 103L, "C", 300, new Object());
+        add(right, 104L, null, 400, new Object());
+
+        GeneratedCallbacks.RowMapper<Object> key =
+                () -> left.queryCursor().viewReference(1);
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> optimizedGroups =
+                (GroupedLongResult<Object>) left.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key).count();
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> referenceGroups =
+                (GroupedLongResult<Object>) left.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key)
+                        .countReferenceForTesting();
+        assertGroupedEquals(
+                optimizedGroups.toArray(), referenceGroups.toArray());
+
+        GeneratedRelation optimized = GeneratedRelation
+                .equality(left, right)
+                .on(1, 1)
+                .kind(GeneratedRelation.FULL);
+        GeneratedRelation reference = GeneratedRelation
+                .equality(left, right)
+                .on(1, 1)
+                .kind(GeneratedRelation.FULL);
+        assertTrue(Arrays.equals(
+                relationLocators(optimized, false),
+                relationLocators(reference, true)));
+
+        GeneratedProbe minimum = right.newProbe(2);
+        minimum.putInt(2, 200);
+        SomaExpression<Object> rightFilter = right.ge(minimum.seal());
+        GeneratedRelation optimizedFiltered = GeneratedRelation
+                .equality(left, right)
+                .on(1, 1)
+                .filter(rightFilter);
+        GeneratedRelation referenceFiltered = GeneratedRelation
+                .equality(left, right)
+                .on(1, 1)
+                .filter(rightFilter);
+        assertTrue(Arrays.equals(
+                relationLocators(optimizedFiltered, false),
+                relationLocators(referenceFiltered, true)));
+    }
+
+    @Test
     void primitivePlansDifferAgainstIndependentBoxedReferenceAlgorithms() {
         GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
         for (long key = 0L; key < 32L; key++) {
@@ -1445,6 +1505,49 @@ class GeneratedTableTest {
         SomaOperationException consumed = assertThrows(
                 SomaOperationException.class, terminal::run);
         assertEquals(SomaFailureCode.PIPELINE_ALREADY_CONSUMED, consumed.code());
+    }
+
+    private static void assertGroupedEquals(
+            GroupedLongEntry<Object>[] optimized,
+            GroupedLongEntry<Object>[] reference) {
+        assertEquals(optimized.length, reference.length);
+        for (int index = 0; index < optimized.length; index++) {
+            assertEquals(optimized[index].key(), reference[index].key());
+            assertEquals(optimized[index].value(), reference[index].value());
+        }
+    }
+
+    private static long[] relationLocators(
+            final GeneratedRelation relation,
+            final boolean reference) {
+        return relation.terminal(
+                new GeneratedRelation.PairWork<long[]>() {
+                    @Override
+                    public long[] run(GeneratedRelation.RelationBinding binding) {
+                        final ArrayList<Long> locators = new ArrayList<Long>();
+                        GeneratedRelation.PairVisitor visitor =
+                                new GeneratedRelation.PairVisitor() {
+                                    @Override
+                                    public boolean visit(long left, long right) {
+                                        locators.add(Long.valueOf(left));
+                                        locators.add(Long.valueOf(right));
+                                        return true;
+                                    }
+                                };
+                        if (reference) {
+                            relation.visitBoundReference(binding, false, visitor);
+                        } else {
+                            relation.visitBound(binding, false, visitor);
+                        }
+                        long[] result = new long[locators.size()];
+                        for (int index = 0; index < result.length; index++) {
+                            result[index] = locators.get(index).longValue();
+                        }
+                        return result;
+                    }
+                },
+                false,
+                0L);
     }
 
     private static GeneratedTable floatingTable() {

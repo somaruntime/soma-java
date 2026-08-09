@@ -16,6 +16,12 @@ public final class GeneratedRuntime {
     private GeneratedRuntime() {
     }
 
+    public static <A, B> io.github.somaruntime.soma.SomaTuple2<A, B> tuple(
+            A first,
+            B second) {
+        return SomaSharedSecrets.tuple2Access().create(first, second);
+    }
+
     public static void configure(
             MethodHandles.Lookup caller,
             Object capability,

@@ -8,6 +8,7 @@ import io.github.somaruntime.soma.UpdateResult;
 import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.SomaLongSummary;
 import io.github.somaruntime.soma.SomaDoubleSummary;
+import io.github.somaruntime.soma.SomaTuple2;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -28,6 +29,8 @@ public final class SomaSharedSecrets {
             new AtomicReference<LongSummaryAccess>();
     private static final AtomicReference<DoubleSummaryAccess> DOUBLE_SUMMARY =
             new AtomicReference<DoubleSummaryAccess>();
+    private static final AtomicReference<Tuple2Access> TUPLE2 =
+            new AtomicReference<Tuple2Access>();
 
     private SomaSharedSecrets() {
     }
@@ -84,6 +87,15 @@ public final class SomaSharedSecrets {
     static DoubleSummaryAccess doubleSummaryAccess() {
         initialize(SomaDoubleSummary.class);
         return required(DOUBLE_SUMMARY.get(), "SomaDoubleSummary");
+    }
+
+    public static void setTuple2Access(Tuple2Access access) {
+        install(TUPLE2, access, SomaTuple2.class);
+    }
+
+    static Tuple2Access tuple2Access() {
+        initialize(SomaTuple2.class);
+        return required(TUPLE2.get(), "SomaTuple2");
     }
 
     private static <T> void install(
@@ -145,5 +157,9 @@ public final class SomaSharedSecrets {
     public interface DoubleSummaryAccess {
         SomaDoubleSummary create(
                 long count, double min, double max, double sum, double average);
+    }
+
+    public interface Tuple2Access {
+        <A, B> SomaTuple2<A, B> create(A first, B second);
     }
 }

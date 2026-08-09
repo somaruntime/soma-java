@@ -76,6 +76,29 @@ final class IdentityHashIndex {
         return bucket == null ? -1L : bucket.head;
     }
 
+    long firstJoin(
+            TableChunkDirectory directory,
+            GeneratedTableLayout probeLayout,
+            TableChunkDirectory probeDirectory,
+            long probeLocator,
+            int probeFieldIndex) {
+        if (shards == null) return -1L;
+        long hash = probeLayout.hashField(
+                probeDirectory, probeLocator, probeFieldIndex);
+        Shard shard = shards[shardOrdinal(hash)];
+        if (shard == null) return -1L;
+        int slot = shard.findJoin(
+                directory,
+                hash,
+                layout,
+                fieldIndex,
+                probeLayout,
+                probeDirectory,
+                probeLocator,
+                probeFieldIndex);
+        return slot < 0 ? -1L : shard.heads[slot];
+    }
+
     long next(long locator) {
         if (unique) return -1L;
         return links.next(locator);
@@ -403,6 +426,31 @@ final class IdentityHashIndex {
                                 directory, representatives[slot], locator, fieldIndex)) {
                     return slot;
                 }
+                slot = (slot + 1) & mask;
+            }
+            return -1;
+        }
+
+        int findJoin(
+                TableChunkDirectory directory,
+                long hash,
+                GeneratedTableLayout layout,
+                int fieldIndex,
+                GeneratedTableLayout probeLayout,
+                TableChunkDirectory probeDirectory,
+                long probeLocator,
+                int probeFieldIndex) {
+            int slot = ((int) hash) & mask;
+            while (states[slot] != 0) {
+                if (hashes[slot] == hash
+                        && layout.joinFieldEquals(
+                                directory,
+                                representatives[slot],
+                                fieldIndex,
+                                probeLayout,
+                                probeDirectory,
+                                probeLocator,
+                                probeFieldIndex)) return slot;
                 slot = (slot + 1) & mask;
             }
             return -1;

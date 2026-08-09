@@ -335,6 +335,92 @@ public final class GeneratedTableLayout {
         return true;
     }
 
+    boolean joinCompatible(
+            int fieldIndex,
+            GeneratedTableLayout other,
+            int otherFieldIndex) {
+        int count = fieldLeafCount(fieldIndex);
+        if (count != other.fieldLeafCount(otherFieldIndex)) return false;
+        int leftStart = fieldStart(fieldIndex);
+        int rightStart = other.fieldStart(otherFieldIndex);
+        for (int offset = 0; offset < count; offset++) {
+            if (leafKinds[leftStart + offset] != other.leafKinds[rightStart + offset]
+                    || equalityKinds[leftStart + offset]
+                    != other.equalityKinds[rightStart + offset]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    boolean joinFieldEquals(
+            TableChunkDirectory leftDirectory,
+            long leftLocator,
+            int leftFieldIndex,
+            GeneratedTableLayout rightLayout,
+            TableChunkDirectory rightDirectory,
+            long rightLocator,
+            int rightFieldIndex) {
+        if (!joinCompatible(leftFieldIndex, rightLayout, rightFieldIndex)) {
+            throw new AssertionError("incompatible generated Join Fields");
+        }
+        if (storedFieldIsNull(leftDirectory, leftLocator, leftFieldIndex)
+                || rightLayout.storedFieldIsNull(
+                        rightDirectory, rightLocator, rightFieldIndex)) {
+            return false;
+        }
+        int count = fieldLeafCount(leftFieldIndex);
+        int leftStart = fieldStart(leftFieldIndex);
+        int rightStart = rightLayout.fieldStart(rightFieldIndex);
+        PlainChunk left = leftDirectory.plainChunk(
+                leftLocator / leftDirectory.chunkRows());
+        PlainChunk right = rightDirectory.plainChunk(
+                rightLocator / rightDirectory.chunkRows());
+        int leftOffset = (int) (leftLocator % leftDirectory.chunkRows());
+        int rightOffset = (int) (rightLocator % rightDirectory.chunkRows());
+        for (int index = 0; index < count; index++) {
+            int leftLeaf = leftStart + index;
+            int rightLeaf = rightStart + index;
+            int leftSlot = leafSlots[leftLeaf];
+            int rightSlot = rightLayout.leafSlots[rightLeaf];
+            switch (leafKinds[leftLeaf]) {
+                case BOOLEAN:
+                    if (left.booleans(leftSlot)[leftOffset]
+                            != right.booleans(rightSlot)[rightOffset]) return false;
+                    break;
+                case BYTE:
+                    if (left.bytes(leftSlot)[leftOffset]
+                            != right.bytes(rightSlot)[rightOffset]) return false;
+                    break;
+                case SHORT:
+                    if (left.shorts(leftSlot)[leftOffset]
+                            != right.shorts(rightSlot)[rightOffset]) return false;
+                    break;
+                case CHAR:
+                    if (left.chars(leftSlot)[leftOffset]
+                            != right.chars(rightSlot)[rightOffset]) return false;
+                    break;
+                case INT:
+                    if (left.ints(leftSlot)[leftOffset]
+                            != right.ints(rightSlot)[rightOffset]) return false;
+                    break;
+                case LONG:
+                    if (left.longs(leftSlot)[leftOffset]
+                            != right.longs(rightSlot)[rightOffset]) return false;
+                    break;
+                case REFERENCE:
+                    if (!referenceEquals(
+                            left.references(leftSlot)[leftOffset],
+                            right.references(rightSlot)[rightOffset],
+                            equalityKinds[leftLeaf])) return false;
+                    break;
+                default:
+                    throw new AssertionError("non-keyable Join leaf kind");
+            }
+        }
+        return true;
+    }
+
     boolean logicalRowEquals(TypedValues left, TypedValues right) {
         for (int leaf = 0; leaf < leafKinds.length; leaf++) {
             if (!leafEquals(left, right, leaf)) {

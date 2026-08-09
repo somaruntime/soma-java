@@ -239,6 +239,14 @@ final class OptimizedSequentialRowExecutor {
             NormalizedRowPlan plan,
             LocatorVisitor visitor) {
         switch (plan.sourceKind) {
+            case RELATION_LEFT:
+                if (bound.relationSource == null) {
+                    throw new AssertionError("relation row source is not bound");
+                }
+                for (int index = 0; index < bound.relationSource.size(); index++) {
+                    if (!visitor.visit(bound.relationSource.get(index))) return;
+                }
+                return;
             case TABLE_SCAN:
                 for (long locator = 0L; locator < bound.root.size; locator++) {
                     if (!visitor.visit(locator)) return;

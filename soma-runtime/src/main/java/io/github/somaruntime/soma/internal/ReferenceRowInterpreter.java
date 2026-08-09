@@ -68,7 +68,8 @@ final class ReferenceRowInterpreter {
             int to,
             LongLocatorBuffer output) {
         long[] counters = new long[to - from];
-        for (long locator = 0L; locator < bound.root.size; locator++) {
+        for (long sourceIndex = 0L; sourceIndex < sourceSize(bound); sourceIndex++) {
+            long locator = sourceLocator(bound, sourceIndex);
             if (referenceSegmentLimitReached(stages, from, to, counters)) return;
             if (!sourceContains(bound, locator)) continue;
             int decision = referenceEvaluateStateless(
@@ -168,7 +169,8 @@ final class ReferenceRowInterpreter {
             OptimizedSequentialRowExecutor.LocatorVisitor visitor) {
         List<LogicalRowPlan.Stage> stages = bound.logical.stages();
         long[] counters = new long[stages.size()];
-        for (long locator = 0L; locator < bound.root.size; locator++) {
+        for (long sourceIndex = 0L; sourceIndex < sourceSize(bound); sourceIndex++) {
+            long locator = sourceLocator(bound, sourceIndex);
             if (limitReached(stages, counters)) return;
             if (!sourceContains(bound, locator)) continue;
             boolean selected = true;
@@ -220,6 +222,7 @@ final class ReferenceRowInterpreter {
 
     private static boolean sourceContains(BoundRowPlan bound, long locator) {
         if (bound.logical.sourceKind() == LogicalRowPlan.SourceKind.TABLE_SCAN) return true;
+        if (bound.logical.sourceKind() == LogicalRowPlan.SourceKind.RELATION_LEFT) return true;
         int ordinal = bound.logical.indexOrdinal();
         int field = bound.logical.owner().layout().indexFieldIndex(ordinal);
         return bound.logical.owner().layout().fieldEquals(
@@ -227,6 +230,23 @@ final class ReferenceRowInterpreter {
                 locator,
                 bound.logical.indexProbe(),
                 field);
+    }
+
+    private static long sourceSize(BoundRowPlan bound) {
+        if (bound.logical.sourceKind() != LogicalRowPlan.SourceKind.RELATION_LEFT) {
+            return bound.root.size;
+        }
+        if (bound.relationSource == null) {
+            throw new AssertionError("relation row source is not bound");
+        }
+        return bound.relationSource.size();
+    }
+
+    private static long sourceLocator(BoundRowPlan bound, long sourceIndex) {
+        if (bound.logical.sourceKind() != LogicalRowPlan.SourceKind.RELATION_LEFT) {
+            return sourceIndex;
+        }
+        return bound.relationSource.get((int) sourceIndex);
     }
 
     private static void compactFilter(
