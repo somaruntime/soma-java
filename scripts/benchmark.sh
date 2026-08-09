@@ -22,6 +22,7 @@ runs=${SOMA_BENCHMARK_RUNS:-3}
 parallelism=${SOMA_BENCHMARK_PARALLELISM:-8}
 implementations=${SOMA_BENCHMARK_IMPLEMENTATIONS:-"manual soma-auto"}
 profiler=${SOMA_BENCHMARK_PROFILER:-jfr}
+async_event=${SOMA_BENCHMARK_ASYNC_EVENT:-cpu}
 time_mode=${SOMA_BENCHMARK_TIME_MODE:-portable}
 inner_warmups=${SOMA_BENCHMARK_INNER_WARMUPS:-2}
 inner_samples=${SOMA_BENCHMARK_INNER_SAMPLES:-5}
@@ -43,6 +44,7 @@ test "$inner_samples" -ge 1 && test "$inner_samples" -le 21
 test $((inner_samples % 2)) -eq 1
 test "$memory_budget" -ge 1 && test "$memory_budget" -le 34359738368
 case "$profiler" in none|jfr|async) ;; *) echo "benchmark: invalid profiler" >&2; exit 1 ;; esac
+case "$async_event" in cpu|alloc) ;; *) echo "benchmark: invalid async event" >&2; exit 1 ;; esac
 case "$time_mode" in portable|extended) ;; *) echo "benchmark: invalid time mode" >&2; exit 1 ;; esac
 test -n "$implementations"
 for implementation in $implementations; do
@@ -100,6 +102,7 @@ raw_results="$output_root/results.jsonl"
     echo "parallelism=$parallelism"
     echo "implementations=$implementations"
     echo "profiler=$profiler"
+    echo "asyncEvent=$async_event"
     echo "timeMode=$time_mode"
     echo "innerWarmups=$inner_warmups"
     echo "innerSamples=$inner_samples"
@@ -127,9 +130,9 @@ run_benchmark() {
     time_log="$run_root.time.log"
     gc_log="$run_root.gc.log"
     jfr_file="$run_root.jfr"
-    async_jfr="$run_root-cpu.jfr"
-    async_collapsed="$run_root-cpu.collapsed"
-    async_html="$run_root-cpu.html"
+    async_jfr="$run_root-$async_event.jfr"
+    async_collapsed="$run_root-$async_event.collapsed"
+    async_html="$run_root-$async_event.html"
     rm -f "$stdout_log" "$time_log" "$gc_log" "$jfr_file" \
         "$async_jfr" "$async_collapsed" "$async_html" \
         "$run_root.jfr-summary.txt"
@@ -148,7 +151,7 @@ run_benchmark() {
             set -- "$@" -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
                 "-XX:StartFlightRecording=filename=$jfr_file,dumponexit=true,settings=profile"
         elif [ "$profiler" = async ]; then
-            set -- "$@" "-agentpath:$async_library=start,event=cpu,file=$async_jfr"
+            set -- "$@" "-agentpath:$async_library=start,event=$async_event,file=$async_jfr"
         fi
     fi
     set -- "$@" -cp "$benchmark_classpath" "$main_class" "$rows" "$implementation"
@@ -175,8 +178,13 @@ run_benchmark() {
         "$jfr_cmd" summary "$jfr_file" > "$run_root.jfr-summary.txt"
     fi
     if [ -s "$async_jfr" ]; then
-        "$jfrconv_cmd" --cpu -o collapsed "$async_jfr" "$async_collapsed"
-        "$jfrconv_cmd" --cpu -o html "$async_jfr" "$async_html"
+        if [ "$async_event" = cpu ]; then async_conversion=--cpu;
+        else async_conversion=--alloc;
+        fi
+        "$jfrconv_cmd" "$async_conversion" -o collapsed \
+            "$async_jfr" "$async_collapsed"
+        "$jfrconv_cmd" "$async_conversion" -o html \
+            "$async_jfr" "$async_html"
     fi
 }
 

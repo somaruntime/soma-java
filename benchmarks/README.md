@@ -34,6 +34,8 @@ SOMA_BENCHMARK_PARALLELISM=8 \
 
 默认使用可移植的 process wall-time 采集。需要在允许读取操作系统进程统计的本机采集 peak RSS
 时，可显式设置 `SOMA_BENCHMARK_TIME_MODE=extended`；该模式不是 correctness 的前置条件。
+CPU 归因使用 `SOMA_BENCHMARK_PROFILER=async`；allocation 归因再增加
+`SOMA_BENCHMARK_ASYNC_EVENT=alloc`。两者都保留 JFR、collapsed stack 与 flame graph。
 
 正式比较必须使用相同 commit/source、JDK/JVM、workload、row count、parallelism 和 fresh-JVM
 run count；Smoke 只证明测量链可运行，不能证明性能提升。完整证据合同与当前专题边界见
