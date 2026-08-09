@@ -85,6 +85,9 @@ public final class GeneratedJoinCarriers {
             this.relation = relation; this.pair = pair;
         }
         abstract SomaPairStream<L, R> filtered(GeneratedRelation next);
+        @Override public SomaPairStream<L, R> parallel() {
+            return filtered(relation.parallel());
+        }
         @Override public SomaPairStream<L, R> filter(SomaRelationExpression expression) {
             return filtered(relation.filter(expression));
         }
@@ -143,6 +146,10 @@ public final class GeneratedJoinCarriers {
         @Override SomaPairStream<L, R> filtered(GeneratedRelation next) {
             return new Matched<L, R, LS>(left, right, next, pair);
         }
+        @Override public SomaMatchedJoinStream<L, R> parallel() {
+            return new Matched<L, R, LS>(
+                    left, right, relation.parallel(), pair);
+        }
         @Override public SomaMatchedJoinStream<L, R> filter(
                 SomaRelationExpression expression) {
             return new Matched<L, R, LS>(
@@ -185,6 +192,10 @@ public final class GeneratedJoinCarriers {
                             right.keyableFieldIndex(rightField)),
                     pair);
         }
+        @Override public SomaJoinCondition<L, R, LS> parallel() {
+            return new Condition<L, R, LS>(
+                    left, right, relation.parallel(), pair);
+        }
         @Override public SomaMatchedJoinStream<L, R> inner() {
             return new Matched<L, R, LS>(left, right,
                     relation.kind(GeneratedRelation.INNER), pair);
@@ -215,6 +226,10 @@ public final class GeneratedJoinCarriers {
         }
         @Override SomaPairStream<L, R> filtered(GeneratedRelation next) {
             return new Outer<L, R, LS>(left, right, next, pair);
+        }
+        @Override public SomaOuterJoinStream<L, R> parallel() {
+            return new Outer<L, R, LS>(
+                    left, right, relation.parallel(), pair);
         }
         @Override public SomaOuterJoinStream<L, R> filter(
                 SomaRelationExpression expression) {

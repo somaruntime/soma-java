@@ -475,7 +475,7 @@ strictfp final class PrimitivePlanOperation {
 
     private static void visitRoot(BoundRowPlan bound, PrimitivePlan plan, Visitor visitor) {
         if (plan.rootKind == PrimitivePlan.RootKind.ROW) {
-            OptimizedSequentialRowExecutor.visit(bound, locator -> visitor.visit(rowRoot(bound, plan, locator)));
+            RowExecutor.visit(bound, locator -> visitor.visit(rowRoot(bound, plan, locator)));
         } else {
             MappedQueryOperation.visitBound(bound, plan.mapped, value -> visitor.visit(mappedRoot(bound, plan, value)));
         }
@@ -496,6 +496,7 @@ strictfp final class PrimitivePlanOperation {
     }
 
     @SuppressWarnings("unchecked") private static long mappedRoot(BoundRowPlan bound, PrimitivePlan plan, Object value) {
+        CallbackExecutionScope.enter();
         try {
             switch (plan.rootValueKind) {
                 case INT: return ((io.github.somaruntime.soma.SomaToIntFunction<Object>) plan.rootMapper).applyAsInt(value);
@@ -504,9 +505,11 @@ strictfp final class PrimitivePlanOperation {
                 default: throw new AssertionError();
             }
         } catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance); }
+        finally { CallbackExecutionScope.exit(); }
     }
 
     private static boolean test(BoundRowPlan bound, PrimitivePlan.ValueKind kind, Object callback, long raw) {
+        CallbackExecutionScope.enter();
         try {
             switch (kind) {
                 case BOOLEAN: return ((io.github.somaruntime.soma.SomaBooleanPredicate) callback).test(raw != 0L);
@@ -520,9 +523,11 @@ strictfp final class PrimitivePlanOperation {
                 default: throw new AssertionError();
             }
         } catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance); }
+        finally { CallbackExecutionScope.exit(); }
     }
 
     private static long apply(BoundRowPlan bound, PrimitivePlan.Stage stage, long raw) {
+        CallbackExecutionScope.enter();
         try {
             if (stage.input == PrimitivePlan.ValueKind.BOOLEAN && stage.output == PrimitivePlan.ValueKind.BOOLEAN)
                 return ((io.github.somaruntime.soma.SomaBooleanUnaryOperator) stage.callback).applyAsBoolean(raw != 0L) ? 1L : 0L;
@@ -584,9 +589,11 @@ strictfp final class PrimitivePlanOperation {
                 return ((io.github.somaruntime.soma.SomaDoubleToLongFunction) stage.callback).applyAsLong(Double.longBitsToDouble(raw));
             throw new AssertionError("unknown primitive conversion");
         } catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance); }
+        finally { CallbackExecutionScope.exit(); }
     }
 
     private static void accept(BoundRowPlan bound, PrimitivePlan.ValueKind kind, Object action, long raw) {
+        CallbackExecutionScope.enter();
         try {
             switch (kind) {
                 case BOOLEAN: ((io.github.somaruntime.soma.SomaBooleanConsumer) action).accept(raw != 0L); break;
@@ -600,6 +607,7 @@ strictfp final class PrimitivePlanOperation {
                 default: throw new AssertionError();
             }
         } catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance); }
+        finally { CallbackExecutionScope.exit(); }
     }
 
     private static void compact(BoundRowPlan bound, LongLocatorBuffer values, PrimitivePlan.Stage stage) {

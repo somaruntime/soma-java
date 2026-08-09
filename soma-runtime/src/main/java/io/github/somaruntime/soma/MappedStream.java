@@ -8,6 +8,7 @@ import java.util.function.Function;
 
 /** One-shot arbitrary reference projection with no Table mutation lineage. */
 public interface MappedStream<R> {
+    MappedStream<R> parallel();
     MappedStream<R> filter(SomaPredicate<? super R> predicate);
     <U> MappedStream<U> map(Function<? super R, ? extends U> mapper);
     SomaIntStream mapToInt(SomaToIntFunction<? super R> mapper);

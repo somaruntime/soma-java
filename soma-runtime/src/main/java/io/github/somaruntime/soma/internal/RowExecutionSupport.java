@@ -15,12 +15,14 @@ final class RowExecutionSupport {
             GeneratedCallbacks.RowPredicate callback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try {
             return callback.test();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
                     bound.operation, failure, bound.provenance);
         } finally {
+            CallbackExecutionScope.exit();
             cursor.leave();
         }
     }
@@ -31,12 +33,14 @@ final class RowExecutionSupport {
             GeneratedCallbacks.RowAction callback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try {
             callback.accept();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
                     bound.operation, failure, bound.provenance);
         } finally {
+            CallbackExecutionScope.exit();
             cursor.leave();
         }
     }
@@ -48,6 +52,7 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try {
             return callback.apply();
         } catch (Exception failure) {
@@ -60,6 +65,7 @@ final class RowExecutionSupport {
             throw SomaFailures.callbackFailure(
                     bound.operation, failure, bound.provenance);
         } finally {
+            CallbackExecutionScope.exit();
             cursor.leave();
         }
     }
@@ -71,10 +77,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsBoolean(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     static byte callbackMapByte(
@@ -84,10 +91,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsByte(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     static short callbackMapShort(
@@ -97,10 +105,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsShort(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     static char callbackMapChar(
@@ -110,10 +119,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsChar(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     static int callbackMapInt(
@@ -123,10 +133,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsInt(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     static long callbackMapLong(
@@ -136,10 +147,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsLong(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     static float callbackMapFloat(
@@ -149,10 +161,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsFloat(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     static double callbackMapDouble(
@@ -162,10 +175,11 @@ final class RowExecutionSupport {
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
+        CallbackExecutionScope.enter();
         try { return callback.applyAsDouble(); }
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
-        } finally { cursor.leave(); }
+        } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
     private static RuntimeException mapperFailure(
@@ -209,12 +223,14 @@ final class RowExecutionSupport {
         GeneratedQueryCursor rightCursor = table.secondaryQueryCursor();
         leftCursor.enter(left);
         rightCursor.enter(right);
+        CallbackExecutionScope.enter();
         try {
             return stage.comparator.compare();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
                     bound.operation, failure, bound.provenance);
         } finally {
+            CallbackExecutionScope.exit();
             rightCursor.leave();
             leftCursor.leave();
         }

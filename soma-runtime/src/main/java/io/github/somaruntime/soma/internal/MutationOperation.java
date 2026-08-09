@@ -40,6 +40,7 @@ final class MutationOperation {
                     for (int index = 0; index < selected.size(); index++) {
                         long locator = selected.get(index);
                         editor.enter(locator);
+                        CallbackExecutionScope.enter();
                         try {
                             updater.accept();
                             if (editor.changed()) {
@@ -49,6 +50,7 @@ final class MutationOperation {
                         } catch (Exception failure) {
                             throw editor.callbackFailure(failure);
                         } finally {
+                            CallbackExecutionScope.exit();
                             editor.leave();
                         }
                     }
@@ -101,7 +103,7 @@ final class MutationOperation {
             table.secondaryQueryCursor().begin(
                     bound.root, bound.operation, bound.provenance);
             try {
-                return OptimizedSequentialRowExecutor.locators(bound);
+                return RowExecutor.locators(bound);
             } finally {
                 table.secondaryQueryCursor().end();
             }

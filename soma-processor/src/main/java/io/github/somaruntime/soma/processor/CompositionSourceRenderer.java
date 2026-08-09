@@ -233,6 +233,7 @@ final class CompositionSourceRenderer {
         appendRelationOperations(source, model, table, shape, tableType);
         appendTableViewEditor(source, table, objectType);
         appendGroupBuilders(source, tableType, shape);
+        appendStreamType(source, tableType, objectType, shape);
         appendSelectionTypes(source, tableType, objectType, shape);
         for (EndpointPlan endpoint : shape.roots) {
             appendEndpoint(source, endpoint, "    ");
@@ -335,6 +336,8 @@ final class CompositionSourceRenderer {
         }
 
         source.append("    public long count() { return runtime.count(); }\n\n")
+                .append("    public Stream parallel() {\n")
+                .append("        return new Stream(this, runtime.parallel());\n    }\n\n")
                 .append("    public Selection selectAll() {\n")
                 .append("        return new Selection(this, runtime.selectAll());\n    }\n\n")
                 .append("    public Selection filter(")
@@ -526,7 +529,8 @@ final class CompositionSourceRenderer {
                 "pipeline",
                 "borrowedView",
                 "runtime");
-        source.append("        public ReadStream filter(io.github.somaruntime.soma.SomaExpression<View> expression) { return new ReadStream(pipeline.filter(expression)); }\n\n")
+        source.append("        public ReadStream parallel() { return new ReadStream(pipeline.parallel()); }\n\n")
+                .append("        public ReadStream filter(io.github.somaruntime.soma.SomaExpression<View> expression) { return new ReadStream(pipeline.filter(expression)); }\n\n")
                 .append("        public ReadStream filter(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) { runtime.requireArgument(predicate,io.github.somaruntime.soma.SomaOperation.QUERY,\"predicate\");return new ReadStream(pipeline.filter(() -> predicate.test(borrowedView))); }\n\n")
                 .append("        public ReadStream sorted(java.util.Comparator<? super View> comparator) { runtime.requireArgument(comparator,io.github.somaruntime.soma.SomaOperation.QUERY,\"comparator\");return new ReadStream(pipeline.sorted(() -> comparator.compare(borrowedView,borrowedCompareView))); }\n\n")
                 .append("        public ReadStream sortedBy(io.github.somaruntime.soma.SomaOrder<View> order) { return new ReadStream(pipeline.sortedBy(order)); }\n\n")
@@ -953,6 +957,69 @@ final class CompositionSourceRenderer {
         }
     }
 
+    private static void appendStreamType(
+            StringBuilder source,
+            String tableType,
+            String objectType,
+            TableShape shape) {
+        source.append("    public static final class Stream {\n")
+                .append("        private final ").append(tableType).append(" owner;\n")
+                .append("        private final io.github.somaruntime.soma.internal.GeneratedPipeline pipeline;\n\n")
+                .append("        private Stream(").append(tableType).append(" owner, ")
+                .append("io.github.somaruntime.soma.internal.GeneratedPipeline pipeline) {\n")
+                .append("            this.owner = owner;\n")
+                .append("            this.pipeline = pipeline;\n        }\n\n");
+        appendRowProjectionMethods(
+                source,
+                shape,
+                "        ",
+                "owner",
+                "pipeline",
+                "owner.borrowedView",
+                "owner.runtime");
+        appendGroupByMethods(
+                source, shape, "        ", "owner", "pipeline", "owner.runtime");
+        source.append("        public Stream parallel() {\n")
+                .append("            return new Stream(owner, pipeline.parallel());\n        }\n\n")
+                .append("        public Selection filter(io.github.somaruntime.soma.SomaExpression<View> expression) {\n")
+                .append("            return new Selection(owner, pipeline.filter(expression));\n        }\n\n")
+                .append("        public Selection filter(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            owner.runtime.requireArgument(predicate, io.github.somaruntime.soma.SomaOperation.QUERY, \"predicate\");\n")
+                .append("            return new Selection(owner, pipeline.filter(() -> predicate.test(owner.borrowedView)));\n        }\n\n")
+                .append("        public Selection sorted(java.util.Comparator<? super View> comparator) {\n")
+                .append("            owner.runtime.requireArgument(comparator, io.github.somaruntime.soma.SomaOperation.QUERY, \"comparator\");\n")
+                .append("            return new Selection(owner, pipeline.sorted(() -> comparator.compare(owner.borrowedView, owner.borrowedCompareView)));\n        }\n\n")
+                .append("        public Selection sortedBy(io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("            return new Selection(owner, pipeline.sortedBy(order));\n        }\n\n")
+                .append("        public Selection skip(long count) { return new Selection(owner, pipeline.skip(count)); }\n\n")
+                .append("        public Selection limit(long count) { return new Selection(owner, pipeline.limit(count)); }\n\n")
+                .append("        public Selection top(long count, io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("            return new Selection(owner, pipeline.top(count, order));\n        }\n\n")
+                .append("        public long count() { return pipeline.count(); }\n\n")
+                .append("        public boolean anyMatch(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            owner.runtime.requireArgument(predicate, io.github.somaruntime.soma.SomaOperation.QUERY, \"predicate\");\n")
+                .append("            return pipeline.anyMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public boolean allMatch(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            owner.runtime.requireArgument(predicate, io.github.somaruntime.soma.SomaOperation.QUERY, \"predicate\");\n")
+                .append("            return pipeline.allMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public boolean noneMatch(io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            owner.runtime.requireArgument(predicate, io.github.somaruntime.soma.SomaOperation.QUERY, \"predicate\");\n")
+                .append("            return pipeline.noneMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public java.util.Optional<").append(objectType).append("> findFirst() {\n")
+                .append("            return pipeline.findFirst(() -> owner.borrowedView.fetch());\n        }\n\n")
+                .append("        public void forEach(java.util.function.Consumer<? super View> action) {\n")
+                .append("            owner.runtime.requireArgument(action, io.github.somaruntime.soma.SomaOperation.QUERY, \"action\");\n")
+                .append("            pipeline.forEach(() -> action.accept(owner.borrowedView));\n        }\n\n")
+                .append("        public void forEachOrdered(java.util.function.Consumer<? super View> action) { forEach(action); }\n\n")
+                .append("        public java.util.List<").append(objectType).append("> toList() {\n")
+                .append("            return pipeline.toList(() -> owner.borrowedView.fetch());\n        }\n\n")
+                .append("        public ").append(objectType).append("[] toArray() {\n")
+                .append("            return pipeline.toArray(() -> owner.borrowedView.fetch(), ")
+                .append(objectType).append(".class);\n        }\n\n")
+                .append("        public java.lang.String _explain() { return pipeline.explain(); }\n")
+                .append("    }\n\n");
+    }
+
     private static void appendSelectionTypes(
             StringBuilder source,
             String tableType,
@@ -976,6 +1043,8 @@ final class CompositionSourceRenderer {
         appendGroupByMethods(
                 source, shape, "        ", "owner", "pipeline", "owner.runtime");
         source
+                .append("        public Selection parallel() {\n")
+                .append("            return new Selection(owner, pipeline.parallel());\n        }\n\n")
                 .append("        public Selection filter(")
                 .append("io.github.somaruntime.soma.SomaExpression<View> expression) {\n")
                 .append("            return new Selection(owner, pipeline.filter(expression));\n        }\n\n")
@@ -1052,6 +1121,8 @@ final class CompositionSourceRenderer {
                 "owner.borrowedView",
                 "owner.runtime");
         source
+                .append("        public Selection parallel() {\n")
+                .append("            return new Selection(owner, selection.parallel());\n        }\n\n")
                 .append("        public Selection filter(")
                 .append("io.github.somaruntime.soma.SomaExpression<View> expression) {\n")
                 .append("            return new Selection(owner, selection.filter(expression));\n        }\n\n")
@@ -1207,6 +1278,7 @@ final class CompositionSourceRenderer {
                 .append(indent).append("private void require(java.lang.Object value, ")
                 .append("java.lang.String category) { runtime.requireArgument(value, ")
                 .append("io.github.somaruntime.soma.SomaOperation.QUERY, category); }\n\n")
+                .append(indent).append("public Stream parallel() { return new Stream(source().parallel()); }\n\n")
                 .append(indent).append("public Stream filter(")
                 .append("io.github.somaruntime.soma.Soma").append(token)
                 .append("Predicate predicate) { require(predicate, \"predicate\"); return new Stream(")
@@ -1244,6 +1316,7 @@ final class CompositionSourceRenderer {
                 .append(".GeneratedPrimitiveValuePipeline pipeline;\n\n")
                 .append(indent).append("    private Stream(io.github.somaruntime.soma.internal")
                 .append(".GeneratedPrimitiveValuePipeline pipeline) { this.pipeline = pipeline; }\n\n")
+                .append(indent).append("    public Stream parallel() { return new Stream(pipeline.parallel()); }\n\n")
                 .append(indent).append("    public Stream filter(")
                 .append("io.github.somaruntime.soma.Soma").append(token)
                 .append("Predicate predicate) {\n")
@@ -1405,6 +1478,7 @@ final class CompositionSourceRenderer {
                 .append(indent).append("private void require(java.lang.Object value, ")
                 .append("java.lang.String category) { runtime.requireArgument(value, ")
                 .append("io.github.somaruntime.soma.SomaOperation.QUERY, category); }\n\n")
+                .append(indent).append("public Stream parallel() { return new Stream(source().parallel()); }\n\n")
                 .append(indent).append("public Stream filter(")
                 .append("io.github.somaruntime.soma.SomaPredicate<? super ")
                 .append(elementType).append("> predicate) {\n")
@@ -1522,7 +1596,8 @@ final class CompositionSourceRenderer {
             String compared,
             String materialized) {
         CompositionModel.TypeModel type = endpoint.field.type();
-        source.append(indent).append("public Stream filter(")
+        source.append(indent).append("public Stream parallel() { return new Stream(pipeline.parallel()); }\n\n")
+                .append(indent).append("public Stream filter(")
                 .append("io.github.somaruntime.soma.SomaPredicate<? super ")
                 .append(elementType).append("> predicate) {\n")
                 .append(indent).append("    require(predicate, \"predicate\");\n")

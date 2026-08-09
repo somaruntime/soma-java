@@ -98,6 +98,7 @@ final class LogicalRowPlan {
     private final GeneratedRelation relation;
     private final LogicalRowPlan parent;
     private final Stage stage;
+    private final boolean parallel;
 
     private LogicalRowPlan(
             GeneratedTable owner,
@@ -106,7 +107,8 @@ final class LogicalRowPlan {
             GeneratedProbe indexProbe,
             GeneratedRelation relation,
             LogicalRowPlan parent,
-            Stage stage) {
+            Stage stage,
+            boolean parallel) {
         this.owner = owner;
         this.sourceKind = sourceKind;
         this.indexOrdinal = indexOrdinal;
@@ -114,11 +116,12 @@ final class LogicalRowPlan {
         this.relation = relation;
         this.parent = parent;
         this.stage = stage;
+        this.parallel = parallel;
     }
 
     static LogicalRowPlan tableScan(GeneratedTable owner) {
         return new LogicalRowPlan(
-                owner, SourceKind.TABLE_SCAN, -1, null, null, null, null);
+                owner, SourceKind.TABLE_SCAN, -1, null, null, null, null, false);
     }
 
     static LogicalRowPlan indexSelection(
@@ -126,7 +129,8 @@ final class LogicalRowPlan {
             int indexOrdinal,
             GeneratedProbe probe) {
         return new LogicalRowPlan(
-                owner, SourceKind.INDEX_SELECTION, indexOrdinal, probe, null, null, null);
+                owner, SourceKind.INDEX_SELECTION, indexOrdinal, probe,
+                null, null, null, false);
     }
 
     static LogicalRowPlan relationLeft(
@@ -136,7 +140,8 @@ final class LogicalRowPlan {
             throw new AssertionError("invalid relation row source");
         }
         return new LogicalRowPlan(
-                owner, SourceKind.RELATION_LEFT, -1, null, relation, null, null);
+                owner, SourceKind.RELATION_LEFT, -1, null, relation,
+                null, null, relation.isParallel());
     }
 
     LogicalRowPlan typedFilter(PredicateIr predicate) {
@@ -176,6 +181,19 @@ final class LogicalRowPlan {
         return sortedBy(order).limit(count);
     }
 
+    LogicalRowPlan parallel() {
+        if (parallel) return this;
+        return new LogicalRowPlan(
+                owner,
+                sourceKind,
+                indexOrdinal,
+                indexProbe,
+                relation,
+                parent,
+                stage,
+                true);
+    }
+
     private LogicalRowPlan append(Stage next) {
         return new LogicalRowPlan(
                 owner,
@@ -184,7 +202,8 @@ final class LogicalRowPlan {
                 indexProbe,
                 relation,
                 this,
-                next);
+                next,
+                parallel);
     }
 
     GeneratedTable owner() {
@@ -205,6 +224,10 @@ final class LogicalRowPlan {
 
     GeneratedRelation relation() {
         return relation;
+    }
+
+    boolean isParallel() {
+        return parallel;
     }
 
     List<Stage> stages() {

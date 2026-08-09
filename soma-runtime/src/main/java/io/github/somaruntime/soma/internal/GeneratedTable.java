@@ -8,6 +8,7 @@ import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.SomaOrder;
 import io.github.somaruntime.soma.UpdateResult;
 import java.util.Arrays;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Unified exact-leaf, long-domain runtime behind every generated Table facade. */
@@ -180,6 +181,11 @@ public final class GeneratedTable {
 
     public GeneratedPipeline selectAll() {
         return new GeneratedPipeline(this, LogicalRowPlan.tableScan(this));
+    }
+
+    public GeneratedPipeline parallel() {
+        return new GeneratedPipeline(
+                this, LogicalRowPlan.tableScan(this).parallel());
     }
 
     public GeneratedGrouping groupBy(
@@ -569,6 +575,7 @@ public final class GeneratedTable {
     }
     TableStateRoot currentRoot() { return current.get(); }
     GroupOperationGuard.Lease acquireQuery() { return group.acquire(SomaOperation.QUERY); }
+    ForkJoinPool parallelExecutor() { return group.parallelExecutor(); }
     GlobalMemoryManager.TemporaryLease leaseQueryTemporary(
             long bytes,
             Object provenance) {

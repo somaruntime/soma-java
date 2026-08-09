@@ -22,6 +22,10 @@ public final class GeneratedFieldPipeline {
         this.rows = rows;
     }
 
+    public GeneratedFieldPipeline parallel() {
+        return new GeneratedFieldPipeline(owner, fieldIndex, rows.parallel());
+    }
+
     public GeneratedFieldPipeline filter(GeneratedCallbacks.RowPredicate predicate) {
         return new GeneratedFieldPipeline(owner, fieldIndex, rows.filter(predicate));
     }

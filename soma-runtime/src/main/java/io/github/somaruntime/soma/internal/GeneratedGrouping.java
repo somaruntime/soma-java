@@ -139,7 +139,7 @@ public final class GeneratedGrouping {
             OptimizedSequentialRowExecutor.LocatorVisitor visitor,
             boolean reference) {
         if (reference) ReferenceRowInterpreter.visit(bound, visitor);
-        else OptimizedSequentialRowExecutor.visit(bound, visitor);
+        else RowExecutor.visit(bound, visitor);
     }
 
     private Object materializeKeys(BoundRowPlan bound, GroupState state) {

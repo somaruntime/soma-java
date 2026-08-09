@@ -4,6 +4,7 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 
 public interface SomaIntStream {
+    SomaIntStream parallel();
     SomaIntStream filter(SomaIntPredicate predicate);
     SomaIntStream map(SomaIntUnaryOperator mapper);
     SomaLongStream mapToLong(SomaIntToLongFunction mapper);

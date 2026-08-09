@@ -25,6 +25,11 @@ public final class GeneratedMappedPipeline<R> implements MappedStream<R> {
 
     GeneratedMappedPipeline(MappedPlan<R> plan) { this.plan = plan; }
 
+    @Override public MappedStream<R> parallel() {
+        claim();
+        return new GeneratedMappedPipeline<R>(plan.parallel());
+    }
+
     @Override public MappedStream<R> filter(SomaPredicate<? super R> predicate) {
         require(predicate, "predicate"); claim(); return new GeneratedMappedPipeline<R>(plan.filter(predicate));
     }

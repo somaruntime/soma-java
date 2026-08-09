@@ -238,6 +238,12 @@ final class OptimizedSequentialRowExecutor {
             BoundRowPlan bound,
             NormalizedRowPlan plan,
             LocatorVisitor visitor) {
+        if (bound.parallelSource != null) {
+            for (int index = 0; index < bound.parallelSource.size(); index++) {
+                if (!visitor.visit(bound.parallelSource.get(index))) return;
+            }
+            return;
+        }
         switch (plan.sourceKind) {
             case RELATION_LEFT:
                 if (bound.relationSource == null) {

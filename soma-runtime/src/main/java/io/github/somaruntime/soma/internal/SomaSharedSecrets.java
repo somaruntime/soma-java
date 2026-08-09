@@ -1,6 +1,7 @@
 package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaConfiguration;
+import java.util.concurrent.ForkJoinPool;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
@@ -129,6 +130,8 @@ public final class SomaSharedSecrets {
         boolean hasMemoryBudget(SomaConfiguration configuration);
 
         long memoryBudgetBytes(SomaConfiguration configuration);
+
+        ForkJoinPool parallelExecutor(SomaConfiguration configuration);
     }
 
     public interface UpdateResultAccess {

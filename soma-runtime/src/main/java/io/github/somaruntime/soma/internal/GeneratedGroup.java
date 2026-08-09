@@ -2,24 +2,35 @@ package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaOperation;
 import java.lang.invoke.MethodHandles;
+import java.util.concurrent.ForkJoinPool;
 
 /** Internal runtime state owned by one generated SomaGroup. */
 public final class GeneratedGroup {
 
     private final GlobalMemoryManager memoryManager;
     private final GlobalMemoryManager.GroupToken accountingToken;
+    private final ForkJoinPool parallelExecutor;
     private final String generatedPackage;
     private final Object capability;
     private final GroupOperationGuard operationGuard = new GroupOperationGuard();
 
     private GeneratedGroup(
             GlobalMemoryManager memoryManager,
+            ForkJoinPool parallelExecutor,
             String generatedPackage,
             Object capability) {
         this.memoryManager = memoryManager;
         this.accountingToken = memoryManager.newGroupToken();
+        this.parallelExecutor = parallelExecutor;
         this.generatedPackage = generatedPackage;
         this.capability = capability;
+    }
+
+    private GeneratedGroup(
+            GlobalMemoryManager memoryManager,
+            String generatedPackage,
+            Object capability) {
+        this(memoryManager, ForkJoinPool.commonPool(), generatedPackage, capability);
     }
 
     static GeneratedGroup create(
@@ -27,8 +38,23 @@ public final class GeneratedGroup {
             GlobalMemoryManager memoryManager,
             String generatedPackage,
             Object capability) {
+        return create(
+                factoryAccess,
+                memoryManager,
+                ForkJoinPool.commonPool(),
+                generatedPackage,
+                capability);
+    }
+
+    static GeneratedGroup create(
+            Object factoryAccess,
+            GlobalMemoryManager memoryManager,
+            ForkJoinPool parallelExecutor,
+            String generatedPackage,
+            Object capability) {
         if (!GeneratedRuntime.acceptsGroupFactoryAccess(factoryAccess)
                 || memoryManager == null
+                || parallelExecutor == null
                 || generatedPackage == null
                 || generatedPackage.isEmpty()
                 || capability == null) {
@@ -37,7 +63,7 @@ public final class GeneratedGroup {
                     "generated Group construction capability is invalid");
         }
         GeneratedGroup group = new GeneratedGroup(
-                memoryManager, generatedPackage, capability);
+                memoryManager, parallelExecutor, generatedPackage, capability);
         memoryManager.registerGroup(group, group.accountingToken);
         return group;
     }
@@ -75,6 +101,10 @@ public final class GeneratedGroup {
 
     GlobalMemoryManager memoryManager() {
         return memoryManager;
+    }
+
+    ForkJoinPool parallelExecutor() {
+        return parallelExecutor;
     }
 
     GlobalMemoryManager.RetainedReservation reserveRetained(

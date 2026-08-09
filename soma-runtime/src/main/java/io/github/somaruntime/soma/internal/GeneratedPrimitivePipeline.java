@@ -130,6 +130,11 @@ final class GeneratedPrimitivePipeline {
             super(plan);
         }
 
+        @Override public SomaIntStream parallel() {
+            claim();
+            return new IntPipeline(plan.parallel());
+        }
+
         @Override public SomaIntStream filter(SomaIntPredicate predicate) {
             require(predicate, "predicate"); claim();
             return new IntPipeline(plan.filter(predicate));
@@ -244,6 +249,11 @@ final class GeneratedPrimitivePipeline {
             super(plan);
         }
 
+        @Override public SomaLongStream parallel() {
+            claim();
+            return new LongPipeline(plan.parallel());
+        }
+
         @Override public SomaLongStream filter(SomaLongPredicate predicate) {
             require(predicate, "predicate"); claim();
             return new LongPipeline(plan.filter(predicate));
@@ -356,6 +366,11 @@ final class GeneratedPrimitivePipeline {
 
         DoublePipeline(PrimitivePlan plan) {
             super(plan);
+        }
+
+        @Override public SomaDoubleStream parallel() {
+            claim();
+            return new DoublePipeline(plan.parallel());
         }
 
         @Override public SomaDoubleStream filter(SomaDoublePredicate predicate) {

@@ -18,6 +18,11 @@ public final class GeneratedPrimitiveValuePipeline {
         this.plan = plan;
     }
 
+    public GeneratedPrimitiveValuePipeline parallel() {
+        claim();
+        return next(plan.parallel());
+    }
+
     public GeneratedPrimitiveValuePipeline filterBoolean(SomaBooleanPredicate callback) { return filter(PrimitivePlan.ValueKind.BOOLEAN, callback); }
     public GeneratedPrimitiveValuePipeline filterByte(SomaBytePredicate callback) { return filter(PrimitivePlan.ValueKind.BYTE, callback); }
     public GeneratedPrimitiveValuePipeline filterShort(SomaShortPredicate callback) { return filter(PrimitivePlan.ValueKind.SHORT, callback); }

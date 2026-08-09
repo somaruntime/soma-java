@@ -5,6 +5,7 @@ import java.util.function.Function;
 
 /** Query-only stream whose element is a borrowed Join Pair. */
 public interface SomaPairStream<L, R> {
+    SomaPairStream<L, R> parallel();
     SomaPairStream<L, R> filter(SomaRelationExpression expression);
     SomaPairStream<L, R> filter(SomaPredicate<? super JoinPair<L, R>> callback);
     <T> MappedStream<T> map(

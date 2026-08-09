@@ -3,6 +3,7 @@ package io.github.somaruntime.soma;
 import java.util.OptionalDouble;
 
 public interface SomaDoubleStream {
+    SomaDoubleStream parallel();
     SomaDoubleStream filter(SomaDoublePredicate predicate);
     SomaDoubleStream map(SomaDoubleUnaryOperator mapper);
     SomaIntStream mapToInt(SomaDoubleToIntFunction mapper);

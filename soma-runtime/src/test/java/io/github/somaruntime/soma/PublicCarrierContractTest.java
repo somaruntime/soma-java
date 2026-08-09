@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
+import java.util.concurrent.ForkJoinPool;
 import org.junit.jupiter.api.Test;
 
 class PublicCarrierContractTest {
@@ -28,6 +29,16 @@ class PublicCarrierContractTest {
         assertNotNull(explicit);
         assertThrows(IllegalArgumentException.class,
                 () -> SomaConfiguration.builder().memoryBudgetBytes(0L));
+        ForkJoinPool pool = new ForkJoinPool(2);
+        try {
+            assertNotNull(SomaConfiguration.builder()
+                    .parallelExecutor(pool)
+                    .build());
+        } finally {
+            pool.shutdownNow();
+        }
+        assertThrows(IllegalArgumentException.class,
+                () -> SomaConfiguration.builder().parallelExecutor(null));
     }
 
     private static void assertAllConstructorsPrivate(Class<?> type) {

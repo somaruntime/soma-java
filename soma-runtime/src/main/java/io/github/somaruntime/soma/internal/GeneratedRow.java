@@ -130,11 +130,13 @@ public final class GeneratedRow extends TypedValues
         requireMode(UPDATE);
         if (!rowLoaded || callbackActive) throw new AssertionError("invalid Editor callback scope");
         callbackActive = true;
+        CallbackExecutionScope.enter();
     }
 
     public void endEditorCallback() {
         requireMode(UPDATE);
         if (!callbackActive) throw new AssertionError("Editor callback scope is not active");
+        CallbackExecutionScope.exit();
         callbackActive = false;
     }
 

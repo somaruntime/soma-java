@@ -80,6 +80,13 @@ final class PrimitivePlan {
     PrimitivePlan limit(long count) {
         return append(new Stage(StageKind.LIMIT, valueKind, valueKind, null, count));
     }
+    PrimitivePlan parallel() {
+        if (rows.isParallel()) return this;
+        MappedPlan<?> nextMapped = mapped == null ? null : mapped.parallel();
+        return new PrimitivePlan(
+                rows.parallel(), rootKind, nextMapped, rootMapper,
+                rootApplicationCallback, rootValueKind, valueKind, stages);
+    }
     boolean hasStatefulStage() {
         if (rows.hasStatefulStage() || mapped != null && mapped.hasStatefulStage()) return true;
         return hasOwnStatefulStage();

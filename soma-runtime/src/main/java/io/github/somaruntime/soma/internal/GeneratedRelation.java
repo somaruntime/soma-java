@@ -27,6 +27,7 @@ public final class GeneratedRelation {
     private final long maxOutputRows;
     private final List<FilterStage> filters;
     private final GeneratedPairCursor pairCursor;
+    private final boolean parallel;
     private final AtomicBoolean consumed = new AtomicBoolean();
 
     private GeneratedRelation(
@@ -37,7 +38,8 @@ public final class GeneratedRelation {
             int kind,
             long maxOutputRows,
             List<FilterStage> filters,
-            GeneratedPairCursor pairCursor) {
+            GeneratedPairCursor pairCursor,
+            boolean parallel) {
         this.left = left;
         this.right = right;
         this.leftFields = leftFields;
@@ -46,6 +48,7 @@ public final class GeneratedRelation {
         this.maxOutputRows = maxOutputRows;
         this.filters = filters;
         this.pairCursor = pairCursor;
+        this.parallel = parallel;
     }
 
     public static GeneratedRelation equality(
@@ -54,7 +57,7 @@ public final class GeneratedRelation {
         requireTables(left, right);
         return new GeneratedRelation(
                 left, right, new int[0], new int[0], INNER, Long.MAX_VALUE,
-                Collections.<FilterStage>emptyList(), new GeneratedPairCursor());
+                Collections.<FilterStage>emptyList(), new GeneratedPairCursor(), false);
     }
 
     public static GeneratedRelation cross(
@@ -68,11 +71,24 @@ public final class GeneratedRelation {
         }
         return new GeneratedRelation(
                 left, right, new int[0], new int[0], CROSS, maxOutputRows,
-                Collections.<FilterStage>emptyList(), new GeneratedPairCursor());
+                Collections.<FilterStage>emptyList(), new GeneratedPairCursor(), false);
     }
 
     public GeneratedPairAccess pairAccess() {
         return pairCursor;
+    }
+
+    public GeneratedRelation parallel() {
+        claim();
+        return parallelCopy();
+    }
+
+    GeneratedRelation parallelCopy() {
+        return copy(leftFields, rightFields, kind, filters, true);
+    }
+
+    boolean isParallel() {
+        return parallel;
     }
 
     public GeneratedPipeline leftPipeline() {
@@ -216,10 +232,13 @@ public final class GeneratedRelation {
                 visit(binding, true, new PairVisitor() {
                     @Override public boolean visit(long left, long right) {
                         try {
+                            CallbackExecutionScope.enter();
                             action.accept();
                         } catch (Exception failure) {
                             throw SomaFailures.callbackFailure(
                                     SomaOperation.QUERY, failure, binding.provenance);
+                        } finally {
+                            CallbackExecutionScope.exit();
                         }
                         return true;
                     }
@@ -266,6 +285,7 @@ public final class GeneratedRelation {
                         + " physical=" + physicalName()
                         + " predicatePushdown=" + pushableFilterCount()
                         + " filters=" + filters.size()
+                        + " mode=" + (parallel ? "PARALLEL" : "SEQUENTIAL")
                         + " order=left-then-right";
             }
         });
@@ -286,6 +306,7 @@ public final class GeneratedRelation {
                     SomaOperation.QUERY, "invalid relation-derived left source");
         }
         try (GroupOperationGuard.Lease operation = left.acquireQuery()) {
+            requireParallelAvailable(operation.provenance());
             TableStateRoot leftRoot = left.currentRoot();
             TableStateRoot rightRoot = right.currentRoot();
             Object provenance = operation.provenance();
@@ -362,6 +383,7 @@ public final class GeneratedRelation {
                     SomaOperation.QUERY, "Join Tables belong to different SomaGroup instances");
         }
         try (GroupOperationGuard.Lease operation = left.acquireQuery()) {
+            requireParallelAvailable(operation.provenance());
             TableStateRoot leftRoot = left.currentRoot();
             TableStateRoot rightRoot = right.currentRoot();
             Object provenance = operation.provenance();
@@ -391,6 +413,25 @@ public final class GeneratedRelation {
                     left.queryCursor().end();
                 }
             }
+        }
+    }
+
+    private void requireParallelAvailable(Object provenance) {
+        if (!parallel) return;
+        if (CallbackExecutionScope.isActive()) {
+            throw SomaFailures.failure(
+                    SomaFailureCode.NESTED_PARALLEL_OPERATION,
+                    SomaOperation.QUERY,
+                    "parallel terminal started inside a SOMA callback",
+                    provenance);
+        }
+        if (left.parallelExecutor().isShutdown()
+                || left.parallelExecutor().isTerminated()) {
+            throw SomaFailures.failure(
+                    SomaFailureCode.PARALLEL_EXECUTOR_UNAVAILABLE,
+                    SomaOperation.QUERY,
+                    "parallel ForkJoinPool is unavailable",
+                    provenance);
         }
     }
 
@@ -713,10 +754,13 @@ public final class GeneratedRelation {
             GeneratedCallbacks.RowPredicate predicate,
             RelationBinding binding) {
         try {
+            CallbackExecutionScope.enter();
             return predicate.test();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
                     SomaOperation.QUERY, failure, binding.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
         }
     }
 
@@ -819,7 +863,18 @@ public final class GeneratedRelation {
             List<FilterStage> nextFilters) {
         return new GeneratedRelation(
                 left, right, nextLeft.clone(), nextRight.clone(), nextKind,
-                maxOutputRows, nextFilters, pairCursor);
+                maxOutputRows, nextFilters, pairCursor, parallel);
+    }
+
+    private GeneratedRelation copy(
+            int[] nextLeft,
+            int[] nextRight,
+            int nextKind,
+            List<FilterStage> nextFilters,
+            boolean nextParallel) {
+        return new GeneratedRelation(
+                left, right, nextLeft.clone(), nextRight.clone(), nextKind,
+                maxOutputRows, nextFilters, pairCursor, nextParallel);
     }
 
     private boolean hasCallbackFilter() {

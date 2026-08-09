@@ -82,6 +82,11 @@ final class MappedPlan<R> {
         return append(new Stage(Kind.LIMIT, null, null, null, count));
     }
 
+    MappedPlan<R> parallel() {
+        if (rows.isParallel()) return this;
+        return new MappedPlan<R>(rows.parallel(), rootMapper, stages);
+    }
+
     boolean hasStatefulStage() {
         if (rows.hasStatefulStage()) return true;
         return hasOwnStatefulStage();

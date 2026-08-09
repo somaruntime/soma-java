@@ -72,6 +72,7 @@ final class GeneratedRelationPrimitivePipeline {
 
     private static final class IntPipeline extends Pipeline implements SomaIntStream {
         IntPipeline(Plan plan) { super(plan); }
+        @Override public SomaIntStream parallel(){claim();return new IntPipeline(plan.parallel());}
         @Override public SomaIntStream filter(SomaIntPredicate p) { require(p,"predicate");claim();return new IntPipeline(plan.add(Stage.of(StageKind.FILTER,Kind.INT,p,0))); }
         @Override public SomaIntStream map(SomaIntUnaryOperator m) { require(m,"mapper");claim();return new IntPipeline(plan.add(Stage.of(StageKind.MAP,Kind.INT,m,0))); }
         @Override public SomaLongStream mapToLong(SomaIntToLongFunction m) { require(m,"mapper");claim();return new LongPipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.LONG,m,0))); }
@@ -99,6 +100,7 @@ final class GeneratedRelationPrimitivePipeline {
 
     private static final class LongPipeline extends Pipeline implements SomaLongStream {
         LongPipeline(Plan plan) { super(plan); }
+        @Override public SomaLongStream parallel(){claim();return new LongPipeline(plan.parallel());}
         @Override public SomaLongStream filter(SomaLongPredicate p){require(p,"predicate");claim();return new LongPipeline(plan.add(Stage.of(StageKind.FILTER,Kind.LONG,p,0)));}
         @Override public SomaLongStream map(SomaLongUnaryOperator m){require(m,"mapper");claim();return new LongPipeline(plan.add(Stage.of(StageKind.MAP,Kind.LONG,m,0)));}
         @Override public SomaIntStream mapToInt(SomaLongToIntFunction m){require(m,"mapper");claim();return new IntPipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.INT,m,0)));}
@@ -126,6 +128,7 @@ final class GeneratedRelationPrimitivePipeline {
 
     private static final class DoublePipeline extends Pipeline implements SomaDoubleStream {
         DoublePipeline(Plan plan){super(plan);}
+        @Override public SomaDoubleStream parallel(){claim();return new DoublePipeline(plan.parallel());}
         @Override public SomaDoubleStream filter(SomaDoublePredicate p){require(p,"predicate");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.FILTER,Kind.DOUBLE,p,0)));}
         @Override public SomaDoubleStream map(SomaDoubleUnaryOperator m){require(m,"mapper");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.MAP,Kind.DOUBLE,m,0)));}
         @Override public SomaIntStream mapToInt(SomaDoubleToIntFunction m){require(m,"mapper");claim();return new IntPipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.INT,m,0)));}
@@ -174,18 +177,20 @@ final class GeneratedRelationPrimitivePipeline {
     }
 
     private static long directValue(Plan plan) {
+        CallbackExecutionScope.enter();
         try {
             if(plan.rootKind==Kind.INT)return ((GeneratedCallbacks.RowToIntMapper)plan.rootMapper).applyAsInt();
             if(plan.rootKind==Kind.LONG)return ((GeneratedCallbacks.RowToLongMapper)plan.rootMapper).applyAsLong();
             return encode(((GeneratedCallbacks.RowToDoubleMapper)plan.rootMapper).applyAsDouble());
         } catch(Exception failure){throw SomaFailures.callbackFailure(SomaOperation.QUERY,failure,new Object());}
+        finally { CallbackExecutionScope.exit(); }
     }
 
-    private static long mappedValue(Plan plan,Object value){try{
+    private static long mappedValue(Plan plan,Object value){CallbackExecutionScope.enter();try{
         if(plan.rootKind==Kind.INT)return ((SomaToIntFunction<Object>)plan.rootMapper).applyAsInt(value);
         if(plan.rootKind==Kind.LONG)return ((SomaToLongFunction<Object>)plan.rootMapper).applyAsLong(value);
         return encode(((SomaToDoubleFunction<Object>)plan.rootMapper).applyAsDouble(value));
-    }catch(Exception failure){throw SomaFailures.callbackFailure(SomaOperation.QUERY,failure,new Object());}}
+    }catch(Exception failure){throw SomaFailures.callbackFailure(SomaOperation.QUERY,failure,new Object());}finally{CallbackExecutionScope.exit();}}
 
     private static void applyStages(Buffer b,Plan plan){Kind current=plan.rootKind;for(Stage s:plan.stages){switch(s.kind){
         case FILTER:{int o=0;for(int i=0;i<b.size;i++)if(test(current,s.callback,b.values[i]))b.values[o++]=b.values[i];b.size=o;break;}
@@ -197,12 +202,12 @@ final class GeneratedRelationPrimitivePipeline {
         default:throw new AssertionError();
     }}}
 
-    private static boolean test(Kind k,Object c,long raw){try{if(k==Kind.INT)return ((SomaIntPredicate)c).test((int)raw);if(k==Kind.LONG)return ((SomaLongPredicate)c).test(raw);return ((SomaDoublePredicate)c).test(decode(raw));}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
-    private static long map(Kind in,Kind out,Object c,long raw){try{
+    private static boolean test(Kind k,Object c,long raw){CallbackExecutionScope.enter();try{if(k==Kind.INT)return ((SomaIntPredicate)c).test((int)raw);if(k==Kind.LONG)return ((SomaLongPredicate)c).test(raw);return ((SomaDoublePredicate)c).test(decode(raw));}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
+    private static long map(Kind in,Kind out,Object c,long raw){CallbackExecutionScope.enter();try{
         if(in==Kind.INT){int v=(int)raw;if(out==Kind.INT)return ((SomaIntUnaryOperator)c).applyAsInt(v);if(out==Kind.LONG)return ((SomaIntToLongFunction)c).applyAsLong(v);return encode(((SomaIntToDoubleFunction)c).applyAsDouble(v));}
         if(in==Kind.LONG){if(out==Kind.INT)return ((SomaLongToIntFunction)c).applyAsInt(raw);if(out==Kind.LONG)return ((SomaLongUnaryOperator)c).applyAsLong(raw);return encode(((SomaLongToDoubleFunction)c).applyAsDouble(raw));}
         double v=decode(raw);if(out==Kind.INT)return ((SomaDoubleToIntFunction)c).applyAsInt(v);if(out==Kind.LONG)return ((SomaDoubleToLongFunction)c).applyAsLong(v);return encode(((SomaDoubleUnaryOperator)c).applyAsDouble(v));
-    }catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
+    }catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
 
     private static long canonical(Kind k,long raw){return k==Kind.DOUBLE?Double.doubleToLongBits(decode(raw)):raw;}
     private static void sort(Buffer b,Kind k){long[] scratch=new long[b.size];merge(b.values,scratch,0,b.size,k);}
@@ -215,12 +220,12 @@ final class GeneratedRelationPrimitivePipeline {
     private static SomaDoubleSummary doubleSummary(Buffer b){if(b.size==0)return SomaSharedSecrets.doubleSummaryAccess().create(0,0,0,0,0);double min=decode(extremum(b,Kind.DOUBLE,false)),max=decode(extremum(b,Kind.DOUBLE,true)),sum=floatingSum(b);return SomaSharedSecrets.doubleSummaryAccess().create(b.size,min,max,sum,sum/b.size);}
     private static double pairwiseBlocks(double[] v,int n){int blocks=0;for(int start=0;start<n;start+=1024){int len=Math.min(1024,n-start);v[blocks++]=pairwise(v,start,len);}return pairwise(v,0,blocks);}
     private static double pairwise(double[] v,int start,int n){if(n==0)return 0;for(int w=1;w<n;w<<=1)for(int i=0;i+w<n;i+=w<<1)v[start+i]+=v[start+i+w];return v[start];}
-    private static boolean testInt(SomaIntPredicate p,int v){try{return p.test(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
-    private static boolean testLong(SomaLongPredicate p,long v){try{return p.test(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
-    private static boolean testDouble(SomaDoublePredicate p,double v){try{return p.test(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
-    private static void acceptInt(SomaIntConsumer a,int v){try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
-    private static void acceptLong(SomaLongConsumer a,long v){try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
-    private static void acceptDouble(SomaDoubleConsumer a,double v){try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}}
+    private static boolean testInt(SomaIntPredicate p,int v){CallbackExecutionScope.enter();try{return p.test(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
+    private static boolean testLong(SomaLongPredicate p,long v){CallbackExecutionScope.enter();try{return p.test(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
+    private static boolean testDouble(SomaDoublePredicate p,double v){CallbackExecutionScope.enter();try{return p.test(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
+    private static void acceptInt(SomaIntConsumer a,int v){CallbackExecutionScope.enter();try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
+    private static void acceptLong(SomaLongConsumer a,long v){CallbackExecutionScope.enter();try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
+    private static void acceptDouble(SomaDoubleConsumer a,double v){CallbackExecutionScope.enter();try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
     private static long encode(double v){return Double.doubleToRawLongBits(v);}
     private static double decode(long v){return Double.longBitsToDouble(v);}
     private static String explain(Plan p){return "SOMA relation-primitive kind="+p.valueKind+" stages="+p.stages.length;}
@@ -233,5 +238,6 @@ final class GeneratedRelationPrimitivePipeline {
         static Plan direct(GeneratedRelation r,Kind k,Object m){return new Plan(r,null,k,m,k,new Stage[0]);}
         static Plan mapped(GeneratedRelationMappedPipeline.Plan p,Kind k,Object m){return new Plan(null,p,k,m,k,new Stage[0]);}
         Plan add(Stage s){Stage[] n=new Stage[stages.length+1];System.arraycopy(stages,0,n,0,stages.length);n[stages.length]=s;return new Plan(relation,mapped,rootKind,rootMapper,s.output,n);}
+        Plan parallel(){return new Plan(relation==null?null:relation.parallelCopy(),mapped==null?null:mapped.parallel(),rootKind,rootMapper,valueKind,stages);}
     }
 }

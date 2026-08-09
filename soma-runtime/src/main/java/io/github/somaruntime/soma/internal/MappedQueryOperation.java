@@ -225,7 +225,7 @@ final class MappedQueryOperation {
             return;
         }
         final long[] counters = new long[plan.stages.size()];
-        OptimizedSequentialRowExecutor.visit(bound, locator -> {
+        RowExecutor.visit(bound, locator -> {
             if (mappedLimitReached(plan, counters)) return false;
             Object value = RowExecutionSupport.callbackMap(
                     bound, locator, plan.rootMapper, true);
@@ -302,7 +302,7 @@ final class MappedQueryOperation {
             final int to,
             final ObjectBuffer output) {
         final long[] counters = new long[to - from];
-        OptimizedSequentialRowExecutor.visit(bound, locator -> {
+        RowExecutor.visit(bound, locator -> {
             if (mappedSegmentLimitReached(plan.stages, from, to, counters)) {
                 return false;
             }
@@ -450,34 +450,38 @@ final class MappedQueryOperation {
 
     private static boolean callbackPredicate(
             BoundRowPlan bound, SomaPredicate<Object> predicate, Object value) {
+        CallbackExecutionScope.enter();
         try { return predicate.test(value); }
         catch (Exception failure) {
             throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance);
-        }
+        } finally { CallbackExecutionScope.exit(); }
     }
 
     private static Object callbackMap(
             BoundRowPlan bound, java.util.function.Function<Object, Object> mapper, Object value) {
+        CallbackExecutionScope.enter();
         try { return mapper.apply(value); }
         catch (Exception failure) {
             throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance);
-        }
+        } finally { CallbackExecutionScope.exit(); }
     }
 
     static int callbackCompare(
             BoundRowPlan bound, Comparator<Object> comparator, Object left, Object right) {
+        CallbackExecutionScope.enter();
         try { return comparator.compare(left, right); }
         catch (Exception failure) {
             throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance);
-        }
+        } finally { CallbackExecutionScope.exit(); }
     }
 
     private static void callbackAction(
             BoundRowPlan bound, Consumer<Object> action, Object value) {
+        CallbackExecutionScope.enter();
         try { action.accept(value); }
         catch (Exception failure) {
             throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, bound.provenance);
-        }
+        } finally { CallbackExecutionScope.exit(); }
     }
 
     private static void requireDetached(BoundRowPlan bound, Object value) {

@@ -23,7 +23,7 @@ final class QueryOperation {
 
             @Override
             public Long run(BoundRowPlan bound) {
-                return OptimizedSequentialRowExecutor.count(bound);
+                return RowExecutor.count(bound);
             }
         });
     }
@@ -54,7 +54,7 @@ final class QueryOperation {
             @Override
             public Boolean run(final BoundRowPlan bound) {
                 final boolean[] matched = new boolean[1];
-                OptimizedSequentialRowExecutor.visit(
+                RowExecutor.visit(
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
@@ -84,7 +84,7 @@ final class QueryOperation {
             @Override
             public Boolean run(final BoundRowPlan bound) {
                 final boolean[] all = new boolean[] {true};
-                OptimizedSequentialRowExecutor.visit(
+                RowExecutor.visit(
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
@@ -124,7 +124,7 @@ final class QueryOperation {
             public Optional<R> run(final BoundRowPlan bound) {
                 final Object[] first = new Object[1];
                 final boolean[] present = new boolean[1];
-                OptimizedSequentialRowExecutor.visit(
+                RowExecutor.visit(
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
@@ -160,7 +160,7 @@ final class QueryOperation {
 
             @Override
             public Object run(final BoundRowPlan bound) {
-                OptimizedSequentialRowExecutor.visit(
+                RowExecutor.visit(
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
@@ -191,7 +191,7 @@ final class QueryOperation {
                 int upper = RowExecutionSupport.arrayLength(
                         bound.outputUpperBound(), bound.provenance);
                 final ArrayList<R> result = new ArrayList<R>(upper);
-                OptimizedSequentialRowExecutor.visit(
+                RowExecutor.visit(
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
@@ -226,7 +226,7 @@ final class QueryOperation {
                 @SuppressWarnings("unchecked")
                 final R[] staging = (R[]) Array.newInstance(componentType, upper);
                 final int[] size = new int[1];
-                OptimizedSequentialRowExecutor.visit(
+                RowExecutor.visit(
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
@@ -274,6 +274,8 @@ final class QueryOperation {
                 optimized.stages, LogicalRowPlan.StageKind.TYPED_FILTER);
         result.append(" physicalSource=")
                 .append(optimized.sourceKind)
+                .append(" mode=")
+                .append(logical.isParallel() ? "PARALLEL" : "SEQUENTIAL")
                 .append(" indexSubstitution=")
                 .append(optimized.sourceKind == NormalizedRowPlan.SourceKind.KEY_LOOKUP
                         || optimized.sourceKind == NormalizedRowPlan.SourceKind.INDEX_LOOKUP)
@@ -423,7 +425,7 @@ final class QueryOperation {
 
             @Override
             public long[] run(BoundRowPlan bound) {
-                return copy(OptimizedSequentialRowExecutor.locators(bound));
+                return copy(RowExecutor.locators(bound));
             }
         });
     }
@@ -475,6 +477,13 @@ final class QueryOperation {
                     result,
                     RowExecutionSupport.arrayBytes(
                             literals, 256L, bound.provenance),
+                    bound.provenance);
+        }
+        if (bound.logical.isParallel()) {
+            result = addScratch(
+                    result,
+                    RowExecutionSupport.arrayBytes(
+                            bound.root.size, 24L, bound.provenance),
                     bound.provenance);
         }
         return result;

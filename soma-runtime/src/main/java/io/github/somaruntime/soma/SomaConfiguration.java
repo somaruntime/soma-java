@@ -1,6 +1,7 @@
 package io.github.somaruntime.soma;
 
 import io.github.somaruntime.soma.internal.SomaSharedSecrets;
+import java.util.concurrent.ForkJoinPool;
 
 /** Immutable process-wide SOMA configuration. */
 public final class SomaConfiguration {
@@ -17,15 +18,23 @@ public final class SomaConfiguration {
                     public long memoryBudgetBytes(SomaConfiguration configuration) {
                         return configuration.memoryBudgetBytes;
                     }
+
+                    @Override
+                    public ForkJoinPool parallelExecutor(
+                            SomaConfiguration configuration) {
+                        return configuration.parallelExecutor;
+                    }
                 });
     }
 
     private final boolean hasMemoryBudget;
     private final long memoryBudgetBytes;
+    private final ForkJoinPool parallelExecutor;
 
     private SomaConfiguration(Builder builder) {
         this.hasMemoryBudget = builder.hasMemoryBudget;
         this.memoryBudgetBytes = builder.memoryBudgetBytes;
+        this.parallelExecutor = builder.parallelExecutor;
     }
 
     public static Builder builder() {
@@ -41,6 +50,7 @@ public final class SomaConfiguration {
 
         private boolean hasMemoryBudget;
         private long memoryBudgetBytes;
+        private ForkJoinPool parallelExecutor;
 
         private Builder() {
         }
@@ -55,6 +65,14 @@ public final class SomaConfiguration {
             }
             this.hasMemoryBudget = true;
             this.memoryBudgetBytes = bytes;
+            return this;
+        }
+
+        public Builder parallelExecutor(ForkJoinPool executor) {
+            if (executor == null) {
+                throw new IllegalArgumentException("parallelExecutor is null");
+            }
+            this.parallelExecutor = executor;
             return this;
         }
 

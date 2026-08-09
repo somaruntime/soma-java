@@ -3,6 +3,7 @@ package io.github.somaruntime.soma.internal;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.concurrent.ForkJoinPool;
 
 final class RuntimeConfigurationState {
 
@@ -45,13 +46,23 @@ final class RuntimeConfigurationState {
 
         private final long memoryBudgetBytes;
         private final String policyIdentity;
+        private final ForkJoinPool parallelExecutor;
 
         Snapshot(long memoryBudgetBytes, String policyIdentity) {
+            this(memoryBudgetBytes, policyIdentity, ForkJoinPool.commonPool());
+        }
+
+        Snapshot(
+                long memoryBudgetBytes,
+                String policyIdentity,
+                ForkJoinPool parallelExecutor) {
             if (memoryBudgetBytes <= 0L) {
                 throw new IllegalArgumentException("memoryBudgetBytes must be positive");
             }
             this.memoryBudgetBytes = memoryBudgetBytes;
             this.policyIdentity = Objects.requireNonNull(policyIdentity, "policyIdentity");
+            this.parallelExecutor = Objects.requireNonNull(
+                    parallelExecutor, "parallelExecutor");
         }
 
         long memoryBudgetBytes() {
@@ -60,6 +71,10 @@ final class RuntimeConfigurationState {
 
         String policyIdentity() {
             return policyIdentity;
+        }
+
+        ForkJoinPool parallelExecutor() {
+            return parallelExecutor;
         }
     }
 

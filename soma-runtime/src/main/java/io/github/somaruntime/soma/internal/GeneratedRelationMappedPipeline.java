@@ -38,6 +38,11 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
                 new Plan(relation, mapper, Collections.<Stage>emptyList()));
     }
 
+    @Override public MappedStream<R> parallel() {
+        claim();
+        return new GeneratedRelationMappedPipeline<R>(plan.parallel());
+    }
+
     @Override public MappedStream<R> filter(SomaPredicate<? super R> predicate) {
         require(predicate, "predicate"); claim();
         return next(Stage.filter(castPredicate(predicate)));
@@ -159,11 +164,12 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
                         plan.relation.visitBound(binding, true, new GeneratedRelation.PairVisitor() {
                             @Override public boolean visit(long left, long right) {
                                 Object value;
+                                CallbackExecutionScope.enter();
                                 try { value = plan.mapper.apply(); }
                                 catch (Exception failure) {
                                     throw SomaFailures.callbackFailure(
                                             SomaOperation.QUERY, failure, binding.provenance);
-                                }
+                                } finally { CallbackExecutionScope.exit(); }
                                 if (plan.relation.isBorrowed(value)) {
                                     throw SomaFailures.failure(
                                             SomaFailureCode.CALLBACK_SCOPE_VIOLATION,
@@ -254,20 +260,28 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
         if (value < 0L) throw SomaFailures.invalid(SomaOperation.QUERY, category + " is negative");
     }
     private static boolean test(SomaPredicate<Object> predicate, Object value) {
+        CallbackExecutionScope.enter();
         try { return predicate.test(value); }
         catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, new Object()); }
+        finally { CallbackExecutionScope.exit(); }
     }
     private static Object apply(Function<Object, Object> mapper, Object value) {
+        CallbackExecutionScope.enter();
         try { return mapper.apply(value); }
         catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, new Object()); }
+        finally { CallbackExecutionScope.exit(); }
     }
     private static int compare(Comparator<Object> comparator, Object left, Object right) {
+        CallbackExecutionScope.enter();
         try { return comparator.compare(left, right); }
         catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, new Object()); }
+        finally { CallbackExecutionScope.exit(); }
     }
     private static void accept(Consumer<Object> consumer, Object value) {
+        CallbackExecutionScope.enter();
         try { consumer.accept(value); }
         catch (Exception failure) { throw SomaFailures.callbackFailure(SomaOperation.QUERY, failure, new Object()); }
+        finally { CallbackExecutionScope.exit(); }
     }
 
     static final class Plan {
@@ -281,6 +295,9 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
             ArrayList<Stage> next = new ArrayList<Stage>(stages.size() + 1);
             next.addAll(stages); next.add(stage);
             return new Plan(relation, mapper, Collections.unmodifiableList(next));
+        }
+        Plan parallel() {
+            return new Plan(relation.parallelCopy(), mapper, stages);
         }
     }
 

@@ -25,6 +25,11 @@ public final class GeneratedPipeline {
         this.plan = plan;
     }
 
+    public GeneratedPipeline parallel() {
+        claim();
+        return new GeneratedPipeline(owner, plan.parallel());
+    }
+
     public GeneratedPipeline filter(SomaExpression<?> expression) {
         PredicateIr next = owner.requireOwnedExpression(expression);
         claim();

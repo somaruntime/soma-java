@@ -57,7 +57,7 @@ class SomaProcessorTest {
                     "public io.github.somaruntime.soma.UpdateResult update("));
             assertTrue(table.contains(
                     "public io.github.somaruntime.soma.RemoveResult remove(long key)"));
-            assertFalse(table.contains("parallel("));
+            assertTrue(table.contains("public Stream parallel()"));
             assertFalse(table.contains("filter(SomaPredicate"));
 
             String manifest = compilation.classOutput(

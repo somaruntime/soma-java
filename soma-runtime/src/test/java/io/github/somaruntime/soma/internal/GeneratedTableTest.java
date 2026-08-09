@@ -24,11 +24,63 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class GeneratedTableTest {
+
+    @Test
+    void parallelModeUsesBoundedCustomPoolAndPreservesCanonicalResults() {
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4);
+        try {
+            GeneratedTable table = new GeneratedTable(
+                    testGroup(new GlobalMemoryManager(64L << 20), pool),
+                    testLayout(), 4, MutationFaultInjector.NONE);
+            for (int index = 0; index < 256; index++) {
+                add(table, index + 1L, "bucket-" + (index & 3), index, new Object());
+            }
+            GeneratedProbe minimum = table.newProbe(2);
+            minimum.putInt(2, 128);
+            SomaExpression<Object> expression = table.ge(minimum.seal());
+
+            long sequential = table.filter(expression).count();
+            long parallel = table.parallel().filter(expression).count();
+            assertEquals(sequential, parallel);
+            assertTrue(pool.submissions.get() > 0);
+            assertTrue(table.parallel().explain().contains("mode=PARALLEL"));
+
+            Thread caller = Thread.currentThread();
+            AtomicReference<Thread> callbackThread = new AtomicReference<Thread>();
+            table.parallel().filter(expression).forEach(() -> {
+                callbackThread.compareAndSet(null, Thread.currentThread());
+                assertSame(caller, Thread.currentThread());
+            });
+            assertSame(caller, callbackThread.get());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void parallelModeFailsClosedWhenConfiguredPoolIsShutdown() {
+        ForkJoinPool pool = new ForkJoinPool(2);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20), pool),
+                testLayout(), 4, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+        pool.shutdownNow();
+
+        SomaOperationException failure = assertThrows(
+                SomaOperationException.class,
+                () -> table.parallel().count());
+        assertEquals(
+                SomaFailureCode.PARALLEL_EXECUTOR_UNAVAILABLE,
+                failure.code());
+    }
 
     @Test
     void selectionUpdatePublishesOneGenerationAndNoOpPublishesNothing() {
@@ -1746,6 +1798,40 @@ class GeneratedTableTest {
                     memoryManager, "test.generated", new Object());
         } catch (ReflectiveOperationException failure) {
             throw new AssertionError(failure);
+        }
+    }
+
+    private static GeneratedGroup testGroup(
+            GlobalMemoryManager memoryManager,
+            ForkJoinPool parallelExecutor) {
+        try {
+            Constructor<GeneratedGroup> constructor = GeneratedGroup.class
+                    .getDeclaredConstructor(
+                            GlobalMemoryManager.class,
+                            ForkJoinPool.class,
+                            String.class,
+                            Object.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(
+                    memoryManager,
+                    parallelExecutor,
+                    "test.generated",
+                    new Object());
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    private static final class TrackingForkJoinPool extends ForkJoinPool {
+        private final AtomicInteger submissions = new AtomicInteger();
+
+        TrackingForkJoinPool(int parallelism) {
+            super(parallelism);
+        }
+
+        @Override public ForkJoinTask<?> submit(Runnable task) {
+            submissions.incrementAndGet();
+            return super.submit(task);
         }
     }
 

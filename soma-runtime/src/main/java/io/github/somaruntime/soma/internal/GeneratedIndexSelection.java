@@ -30,6 +30,10 @@ public final class GeneratedIndexSelection {
                 LogicalRowPlan.indexSelection(owner, indexOrdinal, probe));
     }
 
+    public GeneratedPipeline parallel() {
+        return pipeline().parallel();
+    }
+
     public GeneratedPipeline filter(io.github.somaruntime.soma.SomaExpression<?> expression) {
         return pipeline().filter(expression);
     }

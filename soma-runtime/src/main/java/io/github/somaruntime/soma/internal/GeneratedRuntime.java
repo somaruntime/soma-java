@@ -5,6 +5,7 @@ import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ForkJoinPool;
 
 /** Internal entry used only by generated composition roots. */
 public final class GeneratedRuntime {
@@ -40,7 +41,10 @@ public final class GeneratedRuntime {
                         budget,
                         access.hasMemoryBudget(configuration)
                                 ? "application-v1"
-                                : "automatic-v1");
+                                : "automatic-v1",
+                        access.parallelExecutor(configuration) == null
+                                ? ForkJoinPool.commonPool()
+                                : access.parallelExecutor(configuration));
         RuntimeConfigurationState.Snapshot configured;
         try {
             configured = RuntimeConfigurationOwner.configure(candidate);
@@ -60,7 +64,8 @@ public final class GeneratedRuntime {
         requireGeneratedSoma(caller, capability);
         environment(RuntimeConfigurationOwner.freezeDefault(
                 () -> new RuntimeConfigurationState.Snapshot(
-                        automaticBudget(), "automatic-v1")));
+                        automaticBudget(), "automatic-v1",
+                        ForkJoinPool.commonPool())));
     }
 
     public static GeneratedGroup createGroup(
@@ -70,10 +75,12 @@ public final class GeneratedRuntime {
         RuntimeConfigurationState.Snapshot snapshot =
                 RuntimeConfigurationOwner.freezeDefault(
                         () -> new RuntimeConfigurationState.Snapshot(
-                                automaticBudget(), "automatic-v1"));
+                                automaticBudget(), "automatic-v1",
+                                ForkJoinPool.commonPool()));
         return GeneratedGroup.create(
                 GROUP_FACTORY_ACCESS,
                 environment(snapshot).memoryManager,
+                snapshot.parallelExecutor(),
                 generatedPackage,
                 capability);
     }
