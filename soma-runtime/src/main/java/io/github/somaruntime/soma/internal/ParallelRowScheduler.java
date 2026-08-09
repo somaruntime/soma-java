@@ -256,7 +256,8 @@ final class ParallelRowScheduler {
         }
 
         private boolean matchesTypedPrefix(long locator) {
-            for (LogicalRowPlan.Stage stage : plan.stages) {
+            for (int index = 0; index < plan.stages.size(); index++) {
+                LogicalRowPlan.Stage stage = plan.stages.get(index);
                 if (stage.kind != LogicalRowPlan.StageKind.TYPED_FILTER) break;
                 if (!OptimizedPredicateEvaluator.matches(
                         bound.logical.owner().layout(),
