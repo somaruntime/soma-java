@@ -3,13 +3,13 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0-I2 `COMPLETED`；I3-I8 `NOT_STARTED`
+Implementation authorization `GRANTED`；I0-I3 `COMPLETED`；I4-I8 `NOT_STARTED`
 
 正式事实源：是
 
 Owner：SOMA Java Blueprint、Design、implementation与evidence的一致性状态
 
-最后审查日期：2026-08-08
+最后审查日期：2026-08-09
 
 ## 1. 文档责任
 
@@ -31,13 +31,14 @@ Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
-Production source/reactor      PRESENT (I0-I2 scope)
-Generated consumer API         PRESENT (I2 schema/type/Key/Index breadth)
-Active slice                   NONE (next: I3)
+Production source/reactor      PRESENT (I0-I3 scope)
+Generated consumer API         PRESENT (I3 sequential query surface)
+Active slice                   NONE (next: I4)
 G1                             PASS
-G2-G3                          I2_SCOPE_PASS / OVERALL IN_PROGRESS
-G4                             I1_I2_DIRECT_SOURCE_SCOPE_PASS / OVERALL IN_PROGRESS
-G5                             I1_SCOPE_PASS / OVERALL IN_PROGRESS
+G2                             I3_SCOPE_PASS / OVERALL IN_PROGRESS
+G3                             I2_SCOPE_PASS / OVERALL IN_PROGRESS
+G4                             PASS
+G5                             I3_QUERY_SCOPE_PASS / OVERALL IN_PROGRESS
 G6-G9                          NOT_RUN
 G10                            I0_SCOPE_PASS / OVERALL IN_PROGRESS
 Package/release                NOT_QUALIFIED
@@ -46,7 +47,8 @@ Package/release                NOT_QUALIFIED
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
 [正式资格](i1-primitive-keyed-table-qualification.md)证明第一套primitive keyed Table纵向闭环成立；
 I2 [正式资格](i2-schema-type-storage-breadth-qualification.md)证明schema/type/storage/Key/Index breadth
-成立，不表示I3-I8 capability已经成立。当前授权允许每个slice闭合后的commit与`develop`
+成立；I3 [正式资格](i3-query-ir-reference-qualification.md)证明sequential query、typed IR、reference
+interpreter与optimized execution成立，不表示I4-I8 capability已经成立。当前授权允许每个slice闭合后的commit与`develop`
 push，以及下文第6节限定的内部资格验证；不包含远端artifact发布、签名或正式release声明。
 
 ## 3. Conformance matrix
@@ -54,13 +56,13 @@ push，以及下文第6节限定的内部资格验证；不包含远端artifact�
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
-| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I2公开schema/type/Key/Index surface与full regeneration已建立 | I2_SCOPE_PASS / IN_PROGRESS |
+| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I3 query generated surface与full regeneration已建立 | I3_SCOPE_PASS / IN_PROGRESS |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | paged PLAIN primitive/reference storage、Value flattening、Key/multiple Index与atomic StateRoot已建立；compression待I7 | I2_SCOPE_PASS / IN_PROGRESS |
-| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index direct source、typed point selection与point mutation已建立；完整Stream/Field operation与relation待后续slice | I1_I2_DIRECT_SOURCE_SCOPE_PASS / IN_PROGRESS |
-| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I2 generated object/Table/View/Editor/Field/Index surface已由155-class javap/negative冻结 | I2_SCOPE_PASS / IN_PROGRESS |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | typed expression与one-shot/direct-source carrier已建立；完整IR/reference/optimizer待I3 | I1_I2_DIRECT_SOURCE_SCOPE_PASS / IN_PROGRESS |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | terminal-start binding、Group guard、point add/update/remove与bounded admission已建立；Selection/GC accounting/parallel待I4/I6 | I1_SCOPE_PASS / IN_PROGRESS |
-| Result/failure | [Failure](../design/results-and-failures.md) | structured failure、point mutation failed-state与no-publication已建立；完整matrix待I4 | I1_SCOPE_PASS / IN_PROGRESS |
+| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field source与完整sequential query operation已建立；Selection mutation与relation待I4-I5 | I3_SCOPE_PASS / IN_PROGRESS |
+| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I3 query generated/runtime public surface已由source、public/verbose javap与negative冻结 | I3_SCOPE_PASS / IN_PROGRESS |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | typed logical IR、reference interpreter、normalized/optimized sequential execution与Index substitution已建立 | PASS |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | terminal-start binding、query lifecycle、Group guard、point mutation与bounded admission已建立；Selection/GC accounting/parallel待I4/I6 | I3_QUERY_SCOPE_PASS / IN_PROGRESS |
+| Result/failure | [Failure](../design/results-and-failures.md) | query scalar/numeric/materialization、structured callback/resource failure与point mutation failed-state已建立；mutation完整matrix待I4 | I3_QUERY_SCOPE_PASS / IN_PROGRESS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8 qualification通过 | I0_COMPLETED |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
 | Security/package/release | G10 | dependency/license/OSV/legal/checksum/reproducibility baseline成立；workflow与完整package/release待I8 | I0_SCOPE_PASS / IN_PROGRESS |
@@ -84,6 +86,9 @@ push，以及下文第6节限定的内部资格验证；不包含远端artifact�
 - [I2 Schema、Type 与 Storage Breadth Qualification](i2-schema-type-storage-breadth-qualification.md)：
   I2 implementation commit、complete type/Key/Index matrix、generated breadth、failed-state、规模journey
   与独立审查Owner。
+- [I3 Query IR 与 Reference Execution Qualification](i3-query-ir-reference-qualification.md)：
+  I3 implementation commit、sequential query surface、logical/physical plan、reference differential、
+  materialization、numeric与qualification Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -104,18 +109,18 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | Gate | Status |
 |---|---|
 | G1 Artifact/build/full regeneration | PASS |
-| G2 Schema/generated surface | I2_SCOPE_PASS / IN_PROGRESS |
+| G2 Schema/generated surface | I3_SCOPE_PASS / IN_PROGRESS |
 | G3 Storage/Key/Index | I2_SCOPE_PASS / IN_PROGRESS |
-| G4 Query/IR/optimizer | I1_I2_DIRECT_SOURCE_SCOPE_PASS / IN_PROGRESS |
-| G5 Mutation/resource/failure | I1_SCOPE_PASS / IN_PROGRESS |
+| G4 Query/IR/optimizer | PASS |
+| G5 Mutation/resource/failure | I3_QUERY_SCOPE_PASS / IN_PROGRESS |
 | G6 Group/Join | NOT_RUN |
 | G7 Parallel | NOT_RUN |
 | G8 Compression/metadata | NOT_RUN |
 | G9 Scenarios/performance | NOT_RUN |
 | G10 Security/package/release | I0_SCOPE_PASS / IN_PROGRESS |
 
-Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`/`I1_SCOPE_PASS`/
-`I2_SCOPE_PASS`只关闭相应slice拥有的证据，不等于整个Gate已经完成。
+Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`/`I2_SCOPE_PASS`/
+`I3_SCOPE_PASS`只关闭相应slice拥有的证据，不等于整个Gate已经完成。
 
 ## 6. Implementation authorization contract
 
@@ -137,7 +142,8 @@ Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`
   test runtime必须只处于test scope；I0需固定一个官方支持Java 8的具体版本，并记录dependency
   tree、license、known-vulnerability、Java 8 compatibility与artifact leakage证据；不得引入
   Vintage或把JUnit传递到`soma-runtime`、`soma-processor`及consumer runtime；
-- subagent只用于独立分析、测试与审查，不并行修改同一核心surface；
+- 默认由主Agent沿单一路径推进；Gate需要独立证据时至多使用一个bounded只读subagent，不以重复审查
+  替代实施，也不并行修改同一核心surface；
 - Blueprint/Design语义变化、stop rule、权限扩张、上述JUnit test stack以外的新dependency、
   第三production artifact、证明链无法闭合或性能与正确性取舍必须暂停等待Product Owner。
 
@@ -150,9 +156,10 @@ Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`
 
 I0已经以standard Maven/JDK build surface与JUnit Jupiter `5.11.4` test-only stack完成资格；
 具体版本、dependency tree、license、2026-08-04时点known-vulnerability、Java 8执行与artifact
-隔离证据见[I0记录](i0-build-spine-qualification.md)。I1与I2资格分别见
-[I1记录](i1-primitive-keyed-table-qualification.md)和
-[I2记录](i2-schema-type-storage-breadth-qualification.md)；下一项只允许从I3开始。CI/release
+隔离证据见[I0记录](i0-build-spine-qualification.md)。I1-I3资格分别见
+[I1记录](i1-primitive-keyed-table-qualification.md)、
+[I2记录](i2-schema-type-storage-breadth-qualification.md)和
+[I3记录](i3-query-ir-reference-qualification.md)；下一项只允许从I4开始。CI/release
 qualification workflow可以在其所属slice建立和运行，但必须保持non-publishing。GitHub
 Release、Package publication、签名和正式发布声明均不在授权内。
 

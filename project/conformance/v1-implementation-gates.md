@@ -2,15 +2,15 @@
 
 类型：Conformance Gate Definition
 
-状态：Active；G1 `PASS`；G2-G3 `I2_SCOPE_PASS / IN_PROGRESS`；
-G4 `I1_I2_DIRECT_SOURCE_SCOPE_PASS / IN_PROGRESS`；G5 `I1_SCOPE_PASS / IN_PROGRESS`；
+状态：Active；G1、G4 `PASS`；G2 `I3_SCOPE_PASS / IN_PROGRESS`；
+G3 `I2_SCOPE_PASS / IN_PROGRESS`；G5 `I3_QUERY_SCOPE_PASS / IN_PROGRESS`；
 G10 `I0_SCOPE_PASS / IN_PROGRESS`；G6-G9 `NOT_RUN`
 
 正式事实源：是（production evidence最低集合）
 
 Owner：SOMA Java V1 implementation、qualification与release claim Gate
 
-最后审查日期：2026-08-04
+最后审查日期：2026-08-09
 
 ## 1. Gate原则
 
@@ -119,6 +119,10 @@ INV-01..19路由证明责任；ID用于attention与coverage，不替代分责Des
 - element callback successful full-traversal once、short-circuit canonical prefix，以及Comparator/
   equals/hashCode可重复调用的canonical caller-thread barrier；
 - `_explain()`不执行callback/data kernel。
+
+Current disposition：`PASS`。I3资格以Java 8 consumer、logical/physical plan golden、reference与
+optimized sequential differential、generated/runtime ABI和I0-I2 regression关闭本Gate；精确证据见
+[I3 Qualification](i3-query-ir-reference-qualification.md)。
 
 ## 6. G5 — Mutation、Resource 与 Structured Failure
 
@@ -247,10 +251,10 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 | Gate | Current | First owning slice |
 |---|---|---|
 | G1 Build/full regeneration | PASS | I0 |
-| G2 Schema/generated surface | I2_SCOPE_PASS / IN_PROGRESS | I0-I2 |
+| G2 Schema/generated surface | I3_SCOPE_PASS / IN_PROGRESS | I0-I2 |
 | G3 Storage/Key/Index | I2_SCOPE_PASS / IN_PROGRESS | I1-I2 |
-| G4 Query/IR/optimizer | I1_I2_DIRECT_SOURCE_SCOPE_PASS / IN_PROGRESS | I1-I3 |
-| G5 Mutation/resource/failure | I1_SCOPE_PASS / IN_PROGRESS | I1、I4 |
+| G4 Query/IR/optimizer | PASS | I1-I3 |
+| G5 Mutation/resource/failure | I3_QUERY_SCOPE_PASS / IN_PROGRESS | I1、I4 |
 | G6 Group/Join | NOT_RUN | I5 |
 | G7 Parallel | NOT_RUN | I6 |
 | G8 Compression/metadata | NOT_RUN | I7 |
@@ -262,8 +266,10 @@ I0的artifact/build baseline见
 storage/primitive Key、typed query、point update、resource/failure与独立审查见
 [I1 Primitive Keyed Table Qualification](i1-primitive-keyed-table-qualification.md)；I2的完整
 schema/type/Key/Index matrix、generated breadth、failed-state与规模journey见
-[I2 Schema、Type 与 Storage Breadth Qualification](i2-schema-type-storage-breadth-qualification.md)。
-G4-G5仍等待I3-I4拥有的完整IR/mutation closure；G10仍等待I8 CI、完整SBOM、package consumer与release
+[I2 Schema、Type 与 Storage Breadth Qualification](i2-schema-type-storage-breadth-qualification.md)；I3的
+query IR、reference/optimized sequential execution、materialization与G4 closure见
+[I3 Query IR 与 Reference Execution Qualification](i3-query-ir-reference-qualification.md)。G5仍等待
+I4 mutation/resource closure；G10仍等待I8 CI、完整SBOM、package consumer与release
 qualification。
 
 ## 13. Evidence record format

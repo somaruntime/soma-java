@@ -2,22 +2,23 @@
 
 类型：Engineering Plan
 
-状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0-I2 COMPLETED / NO_ACTIVE_SLICE / NEXT I3
+状态：Active Baseline / IMPLEMENTATION_AUTHORIZED / I0-I3 COMPLETED / NO_ACTIVE_SLICE / NEXT I4
 
 正式事实源：是（实施顺序、slice exit与stop rule）
 
 Owner：SOMA Java V1 production implementation slices、依赖顺序与Definition of Done
 
-最后审查日期：2026-08-08
+最后审查日期：2026-08-09
 
 ## 1. 目标与授权边界
 
 本计划把正式Blueprint/Design转化为Java 8 compiler/runtime product。Product Owner 已于
-2026-08-03 单独授予完整 V1 implementation authorization。I0-I2已经完成并分别通过
+2026-08-03 单独授予完整 V1 implementation authorization。I0-I3已经完成并分别通过
 [I0正式资格](../conformance/i0-build-spine-qualification.md)与
 [I1正式资格](../conformance/i1-primitive-keyed-table-qualification.md)、
-[I2正式资格](../conformance/i2-schema-type-storage-breadth-qualification.md)；当前没有active slice，
-下一项只允许从I3开始。
+[I2正式资格](../conformance/i2-schema-type-storage-breadth-qualification.md)、
+[I3正式资格](../conformance/i3-query-ir-reference-qualification.md)；当前没有active slice，
+下一项只允许从I4开始。
 
 当前授权同时覆盖repository-local CI/non-publishing release qualification workflow、local/internal
 benchmark与profile、local Maven package qualification，以及JUnit Jupiter 5.x test-only stack。
@@ -53,7 +54,7 @@ production class名，也不是每个commit的强制清单。
 | I0 | Build spine、artifact与full-regeneration carrier | COMPLETED | G1、G2、G10 |
 | I1 | Primitive keyed Table vertical slice | COMPLETED | G1-G5 |
 | I2 | Schema/type/chunk/Key/Index breadth | COMPLETED | G2-G4 |
-| I3 | Direct query、Predicate IR与reference interpreter | NOT_STARTED | G4 |
+| I3 | Direct query、Predicate IR与reference interpreter | COMPLETED | G4 |
 | I4 | Selection mutation、failure与resource admission | NOT_STARTED | G5 |
 | I5 | GroupBy与binary Equality/Cross Join | NOT_STARTED | G6 |
 | I6 | Bounded ForkJoin parallel execution | NOT_STARTED | G7 |
@@ -178,6 +179,9 @@ order placement、lexicographic tie-break、empty match、mapped reference disti
 modifiable List合同，以及behavioral callback non-interference/canonical short-circuit/Comparator
 barrier；`in` defensive snapshot的checked construction/application-retained ownership与terminal
 scratch admission边界。
+
+Implementation status：`COMPLETED`；implementation commit `62ad28c`；完整evidence与claim boundary见
+[I3 Qualification](../conformance/i3-query-ir-reference-qualification.md)。
 
 ## 8. I4 — Selection mutation、failure与resource
 
