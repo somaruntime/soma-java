@@ -93,6 +93,7 @@ benchmark_classpath="$repo_root/benchmarks/target/classes:$repo_root/soma-exampl
 output_root="$repo_root/target/benchmark"
 mkdir -p "$output_root"
 raw_results="$output_root/results.jsonl"
+rm -f "$output_root/summary.json" "$output_root/summary.md"
 : > "$raw_results"
 {
     echo "commit=$(git rev-parse HEAD)"
