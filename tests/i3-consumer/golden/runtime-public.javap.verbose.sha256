@@ -1,0 +1,4 @@
+format=soma-runtime-public-javap-verbose-v1
+tool=javap -v -public, normalized path/time/checksum
+class.count=73
+sha256=9d04ce190651fddc6e467e40b71d4186bc019d54e658da992d16ffb6054260e1

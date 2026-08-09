@@ -3,7 +3,12 @@ package io.github.somaruntime.soma.internal;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 
-/** Hash sidecar over authoritative payload; hash collisions always compare payload leaves. */
+/**
+ * Hash sidecar over authoritative payload; hash collisions always compare
+ * payload leaves. Non-unique posting links are canonical locator order:
+ * append publishes the new tail locator, while update/remove rebuild scans
+ * the bound directory from locator zero upward.
+ */
 final class IdentityHashIndex {
 
     private static final int SHARD_BITS = 6;

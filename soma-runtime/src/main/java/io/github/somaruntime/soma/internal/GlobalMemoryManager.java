@@ -46,6 +46,10 @@ final class GlobalMemoryManager {
         return retainedBytes;
     }
 
+    synchronized long temporaryBytes() {
+        return temporaryBytes;
+    }
+
     long budgetBytes() {
         return budgetBytes;
     }

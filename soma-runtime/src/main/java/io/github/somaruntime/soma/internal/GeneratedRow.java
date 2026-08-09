@@ -5,7 +5,8 @@ import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.UpdateResult;
 
 /** Reusable operation-scoped exact-typed row staging owned by one generated Table. */
-public final class GeneratedRow extends TypedValues implements AutoCloseable {
+public final class GeneratedRow extends TypedValues
+        implements AutoCloseable, GeneratedRowAccess {
 
     static final int ADD = 1;
     static final int FIND = 2;
@@ -29,6 +30,15 @@ public final class GeneratedRow extends TypedValues implements AutoCloseable {
         this.owner = owner;
         this.layout = layout;
         this.original = new TypedValues(layout);
+    }
+
+    @Override
+    public void registerBorrowedView(Object view) {
+        if (view == null) {
+            throw new AssertionError("invalid borrowed View registration");
+        }
+        // Mutation Views are guarded by this row's callback epoch. Query mapper
+        // escape detection is owned by GeneratedQueryCursor instead.
     }
 
     void begin(GroupOperationGuard.Lease lease, int operationMode) {
@@ -69,15 +79,15 @@ public final class GeneratedRow extends TypedValues implements AutoCloseable {
     public double readDouble(int leaf) { requireRead(leaf, GeneratedTableLayout.DOUBLE); return doubleValue(layout.leafSlot(leaf)); }
     public Object readReference(int leaf) { requireRead(leaf, GeneratedTableLayout.REFERENCE); return reference(layout.leafSlot(leaf)); }
 
-    public boolean viewBoolean(int leaf) { requireView(leaf, GeneratedTableLayout.BOOLEAN); return booleanValue(layout.leafSlot(leaf)); }
-    public byte viewByte(int leaf) { requireView(leaf, GeneratedTableLayout.BYTE); return byteValue(layout.leafSlot(leaf)); }
-    public short viewShort(int leaf) { requireView(leaf, GeneratedTableLayout.SHORT); return shortValue(layout.leafSlot(leaf)); }
-    public char viewChar(int leaf) { requireView(leaf, GeneratedTableLayout.CHAR); return charValue(layout.leafSlot(leaf)); }
-    public int viewInt(int leaf) { requireView(leaf, GeneratedTableLayout.INT); return intValue(layout.leafSlot(leaf)); }
-    public long viewLong(int leaf) { requireView(leaf, GeneratedTableLayout.LONG); return longValue(layout.leafSlot(leaf)); }
-    public float viewFloat(int leaf) { requireView(leaf, GeneratedTableLayout.FLOAT); return floatValue(layout.leafSlot(leaf)); }
-    public double viewDouble(int leaf) { requireView(leaf, GeneratedTableLayout.DOUBLE); return doubleValue(layout.leafSlot(leaf)); }
-    public Object viewReference(int leaf) { requireView(leaf, GeneratedTableLayout.REFERENCE); return reference(layout.leafSlot(leaf)); }
+    @Override public boolean viewBoolean(int leaf) { requireView(leaf, GeneratedTableLayout.BOOLEAN); return booleanValue(layout.leafSlot(leaf)); }
+    @Override public byte viewByte(int leaf) { requireView(leaf, GeneratedTableLayout.BYTE); return byteValue(layout.leafSlot(leaf)); }
+    @Override public short viewShort(int leaf) { requireView(leaf, GeneratedTableLayout.SHORT); return shortValue(layout.leafSlot(leaf)); }
+    @Override public char viewChar(int leaf) { requireView(leaf, GeneratedTableLayout.CHAR); return charValue(layout.leafSlot(leaf)); }
+    @Override public int viewInt(int leaf) { requireView(leaf, GeneratedTableLayout.INT); return intValue(layout.leafSlot(leaf)); }
+    @Override public long viewLong(int leaf) { requireView(leaf, GeneratedTableLayout.LONG); return longValue(layout.leafSlot(leaf)); }
+    @Override public float viewFloat(int leaf) { requireView(leaf, GeneratedTableLayout.FLOAT); return floatValue(layout.leafSlot(leaf)); }
+    @Override public double viewDouble(int leaf) { requireView(leaf, GeneratedTableLayout.DOUBLE); return doubleValue(layout.leafSlot(leaf)); }
+    @Override public Object viewReference(int leaf) { requireView(leaf, GeneratedTableLayout.REFERENCE); return reference(layout.leafSlot(leaf)); }
 
     public void editBoolean(int leaf, boolean value) { requireEdit(leaf, GeneratedTableLayout.BOOLEAN); booleanValue(layout.leafSlot(leaf), value); }
     public void editByte(int leaf, byte value) { requireEdit(leaf, GeneratedTableLayout.BYTE); byteValue(layout.leafSlot(leaf), value); }

@@ -9,9 +9,16 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.somaruntime.soma.RemoveResult;
 import io.github.somaruntime.soma.SomaFailureCode;
+import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.SomaOperationException;
+import io.github.somaruntime.soma.SomaOrder;
 import io.github.somaruntime.soma.UpdateResult;
 import java.lang.reflect.Constructor;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -196,6 +203,906 @@ class GeneratedTableTest {
     }
 
     @Test
+    void logicalRowPlanBindsAtTerminalAndReferenceMatchesOptimized() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "odd", 10, new Object());
+
+        GeneratedProbe odd = table.newProbe(1);
+        odd.putReference(1, "odd");
+        GeneratedProbe minimum = table.newProbe(2);
+        minimum.putInt(2, 10);
+
+        GeneratedPipeline optimized = table.selectAll()
+                .filter(table.eq(odd.seal()))
+                .filter(table.ge(minimum.seal()));
+        GeneratedPipeline reference = table.selectAll()
+                .filter(table.eq(odd))
+                .filter(table.ge(minimum));
+
+        add(table, 2L, "odd", 20, new Object());
+
+        assertEquals(2L, optimized.count());
+        assertEquals(2L, reference.referenceCountForTesting());
+    }
+
+    @Test
+    void indexSourceDifferentialPreservesDuplicateLocatorOrderMembership() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 12L; key++) {
+            add(table, key, key % 3L == 0L ? "hit" : "miss", (int) key, new Object());
+        }
+        GeneratedProbe indexProbe = table.newProbe(1);
+        indexProbe.putReference(1, "hit");
+        GeneratedProbe lower = table.newProbe(2);
+        lower.putInt(2, 3);
+
+        LogicalRowPlan optimized = LogicalRowPlan.indexSelection(
+                table, 0, indexProbe.seal()).typedFilter(
+                table.requireOwnedExpression(table.ge(lower.seal())));
+        GeneratedProbe referenceProbe = table.newProbe(1);
+        referenceProbe.putReference(1, "hit");
+        LogicalRowPlan reference = LogicalRowPlan.indexSelection(
+                table, 0, referenceProbe.seal()).typedFilter(
+                table.requireOwnedExpression(table.ge(lower)));
+
+        assertEquals(3L, QueryOperation.optimizedCount(optimized));
+        assertEquals(3L, QueryOperation.referenceCountForTesting(reference));
+
+        remove(table, 3L);
+        update(table, 1L, "hit", 1, new Object());
+        GeneratedProbe rebuiltProbe = table.newProbe(1);
+        rebuiltProbe.putReference(1, "hit");
+        LogicalRowPlan rebuilt = LogicalRowPlan.indexSelection(
+                table, 0, rebuiltProbe.seal());
+        assertTrue(Arrays.equals(
+                new long[] {0L, 1L, 6L, 9L},
+                QueryOperation.optimizedLocatorsForTesting(rebuilt)));
+        assertTrue(Arrays.equals(
+                QueryOperation.referenceLocatorsForTesting(rebuilt),
+                QueryOperation.optimizedLocatorsForTesting(rebuilt)));
+    }
+
+    @Test
+    void queryViewCursorRejectsEveryOutOfScopeAccess() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        GeneratedQueryCursor cursor = table.queryCursor();
+        SomaOperationException before = assertThrows(
+                SomaOperationException.class, () -> cursor.viewLong(0));
+        assertEquals(SomaFailureCode.CALLBACK_SCOPE_VIOLATION, before.code());
+
+        try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
+            cursor.begin(table.currentRoot(), operation.provenance());
+            SomaOperationException inactive = assertThrows(
+                    SomaOperationException.class, () -> cursor.viewLong(0));
+            assertEquals(SomaFailureCode.CALLBACK_SCOPE_VIOLATION, inactive.code());
+            cursor.end();
+        }
+    }
+
+    @Test
+    void callbackBarrierOrderSliceAndShortCircuitHaveCanonicalSemantics() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 8L; key++) {
+            add(table, key, key % 2L == 0L ? "even" : "odd", (int) (7L - key), new Object());
+        }
+
+        final int[] filterCalls = new int[1];
+        GeneratedCallbacks.RowPredicate evenKey = () -> {
+            filterCalls[0]++;
+            return (table.queryCursor().viewLong(0) & 1L) == 0L;
+        };
+        LogicalRowPlan plan = LogicalRowPlan.tableScan(table)
+                .callbackFilter(evenKey)
+                .sortedBy((GeneratedOrder<?>) table.<Object>asc(2))
+                .skip(1L)
+                .limit(2L);
+
+        long[] reference = QueryOperation.referenceLocatorsForTesting(plan);
+        assertEquals(8, filterCalls[0]);
+        filterCalls[0] = 0;
+        long[] optimized = QueryOperation.optimizedLocatorsForTesting(plan);
+        assertEquals(8, filterCalls[0]);
+        assertTrue(Arrays.equals(reference, optimized));
+        assertTrue(Arrays.equals(new long[] {4L, 2L}, optimized));
+
+        final int[] matchCalls = new int[1];
+        assertTrue(QueryOperation.anyMatch(
+                LogicalRowPlan.tableScan(table),
+                () -> {
+                    matchCalls[0]++;
+                    return table.queryCursor().viewLong(0) == 2L;
+                }));
+        assertEquals(3, matchCalls[0]);
+    }
+
+    @Test
+    void callbackComparatorIsStableAndUsesTwoBorrowedViews() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 6L; key++) {
+            add(table, key, "same", (int) (key % 2L), new Object());
+        }
+        List<String> optimizedTrace = new ArrayList<String>();
+        GeneratedCallbacks.RowComparator optimizedComparator = () -> {
+            int left = table.queryCursor().viewInt(2);
+            int right = table.secondaryQueryCursor().viewInt(2);
+            optimizedTrace.add(left + ":" + right);
+            return Integer.compare(left, right);
+        };
+        List<String> referenceTrace = new ArrayList<String>();
+        GeneratedCallbacks.RowComparator referenceComparator = () -> {
+            int left = table.queryCursor().viewInt(2);
+            int right = table.secondaryQueryCursor().viewInt(2);
+            referenceTrace.add(left + ":" + right);
+            return Integer.compare(left, right);
+        };
+        LogicalRowPlan optimized = LogicalRowPlan.tableScan(table)
+                .sorted(optimizedComparator);
+        LogicalRowPlan reference = LogicalRowPlan.tableScan(table)
+                .sorted(referenceComparator);
+
+        long[] actual = QueryOperation.optimizedLocatorsForTesting(optimized);
+        long[] expected = QueryOperation.referenceLocatorsForTesting(reference);
+        assertTrue(Arrays.equals(
+                new long[] {0L, 2L, 4L, 1L, 3L, 5L}, actual));
+        assertTrue(Arrays.equals(expected, actual));
+        assertEquals(referenceTrace, optimizedTrace);
+    }
+
+    @Test
+    void canonicalCallbackSortHasNLogNComparisonBound() {
+        GeneratedTable table = table(512L << 20, MutationFaultInjector.NONE);
+        int size = 4096;
+        for (long key = 0L; key < size; key++) {
+            add(table, key, "same", size - (int) key, new Object());
+        }
+        final long[] comparisons = new long[1];
+        LogicalRowPlan plan = LogicalRowPlan.tableScan(table).sorted(() -> {
+            comparisons[0]++;
+            return Integer.compare(
+                    table.queryCursor().viewInt(2),
+                    table.secondaryQueryCursor().viewInt(2));
+        });
+
+        assertEquals(size, QueryOperation.optimizedCount(plan));
+        assertTrue(comparisons[0] < 100_000L,
+                "comparison count=" + comparisons[0]);
+    }
+
+    @Test
+    void optimizerSubstitutesExactIndexAndRetainsResidual() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 12L; key++) {
+            add(table, key, key % 3L == 0L ? "hit" : "miss", (int) key, new Object());
+        }
+        GeneratedProbe hit = table.newProbe(1);
+        hit.putReference(1, "hit");
+        GeneratedProbe minimum = table.newProbe(2);
+        minimum.putInt(2, 5);
+        LogicalRowPlan plan = LogicalRowPlan.tableScan(table)
+                .typedFilter(table.requireOwnedExpression(table.eq(hit.seal())))
+                .typedFilter(table.requireOwnedExpression(table.ge(minimum.seal())));
+
+        String explain = QueryOperation.explain(plan);
+        assertTrue(explain.contains("physicalSource=INDEX_LOOKUP"));
+        assertTrue(explain.contains("indexSubstitution=true"));
+        assertTrue(explain.contains("residualTyped=1"));
+        assertTrue(explain.contains("callbackBarrier=false"));
+        assertEquals(2L, QueryOperation.optimizedCount(plan));
+        assertEquals(2L, QueryOperation.referenceCountForTesting(plan));
+    }
+
+    @Test
+    void optimizerSubstitutesKeyAndNullIndexWithoutChangingOrder() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 10L, null, 1, new Object());
+        add(table, 20L, "value", 2, new Object());
+        add(table, 30L, null, 3, new Object());
+
+        GeneratedProbe key = table.newProbe(0);
+        key.putLong(0, 20L);
+        LogicalRowPlan keyPlan = LogicalRowPlan.tableScan(table)
+                .typedFilter(table.requireOwnedExpression(table.eq(key.seal())));
+        assertTrue(QueryOperation.explain(keyPlan)
+                .contains("physicalSource=KEY_LOOKUP"));
+        assertTrue(Arrays.equals(
+                QueryOperation.referenceLocatorsForTesting(keyPlan),
+                QueryOperation.optimizedLocatorsForTesting(keyPlan)));
+
+        LogicalRowPlan nullPlan = LogicalRowPlan.tableScan(table)
+                .typedFilter(table.requireOwnedExpression(table.isNull(1)));
+        assertTrue(QueryOperation.explain(nullPlan)
+                .contains("physicalSource=INDEX_LOOKUP"));
+        assertTrue(Arrays.equals(new long[] {0L, 2L},
+                QueryOperation.optimizedLocatorsForTesting(nullPlan)));
+        assertTrue(Arrays.equals(
+                QueryOperation.referenceLocatorsForTesting(nullPlan),
+                QueryOperation.optimizedLocatorsForTesting(nullPlan)));
+
+        LogicalRowPlan barrier = LogicalRowPlan.tableScan(table)
+                .callbackFilter(() -> true)
+                .typedFilter(table.requireOwnedExpression(table.isNull(1)));
+        String barrierExplain = QueryOperation.explain(barrier);
+        assertTrue(barrierExplain.contains("physicalSource=TABLE_SCAN"));
+        assertTrue(barrierExplain.contains("callbackBarrier=true"));
+    }
+
+    @Test
+    void topBoundariesTiesAndCallbackFailureDifferentialAreEquivalent() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 6L; key++) {
+            add(table, key, "same", (int) (key % 2L), new Object());
+        }
+        for (long count : new long[] {0L, 2L, 99L}) {
+            LogicalRowPlan plan = LogicalRowPlan.tableScan(table)
+                    .top(count, (GeneratedOrder<?>) table.<Object>asc(2));
+            assertTrue(Arrays.equals(
+                    QueryOperation.referenceLocatorsForTesting(plan),
+                    QueryOperation.optimizedLocatorsForTesting(plan)));
+        }
+        assertTrue(Arrays.equals(new long[] {0L, 2L},
+                QueryOperation.optimizedLocatorsForTesting(
+                        LogicalRowPlan.tableScan(table)
+                                .top(2L, (GeneratedOrder<?>) table.<Object>asc(2)))));
+
+        LogicalRowPlan failing = LogicalRowPlan.tableScan(table)
+                .callbackFilter(() -> {
+                    throw new IllegalStateException("application failure");
+                });
+        SomaOperationException reference = assertThrows(
+                SomaOperationException.class,
+                () -> QueryOperation.referenceLocatorsForTesting(failing));
+        SomaOperationException optimized = assertThrows(
+                SomaOperationException.class,
+                () -> QueryOperation.optimizedLocatorsForTesting(failing));
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, reference.code());
+        assertEquals(reference.code(), optimized.code());
+        assertEquals(reference.operation(), optimized.operation());
+    }
+
+    @Test
+    void inMembershipIsDefensiveDifferentialAndAdmittedBeforeExecution() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4,
+                MutationFaultInjector.NONE);
+        for (long key = 0L; key < 128L; key++) {
+            add(table, key, "bucket", (int) key, new Object());
+        }
+
+        GeneratedProbe[] literals = new GeneratedProbe[96];
+        for (int index = 0; index < literals.length; index++) {
+            GeneratedProbe probe = table.newProbe(2);
+            probe.putInt(2, index % 64);
+            literals[index] = probe.seal();
+        }
+        PredicateIr predicate = table.requireOwnedExpression(
+                table.in(literals));
+        for (int index = 0; index < literals.length; index++) {
+            GeneratedProbe replacement = table.newProbe(2);
+            replacement.putInt(2, 127);
+            literals[index] = replacement.seal();
+        }
+        LogicalRowPlan plan = LogicalRowPlan.tableScan(table)
+                .typedFilter(predicate);
+
+        assertEquals(64L, QueryOperation.optimizedCount(plan));
+        assertEquals(64L, QueryOperation.referenceCountForTesting(plan));
+        assertTrue(Arrays.equals(
+                QueryOperation.referenceLocatorsForTesting(plan),
+                QueryOperation.optimizedLocatorsForTesting(plan)));
+
+        long requiredScratch = 64L * 256L;
+        GlobalMemoryManager.RetainedReservation pressure = memory.reserveRetained(
+                memory.budgetBytes() - memory.retainedBytes()
+                        - (requiredScratch - 1L),
+                io.github.somaruntime.soma.SomaOperation.RESERVE,
+                new Object());
+        pressure.commit();
+        String explain = QueryOperation.explain(plan);
+        assertTrue(explain.contains("inMembershipLiterals=64"));
+        assertTrue(explain.contains("estimatedTemporaryPeakBytes="));
+        assertEquals(0L, memory.temporaryBytes());
+        SomaOperationException rejected = assertThrows(
+                SomaOperationException.class,
+                () -> QueryOperation.optimizedCount(plan));
+        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+        assertEquals(0L, memory.temporaryBytes());
+    }
+
+    @Test
+    void inConstructionValidatesEveryLiteralAndCheckedArrayBoundary() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        Object root = table.rootIdentityForTesting();
+        GeneratedProbe value = table.newProbe(2);
+        value.putInt(2, 1);
+
+        SomaOperationException firstNull = assertThrows(
+                SomaOperationException.class,
+                () -> table.in(new GeneratedProbe[] {null, value.seal()}));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, firstNull.code());
+        assertEquals(io.github.somaruntime.soma.SomaOperation.QUERY,
+                firstNull.operation());
+        assertSame(root, table.rootIdentityForTesting());
+
+        SomaOperationException arrayBoundary = assertThrows(
+                SomaOperationException.class,
+                () -> table.requireInLiteralCapacity(
+                        (long) Integer.MAX_VALUE + 1L));
+        assertEquals(
+                SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                arrayBoundary.code());
+        SomaOperationException arithmetic = assertThrows(
+                SomaOperationException.class,
+                () -> table.requireInLiteralCapacity(Long.MAX_VALUE));
+        assertEquals(SomaFailureCode.ARITHMETIC_OVERFLOW, arithmetic.code());
+        assertSame(root, table.rootIdentityForTesting());
+    }
+
+    @Test
+    void mappedReferenceStagesDifferAgainstIndependentReferenceInterpreter() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 24L; key++) {
+            add(table, key, "bucket-" + key % 3L, (int) (key % 7L), new Object());
+        }
+        GeneratedCallbacks.RowMapper<Integer> mapper =
+                () -> table.queryCursor().viewInt(2);
+        List<String> optimizedTrace = new ArrayList<String>();
+        Comparator<Integer> optimizedDescending = (left, right) -> {
+            optimizedTrace.add(left + ":" + right);
+            return right.compareTo(left);
+        };
+        List<String> referenceTrace = new ArrayList<String>();
+        Comparator<Integer> referenceDescending = (left, right) -> {
+            referenceTrace.add(left + ":" + right);
+            return right.compareTo(left);
+        };
+
+        MappedPlan<Integer> optimized = MappedPlan
+                .root(LogicalRowPlan.tableScan(table), mapper)
+                .filter(value -> (value & 1) == 0)
+                .map(value -> value + 10)
+                .distinct()
+                .sorted(optimizedDescending)
+                .skip(1L)
+                .limit(2L);
+        MappedPlan<Integer> reference = MappedPlan
+                .root(LogicalRowPlan.tableScan(table), mapper)
+                .filter(value -> (value & 1) == 0)
+                .map(value -> value + 10)
+                .distinct()
+                .sorted(referenceDescending)
+                .skip(1L)
+                .limit(2L);
+
+        List<Object> actual = MappedQueryOperation.toList(optimized);
+        List<Object> expected = ReferenceMappedInterpreter.toListForTesting(reference);
+        assertEquals(expected, actual);
+        assertEquals(Arrays.<Object>asList(14, 12), actual);
+        assertEquals(referenceTrace, optimizedTrace);
+    }
+
+    @Test
+    void mappedDistinctUsesOneCanonicalHashFailureBoundary() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        ThrowingHash first = new ThrowingHash();
+        ThrowingHash second = new ThrowingHash();
+        add(table, 1L, "one", 1, first);
+        add(table, 2L, "two", 2, second);
+        GeneratedCallbacks.RowMapper<Object> mapper =
+                () -> table.queryCursor().viewReference(3);
+
+        MappedPlan<Object> optimized = MappedPlan
+                .root(LogicalRowPlan.tableScan(table), mapper)
+                .distinct();
+        SomaOperationException optimizedFailure = assertThrows(
+                SomaOperationException.class,
+                () -> MappedQueryOperation.toList(optimized));
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, optimizedFailure.code());
+
+        MappedPlan<Object> reference = MappedPlan
+                .root(LogicalRowPlan.tableScan(table), mapper)
+                .distinct();
+        SomaOperationException referenceFailure = assertThrows(
+                SomaOperationException.class,
+                () -> ReferenceMappedInterpreter.toListForTesting(reference));
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, referenceFailure.code());
+        assertEquals(2, first.calls + second.calls);
+    }
+
+    @Test
+    void randomizedLogicalPlansMatchOnIndependentImmutableStates() {
+        GeneratedTable optimizedTable = table(64L << 20, MutationFaultInjector.NONE);
+        GeneratedTable referenceTable = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 128L; key++) {
+            String name = key % 5L == 0L ? null : "bucket-" + key % 7L;
+            int value = (int) ((key * 37L) % 31L);
+            add(optimizedTable, key, name, value, new Object());
+            add(referenceTable, key, name, value, new Object());
+        }
+        Random random = new Random(0x51A3D1FFL);
+        for (int trial = 0; trial < 64; trial++) {
+            int minimum = random.nextInt(31);
+            long skip = random.nextInt(5);
+            long limit = random.nextInt(16);
+            int modulus = random.nextInt(4) + 2;
+
+            GeneratedProbe optimizedMinimum = optimizedTable.newProbe(2);
+            optimizedMinimum.putInt(2, minimum);
+            GeneratedProbe referenceMinimum = referenceTable.newProbe(2);
+            referenceMinimum.putInt(2, minimum);
+            LogicalRowPlan optimized = LogicalRowPlan.tableScan(optimizedTable)
+                    .typedFilter(optimizedTable.requireOwnedExpression(
+                            optimizedTable.ge(optimizedMinimum.seal())))
+                    .callbackFilter(() -> optimizedTable.queryCursor().viewLong(0)
+                            % modulus != 0L)
+                    .sortedBy((GeneratedOrder<?>) optimizedTable.<Object>asc(2)
+                            .then(optimizedTable.<Object>desc(0)))
+                    .skip(skip)
+                    .limit(limit);
+            LogicalRowPlan reference = LogicalRowPlan.tableScan(referenceTable)
+                    .typedFilter(referenceTable.requireOwnedExpression(
+                            referenceTable.ge(referenceMinimum.seal())))
+                    .callbackFilter(() -> referenceTable.queryCursor().viewLong(0)
+                            % modulus != 0L)
+                    .sortedBy((GeneratedOrder<?>) referenceTable.<Object>asc(2)
+                            .then(referenceTable.<Object>desc(0)))
+                    .skip(skip)
+                    .limit(limit);
+
+            assertTrue(Arrays.equals(
+                    QueryOperation.referenceLocatorsForTesting(reference),
+                    QueryOperation.optimizedLocatorsForTesting(optimized)),
+                    "differential trial=" + trial);
+        }
+    }
+
+    @Test
+    void primitivePlansDifferAgainstIndependentBoxedReferenceAlgorithms() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 32L; key++) {
+            add(table, key, "bucket", (int) (key % 9L), new Object());
+        }
+        GeneratedCallbacks.RowToIntMapper root =
+                () -> table.queryCursor().viewInt(2);
+        PrimitivePlan optimized = PrimitivePlan
+                .row(LogicalRowPlan.tableScan(table), PrimitivePlan.ValueKind.INT, root, true)
+                .filter((io.github.somaruntime.soma.SomaIntPredicate) value -> (value & 1) == 0)
+                .map((io.github.somaruntime.soma.SomaIntUnaryOperator) value -> value + 10)
+                .distinct()
+                .sorted()
+                .skip(1L)
+                .limit(3L);
+        PrimitivePlan reference = PrimitivePlan
+                .row(LogicalRowPlan.tableScan(table), PrimitivePlan.ValueKind.INT, root, true)
+                .filter((io.github.somaruntime.soma.SomaIntPredicate) value -> (value & 1) == 0)
+                .map((io.github.somaruntime.soma.SomaIntUnaryOperator) value -> value + 10)
+                .distinct()
+                .sorted()
+                .skip(1L)
+                .limit(3L);
+
+        assertTrue(Arrays.equals(
+                ReferencePrimitiveInterpreter.valuesForTesting(reference),
+                PrimitivePlanOperation.valuesForTesting(optimized)));
+        assertTrue(Arrays.equals(
+                new long[] {12L, 14L, 16L},
+                PrimitivePlanOperation.valuesForTesting(PrimitivePlan
+                        .row(LogicalRowPlan.tableScan(table), PrimitivePlan.ValueKind.INT, root, true)
+                        .filter((io.github.somaruntime.soma.SomaIntPredicate) value -> (value & 1) == 0)
+                        .map((io.github.somaruntime.soma.SomaIntUnaryOperator) value -> value + 10)
+                        .distinct().sorted().skip(1L).limit(3L))));
+    }
+
+    @Test
+    void numericReferenceCoversCanonicalBlocksSpecialValuesAndOverflow() {
+        GeneratedTable floating = floatingTable();
+        for (int index = 0; index < 1025; index++) {
+            double value;
+            switch (index & 3) {
+                case 0: value = 1.0e16d; break;
+                case 1: value = 1.0d; break;
+                case 2: value = -1.0e16d; break;
+                default: value = -0.0d; break;
+            }
+            addFloating(floating, index, (float) value, value, null);
+        }
+        PrimitivePlan doublePlan = PrimitivePlan.row(
+                LogicalRowPlan.tableScan(floating),
+                PrimitivePlan.ValueKind.DOUBLE,
+                (GeneratedCallbacks.RowToDoubleMapper)
+                        () -> floating.queryCursor().viewDouble(2),
+                false);
+        for (long count : new long[] {1023L, 1024L, 1025L}) {
+            PrimitivePlan bounded = doublePlan.limit(count);
+            double reference = ReferencePrimitiveInterpreter
+                    .sumFloatingForTesting(bounded);
+            double optimized = PrimitivePlanOperation.sumDouble(bounded);
+            assertEquals(
+                    Double.doubleToLongBits(reference),
+                    Double.doubleToLongBits(optimized));
+        }
+
+        addFloating(floating, 2000L, Float.NEGATIVE_INFINITY,
+                Double.NEGATIVE_INFINITY, null);
+        addFloating(floating, 2001L, -0.0f, -0.0d, null);
+        addFloating(floating, 2002L, 0.0f, 0.0d, null);
+        addFloating(floating, 2003L, Float.POSITIVE_INFINITY,
+                Double.POSITIVE_INFINITY, null);
+        addFloating(floating, 2004L, Float.NaN, Double.NaN, null);
+        PrimitivePlan ordered = PrimitivePlan.row(
+                LogicalRowPlan.tableScan(floating),
+                PrimitivePlan.ValueKind.DOUBLE,
+                (GeneratedCallbacks.RowToDoubleMapper)
+                        () -> floating.queryCursor().viewDouble(2),
+                false).sorted();
+        assertTrue(Arrays.equals(
+                ReferencePrimitiveInterpreter.valuesForTesting(ordered),
+                PrimitivePlanOperation.valuesForTesting(ordered)));
+        assertTrue(Double.isNaN(
+                ReferencePrimitiveInterpreter.sumFloatingForTesting(doublePlan)));
+        assertTrue(Double.isNaN(PrimitivePlanOperation.sumDouble(doublePlan)));
+
+        GeneratedTable positiveInfinity = floatingTable();
+        addFloating(positiveInfinity, 1L, Float.POSITIVE_INFINITY,
+                Double.POSITIVE_INFINITY, null);
+        addFloating(positiveInfinity, 2L, 1.0f, 1.0d, null);
+        PrimitivePlan floatPlan = PrimitivePlan.row(
+                LogicalRowPlan.tableScan(positiveInfinity),
+                PrimitivePlan.ValueKind.FLOAT,
+                (GeneratedCallbacks.RowToFloatMapper)
+                        () -> positiveInfinity.queryCursor().viewFloat(1),
+                false);
+        assertEquals(
+                Double.doubleToLongBits(
+                        ReferencePrimitiveInterpreter
+                                .sumFloatingForTesting(floatPlan)),
+                Double.doubleToLongBits(
+                        PrimitivePlanOperation.sumDouble(floatPlan)));
+        assertEquals(Double.POSITIVE_INFINITY,
+                PrimitivePlanOperation.sumDouble(floatPlan));
+
+        GeneratedTable integral = table(64L << 20, MutationFaultInjector.NONE);
+        add(integral, Long.MAX_VALUE, "maximum", 0, null);
+        add(integral, 1L, "one", 0, null);
+        PrimitivePlan longPlan = PrimitivePlan.row(
+                LogicalRowPlan.tableScan(integral),
+                PrimitivePlan.ValueKind.LONG,
+                (GeneratedCallbacks.RowToLongMapper)
+                        () -> integral.queryCursor().viewLong(0),
+                false);
+        SomaOperationException referenceOverflow = assertThrows(
+                SomaOperationException.class,
+                () -> ReferencePrimitiveInterpreter
+                        .sumIntegralForTesting(longPlan));
+        SomaOperationException optimizedOverflow = assertThrows(
+                SomaOperationException.class,
+                () -> PrimitivePlanOperation.sumIntegral(longPlan));
+        assertEquals(SomaFailureCode.ARITHMETIC_OVERFLOW,
+                referenceOverflow.code());
+        assertEquals(referenceOverflow.code(), optimizedOverflow.code());
+        assertEquals(referenceOverflow.operation(), optimizedOverflow.operation());
+    }
+
+    @Test
+    void pipelineArgumentFailureDoesNotClaimButTerminalFailureDoes() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+        GeneratedPipeline open = table.selectAll();
+        SomaOperationException invalid = assertThrows(
+                SomaOperationException.class, () -> open.skip(-1L));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, invalid.code());
+        assertEquals(1L, open.count());
+
+        GeneratedPipeline failing = table.selectAll();
+        SomaOperationException callback = assertThrows(
+                SomaOperationException.class,
+                () -> failing.anyMatch(() -> {
+                    throw new IllegalStateException("application detail");
+                }));
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, callback.code());
+        SomaOperationException consumed = assertThrows(
+                SomaOperationException.class, failing::count);
+        assertEquals(SomaFailureCode.PIPELINE_ALREADY_CONSUMED, consumed.code());
+
+        GeneratedPipeline errorPipeline = table.selectAll();
+        assertThrows(AssertionError.class, () -> errorPipeline.forEach(() -> {
+            throw new AssertionError("fatal application error");
+        }));
+        assertEquals(1L, table.count());
+        SomaOperationException errorConsumed = assertThrows(
+                SomaOperationException.class, errorPipeline::count);
+        assertEquals(
+                SomaFailureCode.PIPELINE_ALREADY_CONSUMED,
+                errorConsumed.code());
+    }
+
+    @Test
+    void linkedPipelineHasOneWinnerAcrossBranchesAndThreads() throws Exception {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+
+        GeneratedPipeline parent = table.selectAll();
+        GeneratedPipeline child = parent.filter(() -> true);
+        SomaOperationException lostBranch = assertThrows(
+                SomaOperationException.class, parent::count);
+        assertEquals(SomaFailureCode.PIPELINE_ALREADY_CONSUMED, lostBranch.code());
+        assertEquals(1L, child.count());
+
+        GeneratedPipeline racing = table.selectAll();
+        CountDownLatch start = new CountDownLatch(1);
+        AtomicReference<Object> first = new AtomicReference<Object>();
+        AtomicReference<Object> second = new AtomicReference<Object>();
+        Thread firstThread = new Thread(() -> raceTerminal(racing, start, first));
+        Thread secondThread = new Thread(() -> raceTerminal(racing, start, second));
+        firstThread.start();
+        secondThread.start();
+        start.countDown();
+        firstThread.join(5000L);
+        secondThread.join(5000L);
+        assertFalse(firstThread.isAlive());
+        assertFalse(secondThread.isAlive());
+
+        int successes = terminalSuccess(first.get()) + terminalSuccess(second.get());
+        int consumed = consumedFailure(first.get()) + consumedFailure(second.get());
+        assertEquals(1, successes);
+        assertEquals(1, consumed);
+
+        assertEquals(1L, table.selectAll().count());
+        assertEquals(1L, table.selectAll().count());
+    }
+
+    @Test
+    void fieldMappedAndPrimitiveCarriersShareTheOneShotContract() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+
+        GeneratedFieldPipeline field = table.fieldSource(2);
+        assertEquals(1L, field.count());
+        assertConsumed(field::count);
+        GeneratedFieldPipeline fieldParent = table.fieldSource(2);
+        GeneratedFieldPipeline fieldChild = fieldParent.filter(() -> true);
+        assertConsumed(fieldParent::count);
+        assertEquals(1L, fieldChild.count());
+
+        GeneratedMappedPipeline<Integer> mapped = table.selectAll()
+                .map(() -> table.queryCursor().viewInt(2));
+        assertEquals(1L, mapped.count());
+        assertConsumed(mapped::count);
+        GeneratedMappedPipeline<Integer> mappedParent = table.selectAll()
+                .map(() -> table.queryCursor().viewInt(2));
+        @SuppressWarnings("unchecked")
+        GeneratedMappedPipeline<Integer> mappedChild =
+                (GeneratedMappedPipeline<Integer>) mappedParent.limit(1L);
+        assertConsumed(mappedParent::count);
+        assertEquals(1L, mappedChild.count());
+        GeneratedMappedPipeline<Integer> mappedFailure = table.selectAll()
+                .map(() -> table.queryCursor().viewInt(2));
+        @SuppressWarnings("unchecked")
+        GeneratedMappedPipeline<Integer> failingMappedChild =
+                (GeneratedMappedPipeline<Integer>) mappedFailure.filter(value -> {
+                    throw new IllegalStateException("mapped failure");
+                });
+        SomaOperationException mappedCallback = assertThrows(
+                SomaOperationException.class, failingMappedChild::count);
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, mappedCallback.code());
+        assertConsumed(failingMappedChild::count);
+
+        GeneratedPrimitiveValuePipeline primitive = table.selectAll()
+                .primitiveInt(() -> table.queryCursor().viewInt(2));
+        assertEquals(1L, primitive.count());
+        assertConsumed(primitive::count);
+        GeneratedPrimitiveValuePipeline primitiveParent = table.selectAll()
+                .primitiveInt(() -> table.queryCursor().viewInt(2));
+        GeneratedPrimitiveValuePipeline primitiveChild =
+                primitiveParent.filterInt(value -> true);
+        assertConsumed(primitiveParent::count);
+        assertEquals(1L, primitiveChild.count());
+        GeneratedPrimitiveValuePipeline primitiveFailure = table.selectAll()
+                .primitiveInt(() -> table.queryCursor().viewInt(2));
+        GeneratedPrimitiveValuePipeline failingPrimitiveChild =
+                primitiveFailure.filterInt(value -> {
+                    throw new IllegalStateException("primitive failure");
+                });
+        SomaOperationException primitiveCallback = assertThrows(
+                SomaOperationException.class, failingPrimitiveChild::count);
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, primitiveCallback.code());
+        assertConsumed(failingPrimitiveChild::count);
+
+        io.github.somaruntime.soma.SomaLongStream specialized =
+                table.selectAll().mapToLong(
+                        () -> table.queryCursor().viewLong(0));
+        assertEquals(1L, specialized.count());
+        assertConsumed(specialized::count);
+        io.github.somaruntime.soma.SomaLongStream specializedParent =
+                table.selectAll().mapToLong(
+                        () -> table.queryCursor().viewLong(0));
+        io.github.somaruntime.soma.SomaLongStream specializedChild =
+                specializedParent.filter(value -> true);
+        assertConsumed(specializedParent::count);
+        assertEquals(1L, specializedChild.count());
+    }
+
+    @Test
+    void fieldTopValidatesBeforeClaimingItsRowLineage() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+        GeneratedFieldPipeline open = table.fieldSource(2);
+
+        SomaOperationException invalid = assertThrows(
+                SomaOperationException.class,
+                () -> open.top(-1L, () -> 0));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, invalid.code());
+        assertEquals(1L, open.count());
+    }
+
+    @Test
+    void callbackReentrancyPreservesCurrentRuntimeFailureAndPublishesNothing() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+        long version = table.stateVersionForTesting();
+
+        SomaOperationException failure = assertThrows(
+                SomaOperationException.class,
+                () -> table.selectAll().forEach(() ->
+                        add(table, 2L, "two", 2, new Object())));
+        assertEquals(SomaFailureCode.REENTRANT_GROUP_OPERATION, failure.code());
+        assertEquals(1L, table.size());
+        assertEquals(version, table.stateVersionForTesting());
+        assertMissing(table, 2L);
+    }
+
+    @Test
+    void callbackRejectsReplayedForeignStructuredFailureCode() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+        SomaOperationException replayed = assertThrows(
+                SomaOperationException.class,
+                () -> table.selectAll().skip(-1L));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, replayed.code());
+
+        SomaOperationException outer = assertThrows(
+                SomaOperationException.class,
+                () -> table.selectAll().forEach(() -> {
+                    throw replayed;
+                }));
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, outer.code());
+        assertSame(replayed, outer.getCause());
+        assertEquals(1L, table.size());
+    }
+
+    @Test
+    void expressionAndOrderRejectDifferentTableIdentityBeforeExecution() {
+        GeneratedTable first = table(64L << 20, MutationFaultInjector.NONE);
+        GeneratedTable second = table(64L << 20, MutationFaultInjector.NONE);
+        GeneratedProbe literal = first.newProbe(2);
+        literal.putInt(2, 1);
+
+        SomaOperationException expression = assertThrows(
+                SomaOperationException.class,
+                () -> second.filter(first.eq(literal.seal())));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, expression.code());
+        SomaOperationException order = assertThrows(
+                SomaOperationException.class,
+                () -> second.sortedBy(first.asc(2)));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, order.code());
+        SomaOperationException composed = assertThrows(
+                SomaOperationException.class,
+                () -> first.<Object>asc(2).then(second.<Object>asc(2)));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, composed.code());
+
+        SomaOperationException forgedExpression = assertThrows(
+                SomaOperationException.class,
+                () -> first.filter(new FakeExpression()));
+        assertEquals(
+                SomaFailureCode.INVALID_ARGUMENT,
+                forgedExpression.code());
+        SomaOperationException forgedOrder = assertThrows(
+                SomaOperationException.class,
+                () -> first.sortedBy(new FakeOrder()));
+        assertEquals(SomaFailureCode.INVALID_ARGUMENT, forgedOrder.code());
+    }
+
+    @Test
+    void materializationAdmitsWorstCaseBeforeAnyApplicationCallback() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 4L; key++) {
+            add(table, key, "value", (int) key, new Object());
+        }
+        long requiredScratch = 4L
+                * (testLayout().detachedRowEstimateBytes() + 48L);
+        GlobalMemoryManager.RetainedReservation pressure = memory.reserveRetained(
+                memory.budgetBytes() - memory.retainedBytes()
+                        - (requiredScratch - 1L),
+                io.github.somaruntime.soma.SomaOperation.RESERVE,
+                new Object());
+        pressure.commit();
+        final int[] callbacks = new int[1];
+        GeneratedPipeline pipeline = table.selectAll();
+        SomaOperationException rejected = assertThrows(
+                SomaOperationException.class,
+                () -> pipeline.toList(() -> {
+                    callbacks[0]++;
+                    return table.queryCursor().viewInt(2);
+                }));
+        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+        assertEquals(0, callbacks[0]);
+        SomaOperationException consumed = assertThrows(
+                SomaOperationException.class, pipeline::count);
+        assertEquals(SomaFailureCode.PIPELINE_ALREADY_CONSUMED, consumed.code());
+        assertEquals(0L, memory.temporaryBytes());
+    }
+
+    @Test
+    void sliceCardinalityBoundsPreserveLongDomainMaterialization() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        LogicalRowPlan rows = LogicalRowPlan.tableScan(table)
+                .skip(7L)
+                .limit(5L);
+        assertEquals(5L, rows.outputUpperBound(Long.MAX_VALUE));
+        assertEquals(0L, rows.limit(0L).outputUpperBound(Long.MAX_VALUE));
+
+        MappedPlan<Object> mapped = MappedPlan
+                .root(rows, () -> null)
+                .skip(2L)
+                .limit(1L);
+        assertEquals(1L, mapped.outputUpperBound(Long.MAX_VALUE));
+
+        PrimitivePlan primitive = PrimitivePlan
+                .mapped(
+                        mapped,
+                        PrimitivePlan.ValueKind.INT,
+                        (io.github.somaruntime.soma.SomaToIntFunction<Object>) value -> 0)
+                .skip(1L)
+                .limit(1L);
+        assertEquals(0L, primitive.outputUpperBound(Long.MAX_VALUE));
+    }
+
+    @Test
+    void nestedRowMappedPrimitiveScratchIsAdmittedBeforeCallbacks() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4,
+                MutationFaultInjector.NONE);
+        for (long key = 0L; key < 16L; key++) {
+            add(table, key, "same", (int) (key % 4L), new Object());
+        }
+        final int[] callbacks = new int[1];
+        LogicalRowPlan rows = LogicalRowPlan.tableScan(table)
+                .sortedBy((GeneratedOrder<?>) table.<Object>desc(2));
+        MappedPlan<Integer> mapped = MappedPlan
+                .root(rows, () -> {
+                    callbacks[0]++;
+                    return table.queryCursor().viewInt(2);
+                })
+                .distinct()
+                .sorted(Integer::compareTo);
+        PrimitivePlan primitive = PrimitivePlan
+                .mapped(
+                        mapped,
+                        PrimitivePlan.ValueKind.INT,
+                        (io.github.somaruntime.soma.SomaToIntFunction<Integer>) value -> {
+                            callbacks[0]++;
+                            return value.intValue();
+                        })
+                .distinct()
+                .sorted();
+
+        GlobalMemoryManager.RetainedReservation pressure = memory.reserveRetained(
+                memory.budgetBytes() - memory.retainedBytes(),
+                io.github.somaruntime.soma.SomaOperation.RESERVE,
+                new Object());
+        pressure.commit();
+        SomaOperationException rejected = assertThrows(
+                SomaOperationException.class,
+                () -> PrimitivePlanOperation.toIntArray(primitive));
+        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, rejected.code());
+        assertEquals(0, callbacks[0]);
+        assertEquals(0L, memory.temporaryBytes());
+    }
+
+    @Test
     void allocationOverflowAndInjectedFailuresPublishNothing() {
         SwitchableFault fault = new SwitchableFault();
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
@@ -369,6 +1276,37 @@ class GeneratedTableTest {
     private static GeneratedTable table(long budget, MutationFaultInjector fault) {
         return new GeneratedTable(
                 testGroup(new GlobalMemoryManager(budget)), testLayout(), 4, fault);
+    }
+
+    private static void raceTerminal(
+            GeneratedPipeline pipeline,
+            CountDownLatch start,
+            AtomicReference<Object> result) {
+        try {
+            if (!start.await(5L, TimeUnit.SECONDS)) {
+                result.set(new AssertionError("start timeout"));
+                return;
+            }
+            result.set(Long.valueOf(pipeline.count()));
+        } catch (Throwable failure) {
+            result.set(failure);
+        }
+    }
+
+    private static int terminalSuccess(Object value) {
+        return Long.valueOf(1L).equals(value) ? 1 : 0;
+    }
+
+    private static int consumedFailure(Object value) {
+        return value instanceof SomaOperationException
+                && ((SomaOperationException) value).code()
+                == SomaFailureCode.PIPELINE_ALREADY_CONSUMED ? 1 : 0;
+    }
+
+    private static void assertConsumed(Runnable terminal) {
+        SomaOperationException consumed = assertThrows(
+                SomaOperationException.class, terminal::run);
+        assertEquals(SomaFailureCode.PIPELINE_ALREADY_CONSUMED, consumed.code());
     }
 
     private static GeneratedTable floatingTable() {
@@ -596,6 +1534,39 @@ class GeneratedTableTest {
             if (candidate != point) return false;
             seen++;
             return seen == occurrence;
+        }
+    }
+
+    private static final class ThrowingHash {
+        int calls;
+
+        @Override
+        public int hashCode() {
+            calls++;
+            throw new IllegalStateException("hash failure");
+        }
+    }
+
+    private static final class FakeExpression
+            implements SomaExpression<Object> {
+        @Override public SomaExpression<Object> and(
+                SomaExpression<Object> other) { return this; }
+        @Override public SomaExpression<Object> or(
+                SomaExpression<Object> other) { return this; }
+        @Override public SomaExpression<Object> not() { return this; }
+        @Override public io.github.somaruntime.soma.SomaRelationExpression and(
+                io.github.somaruntime.soma.SomaRelationExpression other) {
+            return this;
+        }
+        @Override public io.github.somaruntime.soma.SomaRelationExpression or(
+                io.github.somaruntime.soma.SomaRelationExpression other) {
+            return this;
+        }
+    }
+
+    private static final class FakeOrder implements SomaOrder<Object> {
+        @Override public SomaOrder<Object> then(SomaOrder<Object> next) {
+            return this;
         }
     }
 }

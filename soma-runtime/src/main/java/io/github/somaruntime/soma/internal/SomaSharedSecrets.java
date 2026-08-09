@@ -6,6 +6,8 @@ import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.UpdateResult;
 import io.github.somaruntime.soma.RemoveResult;
+import io.github.somaruntime.soma.SomaLongSummary;
+import io.github.somaruntime.soma.SomaDoubleSummary;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -22,6 +24,10 @@ public final class SomaSharedSecrets {
             new AtomicReference<RemoveResultAccess>();
     private static final AtomicReference<FailureAccess> FAILURE =
             new AtomicReference<FailureAccess>();
+    private static final AtomicReference<LongSummaryAccess> LONG_SUMMARY =
+            new AtomicReference<LongSummaryAccess>();
+    private static final AtomicReference<DoubleSummaryAccess> DOUBLE_SUMMARY =
+            new AtomicReference<DoubleSummaryAccess>();
 
     private SomaSharedSecrets() {
     }
@@ -60,6 +66,24 @@ public final class SomaSharedSecrets {
     static FailureAccess failureAccess() {
         initialize(SomaOperationException.class);
         return required(FAILURE.get(), "SomaOperationException");
+    }
+
+    public static void setLongSummaryAccess(LongSummaryAccess access) {
+        install(LONG_SUMMARY, access, SomaLongSummary.class);
+    }
+
+    static LongSummaryAccess longSummaryAccess() {
+        initialize(SomaLongSummary.class);
+        return required(LONG_SUMMARY.get(), "SomaLongSummary");
+    }
+
+    public static void setDoubleSummaryAccess(DoubleSummaryAccess access) {
+        install(DOUBLE_SUMMARY, access, SomaDoubleSummary.class);
+    }
+
+    static DoubleSummaryAccess doubleSummaryAccess() {
+        initialize(SomaDoubleSummary.class);
+        return required(DOUBLE_SUMMARY.get(), "SomaDoubleSummary");
     }
 
     private static <T> void install(
@@ -112,5 +136,14 @@ public final class SomaSharedSecrets {
                 Object provenance);
 
         boolean owns(SomaOperationException failure, Object provenance);
+    }
+
+    public interface LongSummaryAccess {
+        SomaLongSummary create(long count, long min, long max, long sum, double average);
+    }
+
+    public interface DoubleSummaryAccess {
+        SomaDoubleSummary create(
+                long count, double min, double max, double sum, double average);
     }
 }

@@ -1,0 +1,4 @@
+format=soma-runtime-public-javap-v1
+tool=javap -public
+class.count=73
+sha256=5c2fd280d8ed065d1cdc0bd3092fca8aa3bbe0724a2bb42573a5a873bee5a3e4

@@ -1,6 +1,13 @@
 package io.github.somaruntime.soma.internal;
 
-/** Reusable exact-Index source; I2 exposes only the already-admitted count terminal. */
+import io.github.somaruntime.soma.SomaOrder;
+import io.github.somaruntime.soma.SomaDoubleStream;
+import io.github.somaruntime.soma.SomaIntStream;
+import io.github.somaruntime.soma.SomaLongStream;
+import java.util.List;
+import java.util.Optional;
+
+/** Reusable exact-Index source that creates one fresh I3 row lineage per operation. */
 public final class GeneratedIndexSelection {
 
     private final GeneratedTable owner;
@@ -17,6 +24,95 @@ public final class GeneratedIndexSelection {
     }
 
     public long count() {
-        return owner.indexCount(indexOrdinal, probe);
+        return QueryOperation.optimizedCount(
+                LogicalRowPlan.indexSelection(owner, indexOrdinal, probe));
+    }
+
+    public GeneratedPipeline filter(io.github.somaruntime.soma.SomaExpression<?> expression) {
+        return pipeline().filter(expression);
+    }
+
+    public GeneratedPipeline filter(GeneratedCallbacks.RowPredicate predicate) {
+        return pipeline().filter(predicate);
+    }
+
+    public GeneratedFieldPipeline projectField(int fieldIndex) {
+        return pipeline().projectField(fieldIndex);
+    }
+
+    public <R> GeneratedMappedPipeline<R> map(
+            GeneratedCallbacks.RowMapper<R> mapper) {
+        return pipeline().map(mapper);
+    }
+
+    public SomaIntStream mapToInt(GeneratedCallbacks.RowToIntMapper mapper) {
+        return pipeline().mapToInt(mapper);
+    }
+
+    public SomaLongStream mapToLong(GeneratedCallbacks.RowToLongMapper mapper) {
+        return pipeline().mapToLong(mapper);
+    }
+
+    public SomaDoubleStream mapToDouble(
+            GeneratedCallbacks.RowToDoubleMapper mapper) {
+        return pipeline().mapToDouble(mapper);
+    }
+
+    public GeneratedPipeline sorted(GeneratedCallbacks.RowComparator comparator) {
+        return pipeline().sorted(comparator);
+    }
+
+    public GeneratedPipeline sortedBy(SomaOrder<?> order) {
+        return pipeline().sortedBy(order);
+    }
+
+    public GeneratedPipeline skip(long count) {
+        return pipeline().skip(count);
+    }
+
+    public GeneratedPipeline limit(long count) {
+        return pipeline().limit(count);
+    }
+
+    public GeneratedPipeline top(long count, SomaOrder<?> order) {
+        return pipeline().top(count, order);
+    }
+
+    public boolean anyMatch(GeneratedCallbacks.RowPredicate predicate) {
+        return pipeline().anyMatch(predicate);
+    }
+
+    public boolean allMatch(GeneratedCallbacks.RowPredicate predicate) {
+        return pipeline().allMatch(predicate);
+    }
+
+    public boolean noneMatch(GeneratedCallbacks.RowPredicate predicate) {
+        return pipeline().noneMatch(predicate);
+    }
+
+    public <R> Optional<R> findFirst(GeneratedCallbacks.RowMapper<R> materializer) {
+        return pipeline().findFirst(materializer);
+    }
+
+    public void forEach(GeneratedCallbacks.RowAction action) {
+        pipeline().forEach(action);
+    }
+
+    public <R> List<R> toList(GeneratedCallbacks.RowMapper<R> materializer) {
+        return pipeline().toList(materializer);
+    }
+
+    public <R> R[] toArray(
+            GeneratedCallbacks.RowMapper<R> materializer,
+            Class<R> componentType) {
+        return pipeline().toArray(materializer, componentType);
+    }
+
+    public String explain() {
+        return pipeline().explain();
+    }
+
+    private GeneratedPipeline pipeline() {
+        return owner.indexPipeline(indexOrdinal, probe);
     }
 }

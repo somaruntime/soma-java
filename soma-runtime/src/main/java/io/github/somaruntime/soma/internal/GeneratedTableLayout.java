@@ -181,6 +181,14 @@ public final class GeneratedTableLayout {
         return indexFieldIndexes[indexOrdinal];
     }
 
+    int indexOrdinalForField(int fieldIndex) {
+        requireField(fieldIndex);
+        for (int ordinal = 0; ordinal < indexFieldIndexes.length; ordinal++) {
+            if (indexFieldIndexes[ordinal] == fieldIndex) return ordinal;
+        }
+        return -1;
+    }
+
     int fieldStart(int fieldIndex) {
         requireField(fieldIndex);
         return fieldStarts[fieldIndex];
@@ -220,6 +228,19 @@ public final class GeneratedTableLayout {
 
     long rowWidthBytes() {
         return rowWidthBytes;
+    }
+
+    /**
+     * Conservative retained size for one detached generated Table object and all
+     * recursively materialized Value objects. Ordinary referenced application objects
+     * remain application-owned and are deliberately not charged again.
+     */
+    long detachedRowEstimateBytes() {
+        long leafAllowance = Math.multiplyExact((long) leafKinds.length, 96L);
+        long fieldAllowance = Math.multiplyExact((long) fieldStarts.length, 32L);
+        return Math.addExact(
+                Math.addExact(128L, rowWidthBytes),
+                Math.addExact(leafAllowance, fieldAllowance));
     }
 
     long hashField(TableChunkDirectory directory, long locator, int fieldIndex) {
@@ -387,6 +408,77 @@ public final class GeneratedTableLayout {
                 }
                 if (equalityKinds[leaf] == EQ_ENUM_IDENTITY) {
                     return Integer.compare(((Enum<?>) left).ordinal(), ((Enum<?>) right).ordinal());
+                }
+                throw new AssertionError("ordinary Object has no intrinsic order");
+            default:
+                throw new AssertionError("Field kind has no intrinsic order");
+        }
+    }
+
+    int compareStored(
+            TableChunkDirectory directory,
+            long leftLocator,
+            long rightLocator,
+            int fieldIndex) {
+        int start = fieldStart(fieldIndex);
+        int count = fieldLeafCount(fieldIndex);
+        PlainChunk left = directory.plainChunk(leftLocator / directory.chunkRows());
+        PlainChunk right = directory.plainChunk(rightLocator / directory.chunkRows());
+        int leftOffset = (int) (leftLocator % directory.chunkRows());
+        int rightOffset = (int) (rightLocator % directory.chunkRows());
+        for (int leaf = start; leaf < start + count; leaf++) {
+            int compared = compareLeaf(
+                    left, leftOffset, right, rightOffset, leaf);
+            if (compared != 0) return compared;
+        }
+        return 0;
+    }
+
+    private int compareLeaf(
+            PlainChunk left,
+            int leftOffset,
+            PlainChunk right,
+            int rightOffset,
+            int leaf) {
+        int slot = leafSlot(leaf);
+        switch (leafKinds[leaf]) {
+            case BOOLEAN:
+                return Boolean.compare(
+                        left.booleans(slot)[leftOffset], right.booleans(slot)[rightOffset]);
+            case BYTE:
+                return Byte.compare(
+                        left.bytes(slot)[leftOffset], right.bytes(slot)[rightOffset]);
+            case SHORT:
+                return Short.compare(
+                        left.shorts(slot)[leftOffset], right.shorts(slot)[rightOffset]);
+            case CHAR:
+                return Character.compare(
+                        left.chars(slot)[leftOffset], right.chars(slot)[rightOffset]);
+            case INT:
+                return Integer.compare(
+                        left.ints(slot)[leftOffset], right.ints(slot)[rightOffset]);
+            case LONG:
+                return Long.compare(
+                        left.longs(slot)[leftOffset], right.longs(slot)[rightOffset]);
+            case FLOAT:
+                return Float.compare(
+                        left.floats(slot)[leftOffset], right.floats(slot)[rightOffset]);
+            case DOUBLE:
+                return Double.compare(
+                        left.doubles(slot)[leftOffset], right.doubles(slot)[rightOffset]);
+            case REFERENCE:
+                Object leftValue = left.references(slot)[leftOffset];
+                Object rightValue = right.references(slot)[rightOffset];
+                if (leftValue == null || rightValue == null) {
+                    return leftValue == rightValue ? 0 : leftValue == null ? -1 : 1;
+                }
+                if (equalityKinds[leaf] == EQ_STRING_CONTENT) {
+                    return ((String) leftValue).compareTo((String) rightValue);
+                }
+                if (equalityKinds[leaf] == EQ_ENUM_IDENTITY) {
+                    return Integer.compare(
+                            ((Enum<?>) leftValue).ordinal(),
+                            ((Enum<?>) rightValue).ordinal());
                 }
                 throw new AssertionError("ordinary Object has no intrinsic order");
             default:

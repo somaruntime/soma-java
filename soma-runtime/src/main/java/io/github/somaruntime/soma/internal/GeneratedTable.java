@@ -5,7 +5,9 @@ import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.SomaExpression;
+import io.github.somaruntime.soma.SomaOrder;
 import io.github.somaruntime.soma.UpdateResult;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
 /** Unified exact-leaf, long-domain runtime behind every generated Table facade. */
@@ -23,6 +25,8 @@ public final class GeneratedTable {
     private final int chunkRows;
     private final MutationFaultInjector faultInjector;
     private final GeneratedRow operationRow;
+    private final GeneratedQueryCursor primaryQueryCursor;
+    private final GeneratedQueryCursor secondaryQueryCursor;
     private final AtomicReference<TableStateRoot> current;
 
     GeneratedTable(GeneratedGroup group, GeneratedTableLayout layout) {
@@ -46,6 +50,8 @@ public final class GeneratedTable {
         this.chunkRows = chunkRows;
         this.faultInjector = faultInjector;
         this.operationRow = new GeneratedRow(this, layout);
+        this.primaryQueryCursor = new GeneratedQueryCursor(layout);
+        this.secondaryQueryCursor = new GeneratedQueryCursor(layout);
         this.current = new AtomicReference<TableStateRoot>(
                 TableStateRoot.empty(layout, chunkRows));
     }
@@ -119,11 +125,28 @@ public final class GeneratedTable {
         return operationRow;
     }
 
+    public GeneratedQueryCursor queryCursor() {
+        return primaryQueryCursor;
+    }
+
+    boolean isBorrowedQueryView(Object value) {
+        return primaryQueryCursor.ownsBorrowedView(value)
+                || secondaryQueryCursor.ownsBorrowedView(value);
+    }
+
+    public GeneratedQueryCursor secondaryQueryCursor() {
+        return secondaryQueryCursor;
+    }
+
     public void requireArgument(Object value, SomaOperation operation, String category) {
         if (value == null) {
             throw SomaFailures.invalid(
                     operation, layout.logicalName() + " " + category + " is null");
         }
+    }
+
+    public RuntimeException invalidQuery(String category) {
+        return SomaFailures.invalid(SomaOperation.QUERY, category + " is null");
     }
 
     public UpdateResult missingUpdate() {
@@ -146,23 +169,61 @@ public final class GeneratedTable {
     }
 
     public long count() {
-        return executeCount(new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                return true;
-            }
-        });
+        return QueryOperation.optimizedCount(LogicalRowPlan.tableScan(this));
     }
 
     public GeneratedPipeline selectAll() {
-        return new GeneratedPipeline(this, new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                return true;
-            }
-        });
+        return new GeneratedPipeline(this, LogicalRowPlan.tableScan(this));
+    }
+
+    public GeneratedFieldPipeline fieldSource(int fieldIndex) {
+        layout.fieldStart(fieldIndex);
+        return new GeneratedFieldPipeline(
+                this, fieldIndex, new GeneratedPipeline(
+                this, LogicalRowPlan.tableScan(this)
+                        .fieldProjection(fieldIndex)));
     }
 
     public GeneratedPipeline filter(SomaExpression<?> expression) {
-        return new GeneratedPipeline(this, requireOwnedExpression(expression));
+        return new GeneratedPipeline(
+                this,
+                LogicalRowPlan.tableScan(this).typedFilter(
+                        requireOwnedExpression(expression)));
+    }
+
+    public GeneratedPipeline filter(GeneratedCallbacks.RowPredicate predicate) {
+        requireQueryCallback(predicate, "predicate");
+        return new GeneratedPipeline(
+                this, LogicalRowPlan.tableScan(this).callbackFilter(predicate));
+    }
+
+    public GeneratedPipeline sorted(GeneratedCallbacks.RowComparator comparator) {
+        requireQueryCallback(comparator, "comparator");
+        return new GeneratedPipeline(
+                this, LogicalRowPlan.tableScan(this).sorted(comparator));
+    }
+
+    public GeneratedPipeline sortedBy(SomaOrder<?> order) {
+        return new GeneratedPipeline(
+                this,
+                LogicalRowPlan.tableScan(this).sortedBy(requireOwnedOrder(order)));
+    }
+
+    public GeneratedPipeline skip(long count) {
+        requireQueryCount(count, "skip");
+        return new GeneratedPipeline(this, LogicalRowPlan.tableScan(this).skip(count));
+    }
+
+    public GeneratedPipeline limit(long count) {
+        requireQueryCount(count, "limit");
+        return new GeneratedPipeline(this, LogicalRowPlan.tableScan(this).limit(count));
+    }
+
+    public GeneratedPipeline top(long count, SomaOrder<?> order) {
+        requireQueryCount(count, "top");
+        return new GeneratedPipeline(
+                this,
+                LogicalRowPlan.tableScan(this).top(count, requireOwnedOrder(order)));
     }
 
     public <R> SomaExpression<R> eq(GeneratedProbe probe) {
@@ -187,58 +248,93 @@ public final class GeneratedTable {
                     SomaOperation.QUERY,
                     layout.logicalName() + " between lower bound exceeds upper bound");
         }
-        return new GeneratedExpression<R>(this, new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                if (layout.storedFieldIsNull(root.directory, locator, field)) return false;
-                return layout.compareStored(root.directory, locator, lower, field) >= 0
-                        && layout.compareStored(root.directory, locator, upper, field) <= 0;
-            }
-        });
+        return new GeneratedExpression<R>(
+                this, PredicateIr.between(field, lower, upper));
     }
 
     public <R> SomaExpression<R> in(final GeneratedProbe[] probes) {
         if (probes == null) {
             throw SomaFailures.invalid(SomaOperation.QUERY, "in literals are null");
         }
+        requireInLiteralCapacity(probes.length);
         if (probes.length == 0) {
-            return new GeneratedExpression<R>(this, new GeneratedExpression.Node() {
-                @Override public boolean matches(TableStateRoot root, long locator) {
-                    return false;
-                }
-            });
+            return new GeneratedExpression<R>(this, PredicateIr.constant(false));
+        }
+        for (GeneratedProbe probe : probes) {
+            if (probe == null) {
+                throw SomaFailures.invalid(
+                        SomaOperation.QUERY, "in literal is null");
+            }
         }
         final int field = probes[0].fieldIndex();
         for (GeneratedProbe probe : probes) {
-            if (probe == null) throw SomaFailures.invalid(SomaOperation.QUERY, "in literal is null");
             probe.requireSealed(this, field);
             if (layout.fieldValueIsNull(probe, field)) {
                 throw SomaFailures.invalid(SomaOperation.QUERY, "in literal value is null");
             }
         }
-        return new GeneratedExpression<R>(this, new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                for (GeneratedProbe probe : probes) {
-                    if (layout.fieldEquals(root.directory, locator, probe, field)) return true;
+        GeneratedProbe[] unique = new GeneratedProbe[probes.length];
+        int uniqueCount = 0;
+        for (GeneratedProbe probe : probes) {
+            boolean duplicate = false;
+            for (int index = 0; index < uniqueCount; index++) {
+                if (layout.fieldEquals(probe, unique[index], field)) {
+                    duplicate = true;
+                    break;
                 }
-                return false;
             }
-        });
+            if (!duplicate) unique[uniqueCount++] = probe;
+        }
+        GeneratedProbe[] snapshot = Arrays.copyOf(unique, uniqueCount);
+        return new GeneratedExpression<R>(this, PredicateIr.in(field, snapshot));
+    }
+
+    public int requireInLiteralCapacity(long length) {
+        if (length < 0L) {
+            throw SomaFailures.invalid(
+                    SomaOperation.QUERY, "in literal length is negative");
+        }
+        long references = CheckedLong.multiply(
+                length, 8L, SomaOperation.QUERY, this);
+        CheckedLong.add(references, 32L, SomaOperation.QUERY, this);
+        if (length > Integer.MAX_VALUE) {
+            throw SomaFailures.failure(
+                    SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                    SomaOperation.QUERY,
+                    "in literal array exceeds Java array boundary",
+                    this);
+        }
+        return (int) length;
     }
 
     public <R> SomaExpression<R> isNull(final int fieldIndex) {
-        return new GeneratedExpression<R>(this, new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                return layout.storedFieldIsNull(root.directory, locator, fieldIndex);
-            }
-        });
+        return new GeneratedExpression<R>(
+                this, PredicateIr.nullTest(PredicateIr.Kind.IS_NULL, fieldIndex));
     }
 
     public <R> SomaExpression<R> isNotNull(final int fieldIndex) {
-        return new GeneratedExpression<R>(this, new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                return !layout.storedFieldIsNull(root.directory, locator, fieldIndex);
-            }
-        });
+        return new GeneratedExpression<R>(
+                this, PredicateIr.nullTest(PredicateIr.Kind.IS_NOT_NULL, fieldIndex));
+    }
+
+    public <R> SomaOrder<R> asc(int fieldIndex) {
+        layout.fieldStart(fieldIndex);
+        return new GeneratedOrder<R>(this, fieldIndex, false);
+    }
+
+    public <R> SomaOrder<R> desc(int fieldIndex) {
+        layout.fieldStart(fieldIndex);
+        return new GeneratedOrder<R>(this, fieldIndex, true);
+    }
+
+    GeneratedOrder<?> requireOwnedOrder(SomaOrder<?> order) {
+        GeneratedOrder<?> internal = GeneratedOrder.require(order);
+        if (internal.owner() != this) {
+            throw SomaFailures.invalid(
+                    SomaOperation.QUERY,
+                    layout.logicalName() + " order belongs to another Table");
+        }
+        return internal;
     }
 
     void add(GeneratedRow row, Object provenance) {
@@ -433,7 +529,7 @@ public final class GeneratedTable {
         }
     }
 
-    GeneratedExpression.Node requireOwnedExpression(SomaExpression<?> expression) {
+    PredicateIr requireOwnedExpression(SomaExpression<?> expression) {
         if (!(expression instanceof GeneratedExpression)) {
             throw SomaFailures.invalid(
                     SomaOperation.QUERY,
@@ -445,18 +541,23 @@ public final class GeneratedTable {
                     SomaOperation.QUERY,
                     layout.logicalName() + " expression belongs to another Table");
         }
-        return internal.node();
+        return internal.predicate();
     }
 
-    long executeCount(GeneratedExpression.Node predicate) {
-        try (GroupOperationGuard.Lease ignored = group.acquire(SomaOperation.QUERY)) {
-            TableStateRoot root = current.get();
-            long result = 0L;
-            for (long locator = 0L; locator < root.size; locator++) {
-                if (predicate.matches(root, locator)) result++;
-            }
-            return result;
-        }
+    GeneratedTableLayout layout() { return layout; }
+    TableStateRoot currentRoot() { return current.get(); }
+    GroupOperationGuard.Lease acquireQuery() { return group.acquire(SomaOperation.QUERY); }
+    GlobalMemoryManager.TemporaryLease leaseQueryTemporary(
+            long bytes,
+            Object provenance) {
+        return group.memoryManager().leaseTemporary(bytes, SomaOperation.QUERY, provenance);
+    }
+
+    GeneratedPipeline indexPipeline(int indexOrdinal, GeneratedProbe probe) {
+        int fieldIndex = layout.indexFieldIndex(indexOrdinal);
+        probe.requireSealed(this, fieldIndex);
+        return new GeneratedPipeline(
+                this, LogicalRowPlan.indexSelection(this, indexOrdinal, probe));
     }
 
     long stateVersionForTesting() { return current.get().stateVersion; }
@@ -475,6 +576,16 @@ public final class GeneratedTable {
         }
     }
 
+    private static void requireQueryCallback(Object callback, String category) {
+        if (callback == null) throw SomaFailures.invalid(
+                SomaOperation.QUERY, category + " is null");
+    }
+
+    private static void requireQueryCount(long count, String category) {
+        if (count < 0L) throw SomaFailures.invalid(
+                SomaOperation.QUERY, category + " is negative");
+    }
+
     private <R> SomaExpression<R> equality(
             final GeneratedProbe probe,
             final boolean negate) {
@@ -485,12 +596,8 @@ public final class GeneratedTable {
                     SomaOperation.QUERY,
                     "eq/ne does not accept null; use isNull/isNotNull");
         }
-        return new GeneratedExpression<R>(this, new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                boolean equal = layout.fieldEquals(root.directory, locator, probe, field);
-                return negate ? !equal : equal;
-            }
-        });
+        return new GeneratedExpression<R>(this, PredicateIr.compare(
+                negate ? PredicateIr.Kind.NE : PredicateIr.Kind.EQ, field, probe));
     }
 
     private <R> SomaExpression<R> order(
@@ -501,16 +608,11 @@ public final class GeneratedTable {
         if (layout.fieldValueIsNull(probe, field)) {
             throw SomaFailures.invalid(SomaOperation.QUERY, "ordered literal is null");
         }
-        return new GeneratedExpression<R>(this, new GeneratedExpression.Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                if (layout.storedFieldIsNull(root.directory, locator, field)) return false;
-                int compared = layout.compareStored(root.directory, locator, probe, field);
-                return operator == -2 ? compared < 0
-                        : operator == -1 ? compared <= 0
-                        : operator == 2 ? compared > 0
-                        : compared >= 0;
-            }
-        });
+        PredicateIr.Kind kind = operator == -2 ? PredicateIr.Kind.LT
+                : operator == -1 ? PredicateIr.Kind.LE
+                : operator == 2 ? PredicateIr.Kind.GT
+                : PredicateIr.Kind.GE;
+        return new GeneratedExpression<R>(this, PredicateIr.compare(kind, field, probe));
     }
 
     private int requireSameField(GeneratedProbe left, GeneratedProbe right) {

@@ -193,6 +193,7 @@ final class CompositionSourceRenderer {
                 .append(".GeneratedTableLayout LAYOUT = createLayout();\n\n")
                 .append("    private final io.github.somaruntime.soma.internal.GeneratedTable runtime;\n")
                 .append("    private final View borrowedView;\n")
+                .append("    private final View borrowedCompareView;\n")
                 .append("    private final Editor borrowedEditor;\n");
         for (EndpointPlan endpoint : shape.roots) {
             source.append("    public final ").append(endpoint.typeName()).append(' ')
@@ -206,10 +207,10 @@ final class CompositionSourceRenderer {
                 .append("        this.runtime = group.createTable(\n")
                 .append("                java.lang.invoke.MethodHandles.lookup(), capability, \"")
                 .append(table.simpleName()).append("\", LAYOUT);\n")
-                .append("        io.github.somaruntime.soma.internal.GeneratedRow row = ")
-                .append("runtime.borrowedRow();\n")
-                .append("        this.borrowedView = new View(capability, row);\n")
-                .append("        this.borrowedEditor = new Editor(capability, row);\n");
+                .append("        this.borrowedView = new View(capability, runtime.queryCursor());\n")
+                .append("        this.borrowedCompareView = new View(capability, ")
+                .append("runtime.secondaryQueryCursor());\n")
+                .append("        this.borrowedEditor = new Editor(capability, runtime.borrowedRow());\n");
         for (EndpointPlan endpoint : shape.roots) {
             source.append("        this.").append(endpoint.field.name()).append(" = new ")
                     .append(endpoint.typeName()).append("();\n");
@@ -223,7 +224,7 @@ final class CompositionSourceRenderer {
         appendLayout(source, table, shape);
         appendTableOperations(source, table, shape, objectType);
         appendTableViewEditor(source, table, objectType);
-        appendSelectionTypes(source);
+        appendSelectionTypes(source, tableType, objectType, shape);
         for (EndpointPlan endpoint : shape.roots) {
             appendEndpoint(source, endpoint, "    ");
         }
@@ -326,10 +327,63 @@ final class CompositionSourceRenderer {
 
         source.append("    public long count() { return runtime.count(); }\n\n")
                 .append("    public Selection selectAll() {\n")
-                .append("        return new Selection(runtime.selectAll());\n    }\n\n")
+                .append("        return new Selection(this, runtime.selectAll());\n    }\n\n")
                 .append("    public Selection filter(")
                 .append("io.github.somaruntime.soma.SomaExpression<View> expression) {\n")
-                .append("        return new Selection(runtime.filter(expression));\n    }\n\n");
+                .append("        return new Selection(this, runtime.filter(expression));\n    }\n\n")
+                .append("    public Selection filter(\n")
+                .append("            io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("        runtime.requireArgument(predicate, ")
+                .append("io.github.somaruntime.soma.SomaOperation.QUERY, \"predicate\");\n")
+                .append("        return new Selection(this, runtime.filter(() -> ")
+                .append("predicate.test(borrowedView)));\n    }\n\n")
+                .append("    public Selection sorted(\n")
+                .append("            java.util.Comparator<? super View> comparator) {\n")
+                .append("        runtime.requireArgument(comparator, ")
+                .append("io.github.somaruntime.soma.SomaOperation.QUERY, \"comparator\");\n")
+                .append("        return new Selection(this, runtime.sorted(() -> comparator.compare(")
+                .append("borrowedView, borrowedCompareView)));\n    }\n\n")
+                .append("    public Selection sortedBy(")
+                .append("io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("        return new Selection(this, runtime.sortedBy(order));\n    }\n\n")
+                .append("    public Selection skip(long count) {\n")
+                .append("        return new Selection(this, runtime.skip(count));\n    }\n\n")
+                .append("    public Selection limit(long count) {\n")
+                .append("        return new Selection(this, runtime.limit(count));\n    }\n\n")
+                .append("    public Selection top(long count, ")
+                .append("io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("        return new Selection(this, runtime.top(count, order));\n    }\n\n")
+                .append("    public boolean anyMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("        return selectAll().anyMatch(predicate);\n    }\n\n")
+                .append("    public boolean allMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("        return selectAll().allMatch(predicate);\n    }\n\n")
+                .append("    public boolean noneMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("        return selectAll().noneMatch(predicate);\n    }\n\n")
+                .append("    public java.util.Optional<").append(objectType)
+                .append("> findFirst() { return selectAll().findFirst(); }\n\n")
+                .append("    public void forEach(java.util.function.Consumer<? super View> action) {\n")
+                .append("        selectAll().forEach(action);\n    }\n\n")
+                .append("    public void forEachOrdered(")
+                .append("java.util.function.Consumer<? super View> action) {\n")
+                .append("        selectAll().forEachOrdered(action);\n    }\n\n")
+                .append("    public java.util.List<").append(objectType)
+                .append("> toList() { return selectAll().toList(); }\n\n")
+                .append("    public ").append(objectType)
+                .append("[] toArray() { return selectAll().toArray(); }\n\n")
+                .append("    public java.lang.String _explain() {\n")
+                .append("        return runtime.selectAll().explain();\n    }\n\n");
+
+        appendRowProjectionMethods(
+                source,
+                shape,
+                "    ",
+                "this",
+                "runtime.selectAll()",
+                "borrowedView",
+                "runtime");
 
         for (int ordinal = 0; ordinal < shape.indexes.size(); ordinal++) {
             EndpointPlan endpoint = shape.indexes.get(ordinal);
@@ -349,7 +403,7 @@ final class CompositionSourceRenderer {
                     "        ",
                     new Counter(),
                     "io.github.somaruntime.soma.SomaOperation.QUERY");
-            source.append("        return new IndexSelection(runtime.indexSelection(")
+            source.append("        return new IndexSelection(this, runtime.indexSelection(")
                     .append(ordinal).append(", probe.seal()));\n    }\n\n");
         }
 
@@ -446,7 +500,7 @@ final class CompositionSourceRenderer {
             CompositionModel.TableModel table,
             String objectType) {
         source.append("    public static class View {\n")
-                .append("        private final io.github.somaruntime.soma.internal.GeneratedRow row;\n");
+                .append("        private final io.github.somaruntime.soma.internal.GeneratedRowAccess row;\n");
         for (CompositionModel.FieldModel field : table.fields()) {
             if (field.type().kind() == CompositionModel.LogicalKind.VALUE) {
                 source.append("        private final ").append(field.typeName()).append(".View ")
@@ -454,8 +508,9 @@ final class CompositionSourceRenderer {
             }
         }
         source.append("\n        private View(java.lang.Object capability, ")
-                .append("io.github.somaruntime.soma.internal.GeneratedRow row) {\n")
-                .append("            this.row = row;\n");
+                .append("io.github.somaruntime.soma.internal.GeneratedRowAccess row) {\n")
+                .append("            this.row = row;\n")
+                .append("            row.registerBorrowedView(this);\n");
         for (CompositionModel.FieldModel field : table.fields()) {
             if (field.type().kind() == CompositionModel.LogicalKind.VALUE) {
                 source.append("            this.").append(field.name()).append("View = ")
@@ -507,24 +562,213 @@ final class CompositionSourceRenderer {
                 .append("    }\n\n");
     }
 
-    private static void appendSelectionTypes(StringBuilder source) {
+    private static void appendRowProjectionMethods(
+            StringBuilder source,
+            TableShape shape,
+            String indent,
+            String owner,
+            String pipeline,
+            String view,
+            String runtime) {
+        for (EndpointPlan endpoint : shape.all) {
+            String endpointType = endpoint.qualifiedTypeName();
+            source.append(indent).append("public ").append(endpointType)
+                    .append(".Stream ")
+                    .append(rowProjectionMethod(endpoint.field.type().kind()))
+                    .append('(').append(endpointType).append(" field) {\n")
+                    .append(indent).append("    if (field != ")
+                    .append(endpoint.memberExpression(owner)).append(") throw ")
+                    .append(runtime).append(".invalidQuery(\"field\");\n")
+                    .append(indent).append("    return field.project(")
+                    .append(pipeline).append(".projectField(")
+                    .append(endpoint.planIndex).append("));\n")
+                    .append(indent).append("}\n\n");
+        }
+        source.append(indent).append("public <R> io.github.somaruntime.soma.MappedStream<R> map(\n")
+                .append(indent).append("        java.util.function.Function<? super View, ? extends R> mapper) {\n")
+                .append(indent).append("    if (mapper == null) throw ")
+                .append(runtime).append(".invalidQuery(\"mapper\");\n")
+                .append(indent).append("    return ").append(pipeline)
+                .append(".map(() -> mapper.apply(").append(view).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public io.github.somaruntime.soma.SomaIntStream mapToInt(\n")
+                .append(indent).append("        io.github.somaruntime.soma.SomaToIntFunction<? super View> mapper) {\n")
+                .append(indent).append("    if (mapper == null) throw ")
+                .append(runtime).append(".invalidQuery(\"mapper\");\n")
+                .append(indent).append("    return ").append(pipeline)
+                .append(".mapToInt(() -> mapper.applyAsInt(").append(view).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public io.github.somaruntime.soma.SomaLongStream mapToLong(\n")
+                .append(indent).append("        io.github.somaruntime.soma.SomaToLongFunction<? super View> mapper) {\n")
+                .append(indent).append("    if (mapper == null) throw ")
+                .append(runtime).append(".invalidQuery(\"mapper\");\n")
+                .append(indent).append("    return ").append(pipeline)
+                .append(".mapToLong(() -> mapper.applyAsLong(").append(view).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public io.github.somaruntime.soma.SomaDoubleStream mapToDouble(\n")
+                .append(indent).append("        io.github.somaruntime.soma.SomaToDoubleFunction<? super View> mapper) {\n")
+                .append(indent).append("    if (mapper == null) throw ")
+                .append(runtime).append(".invalidQuery(\"mapper\");\n")
+                .append(indent).append("    return ").append(pipeline)
+                .append(".mapToDouble(() -> mapper.applyAsDouble(").append(view).append("));\n")
+                .append(indent).append("}\n\n");
+    }
+
+    private static String rowProjectionMethod(CompositionModel.LogicalKind kind) {
+        switch (kind) {
+            case BYTE:
+            case SHORT:
+            case CHAR:
+            case INT:
+                return "mapToInt";
+            case LONG:
+                return "mapToLong";
+            case FLOAT:
+            case DOUBLE:
+                return "mapToDouble";
+            default:
+                return "map";
+        }
+    }
+
+    private static void appendSelectionTypes(
+            StringBuilder source,
+            String tableType,
+            String objectType,
+            TableShape shape) {
         source.append("    public static final class Selection {\n")
+                .append("        private final ").append(tableType).append(" owner;\n")
                 .append("        private final io.github.somaruntime.soma.internal.GeneratedPipeline pipeline;\n\n")
-                .append("        private Selection(")
+                .append("        private Selection(").append(tableType).append(" owner, ")
                 .append("io.github.somaruntime.soma.internal.GeneratedPipeline pipeline) {\n")
-                .append("            this.pipeline = pipeline;\n        }\n\n")
+                .append("            this.owner = owner;\n")
+                .append("            this.pipeline = pipeline;\n        }\n\n");
+        appendRowProjectionMethods(
+                source,
+                shape,
+                "        ",
+                "owner",
+                "pipeline",
+                "owner.borrowedView",
+                "owner.runtime");
+        source
                 .append("        public Selection filter(")
                 .append("io.github.somaruntime.soma.SomaExpression<View> expression) {\n")
-                .append("            return new Selection(pipeline.filter(expression));\n        }\n\n")
-                .append("        public long count() { return pipeline.count(); }\n")
+                .append("            return new Selection(owner, pipeline.filter(expression));\n        }\n\n")
+                .append("        public Selection filter(\n")
+                .append("                io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return new Selection(owner, pipeline.filter(() -> ")
+                .append("predicate.test(owner.borrowedView)));\n        }\n\n")
+                .append("        public Selection sorted(\n")
+                .append("                java.util.Comparator<? super View> comparator) {\n")
+                .append("            if (comparator == null) throw owner.runtime.invalidQuery(\"comparator\");\n")
+                .append("            return new Selection(owner, pipeline.sorted(() -> comparator.compare(")
+                .append("owner.borrowedView, owner.borrowedCompareView)));\n        }\n\n")
+                .append("        public Selection sortedBy(")
+                .append("io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("            return new Selection(owner, pipeline.sortedBy(order));\n        }\n\n")
+                .append("        public Selection skip(long count) {\n")
+                .append("            return new Selection(owner, pipeline.skip(count));\n        }\n\n")
+                .append("        public Selection limit(long count) {\n")
+                .append("            return new Selection(owner, pipeline.limit(count));\n        }\n\n")
+                .append("        public Selection top(long count, ")
+                .append("io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("            return new Selection(owner, pipeline.top(count, order));\n        }\n\n")
+                .append("        public long count() { return pipeline.count(); }\n\n")
+                .append("        public boolean anyMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return pipeline.anyMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public boolean allMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return pipeline.allMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public boolean noneMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return pipeline.noneMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public java.util.Optional<").append(objectType).append("> findFirst() {\n")
+                .append("            return pipeline.findFirst(() -> owner.borrowedView.fetch());\n        }\n\n")
+                .append("        public void forEach(java.util.function.Consumer<? super View> action) {\n")
+                .append("            if (action == null) throw owner.runtime.invalidQuery(\"action\");\n")
+                .append("            pipeline.forEach(() -> action.accept(owner.borrowedView));\n        }\n\n")
+                .append("        public void forEachOrdered(")
+                .append("java.util.function.Consumer<? super View> action) { forEach(action); }\n\n")
+                .append("        public java.util.List<").append(objectType).append("> toList() {\n")
+                .append("            return pipeline.toList(() -> owner.borrowedView.fetch());\n        }\n\n")
+                .append("        public ").append(objectType).append("[] toArray() {\n")
+                .append("            return pipeline.toArray(() -> owner.borrowedView.fetch(), ")
+                .append(objectType).append(".class);\n        }\n\n")
+                .append("        public java.lang.String _explain() { return pipeline.explain(); }\n")
                 .append("    }\n\n")
                 .append("    public static final class IndexSelection {\n")
+                .append("        private final ").append(tableType).append(" owner;\n")
                 .append("        private final io.github.somaruntime.soma.internal")
                 .append(".GeneratedIndexSelection selection;\n\n")
-                .append("        private IndexSelection(io.github.somaruntime.soma.internal")
+                .append("        private IndexSelection(").append(tableType)
+                .append(" owner, io.github.somaruntime.soma.internal")
                 .append(".GeneratedIndexSelection selection) {\n")
-                .append("            this.selection = selection;\n        }\n\n")
-                .append("        public long count() { return selection.count(); }\n")
+                .append("            this.owner = owner;\n")
+                .append("            this.selection = selection;\n        }\n\n");
+        appendRowProjectionMethods(
+                source,
+                shape,
+                "        ",
+                "owner",
+                "selection",
+                "owner.borrowedView",
+                "owner.runtime");
+        source
+                .append("        public Selection filter(")
+                .append("io.github.somaruntime.soma.SomaExpression<View> expression) {\n")
+                .append("            return new Selection(owner, selection.filter(expression));\n        }\n\n")
+                .append("        public Selection filter(\n")
+                .append("                io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return new Selection(owner, selection.filter(() -> ")
+                .append("predicate.test(owner.borrowedView)));\n        }\n\n")
+                .append("        public Selection sorted(\n")
+                .append("                java.util.Comparator<? super View> comparator) {\n")
+                .append("            if (comparator == null) throw owner.runtime.invalidQuery(\"comparator\");\n")
+                .append("            return new Selection(owner, selection.sorted(() -> comparator.compare(")
+                .append("owner.borrowedView, owner.borrowedCompareView)));\n        }\n\n")
+                .append("        public Selection sortedBy(")
+                .append("io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("            return new Selection(owner, selection.sortedBy(order));\n        }\n\n")
+                .append("        public Selection skip(long count) {\n")
+                .append("            return new Selection(owner, selection.skip(count));\n        }\n\n")
+                .append("        public Selection limit(long count) {\n")
+                .append("            return new Selection(owner, selection.limit(count));\n        }\n\n")
+                .append("        public Selection top(long count, ")
+                .append("io.github.somaruntime.soma.SomaOrder<View> order) {\n")
+                .append("            return new Selection(owner, selection.top(count, order));\n        }\n\n")
+                .append("        public long count() { return selection.count(); }\n\n")
+                .append("        public boolean anyMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return selection.anyMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public boolean allMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return selection.allMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public boolean noneMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super View> predicate) {\n")
+                .append("            if (predicate == null) throw owner.runtime.invalidQuery(\"predicate\");\n")
+                .append("            return selection.noneMatch(() -> predicate.test(owner.borrowedView));\n        }\n\n")
+                .append("        public java.util.Optional<").append(objectType).append("> findFirst() {\n")
+                .append("            return selection.findFirst(() -> owner.borrowedView.fetch());\n        }\n\n")
+                .append("        public void forEach(java.util.function.Consumer<? super View> action) {\n")
+                .append("            if (action == null) throw owner.runtime.invalidQuery(\"action\");\n")
+                .append("            selection.forEach(() -> action.accept(owner.borrowedView));\n        }\n\n")
+                .append("        public void forEachOrdered(")
+                .append("java.util.function.Consumer<? super View> action) { forEach(action); }\n\n")
+                .append("        public java.util.List<").append(objectType).append("> toList() {\n")
+                .append("            return selection.toList(() -> owner.borrowedView.fetch());\n        }\n\n")
+                .append("        public ").append(objectType).append("[] toArray() {\n")
+                .append("            return selection.toArray(() -> owner.borrowedView.fetch(), ")
+                .append(objectType).append(".class);\n        }\n\n")
+                .append("        public java.lang.String _explain() { return selection.explain(); }\n")
                 .append("    }\n\n");
     }
 
@@ -548,7 +792,20 @@ final class CompositionSourceRenderer {
             source.append(indent).append("        this.").append(child.field.name())
                     .append(" = new ").append(child.typeName()).append("();\n");
         }
-        source.append(indent).append("    }\n\n");
+        source.append(indent).append("    }\n\n")
+                .append(indent).append("    private Stream project(\n")
+                .append(indent).append("            io.github.somaruntime.soma.internal")
+                .append(".GeneratedFieldPipeline pipeline) {\n")
+                .append(indent).append("        return new Stream(");
+        if (isPrimitive(endpoint.field.type().kind())) {
+            source.append("pipeline.primitive")
+                    .append(primitiveToken(endpoint.field.type().kind()))
+                    .append("(() -> ").append(endpoint.valueExpression).append("));\n");
+        } else {
+            source.append("pipeline);\n");
+        }
+        source
+                .append(indent).append("    }\n\n");
         appendEndpointMethods(source, endpoint, indent + "    ");
         for (EndpointPlan child : endpoint.children) {
             appendEndpoint(source, child, indent + "    ");
@@ -572,6 +829,12 @@ final class CompositionSourceRenderer {
             appendComparisonMethod(source, endpoint, indent, "gt");
             appendComparisonMethod(source, endpoint, indent, "ge");
             appendBetweenMethod(source, endpoint, indent);
+            source.append(indent).append("public io.github.somaruntime.soma.SomaOrder<View> asc() { ")
+                    .append("return runtime.asc(").append(endpoint.planIndex)
+                    .append("); }\n\n")
+                    .append(indent).append("public io.github.somaruntime.soma.SomaOrder<View> desc() { ")
+                    .append("return runtime.desc(").append(endpoint.planIndex)
+                    .append("); }\n\n");
         }
         if (type.nullable()) {
             source.append(indent).append("public io.github.somaruntime.soma.SomaExpression<View> ")
@@ -581,6 +844,467 @@ final class CompositionSourceRenderer {
                     .append("isNotNull() { return runtime.isNotNull(")
                     .append(endpoint.planIndex).append("); }\n\n");
         }
+        if (isPrimitive(type.kind())) {
+            appendPrimitiveFieldSource(source, endpoint, indent);
+        } else {
+            appendReferenceFieldSource(source, endpoint, indent);
+        }
+    }
+
+    private static void appendPrimitiveFieldSource(
+            StringBuilder source,
+            EndpointPlan endpoint,
+            String indent) {
+        CompositionModel.TypeModel type = endpoint.field.type();
+        String token = primitiveToken(type.kind());
+        String value = endpoint.valueExpression;
+        source.append(indent).append("private io.github.somaruntime.soma.internal")
+                .append(".GeneratedPrimitiveValuePipeline source() {\n")
+                .append(indent).append("    return runtime.fieldSource(")
+                .append(endpoint.planIndex).append(").primitive").append(token)
+                .append("(() -> ").append(value).append(");\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("private void require(java.lang.Object value, ")
+                .append("java.lang.String category) { runtime.requireArgument(value, ")
+                .append("io.github.somaruntime.soma.SomaOperation.QUERY, category); }\n\n")
+                .append(indent).append("public Stream filter(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) { require(predicate, \"predicate\"); return new Stream(")
+                .append("source().filter").append(token).append("(predicate)); }\n\n")
+                .append(indent).append("public Stream map(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("UnaryOperator mapper) { require(mapper, \"mapper\"); return new Stream(")
+                .append("source().map").append(token).append("(mapper)); }\n\n")
+                .append(indent).append("public Stream distinct() { ")
+                .append("return new Stream(source()).distinct(); }\n\n");
+        appendPrimitiveConversions(source, type.kind(), indent, "source()");
+        if (type.naturalOrder()) {
+            source.append(indent).append("public Stream sorted() { ")
+                    .append("return new Stream(source()).sorted(); }\n\n")
+                    .append(indent).append("public Stream top(long count) { ")
+                    .append("return new Stream(source()).top(count); }\n\n");
+        }
+        source.append(indent).append("public Stream skip(long count) { ")
+                .append("return new Stream(source()).skip(count); }\n\n")
+                .append(indent).append("public Stream limit(long count) { ")
+                .append("return new Stream(source()).limit(count); }\n\n")
+                .append(indent).append("public long count() { return source().count(); }\n\n")
+                .append(indent).append("public boolean anyMatch(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) { return new Stream(source()).anyMatch(predicate); }\n\n")
+                .append(indent).append("public boolean allMatch(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) { return new Stream(source()).allMatch(predicate); }\n\n")
+                .append(indent).append("public boolean noneMatch(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) { return new Stream(source()).noneMatch(predicate); }\n\n");
+        appendExactPrimitiveTerminals(source, type.kind(), indent, "source()");
+        source.append(indent).append("public final class Stream {\n")
+                .append(indent).append("    private final io.github.somaruntime.soma.internal")
+                .append(".GeneratedPrimitiveValuePipeline pipeline;\n\n")
+                .append(indent).append("    private Stream(io.github.somaruntime.soma.internal")
+                .append(".GeneratedPrimitiveValuePipeline pipeline) { this.pipeline = pipeline; }\n\n")
+                .append(indent).append("    public Stream filter(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) {\n")
+                .append(indent).append("        require(predicate, \"predicate\");\n")
+                .append(indent).append("        return new Stream(pipeline.filter")
+                .append(token).append("(predicate));\n")
+                .append(indent).append("    }\n\n")
+                .append(indent).append("    public Stream map(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("UnaryOperator mapper) {\n")
+                .append(indent).append("        require(mapper, \"mapper\");\n")
+                .append(indent).append("        return new Stream(pipeline.map")
+                .append(token).append("(mapper));\n")
+                .append(indent).append("    }\n\n")
+                .append(indent).append("    public Stream distinct() { ")
+                .append("return new Stream(pipeline.distinct()); }\n\n");
+        appendPrimitiveConversions(source, type.kind(), indent + "    ", "pipeline");
+        if (type.naturalOrder()) {
+            source.append(indent).append("    public Stream sorted() { ")
+                    .append("return new Stream(pipeline.sorted()); }\n\n")
+                    .append(indent).append("    public Stream top(long count) { ")
+                    .append("return new Stream(pipeline.top(count)); }\n\n");
+        }
+        source.append(indent).append("    public Stream skip(long count) { ")
+                .append("return new Stream(pipeline.skip(count)); }\n\n")
+                .append(indent).append("    public Stream limit(long count) { ")
+                .append("return new Stream(pipeline.limit(count)); }\n\n")
+                .append(indent).append("    public long count() { return pipeline.count(); }\n\n")
+                .append(indent).append("    public boolean anyMatch(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) { require(predicate, \"predicate\"); return ")
+                .append("pipeline.anyMatch").append(token).append("(predicate); }\n\n")
+                .append(indent).append("    public boolean allMatch(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) { require(predicate, \"predicate\"); return ")
+                .append("pipeline.allMatch").append(token).append("(predicate); }\n\n")
+                .append(indent).append("    public boolean noneMatch(")
+                .append("io.github.somaruntime.soma.Soma").append(token)
+                .append("Predicate predicate) { require(predicate, \"predicate\"); return ")
+                .append("pipeline.noneMatch").append(token).append("(predicate); }\n\n");
+        appendExactPrimitiveTerminals(
+                source, type.kind(), indent + "    ", "pipeline");
+        source.append(indent).append("}\n\n");
+    }
+
+    private static void appendPrimitiveConversions(
+            StringBuilder source,
+            CompositionModel.LogicalKind kind,
+            String indent,
+            String receiver) {
+        String token = primitiveToken(kind);
+        if (kind != CompositionModel.LogicalKind.INT) {
+            source.append(indent).append("public io.github.somaruntime.soma.SomaIntStream mapToInt(")
+                    .append("io.github.somaruntime.soma.Soma").append(token)
+                    .append("ToIntFunction mapper) { require(mapper, \"mapper\"); return ")
+                    .append(receiver).append(".map").append(token)
+                    .append("ToInt(mapper); }\n\n");
+        }
+        if (kind != CompositionModel.LogicalKind.LONG) {
+            source.append(indent).append("public io.github.somaruntime.soma.SomaLongStream mapToLong(")
+                    .append("io.github.somaruntime.soma.Soma").append(token)
+                    .append("ToLongFunction mapper) { require(mapper, \"mapper\"); return ")
+                    .append(receiver).append(".map").append(token)
+                    .append("ToLong(mapper); }\n\n");
+        }
+        if (kind != CompositionModel.LogicalKind.DOUBLE) {
+            source.append(indent).append("public io.github.somaruntime.soma.SomaDoubleStream mapToDouble(")
+                    .append("io.github.somaruntime.soma.Soma").append(token)
+                    .append("ToDoubleFunction mapper) { require(mapper, \"mapper\"); return ")
+                    .append(receiver).append(".map").append(token)
+                    .append("ToDouble(mapper); }\n\n");
+        }
+    }
+
+    private static void appendExactPrimitiveTerminals(
+            StringBuilder source,
+            CompositionModel.LogicalKind kind,
+            String indent,
+            String receiver) {
+        String token = primitiveToken(kind);
+        if (kind == CompositionModel.LogicalKind.BOOLEAN) {
+            source.append(indent).append("public java.util.Optional<java.lang.Boolean> findFirst() { return ")
+                    .append(receiver).append(".findFirstBoolean(); }\n\n");
+        } else if (kind == CompositionModel.LogicalKind.LONG) {
+            source.append(indent).append("public java.util.OptionalLong findFirst() { return ")
+                    .append(receiver).append(".findFirstLong(); }\n\n")
+                    .append(indent).append("public java.util.OptionalLong min() { return ")
+                    .append(receiver).append(".minLong(false); }\n\n")
+                    .append(indent).append("public java.util.OptionalLong max() { return ")
+                    .append(receiver).append(".minLong(true); }\n\n");
+            appendExactIntegralAggregates(source, indent, receiver);
+        } else if (kind == CompositionModel.LogicalKind.FLOAT
+                || kind == CompositionModel.LogicalKind.DOUBLE) {
+            source.append(indent).append("public java.util.OptionalDouble findFirst() { return ")
+                    .append(receiver).append(".findFirstFloating(); }\n\n")
+                    .append(indent).append("public java.util.OptionalDouble min() { return ")
+                    .append(receiver).append(".minFloating(false); }\n\n")
+                    .append(indent).append("public java.util.OptionalDouble max() { return ")
+                    .append(receiver).append(".minFloating(true); }\n\n")
+                    .append(indent).append("public double sum() { return ")
+                    .append(receiver).append(".sumFloating(); }\n\n")
+                    .append(indent).append("public java.util.OptionalDouble average() { return ")
+                    .append(receiver).append(".averageFloating(); }\n\n")
+                    .append(indent).append("public io.github.somaruntime.soma.SomaDoubleSummary summaryStatistics() { return ")
+                    .append(receiver).append(".summaryFloating(); }\n\n");
+        } else {
+            source.append(indent).append("public java.util.OptionalInt findFirst() { return ")
+                    .append(receiver).append(".findFirstInt(); }\n\n")
+                    .append(indent).append("public java.util.OptionalInt min() { return ")
+                    .append(receiver).append(".minInt(false); }\n\n")
+                    .append(indent).append("public java.util.OptionalInt max() { return ")
+                    .append(receiver).append(".minInt(true); }\n\n");
+            appendExactIntegralAggregates(source, indent, receiver);
+        }
+        source.append(indent).append("public void forEach(io.github.somaruntime.soma.Soma")
+                .append(token).append("Consumer action) { require(action, \"action\"); ")
+                .append(receiver).append(".forEach").append(token).append("(action); }\n\n")
+                .append(indent).append("public void forEachOrdered(io.github.somaruntime.soma.Soma")
+                .append(token).append("Consumer action) { forEach(action); }\n\n")
+                .append(indent).append("public java.util.List<")
+                .append(boxedPrimitive(kind)).append("> toList() { return ")
+                .append(receiver).append(".to").append(token).append("List(); }\n\n")
+                .append(indent).append("public ").append(primitiveName(kind)).append("[] toArray() { return ")
+                .append(receiver).append('.').append(primitiveArrayMethod(kind)).append("(); }\n\n")
+                .append(indent).append("public java.lang.String _explain() { return ")
+                .append(receiver).append(".explain(); }\n\n");
+    }
+
+    private static void appendExactIntegralAggregates(
+            StringBuilder source,
+            String indent,
+            String receiver) {
+        source.append(indent).append("public long sum() { return ")
+                .append(receiver).append(".sumIntegral(); }\n\n")
+                .append(indent).append("public java.util.OptionalDouble average() { return ")
+                .append(receiver).append(".averageIntegral(); }\n\n")
+                .append(indent).append("public io.github.somaruntime.soma.SomaLongSummary summaryStatistics() { return ")
+                .append(receiver).append(".summaryIntegral(); }\n\n");
+    }
+
+    private static void appendReferenceFieldSource(
+            StringBuilder source,
+            EndpointPlan endpoint,
+            String indent) {
+        CompositionModel.TypeModel type = endpoint.field.type();
+        String materialType = type.publicTypeName();
+        String elementType = type.kind() == CompositionModel.LogicalKind.VALUE
+                ? materialType + ".View"
+                : materialType;
+        String value = endpoint.valueExpression;
+        String compared = endpoint.compareValueExpression();
+        String materialized = type.kind() == CompositionModel.LogicalKind.VALUE
+                ? value + ".fetch()"
+                : value;
+
+        source.append(indent).append("private io.github.somaruntime.soma.internal")
+                .append(".GeneratedFieldPipeline source() { return runtime.fieldSource(")
+                .append(endpoint.planIndex).append("); }\n\n")
+                .append(indent).append("private void require(java.lang.Object value, ")
+                .append("java.lang.String category) { runtime.requireArgument(value, ")
+                .append("io.github.somaruntime.soma.SomaOperation.QUERY, category); }\n\n")
+                .append(indent).append("public Stream filter(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) {\n")
+                .append(indent).append("    require(predicate, \"predicate\");\n")
+                .append(indent).append("    return new Stream(source().filter(() -> predicate.test(")
+                .append(value).append(")));\n")
+                .append(indent).append("}\n\n");
+        appendReferenceMapMethods(
+                source, indent, "source()", elementType, value);
+        if (type.intrinsicEquality()) {
+            source.append(indent).append("public Stream distinct() { ")
+                    .append("return new Stream(source().distinct()); }\n\n");
+        }
+        source.append(indent).append("public Stream sorted(")
+                .append("java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) {\n")
+                .append(indent).append("    require(comparator, \"comparator\");\n")
+                .append(indent).append("    return new Stream(source().sorted(() -> ")
+                .append("comparator.compare(").append(value).append(", ")
+                .append(compared).append(")));\n")
+                .append(indent).append("}\n\n");
+        if (type.naturalOrder()) {
+            source.append(indent).append("public Stream sorted() { ")
+                    .append("return new Stream(source().sortedNatural()); }\n\n")
+                    .append(indent).append("public Stream top(long count) { ")
+                    .append("return new Stream(source().topNatural(count)); }\n\n");
+        }
+        source.append(indent).append("public Stream top(long count, ")
+                .append("java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) {\n")
+                .append(indent).append("    require(comparator, \"comparator\");\n")
+                .append(indent).append("    return new Stream(source().top(count, () -> ")
+                .append("comparator.compare(").append(value).append(", ")
+                .append(compared).append(")));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public Stream skip(long count) { ")
+                .append("return new Stream(source().skip(count)); }\n\n")
+                .append(indent).append("public Stream limit(long count) { ")
+                .append("return new Stream(source().limit(count)); }\n\n")
+                .append(indent).append("public long count() { return source().count(); }\n\n")
+                .append(indent).append("public boolean anyMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) {\n")
+                .append(indent).append("    require(predicate, \"predicate\");\n")
+                .append(indent).append("    return source().anyMatch(() -> predicate.test(")
+                .append(value).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public boolean allMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) {\n")
+                .append(indent).append("    require(predicate, \"predicate\");\n")
+                .append(indent).append("    return source().allMatch(() -> predicate.test(")
+                .append(value).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public boolean noneMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) {\n")
+                .append(indent).append("    require(predicate, \"predicate\");\n")
+                .append(indent).append("    return source().noneMatch(() -> predicate.test(")
+                .append(value).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public java.util.Optional<").append(materialType)
+                .append("> findFirst() { return source().findFirst(() -> ")
+                .append(materialized).append("); }\n\n");
+        if (type.naturalOrder()) {
+            source.append(indent).append("public java.util.Optional<").append(materialType)
+                    .append("> min() { return new Stream(source().sortedNatural()).findFirst(); }\n\n")
+                    .append(indent).append("public java.util.Optional<").append(materialType)
+                    .append("> max() { return new Stream(source().sortedNatural(true)).findFirst(); }\n\n");
+        }
+        source.append(indent).append("public java.util.Optional<").append(materialType)
+                .append("> min(java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) { require(comparator, \"comparator\"); return sorted(comparator).findFirst(); }\n\n")
+                .append(indent).append("public java.util.Optional<").append(materialType)
+                .append("> max(java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) { require(comparator, \"comparator\"); return new Stream(source().sorted(() -> comparator.compare(")
+                .append(compared).append(", ").append(value).append("))).findFirst(); }\n\n")
+                .append(indent).append("public void forEach(java.util.function.Consumer<? super ")
+                .append(elementType).append("> action) {\n")
+                .append(indent).append("    require(action, \"action\");\n")
+                .append(indent).append("    source().forEach(() -> action.accept(")
+                .append(value).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public void forEachOrdered(")
+                .append("java.util.function.Consumer<? super ").append(elementType)
+                .append("> action) { forEach(action); }\n\n")
+                .append(indent).append("public java.util.List<").append(materialType)
+                .append("> toList() { return source().toList(() -> ")
+                .append(materialized).append("); }\n\n")
+                .append(indent).append("public ").append(materialType)
+                .append("[] toArray() { return (").append(materialType)
+                .append("[]) source().toArray(() -> ")
+                .append(materialized).append(", ")
+                .append(componentClassLiteral(materialType)).append("); }\n\n")
+                .append(indent).append("public java.lang.String _explain() { ")
+                .append("return source().explain(); }\n\n")
+                .append(indent).append("public final class Stream {\n")
+                .append(indent).append("    private final io.github.somaruntime.soma.internal")
+                .append(".GeneratedFieldPipeline pipeline;\n\n")
+                .append(indent).append("    private Stream(io.github.somaruntime.soma.internal")
+                .append(".GeneratedFieldPipeline pipeline) { this.pipeline = pipeline; }\n\n");
+        appendReferenceFieldStreamBody(
+                source, endpoint, indent + "    ", elementType, materialType, value, compared,
+                materialized);
+        source.append(indent).append("}\n\n");
+    }
+
+    private static void appendReferenceFieldStreamBody(
+            StringBuilder source,
+            EndpointPlan endpoint,
+            String indent,
+            String elementType,
+            String materialType,
+            String value,
+            String compared,
+            String materialized) {
+        CompositionModel.TypeModel type = endpoint.field.type();
+        source.append(indent).append("public Stream filter(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) {\n")
+                .append(indent).append("    require(predicate, \"predicate\");\n")
+                .append(indent).append("    return new Stream(pipeline.filter(() -> ")
+                .append("predicate.test(").append(value).append(")));\n")
+                .append(indent).append("}\n\n");
+        appendReferenceMapMethods(
+                source, indent, "pipeline", elementType, value);
+        if (type.intrinsicEquality()) {
+            source.append(indent).append("public Stream distinct() { ")
+                    .append("return new Stream(pipeline.distinct()); }\n\n");
+        }
+        source.append(indent).append("public Stream sorted(")
+                .append("java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) {\n")
+                .append(indent).append("    require(comparator, \"comparator\");\n")
+                .append(indent).append("    return new Stream(pipeline.sorted(() -> ")
+                .append("comparator.compare(").append(value).append(", ")
+                .append(compared).append(")));\n")
+                .append(indent).append("}\n\n");
+        if (type.naturalOrder()) {
+            source.append(indent).append("public Stream sorted() { ")
+                    .append("return new Stream(pipeline.sortedNatural()); }\n\n")
+                    .append(indent).append("public Stream top(long count) { ")
+                    .append("return new Stream(pipeline.topNatural(count)); }\n\n");
+        }
+        source.append(indent).append("public Stream top(long count, ")
+                .append("java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) {\n")
+                .append(indent).append("    require(comparator, \"comparator\");\n")
+                .append(indent).append("    return new Stream(pipeline.top(count, () -> ")
+                .append("comparator.compare(").append(value).append(", ")
+                .append(compared).append(")));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public Stream skip(long count) { ")
+                .append("return new Stream(pipeline.skip(count)); }\n\n")
+                .append(indent).append("public Stream limit(long count) { ")
+                .append("return new Stream(pipeline.limit(count)); }\n\n")
+                .append(indent).append("public long count() { return pipeline.count(); }\n\n")
+                .append(indent).append("public boolean anyMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) { require(predicate, \"predicate\"); ")
+                .append("return pipeline.anyMatch(() -> predicate.test(").append(value)
+                .append(")); }\n\n")
+                .append(indent).append("public boolean allMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) { require(predicate, \"predicate\"); ")
+                .append("return pipeline.allMatch(() -> predicate.test(").append(value)
+                .append(")); }\n\n")
+                .append(indent).append("public boolean noneMatch(")
+                .append("io.github.somaruntime.soma.SomaPredicate<? super ")
+                .append(elementType).append("> predicate) { require(predicate, \"predicate\"); ")
+                .append("return pipeline.noneMatch(() -> predicate.test(").append(value)
+                .append(")); }\n\n")
+                .append(indent).append("public java.util.Optional<").append(materialType)
+                .append("> findFirst() { return pipeline.findFirst(() -> ")
+                .append(materialized).append("); }\n\n");
+        if (type.naturalOrder()) {
+            source.append(indent).append("public java.util.Optional<").append(materialType)
+                    .append("> min() { return new Stream(pipeline.sortedNatural()).findFirst(); }\n\n")
+                    .append(indent).append("public java.util.Optional<").append(materialType)
+                    .append("> max() { return new Stream(pipeline.sortedNatural(true)).findFirst(); }\n\n");
+        }
+        source.append(indent).append("public java.util.Optional<").append(materialType)
+                .append("> min(java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) { require(comparator, \"comparator\"); return sorted(comparator).findFirst(); }\n\n")
+                .append(indent).append("public java.util.Optional<").append(materialType)
+                .append("> max(java.util.Comparator<? super ").append(elementType)
+                .append("> comparator) { require(comparator, \"comparator\"); return new Stream(pipeline.sorted(() -> comparator.compare(")
+                .append(compared).append(", ").append(value).append("))).findFirst(); }\n\n")
+                .append(indent).append("public void forEach(java.util.function.Consumer<? super ")
+                .append(elementType).append("> action) { require(action, \"action\"); ")
+                .append("pipeline.forEach(() -> action.accept(").append(value).append(")); }\n\n")
+                .append(indent).append("public void forEachOrdered(")
+                .append("java.util.function.Consumer<? super ").append(elementType)
+                .append("> action) { forEach(action); }\n\n")
+                .append(indent).append("public java.util.List<").append(materialType)
+                .append("> toList() { return pipeline.toList(() -> ")
+                .append(materialized).append("); }\n\n")
+                .append(indent).append("public ").append(materialType)
+                .append("[] toArray() { return (").append(materialType)
+                .append("[]) pipeline.toArray(() -> ")
+                .append(materialized).append(", ")
+                .append(componentClassLiteral(materialType)).append("); }\n\n")
+                .append(indent).append("public java.lang.String _explain() { ")
+                .append("return pipeline.explain(); }\n\n");
+    }
+
+    private static void appendReferenceMapMethods(
+            StringBuilder source,
+            String indent,
+            String receiver,
+            String elementType,
+            String value) {
+        source.append(indent).append("public <R> io.github.somaruntime.soma.MappedStream<R> map(\n")
+                .append(indent).append("        java.util.function.Function<? super ")
+                .append(elementType).append(", ? extends R> mapper) {\n")
+                .append(indent).append("    require(mapper, \"mapper\");\n")
+                .append(indent).append("    return ").append(receiver)
+                .append(".map(() -> mapper.apply(").append(value).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public io.github.somaruntime.soma.SomaIntStream mapToInt(\n")
+                .append(indent).append("        io.github.somaruntime.soma.SomaToIntFunction<? super ")
+                .append(elementType).append("> mapper) {\n")
+                .append(indent).append("    require(mapper, \"mapper\");\n")
+                .append(indent).append("    return ").append(receiver)
+                .append(".mapToInt(() -> mapper.applyAsInt(").append(value).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public io.github.somaruntime.soma.SomaLongStream mapToLong(\n")
+                .append(indent).append("        io.github.somaruntime.soma.SomaToLongFunction<? super ")
+                .append(elementType).append("> mapper) {\n")
+                .append(indent).append("    require(mapper, \"mapper\");\n")
+                .append(indent).append("    return ").append(receiver)
+                .append(".mapToLong(() -> mapper.applyAsLong(").append(value).append("));\n")
+                .append(indent).append("}\n\n")
+                .append(indent).append("public io.github.somaruntime.soma.SomaDoubleStream mapToDouble(\n")
+                .append(indent).append("        io.github.somaruntime.soma.SomaToDoubleFunction<? super ")
+                .append(elementType).append("> mapper) {\n")
+                .append(indent).append("    require(mapper, \"mapper\");\n")
+                .append(indent).append("    return ").append(receiver)
+                .append(".mapToDouble(() -> mapper.applyAsDouble(").append(value).append("));\n")
+                .append(indent).append("}\n\n");
     }
 
     private static void appendComparisonMethod(
@@ -627,8 +1351,10 @@ final class CompositionSourceRenderer {
         source.append(indent).append("public io.github.somaruntime.soma.SomaExpression<View> in(")
                 .append(type.publicTypeName()).append("... values) {\n")
                 .append(indent).append("    if (values == null) return runtime.in(null);\n")
+                .append(indent).append("    int literalCount = ")
+                .append("runtime.requireInLiteralCapacity(values.length);\n")
                 .append(indent).append("    io.github.somaruntime.soma.internal.GeneratedProbe[] probes = ")
-                .append("new io.github.somaruntime.soma.internal.GeneratedProbe[values.length];\n")
+                .append("new io.github.somaruntime.soma.internal.GeneratedProbe[literalCount];\n")
                 .append(indent).append("    for (int index = 0; index < values.length; index++) {\n")
                 .append(indent).append("        io.github.somaruntime.soma.internal.GeneratedProbe probe = ")
                 .append("runtime.newProbe(").append(endpoint.planIndex).append(");\n");
@@ -670,7 +1396,7 @@ final class CompositionSourceRenderer {
             StringBuilder source,
             CompositionModel.ValueModel value) {
         source.append("    public static final class View {\n")
-                .append("        private final io.github.somaruntime.soma.internal.GeneratedRow row;\n")
+                .append("        private final io.github.somaruntime.soma.internal.GeneratedRowAccess row;\n")
                 .append("        private final int base;\n");
         for (CompositionModel.FieldModel field : value.fields()) {
             if (field.type().kind() == CompositionModel.LogicalKind.VALUE) {
@@ -679,10 +1405,11 @@ final class CompositionSourceRenderer {
             }
         }
         source.append("\n        private View(java.lang.Object capability, ")
-                .append("io.github.somaruntime.soma.internal.GeneratedRow row, int base) {\n")
+                .append("io.github.somaruntime.soma.internal.GeneratedRowAccess row, int base) {\n")
                 .append("            if (!Soma.accepts(capability) || row == null || base < 0) ")
                 .append("throw new java.lang.AssertionError(\"invalid Value View capability\");\n")
-                .append("            this.row = row;\n            this.base = base;\n");
+                .append("            this.row = row;\n            this.base = base;\n")
+                .append("            row.registerBorrowedView(this);\n");
         for (CompositionModel.FieldModel field : value.fields()) {
             if (field.type().kind() == CompositionModel.LogicalKind.VALUE) {
                 source.append("            this.").append(field.name()).append("View = ")
@@ -692,7 +1419,7 @@ final class CompositionSourceRenderer {
         }
         source.append("        }\n\n")
                 .append("        static View create(java.lang.Object capability, ")
-                .append("io.github.somaruntime.soma.internal.GeneratedRow row, int base) {\n")
+                .append("io.github.somaruntime.soma.internal.GeneratedRowAccess row, int base) {\n")
                 .append("            return new View(capability, row, base);\n        }\n\n");
         for (CompositionModel.FieldModel field : value.fields()) {
             source.append("        public ")
@@ -879,6 +1606,49 @@ final class CompositionSourceRenderer {
         return "EQ_" + kind.name();
     }
 
+    private static boolean isPrimitive(CompositionModel.LogicalKind kind) {
+        return kind == CompositionModel.LogicalKind.BOOLEAN
+                || kind == CompositionModel.LogicalKind.BYTE
+                || kind == CompositionModel.LogicalKind.SHORT
+                || kind == CompositionModel.LogicalKind.CHAR
+                || kind == CompositionModel.LogicalKind.INT
+                || kind == CompositionModel.LogicalKind.LONG
+                || kind == CompositionModel.LogicalKind.FLOAT
+                || kind == CompositionModel.LogicalKind.DOUBLE;
+    }
+
+    private static String componentClassLiteral(String typeName) {
+        int arguments = typeName.indexOf('<');
+        return (arguments < 0 ? typeName : typeName.substring(0, arguments)) + ".class";
+    }
+
+    private static String primitiveToken(CompositionModel.LogicalKind kind) {
+        String value = kind.name().toLowerCase(java.util.Locale.ROOT);
+        return Character.toUpperCase(value.charAt(0)) + value.substring(1);
+    }
+
+    private static String primitiveName(CompositionModel.LogicalKind kind) {
+        return kind.name().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static String boxedPrimitive(CompositionModel.LogicalKind kind) {
+        switch (kind) {
+            case BOOLEAN: return "java.lang.Boolean";
+            case BYTE: return "java.lang.Byte";
+            case SHORT: return "java.lang.Short";
+            case CHAR: return "java.lang.Character";
+            case INT: return "java.lang.Integer";
+            case LONG: return "java.lang.Long";
+            case FLOAT: return "java.lang.Float";
+            case DOUBLE: return "java.lang.Double";
+            default: throw new AssertionError("not a primitive Field");
+        }
+    }
+
+    private static String primitiveArrayMethod(CompositionModel.LogicalKind kind) {
+        return "to" + primitiveToken(kind) + "Array";
+    }
+
     private static void appendParameters(
             StringBuilder source,
             List<CompositionModel.FieldModel> fields) {
@@ -908,7 +1678,12 @@ final class CompositionSourceRenderer {
 
         private TableShape(CompositionModel.TableModel table) {
             for (CompositionModel.FieldModel field : table.fields()) {
-                EndpointPlan root = add(field, field.firstLeaf(), all);
+                EndpointPlan root = add(
+                        field,
+                        field.firstLeaf(),
+                        "borrowedView." + field.name() + "()",
+                        null,
+                        all);
                 roots.add(root);
                 if (field.role() == CompositionModel.FieldRole.KEY) key = root;
                 if (field.role() == CompositionModel.FieldRole.INDEX) indexes.add(root);
@@ -918,13 +1693,20 @@ final class CompositionSourceRenderer {
         private static EndpointPlan add(
                 CompositionModel.FieldModel field,
                 int leafStart,
+                String valueExpression,
+                EndpointPlan parent,
                 List<EndpointPlan> all) {
-            EndpointPlan result = new EndpointPlan(field, leafStart, all.size());
+            EndpointPlan result = new EndpointPlan(
+                    field, leafStart, all.size(), valueExpression, parent);
             all.add(result);
             if (field.type().kind() == CompositionModel.LogicalKind.VALUE) {
                 for (CompositionModel.FieldModel child : field.type().value().fields()) {
                     result.children.add(add(
-                            child, leafStart + child.firstLeaf(), all));
+                            child,
+                            leafStart + child.firstLeaf(),
+                            valueExpression + "." + child.name() + "()",
+                            result,
+                            all));
                 }
             }
             return result;
@@ -935,19 +1717,41 @@ final class CompositionSourceRenderer {
         private final CompositionModel.FieldModel field;
         private final int leafStart;
         private final int planIndex;
+        private final String valueExpression;
+        private final EndpointPlan parent;
         private final List<EndpointPlan> children = new ArrayList<EndpointPlan>();
 
         private EndpointPlan(
                 CompositionModel.FieldModel field,
                 int leafStart,
-                int planIndex) {
+                int planIndex,
+                String valueExpression,
+                EndpointPlan parent) {
             this.field = field;
             this.leafStart = leafStart;
             this.planIndex = planIndex;
+            this.valueExpression = valueExpression;
+            this.parent = parent;
         }
 
         private String typeName() {
             return GeneratedNames.fieldEndpointType(field.name());
+        }
+
+        private String qualifiedTypeName() {
+            return parent == null
+                    ? typeName()
+                    : parent.qualifiedTypeName() + "." + typeName();
+        }
+
+        private String memberExpression(String owner) {
+            return valueExpression
+                    .replace("borrowedView", owner)
+                    .replace("()", "");
+        }
+
+        private String compareValueExpression() {
+            return valueExpression.replace("borrowedView", "borrowedCompareView");
         }
     }
 }

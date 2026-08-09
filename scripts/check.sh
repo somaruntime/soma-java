@@ -2,4 +2,4 @@
 set -eu
 
 repo_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-exec "$repo_root/scripts/qualify-i2.sh"
+exec "$repo_root/scripts/qualify-i3.sh"

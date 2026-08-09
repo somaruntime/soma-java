@@ -3,23 +3,19 @@ package io.github.somaruntime.soma.internal;
 import io.github.somaruntime.soma.SomaExpression;
 import io.github.somaruntime.soma.SomaRelationExpression;
 
-/** I2 typed predicate carrier over the unified leaf runtime. */
+/** Unforgeable public carrier for one immutable, data-only predicate IR tree. */
 final class GeneratedExpression<R> implements SomaExpression<R> {
 
-    interface Node {
-        boolean matches(TableStateRoot root, long locator);
-    }
-
     private final GeneratedTable owner;
-    private final Node node;
+    private final PredicateIr predicate;
 
-    GeneratedExpression(GeneratedTable owner, Node node) {
+    GeneratedExpression(GeneratedTable owner, PredicateIr predicate) {
         this.owner = owner;
-        this.node = node;
+        this.predicate = predicate;
     }
 
     GeneratedTable owner() { return owner; }
-    Node node() { return node; }
+    PredicateIr predicate() { return predicate; }
 
     @Override
     public SomaExpression<R> and(SomaExpression<R> other) {
@@ -43,12 +39,7 @@ final class GeneratedExpression<R> implements SomaExpression<R> {
 
     @Override
     public SomaExpression<R> not() {
-        final Node source = node;
-        return new GeneratedExpression<R>(owner, new Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                return !source.matches(root, locator);
-            }
-        });
+        return new GeneratedExpression<R>(owner, PredicateIr.not(predicate));
     }
 
     private SomaExpression<R> combine(Object other, final boolean conjunction) {
@@ -57,14 +48,10 @@ final class GeneratedExpression<R> implements SomaExpression<R> {
                     io.github.somaruntime.soma.SomaOperation.QUERY,
                     "expression is not issued by SOMA");
         }
-        final Node right = owner.requireOwnedExpression((SomaExpression<?>) other);
-        final Node left = node;
-        return new GeneratedExpression<R>(owner, new Node() {
-            @Override public boolean matches(TableStateRoot root, long locator) {
-                return conjunction
-                        ? left.matches(root, locator) && right.matches(root, locator)
-                        : left.matches(root, locator) || right.matches(root, locator);
-            }
-        });
+        PredicateIr right = owner.requireOwnedExpression((SomaExpression<?>) other);
+        return new GeneratedExpression<R>(owner, PredicateIr.binary(
+                conjunction ? PredicateIr.Kind.AND : PredicateIr.Kind.OR,
+                predicate,
+                right));
     }
 }
