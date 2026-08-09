@@ -17,15 +17,16 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 
 - Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
 - readiness 结论为 `READY_FOR_IMPLEMENTATION`；
-- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I3已经完成并通过正式资格，
-  当前没有active slice，下一项从I4开始；
+- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I4已经完成并通过正式资格，
+  当前没有active slice，下一项从I5开始；
 - active checkout已有Java 8 Maven reactor、`soma-runtime`与`soma-processor`两项production
   artifact源码、processor/full-regeneration baseline、I2 generated schema/type/Key/Index API、paged
   primitive/reference PLAIN storage、Value flattening、direct selection、point add/update/remove、
-  sequential query、typed IR、reference/optimized sequential execution、structured failure与资格测试；
-- 尚没有I4+ Selection mutation closure、Join/parallel/compression、Example、benchmark、
+  sequential query、typed IR、reference/optimized sequential execution、Selection mutation、atomic
+  StateRoot/Group accounting、structured failure与资格测试；
+- 尚没有I5+ Group/Join、parallel/compression、Example、benchmark、
   CI/release workflow或remote package；
-- G1、G4为`PASS`；G2为I3范围、G3为I2范围、G5为I3 query范围、G10为I0范围
+- G1、G4、G5为`PASS`；G2为I4范围、G3为I4 accounting范围、G10为I0范围
   `PASS`且整体仍`IN_PROGRESS`，因此没有完整可用性、
   性能、兼容性或release readiness声明。
 

@@ -2,8 +2,8 @@
 
 类型：Conformance Gate Definition
 
-状态：Active；G1、G4 `PASS`；G2 `I3_SCOPE_PASS / IN_PROGRESS`；
-G3 `I2_SCOPE_PASS / IN_PROGRESS`；G5 `I3_QUERY_SCOPE_PASS / IN_PROGRESS`；
+状态：Active；G1、G4、G5 `PASS`；G2 `I4_SCOPE_PASS / IN_PROGRESS`；
+G3 `I4_ACCOUNTING_SCOPE_PASS / IN_PROGRESS`；
 G10 `I0_SCOPE_PASS / IN_PROGRESS`；G6-G9 `NOT_RUN`
 
 正式事实源：是（production evidence最低集合）
@@ -251,10 +251,10 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 | Gate | Current | First owning slice |
 |---|---|---|
 | G1 Build/full regeneration | PASS | I0 |
-| G2 Schema/generated surface | I3_SCOPE_PASS / IN_PROGRESS | I0-I2 |
-| G3 Storage/Key/Index | I2_SCOPE_PASS / IN_PROGRESS | I1-I2 |
+| G2 Schema/generated surface | I4_SCOPE_PASS / IN_PROGRESS | I0-I2 |
+| G3 Storage/Key/Index | I4_ACCOUNTING_SCOPE_PASS / IN_PROGRESS | I1-I2 |
 | G4 Query/IR/optimizer | PASS | I1-I3 |
-| G5 Mutation/resource/failure | I3_QUERY_SCOPE_PASS / IN_PROGRESS | I1、I4 |
+| G5 Mutation/resource/failure | PASS | I1、I4 |
 | G6 Group/Join | NOT_RUN | I5 |
 | G7 Parallel | NOT_RUN | I6 |
 | G8 Compression/metadata | NOT_RUN | I7 |
@@ -268,9 +268,10 @@ storage/primitive Key、typed query、point update、resource/failure与独立�
 schema/type/Key/Index matrix、generated breadth、failed-state与规模journey见
 [I2 Schema、Type 与 Storage Breadth Qualification](i2-schema-type-storage-breadth-qualification.md)；I3的
 query IR、reference/optimized sequential execution、materialization与G4 closure见
-[I3 Query IR 与 Reference Execution Qualification](i3-query-ir-reference-qualification.md)。G5仍等待
-I4 mutation/resource closure；G10仍等待I8 CI、完整SBOM、package consumer与release
-qualification。
+[I3 Query IR 与 Reference Execution Qualification](i3-query-ir-reference-qualification.md)；I4的
+Selection mutation、atomic publication、resource与Group accounting closure见
+[I4 Selection Mutation 与 Resource Qualification](i4-selection-mutation-resource-qualification.md)。
+G10仍等待I8 CI、完整SBOM、package consumer与release qualification。
 
 ## 13. Evidence record format
 
