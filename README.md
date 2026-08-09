@@ -17,17 +17,17 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 
 - Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
 - readiness 结论为 `READY_FOR_IMPLEMENTATION`；
-- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I6已经完成并通过正式资格，
-  当前没有active slice，下一项从I7开始；
+- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I7已经完成并通过正式资格，
+  当前没有active slice，下一项从I8开始；
 - active checkout已有Java 8 Maven reactor、`soma-runtime`与`soma-processor`两项production
   artifact源码、processor/full-regeneration baseline、I2 generated schema/type/Key/Index API、paged
   primitive/reference PLAIN storage、Value flattening、direct selection、point add/update/remove、
   sequential query、typed IR、reference/optimized sequential execution、Selection mutation、atomic
   StateRoot/Group accounting、GroupBy、binary Equality/Cross Join、bounded parallel execution、
-  structured failure与资格测试；
-- 尚没有I7+ compression/metadata、Example、benchmark、
+  AUTO/OFF compression、四级metadata、structured failure与资格测试；
+- 尚没有Example、benchmark、
   CI/release workflow或remote package；
-- G1、G4-G7为`PASS`；G2为I6范围、G3为I4 accounting范围、G10为I0范围
+- G1-G8为`PASS`；G9未运行、G10为I0范围
   `PASS`且整体仍`IN_PROGRESS`，因此没有完整可用性、
   性能、兼容性或release readiness声明。
 
@@ -65,6 +65,7 @@ cross-Table transaction、persistence 或 distributed execution。
 - [I4 Selection Mutation 与 Resource Qualification](project/conformance/i4-selection-mutation-resource-qualification.md)
 - [I5 GroupBy 与 Relation Qualification](project/conformance/i5-group-relation-qualification.md)
 - [I6 Bounded Parallel Execution Qualification](project/conformance/i6-parallel-execution-qualification.md)
+- [I7 Compression 与 Metadata Qualification](project/conformance/i7-compression-metadata-qualification.md)
 - [当前 Conformance 与 G1-G10](project/conformance/README.md)
 - [品牌资产](assets/README.md)
 - [安全报告方式](SECURITY.md)
@@ -74,16 +75,16 @@ Conformance Gate 后提供；当前不使用伪示例制造“已经可用”的
 
 ## 当前构建入口
 
-当前I6 canonical qualification要求Java 8与Maven 3.9.x：
+当前I7 canonical qualification要求Java 8与Maven 3.9.x：
 
 ```sh
 ./scripts/check.sh
 ```
 
-该命令回归I0-I5，并验证generated parallel surface、bounded custom/common ForkJoin execution、
-sequential/parallel equivalence、independent consumer、full regeneration与structured failure；
+该命令回归I0-I7，并验证AUTO/OFF representation、四级metadata、generated final functional surface、
+independent consumer、full regeneration与structured failure；
 它不是完整V1使用或性能资格入口。精确环境、结果与claim boundary见
-[I6资格记录](project/conformance/i6-parallel-execution-qualification.md)。
+[I7资格记录](project/conformance/i7-compression-metadata-qualification.md)。
 
 ## Clean-slate 与产品身份
 
