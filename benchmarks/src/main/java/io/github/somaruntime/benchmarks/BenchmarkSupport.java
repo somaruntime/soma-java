@@ -73,7 +73,8 @@ public final class BenchmarkSupport {
 
     public static String workload() {
         String value = System.getProperty("soma.benchmark.workload", "core");
-        require("core".equals(value) || "composed".equals(value),
+        require("core".equals(value) || "composed".equals(value)
+                        || "kernel".equals(value),
                 "unknown benchmark workload");
         return value;
     }

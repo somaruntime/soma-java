@@ -25,6 +25,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.github.somaruntime.soma</groupId>
+            <artifactId>soma-runtime</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>io.github.somaruntime.examples</groupId>
             <artifactId>soma-example-scheduling</artifactId>
             <version>${project.version}</version>
@@ -69,8 +74,47 @@
                     <source>${maven.compiler.source}</source>
                     <target>${maven.compiler.target}</target>
                     <encoding>${project.build.sourceEncoding}</encoding>
-                    <proc>none</proc>
+                    <showWarnings>true</showWarnings>
+                    <generatedSourcesDirectory>${project.build.directory}/generated-sources/unused</generatedSourcesDirectory>
+                    <compilerArgs>
+                        <arg>-Asoma.fullSourceSet=true</arg>
+                    </compilerArgs>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>io.github.somaruntime.soma</groupId>
+                            <artifactId>soma-processor</artifactId>
+                            <version>${project.version}</version>
+                        </path>
+                        <path>
+                            <groupId>io.github.somaruntime.soma</groupId>
+                            <artifactId>soma-runtime</artifactId>
+                            <version>${project.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>soma-kernel-full-regeneration</id>
+                        <phase>generate-sources</phase>
+                        <goals><goal>compile</goal></goals>
+                        <configuration>
+                            <proc>only</proc>
+                            <generatedSourcesDirectory>${project.build.directory}/generated-sources/soma</generatedSourcesDirectory>
+                            <includes>
+                                <include>**/kernel/schema/*.java</include>
+                                <include>**/kernel/domain/*.java</include>
+                            </includes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration><proc>none</proc></configuration>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <configuration><proc>none</proc></configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

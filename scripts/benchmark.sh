@@ -24,7 +24,7 @@ workload=${SOMA_BENCHMARK_WORKLOAD:-core}
 scenarios=${SOMA_BENCHMARK_SCENARIOS:-"scheduling simulation real-time-dispatch"}
 if [ -n "${SOMA_BENCHMARK_IMPLEMENTATIONS:-}" ]; then
     implementations=$SOMA_BENCHMARK_IMPLEMENTATIONS
-elif [ "$workload" = composed ]; then
+elif [ "$workload" = composed ] || [ "$workload" = kernel ]; then
     implementations="soma-auto"
 else
     implementations="manual soma-auto"
@@ -54,7 +54,7 @@ test "$memory_budget" -ge 1 && test "$memory_budget" -le 34359738368
 case "$profiler" in none|jfr|async) ;; *) echo "benchmark: invalid profiler" >&2; exit 1 ;; esac
 case "$async_event" in cpu|alloc) ;; *) echo "benchmark: invalid async event" >&2; exit 1 ;; esac
 case "$time_mode" in portable|extended) ;; *) echo "benchmark: invalid time mode" >&2; exit 1 ;; esac
-case "$workload" in core|composed) ;; *) echo "benchmark: invalid workload" >&2; exit 1 ;; esac
+case "$workload" in core|composed|kernel) ;; *) echo "benchmark: invalid workload" >&2; exit 1 ;; esac
 test -n "$implementations"
 for implementation in $implementations; do
     case "$implementation" in
@@ -65,7 +65,7 @@ done
 test -n "$scenarios"
 for scenario in $scenarios; do
     case "$scenario" in
-        scheduling|simulation|real-time-dispatch) ;;
+        scheduling|simulation|real-time-dispatch|type-kernel) ;;
         *) echo "benchmark: invalid scenario: $scenario" >&2; exit 1 ;;
     esac
 done
@@ -112,6 +112,8 @@ if [ -n "${SOMA_BENCHMARK_OUTPUT_ROOT:-}" ]; then
     output_root=$SOMA_BENCHMARK_OUTPUT_ROOT
 elif [ "$workload" = composed ]; then
     output_root="$repo_root/target/benchmark/composed"
+elif [ "$workload" = kernel ]; then
+    output_root="$repo_root/target/benchmark/kernel"
 else
     output_root="$repo_root/target/benchmark"
 fi
@@ -233,6 +235,11 @@ run_named_scenario() {
         real-time-dispatch)
             run_benchmark real-time-dispatch \
                 io.github.somaruntime.benchmarks.realtimedispatch.RealTimeDispatchBenchmarkMain \
+                "$implementation" "$run_number"
+            ;;
+        type-kernel)
+            run_benchmark type-kernel \
+                io.github.somaruntime.benchmarks.kernel.TypeKernelBenchmarkMain \
                 "$implementation" "$run_number"
             ;;
     esac
