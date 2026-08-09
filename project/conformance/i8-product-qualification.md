@@ -2,14 +2,13 @@
 
 类型：Conformance / Implementation Slice Qualification
 
-状态：`LOCAL_PASS / REMOTE_QUALIFICATION_PENDING`
+状态：`PASS`
 
-Slice：`I8 COMPLETED LOCALLY / REMOTE G10 PENDING`
+Slice：`I8 COMPLETED`
 
-Gate disposition：`G1-G9 PASS`；
-`G10 LOCAL_PASS / REMOTE_PENDING`
+Gate disposition：`G1-G10 PASS`
 
-正式事实源：是（I8 implementation、G9与G10 local qualification current executable fact）
+正式事实源：是（I8 implementation、G9与G10 qualification current executable fact）
 
 Owner：SOMA Java I8 implementation、performance、package 与 qualification evidence
 
@@ -27,15 +26,17 @@ I8 已实现并在干净的 Java 8 checkout 上完成一次完整本地资格。
 - repository-local CI 与 non-publishing release qualification workflow。
 
 本次资格没有发现需要修改 SOMA runtime、重新准入 Loader 或改变 Blueprint/Design 的正常路径
-问题。Product Owner 已于2026-08-09批准G9 threshold并签署本地I8资格；当前只剩推送
-`develop`后取得远端CI/release-qualification结果。
+问题。Product Owner 已于2026-08-09批准G9 threshold并签署I8资格；`develop@a6e8400`上的远端
+CI与non-publishing release qualification均通过。I8与G1-G10 implementation qualification闭合。
 
-在远端结果完成前，G10与V1 implementation qualification不能宣告最终完成；本记录也不构成
+本记录不构成
 GitHub Release、Package publication、签名或正式发布授权。
 
 ## 2. 实施边界
 
 Implementation commit：`cd0d476ad4f3d1e3db978534c7942d49604876a9`
+
+CI portability closure：`a6e8400ad640df88f81363352f6f064502cbb93d`
 
 ### 2.1 Example projects
 
@@ -188,14 +189,26 @@ Loader Temporary。
 | packaged artifact independent consumer | PASS |
 | source delivery allowlist/no predecessor/internal material | PASS |
 | repository-local CI/release qualification definition | PASS |
-| remote `develop` workflow execution | PENDING（尚未push） |
+| remote `develop` workflow execution | PASS（`a6e8400`） |
 | GitHub Release/Package/signing/publication | NOT_AUTHORIZED / NOT_PERFORMED |
+
+远端证据：
+
+- CI run [`31295836298`](https://github.com/somaruntime/soma-java/actions/runs/31295836298)：`PASS`；
+- Release qualification（non-publishing）run
+  [`31295836304`](https://github.com/somaruntime/soma-java/actions/runs/31295836304)：`PASS`，并通过
+  `Confirm no publication surface`。
+
+首次远端run在所有Java测试、Examples、profile与package完成后，因GitHub runner不预装`rg`而以
+`127`退出；`a6e8400`将该单一源码边界检查改为portable `grep -R -E`。修复没有改变production
+source或产品语义，随后两个新run均通过。
 
 ## 7. Owner sign-off
 
 Product Owner于2026-08-09：
 
 1. 批准第5节G9 qualification thresholds；
-2. 审核并签署本报告，认可I8 normal-path evidence足以关闭本地implementation slice。
+2. 审核并签署本报告，认可I8 normal-path evidence足以关闭implementation slice。
 
-下一步提交并推送`develop`，以远端CI与non-publishing release qualification结果完成G10最终闭环。
+I8与G1-G10 implementation qualification已经闭合；GitHub Release、Package publication、签名与
+正式release声明仍需要独立Product Owner授权。

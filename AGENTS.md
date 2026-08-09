@@ -9,7 +9,7 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 
 2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
 为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。Product Owner 已于 2026-08-03 明确授予
-完整 V1 implementation authorization。I0-I8已完成本地implementation与qualification；I0-I7分别通过：
+完整 V1 implementation authorization。I0-I8已完成implementation与qualification；I0-I7分别通过：
 [I0资格](project/conformance/i0-build-spine-qualification.md)、
 [I1资格](project/conformance/i1-primitive-keyed-table-qualification.md)、
 [I2资格](project/conformance/i2-schema-type-storage-breadth-qualification.md)、
@@ -18,16 +18,15 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 [I5资格](project/conformance/i5-group-relation-qualification.md)、
 [I6资格](project/conformance/i6-parallel-execution-qualification.md)、
 [I7资格](project/conformance/i7-compression-metadata-qualification.md)，I8通过
-[产品资格与G9 Owner sign-off](project/conformance/i8-product-qualification.md)：G1-G9为`PASS`，
-G10为`LOCAL_PASS / REMOTE_QUALIFICATION_PENDING`；当前没有active implementation slice，只剩
-`develop`远端workflow闭环。
+[产品资格与G9 Owner sign-off](project/conformance/i8-product-qualification.md)：G1-G10为`PASS`；
+当前没有active implementation slice。GitHub Release/Package、签名和正式release声明未授权。
 
 Active checkout已包含I8三个reference application、million-row profile、package/SBOM/provenance、CI与
 non-publishing release qualification workflow，以及I7 AUTO/OFF compression、PLAIN/encoded/overlay representation、四级typed metadata
 与safe explain，以及I6 generated parallel surface、application-owned/common `ForkJoinPool`与bounded
 caller-participating scheduler、I5 GroupBy与binary Equality/Cross Join、I4 Selection mutation、I3 typed
-IR和I2 schema/type/Key/Index。Package只在本地完成资格且没有committed build artifact；远端workflow
-尚未验证，也没有GitHub Release/Package、签名或正式release声明。核心抽象候选已经
+IR和I2 schema/type/Key/Index。Package与`develop@a6e8400`远端workflow均完成资格且没有committed
+build artifact；没有GitHub Release/Package、签名或正式release声明。核心抽象候选已经
 正式晋升为[核心抽象、叙事与不变量证明链](project/design/core-abstractions-and-narratives.md)，
 Temporary replacement closure已完成；当前没有active Temporary。
 
@@ -115,8 +114,8 @@ dependency或plugin expansion。
 
 ## 实施准入与推进
 
-- 当前 implementation authorization 覆盖 I0-I8 的自主实现；I0-I8本地slice均已关闭，当前没有
-  active implementation slice；只剩`develop`远端CI与non-publishing release qualification；
+- 当前 implementation authorization 覆盖 I0-I8 的自主实现；I0-I8 slice与G1-G10均已关闭，
+  当前没有active implementation slice；
 - 当前授权覆盖repository-local CI与non-publishing release qualification workflow、local/internal
   benchmark与profile、local Maven package qualification，以及上述JUnit test-only stack；精确
   边界由[Conformance authorization contract](project/conformance/README.md#6-implementation-authorization-contract)
@@ -126,7 +125,7 @@ dependency或plugin expansion。
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
 - reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；
-- I0-I8本地exit已通过；G9已由Product Owner批准，G10只剩远端workflow evidence。
+- I0-I8 exit已通过；G9已由Product Owner批准，G10远端workflow evidence已闭合。
 - 默认由主Agent沿单一路径直接交付；只有Gate确实需要独立证据时才使用一个bounded只读subagent，
   不以多轮subagent审查替代实施，也不得让多个Agent并行修改同一核心surface；
 - Blueprint/Design 语义变化、权限扩张、已准入test stack以外的新dependency、第三production
@@ -135,7 +134,7 @@ dependency或plugin expansion。
 
 ## 当前阶段验证
 
-当前是post-I8 local qualification / pre-remote-G10阶段。文档与repository-surface变更至少执行：
+当前是post-V1 implementation qualification阶段。文档与repository-surface变更至少执行：
 
 - 使用 `rg` / `rg --files` 搜索；
 - 使用 `apply_patch` 编辑；

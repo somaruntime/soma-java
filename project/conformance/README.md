@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0-I8 `COMPLETED_LOCALLY`；远端G10待验证
+Implementation authorization `FULFILLED`；I0-I8 `COMPLETED`；G1-G10 `PASS`
 
 正式事实源：是
 
@@ -30,10 +30,10 @@ Formal promotion              PASS
 Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
-Implementation authorization  GRANTED (2026-08-03)
+Implementation authorization  FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
-Active slice                   NONE (implementation complete)
+Active slice                   NONE (V1 implementation complete)
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -43,7 +43,7 @@ G6                             PASS
 G7                             PASS
 G8                             PASS
 G9                             PASS
-G10                            LOCAL_PASS / REMOTE_QUALIFICATION_PENDING
+G10                            PASS
 Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORIZED
 ```
 
@@ -58,8 +58,9 @@ Equality/Cross Join与G6成立；I6 [正式资格](i6-parallel-execution-qualifi
 parallel execution与G7成立；I7 [正式资格](i7-compression-metadata-qualification.md)证明Chunk
 compression、四级metadata、final generated surface与G8成立；I8
 [正式资格](i8-product-qualification.md)证明三个reference application、approved百万行performance
-threshold、package/SBOM/provenance与本地non-publishing release qualification成立。当前只剩
-`develop`远端workflow结果；授权不包含远端artifact发布、签名或正式release声明。
+threshold、package/SBOM/provenance，以及`develop@a6e8400`的远端CI与non-publishing release
+qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权不包含远端artifact
+发布、签名或正式release声明。
 
 ## 3. Conformance matrix
 
@@ -75,7 +76,7 @@ threshold、package/SBOM/provenance与本地non-publishing release qualification
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8/package qualification通过 | PASS |
 | Performance/scenarios | BP-15 + G9 | 三个reference application与三类百万行profile达到approved threshold | PASS |
-| Security/package/release | G10 | dependency/license/SBOM/checksum/provenance、package consumer与本地workflow qualification成立；远端workflow待运行 | LOCAL_PASS / REMOTE_PENDING |
+| Security/package/release | G10 | dependency/license/SBOM/checksum/provenance、package consumer、本地与远端non-publishing workflow qualification成立 | PASS |
 
 Documentation不得把同机qualification阈值改写为跨硬件SLA、正式release或一亿行性能承诺。
 
@@ -137,10 +138,10 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | G7 Parallel | PASS |
 | G8 Compression/metadata | PASS |
 | G9 Scenarios/performance | PASS |
-| G10 Security/package/release | LOCAL_PASS / REMOTE_QUALIFICATION_PENDING |
+| G10 Security/package/release | PASS |
 
-Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`只关闭相应slice拥有的证据，
-不等于整个Gate已经完成。
+Gate不能在对应production surface出现前运行或标PASS；历史slice-scoped disposition不能替代当前
+完整Gate结果。
 
 ## 6. Implementation authorization contract
 
@@ -184,8 +185,8 @@ I0已经以standard Maven/JDK build surface与JUnit Jupiter `5.11.4` test-only s
 [I5记录](i5-group-relation-qualification.md)和
 [I6记录](i6-parallel-execution-qualification.md)和
 [I7记录](i7-compression-metadata-qualification.md)与
-[I8记录](i8-product-qualification.md)。I0-I8本地implementation slice均已关闭；只剩远端CI/release
-qualification workflow结果，且必须保持non-publishing。GitHub
+[I8记录](i8-product-qualification.md)。I0-I8 implementation slice与G1-G10均已关闭；CI/release
+qualification workflow保持non-publishing。GitHub
 Release、Package publication、签名和正式发布声明均不在授权内。
 
 ## 7. Release claim boundary

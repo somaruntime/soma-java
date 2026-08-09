@@ -17,8 +17,8 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
 
 - Blueprint、九个分责Design Owner、I0-I8 Plan与G1-G10 Gate已生效；
 - readiness 结论为 `READY_FOR_IMPLEMENTATION`；
-- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I8已经完成本地
-  implementation与qualification，当前没有active implementation slice；
+- Product Owner 已于 2026-08-03 授权按I0-I8与G1-G10自主实施；I0-I8与G1-G10已经完成，
+  当前没有active implementation slice；
 - active checkout已有Java 8 Maven reactor、`soma-runtime`与`soma-processor`两项production
   artifact源码、processor/full-regeneration baseline、I2 generated schema/type/Key/Index API、paged
   primitive/reference PLAIN storage、Value flattening、direct selection、point add/update/remove、
@@ -26,8 +26,8 @@ SOMA Java 已完成clean-slate V1产品设计、正式晋升与实施前最终�
   StateRoot/Group accounting、GroupBy、binary Equality/Cross Join、bounded parallel execution、
   AUTO/OFF compression、四级metadata、structured failure与资格测试，以及三个reference
   application、million-row profile、package/SBOM/provenance、CI与non-publishing release workflow；
-- G1-G9为`PASS`；G10为`LOCAL_PASS / REMOTE_QUALIFICATION_PENDING`；本地package已完成资格但
-  未远端发布，因此没有GitHub Release/Package、签名或正式release声明。
+- G1-G10为`PASS`；本地package与`develop@a6e8400`的CI/non-publishing release qualification
+  已通过，但没有GitHub Release/Package、签名或正式release声明。
 
 正式设计说明产品应当是什么；它不等于代码和证据已经存在。
 

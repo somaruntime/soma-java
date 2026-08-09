@@ -2,8 +2,7 @@
 
 类型：Conformance Gate Definition
 
-状态：Active；G1-G9 `PASS`；
-G10 `LOCAL_PASS / REMOTE_QUALIFICATION_PENDING`
+状态：Active；G1-G10 `PASS`；release publication `NOT_AUTHORIZED`
 
 正式事实源：是（production evidence最低集合）
 
@@ -277,7 +276,7 @@ GitHub Release/Package、signing/publish仍需要独立Product Owner授权；G10
 | G7 Parallel | PASS | I6 |
 | G8 Compression/metadata | PASS | I7 |
 | G9 Scenarios/performance | PASS | I8 |
-| G10 Security/package/release | LOCAL_PASS / REMOTE_QUALIFICATION_PENDING | I0、I8 |
+| G10 Security/package/release | PASS | I0、I8 |
 
 I0的artifact/build baseline见
 [I0 Build Spine Qualification](i0-build-spine-qualification.md)；I1的公开generated surface、paged
@@ -296,8 +295,8 @@ parallel surface、application-owned/common pool、bounded caller participation�
 [I7 Compression 与 Metadata Qualification](i7-compression-metadata-qualification.md)记录Chunk
 representation、AUTO/OFF、overlay、四级metadata、explain、最终generated surface与G2-G3/G8 closure。
 [I8 Product Qualification](i8-product-qualification.md)记录三个reference application、百万行profile、
-approved G9 threshold、SBOM、package consumer与本地release qualification。G10只剩`develop`推送后的
-远端CI与non-publishing release qualification结果。
+approved G9 threshold、SBOM、package consumer、本地qualification，以及`develop@a6e8400`的远端
+CI与non-publishing release qualification `PASS`。G10成立不授权GitHub Release/Package、签名或发布。
 
 ## 13. Evidence record format
 
