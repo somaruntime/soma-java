@@ -138,7 +138,7 @@ PY
 mvn -pl soma-runtime,soma-processor dependency:tree -Dscope=runtime \
     > "$work_root/runtime-dependency-tree.txt"
 reject_match grep -q 'org.junit' "$work_root/runtime-dependency-tree.txt"
-reject_match rg -n 'setAccessible|java\.lang\.reflect\.(Field|Constructor)|sun\.misc\.Unsafe' \
+reject_match grep -R -n -E 'setAccessible|java\.lang\.reflect\.(Field|Constructor)|sun\.misc\.Unsafe' \
     soma-runtime/src/main soma-processor/src/main
 for artifact in "$packaged_runtime" "$packaged_processor"; do
     "$jar_cmd" tf "$artifact" > "$work_root/$(basename -- "$artifact").txt"
