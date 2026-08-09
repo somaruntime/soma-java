@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `GRANTED`；I0-I4 `COMPLETED`；I5-I8 `NOT_STARTED`
+Implementation authorization `GRANTED`；I0-I5 `COMPLETED`；I6-I8 `NOT_STARTED`
 
 正式事实源：是
 
@@ -31,15 +31,16 @@ Final global review           PASS
 Implementation readiness      READY_FOR_IMPLEMENTATION
 Core abstraction promotion    PASS
 Implementation authorization  GRANTED (2026-08-03)
-Production source/reactor      PRESENT (I0-I4 scope)
-Generated consumer API         PRESENT (I4 sequential query + Selection mutation)
-Active slice                   NONE (next: I5)
+Production source/reactor      PRESENT (I0-I5 scope)
+Generated consumer API         PRESENT (I5 sequential query/mutation/Group/relation)
+Active slice                   NONE (next: I6)
 G1                             PASS
-G2                             I4_SCOPE_PASS / OVERALL IN_PROGRESS
+G2                             I5_SCOPE_PASS / OVERALL IN_PROGRESS
 G3                             I4_ACCOUNTING_SCOPE_PASS / OVERALL IN_PROGRESS
 G4                             PASS
 G5                             PASS
-G6-G9                          NOT_RUN
+G6                             PASS
+G7-G9                          NOT_RUN
 G10                            I0_SCOPE_PASS / OVERALL IN_PROGRESS
 Package/release                NOT_QUALIFIED
 ```
@@ -50,7 +51,8 @@ I2 [正式资格](i2-schema-type-storage-breadth-qualification.md)证明schema/t
 成立；I3 [正式资格](i3-query-ir-reference-qualification.md)证明sequential query、typed IR、reference
 interpreter与optimized execution成立；I4
 [正式资格](i4-selection-mutation-resource-qualification.md)证明Selection mutation、atomic publication与
-Group accounting成立，不表示I5-I8 capability已经成立。当前授权允许每个slice闭合后的commit与`develop`
+Group accounting成立；I5 [正式资格](i5-group-relation-qualification.md)证明GroupBy、binary
+Equality/Cross Join与G6成立，不表示I6-I8 capability已经成立。当前授权允许每个slice闭合后的commit与`develop`
 push，以及下文第6节限定的内部资格验证；不包含远端artifact发布、签名或正式release声明。
 
 ## 3. Conformance matrix
@@ -58,12 +60,12 @@ push，以及下文第6节限定的内部资格验证；不包含远端artifact�
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal design only | DESIGN_CLOSED / NOT_IMPLEMENTED |
-| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I4 cumulative generated surface与full regeneration已建立 | I4_SCOPE_PASS / IN_PROGRESS |
+| Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I5 cumulative generated surface与full regeneration已建立 | I5_SCOPE_PASS / IN_PROGRESS |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | paged PLAIN storage、Key/Index、atomic StateRoot与Group retained accounting已建立；compression待I7 | I4_ACCOUNTING_SCOPE_PASS / IN_PROGRESS |
-| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query与Selection/IndexSelection mutation已建立；relation待I5 | I4_SCOPE_PASS / IN_PROGRESS |
-| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I4 cumulative generated/runtime public surface已由source、public/verbose javap与consumer冻结 | I4_SCOPE_PASS / IN_PROGRESS |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | typed logical IR、reference interpreter、normalized/optimized sequential execution与Index substitution已建立 | PASS |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | binding、Group guard、point/Selection mutation、bounded admission与GC accounting已建立；parallel待I6 | I4_SCOPE_PASS / IN_PROGRESS |
+| Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query、Selection mutation、GroupBy与binary Equality/Cross Join已建立 | I5_SCOPE_PASS / IN_PROGRESS |
+| Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I5 cumulative generated/runtime public surface已由Java 8 consumer与javap边界验证 | I5_SCOPE_PASS / IN_PROGRESS |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | typed logical IR、row/relation/group reference oracle、normalized/optimized sequential、predicate pushdown与Index substitution已建立 | PASS |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | binding、single/binary Group guard、point/Selection mutation、bounded admission与GC accounting已建立；parallel待I6 | I5_SCOPE_PASS / IN_PROGRESS |
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8 qualification通过 | I0_COMPLETED |
 | Performance/scenarios | BP-15 + G9 | paper journeys only | NOT_EVALUABLE |
@@ -94,6 +96,8 @@ push，以及下文第6节限定的内部资格验证；不包含远端artifact�
 - [I4 Selection Mutation 与 Resource Qualification](i4-selection-mutation-resource-qualification.md)：
   I4 implementation commit、Selection/IndexSelection mutation、atomic publication、resource、Group
   accounting与qualification Owner。
+- [I5 GroupBy 与 Relation Qualification](i5-group-relation-qualification.md)：I5 implementation commit、
+  GroupBy、binary Equality/Cross Join、typed result、reference differential与G6 Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -114,17 +118,17 @@ Historical record不能覆盖current Blueprint/Design/Readiness。当前没有ac
 | Gate | Status |
 |---|---|
 | G1 Artifact/build/full regeneration | PASS |
-| G2 Schema/generated surface | I4_SCOPE_PASS / IN_PROGRESS |
+| G2 Schema/generated surface | I5_SCOPE_PASS / IN_PROGRESS |
 | G3 Storage/Key/Index | I4_ACCOUNTING_SCOPE_PASS / IN_PROGRESS |
 | G4 Query/IR/optimizer | PASS |
 | G5 Mutation/resource/failure | PASS |
-| G6 Group/Join | NOT_RUN |
+| G6 Group/Join | PASS |
 | G7 Parallel | NOT_RUN |
 | G8 Compression/metadata | NOT_RUN |
 | G9 Scenarios/performance | NOT_RUN |
 | G10 Security/package/release | I0_SCOPE_PASS / IN_PROGRESS |
 
-Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`、`I4_SCOPE_PASS`与
+Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`、`I5_SCOPE_PASS`与
 `I4_ACCOUNTING_SCOPE_PASS`只关闭相应slice拥有的证据，不等于整个Gate已经完成。
 
 ## 6. Implementation authorization contract
@@ -161,11 +165,12 @@ Gate不能在对应production surface出现前运行或标PASS。`I0_SCOPE_PASS`
 
 I0已经以standard Maven/JDK build surface与JUnit Jupiter `5.11.4` test-only stack完成资格；
 具体版本、dependency tree、license、2026-08-04时点known-vulnerability、Java 8执行与artifact
-隔离证据见[I0记录](i0-build-spine-qualification.md)。I1-I4资格分别见
+隔离证据见[I0记录](i0-build-spine-qualification.md)。I1-I5资格分别见
 [I1记录](i1-primitive-keyed-table-qualification.md)、
 [I2记录](i2-schema-type-storage-breadth-qualification.md)、
 [I3记录](i3-query-ir-reference-qualification.md)和
-[I4记录](i4-selection-mutation-resource-qualification.md)；下一项只允许从I5开始。CI/release
+[I4记录](i4-selection-mutation-resource-qualification.md)和
+[I5记录](i5-group-relation-qualification.md)；下一项只允许从I6开始。CI/release
 qualification workflow可以在其所属slice建立和运行，但必须保持non-publishing。GitHub
 Release、Package publication、签名和正式发布声明均不在授权内。
 

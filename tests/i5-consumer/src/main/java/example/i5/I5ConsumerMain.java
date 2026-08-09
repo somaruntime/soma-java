@@ -4,6 +4,9 @@ import io.github.somaruntime.soma.GroupedLongEntry;
 import io.github.somaruntime.soma.GroupedLongResult;
 import io.github.somaruntime.soma.LongGroupedLongEntry;
 import io.github.somaruntime.soma.LongGroupedLongResult;
+import io.github.somaruntime.soma.LongGroupedDoubleResult;
+import io.github.somaruntime.soma.LongGroupedLongSummaryResult;
+import io.github.somaruntime.soma.SomaLongSummary;
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperationException;
 import io.github.somaruntime.soma.SomaTuple2;
@@ -43,6 +46,30 @@ public final class I5ConsumerMain {
                         && enabledTotals.toArray()[0].value() == 12L
                         && enabledTotals.toArray()[1].value() == 13L,
                 "Selection GroupBy sum");
+
+        require(events.groupBy(events.machineId)
+                        .min(events.duration)
+                        .toArray()[0].value() == 5L,
+                "GroupBy minimum");
+        require(events.groupBy(events.machineId)
+                        .max(events.duration)
+                        .toArray()[0].value() == 7L,
+                "GroupBy maximum");
+        LongGroupedDoubleResult averages = events
+                .groupBy(events.machineId)
+                .average(events.duration);
+        require(averages.toArray()[0].value() == 6.0d,
+                "GroupBy average");
+        LongGroupedLongSummaryResult summaries = events
+                .groupBy(events.machineId)
+                .summaryStatistics(events.duration);
+        SomaLongSummary firstSummary = summaries.toArray()[0].value();
+        require(firstSummary.count() == 2L
+                        && firstSummary.min() == 5L
+                        && firstSummary.max() == 7L
+                        && firstSummary.sum() == 12L
+                        && firstSummary.average() == 6.0d,
+                "GroupBy summary");
 
         GroupedLongResult<String> routeCounts = events.groupBy(events.route).count();
         GroupedLongEntry<String>[] routeEntries = routeCounts.toArray();
