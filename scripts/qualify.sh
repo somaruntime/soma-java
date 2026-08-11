@@ -149,8 +149,10 @@ for artifact in "$packaged_runtime" "$packaged_processor"; do
         "$work_root/$(basename -- "$artifact").txt"
 done
 
-grep -q '11d5960a326750d5838078e36cf38b85af677262' .github/workflows/ci.yml
-grep -q 'cf277c60eb25467037889841efdb72551f06f6c3' .github/workflows/ci.yml
+grep -q 'fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09' .github/workflows/ci.yml
+grep -q 'b6effb05e454b25005698d916606bdc6ffcbf961' .github/workflows/ci.yml
+grep -q 'fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09' .github/workflows/release-qualification.yml
+grep -q 'b6effb05e454b25005698d916606bdc6ffcbf961' .github/workflows/release-qualification.yml
 grep -q 'workflow_dispatch' .github/workflows/release-qualification.yml
 grep -q 'publication=none' "$package_root/provenance.properties"
 git diff --check
