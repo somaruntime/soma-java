@@ -13,7 +13,7 @@ capacity/order、compression、reference ownership与future backend seam
 
 ## 1. 设计目标
 
-SOMA把schema-known mutable Tables保存为long-domain、chunked、data-oriented authoritative
+SOMA把schema-known mutable Tables保存为checked 32位结构域、chunked、data-oriented authoritative
 state，同时保持用户面对logical Table/Field/Value。Storage不拥有用户operation naming、
 optimizer rewrite、parallel scheduling或failure presentation。
 
@@ -58,7 +58,7 @@ StateRoot
     managed-byte accounting
 ```
 
-- `size/capacity/stateVersion`使用non-negative checked `long`；
+- `size/capacity`使用non-negative checked `int`；`stateVersion`使用checked `long`；
 - read/query operation binding后的logical state在terminal/quiescence期间稳定；
 - root swap或non-throwing final descriptor/header publish是唯一可见线性化点；
 - detached object、View/Editor、logical plan、callback、scratch与temporary result不是
@@ -79,9 +79,11 @@ payload/sidecar组合。若某个mechanism在final writes后仍可能产生可�
 
 ## 4. Chunk geometry
 
-- Table logical position、size、capacity、count、cardinality使用`long`；
-- Chunk local offset使用`int`；opaque locator使用`long`；
-- Chunk directory本身分页，不能用单个reference array重新形成`int`上限；
+- Table logical position、size、capacity与raw locator使用checked `int`；`-1`只作internal
+  missing/end sentinel，最大合法locator为`Integer.MAX_VALUE - 1`；
+- Stream/Relation/Group count/cardinality、memory byte累计与stateVersion使用checked `long`；
+- Chunk ordinal/local offset与directory range使用`int`；directory仍分页，避免单个reference array
+  成为更早的物理上限，并为Chunk级representation与未来backend保留seam；
 - 同一Table所有Field的同一Chunk具有相同row span，logical row不跨Chunk；
 - generated facade/IR不保存Java array identity；kernel每Chunk dispatch，不做per-element
   virtual backend call。
@@ -138,9 +140,9 @@ array、Chunk或encoding token。
 - duplicate add在publication前稳定失败；
 - Key point access为expected O(1)，不生成`byKey(...).stream()`。
 
-Physical baseline是sharded open-addressed hash，bucket保存opaque long locator；shard/bucket
-array保持安全int范围，Table整体不受一个巨大hash array限制。Hash mixing/load factor/shard
-count是versioned internal mechanism。
+Physical baseline是typed sharded open-addressed hash；每个live Key slot内联唯一raw `int` locator，
+zero locator是正常值而不是sentinel。Remove立即删除Key mapping，packed remove在同一commit把tail
+mapping从`T`调整到`R`。Hash mixing/load factor/shard count是versioned internal mechanism。
 
 ## 8. Index contract
 
@@ -152,9 +154,11 @@ count是versioned internal mechanism。
 - ordinary Object、float/double及包含float/double leaf的Value不可Index；
 - Index memory计入managed budget，metadata可观察其basic cardinality与memory cost。
 
-Physical baseline是sharded exact-value dictionary + per-record chunked next locator。Index
-expresses logical value而不是compression token。Add可增量维护；update/remove可按evidence选择
-journal或candidate rebuild，但payload与全部sidecar必须一次发布。
+Physical baseline是typed sharded exact-value directory。每个exact Bucket只有一套canonical
+membership：singleton直接内联一个`int` locator，multi使用严格升序、无duplicate的一个`int[]`；
+二者互斥，不维护per-record next link、reverse Index或第二套truth。Point add/update/remove即时只维护
+受影响Bucket并与payload一次publish；Selection mutation从最终candidate payload一次重建全部sidecar。
+Index表达logical value而不是compression token。
 
 ## 9. 关系 Table
 
@@ -179,14 +183,17 @@ Storage不验证endpoint存在、不cascade、不提供cross-Table transaction�
 - `capacity()`是不再次growth可容纳的logical record数；
 - `reserve(n)`成功保证`capacity >= n`且size/order不变；
 - `n <= capacity`为no-op，negative为`INVALID_ARGUMENT`；
-- growth按whole Chunk，所有long/byte arithmetic checked；
+- growth按whole Chunk，结构capacity使用checked `int`，所有byte/cumulative arithmetic先widen到
+  checked `long`；
 - candidate directory/chunk/sidecar全部成功后一次root swap；
 - V1没有trim/shrink；payload capacity在Table/Group生命周期内单调不减，structural remove不释放
   尾部Chunk。它必须清空失去logical reachability的reference slot；Key/Index/compression等derived
   sidecar可按new state释放不再需要的internal bytes，但不能借此改变payload capacity。
 
 建议growth target为`max(required, old + old/2)`后向上取整到Chunk boundary；它是internal
-mechanism。超managed budget、locator/directory或Java array representation时分配前fail closed。
+mechanism。请求超过`Integer.MAX_VALUE` Table结构上限、managed budget、locator/directory或Java
+array representation时以`RESOURCE_LIMIT_EXCEEDED`在publication前fail closed；合法累计
+`long`算术溢出使用`ARITHMETIC_OVERFLOW`。
 
 ## 11. Canonical encounter order
 

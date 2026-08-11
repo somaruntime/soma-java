@@ -301,7 +301,7 @@ Reference与optimized path共享：
 - mutation staging/Result/zero publication。
 
 Reference path不使用Index substitution、fusion、compression kernel、cost-model build choice、
-parallel partition或approximate statistics。它仍使用long domain、checked arithmetic与相同resource
+parallel partition或approximate statistics。它仍使用相同的32位结构域/64位累计域、checked arithmetic与resource
 boundary，不能以测试oracle名义使用不成立的int/unbounded structure。
 
 Application Comparator operation是opaque stateful barrier。V1对sort/top/min/max使用各自同一

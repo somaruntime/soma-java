@@ -66,7 +66,7 @@ V1只有六个`RetentionPolicy.CLASS` annotation：
 
 ```java
 public @interface SomaTable {
-    long defaultCapacity() default 16L;
+    int defaultCapacity() default 16;
 }
 ```
 
@@ -250,13 +250,13 @@ final class MachinePairKey {
     @SomaField MachineId toMachine;
 }
 
-@SomaTable(defaultCapacity = 4_096L)
+@SomaTable(defaultCapacity = 4_096)
 final class TransportTime {
     @SomaKey MachinePairKey machinePair;
     @SomaField long transportMinutes;
 }
 
-@SomaTable(defaultCapacity = 65_536L)
+@SomaTable(defaultCapacity = 65_536)
 final class MachineEvent {
     @SomaIndex MachineId machineId;
     @SomaField long eventMinute;
@@ -302,7 +302,7 @@ Stable diagnostic使用`[SOMA-xxxx]`前缀，至少覆盖：
 - empty Table/Value declaration；
 - unsupported/cyclic type；
 - Key/Index eligibility与数量；
-- long defaultCapacity range；
+- checked int defaultCapacity range；
 - generated name/reserved collision；
 - unsafe/invisible/non-NFC/`$`/bidi identifier；
 - expression capability/literal mismatch；

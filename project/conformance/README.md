@@ -9,7 +9,7 @@ Implementation authorization `FULFILLED`；I0-I8 `COMPLETED`；G1-G10 `PASS`
 
 Owner：SOMA Java Blueprint、Design、implementation与evidence的一致性状态
 
-最后审查日期：2026-08-10
+最后审查日期：2026-08-11
 
 ## 1. 文档责任
 
@@ -48,8 +48,8 @@ Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORI
 Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
 Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DISTRIBUTION_QUALIFIED /
                               FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
-Active bounded topic          INT32_STRUCTURAL_INCREMENTAL_INDEX / DESIGN_APPROVED /
-                              S0_BASELINE_READY / IMPLEMENTATION_NOT_STARTED
+Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALLY_PROMOTED
+Active bounded topic          NONE (frontend-neutral Logical IR is QUEUED / NOT_ACTIVE)
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -73,7 +73,7 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 |---|---|---|---|
 | Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal Design已由I0-I8 implementation与Gate evidence承接 | PASS |
 | Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I7 final generated surface与full regeneration已建立 | PASS |
-| Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | paged PLAIN/encoded/overlay storage、Key/Index、atomic StateRoot与Group retained accounting已建立 | PASS |
+| Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | checked int structural/long cumulative domain、paged PLAIN/encoded/overlay storage、singleton-inline/ordered-int-array Key/Index、point incremental maintenance、atomic StateRoot与Group retained accounting已建立 | PASS |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query、Selection mutation、GroupBy、binary Equality/Cross Join、explicit parallel与四级metadata已建立 | PASS |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I7 cumulative generated/runtime public surface已由Java 8 consumer与javap边界验证 | PASS |
 | IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | typed logical IR、row/relation/group reference oracle、normalized/optimized sequential、predicate pushdown与Index substitution已建立 | PASS |
@@ -135,6 +135,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [V1 Performance Frontier Qualification](v1-performance-frontier-qualification.md)：Table、Field、
   IndexSelection与mapped/stateful/Group/Relation/mutation矩阵，10K/1M/10M、CPU/allocation profile、
   accepted optimization、固定主机memory attribution、最佳实践与剩余性能边界Owner。
+- [V1 32位结构域与即时增量 Key/Index 维护资格](v1-incremental-structural-mutation-governance.md)：
+  checked 32/64位数值域、singleton-inline/ordered `int[]`唯一membership、point/Selection
+  mutation、failed-state/accounting、detached predecessor A/B、10K/1M/10M与profile Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -148,10 +151,9 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary为
-[32位结构域与即时增量Key/Index维护治理](../temp/soma-incremental-structural-mutation-governance/README.md)；
-其专题Design已获Product Owner批准，S0 predecessor baseline已提交，但S1/S2尚未成为项目正式
-Design、implementation或Conformance。
+Historical record不能覆盖current Blueprint/Design/Readiness。当前无active bounded Temporary；
+[frontend-neutral Logical IR](../temp/soma-frontend-neutral-logical-ir-governance/README.md)
+仅为`QUEUED_FUTURE_TOPIC / INTENT_ONLY / NOT_ACTIVE / NOT_DESIGN`，不是current implementation input。
 `docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
 [正式Conformance记录](v1-performance-correctness-governance.md)完成治理和replacement closure；
 千万行组合负载的扩展证据见[对应记录](v1-ten-million-composed-workload-governance.md)；四维性能架构

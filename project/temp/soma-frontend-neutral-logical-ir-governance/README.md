@@ -7,8 +7,9 @@
 Owner：下下次 Logical IR 治理的意图、问题边界与前序治理约束
 
 > 本文只保存未来治理意图，不是当前 Logical IR Design、JSON/DAG admission、implementation plan
-> 或 Conformance。当前 active governance Design 是
-> [Key/Index 与 mutation 治理](DESIGN.md)。只有前序治理关闭并由 Product Owner 正式启动后，
+> 或 Conformance。前序
+> [32位结构域与即时增量 Key/Index 维护资格](../../conformance/v1-incremental-structural-mutation-governance.md)
+> 已经闭合；只有 Product Owner 正式启动后，
 > 本文才能转化为新的 bounded governance topic。
 
 ## 1. 治理意图
@@ -320,8 +321,9 @@ public identity 或 serialization contract。
 
 Logical IR governance 只有在以下条件成立后才启动：
 
-1. Key/Index mutation governance 已完成正式 Design 晋升、implementation 和 Conformance；
-2. 当前 Temporary 已完成 replacement closure；
+1. Key/Index mutation governance 已完成正式 Design 晋升、implementation 和 Conformance
+   （已满足）；
+2. 前序 Temporary 已完成 replacement closure（已满足）；
 3. scheduling reference journey 已恢复并验证新的 mutation/Index 行为；
 4. Product Owner 明确启动新的 bounded topic；
 5. 当前 code、formal Design、Gate 与 worktree baseline 重新核对；
@@ -345,8 +347,10 @@ Logical IR governance 只有在以下条件成立后才启动：
 
 当前只记录意图和前序约束：
 
-> 下一轮 Key/Index 与 mutation 治理必须保持 Logical IR 对 physical access path 与延迟维护透明；
-> 下下次再独立治理 frontend-neutral Canonical Logical IR、versioned JSON lowering 与 DAG capability。
+> 前序 Key/Index 与 mutation 治理已保持 Logical IR 对 immediate physical access-path
+> replacement 透明；未来必须独立治理 frontend-neutral Canonical Logical IR、versioned
+> JSON lowering 与 DAG capability。
 
-不得在下一轮 mutation implementation 中顺手实现 JSON/DAG，也不得用“以后再重构 IR”作为当前
-physical coupling 的理由。任何不可逆的 IR coupling 都必须在 mutation Design 审查阶段暴露并暂停。
+未经Product Owner启动，不得顺手实现 JSON/DAG，也不得用“以后再重构 IR”
+作为新physical coupling的理由。任何不可逆的 IR coupling 都必须在对应Design审查阶段
+暴露并暂停。

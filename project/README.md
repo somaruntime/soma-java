@@ -17,9 +17,10 @@ implementation 与 qualification：
 - Java 8 下的两项 production artifact、generated API、chunked storage、Key/Index、query/optimizer、
   mutation、GroupBy/Join、parallel、compression/metadata、三个 reference application 和本地交付链已建立；
 - G1–G10 当前为 `PASS`；百万行证据是同机 qualification，不是一亿行承诺或跨硬件 SLA；
-- 当前没有active implementation slice；[32位结构域与即时增量Key/Index维护治理](temp/soma-incremental-structural-mutation-governance/README.md)
-  是唯一active bounded Temporary，专题Design已获Product Owner批准，S0 predecessor baseline已提交，
-  S1/S2尚未实施或qualification；
+- 当前没有active implementation slice或active bounded Temporary；
+  [32位结构域与即时增量Key/Index维护资格](conformance/v1-incremental-structural-mutation-governance.md)
+  已`PASS`：Table-local结构域统一为`int`，累计域保持`long`，Key/Index仅保留
+  singleton-inline / ordered `int[]`一套membership truth；
 - [性能与正确性联合治理](conformance/v1-performance-correctness-governance.md)已`PASS`，长期
   benchmark、相对回归判定与当前最佳实践已经建立；
 - [四维性能架构治理](conformance/v1-four-dimensional-performance-architecture-governance.md)已`PASS`，
@@ -63,6 +64,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Operator × Type × Distribution 性能资格 | [Type and distribution performance qualification](conformance/v1-operator-type-distribution-performance-qualification.md) |
 | 内存归因与低分配执行资格 | [Memory attribution and low-allocation governance](conformance/v1-memory-attribution-low-allocation-governance.md) |
 | 全面性能前沿、10K/1M/10M、Profile 与剩余边界 | [Performance frontier qualification](conformance/v1-performance-frontier-qualification.md) |
+| 32位结构域、即时增量 Key/Index 与 mutation A/B | [Incremental structural mutation qualification](conformance/v1-incremental-structural-mutation-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -86,8 +88,9 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务active bounded topic；当前唯一topic为
-  [32位结构域与即时增量Key/Index维护治理](temp/soma-incremental-structural-mutation-governance/README.md)。
+- `temp/`：只服务bounded topic；当前无active topic，
+  [frontend-neutral Logical IR](temp/soma-frontend-neutral-logical-ir-governance/README.md)
+  只是queued intent，尚不是Design或implementation input。
 
 日常检查使用：
 
@@ -118,9 +121,8 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前唯一active topic是
-[32位结构域与即时增量Key/Index维护治理](temp/soma-incremental-structural-mutation-governance/README.md)：
-其bounded专题Design已获批准，S0 predecessor baseline已成为executable fact，但candidate B仍不是
-项目正式Design或Conformance结论。此前性能
-前沿Temporary已完成replacement closure并退役。Temporary仍只服务active topic，不能变成平行
-Design或历史档案。
+当前无active bounded topic。此前
+[32位结构域与即时增量Key/Index维护](conformance/v1-incremental-structural-mutation-governance.md)
+已完成正式Owner晋升、Conformance与replacement closure；候选Design与交接材料不作为平行历史
+档案保留。[frontend-neutral Logical IR](temp/soma-frontend-neutral-logical-ir-governance/README.md)
+只是`QUEUED / NOT_ACTIVE / NOT_DESIGN`意图，必须由Product Owner单独启动后才能进入治理。

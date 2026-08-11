@@ -47,9 +47,12 @@ physical Column、row position、Chunk、scratch、planner 或 worker。
 - 第一阶段资格目标：百万行数据上的高效、低分配、资源受控操作；
 - 一亿行是架构不得封死的愿景，不是没有 implementation/profile 时预先承诺的 Release
   Gate；
-- 所有 logical size、capacity、position、count 与 cardinality 使用 `long`；
-- 第一条 production storage 路径就必须是 chunked、long-domain、IR-driven，不能先用
-  flat `int` engine 再承诺重写；
+- 单Table可寻址结构采用checked 32位结构域：size、capacity、raw locator、Chunk offset与
+  Table-local mutation result使用`int`，单Table上限为`Integer.MAX_VALUE`；
+- 跨输入/派生结果的count/cardinality、memory bytes/budget与stateVersion采用checked 64位累计域；
+  application Field继续由Schema定义，不能因内部结构域被截断；
+- 第一条production storage路径必须是chunked、data-oriented、IR-driven；32位结构域不等于把
+  整张Table塞进一个flat array，也不允许unchecked wrap；
 - 量化吞吐、内存与规模 Gate 只能由真实 implementation、reference scenario 和 profile
   固定。
 
@@ -95,7 +98,7 @@ owner/provenance验证拒绝。
 
 ### 5.3 存储层
 
-Table authoritative state 由 long-domain StateRoot、chunked primitive/reference leaves、
+Table authoritative state 由checked 32位结构域StateRoot、chunked primitive/reference leaves、
 Key、Index、compression representation、size/capacity/version 与 managed-memory accounting
 组成。Detached object、Collection graph、callback View 与 scratch 不是长期 authoritative
 state。
@@ -183,7 +186,7 @@ Table state、Index、relation、resource 与 atomicity。
 | BP-1 | 普通路径只暴露自然 Java object、generated typed API 与 Stream-like operation，不暴露 physical storage/runtime protocol |
 | BP-2 | Package schema 在编译期决定合法 Field role、type、Key/Index、generated object 与 capability；非法能力从generated type缺席，手写foreign marker/IR不能绕过owner/provenance validation |
 | BP-3 | 同一 Group 每种 Table type 一个 instance；default/explicit Group 身份明确且不同 Group 隔离 |
-| BP-4 | Authoritative Table state 使用 long-domain chunked data-oriented storage，不被单个 Java array 或 `int` row domain 限制 |
+| BP-4 | Authoritative Table state使用chunked data-oriented storage；单Table size/capacity/raw locator属于checked 32位结构域，count/cardinality/memory/version属于checked 64位累计域；任何结构或累计超界都在publication前fail closed |
 | BP-5 | Table/Field/Index 是 direct reusable source；linked pipeline lazy、finite、one-shot，terminal-start binding |
 | BP-6 | Point mutation 与 Selection mutation保持单 Table all-or-nothing、zero partial publication；Key immutable |
 | BP-7 | 提供 typed aggregate、GroupBy 与 same-Group binary Equality Join，并保持明确 null、duplicate、order 与 cardinality合同 |
@@ -199,7 +202,7 @@ Table state、Index、relation、resource 与 atomicity。
 ## 9. Reference user experience
 
 ```java
-@SomaTable(defaultCapacity = 4_096L)
+@SomaTable(defaultCapacity = 4_096)
 final class TransportTime {
     @SomaKey MachinePairKey machinePair;
     @SomaField long transportMinutes;
@@ -210,7 +213,7 @@ final class TransportTime {
 TransportTimeTable times = Soma.transportTimeTable();
 MachineStateTable states = Soma.machineStateTable();
 
-times.reserve(1_000_000L);
+times.reserve(1_000_000);
 times.add(new TransportTime(pair, 18L));
 
 Optional<TransportTime> found = times.find(pair);
@@ -257,7 +260,7 @@ V1 包含：
 - point add/find/get/update/remove、Selection update/remove；
 - query operation、typed aggregate、GroupBy、Equality/Cross Join；
 - sequential/explicit parallel；
-- long-domain chunked on-heap storage、transparent AUTO/OFF compression；
+- checked 32位结构域 + 64位累计域的chunked on-heap storage、transparent AUTO/OFF compression；
 - detached materialization、structured failure、`_metadata()` 与 `_explain()`。
 
 V1 明确不包含：

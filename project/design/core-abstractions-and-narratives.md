@@ -316,7 +316,9 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 - **Meaning**：schema-defined mutable record set 与唯一 published authoritative state owner；
 - **Identity**：Group identity + generated Table type；不是 backing array、slot 或 detached object；
 - **Lifecycle**：Group accessor -> initial empty root -> repeated atomic root versions -> Group GC；
-- **Invariant**：size/capacity long-domain；payload/Key/Index/compression/accounting coherent；
+- **Invariant**：size/capacity/raw locator属于checked 32位结构域；count/cardinality/
+  memory/stateVersion属于checked 64位累计域；payload/Key/Index/compression/
+  accounting coherent；
 - **Relations**：`owns/publishes` A21，`contains semantic` A6-A8，`is-source-for` A9；
 - **Non-responsibility**：stable business order、cross-Table transaction、ordinary referent mutation。
 
@@ -450,7 +452,8 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 - **Meaning**：直接按 typed Logical IR 顺序语义执行的 correctness oracle；
 - **Identity**：semantic implementation family，不是用户可选择的engine mode；
 - **Lifecycle**：production test harness在independent state copy上运行 -> compare -> discard；
-- **Invariant**：共享long-domain、checked arithmetic、order/null/missing/failure semantics，但不使用
+- **Invariant**：共享32位结构域/64位累计域、checked arithmetic、order/null/missing/failure
+  semantics，但不使用
   optimizer shortcut；
 - **Relations**：`interprets` A16，`evidences` A17/A19/A26；
 - **Non-responsibility**：unsupported fallback、production double execution、第二套API或state owner。
@@ -489,7 +492,7 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 
 ### A22 — Chunk / Leaf Representation
 
-- **Meaning**：A21 中 long-domain Table state 的paged physical data representation与generated
+- **Meaning**：A21 中checked 32位结构域Table state的paged physical data representation与generated
   per-Chunk kernel boundary；
 - **Identity**：root + Chunk ordinal + logical Field leaf；不是public Column；
 - **Lifecycle**：allocate/plain tail -> fill/seal -> optionalencode/overlay -> candidate rebuild -> root discard；
@@ -502,8 +505,11 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 
 - **Meaning**：A7/A8 semantics 在某个 A21 中的 derived physical access representation；
 - **Identity**：root version + logical Key/Index descriptor；bucket/posting/locator没有public identity；
-- **Lifecycle**：derive/build with candidate -> validate -> publish with root -> immutable read -> discard/rebuild；
-- **Invariant**：与payload一一对应、collision不改语义、locator current、memory accounted；
+- **Lifecycle**：point transition预计算受影响slot/Bucket -> validate/allocation -> 与payload
+  一次publish；Selection candidate从最终payload一次rebuild -> validate -> publish -> discard；
+- **Invariant**：与payload一一对应、collision不改语义、locator current、memory accounted；Key slot
+  内联唯一`int` locator；Index singleton内联一个`int` locator，multi只有一个严格
+  升序的`int[]`；无per-record next/reverse/second truth；
 - **Relations**：`derives-from` A21 payload，A17可选择lookup，A24必须同步更新；
 - **Non-responsibility**：成为第二事实源、决定encounter order、泄漏hash/token到expression。
 
@@ -855,7 +861,9 @@ Validate invocation and mutation capability
 - **update(Key)**：missing返回matched=0/changed=0且不admit/callback；命中后先admit single-record
   worst-case peak，再进入Editor staging -> non-Key validation -> affected sidecars -> publish；logical
   no-op不改version；
-- **remove(Key)**：missing返回removed=0；命中后freeze compaction mapping -> replay all sidecars -> publish。
+- **remove(Key)**：missing返回removed=0；命中后freeze `R/T` compaction mapping -> 删除removed
+  membership -> 将tail payload与所有sidecar locator从`T`调整到`R` -> publish；成本与
+  Index数量和受影响Bucket大小相关，不是每次重建全Table Index。
 
 Repeated add是多次独立atomic operation，不形成隐式transaction。
 
@@ -1026,9 +1034,9 @@ Detect failure at the earliest owning boundary
 | INV-03 | 同一Group每种Table type一个instance，不同Group隔离 | Storage Group identity Owner | private construction、supported-source unforgeable composition token、concurrent-safe Group accessor registry-by-type | same-package fake/null/foreign token不能发布instance；foreign owner operation失败；无losing live Table | identity consumer、construction negatives、concurrent first accessor、multiple Group、foreign owner tests；不外推为same-JVM privileged-code sandbox |
 | INV-04 | Configuration只freeze一次且effective policy稳定 | Execution configuration Owner | configure/first-access state machine | `CONFIGURATION_FROZEN`，已有policy不变 | ordering、race、metadata-no-freeze tests |
 | INV-05 | Published Table header、payload、Key、Index、compression、statistics、accounting同logical generation | Storage StateRoot Owner | candidate complete validation或prevalidated final commit + single descriptor/header publication | old state/version完整或new state完整 | fault injection、root/sidecar/accounting comparison |
-| INV-06 | Logical size/capacity/locator/cardinality是checked long-domain，不受single Java array/int Table限制；capacity不因remove下降 | Storage representation Owner | long API/type、paged directory、checked arithmetic、no implicit shrink | overflow/resource failure发生在allocation/publication前 | tiny-Chunk、near-int/long virtual、million real、remove capacity |
+| INV-06 | Logical size/capacity/raw locator是checked 32位结构域；count/cardinality/memory/stateVersion是checked 64位累计域；capacity不因remove下降 | Storage representation Owner | exact int API/type、paged directory、widened checked arithmetic、no implicit shrink | 结构请求超限以`RESOURCE_LIMIT_EXCEEDED`、累计溢出以`ARITHMETIC_OVERFLOW`在allocation/publication前失败 | tiny-Chunk、near-int boundary、long cumulative、million real、remove capacity |
 | INV-07 | Key唯一、non-null eligible、发布后immutable | Storage Key Owner | compiler eligibility、add duplicate check、Editor setter absence | duplicate/invalid add不发布；rekey不可表达 | compile-negative、collision/zero/null/runtime tests |
-| INV-08 | Index是authoritative values的同版本派生access path | Storage Index Owner | generated equality/hash、candidate sidecar build、root-co-publication | old Index/payload保持一致，无partial posting | collision/null/repeated/move/rebuild/property tests |
+| INV-08 | Index是authoritative values的同版本唯一派生access path | Storage Index Owner | generated equality/hash、point affected-Bucket maintenance、Selection one-pass rebuild、root-co-publication | old Index/payload保持一致，无partial posting、duplicate membership或second truth | collision/null/singleton↔multi/repeated/move/rebuild/randomized property tests |
 | INV-09 | Linked pipeline不能branch；合法terminal只消费一次并在terminal-start绑定current root | Execution pipeline Owner | intermediate atomic claim、operation validation、consumed flag、bind after admission | invalid pre-claim调用保持open；claimed node复用稳定失败 | lifecycle/branch/owner/currentness positive/negative |
 | INV-10 | View/Editor只在声明callback scope有效，Editor只stage non-Key values | Execution callback-scope Owner | private constructor、owner/token/thread/epoch guard、setter generation | scope violation；Table state unchanged | construction/escape/cross-owner/thread/epoch、fetch tests |
 | INV-11 | Mutation成功一次publish，失败zero publication，Result对应published facts | Execution publication Owner | frozen membership、full staging、preflight、non-throwing commit | no partial result/root/version/sidecar；workers quiescent | every fault point、no-op、parallel mutation differential |
@@ -1098,7 +1106,7 @@ failure compatibility contract。
 |---|---|---|---|
 | I0 | A1/A2/A15；A3最小linkage；artifact/version boundary | N1 | INV-01、INV-02、INV-04的build/config carrier部分 |
 | I1 | A4/A5/A6/A7/A9-A11/A13/A14/A20-A22/A24最小vertical slice | N2、N3、N4、N8最小闭环 | INV-03-07、INV-09-11、INV-17的narrow proof |
-| I2 | A6-A8全type breadth；A22/A23 long-domain breadth | N1/N2/N4 breadth | INV-02、INV-05-08、INV-14、INV-18 |
+| I2 | A6-A8全type breadth；A22/A23 32位结构域/64位累计域 breadth | N1/N2/N4 breadth | INV-02、INV-05-08、INV-14、INV-18 |
 | I3 | A9/A10/A13/A16-A19/A27 explain baseline | N3 | INV-09、INV-12、INV-14及numeric contract |
 | I4 | A11/A14/A20/A24/A25完整mutation/failure/resource | N4、N8 | INV-10、INV-11、INV-16、INV-17 |
 | I5 | A12/A16-A19 relation nodes/result families | N5 | INV-12、INV-13、INV-14、relation resource bound |

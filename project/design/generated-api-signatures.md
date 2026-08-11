@@ -50,7 +50,7 @@ public @interface SomaSchema {}
 @Retention(RetentionPolicy.CLASS)
 @Target(ElementType.TYPE)
 public @interface SomaTable {
-    long defaultCapacity() default 16L;
+    int defaultCapacity() default 16;
 }
 
 @Documented
@@ -175,12 +175,12 @@ compatibility alias。
 
 ```java
 public final class UpdateResult {
-    public long matched();
-    public long changed();
+    public int matched();
+    public int changed();
 }
 
 public final class RemoveResult {
-    public long removed();
+    public int removed();
 }
 
 public enum SomaOperation {
@@ -313,9 +313,9 @@ name或generic `table(Class)`入口。Accessor名称严格使用Schema Design的
 
 ```java
 public final class TransportTimeTable {
-    public long size();
-    public long capacity();
-    public void reserve(long expectedRows);
+    public int size();
+    public int capacity();
+    public void reserve(int expectedRows);
     public void add(TransportTime value);
 
     public Optional<TransportTime> find(MachinePairKey key);

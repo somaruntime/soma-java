@@ -113,7 +113,7 @@ bytecode属于application/JVM控制面；SOMA只证明正常source不能取得to
 每Table一个atomic current state descriptor：
 
 ```text
-PublishedHeader(long size, long capacity, long stateVersion)
+PublishedHeader(int size, int capacity, long stateVersion)
 PagedChunkDirectory
 Chunk representations
 Key/Index sidecars
@@ -123,11 +123,12 @@ Managed-byte account
 
 Implementation必须支持：
 
-- paged directory与long locator；
+- paged directory与non-negative raw `int` locator；
 - same-row-span leaves per Chunk；
 - atomic descriptor/header publication；
 - bound read state stable through terminal；
-- no Java single-array/int Table limit；
+- Table structural domain在`Integer.MAX_VALUE`产品上限内fail closed，不因单个
+  payload array更早失去capacity；
 - internal tiny Chunk injection for boundary tests。
 
 Initial plain Chunk target约2 MiB、rows `[4096,65536]` power-of-two，是profile mechanism。
@@ -154,19 +155,26 @@ Hot loops对Chunk representation做once-per-Chunk dispatch，再操作primitive/
 
 ## 8. Key/Index baseline
 
-Key：sharded open-addressed hash，bucket为opaque long locator；zero不是sentinel。
+Key：typed sharded open-addressed hash，live slot直接内联唯一raw `int` locator；zero是
+合法locator，empty/deleted state由slot metadata表达。
 
-Index：sharded exact-value dictionary + per-record chunked next locator。Selection收集locator后按
-canonical order规范化。
+Index：typed sharded exact-value directory；singleton Bucket内联一个`int` locator，multi
+Bucket拥有一个严格升序、无duplicate的`int[]`。不维护per-record next link、reverse
+Index或第二套membership truth。
 
 Mechanism必须：
 
-- all arrays安全int-sized、overall Table long-domain；
+- 结构域统一使用checked `int`，count/cardinality、memory bytes与stateVersion等
+  累计域使用checked `long`；
 - flatten-aware generated equality/hash，不materialize Value；
 - collision/load/growth checked；
 - nullable Index bucket与Join null-never-match分离；
 - sidecar memory纳入budget；
 - payload/Key/all Index/compression一次publish。
+
+Point add/update/remove只增量维护受影响的Key slot与Index Bucket；packed remove在
+同一commit中同步删除removed locator并把tail locator从`T`调整为`R`。Selection
+mutation从最终candidate payload一次重建全部sidecar，不在每个命中行上重复维护。
 
 Hash mixing/load factor/shard count可profile替换。
 
@@ -190,8 +198,10 @@ Final commit只包含经证明不会抛可恢复exception的bounded writes/atomi
 
 ### 9.3 Remove compaction
 
-先计算deterministic mapping，再同时重放payload、Key、Index与compression。被移动survivor
-保留logical value但Table不承诺stable insertion order。
+先固prozen `removed=R` 与 `tail=T`。若`R != T`，把tail payload搬至`R`，并在
+同一commit中将Key映射和每个Index Bucket中的`T`替换为`R`；然后删除removed
+membership、清理tail reference并发布new root。若old/new Index value相同，必须对同一
+Bucket完成remove/add normalization，不得丢失或重复locator。Table不承诺stable insertion order。
 
 ## 10. Compression mechanism
 
@@ -334,7 +344,7 @@ serialization、reference hybrid、failure、安全与profile。
 可以凭evidence替换：Chunk size、hash mixing、Index structure、codec、planner coefficient、Join
 algorithm、small/large threshold、task multiplier、scratch block（floating tree除外）。
 
-不能作为internal替换：public API、long domain、result/order/null/missing、failure、callback、
+不能作为internal替换：public API、32位结构域/64位累计域、result/order/null/missing、failure、callback、
 zero publication、budget visibility、Group guard、future backend seam。
 
 任何替换影响上游contract时停止implementation，建立Temporary并请求Product Owner裁决。
@@ -346,7 +356,7 @@ Production必须证明：
 - two-artifact clean Java 8 build与independent consumer；
 - full regeneration/manifest/stale cleanup/version mismatch；
 - primitive no-boxing/no-reflection hot path；
-- cross-Chunk long-domain storage与GC retention；
+- cross-Chunk checked-int structural storage、64位累计与GC retention；
 - Key/Index/compression/mutation fault injection；
 - reference/optimized differential；
 - bounded scheduler/quiescence/accounting；

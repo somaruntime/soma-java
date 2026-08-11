@@ -37,12 +37,12 @@ Absence不能用null、sentinel或exception混合表达。
 
 ```java
 public final class UpdateResult {
-    public long matched();
-    public long changed();
+    public int matched();
+    public int changed();
 }
 
 public final class RemoveResult {
-    public long removed();
+    public int removed();
 }
 ```
 
@@ -57,6 +57,8 @@ Invariants：
 non-Key logical Field值与old value不同的record数量，不是setter invocation或changed leaf数量。
 同一record多次setter最多计一。`changed==0`时mutation不发布新stateVersion；`changed>0`时整次
 operation只发布一个新version。`removed`同理按被删除membership计数，zero不改变version。
+这些Result描述一次单Table mutation，最大值不超过Table结构域，因此使用`int`；Stream、Relation、
+Group等可能跨输入或产生派生组合的count/cardinality继续使用`long`。
 
 Changed comparison沿用Schema/Storage logical equality：primitive（含float/double canonical
 semantics）、String content、Enum identity、Value structural；ordinary Object/reference payload

@@ -8,7 +8,7 @@
 
 Owner：SOMA Java V1 正式 Design 路由、职责边界与权威关系
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
 
 ## 1. 设计责任
 
@@ -25,7 +25,7 @@ Owner：SOMA Java V1 正式 Design 路由、职责边界与权威关系
 |---|---|---|
 | [核心抽象、叙事与不变量证明链](core-abstractions-and-narratives.md) | 跨Design architecture skeleton、typed relation、A0-A27/N1-N8/INV-01..19 proof-chain routing与M0-M2变更协议 | BP-1至BP-15 |
 | [Schema 与编译生成](schema-and-generation.md) | composition、annotation、Field role/type、generated identity/object、命名、diagnostic、full regeneration | BP-1、BP-2、BP-3、BP-14 |
-| [数据模型与存储](data-model-and-storage.md) | Group/Table identity、logical Field、long-domain StateRoot/Chunk、leaf/null、Key/Index、capacity/order、compression、GC/backend seam | BP-3、BP-4、BP-7、BP-10、BP-12、BP-13 |
+| [数据模型与存储](data-model-and-storage.md) | Group/Table identity、logical Field、32位结构域/64位累计域、StateRoot/Chunk、leaf/null、Key/Index、capacity/order、compression、GC/backend seam | BP-3、BP-4、BP-7、BP-10、BP-12、BP-13 |
 | [逻辑层 API](logical-api.md) | generated hierarchy、direct source、point/Selection operation、View、query/aggregate/Group/Join、metadata/explain user surface | BP-1、BP-5、BP-6、BP-7、BP-12 |
 | [Generated Java API Signature](generated-api-signatures.md) | annotation/shared/generated exact Java 8 type family、method grammar、functional interface、compatibility boundary | BP-1、BP-2、BP-5、BP-7、BP-11、BP-14 |
 | [规划与优化](planning-and-optimization.md) | typed Logical/Predicate IR、normalization、rewrite、Index substitution、Join/Group planning、statistics、reference interpreter | BP-7、BP-8、BP-9、BP-10 |
@@ -110,7 +110,8 @@ Blueprint
 1. 普通API不暴露physical Column、Chunk、row position、array、scratch、lock、plan node或worker；
 2. Schema/generated/runtime只有一套产品模型；
 3. 不支持的capability从generated type缺席；
-4. 所有logical size/capacity/count/cardinality使用`long`；
+4. 单Table size/capacity/raw locator使用checked `int`；Stream/Relation/Group count/cardinality、
+   memory与version使用checked `long`；
 5. Table-local mutation成功时一次发布，失败zero publication；
 6. 同一Group外部operation不重叠；不同Group并发由application拥有；
 7. sequential/parallel共享logical result、order、numeric、mutation与non-resource failure

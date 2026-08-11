@@ -70,12 +70,13 @@ INV-01..19路由证明责任；ID用于attention与coverage，不替代分责Des
 - all explicit absence compile-negative，包括`stream()`、Record、Batch、Right/non-equality Join、
   arbitrary ExecutorService、Outer typed select、Pair materialization与Join kind after intermediate。
 
-## 4. G3 — Long-domain Storage、Key 与 Index
+## 4. G3 — 32位结构域/64位累计域 Storage、Key 与 Index
 
 必须证明：
 
-- paged Chunk directory、long size/capacity/locator/cardinality；
-- tiny-Chunk cross-boundary、million real、near-int/long virtual arithmetic；
+- paged Chunk directory；checked `int` size/capacity/raw locator；checked `long` count/cardinality/
+  memory/stateVersion；
+- tiny-Chunk cross-boundary、million real、near-int structural boundary、long cumulative arithmetic；
 - all primitive/reference/Value flattening/null/equality/order；
 - String content-vs-reference identity、Enum constant identity与ordinary referent identity；
 - String PLAIN external body vs copied dictionary managed-byte accounting boundary；
@@ -84,7 +85,8 @@ INV-01..19路由证明责任；ID用于attention与coverage，不替代分责Des
   losing live Table；
 - payload capacity monotonic、remove不隐式shrink；
 - Key duplicate/zero/null/collision/immutable/update absence；
-- non-unique Index null/repeated/collision/move/rebuild/canonical order；
+- non-unique Index null/repeated/collision/singleton↔multi/move/rebuild/canonical order；point
+  affected-Bucket incremental maintenance；Selection one-pass rebuild；无per-record next/reverse/second truth；
 - payload/Key/all Index/accounting same atomic logical generation；
 - candidate-root swap与prevalidated bounded final-commit publication equivalence；
 - explicit Group GC后Phantom/ReferenceQueue accounting release，无strong retention/double release；

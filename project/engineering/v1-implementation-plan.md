@@ -40,7 +40,8 @@ V1 production implementation只有同时满足以下条件才完成：
 
 1. two artifact + independent Java 8 consumer clean build/run；
 2. schema/full-regeneration/diagnostic/generated exact surface通过；
-3. long-domain chunked storage、Key/Index、order/null/materialization通过；
+3. checked 32位结构域/64位累计域的chunked storage、Key/Index、order/null/
+   materialization通过；
 4. typed IR、reference interpreter与optimized sequential/parallel differential通过；
 5. point/Selection mutation every fault point zero publication；
 6. Group/Equality/Cross Join的kind/null/duplicate/order/cardinality/resource通过；
@@ -134,7 +135,8 @@ one schema
                         -> structured failure
 ```
 
-第一条storage必须已经支持paged Chunk directory、long domain、Group guard、one-shot pipeline、
+第一条storage必须已经支持paged Chunk directory、32位结构域/64位累计域、Group guard、
+one-shot pipeline、
 scope token与atomic publish；不能用single `int[]`/Object[] universal engine。
 
 Exit：generated/javap golden、consumer positive/negative、tiny-Chunk boundary、no reflection/boxing、

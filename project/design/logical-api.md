@@ -80,9 +80,9 @@ Source可重复使用；intermediate产生的linked pipeline lazy、one-shot，�
 每张generated Table提供：
 
 ```java
-long size();
-long capacity();
-void reserve(long expectedRows);
+int size();
+int capacity();
+void reserve(int expectedRows);
 void add(Xxx value);
 ```
 
