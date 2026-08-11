@@ -50,6 +50,7 @@ Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DIST
                               FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
 Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALLY_PROMOTED
 Scheduling reference        STANDARD_FJSP_100K / PASS / NATURAL_POINT_MUTATION
+Scheduling performance      STANDARD_FJSP_100K / FRESH_0.6S / WARM_0.51S / PASS
 Active bounded topic          NONE (frontend-neutral Logical IR is QUEUED / NOT_ACTIVE)
 ```
 
@@ -136,6 +137,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [V1 Performance Frontier Qualification](v1-performance-frontier-qualification.md)：Table、Field、
   IndexSelection与mapped/stateful/Group/Relation/mutation矩阵，10K/1M/10M、CPU/allocation profile、
   accepted optimization、固定主机memory attribution、最佳实践与剩余性能边界Owner。
+- [V1 Scheduling Performance Governance](v1-scheduling-performance-governance.md)：标准100K FJSP
+  phase separation、通用point mutation/low-allocation runtime优化、example访问路径、CPU/allocation
+  profile、fresh/warm evidence、最佳实践与300ms剩余边界Owner。
 - [V1 32位结构域与即时增量 Key/Index 维护资格](v1-incremental-structural-mutation-governance.md)：
   checked 32/64位数值域、singleton-inline/ordered `int[]`唯一membership、point/Selection
   mutation、failed-state/accounting、detached predecessor A/B、10K/1M/10M与profile Owner。

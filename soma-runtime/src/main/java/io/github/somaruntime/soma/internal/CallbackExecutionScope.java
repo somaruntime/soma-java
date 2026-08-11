@@ -30,10 +30,12 @@ final class CallbackExecutionScope {
         return depth != null && depth.value > 0;
     }
 
-    /** Release the reusable marker once the outer SOMA operation has quiesced. */
+    /** Retains one tiny reusable marker per participating thread after quiescence. */
     static void clearIfInactive() {
         Depth depth = DEPTH.get();
-        if (depth != null && depth.value == 0) DEPTH.remove();
+        if (depth != null && depth.value != 0) {
+            throw new AssertionError("callback scope is still active at operation release");
+        }
     }
 
     private static final class Depth {

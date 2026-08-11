@@ -32,8 +32,11 @@ Release/Package、签名或正式release声明。核心抽象候选已经
 此前Temporary replacement closure已完成；[32位结构域与即时增量Key/Index维护](project/conformance/v1-incremental-structural-mutation-governance.md)
 已正式晋升并`PASS`：Table-local结构域统一为checked `int`，累计域保持checked
 `long`，Key/Index只保留singleton-inline / ordered `int[]`一套membership truth，point
-mutation即时局部维护，Selection mutation一次candidate rebuild。当前没有active bounded
-Temporary；[frontend-neutral Logical IR](project/temp/soma-frontend-neutral-logical-ir-governance/README.md)
+mutation即时局部维护，Selection mutation一次candidate rebuild。
+[Scheduling性能治理](project/conformance/v1-scheduling-performance-governance.md)已正式晋升并
+`PASS`：标准100K FJSP纯dispatch由约18.7秒降至fresh约0.6秒、warm约0.51秒，且通用runtime
+优化已由正式Design承接。当前没有active bounded Temporary；
+[frontend-neutral Logical IR](project/temp/soma-frontend-neutral-logical-ir-governance/README.md)
 只是`QUEUED / NOT_ACTIVE / NOT_DESIGN`意图。
 千万行组合负载治理由
 [正式Conformance记录](project/conformance/v1-ten-million-composed-workload-governance.md)拥有；交付导向仓库治理由

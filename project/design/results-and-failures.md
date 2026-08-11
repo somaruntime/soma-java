@@ -67,7 +67,8 @@ semantics）、String content、Enum identity、Value structural；ordinary Obje
 stateVersion。
 
 Carrier immutable、detached、无public constructor/mutator，不携带View、row position、root、
-continuation、collection或mutable storage。
+continuation、collection或mutable storage。Carrier object identity不是合同；runtime可以复用常见
+immutable zero/one outcome，application只能观察其值。
 
 ## 4. Exception carrier
 

@@ -164,6 +164,34 @@ final class TableChunkDirectory {
         return result;
     }
 
+    boolean canRemoveInPlace(int locator, int size) {
+        if (locator < 0 || locator >= size || size <= 0) {
+            throw new AssertionError("invalid Table remove locator");
+        }
+        int tail = size - 1;
+        return get(locator / chunkRows) instanceof PlainChunk
+                && get(tail / chunkRows) instanceof PlainChunk;
+    }
+
+    /**
+     * Executes the bounded, allocation-free payload part of a prevalidated
+     * point remove. The caller owns the exclusive Group final-commit window.
+     */
+    void removeInPlace(int locator, int size) {
+        if (!canRemoveInPlace(locator, size)) {
+            throw new AssertionError("in-place remove requires PLAIN chunks");
+        }
+        int tail = size - 1;
+        PlainChunk targetChunk = (PlainChunk) get(locator / chunkRows);
+        PlainChunk tailChunk = (PlainChunk) get(tail / chunkRows);
+        int tailOffset = tail % chunkRows;
+        if (locator != tail) {
+            targetChunk.copyRowFrom(
+                    tailChunk, tailOffset, locator % chunkRows);
+        }
+        tailChunk.clear(tailOffset, layout);
+    }
+
     void finishTouched(
             int size,
             SomaCompression compression,

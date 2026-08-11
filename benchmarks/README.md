@@ -22,6 +22,19 @@ three reference applications
 [`soma-examples/scheduling`](../soma-examples/scheduling/README.md)负责，benchmark 继续稳定拥有
 ingest/scan/Join/GroupBy 等 kernel 对照，二者不形成互相牵制的 schema 合同。
 
+标准FJSP另有一个只服务治理的warm harness：
+
+```sh
+java -Xms1g -Xmx1g \
+  -Dsoma.scheduling.warmups=3 \
+  -Dsoma.scheduling.samples=7 \
+  -cp 'benchmarks/target/classes:soma-examples/scheduling/target/classes:soma-runtime/target/soma-runtime-1.0.0-SNAPSHOT.jar' \
+  io.github.somaruntime.benchmarks.scheduling.StandardFjspBenchmarkMain
+```
+
+它复用同一个immutable model，每次solve创建fresh `SomaGroup`，分别报告runtime initialization与纯
+dispatch median，并在最后执行完整结果校验。它不是JMH替代品或公开SLA。
+
 此外，`type-kernel` 是 benchmark-only synthetic consumer，用于覆盖 byte/short/char/int/long、
 float/double、String、Enum、nested Value、ordinary Object，以及 cardinality/selectivity/null/skew
 等物理内核。它不是第四个 Example 或 production artifact：

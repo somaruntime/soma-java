@@ -639,16 +639,22 @@ public final class GeneratedTable {
         int locator = root.key.findUnique(root.directory, probe);
         if (locator < 0) return removeResult(0);
 
+        boolean plainInPlace = root.directory.canRemoveInPlace(locator, root.size);
         try (GlobalMemoryManager.TemporaryLease ignored =
                      group.leaseTemporary(
-                             root.managedBytes, SomaOperation.REMOVE, provenance)) {
+                             plainInPlace ? 0L : root.managedBytes,
+                             SomaOperation.REMOVE,
+                             provenance)) {
             int newSize = root.size - 1;
-            TableChunkDirectory candidate = root.directory.copyForRemove(locator, root.size);
-            candidate.finishTouched(
-                    newSize,
-                    group.compression(),
-                    SomaOperation.REMOVE,
-                    provenance);
+            TableChunkDirectory candidate = root.directory;
+            if (!plainInPlace) {
+                candidate = root.directory.copyForRemove(locator, root.size);
+                candidate.finishTouched(
+                        newSize,
+                        group.compression(),
+                        SomaOperation.REMOVE,
+                        provenance);
+            }
             try {
                 root.key.prepareRemove(
                         keyRemoveScratch, root.directory, locator, root.size - 1);
@@ -671,8 +677,11 @@ public final class GeneratedTable {
                             SomaOperation.REMOVE,
                             provenance);
                 }
-                long finalManaged = managedBytes(
-                        candidate, sidecars, SomaOperation.REMOVE, provenance);
+                long finalManaged = plainInPlace
+                        ? replaceSidecarBytes(
+                                root, sidecars, SomaOperation.REMOVE, provenance)
+                        : managedBytes(
+                                candidate, sidecars, SomaOperation.REMOVE, provenance);
                 RemoveResult result = removeResult(1);
                 publishPointRemove(
                         root,
@@ -687,6 +696,7 @@ public final class GeneratedTable {
                                 candidate,
                                 root.key,
                                 root.indexes),
+                        plainInPlace ? locator : -1,
                         provenance);
                 return result;
             } finally {
@@ -1114,6 +1124,7 @@ public final class GeneratedTable {
     private void publishPointRemove(
             TableStateRoot oldRoot,
             TableStateRoot candidate,
+            int inPlaceLocator,
             Object provenance) {
         long delta = candidate.managedBytes - oldRoot.managedBytes;
         long positive = Math.max(0L, delta);
@@ -1131,6 +1142,9 @@ public final class GeneratedTable {
             keyRemoveScratch.commit();
             for (IdentityHashIndex.PreparedRemove remove : indexRemoveScratch) {
                 remove.commit();
+            }
+            if (inPlaceLocator >= 0) {
+                oldRoot.directory.removeInPlace(inPlaceLocator, oldRoot.size);
             }
             current.set(candidate);
             retained.commit();

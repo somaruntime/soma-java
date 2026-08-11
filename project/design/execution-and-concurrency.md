@@ -50,7 +50,8 @@ statistics。Pipeline创建后、terminal开始前发生的合法mutation对term
 每个Group只有一个non-blocking operation guard：
 
 - `size/capacity/find/get/reserve/add/update/remove`等direct/point operation，以及source terminal、
-  Join、GroupBy与Selection mutation进入时CAS acquire；
+  Join、GroupBy与Selection mutation进入时non-blocking acquire；实现可以复用internal operation
+  token，但不能弱化owner thread、operation kind、reentrancy或concurrent rejection；
 - source/intermediate pipeline construction与generated accessor不读取bound Table state，因此不
   acquire；四级`_metadata()`是第5节唯一state-observation exception；
 - guard已占用立即`CONCURRENT_GROUP_OPERATION`，不排队；

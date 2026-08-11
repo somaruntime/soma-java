@@ -10,7 +10,7 @@ import io.github.somaruntime.soma.SomaTable;
 final class MachineWaitingOperation {
     @SomaKey long waitingEntryId;
     @SomaIndex long machineId;
-    @SomaIndex long operationId;
+    @SomaField long operationId;
     @SomaField long jobId;
     @SomaField long readyTime;
     @SomaField long processingTime;

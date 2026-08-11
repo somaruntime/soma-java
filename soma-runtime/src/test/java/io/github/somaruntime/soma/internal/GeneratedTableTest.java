@@ -115,6 +115,29 @@ class GeneratedTableTest {
     }
 
     @Test
+    void repeatedPointMutationPromotesHotEncodedChunkToPlain() {
+        GeneratedTable table = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20)),
+                testLayout(), 4096, MutationFaultInjector.NONE);
+        Object shared = new Object();
+        for (long key = 1L; key <= 4096L; key++) {
+            add(table, key, "repeated", 7, shared);
+        }
+        assertTrue(table.metadata().encoded());
+
+        for (long key = 1L; key <= 65L; key++) {
+            UpdateResult result = update(
+                    table, key, "repeated", 7 + (int) key, shared);
+            assertEquals(1L, result.changed());
+        }
+
+        assertFalse(table.metadata().encoded());
+        assertRow(table, 1L, "repeated", 8, shared);
+        assertRow(table, 65L, "repeated", 72, shared);
+        assertEquals(4096L, indexCount(table, "repeated"));
+    }
+
+    @Test
     void parallelModeUsesBoundedCustomPoolAndPreservesCanonicalResults() {
         TrackingForkJoinPool pool = new TrackingForkJoinPool(4);
         try {

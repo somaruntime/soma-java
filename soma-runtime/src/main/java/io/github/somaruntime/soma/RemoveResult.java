@@ -5,6 +5,9 @@ import io.github.somaruntime.soma.internal.SomaSharedSecrets;
 /** Detached immutable outcome of a Table remove. */
 public final class RemoveResult {
 
+    private static final RemoveResult MISSING = new RemoveResult(0);
+    private static final RemoveResult REMOVED = new RemoveResult(1);
+
     static {
         SomaSharedSecrets.setRemoveResultAccess(
                 new SomaSharedSecrets.RemoveResultAccess() {
@@ -29,6 +32,8 @@ public final class RemoveResult {
     }
 
     private static RemoveResult createTrusted(int removed) {
+        if (removed == 0) return MISSING;
+        if (removed == 1) return REMOVED;
         return new RemoveResult(removed);
     }
 }

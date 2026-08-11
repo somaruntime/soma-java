@@ -59,7 +59,6 @@ final class GlobalMemoryManager {
             long bytes,
             SomaOperation operation,
             Object provenance) {
-        drainCollectedGroups();
         if (bytes < 0L) {
             throw new AssertionError("negative temporary lease");
         }
@@ -147,7 +146,6 @@ final class GlobalMemoryManager {
     }
 
     private void requireLive(GroupToken token) {
-        drainCollectedGroups();
         if (token == null || token.released) {
             throw new AssertionError("SOMA Group accounting token is not live");
         }

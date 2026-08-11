@@ -6,18 +6,26 @@ import java.util.Objects;
 public final class SchedSolveResult {
     private final SchedSolverStatus status;
     private final OperationResultQuery operations;
-    private final long elapsedNanos;
+    private final long initializationNanos;
+    private final long dispatchNanos;
 
     public SchedSolveResult(
             SchedSolverStatus status,
             OperationResultQuery operations,
-            long elapsedNanos) {
+            long initializationNanos,
+            long dispatchNanos) {
         this.status = Objects.requireNonNull(status, "status");
         this.operations = Objects.requireNonNull(operations, "operations");
-        this.elapsedNanos = elapsedNanos;
+        if (initializationNanos < 0L || dispatchNanos < 0L) {
+            throw new IllegalArgumentException("solve phase duration is negative");
+        }
+        this.initializationNanos = initializationNanos;
+        this.dispatchNanos = dispatchNanos;
     }
 
     public SchedSolverStatus status() { return status; }
     public OperationResultQuery operations() { return operations; }
-    public long elapsedNanos() { return elapsedNanos; }
+    public long initializationNanos() { return initializationNanos; }
+    public long dispatchNanos() { return dispatchNanos; }
+    public long elapsedNanos() { return Math.addExact(initializationNanos, dispatchNanos); }
 }

@@ -54,8 +54,12 @@ public final class SomaSharedSecrets {
     }
 
     static ConfigurationAccess configurationAccess() {
-        initialize(SomaConfiguration.class);
-        return required(CONFIGURATION.get(), "SomaConfiguration");
+        ConfigurationAccess access = CONFIGURATION.get();
+        if (access == null) {
+            initialize(SomaConfiguration.class);
+            access = CONFIGURATION.get();
+        }
+        return required(access, "SomaConfiguration");
     }
 
     public static void setUpdateResultAccess(UpdateResultAccess access) {
@@ -63,8 +67,12 @@ public final class SomaSharedSecrets {
     }
 
     static UpdateResultAccess updateResultAccess() {
-        initialize(UpdateResult.class);
-        return required(UPDATE_RESULT.get(), "UpdateResult");
+        UpdateResultAccess access = UPDATE_RESULT.get();
+        if (access == null) {
+            initialize(UpdateResult.class);
+            access = UPDATE_RESULT.get();
+        }
+        return required(access, "UpdateResult");
     }
 
     public static void setRemoveResultAccess(RemoveResultAccess access) {
@@ -72,8 +80,12 @@ public final class SomaSharedSecrets {
     }
 
     static RemoveResultAccess removeResultAccess() {
-        initialize(RemoveResult.class);
-        return required(REMOVE_RESULT.get(), "RemoveResult");
+        RemoveResultAccess access = REMOVE_RESULT.get();
+        if (access == null) {
+            initialize(RemoveResult.class);
+            access = REMOVE_RESULT.get();
+        }
+        return required(access, "RemoveResult");
     }
 
     public static void setFailureAccess(FailureAccess access) {
@@ -81,8 +93,12 @@ public final class SomaSharedSecrets {
     }
 
     static FailureAccess failureAccess() {
-        initialize(SomaOperationException.class);
-        return required(FAILURE.get(), "SomaOperationException");
+        FailureAccess access = FAILURE.get();
+        if (access == null) {
+            initialize(SomaOperationException.class);
+            access = FAILURE.get();
+        }
+        return required(access, "SomaOperationException");
     }
 
     public static void setLongSummaryAccess(LongSummaryAccess access) {
@@ -90,8 +106,12 @@ public final class SomaSharedSecrets {
     }
 
     static LongSummaryAccess longSummaryAccess() {
-        initialize(SomaLongSummary.class);
-        return required(LONG_SUMMARY.get(), "SomaLongSummary");
+        LongSummaryAccess access = LONG_SUMMARY.get();
+        if (access == null) {
+            initialize(SomaLongSummary.class);
+            access = LONG_SUMMARY.get();
+        }
+        return required(access, "SomaLongSummary");
     }
 
     public static void setDoubleSummaryAccess(DoubleSummaryAccess access) {
@@ -99,8 +119,12 @@ public final class SomaSharedSecrets {
     }
 
     static DoubleSummaryAccess doubleSummaryAccess() {
-        initialize(SomaDoubleSummary.class);
-        return required(DOUBLE_SUMMARY.get(), "SomaDoubleSummary");
+        DoubleSummaryAccess access = DOUBLE_SUMMARY.get();
+        if (access == null) {
+            initialize(SomaDoubleSummary.class);
+            access = DOUBLE_SUMMARY.get();
+        }
+        return required(access, "SomaDoubleSummary");
     }
 
     public static void setTuple2Access(Tuple2Access access) {
@@ -108,8 +132,12 @@ public final class SomaSharedSecrets {
     }
 
     static Tuple2Access tuple2Access() {
-        initialize(SomaTuple2.class);
-        return required(TUPLE2.get(), "SomaTuple2");
+        Tuple2Access access = TUPLE2.get();
+        if (access == null) {
+            initialize(SomaTuple2.class);
+            access = TUPLE2.get();
+        }
+        return required(access, "SomaTuple2");
     }
 
     public static void setSomaMetadataAccess(SomaMetadataAccess access) {
@@ -117,8 +145,12 @@ public final class SomaSharedSecrets {
     }
 
     static SomaMetadataAccess somaMetadataAccess() {
-        initialize(SomaMetadata.class);
-        return required(SOMA_METADATA.get(), "SomaMetadata");
+        SomaMetadataAccess access = SOMA_METADATA.get();
+        if (access == null) {
+            initialize(SomaMetadata.class);
+            access = SOMA_METADATA.get();
+        }
+        return required(access, "SomaMetadata");
     }
 
     public static void setGroupMetadataAccess(GroupMetadataAccess access) {
@@ -126,8 +158,12 @@ public final class SomaSharedSecrets {
     }
 
     static GroupMetadataAccess groupMetadataAccess() {
-        initialize(GroupMetadata.class);
-        return required(GROUP_METADATA.get(), "GroupMetadata");
+        GroupMetadataAccess access = GROUP_METADATA.get();
+        if (access == null) {
+            initialize(GroupMetadata.class);
+            access = GROUP_METADATA.get();
+        }
+        return required(access, "GroupMetadata");
     }
 
     public static void setTableMetadataAccess(TableMetadataAccess access) {
@@ -135,8 +171,12 @@ public final class SomaSharedSecrets {
     }
 
     static TableMetadataAccess tableMetadataAccess() {
-        initialize(TableMetadata.class);
-        return required(TABLE_METADATA.get(), "TableMetadata");
+        TableMetadataAccess access = TABLE_METADATA.get();
+        if (access == null) {
+            initialize(TableMetadata.class);
+            access = TABLE_METADATA.get();
+        }
+        return required(access, "TableMetadata");
     }
 
     public static void setFieldMetadataAccess(FieldMetadataAccess access) {
@@ -144,8 +184,12 @@ public final class SomaSharedSecrets {
     }
 
     static FieldMetadataAccess fieldMetadataAccess() {
-        initialize(FieldMetadata.class);
-        return required(FIELD_METADATA.get(), "FieldMetadata");
+        FieldMetadataAccess access = FIELD_METADATA.get();
+        if (access == null) {
+            initialize(FieldMetadata.class);
+            access = FIELD_METADATA.get();
+        }
+        return required(access, "FieldMetadata");
     }
 
     private static <T> void install(

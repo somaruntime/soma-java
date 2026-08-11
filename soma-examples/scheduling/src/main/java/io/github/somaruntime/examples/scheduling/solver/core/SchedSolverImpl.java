@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 /** Machine-first FCFS + SPT constructive solver backed by SOMA runtime state. */
 public final class SchedSolverImpl implements SchedSolver {
@@ -46,93 +47,81 @@ public final class SchedSolverImpl implements SchedSolver {
             SchedModelValidator.validate(model);
         }
 
-        long startedAt = System.nanoTime();
+        long initializationStartedAt = System.nanoTime();
         RuntimeTables tables = new RuntimeTables(Soma.createGroup());
         initialize(model, tables);
+        long initializationNanos = System.nanoTime() - initializationStartedAt;
 
+        long dispatchStartedAt = System.nanoTime();
+        MachineChoice machineChoice = new MachineChoice();
+        WaitingChoice waitingChoice = new WaitingChoice();
+        OperationCompletion completion = new OperationCompletion();
         long scheduled = 0L;
         long makespan = 0L;
         while (scheduled < model.operationCount()) {
-            MachineState machine = selectMachine(tables.machines);
-            MachineWaitingOperation selected = selectWaitingOperation(
-                    tables.waiting, machine.machineId());
-            require(selected.machineId() == machine.machineId(),
-                    "waiting selection belongs to a different machine");
-            OperationState operation = tables.operations.get(selected.operationId());
-            require(operation.status() == OperationStatus.READY,
-                    "waiting queue contains a non-READY operation");
+            selectMachine(tables.machines, machineChoice);
+            selectWaitingOperation(
+                    tables.waiting, machineChoice.machineId, waitingChoice);
+            OperationModel operationModel = model.operation(waitingChoice.operationId);
+            require(!operationModel.processingOptions().isEmpty(),
+                    "READY operation has no processing option");
 
-            List<MachineWaitingOperation> waitingEntries = tables.waiting
-                    .byOperationId(operation.operationId())
-                    .toList();
-            require(!waitingEntries.isEmpty(), "READY operation has no waiting entries");
-            require(waitingEntries.size()
-                            == model.operation(operation.operationId())
-                                    .processingOptions().size(),
-                    "waiting entries do not match processing options");
-
-            long startTime = Math.max(machine.availableTime(), operation.readyTime());
-            long completionTime = Math.addExact(startTime, selected.processingTime());
-
-            removeWaitingEntries(tables, waitingEntries);
-            publishMachineResult(
-                    tables.machines,
-                    selected.machineId(),
-                    operation.operationId(),
-                    completionTime);
+            removeWaitingEntries(tables, operationModel);
             publishOperationResult(
                     tables.operations,
-                    operation.operationId(),
-                    selected.machineId(),
-                    selected.processingTime(),
-                    startTime,
-                    completionTime);
-            publishJobProgress(model, tables.jobs, operation, completionTime);
-            if (operation.hasSuccessor()) {
+                    operationModel.operationId(),
+                    machineChoice.machineId,
+                    waitingChoice.processingTime,
+                    machineChoice.availableTime,
+                    completion);
+            publishMachineResult(
+                    tables.machines,
+                    machineChoice.machineId,
+                    operationModel.operationId(),
+                    completion.completionTime);
+            publishJobProgress(
+                    model, tables.jobs, operationModel, completion.completionTime);
+            OperationModel successor = successor(model, operationModel);
+            if (successor != null) {
                 releaseSuccessor(
-                        model,
                         tables,
-                        operation.successorOperationId(),
-                        completionTime);
+                        successor,
+                        completion.completionTime);
             }
 
             scheduled = Math.addExact(scheduled, 1L);
-            makespan = Math.max(makespan, completionTime);
+            makespan = Math.max(makespan, completion.completionTime);
         }
 
         require(tables.waiting.size() == 0, "waiting queue is not empty after solve");
+        long dispatchNanos = System.nanoTime() - dispatchStartedAt;
         OperationResultQuery query = new OperationResultQueryImpl(tables.operations, makespan);
         SchedSolveResult result = new SchedSolveResult(
                 SchedSolverStatus.FEASIBLE,
                 query,
-                System.nanoTime() - startedAt);
+                initializationNanos,
+                dispatchNanos);
         if (config.validateResult()) {
             SchedResultValidator.validate(model, result);
         }
         return result;
     }
 
-    private static MachineState selectMachine(MachineStateTable machines) {
-        Optional<MachineState> selected = machines
-                .filter(machines.waitingOperationCount.gt(0L))
-                .top(1L, machines.availableTime.asc().then(machines.machineId.asc()))
-                .findFirst();
-        require(selected.isPresent(), "no machine has a waiting operation");
-        return selected.get();
+    private static void selectMachine(
+            MachineStateTable machines,
+            MachineChoice choice) {
+        choice.reset();
+        machines.forEach(choice);
+        require(choice.present, "no machine has a waiting operation");
     }
 
-    private static MachineWaitingOperation selectWaitingOperation(
+    private static void selectWaitingOperation(
             MachineWaitingOperationTable waiting,
-            long machineId) {
-        Optional<MachineWaitingOperation> selected = waiting.byMachineId(machineId)
-                .top(1L, waiting.readyTime.asc()
-                        .then(waiting.processingTime.asc())
-                        .then(waiting.jobId.asc())
-                        .then(waiting.operationId.asc())
-                        .then(waiting.waitingEntryId.asc()))
-                .findFirst();
-        require(selected.isPresent(), "selected machine has no waiting operation");
-        return selected.get();
+            long machineId,
+            WaitingChoice choice) {
+        choice.reset();
+        waiting.byMachineId(machineId).forEach(choice);
+        require(choice.present, "selected machine has no waiting operation");
     }
 
     private static void initialize(SchedModel model, RuntimeTables tables) {
@@ -208,11 +197,13 @@ public final class SchedSolverImpl implements SchedSolver {
 
     private static void removeWaitingEntries(
             RuntimeTables tables,
-            List<MachineWaitingOperation> entries) {
-        for (MachineWaitingOperation entry : entries) {
-            RemoveResult removed = tables.waiting.remove(entry.waitingEntryId());
+            OperationModel operation) {
+        List<ProcessingOptionModel> options = operation.processingOptions();
+        for (int index = 0; index < options.size(); index++) {
+            ProcessingOptionModel option = options.get(index);
+            RemoveResult removed = tables.waiting.remove(option.optionId());
             require(removed.removed() == 1, "waiting entry is missing");
-            UpdateResult updated = tables.machines.update(entry.machineId(), editor ->
+            UpdateResult updated = tables.machines.update(option.machineId(), editor ->
                     editor.waitingOperationCount(Math.subtractExact(
                             editor.waitingOperationCount(), 1L)));
             require(updated.matched() == 1, "candidate machine is missing");
@@ -238,14 +229,19 @@ public final class SchedSolverImpl implements SchedSolver {
             long operationId,
             long machineId,
             long processingTime,
-            long startTime,
-            long completionTime) {
+            long machineAvailableTime,
+            OperationCompletion completion) {
         UpdateResult result = operations.update(operationId, editor -> {
+            require(editor.status() == OperationStatus.READY,
+                    "waiting queue contains a non-READY operation");
+            long startTime = Math.max(machineAvailableTime, editor.readyTime());
+            long completionTime = Math.addExact(startTime, processingTime);
             editor.status(OperationStatus.SCHEDULED);
             editor.assignedMachineId(machineId);
             editor.processingTime(processingTime);
             editor.startTime(startTime);
             editor.completionTime(completionTime);
+            completion.completionTime = completionTime;
         });
         require(result.matched() == 1, "operation state is missing");
     }
@@ -253,7 +249,7 @@ public final class SchedSolverImpl implements SchedSolver {
     private static void publishJobProgress(
             SchedModel model,
             JobStateTable jobs,
-            OperationState operation,
+            OperationModel operation,
             long completionTime) {
         long operationCount = model.job(operation.jobId()).operations().size();
         UpdateResult result = jobs.update(operation.jobId(), editor -> {
@@ -268,24 +264,30 @@ public final class SchedSolverImpl implements SchedSolver {
     }
 
     private static void releaseSuccessor(
-            SchedModel model,
             RuntimeTables tables,
-            long successorOperationId,
+            OperationModel successor,
             long readyTime) {
-        OperationModel successor = model.operation(successorOperationId);
-        UpdateResult result = tables.operations.update(successorOperationId, editor -> {
+        UpdateResult result = tables.operations.update(successor.operationId(), editor -> {
             editor.readyTime(readyTime);
             editor.status(OperationStatus.READY);
         });
         require(result.matched() == 1, "successor operation state is missing");
 
-        for (ProcessingOptionModel option : successor.processingOptions()) {
+        List<ProcessingOptionModel> options = successor.processingOptions();
+        for (int index = 0; index < options.size(); index++) {
+            ProcessingOptionModel option = options.get(index);
             addWaitingEntry(tables.waiting, successor, option, readyTime);
             UpdateResult updated = tables.machines.update(option.machineId(), editor ->
                     editor.waitingOperationCount(Math.addExact(
                             editor.waitingOperationCount(), 1L)));
             require(updated.matched() == 1, "successor candidate machine is missing");
         }
+    }
+
+    private static OperationModel successor(SchedModel model, OperationModel operation) {
+        List<OperationModel> operations = model.job(operation.jobId()).operations();
+        int next = Math.toIntExact(operation.sequence()) + 1;
+        return next < operations.size() ? operations.get(next) : null;
     }
 
     private static void addWaitingEntry(
@@ -320,6 +322,89 @@ public final class SchedSolverImpl implements SchedSolver {
             operations = group.operationStateTable();
             waiting = group.machineWaitingOperationTable();
         }
+    }
+
+    /** Allocation-free machine minimum used in the hot dispatch loop. */
+    private static final class MachineChoice implements Consumer<MachineStateTable.View> {
+        boolean present;
+        long machineId;
+        long availableTime;
+
+        void reset() {
+            present = false;
+        }
+
+        @Override
+        public void accept(MachineStateTable.View view) {
+            if (view.waitingOperationCount() <= 0L) return;
+            long candidateTime = view.availableTime();
+            long candidateId = view.machineId();
+            if (!present
+                    || candidateTime < availableTime
+                    || (candidateTime == availableTime && candidateId < machineId)) {
+                present = true;
+                machineId = candidateId;
+                availableTime = candidateTime;
+            }
+        }
+    }
+
+    /** Allocation-free FCFS + SPT minimum over one machine's Index selection. */
+    private static final class WaitingChoice
+            implements Consumer<MachineWaitingOperationTable.View> {
+        boolean present;
+        long waitingEntryId;
+        long readyTime;
+        long processingTime;
+        long jobId;
+        long operationId;
+
+        void reset() {
+            present = false;
+        }
+
+        @Override
+        public void accept(MachineWaitingOperationTable.View view) {
+            long candidateReady = view.readyTime();
+            long candidateProcessing = view.processingTime();
+            long candidateJob = view.jobId();
+            long candidateOperation = view.operationId();
+            long candidateEntry = view.waitingEntryId();
+            if (!present || compare(
+                    candidateReady,
+                    candidateProcessing,
+                    candidateJob,
+                    candidateOperation,
+                    candidateEntry) < 0) {
+                present = true;
+                waitingEntryId = candidateEntry;
+                readyTime = candidateReady;
+                processingTime = candidateProcessing;
+                jobId = candidateJob;
+                operationId = candidateOperation;
+            }
+        }
+
+        private int compare(
+                long candidateReady,
+                long candidateProcessing,
+                long candidateJob,
+                long candidateOperation,
+                long candidateEntry) {
+            int compared = Long.compare(candidateReady, readyTime);
+            if (compared != 0) return compared;
+            compared = Long.compare(candidateProcessing, processingTime);
+            if (compared != 0) return compared;
+            compared = Long.compare(candidateJob, jobId);
+            if (compared != 0) return compared;
+            compared = Long.compare(candidateOperation, operationId);
+            if (compared != 0) return compared;
+            return Long.compare(candidateEntry, waitingEntryId);
+        }
+    }
+
+    private static final class OperationCompletion {
+        long completionTime;
     }
 
     private static final class OperationResultQueryImpl implements OperationResultQuery {

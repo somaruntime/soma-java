@@ -18,6 +18,8 @@ implementation 与 qualification：
   mutation、GroupBy/Join、parallel、compression/metadata、三个 reference application 和本地交付链已建立；
 - G1–G10 当前为 `PASS`；百万行证据是同机 qualification，不是一亿行承诺或跨硬件 SLA；
 - 当前没有active implementation slice或active bounded Temporary；
+  [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)已`PASS`，标准100K
+  FJSP纯dispatch在固定主机降至fresh约0.6秒、warm约0.51秒；
   [32位结构域与即时增量Key/Index维护资格](conformance/v1-incremental-structural-mutation-governance.md)
   已`PASS`：Table-local结构域统一为`int`，累计域保持`long`，Key/Index仅保留
   singleton-inline / ordered `int[]`一套membership truth；
@@ -125,7 +127,8 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前无active bounded topic。此前
+当前无active bounded topic。[Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)
+已完成正式Owner晋升、Conformance与replacement closure。此前
 [32位结构域与即时增量Key/Index维护](conformance/v1-incremental-structural-mutation-governance.md)
 已完成正式Owner晋升、Conformance与replacement closure；候选Design与交接材料不作为平行历史
 档案保留。[frontend-neutral Logical IR](temp/soma-frontend-neutral-logical-ir-governance/README.md)

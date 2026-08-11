@@ -201,6 +201,9 @@ Current root的internal order是Chunk ordinal + live local slot order：
 
 - add append到末尾；update不改变当前order；
 - structural remove使用预先计算的deterministic dense compaction，把末尾survivor填入最早hole；
+- point remove若受影响payload Chunk为PLAIN，可以在全部validation、resource admission、Key/Index
+  preparation与fault injection完成后，于exclusive Group guard内执行bounded、non-throwing row move/
+  reference clear并发布新immutable header；这不是partial in-place publication；
 - 同一bound snapshot上的point/sequential/parallel路径得到相同order；
 - structural mutation后order可以改变；Table不承诺insertion/business order；
 - IndexSelection是bound order的ordered subsequence；

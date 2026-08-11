@@ -247,6 +247,37 @@ final class PlainChunk implements TableChunk {
         for (int slot = 0; slot < references.length; slot++) references[slot][offset] = null;
     }
 
+    /** Final-commit row move between already validated PLAIN chunks. */
+    void copyRowFrom(PlainChunk source, int sourceOffset, int targetOffset) {
+        for (int slot = 0; slot < booleans.length; slot++) {
+            booleans[slot][targetOffset] = source.booleans[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < bytes.length; slot++) {
+            bytes[slot][targetOffset] = source.bytes[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < shorts.length; slot++) {
+            shorts[slot][targetOffset] = source.shorts[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < chars.length; slot++) {
+            chars[slot][targetOffset] = source.chars[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < ints.length; slot++) {
+            ints[slot][targetOffset] = source.ints[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < longs.length; slot++) {
+            longs[slot][targetOffset] = source.longs[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < floats.length; slot++) {
+            floats[slot][targetOffset] = source.floats[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < doubles.length; slot++) {
+            doubles[slot][targetOffset] = source.doubles[slot][sourceOffset];
+        }
+        for (int slot = 0; slot < references.length; slot++) {
+            references[slot][targetOffset] = source.references[slot][sourceOffset];
+        }
+    }
+
     @Override public PlainChunk materialize(GeneratedTableLayout layout) {
         return this;
     }

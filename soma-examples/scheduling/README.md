@@ -46,10 +46,10 @@ immutable object。
 
 | Table | 职责 | 主要访问路径 |
 |---|---|---|
-| `MachineState` | 机器可用时间、已排工序与当前等待数 | Key point update；100 台机器上的 typed top |
+| `MachineState` | 机器可用时间、已排工序与当前等待数 | Key point update；100 台机器上的borrowed View minimum |
 | `JobState` | Job 完成进度与完成时间 | Key point update |
 | `OperationState` | 唯一权威的工序状态与最终排程结果 | Key；`jobId` Index；结果期 machine typed filter |
-| `MachineWaitingOperation` | READY 工序在候选机器队列中的派生 dispatch state | Key；`machineId` / `operationId` Index |
+| `MachineWaitingOperation` | READY 工序在候选机器队列中的派生 dispatch state | Key；`machineId` Index；固定FCFS+SPT View minimum |
 
 `OperationState.readyTime` 是权威事实；waiting row 复制该值只是为了 FCFS 排序。一个 Operation
 被调度后，它在所有候选机器上的 waiting rows 都通过自然的 point `remove` 删除；后继变为 READY
@@ -58,17 +58,20 @@ immutable object。
 
 Index 只服务真实访问方向。特别是 `assignedMachineId` 在求解前大量为零且每条工序只更新一次，
 同时 `byMachine` 仅用于最终结果查询，因此它保持普通 Field，并在结果期使用 typed filter；这避免
-为低选择性、高变更字段维护无收益的 Index。
+为低选择性、高变更字段维护无收益的 Index。`operationId`同样保持普通 Field：一次Operation的三个
+waiting entry由immutable input model提供精确option IDs，并直接通过waiting Key删除，不建立重复的
+secondary访问路径。
 
 ## 3. Algorithm flow
 
 每次 dispatch 是一个清晰的顺序流程：
 
 ```text
-MachineState(waitingOperationCount > 0)
+MachineState borrowed View traversal
+    -> waitingOperationCount > 0
     -> minimum availableTime, machineId
         -> MachineWaitingOperation.byMachineId(machineId)
-            -> minimum readyTime (FCFS)
+            -> borrowed View minimum readyTime (FCFS)
             -> minimum processingTime (SPT)
             -> stable business-ID tie breakers
                 -> remove all candidate waiting rows
@@ -114,9 +117,13 @@ java -Xms128m -Xmx1g \
 
 ```text
 scheduling-reference: PASS
-operations=100000 makespan=... elapsedMs=...
+operations=100000 makespan=... initializationMs=... dispatchMs=... elapsedMs=...
 ```
+
+非production warm harness位于`benchmarks/.../StandardFjspBenchmarkMain`，用于fresh Group的odd-sample
+median与profile，不进入application API。
 
 固定主机的完成时间只是治理证据，不是跨硬件 SLA。当前架构、正确性和性能结论由
 [Scheduling reference governance](../../project/conformance/v1-scheduling-reference-application-governance.md)
-记录。
+与[Scheduling performance governance](../../project/conformance/v1-scheduling-performance-governance.md)
+分别记录。

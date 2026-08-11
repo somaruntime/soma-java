@@ -9,6 +9,7 @@ final class OverlayChunk implements TableChunk {
 
     private static final long HEADER_BYTES = 96L;
     private static final long ARRAY_HEADER_BYTES = 32L;
+    private static final int MAX_SPARSE_UPDATES = 64;
 
     private final EncodedChunk base;
     private final GeneratedTableLayout layout;
@@ -181,11 +182,11 @@ final class OverlayChunk implements TableChunk {
         if (policy == SomaCompression.OFF || logicalRows != base.rows()) {
             return materialize(layout);
         }
-        int rebuildThreshold = Math.max(64, base.rows() >>> 3);
-        if (size > rebuildThreshold) {
-            return ChunkEncoder.finish(
-                    materialize(layout), logicalRows, policy,
-                    layout, operation, provenance);
+        if (size > MAX_SPARSE_UPDATES) {
+            // Repeated point mutation is direct evidence that this Chunk is
+            // hot. Keep it PLAIN instead of repeatedly copying and re-encoding
+            // a growing overlay on every atomic update.
+            return materialize(layout);
         }
         return this;
     }

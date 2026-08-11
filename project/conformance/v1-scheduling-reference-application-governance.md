@@ -1,5 +1,8 @@
 # SOMA V1 Scheduling Reference Application 治理
 
+> 本文的约18秒数据保留为初始实现provenance；current性能与profile驱动优化由
+> [Scheduling性能治理](v1-scheduling-performance-governance.md)拥有。
+
 类型：Conformance / Reference Application Governance
 
 状态：`PASS / STANDARD 100K FJSP QUALIFIED / TEMPORARY REPLACEMENT CLOSED`

@@ -6,16 +6,17 @@ import java.util.concurrent.atomic.AtomicReference;
 
 final class GroupOperationGuard {
 
-    private final AtomicReference<Lease> current = new AtomicReference<Lease>();
+    private final Lease lease = new Lease(this);
+    private final AtomicReference<Thread> current = new AtomicReference<Thread>();
 
     Lease acquire(SomaOperation operation) {
-        Lease candidate = new Lease(this, operation, Thread.currentThread());
-        if (current.compareAndSet(null, candidate)) {
-            return candidate;
+        Thread caller = Thread.currentThread();
+        if (current.compareAndSet(null, caller)) {
+            lease.open(operation);
+            return lease;
         }
 
-        Lease active = current.get();
-        boolean reentrant = active != null && active.thread == Thread.currentThread();
+        boolean reentrant = current.get() == caller;
         throw SomaFailures.failure(
                 reentrant
                         ? SomaFailureCode.REENTRANT_GROUP_OPERATION
@@ -24,11 +25,11 @@ final class GroupOperationGuard {
                 reentrant
                         ? "same Group operation reentry"
                         : "same Group operation already active",
-                reentrant ? active : candidate);
+                lease);
     }
 
-    private void release(Lease lease) {
-        if (!current.compareAndSet(lease, null)) {
+    private void release(Lease candidate) {
+        if (candidate != lease || !current.compareAndSet(Thread.currentThread(), null)) {
             throw new AssertionError("SOMA Group guard ownership was lost");
         }
     }
@@ -36,17 +37,16 @@ final class GroupOperationGuard {
     static final class Lease implements AutoCloseable {
 
         private final GroupOperationGuard owner;
-        private final SomaOperation operation;
-        private final Thread thread;
+        private SomaOperation operation;
         private boolean closed;
 
-        private Lease(
-                GroupOperationGuard owner,
-                SomaOperation operation,
-                Thread thread) {
+        private Lease(GroupOperationGuard owner) {
             this.owner = owner;
+        }
+
+        private void open(SomaOperation operation) {
             this.operation = operation;
-            this.thread = thread;
+            this.closed = false;
         }
 
         Object provenance() {
@@ -58,16 +58,17 @@ final class GroupOperationGuard {
             if (!closed) {
                 closed = true;
                 try {
-                    owner.release(this);
-                } finally {
                     CallbackExecutionScope.clearIfInactive();
+                } finally {
+                    owner.release(this);
                 }
             }
         }
 
         @Override
         public String toString() {
-            return operation.name();
+            SomaOperation active = operation;
+            return active == null ? "GROUP_OPERATION" : active.name();
         }
     }
 }

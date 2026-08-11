@@ -28,6 +28,8 @@ public final class SchedulingMain {
         System.out.println("scheduling-reference: PASS");
         System.out.println("operations=" + result.operations().operationCount()
                 + " makespan=" + result.operations().makespan()
+                + " initializationMs=" + result.initializationNanos() / 1_000_000L
+                + " dispatchMs=" + result.dispatchNanos() / 1_000_000L
                 + " elapsedMs=" + result.elapsedNanos() / 1_000_000L);
     }
 
