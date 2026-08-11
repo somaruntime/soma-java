@@ -17,16 +17,18 @@ final class ReferencePrimitiveInterpreter {
                         CanonicalPrimitiveOperation.TerminalKind.TEST,
                         null);
         return CanonicalQueryOperation.executeReferenceFamily(
-                frontend.rows.owner(),
+                frontend.rows,
                 plan.source,
                 new CanonicalQueryOperation.ReferenceExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return RowExecutionSupport.arrayBytes(
                         bound.root.size, 64L, bound.provenance);
             }
-        }, new CanonicalQueryOperation.ReferenceWork<long[]>() {
-            @Override public long[] run(BoundCanonicalRowOperation bound) {
-                ArrayList<Long> values = roots(bound, plan);
+        }, new CanonicalQueryOperation.ReferenceSourceWork<long[]>() {
+            @Override public long[] run(
+                    BoundCanonicalRowOperation bound,
+                    IntLocatorBuffer source) {
+                ArrayList<Long> values = roots(bound, source, plan);
                 for (CanonicalPrimitiveStage stage : plan.stages) {
                     switch (stage.kind) {
                         case FILTER: filter(bound, values, stage); break;
@@ -118,14 +120,15 @@ final class ReferencePrimitiveInterpreter {
 
     private static ArrayList<Long> roots(
             final BoundCanonicalRowOperation bound,
+            final IntLocatorBuffer source,
             final CanonicalPrimitiveOperation plan) {
         final ArrayList<Long> result = new ArrayList<Long>();
         if (plan.rootKind == CanonicalPrimitiveOperation.RootKind.ROW) {
-            ReferenceCanonicalRowInterpreter.visit(bound,
+            ReferenceCanonicalRowInterpreter.visit(bound, source,
                     locator -> { result.add(rowRoot(bound, plan, locator)); return true; });
         } else {
             for (Object value : ReferenceMappedInterpreter.valuesBound(
-                    bound, plan.mapped)) {
+                    bound, plan.mapped, source)) {
                 result.add(mappedRoot(bound, plan, value));
             }
         }

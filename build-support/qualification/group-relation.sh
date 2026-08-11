@@ -166,7 +166,6 @@ grep -q 'crossJoin(example.i5.MachineStateTable, long)' \
     "$work_root/event-table-public.txt"
 grep -q 'mapToLong(example.i5.MachineEventTable\$EventIdField)' \
     "$work_root/read-stream-public.txt"
-reject_match grep -q ' parallel(' "$work_root/event-table-public.txt"
 reject_match grep -q ' toList(' "$work_root/pair-stream-public.txt"
 if grep -q 'io.github.somaruntime.soma.internal' \
         "$work_root/event-table-public.txt"; then

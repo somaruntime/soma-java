@@ -151,6 +151,7 @@ final class CanonicalRowExecution {
     }
 
     private static int sourceUpperBound(CanonicalRowExecutionFrame frame) {
+        if (frame.sourceOverride != null) return frame.sourceOverride.size();
         if (frame.parallelSource != null) return frame.parallelSource.size();
         return frame.plan.normalized.bound.root.size;
     }
@@ -262,6 +263,12 @@ final class CanonicalRowExecution {
     private static void visitSource(
             CanonicalRowExecutionFrame frame,
             LocatorVisitor visitor) {
+        if (frame.sourceOverride != null) {
+            for (int index = 0; index < frame.sourceOverride.size(); index++) {
+                if (!visitor.visit(frame.sourceOverride.get(index))) return;
+            }
+            return;
+        }
         if (frame.parallelSource != null) {
             for (int index = 0; index < frame.parallelSource.size(); index++) {
                 if (!visitor.visit(frame.parallelSource.get(index))) return;
@@ -295,6 +302,9 @@ final class CanonicalRowExecution {
                     if (!visitor.visit(locator)) return;
                 }
                 return;
+            case RELATION_LEFT:
+                throw new AssertionError(
+                        "relation-left PhysicalPlan is missing admitted source");
             default:
                 throw new AssertionError("unknown Canonical access path");
         }
@@ -542,12 +552,14 @@ final class CanonicalRowExecutionFrame {
     final CanonicalRowPhysicalPlan plan;
     final IdentityHashIndex.Cursor indexCursor;
     final PredicateMembership membership;
+    IntLocatorBuffer sourceOverride;
     IntLocatorBuffer parallelSource;
 
     CanonicalRowExecutionFrame(CanonicalRowPhysicalPlan plan) {
         if (plan == null) throw new AssertionError("physical plan is missing");
         this.plan = plan;
         this.indexCursor = plan.accessPath == CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN
+                || plan.accessPath == CanonicalRowPhysicalPlan.AccessPath.RELATION_LEFT
                 || plan.accessPath == CanonicalRowPhysicalPlan.AccessPath.KEY_LOOKUP
                 ? null
                 : new IdentityHashIndex.Cursor();
@@ -568,9 +580,18 @@ final class ReferenceCanonicalRowInterpreter {
     }
 
     static long count(BoundCanonicalRowOperation bound) {
-        if (bound.canonical.hasStatefulStage()) return locators(bound).size();
+        return count(bound, null);
+    }
+
+    static long count(
+            BoundCanonicalRowOperation bound,
+            IntLocatorBuffer sourceOverride) {
+        if (bound.canonical.hasStatefulStage()) {
+            return locators(bound, sourceOverride).size();
+        }
         final long[] result = new long[1];
-        visitStreaming(bound, new CanonicalRowExecution.LocatorVisitor() {
+        visitStreaming(bound, sourceOverride,
+                new CanonicalRowExecution.LocatorVisitor() {
             @Override public boolean visit(int locator) {
                 result[0] = CheckedLong.increment(
                         result[0], bound.operation, bound.provenance);
@@ -583,22 +604,38 @@ final class ReferenceCanonicalRowInterpreter {
     static void visit(
             BoundCanonicalRowOperation bound,
             CanonicalRowExecution.LocatorVisitor visitor) {
+        visit(bound, null, visitor);
+    }
+
+    static void visit(
+            BoundCanonicalRowOperation bound,
+            IntLocatorBuffer sourceOverride,
+            CanonicalRowExecution.LocatorVisitor visitor) {
         if (!bound.canonical.hasStatefulStage()) {
-            visitStreaming(bound, visitor);
+            visitStreaming(bound, sourceOverride, visitor);
             return;
         }
-        IntLocatorBuffer values = locators(bound);
+        IntLocatorBuffer values = locators(bound, sourceOverride);
         for (int index = 0; index < values.size(); index++) {
             if (!visitor.visit(values.get(index))) return;
         }
     }
 
     static IntLocatorBuffer locators(BoundCanonicalRowOperation bound) {
+        return locators(bound, null);
+    }
+
+    static IntLocatorBuffer locators(
+            BoundCanonicalRowOperation bound,
+            IntLocatorBuffer sourceOverride) {
         IntLocatorBuffer result = new IntLocatorBuffer(
-                bound.root.size, bound.operation, bound.provenance);
+                sourceOverride == null ? bound.root.size : sourceOverride.size(),
+                bound.operation,
+                bound.provenance);
         List<CanonicalRowStage> stages = bound.canonical.stages;
         int firstStateful = nextStateful(stages, 0);
-        collectSourceSegment(bound, stages, 0, firstStateful, result);
+        collectSourceSegment(
+                bound, sourceOverride, stages, 0, firstStateful, result);
         int position = firstStateful;
         while (position < stages.size()) {
             CanonicalRowStage stage = stages.get(position);
@@ -619,12 +656,17 @@ final class ReferenceCanonicalRowInterpreter {
 
     private static void visitStreaming(
             BoundCanonicalRowOperation bound,
+            IntLocatorBuffer sourceOverride,
             CanonicalRowExecution.LocatorVisitor visitor) {
         List<CanonicalRowStage> stages = bound.canonical.stages;
         long[] counters = new long[stages.size()];
-        for (int locator = 0; locator < bound.root.size; locator++) {
+        int sourceSize = sourceOverride == null
+                ? bound.root.size : sourceOverride.size();
+        for (int sourceIndex = 0; sourceIndex < sourceSize; sourceIndex++) {
+            int locator = sourceOverride == null
+                    ? sourceIndex : sourceOverride.get(sourceIndex);
             if (limitReached(stages, counters)) return;
-            if (!sourceMatches(bound, locator)) continue;
+            if (sourceOverride == null && !sourceMatches(bound, locator)) continue;
             int decision = evaluate(
                     bound, locator, stages, 0, stages.size(), counters);
             if (decision < 0) return;
@@ -634,14 +676,19 @@ final class ReferenceCanonicalRowInterpreter {
 
     private static void collectSourceSegment(
             BoundCanonicalRowOperation bound,
+            IntLocatorBuffer sourceOverride,
             List<CanonicalRowStage> stages,
             int from,
             int to,
             IntLocatorBuffer output) {
         long[] counters = new long[to - from];
-        for (int locator = 0; locator < bound.root.size; locator++) {
+        int sourceSize = sourceOverride == null
+                ? bound.root.size : sourceOverride.size();
+        for (int sourceIndex = 0; sourceIndex < sourceSize; sourceIndex++) {
+            int locator = sourceOverride == null
+                    ? sourceIndex : sourceOverride.get(sourceIndex);
             if (segmentLimitReached(stages, from, to, counters)) return;
-            if (!sourceMatches(bound, locator)) continue;
+            if (sourceOverride == null && !sourceMatches(bound, locator)) continue;
             int decision = evaluate(bound, locator, stages, from, to, counters);
             if (decision > 0) output.add(locator);
             if (decision < 0) return;
@@ -710,6 +757,11 @@ final class ReferenceCanonicalRowInterpreter {
             int locator) {
         if (bound.canonical.sourceKind == CanonicalRowOperation.SourceKind.TABLE) {
             return true;
+        }
+        if (bound.canonical.sourceKind
+                == CanonicalRowOperation.SourceKind.RELATION_LEFT) {
+            throw new AssertionError(
+                    "reference relation-left source override is missing");
         }
         int field = bound.layout.indexFieldIndex(bound.canonical.indexOrdinal);
         return bound.layout.fieldEquals(

@@ -22,32 +22,35 @@ final class ReferenceMappedInterpreter {
                         null,
                         null);
         return CanonicalQueryOperation.executeReferenceFamily(
-                frontend.rows.owner(), operation.source,
+                frontend.rows, operation.source,
                 new CanonicalQueryOperation.ReferenceExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return RowExecutionSupport.arrayBytes(
                         bound.root.size, 96L, bound.provenance);
             }
-        }, new CanonicalQueryOperation.ReferenceWork<List<Object>>() {
+        }, new CanonicalQueryOperation.ReferenceSourceWork<List<Object>>() {
             @Override public List<Object> run(
-                    BoundCanonicalRowOperation bound) {
-                return evaluate(bound, operation);
+                    BoundCanonicalRowOperation bound,
+                    IntLocatorBuffer source) {
+                return evaluate(bound, operation, source);
             }
         });
     }
 
     static List<Object> valuesBound(
             BoundCanonicalRowOperation bound,
-            CanonicalMappedOperation operation) {
-        return evaluate(bound, operation);
+            CanonicalMappedOperation operation,
+            IntLocatorBuffer source) {
+        return evaluate(bound, operation, source);
     }
 
     private static ArrayList<Object> evaluate(
             BoundCanonicalRowOperation bound,
-            CanonicalMappedOperation operation) {
+            CanonicalMappedOperation operation,
+            IntLocatorBuffer source) {
         ArrayList<Object> values = new ArrayList<Object>();
         int firstStateful = nextStateful(operation.stages, 0);
-        collect(bound, operation, 0, firstStateful, values);
+        collect(bound, source, operation, 0, firstStateful, values);
         int position = firstStateful;
         while (position < operation.stages.size()) {
             CanonicalMappedStage stage = operation.stages.get(position);
@@ -67,13 +70,14 @@ final class ReferenceMappedInterpreter {
 
     private static void collect(
             final BoundCanonicalRowOperation bound,
+            final IntLocatorBuffer source,
             final CanonicalMappedOperation operation,
             final int from,
             final int to,
             final ArrayList<Object> output) {
         final long[] counters = new long[to - from];
         if (limitReached(operation.stages, from, to, counters)) return;
-        ReferenceCanonicalRowInterpreter.visit(bound, locator -> {
+        ReferenceCanonicalRowInterpreter.visit(bound, source, locator -> {
             if (limitReached(operation.stages, from, to, counters)) {
                 return false;
             }

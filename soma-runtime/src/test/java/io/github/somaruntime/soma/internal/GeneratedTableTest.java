@@ -593,9 +593,9 @@ class GeneratedTableTest {
         assertTrue(indexPredicate.lower instanceof TypedLiteral);
         assertEquals(1, indexPredicate.lower.leafCountForTesting());
         assertEquals(2L, CanonicalQueryOperation.referenceCountForTesting(
-                table, indexCanonical));
+                CanonicalRowRuntimeSource.table(table), indexCanonical));
         assertEquals(2L, CanonicalQueryOperation.optimizedCount(
-                table, indexCanonical));
+                CanonicalRowRuntimeSource.table(table), indexCanonical));
 
         BoundCanonicalRowOperation indexBound = new BoundCanonicalRowOperation(
                 indexCanonical,
@@ -628,7 +628,7 @@ class GeneratedTableTest {
                 CanonicalRowPlanner.plan(
                         CanonicalRowPlanner.normalize(keyBound)).accessPath);
         assertEquals(1L, CanonicalQueryOperation.optimizedCount(
-                table, keyCanonical));
+                CanonicalRowRuntimeSource.table(table), keyCanonical));
 
         GeneratedProbe singleIn = table.newProbe(1);
         singleIn.putReference(1, "odd");
@@ -649,7 +649,7 @@ class GeneratedTableTest {
                 CanonicalRowPlanner.plan(
                         CanonicalRowPlanner.normalize(inBound)).accessPath);
         assertEquals(2L, CanonicalQueryOperation.optimizedCount(
-                table, inCanonical));
+                CanonicalRowRuntimeSource.table(table), inCanonical));
 
         CanonicalRowOperation impossibleNull = CanonicalRowLowering.count(
                 table,
@@ -667,7 +667,7 @@ class GeneratedTableTest {
         assertEquals(PredicateIr.Kind.CONSTANT, normalizedNull.kind);
         assertFalse(normalizedNull.constant);
         assertEquals(0L, CanonicalQueryOperation.optimizedCount(
-                table, impossibleNull));
+                CanonicalRowRuntimeSource.table(table), impossibleNull));
     }
 
     @Test
@@ -684,9 +684,9 @@ class GeneratedTableTest {
         CanonicalRowOperation canonical = CanonicalRowLowering.count(table, logical);
         assertTrue(canonical != null);
         assertEquals(4L, CanonicalQueryOperation.referenceCountForTesting(
-                table, canonical));
+                CanonicalRowRuntimeSource.table(table), canonical));
         assertEquals(4L, CanonicalQueryOperation.optimizedCount(
-                table, canonical));
+                CanonicalRowRuntimeSource.table(table), canonical));
 
         BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
                 canonical,
@@ -1357,6 +1357,75 @@ class GeneratedTableTest {
     }
 
     @Test
+    void relationLeftFeedsCanonicalMappedPrimitiveAndGroupingOracles() {
+        GeneratedGroup group = testGroup(new GlobalMemoryManager(64L << 20));
+        GeneratedTable left = new GeneratedTable(
+                group, testLayout(), 4, MutationFaultInjector.NONE);
+        GeneratedTable right = new GeneratedTable(
+                group, testLayout(), 4, MutationFaultInjector.NONE);
+        add(left, 1L, "A", 10, new Object());
+        add(left, 2L, "A", 20, new Object());
+        add(left, 3L, "B", 30, new Object());
+        add(right, 101L, "A", 100, new Object());
+
+        GeneratedCallbacks.RowMapper<Integer> mappedRoot =
+                () -> Integer.valueOf(left.queryCursor().viewInt(2));
+        MappedPipelineCapture<Integer> optimizedMapped = MappedPipelineCapture
+                .root(LogicalRowPlan.relationLeft(
+                        left, GeneratedRelation.equality(left, right)
+                                .on(1, 1).kind(GeneratedRelation.SEMI)),
+                        mappedRoot);
+        MappedPipelineCapture<Integer> referenceMapped = MappedPipelineCapture
+                .root(LogicalRowPlan.relationLeft(
+                        left, GeneratedRelation.equality(left, right)
+                                .on(1, 1).kind(GeneratedRelation.SEMI)),
+                        mappedRoot);
+        assertEquals(
+                ReferenceMappedInterpreter.toListForTesting(referenceMapped),
+                MappedQueryOperation.toList(optimizedMapped));
+
+        GeneratedCallbacks.RowToIntMapper primitiveRoot =
+                () -> left.queryCursor().viewInt(2);
+        PrimitivePipelineCapture optimizedPrimitive = PrimitivePipelineCapture
+                .row(LogicalRowPlan.relationLeft(
+                        left, GeneratedRelation.equality(left, right)
+                                .on(1, 1).kind(GeneratedRelation.SEMI)),
+                        PrimitiveValueKind.INT, primitiveRoot, true);
+        PrimitivePipelineCapture referencePrimitive = PrimitivePipelineCapture
+                .row(LogicalRowPlan.relationLeft(
+                        left, GeneratedRelation.equality(left, right)
+                                .on(1, 1).kind(GeneratedRelation.SEMI)),
+                        PrimitiveValueKind.INT, primitiveRoot, true);
+        long[] referenceValues =
+                ReferencePrimitiveInterpreter.valuesForTesting(referencePrimitive);
+        int[] optimizedValues =
+                PrimitivePlanOperation.toIntArray(optimizedPrimitive);
+        assertEquals(referenceValues.length, optimizedValues.length);
+        for (int index = 0; index < optimizedValues.length; index++) {
+            assertEquals(referenceValues[index], optimizedValues[index]);
+        }
+
+        GeneratedCallbacks.RowMapper<Object> groupKey =
+                () -> left.queryCursor().viewReference(1);
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> optimizedGroups =
+                (GroupedLongResult<Object>) GeneratedRelation
+                        .equality(left, right).on(1, 1)
+                        .kind(GeneratedRelation.SEMI).leftPipeline()
+                        .groupBy(1, GeneratedGrouping.KEY_REFERENCE, groupKey)
+                        .count();
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> referenceGroups =
+                (GroupedLongResult<Object>) GeneratedRelation
+                        .equality(left, right).on(1, 1)
+                        .kind(GeneratedRelation.SEMI).leftPipeline()
+                        .groupBy(1, GeneratedGrouping.KEY_REFERENCE, groupKey)
+                        .countReferenceForTesting();
+        assertGroupedEquals(
+                optimizedGroups.toArray(), referenceGroups.toArray());
+    }
+
+    @Test
     void equalityJoinCardinalityUsesKeyUniquenessForResourceAdmission() {
         GeneratedGroup group = testGroup(new GlobalMemoryManager(64L << 20));
         GeneratedTableLayout layout = joinBoundLayout();
@@ -1918,8 +1987,10 @@ class GeneratedTableTest {
         LogicalRowPlan distinct = LogicalRowPlan.tableScan(table)
                 .distinctField(1)
                 .sortedBy((GeneratedOrder<?>) table.<Object>asc(1));
-        BoundRowPlan bound = new BoundRowPlan(
-                distinct,
+        BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
+                CanonicalRowLowering.source(table, distinct),
+                table,
+                table.layout(),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
                 new Object());
@@ -1927,9 +1998,12 @@ class GeneratedTableTest {
 
         GeneratedProbe bucket = table.newProbe(1);
         bucket.putReference(1, "bucket-1");
-        BoundRowPlan selection = new BoundRowPlan(
-                LogicalRowPlan.indexSelection(
-                        table, 0, bucket.seal().snapshot(table, 1)),
+        LogicalRowPlan selectionFrontend = LogicalRowPlan.indexSelection(
+                table, 0, bucket.seal().snapshot(table, 1));
+        BoundCanonicalRowOperation selection = new BoundCanonicalRowOperation(
+                CanonicalRowLowering.source(table, selectionFrontend),
+                table,
+                table.layout(),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
                 new Object());

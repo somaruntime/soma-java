@@ -19,67 +19,10 @@ final class MutationOperation {
                 CanonicalRowOperation.TerminalKind.UPDATE,
                 HostCallbackHandle.editorAction(
                         logical.owner().logicalIdentity(), updater));
-        if (canonical != null) {
-            return canonicalUpdate(logical.owner(), canonical, updater);
+        if (canonical == null) {
+            throw new AssertionError("Selection update failed Canonical lowering");
         }
-        GeneratedTable table = logical.owner();
-        try (GroupOperationGuard.Lease operation =
-                     table.acquireMutation(SomaOperation.UPDATE)) {
-            BoundRowPlan bound = new BoundRowPlan(
-                    logical,
-                    table.currentRoot(),
-                    SomaOperation.UPDATE,
-                    operation.provenance());
-            long scratch = selectionScratch(bound);
-            try (GlobalMemoryManager.TemporaryLease ignored =
-                         table.leaseMutationTemporary(
-                                 scratch,
-                                 SomaOperation.UPDATE,
-                                 bound.provenance)) {
-                IntLocatorBuffer selected = freezeSelection(bound);
-                int matched = selected.size();
-                if (matched == 0) return table.selectionUpdateResult(0, 0);
-
-                TableChunkDirectory candidate =
-                        bound.root.directory.copyForUpdates(selected);
-                GeneratedSelectionEditor editor = table.selectionEditor();
-                int changed = 0;
-                boolean indexedValueChanged = false;
-                editor.begin(bound.root, bound.provenance);
-                try {
-                    for (int index = 0; index < selected.size(); index++) {
-                        int locator = selected.get(index);
-                        editor.enter(locator);
-                        CallbackExecutionScope.enter();
-                        try {
-                            updater.accept();
-                            if (editor.changed()) {
-                                indexedValueChanged |= editor.indexedValueChanged();
-                                candidate.write(locator, editor);
-                                changed++;
-                            }
-                        } catch (Exception failure) {
-                            throw editor.callbackFailure(failure);
-                        } finally {
-                            CallbackExecutionScope.exit();
-                            editor.leave();
-                        }
-                    }
-                } finally {
-                    editor.end();
-                }
-                if (changed == 0) {
-                    return table.selectionUpdateResult(matched, 0);
-                }
-                return table.publishSelectionUpdate(
-                        bound.root,
-                        candidate,
-                        matched,
-                        changed,
-                        indexedValueChanged,
-                        bound.provenance);
-            }
-        }
+        return canonicalUpdate(logical.owner(), canonical, updater);
     }
 
     static RemoveResult remove(LogicalRowPlan logical) {
@@ -88,52 +31,10 @@ final class MutationOperation {
                 logical,
                 CanonicalRowOperation.TerminalKind.REMOVE,
                 null);
-        if (canonical != null) {
-            return canonicalRemove(logical.owner(), canonical);
+        if (canonical == null) {
+            throw new AssertionError("Selection remove failed Canonical lowering");
         }
-        GeneratedTable table = logical.owner();
-        try (GroupOperationGuard.Lease operation =
-                     table.acquireMutation(SomaOperation.REMOVE)) {
-            BoundRowPlan bound = new BoundRowPlan(
-                    logical,
-                    table.currentRoot(),
-                    SomaOperation.REMOVE,
-                    operation.provenance());
-            long scratch = selectionScratch(bound);
-            try (GlobalMemoryManager.TemporaryLease ignored =
-                         table.leaseMutationTemporary(
-                                 scratch,
-                                 SomaOperation.REMOVE,
-                                 bound.provenance)) {
-                IntLocatorBuffer selected = freezeSelection(bound);
-                if (selected.size() == 0) return table.selectionRemoveResult(0);
-                TypedValues copyScratch = new TypedValues(table.layout());
-                TableChunkDirectory candidate =
-                        bound.root.directory.copyForSelectionRemove(
-                                selected,
-                                bound.root.size,
-                                copyScratch,
-                                bound.provenance);
-                return table.publishSelectionRemove(
-                        bound.root, candidate, selected.size(), bound.provenance);
-            }
-        }
-    }
-
-    private static IntLocatorBuffer freezeSelection(BoundRowPlan bound) {
-        GeneratedTable table = bound.logical.owner();
-        table.queryCursor().begin(bound.root, bound.operation, bound.provenance);
-        try {
-            table.secondaryQueryCursor().begin(
-                    bound.root, bound.operation, bound.provenance);
-            try {
-                return RowExecutor.locators(bound);
-            } finally {
-                table.secondaryQueryCursor().end();
-            }
-        } finally {
-            table.queryCursor().end();
-        }
+        return canonicalRemove(logical.owner(), canonical);
     }
 
     private static UpdateResult canonicalUpdate(
@@ -302,25 +203,4 @@ final class MutationOperation {
         table.queryCursor().end();
     }
 
-    private static long selectionScratch(BoundRowPlan bound) {
-        RowExecutionSupport.arrayLength(
-                bound.root.size, bound.operation, bound.provenance);
-        long perRow = CheckedLong.multiply(
-                bound.root.size, 192L, bound.operation, bound.provenance);
-        long literals = CheckedLong.multiply(
-                bound.logical.inLiteralCount(),
-                256L,
-                bound.operation,
-                bound.provenance);
-        return CheckedLong.add(
-                CheckedLong.add(
-                        bound.root.managedBytes,
-                        perRow,
-                        bound.operation,
-                        bound.provenance),
-                CheckedLong.add(
-                        literals, 4096L, bound.operation, bound.provenance),
-                bound.operation,
-                bound.provenance);
-    }
 }

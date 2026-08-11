@@ -354,7 +354,7 @@ strictfp final class PrimitivePlanOperation {
             final long extraPerElement,
             final Terminal<T> terminal) {
         return CanonicalQueryOperation.executeFamily(
-                execution.table,
+                execution.frontend,
                 execution.operation.source,
                 new CanonicalQueryOperation.ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
@@ -386,6 +386,7 @@ strictfp final class PrimitivePlanOperation {
         GeneratedTable table = frontend.rows.owner();
         return new PrimitiveExecution(
                 table,
+                frontend.rows,
                 CanonicalPrimitiveLowering.operation(
                         frontend, terminal, terminalCallback));
     }
@@ -1080,12 +1081,15 @@ strictfp final class PrimitivePlanOperation {
 
     private static final class PrimitiveExecution {
         final GeneratedTable table;
+        final LogicalRowPlan frontend;
         final CanonicalPrimitiveOperation operation;
 
         PrimitiveExecution(
                 GeneratedTable table,
+                LogicalRowPlan frontend,
                 CanonicalPrimitiveOperation operation) {
             this.table = table;
+            this.frontend = frontend;
             this.operation = operation;
         }
     }

@@ -112,6 +112,9 @@ final class CanonicalRowPlanner {
             access = CanonicalRowPhysicalPlan.AccessPath.INDEX_SELECTION;
             indexOrdinal = bound.canonical.indexOrdinal;
             literal = bound.canonical.sourceLiteral;
+        } else if (bound.canonical.sourceKind
+                == CanonicalRowOperation.SourceKind.RELATION_LEFT) {
+            access = CanonicalRowPhysicalPlan.AccessPath.RELATION_LEFT;
         } else {
             LookupCandidate candidate = lookupCandidate(
                     bound, normalized.stages);
@@ -262,7 +265,9 @@ final class NormalizedCanonicalRow {
 }
 
 final class CanonicalRowPhysicalPlan {
-    enum AccessPath { TABLE_SCAN, INDEX_SELECTION, KEY_LOOKUP, INDEX_LOOKUP }
+    enum AccessPath {
+        TABLE_SCAN, INDEX_SELECTION, KEY_LOOKUP, INDEX_LOOKUP, RELATION_LEFT
+    }
 
     final NormalizedCanonicalRow normalized;
     final AccessPath accessPath;

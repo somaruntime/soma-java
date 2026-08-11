@@ -134,7 +134,7 @@ fi
 "$jar_cmd" tf "$processor_jar" > "$work_root/processor-jar.txt"
 reject_match grep -q '^org/junit/' "$work_root/runtime-jar.txt"
 reject_match grep -q '^org/junit/' "$work_root/processor-jar.txt"
-grep -q '^io/github/somaruntime/soma/internal/ParallelRowScheduler.class$' \
+grep -q '^io/github/somaruntime/soma/internal/CanonicalParallelRowScheduler.class$' \
     "$work_root/runtime-jar.txt"
 
 git diff --check

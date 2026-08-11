@@ -8,6 +8,31 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Arrays;
 
+/** Runtime-only source routing kept outside data-only Canonical semantics. */
+final class CanonicalRowRuntimeSource {
+    final GeneratedTable table;
+    final GeneratedRelation relation;
+
+    private CanonicalRowRuntimeSource(
+            GeneratedTable table,
+            GeneratedRelation relation) {
+        if (table == null) throw new AssertionError("Row runtime Table is missing");
+        this.table = table;
+        this.relation = relation;
+    }
+
+    static CanonicalRowRuntimeSource table(GeneratedTable table) {
+        return new CanonicalRowRuntimeSource(table, null);
+    }
+
+    static CanonicalRowRuntimeSource frontend(LogicalRowPlan frontend) {
+        return new CanonicalRowRuntimeSource(
+                frontend.owner(),
+                frontend.sourceKind() == LogicalRowPlan.SourceKind.RELATION_LEFT
+                        ? frontend.relation() : null);
+    }
+}
+
 /** Terminal lifecycle coordinator; owns neither semantics nor physical decisions. */
 final class CanonicalQueryOperation {
 
@@ -15,9 +40,9 @@ final class CanonicalQueryOperation {
     }
 
     static long optimizedCount(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(table, canonical, new ExtraScratch() {
+        return execute(source, canonical, new ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return 0L;
             }
@@ -29,19 +54,23 @@ final class CanonicalQueryOperation {
     }
 
     static long referenceCountForTesting(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return executeReference(table, canonical, new ReferenceWork<Long>() {
-            @Override public Long run(BoundCanonicalRowOperation bound) {
-                return ReferenceCanonicalRowInterpreter.count(bound);
+        return executeReference(
+                source, canonical, new ReferenceSourceWork<Long>() {
+            @Override public Long run(
+                    BoundCanonicalRowOperation bound,
+                    IntLocatorBuffer sourceOverride) {
+                return ReferenceCanonicalRowInterpreter.count(
+                        bound, sourceOverride);
             }
         });
     }
 
     static boolean anyMatch(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(table, canonical, ZERO_SCRATCH, new FrameWork<Boolean>() {
+        return execute(source, canonical, ZERO_SCRATCH, new FrameWork<Boolean>() {
             @Override public Boolean run(final CanonicalRowExecutionFrame frame) {
                 final boolean[] matched = new boolean[1];
                 CanonicalRowExecution.visit(
@@ -65,9 +94,9 @@ final class CanonicalQueryOperation {
     }
 
     static boolean allMatch(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(table, canonical, ZERO_SCRATCH, new FrameWork<Boolean>() {
+        return execute(source, canonical, ZERO_SCRATCH, new FrameWork<Boolean>() {
             @Override public Boolean run(final CanonicalRowExecutionFrame frame) {
                 final boolean[] all = new boolean[] {true};
                 CanonicalRowExecution.visit(
@@ -91,9 +120,9 @@ final class CanonicalQueryOperation {
     }
 
     static <R> Optional<R> findFirst(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(table, canonical, new ExtraScratch() {
+        return execute(source, canonical, new ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return materializationScratch(
                         bound, 1L,
@@ -132,9 +161,9 @@ final class CanonicalQueryOperation {
     }
 
     static void forEach(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        execute(table, canonical, ZERO_SCRATCH, new FrameWork<Object>() {
+        execute(source, canonical, ZERO_SCRATCH, new FrameWork<Object>() {
             @Override public Object run(final CanonicalRowExecutionFrame frame) {
                 CanonicalRowExecution.visit(
                         frame,
@@ -154,10 +183,10 @@ final class CanonicalQueryOperation {
     }
 
     static <R> List<R> toList(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical,
             final long detachedElementEstimateBytes) {
-        return execute(table, canonical, new ExtraScratch() {
+        return execute(source, canonical, new ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return materializationScratch(
                         bound,
@@ -189,11 +218,11 @@ final class CanonicalQueryOperation {
     }
 
     static <R> R[] toArray(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical,
             final Class<R> componentType,
             final long detachedElementEstimateBytes) {
-        return execute(table, canonical, new ExtraScratch() {
+        return execute(source, canonical, new ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return materializationScratch(
                         bound,
@@ -231,9 +260,9 @@ final class CanonicalQueryOperation {
     }
 
     static IntLocatorBuffer optimizedLocators(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(table, canonical, ZERO_SCRATCH,
+        return execute(source, canonical, ZERO_SCRATCH,
                 new FrameWork<IntLocatorBuffer>() {
                     @Override public IntLocatorBuffer run(
                             CanonicalRowExecutionFrame frame) {
@@ -243,21 +272,35 @@ final class CanonicalQueryOperation {
     }
 
     static IntLocatorBuffer referenceLocatorsForTesting(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
         return executeReference(
-                table, canonical,
-                new ReferenceWork<IntLocatorBuffer>() {
+                source, canonical,
+                new ReferenceSourceWork<IntLocatorBuffer>() {
                     @Override public IntLocatorBuffer run(
-                            BoundCanonicalRowOperation bound) {
-                        return ReferenceCanonicalRowInterpreter.locators(bound);
+                            BoundCanonicalRowOperation bound,
+                            IntLocatorBuffer sourceOverride) {
+                        return ReferenceCanonicalRowInterpreter.locators(
+                                bound, sourceOverride);
                     }
                 });
     }
 
     static String explain(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
+        if (source.relation != null) {
+            return source.relation.executeLeftCanonical(
+                    canonical,
+                    ZERO_SCRATCH,
+                    new FrameWork<String>() {
+                        @Override public String run(
+                                CanonicalRowExecutionFrame frame) {
+                            return explainBound(frame.plan.normalized.bound);
+                        }
+                    });
+        }
+        GeneratedTable table = source.table;
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
             BoundCanonicalRowOperation bound = bind(
                     table, canonical, operation, SomaOperation.QUERY);
@@ -271,8 +314,7 @@ final class CanonicalQueryOperation {
             CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
             StringBuilder result = new StringBuilder(320);
             result.append("SOMA logicalSource=")
-                    .append(canonical.sourceKind == CanonicalRowOperation.SourceKind.TABLE
-                            ? "TABLE_SCAN" : "INDEX_SELECTION")
+                    .append(logicalSourceName(canonical.sourceKind))
                     .append(" logicalStages=");
             appendStages(result, canonical.stages);
             result.append(" normalizedStages=");
@@ -315,10 +357,15 @@ final class CanonicalQueryOperation {
     }
 
     private static <T> T execute(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical,
             ExtraScratch extra,
             FrameWork<T> work) {
+        if (source.relation != null) {
+            return source.relation.executeLeftCanonical(
+                    canonical, extra, work);
+        }
+        GeneratedTable table = source.table;
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
             BoundCanonicalRowOperation bound = bind(
                     table, canonical, operation, SomaOperation.QUERY);
@@ -351,13 +398,34 @@ final class CanonicalQueryOperation {
             CanonicalRowOperation source,
             ExtraScratch extra,
             FrameWork<T> work) {
-        return execute(table, source, extra, work);
+        return execute(
+                CanonicalRowRuntimeSource.table(table),
+                source,
+                extra,
+                work);
+    }
+
+    static <T> T executeFamily(
+            LogicalRowPlan frontend,
+            CanonicalRowOperation source,
+            ExtraScratch extra,
+            FrameWork<T> work) {
+        return execute(
+                CanonicalRowRuntimeSource.frontend(frontend),
+                source,
+                extra,
+                work);
     }
 
     private static <T> T executeReference(
-            GeneratedTable table,
+            CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical,
-            ReferenceWork<T> work) {
+            ReferenceSourceWork<T> work) {
+        if (source.relation != null) {
+            return source.relation.executeLeftCanonicalReference(
+                    canonical, ZERO_REFERENCE_SCRATCH, work);
+        }
+        GeneratedTable table = source.table;
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
             BoundCanonicalRowOperation bound = bind(
                     table, canonical, operation, SomaOperation.QUERY);
@@ -367,7 +435,7 @@ final class CanonicalQueryOperation {
                                  temporaryBytes, bound.provenance)) {
                 beginCursors(table, bound);
                 try {
-                    return work.run(bound);
+                    return work.run(bound, null);
                 } finally {
                     endCursors(table);
                 }
@@ -402,6 +470,30 @@ final class CanonicalQueryOperation {
         }
     }
 
+    /** Reference family seam preserving a relation-derived Java source. */
+    static <T> T executeReferenceFamily(
+            LogicalRowPlan frontend,
+            CanonicalRowOperation source,
+            ReferenceExtraScratch extra,
+            ReferenceSourceWork<T> work) {
+        CanonicalRowRuntimeSource runtime =
+                CanonicalRowRuntimeSource.frontend(frontend);
+        if (runtime.relation != null) {
+            return runtime.relation.executeLeftCanonicalReference(
+                    source, extra, work);
+        }
+        final ReferenceSourceWork<T> sourceWork = work;
+        return executeReferenceFamily(
+                runtime.table,
+                source,
+                extra,
+                new ReferenceWork<T>() {
+            @Override public T run(BoundCanonicalRowOperation bound) {
+                return sourceWork.run(bound, null);
+            }
+        });
+    }
+
     /** Read-only bound inspection; explain never creates a frame or submits work. */
     static <T> T inspectFamily(
             GeneratedTable table,
@@ -413,7 +505,7 @@ final class CanonicalQueryOperation {
         }
     }
 
-    private static long referenceTemporaryBytes(
+    static long referenceTemporaryBytes(
             BoundCanonicalRowOperation bound) {
         long result = CheckedLong.multiply(
                 bound.canonical.inLiteralCount(),
@@ -498,6 +590,16 @@ final class CanonicalQueryOperation {
             target.append(stages.get(index).kind);
         }
         target.append(']');
+    }
+
+    private static String logicalSourceName(
+            CanonicalRowOperation.SourceKind sourceKind) {
+        switch (sourceKind) {
+            case TABLE: return "TABLE_SCAN";
+            case INDEX_SELECTION: return "INDEX_SELECTION";
+            case RELATION_LEFT: return "RELATION_LEFT";
+            default: throw new AssertionError("unknown Canonical Row source");
+        }
     }
 
     private static int countTyped(List<CanonicalRowStage> stages) {
@@ -607,6 +709,13 @@ final class CanonicalQueryOperation {
         }
     };
 
+    private static final ReferenceExtraScratch ZERO_REFERENCE_SCRATCH =
+            new ReferenceExtraScratch() {
+        @Override public long bytes(BoundCanonicalRowOperation bound) {
+            return 0L;
+        }
+    };
+
     interface ExtraScratch {
         long bytes(BoundCanonicalRowOperation bound);
     }
@@ -617,6 +726,10 @@ final class CanonicalQueryOperation {
 
     interface ReferenceWork<T> {
         T run(BoundCanonicalRowOperation bound);
+    }
+
+    interface ReferenceSourceWork<T> {
+        T run(BoundCanonicalRowOperation bound, IntLocatorBuffer source);
     }
 
     interface ReferenceExtraScratch {

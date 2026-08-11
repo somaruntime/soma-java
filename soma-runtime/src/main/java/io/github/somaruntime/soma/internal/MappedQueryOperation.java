@@ -312,7 +312,7 @@ final class MappedQueryOperation {
                         terminalCallback,
                         componentType);
         return CanonicalQueryOperation.executeFamily(
-                frontend.rows.owner(), operation.source,
+                frontend.rows, operation.source,
                 new CanonicalQueryOperation.ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return estimatedExecutionScratch(

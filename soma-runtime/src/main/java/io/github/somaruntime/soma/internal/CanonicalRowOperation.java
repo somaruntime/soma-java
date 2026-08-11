@@ -7,7 +7,7 @@ import java.util.List;
 /** Immutable, data-only Canonical operation for ordinary Row/Field lineages. */
 final class CanonicalRowOperation {
 
-    enum SourceKind { TABLE, INDEX_SELECTION }
+    enum SourceKind { TABLE, INDEX_SELECTION, RELATION_LEFT }
     enum TerminalKind {
         COUNT,
         ANY_MATCH,
@@ -28,6 +28,7 @@ final class CanonicalRowOperation {
     final SourceKind sourceKind;
     final int indexOrdinal;
     final TypedLiteral sourceLiteral;
+    final CanonicalRelationOperation relationSource;
     final List<CanonicalRowStage> stages;
     final List<PredicateIr> filters;
     final TerminalKind terminal;
@@ -39,6 +40,7 @@ final class CanonicalRowOperation {
             SourceKind sourceKind,
             int indexOrdinal,
             TypedLiteral sourceLiteral,
+            CanonicalRelationOperation relationSource,
             List<CanonicalRowStage> stages,
             TerminalKind terminal,
             HostCallbackHandle terminalCallback,
@@ -48,15 +50,23 @@ final class CanonicalRowOperation {
             throw new AssertionError("invalid canonical Row operation");
         }
         if (sourceKind == SourceKind.TABLE) {
-            if (indexOrdinal != -1 || sourceLiteral != null) {
+            if (indexOrdinal != -1 || sourceLiteral != null
+                    || relationSource != null) {
                 throw new AssertionError("Table source contains physical lookup state");
             }
-        } else if (indexOrdinal < 0
+        } else if (sourceKind == SourceKind.INDEX_SELECTION && (indexOrdinal < 0
                 || sourceLiteral == null
                 || !sourceLiteral.tableIdentity().sameTable(tableIdentity)
                 || tableIdentity.descriptor().indexFieldIndex(indexOrdinal)
-                        != sourceLiteral.fieldIndex()) {
+                        != sourceLiteral.fieldIndex())) {
             throw new AssertionError("invalid canonical Index source");
+        } else if (sourceKind == SourceKind.RELATION_LEFT
+                && (indexOrdinal != -1 || sourceLiteral != null
+                || relationSource == null
+                || !relationSource.leftIdentity.sameTable(tableIdentity)
+                || relationSource.kind != CanonicalRelationOperation.Kind.SEMI
+                && relationSource.kind != CanonicalRelationOperation.Kind.ANTI)) {
+            throw new AssertionError("invalid canonical relation-left source");
         }
         ArrayList<CanonicalRowStage> stageCopy =
                 new ArrayList<CanonicalRowStage>(stages.size());
@@ -78,6 +88,7 @@ final class CanonicalRowOperation {
         this.sourceKind = sourceKind;
         this.indexOrdinal = indexOrdinal;
         this.sourceLiteral = sourceLiteral;
+        this.relationSource = relationSource;
         this.stages = Collections.unmodifiableList(stageCopy);
         this.filters = Collections.unmodifiableList(predicateCopy);
         this.terminal = terminal;
@@ -367,8 +378,7 @@ final class CanonicalRowLowering {
             LogicalRowPlan frontend,
             CanonicalRowOperation.TerminalKind terminal,
             HostCallbackHandle terminalCallback) {
-        if (table == null || frontend == null || frontend.owner() != table
-                || frontend.sourceKind() == LogicalRowPlan.SourceKind.RELATION_LEFT) {
+        if (table == null || frontend == null || frontend.owner() != table) {
             return null;
         }
         CanonicalTableIdentity identity = table.logicalIdentity();
@@ -415,20 +425,31 @@ final class CanonicalRowLowering {
         CanonicalRowOperation.SourceKind sourceKind;
         int indexOrdinal;
         TypedLiteral sourceLiteral;
+        CanonicalRelationOperation relationSource;
         if (frontend.sourceKind() == LogicalRowPlan.SourceKind.TABLE_SCAN) {
             sourceKind = CanonicalRowOperation.SourceKind.TABLE;
             indexOrdinal = -1;
             sourceLiteral = null;
+            relationSource = null;
+        } else if (frontend.sourceKind()
+                == LogicalRowPlan.SourceKind.RELATION_LEFT) {
+            sourceKind = CanonicalRowOperation.SourceKind.RELATION_LEFT;
+            indexOrdinal = -1;
+            sourceLiteral = null;
+            relationSource = frontend.relation().lower(
+                    CanonicalRelationOperation.TerminalKind.LEFT_SOURCE);
         } else {
             sourceKind = CanonicalRowOperation.SourceKind.INDEX_SELECTION;
             indexOrdinal = frontend.indexOrdinal();
             sourceLiteral = frontend.indexProbe();
+            relationSource = null;
         }
         return new CanonicalRowOperation(
                 identity,
                 sourceKind,
                 indexOrdinal,
                 sourceLiteral,
+                relationSource,
                 stages,
                 terminal,
                 terminalCallback,

@@ -70,12 +70,15 @@ final class CanonicalGroupingQueryOperation {
     public static final int SUMMARY = 5;
 
     private final GeneratedTable table;
+    private final LogicalRowPlan frontend;
     private final CanonicalGroupOperation operation;
 
     private CanonicalGroupingQueryOperation(
             GeneratedTable table,
+            LogicalRowPlan frontend,
             CanonicalGroupOperation operation) {
         this.table = table;
+        this.frontend = frontend;
         this.operation = operation;
     }
 
@@ -107,7 +110,7 @@ final class CanonicalGroupingQueryOperation {
                         HostCallbackHandle.Kind.PRIMITIVE_ROOT,
                         mapper),
                 doubleMapper != null);
-        return new CanonicalGroupingQueryOperation(table, canonical)
+        return new CanonicalGroupingQueryOperation(table, rows, canonical)
                 .execute(reference);
     }
 
@@ -115,20 +118,22 @@ final class CanonicalGroupingQueryOperation {
         final AggregateSpec aggregate = new AggregateSpec(operation);
         if (reference) {
             return CanonicalQueryOperation.executeReferenceFamily(
-                    table,
+                    frontend,
                     operation.source,
                     new CanonicalQueryOperation.ReferenceExtraScratch() {
                 @Override public long bytes(BoundCanonicalRowOperation bound) {
                     return groupingScratch(bound, aggregate);
                 }
-            }, new CanonicalQueryOperation.ReferenceWork<Object>() {
-                @Override public Object run(BoundCanonicalRowOperation bound) {
-                    return group(bound, null, aggregate, true);
+            }, new CanonicalQueryOperation.ReferenceSourceWork<Object>() {
+                @Override public Object run(
+                        BoundCanonicalRowOperation bound,
+                        IntLocatorBuffer source) {
+                    return group(bound, null, source, aggregate, true);
                 }
             });
         }
         return CanonicalQueryOperation.executeFamily(
-                table,
+                frontend,
                 operation.source,
                 new CanonicalQueryOperation.ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
@@ -139,6 +144,7 @@ final class CanonicalGroupingQueryOperation {
                 return group(
                         frame.plan.normalized.bound,
                         frame,
+                        null,
                         aggregate,
                         false);
             }
@@ -156,6 +162,7 @@ final class CanonicalGroupingQueryOperation {
     private Object group(
             final BoundCanonicalRowOperation bound,
             final CanonicalRowExecutionFrame frame,
+            final IntLocatorBuffer source,
             final AggregateSpec aggregate,
             final boolean reference) {
         final int upper = RowExecutionSupport.arrayLength(
@@ -183,7 +190,9 @@ final class CanonicalGroupingQueryOperation {
                         return true;
                     }
                 };
-        if (reference) ReferenceCanonicalRowInterpreter.visit(bound, visitor);
+        if (reference) {
+            ReferenceCanonicalRowInterpreter.visit(bound, source, visitor);
+        }
         else CanonicalRowExecution.visit(frame, visitor);
         Object keys = materializeKeys(bound, state);
         Object values = state.finish(aggregate, bound.provenance);

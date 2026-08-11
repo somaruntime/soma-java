@@ -207,13 +207,80 @@ final class PhysicalRelationPlan {
 
 final class CanonicalRelationExecutionFrame {
     final PhysicalRelationPlan plan;
+    final CanonicalRelationRightHash rightHash;
+    final boolean[] matchedRight;
+    final IdentityHashIndex.Cursor rightCursor;
 
     CanonicalRelationExecutionFrame(PhysicalRelationPlan plan) {
         this.plan = plan;
+        BoundCanonicalRelationOperation bound = plan.bound();
+        this.rightHash = plan.algorithm == PhysicalRelationPlan.Algorithm.RIGHT_HASH
+                ? new CanonicalRelationRightHash(
+                        bound.rightRoot.size, bound.provenance)
+                : null;
+        this.matchedRight = bound.canonical.kind
+                == CanonicalRelationOperation.Kind.FULL
+                ? new boolean[RowExecutionSupport.arrayLength(
+                        bound.rightRoot.size, bound.provenance)]
+                : null;
+        this.rightCursor = plan.algorithm
+                == PhysicalRelationPlan.Algorithm.RIGHT_INDEX_LOOKUP
+                ? new IdentityHashIndex.Cursor()
+                : null;
     }
 
     BoundCanonicalRelationOperation bound() {
         return plan.bound();
+    }
+}
+
+/** Lease-owned right build state for the production hash Join operator. */
+final class CanonicalRelationRightHash {
+    private final int[] heads;
+    private final int[] tails;
+    private final int[] next;
+    private final int[] locators;
+    private int size;
+
+    CanonicalRelationRightHash(long rows, Object provenance) {
+        int length = RowExecutionSupport.arrayLength(rows, provenance);
+        int buckets = 1;
+        while (buckets < length && buckets < (1 << 30)) buckets <<= 1;
+        if (buckets < length) {
+            throw SomaFailures.failure(
+                    SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                    SomaOperation.QUERY,
+                    "Join hash table exceeds Java array boundary",
+                    provenance);
+        }
+        heads = new int[buckets];
+        tails = new int[buckets];
+        next = new int[length];
+        locators = new int[length];
+    }
+
+    void add(long hash, int locator) {
+        int bucket = ((int) mix(hash)) & (heads.length - 1);
+        int entry = size++;
+        locators[entry] = locator;
+        if (heads[bucket] == 0) heads[bucket] = entry + 1;
+        else next[tails[bucket] - 1] = entry + 1;
+        tails[bucket] = entry + 1;
+    }
+
+    int head(long hash) {
+        return heads[((int) mix(hash)) & (heads.length - 1)];
+    }
+
+    int next(int link) { return next[link - 1]; }
+    int locator(int link) { return locators[link - 1]; }
+
+    private static long mix(long value) {
+        value ^= value >>> 33;
+        value *= 0xff51afd7ed558ccdL;
+        value ^= value >>> 33;
+        value *= 0xc4ceb9fe1a85ec53L;
+        return value ^ value >>> 33;
     }
 }
 
@@ -274,16 +341,45 @@ final class CanonicalRelationPlanner {
     }
 
     static long outputUpperBound(BoundCanonicalRelationOperation bound) {
-        long leftRows = bound.leftRoot.size;
-        long rightRows = bound.rightRoot.size;
-        CanonicalRelationOperation.Kind kind = bound.canonical.kind;
+        return outputUpperBound(
+                bound.leftLayout,
+                bound.rightLayout,
+                bound.canonical,
+                bound.leftRoot.size,
+                bound.rightRoot.size,
+                bound.provenance);
+    }
+
+    static long outputUpperBoundForTesting(
+            GeneratedTableLayout leftLayout,
+            GeneratedTableLayout rightLayout,
+            CanonicalRelationOperation canonical,
+            long leftRows,
+            long rightRows) {
+        return outputUpperBound(
+                leftLayout,
+                rightLayout,
+                canonical,
+                leftRows,
+                rightRows,
+                new Object());
+    }
+
+    private static long outputUpperBound(
+            GeneratedTableLayout leftLayout,
+            GeneratedTableLayout rightLayout,
+            CanonicalRelationOperation canonical,
+            long leftRows,
+            long rightRows,
+            Object provenance) {
+        CanonicalRelationOperation.Kind kind = canonical.kind;
         if (kind == CanonicalRelationOperation.Kind.SEMI
                 || kind == CanonicalRelationOperation.Kind.ANTI) return leftRows;
         if (kind != CanonicalRelationOperation.Kind.CROSS) {
             boolean leftUnique = joinsKey(
-                    bound.leftLayout, bound.canonical.leftFields);
+                    leftLayout, canonical.leftFields);
             boolean rightUnique = joinsKey(
-                    bound.rightLayout, bound.canonical.rightFields);
+                    rightLayout, canonical.rightFields);
             if (kind == CanonicalRelationOperation.Kind.INNER) {
                 if (leftUnique && rightUnique) {
                     return Math.min(leftRows, rightRows);
@@ -296,21 +392,21 @@ final class CanonicalRelationPlanner {
             } else if (leftUnique || rightUnique) {
                 return CheckedLong.add(
                         leftRows, rightRows,
-                        SomaOperation.QUERY, bound.provenance);
+                        SomaOperation.QUERY, provenance);
             }
         }
         long product = CheckedLong.multiply(
                 leftRows, rightRows,
-                SomaOperation.QUERY, bound.provenance);
+                SomaOperation.QUERY, provenance);
         if (kind == CanonicalRelationOperation.Kind.INNER
                 || kind == CanonicalRelationOperation.Kind.CROSS) return product;
         long result = CheckedLong.add(
                 product, leftRows,
-                SomaOperation.QUERY, bound.provenance);
+                SomaOperation.QUERY, provenance);
         return kind == CanonicalRelationOperation.Kind.FULL
                 ? CheckedLong.add(
                         result, rightRows,
-                        SomaOperation.QUERY, bound.provenance)
+                        SomaOperation.QUERY, provenance)
                 : result;
     }
 
@@ -381,6 +477,153 @@ final class CanonicalRelationQueryOperation {
                                 new CanonicalRelationExecutionFrame(physical));
                     } finally {
                         right.queryCursor().end();
+                    }
+                } finally {
+                    left.queryCursor().end();
+                }
+            }
+        }
+    }
+
+    static <T> T executeLeft(
+            GeneratedRelation runtime,
+            GeneratedTable left,
+            GeneratedTable right,
+            CanonicalRowOperation rowOperation,
+            CanonicalQueryOperation.ExtraScratch extra,
+            CanonicalQueryOperation.FrameWork<T> work) {
+        return executeLeftInternal(
+                runtime, left, right, rowOperation, extra, null, work, null);
+    }
+
+    static <T> T executeLeftReference(
+            GeneratedRelation runtime,
+            GeneratedTable left,
+            GeneratedTable right,
+            CanonicalRowOperation rowOperation,
+            CanonicalQueryOperation.ReferenceExtraScratch extra,
+            CanonicalQueryOperation.ReferenceSourceWork<T> work) {
+        return executeLeftInternal(
+                runtime, left, right, rowOperation, null, extra, null, work);
+    }
+
+    private static <T> T executeLeftInternal(
+            final GeneratedRelation runtime,
+            GeneratedTable left,
+            GeneratedTable right,
+            CanonicalRowOperation rowOperation,
+            CanonicalQueryOperation.ExtraScratch extra,
+            CanonicalQueryOperation.ReferenceExtraScratch referenceExtra,
+            CanonicalQueryOperation.FrameWork<T> optimizedWork,
+            CanonicalQueryOperation.ReferenceSourceWork<T> referenceWork) {
+        if (rowOperation.sourceKind
+                != CanonicalRowOperation.SourceKind.RELATION_LEFT
+                || rowOperation.relationSource == null
+                || !left.sharesGroup(right)) {
+            throw SomaFailures.invalid(
+                    SomaOperation.QUERY, "invalid relation-derived left source");
+        }
+        try (GroupOperationGuard.Lease lease = left.acquireQuery()) {
+            Object provenance = lease.provenance();
+            requireParallelAvailable(left, rowOperation.relationSource, provenance);
+            TableStateRoot leftRoot = left.currentRoot();
+            TableStateRoot rightRoot = right.currentRoot();
+            BoundCanonicalRelationOperation relationBound =
+                    new BoundCanonicalRelationOperation(
+                            rowOperation.relationSource,
+                            left,
+                            right,
+                            leftRoot,
+                            rightRoot,
+                            provenance);
+            BoundCanonicalRowOperation rowBound =
+                    new BoundCanonicalRowOperation(
+                            rowOperation,
+                            left,
+                            left.layout(),
+                            leftRoot,
+                            SomaOperation.QUERY,
+                            provenance);
+            PhysicalRelationPlan relationPlan = CanonicalRelationPlanner.plan(
+                    relationBound, 0L);
+            NormalizedCanonicalRow normalized =
+                    CanonicalRowPlanner.normalize(rowBound);
+            CanonicalRowPhysicalPlan rowPlan =
+                    CanonicalRowPlanner.plan(normalized);
+            long temporaryBytes = CheckedLong.add(
+                    relationPlan.temporaryBytes,
+                    RowExecutionSupport.arrayBytes(
+                            leftRoot.size, 24L, provenance),
+                    SomaOperation.QUERY,
+                    provenance);
+            temporaryBytes = CheckedLong.add(
+                    temporaryBytes,
+                    referenceWork == null
+                            ? rowPlan.resources.temporaryBytes
+                            : CanonicalQueryOperation.referenceTemporaryBytes(
+                                    rowBound),
+                    SomaOperation.QUERY,
+                    provenance);
+            if (extra != null) {
+                temporaryBytes = CheckedLong.add(
+                        temporaryBytes,
+                        extra.bytes(rowBound),
+                        SomaOperation.QUERY,
+                        provenance);
+            }
+            if (referenceExtra != null) {
+                temporaryBytes = CheckedLong.add(
+                        temporaryBytes,
+                        referenceExtra.bytes(rowBound),
+                        SomaOperation.QUERY,
+                        provenance);
+            }
+            try (GlobalMemoryManager.TemporaryLease ignored =
+                         left.leaseQueryTemporary(temporaryBytes, provenance)) {
+                left.queryCursor().begin(
+                        leftRoot, SomaOperation.QUERY, provenance);
+                try {
+                    left.secondaryQueryCursor().begin(
+                            leftRoot, SomaOperation.QUERY, provenance);
+                    try {
+                        right.queryCursor().begin(
+                                rightRoot, SomaOperation.QUERY, provenance);
+                        try {
+                            final IntLocatorBuffer source = new IntLocatorBuffer(
+                                    leftRoot.size,
+                                    SomaOperation.QUERY,
+                                    provenance);
+                            CanonicalRelationExecutionFrame relationFrame =
+                                    new CanonicalRelationExecutionFrame(
+                                            relationPlan);
+                            GeneratedRelation.RelationBinding binding =
+                                    new GeneratedRelation.RelationBinding(
+                                            relationFrame);
+                            GeneratedRelation.PairVisitor collector =
+                                    new GeneratedRelation.PairVisitor() {
+                                @Override public boolean visit(
+                                        int leftLocator,
+                                        int rightLocator) {
+                                    source.add(leftLocator);
+                                    return true;
+                                }
+                            };
+                            if (referenceWork == null) {
+                                runtime.visitBound(binding, false, collector);
+                                CanonicalRowExecutionFrame rowFrame =
+                                        new CanonicalRowExecutionFrame(rowPlan);
+                                rowFrame.sourceOverride = source;
+                                CanonicalParallelRowScheduler.prepare(rowFrame);
+                                return optimizedWork.run(rowFrame);
+                            }
+                            runtime.visitBoundReference(
+                                    binding, false, collector);
+                            return referenceWork.run(rowBound, source);
+                        } finally {
+                            right.queryCursor().end();
+                        }
+                    } finally {
+                        left.secondaryQueryCursor().end();
                     }
                 } finally {
                     left.queryCursor().end();

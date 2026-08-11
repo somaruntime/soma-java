@@ -336,65 +336,20 @@ public final class GeneratedRelation {
                 work);
     }
 
-    <T> T executeLeft(
-            LogicalRowPlan logical,
-            QueryOperation.BoundWork<T> work) {
-        if (!left.sharesGroup(right) || logical.owner() != left) {
-            throw SomaFailures.invalid(
-                    SomaOperation.QUERY, "invalid relation-derived left source");
-        }
-        try (GroupOperationGuard.Lease operation = left.acquireQuery()) {
-            requireParallelAvailable(operation.provenance());
-            TableStateRoot leftRoot = left.currentRoot();
-            TableStateRoot rightRoot = right.currentRoot();
-            Object provenance = operation.provenance();
-            BoundRowPlan provisional = new BoundRowPlan(
-                    logical, leftRoot, SomaOperation.QUERY, provenance);
-            long scratch = QueryOperation.addScratch(
-                    scratchBytes(rightRoot.size, provenance),
-                    RowExecutionSupport.arrayBytes(
-                            leftRoot.size, 16L, provenance),
-                    provenance);
-            scratch = QueryOperation.addScratch(
-                    scratch, work.scratchBytes(provisional), provenance);
-            try (GlobalMemoryManager.TemporaryLease ignored =
-                         left.leaseQueryTemporary(scratch, provenance)) {
-                left.queryCursor().begin(leftRoot, SomaOperation.QUERY, provenance);
-                try {
-                    left.secondaryQueryCursor().begin(
-                            leftRoot, SomaOperation.QUERY, provenance);
-                    try {
-                        right.queryCursor().begin(
-                                rightRoot, SomaOperation.QUERY, provenance);
-                        try {
-                            final IntLocatorBuffer source = new IntLocatorBuffer(
-                                    leftRoot.size, SomaOperation.QUERY, provenance);
-                            RelationBinding binding = new RelationBinding(
-                                    leftRoot,
-                                    rightRoot,
-                                    provenance,
-                                    lower(CanonicalRelationOperation.TerminalKind.LEFT_SOURCE));
-                            visit(binding, false, new PairVisitor() {
-                                @Override public boolean visit(
-                                        int leftLocator, int rightLocator) {
-                                    source.add(leftLocator);
-                                    return true;
-                                }
-                            });
-                            return work.run(new BoundRowPlan(
-                                    logical, leftRoot, SomaOperation.QUERY,
-                                    provenance, source));
-                        } finally {
-                            right.queryCursor().end();
-                        }
-                    } finally {
-                        left.secondaryQueryCursor().end();
-                    }
-                } finally {
-                    left.queryCursor().end();
-                }
-            }
-        }
+    <T> T executeLeftCanonical(
+            CanonicalRowOperation rowOperation,
+            CanonicalQueryOperation.ExtraScratch extra,
+            CanonicalQueryOperation.FrameWork<T> work) {
+        return CanonicalRelationQueryOperation.executeLeft(
+                this, left, right, rowOperation, extra, work);
+    }
+
+    <T> T executeLeftCanonicalReference(
+            CanonicalRowOperation rowOperation,
+            CanonicalQueryOperation.ReferenceExtraScratch extra,
+            CanonicalQueryOperation.ReferenceSourceWork<T> work) {
+        return CanonicalRelationQueryOperation.executeLeftReference(
+                this, left, right, rowOperation, extra, work);
     }
 
     void visitBound(
@@ -429,7 +384,7 @@ public final class GeneratedRelation {
         });
     }
 
-    private CanonicalRelationOperation lower(
+    CanonicalRelationOperation lower(
             CanonicalRelationOperation.TerminalKind terminal) {
         CanonicalTableIdentity leftIdentity = left.logicalIdentity();
         CanonicalTableIdentity rightIdentity = right.logicalIdentity();
@@ -468,30 +423,8 @@ public final class GeneratedRelation {
                 null);
     }
 
-    private void requireParallelAvailable(Object provenance) {
-        if (!parallel) return;
-        if (CallbackExecutionScope.isActive()) {
-            throw SomaFailures.failure(
-                    SomaFailureCode.NESTED_PARALLEL_OPERATION,
-                    SomaOperation.QUERY,
-                    "parallel terminal started inside a SOMA callback",
-                    provenance);
-        }
-        if (left.parallelExecutor().isShutdown()
-                || left.parallelExecutor().isTerminated()) {
-            throw SomaFailures.failure(
-                    SomaFailureCode.PARALLEL_EXECUTOR_UNAVAILABLE,
-                    SomaOperation.QUERY,
-                    "parallel ForkJoinPool is unavailable",
-                    provenance);
-        }
-    }
-
     long outputUpperBound(RelationBinding binding) {
-        return binding.frame == null
-                ? outputUpperBound(
-                        binding.left, binding.right, binding.provenance)
-                : binding.frame.bound().outputUpperBound();
+        return binding.frame.bound().outputUpperBound();
     }
 
     boolean isBorrowed(Object value) {
@@ -500,59 +433,11 @@ public final class GeneratedRelation {
                 || right.isBorrowedQueryView(value);
     }
 
-    private long outputUpperBound(
-            TableStateRoot leftRoot,
-            TableStateRoot rightRoot,
-            Object provenance) {
-        return outputUpperBound(leftRoot.size, rightRoot.size, provenance);
-    }
-
-    private long outputUpperBound(
-            long leftRows,
-            long rightRows,
-            Object provenance) {
-        if (kind == SEMI || kind == ANTI) return leftRows;
-        if (kind != CROSS) {
-            boolean leftUnique = joinsKey(left.layout(), leftFields);
-            boolean rightUnique = joinsKey(right.layout(), rightFields);
-            if (kind == INNER) {
-                if (leftUnique && rightUnique) return Math.min(leftRows, rightRows);
-                if (rightUnique) return leftRows;
-                if (leftUnique) return rightRows;
-            } else if (rightUnique && kind == LEFT) {
-                return leftRows;
-            } else if (leftUnique || rightUnique) {
-                return CheckedLong.add(
-                        leftRows, rightRows, SomaOperation.QUERY, provenance);
-            }
-        }
-        long product = CheckedLong.multiply(
-                leftRows, rightRows, SomaOperation.QUERY, provenance);
-        if (kind == INNER || kind == CROSS) return product;
-        long result = CheckedLong.add(
-                product, leftRows, SomaOperation.QUERY, provenance);
-        return kind == FULL
-                ? CheckedLong.add(result, rightRows, SomaOperation.QUERY, provenance)
-                : result;
-    }
-
-    private static boolean joinsKey(
-            GeneratedTableLayout layout,
-            int[] fields) {
-        int key = layout.keyFieldIndex();
-        if (key < 0) return false;
-        for (int field : fields) if (field == key) return true;
-        return false;
-    }
-
     long outputUpperBoundForTesting(long leftRows, long rightRows) {
-        return outputUpperBound(leftRows, rightRows, new Object());
-    }
-
-    private long scratchBytes(long rightRows, Object provenance) {
-        long bytes = RowExecutionSupport.arrayBytes(
-                rightRows, kind == FULL ? 32L : 24L, provenance);
-        return bytes;
+        return CanonicalRelationPlanner.outputUpperBoundForTesting(
+                left.layout(), right.layout(),
+                lower(CanonicalRelationOperation.TerminalKind.TEST),
+                leftRows, rightRows);
     }
 
     private void visit(
@@ -587,8 +472,7 @@ public final class GeneratedRelation {
             throw SomaFailures.invalid(SomaOperation.QUERY, "Equality Join condition is missing");
         }
         IdentityHashIndex rightLookup = rightLookup(binding);
-        RightHash hash = rightLookup == null
-                ? new RightHash(binding.right.size, binding.provenance) : null;
+        CanonicalRelationRightHash hash = binding.frame.rightHash;
         if (hash != null) {
             for (int locator = 0; locator < binding.right.size; locator++) {
                 if (!hasNull(binding.right, right.layout(), rightFields, locator)
@@ -599,11 +483,8 @@ public final class GeneratedRelation {
                 }
             }
         }
-        boolean[] matchedRight = kind == FULL
-                ? new boolean[RowExecutionSupport.arrayLength(
-                        binding.right.size, binding.provenance)] : null;
-        IdentityHashIndex.Cursor rightCursor = rightLookup == null
-                ? null : new IdentityHashIndex.Cursor();
+        boolean[] matchedRight = binding.frame.matchedRight;
+        IdentityHashIndex.Cursor rightCursor = binding.frame.rightCursor;
         for (int leftLocator = 0; leftLocator < binding.left.size; leftLocator++) {
             boolean matched = false;
             if (!hasNull(binding.left, left.layout(), leftFields, leftLocator)
@@ -832,9 +713,7 @@ public final class GeneratedRelation {
     }
 
     private static int pushedFilterCount(RelationBinding binding) {
-        return binding.frame == null
-                ? binding.canonical.pushableFilterCount()
-                : binding.frame.plan.pushedFilterCount;
+        return binding.frame.plan.pushedFilterCount;
     }
 
     private IdentityHashIndex rightLookup(RelationBinding binding) {
@@ -845,18 +724,6 @@ public final class GeneratedRelation {
         if (right.layout().keyFieldIndex() == field) return binding.right.key;
         int ordinal = right.layout().indexOrdinalForField(field);
         return ordinal < 0 ? null : binding.right.indexes[ordinal];
-    }
-
-    private boolean usesRightIndex() {
-        if (leftFields.length != 1) return false;
-        int field = rightFields[0];
-        return right.layout().keyFieldIndex() == field
-                || right.layout().indexOrdinalForField(field) >= 0;
-    }
-
-    private String physicalName() {
-        if (kind == CROSS) return "NESTED_CROSS";
-        return usesRightIndex() ? "RIGHT_INDEX_LOOKUP" : "RIGHT_HASH";
     }
 
     private boolean invokePredicate(
@@ -988,11 +855,6 @@ public final class GeneratedRelation {
                 maxOutputRows, nextFilters, pairCursor, nextParallel);
     }
 
-    private boolean hasCallbackFilter() {
-        for (FilterStage filter : filters) if (filter.callback != null) return true;
-        return false;
-    }
-
     private void claim() {
         if (!consumed.compareAndSet(false, true)) {
             throw SomaFailures.failure(
@@ -1039,17 +901,6 @@ public final class GeneratedRelation {
             this.right = frame.bound().rightRoot;
             this.provenance = frame.bound().provenance;
         }
-        RelationBinding(
-                TableStateRoot left,
-                TableStateRoot right,
-                Object provenance,
-                CanonicalRelationOperation canonical) {
-            this.frame = null;
-            this.canonical = canonical;
-            this.left = left;
-            this.right = right;
-            this.provenance = provenance;
-        }
     }
 
     interface PairWork<T> {
@@ -1080,52 +931,4 @@ public final class GeneratedRelation {
         }
     }
 
-    private static final class RightHash {
-        private final int[] heads;
-        private final int[] tails;
-        private final int[] next;
-        private final int[] locators;
-        private int size;
-
-        RightHash(long rows, Object provenance) {
-            int length = RowExecutionSupport.arrayLength(rows, provenance);
-            int buckets = 1;
-            while (buckets < length && buckets < (1 << 30)) buckets <<= 1;
-            if (buckets < length) {
-                throw SomaFailures.failure(
-                        SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
-                        SomaOperation.QUERY,
-                        "Join hash table exceeds Java array boundary",
-                        provenance);
-            }
-            heads = new int[buckets];
-            tails = new int[buckets];
-            next = new int[length];
-            locators = new int[length];
-        }
-
-        void add(long hash, int locator) {
-            int bucket = ((int) mix(hash)) & (heads.length - 1);
-            int entry = size++;
-            locators[entry] = locator;
-            if (heads[bucket] == 0) heads[bucket] = entry + 1;
-            else next[tails[bucket] - 1] = entry + 1;
-            tails[bucket] = entry + 1;
-        }
-
-        int head(long hash) {
-            return heads[((int) mix(hash)) & (heads.length - 1)];
-        }
-
-        int next(int link) { return next[link - 1]; }
-        int locator(int link) { return locators[link - 1]; }
-
-        private static long mix(long value) {
-            value ^= value >>> 33;
-            value *= 0xff51afd7ed558ccdL;
-            value ^= value >>> 33;
-            value *= 0xc4ceb9fe1a85ec53L;
-            return value ^ value >>> 33;
-        }
-    }
 }
