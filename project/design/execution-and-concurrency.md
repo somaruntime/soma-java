@@ -9,7 +9,7 @@
 Owner：Pipeline binding、Group operation guard、currentness、mutation publication、sequential/
 parallel scheduling、configuration、resource admission、cancellation与quiescence
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
 
 ## 1. 设计目标
 

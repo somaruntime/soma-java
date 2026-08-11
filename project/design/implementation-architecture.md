@@ -9,7 +9,7 @@
 Owner：Artifact/build topology、runtime component seams、storage/Index/compression/scheduler
 baseline mechanism、complexity与replaceability boundary
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
 
 ## 1. 文档责任
 
@@ -198,7 +198,7 @@ Final commit只包含经证明不会抛可恢复exception的bounded writes/atomi
 
 ### 9.3 Remove compaction
 
-先固prozen `removed=R` 与 `tail=T`。若`R != T`，把tail payload搬至`R`，并在
+先冻结 `removed=R` 与 `tail=T`。若`R != T`，把tail payload搬至`R`，并在
 同一commit中将Key映射和每个Index Bucket中的`T`替换为`R`；然后删除removed
 membership、清理tail reference并发布new root。若old/new Index value相同，必须对同一
 Bucket完成remove/add normalization，不得丢失或重复locator。Table不承诺stable insertion order。

@@ -12,11 +12,20 @@ final class GroupOperationGuard {
     Lease acquire(SomaOperation operation) {
         Thread caller = Thread.currentThread();
         if (current.compareAndSet(null, caller)) {
-            lease.open(operation);
-            return lease;
+            try {
+                lease.open(operation);
+                return lease;
+            } catch (RuntimeException failure) {
+                current.compareAndSet(caller, null);
+                throw failure;
+            } catch (Error failure) {
+                current.compareAndSet(caller, null);
+                throw failure;
+            }
         }
 
         boolean reentrant = current.get() == caller;
+        Object provenance = reentrant ? lease.provenance() : new Object();
         throw SomaFailures.failure(
                 reentrant
                         ? SomaFailureCode.REENTRANT_GROUP_OPERATION
@@ -25,7 +34,7 @@ final class GroupOperationGuard {
                 reentrant
                         ? "same Group operation reentry"
                         : "same Group operation already active",
-                lease);
+                provenance);
     }
 
     private void release(Lease candidate) {
@@ -34,10 +43,12 @@ final class GroupOperationGuard {
         }
     }
 
-    static final class Lease implements AutoCloseable {
+    static final class Lease
+            implements AutoCloseable, SomaSharedSecrets.OperationProvenance {
 
         private final GroupOperationGuard owner;
         private SomaOperation operation;
+        private long generation;
         private boolean closed;
 
         private Lease(GroupOperationGuard owner) {
@@ -45,12 +56,33 @@ final class GroupOperationGuard {
         }
 
         private void open(SomaOperation operation) {
+            if (generation == Long.MAX_VALUE) {
+                throw SomaFailures.failure(
+                        SomaFailureCode.ARITHMETIC_OVERFLOW,
+                        operation,
+                        "Group operation generation overflow",
+                        new Object());
+            }
             this.operation = operation;
+            this.generation++;
             this.closed = false;
         }
 
         Object provenance() {
+            if (closed) {
+                throw new AssertionError("SOMA Group operation is not active");
+            }
             return this;
+        }
+
+        @Override
+        public Object owner() {
+            return this;
+        }
+
+        @Override
+        public long generation() {
+            return generation;
         }
 
         @Override
@@ -60,7 +92,11 @@ final class GroupOperationGuard {
                 try {
                     CallbackExecutionScope.clearIfInactive();
                 } finally {
-                    owner.release(this);
+                    try {
+                        owner.release(this);
+                    } finally {
+                        operation = null;
+                    }
                 }
             }
         }

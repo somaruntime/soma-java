@@ -18,6 +18,8 @@ implementation 与 qualification：
   mutation、GroupBy/Join、parallel、compression/metadata、三个 reference application 和本地交付链已建立；
 - G1–G10 当前为 `PASS`；百万行证据是同机 qualification，不是一亿行承诺或跨硬件 SLA；
 - 当前没有active implementation slice或active bounded Temporary；
+  [大范围优化后全局完整性与回归审查](conformance/v1-post-governance-global-integrity-regression-review.md)
+  已`PASS`，operation provenance、Index allocation admission与正式Owner状态漂移均已闭合；
   [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)已`PASS`，标准100K
   FJSP纯dispatch在固定主机降至fresh约0.6秒、warm约0.51秒；
   [32位结构域与即时增量Key/Index维护资格](conformance/v1-incremental-structural-mutation-governance.md)
@@ -61,6 +63,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | 工程状态与入口 | [Engineering](engineering/README.md) |
 | G1–G10 定义 | [V1 Implementation Gates](conformance/v1-implementation-gates.md) |
 | 当前实现与 Design 的一致程度 | [Conformance](conformance/README.md) |
+| 大范围优化后的全局完整性、资源与回归审查 | [Post-governance global review](conformance/v1-post-governance-global-integrity-regression-review.md) |
 | I0–I8 历史实施资格 | [Conformance records](conformance/README.md#4-active-records) |
 | 仓库交付结构治理 | [Delivery-centered governance](conformance/v1-delivery-centered-repository-governance.md) |
 | 性能、正确性与长期 benchmark 治理 | [Performance and correctness governance](conformance/v1-performance-correctness-governance.md) |

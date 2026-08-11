@@ -10,7 +10,7 @@ Owner：SOMA V1 跨Design核心抽象、父子叙事、不变量证明链路由�
 
 创建日期：2026-08-03
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
 
 ## 1. 文档责任
 
@@ -236,19 +236,19 @@ L1 是 product vocabulary；L2 是 implementation 必须理解的 architecture v
 | A12 | Relation | L1-L2 / `SEMANTIC_BASELINE` | A9 GroupBy/Join computation | Logical | Planning semantics |
 | A13 | Detached Result | L1 / `SEMANTIC_BASELINE` | query/mutation completion | Logical | Failure result boundary |
 | A14 | Structured Failure | L1-L2 / `SEMANTIC_BASELINE` | failed operation outcome | Failure | Execution arbitration |
-| A15 | Schema Model / Generation Session | L2 / `CANDIDATE_CORE` | A1 compiler realization | Schema | Architecture build host |
-| A16 | Logical IR / Predicate IR | L2 / `CANDIDATE_CORE` | A9/A12 lowering | Planning | Logical source、Execution binding |
-| A17 | Planner / Optimizer | L2 / `CANDIDATE_CORE` | A16 physical decision | Planning | Architecture operator capability |
-| A18 | Reference Interpreter | L2 / `CANDIDATE_CORE` | A16 semantic oracle | Planning | Conformance evidence |
-| A19 | Physical Plan / Operator | L2-L3 / `CANDIDATE_CORE` | A17 executable decision | Architecture | Execution scheduling |
-| A20 | Operation / Group Admission | L2 / `CANDIDATE_CORE` | terminal coordination | Execution | Planning、Failure、Storage |
-| A21 | StateRoot | L2 / `CANDIDATE_CORE` | A5 authoritative state | Storage | Execution publication |
-| A22 | Chunk / Leaf Representation | L2-L3 / `CANDIDATE_CORE` | A21 physical state | Storage | Architecture kernels/backend seam |
-| A23 | Key / Index Sidecar | L3 / `IMPLEMENTATION_HYPOTHESIS` | A7/A8 lowering in A21 | Architecture | Storage logical contract |
-| A24 | Mutation Candidate / Publication | L2-L3 / `CANDIDATE_CORE` | A20 Table transition | Execution | Architecture mechanism、Storage state |
-| A25 | Managed-memory Admission | L2-L3 / `CANDIDATE_CORE` | A20 resource boundary | Execution | Architecture accounting mechanism |
-| A26 | Parallel Scheduler / Work Range | L2-L3 / `CANDIDATE_CORE` | A19 parallel refinement | Execution | Architecture scheduler mechanism |
-| A27 | Metadata / Explain Projection | L1-L2 / `CANDIDATE_CORE` | state/plan diagnostic projection | Logical | Planning/Execution source facts |
+| A15 | Schema Model / Generation Session | L2 / `EVIDENCE_VALIDATED` | A1 compiler realization | Schema | Architecture build host |
+| A16 | Logical IR / Predicate IR | L2 / `EVIDENCE_VALIDATED` | A9/A12 lowering | Planning | Logical source、Execution binding |
+| A17 | Planner / Optimizer | L2 / `EVIDENCE_VALIDATED` | A16 physical decision | Planning | Architecture operator capability |
+| A18 | Reference Interpreter | L2 / `EVIDENCE_VALIDATED` | A16 semantic oracle | Planning | Conformance evidence |
+| A19 | Physical Plan / Operator | L2-L3 / `EVIDENCE_VALIDATED` | A17 executable decision | Architecture | Execution scheduling |
+| A20 | Operation / Group Admission | L2 / `EVIDENCE_VALIDATED` | terminal coordination | Execution | Planning、Failure、Storage |
+| A21 | StateRoot | L2 / `EVIDENCE_VALIDATED` | A5 authoritative state | Storage | Execution publication |
+| A22 | Chunk / Leaf Representation | L2-L3 / `EVIDENCE_VALIDATED` | A21 physical state | Storage | Architecture kernels/backend seam |
+| A23 | Key / Index Sidecar | L3 / `EVIDENCE_VALIDATED` | A7/A8 lowering in A21 | Architecture | Storage logical contract |
+| A24 | Mutation Candidate / Publication | L2-L3 / `EVIDENCE_VALIDATED` | A20 Table transition | Execution | Architecture mechanism、Storage state |
+| A25 | Managed-memory Admission | L2-L3 / `EVIDENCE_VALIDATED` | A20 resource boundary | Execution | Architecture accounting mechanism |
+| A26 | Parallel Scheduler / Work Range | L2-L3 / `EVIDENCE_VALIDATED` | A19 parallel refinement | Execution | Architecture scheduler mechanism |
+| A27 | Metadata / Explain Projection | L1-L2 / `EVIDENCE_VALIDATED` | state/plan diagnostic projection | Logical | Planning/Execution source facts |
 
 Primary Owner拥有抽象的最终语义或状态宣称；collaborator只能通过typed responsibility参与。例如
 Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Group operation的admission，
@@ -1326,8 +1326,9 @@ New requests are validated and added to PendingJob Table
 - persistence/distributed runtime。
 
 它们共同验证：schema generation、state publication、query/relation、detached decision、
-Table-local mutation和application-owned orchestration构成一致产品叙事。真实性能与Java 8
-implementation correctness仍必须由I0-I8/G1-G10建立。
+Table-local mutation和application-owned orchestration构成一致产品叙事。I0-I8/G1-G10已经为
+Java 8 production topology建立相称的correctness、performance与package evidence；精确边界由
+Conformance拥有。
 
 ## 32. Formal surface admission
 

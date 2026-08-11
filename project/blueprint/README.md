@@ -8,7 +8,7 @@
 
 Owner：SOMA Java V1 产品意图、用户模型、能力边界与成功标准
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
 
 ## 1. 文档责任
 
@@ -330,8 +330,9 @@ Public API不依赖array identity、codec、hash、build side或backend。Optimi
 6. documentation、Examples、package与release claim不超过evidence；
 7. Conformance无未披露blocking deviation。
 
-当前仓库没有production implementation，因此本Blueprint不声明API可用、性能达标、artifact、
-compatibility或release readiness。
+当前仓库已完成I0-I8 production implementation与G1-G10 qualification；精确可执行事实和证据边界
+由[Conformance](../conformance/README.md)拥有。该结论不等于GitHub Release/Package、签名、正式
+release、跨硬件SLA或一亿行性能承诺。
 
 ## 14. 下游入口
 

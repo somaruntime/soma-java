@@ -9,7 +9,7 @@
 Owner：Normal outcome、Result carrier、failure code/operation/context、mapping、precedence、
 sanitization与失败后状态保证
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
 
 ## 1. 设计目标
 

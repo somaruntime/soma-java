@@ -1617,6 +1617,81 @@ class GeneratedTableTest {
     }
 
     @Test
+    void callbackRejectsStructuredFailureReplayedFromEarlierGroupOperation() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, new Object());
+        AtomicReference<SomaOperationException> saved =
+                new AtomicReference<SomaOperationException>();
+
+        table.selectAll().forEach(() -> {
+            try {
+                add(table, 2L, "two", 2, new Object());
+            } catch (SomaOperationException failure) {
+                assertEquals(SomaFailureCode.REENTRANT_GROUP_OPERATION, failure.code());
+                saved.set(failure);
+            }
+        });
+
+        SomaOperationException outer = assertThrows(
+                SomaOperationException.class,
+                () -> table.selectAll().forEach(() -> {
+                    throw saved.get();
+                }));
+        assertEquals(SomaFailureCode.CALLBACK_FAILED, outer.code());
+        assertSame(saved.get(), outer.getCause());
+        assertEquals(1L, table.size());
+    }
+
+    @Test
+    void pointAddAdmitsIndexReplacementBeforePreparingSidecars() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        AtomicInteger observations = new AtomicInteger();
+        MutationFaultInjector observer = point -> {
+            if (point == MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING) {
+                assertTrue(memory.temporaryBytes() > 0L);
+                observations.incrementAndGet();
+            }
+            return false;
+        };
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4, observer);
+
+        add(table, 1L, "one", 1, new Object());
+
+        assertEquals(1, observations.get());
+        assertEquals(0L, memory.temporaryBytes());
+        assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
+        TableStateRoot root = table.rootForTesting();
+        root.key.validateForTesting(root.directory, root.size);
+        for (IdentityHashIndex index : root.indexes) {
+            index.validateForTesting(root.directory, root.size);
+        }
+    }
+
+    @Test
+    void pointAddRejectsInsufficientBudgetBeforeAllocatingSidecars() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(1L);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4, MutationFaultInjector.NONE);
+        Object rootIdentity = table.rootIdentityForTesting();
+        TableStateRoot root = table.rootForTesting();
+
+        SomaOperationException failure = assertThrows(
+                SomaOperationException.class,
+                () -> add(table, 1L, "one", 1, new Object()));
+
+        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, failure.code());
+        assertSame(rootIdentity, table.rootIdentityForTesting());
+        assertEquals(0L, table.size());
+        assertEquals(0L, root.key.managedBytes());
+        for (IdentityHashIndex index : root.indexes) {
+            assertEquals(0L, index.managedBytes());
+        }
+        assertEquals(0L, memory.retainedBytes());
+        assertEquals(0L, memory.temporaryBytes());
+    }
+
+    @Test
     void expressionAndOrderRejectDifferentTableIdentityBeforeExecution() {
         GeneratedTable first = table(64L << 20, MutationFaultInjector.NONE);
         GeneratedTable second = table(64L << 20, MutationFaultInjector.NONE);

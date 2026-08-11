@@ -9,7 +9,7 @@
 Owner：Group/Table identity、logical Field、authoritative StateRoot/Chunk、leaf/null、Key/Index、
 capacity/order、compression、reference ownership与future backend seam
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
 
 ## 1. 设计目标
 

@@ -118,6 +118,70 @@ final class IdentityHashIndex {
         return managedBytes;
     }
 
+    long preflightAdd(
+            PreparedAdd target,
+            TableChunkDirectory directory,
+            TypedValues probe,
+            SomaOperation operation,
+            Object provenance,
+            String logicalName) {
+        if (target.owner != null) throw new AssertionError("Index add scratch is busy");
+        long hash = layout.hashField(probe, fieldIndex);
+        int ordinal = shardOrdinal(hash);
+        Shard current = shards == null ? null : shards[ordinal];
+        int existing = current == null
+                ? -1 : current.findProbe(directory, probe, hash, layout, fieldIndex);
+        if (existing >= 0 && unique) {
+            throw SomaFailures.failure(
+                    SomaFailureCode.DUPLICATE_KEY,
+                    operation,
+                    logicalName + " duplicate Key",
+                    provenance);
+        }
+        long bytes = 0L;
+        int replacementShardCapacity = 0;
+        int replacementBucketCapacity = 0;
+        if (existing < 0) {
+            if (current == null) {
+                replacementShardCapacity = INITIAL_CAPACITY;
+                bytes = Shard.estimatedBaseBytes(
+                        INITIAL_CAPACITY, operation, provenance);
+                if (shards == null) {
+                    bytes = CheckedLong.add(
+                            bytes, CONTAINER_BYTES, operation, provenance);
+                }
+            } else if (!current.canInsertWithoutRehash()) {
+                replacementShardCapacity = current.capacityForInsert(
+                        current.size + 1, operation, provenance);
+                bytes = Shard.estimatedBaseBytes(
+                        replacementShardCapacity, operation, provenance);
+            }
+        } else if (!unique) {
+            int count = current.counts[existing];
+            if (count == 1) {
+                replacementBucketCapacity = INITIAL_BUCKET_CAPACITY;
+                bytes = arrayBytes(replacementBucketCapacity);
+            } else {
+                int[] members = current.members[existing];
+                if (count == members.length) {
+                    replacementBucketCapacity = expandedBucketCapacity(
+                            members.length, count + 1, operation, provenance);
+                    bytes = arrayBytes(replacementBucketCapacity);
+                }
+            }
+        }
+        target.preflight(
+                this,
+                ordinal,
+                current,
+                existing,
+                hash,
+                replacementShardCapacity,
+                replacementBucketCapacity,
+                shards == null);
+        return bytes;
+    }
+
     long distinctCount() {
         if (shards == null) return 0L;
         long result = 0L;
@@ -227,72 +291,52 @@ final class IdentityHashIndex {
 
     void prepareAdd(
             PreparedAdd target,
-            TableChunkDirectory directory,
-            TypedValues probe,
             int locator,
             SomaOperation operation,
-            Object provenance,
-            String logicalName) {
-        if (target.owner != null) throw new AssertionError("Index add scratch is busy");
-        long hash = layout.hashField(probe, fieldIndex);
-        int ordinal = shardOrdinal(hash);
-        Shard current = shards == null ? null : shards[ordinal];
-        int existing = current == null
-                ? -1 : current.findProbe(directory, probe, hash, layout, fieldIndex);
-        if (existing >= 0 && unique) {
-            throw SomaFailures.failure(
-                    SomaFailureCode.DUPLICATE_KEY,
-                    operation,
-                    logicalName + " duplicate Key",
-                    provenance);
-        }
+            Object provenance) {
+        target.requirePreflight(this);
+        long hash = target.hash;
+        int ordinal = target.shardOrdinal;
+        Shard current = target.currentShard;
+        int existing = target.slot;
 
         Shard replacement = null;
         Shard[] container = null;
         Shard targetShard = current;
         int slot = existing;
         if (existing < 0) {
-            if (current == null) {
-                replacement = new Shard(INITIAL_CAPACITY, operation, provenance);
+            if (target.replacementShardCapacity != 0) {
+                replacement = current == null
+                        ? new Shard(target.replacementShardCapacity, operation, provenance)
+                        : current.rehash(
+                                target.replacementShardCapacity, operation, provenance);
                 targetShard = replacement;
                 slot = replacement.emptySlot(hash);
-                if (shards == null) {
+                if (target.containerRequired) {
                     container = new Shard[SHARD_COUNT];
                     container[ordinal] = replacement;
                 }
-            } else if (current.canInsertWithoutRehash()) {
-                slot = current.emptySlot(hash);
             } else {
-                replacement = current.rehash(
-                        current.capacityForInsert(
-                                current.size + 1, operation, provenance),
-                        operation,
-                        provenance);
-                targetShard = replacement;
-                slot = replacement.emptySlot(hash);
+                slot = current.emptySlot(hash);
             }
         }
 
         int[] replacementMembers = null;
         long bucketDelta = 0L;
-        if (existing >= 0 && !unique) {
+        if (target.replacementBucketCapacity != 0) {
             int count = targetShard.counts[slot];
+            replacementMembers = allocateBucket(
+                    target.replacementBucketCapacity, operation, provenance);
             if (count == 1) {
-                replacementMembers = allocateBucket(
-                        INITIAL_BUCKET_CAPACITY, operation, provenance);
                 replacementMembers[0] = targetShard.firstLocators[slot];
                 replacementMembers[1] = locator;
-                bucketDelta = arrayBytes(replacementMembers.length);
+                bucketDelta = arrayBytes(target.replacementBucketCapacity);
             } else {
                 int[] members = targetShard.members[slot];
-                if (count == members.length) {
-                    int capacity = expandedBucketCapacity(
-                            members.length, count + 1, operation, provenance);
-                    replacementMembers = allocateBucket(capacity, operation, provenance);
-                    System.arraycopy(members, 0, replacementMembers, 0, count);
-                    replacementMembers[count] = locator;
-                    bucketDelta = arrayBytes(capacity) - arrayBytes(members.length);
-                }
+                System.arraycopy(members, 0, replacementMembers, 0, count);
+                replacementMembers[count] = locator;
+                bucketDelta = arrayBytes(target.replacementBucketCapacity)
+                        - arrayBytes(members.length);
             }
         }
 
@@ -312,9 +356,6 @@ final class IdentityHashIndex {
         }
         after = CheckedLong.add(after, bucketDelta, operation, provenance);
         target.prepare(
-                this,
-                ordinal,
-                current,
                 replacement,
                 container,
                 slot,
@@ -630,11 +671,7 @@ final class IdentityHashIndex {
         if (capacity < 0 || capacity > MAX_ARRAY_LENGTH) {
             throw resourceLimit(operation, provenance, "Index Bucket exceeds Java array limit");
         }
-        try {
-            return new int[capacity];
-        } catch (OutOfMemoryError failure) {
-            throw resourceLimit(operation, provenance, "Index Bucket allocation failed");
-        }
+        return new int[capacity];
     }
 
     private static int expandedBucketCapacity(
@@ -707,16 +744,43 @@ final class IdentityHashIndex {
         private int locator;
         private int[] replacementMembers;
         private long managedBytesAfter;
+        private int replacementShardCapacity;
+        private int replacementBucketCapacity;
+        private boolean containerRequired;
+        private boolean prepared;
+
+        private void preflight(
+                IdentityHashIndex owner,
+                int shardOrdinal,
+                Shard currentShard,
+                int slot,
+                long hash,
+                int replacementShardCapacity,
+                int replacementBucketCapacity,
+                boolean containerRequired) {
+            this.owner = owner;
+            this.shardOrdinal = shardOrdinal;
+            this.currentShard = currentShard;
+            this.slot = slot;
+            this.hash = hash;
+            this.replacementShardCapacity = replacementShardCapacity;
+            this.replacementBucketCapacity = replacementBucketCapacity;
+            this.containerRequired = containerRequired;
+            this.prepared = false;
+        }
+
+        private void requirePreflight(IdentityHashIndex candidate) {
+            if (owner != candidate || prepared) {
+                throw new AssertionError("Index add scratch is not preflighted");
+            }
+        }
 
         long managedBytesAfter() {
-            if (owner == null) throw new AssertionError("Index add scratch is not prepared");
+            if (!prepared) throw new AssertionError("Index add scratch is not prepared");
             return managedBytesAfter;
         }
 
         private void prepare(
-                IdentityHashIndex owner,
-                int shardOrdinal,
-                Shard currentShard,
                 Shard replacement,
                 Shard[] container,
                 int slot,
@@ -725,9 +789,6 @@ final class IdentityHashIndex {
                 int locator,
                 int[] replacementMembers,
                 long managedBytesAfter) {
-            this.owner = owner;
-            this.shardOrdinal = shardOrdinal;
-            this.currentShard = currentShard;
             this.replacement = replacement;
             this.container = container;
             this.slot = slot;
@@ -736,10 +797,11 @@ final class IdentityHashIndex {
             this.locator = locator;
             this.replacementMembers = replacementMembers;
             this.managedBytesAfter = managedBytesAfter;
+            this.prepared = true;
         }
 
         void commit() {
-            if (owner == null) throw new AssertionError("Index add scratch is not prepared");
+            if (!prepared) throw new AssertionError("Index add scratch is not prepared");
             Shard target;
             if (container != null) {
                 owner.shards = container;
@@ -766,6 +828,10 @@ final class IdentityHashIndex {
             replacement = null;
             container = null;
             replacementMembers = null;
+            replacementShardCapacity = 0;
+            replacementBucketCapacity = 0;
+            containerRequired = false;
+            prepared = false;
         }
     }
 
@@ -968,15 +1034,11 @@ final class IdentityHashIndex {
         private int tombstones;
 
         private Shard(int capacity, SomaOperation operation, Object provenance) {
-            try {
-                hashes = new long[capacity];
-                firstLocators = new int[capacity];
-                counts = new int[capacity];
-                members = new int[capacity][];
-                states = new byte[capacity];
-            } catch (OutOfMemoryError failure) {
-                throw resourceLimit(operation, provenance, "Index directory allocation failed");
-            }
+            hashes = new long[capacity];
+            firstLocators = new int[capacity];
+            counts = new int[capacity];
+            members = new int[capacity][];
+            states = new byte[capacity];
             mask = capacity - 1;
             managedBytes = estimatedBaseBytes(capacity, operation, provenance);
         }

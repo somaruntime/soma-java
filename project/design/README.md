@@ -135,15 +135,12 @@ claim。
 ## 7. 当前实现程度
 
 产品语义、exact Java 8 surface、planning/execution/storage architecture、implementation plan
-与Conformance Gates已经正式化。仍待implementation/evidence证明：
+与Conformance Gates已经正式化。I0-I8 production implementation与G1-G10 qualification已经闭合；
+当前 executable fact、性能/场景证据及publication边界由
+[Conformance](../conformance/README.md)唯一记录，不由Design复制。
 
-- JSR 269完整processor、diagnostic与full-regeneration；
-- production storage、Index、compression、planner、scheduler与atomic publish；
-- reference interpreter与optimized engine differential；
-- Java 8 independent consumer、negative、runtime、failure、security、performance与package Gate；
-- 三个reference scenario与release qualification。
-
-这些是implementation gap，不是implementation可以自行解释的产品语义。
+Design仍是implementation的上游合同；后续优化只能在Owner边界内替换内部机制，不能把既有证据
+反向解释为新的产品语义、正式release、跨硬件SLA或一亿行性能承诺。
 
 ## 8. 下游入口
 

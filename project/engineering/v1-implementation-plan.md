@@ -154,7 +154,7 @@ Implementation status：`COMPLETED`；implementation commit
 - 全部 primitive、String、Enum、Value flattening、ordinary/parameterized Object；
 - Enum/Object/array/parameterized type从generated parent namespace的Java 8 source accessibility；
 - keyless/keyed、multiple Index、nullable reference、float/double canonical semantics；
-- multiple Group/default Group、long reserve/growth/remove compaction/GC；
+- multiple Group/default Group、checked int reserve/growth/remove compaction/GC；
 - default/explicit Group中same-type accessor首次并发的single identity与safe publication；
 - generated constructor/naming/collision/full regeneration breadth；
 - 1:M/N:M relation Table与双向Index journey。

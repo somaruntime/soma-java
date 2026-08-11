@@ -25,7 +25,7 @@ public final class SomaOperationException extends RuntimeException {
                     public boolean owns(
                             SomaOperationException failure,
                             Object provenance) {
-                        return failure.provenance == provenance;
+                        return failure.owns(provenance);
                     }
                 });
     }
@@ -34,6 +34,7 @@ public final class SomaOperationException extends RuntimeException {
     private final SomaOperation operation;
     private final String context;
     private final transient Object provenance;
+    private final long provenanceGeneration;
 
     private SomaOperationException(
             SomaFailureCode code,
@@ -45,7 +46,15 @@ public final class SomaOperationException extends RuntimeException {
         this.code = code;
         this.operation = operation;
         this.context = context;
-        this.provenance = provenance;
+        if (provenance instanceof SomaSharedSecrets.OperationProvenance) {
+            SomaSharedSecrets.OperationProvenance operationProvenance =
+                    (SomaSharedSecrets.OperationProvenance) provenance;
+            this.provenance = operationProvenance.owner();
+            this.provenanceGeneration = operationProvenance.generation();
+        } else {
+            this.provenance = provenance;
+            this.provenanceGeneration = 0L;
+        }
     }
 
     public SomaFailureCode code() {
@@ -79,5 +88,15 @@ public final class SomaOperationException extends RuntimeException {
             Throwable cause,
             Object provenance) {
         return new SomaOperationException(code, operation, context, cause, provenance);
+    }
+
+    private boolean owns(Object candidate) {
+        if (candidate instanceof SomaSharedSecrets.OperationProvenance) {
+            SomaSharedSecrets.OperationProvenance operationProvenance =
+                    (SomaSharedSecrets.OperationProvenance) candidate;
+            return provenance == operationProvenance.owner()
+                    && provenanceGeneration == operationProvenance.generation();
+        }
+        return provenance == candidate && provenanceGeneration == 0L;
     }
 }

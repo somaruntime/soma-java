@@ -248,6 +248,13 @@ public final class SomaSharedSecrets {
         boolean owns(SomaOperationException failure, Object provenance);
     }
 
+    /** Internal zero-allocation operation identity used only by failure provenance. */
+    public interface OperationProvenance {
+        Object owner();
+
+        long generation();
+    }
+
     public interface LongSummaryAccess {
         SomaLongSummary create(long count, long min, long max, long sum, double average);
     }

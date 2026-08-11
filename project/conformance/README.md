@@ -2,8 +2,8 @@
 
 类型：Conformance Entry
 
-状态：最终全局一致性审核`PASS`；Design/Plan `READY_FOR_IMPLEMENTATION`；
-Implementation authorization `FULFILLED`；I0-I8 `COMPLETED`；G1-G10 `PASS`
+状态：post-implementation全局完整性审查`PASS`；Implementation authorization `FULFILLED`；
+I0-I8 `COMPLETED`；G1-G10 `PASS`
 
 正式事实源：是
 
@@ -28,7 +28,7 @@ Conformance不拥有产品语义，也不把readiness/feasibility外推为produc
 Product Blueprint/Design       ACTIVE V1 BASELINE
 Formal promotion              PASS
 Final global review           PASS
-Implementation readiness      READY_FOR_IMPLEMENTATION
+Implementation readiness      FULFILLED / SUPERSEDED_BY_QUALIFICATION
 Core abstraction promotion    PASS
 Implementation authorization  FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
@@ -46,6 +46,7 @@ G9                             PASS
 G10                            PASS
 Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORIZED
 Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
+Post-governance global review PASS / FINDINGS_CLOSED
 Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DISTRIBUTION_QUALIFIED /
                               FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
 Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALLY_PROMOTED
@@ -88,6 +89,10 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 Documentation不得把同机qualification阈值改写为跨硬件SLA、正式release或一亿行性能承诺。
 
 ## 4. Active records
+
+- [Post-governance global integrity and regression review](v1-post-governance-global-integrity-regression-review.md)：
+  结构/Index与Scheduling大范围优化后的Design↔code、operation provenance、resource admission、
+  product boundary与全仓回归Owner；
 
 - [Final pre-implementation global consistency review](v1-final-pre-implementation-global-consistency-review.md)：
   readiness、findings closure、core promotion与review-time authorization boundary Owner；当前

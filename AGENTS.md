@@ -8,8 +8,9 @@ Star 为“一亿行以上、编译式、支持关系计算的单进程 Table �
 第一阶段以百万行数据的高效、低分配、资源受控操作建立资格证据。
 
 2026-08-03的[实施前最终全局一致性审核](project/conformance/v1-final-pre-implementation-global-consistency-review.md)
-为`PASS`，Design/Plan为`READY_FOR_IMPLEMENTATION`。Product Owner 已于 2026-08-03 明确授予
-完整 V1 implementation authorization。I0-I8已完成implementation与qualification；I0-I7分别通过：
+为`PASS`；其历史`READY_FOR_IMPLEMENTATION`已经由后续implementation/qualification履行。Product
+Owner 已于 2026-08-03 明确授予完整 V1 implementation authorization。I0-I8已完成implementation
+与qualification；I0-I7分别通过：
 [I0资格](project/conformance/i0-build-spine-qualification.md)、
 [I1资格](project/conformance/i1-primitive-keyed-table-qualification.md)、
 [I2资格](project/conformance/i2-schema-type-storage-breadth-qualification.md)、
@@ -52,6 +53,9 @@ IndexSelection与主要派生operation完成10K/1M/10M fixed-host资格及三轮
 长期nonproduction性能与场景正确性证据；[Scheduling reference application治理](project/conformance/v1-scheduling-reference-application-governance.md)
 已`PASS`，标准100K FJSP通过四张runtime Table与自然waiting point `add/remove`完成，fixed slot和
 application frontier workaround已退出。`docs/`仍只保留placeholder。
+[大范围优化后全局完整性与回归审查](project/conformance/v1-post-governance-global-integrity-regression-review.md)
+已`PASS`：跨operation failure provenance、point Index allocation admission与正式Owner状态漂移已闭合，
+未准入application frontier或ordered access path。
 
 开始工作前必须读取：
 
