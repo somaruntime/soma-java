@@ -3,11 +3,11 @@
 类型：Project Entry
 
 状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；Canonical IR/Execution M1
-`IMPLEMENTATION_AUTHORIZED / S1-S5_PASS / S6_ACTIVE`；publication `NOT_AUTHORIZED`
+`S1-S6_COMPLETED / NO_ACTIVE_SLICE`；publication `NOT_AUTHORIZED`
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
 ## 当前结论
 
@@ -24,7 +24,9 @@ implementation 与 qualification：
   、[S2资格](conformance/canonical-ir-execution-s2-qualification.md)、
   [S3资格](conformance/canonical-ir-execution-s3-qualification.md)与
   [S4资格](conformance/canonical-ir-execution-s4-qualification.md)与
-  [S5资格](conformance/canonical-ir-execution-s5-qualification.md)均已`PASS`，当前唯一active slice为`S6`；
+  [S5资格](conformance/canonical-ir-execution-s5-qualification.md)和
+  [S6最终资格](conformance/canonical-ir-execution-s6-final-qualification.md)均已`PASS`；S1-S6已经
+  `COMPLETED`，当前没有active implementation slice；
   [大范围优化后全局完整性与回归审查](conformance/v1-post-governance-global-integrity-regression-review.md)
   已`PASS`，operation provenance、Index allocation admission与正式Owner状态漂移均已闭合；
   [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)已`PASS`，标准100K

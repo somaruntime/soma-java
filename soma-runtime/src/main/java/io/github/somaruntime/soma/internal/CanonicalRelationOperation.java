@@ -209,7 +209,6 @@ final class CanonicalRelationExecutionFrame {
     final PhysicalRelationPlan plan;
     final CanonicalRelationRightHash rightHash;
     final boolean[] matchedRight;
-    final IdentityHashIndex.Cursor rightCursor;
 
     CanonicalRelationExecutionFrame(PhysicalRelationPlan plan) {
         this.plan = plan;
@@ -223,14 +222,24 @@ final class CanonicalRelationExecutionFrame {
                 ? new boolean[RowExecutionSupport.arrayLength(
                         bound.rightRoot.size, bound.provenance)]
                 : null;
-        this.rightCursor = plan.algorithm
-                == PhysicalRelationPlan.Algorithm.RIGHT_INDEX_LOOKUP
-                ? new IdentityHashIndex.Cursor()
-                : null;
     }
 
     BoundCanonicalRelationOperation bound() {
         return plan.bound();
+    }
+
+    /**
+     * Creates one admitted operator-local cursor. Keeping the cursor local to
+     * the hot Join loop lets HotSpot scalar-replace it; the Frame remains the
+     * lifecycle and admission owner without retaining physical cursor state
+     * beyond this execution.
+     */
+    IdentityHashIndex.Cursor openRightCursor() {
+        if (plan.algorithm
+                != PhysicalRelationPlan.Algorithm.RIGHT_INDEX_LOOKUP) {
+            throw new AssertionError("right Index cursor is not admitted");
+        }
+        return new IdentityHashIndex.Cursor();
     }
 }
 

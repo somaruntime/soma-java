@@ -34,7 +34,8 @@ failure或mutation合同，没有新增dependency、artifact、SPI、JSON/Workfl
   worker或scratch；
 - `CanonicalRowPhysicalPlan`统一拥有access path、parallel prefix/partition和`ResourceEstimate`；
 - `CanonicalRowExecutionFrame`在lease后拥有membership、Index cursor、relation-left source、parallel source
-  和execution-local state；Relation frame同样拥有right hash、matched-right与lookup cursor。
+  和execution-local state；Relation frame同样拥有right hash、matched-right，并为specialized operator创建
+  lease-scoped lookup cursor；cursor保持热循环局部以允许HotSpot scalar replacement，不进入Bound或Plan。
 
 ### 2.2 旧路径退出
 

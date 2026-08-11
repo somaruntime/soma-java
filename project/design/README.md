@@ -8,7 +8,7 @@
 
 Owner：SOMA Java V1 正式 Design 路由、职责边界与权威关系
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
 ## 1. 设计责任
 
@@ -141,10 +141,10 @@ claim。
 [Conformance](../conformance/README.md)唯一记录，不由Design复制。
 
 Canonical Logical IR与执行引擎M1 responsibility baseline已正式晋升并冻结；其
-[S1-S6 implementation plan](../engineering/canonical-ir-execution-engine-implementation-plan.md)当前
-`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`。因此现有behavioral qualification继续有效，
-但新internal responsibility与production code的replacement gap由Conformance显式记录，不能把Design
-晋升误写为implementation完成。
+[S1-S6 implementation plan](../engineering/canonical-ir-execution-engine-implementation-plan.md)保留实施前
+冻结快照，[最终S6资格](../conformance/canonical-ir-execution-s6-final-qualification.md)已经证明production
+replacement、performance guard与Owner closure全部`PASS`。当前实现状态由Conformance拥有，不反向改写
+已冻结Design或Engineering Plan。
 
 Design仍是implementation的上游合同；后续优化只能在Owner边界内替换内部机制，不能把既有证据
 反向解释为新的产品语义、正式release、跨硬件SLA或一亿行性能承诺。

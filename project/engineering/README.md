@@ -2,12 +2,12 @@
 
 类型：Engineering Entry
 
-状态：I0–I8 `COMPLETED`；Canonical IR/Execution S1–S6 `FROZEN / READY / NOT_AUTHORIZED`；
+状态：I0–I8 `COMPLETED`；Canonical IR/Execution S1–S6 `COMPLETED`；
 当前无 active implementation slice
 
 Owner：SOMA Java implementation sequence、work unit 与 engineering evidence route
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
 ## 当前状态
 
@@ -38,8 +38,9 @@ current qualification 或 compatibility target。
 
 Canonical IR与执行引擎M1责任替换由独立的
 [S1-S6实施计划](canonical-ir-execution-engine-implementation-plan.md)拥有。该计划已经完成正式Design
-晋升、Baseline Freeze与targeted readiness，但Product Owner尚未授予implementation authorization；
-因此S1尚未active，不能把I0-I8历史授权推断为本计划授权。
+晋升、Baseline Freeze与targeted readiness，Product Owner随后授予完整实施授权；S1-S6已经依次完成
+exit evidence、Conformance与干净提交，[最终S6资格](../conformance/canonical-ir-execution-s6-final-qualification.md)
+关闭production replacement gap。冻结计划继续作为实施顺序与exit的历史Owner，不复制current状态。
 
 ## 当前工程入口
 

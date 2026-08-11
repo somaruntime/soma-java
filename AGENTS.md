@@ -20,8 +20,8 @@ Owner 已于 2026-08-03 明确授予完整 V1 implementation authorization。I0-
 [I6资格](project/conformance/i6-parallel-execution-qualification.md)、
 [I7资格](project/conformance/i7-compression-metadata-qualification.md)，I8通过
 [产品资格与G9 Owner sign-off](project/conformance/i8-product-qualification.md)：G1-G10为`PASS`；
-Canonical IR/Execution M1已获Product Owner授权，S1-S5资格已`PASS`，当前唯一active implementation
-slice为S6。
+Canonical IR/Execution M1已获Product Owner授权并完成S1-S6 implementation与qualification；当前没有
+active implementation slice。
 GitHub Release/Package、签名和正式release声明未授权。
 
 Active checkout已包含I8三个reference application、million-row profile、package/SBOM/provenance、CI与
@@ -41,7 +41,8 @@ mutation即时局部维护，Selection mutation一次candidate rebuild。
 优化已由正式Design承接。
 [Canonical Logical IR与执行引擎M1治理](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)
 已完成正式Owner晋升、Baseline Freeze与targeted readiness，状态为
-`IMPLEMENTATION_AUTHORIZED / S1-S5_PASS / S6_ACTIVE`；正式
+`IMPLEMENTATION_FULFILLED / S1-S6_COMPLETED`；[最终S6资格](project/conformance/canonical-ir-execution-s6-final-qualification.md)
+已经关闭replacement与性能防退化证据；正式
 [S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)保持冻结基线，实际active
 状态由Conformance拥有。
 当前没有active bounded Temporary；[SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)
@@ -77,10 +78,11 @@ planning 或 reference differential 时读取
 [规划与优化 Design](project/design/planning-and-optimization.md)。不要把全部项目事实加载成
 每次任务的默认前置。
 
-若Product Owner后续授权Canonical IR/Execution实施，还必须读取
+涉及Canonical IR/Execution后续修改时，还必须读取
 [S1-S6正式计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)与
-[晋升/准入记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)；在授权前
-不得激活S1或修改production IR/执行引擎。
+[晋升/准入记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)以及
+[最终资格](project/conformance/canonical-ir-execution-s6-final-qualification.md)；不得把已完成的S1-S6重新
+解释为active migration或静默恢复旧adapter。
 
 实施slice或跨Design审查还必须读取
 [核心抽象与叙事Design](project/design/core-abstractions-and-narratives.md)中与该slice对应的A/N/INV
@@ -156,8 +158,8 @@ dependency或plugin expansion。
 
 ## 实施准入与推进
 
-- 当前 implementation authorization 覆盖 I0-I8 与Canonical IR/Execution S1-S6自主实现；I0-I8
-  slice与G1-G10均已关闭，S1-S5已PASS，当前唯一active implementation slice为S6；
+- 当前 implementation authorization 已由I0-I8与Canonical IR/Execution S1-S6完成履行；全部slice与
+  G1-G10均已关闭，当前没有active implementation slice；
 - Canonical IR/Execution S1-S6的授权由
   [正式Conformance记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)拥有；
   冻结Engineering Plan中的准入快照不作为current authorization状态源；
@@ -167,8 +169,8 @@ dependency或plugin expansion。
   拥有；
 - 每个 slice 按 [Implementation Plan](project/engineering/v1-implementation-plan.md)交付
   positive、negative、failed-state、独立审查与 Conformance evidence；
-- Canonical IR/Execution若获授权，则按其独立[S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)
-  推进，不把I0-I8 chronology或授权直接套用；
+- Canonical IR/Execution后续变更以其独立[S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)
+  和最终Conformance为baseline，不把I0-I8 chronology或历史授权直接套用；
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
 - reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；

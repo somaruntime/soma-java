@@ -484,7 +484,8 @@ public final class GeneratedRelation {
             }
         }
         boolean[] matchedRight = binding.frame.matchedRight;
-        IdentityHashIndex.Cursor rightCursor = binding.frame.rightCursor;
+        IdentityHashIndex.Cursor rightCursor = rightLookup == null
+                ? null : binding.frame.openRightCursor();
         for (int leftLocator = 0; leftLocator < binding.left.size; leftLocator++) {
             boolean matched = false;
             if (!hasNull(binding.left, left.layout(), leftFields, leftLocator)

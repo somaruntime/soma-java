@@ -2,7 +2,7 @@
 
 类型：Conformance / Formal Promotion / Baseline Freeze / Implementation Readiness
 
-状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / S1_PASS / S2_ACTIVE`
+状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / IMPLEMENTATION_FULFILLED / S1-S6_COMPLETED`
 
 正式事实源：是
 
@@ -23,12 +23,14 @@ Formal Design promotion      PASS
 Baseline freeze              PASS
 Implementation readiness    READY
 Implementation authorization GRANTED (2026-08-11)
-Production implementation   S1_PASS / S2_ACTIVE
+Production implementation   S1-S6_COMPLETED
 Release/publication          NOT_AUTHORIZED
 ```
 
-Product Owner已于2026-08-11明确授权本专题完整实施；S1资格已经PASS，S2是当前唯一active
-implementation slice，I0-I8历史授权与资格仍不作为本次M1重构的授权来源。
+Product Owner已于2026-08-11明确授权本专题完整实施；S1-S6随后依次完成，当前没有active
+implementation slice。最终current evidence由
+[S6最终资格](canonical-ir-execution-s6-final-qualification.md)拥有，I0-I8历史授权与资格仍不作为本次
+M1重构的授权来源。
 
 ## 2. 基线与审查范围
 
@@ -180,8 +182,11 @@ Design completeness          PASS
 Baseline integrity           PASS
 Implementation readiness     READY
 Remaining Design decision    NONE
-Active implementation slice S2 (S1 PASS)
-Authorization               GRANTED (2026-08-11)
+Production implementation   S1-S6 COMPLETED
+Active implementation slice NONE
+Authorization               FULFILLED (granted 2026-08-11)
 ```
 
-下一步按正式Plan完成S2 exit evidence；S2关闭后才能激活S3。
+最终implementation与qualification见
+[S6最终资格](canonical-ir-execution-s6-final-qualification.md)；本记录继续拥有promotion、baseline与
+authorization provenance，不再充当active-slice状态源。
