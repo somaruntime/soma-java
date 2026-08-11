@@ -49,6 +49,7 @@ Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
 Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DISTRIBUTION_QUALIFIED /
                               FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
 Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALLY_PROMOTED
+Scheduling reference        STANDARD_FJSP_100K / PASS / NATURAL_POINT_MUTATION
 Active bounded topic          NONE (frontend-neutral Logical IR is QUEUED / NOT_ACTIVE)
 ```
 
@@ -138,6 +139,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [V1 32位结构域与即时增量 Key/Index 维护资格](v1-incremental-structural-mutation-governance.md)：
   checked 32/64位数值域、singleton-inline/ordered `int[]`唯一membership、point/Selection
   mutation、failed-state/accounting、detached predecessor A/B、10K/1M/10M与profile Owner。
+- [V1 Scheduling Reference Application 治理](v1-scheduling-reference-application-governance.md)：
+  标准100K FJSP、四张runtime Table、FCFS + SPT、自然waiting `add/remove`、独立结果校验、
+  benchmark解耦与底层Index治理application回归Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。

@@ -6,15 +6,20 @@ project。它们只使用 SOMA public/generated Java 8 API，并展示 applicati
 
 | Project | 重点 |
 |---|---|
-| [`scheduling`](scheduling/README.md) | Job/Machine/Option 关系、typed Join 与跨 Table 补偿式发布 |
+| [`scheduling`](scheduling/README.md) | 标准 100K-operation FJSP、四张 runtime Table、FCFS + SPT 与自然增量 waiting mutation |
 | [`simulation`](simulation/README.md) | 显式事件顺序、detached decision 与分步状态迁移 |
 | [`real-time-dispatch`](real-time-dispatch/README.md) | Index 缩窄、typed Join、显式并行与外部派工边界 |
 
-每个 project 采用相同的角色分层：
+三个 project 都保持 schema 与 application responsibility 分离，但不会为了目录整齐强迫不同规模的
+应用使用同一层级。较完整的 scheduling project 进一步拆出 modeling、factory、configuration、
+solver API/core 与 validation：
 
 ```text
 src/main/java/.../schema/        schema declaration
 src/main/java/.../application/   service、decision、业务协议与 Main
+scheduling/.../modeling/         immutable FJSP input model
+scheduling/.../runtime/schema/   solver runtime state schema
+scheduling/.../solver/           public solver contract and core
 ```
 
 Example 自身只保留可阅读、可运行的 application。规模测量、profiler 和跨实现正确性对照由独立的

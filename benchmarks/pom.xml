@@ -103,6 +103,7 @@
                             <includes>
                                 <include>**/kernel/schema/*.java</include>
                                 <include>**/kernel/domain/*.java</include>
+                                <include>**/scheduling/schema/*.java</include>
                             </includes>
                         </configuration>
                     </execution>

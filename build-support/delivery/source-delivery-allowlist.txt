@@ -23,6 +23,7 @@ soma-examples/pom.xml
 soma-examples/README.md
 soma-examples/scheduling/pom.xml
 soma-examples/scheduling/README.md
+soma-examples/scheduling/config
 soma-examples/scheduling/src/main
 soma-examples/simulation/pom.xml
 soma-examples/simulation/README.md

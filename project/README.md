@@ -6,7 +6,7 @@
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
-最后审查日期：2026-08-10
+最后审查日期：2026-08-11
 
 ## 当前结论
 
@@ -32,6 +32,9 @@ implementation 与 qualification：
 - [全面性能前沿资格](conformance/v1-performance-frontier-qualification.md)已`PASS`，Table、Field、
   IndexSelection 与主要派生 operation 在 10K/1M/10M 下完成固定主机资格，三轮 profile-driven
   优化、最终 memory attribution、reference application 与 composed journey 已闭合；
+- [Scheduling reference application治理](conformance/v1-scheduling-reference-application-governance.md)
+  已`PASS`：标准100K FJSP使用四张runtime Table和自然waiting point `add/remove`完成FCFS + SPT，
+  fixed slot与application frontier workaround已退出；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -65,6 +68,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | 内存归因与低分配执行资格 | [Memory attribution and low-allocation governance](conformance/v1-memory-attribution-low-allocation-governance.md) |
 | 全面性能前沿、10K/1M/10M、Profile 与剩余边界 | [Performance frontier qualification](conformance/v1-performance-frontier-qualification.md) |
 | 32位结构域、即时增量 Key/Index 与 mutation A/B | [Incremental structural mutation qualification](conformance/v1-incremental-structural-mutation-governance.md) |
+| 标准100K FJSP、Solver架构与自然waiting mutation回归 | [Scheduling reference governance](conformance/v1-scheduling-reference-application-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact

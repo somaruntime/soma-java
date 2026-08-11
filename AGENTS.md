@@ -46,7 +46,9 @@ Temporary；[frontend-neutral Logical IR](project/temp/soma-frontend-neutral-log
 `PASS`，retained、temporary reservation、Java allocation、heap/RSS 分层观测与正常路径低分配优化已闭合；
 [全面性能前沿资格](project/conformance/v1-performance-frontier-qualification.md)已`PASS`，Table、Field、
 IndexSelection与主要派生operation完成10K/1M/10M fixed-host资格及三轮profile-driven优化；`benchmarks/`现为
-长期nonproduction性能与场景正确性证据，`docs/`仍只保留placeholder。
+长期nonproduction性能与场景正确性证据；[Scheduling reference application治理](project/conformance/v1-scheduling-reference-application-governance.md)
+已`PASS`，标准100K FJSP通过四张runtime Table与自然waiting point `add/remove`完成，fixed slot和
+application frontier workaround已退出。`docs/`仍只保留placeholder。
 
 开始工作前必须读取：
 

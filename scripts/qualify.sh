@@ -94,7 +94,7 @@ generated="$work_root/generated"
 mkdir -p "$classes" "$generated"
 schema_sources="$work_root/schema-sources.txt"
 all_sources="$work_root/all-sources.txt"
-find soma-examples/scheduling/src/main/java/io/github/somaruntime/examples/scheduling/schema \
+find soma-examples/scheduling/src/main/java/io/github/somaruntime/examples/scheduling/runtime/schema \
     -name '*.java' -type f -print | LC_ALL=C sort > "$schema_sources"
 "$javac_cmd" -source 8 -target 8 -encoding UTF-8 \
     -classpath "$packaged_runtime" \
@@ -119,6 +119,7 @@ fi
 tar -tzf "$archive" | grep -q '/soma-runtime/src/main/'
 tar -tzf "$archive" | grep -q '/soma-processor/src/main/'
 tar -tzf "$archive" | grep -q '/soma-examples/scheduling/src/main/'
+tar -tzf "$archive" | grep -q '/soma-examples/scheduling/config/fjsp-standard.properties'
 
 (cd "$package_root" && if command -v sha256sum >/dev/null 2>&1; then
     sha256sum -c checksums.sha256

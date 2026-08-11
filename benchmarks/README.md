@@ -11,11 +11,16 @@ three reference applications
                 -> correctness validation and comparative summary
 ```
 
-当前 benchmark 使用三个正式 reference application：
+当前 benchmark 覆盖三个正式 reference application 对应的 workload family：
 
 - `scheduling`：Medium shape，覆盖 ingest、scan、Key/Index、Join、top、GroupBy 和 point update；
 - `simulation`：Narrow shape，覆盖 ingest、scan、Key/Index、stable top 和 remove；
 - `real-time-dispatch`：Reference-mixed shape，覆盖 ordinary Object、scan、Key/Index、Join 和 remove。
+
+`scheduling` benchmark 为保持既有纵向性能时间序列，拥有独立的 non-production fixture schema；
+它不再借用 FJSP application 的 runtime schema。完整 100K FJSP 的模型、求解和结果正确性由
+[`soma-examples/scheduling`](../soma-examples/scheduling/README.md)负责，benchmark 继续稳定拥有
+ingest/scan/Join/GroupBy 等 kernel 对照，二者不形成互相牵制的 schema 合同。
 
 此外，`type-kernel` 是 benchmark-only synthetic consumer，用于覆盖 byte/short/char/int/long、
 float/double、String、Enum、nested Value、ordinary Object，以及 cardinality/selectivity/null/skew
