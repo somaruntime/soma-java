@@ -9,7 +9,6 @@ import io.github.somaruntime.soma.SomaOrder;
 import io.github.somaruntime.soma.UpdateResult;
 import io.github.somaruntime.soma.TableMetadata;
 import io.github.somaruntime.soma.FieldMetadata;
-import java.util.Arrays;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -25,6 +24,7 @@ public final class GeneratedTable {
 
     private final GeneratedGroup group;
     private final GeneratedTableLayout layout;
+    private final CanonicalTableIdentity logicalIdentity;
     private final int chunkRows;
     private final MutationFaultInjector faultInjector;
     private final GeneratedRow operationRow;
@@ -39,7 +39,17 @@ public final class GeneratedTable {
     private final AtomicReference<TableStateRoot> current;
 
     GeneratedTable(GeneratedGroup group, GeneratedTableLayout layout) {
-        this(group, layout, chooseChunkRows(layout), MutationFaultInjector.NONE);
+        this(group, layout, chooseChunkRows(layout), MutationFaultInjector.NONE,
+                0, new Object());
+    }
+
+    GeneratedTable(
+            GeneratedGroup group,
+            GeneratedTableLayout layout,
+            int tableOrdinal,
+            Object compositionCapability) {
+        this(group, layout, chooseChunkRows(layout), MutationFaultInjector.NONE,
+                tableOrdinal, compositionCapability);
     }
 
     GeneratedTable(
@@ -47,6 +57,16 @@ public final class GeneratedTable {
             GeneratedTableLayout layout,
             int chunkRows,
             MutationFaultInjector faultInjector) {
+        this(group, layout, chunkRows, faultInjector, 0, new Object());
+    }
+
+    private GeneratedTable(
+            GeneratedGroup group,
+            GeneratedTableLayout layout,
+            int chunkRows,
+            MutationFaultInjector faultInjector,
+            int tableOrdinal,
+            Object compositionCapability) {
         if (group == null
                 || layout == null
                 || chunkRows <= 0
@@ -56,6 +76,8 @@ public final class GeneratedTable {
         }
         this.group = group;
         this.layout = layout;
+        this.logicalIdentity = new CanonicalTableIdentity(
+                compositionCapability, tableOrdinal, layout);
         this.chunkRows = chunkRows;
         this.faultInjector = faultInjector;
         this.operationRow = new GeneratedRow(this, layout);
@@ -270,8 +292,8 @@ public final class GeneratedTable {
             int indexOrdinal,
             GeneratedProbe probe) {
         int fieldIndex = layout.indexFieldIndex(indexOrdinal);
-        probe.requireSealed(this, fieldIndex);
-        return new GeneratedIndexSelection(this, indexOrdinal, probe);
+        return new GeneratedIndexSelection(
+                this, indexOrdinal, probe.snapshot(this, fieldIndex));
     }
 
     public long count() {
@@ -372,8 +394,11 @@ public final class GeneratedTable {
                     SomaOperation.QUERY,
                     layout.logicalName() + " between lower bound exceeds upper bound");
         }
-        return new GeneratedExpression<R>(
-                this, PredicateIr.between(field, lower, upper));
+        return new GeneratedExpression<R>(this, PredicateIr.between(
+                logicalIdentity,
+                field,
+                lower.snapshot(this, field),
+                upper.snapshot(this, field)));
     }
 
     public <R> SomaExpression<R> in(final GeneratedProbe[] probes) {
@@ -382,7 +407,8 @@ public final class GeneratedTable {
         }
         requireInLiteralCapacity(probes.length);
         if (probes.length == 0) {
-            return new GeneratedExpression<R>(this, PredicateIr.constant(false));
+            return new GeneratedExpression<R>(this, PredicateIr.constant(
+                    logicalIdentity, false));
         }
         for (GeneratedProbe probe : probes) {
             if (probe == null) {
@@ -409,8 +435,12 @@ public final class GeneratedTable {
             }
             if (!duplicate) unique[uniqueCount++] = probe;
         }
-        GeneratedProbe[] snapshot = Arrays.copyOf(unique, uniqueCount);
-        return new GeneratedExpression<R>(this, PredicateIr.in(field, snapshot));
+        TypedLiteral[] snapshot = new TypedLiteral[uniqueCount];
+        for (int index = 0; index < uniqueCount; index++) {
+            snapshot[index] = unique[index].snapshot(this, field);
+        }
+        return new GeneratedExpression<R>(this, PredicateIr.in(
+                logicalIdentity, field, snapshot));
     }
 
     public int requireInLiteralCapacity(long length) {
@@ -433,12 +463,14 @@ public final class GeneratedTable {
 
     public <R> SomaExpression<R> isNull(final int fieldIndex) {
         return new GeneratedExpression<R>(
-                this, PredicateIr.nullTest(PredicateIr.Kind.IS_NULL, fieldIndex));
+                this, PredicateIr.nullTest(
+                        PredicateIr.Kind.IS_NULL, logicalIdentity, fieldIndex));
     }
 
     public <R> SomaExpression<R> isNotNull(final int fieldIndex) {
         return new GeneratedExpression<R>(
-                this, PredicateIr.nullTest(PredicateIr.Kind.IS_NOT_NULL, fieldIndex));
+                this, PredicateIr.nullTest(
+                        PredicateIr.Kind.IS_NOT_NULL, logicalIdentity, fieldIndex));
     }
 
     public <R> SomaOrder<R> asc(int fieldIndex) {
@@ -737,6 +769,7 @@ public final class GeneratedTable {
     }
 
     GeneratedTableLayout layout() { return layout; }
+    CanonicalTableIdentity logicalIdentity() { return logicalIdentity; }
     boolean sharesGroup(GeneratedTable other) {
         return other != null && group == other.group;
     }
@@ -873,9 +906,15 @@ public final class GeneratedTable {
         return removeResult(removed);
     }
 
-    GeneratedPipeline indexPipeline(int indexOrdinal, GeneratedProbe probe) {
+    GeneratedPipeline indexPipeline(int indexOrdinal, TypedLiteral probe) {
         int fieldIndex = layout.indexFieldIndex(indexOrdinal);
-        probe.requireSealed(this, fieldIndex);
+        if (probe.tableIdentity() != logicalIdentity
+                || probe.layout() != layout
+                || probe.fieldIndex() != fieldIndex) {
+            throw SomaFailures.invalid(
+                    SomaOperation.QUERY,
+                    layout.logicalName() + " Index literal belongs to another endpoint");
+        }
         return new GeneratedPipeline(
                 this, LogicalRowPlan.indexSelection(this, indexOrdinal, probe));
     }
@@ -917,7 +956,10 @@ public final class GeneratedTable {
                     "eq/ne does not accept null; use isNull/isNotNull");
         }
         return new GeneratedExpression<R>(this, PredicateIr.compare(
-                negate ? PredicateIr.Kind.NE : PredicateIr.Kind.EQ, field, probe));
+                negate ? PredicateIr.Kind.NE : PredicateIr.Kind.EQ,
+                logicalIdentity,
+                field,
+                probe.snapshot(this, field)));
     }
 
     private <R> SomaExpression<R> order(
@@ -932,7 +974,8 @@ public final class GeneratedTable {
                 : operator == -1 ? PredicateIr.Kind.LE
                 : operator == 2 ? PredicateIr.Kind.GT
                 : PredicateIr.Kind.GE;
-        return new GeneratedExpression<R>(this, PredicateIr.compare(kind, field, probe));
+        return new GeneratedExpression<R>(this, PredicateIr.compare(
+                kind, logicalIdentity, field, probe.snapshot(this, field)));
     }
 
     private int requireSameField(GeneratedProbe left, GeneratedProbe right) {

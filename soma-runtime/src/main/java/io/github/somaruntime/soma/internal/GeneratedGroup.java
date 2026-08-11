@@ -105,10 +105,12 @@ public final class GeneratedGroup {
             MethodHandles.Lookup caller,
             Object candidateCapability,
             String logicalName,
+            int tableOrdinal,
             GeneratedTableLayout layout) {
         if (caller == null
                 || candidateCapability != capability
                 || logicalName == null
+                || tableOrdinal < 0
                 || layout == null
                 || (caller.lookupModes() & MethodHandles.Lookup.PRIVATE) == 0
                 || !caller.lookupClass().getName().equals(
@@ -117,7 +119,8 @@ public final class GeneratedGroup {
                     SomaOperation.CONFIGURE,
                     "generated Table construction capability is invalid");
         }
-        return new GeneratedTable(this, layout);
+        return new GeneratedTable(
+                this, layout, tableOrdinal, candidateCapability);
     }
 
     public void requireCapability(Object candidateCapability) {

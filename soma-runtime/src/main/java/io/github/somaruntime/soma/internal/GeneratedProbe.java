@@ -47,6 +47,12 @@ public final class GeneratedProbe extends TypedValues {
         }
     }
 
+    TypedLiteral snapshot(GeneratedTable expected, int expectedField) {
+        requireSealed(expected, expectedField);
+        return new TypedLiteral(
+                layout, expected.logicalIdentity(), fieldIndex, this);
+    }
+
     private void require(int leaf, byte kind) {
         if (sealed
                 || leaf < layout.fieldStart(fieldIndex)

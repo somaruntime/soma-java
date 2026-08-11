@@ -98,7 +98,7 @@ final class LogicalRowPlan {
     private final GeneratedTable owner;
     private final SourceKind sourceKind;
     private final int indexOrdinal;
-    private final GeneratedProbe indexProbe;
+    private final TypedLiteral indexProbe;
     private final GeneratedRelation relation;
     private final LogicalRowPlan parent;
     private final Stage stage;
@@ -108,7 +108,7 @@ final class LogicalRowPlan {
             GeneratedTable owner,
             SourceKind sourceKind,
             int indexOrdinal,
-            GeneratedProbe indexProbe,
+            TypedLiteral indexProbe,
             GeneratedRelation relation,
             LogicalRowPlan parent,
             Stage stage,
@@ -131,7 +131,7 @@ final class LogicalRowPlan {
     static LogicalRowPlan indexSelection(
             GeneratedTable owner,
             int indexOrdinal,
-            GeneratedProbe probe) {
+            TypedLiteral probe) {
         return new LogicalRowPlan(
                 owner, SourceKind.INDEX_SELECTION, indexOrdinal, probe,
                 null, null, null, false);
@@ -222,7 +222,7 @@ final class LogicalRowPlan {
         return indexOrdinal;
     }
 
-    GeneratedProbe indexProbe() {
+    TypedLiteral indexProbe() {
         return indexProbe;
     }
 

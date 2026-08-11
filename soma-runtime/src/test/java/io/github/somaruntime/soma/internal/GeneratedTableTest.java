@@ -574,6 +574,129 @@ class GeneratedTableTest {
     }
 
     @Test
+    void canonicalS1CountBindsTypedLiteralAndChoosesExactAccessPaths() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        add(table, 1L, "odd", 10, new Object());
+        add(table, 2L, "even", 20, new Object());
+        add(table, 3L, "odd", 30, new Object());
+
+        GeneratedProbe indexValue = table.newProbe(1);
+        indexValue.putReference(1, "odd");
+        PredicateIr indexPredicate = table.requireOwnedExpression(
+                table.eq(indexValue.seal()));
+        LogicalRowPlan indexLogical = LogicalRowPlan.tableScan(table)
+                .typedFilter(indexPredicate);
+        CanonicalRowOperation indexCanonical =
+                CanonicalRowLowering.count(table, indexLogical);
+        assertTrue(indexCanonical != null);
+        assertSame(table.logicalIdentity(), indexCanonical.tableIdentity);
+        assertTrue(indexPredicate.lower instanceof TypedLiteral);
+        assertEquals(1, indexPredicate.lower.leafCountForTesting());
+        assertEquals(2L, CanonicalQueryOperation.referenceCountForTesting(
+                table, indexCanonical));
+        assertEquals(2L, CanonicalQueryOperation.optimizedCount(
+                table, indexCanonical));
+
+        BoundCanonicalRowOperation indexBound = new BoundCanonicalRowOperation(
+                indexCanonical,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        CanonicalRowPhysicalPlan indexPhysical = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(indexBound));
+        assertEquals(
+                CanonicalRowPhysicalPlan.AccessPath.INDEX_LOOKUP,
+                indexPhysical.accessPath);
+
+        GeneratedProbe keyValue = table.newProbe(0);
+        keyValue.putLong(0, 2L);
+        CanonicalRowOperation keyCanonical = CanonicalRowLowering.count(
+                table,
+                LogicalRowPlan.tableScan(table).typedFilter(
+                        table.requireOwnedExpression(table.eq(keyValue.seal()))));
+        BoundCanonicalRowOperation keyBound = new BoundCanonicalRowOperation(
+                keyCanonical,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        assertEquals(
+                CanonicalRowPhysicalPlan.AccessPath.KEY_LOOKUP,
+                CanonicalRowPlanner.plan(
+                        CanonicalRowPlanner.normalize(keyBound)).accessPath);
+        assertEquals(1L, CanonicalQueryOperation.optimizedCount(
+                table, keyCanonical));
+
+        GeneratedProbe singleIn = table.newProbe(1);
+        singleIn.putReference(1, "odd");
+        CanonicalRowOperation inCanonical = CanonicalRowLowering.count(
+                table,
+                LogicalRowPlan.tableScan(table).typedFilter(
+                        table.requireOwnedExpression(table.in(
+                                new GeneratedProbe[] {singleIn.seal()}))));
+        BoundCanonicalRowOperation inBound = new BoundCanonicalRowOperation(
+                inCanonical,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        assertEquals(
+                CanonicalRowPhysicalPlan.AccessPath.INDEX_LOOKUP,
+                CanonicalRowPlanner.plan(
+                        CanonicalRowPlanner.normalize(inBound)).accessPath);
+        assertEquals(2L, CanonicalQueryOperation.optimizedCount(
+                table, inCanonical));
+
+        CanonicalRowOperation impossibleNull = CanonicalRowLowering.count(
+                table,
+                LogicalRowPlan.tableScan(table).typedFilter(
+                        table.requireOwnedExpression(table.isNull(0))));
+        BoundCanonicalRowOperation nullBound = new BoundCanonicalRowOperation(
+                impossibleNull,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        PredicateIr normalizedNull = CanonicalRowPlanner
+                .normalize(nullBound).filters.get(0);
+        assertEquals(PredicateIr.Kind.CONSTANT, normalizedNull.kind);
+        assertFalse(normalizedNull.constant);
+        assertEquals(0L, CanonicalQueryOperation.optimizedCount(
+                table, impossibleNull));
+    }
+
+    @Test
+    void canonicalS1IndexSourceReferenceIgnoresPhysicalSidecarOrder() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 12L; key++) {
+            add(table, key, key % 3L == 0L ? "hit" : "miss",
+                    (int) key, new Object());
+        }
+        GeneratedProbe source = table.newProbe(1);
+        source.putReference(1, "hit");
+        LogicalRowPlan logical = LogicalRowPlan.indexSelection(
+                table, 0, source.seal().snapshot(table, 1));
+        CanonicalRowOperation canonical = CanonicalRowLowering.count(table, logical);
+        assertTrue(canonical != null);
+        assertEquals(4L, CanonicalQueryOperation.referenceCountForTesting(
+                table, canonical));
+        assertEquals(4L, CanonicalQueryOperation.optimizedCount(
+                table, canonical));
+
+        BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
+                canonical,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        assertEquals(
+                CanonicalRowPhysicalPlan.AccessPath.INDEX_SELECTION,
+                CanonicalRowPlanner.plan(
+                        CanonicalRowPlanner.normalize(bound)).accessPath);
+    }
+
+    @Test
     void indexSourceDifferentialPreservesDuplicateLocatorOrderMembership() {
         GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
         for (long key = 0L; key < 12L; key++) {
@@ -585,12 +708,12 @@ class GeneratedTableTest {
         lower.putInt(2, 3);
 
         LogicalRowPlan optimized = LogicalRowPlan.indexSelection(
-                table, 0, indexProbe.seal()).typedFilter(
+                table, 0, indexProbe.seal().snapshot(table, 1)).typedFilter(
                 table.requireOwnedExpression(table.ge(lower.seal())));
         GeneratedProbe referenceProbe = table.newProbe(1);
         referenceProbe.putReference(1, "hit");
         LogicalRowPlan reference = LogicalRowPlan.indexSelection(
-                table, 0, referenceProbe.seal()).typedFilter(
+                table, 0, referenceProbe.seal().snapshot(table, 1)).typedFilter(
                 table.requireOwnedExpression(table.ge(lower)));
 
         assertEquals(3L, QueryOperation.optimizedCount(optimized));
@@ -601,7 +724,7 @@ class GeneratedTableTest {
         GeneratedProbe rebuiltProbe = table.newProbe(1);
         rebuiltProbe.putReference(1, "hit");
         LogicalRowPlan rebuilt = LogicalRowPlan.indexSelection(
-                table, 0, rebuiltProbe.seal());
+                table, 0, rebuiltProbe.seal().snapshot(table, 1));
         assertTrue(Arrays.equals(
                 new long[] {0L, 1L, 6L, 9L},
                 QueryOperation.optimizedLocatorsForTesting(rebuilt)));
@@ -1800,7 +1923,8 @@ class GeneratedTableTest {
         GeneratedProbe bucket = table.newProbe(1);
         bucket.putReference(1, "bucket-1");
         BoundRowPlan selection = new BoundRowPlan(
-                LogicalRowPlan.indexSelection(table, 0, bucket.seal()),
+                LogicalRowPlan.indexSelection(
+                        table, 0, bucket.seal().snapshot(table, 1)),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
                 new Object());
@@ -2417,7 +2541,8 @@ class GeneratedTableTest {
             assertEquals(count.getValue().longValue(), indexCount(table, count.getKey()));
             GeneratedProbe probe = table.newProbe(1);
             probe.putReference(1, count.getKey());
-            LogicalRowPlan plan = LogicalRowPlan.indexSelection(table, 0, probe.seal());
+            LogicalRowPlan plan = LogicalRowPlan.indexSelection(
+                    table, 0, probe.seal().snapshot(table, 1));
             assertTrue(Arrays.equals(
                     QueryOperation.referenceLocatorsForTesting(plan),
                     QueryOperation.optimizedLocatorsForTesting(plan)));

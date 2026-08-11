@@ -33,6 +33,19 @@ final class PredicateMembership {
         return new PredicateMembership(layout, sets);
     }
 
+    static PredicateMembership preparePredicates(
+            GeneratedTableLayout layout,
+            List<PredicateIr> predicates,
+            SomaOperation operation,
+            Object provenance) {
+        IdentityHashMap<PredicateIr, ProbeSet> sets =
+                new IdentityHashMap<PredicateIr, ProbeSet>();
+        for (PredicateIr predicate : predicates) {
+            collect(layout, predicate, sets, operation, provenance);
+        }
+        return new PredicateMembership(layout, sets);
+    }
+
     private static void collect(
             GeneratedTableLayout layout,
             PredicateIr predicate,
@@ -76,29 +89,29 @@ final class PredicateMembership {
 
     private static final class ProbeSet {
         private final int fieldIndex;
-        private final GeneratedProbe[] probes;
+        private final TypedLiteral[] probes;
         private final byte[] occupied;
         private final int mask;
 
         ProbeSet(
                 GeneratedTableLayout layout,
                 int fieldIndex,
-                GeneratedProbe[] literals,
+                TypedLiteral[] literals,
                 SomaOperation operation,
                 Object provenance) {
             this.fieldIndex = fieldIndex;
             int capacity = capacity(literals.length, operation, provenance);
-            this.probes = new GeneratedProbe[capacity];
+            this.probes = new TypedLiteral[capacity];
             this.occupied = new byte[capacity];
             this.mask = capacity - 1;
-            for (GeneratedProbe literal : literals) {
+            for (TypedLiteral literal : literals) {
                 add(layout, literal);
             }
         }
 
         private void add(
                 GeneratedTableLayout layout,
-                GeneratedProbe literal) {
+                TypedLiteral literal) {
             long hash = layout.hashField(literal, fieldIndex);
             int slot = slot(hash, mask);
             while (occupied[slot] != 0) {

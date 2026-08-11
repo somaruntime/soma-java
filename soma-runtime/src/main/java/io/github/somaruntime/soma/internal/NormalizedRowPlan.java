@@ -16,14 +16,14 @@ final class NormalizedRowPlan {
     final List<LogicalRowPlan.Stage> stages;
     final SourceKind sourceKind;
     final int indexOrdinal;
-    final GeneratedProbe probe;
+    final TypedLiteral probe;
     final PredicateMembership membership;
 
     NormalizedRowPlan(
             List<LogicalRowPlan.Stage> stages,
             SourceKind sourceKind,
             int indexOrdinal,
-            GeneratedProbe probe,
+            TypedLiteral probe,
             PredicateMembership membership) {
         this.stages = stages;
         this.sourceKind = sourceKind;

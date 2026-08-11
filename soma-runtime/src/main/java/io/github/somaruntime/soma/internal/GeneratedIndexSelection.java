@@ -14,12 +14,12 @@ public final class GeneratedIndexSelection {
 
     private final GeneratedTable owner;
     private final int indexOrdinal;
-    private final GeneratedProbe probe;
+    private final TypedLiteral probe;
 
     GeneratedIndexSelection(
             GeneratedTable owner,
             int indexOrdinal,
-            GeneratedProbe probe) {
+            TypedLiteral probe) {
         this.owner = owner;
         this.indexOrdinal = indexOrdinal;
         this.probe = probe;

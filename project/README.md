@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；Canonical IR/Execution M1
-`READY / NOT_AUTHORIZED`；publication `NOT_AUTHORIZED`
+`IMPLEMENTATION_AUTHORIZED / S1_PASS / S2_ACTIVE`；publication `NOT_AUTHORIZED`
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
@@ -20,7 +20,8 @@ implementation 与 qualification：
 - G1–G10 当前为 `PASS`；百万行证据是同机 qualification，不是一亿行承诺或跨硬件 SLA；
 - Canonical Logical IR与执行引擎M1责任调整已经完成
   [正式晋升、Baseline Freeze与实施准入审查](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)，
-  当前`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`，没有active implementation slice；
+  Product Owner已于2026-08-11授权完整实施；[S1资格](conformance/canonical-ir-execution-s1-qualification.md)
+  已`PASS`，当前唯一active slice为`S2`；
   [大范围优化后全局完整性与回归审查](conformance/v1-post-governance-global-integrity-regression-review.md)
   已`PASS`，operation provenance、Index allocation admission与正式Owner状态漂移均已闭合；
   [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)已`PASS`，标准100K
@@ -136,7 +137,7 @@ Design、code 或 Conformance。
 
 当前没有active bounded topic。Canonical IR与执行引擎治理已由
 [正式Conformance记录](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)完成Owner晋升、
-Baseline Freeze、readiness与Temporary replacement closure，production implementation仍未授权。
+Baseline Freeze、readiness与Temporary replacement closure；production implementation已授权并进入S1。
 [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)独立保留为queued intent。
 [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)
 已完成正式Owner晋升、Conformance与replacement closure。此前

@@ -15,6 +15,12 @@ final class QueryOperation {
     }
 
     static long optimizedCount(final LogicalRowPlan logical) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.count(
+                logical.owner(), logical);
+        if (canonical != null) {
+            return CanonicalQueryOperation.optimizedCount(
+                    logical.owner(), canonical);
+        }
         return execute(logical, new BoundWork<Long>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -29,6 +35,12 @@ final class QueryOperation {
     }
 
     static long referenceCountForTesting(final LogicalRowPlan logical) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.count(
+                logical.owner(), logical);
+        if (canonical != null) {
+            return CanonicalQueryOperation.referenceCountForTesting(
+                    logical.owner(), canonical);
+        }
         return execute(logical, new BoundWork<Long>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {

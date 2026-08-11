@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
-Canonical IR/Execution M1 `FORMALLY_PROMOTED / READY / IMPLEMENTATION_NOT_AUTHORIZED`
+Canonical IR/Execution M1 `FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / S1_PASS / S2_ACTIVE`
 
 正式事实源：是
 
@@ -34,7 +34,7 @@ Core abstraction promotion    PASS
 I0-I8 authorization           FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
-Active slice                   NONE (V1 implementation complete)
+Active slice                   S2 (Canonical IR/Execution M1)
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -54,8 +54,8 @@ Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALL
 Scheduling reference        STANDARD_FJSP_100K / PASS / NATURAL_POINT_MUTATION
 Scheduling performance      STANDARD_FJSP_100K / FRESH_0.6S / WARM_0.51S / PASS
 Canonical IR promotion        PASS / FORMALLY_PROMOTED / BASELINE_FROZEN
-Canonical IR readiness        READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED
-Canonical IR active slice     NONE
+Canonical IR readiness        IMPLEMENTATION_AUTHORIZED / S1_PASS / S2_ACTIVE
+Canonical IR active slice     S2
 Active bounded topic          NONE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
@@ -158,6 +158,8 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [V1 Scheduling Reference Application 治理](v1-scheduling-reference-application-governance.md)：
   标准100K FJSP、四张runtime Table、FCFS + SPT、自然waiting `add/remove`、独立结果校验、
   benchmark解耦与底层Index治理application回归Owner。
+- [Canonical IR / Execution S1 Qualification](canonical-ir-execution-s1-qualification.md)：compact identity/
+  typed literal、最小Row Canonical/Bound/Reference/Physical/Frame闭环、Java 8与10K/1M防退化证据Owner。
 - [I1 Field Endpoint Signature Correction](i1-field-endpoint-signature-correction.md)：
   `@SomaField`与generic marker同名反例、Product Owner裁决、targeted evidence与replacement
   closure Owner。
@@ -172,7 +174,7 @@ Historical inputs：
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
 Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
-Canonical IR/Execution治理已经正式晋升、冻结并完成readiness，production implementation仍未授权。
+Canonical IR/Execution治理已经正式晋升、冻结并获实施授权，S1已PASS，S2是唯一active slice。
 [SOMA Engine产品构思](../temp/soma-engine-product-concept/README.md)是独立queued intent，不是Design、
 active governance或current implementation input。
 `docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
@@ -250,8 +252,8 @@ Release、Package publication、签名和正式发布声明均不在授权内。
 
 上述2026-08-03授权只拥有已经完成的I0-I8实施，不自动授权
 [Canonical IR/Execution S1-S6](../engineering/canonical-ir-execution-engine-implementation-plan.md)。该计划
-当前`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`；只有Product Owner后续明确授权，S1才
-可以成为active slice。
+当前`IMPLEMENTATION_AUTHORIZED / S1_PASS / S2_ACTIVE`；S2完成exit evidence、Conformance与干净
+提交后才能进入S3。
 
 ## 7. Release claim boundary
 

@@ -20,7 +20,9 @@ Owner 已于 2026-08-03 明确授予完整 V1 implementation authorization。I0-
 [I6资格](project/conformance/i6-parallel-execution-qualification.md)、
 [I7资格](project/conformance/i7-compression-metadata-qualification.md)，I8通过
 [产品资格与G9 Owner sign-off](project/conformance/i8-product-qualification.md)：G1-G10为`PASS`；
-当前没有active implementation slice。GitHub Release/Package、签名和正式release声明未授权。
+Canonical IR/Execution M1已获Product Owner授权，S1资格已`PASS`，当前唯一active implementation
+slice为S2。
+GitHub Release/Package、签名和正式release声明未授权。
 
 Active checkout已包含I8三个reference application、million-row profile、package/SBOM/provenance、CI与
 non-publishing release qualification workflow，以及I7 AUTO/OFF compression、PLAIN/encoded/overlay representation、四级typed metadata
@@ -39,8 +41,9 @@ mutation即时局部维护，Selection mutation一次candidate rebuild。
 优化已由正式Design承接。
 [Canonical Logical IR与执行引擎M1治理](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)
 已完成正式Owner晋升、Baseline Freeze与targeted readiness，状态为
-`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`；正式
-[S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)尚无active slice。
+`IMPLEMENTATION_AUTHORIZED / S1_PASS / S2_ACTIVE`；正式
+[S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)保持冻结基线，实际active
+状态由Conformance拥有。
 当前没有active bounded Temporary；[SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)
 仅为queued intent，不是Design或implementation input。
 千万行组合负载治理由
@@ -153,11 +156,11 @@ dependency或plugin expansion。
 
 ## 实施准入与推进
 
-- 当前 implementation authorization 覆盖 I0-I8 的自主实现；I0-I8 slice与G1-G10均已关闭，
-  当前没有active implementation slice；
-- 上述历史授权不覆盖
-  [Canonical IR/Execution S1-S6](project/engineering/canonical-ir-execution-engine-implementation-plan.md)；
-  该计划虽已`READY_FOR_IMPLEMENTATION`，但Product Owner尚未授予implementation authorization；
+- 当前 implementation authorization 覆盖 I0-I8 与Canonical IR/Execution S1-S6自主实现；I0-I8
+  slice与G1-G10均已关闭，S1已PASS，当前唯一active implementation slice为S2；
+- Canonical IR/Execution S1-S6的授权由
+  [正式Conformance记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)拥有；
+  冻结Engineering Plan中的准入快照不作为current authorization状态源；
 - 当前授权覆盖repository-local CI与non-publishing release qualification workflow、local/internal
   benchmark与profile、local Maven package qualification，以及上述JUnit test-only stack；精确
   边界由[Conformance authorization contract](project/conformance/README.md#6-implementation-authorization-contract)

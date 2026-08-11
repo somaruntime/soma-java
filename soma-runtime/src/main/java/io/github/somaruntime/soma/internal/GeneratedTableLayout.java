@@ -312,6 +312,17 @@ public final class GeneratedTableLayout {
         return finishHash(hash);
     }
 
+    long hashField(TypedLiteral literal, int fieldIndex) {
+        requireLiteral(literal, fieldIndex);
+        int start = fieldStart(fieldIndex);
+        int count = fieldLeafCount(fieldIndex);
+        long hash = 1L;
+        for (int leaf = start; leaf < start + count; leaf++) {
+            hash = mixPart(hash, hashLiteral(literal, leaf));
+        }
+        return finishHash(hash);
+    }
+
     boolean fieldEquals(
             TableChunkDirectory directory,
             int locator,
@@ -325,6 +336,22 @@ public final class GeneratedTableLayout {
             if (!leafEquals(chunk, offset, values, leaf)) {
                 return false;
             }
+        }
+        return true;
+    }
+
+    boolean fieldEquals(
+            TableChunkDirectory directory,
+            int locator,
+            TypedLiteral literal,
+            int fieldIndex) {
+        requireLiteral(literal, fieldIndex);
+        int start = fieldStart(fieldIndex);
+        int count = fieldLeafCount(fieldIndex);
+        TableChunk chunk = directory.chunk(locator / directory.chunkRows());
+        int offset = locator % directory.chunkRows();
+        for (int leaf = start; leaf < start + count; leaf++) {
+            if (!leafEquals(chunk, offset, literal, leaf)) return false;
         }
         return true;
     }
@@ -486,6 +513,20 @@ public final class GeneratedTableLayout {
         return true;
     }
 
+    boolean fieldEquals(
+            TypedLiteral left,
+            TypedLiteral right,
+            int fieldIndex) {
+        requireLiteral(left, fieldIndex);
+        requireLiteral(right, fieldIndex);
+        int start = fieldStart(fieldIndex);
+        int count = fieldLeafCount(fieldIndex);
+        for (int leaf = start; leaf < start + count; leaf++) {
+            if (!leafEquals(left, right, leaf)) return false;
+        }
+        return true;
+    }
+
     boolean fieldValueIsNull(TypedValues values, int fieldIndex) {
         requireField(fieldIndex);
         if (!fieldNullables[fieldIndex]) return false;
@@ -542,6 +583,42 @@ public final class GeneratedTableLayout {
                 throw new AssertionError("ordinary Object has no intrinsic order");
             default:
                 throw new AssertionError("Field kind has no intrinsic order");
+        }
+    }
+
+    int compareStored(
+            TableChunkDirectory directory,
+            int locator,
+            TypedLiteral literal,
+            int fieldIndex) {
+        requireLiteral(literal, fieldIndex);
+        if (fieldLeafCount(fieldIndex) != 1) {
+            throw new AssertionError("only scalar ordered Fields are comparable");
+        }
+        int leaf = fieldStart(fieldIndex);
+        int slot = leafSlot(leaf);
+        switch (leafKinds[leaf]) {
+            case BYTE: return Byte.compare(directory.byteValue(locator, slot), literal.byteValue(leaf));
+            case SHORT: return Short.compare(directory.shortValue(locator, slot), literal.shortValue(leaf));
+            case CHAR: return Character.compare(directory.charValue(locator, slot), literal.charValue(leaf));
+            case INT: return Integer.compare(directory.intValue(locator, slot), literal.intValue(leaf));
+            case LONG: return Long.compare(directory.longValue(locator, slot), literal.longValue(leaf));
+            case FLOAT: return Float.compare(directory.floatValue(locator, slot), literal.floatValue(leaf));
+            case DOUBLE: return Double.compare(directory.doubleValue(locator, slot), literal.doubleValue(leaf));
+            case REFERENCE:
+                Object left = directory.referenceValue(locator, slot);
+                Object right = literal.referenceValue(leaf);
+                if (left == null || right == null) {
+                    return left == right ? 0 : left == null ? -1 : 1;
+                }
+                if (equalityKinds[leaf] == EQ_STRING_CONTENT) {
+                    return ((String) left).compareTo((String) right);
+                }
+                if (equalityKinds[leaf] == EQ_ENUM_IDENTITY) {
+                    return Integer.compare(((Enum<?>) left).ordinal(), ((Enum<?>) right).ordinal());
+                }
+                throw new AssertionError("ordinary Object has no intrinsic order");
+            default: throw new AssertionError("Field kind has no intrinsic order");
         }
     }
 
@@ -713,6 +790,33 @@ public final class GeneratedTableLayout {
         }
     }
 
+    private long hashLiteral(TypedLiteral literal, int leaf) {
+        switch (leafKinds[leaf]) {
+            case BOOLEAN:
+                return literal.booleanValue(leaf) ? 1231L : 1237L;
+            case BYTE:
+                return literal.byteValue(leaf);
+            case SHORT:
+                return literal.shortValue(leaf);
+            case CHAR:
+                return literal.charValue(leaf);
+            case INT:
+                return literal.intValue(leaf);
+            case LONG:
+                long longValue = literal.longValue(leaf);
+                return longValue ^ longValue >>> 32;
+            case FLOAT:
+                return Float.floatToIntBits(literal.floatValue(leaf));
+            case DOUBLE:
+                long doubleBits = Double.doubleToLongBits(literal.doubleValue(leaf));
+                return doubleBits ^ doubleBits >>> 32;
+            case REFERENCE:
+                return referenceHash(literal.referenceValue(leaf), equalityKinds[leaf]);
+            default:
+                throw new AssertionError("unknown leaf kind");
+        }
+    }
+
     private boolean leafEquals(
             TableChunk chunk,
             int offset,
@@ -748,6 +852,41 @@ public final class GeneratedTableLayout {
         }
     }
 
+    private boolean leafEquals(
+            TableChunk chunk,
+            int offset,
+            TypedLiteral literal,
+            int leaf) {
+        int slot = leafSlots[leaf];
+        switch (leafKinds[leaf]) {
+            case BOOLEAN:
+                return chunk.booleanValue(slot, offset) == literal.booleanValue(leaf);
+            case BYTE:
+                return chunk.byteValue(slot, offset) == literal.byteValue(leaf);
+            case SHORT:
+                return chunk.shortValue(slot, offset) == literal.shortValue(leaf);
+            case CHAR:
+                return chunk.charValue(slot, offset) == literal.charValue(leaf);
+            case INT:
+                return chunk.intValue(slot, offset) == literal.intValue(leaf);
+            case LONG:
+                return chunk.longValue(slot, offset) == literal.longValue(leaf);
+            case FLOAT:
+                return Float.floatToIntBits(chunk.floatValue(slot, offset))
+                        == Float.floatToIntBits(literal.floatValue(leaf));
+            case DOUBLE:
+                return Double.doubleToLongBits(chunk.doubleValue(slot, offset))
+                        == Double.doubleToLongBits(literal.doubleValue(leaf));
+            case REFERENCE:
+                return referenceEquals(
+                        chunk.referenceValue(slot, offset),
+                        literal.referenceValue(leaf),
+                        equalityKinds[leaf]);
+            default:
+                throw new AssertionError("unknown leaf kind");
+        }
+    }
+
     private boolean leafEquals(TypedValues left, TypedValues right, int leaf) {
         int slot = leafSlots[leaf];
         switch (leafKinds[leaf]) {
@@ -772,6 +911,36 @@ public final class GeneratedTableLayout {
             case REFERENCE:
                 return referenceEquals(
                         left.reference(slot), right.reference(slot), equalityKinds[leaf]);
+            default:
+                throw new AssertionError("unknown leaf kind");
+        }
+    }
+
+    private boolean leafEquals(TypedLiteral left, TypedLiteral right, int leaf) {
+        switch (leafKinds[leaf]) {
+            case BOOLEAN:
+                return left.booleanValue(leaf) == right.booleanValue(leaf);
+            case BYTE:
+                return left.byteValue(leaf) == right.byteValue(leaf);
+            case SHORT:
+                return left.shortValue(leaf) == right.shortValue(leaf);
+            case CHAR:
+                return left.charValue(leaf) == right.charValue(leaf);
+            case INT:
+                return left.intValue(leaf) == right.intValue(leaf);
+            case LONG:
+                return left.longValue(leaf) == right.longValue(leaf);
+            case FLOAT:
+                return Float.floatToIntBits(left.floatValue(leaf))
+                        == Float.floatToIntBits(right.floatValue(leaf));
+            case DOUBLE:
+                return Double.doubleToLongBits(left.doubleValue(leaf))
+                        == Double.doubleToLongBits(right.doubleValue(leaf));
+            case REFERENCE:
+                return referenceEquals(
+                        left.referenceValue(leaf),
+                        right.referenceValue(leaf),
+                        equalityKinds[leaf]);
             default:
                 throw new AssertionError("unknown leaf kind");
         }
@@ -809,6 +978,14 @@ public final class GeneratedTableLayout {
     private void requireField(int field) {
         if (field < 0 || field >= fieldStarts.length) {
             throw new AssertionError("invalid generated Field ordinal");
+        }
+    }
+
+    private void requireLiteral(TypedLiteral literal, int field) {
+        requireField(field);
+        if (literal == null || literal.layout() != this
+                || literal.fieldIndex() != field) {
+            throw new AssertionError("typed literal does not belong to logical Field");
         }
     }
 

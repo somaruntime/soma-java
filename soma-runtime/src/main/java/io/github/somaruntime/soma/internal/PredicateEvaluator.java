@@ -44,7 +44,7 @@ final class PredicateEvaluator {
                         && layout.compareStored(
                         root.directory, locator, predicate.upper, predicate.fieldIndex) <= 0;
             case IN:
-                for (GeneratedProbe literal : predicate.literals) {
+                for (TypedLiteral literal : predicate.literals) {
                     if (layout.fieldEquals(
                             root.directory, locator, literal, predicate.fieldIndex)) {
                         return true;

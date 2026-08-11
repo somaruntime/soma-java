@@ -64,12 +64,31 @@ final class IdentityHashIndex {
         return slot < 0 ? -1 : shard.firstLocators[slot];
     }
 
+    int findUnique(TableChunkDirectory directory, TypedLiteral probe) {
+        if (!unique) throw new AssertionError("non-unique Index used as Key");
+        if (shards == null) return -1;
+        long hash = layout.hashField(probe, fieldIndex);
+        Shard shard = shards[shardOrdinal(hash)];
+        if (shard == null) return -1;
+        int slot = shard.findLiteral(directory, probe, hash, layout, fieldIndex);
+        return slot < 0 ? -1 : shard.firstLocators[slot];
+    }
+
     long count(TableChunkDirectory directory, TypedValues probe) {
         if (shards == null) return 0L;
         long hash = layout.hashField(probe, fieldIndex);
         Shard shard = shards[shardOrdinal(hash)];
         if (shard == null) return 0L;
         int slot = shard.findProbe(directory, probe, hash, layout, fieldIndex);
+        return slot < 0 ? 0L : shard.counts[slot];
+    }
+
+    long count(TableChunkDirectory directory, TypedLiteral probe) {
+        if (shards == null) return 0L;
+        long hash = layout.hashField(probe, fieldIndex);
+        Shard shard = shards[shardOrdinal(hash)];
+        if (shard == null) return 0L;
+        int slot = shard.findLiteral(directory, probe, hash, layout, fieldIndex);
         return slot < 0 ? 0L : shard.counts[slot];
     }
 
@@ -81,6 +100,17 @@ final class IdentityHashIndex {
         Shard shard = shards[shardOrdinal(hash)];
         if (shard == null) return -1;
         int slot = shard.findProbe(directory, probe, hash, layout, fieldIndex);
+        return slot < 0 ? -1 : cursor.bind(shard, slot);
+    }
+
+    int first(TableChunkDirectory directory, TypedLiteral probe, Cursor cursor) {
+        if (cursor == null) throw new AssertionError("Index Cursor is null");
+        cursor.clear();
+        if (shards == null) return -1;
+        long hash = layout.hashField(probe, fieldIndex);
+        Shard shard = shards[shardOrdinal(hash)];
+        if (shard == null) return -1;
+        int slot = shard.findLiteral(directory, probe, hash, layout, fieldIndex);
         return slot < 0 ? -1 : cursor.bind(shard, slot);
     }
 
@@ -1066,6 +1096,28 @@ final class IdentityHashIndex {
         int findProbe(
                 TableChunkDirectory directory,
                 TypedValues probe,
+                long hash,
+                GeneratedTableLayout layout,
+                int fieldIndex) {
+            int slot = ((int) hash) & mask;
+            while (states[slot] != 0) {
+                if (states[slot] == 1
+                        && hashes[slot] == hash
+                        && layout.fieldEquals(
+                                directory,
+                                firstLocators[slot],
+                                probe,
+                                fieldIndex)) {
+                    return slot;
+                }
+                slot = (slot + 1) & mask;
+            }
+            return -1;
+        }
+
+        int findLiteral(
+                TableChunkDirectory directory,
+                TypedLiteral probe,
                 long hash,
                 GeneratedTableLayout layout,
                 int fieldIndex) {

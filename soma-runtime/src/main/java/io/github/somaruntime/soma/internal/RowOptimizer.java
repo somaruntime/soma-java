@@ -113,15 +113,16 @@ final class RowOptimizer {
             return null;
         }
         int field = predicate.fieldIndex;
-        GeneratedProbe probe;
+        TypedLiteral probe;
         if (predicate.kind == PredicateIr.Kind.EQ) {
             probe = predicate.lower;
         } else {
             int index = table.layout().indexOrdinalForField(field);
             if (index < 0) return null;
-            probe = table.newProbe(field);
-            probe.putReference(table.layout().fieldStart(field), null);
-            probe.seal();
+            GeneratedProbe generated = table.newProbe(field);
+            generated.putReference(table.layout().fieldStart(field), null);
+            generated.seal();
+            probe = generated.snapshot(table, field);
         }
         if (table.layout().keyFieldIndex() == field) {
             return new LookupCandidate(true, -1, probe);
@@ -133,9 +134,9 @@ final class RowOptimizer {
     private static final class LookupCandidate {
         final boolean unique;
         final int indexOrdinal;
-        final GeneratedProbe probe;
+        final TypedLiteral probe;
 
-        LookupCandidate(boolean unique, int indexOrdinal, GeneratedProbe probe) {
+        LookupCandidate(boolean unique, int indexOrdinal, TypedLiteral probe) {
             this.unique = unique;
             this.indexOrdinal = indexOrdinal;
             this.probe = probe;

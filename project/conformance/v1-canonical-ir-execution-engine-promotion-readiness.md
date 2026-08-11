@@ -2,8 +2,7 @@
 
 类型：Conformance / Formal Promotion / Baseline Freeze / Implementation Readiness
 
-状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / READY_FOR_IMPLEMENTATION /
-IMPLEMENTATION_AUTHORIZATION_NOT_GRANTED`
+状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / S1_PASS / S2_ACTIVE`
 
 正式事实源：是
 
@@ -23,13 +22,13 @@ Planning、Core、Implementation Architecture与Execution唯一Owner；S1-S6实�
 Formal Design promotion      PASS
 Baseline freeze              PASS
 Implementation readiness    READY
-Implementation authorization NOT_GRANTED
-Production implementation   NOT_STARTED
+Implementation authorization GRANTED (2026-08-11)
+Production implementation   S1_PASS / S2_ACTIVE
 Release/publication          NOT_AUTHORIZED
 ```
 
-因此，当前没有active implementation slice。Product Owner需另行明确授权后，S1才能激活；I0-I8历史
-授权与资格不能自动扩张到本次M1重构。
+Product Owner已于2026-08-11明确授权本专题完整实施；S1资格已经PASS，S2是当前唯一active
+implementation slice，I0-I8历史授权与资格仍不作为本次M1重构的授权来源。
 
 ## 2. 基线与审查范围
 
@@ -162,9 +161,9 @@ archive。未来SOMA Engine构思独立保存为inactive、non-Design input。
 
 ## 9. Authorization 与 release boundary
 
-本次Product Owner批准的是正式晋升、Baseline Freeze与实施准入审查，不等于授权S1-S6 production
-implementation。后续若授权，仍必须一次只推进一个active slice，并在exit evidence、一次bounded
-独立审查、Conformance更新和干净提交后进入下一项。
+Product Owner已于2026-08-11另行授权S1-S6 production implementation。该授权不改变冻结计划文本，
+current active slice由本记录与逐slice Conformance拥有；仍必须一次只推进一个active slice，并在exit
+evidence、bounded review、Conformance更新和干净提交后进入下一项。
 
 本记录不授权：
 
@@ -181,8 +180,8 @@ Design completeness          PASS
 Baseline integrity           PASS
 Implementation readiness     READY
 Remaining Design decision    NONE
-Active implementation slice NONE
-Authorization               WAITING_FOR_PRODUCT_OWNER
+Active implementation slice S2 (S1 PASS)
+Authorization               GRANTED (2026-08-11)
 ```
 
-下一步不是继续扩写Design，而是在Product Owner明确授权后按正式Plan激活S1。
+下一步按正式Plan完成S2 exit evidence；S2关闭后才能激活S3。
