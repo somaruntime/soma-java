@@ -599,6 +599,7 @@ class GeneratedTableTest {
 
         BoundCanonicalRowOperation indexBound = new BoundCanonicalRowOperation(
                 indexCanonical,
+                table,
                 table.layout(),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
@@ -617,6 +618,7 @@ class GeneratedTableTest {
                         table.requireOwnedExpression(table.eq(keyValue.seal()))));
         BoundCanonicalRowOperation keyBound = new BoundCanonicalRowOperation(
                 keyCanonical,
+                table,
                 table.layout(),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
@@ -637,6 +639,7 @@ class GeneratedTableTest {
                                 new GeneratedProbe[] {singleIn.seal()}))));
         BoundCanonicalRowOperation inBound = new BoundCanonicalRowOperation(
                 inCanonical,
+                table,
                 table.layout(),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
@@ -654,6 +657,7 @@ class GeneratedTableTest {
                         table.requireOwnedExpression(table.isNull(0))));
         BoundCanonicalRowOperation nullBound = new BoundCanonicalRowOperation(
                 impossibleNull,
+                table,
                 table.layout(),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
@@ -686,6 +690,7 @@ class GeneratedTableTest {
 
         BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
                 canonical,
+                table,
                 table.layout(),
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,

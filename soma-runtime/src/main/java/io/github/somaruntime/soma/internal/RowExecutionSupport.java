@@ -27,6 +27,27 @@ final class RowExecutionSupport {
         }
     }
 
+    static boolean callbackTest(
+            BoundCanonicalRowOperation bound,
+            int locator,
+            HostCallbackHandle callback) {
+        if (callback == null || callback.kind != HostCallbackHandle.Kind.ROW_PREDICATE) {
+            throw new AssertionError("canonical callback is not a Row predicate");
+        }
+        GeneratedQueryCursor cursor = bound.table.queryCursor();
+        cursor.enter(locator);
+        CallbackExecutionScope.enter();
+        try {
+            return ((GeneratedCallbacks.RowPredicate) callback.callback).test();
+        } catch (Exception failure) {
+            throw SomaFailures.callbackFailure(
+                    bound.operation, failure, bound.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
+            cursor.leave();
+        }
+    }
+
     static void callbackAction(
             BoundRowPlan bound,
             int locator,
@@ -36,6 +57,27 @@ final class RowExecutionSupport {
         CallbackExecutionScope.enter();
         try {
             callback.accept();
+        } catch (Exception failure) {
+            throw SomaFailures.callbackFailure(
+                    bound.operation, failure, bound.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
+            cursor.leave();
+        }
+    }
+
+    static void callbackAction(
+            BoundCanonicalRowOperation bound,
+            int locator,
+            HostCallbackHandle callback) {
+        if (callback == null || callback.kind != HostCallbackHandle.Kind.ROW_ACTION) {
+            throw new AssertionError("canonical callback is not a Row action");
+        }
+        GeneratedQueryCursor cursor = bound.table.queryCursor();
+        cursor.enter(locator);
+        CallbackExecutionScope.enter();
+        try {
+            ((GeneratedCallbacks.RowAction) callback.callback).accept();
         } catch (Exception failure) {
             throw SomaFailures.callbackFailure(
                     bound.operation, failure, bound.provenance);
@@ -61,6 +103,36 @@ final class RowExecutionSupport {
                     throw (RuntimeException) failure;
                 }
                 throw new AssertionError("generated materializer threw checked failure", failure);
+            }
+            throw SomaFailures.callbackFailure(
+                    bound.operation, failure, bound.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
+            cursor.leave();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    static <R> R callbackMap(
+            BoundCanonicalRowOperation bound,
+            int locator,
+            HostCallbackHandle callback,
+            boolean applicationCallback) {
+        if (callback == null || callback.kind != HostCallbackHandle.Kind.ROW_MAPPER) {
+            throw new AssertionError("canonical callback is not a Row mapper");
+        }
+        GeneratedQueryCursor cursor = bound.table.queryCursor();
+        cursor.enter(locator);
+        CallbackExecutionScope.enter();
+        try {
+            return ((GeneratedCallbacks.RowMapper<R>) callback.callback).apply();
+        } catch (Exception failure) {
+            if (!applicationCallback) {
+                if (failure instanceof RuntimeException) {
+                    throw (RuntimeException) failure;
+                }
+                throw new AssertionError(
+                        "generated materializer threw checked failure", failure);
             }
             throw SomaFailures.callbackFailure(
                     bound.operation, failure, bound.provenance);
@@ -236,6 +308,46 @@ final class RowExecutionSupport {
         }
     }
 
+    static int compare(
+            BoundCanonicalRowOperation bound,
+            int left,
+            int right,
+            CanonicalRowStage stage) {
+        if (stage.kind == CanonicalRowStage.Kind.TYPED_ORDER) {
+            CanonicalOrder order = stage.order;
+            for (int ordinal = 0; ordinal < order.size(); ordinal++) {
+                int result = bound.layout.compareStored(
+                        bound.root.directory,
+                        left,
+                        right,
+                        order.fieldIndex(ordinal));
+                if (result != 0) {
+                    return order.descending(ordinal) ? -result : result;
+                }
+            }
+            return 0;
+        }
+        if (stage.kind != CanonicalRowStage.Kind.CALLBACK_ORDER
+                || stage.callback.kind != HostCallbackHandle.Kind.ROW_COMPARATOR) {
+            throw new AssertionError("canonical Row stage is not an order");
+        }
+        GeneratedQueryCursor leftCursor = bound.table.queryCursor();
+        GeneratedQueryCursor rightCursor = bound.table.secondaryQueryCursor();
+        leftCursor.enter(left);
+        rightCursor.enter(right);
+        CallbackExecutionScope.enter();
+        try {
+            return ((GeneratedCallbacks.RowComparator) stage.callback.callback).compare();
+        } catch (Exception failure) {
+            throw SomaFailures.callbackFailure(
+                    bound.operation, failure, bound.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
+            rightCursor.leave();
+            leftCursor.leave();
+        }
+    }
+
     /** Canonical stable comparison schedule for an opaque row Comparator. */
     static void stableCallbackSort(
             BoundRowPlan bound,
@@ -248,6 +360,46 @@ final class RowExecutionSupport {
         int[] scratch = new int[values.size()];
         stableCallbackMergeSort(
                 bound, values.backing(), scratch, 0, values.size(), stage);
+    }
+
+    static void stableCallbackSort(
+            BoundCanonicalRowOperation bound,
+            IntLocatorBuffer values,
+            CanonicalRowStage stage) {
+        if (stage.kind != CanonicalRowStage.Kind.CALLBACK_ORDER) {
+            throw new AssertionError("canonical callback sort requires callback order");
+        }
+        if (values.size() < 2) return;
+        int[] scratch = new int[values.size()];
+        stableCallbackMergeSort(
+                bound, values.backing(), scratch, 0, values.size(), stage);
+    }
+
+    private static void stableCallbackMergeSort(
+            BoundCanonicalRowOperation bound,
+            int[] values,
+            int[] scratch,
+            int from,
+            int to,
+            CanonicalRowStage stage) {
+        int length = to - from;
+        if (length < 2) return;
+        int middle = from + length / 2;
+        stableCallbackMergeSort(bound, values, scratch, from, middle, stage);
+        stableCallbackMergeSort(bound, values, scratch, middle, to, stage);
+        int left = from;
+        int right = middle;
+        int output = from;
+        while (left < middle && right < to) {
+            if (compare(bound, values[left], values[right], stage) <= 0) {
+                scratch[output++] = values[left++];
+            } else {
+                scratch[output++] = values[right++];
+            }
+        }
+        while (left < middle) scratch[output++] = values[left++];
+        while (right < to) scratch[output++] = values[right++];
+        System.arraycopy(scratch, from, values, from, length);
     }
 
     private static void stableCallbackMergeSort(

@@ -11,17 +11,25 @@ final class CanonicalRowPlanner {
     }
 
     static NormalizedCanonicalRow normalize(BoundCanonicalRowOperation bound) {
-        PredicateIr combined = null;
-        for (PredicateIr filter : bound.canonical.filters) {
-            filter = normalizePredicate(filter, bound.layout);
-            combined = combined == null
-                    ? filter
-                    : normalizeBinary(PredicateIr.Kind.AND, combined, filter);
+        ArrayList<CanonicalRowStage> stages = new ArrayList<CanonicalRowStage>();
+        PredicateIr pending = null;
+        for (CanonicalRowStage stage : bound.canonical.stages) {
+            if (stage.kind == CanonicalRowStage.Kind.TYPED_FILTER) {
+                PredicateIr filter = normalizePredicate(
+                        stage.predicate, bound.layout);
+                pending = pending == null
+                        ? filter
+                        : normalizeBinary(PredicateIr.Kind.AND, pending, filter);
+                continue;
+            }
+            if (pending != null) {
+                stages.add(CanonicalRowStage.typedFilter(pending));
+                pending = null;
+            }
+            stages.add(stage);
         }
-        List<PredicateIr> normalized = combined == null
-                ? Collections.<PredicateIr>emptyList()
-                : Collections.singletonList(combined);
-        return new NormalizedCanonicalRow(bound, normalized);
+        if (pending != null) stages.add(CanonicalRowStage.typedFilter(pending));
+        return new NormalizedCanonicalRow(bound, stages);
     }
 
     private static PredicateIr normalizePredicate(
@@ -106,7 +114,7 @@ final class CanonicalRowPlanner {
             literal = bound.canonical.sourceLiteral;
         } else {
             LookupCandidate candidate = lookupCandidate(
-                    bound, normalized.filters);
+                    bound, normalized.stages);
             if (candidate == null) {
                 access = CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN;
             } else {
@@ -122,19 +130,66 @@ final class CanonicalRowPlanner {
                 256L,
                 bound.operation,
                 bound.provenance);
+        if (bound.canonical.hasStatefulStage()) {
+            temporaryBytes = CheckedLong.add(
+                    temporaryBytes,
+                    RowExecutionSupport.arrayBytes(
+                            bound.root.size, 96L, bound.provenance),
+                    bound.operation,
+                    bound.provenance);
+        }
+        if (bound.canonical.terminal == CanonicalRowOperation.TerminalKind.LOCATORS_TEST
+                || bound.canonical.terminal == CanonicalRowOperation.TerminalKind.UPDATE
+                || bound.canonical.terminal == CanonicalRowOperation.TerminalKind.REMOVE) {
+            temporaryBytes = CheckedLong.add(
+                    temporaryBytes,
+                    RowExecutionSupport.arrayBytes(
+                            bound.root.size, 24L, bound.provenance),
+                    bound.operation,
+                    bound.provenance);
+        }
+        if (bound.canonical.request.mode == ExecutionRequest.Mode.PARALLEL
+                && bound.canonical.beginsWithTypedFilter()
+                && access == CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN) {
+            temporaryBytes = CheckedLong.add(
+                    temporaryBytes,
+                    RowExecutionSupport.arrayBytes(
+                            bound.root.size, 24L, bound.provenance),
+                    bound.operation,
+                    bound.provenance);
+        }
+        int parallelPrefix = 0;
+        int partitions = 1;
+        if (bound.canonical.request.mode == ExecutionRequest.Mode.PARALLEL
+                && access == CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN) {
+            while (parallelPrefix < normalized.stages.size()
+                    && normalized.stages.get(parallelPrefix).kind
+                            == CanonicalRowStage.Kind.TYPED_FILTER) {
+                parallelPrefix++;
+            }
+            int chunks = CheckedStructural.ceilChunks(
+                    bound.root.size, bound.root.directory.chunkRows());
+            partitions = Math.min(
+                    Math.max(1, bound.table.parallelExecutor().getParallelism()),
+                    Math.max(1, chunks));
+            if (parallelPrefix == 0) partitions = 1;
+        }
         return new CanonicalRowPhysicalPlan(
                 normalized,
                 access,
                 indexOrdinal,
                 literal,
+                parallelPrefix,
+                partitions,
                 new ResourceEstimate(temporaryBytes));
     }
 
     private static LookupCandidate lookupCandidate(
             BoundCanonicalRowOperation bound,
-            List<PredicateIr> filters) {
-        for (PredicateIr filter : filters) {
-            LookupCandidate candidate = lookupCandidate(bound, filter);
+            List<CanonicalRowStage> stages) {
+        for (CanonicalRowStage stage : stages) {
+            if (stage.kind != CanonicalRowStage.Kind.TYPED_FILTER) break;
+            LookupCandidate candidate = lookupCandidate(bound, stage.predicate);
             if (candidate != null) return candidate;
         }
         return null;
@@ -187,14 +242,22 @@ final class CanonicalRowPlanner {
 
 final class NormalizedCanonicalRow {
     final BoundCanonicalRowOperation bound;
+    final List<CanonicalRowStage> stages;
     final List<PredicateIr> filters;
 
     NormalizedCanonicalRow(
             BoundCanonicalRowOperation bound,
-            List<PredicateIr> filters) {
+            List<CanonicalRowStage> stages) {
         this.bound = bound;
-        this.filters = Collections.unmodifiableList(
-                new ArrayList<PredicateIr>(filters));
+        this.stages = Collections.unmodifiableList(
+                new ArrayList<CanonicalRowStage>(stages));
+        ArrayList<PredicateIr> predicates = new ArrayList<PredicateIr>();
+        for (CanonicalRowStage stage : stages) {
+            if (stage.kind == CanonicalRowStage.Kind.TYPED_FILTER) {
+                predicates.add(stage.predicate);
+            }
+        }
+        this.filters = Collections.unmodifiableList(predicates);
     }
 }
 
@@ -205,6 +268,8 @@ final class CanonicalRowPhysicalPlan {
     final AccessPath accessPath;
     final int indexOrdinal;
     final TypedLiteral literal;
+    final int parallelPrefixStages;
+    final int partitions;
     final ResourceEstimate resources;
 
     CanonicalRowPhysicalPlan(
@@ -212,11 +277,15 @@ final class CanonicalRowPhysicalPlan {
             AccessPath accessPath,
             int indexOrdinal,
             TypedLiteral literal,
+            int parallelPrefixStages,
+            int partitions,
             ResourceEstimate resources) {
         this.normalized = normalized;
         this.accessPath = accessPath;
         this.indexOrdinal = indexOrdinal;
         this.literal = literal;
+        this.parallelPrefixStages = parallelPrefixStages;
+        this.partitions = partitions;
         this.resources = resources;
     }
 }

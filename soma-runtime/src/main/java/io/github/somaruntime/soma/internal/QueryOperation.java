@@ -15,9 +15,10 @@ final class QueryOperation {
     }
 
     static long optimizedCount(final LogicalRowPlan logical) {
-        CanonicalRowOperation canonical = CanonicalRowLowering.count(
-                logical.owner(), logical);
-        if (canonical != null) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.COUNT, null);
+        if (canUseCanonical(canonical)) {
             return CanonicalQueryOperation.optimizedCount(
                     logical.owner(), canonical);
         }
@@ -35,9 +36,10 @@ final class QueryOperation {
     }
 
     static long referenceCountForTesting(final LogicalRowPlan logical) {
-        CanonicalRowOperation canonical = CanonicalRowLowering.count(
-                logical.owner(), logical);
-        if (canonical != null) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.COUNT, null);
+        if (canUseCanonical(canonical)) {
             return CanonicalQueryOperation.referenceCountForTesting(
                     logical.owner(), canonical);
         }
@@ -57,6 +59,14 @@ final class QueryOperation {
     static boolean anyMatch(
             LogicalRowPlan logical,
             final GeneratedCallbacks.RowPredicate predicate) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.ANY_MATCH,
+                HostCallbackHandle.rowPredicate(
+                        logical.owner().logicalIdentity(), predicate));
+        if (canUseCanonical(canonical)) {
+            return CanonicalQueryOperation.anyMatch(logical.owner(), canonical);
+        }
         return execute(logical, new BoundWork<Boolean>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -87,6 +97,14 @@ final class QueryOperation {
     static boolean allMatch(
             LogicalRowPlan logical,
             final GeneratedCallbacks.RowPredicate predicate) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.ALL_MATCH,
+                HostCallbackHandle.rowPredicate(
+                        logical.owner().logicalIdentity(), predicate));
+        if (canUseCanonical(canonical)) {
+            return CanonicalQueryOperation.allMatch(logical.owner(), canonical);
+        }
         return execute(logical, new BoundWork<Boolean>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -117,12 +135,28 @@ final class QueryOperation {
     static boolean noneMatch(
             LogicalRowPlan logical,
             GeneratedCallbacks.RowPredicate predicate) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.NONE_MATCH,
+                HostCallbackHandle.rowPredicate(
+                        logical.owner().logicalIdentity(), predicate));
+        if (canUseCanonical(canonical)) {
+            return !CanonicalQueryOperation.anyMatch(logical.owner(), canonical);
+        }
         return !anyMatch(logical, predicate);
     }
 
     static <R> Optional<R> findFirst(
             LogicalRowPlan logical,
             final GeneratedCallbacks.RowMapper<R> materializer) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.FIND_FIRST,
+                HostCallbackHandle.rowMapper(
+                        logical.owner().logicalIdentity(), materializer));
+        if (canUseCanonical(canonical)) {
+            return CanonicalQueryOperation.findFirst(logical.owner(), canonical);
+        }
         return execute(logical, new BoundWork<Optional<R>>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -164,6 +198,15 @@ final class QueryOperation {
     static void forEach(
             LogicalRowPlan logical,
             final GeneratedCallbacks.RowAction action) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.FOR_EACH,
+                HostCallbackHandle.rowAction(
+                        logical.owner().logicalIdentity(), action));
+        if (canUseCanonical(canonical)) {
+            CanonicalQueryOperation.forEach(logical.owner(), canonical);
+            return;
+        }
         execute(logical, new BoundWork<Object>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -199,6 +242,15 @@ final class QueryOperation {
             LogicalRowPlan logical,
             final GeneratedCallbacks.RowMapper<R> materializer,
             final long detachedElementEstimateBytes) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.TO_LIST,
+                HostCallbackHandle.rowMapper(
+                        logical.owner().logicalIdentity(), materializer));
+        if (canUseCanonical(canonical)) {
+            return CanonicalQueryOperation.toList(
+                    logical.owner(), canonical, detachedElementEstimateBytes);
+        }
         return execute(logical, new BoundWork<List<R>>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -248,6 +300,16 @@ final class QueryOperation {
             final GeneratedCallbacks.RowMapper<R> materializer,
             final Class<R> componentType,
             final long detachedElementEstimateBytes) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.TO_ARRAY,
+                HostCallbackHandle.rowMapper(
+                        logical.owner().logicalIdentity(), materializer));
+        if (canUseCanonical(canonical)) {
+            return CanonicalQueryOperation.toArray(
+                    logical.owner(), canonical, componentType,
+                    detachedElementEstimateBytes);
+        }
         return execute(logical, new BoundWork<R[]>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -288,6 +350,12 @@ final class QueryOperation {
     }
 
     static String explain(final LogicalRowPlan logical) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.EXPLAIN, null);
+        if (canUseCanonical(canonical)) {
+            return CanonicalQueryOperation.explain(logical.owner(), canonical);
+        }
         return execute(logical, new BoundWork<String>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -461,6 +529,13 @@ final class QueryOperation {
     }
 
     static long[] optimizedLocatorsForTesting(final LogicalRowPlan logical) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.LOCATORS_TEST, null);
+        if (canUseCanonical(canonical)) {
+            return copy(CanonicalQueryOperation.optimizedLocators(
+                    logical.owner(), canonical));
+        }
         return execute(logical, new BoundWork<long[]>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -479,6 +554,13 @@ final class QueryOperation {
     }
 
     static long[] referenceLocatorsForTesting(final LogicalRowPlan logical) {
+        CanonicalRowOperation canonical = CanonicalRowLowering.operation(
+                logical.owner(), logical,
+                CanonicalRowOperation.TerminalKind.LOCATORS_TEST, null);
+        if (canUseCanonical(canonical)) {
+            return copy(CanonicalQueryOperation.referenceLocatorsForTesting(
+                    logical.owner(), canonical));
+        }
         return execute(logical, new BoundWork<long[]>() {
             @Override
             public long scratchBytes(BoundRowPlan bound) {
@@ -502,6 +584,10 @@ final class QueryOperation {
             result[index] = source.get(index);
         }
         return result;
+    }
+
+    private static boolean canUseCanonical(CanonicalRowOperation canonical) {
+        return canonical != null;
     }
 
     private static void appendStages(
