@@ -162,7 +162,7 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
                                 plan.relation.outputUpperBound(binding), binding.provenance);
                         final ArrayList<Object> values = new ArrayList<Object>(upper);
                         plan.relation.visitBound(binding, true, new GeneratedRelation.PairVisitor() {
-                            @Override public boolean visit(long left, long right) {
+                            @Override public boolean visit(int left, int right) {
                                 Object value;
                                 CallbackExecutionScope.enter();
                                 try { value = plan.mapper.apply(); }

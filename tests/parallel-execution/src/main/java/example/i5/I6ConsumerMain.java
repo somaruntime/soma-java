@@ -71,12 +71,12 @@ public final class I6ConsumerMain {
         require(sequentialJoin == parallelJoin,
                 "parallel relation logical equivalence");
 
-        long changed = events
+        int changed = events
                 .filter(events.eventId.le(8L))
                 .parallel()
                 .update(editor -> editor.duration(editor.duration() + 1L))
                 .changed();
-        require(changed == 8L, "parallel Selection atomic mutation");
+        require(changed == 8, "parallel Selection atomic mutation");
         require(events.parallel()._explain().contains("mode=PARALLEL"),
                 "parallel explain mode");
 

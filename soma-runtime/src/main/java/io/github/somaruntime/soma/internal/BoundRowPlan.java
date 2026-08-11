@@ -9,8 +9,8 @@ final class BoundRowPlan {
     final TableStateRoot root;
     final SomaOperation operation;
     final Object provenance;
-    final LongLocatorBuffer relationSource;
-    final LongLocatorBuffer parallelSource;
+    final IntLocatorBuffer relationSource;
+    final IntLocatorBuffer parallelSource;
 
     BoundRowPlan(
             LogicalRowPlan logical,
@@ -25,7 +25,7 @@ final class BoundRowPlan {
             TableStateRoot root,
             SomaOperation operation,
             Object provenance,
-            LongLocatorBuffer relationSource) {
+            IntLocatorBuffer relationSource) {
         this(logical, root, operation, provenance, relationSource, null);
     }
 
@@ -34,8 +34,8 @@ final class BoundRowPlan {
             TableStateRoot root,
             SomaOperation operation,
             Object provenance,
-            LongLocatorBuffer relationSource,
-            LongLocatorBuffer parallelSource) {
+            IntLocatorBuffer relationSource,
+            IntLocatorBuffer parallelSource) {
         if (logical == null || root == null || operation == null || provenance == null) {
             throw new AssertionError("invalid bound row plan");
         }
@@ -47,7 +47,7 @@ final class BoundRowPlan {
         this.parallelSource = parallelSource;
     }
 
-    BoundRowPlan withParallelSource(LongLocatorBuffer source) {
+    BoundRowPlan withParallelSource(IntLocatorBuffer source) {
         return new BoundRowPlan(
                 logical, root, operation, provenance, relationSource, source);
     }

@@ -9,26 +9,26 @@ public final class RemoveResult {
         SomaSharedSecrets.setRemoveResultAccess(
                 new SomaSharedSecrets.RemoveResultAccess() {
                     @Override
-                    public RemoveResult create(long removed) {
+                    public RemoveResult create(int removed) {
                         return RemoveResult.createTrusted(removed);
                     }
                 });
     }
 
-    private final long removed;
+    private final int removed;
 
-    private RemoveResult(long removed) {
-        if (removed < 0L) {
+    private RemoveResult(int removed) {
+        if (removed < 0) {
             throw new AssertionError("invalid trusted RemoveResult");
         }
         this.removed = removed;
     }
 
-    public long removed() {
+    public int removed() {
         return removed;
     }
 
-    private static RemoveResult createTrusted(long removed) {
+    private static RemoveResult createTrusted(int removed) {
         return new RemoveResult(removed);
     }
 }

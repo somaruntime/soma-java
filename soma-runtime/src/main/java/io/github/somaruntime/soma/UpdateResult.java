@@ -9,32 +9,32 @@ public final class UpdateResult {
         SomaSharedSecrets.setUpdateResultAccess(
                 new SomaSharedSecrets.UpdateResultAccess() {
                     @Override
-                    public UpdateResult create(long matched, long changed) {
+                    public UpdateResult create(int matched, int changed) {
                         return UpdateResult.createTrusted(matched, changed);
                     }
                 });
     }
 
-    private final long matched;
-    private final long changed;
+    private final int matched;
+    private final int changed;
 
-    private UpdateResult(long matched, long changed) {
-        if (matched < 0L || changed < 0L || changed > matched) {
+    private UpdateResult(int matched, int changed) {
+        if (matched < 0 || changed < 0 || changed > matched) {
             throw new AssertionError("invalid trusted UpdateResult");
         }
         this.matched = matched;
         this.changed = changed;
     }
 
-    public long matched() {
+    public int matched() {
         return matched;
     }
 
-    public long changed() {
+    public int changed() {
         return changed;
     }
 
-    private static UpdateResult createTrusted(long matched, long changed) {
+    private static UpdateResult createTrusted(int matched, int changed) {
         return new UpdateResult(matched, changed);
     }
 }

@@ -58,7 +58,7 @@ final class QueryOperation {
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
-                            public boolean visit(long locator) {
+                            public boolean visit(int locator) {
                                 if (RowExecutionSupport.callbackTest(
                                         bound, locator, predicate)) {
                                     matched[0] = true;
@@ -88,7 +88,7 @@ final class QueryOperation {
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
-                            public boolean visit(long locator) {
+                            public boolean visit(int locator) {
                                 if (!RowExecutionSupport.callbackTest(
                                         bound, locator, predicate)) {
                                     all[0] = false;
@@ -128,7 +128,7 @@ final class QueryOperation {
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
-                            public boolean visit(long locator) {
+                            public boolean visit(int locator) {
                                 first[0] = RowExecutionSupport.callbackMap(
                                         bound, locator, materializer, false);
                                 present[0] = true;
@@ -164,7 +164,7 @@ final class QueryOperation {
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
-                            public boolean visit(long locator) {
+                            public boolean visit(int locator) {
                                 RowExecutionSupport.callbackAction(bound, locator, action);
                                 return true;
                             }
@@ -209,7 +209,7 @@ final class QueryOperation {
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
-                            public boolean visit(long locator) {
+                            public boolean visit(int locator) {
                                 result.add(RowExecutionSupport.callbackMap(
                                         bound, locator, materializer, false));
                                 return true;
@@ -260,7 +260,7 @@ final class QueryOperation {
                         bound,
                         new OptimizedSequentialRowExecutor.LocatorVisitor() {
                             @Override
-                            public boolean visit(long locator) {
+                            public boolean visit(int locator) {
                                 staging[size[0]++] = RowExecutionSupport.callbackMap(
                                         bound, locator, materializer, false);
                                 return true;
@@ -484,9 +484,11 @@ final class QueryOperation {
         });
     }
 
-    private static long[] copy(LongLocatorBuffer source) {
+    private static long[] copy(IntLocatorBuffer source) {
         long[] result = new long[source.size()];
-        System.arraycopy(source.backing(), 0, result, 0, source.size());
+        for (int index = 0; index < result.length; index++) {
+            result[index] = source.get(index);
+        }
         return result;
     }
 

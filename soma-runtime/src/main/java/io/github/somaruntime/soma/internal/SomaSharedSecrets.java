@@ -186,11 +186,11 @@ public final class SomaSharedSecrets {
     }
 
     public interface UpdateResultAccess {
-        UpdateResult create(long matched, long changed);
+        UpdateResult create(int matched, int changed);
     }
 
     public interface RemoveResultAccess {
-        RemoveResult create(long removed);
+        RemoveResult create(int removed);
     }
 
     public interface FailureAccess {
@@ -240,8 +240,8 @@ public final class SomaSharedSecrets {
     public interface TableMetadataAccess {
         TableMetadata create(
                 String logicalName,
-                long size,
-                long capacity,
+                int size,
+                int capacity,
                 long managed,
                 long plainEquivalent,
                 long representation,

@@ -11,7 +11,7 @@ final class RowExecutionSupport {
 
     static boolean callbackTest(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowPredicate callback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
@@ -29,7 +29,7 @@ final class RowExecutionSupport {
 
     static void callbackAction(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowAction callback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
         cursor.enter(locator);
@@ -47,7 +47,7 @@ final class RowExecutionSupport {
 
     static <R> R callbackMap(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowMapper<R> callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -72,7 +72,7 @@ final class RowExecutionSupport {
 
     static boolean callbackMapBoolean(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToBooleanMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -86,7 +86,7 @@ final class RowExecutionSupport {
 
     static byte callbackMapByte(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToByteMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -100,7 +100,7 @@ final class RowExecutionSupport {
 
     static short callbackMapShort(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToShortMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -114,7 +114,7 @@ final class RowExecutionSupport {
 
     static char callbackMapChar(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToCharMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -128,7 +128,7 @@ final class RowExecutionSupport {
 
     static int callbackMapInt(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToIntMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -142,7 +142,7 @@ final class RowExecutionSupport {
 
     static long callbackMapLong(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToLongMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -156,7 +156,7 @@ final class RowExecutionSupport {
 
     static float callbackMapFloat(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToFloatMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -170,7 +170,7 @@ final class RowExecutionSupport {
 
     static double callbackMapDouble(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             GeneratedCallbacks.RowToDoubleMapper callback,
             boolean applicationCallback) {
         GeneratedQueryCursor cursor = bound.logical.owner().queryCursor();
@@ -197,8 +197,8 @@ final class RowExecutionSupport {
 
     static int compare(
             BoundRowPlan bound,
-            long left,
-            long right,
+            int left,
+            int right,
             LogicalRowPlan.Stage stage) {
         if (stage.kind == LogicalRowPlan.StageKind.TYPED_ORDER) {
             GeneratedOrder<?> order = stage.order;
@@ -239,21 +239,21 @@ final class RowExecutionSupport {
     /** Canonical stable comparison schedule for an opaque row Comparator. */
     static void stableCallbackSort(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             LogicalRowPlan.Stage stage) {
         if (stage.kind != LogicalRowPlan.StageKind.CALLBACK_ORDER) {
             throw new AssertionError("canonical callback sort requires callback order");
         }
         if (values.size() < 2) return;
-        long[] scratch = new long[values.size()];
+        int[] scratch = new int[values.size()];
         stableCallbackMergeSort(
                 bound, values.backing(), scratch, 0, values.size(), stage);
     }
 
     private static void stableCallbackMergeSort(
             BoundRowPlan bound,
-            long[] values,
-            long[] scratch,
+            int[] values,
+            int[] scratch,
             int from,
             int to,
             LogicalRowPlan.Stage stage) {

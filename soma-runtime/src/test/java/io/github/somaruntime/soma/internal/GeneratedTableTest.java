@@ -278,7 +278,7 @@ class GeneratedTableTest {
                     references[index]);
         }
 
-        long capacity = table.capacity();
+        int capacity = table.capacity();
         long version = table.stateVersionForTesting();
         RemoveResult result = table.selectAll()
                 .filter(() -> (table.queryCursor().viewInt(2) & 1) == 0)
@@ -375,7 +375,7 @@ class GeneratedTableTest {
         assertEquals(2L, indexCount(table, "same"));
 
         TableStateRoot root = table.rootForTesting();
-        PlainChunk chunk = root.directory.plainChunk(0L);
+        PlainChunk chunk = root.directory.plainChunk(0);
         int nameSlot = testLayout().leafSlot(1);
         int objectSlot = testLayout().leafSlot(3);
         assertNull(chunk.references(nameSlot)[2]);
@@ -385,10 +385,10 @@ class GeneratedTableTest {
         GeneratedProbe probe = table.newProbe(1);
         probe.putReference(1, "same");
         probe.seal();
-        long first = index.first(root.directory, probe);
+        int first = index.first(root.directory, probe);
         assertEquals(0L, first);
         assertEquals(1L, index.next(first));
-        assertEquals(-1L, index.next(1L));
+        assertEquals(-1L, index.next(1));
 
         assertEquals(0L, remove(table, 2L).removed());
     }
@@ -417,7 +417,7 @@ class GeneratedTableTest {
         assertEquals(4L, indexCount(table, "bucket-1"));
 
         TableStateRoot root = table.rootForTesting();
-        PlainChunk formerTail = root.directory.plainChunk(2L);
+        PlainChunk formerTail = root.directory.plainChunk(2);
         assertNull(formerTail.references(testLayout().leafSlot(1))[1]);
         assertNull(formerTail.references(testLayout().leafSlot(3))[1]);
     }
@@ -425,12 +425,12 @@ class GeneratedTableTest {
     @Test
     void pagedDirectoryCrossesLeafBoundaryWithKeyIndexAndCompactionIntact() {
         GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
-        long rows = 257L * 4L;
+        int rows = 257 * 4;
         table.reserve(rows);
         Object beforeBoundaryReference = null;
         Object atBoundaryReference = null;
         Object tailReference = null;
-        for (long value = 0L; value < rows; value++) {
+        for (int value = 0; value < rows; value++) {
             Object reference = new Object();
             if (value == 1023L) beforeBoundaryReference = reference;
             if (value == 1024L) atBoundaryReference = reference;
@@ -451,7 +451,7 @@ class GeneratedTableTest {
         assertEquals(514L, indexCount(table, "bucket-0"));
         assertEquals(513L, indexCount(table, "bucket-1"));
 
-        PlainChunk formerTail = table.rootForTesting().directory.plainChunk(256L);
+        PlainChunk formerTail = table.rootForTesting().directory.plainChunk(256);
         assertNull(formerTail.references(testLayout().leafSlot(1))[3]);
         assertNull(formerTail.references(testLayout().leafSlot(3))[3]);
     }
@@ -1762,7 +1762,7 @@ class GeneratedTableTest {
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
 
         fault.point.set(null);
-        table.reserve(4L);
+        table.reserve(4);
         Object reserved = table.rootIdentityForTesting();
         long version = table.stateVersionForTesting();
         fault.point.set(MutationFaultPoint.BEFORE_FINAL_COMMIT);
@@ -1778,8 +1778,11 @@ class GeneratedTableTest {
         Object beforeOverflow = table.rootIdentityForTesting();
         SomaOperationException overflow = assertThrows(
                 SomaOperationException.class,
-                () -> table.reserve(Long.MAX_VALUE));
-        assertEquals(SomaFailureCode.ARITHMETIC_OVERFLOW, overflow.code());
+                () -> CheckedStructural.fromLong(
+                        (long) Integer.MAX_VALUE + 1L,
+                        io.github.somaruntime.soma.SomaOperation.RESERVE,
+                        table));
+        assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, overflow.code());
         assertSame(beforeOverflow, table.rootIdentityForTesting());
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
     }
@@ -1862,26 +1865,29 @@ class GeneratedTableTest {
     }
 
     @Test
-    void structuralAccountingAndVirtualLongBoundaryFailBeforeAllocation() {
+    void structuralAccountingAndIntBoundaryFailBeforeAllocation() {
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
         GeneratedTable table = new GeneratedTable(
                 testGroup(memory), testLayout(), 4, MutationFaultInjector.NONE);
-        table.reserve(8L);
-        assertEquals(67_904L, table.managedBytesForTesting());
+        table.reserve(8);
+        assertEquals(34_368L, table.managedBytesForTesting());
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
 
         Object published = table.rootIdentityForTesting();
         SomaOperationException overInt = assertThrows(
                 SomaOperationException.class,
-                () -> table.reserve((long) Integer.MAX_VALUE + 1L));
+                () -> CheckedStructural.fromLong(
+                        (long) Integer.MAX_VALUE + 1L,
+                        io.github.somaruntime.soma.SomaOperation.RESERVE,
+                        table));
         assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED, overInt.code());
         assertSame(published, table.rootIdentityForTesting());
         assertEquals(8L, table.capacity());
-        assertEquals(67_904L, memory.retainedBytes());
+        assertEquals(34_368L, memory.retainedBytes());
 
-        long virtualChunks = (long) Integer.MAX_VALUE + 1L;
         assertTrue(TableChunkDirectory.estimatedDirectoryBytes(
-                virtualChunks, io.github.somaruntime.soma.SomaOperation.RESERVE,
+                Integer.MAX_VALUE,
+                io.github.somaruntime.soma.SomaOperation.RESERVE,
                 new Object()) > Integer.MAX_VALUE);
     }
 
@@ -1992,7 +1998,7 @@ class GeneratedTableTest {
                         GeneratedRelation.PairVisitor visitor =
                                 new GeneratedRelation.PairVisitor() {
                                     @Override
-                                    public boolean visit(long left, long right) {
+                                    public boolean visit(int left, int right) {
                                         locators.add(Long.valueOf(left));
                                         locators.add(Long.valueOf(right));
                                         return true;
@@ -2017,7 +2023,7 @@ class GeneratedTableTest {
     private static GeneratedTable floatingTable() {
         GeneratedTableLayout layout = GeneratedTableLayout.create(
                 "Floating",
-                4L,
+                4,
                 new byte[] {
                         GeneratedTableLayout.LONG,
                         GeneratedTableLayout.FLOAT,
@@ -2043,7 +2049,7 @@ class GeneratedTableTest {
     private static GeneratedTableLayout joinBoundLayout() {
         return GeneratedTableLayout.create(
                 "JoinBound",
-                4L,
+                4,
                 new byte[] {
                         GeneratedTableLayout.LONG,
                         GeneratedTableLayout.LONG
@@ -2062,7 +2068,7 @@ class GeneratedTableTest {
     private static GeneratedTableLayout testLayout() {
         return GeneratedTableLayout.create(
                 "Entity",
-                4L,
+                4,
                 new byte[] {
                         GeneratedTableLayout.LONG,
                         GeneratedTableLayout.REFERENCE,
@@ -2085,7 +2091,7 @@ class GeneratedTableTest {
     private static GeneratedTableLayout rleCostLayout() {
         return GeneratedTableLayout.create(
                 "RleCost",
-                4L,
+                4,
                 new byte[] {
                         GeneratedTableLayout.LONG,
                         GeneratedTableLayout.LONG
@@ -2104,7 +2110,7 @@ class GeneratedTableTest {
     private static GeneratedTableLayout dualIndexLayout() {
         return GeneratedTableLayout.create(
                 "DualIndexEntity",
-                4L,
+                4,
                 new byte[] {
                         GeneratedTableLayout.LONG,
                         GeneratedTableLayout.REFERENCE,

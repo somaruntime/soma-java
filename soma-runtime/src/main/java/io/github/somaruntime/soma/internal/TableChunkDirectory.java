@@ -4,19 +4,19 @@ import io.github.somaruntime.soma.SomaCompression;
 import io.github.somaruntime.soma.SomaOperation;
 import java.util.Arrays;
 
-/** Sparse eight-level radix directory over representation-independent Table chunks. */
+/** Sparse int-domain radix directory over representation-independent Table chunks. */
 final class TableChunkDirectory {
 
     private static final int RADIX_BITS = 8;
     private static final int RADIX_SIZE = 1 << RADIX_BITS;
     private static final int RADIX_MASK = RADIX_SIZE - 1;
-    private static final int LEVELS = 8;
+    private static final int LEVELS = 4;
     private static final long ESTIMATED_NODE_BYTES = 96L + 2L * RADIX_SIZE * 8L;
 
     private final int chunkRows;
     private final GeneratedTableLayout layout;
     private BranchNode root;
-    private long chunkCount;
+    private int chunkCount;
     /*
      * Chunk representations change only on candidate-directory construction.
      * Ordinary append writes populate an already allocated PlainChunk, so its
@@ -24,7 +24,7 @@ final class TableChunkDirectory {
      * instead of walking every chunk after every atomic add.
      */
     private volatile long cachedChunkManagedBytes = -1L;
-    private long[] touched = new long[0];
+    private int[] touched = new int[0];
     private int touchedCount;
 
     private TableChunkDirectory(int chunkRows, GeneratedTableLayout layout) {
@@ -42,7 +42,7 @@ final class TableChunkDirectory {
 
     static TableChunkDirectory grow(
             TableChunkDirectory source,
-            long requiredChunks,
+            int requiredChunks,
             GeneratedTableLayout layout) {
         if (layout != source.layout) {
             throw new AssertionError("Table layout identity changed");
@@ -51,15 +51,15 @@ final class TableChunkDirectory {
             throw new AssertionError("Table Chunk directory cannot shrink");
         }
         TableChunkDirectory result = source.shallowCopy();
-        for (long ordinal = source.chunkCount; ordinal < requiredChunks; ordinal++) {
+        for (int ordinal = source.chunkCount; ordinal < requiredChunks; ordinal++) {
             result.append(new PlainChunk(layout, source.chunkRows));
         }
         return result;
     }
 
-    TableChunkDirectory copyForUpdate(long locator, TypedValues values) {
-        long ordinal = locator / chunkRows;
-        int offset = (int) (locator % chunkRows);
+    TableChunkDirectory copyForUpdate(int locator, TypedValues values) {
+        int ordinal = locator / chunkRows;
+        int offset = locator % chunkRows;
         TableChunkDirectory result = shallowCopy();
         TableChunk replacement = get(ordinal).mutableCopy(layout);
         result.replaceTouched(ordinal, replacement);
@@ -67,13 +67,13 @@ final class TableChunkDirectory {
         return result;
     }
 
-    TableChunkDirectory copyForUpdates(LongLocatorBuffer locators) {
+    TableChunkDirectory copyForUpdates(IntLocatorBuffer locators) {
         TableChunkDirectory result = shallowCopy();
-        long[] sorted = Arrays.copyOf(locators.backing(), locators.size());
+        int[] sorted = Arrays.copyOf(locators.backing(), locators.size());
         Arrays.sort(sorted);
-        long previousOrdinal = -1L;
-        for (long locator : sorted) {
-            long ordinal = locator / chunkRows;
+        int previousOrdinal = -1;
+        for (int locator : sorted) {
+            int ordinal = locator / chunkRows;
             if (ordinal == previousOrdinal) continue;
             result.replaceTouched(ordinal, get(ordinal).mutableCopy(layout));
             previousOrdinal = ordinal;
@@ -82,16 +82,16 @@ final class TableChunkDirectory {
     }
 
     TableChunkDirectory copyForSelectionRemove(
-            LongLocatorBuffer selection,
-            long size,
+            IntLocatorBuffer selection,
+            int size,
             TypedValues scratch,
             Object provenance) {
         int selected = selection.size();
-        long newSize = size - selected;
-        long[] removed = Arrays.copyOf(selection.backing(), selected);
+        int newSize = size - selected;
+        int[] removed = Arrays.copyOf(selection.backing(), selected);
         Arrays.sort(removed);
         for (int index = 0; index < removed.length; index++) {
-            if (removed[index] < 0L || removed[index] >= size
+            if (removed[index] < 0 || removed[index] >= size
                     || (index != 0 && removed[index] == removed[index - 1])) {
                 throw new AssertionError("invalid frozen Selection membership");
             }
@@ -102,46 +102,46 @@ final class TableChunkDirectory {
                         selected, 2L, SomaOperation.REMOVE, provenance),
                 SomaOperation.REMOVE,
                 provenance);
-        long[] affectedChunks = new long[affectedLength];
+        int[] affectedChunks = new int[affectedLength];
         int affected = 0;
-        for (long locator : removed) {
+        for (int locator : removed) {
             affectedChunks[affected++] = locator / chunkRows;
         }
-        for (long locator = newSize; locator < size; locator++) {
+        for (int locator = newSize; locator < size; locator++) {
             affectedChunks[affected++] = locator / chunkRows;
         }
         Arrays.sort(affectedChunks);
 
         TableChunkDirectory result = shallowCopy();
-        long previousOrdinal = -1L;
-        for (long ordinal : affectedChunks) {
+        int previousOrdinal = -1;
+        for (int ordinal : affectedChunks) {
             if (ordinal == previousOrdinal) continue;
             result.replaceTouched(ordinal, get(ordinal).mutableCopy(layout));
             previousOrdinal = ordinal;
         }
 
-        long tail = size - 1L;
-        for (long hole : removed) {
+        int tail = size - 1;
+        for (int hole : removed) {
             if (hole >= newSize) break;
             while (Arrays.binarySearch(removed, tail) >= 0) tail--;
             read(tail, scratch);
             result.write(hole, scratch);
             tail--;
         }
-        for (long locator = newSize; locator < size; locator++) {
+        for (int locator = newSize; locator < size; locator++) {
             result.clear(locator);
         }
         scratch.clearReferences();
         return result;
     }
 
-    TableChunkDirectory copyForRemove(long locator, long size) {
-        if (locator < 0L || locator >= size || size <= 0L) {
+    TableChunkDirectory copyForRemove(int locator, int size) {
+        if (locator < 0 || locator >= size || size <= 0) {
             throw new AssertionError("invalid Table remove locator");
         }
-        long tail = size - 1L;
-        long targetOrdinal = locator / chunkRows;
-        long tailOrdinal = tail / chunkRows;
+        int tail = size - 1;
+        int targetOrdinal = locator / chunkRows;
+        int tailOrdinal = tail / chunkRows;
         TableChunkDirectory result = shallowCopy();
         TableChunk targetChunk = get(targetOrdinal).mutableCopy(layout);
         result.replaceTouched(targetOrdinal, targetChunk);
@@ -152,8 +152,8 @@ final class TableChunkDirectory {
             tailChunk = get(tailOrdinal).mutableCopy(layout);
             result.replaceTouched(tailOrdinal, tailChunk);
         }
-        int targetOffset = (int) (locator % chunkRows);
-        int tailOffset = (int) (tail % chunkRows);
+        int targetOffset = locator % chunkRows;
+        int tailOffset = tail % chunkRows;
         if (locator != tail) {
             TypedValues scratch = new TypedValues(layout);
             tailChunk.read(tailOffset, scratch, layout);
@@ -165,12 +165,12 @@ final class TableChunkDirectory {
     }
 
     void finishTouched(
-            long size,
+            int size,
             SomaCompression compression,
             SomaOperation operation,
             Object provenance) {
         for (int index = 0; index < touchedCount; index++) {
-            long ordinal = touched[index];
+            int ordinal = touched[index];
             long first = CheckedLong.multiply(
                     ordinal, chunkRows, operation, provenance);
             long remaining = Math.max(0L, size - first);
@@ -182,80 +182,80 @@ final class TableChunkDirectory {
         touchedCount = 0;
     }
 
-    void read(long locator, TypedValues destination) {
-        long ordinal = locator / chunkRows;
-        int offset = (int) (locator % chunkRows);
+    void read(int locator, TypedValues destination) {
+        int ordinal = locator / chunkRows;
+        int offset = locator % chunkRows;
         get(ordinal).read(offset, destination, layout);
     }
 
-    void write(long locator, TypedValues source) {
+    void write(int locator, TypedValues source) {
         get(locator / chunkRows).write(
-                (int) (locator % chunkRows), source, layout);
+                locator % chunkRows, source, layout);
     }
 
-    private void clear(long locator) {
+    private void clear(int locator) {
         get(locator / chunkRows).clear(
-                (int) (locator % chunkRows), layout);
+                locator % chunkRows, layout);
     }
 
-    TableChunk chunk(long ordinal) {
+    TableChunk chunk(int ordinal) {
         return get(ordinal);
     }
 
-    PlainChunk plainChunk(long ordinal) {
+    PlainChunk plainChunk(int ordinal) {
         return get(ordinal).materialize(layout);
     }
 
-    boolean booleanValue(long locator, int slot) {
+    boolean booleanValue(int locator, int slot) {
         return get(locator / chunkRows).booleanValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    byte byteValue(long locator, int slot) {
+    byte byteValue(int locator, int slot) {
         return get(locator / chunkRows).byteValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    short shortValue(long locator, int slot) {
+    short shortValue(int locator, int slot) {
         return get(locator / chunkRows).shortValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    char charValue(long locator, int slot) {
+    char charValue(int locator, int slot) {
         return get(locator / chunkRows).charValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    int intValue(long locator, int slot) {
+    int intValue(int locator, int slot) {
         return get(locator / chunkRows).intValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    long longValue(long locator, int slot) {
+    long longValue(int locator, int slot) {
         return get(locator / chunkRows).longValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    float floatValue(long locator, int slot) {
+    float floatValue(int locator, int slot) {
         return get(locator / chunkRows).floatValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    double doubleValue(long locator, int slot) {
+    double doubleValue(int locator, int slot) {
         return get(locator / chunkRows).doubleValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
-    Object referenceValue(long locator, int slot) {
+    Object referenceValue(int locator, int slot) {
         return get(locator / chunkRows).referenceValue(
-                slot, (int) (locator % chunkRows));
+                slot, locator % chunkRows);
     }
 
     int chunkRows() {
         return chunkRows;
     }
 
-    long chunkCount() {
+    int chunkCount() {
         return chunkCount;
     }
 
@@ -263,7 +263,7 @@ final class TableChunkDirectory {
         long cached = cachedChunkManagedBytes;
         if (cached >= 0L) return cached;
         long result = 0L;
-        for (long ordinal = 0L; ordinal < chunkCount; ordinal++) {
+        for (int ordinal = 0; ordinal < chunkCount; ordinal++) {
             result = CheckedLong.add(
                     result,
                     get(ordinal).managedBytes(layout, operation, provenance),
@@ -285,7 +285,7 @@ final class TableChunkDirectory {
 
     long encodedChunkCount() {
         long result = 0L;
-        for (long ordinal = 0L; ordinal < chunkCount; ordinal++) {
+        for (int ordinal = 0; ordinal < chunkCount; ordinal++) {
             if (get(ordinal).hasEncodedRepresentation()) result++;
         }
         return result;
@@ -296,7 +296,7 @@ final class TableChunkDirectory {
             SomaOperation operation,
             Object provenance) {
         long result = 0L;
-        for (long ordinal = 0L; ordinal < chunkCount; ordinal++) {
+        for (int ordinal = 0; ordinal < chunkCount; ordinal++) {
             result = CheckedLong.add(
                     result,
                     get(ordinal).plainEquivalentBytesForField(
@@ -312,7 +312,7 @@ final class TableChunkDirectory {
             SomaOperation operation,
             Object provenance) {
         long result = 0L;
-        for (long ordinal = 0L; ordinal < chunkCount; ordinal++) {
+        for (int ordinal = 0; ordinal < chunkCount; ordinal++) {
             result = CheckedLong.add(
                     result,
                     get(ordinal).representationBytesForField(
@@ -324,10 +324,10 @@ final class TableChunkDirectory {
     }
 
     static long estimatedDirectoryBytes(
-            long chunks,
+            int chunks,
             SomaOperation operation,
             Object provenance) {
-        if (chunks == 0L) return 0L;
+        if (chunks == 0) return 0L;
         return CheckedLong.multiply(
                 CheckedLong.multiply(chunks, LEVELS, operation, provenance),
                 ESTIMATED_NODE_BYTES,
@@ -337,15 +337,15 @@ final class TableChunkDirectory {
 
     private TableChunkDirectory shallowCopy() {
         TableChunkDirectory result = new TableChunkDirectory(chunkRows, layout);
-        for (long ordinal = 0L; ordinal < chunkCount; ordinal++) {
+        for (int ordinal = 0; ordinal < chunkCount; ordinal++) {
             result.append(get(ordinal));
         }
         result.cachedChunkManagedBytes = cachedChunkManagedBytes;
         return result;
     }
 
-    private TableChunk get(long ordinal) {
-        if (ordinal < 0L || ordinal >= chunkCount || root == null) {
+    private TableChunk get(int ordinal) {
+        if (ordinal < 0 || ordinal >= chunkCount || root == null) {
             throw new AssertionError("invalid Table Chunk ordinal");
         }
         BranchNode branch = root;
@@ -365,7 +365,7 @@ final class TableChunkDirectory {
     }
 
     private void append(TableChunk chunk) {
-        long ordinal = chunkCount;
+        int ordinal = chunkCount;
         if (chunk == null) throw new AssertionError("null Table Chunk");
         if (root == null) root = new BranchNode();
         BranchNode branch = root;
@@ -389,13 +389,13 @@ final class TableChunkDirectory {
         cachedChunkManagedBytes = -1L;
     }
 
-    private void replaceTouched(long ordinal, TableChunk replacement) {
+    private void replaceTouched(int ordinal, TableChunk replacement) {
         set(ordinal, replacement);
         markTouched(ordinal);
     }
 
-    private void set(long ordinal, TableChunk replacement) {
-        if (replacement == null || ordinal < 0L || ordinal >= chunkCount) {
+    private void set(int ordinal, TableChunk replacement) {
+        if (replacement == null || ordinal < 0 || ordinal >= chunkCount) {
             throw new AssertionError("invalid Table Chunk replacement");
         }
         BranchNode branch = root;
@@ -406,7 +406,7 @@ final class TableChunkDirectory {
         cachedChunkManagedBytes = -1L;
     }
 
-    private void markTouched(long ordinal) {
+    private void markTouched(int ordinal) {
         for (int index = 0; index < touchedCount; index++) {
             if (touched[index] == ordinal) return;
         }
@@ -417,8 +417,8 @@ final class TableChunkDirectory {
         touched[touchedCount++] = ordinal;
     }
 
-    private static int digit(long ordinal, int level) {
-        return (int) ((ordinal >>> (level * RADIX_BITS)) & RADIX_MASK);
+    private static int digit(int ordinal, int level) {
+        return (ordinal >>> (level * RADIX_BITS)) & RADIX_MASK;
     }
 
     private static void requireChunkRows(int rows) {

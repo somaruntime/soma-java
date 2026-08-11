@@ -162,7 +162,7 @@ final class GeneratedRelationPrimitivePipeline {
                     int upper=RowExecutionSupport.arrayLength(plan.relation.outputUpperBound(binding),binding.provenance);
                     final Buffer out=new Buffer(upper);
                     plan.relation.visitBound(binding,true,new GeneratedRelation.PairVisitor(){
-                        @Override public boolean visit(long l,long r){out.add(directValue(plan));return true;}
+                        @Override public boolean visit(int l,int r){out.add(directValue(plan));return true;}
                     });
                     return out;
                 }
@@ -198,7 +198,7 @@ final class GeneratedRelationPrimitivePipeline {
                                 true,
                                 new GeneratedRelation.PairVisitor() {
                                     @Override
-                                    public boolean visit(long left, long right) {
+                                    public boolean visit(int left, int right) {
                                         accumulator.add(directValue(plan));
                                         return true;
                                     }

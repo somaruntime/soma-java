@@ -2,17 +2,17 @@ package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaOperation;
 
-/** Bounded primitive locator buffer used only after managed-memory admission. */
-final class LongLocatorBuffer {
+/** Bounded primitive-value buffer used by specialized primitive pipelines. */
+final class LongValueBuffer {
 
     private final long[] values;
     private int size;
 
-    LongLocatorBuffer(long upperBound, Object provenance) {
+    LongValueBuffer(long upperBound, Object provenance) {
         this(upperBound, SomaOperation.QUERY, provenance);
     }
 
-    LongLocatorBuffer(
+    LongValueBuffer(
             long upperBound,
             SomaOperation operation,
             Object provenance) {
@@ -21,7 +21,7 @@ final class LongLocatorBuffer {
     }
 
     void add(long value) {
-        if (size >= values.length) throw new AssertionError("locator upper bound drift");
+        if (size >= values.length) throw new AssertionError("value upper bound drift");
         values[size++] = value;
     }
 
@@ -38,7 +38,7 @@ final class LongLocatorBuffer {
     }
 
     void size(int next) {
-        if (next < 0 || next > size) throw new AssertionError("invalid locator buffer size");
+        if (next < 0 || next > size) throw new AssertionError("invalid value buffer size");
         size = next;
     }
 

@@ -113,7 +113,7 @@ public final class GeneratedGrouping {
                 bound,
                 new OptimizedSequentialRowExecutor.LocatorVisitor() {
                     @Override
-                    public boolean visit(long locator) {
+                    public boolean visit(int locator) {
                         int group = reference
                                 ? state.groupForReference(
                                         bound.root.directory,
@@ -246,7 +246,7 @@ public final class GeneratedGrouping {
     private static final class GroupState {
         private static final int INITIAL_CAPACITY = 1024;
 
-        long[] representatives;
+        int[] representatives;
         long[] primitiveKeys;
         int[] buckets;
         int[] hashNext;
@@ -274,7 +274,7 @@ public final class GeneratedGrouping {
             this.upper = upper;
             this.provenance = provenance;
             int initial = Math.min(upper, expectedGroups);
-            representatives = new long[initial];
+            representatives = new int[initial];
             primitiveKeys = keyKind == KEY_REFERENCE ? null : new long[initial];
             hashNext = new int[initial];
             counts = new long[initial];
@@ -303,7 +303,7 @@ public final class GeneratedGrouping {
                 TableChunkDirectory directory,
                 GeneratedTableLayout layout,
                 int fieldIndex,
-                long locator) {
+                int locator) {
             if (primitiveKeys != null) {
                 return groupForPrimitive(directory, layout, fieldIndex, locator);
             }
@@ -334,7 +334,7 @@ public final class GeneratedGrouping {
                 TableChunkDirectory directory,
                 GeneratedTableLayout layout,
                 int fieldIndex,
-                long locator) {
+                int locator) {
             long key = primitiveKey(directory, layout, fieldIndex, locator);
             int bucket = ((int) mix(key)) & (buckets.length - 1);
             for (int link = buckets[bucket]; link != 0; link = hashNext[link - 1]) {
@@ -355,7 +355,7 @@ public final class GeneratedGrouping {
                 TableChunkDirectory directory,
                 GeneratedTableLayout layout,
                 int fieldIndex,
-                long locator) {
+                int locator) {
             for (int candidate = 0; candidate < size; candidate++) {
                 if (layout.fieldEquals(
                         directory,
@@ -373,7 +373,7 @@ public final class GeneratedGrouping {
         void add(
                 BoundRowPlan bound,
                 int group,
-                long locator,
+                int locator,
                 AggregateSpec aggregate) {
             long previous = counts[group]++;
             if (aggregate.aggregate == 0) return;
@@ -554,7 +554,7 @@ public final class GeneratedGrouping {
                 TableChunkDirectory directory,
                 GeneratedTableLayout layout,
                 int fieldIndex,
-                long locator) {
+                int locator) {
             if (layout.fieldLeafCount(fieldIndex) != 1) {
                 throw new AssertionError("primitive GroupBy Field is not scalar");
             }

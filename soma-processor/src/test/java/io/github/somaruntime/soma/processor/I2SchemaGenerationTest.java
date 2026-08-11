@@ -118,7 +118,7 @@ class I2SchemaGenerationTest {
                         + "import io.github.somaruntime.soma.*;\n"
                         + "import example.i2.*;\n"
                         + "import java.util.List;\n"
-                        + "@SomaTable(defaultCapacity = 4L) final class AllTypes {\n"
+                        + "@SomaTable(defaultCapacity = 4) final class AllTypes {\n"
                         + "  @SomaKey MachinePair key;\n"
                         + "  @SomaIndex String name;\n"
                         + "  @SomaIndex MachineId machineId;\n"

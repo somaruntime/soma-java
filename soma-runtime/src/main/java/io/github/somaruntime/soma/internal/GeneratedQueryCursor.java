@@ -52,14 +52,14 @@ public final class GeneratedQueryCursor implements GeneratedRowAccess {
         accessActive = false;
     }
 
-    void enter(long locator) {
+    void enter(int locator) {
         requireOperation();
-        if (accessActive || locator < 0L || locator >= root.size) {
+        if (accessActive || locator < 0 || locator >= root.size) {
             throw new AssertionError("invalid query cursor locator");
         }
         TableChunkDirectory directory = root.directory;
         chunk = directory.chunk(locator / directory.chunkRows());
-        offset = (int) (locator % directory.chunkRows());
+        offset = locator % directory.chunkRows();
         accessActive = true;
     }
 

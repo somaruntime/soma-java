@@ -13,7 +13,7 @@ import java.util.Arrays;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Unified exact-leaf, long-domain runtime behind every generated Table facade. */
+/** Unified exact-leaf runtime with int structural and long cumulative domains. */
 public final class GeneratedTable {
 
     private static final long PLAIN_TARGET_BYTES = 2L * 1024L * 1024L;
@@ -80,13 +80,13 @@ public final class GeneratedTable {
                 TableStateRoot.empty(layout, chunkRows));
     }
 
-    public long size() {
+    public int size() {
         try (GroupOperationGuard.Lease ignored = group.acquire(SomaOperation.QUERY)) {
             return current.get().size;
         }
     }
 
-    public long capacity() {
+    public int capacity() {
         try (GroupOperationGuard.Lease ignored = group.acquire(SomaOperation.QUERY)) {
             return current.get().capacity;
         }
@@ -147,8 +147,8 @@ public final class GeneratedTable {
                 + root.directory.plainEquivalentBytes(SomaOperation.QUERY, root);
     }
 
-    public void reserve(long expectedRows) {
-        if (expectedRows < 0L) {
+    public void reserve(int expectedRows) {
+        if (expectedRows < 0) {
             throw SomaFailures.invalid(
                     SomaOperation.RESERVE,
                     layout.logicalName() + " expectedRows is negative");
@@ -156,7 +156,7 @@ public final class GeneratedTable {
         try (GroupOperationGuard.Lease operation = group.acquire(SomaOperation.RESERVE)) {
             TableStateRoot root = current.get();
             if (expectedRows <= root.capacity) return;
-            long target = roundedCapacity(
+            int target = roundedCapacity(
                     expectedRows, SomaOperation.RESERVE, operation.provenance());
             long conservativeManaged = managedBytes(
                     target,
@@ -176,7 +176,9 @@ public final class GeneratedTable {
                                  SomaOperation.RESERVE,
                                  operation.provenance())) {
                 TableChunkDirectory candidate = TableChunkDirectory.grow(
-                        root.directory, target / chunkRows, layout);
+                        root.directory,
+                        CheckedStructural.ceilChunks(target, chunkRows),
+                        layout);
                 long finalManaged = managedBytes(
                         candidate,
                         sidecarBytes(
@@ -254,7 +256,7 @@ public final class GeneratedTable {
     }
 
     public UpdateResult missingUpdate() {
-        return updateResult(0L, 0L);
+        return updateResult(0, 0);
     }
 
     public GeneratedProbe newProbe(int fieldIndex) {
@@ -461,14 +463,14 @@ public final class GeneratedTable {
 
     void add(GeneratedRow row, Object provenance) {
         TableStateRoot root = current.get();
-        long newSize = CheckedLong.increment(root.size, SomaOperation.ADD, provenance);
+        int newSize = CheckedStructural.increment(root.size, SomaOperation.ADD, provenance);
         long newVersion = CheckedLong.increment(
                 root.stateVersion, SomaOperation.ADD, provenance);
-        long minimum = root.capacity;
+        int minimum = root.capacity;
         if (newSize > root.capacity) {
             minimum = roundedCapacity(newSize, SomaOperation.ADD, provenance);
         }
-        long preferred = preferredGrowth(root, newSize, minimum, provenance);
+        int preferred = preferredGrowth(root, newSize, minimum, provenance);
         try {
             publishAdd(root, row, preferred, newSize, newVersion, provenance);
         } catch (SomaOperationException failure) {
@@ -481,8 +483,8 @@ public final class GeneratedTable {
     }
 
     boolean loadByKey(GeneratedRow probe, boolean required, Object provenance) {
-        long locator = locateByKey(probe);
-        if (locator < 0L) {
+        int locator = locateByKey(probe);
+        if (locator < 0) {
             if (required) {
                 throw SomaFailures.failure(
                         SomaFailureCode.MISSING_KEY,
@@ -496,13 +498,13 @@ public final class GeneratedTable {
         return true;
     }
 
-    long locateByKey(TypedValues probe) {
+    int locateByKey(TypedValues probe) {
         TableStateRoot root = current.get();
         if (root.key == null) throw new AssertionError("keyless Table point operation");
         return root.key.findUnique(root.directory, probe);
     }
 
-    void load(long locator, TypedValues destination) {
+    void load(int locator, TypedValues destination) {
         current.get().directory.read(locator, destination);
     }
 
@@ -525,7 +527,7 @@ public final class GeneratedTable {
     }
 
     UpdateResult update(
-            long locator,
+            int locator,
             TypedValues original,
             TypedValues staged,
             Object provenance) {
@@ -536,7 +538,7 @@ public final class GeneratedTable {
             throw SomaFailures.invalid(SomaOperation.UPDATE, "Key Field is immutable");
         }
         if (layout.logicalRowEquals(original, staged)) {
-            return updateResult(1L, 0L);
+            return updateResult(1, 0);
         }
 
         boolean indexChanged = false;
@@ -550,11 +552,11 @@ public final class GeneratedTable {
         }
         long newVersion = CheckedLong.increment(
                 root.stateVersion, SomaOperation.UPDATE, provenance);
-        long chunkOrdinal = locator / chunkRows;
+        int chunkOrdinal = locator / chunkRows;
         boolean plainInPlace = !root.directory.chunk(chunkOrdinal)
                 .hasEncodedRepresentation();
         if (!indexChanged && plainInPlace) {
-            UpdateResult result = updateResult(1L, 1L);
+            UpdateResult result = updateResult(1, 1);
             TableStateRoot committed = new TableStateRoot(
                     root.size,
                     root.capacity,
@@ -608,7 +610,7 @@ public final class GeneratedTable {
                             root, sidecars, SomaOperation.UPDATE, provenance)
                     : managedBytes(
                             candidate, sidecars, SomaOperation.UPDATE, provenance);
-            UpdateResult result = updateResult(1L, 1L);
+            UpdateResult result = updateResult(1, 1);
             publishPointIndexUpdate(
                     root,
                     new TableStateRoot(
@@ -634,13 +636,13 @@ public final class GeneratedTable {
     RemoveResult remove(TypedValues probe, Object provenance) {
         TableStateRoot root = current.get();
         if (root.key == null) throw new AssertionError("keyless Table point remove");
-        long locator = root.key.findUnique(root.directory, probe);
-        if (locator < 0L) return removeResult(0L);
+        int locator = root.key.findUnique(root.directory, probe);
+        if (locator < 0) return removeResult(0);
 
         try (GlobalMemoryManager.TemporaryLease ignored =
                      group.leaseTemporary(
                              root.managedBytes, SomaOperation.REMOVE, provenance)) {
-            long newSize = root.size - 1L;
+            int newSize = root.size - 1;
             TableChunkDirectory candidate = root.directory.copyForRemove(locator, root.size);
             candidate.finishTouched(
                     newSize,
@@ -649,13 +651,13 @@ public final class GeneratedTable {
                     provenance);
             try {
                 root.key.prepareRemove(
-                        keyRemoveScratch, root.directory, locator, root.size - 1L);
+                        keyRemoveScratch, root.directory, locator, root.size - 1);
                 for (int ordinal = 0; ordinal < root.indexes.length; ordinal++) {
                     root.indexes[ordinal].prepareRemove(
                             indexRemoveScratch[ordinal],
                             root.directory,
                             locator,
-                            root.size - 1L);
+                            root.size - 1);
                 }
                 inject(
                         MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
@@ -664,7 +666,7 @@ public final class GeneratedTable {
                 long sidecars = sidecarBytes(root, SomaOperation.REMOVE, provenance);
                 long finalManaged = managedBytes(
                         candidate, sidecars, SomaOperation.REMOVE, provenance);
-                RemoveResult result = removeResult(1L);
+                RemoveResult result = removeResult(1);
                 publishPointRemove(
                         root,
                         new TableStateRoot(
@@ -744,19 +746,19 @@ public final class GeneratedTable {
         return selectionEditor;
     }
 
-    UpdateResult selectionUpdateResult(long matched, long changed) {
+    UpdateResult selectionUpdateResult(int matched, int changed) {
         return updateResult(matched, changed);
     }
 
-    RemoveResult selectionRemoveResult(long removed) {
+    RemoveResult selectionRemoveResult(int removed) {
         return removeResult(removed);
     }
 
     UpdateResult publishSelectionUpdate(
             TableStateRoot oldRoot,
             TableChunkDirectory candidateDirectory,
-            long matched,
-            long changed,
+            int matched,
+            int changed,
             boolean indexedValueChanged,
             Object provenance) {
         candidateDirectory.finishTouched(
@@ -800,9 +802,9 @@ public final class GeneratedTable {
     RemoveResult publishSelectionRemove(
             TableStateRoot oldRoot,
             TableChunkDirectory candidateDirectory,
-            long removed,
+            int removed,
             Object provenance) {
-        long newSize = oldRoot.size - removed;
+        int newSize = oldRoot.size - removed;
         candidateDirectory.finishTouched(
                 newSize,
                 group.compression(),
@@ -930,8 +932,8 @@ public final class GeneratedTable {
     private void publishAdd(
             TableStateRoot root,
             TypedValues row,
-            long targetCapacity,
-            long newSize,
+            int targetCapacity,
+            int newSize,
             long newVersion,
             Object provenance) {
         IdentityHashIndex.PreparedAdd keyAdd = root.key == null ? null : keyAddScratch;
@@ -982,7 +984,9 @@ public final class GeneratedTable {
                                  provenance)) {
                 TableChunkDirectory directory = growth
                         ? TableChunkDirectory.grow(
-                                root.directory, targetCapacity / chunkRows, layout)
+                                root.directory,
+                                CheckedStructural.ceilChunks(targetCapacity, chunkRows),
+                                layout)
                         : root.directory;
                 if (sealsChunk) {
                     directory = directory.copyForUpdate(root.size, row);
@@ -1032,7 +1036,7 @@ public final class GeneratedTable {
 
     private IdentityHashIndex[] rebuildIndexes(
             TableChunkDirectory directory,
-            long size,
+            int size,
             SomaOperation operation,
             Object provenance) {
         IdentityHashIndex[] result = new IdentityHashIndex[layout.indexCount()];
@@ -1075,7 +1079,7 @@ public final class GeneratedTable {
             TableStateRoot candidate,
             boolean[] incremental,
             TypedValues inPlacePayload,
-            long locator,
+            int locator,
             Object provenance) {
         long delta = candidate.managedBytes - oldRoot.managedBytes;
         long positive = Math.max(0L, delta);
@@ -1129,52 +1133,39 @@ public final class GeneratedTable {
         if (delta < 0L) group.releasePublished(-delta);
     }
 
-    private long preferredGrowth(
+    private int preferredGrowth(
             TableStateRoot root,
-            long required,
-            long minimum,
+            int required,
+            int minimum,
             Object provenance) {
         if (required <= root.capacity) return root.capacity;
         long preferred = Math.max(required, layout.defaultCapacity());
-        if (root.capacity > 0L) {
-            try {
-                preferred = Math.max(
-                        preferred,
-                        CheckedLong.add(
-                                root.capacity,
-                                root.capacity / 2L,
-                                SomaOperation.ADD,
-                                provenance));
-            } catch (SomaOperationException ignored) {
-                return minimum;
-            }
+        if (root.capacity > 0) {
+            preferred = Math.max(preferred, root.capacity + root.capacity / 2L);
         }
-        try {
-            return roundedCapacity(preferred, SomaOperation.ADD, provenance);
-        } catch (SomaOperationException ignored) {
-            return minimum;
-        }
+        return preferred > Integer.MAX_VALUE
+                ? minimum
+                : roundedCapacity((int) preferred, SomaOperation.ADD, provenance);
     }
 
-    private long roundedCapacity(
-            long required,
+    private int roundedCapacity(
+            int required,
             SomaOperation operation,
             Object provenance) {
-        if (required == 0L) return 0L;
-        long adjusted = CheckedLong.add(required, chunkRows - 1L, operation, provenance);
-        return CheckedLong.multiply(
-                adjusted / chunkRows, chunkRows, operation, provenance);
+        if (required == 0) return 0;
+        long rounded = ((long) required + chunkRows - 1L) / chunkRows * chunkRows;
+        return rounded > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) rounded;
     }
 
     private long managedBytes(
-            long capacity,
+            int capacity,
             long sidecars,
             SomaOperation operation,
             Object provenance) {
         if (capacity == 0L && sidecars == 0L) return 0L;
         long payload = CheckedLong.multiply(
                 capacity, layout.rowWidthBytes(), operation, provenance);
-        long chunks = capacity / chunkRows;
+        int chunks = CheckedStructural.ceilChunks(capacity, chunkRows);
         long perChunk = CheckedLong.add(
                 CHUNK_HEADER_BYTES,
                 CheckedLong.multiply(
@@ -1276,11 +1267,11 @@ public final class GeneratedTable {
                 withoutSidecars, replacement, operation, provenance);
     }
 
-    private UpdateResult updateResult(long matched, long changed) {
+    private UpdateResult updateResult(int matched, int changed) {
         return SomaSharedSecrets.updateResultAccess().create(matched, changed);
     }
 
-    private RemoveResult removeResult(long removed) {
+    private RemoveResult removeResult(int removed) {
         return SomaSharedSecrets.removeResultAccess().create(removed);
     }
 

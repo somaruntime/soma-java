@@ -14,7 +14,7 @@ final class OptimizedSequentialRowExecutor {
         final long[] count = new long[1];
         visitStateless(bound, plan, new LocatorVisitor() {
             @Override
-            public boolean visit(long locator) {
+            public boolean visit(int locator) {
                 count[0]++;
                 return true;
             }
@@ -22,7 +22,7 @@ final class OptimizedSequentialRowExecutor {
         return count[0];
     }
 
-    static LongLocatorBuffer locators(BoundRowPlan bound) {
+    static IntLocatorBuffer locators(BoundRowPlan bound) {
         return locators(bound, RowOptimizer.optimize(bound));
     }
 
@@ -34,19 +34,19 @@ final class OptimizedSequentialRowExecutor {
             visitStateless(bound, plan, visitor);
             return;
         }
-        LongLocatorBuffer values = locators(bound, plan);
+        IntLocatorBuffer values = locators(bound, plan);
         for (int index = 0; index < values.size(); index++) {
             if (!visitor.visit(values.get(index))) return;
         }
     }
 
-    private static LongLocatorBuffer locators(
+    private static IntLocatorBuffer locators(
             BoundRowPlan bound,
             NormalizedRowPlan plan) {
         int firstStateful = nextStateful(plan.stages, 0);
         int boundedTopLimit = boundedTypedTopLimitPosition(
                 bound, plan, firstStateful);
-        LongLocatorBuffer result;
+        IntLocatorBuffer result;
         int position;
         if (boundedTopLimit >= 0) {
             long count = plan.stages.get(boundedTopLimit).count;
@@ -63,7 +63,7 @@ final class OptimizedSequentialRowExecutor {
                     plan.membership);
             position = next;
         } else {
-            result = new LongLocatorBuffer(
+            result = new IntLocatorBuffer(
                     sourceUpperBound(bound), bound.operation, bound.provenance);
             collectSourceSegment(bound, plan, 0, firstStateful, result);
             position = firstStateful;
@@ -126,7 +126,7 @@ final class OptimizedSequentialRowExecutor {
         return bound.root.size;
     }
 
-    private static LongLocatorBuffer collectBoundedTypedTop(
+    private static IntLocatorBuffer collectBoundedTypedTop(
             final BoundRowPlan bound,
             final NormalizedRowPlan plan,
             final int from,
@@ -138,7 +138,7 @@ final class OptimizedSequentialRowExecutor {
                 bound, order, count);
         final long[] nextOrdinal = new long[1];
         visitSource(bound, plan, new LocatorVisitor() {
-            @Override public boolean visit(long locator) {
+            @Override public boolean visit(int locator) {
                 if (segmentLimitReached(plan.stages, from, to, counters)) return false;
                 int decision = evaluateStateless(
                         bound, locator, plan.stages, from, to, counters,
@@ -160,10 +160,10 @@ final class OptimizedSequentialRowExecutor {
             NormalizedRowPlan plan,
             final int from,
             final int to,
-            final LongLocatorBuffer output) {
+            final IntLocatorBuffer output) {
         final long[] counters = new long[to - from];
         visitSource(bound, plan, new LocatorVisitor() {
-            @Override public boolean visit(long locator) {
+            @Override public boolean visit(int locator) {
                 if (segmentLimitReached(plan.stages, from, to, counters)) return false;
                 int decision = evaluateStateless(
                         bound, locator, plan.stages, from, to, counters,
@@ -177,7 +177,7 @@ final class OptimizedSequentialRowExecutor {
 
     private static void compactSegment(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             List<LogicalRowPlan.Stage> stages,
             int from,
             int to,
@@ -187,7 +187,7 @@ final class OptimizedSequentialRowExecutor {
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
             if (segmentLimitReached(stages, from, to, counters)) break;
-            long locator = values.get(input);
+            int locator = values.get(input);
             int decision = evaluateStateless(
                     bound, locator, stages, from, to, counters, membership);
             if (decision > 0) values.set(output++, locator);
@@ -199,7 +199,7 @@ final class OptimizedSequentialRowExecutor {
     /** -1 stops the segment, 0 rejects the element, 1 selects it. */
     private static int evaluateStateless(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             List<LogicalRowPlan.Stage> stages,
             int from,
             int to,
@@ -270,7 +270,7 @@ final class OptimizedSequentialRowExecutor {
         long[] counters = new long[stages.size()];
         visitSource(bound, plan, new LocatorVisitor() {
             @Override
-            public boolean visit(long locator) {
+            public boolean visit(int locator) {
                 if (limitReached(stages, counters)) return false;
                 for (int index = 0; index < stages.size(); index++) {
                     LogicalRowPlan.Stage stage = stages.get(index);
@@ -339,19 +339,19 @@ final class OptimizedSequentialRowExecutor {
                 }
                 return;
             case TABLE_SCAN:
-                for (long locator = 0L; locator < bound.root.size; locator++) {
+                for (int locator = 0; locator < bound.root.size; locator++) {
                     if (!visitor.visit(locator)) return;
                 }
                 return;
             case KEY_LOOKUP:
-                long keyLocator = bound.root.key.findUnique(bound.root.directory, plan.probe);
-                if (keyLocator >= 0L) visitor.visit(keyLocator);
+                int keyLocator = bound.root.key.findUnique(bound.root.directory, plan.probe);
+                if (keyLocator >= 0) visitor.visit(keyLocator);
                 return;
             case INDEX_SELECTION:
             case INDEX_LOOKUP:
                 IdentityHashIndex index = bound.root.indexes[plan.indexOrdinal];
-                for (long locator = index.first(bound.root.directory, plan.probe);
-                        locator >= 0L;
+                for (int locator = index.first(bound.root.directory, plan.probe);
+                        locator >= 0;
                         locator = index.next(locator)) {
                     if (!visitor.visit(locator)) return;
                 }
@@ -363,7 +363,7 @@ final class OptimizedSequentialRowExecutor {
 
     private static void compactDistinct(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             int fieldIndex) {
         GeneratedTableLayout layout = bound.logical.owner().layout();
         FieldLocatorSet seen = new FieldLocatorSet(
@@ -371,7 +371,7 @@ final class OptimizedSequentialRowExecutor {
                 fieldIndex, bound.operation, bound.provenance);
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
-            long candidate = values.get(input);
+            int candidate = values.get(input);
             if (seen.add(candidate)) values.set(output++, candidate);
         }
         values.size(output);
@@ -385,7 +385,7 @@ final class OptimizedSequentialRowExecutor {
         private final GeneratedTableLayout layout;
         private final TableChunkDirectory directory;
         private final int fieldIndex;
-        private final long[] locators;
+        private final int[] locators;
         private final byte[] occupied;
         private final int mask;
 
@@ -400,12 +400,12 @@ final class OptimizedSequentialRowExecutor {
             this.layout = layout;
             this.directory = directory;
             this.fieldIndex = fieldIndex;
-            this.locators = new long[capacity];
+            this.locators = new int[capacity];
             this.occupied = new byte[capacity];
             this.mask = capacity - 1;
         }
 
-        boolean add(long locator) {
+        boolean add(int locator) {
             long hash = layout.hashField(directory, locator, fieldIndex);
             int slot = ((int) (hash ^ (hash >>> 32))) & mask;
             while (occupied[slot] != 0) {
@@ -441,7 +441,7 @@ final class OptimizedSequentialRowExecutor {
 
     private static void stableSort(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             LogicalRowPlan.Stage stage) {
         if (stage.kind == LogicalRowPlan.StageKind.CALLBACK_ORDER) {
             RowExecutionSupport.stableCallbackSort(bound, values, stage);
@@ -449,14 +449,14 @@ final class OptimizedSequentialRowExecutor {
         }
         int size = values.size();
         if (size < 2) return;
-        long[] scratch = new long[size];
+        int[] scratch = new int[size];
         stableMergeSort(bound, values.backing(), scratch, 0, size, stage);
     }
 
     private static void stableMergeSort(
             BoundRowPlan bound,
-            long[] values,
-            long[] scratch,
+            int[] values,
+            int[] scratch,
             int from,
             int to,
             LogicalRowPlan.Stage stage) {
@@ -481,7 +481,7 @@ final class OptimizedSequentialRowExecutor {
         System.arraycopy(scratch, from, values, from, length);
     }
 
-    private static void skip(LongLocatorBuffer values, long count) {
+    private static void skip(IntLocatorBuffer values, long count) {
         if (count <= 0L) return;
         if (count >= values.size()) {
             values.size(0);
@@ -493,7 +493,7 @@ final class OptimizedSequentialRowExecutor {
         values.size(remaining);
     }
 
-    private static void limit(LongLocatorBuffer values, long count) {
+    private static void limit(IntLocatorBuffer values, long count) {
         if (count < values.size()) values.size((int) count);
     }
 
@@ -507,6 +507,6 @@ final class OptimizedSequentialRowExecutor {
     }
 
     interface LocatorVisitor {
-        boolean visit(long locator);
+        boolean visit(int locator);
     }
 }

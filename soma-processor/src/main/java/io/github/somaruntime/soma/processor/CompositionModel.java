@@ -93,13 +93,13 @@ final class CompositionModel {
     static final class TableModel {
 
         private final String simpleName;
-        private final long defaultCapacity;
+        private final int defaultCapacity;
         private final List<FieldModel> fields;
         private final List<LeafModel> leaves;
 
         TableModel(
                 String simpleName,
-                long defaultCapacity,
+                int defaultCapacity,
                 List<FieldModel> fields,
                 List<LeafModel> leaves) {
             this.simpleName = simpleName;
@@ -108,7 +108,7 @@ final class CompositionModel {
             this.leaves = immutable(leaves);
         }
 
-        TableModel(String simpleName, long defaultCapacity, List<FieldModel> fields) {
+        TableModel(String simpleName, int defaultCapacity, List<FieldModel> fields) {
             this(simpleName, defaultCapacity, fields, collectLeaves(fields));
         }
 
@@ -116,7 +116,7 @@ final class CompositionModel {
             return simpleName;
         }
 
-        long defaultCapacity() {
+        int defaultCapacity() {
             return defaultCapacity;
         }
 

@@ -28,7 +28,7 @@ public final class GeneratedTableLayout {
     public static final byte EQ_OBJECT_IDENTITY = 11;
 
     private final String logicalName;
-    private final long defaultCapacity;
+    private final int defaultCapacity;
     private final byte[] leafKinds;
     private final byte[] equalityKinds;
     private final int[] leafSlots;
@@ -43,7 +43,7 @@ public final class GeneratedTableLayout {
 
     private GeneratedTableLayout(
             String logicalName,
-            long defaultCapacity,
+            int defaultCapacity,
             byte[] leafKinds,
             byte[] equalityKinds,
             int[] fieldStarts,
@@ -78,7 +78,7 @@ public final class GeneratedTableLayout {
 
     public static GeneratedTableLayout create(
             String logicalName,
-            long defaultCapacity,
+            int defaultCapacity,
             byte[] leafKinds,
             byte[] equalityKinds,
             int[] fieldStarts,
@@ -88,7 +88,7 @@ public final class GeneratedTableLayout {
             int[] indexFieldIndexes) {
         if (logicalName == null
                 || logicalName.isEmpty()
-                || defaultCapacity < 0L
+                || defaultCapacity < 0
                 || leafKinds == null
                 || equalityKinds == null
                 || leafKinds.length == 0
@@ -154,7 +154,7 @@ public final class GeneratedTableLayout {
         return logicalName;
     }
 
-    long defaultCapacity() {
+    int defaultCapacity() {
         return defaultCapacity;
     }
 
@@ -290,7 +290,7 @@ public final class GeneratedTableLayout {
                 leafAllowance);
     }
 
-    long hashField(TableChunkDirectory directory, long locator, int fieldIndex) {
+    long hashField(TableChunkDirectory directory, int locator, int fieldIndex) {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);
         long hash = 1L;
@@ -314,7 +314,7 @@ public final class GeneratedTableLayout {
 
     boolean fieldEquals(
             TableChunkDirectory directory,
-            long locator,
+            int locator,
             TypedValues values,
             int fieldIndex) {
         int start = fieldStart(fieldIndex);
@@ -331,8 +331,8 @@ public final class GeneratedTableLayout {
 
     boolean fieldEquals(
             TableChunkDirectory directory,
-            long leftLocator,
-            long rightLocator,
+            int leftLocator,
+            int rightLocator,
             int fieldIndex) {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);
@@ -402,11 +402,11 @@ public final class GeneratedTableLayout {
 
     boolean joinFieldEquals(
             TableChunkDirectory leftDirectory,
-            long leftLocator,
+            int leftLocator,
             int leftFieldIndex,
             GeneratedTableLayout rightLayout,
             TableChunkDirectory rightDirectory,
-            long rightLocator,
+            int rightLocator,
             int rightFieldIndex) {
         if (!joinCompatible(leftFieldIndex, rightLayout, rightFieldIndex)) {
             throw new AssertionError("incompatible generated Join Fields");
@@ -494,7 +494,7 @@ public final class GeneratedTableLayout {
 
     boolean storedFieldIsNull(
             TableChunkDirectory directory,
-            long locator,
+            int locator,
             int fieldIndex) {
         requireField(fieldIndex);
         if (!fieldNullables[fieldIndex]) return false;
@@ -504,7 +504,7 @@ public final class GeneratedTableLayout {
 
     int compareStored(
             TableChunkDirectory directory,
-            long locator,
+            int locator,
             TypedValues literal,
             int fieldIndex) {
         if (fieldLeafCount(fieldIndex) != 1) {
@@ -547,8 +547,8 @@ public final class GeneratedTableLayout {
 
     int compareStored(
             TableChunkDirectory directory,
-            long leftLocator,
-            long rightLocator,
+            int leftLocator,
+            int rightLocator,
             int fieldIndex) {
         int start = fieldStart(fieldIndex);
         int count = fieldLeafCount(fieldIndex);

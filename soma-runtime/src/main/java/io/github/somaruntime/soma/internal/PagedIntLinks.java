@@ -2,52 +2,48 @@ package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaOperation;
 
-/** Long-domain paged next-locator storage for non-unique Index postings. */
-final class PagedLongLinks {
+/** Int-domain paged next-locator storage for non-unique Index postings. */
+final class PagedIntLinks {
 
     private static final int RADIX_BITS = 8;
     private static final int RADIX_SIZE = 1 << RADIX_BITS;
     private static final int RADIX_MASK = RADIX_SIZE - 1;
-    private static final int LEVELS = 8;
+    private static final int LEVELS = 4;
     private static final long NODE_BYTES = 64L + RADIX_SIZE * 8L;
 
     private final int pageRows;
     private BranchNode root;
-    private long pageCount;
+    private int pageCount;
 
-    private PagedLongLinks(int pageRows) {
+    private PagedIntLinks(int pageRows) {
         this.pageRows = pageRows;
     }
 
-    static PagedLongLinks empty(int pageRows) {
-        return new PagedLongLinks(pageRows);
+    static PagedIntLinks empty(int pageRows) {
+        return new PagedIntLinks(pageRows);
     }
 
-    PagedLongLinks ensureLocator(long locator) {
-        long requiredPages = locator / pageRows + 1L;
-        if (requiredPages <= pageCount) {
-            return this;
-        }
-        PagedLongLinks result = shallowCopy();
-        while (result.pageCount < requiredPages) {
-            result.append(new long[pageRows]);
-        }
+    PagedIntLinks ensureLocator(int locator) {
+        int requiredPages = locator / pageRows + 1;
+        if (requiredPages <= pageCount) return this;
+        PagedIntLinks result = shallowCopy();
+        while (result.pageCount < requiredPages) result.append(new int[pageRows]);
         return result;
     }
 
-    long next(long locator) {
-        long encoded = page(locator)[(int) (locator % pageRows)];
-        return encoded == 0L ? -1L : encoded - 1L;
+    int next(int locator) {
+        int encoded = page(locator)[locator % pageRows];
+        return encoded == 0 ? -1 : encoded - 1;
     }
 
-    void link(long locator, long nextLocator) {
-        page(locator)[(int) (locator % pageRows)] = nextLocator + 1L;
+    void link(int locator, int nextLocator) {
+        page(locator)[locator % pageRows] = nextLocator + 1;
     }
 
     long managedBytes(SomaOperation operation, Object provenance) {
         long arrays = CheckedLong.multiply(
                 CheckedLong.multiply(pageCount, pageRows, operation, provenance),
-                Long.BYTES,
+                Integer.BYTES,
                 operation,
                 provenance);
         long nodes = CheckedLong.multiply(
@@ -58,20 +54,20 @@ final class PagedLongLinks {
         return CheckedLong.add(arrays, nodes, operation, provenance);
     }
 
-    private PagedLongLinks shallowCopy() {
-        PagedLongLinks result = new PagedLongLinks(pageRows);
-        for (long ordinal = 0L; ordinal < pageCount; ordinal++) {
+    private PagedIntLinks shallowCopy() {
+        PagedIntLinks result = new PagedIntLinks(pageRows);
+        for (int ordinal = 0; ordinal < pageCount; ordinal++) {
             result.append(pageByOrdinal(ordinal));
         }
         return result;
     }
 
-    private long[] page(long locator) {
+    private int[] page(int locator) {
         return pageByOrdinal(locator / pageRows);
     }
 
-    private long[] pageByOrdinal(long ordinal) {
-        if (ordinal < 0L || ordinal >= pageCount || root == null) {
+    private int[] pageByOrdinal(int ordinal) {
+        if (ordinal < 0 || ordinal >= pageCount || root == null) {
             throw new AssertionError("invalid Index link page");
         }
         BranchNode branch = root;
@@ -81,13 +77,13 @@ final class PagedLongLinks {
         }
         LeafNode leaf = branch.leaves[digit(ordinal, 1)];
         if (leaf == null) throw new AssertionError("missing Index link leaf");
-        long[] page = leaf.pages[digit(ordinal, 0)];
+        int[] page = leaf.pages[digit(ordinal, 0)];
         if (page == null) throw new AssertionError("missing Index link page");
         return page;
     }
 
-    private void append(long[] page) {
-        long ordinal = pageCount;
+    private void append(int[] page) {
+        int ordinal = pageCount;
         if (root == null) root = new BranchNode();
         BranchNode branch = root;
         for (int level = LEVELS - 1; level > 1; level--) {
@@ -101,8 +97,8 @@ final class PagedLongLinks {
         pageCount++;
     }
 
-    private static int digit(long ordinal, int level) {
-        return (int) ((ordinal >>> (level * RADIX_BITS)) & RADIX_MASK);
+    private static int digit(int ordinal, int level) {
+        return (ordinal >>> (level * RADIX_BITS)) & RADIX_MASK;
     }
 
     private static final class BranchNode {
@@ -111,6 +107,6 @@ final class PagedLongLinks {
     }
 
     private static final class LeafNode {
-        private final long[][] pages = new long[RADIX_SIZE][];
+        private final int[][] pages = new int[RADIX_SIZE][];
     }
 }

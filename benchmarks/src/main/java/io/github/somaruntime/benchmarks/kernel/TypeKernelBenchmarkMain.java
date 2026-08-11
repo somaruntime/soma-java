@@ -62,7 +62,7 @@ public final class TypeKernelBenchmarkMain {
             String[] labels = strings("LABEL-", 8_192);
             KernelPayload[] payloads = payloads(256);
             KernelStatus[] statuses = KernelStatus.values();
-            weights.reserve((long) routeCount * 2L);
+            weights.reserve(Math.multiplyExact(routeCount, 2));
 
             for (int index = 0; index < routeCount; index++) {
                 long id = index * 2L + 1L;

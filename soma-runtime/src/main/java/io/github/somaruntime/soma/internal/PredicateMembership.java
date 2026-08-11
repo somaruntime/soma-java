@@ -66,7 +66,7 @@ final class PredicateMembership {
     boolean contains(
             PredicateIr predicate,
             TableChunkDirectory directory,
-            long locator) {
+            int locator) {
         ProbeSet set = sets.get(predicate);
         if (set == null) {
             throw new AssertionError("missing prepared IN membership");
@@ -113,7 +113,7 @@ final class PredicateMembership {
         boolean contains(
                 GeneratedTableLayout layout,
                 TableChunkDirectory directory,
-                long locator) {
+                int locator) {
             long hash = layout.hashField(directory, locator, fieldIndex);
             int slot = slot(hash, mask);
             while (occupied[slot] != 0) {

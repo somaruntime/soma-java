@@ -13,7 +13,7 @@ final class ReferenceRowInterpreter {
         final long[] result = new long[1];
         visitStateless(bound, new OptimizedSequentialRowExecutor.LocatorVisitor() {
             @Override
-            public boolean visit(long locator) {
+            public boolean visit(int locator) {
                 result[0]++;
                 return true;
             }
@@ -28,14 +28,14 @@ final class ReferenceRowInterpreter {
             visitStateless(bound, visitor);
             return;
         }
-        LongLocatorBuffer values = locators(bound);
+        IntLocatorBuffer values = locators(bound);
         for (int index = 0; index < values.size(); index++) {
             if (!visitor.visit(values.get(index))) return;
         }
     }
 
-    static LongLocatorBuffer locators(BoundRowPlan bound) {
-        LongLocatorBuffer result = new LongLocatorBuffer(
+    static IntLocatorBuffer locators(BoundRowPlan bound) {
+        IntLocatorBuffer result = new IntLocatorBuffer(
                 bound.root.size, bound.operation, bound.provenance);
         List<LogicalRowPlan.Stage> stages = bound.logical.stages();
         int firstStateful = referenceNextStateful(stages, 0);
@@ -66,10 +66,10 @@ final class ReferenceRowInterpreter {
             List<LogicalRowPlan.Stage> stages,
             int from,
             int to,
-            LongLocatorBuffer output) {
+            IntLocatorBuffer output) {
         long[] counters = new long[to - from];
-        for (long sourceIndex = 0L; sourceIndex < sourceSize(bound); sourceIndex++) {
-            long locator = sourceLocator(bound, sourceIndex);
+        for (int sourceIndex = 0; sourceIndex < sourceSize(bound); sourceIndex++) {
+            int locator = sourceLocator(bound, sourceIndex);
             if (referenceSegmentLimitReached(stages, from, to, counters)) return;
             if (!sourceContains(bound, locator)) continue;
             int decision = referenceEvaluateStateless(
@@ -82,7 +82,7 @@ final class ReferenceRowInterpreter {
 
     private static void referenceCompactSegment(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             List<LogicalRowPlan.Stage> stages,
             int from,
             int to) {
@@ -91,7 +91,7 @@ final class ReferenceRowInterpreter {
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
             if (referenceSegmentLimitReached(stages, from, to, counters)) break;
-            long locator = values.get(input);
+            int locator = values.get(input);
             int decision = referenceEvaluateStateless(
                     bound, locator, stages, from, to, counters);
             if (decision > 0) values.set(output++, locator);
@@ -102,7 +102,7 @@ final class ReferenceRowInterpreter {
 
     private static int referenceEvaluateStateless(
             BoundRowPlan bound,
-            long locator,
+            int locator,
             List<LogicalRowPlan.Stage> stages,
             int from,
             int to,
@@ -169,8 +169,8 @@ final class ReferenceRowInterpreter {
             OptimizedSequentialRowExecutor.LocatorVisitor visitor) {
         List<LogicalRowPlan.Stage> stages = bound.logical.stages();
         long[] counters = new long[stages.size()];
-        for (long sourceIndex = 0L; sourceIndex < sourceSize(bound); sourceIndex++) {
-            long locator = sourceLocator(bound, sourceIndex);
+        for (int sourceIndex = 0; sourceIndex < sourceSize(bound); sourceIndex++) {
+            int locator = sourceLocator(bound, sourceIndex);
             if (limitReached(stages, counters)) return;
             if (!sourceContains(bound, locator)) continue;
             boolean selected = true;
@@ -220,7 +220,7 @@ final class ReferenceRowInterpreter {
         return false;
     }
 
-    private static boolean sourceContains(BoundRowPlan bound, long locator) {
+    private static boolean sourceContains(BoundRowPlan bound, int locator) {
         if (bound.logical.sourceKind() == LogicalRowPlan.SourceKind.TABLE_SCAN) return true;
         if (bound.logical.sourceKind() == LogicalRowPlan.SourceKind.RELATION_LEFT) return true;
         int ordinal = bound.logical.indexOrdinal();
@@ -232,7 +232,7 @@ final class ReferenceRowInterpreter {
                 field);
     }
 
-    private static long sourceSize(BoundRowPlan bound) {
+    private static int sourceSize(BoundRowPlan bound) {
         if (bound.logical.sourceKind() != LogicalRowPlan.SourceKind.RELATION_LEFT) {
             return bound.root.size;
         }
@@ -242,7 +242,7 @@ final class ReferenceRowInterpreter {
         return bound.relationSource.size();
     }
 
-    private static long sourceLocator(BoundRowPlan bound, long sourceIndex) {
+    private static int sourceLocator(BoundRowPlan bound, int sourceIndex) {
         if (bound.logical.sourceKind() != LogicalRowPlan.SourceKind.RELATION_LEFT) {
             return sourceIndex;
         }
@@ -251,11 +251,11 @@ final class ReferenceRowInterpreter {
 
     private static void compactFilter(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             LogicalRowPlan.Stage stage) {
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
-            long locator = values.get(input);
+            int locator = values.get(input);
             boolean selected = stage.kind == LogicalRowPlan.StageKind.TYPED_FILTER
                     ? PredicateEvaluator.matches(
                             bound.logical.owner().layout(),
@@ -272,14 +272,14 @@ final class ReferenceRowInterpreter {
     /** Intentionally simple and algorithmically independent stable reference sort. */
     private static void insertionSort(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             LogicalRowPlan.Stage stage) {
         if (stage.kind == LogicalRowPlan.StageKind.CALLBACK_ORDER) {
             RowExecutionSupport.stableCallbackSort(bound, values, stage);
             return;
         }
         for (int index = 1; index < values.size(); index++) {
-            long candidate = values.get(index);
+            int candidate = values.get(index);
             int position = index;
             while (position > 0
                     && RowExecutionSupport.compare(
@@ -293,11 +293,11 @@ final class ReferenceRowInterpreter {
 
     private static void referenceDistinct(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            IntLocatorBuffer values,
             int fieldIndex) {
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
-            long candidate = values.get(input);
+            int candidate = values.get(input);
             boolean seen = false;
             for (int prior = 0; prior < output; prior++) {
                 if (bound.logical.owner().layout().fieldEquals(
@@ -314,7 +314,7 @@ final class ReferenceRowInterpreter {
         values.size(output);
     }
 
-    private static void referenceSkip(LongLocatorBuffer values, long count) {
+    private static void referenceSkip(IntLocatorBuffer values, long count) {
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
             if ((long) input >= count) values.set(output++, values.get(input));
@@ -322,7 +322,7 @@ final class ReferenceRowInterpreter {
         values.size(output);
     }
 
-    private static void referenceLimit(LongLocatorBuffer values, long count) {
+    private static void referenceLimit(IntLocatorBuffer values, long count) {
         if (count < values.size()) values.size((int) count);
     }
 }

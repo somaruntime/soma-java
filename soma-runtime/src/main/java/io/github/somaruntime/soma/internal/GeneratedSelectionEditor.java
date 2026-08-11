@@ -36,9 +36,9 @@ final class GeneratedSelectionEditor extends TypedValues
         participant = Thread.currentThread();
     }
 
-    void enter(long locator) {
+    void enter(int locator) {
         requireOperation();
-        if (active || locator < 0L || locator >= root.size) {
+        if (active || locator < 0 || locator >= root.size) {
             throw new AssertionError("invalid Selection Editor locator");
         }
         root.directory.read(locator, this);

@@ -25,15 +25,15 @@ class InternalCarrierFactoryTest {
         assertTrue(access.hasMemoryBudget(explicit));
         assertEquals(4096L, access.memoryBudgetBytes(explicit));
 
-        UpdateResult result = SomaSharedSecrets.updateResultAccess().create(3L, 2L);
+        UpdateResult result = SomaSharedSecrets.updateResultAccess().create(3, 2);
         assertEquals(3L, result.matched());
         assertEquals(2L, result.changed());
         assertThrows(AssertionError.class,
-                () -> SomaSharedSecrets.updateResultAccess().create(1L, 2L));
+                () -> SomaSharedSecrets.updateResultAccess().create(1, 2));
 
-        RemoveResult removed = SomaSharedSecrets.removeResultAccess().create(3L);
+        RemoveResult removed = SomaSharedSecrets.removeResultAccess().create(3);
         assertEquals(3L, removed.removed());
         assertThrows(AssertionError.class,
-                () -> SomaSharedSecrets.removeResultAccess().create(-1L));
+                () -> SomaSharedSecrets.removeResultAccess().create(-1));
     }
 }

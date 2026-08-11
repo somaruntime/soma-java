@@ -10,7 +10,7 @@ final class PredicateEvaluator {
             GeneratedTableLayout layout,
             PredicateIr predicate,
             TableStateRoot root,
-            long locator) {
+            int locator) {
         switch (predicate.kind) {
             case CONSTANT:
                 return predicate.constant;

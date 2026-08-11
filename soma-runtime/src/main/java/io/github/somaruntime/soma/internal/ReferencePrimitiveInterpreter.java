@@ -123,7 +123,7 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static Long rowRoot(
-            BoundRowPlan bound, PrimitivePlan plan, long locator) {
+            BoundRowPlan bound, PrimitivePlan plan, int locator) {
         switch (plan.rootValueKind) {
             case BOOLEAN: return RowExecutionSupport.callbackMapBoolean(bound, locator, (GeneratedCallbacks.RowToBooleanMapper) plan.rootMapper, plan.rootApplicationCallback) ? 1L : 0L;
             case BYTE: return (long) RowExecutionSupport.callbackMapByte(bound, locator, (GeneratedCallbacks.RowToByteMapper) plan.rootMapper, plan.rootApplicationCallback);

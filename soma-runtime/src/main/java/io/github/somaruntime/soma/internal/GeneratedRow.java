@@ -23,7 +23,7 @@ public final class GeneratedRow extends TypedValues
     private boolean rowLoaded;
     private boolean callbackActive;
     private Thread operationThread;
-    private long locator = -1L;
+    private int locator = -1;
 
     GeneratedRow(GeneratedTable owner, GeneratedTableLayout layout) {
         super(layout);
@@ -50,7 +50,7 @@ public final class GeneratedRow extends TypedValues
         operationThread = Thread.currentThread();
         rowLoaded = false;
         callbackActive = false;
-        locator = -1L;
+        locator = -1;
         clearReferences();
         original.clearReferences();
     }
@@ -118,7 +118,7 @@ public final class GeneratedRow extends TypedValues
     public boolean locateForUpdate() {
         requireMode(UPDATE);
         locator = owner.locateByKey(this);
-        if (locator < 0L) return false;
+        if (locator < 0) return false;
         owner.load(locator, this);
         original.copyFrom(this);
         rowLoaded = true;
@@ -160,7 +160,7 @@ public final class GeneratedRow extends TypedValues
         if (operationLease == null) return;
         callbackActive = false;
         rowLoaded = false;
-        locator = -1L;
+        locator = -1;
         mode = 0;
         operationThread = null;
         clearReferences();

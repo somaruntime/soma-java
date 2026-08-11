@@ -10,7 +10,7 @@ final class RowExecutor {
         return OptimizedSequentialRowExecutor.count(prepare(bound));
     }
 
-    static LongLocatorBuffer locators(BoundRowPlan bound) {
+    static IntLocatorBuffer locators(BoundRowPlan bound) {
         return OptimizedSequentialRowExecutor.locators(prepare(bound));
     }
 

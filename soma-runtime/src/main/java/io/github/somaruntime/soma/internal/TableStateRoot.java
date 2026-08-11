@@ -3,8 +3,8 @@ package io.github.somaruntime.soma.internal;
 /** One atomically published authoritative Table generation. */
 final class TableStateRoot {
 
-    final long size;
-    final long capacity;
+    final int size;
+    final int capacity;
     final long stateVersion;
     final long managedBytes;
     final TableChunkDirectory directory;
@@ -12,8 +12,8 @@ final class TableStateRoot {
     final IdentityHashIndex[] indexes;
 
     TableStateRoot(
-            long size,
-            long capacity,
+            int size,
+            int capacity,
             long stateVersion,
             long managedBytes,
             TableChunkDirectory directory,
@@ -39,8 +39,8 @@ final class TableStateRoot {
                     layout, layout.indexFieldIndex(ordinal), false, chunkRows);
         }
         return new TableStateRoot(
-                0L,
-                0L,
+                0,
+                0,
                 0L,
                 0L,
                 TableChunkDirectory.empty(chunkRows, layout),

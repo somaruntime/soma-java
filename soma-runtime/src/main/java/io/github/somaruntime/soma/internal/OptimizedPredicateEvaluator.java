@@ -10,7 +10,7 @@ final class OptimizedPredicateEvaluator {
             GeneratedTableLayout layout,
             PredicateIr predicate,
             TableStateRoot root,
-            long locator,
+            int locator,
             PredicateMembership membership) {
         switch (predicate.kind) {
             case CONSTANT:

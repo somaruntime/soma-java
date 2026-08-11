@@ -258,7 +258,7 @@ final class CompositionModelBuilder {
         }
         if (table) {
             SomaTable annotation = type.getAnnotation(SomaTable.class);
-            if (annotation != null && annotation.defaultCapacity() < 0L) {
+            if (annotation != null && annotation.defaultCapacity() < 0) {
                 error(type, "[SOMA-1010] @SomaTable defaultCapacity must be non-negative.");
             }
         }
@@ -333,7 +333,7 @@ final class CompositionModelBuilder {
         SomaTable annotation = element.getAnnotation(SomaTable.class);
         return new CompositionModel.TableModel(
                 element.getSimpleName().toString(),
-                annotation == null ? 16L : annotation.defaultCapacity(),
+                annotation == null ? 16 : annotation.defaultCapacity(),
                 fields,
                 leaves);
     }

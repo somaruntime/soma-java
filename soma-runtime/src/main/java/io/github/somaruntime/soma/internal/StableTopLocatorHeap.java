@@ -8,7 +8,7 @@ final class StableTopLocatorHeap {
 
     private final BoundRowPlan bound;
     private final LogicalRowPlan.Stage order;
-    private final LongLocatorBuffer values;
+    private final IntLocatorBuffer values;
     private final long[] ordinals;
 
     StableTopLocatorHeap(
@@ -17,7 +17,7 @@ final class StableTopLocatorHeap {
             long capacity) {
         this.bound = bound;
         this.order = order;
-        this.values = new LongLocatorBuffer(
+        this.values = new IntLocatorBuffer(
                 capacity, bound.operation, bound.provenance);
         this.ordinals = new long[values.backing().length];
     }
@@ -26,7 +26,7 @@ final class StableTopLocatorHeap {
         return ordinals.length != 0;
     }
 
-    void offer(long locator, long ordinal) {
+    void offer(int locator, long ordinal) {
         if (values.size() < ordinals.length) {
             int position = values.size();
             values.add(locator);
@@ -40,7 +40,7 @@ final class StableTopLocatorHeap {
         siftDown(0, values.size());
     }
 
-    LongLocatorBuffer finish() {
+    IntLocatorBuffer finish() {
         for (int end = values.size() - 1; end > 0; end--) {
             swap(0, end);
             siftDown(0, end);
@@ -83,9 +83,9 @@ final class StableTopLocatorHeap {
     }
 
     private int compare(
-            long leftLocator,
+            int leftLocator,
             long leftOrdinal,
-            long rightLocator,
+            int rightLocator,
             long rightOrdinal) {
         int compared = RowExecutionSupport.compare(
                 bound, leftLocator, rightLocator, order);
@@ -95,7 +95,7 @@ final class StableTopLocatorHeap {
     }
 
     private void swap(int left, int right) {
-        long locator = values.get(left);
+        int locator = values.get(left);
         values.set(left, values.get(right));
         values.set(right, locator);
         long ordinal = ordinals[left];

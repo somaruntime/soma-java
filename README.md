@@ -44,7 +44,7 @@ mvn clean install -Dmaven.install.skip=false -DskipTests
 在一个 schema package 中声明 composition：
 
 ```java
-@SomaTable(defaultCapacity = 4096L)
+@SomaTable(defaultCapacity = 4096)
 final class Job {
     @SomaKey long jobId;
     @SomaIndex long statusCode;

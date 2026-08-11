@@ -5,7 +5,7 @@ import io.github.somaruntime.soma.SomaIndex;
 import io.github.somaruntime.soma.SomaKey;
 import io.github.somaruntime.soma.SomaTable;
 
-@SomaTable(defaultCapacity = 16_384L)
+@SomaTable(defaultCapacity = 16_384)
 final class Event {
     @SomaKey long eventId;
     @SomaIndex long entityId;

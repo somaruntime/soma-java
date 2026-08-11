@@ -26,9 +26,9 @@ public final class SchedulingMain {
         MachineStateTable machines = group.machineStateTable();
         ProcessingOptionTable options = group.processingOptionTable();
 
-        jobs.reserve(8L);
-        machines.reserve(8L);
-        options.reserve(16L);
+        jobs.reserve(8);
+        machines.reserve(8);
+        options.reserve(16);
         jobs.add(new Job(101L, JobStatus.PENDING, 10L, 80L));
         machines.add(new MachineState(7L, 1L, 12L, true));
         machines.add(new MachineState(8L, 1L, 30L, true));

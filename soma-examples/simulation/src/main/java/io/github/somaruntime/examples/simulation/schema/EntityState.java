@@ -4,7 +4,7 @@ import io.github.somaruntime.soma.SomaField;
 import io.github.somaruntime.soma.SomaKey;
 import io.github.somaruntime.soma.SomaTable;
 
-@SomaTable(defaultCapacity = 4_096L)
+@SomaTable(defaultCapacity = 4_096)
 final class EntityState {
     @SomaKey long entityId;
     @SomaField long value;

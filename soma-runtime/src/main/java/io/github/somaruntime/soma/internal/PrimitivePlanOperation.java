@@ -306,7 +306,7 @@ strictfp final class PrimitivePlanOperation {
 
     static void visitBound(BoundRowPlan bound, PrimitivePlan plan, Visitor visitor) {
         if (plan.hasOwnStatefulStage()) {
-            LongLocatorBuffer values = values(bound, plan);
+            LongValueBuffer values = values(bound, plan);
             for (int i = 0; i < values.size(); i++) if (!visitor.visit(values.get(i))) return;
             return;
         }
@@ -340,8 +340,8 @@ strictfp final class PrimitivePlanOperation {
         return false;
     }
 
-    private static LongLocatorBuffer values(BoundRowPlan bound, PrimitivePlan plan) {
-        LongLocatorBuffer result = new LongLocatorBuffer(bound.root.size, bound.provenance);
+    private static LongValueBuffer values(BoundRowPlan bound, PrimitivePlan plan) {
+        LongValueBuffer result = new LongValueBuffer(bound.root.size, bound.provenance);
         int firstStateful = primitiveNextStateful(plan.stages, 0);
         collectPrimitiveSegment(bound, plan, 0, firstStateful, result);
         int position = firstStateful;
@@ -365,7 +365,7 @@ strictfp final class PrimitivePlanOperation {
             final PrimitivePlan plan,
             final int from,
             final int to,
-            final LongLocatorBuffer output) {
+            final LongValueBuffer output) {
         final long[] counters = new long[to - from];
         if (primitiveSegmentLimitReached(plan.stages, from, to, counters)) return;
         visitRoot(bound, plan, raw -> {
@@ -407,7 +407,7 @@ strictfp final class PrimitivePlanOperation {
 
     private static void compactPrimitiveSegment(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            LongValueBuffer values,
             java.util.List<PrimitivePlan.Stage> stages,
             int from,
             int to) {
@@ -491,12 +491,12 @@ strictfp final class PrimitivePlanOperation {
                 byte kind = layout.leafKind(leaf);
                 TableChunkDirectory directory = bound.root.directory;
                 int chunkRows = directory.chunkRows();
-                long remaining = bound.root.size;
-                for (long ordinal = 0L;
-                        ordinal < directory.chunkCount() && remaining > 0L;
+                int remaining = bound.root.size;
+                for (int ordinal = 0;
+                        ordinal < directory.chunkCount() && remaining > 0;
                         ordinal++) {
                     TableChunk chunk = directory.chunk(ordinal);
-                    int logicalRows = (int) Math.min((long) chunkRows, remaining);
+                    int logicalRows = Math.min(chunkRows, remaining);
                     if (!chunk.visitPrimitive(
                             kind, slot, logicalRows, visitor)) return;
                     remaining -= logicalRows;
@@ -511,7 +511,7 @@ strictfp final class PrimitivePlanOperation {
         }
     }
 
-    private static long rowRoot(BoundRowPlan bound, PrimitivePlan plan, long locator) {
+    private static long rowRoot(BoundRowPlan bound, PrimitivePlan plan, int locator) {
         if (plan.rootFieldIndex >= 0) {
             return directFieldRoot(bound, plan, locator);
         }
@@ -531,7 +531,7 @@ strictfp final class PrimitivePlanOperation {
     private static long directFieldRoot(
             BoundRowPlan bound,
             PrimitivePlan plan,
-            long locator) {
+            int locator) {
         GeneratedTableLayout layout = plan.rows.owner().layout();
         int leaf = layout.fieldStart(plan.rootFieldIndex);
         if (layout.fieldLeafCount(plan.rootFieldIndex) != 1) {
@@ -677,12 +677,12 @@ strictfp final class PrimitivePlanOperation {
         finally { CallbackExecutionScope.exit(); }
     }
 
-    private static void compact(BoundRowPlan bound, LongLocatorBuffer values, PrimitivePlan.Stage stage) {
+    private static void compact(BoundRowPlan bound, LongValueBuffer values, PrimitivePlan.Stage stage) {
         int output = 0; for (int i = 0; i < values.size(); i++) { long value = values.get(i); if (test(bound, stage.input, stage.callback, value)) values.set(output++, value); } values.size(output);
     }
     private static void distinct(
             BoundRowPlan bound,
-            LongLocatorBuffer values,
+            LongValueBuffer values,
             PrimitivePlan.ValueKind kind) {
         PrimitiveDistinctSet seen = new PrimitiveDistinctSet(
                 values.size(), bound.provenance);
@@ -695,7 +695,7 @@ strictfp final class PrimitivePlanOperation {
         }
         values.size(output);
     }
-    private static void sort(LongLocatorBuffer values, PrimitivePlan.ValueKind kind) {
+    private static void sort(LongValueBuffer values, PrimitivePlan.ValueKind kind) {
         if (values.size() < 2) return;
         if (kind != PrimitivePlan.ValueKind.FLOAT
                 && kind != PrimitivePlan.ValueKind.DOUBLE) {
@@ -705,7 +705,7 @@ strictfp final class PrimitivePlanOperation {
         long[] scratch = new long[values.size()];
         mergeSort(values.backing(), scratch, 0, values.size(), kind);
     }
-    private static void skip(LongLocatorBuffer values, long count) { if (count >= values.size()) { values.size(0); return; } int n = (int) count; int remaining = values.size() - n; System.arraycopy(values.backing(), n, values.backing(), 0, remaining); values.size(remaining); }
+    private static void skip(LongValueBuffer values, long count) { if (count >= values.size()) { values.size(0); return; } int n = (int) count; int remaining = values.size() - n; System.arraycopy(values.backing(), n, values.backing(), 0, remaining); values.size(remaining); }
     private static boolean equal(PrimitivePlan.ValueKind kind, long a, long b) {
         if (kind == PrimitivePlan.ValueKind.FLOAT) {
             return Float.floatToIntBits(Float.intBitsToFloat((int) a))

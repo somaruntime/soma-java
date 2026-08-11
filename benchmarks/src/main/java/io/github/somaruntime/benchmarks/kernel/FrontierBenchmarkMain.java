@@ -126,7 +126,7 @@ public final class FrontierBenchmarkMain {
     }
 
     private static void ingestWeights(RouteWeightTable weights, RouteKey[] routes) {
-        weights.reserve((long) routes.length * 2L);
+        weights.reserve(Math.multiplyExact(routes.length, 2));
         for (int index = 0; index < routes.length; index++) {
             long id = index * 2L + 1L;
             weights.add(new RouteWeight(id, routes[index], 1L, true));

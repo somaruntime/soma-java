@@ -27,19 +27,19 @@ final class MutationOperation {
                                  scratch,
                                  SomaOperation.UPDATE,
                                  bound.provenance)) {
-                LongLocatorBuffer selected = freezeSelection(bound);
-                long matched = selected.size();
-                if (matched == 0L) return table.selectionUpdateResult(0L, 0L);
+                IntLocatorBuffer selected = freezeSelection(bound);
+                int matched = selected.size();
+                if (matched == 0) return table.selectionUpdateResult(0, 0);
 
                 TableChunkDirectory candidate =
                         bound.root.directory.copyForUpdates(selected);
                 GeneratedSelectionEditor editor = table.selectionEditor();
-                long changed = 0L;
+                int changed = 0;
                 boolean indexedValueChanged = false;
                 editor.begin(bound.root, bound.provenance);
                 try {
                     for (int index = 0; index < selected.size(); index++) {
-                        long locator = selected.get(index);
+                        int locator = selected.get(index);
                         editor.enter(locator);
                         CallbackExecutionScope.enter();
                         try {
@@ -59,8 +59,8 @@ final class MutationOperation {
                 } finally {
                     editor.end();
                 }
-                if (changed == 0L) {
-                    return table.selectionUpdateResult(matched, 0L);
+                if (changed == 0) {
+                    return table.selectionUpdateResult(matched, 0);
                 }
                 return table.publishSelectionUpdate(
                         bound.root,
@@ -88,8 +88,8 @@ final class MutationOperation {
                                  scratch,
                                  SomaOperation.REMOVE,
                                  bound.provenance)) {
-                LongLocatorBuffer selected = freezeSelection(bound);
-                if (selected.size() == 0) return table.selectionRemoveResult(0L);
+                IntLocatorBuffer selected = freezeSelection(bound);
+                if (selected.size() == 0) return table.selectionRemoveResult(0);
                 TypedValues copyScratch = new TypedValues(table.layout());
                 TableChunkDirectory candidate =
                         bound.root.directory.copyForSelectionRemove(
@@ -103,7 +103,7 @@ final class MutationOperation {
         }
     }
 
-    private static LongLocatorBuffer freezeSelection(BoundRowPlan bound) {
+    private static IntLocatorBuffer freezeSelection(BoundRowPlan bound) {
         GeneratedTable table = bound.logical.owner();
         table.queryCursor().begin(bound.root, bound.operation, bound.provenance);
         try {

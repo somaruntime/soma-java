@@ -153,7 +153,7 @@ public final class GeneratedRelation {
             @Override public Long run(RelationBinding binding) {
                 final long[] count = new long[1];
                 visit(binding, false, new PairVisitor() {
-                    @Override public boolean visit(long left, long right) {
+                    @Override public boolean visit(int left, int right) {
                         count[0] = CheckedLong.increment(
                                 count[0], SomaOperation.QUERY, binding.provenance);
                         return true;
@@ -171,7 +171,7 @@ public final class GeneratedRelation {
             @Override public Boolean run(final RelationBinding binding) {
                 final boolean[] matched = new boolean[1];
                 visit(binding, true, new PairVisitor() {
-                    @Override public boolean visit(long left, long right) {
+                    @Override public boolean visit(int left, int right) {
                         if (invokePredicate(predicate, binding)) {
                             matched[0] = true;
                             return false;
@@ -191,7 +191,7 @@ public final class GeneratedRelation {
             @Override public Boolean run(final RelationBinding binding) {
                 final boolean[] result = new boolean[] {true};
                 visit(binding, true, new PairVisitor() {
-                    @Override public boolean visit(long left, long right) {
+                    @Override public boolean visit(int left, int right) {
                         if (!invokePredicate(predicate, binding)) {
                             result[0] = false;
                             return false;
@@ -211,7 +211,7 @@ public final class GeneratedRelation {
             @Override public Boolean run(final RelationBinding binding) {
                 final boolean[] matched = new boolean[1];
                 visit(binding, true, new PairVisitor() {
-                    @Override public boolean visit(long left, long right) {
+                    @Override public boolean visit(int left, int right) {
                         if (invokePredicate(predicate, binding)) {
                             matched[0] = true;
                             return false;
@@ -230,7 +230,7 @@ public final class GeneratedRelation {
         execute(true, new PairWork<Object>() {
             @Override public Object run(final RelationBinding binding) {
                 visit(binding, true, new PairVisitor() {
-                    @Override public boolean visit(long left, long right) {
+                    @Override public boolean visit(int left, int right) {
                         try {
                             CallbackExecutionScope.enter();
                             action.accept();
@@ -329,13 +329,13 @@ public final class GeneratedRelation {
                         right.queryCursor().begin(
                                 rightRoot, SomaOperation.QUERY, provenance);
                         try {
-                            final LongLocatorBuffer source = new LongLocatorBuffer(
+                            final IntLocatorBuffer source = new IntLocatorBuffer(
                                     leftRoot.size, SomaOperation.QUERY, provenance);
                             RelationBinding binding = new RelationBinding(
                                     leftRoot, rightRoot, provenance);
                             visit(binding, false, new PairVisitor() {
                                 @Override public boolean visit(
-                                        long leftLocator, long rightLocator) {
+                                        int leftLocator, int rightLocator) {
                                     source.add(leftLocator);
                                     return true;
                                 }
@@ -517,8 +517,8 @@ public final class GeneratedRelation {
                         "Cross Join output exceeds maxOutputRows",
                         binding.provenance);
             }
-            for (long leftLocator = 0L; leftLocator < binding.left.size; leftLocator++) {
-                for (long rightLocator = 0L; rightLocator < binding.right.size; rightLocator++) {
+            for (int leftLocator = 0; leftLocator < binding.left.size; leftLocator++) {
+                for (int rightLocator = 0; rightLocator < binding.right.size; rightLocator++) {
                     if (!emit(binding, leftLocator, rightLocator, terminalCallback, visitor)) return;
                 }
             }
@@ -531,7 +531,7 @@ public final class GeneratedRelation {
         RightHash hash = rightLookup == null
                 ? new RightHash(binding.right.size, binding.provenance) : null;
         if (hash != null) {
-            for (long locator = 0L; locator < binding.right.size; locator++) {
+            for (int locator = 0; locator < binding.right.size; locator++) {
                 if (!hasNull(binding.right, right.layout(), rightFields, locator)
                         && matchesPushedFilters(binding, right, locator)) {
                     hash.add(joinHash(
@@ -543,12 +543,12 @@ public final class GeneratedRelation {
         boolean[] matchedRight = kind == FULL
                 ? new boolean[RowExecutionSupport.arrayLength(
                         binding.right.size, binding.provenance)] : null;
-        for (long leftLocator = 0L; leftLocator < binding.left.size; leftLocator++) {
+        for (int leftLocator = 0; leftLocator < binding.left.size; leftLocator++) {
             boolean matched = false;
             if (!hasNull(binding.left, left.layout(), leftFields, leftLocator)
                     && matchesPushedFilters(binding, left, leftLocator)) {
-                long rightLocator = rightLookup == null
-                        ? -1L
+                int rightLocator = rightLookup == null
+                        ? -1
                         : rightLookup.firstJoin(
                                 binding.right.directory,
                                 left.layout(),
@@ -582,17 +582,17 @@ public final class GeneratedRelation {
                 }
             }
             if (kind == SEMI && matched) {
-                if (!emit(binding, leftLocator, -1L, terminalCallback, visitor)) return;
+                if (!emit(binding, leftLocator, -1, terminalCallback, visitor)) return;
             } else if (kind == ANTI && !matched) {
-                if (!emit(binding, leftLocator, -1L, terminalCallback, visitor)) return;
+                if (!emit(binding, leftLocator, -1, terminalCallback, visitor)) return;
             } else if ((kind == LEFT || kind == FULL) && !matched) {
-                if (!emit(binding, leftLocator, -1L, terminalCallback, visitor)) return;
+                if (!emit(binding, leftLocator, -1, terminalCallback, visitor)) return;
             }
         }
         if (kind == FULL) {
-            for (long rightLocator = 0L; rightLocator < binding.right.size; rightLocator++) {
+            for (int rightLocator = 0; rightLocator < binding.right.size; rightLocator++) {
                 if (!matchedRight[(int) rightLocator]
-                        && !emit(binding, -1L, rightLocator,
+                        && !emit(binding, -1, rightLocator,
                         terminalCallback, visitor)) return;
             }
         }
@@ -616,10 +616,10 @@ public final class GeneratedRelation {
                         "Cross Join output exceeds maxOutputRows",
                         binding.provenance);
             }
-            for (long leftLocator = 0L;
+            for (int leftLocator = 0;
                     leftLocator < binding.left.size;
                     leftLocator++) {
-                for (long rightLocator = 0L;
+                for (int rightLocator = 0;
                         rightLocator < binding.right.size;
                         rightLocator++) {
                     if (!emitReference(binding, leftLocator, rightLocator,
@@ -635,12 +635,12 @@ public final class GeneratedRelation {
         boolean[] matchedRight = kind == FULL
                 ? new boolean[RowExecutionSupport.arrayLength(
                         binding.right.size, binding.provenance)] : null;
-        for (long leftLocator = 0L;
+        for (int leftLocator = 0;
                 leftLocator < binding.left.size;
                 leftLocator++) {
             boolean matched = false;
             if (!hasNull(binding.left, left.layout(), leftFields, leftLocator)) {
-                for (long rightLocator = 0L;
+                for (int rightLocator = 0;
                         rightLocator < binding.right.size;
                         rightLocator++) {
                     if (hasNull(binding.right, right.layout(), rightFields,
@@ -658,22 +658,22 @@ public final class GeneratedRelation {
                 }
             }
             if (kind == SEMI && matched) {
-                if (!emitReference(binding, leftLocator, -1L,
+                if (!emitReference(binding, leftLocator, -1,
                         terminalCallback, visitor)) return;
             } else if (kind == ANTI && !matched) {
-                if (!emitReference(binding, leftLocator, -1L,
+                if (!emitReference(binding, leftLocator, -1,
                         terminalCallback, visitor)) return;
             } else if ((kind == LEFT || kind == FULL) && !matched) {
-                if (!emitReference(binding, leftLocator, -1L,
+                if (!emitReference(binding, leftLocator, -1,
                         terminalCallback, visitor)) return;
             }
         }
         if (kind == FULL) {
-            for (long rightLocator = 0L;
+            for (int rightLocator = 0;
                     rightLocator < binding.right.size;
                     rightLocator++) {
                 if (!matchedRight[(int) rightLocator]
-                        && !emitReference(binding, -1L, rightLocator,
+                        && !emitReference(binding, -1, rightLocator,
                         terminalCallback, visitor)) return;
             }
         }
@@ -681,8 +681,8 @@ public final class GeneratedRelation {
 
     private boolean emit(
             RelationBinding binding,
-            long leftLocator,
-            long rightLocator,
+            int leftLocator,
+            int rightLocator,
             boolean terminalCallback,
             PairVisitor visitor) {
         return emit(
@@ -691,8 +691,8 @@ public final class GeneratedRelation {
 
     private boolean emitReference(
             RelationBinding binding,
-            long leftLocator,
-            long rightLocator,
+            int leftLocator,
+            int rightLocator,
             boolean terminalCallback,
             PairVisitor visitor) {
         return emit(
@@ -701,8 +701,8 @@ public final class GeneratedRelation {
 
     private boolean emit(
             RelationBinding binding,
-            long leftLocator,
-            long rightLocator,
+            int leftLocator,
+            int rightLocator,
             boolean terminalCallback,
             PairVisitor visitor,
             boolean optimized) {
@@ -719,8 +719,8 @@ public final class GeneratedRelation {
 
     private boolean matchesFilters(
             RelationBinding binding,
-            long leftLocator,
-            long rightLocator,
+            int leftLocator,
+            int rightLocator,
             boolean optimized) {
         int pushed = optimized ? pushableFilterCount() : 0;
         for (int index = 0; index < filters.size(); index++) {
@@ -742,7 +742,7 @@ public final class GeneratedRelation {
     private boolean matchesPushedFilters(
             RelationBinding binding,
             GeneratedTable owner,
-            long locator) {
+            int locator) {
         int pushed = pushableFilterCount();
         for (int index = 0; index < pushed; index++) {
             FilterStage filter = filters.get(index);
@@ -800,8 +800,8 @@ public final class GeneratedRelation {
 
     private void enterPair(
             RelationBinding binding,
-            long leftLocator,
-            long rightLocator) {
+            int leftLocator,
+            int rightLocator) {
         if (leftLocator >= 0L) left.queryCursor().enter(leftLocator);
         try {
             if (rightLocator >= 0L) right.queryCursor().enter(rightLocator);
@@ -818,7 +818,7 @@ public final class GeneratedRelation {
         }
     }
 
-    private void leavePair(long leftLocator, long rightLocator) {
+    private void leavePair(int leftLocator, int rightLocator) {
         pairCursor.end();
         if (rightLocator >= 0L) right.queryCursor().leave();
         if (leftLocator >= 0L) left.queryCursor().leave();
@@ -826,8 +826,8 @@ public final class GeneratedRelation {
 
     private boolean conditionsEqual(
             RelationBinding binding,
-            long leftLocator,
-            long rightLocator) {
+            int leftLocator,
+            int rightLocator) {
         for (int index = 0; index < leftFields.length; index++) {
             if (!left.layout().joinFieldEquals(
                     binding.left.directory,
@@ -845,7 +845,7 @@ public final class GeneratedRelation {
             TableStateRoot root,
             GeneratedTableLayout layout,
             int[] fields,
-            long locator) {
+            int locator) {
         for (int field : fields) {
             if (layout.storedFieldIsNull(root.directory, locator, field)) return true;
         }
@@ -856,7 +856,7 @@ public final class GeneratedRelation {
             TableStateRoot root,
             GeneratedTableLayout layout,
             int[] fields,
-            long locator) {
+            int locator) {
         long result = 1L;
         for (int field : fields) {
             long part = layout.hashField(root.directory, locator, field);
@@ -965,7 +965,7 @@ public final class GeneratedRelation {
     }
 
     interface PairVisitor {
-        boolean visit(long left, long right);
+        boolean visit(int left, int right);
     }
 
     private static final class FilterStage {
@@ -992,7 +992,7 @@ public final class GeneratedRelation {
         private final int[] heads;
         private final int[] tails;
         private final int[] next;
-        private final long[] locators;
+        private final int[] locators;
         private int size;
 
         RightHash(long rows, Object provenance) {
@@ -1009,10 +1009,10 @@ public final class GeneratedRelation {
             heads = new int[buckets];
             tails = new int[buckets];
             next = new int[length];
-            locators = new long[length];
+            locators = new int[length];
         }
 
-        void add(long hash, long locator) {
+        void add(long hash, int locator) {
             int bucket = ((int) mix(hash)) & (heads.length - 1);
             int entry = size++;
             locators[entry] = locator;
@@ -1026,7 +1026,7 @@ public final class GeneratedRelation {
         }
 
         int next(int link) { return next[link - 1]; }
-        long locator(int link) { return locators[link - 1]; }
+        int locator(int link) { return locators[link - 1]; }
 
         private static long mix(long value) {
             value ^= value >>> 33;

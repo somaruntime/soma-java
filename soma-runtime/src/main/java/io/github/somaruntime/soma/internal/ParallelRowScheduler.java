@@ -20,15 +20,15 @@ final class ParallelRowScheduler {
 
         NormalizedRowPlan plan = RowOptimizer.optimize(bound);
         if (plan.sourceKind != NormalizedRowPlan.SourceKind.TABLE_SCAN
-                || bound.root.size == 0L) {
+                || bound.root.size == 0) {
             return bound;
         }
         if (!hasTypedPrefix(plan)) return bound;
 
         int participants = Math.max(1, pool.getParallelism());
-        long chunks = 1L + (bound.root.size - 1L)
-                / bound.root.directory.chunkRows();
-        int ranges = (int) Math.min((long) participants, chunks);
+        int chunks = CheckedStructural.ceilChunks(
+                bound.root.size, bound.root.directory.chunkRows());
+        int ranges = Math.min(participants, chunks);
         if (ranges <= 1) return bound;
 
         Range[] work = ranges(bound, plan, ranges);
@@ -86,16 +86,16 @@ final class ParallelRowScheduler {
     }
 
     static boolean requiresMembershipBuffer(BoundRowPlan bound) {
-        if (!bound.logical.isParallel() || bound.root.size == 0L) return false;
+        if (!bound.logical.isParallel() || bound.root.size == 0) return false;
         if (!bound.logical.beginsWithTypedFilter()) return false;
         NormalizedRowPlan plan = RowOptimizer.optimize(bound);
         if (plan.sourceKind != NormalizedRowPlan.SourceKind.TABLE_SCAN
                 || !hasTypedPrefix(plan)) return false;
         int participants = Math.max(
                 1, bound.logical.owner().parallelExecutor().getParallelism());
-        long chunks = 1L + (bound.root.size - 1L)
-                / bound.root.directory.chunkRows();
-        return Math.min((long) participants, chunks) > 1L;
+        int chunks = CheckedStructural.ceilChunks(
+                bound.root.size, bound.root.directory.chunkRows());
+        return Math.min(participants, chunks) > 1;
     }
 
     private static boolean hasTypedPrefix(NormalizedRowPlan plan) {
@@ -109,12 +109,12 @@ final class ParallelRowScheduler {
             int count) {
         Range[] result = new Range[count];
         int chunkRows = bound.root.directory.chunkRows();
-        long chunks = 1L + (bound.root.size - 1L) / chunkRows;
+        int chunks = CheckedStructural.ceilChunks(bound.root.size, chunkRows);
         for (int ordinal = 0; ordinal < count; ordinal++) {
-            long firstChunk = chunks * ordinal / count;
-            long nextChunk = chunks * (ordinal + 1L) / count;
-            long from = firstChunk * chunkRows;
-            long to = Math.min(bound.root.size, nextChunk * chunkRows);
+            int firstChunk = (int) ((long) chunks * ordinal / count);
+            int nextChunk = (int) ((long) chunks * (ordinal + 1) / count);
+            int from = firstChunk * chunkRows;
+            int to = (int) Math.min((long) bound.root.size, (long) nextChunk * chunkRows);
             result[ordinal] = new Range(bound, plan, from, to);
         }
         return result;
@@ -169,8 +169,8 @@ final class ParallelRowScheduler {
         return null;
     }
 
-    private static LongLocatorBuffer merge(Range[] work, BoundRowPlan bound) {
-        LongLocatorBuffer result = new LongLocatorBuffer(
+    private static IntLocatorBuffer merge(Range[] work, BoundRowPlan bound) {
+        IntLocatorBuffer result = new IntLocatorBuffer(
                 bound.root.size, bound.operation, bound.provenance);
         for (Range range : work) {
             for (int index = 0; index < range.output.size(); index++) {
@@ -250,27 +250,27 @@ final class ParallelRowScheduler {
     private static final class Range {
         private final BoundRowPlan bound;
         private final NormalizedRowPlan plan;
-        private final long from;
-        private final long to;
-        private final LongLocatorBuffer output;
+        private final int from;
+        private final int to;
+        private final IntLocatorBuffer output;
         private volatile Throwable failure;
 
         Range(
                 BoundRowPlan bound,
                 NormalizedRowPlan plan,
-                long from,
-                long to) {
+                int from,
+                int to) {
             this.bound = bound;
             this.plan = plan;
             this.from = from;
             this.to = to;
-            this.output = new LongLocatorBuffer(
+            this.output = new IntLocatorBuffer(
                     to - from, bound.operation, bound.provenance);
         }
 
         void run(AtomicBoolean cancelled) {
             try {
-                for (long locator = from; locator < to && !cancelled.get(); locator++) {
+                for (int locator = from; locator < to && !cancelled.get(); locator++) {
                     if (matchesTypedPrefix(locator)) output.add(locator);
                 }
             } catch (Throwable problem) {
@@ -279,7 +279,7 @@ final class ParallelRowScheduler {
             }
         }
 
-        private boolean matchesTypedPrefix(long locator) {
+        private boolean matchesTypedPrefix(int locator) {
             for (int index = 0; index < plan.stages.size(); index++) {
                 LogicalRowPlan.Stage stage = plan.stages.get(index);
                 if (stage.kind != LogicalRowPlan.StageKind.TYPED_FILTER) break;

@@ -11,8 +11,8 @@ public final class TableMetadata {
                     @Override
                     public TableMetadata create(
                             String logicalName,
-                            long size,
-                            long capacity,
+                            int size,
+                            int capacity,
                             long managed,
                             long plainEquivalent,
                             long representation,
@@ -25,8 +25,8 @@ public final class TableMetadata {
     }
 
     private final String logicalName;
-    private final long size;
-    private final long capacity;
+    private final int size;
+    private final int capacity;
     private final long managedBytes;
     private final long plainEquivalentBytes;
     private final long representationBytes;
@@ -34,8 +34,8 @@ public final class TableMetadata {
 
     private TableMetadata(
             String logicalName,
-            long size,
-            long capacity,
+            int size,
+            int capacity,
             long managedBytes,
             long plainEquivalentBytes,
             long representationBytes,
@@ -50,8 +50,8 @@ public final class TableMetadata {
     }
 
     public String logicalName() { return logicalName; }
-    public long size() { return size; }
-    public long capacity() { return capacity; }
+    public int size() { return size; }
+    public int capacity() { return capacity; }
     public long managedBytes() { return managedBytes; }
     public long plainEquivalentBytes() { return plainEquivalentBytes; }
     public long representationBytes() { return representationBytes; }

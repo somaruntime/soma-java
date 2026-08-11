@@ -106,7 +106,7 @@ class CompositionGeneratorTest {
                 false);
         CompositionModel.TableModel table = new CompositionModel.TableModel(
                 "Entity",
-                4L,
+                4,
                 Arrays.asList(
                         new CompositionModel.FieldModel(
                                 "id", longType, CompositionModel.FieldRole.KEY, 0),

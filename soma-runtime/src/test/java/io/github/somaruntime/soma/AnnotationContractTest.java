@@ -26,8 +26,8 @@ class AnnotationContractTest {
         assertAnnotation(SomaIndex.class, ElementType.FIELD);
 
         Method defaultCapacity = SomaTable.class.getDeclaredMethod("defaultCapacity");
-        assertEquals(long.class, defaultCapacity.getReturnType());
-        assertEquals(16L, defaultCapacity.getDefaultValue());
+        assertEquals(int.class, defaultCapacity.getReturnType());
+        assertEquals(16, defaultCapacity.getDefaultValue());
         assertEquals(1, SomaTable.class.getDeclaredMethods().length);
         assertEquals(0, SomaSchema.class.getDeclaredMethods().length);
         assertEquals(0, SomaValue.class.getDeclaredMethods().length);

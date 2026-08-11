@@ -23,7 +23,7 @@ class SomaProcessorTest {
         sources.put("example/entity/schema/Entity.java",
                 "package example.entity.schema;\n"
                         + "import io.github.somaruntime.soma.*;\n"
-                        + "@SomaTable(defaultCapacity = 4L) final class Entity {\n"
+                        + "@SomaTable(defaultCapacity = 4) final class Entity {\n"
                         + "  @SomaKey long id;\n"
                         + "  @SomaField long value;\n"
                         + "}\n");
@@ -410,7 +410,7 @@ class SomaProcessorTest {
                 + "}\n";
         String beta = "package example.order.schema;\n"
                 + "import io.github.somaruntime.soma.*;\n"
-                + "@SomaTable(defaultCapacity = 32L) final class Beta {\n"
+                + "@SomaTable(defaultCapacity = 32) final class Beta {\n"
                 + "  @SomaIndex String name;\n"
                 + "  @SomaField OrderCode code;\n"
                 + "}\n";

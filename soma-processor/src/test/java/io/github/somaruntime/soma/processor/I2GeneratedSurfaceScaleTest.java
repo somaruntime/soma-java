@@ -23,7 +23,7 @@ class I2GeneratedSurfaceScaleTest {
             sources.put("example/i2scale/schema/" + simpleName + ".java",
                     "package example.i2scale.schema;\n"
                             + "import io.github.somaruntime.soma.*;\n"
-                            + "@SomaTable(defaultCapacity = 0L) final class "
+                            + "@SomaTable(defaultCapacity = 0) final class "
                             + simpleName + " {\n"
                             + "  @SomaKey long id;\n"
                             + "  @SomaIndex long groupId;\n"

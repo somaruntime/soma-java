@@ -6,7 +6,7 @@ import io.github.somaruntime.soma.SomaKey;
 import io.github.somaruntime.soma.SomaTable;
 import io.github.somaruntime.examples.realtimedispatch.domain.DispatchPayload;
 
-@SomaTable(defaultCapacity = 4_096L)
+@SomaTable(defaultCapacity = 4_096)
 final class PendingJob {
     @SomaKey long jobId;
     @SomaIndex PendingStatus status;

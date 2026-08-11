@@ -262,7 +262,7 @@ final class CompositionSourceRenderer {
                 .append("        return io.github.somaruntime.soma.internal")
                 .append(".GeneratedTableLayout.create(\n")
                 .append("                \"").append(table.simpleName()).append("\", ")
-                .append(table.defaultCapacity()).append("L,\n")
+                .append(table.defaultCapacity()).append(",\n")
                 .append("                new byte[] {");
         for (int index = 0; index < table.leaves().size(); index++) {
             if (index != 0) source.append(", ");
@@ -305,9 +305,9 @@ final class CompositionSourceRenderer {
             CompositionModel.TableModel table,
             TableShape shape,
             String objectType) {
-        source.append("    public long size() { return runtime.size(); }\n\n")
-                .append("    public long capacity() { return runtime.capacity(); }\n\n")
-                .append("    public void reserve(long expectedRows) { runtime.reserve(expectedRows); }\n\n")
+        source.append("    public int size() { return runtime.size(); }\n\n")
+                .append("    public int capacity() { return runtime.capacity(); }\n\n")
+                .append("    public void reserve(int expectedRows) { runtime.reserve(expectedRows); }\n\n")
                 .append("    public void add(").append(objectType).append(" value) {\n")
                 .append("        runtime.requireArgument(value, ")
                 .append("io.github.somaruntime.soma.SomaOperation.ADD, \"value\");\n")

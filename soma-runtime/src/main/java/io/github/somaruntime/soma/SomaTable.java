@@ -13,5 +13,5 @@ import java.lang.annotation.Target;
 public @interface SomaTable {
 
     /** Returns the initial capacity hint. */
-    long defaultCapacity() default 16L;
+    int defaultCapacity() default 16;
 }

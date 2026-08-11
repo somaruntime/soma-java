@@ -5,7 +5,7 @@ import io.github.somaruntime.soma.SomaIndex;
 import io.github.somaruntime.soma.SomaKey;
 import io.github.somaruntime.soma.SomaTable;
 
-@SomaTable(defaultCapacity = 1_024L)
+@SomaTable(defaultCapacity = 1_024)
 final class MachineState {
     @SomaKey long machineId;
     @SomaIndex long workCenterId;

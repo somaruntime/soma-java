@@ -139,7 +139,7 @@ class I2SchemaValidationTest {
             throws Exception {
         assertInvalid("emptytable", "[SOMA-1005]", "");
         assertInvalid("negativecapacity", "[SOMA-1010]",
-                "  @SomaField long value;\n", -1L);
+                "  @SomaField long value;\n", -1);
         assertInvalid("staticfield", "[SOMA-1018]",
                 "  @SomaField static long value;\n");
         assertInvalid("finalfield", "[SOMA-1018]",
@@ -325,12 +325,12 @@ class I2SchemaValidationTest {
             String identity,
             String code,
             String fields,
-            long defaultCapacity) throws Exception {
+            int defaultCapacity) throws Exception {
         Map<String, String> sources = base(identity);
         sources.put("example/" + identity + "/schema/Invalid.java",
                 "package example." + identity + ".schema;\n"
                         + "import io.github.somaruntime.soma.*;\n"
-                        + "@SomaTable(defaultCapacity = " + defaultCapacity + "L) "
+                        + "@SomaTable(defaultCapacity = " + defaultCapacity + ") "
                         + "final class Invalid {\n"
                         + fields
                         + "}\n");

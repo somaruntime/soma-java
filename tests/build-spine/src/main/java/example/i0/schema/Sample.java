@@ -4,7 +4,7 @@ import io.github.somaruntime.soma.SomaField;
 import io.github.somaruntime.soma.SomaKey;
 import io.github.somaruntime.soma.SomaTable;
 
-@SomaTable(defaultCapacity = 32L)
+@SomaTable(defaultCapacity = 32)
 final class Sample {
 
     @SomaKey
