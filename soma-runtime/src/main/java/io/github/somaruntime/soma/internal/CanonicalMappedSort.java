@@ -1,7 +1,5 @@
 package io.github.somaruntime.soma.internal;
 
-import java.util.Comparator;
-
 /** Canonical stable comparison schedule for an opaque mapped Comparator. */
 final class CanonicalMappedSort {
 
@@ -9,22 +7,22 @@ final class CanonicalMappedSort {
     }
 
     static void sort(
-            BoundRowPlan bound,
+            BoundCanonicalRowOperation bound,
             Object[] values,
             int size,
-            Comparator<Object> comparator) {
+            HostCallbackHandle comparator) {
         if (size < 2) return;
         Object[] scratch = new Object[size];
         mergeSort(bound, values, scratch, 0, size, comparator);
     }
 
     private static void mergeSort(
-            BoundRowPlan bound,
+            BoundCanonicalRowOperation bound,
             Object[] values,
             Object[] scratch,
             int from,
             int to,
-            Comparator<Object> comparator) {
+            HostCallbackHandle comparator) {
         int length = to - from;
         if (length < 2) return;
         int middle = from + length / 2;

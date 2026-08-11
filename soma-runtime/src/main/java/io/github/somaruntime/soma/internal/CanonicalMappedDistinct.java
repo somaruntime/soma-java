@@ -13,9 +13,9 @@ final class CanonicalMappedDistinct {
     private final Object[] values;
     private final byte[] occupied;
     private final int mask;
-    private final BoundRowPlan bound;
+    private final BoundCanonicalRowOperation bound;
 
-    CanonicalMappedDistinct(int expected, BoundRowPlan bound) {
+    CanonicalMappedDistinct(int expected, BoundCanonicalRowOperation bound) {
         int capacity = capacity(expected, bound.provenance);
         this.values = new Object[capacity];
         this.occupied = new byte[capacity];

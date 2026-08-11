@@ -18,6 +18,7 @@ final class CanonicalRowOperation {
         TO_LIST,
         TO_ARRAY,
         EXPLAIN,
+        FAMILY_SOURCE,
         UPDATE,
         REMOVE,
         LOCATORS_TEST
@@ -229,7 +230,21 @@ final class CanonicalOrder {
 
 /** Minimal opaque Java callback handle; properties are derived from the closed kind. */
 final class HostCallbackHandle {
-    enum Kind { ROW_PREDICATE, ROW_COMPARATOR, ROW_ACTION, ROW_MAPPER, EDITOR_ACTION }
+    enum Kind {
+        ROW_PREDICATE,
+        ROW_COMPARATOR,
+        ROW_ACTION,
+        ROW_MAPPER,
+        EDITOR_ACTION,
+        MAPPED_PREDICATE,
+        MAPPED_MAPPER,
+        MAPPED_COMPARATOR,
+        MAPPED_ACTION,
+        PRIMITIVE_ROOT,
+        PRIMITIVE_PREDICATE,
+        PRIMITIVE_MAPPER,
+        PRIMITIVE_ACTION
+    }
 
     final CanonicalTableIdentity tableIdentity;
     final Kind kind;
@@ -275,6 +290,13 @@ final class HostCallbackHandle {
             CanonicalTableIdentity identity,
             GeneratedCallbacks.EditorAction callback) {
         return new HostCallbackHandle(identity, Kind.EDITOR_ACTION, callback);
+    }
+
+    static HostCallbackHandle host(
+            CanonicalTableIdentity identity,
+            Kind kind,
+            Object callback) {
+        return new HostCallbackHandle(identity, kind, callback);
     }
 
     boolean supports(CanonicalRowOperation.TerminalKind terminal) {
@@ -327,6 +349,16 @@ final class CanonicalRowLowering {
                 table,
                 frontend,
                 CanonicalRowOperation.TerminalKind.COUNT,
+                null);
+    }
+
+    static CanonicalRowOperation source(
+            GeneratedTable table,
+            LogicalRowPlan frontend) {
+        return operation(
+                table,
+                frontend,
+                CanonicalRowOperation.TerminalKind.FAMILY_SOURCE,
                 null);
     }
 

@@ -7,8 +7,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 
-/** Immutable data-only arbitrary-reference logical projection. */
-final class MappedPlan<R> {
+/** Java facade capture; terminal lowering creates CanonicalMappedOperation. */
+final class MappedPipelineCapture<R> {
 
     enum Kind { FILTER, MAP, DISTINCT, SORTED, SKIP, LIMIT }
 
@@ -37,7 +37,7 @@ final class MappedPlan<R> {
     final GeneratedCallbacks.RowMapper<?> rootMapper;
     final List<Stage> stages;
 
-    MappedPlan(
+    MappedPipelineCapture(
             LogicalRowPlan rows,
             GeneratedCallbacks.RowMapper<?> rootMapper,
             List<Stage> stages) {
@@ -46,45 +46,45 @@ final class MappedPlan<R> {
         this.stages = stages;
     }
 
-    static <R> MappedPlan<R> root(
+    static <R> MappedPipelineCapture<R> root(
             LogicalRowPlan rows,
             GeneratedCallbacks.RowMapper<R> mapper) {
-        return new MappedPlan<R>(rows, mapper, Collections.<Stage>emptyList());
+        return new MappedPipelineCapture<R>(rows, mapper, Collections.<Stage>emptyList());
     }
 
-    MappedPlan<R> filter(SomaPredicate<? super R> predicate) {
+    MappedPipelineCapture<R> filter(SomaPredicate<? super R> predicate) {
         @SuppressWarnings("unchecked") SomaPredicate<Object> cast =
                 (SomaPredicate<Object>) predicate;
         return append(new Stage(Kind.FILTER, cast, null, null, 0L));
     }
 
-    <U> MappedPlan<U> map(Function<? super R, ? extends U> mapper) {
+    <U> MappedPipelineCapture<U> map(Function<? super R, ? extends U> mapper) {
         @SuppressWarnings("unchecked") Function<Object, Object> cast =
                 (Function<Object, Object>) mapper;
         return appendTyped(new Stage(Kind.MAP, null, cast, null, 0L));
     }
 
-    MappedPlan<R> distinct() {
+    MappedPipelineCapture<R> distinct() {
         return append(new Stage(Kind.DISTINCT, null, null, null, 0L));
     }
 
-    MappedPlan<R> sorted(Comparator<? super R> comparator) {
+    MappedPipelineCapture<R> sorted(Comparator<? super R> comparator) {
         @SuppressWarnings("unchecked") Comparator<Object> cast =
                 (Comparator<Object>) comparator;
         return append(new Stage(Kind.SORTED, null, null, cast, 0L));
     }
 
-    MappedPlan<R> skip(long count) {
+    MappedPipelineCapture<R> skip(long count) {
         return append(new Stage(Kind.SKIP, null, null, null, count));
     }
 
-    MappedPlan<R> limit(long count) {
+    MappedPipelineCapture<R> limit(long count) {
         return append(new Stage(Kind.LIMIT, null, null, null, count));
     }
 
-    MappedPlan<R> parallel() {
+    MappedPipelineCapture<R> parallel() {
         if (rows.isParallel()) return this;
-        return new MappedPlan<R>(rows.parallel(), rootMapper, stages);
+        return new MappedPipelineCapture<R>(rows.parallel(), rootMapper, stages);
     }
 
     boolean hasStatefulStage() {
@@ -111,14 +111,14 @@ final class MappedPlan<R> {
         return result;
     }
 
-    private MappedPlan<R> append(Stage stage) {
+    private MappedPipelineCapture<R> append(Stage stage) {
         return appendTyped(stage);
     }
 
-    private <U> MappedPlan<U> appendTyped(Stage stage) {
+    private <U> MappedPipelineCapture<U> appendTyped(Stage stage) {
         ArrayList<Stage> next = new ArrayList<Stage>(stages.size() + 1);
         next.addAll(stages); next.add(stage);
-        return new MappedPlan<U>(
+        return new MappedPipelineCapture<U>(
                 rows, rootMapper, Collections.unmodifiableList(next));
     }
 }

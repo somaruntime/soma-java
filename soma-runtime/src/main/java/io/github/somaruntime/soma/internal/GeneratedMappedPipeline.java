@@ -20,10 +20,10 @@ import java.util.function.Function;
 /** Internal one-shot implementation of arbitrary reference MappedStream. */
 public final class GeneratedMappedPipeline<R> implements MappedStream<R> {
 
-    private final MappedPlan<R> plan;
+    private final MappedPipelineCapture<R> plan;
     private final AtomicBoolean consumed = new AtomicBoolean();
 
-    GeneratedMappedPipeline(MappedPlan<R> plan) { this.plan = plan; }
+    GeneratedMappedPipeline(MappedPipelineCapture<R> plan) { this.plan = plan; }
 
     @Override public MappedStream<R> parallel() {
         claim();

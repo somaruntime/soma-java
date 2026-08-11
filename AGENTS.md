@@ -20,8 +20,8 @@ Owner 已于 2026-08-03 明确授予完整 V1 implementation authorization。I0-
 [I6资格](project/conformance/i6-parallel-execution-qualification.md)、
 [I7资格](project/conformance/i7-compression-metadata-qualification.md)，I8通过
 [产品资格与G9 Owner sign-off](project/conformance/i8-product-qualification.md)：G1-G10为`PASS`；
-Canonical IR/Execution M1已获Product Owner授权，S1-S2资格已`PASS`，当前唯一active implementation
-slice为S3。
+Canonical IR/Execution M1已获Product Owner授权，S1-S3资格已`PASS`，当前唯一active implementation
+slice为S4。
 GitHub Release/Package、签名和正式release声明未授权。
 
 Active checkout已包含I8三个reference application、million-row profile、package/SBOM/provenance、CI与
@@ -41,7 +41,7 @@ mutation即时局部维护，Selection mutation一次candidate rebuild。
 优化已由正式Design承接。
 [Canonical Logical IR与执行引擎M1治理](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)
 已完成正式Owner晋升、Baseline Freeze与targeted readiness，状态为
-`IMPLEMENTATION_AUTHORIZED / S1-S2_PASS / S3_ACTIVE`；正式
+`IMPLEMENTATION_AUTHORIZED / S1-S3_PASS / S4_ACTIVE`；正式
 [S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)保持冻结基线，实际active
 状态由Conformance拥有。
 当前没有active bounded Temporary；[SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)
@@ -157,7 +157,7 @@ dependency或plugin expansion。
 ## 实施准入与推进
 
 - 当前 implementation authorization 覆盖 I0-I8 与Canonical IR/Execution S1-S6自主实现；I0-I8
-  slice与G1-G10均已关闭，S1-S2已PASS，当前唯一active implementation slice为S3；
+  slice与G1-G10均已关闭，S1-S3已PASS，当前唯一active implementation slice为S4；
 - Canonical IR/Execution S1-S6的授权由
   [正式Conformance记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)拥有；
   冻结Engineering Plan中的准入快照不作为current authorization状态源；

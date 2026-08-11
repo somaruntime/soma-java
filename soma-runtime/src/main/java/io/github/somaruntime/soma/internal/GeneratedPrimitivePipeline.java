@@ -39,62 +39,62 @@ final class GeneratedPrimitivePipeline {
     static SomaIntStream fromRowInt(
             LogicalRowPlan rows,
             GeneratedCallbacks.RowToIntMapper mapper) {
-        return new IntPipeline(PrimitivePlan.row(
-                rows, PrimitivePlan.ValueKind.INT, mapper, true));
+        return new IntPipeline(PrimitivePipelineCapture.row(
+                rows, PrimitiveValueKind.INT, mapper, true));
     }
 
     static SomaLongStream fromRowLong(
             LogicalRowPlan rows,
             GeneratedCallbacks.RowToLongMapper mapper) {
-        return new LongPipeline(PrimitivePlan.row(
-                rows, PrimitivePlan.ValueKind.LONG, mapper, true));
+        return new LongPipeline(PrimitivePipelineCapture.row(
+                rows, PrimitiveValueKind.LONG, mapper, true));
     }
 
     static SomaDoubleStream fromRowDouble(
             LogicalRowPlan rows,
             GeneratedCallbacks.RowToDoubleMapper mapper) {
-        return new DoublePipeline(PrimitivePlan.row(
-                rows, PrimitivePlan.ValueKind.DOUBLE, mapper, true));
+        return new DoublePipeline(PrimitivePipelineCapture.row(
+                rows, PrimitiveValueKind.DOUBLE, mapper, true));
     }
 
     static <R> SomaIntStream fromMappedInt(
-            MappedPlan<R> mapped,
+            MappedPipelineCapture<R> mapped,
             SomaToIntFunction<? super R> mapper) {
-        return new IntPipeline(PrimitivePlan.mapped(
-                mapped, PrimitivePlan.ValueKind.INT, mapper));
+        return new IntPipeline(PrimitivePipelineCapture.mapped(
+                mapped, PrimitiveValueKind.INT, mapper));
     }
 
     static <R> SomaLongStream fromMappedLong(
-            MappedPlan<R> mapped,
+            MappedPipelineCapture<R> mapped,
             SomaToLongFunction<? super R> mapper) {
-        return new LongPipeline(PrimitivePlan.mapped(
-                mapped, PrimitivePlan.ValueKind.LONG, mapper));
+        return new LongPipeline(PrimitivePipelineCapture.mapped(
+                mapped, PrimitiveValueKind.LONG, mapper));
     }
 
     static <R> SomaDoubleStream fromMappedDouble(
-            MappedPlan<R> mapped,
+            MappedPipelineCapture<R> mapped,
             SomaToDoubleFunction<? super R> mapper) {
-        return new DoublePipeline(PrimitivePlan.mapped(
-                mapped, PrimitivePlan.ValueKind.DOUBLE, mapper));
+        return new DoublePipeline(PrimitivePipelineCapture.mapped(
+                mapped, PrimitiveValueKind.DOUBLE, mapper));
     }
 
-    static SomaIntStream fromPlanInt(PrimitivePlan plan) {
+    static SomaIntStream fromPlanInt(PrimitivePipelineCapture plan) {
         return new IntPipeline(plan);
     }
 
-    static SomaLongStream fromPlanLong(PrimitivePlan plan) {
+    static SomaLongStream fromPlanLong(PrimitivePipelineCapture plan) {
         return new LongPipeline(plan);
     }
 
-    static SomaDoubleStream fromPlanDouble(PrimitivePlan plan) {
+    static SomaDoubleStream fromPlanDouble(PrimitivePipelineCapture plan) {
         return new DoublePipeline(plan);
     }
 
     private abstract static class Pipeline {
-        final PrimitivePlan plan;
+        final PrimitivePipelineCapture plan;
         private final AtomicBoolean consumed = new AtomicBoolean();
 
-        Pipeline(PrimitivePlan plan) {
+        Pipeline(PrimitivePipelineCapture plan) {
             this.plan = plan;
         }
 
@@ -126,7 +126,7 @@ final class GeneratedPrimitivePipeline {
     private static final class IntPipeline extends Pipeline
             implements SomaIntStream {
 
-        IntPipeline(PrimitivePlan plan) {
+        IntPipeline(PrimitivePipelineCapture plan) {
             super(plan);
         }
 
@@ -148,14 +148,14 @@ final class GeneratedPrimitivePipeline {
         @Override public SomaLongStream mapToLong(SomaIntToLongFunction mapper) {
             require(mapper, "mapper"); claim();
             return new LongPipeline(plan.convert(
-                    PrimitivePlan.ValueKind.LONG, mapper));
+                    PrimitiveValueKind.LONG, mapper));
         }
 
         @Override public SomaDoubleStream mapToDouble(
                 SomaIntToDoubleFunction mapper) {
             require(mapper, "mapper"); claim();
             return new DoublePipeline(plan.convert(
-                    PrimitivePlan.ValueKind.DOUBLE, mapper));
+                    PrimitiveValueKind.DOUBLE, mapper));
         }
 
         @Override public SomaIntStream distinct() {
@@ -245,7 +245,7 @@ final class GeneratedPrimitivePipeline {
     private static final class LongPipeline extends Pipeline
             implements SomaLongStream {
 
-        LongPipeline(PrimitivePlan plan) {
+        LongPipeline(PrimitivePipelineCapture plan) {
             super(plan);
         }
 
@@ -267,14 +267,14 @@ final class GeneratedPrimitivePipeline {
         @Override public SomaIntStream mapToInt(SomaLongToIntFunction mapper) {
             require(mapper, "mapper"); claim();
             return new IntPipeline(plan.convert(
-                    PrimitivePlan.ValueKind.INT, mapper));
+                    PrimitiveValueKind.INT, mapper));
         }
 
         @Override public SomaDoubleStream mapToDouble(
                 SomaLongToDoubleFunction mapper) {
             require(mapper, "mapper"); claim();
             return new DoublePipeline(plan.convert(
-                    PrimitivePlan.ValueKind.DOUBLE, mapper));
+                    PrimitiveValueKind.DOUBLE, mapper));
         }
 
         @Override public SomaLongStream distinct() {
@@ -364,7 +364,7 @@ final class GeneratedPrimitivePipeline {
     private static final class DoublePipeline extends Pipeline
             implements SomaDoubleStream {
 
-        DoublePipeline(PrimitivePlan plan) {
+        DoublePipeline(PrimitivePipelineCapture plan) {
             super(plan);
         }
 
@@ -386,13 +386,13 @@ final class GeneratedPrimitivePipeline {
         @Override public SomaIntStream mapToInt(SomaDoubleToIntFunction mapper) {
             require(mapper, "mapper"); claim();
             return new IntPipeline(plan.convert(
-                    PrimitivePlan.ValueKind.INT, mapper));
+                    PrimitiveValueKind.INT, mapper));
         }
 
         @Override public SomaLongStream mapToLong(SomaDoubleToLongFunction mapper) {
             require(mapper, "mapper"); claim();
             return new LongPipeline(plan.convert(
-                    PrimitivePlan.ValueKind.LONG, mapper));
+                    PrimitiveValueKind.LONG, mapper));
         }
 
         @Override public SomaDoubleStream distinct() {

@@ -10,16 +10,24 @@ final class ReferencePrimitiveInterpreter {
     private ReferencePrimitiveInterpreter() {
     }
 
-    static long[] valuesForTesting(final PrimitivePlan plan) {
-        return QueryOperation.execute(plan.rows, new QueryOperation.BoundWork<long[]>() {
-            @Override public long scratchBytes(BoundRowPlan bound) {
+    static long[] valuesForTesting(final PrimitivePipelineCapture frontend) {
+        final CanonicalPrimitiveOperation plan =
+                CanonicalPrimitiveLowering.operation(
+                        frontend,
+                        CanonicalPrimitiveOperation.TerminalKind.TEST,
+                        null);
+        return CanonicalQueryOperation.executeReferenceFamily(
+                frontend.rows.owner(),
+                plan.source,
+                new CanonicalQueryOperation.ReferenceExtraScratch() {
+            @Override public long bytes(BoundCanonicalRowOperation bound) {
                 return RowExecutionSupport.arrayBytes(
                         bound.root.size, 64L, bound.provenance);
             }
-
-            @Override public long[] run(BoundRowPlan bound) {
+        }, new CanonicalQueryOperation.ReferenceWork<long[]>() {
+            @Override public long[] run(BoundCanonicalRowOperation bound) {
                 ArrayList<Long> values = roots(bound, plan);
-                for (PrimitivePlan.Stage stage : plan.stages) {
+                for (CanonicalPrimitiveStage stage : plan.stages) {
                     switch (stage.kind) {
                         case FILTER: filter(bound, values, stage); break;
                         case MAP:
@@ -40,18 +48,20 @@ final class ReferencePrimitiveInterpreter {
         });
     }
 
-    static long sumIntegralForTesting(PrimitivePlan plan) {
-        long[] values = valuesForTesting(plan);
+    static long sumIntegralForTesting(PrimitivePipelineCapture frontend) {
+        long[] values = valuesForTesting(frontend);
         Signed128Accumulator result = new Signed128Accumulator();
-        for (long value : values) result.add(integralValue(plan.valueKind, value));
-        return result.longValue(plan);
+        for (long value : values) {
+            result.add(integralValue(frontend.valueKind, value));
+        }
+        return result.longValue(frontend);
     }
 
-    static double sumFloatingForTesting(PrimitivePlan plan) {
-        long[] raw = valuesForTesting(plan);
+    static double sumFloatingForTesting(PrimitivePipelineCapture frontend) {
+        long[] raw = valuesForTesting(frontend);
         double[] values = new double[raw.length];
         for (int index = 0; index < raw.length; index++) {
-            values[index] = floatingValue(plan.valueKind, raw[index]);
+            values[index] = floatingValue(frontend.valueKind, raw[index]);
         }
         int blocks = 0;
         for (int start = 0; start < values.length;) {
@@ -82,7 +92,7 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static long integralValue(
-            PrimitivePlan.ValueKind kind,
+            PrimitiveValueKind kind,
             long raw) {
         switch (kind) {
             case BYTE: return (byte) raw;
@@ -95,23 +105,23 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static double floatingValue(
-            PrimitivePlan.ValueKind kind,
+            PrimitiveValueKind kind,
             long raw) {
-        if (kind == PrimitivePlan.ValueKind.FLOAT) {
+        if (kind == PrimitiveValueKind.FLOAT) {
             return Float.intBitsToFloat((int) raw);
         }
-        if (kind == PrimitivePlan.ValueKind.DOUBLE) {
+        if (kind == PrimitiveValueKind.DOUBLE) {
             return Double.longBitsToDouble(raw);
         }
         throw new AssertionError("not a floating primitive kind");
     }
 
     private static ArrayList<Long> roots(
-            final BoundRowPlan bound,
-            final PrimitivePlan plan) {
+            final BoundCanonicalRowOperation bound,
+            final CanonicalPrimitiveOperation plan) {
         final ArrayList<Long> result = new ArrayList<Long>();
-        if (plan.rootKind == PrimitivePlan.RootKind.ROW) {
-            ReferenceRowInterpreter.visit(bound,
+        if (plan.rootKind == CanonicalPrimitiveOperation.RootKind.ROW) {
+            ReferenceCanonicalRowInterpreter.visit(bound,
                     locator -> { result.add(rowRoot(bound, plan, locator)); return true; });
         } else {
             for (Object value : ReferenceMappedInterpreter.valuesBound(
@@ -123,28 +133,48 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static Long rowRoot(
-            BoundRowPlan bound, PrimitivePlan plan, int locator) {
-        switch (plan.rootValueKind) {
-            case BOOLEAN: return RowExecutionSupport.callbackMapBoolean(bound, locator, (GeneratedCallbacks.RowToBooleanMapper) plan.rootMapper, plan.rootApplicationCallback) ? 1L : 0L;
-            case BYTE: return (long) RowExecutionSupport.callbackMapByte(bound, locator, (GeneratedCallbacks.RowToByteMapper) plan.rootMapper, plan.rootApplicationCallback);
-            case SHORT: return (long) RowExecutionSupport.callbackMapShort(bound, locator, (GeneratedCallbacks.RowToShortMapper) plan.rootMapper, plan.rootApplicationCallback);
-            case CHAR: return (long) RowExecutionSupport.callbackMapChar(bound, locator, (GeneratedCallbacks.RowToCharMapper) plan.rootMapper, plan.rootApplicationCallback);
-            case INT: return (long) RowExecutionSupport.callbackMapInt(bound, locator, (GeneratedCallbacks.RowToIntMapper) plan.rootMapper, plan.rootApplicationCallback);
-            case LONG: return RowExecutionSupport.callbackMapLong(bound, locator, (GeneratedCallbacks.RowToLongMapper) plan.rootMapper, plan.rootApplicationCallback);
-            case FLOAT: return (long) Float.floatToIntBits(RowExecutionSupport.callbackMapFloat(bound, locator, (GeneratedCallbacks.RowToFloatMapper) plan.rootMapper, plan.rootApplicationCallback));
-            case DOUBLE: return Double.doubleToLongBits(RowExecutionSupport.callbackMapDouble(bound, locator, (GeneratedCallbacks.RowToDoubleMapper) plan.rootMapper, plan.rootApplicationCallback));
-            default: throw new AssertionError();
+            BoundCanonicalRowOperation bound, CanonicalPrimitiveOperation plan, int locator) {
+        GeneratedQueryCursor cursor = bound.table.queryCursor();
+        cursor.enter(locator);
+        CallbackExecutionScope.enter();
+        try {
+            Object mapper = plan.rootMapper.callback;
+            switch (plan.rootValueKind) {
+                case BOOLEAN: return ((GeneratedCallbacks.RowToBooleanMapper) mapper).applyAsBoolean() ? 1L : 0L;
+                case BYTE: return (long) ((GeneratedCallbacks.RowToByteMapper) mapper).applyAsByte();
+                case SHORT: return (long) ((GeneratedCallbacks.RowToShortMapper) mapper).applyAsShort();
+                case CHAR: return (long) ((GeneratedCallbacks.RowToCharMapper) mapper).applyAsChar();
+                case INT: return (long) ((GeneratedCallbacks.RowToIntMapper) mapper).applyAsInt();
+                case LONG: return ((GeneratedCallbacks.RowToLongMapper) mapper).applyAsLong();
+                case FLOAT: return (long) Float.floatToIntBits(((GeneratedCallbacks.RowToFloatMapper) mapper).applyAsFloat());
+                case DOUBLE: return Double.doubleToLongBits(((GeneratedCallbacks.RowToDoubleMapper) mapper).applyAsDouble());
+                default: throw new AssertionError();
+            }
+        } catch (Exception failure) {
+            if (!plan.rootApplicationCallback && failure instanceof RuntimeException) {
+                throw (RuntimeException) failure;
+            }
+            if (!plan.rootApplicationCallback) {
+                throw new AssertionError(
+                        "generated primitive materializer threw checked failure",
+                        failure);
+            }
+            throw SomaFailures.callbackFailure(
+                    bound.operation, failure, bound.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
+            cursor.leave();
         }
     }
 
     @SuppressWarnings("unchecked")
     private static Long mappedRoot(
-            BoundRowPlan bound, PrimitivePlan plan, Object value) {
+            BoundCanonicalRowOperation bound, CanonicalPrimitiveOperation plan, Object value) {
         try {
             switch (plan.rootValueKind) {
-                case INT: return (long) ((SomaToIntFunction<Object>) plan.rootMapper).applyAsInt(value);
-                case LONG: return ((SomaToLongFunction<Object>) plan.rootMapper).applyAsLong(value);
-                case DOUBLE: return Double.doubleToLongBits(((SomaToDoubleFunction<Object>) plan.rootMapper).applyAsDouble(value));
+                case INT: return (long) ((SomaToIntFunction<Object>) plan.rootMapper.callback).applyAsInt(value);
+                case LONG: return ((SomaToLongFunction<Object>) plan.rootMapper.callback).applyAsLong(value);
+                case DOUBLE: return Double.doubleToLongBits(((SomaToDoubleFunction<Object>) plan.rootMapper.callback).applyAsDouble(value));
                 default: throw new AssertionError("invalid mapped primitive root");
             }
         } catch (Exception failure) {
@@ -154,9 +184,9 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static void filter(
-            BoundRowPlan bound,
+            BoundCanonicalRowOperation bound,
             ArrayList<Long> values,
-            PrimitivePlan.Stage stage) {
+            CanonicalPrimitiveStage stage) {
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
             long value = values.get(input).longValue();
@@ -168,9 +198,9 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static void map(
-            BoundRowPlan bound,
+            BoundCanonicalRowOperation bound,
             ArrayList<Long> values,
-            PrimitivePlan.Stage stage) {
+            CanonicalPrimitiveStage stage) {
         for (int index = 0; index < values.size(); index++) {
             values.set(index, Long.valueOf(apply(
                     bound, stage, values.get(index).longValue())));
@@ -179,7 +209,7 @@ final class ReferencePrimitiveInterpreter {
 
     private static void distinct(
             ArrayList<Long> values,
-            PrimitivePlan.ValueKind kind) {
+            PrimitiveValueKind kind) {
         int output = 0;
         for (int input = 0; input < values.size(); input++) {
             long candidate = values.get(input).longValue();
@@ -196,7 +226,7 @@ final class ReferencePrimitiveInterpreter {
 
     private static void insertionSort(
             ArrayList<Long> values,
-            PrimitivePlan.ValueKind kind) {
+            PrimitiveValueKind kind) {
         for (int index = 1; index < values.size(); index++) {
             Long candidate = values.get(index);
             int position = index;
@@ -224,10 +254,15 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static boolean test(
-            BoundRowPlan bound,
-            PrimitivePlan.ValueKind kind,
-            Object callback,
+            BoundCanonicalRowOperation bound,
+            PrimitiveValueKind kind,
+            HostCallbackHandle handle,
             long raw) {
+        if (handle == null
+                || handle.kind != HostCallbackHandle.Kind.PRIMITIVE_PREDICATE) {
+            throw new AssertionError("invalid primitive predicate handle");
+        }
+        Object callback = handle.callback;
         try {
             switch (kind) {
                 case BOOLEAN: return ((SomaBooleanPredicate) callback).test(raw != 0L);
@@ -247,50 +282,55 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static long apply(
-            BoundRowPlan bound,
-            PrimitivePlan.Stage stage,
+            BoundCanonicalRowOperation bound,
+            CanonicalPrimitiveStage stage,
             long raw) {
+        if (stage.callback == null
+                || stage.callback.kind != HostCallbackHandle.Kind.PRIMITIVE_MAPPER) {
+            throw new AssertionError("invalid primitive mapper handle");
+        }
+        Object callback = stage.callback.callback;
         try {
             switch (stage.input) {
                 case BOOLEAN:
-                    if (stage.output == PrimitivePlan.ValueKind.BOOLEAN) return ((SomaBooleanUnaryOperator) stage.callback).applyAsBoolean(raw != 0L) ? 1L : 0L;
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaBooleanToIntFunction) stage.callback).applyAsInt(raw != 0L);
-                    if (stage.output == PrimitivePlan.ValueKind.LONG) return ((SomaBooleanToLongFunction) stage.callback).applyAsLong(raw != 0L);
-                    return Double.doubleToLongBits(((SomaBooleanToDoubleFunction) stage.callback).applyAsDouble(raw != 0L));
+                    if (stage.output == PrimitiveValueKind.BOOLEAN) return ((SomaBooleanUnaryOperator) callback).applyAsBoolean(raw != 0L) ? 1L : 0L;
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaBooleanToIntFunction) callback).applyAsInt(raw != 0L);
+                    if (stage.output == PrimitiveValueKind.LONG) return ((SomaBooleanToLongFunction) callback).applyAsLong(raw != 0L);
+                    return Double.doubleToLongBits(((SomaBooleanToDoubleFunction) callback).applyAsDouble(raw != 0L));
                 case BYTE:
-                    if (stage.output == PrimitivePlan.ValueKind.BYTE) return ((SomaByteUnaryOperator) stage.callback).applyAsByte((byte) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaByteToIntFunction) stage.callback).applyAsInt((byte) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.LONG) return ((SomaByteToLongFunction) stage.callback).applyAsLong((byte) raw);
-                    return Double.doubleToLongBits(((SomaByteToDoubleFunction) stage.callback).applyAsDouble((byte) raw));
+                    if (stage.output == PrimitiveValueKind.BYTE) return ((SomaByteUnaryOperator) callback).applyAsByte((byte) raw);
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaByteToIntFunction) callback).applyAsInt((byte) raw);
+                    if (stage.output == PrimitiveValueKind.LONG) return ((SomaByteToLongFunction) callback).applyAsLong((byte) raw);
+                    return Double.doubleToLongBits(((SomaByteToDoubleFunction) callback).applyAsDouble((byte) raw));
                 case SHORT:
-                    if (stage.output == PrimitivePlan.ValueKind.SHORT) return ((SomaShortUnaryOperator) stage.callback).applyAsShort((short) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaShortToIntFunction) stage.callback).applyAsInt((short) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.LONG) return ((SomaShortToLongFunction) stage.callback).applyAsLong((short) raw);
-                    return Double.doubleToLongBits(((SomaShortToDoubleFunction) stage.callback).applyAsDouble((short) raw));
+                    if (stage.output == PrimitiveValueKind.SHORT) return ((SomaShortUnaryOperator) callback).applyAsShort((short) raw);
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaShortToIntFunction) callback).applyAsInt((short) raw);
+                    if (stage.output == PrimitiveValueKind.LONG) return ((SomaShortToLongFunction) callback).applyAsLong((short) raw);
+                    return Double.doubleToLongBits(((SomaShortToDoubleFunction) callback).applyAsDouble((short) raw));
                 case CHAR:
-                    if (stage.output == PrimitivePlan.ValueKind.CHAR) return ((SomaCharUnaryOperator) stage.callback).applyAsChar((char) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaCharToIntFunction) stage.callback).applyAsInt((char) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.LONG) return ((SomaCharToLongFunction) stage.callback).applyAsLong((char) raw);
-                    return Double.doubleToLongBits(((SomaCharToDoubleFunction) stage.callback).applyAsDouble((char) raw));
+                    if (stage.output == PrimitiveValueKind.CHAR) return ((SomaCharUnaryOperator) callback).applyAsChar((char) raw);
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaCharToIntFunction) callback).applyAsInt((char) raw);
+                    if (stage.output == PrimitiveValueKind.LONG) return ((SomaCharToLongFunction) callback).applyAsLong((char) raw);
+                    return Double.doubleToLongBits(((SomaCharToDoubleFunction) callback).applyAsDouble((char) raw));
                 case INT:
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaIntUnaryOperator) stage.callback).applyAsInt((int) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.LONG) return ((SomaIntToLongFunction) stage.callback).applyAsLong((int) raw);
-                    return Double.doubleToLongBits(((SomaIntToDoubleFunction) stage.callback).applyAsDouble((int) raw));
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaIntUnaryOperator) callback).applyAsInt((int) raw);
+                    if (stage.output == PrimitiveValueKind.LONG) return ((SomaIntToLongFunction) callback).applyAsLong((int) raw);
+                    return Double.doubleToLongBits(((SomaIntToDoubleFunction) callback).applyAsDouble((int) raw));
                 case LONG:
-                    if (stage.output == PrimitivePlan.ValueKind.LONG) return ((SomaLongUnaryOperator) stage.callback).applyAsLong(raw);
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaLongToIntFunction) stage.callback).applyAsInt(raw);
-                    return Double.doubleToLongBits(((SomaLongToDoubleFunction) stage.callback).applyAsDouble(raw));
+                    if (stage.output == PrimitiveValueKind.LONG) return ((SomaLongUnaryOperator) callback).applyAsLong(raw);
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaLongToIntFunction) callback).applyAsInt(raw);
+                    return Double.doubleToLongBits(((SomaLongToDoubleFunction) callback).applyAsDouble(raw));
                 case FLOAT:
                     float floating = Float.intBitsToFloat((int) raw);
-                    if (stage.output == PrimitivePlan.ValueKind.FLOAT) return Float.floatToIntBits(((SomaFloatUnaryOperator) stage.callback).applyAsFloat(floating));
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaFloatToIntFunction) stage.callback).applyAsInt(floating);
-                    if (stage.output == PrimitivePlan.ValueKind.LONG) return ((SomaFloatToLongFunction) stage.callback).applyAsLong(floating);
-                    return Double.doubleToLongBits(((SomaFloatToDoubleFunction) stage.callback).applyAsDouble(floating));
+                    if (stage.output == PrimitiveValueKind.FLOAT) return Float.floatToIntBits(((SomaFloatUnaryOperator) callback).applyAsFloat(floating));
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaFloatToIntFunction) callback).applyAsInt(floating);
+                    if (stage.output == PrimitiveValueKind.LONG) return ((SomaFloatToLongFunction) callback).applyAsLong(floating);
+                    return Double.doubleToLongBits(((SomaFloatToDoubleFunction) callback).applyAsDouble(floating));
                 case DOUBLE:
                     double decimal = Double.longBitsToDouble(raw);
-                    if (stage.output == PrimitivePlan.ValueKind.DOUBLE) return Double.doubleToLongBits(((SomaDoubleUnaryOperator) stage.callback).applyAsDouble(decimal));
-                    if (stage.output == PrimitivePlan.ValueKind.INT) return ((SomaDoubleToIntFunction) stage.callback).applyAsInt(decimal);
-                    return ((SomaDoubleToLongFunction) stage.callback).applyAsLong(decimal);
+                    if (stage.output == PrimitiveValueKind.DOUBLE) return Double.doubleToLongBits(((SomaDoubleUnaryOperator) callback).applyAsDouble(decimal));
+                    if (stage.output == PrimitiveValueKind.INT) return ((SomaDoubleToIntFunction) callback).applyAsInt(decimal);
+                    return ((SomaDoubleToLongFunction) callback).applyAsLong(decimal);
                 default: throw new AssertionError();
             }
         } catch (Exception failure) {
@@ -300,12 +340,12 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static boolean equal(
-            PrimitivePlan.ValueKind kind, long left, long right) {
-        if (kind == PrimitivePlan.ValueKind.FLOAT) {
+            PrimitiveValueKind kind, long left, long right) {
+        if (kind == PrimitiveValueKind.FLOAT) {
             return Float.floatToIntBits(Float.intBitsToFloat((int) left))
                     == Float.floatToIntBits(Float.intBitsToFloat((int) right));
         }
-        if (kind == PrimitivePlan.ValueKind.DOUBLE) {
+        if (kind == PrimitiveValueKind.DOUBLE) {
             return Double.doubleToLongBits(Double.longBitsToDouble(left))
                     == Double.doubleToLongBits(Double.longBitsToDouble(right));
         }
@@ -313,7 +353,7 @@ final class ReferencePrimitiveInterpreter {
     }
 
     private static int compare(
-            PrimitivePlan.ValueKind kind, long left, long right) {
+            PrimitiveValueKind kind, long left, long right) {
         switch (kind) {
             case BOOLEAN: return Boolean.compare(left != 0L, right != 0L);
             case BYTE: return Byte.compare((byte) left, (byte) right);

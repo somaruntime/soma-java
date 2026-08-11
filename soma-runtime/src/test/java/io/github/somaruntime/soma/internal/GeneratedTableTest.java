@@ -1186,7 +1186,7 @@ class GeneratedTableTest {
             return right.compareTo(left);
         };
 
-        MappedPlan<Integer> optimized = MappedPlan
+        MappedPipelineCapture<Integer> optimized = MappedPipelineCapture
                 .root(LogicalRowPlan.tableScan(table), mapper)
                 .filter(value -> (value & 1) == 0)
                 .map(value -> value + 10)
@@ -1194,7 +1194,7 @@ class GeneratedTableTest {
                 .sorted(optimizedDescending)
                 .skip(1L)
                 .limit(2L);
-        MappedPlan<Integer> reference = MappedPlan
+        MappedPipelineCapture<Integer> reference = MappedPipelineCapture
                 .root(LogicalRowPlan.tableScan(table), mapper)
                 .filter(value -> (value & 1) == 0)
                 .map(value -> value + 10)
@@ -1220,7 +1220,7 @@ class GeneratedTableTest {
         GeneratedCallbacks.RowMapper<Object> mapper =
                 () -> table.queryCursor().viewReference(3);
 
-        MappedPlan<Object> optimized = MappedPlan
+        MappedPipelineCapture<Object> optimized = MappedPipelineCapture
                 .root(LogicalRowPlan.tableScan(table), mapper)
                 .distinct();
         SomaOperationException optimizedFailure = assertThrows(
@@ -1228,7 +1228,7 @@ class GeneratedTableTest {
                 () -> MappedQueryOperation.toList(optimized));
         assertEquals(SomaFailureCode.CALLBACK_FAILED, optimizedFailure.code());
 
-        MappedPlan<Object> reference = MappedPlan
+        MappedPipelineCapture<Object> reference = MappedPipelineCapture
                 .root(LogicalRowPlan.tableScan(table), mapper)
                 .distinct();
         SomaOperationException referenceFailure = assertThrows(
@@ -1404,16 +1404,16 @@ class GeneratedTableTest {
         }
         GeneratedCallbacks.RowToIntMapper root =
                 () -> table.queryCursor().viewInt(2);
-        PrimitivePlan optimized = PrimitivePlan
-                .row(LogicalRowPlan.tableScan(table), PrimitivePlan.ValueKind.INT, root, true)
+        PrimitivePipelineCapture optimized = PrimitivePipelineCapture
+                .row(LogicalRowPlan.tableScan(table), PrimitiveValueKind.INT, root, true)
                 .filter((io.github.somaruntime.soma.SomaIntPredicate) value -> (value & 1) == 0)
                 .map((io.github.somaruntime.soma.SomaIntUnaryOperator) value -> value + 10)
                 .distinct()
                 .sorted()
                 .skip(1L)
                 .limit(3L);
-        PrimitivePlan reference = PrimitivePlan
-                .row(LogicalRowPlan.tableScan(table), PrimitivePlan.ValueKind.INT, root, true)
+        PrimitivePipelineCapture reference = PrimitivePipelineCapture
+                .row(LogicalRowPlan.tableScan(table), PrimitiveValueKind.INT, root, true)
                 .filter((io.github.somaruntime.soma.SomaIntPredicate) value -> (value & 1) == 0)
                 .map((io.github.somaruntime.soma.SomaIntUnaryOperator) value -> value + 10)
                 .distinct()
@@ -1426,8 +1426,8 @@ class GeneratedTableTest {
                 PrimitivePlanOperation.valuesForTesting(optimized)));
         assertTrue(Arrays.equals(
                 new long[] {12L, 14L, 16L},
-                PrimitivePlanOperation.valuesForTesting(PrimitivePlan
-                        .row(LogicalRowPlan.tableScan(table), PrimitivePlan.ValueKind.INT, root, true)
+                PrimitivePlanOperation.valuesForTesting(PrimitivePipelineCapture
+                        .row(LogicalRowPlan.tableScan(table), PrimitiveValueKind.INT, root, true)
                         .filter((io.github.somaruntime.soma.SomaIntPredicate) value -> (value & 1) == 0)
                         .map((io.github.somaruntime.soma.SomaIntUnaryOperator) value -> value + 10)
                         .distinct().sorted().skip(1L).limit(3L))));
@@ -1444,13 +1444,13 @@ class GeneratedTableTest {
         }
         GeneratedCallbacks.RowToIntMapper root =
                 () -> table.queryCursor().viewInt(2);
-        PrimitivePlan optimized = PrimitivePlan
+        PrimitivePipelineCapture optimized = PrimitivePipelineCapture
                 .row(LogicalRowPlan.tableScan(table),
-                        PrimitivePlan.ValueKind.INT, root, true, 2)
+                        PrimitiveValueKind.INT, root, true, 2)
                 .sorted();
-        PrimitivePlan reference = PrimitivePlan
+        PrimitivePipelineCapture reference = PrimitivePipelineCapture
                 .row(LogicalRowPlan.tableScan(table),
-                        PrimitivePlan.ValueKind.INT, root, true)
+                        PrimitiveValueKind.INT, root, true)
                 .sorted();
 
         assertTrue(Arrays.equals(
@@ -1461,9 +1461,9 @@ class GeneratedTableTest {
                 PrimitivePlanOperation.valuesForTesting(optimized)));
         assertTrue(Arrays.equals(
                 ReferencePrimitiveInterpreter.valuesForTesting(reference),
-                PrimitivePlanOperation.valuesForTesting(PrimitivePlan
+                PrimitivePlanOperation.valuesForTesting(PrimitivePipelineCapture
                         .row(LogicalRowPlan.tableScan(table),
-                                PrimitivePlan.ValueKind.INT, root, true, 2)
+                                PrimitiveValueKind.INT, root, true, 2)
                         .sorted())));
     }
 
@@ -1480,14 +1480,14 @@ class GeneratedTableTest {
             }
             addFloating(floating, index, (float) value, value, null);
         }
-        PrimitivePlan doublePlan = PrimitivePlan.row(
+        PrimitivePipelineCapture doublePlan = PrimitivePipelineCapture.row(
                 LogicalRowPlan.tableScan(floating),
-                PrimitivePlan.ValueKind.DOUBLE,
+                PrimitiveValueKind.DOUBLE,
                 (GeneratedCallbacks.RowToDoubleMapper)
                         () -> floating.queryCursor().viewDouble(2),
                 false);
         for (long count : new long[] {1023L, 1024L, 1025L}) {
-            PrimitivePlan bounded = doublePlan.limit(count);
+            PrimitivePipelineCapture bounded = doublePlan.limit(count);
             double reference = ReferencePrimitiveInterpreter
                     .sumFloatingForTesting(bounded);
             double optimized = PrimitivePlanOperation.sumDouble(bounded);
@@ -1503,9 +1503,9 @@ class GeneratedTableTest {
         addFloating(floating, 2003L, Float.POSITIVE_INFINITY,
                 Double.POSITIVE_INFINITY, null);
         addFloating(floating, 2004L, Float.NaN, Double.NaN, null);
-        PrimitivePlan ordered = PrimitivePlan.row(
+        PrimitivePipelineCapture ordered = PrimitivePipelineCapture.row(
                 LogicalRowPlan.tableScan(floating),
-                PrimitivePlan.ValueKind.DOUBLE,
+                PrimitiveValueKind.DOUBLE,
                 (GeneratedCallbacks.RowToDoubleMapper)
                         () -> floating.queryCursor().viewDouble(2),
                 false).sorted();
@@ -1520,9 +1520,9 @@ class GeneratedTableTest {
         addFloating(positiveInfinity, 1L, Float.POSITIVE_INFINITY,
                 Double.POSITIVE_INFINITY, null);
         addFloating(positiveInfinity, 2L, 1.0f, 1.0d, null);
-        PrimitivePlan floatPlan = PrimitivePlan.row(
+        PrimitivePipelineCapture floatPlan = PrimitivePipelineCapture.row(
                 LogicalRowPlan.tableScan(positiveInfinity),
-                PrimitivePlan.ValueKind.FLOAT,
+                PrimitiveValueKind.FLOAT,
                 (GeneratedCallbacks.RowToFloatMapper)
                         () -> positiveInfinity.queryCursor().viewFloat(1),
                 false);
@@ -1538,9 +1538,9 @@ class GeneratedTableTest {
         GeneratedTable integral = table(64L << 20, MutationFaultInjector.NONE);
         add(integral, Long.MAX_VALUE, "maximum", 0, null);
         add(integral, 1L, "one", 0, null);
-        PrimitivePlan longPlan = PrimitivePlan.row(
+        PrimitivePipelineCapture longPlan = PrimitivePipelineCapture.row(
                 LogicalRowPlan.tableScan(integral),
-                PrimitivePlan.ValueKind.LONG,
+                PrimitiveValueKind.LONG,
                 (GeneratedCallbacks.RowToLongMapper)
                         () -> integral.queryCursor().viewLong(0),
                 false);
@@ -1892,16 +1892,16 @@ class GeneratedTableTest {
         assertEquals(5L, rows.outputUpperBound(Long.MAX_VALUE));
         assertEquals(0L, rows.limit(0L).outputUpperBound(Long.MAX_VALUE));
 
-        MappedPlan<Object> mapped = MappedPlan
+        MappedPipelineCapture<Object> mapped = MappedPipelineCapture
                 .root(rows, () -> null)
                 .skip(2L)
                 .limit(1L);
         assertEquals(1L, mapped.outputUpperBound(Long.MAX_VALUE));
 
-        PrimitivePlan primitive = PrimitivePlan
+        PrimitivePipelineCapture primitive = PrimitivePipelineCapture
                 .mapped(
                         mapped,
-                        PrimitivePlan.ValueKind.INT,
+                        PrimitiveValueKind.INT,
                         (io.github.somaruntime.soma.SomaToIntFunction<Object>) value -> 0)
                 .skip(1L)
                 .limit(1L);
@@ -1975,17 +1975,17 @@ class GeneratedTableTest {
         final int[] callbacks = new int[1];
         LogicalRowPlan rows = LogicalRowPlan.tableScan(table)
                 .sortedBy((GeneratedOrder<?>) table.<Object>desc(2));
-        MappedPlan<Integer> mapped = MappedPlan
+        MappedPipelineCapture<Integer> mapped = MappedPipelineCapture
                 .root(rows, () -> {
                     callbacks[0]++;
                     return table.queryCursor().viewInt(2);
                 })
                 .distinct()
                 .sorted(Integer::compareTo);
-        PrimitivePlan primitive = PrimitivePlan
+        PrimitivePipelineCapture primitive = PrimitivePipelineCapture
                 .mapped(
                         mapped,
-                        PrimitivePlan.ValueKind.INT,
+                        PrimitiveValueKind.INT,
                         (io.github.somaruntime.soma.SomaToIntFunction<Integer>) value -> {
                             callbacks[0]++;
                             return value.intValue();

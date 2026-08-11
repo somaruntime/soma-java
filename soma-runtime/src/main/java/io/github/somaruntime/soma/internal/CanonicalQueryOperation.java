@@ -261,6 +261,12 @@ final class CanonicalQueryOperation {
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
             BoundCanonicalRowOperation bound = bind(
                     table, canonical, operation, SomaOperation.QUERY);
+            return explainBound(bound);
+        }
+    }
+
+    static String explainBound(BoundCanonicalRowOperation bound) {
+            CanonicalRowOperation canonical = bound.canonical;
             NormalizedCanonicalRow normalized = CanonicalRowPlanner.normalize(bound);
             CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
             StringBuilder result = new StringBuilder(320);
@@ -304,9 +310,8 @@ final class CanonicalQueryOperation {
                     .append(" order=canonical estimatedTemporaryPeakBytes=")
                     .append(physical.resources.temporaryBytes)
                     .append(' ')
-                    .append(table.compressionExplain(bound.root));
+                    .append(bound.table.compressionExplain(bound.root));
             return result.toString();
-        }
     }
 
     private static <T> T execute(
@@ -340,6 +345,15 @@ final class CanonicalQueryOperation {
         }
     }
 
+    /** Shared admitted frame seam for specialized mapped/primitive families. */
+    static <T> T executeFamily(
+            GeneratedTable table,
+            CanonicalRowOperation source,
+            ExtraScratch extra,
+            FrameWork<T> work) {
+        return execute(table, source, extra, work);
+    }
+
     private static <T> T executeReference(
             GeneratedTable table,
             CanonicalRowOperation canonical,
@@ -358,6 +372,44 @@ final class CanonicalQueryOperation {
                     endCursors(table);
                 }
             }
+        }
+    }
+
+    /** Independent bound seam for family-specific reference interpreters. */
+    static <T> T executeReferenceFamily(
+            GeneratedTable table,
+            CanonicalRowOperation source,
+            ReferenceExtraScratch extra,
+            ReferenceWork<T> work) {
+        try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
+            BoundCanonicalRowOperation bound = bind(
+                    table, source, operation, SomaOperation.QUERY);
+            long temporaryBytes = CheckedLong.add(
+                    referenceTemporaryBytes(bound),
+                    extra.bytes(bound),
+                    bound.operation,
+                    bound.provenance);
+            try (GlobalMemoryManager.TemporaryLease ignored =
+                         table.leaseQueryTemporary(
+                                 temporaryBytes, bound.provenance)) {
+                beginCursors(table, bound);
+                try {
+                    return work.run(bound);
+                } finally {
+                    endCursors(table);
+                }
+            }
+        }
+    }
+
+    /** Read-only bound inspection; explain never creates a frame or submits work. */
+    static <T> T inspectFamily(
+            GeneratedTable table,
+            CanonicalRowOperation source,
+            ReferenceWork<T> work) {
+        try (GroupOperationGuard.Lease operation = table.acquireQuery()) {
+            return work.run(bind(
+                    table, source, operation, SomaOperation.QUERY));
         }
     }
 
@@ -555,15 +607,19 @@ final class CanonicalQueryOperation {
         }
     };
 
-    private interface ExtraScratch {
+    interface ExtraScratch {
         long bytes(BoundCanonicalRowOperation bound);
     }
 
-    private interface FrameWork<T> {
+    interface FrameWork<T> {
         T run(CanonicalRowExecutionFrame frame);
     }
 
-    private interface ReferenceWork<T> {
+    interface ReferenceWork<T> {
         T run(BoundCanonicalRowOperation bound);
+    }
+
+    interface ReferenceExtraScratch {
+        long bytes(BoundCanonicalRowOperation bound);
     }
 }

@@ -4,20 +4,19 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/** Immutable data-only primitive mapper plan using unboxed long/bits transport. */
-final class PrimitivePlan {
+/** Java facade capture; terminal lowering creates CanonicalPrimitiveOperation. */
+final class PrimitivePipelineCapture {
 
-    enum ValueKind { BOOLEAN, BYTE, SHORT, CHAR, INT, LONG, FLOAT, DOUBLE }
     enum RootKind { ROW, MAPPED }
     enum StageKind { FILTER, MAP, CONVERT, DISTINCT, SORTED, SKIP, LIMIT }
 
     static final class Stage {
         final StageKind kind;
-        final ValueKind input;
-        final ValueKind output;
+        final PrimitiveValueKind input;
+        final PrimitiveValueKind output;
         final Object callback;
         final long count;
-        Stage(StageKind kind, ValueKind input, ValueKind output, Object callback, long count) {
+        Stage(StageKind kind, PrimitiveValueKind input, PrimitiveValueKind output, Object callback, long count) {
             this.kind = kind; this.input = input; this.output = output;
             this.callback = callback; this.count = count;
         }
@@ -25,19 +24,19 @@ final class PrimitivePlan {
 
     final LogicalRowPlan rows;
     final RootKind rootKind;
-    final MappedPlan<?> mapped;
+    final MappedPipelineCapture<?> mapped;
     final Object rootMapper;
     final boolean rootApplicationCallback;
     final int rootFieldIndex;
-    final ValueKind rootValueKind;
-    final ValueKind valueKind;
+    final PrimitiveValueKind rootValueKind;
+    final PrimitiveValueKind valueKind;
     final List<Stage> stages;
 
-    private PrimitivePlan(
-            LogicalRowPlan rows, RootKind rootKind, MappedPlan<?> mapped,
+    private PrimitivePipelineCapture(
+            LogicalRowPlan rows, RootKind rootKind, MappedPipelineCapture<?> mapped,
             Object rootMapper, boolean rootApplicationCallback,
             int rootFieldIndex,
-            ValueKind rootValueKind, ValueKind valueKind,
+            PrimitiveValueKind rootValueKind, PrimitiveValueKind valueKind,
             List<Stage> stages) {
         this.rows = rows; this.rootKind = rootKind; this.mapped = mapped;
         this.rootMapper = rootMapper; this.rootValueKind = rootValueKind;
@@ -46,56 +45,56 @@ final class PrimitivePlan {
         this.valueKind = valueKind; this.stages = stages;
     }
 
-    static PrimitivePlan row(
+    static PrimitivePipelineCapture row(
             LogicalRowPlan rows,
-            ValueKind kind,
+            PrimitiveValueKind kind,
             Object mapper,
             boolean applicationCallback) {
         return row(rows, kind, mapper, applicationCallback, -1);
     }
 
-    static PrimitivePlan row(
+    static PrimitivePipelineCapture row(
             LogicalRowPlan rows,
-            ValueKind kind,
+            PrimitiveValueKind kind,
             Object mapper,
             boolean applicationCallback,
             int fieldIndex) {
-        return new PrimitivePlan(rows, RootKind.ROW, null, mapper,
+        return new PrimitivePipelineCapture(rows, RootKind.ROW, null, mapper,
                 applicationCallback, fieldIndex, kind, kind,
                 Collections.<Stage>emptyList());
     }
 
-    static PrimitivePlan mapped(MappedPlan<?> mapped, ValueKind kind, Object mapper) {
-        return new PrimitivePlan(mapped.rows, RootKind.MAPPED, mapped, mapper,
+    static PrimitivePipelineCapture mapped(MappedPipelineCapture<?> mapped, PrimitiveValueKind kind, Object mapper) {
+        return new PrimitivePipelineCapture(mapped.rows, RootKind.MAPPED, mapped, mapper,
                 true, -1, kind, kind,
                 Collections.<Stage>emptyList());
     }
 
-    PrimitivePlan filter(Object callback) {
+    PrimitivePipelineCapture filter(Object callback) {
         return append(new Stage(StageKind.FILTER, valueKind, valueKind, callback, 0L));
     }
-    PrimitivePlan map(Object callback) {
+    PrimitivePipelineCapture map(Object callback) {
         return append(new Stage(StageKind.MAP, valueKind, valueKind, callback, 0L));
     }
-    PrimitivePlan convert(ValueKind target, Object callback) {
+    PrimitivePipelineCapture convert(PrimitiveValueKind target, Object callback) {
         return append(new Stage(StageKind.CONVERT, valueKind, target, callback, 0L));
     }
-    PrimitivePlan distinct() {
+    PrimitivePipelineCapture distinct() {
         return append(new Stage(StageKind.DISTINCT, valueKind, valueKind, null, 0L));
     }
-    PrimitivePlan sorted() {
+    PrimitivePipelineCapture sorted() {
         return append(new Stage(StageKind.SORTED, valueKind, valueKind, null, 0L));
     }
-    PrimitivePlan skip(long count) {
+    PrimitivePipelineCapture skip(long count) {
         return append(new Stage(StageKind.SKIP, valueKind, valueKind, null, count));
     }
-    PrimitivePlan limit(long count) {
+    PrimitivePipelineCapture limit(long count) {
         return append(new Stage(StageKind.LIMIT, valueKind, valueKind, null, count));
     }
-    PrimitivePlan parallel() {
+    PrimitivePipelineCapture parallel() {
         if (rows.isParallel()) return this;
-        MappedPlan<?> nextMapped = mapped == null ? null : mapped.parallel();
-        return new PrimitivePlan(
+        MappedPipelineCapture<?> nextMapped = mapped == null ? null : mapped.parallel();
+        return new PrimitivePipelineCapture(
                 rows.parallel(), rootKind, nextMapped, rootMapper,
                 rootApplicationCallback, rootFieldIndex,
                 rootValueKind, valueKind, stages);
@@ -125,11 +124,14 @@ final class PrimitivePlan {
         }
         return result;
     }
-    private PrimitivePlan append(Stage stage) {
+    private PrimitivePipelineCapture append(Stage stage) {
         ArrayList<Stage> next = new ArrayList<Stage>(stages.size() + 1);
         next.addAll(stages); next.add(stage);
-        return new PrimitivePlan(rows, rootKind, mapped, rootMapper,
+        return new PrimitivePipelineCapture(rows, rootKind, mapped, rootMapper,
                 rootApplicationCallback, rootFieldIndex, rootValueKind,
                 stage.output, Collections.unmodifiableList(next));
     }
 }
+
+/** Closed primitive semantic kind shared by lowering and specialized kernels. */
+enum PrimitiveValueKind { BOOLEAN, BYTE, SHORT, CHAR, INT, LONG, FLOAT, DOUBLE }
