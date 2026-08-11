@@ -33,6 +33,9 @@ public final class GeneratedTable {
     private final GeneratedQueryCursor secondaryQueryCursor;
     private final IdentityHashIndex.PreparedAdd keyAddScratch;
     private final IdentityHashIndex.PreparedAdd[] indexAddScratch;
+    private final IdentityHashIndex.PreparedUpdate[] indexUpdateScratch;
+    private final IdentityHashIndex.PreparedRemove keyRemoveScratch;
+    private final IdentityHashIndex.PreparedRemove[] indexRemoveScratch;
     private final AtomicReference<TableStateRoot> current;
 
     GeneratedTable(GeneratedGroup group, GeneratedTableLayout layout) {
@@ -65,6 +68,14 @@ public final class GeneratedTable {
         for (int ordinal = 0; ordinal < indexAddScratch.length; ordinal++) {
             indexAddScratch[ordinal] = new IdentityHashIndex.PreparedAdd();
         }
+        this.indexUpdateScratch = new IdentityHashIndex.PreparedUpdate[layout.indexCount()];
+        this.indexRemoveScratch = new IdentityHashIndex.PreparedRemove[layout.indexCount()];
+        for (int ordinal = 0; ordinal < layout.indexCount(); ordinal++) {
+            indexUpdateScratch[ordinal] = new IdentityHashIndex.PreparedUpdate();
+            indexRemoveScratch[ordinal] = new IdentityHashIndex.PreparedRemove();
+        }
+        this.keyRemoveScratch = layout.keyFieldIndex() < 0
+                ? null : new IdentityHashIndex.PreparedRemove();
         this.current = new AtomicReference<TableStateRoot>(
                 TableStateRoot.empty(layout, chunkRows));
     }
@@ -529,21 +540,20 @@ public final class GeneratedTable {
         }
 
         boolean indexChanged = false;
+        boolean[] changedIndexes = new boolean[layout.indexCount()];
         for (int ordinal = 0; ordinal < layout.indexCount(); ordinal++) {
             if (!layout.fieldEquals(
                     original, staged, layout.indexFieldIndex(ordinal))) {
                 indexChanged = true;
-                break;
+                changedIndexes[ordinal] = true;
             }
         }
         long newVersion = CheckedLong.increment(
                 root.stateVersion, SomaOperation.UPDATE, provenance);
         long chunkOrdinal = locator / chunkRows;
-        long chunkStart = CheckedLong.multiply(
-                chunkOrdinal, chunkRows, SomaOperation.UPDATE, provenance);
-        boolean completeChunk = root.size - chunkStart >= chunkRows;
-        if (!indexChanged && !completeChunk
-                && !root.directory.chunk(chunkOrdinal).hasEncodedRepresentation()) {
+        boolean plainInPlace = !root.directory.chunk(chunkOrdinal)
+                .hasEncodedRepresentation();
+        if (!indexChanged && plainInPlace) {
             UpdateResult result = updateResult(1L, 1L);
             TableStateRoot committed = new TableStateRoot(
                     root.size,
@@ -559,37 +569,66 @@ public final class GeneratedTable {
             return result;
         }
 
-        TableChunkDirectory candidate = root.directory.copyForUpdate(locator, staged);
-        candidate.finishTouched(
-                root.size,
-                group.compression(),
-                SomaOperation.UPDATE,
-                provenance);
-        IdentityHashIndex[] indexes = indexChanged
-                ? rebuildIndexes(
-                        candidate, root.size, SomaOperation.UPDATE, provenance)
-                : root.indexes;
-        inject(
-                MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
-                SomaOperation.UPDATE,
-                provenance);
-        long sidecars = sidecarBytes(root.key, indexes, SomaOperation.UPDATE, provenance);
-        long finalManaged = managedBytes(
-                candidate, sidecars, SomaOperation.UPDATE, provenance);
-        UpdateResult result = updateResult(1L, 1L);
-        publishCandidate(
-                root,
-                new TableStateRoot(
-                        root.size,
-                        root.capacity,
-                        newVersion,
-                        finalManaged,
-                        candidate,
-                        root.key,
-                        indexes),
-                SomaOperation.UPDATE,
-                provenance);
-        return result;
+        TableChunkDirectory candidate = root.directory;
+        if (!plainInPlace) {
+            candidate = root.directory.copyForUpdate(locator, staged);
+            candidate.finishTouched(
+                    root.size,
+                    group.compression(),
+                    SomaOperation.UPDATE,
+                    provenance);
+        }
+        boolean[] incremental = new boolean[layout.indexCount()];
+        try {
+            for (int ordinal = 0; ordinal < changedIndexes.length; ordinal++) {
+                if (!changedIndexes[ordinal]) continue;
+                root.indexes[ordinal].prepareUpdate(
+                        indexUpdateScratch[ordinal],
+                        root.directory,
+                        staged,
+                        locator,
+                        SomaOperation.UPDATE,
+                        provenance);
+                incremental[ordinal] = true;
+            }
+            inject(
+                    MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
+                    SomaOperation.UPDATE,
+                    provenance);
+            long sidecars = root.key == null ? 0L : root.key.managedBytes();
+            for (int ordinal = 0; ordinal < root.indexes.length; ordinal++) {
+                long bytes = incremental[ordinal]
+                        ? indexUpdateScratch[ordinal].managedBytesAfter()
+                        : root.indexes[ordinal].managedBytes();
+                sidecars = CheckedLong.add(
+                        sidecars, bytes, SomaOperation.UPDATE, provenance);
+            }
+            long finalManaged = plainInPlace
+                    ? replaceSidecarBytes(
+                            root, sidecars, SomaOperation.UPDATE, provenance)
+                    : managedBytes(
+                            candidate, sidecars, SomaOperation.UPDATE, provenance);
+            UpdateResult result = updateResult(1L, 1L);
+            publishPointIndexUpdate(
+                    root,
+                    new TableStateRoot(
+                            root.size,
+                            root.capacity,
+                            newVersion,
+                            finalManaged,
+                            candidate,
+                            root.key,
+                            root.indexes),
+                    incremental,
+                    plainInPlace ? staged : null,
+                    locator,
+                    provenance);
+            return result;
+        } finally {
+            for (int ordinal = 0; ordinal < changedIndexes.length; ordinal++) {
+                if (incremental[ordinal]) indexUpdateScratch[ordinal].clear();
+            }
+        }
     }
 
     RemoveResult remove(TypedValues probe, Object provenance) {
@@ -608,43 +647,45 @@ public final class GeneratedTable {
                     group.compression(),
                     SomaOperation.REMOVE,
                     provenance);
-            inject(
-                    MutationFaultPoint.BEFORE_KEY_REBUILD,
-                    SomaOperation.REMOVE,
-                    provenance);
-            IdentityHashIndex key = IdentityHashIndex.rebuild(
-                    layout,
-                    layout.keyFieldIndex(),
-                    true,
-                    chunkRows,
-                    candidate,
-                    newSize,
-                    SomaOperation.REMOVE,
-                    provenance);
-            IdentityHashIndex[] indexes = rebuildIndexes(
-                    candidate, newSize, SomaOperation.REMOVE, provenance);
-            inject(
-                    MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
-                    SomaOperation.REMOVE,
-                    provenance);
-            long sidecars = sidecarBytes(key, indexes, SomaOperation.REMOVE, provenance);
-            long finalManaged = managedBytes(
-                    candidate, sidecars, SomaOperation.REMOVE, provenance);
-            RemoveResult result = removeResult(1L);
-            publishCandidate(
-                    root,
-                    new TableStateRoot(
-                            newSize,
-                            root.capacity,
-                            CheckedLong.increment(
-                                    root.stateVersion, SomaOperation.REMOVE, provenance),
-                            finalManaged,
-                            candidate,
-                            key,
-                            indexes),
-                    SomaOperation.REMOVE,
-                    provenance);
-            return result;
+            try {
+                root.key.prepareRemove(
+                        keyRemoveScratch, root.directory, locator, root.size - 1L);
+                for (int ordinal = 0; ordinal < root.indexes.length; ordinal++) {
+                    root.indexes[ordinal].prepareRemove(
+                            indexRemoveScratch[ordinal],
+                            root.directory,
+                            locator,
+                            root.size - 1L);
+                }
+                inject(
+                        MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
+                        SomaOperation.REMOVE,
+                        provenance);
+                long sidecars = sidecarBytes(root, SomaOperation.REMOVE, provenance);
+                long finalManaged = managedBytes(
+                        candidate, sidecars, SomaOperation.REMOVE, provenance);
+                RemoveResult result = removeResult(1L);
+                publishPointRemove(
+                        root,
+                        new TableStateRoot(
+                                newSize,
+                                root.capacity,
+                                CheckedLong.increment(
+                                        root.stateVersion,
+                                        SomaOperation.REMOVE,
+                                        provenance),
+                                finalManaged,
+                                candidate,
+                                root.key,
+                                root.indexes),
+                        provenance);
+                return result;
+            } finally {
+                keyRemoveScratch.clear();
+                for (IdentityHashIndex.PreparedRemove remove : indexRemoveScratch) {
+                    remove.clear();
+                }
+            }
         }
     }
 
@@ -1029,6 +1070,65 @@ public final class GeneratedTable {
         }
     }
 
+    private void publishPointIndexUpdate(
+            TableStateRoot oldRoot,
+            TableStateRoot candidate,
+            boolean[] incremental,
+            TypedValues inPlacePayload,
+            long locator,
+            Object provenance) {
+        long delta = candidate.managedBytes - oldRoot.managedBytes;
+        long positive = Math.max(0L, delta);
+        try (GlobalMemoryManager.RetainedReservation retained =
+                     group.reserveRetained(
+                             positive, SomaOperation.UPDATE, provenance)) {
+            inject(
+                    MutationFaultPoint.BEFORE_INCREMENTAL_SIDECAR_COMMIT,
+                    SomaOperation.UPDATE,
+                    provenance);
+            inject(
+                    MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH,
+                    SomaOperation.UPDATE,
+                    provenance);
+            for (int ordinal = 0; ordinal < incremental.length; ordinal++) {
+                if (incremental[ordinal]) indexUpdateScratch[ordinal].commit();
+            }
+            if (inPlacePayload != null) {
+                oldRoot.directory.write(locator, inPlacePayload);
+            }
+            current.set(candidate);
+            retained.commit();
+        }
+        if (delta < 0L) group.releasePublished(-delta);
+    }
+
+    private void publishPointRemove(
+            TableStateRoot oldRoot,
+            TableStateRoot candidate,
+            Object provenance) {
+        long delta = candidate.managedBytes - oldRoot.managedBytes;
+        long positive = Math.max(0L, delta);
+        try (GlobalMemoryManager.RetainedReservation retained =
+                     group.reserveRetained(
+                             positive, SomaOperation.REMOVE, provenance)) {
+            inject(
+                    MutationFaultPoint.BEFORE_INCREMENTAL_SIDECAR_COMMIT,
+                    SomaOperation.REMOVE,
+                    provenance);
+            inject(
+                    MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH,
+                    SomaOperation.REMOVE,
+                    provenance);
+            keyRemoveScratch.commit();
+            for (IdentityHashIndex.PreparedRemove remove : indexRemoveScratch) {
+                remove.commit();
+            }
+            current.set(candidate);
+            retained.commit();
+        }
+        if (delta < 0L) group.releasePublished(-delta);
+    }
+
     private long preferredGrowth(
             TableStateRoot root,
             long required,
@@ -1160,6 +1260,20 @@ public final class GeneratedTable {
                     result, index.managedBytes(), operation, provenance);
         }
         return result;
+    }
+
+    private long replaceSidecarBytes(
+            TableStateRoot root,
+            long replacement,
+            SomaOperation operation,
+            Object provenance) {
+        long withoutSidecars = CheckedLong.subtract(
+                root.managedBytes,
+                sidecarBytes(root, operation, provenance),
+                operation,
+                provenance);
+        return CheckedLong.add(
+                withoutSidecars, replacement, operation, provenance);
     }
 
     private UpdateResult updateResult(long matched, long changed) {

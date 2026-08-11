@@ -26,7 +26,10 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
@@ -549,6 +552,99 @@ class GeneratedTableTest {
         assertTrue(Arrays.equals(
                 QueryOperation.referenceLocatorsForTesting(rebuilt),
                 QueryOperation.optimizedLocatorsForTesting(rebuilt)));
+    }
+
+    @Test
+    void randomizedPointMutationMaintainsKeyIndexesAndCanonicalOrderIncrementally() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(128L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory),
+                dualIndexLayout(), 4, MutationFaultInjector.NONE);
+        Map<Long, ExpectedRow> expected = new LinkedHashMap<Long, ExpectedRow>();
+        long nextKey = 1L;
+        for (; nextKey <= 96L; nextKey++) {
+            ExpectedRow row = new ExpectedRow(
+                    "bucket-" + (nextKey % 7L),
+                    (int) (nextKey % 11L),
+                    new Object());
+            add(table, nextKey, row.name, row.value, row.reference);
+            expected.put(nextKey, row);
+        }
+
+        Random random = new Random(0x5A17C0DEL);
+        for (int step = 0; step < 600; step++) {
+            int operation = random.nextInt(3);
+            if (operation == 0 || expected.size() < 24) {
+                long key = nextKey++;
+                ExpectedRow row = new ExpectedRow(
+                        "bucket-" + random.nextInt(9),
+                        random.nextInt(13),
+                        new Object());
+                add(table, key, row.name, row.value, row.reference);
+                expected.put(key, row);
+            } else {
+                long key = keyAt(expected, random.nextInt(expected.size()));
+                if (operation == 1) {
+                    ExpectedRow row = new ExpectedRow(
+                            "bucket-" + random.nextInt(9),
+                            random.nextInt(13),
+                            new Object());
+                    assertEquals(1L, update(
+                            table, key, row.name, row.value, row.reference).changed());
+                    expected.put(key, row);
+                } else {
+                    assertEquals(1L, remove(table, key).removed());
+                    expected.remove(key);
+                }
+            }
+            if ((step & 31) == 31) assertExpectedState(table, expected, memory);
+        }
+        assertExpectedState(table, expected, memory);
+    }
+
+    @Test
+    void pointMutationUsesShardLocalRehashAndReusesTombstones() {
+        GeneratedTableLayout layout = dualIndexLayout();
+        int[] values = sameShardIntValues(layout, 28);
+        int sourceValue = intValueOutsideShard(layout, values[0]);
+        OccurrenceFault fault = new OccurrenceFault();
+        GlobalMemoryManager memory = new GlobalMemoryManager(128L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), layout, 4, fault);
+        Map<Long, ExpectedRow> expected = new LinkedHashMap<Long, ExpectedRow>();
+
+        for (int index = 0; index < 10; index++) {
+            long key = index + 1L;
+            ExpectedRow row = new ExpectedRow(
+                    "shared", values[index], new Object());
+            add(table, key, row.name, row.value, row.reference);
+            expected.put(Long.valueOf(key), row);
+        }
+        ExpectedRow source = new ExpectedRow("shared", sourceValue, new Object());
+        add(table, 100L, source.name, source.value, source.reference);
+        expected.put(Long.valueOf(100L), source);
+
+        fault.arm(MutationFaultPoint.BEFORE_INDEX_REBUILD, 1);
+        ExpectedRow moved = new ExpectedRow("shared", values[10], new Object());
+        assertEquals(1L, update(
+                table, 100L, moved.name, moved.value, moved.reference).changed());
+        expected.put(Long.valueOf(100L), moved);
+        assertEquals(0, fault.seen());
+
+        for (long key = 1L; key <= 8L; key++) {
+            assertEquals(1L, remove(table, key).removed());
+            expected.remove(Long.valueOf(key));
+        }
+        for (int index = 11; index < values.length; index++) {
+            long key = 1000L + index;
+            ExpectedRow row = new ExpectedRow(
+                    "shared", values[index], new Object());
+            add(table, key, row.name, row.value, row.reference);
+            expected.put(Long.valueOf(key), row);
+        }
+
+        assertExpectedState(table, expected, memory);
+        assertEquals(0, fault.seen());
     }
 
     @Test
@@ -1721,7 +1817,7 @@ class GeneratedTableTest {
     }
 
     @Test
-    void keyAndEveryIndexRebuildFailurePreservePayloadSidecarsAndAccounting() {
+    void incrementalPointSidecarCommitFailurePreservesOneGenerationAndSkipsRebuild() {
         OccurrenceFault fault = new OccurrenceFault();
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
         GeneratedTable table = new GeneratedTable(
@@ -1735,12 +1831,7 @@ class GeneratedTableTest {
         long version = table.stateVersionForTesting();
         long retained = memory.retainedBytes();
 
-        fault.arm(MutationFaultPoint.BEFORE_INDEX_REBUILD, 1);
-        assertThrows(SomaOperationException.class,
-                () -> update(table, 1L, "moved", 11, first));
-        assertDualIndexState(table, memory, root, version, retained, first, second);
-
-        fault.arm(MutationFaultPoint.BEFORE_INDEX_REBUILD, 2);
+        fault.arm(MutationFaultPoint.BEFORE_INCREMENTAL_SIDECAR_COMMIT, 1);
         assertThrows(SomaOperationException.class,
                 () -> update(table, 1L, "moved", 11, first));
         assertDualIndexState(table, memory, root, version, retained, first, second);
@@ -1750,13 +1841,24 @@ class GeneratedTableTest {
                 () -> update(table, 1L, "moved", 11, first));
         assertDualIndexState(table, memory, root, version, retained, first, second);
 
-        fault.arm(MutationFaultPoint.BEFORE_KEY_REBUILD, 1);
+        fault.arm(MutationFaultPoint.BEFORE_INCREMENTAL_SIDECAR_COMMIT, 1);
         assertThrows(SomaOperationException.class, () -> remove(table, 2L));
         assertDualIndexState(table, memory, root, version, retained, first, second);
 
-        fault.arm(MutationFaultPoint.BEFORE_INDEX_REBUILD, 2);
-        assertThrows(SomaOperationException.class, () -> remove(table, 2L));
-        assertDualIndexState(table, memory, root, version, retained, first, second);
+        fault.arm(MutationFaultPoint.BEFORE_INDEX_REBUILD, 1);
+        UpdateResult moved = update(table, 1L, "moved", 11, first);
+        assertEquals(1L, moved.changed());
+        assertEquals(0, fault.seen());
+        assertEquals(1L, indexCount(table, "moved"));
+        assertEquals(1L, intIndexCount(table, 11));
+
+        fault.arm(MutationFaultPoint.BEFORE_KEY_REBUILD, 1);
+        RemoveResult removed = remove(table, 2L);
+        assertEquals(1L, removed.removed());
+        assertEquals(0, fault.seen());
+        assertMissing(table, 2L);
+        assertEquals(1L, table.size());
+        assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
     }
 
     @Test
@@ -2111,6 +2213,97 @@ class GeneratedTableTest {
         assertEquals(0L, intIndexCount(table, 11));
     }
 
+    private static long keyAt(Map<Long, ExpectedRow> rows, int requested) {
+        int index = 0;
+        for (Long key : rows.keySet()) {
+            if (index++ == requested) return key.longValue();
+        }
+        throw new AssertionError("random expected key is missing");
+    }
+
+    private static int[] sameShardIntValues(
+            GeneratedTableLayout layout,
+            int required) {
+        int[][] values = new int[64][required];
+        int[] sizes = new int[64];
+        TypedValues probe = new TypedValues(layout);
+        int slot = layout.leafSlot(2);
+        for (int candidate = 0; candidate < 1_000_000; candidate++) {
+            probe.intValue(slot, candidate);
+            int shard = (int) (layout.hashField(probe, 2) >>> 58);
+            if (sizes[shard] < required) {
+                values[shard][sizes[shard]++] = candidate;
+                if (sizes[shard] == required) return values[shard];
+            }
+        }
+        throw new AssertionError("unable to construct same-shard int values");
+    }
+
+    private static int intValueOutsideShard(
+            GeneratedTableLayout layout,
+            int referenceValue) {
+        TypedValues probe = new TypedValues(layout);
+        int slot = layout.leafSlot(2);
+        probe.intValue(slot, referenceValue);
+        int referenceShard = (int) (layout.hashField(probe, 2) >>> 58);
+        for (int candidate = 0; candidate < 1_000_000; candidate++) {
+            probe.intValue(slot, candidate);
+            if ((int) (layout.hashField(probe, 2) >>> 58) != referenceShard) {
+                return candidate;
+            }
+        }
+        throw new AssertionError("unable to construct another-shard int value");
+    }
+
+    private static void assertExpectedState(
+            GeneratedTable table,
+            Map<Long, ExpectedRow> expected,
+            GlobalMemoryManager memory) {
+        assertEquals(expected.size(), table.size());
+        Map<String, Long> nameCounts = new HashMap<String, Long>();
+        Map<Integer, Long> valueCounts = new HashMap<Integer, Long>();
+        for (Map.Entry<Long, ExpectedRow> entry : expected.entrySet()) {
+            ExpectedRow row = entry.getValue();
+            assertRow(
+                    table,
+                    entry.getKey().longValue(),
+                    row.name,
+                    row.value,
+                    row.reference);
+            Long names = nameCounts.get(row.name);
+            nameCounts.put(row.name, names == null ? 1L : names + 1L);
+            Integer value = Integer.valueOf(row.value);
+            Long values = valueCounts.get(value);
+            valueCounts.put(value, values == null ? 1L : values + 1L);
+        }
+        for (Map.Entry<String, Long> count : nameCounts.entrySet()) {
+            assertEquals(count.getValue().longValue(), indexCount(table, count.getKey()));
+            GeneratedProbe probe = table.newProbe(1);
+            probe.putReference(1, count.getKey());
+            LogicalRowPlan plan = LogicalRowPlan.indexSelection(table, 0, probe.seal());
+            assertTrue(Arrays.equals(
+                    QueryOperation.referenceLocatorsForTesting(plan),
+                    QueryOperation.optimizedLocatorsForTesting(plan)));
+        }
+        for (Map.Entry<Integer, Long> count : valueCounts.entrySet()) {
+            assertEquals(count.getValue().longValue(), intIndexCount(
+                    table, count.getKey().intValue()));
+        }
+        assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
+    }
+
+    private static final class ExpectedRow {
+        final String name;
+        final int value;
+        final Object reference;
+
+        ExpectedRow(String name, int value, Object reference) {
+            this.name = name;
+            this.value = value;
+            this.reference = reference;
+        }
+    }
+
     private static void assertRow(
             GeneratedTable table,
             long key,
@@ -2245,6 +2438,10 @@ class GeneratedTableTest {
             point = requestedPoint;
             occurrence = requestedOccurrence;
             seen = 0;
+        }
+
+        int seen() {
+            return seen;
         }
 
         @Override
