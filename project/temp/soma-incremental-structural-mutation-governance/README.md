@@ -1,6 +1,6 @@
 # SOMA 32 位结构域与即时增量 Key/Index 维护治理
 
-状态：`ACTIVE / CANDIDATE_B_PRODUCT_OWNER_APPROVED / S0_BASELINE_READY / IMPLEMENTATION_NOT_STARTED`
+状态：`ACTIVE / CANDIDATE_B_PRODUCT_OWNER_APPROVED / S1-S3_IMPLEMENTED_AND_QUALIFIED / S4_ACTIVE`
 
 初始日期：2026-08-10
 
@@ -12,9 +12,10 @@
 
 Product Owner 于2026-08-11冻结此前“延迟失效 + tagged locator + dirty Bucket + 25% cleanup”方案，
 将其保留为candidate A；当前active candidate B采用raw `int` locator、即时Key/Index membership、
-自研typed Hash directory与升序`int[]` Bucket。Product Owner已批准candidate B及其实施顺序；S0已
-以`a0f1cd9`固化立即linked-posting predecessor baseline，S1/S2尚未形成implementation或qualification
-事实。
+自研typed Hash directory与升序`int[]` Bucket。Product Owner已批准candidate B及其实施顺序；S0以
+`a0f1cd9`固化立即linked-posting predecessor baseline，S1已由`3d90184`完成32位结构域迁移，S2由
+`51fd7b2`完成singleton-inline + ordered `int[]`替换；S3全读取路径与完整`./scripts/check.sh`已通过。
+当前只剩S4专项性能/资源证据、正式Owner晋升与Temporary replacement closure。
 
 ## 当前入口
 
@@ -35,7 +36,8 @@ Product Owner 于2026-08-11冻结此前“延迟失效 + tagged locator + dirty 
 - 第一版以linear scan和`System.arraycopy`作为internal baseline，但不把具体算法晋升为长期Design合同；
 - 不引入fastutil、延迟失效、第二套Index truth、未来加速strategy/SPI或background cleanup；
 - 项目正式 `project/design/` 尚未修改，本专题不能伪装成 current formal product fact；
-- 当前linked-posting implementation是S1/S2 predecessor checkpoint，不是candidate B已经实现的证据；
+- linked-posting只存在于`a0f1cd9` predecessor checkpoint；active checkout已删除next-links并只维护一套
+  singleton-inline / multi `int[]` membership truth；
 - 未完成`LocatorBitmap` experiment已删除，scheduling refactor已冻结在本专题之外；
 - implementation按“worktree/base evidence → 32位结构域迁移并qualification → `int[]` Index替换并
   qualification”的连续single-active-slice顺序推进；

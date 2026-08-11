@@ -2,7 +2,7 @@
 
 类型：`Bounded Governance Candidate Design`
 
-状态：`ACTIVE / CANDIDATE_B / PRODUCT_OWNER_APPROVED / S0_BASELINE_READY / NOT_IMPLEMENTED / NOT_QUALIFIED`
+状态：`ACTIVE / CANDIDATE_B / PRODUCT_OWNER_APPROVED / S1-S3_IMPLEMENTED_AND_QUALIFIED / S4_ACTIVE`
 
 日期：2026-08-11
 
@@ -678,7 +678,7 @@ strategy或第三artifact。SOMA已有generated typed hash/equality、managed ac
 - 重放Key/Index/clean-query baseline；
 - 保留44–45秒FJSP历史checkpoint作为问题来源，不把它设为当前专题的qualification依赖或正式claim。
 
-### S1 — 32位结构域迁移
+### S1 — 32位结构域迁移（`COMPLETE`）
 
 - 建立Storage、Execution、Failure、Planning、Core abstraction delta matrix；
 - 将Table size/capacity、raw locator、Chunk/Table scan range、Key/Index membership、Selection和
@@ -688,7 +688,7 @@ strategy或第三artifact。SOMA已有generated typed hash/equality、managed ac
 - 先保持当前立即linked-posting算法，完成compile/test/signature/full qualification基线；
 - 不在同一修改中替换Index container，避免数值域与算法回归互相掩盖。
 
-### S2 — 即时 `int[]` Key/Index维护
+### S2 — 即时 `int[]` Key/Index维护（`COMPLETE`）
 
 - 从current sharded open addressing提取共享但不泄漏的directory mechanics；
 - Key exact probe、duplicate、remove、tail relocation；
@@ -702,7 +702,7 @@ strategy或第三artifact。SOMA已有generated typed hash/equality、managed ac
 - preflight、prepared descriptor、non-throwing commit与fault injection；
 - reference clearing、compression和version/accounting closure。
 
-### S3 — Selection与全部读取路径
+### S3 — Selection与全部读取路径（`COMPLETE`）
 
 - Selection candidate rebuild只生成新Bucket结构；
 - Key/Index scan、optimized substitution、Join与parallel读取新structure；
