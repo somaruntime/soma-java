@@ -48,7 +48,8 @@ Package/release                LOCAL_PACKAGE_QUALIFIED / PUBLICATION_NOT_AUTHORI
 Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
 Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DISTRIBUTION_QUALIFIED /
                               FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
-Active bounded topic          NONE
+Active bounded topic          INT32_STRUCTURAL_INCREMENTAL_INDEX / DESIGN_APPROVED /
+                              S0_BASELINE_READY / IMPLEMENTATION_NOT_STARTED
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -147,7 +148,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
+Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary为
+[32位结构域与即时增量Key/Index维护治理](../temp/soma-incremental-structural-mutation-governance/README.md)；
+其专题Design已获Product Owner批准，S0 predecessor baseline已提交，但S1/S2尚未成为项目正式
+Design、implementation或Conformance。
 `docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
 [正式Conformance记录](v1-performance-correctness-governance.md)完成治理和replacement closure；
 千万行组合负载的扩展证据见[对应记录](v1-ten-million-composed-workload-governance.md)；四维性能架构
