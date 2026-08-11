@@ -2,11 +2,12 @@
 
 类型：Engineering Entry
 
-状态：I0–I8 `COMPLETED`；当前无 active implementation slice
+状态：I0–I8 `COMPLETED`；Canonical IR/Execution S1–S6 `FROZEN / READY / NOT_AUTHORIZED`；
+当前无 active implementation slice
 
 Owner：SOMA Java implementation sequence、work unit 与 engineering evidence route
 
-最后审查日期：2026-08-09
+最后审查日期：2026-08-11
 
 ## 当前状态
 
@@ -14,7 +15,8 @@ Product Owner 已授权并完成当前 V1 的 I0–I8 implementation。每个 sl
 与 Conformance 已闭合，G1–G10 为 `PASS`。这不授权 GitHub Release/Package、Maven publication、
 签名或正式 release 声明。
 
-唯一规范性计划为 [V1 Production Implementation Plan](v1-implementation-plan.md)。阶段状态：
+I0-I8历史实施的唯一规范性计划为
+[V1 Production Implementation Plan](v1-implementation-plan.md)。阶段状态：
 
 ```text
 I0 build/full-regeneration
@@ -33,6 +35,11 @@ I0–I8 名称继续存在于计划和 Conformance 中，作为历史实施与�
 qualification internals 已按长期 capability 组织，不再把实施 chronology 当作仓库主结构。
 I2–I4 的 point-in-time consumer/golden snapshot 保存在 [`history/`](history/README.md)，不作为
 current qualification 或 compatibility target。
+
+Canonical IR与执行引擎M1责任替换由独立的
+[S1-S6实施计划](canonical-ir-execution-engine-implementation-plan.md)拥有。该计划已经完成正式Design
+晋升、Baseline Freeze与targeted readiness，但Product Owner尚未授予implementation authorization；
+因此S1尚未active，不能把I0-I8历史授权推断为本计划授权。
 
 ## 当前工程入口
 
@@ -57,6 +64,7 @@ current qualification 或 compatibility target。
 - [Design](../design/README.md)
 - [Core abstractions](../design/core-abstractions-and-narratives.md)
 - [Implementation Plan](v1-implementation-plan.md)
+- [Canonical IR / Execution Engine Plan](canonical-ir-execution-engine-implementation-plan.md)
 - [G1–G10](../conformance/v1-implementation-gates.md)
 - [Current Conformance](../conformance/README.md)
 - [I0–I8 qualification records](../conformance/README.md#4-active-records)

@@ -12,6 +12,8 @@ Owner：SOMA V1 跨Design核心抽象、父子叙事、不变量证明链路由�
 
 最后审查日期：2026-08-11
 
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
+
 ## 1. 文档责任
 
 本文回答四个问题：
@@ -237,11 +239,11 @@ L1 是 product vocabulary；L2 是 implementation 必须理解的 architecture v
 | A13 | Detached Result | L1 / `SEMANTIC_BASELINE` | query/mutation completion | Logical | Failure result boundary |
 | A14 | Structured Failure | L1-L2 / `SEMANTIC_BASELINE` | failed operation outcome | Failure | Execution arbitration |
 | A15 | Schema Model / Generation Session | L2 / `EVIDENCE_VALIDATED` | A1 compiler realization | Schema | Architecture build host |
-| A16 | Logical IR / Predicate IR | L2 / `EVIDENCE_VALIDATED` | A9/A12 lowering | Planning | Logical source、Execution binding |
-| A17 | Planner / Optimizer | L2 / `EVIDENCE_VALIDATED` | A16 physical decision | Planning | Architecture operator capability |
-| A18 | Reference Interpreter | L2 / `EVIDENCE_VALIDATED` | A16 semantic oracle | Planning | Conformance evidence |
-| A19 | Physical Plan / Operator | L2-L3 / `EVIDENCE_VALIDATED` | A17 executable decision | Architecture | Execution scheduling |
-| A20 | Operation / Group Admission | L2 / `EVIDENCE_VALIDATED` | terminal coordination | Execution | Planning、Failure、Storage |
+| A16 | Canonical / Bound / Predicate IR | L2 / `EVIDENCE_VALIDATED` | A9/A12 lowering与binding | Planning | Logical source、Execution admission |
+| A17 | Normalizer / Planner / Optimizer | L2 / `EVIDENCE_VALIDATED` | A16 physical decision与resource estimate | Planning | Architecture operator capability |
+| A18 | Reference Interpreter | L2 / `EVIDENCE_VALIDATED` | bound A16 semantic oracle | Planning | Conformance evidence |
+| A19 | Physical Plan / Operator | L2-L3 / `EVIDENCE_VALIDATED` | A17 executable decision | Architecture | Execution frame/scheduling |
+| A20 | Operation / Group Admission / Execution Frame | L2 / `EVIDENCE_VALIDATED` | terminal coordination与admitted state | Execution | Planning、Failure、Storage、Architecture |
 | A21 | StateRoot | L2 / `EVIDENCE_VALIDATED` | A5 authoritative state | Storage | Execution publication |
 | A22 | Chunk / Leaf Representation | L2-L3 / `EVIDENCE_VALIDATED` | A21 physical state | Storage | Architecture kernels/backend seam |
 | A23 | Key / Index Sidecar | L3 / `EVIDENCE_VALIDATED` | A7/A8 lowering in A21 | Architecture | Storage logical contract |
@@ -425,23 +427,30 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
   closure；
 - **Non-responsibility**：runtime schema、partial incremental guessing、application source mutation。
 
-### A16 — Logical IR / Predicate IR
+### A16 — Canonical / Bound / Predicate IR
 
-- **Meaning**：把 A9/A12 user operation 转换为可验证、可解释、可优化的 typed semantic plan；
-- **Identity**：pipeline logical nodes + owner/dependency + element shape + order/cardinality/null/failure
-  properties；不绑定physical algorithm；
-- **Lifecycle**：pipeline construction records nodes with atomic predecessor claim -> terminal validation/
-  consume -> StateRoot/statistics binding -> normalization；
-- **Invariant**：每个node完整携带语义属性；callback保持opaque barrier；relation missing不降级为null；
-- **Relations**：`derived-from` A9/A12，A17 consumes，A18 interprets，A27 explain projects；
-- **Non-responsibility**：直接修改Table、选择hash array、执行callback、成为public query AST。
+- **Meaning**：把 A9/A12 Java frontend operation 转换为唯一、可验证、可解释、可优化的typed
+  Canonical semantic plan，并在terminal-start形成一次性BoundOperation；
+- **Identity**：compiled composition descriptor + Table/Field/Index ordinal、typed node/terminal、
+  dependency/shape/lineage/order/cardinality/null/failure properties；不以generated facade、StateRoot或
+  physical address作为semantic identity；
+- **Lifecycle**：frontend validates/claims -> immutable CanonicalOperation -> A20 Group admission -> bind
+  current A21 roots/statistics/provenance -> BoundOperation -> reference或normalization；
+- **Invariant**：Canonical data-only且不绑定root/scratch/worker；callback保持opaque host barrier；Field
+  direct source只有`TableSource + FieldProject`；relation missing不降级为null；
+- **Relations**：`derived-from` A9/A12，A17 consumes bound semantics，A18 directly interprets bound
+  semantics，A27 explain projects；
+- **Non-responsibility**：直接修改Table、选择hash array、执行callback、成为public/serialized query
+  AST、建立frontend SPI。
 
-### A17 — Planner / Optimizer
+### A17 — Normalizer / Planner / Optimizer
 
 - **Meaning**：在 bound facts 与固定 logical semantics 下选择等价且资源可准入的 physical
   execution；
-- **Identity**：一次 Operation 的 planning decision，不跨 terminal 复用；
-- **Lifecycle**：consume validated/bound A16 -> normalize/rewrite -> estimate -> choose A19 -> hand off；
+- **Identity**：一次 Operation 的NormalizedOperation、PhysicalPlan decision与ResourceEstimate，不跨
+  terminal复用；
+- **Lifecycle**：consume bound A16 -> normalize/rewrite -> choose access/kernel/algorithm/partition ->
+  checked conservative estimate -> hand off A19/A20；
 - **Invariant**：只能改变成本，不能改变result/order/null/missing/duplicate/callback/failure；
 - **Relations**：`depends-on` A16、A21 immutable statistics、A25 budget；A18 `evidences` legality；
 - **Non-responsibility**：拥有public API、修改authoritative state、把missing statistics当failure、
@@ -449,35 +458,42 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 
 ### A18 — Reference Interpreter
 
-- **Meaning**：直接按 typed Logical IR 顺序语义执行的 correctness oracle；
+- **Meaning**：直接按Bound Canonical operation原始顺序语义执行的correctness oracle；
 - **Identity**：semantic implementation family，不是用户可选择的engine mode；
 - **Lifecycle**：production test harness在independent state copy上运行 -> compare -> discard；
-- **Invariant**：共享32位结构域/64位累计域、checked arithmetic、order/null/missing/failure
-  semantics，但不使用
-  optimizer shortcut；
+- **Invariant**：共享authoritative bound roots、32位结构域/64位累计域、checked arithmetic、order/
+  null/missing/failure semantics，但不消费NormalizedOperation/PhysicalPlan或使用optimizer shortcut；
 - **Relations**：`interprets` A16，`evidences` A17/A19/A26；
 - **Non-responsibility**：unsupported fallback、production double execution、第二套API或state owner。
 
 ### A19 — Physical Plan / Operator
 
-- **Meaning**：A17 针对本次 bound roots 选择的可执行 operator graph、kernel family 与 deterministic
-  merge description；
-- **Identity**：Operation + bound root versions + selected algorithms/resource plan；
-- **Lifecycle**：plan -> A25 admission -> sequential/parallel execution -> completion -> discard；
-- **Invariant**：只操作已准入 representation；不越过callback barrier；输出与A18等价；
-- **Relations**：`lowers-from` A16/A17，`reads` A21/A22/A23，parallel时由A26执行；
-- **Non-responsibility**：长期缓存、public explain handle、发布Table state（交给A24）。
+- **Meaning**：A17针对本次bound roots选择的operator chain/tree、kernel family、partition与
+  deterministic merge的可执行architecture representation；
+- **Identity**：bound root versions + selected access/kernel/algorithm/partition + ResourceEstimate；
+- **Lifecycle**：A17 produces plan/estimate -> A20/A25 admit -> A20 frame drives specialized operators ->
+  discard；
+- **Invariant**：PhysicalPlan不分配O(N)execution storage、不越过callback barrier；operator输出与A18
+  等价；
+- **Relations**：`lowers-from` A16/A17，`reads` A21/A22/A23，由A20 ExecutionFrame驱动，parallel时由
+  A26细化；
+- **Non-responsibility**：actual lease/cursor/scratch/worker/staging lifecycle、第二套semantic plan、
+  boxed universal executor、长期缓存、public explain handle、发布Table state（交给A24）。
 
-### A20 — Operation / Group Admission
+### A20 — Operation / Group Admission / Execution Frame
 
 - **Meaning**：一次 terminal 或 direct Table operation 的 lifecycle coordinator 与 same-Group
-  exclusivity boundary；
-- **Identity**：operation id/token + logical operation kind + participating Group/Tables；
-- **Lifecycle**：invoke -> validate -> reentrancy/parallel check -> acquire Group guard -> bind -> plan ->
-  resource admit -> execute/stage -> publish/hand-off -> quiesce/release；
-- **Invariant**：同Group不重叠；phase/failure precedence稳定；所有exit释放guard/lease/worker；
+  exclusivity boundary；admission后以ExecutionFrame拥有本次actual short-lived execution state；
+- **Identity**：operation id/token + logical operation kind + participating Group/Tables；ExecutionFrame
+  另绑定acquired lease、cursor/scratch/worker/staging lifecycle；
+- **Lifecycle**：invoke -> validate/claim -> reentrancy/parallel check -> acquire Group guard -> bind ->
+  normalize/plan/estimate -> resource admit -> create A19 ExecutionFrame -> execute/stage -> publish/hand-off
+  -> quiesce/release；
+- **Invariant**：同Group不重叠；Frame只在lease成功后创建且不跨terminal缓存；phase/failure precedence
+  稳定；所有exit释放guard/lease/worker；
 - **Relations**：`coordinates` A16-A19、A21、A24-A26、A14；
-- **Non-responsibility**：拥有Table state、跨Group deadlock coordination、持久化operation log。
+- **Non-responsibility**：拥有Table state、复制planner/resource/failure事实、成为持有全部service/state的
+  God object、跨Group deadlock coordination、持久化operation log。
 
 ### A21 — StateRoot
 
@@ -584,16 +600,18 @@ A0 SOMA Product Engine
     ├── returns A13 Detached Result
     └── fails-as A14 Structured Failure
 
-A9 / A12 lower-to A16 Logical / Predicate IR
-    -> decided-by A17 Planner / Optimizer
-        -> produces A19 Physical Plan / Operator
-            -> coordinated-by A20 Operation / Group Admission
+A9 / A12 lower-to A16 Canonical / Bound / Predicate IR
+    +-- interpreted-by A18 Reference Interpreter
+    +-- decided-by A17 Normalizer / Planner / Optimizer
+        -> produces A19 Physical Plan / Resource Estimate
+            -> admitted-and-coordinated-by A20 Operation / Group Admission
+                -> creates A20 operation-local Execution Frame
                 -> reads A21 StateRoot
                 -> transitions-through A24 Mutation Candidate / Publication
                 -> constrained-by A25 Managed-memory Admission
                 -> optionally-refined-by A26 Parallel Scheduler
 
-A18 Reference Interpreter evidences A16 semantic meaning and A17/A19/A26 equivalence
+A18 Reference Interpreter evidences bound A16 semantic meaning and A17/A19/A26 equivalence
 A27 Metadata / Explain projects A21/A25 or A16/A17/A19 without owning them
 ```
 
@@ -800,13 +818,15 @@ Application builds A9 linked pipeline
     -> terminal validates arguments, owner, dependency and lifecycle, then atomically consumes receiver
         -> A20 admits the participating SomaGroup
             -> binds current A21 roots and immutable statistics
-                -> A16 forms and normalizes typed logical meaning
-                    -> A17 proves/chooses semantics-preserving physical decisions
-                        -> A25 admits peak memory, cardinality and tasks
-                            -> A19 executes sequentially or through A26
-                                -> canonical result is reduced/materialized
-                                    -> A13 detached result is handed off
-                                        -> workers quiesce, leases/guard release, consumed pipeline completes
+                -> A16 forms BoundOperation from immutable Canonical meaning
+                    +-- A18 interprets bound semantics on independent evidence state（evidence-only）
+                    +-- A17 normalizes and chooses PhysicalPlan + ResourceEstimate
+                            -> A25 admits peak memory, cardinality and tasks
+                                -> A20 creates operation-local ExecutionFrame
+                                    -> A19 executes sequentially or through A26
+                                        -> canonical result is reduced/materialized
+                                            -> A13 detached result is handed off
+                                                -> workers quiesce, frame/leases/guard release, pipeline completes
 ```
 
 ### 15.3 Semantic barriers
@@ -1040,7 +1060,7 @@ Detect failure at the earliest owning boundary
 | INV-09 | Linked pipeline不能branch；合法terminal只消费一次并在terminal-start绑定current root | Execution pipeline Owner | intermediate atomic claim、operation validation、consumed flag、bind after admission | invalid pre-claim调用保持open；claimed node复用稳定失败 | lifecycle/branch/owner/currentness positive/negative |
 | INV-10 | View/Editor只在声明callback scope有效，Editor只stage non-Key values | Execution callback-scope Owner | private constructor、owner/token/thread/epoch guard、setter generation | scope violation；Table state unchanged | construction/escape/cross-owner/thread/epoch、fetch tests |
 | INV-11 | Mutation成功一次publish，失败zero publication，Result对应published facts | Execution publication Owner | frozen membership、full staging、preflight、non-throwing commit | no partial result/root/version/sidecar；workers quiescent | every fault point、no-op、parallel mutation differential |
-| INV-12 | Optimizer只改变cost，不改变logical result/callback/failure | Planning rewrite Owner | typed node properties、fixed phases、barriers、rewrite admission | conservative plan或structured preflight failure；无unsupported fallback | reference differential、property/fuzz、golden explain |
+| INV-12 | Optimizer只改变cost，不改变logical result/callback/failure；reference不消费normalized/physical decision | Planning rewrite Owner | Canonical/Bound/Normalized separation、typed properties、fixed phases、barriers、rewrite admission | conservative plan或structured preflight failure；无reference/unsupported fallback | bound reference differential、property/fuzz、golden explain |
 | INV-13 | Group/Join保持key/null/missing/duplicate/order/cardinality合同 | Logical relation Owner（Planning必须保留） | typed relation IR、Join-kind rules、residual tracking、checked output | no partial relation result；resource/argument failure稳定 | all Join kinds、Cartesian、outer truth、algorithm differential |
 | INV-14 | Table没有隐式业务顺序；同一bound state的canonical order稳定 | Storage order Owner | Chunk/live slot order、deterministic compaction mapping、ordered Index normalization | failure不改变order；成功order按mapping | remove/Index/parallel/sort/tie property tests |
 | INV-15 | Sequential/parallel numeric、membership、publication与non-resource failure等价；mode-specific resource/interrupt failure显式 | Execution parallel Owner（depends-on Logical numeric contract） | fixed range/tree、canonical merge/failure frontier、same IR | failure前cancel/quiesce，no alternate result/fallback | P=1/2/4/16 differential、floating bits、resource、interrupt/rejection |

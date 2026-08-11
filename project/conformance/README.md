@@ -2,8 +2,8 @@
 
 类型：Conformance Entry
 
-状态：post-implementation全局完整性审查`PASS`；Implementation authorization `FULFILLED`；
-I0-I8 `COMPLETED`；G1-G10 `PASS`
+状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
+Canonical IR/Execution M1 `FORMALLY_PROMOTED / READY / IMPLEMENTATION_NOT_AUTHORIZED`
 
 正式事实源：是
 
@@ -21,6 +21,7 @@ Conformance不拥有产品语义，也不把readiness/feasibility外推为produc
 - [Blueprint](../blueprint/README.md)
 - [Design](../design/README.md)
 - [Implementation Plan](../engineering/v1-implementation-plan.md)
+- [Canonical IR / Execution Engine Plan](../engineering/canonical-ir-execution-engine-implementation-plan.md)
 
 ## 2. Current state
 
@@ -30,7 +31,7 @@ Formal promotion              PASS
 Final global review           PASS
 Implementation readiness      FULFILLED / SUPERSEDED_BY_QUALIFICATION
 Core abstraction promotion    PASS
-Implementation authorization  FULFILLED (granted 2026-08-03)
+I0-I8 authorization           FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
 Active slice                   NONE (V1 implementation complete)
@@ -52,7 +53,11 @@ Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DIST
 Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALLY_PROMOTED
 Scheduling reference        STANDARD_FJSP_100K / PASS / NATURAL_POINT_MUTATION
 Scheduling performance      STANDARD_FJSP_100K / FRESH_0.6S / WARM_0.51S / PASS
-Active bounded topic          NONE (frontend-neutral Logical IR is QUEUED / NOT_ACTIVE)
+Canonical IR promotion        PASS / FORMALLY_PROMOTED / BASELINE_FROZEN
+Canonical IR readiness        READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED
+Canonical IR active slice     NONE
+Active bounded topic          NONE
+Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -74,15 +79,15 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
-| Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | formal Design已由I0-I8 implementation与Gate evidence承接 | PASS |
+| Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | I0-I8 proof chain继续成立；Canonical/Bound/Physical/Frame M1责任已正式化，production replacement尚未开始 | CURRENT_BEHAVIOR_PASS / M1_IMPLEMENTATION_PENDING |
 | Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I7 final generated surface与full regeneration已建立 | PASS |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | checked int structural/long cumulative domain、paged PLAIN/encoded/overlay storage、singleton-inline/ordered-int-array Key/Index、point incremental maintenance、atomic StateRoot与Group retained accounting已建立 | PASS |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query、Selection mutation、GroupBy、binary Equality/Cross Join、explicit parallel与四级metadata已建立 | PASS |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I7 cumulative generated/runtime public surface已由Java 8 consumer与javap边界验证 | PASS |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | typed logical IR、row/relation/group reference oracle、normalized/optimized sequential、predicate pushdown与Index substitution已建立 | PASS |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | binding、single/binary Group guard、point/Selection mutation、bounded admission、GC accounting与caller-participating ForkJoin parallel已建立 | PASS |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | current typed IR/reference/optimized behavior为PASS；Canonical/Bound/Normalized唯一主线等待S1-S5替换 | CURRENT_BEHAVIOR_PASS / M1_IMPLEMENTATION_PENDING |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | current guard/mutation/resource/parallel behavior为PASS；lease后ExecutionFrame ownership等待S1-S5替换 | CURRENT_BEHAVIOR_PASS / M1_IMPLEMENTATION_PENDING |
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
-| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | non-published reactor + exactly runtime/processor artifacts；Java 8/package qualification通过 | PASS |
+| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | two-artifact/Java 8/package继续PASS；Java-lowering-to-frame component seam等待S1-S5替换 | CURRENT_ARTIFACT_PASS / M1_IMPLEMENTATION_PENDING |
 | Performance/scenarios | BP-15 + G9 | 三个reference application、10K/1M/10M frontier matrix、profile优化与fixed-host memory attribution通过 | PASS |
 | Security/package/release | G10 | dependency/license/SBOM/checksum/provenance、package consumer、本地与远端non-publishing workflow qualification成立 | PASS |
 
@@ -93,6 +98,8 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [Post-governance global integrity and regression review](v1-post-governance-global-integrity-regression-review.md)：
   结构/Index与Scheduling大范围优化后的Design↔code、operation provenance、resource admission、
   product boundary与全仓回归Owner；
+- [Canonical IR 与执行引擎正式晋升和实施准入审查](v1-canonical-ir-execution-engine-promotion-readiness.md)：
+  M1 Owner晋升、Design Baseline fingerprint、S1-S6 readiness、Temporary replacement closure与独立授权边界Owner；
 
 - [Final pre-implementation global consistency review](v1-final-pre-implementation-global-consistency-review.md)：
   readiness、findings closure、core promotion与review-time authorization boundary Owner；当前
@@ -164,9 +171,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前无active bounded Temporary；
-[frontend-neutral Logical IR](../temp/soma-frontend-neutral-logical-ir-governance/README.md)
-仅为`QUEUED_FUTURE_TOPIC / INTENT_ONLY / NOT_ACTIVE / NOT_DESIGN`，不是current implementation input。
+Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
+Canonical IR/Execution治理已经正式晋升、冻结并完成readiness，production implementation仍未授权。
+[SOMA Engine产品构思](../temp/soma-engine-product-concept/README.md)是独立queued intent，不是Design、
+active governance或current implementation input。
 `docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
 [正式Conformance记录](v1-performance-correctness-governance.md)完成治理和replacement closure；
 千万行组合负载的扩展证据见[对应记录](v1-ten-million-composed-workload-governance.md)；四维性能架构
@@ -239,6 +247,11 @@ I0已经以standard Maven/JDK build surface与JUnit Jupiter `5.11.4` test-only s
 [I8记录](i8-product-qualification.md)。I0-I8 implementation slice与G1-G10均已关闭；CI/release
 qualification workflow保持non-publishing。GitHub
 Release、Package publication、签名和正式发布声明均不在授权内。
+
+上述2026-08-03授权只拥有已经完成的I0-I8实施，不自动授权
+[Canonical IR/Execution S1-S6](../engineering/canonical-ir-execution-engine-implementation-plan.md)。该计划
+当前`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`；只有Product Owner后续明确授权，S1才
+可以成为active slice。
 
 ## 7. Release claim boundary
 

@@ -36,9 +36,13 @@ Release/Package、签名或正式release声明。核心抽象候选已经
 mutation即时局部维护，Selection mutation一次candidate rebuild。
 [Scheduling性能治理](project/conformance/v1-scheduling-performance-governance.md)已正式晋升并
 `PASS`：标准100K FJSP纯dispatch由约18.7秒降至fresh约0.6秒、warm约0.51秒，且通用runtime
-优化已由正式Design承接。当前没有active bounded Temporary；
-[frontend-neutral Logical IR](project/temp/soma-frontend-neutral-logical-ir-governance/README.md)
-只是`QUEUED / NOT_ACTIVE / NOT_DESIGN`意图。
+优化已由正式Design承接。
+[Canonical Logical IR与执行引擎M1治理](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)
+已完成正式Owner晋升、Baseline Freeze与targeted readiness，状态为
+`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`；正式
+[S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)尚无active slice。
+当前没有active bounded Temporary；[SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)
+仅为queued intent，不是Design或implementation input。
 千万行组合负载治理由
 [正式Conformance记录](project/conformance/v1-ten-million-composed-workload-governance.md)拥有；交付导向仓库治理由
 [正式Conformance记录](project/conformance/v1-delivery-centered-repository-governance.md)拥有；
@@ -69,6 +73,11 @@ application frontier workaround已退出。`docs/`仍只保留placeholder。
 planning 或 reference differential 时读取
 [规划与优化 Design](project/design/planning-and-optimization.md)。不要把全部项目事实加载成
 每次任务的默认前置。
+
+若Product Owner后续授权Canonical IR/Execution实施，还必须读取
+[S1-S6正式计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)与
+[晋升/准入记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)；在授权前
+不得激活S1或修改production IR/执行引擎。
 
 实施slice或跨Design审查还必须读取
 [核心抽象与叙事Design](project/design/core-abstractions-and-narratives.md)中与该slice对应的A/N/INV
@@ -113,9 +122,9 @@ planning 或 reference differential 时读取
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前无active topic；已记录的
-  [frontend-neutral Logical IR](project/temp/soma-frontend-neutral-logical-ir-governance/README.md)
-  仅为queued intent，未经Product Owner启动不得作为Design或implementation input；
+- `project/temp/`当前无active topic；
+  [SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)是明确标记的queued intent，
+  不得作为当前Design或implementation input；
   新的重大长期变化先进入bounded Temporary，经Product Owner裁决和验证后晋升，再删除Temporary；
   不得直接在正式Design中掩盖未裁决变化；
 - 历史 Conformance 只保存 provenance，不能覆盖 current Blueprint/Design/readiness。
@@ -146,12 +155,17 @@ dependency或plugin expansion。
 
 - 当前 implementation authorization 覆盖 I0-I8 的自主实现；I0-I8 slice与G1-G10均已关闭，
   当前没有active implementation slice；
+- 上述历史授权不覆盖
+  [Canonical IR/Execution S1-S6](project/engineering/canonical-ir-execution-engine-implementation-plan.md)；
+  该计划虽已`READY_FOR_IMPLEMENTATION`，但Product Owner尚未授予implementation authorization；
 - 当前授权覆盖repository-local CI与non-publishing release qualification workflow、local/internal
   benchmark与profile、local Maven package qualification，以及上述JUnit test-only stack；精确
   边界由[Conformance authorization contract](project/conformance/README.md#6-implementation-authorization-contract)
   拥有；
 - 每个 slice 按 [Implementation Plan](project/engineering/v1-implementation-plan.md)交付
   positive、negative、failed-state、独立审查与 Conformance evidence；
+- Canonical IR/Execution若获授权，则按其独立[S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)
+  推进，不把I0-I8 chronology或授权直接套用；
 - 使用 [G1-G10](project/conformance/v1-implementation-gates.md)更新 current executable fact；
 - reference interpreter 先成为 correctness oracle，再准入 optimizer/parallel；
 - stop rule 触发时建立 bounded Temporary，不在 code 中静默缩小 scope 或堆叠补丁；

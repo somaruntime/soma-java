@@ -9,28 +9,35 @@
 Owner：Typed Logical/Predicate IR、normalization、semantics-preserving rewrite、Index
 substitution、Join/Group planning、statistics、reference interpreter与optimizer differential
 
-最后审查日期：2026-08-03
+最后审查日期：2026-08-11
+
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
 
 ## 1. 设计目标
 
-SOMA把用户typed pipeline编译为可验证的logical plan，再选择physical plan。Optimization只能
-改变成本，不能改变result、order、null/missing、duplicate、callback、failure或publication。
+SOMA把Java generated frontend表达的typed computation lower为唯一Canonical Logical IR，在
+terminal-start绑定authoritative state，再形成normalized与physical decision。Optimization只能改变
+成本，不能改变result、order、null/missing、duplicate、callback、failure或publication。
 
 本文不拥有public operation naming、authoritative storage、scheduler执行细节或failure carrier。
 
 ## 2. Planner lifecycle
 
-Pipeline构造期只记录schema/owner与logical nodes，不绑定StateRoot。Terminal流程：
+Pipeline构造期只记录schema/owner与Canonical logical nodes，不绑定StateRoot。Terminal流程：
 
 ```text
 invocation and owner validation
     -> atomic pipeline receiver consumption
         -> Group operation admission
-        -> terminal-start StateRoot/statistics binding
-            -> logical normalization
-                -> semantics-preserving optimization
-                    -> physical plan and resource admission
-                        -> execution / deterministic merge / publish
+            -> terminal-start StateRoot/statistics binding
+                -> BoundOperation
+                    +-- Reference Interpreter
+                    +-- logical normalization and semantics-preserving rewrite
+                            -> NormalizedOperation
+                                -> PhysicalPlan + ResourceEstimate
+                                    -> resource admission
+                                        -> operation-local ExecutionFrame
+                                            -> execution / deterministic merge / publish
 ```
 
 Linked pipeline的合法intermediate先claim predecessor并产生唯一open child；合法terminal在Group
@@ -40,27 +47,40 @@ admission前consume receiver。Argument/owner/state validation未通过时不cla
 Public expression/Field/Order marker不是planner SPI。Lowering前只接受SOMA-issued、owner与
 composition provenance匹配的node/endpoint；application implementation、foreign composition与
 replayed node在phase-1 validation稳定失败，不能进入normalization或触发internal cast failure。
-Planning result只对本次bound roots有效，terminal后不复用；V1没有public prepared query。
+Canonical nodes可以随合法lazy pipeline存在；Bound、Normalized、PhysicalPlan与ResourceEstimate只对
+本次bound roots有效，terminal后不复用。V1没有public prepared query。
 
-## 3. Typed logical node
+## 3. Canonical Logical IR
 
-每个node至少携带：
+### 3.1 责任与生命周期
 
-- element shape：Table View、Field value、primitive/reference、Join Pair、Tuple、Group；
-- participating Group/Table/Field identity与dependency set；
+Java lowering负责generated carrier真伪、composition/Group/Table/Field owner、one-shot与argument
+validation，并把合法frontend operation转换为closed Canonical family。Canonical operation是immutable、
+data-only semantic root：一个source或bounded binary relation、零个或多个stage、恰好一个terminal，
+以及独立的`ExecutionRequest`。它不绑定StateRoot、statistics、physical Index、locator、scratch、
+worker或resource lease。
+
+Pipeline claim状态属于Java facade，不进入Canonical node。Direct capacity/point operation、metadata与
+runtime configuration继续走Execution Owner的direct operation lifecycle，不为形式统一强行进入IR。
+
+Canonical node至少表达：
+
+- element shape：Row、schema-known Field、mapped reference、primitive、Relation Pair、Group result；
+- composition/Table/Field/Index logical identity与dependency set；
 - row lineage与mutation capability；
 - encounter-order descriptor；
 - exact/upper/lower cardinality；
 - nullability、relation truth、equality/order capability；
 - pure expression或opaque callback barrier；
-- required leaves、Index candidates与resource class；
-- sequential/parallel mode。
+- required logical leaves、logical access candidate与resource class。
+
+`ExecutionRequest`独立表达`SEQUENTIAL | PARALLEL`，不是filter/map stage，也不在subplan中重复。
 
 Node family：
 
 ```text
 Source
-    TableScan / IndexLookup / FieldProjection
+    TableSource / IndexSelectionSource
 Unary
     ExpressionFilter / CallbackFilter
     FieldProject / CallbackMap / PrimitiveMap
@@ -72,6 +92,59 @@ Terminal
 ```
 
 Internal node/class/serialization不是public surface。
+
+### 3.2 Canonical identity
+
+Logical identity复用现有compiled composition descriptor/capability与generated ordinal空间：
+
+- Table identity = composition + Table ordinal；
+- Field identity = Table identity + logical Field ordinal；
+- Index identity = Table identity + Index ordinal，indexed Field由compiled descriptor推导。
+
+Identity不持有generated Table facade、Group graph、StateRoot、physical leaf offset、sidecar或storage
+address，也不承诺public serialization。Binding按identity解析当前Table/root并重新验证Group与
+currentness。实现优先使用compact descriptor/ordinal；不得为概念对称性建立四层wrapper object graph。
+
+### 3.3 Type、shape与literal
+
+`LogicalType`引用compiled schema descriptor，表达primitive、String、Enum、`@SomaValue`、ordinary
+reference及其null/equality/order/materialization capability，不以reflection重新发现type。
+Arbitrary Java mapper结果使用host reference shape，不伪装成schema `LogicalType`。
+
+`TypedLiteral`拥有expected logical type与immutable canonical leaf snapshot，在construction完成checked
+size/byte、null与equality normalization；`in`在此阶段defensive copy并去重。它不持有generated probe、
+Table、StateRoot或Index。Physical equality/hash/lookup直接消费其typed leaves，不复制第二个probe。
+
+Java `table.field` direct source只有一个Canonical形态：`TableSource + FieldProject`。Direct leaf或
+encoded scan fusion属于physical choice，不能建立第二套Field source semantic truth。
+
+### 3.4 Host-bound callback
+
+Opaque Java callback由最小`HostCallbackHandle`承载：只保存受控callback引用、callback kind与无法由
+enclosing operation推导的owner/capability。Input/output shape由相邻node拥有；barrier、scope、
+caller-thread/parallel capability与failure policy从callback kind的唯一合同推导，不形成property bag。
+它不是serialization hook，未来frontend不能伪造Java callback handle。
+
+### 3.5 Bound、Normalized 与 Physical decision
+
+Group admission后，`BoundOperation`一次性绑定participating logical identity到immutable published
+StateRoot、state version、statistics、runtime capability与operation provenance。它不持有locator
+buffer、cursor、membership hash、physical posting或worker partition，不回写Canonical IR，也不跨
+terminal缓存。
+
+`NormalizedOperation`拥有deterministic semantic rewrite结果：constant/boolean normalization、相邻
+typed filter集合、dependency/lineage/barrier/residual、required leaves、checked cardinality bound与
+Join/Group等价推导。它只能记录Key/Index eligibility，不能持有physical sidecar或lookup cursor。
+
+`PhysicalPlan`拥有本次bound roots上的access path、kernel、Join/Group algorithm、partition与
+deterministic merge decision；`ResourceEstimate`是其checked conservative peak投影。两者都不能
+分配O(N) execution storage、调用application callback或读取未绑定的current state。Actual cursor、
+membership、sort/hash/materialization buffer、workers与staging由Execution Owner在resource admission
+后创建的operation-local ExecutionFrame拥有。
+
+Current V1只需要operator chain/tree，不建立general DAG、stable node id、fan-out、prepared/cache或
+planner/frontend SPI。Row、Mapped、Primitive、Relation与Group可以保留specialized physical family；
+统一Canonical semantics不等于统一成boxed universal executor。
 
 ## 4. Predicate IR
 
@@ -148,8 +221,9 @@ Callback、map、limit/top、mutation或改变element/invocation semantics的nod
 7. stateful barrier planning；
 8. Join/Group algorithm与build-side selection；
 9. compression-aware kernel choice；
-10. cardinality、managed-memory、container/array与task admission；
-11. deterministic partition/merge description。
+10. cardinality、managed-memory、container/array与task ResourceEstimate；
+11. deterministic partition/merge description；
+12. Execution Owner依据ResourceEstimate完成admission并创建ExecutionFrame。
 
 Phase order是Design contract。Implementation可细分internal pass，但不能让resource admission在
 不可逆work之后，也不能让physical choice先于logical semantics固定。
@@ -280,12 +354,12 @@ inspection。Approximate statistics不变成approximate user aggregate。
 
 ## 14. Sequential reference interpreter
 
-Reference interpreter是typed Logical IR的简单顺序语义实现：
+Reference interpreter是同一Bound Canonical operation的简单顺序语义实现：
 
 ```text
-Typed Logical IR
+CanonicalOperation + BoundOperation
     +-- Reference Interpreter: correctness-first
-    +-- Optimized Executor: Index/pruning/fusion/compression/parallel
+    +-- Normalize -> PhysicalPlan -> Optimized Executor
 ```
 
 它不是public engine choice、debug switch、unsupported fallback或production double execution。
@@ -300,9 +374,12 @@ Reference与optimized path共享：
 - selection/result/failure；
 - mutation staging/Result/zero publication。
 
-Reference path不使用Index substitution、fusion、compression kernel、cost-model build choice、
-parallel partition或approximate statistics。它仍使用相同的32位结构域/64位累计域、checked arithmetic与resource
-boundary，不能以测试oracle名义使用不成立的int/unbounded structure。
+Reference path不消费NormalizedOperation或PhysicalPlan，不使用Index substitution、fusion、compression
+kernel、cost-model build choice、parallel partition或approximate statistics。它仍使用相同的32位结构域/
+64位累计域、checked arithmetic与resource boundary，不能以测试oracle名义使用不成立的int/unbounded
+structure，也不能成为optimizer failure fallback。若reference operation需要O(N) storage、materialized
+result或callback work，reference interpreter必须独立形成correctness-first conservative estimate并通过
+A25 admission；它不能复用production PhysicalPlan/ResourceEstimate来换取表面一致。
 
 Application Comparator operation是opaque stateful barrier。V1对sort/top/min/max使用各自同一
 canonical comparison schedule，允许parallel pipeline在该stage退化为caller-thread sequential
@@ -329,7 +406,7 @@ recorded invocation trace或独立state copy。
 
 ## 16. Explain contract
 
-`_explain()`显示：
+`_explain()`从同一operation的layer snapshots投影：
 
 - original logical stages；
 - typed predicate dependency；
@@ -355,3 +432,5 @@ Production evidence至少覆盖：
 - floating/numeric、checked cardinality与resource failure；
 - `_explain()`包含必要decision且不执行callback；
 - random plan/property/fuzz corpus与three reference journeys。
+- permanent minimal test-only lowering fixture证明Canonical semantics不依赖Java facade object identity；
+  该fixture不是production frontend SPI、JSON frontend或第三artifact。

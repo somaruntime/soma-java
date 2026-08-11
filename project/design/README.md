@@ -23,15 +23,15 @@ Owner：SOMA Java V1 正式 Design 路由、职责边界与权威关系
 
 | Design Owner | 唯一拥有的长期事实 | Blueprint |
 |---|---|---|
-| [核心抽象、叙事与不变量证明链](core-abstractions-and-narratives.md) | 跨Design architecture skeleton、typed relation、A0-A27/N1-N8/INV-01..19 proof-chain routing与M0-M2变更协议 | BP-1至BP-15 |
+| [核心抽象、叙事与不变量证明链](core-abstractions-and-narratives.md) | 跨Design architecture skeleton、typed relation、A0-A27/N1-N8/INV-01..19 proof-chain routing、Canonical/Bound/Physical responsibility skeleton与M0-M2变更协议 | BP-1至BP-15 |
 | [Schema 与编译生成](schema-and-generation.md) | composition、annotation、Field role/type、generated identity/object、命名、diagnostic、full regeneration | BP-1、BP-2、BP-3、BP-14 |
 | [数据模型与存储](data-model-and-storage.md) | Group/Table identity、logical Field、32位结构域/64位累计域、StateRoot/Chunk、leaf/null、Key/Index、capacity/order、compression、GC/backend seam | BP-3、BP-4、BP-7、BP-10、BP-12、BP-13 |
 | [逻辑层 API](logical-api.md) | generated hierarchy、direct source、point/Selection operation、View、query/aggregate/Group/Join、metadata/explain user surface | BP-1、BP-5、BP-6、BP-7、BP-12 |
 | [Generated Java API Signature](generated-api-signatures.md) | annotation/shared/generated exact Java 8 type family、method grammar、functional interface、compatibility boundary | BP-1、BP-2、BP-5、BP-7、BP-11、BP-14 |
-| [规划与优化](planning-and-optimization.md) | typed Logical/Predicate IR、normalization、rewrite、Index substitution、Join/Group planning、statistics、reference interpreter | BP-7、BP-8、BP-9、BP-10 |
-| [执行、并发与并行](execution-and-concurrency.md) | pipeline binding、Group guard、currentness、mutation publish、parallel scheduling、resource configuration/admission、quiescence | BP-5、BP-6、BP-9、BP-10、BP-12、BP-13 |
+| [规划与优化](planning-and-optimization.md) | Java lowering边界、Canonical/Bound/Normalized/Predicate IR、PhysicalPlan decision与ResourceEstimate、rewrite、Index substitution、Join/Group planning、statistics、reference interpreter | BP-7、BP-8、BP-9、BP-10 |
+| [执行、并发与并行](execution-and-concurrency.md) | pipeline binding、Group guard、currentness、resource admission、operation-local ExecutionFrame、mutation publish、parallel scheduling与quiescence | BP-5、BP-6、BP-9、BP-10、BP-12、BP-13 |
 | [结果与 Structured Failure](results-and-failures.md) | normal result、failure carrier/code、mapping、precedence、sanitization与failed-state guarantee | BP-6、BP-11、BP-15 |
-| [Production Implementation Architecture](implementation-architecture.md) | artifact/build topology、runtime component seams、storage/Index/compression/scheduler baseline mechanism与complexity boundary | BP-4、BP-8、BP-9、BP-10、BP-14、BP-15 |
+| [Production Implementation Architecture](implementation-architecture.md) | artifact/build topology、Canonical-to-frame runtime seam、specialized operator、storage/Index/compression/scheduler baseline mechanism与complexity boundary | BP-4、BP-8、BP-9、BP-10、BP-14、BP-15 |
 
 同一语义只能由一个Owner定义。其他文档可以摘要并链接，不能复制出第二套合同。
 
@@ -83,9 +83,9 @@ Blueprint
     -> Generated Signature
         -> exact Java projection
     -> Planning and Optimization
-        -> legal lowering and rewrite
+        -> Canonical/Bound semantics, legal rewrite and physical decision
     -> Execution and Concurrency
-        -> binding, admission, execution and publish
+        -> binding, resource admission, ExecutionFrame, execution and publish
     -> Results and Failures
         -> observable outcome
     -> Implementation Architecture
@@ -99,7 +99,8 @@ Blueprint
 - Schema决定“生成什么”，Logical API决定“用户能表达什么”；
 - Core Owner只路由跨Design skeleton/proof chain，不复制或覆盖精确合同；
 - Signature只机械投影已成立能力，不重新发明语义；
-- Planning决定“怎样合法重写”，Execution决定“怎样绑定、调度和发布”；
+- Planning拥有Canonical/Bound/Normalized语义、合法重写、PhysicalPlan decision与ResourceEstimate；
+  Execution拥有actual resource lease、ExecutionFrame、调度、发布与quiescence；
 - Storage拥有authoritative state，Execution只能读取、暂存和一次发布；
 - Architecture拥有可替换internal mechanism，不能把机制抬升成用户模型；
 - Failure Design不能用runtime `UNSUPPORTED_OPERATION`代替compile-time absence；
@@ -139,11 +140,18 @@ claim。
 当前 executable fact、性能/场景证据及publication边界由
 [Conformance](../conformance/README.md)唯一记录，不由Design复制。
 
+Canonical Logical IR与执行引擎M1 responsibility baseline已正式晋升并冻结；其
+[S1-S6 implementation plan](../engineering/canonical-ir-execution-engine-implementation-plan.md)当前
+`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`。因此现有behavioral qualification继续有效，
+但新internal responsibility与production code的replacement gap由Conformance显式记录，不能把Design
+晋升误写为implementation完成。
+
 Design仍是implementation的上游合同；后续优化只能在Owner边界内替换内部机制，不能把既有证据
 反向解释为新的产品语义、正式release、跨硬件SLA或一亿行性能承诺。
 
 ## 8. 下游入口
 
 - [Implementation Plan](../engineering/v1-implementation-plan.md)
+- [Canonical IR 与执行引擎实施计划](../engineering/canonical-ir-execution-engine-implementation-plan.md)
 - [Conformance](../conformance/README.md)
 - [Final Pre-implementation Global Consistency Review](../conformance/v1-final-pre-implementation-global-consistency-review.md)

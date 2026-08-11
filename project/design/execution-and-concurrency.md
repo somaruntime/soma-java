@@ -11,6 +11,8 @@ parallel scheduling、configuration、resource admission、cancellation与quiesc
 
 最后审查日期：2026-08-11
 
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
+
 ## 1. 设计目标
 
 SOMA对用户表现为同步、顺序语义明确的抽象机。`parallel()`只改变本次terminal内部如何分片
@@ -24,7 +26,8 @@ SOMA对用户表现为同步、顺序语义明确的抽象机。`parallel()`只�
 - Table/Field/IndexSelection是reusable source；
 - intermediate linked pipeline lazy、one-shot、不能branch；
 - pipeline construction不持有StateRoot或Group guard；
-- terminal-start统一validate/consume/admit/bind/plan/execute/publish/quiesce；
+- terminal-start统一validate/consume/Group admit/bind/plan/resource admit/frame create/execute/publish/
+  quiesce；
 - linked pipeline对每次intermediate或terminal invocation先做argument/owner/state validation；
   validation失败不claim尚open receiver；成功后原子claim receiver；
 - intermediate成功claim predecessor并只创建一个open child，因此同一receiver不能产生两个
@@ -44,6 +47,36 @@ statistics。Pipeline创建后、terminal开始前发生的合法mutation对term
 
 一次bound operation中的root直到quiescence稳定。Join按stable Table identity绑定same Group
 多个Table；Group guard已消除同Group外部overlap，不需要跨Tablelock ordering或transaction。
+
+### 3.1 Canonical operation 到 execution frame
+
+Query/Selection terminal的执行责任固定为：
+
+```text
+validated CanonicalOperation + ExecutionRequest
+    -> Group guard
+        -> BoundOperation
+            +-- Reference Interpreter（test oracle）
+            +-- NormalizedOperation
+                    -> PhysicalPlan + ResourceEstimate
+                        -> global resource admission
+                            -> operation-local ExecutionFrame
+                                -> specialized sequential / parallel execution
+                                    -> result or publication
+                                        -> quiesce / release
+```
+
+Planning Owner拥有Canonical/Bound/Normalized语义、PhysicalPlan decision与ResourceEstimate；Execution
+Owner拥有Group guard、actual lease、ExecutionFrame、scheduler、completion、failure arbitration与
+quiescence。`ExecutionFrame`只在conservative lease成功后创建，拥有本次operation的cursor、membership、
+sort/hash/materialization buffer、worker range、merge/result或mutation staging。它不能成为跨terminal
+cache、第二套semantic plan或public explain handle。
+
+Operation coordinator只编排上述Owner，不复制StateRoot、planner、resource manager或failure事实，不能
+演化成持有所有service/state的God object。Physical planning阶段不得运行callback或分配O(N) execution
+storage；reference从Bound层直接分叉，不消费PhysicalPlan，也不能成为production fallback。
+Reference evidence path仍须在O(N) storage、callback或不可逆work前用独立conservative estimate取得
+resource lease；不允许借test-only身份绕过global budget，也不与production PhysicalPlan共享decision。
 
 ## 4. Group operation guard
 
@@ -204,6 +237,10 @@ dictionary storage后才计入。Effective budget因此是engine-owned memory bo
 Known peak在不可逆work/callback前admit：old + candidate + scratch + result。Budget不足为
 `RESOURCE_LIMIT_EXCEEDED`，无partial result/state。Representation estimate必须conservative并
 由实测校准。
+
+PhysicalPlan的`ResourceEstimate`是admission输入，不是lease或allocation。任何execution cursor、
+membership、sort/hash/materialization storage、task state与mutation/result staging，都必须在对应
+temporary/retained reservation成功后进入ExecutionFrame；不得用“planner临时对象”绕过budget Owner。
 
 显式Group没有manual close。每个Group注册一个不反向引用Group/Table的accounting token与
 `PhantomReference`；global manager同步drain `ReferenceQueue`后exactly-once释放该Group的

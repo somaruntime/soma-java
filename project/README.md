@@ -2,7 +2,8 @@
 
 类型：Project Entry
 
-状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；publication `NOT_AUTHORIZED`
+状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；Canonical IR/Execution M1
+`READY / NOT_AUTHORIZED`；publication `NOT_AUTHORIZED`
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
@@ -17,7 +18,9 @@ implementation 与 qualification：
 - Java 8 下的两项 production artifact、generated API、chunked storage、Key/Index、query/optimizer、
   mutation、GroupBy/Join、parallel、compression/metadata、三个 reference application 和本地交付链已建立；
 - G1–G10 当前为 `PASS`；百万行证据是同机 qualification，不是一亿行承诺或跨硬件 SLA；
-- 当前没有active implementation slice或active bounded Temporary；
+- Canonical Logical IR与执行引擎M1责任调整已经完成
+  [正式晋升、Baseline Freeze与实施准入审查](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)，
+  当前`READY_FOR_IMPLEMENTATION / AUTHORIZATION_NOT_GRANTED`，没有active implementation slice；
   [大范围优化后全局完整性与回归审查](conformance/v1-post-governance-global-integrity-regression-review.md)
   已`PASS`，operation provenance、Index allocation admission与正式Owner状态漂移均已闭合；
   [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)已`PASS`，标准100K
@@ -60,6 +63,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Design Owner 与权威关系 | [Design 总览](design/README.md) |
 | 核心抽象、叙事、不变量和变更协议 | [核心抽象与叙事](design/core-abstractions-and-narratives.md) |
 | 实施顺序与 slice exit | [V1 Implementation Plan](engineering/v1-implementation-plan.md) |
+| Canonical IR/Execution S1-S6替换顺序与证据 | [Canonical IR/Execution Plan](engineering/canonical-ir-execution-engine-implementation-plan.md) |
 | 工程状态与入口 | [Engineering](engineering/README.md) |
 | G1–G10 定义 | [V1 Implementation Gates](conformance/v1-implementation-gates.md) |
 | 当前实现与 Design 的一致程度 | [Conformance](conformance/README.md) |
@@ -97,9 +101,9 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic；当前无active topic，
-  [frontend-neutral Logical IR](temp/soma-frontend-neutral-logical-ir-governance/README.md)
-  只是queued intent，尚不是Design或implementation input。
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active topic；
+  [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或
+  implementation input。
 
 日常检查使用：
 
@@ -130,9 +134,12 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前无active bounded topic。[Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)
+当前没有active bounded topic。Canonical IR与执行引擎治理已由
+[正式Conformance记录](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)完成Owner晋升、
+Baseline Freeze、readiness与Temporary replacement closure，production implementation仍未授权。
+[SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)独立保留为queued intent。
+[Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)
 已完成正式Owner晋升、Conformance与replacement closure。此前
 [32位结构域与即时增量Key/Index维护](conformance/v1-incremental-structural-mutation-governance.md)
 已完成正式Owner晋升、Conformance与replacement closure；候选Design与交接材料不作为平行历史
-档案保留。[frontend-neutral Logical IR](temp/soma-frontend-neutral-logical-ir-governance/README.md)
-只是`QUEUED / NOT_ACTIVE / NOT_DESIGN`意图，必须由Product Owner单独启动后才能进入治理。
+档案保留。

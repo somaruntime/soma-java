@@ -11,6 +11,8 @@ baseline mechanism、complexity与replaceability boundary
 
 最后审查日期：2026-08-11
 
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
+
 ## 1. 文档责任
 
 本文规定怎样用production Java 8 compiler/runtime承载正式Design。它不重新定义public API、
@@ -77,10 +79,16 @@ incremental不受支持。
 ```text
 Generated facade/linkage
     -> Composition/Group/Table runtime roots
-        -> Logical IR builder
-            -> Planner + Reference Interpreter
-                -> Physical operators/kernels
-                    -> Chunk StateRoot / Key / Index / Compression
+        -> Java lowering
+            -> CanonicalOperation
+                -> terminal-start BoundOperation
+                    +-- Reference Interpreter
+                    +-- Normalize / Physical planner
+                            -> PhysicalPlan + ResourceEstimate
+                                -> Managed-memory admission
+                                    -> operation-local ExecutionFrame
+                                        -> specialized sequential / parallel kernels
+                                            -> Chunk StateRoot / Key / Index / Compression
 
 Global runtime services
     Configuration freeze
@@ -92,8 +100,13 @@ Global runtime services
 Boundary requirements：
 
 - generated code不持有physical arrays/hash/Chunk；
+- Java lowering只验证frontend provenance并转换为compiled descriptor/ordinal identity、typed literal与
+  host callback handle，不把generated facade instance升级为semantic identity Owner；
 - hot kernel不做per-record reflection/metadata lookup；
 - planner只能通过typed internal descriptors访问schema/storage capability；
+- PhysicalPlan只拥有decision/estimate，不持有已分配的cursor、scratch、membership、worker或result
+  staging；
+- O(N) operation state只在resource lease成功后由ExecutionFrame拥有，并在terminal结束时释放；
 - global services不建立live Group registry；
 - internal package narrow/versioned，application依赖不兼容。
 
@@ -227,22 +240,41 @@ Requirements：
 First implementation可以先只支持PLAIN，但Chunk representation dispatch seam必须从首个slice
 存在；在compression slice完成前Conformance明确标记AUTO capability未实现，不能宣称V1完成。
 
-## 11. Logical plan runtime
+## 11. Canonical plan runtime
 
 Public pipeline lowering到[Planning Design](planning-and-optimization.md)定义的IR。Production
 至少包含：
 
-- IR builder/validator；
+- Java lowering/validator；
+- immutable closed Canonical node/terminal family；
+- terminal-start BoundOperation；
+- deterministic NormalizedOperation；
+- PhysicalPlan与checked conservative ResourceEstimate；
 - sequential reference interpreter；
 - optimized sequential executor；
 - parallel adapters；
+- operation-local ExecutionFrame；
 - explain renderer；
 - differential test harness（test-only，不是public mode）。
 
 Reference interpreter不能成为unsupported fallback。Planner/physical operator internal class可以
 替换；IR semantic properties与rewrite proof不可绕过。
 
+Canonical identity复用compiled composition capability/descriptor与Table/Field/Index ordinals，不建立
+runtime classpath registry或四层object graph。Schema-known literal以typed canonical leaves直接供bound
+hash/equality/lookup消费；不得保留generated probe后再复制第二个probe。Java direct Field source统一
+lower为`TableSource + FieldProject`，direct leaf kernel fusion只属于physical choice。
+
+Opaque callback使用最小host-bound handle并保持barrier/scope/failure合同；arbitrary mapped reference是
+host shape，不伪装成schema LogicalType。IR/internal class name和serialization不是public compatibility
+surface；V1不建立public frontend/planner SPI、general DAG、prepared query或SOMA Engine placeholder。
+
 ## 12. Physical operator baseline
+
+PhysicalPlan记录access path、specialized kernel、Join/Group algorithm、partition与deterministic merge；
+ResourceEstimate记录执行峰值。Admission成功后，ExecutionFrame才分配/拥有cursor、membership、
+sort/hash/materialization、task、result和mutation staging。Sequential与parallel可以有不同specialized
+physical family，但必须细化同一PhysicalPlan并追溯同一Canonical semantic node。
 
 First complete engine需要：
 
