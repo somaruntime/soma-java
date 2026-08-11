@@ -4,57 +4,50 @@ import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 
 /**
- * Hash sidecar over authoritative payload; hash collisions always compare
- * payload leaves. Non-unique posting links are canonical locator order:
- * append publishes the new tail locator. Point update/remove prepare bounded
- * bucket-local posting edits and commit them only after all recoverable work;
- * large Selection mutation may still rebuild a candidate sidecar.
+ * Typed Hash access path over authoritative payload. Every exact logical
+ * Bucket owns one canonical ordered locator representation: singleton values
+ * are inline and multi-value postings use one ascending primitive int array.
  */
 final class IdentityHashIndex {
 
     private static final int SHARD_BITS = 6;
     private static final int SHARD_COUNT = 1 << SHARD_BITS;
     private static final int INITIAL_CAPACITY = 16;
+    private static final int INITIAL_BUCKET_CAPACITY = 4;
+    private static final int MAX_ARRAY_LENGTH = Integer.MAX_VALUE - 8;
     private static final long CONTAINER_BYTES = 64L + SHARD_COUNT * 8L;
 
     private final GeneratedTableLayout layout;
     private final int fieldIndex;
     private final boolean unique;
-    private final int linkPageRows;
     private Shard[] shards;
-    private PagedIntLinks links;
     private long managedBytes;
 
     private IdentityHashIndex(
             GeneratedTableLayout layout,
             int fieldIndex,
-            boolean unique,
-            int linkPageRows) {
+            boolean unique) {
         this.layout = layout;
         this.fieldIndex = fieldIndex;
         this.unique = unique;
-        this.linkPageRows = linkPageRows;
-        this.links = unique ? null : PagedIntLinks.empty(linkPageRows);
     }
 
     static IdentityHashIndex empty(
             GeneratedTableLayout layout,
             int fieldIndex,
-            boolean unique,
-            int linkPageRows) {
-        return new IdentityHashIndex(layout, fieldIndex, unique, linkPageRows);
+            boolean unique) {
+        return new IdentityHashIndex(layout, fieldIndex, unique);
     }
 
     static IdentityHashIndex rebuild(
             GeneratedTableLayout layout,
             int fieldIndex,
             boolean unique,
-            int linkPageRows,
             TableChunkDirectory directory,
             int size,
             SomaOperation operation,
             Object provenance) {
-        IdentityHashIndex result = empty(layout, fieldIndex, unique, linkPageRows);
+        IdentityHashIndex result = new IdentityHashIndex(layout, fieldIndex, unique);
         for (int locator = 0; locator < size; locator++) {
             result.addStored(directory, locator, operation, provenance);
         }
@@ -63,18 +56,32 @@ final class IdentityHashIndex {
 
     int findUnique(TableChunkDirectory directory, TypedValues probe) {
         if (!unique) throw new AssertionError("non-unique Index used as Key");
-        Bucket bucket = findBucket(directory, probe);
-        return bucket == null ? -1 : bucket.head;
+        if (shards == null) return -1;
+        long hash = layout.hashField(probe, fieldIndex);
+        Shard shard = shards[shardOrdinal(hash)];
+        if (shard == null) return -1;
+        int slot = shard.findProbe(directory, probe, hash, layout, fieldIndex);
+        return slot < 0 ? -1 : shard.firstLocators[slot];
     }
 
     long count(TableChunkDirectory directory, TypedValues probe) {
-        Bucket bucket = findBucket(directory, probe);
-        return bucket == null ? 0L : bucket.count;
+        if (shards == null) return 0L;
+        long hash = layout.hashField(probe, fieldIndex);
+        Shard shard = shards[shardOrdinal(hash)];
+        if (shard == null) return 0L;
+        int slot = shard.findProbe(directory, probe, hash, layout, fieldIndex);
+        return slot < 0 ? 0L : shard.counts[slot];
     }
 
-    int first(TableChunkDirectory directory, TypedValues probe) {
-        Bucket bucket = findBucket(directory, probe);
-        return bucket == null ? -1 : bucket.head;
+    int first(TableChunkDirectory directory, TypedValues probe, Cursor cursor) {
+        if (cursor == null) throw new AssertionError("Index Cursor is null");
+        cursor.clear();
+        if (shards == null) return -1;
+        long hash = layout.hashField(probe, fieldIndex);
+        Shard shard = shards[shardOrdinal(hash)];
+        if (shard == null) return -1;
+        int slot = shard.findProbe(directory, probe, hash, layout, fieldIndex);
+        return slot < 0 ? -1 : cursor.bind(shard, slot);
     }
 
     int firstJoin(
@@ -82,7 +89,10 @@ final class IdentityHashIndex {
             GeneratedTableLayout probeLayout,
             TableChunkDirectory probeDirectory,
             int probeLocator,
-            int probeFieldIndex) {
+            int probeFieldIndex,
+            Cursor cursor) {
+        if (cursor == null) throw new AssertionError("Index Cursor is null");
+        cursor.clear();
         if (shards == null) return -1;
         long hash = probeLayout.hashField(
                 probeDirectory, probeLocator, probeFieldIndex);
@@ -97,24 +107,120 @@ final class IdentityHashIndex {
                 probeDirectory,
                 probeLocator,
                 probeFieldIndex);
-        return slot < 0 ? -1 : shard.heads[slot];
+        return slot < 0 ? -1 : cursor.bind(shard, slot);
     }
 
-    int next(int locator) {
-        if (unique) return -1;
-        return links.next(locator);
+    int next(Cursor cursor) {
+        return cursor.next();
     }
 
     long managedBytes() {
         return managedBytes;
     }
 
-    /** 当前 immutable sidecar 中 logical equality bucket 的精确数量。 */
     long distinctCount() {
         if (shards == null) return 0L;
         long result = 0L;
         for (Shard shard : shards) {
             if (shard != null) result += shard.size;
+        }
+        return result;
+    }
+
+    void validateForTesting(TableChunkDirectory directory, int tableSize) {
+        if (shards == null) {
+            if (tableSize != 0 || managedBytes != 0L) {
+                throw new AssertionError("empty Index state is inconsistent");
+            }
+            return;
+        }
+        boolean[] seen = new boolean[tableSize];
+        int memberships = 0;
+        long calculatedBytes = CONTAINER_BYTES;
+        for (Shard shard : shards) {
+            if (shard == null) continue;
+            int liveBuckets = 0;
+            long shardBytes = Shard.estimatedBaseBytes(
+                    shard.hashes.length, SomaOperation.QUERY, this);
+            for (int slot = 0; slot < shard.hashes.length; slot++) {
+                if (shard.states[slot] != 1) continue;
+                liveBuckets++;
+                int count = shard.counts[slot];
+                if (count <= 0 || (unique && count != 1)) {
+                    throw new AssertionError("invalid Index Bucket cardinality");
+                }
+                if ((count == 1) != (shard.members[slot] == null)) {
+                    throw new AssertionError("invalid singleton/multi representation");
+                }
+                if (count > 1) shardBytes += arrayBytes(shard.members[slot].length);
+                int previous = -1;
+                for (int position = 0; position < count; position++) {
+                    int locator = shard.locatorAt(slot, position);
+                    if (locator < 0 || locator >= tableSize || locator <= previous) {
+                        throw new AssertionError("Index Bucket is not canonical ordered");
+                    }
+                    if (seen[locator]) {
+                        throw new AssertionError("locator appears in multiple Index Buckets");
+                    }
+                    seen[locator] = true;
+                    memberships++;
+                    if (layout.hashField(directory, locator, fieldIndex)
+                            != shard.hashes[slot]
+                            || !layout.fieldEquals(
+                                    directory,
+                                    shard.firstLocators[slot],
+                                    locator,
+                                    fieldIndex)) {
+                        throw new AssertionError("Index Bucket identity is inconsistent");
+                    }
+                    previous = locator;
+                }
+            }
+            if (liveBuckets != shard.size || shardBytes != shard.managedBytes) {
+                throw new AssertionError("Index Shard accounting is inconsistent");
+            }
+            calculatedBytes += shardBytes;
+        }
+        if (memberships != tableSize || calculatedBytes != managedBytes) {
+            throw new AssertionError("Index membership/accounting is inconsistent");
+        }
+    }
+
+    int singletonBucketCountForTesting() {
+        int result = 0;
+        if (shards != null) {
+            for (Shard shard : shards) {
+                if (shard == null) continue;
+                for (int slot = 0; slot < shard.counts.length; slot++) {
+                    if (shard.states[slot] == 1 && shard.counts[slot] == 1) result++;
+                }
+            }
+        }
+        return result;
+    }
+
+    int multiBucketCountForTesting() {
+        int result = 0;
+        if (shards != null) {
+            for (Shard shard : shards) {
+                if (shard == null) continue;
+                for (int slot = 0; slot < shard.counts.length; slot++) {
+                    if (shard.states[slot] == 1 && shard.counts[slot] > 1) result++;
+                }
+            }
+        }
+        return result;
+    }
+
+    int maxBucketSizeForTesting() {
+        int result = 0;
+        if (shards != null) {
+            for (Shard shard : shards) {
+                if (shard == null) continue;
+                for (int slot = 0; slot < shard.counts.length; slot++) {
+                    if (shard.states[slot] == 1) result = Math.max(result, shard.counts[slot]);
+                }
+            }
         }
         return result;
     }
@@ -127,11 +233,12 @@ final class IdentityHashIndex {
             SomaOperation operation,
             Object provenance,
             String logicalName) {
+        if (target.owner != null) throw new AssertionError("Index add scratch is busy");
         long hash = layout.hashField(probe, fieldIndex);
-        int shardOrdinal = shardOrdinal(hash);
-        Shard currentShard = shards == null ? null : shards[shardOrdinal];
-        int existing = currentShard == null
-                ? -1 : currentShard.findProbe(directory, probe, hash, layout, fieldIndex);
+        int ordinal = shardOrdinal(hash);
+        Shard current = shards == null ? null : shards[ordinal];
+        int existing = current == null
+                ? -1 : current.findProbe(directory, probe, hash, layout, fieldIndex);
         if (existing >= 0 && unique) {
             throw SomaFailures.failure(
                     SomaFailureCode.DUPLICATE_KEY,
@@ -140,65 +247,84 @@ final class IdentityHashIndex {
                     provenance);
         }
 
-        PagedIntLinks linksAfter = unique ? null : links.ensureLocator(locator);
-        long beforeShardBytes = currentShard == null ? 0L : currentShard.managedBytes;
-        long afterShardBytes = beforeShardBytes;
         Shard replacement = null;
         Shard[] container = null;
-        int slot;
-        if (existing >= 0) {
-            slot = existing;
-        } else if (currentShard == null) {
-            replacement = new Shard(INITIAL_CAPACITY, operation, provenance);
-            slot = replacement.emptySlot(hash);
-            replacement.installNew(slot, hash, locator);
-            afterShardBytes = replacement.managedBytes;
-            if (shards == null) {
-                container = new Shard[SHARD_COUNT];
-                container[shardOrdinal] = replacement;
+        Shard targetShard = current;
+        int slot = existing;
+        if (existing < 0) {
+            if (current == null) {
+                replacement = new Shard(INITIAL_CAPACITY, operation, provenance);
+                targetShard = replacement;
+                slot = replacement.emptySlot(hash);
+                if (shards == null) {
+                    container = new Shard[SHARD_COUNT];
+                    container[ordinal] = replacement;
+                }
+            } else if (current.canInsertWithoutRehash()) {
+                slot = current.emptySlot(hash);
+            } else {
+                replacement = current.rehash(
+                        current.capacityForInsert(
+                                current.size + 1, operation, provenance),
+                        operation,
+                        provenance);
+                targetShard = replacement;
+                slot = replacement.emptySlot(hash);
             }
-        } else if (currentShard.canInsertWithoutRehash()) {
-            slot = currentShard.emptySlot(hash);
-        } else {
-            replacement = currentShard.rehash(
-                    currentShard.capacityForInsert(
-                            currentShard.size + 1, operation, provenance),
-                    operation,
-                    provenance);
-            slot = replacement.emptySlot(hash);
-            replacement.installNew(slot, hash, locator);
-            afterShardBytes = replacement.managedBytes;
         }
 
-        long linksBytes = unique ? 0L : linksAfter.managedBytes(operation, provenance);
-        long priorLinksBytes = unique ? 0L : links.managedBytes(operation, provenance);
-        long shardBytes = CheckedLong.subtract(
-                managedBytes, priorLinksBytes, operation, provenance);
-        shardBytes = CheckedLong.subtract(
-                shardBytes, beforeShardBytes, operation, provenance);
-        shardBytes = CheckedLong.add(
-                shardBytes, afterShardBytes, operation, provenance);
-        if (shards == null) {
-            shardBytes = CheckedLong.add(
-                    shardBytes, CONTAINER_BYTES, operation, provenance);
+        int[] replacementMembers = null;
+        long bucketDelta = 0L;
+        if (existing >= 0 && !unique) {
+            int count = targetShard.counts[slot];
+            if (count == 1) {
+                replacementMembers = allocateBucket(
+                        INITIAL_BUCKET_CAPACITY, operation, provenance);
+                replacementMembers[0] = targetShard.firstLocators[slot];
+                replacementMembers[1] = locator;
+                bucketDelta = arrayBytes(replacementMembers.length);
+            } else {
+                int[] members = targetShard.members[slot];
+                if (count == members.length) {
+                    int capacity = expandedBucketCapacity(
+                            members.length, count + 1, operation, provenance);
+                    replacementMembers = allocateBucket(capacity, operation, provenance);
+                    System.arraycopy(members, 0, replacementMembers, 0, count);
+                    replacementMembers[count] = locator;
+                    bucketDelta = arrayBytes(capacity) - arrayBytes(members.length);
+                }
+            }
         }
-        long afterBytes = CheckedLong.add(
-                shardBytes, linksBytes, operation, provenance);
+
+        long after = managedBytes;
+        if (shards == null) {
+            after = CheckedLong.add(after, CONTAINER_BYTES, operation, provenance);
+        }
+        if (current == null) {
+            after = CheckedLong.add(after, targetShard.managedBytes, operation, provenance);
+        } else if (replacement != null) {
+            after = CheckedLong.add(
+                    CheckedLong.subtract(
+                            after, current.managedBytes, operation, provenance),
+                    replacement.managedBytes,
+                    operation,
+                    provenance);
+        }
+        after = CheckedLong.add(after, bucketDelta, operation, provenance);
         target.prepare(
                 this,
-                shardOrdinal,
-                currentShard,
+                ordinal,
+                current,
                 replacement,
                 container,
                 slot,
                 existing >= 0,
                 hash,
                 locator,
-                linksAfter,
-                afterBytes);
+                replacementMembers,
+                after);
     }
 
-    /** Prepares one indexed-value move without changing the published sidecar. */
     void prepareUpdate(
             PreparedUpdate target,
             TableChunkDirectory directory,
@@ -211,98 +337,133 @@ final class IdentityHashIndex {
 
         long oldHash = layout.hashField(directory, locator, fieldIndex);
         int sourceOrdinal = shardOrdinal(oldHash);
-        Shard sourceShard = shards == null ? null : shards[sourceOrdinal];
-        int sourceSlot = sourceShard == null
-                ? -1 : sourceShard.findStored(
-                        directory, locator, oldHash, layout, fieldIndex);
-        if (sourceSlot < 0) throw new AssertionError("indexed source posting is missing");
+        Shard sourceShard = shards[sourceOrdinal];
+        int sourceSlot = sourceShard.findStored(
+                directory, locator, oldHash, layout, fieldIndex);
+        if (sourceSlot < 0) throw new AssertionError("indexed source Bucket is missing");
 
         long newHash = layout.hashField(staged, fieldIndex);
         int destinationOrdinal = shardOrdinal(newHash);
-        Shard destinationShard = shards[destinationOrdinal];
-        int destinationSlot = destinationShard == null
-                ? -1 : destinationShard.findProbe(
+        Shard destinationOriginal = shards[destinationOrdinal];
+        int destinationSlot = destinationOriginal == null
+                ? -1 : destinationOriginal.findProbe(
                         directory, staged, newHash, layout, fieldIndex);
-        Shard destinationReplacement = null;
         boolean destinationExisting = destinationSlot >= 0;
-        long managedBytesAfter = managedBytes;
+        Shard destinationReplacement = null;
+        Shard destinationShard = destinationOriginal;
+        long after = managedBytes;
+
         if (!destinationExisting) {
-            if (destinationShard == null) {
+            if (destinationOriginal == null) {
                 destinationReplacement = new Shard(
                         INITIAL_CAPACITY, operation, provenance);
                 destinationShard = destinationReplacement;
                 destinationSlot = destinationShard.emptySlot(newHash);
-                managedBytesAfter = CheckedLong.add(
-                        managedBytesAfter,
-                        destinationShard.managedBytes,
+                after = CheckedLong.add(
+                        after, destinationShard.managedBytes, operation, provenance);
+            } else if (!destinationOriginal.canInsertWithoutRehash()) {
+                int liveAfter = destinationOriginal.size + 1;
+                if (sourceShard == destinationOriginal
+                        && sourceShard.counts[sourceSlot] == 1) {
+                    liveAfter--;
+                }
+                destinationReplacement = destinationOriginal.rehash(
+                        destinationOriginal.capacityForInsert(
+                                liveAfter, operation, provenance),
                         operation,
                         provenance);
-            } else {
-                int liveAfter = destinationShard.size + 1;
-                if (sourceShard == destinationShard
-                        && sourceShard.counts[sourceSlot] == 1L) liveAfter--;
-                if (!destinationShard.canInsertWithoutRehash()) {
-                    Shard currentDestination = destinationShard;
-                    destinationReplacement = currentDestination.rehash(
-                            currentDestination.capacityForInsert(
-                                    liveAfter, operation, provenance),
-                            operation,
-                            provenance);
-                    destinationShard = destinationReplacement;
-                    managedBytesAfter = CheckedLong.add(
-                            CheckedLong.subtract(
-                                    managedBytesAfter,
-                                    currentDestination.managedBytes,
-                                    operation,
-                                    provenance),
-                            destinationReplacement.managedBytes,
-                            operation,
-                            provenance);
-                    if (sourceShard == currentDestination) {
-                        sourceShard = destinationReplacement;
-                        sourceSlot = sourceShard.findStored(
-                                directory, locator, oldHash, layout, fieldIndex);
-                        if (sourceSlot < 0) {
-                            throw new AssertionError(
-                                    "rehash lost indexed source posting");
-                        }
+                destinationShard = destinationReplacement;
+                after = CheckedLong.add(
+                        CheckedLong.subtract(
+                                after,
+                                destinationOriginal.managedBytes,
+                                operation,
+                                provenance),
+                        destinationReplacement.managedBytes,
+                        operation,
+                        provenance);
+                if (sourceShard == destinationOriginal) {
+                    sourceShard = destinationReplacement;
+                    sourceSlot = sourceShard.findStored(
+                            directory, locator, oldHash, layout, fieldIndex);
+                    if (sourceSlot < 0) {
+                        throw new AssertionError("rehash lost indexed source Bucket");
                     }
                 }
                 destinationSlot = destinationShard.emptySlot(newHash);
+            } else {
+                destinationSlot = destinationOriginal.emptySlot(newHash);
             }
         }
 
-        int sourcePrevious = predecessor(sourceShard, sourceSlot, locator);
-        int sourceNext = links.next(locator);
-        int destinationPrevious = -1;
-        int destinationNext = -1;
+        int sourcePosition = sourceShard.positionOf(sourceSlot, locator);
+        if (sourcePosition < 0) throw new AssertionError("indexed source locator is missing");
+        long sourceDelta = sourceShard.counts[sourceSlot] == 2
+                ? -arrayBytes(sourceShard.members[sourceSlot].length) : 0L;
+
+        int destinationPosition = 0;
+        int[] replacementMembers = null;
+        long destinationDelta = 0L;
         if (destinationExisting) {
-            int cursor = destinationShard.heads[destinationSlot];
-            while (cursor >= 0 && cursor < locator) {
-                destinationPrevious = cursor;
-                cursor = links.next(cursor);
+            destinationPosition = destinationShard.insertionPosition(destinationSlot, locator);
+            if (destinationPosition < 0) {
+                throw new AssertionError("destination Bucket already contains locator");
             }
-            destinationNext = cursor;
+            int destinationCount = destinationShard.counts[destinationSlot];
+            if (destinationCount == 1) {
+                replacementMembers = allocateBucket(
+                        INITIAL_BUCKET_CAPACITY, operation, provenance);
+                int existingLocator = destinationShard.firstLocators[destinationSlot];
+                if (destinationPosition == 0) {
+                    replacementMembers[0] = locator;
+                    replacementMembers[1] = existingLocator;
+                } else {
+                    replacementMembers[0] = existingLocator;
+                    replacementMembers[1] = locator;
+                }
+                destinationDelta = arrayBytes(replacementMembers.length);
+            } else {
+                int[] members = destinationShard.members[destinationSlot];
+                if (destinationCount == members.length) {
+                    int capacity = expandedBucketCapacity(
+                            members.length,
+                            destinationCount + 1,
+                            operation,
+                            provenance);
+                    replacementMembers = allocateBucket(capacity, operation, provenance);
+                    System.arraycopy(
+                            members, 0, replacementMembers, 0, destinationPosition);
+                    replacementMembers[destinationPosition] = locator;
+                    System.arraycopy(
+                            members,
+                            destinationPosition,
+                            replacementMembers,
+                            destinationPosition + 1,
+                            destinationCount - destinationPosition);
+                    destinationDelta = arrayBytes(capacity) - arrayBytes(members.length);
+                }
+            }
         }
+        after = CheckedLong.add(after, sourceDelta, operation, provenance);
+        after = CheckedLong.add(after, destinationDelta, operation, provenance);
+
         target.prepare(
                 this,
                 sourceShard,
                 sourceSlot,
-                sourcePrevious,
-                sourceNext,
+                sourcePosition,
                 destinationOrdinal,
                 destinationShard,
                 destinationReplacement,
                 destinationSlot,
                 destinationExisting,
-                destinationPrevious,
-                destinationNext,
+                destinationPosition,
+                replacementMembers,
                 newHash,
                 locator,
-                managedBytesAfter);
+                after);
     }
 
-    /** Prepares packed point-remove sidecar edits without changing live state. */
     void prepareRemove(
             PreparedRemove target,
             TableChunkDirectory directory,
@@ -313,25 +474,37 @@ final class IdentityHashIndex {
         Shard removedShard = shards[shardOrdinal(removedHash)];
         int removedSlot = removedShard.findStored(
                 directory, removedLocator, removedHash, layout, fieldIndex);
-        if (removedSlot < 0) throw new AssertionError("removed Index posting is missing");
+        if (removedSlot < 0) throw new AssertionError("removed Index Bucket is missing");
 
         if (unique) {
             if (tailLocator == removedLocator) {
                 target.prepareUnique(
-                        this, removedShard, removedSlot, null, -1,
-                        removedLocator, tailLocator);
+                        this,
+                        removedShard,
+                        removedSlot,
+                        null,
+                        -1,
+                        removedLocator,
+                        tailLocator,
+                        managedBytes);
                 return;
             }
             long tailHash = layout.hashField(directory, tailLocator, fieldIndex);
             Shard tailShard = shards[shardOrdinal(tailHash)];
             int tailSlot = tailShard.findStored(
                     directory, tailLocator, tailHash, layout, fieldIndex);
-            if (tailSlot < 0 || tailShard.counts[tailSlot] != 1L) {
-                throw new AssertionError("moved Key posting is invalid");
+            if (tailSlot < 0 || tailShard.counts[tailSlot] != 1) {
+                throw new AssertionError("moved Key Bucket is invalid");
             }
             target.prepareUnique(
-                    this, removedShard, removedSlot, tailShard, tailSlot,
-                    removedLocator, tailLocator);
+                    this,
+                    removedShard,
+                    removedSlot,
+                    tailShard,
+                    tailSlot,
+                    removedLocator,
+                    tailLocator,
+                    managedBytes);
             return;
         }
 
@@ -346,110 +519,52 @@ final class IdentityHashIndex {
                     ? removedSlot
                     : removedShard.findStored(
                             directory, tailLocator, removedHash, layout, fieldIndex);
-            if (slot < 0) throw new AssertionError("same-value tail posting is missing");
+            if (slot < 0) throw new AssertionError("same-value tail Bucket is missing");
+            int position = removedShard.positionOf(slot, posting);
+            if (position < 0) throw new AssertionError("same-value tail locator is missing");
+            long after = managedBytes;
+            if (removedShard.counts[slot] == 2) {
+                after -= arrayBytes(removedShard.members[slot].length);
+            }
             target.preparePostingOnly(
                     this,
                     removedShard,
                     slot,
-                    predecessor(removedShard, slot, posting),
-                    links.next(posting),
-                    posting,
+                    position,
                     removedLocator,
-                    tailLocator);
+                    tailLocator,
+                    after);
             return;
         }
 
-        int removedPrevious = predecessor(
-                removedShard, removedSlot, removedLocator);
-        int removedNext = links.next(removedLocator);
+        int removedPosition = removedShard.positionOf(removedSlot, removedLocator);
+        if (removedPosition < 0) throw new AssertionError("removed Index locator is missing");
         long tailHash = layout.hashField(directory, tailLocator, fieldIndex);
         Shard tailShard = shards[shardOrdinal(tailHash)];
         int tailSlot = tailShard.findStored(
                 directory, tailLocator, tailHash, layout, fieldIndex);
-        if (tailSlot < 0) throw new AssertionError("moved Index posting is missing");
-        int tailPrevious = predecessor(tailShard, tailSlot, tailLocator);
-        if (links.next(tailLocator) >= 0) {
-            throw new AssertionError("tail locator is not canonical posting tail");
+        if (tailSlot < 0) throw new AssertionError("moved Index Bucket is missing");
+        int tailPosition = tailShard.positionOf(tailSlot, tailLocator);
+        if (tailPosition != tailShard.counts[tailSlot] - 1) {
+            throw new AssertionError("tail locator is not canonical Bucket tail");
         }
-        int insertionPrevious = -1;
-        int insertionNext = tailShard.heads[tailSlot];
-        while (insertionNext >= 0
-                && insertionNext != tailLocator
-                && insertionNext < removedLocator) {
-            insertionPrevious = insertionNext;
-            insertionNext = links.next(insertionNext);
+        int insertionPosition = tailShard.insertionPositionBeforeTail(
+                tailSlot, removedLocator);
+        long after = managedBytes;
+        if (removedShard.counts[removedSlot] == 2) {
+            after -= arrayBytes(removedShard.members[removedSlot].length);
         }
-        if (insertionNext == tailLocator) insertionNext = -1;
         target.prepareDifferentValues(
                 this,
                 removedShard,
                 removedSlot,
-                removedPrevious,
-                removedNext,
+                removedPosition,
                 tailShard,
                 tailSlot,
-                tailPrevious,
-                insertionPrevious,
-                insertionNext,
+                insertionPosition,
                 removedLocator,
-                tailLocator);
-    }
-
-    private int predecessor(Shard shard, int slot, int locator) {
-        int previous = -1;
-        for (int cursor = shard.heads[slot]; cursor >= 0; cursor = links.next(cursor)) {
-            if (cursor == locator) return previous;
-            previous = cursor;
-        }
-        throw new AssertionError("Index posting locator is missing");
-    }
-
-    private void unlinkPosting(
-            Shard shard,
-            int slot,
-            int locator,
-            int previous,
-            int next) {
-        if (shard.counts[slot] == 1L) {
-            shard.removeBucket(slot);
-        } else {
-            if (previous < 0) {
-                shard.heads[slot] = next;
-                shard.representatives[slot] = next;
-            } else {
-                links.link(previous, next);
-            }
-            if (shard.tails[slot] == locator) shard.tails[slot] = previous;
-            shard.counts[slot]--;
-        }
-        links.link(locator, -1);
-    }
-
-    private void insertPosting(
-            Shard shard,
-            int slot,
-            int locator,
-            int previous,
-            int next) {
-        links.link(locator, next);
-        if (previous < 0) {
-            shard.heads[slot] = locator;
-            shard.representatives[slot] = locator;
-        } else {
-            links.link(previous, locator);
-        }
-        if (next < 0) shard.tails[slot] = locator;
-        shard.counts[slot]++;
-    }
-
-    private Bucket findBucket(TableChunkDirectory directory, TypedValues probe) {
-        if (shards == null) return null;
-        long hash = layout.hashField(probe, fieldIndex);
-        Shard shard = shards[shardOrdinal(hash)];
-        if (shard == null) return null;
-        int slot = shard.findProbe(directory, probe, hash, layout, fieldIndex);
-        return slot < 0 ? null : new Bucket(
-                shard.heads[slot], shard.tails[slot], shard.counts[slot]);
+                tailLocator,
+                after);
     }
 
     private void addStored(
@@ -458,61 +573,129 @@ final class IdentityHashIndex {
             SomaOperation operation,
             Object provenance) {
         long hash = layout.hashField(directory, locator, fieldIndex);
-        long priorLinksBytes = unique
-                ? 0L : links.managedBytes(operation, provenance);
         if (shards == null) {
             shards = new Shard[SHARD_COUNT];
             managedBytes = CONTAINER_BYTES;
         }
-        int shardOrdinal = shardOrdinal(hash);
-        Shard shard = shards[shardOrdinal];
+        int ordinal = shardOrdinal(hash);
+        Shard shard = shards[ordinal];
         if (shard == null) {
             shard = new Shard(INITIAL_CAPACITY, operation, provenance);
-            shards[shardOrdinal] = shard;
+            shards[ordinal] = shard;
             managedBytes = CheckedLong.add(
                     managedBytes, shard.managedBytes, operation, provenance);
         }
         int slot = shard.findStored(directory, locator, hash, layout, fieldIndex);
         if (slot >= 0) {
             if (unique) throw new AssertionError("duplicate Key while rebuilding sidecar");
-            links = links.ensureLocator(locator);
-            links.link(shard.tails[slot], locator);
-            shard.tails[slot] = locator;
-            shard.counts[slot]++;
-        } else {
-            if (!shard.canInsertWithoutRehash()) {
-                Shard replacement = shard.rehash(
-                        shard.capacityForInsert(
-                                shard.size + 1, operation, provenance),
-                        operation,
-                        provenance);
-                managedBytes = CheckedLong.subtract(
-                        managedBytes, shard.managedBytes, operation, provenance);
-                managedBytes = CheckedLong.add(
-                        managedBytes, replacement.managedBytes, operation, provenance);
-                shards[shardOrdinal] = replacement;
-                shard = replacement;
-            }
-            shard.installNew(shard.emptySlot(hash), hash, locator);
-            if (!unique) links = links.ensureLocator(locator);
-        }
-        if (!unique) {
-            long shardOnly = CheckedLong.subtract(
-                    managedBytes, priorLinksBytes, operation, provenance);
+            long before = shard.managedBytes;
+            shard.appendFresh(slot, locator, operation, provenance);
             managedBytes = CheckedLong.add(
-                    shardOnly,
-                    links.managedBytes(operation, provenance),
+                    CheckedLong.subtract(
+                            managedBytes, before, operation, provenance),
+                    shard.managedBytes,
                     operation,
                     provenance);
+            return;
         }
+        if (!shard.canInsertWithoutRehash()) {
+            Shard replacement = shard.rehash(
+                    shard.capacityForInsert(
+                            shard.size + 1, operation, provenance),
+                    operation,
+                    provenance);
+            managedBytes = CheckedLong.add(
+                    CheckedLong.subtract(
+                            managedBytes,
+                            shard.managedBytes,
+                            operation,
+                            provenance),
+                    replacement.managedBytes,
+                    operation,
+                    provenance);
+            shards[ordinal] = replacement;
+            shard = replacement;
+        }
+        shard.installNew(shard.emptySlot(hash), hash, locator);
     }
 
     private static int shardOrdinal(long hash) {
         return (int) (hash >>> (Long.SIZE - SHARD_BITS));
     }
 
-    static final class PreparedAdd {
+    private static int[] allocateBucket(
+            int capacity,
+            SomaOperation operation,
+            Object provenance) {
+        if (capacity < 0 || capacity > MAX_ARRAY_LENGTH) {
+            throw resourceLimit(operation, provenance, "Index Bucket exceeds Java array limit");
+        }
+        try {
+            return new int[capacity];
+        } catch (OutOfMemoryError failure) {
+            throw resourceLimit(operation, provenance, "Index Bucket allocation failed");
+        }
+    }
 
+    private static int expandedBucketCapacity(
+            int current,
+            int required,
+            SomaOperation operation,
+            Object provenance) {
+        if (required < 0 || required > MAX_ARRAY_LENGTH) {
+            throw resourceLimit(operation, provenance, "Index Bucket exceeds Java array limit");
+        }
+        long preferred = Math.max((long) required, (long) current + (current >> 1) + 1L);
+        return preferred > MAX_ARRAY_LENGTH ? required : (int) preferred;
+    }
+
+    private static long arrayBytes(int capacity) {
+        long raw = 16L + (long) capacity * Integer.BYTES;
+        return (raw + 7L) & ~7L;
+    }
+
+    private static RuntimeException resourceLimit(
+            SomaOperation operation,
+            Object provenance,
+            String message) {
+        return SomaFailures.failure(
+                SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                operation,
+                message,
+                provenance);
+    }
+
+    static final class Cursor {
+        private Shard shard;
+        private int slot;
+        private int position;
+
+        int bind(Shard shard, int slot) {
+            this.shard = shard;
+            this.slot = slot;
+            this.position = 0;
+            return shard.locatorAt(slot, 0);
+        }
+
+        int next() {
+            if (shard == null) return -1;
+            int nextPosition = position + 1;
+            if (nextPosition >= shard.counts[slot]) {
+                clear();
+                return -1;
+            }
+            position = nextPosition;
+            return shard.locatorAt(slot, position);
+        }
+
+        void clear() {
+            shard = null;
+            slot = -1;
+            position = -1;
+        }
+    }
+
+    static final class PreparedAdd {
         private IdentityHashIndex owner;
         private int shardOrdinal;
         private Shard currentShard;
@@ -522,10 +705,12 @@ final class IdentityHashIndex {
         private boolean existing;
         private long hash;
         private int locator;
-        private PagedIntLinks linksAfter;
+        private int[] replacementMembers;
         private long managedBytesAfter;
 
-        PreparedAdd() {
+        long managedBytesAfter() {
+            if (owner == null) throw new AssertionError("Index add scratch is not prepared");
+            return managedBytesAfter;
         }
 
         private void prepare(
@@ -538,11 +723,8 @@ final class IdentityHashIndex {
                 boolean existing,
                 long hash,
                 int locator,
-                PagedIntLinks linksAfter,
+                int[] replacementMembers,
                 long managedBytesAfter) {
-            if (this.owner != null) {
-                throw new AssertionError("Index add scratch is already prepared");
-            }
             this.owner = owner;
             this.shardOrdinal = shardOrdinal;
             this.currentShard = currentShard;
@@ -552,13 +734,8 @@ final class IdentityHashIndex {
             this.existing = existing;
             this.hash = hash;
             this.locator = locator;
-            this.linksAfter = linksAfter;
+            this.replacementMembers = replacementMembers;
             this.managedBytesAfter = managedBytesAfter;
-        }
-
-        long managedBytesAfter() {
-            if (owner == null) throw new AssertionError("Index add scratch is not prepared");
-            return managedBytesAfter;
         }
 
         void commit() {
@@ -568,23 +745,17 @@ final class IdentityHashIndex {
                 owner.shards = container;
                 target = replacement;
             } else if (replacement != null) {
-                if (owner.shards == null) throw new AssertionError("missing Index container");
                 owner.shards[shardOrdinal] = replacement;
                 target = replacement;
             } else {
                 target = currentShard;
             }
             if (existing) {
-                if (owner.unique) throw new AssertionError("duplicate Key prepared");
-                owner.links = linksAfter;
-                owner.links.link(target.tails[slot], locator);
-                target.tails[slot] = locator;
-                target.counts[slot]++;
+                target.appendPrepared(slot, locator, replacementMembers);
             } else if (replacement == null) {
                 target.installNew(slot, hash, locator);
-                if (!owner.unique) owner.links = linksAfter;
-            } else if (!owner.unique) {
-                owner.links = linksAfter;
+            } else if (target.states[slot] == 0 || target.states[slot] == 2) {
+                target.installNew(slot, hash, locator);
             }
             owner.managedBytes = managedBytesAfter;
         }
@@ -594,7 +765,7 @@ final class IdentityHashIndex {
             currentShard = null;
             replacement = null;
             container = null;
-            linksAfter = null;
+            replacementMembers = null;
         }
     }
 
@@ -602,47 +773,44 @@ final class IdentityHashIndex {
         private IdentityHashIndex owner;
         private Shard sourceShard;
         private int sourceSlot;
-        private int sourcePrevious;
-        private int sourceNext;
+        private int sourcePosition;
         private int destinationOrdinal;
         private Shard destinationShard;
         private Shard destinationReplacement;
         private int destinationSlot;
         private boolean destinationExisting;
-        private int destinationPrevious;
-        private int destinationNext;
+        private int destinationPosition;
+        private int[] replacementMembers;
         private long newHash;
         private int locator;
         private long managedBytesAfter;
 
-        void prepare(
+        private void prepare(
                 IdentityHashIndex owner,
                 Shard sourceShard,
                 int sourceSlot,
-                int sourcePrevious,
-                int sourceNext,
+                int sourcePosition,
                 int destinationOrdinal,
                 Shard destinationShard,
                 Shard destinationReplacement,
                 int destinationSlot,
                 boolean destinationExisting,
-                int destinationPrevious,
-                int destinationNext,
+                int destinationPosition,
+                int[] replacementMembers,
                 long newHash,
                 int locator,
                 long managedBytesAfter) {
             this.owner = owner;
             this.sourceShard = sourceShard;
             this.sourceSlot = sourceSlot;
-            this.sourcePrevious = sourcePrevious;
-            this.sourceNext = sourceNext;
+            this.sourcePosition = sourcePosition;
             this.destinationOrdinal = destinationOrdinal;
             this.destinationShard = destinationShard;
             this.destinationReplacement = destinationReplacement;
             this.destinationSlot = destinationSlot;
             this.destinationExisting = destinationExisting;
-            this.destinationPrevious = destinationPrevious;
-            this.destinationNext = destinationNext;
+            this.destinationPosition = destinationPosition;
+            this.replacementMembers = replacementMembers;
             this.newHash = newHash;
             this.locator = locator;
             this.managedBytesAfter = managedBytesAfter;
@@ -655,27 +823,18 @@ final class IdentityHashIndex {
 
         void commit() {
             if (owner == null) throw new AssertionError("Index update scratch is not prepared");
-            owner.unlinkPosting(
-                    sourceShard,
-                    sourceSlot,
-                    locator,
-                    sourcePrevious,
-                    sourceNext);
-            Shard target = destinationShard;
-            if (destinationReplacement != null) {
-                owner.shards[destinationOrdinal] = destinationReplacement;
-                target = destinationReplacement;
-            }
+            sourceShard.removeAt(sourceSlot, sourcePosition);
             if (destinationExisting) {
-                owner.insertPosting(
-                        target,
+                destinationShard.insertPrepared(
                         destinationSlot,
                         locator,
-                        destinationPrevious,
-                        destinationNext);
+                        destinationPosition,
+                        replacementMembers);
             } else {
-                target.installNew(destinationSlot, newHash, locator);
-                owner.links.link(locator, -1);
+                destinationShard.installNew(destinationSlot, newHash, locator);
+            }
+            if (destinationReplacement != null) {
+                owner.shards[destinationOrdinal] = destinationReplacement;
             }
             owner.managedBytes = managedBytesAfter;
         }
@@ -685,6 +844,7 @@ final class IdentityHashIndex {
             sourceShard = null;
             destinationShard = null;
             destinationReplacement = null;
+            replacementMembers = null;
         }
     }
 
@@ -697,16 +857,13 @@ final class IdentityHashIndex {
         private int kind;
         private Shard removedShard;
         private int removedSlot;
-        private int removedPrevious;
-        private int removedNext;
+        private int removedPosition;
         private Shard tailShard;
         private int tailSlot;
-        private int tailPrevious;
-        private int insertionPrevious;
-        private int insertionNext;
-        private int posting;
+        private int insertionPosition;
         private int removedLocator;
         private int tailLocator;
+        private long managedBytesAfter;
 
         void prepareUnique(
                 IdentityHashIndex owner,
@@ -715,7 +872,8 @@ final class IdentityHashIndex {
                 Shard tailShard,
                 int tailSlot,
                 int removedLocator,
-                int tailLocator) {
+                int tailLocator,
+                long managedBytesAfter) {
             this.owner = owner;
             this.kind = UNIQUE;
             this.removedShard = removedShard;
@@ -724,103 +882,70 @@ final class IdentityHashIndex {
             this.tailSlot = tailSlot;
             this.removedLocator = removedLocator;
             this.tailLocator = tailLocator;
+            this.managedBytesAfter = managedBytesAfter;
         }
 
         void preparePostingOnly(
                 IdentityHashIndex owner,
                 Shard shard,
                 int slot,
-                int previous,
-                int next,
-                int posting,
+                int position,
                 int removedLocator,
-                int tailLocator) {
+                int tailLocator,
+                long managedBytesAfter) {
             this.owner = owner;
             this.kind = POSTING_ONLY;
             this.removedShard = shard;
             this.removedSlot = slot;
-            this.removedPrevious = previous;
-            this.removedNext = next;
-            this.posting = posting;
+            this.removedPosition = position;
             this.removedLocator = removedLocator;
             this.tailLocator = tailLocator;
+            this.managedBytesAfter = managedBytesAfter;
         }
 
         void prepareDifferentValues(
                 IdentityHashIndex owner,
                 Shard removedShard,
                 int removedSlot,
-                int removedPrevious,
-                int removedNext,
+                int removedPosition,
                 Shard tailShard,
                 int tailSlot,
-                int tailPrevious,
-                int insertionPrevious,
-                int insertionNext,
+                int insertionPosition,
                 int removedLocator,
-                int tailLocator) {
+                int tailLocator,
+                long managedBytesAfter) {
             this.owner = owner;
             this.kind = DIFFERENT_VALUES;
             this.removedShard = removedShard;
             this.removedSlot = removedSlot;
-            this.removedPrevious = removedPrevious;
-            this.removedNext = removedNext;
+            this.removedPosition = removedPosition;
             this.tailShard = tailShard;
             this.tailSlot = tailSlot;
-            this.tailPrevious = tailPrevious;
-            this.insertionPrevious = insertionPrevious;
-            this.insertionNext = insertionNext;
+            this.insertionPosition = insertionPosition;
             this.removedLocator = removedLocator;
             this.tailLocator = tailLocator;
+            this.managedBytesAfter = managedBytesAfter;
+        }
+
+        long managedBytesAfter() {
+            if (owner == null) throw new AssertionError("Index remove scratch is not prepared");
+            return managedBytesAfter;
         }
 
         void commit() {
             if (owner == null) throw new AssertionError("Index remove scratch is not prepared");
             if (kind == UNIQUE) {
                 removedShard.removeBucket(removedSlot);
-                if (tailShard != null) {
-                    tailShard.representatives[tailSlot] = removedLocator;
-                    tailShard.heads[tailSlot] = removedLocator;
-                    tailShard.tails[tailSlot] = removedLocator;
-                }
-                return;
-            }
-            if (kind == POSTING_ONLY) {
-                owner.unlinkPosting(
-                        removedShard,
-                        removedSlot,
-                        posting,
-                        removedPrevious,
-                        removedNext);
-                return;
-            }
-
-            owner.unlinkPosting(
-                    removedShard,
-                    removedSlot,
-                    removedLocator,
-                    removedPrevious,
-                    removedNext);
-            if (tailShard.counts[tailSlot] == 1L) {
-                tailShard.representatives[tailSlot] = removedLocator;
-                tailShard.heads[tailSlot] = removedLocator;
-                tailShard.tails[tailSlot] = removedLocator;
-                owner.links.link(tailLocator, -1);
-                owner.links.link(removedLocator, -1);
+                if (tailShard != null) tailShard.replaceSingleton(tailSlot, removedLocator);
+            } else if (kind == POSTING_ONLY) {
+                removedShard.removeAt(removedSlot, removedPosition);
+            } else if (kind == DIFFERENT_VALUES) {
+                removedShard.removeAt(removedSlot, removedPosition);
+                tailShard.replaceTail(tailSlot, tailLocator, removedLocator, insertionPosition);
             } else {
-                owner.unlinkPosting(
-                        tailShard,
-                        tailSlot,
-                        tailLocator,
-                        tailPrevious,
-                        -1);
-                owner.insertPosting(
-                        tailShard,
-                        tailSlot,
-                        removedLocator,
-                        insertionPrevious,
-                        insertionNext);
+                throw new AssertionError("unknown prepared Index remove kind");
             }
+            owner.managedBytes = managedBytesAfter;
         }
 
         void clear() {
@@ -831,57 +956,44 @@ final class IdentityHashIndex {
         }
     }
 
-    private static final class Bucket {
-        private final int head;
-        @SuppressWarnings("unused") private final int tail;
-        private final int count;
-
-        private Bucket(int head, int tail, int count) {
-            this.head = head;
-            this.tail = tail;
-            this.count = count;
-        }
-    }
-
     private static final class Shard {
-
         private final long[] hashes;
-        private final int[] representatives;
-        private final int[] heads;
-        private final int[] tails;
+        private final int[] firstLocators;
         private final int[] counts;
+        private final int[][] members;
         private final byte[] states;
         private final int mask;
-        private final long managedBytes;
+        private long managedBytes;
         private int size;
         private int tombstones;
 
         private Shard(int capacity, SomaOperation operation, Object provenance) {
-            hashes = new long[capacity];
-            representatives = new int[capacity];
-            heads = new int[capacity];
-            tails = new int[capacity];
-            counts = new int[capacity];
-            states = new byte[capacity];
+            try {
+                hashes = new long[capacity];
+                firstLocators = new int[capacity];
+                counts = new int[capacity];
+                members = new int[capacity][];
+                states = new byte[capacity];
+            } catch (OutOfMemoryError failure) {
+                throw resourceLimit(operation, provenance, "Index directory allocation failed");
+            }
             mask = capacity - 1;
-            managedBytes = estimatedBytes(capacity, operation, provenance);
+            managedBytes = estimatedBaseBytes(capacity, operation, provenance);
         }
 
         private Shard(
                 long[] hashes,
-                int[] representatives,
-                int[] heads,
-                int[] tails,
+                int[] firstLocators,
                 int[] counts,
+                int[][] members,
                 byte[] states,
                 int size,
                 int tombstones,
                 long managedBytes) {
             this.hashes = hashes;
-            this.representatives = representatives;
-            this.heads = heads;
-            this.tails = tails;
+            this.firstLocators = firstLocators;
             this.counts = counts;
+            this.members = members;
             this.states = states;
             this.mask = hashes.length - 1;
             this.size = size;
@@ -897,9 +1009,13 @@ final class IdentityHashIndex {
                 int fieldIndex) {
             int slot = ((int) hash) & mask;
             while (states[slot] != 0) {
-                if (states[slot] == 1 && hashes[slot] == hash
+                if (states[slot] == 1
+                        && hashes[slot] == hash
                         && layout.fieldEquals(
-                                directory, representatives[slot], probe, fieldIndex)) {
+                                directory,
+                                firstLocators[slot],
+                                probe,
+                                fieldIndex)) {
                     return slot;
                 }
                 slot = (slot + 1) & mask;
@@ -915,9 +1031,13 @@ final class IdentityHashIndex {
                 int fieldIndex) {
             int slot = ((int) hash) & mask;
             while (states[slot] != 0) {
-                if (states[slot] == 1 && hashes[slot] == hash
+                if (states[slot] == 1
+                        && hashes[slot] == hash
                         && layout.fieldEquals(
-                                directory, representatives[slot], locator, fieldIndex)) {
+                                directory,
+                                firstLocators[slot],
+                                locator,
+                                fieldIndex)) {
                     return slot;
                 }
                 slot = (slot + 1) & mask;
@@ -936,18 +1056,63 @@ final class IdentityHashIndex {
                 int probeFieldIndex) {
             int slot = ((int) hash) & mask;
             while (states[slot] != 0) {
-                if (states[slot] == 1 && hashes[slot] == hash
+                if (states[slot] == 1
+                        && hashes[slot] == hash
                         && layout.joinFieldEquals(
                                 directory,
-                                representatives[slot],
+                                firstLocators[slot],
                                 fieldIndex,
                                 probeLayout,
                                 probeDirectory,
                                 probeLocator,
-                                probeFieldIndex)) return slot;
+                                probeFieldIndex)) {
+                    return slot;
+                }
                 slot = (slot + 1) & mask;
             }
             return -1;
+        }
+
+        int locatorAt(int slot, int position) {
+            return counts[slot] == 1 ? firstLocators[slot] : members[slot][position];
+        }
+
+        int positionOf(int slot, int locator) {
+            int count = counts[slot];
+            if (count == 1) return firstLocators[slot] == locator ? 0 : -1;
+            int[] values = members[slot];
+            for (int position = 0; position < count; position++) {
+                int current = values[position];
+                if (current == locator) return position;
+                if (current > locator) return -1;
+            }
+            return -1;
+        }
+
+        int insertionPosition(int slot, int locator) {
+            int count = counts[slot];
+            if (count == 1) {
+                int existing = firstLocators[slot];
+                if (existing == locator) return -1;
+                return locator < existing ? 0 : 1;
+            }
+            int[] values = members[slot];
+            for (int position = 0; position < count; position++) {
+                int current = values[position];
+                if (current == locator) return -1;
+                if (current > locator) return position;
+            }
+            return count;
+        }
+
+        int insertionPositionBeforeTail(int slot, int locator) {
+            int count = counts[slot];
+            if (count == 1) return 0;
+            int[] values = members[slot];
+            for (int position = 0; position < count - 1; position++) {
+                if (values[position] >= locator) return position;
+            }
+            return count - 1;
         }
 
         int emptySlot(long hash) {
@@ -963,21 +1128,148 @@ final class IdentityHashIndex {
         void installNew(int slot, long hash, int locator) {
             if (states[slot] == 2) tombstones--;
             hashes[slot] = hash;
-            representatives[slot] = locator;
-            heads[slot] = locator;
-            tails[slot] = locator;
+            firstLocators[slot] = locator;
             counts[slot] = 1;
+            members[slot] = null;
             states[slot] = 1;
             size++;
         }
 
-        void removeBucket(int slot) {
-            if (states[slot] != 1 || counts[slot] != 1L) {
-                throw new AssertionError("invalid Index bucket removal");
+        void appendFresh(
+                int slot,
+                int locator,
+                SomaOperation operation,
+                Object provenance) {
+            int count = counts[slot];
+            if (count == 1) {
+                int[] replacement = allocateBucket(
+                        INITIAL_BUCKET_CAPACITY, operation, provenance);
+                replacement[0] = firstLocators[slot];
+                replacement[1] = locator;
+                members[slot] = replacement;
+                counts[slot] = 2;
+                managedBytes += arrayBytes(replacement.length);
+                return;
             }
-            representatives[slot] = 0;
-            heads[slot] = 0;
-            tails[slot] = 0;
+            int[] values = members[slot];
+            if (count == values.length) {
+                int capacity = expandedBucketCapacity(
+                        values.length, count + 1, operation, provenance);
+                int[] replacement = allocateBucket(capacity, operation, provenance);
+                System.arraycopy(values, 0, replacement, 0, count);
+                members[slot] = replacement;
+                managedBytes += arrayBytes(capacity) - arrayBytes(values.length);
+                values = replacement;
+            }
+            values[count] = locator;
+            counts[slot] = count + 1;
+        }
+
+        void appendPrepared(int slot, int locator, int[] replacement) {
+            int count = counts[slot];
+            if (replacement != null) {
+                int oldLength = count == 1 ? 0 : members[slot].length;
+                members[slot] = replacement;
+                managedBytes += arrayBytes(replacement.length)
+                        - (oldLength == 0 ? 0L : arrayBytes(oldLength));
+            } else {
+                members[slot][count] = locator;
+            }
+            counts[slot] = count + 1;
+            firstLocators[slot] = members[slot][0];
+        }
+
+        void insertPrepared(
+                int slot,
+                int locator,
+                int position,
+                int[] replacement) {
+            int count = counts[slot];
+            if (replacement != null) {
+                int oldLength = count == 1 ? 0 : members[slot].length;
+                members[slot] = replacement;
+                managedBytes += arrayBytes(replacement.length)
+                        - (oldLength == 0 ? 0L : arrayBytes(oldLength));
+            } else {
+                int[] values = members[slot];
+                System.arraycopy(
+                        values,
+                        position,
+                        values,
+                        position + 1,
+                        count - position);
+                values[position] = locator;
+            }
+            counts[slot] = count + 1;
+            firstLocators[slot] = members[slot][0];
+        }
+
+        void removeAt(int slot, int position) {
+            int count = counts[slot];
+            if (count == 1) {
+                removeBucket(slot);
+                return;
+            }
+            int[] values = members[slot];
+            if (count == 2) {
+                int survivor = values[position == 0 ? 1 : 0];
+                members[slot] = null;
+                firstLocators[slot] = survivor;
+                counts[slot] = 1;
+                managedBytes -= arrayBytes(values.length);
+                return;
+            }
+            System.arraycopy(
+                    values,
+                    position + 1,
+                    values,
+                    position,
+                    count - position - 1);
+            values[count - 1] = 0;
+            counts[slot] = count - 1;
+            firstLocators[slot] = values[0];
+        }
+
+        void replaceSingleton(int slot, int locator) {
+            if (counts[slot] != 1 || members[slot] != null) {
+                throw new AssertionError("Key Bucket is not singleton");
+            }
+            firstLocators[slot] = locator;
+        }
+
+        void replaceTail(
+                int slot,
+                int expectedTail,
+                int replacement,
+                int insertionPosition) {
+            int count = counts[slot];
+            if (count == 1) {
+                if (firstLocators[slot] != expectedTail) {
+                    throw new AssertionError("Index tail locator changed before commit");
+                }
+                firstLocators[slot] = replacement;
+                return;
+            }
+            int[] values = members[slot];
+            if (values[count - 1] != expectedTail) {
+                throw new AssertionError("Index tail locator changed before commit");
+            }
+            System.arraycopy(
+                    values,
+                    insertionPosition,
+                    values,
+                    insertionPosition + 1,
+                    count - 1 - insertionPosition);
+            values[insertionPosition] = replacement;
+            firstLocators[slot] = values[0];
+        }
+
+        void removeBucket(int slot) {
+            if (states[slot] != 1 || counts[slot] != 1 || members[slot] != null) {
+                throw new AssertionError("invalid Index Bucket removal");
+            }
+            hashes[slot] = 0L;
+            firstLocators[slot] = 0;
             counts[slot] = 0;
             states[slot] = 2;
             size--;
@@ -996,16 +1288,9 @@ final class IdentityHashIndex {
             if ((long) liveAfter <= ((long) hashes.length * 5L) / 8L) {
                 return hashes.length;
             }
-            return expandedCapacity(operation, provenance);
-        }
-
-        int expandedCapacity(SomaOperation operation, Object provenance) {
             if (hashes.length > (1 << 29)) {
-                throw SomaFailures.failure(
-                        SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
-                        operation,
-                        "Index shard reached Java array representation limit",
-                        provenance);
+                throw resourceLimit(
+                        operation, provenance, "Index shard reached Java array limit");
             }
             return hashes.length << 1;
         }
@@ -1013,21 +1298,22 @@ final class IdentityHashIndex {
         Shard rehash(int capacity, SomaOperation operation, Object provenance) {
             Shard result = new Shard(capacity, operation, provenance);
             for (int old = 0; old < hashes.length; old++) {
-                if (states[old] == 1) {
-                    int slot = result.emptySlot(hashes[old]);
-                    result.hashes[slot] = hashes[old];
-                    result.representatives[slot] = representatives[old];
-                    result.heads[slot] = heads[old];
-                    result.tails[slot] = tails[old];
-                    result.counts[slot] = counts[old];
-                    result.states[slot] = 1;
-                    result.size++;
+                if (states[old] != 1) continue;
+                int slot = result.emptySlot(hashes[old]);
+                result.hashes[slot] = hashes[old];
+                result.firstLocators[slot] = firstLocators[old];
+                result.counts[slot] = counts[old];
+                result.members[slot] = members[old];
+                result.states[slot] = 1;
+                result.size++;
+                if (members[old] != null) {
+                    result.managedBytes += arrayBytes(members[old].length);
                 }
             }
             return result;
         }
 
-        static long estimatedBytes(
+        static long estimatedBaseBytes(
                 int capacity,
                 SomaOperation operation,
                 Object provenance) {
@@ -1035,7 +1321,7 @@ final class IdentityHashIndex {
                     160L,
                     CheckedLong.multiply(
                             capacity,
-                            Long.BYTES + 4L * Integer.BYTES + 1L,
+                            Long.BYTES + 2L * Integer.BYTES + 8L + 1L,
                             operation,
                             provenance),
                     operation,

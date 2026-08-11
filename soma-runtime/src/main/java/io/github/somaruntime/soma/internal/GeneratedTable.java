@@ -663,7 +663,14 @@ public final class GeneratedTable {
                         MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
                         SomaOperation.REMOVE,
                         provenance);
-                long sidecars = sidecarBytes(root, SomaOperation.REMOVE, provenance);
+                long sidecars = keyRemoveScratch.managedBytesAfter();
+                for (IdentityHashIndex.PreparedRemove remove : indexRemoveScratch) {
+                    sidecars = CheckedLong.add(
+                            sidecars,
+                            remove.managedBytesAfter(),
+                            SomaOperation.REMOVE,
+                            provenance);
+                }
                 long finalManaged = managedBytes(
                         candidate, sidecars, SomaOperation.REMOVE, provenance);
                 RemoveResult result = removeResult(1);
@@ -820,7 +827,6 @@ public final class GeneratedTable {
                         layout,
                         layout.keyFieldIndex(),
                         true,
-                        chunkRows,
                         candidateDirectory,
                         newSize,
                         SomaOperation.REMOVE,
@@ -1046,7 +1052,6 @@ public final class GeneratedTable {
                     layout,
                     layout.indexFieldIndex(ordinal),
                     false,
-                    chunkRows,
                     directory,
                     size,
                     operation,

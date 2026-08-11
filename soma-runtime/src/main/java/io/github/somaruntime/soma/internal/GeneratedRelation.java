@@ -543,6 +543,8 @@ public final class GeneratedRelation {
         boolean[] matchedRight = kind == FULL
                 ? new boolean[RowExecutionSupport.arrayLength(
                         binding.right.size, binding.provenance)] : null;
+        IdentityHashIndex.Cursor rightCursor = rightLookup == null
+                ? null : new IdentityHashIndex.Cursor();
         for (int leftLocator = 0; leftLocator < binding.left.size; leftLocator++) {
             boolean matched = false;
             if (!hasNull(binding.left, left.layout(), leftFields, leftLocator)
@@ -554,7 +556,8 @@ public final class GeneratedRelation {
                                 left.layout(),
                                 binding.left.directory,
                                 leftLocator,
-                                leftFields[0]);
+                                leftFields[0],
+                                rightCursor);
                 int link = rightLookup == null
                         ? hash.head(joinHash(
                                 binding.left,
@@ -577,7 +580,7 @@ public final class GeneratedRelation {
                                 terminalCallback, visitor)) return;
                         if (kind == SEMI) break;
                     }
-                    if (rightLookup != null) rightLocator = rightLookup.next(rightLocator);
+                    if (rightLookup != null) rightLocator = rightLookup.next(rightCursor);
                     else link = hash.next(link);
                 }
             }

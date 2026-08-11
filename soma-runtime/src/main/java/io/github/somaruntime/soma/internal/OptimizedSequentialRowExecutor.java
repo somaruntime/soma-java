@@ -350,9 +350,11 @@ final class OptimizedSequentialRowExecutor {
             case INDEX_SELECTION:
             case INDEX_LOOKUP:
                 IdentityHashIndex index = bound.root.indexes[plan.indexOrdinal];
-                for (int locator = index.first(bound.root.directory, plan.probe);
+                IdentityHashIndex.Cursor cursor = new IdentityHashIndex.Cursor();
+                for (int locator = index.first(
+                                bound.root.directory, plan.probe, cursor);
                         locator >= 0;
-                        locator = index.next(locator)) {
+                        locator = index.next(cursor)) {
                     if (!visitor.visit(locator)) return;
                 }
                 return;

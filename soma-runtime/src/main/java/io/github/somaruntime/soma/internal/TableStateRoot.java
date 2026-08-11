@@ -32,11 +32,11 @@ final class TableStateRoot {
         IdentityHashIndex key = layout.keyFieldIndex() < 0
                 ? null
                 : IdentityHashIndex.empty(
-                        layout, layout.keyFieldIndex(), true, chunkRows);
+                        layout, layout.keyFieldIndex(), true);
         IdentityHashIndex[] indexes = new IdentityHashIndex[layout.indexCount()];
         for (int ordinal = 0; ordinal < indexes.length; ordinal++) {
             indexes[ordinal] = IdentityHashIndex.empty(
-                    layout, layout.indexFieldIndex(ordinal), false, chunkRows);
+                    layout, layout.indexFieldIndex(ordinal), false);
         }
         return new TableStateRoot(
                 0,

@@ -385,12 +385,45 @@ class GeneratedTableTest {
         GeneratedProbe probe = table.newProbe(1);
         probe.putReference(1, "same");
         probe.seal();
-        int first = index.first(root.directory, probe);
+        IdentityHashIndex.Cursor cursor = new IdentityHashIndex.Cursor();
+        int first = index.first(root.directory, probe, cursor);
         assertEquals(0L, first);
-        assertEquals(1L, index.next(first));
-        assertEquals(-1L, index.next(1));
+        assertEquals(1L, index.next(cursor));
+        assertEquals(-1L, index.next(cursor));
 
         assertEquals(0L, remove(table, 2L).removed());
+    }
+
+    @Test
+    void indexUsesInlineSingletonAndOneOrderedArrayForHotBucket() {
+        GeneratedTable singleton = table(64L << 20, MutationFaultInjector.NONE);
+        for (int locator = 0; locator < 128; locator++) {
+            add(singleton, locator + 1L, "value-" + locator, locator, new Object());
+        }
+        IdentityHashIndex singletonIndex = singleton.rootForTesting().indexes[0];
+        singletonIndex.validateForTesting(
+                singleton.rootForTesting().directory, singleton.size());
+        assertEquals(128, singletonIndex.singletonBucketCountForTesting());
+        assertEquals(0, singletonIndex.multiBucketCountForTesting());
+
+        GeneratedTable hotspot = table(64L << 20, MutationFaultInjector.NONE);
+        for (int locator = 0; locator < 128; locator++) {
+            add(hotspot, locator + 1L, "hot", locator, new Object());
+        }
+        IdentityHashIndex hotspotIndex = hotspot.rootForTesting().indexes[0];
+        hotspotIndex.validateForTesting(hotspot.rootForTesting().directory, hotspot.size());
+        assertEquals(0, hotspotIndex.singletonBucketCountForTesting());
+        assertEquals(1, hotspotIndex.multiBucketCountForTesting());
+        assertEquals(128, hotspotIndex.maxBucketSizeForTesting());
+
+        for (long key = 1L; key < 128L; key++) {
+            assertEquals(1, remove(hotspot, key).removed());
+        }
+        hotspotIndex = hotspot.rootForTesting().indexes[0];
+        hotspotIndex.validateForTesting(hotspot.rootForTesting().directory, hotspot.size());
+        assertEquals(1, hotspotIndex.singletonBucketCountForTesting());
+        assertEquals(0, hotspotIndex.multiBucketCountForTesting());
+        assertEquals(1, hotspotIndex.maxBucketSizeForTesting());
     }
 
     @Test
@@ -2294,6 +2327,11 @@ class GeneratedTableTest {
         for (Map.Entry<Integer, Long> count : valueCounts.entrySet()) {
             assertEquals(count.getValue().longValue(), intIndexCount(
                     table, count.getKey().intValue()));
+        }
+        TableStateRoot root = table.rootForTesting();
+        root.key.validateForTesting(root.directory, root.size);
+        for (IdentityHashIndex index : root.indexes) {
+            index.validateForTesting(root.directory, root.size);
         }
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
     }
