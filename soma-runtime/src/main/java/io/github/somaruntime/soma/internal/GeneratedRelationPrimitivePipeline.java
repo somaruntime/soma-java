@@ -18,43 +18,51 @@ final class GeneratedRelationPrimitivePipeline {
     static SomaIntStream intStream(
             GeneratedRelation relation,
             GeneratedCallbacks.RowToIntMapper mapper) {
-        return new IntPipeline(Plan.direct(relation, Kind.INT, mapper));
+        return new IntPipeline(RelationPrimitivePipelineCapture.direct(
+                relation, Kind.INT, mapper));
     }
 
     static SomaLongStream longStream(
             GeneratedRelation relation,
             GeneratedCallbacks.RowToLongMapper mapper) {
-        return new LongPipeline(Plan.direct(relation, Kind.LONG, mapper));
+        return new LongPipeline(RelationPrimitivePipelineCapture.direct(
+                relation, Kind.LONG, mapper));
     }
 
     static SomaDoubleStream doubleStream(
             GeneratedRelation relation,
             GeneratedCallbacks.RowToDoubleMapper mapper) {
-        return new DoublePipeline(Plan.direct(relation, Kind.DOUBLE, mapper));
+        return new DoublePipeline(RelationPrimitivePipelineCapture.direct(
+                relation, Kind.DOUBLE, mapper));
     }
 
     static SomaIntStream intStream(
-            GeneratedRelationMappedPipeline.Plan mapped,
+            GeneratedRelationMappedPipeline.RelationMappedPipelineCapture mapped,
             SomaToIntFunction<Object> mapper) {
-        return new IntPipeline(Plan.mapped(mapped, Kind.INT, mapper));
+        return new IntPipeline(RelationPrimitivePipelineCapture.mapped(
+                mapped, Kind.INT, mapper));
     }
 
     static SomaLongStream longStream(
-            GeneratedRelationMappedPipeline.Plan mapped,
+            GeneratedRelationMappedPipeline.RelationMappedPipelineCapture mapped,
             SomaToLongFunction<Object> mapper) {
-        return new LongPipeline(Plan.mapped(mapped, Kind.LONG, mapper));
+        return new LongPipeline(RelationPrimitivePipelineCapture.mapped(
+                mapped, Kind.LONG, mapper));
     }
 
     static SomaDoubleStream doubleStream(
-            GeneratedRelationMappedPipeline.Plan mapped,
+            GeneratedRelationMappedPipeline.RelationMappedPipelineCapture mapped,
             SomaToDoubleFunction<Object> mapper) {
-        return new DoublePipeline(Plan.mapped(mapped, Kind.DOUBLE, mapper));
+        return new DoublePipeline(RelationPrimitivePipelineCapture.mapped(
+                mapped, Kind.DOUBLE, mapper));
     }
 
     private abstract static class Pipeline {
-        final Plan plan;
+        final RelationPrimitivePipelineCapture capture;
         private final AtomicBoolean consumed = new AtomicBoolean();
-        Pipeline(Plan plan) { this.plan = plan; }
+        Pipeline(RelationPrimitivePipelineCapture capture) {
+            this.capture = capture;
+        }
         void claim() {
             if (!consumed.compareAndSet(false, true)) throw SomaFailures.failure(
                     SomaFailureCode.PIPELINE_ALREADY_CONSUMED, SomaOperation.QUERY,
@@ -71,108 +79,110 @@ final class GeneratedRelationPrimitivePipeline {
     }
 
     private static final class IntPipeline extends Pipeline implements SomaIntStream {
-        IntPipeline(Plan plan) { super(plan); }
-        @Override public SomaIntStream parallel(){claim();return new IntPipeline(plan.parallel());}
-        @Override public SomaIntStream filter(SomaIntPredicate p) { require(p,"predicate");claim();return new IntPipeline(plan.add(Stage.of(StageKind.FILTER,Kind.INT,p,0))); }
-        @Override public SomaIntStream map(SomaIntUnaryOperator m) { require(m,"mapper");claim();return new IntPipeline(plan.add(Stage.of(StageKind.MAP,Kind.INT,m,0))); }
-        @Override public SomaLongStream mapToLong(SomaIntToLongFunction m) { require(m,"mapper");claim();return new LongPipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.LONG,m,0))); }
-        @Override public SomaDoubleStream mapToDouble(SomaIntToDoubleFunction m) { require(m,"mapper");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.DOUBLE,m,0))); }
-        @Override public SomaIntStream distinct(){claim();return new IntPipeline(plan.add(Stage.of(StageKind.DISTINCT,Kind.INT,null,0)));}
-        @Override public SomaIntStream sorted(){claim();return new IntPipeline(plan.add(Stage.of(StageKind.SORTED,Kind.INT,null,0)));}
-        @Override public SomaIntStream top(long n){requireCount(n,"top");claim();return new IntPipeline(plan.add(Stage.of(StageKind.SORTED,Kind.INT,null,0)).add(Stage.of(StageKind.LIMIT,Kind.INT,null,n)));}
-        @Override public SomaIntStream skip(long n){requireCount(n,"skip");claim();return new IntPipeline(plan.add(Stage.of(StageKind.SKIP,Kind.INT,null,n)));}
-        @Override public SomaIntStream limit(long n){requireCount(n,"limit");claim();return new IntPipeline(plan.add(Stage.of(StageKind.LIMIT,Kind.INT,null,n)));}
-        @Override public long count(){claim();return values(plan).size;}
-        @Override public boolean anyMatch(SomaIntPredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(testInt(p,(int)b.values[i]))return true;return false;}
-        @Override public boolean allMatch(SomaIntPredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(!testInt(p,(int)b.values[i]))return false;return true;}
-        @Override public boolean noneMatch(SomaIntPredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(testInt(p,(int)b.values[i]))return false;return true;}
-        @Override public OptionalInt findFirst(){claim();Buffer b=values(plan);return b.size==0?OptionalInt.empty():OptionalInt.of((int)b.values[0]);}
-        @Override public OptionalInt min(){claim();Buffer b=values(plan);return b.size==0?OptionalInt.empty():OptionalInt.of((int)extremum(b,Kind.INT,false));}
-        @Override public OptionalInt max(){claim();Buffer b=values(plan);return b.size==0?OptionalInt.empty():OptionalInt.of((int)extremum(b,Kind.INT,true));}
-        @Override public long sum(){claim();return integralSum(plan).longValue(new Object());}
-        @Override public OptionalDouble average(){claim();Buffer b=values(plan);if(b.size==0)return OptionalDouble.empty();return OptionalDouble.of(integral(b).doubleValue()/b.size);}
-        @Override public SomaLongSummary summaryStatistics(){claim();return longSummary(values(plan),Kind.INT);}
-        @Override public void forEach(SomaIntConsumer a){require(a,"action");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)acceptInt(a,(int)b.values[i]);}
+        IntPipeline(RelationPrimitivePipelineCapture capture) { super(capture); }
+        @Override public SomaIntStream parallel(){claim();return new IntPipeline(capture.parallel());}
+        @Override public SomaIntStream filter(SomaIntPredicate p) { require(p,"predicate");claim();return new IntPipeline(capture.add(Stage.of(StageKind.FILTER,Kind.INT,p,0))); }
+        @Override public SomaIntStream map(SomaIntUnaryOperator m) { require(m,"mapper");claim();return new IntPipeline(capture.add(Stage.of(StageKind.MAP,Kind.INT,m,0))); }
+        @Override public SomaLongStream mapToLong(SomaIntToLongFunction m) { require(m,"mapper");claim();return new LongPipeline(capture.add(Stage.of(StageKind.CONVERT,Kind.LONG,m,0))); }
+        @Override public SomaDoubleStream mapToDouble(SomaIntToDoubleFunction m) { require(m,"mapper");claim();return new DoublePipeline(capture.add(Stage.of(StageKind.CONVERT,Kind.DOUBLE,m,0))); }
+        @Override public SomaIntStream distinct(){claim();return new IntPipeline(capture.add(Stage.of(StageKind.DISTINCT,Kind.INT,null,0)));}
+        @Override public SomaIntStream sorted(){claim();return new IntPipeline(capture.add(Stage.of(StageKind.SORTED,Kind.INT,null,0)));}
+        @Override public SomaIntStream top(long n){requireCount(n,"top");claim();return new IntPipeline(capture.add(Stage.of(StageKind.SORTED,Kind.INT,null,0)).add(Stage.of(StageKind.LIMIT,Kind.INT,null,n)));}
+        @Override public SomaIntStream skip(long n){requireCount(n,"skip");claim();return new IntPipeline(capture.add(Stage.of(StageKind.SKIP,Kind.INT,null,n)));}
+        @Override public SomaIntStream limit(long n){requireCount(n,"limit");claim();return new IntPipeline(capture.add(Stage.of(StageKind.LIMIT,Kind.INT,null,n)));}
+        @Override public long count(){claim();return values(capture).size;}
+        @Override public boolean anyMatch(SomaIntPredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(testInt(p,(int)b.values[i]))return true;return false;}
+        @Override public boolean allMatch(SomaIntPredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(!testInt(p,(int)b.values[i]))return false;return true;}
+        @Override public boolean noneMatch(SomaIntPredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(testInt(p,(int)b.values[i]))return false;return true;}
+        @Override public OptionalInt findFirst(){claim();Buffer b=values(capture);return b.size==0?OptionalInt.empty():OptionalInt.of((int)b.values[0]);}
+        @Override public OptionalInt min(){claim();Buffer b=values(capture);return b.size==0?OptionalInt.empty():OptionalInt.of((int)extremum(b,Kind.INT,false));}
+        @Override public OptionalInt max(){claim();Buffer b=values(capture);return b.size==0?OptionalInt.empty():OptionalInt.of((int)extremum(b,Kind.INT,true));}
+        @Override public long sum(){claim();return integralSum(capture).longValue(new Object());}
+        @Override public OptionalDouble average(){claim();Buffer b=values(capture);if(b.size==0)return OptionalDouble.empty();return OptionalDouble.of(integral(b).doubleValue()/b.size);}
+        @Override public SomaLongSummary summaryStatistics(){claim();return longSummary(values(capture),Kind.INT);}
+        @Override public void forEach(SomaIntConsumer a){require(a,"action");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)acceptInt(a,(int)b.values[i]);}
         @Override public void forEachOrdered(SomaIntConsumer a){forEach(a);}
-        @Override public int[] toArray(){claim();Buffer b=values(plan);int[] r=new int[b.size];for(int i=0;i<b.size;i++)r[i]=(int)b.values[i];return r;}
-        @Override public String _explain(){claim();return explain(plan);}
+        @Override public int[] toArray(){claim();Buffer b=values(capture);int[] r=new int[b.size];for(int i=0;i<b.size;i++)r[i]=(int)b.values[i];return r;}
+        @Override public String _explain(){claim();return explain(capture);}
     }
 
     private static final class LongPipeline extends Pipeline implements SomaLongStream {
-        LongPipeline(Plan plan) { super(plan); }
-        @Override public SomaLongStream parallel(){claim();return new LongPipeline(plan.parallel());}
-        @Override public SomaLongStream filter(SomaLongPredicate p){require(p,"predicate");claim();return new LongPipeline(plan.add(Stage.of(StageKind.FILTER,Kind.LONG,p,0)));}
-        @Override public SomaLongStream map(SomaLongUnaryOperator m){require(m,"mapper");claim();return new LongPipeline(plan.add(Stage.of(StageKind.MAP,Kind.LONG,m,0)));}
-        @Override public SomaIntStream mapToInt(SomaLongToIntFunction m){require(m,"mapper");claim();return new IntPipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.INT,m,0)));}
-        @Override public SomaDoubleStream mapToDouble(SomaLongToDoubleFunction m){require(m,"mapper");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.DOUBLE,m,0)));}
-        @Override public SomaLongStream distinct(){claim();return new LongPipeline(plan.add(Stage.of(StageKind.DISTINCT,Kind.LONG,null,0)));}
-        @Override public SomaLongStream sorted(){claim();return new LongPipeline(plan.add(Stage.of(StageKind.SORTED,Kind.LONG,null,0)));}
-        @Override public SomaLongStream top(long n){requireCount(n,"top");claim();return new LongPipeline(plan.add(Stage.of(StageKind.SORTED,Kind.LONG,null,0)).add(Stage.of(StageKind.LIMIT,Kind.LONG,null,n)));}
-        @Override public SomaLongStream skip(long n){requireCount(n,"skip");claim();return new LongPipeline(plan.add(Stage.of(StageKind.SKIP,Kind.LONG,null,n)));}
-        @Override public SomaLongStream limit(long n){requireCount(n,"limit");claim();return new LongPipeline(plan.add(Stage.of(StageKind.LIMIT,Kind.LONG,null,n)));}
-        @Override public long count(){claim();return values(plan).size;}
-        @Override public boolean anyMatch(SomaLongPredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(testLong(p,b.values[i]))return true;return false;}
-        @Override public boolean allMatch(SomaLongPredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(!testLong(p,b.values[i]))return false;return true;}
-        @Override public boolean noneMatch(SomaLongPredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(testLong(p,b.values[i]))return false;return true;}
-        @Override public OptionalLong findFirst(){claim();Buffer b=values(plan);return b.size==0?OptionalLong.empty():OptionalLong.of(b.values[0]);}
-        @Override public OptionalLong min(){claim();Buffer b=values(plan);return b.size==0?OptionalLong.empty():OptionalLong.of(extremum(b,Kind.LONG,false));}
-        @Override public OptionalLong max(){claim();Buffer b=values(plan);return b.size==0?OptionalLong.empty():OptionalLong.of(extremum(b,Kind.LONG,true));}
-        @Override public long sum(){claim();return integralSum(plan).longValue(new Object());}
-        @Override public OptionalDouble average(){claim();Buffer b=values(plan);if(b.size==0)return OptionalDouble.empty();return OptionalDouble.of(integral(b).doubleValue()/b.size);}
-        @Override public SomaLongSummary summaryStatistics(){claim();return longSummary(values(plan),Kind.LONG);}
-        @Override public void forEach(SomaLongConsumer a){require(a,"action");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)acceptLong(a,b.values[i]);}
+        LongPipeline(RelationPrimitivePipelineCapture capture) { super(capture); }
+        @Override public SomaLongStream parallel(){claim();return new LongPipeline(capture.parallel());}
+        @Override public SomaLongStream filter(SomaLongPredicate p){require(p,"predicate");claim();return new LongPipeline(capture.add(Stage.of(StageKind.FILTER,Kind.LONG,p,0)));}
+        @Override public SomaLongStream map(SomaLongUnaryOperator m){require(m,"mapper");claim();return new LongPipeline(capture.add(Stage.of(StageKind.MAP,Kind.LONG,m,0)));}
+        @Override public SomaIntStream mapToInt(SomaLongToIntFunction m){require(m,"mapper");claim();return new IntPipeline(capture.add(Stage.of(StageKind.CONVERT,Kind.INT,m,0)));}
+        @Override public SomaDoubleStream mapToDouble(SomaLongToDoubleFunction m){require(m,"mapper");claim();return new DoublePipeline(capture.add(Stage.of(StageKind.CONVERT,Kind.DOUBLE,m,0)));}
+        @Override public SomaLongStream distinct(){claim();return new LongPipeline(capture.add(Stage.of(StageKind.DISTINCT,Kind.LONG,null,0)));}
+        @Override public SomaLongStream sorted(){claim();return new LongPipeline(capture.add(Stage.of(StageKind.SORTED,Kind.LONG,null,0)));}
+        @Override public SomaLongStream top(long n){requireCount(n,"top");claim();return new LongPipeline(capture.add(Stage.of(StageKind.SORTED,Kind.LONG,null,0)).add(Stage.of(StageKind.LIMIT,Kind.LONG,null,n)));}
+        @Override public SomaLongStream skip(long n){requireCount(n,"skip");claim();return new LongPipeline(capture.add(Stage.of(StageKind.SKIP,Kind.LONG,null,n)));}
+        @Override public SomaLongStream limit(long n){requireCount(n,"limit");claim();return new LongPipeline(capture.add(Stage.of(StageKind.LIMIT,Kind.LONG,null,n)));}
+        @Override public long count(){claim();return values(capture).size;}
+        @Override public boolean anyMatch(SomaLongPredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(testLong(p,b.values[i]))return true;return false;}
+        @Override public boolean allMatch(SomaLongPredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(!testLong(p,b.values[i]))return false;return true;}
+        @Override public boolean noneMatch(SomaLongPredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(testLong(p,b.values[i]))return false;return true;}
+        @Override public OptionalLong findFirst(){claim();Buffer b=values(capture);return b.size==0?OptionalLong.empty():OptionalLong.of(b.values[0]);}
+        @Override public OptionalLong min(){claim();Buffer b=values(capture);return b.size==0?OptionalLong.empty():OptionalLong.of(extremum(b,Kind.LONG,false));}
+        @Override public OptionalLong max(){claim();Buffer b=values(capture);return b.size==0?OptionalLong.empty():OptionalLong.of(extremum(b,Kind.LONG,true));}
+        @Override public long sum(){claim();return integralSum(capture).longValue(new Object());}
+        @Override public OptionalDouble average(){claim();Buffer b=values(capture);if(b.size==0)return OptionalDouble.empty();return OptionalDouble.of(integral(b).doubleValue()/b.size);}
+        @Override public SomaLongSummary summaryStatistics(){claim();return longSummary(values(capture),Kind.LONG);}
+        @Override public void forEach(SomaLongConsumer a){require(a,"action");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)acceptLong(a,b.values[i]);}
         @Override public void forEachOrdered(SomaLongConsumer a){forEach(a);}
-        @Override public long[] toArray(){claim();Buffer b=values(plan);long[] r=new long[b.size];System.arraycopy(b.values,0,r,0,b.size);return r;}
-        @Override public String _explain(){claim();return explain(plan);}
+        @Override public long[] toArray(){claim();Buffer b=values(capture);long[] r=new long[b.size];System.arraycopy(b.values,0,r,0,b.size);return r;}
+        @Override public String _explain(){claim();return explain(capture);}
     }
 
     private static final class DoublePipeline extends Pipeline implements SomaDoubleStream {
-        DoublePipeline(Plan plan){super(plan);}
-        @Override public SomaDoubleStream parallel(){claim();return new DoublePipeline(plan.parallel());}
-        @Override public SomaDoubleStream filter(SomaDoublePredicate p){require(p,"predicate");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.FILTER,Kind.DOUBLE,p,0)));}
-        @Override public SomaDoubleStream map(SomaDoubleUnaryOperator m){require(m,"mapper");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.MAP,Kind.DOUBLE,m,0)));}
-        @Override public SomaIntStream mapToInt(SomaDoubleToIntFunction m){require(m,"mapper");claim();return new IntPipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.INT,m,0)));}
-        @Override public SomaLongStream mapToLong(SomaDoubleToLongFunction m){require(m,"mapper");claim();return new LongPipeline(plan.add(Stage.of(StageKind.CONVERT,Kind.LONG,m,0)));}
-        @Override public SomaDoubleStream distinct(){claim();return new DoublePipeline(plan.add(Stage.of(StageKind.DISTINCT,Kind.DOUBLE,null,0)));}
-        @Override public SomaDoubleStream sorted(){claim();return new DoublePipeline(plan.add(Stage.of(StageKind.SORTED,Kind.DOUBLE,null,0)));}
-        @Override public SomaDoubleStream top(long n){requireCount(n,"top");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.SORTED,Kind.DOUBLE,null,0)).add(Stage.of(StageKind.LIMIT,Kind.DOUBLE,null,n)));}
-        @Override public SomaDoubleStream skip(long n){requireCount(n,"skip");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.SKIP,Kind.DOUBLE,null,n)));}
-        @Override public SomaDoubleStream limit(long n){requireCount(n,"limit");claim();return new DoublePipeline(plan.add(Stage.of(StageKind.LIMIT,Kind.DOUBLE,null,n)));}
-        @Override public long count(){claim();return values(plan).size;}
-        @Override public boolean anyMatch(SomaDoublePredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(testDouble(p,decode(b.values[i])))return true;return false;}
-        @Override public boolean allMatch(SomaDoublePredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(!testDouble(p,decode(b.values[i])))return false;return true;}
-        @Override public boolean noneMatch(SomaDoublePredicate p){require(p,"predicate");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)if(testDouble(p,decode(b.values[i])))return false;return true;}
-        @Override public OptionalDouble findFirst(){claim();Buffer b=values(plan);return b.size==0?OptionalDouble.empty():OptionalDouble.of(decode(b.values[0]));}
-        @Override public OptionalDouble min(){claim();Buffer b=values(plan);return b.size==0?OptionalDouble.empty():OptionalDouble.of(decode(extremum(b,Kind.DOUBLE,false)));}
-        @Override public OptionalDouble max(){claim();Buffer b=values(plan);return b.size==0?OptionalDouble.empty():OptionalDouble.of(decode(extremum(b,Kind.DOUBLE,true)));}
-        @Override public double sum(){claim();Buffer b=values(plan);return floatingSum(b);}
-        @Override public OptionalDouble average(){claim();Buffer b=values(plan);return b.size==0?OptionalDouble.empty():OptionalDouble.of(floatingSum(b)/b.size);}
-        @Override public SomaDoubleSummary summaryStatistics(){claim();return doubleSummary(values(plan));}
-        @Override public void forEach(SomaDoubleConsumer a){require(a,"action");claim();Buffer b=values(plan);for(int i=0;i<b.size;i++)acceptDouble(a,decode(b.values[i]));}
+        DoublePipeline(RelationPrimitivePipelineCapture capture){super(capture);}
+        @Override public SomaDoubleStream parallel(){claim();return new DoublePipeline(capture.parallel());}
+        @Override public SomaDoubleStream filter(SomaDoublePredicate p){require(p,"predicate");claim();return new DoublePipeline(capture.add(Stage.of(StageKind.FILTER,Kind.DOUBLE,p,0)));}
+        @Override public SomaDoubleStream map(SomaDoubleUnaryOperator m){require(m,"mapper");claim();return new DoublePipeline(capture.add(Stage.of(StageKind.MAP,Kind.DOUBLE,m,0)));}
+        @Override public SomaIntStream mapToInt(SomaDoubleToIntFunction m){require(m,"mapper");claim();return new IntPipeline(capture.add(Stage.of(StageKind.CONVERT,Kind.INT,m,0)));}
+        @Override public SomaLongStream mapToLong(SomaDoubleToLongFunction m){require(m,"mapper");claim();return new LongPipeline(capture.add(Stage.of(StageKind.CONVERT,Kind.LONG,m,0)));}
+        @Override public SomaDoubleStream distinct(){claim();return new DoublePipeline(capture.add(Stage.of(StageKind.DISTINCT,Kind.DOUBLE,null,0)));}
+        @Override public SomaDoubleStream sorted(){claim();return new DoublePipeline(capture.add(Stage.of(StageKind.SORTED,Kind.DOUBLE,null,0)));}
+        @Override public SomaDoubleStream top(long n){requireCount(n,"top");claim();return new DoublePipeline(capture.add(Stage.of(StageKind.SORTED,Kind.DOUBLE,null,0)).add(Stage.of(StageKind.LIMIT,Kind.DOUBLE,null,n)));}
+        @Override public SomaDoubleStream skip(long n){requireCount(n,"skip");claim();return new DoublePipeline(capture.add(Stage.of(StageKind.SKIP,Kind.DOUBLE,null,n)));}
+        @Override public SomaDoubleStream limit(long n){requireCount(n,"limit");claim();return new DoublePipeline(capture.add(Stage.of(StageKind.LIMIT,Kind.DOUBLE,null,n)));}
+        @Override public long count(){claim();return values(capture).size;}
+        @Override public boolean anyMatch(SomaDoublePredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(testDouble(p,decode(b.values[i])))return true;return false;}
+        @Override public boolean allMatch(SomaDoublePredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(!testDouble(p,decode(b.values[i])))return false;return true;}
+        @Override public boolean noneMatch(SomaDoublePredicate p){require(p,"predicate");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)if(testDouble(p,decode(b.values[i])))return false;return true;}
+        @Override public OptionalDouble findFirst(){claim();Buffer b=values(capture);return b.size==0?OptionalDouble.empty():OptionalDouble.of(decode(b.values[0]));}
+        @Override public OptionalDouble min(){claim();Buffer b=values(capture);return b.size==0?OptionalDouble.empty():OptionalDouble.of(decode(extremum(b,Kind.DOUBLE,false)));}
+        @Override public OptionalDouble max(){claim();Buffer b=values(capture);return b.size==0?OptionalDouble.empty():OptionalDouble.of(decode(extremum(b,Kind.DOUBLE,true)));}
+        @Override public double sum(){claim();Buffer b=values(capture);return floatingSum(b);}
+        @Override public OptionalDouble average(){claim();Buffer b=values(capture);return b.size==0?OptionalDouble.empty():OptionalDouble.of(floatingSum(b)/b.size);}
+        @Override public SomaDoubleSummary summaryStatistics(){claim();return doubleSummary(values(capture));}
+        @Override public void forEach(SomaDoubleConsumer a){require(a,"action");claim();Buffer b=values(capture);for(int i=0;i<b.size;i++)acceptDouble(a,decode(b.values[i]));}
         @Override public void forEachOrdered(SomaDoubleConsumer a){forEach(a);}
-        @Override public double[] toArray(){claim();Buffer b=values(plan);double[] r=new double[b.size];for(int i=0;i<b.size;i++)r[i]=decode(b.values[i]);return r;}
-        @Override public String _explain(){claim();return explain(plan);}
+        @Override public double[] toArray(){claim();Buffer b=values(capture);double[] r=new double[b.size];for(int i=0;i<b.size;i++)r[i]=decode(b.values[i]);return r;}
+        @Override public String _explain(){claim();return explain(capture);}
     }
 
-    private static Buffer values(final Plan plan) {
+    private static Buffer values(final RelationPrimitivePipelineCapture capture) {
         Buffer root;
-        if (plan.relation != null) {
-            root = plan.relation.terminal(new GeneratedRelation.PairWork<Buffer>() {
+        if (capture.relation != null) {
+            root = capture.relation.terminal(
+                    CanonicalRelationOperation.TerminalKind.PRIMITIVE_SOURCE,
+                    new GeneratedRelation.PairWork<Buffer>() {
                 @Override public Buffer run(final GeneratedRelation.RelationBinding binding) {
-                    int upper=RowExecutionSupport.arrayLength(plan.relation.outputUpperBound(binding),binding.provenance);
+                    int upper=RowExecutionSupport.arrayLength(capture.relation.outputUpperBound(binding),binding.provenance);
                     final Buffer out=new Buffer(upper);
-                    plan.relation.visitBound(binding,true,new GeneratedRelation.PairVisitor(){
-                        @Override public boolean visit(int l,int r){out.add(directValue(plan));return true;}
+                    capture.relation.visitBound(binding,true,new GeneratedRelation.PairVisitor(){
+                        @Override public boolean visit(int l,int r){out.add(directValue(capture));return true;}
                     });
                     return out;
                 }
             },true,24L);
         } else {
-            java.util.List<Object> mapped=GeneratedRelationMappedPipeline.materialize(plan.mapped);
+            java.util.List<Object> mapped=GeneratedRelationMappedPipeline.materialize(capture.mapped);
             root=new Buffer(mapped.size());
-            for(Object value:mapped)root.add(mappedValue(plan,value));
+            for(Object value:mapped)root.add(mappedValue(capture,value));
         }
-        applyStages(root,plan);
+        applyStages(root,capture);
         return root;
     }
 
@@ -181,25 +191,26 @@ final class GeneratedRelationPrimitivePipeline {
      * 因此不存在有状态或顺序 barrier；同一个精确 128-bit accumulator 可以按
      * canonical relation encounter order 消费结果，无需先物化整个 Join 输出。
      */
-    private static Signed128Accumulator integralSum(final Plan plan) {
-        if (plan.relation == null || plan.stages.length != 0
-                || (plan.rootKind != Kind.INT && plan.rootKind != Kind.LONG)) {
-            return integral(values(plan));
+    private static Signed128Accumulator integralSum(final RelationPrimitivePipelineCapture capture) {
+        if (capture.relation == null || capture.stages.length != 0
+                || (capture.rootKind != Kind.INT && capture.rootKind != Kind.LONG)) {
+            return integral(values(capture));
         }
-        return plan.relation.terminal(
+        return capture.relation.terminal(
+                CanonicalRelationOperation.TerminalKind.PRIMITIVE_SOURCE,
                 new GeneratedRelation.PairWork<Signed128Accumulator>() {
                     @Override
                     public Signed128Accumulator run(
                             GeneratedRelation.RelationBinding binding) {
                         final Signed128Accumulator accumulator =
                                 new Signed128Accumulator();
-                        plan.relation.visitBound(
+                        capture.relation.visitBound(
                                 binding,
                                 true,
                                 new GeneratedRelation.PairVisitor() {
                                     @Override
                                     public boolean visit(int left, int right) {
-                                        accumulator.add(directValue(plan));
+                                        accumulator.add(directValue(capture));
                                         return true;
                                     }
                                 });
@@ -210,23 +221,23 @@ final class GeneratedRelationPrimitivePipeline {
                 0L);
     }
 
-    private static long directValue(Plan plan) {
+    private static long directValue(RelationPrimitivePipelineCapture capture) {
         CallbackExecutionScope.enter();
         try {
-            if(plan.rootKind==Kind.INT)return ((GeneratedCallbacks.RowToIntMapper)plan.rootMapper).applyAsInt();
-            if(plan.rootKind==Kind.LONG)return ((GeneratedCallbacks.RowToLongMapper)plan.rootMapper).applyAsLong();
-            return encode(((GeneratedCallbacks.RowToDoubleMapper)plan.rootMapper).applyAsDouble());
+            if(capture.rootKind==Kind.INT)return ((GeneratedCallbacks.RowToIntMapper)capture.rootMapper).applyAsInt();
+            if(capture.rootKind==Kind.LONG)return ((GeneratedCallbacks.RowToLongMapper)capture.rootMapper).applyAsLong();
+            return encode(((GeneratedCallbacks.RowToDoubleMapper)capture.rootMapper).applyAsDouble());
         } catch(Exception failure){throw SomaFailures.callbackFailure(SomaOperation.QUERY,failure,new Object());}
         finally { CallbackExecutionScope.exit(); }
     }
 
-    private static long mappedValue(Plan plan,Object value){CallbackExecutionScope.enter();try{
-        if(plan.rootKind==Kind.INT)return ((SomaToIntFunction<Object>)plan.rootMapper).applyAsInt(value);
-        if(plan.rootKind==Kind.LONG)return ((SomaToLongFunction<Object>)plan.rootMapper).applyAsLong(value);
-        return encode(((SomaToDoubleFunction<Object>)plan.rootMapper).applyAsDouble(value));
+    private static long mappedValue(RelationPrimitivePipelineCapture capture,Object value){CallbackExecutionScope.enter();try{
+        if(capture.rootKind==Kind.INT)return ((SomaToIntFunction<Object>)capture.rootMapper).applyAsInt(value);
+        if(capture.rootKind==Kind.LONG)return ((SomaToLongFunction<Object>)capture.rootMapper).applyAsLong(value);
+        return encode(((SomaToDoubleFunction<Object>)capture.rootMapper).applyAsDouble(value));
     }catch(Exception failure){throw SomaFailures.callbackFailure(SomaOperation.QUERY,failure,new Object());}finally{CallbackExecutionScope.exit();}}
 
-    private static void applyStages(Buffer b,Plan plan){Kind current=plan.rootKind;for(Stage s:plan.stages){switch(s.kind){
+    private static void applyStages(Buffer b,RelationPrimitivePipelineCapture capture){Kind current=capture.rootKind;for(Stage s:capture.stages){switch(s.kind){
         case FILTER:{int o=0;for(int i=0;i<b.size;i++)if(test(current,s.callback,b.values[i]))b.values[o++]=b.values[i];b.size=o;break;}
         case MAP:case CONVERT:for(int i=0;i<b.size;i++)b.values[i]=map(current,s.output,s.callback,b.values[i]);current=s.output;break;
         case DISTINCT:{LinkedHashSet<Long> set=new LinkedHashSet<Long>();for(int i=0;i<b.size;i++)set.add(canonical(current,b.values[i]));int o=0;for(Long v:set)b.values[o++]=v;b.size=o;break;}
@@ -262,16 +273,17 @@ final class GeneratedRelationPrimitivePipeline {
     private static void acceptDouble(SomaDoubleConsumer a,double v){CallbackExecutionScope.enter();try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
     private static long encode(double v){return Double.doubleToRawLongBits(v);}
     private static double decode(long v){return Double.longBitsToDouble(v);}
-    private static String explain(Plan p){return "SOMA relation-primitive kind="+p.valueKind+" stages="+p.stages.length;}
+    private static String explain(RelationPrimitivePipelineCapture p){return "SOMA relation-primitive kind="+p.valueKind+" stages="+p.stages.length;}
 
     private static final class Buffer{final long[] values;int size;Buffer(int n){values=new long[n];}void add(long v){values[size++]=v;}}
     private static final class Stage{final StageKind kind;final Kind output;final Object callback;final long count;private Stage(StageKind k,Kind o,Object c,long n){kind=k;output=o;callback=c;count=n;}static Stage of(StageKind k,Kind o,Object c,long n){return new Stage(k,o,c,n);}}
-    private static final class Plan{
-        final GeneratedRelation relation;final GeneratedRelationMappedPipeline.Plan mapped;final Kind rootKind;final Object rootMapper;final Kind valueKind;final Stage[] stages;
-        private Plan(GeneratedRelation r,GeneratedRelationMappedPipeline.Plan m,Kind root,Object mapper,Kind value,Stage[] s){relation=r;mapped=m;rootKind=root;rootMapper=mapper;valueKind=value;stages=s;}
-        static Plan direct(GeneratedRelation r,Kind k,Object m){return new Plan(r,null,k,m,k,new Stage[0]);}
-        static Plan mapped(GeneratedRelationMappedPipeline.Plan p,Kind k,Object m){return new Plan(null,p,k,m,k,new Stage[0]);}
-        Plan add(Stage s){Stage[] n=new Stage[stages.length+1];System.arraycopy(stages,0,n,0,stages.length);n[stages.length]=s;return new Plan(relation,mapped,rootKind,rootMapper,s.output,n);}
-        Plan parallel(){return new Plan(relation==null?null:relation.parallelCopy(),mapped==null?null:mapped.parallel(),rootKind,rootMapper,valueKind,stages);}
+    /** Java facade capture only; terminal lowering owns semantic meaning. */
+    private static final class RelationPrimitivePipelineCapture{
+        final GeneratedRelation relation;final GeneratedRelationMappedPipeline.RelationMappedPipelineCapture mapped;final Kind rootKind;final Object rootMapper;final Kind valueKind;final Stage[] stages;
+        private RelationPrimitivePipelineCapture(GeneratedRelation r,GeneratedRelationMappedPipeline.RelationMappedPipelineCapture m,Kind root,Object mapper,Kind value,Stage[] s){relation=r;mapped=m;rootKind=root;rootMapper=mapper;valueKind=value;stages=s;}
+        static RelationPrimitivePipelineCapture direct(GeneratedRelation r,Kind k,Object m){return new RelationPrimitivePipelineCapture(r,null,k,m,k,new Stage[0]);}
+        static RelationPrimitivePipelineCapture mapped(GeneratedRelationMappedPipeline.RelationMappedPipelineCapture p,Kind k,Object m){return new RelationPrimitivePipelineCapture(null,p,k,m,k,new Stage[0]);}
+        RelationPrimitivePipelineCapture add(Stage s){Stage[] n=new Stage[stages.length+1];System.arraycopy(stages,0,n,0,stages.length);n[stages.length]=s;return new RelationPrimitivePipelineCapture(relation,mapped,rootKind,rootMapper,s.output,n);}
+        RelationPrimitivePipelineCapture parallel(){return new RelationPrimitivePipelineCapture(relation==null?null:relation.parallelCopy(),mapped==null?null:mapped.parallel(),rootKind,rootMapper,valueKind,stages);}
     }
 }

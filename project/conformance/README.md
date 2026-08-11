@@ -3,7 +3,7 @@
 类型：Conformance Entry
 
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
-Canonical IR/Execution M1 `FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / S1-S3_PASS / S4_ACTIVE`
+Canonical IR/Execution M1 `FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / S1-S4_PASS / S5_ACTIVE`
 
 正式事实源：是
 
@@ -34,7 +34,7 @@ Core abstraction promotion    PASS
 I0-I8 authorization           FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
-Active slice                   S3 (Canonical IR/Execution M1)
+Active slice                   S5 (Canonical IR/Execution M1)
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -54,8 +54,8 @@ Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALL
 Scheduling reference        STANDARD_FJSP_100K / PASS / NATURAL_POINT_MUTATION
 Scheduling performance      STANDARD_FJSP_100K / FRESH_0.6S / WARM_0.51S / PASS
 Canonical IR promotion        PASS / FORMALLY_PROMOTED / BASELINE_FROZEN
-Canonical IR readiness        IMPLEMENTATION_AUTHORIZED / S1-S3_PASS / S4_ACTIVE
-Canonical IR active slice     S4
+Canonical IR readiness        IMPLEMENTATION_AUTHORIZED / S1-S4_PASS / S5_ACTIVE
+Canonical IR active slice     S5
 Active bounded topic          NONE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
@@ -79,15 +79,15 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 
 | Surface | Design Owner | Current executable fact | Status |
 |---|---|---|---|
-| Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | I0-I8 proof chain继续成立；Row/Field/Selection/Mapped/Primitive已进入Canonical/Bound/Physical/Frame主线，Relation/Group待S4迁移 | CURRENT_BEHAVIOR_PASS / M1_S3_PASS |
+| Cross-Owner abstraction/narrative/proof routing | [Core](../design/core-abstractions-and-narratives.md) | I0-I8 proof chain继续成立；全部query family已进入Canonical/Bound/Physical/Frame主线，S5负责删除有界迁移桥 | CURRENT_BEHAVIOR_PASS / M1_S4_PASS |
 | Schema/compiler/full regeneration | [Schema](../design/schema-and-generation.md) | six annotations、aggregating processor、完整composition/type/symbol preflight、I7 final generated surface与full regeneration已建立 | PASS |
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | checked int structural/long cumulative domain、paged PLAIN/encoded/overlay storage、singleton-inline/ordered-int-array Key/Index、point incremental maintenance、atomic StateRoot与Group retained accounting已建立 | PASS |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query、Selection mutation、GroupBy、binary Equality/Cross Join、explicit parallel与四级metadata已建立 | PASS |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I7 cumulative generated/runtime public surface已由Java 8 consumer与javap边界验证 | PASS |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | Row/Field/Mapped/Primitive已由Canonical/Bound与独立Reference拥有；Relation/Group待S4迁移 | CURRENT_BEHAVIOR_PASS / M1_S3_PASS |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | Row/Field/Selection/Mapped/Primitive的guard、binding、admission、Frame与parallel refinement已统一；Relation/Group待迁移 | CURRENT_BEHAVIOR_PASS / M1_S3_PASS |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | Row/Field/Mapped/Primitive/Relation/Group已由Canonical/Bound与独立Reference拥有；S5关闭adapter与layer inversion | CURRENT_BEHAVIOR_PASS / M1_S4_PASS |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | 全部query family的guard、binding、admission与Frame主路径已建立；S5删除relation-left旧桥 | CURRENT_BEHAVIOR_PASS / M1_S4_PASS |
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
-| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | two-artifact/Java 8/package继续PASS；Row/Field/Mapped/Primitive Java-lowering-to-frame seam已成立，Relation/Group待S4迁移 | CURRENT_ARTIFACT_PASS / M1_S3_PASS |
+| Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | two-artifact/Java 8/package继续PASS；全部query family的Java-lowering-to-frame seam已成立，S5负责replacement closure | CURRENT_ARTIFACT_PASS / M1_S4_PASS |
 | Performance/scenarios | BP-15 + G9 | 三个reference application、10K/1M/10M frontier matrix、profile优化与fixed-host memory attribution通过 | PASS |
 | Security/package/release | G10 | dependency/license/SBOM/checksum/provenance、package consumer、本地与远端non-publishing workflow qualification成立 | PASS |
 
@@ -178,7 +178,7 @@ Historical inputs：
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
 Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
-Canonical IR/Execution治理已经正式晋升、冻结并获实施授权，S1-S3已PASS，S4是唯一active slice。
+Canonical IR/Execution治理已经正式晋升、冻结并获实施授权，S1-S4已PASS，S5是唯一active slice。
 [SOMA Engine产品构思](../temp/soma-engine-product-concept/README.md)是独立queued intent，不是Design、
 active governance或current implementation input。
 `docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
@@ -256,8 +256,8 @@ Release、Package publication、签名和正式发布声明均不在授权内。
 
 上述2026-08-03授权只拥有已经完成的I0-I8实施，不自动授权
 [Canonical IR/Execution S1-S6](../engineering/canonical-ir-execution-engine-implementation-plan.md)。该计划
-当前`IMPLEMENTATION_AUTHORIZED / S1-S3_PASS / S4_ACTIVE`；S4完成exit evidence、Conformance与干净
-提交后才能进入S5。
+当前`IMPLEMENTATION_AUTHORIZED / S1-S4_PASS / S5_ACTIVE`；S5完成exit evidence、Conformance与干净
+提交后才能进入S6。
 
 ## 7. Release claim boundary
 

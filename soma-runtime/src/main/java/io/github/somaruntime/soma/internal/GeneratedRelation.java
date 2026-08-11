@@ -149,7 +149,11 @@ public final class GeneratedRelation {
 
     public long count() {
         claim();
-        return execute(false, new PairWork<Long>() {
+        return execute(
+                CanonicalRelationOperation.TerminalKind.COUNT,
+                false,
+                0L,
+                new PairWork<Long>() {
             @Override public Long run(RelationBinding binding) {
                 final long[] count = new long[1];
                 visit(binding, false, new PairVisitor() {
@@ -167,7 +171,11 @@ public final class GeneratedRelation {
     public boolean anyMatch(final GeneratedCallbacks.RowPredicate predicate) {
         requireCallback(predicate, "predicate");
         claim();
-        return execute(true, new PairWork<Boolean>() {
+        return execute(
+                CanonicalRelationOperation.TerminalKind.MATCH,
+                true,
+                0L,
+                new PairWork<Boolean>() {
             @Override public Boolean run(final RelationBinding binding) {
                 final boolean[] matched = new boolean[1];
                 visit(binding, true, new PairVisitor() {
@@ -187,7 +195,11 @@ public final class GeneratedRelation {
     public boolean allMatch(final GeneratedCallbacks.RowPredicate predicate) {
         requireCallback(predicate, "predicate");
         claim();
-        return execute(true, new PairWork<Boolean>() {
+        return execute(
+                CanonicalRelationOperation.TerminalKind.MATCH,
+                true,
+                0L,
+                new PairWork<Boolean>() {
             @Override public Boolean run(final RelationBinding binding) {
                 final boolean[] result = new boolean[] {true};
                 visit(binding, true, new PairVisitor() {
@@ -207,7 +219,11 @@ public final class GeneratedRelation {
     public boolean noneMatch(GeneratedCallbacks.RowPredicate predicate) {
         requireCallback(predicate, "predicate");
         claim();
-        return execute(true, new PairWork<Boolean>() {
+        return execute(
+                CanonicalRelationOperation.TerminalKind.MATCH,
+                true,
+                0L,
+                new PairWork<Boolean>() {
             @Override public Boolean run(final RelationBinding binding) {
                 final boolean[] matched = new boolean[1];
                 visit(binding, true, new PairVisitor() {
@@ -227,7 +243,11 @@ public final class GeneratedRelation {
     public void forEach(final GeneratedCallbacks.RowAction action) {
         requireCallback(action, "action");
         claim();
-        execute(true, new PairWork<Object>() {
+        execute(
+                CanonicalRelationOperation.TerminalKind.FOR_EACH,
+                true,
+                0L,
+                new PairWork<Object>() {
             @Override public Object run(final RelationBinding binding) {
                 visit(binding, true, new PairVisitor() {
                     @Override public boolean visit(int left, int right) {
@@ -278,12 +298,17 @@ public final class GeneratedRelation {
 
     public String explain() {
         claim();
-        return execute(false, new PairWork<String>() {
+        return execute(
+                CanonicalRelationOperation.TerminalKind.EXPLAIN,
+                false,
+                0L,
+                new PairWork<String>() {
             @Override public String run(RelationBinding binding) {
                 return "SOMA relation=" + kindName(kind)
                         + " conditions=" + leftFields.length
-                        + " physical=" + physicalName()
-                        + " predicatePushdown=" + pushableFilterCount()
+                        + " physical=" + binding.frame.plan.algorithm
+                        + " predicatePushdown="
+                        + binding.frame.plan.pushedFilterCount
                         + " filters=" + filters.size()
                         + " mode=" + (parallel ? "PARALLEL" : "SEQUENTIAL")
                         + " order=left-then-right";
@@ -292,10 +317,23 @@ public final class GeneratedRelation {
     }
 
     <T> T terminal(
+            CanonicalRelationOperation.TerminalKind terminal,
             PairWork<T> work,
             boolean callbackScope,
             long outputBytesPerElement) {
-        return execute(callbackScope, outputBytesPerElement, work);
+        return execute(terminal, callbackScope, outputBytesPerElement, work);
+    }
+
+    /** Test-only reference hook retained until the S5 adapter-removal slice. */
+    <T> T terminal(
+            PairWork<T> work,
+            boolean callbackScope,
+            long outputBytesPerElement) {
+        return execute(
+                CanonicalRelationOperation.TerminalKind.TEST,
+                callbackScope,
+                outputBytesPerElement,
+                work);
     }
 
     <T> T executeLeft(
@@ -332,7 +370,10 @@ public final class GeneratedRelation {
                             final IntLocatorBuffer source = new IntLocatorBuffer(
                                     leftRoot.size, SomaOperation.QUERY, provenance);
                             RelationBinding binding = new RelationBinding(
-                                    leftRoot, rightRoot, provenance);
+                                    leftRoot,
+                                    rightRoot,
+                                    provenance,
+                                    lower(CanonicalRelationOperation.TerminalKind.LEFT_SOURCE));
                             visit(binding, false, new PairVisitor() {
                                 @Override public boolean visit(
                                         int leftLocator, int rightLocator) {
@@ -370,50 +411,61 @@ public final class GeneratedRelation {
         visitReference(binding, callbackScope, visitor);
     }
 
-    private <T> T execute(boolean callbackScope, PairWork<T> work) {
-        return execute(callbackScope, 0L, work);
-    }
-
     private <T> T execute(
+            CanonicalRelationOperation.TerminalKind terminal,
             boolean callbackScope,
             long outputBytesPerElement,
-            PairWork<T> work) {
-        if (!left.sharesGroup(right)) {
-            throw SomaFailures.invalid(
-                    SomaOperation.QUERY, "Join Tables belong to different SomaGroup instances");
-        }
-        try (GroupOperationGuard.Lease operation = left.acquireQuery()) {
-            requireParallelAvailable(operation.provenance());
-            TableStateRoot leftRoot = left.currentRoot();
-            TableStateRoot rightRoot = right.currentRoot();
-            Object provenance = operation.provenance();
-            long scratch = scratchBytes(rightRoot.size, provenance);
-            if (outputBytesPerElement != 0L) {
-                scratch = QueryOperation.addScratch(
-                        scratch,
-                        RowExecutionSupport.arrayBytes(
-                                outputUpperBound(leftRoot, rightRoot, provenance),
-                                outputBytesPerElement,
-                                provenance),
-                        provenance);
+            final PairWork<T> work) {
+        final CanonicalRelationOperation canonical = lower(terminal);
+        return CanonicalRelationQueryOperation.execute(
+                left,
+                right,
+                canonical,
+                outputBytesPerElement,
+                new CanonicalRelationQueryOperation.FrameWork<T>() {
+            @Override public T run(CanonicalRelationExecutionFrame frame) {
+                return work.run(new RelationBinding(frame));
             }
-            try (GlobalMemoryManager.TemporaryLease ignored =
-                         left.leaseQueryTemporary(scratch, provenance)) {
-                left.queryCursor().begin(leftRoot, SomaOperation.QUERY, provenance);
-                try {
-                    right.queryCursor().begin(rightRoot, SomaOperation.QUERY, provenance);
-                    try {
-                        RelationBinding binding = new RelationBinding(
-                                leftRoot, rightRoot, provenance);
-                        return work.run(binding);
-                    } finally {
-                        right.queryCursor().end();
-                    }
-                } finally {
-                    left.queryCursor().end();
-                }
+        });
+    }
+
+    private CanonicalRelationOperation lower(
+            CanonicalRelationOperation.TerminalKind terminal) {
+        CanonicalTableIdentity leftIdentity = left.logicalIdentity();
+        CanonicalTableIdentity rightIdentity = right.logicalIdentity();
+        ArrayList<CanonicalRelationFilter> canonicalFilters =
+                new ArrayList<CanonicalRelationFilter>(filters.size());
+        for (FilterStage filter : filters) {
+            if (filter.callback != null) {
+                canonicalFilters.add(new CanonicalRelationFilter(
+                        CanonicalRelationFilter.Owner.CALLBACK,
+                        null,
+                        new RelationCallbackHandle(
+                                leftIdentity,
+                                rightIdentity,
+                                RelationCallbackHandle.Kind.PREDICATE,
+                                filter.callback)));
+            } else {
+                canonicalFilters.add(new CanonicalRelationFilter(
+                        filter.owner == left
+                                ? CanonicalRelationFilter.Owner.LEFT
+                                : CanonicalRelationFilter.Owner.RIGHT,
+                        filter.predicate,
+                        null));
             }
         }
+        return new CanonicalRelationOperation(
+                leftIdentity,
+                rightIdentity,
+                leftFields,
+                rightFields,
+                CanonicalRelationOperation.Kind.values()[kind - 1],
+                maxOutputRows,
+                canonicalFilters,
+                parallel ? ExecutionRequest.PARALLEL
+                        : ExecutionRequest.SEQUENTIAL,
+                terminal,
+                null);
     }
 
     private void requireParallelAvailable(Object provenance) {
@@ -436,7 +488,10 @@ public final class GeneratedRelation {
     }
 
     long outputUpperBound(RelationBinding binding) {
-        return outputUpperBound(binding.left, binding.right, binding.provenance);
+        return binding.frame == null
+                ? outputUpperBound(
+                        binding.left, binding.right, binding.provenance)
+                : binding.frame.bound().outputUpperBound();
     }
 
     boolean isBorrowed(Object value) {
@@ -504,6 +559,10 @@ public final class GeneratedRelation {
             RelationBinding binding,
             boolean terminalCallback,
             PairVisitor visitor) {
+        int kind = binding.canonical.kind.ordinal() + 1;
+        int[] leftFields = binding.canonical.leftFields;
+        int[] rightFields = binding.canonical.rightFields;
+        long maxOutputRows = binding.canonical.maxOutputRows;
         if (kind == CROSS) {
             long product = CheckedLong.multiply(
                     binding.left.size,
@@ -527,7 +586,7 @@ public final class GeneratedRelation {
         if (leftFields.length == 0) {
             throw SomaFailures.invalid(SomaOperation.QUERY, "Equality Join condition is missing");
         }
-        IdentityHashIndex rightLookup = rightLookup(binding.right);
+        IdentityHashIndex rightLookup = rightLookup(binding);
         RightHash hash = rightLookup == null
                 ? new RightHash(binding.right.size, binding.provenance) : null;
         if (hash != null) {
@@ -606,6 +665,10 @@ public final class GeneratedRelation {
             RelationBinding binding,
             boolean terminalCallback,
             PairVisitor visitor) {
+        int kind = binding.canonical.kind.ordinal() + 1;
+        int[] leftFields = binding.canonical.leftFields;
+        int[] rightFields = binding.canonical.rightFields;
+        long maxOutputRows = binding.canonical.maxOutputRows;
         if (kind == CROSS) {
             long product = CheckedLong.multiply(
                     binding.left.size,
@@ -709,7 +772,8 @@ public final class GeneratedRelation {
             boolean terminalCallback,
             PairVisitor visitor,
             boolean optimized) {
-        boolean pairScope = terminalCallback || hasCallbackFilter();
+        boolean pairScope = terminalCallback
+                || binding.canonical.hasCallbackFilter();
         if (pairScope) enterPair(binding, leftLocator, rightLocator);
         try {
             if (!matchesFilters(
@@ -725,15 +789,20 @@ public final class GeneratedRelation {
             int leftLocator,
             int rightLocator,
             boolean optimized) {
-        int pushed = optimized ? pushableFilterCount() : 0;
-        for (int index = 0; index < filters.size(); index++) {
+        int pushed = optimized ? pushedFilterCount(binding) : 0;
+        for (int index = 0;
+                index < binding.canonical.filters.size(); index++) {
             if (index < pushed) continue;
-            FilterStage filter = filters.get(index);
+            CanonicalRelationFilter filter =
+                    binding.canonical.filters.get(index);
             if (filter.callback != null) {
-                if (!invokePredicate(filter.callback, binding)) return false;
+                if (!invokePredicate(
+                        (GeneratedCallbacks.RowPredicate)
+                                filter.callback.callback,
+                        binding)) return false;
                 continue;
             }
-            if (filter.owner == left) {
+            if (filter.owner == CanonicalRelationFilter.Owner.LEFT) {
                 if (leftLocator < 0L || !PredicateEvaluator.matches(
                         left.layout(), filter.predicate, binding.left, leftLocator)) return false;
             } else if (rightLocator < 0L || !PredicateEvaluator.matches(
@@ -746,10 +815,14 @@ public final class GeneratedRelation {
             RelationBinding binding,
             GeneratedTable owner,
             int locator) {
-        int pushed = pushableFilterCount();
+        int pushed = pushedFilterCount(binding);
         for (int index = 0; index < pushed; index++) {
-            FilterStage filter = filters.get(index);
-            if (filter.owner == owner && !PredicateEvaluator.matches(
+            CanonicalRelationFilter filter =
+                    binding.canonical.filters.get(index);
+            boolean sameOwner = owner == left
+                    ? filter.owner == CanonicalRelationFilter.Owner.LEFT
+                    : filter.owner == CanonicalRelationFilter.Owner.RIGHT;
+            if (sameOwner && !PredicateEvaluator.matches(
                     owner.layout(),
                     filter.predicate,
                     owner == left ? binding.left : binding.right,
@@ -758,21 +831,20 @@ public final class GeneratedRelation {
         return true;
     }
 
-    private int pushableFilterCount() {
-        if (kind != INNER) return 0;
-        int count = 0;
-        while (count < filters.size() && filters.get(count).callback == null) {
-            count++;
-        }
-        return count;
+    private static int pushedFilterCount(RelationBinding binding) {
+        return binding.frame == null
+                ? binding.canonical.pushableFilterCount()
+                : binding.frame.plan.pushedFilterCount;
     }
 
-    private IdentityHashIndex rightLookup(TableStateRoot rightRoot) {
+    private IdentityHashIndex rightLookup(RelationBinding binding) {
+        int[] leftFields = binding.canonical.leftFields;
+        int[] rightFields = binding.canonical.rightFields;
         if (leftFields.length != 1) return null;
         int field = rightFields[0];
-        if (right.layout().keyFieldIndex() == field) return rightRoot.key;
+        if (right.layout().keyFieldIndex() == field) return binding.right.key;
         int ordinal = right.layout().indexOrdinalForField(field);
-        return ordinal < 0 ? null : rightRoot.indexes[ordinal];
+        return ordinal < 0 ? null : binding.right.indexes[ordinal];
     }
 
     private boolean usesRightIndex() {
@@ -831,6 +903,8 @@ public final class GeneratedRelation {
             RelationBinding binding,
             int leftLocator,
             int rightLocator) {
+        int[] leftFields = binding.canonical.leftFields;
+        int[] rightFields = binding.canonical.rightFields;
         for (int index = 0; index < leftFields.length; index++) {
             if (!left.layout().joinFieldEquals(
                     binding.left.directory,
@@ -956,7 +1030,22 @@ public final class GeneratedRelation {
         final TableStateRoot left;
         final TableStateRoot right;
         final Object provenance;
-        RelationBinding(TableStateRoot left, TableStateRoot right, Object provenance) {
+        final CanonicalRelationExecutionFrame frame;
+        final CanonicalRelationOperation canonical;
+        RelationBinding(CanonicalRelationExecutionFrame frame) {
+            this.frame = frame;
+            this.canonical = frame.bound().canonical;
+            this.left = frame.bound().leftRoot;
+            this.right = frame.bound().rightRoot;
+            this.provenance = frame.bound().provenance;
+        }
+        RelationBinding(
+                TableStateRoot left,
+                TableStateRoot right,
+                Object provenance,
+                CanonicalRelationOperation canonical) {
+            this.frame = null;
+            this.canonical = canonical;
             this.left = left;
             this.right = right;
             this.provenance = provenance;

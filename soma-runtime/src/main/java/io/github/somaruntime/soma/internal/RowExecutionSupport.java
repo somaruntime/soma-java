@@ -226,6 +226,30 @@ final class RowExecutionSupport {
         } finally { CallbackExecutionScope.exit(); cursor.leave(); }
     }
 
+    static long callbackMapLong(
+            BoundCanonicalRowOperation bound,
+            int locator,
+            HostCallbackHandle callback,
+            boolean applicationCallback) {
+        if (callback == null
+                || callback.kind != HostCallbackHandle.Kind.PRIMITIVE_ROOT) {
+            throw new AssertionError("canonical callback is not a long mapper");
+        }
+        GeneratedQueryCursor cursor = bound.table.queryCursor();
+        cursor.enter(locator);
+        CallbackExecutionScope.enter();
+        try {
+            return ((GeneratedCallbacks.RowToLongMapper) callback.callback)
+                    .applyAsLong();
+        } catch (Exception failure) {
+            throw mapperFailure(
+                    failure, applicationCallback, bound.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
+            cursor.leave();
+        }
+    }
+
     static float callbackMapFloat(
             BoundRowPlan bound,
             int locator,
@@ -252,6 +276,30 @@ final class RowExecutionSupport {
         catch (Exception failure) {
             throw mapperFailure(failure, applicationCallback, bound.provenance);
         } finally { CallbackExecutionScope.exit(); cursor.leave(); }
+    }
+
+    static double callbackMapDouble(
+            BoundCanonicalRowOperation bound,
+            int locator,
+            HostCallbackHandle callback,
+            boolean applicationCallback) {
+        if (callback == null
+                || callback.kind != HostCallbackHandle.Kind.PRIMITIVE_ROOT) {
+            throw new AssertionError("canonical callback is not a double mapper");
+        }
+        GeneratedQueryCursor cursor = bound.table.queryCursor();
+        cursor.enter(locator);
+        CallbackExecutionScope.enter();
+        try {
+            return ((GeneratedCallbacks.RowToDoubleMapper) callback.callback)
+                    .applyAsDouble();
+        } catch (Exception failure) {
+            throw mapperFailure(
+                    failure, applicationCallback, bound.provenance);
+        } finally {
+            CallbackExecutionScope.exit();
+            cursor.leave();
+        }
     }
 
     private static RuntimeException mapperFailure(

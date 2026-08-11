@@ -24,23 +24,24 @@ import java.util.function.Function;
 /** Detached mapped relation pipeline; Pair never leaves its root callback. */
 public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R> {
 
-    private final Plan plan;
+    private final RelationMappedPipelineCapture capture;
     private final AtomicBoolean consumed = new AtomicBoolean();
 
-    private GeneratedRelationMappedPipeline(Plan plan) {
-        this.plan = plan;
+    private GeneratedRelationMappedPipeline(RelationMappedPipelineCapture capture) {
+        this.capture = capture;
     }
 
     static <R> GeneratedRelationMappedPipeline<R> create(
             GeneratedRelation relation,
             GeneratedCallbacks.RowMapper<R> mapper) {
         return new GeneratedRelationMappedPipeline<R>(
-                new Plan(relation, mapper, Collections.<Stage>emptyList()));
+                new RelationMappedPipelineCapture(
+                        relation, mapper, Collections.<Stage>emptyList()));
     }
 
     @Override public MappedStream<R> parallel() {
         claim();
-        return new GeneratedRelationMappedPipeline<R>(plan.parallel());
+        return new GeneratedRelationMappedPipeline<R>(capture.parallel());
     }
 
     @Override public MappedStream<R> filter(SomaPredicate<? super R> predicate) {
@@ -50,22 +51,23 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
 
     @Override public <U> MappedStream<U> map(Function<? super R, ? extends U> mapper) {
         require(mapper, "mapper"); claim();
-        return new GeneratedRelationMappedPipeline<U>(plan.append(Stage.map(castMapper(mapper))));
+        return new GeneratedRelationMappedPipeline<U>(
+                capture.append(Stage.map(castMapper(mapper))));
     }
 
     @Override public SomaIntStream mapToInt(SomaToIntFunction<? super R> mapper) {
         require(mapper, "mapper"); claim();
-        return GeneratedRelationPrimitivePipeline.intStream(plan, castToInt(mapper));
+        return GeneratedRelationPrimitivePipeline.intStream(capture, castToInt(mapper));
     }
 
     @Override public SomaLongStream mapToLong(SomaToLongFunction<? super R> mapper) {
         require(mapper, "mapper"); claim();
-        return GeneratedRelationPrimitivePipeline.longStream(plan, castToLong(mapper));
+        return GeneratedRelationPrimitivePipeline.longStream(capture, castToLong(mapper));
     }
 
     @Override public SomaDoubleStream mapToDouble(SomaToDoubleFunction<? super R> mapper) {
         require(mapper, "mapper"); claim();
-        return GeneratedRelationPrimitivePipeline.doubleStream(plan, castToDouble(mapper));
+        return GeneratedRelationPrimitivePipeline.doubleStream(capture, castToDouble(mapper));
     }
 
     @Override public MappedStream<R> distinct() { claim(); return next(Stage.distinct()); }
@@ -75,7 +77,8 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
     @Override public MappedStream<R> top(long count, Comparator<? super R> comparator) {
         requireCount(count, "top"); require(comparator, "comparator"); claim();
         return new GeneratedRelationMappedPipeline<R>(
-                plan.append(Stage.sorted(castComparator(comparator))).append(Stage.limit(count)));
+                capture.append(Stage.sorted(castComparator(comparator)))
+                        .append(Stage.limit(count)));
     }
     @Override public MappedStream<R> skip(long count) {
         requireCount(count, "skip"); claim(); return next(Stage.skip(count));
@@ -142,35 +145,39 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
         return result;
     }
     @Override public String _explain() {
-        claim(); return "SOMA relation-mapped stages=" + plan.stages.size();
+        claim(); return "SOMA relation-mapped stages=" + capture.stages.size();
     }
 
     private GeneratedRelationMappedPipeline<R> next(Stage stage) {
-        return new GeneratedRelationMappedPipeline<R>(plan.append(stage));
+        return new GeneratedRelationMappedPipeline<R>(capture.append(stage));
     }
 
     private List<Object> values() {
-        return materialize(plan);
+        return materialize(capture);
     }
 
-    static List<Object> materialize(final Plan plan) {
-        return plan.relation.terminal(
+    static List<Object> materialize(
+            final RelationMappedPipelineCapture capture) {
+        return capture.relation.terminal(
+                CanonicalRelationOperation.TerminalKind.MAP_SOURCE,
                 new GeneratedRelation.PairWork<List<Object>>() {
                     @Override public List<Object> run(
                             final GeneratedRelation.RelationBinding binding) {
                         int upper = RowExecutionSupport.arrayLength(
-                                plan.relation.outputUpperBound(binding), binding.provenance);
+                                capture.relation.outputUpperBound(binding),
+                                binding.provenance);
                         final ArrayList<Object> values = new ArrayList<Object>(upper);
-                        plan.relation.visitBound(binding, true, new GeneratedRelation.PairVisitor() {
+                        capture.relation.visitBound(
+                                binding, true, new GeneratedRelation.PairVisitor() {
                             @Override public boolean visit(int left, int right) {
                                 Object value;
                                 CallbackExecutionScope.enter();
-                                try { value = plan.mapper.apply(); }
+                                try { value = capture.mapper.apply(); }
                                 catch (Exception failure) {
                                     throw SomaFailures.callbackFailure(
                                             SomaOperation.QUERY, failure, binding.provenance);
                                 } finally { CallbackExecutionScope.exit(); }
-                                if (plan.relation.isBorrowed(value)) {
+                                if (capture.relation.isBorrowed(value)) {
                                     throw SomaFailures.failure(
                                             SomaFailureCode.CALLBACK_SCOPE_VIOLATION,
                                             SomaOperation.QUERY,
@@ -181,7 +188,7 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
                                 return true;
                             }
                         });
-                        applyStages(values, plan.stages, binding.provenance);
+                        applyStages(values, capture.stages, binding.provenance);
                         return values;
                     }
                 }, true, 72L);
@@ -284,20 +291,26 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
         finally { CallbackExecutionScope.exit(); }
     }
 
-    static final class Plan {
+    /** Java facade capture only; terminal lowering owns semantic meaning. */
+    static final class RelationMappedPipelineCapture {
         final GeneratedRelation relation;
         final GeneratedCallbacks.RowMapper<?> mapper;
         final List<Stage> stages;
-        Plan(GeneratedRelation relation, GeneratedCallbacks.RowMapper<?> mapper, List<Stage> stages) {
+        RelationMappedPipelineCapture(
+                GeneratedRelation relation,
+                GeneratedCallbacks.RowMapper<?> mapper,
+                List<Stage> stages) {
             this.relation = relation; this.mapper = mapper; this.stages = stages;
         }
-        Plan append(Stage stage) {
+        RelationMappedPipelineCapture append(Stage stage) {
             ArrayList<Stage> next = new ArrayList<Stage>(stages.size() + 1);
             next.addAll(stages); next.add(stage);
-            return new Plan(relation, mapper, Collections.unmodifiableList(next));
+            return new RelationMappedPipelineCapture(
+                    relation, mapper, Collections.unmodifiableList(next));
         }
-        Plan parallel() {
-            return new Plan(relation.parallelCopy(), mapper, stages);
+        RelationMappedPipelineCapture parallel() {
+            return new RelationMappedPipelineCapture(
+                    relation.parallelCopy(), mapper, stages);
         }
     }
 

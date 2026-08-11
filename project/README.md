@@ -3,7 +3,7 @@
 类型：Project Entry
 
 状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；Canonical IR/Execution M1
-`IMPLEMENTATION_AUTHORIZED / S1-S3_PASS / S4_ACTIVE`；publication `NOT_AUTHORIZED`
+`IMPLEMENTATION_AUTHORIZED / S1-S4_PASS / S5_ACTIVE`；publication `NOT_AUTHORIZED`
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
@@ -21,8 +21,9 @@ implementation 与 qualification：
 - Canonical Logical IR与执行引擎M1责任调整已经完成
   [正式晋升、Baseline Freeze与实施准入审查](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)，
   Product Owner已于2026-08-11授权完整实施；[S1资格](conformance/canonical-ir-execution-s1-qualification.md)
-  、[S2资格](conformance/canonical-ir-execution-s2-qualification.md)与
-  [S3资格](conformance/canonical-ir-execution-s3-qualification.md)均已`PASS`，当前唯一active slice为`S4`；
+  、[S2资格](conformance/canonical-ir-execution-s2-qualification.md)、
+  [S3资格](conformance/canonical-ir-execution-s3-qualification.md)与
+  [S4资格](conformance/canonical-ir-execution-s4-qualification.md)均已`PASS`，当前唯一active slice为`S5`；
   [大范围优化后全局完整性与回归审查](conformance/v1-post-governance-global-integrity-regression-review.md)
   已`PASS`，operation provenance、Index allocation admission与正式Owner状态漂移均已闭合；
   [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)已`PASS`，标准100K
