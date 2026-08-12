@@ -5,7 +5,7 @@
 状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；Canonical IR/Execution M1
 `S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；Vectorized Pipeline扩展
 `VP1-VP3_COMPLETED / FORMALLY_PROMOTED / NO_ACTIVE_IMPLEMENTATION_SLICE`；Physical Execution Engine M2
-`FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / P1-P2_COMPLETED / P3_ACTIVE`；publication `NOT_AUTHORIZED`
+`FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / P1-P3_COMPLETED / P4_ACTIVE`；publication `NOT_AUTHORIZED`
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
@@ -64,8 +64,9 @@ implementation 与 qualification：
   晋升、全仓qualification与Temporary replacement closure；当前没有active implementation slice；
 - [Physical Execution Engine M2正式晋升与实施准入](conformance/v1-physical-execution-engine-m2-promotion-readiness.md)
   已`PASS`：Pipeline/Segment/Breaker/Kernel/Frame/Morsel责任已进入正式Owner，P1-P6 Baseline冻结且
-  Product Owner已授权完整实施；[P1资格](conformance/physical-execution-engine-m2-p1-qualification.md)
-  与[P2资格](conformance/physical-execution-engine-m2-p2-qualification.md)已`PASS`，当前P3为唯一active slice；
+  Product Owner已授权完整实施；[P1资格](conformance/physical-execution-engine-m2-p1-qualification.md)、
+  [P2资格](conformance/physical-execution-engine-m2-p2-qualification.md)与
+  [P3资格](conformance/physical-execution-engine-m2-p3-qualification.md)已`PASS`，当前P4为唯一active slice；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和

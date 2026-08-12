@@ -397,7 +397,7 @@ final class CanonicalRowPhysicalPlan {
 
     boolean managesParallelPreparation() {
         CanonicalPrimitiveVectorKernel.Decision kernel =
-                pipeline.terminalSegment().chunkKernel;
+                pipeline.chunkKernel();
         return kernel != null && kernel.managesParallel;
     }
 }
@@ -413,17 +413,20 @@ final class CanonicalPhysicalPipeline {
 
     final CanonicalRowPhysicalPlan.AccessPath source;
     final CanonicalPhysicalSegment[] segments;
+    final CanonicalPhysicalBreaker[] breakers;
     final Sink sink;
 
     private CanonicalPhysicalPipeline(
             CanonicalRowPhysicalPlan.AccessPath source,
             CanonicalPhysicalSegment[] segments,
+            CanonicalPhysicalBreaker[] breakers,
             Sink sink) {
         if (segments == null || segments.length == 0) {
             throw new AssertionError("physical pipeline has no segment");
         }
         this.source = source;
         this.segments = segments.clone();
+        this.breakers = breakers.clone();
         this.sink = sink;
     }
 
@@ -434,11 +437,6 @@ final class CanonicalPhysicalPipeline {
             int parallelPrefixStages,
             int partitions,
             CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
-        int streamingEnd = 0;
-        while (streamingEnd < normalized.stages.size()
-                && !normalized.stages.get(streamingEnd).isStateful()) {
-            streamingEnd++;
-        }
         CanonicalPhysicalMorsel morsel = chunkKernel != null
                 && chunkKernel.managesParallel
                 ? CanonicalPhysicalMorsel.chunk(partitions)
@@ -447,41 +445,32 @@ final class CanonicalPhysicalPipeline {
                         : CanonicalPhysicalMorsel.caller();
         ArrayList<CanonicalPhysicalSegment> segments =
                 new ArrayList<CanonicalPhysicalSegment>();
+        ArrayList<CanonicalPhysicalBreaker> breakers =
+                new ArrayList<CanonicalPhysicalBreaker>();
         CanonicalPrimitiveVectorKernel.Decision rowKernel =
                 request.primitive == null ? chunkKernel : null;
-        segments.add(new CanonicalPhysicalSegment(
-                CanonicalPhysicalSegment.Shape.ROW_LOCATOR,
-                0,
-                streamingEnd,
-                rowKernel == null
-                        ? CanonicalPhysicalSegment.Kernel.TYPED_SCALAR
-                        : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
-                hasRowCallback(normalized.stages, 0, streamingEnd),
-                rowKernel == null ? CanonicalPhysicalMorsel.caller() : morsel,
-                rowKernel));
+        addRowTopology(
+                segments, breakers, normalized, rowKernel,
+                rowKernel == null && chunkKernel != null
+                        ? CanonicalPhysicalMorsel.caller() : morsel);
         if (request.mapped != null) {
-            addMappedSegment(segments, request.mapped);
+            addMappedTopology(
+                    segments, breakers, request.mapped,
+                    normalized.bound.root.size);
         } else if (request.primitive != null) {
             if (request.primitive.mapped != null) {
-                addMappedSegment(segments, request.primitive.mapped);
+                addMappedTopology(
+                        segments, breakers, request.primitive.mapped,
+                        normalized.bound.root.size);
             }
-            int end = firstPrimitiveStateful(request.primitive.stages);
-            segments.add(new CanonicalPhysicalSegment(
-                    CanonicalPhysicalSegment.Shape.PRIMITIVE,
-                    0,
-                    end,
-                    chunkKernel == null
-                            ? CanonicalPhysicalSegment.Kernel.PRIMITIVE_SCALAR
-                            : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
-                    request.primitive.rootApplicationCallback
-                            || hasPrimitiveCallback(
-                                    request.primitive.stages, 0, end),
-                    chunkKernel == null ? CanonicalPhysicalMorsel.caller() : morsel,
-                    chunkKernel));
+            addPrimitiveTopology(
+                    segments, breakers, request.primitive,
+                    normalized.bound.root.size, chunkKernel, morsel);
         }
         return new CanonicalPhysicalPipeline(
                 source,
                 segments.toArray(new CanonicalPhysicalSegment[segments.size()]),
+                breakers.toArray(new CanonicalPhysicalBreaker[breakers.size()]),
                 sink(normalized, request, chunkKernel));
     }
 
@@ -489,31 +478,209 @@ final class CanonicalPhysicalPipeline {
         return segments[segments.length - 1];
     }
 
-    private static void addMappedSegment(
-            ArrayList<CanonicalPhysicalSegment> segments,
-            CanonicalMappedOperation mapped) {
-        int end = firstMappedStateful(mapped.stages);
-        segments.add(new CanonicalPhysicalSegment(
-                CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE,
-                0,
-                end,
-                CanonicalPhysicalSegment.Kernel.MAPPED_SCALAR,
-                true,
-                CanonicalPhysicalMorsel.caller(),
-                null));
+    CanonicalPrimitiveVectorKernel.Decision chunkKernel() {
+        for (CanonicalPhysicalSegment segment : segments) {
+            if (segment.chunkKernel != null) return segment.chunkKernel;
+        }
+        return null;
     }
 
-    private static int firstMappedStateful(
-            List<CanonicalMappedStage> stages) {
-        for (int index = 0; index < stages.size(); index++) {
+    CanonicalPhysicalSegment firstSegment(
+            CanonicalPhysicalSegment.Shape shape) {
+        for (CanonicalPhysicalSegment segment : segments) {
+            if (segment.shape == shape) return segment;
+        }
+        return null;
+    }
+
+    CanonicalPhysicalSegment lastSegment(
+            CanonicalPhysicalSegment.Shape shape) {
+        for (int index = segments.length - 1; index >= 0; index--) {
+            if (segments[index].shape == shape) return segments[index];
+        }
+        return null;
+    }
+
+    boolean hasBreaker(CanonicalPhysicalSegment.Shape shape) {
+        return firstBreaker(shape, 0) >= 0;
+    }
+
+    int firstBreaker(CanonicalPhysicalSegment.Shape shape, int from) {
+        for (int index = from; index < breakers.length; index++) {
+            if (breakers[index].shape == shape) return index;
+        }
+        return -1;
+    }
+
+    private static void addRowTopology(
+            ArrayList<CanonicalPhysicalSegment> segments,
+            ArrayList<CanonicalPhysicalBreaker> breakers,
+            NormalizedCanonicalRow normalized,
+            CanonicalPrimitiveVectorKernel.Decision chunkKernel,
+            CanonicalPhysicalMorsel morsel) {
+        int from = 0;
+        boolean first = true;
+        while (true) {
+            int stateful = nextRowStateful(normalized.stages, from);
+            int inputSegment = segments.size();
+            CanonicalPrimitiveVectorKernel.Decision segmentKernel =
+                    first ? chunkKernel : null;
+            segments.add(new CanonicalPhysicalSegment(
+                    CanonicalPhysicalSegment.Shape.ROW_LOCATOR,
+                    from,
+                    stateful,
+                    segmentKernel == null
+                            ? CanonicalPhysicalSegment.Kernel.TYPED_SCALAR
+                            : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
+                    hasRowCallback(normalized.stages, from, stateful),
+                    first ? morsel : CanonicalPhysicalMorsel.caller(),
+                    segmentKernel));
+            first = false;
+            if (stateful == normalized.stages.size()) return;
+            CanonicalRowStage stage = normalized.stages.get(stateful);
+            int consumed = stateful + 1;
+            CanonicalPhysicalBreaker.Kind kind;
+            CanonicalPhysicalBreaker.Kernel kernel;
+            if (stage.kind == CanonicalRowStage.Kind.DISTINCT_FIELD) {
+                kind = CanonicalPhysicalBreaker.Kind.MEMBERSHIP;
+                kernel = CanonicalPhysicalBreaker.Kernel.TYPED_HASH;
+            } else if (breakers.isEmpty()
+                    && isBoundedRowTop(normalized, stateful)) {
+                kind = CanonicalPhysicalBreaker.Kind.BOUNDED_TOP;
+                kernel = CanonicalPhysicalBreaker.Kernel.TYPED_HEAP;
+                consumed++;
+            } else {
+                kind = CanonicalPhysicalBreaker.Kind.STABLE_REORDER;
+                kernel = CanonicalPhysicalBreaker.Kernel.TYPED_STABLE_SORT;
+            }
+            breakers.add(new CanonicalPhysicalBreaker(
+                    CanonicalPhysicalSegment.Shape.ROW_LOCATOR,
+                    kind,
+                    kernel,
+                    stateful,
+                    consumed,
+                    inputSegment,
+                    segments.size(),
+                    normalized.bound.root.size));
+            from = consumed;
+        }
+    }
+
+    private static boolean isBoundedRowTop(
+            NormalizedCanonicalRow normalized,
+            int order) {
+        if (normalized.stages.get(order).kind
+                != CanonicalRowStage.Kind.TYPED_ORDER) return false;
+        int limit = order + 1;
+        if (limit >= normalized.stages.size()
+                || normalized.stages.get(limit).kind
+                        != CanonicalRowStage.Kind.LIMIT) return false;
+        long count = normalized.stages.get(limit).count;
+        long source = normalized.bound.root.size;
+        return count < source && (count <= 64L || count <= source / 4L);
+    }
+
+    private static void addMappedTopology(
+            ArrayList<CanonicalPhysicalSegment> segments,
+            ArrayList<CanonicalPhysicalBreaker> breakers,
+            CanonicalMappedOperation mapped,
+            long inputUpperBound) {
+        int from = 0;
+        while (true) {
+            int stateful = nextMappedStateful(mapped.stages, from);
+            int inputSegment = segments.size();
+            segments.add(new CanonicalPhysicalSegment(
+                    CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE,
+                    from,
+                    stateful,
+                    CanonicalPhysicalSegment.Kernel.MAPPED_SCALAR,
+                    true,
+                    CanonicalPhysicalMorsel.caller(),
+                    null));
+            if (stateful == mapped.stages.size()) return;
+            CanonicalMappedStage stage = mapped.stages.get(stateful);
+            breakers.add(new CanonicalPhysicalBreaker(
+                    CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE,
+                    stage.kind == CanonicalMappedStage.Kind.DISTINCT
+                            ? CanonicalPhysicalBreaker.Kind.MEMBERSHIP
+                            : CanonicalPhysicalBreaker.Kind.STABLE_REORDER,
+                    stage.kind == CanonicalMappedStage.Kind.DISTINCT
+                            ? CanonicalPhysicalBreaker.Kernel.HOST_HASH
+                            : CanonicalPhysicalBreaker.Kernel.HOST_STABLE_SORT,
+                    stateful,
+                    stateful + 1,
+                    inputSegment,
+                    segments.size(),
+                    inputUpperBound));
+            from = stateful + 1;
+        }
+    }
+
+    private static void addPrimitiveTopology(
+            ArrayList<CanonicalPhysicalSegment> segments,
+            ArrayList<CanonicalPhysicalBreaker> breakers,
+            CanonicalPrimitiveOperation primitive,
+            long inputUpperBound,
+            CanonicalPrimitiveVectorKernel.Decision chunkKernel,
+            CanonicalPhysicalMorsel morsel) {
+        int from = 0;
+        boolean first = true;
+        while (true) {
+            int stateful = nextPrimitiveStateful(primitive.stages, from);
+            int inputSegment = segments.size();
+            CanonicalPrimitiveVectorKernel.Decision segmentKernel =
+                    first ? chunkKernel : null;
+            segments.add(new CanonicalPhysicalSegment(
+                    CanonicalPhysicalSegment.Shape.PRIMITIVE,
+                    from,
+                    stateful,
+                    segmentKernel == null
+                            ? CanonicalPhysicalSegment.Kernel.PRIMITIVE_SCALAR
+                            : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
+                    primitive.rootApplicationCallback
+                            || hasPrimitiveCallback(
+                                    primitive.stages, from, stateful),
+                    first ? morsel : CanonicalPhysicalMorsel.caller(),
+                    segmentKernel));
+            first = false;
+            if (stateful == primitive.stages.size()) return;
+            CanonicalPrimitiveStage stage = primitive.stages.get(stateful);
+            breakers.add(new CanonicalPhysicalBreaker(
+                    CanonicalPhysicalSegment.Shape.PRIMITIVE,
+                    stage.kind == CanonicalPrimitiveStage.Kind.DISTINCT
+                            ? CanonicalPhysicalBreaker.Kind.MEMBERSHIP
+                            : CanonicalPhysicalBreaker.Kind.STABLE_REORDER,
+                    stage.kind == CanonicalPrimitiveStage.Kind.DISTINCT
+                            ? CanonicalPhysicalBreaker.Kernel.PRIMITIVE_HASH
+                            : CanonicalPhysicalBreaker.Kernel.PRIMITIVE_STABLE_SORT,
+                    stateful,
+                    stateful + 1,
+                    inputSegment,
+                    segments.size(),
+                    inputUpperBound));
+            from = stateful + 1;
+        }
+    }
+
+    private static int nextRowStateful(
+            List<CanonicalRowStage> stages, int from) {
+        for (int index = from; index < stages.size(); index++) {
             if (stages.get(index).isStateful()) return index;
         }
         return stages.size();
     }
 
-    private static int firstPrimitiveStateful(
-            List<CanonicalPrimitiveStage> stages) {
-        for (int index = 0; index < stages.size(); index++) {
+    private static int nextMappedStateful(
+            List<CanonicalMappedStage> stages, int from) {
+        for (int index = from; index < stages.size(); index++) {
+            if (stages.get(index).isStateful()) return index;
+        }
+        return stages.size();
+    }
+
+    private static int nextPrimitiveStateful(
+            List<CanonicalPrimitiveStage> stages, int from) {
+        for (int index = from; index < stages.size(); index++) {
             if (stages.get(index).isStateful()) return index;
         }
         return stages.size();
@@ -557,6 +724,61 @@ final class CanonicalPhysicalPipeline {
             default:
                 return Sink.ROW_FAMILY;
         }
+    }
+}
+
+/** Finite stateful boundary with one typed implementation and Frame-owned state. */
+final class CanonicalPhysicalBreaker {
+    enum Kind {
+        MEMBERSHIP,
+        STABLE_REORDER,
+        BOUNDED_TOP
+    }
+
+    enum Kernel {
+        TYPED_HASH,
+        TYPED_STABLE_SORT,
+        TYPED_HEAP,
+        HOST_HASH,
+        HOST_STABLE_SORT,
+        PRIMITIVE_HASH,
+        PRIMITIVE_STABLE_SORT
+    }
+
+    final CanonicalPhysicalSegment.Shape shape;
+    final Kind kind;
+    final Kernel kernel;
+    final int stageIndex;
+    final int consumedToStageExclusive;
+    final int inputSegmentOrdinal;
+    final int outputSegmentOrdinal;
+    final long inputUpperBound;
+
+    CanonicalPhysicalBreaker(
+            CanonicalPhysicalSegment.Shape shape,
+            Kind kind,
+            Kernel kernel,
+            int stageIndex,
+            int consumedToStageExclusive,
+            int inputSegmentOrdinal,
+            int outputSegmentOrdinal,
+            long inputUpperBound) {
+        if (shape == null || kind == null || kernel == null
+                || stageIndex < 0
+                || consumedToStageExclusive <= stageIndex
+                || inputSegmentOrdinal < 0
+                || outputSegmentOrdinal <= inputSegmentOrdinal
+                || inputUpperBound < 0L) {
+            throw new AssertionError("invalid physical breaker");
+        }
+        this.shape = shape;
+        this.kind = kind;
+        this.kernel = kernel;
+        this.stageIndex = stageIndex;
+        this.consumedToStageExclusive = consumedToStageExclusive;
+        this.inputSegmentOrdinal = inputSegmentOrdinal;
+        this.outputSegmentOrdinal = outputSegmentOrdinal;
+        this.inputUpperBound = inputUpperBound;
     }
 }
 

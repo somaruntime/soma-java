@@ -273,19 +273,17 @@ final class MappedQueryOperation {
             MappedVisitor visitor) {
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
         if (operation.hasOwnStatefulStage()) {
-            ObjectBuffer values = values(frame, operation);
+            MappedValueBuffer values = values(frame, operation);
             for (int index = 0; index < values.size; index++) {
                 if (!visitor.visit(values.values[index])) return;
             }
             return;
         }
-        CanonicalPhysicalSegment segment = frame.plan.pipeline.terminalSegment();
-        final int from = segment.shape
-                        == CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE
-                ? segment.fromStage : 0;
-        final int to = segment.shape
-                        == CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE
-                ? segment.toStageExclusive : operation.stages.size();
+        CanonicalPhysicalSegment segment = frame.plan.pipeline.lastSegment(
+                CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE);
+        final int from = segment == null ? 0 : segment.fromStage;
+        final int to = segment == null
+                ? operation.stages.size() : segment.toStageExclusive;
         final long[] counters = new long[to - from];
         CanonicalRowExecution.visit(frame, locator -> {
             if (limitReached(operation.stages, from, to, counters)) return false;
@@ -353,30 +351,47 @@ final class MappedQueryOperation {
         return result;
     }
 
-    private static ObjectBuffer values(
+    private static MappedValueBuffer values(
             CanonicalRowExecutionFrame frame,
             CanonicalMappedOperation operation) {
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
-        ObjectBuffer values = new ObjectBuffer(
-                bound.root.size, bound.provenance);
-        int firstStateful = nextStateful(operation.stages, 0);
+        CanonicalPhysicalPipeline pipeline = frame.plan.pipeline;
+        int breakerIndex = pipeline.firstBreaker(
+                CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE, 0);
+        if (breakerIndex < 0) {
+            throw new AssertionError("Mapped breaker topology is missing");
+        }
+        CanonicalPhysicalBreaker firstBreaker =
+                pipeline.breakers[breakerIndex];
+        CanonicalPhysicalSegment firstSegment =
+                pipeline.segments[firstBreaker.inputSegmentOrdinal];
+        MappedValueBuffer values = frame.allocateMappedBreakerState(
+                firstBreaker.inputUpperBound, bound.provenance);
         collectSegment(
-                frame, operation, 0, firstStateful, values);
-        int position = firstStateful;
-        while (position < operation.stages.size()) {
-            CanonicalMappedStage stage = operation.stages.get(position);
-            if (stage.kind == CanonicalMappedStage.Kind.DISTINCT) {
+                frame, operation,
+                firstSegment.fromStage,
+                firstSegment.toStageExclusive,
+                values);
+        while (breakerIndex >= 0) {
+            CanonicalPhysicalBreaker breaker = pipeline.breakers[breakerIndex];
+            CanonicalMappedStage stage =
+                    operation.stages.get(breaker.stageIndex);
+            if (breaker.kind == CanonicalPhysicalBreaker.Kind.MEMBERSHIP) {
                 distinct(bound, values);
-            } else if (stage.kind == CanonicalMappedStage.Kind.SORTED) {
+            } else if (breaker.kind
+                    == CanonicalPhysicalBreaker.Kind.STABLE_REORDER) {
                 stableSort(bound, values, stage.callback);
             } else {
-                throw new AssertionError("expected stateful mapped stage");
+                throw new AssertionError("unexpected Mapped breaker");
             }
-            int next = nextStateful(operation.stages, position + 1);
+            CanonicalPhysicalSegment output =
+                    pipeline.segments[breaker.outputSegmentOrdinal];
             compactSegment(
                     bound, values, operation.stages,
-                    position + 1, next);
-            position = next;
+                    output.fromStage, output.toStageExclusive);
+            breakerIndex = pipeline.firstBreaker(
+                    CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE,
+                    breakerIndex + 1);
         }
         return values;
     }
@@ -386,7 +401,7 @@ final class MappedQueryOperation {
             CanonicalMappedOperation operation,
             int from,
             int to,
-            ObjectBuffer output) {
+            MappedValueBuffer output) {
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
         long[] counters = new long[to - from];
         CanonicalRowExecution.visit(frame, locator -> {
@@ -405,7 +420,7 @@ final class MappedQueryOperation {
 
     private static void compactSegment(
             BoundCanonicalRowOperation bound,
-            ObjectBuffer values,
+            MappedValueBuffer values,
             List<CanonicalMappedStage> stages,
             int from,
             int to) {
@@ -468,7 +483,7 @@ final class MappedQueryOperation {
 
     private static void distinct(
             BoundCanonicalRowOperation bound,
-            ObjectBuffer values) {
+            MappedValueBuffer values) {
         CanonicalMappedDistinct seen = new CanonicalMappedDistinct(
                 values.size, bound);
         int output = 0;
@@ -481,7 +496,7 @@ final class MappedQueryOperation {
 
     private static void stableSort(
             BoundCanonicalRowOperation bound,
-            ObjectBuffer values,
+            MappedValueBuffer values,
             HostCallbackHandle comparator) {
         CanonicalMappedSort.sort(
                 bound,
@@ -600,15 +615,6 @@ final class MappedQueryOperation {
         return false;
     }
 
-    private static int nextStateful(
-            List<CanonicalMappedStage> stages,
-            int from) {
-        for (int position = from; position < stages.size(); position++) {
-            if (stages.get(position).isStateful()) return position;
-        }
-        return stages.size();
-    }
-
     private static void appendStages(
             StringBuilder target,
             List<CanonicalMappedStage> stages) {
@@ -666,22 +672,24 @@ final class MappedQueryOperation {
         }
     }
 
-    private static final class ObjectBuffer {
-        final Object[] values;
-        int size;
+}
 
-        ObjectBuffer(long upper, Object provenance) {
-            values = new Object[RowExecutionSupport.arrayLength(
-                    upper, provenance)];
-        }
+/** Typed host-reference breaker buffer allocated only by an admitted Frame. */
+final class MappedValueBuffer {
+    final Object[] values;
+    int size;
 
-        void add(Object value) {
-            values[size++] = value;
-        }
+    MappedValueBuffer(long upper, Object provenance) {
+        values = new Object[RowExecutionSupport.arrayLength(
+                upper, provenance)];
+    }
 
-        void clearTail(int next) {
-            Arrays.fill(values, next, size, null);
-            size = next;
-        }
+    void add(Object value) {
+        values[size++] = value;
+    }
+
+    void clearTail(int next) {
+        Arrays.fill(values, next, size, null);
+        size = next;
     }
 }

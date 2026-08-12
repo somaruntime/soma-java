@@ -472,11 +472,11 @@ strictfp final class PrimitivePlanOperation {
             return;
         }
         final CanonicalPhysicalSegment segment =
-                frame.plan.pipeline.terminalSegment();
-        final int from = segment.shape == CanonicalPhysicalSegment.Shape.PRIMITIVE
-                ? segment.fromStage : 0;
-        final int to = segment.shape == CanonicalPhysicalSegment.Shape.PRIMITIVE
-                ? segment.toStageExclusive : plan.stages.size();
+                frame.plan.pipeline.lastSegment(
+                        CanonicalPhysicalSegment.Shape.PRIMITIVE);
+        final int from = segment == null ? 0 : segment.fromStage;
+        final int to = segment == null
+                ? plan.stages.size() : segment.toStageExclusive;
         final long[] counters = new long[to - from];
         if (primitiveLimitReached(
                 plan, counters, from, to)) {
@@ -527,21 +527,43 @@ strictfp final class PrimitivePlanOperation {
             CanonicalRowExecutionFrame frame,
             CanonicalPrimitiveOperation plan) {
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
-        LongValueBuffer result = new LongValueBuffer(bound.root.size, bound.provenance);
-        int firstStateful = primitiveNextStateful(plan.stages, 0);
-        collectPrimitiveSegment(frame, plan, 0, firstStateful, result);
-        int position = firstStateful;
-        while (position < plan.stages.size()) {
-            CanonicalPrimitiveStage stage = plan.stages.get(position);
-            switch (stage.kind) {
-                case DISTINCT: distinct(bound, result, stage.input); break;
-                case SORTED: sort(result, stage.input); break;
-                default: throw new AssertionError("expected stateful primitive stage");
+        CanonicalPhysicalPipeline pipeline = frame.plan.pipeline;
+        int breakerIndex = pipeline.firstBreaker(
+                CanonicalPhysicalSegment.Shape.PRIMITIVE, 0);
+        if (breakerIndex < 0) {
+            throw new AssertionError("Primitive breaker topology is missing");
+        }
+        CanonicalPhysicalBreaker firstBreaker =
+                pipeline.breakers[breakerIndex];
+        CanonicalPhysicalSegment firstSegment =
+                pipeline.segments[firstBreaker.inputSegmentOrdinal];
+        LongValueBuffer result = frame.allocatePrimitiveBreakerState(
+                firstBreaker.inputUpperBound, bound.provenance);
+        collectPrimitiveSegment(
+                frame, plan,
+                firstSegment.fromStage,
+                firstSegment.toStageExclusive,
+                result);
+        while (breakerIndex >= 0) {
+            CanonicalPhysicalBreaker breaker = pipeline.breakers[breakerIndex];
+            CanonicalPrimitiveStage stage =
+                    plan.stages.get(breaker.stageIndex);
+            if (breaker.kind == CanonicalPhysicalBreaker.Kind.MEMBERSHIP) {
+                distinct(bound, result, stage.input);
+            } else if (breaker.kind
+                    == CanonicalPhysicalBreaker.Kind.STABLE_REORDER) {
+                sort(result, stage.input);
+            } else {
+                throw new AssertionError("unexpected Primitive breaker");
             }
-            int next = primitiveNextStateful(plan.stages, position + 1);
+            CanonicalPhysicalSegment output =
+                    pipeline.segments[breaker.outputSegmentOrdinal];
             compactPrimitiveSegment(
-                    bound, result, plan.stages, position + 1, next);
-            position = next;
+                    bound, result, plan.stages,
+                    output.fromStage, output.toStageExclusive);
+            breakerIndex = pipeline.firstBreaker(
+                    CanonicalPhysicalSegment.Shape.PRIMITIVE,
+                    breakerIndex + 1);
         }
         return result;
     }
@@ -648,17 +670,6 @@ strictfp final class PrimitivePlanOperation {
                     && counters[position - from] >= stage.count) return true;
         }
         return false;
-    }
-
-    private static int primitiveNextStateful(
-            java.util.List<CanonicalPrimitiveStage> stages,
-            int from) {
-        for (int position = from; position < stages.size(); position++) {
-            CanonicalPrimitiveStage.Kind kind = stages.get(position).kind;
-            if (kind == CanonicalPrimitiveStage.Kind.DISTINCT
-                    || kind == CanonicalPrimitiveStage.Kind.SORTED) return position;
-        }
-        return stages.size();
     }
 
     private static void visitRoot(

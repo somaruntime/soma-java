@@ -195,7 +195,7 @@ dependency或plugin expansion。
 ## 实施准入与推进
 
 - 当前 implementation authorization 已由I0-I8与Canonical IR/Execution S1-S6完成履行；Physical
-  Execution Engine M2另由2026-08-12 Product Owner授权，P1-P2已完成，P3是唯一active slice；
+  Execution Engine M2另由2026-08-12 Product Owner授权，P1-P3已完成，P4是唯一active slice；
 - Canonical IR/Execution S1-S6的授权由
   [正式Conformance记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)拥有；
   冻结Engineering Plan中的准入快照不作为current authorization状态源；

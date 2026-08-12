@@ -3,7 +3,7 @@
 类型：Engineering Entry
 
 状态：I0–I8 `COMPLETED`；Canonical IR/Execution S1–S6 `COMPLETED`；
-Physical Execution Engine M2 `IMPLEMENTATION_AUTHORIZED / P1-P2_COMPLETED / P3_ACTIVE`
+Physical Execution Engine M2 `IMPLEMENTATION_AUTHORIZED / P1-P3_COMPLETED / P4_ACTIVE`
 
 Owner：SOMA Java implementation sequence、work unit 与 engineering evidence route
 
@@ -45,7 +45,7 @@ exit evidence、Conformance与干净提交，[最终S6资格](../conformance/can
 Physical Execution Engine M2由
 [P1-P6正式计划](physical-execution-engine-m2-implementation-plan.md)拥有实施顺序，正式
 [晋升与准入记录](../conformance/v1-physical-execution-engine-m2-promotion-readiness.md)拥有授权和current
-状态。Product Owner已于2026-08-12授权完整治理；P1-P2已经`PASS`，当前只激活P3。
+状态。Product Owner已于2026-08-12授权完整治理；P1-P3已经`PASS`，当前只激活P4。
 
 ## 当前工程入口
 

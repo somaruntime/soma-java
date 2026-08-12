@@ -364,6 +364,8 @@ final class CanonicalQueryOperation {
                     .append(hasStatelessFusion(normalized.stages))
                     .append(" physicalSegments=")
                     .append(physical.pipeline.segments.length)
+                    .append(" physicalBreakers=")
+                    .append(physical.pipeline.breakers.length)
                     .append(" segmentKernel=")
                     .append(physical.pipeline.terminalSegment().kernel)
                     .append(" segmentShape=")
@@ -378,6 +380,9 @@ final class CanonicalQueryOperation {
                     .append(physical.pipeline.terminalSegment().morsel.kind)
                     .append(" physicalSink=")
                     .append(physical.pipeline.sink)
+                    .append(" breakerTopology=");
+            appendBreakers(result, physical.pipeline.breakers);
+            result
                     .append(" boundedTop=")
                     .append(CanonicalRowExecution.usesBoundedTypedTop(physical))
                     .append(" inMembershipLiterals=")
@@ -387,6 +392,26 @@ final class CanonicalQueryOperation {
                     .append(' ')
                     .append(bound.table.compressionExplain(bound.root));
             return result.toString();
+    }
+
+    private static void appendBreakers(
+            StringBuilder target,
+            CanonicalPhysicalBreaker[] breakers) {
+        target.append('[');
+        for (int index = 0; index < breakers.length; index++) {
+            if (index != 0) target.append(',');
+            CanonicalPhysicalBreaker breaker = breakers[index];
+            target.append(breaker.shape)
+                    .append(':')
+                    .append(breaker.kind)
+                    .append(':')
+                    .append(breaker.kernel)
+                    .append('@')
+                    .append(breaker.stageIndex)
+                    .append("..")
+                    .append(breaker.consumedToStageExclusive);
+        }
+        target.append(']');
     }
 
     private static <T> T execute(

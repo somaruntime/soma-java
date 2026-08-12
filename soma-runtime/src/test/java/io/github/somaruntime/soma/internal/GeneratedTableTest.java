@@ -1456,6 +1456,93 @@ class GeneratedTableTest {
     }
 
     @Test
+    void statefulFamiliesConsumeFiniteBreakerTopology() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 32L; key++) {
+            add(table, key, "bucket-" + key % 3L,
+                    (int) (key % 7L), new Object());
+        }
+
+        LogicalRowPlan rowFrontend = LogicalRowPlan.tableScan(table)
+                .top(4L, (GeneratedOrder<?>) table.<Object>asc(2));
+        CanonicalRowOperation row = CanonicalRowLowering.source(
+                table, rowFrontend);
+        BoundCanonicalRowOperation rowBound = new BoundCanonicalRowOperation(
+                row, table, table.layout(), table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        CanonicalRowPhysicalPlan rowPlan = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(rowBound),
+                CanonicalRowPhysicalRequest.row(0L));
+        assertEquals(2, rowPlan.pipeline.segments.length);
+        assertEquals(1, rowPlan.pipeline.breakers.length);
+        assertEquals(CanonicalPhysicalBreaker.Kind.BOUNDED_TOP,
+                rowPlan.pipeline.breakers[0].kind);
+        assertEquals(CanonicalPhysicalBreaker.Kernel.TYPED_HEAP,
+                rowPlan.pipeline.breakers[0].kernel);
+        assertEquals(1,
+                rowPlan.pipeline.breakers[0].outputSegmentOrdinal);
+        assertTrue(QueryOperation.explain(rowFrontend)
+                .contains("ROW_LOCATOR:BOUNDED_TOP:TYPED_HEAP"));
+
+        GeneratedCallbacks.RowMapper<Integer> mappedRoot =
+                () -> Integer.valueOf(table.queryCursor().viewInt(2));
+        MappedPipelineCapture<Integer> mappedCapture = MappedPipelineCapture
+                .root(LogicalRowPlan.tableScan(table), mappedRoot)
+                .distinct()
+                .sorted(Integer::compareTo)
+                .limit(4L);
+        CanonicalMappedOperation mapped = CanonicalMappedLowering.operation(
+                mappedCapture,
+                CanonicalMappedOperation.TerminalKind.MATERIALIZE,
+                null,
+                null);
+        CanonicalRowPhysicalPlan mappedPlan = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(new BoundCanonicalRowOperation(
+                        mapped.source, table, table.layout(),
+                        table.rootForTesting(),
+                        io.github.somaruntime.soma.SomaOperation.QUERY,
+                        new Object())),
+                CanonicalRowPhysicalRequest.mapped(mapped, 4_096L));
+        assertEquals(2, mappedPlan.pipeline.breakers.length);
+        assertEquals(CanonicalPhysicalBreaker.Kernel.HOST_HASH,
+                mappedPlan.pipeline.breakers[0].kernel);
+        assertEquals(CanonicalPhysicalBreaker.Kernel.HOST_STABLE_SORT,
+                mappedPlan.pipeline.breakers[1].kernel);
+        assertEquals(Arrays.<Object>asList(0, 1, 2, 3),
+                MappedQueryOperation.toList(mappedCapture));
+
+        GeneratedCallbacks.RowToIntMapper primitiveRoot =
+                () -> table.queryCursor().viewInt(2);
+        PrimitivePipelineCapture primitiveCapture = PrimitivePipelineCapture
+                .row(LogicalRowPlan.tableScan(table),
+                        PrimitiveValueKind.INT, primitiveRoot, true)
+                .distinct()
+                .sorted()
+                .limit(4L);
+        CanonicalPrimitiveOperation primitive =
+                CanonicalPrimitiveLowering.operation(
+                        primitiveCapture,
+                        CanonicalPrimitiveOperation.TerminalKind.MATERIALIZE,
+                        null);
+        CanonicalRowPhysicalPlan primitivePlan = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(new BoundCanonicalRowOperation(
+                        primitive.source, table, table.layout(),
+                        table.rootForTesting(),
+                        io.github.somaruntime.soma.SomaOperation.QUERY,
+                        new Object())),
+                CanonicalRowPhysicalRequest.primitive(
+                        primitive, 4_096L));
+        assertEquals(2, primitivePlan.pipeline.breakers.length);
+        assertEquals(CanonicalPhysicalBreaker.Kernel.PRIMITIVE_HASH,
+                primitivePlan.pipeline.breakers[0].kernel);
+        assertEquals(CanonicalPhysicalBreaker.Kernel.PRIMITIVE_STABLE_SORT,
+                primitivePlan.pipeline.breakers[1].kernel);
+        assertTrue(Arrays.equals(new long[] {0L, 1L, 2L, 3L},
+                PrimitivePlanOperation.valuesForTesting(primitiveCapture)));
+    }
+
+    @Test
     void randomizedLogicalPlansMatchOnIndependentImmutableStates() {
         GeneratedTable optimizedTable = table(64L << 20, MutationFaultInjector.NONE);
         GeneratedTable referenceTable = table(64L << 20, MutationFaultInjector.NONE);

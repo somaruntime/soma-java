@@ -13,7 +13,8 @@ final class CanonicalRowExecution {
     }
 
     static long count(CanonicalRowExecutionFrame frame) {
-        if (hasStateful(frame.plan.normalized.stages)) {
+        if (frame.plan.pipeline.hasBreaker(
+                CanonicalPhysicalSegment.Shape.ROW_LOCATOR)) {
             return locators(frame).size();
         }
         final long[] result = new long[1];
@@ -31,7 +32,8 @@ final class CanonicalRowExecution {
     static void visit(
             CanonicalRowExecutionFrame frame,
             LocatorVisitor visitor) {
-        if (!hasStateful(frame.plan.normalized.stages)) {
+        if (!frame.plan.pipeline.hasBreaker(
+                CanonicalPhysicalSegment.Shape.ROW_LOCATOR)) {
             visitStreaming(frame, visitor);
             return;
         }
@@ -43,81 +45,81 @@ final class CanonicalRowExecution {
 
     static IntLocatorBuffer locators(CanonicalRowExecutionFrame frame) {
         List<CanonicalRowStage> stages = frame.plan.normalized.stages;
-        int firstStateful = nextStateful(stages, 0);
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
-        int boundedTopLimit = boundedTypedTopLimitPosition(
-                frame, firstStateful);
+        CanonicalPhysicalPipeline pipeline = frame.plan.pipeline;
+        int breakerIndex = pipeline.firstBreaker(
+                CanonicalPhysicalSegment.Shape.ROW_LOCATOR, 0);
+        if (breakerIndex < 0) {
+            CanonicalPhysicalSegment segment = pipeline.firstSegment(
+                    CanonicalPhysicalSegment.Shape.ROW_LOCATOR);
+            IntLocatorBuffer result = frame.allocateRowBreakerState(
+                    sourceUpperBound(frame), bound.operation, bound.provenance);
+            collectSourceSegment(
+                    frame, stages,
+                    segment.fromStage, segment.toStageExclusive,
+                    result);
+            return result;
+        }
+        CanonicalPhysicalBreaker firstBreaker =
+                pipeline.breakers[breakerIndex];
+        CanonicalPhysicalSegment firstSegment =
+                pipeline.segments[firstBreaker.inputSegmentOrdinal];
         IntLocatorBuffer result;
-        int position;
-        if (boundedTopLimit >= 0) {
+        if (firstBreaker.kind == CanonicalPhysicalBreaker.Kind.BOUNDED_TOP) {
             result = collectBoundedTypedTop(
                     frame,
-                    0,
-                    firstStateful,
-                    stages.get(firstStateful),
-                    stages.get(boundedTopLimit).count);
-            int next = nextStateful(stages, boundedTopLimit + 1);
-            compactSegment(
-                    frame, result, stages, firstStateful + 1, next);
-            position = next;
+                    firstSegment.fromStage,
+                    firstSegment.toStageExclusive,
+                    stages.get(firstBreaker.stageIndex),
+                    stages.get(
+                            firstBreaker.consumedToStageExclusive - 1).count);
+            frame.rowBreakerState = result;
         } else {
-            result = new IntLocatorBuffer(
+            result = frame.allocateRowBreakerState(
                     sourceUpperBound(frame), bound.operation, bound.provenance);
-            collectSourceSegment(frame, stages, 0, firstStateful, result);
-            position = firstStateful;
+            collectSourceSegment(
+                    frame, stages,
+                    firstSegment.fromStage,
+                    firstSegment.toStageExclusive,
+                    result);
         }
-        while (position < stages.size()) {
-            CanonicalRowStage stage = stages.get(position);
-            switch (stage.kind) {
-                case TYPED_ORDER:
-                case CALLBACK_ORDER:
+        while (breakerIndex >= 0) {
+            CanonicalPhysicalBreaker breaker = pipeline.breakers[breakerIndex];
+            CanonicalRowStage stage = stages.get(breaker.stageIndex);
+            if (breaker != firstBreaker
+                    || breaker.kind != CanonicalPhysicalBreaker.Kind.BOUNDED_TOP) {
+                switch (breaker.kind) {
+                case STABLE_REORDER:
                     stableSort(bound, result, stage);
                     break;
-                case DISTINCT_FIELD:
+                case MEMBERSHIP:
                     compactDistinct(bound, result, stage.fieldIndex);
                     break;
+                case BOUNDED_TOP:
                 default:
-                    throw new AssertionError("expected stateful canonical Row stage");
+                    throw new AssertionError("unexpected downstream Row breaker");
+                }
             }
-            int next = nextStateful(stages, position + 1);
-            compactSegment(frame, result, stages, position + 1, next);
-            position = next;
+            CanonicalPhysicalSegment output =
+                    pipeline.segments[breaker.outputSegmentOrdinal];
+            compactSegment(frame, result, stages,
+                    output.fromStage, output.toStageExclusive);
+            breakerIndex = pipeline.firstBreaker(
+                    CanonicalPhysicalSegment.Shape.ROW_LOCATOR,
+                    breakerIndex + 1);
         }
         return result;
     }
 
     static boolean usesBoundedTypedTop(CanonicalRowPhysicalPlan plan) {
-        int firstStateful = nextStateful(plan.normalized.stages, 0);
-        List<CanonicalRowStage> stages = plan.normalized.stages;
-        if (firstStateful >= stages.size()
-                || stages.get(firstStateful).kind
-                        != CanonicalRowStage.Kind.TYPED_ORDER) return false;
-        int limit = firstStateful + 1;
-        if (limit >= stages.size()
-                || stages.get(limit).kind != CanonicalRowStage.Kind.LIMIT) return false;
-        long count = stages.get(limit).count;
-        long source = plan.normalized.bound.root.size;
-        return count < source
-                && (count <= 64L || count <= source / 4L);
-    }
-
-    private static int boundedTypedTopLimitPosition(
-            CanonicalRowExecutionFrame frame,
-            int orderPosition) {
-        List<CanonicalRowStage> stages = frame.plan.normalized.stages;
-        if (orderPosition >= stages.size()
-                || stages.get(orderPosition).kind
-                        != CanonicalRowStage.Kind.TYPED_ORDER) return -1;
-        int limitPosition = orderPosition + 1;
-        if (limitPosition >= stages.size()
-                || stages.get(limitPosition).kind
-                        != CanonicalRowStage.Kind.LIMIT) return -1;
-        long count = stages.get(limitPosition).count;
-        long source = sourceUpperBound(frame);
-        if (count >= source) return -1;
-        return count <= 64L || count <= source / 4L
-                ? limitPosition
-                : -1;
+        for (CanonicalPhysicalBreaker breaker : plan.pipeline.breakers) {
+            if (breaker.shape == CanonicalPhysicalSegment.Shape.ROW_LOCATOR
+                    && breaker.kind
+                            == CanonicalPhysicalBreaker.Kind.BOUNDED_TOP) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static IntLocatorBuffer collectBoundedTypedTop(
@@ -321,19 +323,6 @@ final class CanonicalRowExecution {
                     && counters[position - from] >= stage.count) return true;
         }
         return false;
-    }
-
-    private static boolean hasStateful(List<CanonicalRowStage> stages) {
-        return nextStateful(stages, 0) < stages.size();
-    }
-
-    private static int nextStateful(
-            List<CanonicalRowStage> stages,
-            int from) {
-        for (int position = from; position < stages.size(); position++) {
-            if (stages.get(position).isStateful()) return position;
-        }
-        return stages.size();
     }
 
     private static void compactDistinct(
@@ -554,6 +543,9 @@ final class CanonicalRowExecutionFrame {
     final PredicateMembership membership;
     IntLocatorBuffer sourceOverride;
     IntLocatorBuffer parallelSource;
+    IntLocatorBuffer rowBreakerState;
+    MappedValueBuffer mappedBreakerState;
+    LongValueBuffer primitiveBreakerState;
 
     CanonicalRowExecutionFrame(CanonicalRowPhysicalPlan plan) {
         if (plan == null) throw new AssertionError("physical plan is missing");
@@ -570,6 +562,39 @@ final class CanonicalRowExecutionFrame {
                         plan.normalized.filters,
                         plan.normalized.bound.operation,
                         plan.normalized.bound.provenance);
+    }
+
+    IntLocatorBuffer allocateRowBreakerState(
+            long upperBound,
+            io.github.somaruntime.soma.SomaOperation operation,
+            Object provenance) {
+        if (rowBreakerState != null) {
+            throw new AssertionError("Row breaker state already exists");
+        }
+        rowBreakerState = new IntLocatorBuffer(
+                upperBound, operation, provenance);
+        return rowBreakerState;
+    }
+
+    MappedValueBuffer allocateMappedBreakerState(
+            long upperBound,
+            Object provenance) {
+        if (mappedBreakerState != null) {
+            throw new AssertionError("Mapped breaker state already exists");
+        }
+        mappedBreakerState = new MappedValueBuffer(upperBound, provenance);
+        return mappedBreakerState;
+    }
+
+    LongValueBuffer allocatePrimitiveBreakerState(
+            long upperBound,
+            Object provenance) {
+        if (primitiveBreakerState != null) {
+            throw new AssertionError("Primitive breaker state already exists");
+        }
+        primitiveBreakerState = new LongValueBuffer(
+                upperBound, provenance);
+        return primitiveBreakerState;
     }
 }
 
