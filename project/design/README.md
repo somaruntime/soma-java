@@ -99,8 +99,9 @@ Blueprint
 - Schema决定“生成什么”，Logical API决定“用户能表达什么”；
 - Core Owner只路由跨Design skeleton/proof chain，不复制或覆盖精确合同；
 - Signature只机械投影已成立能力，不重新发明语义；
-- Planning拥有Canonical/Bound/Normalized语义、合法重写、PhysicalPlan decision与ResourceEstimate；
-  Execution拥有actual resource lease、ExecutionFrame、调度、发布与quiescence；
+- Planning拥有Canonical/Bound/Normalized语义、合法重写、PhysicalPlan decision与ResourceEstimate，
+  包括finite typed kernel的单次eligibility/resource decision；Execution拥有actual resource lease、
+  ExecutionFrame、shared ordinal-work lifecycle、调度、发布与quiescence；
 - Storage拥有authoritative state，Execution只能读取、暂存和一次发布；
 - Architecture拥有可替换internal mechanism，不能把机制抬升成用户模型；
 - Failure Design不能用runtime `UNSUPPORTED_OPERATION`代替compile-time absence；
@@ -148,6 +149,12 @@ replacement、performance guard与Owner closure全部`PASS`。当前实现状态
 
 Design仍是implementation的上游合同；后续优化只能在Owner边界内替换内部机制，不能把既有证据
 反向解释为新的产品语义、正式release、跨硬件SLA或一亿行性能承诺。
+
+Finite primitive Chunk kernel与Chunk-morsel partial aggregate已经通过
+[正式晋升记录](../conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)作为M1内部机制纳入
+baseline：PhysicalPlan一次拥有kernel/resource decision，Row range与Chunk morsel共享同一parallel
+lifecycle。该晋升没有新增public API、Canonical node、production artifact或dependency，也没有把后续
+encoded、GroupBy、Join等能力提前解释为已实现。
 
 ## 8. 下游入口
 

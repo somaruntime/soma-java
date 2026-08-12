@@ -138,7 +138,10 @@ strictfp final class PrimitivePlanOperation {
     static long sumIntegral(final PrimitivePipelineCapture frontend) {
         final PrimitiveExecution execution = lower(
                 frontend, CanonicalPrimitiveOperation.TerminalKind.SUM, null);
-        return terminal(execution, 0L, (bound, frame, plan) -> {
+        return terminalRefined(execution, 0L, (bound, frame, plan) -> {
+            if (CanonicalPrimitiveVectorKernel.isIntegralSum(frame.plan)) {
+                return CanonicalPrimitiveVectorKernel.sumIntegral(frame);
+            }
             Signed128Accumulator result = new Signed128Accumulator();
             visitBound(frame, plan, value -> { result.add(integralValue(plan.valueKind, value)); return true; });
             return result.longValue(bound.provenance);
@@ -236,10 +239,25 @@ strictfp final class PrimitivePlanOperation {
     }
     static long[] toLongArray(final PrimitivePipelineCapture frontend) {
         final PrimitiveExecution execution = materialize(frontend);
-        return terminal(execution, 16L, (bound, frame, plan) -> {
+        return terminalRefined(execution, 16L, (bound, frame, plan) -> {
             long[] staging = new long[materializedLength(bound, plan)];
-            final int[] size = new int[1]; visitBound(frame, plan, value -> { staging[size[0]++] = value; return true; });
-            long[] result = new long[size[0]]; System.arraycopy(staging, 0, result, 0, size[0]); return result;
+            final int size;
+            if (CanonicalPrimitiveVectorKernel.isLongMaterialization(
+                    frame.plan)) {
+                size = CanonicalPrimitiveVectorKernel.writeLongs(
+                        frame, staging);
+            } else {
+                final int[] scalarSize = new int[1];
+                visitBound(frame, plan, value -> {
+                    staging[scalarSize[0]++] = value;
+                    return true;
+                });
+                size = scalarSize[0];
+            }
+            if (size == staging.length) return staging;
+            long[] result = new long[size];
+            System.arraycopy(staging, 0, result, 0, size);
+            return result;
         });
     }
     static double[] toDoubleArray(final PrimitivePipelineCapture frontend) {
@@ -367,6 +385,49 @@ strictfp final class PrimitivePlanOperation {
                         frame.plan.normalized.bound,
                         frame,
                         execution.operation);
+            }
+        });
+    }
+
+    private static <T> T terminalRefined(
+            final PrimitiveExecution execution,
+            final long extraPerElement,
+            final Terminal<T> terminal) {
+        return CanonicalQueryOperation.executeFamilyRefined(
+                execution.frontend,
+                execution.operation.source,
+                new CanonicalQueryOperation.ExtraScratch() {
+            @Override public long bytes(BoundCanonicalRowOperation bound) {
+                return estimatedExecutionScratch(
+                        bound, execution.operation, extraPerElement);
+            }
+        }, new CanonicalQueryOperation.FrameWork<T>() {
+            @Override public T run(CanonicalRowExecutionFrame frame) {
+                return terminal.run(
+                        frame.plan.normalized.bound,
+                        frame,
+                        execution.operation);
+            }
+        }, new CanonicalQueryOperation.PhysicalRefinement() {
+            @Override public CanonicalRowPhysicalPlan refine(
+                    CanonicalRowPhysicalPlan physical) {
+                if (execution.operation.terminal
+                        == CanonicalPrimitiveOperation.TerminalKind.SUM) {
+                    return physical.withVectorDecision(
+                            CanonicalPrimitiveVectorKernel.planIntegralSum(
+                                    physical, execution.operation));
+                }
+                if (execution.operation.terminal
+                        == CanonicalPrimitiveOperation.TerminalKind.MATERIALIZE
+                        && execution.operation.valueKind
+                                == PrimitiveValueKind.LONG) {
+                    return physical.withVectorDecision(
+                            CanonicalPrimitiveVectorKernel
+                                    .planLongMaterialization(
+                                            physical,
+                                            execution.operation));
+                }
+                return physical;
             }
         });
     }

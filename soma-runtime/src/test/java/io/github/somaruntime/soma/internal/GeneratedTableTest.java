@@ -2,6 +2,7 @@ package io.github.somaruntime.soma.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -36,6 +37,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -1623,6 +1625,190 @@ class GeneratedTableTest {
     }
 
     @Test
+    void vectorChunkKernelsMatchReferenceAcrossPlainEncodedAndTypedFilters() {
+        for (SomaCompression compression : new SomaCompression[] {
+                SomaCompression.OFF, SomaCompression.AUTO}) {
+            GeneratedTable table = new GeneratedTable(
+                    testGroup(new GlobalMemoryManager(64L << 20), compression),
+                    testLayout(), 128, MutationFaultInjector.NONE);
+            for (int index = 0; index < 4_096; index++) {
+                add(table, index + 1L, "bucket", index % 1_000, null);
+            }
+
+            GeneratedProbe minimum = table.newProbe(2);
+            minimum.putInt(2, 500);
+            PredicateIr predicate = table.requireOwnedExpression(
+                    table.ge(minimum.seal()));
+
+            LogicalRowPlan countOptimized = LogicalRowPlan.tableScan(table)
+                    .typedFilter(predicate);
+            LogicalRowPlan countReference = LogicalRowPlan.tableScan(table)
+                    .typedFilter(predicate);
+            assertEquals(
+                    QueryOperation.referenceCountForTesting(countReference),
+                    QueryOperation.optimizedCount(countOptimized));
+
+            PrimitivePipelineCapture sumOptimized = PrimitivePipelineCapture.row(
+                    LogicalRowPlan.tableScan(table)
+                            .typedFilter(predicate)
+                            .fieldProjection(0),
+                    PrimitiveValueKind.LONG,
+                    (GeneratedCallbacks.RowToLongMapper)
+                            () -> table.queryCursor().viewLong(0),
+                    false,
+                    0);
+            PrimitivePipelineCapture sumReference = PrimitivePipelineCapture.row(
+                    LogicalRowPlan.tableScan(table)
+                            .typedFilter(predicate)
+                            .fieldProjection(0),
+                    PrimitiveValueKind.LONG,
+                    (GeneratedCallbacks.RowToLongMapper)
+                            () -> table.queryCursor().viewLong(0),
+                    false,
+                    0);
+            assertEquals(
+                    ReferencePrimitiveInterpreter
+                            .sumIntegralForTesting(sumReference),
+                    PrimitivePlanOperation.sumIntegral(sumOptimized));
+
+            PrimitivePipelineCapture arrayOptimized = PrimitivePipelineCapture.row(
+                    LogicalRowPlan.tableScan(table)
+                            .typedFilter(predicate)
+                            .fieldProjection(0),
+                    PrimitiveValueKind.LONG,
+                    (GeneratedCallbacks.RowToLongMapper)
+                            () -> table.queryCursor().viewLong(0),
+                    false,
+                    0);
+            PrimitivePipelineCapture arrayReference = PrimitivePipelineCapture.row(
+                    LogicalRowPlan.tableScan(table)
+                            .typedFilter(predicate)
+                            .fieldProjection(0),
+                    PrimitiveValueKind.LONG,
+                    (GeneratedCallbacks.RowToLongMapper)
+                            () -> table.queryCursor().viewLong(0),
+                    false,
+                    0);
+            assertTrue(Arrays.equals(
+                    ReferencePrimitiveInterpreter.valuesForTesting(arrayReference),
+                    PrimitivePlanOperation.toLongArray(arrayOptimized)));
+        }
+    }
+
+    @Test
+    void vectorMorselsUseBoundedPoolAndPreserveExactIntegralSum() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        try {
+            GeneratedTable table = new GeneratedTable(
+                    testGroup(memory, pool),
+                    testLayout(), 128, MutationFaultInjector.NONE);
+            long expected = 0L;
+            for (int index = 0; index < 8_192; index++) {
+                long value = index + 1L;
+                add(table, value, "bucket", index % 1_000, null);
+                expected += value;
+            }
+
+            PrimitivePipelineCapture parallel = PrimitivePipelineCapture.row(
+                    LogicalRowPlan.tableScan(table).fieldProjection(0).parallel(),
+                    PrimitiveValueKind.LONG,
+                    (GeneratedCallbacks.RowToLongMapper)
+                            () -> table.queryCursor().viewLong(0),
+                    false,
+                    0);
+            assertEquals(expected, PrimitivePlanOperation.sumIntegral(parallel));
+            assertTrue(pool.submissions.get() > 0);
+            assertTrue(pool.peakTemporaryBytes.get() > 0L);
+            assertTrue(pool.peakTemporaryBytes.get() < table.size() * 4L);
+            assertEquals(0L, memory.temporaryBytes());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void vectorParallelPlanReplacesLinearLocatorScratchWithChunkPartials() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory, new ForkJoinPool(4)),
+                testLayout(), 128, MutationFaultInjector.NONE);
+        for (int index = 0; index < 8_192; index++) {
+            add(table, index + 1L, "bucket", index % 1_000, null);
+        }
+        GeneratedProbe minimum = table.newProbe(2);
+        minimum.putInt(2, 500);
+        LogicalRowPlan frontend = LogicalRowPlan.tableScan(table)
+                .typedFilter(table.requireOwnedExpression(table.ge(minimum.seal())))
+                .fieldProjection(0)
+                .parallel();
+        CanonicalRowOperation source = CanonicalRowLowering.source(table, frontend);
+        BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
+                source,
+                table,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(bound));
+        CanonicalPrimitiveOperation operation = CanonicalPrimitiveLowering.operation(
+                PrimitivePipelineCapture.row(
+                        frontend,
+                        PrimitiveValueKind.LONG,
+                        (GeneratedCallbacks.RowToLongMapper)
+                                () -> table.queryCursor().viewLong(0),
+                        false,
+                        0),
+                CanonicalPrimitiveOperation.TerminalKind.SUM,
+                null);
+
+        CanonicalPrimitiveVectorKernel.Decision decision =
+                CanonicalPrimitiveVectorKernel.planIntegralSum(
+                        physical, operation);
+        assertNotNull(decision);
+        CanonicalRowPhysicalPlan refined =
+                physical.withVectorDecision(decision);
+        assertSame(decision, refined.vectorDecision);
+        assertTrue(CanonicalPrimitiveVectorKernel.isIntegralSum(refined));
+        assertNull(physical.vectorDecision);
+        long partialBytes = decision.temporaryBytes;
+        assertTrue(physical.resources.parallelPrefixTemporaryBytes
+                >= table.size() * 24L);
+        assertTrue(partialBytes > 0L);
+        assertTrue(partialBytes < table.size() * 4L);
+        assertEquals(
+                physical.resources.temporaryBytes
+                        - physical.resources.parallelPrefixTemporaryBytes
+                        + partialBytes,
+                refined.resources.temporaryBytes);
+    }
+
+    @Test
+    void vectorParallelFieldSumFailsClosedWhenPoolIsUnavailable() {
+        ForkJoinPool pool = new ForkJoinPool(2);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20), pool),
+                testLayout(), 128, MutationFaultInjector.NONE);
+        add(table, 1L, "one", 1, null);
+        pool.shutdownNow();
+
+        PrimitivePipelineCapture parallel = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table).fieldProjection(0).parallel(),
+                PrimitiveValueKind.LONG,
+                (GeneratedCallbacks.RowToLongMapper)
+                        () -> table.queryCursor().viewLong(0),
+                false,
+                0);
+        SomaOperationException failure = assertThrows(
+                SomaOperationException.class,
+                () -> PrimitivePlanOperation.sumIntegral(parallel));
+        assertEquals(SomaFailureCode.PARALLEL_EXECUTOR_UNAVAILABLE,
+                failure.code());
+    }
+
+
+    @Test
     void primitiveIntegralNaturalSortPreservesSignedValueOrder() {
         GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
         int[] input = new int[] {
@@ -2854,14 +3040,37 @@ class GeneratedTableTest {
 
     private static final class TrackingForkJoinPool extends ForkJoinPool {
         private final AtomicInteger submissions = new AtomicInteger();
+        private final GlobalMemoryManager memory;
+        private final AtomicLong peakTemporaryBytes = new AtomicLong();
 
         TrackingForkJoinPool(int parallelism) {
+            this(parallelism, null);
+        }
+
+        TrackingForkJoinPool(
+                int parallelism,
+                GlobalMemoryManager memory) {
             super(parallelism);
+            this.memory = memory;
         }
 
         @Override public ForkJoinTask<?> submit(Runnable task) {
             submissions.incrementAndGet();
-            return super.submit(task);
+            if (memory == null) return super.submit(task);
+            return super.submit(() -> {
+                observeTemporary();
+                task.run();
+                observeTemporary();
+            });
+        }
+
+        private void observeTemporary() {
+            long current = memory.temporaryBytes();
+            long previous;
+            do {
+                previous = peakTemporaryBytes.get();
+                if (current <= previous) return;
+            } while (!peakTemporaryBytes.compareAndSet(previous, current));
         }
     }
 

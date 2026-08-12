@@ -16,6 +16,83 @@ final class Signed128Accumulator {
         if (Long.compareUnsigned(low, before) < 0) high++;
     }
 
+    /** Exact associative merge used by deterministic partial aggregates. */
+    void add(Signed128Accumulator partial) {
+        if (partial == null) throw new AssertionError("partial sum is missing");
+        long before = low;
+        low += partial.low;
+        high += partial.high;
+        if (Long.compareUnsigned(low, before) < 0) high++;
+    }
+
+    void addBytes(byte[] values, int length) {
+        long nextHigh = high;
+        long nextLow = low;
+        for (int index = 0; index < length; index++) {
+            long value = values[index];
+            long before = nextLow;
+            nextLow += value;
+            nextHigh += value < 0L ? -1L : 0L;
+            if (Long.compareUnsigned(nextLow, before) < 0) nextHigh++;
+        }
+        high = nextHigh;
+        low = nextLow;
+    }
+
+    void addShorts(short[] values, int length) {
+        long nextHigh = high;
+        long nextLow = low;
+        for (int index = 0; index < length; index++) {
+            long value = values[index];
+            long before = nextLow;
+            nextLow += value;
+            nextHigh += value < 0L ? -1L : 0L;
+            if (Long.compareUnsigned(nextLow, before) < 0) nextHigh++;
+        }
+        high = nextHigh;
+        low = nextLow;
+    }
+
+    void addChars(char[] values, int length) {
+        long nextHigh = high;
+        long nextLow = low;
+        for (int index = 0; index < length; index++) {
+            long before = nextLow;
+            nextLow += values[index];
+            if (Long.compareUnsigned(nextLow, before) < 0) nextHigh++;
+        }
+        high = nextHigh;
+        low = nextLow;
+    }
+
+    void addInts(int[] values, int length) {
+        long nextHigh = high;
+        long nextLow = low;
+        for (int index = 0; index < length; index++) {
+            long value = values[index];
+            long before = nextLow;
+            nextLow += value;
+            nextHigh += value < 0L ? -1L : 0L;
+            if (Long.compareUnsigned(nextLow, before) < 0) nextHigh++;
+        }
+        high = nextHigh;
+        low = nextLow;
+    }
+
+    void addLongs(long[] values, int length) {
+        long nextHigh = high;
+        long nextLow = low;
+        for (int index = 0; index < length; index++) {
+            long value = values[index];
+            long before = nextLow;
+            nextLow += value;
+            nextHigh += value < 0L ? -1L : 0L;
+            if (Long.compareUnsigned(nextLow, before) < 0) nextHigh++;
+        }
+        high = nextHigh;
+        low = nextLow;
+    }
+
     long longValue(Object provenance) {
         if ((high == 0L && low >= 0L) || (high == -1L && low < 0L)) {
             return low;

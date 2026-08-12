@@ -9,9 +9,10 @@
 Owner：Typed Logical/Predicate IR、normalization、semantics-preserving rewrite、Index
 substitution、Join/Group planning、statistics、reference interpreter与optimizer differential
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
-本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；finite primitive
+Chunk physical specialization
 
 ## 1. 设计目标
 
@@ -142,6 +143,17 @@ deterministic merge decision；`ResourceEstimate`是其checked conservative peak
 membership、sort/hash/materialization buffer、workers与staging由Execution Owner在resource admission
 后创建的operation-local ExecutionFrame拥有。
 
+对schema-known、typed-only、streaming segment，Planning可以选择有限的representation-owned
+Chunk kernel。Kernel eligibility、compiled predicate/leaf binding、parallel responsibility和对应
+temporary peak必须在本次`PhysicalPlan + ResourceEstimate`中一次形成；terminal与execution kernel只
+消费该decision，不重新推导第二套资格或scratch事实。当前正式准入的最小集合是Table count、
+integral Field sum与ordered `long[]` materialization；不满足条件时使用同一PhysicalPlan Owner下
+既有optimized family，不转Reference、不产生unsupported failure。
+
+这种specialization是physical decision，不是新的Canonical node、public Batch/Vector、prepared plan
+或跨terminal kernel cache。后续增加representation/type/operator cell必须重新经过profile、
+differential、resource与代码规模准入。
+
 Current V1只需要operator chain/tree，不建立general DAG、stable node id、fan-out、prepared/cache或
 planner/frontend SPI。Row、Mapped、Primitive、Relation与Group可以保留specialized physical family；
 统一Canonical semantics不等于统一成boxed universal executor。
@@ -220,7 +232,7 @@ Callback、map、limit/top、mutation或改变element/invocation semantics的nod
 6. stateless kernel fusion；
 7. stateful barrier planning；
 8. Join/Group algorithm与build-side selection；
-9. compression-aware kernel choice；
+9. representation-aware finite kernel choice；
 10. cardinality、managed-memory、container/array与task ResourceEstimate；
 11. deterministic partition/merge description；
 12. Execution Owner依据ResourceEstimate完成admission并创建ExecutionFrame。

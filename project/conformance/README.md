@@ -50,6 +50,7 @@ Repository projection         DELIVERY_CENTERED / GOVERNANCE_PASS
 Post-governance global review PASS / FINDINGS_CLOSED
 Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DISTRIBUTION_QUALIFIED /
                               FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
+Vector physical phase 1       PASS / FORMALLY_PROMOTED / BASELINE_INTEGRATED
 Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALLY_PROMOTED
 Scheduling reference        STANDARD_FJSP_100K / PASS / NATURAL_POINT_MUTATION
 Scheduling performance      STANDARD_FJSP_100K / FRESH_0.6S / WARM_0.51S / PASS
@@ -60,6 +61,7 @@ Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
 Active bounded topic          NONE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
+Queued performance topic      VECTORIZED_PIPELINE_EXPANSION / NOT_ACTIVE / NOT_DESIGN
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -86,8 +88,8 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | checked int structural/long cumulative domain、paged PLAIN/encoded/overlay storage、singleton-inline/ordered-int-array Key/Index、point incremental maintenance、atomic StateRoot与Group retained accounting已建立 | PASS |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query、Selection mutation、GroupBy、binary Equality/Cross Join、explicit parallel与四级metadata已建立 | PASS |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I7 cumulative generated/runtime public surface已由Java 8 consumer与javap边界验证 | PASS |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | Row/Field/Mapped/Primitive/Relation/Group已由Canonical/Bound与独立Reference拥有；old optimizer/executor adapter已删除 | PASS / M1_S1-S6_COMPLETE |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | 全部query family共享guard、binding、admission与Frame主路径；relation-left canonical source已闭合 | PASS / M1_S1-S6_COMPLETE |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | Row/Field/Mapped/Primitive/Relation/Group已由Canonical/Bound与独立Reference拥有；finite primitive kernel decision与resource projection一次进入PhysicalPlan | PASS / M1_S1-S6_COMPLETE / VECTOR_PHASE1_PROMOTED |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | 全部query family共享guard、binding、admission与Frame主路径；Row range/Chunk morsel共享唯一ordinal-work lifecycle | PASS / M1_S1-S6_COMPLETE / VECTOR_PHASE1_PROMOTED |
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | two-artifact/Java 8/package继续PASS；全部query family的Java-lowering-to-frame seam与replacement closure已成立 | PASS / M1_S1-S6_COMPLETE |
 | Performance/scenarios | BP-15 + G9 | 三个reference application、10K/1M/10M frontier matrix、profile优化与fixed-host memory attribution通过 | PASS |
@@ -97,6 +99,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 
 ## 4. Active records
 
+- [Vectorized Physical Pipeline第一阶段正式晋升](v1-vectorized-physical-pipeline-phase1-promotion.md)：
+  finite primitive Chunk kernel、PhysicalPlan单次decision、Chunk-morsel partial、shared parallel lifecycle、
+  1M最终回归与Temporary replacement closure Owner；
 - [Selection mutation write-set and in-place commit governance](v1-selection-mutation-write-set-governance.md)：
   PLAIN Selection update/remove从touched-Chunk全leaf copy迁移到columnar write set、dense move plan、
   final-locator sidecar projection与prevalidated final commit的Owner；
@@ -192,6 +197,8 @@ Historical inputs：
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
 Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
+[Vectorized Physical Pipeline能力扩展](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
+只是queued intent，不是Design、active governance或implementation input；
 Grassing治理已由
 [正式Conformance记录](v1-grassing-simulation-reference-application-governance.md)接管并完成
 replacement closure。

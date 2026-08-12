@@ -44,6 +44,7 @@ final class FrontierData {
     long tableTopFingerprint;
     long skipLimitFingerprint;
     long materializedAmountFingerprint;
+    long typedFilterMaterializedFingerprint;
     long mappedReferenceFingerprint;
     long lowGroupFingerprint;
     long highGroupFingerprint;
@@ -155,13 +156,17 @@ final class FrontierData {
         tableTopFingerprint = expectedTableTopFingerprint();
         skipLimitFingerprint = expectedSkipLimitFingerprint();
         materializedAmountFingerprint = expectedMaterializedAmountFingerprint();
+        typedFilterMaterializedFingerprint =
+                expectedTypedFilterMaterializedFingerprint();
         mappedReferenceFingerprint = expectedMappedReferenceFingerprint();
         lowGroupFingerprint = expectedLowGroupFingerprint();
         highGroupFingerprint = expectedHighGroupFingerprint();
         sourceFingerprint = hash(
                 rows, tableDenseSum, amountSum, evenAmountSum,
                 tenantProbeCount, tenantProbeDenseSum, mappedPrimitiveSum,
-                keyLookupSum, materializedAmountFingerprint, mappedReferenceFingerprint);
+                keyLookupSum, materializedAmountFingerprint,
+                typedFilterMaterializedFingerprint,
+                mappedReferenceFingerprint);
         statefulFingerprint = hash(
                 distinctFingerprint, fieldTopFingerprint, tableTopFingerprint,
                 skipLimitFingerprint, mappedReferenceFingerprint);
@@ -222,6 +227,17 @@ final class FrontierData {
         for (int sample = 0; sample < samples; sample++) {
             int index = (int) ((long) sample * rows / samples);
             hash = BenchmarkSupport.mix(hash, amount(index));
+        }
+        return hash;
+    }
+
+    private long expectedTypedFilterMaterializedFingerprint() {
+        int length = rows / 1_000 * 500 + Math.max(0, rows % 1_000 - 500);
+        long hash = BenchmarkSupport.mix(HASH_SEED, length);
+        for (int index = 0; index < rows; index++) {
+            if (quantity(index) >= 500) {
+                hash = BenchmarkSupport.mix(hash, amount(index));
+            }
         }
         return hash;
     }

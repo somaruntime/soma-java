@@ -133,6 +133,7 @@ final class CanonicalRowPlanner {
                 256L,
                 bound.operation,
                 bound.provenance);
+        long parallelPrefixTemporaryBytes = 0L;
         if (bound.canonical.hasStatefulStage()) {
             temporaryBytes = CheckedLong.add(
                     temporaryBytes,
@@ -154,10 +155,11 @@ final class CanonicalRowPlanner {
         if (bound.canonical.request.mode == ExecutionRequest.Mode.PARALLEL
                 && bound.canonical.beginsWithTypedFilter()
                 && access == CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN) {
+            parallelPrefixTemporaryBytes = RowExecutionSupport.arrayBytes(
+                    bound.root.size, 24L, bound.provenance);
             temporaryBytes = CheckedLong.add(
                     temporaryBytes,
-                    RowExecutionSupport.arrayBytes(
-                            bound.root.size, 24L, bound.provenance),
+                    parallelPrefixTemporaryBytes,
                     bound.operation,
                     bound.provenance);
         }
@@ -184,7 +186,9 @@ final class CanonicalRowPlanner {
                 literal,
                 parallelPrefix,
                 partitions,
-                new ResourceEstimate(temporaryBytes));
+                new ResourceEstimate(
+                        temporaryBytes,
+                        parallelPrefixTemporaryBytes));
     }
 
     private static LookupCandidate lookupCandidate(
@@ -276,6 +280,7 @@ final class CanonicalRowPhysicalPlan {
     final int parallelPrefixStages;
     final int partitions;
     final ResourceEstimate resources;
+    final CanonicalPrimitiveVectorKernel.Decision vectorDecision;
 
     CanonicalRowPhysicalPlan(
             NormalizedCanonicalRow normalized,
@@ -285,6 +290,19 @@ final class CanonicalRowPhysicalPlan {
             int parallelPrefixStages,
             int partitions,
             ResourceEstimate resources) {
+        this(normalized, accessPath, indexOrdinal, literal,
+                parallelPrefixStages, partitions, resources, null);
+    }
+
+    private CanonicalRowPhysicalPlan(
+            NormalizedCanonicalRow normalized,
+            AccessPath accessPath,
+            int indexOrdinal,
+            TypedLiteral literal,
+            int parallelPrefixStages,
+            int partitions,
+            ResourceEstimate resources,
+            CanonicalPrimitiveVectorKernel.Decision vectorDecision) {
         this.normalized = normalized;
         this.accessPath = accessPath;
         this.indexOrdinal = indexOrdinal;
@@ -292,14 +310,76 @@ final class CanonicalRowPhysicalPlan {
         this.parallelPrefixStages = parallelPrefixStages;
         this.partitions = partitions;
         this.resources = resources;
+        this.vectorDecision = vectorDecision;
+    }
+
+    CanonicalRowPhysicalPlan withVectorDecision(
+            CanonicalPrimitiveVectorKernel.Decision decision) {
+        if (decision == null) return this;
+        BoundCanonicalRowOperation bound = normalized.bound;
+        long temporaryBytes = resources.temporaryBytes;
+        long parallelPrefixBytes = resources.parallelPrefixTemporaryBytes;
+        if (decision.managesParallel) {
+            temporaryBytes = CheckedLong.subtract(
+                    temporaryBytes,
+                    parallelPrefixBytes,
+                    bound.operation,
+                    bound.provenance);
+            parallelPrefixBytes = 0L;
+        }
+        temporaryBytes = CheckedLong.add(
+                temporaryBytes,
+                decision.temporaryBytes,
+                bound.operation,
+                bound.provenance);
+        return new CanonicalRowPhysicalPlan(
+                normalized,
+                accessPath,
+                indexOrdinal,
+                literal,
+                parallelPrefixStages,
+                partitions,
+                new ResourceEstimate(temporaryBytes, parallelPrefixBytes),
+                decision);
+    }
+
+    CanonicalRowPhysicalPlan withAdditionalTemporaryBytes(long bytes) {
+        if (bytes == 0L) return this;
+        BoundCanonicalRowOperation bound = normalized.bound;
+        return new CanonicalRowPhysicalPlan(
+                normalized,
+                accessPath,
+                indexOrdinal,
+                literal,
+                parallelPrefixStages,
+                partitions,
+                new ResourceEstimate(
+                        CheckedLong.add(
+                                resources.temporaryBytes,
+                                bytes,
+                                bound.operation,
+                                bound.provenance),
+                        resources.parallelPrefixTemporaryBytes),
+                vectorDecision);
+    }
+
+    boolean managesParallelPreparation() {
+        return vectorDecision != null && vectorDecision.managesParallel;
     }
 }
 
 final class ResourceEstimate {
     final long temporaryBytes;
+    final long parallelPrefixTemporaryBytes;
 
-    ResourceEstimate(long temporaryBytes) {
-        if (temporaryBytes < 0L) throw new AssertionError("negative resource estimate");
+    ResourceEstimate(
+            long temporaryBytes,
+            long parallelPrefixTemporaryBytes) {
+        if (temporaryBytes < 0L || parallelPrefixTemporaryBytes < 0L
+                || parallelPrefixTemporaryBytes > temporaryBytes) {
+            throw new AssertionError("invalid resource estimate");
+        }
         this.temporaryBytes = temporaryBytes;
+        this.parallelPrefixTemporaryBytes = parallelPrefixTemporaryBytes;
     }
 }

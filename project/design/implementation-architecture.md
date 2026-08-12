@@ -9,9 +9,10 @@
 Owner：Artifact/build topology、runtime component seams、storage/Index/compression/scheduler
 baseline mechanism、complexity与replaceability boundary
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
-本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；finite primitive
+Chunk kernel与shared parallel lifecycle
 
 ## 1. 文档责任
 
@@ -166,6 +167,11 @@ Processor为每个schema生成：
 Hot loops对Chunk representation做once-per-Chunk dispatch，再操作primitive/reference arrays；
 不能逐 row 使用 virtual Field accessor、boxing 或 reflection。
 
+PLAIN representation可以向同package内已经admitted的finite physical kernel提供once-per-Chunk typed
+array borrow；borrow只能存活于一次ExecutionFrame，不能泄漏到generated/runtime public surface、
+跨terminal缓存或成为第二份storage truth。Encoded/overlay保持representation-owned access；不得为了
+复用PLAIN loop无预算地整体解压。
+
 ## 8. Key/Index baseline
 
 Key：typed sharded open-addressed hash，live slot直接内联唯一raw `int` locator；zero是
@@ -276,6 +282,12 @@ ResourceEstimate记录执行峰值。Admission成功后，ExecutionFrame才分�
 sort/hash/materialization、task、result和mutation staging。Sequential与parallel可以有不同specialized
 physical family，但必须细化同一PhysicalPlan并追溯同一Canonical semantic node。
 
+已准入的finite primitive Chunk family只覆盖Table count、schema-known integral Field sum与ordered
+`long[]` materialization及其simple pure typed predicate。Planning一次编译leaf/predicate binding并把
+decision放入PhysicalPlan；execution只消费decision。Scalar parallel aggregate以existing Chunk为
+morsel，使用O(Chunk count) partial与exact ordinal merge，禁止先建立O(rows) locator buffer。具体
+predicate switch、array loop、partial carrier和Chunk宽度是可替换L4机制，不形成通用Batch DAG。
+
 First complete engine需要：
 
 - scan/Index lookup/Field projection；
@@ -302,6 +314,10 @@ Parallel adapter 使用 application-owned `ForkJoinPool` 与 operation-local ord
 - canonical range/merge tree；
 - synchronous cancellation/quiescence；
 - no per-record task、new pool或generic Executor adapter。
+
+Row range与Chunk morsel共用同一submission/start/rejection/cancel/interrupt/quiescence lifecycle；不同
+work family只负责“给定ordinal怎样执行”及其结果状态，不复制scheduler协议。该shared seam是
+package-private最小机制，不是Executor SPI、通用task framework或第三artifact。
 
 Numeric floating operator使用固定1024-element block + pairwise strictfp tree；parallelism不改变
 tree。

@@ -9,9 +9,10 @@
 Owner：Pipeline binding、Group operation guard、currentness、mutation publication、sequential/
 parallel scheduling、configuration、resource admission、cancellation与quiescence
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
-本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；shared ordinal-work
+parallel lifecycle与Chunk-morsel partial execution
 
 ## 1. 设计目标
 
@@ -71,6 +72,12 @@ Owner拥有Group guard、actual lease、ExecutionFrame、scheduler、completion�
 quiescence。`ExecutionFrame`只在conservative lease成功后创建，拥有本次operation的cursor、membership、
 sort/hash/materialization buffer、worker range、merge/result或mutation staging。它不能成为跨terminal
 cache、第二套semantic plan或public explain handle。
+
+当`PhysicalPlan`已经选择finite typed Chunk kernel时，Frame借用本次bound representation，并直接
+消费plan中已经形成的kernel decision。Execution不得重新计算eligibility或临时资源；若selected
+kernel接管parallel typed prefix，它必须使用plan中已经扣除旧locator prefix并加入Chunk partial后的
+最终`ResourceEstimate`。Borrowed leaf/Chunk只在本次Frame和operation token内有效，不进入public
+surface，也不拥有StateRoot。
 
 Operation coordinator只编排上述Owner，不复制StateRoot、planner、resource manager或failure事实，不能
 演化成持有所有service/state的God object。Physical planning阶段不得运行callback或分配O(N) execution
@@ -262,6 +269,13 @@ Parallel terminal把canonical input划分为fixed ordinal contiguous ranges：
 - result按range ordinal/canonical merge tree合并，不按completion race。
 
 ForkJoin work stealing可用，但不能改变range ordinal、floating tree、order或failure arbitration。
+
+Row range与Chunk morsel可以保持不同work family，但共享唯一bounded ordinal-work lifecycle：pool
+availability、submission/start gate、caller participation、rejection、cancellation、interrupt和
+quiescence只能由一个internal Owner实现。Chunk morsel把一个现有logical Chunk作为最小work unit；
+scalar count/integral sum使用operation-local O(Chunk count) partial并按Chunk ordinal deterministic
+merge，不先materialize O(rows) locator membership。这个合同不固定task multiplier、Chunk size或
+private scheduler class，也不建立generic Executor framework。
 
 ## 14. Nested parallel 与 reentrancy
 

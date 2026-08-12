@@ -4,6 +4,7 @@ import io.github.somaruntime.benchmarks.BenchmarkResult;
 import io.github.somaruntime.benchmarks.BenchmarkSupport;
 import io.github.somaruntime.benchmarks.LongMeasurement;
 import io.github.somaruntime.benchmarks.MemoryObserver;
+import io.github.somaruntime.soma.internal.DirectChunkLongSum;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.TreeSet;
@@ -34,6 +35,8 @@ final class FrontierBaselines {
 
     private static void runSources(FrontierData data, String implementation) {
         boolean streams = "java-stream".equals(implementation);
+        DirectChunkLongSum directChunks = streams
+                ? null : new DirectChunkLongSum(data.amounts);
         LongMeasurement tableCount = BenchmarkSupport.measure(() -> data.rows);
         LongMeasurement typedFilter = BenchmarkSupport.measure(() ->
                 streams ? streamDenseSum(data, false) : manualDenseSum(data));
@@ -47,6 +50,8 @@ final class FrontierBaselines {
                 : null;
         LongMeasurement fieldSum = BenchmarkSupport.measure(() ->
                 streams ? Arrays.stream(data.amounts).sum() : manualAmountSum(data));
+        LongMeasurement directChunkFieldSum = streams
+                ? null : BenchmarkSupport.measure(directChunks::sum);
         LongMeasurement fieldFiltered = BenchmarkSupport.measure(() -> streams
                 ? Arrays.stream(data.amounts).filter(value -> (value & 1L) == 0L).sum()
                 : manualEvenAmountSum(data));
@@ -83,6 +88,13 @@ final class FrontierBaselines {
                 FrontierData.sampledLongs(streams
                         ? Arrays.stream(data.amounts).toArray()
                         : data.amounts.clone()));
+        LongMeasurement typedFilterMaterialize = BenchmarkSupport.measure(() ->
+                FrontierData.hashLongs(streams
+                        ? IntStream.range(0, data.rows)
+                                .filter(index -> data.quantities[index] >= 500)
+                                .mapToLong(index -> data.amounts[index])
+                                .toArray()
+                        : manualTypedFilterMaterialize(data)));
         LongMeasurement mappedReference = BenchmarkSupport.measure(() ->
                 FrontierData.hashStrings(streams
                         ? Arrays.stream(data.labels)
@@ -102,6 +114,10 @@ final class FrontierBaselines {
                     "baseline parallel callback filter");
         }
         require(fieldSum, data.amountSum, "baseline Field sum");
+        if (!streams) {
+            require(directChunkFieldSum, data.amountSum,
+                    "direct PLAIN Chunk Field sum");
+        }
         require(fieldFiltered, data.evenAmountSum, "baseline Field filter");
         if (streams) {
             require(parallelFieldSum, data.amountSum,
@@ -117,6 +133,9 @@ final class FrontierBaselines {
         }
         require(fieldMaterialize, data.materializedAmountFingerprint,
                 "baseline Field materialization");
+        require(typedFilterMaterialize,
+                data.typedFilterMaterializedFingerprint,
+                "baseline typed filter materialization");
         require(mappedReference, data.mappedReferenceFingerprint,
                 "baseline mapped reference");
 
@@ -124,7 +143,8 @@ final class FrontierBaselines {
                 tableCount.value(), typedFilter.value(), callbackFilter.value(),
                 fieldSum.value(), fieldFiltered.value(), keyLookup.value(),
                 indexCount.value(), indexResidual.value(), mappedPrimitive.value(),
-                fieldMaterialize.value(), mappedReference.value());
+                fieldMaterialize.value(), typedFilterMaterialize.value(),
+                mappedReference.value());
         BenchmarkResult result = new BenchmarkResult(
                 "frontier-source", "FRONTIER_MATRIX", implementation, data.rows)
                 .put("correctness", true)
@@ -138,7 +158,11 @@ final class FrontierBaselines {
                 .put("indexResidual", indexResidual)
                 .put("mappedPrimitive", mappedPrimitive)
                 .put("fieldMaterialize", fieldMaterialize)
+                .put("typedFilterMaterialize", typedFilterMaterialize)
                 .put("mappedReference", mappedReference);
+        if (!streams) {
+            result.put("directChunkFieldSum", directChunkFieldSum);
+        }
         if (streams) {
             result.put("parallelTableTypedFilter", parallelTypedFilter)
                     .put("parallelTableCallbackFilter", parallelCallbackFilter)
@@ -292,6 +316,17 @@ final class FrontierBaselines {
             sum += data.amounts[index] + data.quantities[index];
         }
         return sum;
+    }
+
+    private static long[] manualTypedFilterMaterialize(FrontierData data) {
+        long[] result = new long[data.rows];
+        int size = 0;
+        for (int index = 0; index < data.rows; index++) {
+            if (data.quantities[index] >= 500) {
+                result[size++] = data.amounts[index];
+            }
+        }
+        return Arrays.copyOf(result, size);
     }
 
     private static String[] manualDistinctLabels(FrontierData data) {

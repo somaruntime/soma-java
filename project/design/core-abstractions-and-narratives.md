@@ -10,9 +10,10 @@ Owner：SOMA V1 跨Design核心抽象、父子叙事、不变量证明链路由�
 
 创建日期：2026-08-03
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
-本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；finite primitive
+Chunk specialization与shared ordinal-work lifecycle成熟化
 
 ## 1. 文档责任
 
@@ -470,11 +471,12 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 
 - **Meaning**：A17针对本次bound roots选择的operator chain/tree、kernel family、partition与
   deterministic merge的可执行architecture representation；
-- **Identity**：bound root versions + selected access/kernel/algorithm/partition + ResourceEstimate；
+- **Identity**：bound root versions + selected access/kernel/algorithm/partition + ResourceEstimate；finite
+  typed kernel的eligibility、compiled leaf/predicate binding与parallel responsibility也是同一decision；
 - **Lifecycle**：A17 produces plan/estimate -> A20/A25 admit -> A20 frame drives specialized operators ->
   discard；
-- **Invariant**：PhysicalPlan不分配O(N)execution storage、不越过callback barrier；operator输出与A18
-  等价；
+- **Invariant**：PhysicalPlan不分配O(N)execution storage、不越过callback barrier；kernel decision与
+  resource projection只形成一次，execution只消费；operator输出与A18等价；
 - **Relations**：`lowers-from` A16/A17，`reads` A21/A22/A23，由A20 ExecutionFrame驱动，parallel时由
   A26细化；
 - **Non-responsibility**：actual lease/cursor/scratch/worker/staging lifecycle、第二套semantic plan、
@@ -489,8 +491,8 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 - **Lifecycle**：invoke -> validate/claim -> reentrancy/parallel check -> acquire Group guard -> bind ->
   normalize/plan/estimate -> resource admit -> create A19 ExecutionFrame -> execute/stage -> publish/hand-off
   -> quiesce/release；
-- **Invariant**：同Group不重叠；Frame只在lease成功后创建且不跨terminal缓存；phase/failure precedence
-  稳定；所有exit释放guard/lease/worker；
+- **Invariant**：同Group不重叠；Frame只在lease成功后创建且不跨terminal缓存；borrowed Chunk/leaf只在
+  当前Frame有效；phase/failure precedence稳定；所有exit释放guard/lease/worker；
 - **Relations**：`coordinates` A16-A19、A21、A24-A26、A14；
 - **Non-responsibility**：拥有Table state、复制planner/resource/failure事实、成为持有全部service/state的
   God object、跨Group deadlock coordination、持久化operation log。
@@ -513,7 +515,7 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 - **Identity**：root + Chunk ordinal + logical Field leaf；不是public Column；
 - **Lifecycle**：allocate/plain tail -> fill/seal -> optionalencode/overlay -> candidate rebuild -> root discard；
 - **Invariant**：same-row-span leaves、checked locator、logical value independent of representation、
-  unreachable reference cleared；
+  unreachable reference cleared；typed array borrow只向admitted physical kernel开放且不逃逸Frame；
 - **Relations**：A6 `lowers-to` leaves；A19 reads via specialized kernel；future backend只能在此seam准入；
 - **Non-responsibility**：Table business identity、public configuration、per-element virtual dispatch。
 
@@ -558,11 +560,13 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 ### A26 — Parallel Scheduler / Work Range
 
 - **Meaning**：把同一 A19 semantic work 细化为bounded ForkJoin participation与canonical merge；
-- **Identity**：Operation-local ordinal range queue + effective P + merge tree；
+- **Identity**：Operation-local ordinal work queue + effective P + merge tree；Row range与Chunk morsel共享
+  lifecycle，但保留各自work meaning；
 - **Lifecycle**：partition -> submit P-1 drainers/start gate -> caller+workers execute -> failure arbitration/
   cancel -> deterministic merge -> quiesce -> discard；
-- **Invariant**：participants/tasks/scratch有界；sequential/parallel result与non-resource failure
-  等价；mode-specific resource/interrupt failure不产生alternate result；返回前quiescent；
+- **Invariant**：submission/start/rejection/cancel/interrupt/quiescence只有一个Owner；participants/tasks/
+  scratch有界；sequential/parallel result与non-resource failure等价；mode-specific resource/interrupt
+  failure不产生alternate result；返回前quiescent；
 - **Relations**：`realizes` A19 parallel mode，`depends-on` application ForkJoinPool，A25 constrains；
 - **Non-responsibility**：创建/关闭pool、per-record task、async terminal、改变logical order/tree。
 
@@ -971,6 +975,7 @@ order或failure；terminal保持同步，资源与worker lifecycle有界。
 Receive the same admitted A19 physical work
     -> validate configured/common ForkJoinPool availability
         -> partition canonical input into fixed ordinal ranges
+            or select admitted Chunk ordinals as morsels
             -> reserve bounded tasks and per-participant scratch
                 -> submit at most P-1 drainers behind start gate
                     -> caller and workers consume operation-local queue
@@ -988,6 +993,7 @@ Receive the same admitted A19 physical work
 - floating operation使用与sequential相同canonical tree；
 - structured failure返回前workers不再访问operation state；
 - callback内parallel terminal为nested parallel failure。
+- scalar Chunk-morsel count/sum只维护O(Chunk count) partial，不先materialize O(rows) locator membership。
 
 ## 19. Main narrative N7 — Compression representation transition
 

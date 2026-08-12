@@ -4,9 +4,9 @@ import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
 import java.lang.reflect.Array;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.Arrays;
 
 /** Runtime-only source routing kept outside data-only Canonical semantics. */
 final class CanonicalRowRuntimeSource {
@@ -42,13 +42,18 @@ final class CanonicalQueryOperation {
     static long optimizedCount(
             CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(source, canonical, new ExtraScratch() {
-            @Override public long bytes(BoundCanonicalRowOperation bound) {
-                return 0L;
-            }
-        }, new FrameWork<Long>() {
+        return execute(source, canonical, ZERO_SCRATCH, new FrameWork<Long>() {
             @Override public Long run(CanonicalRowExecutionFrame frame) {
+                if (CanonicalPrimitiveVectorKernel.isCount(frame.plan)) {
+                    return CanonicalPrimitiveVectorKernel.count(frame);
+                }
                 return CanonicalRowExecution.count(frame);
+            }
+        }, new PhysicalRefinement() {
+            @Override public CanonicalRowPhysicalPlan refine(
+                    CanonicalRowPhysicalPlan physical) {
+                return physical.withVectorDecision(
+                        CanonicalPrimitiveVectorKernel.planCount(physical));
             }
         });
     }
@@ -361,6 +366,20 @@ final class CanonicalQueryOperation {
             CanonicalRowOperation canonical,
             ExtraScratch extra,
             FrameWork<T> work) {
+        return execute(
+                source,
+                canonical,
+                extra,
+                work,
+                IDENTITY_REFINEMENT);
+    }
+
+    private static <T> T execute(
+            CanonicalRowRuntimeSource source,
+            CanonicalRowOperation canonical,
+            ExtraScratch extra,
+            FrameWork<T> work,
+            PhysicalRefinement refinement) {
         if (source.relation != null) {
             return source.relation.executeLeftCanonical(
                     canonical, extra, work);
@@ -370,20 +389,21 @@ final class CanonicalQueryOperation {
             BoundCanonicalRowOperation bound = bind(
                     table, canonical, operation, SomaOperation.QUERY);
             NormalizedCanonicalRow normalized = CanonicalRowPlanner.normalize(bound);
-            CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
-            long temporaryBytes = CheckedLong.add(
-                    physical.resources.temporaryBytes,
-                    extra.bytes(bound),
-                    bound.operation,
-                    bound.provenance);
+            CanonicalRowPhysicalPlan physical = refinement.refine(
+                    CanonicalRowPlanner.plan(normalized));
+            physical = physical.withAdditionalTemporaryBytes(
+                    extra.bytes(bound));
             try (GlobalMemoryManager.TemporaryLease ignored =
                          table.leaseQueryTemporary(
-                                 temporaryBytes, bound.provenance)) {
+                                 physical.resources.temporaryBytes,
+                                 bound.provenance)) {
                 beginCursors(table, bound);
                 try {
                     CanonicalRowExecutionFrame frame =
                             new CanonicalRowExecutionFrame(physical);
-                    CanonicalParallelRowScheduler.prepare(frame);
+                    if (!physical.managesParallelPreparation()) {
+                        CanonicalParallelRowScheduler.prepare(frame);
+                    }
                     return work.run(frame);
                 } finally {
                     endCursors(table);
@@ -403,6 +423,21 @@ final class CanonicalQueryOperation {
                 source,
                 extra,
                 work);
+    }
+
+    /** Shared admitted frame seam with one terminal-family physical refinement. */
+    static <T> T executeFamilyRefined(
+            LogicalRowPlan frontend,
+            CanonicalRowOperation source,
+            ExtraScratch extra,
+            FrameWork<T> work,
+            PhysicalRefinement refinement) {
+        return execute(
+                CanonicalRowRuntimeSource.frontend(frontend),
+                source,
+                extra,
+                work,
+                refinement);
     }
 
     static <T> T executeFamily(
@@ -723,6 +758,18 @@ final class CanonicalQueryOperation {
     interface FrameWork<T> {
         T run(CanonicalRowExecutionFrame frame);
     }
+
+    interface PhysicalRefinement {
+        CanonicalRowPhysicalPlan refine(CanonicalRowPhysicalPlan physical);
+    }
+
+    private static final PhysicalRefinement IDENTITY_REFINEMENT =
+            new PhysicalRefinement() {
+        @Override public CanonicalRowPhysicalPlan refine(
+                CanonicalRowPhysicalPlan physical) {
+            return physical;
+        }
+    };
 
     interface ReferenceWork<T> {
         T run(BoundCanonicalRowOperation bound);

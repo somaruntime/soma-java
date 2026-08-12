@@ -47,6 +47,12 @@ sidecar projection闭合普通PLAIN路径，encoded/indexed fallback保留candid
 [S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)保持冻结基线，实际active
 状态由Conformance拥有。
 当前没有active bounded Temporary；
+[Vectorized Physical Pipeline第一阶段](project/conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)
+已正式晋升并`PASS`：当前正式能力只包含Table `count`、integral Field `sum`与ordered
+`long[]` materialization三类finite primitive Chunk kernel，Physical Plan一次性拥有kernel/resource
+decision，row/chunk两条parallel路径共享同一bounded caller-participating lifecycle；
+[后续能力扩展](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)仅为
+`QUEUED / NOT_ACTIVE / NOT_DESIGN` intent，不是当前implementation input；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
 [SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
@@ -136,6 +142,8 @@ planning 或 reference differential 时读取
 - `project/temp/`当前没有active topic；Grassing治理由
   [正式Conformance记录](project/conformance/v1-grassing-simulation-reference-application-governance.md)拥有，
   Candidate Temporary已完成replacement closure；
+  [Vectorized Physical Pipeline能力扩展](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
+  是`QUEUED / NOT_ACTIVE / NOT_DESIGN` intent，不得作为当前Design或implementation input；
   [SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)是明确标记的queued intent，
   不得作为当前Design或implementation input；
   新的重大长期变化先进入bounded Temporary，经Product Owner裁决和验证后晋升，再删除Temporary；

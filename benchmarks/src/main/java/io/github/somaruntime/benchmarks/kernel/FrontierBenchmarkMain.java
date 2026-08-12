@@ -219,6 +219,15 @@ public final class FrontierBenchmarkMain {
         require(fieldMaterialize, expected.materializedAmountFingerprint,
                 "Field materialization");
 
+        LongMeasurement typedFilterMaterialize = BenchmarkSupport.measure(() ->
+                FrontierData.hashLongs(records
+                        .filter(records.quantity.ge(500))
+                        .mapToLong(records.amount)
+                        .toArray()));
+        require(typedFilterMaterialize,
+                expected.typedFilterMaterializedFingerprint,
+                "typed filter materialization");
+
         LongMeasurement mappedReference = BenchmarkSupport.measure(() ->
                 FrontierData.hashStrings(records
                         .map(view -> view.label())
@@ -233,7 +242,8 @@ public final class FrontierBenchmarkMain {
                 tableCount.value(), typedFilter.value(), callbackFilter.value(),
                 fieldSum.value(), fieldFiltered.value(), keyLookup.value(),
                 indexCount.value(), indexResidual.value(), mappedPrimitive.value(),
-                fieldMaterialize.value(), mappedReference.value());
+                fieldMaterialize.value(), typedFilterMaterialize.value(),
+                mappedReference.value());
         result.put("tableCount", tableCount)
                 .put("tableTypedFilter", typedFilter)
                 .put("tableCallbackFilter", callbackFilter)
@@ -248,6 +258,7 @@ public final class FrontierBenchmarkMain {
                 .put("mappedPrimitive", mappedPrimitive)
                 .put("parallelMappedPrimitive", parallelMappedPrimitive)
                 .put("fieldMaterialize", fieldMaterialize)
+                .put("typedFilterMaterialize", typedFilterMaterialize)
                 .put("mappedReference", mappedReference)
                 .put("sharedFingerprint", fingerprint)
                 .put("fingerprint", fingerprint);
