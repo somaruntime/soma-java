@@ -239,6 +239,10 @@ Canonical IR/Execution治理已经正式晋升、冻结并完成S1-S6 implementa
 active implementation slice。
 [SOMA Engine产品构思](../temp/soma-engine-product-concept/README.md)是独立queued intent，不是Design、
 active governance或current implementation input。
+[Post-M2性能优化路线提案](../temp/soma-post-m2-performance-optimization-roadmap/README.md)是独立queued
+proposal，不是Design、Engineering Plan、active governance或current implementation input。
+[Production Core质量检查方法可行性探索](../temp/soma-quality-inspection-governance/README.md)是当前唯一
+active bounded topic；其Candidate Design已冻结、Q0-Q2已授权，但尚未形成正式Conformance结论或质量门。
 `docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
 [正式Conformance记录](v1-performance-correctness-governance.md)完成治理和replacement closure；
 千万行组合负载的扩展证据见[对应记录](v1-ten-million-composed-workload-governance.md)；四维性能架构

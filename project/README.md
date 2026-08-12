@@ -135,7 +135,9 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active bounded topic。
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前唯一active bounded topic为
+  [Production Core质量检查方法可行性探索](temp/soma-quality-inspection-governance/README.md)，
+  Candidate Design已冻结且Q0-Q2获授权，但尚未形成质量门或采用结论。
   Physical Execution Engine M2已由
   [最终P6资格](conformance/physical-execution-engine-m2-p6-final-qualification.md)完成Temporary replacement closure；
   Vectorized Physical Pipeline扩展已经由
@@ -143,7 +145,8 @@ Blueprint
   Temporary replacement closure；Grassing治理已由
   [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并退役Temporary；
   [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或
-  implementation input。
+  implementation input；[Post-M2性能优化路线提案](temp/soma-post-m2-performance-optimization-roadmap/README.md)
+  只是未来性能专题的queued路由，不是Design、Engineering Plan或implementation input。
 
 日常检查使用：
 
@@ -174,7 +177,8 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前没有active bounded topic。Physical Execution Engine M2已由
+当前唯一active bounded topic为
+[Production Core质量检查方法可行性探索](temp/soma-quality-inspection-governance/README.md)；Physical Execution Engine M2已由
 [最终P6资格](conformance/physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6、正式Owner与
 Temporary replacement closure；冻结Candidate fingerprint仍由
 [晋升记录](conformance/v1-physical-execution-engine-m2-promotion-readiness.md)保存。
@@ -188,6 +192,8 @@ Temporary replacement closure。Canonical IR与执行引擎治理已由
 Baseline Freeze、readiness与Temporary replacement closure；production implementation与S1–S6 qualification
 均已完成，当前没有active implementation slice。
 [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)独立保留为queued intent。
+[Post-M2性能优化路线提案](temp/soma-post-m2-performance-optimization-roadmap/README.md)独立保留为
+`QUEUED / NOT_ACTIVE / NOT_DESIGN / NOT_AUTHORIZED`的后续选路材料。
 [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)
 已完成正式Owner晋升、Conformance与replacement closure。此前
 [32位结构域与即时增量Key/Index维护](conformance/v1-incremental-structural-mutation-governance.md)
