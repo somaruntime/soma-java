@@ -12,7 +12,7 @@ baseline mechanism、complexity与replaceability boundary
 最后审查日期：2026-08-12
 
 本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；finite primitive
-Chunk kernel与shared parallel lifecycle
+Chunk kernel、representation-native access与shared parallel lifecycle
 
 ## 1. 文档责任
 
@@ -170,7 +170,9 @@ Hot loops对Chunk representation做once-per-Chunk dispatch，再操作primitive/
 PLAIN representation可以向同package内已经admitted的finite physical kernel提供once-per-Chunk typed
 array borrow；borrow只能存活于一次ExecutionFrame，不能泄漏到generated/runtime public surface、
 跨terminal缓存或成为第二份storage truth。Encoded/overlay保持representation-owned access；不得为了
-复用PLAIN loop无预算地整体解压。
+复用PLAIN loop无预算地整体解压。Integral encoded representation可以通过closed、package-private、
+immutable access投影plain integral buffer或`raw value + logical run end`；该access不接收Canonical/
+terminal/planner对象，不跨Frame保存，也不把codec token或private layout升级为架构ABI。
 
 ## 8. Key/Index baseline
 
@@ -283,10 +285,16 @@ sort/hash/materialization、task、result和mutation staging。Sequential与para
 physical family，但必须细化同一PhysicalPlan并追溯同一Canonical semantic node。
 
 已准入的finite primitive Chunk family只覆盖Table count、schema-known integral Field sum与ordered
-`long[]` materialization及其simple pure typed predicate。Planning一次编译leaf/predicate binding并把
-decision放入PhysicalPlan；execution只消费decision。Scalar parallel aggregate以existing Chunk为
-morsel，使用O(Chunk count) partial与exact ordinal merge，禁止先建立O(rows) locator buffer。具体
-predicate switch、array loop、partial carrier和Chunk宽度是可替换L4机制，不形成通用Batch DAG。
+`long[]` materialization及其zero/simple pure typed integral predicate。Planning接收closed terminal
+requirement，一次编译leaf/predicate binding、representation handler、parallel ownership与complete
+resource projection并放入最终PhysicalPlan；execution只消费decision。
+
+PLAIN使用typed array；integral encoded-plain直接读取，single-distinct-leaf RLE按run读取/填充；需要
+multi-leaf run zipper时使用encoded scalar，overlay使用current-value scalar。Scalar parallel aggregate以
+existing Chunk为morsel，使用O(Chunk count) partial与exact ordinal merge。Ordered `long[]`无predicate
+按Chunk prefix写固定range；typed predicate sequential使用single write + conditional compact，parallel
+使用count/prefix/disjoint write。所有路径禁止先建立O(rows) locator buffer。具体predicate switch、array
+loop、partial carrier、Chunk宽度和private carrier名称是可替换L4机制，不形成通用Batch DAG。
 
 First complete engine需要：
 

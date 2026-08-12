@@ -475,8 +475,9 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
   typed kernel的eligibility、compiled leaf/predicate binding与parallel responsibility也是同一decision；
 - **Lifecycle**：A17 produces plan/estimate -> A20/A25 admit -> A20 frame drives specialized operators ->
   discard；
-- **Invariant**：PhysicalPlan不分配O(N)execution storage、不越过callback barrier；kernel decision与
-  resource projection只形成一次，execution只消费；operator输出与A18等价；
+- **Invariant**：PhysicalPlan不分配O(N)execution storage、不越过callback barrier；closed terminal
+  requirement、representation handler、parallel responsibility与complete resource projection只形成一次，
+  execution只消费；ordered materialization不建立O(rows) locator companion；operator输出与A18等价；
 - **Relations**：`lowers-from` A16/A17，`reads` A21/A22/A23，由A20 ExecutionFrame驱动，parallel时由
   A26细化；
 - **Non-responsibility**：actual lease/cursor/scratch/worker/staging lifecycle、第二套semantic plan、
@@ -515,7 +516,8 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 - **Identity**：root + Chunk ordinal + logical Field leaf；不是public Column；
 - **Lifecycle**：allocate/plain tail -> fill/seal -> optionalencode/overlay -> candidate rebuild -> root discard；
 - **Invariant**：same-row-span leaves、checked locator、logical value independent of representation、
-  unreachable reference cleared；typed array borrow只向admitted physical kernel开放且不逃逸Frame；
+  unreachable reference cleared；typed array与encoded integral run borrow只向admitted finite physical
+  kernel开放且不逃逸Frame、不形成第二storage truth；
 - **Relations**：A6 `lowers-to` leaves；A19 reads via specialized kernel；future backend只能在此seam准入；
 - **Non-responsibility**：Table business identity、public configuration、per-element virtual dispatch。
 
@@ -565,8 +567,9 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 - **Lifecycle**：partition -> submit P-1 drainers/start gate -> caller+workers execute -> failure arbitration/
   cancel -> deterministic merge -> quiesce -> discard；
 - **Invariant**：submission/start/rejection/cancel/interrupt/quiescence只有一个Owner；participants/tasks/
-  scratch有界；sequential/parallel result与non-resource failure等价；mode-specific resource/interrupt
-  failure不产生alternate result；返回前quiescent；
+  scratch有界；Chunk partial和materialization fixed range共享该lifecycle；sequential/parallel result与
+  non-resource failure等价；mode-specific resource/interrupt failure不产生alternate result；返回前
+  quiescent；
 - **Relations**：`realizes` A19 parallel mode，`depends-on` application ForkJoinPool，A25 constrains；
 - **Non-responsibility**：创建/关闭pool、per-record task、async terminal、改变logical order/tree。
 
@@ -994,6 +997,8 @@ Receive the same admitted A19 physical work
 - structured failure返回前workers不再访问operation state；
 - callback内parallel terminal为nested parallel failure。
 - scalar Chunk-morsel count/sum只维护O(Chunk count) partial，不先materialize O(rows) locator membership。
+- ordered `long[]`无predicate按Chunk prefix写固定range；pure typed predicate的parallel路径先按Chunk
+  count，再由caller形成checked ordinal prefix并写入互不重叠range，不按worker完成顺序合并。
 
 ## 19. Main narrative N7 — Compression representation transition
 

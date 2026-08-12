@@ -12,7 +12,7 @@ substitution、Join/Group planning、statistics、reference interpreter与optimi
 最后审查日期：2026-08-12
 
 本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；finite primitive
-Chunk physical specialization
+Chunk physical specialization与representation-native expansion
 
 ## 1. 设计目标
 
@@ -144,11 +144,24 @@ membership、sort/hash/materialization buffer、workers与staging由Execution Ow
 后创建的operation-local ExecutionFrame拥有。
 
 对schema-known、typed-only、streaming segment，Planning可以选择有限的representation-owned
-Chunk kernel。Kernel eligibility、compiled predicate/leaf binding、parallel responsibility和对应
-temporary peak必须在本次`PhysicalPlan + ResourceEstimate`中一次形成；terminal与execution kernel只
-消费该decision，不重新推导第二套资格或scratch事实。当前正式准入的最小集合是Table count、
-integral Field sum与ordered `long[]` materialization；不满足条件时使用同一PhysicalPlan Owner下
-既有optimized family，不转Reference、不产生unsupported failure。
+Chunk kernel。Closed terminal requirement必须在同一次planning中与normalized semantics共同形成最终
+access path、kernel、compiled predicate/leaf binding、representation handler、parallel responsibility和
+完整temporary peak；terminal与execution kernel只消费该`PhysicalPlan + ResourceEstimate`，不能在
+resource admission前后再做terminal-family refinement，也不能重新推导第二套资格或scratch事实。
+
+当前正式准入的finite family是Table count、schema-known integral Field sum与ordered `long[]`
+materialization，以及它们允许的zero/simple pure typed integral predicate。Representation decision为：
+
+- PLAIN按once-per-Chunk typed array执行；
+- integral encoded-plain直接读取；仅依赖一个distinct integral leaf的RLE按run执行；
+- 多个RLE leaf边界需要通用zipper时使用encoded scalar handler，overlay使用current-value scalar handler；
+- mixed root按同一final plan为每个Chunk选择已经确定的handler；不整体decode，也不跨terminal缓存。
+
+Ordered `long[]`无predicate时按Chunk canonical prefix写入固定不重叠range；pure typed predicate的
+sequential路径执行一次representation-native write并在partial result时compact，explicit parallel路径执行
+per-Chunk count、checked ordinal prefix与disjoint write。该mode差异属于同一Physical decision的有限
+kernel机制，不是第二planner或semantic executor。不满足资格的shape使用同一PhysicalPlan Owner下既有
+optimized family，不转Reference、不产生unsupported failure。
 
 这种specialization是physical decision，不是新的Canonical node、public Batch/Vector、prepared plan
 或跨terminal kernel cache。后续增加representation/type/operator cell必须重新经过profile、

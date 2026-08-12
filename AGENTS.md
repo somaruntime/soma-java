@@ -50,10 +50,9 @@ sidecar projection闭合普通PLAIN路径，encoded/indexed fallback保留candid
 已正式晋升并`PASS`：当前正式能力只包含Table `count`、integral Field `sum`与ordered
 `long[]` materialization三类finite primitive Chunk kernel，Physical Plan一次性拥有kernel/resource
 decision，row/chunk两条parallel路径共享同一bounded caller-participating lifecycle；
-[后续能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)已成为当前唯一
-active bounded Temporary，状态为
-`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；R2设计已经完成并收窄为VP1
-encoded integral、VP2 ordered `long[]`与VP3 closure，Product Owner于2026-08-12授权按冻结计划完整实施；
+[后续能力扩展治理](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)也已正式晋升并
+`PASS`：VP1 encoded-native integral、VP2 ordered `long[]` representation-native/parallel与VP3全局资格、
+正式Owner晋升和Temporary replacement closure均已完成，当前没有active implementation slice；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
 [SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
@@ -98,13 +97,11 @@ planning 或 reference differential 时读取
 解释为active migration或静默恢复旧adapter。
 
 涉及Vectorized Physical Pipeline、representation-aware kernel或morsel-driven execution时，必须读取
-[当前active Temporary](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)、
-[冻结临时设计](project/temp/soma-vectorized-physical-pipeline-expansion-governance/design.md)、
-[冻结实施计划](project/temp/soma-vectorized-physical-pipeline-expansion-governance/implementation-plan.md)、
-[Freeze/Readiness记录](project/temp/soma-vectorized-physical-pipeline-expansion-governance/baseline-freeze-and-readiness.md)
-与[第一阶段正式晋升记录](project/conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)。临时设计已经
-冻结且Product Owner已于2026-08-12授权VP1-VP3完整实施；一次只推进一个active slice，不得把Temporary
-外推为正式Design或扩张冻结capability。
+[第一阶段正式晋升记录](project/conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)、
+[VP1资格](project/conformance/vectorized-pipeline-expansion-vp1-qualification.md)、
+[VP2资格](project/conformance/vectorized-pipeline-expansion-vp2-qualification.md)与
+[扩展正式治理记录](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)。VP1-VP3已
+完成，不得重新解释为active migration；任何能力矩阵扩张仍须建立新的bounded Temporary与授权。
 
 实施slice或跨Design审查还必须读取
 [核心抽象与叙事Design](project/design/core-abstractions-and-narratives.md)中与该slice对应的A/N/INV
@@ -149,9 +146,9 @@ planning 或 reference differential 时读取
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前唯一active topic是
-  [Vectorized Physical Pipeline能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)，
-  状态为`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；
+- `project/temp/`当前没有active topic；Vectorized Physical Pipeline扩展已经由
+  [正式Conformance记录](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成
+  Temporary replacement closure；
   Grassing治理由
   [正式Conformance记录](project/conformance/v1-grassing-simulation-reference-application-governance.md)拥有，
   Candidate Temporary已完成replacement closure；

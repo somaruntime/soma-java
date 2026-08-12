@@ -9,7 +9,7 @@
 Owner：Group/Table identity、logical Field、authoritative StateRoot/Chunk、leaf/null、Key/Index、
 capacity/order、compression、reference ownership与future backend seam
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
 ## 1. 设计目标
 
@@ -267,6 +267,12 @@ PLAIN_OR_ENCODED + SPARSE_OVERLAY
 - AUTO可因收益、update rate、Index或peak memory选择PLAIN；
 - compression不能改变null、equality、order、callback或failure；
 - old + candidate + scratch peak必须纳入budget。
+
+已准入的finite integral physical kernel可以在一次bound ExecutionFrame内借用immutable、package-private
+representation access：encoded-plain只投影实际primitive buffer，RLE只投影`raw value + logical run end`。
+该borrow不复制payload、不整体decode、不跨terminal缓存，也不取代Chunk作为authoritative truth；multi-leaf
+run boundary无法由已准入finite handler直接证明时必须走scalar/current fallback，而不是在Storage层建立
+通用run zipper或第二套plan。
 
 Codec、threshold、sampling与overlay density是profile-driven internal choices；forced codec
 correctness与AUTO cost-model必须分别验证。

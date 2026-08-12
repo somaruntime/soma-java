@@ -12,7 +12,7 @@ parallel scheduling、configuration、resource admission、cancellation与quiesc
 最后审查日期：2026-08-12
 
 本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；shared ordinal-work
-parallel lifecycle与Chunk-morsel partial execution
+parallel lifecycle、Chunk-morsel partial与ordered primitive materialization
 
 ## 1. 设计目标
 
@@ -74,10 +74,11 @@ sort/hash/materialization buffer、worker range、merge/result或mutation stagin
 cache、第二套semantic plan或public explain handle。
 
 当`PhysicalPlan`已经选择finite typed Chunk kernel时，Frame借用本次bound representation，并直接
-消费plan中已经形成的kernel decision。Execution不得重新计算eligibility或临时资源；若selected
-kernel接管parallel typed prefix，它必须使用plan中已经扣除旧locator prefix并加入Chunk partial后的
-最终`ResourceEstimate`。Borrowed leaf/Chunk只在本次Frame和operation token内有效，不进入public
-surface，也不拥有StateRoot。
+消费plan中已经形成的kernel/handler/parallel/resource decision。Execution不得重新计算eligibility、
+representation或临时资源；若selected kernel接管parallel typed prefix，它必须使用plan中已经删除旧
+locator prefix并加入Chunk partial、result与bounded Chunk state后的最终`ResourceEstimate`。Borrowed
+typed/run access只在本次Frame和operation token内有效，不进入public surface，不拥有StateRoot，也不能
+整体decode或形成第二storage truth。
 
 Operation coordinator只编排上述Owner，不复制StateRoot、planner、resource manager或failure事实，不能
 演化成持有所有service/state的God object。Physical planning阶段不得运行callback或分配O(N) execution
@@ -249,6 +250,13 @@ PhysicalPlan的`ResourceEstimate`是admission输入，不是lease或allocation�
 membership、sort/hash/materialization storage、task state与mutation/result staging，都必须在对应
 temporary/retained reservation成功后进入ExecutionFrame；不得用“planner临时对象”绕过budget Owner。
 
+Finite primitive family的admission至少覆盖：sequential count/sum的row-independent state；parallel
+aggregate的O(Chunk count + participants) partial/task state；ordered `long[]`的detached result；typed
+predicate sequential materialization的upper-bound staging与可能同时存活的exact result；parallel
+materialization的upper-bound result、O(Chunk count) count/offset与bounded task state。所有数组长度与
+byte乘加checked，任何pool submission、data pass或result write都必须晚于完整lease；不得用O(rows)
+locator companion buffer换取并行。
+
 显式Group没有manual close。每个Group注册一个不反向引用Group/Table的accounting token与
 `PhantomReference`；global manager同步drain `ReferenceQueue`后exactly-once释放该Group的
 retained reservation。Drain发生在每次resource admission、configuration和global metadata
@@ -276,6 +284,11 @@ quiescence只能由一个internal Owner实现。Chunk morsel把一个现有logic
 scalar count/integral sum使用operation-local O(Chunk count) partial并按Chunk ordinal deterministic
 merge，不先materialize O(rows) locator membership。这个合同不固定task multiplier、Chunk size或
 private scheduler class，也不建立generic Executor framework。
+
+Ordered `long[]` materialization复用同一lifecycle：无predicate时每个Chunk按canonical prefix写入固定
+range；pure typed predicate的parallel路径先产生per-Chunk count，再由caller按ordinal形成checked prefix，
+最后并行写入互不重叠的exact range。Worker completion order不得进入结果顺序；返回detached result或
+structured failure前全部participant必须quiescent。
 
 ## 14. Nested parallel 与 reentrancy
 

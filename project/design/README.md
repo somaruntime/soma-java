@@ -153,8 +153,11 @@ Design仍是implementation的上游合同；后续优化只能在Owner边界内�
 Finite primitive Chunk kernel与Chunk-morsel partial aggregate已经通过
 [正式晋升记录](../conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)作为M1内部机制纳入
 baseline：PhysicalPlan一次拥有kernel/resource decision，Row range与Chunk morsel共享同一parallel
-lifecycle。该晋升没有新增public API、Canonical node、production artifact或dependency，也没有把后续
-encoded、GroupBy、Join等能力提前解释为已实现。
+lifecycle。[扩展治理](../conformance/v1-vectorized-physical-pipeline-expansion-governance.md)进一步正式
+准入encoded-native integral count/sum/predicate与ordered `long[]` representation-native sequential/
+parallel materialization，并保持single final Physical decision、complete pre-work admission与existing
+optimized fallback。两次晋升均没有新增public API、Canonical node、production artifact或dependency，
+也没有把其他primitive array、callback/stateful、GroupBy或Join能力提前解释为已实现。
 
 ## 8. 下游入口
 

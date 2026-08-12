@@ -4,7 +4,7 @@
 
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
 Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
-Vectorized Pipeline治理`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`
+Vectorized Pipeline扩展`PASS / FORMALLY_PROMOTED / VP1-VP3_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`
 
 正式事实源：是
 
@@ -52,6 +52,7 @@ Post-governance global review PASS / FINDINGS_CLOSED
 Performance/correctness       MEMORY_ATTRIBUTION_LOW_ALLOCATION_PASS / TYPE_DISTRIBUTION_QUALIFIED /
                               FOUR_DIMENSIONAL_GOVERNANCE_PASS / PERFORMANCE_FRONTIER_QUALIFIED
 Vector physical phase 1       PASS / FORMALLY_PROMOTED / BASELINE_INTEGRATED
+Vector physical expansion     PASS / VP1-VP3_COMPLETED / TEMPORARY_RETIRED
 Structural/Index governance  INT32_STRUCTURAL_INCREMENTAL_INDEX / PASS / FORMALLY_PROMOTED
 Scheduling reference        STANDARD_FJSP_100K / PASS / NATURAL_POINT_MUTATION
 Scheduling performance      STANDARD_FJSP_100K / FRESH_0.6S / WARM_0.51S / PASS
@@ -60,8 +61,7 @@ Canonical IR implementation   S1-S6_COMPLETED / QUALIFIED
 Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
-Active bounded topic          VECTORIZED_PIPELINE_DESIGN_FROZEN / IMPLEMENTATION_AUTHORIZED /
-                              VP1-VP2_COMPLETED / VP3_ACTIVE
+Active bounded topic          NONE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -89,8 +89,8 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 | Group/Table/chunk/Key/Index/compression | [Storage](../design/data-model-and-storage.md) | checked int structural/long cumulative domain、paged PLAIN/encoded/overlay storage、singleton-inline/ordered-int-array Key/Index、point incremental maintenance、atomic StateRoot与Group retained accounting已建立 | PASS |
 | Direct/Group/Join logical API | [Logical](../design/logical-api.md) | Table/Index/Field query、Selection mutation、GroupBy、binary Equality/Cross Join、explicit parallel与四级metadata已建立 | PASS |
 | Exact Java 8 surface | [Signature](../design/generated-api-signatures.md) | I7 cumulative generated/runtime public surface已由Java 8 consumer与javap边界验证 | PASS |
-| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | Row/Field/Mapped/Primitive/Relation/Group已由Canonical/Bound与独立Reference拥有；finite primitive kernel decision与resource projection一次进入PhysicalPlan | PASS / M1_S1-S6_COMPLETE / VECTOR_PHASE1_PROMOTED |
-| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | 全部query family共享guard、binding、admission与Frame主路径；Row range/Chunk morsel共享唯一ordinal-work lifecycle | PASS / M1_S1-S6_COMPLETE / VECTOR_PHASE1_PROMOTED |
+| IR/optimizer/reference interpreter | [Planning](../design/planning-and-optimization.md) | Row/Field/Mapped/Primitive/Relation/Group已由Canonical/Bound与独立Reference拥有；finite primitive kernel、encoded handler与ordered materialization resource一次进入PhysicalPlan | PASS / M1_S1-S6_COMPLETE / VECTOR_EXPANSION_PROMOTED |
+| Binding/mutation/parallel/resource | [Execution](../design/execution-and-concurrency.md) | 全部query family共享guard、binding、admission与Frame主路径；Row range/Chunk aggregate/materialization共享唯一ordinal-work lifecycle | PASS / M1_S1-S6_COMPLETE / VECTOR_EXPANSION_PROMOTED |
 | Result/failure | [Failure](../design/results-and-failures.md) | query与point/Selection mutation structured result/failure、zero-publication与no-op成立 | PASS |
 | Artifact/internal architecture | [Architecture](../design/implementation-architecture.md) | two-artifact/Java 8/package继续PASS；全部query family的Java-lowering-to-frame seam与replacement closure已成立 | PASS / M1_S1-S6_COMPLETE |
 | Performance/scenarios | BP-15 + G9 | 三个reference application、10K/1M/10M frontier matrix、profile优化与fixed-host memory attribution通过 | PASS |
@@ -109,6 +109,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [Vectorized Physical Pipeline扩展VP2资格](vectorized-pipeline-expansion-vp2-qualification.md)：
   ordered `long[]` representation-native materialization、bounded parallel partition、resource与同机
   baseline/candidate性能证据Owner；
+- [Vectorized Physical Pipeline扩展治理](v1-vectorized-physical-pipeline-expansion-governance.md)：
+  VP1-VP3完整实施、10K/1M/10M、reference applications、正式Design晋升与Temporary replacement closure
+  Owner；
 - [Selection mutation write-set and in-place commit governance](v1-selection-mutation-write-set-governance.md)：
   PLAIN Selection update/remove从touched-Chunk全leaf copy迁移到columnar write set、dense move plan、
   final-locator sidecar projection与prevalidated final commit的Owner；
@@ -203,12 +206,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
-[Vectorized Physical Pipeline能力扩展](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
-的`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；它拥有本topic冻结的
-Temporary Design与VP1-VP3 implementation input；[VP1](vectorized-pipeline-expansion-vp1-qualification.md)
-与[VP2](vectorized-pipeline-expansion-vp2-qualification.md)已通过，当前只推进VP3；Product Owner未授权范围扩张或release；
-Grassing治理已由
+Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
+Vectorized Physical Pipeline扩展已经由
+[正式Conformance记录](v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成VP1-VP3、正式Owner
+晋升与replacement closure；Product Owner未授权范围扩张或release。Grassing治理已由
 [正式Conformance记录](v1-grassing-simulation-reference-application-governance.md)接管并完成
 replacement closure。
 Canonical IR/Execution治理已经正式晋升、冻结并完成S1-S6 implementation与qualification；当前没有

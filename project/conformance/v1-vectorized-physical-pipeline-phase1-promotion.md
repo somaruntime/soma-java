@@ -115,23 +115,23 @@ framework、public SPI或另一套semantic executor。
 - Architecture Design拥有PLAIN typed access、finite kernel family和scheduler mechanism；
 - Core Design将其记录为A19/A20/A22/A26的M1成熟化，不新增A编号；
 - production只保留一个Physical decision Owner和一个parallel lifecycle Owner；
-- 第一阶段Temporary已退役；后续能力扩展在本记录关闭时转入独立queued Temporary，并于2026-08-12
-  由Product Owner激活为[R2 Candidate Design治理](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)；
-  其后临时设计已完成Freeze与Readiness并获得VP1-VP3实施授权；
-  [VP1资格](vectorized-pipeline-expansion-vp1-qualification.md)已经通过，但仍不覆盖本记录拥有的第一阶段baseline；
+- 第一阶段Temporary已退役；后续能力扩展已经由
+  [正式Conformance记录](v1-vectorized-physical-pipeline-expansion-governance.md)完成VP1-VP3、正式Design晋升
+  与Temporary replacement closure；该扩展不覆盖本记录拥有的第一阶段baseline；
 - root/public surface未变化，无需更新Library user文档。
 
 ## 6. Claim boundary
 
 本次`PASS`不证明：
 
-- encoded-aware aggregate/predicate已经完成；
+- finite matrix之外的encoded-aware type/operator已经完成；
 - 全部primitive/type/operator cross-product已经vectorized；
 - GroupBy、Join、sort、distinct、top或mutation已经采用morsel/vector path；
 - general Batch DAG、runtime codegen、SIMD Vector API或SOMA Engine已获准；
 - 一亿行、跨硬件SLA、GitHub Release/Package、签名或正式发布已经成立。
 
-后续能力只能在新Temporary完成Candidate Design、Baseline Freeze与单slice准入后实施。
+后续能力只能在新Temporary完成Candidate Design、Baseline Freeze与单slice准入后实施；当前VP1-VP3
+扩展的精确范围与证据见[正式治理记录](v1-vectorized-physical-pipeline-expansion-governance.md)。
 
 ## 7. 重放入口
 
