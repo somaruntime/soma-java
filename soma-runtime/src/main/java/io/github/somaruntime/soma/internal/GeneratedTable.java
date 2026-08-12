@@ -810,11 +810,38 @@ public final class GeneratedTable {
 
     UpdateResult publishSelectionUpdate(
             TableStateRoot oldRoot,
-            TableChunkDirectory candidateDirectory,
+            SelectionWriteSet writeSet,
             int matched,
-            int changed,
-            boolean indexedValueChanged,
             Object provenance) {
+        int changed = writeSet.changedRowCount();
+        boolean indexedValueChanged = writeSet.indexedValueChanged();
+        long newVersion = CheckedLong.increment(
+                oldRoot.stateVersion, SomaOperation.UPDATE, provenance);
+        if (writeSet.canCommitPlainInPlace() && !indexedValueChanged) {
+            UpdateResult result = updateResult(matched, changed);
+            TableStateRoot committed = new TableStateRoot(
+                    oldRoot.size,
+                    oldRoot.capacity,
+                    newVersion,
+                    oldRoot.managedBytes,
+                    oldRoot.directory,
+                    oldRoot.key,
+                    oldRoot.indexes);
+            inject(
+                    MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH,
+                    SomaOperation.UPDATE,
+                    provenance);
+            inject(
+                    MutationFaultPoint.BEFORE_FINAL_COMMIT,
+                    SomaOperation.UPDATE,
+                    provenance);
+            writeSet.commitPlain(oldRoot.directory);
+            current.set(committed);
+            return result;
+        }
+
+        TableChunkDirectory candidateDirectory =
+                oldRoot.directory.copyForWriteSet(writeSet);
         candidateDirectory.finishTouched(
                 oldRoot.size,
                 group.compression(),
@@ -840,10 +867,7 @@ public final class GeneratedTable {
                 new TableStateRoot(
                         oldRoot.size,
                         oldRoot.capacity,
-                        CheckedLong.increment(
-                                oldRoot.stateVersion,
-                                SomaOperation.UPDATE,
-                                provenance),
+                        newVersion,
                         finalManaged,
                         candidateDirectory,
                         oldRoot.key,
@@ -855,10 +879,68 @@ public final class GeneratedTable {
 
     RemoveResult publishSelectionRemove(
             TableStateRoot oldRoot,
-            TableChunkDirectory candidateDirectory,
-            int removed,
+            SelectionRemovePlan plan,
             Object provenance) {
-        int newSize = oldRoot.size - removed;
+        int removed = plan.removedCount();
+        int newSize = plan.newSize();
+        if (oldRoot.directory.canApplySelectionRemoveInPlace(plan)) {
+            int[] sourceLocators = plan.sourceLocators();
+            inject(
+                    MutationFaultPoint.BEFORE_KEY_REBUILD,
+                    SomaOperation.REMOVE,
+                    provenance);
+            IdentityHashIndex key = layout.keyFieldIndex() < 0
+                    ? null
+                    : IdentityHashIndex.rebuildProjected(
+                            layout,
+                            layout.keyFieldIndex(),
+                            true,
+                            oldRoot.directory,
+                            sourceLocators,
+                            SomaOperation.REMOVE,
+                            provenance);
+            IdentityHashIndex[] indexes = rebuildProjectedIndexes(
+                    oldRoot.directory,
+                    sourceLocators,
+                    SomaOperation.REMOVE,
+                    provenance);
+            inject(
+                    MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
+                    SomaOperation.REMOVE,
+                    provenance);
+            long sidecars = sidecarBytes(
+                    key, indexes, SomaOperation.REMOVE, provenance);
+            long finalManaged = replaceSidecarBytes(
+                    oldRoot, sidecars, SomaOperation.REMOVE, provenance);
+            TableStateRoot committed = new TableStateRoot(
+                    newSize,
+                    oldRoot.capacity,
+                    CheckedLong.increment(
+                            oldRoot.stateVersion,
+                            SomaOperation.REMOVE,
+                            provenance),
+                    finalManaged,
+                    oldRoot.directory,
+                    key,
+                    indexes);
+            RemoveResult result = removeResult(removed);
+            publishSelectionRemoveInPlace(
+                    oldRoot, committed, plan, provenance);
+            return result;
+        }
+
+        TypedValues copyScratch = new TypedValues(layout);
+        IntLocatorBuffer selected = new IntLocatorBuffer(
+                removed, SomaOperation.REMOVE, provenance);
+        for (int position = 0; position < removed; position++) {
+            selected.add(plan.removed(position));
+        }
+        TableChunkDirectory candidateDirectory =
+                oldRoot.directory.copyForSelectionRemove(
+                        selected,
+                        oldRoot.size,
+                        copyScratch,
+                        provenance);
         candidateDirectory.finishTouched(
                 newSize,
                 group.compression(),
@@ -888,6 +970,7 @@ public final class GeneratedTable {
                 key, indexes, SomaOperation.REMOVE, provenance);
         long finalManaged = managedBytes(
                 candidateDirectory, sidecars, SomaOperation.REMOVE, provenance);
+        RemoveResult result = removeResult(removed);
         publishCandidate(
                 oldRoot,
                 new TableStateRoot(
@@ -903,7 +986,32 @@ public final class GeneratedTable {
                         indexes),
                 SomaOperation.REMOVE,
                 provenance);
-        return removeResult(removed);
+        return result;
+    }
+
+    private void publishSelectionRemoveInPlace(
+            TableStateRoot oldRoot,
+            TableStateRoot committed,
+            SelectionRemovePlan plan,
+            Object provenance) {
+        long delta = committed.managedBytes - oldRoot.managedBytes;
+        long positive = Math.max(0L, delta);
+        try (GlobalMemoryManager.RetainedReservation retained =
+                     group.reserveRetained(
+                             positive, SomaOperation.REMOVE, provenance)) {
+            inject(
+                    MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH,
+                    SomaOperation.REMOVE,
+                    provenance);
+            inject(
+                    MutationFaultPoint.BEFORE_FINAL_COMMIT,
+                    SomaOperation.REMOVE,
+                    provenance);
+            oldRoot.directory.applySelectionRemoveInPlace(plan);
+            current.set(committed);
+            retained.commit();
+        }
+        if (delta < 0L) group.releasePublished(-delta);
     }
 
     GeneratedPipeline indexPipeline(int indexOrdinal, TypedLiteral probe) {
@@ -1136,6 +1244,26 @@ public final class GeneratedTable {
                     false,
                     directory,
                     size,
+                    operation,
+                    provenance);
+        }
+        return result;
+    }
+
+    private IdentityHashIndex[] rebuildProjectedIndexes(
+            TableChunkDirectory sourceDirectory,
+            int[] sourceLocators,
+            SomaOperation operation,
+            Object provenance) {
+        IdentityHashIndex[] result = new IdentityHashIndex[layout.indexCount()];
+        for (int ordinal = 0; ordinal < result.length; ordinal++) {
+            inject(MutationFaultPoint.BEFORE_INDEX_REBUILD, operation, provenance);
+            result[ordinal] = IdentityHashIndex.rebuildProjected(
+                    layout,
+                    layout.indexFieldIndex(ordinal),
+                    false,
+                    sourceDirectory,
+                    sourceLocators,
                     operation,
                     provenance);
         }

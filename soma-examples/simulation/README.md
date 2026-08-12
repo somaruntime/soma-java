@@ -84,6 +84,7 @@ SOMA_BENCHMARK_IMPLEMENTATIONS=soma-auto \
 
 The application projects and sorts primitive `grasserId` arrays before point access instead of
 sorting detached row-object arrays. This keeps deterministic process order while avoiding needless
-object materialization. The remaining profile hotspot is SOMA Selection mutation candidate copying;
-it is documented as a future generic runtime-design topic rather than hidden behind an application
-shadow state or a scenario-specific patch.
+object materialization. SOMA Selection mutation now stages PLAIN updates in a columnar write set and
+uses a prevalidated dense remove plan rather than copying every leaf in every touched Chunk. The
+improvement is a general runtime mechanism with formal correctness and resource evidence, not an
+application shadow state or a scenario-specific patch.

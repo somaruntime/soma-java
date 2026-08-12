@@ -51,6 +51,9 @@ implementation 与 qualification：
 - [Grassing Simulation reference application治理](conformance/v1-grassing-simulation-reference-application-governance.md)
   已`PASS`：两张runtime Table、五阶段tick、UI/headless、deterministic validation、Application JFR/A-B
   与source/package delivery闭合；
+- [Selection mutation write-set治理](conformance/v1-selection-mutation-write-set-governance.md)
+  已`PASS`：PLAIN Selection update/remove退出touched-Chunk全leaf copy，使用columnar write set、
+  dense move plan和final-locator sidecar projection，同时保持encoded candidate与zero-publication；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -88,6 +91,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | 32位结构域、即时增量 Key/Index 与 mutation A/B | [Incremental structural mutation qualification](conformance/v1-incremental-structural-mutation-governance.md) |
 | 标准100K FJSP、Solver架构与自然waiting mutation回归 | [Scheduling reference governance](conformance/v1-scheduling-reference-application-governance.md) |
 | Grassing空间仿真、UI/headless与Application性能治理 | [Grassing simulation governance](conformance/v1-grassing-simulation-reference-application-governance.md) |
+| Selection mutation write-set、原位提交与A/B | [Selection mutation governance](conformance/v1-selection-mutation-write-set-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -111,7 +115,7 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active topic；
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active bounded topic；
   Grassing治理已由
   [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并退役Temporary；
   [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或

@@ -247,6 +247,46 @@ final class PlainChunk implements TableChunk {
         for (int slot = 0; slot < references.length; slot++) references[slot][offset] = null;
     }
 
+    /** Allocation-free final-commit write of one already validated leaf column. */
+    void writeSelectionValue(
+            int offset,
+            byte kind,
+            int slot,
+            Object source,
+            int position) {
+        switch (kind) {
+            case GeneratedTableLayout.BOOLEAN:
+                booleans[slot][offset] = ((boolean[]) source)[position];
+                break;
+            case GeneratedTableLayout.BYTE:
+                bytes[slot][offset] = ((byte[]) source)[position];
+                break;
+            case GeneratedTableLayout.SHORT:
+                shorts[slot][offset] = ((short[]) source)[position];
+                break;
+            case GeneratedTableLayout.CHAR:
+                chars[slot][offset] = ((char[]) source)[position];
+                break;
+            case GeneratedTableLayout.INT:
+                ints[slot][offset] = ((int[]) source)[position];
+                break;
+            case GeneratedTableLayout.LONG:
+                longs[slot][offset] = ((long[]) source)[position];
+                break;
+            case GeneratedTableLayout.FLOAT:
+                floats[slot][offset] = ((float[]) source)[position];
+                break;
+            case GeneratedTableLayout.DOUBLE:
+                doubles[slot][offset] = ((double[]) source)[position];
+                break;
+            case GeneratedTableLayout.REFERENCE:
+                references[slot][offset] = ((Object[]) source)[position];
+                break;
+            default:
+                throw new AssertionError("unknown Selection write-set leaf kind");
+        }
+    }
+
     /** Final-commit row move between already validated PLAIN chunks. */
     void copyRowFrom(PlainChunk source, int sourceOffset, int targetOffset) {
         for (int slot = 0; slot < booleans.length; slot++) {

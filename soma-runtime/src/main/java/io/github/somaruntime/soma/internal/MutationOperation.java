@@ -54,7 +54,7 @@ final class MutationOperation {
             CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
             long scratch = CheckedLong.add(
                     physical.resources.temporaryBytes,
-                    canonicalSelectionScratch(bound),
+                    canonicalSelectionScratch(bound, true),
                     bound.operation,
                     bound.provenance);
             try (GlobalMemoryManager.TemporaryLease ignored =
@@ -71,44 +71,44 @@ final class MutationOperation {
                     int matched = selected.size();
                     if (matched == 0) return table.selectionUpdateResult(0, 0);
 
-                    TableChunkDirectory candidate =
-                            bound.root.directory.copyForUpdates(selected);
                     GeneratedSelectionEditor editor = table.selectionEditor();
-                    int changed = 0;
-                    boolean indexedValueChanged = false;
-                    editor.begin(bound.root, bound.provenance);
+                    SelectionWriteSet writeSet = new SelectionWriteSet(
+                            table.layout(), selected);
                     try {
-                        for (int index = 0; index < selected.size(); index++) {
-                            int locator = selected.get(index);
-                            editor.enter(locator);
-                            CallbackExecutionScope.enter();
-                            try {
-                                updater.accept();
-                                if (editor.changed()) {
-                                    indexedValueChanged |= editor.indexedValueChanged();
-                                    candidate.write(locator, editor);
-                                    changed++;
+                        editor.begin(bound.root, bound.provenance);
+                        try {
+                            for (int index = 0; index < selected.size(); index++) {
+                                int locator = selected.get(index);
+                                editor.enter(locator);
+                                CallbackExecutionScope.enter();
+                                try {
+                                    updater.accept();
+                                    writeSet.capture(
+                                            index,
+                                            editor.originalValues(),
+                                            editor,
+                                            bound.root.directory);
+                                } catch (Exception failure) {
+                                    throw editor.callbackFailure(failure);
+                                } finally {
+                                    CallbackExecutionScope.exit();
+                                    editor.leave();
                                 }
-                            } catch (Exception failure) {
-                                throw editor.callbackFailure(failure);
-                            } finally {
-                                CallbackExecutionScope.exit();
-                                editor.leave();
                             }
+                        } finally {
+                            editor.end();
                         }
+                        if (writeSet.changedRowCount() == 0) {
+                            return table.selectionUpdateResult(matched, 0);
+                        }
+                        return table.publishSelectionUpdate(
+                                bound.root,
+                                writeSet,
+                                matched,
+                                bound.provenance);
                     } finally {
-                        editor.end();
+                        writeSet.clear();
                     }
-                    if (changed == 0) {
-                        return table.selectionUpdateResult(matched, 0);
-                    }
-                    return table.publishSelectionUpdate(
-                            bound.root,
-                            candidate,
-                            matched,
-                            changed,
-                            indexedValueChanged,
-                            bound.provenance);
                 } finally {
                     endCanonicalCursors(table);
                 }
@@ -132,7 +132,7 @@ final class MutationOperation {
             CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
             long scratch = CheckedLong.add(
                     physical.resources.temporaryBytes,
-                    canonicalSelectionScratch(bound),
+                    canonicalSelectionScratch(bound, false),
                     bound.operation,
                     bound.provenance);
             try (GlobalMemoryManager.TemporaryLease ignored =
@@ -149,18 +149,16 @@ final class MutationOperation {
                     if (selected.size() == 0) {
                         return table.selectionRemoveResult(0);
                     }
-                    TypedValues copyScratch = new TypedValues(table.layout());
-                    TableChunkDirectory candidate =
-                            bound.root.directory.copyForSelectionRemove(
-                                    selected,
-                                    bound.root.size,
-                                    copyScratch,
-                                    bound.provenance);
-                    return table.publishSelectionRemove(
-                            bound.root,
-                            candidate,
-                            selected.size(),
-                            bound.provenance);
+                    SelectionRemovePlan plan = SelectionRemovePlan.prepare(
+                            selected, bound.root.size, bound.provenance);
+                    try {
+                        return table.publishSelectionRemove(
+                                bound.root,
+                                plan,
+                                bound.provenance);
+                    } finally {
+                        plan.clear();
+                    }
                 } finally {
                     endCanonicalCursors(table);
                 }
@@ -169,14 +167,26 @@ final class MutationOperation {
     }
 
     private static long canonicalSelectionScratch(
-            BoundCanonicalRowOperation bound) {
+            BoundCanonicalRowOperation bound,
+            boolean update) {
         RowExecutionSupport.arrayLength(
                 bound.root.size, bound.operation, bound.provenance);
         long perRow = CheckedLong.multiply(
                 bound.root.size, 192L, bound.operation, bound.provenance);
+        long mutationStaging;
+        if (update
+                && bound.layout.indexCount() == 0
+                && bound.root.directory.encodedChunkCount() == 0L) {
+            mutationStaging = bound.layout.selectionWriteSetUpperBoundBytes(
+                    bound.root.size,
+                    bound.operation,
+                    bound.provenance);
+        } else {
+            mutationStaging = bound.root.managedBytes;
+        }
         return CheckedLong.add(
                 CheckedLong.add(
-                        bound.root.managedBytes,
+                        mutationStaging,
                         perRow,
                         bound.operation,
                         bound.provenance),

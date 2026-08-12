@@ -199,6 +199,10 @@ class GeneratedTableTest {
         GeneratedProbe selected = table.newProbe(1);
         selected.putReference(1, "selected");
         long before = table.stateVersionForTesting();
+        TableChunkDirectory directoryBeforePayloadUpdate =
+                table.rootForTesting().directory;
+        TableChunk chunkBeforePayloadUpdate =
+                directoryBeforePayloadUpdate.chunk(0);
         IdentityHashIndex[] indexesBeforePayloadUpdate =
                 table.rootForTesting().indexes;
         UpdateResult result = table.indexSelection(0, selected.seal()).update(() -> {
@@ -214,16 +218,21 @@ class GeneratedTableTest {
         assertRow(table, 3L, "other", 30, untouched);
         assertEquals(2L, indexCount(table, "selected"));
         assertSame(indexesBeforePayloadUpdate, table.rootForTesting().indexes);
+        assertSame(directoryBeforePayloadUpdate, table.rootForTesting().directory);
+        assertSame(chunkBeforePayloadUpdate, table.rootForTesting().directory.chunk(0));
 
         GeneratedProbe selectedForMove = table.newProbe(1);
         selectedForMove.putReference(1, "selected");
         IdentityHashIndex[] indexesBeforeIndexedUpdate =
                 table.rootForTesting().indexes;
+        TableChunkDirectory directoryBeforeIndexedUpdate =
+                table.rootForTesting().directory;
         UpdateResult moved = table.indexSelection(0, selectedForMove.seal()).update(() ->
                 table.selectionEditor().editReference(1, "moved"));
         assertEquals(2L, moved.matched());
         assertEquals(2L, moved.changed());
         assertNotSame(indexesBeforeIndexedUpdate, table.rootForTesting().indexes);
+        assertNotSame(directoryBeforeIndexedUpdate, table.rootForTesting().directory);
         assertEquals(0L, indexCount(table, "selected"));
         assertEquals(2L, indexCount(table, "moved"));
 
@@ -290,6 +299,38 @@ class GeneratedTableTest {
     }
 
     @Test
+    void selectionInPlaceUpdateFaultsBeforePayloadCommit() {
+        SwitchableFault fault = new SwitchableFault();
+        GeneratedTable table = new GeneratedTable(
+                testGroup(
+                        new GlobalMemoryManager(64L << 20),
+                        SomaCompression.OFF),
+                testLayout(), 4, fault);
+        Object first = new Object();
+        Object second = new Object();
+        add(table, 1L, "selected", 10, first);
+        add(table, 2L, "selected", 20, second);
+
+        for (MutationFaultPoint point : new MutationFaultPoint[] {
+                MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH,
+                MutationFaultPoint.BEFORE_FINAL_COMMIT}) {
+            TableStateRoot root = table.rootForTesting();
+            TableChunk chunk = root.directory.chunk(0);
+            fault.point.set(point);
+            assertThrows(SomaOperationException.class, () ->
+                    table.selectAll().update(() -> {
+                        GeneratedSelectionEditor editor = table.selectionEditor();
+                        editor.editInt(2, editor.viewInt(2) + 5);
+                    }));
+            assertSame(root, table.rootForTesting());
+            assertSame(chunk, table.rootForTesting().directory.chunk(0));
+            assertRow(table, 1L, "selected", 10, first);
+            assertRow(table, 2L, "selected", 20, second);
+        }
+        fault.point.set(null);
+    }
+
+    @Test
     void selectionRemoveUsesDeterministicDenseCompactionAndRebuildsSidecars() {
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
         GeneratedTable table = new GeneratedTable(
@@ -303,6 +344,9 @@ class GeneratedTableTest {
 
         int capacity = table.capacity();
         long version = table.stateVersionForTesting();
+        TableChunkDirectory directory = table.rootForTesting().directory;
+        TableChunk firstChunk = directory.chunk(0);
+        TableChunk tailChunk = directory.chunk(1);
         RemoveResult result = table.selectAll()
                 .filter(() -> (table.queryCursor().viewInt(2) & 1) == 0)
                 .remove();
@@ -318,7 +362,83 @@ class GeneratedTableTest {
         assertMissing(table, 4L);
         assertEquals(3L, indexCount(table, "bucket-1"));
         assertEquals(0L, indexCount(table, "bucket-0"));
+        assertSame(directory, table.rootForTesting().directory);
+        assertSame(firstChunk, table.rootForTesting().directory.chunk(0));
+        assertSame(tailChunk, table.rootForTesting().directory.chunk(1));
+        PlainChunk clearedTail = (PlainChunk) table.rootForTesting()
+                .directory.chunk(0);
+        assertNull(clearedTail.references(testLayout().leafSlot(1))[3]);
+        assertNull(clearedTail.references(testLayout().leafSlot(3))[3]);
+        PlainChunk clearedLastChunk = (PlainChunk) table.rootForTesting()
+                .directory.chunk(1);
+        assertNull(clearedLastChunk.references(testLayout().leafSlot(1))[0]);
+        assertNull(clearedLastChunk.references(testLayout().leafSlot(3))[0]);
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
+    }
+
+    @Test
+    void encodedSelectionMutationKeepsCandidateFallbackAndCanonicalState() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(128L << 20);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(memory), testLayout(), 4096, MutationFaultInjector.NONE);
+        Object shared = new Object();
+        for (long key = 1L; key <= 4096L; key++) {
+            add(table, key, "repeated", 7, shared);
+        }
+        assertTrue(table.metadata().encoded());
+        TableChunkDirectory encodedDirectory = table.rootForTesting().directory;
+
+        UpdateResult update = table.selectAll()
+                .filter(() -> table.queryCursor().viewLong(0) <= 64L)
+                .update(() -> table.selectionEditor().editInt(2, 9));
+        assertEquals(64L, update.matched());
+        assertEquals(64L, update.changed());
+        assertNotSame(encodedDirectory, table.rootForTesting().directory);
+        assertEquals(4096L * 7L + 64L * 2L, table.fieldSource(2)
+                .primitiveInt(() -> table.queryCursor().viewInt(2))
+                .sumIntegral());
+
+        RemoveResult remove = table.selectAll()
+                .filter(() -> table.queryCursor().viewLong(0) <= 64L)
+                .remove();
+        assertEquals(64L, remove.removed());
+        assertEquals(4032L, table.size());
+        assertMissing(table, 1L);
+        assertEquals(4032L, indexCount(table, "repeated"));
+        assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
+    }
+
+    @Test
+    void selectionInPlaceRemoveFaultsBeforePayloadCommit() {
+        SwitchableFault fault = new SwitchableFault();
+        GeneratedTable table = new GeneratedTable(
+                testGroup(
+                        new GlobalMemoryManager(64L << 20),
+                        SomaCompression.OFF),
+                testLayout(), 4, fault);
+        Object first = new Object();
+        Object second = new Object();
+        add(table, 1L, "one", 1, first);
+        add(table, 2L, "two", 2, second);
+
+        for (MutationFaultPoint point : new MutationFaultPoint[] {
+                MutationFaultPoint.BEFORE_KEY_REBUILD,
+                MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
+                MutationFaultPoint.BEFORE_CANDIDATE_PUBLISH,
+                MutationFaultPoint.BEFORE_FINAL_COMMIT}) {
+            TableStateRoot root = table.rootForTesting();
+            TableChunk chunk = root.directory.chunk(0);
+            fault.point.set(point);
+            assertThrows(SomaOperationException.class, () ->
+                    table.selectAll()
+                            .filter(() -> table.queryCursor().viewLong(0) == 1L)
+                            .remove());
+            assertSame(root, table.rootForTesting());
+            assertSame(chunk, table.rootForTesting().directory.chunk(0));
+            assertRow(table, 1L, "one", 1, first);
+            assertRow(table, 2L, "two", 2, second);
+        }
+        fault.point.set(null);
     }
 
     @Test

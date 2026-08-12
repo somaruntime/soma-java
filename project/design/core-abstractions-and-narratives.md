@@ -522,7 +522,8 @@ Storage拥有A4 `SomaGroup` identity/state domain，Execution只拥有A20对Grou
 - **Meaning**：A7/A8 semantics 在某个 A21 中的 derived physical access representation；
 - **Identity**：root version + logical Key/Index descriptor；bucket/posting/locator没有public identity；
 - **Lifecycle**：point transition预计算受影响slot/Bucket -> validate/allocation -> 与payload
-  一次publish；Selection candidate从最终payload一次rebuild -> validate -> publish -> discard；
+  一次publish；Selection update从write set决定reuse/replacement，remove从final-locator projection
+  构造replacement sidecar；encoded/candidate从最终payload rebuild -> validate -> publish -> discard；
 - **Invariant**：与payload一一对应、collision不改语义、locator current、memory accounted；Key slot
   内联唯一`int` locator；Index singleton内联一个`int` locator，multi只有一个严格
   升序的`int[]`；无per-record next/reverse/second truth；
@@ -891,7 +892,12 @@ Repeated add是多次独立atomic operation，不形成隐式transaction。
 
 - pipeline先完整evaluate并freeze最终membership；
 - opaque predicate使exact membership未知时，callback前按bound input upper bound保守admit；
-- all callbacks完成后才进入candidate publication；
+- update callback只写columnar write set；all callbacks完成后才选择prevalidated PLAIN leaf commit或
+  candidate publication；logical no-op不复制Chunk且不发布；
+- remove先冻结dense compaction move plan；PLAIN路径先按`final locator -> old source locator`重建
+  replacement Key/Index，再无分配执行row move和trailing reference clear；
+- encoded/overlay与indexed update不能证明bounded non-throwing时继续使用candidate，不以原位路径
+  弱化compression、Index或zero-publication；
 - parallel callback仍按canonical failure arbitration；
 - selection太大而无法staging时在publication前`RESOURCE_LIMIT_EXCEEDED`；
 - 不能为降低scratch而拆成partial publish batches。

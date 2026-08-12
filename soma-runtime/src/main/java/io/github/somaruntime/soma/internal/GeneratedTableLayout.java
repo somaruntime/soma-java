@@ -1,5 +1,6 @@
 package io.github.somaruntime.soma.internal;
 
+import io.github.somaruntime.soma.SomaOperation;
 import java.util.Arrays;
 
 /** Validated physical leaf and logical identity layout emitted by the processor. */
@@ -260,8 +261,52 @@ public final class GeneratedTableLayout {
         return keyLeaves[leaf];
     }
 
+    boolean indexedLeaf(int leaf) {
+        requireLeaf(leaf);
+        for (int fieldIndex : indexFieldIndexes) {
+            int start = fieldStarts[fieldIndex];
+            if (leaf >= start && leaf < start + fieldCounts[fieldIndex]) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    boolean leafValuesEqual(
+            TypedValues left,
+            TypedValues right,
+            int leaf) {
+        requireLeaf(leaf);
+        return leafEquals(left, right, leaf);
+    }
+
     long rowWidthBytes() {
         return rowWidthBytes;
+    }
+
+    long selectionWriteSetUpperBoundBytes(
+            int rows,
+            SomaOperation operation,
+            Object provenance) {
+        long bitmaps = CheckedLong.multiply(
+                CheckedLong.add(
+                        leafCount(), 1L, operation, provenance),
+                CheckedLong.multiply(
+                        (rows + 63L) / 64L,
+                        Long.BYTES,
+                        operation,
+                        provenance),
+                operation,
+                provenance);
+        long values = CheckedLong.multiply(
+                rows, rowWidthBytes, operation, provenance);
+        long outers = CheckedLong.multiply(
+                leafCount(), 64L, operation, provenance);
+        return CheckedLong.add(
+                CheckedLong.add(bitmaps, values, operation, provenance),
+                CheckedLong.add(outers, 256L, operation, provenance),
+                operation,
+                provenance);
     }
 
     /**

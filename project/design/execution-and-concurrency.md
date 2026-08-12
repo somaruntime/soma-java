@@ -292,8 +292,8 @@ Missing返回0；命中后freeze locator/compaction mapping -> stage payload/sid
 
 一次Group operation内all-or-nothing：
 
-1. bind/plan并依据input cardinality upper bound预留selection、callback staging、candidate、scratch
-   与result的conservative worst-case peak；
+1. bind/plan并依据input cardinality upper bound预留selection、callback staging、write set或candidate、
+   sidecar projection、scratch与result的conservative worst-case peak；
 2. evaluate pipeline并freeze final locator selection；
 3. run all mutation callbacks into already admitted staging；
 4. validate schema/Index/compression/version并完成recoverable allocation/hash；
@@ -311,7 +311,10 @@ candidate budget失败。Callback自己分配的application object不计入manag
 application负责。
 
 Large selection不能为减少scratch而partial batch publish；预算不足必须publish前失败。
-Implementation可用small journal或large candidate root，但共享selection/order/failure/Result。
+Implementation可用columnar write set、prevalidated dense move plan或large candidate root，但共享
+selection/order/failure/Result。PLAIN Selection update只在不改变Index identity时原位写changed
+leaves；PLAIN remove的replacement Key/Index由final-locator projection在payload commit前完整构造。
+Encoded/overlay或无法证明non-throwing commit的路径必须保留candidate swap。
 
 “small journal”不允许边写边验证。所有可能抛出的application code、allocation、hash/codec、
 journal capacity和sidecar decision必须先完成；exclusive final commit只执行bounded、经证明

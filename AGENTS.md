@@ -35,7 +35,8 @@ Release/Package、签名或正式release声明。核心抽象候选已经
 此前Temporary replacement closure已完成；[32位结构域与即时增量Key/Index维护](project/conformance/v1-incremental-structural-mutation-governance.md)
 已正式晋升并`PASS`：Table-local结构域统一为checked `int`，累计域保持checked
 `long`，Key/Index只保留singleton-inline / ordered `int[]`一套membership truth，point
-mutation即时局部维护，Selection mutation一次candidate rebuild。
+mutation即时局部维护；Selection mutation以columnar write set、dense move plan与final-locator
+sidecar projection闭合普通PLAIN路径，encoded/indexed fallback保留candidate。
 [Scheduling性能治理](project/conformance/v1-scheduling-performance-governance.md)已正式晋升并
 `PASS`：标准100K FJSP纯dispatch由约18.7秒降至fresh约0.6秒、warm约0.51秒，且通用runtime
 优化已由正式Design承接。
@@ -46,6 +47,8 @@ mutation即时局部维护，Selection mutation一次candidate rebuild。
 [S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)保持冻结基线，实际active
 状态由Conformance拥有。
 当前没有active bounded Temporary；
+[Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
+已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
 [SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
 已正式晋升并`PASS`，UI/headless、正确性、Application profile优化与source/package delivery已闭合；
 [SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)仅为queued intent，不是Design或

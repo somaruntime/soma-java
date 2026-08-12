@@ -67,18 +67,73 @@ final class TableChunkDirectory {
         return result;
     }
 
-    TableChunkDirectory copyForUpdates(IntLocatorBuffer locators) {
+    TableChunkDirectory copyForWriteSet(SelectionWriteSet writeSet) {
         TableChunkDirectory result = shallowCopy();
-        int[] sorted = Arrays.copyOf(locators.backing(), locators.size());
-        Arrays.sort(sorted);
-        int previousOrdinal = -1;
-        for (int locator : sorted) {
-            int ordinal = locator / chunkRows;
-            if (ordinal == previousOrdinal) continue;
+        boolean[] copied = new boolean[chunkCount];
+        for (int position = 0; position < writeSet.selectedSize(); position++) {
+            if (!writeSet.rowChanged(position)) continue;
+            int ordinal = writeSet.locator(position) / chunkRows;
+            if (copied[ordinal]) continue;
             result.replaceTouched(ordinal, get(ordinal).mutableCopy(layout));
-            previousOrdinal = ordinal;
+            copied[ordinal] = true;
         }
+        TypedValues scratch = new TypedValues(layout);
+        for (int position = 0; position < writeSet.selectedSize(); position++) {
+            if (!writeSet.rowChanged(position)) continue;
+            int locator = writeSet.locator(position);
+            result.read(locator, scratch);
+            writeSet.applyTo(scratch, position);
+            result.write(locator, scratch);
+        }
+        scratch.clearReferences();
         return result;
+    }
+
+    boolean canApplySelectionRemoveInPlace(SelectionRemovePlan plan) {
+        for (int move = 0; move < plan.moveCount(); move++) {
+            if (!(get(plan.hole(move) / chunkRows) instanceof PlainChunk)
+                    || !(get(plan.source(move) / chunkRows) instanceof PlainChunk)) {
+                return false;
+            }
+        }
+        int firstTrailingChunk = plan.newSize() / chunkRows;
+        int lastTrailingChunk = (plan.oldSize() - 1) / chunkRows;
+        for (int ordinal = firstTrailingChunk; ordinal <= lastTrailingChunk; ordinal++) {
+            if (!(get(ordinal) instanceof PlainChunk)) return false;
+        }
+        return true;
+    }
+
+    /** Allocation-free payload commit for a fully prepared dense remove plan. */
+    void applySelectionRemoveInPlace(SelectionRemovePlan plan) {
+        if (!canApplySelectionRemoveInPlace(plan)) {
+            throw new AssertionError("Selection remove plan is not PLAIN-committable");
+        }
+        for (int move = 0; move < plan.moveCount(); move++) {
+            int hole = plan.hole(move);
+            int source = plan.source(move);
+            PlainChunk targetChunk = (PlainChunk) get(hole / chunkRows);
+            PlainChunk sourceChunk = (PlainChunk) get(source / chunkRows);
+            targetChunk.copyRowFrom(
+                    sourceChunk, source % chunkRows, hole % chunkRows);
+        }
+        for (int locator = plan.newSize(); locator < plan.oldSize(); locator++) {
+            get(locator / chunkRows).clear(locator % chunkRows, layout);
+        }
+    }
+
+    void writePlainLeaf(
+            int locator,
+            byte kind,
+            int slot,
+            Object values,
+            int position) {
+        TableChunk chunk = get(locator / chunkRows);
+        if (!(chunk instanceof PlainChunk)) {
+            throw new AssertionError("in-place Selection commit requires PLAIN Chunk");
+        }
+        ((PlainChunk) chunk).writeSelectionValue(
+                locator % chunkRows, kind, slot, values, position);
     }
 
     TableChunkDirectory copyForSelectionRemove(

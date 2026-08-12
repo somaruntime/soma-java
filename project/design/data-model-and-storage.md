@@ -157,8 +157,12 @@ mapping从`T`调整到`R`。Hash mixing/load factor/shard count是versioned inte
 Physical baseline是typed sharded exact-value directory。每个exact Bucket只有一套canonical
 membership：singleton直接内联一个`int` locator，multi使用严格升序、无duplicate的一个`int[]`；
 二者互斥，不维护per-record next link、reverse Index或第二套truth。Point add/update/remove即时只维护
-受影响Bucket并与payload一次publish；Selection mutation从最终candidate payload一次重建全部sidecar。
-Index表达logical value而不是compression token。
+受影响Bucket并与payload一次publish。Selection update先形成columnar write set；普通PLAIN且不改变
+indexed Field时原位提交changed leaves，indexed或encoded变化使用candidate。Selection remove先形成
+dense compaction move plan；PLAIN路径用`final locator -> old source locator`投影重建replacement
+sidecar，再无分配执行row move/reference clear。Encoded/overlay路径仍从最终candidate payload重建。
+这些路径只改变physical preparation，不建立第二套membership truth；Index表达logical value而不是
+compression token。
 
 ## 9. 关系 Table
 

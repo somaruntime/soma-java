@@ -54,6 +54,26 @@ final class IdentityHashIndex {
         return result;
     }
 
+    static IdentityHashIndex rebuildProjected(
+            GeneratedTableLayout layout,
+            int fieldIndex,
+            boolean unique,
+            TableChunkDirectory sourceDirectory,
+            int[] sourceLocators,
+            SomaOperation operation,
+            Object provenance) {
+        IdentityHashIndex result = new IdentityHashIndex(layout, fieldIndex, unique);
+        for (int locator = 0; locator < sourceLocators.length; locator++) {
+            result.addProjected(
+                    sourceDirectory,
+                    sourceLocators,
+                    locator,
+                    operation,
+                    provenance);
+        }
+        return result;
+    }
+
     int findUnique(TableChunkDirectory directory, TypedValues probe) {
         if (!unique) throw new AssertionError("non-unique Index used as Key");
         if (shards == null) return -1;
@@ -690,6 +710,66 @@ final class IdentityHashIndex {
         shard.installNew(shard.emptySlot(hash), hash, locator);
     }
 
+    private void addProjected(
+            TableChunkDirectory sourceDirectory,
+            int[] sourceLocators,
+            int locator,
+            SomaOperation operation,
+            Object provenance) {
+        int sourceLocator = sourceLocators[locator];
+        long hash = layout.hashField(sourceDirectory, sourceLocator, fieldIndex);
+        if (shards == null) {
+            shards = new Shard[SHARD_COUNT];
+            managedBytes = CONTAINER_BYTES;
+        }
+        int ordinal = shardOrdinal(hash);
+        Shard shard = shards[ordinal];
+        if (shard == null) {
+            shard = new Shard(INITIAL_CAPACITY, operation, provenance);
+            shards[ordinal] = shard;
+            managedBytes = CheckedLong.add(
+                    managedBytes, shard.managedBytes, operation, provenance);
+        }
+        int slot = shard.findProjected(
+                sourceDirectory,
+                sourceLocators,
+                sourceLocator,
+                hash,
+                layout,
+                fieldIndex);
+        if (slot >= 0) {
+            if (unique) throw new AssertionError("duplicate Key while rebuilding sidecar");
+            long before = shard.managedBytes;
+            shard.appendFresh(slot, locator, operation, provenance);
+            managedBytes = CheckedLong.add(
+                    CheckedLong.subtract(
+                            managedBytes, before, operation, provenance),
+                    shard.managedBytes,
+                    operation,
+                    provenance);
+            return;
+        }
+        if (!shard.canInsertWithoutRehash()) {
+            Shard replacement = shard.rehash(
+                    shard.capacityForInsert(
+                            shard.size + 1, operation, provenance),
+                    operation,
+                    provenance);
+            managedBytes = CheckedLong.add(
+                    CheckedLong.subtract(
+                            managedBytes,
+                            shard.managedBytes,
+                            operation,
+                            provenance),
+                    replacement.managedBytes,
+                    operation,
+                    provenance);
+            shards[ordinal] = replacement;
+            shard = replacement;
+        }
+        shard.installNew(shard.emptySlot(hash), hash, locator);
+    }
+
     private static int shardOrdinal(long hash) {
         return (int) (hash >>> (Long.SIZE - SHARD_BITS));
     }
@@ -1151,6 +1231,29 @@ final class IdentityHashIndex {
                                 directory,
                                 firstLocators[slot],
                                 locator,
+                                fieldIndex)) {
+                    return slot;
+                }
+                slot = (slot + 1) & mask;
+            }
+            return -1;
+        }
+
+        int findProjected(
+                TableChunkDirectory sourceDirectory,
+                int[] sourceLocators,
+                int sourceLocator,
+                long hash,
+                GeneratedTableLayout layout,
+                int fieldIndex) {
+            int slot = ((int) hash) & mask;
+            while (states[slot] != 0) {
+                if (states[slot] == 1
+                        && hashes[slot] == hash
+                        && layout.fieldEquals(
+                                sourceDirectory,
+                                sourceLocators[firstLocators[slot]],
+                                sourceLocator,
                                 fieldIndex)) {
                     return slot;
                 }
