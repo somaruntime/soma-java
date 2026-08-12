@@ -113,6 +113,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Encoded integral、ordered `long[]`与VP1-VP3扩展资格 | [Vectorized pipeline expansion governance](conformance/v1-vectorized-physical-pipeline-expansion-governance.md) |
 | Physical Pipeline/Segment/Breaker/Kernel/Frame/Morsel实施与资格 | [Physical Execution Engine M2 P6最终资格](conformance/physical-execution-engine-m2-p6-final-qualification.md) |
 | Production Core质量检查方法的价值、成本与采用裁决 | [Quality inspection method feasibility](conformance/v1-production-core-quality-inspection-method-feasibility.md) |
+| Post-M2 Relation、GroupBy、dense remove与construction T1–T4治理 | [Post-M2 performance optimization governance](conformance/v1-post-m2-performance-optimization-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -146,9 +147,11 @@ Blueprint
   [正式Conformance记录](conformance/v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成
   Temporary replacement closure；Grassing治理已由
   [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并退役Temporary；
+  Post-M2 T1–T4已由
+  [正式Conformance记录](conformance/v1-post-m2-performance-optimization-governance.md)接管并完成
+  Temporary replacement closure；
   [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或
-  implementation input；[Post-M2性能优化路线提案](temp/soma-post-m2-performance-optimization-roadmap/README.md)
-  只是未来性能专题的queued路由，不是Design、Engineering Plan或implementation input。
+  implementation input。
 
 日常检查使用：
 
@@ -194,8 +197,8 @@ Temporary replacement closure。Canonical IR与执行引擎治理已由
 Baseline Freeze、readiness与Temporary replacement closure；production implementation与S1–S6 qualification
 均已完成，当前没有active implementation slice。
 [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)独立保留为queued intent。
-[Post-M2性能优化路线提案](temp/soma-post-m2-performance-optimization-roadmap/README.md)独立保留为
-`QUEUED / NOT_ACTIVE / NOT_DESIGN / NOT_AUTHORIZED`的后续选路材料。
+[Post-M2性能优化治理](conformance/v1-post-m2-performance-optimization-governance.md)已完成T1–T4、
+资格与Temporary replacement closure；未授权T5–T7没有形成current backlog或Design。
 [Scheduling性能治理](conformance/v1-scheduling-performance-governance.md)
 已完成正式Owner晋升、Conformance与replacement closure。此前
 [32位结构域与即时增量Key/Index维护](conformance/v1-incremental-structural-mutation-governance.md)

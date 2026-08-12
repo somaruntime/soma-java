@@ -106,6 +106,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [Production Core质量检查方法可行性探索](v1-production-core-quality-inspection-method-feasibility.md)：
   Java 8 Xlint、精选PMD与JaCoCo一次性实验、成本/价值裁决、routine adoption拒绝与Temporary
   replacement closure Owner；
+- [Post-M2性能优化治理](v1-post-m2-performance-optimization-governance.md)：Relation重复equality、
+  GroupBy typed aggregate、dense remove sidecar projection、construction停止裁决、T1–T4资格与
+  Temporary replacement closure Owner；
 
 - [Physical Execution Engine M2正式晋升与实施准入](v1-physical-execution-engine-m2-promotion-readiness.md)：
   Candidate fingerprint、Design/Engineering Baseline、P1-P6 readiness、Product Owner授权与publication
@@ -246,8 +249,8 @@ Canonical IR/Execution治理已经正式晋升、冻结并完成S1-S6 implementa
 active implementation slice。
 [SOMA Engine产品构思](../temp/soma-engine-product-concept/README.md)是独立queued intent，不是Design、
 active governance或current implementation input。
-[Post-M2性能优化路线提案](../temp/soma-post-m2-performance-optimization-roadmap/README.md)是独立queued
-proposal，不是Design、Engineering Plan、active governance或current implementation input。
+[Post-M2性能优化治理](v1-post-m2-performance-optimization-governance.md)已完成T1–T4与Temporary
+replacement closure；未授权T5–T7没有形成current backlog或Design。
 [Production Core质量检查方法可行性探索](v1-production-core-quality-inspection-method-feasibility.md)已
 `PASS / ROUTINE_ADOPTION_REJECTED`；Q0-Q2、采用裁决和Temporary closure已完成，没有建立稳定脚本、
 CI或质量门。
