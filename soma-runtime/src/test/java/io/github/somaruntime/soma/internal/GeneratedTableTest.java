@@ -1246,6 +1246,10 @@ class GeneratedTableTest {
         String explain = QueryOperation.explain(plan);
         assertTrue(explain.contains("inMembershipLiterals=64"));
         assertTrue(explain.contains("estimatedTemporaryPeakBytes="));
+        assertTrue(explain.contains("physicalSegments=1"));
+        assertTrue(explain.contains("segmentKernel="));
+        assertTrue(explain.contains("morsel="));
+        assertTrue(explain.contains("physicalSink="));
         long requiredScratch = 64L * 256L;
         try (GlobalMemoryManager.TemporaryLease pressure = memory.leaseTemporary(
                 memory.budgetBytes() - memory.retainedBytes()
@@ -1763,7 +1767,7 @@ class GeneratedTableTest {
         assertEquals(
                 CanonicalPrimitiveVectorKernel.RepresentationHandler
                         .ENCODED_NATIVE,
-                sameLeafPlan.vectorDecision.handler(first));
+                sameLeafPlan.pipeline.segment.chunkKernel.handler(first));
         assertEquals(
                 ReferencePrimitiveInterpreter.sumIntegralForTesting(
                         sameLeafReference),
@@ -1801,7 +1805,7 @@ class GeneratedTableTest {
         assertEquals(
                 CanonicalPrimitiveVectorKernel.RepresentationHandler
                         .ENCODED_SCALAR,
-                multiLeafPlan.vectorDecision.handler(first));
+                multiLeafPlan.pipeline.segment.chunkKernel.handler(first));
         assertEquals(
                 ReferencePrimitiveInterpreter.sumIntegralForTesting(
                         multiLeafReference),
@@ -1837,7 +1841,7 @@ class GeneratedTableTest {
         assertEquals(
                 CanonicalPrimitiveVectorKernel.RepresentationHandler
                         .OVERLAY_SCALAR,
-                overlayPlan.vectorDecision.handler(
+                overlayPlan.pipeline.segment.chunkKernel.handler(
                         table.rootForTesting().directory.chunk(0)));
         assertEquals(
                 ReferencePrimitiveInterpreter.sumIntegralForTesting(
@@ -1962,8 +1966,19 @@ class GeneratedTableTest {
                 CanonicalRowPlanner.normalize(bound),
                 CanonicalRowPhysicalRequest.primitive(operation, 0L));
         CanonicalPrimitiveVectorKernel.Decision decision =
-                physical.vectorDecision;
+                physical.pipeline.segment.chunkKernel;
         assertNotNull(decision);
+        assertEquals(CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN,
+                physical.pipeline.source);
+        assertEquals(CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
+                physical.pipeline.segment.kernel);
+        assertEquals(0, physical.pipeline.segment.fromStage);
+        assertEquals(2, physical.pipeline.segment.toStageExclusive);
+        assertEquals(CanonicalPhysicalMorsel.Kind.CHUNK_RANGE,
+                physical.pipeline.segment.morsel.kind);
+        assertEquals(4, physical.pipeline.segment.morsel.partitions);
+        assertEquals(CanonicalPhysicalPipeline.Sink.INTEGRAL_SUM,
+                physical.pipeline.sink);
         assertTrue(CanonicalPrimitiveVectorKernel.isIntegralSum(physical));
         long partialBytes = decision.temporaryBytes;
         assertEquals(0L, physical.resources.parallelPrefixTemporaryBytes);
@@ -2229,7 +2244,7 @@ class GeneratedTableTest {
                             chunks, 16L, physical.normalized.bound.provenance),
                     physical.normalized.bound.operation,
                     physical.normalized.bound.provenance);
-            assertTrue(physical.vectorDecision.ownsTerminalScratch);
+            assertTrue(physical.pipeline.segment.chunkKernel.ownsTerminalScratch);
             assertEquals(0L, physical.resources.parallelPrefixTemporaryBytes);
             assertEquals(expected, physical.resources.temporaryBytes);
             assertTrue(expected < RowExecutionSupport.arrayBytes(

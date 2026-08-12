@@ -189,6 +189,11 @@ final class CanonicalRowPlanner {
                 CanonicalPrimitiveVectorKernel.plan(
                         normalized, access, request.primitive);
         if (vectorDecision != null && vectorDecision.managesParallel) {
+            int chunks = CheckedStructural.ceilChunks(
+                    bound.root.size, bound.root.directory.chunkRows());
+            partitions = Math.min(
+                    Math.max(1, bound.table.parallelExecutor().getParallelism()),
+                    Math.max(1, chunks));
             temporaryBytes = CheckedLong.subtract(
                     temporaryBytes,
                     parallelPrefixTemporaryBytes,
@@ -210,6 +215,13 @@ final class CanonicalRowPlanner {
                     bound.operation,
                     bound.provenance);
         }
+        CanonicalPhysicalPipeline pipeline = CanonicalPhysicalPipeline.plan(
+                normalized,
+                access,
+                request,
+                parallelPrefix,
+                partitions,
+                vectorDecision);
         return new CanonicalRowPhysicalPlan(
                 normalized,
                 access,
@@ -220,7 +232,7 @@ final class CanonicalRowPlanner {
                 new ResourceEstimate(
                         temporaryBytes,
                         parallelPrefixTemporaryBytes),
-                vectorDecision);
+                pipeline);
     }
 
     private static LookupCandidate lookupCandidate(
@@ -342,7 +354,7 @@ final class CanonicalRowPhysicalPlan {
     final int parallelPrefixStages;
     final int partitions;
     final ResourceEstimate resources;
-    final CanonicalPrimitiveVectorKernel.Decision vectorDecision;
+    final CanonicalPhysicalPipeline pipeline;
 
     CanonicalRowPhysicalPlan(
             NormalizedCanonicalRow normalized,
@@ -352,7 +364,7 @@ final class CanonicalRowPhysicalPlan {
             int parallelPrefixStages,
             int partitions,
             ResourceEstimate resources,
-            CanonicalPrimitiveVectorKernel.Decision vectorDecision) {
+            CanonicalPhysicalPipeline pipeline) {
         this.normalized = normalized;
         this.accessPath = accessPath;
         this.indexOrdinal = indexOrdinal;
@@ -360,11 +372,152 @@ final class CanonicalRowPhysicalPlan {
         this.parallelPrefixStages = parallelPrefixStages;
         this.partitions = partitions;
         this.resources = resources;
-        this.vectorDecision = vectorDecision;
+        if (pipeline == null) {
+            throw new AssertionError("physical pipeline is missing");
+        }
+        this.pipeline = pipeline;
     }
 
     boolean managesParallelPreparation() {
-        return vectorDecision != null && vectorDecision.managesParallel;
+        return pipeline.segment.chunkKernel != null
+                && pipeline.segment.chunkKernel.managesParallel;
+    }
+}
+
+/** Data-only topology for one admitted Row-family terminal. */
+final class CanonicalPhysicalPipeline {
+    enum Sink {
+        ROW_FAMILY,
+        COUNT,
+        INTEGRAL_SUM,
+        LONG_MATERIALIZATION
+    }
+
+    final CanonicalRowPhysicalPlan.AccessPath source;
+    final CanonicalPhysicalSegment segment;
+    final Sink sink;
+
+    private CanonicalPhysicalPipeline(
+            CanonicalRowPhysicalPlan.AccessPath source,
+            CanonicalPhysicalSegment segment,
+            Sink sink) {
+        this.source = source;
+        this.segment = segment;
+        this.sink = sink;
+    }
+
+    static CanonicalPhysicalPipeline plan(
+            NormalizedCanonicalRow normalized,
+            CanonicalRowPhysicalPlan.AccessPath source,
+            CanonicalRowPhysicalRequest request,
+            int parallelPrefixStages,
+            int partitions,
+            CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
+        int streamingEnd = 0;
+        while (streamingEnd < normalized.stages.size()
+                && !normalized.stages.get(streamingEnd).isStateful()) {
+            streamingEnd++;
+        }
+        CanonicalPhysicalSegment.Kernel kernel = chunkKernel == null
+                ? CanonicalPhysicalSegment.Kernel.TYPED_SCALAR
+                : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED;
+        CanonicalPhysicalMorsel morsel = chunkKernel != null
+                && chunkKernel.managesParallel
+                ? CanonicalPhysicalMorsel.chunk(partitions)
+                : parallelPrefixStages > 0 && partitions > 1
+                        ? CanonicalPhysicalMorsel.rowRange(partitions)
+                        : CanonicalPhysicalMorsel.caller();
+        return new CanonicalPhysicalPipeline(
+                source,
+                new CanonicalPhysicalSegment(
+                        0, streamingEnd, kernel, morsel, chunkKernel),
+                sink(normalized, request, chunkKernel));
+    }
+
+    private static Sink sink(
+            NormalizedCanonicalRow normalized,
+            CanonicalRowPhysicalRequest request,
+            CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
+        if (request.primitive == null) {
+            return normalized.bound.canonical.terminal
+                            == CanonicalRowOperation.TerminalKind.COUNT
+                    ? Sink.COUNT : Sink.ROW_FAMILY;
+        }
+        switch (request.primitive.terminal) {
+            case SUM:
+                return Sink.INTEGRAL_SUM;
+            case MATERIALIZE:
+                return request.primitive.valueKind == PrimitiveValueKind.LONG
+                        ? Sink.LONG_MATERIALIZATION : Sink.ROW_FAMILY;
+            default:
+                return Sink.ROW_FAMILY;
+        }
+    }
+}
+
+/** Largest currently admitted stateless typed region. */
+final class CanonicalPhysicalSegment {
+    enum Kernel {
+        TYPED_SCALAR,
+        CHUNK_SPECIALIZED
+    }
+
+    final int fromStage;
+    final int toStageExclusive;
+    final Kernel kernel;
+    final CanonicalPhysicalMorsel morsel;
+    final CanonicalPrimitiveVectorKernel.Decision chunkKernel;
+
+    CanonicalPhysicalSegment(
+            int fromStage,
+            int toStageExclusive,
+            Kernel kernel,
+            CanonicalPhysicalMorsel morsel,
+            CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
+        if (fromStage < 0 || toStageExclusive < fromStage
+                || kernel == null || morsel == null) {
+            throw new AssertionError("invalid physical segment");
+        }
+        if ((kernel == Kernel.CHUNK_SPECIALIZED) != (chunkKernel != null)) {
+            throw new AssertionError("physical kernel payload drift");
+        }
+        this.fromStage = fromStage;
+        this.toStageExclusive = toStageExclusive;
+        this.kernel = kernel;
+        this.morsel = morsel;
+        this.chunkKernel = chunkKernel;
+    }
+}
+
+/** Bounded canonical-ordinal work decision consumed by the shared scheduler. */
+final class CanonicalPhysicalMorsel {
+    enum Kind {
+        CALLER_ONLY,
+        ROW_RANGE,
+        CHUNK_RANGE
+    }
+
+    final Kind kind;
+    final int partitions;
+
+    private CanonicalPhysicalMorsel(Kind kind, int partitions) {
+        if (kind == null || partitions < 1) {
+            throw new AssertionError("invalid physical morsel");
+        }
+        this.kind = kind;
+        this.partitions = partitions;
+    }
+
+    static CanonicalPhysicalMorsel caller() {
+        return new CanonicalPhysicalMorsel(Kind.CALLER_ONLY, 1);
+    }
+
+    static CanonicalPhysicalMorsel rowRange(int partitions) {
+        return new CanonicalPhysicalMorsel(Kind.ROW_RANGE, partitions);
+    }
+
+    static CanonicalPhysicalMorsel chunk(int partitions) {
+        return new CanonicalPhysicalMorsel(Kind.CHUNK_RANGE, partitions);
     }
 }
 

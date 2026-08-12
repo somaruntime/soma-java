@@ -14,6 +14,10 @@ final class CanonicalPrimitiveVectorKernel {
             CanonicalRowPhysicalPlan.AccessPath accessPath,
             CanonicalPrimitiveOperation primitive) {
         if (primitive == null) {
+            if (normalized.bound.canonical.terminal
+                    != CanonicalRowOperation.TerminalKind.COUNT) {
+                return null;
+            }
             KernelPlan count = compileCount(normalized, accessPath);
             return count == null ? null
                     : decision(normalized.bound, Operation.COUNT, count);
@@ -349,7 +353,7 @@ final class CanonicalPrimitiveVectorKernel {
     private static Decision decision(
             CanonicalRowPhysicalPlan physical,
             Operation operation) {
-        Decision decision = physical.vectorDecision;
+        Decision decision = physical.pipeline.segment.chunkKernel;
         return decision != null && decision.operation == operation
                 ? decision : null;
     }
