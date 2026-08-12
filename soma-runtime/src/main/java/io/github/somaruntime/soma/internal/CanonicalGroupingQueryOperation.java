@@ -132,7 +132,7 @@ final class CanonicalGroupingQueryOperation {
                 }
             });
         }
-        return CanonicalQueryOperation.executeFamily(
+        return CanonicalQueryOperation.executeGroupingFamily(
                 frontend,
                 operation.source,
                 new CanonicalQueryOperation.ExtraScratch() {
@@ -148,7 +148,7 @@ final class CanonicalGroupingQueryOperation {
                         aggregate,
                         false);
             }
-        });
+        }, operation);
     }
 
     private static long groupingScratch(
@@ -167,10 +167,32 @@ final class CanonicalGroupingQueryOperation {
             final boolean reference) {
         final int upper = RowExecutionSupport.arrayLength(
                 bound.outputUpperBound(), bound.provenance);
-        final int expectedGroups = expectedGroups(bound, upper);
+        final int expectedGroups;
+        if (reference) {
+            expectedGroups = expectedGroups(bound, upper);
+        } else {
+            int breakerIndex = frame.plan.pipeline.firstBreaker(
+                    CanonicalPhysicalSegment.Shape.GROUPED_RESULT, 0);
+            if (breakerIndex < 0) {
+                // Relation-left still owns its binary PhysicalPlan until P5.
+                expectedGroups = expectedGroups(bound, upper);
+            } else {
+                CanonicalPhysicalBreaker breaker =
+                        frame.plan.pipeline.breakers[breakerIndex];
+                if (breaker.kind
+                                != CanonicalPhysicalBreaker.Kind.HASH_AGGREGATE
+                        || breaker.kernel
+                                != CanonicalPhysicalBreaker.Kernel.GROUP_HASH) {
+                    throw new AssertionError("GroupBy breaker topology drift");
+                }
+                expectedGroups = RowExecutionSupport.arrayLength(
+                        breaker.expectedStateCapacity, bound.provenance);
+            }
+        }
         final GroupState state = new GroupState(
                 upper, expectedGroups, operation.keyKind, aggregate,
                 bound.provenance);
+        if (!reference) frame.groupBreakerState = state;
         CanonicalRowExecution.LocatorVisitor visitor =
                 new CanonicalRowExecution.LocatorVisitor() {
                     @Override
@@ -251,7 +273,7 @@ final class CanonicalGroupingQueryOperation {
         }
     }
 
-    private static final class AggregateSpec {
+    static final class AggregateSpec {
         final int valueKind;
         final int aggregate;
         final int fieldIndex;
@@ -278,7 +300,7 @@ final class CanonicalGroupingQueryOperation {
         }
     }
 
-    private static final class GroupState {
+    static final class GroupState {
         private static final int INITIAL_CAPACITY = 1024;
 
         int[] representatives;

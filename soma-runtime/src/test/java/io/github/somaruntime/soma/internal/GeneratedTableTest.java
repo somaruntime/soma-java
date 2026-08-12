@@ -1543,6 +1543,64 @@ class GeneratedTableTest {
     }
 
     @Test
+    void groupByUsesHashAggregateBreakerAndBoundCapacity() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        for (long key = 0L; key < 32L; key++) {
+            add(table, key, "bucket-" + key % 3L,
+                    (int) key, new Object());
+        }
+        LogicalRowPlan rows = LogicalRowPlan.tableScan(table);
+        CanonicalRowOperation source = CanonicalRowLowering.source(
+                table, rows);
+        GeneratedCallbacks.RowMapper<Object> keyMaterializer =
+                () -> table.queryCursor().viewReference(1);
+        CanonicalGroupOperation group = new CanonicalGroupOperation(
+                source,
+                1,
+                CanonicalGroupingQueryOperation.KEY_REFERENCE,
+                HostCallbackHandle.rowMapper(
+                        source.tableIdentity, keyMaterializer),
+                CanonicalGroupingQueryOperation.VALUE_LONG,
+                0,
+                -1,
+                null,
+                false);
+        BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
+                source, table, table.layout(), table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(bound),
+                CanonicalRowPhysicalRequest.group(group, 32L * 144L));
+        int breakerIndex = physical.pipeline.firstBreaker(
+                CanonicalPhysicalSegment.Shape.GROUPED_RESULT, 0);
+        assertTrue(breakerIndex >= 0);
+        CanonicalPhysicalBreaker breaker =
+                physical.pipeline.breakers[breakerIndex];
+        assertEquals(CanonicalPhysicalBreaker.Kind.HASH_AGGREGATE,
+                breaker.kind);
+        assertEquals(CanonicalPhysicalBreaker.Kernel.GROUP_HASH,
+                breaker.kernel);
+        assertEquals(3L, breaker.expectedStateCapacity);
+        assertEquals(CanonicalPhysicalPipeline.Sink.GROUP_RESULT,
+                physical.pipeline.sink);
+        assertEquals(CanonicalPhysicalSegment.Shape.GROUPED_RESULT,
+                physical.pipeline.terminalSegment().shape);
+
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> optimized =
+                (GroupedLongResult<Object>) table.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE,
+                        keyMaterializer).count();
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> reference =
+                (GroupedLongResult<Object>) table.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE,
+                        keyMaterializer).countReferenceForTesting();
+        assertGroupedEquals(optimized.toArray(), reference.toArray());
+    }
+
+    @Test
     void randomizedLogicalPlansMatchOnIndependentImmutableStates() {
         GeneratedTable optimizedTable = table(64L << 20, MutationFaultInjector.NONE);
         GeneratedTable referenceTable = table(64L << 20, MutationFaultInjector.NONE);

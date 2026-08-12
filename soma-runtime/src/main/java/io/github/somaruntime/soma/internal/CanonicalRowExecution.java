@@ -546,6 +546,7 @@ final class CanonicalRowExecutionFrame {
     IntLocatorBuffer rowBreakerState;
     MappedValueBuffer mappedBreakerState;
     LongValueBuffer primitiveBreakerState;
+    CanonicalGroupingQueryOperation.GroupState groupBreakerState;
 
     CanonicalRowExecutionFrame(CanonicalRowPhysicalPlan plan) {
         if (plan == null) throw new AssertionError("physical plan is missing");

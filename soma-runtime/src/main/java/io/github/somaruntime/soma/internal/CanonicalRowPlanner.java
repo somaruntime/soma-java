@@ -295,26 +295,32 @@ final class CanonicalRowPlanner {
 final class CanonicalRowPhysicalRequest {
     final CanonicalMappedOperation mapped;
     final CanonicalPrimitiveOperation primitive;
+    final CanonicalGroupOperation group;
     final long additionalTemporaryBytes;
 
     private CanonicalRowPhysicalRequest(
             CanonicalMappedOperation mapped,
             CanonicalPrimitiveOperation primitive,
+            CanonicalGroupOperation group,
             long additionalTemporaryBytes) {
         if (additionalTemporaryBytes < 0L) {
             throw new AssertionError("negative terminal scratch");
         }
-        if (mapped != null && primitive != null) {
+        int families = (mapped == null ? 0 : 1)
+                + (primitive == null ? 0 : 1)
+                + (group == null ? 0 : 1);
+        if (families > 1) {
             throw new AssertionError("multiple value terminal requirements");
         }
         this.mapped = mapped;
         this.primitive = primitive;
+        this.group = group;
         this.additionalTemporaryBytes = additionalTemporaryBytes;
     }
 
     static CanonicalRowPhysicalRequest row(long additionalTemporaryBytes) {
         return new CanonicalRowPhysicalRequest(
-                null, null, additionalTemporaryBytes);
+                null, null, null, additionalTemporaryBytes);
     }
 
     static CanonicalRowPhysicalRequest mapped(
@@ -324,7 +330,7 @@ final class CanonicalRowPhysicalRequest {
             throw new AssertionError("mapped terminal requirement is missing");
         }
         return new CanonicalRowPhysicalRequest(
-                mapped, null, additionalTemporaryBytes);
+                mapped, null, null, additionalTemporaryBytes);
     }
 
     static CanonicalRowPhysicalRequest primitive(
@@ -334,7 +340,17 @@ final class CanonicalRowPhysicalRequest {
             throw new AssertionError("primitive terminal requirement is missing");
         }
         return new CanonicalRowPhysicalRequest(
-                null, primitive, additionalTemporaryBytes);
+                null, primitive, null, additionalTemporaryBytes);
+    }
+
+    static CanonicalRowPhysicalRequest group(
+            CanonicalGroupOperation group,
+            long additionalTemporaryBytes) {
+        if (group == null) {
+            throw new AssertionError("Group terminal requirement is missing");
+        }
+        return new CanonicalRowPhysicalRequest(
+                null, null, group, additionalTemporaryBytes);
     }
 }
 
@@ -408,7 +424,8 @@ final class CanonicalPhysicalPipeline {
         ROW_FAMILY,
         COUNT,
         INTEGRAL_SUM,
-        LONG_MATERIALIZATION
+        LONG_MATERIALIZATION,
+        GROUP_RESULT
     }
 
     final CanonicalRowPhysicalPlan.AccessPath source;
@@ -466,6 +483,9 @@ final class CanonicalPhysicalPipeline {
             addPrimitiveTopology(
                     segments, breakers, request.primitive,
                     normalized.bound.root.size, chunkKernel, morsel);
+        } else if (request.group != null) {
+            addGroupingTopology(
+                    segments, breakers, normalized, request.group);
         }
         return new CanonicalPhysicalPipeline(
                 source,
@@ -561,6 +581,7 @@ final class CanonicalPhysicalPipeline {
                     consumed,
                     inputSegment,
                     segments.size(),
+                    normalized.bound.root.size,
                     normalized.bound.root.size));
             from = consumed;
         }
@@ -611,6 +632,7 @@ final class CanonicalPhysicalPipeline {
                     stateful + 1,
                     inputSegment,
                     segments.size(),
+                    inputUpperBound,
                     inputUpperBound));
             from = stateful + 1;
         }
@@ -657,9 +679,50 @@ final class CanonicalPhysicalPipeline {
                     stateful + 1,
                     inputSegment,
                     segments.size(),
+                    inputUpperBound,
                     inputUpperBound));
             from = stateful + 1;
         }
+    }
+
+    private static void addGroupingTopology(
+            ArrayList<CanonicalPhysicalSegment> segments,
+            ArrayList<CanonicalPhysicalBreaker> breakers,
+            NormalizedCanonicalRow normalized,
+            CanonicalGroupOperation group) {
+        int inputSegment = segments.size() - 1;
+        long upper = normalized.bound.outputUpperBound();
+        long expected = expectedGroups(normalized.bound, group, upper);
+        breakers.add(new CanonicalPhysicalBreaker(
+                CanonicalPhysicalSegment.Shape.GROUPED_RESULT,
+                CanonicalPhysicalBreaker.Kind.HASH_AGGREGATE,
+                CanonicalPhysicalBreaker.Kernel.GROUP_HASH,
+                -1,
+                0,
+                inputSegment,
+                segments.size(),
+                upper,
+                expected));
+        segments.add(new CanonicalPhysicalSegment(
+                CanonicalPhysicalSegment.Shape.GROUPED_RESULT,
+                0,
+                0,
+                CanonicalPhysicalSegment.Kernel.GROUP_RESULT,
+                group.keyMaterializer != null || group.valueMapper != null,
+                CanonicalPhysicalMorsel.caller(),
+                null));
+    }
+
+    private static long expectedGroups(
+            BoundCanonicalRowOperation bound,
+            CanonicalGroupOperation group,
+            long upper) {
+        if (upper == 0L) return 0L;
+        GeneratedTableLayout layout = bound.layout;
+        if (layout.keyFieldIndex() == group.keyFieldIndex) return upper;
+        int index = layout.indexOrdinalForField(group.keyFieldIndex);
+        if (index < 0) return Math.min(upper, 1_024L);
+        return Math.min(upper, bound.root.indexes[index].distinctCount());
     }
 
     private static int nextRowStateful(
@@ -710,6 +773,7 @@ final class CanonicalPhysicalPipeline {
             NormalizedCanonicalRow normalized,
             CanonicalRowPhysicalRequest request,
             CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
+        if (request.group != null) return Sink.GROUP_RESULT;
         if (request.primitive == null) {
             return normalized.bound.canonical.terminal
                             == CanonicalRowOperation.TerminalKind.COUNT
@@ -732,7 +796,8 @@ final class CanonicalPhysicalBreaker {
     enum Kind {
         MEMBERSHIP,
         STABLE_REORDER,
-        BOUNDED_TOP
+        BOUNDED_TOP,
+        HASH_AGGREGATE
     }
 
     enum Kernel {
@@ -742,7 +807,8 @@ final class CanonicalPhysicalBreaker {
         HOST_HASH,
         HOST_STABLE_SORT,
         PRIMITIVE_HASH,
-        PRIMITIVE_STABLE_SORT
+        PRIMITIVE_STABLE_SORT,
+        GROUP_HASH
     }
 
     final CanonicalPhysicalSegment.Shape shape;
@@ -753,6 +819,7 @@ final class CanonicalPhysicalBreaker {
     final int inputSegmentOrdinal;
     final int outputSegmentOrdinal;
     final long inputUpperBound;
+    final long expectedStateCapacity;
 
     CanonicalPhysicalBreaker(
             CanonicalPhysicalSegment.Shape shape,
@@ -762,13 +829,16 @@ final class CanonicalPhysicalBreaker {
             int consumedToStageExclusive,
             int inputSegmentOrdinal,
             int outputSegmentOrdinal,
-            long inputUpperBound) {
+            long inputUpperBound,
+            long expectedStateCapacity) {
         if (shape == null || kind == null || kernel == null
-                || stageIndex < 0
+                || stageIndex < -1
                 || consumedToStageExclusive <= stageIndex
                 || inputSegmentOrdinal < 0
                 || outputSegmentOrdinal <= inputSegmentOrdinal
-                || inputUpperBound < 0L) {
+                || inputUpperBound < 0L
+                || expectedStateCapacity < 0L
+                || expectedStateCapacity > inputUpperBound) {
             throw new AssertionError("invalid physical breaker");
         }
         this.shape = shape;
@@ -779,6 +849,7 @@ final class CanonicalPhysicalBreaker {
         this.inputSegmentOrdinal = inputSegmentOrdinal;
         this.outputSegmentOrdinal = outputSegmentOrdinal;
         this.inputUpperBound = inputUpperBound;
+        this.expectedStateCapacity = expectedStateCapacity;
     }
 }
 
@@ -787,13 +858,15 @@ final class CanonicalPhysicalSegment {
     enum Shape {
         ROW_LOCATOR,
         MAPPED_REFERENCE,
-        PRIMITIVE
+        PRIMITIVE,
+        GROUPED_RESULT
     }
 
     enum Kernel {
         TYPED_SCALAR,
         MAPPED_SCALAR,
         PRIMITIVE_SCALAR,
+        GROUP_RESULT,
         CHUNK_SPECIALIZED
     }
 

@@ -42,7 +42,8 @@ final class CanonicalQueryOperation {
     static long optimizedCount(
             CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(source, canonical, ZERO_SCRATCH, null, null, new FrameWork<Long>() {
+        return execute(source, canonical, ZERO_SCRATCH,
+                null, null, null, new FrameWork<Long>() {
             @Override public Long run(CanonicalRowExecutionFrame frame) {
                 if (CanonicalPrimitiveVectorKernel.isCount(frame.plan)) {
                     return CanonicalPrimitiveVectorKernel.count(frame);
@@ -419,7 +420,7 @@ final class CanonicalQueryOperation {
             CanonicalRowOperation canonical,
             ExtraScratch extra,
             FrameWork<T> work) {
-        return execute(source, canonical, extra, null, null, work);
+        return execute(source, canonical, extra, null, null, null, work);
     }
 
     private static <T> T execute(
@@ -428,6 +429,7 @@ final class CanonicalQueryOperation {
             ExtraScratch extra,
             CanonicalMappedOperation mapped,
             CanonicalPrimitiveOperation primitive,
+            CanonicalGroupOperation group,
             FrameWork<T> work) {
         if (source.relation != null) {
             return source.relation.executeLeftCanonical(
@@ -439,7 +441,10 @@ final class CanonicalQueryOperation {
                     table, canonical, operation, SomaOperation.QUERY);
             NormalizedCanonicalRow normalized = CanonicalRowPlanner.normalize(bound);
             long additionalTemporaryBytes = extra.bytes(bound);
-            CanonicalRowPhysicalRequest request = mapped != null
+            CanonicalRowPhysicalRequest request = group != null
+                    ? CanonicalRowPhysicalRequest.group(
+                            group, additionalTemporaryBytes)
+                    : mapped != null
                     ? CanonicalRowPhysicalRequest.mapped(
                             mapped, additionalTemporaryBytes)
                     : primitive != null
@@ -494,6 +499,7 @@ final class CanonicalQueryOperation {
                 extra,
                 null,
                 primitive,
+                null,
                 work);
     }
 
@@ -510,6 +516,24 @@ final class CanonicalQueryOperation {
                 extra,
                 mapped,
                 null,
+                null,
+                work);
+    }
+
+    /** Shared admitted frame seam for the closed GroupBy terminal family. */
+    static <T> T executeGroupingFamily(
+            LogicalRowPlan frontend,
+            CanonicalRowOperation source,
+            ExtraScratch extra,
+            FrameWork<T> work,
+            CanonicalGroupOperation group) {
+        return execute(
+                CanonicalRowRuntimeSource.frontend(frontend),
+                source,
+                extra,
+                null,
+                null,
+                group,
                 work);
     }
 
