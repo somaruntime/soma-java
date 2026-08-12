@@ -2,7 +2,7 @@
 
 类型：Active Bounded Temporary / Final Design Review / Baseline Freeze / Implementation Readiness
 
-状态：`PASS / TEMPORARY_DESIGN_BASELINE_FROZEN / IMPLEMENTATION_READY / IMPLEMENTATION_NOT_AUTHORIZED`
+状态：`PASS / TEMPORARY_DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_ACTIVE`
 
 Owner：本专题临时设计最终审核、冻结集合、readiness、授权边界和进入实施前的当前状态
 
@@ -27,6 +27,10 @@ Qualification/release           NOT_PERFORMED / NOT_AUTHORIZED
 Product Owner在2026-08-12明确要求完成“临时设计的固化、以指导下一阶段实施”，因此本记录将该请求解释为
 Temporary Baseline Freeze授权。请求没有授权production source、正式Design晋升、commit/push、publication
 或release；这些状态不能从Freeze自动推断。
+
+随后Product Owner于2026-08-12另行明确授权Codex按冻结VP1-VP3自主完成全部实施。本授权允许本专题范围内
+production code、tests、benchmark、Conformance和正式Owner promotion；不允许扩张冻结capability、第三
+artifact、新dependency、GitHub Release/Package、签名或正式release声明。
 
 ## 2. 审核输入与方法
 
@@ -126,8 +130,8 @@ Readiness为`READY`，因为：
 - 风险均有最早防线、evidence或Stop Rule；
 - 没有未关闭产品语义或重大架构裁决。
 
-Authorization仍为`NOT_GRANTED`。下一项合法动作是Product Owner明确授权按冻结
-[Implementation Plan](implementation-plan.md)推进VP1-VP3；授权前不得修改production source。
+Authorization已由Product Owner另行授予。当前按冻结[Implementation Plan](implementation-plan.md)只激活
+VP1；VP1 exit closure前不得进入VP2。
 
 ## 8. 冻结集合与Fingerprint
 
@@ -158,8 +162,8 @@ R2 design work                 COMPLETED
 Temporary design baseline      FROZEN
 Implementation plan            FROZEN
 Implementation readiness       READY
-Active implementation slice    NONE
-Implementation authorization   NOT_GRANTED
+Active implementation slice    VP1
+Implementation authorization   GRANTED
 Formal promotion               DEFERRED_TO_VP3
 Release/publication             NOT_AUTHORIZED
 ```

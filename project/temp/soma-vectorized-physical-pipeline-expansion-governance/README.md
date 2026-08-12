@@ -2,7 +2,7 @@
 
 类型：Active Bounded Temporary / Frozen Design and Implementation Governance
 
-状态：`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_READY / IMPLEMENTATION_NOT_AUTHORIZED`
+状态：`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_ACTIVE`
 
 Owner：第一阶段正式基线之上的finite physical pipeline扩展问题、冻结临时设计、VP1-VP3实施路线与
 Temporary replacement closure
@@ -10,6 +10,8 @@ Temporary replacement closure
 Product Owner激活：2026-08-12
 
 Product Owner临时设计固化：2026-08-12
+
+Product Owner实施授权：2026-08-12（VP1-VP3完整范围）
 
 最后更新：2026-08-12
 
@@ -30,15 +32,14 @@ Product Owner临时设计固化：2026-08-12
 ```text
 Temporary Design Baseline    FROZEN
 Implementation Readiness     READY
-Implementation Authorization NOT_GRANTED
+Implementation Authorization GRANTED
 Formal Design Promotion      NOT_PERFORMED
-Production Implementation    NOT_STARTED
+Production Implementation    VP1_ACTIVE
 Release/Publication          NOT_AUTHORIZED
 ```
 
-Product Owner本次只授权Temporary Design Freeze。授权前允许继续审核和修正文档；不允许修改production
-source、generated/public API或正式Design，也不允许从I0-I8、Canonical IR S1-S6或第一阶段资格推断新
-implementation authorization。
+Product Owner已在Design Freeze之后另行授权按冻结VP1-VP3完整实施。该授权不扩张冻结capability、public/
+generated API、artifact、dependency或release边界；一次只推进一个active slice。
 
 ## 2. 唯一文档地图
 
@@ -162,6 +163,5 @@ performance、bounded review、Conformance和干净checkpoint全部闭合后才�
 
 ## 9. 当前下一步
 
-等待Product Owner明确授权按冻结[Implementation Plan](implementation-plan.md)推进VP1-VP3。授权前不再
-增加profile、prototype或production abstraction；若需要继续讨论，只能修改本Temporary并重新形成Freeze
-delta，不能静默改变冻结基线。
+当前active slice为VP1。Codex按冻结[Implementation Plan](implementation-plan.md)完成single final Physical
+decision与encoded-native integral count/sum/predicate，关闭证据和检查点后才进入VP2；不得静默改变冻结基线。
