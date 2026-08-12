@@ -316,13 +316,20 @@ strictfp final class PrimitivePlanOperation {
                 new CanonicalQueryOperation.ReferenceWork<String>() {
         @Override public String run(BoundCanonicalRowOperation bound) {
             CanonicalPrimitiveOperation plan = execution.operation;
+            long temporary = estimatedExecutionScratch(bound, plan, 0L);
+            CanonicalRowPhysicalPlan physical =
+                    CanonicalQueryOperation.planBound(
+                            bound,
+                            CanonicalRowPhysicalRequest.primitive(
+                                    plan, temporary));
             StringBuilder result = new StringBuilder(
-                    CanonicalQueryOperation.explainBound(bound));
+                    CanonicalQueryOperation.explainBound(
+                            bound, physical));
             result.append(" primitiveRoot=").append(plan.rootKind).append(':').append(plan.rootValueKind).append(" stages=[");
             for (int i = 0; i < plan.stages.size(); i++) { if (i != 0) result.append(','); result.append(plan.stages.get(i).kind); }
             return result.append("] output=").append(plan.valueKind)
                     .append(" estimatedPrimitiveTemporaryPeakBytes=")
-                    .append(estimatedExecutionScratch(bound, plan, 0L))
+                    .append(physical.resources.temporaryBytes)
                     .toString();
         }});
     }
@@ -464,32 +471,54 @@ strictfp final class PrimitivePlanOperation {
             for (int i = 0; i < values.size(); i++) if (!visitor.visit(values.get(i))) return;
             return;
         }
-        final long[] counters = new long[plan.stages.size()];
-        if (primitiveLimitReached(plan, counters)) return;
+        final CanonicalPhysicalSegment segment =
+                frame.plan.pipeline.terminalSegment();
+        final int from = segment.shape == CanonicalPhysicalSegment.Shape.PRIMITIVE
+                ? segment.fromStage : 0;
+        final int to = segment.shape == CanonicalPhysicalSegment.Shape.PRIMITIVE
+                ? segment.toStageExclusive : plan.stages.size();
+        final long[] counters = new long[to - from];
+        if (primitiveLimitReached(
+                plan, counters, from, to)) {
+            return;
+        }
         visitRoot(frame, plan, raw -> {
-            if (primitiveLimitReached(plan, counters)) return false;
+            if (primitiveLimitReached(
+                    plan, counters,
+                    from, to)) return false;
             long value = raw;
-            for (int i = 0; i < plan.stages.size(); i++) {
+            for (int i = from; i < to; i++) {
                 CanonicalPrimitiveStage stage = plan.stages.get(i);
+                int counter = i - from;
                 switch (stage.kind) {
-                    case FILTER: if (!test(bound, stage.input, stage.callback, value)) return !primitiveLimitReached(plan, counters); break;
+                    case FILTER: if (!test(bound, stage.input, stage.callback, value)) return !primitiveLimitReached(plan, counters, from, to); break;
                     case MAP: case CONVERT: value = apply(bound, stage, value); break;
-                    case SKIP: if (counters[i] < stage.count) { counters[i]++; return !primitiveLimitReached(plan, counters); } break;
-                    case LIMIT: if (counters[i] >= stage.count) return false; counters[i]++; break;
+                    case SKIP: if (counters[counter] < stage.count) { counters[counter]++; return !primitiveLimitReached(plan, counters, from, to); } break;
+                    case LIMIT: if (counters[counter] >= stage.count) return false; counters[counter]++; break;
                     default: throw new AssertionError("stateful primitive stage in streaming path");
                 }
             }
-            return visitor.visit(value) && !primitiveLimitReached(plan, counters);
+            return visitor.visit(value) && !primitiveLimitReached(
+                    plan, counters,
+                    from, to);
         });
     }
 
     private static boolean primitiveLimitReached(
             CanonicalPrimitiveOperation plan,
             long[] counters) {
-        for (int index = 0; index < plan.stages.size(); index++) {
+        return primitiveLimitReached(plan, counters, 0, plan.stages.size());
+    }
+
+    private static boolean primitiveLimitReached(
+            CanonicalPrimitiveOperation plan,
+            long[] counters,
+            int from,
+            int to) {
+        for (int index = from; index < to; index++) {
             CanonicalPrimitiveStage stage = plan.stages.get(index);
             if (stage.kind == CanonicalPrimitiveStage.Kind.LIMIT
-                    && counters[index] >= stage.count) return true;
+                    && counters[index - from] >= stage.count) return true;
         }
         return false;
     }

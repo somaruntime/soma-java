@@ -247,20 +247,21 @@ final class MappedQueryOperation {
                 frontend.rows.owner(), operation.source,
                 new CanonicalQueryOperation.ReferenceWork<String>() {
             @Override public String run(BoundCanonicalRowOperation bound) {
-                StringBuilder result = new StringBuilder(
-                        CanonicalQueryOperation.explainBound(bound));
-                result.append(" mappedStages=");
-                appendStages(result, operation.stages);
-                long row = CanonicalRowPlanner.plan(
-                        CanonicalRowPlanner.normalize(bound))
-                        .resources.temporaryBytes;
                 long mapped = estimatedExecutionScratch(
                         bound, operation, false);
+                CanonicalRowPhysicalPlan physical =
+                        CanonicalQueryOperation.planBound(
+                                bound,
+                                CanonicalRowPhysicalRequest.mapped(
+                                        operation, mapped));
+                StringBuilder result = new StringBuilder(
+                        CanonicalQueryOperation.explainBound(
+                                bound, physical));
+                result.append(" mappedStages=");
+                appendStages(result, operation.stages);
                 return result.append(" mappedCallbackBarrier=true")
                         .append(" estimatedMappedTemporaryPeakBytes=")
-                        .append(CheckedLong.add(
-                                row, mapped,
-                                bound.operation, bound.provenance))
+                        .append(physical.resources.temporaryBytes)
                         .toString();
             }
         });
@@ -278,16 +279,22 @@ final class MappedQueryOperation {
             }
             return;
         }
-        final long[] counters = new long[operation.stages.size()];
+        CanonicalPhysicalSegment segment = frame.plan.pipeline.terminalSegment();
+        final int from = segment.shape
+                        == CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE
+                ? segment.fromStage : 0;
+        final int to = segment.shape
+                        == CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE
+                ? segment.toStageExclusive : operation.stages.size();
+        final long[] counters = new long[to - from];
         CanonicalRowExecution.visit(frame, locator -> {
-            if (limitReached(operation.stages, 0,
-                    operation.stages.size(), counters)) return false;
+            if (limitReached(operation.stages, from, to, counters)) return false;
             Object value = RowExecutionSupport.callbackMap(
                     bound, locator, operation.rootMapper, true);
             requireDetached(bound, value);
             Step step = applySegment(
                     bound, value, operation.stages,
-                    0, operation.stages.size(), counters);
+                    from, to, counters);
             return (!step.selected || visitor.visit(step.value))
                     && !step.stop;
         });
@@ -311,7 +318,7 @@ final class MappedQueryOperation {
                         terminalKind,
                         terminalCallback,
                         componentType);
-        return CanonicalQueryOperation.executeFamily(
+        return CanonicalQueryOperation.executeMappedFamily(
                 frontend.rows, operation.source,
                 new CanonicalQueryOperation.ExtraScratch() {
             @Override public long bytes(BoundCanonicalRowOperation bound) {
@@ -322,7 +329,7 @@ final class MappedQueryOperation {
             @Override public T run(CanonicalRowExecutionFrame frame) {
                 return terminal.run(frame, operation);
             }
-        });
+        }, operation);
     }
 
     private static long estimatedExecutionScratch(

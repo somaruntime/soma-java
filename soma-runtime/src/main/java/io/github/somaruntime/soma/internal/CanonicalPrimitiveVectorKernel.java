@@ -353,7 +353,7 @@ final class CanonicalPrimitiveVectorKernel {
     private static Decision decision(
             CanonicalRowPhysicalPlan physical,
             Operation operation) {
-        Decision decision = physical.pipeline.segment.chunkKernel;
+        Decision decision = physical.pipeline.terminalSegment().chunkKernel;
         return decision != null && decision.operation == operation
                 ? decision : null;
     }

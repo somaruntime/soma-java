@@ -42,7 +42,7 @@ final class CanonicalQueryOperation {
     static long optimizedCount(
             CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical) {
-        return execute(source, canonical, ZERO_SCRATCH, null, new FrameWork<Long>() {
+        return execute(source, canonical, ZERO_SCRATCH, null, null, new FrameWork<Long>() {
             @Override public Long run(CanonicalRowExecutionFrame frame) {
                 if (CanonicalPrimitiveVectorKernel.isCount(frame.plan)) {
                     return CanonicalPrimitiveVectorKernel.count(frame);
@@ -308,9 +308,27 @@ final class CanonicalQueryOperation {
     }
 
     static String explainBound(BoundCanonicalRowOperation bound) {
+        return explainBound(bound, CanonicalRowPhysicalRequest.row(0L));
+    }
+
+    static String explainBound(
+            BoundCanonicalRowOperation bound,
+            CanonicalRowPhysicalRequest request) {
+        return explainBound(bound, planBound(bound, request));
+    }
+
+    static CanonicalRowPhysicalPlan planBound(
+            BoundCanonicalRowOperation bound,
+            CanonicalRowPhysicalRequest request) {
+        return CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(bound), request);
+    }
+
+    static String explainBound(
+            BoundCanonicalRowOperation bound,
+            CanonicalRowPhysicalPlan physical) {
             CanonicalRowOperation canonical = bound.canonical;
-            NormalizedCanonicalRow normalized = CanonicalRowPlanner.normalize(bound);
-            CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
+            NormalizedCanonicalRow normalized = physical.normalized;
             StringBuilder result = new StringBuilder(320);
             result.append("SOMA logicalSource=")
                     .append(logicalSourceName(canonical.sourceKind))
@@ -344,14 +362,20 @@ final class CanonicalQueryOperation {
                     .append(required > 0 && required < bound.layout.leafCount())
                     .append(" statelessFusion=")
                     .append(hasStatelessFusion(normalized.stages))
-                    .append(" physicalSegments=1 segmentKernel=")
-                    .append(physical.pipeline.segment.kernel)
+                    .append(" physicalSegments=")
+                    .append(physical.pipeline.segments.length)
+                    .append(" segmentKernel=")
+                    .append(physical.pipeline.terminalSegment().kernel)
+                    .append(" segmentShape=")
+                    .append(physical.pipeline.terminalSegment().shape)
+                    .append(" segmentCallbackBarrier=")
+                    .append(physical.pipeline.terminalSegment().callbackBarrier)
                     .append(" segmentStages=")
-                    .append(physical.pipeline.segment.fromStage)
+                    .append(physical.pipeline.terminalSegment().fromStage)
                     .append("..")
-                    .append(physical.pipeline.segment.toStageExclusive)
+                    .append(physical.pipeline.terminalSegment().toStageExclusive)
                     .append(" morsel=")
-                    .append(physical.pipeline.segment.morsel.kind)
+                    .append(physical.pipeline.terminalSegment().morsel.kind)
                     .append(" physicalSink=")
                     .append(physical.pipeline.sink)
                     .append(" boundedTop=")
@@ -370,13 +394,14 @@ final class CanonicalQueryOperation {
             CanonicalRowOperation canonical,
             ExtraScratch extra,
             FrameWork<T> work) {
-        return execute(source, canonical, extra, null, work);
+        return execute(source, canonical, extra, null, null, work);
     }
 
     private static <T> T execute(
             CanonicalRowRuntimeSource source,
             CanonicalRowOperation canonical,
             ExtraScratch extra,
+            CanonicalMappedOperation mapped,
             CanonicalPrimitiveOperation primitive,
             FrameWork<T> work) {
         if (source.relation != null) {
@@ -389,10 +414,14 @@ final class CanonicalQueryOperation {
                     table, canonical, operation, SomaOperation.QUERY);
             NormalizedCanonicalRow normalized = CanonicalRowPlanner.normalize(bound);
             long additionalTemporaryBytes = extra.bytes(bound);
-            CanonicalRowPhysicalRequest request = primitive == null
-                    ? CanonicalRowPhysicalRequest.row(additionalTemporaryBytes)
-                    : CanonicalRowPhysicalRequest.primitive(
-                            primitive, additionalTemporaryBytes);
+            CanonicalRowPhysicalRequest request = mapped != null
+                    ? CanonicalRowPhysicalRequest.mapped(
+                            mapped, additionalTemporaryBytes)
+                    : primitive != null
+                            ? CanonicalRowPhysicalRequest.primitive(
+                                    primitive, additionalTemporaryBytes)
+                            : CanonicalRowPhysicalRequest.row(
+                                    additionalTemporaryBytes);
             CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(
                     normalized, request);
             try (GlobalMemoryManager.TemporaryLease ignored =
@@ -438,7 +467,24 @@ final class CanonicalQueryOperation {
                 CanonicalRowRuntimeSource.frontend(frontend),
                 source,
                 extra,
+                null,
                 primitive,
+                work);
+    }
+
+    /** Shared admitted frame seam with one closed mapped terminal request. */
+    static <T> T executeMappedFamily(
+            LogicalRowPlan frontend,
+            CanonicalRowOperation source,
+            ExtraScratch extra,
+            FrameWork<T> work,
+            CanonicalMappedOperation mapped) {
+        return execute(
+                CanonicalRowRuntimeSource.frontend(frontend),
+                source,
+                extra,
+                mapped,
+                null,
                 work);
     }
 

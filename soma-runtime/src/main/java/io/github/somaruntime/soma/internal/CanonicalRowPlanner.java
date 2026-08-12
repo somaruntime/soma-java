@@ -293,21 +293,38 @@ final class CanonicalRowPlanner {
 
 /** Closed terminal requirement consumed by the sole Physical planning owner. */
 final class CanonicalRowPhysicalRequest {
+    final CanonicalMappedOperation mapped;
     final CanonicalPrimitiveOperation primitive;
     final long additionalTemporaryBytes;
 
     private CanonicalRowPhysicalRequest(
+            CanonicalMappedOperation mapped,
             CanonicalPrimitiveOperation primitive,
             long additionalTemporaryBytes) {
         if (additionalTemporaryBytes < 0L) {
             throw new AssertionError("negative terminal scratch");
         }
+        if (mapped != null && primitive != null) {
+            throw new AssertionError("multiple value terminal requirements");
+        }
+        this.mapped = mapped;
         this.primitive = primitive;
         this.additionalTemporaryBytes = additionalTemporaryBytes;
     }
 
     static CanonicalRowPhysicalRequest row(long additionalTemporaryBytes) {
-        return new CanonicalRowPhysicalRequest(null, additionalTemporaryBytes);
+        return new CanonicalRowPhysicalRequest(
+                null, null, additionalTemporaryBytes);
+    }
+
+    static CanonicalRowPhysicalRequest mapped(
+            CanonicalMappedOperation mapped,
+            long additionalTemporaryBytes) {
+        if (mapped == null) {
+            throw new AssertionError("mapped terminal requirement is missing");
+        }
+        return new CanonicalRowPhysicalRequest(
+                mapped, null, additionalTemporaryBytes);
     }
 
     static CanonicalRowPhysicalRequest primitive(
@@ -317,7 +334,7 @@ final class CanonicalRowPhysicalRequest {
             throw new AssertionError("primitive terminal requirement is missing");
         }
         return new CanonicalRowPhysicalRequest(
-                primitive, additionalTemporaryBytes);
+                null, primitive, additionalTemporaryBytes);
     }
 }
 
@@ -379,8 +396,9 @@ final class CanonicalRowPhysicalPlan {
     }
 
     boolean managesParallelPreparation() {
-        return pipeline.segment.chunkKernel != null
-                && pipeline.segment.chunkKernel.managesParallel;
+        CanonicalPrimitiveVectorKernel.Decision kernel =
+                pipeline.terminalSegment().chunkKernel;
+        return kernel != null && kernel.managesParallel;
     }
 }
 
@@ -394,15 +412,18 @@ final class CanonicalPhysicalPipeline {
     }
 
     final CanonicalRowPhysicalPlan.AccessPath source;
-    final CanonicalPhysicalSegment segment;
+    final CanonicalPhysicalSegment[] segments;
     final Sink sink;
 
     private CanonicalPhysicalPipeline(
             CanonicalRowPhysicalPlan.AccessPath source,
-            CanonicalPhysicalSegment segment,
+            CanonicalPhysicalSegment[] segments,
             Sink sink) {
+        if (segments == null || segments.length == 0) {
+            throw new AssertionError("physical pipeline has no segment");
+        }
         this.source = source;
-        this.segment = segment;
+        this.segments = segments.clone();
         this.sink = sink;
     }
 
@@ -418,20 +439,104 @@ final class CanonicalPhysicalPipeline {
                 && !normalized.stages.get(streamingEnd).isStateful()) {
             streamingEnd++;
         }
-        CanonicalPhysicalSegment.Kernel kernel = chunkKernel == null
-                ? CanonicalPhysicalSegment.Kernel.TYPED_SCALAR
-                : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED;
         CanonicalPhysicalMorsel morsel = chunkKernel != null
                 && chunkKernel.managesParallel
                 ? CanonicalPhysicalMorsel.chunk(partitions)
                 : parallelPrefixStages > 0 && partitions > 1
                         ? CanonicalPhysicalMorsel.rowRange(partitions)
                         : CanonicalPhysicalMorsel.caller();
+        ArrayList<CanonicalPhysicalSegment> segments =
+                new ArrayList<CanonicalPhysicalSegment>();
+        CanonicalPrimitiveVectorKernel.Decision rowKernel =
+                request.primitive == null ? chunkKernel : null;
+        segments.add(new CanonicalPhysicalSegment(
+                CanonicalPhysicalSegment.Shape.ROW_LOCATOR,
+                0,
+                streamingEnd,
+                rowKernel == null
+                        ? CanonicalPhysicalSegment.Kernel.TYPED_SCALAR
+                        : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
+                hasRowCallback(normalized.stages, 0, streamingEnd),
+                rowKernel == null ? CanonicalPhysicalMorsel.caller() : morsel,
+                rowKernel));
+        if (request.mapped != null) {
+            addMappedSegment(segments, request.mapped);
+        } else if (request.primitive != null) {
+            if (request.primitive.mapped != null) {
+                addMappedSegment(segments, request.primitive.mapped);
+            }
+            int end = firstPrimitiveStateful(request.primitive.stages);
+            segments.add(new CanonicalPhysicalSegment(
+                    CanonicalPhysicalSegment.Shape.PRIMITIVE,
+                    0,
+                    end,
+                    chunkKernel == null
+                            ? CanonicalPhysicalSegment.Kernel.PRIMITIVE_SCALAR
+                            : CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
+                    request.primitive.rootApplicationCallback
+                            || hasPrimitiveCallback(
+                                    request.primitive.stages, 0, end),
+                    chunkKernel == null ? CanonicalPhysicalMorsel.caller() : morsel,
+                    chunkKernel));
+        }
         return new CanonicalPhysicalPipeline(
                 source,
-                new CanonicalPhysicalSegment(
-                        0, streamingEnd, kernel, morsel, chunkKernel),
+                segments.toArray(new CanonicalPhysicalSegment[segments.size()]),
                 sink(normalized, request, chunkKernel));
+    }
+
+    CanonicalPhysicalSegment terminalSegment() {
+        return segments[segments.length - 1];
+    }
+
+    private static void addMappedSegment(
+            ArrayList<CanonicalPhysicalSegment> segments,
+            CanonicalMappedOperation mapped) {
+        int end = firstMappedStateful(mapped.stages);
+        segments.add(new CanonicalPhysicalSegment(
+                CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE,
+                0,
+                end,
+                CanonicalPhysicalSegment.Kernel.MAPPED_SCALAR,
+                true,
+                CanonicalPhysicalMorsel.caller(),
+                null));
+    }
+
+    private static int firstMappedStateful(
+            List<CanonicalMappedStage> stages) {
+        for (int index = 0; index < stages.size(); index++) {
+            if (stages.get(index).isStateful()) return index;
+        }
+        return stages.size();
+    }
+
+    private static int firstPrimitiveStateful(
+            List<CanonicalPrimitiveStage> stages) {
+        for (int index = 0; index < stages.size(); index++) {
+            if (stages.get(index).isStateful()) return index;
+        }
+        return stages.size();
+    }
+
+    private static boolean hasRowCallback(
+            List<CanonicalRowStage> stages,
+            int from,
+            int to) {
+        for (int index = from; index < to; index++) {
+            if (stages.get(index).callback != null) return true;
+        }
+        return false;
+    }
+
+    private static boolean hasPrimitiveCallback(
+            List<CanonicalPrimitiveStage> stages,
+            int from,
+            int to) {
+        for (int index = from; index < to; index++) {
+            if (stages.get(index).callback != null) return true;
+        }
+        return false;
     }
 
     private static Sink sink(
@@ -457,33 +562,47 @@ final class CanonicalPhysicalPipeline {
 
 /** Largest currently admitted stateless typed region. */
 final class CanonicalPhysicalSegment {
+    enum Shape {
+        ROW_LOCATOR,
+        MAPPED_REFERENCE,
+        PRIMITIVE
+    }
+
     enum Kernel {
         TYPED_SCALAR,
+        MAPPED_SCALAR,
+        PRIMITIVE_SCALAR,
         CHUNK_SPECIALIZED
     }
 
+    final Shape shape;
     final int fromStage;
     final int toStageExclusive;
     final Kernel kernel;
+    final boolean callbackBarrier;
     final CanonicalPhysicalMorsel morsel;
     final CanonicalPrimitiveVectorKernel.Decision chunkKernel;
 
     CanonicalPhysicalSegment(
+            Shape shape,
             int fromStage,
             int toStageExclusive,
             Kernel kernel,
+            boolean callbackBarrier,
             CanonicalPhysicalMorsel morsel,
             CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
         if (fromStage < 0 || toStageExclusive < fromStage
-                || kernel == null || morsel == null) {
+                || shape == null || kernel == null || morsel == null) {
             throw new AssertionError("invalid physical segment");
         }
         if ((kernel == Kernel.CHUNK_SPECIALIZED) != (chunkKernel != null)) {
             throw new AssertionError("physical kernel payload drift");
         }
+        this.shape = shape;
         this.fromStage = fromStage;
         this.toStageExclusive = toStageExclusive;
         this.kernel = kernel;
+        this.callbackBarrier = callbackBarrier;
         this.morsel = morsel;
         this.chunkKernel = chunkKernel;
     }

@@ -1365,6 +1365,97 @@ class GeneratedTableTest {
     }
 
     @Test
+    void statelessMappedAndPrimitiveFamiliesConsumeTypedSegmentTopology() {
+        GeneratedTable table = table(64L << 20, MutationFaultInjector.NONE);
+        GeneratedCallbacks.RowMapper<Integer> mappedRoot =
+                () -> Integer.valueOf(table.queryCursor().viewInt(2));
+        MappedPipelineCapture<Integer> mappedCapture = MappedPipelineCapture
+                .root(LogicalRowPlan.tableScan(table), mappedRoot)
+                .filter(value -> value >= 0)
+                .map(value -> value + 1);
+        CanonicalMappedOperation mapped = CanonicalMappedLowering.operation(
+                mappedCapture,
+                CanonicalMappedOperation.TerminalKind.COUNT,
+                null,
+                null);
+        BoundCanonicalRowOperation mappedBound = new BoundCanonicalRowOperation(
+                mapped.source,
+                table,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        CanonicalRowPhysicalPlan mappedPlan = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(mappedBound),
+                CanonicalRowPhysicalRequest.mapped(mapped, 0L));
+        assertEquals(2, mappedPlan.pipeline.segments.length);
+        CanonicalPhysicalSegment mappedSegment =
+                mappedPlan.pipeline.terminalSegment();
+        assertEquals(CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE,
+                mappedSegment.shape);
+        assertEquals(CanonicalPhysicalSegment.Kernel.MAPPED_SCALAR,
+                mappedSegment.kernel);
+        assertTrue(mappedSegment.callbackBarrier);
+        assertEquals(0, mappedSegment.fromStage);
+        assertEquals(2, mappedSegment.toStageExclusive);
+        String mappedExplain = MappedQueryOperation.explain(
+                MappedPipelineCapture
+                        .root(LogicalRowPlan.tableScan(table), mappedRoot)
+                        .filter(value -> value >= 0)
+                        .map(value -> value + 1));
+        assertTrue(mappedExplain.contains("physicalSegments=2"));
+        assertTrue(mappedExplain.contains("segmentShape=MAPPED_REFERENCE"));
+        assertTrue(mappedExplain.contains("segmentCallbackBarrier=true"));
+
+        GeneratedCallbacks.RowToIntMapper primitiveRoot =
+                () -> table.queryCursor().viewInt(2);
+        PrimitivePipelineCapture primitiveCapture = PrimitivePipelineCapture
+                .row(LogicalRowPlan.tableScan(table),
+                        PrimitiveValueKind.INT, primitiveRoot, true)
+                .filter((io.github.somaruntime.soma.SomaIntPredicate)
+                        value -> value >= 0)
+                .map((io.github.somaruntime.soma.SomaIntUnaryOperator)
+                        value -> value + 1);
+        CanonicalPrimitiveOperation primitive =
+                CanonicalPrimitiveLowering.operation(
+                        primitiveCapture,
+                        CanonicalPrimitiveOperation.TerminalKind.COUNT,
+                        null);
+        BoundCanonicalRowOperation primitiveBound =
+                new BoundCanonicalRowOperation(
+                        primitive.source,
+                        table,
+                        table.layout(),
+                        table.rootForTesting(),
+                        io.github.somaruntime.soma.SomaOperation.QUERY,
+                        new Object());
+        CanonicalRowPhysicalPlan primitivePlan = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(primitiveBound),
+                CanonicalRowPhysicalRequest.primitive(primitive, 0L));
+        assertEquals(2, primitivePlan.pipeline.segments.length);
+        CanonicalPhysicalSegment primitiveSegment =
+                primitivePlan.pipeline.terminalSegment();
+        assertEquals(CanonicalPhysicalSegment.Shape.PRIMITIVE,
+                primitiveSegment.shape);
+        assertEquals(CanonicalPhysicalSegment.Kernel.PRIMITIVE_SCALAR,
+                primitiveSegment.kernel);
+        assertTrue(primitiveSegment.callbackBarrier);
+        assertEquals(0, primitiveSegment.fromStage);
+        assertEquals(2, primitiveSegment.toStageExclusive);
+        String primitiveExplain = PrimitivePlanOperation.explain(
+                PrimitivePipelineCapture
+                        .row(LogicalRowPlan.tableScan(table),
+                                PrimitiveValueKind.INT, primitiveRoot, true)
+                        .filter((io.github.somaruntime.soma.SomaIntPredicate)
+                                value -> value >= 0)
+                        .map((io.github.somaruntime.soma.SomaIntUnaryOperator)
+                                value -> value + 1));
+        assertTrue(primitiveExplain.contains("physicalSegments=2"));
+        assertTrue(primitiveExplain.contains("segmentShape=PRIMITIVE"));
+        assertTrue(primitiveExplain.contains("segmentCallbackBarrier=true"));
+    }
+
+    @Test
     void randomizedLogicalPlansMatchOnIndependentImmutableStates() {
         GeneratedTable optimizedTable = table(64L << 20, MutationFaultInjector.NONE);
         GeneratedTable referenceTable = table(64L << 20, MutationFaultInjector.NONE);
@@ -1767,7 +1858,7 @@ class GeneratedTableTest {
         assertEquals(
                 CanonicalPrimitiveVectorKernel.RepresentationHandler
                         .ENCODED_NATIVE,
-                sameLeafPlan.pipeline.segment.chunkKernel.handler(first));
+                sameLeafPlan.pipeline.terminalSegment().chunkKernel.handler(first));
         assertEquals(
                 ReferencePrimitiveInterpreter.sumIntegralForTesting(
                         sameLeafReference),
@@ -1805,7 +1896,7 @@ class GeneratedTableTest {
         assertEquals(
                 CanonicalPrimitiveVectorKernel.RepresentationHandler
                         .ENCODED_SCALAR,
-                multiLeafPlan.pipeline.segment.chunkKernel.handler(first));
+                multiLeafPlan.pipeline.terminalSegment().chunkKernel.handler(first));
         assertEquals(
                 ReferencePrimitiveInterpreter.sumIntegralForTesting(
                         multiLeafReference),
@@ -1841,7 +1932,7 @@ class GeneratedTableTest {
         assertEquals(
                 CanonicalPrimitiveVectorKernel.RepresentationHandler
                         .OVERLAY_SCALAR,
-                overlayPlan.pipeline.segment.chunkKernel.handler(
+                overlayPlan.pipeline.terminalSegment().chunkKernel.handler(
                         table.rootForTesting().directory.chunk(0)));
         assertEquals(
                 ReferencePrimitiveInterpreter.sumIntegralForTesting(
@@ -1966,17 +2057,17 @@ class GeneratedTableTest {
                 CanonicalRowPlanner.normalize(bound),
                 CanonicalRowPhysicalRequest.primitive(operation, 0L));
         CanonicalPrimitiveVectorKernel.Decision decision =
-                physical.pipeline.segment.chunkKernel;
+                physical.pipeline.terminalSegment().chunkKernel;
         assertNotNull(decision);
         assertEquals(CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN,
                 physical.pipeline.source);
         assertEquals(CanonicalPhysicalSegment.Kernel.CHUNK_SPECIALIZED,
-                physical.pipeline.segment.kernel);
-        assertEquals(0, physical.pipeline.segment.fromStage);
-        assertEquals(2, physical.pipeline.segment.toStageExclusive);
+                physical.pipeline.terminalSegment().kernel);
+        assertEquals(0, physical.pipeline.terminalSegment().fromStage);
+        assertEquals(0, physical.pipeline.terminalSegment().toStageExclusive);
         assertEquals(CanonicalPhysicalMorsel.Kind.CHUNK_RANGE,
-                physical.pipeline.segment.morsel.kind);
-        assertEquals(4, physical.pipeline.segment.morsel.partitions);
+                physical.pipeline.terminalSegment().morsel.kind);
+        assertEquals(4, physical.pipeline.terminalSegment().morsel.partitions);
         assertEquals(CanonicalPhysicalPipeline.Sink.INTEGRAL_SUM,
                 physical.pipeline.sink);
         assertTrue(CanonicalPrimitiveVectorKernel.isIntegralSum(physical));
@@ -2244,7 +2335,7 @@ class GeneratedTableTest {
                             chunks, 16L, physical.normalized.bound.provenance),
                     physical.normalized.bound.operation,
                     physical.normalized.bound.provenance);
-            assertTrue(physical.pipeline.segment.chunkKernel.ownsTerminalScratch);
+            assertTrue(physical.pipeline.terminalSegment().chunkKernel.ownsTerminalScratch);
             assertEquals(0L, physical.resources.parallelPrefixTemporaryBytes);
             assertEquals(expected, physical.resources.temporaryBytes);
             assertTrue(expected < RowExecutionSupport.arrayBytes(
