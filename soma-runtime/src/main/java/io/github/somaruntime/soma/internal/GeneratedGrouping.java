@@ -70,6 +70,18 @@ public final class GeneratedGrouping {
                 valueKind, aggregate, fieldIndex, mapper, null, false);
     }
 
+    Object aggregateLongReferenceForTesting(
+            int aggregate,
+            int valueKind,
+            int fieldIndex,
+            GeneratedCallbacks.RowToLongMapper mapper) {
+        requireAggregate(aggregate, valueKind, fieldIndex, mapper);
+        claim();
+        return CanonicalGroupingQueryOperation.execute(
+                rows, keyFieldIndex, keyKind, keyMaterializer,
+                valueKind, aggregate, fieldIndex, mapper, null, true);
+    }
+
     public Object aggregateDouble(
             int aggregate,
             int valueKind,
@@ -80,6 +92,18 @@ public final class GeneratedGrouping {
         return CanonicalGroupingQueryOperation.execute(
                 rows, keyFieldIndex, keyKind, keyMaterializer,
                 valueKind, aggregate, fieldIndex, null, mapper, false);
+    }
+
+    Object aggregateDoubleReferenceForTesting(
+            int aggregate,
+            int valueKind,
+            int fieldIndex,
+            GeneratedCallbacks.RowToDoubleMapper mapper) {
+        requireAggregate(aggregate, valueKind, fieldIndex, mapper);
+        claim();
+        return CanonicalGroupingQueryOperation.execute(
+                rows, keyFieldIndex, keyKind, keyMaterializer,
+                valueKind, aggregate, fieldIndex, null, mapper, true);
     }
 
     private static void requireAggregate(

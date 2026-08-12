@@ -9,6 +9,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.github.somaruntime.soma.GroupedDoubleEntry;
+import io.github.somaruntime.soma.GroupedDoubleResult;
 import io.github.somaruntime.soma.GroupedLongEntry;
 import io.github.somaruntime.soma.GroupedLongResult;
 import io.github.somaruntime.soma.LongGroupedLongEntry;
@@ -1785,6 +1787,29 @@ class GeneratedTableTest {
         assertGroupedEquals(
                 optimizedGroups.toArray(), referenceGroups.toArray());
 
+        GeneratedCallbacks.RowToLongMapper aggregateValue =
+                () -> left.queryCursor().viewInt(2);
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> optimizedSums =
+                (GroupedLongResult<Object>) left.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key)
+                        .aggregateLong(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_LONG,
+                                2,
+                                aggregateValue);
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> referenceSums =
+                (GroupedLongResult<Object>) left.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key)
+                        .aggregateLongReferenceForTesting(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_LONG,
+                                2,
+                                aggregateValue);
+        assertGroupedEquals(
+                optimizedSums.toArray(), referenceSums.toArray());
+
         GeneratedCallbacks.RowMapper<Long> primitiveKey =
                 () -> Long.valueOf(left.queryCursor().viewLong(0));
         LongGroupedLongResult optimizedPrimitiveGroups =
@@ -1838,6 +1863,95 @@ class GeneratedTableTest {
                     relationLocators(referenceKind, true)),
                     "indexed Relation differential kind=" + kind);
         }
+    }
+
+    @Test
+    void typedGroupAggregateKernelMatchesReferenceNumericSemantics() {
+        GeneratedTable table = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20)),
+                groupAggregateLayout(), 8, MutationFaultInjector.NONE);
+        addGroupAggregate(table, 1L, "A", 10L, 1.5d);
+        addGroupAggregate(table, 2L, "A", 20L, 2.5d);
+        addGroupAggregate(table, 3L, "B", -5L, Double.POSITIVE_INFINITY);
+        GeneratedCallbacks.RowMapper<Object> key =
+                () -> table.queryCursor().viewReference(1);
+        GeneratedCallbacks.RowToLongMapper integral =
+                () -> table.queryCursor().viewLong(2);
+        GeneratedCallbacks.RowToDoubleMapper floating =
+                () -> table.queryCursor().viewDouble(3);
+
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> optimizedLong =
+                (GroupedLongResult<Object>) table.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key)
+                        .aggregateLong(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_LONG,
+                                2,
+                                integral);
+        @SuppressWarnings("unchecked")
+        GroupedLongResult<Object> referenceLong =
+                (GroupedLongResult<Object>) table.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key)
+                        .aggregateLongReferenceForTesting(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_LONG,
+                                2,
+                                integral);
+        assertGroupedEquals(
+                optimizedLong.toArray(), referenceLong.toArray());
+
+        @SuppressWarnings("unchecked")
+        GroupedDoubleResult<Object> optimizedDouble =
+                (GroupedDoubleResult<Object>) table.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key)
+                        .aggregateDouble(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_DOUBLE,
+                                3,
+                                floating);
+        @SuppressWarnings("unchecked")
+        GroupedDoubleResult<Object> referenceDouble =
+                (GroupedDoubleResult<Object>) table.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, key)
+                        .aggregateDoubleReferenceForTesting(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_DOUBLE,
+                                3,
+                                floating);
+        assertGroupedDoubleEquals(
+                optimizedDouble.toArray(), referenceDouble.toArray());
+
+        GeneratedTable overflow = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20)),
+                groupAggregateLayout(), 4, MutationFaultInjector.NONE);
+        addGroupAggregate(overflow, 1L, "A", Long.MAX_VALUE, 0.0d);
+        addGroupAggregate(overflow, 2L, "A", 1L, 0.0d);
+        GeneratedCallbacks.RowMapper<Object> overflowKey =
+                () -> overflow.queryCursor().viewReference(1);
+        GeneratedCallbacks.RowToLongMapper overflowValue =
+                () -> overflow.queryCursor().viewLong(2);
+        SomaOperationException optimizedFailure = assertThrows(
+                SomaOperationException.class,
+                () -> overflow.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, overflowKey)
+                        .aggregateLong(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_LONG,
+                                2,
+                                overflowValue));
+        SomaOperationException referenceFailure = assertThrows(
+                SomaOperationException.class,
+                () -> overflow.groupBy(
+                        1, GeneratedGrouping.KEY_REFERENCE, overflowKey)
+                        .aggregateLongReferenceForTesting(
+                                GeneratedGrouping.SUM,
+                                GeneratedGrouping.VALUE_LONG,
+                                2,
+                                overflowValue));
+        assertEquals(SomaFailureCode.ARITHMETIC_OVERFLOW,
+                optimizedFailure.code());
+        assertEquals(referenceFailure.code(), optimizedFailure.code());
     }
 
     @Test
@@ -3461,6 +3575,18 @@ class GeneratedTableTest {
         }
     }
 
+    private static void assertGroupedDoubleEquals(
+            GroupedDoubleEntry<Object>[] optimized,
+            GroupedDoubleEntry<Object>[] reference) {
+        assertEquals(optimized.length, reference.length);
+        for (int index = 0; index < optimized.length; index++) {
+            assertEquals(optimized[index].key(), reference[index].key());
+            assertEquals(
+                    Double.doubleToLongBits(optimized[index].value()),
+                    Double.doubleToLongBits(reference[index].value()));
+        }
+    }
+
     private static void assertPrimitiveGroupedEquals(
             LongGroupedLongEntry[] optimized,
             LongGroupedLongEntry[] reference) {
@@ -3528,6 +3654,29 @@ class GeneratedTableTest {
         return new GeneratedTable(
                 testGroup(new GlobalMemoryManager(64L << 20)), layout, 4,
                 MutationFaultInjector.NONE);
+    }
+
+    private static GeneratedTableLayout groupAggregateLayout() {
+        return GeneratedTableLayout.create(
+                "GroupAggregate",
+                4,
+                new byte[] {
+                        GeneratedTableLayout.LONG,
+                        GeneratedTableLayout.REFERENCE,
+                        GeneratedTableLayout.LONG,
+                        GeneratedTableLayout.DOUBLE
+                },
+                new byte[] {
+                        GeneratedTableLayout.EQ_LONG,
+                        GeneratedTableLayout.EQ_STRING_CONTENT,
+                        GeneratedTableLayout.EQ_LONG,
+                        GeneratedTableLayout.EQ_DOUBLE_CANONICAL
+                },
+                new int[] {0, 1, 2, 3},
+                new int[] {1, 1, 1, 1},
+                new boolean[] {false, true, false, false},
+                0,
+                new int[] {1});
     }
 
     private static CanonicalRowPhysicalPlan primitivePhysicalPlan(
@@ -3686,6 +3835,21 @@ class GeneratedTableTest {
             row.putFloat(1, ratio);
             row.putDouble(2, weight);
             row.putReference(3, object);
+            row.add();
+        }
+    }
+
+    private static void addGroupAggregate(
+            GeneratedTable table,
+            long key,
+            String group,
+            long amount,
+            double weight) {
+        try (GeneratedRow row = table.beginAdd()) {
+            row.putLong(0, key);
+            row.putReference(1, group);
+            row.putLong(2, amount);
+            row.putDouble(3, weight);
             row.add();
         }
     }

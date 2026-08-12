@@ -193,6 +193,21 @@ final class CanonicalGroupingQueryOperation {
                 upper, expectedGroups, operation.keyKind, aggregate,
                 bound.provenance);
         if (!reference) frame.groupBreakerState = state;
+        final int valueLeaf;
+        final int valueSlot;
+        final byte valueLeafKind;
+        if (aggregate.aggregate == 0) {
+            valueLeaf = -1;
+            valueSlot = -1;
+            valueLeafKind = 0;
+        } else {
+            if (bound.layout.fieldLeafCount(aggregate.fieldIndex) != 1) {
+                throw new AssertionError("GroupBy aggregate Field is not scalar");
+            }
+            valueLeaf = bound.layout.fieldStart(aggregate.fieldIndex);
+            valueSlot = bound.layout.leafSlot(valueLeaf);
+            valueLeafKind = bound.layout.leafKind(valueLeaf);
+        }
         CanonicalRowExecution.LocatorVisitor visitor =
                 new CanonicalRowExecution.LocatorVisitor() {
                     @Override
@@ -208,7 +223,18 @@ final class CanonicalGroupingQueryOperation {
                                         bound.layout,
                                         operation.keyFieldIndex,
                                         locator);
-                        state.add(bound, group, locator, aggregate);
+                        if (reference) {
+                            state.addReference(
+                                    bound, group, locator, aggregate);
+                        } else {
+                            state.addTyped(
+                                    bound.root.directory,
+                                    group,
+                                    locator,
+                                    aggregate,
+                                    valueLeafKind,
+                                    valueSlot);
+                        }
                         return true;
                     }
                 };
@@ -431,7 +457,7 @@ final class CanonicalGroupingQueryOperation {
             return created;
         }
 
-        void add(
+        void addReference(
                 BoundCanonicalRowOperation bound,
                 int group,
                 int locator,
@@ -441,22 +467,62 @@ final class CanonicalGroupingQueryOperation {
             if (!aggregate.floating()) {
                 long value = RowExecutionSupport.callbackMapLong(
                         bound, locator, aggregate.valueMapper, false);
-                if (previous == 0L) {
-                    integralMins[group] = value;
-                    integralMaxs[group] = value;
-                } else {
-                    if (value < integralMins[group]) integralMins[group] = value;
-                    if (value > integralMaxs[group]) integralMaxs[group] = value;
-                }
-                if (aggregate.aggregate == SUM
-                        || aggregate.aggregate == AVERAGE
-                        || aggregate.aggregate == SUMMARY) {
-                    add128(group, value);
-                }
+                addIntegral(group, previous, value, aggregate);
                 return;
             }
             double value = RowExecutionSupport.callbackMapDouble(
                     bound, locator, aggregate.valueMapper, false);
+            addFloating(group, previous, value, aggregate);
+        }
+
+        void addTyped(
+                TableChunkDirectory directory,
+                int group,
+                int locator,
+                AggregateSpec aggregate,
+                byte leafKind,
+                int leafSlot) {
+            long previous = counts[group]++;
+            if (aggregate.aggregate == 0) return;
+            if (!aggregate.floating()) {
+                addIntegral(
+                        group,
+                        previous,
+                        integralValue(directory, locator, leafKind, leafSlot),
+                        aggregate);
+                return;
+            }
+            addFloating(
+                    group,
+                    previous,
+                    floatingValue(directory, locator, leafKind, leafSlot),
+                    aggregate);
+        }
+
+        private void addIntegral(
+                int group,
+                long previous,
+                long value,
+                AggregateSpec aggregate) {
+            if (previous == 0L) {
+                integralMins[group] = value;
+                integralMaxs[group] = value;
+            } else {
+                if (value < integralMins[group]) integralMins[group] = value;
+                if (value > integralMaxs[group]) integralMaxs[group] = value;
+            }
+            if (aggregate.aggregate == SUM
+                    || aggregate.aggregate == AVERAGE
+                    || aggregate.aggregate == SUMMARY) {
+                add128(group, value);
+            }
+        }
+
+        private void addFloating(
+                int group,
+                long previous,
+                double value,
+                AggregateSpec aggregate) {
             if (previous == 0L) floatingExtrema[group] = value;
             else if ((aggregate.aggregate == MIN || aggregate.aggregate == SUMMARY)
                     && Double.compare(value, floatingExtrema[group]) < 0) {
@@ -470,6 +536,42 @@ final class CanonicalGroupingQueryOperation {
                 // summary max is completed in a separate pass below
             }
             if (aggregate.needsFloatingSequence()) appendFloating(group, value);
+        }
+
+        private static long integralValue(
+                TableChunkDirectory directory,
+                int locator,
+                byte leafKind,
+                int leafSlot) {
+            switch (leafKind) {
+                case GeneratedTableLayout.BYTE:
+                    return directory.byteValue(locator, leafSlot);
+                case GeneratedTableLayout.SHORT:
+                    return directory.shortValue(locator, leafSlot);
+                case GeneratedTableLayout.CHAR:
+                    return directory.charValue(locator, leafSlot);
+                case GeneratedTableLayout.INT:
+                    return directory.intValue(locator, leafSlot);
+                case GeneratedTableLayout.LONG:
+                    return directory.longValue(locator, leafSlot);
+                default:
+                    throw new AssertionError("GroupBy aggregate Field is not integral");
+            }
+        }
+
+        private static double floatingValue(
+                TableChunkDirectory directory,
+                int locator,
+                byte leafKind,
+                int leafSlot) {
+            switch (leafKind) {
+                case GeneratedTableLayout.FLOAT:
+                    return directory.floatValue(locator, leafSlot);
+                case GeneratedTableLayout.DOUBLE:
+                    return directory.doubleValue(locator, leafSlot);
+                default:
+                    throw new AssertionError("GroupBy aggregate Field is not floating");
+            }
         }
 
         Object finish(AggregateSpec aggregate, Object provenance) {

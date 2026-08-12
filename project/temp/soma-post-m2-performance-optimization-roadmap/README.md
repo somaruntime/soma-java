@@ -2,7 +2,7 @@
 
 类型：Temporary / Performance Governance Proposal / Future Topic Router
 
-状态：`ACTIVE / T1_COMPLETED / T2_GROUPBY_ACTIVE / T3_T4_QUEUED / IMPLEMENTATION_AUTHORIZED`
+状态：`ACTIVE / T1_T2_COMPLETED / T3_DENSE_REMOVE_ACTIVE / T4_QUEUED / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-12（2026-08-13由Product Owner激活T1-T4）
 
@@ -296,8 +296,8 @@ push、release或对外性能声明。
 | Slice | 状态 | 唯一专题事实 |
 |---|---|---|
 | T1 Relation Physical Execution | `PASS / CLOSED` | [T1 Candidate Design与资格](t1-relation-execution-candidate-design.md) |
-| T2 GroupBy Physical Execution | `ACTIVE` | T1关闭后建立 |
-| T3 Dense Selection Remove | `QUEUED` | T2关闭后建立 |
+| T2 GroupBy Physical Execution | `PASS / CLOSED` | [T2 Candidate Design与资格](t2-groupby-execution-candidate-design.md) |
+| T3 Dense Selection Remove | `ACTIVE` | T2关闭后建立 |
 | T4 Construction / Index Build | `QUEUED` | T3关闭后建立 |
 | T5-T7 | `NOT_AUTHORIZED` | 仍只保留本提案中的未来路由 |
 
