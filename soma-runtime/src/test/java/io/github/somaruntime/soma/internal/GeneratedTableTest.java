@@ -1601,6 +1601,114 @@ class GeneratedTableTest {
     }
 
     @Test
+    void relationAndSelectionUseBoundedPhysicalTopologyAndHandoff() {
+        GeneratedGroup group = testGroup(new GlobalMemoryManager(64L << 20));
+        GeneratedTable left = new GeneratedTable(
+                group, testLayout(), 4, MutationFaultInjector.NONE);
+        GeneratedTable right = new GeneratedTable(
+                group, testLayout(), 4, MutationFaultInjector.NONE);
+        add(left, 1L, "A", 10, new Object());
+        add(left, 2L, "A", 20, new Object());
+        add(right, 101L, "A", 100, new Object());
+
+        CanonicalBinaryPhysicalPipeline indexed = GeneratedRelation
+                .equality(left, right).on(1, 1)
+                .terminal(new GeneratedRelation.PairWork<CanonicalBinaryPhysicalPipeline>() {
+            @Override public CanonicalBinaryPhysicalPipeline run(
+                    GeneratedRelation.RelationBinding binding) {
+                return binding.frame.plan.pipeline;
+            }
+        }, false, 0L);
+        assertEquals(CanonicalBinaryPhysicalPipeline.Source.LEFT_SCAN,
+                indexed.leftSource);
+        assertEquals(CanonicalBinaryPhysicalPipeline.Source.RIGHT_INDEX,
+                indexed.rightSource);
+        assertEquals(CanonicalBinaryPhysicalPipeline.Kernel.RIGHT_INDEX_LOOKUP,
+                indexed.kernel);
+        assertEquals(CanonicalBinaryPhysicalPipeline.OutputShape.RELATION_PAIR,
+                indexed.outputShape);
+
+        CanonicalBinaryPhysicalPipeline cross = GeneratedRelation
+                .cross(left, right, 16L)
+                .terminal(new GeneratedRelation.PairWork<CanonicalBinaryPhysicalPipeline>() {
+            @Override public CanonicalBinaryPhysicalPipeline run(
+                    GeneratedRelation.RelationBinding binding) {
+                return binding.frame.plan.pipeline;
+            }
+        }, false, 0L);
+        assertEquals(CanonicalBinaryPhysicalPipeline.Kernel.NESTED_CROSS,
+                cross.kernel);
+
+        List<Integer> mappedValues = GeneratedRelation.equality(left, right)
+                .on(1, 1)
+                .map(() -> Integer.valueOf(left.queryCursor().viewInt(2)))
+                .distinct()
+                .sorted(Integer::compareTo)
+                .toList();
+        assertEquals(Arrays.asList(Integer.valueOf(10), Integer.valueOf(20)),
+                mappedValues);
+        int[] primitiveValues = GeneratedRelation.equality(left, right)
+                .on(1, 1)
+                .mapToInt(() -> left.queryCursor().viewInt(2))
+                .distinct()
+                .sorted()
+                .toArray();
+        assertTrue(Arrays.equals(new int[] {10, 20}, primitiveValues));
+
+        GeneratedRelation semi = GeneratedRelation.equality(left, right)
+                .on(1, 1).kind(GeneratedRelation.SEMI);
+        LogicalRowPlan relationRows = LogicalRowPlan.relationLeft(left, semi);
+        MappedPipelineCapture<Integer> mappedCapture = MappedPipelineCapture
+                .root(relationRows,
+                        () -> Integer.valueOf(left.queryCursor().viewInt(2)))
+                .distinct();
+        final CanonicalMappedOperation mapped = CanonicalMappedLowering.operation(
+                mappedCapture,
+                CanonicalMappedOperation.TerminalKind.TEST,
+                null,
+                null);
+        Boolean hasMappedTopology = semi.executeLeftCanonical(
+                mapped.source,
+                new CanonicalQueryOperation.ExtraScratch() {
+                    @Override public long bytes(BoundCanonicalRowOperation bound) {
+                        return 4_096L;
+                    }
+                },
+                mapped,
+                null,
+                null,
+                new CanonicalQueryOperation.FrameWork<Boolean>() {
+                    @Override public Boolean run(CanonicalRowExecutionFrame frame) {
+                        return frame.plan.pipeline.firstSegment(
+                                        CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE)
+                                != null
+                                && frame.plan.pipeline.hasBreaker(
+                                        CanonicalPhysicalSegment.Shape.MAPPED_REFERENCE);
+                    }
+                });
+        assertTrue(hasMappedTopology.booleanValue());
+
+        LogicalRowPlan selection = LogicalRowPlan.tableScan(left);
+        CanonicalRowOperation remove = CanonicalRowLowering.operation(
+                left,
+                selection,
+                CanonicalRowOperation.TerminalKind.REMOVE,
+                null);
+        BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
+                remove, left, left.layout(), left.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.REMOVE,
+                new Object());
+        CanonicalRowPhysicalPlan mutation = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(bound),
+                CanonicalRowPhysicalRequest.mutation(
+                        CanonicalRowPhysicalRequest.MutationHandoff.REMOVE_PLAN,
+                        8_192L));
+        assertEquals(CanonicalPhysicalPipeline.Sink.MUTATION_HANDOFF,
+                mutation.pipeline.sink);
+        assertTrue(mutation.resources.temporaryBytes >= 8_192L);
+    }
+
+    @Test
     void randomizedLogicalPlansMatchOnIndependentImmutableStates() {
         GeneratedTable optimizedTable = table(64L << 20, MutationFaultInjector.NONE);
         GeneratedTable referenceTable = table(64L << 20, MutationFaultInjector.NONE);

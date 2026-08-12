@@ -293,34 +293,40 @@ final class CanonicalRowPlanner {
 
 /** Closed terminal requirement consumed by the sole Physical planning owner. */
 final class CanonicalRowPhysicalRequest {
+    enum MutationHandoff { UPDATE_WRITE_SET, REMOVE_PLAN }
+
     final CanonicalMappedOperation mapped;
     final CanonicalPrimitiveOperation primitive;
     final CanonicalGroupOperation group;
+    final MutationHandoff mutation;
     final long additionalTemporaryBytes;
 
     private CanonicalRowPhysicalRequest(
             CanonicalMappedOperation mapped,
             CanonicalPrimitiveOperation primitive,
             CanonicalGroupOperation group,
+            MutationHandoff mutation,
             long additionalTemporaryBytes) {
         if (additionalTemporaryBytes < 0L) {
             throw new AssertionError("negative terminal scratch");
         }
         int families = (mapped == null ? 0 : 1)
                 + (primitive == null ? 0 : 1)
-                + (group == null ? 0 : 1);
+                + (group == null ? 0 : 1)
+                + (mutation == null ? 0 : 1);
         if (families > 1) {
             throw new AssertionError("multiple value terminal requirements");
         }
         this.mapped = mapped;
         this.primitive = primitive;
         this.group = group;
+        this.mutation = mutation;
         this.additionalTemporaryBytes = additionalTemporaryBytes;
     }
 
     static CanonicalRowPhysicalRequest row(long additionalTemporaryBytes) {
         return new CanonicalRowPhysicalRequest(
-                null, null, null, additionalTemporaryBytes);
+                null, null, null, null, additionalTemporaryBytes);
     }
 
     static CanonicalRowPhysicalRequest mapped(
@@ -330,7 +336,7 @@ final class CanonicalRowPhysicalRequest {
             throw new AssertionError("mapped terminal requirement is missing");
         }
         return new CanonicalRowPhysicalRequest(
-                mapped, null, null, additionalTemporaryBytes);
+                mapped, null, null, null, additionalTemporaryBytes);
     }
 
     static CanonicalRowPhysicalRequest primitive(
@@ -340,7 +346,7 @@ final class CanonicalRowPhysicalRequest {
             throw new AssertionError("primitive terminal requirement is missing");
         }
         return new CanonicalRowPhysicalRequest(
-                null, primitive, null, additionalTemporaryBytes);
+                null, primitive, null, null, additionalTemporaryBytes);
     }
 
     static CanonicalRowPhysicalRequest group(
@@ -350,7 +356,17 @@ final class CanonicalRowPhysicalRequest {
             throw new AssertionError("Group terminal requirement is missing");
         }
         return new CanonicalRowPhysicalRequest(
-                null, null, group, additionalTemporaryBytes);
+                null, null, group, null, additionalTemporaryBytes);
+    }
+
+    static CanonicalRowPhysicalRequest mutation(
+            MutationHandoff mutation,
+            long additionalTemporaryBytes) {
+        if (mutation == null) {
+            throw new AssertionError("mutation handoff requirement is missing");
+        }
+        return new CanonicalRowPhysicalRequest(
+                null, null, null, mutation, additionalTemporaryBytes);
     }
 }
 
@@ -425,7 +441,8 @@ final class CanonicalPhysicalPipeline {
         COUNT,
         INTEGRAL_SUM,
         LONG_MATERIALIZATION,
-        GROUP_RESULT
+        GROUP_RESULT,
+        MUTATION_HANDOFF
     }
 
     final CanonicalRowPhysicalPlan.AccessPath source;
@@ -774,6 +791,7 @@ final class CanonicalPhysicalPipeline {
             CanonicalRowPhysicalRequest request,
             CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
         if (request.group != null) return Sink.GROUP_RESULT;
+        if (request.mutation != null) return Sink.MUTATION_HANDOFF;
         if (request.primitive == null) {
             return normalized.bound.canonical.terminal
                             == CanonicalRowOperation.TerminalKind.COUNT

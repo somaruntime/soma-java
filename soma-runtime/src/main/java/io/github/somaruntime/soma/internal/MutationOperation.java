@@ -51,15 +51,14 @@ final class MutationOperation {
                     SomaOperation.UPDATE,
                     operation.provenance());
             NormalizedCanonicalRow normalized = CanonicalRowPlanner.normalize(bound);
-            CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
-            long scratch = CheckedLong.add(
-                    physical.resources.temporaryBytes,
-                    canonicalSelectionScratch(bound, true),
-                    bound.operation,
-                    bound.provenance);
+            CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(
+                    normalized,
+                    CanonicalRowPhysicalRequest.mutation(
+                            CanonicalRowPhysicalRequest.MutationHandoff.UPDATE_WRITE_SET,
+                            canonicalSelectionScratch(bound, true)));
             try (GlobalMemoryManager.TemporaryLease ignored =
                          table.leaseMutationTemporary(
-                                 scratch,
+                                 physical.resources.temporaryBytes,
                                  SomaOperation.UPDATE,
                                  bound.provenance)) {
                 beginCanonicalCursors(table, bound);
@@ -68,13 +67,14 @@ final class MutationOperation {
                             new CanonicalRowExecutionFrame(physical);
                     CanonicalParallelRowScheduler.prepare(frame);
                     IntLocatorBuffer selected = CanonicalRowExecution.locators(frame);
-                    int matched = selected.size();
-                    if (matched == 0) return table.selectionUpdateResult(0, 0);
-
-                    GeneratedSelectionEditor editor = table.selectionEditor();
-                    SelectionWriteSet writeSet = new SelectionWriteSet(
-                            table.layout(), selected);
+                    CanonicalMutationHandoff handoff =
+                            CanonicalMutationHandoff.update(table.layout(), selected);
+                    frame.attachMutationHandoff(handoff);
                     try {
+                        int matched = handoff.size();
+                        if (matched == 0) return table.selectionUpdateResult(0, 0);
+                        GeneratedSelectionEditor editor = table.selectionEditor();
+                        SelectionWriteSet writeSet = handoff.writeSet();
                         editor.begin(bound.root, bound.provenance);
                         try {
                             for (int index = 0; index < selected.size(); index++) {
@@ -107,7 +107,7 @@ final class MutationOperation {
                                 matched,
                                 bound.provenance);
                     } finally {
-                        writeSet.clear();
+                        handoff.clear();
                     }
                 } finally {
                     endCanonicalCursors(table);
@@ -129,15 +129,14 @@ final class MutationOperation {
                     SomaOperation.REMOVE,
                     operation.provenance());
             NormalizedCanonicalRow normalized = CanonicalRowPlanner.normalize(bound);
-            CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(normalized);
-            long scratch = CheckedLong.add(
-                    physical.resources.temporaryBytes,
-                    canonicalSelectionScratch(bound, false),
-                    bound.operation,
-                    bound.provenance);
+            CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(
+                    normalized,
+                    CanonicalRowPhysicalRequest.mutation(
+                            CanonicalRowPhysicalRequest.MutationHandoff.REMOVE_PLAN,
+                            canonicalSelectionScratch(bound, false)));
             try (GlobalMemoryManager.TemporaryLease ignored =
                          table.leaseMutationTemporary(
-                                 scratch,
+                                 physical.resources.temporaryBytes,
                                  SomaOperation.REMOVE,
                                  bound.provenance)) {
                 beginCanonicalCursors(table, bound);
@@ -146,18 +145,20 @@ final class MutationOperation {
                             new CanonicalRowExecutionFrame(physical);
                     CanonicalParallelRowScheduler.prepare(frame);
                     IntLocatorBuffer selected = CanonicalRowExecution.locators(frame);
-                    if (selected.size() == 0) {
-                        return table.selectionRemoveResult(0);
-                    }
-                    SelectionRemovePlan plan = SelectionRemovePlan.prepare(
-                            selected, bound.root.size, bound.provenance);
+                    CanonicalMutationHandoff handoff =
+                            CanonicalMutationHandoff.remove(
+                                    selected, bound.root.size, bound.provenance);
+                    frame.attachMutationHandoff(handoff);
                     try {
+                        if (handoff.size() == 0) {
+                            return table.selectionRemoveResult(0);
+                        }
                         return table.publishSelectionRemove(
                                 bound.root,
-                                plan,
+                                handoff.removePlan(),
                                 bound.provenance);
                     } finally {
-                        plan.clear();
+                        handoff.clear();
                     }
                 } finally {
                     endCanonicalCursors(table);
@@ -213,4 +214,62 @@ final class MutationOperation {
         table.queryCursor().end();
     }
 
+}
+
+/** Frame-owned frozen boundary between physical Selection and mutation publication. */
+final class CanonicalMutationHandoff {
+    private final IntLocatorBuffer membership;
+    private final SelectionWriteSet writeSet;
+    private final SelectionRemovePlan removePlan;
+
+    private CanonicalMutationHandoff(
+            IntLocatorBuffer membership,
+            SelectionWriteSet writeSet,
+            SelectionRemovePlan removePlan) {
+        if (membership == null || (writeSet == null) == (removePlan == null)) {
+            throw new AssertionError("invalid canonical mutation handoff");
+        }
+        this.membership = membership;
+        this.writeSet = writeSet;
+        this.removePlan = removePlan;
+    }
+
+    static CanonicalMutationHandoff update(
+            GeneratedTableLayout layout,
+            IntLocatorBuffer membership) {
+        return new CanonicalMutationHandoff(
+                membership,
+                new SelectionWriteSet(layout, membership),
+                null);
+    }
+
+    static CanonicalMutationHandoff remove(
+            IntLocatorBuffer membership,
+            int oldSize,
+            Object provenance) {
+        return new CanonicalMutationHandoff(
+                membership,
+                null,
+                SelectionRemovePlan.prepare(membership, oldSize, provenance));
+    }
+
+    SelectionWriteSet writeSet() {
+        if (writeSet == null) throw new AssertionError("write set is unavailable");
+        return writeSet;
+    }
+
+    int size() {
+        return membership.size();
+    }
+
+    SelectionRemovePlan removePlan() {
+        if (removePlan == null) throw new AssertionError("remove plan is unavailable");
+        return removePlan;
+    }
+
+    void clear() {
+        if (writeSet != null) writeSet.clear();
+        if (removePlan != null) removePlan.clear();
+        // Membership is owned by the Frame and contains only primitive locators.
+    }
 }

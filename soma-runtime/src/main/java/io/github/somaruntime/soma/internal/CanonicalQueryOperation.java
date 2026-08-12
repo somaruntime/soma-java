@@ -293,6 +293,9 @@ final class CanonicalQueryOperation {
             return source.relation.executeLeftCanonical(
                     canonical,
                     ZERO_SCRATCH,
+                    null,
+                    null,
+                    null,
                     new FrameWork<String>() {
                         @Override public String run(
                                 CanonicalRowExecutionFrame frame) {
@@ -433,7 +436,7 @@ final class CanonicalQueryOperation {
             FrameWork<T> work) {
         if (source.relation != null) {
             return source.relation.executeLeftCanonical(
-                    canonical, extra, work);
+                    canonical, extra, mapped, primitive, group, work);
         }
         GeneratedTable table = source.table;
         try (GroupOperationGuard.Lease operation = table.acquireQuery()) {

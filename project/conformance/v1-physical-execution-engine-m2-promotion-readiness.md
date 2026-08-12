@@ -2,7 +2,7 @@
 
 类型：Conformance / Formal Promotion / Baseline Freeze / Authorization
 
-状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / P1-P4_COMPLETED / P5_ACTIVE`
+状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / P1-P5_COMPLETED / P6_ACTIVE`
 
 日期：2026-08-12
 
@@ -20,7 +20,7 @@ Formal Design promotion      PASS
 Formal baseline              FROZEN
 Implementation readiness     PASS
 Implementation authorization GRANTED (2026-08-12)
-Active slice                 P5
+Active slice                 P6
 Release/publication          NOT_AUTHORIZED
 ```
 
@@ -74,5 +74,6 @@ Reference独立性无法保持、resource admission无法在state前成立、证
 本记录拥有promotion/readiness/authorization；[P1资格](physical-execution-engine-m2-p1-qualification.md)已经
 `PASS`，[P2资格](physical-execution-engine-m2-p2-qualification.md)、
 [P3资格](physical-execution-engine-m2-p3-qualification.md)和
-[P4资格](physical-execution-engine-m2-p4-qualification.md)也已`PASS`，当前P5 active。每个P1-P6资格记录拥有其implementation evidence；
+[P4资格](physical-execution-engine-m2-p4-qualification.md)与
+[P5资格](physical-execution-engine-m2-p5-qualification.md)也已`PASS`，当前P6 active。每个P1-P6资格记录拥有其implementation evidence；
 Engineering Plan只冻结顺序。P6完成前active bounded Temporary仍存在，完成后必须晋升稳定事实并删除。

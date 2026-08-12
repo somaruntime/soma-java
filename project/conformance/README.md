@@ -5,7 +5,7 @@
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
 Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
 Vectorized Pipeline扩展`PASS / FORMALLY_PROMOTED / VP1-VP3_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
-Physical Execution Engine M2 `FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / P1-P4_COMPLETED / P5_ACTIVE`
+Physical Execution Engine M2 `FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / P1-P5_COMPLETED / P6_ACTIVE`
 
 正式事实源：是
 
@@ -37,7 +37,7 @@ Core abstraction promotion    PASS
 I0-I8 authorization           FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
-Active implementation slice   M2_P5
+Active implementation slice   M2_P6
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -64,7 +64,7 @@ Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
 Active bounded topic          PHYSICAL_EXECUTION_ENGINE_M2 / FORMALLY_PROMOTED /
-                              IMPLEMENTATION_AUTHORIZED / P1-P4_COMPLETED / P5_ACTIVE
+                              IMPLEMENTATION_AUTHORIZED / P1-P5_COMPLETED / P6_ACTIVE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -114,6 +114,8 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
   Breaker、typed Frame state、stable/first/top semantics与P3 evidence Owner；
 - [Physical Execution Engine M2 P4资格](physical-execution-engine-m2-p4-qualification.md)：GroupBy
   HASH_AGGREGATE Breaker、typed Group state lifecycle、capacity hint与P4 evidence Owner；
+- [Physical Execution Engine M2 P5资格](physical-execution-engine-m2-p5-qualification.md)：bounded binary
+  Relation topology、Mapped/Primitive/Group downstream、Selection mutation handoff与P5 evidence Owner；
 
 - [Vectorized Physical Pipeline第一阶段正式晋升](v1-vectorized-physical-pipeline-phase1-promotion.md)：
   finite primitive Chunk kernel、PhysicalPlan单次decision、Chunk-morsel partial、shared parallel lifecycle、

@@ -547,6 +547,7 @@ final class CanonicalRowExecutionFrame {
     MappedValueBuffer mappedBreakerState;
     LongValueBuffer primitiveBreakerState;
     CanonicalGroupingQueryOperation.GroupState groupBreakerState;
+    CanonicalMutationHandoff mutationHandoff;
 
     CanonicalRowExecutionFrame(CanonicalRowPhysicalPlan plan) {
         if (plan == null) throw new AssertionError("physical plan is missing");
@@ -596,6 +597,15 @@ final class CanonicalRowExecutionFrame {
         primitiveBreakerState = new LongValueBuffer(
                 upperBound, provenance);
         return primitiveBreakerState;
+    }
+
+    void attachMutationHandoff(CanonicalMutationHandoff handoff) {
+        if (handoff == null || mutationHandoff != null
+                || plan.pipeline.sink
+                        != CanonicalPhysicalPipeline.Sink.MUTATION_HANDOFF) {
+            throw new AssertionError("invalid mutation handoff");
+        }
+        mutationHandoff = handoff;
     }
 }
 

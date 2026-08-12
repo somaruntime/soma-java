@@ -163,6 +163,7 @@ final class GeneratedRelationPrimitivePipeline {
     }
 
     private static Buffer values(final RelationPrimitivePipelineCapture capture) {
+        final CanonicalRelationPhysicalDownstream downstream = physical(capture);
         Buffer root;
         if (capture.relation != null) {
             root = capture.relation.terminal(
@@ -175,14 +176,14 @@ final class GeneratedRelationPrimitivePipeline {
                         @Override public boolean visit(int l,int r){out.add(directValue(capture));return true;}
                     });
                     return out;
-                }
-            },true,24L);
+                    }
+            },true,24L,downstream);
         } else {
             java.util.List<Object> mapped=GeneratedRelationMappedPipeline.materialize(capture.mapped);
             root=new Buffer(mapped.size());
             for(Object value:mapped)root.add(mappedValue(capture,value));
         }
-        applyStages(root,capture);
+        applyStages(root,capture,downstream);
         return root;
     }
 
@@ -218,7 +219,8 @@ final class GeneratedRelationPrimitivePipeline {
                     }
                 },
                 true,
-                0L);
+                0L,
+                physical(capture));
     }
 
     private static long directValue(RelationPrimitivePipelineCapture capture) {
@@ -237,15 +239,105 @@ final class GeneratedRelationPrimitivePipeline {
         return encode(((SomaToDoubleFunction<Object>)capture.rootMapper).applyAsDouble(value));
     }catch(Exception failure){throw SomaFailures.callbackFailure(SomaOperation.QUERY,failure,new Object());}finally{CallbackExecutionScope.exit();}}
 
-    private static void applyStages(Buffer b,RelationPrimitivePipelineCapture capture){Kind current=capture.rootKind;for(Stage s:capture.stages){switch(s.kind){
-        case FILTER:{int o=0;for(int i=0;i<b.size;i++)if(test(current,s.callback,b.values[i]))b.values[o++]=b.values[i];b.size=o;break;}
-        case MAP:case CONVERT:for(int i=0;i<b.size;i++)b.values[i]=map(current,s.output,s.callback,b.values[i]);current=s.output;break;
-        case DISTINCT:{LinkedHashSet<Long> set=new LinkedHashSet<Long>();for(int i=0;i<b.size;i++)set.add(canonical(current,b.values[i]));int o=0;for(Long v:set)b.values[o++]=v;b.size=o;break;}
-        case SORTED:sort(b,current);break;
-        case SKIP:{int n=(int)Math.min((long)b.size,s.count);System.arraycopy(b.values,n,b.values,0,b.size-n);b.size-=n;break;}
-        case LIMIT:if(s.count<b.size)b.size=(int)s.count;break;
-        default:throw new AssertionError();
-    }}}
+    private static void applyStages(
+            Buffer b,
+            RelationPrimitivePipelineCapture capture,
+            CanonicalRelationPhysicalDownstream downstream) {
+        if (downstream.kernels.length != capture.stages.length + 1
+                || downstream.kernels[0]
+                        != CanonicalRelationPhysicalDownstream.Kernel.PRIMITIVE_MAP) {
+            throw new AssertionError("primitive Relation topology drift");
+        }
+        Kind current = capture.rootKind;
+        for (int index = 0; index < capture.stages.length; index++) {
+            Stage stage = capture.stages[index];
+            switch (downstream.kernels[index + 1]) {
+                case PRIMITIVE_FILTER: {
+                    int output = 0;
+                    for (int input = 0; input < b.size; input++) {
+                        if (test(current, stage.callback, b.values[input])) {
+                            b.values[output++] = b.values[input];
+                        }
+                    }
+                    b.size = output;
+                    break;
+                }
+                case PRIMITIVE_MAP:
+                    for (int input = 0; input < b.size; input++) {
+                        b.values[input] = map(
+                                current, stage.output,
+                                stage.callback, b.values[input]);
+                    }
+                    current = stage.output;
+                    break;
+                case PRIMITIVE_HASH: {
+                    LinkedHashSet<Long> set = new LinkedHashSet<Long>();
+                    for (int input = 0; input < b.size; input++) {
+                        set.add(canonical(current, b.values[input]));
+                    }
+                    int output = 0;
+                    for (Long value : set) b.values[output++] = value;
+                    b.size = output;
+                    break;
+                }
+                case PRIMITIVE_STABLE_SORT:
+                    sort(b, current);
+                    break;
+                case PRIMITIVE_SLICE:
+                    if (stage.kind == StageKind.SKIP) {
+                        int count = (int) Math.min((long) b.size, stage.count);
+                        System.arraycopy(
+                                b.values, count, b.values, 0, b.size - count);
+                        b.size -= count;
+                    } else if (stage.count < b.size) {
+                        b.size = (int) stage.count;
+                    }
+                    break;
+                default:
+                    throw new AssertionError("unknown primitive Relation kernel");
+            }
+        }
+    }
+
+    private static CanonicalRelationPhysicalDownstream physical(
+            RelationPrimitivePipelineCapture capture) {
+        CanonicalRelationPhysicalDownstream.Kernel[] kernels =
+                new CanonicalRelationPhysicalDownstream.Kernel[
+                        capture.stages.length + 1];
+        kernels[0] = CanonicalRelationPhysicalDownstream.Kernel.PRIMITIVE_MAP;
+        int breakers = 0;
+        for (int index = 0; index < capture.stages.length; index++) {
+            switch (capture.stages[index].kind) {
+                case FILTER:
+                    kernels[index + 1] = CanonicalRelationPhysicalDownstream.Kernel
+                            .PRIMITIVE_FILTER;
+                    break;
+                case MAP:
+                case CONVERT:
+                    kernels[index + 1] = CanonicalRelationPhysicalDownstream.Kernel
+                            .PRIMITIVE_MAP;
+                    break;
+                case DISTINCT:
+                    kernels[index + 1] = CanonicalRelationPhysicalDownstream.Kernel
+                            .PRIMITIVE_HASH;
+                    breakers++;
+                    break;
+                case SORTED:
+                    kernels[index + 1] = CanonicalRelationPhysicalDownstream.Kernel
+                            .PRIMITIVE_STABLE_SORT;
+                    breakers++;
+                    break;
+                case SKIP:
+                case LIMIT:
+                    kernels[index + 1] = CanonicalRelationPhysicalDownstream.Kernel
+                            .PRIMITIVE_SLICE;
+                    break;
+                default:
+                    throw new AssertionError("unknown primitive Relation stage");
+            }
+        }
+        return CanonicalRelationPhysicalDownstream.primitive(kernels, breakers);
+    }
 
     private static boolean test(Kind k,Object c,long raw){CallbackExecutionScope.enter();try{if(k==Kind.INT)return ((SomaIntPredicate)c).test((int)raw);if(k==Kind.LONG)return ((SomaLongPredicate)c).test(raw);return ((SomaDoublePredicate)c).test(decode(raw));}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
     private static long map(Kind in,Kind out,Object c,long raw){CallbackExecutionScope.enter();try{
@@ -273,7 +365,7 @@ final class GeneratedRelationPrimitivePipeline {
     private static void acceptDouble(SomaDoubleConsumer a,double v){CallbackExecutionScope.enter();try{a.accept(v);}catch(Exception e){throw SomaFailures.callbackFailure(SomaOperation.QUERY,e,new Object());}finally{CallbackExecutionScope.exit();}}
     private static long encode(double v){return Double.doubleToRawLongBits(v);}
     private static double decode(long v){return Double.longBitsToDouble(v);}
-    private static String explain(RelationPrimitivePipelineCapture p){return "SOMA relation-primitive kind="+p.valueKind+" stages="+p.stages.length;}
+    private static String explain(RelationPrimitivePipelineCapture p){CanonicalRelationPhysicalDownstream d=physical(p);return "SOMA relation-primitive kind="+p.valueKind+" stages="+p.stages.length+" physicalBreakers="+d.breakerCount;}
 
     private static final class Buffer{final long[] values;int size;Buffer(int n){values=new long[n];}void add(long v){values[size++]=v;}}
     private static final class Stage{final StageKind kind;final Kind output;final Object callback;final long count;private Stage(StageKind k,Kind o,Object c,long n){kind=k;output=o;callback=c;count=n;}static Stage of(StageKind k,Kind o,Object c,long n){return new Stage(k,o,c,n);}}

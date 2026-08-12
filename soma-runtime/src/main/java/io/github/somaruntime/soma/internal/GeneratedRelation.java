@@ -306,7 +306,9 @@ public final class GeneratedRelation {
             @Override public String run(RelationBinding binding) {
                 return "SOMA relation=" + kindName(kind)
                         + " conditions=" + leftFields.length
-                        + " physical=" + binding.frame.plan.algorithm
+                        + " physical=" + binding.frame.plan.pipeline.kernel
+                        + " binaryOutput="
+                        + binding.frame.plan.pipeline.outputShape
                         + " predicatePushdown="
                         + binding.frame.plan.pushedFilterCount
                         + " filters=" + filters.size()
@@ -324,6 +326,17 @@ public final class GeneratedRelation {
         return execute(terminal, callbackScope, outputBytesPerElement, work);
     }
 
+    <T> T terminal(
+            CanonicalRelationOperation.TerminalKind terminal,
+            PairWork<T> work,
+            boolean callbackScope,
+            long outputBytesPerElement,
+            CanonicalRelationPhysicalDownstream downstream) {
+        return execute(
+                terminal, callbackScope, outputBytesPerElement,
+                downstream, work);
+    }
+
     /** Test-only reference hook retained until the S5 adapter-removal slice. */
     <T> T terminal(
             PairWork<T> work,
@@ -339,9 +352,13 @@ public final class GeneratedRelation {
     <T> T executeLeftCanonical(
             CanonicalRowOperation rowOperation,
             CanonicalQueryOperation.ExtraScratch extra,
+            CanonicalMappedOperation mapped,
+            CanonicalPrimitiveOperation primitive,
+            CanonicalGroupOperation group,
             CanonicalQueryOperation.FrameWork<T> work) {
         return CanonicalRelationQueryOperation.executeLeft(
-                this, left, right, rowOperation, extra, work);
+                this, left, right, rowOperation, extra,
+                mapped, primitive, group, work);
     }
 
     <T> T executeLeftCanonicalReference(
@@ -371,12 +388,26 @@ public final class GeneratedRelation {
             boolean callbackScope,
             long outputBytesPerElement,
             final PairWork<T> work) {
+        return execute(
+                terminal, callbackScope, outputBytesPerElement,
+                CanonicalRelationPhysicalDownstream.pair(
+                        CanonicalRelationOperation.Kind.values()[kind - 1]),
+                work);
+    }
+
+    private <T> T execute(
+            CanonicalRelationOperation.TerminalKind terminal,
+            boolean callbackScope,
+            long outputBytesPerElement,
+            CanonicalRelationPhysicalDownstream downstream,
+            final PairWork<T> work) {
         final CanonicalRelationOperation canonical = lower(terminal);
         return CanonicalRelationQueryOperation.execute(
                 left,
                 right,
                 canonical,
                 outputBytesPerElement,
+                downstream,
                 new CanonicalRelationQueryOperation.FrameWork<T>() {
             @Override public T run(CanonicalRelationExecutionFrame frame) {
                 return work.run(new RelationBinding(frame));
@@ -718,6 +749,10 @@ public final class GeneratedRelation {
     }
 
     private IdentityHashIndex rightLookup(RelationBinding binding) {
+        if (binding.frame.plan.pipeline.kernel
+                != CanonicalBinaryPhysicalPipeline.Kernel.RIGHT_INDEX_LOOKUP) {
+            return null;
+        }
         int[] leftFields = binding.canonical.leftFields;
         int[] rightFields = binding.canonical.rightFields;
         if (leftFields.length != 1) return null;

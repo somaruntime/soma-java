@@ -59,7 +59,8 @@ decision，row/chunk两条parallel路径共享同一bounded caller-participating
 已于2026-08-12授权完整实施；[P1资格](project/conformance/physical-execution-engine-m2-p1-qualification.md)
 、[P2资格](project/conformance/physical-execution-engine-m2-p2-qualification.md)、
 [P3资格](project/conformance/physical-execution-engine-m2-p3-qualification.md)与
-[P4资格](project/conformance/physical-execution-engine-m2-p4-qualification.md)已`PASS`，当前P5是唯一active
+[P4资格](project/conformance/physical-execution-engine-m2-p4-qualification.md)、
+[P5资格](project/conformance/physical-execution-engine-m2-p5-qualification.md)已`PASS`，当前P6是唯一active
 slice；Candidate Temporary只保存provenance；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
@@ -198,7 +199,7 @@ dependency或plugin expansion。
 ## 实施准入与推进
 
 - 当前 implementation authorization 已由I0-I8与Canonical IR/Execution S1-S6完成履行；Physical
-  Execution Engine M2另由2026-08-12 Product Owner授权，P1-P4已完成，P5是唯一active slice；
+  Execution Engine M2另由2026-08-12 Product Owner授权，P1-P5已完成，P6是唯一active slice；
 - Canonical IR/Execution S1-S6的授权由
   [正式Conformance记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)拥有；
   冻结Engineering Plan中的准入快照不作为current authorization状态源；

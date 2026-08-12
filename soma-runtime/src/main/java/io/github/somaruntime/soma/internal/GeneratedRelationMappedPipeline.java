@@ -145,7 +145,10 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
         return result;
     }
     @Override public String _explain() {
-        claim(); return "SOMA relation-mapped stages=" + capture.stages.size();
+        claim();
+        CanonicalRelationPhysicalDownstream downstream = physical(capture);
+        return "SOMA relation-mapped stages=" + capture.stages.size()
+                + " physicalBreakers=" + downstream.breakerCount;
     }
 
     private GeneratedRelationMappedPipeline<R> next(Stage stage) {
@@ -158,6 +161,7 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
 
     static List<Object> materialize(
             final RelationMappedPipelineCapture capture) {
+        final CanonicalRelationPhysicalDownstream downstream = physical(capture);
         return capture.relation.terminal(
                 CanonicalRelationOperation.TerminalKind.MAP_SOURCE,
                 new GeneratedRelation.PairWork<List<Object>>() {
@@ -188,10 +192,14 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
                                 return true;
                             }
                         });
-                        applyStages(values, capture.stages, binding.provenance);
+                        applyStages(
+                                values,
+                                capture.stages,
+                                binding.frame.plan.pipeline.downstream,
+                                binding.provenance);
                         return values;
                     }
-                }, true, 72L);
+                }, true, 72L, downstream);
     }
 
     private Optional<R> extremum(Comparator<Object> comparator, boolean maximum) {
@@ -212,20 +220,27 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
     private static void applyStages(
             ArrayList<Object> values,
             List<Stage> stages,
+            CanonicalRelationPhysicalDownstream downstream,
             Object provenance) {
-        for (Stage stage : stages) {
-            switch (stage.kind) {
-                case FILTER:
+        if (downstream.kernels.length != stages.size() + 1
+                || downstream.kernels[0]
+                        != CanonicalRelationPhysicalDownstream.Kernel.MAPPED_MAP) {
+            throw new AssertionError("mapped Relation topology drift");
+        }
+        for (int ordinal = 0; ordinal < stages.size(); ordinal++) {
+            Stage stage = stages.get(ordinal);
+            switch (downstream.kernels[ordinal + 1]) {
+                case MAPPED_FILTER:
                     for (int i = values.size() - 1; i >= 0; i--) {
                         if (!test(stage.predicate, values.get(i))) values.remove(i);
                     }
                     break;
-                case MAP:
+                case MAPPED_MAP:
                     for (int i = 0; i < values.size(); i++) {
                         values.set(i, apply(stage.mapper, values.get(i)));
                     }
                     break;
-                case DISTINCT:
+                case MAPPED_HASH:
                     try {
                         LinkedHashSet<Object> unique = new LinkedHashSet<Object>(values);
                         values.clear(); values.addAll(unique);
@@ -234,25 +249,66 @@ public final class GeneratedRelationMappedPipeline<R> implements MappedStream<R>
                                 SomaOperation.QUERY, failure, provenance);
                     }
                     break;
-                case SORTED:
+                case MAPPED_STABLE_SORT:
                     try { Collections.sort(values, stage.comparator); }
                     catch (Exception failure) {
                         throw SomaFailures.callbackFailure(
                                 SomaOperation.QUERY, failure, provenance);
                     }
                     break;
-                case SKIP:
-                    int skip = (int) Math.min((long) values.size(), stage.count);
-                    if (skip != 0) values.subList(0, skip).clear();
-                    break;
-                case LIMIT:
-                    if (stage.count < values.size()) {
-                        values.subList((int) stage.count, values.size()).clear();
+                case MAPPED_SLICE:
+                    if (stage.kind == Kind.SKIP) {
+                        int skip = (int) Math.min(
+                                (long) values.size(), stage.count);
+                        if (skip != 0) values.subList(0, skip).clear();
+                    } else if (stage.count < values.size()) {
+                        values.subList(
+                                (int) stage.count, values.size()).clear();
                     }
                     break;
-                default: throw new AssertionError("unknown relation mapped stage");
+                default:
+                    throw new AssertionError("unknown relation mapped kernel");
             }
         }
+    }
+
+    static CanonicalRelationPhysicalDownstream physical(
+            RelationMappedPipelineCapture capture) {
+        CanonicalRelationPhysicalDownstream.Kernel[] kernels =
+                new CanonicalRelationPhysicalDownstream.Kernel[
+                        capture.stages.size() + 1];
+        kernels[0] = CanonicalRelationPhysicalDownstream.Kernel.MAPPED_MAP;
+        int breakers = 0;
+        for (int index = 0; index < capture.stages.size(); index++) {
+            switch (capture.stages.get(index).kind) {
+                case FILTER:
+                    kernels[index + 1] =
+                            CanonicalRelationPhysicalDownstream.Kernel.MAPPED_FILTER;
+                    break;
+                case MAP:
+                    kernels[index + 1] =
+                            CanonicalRelationPhysicalDownstream.Kernel.MAPPED_MAP;
+                    break;
+                case DISTINCT:
+                    kernels[index + 1] =
+                            CanonicalRelationPhysicalDownstream.Kernel.MAPPED_HASH;
+                    breakers++;
+                    break;
+                case SORTED:
+                    kernels[index + 1] = CanonicalRelationPhysicalDownstream.Kernel
+                            .MAPPED_STABLE_SORT;
+                    breakers++;
+                    break;
+                case SKIP:
+                case LIMIT:
+                    kernels[index + 1] =
+                            CanonicalRelationPhysicalDownstream.Kernel.MAPPED_SLICE;
+                    break;
+                default:
+                    throw new AssertionError("unknown relation mapped stage");
+            }
+        }
+        return CanonicalRelationPhysicalDownstream.mapped(kernels, breakers);
     }
 
     private void claim() {

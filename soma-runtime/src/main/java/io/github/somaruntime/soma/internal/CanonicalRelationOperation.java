@@ -175,33 +175,134 @@ final class NormalizedRelationOperation {
 }
 
 final class PhysicalRelationPlan {
-    enum Algorithm { NESTED_CROSS, RIGHT_INDEX_LOOKUP, RIGHT_HASH }
-    enum Access { SCAN, INDEX }
-    enum BuildSide { NONE, RIGHT }
-
     final NormalizedRelationOperation normalized;
-    final Algorithm algorithm;
-    final Access access;
-    final BuildSide buildSide;
+    final CanonicalBinaryPhysicalPipeline pipeline;
     final int pushedFilterCount;
     final long temporaryBytes;
 
     PhysicalRelationPlan(
             NormalizedRelationOperation normalized,
-            Algorithm algorithm,
-            Access access,
-            BuildSide buildSide,
+            CanonicalBinaryPhysicalPipeline pipeline,
             long temporaryBytes) {
         this.normalized = normalized;
-        this.algorithm = algorithm;
-        this.access = access;
-        this.buildSide = buildSide;
+        if (pipeline == null) {
+            throw new AssertionError("binary physical pipeline is missing");
+        }
+        this.pipeline = pipeline;
         this.pushedFilterCount = normalized.pushedFilterCount;
         this.temporaryBytes = temporaryBytes;
     }
 
     BoundCanonicalRelationOperation bound() {
         return normalized.bound;
+    }
+}
+
+/** Closed physical topology for one bounded binary Relation. */
+final class CanonicalBinaryPhysicalPipeline {
+    enum Source { LEFT_SCAN, RIGHT_SCAN, RIGHT_INDEX }
+    enum Kernel { NESTED_CROSS, RIGHT_INDEX_LOOKUP, RIGHT_HASH_BUILD_PROBE }
+    enum OutputShape { RELATION_PAIR, LEFT_LOCATOR, MAPPED_REFERENCE, PRIMITIVE }
+
+    final Source leftSource;
+    final Source rightSource;
+    final Kernel kernel;
+    final OutputShape outputShape;
+    final CanonicalPhysicalMorsel leftMorsel;
+    final CanonicalPhysicalMorsel rightMorsel;
+    final int residualFilterCount;
+    final boolean callbackBarrier;
+    final long outputUpperBound;
+    final CanonicalRelationPhysicalDownstream downstream;
+
+    CanonicalBinaryPhysicalPipeline(
+            Source leftSource,
+            Source rightSource,
+            Kernel kernel,
+            OutputShape outputShape,
+            int residualFilterCount,
+            boolean callbackBarrier,
+            long outputUpperBound,
+            CanonicalRelationPhysicalDownstream downstream) {
+        if (leftSource == null || rightSource == null || kernel == null
+                || outputShape == null || residualFilterCount < 0
+                || outputUpperBound < 0L || downstream == null
+                || outputShape != downstream.outputShape) {
+            throw new AssertionError("invalid binary physical pipeline");
+        }
+        this.leftSource = leftSource;
+        this.rightSource = rightSource;
+        this.kernel = kernel;
+        this.outputShape = outputShape;
+        this.leftMorsel = CanonicalPhysicalMorsel.caller();
+        this.rightMorsel = CanonicalPhysicalMorsel.caller();
+        this.residualFilterCount = residualFilterCount;
+        this.callbackBarrier = callbackBarrier;
+        this.outputUpperBound = outputUpperBound;
+        this.downstream = downstream;
+    }
+}
+
+/** Finite post-Relation linear topology; no generic tuple or operator DAG. */
+final class CanonicalRelationPhysicalDownstream {
+    enum Kernel {
+        PAIR_EMIT,
+        MAPPED_FILTER,
+        MAPPED_MAP,
+        MAPPED_HASH,
+        MAPPED_STABLE_SORT,
+        MAPPED_SLICE,
+        PRIMITIVE_FILTER,
+        PRIMITIVE_MAP,
+        PRIMITIVE_HASH,
+        PRIMITIVE_STABLE_SORT,
+        PRIMITIVE_SLICE
+    }
+
+    final CanonicalBinaryPhysicalPipeline.OutputShape outputShape;
+    final Kernel[] kernels;
+    final int breakerCount;
+    final boolean callbackBarrier;
+
+    private CanonicalRelationPhysicalDownstream(
+            CanonicalBinaryPhysicalPipeline.OutputShape outputShape,
+            Kernel[] kernels,
+            int breakerCount,
+            boolean callbackBarrier) {
+        if (outputShape == null || kernels == null || kernels.length == 0
+                || breakerCount < 0 || breakerCount > kernels.length) {
+            throw new AssertionError("invalid Relation downstream topology");
+        }
+        this.outputShape = outputShape;
+        this.kernels = kernels.clone();
+        this.breakerCount = breakerCount;
+        this.callbackBarrier = callbackBarrier;
+    }
+
+    static CanonicalRelationPhysicalDownstream pair(
+            CanonicalRelationOperation.Kind kind) {
+        return new CanonicalRelationPhysicalDownstream(
+                kind == CanonicalRelationOperation.Kind.SEMI
+                                || kind == CanonicalRelationOperation.Kind.ANTI
+                        ? CanonicalBinaryPhysicalPipeline.OutputShape.LEFT_LOCATOR
+                        : CanonicalBinaryPhysicalPipeline.OutputShape.RELATION_PAIR,
+                new Kernel[] {Kernel.PAIR_EMIT}, 0, false);
+    }
+
+    static CanonicalRelationPhysicalDownstream mapped(
+            Kernel[] kernels,
+            int breakerCount) {
+        return new CanonicalRelationPhysicalDownstream(
+                CanonicalBinaryPhysicalPipeline.OutputShape.MAPPED_REFERENCE,
+                kernels, breakerCount, true);
+    }
+
+    static CanonicalRelationPhysicalDownstream primitive(
+            Kernel[] kernels,
+            int breakerCount) {
+        return new CanonicalRelationPhysicalDownstream(
+                CanonicalBinaryPhysicalPipeline.OutputShape.PRIMITIVE,
+                kernels, breakerCount, true);
     }
 }
 
@@ -213,7 +314,8 @@ final class CanonicalRelationExecutionFrame {
     CanonicalRelationExecutionFrame(PhysicalRelationPlan plan) {
         this.plan = plan;
         BoundCanonicalRelationOperation bound = plan.bound();
-        this.rightHash = plan.algorithm == PhysicalRelationPlan.Algorithm.RIGHT_HASH
+        this.rightHash = plan.pipeline.kernel
+                        == CanonicalBinaryPhysicalPipeline.Kernel.RIGHT_HASH_BUILD_PROBE
                 ? new CanonicalRelationRightHash(
                         bound.rightRoot.size, bound.provenance)
                 : null;
@@ -235,8 +337,8 @@ final class CanonicalRelationExecutionFrame {
      * beyond this execution.
      */
     IdentityHashIndex.Cursor openRightCursor() {
-        if (plan.algorithm
-                != PhysicalRelationPlan.Algorithm.RIGHT_INDEX_LOOKUP) {
+        if (plan.pipeline.kernel
+                != CanonicalBinaryPhysicalPipeline.Kernel.RIGHT_INDEX_LOOKUP) {
             throw new AssertionError("right Index cursor is not admitted");
         }
         return new IdentityHashIndex.Cursor();
@@ -300,25 +402,30 @@ final class CanonicalRelationPlanner {
     static PhysicalRelationPlan plan(
             BoundCanonicalRelationOperation bound,
             long outputBytesPerElement) {
+        return plan(
+                bound,
+                outputBytesPerElement,
+                CanonicalRelationPhysicalDownstream.pair(bound.canonical.kind));
+    }
+
+    static PhysicalRelationPlan plan(
+            BoundCanonicalRelationOperation bound,
+            long outputBytesPerElement,
+            CanonicalRelationPhysicalDownstream downstream) {
         NormalizedRelationOperation normalized = normalize(bound);
-        PhysicalRelationPlan.Algorithm algorithm;
-        PhysicalRelationPlan.Access access;
-        PhysicalRelationPlan.BuildSide buildSide;
+        CanonicalBinaryPhysicalPipeline.Kernel kernel;
+        CanonicalBinaryPhysicalPipeline.Source rightSource;
         if (bound.canonical.kind == CanonicalRelationOperation.Kind.CROSS) {
-            algorithm = PhysicalRelationPlan.Algorithm.NESTED_CROSS;
-            access = PhysicalRelationPlan.Access.SCAN;
-            buildSide = PhysicalRelationPlan.BuildSide.NONE;
+            kernel = CanonicalBinaryPhysicalPipeline.Kernel.NESTED_CROSS;
+            rightSource = CanonicalBinaryPhysicalPipeline.Source.RIGHT_SCAN;
         } else {
             boolean index = rightLookup(bound) != null;
-            algorithm = index
-                    ? PhysicalRelationPlan.Algorithm.RIGHT_INDEX_LOOKUP
-                    : PhysicalRelationPlan.Algorithm.RIGHT_HASH;
-            access = index
-                    ? PhysicalRelationPlan.Access.INDEX
-                    : PhysicalRelationPlan.Access.SCAN;
-            buildSide = index
-                    ? PhysicalRelationPlan.BuildSide.NONE
-                    : PhysicalRelationPlan.BuildSide.RIGHT;
+            kernel = index
+                    ? CanonicalBinaryPhysicalPipeline.Kernel.RIGHT_INDEX_LOOKUP
+                    : CanonicalBinaryPhysicalPipeline.Kernel.RIGHT_HASH_BUILD_PROBE;
+            rightSource = index
+                    ? CanonicalBinaryPhysicalPipeline.Source.RIGHT_INDEX
+                    : CanonicalBinaryPhysicalPipeline.Source.RIGHT_SCAN;
         }
         long scratch = RowExecutionSupport.arrayBytes(
                 bound.rightRoot.size,
@@ -335,11 +442,28 @@ final class CanonicalRelationPlanner {
                     SomaOperation.QUERY,
                     bound.provenance);
         }
+        if (downstream.breakerCount != 0) {
+            scratch = CheckedLong.add(
+                    scratch,
+                    RowExecutionSupport.arrayBytes(
+                            outputUpperBound(bound),
+                            24L,
+                            bound.provenance),
+                    SomaOperation.QUERY,
+                    bound.provenance);
+        }
         return new PhysicalRelationPlan(
                 normalized,
-                algorithm,
-                access,
-                buildSide,
+                new CanonicalBinaryPhysicalPipeline(
+                        CanonicalBinaryPhysicalPipeline.Source.LEFT_SCAN,
+                        rightSource,
+                        kernel,
+                        downstream.outputShape,
+                        normalized.residualFilters.size(),
+                        bound.canonical.hasCallbackFilter()
+                                || downstream.callbackBarrier,
+                        outputUpperBound(bound),
+                        downstream),
                 scratch);
     }
 
@@ -455,6 +579,18 @@ final class CanonicalRelationQueryOperation {
             CanonicalRelationOperation operation,
             long outputBytesPerElement,
             FrameWork<T> work) {
+        return execute(
+                left, right, operation, outputBytesPerElement,
+                CanonicalRelationPhysicalDownstream.pair(operation.kind), work);
+    }
+
+    static <T> T execute(
+            GeneratedTable left,
+            GeneratedTable right,
+            CanonicalRelationOperation operation,
+            long outputBytesPerElement,
+            CanonicalRelationPhysicalDownstream downstream,
+            FrameWork<T> work) {
         if (!left.sharesGroup(right)) {
             throw SomaFailures.invalid(
                     SomaOperation.QUERY,
@@ -472,7 +608,7 @@ final class CanonicalRelationQueryOperation {
                             right.currentRoot(),
                             provenance);
             PhysicalRelationPlan physical = CanonicalRelationPlanner.plan(
-                    bound, outputBytesPerElement);
+                    bound, outputBytesPerElement, downstream);
             try (GlobalMemoryManager.TemporaryLease ignored =
                          left.leaseQueryTemporary(
                                  physical.temporaryBytes, provenance)) {
@@ -500,9 +636,13 @@ final class CanonicalRelationQueryOperation {
             GeneratedTable right,
             CanonicalRowOperation rowOperation,
             CanonicalQueryOperation.ExtraScratch extra,
+            CanonicalMappedOperation mapped,
+            CanonicalPrimitiveOperation primitive,
+            CanonicalGroupOperation group,
             CanonicalQueryOperation.FrameWork<T> work) {
         return executeLeftInternal(
-                runtime, left, right, rowOperation, extra, null, work, null);
+                runtime, left, right, rowOperation, extra,
+                mapped, primitive, group, null, work, null);
     }
 
     static <T> T executeLeftReference(
@@ -513,7 +653,8 @@ final class CanonicalRelationQueryOperation {
             CanonicalQueryOperation.ReferenceExtraScratch extra,
             CanonicalQueryOperation.ReferenceSourceWork<T> work) {
         return executeLeftInternal(
-                runtime, left, right, rowOperation, null, extra, null, work);
+                runtime, left, right, rowOperation, null,
+                null, null, null, extra, null, work);
     }
 
     private static <T> T executeLeftInternal(
@@ -522,6 +663,9 @@ final class CanonicalRelationQueryOperation {
             GeneratedTable right,
             CanonicalRowOperation rowOperation,
             CanonicalQueryOperation.ExtraScratch extra,
+            CanonicalMappedOperation mapped,
+            CanonicalPrimitiveOperation primitive,
+            CanonicalGroupOperation group,
             CanonicalQueryOperation.ReferenceExtraScratch referenceExtra,
             CanonicalQueryOperation.FrameWork<T> optimizedWork,
             CanonicalQueryOperation.ReferenceSourceWork<T> referenceWork) {
@@ -557,8 +701,21 @@ final class CanonicalRelationQueryOperation {
                     relationBound, 0L);
             NormalizedCanonicalRow normalized =
                     CanonicalRowPlanner.normalize(rowBound);
+            long additionalTemporaryBytes = extra == null
+                    ? 0L : extra.bytes(rowBound);
+            CanonicalRowPhysicalRequest request = group != null
+                    ? CanonicalRowPhysicalRequest.group(
+                            group, additionalTemporaryBytes)
+                    : mapped != null
+                            ? CanonicalRowPhysicalRequest.mapped(
+                                    mapped, additionalTemporaryBytes)
+                            : primitive != null
+                                    ? CanonicalRowPhysicalRequest.primitive(
+                                            primitive, additionalTemporaryBytes)
+                                    : CanonicalRowPhysicalRequest.row(
+                                            additionalTemporaryBytes);
             CanonicalRowPhysicalPlan rowPlan =
-                    CanonicalRowPlanner.plan(normalized);
+                    CanonicalRowPlanner.plan(normalized, request);
             long temporaryBytes = CheckedLong.add(
                     relationPlan.temporaryBytes,
                     RowExecutionSupport.arrayBytes(
@@ -573,13 +730,6 @@ final class CanonicalRelationQueryOperation {
                                     rowBound),
                     SomaOperation.QUERY,
                     provenance);
-            if (extra != null) {
-                temporaryBytes = CheckedLong.add(
-                        temporaryBytes,
-                        extra.bytes(rowBound),
-                        SomaOperation.QUERY,
-                        provenance);
-            }
             if (referenceExtra != null) {
                 temporaryBytes = CheckedLong.add(
                         temporaryBytes,
