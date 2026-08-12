@@ -11,8 +11,8 @@ parallel scheduling、configuration、resource admission、cancellation与quiesc
 
 最后审查日期：2026-08-12
 
-本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；shared ordinal-work
-parallel lifecycle、Chunk-morsel partial与ordered primitive materialization
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；Physical Execution
+Engine M2 ExecutionFrame/Morsel lifecycle baseline
 
 ## 1. 设计目标
 
@@ -418,3 +418,23 @@ Implementation必须覆盖：
   release；
 - auto-budget policy evidence acrossqualified heap/JVM range；
 - different-Group application concurrency与global manager safety。
+
+## 21. Physical Execution Engine M2 execution baseline
+
+Execution Owner只执行已经finalized并完成global admission的Physical Pipeline。一次operation只有一个
+`ExecutionFrame`，它在lease成功后创建，并按plan ordinal拥有actual cursor、typed buffer、membership、
+heap/hash、relation state、worker partial、merge/result或mutation handoff；terminal成功、structured
+failure、Error、cancel或interrupt后都必须quiesce并释放。
+
+`Morsel`是non-negative canonical ordinal区间，不是对象批次、row container或public abstraction。所有
+parallel Segment/Breaker复用第13节唯一caller-participating scheduler：bounded participant/task、caller
+progress、stable ordinal merge、deterministic failure arbitration与return-before-quiescence。不得为新的
+operation family创建第二pool、scheduler、worker protocol或hidden sequential fallback。
+
+Streaming Segment可以在一个morsel内直接生产/消费typed values；Breaker只在admitted Frame中创建
+state。Parallel upstream后接sequential Breaker是合法physical plan；只有存在exact differential、资源峰值
+与deterministic merge证据时，Breaker自身才可并行。Callback barrier仍遵循既有caller-thread/parallel
+合同，M2不改变callback invocation count、argument、failure或外部side-effect边界。
+
+Selection的pipeline执行只交付frozen locators/write set/remove plan；validation、all-or-nothing commit与
+StateRoot publication继续由第15节mutation lifecycle拥有。Point operations继续使用direct lifecycle。

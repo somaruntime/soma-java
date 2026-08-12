@@ -100,7 +100,7 @@ Blueprint
 - Core Owner只路由跨Design skeleton/proof chain，不复制或覆盖精确合同；
 - Signature只机械投影已成立能力，不重新发明语义；
 - Planning拥有Canonical/Bound/Normalized语义、合法重写、PhysicalPlan decision与ResourceEstimate，
-  包括finite typed kernel的单次eligibility/resource decision；Execution拥有actual resource lease、
+  包括Physical Pipeline、Segment、Breaker、Kernel、Morsel与完整ResourceEstimate的单次decision；Execution拥有actual resource lease、
   ExecutionFrame、shared ordinal-work lifecycle、调度、发布与quiescence；
 - Storage拥有authoritative state，Execution只能读取、暂存和一次发布；
 - Architecture拥有可替换internal mechanism，不能把机制抬升成用户模型；
@@ -141,7 +141,9 @@ claim。
 当前 executable fact、性能/场景证据及publication边界由
 [Conformance](../conformance/README.md)唯一记录，不由Design复制。
 
-Canonical Logical IR与执行引擎M1 responsibility baseline已正式晋升并冻结；其
+Canonical Logical IR与执行引擎M1 responsibility baseline已正式晋升并冻结；Physical Execution Engine
+M2的Pipeline/Segment/Breaker/Kernel/Frame/Morsel责任也已正式晋升，当前implementation状态由
+[M2 Conformance](../conformance/v1-physical-execution-engine-m2-promotion-readiness.md)拥有。其
 [S1-S6 implementation plan](../engineering/canonical-ir-execution-engine-implementation-plan.md)保留实施前
 冻结快照，[最终S6资格](../conformance/canonical-ir-execution-s6-final-qualification.md)已经证明production
 replacement、performance guard与Owner closure全部`PASS`。当前实现状态由Conformance拥有，不反向改写

@@ -5,7 +5,7 @@
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
 Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
 Vectorized Pipeline扩展`PASS / FORMALLY_PROMOTED / VP1-VP3_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
-Physical Execution Engine M2 `FROZEN_CANDIDATE / IMPLEMENTATION_NOT_AUTHORIZED`
+Physical Execution Engine M2 `FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / P1_ACTIVE`
 
 正式事实源：是
 
@@ -24,6 +24,7 @@ Conformance不拥有产品语义，也不把readiness/feasibility外推为produc
 - [Design](../design/README.md)
 - [Implementation Plan](../engineering/v1-implementation-plan.md)
 - [Canonical IR / Execution Engine Plan](../engineering/canonical-ir-execution-engine-implementation-plan.md)
+- [Physical Execution Engine M2 Plan](../engineering/physical-execution-engine-m2-implementation-plan.md)
 
 ## 2. Current state
 
@@ -36,7 +37,7 @@ Core abstraction promotion    PASS
 I0-I8 authorization           FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
-Active implementation slice   NONE
+Active implementation slice   M2_P1
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -62,8 +63,8 @@ Canonical IR implementation   S1-S6_COMPLETED / QUALIFIED
 Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
-Active bounded topic          PHYSICAL_EXECUTION_ENGINE_M2 / FROZEN_CANDIDATE /
-                              IMPLEMENTATION_NOT_AUTHORIZED
+Active bounded topic          PHYSICAL_EXECUTION_ENGINE_M2 / FORMALLY_PROMOTED /
+                              IMPLEMENTATION_AUTHORIZED / P1_ACTIVE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -101,6 +102,10 @@ qualification成立。I0-I8与G1-G10 implementation qualification闭合；授权
 Documentation不得把同机qualification阈值改写为跨硬件SLA、正式release或一亿行性能承诺。
 
 ## 4. Active records
+
+- [Physical Execution Engine M2正式晋升与实施准入](v1-physical-execution-engine-m2-promotion-readiness.md)：
+  Candidate fingerprint、Design/Engineering Baseline、P1-P6 readiness、Product Owner授权与publication
+  boundary Owner；
 
 - [Vectorized Physical Pipeline第一阶段正式晋升](v1-vectorized-physical-pipeline-phase1-promotion.md)：
   finite primitive Chunk kernel、PhysicalPlan单次decision、Chunk-morsel partial、shared parallel lifecycle、
@@ -210,8 +215,9 @@ Historical inputs：
 
 Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
 [SOMA Physical Execution Engine M2全局架构治理](../temp/soma-physical-execution-engine-m2-governance/README.md)：
-current-state audit、Candidate Design、有限验证、过度设计审查与P1-P6计划已经完成并冻结；它不是正式
-Design或current implementation input，尚未获得implementation authorization。
+current-state audit、Candidate Design、有限验证、过度设计审查与P1-P6计划已经完成并冻结；正式事实已由
+Design/Engineering与[M2晋升记录](v1-physical-execution-engine-m2-promotion-readiness.md)接管，Temporary只保留
+provenance并等待P6 replacement closure。当前P1已获授权并激活。
 Vectorized Physical Pipeline扩展已经由
 [正式Conformance记录](v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成VP1-VP3、正式Owner
 晋升与replacement closure；Product Owner未授权范围扩张或release。Grassing治理已由

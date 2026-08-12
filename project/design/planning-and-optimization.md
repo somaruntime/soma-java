@@ -11,8 +11,8 @@ substitution、Join/Group planning、statistics、reference interpreter与optimi
 
 最后审查日期：2026-08-12
 
-本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；finite primitive
-Chunk physical specialization与representation-native expansion
+本次冻结：Canonical Logical IR / Execution Engine M1 responsibility baseline；Physical Execution
+Engine M2 Pipeline/Segment/Breaker/Kernel planning baseline
 
 ## 1. 设计目标
 
@@ -459,3 +459,39 @@ Production evidence至少覆盖：
 - random plan/property/fuzz corpus与three reference journeys。
 - permanent minimal test-only lowering fixture证明Canonical semantics不依赖Java facade object identity；
   该fixture不是production frontend SPI、JSON frontend或第三artifact。
+
+## 18. Physical Execution Engine M2 planning baseline
+
+M2不增加第二套IR或通用operator DAG。`PhysicalPlan`是一次terminal完整物理拓扑的唯一Owner，按
+operation family拥有有限、typed的：
+
+```text
+Physical Pipeline
+    -> one or more streaming Segments
+    -> optional stateful Breaker
+    -> terminal sink or mutation handoff
+```
+
+- **Pipeline**：一次bound terminal的完整physical topology、access path、algorithm、order、partition、
+  merge与ResourceEstimate；
+- **Segment**：可以保持element shape、encounter order与callback合同而stream/fuse的最大连续区域；
+- **Breaker**：必须materialize、deduplicate、reorder、aggregate或建立binary state的边界；
+- **Kernel**：某个Segment/Breaker在明确logical type、representation与execution mode下的specialized
+  实现选择；
+- **Morsel decision**：把canonical ordinal domain切成bounded work ranges的物理决定，不是新的source、
+  semantic node或scheduler。
+
+Planner必须在resource admission前一次性固定全部Segment/Breaker descriptor、kernel、morsel、merge与
+whole-operation conservative peak。Execution不得根据运行中buffer内容再次选择另一套algorithm、scratch
+或parallel eligibility；不满足specialized kernel资格时，PhysicalPlan显式选择现有typed scalar kernel，
+不能退回Reference。
+
+Row、schema-known Field、Mapped reference与Primitive是不同execution shape，可共享Pipeline/Segment
+lifecycle但不得被统一为boxed `Object[]`。GroupBy是typed aggregation Breaker；Relation是bounded binary
+Pipeline，build/probe/lookup与matched-side state属于其physical topology；Selection的query部分产生
+frozen membership/write-set handoff，atomic publication仍由Mutation/Storage Owner拥有。Key get与point
+add/update/remove保持direct operation，不为形式统一进入query Pipeline。
+
+M2只建立current capability所需的finite descriptors。General DAG、public/internal plugin SPI、universal
+Batch/Vector/Tuple、runtime code generation、第二scheduler、dynamic spill/lease与SOMA Engine workflow均不
+属于本文。

@@ -1419,3 +1419,20 @@ commit的官僚性清单。
   已知P0/P1；
 - 本文完成本身不授权I0；Product Owner 已于 2026-08-03 在本文之外单独授予完整 V1
   implementation authorization，current状态由Conformance拥有。
+
+## 35. Physical Execution Engine M2 responsibility routing
+
+M2是A18 Physical Plan与A20 ExecutionFrame内部责任的M1级修订，不改变Blueprint产品语义：
+
+```text
+A18 Physical Plan
+    owns Pipeline / Segment / Breaker / Kernel / Morsel decisions
+        -> A25 ResourceEstimate owns whole-operation conservative peak
+            -> A20 ExecutionFrame owns admitted actual state
+                -> N6 parallel work lifecycle preserves canonical semantics
+```
+
+Planning是decision Owner，Execution是actual-state/lifecycle Owner，Storage是authoritative data Owner，
+Mutation是publication Owner，Reference Interpreter仍直接解释Bound semantics。若实施要求改变public result、
+order、callback、resource visibility、failure、mutation atomicity或增加新产品capability，则不再是M1修订，
+必须按26.3停止并请求Product Owner裁决。

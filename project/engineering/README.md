@@ -3,7 +3,7 @@
 类型：Engineering Entry
 
 状态：I0–I8 `COMPLETED`；Canonical IR/Execution S1–S6 `COMPLETED`；
-当前无 active implementation slice
+Physical Execution Engine M2 `IMPLEMENTATION_AUTHORIZED / P1_ACTIVE`
 
 Owner：SOMA Java implementation sequence、work unit 与 engineering evidence route
 
@@ -42,6 +42,11 @@ Canonical IR与执行引擎M1责任替换由独立的
 exit evidence、Conformance与干净提交，[最终S6资格](../conformance/canonical-ir-execution-s6-final-qualification.md)
 关闭production replacement gap。冻结计划继续作为实施顺序与exit的历史Owner，不复制current状态。
 
+Physical Execution Engine M2由
+[P1-P6正式计划](physical-execution-engine-m2-implementation-plan.md)拥有实施顺序，正式
+[晋升与准入记录](../conformance/v1-physical-execution-engine-m2-promotion-readiness.md)拥有授权和current
+状态。Product Owner已于2026-08-12授权完整治理；当前只激活P1。
+
 ## 当前工程入口
 
 - 日常 correctness 与 local delivery：`./scripts/check.sh`；
@@ -66,6 +71,7 @@ exit evidence、Conformance与干净提交，[最终S6资格](../conformance/can
 - [Core abstractions](../design/core-abstractions-and-narratives.md)
 - [Implementation Plan](v1-implementation-plan.md)
 - [Canonical IR / Execution Engine Plan](canonical-ir-execution-engine-implementation-plan.md)
+- [Physical Execution Engine M2 Plan](physical-execution-engine-m2-implementation-plan.md)
 - [G1–G10](../conformance/v1-implementation-gates.md)
 - [Current Conformance](../conformance/README.md)
 - [I0–I8 qualification records](../conformance/README.md#4-active-records)

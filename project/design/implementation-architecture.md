@@ -420,3 +420,28 @@ Production必须证明：
 - million-row Narrow/Medium/Reference-mixed profile；
 - security/dependency/SBOM/source/javadoc/package smoke；
 - three public-API reference scenarios。
+
+## 21. Physical Execution Engine M2 component boundary
+
+M2在既有`soma-runtime`内部收敛职责，不新增artifact、dependency、public/generated API或internal plugin
+SPI。允许的package-private组件边界是：
+
+```text
+Canonical/Bound/Normalized
+    -> Physical Pipeline planner
+        -> immutable Segment/Breaker/Kernel/Morsel descriptors
+        -> one ResourceEstimate
+            -> one admitted ExecutionFrame
+                -> specialized family kernels
+                    -> shared ordinal-work scheduler
+```
+
+Descriptor只能保存data-only decision与bound runtime handle，不得持有O(N) state、application callback
+执行结果或resource lease。Frame拥有actual短生命周期state；typed kernel拥有loop/algorithm实现；scheduler
+只拥有bounded work lifecycle。Family-specific kernel是合法specialization，不得为了统一删除primitive
+array、locator或representation-native路径。
+
+迁移采用纵向replacement：每个operation family进入新physical topology后，删除其旧eligibility、resource、
+partition或state decision Owner。长期parallel hierarchy、bridge adapter、shadow PhysicalPlan与双重scratch
+estimate均不允许保留。Point operations、Storage publication、Reference Interpreter和SOMA Engine边界保持
+独立。
