@@ -88,6 +88,10 @@ final class FrontierBaselines {
                 FrontierData.sampledLongs(streams
                         ? Arrays.stream(data.amounts).toArray()
                         : data.amounts.clone()));
+        LongMeasurement parallelFieldMaterialize = streams
+                ? BenchmarkSupport.measure(() -> FrontierData.sampledLongs(
+                        Arrays.stream(data.amounts).parallel().toArray()))
+                : null;
         LongMeasurement typedFilterMaterialize = BenchmarkSupport.measure(() ->
                 FrontierData.hashLongs(streams
                         ? IntStream.range(0, data.rows)
@@ -95,6 +99,14 @@ final class FrontierBaselines {
                                 .mapToLong(index -> data.amounts[index])
                                 .toArray()
                         : manualTypedFilterMaterialize(data)));
+        LongMeasurement parallelTypedFilterMaterialize = streams
+                ? BenchmarkSupport.measure(() -> FrontierData.hashLongs(
+                        IntStream.range(0, data.rows)
+                                .parallel()
+                                .filter(index -> data.quantities[index] >= 500)
+                                .mapToLong(index -> data.amounts[index])
+                                .toArray()))
+                : null;
         LongMeasurement mappedReference = BenchmarkSupport.measure(() ->
                 FrontierData.hashStrings(streams
                         ? Arrays.stream(data.labels)
@@ -133,9 +145,19 @@ final class FrontierBaselines {
         }
         require(fieldMaterialize, data.materializedAmountFingerprint,
                 "baseline Field materialization");
+        if (streams) {
+            require(parallelFieldMaterialize,
+                    data.materializedAmountFingerprint,
+                    "baseline parallel Field materialization");
+        }
         require(typedFilterMaterialize,
                 data.typedFilterMaterializedFingerprint,
                 "baseline typed filter materialization");
+        if (streams) {
+            require(parallelTypedFilterMaterialize,
+                    data.typedFilterMaterializedFingerprint,
+                    "baseline parallel typed filter materialization");
+        }
         require(mappedReference, data.mappedReferenceFingerprint,
                 "baseline mapped reference");
 
@@ -167,7 +189,10 @@ final class FrontierBaselines {
             result.put("parallelTableTypedFilter", parallelTypedFilter)
                     .put("parallelTableCallbackFilter", parallelCallbackFilter)
                     .put("parallelFieldSum", parallelFieldSum)
-                    .put("parallelMappedPrimitive", parallelMappedPrimitive);
+                    .put("parallelMappedPrimitive", parallelMappedPrimitive)
+                    .put("parallelFieldMaterialize", parallelFieldMaterialize)
+                    .put("parallelTypedFilterMaterialize",
+                            parallelTypedFilterMaterialize);
         }
         result.put("sharedFingerprint", fingerprint)
                 .put("fingerprint", fingerprint).print();

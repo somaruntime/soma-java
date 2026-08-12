@@ -2,7 +2,7 @@
 
 类型：Active Bounded Temporary / Final Design Review / Baseline Freeze / Implementation Readiness
 
-状态：`PASS / TEMPORARY_DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`
+状态：`PASS / TEMPORARY_DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`
 
 Owner：本专题临时设计最终审核、冻结集合、readiness、授权边界和进入实施前的当前状态
 
@@ -162,7 +162,7 @@ R2 design work                 COMPLETED
 Temporary design baseline      FROZEN
 Implementation plan            FROZEN
 Implementation readiness       READY
-Active implementation slice    VP2
+Active implementation slice    VP3
 Implementation authorization   GRANTED
 Formal promotion               DEFERRED_TO_VP3
 Release/publication             NOT_AUTHORIZED

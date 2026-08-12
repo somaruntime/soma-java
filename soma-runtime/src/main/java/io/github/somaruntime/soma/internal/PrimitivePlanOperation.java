@@ -240,20 +240,17 @@ strictfp final class PrimitivePlanOperation {
     static long[] toLongArray(final PrimitivePipelineCapture frontend) {
         final PrimitiveExecution execution = materialize(frontend);
         return terminal(execution, 16L, (bound, frame, plan) -> {
-            long[] staging = new long[materializedLength(bound, plan)];
-            final int size;
             if (CanonicalPrimitiveVectorKernel.isLongMaterialization(
                     frame.plan)) {
-                size = CanonicalPrimitiveVectorKernel.writeLongs(
-                        frame, staging);
-            } else {
-                final int[] scalarSize = new int[1];
-                visitBound(frame, plan, value -> {
-                    staging[scalarSize[0]++] = value;
-                    return true;
-                });
-                size = scalarSize[0];
+                return CanonicalPrimitiveVectorKernel.materializeLongs(frame);
             }
+            long[] staging = new long[materializedLength(bound, plan)];
+            final int[] scalarSize = new int[1];
+            visitBound(frame, plan, value -> {
+                staging[scalarSize[0]++] = value;
+                return true;
+            });
+            int size = scalarSize[0];
             if (size == staging.length) return staging;
             long[] result = new long[size];
             System.arraycopy(staging, 0, result, 0, size);

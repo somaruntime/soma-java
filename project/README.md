@@ -4,7 +4,7 @@
 
 状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；Canonical IR/Execution M1
 `S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；Vectorized Pipeline治理
-`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`；publication `NOT_AUTHORIZED`
+`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；publication `NOT_AUTHORIZED`
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
@@ -62,7 +62,8 @@ implementation 与 qualification：
   bounded feasibility与最终审核；[临时设计](temp/soma-vectorized-physical-pipeline-expansion-governance/design.md)
   和[VP1-VP3实施计划](temp/soma-vectorized-physical-pipeline-expansion-governance/implementation-plan.md)已经
   冻结，Product Owner已于2026-08-12授权按VP1-VP3完整实施；
-  [VP1资格](conformance/vectorized-pipeline-expansion-vp1-qualification.md)已`PASS`，当前active slice为VP2；
+  [VP1资格](conformance/vectorized-pipeline-expansion-vp1-qualification.md)与
+  [VP2资格](conformance/vectorized-pipeline-expansion-vp2-qualification.md)均已`PASS`，当前active slice为VP3；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -128,7 +129,7 @@ Blueprint
 - `conformance/`：资格和 claim boundary；
 - `temp/`：只服务bounded topic或明确标记的queued intent；当前唯一active bounded topic是
   [Vectorized Physical Pipeline能力扩展](temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
-  的`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`；它是当前topic的冻结
+  的`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；它是当前topic的冻结
   implementation input，不是正式Design或release authorization；
   Grassing治理已由
   [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并退役Temporary；
@@ -166,11 +167,11 @@ Design、code 或 Conformance。
 
 当前唯一active bounded topic是
 [Vectorized Physical Pipeline与Morsel-Driven Execution治理](temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)，
-状态为`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`。
+状态为`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`。
 第一阶段已经由
 [正式Conformance记录](conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)完成M1晋升和
 Temporary replacement closure；R2设计和VP1-VP3计划已经完成临时Baseline Freeze，Product Owner已于
-2026-08-12授权完整实施；VP1已通过正式资格，当前只推进VP2。Grassing治理已由
+2026-08-12授权完整实施；VP1与VP2已通过正式资格，当前只推进VP3。Grassing治理已由
 [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并完成
 Temporary replacement closure。Canonical IR与执行引擎治理已由
 [正式Conformance记录](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)完成Owner晋升、

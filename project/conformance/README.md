@@ -4,7 +4,7 @@
 
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
 Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
-Vectorized Pipeline治理`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`
+Vectorized Pipeline治理`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`
 
 正式事实源：是
 
@@ -61,7 +61,7 @@ Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
 Active bounded topic          VECTORIZED_PIPELINE_DESIGN_FROZEN / IMPLEMENTATION_AUTHORIZED /
-                              VP1_COMPLETED / VP2_ACTIVE
+                              VP1-VP2_COMPLETED / VP3_ACTIVE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -105,6 +105,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
   1M最终回归与Temporary replacement closure Owner；
 - [Vectorized Physical Pipeline扩展VP1资格](vectorized-pipeline-expansion-vp1-qualification.md)：
   single final Physical decision、encoded-native integral count/sum/predicate、resource admission与同机
+  baseline/candidate性能证据Owner；
+- [Vectorized Physical Pipeline扩展VP2资格](vectorized-pipeline-expansion-vp2-qualification.md)：
+  ordered `long[]` representation-native materialization、bounded parallel partition、resource与同机
   baseline/candidate性能证据Owner；
 - [Selection mutation write-set and in-place commit governance](v1-selection-mutation-write-set-governance.md)：
   PLAIN Selection update/remove从touched-Chunk全leaf copy迁移到columnar write set、dense move plan、
@@ -202,9 +205,9 @@ Historical inputs：
 
 Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
 [Vectorized Physical Pipeline能力扩展](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
-的`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`；它拥有本topic冻结的
+的`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；它拥有本topic冻结的
 Temporary Design与VP1-VP3 implementation input；[VP1](vectorized-pipeline-expansion-vp1-qualification.md)
-已通过，当前只推进VP2；Product Owner未授权范围扩张或release；
+与[VP2](vectorized-pipeline-expansion-vp2-qualification.md)已通过，当前只推进VP3；Product Owner未授权范围扩张或release；
 Grassing治理已由
 [正式Conformance记录](v1-grassing-simulation-reference-application-governance.md)接管并完成
 replacement closure。

@@ -203,11 +203,13 @@ final class CanonicalRowPlanner {
                     bound.operation,
                     bound.provenance);
         }
-        temporaryBytes = CheckedLong.add(
-                temporaryBytes,
-                request.additionalTemporaryBytes,
-                bound.operation,
-                bound.provenance);
+        if (vectorDecision == null || !vectorDecision.ownsTerminalScratch) {
+            temporaryBytes = CheckedLong.add(
+                    temporaryBytes,
+                    request.additionalTemporaryBytes,
+                    bound.operation,
+                    bound.provenance);
+        }
         return new CanonicalRowPhysicalPlan(
                 normalized,
                 access,

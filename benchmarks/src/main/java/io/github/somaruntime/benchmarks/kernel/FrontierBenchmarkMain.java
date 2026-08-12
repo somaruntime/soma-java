@@ -219,6 +219,12 @@ public final class FrontierBenchmarkMain {
         require(fieldMaterialize, expected.materializedAmountFingerprint,
                 "Field materialization");
 
+        LongMeasurement parallelFieldMaterialize = BenchmarkSupport.measure(() ->
+                FrontierData.sampledLongs(records.amount.parallel().toArray()));
+        require(parallelFieldMaterialize,
+                expected.materializedAmountFingerprint,
+                "parallel Field materialization");
+
         LongMeasurement typedFilterMaterialize = BenchmarkSupport.measure(() ->
                 FrontierData.hashLongs(records
                         .filter(records.quantity.ge(500))
@@ -227,6 +233,15 @@ public final class FrontierBenchmarkMain {
         require(typedFilterMaterialize,
                 expected.typedFilterMaterializedFingerprint,
                 "typed filter materialization");
+
+        LongMeasurement parallelTypedFilterMaterialize = BenchmarkSupport.measure(() ->
+                FrontierData.hashLongs(records.parallel()
+                        .filter(records.quantity.ge(500))
+                        .mapToLong(records.amount)
+                        .toArray()));
+        require(parallelTypedFilterMaterialize,
+                expected.typedFilterMaterializedFingerprint,
+                "parallel typed filter materialization");
 
         LongMeasurement mappedReference = BenchmarkSupport.measure(() ->
                 FrontierData.hashStrings(records
@@ -258,7 +273,10 @@ public final class FrontierBenchmarkMain {
                 .put("mappedPrimitive", mappedPrimitive)
                 .put("parallelMappedPrimitive", parallelMappedPrimitive)
                 .put("fieldMaterialize", fieldMaterialize)
+                .put("parallelFieldMaterialize", parallelFieldMaterialize)
                 .put("typedFilterMaterialize", typedFilterMaterialize)
+                .put("parallelTypedFilterMaterialize",
+                        parallelTypedFilterMaterialize)
                 .put("mappedReference", mappedReference)
                 .put("sharedFingerprint", fingerprint)
                 .put("fingerprint", fingerprint);

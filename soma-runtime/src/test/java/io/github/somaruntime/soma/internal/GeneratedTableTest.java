@@ -2064,6 +2064,220 @@ class GeneratedTableTest {
                 failure.code());
     }
 
+    @Test
+    void vectorLongMaterializationPreservesOrderAcrossRleMixedAndOverlay() {
+        GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        try {
+            GeneratedTable table = new GeneratedTable(
+                    testGroup(memory, pool, SomaCompression.AUTO),
+                    rleCostLayout(), 128, MutationFaultInjector.NONE);
+            for (int index = 0; index < 257; index++) {
+                long value = index < 64 ? 7L : index < 192 ? 8L : 9L;
+                addRleCost(table, index + 1L, value);
+            }
+            assertEquals(ChunkRepresentation.ENCODED,
+                    table.rootForTesting().directory.chunk(0).representation());
+            assertEquals(ChunkRepresentation.ENCODED,
+                    table.rootForTesting().directory.chunk(1).representation());
+            assertEquals(ChunkRepresentation.PLAIN,
+                    table.rootForTesting().directory.chunk(2).representation());
+
+            long[] detached = PrimitivePlanOperation.toLongArray(
+                    longFieldCapture(table, null, false));
+            assertTrue(Arrays.equals(
+                    ReferencePrimitiveInterpreter.valuesForTesting(
+                            longFieldCapture(table, null, false)),
+                    detached));
+            assertTrue(Arrays.equals(
+                    detached,
+                    PrimitivePlanOperation.toLongArray(
+                            longFieldCapture(table, null, true))));
+
+            GeneratedProbe minimum = table.newProbe(1);
+            minimum.putLong(1, 8L);
+            PredicateIr predicate = table.requireOwnedExpression(
+                    table.ge(minimum.seal()));
+            long[] expected = ReferencePrimitiveInterpreter.valuesForTesting(
+                    longFieldCapture(table, predicate, false));
+            assertTrue(Arrays.equals(
+                    expected,
+                    PrimitivePlanOperation.toLongArray(
+                            longFieldCapture(table, predicate, false))));
+            assertTrue(Arrays.equals(
+                    expected,
+                    PrimitivePlanOperation.toLongArray(
+                            longFieldCapture(table, predicate, true))));
+
+            try (GeneratedRow row = table.beginUpdate()) {
+                row.putLong(0, 1L);
+                assertTrue(row.locateForUpdate());
+                row.beginEditorCallback();
+                row.editLong(1, 11L);
+                row.endEditorCallback();
+                assertEquals(1L, row.finishUpdate().changed());
+            }
+            assertEquals(ChunkRepresentation.ENCODED_WITH_OVERLAY,
+                    table.rootForTesting().directory.chunk(0).representation());
+            long[] overlayExpected = ReferencePrimitiveInterpreter.valuesForTesting(
+                    longFieldCapture(table, predicate, false));
+            long[] overlayParallel = PrimitivePlanOperation.toLongArray(
+                    longFieldCapture(table, predicate, true));
+            assertTrue(Arrays.equals(overlayExpected, overlayParallel));
+            assertEquals(7L, detached[0], "detached result changed with Table");
+            assertEquals(0L, memory.temporaryBytes());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void vectorLongMaterializationHandlesEmptyAllAndNoMatch() {
+        GeneratedTable empty = new GeneratedTable(
+                testGroup(new GlobalMemoryManager(64L << 20)),
+                rleCostLayout(), 128, MutationFaultInjector.NONE);
+        assertEquals(0, PrimitivePlanOperation.toLongArray(
+                longFieldCapture(empty, null, false)).length);
+
+        for (int index = 0; index < 128; index++) {
+            addRleCost(empty, index + 1L, 5L);
+        }
+        GeneratedProbe five = empty.newProbe(1);
+        five.putLong(1, 5L);
+        PredicateIr all = empty.requireOwnedExpression(empty.ge(five.seal()));
+        assertEquals(128, PrimitivePlanOperation.toLongArray(
+                longFieldCapture(empty, all, false)).length);
+
+        GeneratedProbe six = empty.newProbe(1);
+        six.putLong(1, 6L);
+        PredicateIr none = empty.requireOwnedExpression(empty.ge(six.seal()));
+        assertEquals(0, PrimitivePlanOperation.toLongArray(
+                longFieldCapture(empty, none, false)).length);
+    }
+
+    @Test
+    void vectorLongMaterializationUsesBoundedChunkStateForParallelismMatrix() {
+        for (int parallelism : new int[] {1, 2, 4, 16}) {
+            GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
+            ForkJoinPool pool = new ForkJoinPool(parallelism);
+            try {
+                GeneratedTable table = new GeneratedTable(
+                        testGroup(memory, pool, SomaCompression.AUTO),
+                        rleCostLayout(), 128, MutationFaultInjector.NONE);
+                for (int index = 0; index < 1_024; index++) {
+                    addRleCost(table, index + 1L, index % 17L);
+                }
+                GeneratedProbe minimum = table.newProbe(1);
+                minimum.putLong(1, 8L);
+                PredicateIr predicate = table.requireOwnedExpression(
+                        table.ge(minimum.seal()));
+                assertTrue(Arrays.equals(
+                        ReferencePrimitiveInterpreter.valuesForTesting(
+                                longFieldCapture(table, predicate, false)),
+                        PrimitivePlanOperation.toLongArray(
+                                longFieldCapture(table, predicate, true))),
+                        "parallelism=" + parallelism);
+                assertEquals(0L, memory.temporaryBytes());
+            } finally {
+                pool.shutdownNow();
+            }
+        }
+    }
+
+    @Test
+    void vectorLongMaterializationAdmitsOutputAndChunkStateBeforeWork() {
+        long budget = 64L << 20;
+        GlobalMemoryManager memory = new GlobalMemoryManager(budget);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        try {
+            GeneratedTable table = new GeneratedTable(
+                    testGroup(memory, pool, SomaCompression.AUTO),
+                    rleCostLayout(), 128, MutationFaultInjector.NONE);
+            for (int index = 0; index < 8_192; index++) {
+                addRleCost(table, index + 1L, index % 17L);
+            }
+            GeneratedProbe minimum = table.newProbe(1);
+            minimum.putLong(1, 8L);
+            PredicateIr predicate = table.requireOwnedExpression(
+                    table.ge(minimum.seal()));
+            PrimitivePipelineCapture planning = longFieldCapture(
+                    table, predicate, true);
+            CanonicalRowPhysicalPlan physical = primitivePhysicalPlan(
+                    table,
+                    planning,
+                    CanonicalPrimitiveOperation.TerminalKind.MATERIALIZE);
+            int chunks = CheckedStructural.ceilChunks(
+                    table.rootForTesting().size,
+                    table.rootForTesting().directory.chunkRows());
+            long expected = RowExecutionSupport.arrayBytes(
+                    table.size(), 8L, physical.normalized.bound.provenance);
+            expected = CheckedLong.add(
+                    expected,
+                    RowExecutionSupport.arrayBytes(
+                            chunks, 4L, physical.normalized.bound.provenance),
+                    physical.normalized.bound.operation,
+                    physical.normalized.bound.provenance);
+            expected = CheckedLong.add(
+                    expected,
+                    RowExecutionSupport.arrayBytes(
+                            chunks, 4L, physical.normalized.bound.provenance),
+                    physical.normalized.bound.operation,
+                    physical.normalized.bound.provenance);
+            expected = CheckedLong.add(
+                    expected,
+                    RowExecutionSupport.arrayBytes(
+                            chunks, 16L, physical.normalized.bound.provenance),
+                    physical.normalized.bound.operation,
+                    physical.normalized.bound.provenance);
+            assertTrue(physical.vectorDecision.ownsTerminalScratch);
+            assertEquals(0L, physical.resources.parallelPrefixTemporaryBytes);
+            assertEquals(expected, physical.resources.temporaryBytes);
+            assertTrue(expected < RowExecutionSupport.arrayBytes(
+                    table.size(), 16L, physical.normalized.bound.provenance));
+
+            long available = budget - memory.retainedBytes();
+            long blockerBytes = available - expected + 1L;
+            assertTrue(blockerBytes > 0L);
+            int submissions = pool.submissions.get();
+            try (GlobalMemoryManager.TemporaryLease ignored =
+                         memory.leaseTemporary(
+                                 blockerBytes,
+                                 io.github.somaruntime.soma.SomaOperation.QUERY,
+                                 new Object())) {
+                SomaOperationException failure = assertThrows(
+                        SomaOperationException.class,
+                        () -> PrimitivePlanOperation.toLongArray(
+                                longFieldCapture(table, predicate, true)));
+                assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                        failure.code());
+                assertEquals(submissions, pool.submissions.get());
+            }
+            assertEquals(0L, memory.temporaryBytes());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    @Test
+    void vectorParallelLongMaterializationFailsClosedWhenPoolIsUnavailable() {
+        ForkJoinPool pool = new ForkJoinPool(2);
+        GeneratedTable table = new GeneratedTable(
+                testGroup(
+                        new GlobalMemoryManager(64L << 20),
+                        pool,
+                        SomaCompression.AUTO),
+                rleCostLayout(), 128, MutationFaultInjector.NONE);
+        addRleCost(table, 1L, 7L);
+        pool.shutdownNow();
+
+        SomaOperationException failure = assertThrows(
+                SomaOperationException.class,
+                () -> PrimitivePlanOperation.toLongArray(
+                        longFieldCapture(table, null, true)));
+        assertEquals(SomaFailureCode.PARALLEL_EXECUTOR_UNAVAILABLE,
+                failure.code());
+    }
+
 
     @Test
     void primitiveIntegralNaturalSortPreservesSignedValueOrder() {
@@ -2961,6 +3175,34 @@ class GeneratedTableTest {
                 CanonicalRowPhysicalRequest.primitive(primitive, 0L));
     }
 
+    private static PrimitivePipelineCapture longFieldCapture(
+            GeneratedTable table,
+            PredicateIr predicate,
+            boolean parallel) {
+        LogicalRowPlan rows = LogicalRowPlan.tableScan(table);
+        if (predicate != null) rows = rows.typedFilter(predicate);
+        rows = rows.fieldProjection(1);
+        if (parallel) rows = rows.parallel();
+        return PrimitivePipelineCapture.row(
+                rows,
+                PrimitiveValueKind.LONG,
+                (GeneratedCallbacks.RowToLongMapper)
+                        () -> table.queryCursor().viewLong(1),
+                false,
+                1);
+    }
+
+    private static void addRleCost(
+            GeneratedTable table,
+            long key,
+            long value) {
+        try (GeneratedRow row = table.beginAdd()) {
+            row.putLong(0, key);
+            row.putLong(1, value);
+            row.add();
+        }
+    }
+
     private static GeneratedTableLayout joinBoundLayout() {
         return GeneratedTableLayout.create(
                 "JoinBound",
@@ -3305,6 +3547,30 @@ class GeneratedTableTest {
             return constructor.newInstance(
                     memoryManager,
                     ForkJoinPool.commonPool(),
+                    compression,
+                    "test.generated",
+                    new Object());
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError(failure);
+        }
+    }
+
+    private static GeneratedGroup testGroup(
+            GlobalMemoryManager memoryManager,
+            ForkJoinPool parallelExecutor,
+            SomaCompression compression) {
+        try {
+            Constructor<GeneratedGroup> constructor = GeneratedGroup.class
+                    .getDeclaredConstructor(
+                            GlobalMemoryManager.class,
+                            ForkJoinPool.class,
+                            SomaCompression.class,
+                            String.class,
+                            Object.class);
+            constructor.setAccessible(true);
+            return constructor.newInstance(
+                    memoryManager,
+                    parallelExecutor,
                     compression,
                     "test.generated",
                     new Object());

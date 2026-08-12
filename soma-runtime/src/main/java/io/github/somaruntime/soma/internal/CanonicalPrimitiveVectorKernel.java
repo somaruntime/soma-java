@@ -1,5 +1,6 @@
 package io.github.somaruntime.soma.internal;
 
+import java.util.Arrays;
 import java.util.List;
 
 /** Finite typed Chunk kernels selected beneath one admitted Canonical PhysicalPlan. */
@@ -124,18 +125,109 @@ final class CanonicalPrimitiveVectorKernel {
                 physical, Operation.LONG_MATERIALIZATION) != null;
     }
 
-    static int writeLongs(
-            CanonicalRowExecutionFrame frame,
-            long[] output) {
-        KernelPlan plan = requireDecision(
-                frame.plan, Operation.LONG_MATERIALIZATION).kernel;
-        BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
-        int size = 0;
-        int chunks = logicalChunkCount(bound);
-        for (int ordinal = 0; ordinal < chunks; ordinal++) {
-            size = writeLongChunk(frame, plan, ordinal, output, size);
+    static long[] materializeLongs(
+            final CanonicalRowExecutionFrame frame) {
+        final Decision decision = requireDecision(
+                frame.plan, Operation.LONG_MATERIALIZATION);
+        final KernelPlan plan = decision.kernel;
+        final BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
+        if (decision.managesParallel) {
+            CanonicalParallelWorkScheduler.validate(bound);
         }
-        return size;
+        final int chunks = logicalChunkCount(bound);
+        if (plan.predicate == null) {
+            final long[] output = new long[bound.root.size];
+            if (!isParallel(bound) || chunks < 2) {
+                for (int ordinal = 0; ordinal < chunks; ordinal++) {
+                    int start = ordinal * bound.root.directory.chunkRows();
+                    int end = writeLongChunk(
+                            frame, decision, ordinal, output, start);
+                    if (end != start + logicalRows(bound, ordinal)) {
+                        throw new AssertionError("long materialization range drift");
+                    }
+                }
+                return output;
+            }
+            CanonicalParallelWorkScheduler.execute(
+                    bound, chunks, new CanonicalParallelWorkScheduler.Work() {
+                @Override public void run(
+                        int ordinal,
+                        java.util.concurrent.atomic.AtomicBoolean cancelled) {
+                    int start = ordinal * bound.root.directory.chunkRows();
+                    int end = writeLongChunk(
+                            frame, decision, ordinal, output, start);
+                    if (end != start + logicalRows(bound, ordinal)) {
+                        throw new AssertionError("parallel long range drift");
+                    }
+                }
+            });
+            return output;
+        }
+
+        if (!isParallel(bound)) {
+            long[] staging = new long[bound.root.size];
+            int size = 0;
+            for (int ordinal = 0; ordinal < chunks; ordinal++) {
+                size = writeLongChunk(
+                        frame, decision, ordinal, staging, size);
+            }
+            if (size == staging.length) return staging;
+            long[] result = new long[size];
+            System.arraycopy(staging, 0, result, 0, size);
+            return result;
+        }
+
+        final int[] counts = new int[chunks];
+        final int[] offsets = new int[chunks];
+        if (chunks < 2) {
+            for (int ordinal = 0; ordinal < chunks; ordinal++) {
+                counts[ordinal] = countLongChunk(frame, decision, ordinal);
+            }
+        } else {
+            CanonicalParallelWorkScheduler.execute(
+                    bound, chunks, new CanonicalParallelWorkScheduler.Work() {
+                @Override public void run(
+                        int ordinal,
+                        java.util.concurrent.atomic.AtomicBoolean cancelled) {
+                    counts[ordinal] = countLongChunk(frame, decision, ordinal);
+                }
+            });
+        }
+        long total = 0L;
+        for (int ordinal = 0; ordinal < chunks; ordinal++) {
+            offsets[ordinal] = CheckedStructural.fromLong(
+                    total, bound.operation, bound.provenance);
+            total = CheckedLong.add(
+                    total,
+                    counts[ordinal],
+                    bound.operation,
+                    bound.provenance);
+        }
+        final long[] output = new long[CheckedStructural.fromLong(
+                total, bound.operation, bound.provenance)];
+        if (chunks < 2) {
+            for (int ordinal = 0; ordinal < chunks; ordinal++) {
+                int end = writeLongChunk(
+                        frame, decision, ordinal, output, offsets[ordinal]);
+                if (end != offsets[ordinal] + counts[ordinal]) {
+                    throw new AssertionError("long materialization count drift");
+                }
+            }
+            return output;
+        }
+        CanonicalParallelWorkScheduler.execute(
+                bound, chunks, new CanonicalParallelWorkScheduler.Work() {
+            @Override public void run(
+                    int ordinal,
+                    java.util.concurrent.atomic.AtomicBoolean cancelled) {
+                int end = writeLongChunk(
+                        frame, decision, ordinal, output, offsets[ordinal]);
+                if (end != offsets[ordinal] + counts[ordinal]) {
+                    throw new AssertionError("parallel long count drift");
+                }
+            }
+        });
+        return output;
     }
 
     private static KernelPlan compileCount(
@@ -171,8 +263,7 @@ final class CanonicalPrimitiveVectorKernel {
                 || operation.source.sourceKind
                         != CanonicalRowOperation.SourceKind.TABLE
                 || accessPath != CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN
-                || operation.source.hasStatefulStage()
-                || materialization && isParallel(bound)) return null;
+                || operation.source.hasStatefulStage()) return null;
         GeneratedTableLayout layout = bound.layout;
         int field = operation.rootFieldIndex;
         int leaf = layout.fieldStart(field);
@@ -207,8 +298,38 @@ final class CanonicalPrimitiveVectorKernel {
             KernelPlan kernel) {
         boolean managesParallel = isParallel(bound);
         long temporaryBytes = 0L;
-        if (managesParallel && bound.root.size != 0) {
-            int chunks = logicalChunkCount(bound);
+        boolean ownsTerminalScratch =
+                operation == Operation.LONG_MATERIALIZATION;
+        int chunks = logicalChunkCount(bound);
+        if (ownsTerminalScratch) {
+            temporaryBytes = RowExecutionSupport.arrayBytes(
+                    bound.root.size, 8L, bound.provenance);
+            if (kernel.predicate != null && !managesParallel) {
+                temporaryBytes = RowExecutionSupport.arrayBytes(
+                        bound.root.size, 16L, bound.provenance);
+            } else if (kernel.predicate != null) {
+                temporaryBytes = CheckedLong.add(
+                        temporaryBytes,
+                        RowExecutionSupport.arrayBytes(
+                                chunks, 4L, bound.provenance),
+                        bound.operation,
+                        bound.provenance);
+                temporaryBytes = CheckedLong.add(
+                        temporaryBytes,
+                        RowExecutionSupport.arrayBytes(
+                                chunks, 4L, bound.provenance),
+                        bound.operation,
+                        bound.provenance);
+            }
+            if (managesParallel && bound.root.size != 0) {
+                temporaryBytes = CheckedLong.add(
+                        temporaryBytes,
+                        RowExecutionSupport.arrayBytes(
+                                chunks, 16L, bound.provenance),
+                        bound.operation,
+                        bound.provenance);
+            }
+        } else if (managesParallel && bound.root.size != 0) {
             if (operation == Operation.COUNT && kernel.predicate != null) {
                 temporaryBytes = RowExecutionSupport.arrayBytes(
                         chunks, 16L, bound.provenance);
@@ -218,7 +339,11 @@ final class CanonicalPrimitiveVectorKernel {
             }
         }
         return new Decision(
-                operation, kernel, managesParallel, temporaryBytes);
+                operation,
+                kernel,
+                managesParallel,
+                ownsTerminalScratch,
+                temporaryBytes);
     }
 
     private static Decision decision(
@@ -522,17 +647,29 @@ final class CanonicalPrimitiveVectorKernel {
         }
     }
 
+    private static int countLongChunk(
+            CanonicalRowExecutionFrame frame,
+            Decision decision,
+            int ordinal) {
+        long count = countChunk(frame, decision, ordinal);
+        BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
+        return CheckedStructural.fromLong(
+                count, bound.operation, bound.provenance);
+    }
+
     private static int writeLongChunk(
             CanonicalRowExecutionFrame frame,
-            KernelPlan plan,
+            Decision decision,
             int ordinal,
             long[] output,
             int position) {
+        KernelPlan plan = decision.kernel;
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
         TableChunkDirectory directory = bound.root.directory;
         TableChunk chunk = directory.chunk(ordinal);
         int rows = logicalRows(bound, ordinal);
-        if (chunk instanceof PlainChunk) {
+        RepresentationHandler handler = decision.handler(chunk);
+        if (handler == RepresentationHandler.PLAIN_DIRECT) {
             PlainChunk plain = (PlainChunk) chunk;
             long[] values = plain.longs(plan.projectionSlot);
             if (plan.predicate == null) {
@@ -546,6 +683,10 @@ final class CanonicalPrimitiveVectorKernel {
             }
             return position;
         }
+        if (handler == RepresentationHandler.ENCODED_NATIVE) {
+            return writeEncodedLongs(
+                    plan, (EncodedChunk) chunk, rows, output, position);
+        }
         int first = ordinal * directory.chunkRows();
         for (int offset = 0; offset < rows; offset++) {
             int locator = first + offset;
@@ -557,6 +698,72 @@ final class CanonicalPrimitiveVectorKernel {
                     frame.membership)) {
                 output[position++] = chunk.longValue(
                         plan.projectionSlot, offset);
+            }
+        }
+        return position;
+    }
+
+    private static int writeEncodedLongs(
+            KernelPlan plan,
+            EncodedChunk chunk,
+            int rows,
+            long[] output,
+            int position) {
+        IntegralChunkAccess projection = chunk.borrowIntegral(
+                GeneratedTableLayout.LONG, plan.projectionSlot);
+        if (projection == null) {
+            throw new AssertionError("encoded long projection is missing");
+        }
+        if (projection.runEncoded()) {
+            int start = 0;
+            for (int run = 0;
+                    run < projection.runCount() && start < rows;
+                    run++) {
+                int end = Math.min(projection.runEnd(run), rows);
+                long raw = projection.runValue(run);
+                if (plan.predicate == null
+                        || plan.predicate.matchesSingle(
+                                raw, plan.singleRequiredLeaf)) {
+                    Arrays.fill(output, position, position + end - start, raw);
+                    position += end - start;
+                }
+                start = end;
+            }
+            return position;
+        }
+        long[] values = (long[]) projection.plainValues();
+        if (plan.predicate == null) {
+            System.arraycopy(values, 0, output, position, rows);
+            return position + rows;
+        }
+        int predicateLeaf = plan.predicate.singleRequiredLeaf();
+        if (predicateLeaf == NO_REQUIRED_LEAF) {
+            if (plan.predicate.matchesSingle(0L, NO_REQUIRED_LEAF)) {
+                System.arraycopy(values, 0, output, position, rows);
+                return position + rows;
+            }
+            return position;
+        }
+        if (predicateLeaf >= 0) {
+            IntegralChunkAccess predicate = chunk.borrowIntegral(
+                    plan.predicate.kindForLeaf(predicateLeaf),
+                    plan.predicate.slotForLeaf(predicateLeaf));
+            if (predicate == null || predicate.runEncoded()) {
+                throw new AssertionError("encoded predicate handler drift");
+            }
+            byte predicateKind = plan.predicate.kindForLeaf(predicateLeaf);
+            for (int offset = 0; offset < rows; offset++) {
+                if (plan.predicate.matchesSingle(
+                        plainValue(predicate, predicateKind, offset),
+                        predicateLeaf)) {
+                    output[position++] = values[offset];
+                }
+            }
+            return position;
+        }
+        for (int offset = 0; offset < rows; offset++) {
+            if (plan.predicate.matchesEncodedPlain(chunk, offset)) {
+                output[position++] = values[offset];
             }
         }
         return position;
@@ -619,16 +826,19 @@ final class CanonicalPrimitiveVectorKernel {
         final Operation operation;
         final KernelPlan kernel;
         final boolean managesParallel;
+        final boolean ownsTerminalScratch;
         final long temporaryBytes;
 
         Decision(
                 Operation operation,
                 KernelPlan kernel,
                 boolean managesParallel,
+                boolean ownsTerminalScratch,
                 long temporaryBytes) {
             this.operation = operation;
             this.kernel = kernel;
             this.managesParallel = managesParallel;
+            this.ownsTerminalScratch = ownsTerminalScratch;
             this.temporaryBytes = temporaryBytes;
         }
 

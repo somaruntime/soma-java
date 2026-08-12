@@ -52,7 +52,7 @@ sidecar projection闭合普通PLAIN路径，encoded/indexed fallback保留candid
 decision，row/chunk两条parallel路径共享同一bounded caller-participating lifecycle；
 [后续能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)已成为当前唯一
 active bounded Temporary，状态为
-`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`；R2设计已经完成并收窄为VP1
+`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；R2设计已经完成并收窄为VP1
 encoded integral、VP2 ordered `long[]`与VP3 closure，Product Owner于2026-08-12授权按冻结计划完整实施；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
@@ -151,7 +151,7 @@ planning 或 reference differential 时读取
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
 - `project/temp/`当前唯一active topic是
   [Vectorized Physical Pipeline能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)，
-  状态为`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`；
+  状态为`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`；
   Grassing治理由
   [正式Conformance记录](project/conformance/v1-grassing-simulation-reference-application-governance.md)拥有，
   Candidate Temporary已完成replacement closure；

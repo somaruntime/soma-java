@@ -2,7 +2,7 @@
 
 类型：Active Bounded Temporary / Frozen Design and Implementation Governance
 
-状态：`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1_COMPLETED / VP2_ACTIVE`
+状态：`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / VP1-VP2_COMPLETED / VP3_ACTIVE`
 
 Owner：第一阶段正式基线之上的finite physical pipeline扩展问题、冻结临时设计、VP1-VP3实施路线与
 Temporary replacement closure
@@ -34,7 +34,7 @@ Temporary Design Baseline    FROZEN
 Implementation Readiness     READY
 Implementation Authorization GRANTED
 Formal Design Promotion      NOT_PERFORMED
-Production Implementation    VP1_COMPLETED / VP2_ACTIVE
+Production Implementation    VP1-VP2_COMPLETED / VP3_ACTIVE
 Release/Publication          NOT_AUTHORIZED
 ```
 
@@ -163,7 +163,6 @@ performance、bounded review、Conformance和干净checkpoint全部闭合后才�
 
 ## 9. 当前下一步
 
-VP1已经通过[正式资格](../../conformance/vectorized-pipeline-expansion-vp1-qualification.md)，single final
-Physical decision与encoded-native integral scan均已闭合。当前active slice为VP2；Codex只按冻结
-[Implementation Plan](implementation-plan.md)实施ordered `long[]` representation-native materialization与
-bounded parallel count/prefix/write，VP2 exit closure前不进入VP3。
+VP1与VP2已分别通过[VP1资格](../../conformance/vectorized-pipeline-expansion-vp1-qualification.md)和
+[VP2资格](../../conformance/vectorized-pipeline-expansion-vp2-qualification.md)。当前active slice为VP3；
+VP3不新增能力，只完成全局资格、正式Owner晋升、入口同步与本Temporary replacement closure。
