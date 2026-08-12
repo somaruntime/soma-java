@@ -56,7 +56,8 @@ Scheduling performance      STANDARD_FJSP_100K / FRESH_0.6S / WARM_0.51S / PASS
 Canonical IR promotion        PASS / FORMALLY_PROMOTED / BASELINE_FROZEN
 Canonical IR implementation   S1-S6_COMPLETED / QUALIFIED
 Canonical IR active slice     NONE
-Active bounded topic          NONE
+Active bounded topic          GRASSING_SIMULATION / ACTIVE_DESIGN / SELF_REVIEW_PASS /
+                              OWNER_APPROVAL_REQUIRED / IMPLEMENTATION_NOT_STARTED
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -183,7 +184,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
+Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
+[SOMA Grassing空间个体仿真Reference Application与性能治理](../temp/soma-grassing-simulation-reference-application-governance/README.md)；
+它是`SELF_REVIEW_PASS / OWNER_APPROVAL_REQUIRED`的Candidate Design，尚未授权implementation或
+SOMA runtime/processor修改。
 Canonical IR/Execution治理已经正式晋升、冻结并完成S1-S6 implementation与qualification；当前没有
 active implementation slice。
 [SOMA Engine产品构思](../temp/soma-engine-product-concept/README.md)是独立queued intent，不是Design、

@@ -107,7 +107,9 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active topic；
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前唯一active topic是
+  [SOMA Grassing空间个体仿真Reference Application与性能治理](temp/soma-grassing-simulation-reference-application-governance/README.md)，
+  处于Candidate Design审核阶段，未授权implementation或SOMA runtime/processor修改；
   [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或
   implementation input。
 
@@ -140,7 +142,10 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前没有active bounded topic。Canonical IR与执行引擎治理已由
+当前唯一active bounded topic是
+[SOMA Grassing空间个体仿真Reference Application与性能治理](temp/soma-grassing-simulation-reference-application-governance/README.md)；
+它处于`ACTIVE_DESIGN / SELF_REVIEW_PASS / OWNER_APPROVAL_REQUIRED / IMPLEMENTATION_NOT_STARTED`，不是正式Design或
+implementation authorization。Canonical IR与执行引擎治理已由
 [正式Conformance记录](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)完成Owner晋升、
 Baseline Freeze、readiness与Temporary replacement closure；production implementation已授权并进入S1。
 [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)独立保留为queued intent。
