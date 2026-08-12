@@ -3,7 +3,8 @@
 类型：Project Entry
 
 状态：V1 implementation `COMPLETED`；G1–G10 `PASS`；Canonical IR/Execution M1
-`S1-S6_COMPLETED / NO_ACTIVE_SLICE`；publication `NOT_AUTHORIZED`
+`S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；Vectorized Pipeline治理
+`ACTIVE_R2_CANDIDATE_DESIGN / IMPLEMENTATION_NOT_AUTHORIZED`；publication `NOT_AUTHORIZED`
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
@@ -56,7 +57,9 @@ implementation 与 qualification：
   dense move plan和final-locator sidecar projection，同时保持encoded candidate与zero-publication；
 - [Vectorized Physical Pipeline第一阶段正式晋升](conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)
   已`PASS`：finite primitive Chunk kernel、PhysicalPlan单次decision、shared ordinal-work lifecycle与
-  Chunk-morsel partial已纳入production baseline；后续encoded/operator扩展尚未激活；
+  Chunk-morsel partial已纳入production baseline；
+  [后续治理专题](temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)已经进入
+  `R2_CANDIDATE_DESIGN`，当前只允许设计、inventory与bounded feasibility，不授权production implementation；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -96,6 +99,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Grassing空间仿真、UI/headless与Application性能治理 | [Grassing simulation governance](conformance/v1-grassing-simulation-reference-application-governance.md) |
 | Selection mutation write-set、原位提交与A/B | [Selection mutation governance](conformance/v1-selection-mutation-write-set-governance.md) |
 | Finite primitive Chunk kernel与morsel partial正式晋升 | [Vectorized physical pipeline phase 1](conformance/v1-vectorized-physical-pipeline-phase1-promotion.md) |
+| 当前Physical Pipeline能力扩展Candidate Design | [Active vectorized pipeline governance](temp/soma-vectorized-physical-pipeline-expansion-governance/README.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -119,9 +123,9 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active bounded topic；
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前唯一active bounded topic是
   [Vectorized Physical Pipeline能力扩展](temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
-  是`QUEUED / NOT_ACTIVE / NOT_DESIGN`的后续intent；
+  的`R2_CANDIDATE_DESIGN`，它不是正式Design或implementation authorization；
   Grassing治理已由
   [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并退役Temporary；
   [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或
@@ -156,11 +160,12 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前没有active bounded topic。Vectorized Physical Pipeline第一阶段已经由
+当前唯一active bounded topic是
+[Vectorized Physical Pipeline与Morsel-Driven Execution治理](temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)，
+状态为`ACTIVE / R2_CANDIDATE_DESIGN / NOT_FROZEN / IMPLEMENTATION_NOT_AUTHORIZED`。第一阶段已经由
 [正式Conformance记录](conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)完成M1晋升和
-Temporary replacement closure；
-[能力扩展治理](temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)只是queued intent，
-未经单独Candidate Design/Freeze/Authorization不得作为implementation input。Grassing治理已由
+Temporary replacement closure；R2只允许inventory、Candidate Design与bounded feasibility，未经单独
+Freeze、Readiness和Authorization不得修改production source。Grassing治理已由
 [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并完成
 Temporary replacement closure。Canonical IR与执行引擎治理已由
 [正式Conformance记录](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)完成Owner晋升、

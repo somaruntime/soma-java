@@ -115,7 +115,9 @@ framework、public SPI或另一套semantic executor。
 - Architecture Design拥有PLAIN typed access、finite kernel family和scheduler mechanism；
 - Core Design将其记录为A19/A20/A22/A26的M1成熟化，不新增A编号；
 - production只保留一个Physical decision Owner和一个parallel lifecycle Owner；
-- 第一阶段Temporary已退役；后续能力扩展转入独立queued Temporary，不覆盖本baseline；
+- 第一阶段Temporary已退役；后续能力扩展在本记录关闭时转入独立queued Temporary，并于2026-08-12
+  由Product Owner激活为[R2 Candidate Design治理](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)；
+  它不覆盖本baseline，也尚未获得production implementation授权；
 - root/public surface未变化，无需更新Library user文档。
 
 ## 6. Claim boundary

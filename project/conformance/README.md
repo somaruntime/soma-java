@@ -3,7 +3,8 @@
 类型：Conformance Entry
 
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
-Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_SLICE`
+Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
+Vectorized Pipeline治理`ACTIVE_R2_CANDIDATE_DESIGN / IMPLEMENTATION_NOT_AUTHORIZED`
 
 正式事实源：是
 
@@ -34,7 +35,7 @@ Core abstraction promotion    PASS
 I0-I8 authorization           FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
-Active slice                   NONE
+Active implementation slice   NONE
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -59,9 +60,8 @@ Canonical IR implementation   S1-S6_COMPLETED / QUALIFIED
 Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
-Active bounded topic          NONE
+Active bounded topic          VECTORIZED_PIPELINE_R2_CANDIDATE_DESIGN
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
-Queued performance topic      VECTORIZED_PIPELINE_EXPANSION / NOT_ACTIVE / NOT_DESIGN
 ```
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
@@ -196,9 +196,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
+Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
 [Vectorized Physical Pipeline能力扩展](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
-只是queued intent，不是Design、active governance或implementation input；
+的`R2_CANDIDATE_DESIGN`；它是active governance与候选事实Owner，但不是正式Design、Baseline Freeze、
+Readiness或implementation input；
 Grassing治理已由
 [正式Conformance记录](v1-grassing-simulation-reference-application-governance.md)接管并完成
 replacement closure。

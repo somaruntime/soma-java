@@ -46,13 +46,14 @@ sidecar projection闭合普通PLAIN路径，encoded/indexed fallback保留candid
 已经关闭replacement与性能防退化证据；正式
 [S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)保持冻结基线，实际active
 状态由Conformance拥有。
-当前没有active bounded Temporary；
 [Vectorized Physical Pipeline第一阶段](project/conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)
 已正式晋升并`PASS`：当前正式能力只包含Table `count`、integral Field `sum`与ordered
 `long[]` materialization三类finite primitive Chunk kernel，Physical Plan一次性拥有kernel/resource
 decision，row/chunk两条parallel路径共享同一bounded caller-participating lifecycle；
-[后续能力扩展](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)仅为
-`QUEUED / NOT_ACTIVE / NOT_DESIGN` intent，不是当前implementation input；
+[后续能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)已成为当前唯一
+active bounded Temporary，状态为
+`ACTIVE / R2_CANDIDATE_DESIGN / NOT_FROZEN / IMPLEMENTATION_NOT_AUTHORIZED`；当前只允许inventory、
+Candidate Design与bounded feasibility，不允许修改production source或正式Design；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
 [SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
@@ -95,6 +96,12 @@ planning 或 reference differential 时读取
 [晋升/准入记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)以及
 [最终资格](project/conformance/canonical-ir-execution-s6-final-qualification.md)；不得把已完成的S1-S6重新
 解释为active migration或静默恢复旧adapter。
+
+涉及Vectorized Physical Pipeline、representation-aware kernel或morsel-driven execution时，必须读取
+[当前active Temporary](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)与
+[第一阶段正式晋升记录](project/conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)。R2退出前
+不得修改production source；不得把active Candidate Design外推为正式Design、Freeze或implementation
+authorization。
 
 实施slice或跨Design审查还必须读取
 [核心抽象与叙事Design](project/design/core-abstractions-and-narratives.md)中与该slice对应的A/N/INV
@@ -139,11 +146,12 @@ planning 或 reference differential 时读取
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前没有active topic；Grassing治理由
+- `project/temp/`当前唯一active topic是
+  [Vectorized Physical Pipeline能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)，
+  状态为`ACTIVE / R2_CANDIDATE_DESIGN / NOT_FROZEN / IMPLEMENTATION_NOT_AUTHORIZED`；
+  Grassing治理由
   [正式Conformance记录](project/conformance/v1-grassing-simulation-reference-application-governance.md)拥有，
   Candidate Temporary已完成replacement closure；
-  [Vectorized Physical Pipeline能力扩展](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
-  是`QUEUED / NOT_ACTIVE / NOT_DESIGN` intent，不得作为当前Design或implementation input；
   [SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)是明确标记的queued intent，
   不得作为当前Design或implementation input；
   新的重大长期变化先进入bounded Temporary，经Product Owner裁决和验证后晋升，再删除Temporary；
