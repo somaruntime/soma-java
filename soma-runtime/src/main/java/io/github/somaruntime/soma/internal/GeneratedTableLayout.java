@@ -472,7 +472,12 @@ public final class GeneratedTableLayout {
         return true;
     }
 
-    boolean joinFieldEquals(
+    /**
+     * Compares two Join Fields whose generated shapes were already validated
+     * when the Relation condition was constructed. Compatibility is a schema
+     * fact, so the execution kernel must not rediscover it per candidate row.
+     */
+    boolean joinFieldEqualsPrevalidated(
             TableChunkDirectory leftDirectory,
             int leftLocator,
             int leftFieldIndex,
@@ -480,9 +485,6 @@ public final class GeneratedTableLayout {
             TableChunkDirectory rightDirectory,
             int rightLocator,
             int rightFieldIndex) {
-        if (!joinCompatible(leftFieldIndex, rightLayout, rightFieldIndex)) {
-            throw new AssertionError("incompatible generated Join Fields");
-        }
         if (storedFieldIsNull(leftDirectory, leftLocator, leftFieldIndex)
                 || rightLayout.storedFieldIsNull(
                         rightDirectory, rightLocator, rightFieldIndex)) {

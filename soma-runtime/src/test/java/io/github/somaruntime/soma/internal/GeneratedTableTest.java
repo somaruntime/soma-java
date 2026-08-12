@@ -1824,6 +1824,20 @@ class GeneratedTableTest {
         assertTrue(Arrays.equals(
                 relationLocators(optimizedFiltered, false),
                 relationLocators(referenceFiltered, true)));
+
+        for (int kind : new int[] {
+                GeneratedRelation.INNER,
+                GeneratedRelation.SEMI,
+                GeneratedRelation.ANTI}) {
+            GeneratedRelation optimizedKind = GeneratedRelation
+                    .equality(left, right).on(1, 1).kind(kind);
+            GeneratedRelation referenceKind = GeneratedRelation
+                    .equality(left, right).on(1, 1).kind(kind);
+            assertTrue(Arrays.equals(
+                    relationLocators(optimizedKind, false),
+                    relationLocators(referenceKind, true)),
+                    "indexed Relation differential kind=" + kind);
+        }
     }
 
     @Test

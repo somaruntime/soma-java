@@ -2,15 +2,16 @@
 
 类型：Temporary / Performance Governance Proposal / Future Topic Router
 
-状态：`QUEUED / NOT_ACTIVE / NOT_DESIGN / NOT_ENGINEERING_PLAN / NOT_AUTHORIZED`
+状态：`ACTIVE / T1_COMPLETED / T2_GROUPBY_ACTIVE / T3_T4_QUEUED / IMPLEMENTATION_AUTHORIZED`
 
-日期：2026-08-12
+日期：2026-08-12（2026-08-13由Product Owner激活T1-T4）
 
 Owner：M2完成后的性能现状摘要、候选热点优先级与未来专题启用路径
 
-> 本文不是新的性能承诺，也不是已冻结Design或实施计划。它只保存当前证据支持的下一步
-> 优化路线，供Product Owner和后续Codex/Agent选择专题时使用。任何候选项都必须先完成独立
-> 设计、有限验证、冻结与实施准入，才能进入production实现。
+> 本文不是新的性能承诺，也不覆盖正式Design。Product Owner已授权Codex按T1-T4顺序完成
+> 自主设计、审核、实施与本地提交；一次只允许一个active slice。各slice的Candidate Design、
+> current baseline、实施结论与资格证据由本目录承接，稳定事实最终晋升至正式Design/Conformance，
+> 然后本Temporary完成replacement closure。T5-T7仍是未授权候选。
 
 ## 1. 为什么需要这份提案
 
@@ -44,7 +45,7 @@ BP-10、BP-12与BP-15；精确目标仍以[正式Blueprint](../../blueprint/READ
 
 ### 2.2 当前不做
 
-- 不修改production代码、公开/generated API、Blueprint或正式Design；
+- 不修改公开/generated API、Blueprint或既有Design语义；允许现有Design范围内的production实现优化；
 - 不新增artifact、dependency、scheduler、runtime codegen或public SPI；
 - 不重新设计Canonical Logical IR；
 - 不准入SOMA Engine、set-based mutation、ordered access或application frontier；
@@ -272,7 +273,9 @@ Spike代码在Design未冻结前不得成为production第二路径；验证结�
 
 ## 8. 生命周期与启用方式
 
-当前本文保持`QUEUED`。它不会把任何T1–T7候选变成active governance或implementation input。
+当前T1已激活，T2-T4按顺序排队；T5-T7仍保持`QUEUED / NOT_AUTHORIZED`。Product Owner于
+2026-08-13授权在既有Design范围内完成T1-T4的自主设计、审核、实施、资格与本地提交，但不授权
+push、release或对外性能声明。
 
 未来启用某一项时：
 
@@ -288,11 +291,15 @@ Spike代码在Design未冻结前不得成为production第二路径；验证结�
 如果Profile证明T1不再是最高价值路径，可以重新排序，但必须记录新证据；不能因为实现方便而
 选择低价值专题。
 
-## 9. 当前建议
+## 9. 当前执行状态
 
-> 下一次性能治理优先选择T1“Relation Physical Execution”，先完成R0–R3设计与验证，不直接开始
-> production implementation。GroupBy、dense Selection remove、construction/Index build等保持queued，
-> 不与Relation同时激活。
+| Slice | 状态 | 唯一专题事实 |
+|---|---|---|
+| T1 Relation Physical Execution | `PASS / CLOSED` | [T1 Candidate Design与资格](t1-relation-execution-candidate-design.md) |
+| T2 GroupBy Physical Execution | `ACTIVE` | T1关闭后建立 |
+| T3 Dense Selection Remove | `QUEUED` | T2关闭后建立 |
+| T4 Construction / Index Build | `QUEUED` | T3关闭后建立 |
+| T5-T7 | `NOT_AUTHORIZED` | 仍只保留本提案中的未来路由 |
 
 ## 10. 正式事实入口
 

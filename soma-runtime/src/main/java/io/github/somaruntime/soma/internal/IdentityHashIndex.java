@@ -1275,7 +1275,7 @@ final class IdentityHashIndex {
             while (states[slot] != 0) {
                 if (states[slot] == 1
                         && hashes[slot] == hash
-                        && layout.joinFieldEquals(
+                        && layout.joinFieldEqualsPrevalidated(
                                 directory,
                                 firstLocators[slot],
                                 fieldIndex,

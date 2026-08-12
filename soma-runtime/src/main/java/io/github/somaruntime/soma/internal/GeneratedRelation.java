@@ -539,8 +539,12 @@ public final class GeneratedRelation {
                         : 0;
                 while (rightLookup != null ? rightLocator >= 0L : link != 0) {
                     if (rightLookup == null) rightLocator = hash.locator(link);
-                    boolean candidate = conditionsEqual(
-                            binding, leftLocator, rightLocator)
+                    // firstJoin selected a complete typed-value Bucket. Every
+                    // locator in that Bucket is already proven equal to this
+                    // single-Field probe; only hash candidates still need the
+                    // full condition check here.
+                    boolean candidate = (rightLookup != null
+                            || conditionsEqual(binding, leftLocator, rightLocator))
                             && matchesPushedFilters(binding, right, rightLocator);
                     if (candidate) {
                         matched = true;
@@ -809,7 +813,7 @@ public final class GeneratedRelation {
         int[] leftFields = binding.canonical.leftFields;
         int[] rightFields = binding.canonical.rightFields;
         for (int index = 0; index < leftFields.length; index++) {
-            if (!left.layout().joinFieldEquals(
+            if (!left.layout().joinFieldEqualsPrevalidated(
                     binding.left.directory,
                     leftLocator,
                     leftFields[index],
