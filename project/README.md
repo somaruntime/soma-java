@@ -112,6 +112,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Finite primitive Chunk kernel与morsel partial正式晋升 | [Vectorized physical pipeline phase 1](conformance/v1-vectorized-physical-pipeline-phase1-promotion.md) |
 | Encoded integral、ordered `long[]`与VP1-VP3扩展资格 | [Vectorized pipeline expansion governance](conformance/v1-vectorized-physical-pipeline-expansion-governance.md) |
 | Physical Pipeline/Segment/Breaker/Kernel/Frame/Morsel实施与资格 | [Physical Execution Engine M2 P6最终资格](conformance/physical-execution-engine-m2-p6-final-qualification.md) |
+| Production Core质量检查方法的价值、成本与采用裁决 | [Quality inspection method feasibility](conformance/v1-production-core-quality-inspection-method-feasibility.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -135,9 +136,10 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic或明确标记的queued intent；当前唯一active bounded topic为
-  [Production Core质量检查方法可行性探索](temp/soma-quality-inspection-governance/README.md)，
-  Candidate Design已冻结且Q0-Q2获授权，但尚未形成质量门或采用结论。
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active bounded topic。
+  Production Core质量检查方法探索已由
+  [正式Conformance记录](conformance/v1-production-core-quality-inspection-method-feasibility.md)
+  完成Q0-Q2、采用裁决与Temporary closure，没有建立稳定脚本、CI或质量门。
   Physical Execution Engine M2已由
   [最终P6资格](conformance/physical-execution-engine-m2-p6-final-qualification.md)完成Temporary replacement closure；
   Vectorized Physical Pipeline扩展已经由
@@ -177,8 +179,8 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前唯一active bounded topic为
-[Production Core质量检查方法可行性探索](temp/soma-quality-inspection-governance/README.md)；Physical Execution Engine M2已由
+当前没有active bounded topic。Production Core质量方法探索已由
+[正式Conformance记录](conformance/v1-production-core-quality-inspection-method-feasibility.md)完成；Physical Execution Engine M2已由
 [最终P6资格](conformance/physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6、正式Owner与
 Temporary replacement closure；冻结Candidate fingerprint仍由
 [晋升记录](conformance/v1-physical-execution-engine-m2-promotion-readiness.md)保存。

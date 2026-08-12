@@ -103,6 +103,10 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 
 ## 4. Active records
 
+- [Production Core质量检查方法可行性探索](v1-production-core-quality-inspection-method-feasibility.md)：
+  Java 8 Xlint、精选PMD与JaCoCo一次性实验、成本/价值裁决、routine adoption拒绝与Temporary
+  replacement closure Owner；
+
 - [Physical Execution Engine M2正式晋升与实施准入](v1-physical-execution-engine-m2-promotion-readiness.md)：
   Candidate fingerprint、Design/Engineering Baseline、P1-P6 readiness、Product Owner授权与publication
   boundary Owner；
@@ -241,8 +245,9 @@ active implementation slice。
 active governance或current implementation input。
 [Post-M2性能优化路线提案](../temp/soma-post-m2-performance-optimization-roadmap/README.md)是独立queued
 proposal，不是Design、Engineering Plan、active governance或current implementation input。
-[Production Core质量检查方法可行性探索](../temp/soma-quality-inspection-governance/README.md)是当前唯一
-active bounded topic；其Candidate Design已冻结、Q0-Q2已授权，但尚未形成正式Conformance结论或质量门。
+[Production Core质量检查方法可行性探索](v1-production-core-quality-inspection-method-feasibility.md)已
+`PASS / ROUTINE_ADOPTION_REJECTED`；Q0-Q2、采用裁决和Temporary closure已完成，没有建立稳定脚本、
+CI或质量门。
 `docs/`仍是用户文档placeholder。`benchmarks/`的长期non-production性能与正确性证据已由
 [正式Conformance记录](v1-performance-correctness-governance.md)完成治理和replacement closure；
 千万行组合负载的扩展证据见[对应记录](v1-ten-million-composed-workload-governance.md)；四维性能架构

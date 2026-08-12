@@ -70,8 +70,8 @@ Candidate Temporary已退役，当前没有active implementation slice；
 [SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)仅为queued intent，不是Design或
 implementation input；[Post-M2性能优化路线提案](project/temp/soma-post-m2-performance-optimization-roadmap/README.md)
 仅为queued proposal，不是Design、Engineering Plan或implementation input；
-[Production Core质量检查方法可行性探索](project/temp/soma-quality-inspection-governance/README.md)
-为当前唯一active bounded topic，Candidate Design已冻结，Q0-Q2已获Product Owner授权，但不是质量门。
+[Production Core质量检查方法可行性探索](project/conformance/v1-production-core-quality-inspection-method-feasibility.md)
+已`PASS / ROUTINE_ADOPTION_REJECTED`，没有建立稳定脚本、CI或质量门。
 千万行组合负载治理由
 [正式Conformance记录](project/conformance/v1-ten-million-composed-workload-governance.md)拥有；交付导向仓库治理由
 [正式Conformance记录](project/conformance/v1-delivery-centered-repository-governance.md)拥有；
@@ -164,8 +164,9 @@ Temporary只用于provenance，不覆盖正式Owner或current implementation sta
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前唯一active bounded topic为
-  [Production Core质量检查方法可行性探索](project/temp/soma-quality-inspection-governance/README.md)；Physical Execution Engine M2已由
+- `project/temp/`当前没有active bounded topic；Production Core质量方法探索已由
+  [正式Conformance记录](project/conformance/v1-production-core-quality-inspection-method-feasibility.md)完成
+  Q0-Q2、采用裁决与Temporary closure；Physical Execution Engine M2已由
   [最终P6资格](project/conformance/physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6与
   Temporary replacement closure；Vectorized Physical Pipeline扩展已经由
   [正式Conformance记录](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成
@@ -177,8 +178,6 @@ Temporary只用于provenance，不覆盖正式Owner或current implementation sta
   不得作为当前Design或implementation input；
   [Post-M2性能优化路线提案](project/temp/soma-post-m2-performance-optimization-roadmap/README.md)是明确
   标记的queued proposal，只用于未来专题选路，不得作为当前Design、Engineering Plan或implementation input；
-  质量检查方法探索当前处于`ACTIVE / DESIGN_FROZEN / Q0-Q2_AUTHORIZED`，只允许有界工具实验与
-  既有Design内修复；
   新的重大长期变化先进入bounded Temporary，经Product Owner裁决和验证后晋升，再删除Temporary；
   不得直接在正式Design中掩盖未裁决变化；
 - 历史 Conformance 只保存 provenance，不能覆盖 current Blueprint/Design/readiness。
