@@ -171,6 +171,17 @@ final class EncodedChunk implements TableChunk {
         }
     }
 
+    @Override public IntegralChunkAccess borrowIntegral(int kind, int slot) {
+        switch (kind) {
+            case GeneratedTableLayout.BYTE: return (IntegralChunkAccess) bytes[slot];
+            case GeneratedTableLayout.SHORT: return (IntegralChunkAccess) shorts[slot];
+            case GeneratedTableLayout.CHAR: return (IntegralChunkAccess) chars[slot];
+            case GeneratedTableLayout.INT: return (IntegralChunkAccess) ints[slot];
+            case GeneratedTableLayout.LONG: return (IntegralChunkAccess) longs[slot];
+            default: return null;
+        }
+    }
+
     @Override public void read(
             int offset,
             TypedValues destination,
@@ -407,7 +418,8 @@ final class EncodedChunk implements TableChunk {
         }
     }
 
-    private static final class PlainIntegralColumn implements PrimitiveColumn {
+    private static final class PlainIntegralColumn
+            implements PrimitiveColumn, IntegralChunkAccess {
         private final byte kind;
         private final byte[] bytes;
         private final short[] shorts;
@@ -469,9 +481,25 @@ final class EncodedChunk implements TableChunk {
                     : ints != null ? 4L : 8L;
             return COLUMN_HEADER_BYTES + ARRAY_HEADER_BYTES + width * length;
         }
+
+        @Override public boolean runEncoded() { return false; }
+        @Override public Object plainValues() {
+            return bytes != null ? bytes
+                    : shorts != null ? shorts
+                    : chars != null ? chars
+                    : ints != null ? ints : longs;
+        }
+        @Override public int runCount() { return 0; }
+        @Override public long runValue(int run) {
+            throw new AssertionError("plain integral column has no runs");
+        }
+        @Override public int runEnd(int run) {
+            throw new AssertionError("plain integral column has no runs");
+        }
     }
 
-    private static final class RleColumn implements PrimitiveColumn {
+    private static final class RleColumn
+            implements PrimitiveColumn, IntegralChunkAccess {
         private final long[] values;
         private final int[] ends;
 
@@ -517,9 +545,14 @@ final class EncodedChunk implements TableChunk {
                     + 12L * values.length;
         }
 
-        int runCount() {
+        @Override public int runCount() {
             return values.length;
         }
+
+        @Override public boolean runEncoded() { return true; }
+        @Override public Object plainValues() { return null; }
+        @Override public long runValue(int run) { return values[run]; }
+        @Override public int runEnd(int run) { return ends[run]; }
 
         @Override public boolean visit(
                 int logicalRows,

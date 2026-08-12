@@ -103,6 +103,12 @@ final class CanonicalRowPlanner {
     }
 
     static CanonicalRowPhysicalPlan plan(NormalizedCanonicalRow normalized) {
+        return plan(normalized, CanonicalRowPhysicalRequest.row(0L));
+    }
+
+    static CanonicalRowPhysicalPlan plan(
+            NormalizedCanonicalRow normalized,
+            CanonicalRowPhysicalRequest request) {
         BoundCanonicalRowOperation bound = normalized.bound;
         CanonicalRowPhysicalPlan.AccessPath access;
         int indexOrdinal = -1;
@@ -179,6 +185,29 @@ final class CanonicalRowPlanner {
                     Math.max(1, chunks));
             if (parallelPrefix == 0) partitions = 1;
         }
+        CanonicalPrimitiveVectorKernel.Decision vectorDecision =
+                CanonicalPrimitiveVectorKernel.plan(
+                        normalized, access, request.primitive);
+        if (vectorDecision != null && vectorDecision.managesParallel) {
+            temporaryBytes = CheckedLong.subtract(
+                    temporaryBytes,
+                    parallelPrefixTemporaryBytes,
+                    bound.operation,
+                    bound.provenance);
+            parallelPrefixTemporaryBytes = 0L;
+        }
+        if (vectorDecision != null) {
+            temporaryBytes = CheckedLong.add(
+                    temporaryBytes,
+                    vectorDecision.temporaryBytes,
+                    bound.operation,
+                    bound.provenance);
+        }
+        temporaryBytes = CheckedLong.add(
+                temporaryBytes,
+                request.additionalTemporaryBytes,
+                bound.operation,
+                bound.provenance);
         return new CanonicalRowPhysicalPlan(
                 normalized,
                 access,
@@ -188,7 +217,8 @@ final class CanonicalRowPlanner {
                 partitions,
                 new ResourceEstimate(
                         temporaryBytes,
-                        parallelPrefixTemporaryBytes));
+                        parallelPrefixTemporaryBytes),
+                vectorDecision);
     }
 
     private static LookupCandidate lookupCandidate(
@@ -247,6 +277,36 @@ final class CanonicalRowPlanner {
     }
 }
 
+/** Closed terminal requirement consumed by the sole Physical planning owner. */
+final class CanonicalRowPhysicalRequest {
+    final CanonicalPrimitiveOperation primitive;
+    final long additionalTemporaryBytes;
+
+    private CanonicalRowPhysicalRequest(
+            CanonicalPrimitiveOperation primitive,
+            long additionalTemporaryBytes) {
+        if (additionalTemporaryBytes < 0L) {
+            throw new AssertionError("negative terminal scratch");
+        }
+        this.primitive = primitive;
+        this.additionalTemporaryBytes = additionalTemporaryBytes;
+    }
+
+    static CanonicalRowPhysicalRequest row(long additionalTemporaryBytes) {
+        return new CanonicalRowPhysicalRequest(null, additionalTemporaryBytes);
+    }
+
+    static CanonicalRowPhysicalRequest primitive(
+            CanonicalPrimitiveOperation primitive,
+            long additionalTemporaryBytes) {
+        if (primitive == null) {
+            throw new AssertionError("primitive terminal requirement is missing");
+        }
+        return new CanonicalRowPhysicalRequest(
+                primitive, additionalTemporaryBytes);
+    }
+}
+
 final class NormalizedCanonicalRow {
     final BoundCanonicalRowOperation bound;
     final List<CanonicalRowStage> stages;
@@ -289,18 +349,6 @@ final class CanonicalRowPhysicalPlan {
             TypedLiteral literal,
             int parallelPrefixStages,
             int partitions,
-            ResourceEstimate resources) {
-        this(normalized, accessPath, indexOrdinal, literal,
-                parallelPrefixStages, partitions, resources, null);
-    }
-
-    private CanonicalRowPhysicalPlan(
-            NormalizedCanonicalRow normalized,
-            AccessPath accessPath,
-            int indexOrdinal,
-            TypedLiteral literal,
-            int parallelPrefixStages,
-            int partitions,
             ResourceEstimate resources,
             CanonicalPrimitiveVectorKernel.Decision vectorDecision) {
         this.normalized = normalized;
@@ -311,56 +359,6 @@ final class CanonicalRowPhysicalPlan {
         this.partitions = partitions;
         this.resources = resources;
         this.vectorDecision = vectorDecision;
-    }
-
-    CanonicalRowPhysicalPlan withVectorDecision(
-            CanonicalPrimitiveVectorKernel.Decision decision) {
-        if (decision == null) return this;
-        BoundCanonicalRowOperation bound = normalized.bound;
-        long temporaryBytes = resources.temporaryBytes;
-        long parallelPrefixBytes = resources.parallelPrefixTemporaryBytes;
-        if (decision.managesParallel) {
-            temporaryBytes = CheckedLong.subtract(
-                    temporaryBytes,
-                    parallelPrefixBytes,
-                    bound.operation,
-                    bound.provenance);
-            parallelPrefixBytes = 0L;
-        }
-        temporaryBytes = CheckedLong.add(
-                temporaryBytes,
-                decision.temporaryBytes,
-                bound.operation,
-                bound.provenance);
-        return new CanonicalRowPhysicalPlan(
-                normalized,
-                accessPath,
-                indexOrdinal,
-                literal,
-                parallelPrefixStages,
-                partitions,
-                new ResourceEstimate(temporaryBytes, parallelPrefixBytes),
-                decision);
-    }
-
-    CanonicalRowPhysicalPlan withAdditionalTemporaryBytes(long bytes) {
-        if (bytes == 0L) return this;
-        BoundCanonicalRowOperation bound = normalized.bound;
-        return new CanonicalRowPhysicalPlan(
-                normalized,
-                accessPath,
-                indexOrdinal,
-                literal,
-                parallelPrefixStages,
-                partitions,
-                new ResourceEstimate(
-                        CheckedLong.add(
-                                resources.temporaryBytes,
-                                bytes,
-                                bound.operation,
-                                bound.provenance),
-                        resources.parallelPrefixTemporaryBytes),
-                vectorDecision);
     }
 
     boolean managesParallelPreparation() {

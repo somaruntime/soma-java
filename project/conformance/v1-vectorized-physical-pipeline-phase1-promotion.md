@@ -117,7 +117,8 @@ framework、public SPI或另一套semantic executor。
 - production只保留一个Physical decision Owner和一个parallel lifecycle Owner；
 - 第一阶段Temporary已退役；后续能力扩展在本记录关闭时转入独立queued Temporary，并于2026-08-12
   由Product Owner激活为[R2 Candidate Design治理](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)；
-  其后临时设计已完成Freeze与Readiness，但仍不覆盖本baseline，也尚未获得production implementation授权；
+  其后临时设计已完成Freeze与Readiness并获得VP1-VP3实施授权；
+  [VP1资格](vectorized-pipeline-expansion-vp1-qualification.md)已经通过，但仍不覆盖本记录拥有的第一阶段baseline；
 - root/public surface未变化，无需更新Library user文档。
 
 ## 6. Claim boundary

@@ -16,6 +16,29 @@ final class Signed128Accumulator {
         if (Long.compareUnsigned(low, before) < 0) high++;
     }
 
+    /** Adds {@code value * repetitions} exactly without expanding an RLE run. */
+    void addRepeated(long value, int repetitions) {
+        if (repetitions < 0) throw new AssertionError("negative repetition count");
+        long multiplier = repetitions;
+        long addHigh = value < 0L ? -1L : 0L;
+        long addLow = value;
+        while (multiplier != 0L) {
+            if ((multiplier & 1L) != 0L) add128(addHigh, addLow);
+            multiplier >>>= 1;
+            if (multiplier != 0L) {
+                addHigh = (addHigh << 1) | (addLow >>> 63);
+                addLow <<= 1;
+            }
+        }
+    }
+
+    private void add128(long valueHigh, long valueLow) {
+        long before = low;
+        low += valueLow;
+        high += valueHigh;
+        if (Long.compareUnsigned(low, before) < 0) high++;
+    }
+
     /** Exact associative merge used by deterministic partial aggregates. */
     void add(Signed128Accumulator partial) {
         if (partial == null) throw new AssertionError("partial sum is missing");

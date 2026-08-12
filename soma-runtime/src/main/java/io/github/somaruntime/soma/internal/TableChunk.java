@@ -32,6 +32,15 @@ interface TableChunk {
             int logicalRows,
             PrimitiveVisitor visitor);
 
+    /**
+     * Borrows immutable encoded integral storage for the current operation.
+     * PLAIN and overlay representations return {@code null}; their existing
+     * typed/current-value paths remain the storage truth.
+     */
+    default IntegralChunkAccess borrowIntegral(int kind, int slot) {
+        return null;
+    }
+
     void read(int offset, TypedValues destination, GeneratedTableLayout layout);
 
     TableChunk mutableCopy(GeneratedTableLayout layout);
@@ -67,4 +76,13 @@ interface TableChunk {
             Object provenance);
 
     boolean hasEncodedRepresentation();
+}
+
+/** Closed package-private view over one immutable encoded integral column. */
+interface IntegralChunkAccess {
+    boolean runEncoded();
+    Object plainValues();
+    int runCount();
+    long runValue(int run);
+    int runEnd(int run);
 }

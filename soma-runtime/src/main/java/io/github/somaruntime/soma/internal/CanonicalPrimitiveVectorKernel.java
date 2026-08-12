@@ -8,10 +8,37 @@ final class CanonicalPrimitiveVectorKernel {
     private CanonicalPrimitiveVectorKernel() {
     }
 
-    static Decision planCount(CanonicalRowPhysicalPlan physical) {
-        KernelPlan kernel = compileCount(physical);
-        return kernel == null ? null
-                : decision(physical, Operation.COUNT, kernel);
+    static Decision plan(
+            NormalizedCanonicalRow normalized,
+            CanonicalRowPhysicalPlan.AccessPath accessPath,
+            CanonicalPrimitiveOperation primitive) {
+        if (primitive == null) {
+            KernelPlan count = compileCount(normalized, accessPath);
+            return count == null ? null
+                    : decision(normalized.bound, Operation.COUNT, count);
+        }
+        if (primitive.terminal
+                == CanonicalPrimitiveOperation.TerminalKind.SUM) {
+            KernelPlan sum = compilePrimitive(
+                    normalized, accessPath, primitive, false);
+            return sum == null ? null
+                    : decision(normalized.bound, Operation.INTEGRAL_SUM, sum);
+        }
+        if (primitive.terminal
+                        == CanonicalPrimitiveOperation.TerminalKind.MATERIALIZE
+                && primitive.valueKind == PrimitiveValueKind.LONG) {
+            KernelPlan materialization = compilePrimitive(
+                    normalized, accessPath, primitive, true);
+            return materialization == null
+                    || materialization.projectionKind
+                            != GeneratedTableLayout.LONG
+                    ? null
+                    : decision(
+                            normalized.bound,
+                            Operation.LONG_MATERIALIZATION,
+                            materialization);
+        }
+        return null;
     }
 
     static boolean isCount(CanonicalRowPhysicalPlan physical) {
@@ -34,7 +61,7 @@ final class CanonicalPrimitiveVectorKernel {
             for (int ordinal = 0; ordinal < chunks; ordinal++) {
                 result = CheckedLong.add(
                         result,
-                        countChunk(frame, plan, ordinal),
+                        countChunk(frame, decision, ordinal),
                         bound.operation,
                         bound.provenance);
             }
@@ -44,7 +71,7 @@ final class CanonicalPrimitiveVectorKernel {
         CanonicalParallelWorkScheduler.execute(
                 bound, chunks, new CanonicalParallelWorkScheduler.Work() {
             @Override public void run(int ordinal, java.util.concurrent.atomic.AtomicBoolean cancelled) {
-                partials[ordinal] = countChunk(frame, plan, ordinal);
+                partials[ordinal] = countChunk(frame, decision, ordinal);
             }
         });
         long result = 0L;
@@ -53,14 +80,6 @@ final class CanonicalPrimitiveVectorKernel {
                     result, partial, bound.operation, bound.provenance);
         }
         return result;
-    }
-
-    static Decision planIntegralSum(
-            CanonicalRowPhysicalPlan physical,
-            CanonicalPrimitiveOperation operation) {
-        KernelPlan kernel = compilePrimitive(physical, operation, false);
-        return kernel == null ? null
-                : decision(physical, Operation.INTEGRAL_SUM, kernel);
     }
 
     static boolean isIntegralSum(CanonicalRowPhysicalPlan physical) {
@@ -80,7 +99,7 @@ final class CanonicalPrimitiveVectorKernel {
         if (!isParallel(bound) || chunks < 2) {
             Signed128Accumulator result = new Signed128Accumulator();
             for (int ordinal = 0; ordinal < chunks; ordinal++) {
-                sumChunk(frame, plan, ordinal, result);
+                sumChunk(frame, decision, ordinal, result);
             }
             return result.longValue(bound.provenance);
         }
@@ -90,26 +109,13 @@ final class CanonicalPrimitiveVectorKernel {
                 bound, chunks, new CanonicalParallelWorkScheduler.Work() {
             @Override public void run(int ordinal, java.util.concurrent.atomic.AtomicBoolean cancelled) {
                 Signed128Accumulator partial = new Signed128Accumulator();
-                sumChunk(frame, plan, ordinal, partial);
+                sumChunk(frame, decision, ordinal, partial);
                 partials[ordinal] = partial;
             }
         });
         Signed128Accumulator result = new Signed128Accumulator();
         for (Signed128Accumulator partial : partials) result.add(partial);
         return result.longValue(bound.provenance);
-    }
-
-    static Decision planLongMaterialization(
-            CanonicalRowPhysicalPlan physical,
-            CanonicalPrimitiveOperation operation) {
-        KernelPlan kernel = compilePrimitive(physical, operation, true);
-        return kernel == null
-                || kernel.projectionKind != GeneratedTableLayout.LONG
-                ? null
-                : decision(
-                        physical,
-                        Operation.LONG_MATERIALIZATION,
-                        kernel);
     }
 
     static boolean isLongMaterialization(
@@ -133,27 +139,29 @@ final class CanonicalPrimitiveVectorKernel {
     }
 
     private static KernelPlan compileCount(
-            CanonicalRowPhysicalPlan physical) {
-        BoundCanonicalRowOperation bound = physical.normalized.bound;
+            NormalizedCanonicalRow normalized,
+            CanonicalRowPhysicalPlan.AccessPath accessPath) {
+        BoundCanonicalRowOperation bound = normalized.bound;
         if (bound.canonical.terminal != CanonicalRowOperation.TerminalKind.COUNT
                 || bound.canonical.sourceKind != CanonicalRowOperation.SourceKind.TABLE
-                || physical.accessPath != CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN
+                || accessPath != CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN
                 || bound.canonical.hasStatefulStage()) return null;
         PredicateKernel predicate = null;
-        for (CanonicalRowStage stage : physical.normalized.stages) {
+        for (CanonicalRowStage stage : normalized.stages) {
             if (stage.kind != CanonicalRowStage.Kind.TYPED_FILTER
                     || predicate != null) return null;
             predicate = PredicateKernel.compile(bound.layout, stage.predicate);
             if (predicate == null) return null;
         }
-        return new KernelPlan(-1, (byte) -1, predicate);
+        return new KernelPlan(-1, -1, (byte) -1, predicate);
     }
 
     private static KernelPlan compilePrimitive(
-            CanonicalRowPhysicalPlan physical,
+            NormalizedCanonicalRow normalized,
+            CanonicalRowPhysicalPlan.AccessPath accessPath,
             CanonicalPrimitiveOperation operation,
             boolean materialization) {
-        BoundCanonicalRowOperation bound = physical.normalized.bound;
+        BoundCanonicalRowOperation bound = normalized.bound;
         if (operation.rootKind != CanonicalPrimitiveOperation.RootKind.ROW
                 || operation.mapped != null
                 || operation.rootApplicationCallback
@@ -162,8 +170,7 @@ final class CanonicalPrimitiveVectorKernel {
                 || !operation.stages.isEmpty()
                 || operation.source.sourceKind
                         != CanonicalRowOperation.SourceKind.TABLE
-                || physical.accessPath
-                        != CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN
+                || accessPath != CanonicalRowPhysicalPlan.AccessPath.TABLE_SCAN
                 || operation.source.hasStatefulStage()
                 || materialization && isParallel(bound)) return null;
         GeneratedTableLayout layout = bound.layout;
@@ -171,7 +178,7 @@ final class CanonicalPrimitiveVectorKernel {
         int leaf = layout.fieldStart(field);
         if (layout.fieldLeafCount(field) != 1
                 || !integral(layout.leafKind(leaf))) return null;
-        List<CanonicalRowStage> stages = physical.normalized.stages;
+        List<CanonicalRowStage> stages = normalized.stages;
         PredicateKernel predicate = null;
         boolean projected = false;
         for (CanonicalRowStage stage : stages) {
@@ -188,14 +195,16 @@ final class CanonicalPrimitiveVectorKernel {
         }
         if (!projected) return null;
         return new KernelPlan(
-                layout.leafSlot(leaf), layout.leafKind(leaf), predicate);
+                leaf,
+                layout.leafSlot(leaf),
+                layout.leafKind(leaf),
+                predicate);
     }
 
     private static Decision decision(
-            CanonicalRowPhysicalPlan physical,
+            BoundCanonicalRowOperation bound,
             Operation operation,
             KernelPlan kernel) {
-        BoundCanonicalRowOperation bound = physical.normalized.bound;
         boolean managesParallel = isParallel(bound);
         long temporaryBytes = 0L;
         if (managesParallel && bound.root.size != 0) {
@@ -233,18 +242,69 @@ final class CanonicalPrimitiveVectorKernel {
 
     private static long countChunk(
             CanonicalRowExecutionFrame frame,
-            KernelPlan plan,
+            Decision decision,
             int ordinal) {
+        KernelPlan plan = decision.kernel;
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
         TableChunkDirectory directory = bound.root.directory;
         TableChunk chunk = directory.chunk(ordinal);
         int rows = logicalRows(bound, ordinal);
         long result = 0L;
-        if (chunk instanceof PlainChunk) {
+        RepresentationHandler handler = decision.handler(chunk);
+        if (handler == RepresentationHandler.PLAIN_DIRECT) {
             for (int offset = 0; offset < rows; offset++) {
                 if (plan.predicate.matches((PlainChunk) chunk, offset)) result++;
             }
             return result;
+        }
+        if (handler == RepresentationHandler.ENCODED_NATIVE) {
+            EncodedChunk encoded = (EncodedChunk) chunk;
+            if (plan.singleRequiredLeaf == NO_REQUIRED_LEAF) {
+                return (plan.predicate == null
+                        || plan.predicate.matchesSingle(0L, NO_REQUIRED_LEAF))
+                        ? rows : 0L;
+            }
+            if (plan.singleRequiredLeaf >= 0) {
+                int leaf = plan.singleRequiredLeaf;
+                IntegralChunkAccess access = encoded.borrowIntegral(
+                        bound.layout.leafKind(leaf),
+                        bound.layout.leafSlot(leaf));
+                if (access != null && access.runEncoded()) {
+                    int start = 0;
+                    for (int run = 0;
+                            run < access.runCount() && start < rows;
+                            run++) {
+                        int end = Math.min(access.runEnd(run), rows);
+                        if (plan.predicate.matchesSingle(
+                                access.runValue(run), leaf)) {
+                            result = CheckedLong.add(
+                                    result,
+                                    end - start,
+                                    bound.operation,
+                                    bound.provenance);
+                        }
+                        start = end;
+                    }
+                    return result;
+                }
+                if (access != null) {
+                    byte kind = bound.layout.leafKind(leaf);
+                    for (int offset = 0; offset < rows; offset++) {
+                        if (plan.predicate.matchesSingle(
+                                plainValue(access, kind, offset), leaf)) {
+                            result++;
+                        }
+                    }
+                    return result;
+                }
+            } else if (plan.predicate.allPlainEncoded(encoded)) {
+                for (int offset = 0; offset < rows; offset++) {
+                    if (plan.predicate.matchesEncodedPlain(encoded, offset)) {
+                        result++;
+                    }
+                }
+                return result;
+            }
         }
         int first = ordinal * directory.chunkRows();
         for (int offset = 0; offset < rows; offset++) {
@@ -260,14 +320,16 @@ final class CanonicalPrimitiveVectorKernel {
 
     private static void sumChunk(
             CanonicalRowExecutionFrame frame,
-            KernelPlan plan,
+            Decision decision,
             int ordinal,
             final Signed128Accumulator result) {
+        KernelPlan plan = decision.kernel;
         BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
         TableChunkDirectory directory = bound.root.directory;
         TableChunk chunk = directory.chunk(ordinal);
         int rows = logicalRows(bound, ordinal);
-        if (chunk instanceof PlainChunk) {
+        RepresentationHandler handler = decision.handler(chunk);
+        if (handler == RepresentationHandler.PLAIN_DIRECT) {
             PlainChunk plain = (PlainChunk) chunk;
             switch (plan.projectionKind) {
                 case GeneratedTableLayout.BYTE:
@@ -324,6 +386,15 @@ final class CanonicalPrimitiveVectorKernel {
                     throw new AssertionError("non-integral vector projection");
             }
         }
+        if (handler == RepresentationHandler.ENCODED_NATIVE
+                && sumEncoded(
+                        bound,
+                        plan,
+                        (EncodedChunk) chunk,
+                        rows,
+                        result)) {
+            return;
+        }
         int first = ordinal * directory.chunkRows();
         for (int offset = 0; offset < rows; offset++) {
             int locator = first + offset;
@@ -335,6 +406,119 @@ final class CanonicalPrimitiveVectorKernel {
                     frame.membership)) continue;
             result.add(integralValue(
                     chunk, plan.projectionKind, plan.projectionSlot, offset));
+        }
+    }
+
+    private static boolean sumEncoded(
+            BoundCanonicalRowOperation bound,
+            KernelPlan plan,
+            EncodedChunk chunk,
+            int rows,
+            Signed128Accumulator result) {
+        IntegralChunkAccess projection = chunk.borrowIntegral(
+                plan.projectionKind, plan.projectionSlot);
+        if (projection == null) return false;
+        if (plan.singleRequiredLeaf >= 0 && projection.runEncoded()) {
+            if (plan.singleRequiredLeaf != plan.projectionLeaf) return false;
+            int start = 0;
+            for (int run = 0;
+                    run < projection.runCount() && start < rows;
+                    run++) {
+                int end = Math.min(projection.runEnd(run), rows);
+                long raw = projection.runValue(run);
+                if (plan.predicate == null
+                        || plan.predicate.matchesSingle(
+                                raw, plan.singleRequiredLeaf)) {
+                    result.addRepeated(raw, end - start);
+                }
+                start = end;
+            }
+            return true;
+        }
+        if (projection.runEncoded()
+                || plan.predicate != null
+                        && !plan.predicate.allPlainEncoded(chunk)) {
+            return false;
+        }
+        if (plan.predicate == null) {
+            addPlainIntegral(
+                    result, projection, plan.projectionKind, rows);
+            return true;
+        }
+        int predicateLeaf = plan.predicate.singleRequiredLeaf();
+        if (predicateLeaf == NO_REQUIRED_LEAF) {
+            if (plan.predicate.matchesSingle(0L, NO_REQUIRED_LEAF)) {
+                addPlainIntegral(
+                        result, projection, plan.projectionKind, rows);
+            }
+            return true;
+        }
+        if (predicateLeaf >= 0) {
+            IntegralChunkAccess predicate = chunk.borrowIntegral(
+                    bound.layout.leafKind(predicateLeaf),
+                    bound.layout.leafSlot(predicateLeaf));
+            if (predicate == null || predicate.runEncoded()) return false;
+            byte predicateKind = bound.layout.leafKind(predicateLeaf);
+            for (int offset = 0; offset < rows; offset++) {
+                long tested = plainValue(predicate, predicateKind, offset);
+                if (plan.predicate.matchesSingle(tested, predicateLeaf)) {
+                    result.add(plainValue(
+                            projection, plan.projectionKind, offset));
+                }
+            }
+            return true;
+        }
+        for (int offset = 0; offset < rows; offset++) {
+            if (plan.predicate.matchesEncodedPlain(chunk, offset)) {
+                result.add(plainValue(
+                        projection, plan.projectionKind, offset));
+            }
+        }
+        return true;
+    }
+
+    private static void addPlainIntegral(
+            Signed128Accumulator result,
+            IntegralChunkAccess access,
+            byte kind,
+            int rows) {
+        Object values = access.plainValues();
+        switch (kind) {
+            case GeneratedTableLayout.BYTE:
+                result.addBytes((byte[]) values, rows);
+                return;
+            case GeneratedTableLayout.SHORT:
+                result.addShorts((short[]) values, rows);
+                return;
+            case GeneratedTableLayout.CHAR:
+                result.addChars((char[]) values, rows);
+                return;
+            case GeneratedTableLayout.INT:
+                result.addInts((int[]) values, rows);
+                return;
+            case GeneratedTableLayout.LONG:
+                result.addLongs((long[]) values, rows);
+                return;
+            default:
+                throw new AssertionError("non-integral encoded values");
+        }
+    }
+
+    private static long plainValue(
+            IntegralChunkAccess access,
+            byte kind,
+            int offset) {
+        if (access == null || access.runEncoded()) {
+            throw new AssertionError("direct encoded integral values are missing");
+        }
+        Object values = access.plainValues();
+        switch (kind) {
+            case GeneratedTableLayout.BYTE: return ((byte[]) values)[offset];
+            case GeneratedTableLayout.SHORT: return ((short[]) values)[offset];
+            case GeneratedTableLayout.CHAR: return ((char[]) values)[offset];
+            case GeneratedTableLayout.INT: return ((int[]) values)[offset];
+            case GeneratedTableLayout.LONG: return ((long[]) values)[offset];
+            default: throw new AssertionError("non-integral encoded values");
         }
     }
 
@@ -422,6 +606,14 @@ final class CanonicalPrimitiveVectorKernel {
         COUNT, INTEGRAL_SUM, LONG_MATERIALIZATION
     }
 
+    enum RepresentationHandler {
+        PLAIN_DIRECT,
+        ENCODED_NATIVE,
+        ENCODED_SCALAR,
+        OVERLAY_SCALAR,
+        UNAVAILABLE
+    }
+
     /** Immutable physical decision; execution consumes it without re-planning. */
     static final class Decision {
         final Operation operation;
@@ -439,24 +631,85 @@ final class CanonicalPrimitiveVectorKernel {
             this.managesParallel = managesParallel;
             this.temporaryBytes = temporaryBytes;
         }
+
+        RepresentationHandler handler(TableChunk chunk) {
+            if (chunk instanceof PlainChunk) {
+                return RepresentationHandler.PLAIN_DIRECT;
+            }
+            if (chunk instanceof EncodedChunk) {
+                return kernel.encodedNative((EncodedChunk) chunk)
+                        ? RepresentationHandler.ENCODED_NATIVE
+                        : RepresentationHandler.ENCODED_SCALAR;
+            }
+            if (chunk instanceof OverlayChunk) {
+                return RepresentationHandler.OVERLAY_SCALAR;
+            }
+            return RepresentationHandler.UNAVAILABLE;
+        }
     }
 
     private static final class KernelPlan {
+        final int projectionLeaf;
         final int projectionSlot;
         final byte projectionKind;
         final PredicateKernel predicate;
+        final int singleRequiredLeaf;
+        final int singleRequiredSlot;
+        final byte singleRequiredKind;
 
         KernelPlan(
+                int projectionLeaf,
                 int projectionSlot,
                 byte projectionKind,
                 PredicateKernel predicate) {
+            this.projectionLeaf = projectionLeaf;
             this.projectionSlot = projectionSlot;
             this.projectionKind = projectionKind;
             this.predicate = predicate;
+            int predicateLeaf = predicate == null
+                    ? NO_REQUIRED_LEAF : predicate.singleRequiredLeaf();
+            this.singleRequiredLeaf = combineRequiredLeaves(
+                    projectionLeaf, predicateLeaf);
+            if (singleRequiredLeaf >= 0) {
+                this.singleRequiredSlot = projectionLeaf == singleRequiredLeaf
+                        ? projectionSlot
+                        : predicate.slotForLeaf(singleRequiredLeaf);
+                this.singleRequiredKind = projectionLeaf == singleRequiredLeaf
+                        ? projectionKind
+                        : predicate.kindForLeaf(singleRequiredLeaf);
+            } else {
+                this.singleRequiredSlot = -1;
+                this.singleRequiredKind = (byte) -1;
+            }
         }
 
         boolean matches(PlainChunk chunk, int offset) {
             return predicate == null || predicate.matches(chunk, offset);
+        }
+
+        boolean encodedNative(EncodedChunk chunk) {
+            if (singleRequiredLeaf == NO_REQUIRED_LEAF) return true;
+            if (singleRequiredLeaf >= 0) {
+                IntegralChunkAccess access = chunk.borrowIntegral(
+                        singleRequiredKind, singleRequiredSlot);
+                return access != null;
+            }
+            if (projectionLeaf >= 0) {
+                IntegralChunkAccess projection = chunk.borrowIntegral(
+                        projectionKind, projectionSlot);
+                if (projection == null || projection.runEncoded()) return false;
+            }
+            return predicate == null || predicate.allPlainEncoded(chunk);
+        }
+
+        private static int combineRequiredLeaves(int left, int right) {
+            if (left == MULTIPLE_REQUIRED_LEAVES
+                    || right == MULTIPLE_REQUIRED_LEAVES) {
+                return MULTIPLE_REQUIRED_LEAVES;
+            }
+            if (left == NO_REQUIRED_LEAF) return right;
+            if (right == NO_REQUIRED_LEAF || left == right) return left;
+            return MULTIPLE_REQUIRED_LEAVES;
         }
     }
 
@@ -548,6 +801,92 @@ final class CanonicalPrimitiveVectorKernel {
             }
         }
 
+        int singleRequiredLeaf() {
+            switch (kind) {
+                case CONSTANT: return NO_REQUIRED_LEAF;
+                case AND:
+                case OR:
+                    return KernelPlan.combineRequiredLeaves(
+                            left.singleRequiredLeaf(),
+                            right.singleRequiredLeaf());
+                case NOT: return left.singleRequiredLeaf();
+                default: return leaf;
+            }
+        }
+
+        int slotForLeaf(int requiredLeaf) {
+            if (leaf == requiredLeaf) return slot;
+            if (left != null) {
+                int found = left.slotForLeaf(requiredLeaf);
+                if (found >= 0) return found;
+            }
+            return right == null ? -1 : right.slotForLeaf(requiredLeaf);
+        }
+
+        byte kindForLeaf(int requiredLeaf) {
+            if (leaf == requiredLeaf) return leafKind;
+            if (left != null) {
+                byte found = left.kindForLeaf(requiredLeaf);
+                if (found >= 0) return found;
+            }
+            return right == null ? (byte) -1
+                    : right.kindForLeaf(requiredLeaf);
+        }
+
+        boolean allPlainEncoded(EncodedChunk chunk) {
+            switch (kind) {
+                case CONSTANT: return true;
+                case AND:
+                case OR:
+                    return left.allPlainEncoded(chunk)
+                            && right.allPlainEncoded(chunk);
+                case NOT: return left.allPlainEncoded(chunk);
+                default:
+                    IntegralChunkAccess access = chunk.borrowIntegral(
+                            leafKind, slot);
+                    return access != null && !access.runEncoded();
+            }
+        }
+
+        boolean matchesEncodedPlain(EncodedChunk chunk, int offset) {
+            switch (kind) {
+                case CONSTANT: return source.constant;
+                case AND: return left.matchesEncodedPlain(chunk, offset)
+                        && right.matchesEncodedPlain(chunk, offset);
+                case OR: return left.matchesEncodedPlain(chunk, offset)
+                        || right.matchesEncodedPlain(chunk, offset);
+                case NOT: return !left.matchesEncodedPlain(chunk, offset);
+                default:
+                    return matchesSingle(
+                            plainValue(
+                                    chunk.borrowIntegral(leafKind, slot),
+                                    leafKind,
+                                    offset),
+                            leaf);
+            }
+        }
+
+        boolean matchesSingle(long raw, int requiredLeaf) {
+            switch (kind) {
+                case CONSTANT: return source.constant;
+                case AND: return left.matchesSingle(raw, requiredLeaf)
+                        && right.matchesSingle(raw, requiredLeaf);
+                case OR: return left.matchesSingle(raw, requiredLeaf)
+                        || right.matchesSingle(raw, requiredLeaf);
+                case NOT: return !left.matchesSingle(raw, requiredLeaf);
+                case EQ: return compare(raw, requiredLeaf, source.lower) == 0;
+                case NE: return compare(raw, requiredLeaf, source.lower) != 0;
+                case LT: return compare(raw, requiredLeaf, source.lower) < 0;
+                case LE: return compare(raw, requiredLeaf, source.lower) <= 0;
+                case GT: return compare(raw, requiredLeaf, source.lower) > 0;
+                case GE: return compare(raw, requiredLeaf, source.lower) >= 0;
+                case BETWEEN:
+                    return compare(raw, requiredLeaf, source.lower) >= 0
+                            && compare(raw, requiredLeaf, source.upper) <= 0;
+                default: throw new AssertionError("unsupported vector predicate");
+            }
+        }
+
         private int compare(
                 PlainChunk chunk,
                 int offset,
@@ -572,5 +911,38 @@ final class CanonicalPrimitiveVectorKernel {
                     throw new AssertionError("non-integral vector predicate");
             }
         }
+
+        private int compare(
+                long raw,
+                int requiredLeaf,
+                TypedLiteral literal) {
+            if (leaf != requiredLeaf) {
+                throw new AssertionError("single-leaf predicate binding mismatch");
+            }
+            long expected;
+            switch (leafKind) {
+                case GeneratedTableLayout.BYTE:
+                    expected = literal.byteValue(leaf);
+                    break;
+                case GeneratedTableLayout.SHORT:
+                    expected = literal.shortValue(leaf);
+                    break;
+                case GeneratedTableLayout.CHAR:
+                    expected = literal.charValue(leaf);
+                    break;
+                case GeneratedTableLayout.INT:
+                    expected = literal.intValue(leaf);
+                    break;
+                case GeneratedTableLayout.LONG:
+                    expected = literal.longValue(leaf);
+                    break;
+                default:
+                    throw new AssertionError("non-integral vector predicate");
+            }
+            return Long.compare(raw, expected);
+        }
     }
+
+    private static final int NO_REQUIRED_LEAF = -1;
+    private static final int MULTIPLE_REQUIRED_LEAVES = -2;
 }

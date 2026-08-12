@@ -1696,6 +1696,204 @@ class GeneratedTableTest {
     }
 
     @Test
+    void vectorIntegralKernelHandlesRleMixedAndOverlayRepresentations() {
+        GeneratedTable table = new GeneratedTable(
+                testGroup(
+                        new GlobalMemoryManager(64L << 20),
+                        SomaCompression.AUTO),
+                testLayout(), 128, MutationFaultInjector.NONE);
+        for (int index = 0; index < 257; index++) {
+            add(table, index + 1L, "bucket", 7, null);
+        }
+        TableChunk first = table.rootForTesting().directory.chunk(0);
+        assertEquals(ChunkRepresentation.ENCODED, first.representation());
+        int valueLeaf = table.layout().fieldStart(2);
+        IntegralChunkAccess valueAccess = first.borrowIntegral(
+                table.layout().leafKind(valueLeaf),
+                table.layout().leafSlot(valueLeaf));
+        assertNotNull(valueAccess);
+        assertTrue(valueAccess.runEncoded());
+        assertEquals(1, valueAccess.runCount());
+        assertEquals(ChunkRepresentation.PLAIN,
+                table.rootForTesting().directory.chunk(2).representation());
+
+        assertEquals(
+                QueryOperation.referenceCountForTesting(
+                        LogicalRowPlan.tableScan(table)),
+                QueryOperation.optimizedCount(
+                        LogicalRowPlan.tableScan(table)));
+
+        GeneratedProbe seven = table.newProbe(2);
+        seven.putInt(2, 7);
+        PredicateIr predicate = table.requireOwnedExpression(
+                table.ge(seven.seal()));
+        assertEquals(
+                QueryOperation.referenceCountForTesting(
+                        LogicalRowPlan.tableScan(table).typedFilter(predicate)),
+                QueryOperation.optimizedCount(
+                        LogicalRowPlan.tableScan(table).typedFilter(predicate)));
+
+        PrimitivePipelineCapture sameLeafReference = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table)
+                        .typedFilter(predicate).fieldProjection(2),
+                PrimitiveValueKind.INT,
+                (GeneratedCallbacks.RowToIntMapper)
+                        () -> table.queryCursor().viewInt(2),
+                false,
+                2);
+        PrimitivePipelineCapture sameLeafOptimized = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table)
+                        .typedFilter(predicate).fieldProjection(2),
+                PrimitiveValueKind.INT,
+                (GeneratedCallbacks.RowToIntMapper)
+                        () -> table.queryCursor().viewInt(2),
+                false,
+                2);
+        CanonicalRowPhysicalPlan sameLeafPlan = primitivePhysicalPlan(
+                table,
+                PrimitivePipelineCapture.row(
+                        LogicalRowPlan.tableScan(table)
+                                .typedFilter(predicate).fieldProjection(2),
+                        PrimitiveValueKind.INT,
+                        (GeneratedCallbacks.RowToIntMapper)
+                                () -> table.queryCursor().viewInt(2),
+                        false,
+                        2),
+                CanonicalPrimitiveOperation.TerminalKind.SUM);
+        assertEquals(
+                CanonicalPrimitiveVectorKernel.RepresentationHandler
+                        .ENCODED_NATIVE,
+                sameLeafPlan.vectorDecision.handler(first));
+        assertEquals(
+                ReferencePrimitiveInterpreter.sumIntegralForTesting(
+                        sameLeafReference),
+                PrimitivePlanOperation.sumIntegral(sameLeafOptimized));
+
+        // The projection and predicate use different leaves. RLE boundaries
+        // are deliberately not zipped; this Chunk takes the scalar fallback.
+        PrimitivePipelineCapture multiLeafReference = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table)
+                        .typedFilter(predicate).fieldProjection(0),
+                PrimitiveValueKind.LONG,
+                (GeneratedCallbacks.RowToLongMapper)
+                        () -> table.queryCursor().viewLong(0),
+                false,
+                0);
+        PrimitivePipelineCapture multiLeafOptimized = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table)
+                        .typedFilter(predicate).fieldProjection(0),
+                PrimitiveValueKind.LONG,
+                (GeneratedCallbacks.RowToLongMapper)
+                        () -> table.queryCursor().viewLong(0),
+                false,
+                0);
+        CanonicalRowPhysicalPlan multiLeafPlan = primitivePhysicalPlan(
+                table,
+                PrimitivePipelineCapture.row(
+                        LogicalRowPlan.tableScan(table)
+                                .typedFilter(predicate).fieldProjection(0),
+                        PrimitiveValueKind.LONG,
+                        (GeneratedCallbacks.RowToLongMapper)
+                                () -> table.queryCursor().viewLong(0),
+                        false,
+                        0),
+                CanonicalPrimitiveOperation.TerminalKind.SUM);
+        assertEquals(
+                CanonicalPrimitiveVectorKernel.RepresentationHandler
+                        .ENCODED_SCALAR,
+                multiLeafPlan.vectorDecision.handler(first));
+        assertEquals(
+                ReferencePrimitiveInterpreter.sumIntegralForTesting(
+                        multiLeafReference),
+                PrimitivePlanOperation.sumIntegral(multiLeafOptimized));
+
+        assertEquals(1L, update(table, 1L, "bucket", 9, null).changed());
+        assertEquals(ChunkRepresentation.ENCODED_WITH_OVERLAY,
+                table.rootForTesting().directory.chunk(0).representation());
+        PrimitivePipelineCapture overlayReference = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table).fieldProjection(2),
+                PrimitiveValueKind.INT,
+                (GeneratedCallbacks.RowToIntMapper)
+                        () -> table.queryCursor().viewInt(2),
+                false,
+                2);
+        PrimitivePipelineCapture overlayOptimized = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table).fieldProjection(2),
+                PrimitiveValueKind.INT,
+                (GeneratedCallbacks.RowToIntMapper)
+                        () -> table.queryCursor().viewInt(2),
+                false,
+                2);
+        CanonicalRowPhysicalPlan overlayPlan = primitivePhysicalPlan(
+                table,
+                PrimitivePipelineCapture.row(
+                        LogicalRowPlan.tableScan(table).fieldProjection(2),
+                        PrimitiveValueKind.INT,
+                        (GeneratedCallbacks.RowToIntMapper)
+                                () -> table.queryCursor().viewInt(2),
+                        false,
+                        2),
+                CanonicalPrimitiveOperation.TerminalKind.SUM);
+        assertEquals(
+                CanonicalPrimitiveVectorKernel.RepresentationHandler
+                        .OVERLAY_SCALAR,
+                overlayPlan.vectorDecision.handler(
+                        table.rootForTesting().directory.chunk(0)));
+        assertEquals(
+                ReferencePrimitiveInterpreter.sumIntegralForTesting(
+                        overlayReference),
+                PrimitivePlanOperation.sumIntegral(overlayOptimized));
+    }
+
+    @Test
+    void vectorRleIntegralSumKeepsExactWideOverflowSemantics() {
+        GeneratedTable table = new GeneratedTable(
+                testGroup(
+                        new GlobalMemoryManager(64L << 20),
+                        SomaCompression.AUTO),
+                rleCostLayout(), 128, MutationFaultInjector.NONE);
+        for (int index = 0; index < 128; index++) {
+            try (GeneratedRow row = table.beginAdd()) {
+                row.putLong(0, index + 1L);
+                row.putLong(1, Long.MAX_VALUE);
+                row.add();
+            }
+        }
+        TableChunk encoded = table.rootForTesting().directory.chunk(0);
+        assertEquals(ChunkRepresentation.ENCODED, encoded.representation());
+        IntegralChunkAccess access = encoded.borrowIntegral(
+                GeneratedTableLayout.LONG, 1);
+        assertNotNull(access);
+        assertTrue(access.runEncoded());
+        assertEquals(1, access.runCount());
+
+        PrimitivePipelineCapture reference = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table).fieldProjection(1),
+                PrimitiveValueKind.LONG,
+                (GeneratedCallbacks.RowToLongMapper)
+                        () -> table.queryCursor().viewLong(1),
+                false,
+                1);
+        PrimitivePipelineCapture optimized = PrimitivePipelineCapture.row(
+                LogicalRowPlan.tableScan(table).fieldProjection(1),
+                PrimitiveValueKind.LONG,
+                (GeneratedCallbacks.RowToLongMapper)
+                        () -> table.queryCursor().viewLong(1),
+                false,
+                1);
+        SomaOperationException referenceFailure = assertThrows(
+                SomaOperationException.class,
+                () -> ReferencePrimitiveInterpreter
+                        .sumIntegralForTesting(reference));
+        SomaOperationException optimizedFailure = assertThrows(
+                SomaOperationException.class,
+                () -> PrimitivePlanOperation.sumIntegral(optimized));
+        assertEquals(SomaFailureCode.ARITHMETIC_OVERFLOW,
+                referenceFailure.code());
+        assertEquals(referenceFailure.code(), optimizedFailure.code());
+    }
+
+    @Test
     void vectorMorselsUseBoundedPoolAndPreserveExactIntegralSum() {
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
         TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
@@ -1728,7 +1926,7 @@ class GeneratedTableTest {
     }
 
     @Test
-    void vectorParallelPlanReplacesLinearLocatorScratchWithChunkPartials() {
+    void vectorParallelPlanOwnsOneFinalDecisionAndChunkPartials() {
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
         GeneratedTable table = new GeneratedTable(
                 testGroup(memory, new ForkJoinPool(4)),
@@ -1750,8 +1948,6 @@ class GeneratedTableTest {
                 table.rootForTesting(),
                 io.github.somaruntime.soma.SomaOperation.QUERY,
                 new Object());
-        CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(
-                CanonicalRowPlanner.normalize(bound));
         CanonicalPrimitiveOperation operation = CanonicalPrimitiveLowering.operation(
                 PrimitivePipelineCapture.row(
                         frontend,
@@ -1762,26 +1958,87 @@ class GeneratedTableTest {
                         0),
                 CanonicalPrimitiveOperation.TerminalKind.SUM,
                 null);
-
+        CanonicalRowPhysicalPlan physical = CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(bound),
+                CanonicalRowPhysicalRequest.primitive(operation, 0L));
         CanonicalPrimitiveVectorKernel.Decision decision =
-                CanonicalPrimitiveVectorKernel.planIntegralSum(
-                        physical, operation);
+                physical.vectorDecision;
         assertNotNull(decision);
-        CanonicalRowPhysicalPlan refined =
-                physical.withVectorDecision(decision);
-        assertSame(decision, refined.vectorDecision);
-        assertTrue(CanonicalPrimitiveVectorKernel.isIntegralSum(refined));
-        assertNull(physical.vectorDecision);
+        assertTrue(CanonicalPrimitiveVectorKernel.isIntegralSum(physical));
         long partialBytes = decision.temporaryBytes;
-        assertTrue(physical.resources.parallelPrefixTemporaryBytes
-                >= table.size() * 24L);
+        assertEquals(0L, physical.resources.parallelPrefixTemporaryBytes);
         assertTrue(partialBytes > 0L);
         assertTrue(partialBytes < table.size() * 4L);
-        assertEquals(
-                physical.resources.temporaryBytes
-                        - physical.resources.parallelPrefixTemporaryBytes
-                        + partialBytes,
-                refined.resources.temporaryBytes);
+        assertEquals(partialBytes, physical.resources.temporaryBytes);
+    }
+
+    @Test
+    void vectorParallelScratchIsAdmittedBeforePoolOrDataWork() {
+        long budget = 64L << 20;
+        GlobalMemoryManager memory = new GlobalMemoryManager(budget);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        try {
+            GeneratedTable table = new GeneratedTable(
+                    testGroup(memory, pool),
+                    testLayout(), 128, MutationFaultInjector.NONE);
+            for (int index = 0; index < 8_192; index++) {
+                add(table, index + 1L, "bucket", index % 1_000, null);
+            }
+            LogicalRowPlan planningFrontend = LogicalRowPlan.tableScan(table)
+                    .fieldProjection(0).parallel();
+            CanonicalRowOperation source = CanonicalRowLowering.source(
+                    table, planningFrontend);
+            BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
+                    source,
+                    table,
+                    table.layout(),
+                    table.rootForTesting(),
+                    io.github.somaruntime.soma.SomaOperation.QUERY,
+                    new Object());
+            CanonicalPrimitiveOperation operation =
+                    CanonicalPrimitiveLowering.operation(
+                            PrimitivePipelineCapture.row(
+                                    planningFrontend,
+                                    PrimitiveValueKind.LONG,
+                                    (GeneratedCallbacks.RowToLongMapper)
+                                            () -> table.queryCursor().viewLong(0),
+                                    false,
+                                    0),
+                            CanonicalPrimitiveOperation.TerminalKind.SUM,
+                            null);
+            long scratch = CanonicalRowPlanner.plan(
+                    CanonicalRowPlanner.normalize(bound),
+                    CanonicalRowPhysicalRequest.primitive(operation, 0L))
+                    .resources.temporaryBytes;
+            long available = budget - memory.retainedBytes();
+            long blockerBytes = available - scratch + 1L;
+            assertTrue(scratch > 0L);
+            assertTrue(blockerBytes > 0L);
+            int submissions = pool.submissions.get();
+            try (GlobalMemoryManager.TemporaryLease ignored =
+                         memory.leaseTemporary(
+                                 blockerBytes,
+                                 io.github.somaruntime.soma.SomaOperation.QUERY,
+                                 new Object())) {
+                PrimitivePipelineCapture rejected = PrimitivePipelineCapture.row(
+                        LogicalRowPlan.tableScan(table)
+                                .fieldProjection(0).parallel(),
+                        PrimitiveValueKind.LONG,
+                        (GeneratedCallbacks.RowToLongMapper)
+                                () -> table.queryCursor().viewLong(0),
+                        false,
+                        0);
+                SomaOperationException failure = assertThrows(
+                        SomaOperationException.class,
+                        () -> PrimitivePlanOperation.sumIntegral(rejected));
+                assertEquals(SomaFailureCode.RESOURCE_LIMIT_EXCEEDED,
+                        failure.code());
+                assertEquals(submissions, pool.submissions.get());
+            }
+            assertEquals(0L, memory.temporaryBytes());
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     @Test
@@ -2684,6 +2941,24 @@ class GeneratedTableTest {
         return new GeneratedTable(
                 testGroup(new GlobalMemoryManager(64L << 20)), layout, 4,
                 MutationFaultInjector.NONE);
+    }
+
+    private static CanonicalRowPhysicalPlan primitivePhysicalPlan(
+            GeneratedTable table,
+            PrimitivePipelineCapture frontend,
+            CanonicalPrimitiveOperation.TerminalKind terminal) {
+        CanonicalPrimitiveOperation primitive =
+                CanonicalPrimitiveLowering.operation(frontend, terminal, null);
+        BoundCanonicalRowOperation bound = new BoundCanonicalRowOperation(
+                primitive.source,
+                table,
+                table.layout(),
+                table.rootForTesting(),
+                io.github.somaruntime.soma.SomaOperation.QUERY,
+                new Object());
+        return CanonicalRowPlanner.plan(
+                CanonicalRowPlanner.normalize(bound),
+                CanonicalRowPhysicalRequest.primitive(primitive, 0L));
     }
 
     private static GeneratedTableLayout joinBoundLayout() {
