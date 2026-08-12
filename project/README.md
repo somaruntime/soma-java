@@ -11,7 +11,7 @@ Owner：SOMA Java 当前项目事实与内部文档路由
 
 ## 当前结论
 
-SOMA（State-Oriented Memory Architecture）已经在 clean-slate V1 Blueprint 下完成 I0–I8
+SOMA（Scheme-Oriented Memory Architecture）已经在 clean-slate V1 Blueprint 下完成 I0–I8
 implementation 与 qualification：
 
 - 正式 Blueprint、九个 Design Owner、I0–I8 Engineering Plan 和 G1–G10 Gate 已生效；
@@ -125,7 +125,7 @@ Blueprint
 
 ## 固定产品身份
 
-- 品牌：SOMA（State-Oriented Memory Architecture）；
+- 品牌：SOMA（Scheme-Oriented Memory Architecture）；
 - repository：`somaruntime/soma-java`；
 - copyright owner / maintainer / publishing identity：ArthurFeng；
 - Java package / Maven group：`io.github.somaruntime.soma`；

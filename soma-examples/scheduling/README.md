@@ -1,7 +1,7 @@
 # FJSP scheduling reference application
 
 这是一个按真实项目边界组织的 Flexible Job Shop Scheduling Problem（FJSP）reference
-application，不是只展示几个 API 的片段式 demo。它使用 SOMA（State-Oriented Memory
+application，不是只展示几个 API 的片段式 demo。它使用 SOMA（Scheme-Oriented Memory
 Architecture）建模求解过程中的运行时状态，并以确定性的 machine-first FCFS + SPT 构造式规则
 完成完整排程。
 

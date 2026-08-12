@@ -90,7 +90,7 @@ planning 或 reference differential 时读取
 
 ## 固定身份与边界
 
-- 产品品牌为 SOMA（State-Oriented Memory Architecture）；
+- 产品品牌为 SOMA（Scheme-Oriented Memory Architecture）；
 - repository 为 `somaruntime/soma-java`；
 - copyright owner、publishing identity 和 maintainer 为 ArthurFeng；
 - Java package / Maven group baseline 为 `io.github.somaruntime.soma`；

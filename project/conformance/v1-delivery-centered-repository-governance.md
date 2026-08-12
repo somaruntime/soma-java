@@ -13,7 +13,7 @@ Owner：delivery-centered repository structure、入口与 executable quality in
 本次治理在不改变 V1 Blueprint/Design、public/generated API、production artifact topology 和
 release authorization boundary 的前提下，将仓库默认叙事从 I0–I8 实施过程转为产品交付：
 
-- 根 README 首先解释 SOMA（State-Oriented Memory Architecture）、适用场景、能力、边界与快速开始；
+- 根 README 首先解释 SOMA（Scheme-Oriented Memory Architecture）、适用场景、能力、边界与快速开始；
 - Library user、Codex/Agent、Product Owner/维护者拥有三个清晰入口；
 - `project/` 继续保存 Blueprint、Design、Engineering 与 Conformance，但不再主导根 README；
 - `config/` 退出，内容按真实 Owner 迁入 `build-support/linkage` 与 `build-support/delivery`；

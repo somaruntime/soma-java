@@ -8,7 +8,7 @@
 
 Owner：SOMA Java V1 产品意图、用户模型、能力边界与成功标准
 
-最后审查日期：2026-08-11
+最后审查日期：2026-08-12
 
 ## 1. 文档责任
 
@@ -22,7 +22,7 @@ Examples 都是角色投影，不得成为第二份 Blueprint 或 Design。
 
 ## 2. 产品定义
 
-SOMA（State-Oriented Memory Architecture）是嵌入 Java application、运行在单 JVM 进程内、面向 schema-known mutable
+SOMA（Scheme-Oriented Memory Architecture）是嵌入 Java application、运行在单 JVM 进程内、面向 schema-known mutable
 Tables 的编译式列式计算引擎：
 
 > Application 使用自然 Java object、generated Table/Field/Index API 和 Stream-like
