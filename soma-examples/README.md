@@ -7,7 +7,7 @@ project。它们只使用 SOMA public/generated Java 8 API，并展示 applicati
 | Project | 重点 |
 |---|---|
 | [`scheduling`](scheduling/README.md) | 标准 100K-operation FJSP、四张 runtime Table、FCFS + SPT 与自然增量 waiting mutation |
-| [`simulation`](simulation/README.md) | 显式事件顺序、detached decision 与分步状态迁移 |
+| [`simulation`](simulation/README.md) | Grassing空间个体仿真、两张runtime Table、五阶段tick、UI/headless与确定性验证 |
 | [`real-time-dispatch`](real-time-dispatch/README.md) | Index 缩窄、typed Join、显式并行与外部派工边界 |
 
 三个 project 都保持 schema 与 application responsibility 分离，但不会为了目录整齐强迫不同规模的

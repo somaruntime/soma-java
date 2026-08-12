@@ -58,18 +58,20 @@ run_example() {
     module=$1
     main_class=$2
     expected=$3
-    output=$("$java_cmd" -Xms128m -Xmx1g \
+    shift 3
+    output=$("$java_cmd" -Djava.awt.headless=true -Xms128m -Xmx1g \
         -cp "$repo_root/soma-examples/$module/target/classes:$runtime_jar" \
-        "$main_class")
+        "$main_class" "$@")
     echo "$output"
-    echo "$output" | grep -qx "$expected"
+    echo "$output" | grep -Fqx "$expected"
 }
 run_example scheduling \
     io.github.somaruntime.examples.scheduling.application.SchedulingMain \
     'scheduling-reference: PASS'
 run_example simulation \
     io.github.somaruntime.examples.simulation.application.SimulationMain \
-    'simulation-reference: PASS'
+    'simulation-reference: PASS' \
+    --headless --ticks=10
 run_example real-time-dispatch \
     io.github.somaruntime.examples.realtimedispatch.application.RealTimeDispatchMain \
     'real-time-dispatch-reference: PASS'
@@ -109,6 +111,31 @@ find soma-examples/scheduling/src/main/java "$generated" \
     io.github.somaruntime.examples.scheduling.application.SchedulingMain \
     | grep -qx 'scheduling-reference: PASS'
 
+simulation_classes="$work_root/simulation-classes"
+simulation_generated="$work_root/simulation-generated"
+simulation_schema_sources="$work_root/simulation-schema-sources.txt"
+simulation_all_sources="$work_root/simulation-all-sources.txt"
+mkdir -p "$simulation_classes" "$simulation_generated"
+find soma-examples/simulation/src/main/java/io/github/somaruntime/examples/simulation/runtime/schema \
+    -name '*.java' -type f -print | LC_ALL=C sort > "$simulation_schema_sources"
+"$javac_cmd" -source 8 -target 8 -encoding UTF-8 \
+    -classpath "$packaged_runtime" \
+    -processorpath "$packaged_processor:$packaged_runtime" \
+    -processor io.github.somaruntime.soma.processor.SomaProcessor \
+    -Asoma.fullSourceSet=true -d "$simulation_classes" -s "$simulation_generated" \
+    @"$simulation_schema_sources"
+find soma-examples/simulation/src/main/java "$simulation_generated" \
+    -name '*.java' -type f -print | LC_ALL=C sort > "$simulation_all_sources"
+"$javac_cmd" -source 8 -target 8 -encoding UTF-8 -proc:none \
+    -classpath "$simulation_classes:$packaged_runtime" \
+    -d "$simulation_classes" @"$simulation_all_sources"
+"$java_cmd" -Djava.awt.headless=true -Xms128m -Xmx1g \
+    -cp "$simulation_classes:$packaged_runtime" \
+    io.github.somaruntime.examples.simulation.application.SimulationMain \
+    --headless --ticks=10 \
+    --config="$repo_root/soma-examples/simulation/config/grassing.properties" \
+    | grep -Fqx 'simulation-reference: PASS'
+
 archive=
 for candidate in "$package_root"/soma-java-*-source-bundle.tar.gz; do archive=$candidate; done
 test -s "$archive"
@@ -120,6 +147,8 @@ tar -tzf "$archive" | grep -q '/soma-runtime/src/main/'
 tar -tzf "$archive" | grep -q '/soma-processor/src/main/'
 tar -tzf "$archive" | grep -q '/soma-examples/scheduling/src/main/'
 tar -tzf "$archive" | grep -q '/soma-examples/scheduling/config/fjsp-standard.properties'
+tar -tzf "$archive" | grep -q '/soma-examples/simulation/src/main/'
+tar -tzf "$archive" | grep -q '/soma-examples/simulation/config/grassing.properties'
 
 (cd "$package_root" && if command -v sha256sum >/dev/null 2>&1; then
     sha256sum -c checksums.sha256

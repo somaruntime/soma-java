@@ -45,9 +45,9 @@ mutation即时局部维护，Selection mutation一次candidate rebuild。
 已经关闭replacement与性能防退化证据；正式
 [S1-S6计划](project/engineering/canonical-ir-execution-engine-implementation-plan.md)保持冻结基线，实际active
 状态由Conformance拥有。
-当前唯一active bounded Temporary是
-[SOMA Grassing空间个体仿真Reference Application与性能治理](project/temp/soma-grassing-simulation-reference-application-governance/README.md)，
-状态为`ACTIVE_DESIGN / SELF_REVIEW_PASS / OWNER_APPROVAL_REQUIRED / IMPLEMENTATION_NOT_STARTED`；
+当前没有active bounded Temporary；
+[SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
+已正式晋升并`PASS`，UI/headless、正确性、Application profile优化与source/package delivery已闭合；
 [SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)仅为queued intent，不是Design或
 implementation input。
 千万行组合负载治理由
@@ -130,9 +130,9 @@ planning 或 reference differential 时读取
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前唯一active topic是
-  [SOMA Grassing空间个体仿真Reference Application与性能治理](project/temp/soma-grassing-simulation-reference-application-governance/README.md)；
-  它仅授权Candidate Design审核，不授权implementation或SOMA runtime/processor修改；
+- `project/temp/`当前没有active topic；Grassing治理由
+  [正式Conformance记录](project/conformance/v1-grassing-simulation-reference-application-governance.md)拥有，
+  Candidate Temporary已完成replacement closure；
   [SOMA Engine产品构思](project/temp/soma-engine-product-concept/README.md)是明确标记的queued intent，
   不得作为当前Design或implementation input；
   新的重大长期变化先进入bounded Temporary，经Product Owner裁决和验证后晋升，再删除Temporary；

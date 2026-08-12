@@ -48,6 +48,9 @@ implementation 与 qualification：
 - [Scheduling reference application治理](conformance/v1-scheduling-reference-application-governance.md)
   已`PASS`：标准100K FJSP使用四张runtime Table和自然waiting point `add/remove`完成FCFS + SPT，
   fixed slot与application frontier workaround已退出；
+- [Grassing Simulation reference application治理](conformance/v1-grassing-simulation-reference-application-governance.md)
+  已`PASS`：两张runtime Table、五阶段tick、UI/headless、deterministic validation、Application JFR/A-B
+  与source/package delivery闭合；
 - GitHub Release/Package、Maven publication、签名和正式 release 声明仍未授权。
 
 根 [`README`](../README.md) 是 Library user 入口。本目录集中服务 Product Owner/维护者和
@@ -84,6 +87,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | 全面性能前沿、10K/1M/10M、Profile 与剩余边界 | [Performance frontier qualification](conformance/v1-performance-frontier-qualification.md) |
 | 32位结构域、即时增量 Key/Index 与 mutation A/B | [Incremental structural mutation qualification](conformance/v1-incremental-structural-mutation-governance.md) |
 | 标准100K FJSP、Solver架构与自然waiting mutation回归 | [Scheduling reference governance](conformance/v1-scheduling-reference-application-governance.md) |
+| Grassing空间仿真、UI/headless与Application性能治理 | [Grassing simulation governance](conformance/v1-grassing-simulation-reference-application-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -107,9 +111,9 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic或明确标记的queued intent；当前唯一active topic是
-  [SOMA Grassing空间个体仿真Reference Application与性能治理](temp/soma-grassing-simulation-reference-application-governance/README.md)，
-  处于Candidate Design审核阶段，未授权implementation或SOMA runtime/processor修改；
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active topic；
+  Grassing治理已由
+  [正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并退役Temporary；
   [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或
   implementation input。
 
@@ -142,10 +146,9 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前唯一active bounded topic是
-[SOMA Grassing空间个体仿真Reference Application与性能治理](temp/soma-grassing-simulation-reference-application-governance/README.md)；
-它处于`ACTIVE_DESIGN / SELF_REVIEW_PASS / OWNER_APPROVAL_REQUIRED / IMPLEMENTATION_NOT_STARTED`，不是正式Design或
-implementation authorization。Canonical IR与执行引擎治理已由
+当前没有active bounded topic；Grassing治理已由
+[正式Conformance记录](conformance/v1-grassing-simulation-reference-application-governance.md)接管并完成
+Temporary replacement closure。Canonical IR与执行引擎治理已由
 [正式Conformance记录](conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)完成Owner晋升、
 Baseline Freeze、readiness与Temporary replacement closure；production implementation已授权并进入S1。
 [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)独立保留为queued intent。

@@ -15,12 +15,18 @@ three reference applications
 
 - `scheduling`：Medium shape，覆盖 ingest、scan、Key/Index、Join、top、GroupBy 和 point update；
 - `simulation`：Narrow shape，覆盖 ingest、scan、Key/Index、stable top 和 remove；
+- `simulation-application`：完整Grassing headless journey，覆盖两张Table、五阶段tick、
+  point/Selection mutation、Index迁移、GroupBy、Join、统计、内存与确定性fingerprint；
 - `real-time-dispatch`：Reference-mixed shape，覆盖 ordinary Object、scan、Key/Index、Join 和 remove。
 
 `scheduling` benchmark 为保持既有纵向性能时间序列，拥有独立的 non-production fixture schema；
 它不再借用 FJSP application 的 runtime schema。完整 100K FJSP 的模型、求解和结果正确性由
 [`soma-examples/scheduling`](../soma-examples/scheduling/README.md)负责，benchmark 继续稳定拥有
 ingest/scan/Join/GroupBy 等 kernel 对照，二者不形成互相牵制的 schema 合同。
+
+同样，历史`simulation` Narrow benchmark现在拥有自己的non-production Event/State fixture，保持既有
+scenario identity、fingerprint与比较序列；完整Grassing Example由独立
+`simulation-application` journey测量，不把新业务循环冒充旧kernel。
 
 标准FJSP另有一个只服务治理的warm harness：
 

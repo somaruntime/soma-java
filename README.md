@@ -479,7 +479,7 @@ runtime schema、ChildTable、任意多路/non-equality Join 或 public physical
 | Project | 展示内容 |
 |---|---|
 | [`scheduling`](soma-examples/scheduling/README.md) | 标准 100K-operation FJSP、四张 runtime Table、FCFS + SPT 与自然 waiting `add/remove` |
-| [`simulation`](soma-examples/simulation/README.md) | 事件顺序、detached decision、point update/remove 与补偿边界 |
+| [`simulation`](soma-examples/simulation/README.md) | Grassing空间个体仿真、两张runtime Table、五阶段tick、UI/headless与确定性验证 |
 | [`real-time-dispatch`](soma-examples/real-time-dispatch/README.md) | Index 缩窄、typed Join、显式并行与 external dispatch boundary |
 
 从仓库根目录构建并运行全部 reference application：

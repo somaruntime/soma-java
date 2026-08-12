@@ -40,6 +40,8 @@ heap_initial=${SOMA_BENCHMARK_XMS:-2g}
 heap_maximum=${SOMA_BENCHMARK_XMX:-8g}
 memory_budget=${SOMA_BENCHMARK_MEMORY_BUDGET_BYTES:-6442450944}
 memory_attribution=${SOMA_BENCHMARK_MEMORY_ATTRIBUTION:-0}
+simulation_population=${SOMA_BENCHMARK_SIMULATION_POPULATION:-}
+simulation_ticks=${SOMA_BENCHMARK_SIMULATION_TICKS:-}
 
 case "$rows" in *[!0-9]*|'') echo "benchmark: invalid row count" >&2; exit 1 ;; esac
 case "$runs" in *[!0-9]*|'') echo "benchmark: invalid run count" >&2; exit 1 ;; esac
@@ -48,6 +50,12 @@ case "$inner_warmups" in *[!0-9]*|'') echo "benchmark: invalid inner warmups" >&
 case "$inner_samples" in *[!0-9]*|'') echo "benchmark: invalid inner samples" >&2; exit 1 ;; esac
 case "$memory_budget" in *[!0-9]*|'') echo "benchmark: invalid memory budget" >&2; exit 1 ;; esac
 case "$memory_attribution" in 0|1) ;; *) echo "benchmark: invalid memory attribution flag" >&2; exit 1 ;; esac
+case "$simulation_population" in ''|*[!0-9]*)
+    test -z "$simulation_population" || { echo "benchmark: invalid simulation population" >&2; exit 1; } ;;
+esac
+case "$simulation_ticks" in ''|*[!0-9]*)
+    test -z "$simulation_ticks" || { echo "benchmark: invalid simulation ticks" >&2; exit 1; } ;;
+esac
 test "$rows" -ge 10000 && test "$rows" -le 20000000
 test "$runs" -ge 1 && test "$runs" -le 7
 test "$parallelism" -ge 1 && test "$parallelism" -le 16
@@ -69,7 +77,7 @@ done
 test -n "$scenarios"
 for scenario in $scenarios; do
     case "$scenario" in
-        scheduling|simulation|real-time-dispatch|type-kernel|frontier-source|frontier-stateful|frontier-relation|frontier-mutation) ;;
+        scheduling|simulation|simulation-application|real-time-dispatch|type-kernel|frontier-source|frontier-stateful|frontier-relation|frontier-mutation) ;;
         *) echo "benchmark: invalid scenario: $scenario" >&2; exit 1 ;;
     esac
 done
@@ -201,6 +209,14 @@ run_benchmark() {
     if [ "$memory_attribution" = 1 ]; then
         set -- "$@" -Dsoma.benchmark.memoryAttribution=true
     fi
+    if [ "$scenario" = simulation-application ]; then
+        if [ -n "$simulation_population" ]; then
+            set -- "$@" "-Dsoma.benchmark.simulation.population=$simulation_population"
+        fi
+        if [ -n "$simulation_ticks" ]; then
+            set -- "$@" "-Dsoma.benchmark.simulation.ticks=$simulation_ticks"
+        fi
+    fi
     if [ "$implementation" = soma-auto ] && [ "$run_number" -eq 1 ]; then
         if [ "$profiler" = jfr ]; then
             set -- "$@" -XX:+UnlockCommercialFeatures -XX:+FlightRecorder \
@@ -255,6 +271,15 @@ run_named_scenario() {
         simulation)
             run_benchmark simulation \
                 io.github.somaruntime.benchmarks.simulation.SimulationBenchmarkMain \
+                "$implementation" "$run_number"
+            ;;
+        simulation-application)
+            case "$implementation" in
+                soma-auto|soma-off) ;;
+                *) echo "benchmark: $implementation is not defined for simulation-application" >&2; exit 1 ;;
+            esac
+            run_benchmark simulation-application \
+                io.github.somaruntime.benchmarks.simulation.GrassingApplicationBenchmarkMain \
                 "$implementation" "$run_number"
             ;;
         real-time-dispatch)

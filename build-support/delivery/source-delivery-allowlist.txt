@@ -27,6 +27,7 @@ soma-examples/scheduling/config
 soma-examples/scheduling/src/main
 soma-examples/simulation/pom.xml
 soma-examples/simulation/README.md
+soma-examples/simulation/config
 soma-examples/simulation/src/main
 soma-examples/real-time-dispatch/pom.xml
 soma-examples/real-time-dispatch/README.md
