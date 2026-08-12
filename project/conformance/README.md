@@ -4,7 +4,7 @@
 
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
 Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
-Vectorized Pipeline治理`ACTIVE_R2_CANDIDATE_DESIGN / IMPLEMENTATION_NOT_AUTHORIZED`
+Vectorized Pipeline治理`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_READY / IMPLEMENTATION_NOT_AUTHORIZED`
 
 正式事实源：是
 
@@ -60,7 +60,8 @@ Canonical IR implementation   S1-S6_COMPLETED / QUALIFIED
 Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
-Active bounded topic          VECTORIZED_PIPELINE_R2_CANDIDATE_DESIGN
+Active bounded topic          VECTORIZED_PIPELINE_DESIGN_FROZEN / IMPLEMENTATION_READY /
+                              IMPLEMENTATION_NOT_AUTHORIZED
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -198,8 +199,8 @@ Historical inputs：
 
 Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
 [Vectorized Physical Pipeline能力扩展](../temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)
-的`R2_CANDIDATE_DESIGN`；它是active governance与候选事实Owner，但不是正式Design、Baseline Freeze、
-Readiness或implementation input；
+的`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_READY / IMPLEMENTATION_NOT_AUTHORIZED`；它拥有本topic冻结的
+Temporary Design与VP1-VP3 implementation input，但不是正式Design、production implementation或历史授权扩张；
 Grassing治理已由
 [正式Conformance记录](v1-grassing-simulation-reference-application-governance.md)接管并完成
 replacement closure。

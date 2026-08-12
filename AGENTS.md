@@ -52,8 +52,9 @@ sidecar projection闭合普通PLAIN路径，encoded/indexed fallback保留candid
 decision，row/chunk两条parallel路径共享同一bounded caller-participating lifecycle；
 [后续能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)已成为当前唯一
 active bounded Temporary，状态为
-`ACTIVE / R2_CANDIDATE_DESIGN / NOT_FROZEN / IMPLEMENTATION_NOT_AUTHORIZED`；当前只允许inventory、
-Candidate Design与bounded feasibility，不允许修改production source或正式Design；
+`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_READY / IMPLEMENTATION_NOT_AUTHORIZED`；R2设计已经完成并收窄为
+VP1 encoded integral、VP2 ordered `long[]`与VP3 closure，Product Owner另行授权前不得修改production
+source或正式Design；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
 [SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
@@ -98,10 +99,13 @@ planning 或 reference differential 时读取
 解释为active migration或静默恢复旧adapter。
 
 涉及Vectorized Physical Pipeline、representation-aware kernel或morsel-driven execution时，必须读取
-[当前active Temporary](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)与
-[第一阶段正式晋升记录](project/conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)。R2退出前
-不得修改production source；不得把active Candidate Design外推为正式Design、Freeze或implementation
-authorization。
+[当前active Temporary](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)、
+[冻结临时设计](project/temp/soma-vectorized-physical-pipeline-expansion-governance/design.md)、
+[冻结实施计划](project/temp/soma-vectorized-physical-pipeline-expansion-governance/implementation-plan.md)、
+[Freeze/Readiness记录](project/temp/soma-vectorized-physical-pipeline-expansion-governance/baseline-freeze-and-readiness.md)
+与[第一阶段正式晋升记录](project/conformance/v1-vectorized-physical-pipeline-phase1-promotion.md)。临时设计已经
+冻结且readiness为`READY`，但没有implementation authorization；不得提前修改production source，也不得
+把Temporary外推为正式Design。
 
 实施slice或跨Design审查还必须读取
 [核心抽象与叙事Design](project/design/core-abstractions-and-narratives.md)中与该slice对应的A/N/INV
@@ -148,7 +152,7 @@ authorization。
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
 - `project/temp/`当前唯一active topic是
   [Vectorized Physical Pipeline能力扩展治理](project/temp/soma-vectorized-physical-pipeline-expansion-governance/README.md)，
-  状态为`ACTIVE / R2_CANDIDATE_DESIGN / NOT_FROZEN / IMPLEMENTATION_NOT_AUTHORIZED`；
+  状态为`DESIGN_BASELINE_FROZEN / IMPLEMENTATION_READY / IMPLEMENTATION_NOT_AUTHORIZED`；
   Grassing治理由
   [正式Conformance记录](project/conformance/v1-grassing-simulation-reference-application-governance.md)拥有，
   Candidate Temporary已完成replacement closure；
