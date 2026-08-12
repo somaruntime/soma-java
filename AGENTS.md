@@ -53,6 +53,10 @@ decision，row/chunk两条parallel路径共享同一bounded caller-participating
 [后续能力扩展治理](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)也已正式晋升并
 `PASS`：VP1 encoded-native integral、VP2 ordered `long[]` representation-native/parallel与VP3全局资格、
 正式Owner晋升和Temporary replacement closure均已完成，当前没有active implementation slice；
+[SOMA Physical Execution Engine M2全局架构治理](project/temp/soma-physical-execution-engine-m2-governance/README.md)
+已经完成current-state audit、Candidate Design、两个有限纵向验证、过度设计审查与P1-P6计划，状态为
+`FROZEN_CANDIDATE / READY_FOR_PROMOTION_REVIEW / IMPLEMENTATION_NOT_AUTHORIZED`；它是当前唯一active
+bounded topic，不是正式Design或production implementation input；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
 [SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
@@ -103,6 +107,13 @@ planning 或 reference differential 时读取
 [扩展正式治理记录](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)。VP1-VP3已
 完成，不得重新解释为active migration；任何能力矩阵扩张仍须建立新的bounded Temporary与授权。
 
+涉及Physical Pipeline、Segment、Breaker、Kernel、ExecutionFrame或Morsel全局架构时，还必须读取
+[M2专题入口](project/temp/soma-physical-execution-engine-m2-governance/README.md)、
+[冻结候选设计](project/temp/soma-physical-execution-engine-m2-governance/design.md)、
+[实施计划](project/temp/soma-physical-execution-engine-m2-governance/implementation-plan.md)与
+[Baseline Freeze/readiness](project/temp/soma-physical-execution-engine-m2-governance/baseline-freeze-and-readiness.md)。
+该Candidate尚未正式晋升或获得implementation authorization，不得直接修改production实现。
+
 实施slice或跨Design审查还必须读取
 [核心抽象与叙事Design](project/design/core-abstractions-and-narratives.md)中与该slice对应的A/N/INV
 章节；不要求为局部文档任务默认加载全文。
@@ -146,7 +157,9 @@ planning 或 reference differential 时读取
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前没有active topic；Vectorized Physical Pipeline扩展已经由
+- `project/temp/`当前唯一active bounded topic是
+  [SOMA Physical Execution Engine M2治理](project/temp/soma-physical-execution-engine-m2-governance/README.md)，
+  状态为frozen Candidate且未授权implementation；Vectorized Physical Pipeline扩展已经由
   [正式Conformance记录](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成
   Temporary replacement closure；
   Grassing治理由
@@ -183,7 +196,8 @@ dependency或plugin expansion。
 ## 实施准入与推进
 
 - 当前 implementation authorization 已由I0-I8与Canonical IR/Execution S1-S6完成履行；全部slice与
-  G1-G10均已关闭，当前没有active implementation slice；
+  G1-G10均已关闭，当前没有active implementation slice；上述历史授权不扩张到Physical Execution
+  Engine M2 Candidate，其P1-P6仍为`IMPLEMENTATION_NOT_AUTHORIZED`；
 - Canonical IR/Execution S1-S6的授权由
   [正式Conformance记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)拥有；
   冻结Engineering Plan中的准入快照不作为current authorization状态源；

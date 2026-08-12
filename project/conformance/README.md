@@ -4,7 +4,8 @@
 
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
 Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
-Vectorized Pipeline扩展`PASS / FORMALLY_PROMOTED / VP1-VP3_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`
+Vectorized Pipeline扩展`PASS / FORMALLY_PROMOTED / VP1-VP3_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
+Physical Execution Engine M2 `FROZEN_CANDIDATE / IMPLEMENTATION_NOT_AUTHORIZED`
 
 正式事实源：是
 
@@ -61,7 +62,8 @@ Canonical IR implementation   S1-S6_COMPLETED / QUALIFIED
 Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
-Active bounded topic          NONE
+Active bounded topic          PHYSICAL_EXECUTION_ENGINE_M2 / FROZEN_CANDIDATE /
+                              IMPLEMENTATION_NOT_AUTHORIZED
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -206,7 +208,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前没有active bounded Temporary；
+Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
+[SOMA Physical Execution Engine M2全局架构治理](../temp/soma-physical-execution-engine-m2-governance/README.md)：
+current-state audit、Candidate Design、有限验证、过度设计审查与P1-P6计划已经完成并冻结；它不是正式
+Design或current implementation input，尚未获得implementation authorization。
 Vectorized Physical Pipeline扩展已经由
 [正式Conformance记录](v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成VP1-VP3、正式Owner
 晋升与replacement closure；Product Owner未授权范围扩张或release。Grassing治理已由
