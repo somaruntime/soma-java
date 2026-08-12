@@ -5,7 +5,7 @@
 状态：post-implementation全局完整性审查`PASS`；I0-I8 `COMPLETED`；G1-G10 `PASS`；
 Canonical IR/Execution M1 `FORMALLY_PROMOTED / S1-S6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
 Vectorized Pipeline扩展`PASS / FORMALLY_PROMOTED / VP1-VP3_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`；
-Physical Execution Engine M2 `FORMALLY_PROMOTED / IMPLEMENTATION_AUTHORIZED / P1-P5_COMPLETED / P6_ACTIVE`
+Physical Execution Engine M2 `FORMALLY_PROMOTED / IMPLEMENTATION_FULFILLED / P1-P6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`
 
 正式事实源：是
 
@@ -37,7 +37,7 @@ Core abstraction promotion    PASS
 I0-I8 authorization           FULFILLED (granted 2026-08-03)
 Production source/reactor      PRESENT (I0-I8 scope)
 Generated consumer API         PRESENT (V1 final functional/generated surface)
-Active implementation slice   M2_P6
+Active implementation slice   NONE
 G1                             PASS
 G2                             PASS
 G3                             PASS
@@ -63,8 +63,8 @@ Canonical IR implementation   S1-S6_COMPLETED / QUALIFIED
 Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
-Active bounded topic          PHYSICAL_EXECUTION_ENGINE_M2 / FORMALLY_PROMOTED /
-                              IMPLEMENTATION_AUTHORIZED / P1-P5_COMPLETED / P6_ACTIVE
+Physical execution M2         PASS / P1-P6_COMPLETED / TEMPORARY_RETIRED
+Active bounded topic          NONE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
 
@@ -116,6 +116,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
   HASH_AGGREGATE Breaker、typed Group state lifecycle、capacity hint与P4 evidence Owner；
 - [Physical Execution Engine M2 P5资格](physical-execution-engine-m2-p5-qualification.md)：bounded binary
   Relation topology、Mapped/Primitive/Group downstream、Selection mutation handoff与P5 evidence Owner；
+- [Physical Execution Engine M2 P6最终资格](physical-execution-engine-m2-p6-final-qualification.md)：
+  P1-P6全局topology、Java 8/full delivery、10K/1M/10M、三个reference application、replacement与
+  Temporary退役Owner；
 
 - [Vectorized Physical Pipeline第一阶段正式晋升](v1-vectorized-physical-pipeline-phase1-promotion.md)：
   finite primitive Chunk kernel、PhysicalPlan单次decision、Chunk-morsel partial、shared parallel lifecycle、
@@ -223,11 +226,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。当前唯一active bounded Temporary是
-[SOMA Physical Execution Engine M2全局架构治理](../temp/soma-physical-execution-engine-m2-governance/README.md)：
-current-state audit、Candidate Design、有限验证、过度设计审查与P1-P6计划已经完成并冻结；正式事实已由
-Design/Engineering与[M2晋升记录](v1-physical-execution-engine-m2-promotion-readiness.md)接管，Temporary只保留
-provenance并等待P6 replacement closure。当前P1已获授权并激活。
+Historical record不能覆盖current Blueprint/Design/Readiness。Physical Execution Engine M2已由
+[最终P6资格](physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6、正式Owner、全量证据与
+Temporary replacement closure；当前没有active bounded Temporary。Candidate fingerprint仍由
+[晋升记录](v1-physical-execution-engine-m2-promotion-readiness.md)保存。
 Vectorized Physical Pipeline扩展已经由
 [正式Conformance记录](v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成VP1-VP3、正式Owner
 晋升与replacement closure；Product Owner未授权范围扩张或release。Grassing治理已由

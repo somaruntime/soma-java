@@ -141,13 +141,13 @@ claim。
 当前 executable fact、性能/场景证据及publication边界由
 [Conformance](../conformance/README.md)唯一记录，不由Design复制。
 
-Canonical Logical IR与执行引擎M1 responsibility baseline已正式晋升并冻结；Physical Execution Engine
-M2的Pipeline/Segment/Breaker/Kernel/Frame/Morsel责任也已正式晋升，当前implementation状态由
-[M2 Conformance](../conformance/v1-physical-execution-engine-m2-promotion-readiness.md)拥有。其
-[S1-S6 implementation plan](../engineering/canonical-ir-execution-engine-implementation-plan.md)保留实施前
-冻结快照，[最终S6资格](../conformance/canonical-ir-execution-s6-final-qualification.md)已经证明production
-replacement、performance guard与Owner closure全部`PASS`。当前实现状态由Conformance拥有，不反向改写
-已冻结Design或Engineering Plan。
+Canonical Logical IR与执行引擎M1 responsibility baseline已正式晋升，
+[最终S6资格](../conformance/canonical-ir-execution-s6-final-qualification.md)已证明production replacement、
+performance guard与Owner closure全部`PASS`。Physical Execution Engine M2的Pipeline/Segment/
+Breaker/Kernel/Frame/Morsel责任也已晋升并实施，
+[最终P6资格](../conformance/physical-execution-engine-m2-p6-final-qualification.md)已关闭P1-P6、全局证据、
+Owner与Temporary replacement closure。M1和M2冻结Engineering Plan只保留已履行的实施顺序；
+当前状态由Conformance拥有，不反向改写已冻结Design。
 
 Design仍是implementation的上游合同；后续优化只能在Owner边界内替换内部机制，不能把既有证据
 反向解释为新的产品语义、正式release、跨硬件SLA或一亿行性能承诺。

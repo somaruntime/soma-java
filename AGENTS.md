@@ -60,8 +60,9 @@ decision，row/chunk两条parallel路径共享同一bounded caller-participating
 、[P2资格](project/conformance/physical-execution-engine-m2-p2-qualification.md)、
 [P3资格](project/conformance/physical-execution-engine-m2-p3-qualification.md)与
 [P4资格](project/conformance/physical-execution-engine-m2-p4-qualification.md)、
-[P5资格](project/conformance/physical-execution-engine-m2-p5-qualification.md)已`PASS`，当前P6是唯一active
-slice；Candidate Temporary只保存provenance；
+[P5资格](project/conformance/physical-execution-engine-m2-p5-qualification.md)与
+[最终P6资格](project/conformance/physical-execution-engine-m2-p6-final-qualification.md)已`PASS`；P1-P6全部完成，
+Candidate Temporary已退役，当前没有active implementation slice；
 [Selection mutation write-set治理](project/conformance/v1-selection-mutation-write-set-governance.md)
 已正式晋升并`PASS`，PLAIN update/remove不再复制全部touched-Chunk leaves；
 [SOMA Grassing空间个体仿真Reference Application与性能治理](project/conformance/v1-grassing-simulation-reference-application-governance.md)
@@ -160,9 +161,9 @@ Temporary只用于provenance，不覆盖正式Owner或current implementation sta
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前唯一active bounded topic是
-  [SOMA Physical Execution Engine M2治理](project/temp/soma-physical-execution-engine-m2-governance/README.md)，
-  已正式晋升并授权实施，Temporary只等待P6 replacement closure；Vectorized Physical Pipeline扩展已经由
+- `project/temp/`当前没有active bounded topic；Physical Execution Engine M2已由
+  [最终P6资格](project/conformance/physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6与
+  Temporary replacement closure；Vectorized Physical Pipeline扩展已经由
   [正式Conformance记录](project/conformance/v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成
   Temporary replacement closure；
   Grassing治理由
@@ -198,8 +199,8 @@ dependency或plugin expansion。
 
 ## 实施准入与推进
 
-- 当前 implementation authorization 已由I0-I8与Canonical IR/Execution S1-S6完成履行；Physical
-  Execution Engine M2另由2026-08-12 Product Owner授权，P1-P5已完成，P6是唯一active slice；
+- 当前 implementation authorization 已由I0-I8、Canonical IR/Execution S1-S6与Physical
+  Execution Engine M2 P1-P6完成履行；当前没有active implementation slice；
 - Canonical IR/Execution S1-S6的授权由
   [正式Conformance记录](project/conformance/v1-canonical-ir-execution-engine-promotion-readiness.md)拥有；
   冻结Engineering Plan中的准入快照不作为current authorization状态源；

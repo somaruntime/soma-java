@@ -2,7 +2,7 @@
 
 类型：Conformance / Formal Promotion / Baseline Freeze / Authorization
 
-状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / IMPLEMENTATION_AUTHORIZED / P1-P5_COMPLETED / P6_ACTIVE`
+状态：`PASS / FORMALLY_PROMOTED / BASELINE_FROZEN / IMPLEMENTATION_FULFILLED / P1-P6_COMPLETED`
 
 日期：2026-08-12
 
@@ -20,7 +20,7 @@ Formal Design promotion      PASS
 Formal baseline              FROZEN
 Implementation readiness     PASS
 Implementation authorization GRANTED (2026-08-12)
-Active slice                 P6
+Active slice                 NONE
 Release/publication          NOT_AUTHORIZED
 ```
 
@@ -32,8 +32,9 @@ Release/publication          NOT_AUTHORIZED
 soma-physical-execution-engine-m2-candidate:4a89960258ab3689a788d3e22b0a117587f4268bd92fc23841f973ea0bd942f7
 ```
 
-Candidate保留在`project/temp/soma-physical-execution-engine-m2-governance/`直到P6 replacement closure；
-实施期间它只保存设计过程和provenance，不再覆盖正式Owner或Engineering Plan。
+Candidate在P6 replacement closure前只保存设计过程与provenance；其稳定事实已由正式
+Design、Engineering和Conformance承接，Temporary源文档已在P6退役。上述fingerprint是冻结候选的持久
+provenance，不需要保留第二套可导航Design。
 
 ## 3. 正式Baseline
 
@@ -71,9 +72,8 @@ Reference独立性无法保持、resource admission无法在state前成立、证
 
 ## 6. 当前状态Owner
 
-本记录拥有promotion/readiness/authorization；[P1资格](physical-execution-engine-m2-p1-qualification.md)已经
-`PASS`，[P2资格](physical-execution-engine-m2-p2-qualification.md)、
-[P3资格](physical-execution-engine-m2-p3-qualification.md)和
-[P4资格](physical-execution-engine-m2-p4-qualification.md)与
-[P5资格](physical-execution-engine-m2-p5-qualification.md)也已`PASS`，当前P6 active。每个P1-P6资格记录拥有其implementation evidence；
-Engineering Plan只冻结顺序。P6完成前active bounded Temporary仍存在，完成后必须晋升稳定事实并删除。
+本记录拥有promotion/readiness/authorization provenance；[P1](physical-execution-engine-m2-p1-qualification.md)、
+[P2](physical-execution-engine-m2-p2-qualification.md)、[P3](physical-execution-engine-m2-p3-qualification.md)、
+[P4](physical-execution-engine-m2-p4-qualification.md)与[P5](physical-execution-engine-m2-p5-qualification.md)资格均已`PASS`；
+[最终P6资格](physical-execution-engine-m2-p6-final-qualification.md)拥有全局replacement、规模、交付与Temporary退役证据。
+P1-P6已全部履行，当前没有active implementation slice或active bounded topic。

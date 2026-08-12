@@ -2,7 +2,7 @@
 
 类型：Engineering Plan
 
-状态：`FROZEN_BASELINE / IMPLEMENTATION_AUTHORIZED / P1-P5_COMPLETED / P6_ACTIVE`
+状态：`FROZEN_BASELINE / IMPLEMENTATION_FULFILLED / P1-P6_COMPLETED / NO_ACTIVE_IMPLEMENTATION_SLICE`
 
 日期：2026-08-12
 
@@ -79,7 +79,8 @@ artifact、新dependency、SOMA Engine workflow或产品语义变化时立即停
 
 ## 6. Baseline provenance
 
-冻结Candidate与完整设计过程保存在
-[`project/temp/soma-physical-execution-engine-m2-governance/`](../temp/soma-physical-execution-engine-m2-governance/README.md)，
-正式设计由Planning、Execution、Architecture与Core Owners拥有。Current状态与每个slice证据由
-Conformance拥有；本计划冻结顺序，不作为完成状态的第二Owner。
+冻结Candidate fingerprint、Design/Engineering freeze-time SHA与授权边界由
+[正式晋升记录](../conformance/v1-physical-execution-engine-m2-promotion-readiness.md)保存；P1-P6最终实施与
+replacement closure由[最终资格](../conformance/physical-execution-engine-m2-p6-final-qualification.md)拥有。
+Candidate Temporary已完成使命并退役。正式设计由Planning、Execution、Architecture与Core
+Owners拥有；本计划只保留已履行的顺序、exit与stop rules，不作为current状态的第二Owner。
