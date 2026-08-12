@@ -100,13 +100,14 @@ final class SelectionRemovePlan {
         return sources[position];
     }
 
-    int[] sourceLocators() {
-        int[] result = new int[newSize];
+    int[] finalLocatorPlusOneByOld() {
+        int[] result = new int[oldSize];
         for (int locator = 0; locator < newSize; locator++) {
-            result[locator] = locator;
+            result[locator] = locator + 1;
         }
         for (int move = 0; move < holes.length; move++) {
-            result[holes[move]] = sources[move];
+            result[holes[move]] = 0;
+            result[sources[move]] = holes[move] + 1;
         }
         return result;
     }

@@ -137,20 +137,12 @@ final class TableChunkDirectory {
     }
 
     TableChunkDirectory copyForSelectionRemove(
-            IntLocatorBuffer selection,
-            int size,
+            SelectionRemovePlan plan,
             TypedValues scratch,
             Object provenance) {
-        int selected = selection.size();
-        int newSize = size - selected;
-        int[] removed = Arrays.copyOf(selection.backing(), selected);
-        Arrays.sort(removed);
-        for (int index = 0; index < removed.length; index++) {
-            if (removed[index] < 0 || removed[index] >= size
-                    || (index != 0 && removed[index] == removed[index - 1])) {
-                throw new AssertionError("invalid frozen Selection membership");
-            }
-        }
+        int selected = plan.removedCount();
+        int newSize = plan.newSize();
+        int size = plan.oldSize();
 
         int affectedLength = RowExecutionSupport.arrayLength(
                 CheckedLong.multiply(
@@ -159,8 +151,8 @@ final class TableChunkDirectory {
                 provenance);
         int[] affectedChunks = new int[affectedLength];
         int affected = 0;
-        for (int locator : removed) {
-            affectedChunks[affected++] = locator / chunkRows;
+        for (int position = 0; position < selected; position++) {
+            affectedChunks[affected++] = plan.removed(position) / chunkRows;
         }
         for (int locator = newSize; locator < size; locator++) {
             affectedChunks[affected++] = locator / chunkRows;
@@ -175,13 +167,10 @@ final class TableChunkDirectory {
             previousOrdinal = ordinal;
         }
 
-        int tail = size - 1;
-        for (int hole : removed) {
-            if (hole >= newSize) break;
-            while (Arrays.binarySearch(removed, tail) >= 0) tail--;
-            read(tail, scratch);
+        for (int move = 0; move < plan.moveCount(); move++) {
+            int hole = plan.hole(move);
+            read(plan.source(move), scratch);
             result.write(hole, scratch);
-            tail--;
         }
         for (int locator = newSize; locator < size; locator++) {
             result.clear(locator);

@@ -340,8 +340,9 @@ application负责。
 Large selection不能为减少scratch而partial batch publish；预算不足必须publish前失败。
 Implementation可用columnar write set、prevalidated dense move plan或large candidate root，但共享
 selection/order/failure/Result。PLAIN Selection update只在不改变Index identity时原位写changed
-leaves；PLAIN remove的replacement Key/Index由final-locator projection在payload commit前完整构造。
-Encoded/overlay或无法证明non-throwing commit的路径必须保留candidate swap。
+leaves；Selection remove的replacement Key/Index由old sidecar与final-locator projection在payload commit
+前完整构造，不能重新对每行执行hash/equality来发现已经存在的Bucket identity。PLAIN路径随后执行
+bounded payload commit；Encoded/overlay或无法证明non-throwing commit的路径必须保留candidate swap。
 
 “small journal”不允许边写边验证。所有可能抛出的application code、allocation、hash/codec、
 journal capacity和sidecar decision必须先完成；exclusive final commit只执行bounded、经证明

@@ -139,6 +139,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 - [Selection mutation write-set and in-place commit governance](v1-selection-mutation-write-set-governance.md)：
   PLAIN Selection update/remove从touched-Chunk全leaf copy迁移到columnar write set、dense move plan、
   final-locator sidecar projection与prevalidated final commit的Owner；
+- [Dense Selection remove sidecar projection治理](v1-dense-selection-remove-sidecar-projection-governance.md)：
+  Post-M2 T3的old-to-final locator map、replacement Bucket structural projection、AUTO/OFF防退化与
+  10M profile Owner；
 - [Post-governance global integrity and regression review](v1-post-governance-global-integrity-regression-review.md)：
   结构/Index与Scheduling大范围优化后的Design↔code、operation provenance、resource admission、
   product boundary与全仓回归Owner；

@@ -2,7 +2,7 @@
 
 类型：Temporary / Performance Governance Proposal / Future Topic Router
 
-状态：`ACTIVE / T1_T2_COMPLETED / T3_DENSE_REMOVE_ACTIVE / T4_QUEUED / IMPLEMENTATION_AUTHORIZED`
+状态：`ACTIVE / T1_T3_COMPLETED / T4_CONSTRUCTION_ACTIVE / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-12（2026-08-13由Product Owner激活T1-T4）
 
@@ -273,7 +273,7 @@ Spike代码在Design未冻结前不得成为production第二路径；验证结�
 
 ## 8. 生命周期与启用方式
 
-当前T1已激活，T2-T4按顺序排队；T5-T7仍保持`QUEUED / NOT_AUTHORIZED`。Product Owner于
+当前T1-T3已关闭、T4是唯一active slice；T5-T7仍保持`QUEUED / NOT_AUTHORIZED`。Product Owner于
 2026-08-13授权在既有Design范围内完成T1-T4的自主设计、审核、实施、资格与本地提交，但不授权
 push、release或对外性能声明。
 
@@ -297,8 +297,8 @@ push、release或对外性能声明。
 |---|---|---|
 | T1 Relation Physical Execution | `PASS / CLOSED` | [T1 Candidate Design与资格](t1-relation-execution-candidate-design.md) |
 | T2 GroupBy Physical Execution | `PASS / CLOSED` | [T2 Candidate Design与资格](t2-groupby-execution-candidate-design.md) |
-| T3 Dense Selection Remove | `ACTIVE` | T2关闭后建立 |
-| T4 Construction / Index Build | `QUEUED` | T3关闭后建立 |
+| T3 Dense Selection Remove | `PASS / CLOSED` | [T3 Candidate Design与资格](t3-dense-selection-remove-candidate-design.md) |
+| T4 Construction / Index Build | `ACTIVE` | T3关闭后进入current baseline与profile |
 | T5-T7 | `NOT_AUTHORIZED` | 仍只保留本提案中的未来路由 |
 
 ## 10. 正式事实入口

@@ -377,6 +377,7 @@ class GeneratedTableTest {
                 .directory.chunk(1);
         assertNull(clearedLastChunk.references(testLayout().leafSlot(1))[0]);
         assertNull(clearedLastChunk.references(testLayout().leafSlot(3))[0]);
+        validateSidecars(table);
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
     }
 
@@ -409,6 +410,7 @@ class GeneratedTableTest {
         assertEquals(4032L, table.size());
         assertMissing(table, 1L);
         assertEquals(4032L, indexCount(table, "repeated"));
+        validateSidecars(table);
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
     }
 
@@ -3996,6 +3998,16 @@ class GeneratedTableTest {
             index.validateForTesting(root.directory, root.size);
         }
         assertEquals(table.managedBytesForTesting(), memory.retainedBytes());
+    }
+
+    private static void validateSidecars(GeneratedTable table) {
+        TableStateRoot root = table.rootForTesting();
+        if (root.key != null) {
+            root.key.validateForTesting(root.directory, root.size);
+        }
+        for (IdentityHashIndex index : root.indexes) {
+            index.validateForTesting(root.directory, root.size);
+        }
     }
 
     private static final class ExpectedRow {

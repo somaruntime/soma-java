@@ -2,6 +2,7 @@ package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.SomaFailureCode;
 import io.github.somaruntime.soma.SomaOperation;
+import java.util.Arrays;
 
 /**
  * Typed Hash access path over authoritative payload. Every exact logical
@@ -54,23 +55,29 @@ final class IdentityHashIndex {
         return result;
     }
 
-    static IdentityHashIndex rebuildProjected(
-            GeneratedTableLayout layout,
-            int fieldIndex,
-            boolean unique,
-            TableChunkDirectory sourceDirectory,
-            int[] sourceLocators,
+    IdentityHashIndex projectLocators(
+            int[] finalLocatorPlusOneByOld,
             SomaOperation operation,
             Object provenance) {
         IdentityHashIndex result = new IdentityHashIndex(layout, fieldIndex, unique);
-        for (int locator = 0; locator < sourceLocators.length; locator++) {
-            result.addProjected(
-                    sourceDirectory,
-                    sourceLocators,
-                    locator,
-                    operation,
-                    provenance);
+        if (shards == null) return result;
+        Shard[] projected = new Shard[SHARD_COUNT];
+        long bytes = CONTAINER_BYTES;
+        boolean any = false;
+        for (int ordinal = 0; ordinal < shards.length; ordinal++) {
+            Shard source = shards[ordinal];
+            if (source == null) continue;
+            Shard replacement = source.projectLocators(
+                    finalLocatorPlusOneByOld, operation, provenance);
+            if (replacement == null) continue;
+            projected[ordinal] = replacement;
+            bytes = CheckedLong.add(
+                    bytes, replacement.managedBytes, operation, provenance);
+            any = true;
         }
+        if (!any) return result;
+        result.shards = projected;
+        result.managedBytes = bytes;
         return result;
     }
 
@@ -710,66 +717,6 @@ final class IdentityHashIndex {
         shard.installNew(shard.emptySlot(hash), hash, locator);
     }
 
-    private void addProjected(
-            TableChunkDirectory sourceDirectory,
-            int[] sourceLocators,
-            int locator,
-            SomaOperation operation,
-            Object provenance) {
-        int sourceLocator = sourceLocators[locator];
-        long hash = layout.hashField(sourceDirectory, sourceLocator, fieldIndex);
-        if (shards == null) {
-            shards = new Shard[SHARD_COUNT];
-            managedBytes = CONTAINER_BYTES;
-        }
-        int ordinal = shardOrdinal(hash);
-        Shard shard = shards[ordinal];
-        if (shard == null) {
-            shard = new Shard(INITIAL_CAPACITY, operation, provenance);
-            shards[ordinal] = shard;
-            managedBytes = CheckedLong.add(
-                    managedBytes, shard.managedBytes, operation, provenance);
-        }
-        int slot = shard.findProjected(
-                sourceDirectory,
-                sourceLocators,
-                sourceLocator,
-                hash,
-                layout,
-                fieldIndex);
-        if (slot >= 0) {
-            if (unique) throw new AssertionError("duplicate Key while rebuilding sidecar");
-            long before = shard.managedBytes;
-            shard.appendFresh(slot, locator, operation, provenance);
-            managedBytes = CheckedLong.add(
-                    CheckedLong.subtract(
-                            managedBytes, before, operation, provenance),
-                    shard.managedBytes,
-                    operation,
-                    provenance);
-            return;
-        }
-        if (!shard.canInsertWithoutRehash()) {
-            Shard replacement = shard.rehash(
-                    shard.capacityForInsert(
-                            shard.size + 1, operation, provenance),
-                    operation,
-                    provenance);
-            managedBytes = CheckedLong.add(
-                    CheckedLong.subtract(
-                            managedBytes,
-                            shard.managedBytes,
-                            operation,
-                            provenance),
-                    replacement.managedBytes,
-                    operation,
-                    provenance);
-            shards[ordinal] = replacement;
-            shard = replacement;
-        }
-        shard.installNew(shard.emptySlot(hash), hash, locator);
-    }
-
     private static int shardOrdinal(long hash) {
         return (int) (hash >>> (Long.SIZE - SHARD_BITS));
     }
@@ -1239,29 +1186,6 @@ final class IdentityHashIndex {
             return -1;
         }
 
-        int findProjected(
-                TableChunkDirectory sourceDirectory,
-                int[] sourceLocators,
-                int sourceLocator,
-                long hash,
-                GeneratedTableLayout layout,
-                int fieldIndex) {
-            int slot = ((int) hash) & mask;
-            while (states[slot] != 0) {
-                if (states[slot] == 1
-                        && hashes[slot] == hash
-                        && layout.fieldEquals(
-                                sourceDirectory,
-                                sourceLocators[firstLocators[slot]],
-                                sourceLocator,
-                                fieldIndex)) {
-                    return slot;
-                }
-                slot = (slot + 1) & mask;
-            }
-            return -1;
-        }
-
         int findJoin(
                 TableChunkDirectory directory,
                 long hash,
@@ -1528,6 +1452,63 @@ final class IdentityHashIndex {
                 }
             }
             return result;
+        }
+
+        Shard projectLocators(
+                int[] finalLocatorPlusOneByOld,
+                SomaOperation operation,
+                Object provenance) {
+            Shard result = new Shard(hashes.length, operation, provenance);
+            for (int slot = 0; slot < hashes.length; slot++) {
+                if (states[slot] == 2) {
+                    result.states[slot] = 2;
+                    result.tombstones++;
+                    continue;
+                }
+                if (states[slot] != 1) continue;
+                int count = counts[slot];
+                int survivors = 0;
+                for (int position = 0; position < count; position++) {
+                    int oldLocator = locatorAt(slot, position);
+                    if (finalLocatorPlusOneByOld[oldLocator] != 0) survivors++;
+                }
+                if (survivors == 0) {
+                    result.states[slot] = 2;
+                    result.tombstones++;
+                    continue;
+                }
+                result.hashes[slot] = hashes[slot];
+                result.counts[slot] = survivors;
+                result.states[slot] = 1;
+                result.size++;
+                if (survivors == 1) {
+                    for (int position = 0; position < count; position++) {
+                        int mapped = finalLocatorPlusOneByOld[
+                                locatorAt(slot, position)];
+                        if (mapped != 0) {
+                            result.firstLocators[slot] = mapped - 1;
+                            break;
+                        }
+                    }
+                    continue;
+                }
+                int[] projected = allocateBucket(survivors, operation, provenance);
+                int target = 0;
+                for (int position = 0; position < count; position++) {
+                    int mapped = finalLocatorPlusOneByOld[
+                            locatorAt(slot, position)];
+                    if (mapped != 0) projected[target++] = mapped - 1;
+                }
+                Arrays.sort(projected);
+                result.members[slot] = projected;
+                result.firstLocators[slot] = projected[0];
+                result.managedBytes = CheckedLong.add(
+                        result.managedBytes,
+                        arrayBytes(projected.length),
+                        operation,
+                        provenance);
+            }
+            return result.size == 0 ? null : result;
         }
 
         static long estimatedBaseBytes(

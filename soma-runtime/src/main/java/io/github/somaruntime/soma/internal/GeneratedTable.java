@@ -883,25 +883,21 @@ public final class GeneratedTable {
             Object provenance) {
         int removed = plan.removedCount();
         int newSize = plan.newSize();
+        int[] finalLocatorPlusOneByOld = plan.finalLocatorPlusOneByOld();
         if (oldRoot.directory.canApplySelectionRemoveInPlace(plan)) {
-            int[] sourceLocators = plan.sourceLocators();
             inject(
                     MutationFaultPoint.BEFORE_KEY_REBUILD,
                     SomaOperation.REMOVE,
                     provenance);
-            IdentityHashIndex key = layout.keyFieldIndex() < 0
+            IdentityHashIndex key = oldRoot.key == null
                     ? null
-                    : IdentityHashIndex.rebuildProjected(
-                            layout,
-                            layout.keyFieldIndex(),
-                            true,
-                            oldRoot.directory,
-                            sourceLocators,
+                    : oldRoot.key.projectLocators(
+                            finalLocatorPlusOneByOld,
                             SomaOperation.REMOVE,
                             provenance);
-            IdentityHashIndex[] indexes = rebuildProjectedIndexes(
-                    oldRoot.directory,
-                    sourceLocators,
+            IdentityHashIndex[] indexes = projectIndexes(
+                    oldRoot.indexes,
+                    finalLocatorPlusOneByOld,
                     SomaOperation.REMOVE,
                     provenance);
             inject(
@@ -930,15 +926,9 @@ public final class GeneratedTable {
         }
 
         TypedValues copyScratch = new TypedValues(layout);
-        IntLocatorBuffer selected = new IntLocatorBuffer(
-                removed, SomaOperation.REMOVE, provenance);
-        for (int position = 0; position < removed; position++) {
-            selected.add(plan.removed(position));
-        }
         TableChunkDirectory candidateDirectory =
                 oldRoot.directory.copyForSelectionRemove(
-                        selected,
-                        oldRoot.size,
+                        plan,
                         copyScratch,
                         provenance);
         candidateDirectory.finishTouched(
@@ -950,18 +940,17 @@ public final class GeneratedTable {
                 MutationFaultPoint.BEFORE_KEY_REBUILD,
                 SomaOperation.REMOVE,
                 provenance);
-        IdentityHashIndex key = layout.keyFieldIndex() < 0
+        IdentityHashIndex key = oldRoot.key == null
                 ? null
-                : IdentityHashIndex.rebuild(
-                        layout,
-                        layout.keyFieldIndex(),
-                        true,
-                        candidateDirectory,
-                        newSize,
+                : oldRoot.key.projectLocators(
+                        finalLocatorPlusOneByOld,
                         SomaOperation.REMOVE,
                         provenance);
-        IdentityHashIndex[] indexes = rebuildIndexes(
-                candidateDirectory, newSize, SomaOperation.REMOVE, provenance);
+        IdentityHashIndex[] indexes = projectIndexes(
+                oldRoot.indexes,
+                finalLocatorPlusOneByOld,
+                SomaOperation.REMOVE,
+                provenance);
         inject(
                 MutationFaultPoint.BEFORE_SIDECAR_ACCOUNTING,
                 SomaOperation.REMOVE,
@@ -1250,20 +1239,16 @@ public final class GeneratedTable {
         return result;
     }
 
-    private IdentityHashIndex[] rebuildProjectedIndexes(
-            TableChunkDirectory sourceDirectory,
-            int[] sourceLocators,
+    private IdentityHashIndex[] projectIndexes(
+            IdentityHashIndex[] source,
+            int[] finalLocatorPlusOneByOld,
             SomaOperation operation,
             Object provenance) {
         IdentityHashIndex[] result = new IdentityHashIndex[layout.indexCount()];
         for (int ordinal = 0; ordinal < result.length; ordinal++) {
             inject(MutationFaultPoint.BEFORE_INDEX_REBUILD, operation, provenance);
-            result[ordinal] = IdentityHashIndex.rebuildProjected(
-                    layout,
-                    layout.indexFieldIndex(ordinal),
-                    false,
-                    sourceDirectory,
-                    sourceLocators,
+            result[ordinal] = source[ordinal].projectLocators(
+                    finalLocatorPlusOneByOld,
                     operation,
                     provenance);
         }

@@ -159,10 +159,11 @@ membership：singleton直接内联一个`int` locator，multi使用严格升序�
 二者互斥，不维护per-record next link、reverse Index或第二套truth。Point add/update/remove即时只维护
 受影响Bucket并与payload一次publish。Selection update先形成columnar write set；普通PLAIN且不改变
 indexed Field时原位提交changed leaves，indexed或encoded变化使用candidate。Selection remove先形成
-dense compaction move plan；PLAIN路径用`final locator -> old source locator`投影重建replacement
-sidecar，再无分配执行row move/reference clear。Encoded/overlay路径仍从最终candidate payload重建。
-这些路径只改变physical preparation，不建立第二套membership truth；Index表达logical value而不是
-compression token。
+dense compaction move plan和operation-scoped locator projection；replacement sidecar从old sidecar保留的
+logical Bucket identity直接投影最终survivor membership，不重新从每行payload发现Bucket。PLAIN路径随后
+无分配执行row move/reference clear，encoded/overlay路径仍构造最终candidate payload再一次publish。
+这些路径只改变physical preparation，不建立第二套membership truth；operation结束即释放locator
+projection，Index表达logical value而不是compression token。
 
 ## 9. 关系 Table
 

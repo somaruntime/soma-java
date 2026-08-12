@@ -901,8 +901,9 @@ Repeated add是多次独立atomic operation，不形成隐式transaction。
 - opaque predicate使exact membership未知时，callback前按bound input upper bound保守admit；
 - update callback只写columnar write set；all callbacks完成后才选择prevalidated PLAIN leaf commit或
   candidate publication；logical no-op不复制Chunk且不发布；
-- remove先冻结dense compaction move plan；PLAIN路径先按`final locator -> old source locator`重建
-  replacement Key/Index，再无分配执行row move和trailing reference clear；
+- remove先冻结dense compaction move plan与operation-scoped locator projection；replacement Key/Index
+  从old sidecar直接投影final survivor membership，完成全部分配后，PLAIN路径再无分配执行row move和
+  trailing reference clear；
 - encoded/overlay与indexed update不能证明bounded non-throwing时继续使用candidate，不以原位路径
   弱化compression、Index或zero-publication；
 - parallel callback仍按canonical failure arbitration；
