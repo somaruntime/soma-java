@@ -95,6 +95,10 @@ application frontier workaround已退出。`docs/`仍只保留placeholder。
 已`PASS`：既有本地Maven/generated/packaged consumer闭环重放通过，`benchmarks/`拥有fixed M5 Pro、
 Java 8、10K/1M machine-readable ratchet，GitHub拥有Bug/Performance反馈入口并启用Dependency Graph/
 Dependabot Alerts；该记录不证明真实项目、Java多版本、生产或release readiness。
+[工程系统一致性、可重复性与反馈效率治理提案](project/temp/soma-v1-engineering-system-governance/README.md)
+已接受，且[Candidate Design](project/temp/soma-v1-engineering-system-governance/design.md)已完成；当前状态为
+`REVIEW_REQUIRED / NOT_FROZEN / IMPLEMENTATION_NOT_AUTHORIZED`。该Temporary只治理Maven、稳定命令、
+qualification、Benchmark、local package与CI反馈，不授权修改产品语义、增加dependency或执行发布。
 
 开始工作前必须读取：
 
@@ -170,7 +174,9 @@ Temporary只用于provenance，不覆盖正式Owner或current implementation sta
 - [Conformance](project/conformance/README.md)记录 implementation gap 与 evidence；
 - root/project README 是入口，不复制 Design；
 - Manual、White Paper、Examples 在出现后是角色投影，不是 parallel Design；
-- `project/temp/`当前没有active bounded topic；Production Core质量方法探索已由
+- `project/temp/`当前唯一active bounded design topic为
+  [工程系统一致性、可重复性与反馈效率治理](project/temp/soma-v1-engineering-system-governance/README.md)，
+  Candidate Design待Product Owner审核，尚未冻结或授权实施；Production Core质量方法探索已由
   [正式Conformance记录](project/conformance/v1-production-core-quality-inspection-method-feasibility.md)完成
   Q0-Q2、采用裁决与Temporary closure；Physical Execution Engine M2已由
   [最终P6资格](project/conformance/physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6与

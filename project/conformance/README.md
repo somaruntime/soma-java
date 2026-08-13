@@ -66,9 +66,15 @@ Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
 Physical execution M2         PASS / P1-P6_COMPLETED / TEMPORARY_RETIRED
 Development adoption/ratchet  PASS / LOCAL_CONSUMER / 10K_1M_FIXED_HOST /
                               GITHUB_FEEDBACK_AND_ALERTS
-Active bounded topic          NONE
+Active bounded topic          ENGINEERING_SYSTEM / DESIGN_REVIEW_REQUIRED /
+                              IMPLEMENTATION_NOT_AUTHORIZED
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
+
+当前bounded topic的提案与候选设计分别见
+[工程系统治理提案](../temp/soma-v1-engineering-system-governance/README.md)和
+[Candidate Design](../temp/soma-v1-engineering-system-governance/design.md)。它们不是Conformance或正式
+Design，不改变上表既有PASS结论，也不授权implementation或publication。
 
 I0 [正式资格](i0-build-spine-qualification.md)证明build、generation与artifact spine成立；I1
 [正式资格](i1-primitive-keyed-table-qualification.md)证明第一套primitive keyed Table纵向闭环成立；
@@ -241,9 +247,10 @@ Historical inputs：
 - [P2 Java 8 feasibility](p2-generated-api-feasibility.md)：旧baseline selected type/mechanism
   evidence；只有被新promotion record重新采纳的部分仍可作为input。
 
-Historical record不能覆盖current Blueprint/Design/Readiness。Physical Execution Engine M2已由
+Historical record不能覆盖current Blueprint/Design/Readiness。当前工程系统治理仅处于Temporary
+Candidate Design审核阶段，不覆盖正式Owner或既有qualification。Physical Execution Engine M2已由
 [最终P6资格](physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6、正式Owner、全量证据与
-Temporary replacement closure；当前没有active bounded Temporary。Candidate fingerprint仍由
+Temporary replacement closure；该专题当前没有active bounded Temporary。Candidate fingerprint仍由
 [晋升记录](v1-physical-execution-engine-m2-promotion-readiness.md)保存。
 Vectorized Physical Pipeline扩展已经由
 [正式Conformance记录](v1-vectorized-physical-pipeline-expansion-governance.md)接管并完成VP1-VP3、正式Owner
