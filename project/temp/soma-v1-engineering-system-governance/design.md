@@ -2,7 +2,7 @@
 
 类型：Temporary / Candidate Governance Design
 
-状态：`BASELINE_FROZEN / E0-E1_COMPLETED / E2_ACTIVE / IMPLEMENTATION_AUTHORIZED`
+状态：`BASELINE_FROZEN / E0-E2_COMPLETED / E3_ACTIVE / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-13
 
@@ -742,3 +742,21 @@ E1证据：
 
 该改善没有删除full qualification的package、supply-chain、packaged consumer或Benchmark claim；
 它们只从daily check迁回唯一`qualify`入口。E1因此关闭，E2成为唯一active slice。
+
+## 23. E2 Qualification
+
+E2没有为消除XML文本重复引入parent/BOM/build module。复核结论是：
+
+- root POM只是non-published aggregator，继续skip install/deploy；
+- `soma-runtime`和`soma-processor`作为两项独立交付artifact，必须继续自包含Java 8、
+  Enforcer、jar、sources、javadocs、LICENSE/NOTICE等合同；
+- processor的runtime dependency、forked javac、`tools.jar`与javadoc bootclasspath是合法差异；
+- 两项production POM中必须一致的Java、JUnit、output timestamp和全部既有plugin
+  version现由`artifact-build.sh`显式fail-closed防漂移。
+
+Java 8下`artifact-build.sh`于`21.83 s`完成并PASS，覆盖runtime 91 tests、processor
+34 tests、full regeneration/stale cleanup、same-version runtime mismatch、Java 8 bytecode、JUnit
+隔离、sources/javadocs/NOTICE/LICENSE、两轮clean artifact SHA-256 reproducibility。root POM未被
+安装，两项production artifact保持自包含，无第三交付责任。
+
+E2因此关闭，E3成为唯一active slice。

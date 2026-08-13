@@ -55,6 +55,33 @@ if grep -q '<parent>' "$repo_root/soma-runtime/pom.xml" \
     exit 1
 fi
 
+# The two published POMs intentionally remain self-contained. Guard the values
+# that must stay equal without introducing a third parent artifact.
+for property in \
+        project.build.sourceEncoding \
+        project.reporting.outputEncoding \
+        project.build.outputTimestamp \
+        maven.compiler.release \
+        maven.compiler.source \
+        maven.compiler.target \
+        junit.version \
+        maven.compiler.plugin.version \
+        maven.resources.plugin.version \
+        maven.surefire.plugin.version \
+        maven.enforcer.plugin.version \
+        maven.jar.plugin.version \
+        maven.source.plugin.version \
+        maven.javadoc.plugin.version; do
+    runtime_value=$(sed -n "s|.*<$property>\(.*\)</$property>.*|\1|p" \
+        "$repo_root/soma-runtime/pom.xml")
+    processor_value=$(sed -n "s|.*<$property>\(.*\)</$property>.*|\1|p" \
+        "$repo_root/soma-processor/pom.xml")
+    if [ -z "$runtime_value" ] || [ "$runtime_value" != "$processor_value" ]; then
+        echo "artifact-build: production POM contract drift: $property" >&2
+        exit 1
+    fi
+done
+
 work_root=$(mktemp -d "${TMPDIR:-/tmp}/soma-artifact-build.XXXXXX")
 cleanup() {
     case "$work_root" in
