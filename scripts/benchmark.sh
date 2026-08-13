@@ -114,10 +114,19 @@ if [ "$profiler" = async ]; then
     }
 fi
 
-if [ "${SOMA_BENCHMARK_REUSE_BUILD:-0}" != 1 ]; then
-    mvn clean install -Dmaven.install.skip=false -DskipTests
+build_session=${SOMA_BUILD_SESSION_FILE:-}
+if [ -z "$build_session" ]; then
+    mvn clean install -DskipTests
     mvn -f soma-examples/pom.xml clean install -DskipTests
     mvn -f benchmarks/pom.xml clean package -DskipTests
+else
+    python3 build-support/qualification/build-session.py verify \
+        --repo "$repo_root" --manifest "$build_session" \
+        --require runtime \
+        --require example-scheduling \
+        --require example-simulation \
+        --require example-real-time-dispatch \
+        --require benchmarks
 fi
 
 runtime_jar=
@@ -152,6 +161,10 @@ rm -f "$output_root/summary.json" "$output_root/summary.md"
 {
     echo "commit=$(git rev-parse HEAD)"
     if test -n "$(git status --porcelain=v1)"; then echo "tree.state=dirty"; else echo "tree.state=clean"; fi
+    echo "sourceCandidateSha256=$(python3 build-support/qualification/build-session.py fingerprint --repo "$repo_root")"
+    if [ -n "$build_session" ]; then
+        sed -n 's/^candidate.sha256=/buildSessionCandidateSha256=/p' "$build_session"
+    fi
     echo "rows=$rows"
     echo "runs=$runs"
     echo "parallelism=$parallelism"

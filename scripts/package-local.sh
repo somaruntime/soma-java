@@ -13,8 +13,14 @@ jar_cmd="$JAVA_HOME/bin/jar"
 test -x "$java_cmd" && test -x "$jar_cmd"
 "$java_cmd" -version 2>&1 | grep -q 'version "1\.8\.'
 
-if [ "${SOMA_PACKAGE_REUSE_BUILD:-0}" != 1 ]; then
+build_session=${SOMA_BUILD_SESSION_FILE:-}
+if [ -z "$build_session" ]; then
     mvn clean package
+else
+    python3 build-support/qualification/build-session.py verify \
+        --repo "$repo_root" --manifest "$build_session" \
+        --require runtime --require runtime-sources --require runtime-javadoc \
+        --require processor --require processor-sources --require processor-javadoc
 fi
 
 runtime_jar=
@@ -67,6 +73,8 @@ processor_sha=$(checksum "$processor_jar")
 created=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 commit=$(git rev-parse HEAD)
 if test -z "$(git status --porcelain)"; then tree_state=clean; else tree_state=dirty; fi
+source_candidate=$(python3 build-support/qualification/build-session.py fingerprint \
+    --repo "$repo_root")
 
 cat > "$output_root/provenance.properties" <<EOF
 product=SOMA
@@ -74,6 +82,7 @@ repository=somaruntime/soma-java
 version=$version
 commit=$commit
 tree.state=$tree_state
+source.candidate.sha256=$source_candidate
 java=$($java_cmd -version 2>&1 | head -n 1)
 maven=$(mvn -version | head -n 1)
 created.utc=$created

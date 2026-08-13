@@ -2,7 +2,7 @@
 
 类型：Temporary / Candidate Governance Design
 
-状态：`BASELINE_FROZEN / E0_COMPLETED / E1_ACTIVE / IMPLEMENTATION_AUTHORIZED`
+状态：`BASELINE_FROZEN / E0-E1_COMPLETED / E2_ACTIVE / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-13
 
@@ -714,3 +714,31 @@ E0证明了三项需要实施的delta：
 E0同时确认，clean/full regeneration、same-version mismatch、downstream Maven consumer、
 packaged direct consumer、artifact reproducibility和source-delivery allowlist各自守护独立claim，
 不能为了减少执行次数而删除。
+
+## 22. E1 Qualification
+
+E1已完成：
+
+- `check.sh`现在只组合environment、codegen、production tests、cumulative generated
+  consumer、Examples tests/smoke和repository hygiene；
+- `qualify.sh`保持唯一完整non-publishing qualification语义；
+- `benchmark.sh`和`package-local.sh`独立运行时自行构建，组合运行时只接受
+  `target/`内通过当前source candidate、Java/Maven identity和artifact SHA-256验证的
+  BuildSession manifest；
+- 全部裸`*_REUSE_BUILD=1`路径已退出；
+- 长路径输出`environment`到`repository-hygiene`的START/PASS/FAIL边界，保留原命令输出和
+  exit code。
+
+E1证据：
+
+| Evidence | Result |
+|---|---|
+| BuildSession self-test | current candidate PASS；source mutation和artifact mutation均被拒绝 |
+| Stale current-session negative | 修改受治理source后，旧manifest稳定拒绝 |
+| Daily check after | `22.97 s` wall，`81.62 s` user，`6.18 s` sys |
+| Daily check before | `34.85 s` wall，`137.77 s` user，`9.78 s` sys |
+| Wall-time delta | `-34.1%` |
+| Functional breadth | runtime 91 tests、processor 34 tests、Examples 13 tests、cumulative consumer与三个smoke PASS |
+
+该改善没有删除full qualification的package、supply-chain、packaged consumer或Benchmark claim；
+它们只从daily check迁回唯一`qualify`入口。E1因此关闭，E2成为唯一active slice。

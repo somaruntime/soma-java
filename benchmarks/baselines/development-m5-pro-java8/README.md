@@ -50,11 +50,10 @@ SOMA_BENCHMARK_OUTPUT_ROOT=target/development-ratchet/10k \
 ./scripts/benchmark.sh
 ```
 
-复用已完成的构建采集 1M：
+独立采集 1M：
 
 ```sh
 JAVA_HOME=/path/to/java8 \
-SOMA_BENCHMARK_REUSE_BUILD=1 \
 SOMA_BENCHMARK_WORKLOAD=core \
 SOMA_BENCHMARK_SCENARIOS="scheduling simulation real-time-dispatch" \
 SOMA_BENCHMARK_IMPLEMENTATIONS=soma-auto \
@@ -65,6 +64,9 @@ SOMA_BENCHMARK_PROFILER=none \
 SOMA_BENCHMARK_OUTPUT_ROOT=target/development-ratchet/1m \
 ./scripts/benchmark.sh
 ```
+
+Standalone benchmark不接受裸`REUSE_BUILD=1`；它会重建当前候选。只有
+`scripts/qualify.sh`会通过内部BuildSession proof在同一次组合资格中安全复用产物。
 
 ## 4. 比较
 

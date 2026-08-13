@@ -34,8 +34,12 @@ done
 "$javac_cmd" -version 2>&1 | grep -q '^javac 1\.8\.'
 
 python3 build-support/codegen/generate-grouped-api.py --check
-if [ "${SOMA_PARALLEL_REUSE_BUILD:-0}" != 1 ]; then
+if [ -z "${SOMA_BUILD_SESSION_FILE:-}" ]; then
     mvn clean package
+else
+    python3 build-support/qualification/build-session.py verify \
+        --repo "$repo_root" --manifest "$SOMA_BUILD_SESSION_FILE" \
+        --require runtime --require processor
 fi
 
 runtime_jar=
