@@ -1,9 +1,7 @@
 package io.github.somaruntime.soma.processor;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Map;
 
 /** Pure deterministic Java 8 source renderer over the validated composition model. */
 final class CompositionSourceRenderer {

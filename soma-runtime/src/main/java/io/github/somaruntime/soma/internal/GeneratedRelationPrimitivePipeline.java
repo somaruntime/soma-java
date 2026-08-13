@@ -233,7 +233,9 @@ final class GeneratedRelationPrimitivePipeline {
         finally { CallbackExecutionScope.exit(); }
     }
 
+    @SuppressWarnings("unchecked")
     private static long mappedValue(RelationPrimitivePipelineCapture capture,Object value){CallbackExecutionScope.enter();try{
+        // RelationPrimitivePipelineCapture seals rootKind and rootMapper as one tagged value.
         if(capture.rootKind==Kind.INT)return ((SomaToIntFunction<Object>)capture.rootMapper).applyAsInt(value);
         if(capture.rootKind==Kind.LONG)return ((SomaToLongFunction<Object>)capture.rootMapper).applyAsLong(value);
         return encode(((SomaToDoubleFunction<Object>)capture.rootMapper).applyAsDouble(value));

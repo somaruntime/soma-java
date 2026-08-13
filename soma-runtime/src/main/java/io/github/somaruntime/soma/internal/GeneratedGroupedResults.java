@@ -3,7 +3,6 @@ package io.github.somaruntime.soma.internal;
 import io.github.somaruntime.soma.*;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.*;
 
 /** Internal adapters over detached typed grouped columns. */
 final class GeneratedGroupedResults {

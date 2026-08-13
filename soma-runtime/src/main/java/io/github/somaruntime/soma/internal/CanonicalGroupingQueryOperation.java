@@ -193,18 +193,16 @@ final class CanonicalGroupingQueryOperation {
                 upper, expectedGroups, operation.keyKind, aggregate,
                 bound.provenance);
         if (!reference) frame.groupBreakerState = state;
-        final int valueLeaf;
         final int valueSlot;
         final byte valueLeafKind;
         if (aggregate.aggregate == 0) {
-            valueLeaf = -1;
             valueSlot = -1;
             valueLeafKind = 0;
         } else {
             if (bound.layout.fieldLeafCount(aggregate.fieldIndex) != 1) {
                 throw new AssertionError("GroupBy aggregate Field is not scalar");
             }
-            valueLeaf = bound.layout.fieldStart(aggregate.fieldIndex);
+            int valueLeaf = bound.layout.fieldStart(aggregate.fieldIndex);
             valueSlot = bound.layout.leafSlot(valueLeaf);
             valueLeafKind = bound.layout.leafKind(valueLeaf);
         }
@@ -530,10 +528,6 @@ final class CanonicalGroupingQueryOperation {
             } else if (aggregate.aggregate == MAX
                     && Double.compare(value, floatingExtrema[group]) > 0) {
                 floatingExtrema[group] = value;
-            }
-            if (aggregate.aggregate == SUMMARY && previous != 0L
-                    && Double.compare(value, floatingExtrema[group]) > 0) {
-                // summary max is completed in a separate pass below
             }
             if (aggregate.needsFloatingSequence()) appendFloating(group, value);
         }

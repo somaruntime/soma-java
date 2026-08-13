@@ -3,7 +3,6 @@ package io.github.somaruntime.soma.internal;
 import io.github.somaruntime.soma.SomaOperation;
 import io.github.somaruntime.soma.SomaPredicate;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.function.Function;
 

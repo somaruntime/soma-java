@@ -114,7 +114,7 @@ def internal_source():
     out.append("import io.github.somaruntime.soma.*;\n")
     out.append("import java.util.ArrayList;\n")
     out.append("import java.util.List;\n")
-    out.append("import java.util.function.*;\n\n")
+    out.append("\n")
     out.append("/** Internal adapters over detached typed grouped columns. */\n")
     out.append("final class GeneratedGroupedResults {\n\n")
     for index, (token, _, _, _) in enumerate(KEYS, 1):

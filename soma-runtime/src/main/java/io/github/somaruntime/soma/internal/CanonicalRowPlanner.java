@@ -508,7 +508,7 @@ final class CanonicalPhysicalPipeline {
                 source,
                 segments.toArray(new CanonicalPhysicalSegment[segments.size()]),
                 breakers.toArray(new CanonicalPhysicalBreaker[breakers.size()]),
-                sink(normalized, request, chunkKernel));
+                sink(normalized, request));
     }
 
     CanonicalPhysicalSegment terminalSegment() {
@@ -788,8 +788,7 @@ final class CanonicalPhysicalPipeline {
 
     private static Sink sink(
             NormalizedCanonicalRow normalized,
-            CanonicalRowPhysicalRequest request,
-            CanonicalPrimitiveVectorKernel.Decision chunkKernel) {
+            CanonicalRowPhysicalRequest request) {
         if (request.group != null) return Sink.GROUP_RESULT;
         if (request.mutation != null) return Sink.MUTATION_HANDOFF;
         if (request.primitive == null) {

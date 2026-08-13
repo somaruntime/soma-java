@@ -2,7 +2,6 @@ package io.github.somaruntime.soma.internal;
 
 import io.github.somaruntime.soma.*;
 import java.util.ArrayList;
-import java.util.List;
 
 /** Slow boxed primitive-plan oracle with independent traversal and algorithms. */
 final class ReferencePrimitiveInterpreter {

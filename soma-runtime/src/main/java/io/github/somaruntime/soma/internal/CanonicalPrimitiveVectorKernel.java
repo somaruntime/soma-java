@@ -25,7 +25,7 @@ final class CanonicalPrimitiveVectorKernel {
         if (primitive.terminal
                 == CanonicalPrimitiveOperation.TerminalKind.SUM) {
             KernelPlan sum = compilePrimitive(
-                    normalized, accessPath, primitive, false);
+                    normalized, accessPath, primitive);
             return sum == null ? null
                     : decision(normalized.bound, Operation.INTEGRAL_SUM, sum);
         }
@@ -33,7 +33,7 @@ final class CanonicalPrimitiveVectorKernel {
                         == CanonicalPrimitiveOperation.TerminalKind.MATERIALIZE
                 && primitive.valueKind == PrimitiveValueKind.LONG) {
             KernelPlan materialization = compilePrimitive(
-                    normalized, accessPath, primitive, true);
+                    normalized, accessPath, primitive);
             return materialization == null
                     || materialization.projectionKind
                             != GeneratedTableLayout.LONG
@@ -95,7 +95,6 @@ final class CanonicalPrimitiveVectorKernel {
             final CanonicalRowExecutionFrame frame) {
         final Decision decision = requireDecision(
                 frame.plan, Operation.INTEGRAL_SUM);
-        final KernelPlan plan = decision.kernel;
         final BoundCanonicalRowOperation bound = frame.plan.normalized.bound;
         if (decision.managesParallel) {
             CanonicalParallelWorkScheduler.validate(bound);
@@ -255,8 +254,7 @@ final class CanonicalPrimitiveVectorKernel {
     private static KernelPlan compilePrimitive(
             NormalizedCanonicalRow normalized,
             CanonicalRowPhysicalPlan.AccessPath accessPath,
-            CanonicalPrimitiveOperation operation,
-            boolean materialization) {
+            CanonicalPrimitiveOperation operation) {
         BoundCanonicalRowOperation bound = normalized.bound;
         if (operation.rootKind != CanonicalPrimitiveOperation.RootKind.ROW
                 || operation.mapped != null

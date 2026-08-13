@@ -15,5 +15,5 @@ shared API、generated code linkage 与执行运行时。普通使用者不应�
 </dependency>
 ```
 
-仓库尚未发布远端 artifact。请先按[根 README](../README.md#快速开始)从源码安装，再构建下游
+仓库尚未发布远端 artifact。请先按[根 README](../README.md#10-minute-quick-start)从源码安装，再构建下游
 application。完整使用路径见 [`soma-examples`](../soma-examples/README.md)。
