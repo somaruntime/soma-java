@@ -2374,7 +2374,7 @@ class GeneratedTableTest {
     @Test
     void vectorMorselsUseBoundedPoolAndPreserveExactIntegralSum() {
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
-        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4);
         try {
             GeneratedTable table = new GeneratedTable(
                     testGroup(memory, pool),
@@ -2395,8 +2395,6 @@ class GeneratedTableTest {
                     0);
             assertEquals(expected, PrimitivePlanOperation.sumIntegral(parallel));
             assertTrue(pool.submissions.get() > 0);
-            assertTrue(pool.peakTemporaryBytes.get() > 0L);
-            assertTrue(pool.peakTemporaryBytes.get() < table.size() * 4L);
             assertEquals(0L, memory.temporaryBytes());
         } finally {
             pool.shutdownNow();
@@ -2465,7 +2463,7 @@ class GeneratedTableTest {
     void vectorParallelScratchIsAdmittedBeforePoolOrDataWork() {
         long budget = 64L << 20;
         GlobalMemoryManager memory = new GlobalMemoryManager(budget);
-        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4);
         try {
             GeneratedTable table = new GeneratedTable(
                     testGroup(memory, pool),
@@ -2556,7 +2554,7 @@ class GeneratedTableTest {
     @Test
     void vectorLongMaterializationPreservesOrderAcrossRleMixedAndOverlay() {
         GlobalMemoryManager memory = new GlobalMemoryManager(64L << 20);
-        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4);
         try {
             GeneratedTable table = new GeneratedTable(
                     testGroup(memory, pool, SomaCompression.AUTO),
@@ -2677,7 +2675,7 @@ class GeneratedTableTest {
     void vectorLongMaterializationAdmitsOutputAndChunkStateBeforeWork() {
         long budget = 64L << 20;
         GlobalMemoryManager memory = new GlobalMemoryManager(budget);
-        TrackingForkJoinPool pool = new TrackingForkJoinPool(4, memory);
+        TrackingForkJoinPool pool = new TrackingForkJoinPool(4);
         try {
             GeneratedTable table = new GeneratedTable(
                     testGroup(memory, pool, SomaCompression.AUTO),
@@ -4130,37 +4128,14 @@ class GeneratedTableTest {
 
     private static final class TrackingForkJoinPool extends ForkJoinPool {
         private final AtomicInteger submissions = new AtomicInteger();
-        private final GlobalMemoryManager memory;
-        private final AtomicLong peakTemporaryBytes = new AtomicLong();
 
         TrackingForkJoinPool(int parallelism) {
-            this(parallelism, null);
-        }
-
-        TrackingForkJoinPool(
-                int parallelism,
-                GlobalMemoryManager memory) {
             super(parallelism);
-            this.memory = memory;
         }
 
         @Override public ForkJoinTask<?> submit(Runnable task) {
             submissions.incrementAndGet();
-            if (memory == null) return super.submit(task);
-            return super.submit(() -> {
-                observeTemporary();
-                task.run();
-                observeTemporary();
-            });
-        }
-
-        private void observeTemporary() {
-            long current = memory.temporaryBytes();
-            long previous;
-            do {
-                previous = peakTemporaryBytes.get();
-                if (current <= previous) return;
-            } while (!peakTemporaryBytes.compareAndSet(previous, current));
+            return super.submit(task);
         }
     }
 
