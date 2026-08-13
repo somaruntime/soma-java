@@ -54,9 +54,9 @@ implementation 与 qualification：
   既有本地 Maven/generated/packaged consumer 闭环重放通过，`benchmarks/`建立fixed M5 Pro、Java 8、
   10K/1M machine-readable ratchet；GitHub 增加 Bug/Performance 反馈入口并启用Dependency Graph/
   Dependabot Alerts。该结论不外推为真实项目、Java多版本、生产或发布资格；
-- [工程系统一致性、可重复性与反馈效率治理提案](temp/soma-v1-engineering-system-governance/README.md)
-  已接受，[Candidate Design](temp/soma-v1-engineering-system-governance/design.md)已完成并等待审核；当前
-  未冻结、未授权实施，不改变现有脚本、POM、workflow或发布边界；
+- [工程系统一致性、可重复性与反馈效率治理](conformance/v1-engineering-system-governance.md)
+  已`PASS / E0-E4_COMPLETED / TEMPORARY_RETIRED`：四个稳定入口、BuildSession候选绑定、两artifact
+  POM一致性与开发阶段CI分责已经闭合；
 - [Grassing Simulation reference application治理](conformance/v1-grassing-simulation-reference-application-governance.md)
   已`PASS`：两张runtime Table、五阶段tick、UI/headless、deterministic validation、Application JFR/A-B
   与source/package delivery闭合；
@@ -122,7 +122,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Production Core质量检查方法的价值、成本与采用裁决 | [Quality inspection method feasibility](conformance/v1-production-core-quality-inspection-method-feasibility.md) |
 | Post-M2 Relation、GroupBy、dense remove与construction T1–T4治理 | [Post-M2 performance optimization governance](conformance/v1-post-m2-performance-optimization-governance.md) |
 | 开发阶段本地消费、10K/1M ratchet与GitHub反馈入口 | [Development adoption and regression governance](conformance/v1-development-adoption-regression-governance.md) |
-| 当前工程系统治理候选及其实施边界 | [Engineering system governance proposal](temp/soma-v1-engineering-system-governance/README.md)、[Candidate Design](temp/soma-v1-engineering-system-governance/design.md) |
+| 工程入口、BuildSession、POM与CI治理 | [Engineering system governance](conformance/v1-engineering-system-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -146,9 +146,9 @@ Blueprint
 - `docs/`：仅占位，等待独立用户文档专题；
 - `benchmarks/`：reference application、type-kernel 与 performance-frontier 的长期非 production 证据；
 - `conformance/`：资格和 claim boundary；
-- `temp/`：只服务bounded topic或明确标记的queued intent；当前唯一active bounded design topic为
-  [工程系统一致性、可重复性与反馈效率治理](temp/soma-v1-engineering-system-governance/README.md)，其
-  Candidate Design待审核，尚未授权实施。
+- `temp/`：只服务bounded topic或明确标记的queued intent；当前没有active bounded governance topic。
+  工程系统专题已由
+  [正式Conformance记录](conformance/v1-engineering-system-governance.md)完成E0-E4与Temporary closure。
   Production Core质量检查方法探索已由
   [正式Conformance记录](conformance/v1-production-core-quality-inspection-method-feasibility.md)
   完成Q0-Q2、采用裁决与Temporary closure，没有建立稳定脚本、CI或质量门。
@@ -196,9 +196,9 @@ Predecessor 仅由 Git ref `archive/pre-product-reset-2026-07-31` 保存，不�
 或通过 compatibility layer 恢复。历史记录只用于 provenance，不能覆盖 current Blueprint、
 Design、code 或 Conformance。
 
-当前唯一active bounded design topic为
-[工程系统一致性、可重复性与反馈效率治理](temp/soma-v1-engineering-system-governance/README.md)；
-Candidate Design已完成但尚未冻结或授权实施。Production Core质量方法探索已由
+当前没有active bounded governance topic。工程系统治理已由
+[正式Conformance记录](conformance/v1-engineering-system-governance.md)完成E0-E4、正式Owner晋升与
+Temporary replacement closure。Production Core质量方法探索已由
 [正式Conformance记录](conformance/v1-production-core-quality-inspection-method-feasibility.md)完成；Physical Execution Engine M2已由
 [最终P6资格](conformance/physical-execution-engine-m2-p6-final-qualification.md)完成P1-P6、正式Owner与
 Temporary replacement closure；冻结Candidate fingerprint仍由

@@ -58,6 +58,32 @@ Surface admission：
 - compiler/runtime exact version handshake；
 - reproducible clean build是qualification前提。
 
+### 3.1 Engineering command and candidate contract
+
+Repository只保留四个稳定的人/CI入口：
+
+| Intent | Stable command | Contract |
+|---|---|---|
+| 日常正确性反馈 | `scripts/check.sh` | production tests、cumulative generated consumer、Examples tests/smoke与light hygiene；不运行Benchmark/package/supply-chain |
+| 完整非发布资格 | `scripts/qualify.sh` | clean/full regeneration、Benchmark、local package、packaged consumer、supply-chain与publication-none |
+| 性能与场景证据 | `scripts/benchmark.sh` | standalone时自行构建；组合时只复用同BuildSession产物 |
+| 本地交付候选 | `scripts/package-local.sh` | standalone时自行构建；只写ignored `target/package`，永不deploy/sign/publish |
+
+Composed qualification复用必须绑定当前relevant source/config fingerprint、Git provenance、
+Java/Maven identity和所有必需artifact SHA-256。Manifest只位于ignored `target/`，是一次
+qualification的ephemeral proof，不是persistent build cache、public format或新的稳定入口。裸
+`*_REUSE_BUILD=1`、仅检查`target/`存在或仅依赖SNAPSHOT版本名均不构成复用证据。
+
+Root POM是non-published aggregator，不是两项production artifact的published parent。Runtime和
+processor POM中Java/plugin/classifier/NOTICE/LICENSE配置的文本重复是artifact自包含所必需；
+qualification必须fail closed检测应一致值的漂移，不为消除XML重复引入第三parent/BOM/
+build artifact。
+
+GitHub Actions开发阶段分责为：PR与`main/develop/release` push自动运行daily check；
+full non-publishing qualification只由`workflow_dispatch`手工触发。Daily CI可取消同ref上被
+新候选取代的旧run；手工qualification不默认取消。两者均保持`contents: read`、
+dependency cache only、完整action SHA pin和无publication surface。
+
 ## 4. Full-regeneration build mechanism
 
 Build host必须：
