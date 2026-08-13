@@ -2,7 +2,7 @@
 
 类型：Temporary / Candidate Governance Design
 
-状态：`CANDIDATE_COMPLETE / REVIEW_REQUIRED / NOT_FROZEN / IMPLEMENTATION_NOT_AUTHORIZED`
+状态：`BASELINE_FROZEN / E0_COMPLETED / E1_ACTIVE / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-13
 
@@ -670,9 +670,9 @@ clean、standalone、composed、local和remote路径可重放；candidate identi
 - [x] E0-E4 Slice Map与单一Active Slice规则；
 - [x] Evidence、before/after、failure和Stop Rule；
 - [x] 过度设计与release boundary；
-- [ ] Product Owner审核本设计；
-- [ ] Baseline Freeze；
-- [ ] Implementation Authorization。
+- [x] Product Owner审核本设计；
+- [x] Baseline Freeze；
+- [x] Implementation Authorization。
 
 ## 20. 当前结论
 
@@ -686,4 +686,31 @@ clean、standalone、composed、local和remote路径可重放；candidate identi
 5. 保留两production POM必要重复，不引入第三parent artifact；
 6. 本专题不扩张工具、依赖、Java版本、目录或release能力。
 
-在上述设计获得审核和冻结前，implementation状态保持`NOT_AUTHORIZED`。
+上述六项整体裁决已于2026-08-13获Product Owner批准。本文以`develop@6af2626`
+为实施基线冻结，E0已完成，E1成为唯一active slice。授权不包含新依赖、新plugin、
+第三production artifact、远端artifact发布、签名或正式release声明。
+
+## 21. E0 Baseline Freeze
+
+| 事实 | 冻结值 |
+|---|---|
+| Git baseline | `develop@6af2626ba9c81e1c21da4e1c4c2e70e031335d9b` |
+| Java | Amazon Corretto `1.8.0_502-b07` / arm64 |
+| Maven | Apache Maven `3.9.16` |
+| Host | macOS `26.6.1` / Apple M5 Pro / arm64 |
+| Local `check` before | warm dependency cache，`34.85 s` wall，`137.77 s` user，`9.78 s` sys |
+| Remote push before | `b854e577` 上 CI `125 s`，full qualification `137 s`，同一`develop` push并发双跑 |
+| Stable commands | `check`、`qualify`、`benchmark`、`package-local` |
+| Production topology | exactly `soma-runtime` + `soma-processor` |
+
+E0证明了三项需要实施的delta：
+
+1. `check`当前仍运行benchmark build、local package、packaged consumer与supply-chain，
+   超出日常正确性合同；
+2. 组合路径使用多个可由调用者裸设置的`*_REUSE_BUILD=1`，不能证明与当前
+   source candidate、工具链和artifact同一；
+3. `develop` push对同一候选并发运行daily check与full qualification，守护范围大量重叠。
+
+E0同时确认，clean/full regeneration、same-version mismatch、downstream Maven consumer、
+packaged direct consumer、artifact reproducibility和source-delivery allowlist各自守护独立claim，
+不能为了减少执行次数而删除。

@@ -2,7 +2,7 @@
 
 类型：Temporary / Governance Proposal
 
-状态：`PROPOSAL_ACCEPTED / CANDIDATE_DESIGN_COMPLETE / IMPLEMENTATION_NOT_AUTHORIZED`
+状态：`BASELINE_FROZEN / E0_COMPLETED / E1_ACTIVE / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-13
 
@@ -235,15 +235,18 @@ Stop Rule 触发后，应保留当前事实和可选方案，等待 Product Owne
 
 ```text
 PROPOSAL                         ACCEPTED
-CANDIDATE DESIGN                 COMPLETE / REVIEW_REQUIRED
-BASELINE FREEZE                  NOT_GRANTED
-IMPLEMENTATION AUTHORIZATION     NOT_GRANTED
-QUALIFICATION                    NOT_STARTED
+CANDIDATE DESIGN                 APPROVED / BASELINE_FROZEN
+BASELINE FREEZE                  GRANTED / develop@6af2626
+IMPLEMENTATION AUTHORIZATION     GRANTED / E0-E4
+QUALIFICATION                    E0_COMPLETED / E1_ACTIVE
 PUBLICATION / RELEASE            NOT_AUTHORIZED
 ```
 
-当前授权只覆盖本提案、[专题治理设计文档](design.md)及其文档级验证。它不授权修改脚本、POM、
-workflow、tests、build-support 或 production code，也不授权 push 和任何发布行为。
+Product Owner于2026-08-13审核并冻结[Candidate Design](design.md)，授权Codex按E0–E4
+单一active slice自主完成实施、验证、正式事实晋升与Temporary关闭；不使用
+subagent。授权不包含新依赖、新plugin、第三production artifact、远端artifact发布、
+签名或正式release声明。E0已在`develop@6af2626`完成当前候选、工具链、脚本DAG和
+成本基线冻结；当前active slice是E1。
 
 ## 11. 提案与设计的分责
 
