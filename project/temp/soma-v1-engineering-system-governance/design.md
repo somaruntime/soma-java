@@ -2,7 +2,7 @@
 
 类型：Temporary / Candidate Governance Design
 
-状态：`BASELINE_FROZEN / E0-E2_COMPLETED / E3_ACTIVE / IMPLEMENTATION_AUTHORIZED`
+状态：`BASELINE_FROZEN / E0-E3_COMPLETED / E4_ACTIVE / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-13
 
@@ -760,3 +760,30 @@ Java 8下`artifact-build.sh`于`21.83 s`完成并PASS，覆盖runtime 91 tests�
 安装，两项production artifact保持自包含，无第三交付责任。
 
 E2因此关闭，E3成为唯一active slice。
+
+## 24. E3 Qualification
+
+E3将GitHub Actions调整为唯一风险责任：
+
+```text
+pull_request
+    -> CI / check
+
+push(main, develop, release)
+    -> CI / check
+
+workflow_dispatch
+    -> Release qualification (non-publishing) / qualify
+```
+
+- `develop` push不再自动并发消耗一次full qualification runner；
+- CI以`workflow + ref`为concurrency identity，只取消同ref上被新候选取代的日常run；
+- 手工full qualification不设置cancel-in-progress，保留独立证据生命周期；
+- 两个workflow仍只有`contents: read`，保持Maven cache、完整action SHA固定和
+  `publication=none`。
+
+Local workflow-contract check与daily check已PASS。本任务未获得单独push请求，因此不将当前
+local commit的remote run写成已验证事实；下一次显式push后应只自动出现一个CI run，
+full qualification由维护者手工触发。这一claim boundary不影响E3的repository-local替换闭合。
+
+E3因此关闭，E4成为唯一active slice。

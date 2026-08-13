@@ -353,6 +353,9 @@ qualification_repository_hygiene() {
     grep -q 'fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09' .github/workflows/release-qualification.yml
     grep -q 'b6effb05e454b25005698d916606bdc6ffcbf961' .github/workflows/release-qualification.yml
     grep -q 'workflow_dispatch' .github/workflows/release-qualification.yml
+    reject_match grep -q '^  push:' .github/workflows/release-qualification.yml
+    grep -Fq 'group: ci-${{ github.workflow }}-${{ github.ref }}' .github/workflows/ci.yml
+    grep -q 'cancel-in-progress: true' .github/workflows/ci.yml
     git diff --check
     trap - EXIT HUP INT TERM
     cleanup

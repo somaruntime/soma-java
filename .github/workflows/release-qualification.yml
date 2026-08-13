@@ -2,8 +2,6 @@ name: Release qualification (non-publishing)
 
 on:
   workflow_dispatch:
-  push:
-    branches: [develop]
 
 permissions:
   contents: read

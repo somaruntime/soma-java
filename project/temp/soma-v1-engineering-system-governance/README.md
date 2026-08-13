@@ -2,7 +2,7 @@
 
 类型：Temporary / Governance Proposal
 
-状态：`BASELINE_FROZEN / E0-E2_COMPLETED / E3_ACTIVE / IMPLEMENTATION_AUTHORIZED`
+状态：`BASELINE_FROZEN / E0-E3_COMPLETED / E4_ACTIVE / IMPLEMENTATION_AUTHORIZED`
 
 日期：2026-08-13
 
@@ -238,7 +238,7 @@ PROPOSAL                         ACCEPTED
 CANDIDATE DESIGN                 APPROVED / BASELINE_FROZEN
 BASELINE FREEZE                  GRANTED / develop@6af2626
 IMPLEMENTATION AUTHORIZATION     GRANTED / E0-E4
-QUALIFICATION                    E0-E2_COMPLETED / E3_ACTIVE
+QUALIFICATION                    E0-E3_COMPLETED / E4_ACTIVE
 PUBLICATION / RELEASE            NOT_AUTHORIZED
 ```
 
@@ -248,7 +248,8 @@ subagent。授权不包含新依赖、新plugin、第三production artifact、�
 签名或正式release声明。E0已在`develop@6af2626`完成当前候选、工具链、脚本DAG和
 成本基线冻结；E1已完成四入口分责、BuildSession safe reuse、phase诊断与daily
 check收敛；E2已完成必要POM重复、artifact自包含、full-regeneration、linkage与
-reproducibility资格。当前active slice是E3。
+reproducibility资格；E3已完成daily CI与手工full qualification分责。当前active
+slice是E4。
 
 ## 11. 提案与设计的分责
 
