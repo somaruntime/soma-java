@@ -91,6 +91,10 @@ application frontier workaround已退出。`docs/`仍只保留placeholder。
 [大范围优化后全局完整性与回归审查](project/conformance/v1-post-governance-global-integrity-regression-review.md)
 已`PASS`：跨operation failure provenance、point Index allocation admission与正式Owner状态漂移已闭合，
 未准入application frontier或ordered access path。
+[开发阶段采用准备与防退化治理](project/conformance/v1-development-adoption-regression-governance.md)
+已`PASS`：既有本地Maven/generated/packaged consumer闭环重放通过，`benchmarks/`拥有fixed M5 Pro、
+Java 8、10K/1M machine-readable ratchet，GitHub拥有Bug/Performance反馈入口并启用Dependency Graph/
+Dependabot Alerts；该记录不证明真实项目、Java多版本、生产或release readiness。
 
 开始工作前必须读取：
 

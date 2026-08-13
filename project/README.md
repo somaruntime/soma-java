@@ -9,7 +9,7 @@
 
 Owner：SOMA Java 当前项目事实与内部文档路由
 
-最后审查日期：2026-08-12
+最后审查日期：2026-08-13
 
 ## 当前结论
 
@@ -50,6 +50,10 @@ implementation 与 qualification：
 - [Scheduling reference application治理](conformance/v1-scheduling-reference-application-governance.md)
   已`PASS`：标准100K FJSP使用四张runtime Table和自然waiting point `add/remove`完成FCFS + SPT，
   fixed slot与application frontier workaround已退出；
+- [开发阶段采用准备与防退化治理](conformance/v1-development-adoption-regression-governance.md)已`PASS`：
+  既有本地 Maven/generated/packaged consumer 闭环重放通过，`benchmarks/`建立fixed M5 Pro、Java 8、
+  10K/1M machine-readable ratchet；GitHub 增加 Bug/Performance 反馈入口并启用Dependency Graph/
+  Dependabot Alerts。该结论不外推为真实项目、Java多版本、生产或发布资格；
 - [Grassing Simulation reference application治理](conformance/v1-grassing-simulation-reference-application-governance.md)
   已`PASS`：两张runtime Table、五阶段tick、UI/headless、deterministic validation、Application JFR/A-B
   与source/package delivery闭合；
@@ -114,6 +118,7 @@ Codex/Agent，不向普通使用者投射完整设计与实施过程。
 | Physical Pipeline/Segment/Breaker/Kernel/Frame/Morsel实施与资格 | [Physical Execution Engine M2 P6最终资格](conformance/physical-execution-engine-m2-p6-final-qualification.md) |
 | Production Core质量检查方法的价值、成本与采用裁决 | [Quality inspection method feasibility](conformance/v1-production-core-quality-inspection-method-feasibility.md) |
 | Post-M2 Relation、GroupBy、dense remove与construction T1–T4治理 | [Post-M2 performance optimization governance](conformance/v1-post-m2-performance-optimization-governance.md) |
+| 开发阶段本地消费、10K/1M ratchet与GitHub反馈入口 | [Development adoption and regression governance](conformance/v1-development-adoption-regression-governance.md) |
 | 安全、支持、品牌和许可 | [SECURITY](../SECURITY.md)、[SUPPORT](../SUPPORT.md)、[NOTICE](../NOTICE)、[LICENSE](../LICENSE) |
 
 精确 schema、storage、logical API、generated signature、planning、execution、failure 和 artifact
@@ -152,6 +157,9 @@ Blueprint
   Temporary replacement closure；
   [SOMA Engine产品构思](temp/soma-engine-product-concept/README.md)只是未来产品intent，不是Design或
   implementation input。
+  开发阶段采用准备与防退化专题已由
+  [正式Conformance记录](conformance/v1-development-adoption-regression-governance.md)接管并完成
+  Temporary replacement closure。
 
 日常检查使用：
 

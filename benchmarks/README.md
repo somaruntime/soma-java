@@ -172,3 +172,8 @@ python3 benchmarks/tools/compare.py \
 默认只有同时超过 15% 和 2 ms 的退化才失败，以隔离微小指标和日常噪声；阈值可以显式调整。
 比较器同时要求 workload identity 与逻辑 fingerprint 一致。它用于相同环境的相对比较，不把某台
 机器的绝对数值提升为 SOMA 的兼容合同或性能 SLA。
+
+日常开发使用的固定 M5 Pro、Java 8、10K/1M `core` profile 与重放命令见
+[`baselines/development-m5-pro-java8`](baselines/development-m5-pro-java8/README.md)。该 baseline
+只保护三项 reference workload 的代表性正常路径；10M、完整 frontier、Profile 与内存归因仍由专门
+性能治理按需触发，不进入 hosted CI 的严格毫秒 Gate。

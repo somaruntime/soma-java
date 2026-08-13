@@ -2,6 +2,8 @@
 
 # SOMA Java
 
+[![CI](https://github.com/somaruntime/soma-java/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/somaruntime/soma-java/actions/workflows/ci.yml)
+
 **SOMA（Scheme-Oriented Memory Architecture）**
 
 > **Schema-Defined, High-Performance Runtime-State Computing for Java.**

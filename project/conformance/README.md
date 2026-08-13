@@ -11,7 +11,7 @@ Physical Execution Engine M2 `FORMALLY_PROMOTED / IMPLEMENTATION_FULFILLED / P1-
 
 Owner：SOMA Java Blueprint、Design、implementation与evidence的一致性状态
 
-最后审查日期：2026-08-12
+最后审查日期：2026-08-13
 
 ## 1. 文档责任
 
@@ -64,6 +64,8 @@ Canonical IR active slice     NONE
 Grassing reference            PASS / COMPLETED / HEADLESS_UI_QUALIFIED /
                               APPLICATION_PROFILE_OPTIMIZED
 Physical execution M2         PASS / P1-P6_COMPLETED / TEMPORARY_RETIRED
+Development adoption/ratchet  PASS / LOCAL_CONSUMER / 10K_1M_FIXED_HOST /
+                              GITHUB_FEEDBACK_AND_ALERTS
 Active bounded topic          NONE
 Queued product concept        SOMA_ENGINE / INTENT_ONLY / NOT_ACTIVE
 ```
@@ -103,6 +105,9 @@ Documentation不得把同机qualification阈值改写为跨硬件SLA、正式rel
 
 ## 4. Active records
 
+- [V1开发阶段采用准备与防退化治理](v1-development-adoption-regression-governance.md)：本地 Maven/
+  generated/packaged consumer、fixed-host 10K/1M machine-readable ratchet、GitHub Issue Forms、
+  Dependency Graph/Alerts 与 Temporary replacement closure Owner；
 - [Production Core质量检查方法可行性探索](v1-production-core-quality-inspection-method-feasibility.md)：
   Java 8 Xlint、精选PMD与JaCoCo一次性实验、成本/价值裁决、routine adoption拒绝与Temporary
   replacement closure Owner；

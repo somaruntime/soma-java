@@ -1,0 +1,63 @@
+name: Bug report
+description: Report a reproducible SOMA correctness, API, generation, or runtime defect.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a SOMA problem. Please describe the smallest normal-use case that reproduces it.
+        Do not include credentials, proprietary datasets, or other sensitive information.
+  - type: input
+    id: revision
+    attributes:
+      label: SOMA revision
+      description: Commit SHA or branch used to build SOMA.
+      placeholder: b854e577dd60ff3de36e190f35ce4835bf14ffe0
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Java 8 distribution/version, Maven version, operating system, CPU, and relevant JVM options.
+      placeholder: |
+        Java: Amazon Corretto 1.8.0_502
+        Maven: 3.9.16
+        OS/CPU: macOS arm64 / Apple Silicon
+        JVM: -Xms2g -Xmx8g
+    validations:
+      required: true
+  - type: textarea
+    id: schema
+    attributes:
+      label: Minimal schema and operation
+      description: Include the smallest @SomaSchema/@SomaTable declarations and public API pipeline that reproduce the issue.
+      render: java
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What result, state transition, order, or structured failure should occur?
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: What happened instead? Include the stable SOMA failure code and safe message when available.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and reproduction
+      description: Add a complete minimal reproducer, stack trace, generated-source excerpt, or safe _explain() output when relevant.
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I reproduced this with an unmodified SOMA build and removed secrets or proprietary data.
+          required: true

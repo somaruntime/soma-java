@@ -1,0 +1,68 @@
+name: Performance report
+description: Report a reproducible SOMA latency, throughput, allocation, or memory regression.
+title: "[Performance]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Performance evidence is meaningful only with correctness, workload, scale, environment, and measurement method.
+        Do not include credentials, proprietary datasets, or other sensitive information.
+  - type: input
+    id: revision
+    attributes:
+      label: SOMA revision
+      description: Commit SHA or the exact baseline and candidate revisions.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Hardware and runtime environment
+      description: CPU, memory, OS, Java 8 distribution/version, Maven, JVM heap/GC, SOMA memory budget, and parallelism.
+      placeholder: |
+        CPU / memory:
+        OS:
+        Java / Maven:
+        JVM heap / GC:
+        SOMA memory budget / parallelism:
+    validations:
+      required: true
+  - type: textarea
+    id: workload
+    attributes:
+      label: Workload and data shape
+      description: Table sizes, Field types, cardinality/distribution, indexes, compression mode, and operation sequence.
+    validations:
+      required: true
+  - type: textarea
+    id: measurement
+    attributes:
+      label: Measurement method and results
+      description: Fresh JVM count, warmups/samples, commands, median/range, comparison baseline, and whether profiling was enabled.
+      placeholder: |
+        Command:
+        Fresh JVMs / warmups / samples:
+        Baseline median:
+        Candidate median:
+        Allocation / retained / temporary / RSS observations:
+    validations:
+      required: true
+  - type: textarea
+    id: correctness
+    attributes:
+      label: Correctness evidence
+      description: State the expected result, fingerprint, validation, and whether sequential/parallel results agree.
+    validations:
+      required: true
+  - type: textarea
+    id: profile
+    attributes:
+      label: Profile and reproduction artifacts
+      description: Add safe JFR/async-profiler findings, benchmark summary, minimal schema, and reproduction steps when available.
+  - type: checkboxes
+    id: confirmation
+    attributes:
+      label: Confirmation
+      options:
+        - label: I verified correctness and removed secrets or proprietary data from all supplied evidence.
+          required: true

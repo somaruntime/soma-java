@@ -1,0 +1,383 @@
+{
+  "groups": [
+    {
+      "fingerprint": -1446731548546251656,
+      "implementation": "soma-auto",
+      "maxRssBytes": null,
+      "metrics": {
+        "indexMaxNanos": {
+          "maximum": 82208,
+          "median": 61250,
+          "minimum": 54875
+        },
+        "indexMedianNanos": {
+          "maximum": 52542,
+          "median": 29375,
+          "minimum": 29334
+        },
+        "indexMinNanos": {
+          "maximum": 33000,
+          "median": 27417,
+          "minimum": 27291
+        },
+        "ingestNanos": {
+          "maximum": 21575750,
+          "median": 20373084,
+          "minimum": 20051375
+        },
+        "joinMaxNanos": {
+          "maximum": 981625,
+          "median": 960250,
+          "minimum": 922125
+        },
+        "joinMedianNanos": {
+          "maximum": 662417,
+          "median": 622875,
+          "minimum": 604958
+        },
+        "joinMinNanos": {
+          "maximum": 536084,
+          "median": 494500,
+          "minimum": 486833
+        },
+        "key10kMaxNanos": {
+          "maximum": 1138000,
+          "median": 1127125,
+          "minimum": 1096041
+        },
+        "key10kMedianNanos": {
+          "maximum": 1045584,
+          "median": 1016000,
+          "minimum": 1004291
+        },
+        "key10kMinNanos": {
+          "maximum": 740917,
+          "median": 726750,
+          "minimum": 683625
+        },
+        "parallelScanMaxNanos": {
+          "maximum": 128792,
+          "median": 122959,
+          "minimum": 121125
+        },
+        "parallelScanMedianNanos": {
+          "maximum": 114875,
+          "median": 112209,
+          "minimum": 108750
+        },
+        "parallelScanMinNanos": {
+          "maximum": 105334,
+          "median": 102709,
+          "minimum": 99041
+        },
+        "processCpuNanos": {
+          "maximum": 450000000,
+          "median": 450000000,
+          "minimum": 440000000
+        },
+        "processSystemNanos": {
+          "maximum": 40000000,
+          "median": 30000000,
+          "minimum": 30000000
+        },
+        "processUserNanos": {
+          "maximum": 420000000,
+          "median": 410000000,
+          "minimum": 410000000
+        },
+        "scanMaxNanos": {
+          "maximum": 273334,
+          "median": 271291,
+          "minimum": 265584
+        },
+        "scanMedianNanos": {
+          "maximum": 264416,
+          "median": 261958,
+          "minimum": 253542
+        },
+        "scanMinNanos": {
+          "maximum": 246875,
+          "median": 232209,
+          "minimum": 228667
+        },
+        "wallNanos": {
+          "maximum": 170000000,
+          "median": 170000000,
+          "minimum": 160000000
+        }
+      },
+      "parallelism": 8,
+      "processMetrics": {
+        "cpuCoreEquivalentMilli": 2647
+      },
+      "rows": 10000,
+      "runs": 3,
+      "scenario": "real-time-dispatch",
+      "sharedFingerprint": -8877531293007668496,
+      "workload": "core"
+    },
+    {
+      "fingerprint": 8210134689180738702,
+      "implementation": "soma-auto",
+      "maxRssBytes": null,
+      "metrics": {
+        "groupMaxNanos": {
+          "maximum": 376041,
+          "median": 365333,
+          "minimum": 358000
+        },
+        "groupMedianNanos": {
+          "maximum": 345917,
+          "median": 342916,
+          "minimum": 331708
+        },
+        "groupMinNanos": {
+          "maximum": 297750,
+          "median": 282500,
+          "minimum": 275334
+        },
+        "indexMaxNanos": {
+          "maximum": 30667,
+          "median": 25583,
+          "minimum": 22584
+        },
+        "indexMedianNanos": {
+          "maximum": 22042,
+          "median": 22000,
+          "minimum": 21875
+        },
+        "indexMinNanos": {
+          "maximum": 19875,
+          "median": 19792,
+          "minimum": 19625
+        },
+        "ingestNanos": {
+          "maximum": 15625208,
+          "median": 15491083,
+          "minimum": 14728459
+        },
+        "joinMaxNanos": {
+          "maximum": 534208,
+          "median": 517083,
+          "minimum": 512667
+        },
+        "joinMedianNanos": {
+          "maximum": 508000,
+          "median": 507417,
+          "minimum": 505292
+        },
+        "joinMinNanos": {
+          "maximum": 493333,
+          "median": 474167,
+          "minimum": 465458
+        },
+        "key10kMaxNanos": {
+          "maximum": 826208,
+          "median": 807125,
+          "minimum": 801375
+        },
+        "key10kMedianNanos": {
+          "maximum": 770208,
+          "median": 762833,
+          "minimum": 750792
+        },
+        "key10kMinNanos": {
+          "maximum": 616625,
+          "median": 613959,
+          "minimum": 604667
+        },
+        "parallelScanMaxNanos": {
+          "maximum": 293167,
+          "median": 290208,
+          "minimum": 287084
+        },
+        "parallelScanMedianNanos": {
+          "maximum": 279417,
+          "median": 276625,
+          "minimum": 270084
+        },
+        "parallelScanMinNanos": {
+          "maximum": 270791,
+          "median": 267000,
+          "minimum": 266166
+        },
+        "processCpuNanos": {
+          "maximum": 480000000,
+          "median": 470000000,
+          "minimum": 470000000
+        },
+        "processSystemNanos": {
+          "maximum": 40000000,
+          "median": 30000000,
+          "minimum": 30000000
+        },
+        "processUserNanos": {
+          "maximum": 440000000,
+          "median": 440000000,
+          "minimum": 440000000
+        },
+        "scanMaxNanos": {
+          "maximum": 591000,
+          "median": 577666,
+          "minimum": 553958
+        },
+        "scanMedianNanos": {
+          "maximum": 476667,
+          "median": 473458,
+          "minimum": 467833
+        },
+        "scanMinNanos": {
+          "maximum": 344666,
+          "median": 300125,
+          "minimum": 281833
+        },
+        "topMaxNanos": {
+          "maximum": 126458,
+          "median": 48125,
+          "minimum": 46167
+        },
+        "topMedianNanos": {
+          "maximum": 49125,
+          "median": 46958,
+          "minimum": 45125
+        },
+        "topMinNanos": {
+          "maximum": 44458,
+          "median": 44333,
+          "minimum": 42167
+        },
+        "wallNanos": {
+          "maximum": 180000000,
+          "median": 170000000,
+          "minimum": 170000000
+        }
+      },
+      "parallelism": 8,
+      "processMetrics": {
+        "cpuCoreEquivalentMilli": 2764
+      },
+      "rows": 10000,
+      "runs": 3,
+      "scenario": "scheduling",
+      "sharedFingerprint": -2745340399478582688,
+      "workload": "core"
+    },
+    {
+      "fingerprint": -6984296026195920108,
+      "implementation": "soma-auto",
+      "maxRssBytes": null,
+      "metrics": {
+        "indexMaxNanos": {
+          "maximum": 36041,
+          "median": 33750,
+          "minimum": 32375
+        },
+        "indexMedianNanos": {
+          "maximum": 32667,
+          "median": 32167,
+          "minimum": 30708
+        },
+        "indexMinNanos": {
+          "maximum": 32125,
+          "median": 29667,
+          "minimum": 29625
+        },
+        "ingestNanos": {
+          "maximum": 12778541,
+          "median": 11579792,
+          "minimum": 11493708
+        },
+        "key10kMaxNanos": {
+          "maximum": 859750,
+          "median": 853250,
+          "minimum": 800833
+        },
+        "key10kMedianNanos": {
+          "maximum": 843041,
+          "median": 841000,
+          "minimum": 790625
+        },
+        "key10kMinNanos": {
+          "maximum": 702875,
+          "median": 694042,
+          "minimum": 689334
+        },
+        "parallelScanMaxNanos": {
+          "maximum": 134125,
+          "median": 130209,
+          "minimum": 118042
+        },
+        "parallelScanMedianNanos": {
+          "maximum": 112625,
+          "median": 110042,
+          "minimum": 110042
+        },
+        "parallelScanMinNanos": {
+          "maximum": 106542,
+          "median": 105417,
+          "minimum": 101417
+        },
+        "processCpuNanos": {
+          "maximum": 400000000,
+          "median": 390000000,
+          "minimum": 390000000
+        },
+        "processSystemNanos": {
+          "maximum": 30000000,
+          "median": 30000000,
+          "minimum": 30000000
+        },
+        "processUserNanos": {
+          "maximum": 370000000,
+          "median": 360000000,
+          "minimum": 360000000
+        },
+        "scanMaxNanos": {
+          "maximum": 278209,
+          "median": 277375,
+          "minimum": 268792
+        },
+        "scanMedianNanos": {
+          "maximum": 274917,
+          "median": 256041,
+          "minimum": 248375
+        },
+        "scanMinNanos": {
+          "maximum": 237959,
+          "median": 237292,
+          "minimum": 232875
+        },
+        "topMaxNanos": {
+          "maximum": 528083,
+          "median": 519708,
+          "minimum": 515083
+        },
+        "topMedianNanos": {
+          "maximum": 398708,
+          "median": 392667,
+          "minimum": 386542
+        },
+        "topMinNanos": {
+          "maximum": 323959,
+          "median": 301834,
+          "minimum": 273250
+        },
+        "wallNanos": {
+          "maximum": 150000000,
+          "median": 150000000,
+          "minimum": 140000000
+        }
+      },
+      "parallelism": 8,
+      "processMetrics": {
+        "cpuCoreEquivalentMilli": 2666
+      },
+      "rows": 10000,
+      "runs": 3,
+      "scenario": "simulation",
+      "sharedFingerprint": -4556692217285271875,
+      "workload": "core"
+    }
+  ],
+  "schemaVersion": 1
+}
